@@ -1,0 +1,97 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "portforwards",
+    "namespace": "shop",
+    "name": "pod-web-2-8080"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "web-2"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "kind",
+      "text": "Pod"
+    },
+    {
+      "column": "podPort",
+      "text": "8080",
+      "num": 8080
+    },
+    {
+      "column": "localPort",
+      "text": "8080",
+      "num": 8080
+    },
+    {
+      "column": "protocol",
+      "text": "http"
+    },
+    {
+      "column": "status",
+      "text": "Failed",
+      "status": "error"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "localPort": [],
+    "name": [
+      "pod-web-2-8080"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "pod": [],
+    "target": [
+      "web-2"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Pod",
+          "value": "web-2",
+          "link": {
+            "kind": "pods",
+            "namespace": "shop",
+            "name": "web-2"
+          }
+        },
+        {
+          "name": "Pod Port",
+          "value": "8080"
+        },
+        {
+          "name": "Local Port",
+          "value": "8080"
+        },
+        {
+          "name": "Protocol",
+          "value": "http"
+        },
+        {
+          "name": "Status",
+          "value": "Failed",
+          "status": "error"
+        },
+        {
+          "name": "Message",
+          "value": "listen on 127.0.0.1:8080: listen tcp4 127.0.0.1:8080: bind: address already in use"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,149 @@
+package kinds_test
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"strings"
+	"testing"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	utiljson "k8s.io/apimachinery/pkg/util/json"
+
+	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
+)
+
+// localProfile returns a local kind's profile (kinds.ByKey has the built-in ones only).
+func localProfile(t testing.TB, key string) *model.KindProfile {
+	t.Helper()
+	for _, p := range kinds.Local() {
+		if p.Key == key {
+			return p
+		}
+	}
+	t.Fatalf("no local profile %s", key)
+	return nil
+}
+
+// TestLocalGolden is TestGolden for the local kinds: every recorded object against its golden
+// file (-update rewrites them).
+func TestLocalGolden(t *testing.T) {
+	for _, p := range kinds.Local() {
+		for _, c := range loadCases(t, p.Key) {
+			t.Run(p.Key+"/"+c.name, func(t *testing.T) {
+				got := encode(t, render(t, p, c.obj))
+				path := strings.TrimSuffix(c.path, ".yaml") + ".golden.json"
+				if *update {
+					if err := os.WriteFile(path, got, 0o644); err != nil {
+						t.Fatal(err)
+					}
+					return
+				}
+				want, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatalf("%v (run go test ./internal/model/... -update)", err)
+				}
+				if !bytes.Equal(got, want) {
+					t.Errorf("%s differs from the golden file:\n%s", path, lineDiff(string(want), string(got)))
+				}
+			})
+		}
+	}
+}
+
+// The port forwards are Cogpit's own objects: a local kind of group cogpit.io, never an API
+// object, with the columns captured from Lens's Port Forwarding view.
+func TestPortForwardsProfile(t *testing.T) {
+	p := localProfile(t, "portforwards")
+	if !p.Local || p.Group != model.LocalGroup || p.Kind != "PortForward" || p.APIObject() || !p.Namespaced || p.Title != "Port Forwarding" {
+		t.Errorf("profile %+v", p)
+	}
+	var titles []string
+	for _, c := range p.Columns {
+		titles = append(titles, c.Title)
+	}
+	if got := strings.Join(titles, ", "); got != "Name, Namespace, Kind, Pod Port, Local Port, Protocol, Status" {
+		t.Errorf("columns %s", got)
+	}
+	if _, builtin := kinds.ByKey("portforwards"); builtin {
+		t.Error("the port forwards are listed as a built-in kind")
+	}
+}
+
+func TestPortForwardCells(t *testing.T) {
+	p := localProfile(t, "portforwards")
+	cases := map[string]*unstructured.Unstructured{}
+	for _, c := range loadCases(t, p.Key) {
+		cases[c.name] = c.obj
+	}
+	for _, tt := range []struct {
+		name, column, text string
+		status             model.Status
+	}{
+		{"active-pod", "name", "web-0", model.StatusOK},
+		{"active-pod", "kind", "Pod", model.StatusOK},
+		{"active-pod", "podPort", "8080", model.StatusOK},
+		{"active-pod", "localPort", "54321", model.StatusOK},
+		{"active-pod", "protocol", "http", model.StatusOK},
+		{"active-pod", "status", "Active", model.StatusOK},
+		{"active-service", "kind", "Service", model.StatusOK},
+		{"active-service", "protocol", "https", model.StatusOK},
+		{"reconnecting", "status", "Reconnecting", model.StatusWarning},
+		{"waiting", "status", "Waiting", model.StatusWarning},
+		{"stopped", "status", "Stopped", model.StatusNone},
+		{"stopped", "localPort", "-", model.StatusNone}, // a free port is picked when it starts
+		{"failed", "status", "Failed", model.StatusError},
+		{"failed", "localPort", "8080", model.StatusError}, // the port it asked for
+	} {
+		row := model.BuildRow(p, "test", cases[tt.name])
+		i := p.ColumnIndex(tt.column)
+		if got := model.CellText(p.Columns[i], row.Cells[i], now); got != tt.text || row.Status != tt.status {
+			t.Errorf("%s %s: %q (%q), want %q (%q)", tt.name, tt.column, got, row.Status, tt.text, tt.status)
+		}
+	}
+}
+
+// The URL in the drawer opens the forward: an item action that is the value's link.
+func TestPortForwardURLOpens(t *testing.T) {
+	p := localProfile(t, "portforwards")
+	for _, c := range loadCases(t, p.Key) {
+		if c.name != "active-pod" {
+			continue
+		}
+		for _, it := range p.Detail(c.obj)[0].Items {
+			if it.Name != "URL" {
+				continue
+			}
+			if len(it.Actions) != 1 || !it.Actions[0].Link || it.Actions[0].Command != "portforward.open" {
+				t.Fatalf("URL actions %+v", it.Actions)
+			}
+			var params struct{ Ref model.ObjectRef }
+			if err := json.Unmarshal(it.Actions[0].Params, &params); err != nil || params.Ref.Name != "pod-web-0-8080" || params.Ref.Kind != "portforwards" {
+				t.Errorf("params %s: %v", it.Actions[0].Params, err)
+			}
+			return
+		}
+		t.Fatal("no URL item")
+	}
+}
+
+func FuzzPortForwards(f *testing.F) {
+	p := localProfile(f, "portforwards")
+	for _, c := range loadCases(f, p.Key) {
+		f.Add(c.json)
+	}
+	for _, seed := range []string{`{}`, `{"metadata":null,"spec":null,"status":null}`,
+		`{"spec":{"port":-1,"localPort":1e9,"kind":7},"status":{"localPort":"x","phase":[]}}`} {
+		f.Add([]byte(seed))
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var m map[string]any
+		if utiljson.Unmarshal(data, &m) != nil || m == nil {
+			return
+		}
+		if err := exercise(p, &unstructured.Unstructured{Object: m}); err != nil {
+			t.Fatal(err)
+		}
+	})
+}

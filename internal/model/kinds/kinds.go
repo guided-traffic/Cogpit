@@ -29,7 +29,7 @@ func Local() []*model.KindProfile {
 }
 
 // local lists the local kinds' profiles. Each profile lives in its own file.
-var local = []*model.KindProfile{}
+var local = []*model.KindProfile{portForwards}
 
 // builtin lists the profiles in sidebar order. Each profile lives in its own file.
 var builtin = []*model.KindProfile{

@@ -1,0 +1,121 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "portforwards",
+    "namespace": "orders",
+    "name": "pod-db-0-5432"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "db-0"
+    },
+    {
+      "column": "namespace",
+      "text": "orders",
+      "link": {
+        "kind": "namespaces",
+        "name": "orders"
+      }
+    },
+    {
+      "column": "kind",
+      "text": "Pod"
+    },
+    {
+      "column": "podPort",
+      "text": "5432",
+      "num": 5432
+    },
+    {
+      "column": "localPort",
+      "text": "15432",
+      "num": 15432
+    },
+    {
+      "column": "protocol",
+      "text": "http"
+    },
+    {
+      "column": "status",
+      "text": "Waiting",
+      "status": "warning"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "localPort": [
+      "15432"
+    ],
+    "name": [
+      "pod-db-0-5432"
+    ],
+    "namespace": [
+      "orders"
+    ],
+    "pod": [],
+    "target": [
+      "db-0"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Pod",
+          "value": "db-0",
+          "link": {
+            "kind": "pods",
+            "namespace": "orders",
+            "name": "db-0"
+          }
+        },
+        {
+          "name": "Pod Port",
+          "value": "5432"
+        },
+        {
+          "name": "Local Port",
+          "value": "15432"
+        },
+        {
+          "name": "Address",
+          "value": "127.0.0.1:15432"
+        },
+        {
+          "name": "URL",
+          "value": "http://localhost:15432",
+          "actions": [
+            {
+              "label": "Open",
+              "command": "portforward.open",
+              "params": {
+                "ref": {
+                  "kind": "portforwards",
+                  "namespace": "orders",
+                  "name": "pod-db-0-5432"
+                }
+              },
+              "link": true
+            }
+          ]
+        },
+        {
+          "name": "Protocol",
+          "value": "http"
+        },
+        {
+          "name": "Status",
+          "value": "Waiting",
+          "status": "warning"
+        },
+        {
+          "name": "Message",
+          "value": "pod db-0 is pending"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+apiVersion: cogpit.io/v1
+kind: PortForward
+metadata:
+  name: pod-web-0-8080
+  namespace: shop
+  uid: 5f2c0d6e8a3b4c1d9e7f6a5b4c3d2e1f
+  creationTimestamp: "2026-10-11T12:00:00Z"
+spec:
+  kind: Pod
+  name: web-0
+  container: app
+  port: 8080
+  localPort: 0
+  protocol: http
+  openInBrowser: true
+status:
+  phase: Active
+  localPort: 54321
+  address: 127.0.0.1:54321
+  url: http://localhost:54321
+  pod: web-0
+  podPort: 8080

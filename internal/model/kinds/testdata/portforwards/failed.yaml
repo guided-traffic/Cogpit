@@ -1,0 +1,17 @@
+apiVersion: cogpit.io/v1
+kind: PortForward
+metadata:
+  name: pod-web-2-8080
+  namespace: shop
+  uid: 0123456789abcdef0123456789abcdef
+  creationTimestamp: "2026-10-11T11:30:00Z"
+spec:
+  kind: Pod
+  name: web-2
+  port: 8080
+  localPort: 8080
+  protocol: http
+  openInBrowser: true
+status:
+  phase: Failed
+  message: "listen on 127.0.0.1:8080: listen tcp4 127.0.0.1:8080: bind: address already in use"

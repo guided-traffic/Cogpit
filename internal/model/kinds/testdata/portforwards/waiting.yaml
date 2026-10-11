@@ -1,0 +1,20 @@
+apiVersion: cogpit.io/v1
+kind: PortForward
+metadata:
+  name: pod-db-0-5432
+  namespace: orders
+  uid: ffeeddccbbaa99887766554433221100
+  creationTimestamp: "2026-10-11T12:15:00Z"
+spec:
+  kind: Pod
+  name: db-0
+  port: 5432
+  localPort: 15432
+  protocol: http
+  openInBrowser: false
+status:
+  phase: Waiting
+  message: pod db-0 is pending
+  localPort: 15432
+  address: 127.0.0.1:15432
+  url: http://localhost:15432

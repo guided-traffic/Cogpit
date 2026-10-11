@@ -1,0 +1,22 @@
+apiVersion: cogpit.io/v1
+kind: PortForward
+metadata:
+  name: service-api-80
+  namespace: shop
+  uid: 11223344556677889900aabbccddeeff
+  creationTimestamp: "2026-10-11T12:10:00Z"
+spec:
+  kind: Service
+  name: api
+  port: 80
+  localPort: 0
+  protocol: http
+  openInBrowser: true
+status:
+  phase: Reconnecting
+  message: "lost the connection to pod api-5d8f7c6b4-k9m2n: port 8080: error forwarding port 8080 to pod: connection refused"
+  localPort: 61002
+  address: 127.0.0.1:61002
+  url: http://localhost:61002
+  pod: api-5d8f7c6b4-k9m2n
+  podPort: 8080

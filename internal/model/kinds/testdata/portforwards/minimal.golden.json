@@ -1,0 +1,68 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "portforwards",
+    "namespace": "default",
+    "name": "pod-x-1"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "kind",
+      "text": ""
+    },
+    {
+      "column": "podPort",
+      "text": "0"
+    },
+    {
+      "column": "localPort",
+      "text": "-"
+    },
+    {
+      "column": "protocol",
+      "text": ""
+    },
+    {
+      "column": "status",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "label": [],
+    "localPort": [],
+    "name": [
+      "pod-x-1"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "pod": [],
+    "target": [
+      ""
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Local Port",
+          "value": "Random"
+        }
+      ]
+    }
+  ]
+}

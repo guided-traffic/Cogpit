@@ -47,6 +47,8 @@ type Backend struct {
 	custom *customKinds
 	// local holds the objects of the local kinds (kindscope.go), made on first use.
 	local localStore
+	// forwards are the backend's running port forwards (portforward.go); they end with it.
+	forwards forwardSet
 }
 
 // Actions are the cluster writes of the MVP's action commands. *cluster.Conn implements them.
@@ -81,6 +83,7 @@ func (b *Backend) close(log *slog.Logger) {
 	if b.custom != nil {
 		b.custom.stop()
 	}
+	b.forwards.stopAll()
 	b.local.close()
 	if b.Close == nil {
 		return

@@ -1,0 +1,123 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "portforwards",
+    "namespace": "shop",
+    "name": "pod-web-0-8080"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "web-0"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "kind",
+      "text": "Pod"
+    },
+    {
+      "column": "podPort",
+      "text": "8080",
+      "num": 8080
+    },
+    {
+      "column": "localPort",
+      "text": "54321",
+      "num": 54321
+    },
+    {
+      "column": "protocol",
+      "text": "http"
+    },
+    {
+      "column": "status",
+      "text": "Active",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "localPort": [
+      "54321"
+    ],
+    "name": [
+      "pod-web-0-8080"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "pod": [
+      "web-0"
+    ],
+    "target": [
+      "web-0"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Pod",
+          "value": "web-0",
+          "link": {
+            "kind": "pods",
+            "namespace": "shop",
+            "name": "web-0"
+          }
+        },
+        {
+          "name": "Container",
+          "value": "app"
+        },
+        {
+          "name": "Pod Port",
+          "value": "8080"
+        },
+        {
+          "name": "Local Port",
+          "value": "54321"
+        },
+        {
+          "name": "Address",
+          "value": "127.0.0.1:54321"
+        },
+        {
+          "name": "URL",
+          "value": "http://localhost:54321",
+          "actions": [
+            {
+              "label": "Open",
+              "command": "portforward.open",
+              "params": {
+                "ref": {
+                  "kind": "portforwards",
+                  "namespace": "shop",
+                  "name": "pod-web-0-8080"
+                }
+              },
+              "link": true
+            }
+          ]
+        },
+        {
+          "name": "Protocol",
+          "value": "http"
+        },
+        {
+          "name": "Status",
+          "value": "Active",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

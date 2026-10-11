@@ -1,0 +1,136 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "portforwards",
+    "namespace": "shop",
+    "name": "service-api-80"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "api"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "kind",
+      "text": "Service"
+    },
+    {
+      "column": "podPort",
+      "text": "80",
+      "num": 80
+    },
+    {
+      "column": "localPort",
+      "text": "61002",
+      "num": 61002
+    },
+    {
+      "column": "protocol",
+      "text": "http"
+    },
+    {
+      "column": "status",
+      "text": "Reconnecting",
+      "status": "warning"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "localPort": [
+      "61002"
+    ],
+    "name": [
+      "service-api-80"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "pod": [
+      "api-5d8f7c6b4-k9m2n"
+    ],
+    "target": [
+      "api"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Service",
+          "value": "api",
+          "link": {
+            "kind": "services",
+            "namespace": "shop",
+            "name": "api"
+          }
+        },
+        {
+          "name": "Service Port",
+          "value": "80"
+        },
+        {
+          "name": "Pod",
+          "value": "api-5d8f7c6b4-k9m2n",
+          "link": {
+            "kind": "pods",
+            "namespace": "shop",
+            "name": "api-5d8f7c6b4-k9m2n"
+          }
+        },
+        {
+          "name": "Pod Port",
+          "value": "8080"
+        },
+        {
+          "name": "Local Port",
+          "value": "61002"
+        },
+        {
+          "name": "Address",
+          "value": "127.0.0.1:61002"
+        },
+        {
+          "name": "URL",
+          "value": "http://localhost:61002",
+          "actions": [
+            {
+              "label": "Open",
+              "command": "portforward.open",
+              "params": {
+                "ref": {
+                  "kind": "portforwards",
+                  "namespace": "shop",
+                  "name": "service-api-80"
+                }
+              },
+              "link": true
+            }
+          ]
+        },
+        {
+          "name": "Protocol",
+          "value": "http"
+        },
+        {
+          "name": "Status",
+          "value": "Reconnecting",
+          "status": "warning"
+        },
+        {
+          "name": "Message",
+          "value": "lost the connection to pod api-5d8f7c6b4-k9m2n: port 8080: error forwarding port 8080 to pod: connection refused"
+        }
+      ]
+    }
+  ]
+}

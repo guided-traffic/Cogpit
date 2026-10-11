@@ -1,0 +1,17 @@
+apiVersion: cogpit.io/v1
+kind: PortForward
+metadata:
+  name: pod-web-1-8080
+  namespace: shop
+  uid: 99887766554433221100ffeeddccbbaa
+  creationTimestamp: "2026-10-11T11:00:00Z"
+spec:
+  kind: Pod
+  name: web-1
+  container: app
+  port: 8080
+  localPort: 0
+  protocol: http
+  openInBrowser: true
+status:
+  phase: Stopped

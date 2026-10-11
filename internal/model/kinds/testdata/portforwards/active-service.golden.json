@@ -1,0 +1,132 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "portforwards",
+    "namespace": "shop",
+    "name": "service-checkout-443"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "checkout"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "kind",
+      "text": "Service"
+    },
+    {
+      "column": "podPort",
+      "text": "443",
+      "num": 443
+    },
+    {
+      "column": "localPort",
+      "text": "9443",
+      "num": 9443
+    },
+    {
+      "column": "protocol",
+      "text": "https"
+    },
+    {
+      "column": "status",
+      "text": "Active",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "localPort": [
+      "9443"
+    ],
+    "name": [
+      "service-checkout-443"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "pod": [
+      "checkout-7c9f8b6d5-x2l4q"
+    ],
+    "target": [
+      "checkout"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Service",
+          "value": "checkout",
+          "link": {
+            "kind": "services",
+            "namespace": "shop",
+            "name": "checkout"
+          }
+        },
+        {
+          "name": "Service Port",
+          "value": "443"
+        },
+        {
+          "name": "Pod",
+          "value": "checkout-7c9f8b6d5-x2l4q",
+          "link": {
+            "kind": "pods",
+            "namespace": "shop",
+            "name": "checkout-7c9f8b6d5-x2l4q"
+          }
+        },
+        {
+          "name": "Pod Port",
+          "value": "8443"
+        },
+        {
+          "name": "Local Port",
+          "value": "9443"
+        },
+        {
+          "name": "Address",
+          "value": "127.0.0.1:9443"
+        },
+        {
+          "name": "URL",
+          "value": "https://localhost:9443",
+          "actions": [
+            {
+              "label": "Open",
+              "command": "portforward.open",
+              "params": {
+                "ref": {
+                  "kind": "portforwards",
+                  "namespace": "shop",
+                  "name": "service-checkout-443"
+                }
+              },
+              "link": true
+            }
+          ]
+        },
+        {
+          "name": "Protocol",
+          "value": "https"
+        },
+        {
+          "name": "Status",
+          "value": "Active",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

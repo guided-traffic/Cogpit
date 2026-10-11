@@ -1,0 +1,5 @@
+apiVersion: cogpit.io/v1
+kind: PortForward
+metadata:
+  name: pod-x-1
+  namespace: default
