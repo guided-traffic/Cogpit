@@ -43,6 +43,9 @@ type fakeEngine struct {
 	disabled   map[string]string // command id → the reason Enabled returns
 	opened     map[string]int    // dock tab id → times its stream was opened
 	closed     map[string]int    // dock tab id → times its stream was closed
+	// handlers answer further commands by id, so that an area's tests add its commands in its
+	// own file (editor_test.go).
+	handlers map[string]func(context.Context, engine.Invocation) (any, error)
 }
 
 var _ Engine = (*fakeEngine)(nil)
@@ -52,6 +55,7 @@ func newFakeEngine(t testing.TB) *fakeEngine {
 		tables: map[string]*engine.TableSnapshot{}, details: map[string]*engine.DetailModel{},
 		subs: map[int]func(engine.Event){}, reg: engine.NewRegistry(), disabled: map[string]string{},
 		opened: map[string]int{}, closed: map[string]int{},
+		handlers: map[string]func(context.Context, engine.Invocation) (any, error){},
 	}
 	f.ui = engine.UIState{Connection: engine.Connection{State: engine.Disconnected}, Sort: engine.SortSpec{Column: "name"}}
 	enabled := func(id string) func(*engine.Session, containerParams) error {
@@ -359,6 +363,12 @@ func (f *fakeEngine) Dispatch(ctx context.Context, inv engine.Invocation) (any, 
 			return nil, engine.ErrDeclined
 		}
 	default:
+		f.mu.Lock()
+		h := f.handlers[inv.ID]
+		f.mu.Unlock()
+		if h != nil {
+			return h(ctx, inv)
+		}
 		return nil, fmt.Errorf("%w: %q", engine.ErrUnknownCommand, inv.ID)
 	}
 	return nil, nil

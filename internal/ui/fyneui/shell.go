@@ -225,6 +225,9 @@ func (sh *shell) onEvent(ev engine.Event) {
 		sh.do(func() { sh.toast(level, msg) })
 	case engine.EventDrains:
 		sh.drains.request()
+	case engine.EventEditor:
+		id, rev := ev.View, ev.Revision
+		sh.do(func() { sh.dock.editorEvent(id, rev) })
 	}
 }
 

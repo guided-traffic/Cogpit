@@ -93,7 +93,7 @@ func (d *Drains) offer(s *Session, ctxName string) {
 	entries, err := d.journal.List()
 	if err != nil {
 		s.log.Error("engine: the drain journal is unreadable", "err", err)
-		s.emit(Event{Type: EventToast, Level: drainsLevelError, Message: "Unfinished drains cannot be offered: " + err.Error()})
+		s.emit(Event{Type: EventToast, Level: LevelError, Message: "Unfinished drains cannot be offered: " + err.Error()})
 		d.changed("")
 		return
 	}
@@ -162,7 +162,7 @@ func (d *Drains) dropMissingNodes(s *Session, ctxName string, pending []PendingD
 			continue
 		}
 		s.log.Info("engine: dropped the unfinished drain of a node that no longer exists", "context", e.Context, "node", e.Node)
-		s.emit(Event{Type: EventToast, Level: "info", Message: fmt.Sprintf(
+		s.emit(Event{Type: EventToast, Level: LevelInfo, Message: fmt.Sprintf(
 			"Cogpit dropped the unfinished drain of node %s (context %s): the node no longer exists.", e.Node, e.Context)})
 	}
 	return kept
@@ -177,9 +177,6 @@ func (s *Session) isClosed() bool {
 
 // nodeKind is the kind key of nodes.
 const nodeKind = "nodes"
-
-// drainsLevelError is the toast level of a journal that cannot be read.
-const drainsLevelError = "error"
 
 // Begin records a drain before its node is cordoned. It fails, and the drain must not start, when
 // a drain of the node runs already or the journal cannot be written.

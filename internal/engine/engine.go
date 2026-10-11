@@ -117,7 +117,8 @@ type Session struct {
 
 	auditMu sync.Mutex
 
-	state *state // views, backend and streams: views.go
+	state *state    // views, backend and streams: views.go
+	edits editStore // the editor tabs' texts and base versions: editor.go
 }
 
 // New returns a Session with an empty registry. Register commands (package commands) before use.

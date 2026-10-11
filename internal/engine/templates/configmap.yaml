@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example-config
+data:
+  log-level: info
+  settings.yaml: |
+    greeting: hello

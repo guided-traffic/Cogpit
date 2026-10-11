@@ -23,7 +23,7 @@ func (s *Session) goSafe(what string, fn func()) {
 func (s *Session) recoverTo(what string) {
 	if r := recover(); r != nil {
 		s.log.Error("engine: internal error", "what", what, "panic", fmt.Sprint(r), "stack", string(debug.Stack()))
-		s.emit(Event{Type: EventToast, Level: "error", Message: what + " failed: internal error"})
+		s.emit(Event{Type: EventToast, Level: LevelError, Message: what + " failed: internal error"})
 	}
 }
 

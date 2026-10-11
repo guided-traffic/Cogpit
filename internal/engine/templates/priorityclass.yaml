@@ -1,0 +1,7 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: example-high
+value: 100000
+globalDefault: false
+description: Pods that should be scheduled before others.

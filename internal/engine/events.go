@@ -22,6 +22,16 @@ const (
 	// EventKinds: the kinds the connected cluster serves changed (a custom resource definition was
 	// added, changed or deleted); re-read kinds.list.
 	EventKinds EventType = "kinds"
+	// EventEditor: an editor tab's text or base version changed (editor.setText, a conflict);
+	// Event.View holds the tab id, Event.Revision the text's revision. Re-read with editor.get.
+	EventEditor EventType = "editor"
+)
+
+// Toast levels (Event.Level).
+const (
+	LevelInfo    = "info"
+	LevelWarning = "warning"
+	LevelError   = "error"
 )
 
 // Event is something the UI or an agent may react to. Events carry little data: the receiver
@@ -31,6 +41,6 @@ type Event struct {
 	View     string    `json:"view,omitempty"`
 	Revision uint64    `json:"revision,omitempty"`
 	UIState  *UIState  `json:"uiState,omitempty"`
-	Level    string    `json:"level,omitempty"` // toast: "info", "warning", "error"
+	Level    string    `json:"level,omitempty"` // toast: LevelInfo, LevelWarning, LevelError
 	Message  string    `json:"message,omitempty"`
 }

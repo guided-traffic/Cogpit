@@ -165,7 +165,7 @@ Every list view is one table ([resource views](resource-parity.md)).
 | Export the table as CSV (a download button beside the item count, "18 items"; the format is inferred) | free | missing | – |
 | Select rows with a checkbox column, all rows with the header's checkbox (capture, 2026-10-11) | free | missing | – |
 | A warning column right after Name in built-in views (Pods, Pod Disruption Budgets, Cron Jobs): an orange triangle on rows with a problem (seen on a pod with many restarts and a container not ready; the rule is inferred) | free | missing | – |
-| A floating "+" button at the bottom right of every list opens a Create resource tab in the dock (capture, 2026-10-11) | free | missing | – |
+| A floating "+" button at the bottom right of every list opens a Create resource tab in the dock (capture, 2026-10-11) | free | partial: what Lens fills the tab with is not captured; Cogpit starts from the template of the view's kind, else the example Pod (Cogpit's choice) | [`createbutton.go`](../../internal/ui/fyneui/createbutton.go), `TestCreateTabTemplatesAndCreate`, `TestCreateButtonHiddenWithoutCluster`; [PNG](../../internal/ui/fyneui/testdata/create_dark.png) |
 | The sorted column shows an arrow beside its title | free | partial | `TestHeaderTapDispatchesSort` |
 | Cells that name another object are links: Namespace, Controlled By, Node, Involved Object, a definition's resource (captures, 2026-10-11); a Namespace link narrows the open view's namespace filter to that namespace (owner, 2026-10-11); where the others lead: capture needed | free | missing | – |
 | Row line height (preference) | free | missing | – |
@@ -187,18 +187,18 @@ Every list view is one table ([resource views](resource-parity.md)).
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Bottom dock with tabs: Terminal session, Create resource, Edit, logs, Helm Install, Helm Upgrade; tabs named after their object ("Pod <name>"), with a close button; on the right, maximize and collapse (capture, 2026-10-11) | free | partial: terminal, shell, logs; no maximize | `TestDockOpensAndClosesStreams`; terminal, shell and logs tabs only |
-| "New tab" menu: Terminal session, Create resource | free | partial: Terminal session | Terminal session only |
+| Bottom dock with tabs: Terminal session, Create resource, Edit, logs, Helm Install, Helm Upgrade; tabs named after their object ("Pod <name>"), with a close button; on the right, maximize and collapse (capture, 2026-10-11) | free | partial: terminal, shell, logs, Edit ("ConfigMap demo") and Create resource; no Helm tabs, no maximize | `TestDockOpensAndClosesStreams`, `TestEditTabSaveReviewsThenApplies`, `TestCreateTabTemplatesAndCreate` |
+| "New tab" menu: Terminal session, Create resource | free | done | [`dock.go`](../../internal/ui/fyneui/dock.go) `addMenu`, `TestDockAddMenuOffersCreateResource`; an item the engine disables names its reason |
 | Tab icons take the cluster's colour | free | missing | – |
 
 ## Editor and create resource
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Edit tab: YAML editor with syntax highlighting and Save | free | missing | – |
-| Diff view: "Show changes", "Revert to original", "Exit diff view" | paid | missing | – |
-| Create resource tab: template picker, "Create & Close"; captured: a dock tab with save and search buttons, a "Select Template …" picker whose templates sit under a "LENS" heading, one per kind in alphabetical order (ClusterRole, ClusterRoleBinding, ConfigMap, CronJob, CustomResourceDefinition, DaemonSet, Deployment, Endpoint, EndpointSlice, HorizontalPodAutoscaler, Ingress, IngressClass, Job, …), and an example Pod manifest to start from; Cogpit writes its own templates (clean-room) | free | missing | – |
-| Bundled templates, device-resource templates included (2026.9) | free | missing | – |
+| Edit tab: YAML editor with syntax highlighting and Save | free | partial: Cogpit's Save first shows the changes against the object as the cache holds it and the server's dry run, and writes only on Apply (Cogpit's safety step; that Lens's Save writes at once is inferred); "Save & Close" is inferred; no unsaved-text drafts | `object.edit`, `editor.diff`, `object.dryRun`, `object.apply` ([`commands/edit.go`](../../internal/engine/commands/edit.go), [`engine/editor.go`](../../internal/engine/editor.go)); `TestEditDiffDryRunApply`, `TestApplyConflictNeverOverwrites`, `TestEditTabSaveReviewsThenApplies`, `TestEditTabConflictAsksAgain`, `TestKindEditCreateConflictDelete`; [PNG](../../internal/ui/fyneui/testdata/edit_diff_dark.png) |
+| Diff view: "Show changes", "Revert to original", "Exit diff view" | paid | partial: every Save shows the changes (line diff, three lines of context) and "Back to Editor" leaves them; no "Revert to original" | [`diffview.go`](../../internal/ui/fyneui/diffview.go), `TestEditTabSaveReviewsThenApplies`; [PNG](../../internal/ui/fyneui/testdata/edit_diff_dark.png) |
+| Create resource tab: template picker, "Create & Close"; captured: a dock tab with save and search buttons, a "Select Template …" picker whose templates sit under a "LENS" heading, one per kind in alphabetical order (ClusterRole, ClusterRoleBinding, ConfigMap, CronJob, CustomResourceDefinition, DaemonSet, Deployment, Endpoint, EndpointSlice, HorizontalPodAutoscaler, Ingress, IngressClass, Job, …), and an example Pod manifest to start from; Cogpit writes its own templates (clean-room) | free | partial: no save and no search button (what they do is not captured); Cogpit's own 30 templates under a "Cogpit" heading, without Secret (H-8) and the deprecated Endpoints; Create as well as "Create & Close" | [`createtab.go`](../../internal/ui/fyneui/createtab.go), [`engine/templates/`](../../internal/engine/templates/), `object.create`, `resource.createTab`, `resource.templates`; `TestCreateObjects`, `TestCreateTabAndTemplates`, `TestCreateTabTemplatesAndCreate`; [PNG](../../internal/ui/fyneui/testdata/create_dark.png) |
+| Bundled templates, device-resource templates included (2026.9) | free | partial: Cogpit's own templates include DeviceClass, ResourceClaim and ResourceClaimTemplate (`resource.k8s.io/v1`); which device templates Lens bundles is not captured | every template passes a server-side dry run on Kubernetes 1.36.1 (`TestKindEditCreateConflictDelete`) |
 | Dialogs instead of YAML to create Namespaces, Secrets, Resource Quotas, Service Accounts and RBAC objects | free | missing | – |
 
 ## Logs
@@ -354,6 +354,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | G9: Edit tab with review, dry run and apply; Create resource tab with Cogpit's templates; the dock's "New tab" menu and the list's "+" button (8 rows) |
 | 2026-10-11 | minor | Cluster sidebar: Custom Resources with its API groups, Network › Gateway API and Config › Admission Policies as sub-groups; custom kinds follow the cluster's definitions while connected |
 | 2026-10-11 | minor | Cluster settings: the metrics source choices, the icon menu, the kubeconfig link opens the file manager (owner) |
 | 2026-10-11 | minor | Captures of the Forward dialog and the metrics toolbar's "Show events" tooltip |

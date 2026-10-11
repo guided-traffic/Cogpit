@@ -173,15 +173,21 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 30–70 h (was 45–90), plus upstreaming or replacing the widget.
 
 ### G9. YAML editor and create resource
-- **Missing:** an editor that keeps its own lines and fills a viewport-sized grid (Fyne's TextGrid
-  stores every character, [spike](../developer/spike-fyne.md#known-before-the-spike)), YAML
-  highlighting, apply after a diff and a server-side dry-run, templates, create dialogs' YAML
-  fallback, drafts kept for crash recovery.
-- **Evidence:** [ui-parity](ui-parity.md#editor-and-create-resource), 5 rows missing. Built: the
-  editor widget that keeps its own lines and draws only the viewport, with YAML highlighting
-  ([`yamlview`](../../internal/ui/fyneui/yamlview/), spike S4); it is used read-only in the drawer.
-  Still missing: editing wired to an Edit tab, apply after a diff and a server-side dry-run,
-  templates, drafts.
+- **Missing:** drafts kept for crash recovery, "Revert to original", the Create resource tab's save
+  and search buttons, permission checks before Edit and Delete are offered (access reviews), Delete
+  of a selection, the create dialogs (Namespaces, Secrets, Resource Quotas, Service Accounts, RBAC)
+  and their YAML fallback, a Secrets path (waits for H-8).
+- **Evidence:** [ui-parity](ui-parity.md#editor-and-create-resource): 4 rows partial, 1 missing;
+  [resource-parity](resource-parity.md#every-kind): Edit and Delete partial. Built on 2026-10-11:
+  an Edit tab per object on the editable [`yamlview`](../../internal/ui/fyneui/yamlview/), filled
+  from the cache; Save shows the line diff against the object as the cache holds it, then a
+  server-side dry run, and Apply writes it as an update with the resourceVersion the tab started
+  from, so a concurrent change comes back as a conflict with the new diff and is never overwritten
+  ([`engine/editor.go`](../../internal/engine/editor.go)); Create resource tabs with Cogpit's own
+  templates and multi-document create, each object dry-run first
+  ([`engine/create.go`](../../internal/engine/create.go)); Delete for every kind with the cached UID
+  as precondition; all of it as commands agents drive too, tested against fakes, fuzzed, and on kind
+  (`TestKindEditCreateConflictDelete`).
 - **Estimate:** 27–60 h (was 35–70).
 
 ### G10. Port forwarding
@@ -339,6 +345,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | G9: editing, create from templates and Delete for every kind built; what is left listed |
 | 2026-10-11 | minor | G7: node and workload actions partial (cordon, uncordon, crash-safe drain, scale, trigger, suspend, resume, evict) |
 | 2026-10-11 | minor | G1: CI and the semantic-release dry run exist as workflow files, not yet observed green; generators, the envtest job and a passing `make vuln` remain; estimate not moved |
 | 2026-10-11 | major | The MVP: G1–G9, G14, G15 and G17 re-estimated with evidence; new terminal-widget risk in G8 |

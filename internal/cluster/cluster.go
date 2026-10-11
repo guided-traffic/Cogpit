@@ -185,6 +185,8 @@ type Conn struct {
 	servedAt  time.Time
 	servedTTL time.Duration
 
+	objects objectMapper // the REST mapper of the generic object writes (objects.go)
+
 	closed atomic.Bool
 }
 

@@ -2,6 +2,7 @@ package fyneui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image/color"
 	"io"
@@ -18,8 +19,9 @@ import (
 
 // dock is the bottom panel: a tab strip (tabs from UIState.Dock, a "+" menu, a collapse toggle)
 // above the active tab's content. Log tabs show termview.Logs on Session.OpenLogs; terminal and
-// shell tabs show termview.Terminal on Session.OpenTerminal. A stream is opened when its tab
-// appears and closed when it disappears.
+// shell tabs show termview.Terminal on Session.OpenTerminal; Edit and Create resource tabs show a
+// YAML editor whose text lives in the engine (editortab.go, createtab.go). A stream is opened when
+// its tab appears and closed when it disappears.
 type dock struct {
 	sh *shell
 
@@ -43,7 +45,14 @@ type dockContent struct {
 	obj    *fyne.Container
 	cancel context.CancelFunc
 	closer io.Closer
+	editor dockEditor // Edit and Create resource tabs
 	closed bool
+}
+
+// dockEditor is an editor tab's content: it follows EventEditor and stops its timers on close.
+type dockEditor interface {
+	remote(rev uint64)
+	close()
 }
 
 func newDock(sh *shell) *dock {
@@ -158,10 +167,25 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 				c.set(w)
 			})
 		}()
+	case engine.DockEdit:
+		e := newEditorTab(d.sh, t)
+		c.editor = e
+		c.set(e.root)
+	case engine.DockCreate:
+		e := newCreateTab(d.sh, t)
+		c.editor = e
+		c.set(e.root)
 	default:
 		c.set(dockMessage(fmt.Sprintf("Cogpit cannot show %q tabs yet.", t.Type), colorMuted))
 	}
 	return c
+}
+
+// editorEvent hands an EventEditor to the editor tab it names.
+func (d *dock) editorEvent(id string, rev uint64) {
+	if c, ok := d.contents[id]; ok && c.editor != nil && !c.closed {
+		c.editor.remote(rev)
+	}
 }
 
 func (c *dockContent) set(o fyne.CanvasObject) {
@@ -177,6 +201,9 @@ func (c *dockContent) close() {
 	}
 	c.closed = true
 	c.cancel()
+	if c.editor != nil {
+		c.editor.close()
+	}
 	if cl := c.closer; cl != nil {
 		go func() { _ = cl.Close() }() // the tab is gone; nobody to tell
 	}
@@ -195,8 +222,13 @@ func (d *dock) rebuildStrip() {
 	for _, t := range d.tabs {
 		id := t.ID
 		icon := theme.ComputerIcon()
-		if t.Type == engine.DockLogs {
+		switch t.Type {
+		case engine.DockLogs:
 			icon = theme.DocumentIcon()
+		case engine.DockEdit:
+			icon = theme.DocumentCreateIcon()
+		case engine.DockCreate:
+			icon = theme.ContentAddIcon()
 		}
 		objs = append(objs, newTabButton(t.Title, icon, id == d.active && d.open(),
 			func() {
@@ -242,25 +274,51 @@ func (d *dock) updateToggle() {
 	}
 }
 
-// showAddMenu offers new tabs; an item the engine disables says why.
+// addMenuEntry is one item of the dock's "+" menu.
+type addMenuEntry struct {
+	label, command string
+	params         any
+}
+
+// addMenuEntries are the dock's "+" menu: Terminal session and Create resource (captured).
+var addMenuEntries = []addMenuEntry{
+	{"Terminal session", "terminal.open", struct{}{}},
+	{"Create resource", "resource.createTab", createTabParams{}},
+}
+
+// showAddMenu offers new tabs; an item the engine disables says why, one this build lacks is left
+// out.
 func (d *dock) showAddMenu(from fyne.CanvasObject) {
 	go func() {
-		reason := ""
-		if err := d.sh.commandEnabled("terminal.open", struct{}{}); err != nil {
-			reason = err.Error()
+		reasons := make([]error, len(addMenuEntries))
+		for i, e := range addMenuEntries {
+			reasons[i] = d.sh.commandEnabled(e.command, e.params)
 		}
 		d.sh.do(func() {
-			item := fyne.NewMenuItem("Terminal session", func() { d.sh.dispatch("terminal.open", struct{}{}, nil) })
-			if reason != "" {
-				item.Label += " (" + reason + ")"
-				item.Disabled = true
-			}
-			if cnv := fyne.CurrentApp().Driver().CanvasForObject(from); cnv != nil {
-				m := widget.NewPopUpMenu(fyne.NewMenu("", item), cnv)
+			menu := d.addMenu(reasons)
+			if cnv := fyne.CurrentApp().Driver().CanvasForObject(from); cnv != nil && len(menu.Items) > 0 {
+				m := widget.NewPopUpMenu(menu, cnv)
 				m.ShowAtRelativePosition(fyne.NewPos(0, -m.MinSize().Height), from)
 			}
 		})
 	}()
+}
+
+// addMenu builds the "+" menu from each entry's Enabled result.
+func (d *dock) addMenu(reasons []error) *fyne.Menu {
+	var items []*fyne.MenuItem
+	for i, e := range addMenuEntries {
+		if errors.Is(reasons[i], errUnavailable) {
+			continue
+		}
+		item := fyne.NewMenuItem(e.label, func() { d.sh.dispatch(e.command, e.params, nil) })
+		if reasons[i] != nil {
+			item.Label += " (" + reasons[i].Error() + ")"
+			item.Disabled = true
+		}
+		items = append(items, item)
+	}
+	return fyne.NewMenu("", items...)
 }
 
 // dockMessage is a centred line of text in a dock tab: opening, failed, unsupported.

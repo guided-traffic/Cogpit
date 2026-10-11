@@ -47,6 +47,15 @@ var wantCommands = map[string]engine.Danger{
 	"cronjob.suspend":    engine.DangerMutating,
 	"cronjob.resume":     engine.DangerMutating,
 	"pod.evict":          engine.DangerDestructive,
+	"object.edit":        engine.DangerUI,
+	"editor.get":         engine.DangerRead,
+	"editor.setText":     engine.DangerUI,
+	"editor.diff":        engine.DangerRead,
+	"object.dryRun":      engine.DangerRead,
+	"object.apply":       engine.DangerMutating,
+	"object.create":      engine.DangerMutating,
+	"resource.createTab": engine.DangerUI,
+	"resource.templates": engine.DangerRead,
 }
 
 func TestRegistryComplete(t *testing.T) {
@@ -344,10 +353,10 @@ func TestDestructiveCommandsNeedConfirmation(t *testing.T) {
 		t.Errorf("audit %+v", lines)
 	}
 
-	// Disabled with a reason: other kinds, objects not in the cache.
+	// Disabled with a reason: objects not in the cache, other kinds.
 	var dis *engine.DisabledError
-	if err := h.run(t, engine.OriginGUI, "object.delete", map[string]any{"ref": model.ObjectRef{Kind: "services", Namespace: "shop", Name: "cart"}}, nil); !errors.As(err, &dis) || !strings.Contains(dis.Reason, "pods only") {
-		t.Errorf("delete a service: %v", err)
+	if err := h.run(t, engine.OriginGUI, "object.delete", map[string]any{"ref": model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "gone"}}, nil); !errors.As(err, &dis) || !strings.Contains(dis.Reason, "not found") {
+		t.Errorf("delete a missing pod: %v", err)
 	}
 	if err := h.run(t, engine.OriginGUI, "deployment.restart", map[string]any{"ref": model.ObjectRef{Kind: "deployments", Namespace: "shop", Name: "gone"}}, nil); !errors.As(err, &dis) || !strings.Contains(dis.Reason, "not found") {
 		t.Errorf("restart a missing deployment: %v", err)

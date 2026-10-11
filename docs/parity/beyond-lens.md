@@ -32,8 +32,8 @@ read-only: `list-clusters`, `connect-cluster`, `disconnect-cluster`, `kubectl`, 
 | Open a view, set namespaces and filter | `ui_openView`, `ui_setNamespace`, `ui_setFilter` | done | [`commands/ui.go`](../../internal/engine/commands/ui.go) and its tests |
 | Select objects and open the drawer | `ui_select` | done | [`commands/ui.go`](../../internal/engine/commands/ui.go) |
 | Navigate to an object: open its view, select it, scroll to it, open the drawer | `ui_navigate` | done | `TestShowcaseServiceByClusterIP`; the GUI scrolls to the row (`TestNavigateScrollsOnceSnapshotHasRow`, `TestRenderDemoShowcase`, [PNG](../../internal/ui/fyneui/testdata/demo_showcase.png)) |
-| Open and read dock tabs (logs, terminal output, editor) | `dock_open`, `dock_read` | partial: agents open tabs with `pod_logs`, `pod_shell`, `terminal_open` and close them with `dock_close`; they cannot read them | [`commands/dock.go`](../../internal/engine/commands/dock.go) |
-| Run cluster actions with the GUI's verbs and danger levels | every action command | partial: Restart (Deployment) and Delete (pods) | [`commands/actions.go`](../../internal/engine/commands/actions.go) |
+| Open and read dock tabs (logs, terminal output, editor) | `dock_open`, `dock_read` | partial: agents open tabs with `pod_logs`, `pod_shell`, `terminal_open`, `object_edit`, `resource_createTab` and close them with `dock_close`; they read and set editor tabs' text with `editor_get` and `editor_setText`; logs and terminal output they cannot read | [`commands/dock.go`](../../internal/engine/commands/dock.go) |
+| Run cluster actions with the GUI's verbs and danger levels | every action command | partial: Restart (Deployment); Delete, Edit (`editor_diff`, `object_dryRun`, `object_apply`) and Create (`object_create`) for every kind | [`commands/actions.go`](../../internal/engine/commands/actions.go) |
 | Mutating commands from agents wait for the user's acceptance unless allowed for the context | (engine) | partial: the engine and the GUI dialog do; the allowance has no UI | `TestDispatchConfirmationPolicy`, [`fyneui/confirm.go`](../../internal/ui/fyneui/confirm.go) |
 | Destructive commands from agents always wait for the user's confirmation in the GUI | (engine) | done | `TestDispatchConfirmationPolicy`, `TestDeleteGoesThroughConfirmation`, MCP tests for declined and headless calls |
 | Audit log of every agent-initiated command, readable in the GUI | (engine) | partial: written to `<user config dir>/Cogpit/audit.log`; not readable in the GUI | [`engine/audit.go`](../../internal/engine/audit.go) |
@@ -92,5 +92,6 @@ AppImage builds in place; APT and RPM installs update by hand
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | G9: agents edit, check, apply, create and delete objects of every kind, and read and set editor tabs |
 | 2026-10-11 | minor | The MVP: MCP tools, transport, navigation and confirmation rows; the status bar's counters |
 | 2026-10-11 | major | First version: MCP control, built-in agent, updates, cache transparency, crash recovery |
