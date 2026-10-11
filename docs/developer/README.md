@@ -27,7 +27,7 @@ this page.
 | [`conventions.md`](conventions.md) | Clean-room, never surprise a cluster, cache first, crash stance, secrets, style, commits |
 | [`extending.md`](extending.md) | Checklists: a command, a kind profile, a cache consumer, a package |
 | [`testing.md`](testing.md) | Test tiers, fixtures, performance and API-load budgets |
-| [`releasing.md`](releasing.md) | Release flow, artifacts per platform, signed updates |
+| [`releasing.md`](releasing.md) | CI jobs, coverage badge, Renovate, the semantic-release dry run, release flow, artifacts per platform, signed updates |
 | [`decisions.md`](decisions.md) | Decisions taken and open |
 | [`spike-fyne.md`](spike-fyne.md) | The UI toolkit gate before M2 |
 
@@ -42,6 +42,8 @@ cogpit/
 ├─ go.mod                     module github.com/guided-traffic/cogpit
 ├─ Makefile                   build, run, run-demo, test, test-unit-race, test-kind, bench, lint, kind-up, kind-down, app
 ├─ .golangci.yml              linters and the depguard layering rules
+├─ .github/                   CI workflows (build, release, renovate), renovate.json, the coverage badge
+├─ .releaserc.json            semantic-release config; package.json pins its npm tooling (CI only)
 ├─ cmd/cogpit/                desktop app (Fyne, cgo)
 ├─ cmd/cogpit-cli/            headless CLI and MCP stdio bridge (pure Go)
 ├─ internal/                  packages, layered L0–L4 (architecture.md §2–§3)
