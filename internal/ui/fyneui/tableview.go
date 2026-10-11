@@ -44,6 +44,7 @@ type tableView struct {
 	placeholder           *fyne.Container
 	placeholderText       *textLine
 	connectButton         *widget.Button
+	create                *createButton // the floating "+" (createbutton.go)
 	root                  fyne.CanvasObject
 
 	snap    *engine.TableSnapshot
@@ -104,7 +105,8 @@ func newTableView(sh *shell) *tableView {
 		inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
 			container.NewBorder(nil, nil, heading, tools)))
 	frame := box(&stretchLayout{tv: tv}, tv.table)
-	body := container.NewStack(newSurface(theme.ColorNameBackground), frame, tv.placeholder)
+	tv.create = newCreateButton(sh)
+	body := container.NewStack(newSurface(theme.ColorNameBackground), frame, tv.placeholder, tv.create.floating())
 	tv.root = container.NewBorder(
 		container.NewVBox(header, inset(theme.SizeNameInnerPadding, "", tv.errLine)),
 		nil, nil, nil, body)
@@ -179,6 +181,7 @@ func (tv *tableView) updatePlaceholder() {
 	} else {
 		tv.placeholder.Show()
 	}
+	tv.create.update()
 }
 
 // setSnapshot shows a new snapshot. A replaced snapshot costs one table refresh: the table asks
