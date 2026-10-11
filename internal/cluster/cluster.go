@@ -181,6 +181,7 @@ type Conn struct {
 	meta        metadata.Interface
 	disco       discovery.DiscoveryInterface
 	counter     *RequestCounter
+	warnings    *warningLog
 
 	servedMu  sync.Mutex
 	served    map[schema.GroupVersionResource]bool
@@ -244,6 +245,9 @@ func Connect(ctx context.Context, opts Options) (*Conn, error) {
 	// client would each build their own from QPS and Burst, doubling the budget; copies of
 	// RESTConfig() share this one too.
 	cfg.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(cfg.QPS, cfg.Burst)
+	// The API server's warnings, logged once per connection, not once per request (warnings.go).
+	warnings := newWarningLog(name)
+	cfg.WarningHandlerWithContext = warnings
 	// No cfg.Timeout: it would end every watch after that long.
 	server := kubeconfig.StripUserInfo(cfg.Host)
 	counter := NewRequestCounter()
@@ -293,6 +297,7 @@ func Connect(ctx context.Context, opts Options) (*Conn, error) {
 		meta:        meta,
 		disco:       disco,
 		counter:     counter,
+		warnings:    warnings,
 	}
 	if err := c.checkReachable(ctx, opts.ConnectTimeout); err != nil {
 		c.Close()

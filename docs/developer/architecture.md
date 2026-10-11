@@ -474,6 +474,12 @@ data, Secrets included, at rest on the disk.
   client-go 0.37.1 rejects the removed `azure` provider and points to kubelogin.
 - **Streams:** logs (follow, previous container, timestamps), exec and attach, port-forward. Local
   port-forward listeners bind to `127.0.0.1` only.
+- **The API server's warnings** (built 2026-10-11, [`warnings.go`](../../internal/cluster/warnings.go)):
+  every client of a connection hands them to one handler that logs each distinct warning once per
+  connection and keeps them (`Conn.Warnings`: at most 64, and how many arrived). client-go's
+  default logged every one, and the API server attaches a deprecation warning to every request
+  for a deprecated kind: v1 Endpoints since Kubernetes 1.33 warn on each list, each watch an
+  informer reconnects and each get (`TestConnectHandlesWarnings`).
 
 ## 7. MCP and the built-in agent
 
