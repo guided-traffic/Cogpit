@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/cluster"
@@ -19,6 +20,9 @@ type Backend struct {
 	// Conn is the connection for streams and actions; nil for the demo cluster, where logs,
 	// shells, terminals and mutating commands are disabled.
 	Conn *cluster.Conn
+	// Actions performs the cluster writes of the action commands. Nil means Conn does; tests
+	// substitute a fake here.
+	Actions Actions
 	// Profiles are the kinds this cluster serves, in sidebar order.
 	Profiles []*model.KindProfile
 	// Demo marks the synthetic demo cluster.
@@ -27,6 +31,42 @@ type Backend struct {
 	DemoStats func() any
 	// Close stops the cache and closes the connection.
 	Close func()
+}
+
+// Actions are the cluster writes of the MVP's action commands. *cluster.Conn implements them.
+type Actions interface {
+	// RestartDeployment restarts a Deployment as `kubectl rollout restart` does.
+	RestartDeployment(ctx context.Context, namespace, name string) error
+	// DeletePod deletes one pod with the default grace period.
+	DeletePod(ctx context.Context, namespace, name string) error
+}
+
+// Writer returns what performs the backend's writes, or nil when it cannot write (the demo
+// cluster).
+func (b *Backend) Writer() Actions {
+	if b.Actions != nil {
+		return b.Actions
+	}
+	if b.Conn != nil {
+		return b.Conn
+	}
+	return nil
+}
+
+// CanWrite reports whether the backend can run mutating commands: false for the demo cluster.
+func (b *Backend) CanWrite() bool { return b.Writer() != nil }
+
+// close stops the backend's cache and connection, recovering a panicking Close.
+func (b *Backend) close(log *slog.Logger) {
+	if b == nil || b.Close == nil {
+		return
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error("engine: closing the backend failed", "context", b.Context, "panic", r)
+		}
+	}()
+	b.Close()
 }
 
 // Profile returns the backend's profile for a kind key.

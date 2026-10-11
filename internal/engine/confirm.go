@@ -72,3 +72,25 @@ func newConfirmRequest(cmd *Command, origin Origin, uiContext string, targets []
 	}
 	return req
 }
+
+// confirmedKey is the context key under which Dispatch hands a command the request the user
+// confirmed.
+type confirmedKey struct{}
+
+// Confirmed returns the request the user confirmed for the running command, if it needed one.
+// Commands that write check it against the cluster they are about to act on: if the user switched
+// clusters while the dialog was open, the confirmation named another context and must not apply.
+func Confirmed(ctx context.Context) (ConfirmRequest, bool) {
+	req, ok := ctx.Value(confirmedKey{}).(ConfirmRequest)
+	return req, ok
+}
+
+// CheckConfirmedContext fails when the running command was confirmed for another context than
+// the one it is about to act on. Commands without a confirmation pass.
+func CheckConfirmedContext(ctx context.Context, actOn string) error {
+	req, ok := Confirmed(ctx)
+	if !ok || req.Context == actOn {
+		return nil
+	}
+	return fmt.Errorf("%w: confirmed for context %q, the connected context is now %q", ErrWrongCluster, req.Context, actOn)
+}

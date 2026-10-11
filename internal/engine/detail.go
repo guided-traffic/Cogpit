@@ -21,6 +21,9 @@ type DetailModel struct {
 	Containers []string `json:"containers,omitempty"`
 	// Missing is true when the object is not (or no longer) in the cache.
 	Missing bool `json:"missing,omitempty"`
+	// Loading is true while the object's kind is still being listed: the object may yet appear,
+	// and an EventDetail follows when the list is done.
+	Loading bool `json:"loading,omitempty"`
 }
 
 // EventItem is one event in the drawer.

@@ -230,6 +230,7 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 		if !ok {
 			return nil, fmt.Errorf("command %s: %w", cmd.ID, ErrDeclined)
 		}
+		ctx = context.WithValue(ctx, confirmedKey{}, req)
 	}
 
 	err = s.safeCall(cmd.ID, func() (err error) { result, err = cmd.run(ctx, s, p); return err })
