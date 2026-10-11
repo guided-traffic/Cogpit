@@ -403,6 +403,12 @@ A kind key names a kind in views, object references, `ui.*` commands and MCP too
   (Validating Admission Policies: v1, then v1beta1, v1alpha1); the connector keeps its profile,
   key unchanged, at the first version the cluster serves (2026-10-11,
   [`connector.go`](../../internal/engine/connector.go) `servedProfiles`).
+- **Virtual and local kinds take Cogpit's own bare plural** (2026-10-11): Helm's releases are
+  `helmreleases` ([`helm.ReleaseKind`](../../internal/helm/releases.go)), their objects apiVersion
+  `cogpit.io/v1`, kind `HelmRelease`. Without a dot they never collide with a CRD kind (Flux's
+  `helmreleases.helm.toolkit.fluxcd.io`); they must not reuse a built-in resource's plural. Their
+  profile still names the resource they are made from (`secrets` for releases), so code that maps
+  a resource to a kind key (`KindKeyFor`) skips them.
 
 **Litmus test:** `cogpit-cli` and MCP can do everything the GUI does, except draw it.
 
