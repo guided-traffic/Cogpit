@@ -22,6 +22,14 @@ type KindProfile struct {
 	Title      string // view title as Lens shows it, "Pods"
 	Namespaced bool
 
+	// FallbackVersions are older versions of the kind, in order of preference, that a cluster
+	// which does not serve Version may serve instead: Validating Admission Policies are v1 from
+	// Kubernetes 1.30, v1beta1 or v1alpha1 before. The connector keeps the profile at the first
+	// version the cluster serves (a copy with that Version), so the kind key stays the same
+	// (architecture §4.5). The kind's fields that Cells and Detail read must mean the same in
+	// every listed version.
+	FallbackVersions []string
+
 	// Columns in Lens's order. The first column is the name.
 	Columns []Column
 

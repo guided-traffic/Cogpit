@@ -116,12 +116,24 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 	}, nil
 }
 
-// servedProfiles keeps the profiles whose group, version and resource the cluster serves.
+// servedProfiles keeps the profiles whose group, version and resource the cluster serves. A
+// profile whose preferred version is not served is kept at the first of its FallbackVersions that
+// is, as a copy with that version, so that every cache scope and write of the kind uses a version
+// the cluster serves.
 func servedProfiles(all []*model.KindProfile, served map[schema.GroupVersionResource]bool) []*model.KindProfile {
 	out := make([]*model.KindProfile, 0, len(all))
 	for _, p := range all {
 		if served[p.GVR()] {
 			out = append(out, p)
+			continue
+		}
+		for _, v := range p.FallbackVersions {
+			if served[schema.GroupVersionResource{Group: p.Group, Version: v, Resource: p.Resource}] {
+				at := *p
+				at.Version = v
+				out = append(out, &at)
+				break
+			}
 		}
 	}
 	return out

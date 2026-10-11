@@ -90,7 +90,8 @@ A kind without a profile already gets a generic view from discovery; a profile m
    `warningCell`. Mark any rule that is not captured from Lens as inferred in the parity row.
 6. Register the profile with its group, version and resource: one line in `builtin` in
    [`kinds.go`](../../internal/model/kinds/kinds.go). Discovery decides at runtime whether the
-   cluster serves it. Built-in kinds keep the bare plural as their key; kinds from custom resource
+   cluster serves it; a kind that older clusters serve at another version of the same shape lists
+   those in `FallbackVersions`, preferred first. Built-in kinds keep the bare plural as their key; kinds from custom resource
    definitions are `<plural>.<group>` ([architecture §4.5](architecture.md#45-kind-keys)).
 7. Add its actions as commands (above).
 

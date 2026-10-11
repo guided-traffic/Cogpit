@@ -340,7 +340,11 @@ A kind key names a kind in views, object references, `ui.*` commands and MCP too
 - A curated profile for a CRD kind (Gateway API, Flux CD, a Vertical Pod Autoscaler) keeps the
   `<plural>.<group>` key, so a key never changes when Cogpit learns to show a kind better.
 - The key carries no version: the version is the profile's preferred one (for CRDs, the highest
-  served version by Kubernetes version priority, as discovery orders them).
+  served version by Kubernetes version priority, as discovery orders them). A built-in kind that
+  moved through API versions of the same shape lists the older ones as `FallbackVersions`
+  (Validating Admission Policies: v1, then v1beta1, v1alpha1); the connector keeps its profile,
+  key unchanged, at the first version the cluster serves (2026-10-11,
+  [`connector.go`](../../internal/engine/connector.go) `servedProfiles`).
 
 **Litmus test:** `cogpit-cli` and MCP can do everything the GUI does, except draw it.
 
@@ -577,6 +581,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | §4.5: `FallbackVersions`, a built-in kind's older API versions, picked by discovery at connect |
 | 2026-10-11 | minor | Third run's Phase 0: cache scopes with label selector and metadata only, local and virtual kinds (§5), the related-objects index and item actions in the drawer (§4.4), access reviews in `Enabled` (§4.2), Helm v4.3.0 in `go.mod` |
 | 2026-10-11 | major | Current state after the second implementation run: 16 built-in profiles and custom resources, editing, node and workload actions, the drain journal, 41 commands, CI |
 | 2026-10-11 | minor | §4.2: what a confirmation binds (context, objects, UIDs), `Detail`, `OriginOf` |
