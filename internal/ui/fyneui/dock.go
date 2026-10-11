@@ -1,0 +1,371 @@
+package fyneui
+
+import (
+	"context"
+	"fmt"
+	"image/color"
+	"io"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/ui/fyneui/termview"
+)
+
+// dock is the bottom panel: a tab strip (tabs from UIState.Dock, a "+" menu, a collapse toggle)
+// above the active tab's content. Log tabs show termview.Logs on Session.OpenLogs; terminal and
+// shell tabs show termview.Terminal on Session.OpenTerminal. A stream is opened when its tab
+// appears and closed when it disappears.
+type dock struct {
+	sh *shell
+
+	tabs     []engine.DockTab
+	active   string
+	contents map[string]*dockContent
+	expanded bool
+
+	tabRow       *fyne.Container
+	strip        fyne.CanvasObject
+	stripHolder  *fyne.Container // the strip's place on top of the open panel
+	collapsedBar *fyne.Container // the strip's place while the dock is collapsed
+	body         *fyne.Container
+	panel        fyne.CanvasObject
+	toggle       *widget.Button
+}
+
+// dockContent is one tab's content and the stream behind it.
+type dockContent struct {
+	tab    engine.DockTab
+	obj    *fyne.Container
+	cancel context.CancelFunc
+	closer io.Closer
+	closed bool
+}
+
+func newDock(sh *shell) *dock {
+	d := &dock{sh: sh, contents: map[string]*dockContent{}}
+	d.tabRow = container.NewHBox()
+	add := widget.NewButtonWithIcon("", theme.ContentAddIcon(), nil)
+	add.Importance = widget.LowImportance
+	add.OnTapped = func() { d.showAddMenu(add) }
+	d.toggle = widget.NewButtonWithIcon("", theme.MenuDropDownIcon(), d.toggleExpanded)
+	d.toggle.Importance = widget.LowImportance
+	d.strip = container.NewStack(newSurface(colorDock),
+		container.NewBorder(nil, nil, container.NewHBox(d.tabRow, add), d.toggle))
+	d.stripHolder = container.NewStack()
+	d.collapsedBar = container.NewVBox()
+	d.body = container.NewStack()
+	d.panel = container.NewBorder(container.NewVBox(newDivider(false), d.stripHolder, newDivider(false)), nil, nil, nil,
+		container.NewStack(newSurface(colorDock), d.body))
+	d.updateToggle()
+	return d
+}
+
+// open reports whether the dock shows its panel, not only its strip.
+func (d *dock) open() bool { return d.expanded && len(d.tabs) > 0 }
+
+// attachStrip moves the strip to the top of the panel, or to the collapsed bar.
+func (d *dock) attachStrip(panel bool) {
+	if panel {
+		d.collapsedBar.Objects = nil
+		d.stripHolder.Objects = []fyne.CanvasObject{d.strip}
+	} else {
+		d.stripHolder.Objects = nil
+		d.collapsedBar.Objects = []fyne.CanvasObject{newDivider(false), d.strip}
+	}
+	d.collapsedBar.Refresh()
+	d.stripHolder.Refresh()
+}
+
+// sync follows UIState.Dock: opens new tabs, closes removed ones, shows the active one.
+func (d *dock) sync(tabs []engine.DockTab, active string) {
+	added := false
+	seen := make(map[string]bool, len(tabs))
+	for _, t := range tabs {
+		seen[t.ID] = true
+		if _, ok := d.contents[t.ID]; !ok {
+			d.contents[t.ID] = d.openTab(t)
+			added = true
+		}
+	}
+	for id, c := range d.contents {
+		if !seen[id] {
+			c.close()
+			delete(d.contents, id)
+		}
+	}
+	d.tabs = append(d.tabs[:0], tabs...)
+	d.active = active
+	if _, ok := d.contents[d.active]; !ok && len(tabs) > 0 {
+		d.active = tabs[len(tabs)-1].ID
+	}
+	if added {
+		d.expanded = true
+	}
+	d.rebuildStrip()
+	d.showActive()
+}
+
+// openTab starts opening a tab's stream off the main goroutine; until it is open, or if it fails,
+// the tab says so.
+func (d *dock) openTab(t engine.DockTab) *dockContent {
+	c := &dockContent{tab: t, obj: container.NewStack(dockMessage("Opening "+t.Title+"…", colorMuted))}
+	ctx, cancel := context.WithCancel(d.sh.ctx)
+	c.cancel = cancel
+	id := t.ID
+	switch t.Type {
+	case engine.DockLogs:
+		go func() {
+			defer d.sh.recoverTo("logs")
+			stream, err := d.sh.eng.OpenLogs(ctx, id)
+			d.sh.do(func() {
+				if c.closed {
+					if stream != nil {
+						go func() { _ = stream.Close() }() // the tab is gone; nobody to tell
+					}
+					return
+				}
+				if err != nil {
+					c.set(dockMessage("Could not open the logs: "+err.Error(), colorStatusError))
+					return
+				}
+				w := termview.NewLogs(stream)
+				c.closer = w
+				c.set(w)
+			})
+		}()
+	case engine.DockTerminal, engine.DockShell:
+		go func() {
+			defer d.sh.recoverTo("terminal")
+			sess, err := d.sh.eng.OpenTerminal(ctx, id)
+			d.sh.do(func() {
+				if c.closed {
+					if sess != nil {
+						go func() { _ = sess.Close() }() // the tab is gone; nobody to tell
+					}
+					return
+				}
+				if err != nil {
+					c.set(dockMessage("Could not start the session: "+err.Error(), colorStatusError))
+					return
+				}
+				w := termview.NewTerminal(sess)
+				c.closer = w
+				c.set(w)
+			})
+		}()
+	default:
+		c.set(dockMessage(fmt.Sprintf("Cogpit cannot show %q tabs yet.", t.Type), colorMuted))
+	}
+	return c
+}
+
+func (c *dockContent) set(o fyne.CanvasObject) {
+	c.obj.Objects = []fyne.CanvasObject{o}
+	c.obj.Refresh()
+}
+
+// close stops opening and closes the stream; closing may wait for a process, so it runs off the
+// main goroutine.
+func (c *dockContent) close() {
+	if c.closed {
+		return
+	}
+	c.closed = true
+	c.cancel()
+	if cl := c.closer; cl != nil {
+		go func() { _ = cl.Close() }() // the tab is gone; nobody to tell
+	}
+}
+
+// closeAll closes every tab's stream when the window closes.
+func (d *dock) closeAll() {
+	for id, c := range d.contents {
+		c.close()
+		delete(d.contents, id)
+	}
+}
+
+func (d *dock) rebuildStrip() {
+	objs := make([]fyne.CanvasObject, 0, len(d.tabs))
+	for _, t := range d.tabs {
+		id := t.ID
+		icon := theme.ComputerIcon()
+		if t.Type == engine.DockLogs {
+			icon = theme.DocumentIcon()
+		}
+		objs = append(objs, newTabButton(t.Title, icon, id == d.active && d.open(),
+			func() {
+				d.expanded = true
+				d.sh.layoutBody()
+				d.rebuildStrip()
+				if id != d.active {
+					d.sh.dispatch("dock.activate", dockParams{ID: id}, nil)
+				}
+			},
+			func() { d.sh.dispatch("dock.close", dockParams{ID: id}, nil) }))
+	}
+	d.tabRow.Objects = objs
+	d.tabRow.Refresh()
+	d.updateToggle()
+}
+
+func (d *dock) showActive() {
+	if c, ok := d.contents[d.active]; ok {
+		d.body.Objects = []fyne.CanvasObject{c.obj}
+	} else {
+		d.body.Objects = nil
+	}
+	d.body.Refresh()
+}
+
+func (d *dock) toggleExpanded() {
+	d.expanded = !d.expanded
+	d.sh.layoutBody()
+	d.rebuildStrip()
+}
+
+func (d *dock) updateToggle() {
+	if len(d.tabs) == 0 {
+		d.toggle.Hide()
+		return
+	}
+	d.toggle.Show()
+	if d.open() {
+		d.toggle.SetIcon(theme.MenuDropDownIcon())
+	} else {
+		d.toggle.SetIcon(theme.MenuDropUpIcon())
+	}
+}
+
+// showAddMenu offers new tabs; an item the engine disables says why.
+func (d *dock) showAddMenu(from fyne.CanvasObject) {
+	go func() {
+		reason := ""
+		if err := d.sh.commandEnabled("terminal.open", struct{}{}); err != nil {
+			reason = err.Error()
+		}
+		d.sh.do(func() {
+			item := fyne.NewMenuItem("Terminal session", func() { d.sh.dispatch("terminal.open", struct{}{}, nil) })
+			if reason != "" {
+				item.Label += " (" + reason + ")"
+				item.Disabled = true
+			}
+			if cnv := fyne.CurrentApp().Driver().CanvasForObject(from); cnv != nil {
+				m := widget.NewPopUpMenu(fyne.NewMenu("", item), cnv)
+				m.ShowAtRelativePosition(fyne.NewPos(0, -m.MinSize().Height), from)
+			}
+		})
+	}()
+}
+
+// dockMessage is a centred line of text in a dock tab: opening, failed, unsupported.
+func dockMessage(text string, c fyne.ThemeColorName) fyne.CanvasObject {
+	return container.NewCenter(newTextLine(text, c, theme.SizeNameText, fyne.TextStyle{}))
+}
+
+// tabButton is one dock tab: an icon, the title and a close button; the active tab is raised and
+// underlined in the accent colour.
+type tabButton struct {
+	widget.BaseWidget
+	title  string
+	icon   fyne.Resource
+	active bool
+	onTap  func()
+
+	bg    *canvas.Rectangle
+	under *canvas.Rectangle
+	img   *iconImage
+	txt   *textLine
+	close *widget.Button
+}
+
+func newTabButton(title string, icon fyne.Resource, active bool, onTap, onClose func()) *tabButton {
+	b := &tabButton{title: title, icon: icon, active: active, onTap: onTap,
+		bg: canvas.NewRectangle(color.Transparent), under: canvas.NewRectangle(color.Transparent),
+		img: newIconImage()}
+	b.txt = newTextLine(title, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{})
+	b.txt.truncate = true
+	b.close = widget.NewButtonWithIcon("", theme.CancelIcon(), onClose)
+	b.close.Importance = widget.LowImportance
+	b.ExtendBaseWidget(b)
+	return b
+}
+
+// Tapped implements fyne.Tappable.
+func (b *tabButton) Tapped(*fyne.PointEvent) {
+	if b.onTap != nil {
+		b.onTap()
+	}
+}
+
+// CreateRenderer implements fyne.Widget.
+func (b *tabButton) CreateRenderer() fyne.WidgetRenderer {
+	r := &tabButtonRenderer{b: b}
+	r.Refresh()
+	return r
+}
+
+type tabButtonRenderer struct{ b *tabButton }
+
+func (r *tabButtonRenderer) dims() (pad, icon, maxText float32) {
+	th := r.b.Theme()
+	return th.Size(theme.SizeNameInnerPadding), th.Size(theme.SizeNameInlineIcon), th.Size(sizeDockTabMaxLen)
+}
+
+func (r *tabButtonRenderer) textWidth() float32 {
+	_, _, maxText := r.dims()
+	th := r.b.Theme()
+	w := fyne.MeasureText(r.b.title, th.Size(theme.SizeNameText), fyne.TextStyle{}).Width
+	return fyne.Min(w, maxText)
+}
+
+func (r *tabButtonRenderer) MinSize() fyne.Size {
+	pad, icon, _ := r.dims()
+	c := r.b.close.MinSize()
+	return fyne.NewSize(pad+icon+pad+r.textWidth()+c.Width, fyne.Max(c.Height, icon+2*pad))
+}
+
+func (r *tabButtonRenderer) Layout(size fyne.Size) {
+	b := r.b
+	pad, icon, _ := r.dims()
+	line := b.Theme().Size(theme.SizeNameSeparatorThickness) * 2
+	b.bg.Resize(size)
+	b.under.Move(fyne.NewPos(0, size.Height-line))
+	b.under.Resize(fyne.NewSize(size.Width, line))
+	b.img.img.Move(fyne.NewPos(pad, (size.Height-icon)/2))
+	b.img.img.Resize(fyne.NewSize(icon, icon))
+	c := b.close.MinSize()
+	tw := size.Width - (pad + icon + pad) - c.Width
+	b.txt.Move(fyne.NewPos(pad+icon+pad, 0))
+	b.txt.Resize(fyne.NewSize(fyne.Max(tw, 0), size.Height))
+	b.close.Move(fyne.NewPos(size.Width-c.Width, (size.Height-c.Height)/2))
+	b.close.Resize(c)
+}
+
+func (r *tabButtonRenderer) Refresh() {
+	b := r.b
+	th := b.Theme()
+	if b.active {
+		b.bg.FillColor = themeColor(th, colorDockTab)
+		b.under.FillColor = themeColor(th, colorAccent)
+		b.img.set(th, b.icon, colorAccent)
+	} else {
+		b.bg.FillColor = color.Transparent
+		b.under.FillColor = color.Transparent
+		b.img.set(th, b.icon, colorMuted)
+	}
+	r.Layout(b.Size())
+	b.bg.Refresh()
+	b.under.Refresh()
+}
+
+func (r *tabButtonRenderer) Objects() []fyne.CanvasObject {
+	return []fyne.CanvasObject{r.b.bg, r.b.under, r.b.img.img, r.b.txt, r.b.close}
+}
+
+func (r *tabButtonRenderer) Destroy() {}

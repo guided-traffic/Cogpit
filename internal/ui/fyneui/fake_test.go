@@ -1,0 +1,634 @@
+package fyneui
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"math/rand"
+	"slices"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/test"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/terminal"
+)
+
+// fixedNow is the clock of every test, so that ages in the PNGs do not change between runs.
+var fixedNow = time.Date(2026, 10, 11, 14, 30, 0, 0, time.UTC)
+
+// fakeEngine is an Engine with canned data. Dispatch changes its UI state the way the real
+// engine's commands do and emits events on the dispatching goroutine, as the real one does.
+type fakeEngine struct {
+	mu         sync.Mutex
+	ui         engine.UIState
+	tables     map[string]*engine.TableSnapshot
+	details    map[string]*engine.DetailModel
+	subs       map[int]func(engine.Event)
+	nextSub    int
+	calls      []engine.Invocation
+	reg        *engine.Registry
+	contexts   []engine.ContextInfo
+	diag       engine.Diagnostics
+	confirmer  engine.Confirmer
+	kinds      []kindInfo
+	namespaces []string
+	disabled   map[string]string // command id → the reason Enabled returns
+	opened     map[string]int    // dock tab id → times its stream was opened
+	closed     map[string]int    // dock tab id → times its stream was closed
+}
+
+var _ Engine = (*fakeEngine)(nil)
+
+func newFakeEngine(t testing.TB) *fakeEngine {
+	f := &fakeEngine{
+		tables: map[string]*engine.TableSnapshot{}, details: map[string]*engine.DetailModel{},
+		subs: map[int]func(engine.Event){}, reg: engine.NewRegistry(), disabled: map[string]string{},
+		opened: map[string]int{}, closed: map[string]int{},
+	}
+	f.ui = engine.UIState{Connection: engine.Connection{State: engine.Disconnected}, Sort: engine.SortSpec{Column: "name"}}
+	enabled := func(id string) func(*engine.Session, containerParams) error {
+		return func(*engine.Session, containerParams) error { return f.reason(id) }
+	}
+	run := func(context.Context, *engine.Session, containerParams) (any, error) { return nil, nil }
+	must := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(engine.Register(f.reg, engine.Spec[containerParams]{ID: "pod.logs", Label: "Logs", Danger: engine.DangerRead, Enabled: enabled("pod.logs"), Run: run}))
+	must(engine.Register(f.reg, engine.Spec[containerParams]{ID: "pod.shell", Label: "Shell", Danger: engine.DangerRead, Enabled: enabled("pod.shell"), Run: run}))
+	targets := func(_ *engine.Session, p refParams) ([]model.ObjectRef, error) { return []model.ObjectRef{p.Ref}, nil }
+	runRef := func(context.Context, *engine.Session, refParams) (any, error) { return nil, nil }
+	must(engine.Register(f.reg, engine.Spec[refParams]{ID: "object.delete", Label: "Delete", Danger: engine.DangerDestructive,
+		Enabled: func(*engine.Session, refParams) error { return f.reason("object.delete") }, Targets: targets, Run: runRef}))
+	must(engine.Register(f.reg, engine.Spec[refParams]{ID: "deployment.restart", Label: "Restart", Danger: engine.DangerMutating,
+		Enabled: func(*engine.Session, refParams) error { return f.reason("deployment.restart") }, Targets: targets, Run: runRef}))
+	must(engine.Register(f.reg, engine.Spec[struct{}]{ID: "terminal.open", Label: "Terminal", Danger: engine.DangerUI,
+		Enabled: func(*engine.Session, struct{}) error { return f.reason("terminal.open") },
+		Run:     func(context.Context, *engine.Session, struct{}) (any, error) { return nil, nil }}))
+	return f
+}
+
+func (f *fakeEngine) reason(id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if r := f.disabled[id]; r != "" {
+		return errors.New(r)
+	}
+	return nil
+}
+
+func (f *fakeEngine) UIState() engine.UIState {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.ui.Clone()
+}
+
+func (f *fakeEngine) Table(view string) *engine.TableSnapshot {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.tables[view]
+}
+
+func (f *fakeEngine) Detail(ref model.ObjectRef) (*engine.DetailModel, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if d, ok := f.details[ref.String()]; ok {
+		return d, nil
+	}
+	return &engine.DetailModel{Ref: ref, Title: singular(strings.ToUpper(ref.Kind[:1])+ref.Kind[1:]) + ": " + ref.Name}, nil
+}
+
+func (f *fakeEngine) Subscribe(fn func(engine.Event)) func() {
+	f.mu.Lock()
+	id := f.nextSub
+	f.nextSub++
+	f.subs[id] = fn
+	f.mu.Unlock()
+	return func() {
+		f.mu.Lock()
+		delete(f.subs, id)
+		f.mu.Unlock()
+	}
+}
+
+func (f *fakeEngine) Diagnostics() engine.Diagnostics {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.diag
+}
+
+func (f *fakeEngine) Registry() *engine.Registry { return f.reg }
+
+func (f *fakeEngine) Contexts() ([]engine.ContextInfo, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.contexts), nil
+}
+
+// fakeStream is a log stream or terminal session that records being closed.
+type fakeStream struct {
+	io.Reader
+	f    *fakeEngine
+	id   string
+	done chan struct{}
+}
+
+func (s *fakeStream) Write(p []byte) (int, error) { return len(p), nil }
+func (s *fakeStream) Resize(uint16, uint16) error { return nil }
+func (s *fakeStream) Done() <-chan struct{}       { return s.done }
+func (s *fakeStream) Close() error {
+	s.f.mu.Lock()
+	s.f.closed[s.id]++
+	s.f.mu.Unlock()
+	return nil
+}
+
+func (f *fakeEngine) OpenLogs(_ context.Context, tabID string) (io.ReadCloser, error) {
+	f.mu.Lock()
+	f.opened[tabID]++
+	f.mu.Unlock()
+	return &fakeStream{Reader: strings.NewReader("2026-10-11T14:29:58Z listening on :8080\n"), f: f, id: tabID, done: make(chan struct{})}, nil
+}
+
+func (f *fakeEngine) OpenTerminal(_ context.Context, tabID string) (terminal.Session, error) {
+	f.mu.Lock()
+	f.opened[tabID]++
+	f.mu.Unlock()
+	return &fakeStream{Reader: strings.NewReader("$ "), f: f, id: tabID, done: make(chan struct{})}, nil
+}
+
+func (f *fakeEngine) SetConfirmer(c engine.Confirmer) {
+	f.mu.Lock()
+	f.confirmer = c
+	f.mu.Unlock()
+}
+
+// emit delivers an event to every subscriber on the calling goroutine.
+func (f *fakeEngine) emit(ev engine.Event) {
+	f.mu.Lock()
+	fns := make([]func(engine.Event), 0, len(f.subs))
+	for _, fn := range f.subs {
+		fns = append(fns, fn)
+	}
+	f.mu.Unlock()
+	for _, fn := range fns {
+		fn(ev)
+	}
+}
+
+// update changes the UI state and emits it, as Session.UpdateUI does.
+func (f *fakeEngine) update(fn func(*engine.UIState)) {
+	f.mu.Lock()
+	fn(&f.ui)
+	f.ui.Revision++
+	st := f.ui.Clone()
+	f.mu.Unlock()
+	f.emit(engine.Event{Type: engine.EventUIState, UIState: &st})
+}
+
+// setTable replaces a view's snapshot and emits EventTable.
+func (f *fakeEngine) setTable(view string, snap *engine.TableSnapshot) {
+	f.mu.Lock()
+	f.tables[view] = snap
+	f.mu.Unlock()
+	f.emit(engine.Event{Type: engine.EventTable, View: view})
+}
+
+// callsOf returns the recorded invocations of a command.
+func (f *fakeEngine) callsOf(id string) []engine.Invocation {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []engine.Invocation
+	for _, c := range f.calls {
+		if c.ID == id {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+func (f *fakeEngine) Dispatch(ctx context.Context, inv engine.Invocation) (any, error) {
+	f.mu.Lock()
+	f.calls = append(f.calls, inv)
+	f.mu.Unlock()
+	params := func(p any) error { return json.Unmarshal(normalize(inv.Params), p) }
+	switch inv.ID {
+	case "ui.openView":
+		var p openViewParams
+		if err := params(&p); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) { u.View, u.Selected, u.Drawer = p.View, nil, nil })
+	case "ui.select":
+		var p selectParams
+		if err := params(&p); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) {
+			u.Selected = p.Refs
+			if !p.NoDrawer && len(p.Refs) > 0 {
+				r := p.Refs[0]
+				u.Drawer = &r
+			}
+		})
+	case "ui.navigate":
+		var p refParams
+		if err := params(&p); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) { r := p.Ref; u.View, u.Selected, u.Drawer = r.Kind, []model.ObjectRef{r}, &r })
+	case "ui.sort":
+		var p sortParams
+		if err := params(&p); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) { u.Sort = engine.SortSpec{Column: p.Column, Desc: p.Desc} })
+		f.mu.Lock()
+		view := f.ui.View
+		if s := f.tables[view]; s != nil {
+			c := *s
+			c.Sort = engine.SortSpec{Column: p.Column, Desc: p.Desc}
+			c.Revision++
+			f.tables[view] = &c
+		}
+		f.mu.Unlock()
+		f.emit(engine.Event{Type: engine.EventTable, View: view})
+	case "ui.setFilter":
+		var p filterParams
+		if err := params(&p); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) { u.Filter = p.Filter })
+	case "ui.setNamespace":
+		var p namespacesParams
+		if err := params(&p); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) { u.Namespaces = p.Namespaces })
+	case "ui.closeDrawer":
+		f.update(func(u *engine.UIState) { u.Drawer = nil })
+	case "cluster.connect":
+		var p contextParams
+		if err := params(&p); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) {
+			u.Context = p.Context
+			u.Connection = engine.Connection{State: engine.Connected, Demo: p.Context == "demo"}
+			u.View = "pods"
+		})
+	case "kinds.list":
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		return slices.Clone(f.kinds), nil
+	case "resources.list":
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		rows := make([]map[string]any, 0, len(f.namespaces))
+		for _, n := range f.namespaces {
+			rows = append(rows, map[string]any{"ref": model.ObjectRef{Kind: "namespaces", Name: n}, "status": "ok", "cells": []string{n}})
+		}
+		return map[string]any{"rows": rows}, nil
+	case "pod.logs", "pod.shell":
+		var p containerParams
+		if err := params(&p); err != nil {
+			return nil, err
+		}
+		typ, title := engine.DockLogs, "Logs: "
+		if inv.ID == "pod.shell" {
+			typ, title = engine.DockShell, "Shell: "
+		}
+		f.update(func(u *engine.UIState) {
+			id := fmt.Sprintf("%s-%d", typ, len(u.Dock)+1)
+			r := p.Ref
+			u.Dock = append(u.Dock, engine.DockTab{ID: id, Type: typ, Title: title + p.Ref.Name, Ref: &r, Container: p.Container})
+			u.ActiveDock = id
+		})
+	case "terminal.open":
+		f.update(func(u *engine.UIState) {
+			id := fmt.Sprintf("terminal-%d", len(u.Dock)+1)
+			u.Dock = append(u.Dock, engine.DockTab{ID: id, Type: engine.DockTerminal, Title: "Terminal: " + u.Context})
+			u.ActiveDock = id
+		})
+	case "dock.close":
+		var p dockParams
+		if err := params(&p); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) {
+			u.Dock = slices.DeleteFunc(u.Dock, func(t engine.DockTab) bool { return t.ID == p.ID })
+			if u.ActiveDock == p.ID {
+				u.ActiveDock = ""
+				if len(u.Dock) > 0 {
+					u.ActiveDock = u.Dock[len(u.Dock)-1].ID
+				}
+			}
+		})
+	case "dock.activate":
+		var p dockParams
+		if err := params(&p); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) { u.ActiveDock = p.ID })
+	case "object.delete":
+		var p refParams
+		if err := params(&p); err != nil {
+			return nil, err
+		}
+		f.mu.Lock()
+		c, uiCtx := f.confirmer, f.ui.Context
+		f.mu.Unlock()
+		if c == nil {
+			return nil, engine.ErrConfirmationUnavailable
+		}
+		ok, err := c.Confirm(ctx, engine.ConfirmRequest{Command: inv.ID, Label: "Delete", Danger: engine.DangerDestructive,
+			Origin: inv.Origin, Context: uiCtx, Namespaces: []string{p.Ref.Namespace}, Objects: []model.ObjectRef{p.Ref}})
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, engine.ErrDeclined
+		}
+	default:
+		return nil, fmt.Errorf("%w: %q", engine.ErrUnknownCommand, inv.ID)
+	}
+	return nil, nil
+}
+
+func normalize(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return json.RawMessage("{}")
+	}
+	return raw
+}
+
+// mainQueue stands in for Fyne's main goroutine in tests: the shell posts functions with do, and
+// the test goroutine runs them with drain. Fyne's test driver runs fyne.Do synchronously on the
+// calling goroutine, which would let engine goroutines touch widgets; the queue keeps every widget
+// update on the test goroutine, so the race detector sees any update that bypasses sh.do.
+type mainQueue struct {
+	mu  sync.Mutex
+	fns []func()
+}
+
+func (q *mainQueue) do(fn func()) {
+	q.mu.Lock()
+	q.fns = append(q.fns, fn)
+	q.mu.Unlock()
+}
+
+// drain runs queued functions until the queue is empty.
+func (q *mainQueue) drain() {
+	for {
+		q.mu.Lock()
+		if len(q.fns) == 0 {
+			q.mu.Unlock()
+			return
+		}
+		fn := q.fns[0]
+		q.fns = q.fns[1:]
+		q.mu.Unlock()
+		fn()
+	}
+}
+
+// until drains the queue until cond holds, failing the test after five seconds.
+func (q *mainQueue) until(t testing.TB, what string, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		q.drain()
+		if cond() {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %s", what)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+// newTestShell starts a shell on f in a 1440×900 offscreen window.
+func newTestShell(t testing.TB, f *fakeEngine, opts Options) (*shell, fyne.Window, *mainQueue) {
+	t.Helper()
+	a := test.NewTempApp(t)
+	a.Settings().SetTheme(newTheme(opts.Theme))
+	w := test.NewTempWindow(t, nil)
+	w.SetPadded(false)
+	q := &mainQueue{}
+	sh := newShell(f, a, w, opts, q.do)
+	sh.now = func() time.Time { return fixedNow }
+	f.SetConfirmer(sh.confirmer)
+	w.SetContent(sh.root)
+	w.Resize(fyne.NewSize(1440, 900))
+	sh.start()
+	t.Cleanup(func() {
+		sh.stop()
+		q.drain()
+	})
+	return sh, w, q
+}
+
+// The fixture: a demo-like cluster with 10,000 pods.
+
+var fixtureNamespaces = []string{
+	"argo", "cert-manager", "checkout", "data-pipeline", "default", "identity", "ingress-nginx",
+	"inventory", "kube-system", "logging", "ml-serving", "monitoring", "notifications", "orders",
+	"payments", "platform", "qa", "search", "staging", "storefront",
+}
+
+var fixtureApps = []string{
+	"checkout-api", "payments-worker", "web-frontend", "search-indexer", "cart-service",
+	"auth-gateway", "inventory-sync", "notification-dispatcher", "recommendation-engine",
+	"metrics-collector", "image-resizer", "order-processor", "fraud-detector", "session-cache",
+	"ledger-writer", "catalog-api", "pricing-engine", "shipping-quotes",
+}
+
+func fixtureKinds() []kindInfo {
+	return []kindInfo{
+		{Kind: "nodes", Title: "Nodes", APIKind: "Node", Version: "v1"},
+		{Kind: "pods", Title: "Pods", APIKind: "Pod", Version: "v1", Namespaced: true},
+		{Kind: "deployments", Title: "Deployments", APIKind: "Deployment", Group: "apps", Version: "v1", Namespaced: true},
+		{Kind: "services", Title: "Services", APIKind: "Service", Version: "v1", Namespaced: true},
+		{Kind: "namespaces", Title: "Namespaces", APIKind: "Namespace", Version: "v1"},
+		{Kind: "events", Title: "Events", APIKind: "Event", Version: "v1", Namespaced: true},
+	}
+}
+
+var podColumns = []model.Column{
+	{ID: "name", Title: "Name", Type: model.ColumnText},
+	{ID: "namespace", Title: "Namespace", Type: model.ColumnText},
+	{ID: "containers", Title: "Containers", Type: model.ColumnNumber},
+	{ID: "restarts", Title: "Restarts", Type: model.ColumnNumber},
+	{ID: "controlledBy", Title: "Controlled By", Type: model.ColumnText},
+	{ID: "node", Title: "Node", Type: model.ColumnText},
+	{ID: "qos", Title: "QoS", Type: model.ColumnText},
+	{ID: "age", Title: "Age", Type: model.ColumnAge},
+	{ID: "status", Title: "Status", Type: model.ColumnText},
+}
+
+// fixturePods returns n pods, sorted by name, deterministic for a seed.
+func fixturePods(n int, seed int64) *engine.TableSnapshot {
+	rng := rand.New(rand.NewSource(seed))
+	const alnum = "bcdfghjklmnpqrstvwxz2456789"
+	randStr := func(k int) string {
+		b := make([]byte, k)
+		for i := range b {
+			b[i] = alnum[rng.Intn(len(alnum))]
+		}
+		return string(b)
+	}
+	hashes := map[string]string{}
+	rows := make([]model.Row, 0, n)
+	for i := 0; i < n; i++ {
+		app := fixtureApps[rng.Intn(len(fixtureApps))]
+		ns := fixtureNamespaces[rng.Intn(len(fixtureNamespaces))]
+		key := app + "/" + ns
+		if hashes[key] == "" {
+			hashes[key] = randStr(10)
+		}
+		name := app + "-" + hashes[key] + "-" + randStr(5)
+		owner := "ReplicaSet " + app + "-" + hashes[key]
+		if ns == "kube-system" {
+			app, owner = "kube-proxy", "DaemonSet kube-proxy"
+			name = "kube-proxy-" + randStr(5)
+		}
+		status, token := "Running", model.StatusOK
+		switch r := rng.Intn(100); {
+		case r < 3:
+			status, token = "CrashLoopBackOff", model.StatusError
+		case r < 6:
+			status, token = "Pending", model.StatusPending
+		case r < 8:
+			status, token = "Completed", model.StatusSucceeded
+			owner = "Job " + app + "-29384" + randStr(2)
+		case r < 9:
+			status, token = "Terminating", model.StatusTerminating
+		case r < 10:
+			status, token = "ContainerCreating", model.StatusPending
+		}
+		containers := 1 + rng.Intn(2)
+		ready := containers
+		if token != model.StatusOK {
+			ready = rng.Intn(containers + 1)
+		}
+		restarts := int64(0)
+		if rng.Intn(5) == 0 {
+			restarts = int64(rng.Intn(12))
+		}
+		if token == model.StatusError {
+			restarts = int64(20 + rng.Intn(400))
+		}
+		qos := []string{"Burstable", "Burstable", "Burstable", "Guaranteed", "Guaranteed", "BestEffort"}[rng.Intn(6)]
+		node := fmt.Sprintf("worker-%c-%02d", 'a'+rune(rng.Intn(3)), 1+rng.Intn(17))
+		created := fixedNow.Add(-time.Duration(rng.Int63n(int64(45 * 24 * time.Hour))))
+		ref := model.ObjectRef{Context: "demo", Kind: "pods", Namespace: ns, Name: name}
+		rows = append(rows, model.Row{
+			Ref: ref, Status: token,
+			Cells: []model.Cell{
+				{Text: name}, {Text: ns},
+				{Text: fmt.Sprintf("%d/%d", ready, containers), Num: int64(ready)},
+				{Num: restarts},
+				{Text: owner}, {Text: node}, {Text: qos},
+				{Num: created.Unix()},
+				{Text: status, Status: token},
+			},
+		})
+	}
+	slices.SortFunc(rows, func(a, b model.Row) int { return strings.Compare(a.Ref.Name, b.Ref.Name) })
+	return &engine.TableSnapshot{
+		View: "pods", Context: "demo", Title: "Pods", Namespaced: true, Columns: podColumns, Rows: rows,
+		Sort: engine.SortSpec{Column: "name"}, Total: n, Revision: 1, Synced: true,
+	}
+}
+
+// fixturePodDetail is the drawer model of a pod.
+func fixturePodDetail(row model.Row) *engine.DetailModel {
+	ref := row.Ref
+	app := ref.Name
+	if i := strings.LastIndex(app, "-"); i > 0 {
+		app = app[:i]
+	}
+	created := time.Unix(row.Cells[7].Num, 0).UTC()
+	return &engine.DetailModel{
+		Ref: ref, Title: "Pod: " + ref.Name, Status: model.StatusOK,
+		Containers: []string{"api", "envoy"},
+		Sections: []model.DetailSection{
+			{Title: "Metadata", Items: []model.DetailItem{
+				{Name: "Created", Value: model.FormatAge(fixedNow.Sub(created)) + " ago (" + created.Format(time.RFC3339) + ")"},
+				{Name: "Name", Value: ref.Name},
+				{Name: "Namespace", Value: ref.Namespace},
+				{Name: "Labels", Value: "app=checkout-api\npod-template-hash=" + strings.TrimPrefix(app, "checkout-api-") + "\ntier=backend"},
+				{Name: "Annotations", Value: "prometheus.io/port=9102\nprometheus.io/scrape=true"},
+				{Name: "Controlled By", Value: row.Cells[4].Text},
+				{Name: "UID", Value: "4f1c2a7e-93d8-4b6e-a0c5-1d2e3f4a5b6c"},
+			}},
+			{Title: "Pod", Items: []model.DetailItem{
+				{Name: "Status", Value: "Running", Status: model.StatusOK},
+				{Name: "Node", Value: row.Cells[5].Text},
+				{Name: "Pod IP", Value: "10.244.7.31"},
+				{Name: "Service Account", Value: "checkout-api"},
+				{Name: "QoS Class", Value: row.Cells[6].Text},
+				{Name: "Conditions", Value: "Initialized · Ready · ContainersReady · PodScheduled"},
+			}},
+			{Title: "Containers", Items: []model.DetailItem{
+				{Name: "api", Value: "Running", Status: model.StatusOK},
+				{Name: "Image", Value: "ghcr.io/example/checkout-api:2.14.1"},
+				{Name: "Ports", Value: "http 8080/TCP · metrics 9102/TCP"},
+				{Name: "envoy", Value: "Running", Status: model.StatusOK},
+				{Name: "Image", Value: "envoyproxy/envoy:v1.31.2"},
+			}},
+		},
+		Events: []engine.EventItem{
+			{Type: "Warning", Reason: "Unhealthy", Message: "Readiness probe failed: HTTP probe failed with statuscode: 503", Source: "kubelet", Count: 3, LastSeen: fixedNow.Add(-4 * time.Minute).Unix(), Status: model.StatusWarning},
+			{Type: "Normal", Reason: "Started", Message: "Started container api", Source: "kubelet", Count: 1, LastSeen: fixedNow.Add(-26 * time.Hour).Unix()},
+			{Type: "Normal", Reason: "Pulled", Message: "Container image \"ghcr.io/example/checkout-api:2.14.1\" already present on machine", Source: "kubelet", Count: 1, LastSeen: fixedNow.Add(-26 * time.Hour).Unix()},
+			{Type: "Normal", Reason: "Scheduled", Message: "Successfully assigned " + ref.Namespace + "/" + ref.Name + " to " + row.Cells[5].Text, Source: "default-scheduler", Count: 1, LastSeen: fixedNow.Add(-26 * time.Hour).Unix()},
+		},
+		YAML: "apiVersion: v1\nkind: Pod\nmetadata:\n  name: " + ref.Name + "\n  namespace: " + ref.Namespace + "\n  labels:\n    app: checkout-api\nspec:\n  containers:\n  - name: api\n    image: ghcr.io/example/checkout-api:2.14.1\n  - name: envoy\n    image: envoyproxy/envoy:v1.31.2\nstatus:\n  phase: Running\n",
+	}
+}
+
+func fixtureDiagnostics() engine.Diagnostics {
+	d := engine.Diagnostics{Context: "demo", Demo: true, Snapshots: 5321,
+		DemoStats: map[string]any{"objects": 10870, "eventsSent": 1234567, "eventsPerSec": 1000.0}}
+	d.Requests.Total = 1284
+	d.Requests.ByVerb = map[string]int64{"list": 12, "watch": 9, "get": 3}
+	// Six informers; the UI only counts them, and may not import package cache to name the type.
+	d.Informers = slices.Grow(d.Informers, 6)[:6]
+	return d
+}
+
+func fixtureContexts() []engine.ContextInfo {
+	return []engine.ContextInfo{
+		{Name: "demo", Demo: true},
+		{Name: "kind-cogpit", Cluster: "kind-cogpit", User: "kind-cogpit", Server: "https://127.0.0.1:52341", Current: true},
+		{Name: "prod-eu-central", Cluster: "prod-eu-central", Server: "https://api.prod-eu-central.example.com:6443", Namespace: "platform"},
+		{Name: "staging-us-east", Cluster: "staging-us-east", Server: "https://api.staging-us-east.example.com:6443"},
+		{Name: "dev-hfi", Cluster: "minikube", Server: "https://192.168.49.2:8443", Namespace: "default"},
+	}
+}
+
+// connectedFake is a fake connected to the demo cluster, showing pods.
+func connectedFake(t testing.TB, pods int) *fakeEngine {
+	f := newFakeEngine(t)
+	f.kinds = fixtureKinds()
+	f.namespaces = fixtureNamespaces
+	f.contexts = fixtureContexts()
+	f.diag = fixtureDiagnostics()
+	f.ui.Context = "demo"
+	f.ui.Connection = engine.Connection{State: engine.Connected, Demo: true}
+	f.ui.View = "pods"
+	f.ui.Revision = 1
+	f.tables["pods"] = fixturePods(pods, 7)
+	return f
+}
