@@ -8,6 +8,13 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
+// Column titles of the drawer tables of Limit Ranges, Resource Quotas and Horizontal Pod
+// Autoscalers.
+const (
+	titleType     = "Type"
+	titleResource = "Resource"
+)
+
 // limitRangeBounds are the bounds of a limit range entry, in the drawer's column order.
 var limitRangeBounds = []struct{ field, title string }{
 	{"min", "Min"},
@@ -53,7 +60,7 @@ func limitRangeCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status
 // limitRangeDetail renders spec.limits as one table: a row per limit type and resource, the
 // resources of each type sorted, a bound the entry does not set left empty.
 func limitRangeDetail(obj *unstructured.Unstructured) []model.DetailSection {
-	t := &model.DetailTable{Columns: []string{"Type", "Resource"}}
+	t := &model.DetailTable{Columns: []string{titleType, titleResource}}
 	for _, b := range limitRangeBounds {
 		t.Columns = append(t.Columns, b.title)
 	}
@@ -65,7 +72,8 @@ func limitRangeDetail(obj *unstructured.Unstructured) []model.DetailSection {
 		typ := model.NestedString(l, "type")
 		sort.Strings(resources)
 		for _, r := range resources {
-			row := []string{typ, r}
+			row := make([]string, 0, 2+len(limitRangeBounds))
+			row = append(row, typ, r)
 			for _, b := range limitRangeBounds {
 				row = append(row, model.NestedIntOrString(l, b.field, r))
 			}

@@ -23,6 +23,12 @@ const (
 	itemReinvocationPolicy = "Reinvocation Policy"
 )
 
+// Column and field ids the admission kinds share.
+const (
+	idFailurePolicy = "failurePolicy"
+	idPolicy        = "policy" // a binding's policy
+)
+
 // admissionRuleText renders a rule with operations: "CREATE, UPDATE apps/v1 deployments,
 // statefulsets (Namespaced)", the core group as "core", a rule's resource names after a colon;
 // "" for a rule that names nothing.
@@ -106,7 +112,7 @@ func (d *detailItems) addPolicySpec(obj any) {
 }
 
 // policyColumn is the Policy column of both binding views: the bound policy, a link to it.
-var policyColumn = model.Column{ID: "policy", Title: "Policy", Type: model.ColumnText}
+var policyColumn = model.Column{ID: idPolicy, Title: "Policy", Type: model.ColumnText}
 
 // policyCell is a binding's spec.policyName with a link to the policy, of the kind policyKind.
 func policyCell(obj any, policyKind string) model.Cell {
@@ -116,7 +122,7 @@ func policyCell(obj any, policyKind string) model.Cell {
 
 // bindingFields are the searchable fields of both binding kinds.
 var bindingFields = map[string]fieldFunc{
-	"policy": func(obj *unstructured.Unstructured) []string {
+	idPolicy: func(obj *unstructured.Unstructured) []string {
 		return nonEmpty(model.NestedString(obj, "spec", "policyName"))
 	},
 }
@@ -184,8 +190,12 @@ func webhookConfigurationCells(obj *unstructured.Unstructured) ([]model.Cell, mo
 // webhookConfigurationDetail is the drawer of both webhook configuration kinds: one section per
 // webhook, titled by its name, under the heading Webhooks (inferred).
 func webhookConfigurationDetail(obj *unstructured.Unstructured) []model.DetailSection {
-	var sections []model.DetailSection
-	for i, w := range model.NestedSlice(obj, "webhooks") {
+	webhooks := model.NestedSlice(obj, "webhooks")
+	if len(webhooks) == 0 {
+		return nil
+	}
+	sections := make([]model.DetailSection, 0, len(webhooks))
+	for i, w := range webhooks {
 		var d detailItems
 		client, link := webhookClient(w)
 		d.put(linkedItem("Client", client, link))

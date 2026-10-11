@@ -22,6 +22,9 @@ const (
 	hpaAverageValue    = "AverageValue"
 	hpaValue           = "Value"
 	hpaNoMetrics       = "<none>"
+	hpaTypeResource    = "Resource" // a metric of the pods' resource use
+	titleReplicas      = "Replicas"
+	idReplicas         = "replicas"
 	// hpaMetricsShown is how many metrics the Metrics column lists before "+ N more...".
 	hpaMetricsShown = 2
 )
@@ -29,7 +32,7 @@ const (
 // hpaSources maps a metric's type to the field of its source, in spec.metrics and in
 // status.currentMetrics alike.
 var hpaSources = map[string]string{
-	"Resource":          "resource",
+	hpaTypeResource:     "resource",
 	"ContainerResource": "containerResource",
 	"Pods":              "pods",
 	"Object":            "object",
@@ -55,7 +58,7 @@ var horizontalPodAutoscalers = &model.KindProfile{
 		{ID: "metrics", Title: "Metrics", Type: model.ColumnText},
 		{ID: "minPods", Title: "Min Pods", Type: model.ColumnNumber},
 		{ID: "maxPods", Title: "Max Pods", Type: model.ColumnNumber},
-		{ID: "replicas", Title: "Replicas", Type: model.ColumnNumber},
+		{ID: idReplicas, Title: titleReplicas, Type: model.ColumnNumber},
 		ageColumn,
 		statusColumn,
 	},
@@ -305,7 +308,7 @@ func hpaDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	sections := withSection(nil, model.TitleProperties, d)
 
 	if metrics := hpaMetrics(obj); len(metrics) > 0 {
-		t := &model.DetailTable{Columns: []string{"Metric", "Type", "Current", "Target"}}
+		t := &model.DetailTable{Columns: []string{"Metric", titleType, "Current", "Target"}}
 		for _, m := range metrics {
 			t.Rows = append(t.Rows, []string{m.name, m.typ, m.current, m.target})
 		}

@@ -32,12 +32,12 @@ var validatingAdmissionPolicies = &model.KindProfile{
 	Columns: []model.Column{
 		nameColumn,
 		{ID: "validations", Title: "Validations", Type: model.ColumnNumber},
-		{ID: "failurePolicy", Title: itemFailurePolicy, Type: model.ColumnText},
+		{ID: idFailurePolicy, Title: itemFailurePolicy, Type: model.ColumnText},
 		ageColumn,
 	},
 	Cells: validatingPolicyCells,
 	Fields: map[string]fieldFunc{
-		"failurePolicy": func(obj *unstructured.Unstructured) []string {
+		idFailurePolicy: func(obj *unstructured.Unstructured) []string {
 			return nonEmpty(model.NestedString(obj, "spec", "failurePolicy"))
 		},
 	},
@@ -60,8 +60,9 @@ func validatingPolicyCells(obj *unstructured.Unstructured) ([]model.Cell, model.
 // typeCheckWarnings returns what type checking found in the policy's expressions, each as
 // "field: warning".
 func typeCheckWarnings(obj any) []string {
-	var out []string
-	for _, w := range model.NestedSlice(obj, "status", "typeChecking", "expressionWarnings") {
+	warnings := model.NestedSlice(obj, "status", "typeChecking", "expressionWarnings")
+	out := make([]string, 0, len(warnings))
+	for _, w := range warnings {
 		text := singleLine(model.NestedString(w, "warning"))
 		if field := model.NestedString(w, "fieldRef"); field != "" {
 			text = field + ": " + text

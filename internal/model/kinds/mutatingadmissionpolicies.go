@@ -27,12 +27,12 @@ var mutatingAdmissionPolicies = &model.KindProfile{
 		nameColumn,
 		{ID: "mutations", Title: "Mutations", Type: model.ColumnNumber},
 		{ID: "reinvocationPolicy", Title: itemReinvocationPolicy, Type: model.ColumnText},
-		{ID: "failurePolicy", Title: itemFailurePolicy, Type: model.ColumnText},
+		{ID: idFailurePolicy, Title: itemFailurePolicy, Type: model.ColumnText},
 		ageColumn,
 	},
 	Cells: mutatingPolicyCells,
 	Fields: map[string]fieldFunc{
-		"failurePolicy": func(obj *unstructured.Unstructured) []string {
+		idFailurePolicy: func(obj *unstructured.Unstructured) []string {
 			return nonEmpty(model.NestedString(obj, "spec", "failurePolicy"))
 		},
 	},

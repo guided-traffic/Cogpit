@@ -10,8 +10,12 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
-// itemAtLimit names the drawer item that lists a quota's resources at their hard limit.
-const itemAtLimit = "At Limit"
+const (
+	// itemAtLimit names the drawer item that lists a quota's resources at their hard limit.
+	itemAtLimit = "At Limit"
+	// idResource is the searchable field of the resources a quota limits.
+	idResource = "resource"
+)
 
 // resourceQuotas has the columns of Lens's documentation (not captured): Name, Namespace, Age.
 // Inferred: the status rule (a quota whose use reached a hard limit is a warning, because the API
@@ -28,7 +32,7 @@ var resourceQuotas = &model.KindProfile{
 	Cells:      resourceQuotaCells,
 	Fields: map[string]fieldFunc{
 		// "resource" lists the resources the quota limits: "cpu", "requests.memory", "pods".
-		"resource": func(obj *unstructured.Unstructured) []string {
+		idResource: func(obj *unstructured.Unstructured) []string {
 			return sortedKeys(quotaHard(obj))
 		},
 		"scope": func(obj *unstructured.Unstructured) []string {
@@ -123,7 +127,7 @@ func resourceQuotaDetail(obj *unstructured.Unstructured) []model.DetailSection {
 		return sections
 	}
 	used := model.NestedMap(obj, "status", "used")
-	t := &model.DetailTable{Columns: []string{"Resource", "Used", "Hard"}}
+	t := &model.DetailTable{Columns: []string{titleResource, "Used", "Hard"}}
 	for _, name := range sortedKeys(hard) {
 		u := model.NestedIntOrString(used, name)
 		if u == "" {
