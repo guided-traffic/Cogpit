@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -48,6 +49,15 @@ type PerfStats struct {
 	MaxMs     float64 `json:"maxMs"`
 	Over16Ms  int     `json:"over16Ms"`
 	DurationS float64 `json:"durationS"`
+	// Stalls are the distinct stalls, each with its start (seconds after the meter started) and
+	// how long the first callback behind it waited; at most 20.
+	Stalls []PerfStall `json:"stalls,omitempty"`
+}
+
+// PerfStall is one stall of the main goroutine the jank meter saw.
+type PerfStall struct {
+	AtS float64 `json:"atS"`
+	Ms  float64 `json:"ms"`
 }
 
 // Engine is the part of *engine.Session the shell uses. It exists so that the shell can be tested
@@ -79,7 +89,16 @@ func Run(s *engine.Session, opts Options) error {
 	}
 	w := a.NewWindow(title)
 	w.SetPadded(false) // the bars and the sidebar reach the window's edges
-	sh := newShell(s, a, w, opts, fyne.Do)
+	// After the app stops, engine events and tickers may still post work for a moment until the
+	// shell unsubscribes; Fyne logs an error for each fyne.Do into a stopped app, so drop them.
+	var stopped atomic.Bool
+	a.Lifecycle().SetOnStopped(func() { stopped.Store(true) })
+	do := func(fn func()) {
+		if !stopped.Load() {
+			fyne.Do(fn)
+		}
+	}
+	sh := newShell(s, a, w, opts, do)
 	s.SetConfirmer(sh.confirmer)
 	w.SetContent(sh.root)
 	w.SetMainMenu(sh.mainMenu())
@@ -98,11 +117,12 @@ func Run(s *engine.Session, opts Options) error {
 	go func() {
 		select {
 		case <-sig:
-			fyne.Do(a.Quit)
+			do(a.Quit)
 		case <-ran:
 		}
 	}()
 	w.ShowAndRun()
+	stopped.Store(true)
 	if sh.perf != nil {
 		sh.perf.finish() // the window closed before PerfDuration ended, or there is none
 	}

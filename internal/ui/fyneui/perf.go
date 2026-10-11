@@ -21,7 +21,7 @@ const (
 // Options.PerfDuration it also scrolls the table through its rows, then reports and quits.
 type perfMeter struct {
 	sh      *shell
-	samples []time.Duration // main goroutine only
+	samples []perfSample // main goroutine only
 	begin   time.Time
 	start   time.Time
 	started bool
@@ -61,7 +61,7 @@ func (m *perfMeter) sample(posted time.Time) {
 		}
 		m.started, m.start = true, time.Now()
 	}
-	m.samples = append(m.samples, late)
+	m.samples = append(m.samples, perfSample{at: time.Since(m.start), late: late})
 	if d := m.sh.opts.PerfDuration; d > 0 {
 		m.scroll()
 		if time.Since(m.start) >= d {
@@ -95,8 +95,19 @@ func (m *perfMeter) finish() {
 	})
 }
 
-// perfStats summarises callback latencies.
-func perfStats(samples []time.Duration, start time.Time) PerfStats {
+// perfSample is one callback: when it was posted, relative to the meter's start, and how late it
+// ran.
+type perfSample struct {
+	at, late time.Duration
+}
+
+// maxStalls bounds PerfStats.Stalls.
+const maxStalls = 20
+
+// perfStats summarises callback latencies. Callbacks queue up behind a stall, so one long stall
+// makes several late samples; Stalls lists each stall once (its first late sample, which waited
+// longest), so that a stall at start-up can be told from steady jank.
+func perfStats(samples []perfSample, start time.Time) PerfStats {
 	s := PerfStats{Samples: len(samples)}
 	if !start.IsZero() {
 		s.DurationS = time.Since(start).Seconds()
@@ -104,15 +115,25 @@ func perfStats(samples []time.Duration, start time.Time) PerfStats {
 	if len(samples) == 0 {
 		return s
 	}
-	sorted := slices.Clone(samples)
+	sorted := make([]time.Duration, len(samples))
+	for i, x := range samples {
+		sorted[i] = x.late
+	}
 	slices.Sort(sorted)
 	ms := func(d time.Duration) float64 { return float64(d) / float64(time.Millisecond) }
 	at := func(q float64) time.Duration { return sorted[min(len(sorted)-1, int(q*float64(len(sorted))))] }
 	s.P50Ms, s.P99Ms, s.MaxMs = ms(at(0.50)), ms(at(0.99)), ms(sorted[len(sorted)-1])
-	for _, d := range samples {
-		if d > perfFrame {
-			s.Over16Ms++
+	inStall := false
+	for _, x := range samples {
+		if x.late <= perfFrame {
+			inStall = false
+			continue
 		}
+		s.Over16Ms++
+		if !inStall && len(s.Stalls) < maxStalls {
+			s.Stalls = append(s.Stalls, PerfStall{AtS: x.at.Seconds(), Ms: ms(x.late)})
+		}
+		inStall = true
 	}
 	return s
 }

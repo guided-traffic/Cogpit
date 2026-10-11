@@ -62,9 +62,9 @@ func TestThemeModeIgnoresSystemVariantUnlessSystem(t *testing.T) {
 }
 
 func TestPerfStats(t *testing.T) {
-	samples := make([]time.Duration, 0, 100)
+	samples := make([]perfSample, 0, 100)
 	for i := range 100 {
-		samples = append(samples, time.Duration(i+1)*time.Millisecond/2) // 0.5 … 50 ms
+		samples = append(samples, perfSample{at: time.Duration(i) * perfFrame, late: time.Duration(i+1) * time.Millisecond / 2}) // 0.5 … 50 ms
 	}
 	s := perfStats(samples, time.Now().Add(-2*time.Second))
 	if s.Samples != 100 || s.MaxMs != 50 || s.P50Ms != 25.5 || s.P99Ms != 50 {
@@ -72,6 +72,10 @@ func TestPerfStats(t *testing.T) {
 	}
 	if s.Over16Ms != 68 { // 16.5 ms … 50 ms
 		t.Errorf("over 16 ms: %d, want 68", s.Over16Ms)
+	}
+	// One run of late samples is one stall, reported at its first sample.
+	if len(s.Stalls) != 1 || s.Stalls[0].Ms != 16.5 {
+		t.Errorf("stalls %+v, want one starting with the 16.5 ms sample", s.Stalls)
 	}
 	if s.DurationS < 2 {
 		t.Errorf("duration %v", s.DurationS)
