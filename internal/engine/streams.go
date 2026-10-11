@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/terminal"
 )
 
@@ -46,17 +45,15 @@ func (s *Session) streamTab(tabID string, types ...DockType) (DockTab, *Backend,
 	return tab, b, nil
 }
 
-// OpenLogs opens the log stream of a logs dock tab: the last 1,000 lines, then follow. The caller
-// closes it.
+// OpenLogs opens the log stream of a logs dock tab, with the tab's options (logs.go): for a pod,
+// the container's last 1,000 lines, then follow; for a controlling resource, the merged logs of
+// its pods. The caller closes it.
 func (s *Session) OpenLogs(ctx context.Context, tabID string) (io.ReadCloser, error) {
 	tab, b, err := s.streamTab(tabID, DockLogs)
 	if err != nil {
 		return nil, err
 	}
-	return b.Conn.StreamLogs(ctx, cluster.LogOptions{
-		Namespace: tab.Ref.Namespace, Pod: tab.Ref.Name, Container: tab.Container,
-		Follow: true, TailLines: logTailLines,
-	})
+	return s.openLogs(ctx, tab, b, b.Conn)
 }
 
 // OpenTerminal starts the session of a terminal, shell or attach dock tab. A terminal tab is a

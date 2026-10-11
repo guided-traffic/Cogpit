@@ -36,6 +36,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerHelm(g)
 	registerWorkloadActions(g)
 	registerAttach(g)
+	registerLogs(g)
 	return g.err
 }
 

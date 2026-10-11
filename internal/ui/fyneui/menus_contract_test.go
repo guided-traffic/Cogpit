@@ -30,10 +30,11 @@ func TestRegistryMenusAsLens(t *testing.T) {
 		{"nodes", []string{"node.cordon", "node.uncordon", "node.drain", "object.edit", "object.delete"}, "node.shell (100)"},
 		{"cronjobs", []string{"cronjob.trigger", "cronjob.resume", "cronjob.suspend", "object.edit", "object.delete"}, ""},
 		{"pods", []string{"pod.attach", "pod.shell", "pod.evict", "pod.logs", "object.edit", "object.delete"}, "pod.share is not a target"},
-		{"deployments", []string{"deployment.scale", "deployment.restart", "object.edit", "object.delete"}, "workload.logs (300)"},
-		{"statefulsets", []string{"statefulset.restart", "statefulset.scale", "object.edit", "object.delete"}, "workload.logs"},
-		{"daemonsets", []string{"daemonset.restart", "object.edit", "object.delete"}, "workload.logs"},
-		{"replicasets", []string{"replicaset.scale", "object.edit", "object.delete"}, "workload.logs"},
+		{"deployments", []string{"deployment.scale", "deployment.restart", "workload.logs", "object.edit", "object.delete"}, ""},
+		{"statefulsets", []string{"statefulset.restart", "statefulset.scale", "workload.logs", "object.edit", "object.delete"}, ""},
+		{"daemonsets", []string{"daemonset.restart", "workload.logs", "object.edit", "object.delete"}, ""},
+		{"replicasets", []string{"replicaset.scale", "workload.logs", "object.edit", "object.delete"}, ""},
+		{"jobs", []string{"workload.logs", "object.edit", "object.delete"}, ""},
 	} {
 		var got []string
 		for _, c := range s.Registry().Actions(tt.kind) {
@@ -47,7 +48,7 @@ func TestRegistryMenusAsLens(t *testing.T) {
 	// options (both have a Prefill), Logs and Shell a submenu of the containers, the others nothing.
 	for id, want := range map[string]string{
 		"deployment.scale": "dialog:replicas", "statefulset.scale": "dialog:replicas", "replicaset.scale": "dialog:replicas",
-		"daemonset.restart": "", "statefulset.restart": "",
+		"daemonset.restart": "", "statefulset.restart": "", "workload.logs": "",
 		"pod.logs": "containers", "pod.shell": "containers", "pod.attach": "containers",
 		"node.drain": "dialog:ignoreDaemonSets,deleteEmptyDirData,force,gracePeriodSeconds,timeoutSeconds",
 		"pod.evict":  "", "node.cordon": "", "cronjob.trigger": "", "object.edit": "", "object.delete": "",

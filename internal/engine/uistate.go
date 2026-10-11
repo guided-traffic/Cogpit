@@ -64,6 +64,7 @@ type DockTab struct {
 	Context   string           `json:"context,omitempty"`
 	Ref       *model.ObjectRef `json:"ref,omitempty"`       // the pod for logs and shells
 	Container string           `json:"container,omitempty"` // the container for logs and shells
+	Logs      LogOptions       `json:"logs,omitzero"`       // a logs tab's options (logs.go)
 }
 
 // DockType is a dock tab's kind.
