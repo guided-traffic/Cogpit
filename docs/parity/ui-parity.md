@@ -355,6 +355,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Third run, tables and window (G5): the macOS title bar partial (built, not seen in a real window yet); Tables: no namespace filter on cluster-scoped views, show and hide columns, fit a column, CSV export partial, keyboard done (and its shortcut row); the sidebar's Workloads › Overview |
 | 2026-10-11 | minor | Logs (G8): timestamps, word wrap, previous container, logs of a controlling resource with resource names, filter and `/`, download partial, as engine-held options of the tab; the drawer's Copy |
 | 2026-10-11 | minor | Terminal and shells: attach to a container as a dock tab (G8) |
 | 2026-10-11 | minor | Cluster sidebar: Helm › Releases (Charts missing); the dock's Helm tabs stay missing |

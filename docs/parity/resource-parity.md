@@ -188,6 +188,7 @@ the tables above. Everything else is created from YAML templates in the dock
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Third run: Workloads Overview partial (a page built from the cache, `workloads.overview`); Definitions' group filter; Ingress Classes without the namespace filter |
 | 2026-10-11 | minor | Every kind: Copy name in the detail drawer partial |
 | 2026-10-11 | minor | Logs of Deployments, Daemon Sets, Stateful Sets, Replica Sets and Jobs partial: all their pods in one tab (G7, G8) |
 | 2026-10-11 | minor | Attach Pod partial: an attach stream in a dock tab (G7, G8) |
