@@ -80,7 +80,11 @@
         },
         {
           "name": "Volume",
-          "value": "static-db-volume"
+          "value": "static-db-volume",
+          "link": {
+            "kind": "persistentvolumes",
+            "name": "static-db-volume"
+          }
         },
         {
           "name": "Access Modes",

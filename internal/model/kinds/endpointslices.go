@@ -16,6 +16,9 @@ const (
 	sliceManagedByLabel = "endpointslice.kubernetes.io/managed-by"
 	keyServices         = "services"
 	keyEndpoints        = "endpoints"
+	keyEndpointSlices   = "endpointslices"
+	fieldAddressType    = "addressType"
+	titleAddressType    = "Address Type"
 	fieldEndpoints      = "endpoints"
 	fieldHostname       = "hostname"
 	fieldReady          = "ready"
@@ -43,17 +46,17 @@ const (
 // Endpoint slices have no state of their own, so no status token; the drawer colours each
 // endpoint by its conditions.
 var endpointSlices = &model.KindProfile{
-	Key:        "endpointslices",
+	Key:        keyEndpointSlices,
 	Group:      groupDiscovery,
 	Version:    "v1",
-	Resource:   "endpointslices",
+	Resource:   keyEndpointSlices,
 	Kind:       "EndpointSlice",
 	Title:      "Endpoint Slices",
 	Namespaced: true,
 	Columns: []model.Column{
 		nameColumn,
 		namespaceColumn,
-		{ID: "addressType", Title: "Address Type", Type: model.ColumnText},
+		{ID: fieldAddressType, Title: titleAddressType, Type: model.ColumnText},
 		{ID: keyEndpoints, Title: titleEndpoints, Type: model.ColumnText},
 		{ID: idPorts, Title: titlePorts, Type: model.ColumnText},
 		ageColumn,
@@ -63,8 +66,8 @@ var endpointSlices = &model.KindProfile{
 		"service": func(obj *unstructured.Unstructured) []string {
 			return nonEmpty(model.NestedString(obj, "metadata", "labels", serviceNameLabel))
 		},
-		"addressType": func(obj *unstructured.Unstructured) []string {
-			return nonEmpty(model.NestedString(obj, "addressType"))
+		fieldAddressType: func(obj *unstructured.Unstructured) []string {
+			return nonEmpty(model.NestedString(obj, fieldAddressType))
 		},
 		idAddress: func(obj *unstructured.Unstructured) []string {
 			return sliceAddresses(obj)
@@ -99,7 +102,7 @@ func endpointSliceCells(obj *unstructured.Unstructured) ([]model.Cell, model.Sta
 	return []model.Cell{
 		nameCell(obj),
 		namespaceCell(obj),
-		{Text: model.NestedString(obj, "addressType")},
+		{Text: model.NestedString(obj, fieldAddressType)},
 		{Text: shortList(sliceAddresses(obj))},
 		{Text: orDash(slicePorts(model.NestedSlice(obj, "ports")))},
 		model.AgeCell(created(obj)),
@@ -235,7 +238,7 @@ var endpointColumns = []model.Column{
 func endpointSliceDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	ns := obj.GetNamespace()
 	var d detailItems
-	d.add("Address Type", model.NestedString(obj, "addressType"))
+	d.add(titleAddressType, model.NestedString(obj, fieldAddressType))
 	svc := model.NestedString(obj, "metadata", "labels", serviceNameLabel)
 	d.put(linkedItem(titleService, svc, linkTo(keyServices, ns, svc)))
 	d.add("Managed By", model.NestedString(obj, "metadata", "labels", sliceManagedByLabel))
@@ -263,4 +266,37 @@ func endpointSliceDetail(obj *unstructured.Unstructured) []model.DetailSection {
 		sections = append(sections, model.DetailSection{Title: titleEndpoints, Table: model.CellTable(endpointColumns, rows)})
 	}
 	return sections
+}
+
+// serviceSliceColumns are the columns of a Service's Endpoint Slices section: the slices list's,
+// without what the Service already says (namespace) or the drawer does not need (age).
+var serviceSliceColumns = []model.Column{
+	nameColumn,
+	{ID: fieldAddressType, Title: titleAddressType, Type: model.ColumnText},
+	{ID: keyEndpoints, Title: titleEndpoints, Type: model.ColumnText},
+	{ID: idPorts, Title: titlePorts, Type: model.ColumnText},
+}
+
+// serviceDetailWith is the Service's drawer with its endpoint slices, from the related-objects
+// index EndpointSlicesByService: a table after Connection, each slice a link with its address
+// type, endpoints and ports as the Endpoint Slices list shows them. Lens shows a Service's
+// endpoint slices in a detail tab (documented, not captured); the section is Cogpit's form of it
+// (inferred). A Service without slices, or whose slices are still listing, has no section.
+func serviceDetailWith(obj *unstructured.Unstructured, rel model.Related) []model.DetailSection {
+	sections := serviceDetail(obj)
+	slices := append([]*unstructured.Unstructured(nil), rel.Objects(EndpointSlicesByService, obj.GetNamespace()+"/"+obj.GetName())...)
+	if len(slices) == 0 {
+		return sections
+	}
+	sortByName(slices)
+	rows := make([][]model.Cell, 0, len(slices))
+	for _, s := range slices {
+		rows = append(rows, []model.Cell{
+			{Text: s.GetName(), Link: linkTo(keyEndpointSlices, s.GetNamespace(), s.GetName())},
+			{Text: model.NestedString(s, fieldAddressType)},
+			{Text: shortList(sliceAddresses(s))},
+			{Text: orDash(slicePorts(model.NestedSlice(s, idPorts)))},
+		})
+	}
+	return append(sections, model.DetailSection{Title: "Endpoint Slices", Table: model.CellTable(serviceSliceColumns, rows)})
 }

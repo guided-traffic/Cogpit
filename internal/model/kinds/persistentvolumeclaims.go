@@ -1,6 +1,8 @@
 package kinds
 
 import (
+	"cmp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -22,9 +24,8 @@ const (
 )
 
 // persistentVolumeClaims has the columns of Lens's documentation (not captured). The Pods column
-// (the pods that mount the claim) needs other objects than the claim, which a profile cannot see:
-// it keeps its place and stays empty until a cross-kind index exists. Storage Class is plain text,
-// not a link: Cogpit has no Storage Classes view yet, and a link would open an error.
+// lists the pods that mount the claim, from the related-objects index PodsByClaim (architecture
+// §4.4); Storage Class links to the class.
 var persistentVolumeClaims = &model.KindProfile{
 	Key:        "persistentvolumeclaims",
 	Version:    "v1",
@@ -36,12 +37,14 @@ var persistentVolumeClaims = &model.KindProfile{
 		nameColumn,
 		namespaceColumn,
 		{ID: "storageClass", Title: "Storage Class", Type: model.ColumnText},
-		{ID: "size", Title: "Size", Type: model.ColumnNumber}, // sorted by bytes
-		{ID: idPods, Title: titlePods, Type: model.ColumnText},
+		{ID: "size", Title: "Size", Type: model.ColumnNumber},              // sorted by bytes
+		{ID: idPods, Title: titlePods, Type: model.ColumnText, Width: 220}, // pod names, not the workloads' "3/3"
 		ageColumn,
 		statusColumn,
 	},
-	Cells: pvcCells,
+	Needs:     []model.RelatedIndex{PodsByClaim},
+	Cells:     pvcCells,
+	CellsWith: pvcCellsWith,
 	Fields: map[string]fieldFunc{
 		"storageClass": func(obj *unstructured.Unstructured) []string {
 			return nonEmpty(pvcStorageClass(obj))
@@ -60,20 +63,58 @@ var persistentVolumeClaims = &model.KindProfile{
 			return []string{text}
 		},
 	},
-	Detail: pvcDetail,
+	Detail:     pvcDetail,
+	DetailWith: pvcDetailWith,
 }
 
+// pvcCells are the claim's cells without the related objects: the Pods column stays empty.
 func pvcCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
+	return pvcCellsWith(obj, model.NoRelated)
+}
+
+func pvcCellsWith(obj *unstructured.Unstructured, rel model.Related) ([]model.Cell, model.Status) {
 	text, token := pvcStatus(obj)
+	class := pvcStorageClass(obj)
 	return []model.Cell{
 		nameCell(obj),
 		namespaceCell(obj),
-		{Text: pvcStorageClass(obj)},
+		{Text: class, Link: linkTo(keyStorageClasses, "", class)},
 		pvcSize(obj),
-		{}, // Pods: needs a cross-kind index (the pods whose volumes name this claim)
+		pvcPodsCell(claimPods(obj, rel)),
 		model.AgeCell(created(obj)),
 		{Text: text, Status: token},
 	}, token
+}
+
+// claimPods returns the pods that mount the claim, sorted by name: the related objects of
+// PodsByClaim. It is empty while the pods are still listing.
+func claimPods(obj *unstructured.Unstructured, rel model.Related) []*unstructured.Unstructured {
+	pods := append([]*unstructured.Unstructured(nil), rel.Objects(PodsByClaim, ClaimKey(obj.GetNamespace(), obj.GetName()))...)
+	sortByName(pods)
+	return pods
+}
+
+// sortByName sorts related objects by name, then namespace: the index returns them in no
+// particular order.
+func sortByName(objs []*unstructured.Unstructured) {
+	slices.SortFunc(objs, func(a, b *unstructured.Unstructured) int {
+		return cmp.Or(strings.Compare(a.GetName(), b.GetName()), strings.Compare(a.GetNamespace(), b.GetNamespace()))
+	})
+}
+
+// pvcPodsCell is the Pods cell: the names of the pods that mount the claim, comma-separated. A
+// cell holds one link: the claim of a single pod (the usual ReadWriteOnce claim) links to it; the
+// names of several pods stay text, and the drawer links each.
+func pvcPodsCell(pods []*unstructured.Unstructured) model.Cell {
+	names := make([]string, len(pods))
+	for i, p := range pods {
+		names[i] = p.GetName()
+	}
+	c := model.Cell{Text: strings.Join(names, ", ")}
+	if len(pods) == 1 {
+		c.Link = linkTo(podsResource, pods[0].GetNamespace(), pods[0].GetName())
+	}
+	return c
 }
 
 // pvcStatus is status.phase: Bound ok, Pending pending, Lost error (the volume is gone), and
@@ -143,16 +184,31 @@ func quantityValue(s string) int64 {
 	return q.Value()
 }
 
+// pvcDetail is the claim's drawer without the related objects: no Pods item.
 func pvcDetail(obj *unstructured.Unstructured) []model.DetailSection {
+	return pvcDetailWith(obj, model.NoRelated)
+}
+
+// pvcDetailWith is the claim's drawer (inferred, Lens's is not captured). The class, the volume and
+// each pod that mounts the claim link to their objects.
+func pvcDetailWith(obj *unstructured.Unstructured, rel model.Related) []model.DetailSection {
 	var d detailItems
 	text, token := pvcStatus(obj)
 	d.addStatus(titleStatus, text, token)
 	class := pvcStorageClass(obj)
 	if _, set := model.NestedValue(obj, "spec", "storageClassName"); set && class == "" {
-		class = "none (binds only to volumes without a class)"
+		d.add(titleStorageClass, "none (binds only to volumes without a class)")
+	} else {
+		d.put(linkedItem(titleStorageClass, class, linkTo(keyStorageClasses, "", class)))
 	}
-	d.add("Storage Class", class)
-	d.add("Volume", model.NestedString(obj, "spec", "volumeName"))
+	volume := model.NestedString(obj, "spec", "volumeName")
+	d.put(linkedItem("Volume", volume, linkTo(keyPersistentVolumes, "", volume)))
+	pods := claimPods(obj, rel)
+	chips := make([]model.Chip, len(pods))
+	for i, p := range pods {
+		chips[i] = model.Chip{Text: p.GetName(), Link: linkTo(podsResource, p.GetNamespace(), p.GetName())}
+	}
+	d.put(model.ChipsItem(titlePods, chips))
 	d.add("Access Modes", strings.Join(model.NestedStrings(obj, "spec", "accessModes"), ", "))
 	d.add("Volume Mode", model.NestedString(obj, "spec", "volumeMode"))
 	d.add("Requested", model.NestedIntOrString(obj, "spec", "resources", "requests", resourceStorage))

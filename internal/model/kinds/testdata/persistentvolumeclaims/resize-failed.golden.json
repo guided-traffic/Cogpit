@@ -21,7 +21,11 @@
     },
     {
       "column": "storageClass",
-      "text": "standard-hdd"
+      "text": "standard-hdd",
+      "link": {
+        "kind": "storageclasses",
+        "name": "standard-hdd"
+      }
     },
     {
       "column": "size",
@@ -78,11 +82,19 @@
         },
         {
           "name": "Storage Class",
-          "value": "standard-hdd"
+          "value": "standard-hdd",
+          "link": {
+            "kind": "storageclasses",
+            "name": "standard-hdd"
+          }
         },
         {
           "name": "Volume",
-          "value": "pvc-9d4e5f60-8888-4d9e-8f10-000000000007"
+          "value": "pvc-9d4e5f60-8888-4d9e-8f10-000000000007",
+          "link": {
+            "kind": "persistentvolumes",
+            "name": "pvc-9d4e5f60-8888-4d9e-8f10-000000000007"
+          }
         },
         {
           "name": "Access Modes",

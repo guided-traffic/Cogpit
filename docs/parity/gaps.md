@@ -150,10 +150,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   Namespaces, Events (the MVP); Daemon Sets, Stateful Sets, Replica Sets, Jobs, Cron Jobs
   ([`kinds/`](../../internal/model/kinds/) `daemonsets.go` … `cronjobs.go`; Cron Jobs with the
   captured columns and texts, Next execution from the schedule); Ingresses, Ingress Classes (the
-  captured columns), Config Maps, Persistent Volume Claims (Pods column empty: it needs a cross-kind
-  index); Definitions (no group filter) and the custom resource views (done: titled by Kind, grouped
-  by API group, printer columns of priority 0, following the definitions live); the ten Gateway
-  API views, shown as generic custom resource views. Golden, status-text and fuzz tests per kind
+  captured columns), Config Maps, Persistent Volume Claims; Definitions (no group filter) and the
+  custom resource views (done: titled by Kind, grouped by API group, printer columns of priority
+  0, following the definitions live); the ten Gateway API views, shown as generic custom resource
+  views. Golden, status-text and fuzz tests per kind
   (`TestGolden` and `TestCustomGolden` over 119 synthetic objects), views filled from watches on kind
   (`TestKindEngineWorkflows`, `TestKindCustomResources`). Inferred and marked per row: most status
   rules, the Cron Jobs warning rule, the drawers of the new kinds. Third implementation run
@@ -179,6 +179,15 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   drawers (rules and subjects as tables, links to roles and service accounts) inferred; 24
   synthetic objects in the goldens, the views filled on kind (`TestKindAccessControlViews`);
   Pod Security Policies (clusters before 1.25) and the Create dialogs still missing.
+  Network and storage (2026-10-11, third run): Endpoint Slices, Endpoints, Network Policies, Persistent
+  Volumes, Storage Classes and Replication Controllers partial (the documented columns; cell
+  formats, status rules and drawers inferred; [`kinds/`](../../internal/model/kinds/)
+  `endpointslices.go` … `replicationcontrollers.go`, golden, status-text and fuzz tests per kind);
+  the related-objects index's first users: a claim's Pods column and drawer item
+  (`TestClaimPodsColumnFollowsPods`), a node's Pods table as captured, CPU and Memory empty until
+  metrics (`TestNodeDrawerPodsFollowPods`, under the demo's churn `TestNodeDrawerUnderDemoChurn`),
+  a Service's endpoint slices in its drawer (`TestServiceEndpointSlices`); links to storage
+  classes, volumes, claims and pods.
 - **Estimate:** 85–260 h (was 120–360; 2–6 h each for the 37 missing views, plus depth).
 
 ### G7. Resource actions
@@ -399,6 +408,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | G6 evidence (third run, agent D): Endpoint Slices, Endpoints, Network Policies, Persistent Volumes, Storage Classes and Replication Controllers views partial; the related-objects index's first users (a claim's pods, a node's Pods table, a Service's endpoint slices) |
 | 2026-10-11 | minor | G6 Evidence: the Access Control views (five of them partial) |
 | 2026-10-11 | minor | G6 Evidence: the 13 Config views (third implementation run), admission policies by served version |
 | 2026-10-11 | minor | G11 unblocked by the H-8 decision; G5: Cogpit's own title bar on macOS (owner) |

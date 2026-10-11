@@ -21,7 +21,11 @@
     },
     {
       "column": "storageClass",
-      "text": "fast-ssd"
+      "text": "fast-ssd",
+      "link": {
+        "kind": "storageclasses",
+        "name": "fast-ssd"
+      }
     },
     {
       "column": "size",
@@ -78,11 +82,19 @@
         },
         {
           "name": "Storage Class",
-          "value": "fast-ssd"
+          "value": "fast-ssd",
+          "link": {
+            "kind": "storageclasses",
+            "name": "fast-ssd"
+          }
         },
         {
           "name": "Volume",
-          "value": "pvc-9d4e5f60-8888-4d9e-8f10-000000000006"
+          "value": "pvc-9d4e5f60-8888-4d9e-8f10-000000000006",
+          "link": {
+            "kind": "persistentvolumes",
+            "name": "pvc-9d4e5f60-8888-4d9e-8f10-000000000006"
+          }
         },
         {
           "name": "Access Modes",

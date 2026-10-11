@@ -271,6 +271,11 @@ func fixtureNodeSpecs() []nodeSpec {
 // kindSnapshot renders objects through the built-in profile of a kind into a table snapshot,
 // sorted by name, as the engine's view would.
 func kindSnapshot(t testing.TB, key string, objs []*unstructured.Unstructured) *engine.TableSnapshot {
+	return kindSnapshotWith(t, key, objs, nil)
+}
+
+// kindSnapshotWith is kindSnapshot with the related objects of the profile's Needs.
+func kindSnapshotWith(t testing.TB, key string, objs []*unstructured.Unstructured, rel model.Related) *engine.TableSnapshot {
 	t.Helper()
 	p, ok := kinds.ByKey(key)
 	if !ok {
@@ -278,7 +283,7 @@ func kindSnapshot(t testing.TB, key string, objs []*unstructured.Unstructured) *
 	}
 	rows := make([]model.Row, 0, len(objs))
 	for _, o := range objs {
-		rows = append(rows, model.BuildRow(p, "demo", o))
+		rows = append(rows, model.BuildRowWith(p, "demo", o, rel))
 	}
 	slices.SortFunc(rows, func(a, b model.Row) int { return strings.Compare(a.Ref.Name, b.Ref.Name) })
 	return &engine.TableSnapshot{
@@ -370,7 +375,8 @@ func fixtureDeploymentObjects() []*unstructured.Unstructured {
 
 // kindsFake is a fake connected to the demo context whose Pods, Nodes, Deployments and Events
 // come from the synthetic objects above, through the real profiles; their drawers are the real
-// drawer models (engine.BuildDetail).
+// drawer models (engine.BuildDetailWith), with the fixture's pods as related objects (a node's
+// Pods).
 func kindsFake(t testing.TB, view string) *fakeEngine {
 	f := connectedFake(t, 1)
 	// The owners' kinds too, so that Controlled By and Involved Object links lead somewhere.
@@ -381,14 +387,16 @@ func kindsFake(t testing.TB, view string) *fakeEngine {
 		kindInfo{Kind: "jobs", Title: "Jobs", APIKind: "Job", Group: "batch", Version: "v1", Namespaced: true},
 		kindInfo{Kind: "configmaps", Title: "Config Maps", APIKind: "ConfigMap", Version: "v1", Namespaced: true})
 	events := fixtureEventObjects()
+	pods := fixturePodObjects()
+	rel := fixtureRelated{"pods": pods}
 	for key, objs := range map[string][]*unstructured.Unstructured{
-		"pods": fixturePodObjects(), "nodes": fixtureNodeObjects(), "deployments": fixtureDeploymentObjects(), "events": events,
+		"pods": pods, "nodes": fixtureNodeObjects(), "deployments": fixtureDeploymentObjects(), "events": events,
 	} {
 		f.tables[key] = kindSnapshot(t, key, objs)
 		p, _ := kinds.ByKey(key)
 		for _, o := range objs {
 			ref := model.ObjectRef{Context: "demo", Kind: key, Namespace: o.GetNamespace(), Name: o.GetName()}
-			m, err := engine.BuildDetail(p, ref, o, events, fixedNow)
+			m, err := engine.BuildDetailWith(p, ref, o, events, fixedNow, rel)
 			if err != nil {
 				t.Fatal(err)
 			}

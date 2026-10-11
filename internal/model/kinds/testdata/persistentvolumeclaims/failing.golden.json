@@ -21,7 +21,11 @@
     },
     {
       "column": "storageClass",
-      "text": "standard"
+      "text": "standard",
+      "link": {
+        "kind": "storageclasses",
+        "name": "standard"
+      }
     },
     {
       "column": "size",
@@ -78,11 +82,19 @@
         },
         {
           "name": "Storage Class",
-          "value": "standard"
+          "value": "standard",
+          "link": {
+            "kind": "storageclasses",
+            "name": "standard"
+          }
         },
         {
           "name": "Volume",
-          "value": "pvc-9d4e5f60-8888-4d9e-8f10-000000000002"
+          "value": "pvc-9d4e5f60-8888-4d9e-8f10-000000000002",
+          "link": {
+            "kind": "persistentvolumes",
+            "name": "pvc-9d4e5f60-8888-4d9e-8f10-000000000002"
+          }
         },
         {
           "name": "Access Modes",

@@ -49,7 +49,9 @@ var services = &model.KindProfile{
 			return model.SortedPairs(model.NestedStringMap(obj, "spec", "selector"))
 		},
 	},
-	Detail: serviceDetail,
+	Detail:     serviceDetail,
+	Needs:      []model.RelatedIndex{EndpointSlicesByService},
+	DetailWith: serviceDetailWith, // in endpointslices.go
 }
 
 func serviceCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {

@@ -51,7 +51,9 @@ var nodes = &model.KindProfile{
 			return nonEmpty(model.NestedString(obj, "status", "nodeInfo", "kubeletVersion"))
 		},
 	},
-	Detail: nodeDetail,
+	Detail:     nodeDetail,
+	Needs:      []model.RelatedIndex{PodsByNode},
+	DetailWith: nodeDetailWith,
 }
 
 func nodeCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
@@ -181,8 +183,8 @@ func nodeAddresses(obj any, typ string) []string {
 
 // nodeDetail is the node's drawer as Lens shows it (capture, 2026-10-11): Properties (after the
 // generic metadata: Addresses, OS, OS Image, Kernel version, Container runtime, Kubelet version,
-// Conditions), then Capacity and Allocatable as tables. Lens's list of the node's pods needs the
-// pods, not the node, and is not built here. Taints are Cogpit's own addition to Properties.
+// Conditions), then Capacity and Allocatable as tables. The node's Pods follow in nodeDetailWith,
+// which has them. Taints are Cogpit's own addition to Properties.
 func nodeDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	var props detailItems
 	var addresses []string
@@ -292,4 +294,47 @@ func taintText(t any) string {
 		key += ":" + e
 	}
 	return key
+}
+
+// nodePodColumns are the columns of the node's Pods table as Lens shows them (capture,
+// 2026-10-11): Name, the warning icon, Node, Namespace, Ready, CPU, Memory, Status. CPU and Memory
+// need a metrics provider (M7) and stay empty until then.
+var nodePodColumns = []model.Column{
+	nameColumn,
+	warningColumn,
+	{ID: idNode, Title: titleNode, Type: model.ColumnText},
+	namespaceColumn,
+	{ID: fieldReady, Title: nodeReady, Type: model.ColumnText},
+	{ID: "cpu", Title: "CPU", Type: model.ColumnText},
+	{ID: "memory", Title: "Memory", Type: model.ColumnText},
+	statusColumn,
+}
+
+// nodeDetailWith is nodeDetail with the node's Pods table after Allocatable, from the
+// related-objects index PodsByNode: one row per pod scheduled to the node, sorted by name, the
+// name and namespace as links, the warning icon and status as in the Pods view, Ready as the
+// ready containers of all ("1/2"). The node's own name is plain text: it links to the drawer's
+// object. A node without pods, or whose pods are still listing, has no Pods section.
+func nodeDetailWith(obj *unstructured.Unstructured, rel model.Related) []model.DetailSection {
+	sections := nodeDetail(obj)
+	pods := append([]*unstructured.Unstructured(nil), rel.Objects(PodsByNode, obj.GetName())...)
+	if len(pods) == 0 {
+		return sections
+	}
+	sortByName(pods)
+	rows := make([][]model.Cell, 0, len(pods))
+	for _, p := range pods {
+		s := summarisePod(p)
+		rows = append(rows, []model.Cell{
+			{Text: p.GetName(), Link: linkTo(podsResource, p.GetNamespace(), p.GetName())},
+			podWarning(p, s),
+			{Text: model.NestedString(p, "spec", "nodeName")},
+			namespaceCell(p),
+			ratio(s.ready, s.total),
+			{}, // CPU: metrics (M7)
+			{}, // Memory: metrics (M7)
+			{Text: s.text, Status: s.status},
+		})
+	}
+	return append(sections, model.DetailSection{Title: podsTitle, Table: model.CellTable(nodePodColumns, rows)})
 }

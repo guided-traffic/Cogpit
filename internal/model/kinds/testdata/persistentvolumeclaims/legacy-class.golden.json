@@ -21,7 +21,11 @@
     },
     {
       "column": "storageClass",
-      "text": "slow"
+      "text": "slow",
+      "link": {
+        "kind": "storageclasses",
+        "name": "slow"
+      }
     },
     {
       "column": "size",
@@ -74,7 +78,11 @@
         },
         {
           "name": "Storage Class",
-          "value": "slow"
+          "value": "slow",
+          "link": {
+            "kind": "storageclasses",
+            "name": "slow"
+          }
         },
         {
           "name": "Access Modes",

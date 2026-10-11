@@ -18,7 +18,17 @@ var (
 	// ClusterRolesByName indexes cluster roles by name, and all of them under "" as well, so that
 	// a lookup can tell a cluster role that does not exist from one not listed yet (rbac.go).
 	ClusterRolesByName = model.RelatedIndex{Kind: keyClusterRoles, Name: "byName", Keys: clusterRoleKeys}
+	// EndpointSlicesByService indexes endpoint slices by the Service they belong to (their
+	// kubernetes.io/service-name label), as "<namespace>/<service>": a Service's slices.
+	EndpointSlicesByService = model.RelatedIndex{Kind: keyEndpointSlices, Name: "byService", Keys: sliceServiceKeys}
 )
+
+func sliceServiceKeys(slice *unstructured.Unstructured) []string {
+	if svc := model.NestedString(slice, "metadata", "labels", serviceNameLabel); svc != "" {
+		return []string{slice.GetNamespace() + "/" + svc}
+	}
+	return nil
+}
 
 func podNodeKeys(pod *unstructured.Unstructured) []string {
 	if n := model.NestedString(pod, "spec", "nodeName"); n != "" {

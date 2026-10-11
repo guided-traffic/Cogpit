@@ -21,7 +21,11 @@
     },
     {
       "column": "storageClass",
-      "text": "standard"
+      "text": "standard",
+      "link": {
+        "kind": "storageclasses",
+        "name": "standard"
+      }
     },
     {
       "column": "size",
@@ -76,7 +80,11 @@
         },
         {
           "name": "Storage Class",
-          "value": "standard"
+          "value": "standard",
+          "link": {
+            "kind": "storageclasses",
+            "name": "standard"
+          }
         },
         {
           "name": "Access Modes",
