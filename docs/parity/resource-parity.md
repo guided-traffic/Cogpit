@@ -42,6 +42,7 @@ from discovery.
 | Edit (`object.edit`): YAML in a dock tab, offered when the user may patch | missing | – |
 | Delete (`object.delete`): confirm, offered when the user may delete; acts on the selection | partial: pods only, one object, confirmed for every origin; no permission check | [`actions.go`](../../internal/engine/commands/actions.go) |
 | Copy name (`object.copyName`) in the detail drawer | missing | – |
+| Row menu (⋮): Show Details, Edit, Delete for a custom resource; the kinds' own actions are added for built-in kinds (capture, 2026-10-11, of a custom resource only) | missing | – |
 | Right-click on a row opens the actions menu (since 2025.10.230725) | missing | – |
 
 Lens Desktop's paid "Ask AI" entries on every object (Summarize, Analyze events, metrics, logs,
@@ -154,7 +155,7 @@ Shown only when the cluster serves `resource.k8s.io/v1` (Kubernetes 1.34 and lat
 | View | API | Lens columns | Actions | Status |
 |---|---|---|---|---|
 | Definitions | `apiextensions.k8s.io/v1` CustomResourceDefinition | capture needed | – | missing |
-| Custom Resources: one view per custom resource kind the cluster serves, titled by its singular Kind name, under one collapsed group per API group; groups and kinds sorted by name; groups with a curated section (Flux, Gateway API) are listed here too (captures, 2026-10-11) | from discovery | capture needed; Cogpit uses `additionalPrinterColumns` | – | missing |
+| Custom Resources: one view per custom resource kind the cluster serves, titled by its singular Kind name, under one collapsed group per API group; groups and kinds sorted by name; groups with a curated section (Flux, Gateway API) are listed here too (captures, 2026-10-11) | from discovery | Name, Namespace (namespaced kinds), the `additionalPrinterColumns` of priority 0, Age (capture of cert-manager's Order: Name, Namespace, State, Age; that Issuer and Reason are hidden because of priority 1 is inferred) | – | missing |
 
 ## Paid Lens Desktop views
 
@@ -183,6 +184,7 @@ the tables above. Everything else is created from YAML templates in the dock
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Capture of a custom resource view: its columns (printer columns of priority 0) and its row menu |
 | 2026-10-11 | minor | Second capture (Kubernetes 1.36.2): Gateway API sub-group and its order, Mutating Admission Policies first and version-dependent, custom resource kinds by singular Kind name |
 | 2026-10-11 | minor | From a capture of the running Lens Desktop (owner): Definitions (custom resource definitions) is a Lens view after all, 64 views; custom resources grouped by API group; Endpoint Slices before Endpoints; webhook view titles; the Flux CD sidebar structure |
 | 2026-10-11 | minor | The MVP: Nodes, Pods, Deployments, Services, Namespaces and Events views partial; Logs, Shell, Restart and Delete (pods) partial |

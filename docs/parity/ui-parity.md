@@ -42,7 +42,8 @@ hotbar, navigator, tab bar, workspace, dock, status bar.
 | Title bar with history back and forward, notifications and a context menu with Preferences | free | missing | – |
 | Hotbar down the left edge ([Hotbar](#hotbar)) | paid | missing | – |
 | Navigator with the cluster's resource tree ([Cluster sidebar](#cluster-sidebar)) | free | partial | [`sidebar.go`](../../internal/ui/fyneui/sidebar.go) |
-| Tab bar of cluster views: single click opens a preview tab, double-click (or ⇧↵) a fixed tab | free | missing | – |
+| Navigator header: a dropdown of the cluster shown in the tree and a search button (capture, 2026-10-11) | free | missing | – |
+| Tab bar of cluster views: single click opens a preview tab, double-click (or ⇧↵) a fixed tab; a tab reads "<view> - <context>" with the cluster's icon and a close button; the preview tab's title is italic (capture, 2026-10-11; the italic-means-preview reading is inferred) | free | missing | – |
 | Workspace showing the active view | free | partial | [`tableview.go`](../../internal/ui/fyneui/tableview.go); [PNG](../../internal/ui/fyneui/testdata/demo_pods.png) |
 | Detail drawer on the right ([Detail drawer](#detail-drawer)) | free | partial | [`drawer.go`](../../internal/ui/fyneui/drawer.go) |
 | Dock along the bottom ([Dock](#dock)) | free | partial | [`dock.go`](../../internal/ui/fyneui/dock.go) |
@@ -154,13 +155,15 @@ Every list view is one table ([resource views](resource-parity.md)).
 | Resize columns by dragging | free | partial | `TestColumnResizeByDraggingHeaderSeparator`; widths kept in memory only |
 | Double-click a column separator to fit its content | free | missing | – |
 | Reorder columns by dragging | free | missing | – |
-| Show and hide columns | free | missing | – |
-| Search field per view | free | partial | `TestSearchIsDebounced`; terms matched in any cell |
+| Show and hide columns (⋮ at the end of the header row) | free | missing | – |
+| Search field per view, with toggles for match case ("Aa") and regular expressions (".*") (capture, 2026-10-11) | free | partial: no toggles | `TestSearchIsDebounced`; terms matched in any cell |
 | Namespace filter: multi-select, default "All namespaces", Space toggles without closing | free | partial | multi-select popup, default all ([`tableview.go`](../../internal/ui/fyneui/tableview.go)); Space not verified |
-| Actions menu per row | free | missing | – |
+| Actions menu per row (⋮ at the row's end); for a custom resource: Show Details, Edit, Delete (capture, 2026-10-11) | free | missing | – |
 | Right-click on a row opens the actions menu (since 2025.10.230725) | free | missing | – |
 | Keyboard: ↑↓ rows, Tab columns, ↵ or Space opens the details | free | missing | – |
-| Export the table as CSV | free | missing | – |
+| Export the table as CSV (a download button beside the item count, "18 items"; the format is inferred) | free | missing | – |
+| Select rows with a checkbox column, all rows with the header's checkbox (capture, 2026-10-11) | free | missing | – |
+| Namespace cells are links (capture, 2026-10-11; where they lead: capture needed) | free | missing | – |
 | Row line height (preference) | free | missing | – |
 | Status colours per state (palette: capture needed) | free | partial | status tokens mapped by `StatusColor` ([`theme.go`](../../internal/ui/fyneui/theme.go)); Cogpit's own palette |
 
@@ -177,7 +180,7 @@ Every list view is one table ([resource views](resource-parity.md)).
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Bottom dock with tabs: Terminal session, Create resource, Edit, logs, Helm Install, Helm Upgrade | free | partial: terminal, shell, logs | `TestDockOpensAndClosesStreams`; terminal, shell and logs tabs only |
+| Bottom dock with tabs: Terminal session, Create resource, Edit, logs, Helm Install, Helm Upgrade; tabs named after their object ("Pod <name>"), with a close button; on the right, maximize and collapse (capture, 2026-10-11) | free | partial: terminal, shell, logs; no maximize | `TestDockOpensAndClosesStreams`; terminal, shell and logs tabs only |
 | "New tab" menu: Terminal session, Create resource | free | partial: Terminal session | Terminal session only |
 | Tab icons take the cluster's colour | free | missing | – |
 
@@ -341,6 +344,7 @@ the table is taken as correct until a capture decides.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | From a capture of a custom resource view: navigator header, tab titles, search toggles, row checkboxes, row and column menus, CSV button, namespace links, dock controls |
 | 2026-10-11 | minor | Cluster sidebar from a second capture on Kubernetes 1.36.2: Mutating Admission Policies (version-dependent), the Gateway API sub-group (CRD-dependent), custom resource kinds by singular Kind name |
 | 2026-10-11 | minor | Cluster sidebar from a capture of the running Lens Desktop (owner): Flux placement and structure, Endpoint Slices before Endpoints, Admission Policies sub-group, Custom Resources › Definitions and groups |
 | 2026-10-11 | minor | The MVP: layout, sidebar, table, drawer, dock, follow, terminal and shell rows partial (24) |
