@@ -98,6 +98,10 @@ type Options struct {
 	// Drains keeps the drains Cogpit starts in a journal, so that one a crash interrupts is
 	// offered again when its context is connected (D-11; drains.go). Nil: node.drain is refused.
 	Drains *Drains
+	// Helm keeps the Helm release actions Cogpit starts in a journal, so that one a crash
+	// interrupts is offered again when its context is connected (D-11; helmops.go). Nil: rollback
+	// and uninstall are refused.
+	Helm *HelmOps
 }
 
 // Session is the engine for one desktop app or headless process. It is safe for concurrent use.
@@ -146,6 +150,7 @@ func New(opts Options) *Session {
 	}
 	s.state = newState(s)
 	opts.Drains.attach(s) // nil-safe
+	opts.Helm.attach(s)   // nil-safe
 	return s
 }
 

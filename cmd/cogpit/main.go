@@ -84,7 +84,8 @@ func run() int {
 		DemoOptions:     demo.Options{Pods: *demoPods, EventsPerSecond: *demoEvents},
 		Logger:          logger,
 	}
-	s := engine.New(engine.Options{Connector: connector, Audit: audit, Logger: logger, Drains: openDrainJournal(logger)})
+	s := engine.New(engine.Options{Connector: connector, Audit: audit, Logger: logger, Drains: openDrainJournal(logger),
+		Helm: openHelmJournal(logger)})
 	defer s.Close()
 	if err := commands.RegisterAll(s.Registry()); err != nil {
 		fmt.Fprintln(os.Stderr, "cogpit:", err)
@@ -178,6 +179,18 @@ func openDrainJournal(logger *slog.Logger) *engine.Drains {
 		return nil
 	}
 	return engine.NewDrains(engine.NewFileDrainJournal(filepath.Join(dir, "Cogpit")))
+}
+
+// openHelmJournal keeps the Helm rollbacks and uninstalls Cogpit starts in
+// <user config dir>/Cogpit/helm.json, owner-only, so that one a crash interrupts is offered again
+// (D-11). Without a configuration directory there is no journal, and they are refused.
+func openHelmJournal(logger *slog.Logger) *engine.HelmOps {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		logger.Warn("Helm journal disabled; release rollbacks and uninstalls are refused", "err", err)
+		return nil
+	}
+	return engine.NewHelmOps(engine.NewFileHelmJournal(filepath.Join(dir, "Cogpit")))
 }
 
 // startCPUProfile records a CPU profile for d (or until stop is called) into path; for the gate

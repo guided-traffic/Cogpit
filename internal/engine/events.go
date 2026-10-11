@@ -20,6 +20,10 @@ const (
 	// started, progressed, ended or was dismissed); re-read them with node.pendingDrains.
 	// Event.Message, if set, says what to offer.
 	EventDrains EventType = "drains"
+	// EventHelm: the connected context's pending Helm release actions changed (offered on
+	// connect, one started, ended or was dismissed); re-read them with helm.pendingOperations.
+	// Event.Message, if set, says what to offer.
+	EventHelm EventType = "helm"
 	// EventKinds: the kinds the connected cluster serves changed (a custom resource definition was
 	// added, changed or deleted), or access reviews answered whether the user may list them;
 	// re-read kinds.list.

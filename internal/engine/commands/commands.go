@@ -33,6 +33,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerAccess(g)
 	registerPortForward(g)
 	registerSecrets(g)
+	registerHelm(g)
 	return g.err
 }
 

@@ -1,11 +1,17 @@
 package integration_test
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/engine"
@@ -106,6 +112,87 @@ func TestBudgetSecretsViewAndDrawer(t *testing.T) {
 		t.Errorf("no metadata-only Secrets request: %v", req)
 	}
 	t.Logf("requests: %v", req)
+}
+
+// TestBudgetHelmReleasesView: a cluster that serves Secrets offers the Helm releases kind; its view
+// and drawer are one label-selected watch on the release Secrets, with no GET and no other Secrets
+// request; the releases and their history come from it.
+func TestBudgetHelmReleasesView(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	srv := testkit.NewFakeAPIServer(testkit.FakeAPIOptions{
+		Resources: append(append([]testkit.FakeResource(nil), testkit.DefaultFakeResources...),
+			testkit.FakeResource{GVR: testkit.SecretsGVR, Kind: "Secret", Namespaced: true}),
+	})
+	defer srv.Close()
+	for rev, status := range []string{"superseded", "deployed"} {
+		srv.Set(testkit.SecretsGVR, helmSecret(t, "apps", "web", rev+1, status))
+	}
+	srv.Set(testkit.SecretsGVR, testkit.Secret("apps", "db", nil, map[string]string{"password": "hunter2"}))
+
+	s := engine.New(engine.Options{
+		Connector:        &engine.ClusterConnector{KubeconfigPaths: []string{srv.WriteKubeconfig(t, "fake", "")}},
+		SnapshotInterval: 10 * time.Millisecond,
+	})
+	if err := commands.RegisterAll(s.Registry()); err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if err := s.Connect(ctx, "fake"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := s.Backend().Profile("helmreleases"); !ok {
+		t.Fatal("no Helm releases kind on a cluster that serves Secrets")
+	}
+	raw, _ := json.Marshal(map[string]any{"view": "helmreleases"})
+	if _, err := s.Dispatch(ctx, engine.Invocation{ID: "ui.openView", Params: raw, Origin: engine.OriginGUI}); err != nil {
+		t.Fatal(err)
+	}
+	if !testkit.WaitFor(ctx, func() bool { ts := s.Table("helmreleases"); return ts != nil && ts.Synced && len(ts.Rows) == 1 }) {
+		t.Fatalf("no releases view: %+v", s.Table("helmreleases"))
+	}
+	ref := model.ObjectRef{Context: "fake", Kind: "helmreleases", Namespace: "apps", Name: "web"}
+	m, err := s.DetailWait(ctx, ref)
+	if err != nil || m.Missing || !strings.Contains(m.Title, "web") {
+		t.Fatalf("drawer %+v, %v", m, err)
+	}
+	req := srv.Requests()
+	if req["list secrets with owner=helm"]+req["watchlist secrets with owner=helm"] != 1 {
+		t.Errorf("want one initial request for the release Secrets: %v", req)
+	}
+	for k, n := range req {
+		if strings.Contains(k, "secrets") && !strings.Contains(k, "owner=helm") && n > 0 {
+			t.Errorf("another Secrets request: %s ×%d", k, n)
+		}
+	}
+	t.Logf("requests: %v", req)
+}
+
+// helmSecret is a release Secret as Helm's Secrets driver writes it.
+func helmSecret(t *testing.T, ns, name string, rev int, status string) *unstructured.Unstructured {
+	t.Helper()
+	rls := map[string]any{
+		"name": name, "namespace": ns, "version": rev,
+		"info":  map[string]any{"status": status, "description": "revision " + strconv.Itoa(rev)},
+		"chart": map[string]any{"metadata": map[string]any{"name": name, "version": "0.1.0"}},
+	}
+	raw, err := json.Marshal(rls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	_, _ = zw.Write(raw)
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	payload := base64.StdEncoding.EncodeToString(buf.Bytes())
+	s := testkit.Object("v1", "Secret", ns, "sh.helm.release.v1."+name+".v"+strconv.Itoa(rev), map[string]any{
+		"type": "helm.sh/release.v1",
+		"data": map[string]any{"release": base64.StdEncoding.EncodeToString([]byte(payload))},
+	})
+	s.SetLabels(map[string]string{"owner": "helm", "name": name, "version": strconv.Itoa(rev), "status": status})
+	return s
 }
 
 // sectionOf joins the values of a drawer section.

@@ -1,0 +1,52 @@
+package engine
+
+import (
+	"context"
+	"errors"
+
+	"github.com/guided-traffic/cogpit/internal/helm"
+)
+
+// Helm releases (G11, architecture §8). The Releases view and drawer read the cache through the
+// virtual kind helm.NewReleaseProfile makes from the Secrets labelled owner=helm; the connector
+// offers it on every cluster that serves Secrets. Rollback and uninstall run the Helm SDK in
+// Cogpit's process, recorded in a journal first so that one a crash interrupts is offered again
+// (helmops.go, D-11).
+
+// HelmWriter runs the Helm release actions. The Helm SDK on the backend's connection implements
+// it; tests put a fake in Backend.Actions, which the engine reaches with a type assertion on
+// Backend.Writer, as it reaches ObjectWriter.
+type HelmWriter interface {
+	// RollbackRelease rolls a release back to an earlier revision (helm rollback).
+	RollbackRelease(ctx context.Context, namespace, name string, revision int) error
+	// UninstallRelease uninstalls a release, its objects and its history (helm uninstall).
+	UninstallRelease(ctx context.Context, namespace, name string) error
+}
+
+// ErrNoHelmWriter is returned when the connected backend cannot run Helm actions: the demo cluster.
+var ErrNoHelmWriter = errors.New("this cluster connection cannot run Helm actions")
+
+// HelmWriter returns what runs the backend's Helm actions: the writer in Backend.Actions if it
+// implements HelmWriter, else the Helm SDK on the backend's connection.
+func (b *Backend) HelmWriter() (HelmWriter, error) {
+	w := b.Writer()
+	if hw, ok := w.(HelmWriter); ok {
+		return hw, nil
+	}
+	if w == nil || b.Conn == nil {
+		return nil, ErrNoHelmWriter
+	}
+	return sdkHelm{helm.NewActions(b.Conn, b.logger())}, nil
+}
+
+// sdkHelm adapts the Helm SDK's actions to HelmWriter. The SDK takes no context: an action runs to
+// its end or its timeout (helm.DefaultTimeout).
+type sdkHelm struct{ a *helm.Actions }
+
+func (h sdkHelm) RollbackRelease(_ context.Context, namespace, name string, revision int) error {
+	return h.a.Rollback(namespace, name, revision)
+}
+
+func (h sdkHelm) UninstallRelease(_ context.Context, namespace, name string) error {
+	return h.a.Uninstall(namespace, name)
+}

@@ -121,6 +121,26 @@ func Pending(status string) bool {
 	return common.Status(status).IsPending() || common.Status(status) == common.StatusUninstalling
 }
 
+// ReleaseRevision returns a release object's newest revision.
+func ReleaseRevision(o *unstructured.Unstructured) int {
+	n, _ := model.NestedInt64(o, "revision")
+	return int(n)
+}
+
+// ReleaseStatus returns the status of a release object's newest revision.
+func ReleaseStatus(o *unstructured.Unstructured) string { return model.NestedString(o, "status") }
+
+// ReleaseRevisions returns the revisions in a release object's history, newest first.
+func ReleaseRevisions(o *unstructured.Unstructured) []int {
+	var out []int
+	for _, h := range model.NestedSlice(o, "history") {
+		if n, ok := model.NestedInt64(h, "revision"); ok {
+			out = append(out, int(n))
+		}
+	}
+	return out
+}
+
 func releaseCells(o *unstructured.Unstructured) ([]model.Cell, model.Status) {
 	status := model.NestedString(o, "status")
 	token := StatusToken(status)

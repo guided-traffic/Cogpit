@@ -67,6 +67,11 @@ var wantCommands = map[string]engine.Danger{
 	"portforward.remove":  engine.DangerUI,
 
 	"secret.reveal": engine.DangerRead, // GUI only: refused for agents and the CLI
+
+	"helm.release.rollback":  engine.DangerDestructive,
+	"helm.release.uninstall": engine.DangerDestructive,
+	"helm.pendingOperations": engine.DangerRead,
+	"helm.dismissOperation":  engine.DangerUI,
 }
 
 func TestRegistryComplete(t *testing.T) {

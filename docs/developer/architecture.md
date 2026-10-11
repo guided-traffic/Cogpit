@@ -586,6 +586,29 @@ These are the operations that leave a release `pending-*` when the process dies 
 next start detects the pending release and offers to finish or roll it back. Which of the two is
 decided when M6 is designed.
 
+**Built (2026-10-11, the read side and two actions).** The releases are the virtual kind
+`helmreleases` ([`releases.go`](../../internal/helm/releases.go), §4.5): `Derive` groups the
+cached Secrets labelled `owner=helm` per namespace and release name, the newest revision wins,
+and the object carries that revision's Secret UID and resourceVersion and a summary of the
+history, never values or the manifest (the YAML tab shows this summary). Decoded payloads are
+memoized per Secret UID and resourceVersion, values and manifests for the newest revision of each
+release only; entries for Secrets that are gone leave the memo after two generations of 64 calls,
+and it holds at most 4,096. The drawer shows Properties, the History table, the user-supplied
+values (marked `Private`: agents read `model.Withheld`) and the manifest with every Secret's data
+redacted for everyone, both cut for the drawer (16 KiB or 200 lines, 32 KiB or 400 lines).
+`helm.release.rollback` and `helm.release.uninstall` run `action.NewRollback` and
+`action.NewUninstall` in-process with the helm CLI's defaults (hooks waited for, 5 minutes,
+rollback history kept to ten) on the connection's own client configuration, behind the
+`HelmWriter` seam ([`helmreleases.go`](../../internal/engine/helmreleases.go)). Crash safety took
+the second road, like the drain: a journal (`<user config dir>/Cogpit/helm.json`, 0600,
+[`helmjournal.go`](../../internal/engine/helmjournal.go)) records each action before the SDK runs
+and drops it when the SDK returns without an error; on connect, the context's entries are offered
+(EventHelm, `helm.pendingOperations`, a banner in the GUI) to finish (run the action again) or
+dismiss, and one the cache shows finished (the release gone after an uninstall, deployed at a
+newer revision after a rollback) is dropped with a note ([`helmops.go`](../../internal/engine/helmops.go)).
+The Helm SDK takes no context, so a running action cannot be cancelled; the SDK's own reads
+(the release history, discovery) are part of the action, not cache reads.
+
 ## 9. Metrics (`internal/metrics`)
 
 Detect a provider per cluster (metrics-server, Prometheus through the API server's service proxy,

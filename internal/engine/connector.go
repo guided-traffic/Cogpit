@@ -15,6 +15,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/demo"
+	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
@@ -96,6 +97,11 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 	} else {
 		profiles = servedProfiles(profiles, served)
 		customResources = served[crdsGVR]
+	}
+	// Helm's releases come from the cluster's Secrets: offered wherever Secrets are, each backend
+	// with its own memo of decoded releases.
+	if slices.ContainsFunc(profiles, isSecrets) {
+		profiles = append(slices.Clip(profiles), helm.NewReleaseProfile())
 	}
 	// The local kinds (port forwards) are Cogpit's own objects: every real cluster offers them.
 	profiles = append(slices.Clip(profiles), kinds.Local()...)
