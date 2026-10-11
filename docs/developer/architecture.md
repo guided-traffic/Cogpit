@@ -388,7 +388,7 @@ Versions as the Go module proxy listed them; pinned when M0 creates `go.mod`.
 
 | Need | Module | Version | Note |
 |---|---|---|---|
-| UI toolkit | `fyne.io/fyne/v2` | v2.8.1 | behind the spike gate ([D-1](decisions.md#d-1-ui-toolkit)) |
+| UI toolkit | `fyne.io/fyne/v2` | v2.8.1 | decided after the spike gate ([D-1](decisions.md#d-1-ui-toolkit)) |
 | Terminal widget | `github.com/fyne-io/terminal` | commit `91063bb29d69` (2026-09-27) | untagged; newer commits require an unreleased Fyne |
 | Packaging | `fyne.io/tools` | v1.7.3 | `fyne package` |
 | Kubernetes API | `k8s.io/client-go`, `k8s.io/apimachinery`, `k8s.io/api` | v0.37.1 | Kubernetes 1.37 |

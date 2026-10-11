@@ -7,7 +7,8 @@ spike builds the parts most likely to fail and measures them. If the gate passes
 Fyne. If it fails, the engine stays in Go and the UI becomes a separate Rust/egui process.
 
 **Status: run on 2026-10-11 as the local MVP** (the MVP builds the spike's pieces on the planned
-packages, see [Results](#results)). The gate decision is the owner's.
+packages, see [Results](#results)). **Gate passed; D-1 decided for Fyne** (owner, 2026-10-11), with
+re-checks of S7 and S5 on Windows and Linux ([D-1](decisions.md#d-1-ui-toolkit)).
 
 ## What the spike builds
 
@@ -89,7 +90,8 @@ asks for. The GPU measurement is the one real-window run at the end (S1).
 **Gate reading.** S1 passes with a reservation (owner, 2026-10-11): the window's GL set-up and the
 first fill of a 10,000-row table stall the main thread once per window start; view switches and
 steady work keep the frame budget. S2, S3, S4, S5 and S6 pass; S7 is partial (local macOS build
-only); S8 is recorded. The decision on D-1 itself is the owner's. S5 holds only because Cogpit builds against a patched copy of fyne-io/terminal
+only); S8 is recorded. The owner decided D-1 for Fyne on 2026-10-11, with re-checks of S7 (when
+M0's CI lands) and S5 (Windows and Linux, at M11). S5 holds only because Cogpit builds against a patched copy of fyne-io/terminal
 (`third_party/fyne-terminal`): the pinned upstream commit froze or crashed on container output.
 
 ## Revision history

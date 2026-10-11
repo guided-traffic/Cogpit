@@ -20,7 +20,7 @@ this file, come from [PhotoCraft](https://github.com/storytold/photocraft)
 | Read | Why |
 |---|---|
 | [`ROADMAP.md`](ROADMAP.md) | One page: stage, headline numbers, every dimension, what's next |
-| [`docs/developer/decisions.md`](docs/developer/decisions.md) | What is decided (Go, Fyne behind a spike gate, MCP control, built-in agent, updates, crash stance, cache) and what is open |
+| [`docs/developer/decisions.md`](docs/developer/decisions.md) | What is decided (Go, Fyne after the spike gate, MCP control, built-in agent, updates, crash stance, cache) and what is open |
 | [`docs/developer/architecture.md`](docs/developer/architecture.md) | Packages, layering, the engine/UI seam, the cache, MCP and the agent |
 | [`docs/parity/target-app-parity.md`](docs/parity/target-app-parity.md) | The authoritative assessment against Lens Desktop 2026.10.51501 |
 | [`docs/parity/gaps.md`](docs/parity/gaps.md) | Every shortfall, ranked: the work list to pick from |

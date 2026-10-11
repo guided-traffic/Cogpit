@@ -197,7 +197,7 @@ on them. After that, about 80% parallelizes, as in PhotoCraft: one kind profile 
 With about ten agents after the foundation, alpha is roughly 220–460 wall-clock hours, most of it
 the serial foundation.
 
-**Needs a human.** The gate decision of the Fyne spike ([results](../developer/spike-fyne.md#results)); the open decision D-4 for Windows and Linux (with M11)
+**Needs a human.** The decision on the patched terminal widget ([H-19](../security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)); the open decision D-4 for Windows and Linux (with M11)
 ([decisions](../developer/decisions.md)); EKS, GKE and AKS accounts to verify credential plugins;
 Apple signing material and the update signing key; an activated Lens Desktop to capture the rows
 marked *capture needed*; Lens Desktop on the same Mac as Cogpit to set the performance budgets; a

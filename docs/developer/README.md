@@ -8,9 +8,9 @@ this page.
 1. **A local MVP is built** (2026-10-11): six views from the cache, drawer, logs, terminal, pod
    shell, MCP control; it doubled as the [Fyne spike](spike-fyne.md#results). What exists and
    where it differs from the plan: [architecture › Current state](architecture.md#current-state-2026-10-11).
-2. **Go, Fyne behind a gate.** The engine is Go on client-go, the kubectl libraries and the Helm
-   SDK. The UI is Fyne if the [spike](spike-fyne.md) before M2 passes, a Rust/egui process if it
-   fails ([decisions](decisions.md)).
+2. **Go and Fyne.** The engine is Go on client-go, the kubectl libraries and the Helm SDK. The UI
+   is Fyne: the [spike](spike-fyne.md) passed and D-1 is decided; re-checks on Windows and Linux
+   can still move one platform's UI to a Rust/egui process ([decisions](decisions.md#d-1-ui-toolkit)).
 3. **Cache first.** Only the cache layer lists and watches; the UI and agents read from the cache
    ([architecture §5](architecture.md#5-cache)).
 4. **Everything is a command, and every command is an MCP tool.** The GUI, the CLI, external agents

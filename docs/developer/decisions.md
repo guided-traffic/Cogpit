@@ -9,7 +9,7 @@ projects' repositories; re-check them before relying on a version number.
 
 | Id | Decision | Status |
 |---|---|---|
-| [D-1](#d-1-ui-toolkit) | UI toolkit | decided: Fyne, behind a spike gate; fallback: a Rust/egui UI process; spike results recorded 2026-10-11, gate decision pending |
+| [D-1](#d-1-ui-toolkit) | UI toolkit | decided: Fyne, after the spike gate; re-checks of S7 (CI, M0) and S5 (Windows and Linux, M11) can reopen it per platform |
 | [D-2](#d-2-agent-interface-scope) | What agents may do over MCP | decided: everything, the UI included; destructive actions confirmed by the user |
 | [D-3](#d-3-helm-and-kubectl-binaries) | Where `helm` and `kubectl` come from | decided: Helm in-process; `kubectl` from `PATH`, a verified matching download on one click |
 | [D-4](#d-4-packaging-and-updates) | Packaging, signing and updates | decided for macOS: the app in a DMG, Homebrew cask, Sparkle updates; Windows and Linux with M11 |
@@ -25,15 +25,24 @@ projects' repositories; re-check them before relying on a version number.
 
 ## D-1: UI toolkit
 
-**Decided (owner, 2026-10-11): Fyne** (`fyne.io/fyne/v2` v2.8.1, BSD-3-Clause), subject to a
-spike gate: before milestone M2, a spike builds the three hardest widgets on Fyne and measures
-them. The spike's plan and gate criteria are in [`spike-fyne.md`](spike-fyne.md). It ran on
-2026-10-11 as the local MVP; its [results](spike-fyne.md#results) are recorded there. S1 passes
-with a reservation (owner, 2026-10-11: the start-up stall is tracked in G15); the decision on D-1
-itself is pending.
+**Decided (owner, 2026-10-11): Fyne** (`fyne.io/fyne/v2` v2.8.1, BSD-3-Clause), after the spike
+gate. The spike's plan and gate criteria are in [`spike-fyne.md`](spike-fyne.md); it ran on
+2026-10-11 as the local MVP and its [results](spike-fyne.md#results) are recorded there: S1 passes
+with a reservation (the start-up stall, tracked in G15), S2–S6 pass (S5 on a patched terminal
+widget), S7 is partial, S8 is recorded.
 
-**If the gate fails**, the engine stays in Go and the UI moves to a separate Rust process with
-egui (option D of the 2026-10-11 discussion). That move needs no engine rewrite because the
+**Re-checks** (owner, 2026-10-11), because the gate ran on macOS only:
+
+- **S7** when M0's CI lands: the app cross-builds and packages for Windows and Linux on CI runners.
+- **S5** at the start of M11: local shell, pod exec, resize, copy and paste on Linux (X11 and
+  Wayland) and Windows.
+
+A re-check that fails without a workaround reopens D-1 for that platform only; macOS stays on
+Fyne. Accessibility (S8: the table and the drawer announce nothing to a screen reader) is a known
+gap of Fyne 2.8 and the one criterion where egui, with AccessKit, would be ahead; it does not gate.
+
+**If a re-check fails**, the engine stays in Go and the UI for that platform moves to a separate
+Rust process with egui (option D of the 2026-10-11 discussion). That move needs no engine rewrite because the
 engine/UI seam is a serializable protocol from the start: the CLI and the MCP server need the same
 seam ([architecture §4](architecture.md#4-the-ui-seam-the-most-important-interface)).
 
@@ -293,6 +302,7 @@ then with this table as the starting point.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | D-1 decided (owner): Fyne after the spike gate, with re-checks of S7 at M0's CI and S5 at M11, each reopening D-1 only for its platform |
 | 2026-10-11 | minor | D-1: the spike ran as the local MVP; results recorded, gate decision pending |
 | 2026-10-11 | minor | D-7: macOS first, Windows and Linux after the macOS beta; Cogpit is a desktop client, never a web UI |
 | 2026-10-11 | minor | D-5 decided (owner): extensions are built into the code; no external extension mechanism for now |

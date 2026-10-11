@@ -9,8 +9,8 @@ the detail and the reasons.
   `github.com/guided-traffic/cogpit`, the Go version the team's other repositories use (their
   `go.mod` files declare `go 1.27.2` on 2026-10-11).
 - **No JavaScript, TypeScript or webview** in the product. The UI is Fyne
-  ([D-1](decisions.md#d-1-ui-toolkit)); only if the spike gate fails does a separate Rust/egui UI
-  process join, and then only behind the engine's protocol.
+  ([D-1](decisions.md#d-1-ui-toolkit)); only if a platform's re-check fails does a separate
+  Rust/egui UI process join for that platform, and then only behind the engine's protocol.
 - **Licence:** Apache-2.0 ([`LICENSE`](../../LICENSE)). Dependencies must be compatible
   (Apache-2.0, MIT, BSD, ISC, MPL-2.0 as a library).
 

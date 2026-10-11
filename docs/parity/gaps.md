@@ -50,8 +50,8 @@ Totals (2026-10-11, after the MVP): Lens's free feature set on macOS (G1–G16) 
 (was ~800–1,850); the beta adds the Flux CD and Argo CD views (G23); with Lens's other paid
 features, Windows and Linux (G18, G22, G23), the full Lens target is **~870–2,060 h** (was
 ~1,000–2,300). Cogpit's own targets beyond Lens (G17, G21) add **~50–110 h** (was ~70–140).
-G19 and G20 are not targets and not counted. The Fyne spike before M2 ran as part of the MVP; its
-gate decision is the owner's ([results](../developer/spike-fyne.md#results)).
+G19 and G20 are not targets and not counted. The Fyne spike before M2 ran as part of the MVP and
+D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 ## Foundation gaps
 
