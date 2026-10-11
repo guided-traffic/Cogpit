@@ -283,10 +283,12 @@ func TestHelmBannerShowsAndActs(t *testing.T) {
 	if len(b["Finish rollback"]) != 1 || len(b["Finish uninstall"]) != 1 || len(b["Dismiss"]) != 2 {
 		t.Fatalf("buttons %v", b)
 	}
-	test.Tap(b["Finish rollback"][0])
-	test.Tap(b["Finish uninstall"][0])
-	test.Tap(b["Dismiss"][1])
-	q.until(t, "three actions", func() bool { return len(h.recorded()) == 3 })
+	// Each button dispatches on a goroutine of its own: wait for each action before the next, so
+	// that the recorded order is the order of the taps.
+	for i, tap := range []*widget.Button{b["Finish rollback"][0], b["Finish uninstall"][0], b["Dismiss"][1]} {
+		test.Tap(tap)
+		q.until(t, fmt.Sprintf("action %d", i+1), func() bool { return len(h.recorded()) == i+1 })
+	}
 	want := []struct{ id, params string }{
 		{"helm.release.rollback", `{"ref":{"context":"kind-cogpit","kind":"helmreleases","namespace":"ingress-nginx","name":"ingress-nginx"},"revision":3}`},
 		{"helm.release.uninstall", `{"ref":{"context":"kind-cogpit","kind":"helmreleases","namespace":"data-pipeline","name":"kafka"}}`},
