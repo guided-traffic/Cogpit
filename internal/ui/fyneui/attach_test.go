@@ -40,12 +40,12 @@ func (a attachEngine) OpenTerminal(ctx context.Context, tabID string) (terminal.
 // does, until it is closed.
 type openStream struct {
 	fakeStream
-	pw        *io.PipeWriter
-	gate      chan struct{} // closed when the output may flow
-	reading   atomic.Bool   // the reader has asked for output
-	size      int64         // bytes of output
-	taken     atomic.Int64  // bytes the reader has taken
-	idle      atomic.Bool   // it had taken them all and asked for more: it processed them
+	pw      *io.PipeWriter
+	gate    chan struct{} // closed when the output may flow
+	reading atomic.Bool   // the reader has asked for output
+	size    int64         // bytes of output
+	taken   atomic.Int64  // bytes the reader has taken
+	idle    atomic.Bool   // it had taken them all and asked for more: it processed them
 }
 
 func newOpenStream(f *fakeEngine, id, out string) *openStream {
