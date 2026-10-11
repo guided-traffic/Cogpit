@@ -1,0 +1,74 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "validatingadmissionpolicybindings",
+    "name": "replica-limit-production"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "replica-limit-production"
+    },
+    {
+      "column": "policy",
+      "text": "replica-limit",
+      "link": {
+        "kind": "validatingadmissionpolicies",
+        "name": "replica-limit"
+      }
+    },
+    {
+      "column": "validationActions",
+      "text": "Deny, Audit"
+    },
+    {
+      "column": "age",
+      "text": "40d",
+      "num": 1788220800
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "replica-limit-production"
+    ],
+    "namespace": [
+      ""
+    ],
+    "policy": [
+      "replica-limit"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Policy",
+          "value": "replica-limit",
+          "link": {
+            "kind": "validatingadmissionpolicies",
+            "name": "replica-limit"
+          }
+        },
+        {
+          "name": "Validation Actions",
+          "value": "Deny, Audit"
+        },
+        {
+          "name": "Param Ref",
+          "value": "guardrails/replica-limit"
+        },
+        {
+          "name": "Parameter Not Found Action",
+          "value": "Deny"
+        },
+        {
+          "name": "Namespace Selector",
+          "value": "environment=production"
+        }
+      ]
+    }
+  ]
+}

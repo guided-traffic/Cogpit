@@ -1,11 +1,14 @@
 package engine
 
 import (
+	"maps"
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
 // TestServedProfilesFallBackToAnOlderVersion checks how discovery picks a profile's version: the
@@ -66,5 +69,47 @@ func TestServedProfilesFallBackToAnOlderVersion(t *testing.T) {
 	}
 	if policies.Version != "v1" {
 		t.Errorf("the shared profile changed to %q", policies.Version)
+	}
+}
+
+// TestBuiltinAdmissionPoliciesFollowTheServedVersion checks the built-in admission policy views
+// on the discovery of three Kubernetes versions: 1.36 serves every kind at v1; 1.29 with the beta
+// APIs switched on serves the validating policies at v1beta1 and the mutating ones not at all,
+// whose views stay hidden as Lens hides them before 1.36 (capture, 2026-10-11); a cluster that
+// serves only v1alpha1 gets the validating views at v1alpha1.
+func TestBuiltinAdmissionPoliciesFollowTheServedVersion(t *testing.T) {
+	const group = "admissionregistration.k8s.io"
+	served := func(version string, resources ...string) map[schema.GroupVersionResource]bool {
+		m := map[schema.GroupVersionResource]bool{}
+		for _, r := range resources {
+			m[schema.GroupVersionResource{Group: group, Version: version, Resource: r}] = true
+		}
+		return m
+	}
+	all := []string{"mutatingadmissionpolicies", "mutatingadmissionpolicybindings", "validatingadmissionpolicies", "validatingadmissionpolicybindings"}
+	validating := all[2:]
+	tests := []struct {
+		name   string
+		served map[schema.GroupVersionResource]bool
+		want   map[string]string // kind key → version offered
+	}{
+		{"1.36", served("v1", all...), map[string]string{
+			all[0]: "v1", all[1]: "v1", all[2]: "v1", all[3]: "v1",
+		}},
+		{"1.29 with beta APIs", served("v1beta1", all...), map[string]string{all[2]: "v1beta1", all[3]: "v1beta1"}},
+		{"alpha only", served("v1alpha1", validating...), map[string]string{all[2]: "v1alpha1", all[3]: "v1alpha1"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := map[string]string{}
+			for _, p := range servedProfiles(kinds.Builtin(), tt.served) {
+				if p.Group == group && strings.Contains(p.Key, "admissionpolic") { // not the webhooks
+					got[p.Key] = p.Version
+				}
+			}
+			if !maps.Equal(got, tt.want) {
+				t.Errorf("offered %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

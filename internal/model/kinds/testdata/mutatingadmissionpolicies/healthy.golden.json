@@ -1,0 +1,101 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "mutatingadmissionpolicies",
+    "name": "inject-log-shipper"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "inject-log-shipper"
+    },
+    {
+      "column": "mutations",
+      "text": "2",
+      "num": 2
+    },
+    {
+      "column": "reinvocationPolicy",
+      "text": "IfNeeded"
+    },
+    {
+      "column": "failurePolicy",
+      "text": "Fail"
+    },
+    {
+      "column": "age",
+      "text": "40d",
+      "num": 1788220800
+    }
+  ],
+  "fields": {
+    "failurePolicy": [
+      "Fail"
+    ],
+    "label": [
+      "app.kubernetes.io/part-of=logging"
+    ],
+    "name": [
+      "inject-log-shipper"
+    ],
+    "namespace": [
+      ""
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Failure Policy",
+          "value": "Fail"
+        },
+        {
+          "name": "Reinvocation Policy",
+          "value": "IfNeeded"
+        },
+        {
+          "name": "Resource Rules",
+          "value": "CREATE core/v1 pods"
+        },
+        {
+          "name": "Match Policy",
+          "value": "Equivalent"
+        },
+        {
+          "name": "Match Conditions",
+          "value": "opted-in: object.metadata.?labels[\"logging.example.com/ship\"].orValue(\"\") == \"true\""
+        }
+      ]
+    },
+    {
+      "title": "Mutation 1",
+      "group": "Mutations",
+      "items": [
+        {
+          "name": "Patch Type",
+          "value": "ApplyConfiguration"
+        },
+        {
+          "name": "Apply Configuration",
+          "value": "Object{spec: Object.spec{initContainers: [Object.spec.initContainers{name: \"log-shipper\", image: \"registry.example.com/logging/shipper:3.2\", restartPolicy: \"Always\"}]}}"
+        }
+      ]
+    },
+    {
+      "title": "Mutation 2",
+      "group": "Mutations",
+      "items": [
+        {
+          "name": "Patch Type",
+          "value": "JSONPatch"
+        },
+        {
+          "name": "JSON Patch",
+          "value": "[JSONPatch{op: \"add\", path: \"/metadata/labels/logging.example.com~1injected\", value: \"true\"}]"
+        }
+      ]
+    }
+  ]
+}

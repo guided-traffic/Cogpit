@@ -1,0 +1,69 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "validatingadmissionpolicies",
+    "name": "no-latest-tag"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "no-latest-tag"
+    },
+    {
+      "column": "validations",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "failurePolicy",
+      "text": "Fail"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790812800
+    }
+  ],
+  "fields": {
+    "failurePolicy": [
+      "Fail"
+    ],
+    "label": [],
+    "name": [
+      "no-latest-tag"
+    ],
+    "namespace": [
+      ""
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Failure Policy",
+          "value": "Fail"
+        },
+        {
+          "name": "Resource Rules",
+          "value": "CREATE, UPDATE core/v1 pods"
+        }
+      ]
+    },
+    {
+      "title": "Validation 1",
+      "group": "Validations",
+      "items": [
+        {
+          "name": "Expression",
+          "value": "object.spec.containers.all(c, !c.image.endsWith(\":latest\"))"
+        },
+        {
+          "name": "Message",
+          "value": "images must not use the latest tag"
+        }
+      ]
+    }
+  ]
+}

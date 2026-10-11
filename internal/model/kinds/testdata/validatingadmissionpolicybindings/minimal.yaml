@@ -1,0 +1,8 @@
+# Synthetic: optional fields missing: an empty spec (the API requires a policy and actions), no
+# uid.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: bare
+  creationTimestamp: "2026-10-11T11:00:00Z"
+spec: {}

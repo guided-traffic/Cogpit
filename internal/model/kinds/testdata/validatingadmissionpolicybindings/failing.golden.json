@@ -1,0 +1,74 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "validatingadmissionpolicybindings",
+    "name": "require-team-label-everywhere"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "require-team-label-everywhere"
+    },
+    {
+      "column": "policy",
+      "text": "require-team-label",
+      "link": {
+        "kind": "validatingadmissionpolicies",
+        "name": "require-team-label"
+      }
+    },
+    {
+      "column": "validationActions",
+      "text": "Warn"
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791709200
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "require-team-label-everywhere"
+    ],
+    "namespace": [
+      ""
+    ],
+    "policy": [
+      "require-team-label"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Policy",
+          "value": "require-team-label",
+          "link": {
+            "kind": "validatingadmissionpolicies",
+            "name": "require-team-label"
+          }
+        },
+        {
+          "name": "Validation Actions",
+          "value": "Warn"
+        },
+        {
+          "name": "Param Ref",
+          "value": "selector policy=require-team-label"
+        },
+        {
+          "name": "Parameter Not Found Action",
+          "value": "Allow"
+        },
+        {
+          "name": "Excluded Rules",
+          "value": "* core/v1 pods named debug (Namespaced)"
+        }
+      ]
+    }
+  ]
+}

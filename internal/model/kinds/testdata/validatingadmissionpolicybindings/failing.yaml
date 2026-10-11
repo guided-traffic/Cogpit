@@ -1,0 +1,31 @@
+# Synthetic: a binding has no state to fail; this is what goes wrong with one in practice: it only
+# warns, so nothing is denied, its parameters are found by a selector that may match none (and then
+# every request passes), and a cluster-scoped exclusion.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: require-team-label-everywhere
+  uid: 97e85960-4444-4192-a3b4-000000000002
+  creationTimestamp: "2026-10-11T09:00:00Z"
+spec:
+  policyName: require-team-label
+  validationActions:
+  - Warn
+  paramRef:
+    selector:
+      matchLabels:
+        policy: require-team-label
+    parameterNotFoundAction: Allow
+  matchResources:
+    excludeResourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      operations:
+      - '*'
+      resources:
+      - pods
+      resourceNames:
+      - debug
+      scope: Namespaced

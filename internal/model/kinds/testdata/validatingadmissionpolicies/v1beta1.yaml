@@ -1,0 +1,24 @@
+# Synthetic: a policy as a cluster before Kubernetes 1.30 serves it, at v1beta1: the profile reads
+# it the same (FallbackVersions).
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: no-latest-tag
+  uid: 86d74859-3333-4081-92a3-000000000005
+  creationTimestamp: "2026-10-01T00:00:00Z"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - pods
+  validations:
+  - expression: object.spec.containers.all(c, !c.image.endsWith(":latest"))
+    message: images must not use the latest tag

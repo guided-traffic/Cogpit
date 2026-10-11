@@ -1,0 +1,16 @@
+# Synthetic: a mutating policy has no status to fail; this is what goes wrong with one in practice:
+# a mutation on every pod that rejects the request when its expression fails (failurePolicy Fail),
+# without a match constraint to narrow it.
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: default-requests
+  uid: a8f96a71-5555-42a3-b4c5-000000000002
+  creationTimestamp: "2026-10-11T09:00:00Z"
+spec:
+  failurePolicy: Fail
+  reinvocationPolicy: Never
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: '[JSONPatch{op: "add", path: "/spec/containers/0/resources/requests/cpu", value: "100m"}]'

@@ -1,0 +1,62 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "validatingadmissionpolicybindings",
+    "name": "legacy-image-registry"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-image-registry"
+    },
+    {
+      "column": "policy",
+      "text": "legacy-image-registry",
+      "link": {
+        "kind": "validatingadmissionpolicies",
+        "name": "legacy-image-registry"
+      }
+    },
+    {
+      "column": "validationActions",
+      "text": "Deny"
+    },
+    {
+      "column": "age",
+      "text": "224d",
+      "num": 1772323200
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "legacy-image-registry"
+    ],
+    "namespace": [
+      ""
+    ],
+    "policy": [
+      "legacy-image-registry"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Policy",
+          "value": "legacy-image-registry",
+          "link": {
+            "kind": "validatingadmissionpolicies",
+            "name": "legacy-image-registry"
+          }
+        },
+        {
+          "name": "Validation Actions",
+          "value": "Deny"
+        }
+      ]
+    }
+  ]
+}

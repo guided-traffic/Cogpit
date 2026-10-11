@@ -1,0 +1,58 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "mutatingadmissionpolicybindings",
+    "name": "inject-log-shipper"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "inject-log-shipper"
+    },
+    {
+      "column": "policy",
+      "text": "inject-log-shipper",
+      "link": {
+        "kind": "mutatingadmissionpolicies",
+        "name": "inject-log-shipper"
+      }
+    },
+    {
+      "column": "age",
+      "text": "40d",
+      "num": 1788220800
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "inject-log-shipper"
+    ],
+    "namespace": [
+      ""
+    ],
+    "policy": [
+      "inject-log-shipper"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Policy",
+          "value": "inject-log-shipper",
+          "link": {
+            "kind": "mutatingadmissionpolicies",
+            "name": "inject-log-shipper"
+          }
+        },
+        {
+          "name": "Namespace Selector",
+          "value": "logging.example.com/ship=true"
+        }
+      ]
+    }
+  ]
+}

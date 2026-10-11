@@ -1,0 +1,24 @@
+# Synthetic: a policy held by a finalizer while it is deleted.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: legacy-image-registry
+  uid: 86d74859-3333-4081-92a3-000000000003
+  creationTimestamp: "2026-03-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - policies.example.com/audit
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      resources:
+      - pods
+  validations:
+  - expression: object.spec.containers.all(c, c.image.startsWith("registry.example.com/"))

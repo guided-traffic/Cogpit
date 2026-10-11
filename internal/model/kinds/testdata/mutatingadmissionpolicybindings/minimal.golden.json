@@ -1,0 +1,34 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "mutatingadmissionpolicybindings",
+    "name": "bare"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "policy",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      ""
+    ],
+    "policy": []
+  },
+  "detail": null
+}

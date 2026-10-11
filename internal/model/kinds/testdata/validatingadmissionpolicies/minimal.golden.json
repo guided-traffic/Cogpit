@@ -1,0 +1,38 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "validatingadmissionpolicies",
+    "name": "bare"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "validations",
+      "text": "0"
+    },
+    {
+      "column": "failurePolicy",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "failurePolicy": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      ""
+    ]
+  },
+  "detail": null
+}

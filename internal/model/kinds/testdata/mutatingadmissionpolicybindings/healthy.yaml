@@ -1,0 +1,13 @@
+# Synthetic: the log shipper bound to the namespaces that opted in.
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionPolicyBinding
+metadata:
+  name: inject-log-shipper
+  uid: b90a7b82-6666-43b4-c5d6-000000000001
+  creationTimestamp: "2026-09-01T00:00:00Z"
+spec:
+  policyName: inject-log-shipper
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        logging.example.com/ship: "true"

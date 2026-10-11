@@ -1,0 +1,33 @@
+# Synthetic: type checking found an expression that cannot work: a field the matched kind does not
+# have.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: require-team-label
+  uid: 86d74859-3333-4081-92a3-000000000002
+  creationTimestamp: "2026-10-11T09:00:00Z"
+  generation: 1
+spec:
+  failurePolicy: Ignore
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      resources:
+      - pods
+  validations:
+  - expression: object.spec.teamLabel != ""
+    message: pods need a team
+status:
+  observedGeneration: 1
+  typeChecking:
+    expressionWarnings:
+    - fieldRef: spec.validations[0].expression
+      warning: |-
+        apps/v1, Kind=Pod: ERROR: <input>:1:12: undefined field 'teamLabel'
+         | object.spec.teamLabel != ""
+         | ...........^

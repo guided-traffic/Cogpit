@@ -1,0 +1,74 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "validatingadmissionpolicies",
+    "name": "require-team-label"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "require-team-label"
+    },
+    {
+      "column": "validations",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "failurePolicy",
+      "text": "Ignore"
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791709200
+    }
+  ],
+  "fields": {
+    "failurePolicy": [
+      "Ignore"
+    ],
+    "label": [],
+    "name": [
+      "require-team-label"
+    ],
+    "namespace": [
+      ""
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Type Checking",
+          "value": "spec.validations[0].expression: apps/v1, Kind=Pod: ERROR: <input>:1:12: undefined field 'teamLabel' | object.spec.teamLabel != \"\" | ...........^",
+          "status": "warning"
+        },
+        {
+          "name": "Failure Policy",
+          "value": "Ignore"
+        },
+        {
+          "name": "Resource Rules",
+          "value": "CREATE core/v1 pods"
+        }
+      ]
+    },
+    {
+      "title": "Validation 1",
+      "group": "Validations",
+      "items": [
+        {
+          "name": "Expression",
+          "value": "object.spec.teamLabel != \"\""
+        },
+        {
+          "name": "Message",
+          "value": "pods need a team"
+        }
+      ]
+    }
+  ]
+}

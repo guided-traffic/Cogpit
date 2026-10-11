@@ -1,0 +1,73 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "mutatingadmissionpolicies",
+    "name": "legacy-defaults"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-defaults"
+    },
+    {
+      "column": "mutations",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "reinvocationPolicy",
+      "text": "Never"
+    },
+    {
+      "column": "failurePolicy",
+      "text": "Ignore"
+    },
+    {
+      "column": "age",
+      "text": "224d",
+      "num": 1772323200
+    }
+  ],
+  "fields": {
+    "failurePolicy": [
+      "Ignore"
+    ],
+    "label": [],
+    "name": [
+      "legacy-defaults"
+    ],
+    "namespace": [
+      ""
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Failure Policy",
+          "value": "Ignore"
+        },
+        {
+          "name": "Reinvocation Policy",
+          "value": "Never"
+        }
+      ]
+    },
+    {
+      "title": "Mutation 1",
+      "group": "Mutations",
+      "items": [
+        {
+          "name": "Patch Type",
+          "value": "ApplyConfiguration"
+        },
+        {
+          "name": "Apply Configuration",
+          "value": "Object{metadata: Object.metadata{labels: {\"legacy\": \"true\"}}}"
+        }
+      ]
+    }
+  ]
+}

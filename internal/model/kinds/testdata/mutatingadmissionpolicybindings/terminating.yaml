@@ -1,0 +1,12 @@
+# Synthetic: a binding held by a finalizer while it is deleted.
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionPolicyBinding
+metadata:
+  name: legacy-defaults
+  uid: b90a7b82-6666-43b4-c5d6-000000000003
+  creationTimestamp: "2026-03-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - policies.example.com/audit
+spec:
+  policyName: legacy-defaults

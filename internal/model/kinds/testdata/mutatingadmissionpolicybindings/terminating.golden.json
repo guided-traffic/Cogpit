@@ -1,0 +1,54 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "mutatingadmissionpolicybindings",
+    "name": "legacy-defaults"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-defaults"
+    },
+    {
+      "column": "policy",
+      "text": "legacy-defaults",
+      "link": {
+        "kind": "mutatingadmissionpolicies",
+        "name": "legacy-defaults"
+      }
+    },
+    {
+      "column": "age",
+      "text": "224d",
+      "num": 1772323200
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "legacy-defaults"
+    ],
+    "namespace": [
+      ""
+    ],
+    "policy": [
+      "legacy-defaults"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Policy",
+          "value": "legacy-defaults",
+          "link": {
+            "kind": "mutatingadmissionpolicies",
+            "name": "legacy-defaults"
+          }
+        }
+      ]
+    }
+  ]
+}

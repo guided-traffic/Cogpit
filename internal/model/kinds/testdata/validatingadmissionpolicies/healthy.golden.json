@@ -1,0 +1,118 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "validatingadmissionpolicies",
+    "name": "replica-limit"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "replica-limit"
+    },
+    {
+      "column": "validations",
+      "text": "2",
+      "num": 2
+    },
+    {
+      "column": "failurePolicy",
+      "text": "Fail"
+    },
+    {
+      "column": "age",
+      "text": "40d",
+      "num": 1788220800
+    }
+  ],
+  "fields": {
+    "failurePolicy": [
+      "Fail"
+    ],
+    "label": [
+      "app.kubernetes.io/part-of=guardrails"
+    ],
+    "name": [
+      "replica-limit"
+    ],
+    "namespace": [
+      ""
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Failure Policy",
+          "value": "Fail"
+        },
+        {
+          "name": "Param Kind",
+          "value": "ConfigMap (v1)"
+        },
+        {
+          "name": "Namespace Selector",
+          "value": "environment=production"
+        },
+        {
+          "name": "Resource Rules",
+          "value": "CREATE, UPDATE apps/v1 deployments"
+        },
+        {
+          "name": "Match Policy",
+          "value": "Equivalent"
+        },
+        {
+          "name": "Match Conditions",
+          "value": "not-a-system-user: !request.userInfo.username.startsWith(\"system:\")"
+        },
+        {
+          "name": "Variables",
+          "value": "maxReplicas: int(params.data.maxReplicas)"
+        }
+      ]
+    },
+    {
+      "title": "Validation 1",
+      "group": "Validations",
+      "items": [
+        {
+          "name": "Expression",
+          "value": "object.spec.replicas <= variables.maxReplicas"
+        },
+        {
+          "name": "Message Expression",
+          "value": "\"replicas must be at most \" + string(variables.maxReplicas)"
+        },
+        {
+          "name": "Reason",
+          "value": "Invalid"
+        }
+      ]
+    },
+    {
+      "title": "Validation 2",
+      "group": "Validations",
+      "items": [
+        {
+          "name": "Expression",
+          "value": "has(object.spec.template.spec.priorityClassName)"
+        },
+        {
+          "name": "Message",
+          "value": "production deployments need a priority class"
+        }
+      ]
+    },
+    {
+      "title": "Audit Annotations",
+      "items": [
+        {
+          "name": "high-replica-count",
+          "value": "\"deployment \" + object.metadata.name + \" asks for \" + string(object.spec.replicas)"
+        }
+      ]
+    }
+  ]
+}

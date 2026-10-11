@@ -1,0 +1,62 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "mutatingadmissionpolicybindings",
+    "name": "default-requests"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "default-requests"
+    },
+    {
+      "column": "policy",
+      "text": "default-requests",
+      "link": {
+        "kind": "mutatingadmissionpolicies",
+        "name": "default-requests"
+      }
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791709200
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "default-requests"
+    ],
+    "namespace": [
+      ""
+    ],
+    "policy": [
+      "default-requests"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Policy",
+          "value": "default-requests",
+          "link": {
+            "kind": "mutatingadmissionpolicies",
+            "name": "default-requests"
+          }
+        },
+        {
+          "name": "Param Ref",
+          "value": "platform/default-requests"
+        },
+        {
+          "name": "Parameter Not Found Action",
+          "value": "Deny"
+        }
+      ]
+    }
+  ]
+}

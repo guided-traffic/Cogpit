@@ -1,0 +1,42 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "mutatingadmissionpolicies",
+    "name": "bare"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "mutations",
+      "text": "0"
+    },
+    {
+      "column": "reinvocationPolicy",
+      "text": ""
+    },
+    {
+      "column": "failurePolicy",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "failurePolicy": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      ""
+    ]
+  },
+  "detail": null
+}

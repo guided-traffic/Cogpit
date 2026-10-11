@@ -1,0 +1,73 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "mutatingadmissionpolicies",
+    "name": "default-requests"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "default-requests"
+    },
+    {
+      "column": "mutations",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "reinvocationPolicy",
+      "text": "Never"
+    },
+    {
+      "column": "failurePolicy",
+      "text": "Fail"
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791709200
+    }
+  ],
+  "fields": {
+    "failurePolicy": [
+      "Fail"
+    ],
+    "label": [],
+    "name": [
+      "default-requests"
+    ],
+    "namespace": [
+      ""
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Failure Policy",
+          "value": "Fail"
+        },
+        {
+          "name": "Reinvocation Policy",
+          "value": "Never"
+        }
+      ]
+    },
+    {
+      "title": "Mutation 1",
+      "group": "Mutations",
+      "items": [
+        {
+          "name": "Patch Type",
+          "value": "JSONPatch"
+        },
+        {
+          "name": "JSON Patch",
+          "value": "[JSONPatch{op: \"add\", path: \"/spec/containers/0/resources/requests/cpu\", value: \"100m\"}]"
+        }
+      ]
+    }
+  ]
+}

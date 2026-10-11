@@ -1,0 +1,7 @@
+# Synthetic: optional fields missing: an empty spec, no uid.
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: bare
+  creationTimestamp: "2026-10-11T11:00:00Z"
+spec: {}
