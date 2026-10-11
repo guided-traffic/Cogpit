@@ -635,6 +635,7 @@ type kindInfo struct {
 	Version    string         `json:"version"`
 	Namespaced bool           `json:"namespaced"`
 	Columns    []model.Column `json:"columns"`
+	Listable   *bool          `json:"listable,omitempty"` // nil: the access reviews have not answered
 }
 
 // decode turns a command result into out through JSON: results cross the engine seam as

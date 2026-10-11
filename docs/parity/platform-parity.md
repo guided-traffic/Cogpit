@@ -65,7 +65,7 @@ client-go from the process that holds the credentials, so that requirement does 
 | `proxy-url` in the kubeconfig | not documented | yes | missing |
 | HTTP proxy set per cluster in cluster settings | yes | yes | missing |
 | Custom CA, `tls-server-name`, `insecure-skip-tls-verify` | not documented | yes | missing |
-| Users who may list only some namespaces (accessible namespaces) | yes | yes | missing |
+| Users who may list only some namespaces (accessible namespaces) | yes | yes | partial (2026-10-11): access reviews per namespace (`SelfSubjectRulesReview`) of the context's default namespace and the namespace filter's: the sidebar shows the kinds such a user may list there and hides the others, menus grey what they may not do ([`accessreviews.go`](../../internal/engine/accessreviews.go); `TestKindAccessReviews` with a ServiceAccount limited to pods in one namespace, `TestBudgetAccessReviews`). Missing: views still list every namespace (no namespace-scoped informers), so such a user's Pods view shows the API server's refusal; no setting for accessible namespaces when the kubeconfig names none |
 | Cluster Connect: reach clusters through Lens's relay (paid) | yes | not a target ([D-9](../developer/decisions.md#d-9-scope-against-lenss-paid-and-vendor-features)) | – |
 | Cloud account integrations: list and add EKS, AKS, GKE clusters (paid) | yes | gap [G18](gaps.md#g18-paid-lens-desktop-features) | missing |
 
@@ -102,6 +102,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Users who may list only some namespaces partial: access reviews per namespace hide the kinds they may not list and grey what they may not do |
 | 2026-10-11 | minor | Kubernetes 1.37.0 on kind in CI; kinds and fields newer than the client libraries partial (custom resource views, edits keep unknown fields); 6 of 38 rows |
 | 2026-10-11 | minor | The MVP: local macOS app bundle, certificate and token authentication, Kubernetes 1.36 on kind, `kubectl` from `PATH` partial |
 | 2026-10-11 | minor | macOS first (D-7): Windows and Linux rows move after the macOS beta (G22) |

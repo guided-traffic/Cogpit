@@ -208,9 +208,11 @@ func (s *sidebar) updateHeader() {
 }
 
 // setKinds rebuilds the tree from kinds.list. It runs on connect and whenever the cluster's
-// custom resource kinds change; branches keep the open or closed state they had, new ones start
-// open, except the API groups of Custom Resources, which start closed (captured).
+// custom resource kinds or the access reviews' answers change; branches keep the open or closed
+// state they had, new ones start open, except the API groups of Custom Resources, which start
+// closed (captured). A kind the user may not list is left out; one not known yet is shown.
 func (s *sidebar) setKinds(kinds []kindInfo) {
+	kinds = slices.DeleteFunc(slices.Clone(kinds), func(k kindInfo) bool { return k.Listable != nil && !*k.Listable })
 	wasOpen := map[string]bool{}
 	for id := range s.children {
 		if id != "" {
