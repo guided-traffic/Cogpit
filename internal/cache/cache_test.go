@@ -417,3 +417,52 @@ func names(objs []*unstructured.Unstructured) []string {
 	sort.Strings(out)
 	return out
 }
+
+// TestSyncWaitsForTheInitialListToReachSubscribers: client-go fills the store before it hands the
+// initial list to event handlers, so a store-only sync would let a subscriber that subscribes
+// "after sync" see late initial additions as changes. While a subscriber still blocks the initial
+// list's delivery, the handle is not synced; once it is, a new subscriber sees only changes.
+func TestSyncWaitsForTheInitialListToReachSubscribers(t *testing.T) {
+	src := testkit.NewMemorySource()
+	for i := range 50 {
+		src.Set(testkit.PodsGVR, testkit.Pod("default", fmt.Sprintf("web-%d", i)))
+	}
+	c := cache.New(src, cache.Options{})
+	defer c.Close()
+	h := c.Acquire(cache.Scope{GVR: testkit.PodsGVR})
+	defer h.Release()
+
+	release := make(chan struct{})
+	var first sync.Once
+	reached := make(chan struct{})
+	unsub := h.Subscribe(func(cache.Event) {
+		first.Do(func() { close(reached) })
+		<-release
+	})
+	defer unsub()
+	select {
+	case <-reached:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the initial list never reached the subscriber")
+	}
+	if h.HasSynced() {
+		t.Error("synced while the initial list is still being delivered")
+	}
+	close(release)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if !h.WaitForSync(ctx) {
+		t.Fatal("not synced")
+	}
+	var late atomic.Int64
+	defer h.Subscribe(func(cache.Event) { late.Add(1) })()
+	time.Sleep(200 * time.Millisecond)
+	if n := late.Load(); n != 0 {
+		t.Errorf("a subscriber added after sync saw %d initial-list events", n)
+	}
+	src.Set(testkit.PodsGVR, testkit.Pod("default", "web-new"))
+	if !testkit.WaitFor(ctx, func() bool { return late.Load() == 1 }) {
+		t.Errorf("the change after sync: %d events, want 1", late.Load())
+	}
+}

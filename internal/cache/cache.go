@@ -132,6 +132,7 @@ func New(src Source, opts Options) *Cache {
 type entry struct {
 	scope  Scope
 	inf    toolscache.SharedIndexInformer
+	reg    toolscache.ResourceEventHandlerRegistration // the cache's handler; nil if it failed
 	cancel context.CancelFunc
 	done   chan struct{} // closed when the informer's goroutine has returned
 	log    *slog.Logger
@@ -200,13 +201,15 @@ func (c *Cache) start(scope Scope) *entry {
 	}); err != nil {
 		e.log.Warn("cache: watch error handler not installed", "err", err)
 	}
-	if _, err := inf.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
+	reg, err := inf.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj any) { e.dispatch(Added, obj) },
 		UpdateFunc: func(_, obj any) { e.dispatch(Updated, obj) },
 		DeleteFunc: func(obj any) { e.dispatch(Deleted, obj) },
-	}); err != nil {
+	})
+	if err != nil {
 		e.log.Warn("cache: event handler not installed", "err", err)
 	}
+	e.reg = reg
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancel = cancel
 	go func() {
@@ -291,7 +294,7 @@ func (c *Cache) Stats() []InformerStats {
 			Scope:     r.e.scope,
 			Objects:   len(r.e.inf.GetStore().ListKeys()),
 			Handles:   r.refs,
-			Synced:    r.e.inf.HasSynced(),
+			Synced:    r.e.synced(),
 			Events:    r.e.events.Load(),
 			WarmUntil: r.warmUntil,
 		}
@@ -539,16 +542,24 @@ type Handle struct {
 // Scope returns the handle's scope.
 func (h *Handle) Scope() Scope { return h.scope }
 
-// HasSynced reports whether the informer has finished its initial list.
-func (h *Handle) HasSynced() bool { return h.e != nil && h.e.inf.HasSynced() }
+// HasSynced reports whether the informer has finished its initial list and delivered it to
+// subscribers: a subscriber that subscribes after HasSynced sees changes only, never the initial
+// list's late additions. (The store is filled before client-go hands the initial list to event
+// handlers, so the store's own sync comes first.)
+func (h *Handle) HasSynced() bool { return h.e != nil && h.e.synced() }
 
-// WaitForSync blocks until the informer has synced or ctx ends; it reports whether it synced.
+func (e *entry) synced() bool {
+	return e.inf.HasSynced() && (e.reg == nil || e.reg.HasSynced())
+}
+
+// WaitForSync blocks until the informer has synced (HasSynced) or ctx ends; it reports whether
+// it synced.
 func (h *Handle) WaitForSync(ctx context.Context) bool {
 	if h.e == nil {
 		<-ctx.Done()
 		return false
 	}
-	if h.e.inf.HasSynced() {
+	if h.e.synced() {
 		return true
 	}
 	t := time.NewTicker(10 * time.Millisecond)
@@ -556,9 +567,9 @@ func (h *Handle) WaitForSync(ctx context.Context) bool {
 	for {
 		select {
 		case <-ctx.Done():
-			return h.e.inf.HasSynced()
+			return h.e.synced()
 		case <-t.C:
-			if h.e.inf.HasSynced() {
+			if h.e.synced() {
 				return true
 			}
 		}
