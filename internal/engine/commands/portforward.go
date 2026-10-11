@@ -28,6 +28,12 @@ var forwardVerbs = []engine.Verb{
 	{Verb: nwVerbWatch, Resource: kindPods},
 }
 
+// serviceForwardVerbs add the Service a service forward reads from the cache.
+var serviceForwardVerbs = append(slices.Clone(forwardVerbs),
+	engine.Verb{Verb: nwVerbList, Resource: kindServices},
+	engine.Verb{Verb: nwVerbWatch, Resource: kindServices},
+)
+
 // forwardOptions are the settings every way of starting a forward shares.
 type forwardOptions struct {
 	LocalPort     uint16 `json:"localPort,omitempty" jsonschema:"the local port to listen on, on 127.0.0.1 only; 0 or left out picks a free port"`
@@ -106,7 +112,7 @@ func registerPortForward(g *registrar) {
 
 	add(g, engine.Spec[serviceForwardParams]{
 		ID: "service.portForward", Label: "Forward", MenuPath: "Service/Forward Port", Kinds: []string{kindServices},
-		Danger: engine.DangerMutating, Verbs: forwardVerbs,
+		Danger: engine.DangerMutating, Verbs: serviceForwardVerbs,
 		Description: "Forwards a service's port to a local port on 127.0.0.1 (only loopback; every local process can " +
 			"connect while it runs) through a ready pod of the service's selector, at the port the service targets, " +
 			"as kubectl port-forward svc/<name> does. When that pod goes, it moves to another ready pod; while there " +

@@ -27,6 +27,12 @@ var ErrNoDrainJournal = errors.New("this Cogpit session keeps no drain journal, 
 type Drains struct {
 	journal DrainJournal
 
+	// jmu serialises the journal's changes with the running state they depend on: Begin's check
+	// and record, End's record and release, Forget's check and removal. Without it a Begin between
+	// another operation's check and its write loses its entry (D-11). Taken before mu; never held
+	// while emitting events.
+	jmu sync.Mutex
+
 	mu       sync.Mutex
 	s        *Session
 	running  map[drainKey]*cluster.DrainProgress
@@ -155,7 +161,7 @@ func (d *Drains) dropMissingNodes(s *Session, ctxName string, pending []PendingD
 			kept = append(kept, e)
 			continue
 		}
-		if err := d.journal.Remove(e.Context, e.Node); err != nil {
+		if err := d.forget(e.Context, e.Node); err != nil {
 			s.log.Error("engine: dropping a drain of a missing node", "node", e.Node, "err", err)
 			kept = append(kept, e)
 			continue
@@ -183,6 +189,17 @@ func (d *Drains) Begin(p PendingDrain) error {
 	if d == nil {
 		return ErrNoDrainJournal
 	}
+	if err := d.begin(p); err != nil {
+		return err
+	}
+	d.changed("")
+	return nil
+}
+
+// begin checks that no drain of the node runs and records the new one, both under jmu.
+func (d *Drains) begin(p PendingDrain) error {
+	d.jmu.Lock()
+	defer d.jmu.Unlock()
 	k := p.key()
 	d.mu.Lock()
 	if _, ok := d.running[k]; ok {
@@ -199,7 +216,6 @@ func (d *Drains) Begin(p PendingDrain) error {
 		d.mu.Unlock()
 		return fmt.Errorf("the drain was not started, because Cogpit could not record it first: %w", err)
 	}
-	d.changed("")
 	return nil
 }
 
@@ -225,10 +241,16 @@ func (d *Drains) End(p PendingDrain, drainErr error) error {
 	if d == nil {
 		return ErrNoDrainJournal
 	}
-	k := p.key()
-	d.mu.Lock()
-	delete(d.running, k)
-	d.mu.Unlock()
+	err := d.end(p, drainErr)
+	d.changed("")
+	return err
+}
+
+// end records the outcome while the drain still counts as running, so that no Begin on the node
+// can record a new drain that this write would then remove or overwrite.
+func (d *Drains) end(p PendingDrain, drainErr error) error {
+	d.jmu.Lock()
+	defer d.jmu.Unlock()
 	var err error
 	if drainErr == nil {
 		err = d.journal.Remove(p.Context, p.Node)
@@ -236,7 +258,9 @@ func (d *Drains) End(p PendingDrain, drainErr error) error {
 		p.State, p.Error = DrainFailed, drainErr.Error()
 		err = d.journal.Put(p)
 	}
-	d.changed("")
+	d.mu.Lock()
+	delete(d.running, p.key())
+	d.mu.Unlock()
 	return err
 }
 
@@ -246,14 +270,21 @@ func (d *Drains) Forget(context, node string) error {
 	if d == nil {
 		return ErrNoDrainJournal
 	}
-	if d.Running(context, node) {
-		return fmt.Errorf("the drain of node %s is running", node)
-	}
-	if err := d.journal.Remove(context, node); err != nil {
+	if err := d.forget(context, node); err != nil {
 		return err
 	}
 	d.changed("")
 	return nil
+}
+
+// forget removes a journal entry unless a drain of the node runs, checking and removing under jmu.
+func (d *Drains) forget(context, node string) error {
+	d.jmu.Lock()
+	defer d.jmu.Unlock()
+	if d.Running(context, node) {
+		return fmt.Errorf("the drain of node %s is running", node)
+	}
+	return d.journal.Remove(context, node)
 }
 
 // Running reports whether a drain of the node runs in this process.
