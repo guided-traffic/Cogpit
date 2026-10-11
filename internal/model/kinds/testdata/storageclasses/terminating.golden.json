@@ -1,0 +1,84 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "storageclasses",
+    "name": "legacy-nfs"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-nfs"
+    },
+    {
+      "column": "provisioner",
+      "text": "nfs.csi.example.com"
+    },
+    {
+      "column": "age",
+      "text": "274d",
+      "num": 1768003200
+    },
+    {
+      "column": "reclaimPolicy",
+      "text": "Delete"
+    },
+    {
+      "column": "volumeBindingMode",
+      "text": "Immediate"
+    }
+  ],
+  "fields": {
+    "default": [
+      "false"
+    ],
+    "label": [],
+    "name": [
+      "legacy-nfs"
+    ],
+    "namespace": [
+      ""
+    ],
+    "provisioner": [
+      "nfs.csi.example.com"
+    ],
+    "reclaimPolicy": [
+      "Delete"
+    ],
+    "volumeBindingMode": [
+      "Immediate"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Provisioner",
+          "value": "nfs.csi.example.com"
+        },
+        {
+          "name": "Reclaim Policy",
+          "value": "Delete"
+        },
+        {
+          "name": "Volume Binding Mode",
+          "value": "Immediate"
+        }
+      ]
+    },
+    {
+      "title": "Parameters",
+      "items": [
+        {
+          "name": "server",
+          "value": "nfs.example.com"
+        },
+        {
+          "name": "share",
+          "value": "/exports"
+        }
+      ]
+    }
+  ]
+}

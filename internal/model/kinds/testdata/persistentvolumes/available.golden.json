@@ -1,0 +1,100 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "persistentvolumes",
+    "name": "shared-media"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "shared-media"
+    },
+    {
+      "column": "storageClass",
+      "text": ""
+    },
+    {
+      "column": "capacity",
+      "text": "1Ti",
+      "num": 1099511627776
+    },
+    {
+      "column": "claim",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "2h",
+      "num": 1791712800
+    },
+    {
+      "column": "status",
+      "text": "Available",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "accessMode": [
+      "ReadWriteMany",
+      "ReadOnlyMany"
+    ],
+    "claim": [],
+    "label": [],
+    "name": [
+      "shared-media"
+    ],
+    "namespace": [
+      ""
+    ],
+    "reclaimPolicy": [
+      "Retain"
+    ],
+    "source": [
+      "nfs"
+    ],
+    "status": [
+      "Available"
+    ],
+    "storageClass": [],
+    "volumeMode": [
+      "Filesystem"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Available",
+          "status": "ok"
+        },
+        {
+          "name": "Capacity",
+          "value": "1Ti"
+        },
+        {
+          "name": "Access Modes",
+          "value": "ReadWriteMany, ReadOnlyMany"
+        },
+        {
+          "name": "Reclaim Policy",
+          "value": "Retain"
+        },
+        {
+          "name": "Volume Mode",
+          "value": "Filesystem"
+        },
+        {
+          "name": "Source",
+          "value": "nfs: nfs.example.com:/exports/media"
+        },
+        {
+          "name": "Mount Options",
+          "value": "nfsvers=4.1"
+        }
+      ]
+    }
+  ]
+}

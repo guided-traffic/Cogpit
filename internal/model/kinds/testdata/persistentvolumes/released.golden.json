@@ -1,0 +1,126 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "persistentvolumes",
+    "name": "pvc-2a3b4c5d-8888-4d9e-8f10-000000000003"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "pvc-2a3b4c5d-8888-4d9e-8f10-000000000003"
+    },
+    {
+      "column": "storageClass",
+      "text": "fast-ssd",
+      "link": {
+        "kind": "storageclasses",
+        "name": "fast-ssd"
+      }
+    },
+    {
+      "column": "capacity",
+      "text": "20Gi",
+      "num": 21474836480
+    },
+    {
+      "column": "claim",
+      "text": "orders/data-ledger-writer-0",
+      "link": {
+        "kind": "persistentvolumeclaims",
+        "namespace": "orders",
+        "name": "data-ledger-writer-0"
+      }
+    },
+    {
+      "column": "age",
+      "text": "163d",
+      "num": 1777593600
+    },
+    {
+      "column": "status",
+      "text": "Released",
+      "status": "warning"
+    }
+  ],
+  "fields": {
+    "accessMode": [
+      "ReadWriteOnce"
+    ],
+    "claim": [
+      "orders/data-ledger-writer-0"
+    ],
+    "label": [],
+    "name": [
+      "pvc-2a3b4c5d-8888-4d9e-8f10-000000000003"
+    ],
+    "namespace": [
+      ""
+    ],
+    "reclaimPolicy": [
+      "Retain"
+    ],
+    "source": [
+      "csi",
+      "csi.example.com"
+    ],
+    "status": [
+      "Released"
+    ],
+    "storageClass": [
+      "fast-ssd"
+    ],
+    "volumeMode": [
+      "Filesystem"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Released",
+          "status": "warning"
+        },
+        {
+          "name": "Storage Class",
+          "value": "fast-ssd",
+          "link": {
+            "kind": "storageclasses",
+            "name": "fast-ssd"
+          }
+        },
+        {
+          "name": "Capacity",
+          "value": "20Gi"
+        },
+        {
+          "name": "Access Modes",
+          "value": "ReadWriteOnce"
+        },
+        {
+          "name": "Reclaim Policy",
+          "value": "Retain"
+        },
+        {
+          "name": "Volume Mode",
+          "value": "Filesystem"
+        },
+        {
+          "name": "Claim",
+          "value": "orders/data-ledger-writer-0",
+          "link": {
+            "kind": "persistentvolumeclaims",
+            "namespace": "orders",
+            "name": "data-ledger-writer-0"
+          }
+        },
+        {
+          "name": "Source",
+          "value": "csi: csi.example.com, volume handle vol-01234abcd5678ef90, read-only"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+# Synthetic: the slice of a deleted Service, held by a finalizer while it is deleted; its endpoint
+# runs outside the cluster (no target, no node).
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: legacy-db-1
+  namespace: orders
+  uid: 6a7b8c9d-3333-4c4d-8e5f-000000000003
+  creationTimestamp: "2026-04-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - example.com/slice-cleanup
+  labels:
+    endpointslice.kubernetes.io/managed-by: slices.example.com
+    kubernetes.io/service-name: legacy-db
+addressType: IPv4
+endpoints:
+- addresses:
+  - 192.0.2.40
+  hostname: db-primary
+ports:
+- name: postgres
+  port: 5432

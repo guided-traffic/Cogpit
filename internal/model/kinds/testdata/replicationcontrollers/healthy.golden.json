@@ -1,0 +1,76 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "replicationcontrollers",
+    "namespace": "legacy",
+    "name": "frontend-v1"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "frontend-v1"
+    },
+    {
+      "column": "namespace",
+      "text": "legacy",
+      "link": {
+        "kind": "namespaces",
+        "name": "legacy"
+      }
+    },
+    {
+      "column": "replicas",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "desiredReplicas",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "selector",
+      "text": "app=frontend, version=v1"
+    }
+  ],
+  "fields": {
+    "controlledBy": [],
+    "image": [
+      "registry.example.com/legacy/frontend:1.0.3",
+      "registry.example.com/tools/nginx-exporter:0.11.0"
+    ],
+    "label": [
+      "app=frontend"
+    ],
+    "name": [
+      "frontend-v1"
+    ],
+    "namespace": [
+      "legacy"
+    ],
+    "selector": [
+      "app=frontend",
+      "version=v1"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Pods",
+          "value": "3 desired / 3 current / 3 ready / 3 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=frontend\nversion=v1"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/legacy/frontend:1.0.3\nregistry.example.com/tools/nginx-exporter:0.11.0"
+        }
+      ]
+    }
+  ]
+}

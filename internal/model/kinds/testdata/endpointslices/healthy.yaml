@@ -1,0 +1,67 @@
+# Synthetic: the slice of a Service with three ready pods, as the endpoint slice controller writes
+# it.
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: web-x7k2p
+  namespace: shop
+  uid: 6a7b8c9d-3333-4c4d-8e5f-000000000001
+  creationTimestamp: "2026-10-10T08:00:00Z"
+  generateName: web-
+  labels:
+    app: web
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: web
+  ownerReferences:
+  - apiVersion: v1
+    kind: Service
+    name: web
+    uid: 6a7b8c9d-3333-4c4d-8e5f-0000000000aa
+    controller: true
+    blockOwnerDeletion: true
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.5
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: worker-a-01
+  zone: zone-a
+  targetRef:
+    kind: Pod
+    name: web-7d9f8c6b5-bkmqx
+    namespace: shop
+    uid: 6a7b8c9d-3333-4c4d-8e5f-0000000000b1
+- addresses:
+  - 10.244.2.7
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: worker-a-02
+  zone: zone-b
+  targetRef:
+    kind: Pod
+    name: web-7d9f8c6b5-clnry
+    namespace: shop
+    uid: 6a7b8c9d-3333-4c4d-8e5f-0000000000b2
+- addresses:
+  - 10.244.3.9
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: worker-b-01
+  zone: zone-a
+  targetRef:
+    kind: Pod
+    name: web-7d9f8c6b5-dmosz
+    namespace: shop
+    uid: 6a7b8c9d-3333-4c4d-8e5f-0000000000b3
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+  appProtocol: http

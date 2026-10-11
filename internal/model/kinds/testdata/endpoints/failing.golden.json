@@ -1,0 +1,116 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "endpoints",
+    "namespace": "payments",
+    "name": "payments-api"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "payments-api"
+    },
+    {
+      "column": "namespace",
+      "text": "payments",
+      "link": {
+        "kind": "namespaces",
+        "name": "payments"
+      }
+    },
+    {
+      "column": "endpoints",
+      "text": "-"
+    },
+    {
+      "column": "age",
+      "text": "2d",
+      "num": 1791532800
+    }
+  ],
+  "fields": {
+    "address": [
+      "10.244.4.11"
+    ],
+    "label": [],
+    "name": [
+      "payments-api"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "node": [
+      "worker-b-02"
+    ],
+    "port": [
+      "9090"
+    ],
+    "target": [
+      "Pod/payments-api-6f8b9c7d4-q9m2z"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Addresses",
+      "table": {
+        "columns": [
+          "Address",
+          "Ready",
+          "Hostname",
+          "Node",
+          "Target",
+          "Ports"
+        ],
+        "rows": [
+          [
+            "10.244.4.11",
+            "Not ready",
+            "",
+            "worker-b-02",
+            "Pod payments-api-6f8b9c7d4-q9m2z",
+            "grpc: 9090/TCP"
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "10.244.4.11"
+            },
+            {
+              "text": "Not ready",
+              "status": "warning"
+            },
+            {},
+            {
+              "text": "worker-b-02",
+              "link": {
+                "kind": "nodes",
+                "name": "worker-b-02"
+              }
+            },
+            {
+              "text": "Pod payments-api-6f8b9c7d4-q9m2z",
+              "link": {
+                "kind": "pods",
+                "namespace": "payments",
+                "name": "payments-api-6f8b9c7d4-q9m2z"
+              }
+            },
+            {
+              "text": "grpc: 9090/TCP"
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

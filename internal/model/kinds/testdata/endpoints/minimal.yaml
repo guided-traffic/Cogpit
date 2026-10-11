@@ -1,0 +1,7 @@
+# Synthetic: optional fields missing: no subsets.
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: bare
+  namespace: default
+  creationTimestamp: "2026-10-11T11:00:00Z"

@@ -1,0 +1,19 @@
+# Synthetic: manually managed Endpoints of a Service without a selector, pointing outside the
+# cluster, held by a finalizer while they are deleted.
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: legacy-db
+  namespace: orders
+  uid: 7b8c9d0e-4444-4d5e-9f60-000000000003
+  creationTimestamp: "2026-04-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - example.com/endpoints-cleanup
+subsets:
+- addresses:
+  - ip: 192.0.2.40
+    hostname: db-primary
+  ports:
+  - name: postgres
+    port: 5432

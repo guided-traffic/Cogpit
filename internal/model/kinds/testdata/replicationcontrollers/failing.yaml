@@ -1,0 +1,34 @@
+# Synthetic: a replication controller that cannot create its pods: the namespace's quota is used
+# up (a ReplicaFailure condition).
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: worker
+  namespace: legacy
+  uid: 9d0e1f20-6666-4f70-b182-000000000002
+  creationTimestamp: "2026-10-11T10:00:00Z"
+  generation: 1
+spec:
+  replicas: 4
+  selector:
+    app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+      - name: worker
+        image: registry.example.com/legacy/worker:2.2.0
+status:
+  observedGeneration: 1
+  replicas: 2
+  fullyLabeledReplicas: 2
+  readyReplicas: 2
+  availableReplicas: 2
+  conditions:
+  - type: ReplicaFailure
+    status: "True"
+    reason: FailedCreate
+    message: 'pods "worker-x8k2p" is forbidden: exceeded quota: compute, requested: cpu=500m, used: cpu=2, limited: cpu=2'
+    lastTransitionTime: "2026-10-11T10:00:05Z"

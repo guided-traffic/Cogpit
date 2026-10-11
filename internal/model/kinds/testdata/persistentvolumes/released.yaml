@@ -1,0 +1,27 @@
+# Synthetic: a retained volume whose claim is gone: it keeps the data until someone reclaims it.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pvc-2a3b4c5d-8888-4d9e-8f10-000000000003
+  uid: 5e6f7081-2222-4b3c-9d4e-000000000003
+  creationTimestamp: "2026-05-01T00:00:00Z"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 20Gi
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: data-ledger-writer-0
+    namespace: orders
+    uid: 2a3b4c5d-8888-4d9e-8f10-000000000003
+  csi:
+    driver: csi.example.com
+    volumeHandle: vol-01234abcd5678ef90
+    readOnly: true
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: fast-ssd
+  volumeMode: Filesystem
+status:
+  phase: Released

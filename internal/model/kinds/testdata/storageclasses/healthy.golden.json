@@ -1,0 +1,88 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "storageclasses",
+    "name": "standard"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "standard"
+    },
+    {
+      "column": "provisioner",
+      "text": "rancher.io/local-path"
+    },
+    {
+      "column": "age",
+      "text": "40d",
+      "num": 1788220800
+    },
+    {
+      "column": "reclaimPolicy",
+      "text": "Delete"
+    },
+    {
+      "column": "volumeBindingMode",
+      "text": "WaitForFirstConsumer"
+    }
+  ],
+  "fields": {
+    "default": [
+      "true"
+    ],
+    "label": [],
+    "name": [
+      "standard"
+    ],
+    "namespace": [
+      ""
+    ],
+    "provisioner": [
+      "rancher.io/local-path"
+    ],
+    "reclaimPolicy": [
+      "Delete"
+    ],
+    "volumeBindingMode": [
+      "WaitForFirstConsumer"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Default",
+          "value": "Yes: claims without a class get this one"
+        },
+        {
+          "name": "Provisioner",
+          "value": "rancher.io/local-path"
+        },
+        {
+          "name": "Reclaim Policy",
+          "value": "Delete"
+        },
+        {
+          "name": "Volume Binding Mode",
+          "value": "WaitForFirstConsumer"
+        },
+        {
+          "name": "Allow Volume Expansion",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "title": "Parameters",
+      "items": [
+        {
+          "name": "nodePath",
+          "value": "/var/local-path-provisioner"
+        }
+      ]
+    }
+  ]
+}

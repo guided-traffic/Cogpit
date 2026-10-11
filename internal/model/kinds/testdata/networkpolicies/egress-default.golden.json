@@ -1,0 +1,82 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "networkpolicies",
+    "namespace": "orders",
+    "name": "egress-to-db"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "egress-to-db"
+    },
+    {
+      "column": "namespace",
+      "text": "orders",
+      "link": {
+        "kind": "namespaces",
+        "name": "orders"
+      }
+    },
+    {
+      "column": "policyTypes",
+      "text": "Ingress, Egress"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791590400
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "egress-to-db"
+    ],
+    "namespace": [
+      "orders"
+    ],
+    "podSelector": [
+      "app=ledger-writer"
+    ],
+    "policyType": [
+      "Ingress",
+      "Egress"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Pod Selector",
+          "value": "app=ledger-writer"
+        },
+        {
+          "name": "Policy Types",
+          "value": "Ingress, Egress"
+        }
+      ]
+    },
+    {
+      "title": "Ingress",
+      "items": [
+        {
+          "name": "Rules",
+          "value": "none: all incoming traffic of the selected pods is denied",
+          "status": "warning"
+        }
+      ]
+    },
+    {
+      "title": "Egress",
+      "items": [
+        {
+          "name": "Rule 1",
+          "value": "To: 192.0.2.40/32\nPorts: 5432/TCP"
+        }
+      ]
+    }
+  ]
+}

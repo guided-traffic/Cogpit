@@ -1,0 +1,70 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "replicationcontrollers",
+    "namespace": "legacy",
+    "name": "batch-runner"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "batch-runner"
+    },
+    {
+      "column": "namespace",
+      "text": "legacy",
+      "link": {
+        "kind": "namespaces",
+        "name": "legacy"
+      }
+    },
+    {
+      "column": "replicas",
+      "text": "0"
+    },
+    {
+      "column": "desiredReplicas",
+      "text": "0"
+    },
+    {
+      "column": "selector",
+      "text": "app=batch-runner"
+    }
+  ],
+  "fields": {
+    "controlledBy": [],
+    "image": [
+      "registry.example.com/legacy/batch:1.4.0"
+    ],
+    "label": [],
+    "name": [
+      "batch-runner"
+    ],
+    "namespace": [
+      "legacy"
+    ],
+    "selector": [
+      "app=batch-runner"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Pods",
+          "value": "0 desired / 0 current / 0 ready / 0 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=batch-runner"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/legacy/batch:1.4.0"
+        }
+      ]
+    }
+  ]
+}

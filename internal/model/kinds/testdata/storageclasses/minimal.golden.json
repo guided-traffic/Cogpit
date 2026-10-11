@@ -1,0 +1,71 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "storageclasses",
+    "name": "bare"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "provisioner",
+      "text": "kubernetes.io/no-provisioner"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    },
+    {
+      "column": "reclaimPolicy",
+      "text": "Delete"
+    },
+    {
+      "column": "volumeBindingMode",
+      "text": "Immediate"
+    }
+  ],
+  "fields": {
+    "default": [
+      "false"
+    ],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      ""
+    ],
+    "provisioner": [
+      "kubernetes.io/no-provisioner"
+    ],
+    "reclaimPolicy": [
+      "Delete"
+    ],
+    "volumeBindingMode": [
+      "Immediate"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Provisioner",
+          "value": "kubernetes.io/no-provisioner"
+        },
+        {
+          "name": "Reclaim Policy",
+          "value": "Delete"
+        },
+        {
+          "name": "Volume Binding Mode",
+          "value": "Immediate"
+        }
+      ]
+    }
+  ]
+}

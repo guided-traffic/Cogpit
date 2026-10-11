@@ -1,0 +1,42 @@
+# Synthetic: two subsets with different ports (pods of two versions name the port differently)
+# and a third without ports, whose address shows bare; one address of the first subset is not
+# ready.
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: search
+  namespace: search
+  uid: 7b8c9d0e-4444-4d5e-9f60-000000000005
+  creationTimestamp: "2026-10-05T00:00:00Z"
+subsets:
+- addresses:
+  - ip: 10.244.5.20
+    nodeName: worker-c-01
+    targetRef:
+      kind: Pod
+      name: search-v1-0
+      namespace: search
+  notReadyAddresses:
+  - ip: 10.244.5.21
+    nodeName: worker-c-01
+    targetRef:
+      kind: Pod
+      name: search-v1-1
+      namespace: search
+  ports:
+  - name: http
+    port: 9200
+    protocol: TCP
+- addresses:
+  - ip: 10.244.6.30
+    nodeName: worker-a-04
+    targetRef:
+      kind: Pod
+      name: search-v2-0
+      namespace: search
+  ports:
+  - name: http
+    port: 9201
+    protocol: TCP
+- addresses:
+  - ip: 10.244.6.31

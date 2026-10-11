@@ -1,0 +1,231 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "endpointslices",
+    "namespace": "payments",
+    "name": "payments-api-q9m2z"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "payments-api-q9m2z"
+    },
+    {
+      "column": "namespace",
+      "text": "payments",
+      "link": {
+        "kind": "namespaces",
+        "name": "payments"
+      }
+    },
+    {
+      "column": "addressType",
+      "text": "IPv4"
+    },
+    {
+      "column": "endpoints",
+      "text": "10.244.4.11, 10.244.4.12, 10.244.4.13"
+    },
+    {
+      "column": "ports",
+      "text": "9090/TCP, 9102/TCP"
+    },
+    {
+      "column": "age",
+      "text": "2d",
+      "num": 1791532800
+    }
+  ],
+  "fields": {
+    "address": [
+      "10.244.4.11",
+      "10.244.4.12",
+      "10.244.4.13"
+    ],
+    "addressType": [
+      "IPv4"
+    ],
+    "label": [
+      "endpointslice.kubernetes.io/managed-by=endpointslice-controller.k8s.io",
+      "kubernetes.io/service-name=payments-api"
+    ],
+    "name": [
+      "payments-api-q9m2z"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "node": [
+      "worker-b-02",
+      "worker-b-03"
+    ],
+    "port": [
+      "9090",
+      "9102"
+    ],
+    "service": [
+      "payments-api"
+    ],
+    "target": [
+      "Pod/payments-api-6f8b9c7d4-q9m2z",
+      "Pod/payments-api-6f8b9c7d4-r8n3a",
+      "Pod/payments-api-6f8b9c7d4-s7p4b"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Address Type",
+          "value": "IPv4"
+        },
+        {
+          "name": "Service",
+          "value": "payments-api",
+          "link": {
+            "kind": "services",
+            "namespace": "payments",
+            "name": "payments-api"
+          }
+        },
+        {
+          "name": "Managed By",
+          "value": "endpointslice-controller.k8s.io"
+        },
+        {
+          "name": "Ports",
+          "value": "grpc: 9090/TCP\nmetrics: 9102/TCP"
+        }
+      ]
+    },
+    {
+      "title": "Endpoints",
+      "table": {
+        "columns": [
+          "Addresses",
+          "Conditions",
+          "Hostname",
+          "Node",
+          "Zone",
+          "Target"
+        ],
+        "rows": [
+          [
+            "10.244.4.11",
+            "Not ready",
+            "",
+            "worker-b-02",
+            "",
+            "Pod payments-api-6f8b9c7d4-q9m2z"
+          ],
+          [
+            "10.244.4.12",
+            "Serving, Terminating",
+            "",
+            "worker-b-02",
+            "",
+            "Pod payments-api-6f8b9c7d4-r8n3a"
+          ],
+          [
+            "10.244.4.13",
+            "Not ready, Serving",
+            "",
+            "worker-b-03",
+            "",
+            "Pod payments-api-6f8b9c7d4-s7p4b"
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "10.244.4.11"
+            },
+            {
+              "text": "Not ready",
+              "status": "warning"
+            },
+            {},
+            {
+              "text": "worker-b-02",
+              "link": {
+                "kind": "nodes",
+                "name": "worker-b-02"
+              }
+            },
+            {},
+            {
+              "text": "Pod payments-api-6f8b9c7d4-q9m2z",
+              "link": {
+                "kind": "pods",
+                "namespace": "payments",
+                "name": "payments-api-6f8b9c7d4-q9m2z"
+              }
+            }
+          ],
+          [
+            {
+              "text": "10.244.4.12"
+            },
+            {
+              "text": "Serving, Terminating",
+              "status": "terminating"
+            },
+            {},
+            {
+              "text": "worker-b-02",
+              "link": {
+                "kind": "nodes",
+                "name": "worker-b-02"
+              }
+            },
+            {},
+            {
+              "text": "Pod payments-api-6f8b9c7d4-r8n3a",
+              "link": {
+                "kind": "pods",
+                "namespace": "payments",
+                "name": "payments-api-6f8b9c7d4-r8n3a"
+              }
+            }
+          ],
+          [
+            {
+              "text": "10.244.4.13"
+            },
+            {
+              "text": "Not ready, Serving",
+              "status": "warning"
+            },
+            {},
+            {
+              "text": "worker-b-03",
+              "link": {
+                "kind": "nodes",
+                "name": "worker-b-03"
+              }
+            },
+            {},
+            {
+              "text": "Pod payments-api-6f8b9c7d4-s7p4b",
+              "link": {
+                "kind": "pods",
+                "namespace": "payments",
+                "name": "payments-api-6f8b9c7d4-s7p4b"
+              }
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

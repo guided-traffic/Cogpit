@@ -1,0 +1,75 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "networkpolicies",
+    "namespace": "streaming",
+    "name": "media-ports"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "media-ports"
+    },
+    {
+      "column": "namespace",
+      "text": "streaming",
+      "link": {
+        "kind": "namespaces",
+        "name": "streaming"
+      }
+    },
+    {
+      "column": "policyTypes",
+      "text": "Ingress"
+    },
+    {
+      "column": "age",
+      "text": "102d",
+      "num": 1782864000
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "media-ports"
+    ],
+    "namespace": [
+      "streaming"
+    ],
+    "podSelector": [
+      "tier"
+    ],
+    "policyType": [
+      "Ingress"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Pod Selector",
+          "value": "tier"
+        },
+        {
+          "name": "Policy Types",
+          "value": "Ingress"
+        }
+      ]
+    },
+    {
+      "title": "Ingress",
+      "items": [
+        {
+          "name": "Rule 1",
+          "value": "From: pods app=recorder in all namespaces\nPorts: 32000-32768/UDP"
+        },
+        {
+          "name": "Rule 2",
+          "value": "From: anywhere\nPorts: all"
+        }
+      ]
+    }
+  ]
+}

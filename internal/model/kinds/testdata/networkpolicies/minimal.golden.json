@@ -1,0 +1,70 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "networkpolicies",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "policyTypes",
+      "text": "Ingress"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "podSelector": [],
+    "policyType": [
+      "Ingress"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Pod Selector",
+          "value": "every pod in the namespace"
+        },
+        {
+          "name": "Policy Types",
+          "value": "Ingress"
+        }
+      ]
+    },
+    {
+      "title": "Ingress",
+      "items": [
+        {
+          "name": "Rules",
+          "value": "none: all incoming traffic of the selected pods is denied",
+          "status": "warning"
+        }
+      ]
+    }
+  ]
+}

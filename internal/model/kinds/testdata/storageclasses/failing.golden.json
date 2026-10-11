@@ -1,0 +1,104 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "storageclasses",
+    "name": "fast-ssd"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "fast-ssd"
+    },
+    {
+      "column": "provisioner",
+      "text": "csi.example.com"
+    },
+    {
+      "column": "age",
+      "text": "57d",
+      "num": 1786752000
+    },
+    {
+      "column": "reclaimPolicy",
+      "text": "Retain"
+    },
+    {
+      "column": "volumeBindingMode",
+      "text": "Immediate"
+    }
+  ],
+  "fields": {
+    "default": [
+      "false"
+    ],
+    "label": [],
+    "name": [
+      "fast-ssd"
+    ],
+    "namespace": [
+      ""
+    ],
+    "provisioner": [
+      "csi.example.com"
+    ],
+    "reclaimPolicy": [
+      "Retain"
+    ],
+    "volumeBindingMode": [
+      "Immediate"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Provisioner",
+          "value": "csi.example.com"
+        },
+        {
+          "name": "Reclaim Policy",
+          "value": "Retain"
+        },
+        {
+          "name": "Volume Binding Mode",
+          "value": "Immediate"
+        },
+        {
+          "name": "Allow Volume Expansion",
+          "value": "false"
+        },
+        {
+          "name": "Mount Options",
+          "value": "noatime\ndiscard"
+        },
+        {
+          "name": "Allowed Topologies",
+          "value": "topology.kubernetes.io/zone in (zone-a,zone-b)"
+        }
+      ]
+    },
+    {
+      "title": "Parameters",
+      "items": [
+        {
+          "name": "csi.storage.k8s.io/provisioner-secret-name",
+          "value": "csi-provisioner"
+        },
+        {
+          "name": "csi.storage.k8s.io/provisioner-secret-namespace",
+          "value": "storage-system"
+        },
+        {
+          "name": "iops",
+          "value": "3000"
+        },
+        {
+          "name": "type",
+          "value": "ssd"
+        }
+      ]
+    }
+  ]
+}

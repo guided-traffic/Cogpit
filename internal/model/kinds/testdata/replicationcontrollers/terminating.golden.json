@@ -1,0 +1,72 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "replicationcontrollers",
+    "namespace": "legacy",
+    "name": "frontend-v0"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "frontend-v0"
+    },
+    {
+      "column": "namespace",
+      "text": "legacy",
+      "link": {
+        "kind": "namespaces",
+        "name": "legacy"
+      }
+    },
+    {
+      "column": "replicas",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "desiredReplicas",
+      "text": "0"
+    },
+    {
+      "column": "selector",
+      "text": "app=frontend, version=v0"
+    }
+  ],
+  "fields": {
+    "controlledBy": [],
+    "image": [
+      "registry.example.com/legacy/frontend:0.9.8"
+    ],
+    "label": [],
+    "name": [
+      "frontend-v0"
+    ],
+    "namespace": [
+      "legacy"
+    ],
+    "selector": [
+      "app=frontend",
+      "version=v0"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Pods",
+          "value": "0 desired / 1 current / 0 ready / 0 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=frontend\nversion=v0"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/legacy/frontend:0.9.8"
+        }
+      ]
+    }
+  ]
+}

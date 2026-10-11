@@ -1,0 +1,44 @@
+# Synthetic: a dynamically provisioned CSI volume bound to its claim, as the API server stores it.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pvc-9d4e5f60-8888-4d9e-8f10-000000000001
+  uid: 5e6f7081-2222-4b3c-9d4e-000000000001
+  creationTimestamp: "2026-10-01T00:00:05Z"
+  annotations:
+    pv.kubernetes.io/provisioned-by: csi.example.com
+    volume.kubernetes.io/provisioner-deletion-secret-name: ""
+  finalizers:
+  - kubernetes.io/pv-protection
+  - external-provisioner.volume.kubernetes.io/finalizer
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 10Gi
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: data-postgres-0
+    namespace: payments
+    uid: 9d4e5f60-8888-4d9e-8f10-000000000001
+  csi:
+    driver: csi.example.com
+    fsType: ext4
+    volumeHandle: vol-0a1b2c3d4e5f60718
+    volumeAttributes:
+      storage.kubernetes.io/csiProvisionerIdentity: 1759276800000-csi.example.com
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: topology.kubernetes.io/zone
+          operator: In
+          values:
+          - zone-a
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: fast-ssd
+  volumeMode: Filesystem
+status:
+  phase: Bound
+  lastPhaseTransitionTime: "2026-10-01T00:00:06Z"

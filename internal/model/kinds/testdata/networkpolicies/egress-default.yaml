@@ -1,0 +1,19 @@
+# Synthetic: a policy built without policyTypes but with egress rules: the API server would
+# default the types to Ingress and Egress, and so does the list.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: egress-to-db
+  namespace: orders
+  uid: 8c9d0e1f-5555-4e6f-a071-000000000005
+  creationTimestamp: "2026-10-10T00:00:00Z"
+spec:
+  podSelector:
+    matchLabels:
+      app: ledger-writer
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 192.0.2.40/32
+    ports:
+    - port: 5432

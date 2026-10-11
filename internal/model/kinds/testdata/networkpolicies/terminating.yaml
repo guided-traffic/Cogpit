@@ -1,0 +1,30 @@
+# Synthetic: an ingress policy with a port range, from pods of every namespace, held by a
+# finalizer while it is deleted.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: media-ports
+  namespace: streaming
+  uid: 8c9d0e1f-5555-4e6f-a071-000000000003
+  creationTimestamp: "2026-07-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - example.com/policy-audit
+spec:
+  podSelector:
+    matchExpressions:
+    - key: tier
+      operator: Exists
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          app: recorder
+    ports:
+    - port: 32000
+      endPort: 32768
+      protocol: UDP
+  - {}

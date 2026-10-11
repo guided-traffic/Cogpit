@@ -1,0 +1,14 @@
+# Synthetic: a default-deny policy for every pod of the namespace in both directions: the types
+# are listed, the rules are not.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: payments
+  uid: 8c9d0e1f-5555-4e6f-a071-000000000002
+  creationTimestamp: "2026-10-11T11:30:00Z"
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress

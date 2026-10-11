@@ -1,0 +1,16 @@
+# Synthetic: an older class marked as the default with the beta annotation, which Kubernetes still
+# honours.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp2
+  uid: 3c4d5e6f-1111-4a2b-8c3d-000000000005
+  creationTimestamp: "2024-02-01T00:00:00Z"
+  annotations:
+    storageclass.beta.kubernetes.io/is-default-class: "true"
+provisioner: kubernetes.io/aws-ebs
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  type: gp2
+  fsType: ext4

@@ -1,0 +1,82 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "replicationcontrollers",
+    "namespace": "legacy",
+    "name": "worker"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "worker"
+    },
+    {
+      "column": "namespace",
+      "text": "legacy",
+      "link": {
+        "kind": "namespaces",
+        "name": "legacy"
+      }
+    },
+    {
+      "column": "replicas",
+      "text": "2",
+      "num": 2
+    },
+    {
+      "column": "desiredReplicas",
+      "text": "4",
+      "num": 4
+    },
+    {
+      "column": "selector",
+      "text": "app=worker"
+    }
+  ],
+  "fields": {
+    "controlledBy": [],
+    "image": [
+      "registry.example.com/legacy/worker:2.2.0"
+    ],
+    "label": [],
+    "name": [
+      "worker"
+    ],
+    "namespace": [
+      "legacy"
+    ],
+    "selector": [
+      "app=worker"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Pods",
+          "value": "4 desired / 2 current / 2 ready / 2 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=worker"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/legacy/worker:2.2.0"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "ReplicaFailure",
+          "value": "True (FailedCreate): pods \"worker-x8k2p\" is forbidden: exceeded quota: compute, requested: cpu=500m, used: cpu=2, limited: cpu=2",
+          "status": "error"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "persistentvolumes",
+    "name": "bare"
+  },
+  "status": "unknown",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "storageClass",
+      "text": ""
+    },
+    {
+      "column": "capacity",
+      "text": "-"
+    },
+    {
+      "column": "claim",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    },
+    {
+      "column": "status",
+      "text": "Unknown",
+      "status": "unknown"
+    }
+  ],
+  "fields": {
+    "accessMode": [],
+    "claim": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      ""
+    ],
+    "reclaimPolicy": [],
+    "source": [],
+    "status": [
+      "Unknown"
+    ],
+    "storageClass": [],
+    "volumeMode": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Unknown",
+          "status": "unknown"
+        }
+      ]
+    }
+  ]
+}

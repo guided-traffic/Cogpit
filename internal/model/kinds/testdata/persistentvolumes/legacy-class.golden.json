@@ -1,0 +1,103 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "persistentvolumes",
+    "name": "legacy-hostpath"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-hostpath"
+    },
+    {
+      "column": "storageClass",
+      "text": "slow",
+      "link": {
+        "kind": "storageclasses",
+        "name": "slow"
+      }
+    },
+    {
+      "column": "capacity",
+      "text": "500Mi",
+      "num": 524288000
+    },
+    {
+      "column": "claim",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "3y",
+      "num": 1672531200
+    },
+    {
+      "column": "status",
+      "text": "Pending",
+      "status": "pending"
+    }
+  ],
+  "fields": {
+    "accessMode": [
+      "ReadWriteOnce"
+    ],
+    "claim": [],
+    "label": [],
+    "name": [
+      "legacy-hostpath"
+    ],
+    "namespace": [
+      ""
+    ],
+    "reclaimPolicy": [
+      "Recycle"
+    ],
+    "source": [
+      "hostPath"
+    ],
+    "status": [
+      "Pending"
+    ],
+    "storageClass": [
+      "slow"
+    ],
+    "volumeMode": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Pending",
+          "status": "pending"
+        },
+        {
+          "name": "Storage Class",
+          "value": "slow",
+          "link": {
+            "kind": "storageclasses",
+            "name": "slow"
+          }
+        },
+        {
+          "name": "Capacity",
+          "value": "500Mi"
+        },
+        {
+          "name": "Access Modes",
+          "value": "ReadWriteOnce"
+        },
+        {
+          "name": "Reclaim Policy",
+          "value": "Recycle"
+        },
+        {
+          "name": "Source",
+          "value": "hostPath: /data/legacy, type DirectoryOrCreate"
+        }
+      ]
+    }
+  ]
+}

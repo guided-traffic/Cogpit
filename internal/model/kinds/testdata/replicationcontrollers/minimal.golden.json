@@ -1,0 +1,59 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "replicationcontrollers",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "replicas",
+      "text": "0"
+    },
+    {
+      "column": "desiredReplicas",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "selector",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "controlledBy": [],
+    "image": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "selector": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Pods",
+          "value": "1 desired / 0 current / 0 ready / 0 available"
+        }
+      ]
+    }
+  ]
+}

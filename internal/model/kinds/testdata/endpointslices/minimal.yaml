@@ -1,0 +1,8 @@
+# Synthetic: optional fields missing: no labels, no endpoints, no ports.
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: bare
+  namespace: default
+  creationTimestamp: "2026-10-11T11:00:00Z"
+addressType: IPv4

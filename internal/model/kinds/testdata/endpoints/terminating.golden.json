@@ -1,0 +1,101 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "endpoints",
+    "namespace": "orders",
+    "name": "legacy-db"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-db"
+    },
+    {
+      "column": "namespace",
+      "text": "orders",
+      "link": {
+        "kind": "namespaces",
+        "name": "orders"
+      }
+    },
+    {
+      "column": "endpoints",
+      "text": "192.0.2.40:5432"
+    },
+    {
+      "column": "age",
+      "text": "193d",
+      "num": 1775001600
+    }
+  ],
+  "fields": {
+    "address": [
+      "192.0.2.40"
+    ],
+    "label": [],
+    "name": [
+      "legacy-db"
+    ],
+    "namespace": [
+      "orders"
+    ],
+    "node": [],
+    "port": [
+      "5432"
+    ],
+    "target": []
+  },
+  "detail": [
+    {
+      "title": "Addresses",
+      "table": {
+        "columns": [
+          "Address",
+          "Ready",
+          "Hostname",
+          "Node",
+          "Target",
+          "Ports"
+        ],
+        "rows": [
+          [
+            "192.0.2.40",
+            "Ready",
+            "db-primary",
+            "",
+            "",
+            "postgres: 5432/TCP"
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "192.0.2.40"
+            },
+            {
+              "text": "Ready",
+              "status": "ok"
+            },
+            {
+              "text": "db-primary"
+            },
+            {},
+            {},
+            {
+              "text": "postgres: 5432/TCP"
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

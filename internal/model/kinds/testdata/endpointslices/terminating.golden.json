@@ -1,0 +1,142 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "endpointslices",
+    "namespace": "orders",
+    "name": "legacy-db-1"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-db-1"
+    },
+    {
+      "column": "namespace",
+      "text": "orders",
+      "link": {
+        "kind": "namespaces",
+        "name": "orders"
+      }
+    },
+    {
+      "column": "addressType",
+      "text": "IPv4"
+    },
+    {
+      "column": "endpoints",
+      "text": "192.0.2.40"
+    },
+    {
+      "column": "ports",
+      "text": "5432/TCP"
+    },
+    {
+      "column": "age",
+      "text": "193d",
+      "num": 1775001600
+    }
+  ],
+  "fields": {
+    "address": [
+      "192.0.2.40"
+    ],
+    "addressType": [
+      "IPv4"
+    ],
+    "label": [
+      "endpointslice.kubernetes.io/managed-by=slices.example.com",
+      "kubernetes.io/service-name=legacy-db"
+    ],
+    "name": [
+      "legacy-db-1"
+    ],
+    "namespace": [
+      "orders"
+    ],
+    "node": [],
+    "port": [
+      "5432"
+    ],
+    "service": [
+      "legacy-db"
+    ],
+    "target": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Address Type",
+          "value": "IPv4"
+        },
+        {
+          "name": "Service",
+          "value": "legacy-db",
+          "link": {
+            "kind": "services",
+            "namespace": "orders",
+            "name": "legacy-db"
+          }
+        },
+        {
+          "name": "Managed By",
+          "value": "slices.example.com"
+        },
+        {
+          "name": "Ports",
+          "value": "postgres: 5432/TCP"
+        }
+      ]
+    },
+    {
+      "title": "Endpoints",
+      "table": {
+        "columns": [
+          "Addresses",
+          "Conditions",
+          "Hostname",
+          "Node",
+          "Zone",
+          "Target"
+        ],
+        "rows": [
+          [
+            "192.0.2.40",
+            "Ready",
+            "db-primary",
+            "",
+            "",
+            ""
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "192.0.2.40"
+            },
+            {
+              "text": "Ready",
+              "status": "ok"
+            },
+            {
+              "text": "db-primary"
+            },
+            {},
+            {},
+            {}
+          ]
+        ]
+      }
+    }
+  ]
+}

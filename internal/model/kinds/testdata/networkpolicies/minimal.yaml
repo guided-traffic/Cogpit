@@ -1,0 +1,8 @@
+# Synthetic: optional fields missing: no spec; the types read as the API server would default
+# them (Ingress).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bare
+  namespace: default
+  creationTimestamp: "2026-10-11T11:00:00Z"

@@ -1,0 +1,24 @@
+# Synthetic: a replication controller scaled to zero: nothing to colour.
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: batch-runner
+  namespace: legacy
+  uid: 9d0e1f20-6666-4f70-b182-000000000006
+  creationTimestamp: "2026-02-01T00:00:00Z"
+  generation: 4
+spec:
+  replicas: 0
+  selector:
+    app: batch-runner
+  template:
+    metadata:
+      labels:
+        app: batch-runner
+    spec:
+      containers:
+      - name: runner
+        image: registry.example.com/legacy/batch:1.4.0
+status:
+  observedGeneration: 4
+  replicas: 0

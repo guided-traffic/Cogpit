@@ -1,0 +1,31 @@
+# Synthetic: a volume whose automatic reclamation failed after its claim was deleted.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pvc-1f2e3d4c-8888-4d9e-8f10-000000000002
+  uid: 5e6f7081-2222-4b3c-9d4e-000000000002
+  creationTimestamp: "2026-06-01T00:00:00Z"
+  finalizers:
+  - kubernetes.io/pv-protection
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 500Gi
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: scratch
+    namespace: analytics
+    uid: 1f2e3d4c-8888-4d9e-8f10-000000000002
+  csi:
+    driver: csi.example.com
+    volumeHandle: vol-0f9e8d7c6b5a49382
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: fast-ssd
+  volumeMode: Block
+status:
+  phase: Failed
+  reason: VolumeFailedDelete
+  message: 'rpc error: code = FailedPrecondition desc = volume vol-0f9e8d7c6b5a49382 is still attached to a node'
+  lastPhaseTransitionTime: "2026-10-11T09:00:00Z"

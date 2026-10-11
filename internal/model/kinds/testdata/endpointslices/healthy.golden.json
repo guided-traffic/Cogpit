@@ -1,0 +1,238 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "endpointslices",
+    "namespace": "shop",
+    "name": "web-x7k2p"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "web-x7k2p"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "addressType",
+      "text": "IPv4"
+    },
+    {
+      "column": "endpoints",
+      "text": "10.244.1.5, 10.244.2.7, 10.244.3.9"
+    },
+    {
+      "column": "ports",
+      "text": "8080/TCP"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791619200
+    }
+  ],
+  "fields": {
+    "address": [
+      "10.244.1.5",
+      "10.244.2.7",
+      "10.244.3.9"
+    ],
+    "addressType": [
+      "IPv4"
+    ],
+    "label": [
+      "app=web",
+      "endpointslice.kubernetes.io/managed-by=endpointslice-controller.k8s.io",
+      "kubernetes.io/service-name=web"
+    ],
+    "name": [
+      "web-x7k2p"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "node": [
+      "worker-a-01",
+      "worker-a-02",
+      "worker-b-01"
+    ],
+    "port": [
+      "8080"
+    ],
+    "service": [
+      "web"
+    ],
+    "target": [
+      "Pod/web-7d9f8c6b5-bkmqx",
+      "Pod/web-7d9f8c6b5-clnry",
+      "Pod/web-7d9f8c6b5-dmosz"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Address Type",
+          "value": "IPv4"
+        },
+        {
+          "name": "Service",
+          "value": "web",
+          "link": {
+            "kind": "services",
+            "namespace": "shop",
+            "name": "web"
+          }
+        },
+        {
+          "name": "Managed By",
+          "value": "endpointslice-controller.k8s.io"
+        },
+        {
+          "name": "Ports",
+          "value": "http: 8080/TCP (app protocol http)"
+        }
+      ]
+    },
+    {
+      "title": "Endpoints",
+      "table": {
+        "columns": [
+          "Addresses",
+          "Conditions",
+          "Hostname",
+          "Node",
+          "Zone",
+          "Target"
+        ],
+        "rows": [
+          [
+            "10.244.1.5",
+            "Ready",
+            "",
+            "worker-a-01",
+            "zone-a",
+            "Pod web-7d9f8c6b5-bkmqx"
+          ],
+          [
+            "10.244.2.7",
+            "Ready",
+            "",
+            "worker-a-02",
+            "zone-b",
+            "Pod web-7d9f8c6b5-clnry"
+          ],
+          [
+            "10.244.3.9",
+            "Ready",
+            "",
+            "worker-b-01",
+            "zone-a",
+            "Pod web-7d9f8c6b5-dmosz"
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "10.244.1.5"
+            },
+            {
+              "text": "Ready",
+              "status": "ok"
+            },
+            {},
+            {
+              "text": "worker-a-01",
+              "link": {
+                "kind": "nodes",
+                "name": "worker-a-01"
+              }
+            },
+            {
+              "text": "zone-a"
+            },
+            {
+              "text": "Pod web-7d9f8c6b5-bkmqx",
+              "link": {
+                "kind": "pods",
+                "namespace": "shop",
+                "name": "web-7d9f8c6b5-bkmqx"
+              }
+            }
+          ],
+          [
+            {
+              "text": "10.244.2.7"
+            },
+            {
+              "text": "Ready",
+              "status": "ok"
+            },
+            {},
+            {
+              "text": "worker-a-02",
+              "link": {
+                "kind": "nodes",
+                "name": "worker-a-02"
+              }
+            },
+            {
+              "text": "zone-b"
+            },
+            {
+              "text": "Pod web-7d9f8c6b5-clnry",
+              "link": {
+                "kind": "pods",
+                "namespace": "shop",
+                "name": "web-7d9f8c6b5-clnry"
+              }
+            }
+          ],
+          [
+            {
+              "text": "10.244.3.9"
+            },
+            {
+              "text": "Ready",
+              "status": "ok"
+            },
+            {},
+            {
+              "text": "worker-b-01",
+              "link": {
+                "kind": "nodes",
+                "name": "worker-b-01"
+              }
+            },
+            {
+              "text": "zone-a"
+            },
+            {
+              "text": "Pod web-7d9f8c6b5-dmosz",
+              "link": {
+                "kind": "pods",
+                "namespace": "shop",
+                "name": "web-7d9f8c6b5-dmosz"
+              }
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+# Synthetic: a statically created NFS volume without a class, waiting for a claim.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: shared-media
+  uid: 5e6f7081-2222-4b3c-9d4e-000000000004
+  creationTimestamp: "2026-10-11T10:00:00Z"
+spec:
+  accessModes:
+  - ReadWriteMany
+  - ReadOnlyMany
+  capacity:
+    storage: 1Ti
+  mountOptions:
+  - nfsvers=4.1
+  nfs:
+    server: nfs.example.com
+    path: /exports/media
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  volumeMode: Filesystem
+status:
+  phase: Available

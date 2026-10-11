@@ -1,0 +1,54 @@
+# Synthetic: a slice whose pods fail their readiness probe, one of them draining while it
+# terminates.
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: payments-api-q9m2z
+  namespace: payments
+  uid: 6a7b8c9d-3333-4c4d-8e5f-000000000002
+  creationTimestamp: "2026-10-09T08:00:00Z"
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: payments-api
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.4.11
+  conditions:
+    ready: false
+    serving: false
+    terminating: false
+  nodeName: worker-b-02
+  targetRef:
+    kind: Pod
+    name: payments-api-6f8b9c7d4-q9m2z
+    namespace: payments
+- addresses:
+  - 10.244.4.12
+  conditions:
+    ready: false
+    serving: true
+    terminating: true
+  nodeName: worker-b-02
+  targetRef:
+    kind: Pod
+    name: payments-api-6f8b9c7d4-r8n3a
+    namespace: payments
+- addresses:
+  - 10.244.4.13
+  conditions:
+    ready: false
+    serving: true
+    terminating: false
+  nodeName: worker-b-03
+  targetRef:
+    kind: Pod
+    name: payments-api-6f8b9c7d4-s7p4b
+    namespace: payments
+ports:
+- name: grpc
+  port: 9090
+  protocol: TCP
+- name: metrics
+  port: 9102
+  protocol: TCP

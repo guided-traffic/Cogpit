@@ -1,0 +1,68 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "endpointslices",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "addressType",
+      "text": "IPv4"
+    },
+    {
+      "column": "endpoints",
+      "text": "-"
+    },
+    {
+      "column": "ports",
+      "text": "-"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "address": [],
+    "addressType": [
+      "IPv4"
+    ],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "node": [],
+    "port": [],
+    "service": [],
+    "target": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Address Type",
+          "value": "IPv4"
+        }
+      ]
+    }
+  ]
+}

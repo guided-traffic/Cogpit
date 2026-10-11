@@ -1,0 +1,72 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "replicationcontrollers",
+    "namespace": "legacy",
+    "name": "api"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "api"
+    },
+    {
+      "column": "namespace",
+      "text": "legacy",
+      "link": {
+        "kind": "namespaces",
+        "name": "legacy"
+      }
+    },
+    {
+      "column": "replicas",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "desiredReplicas",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "selector",
+      "text": "app=api"
+    }
+  ],
+  "fields": {
+    "controlledBy": [],
+    "image": [
+      "registry.example.com/legacy/api:3.1.0"
+    ],
+    "label": [],
+    "name": [
+      "api"
+    ],
+    "namespace": [
+      "legacy"
+    ],
+    "selector": [
+      "app=api"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Pods",
+          "value": "3 desired / 3 current / 1 ready / 1 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=api"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/legacy/api:3.1.0"
+        }
+      ]
+    }
+  ]
+}

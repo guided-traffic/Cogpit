@@ -1,0 +1,61 @@
+# Synthetic: the IPv6 slice of a headless Service of a stateful set: five endpoints, so the list
+# shows three and "+ 2 more", and a port without a number, which stands for every port. The
+# conditions are left unset on one endpoint, which consumers read as ready.
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: kafka-headless-v6abc
+  namespace: streaming
+  uid: 6a7b8c9d-3333-4c4d-8e5f-000000000005
+  creationTimestamp: "2026-10-01T00:00:00Z"
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: kafka-headless
+addressType: IPv6
+endpoints:
+- addresses:
+  - fd00:10:244::a
+  hostname: kafka-0
+  conditions:
+    ready: true
+  targetRef:
+    kind: Pod
+    name: kafka-0
+    namespace: streaming
+- addresses:
+  - fd00:10:244::b
+  hostname: kafka-1
+  conditions:
+    ready: true
+  targetRef:
+    kind: Pod
+    name: kafka-1
+    namespace: streaming
+- addresses:
+  - fd00:10:244::c
+  hostname: kafka-2
+  targetRef:
+    kind: Pod
+    name: kafka-2
+    namespace: streaming
+- addresses:
+  - fd00:10:244::d
+  hostname: kafka-3
+  conditions:
+    ready: true
+  targetRef:
+    kind: Pod
+    name: kafka-3
+    namespace: streaming
+- addresses:
+  - fd00:10:244::e
+  hostname: kafka-4
+  conditions:
+    ready: true
+  targetRef:
+    kind: Pod
+    name: kafka-4
+    namespace: streaming
+ports:
+- name: ""
+  protocol: TCP

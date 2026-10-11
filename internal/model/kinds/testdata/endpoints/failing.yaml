@@ -1,0 +1,21 @@
+# Synthetic: the Endpoints of a Service whose only pod is not ready: no ready address, so the list
+# shows "-".
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: payments-api
+  namespace: payments
+  uid: 7b8c9d0e-4444-4d5e-9f60-000000000002
+  creationTimestamp: "2026-10-09T08:00:00Z"
+subsets:
+- notReadyAddresses:
+  - ip: 10.244.4.11
+    nodeName: worker-b-02
+    targetRef:
+      kind: Pod
+      name: payments-api-6f8b9c7d4-q9m2z
+      namespace: payments
+  ports:
+  - name: grpc
+    port: 9090
+    protocol: TCP

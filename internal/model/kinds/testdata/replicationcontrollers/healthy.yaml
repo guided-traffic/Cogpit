@@ -1,0 +1,35 @@
+# Synthetic: a replication controller with all three pods ready, as the API server stores it.
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: frontend-v1
+  namespace: legacy
+  uid: 9d0e1f20-6666-4f70-b182-000000000001
+  creationTimestamp: "2025-12-01T00:00:00Z"
+  generation: 2
+  labels:
+    app: frontend
+spec:
+  replicas: 3
+  selector:
+    app: frontend
+    version: v1
+  template:
+    metadata:
+      labels:
+        app: frontend
+        version: v1
+    spec:
+      containers:
+      - name: nginx
+        image: registry.example.com/legacy/frontend:1.0.3
+        ports:
+        - containerPort: 80
+      - name: exporter
+        image: registry.example.com/tools/nginx-exporter:0.11.0
+status:
+  observedGeneration: 2
+  replicas: 3
+  fullyLabeledReplicas: 3
+  readyReplicas: 3
+  availableReplicas: 3

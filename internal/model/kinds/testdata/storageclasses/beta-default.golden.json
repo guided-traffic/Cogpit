@@ -1,0 +1,88 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "storageclasses",
+    "name": "gp2"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "gp2"
+    },
+    {
+      "column": "provisioner",
+      "text": "kubernetes.io/aws-ebs"
+    },
+    {
+      "column": "age",
+      "text": "2y",
+      "num": 1706745600
+    },
+    {
+      "column": "reclaimPolicy",
+      "text": "Delete"
+    },
+    {
+      "column": "volumeBindingMode",
+      "text": "WaitForFirstConsumer"
+    }
+  ],
+  "fields": {
+    "default": [
+      "true"
+    ],
+    "label": [],
+    "name": [
+      "gp2"
+    ],
+    "namespace": [
+      ""
+    ],
+    "provisioner": [
+      "kubernetes.io/aws-ebs"
+    ],
+    "reclaimPolicy": [
+      "Delete"
+    ],
+    "volumeBindingMode": [
+      "WaitForFirstConsumer"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Default",
+          "value": "Yes: claims without a class get this one"
+        },
+        {
+          "name": "Provisioner",
+          "value": "kubernetes.io/aws-ebs"
+        },
+        {
+          "name": "Reclaim Policy",
+          "value": "Delete"
+        },
+        {
+          "name": "Volume Binding Mode",
+          "value": "WaitForFirstConsumer"
+        }
+      ]
+    },
+    {
+      "title": "Parameters",
+      "items": [
+        {
+          "name": "fsType",
+          "value": "ext4"
+        },
+        {
+          "name": "type",
+          "value": "gp2"
+        }
+      ]
+    }
+  ]
+}

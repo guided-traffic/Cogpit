@@ -1,0 +1,81 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "networkpolicies",
+    "namespace": "payments",
+    "name": "default-deny-all"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "default-deny-all"
+    },
+    {
+      "column": "namespace",
+      "text": "payments",
+      "link": {
+        "kind": "namespaces",
+        "name": "payments"
+      }
+    },
+    {
+      "column": "policyTypes",
+      "text": "Ingress, Egress"
+    },
+    {
+      "column": "age",
+      "text": "30m",
+      "num": 1791718200
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "default-deny-all"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "podSelector": [],
+    "policyType": [
+      "Ingress",
+      "Egress"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Pod Selector",
+          "value": "every pod in the namespace"
+        },
+        {
+          "name": "Policy Types",
+          "value": "Ingress, Egress"
+        }
+      ]
+    },
+    {
+      "title": "Ingress",
+      "items": [
+        {
+          "name": "Rules",
+          "value": "none: all incoming traffic of the selected pods is denied",
+          "status": "warning"
+        }
+      ]
+    },
+    {
+      "title": "Egress",
+      "items": [
+        {
+          "name": "Rules",
+          "value": "none: all outgoing traffic of the selected pods is denied",
+          "status": "warning"
+        }
+      ]
+    }
+  ]
+}

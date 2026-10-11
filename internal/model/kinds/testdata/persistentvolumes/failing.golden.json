@@ -1,0 +1,138 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "persistentvolumes",
+    "name": "pvc-1f2e3d4c-8888-4d9e-8f10-000000000002"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "pvc-1f2e3d4c-8888-4d9e-8f10-000000000002"
+    },
+    {
+      "column": "storageClass",
+      "text": "fast-ssd",
+      "link": {
+        "kind": "storageclasses",
+        "name": "fast-ssd"
+      }
+    },
+    {
+      "column": "capacity",
+      "text": "500Gi",
+      "num": 536870912000
+    },
+    {
+      "column": "claim",
+      "text": "analytics/scratch",
+      "link": {
+        "kind": "persistentvolumeclaims",
+        "namespace": "analytics",
+        "name": "scratch"
+      }
+    },
+    {
+      "column": "age",
+      "text": "132d",
+      "num": 1780272000
+    },
+    {
+      "column": "status",
+      "text": "Failed",
+      "status": "error"
+    }
+  ],
+  "fields": {
+    "accessMode": [
+      "ReadWriteOnce"
+    ],
+    "claim": [
+      "analytics/scratch"
+    ],
+    "label": [],
+    "name": [
+      "pvc-1f2e3d4c-8888-4d9e-8f10-000000000002"
+    ],
+    "namespace": [
+      ""
+    ],
+    "reclaimPolicy": [
+      "Delete"
+    ],
+    "source": [
+      "csi",
+      "csi.example.com"
+    ],
+    "status": [
+      "Failed"
+    ],
+    "storageClass": [
+      "fast-ssd"
+    ],
+    "volumeMode": [
+      "Block"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Failed",
+          "status": "error"
+        },
+        {
+          "name": "Reason",
+          "value": "VolumeFailedDelete"
+        },
+        {
+          "name": "Message",
+          "value": "rpc error: code = FailedPrecondition desc = volume vol-0f9e8d7c6b5a49382 is still attached to a node"
+        },
+        {
+          "name": "Storage Class",
+          "value": "fast-ssd",
+          "link": {
+            "kind": "storageclasses",
+            "name": "fast-ssd"
+          }
+        },
+        {
+          "name": "Capacity",
+          "value": "500Gi"
+        },
+        {
+          "name": "Access Modes",
+          "value": "ReadWriteOnce"
+        },
+        {
+          "name": "Reclaim Policy",
+          "value": "Delete"
+        },
+        {
+          "name": "Volume Mode",
+          "value": "Block"
+        },
+        {
+          "name": "Claim",
+          "value": "analytics/scratch",
+          "link": {
+            "kind": "persistentvolumeclaims",
+            "namespace": "analytics",
+            "name": "scratch"
+          }
+        },
+        {
+          "name": "Source",
+          "value": "csi: csi.example.com, volume handle vol-0f9e8d7c6b5a49382"
+        },
+        {
+          "name": "Phase Changed",
+          "value": "2026-10-11T09:00:00Z"
+        }
+      ]
+    }
+  ]
+}

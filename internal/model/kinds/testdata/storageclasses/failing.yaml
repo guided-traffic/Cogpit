@@ -1,0 +1,29 @@
+# Synthetic: a CSI class whose default annotation reads "True", which Kubernetes does not count
+# (only "true" makes the default); volumes are kept after their claim is gone, provisioned at once,
+# in two zones. The parameters name Secrets, never hold their values.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: fast-ssd
+  uid: 3c4d5e6f-1111-4a2b-8c3d-000000000002
+  creationTimestamp: "2026-08-15T00:00:00Z"
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "True"
+provisioner: csi.example.com
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+allowVolumeExpansion: false
+mountOptions:
+- noatime
+- discard
+allowedTopologies:
+- matchLabelExpressions:
+  - key: topology.kubernetes.io/zone
+    values:
+    - zone-a
+    - zone-b
+parameters:
+  type: ssd
+  iops: "3000"
+  csi.storage.k8s.io/provisioner-secret-name: csi-provisioner
+  csi.storage.k8s.io/provisioner-secret-namespace: storage-system

@@ -1,0 +1,46 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "endpoints",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "endpoints",
+      "text": "-"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "address": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "node": [],
+    "port": [],
+    "target": []
+  },
+  "detail": null
+}

@@ -1,0 +1,21 @@
+# Synthetic: an old hostPath volume that names its class with the beta annotation, as volumes did
+# before spec.storageClassName.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: legacy-hostpath
+  uid: 5e6f7081-2222-4b3c-9d4e-000000000007
+  creationTimestamp: "2023-01-01T00:00:00Z"
+  annotations:
+    volume.beta.kubernetes.io/storage-class: slow
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 500Mi
+  hostPath:
+    path: /data/legacy
+    type: DirectoryOrCreate
+  persistentVolumeReclaimPolicy: Recycle
+status:
+  phase: Pending

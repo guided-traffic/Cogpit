@@ -1,0 +1,36 @@
+# Synthetic: the Endpoints of a Service with two ready pods and two ports, as the endpoints
+# controller writes them: four "address:port" entries, so the list shows three and "+ 1 more".
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: web
+  namespace: shop
+  uid: 7b8c9d0e-4444-4d5e-9f60-000000000001
+  creationTimestamp: "2026-10-10T08:00:00Z"
+  labels:
+    app: web
+  annotations:
+    endpoints.kubernetes.io/last-change-trigger-time: "2026-10-11T11:00:00Z"
+subsets:
+- addresses:
+  - ip: 10.244.1.5
+    nodeName: worker-a-01
+    targetRef:
+      kind: Pod
+      name: web-7d9f8c6b5-bkmqx
+      namespace: shop
+      uid: 7b8c9d0e-4444-4d5e-9f60-0000000000b1
+  - ip: 10.244.2.7
+    nodeName: worker-a-02
+    targetRef:
+      kind: Pod
+      name: web-7d9f8c6b5-clnry
+      namespace: shop
+      uid: 7b8c9d0e-4444-4d5e-9f60-0000000000b2
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+  - name: metrics
+    port: 9102
+    protocol: TCP

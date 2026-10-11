@@ -1,0 +1,8 @@
+# Synthetic: optional fields missing: no annotations, no reclaim policy or binding mode (the API
+# server would default them to Delete and Immediate), no parameters.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: bare
+  creationTimestamp: "2026-10-11T11:00:00Z"
+provisioner: kubernetes.io/no-provisioner

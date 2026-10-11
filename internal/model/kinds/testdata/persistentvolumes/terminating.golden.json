@@ -1,0 +1,129 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "persistentvolumes",
+    "name": "local-worker-a-01-disk1"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "local-worker-a-01-disk1"
+    },
+    {
+      "column": "storageClass",
+      "text": "local-disks",
+      "link": {
+        "kind": "storageclasses",
+        "name": "local-disks"
+      }
+    },
+    {
+      "column": "capacity",
+      "text": "100Gi",
+      "num": 107374182400
+    },
+    {
+      "column": "claim",
+      "text": "search/cache",
+      "link": {
+        "kind": "persistentvolumeclaims",
+        "namespace": "search",
+        "name": "cache"
+      }
+    },
+    {
+      "column": "age",
+      "text": "224d",
+      "num": 1772323200
+    },
+    {
+      "column": "status",
+      "text": "Terminating",
+      "status": "terminating"
+    }
+  ],
+  "fields": {
+    "accessMode": [
+      "ReadWriteOnce"
+    ],
+    "claim": [
+      "search/cache"
+    ],
+    "label": [],
+    "name": [
+      "local-worker-a-01-disk1"
+    ],
+    "namespace": [
+      ""
+    ],
+    "reclaimPolicy": [
+      "Retain"
+    ],
+    "source": [
+      "local"
+    ],
+    "status": [
+      "Terminating"
+    ],
+    "storageClass": [
+      "local-disks"
+    ],
+    "volumeMode": [
+      "Filesystem"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Terminating",
+          "status": "terminating"
+        },
+        {
+          "name": "Storage Class",
+          "value": "local-disks",
+          "link": {
+            "kind": "storageclasses",
+            "name": "local-disks"
+          }
+        },
+        {
+          "name": "Capacity",
+          "value": "100Gi"
+        },
+        {
+          "name": "Access Modes",
+          "value": "ReadWriteOnce"
+        },
+        {
+          "name": "Reclaim Policy",
+          "value": "Retain"
+        },
+        {
+          "name": "Volume Mode",
+          "value": "Filesystem"
+        },
+        {
+          "name": "Claim",
+          "value": "search/cache",
+          "link": {
+            "kind": "persistentvolumeclaims",
+            "namespace": "search",
+            "name": "cache"
+          }
+        },
+        {
+          "name": "Source",
+          "value": "local: /mnt/disks/disk1, fs xfs"
+        },
+        {
+          "name": "Node Affinity",
+          "value": "kubernetes.io/hostname in (worker-a-01)"
+        }
+      ]
+    }
+  ]
+}

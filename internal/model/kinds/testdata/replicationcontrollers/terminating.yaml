@@ -1,0 +1,29 @@
+# Synthetic: a replication controller deleted with foreground propagation: it waits for its pods.
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: frontend-v0
+  namespace: legacy
+  uid: 9d0e1f20-6666-4f70-b182-000000000003
+  creationTimestamp: "2025-06-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - foregroundDeletion
+  generation: 5
+spec:
+  replicas: 0
+  selector:
+    app: frontend
+    version: v0
+  template:
+    metadata:
+      labels:
+        app: frontend
+        version: v0
+    spec:
+      containers:
+      - name: nginx
+        image: registry.example.com/legacy/frontend:0.9.8
+status:
+  observedGeneration: 5
+  replicas: 1

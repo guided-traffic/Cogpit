@@ -1,0 +1,277 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "endpointslices",
+    "namespace": "streaming",
+    "name": "kafka-headless-v6abc"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "kafka-headless-v6abc"
+    },
+    {
+      "column": "namespace",
+      "text": "streaming",
+      "link": {
+        "kind": "namespaces",
+        "name": "streaming"
+      }
+    },
+    {
+      "column": "addressType",
+      "text": "IPv6"
+    },
+    {
+      "column": "endpoints",
+      "text": "fd00:10:244::a, fd00:10:244::b, fd00:10:244::c + 2 more"
+    },
+    {
+      "column": "ports",
+      "text": "*/TCP"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790812800
+    }
+  ],
+  "fields": {
+    "address": [
+      "fd00:10:244::a",
+      "fd00:10:244::b",
+      "fd00:10:244::c",
+      "fd00:10:244::d",
+      "fd00:10:244::e"
+    ],
+    "addressType": [
+      "IPv6"
+    ],
+    "label": [
+      "endpointslice.kubernetes.io/managed-by=endpointslice-controller.k8s.io",
+      "kubernetes.io/service-name=kafka-headless"
+    ],
+    "name": [
+      "kafka-headless-v6abc"
+    ],
+    "namespace": [
+      "streaming"
+    ],
+    "node": [],
+    "port": [],
+    "service": [
+      "kafka-headless"
+    ],
+    "target": [
+      "Pod/kafka-0",
+      "Pod/kafka-1",
+      "Pod/kafka-2",
+      "Pod/kafka-3",
+      "Pod/kafka-4"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Address Type",
+          "value": "IPv6"
+        },
+        {
+          "name": "Service",
+          "value": "kafka-headless",
+          "link": {
+            "kind": "services",
+            "namespace": "streaming",
+            "name": "kafka-headless"
+          }
+        },
+        {
+          "name": "Managed By",
+          "value": "endpointslice-controller.k8s.io"
+        },
+        {
+          "name": "Ports",
+          "value": "*/TCP (every port)"
+        }
+      ]
+    },
+    {
+      "title": "Endpoints",
+      "table": {
+        "columns": [
+          "Addresses",
+          "Conditions",
+          "Hostname",
+          "Node",
+          "Zone",
+          "Target"
+        ],
+        "rows": [
+          [
+            "fd00:10:244::a",
+            "Ready",
+            "kafka-0",
+            "",
+            "",
+            "Pod kafka-0"
+          ],
+          [
+            "fd00:10:244::b",
+            "Ready",
+            "kafka-1",
+            "",
+            "",
+            "Pod kafka-1"
+          ],
+          [
+            "fd00:10:244::c",
+            "Ready",
+            "kafka-2",
+            "",
+            "",
+            "Pod kafka-2"
+          ],
+          [
+            "fd00:10:244::d",
+            "Ready",
+            "kafka-3",
+            "",
+            "",
+            "Pod kafka-3"
+          ],
+          [
+            "fd00:10:244::e",
+            "Ready",
+            "kafka-4",
+            "",
+            "",
+            "Pod kafka-4"
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "fd00:10:244::a"
+            },
+            {
+              "text": "Ready",
+              "status": "ok"
+            },
+            {
+              "text": "kafka-0"
+            },
+            {},
+            {},
+            {
+              "text": "Pod kafka-0",
+              "link": {
+                "kind": "pods",
+                "namespace": "streaming",
+                "name": "kafka-0"
+              }
+            }
+          ],
+          [
+            {
+              "text": "fd00:10:244::b"
+            },
+            {
+              "text": "Ready",
+              "status": "ok"
+            },
+            {
+              "text": "kafka-1"
+            },
+            {},
+            {},
+            {
+              "text": "Pod kafka-1",
+              "link": {
+                "kind": "pods",
+                "namespace": "streaming",
+                "name": "kafka-1"
+              }
+            }
+          ],
+          [
+            {
+              "text": "fd00:10:244::c"
+            },
+            {
+              "text": "Ready",
+              "status": "ok"
+            },
+            {
+              "text": "kafka-2"
+            },
+            {},
+            {},
+            {
+              "text": "Pod kafka-2",
+              "link": {
+                "kind": "pods",
+                "namespace": "streaming",
+                "name": "kafka-2"
+              }
+            }
+          ],
+          [
+            {
+              "text": "fd00:10:244::d"
+            },
+            {
+              "text": "Ready",
+              "status": "ok"
+            },
+            {
+              "text": "kafka-3"
+            },
+            {},
+            {},
+            {
+              "text": "Pod kafka-3",
+              "link": {
+                "kind": "pods",
+                "namespace": "streaming",
+                "name": "kafka-3"
+              }
+            }
+          ],
+          [
+            {
+              "text": "fd00:10:244::e"
+            },
+            {
+              "text": "Ready",
+              "status": "ok"
+            },
+            {
+              "text": "kafka-4"
+            },
+            {},
+            {},
+            {
+              "text": "Pod kafka-4",
+              "link": {
+                "kind": "pods",
+                "namespace": "streaming",
+                "name": "kafka-4"
+              }
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

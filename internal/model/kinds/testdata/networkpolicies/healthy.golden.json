@@ -1,0 +1,89 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "networkpolicies",
+    "namespace": "shop",
+    "name": "web"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "web"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "policyTypes",
+      "text": "Ingress, Egress"
+    },
+    {
+      "column": "age",
+      "text": "21d",
+      "num": 1789862400
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "web"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "podSelector": [
+      "app=web"
+    ],
+    "policyType": [
+      "Ingress",
+      "Egress"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Pod Selector",
+          "value": "app=web"
+        },
+        {
+          "name": "Policy Types",
+          "value": "Ingress, Egress"
+        }
+      ]
+    },
+    {
+      "title": "Ingress",
+      "items": [
+        {
+          "name": "Rule 1",
+          "value": "From: all pods in namespaces kubernetes.io/metadata.name=ingress-nginx; pods role=frontend in this namespace\nPorts: 8080/TCP"
+        },
+        {
+          "name": "Rule 2",
+          "value": "From: 10.0.0.0/8 except 10.1.0.0/16\nPorts: all"
+        }
+      ]
+    },
+    {
+      "title": "Egress",
+      "items": [
+        {
+          "name": "Rule 1",
+          "value": "To: pods app=api in namespaces team in (shop,payments)\nPorts: http/TCP"
+        },
+        {
+          "name": "Rule 2",
+          "value": "To: anywhere\nPorts: 53/UDP, 53/TCP"
+        }
+      ]
+    }
+  ]
+}

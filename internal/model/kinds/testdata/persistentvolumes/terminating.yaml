@@ -1,0 +1,37 @@
+# Synthetic: a local volume pinned to one node, deleted while its claim still uses it
+# (pv-protection keeps it).
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-worker-a-01-disk1
+  uid: 5e6f7081-2222-4b3c-9d4e-000000000005
+  creationTimestamp: "2026-03-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - kubernetes.io/pv-protection
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 100Gi
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: cache
+    namespace: search
+  local:
+    path: /mnt/disks/disk1
+    fsType: xfs
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - worker-a-01
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-disks
+  volumeMode: Filesystem
+status:
+  phase: Bound

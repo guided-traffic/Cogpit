@@ -1,0 +1,53 @@
+# Synthetic: a policy for the web pods: ingress from the ingress controller's namespace and from
+# the shop's own frontends, and an address range; egress to the API's pods and to DNS anywhere.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: web
+  namespace: shop
+  uid: 8c9d0e1f-5555-4e6f-a071-000000000001
+  creationTimestamp: "2026-09-20T00:00:00Z"
+  generation: 3
+spec:
+  podSelector:
+    matchLabels:
+      app: web
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+    - podSelector:
+        matchLabels:
+          role: frontend
+    ports:
+    - port: 8080
+      protocol: TCP
+  - from:
+    - ipBlock:
+        cidr: 10.0.0.0/8
+        except:
+        - 10.1.0.0/16
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: api
+      namespaceSelector:
+        matchExpressions:
+        - key: team
+          operator: In
+          values:
+          - shop
+          - payments
+    ports:
+    - port: http
+      protocol: TCP
+  - ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
