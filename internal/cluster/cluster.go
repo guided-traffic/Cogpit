@@ -189,6 +189,7 @@ type Conn struct {
 	servedTTL time.Duration
 
 	objects objectMapper // the REST mapper of the generic object writes (objects.go)
+	access  reviewClient // the access reviews' client, with their own budget (access.go)
 
 	closed atomic.Bool
 }
