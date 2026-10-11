@@ -22,10 +22,12 @@ const (
 	kindNamespaces = "namespaces"
 )
 
-// navLayout is the navigator's tree in the order of Lens's documented sidebar
-// (docs/parity/ui-parity.md, Cluster sidebar): top-level kinds and groups of kinds. Only kinds the
-// cluster serves appear, and a group without any is left out; kinds the layout does not know go
-// under Other.
+// navLayout is the navigator's tree in the order of Lens's sidebar as captured from the running
+// app (docs/parity/ui-parity.md, Cluster sidebar): top-level kinds and groups of kinds. Only kinds
+// the cluster serves appear, and a group without any is left out; kinds the layout does not know
+// go under Other. Pages that are not kinds (Overview, Applications, the Flux CD and Workloads
+// dashboards, Port Forwarding, Helm) and sub-groups (Config › Admission Policies) come with their
+// views; until then the admission policies sit at the end of Config, where the sub-group is.
 var navLayout = []struct {
 	id    string   // a kind key for a top-level item, or groupPrefix + a group name
 	title string   // the group's title
@@ -37,15 +39,20 @@ var navLayout = []struct {
 	{id: groupPrefix + "config", title: "Config", kinds: []string{
 		"configmaps", "secrets", "resourcequotas", "limitranges", "horizontalpodautoscalers",
 		"verticalpodautoscalers", "poddisruptionbudgets", "priorityclasses", "runtimeclasses", "leases",
-		"mutatingwebhookconfigurations", "validatingwebhookconfigurations"}},
+		"mutatingwebhookconfigurations", "validatingwebhookconfigurations",
+		"validatingadmissionpolicies", "validatingadmissionpolicybindings",
+		"mutatingadmissionpolicies", "mutatingadmissionpolicybindings"}},
 	{id: groupPrefix + "network", title: "Network", kinds: []string{
-		"services", "endpoints", "endpointslices", "ingresses", "ingressclasses", "networkpolicies"}},
+		"services", "endpointslices", "endpoints", "ingresses", "ingressclasses", "networkpolicies"}},
 	{id: groupPrefix + "storage", title: "Storage", kinds: []string{
 		"persistentvolumeclaims", "persistentvolumes", "storageclasses"}},
+	{id: groupPrefix + "devices", title: "Device Resources", kinds: []string{
+		"resourceclaims", "resourceclaimtemplates", "deviceclasses", "resourceslices"}},
 	{id: kindNamespaces},
 	{id: "events"},
 	{id: groupPrefix + "access", title: "Access Control", kinds: []string{
-		"serviceaccounts", "clusterroles", "roles", "clusterrolebindings", "rolebindings"}},
+		"serviceaccounts", "clusterroles", "roles", "clusterrolebindings", "rolebindings", "podsecuritypolicies"}},
+	{id: groupPrefix + "custom", title: "Custom Resources", kinds: []string{"customresourcedefinitions"}},
 	{id: groupPrefix + "other", title: "Other"},
 }
 
@@ -70,7 +77,9 @@ var navIcons = map[string]fyne.Resource{
 	groupPrefix + "storage":   theme.StorageIcon(),
 	kindNamespaces:            iconLayers,
 	"events":                  theme.HistoryIcon(),
+	groupPrefix + "devices":   theme.ComputerIcon(),
 	groupPrefix + "access":    theme.AccountIcon(),
+	groupPrefix + "custom":    theme.ListIcon(),
 	groupPrefix + "other":     theme.MoreHorizontalIcon(),
 }
 

@@ -120,11 +120,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## Feature gaps
 
 ### G6. Resource views
-- **Missing:** all 63 resource views ([resource-parity](resource-parity.md)). The alpha gate needs
+- **Missing:** all but six of the 64 resource views ([resource-parity](resource-parity.md)). The alpha gate needs
   about 20: Pods, Deployments, Daemon Sets, Stateful Sets, Replica Sets, Jobs, Cron Jobs, Nodes,
   Namespaces, Events, Services, Ingresses, Config Maps, Secrets, Persistent Volume Claims, Helm
   Releases, the cluster overview and the generic custom-resource view.
-- **Evidence:** resource-parity, 6 of 63 partial (Nodes, Pods, Deployments, Services, Namespaces,
+- **Evidence:** resource-parity, 6 of 64 partial (Nodes, Pods, Deployments, Services, Namespaces,
   Events; no metrics columns).
 - **Estimate:** 120–360 h (was 130–380; 2–6 h each; Pods, Nodes and the overview at the high end).
 

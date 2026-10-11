@@ -22,7 +22,7 @@ serial foundation, about 80% of the work parallelizes.
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **~12%** | measured: 6 of 63 views, 4 of 40 actions, 24 of 111 interface rows, all partial |
+| **Feature breadth** | **~12%** | measured: 6 of 64 views, 4 of 40 actions, 24 of 111 interface rows, all partial |
 | **Ready for real work** | **~10%** | estimated |
 | Mainstream practitioner | ~8% | estimated |
 | Essentials user | ~23% | estimated |

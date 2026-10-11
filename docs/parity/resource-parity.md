@@ -17,7 +17,7 @@ All views and actions on this page are in Lens Desktop's free plan, except the s
 (2026-10-11) made the first rows partial. **Command ids** are Cogpit's, following [conventions](../developer/conventions.md#style);
 they become the registry ids and, with underscores, the MCP tool names.
 
-**Summary (measured, 2026-10-11):** 6 of 63 resource views and 4 of 40 actions exist, all
+**Summary (measured, 2026-10-11):** 6 of 64 resource views and 4 of 40 actions exist, all
 **partial** (none done): the views lack the metrics columns and their texts are not checked against
 a running Lens; the actions are limited as noted. Lens Desktop's paid features add 24 views and
 3 actions. Remaining (estimated, 2–6 h per view or action with tests): 120–360 h for the views
@@ -86,8 +86,8 @@ related resources) are superseded by Cogpit's built-in agent
 | Priority Classes | `scheduling.k8s.io/v1` PriorityClass | Name, Value, Global Default, Age; pod counts (2026.9) | – | missing |
 | Runtime Classes | `node.k8s.io/v1` RuntimeClass | Name, Handler, Age | – | missing |
 | Leases | `coordination.k8s.io/v1` Lease | Name, Namespace, Holder, Age | – | missing |
-| Mutating Webhook Configs | `admissionregistration.k8s.io/v1` | Name, Webhooks, Age | – | missing |
-| Validating Webhook Configs | `admissionregistration.k8s.io/v1` | Name, Webhooks, Age | – | missing |
+| Mutating Webhook Configurations | `admissionregistration.k8s.io/v1` | Name, Webhooks, Age | – | missing |
+| Validating Webhook Configurations | `admissionregistration.k8s.io/v1` | Name, Webhooks, Age | – | missing |
 | Validating Admission Policies | `admissionregistration.k8s.io` (v1, falling back to v1beta1, v1alpha1) | Name, Validations, Failure Policy, Age | – | missing |
 | Validating Admission Policy Bindings | same | Name, Policy, Validation Actions, Age | – | missing |
 | Mutating Admission Policies | same | Name, Mutations, Reinvocation Policy, Failure Policy, Age | – | missing |
@@ -98,8 +98,8 @@ related resources) are superseded by Cogpit's built-in agent
 | View | API | Lens columns | Actions | Status |
 |---|---|---|---|---|
 | Services | `v1` Service | Name, Namespace, Type, Cluster IP, Ports, External IP, Selector, Age, Status | Forward a port `service.portForward`; detail tabs: Endpoint Slices, Routes | partial: view ([`services.go`](../../internal/model/kinds/services.go)); no port forward, no detail tabs |
-| Endpoints | `v1` Endpoints | Name, Namespace, Endpoints, Age | – | missing |
 | Endpoint Slices | `discovery.k8s.io/v1` EndpointSlice | Name, Namespace, Address Type, Endpoints, Ports, Age | – | missing |
+| Endpoints | `v1` Endpoints | Name, Namespace, Endpoints, Age | – | missing |
 | Ingresses | `networking.k8s.io/v1` Ingress | Name, Namespace, Load Balancers, Rules, Age | – | missing |
 | Ingress Classes | `networking.k8s.io/v1` IngressClass | Name, Controller, API Group, Scope, Kind (Lens's page also lists Namespace: capture needed) | – | missing |
 | Network Policies | `networking.k8s.io/v1` NetworkPolicy | Name, Namespace, Policy Types, Age | – | missing |
@@ -150,7 +150,8 @@ Shown only when the cluster serves `resource.k8s.io/v1` (Kubernetes 1.34 and lat
 
 | View | API | Lens columns | Actions | Status |
 |---|---|---|---|---|
-| Custom Resources: one view per custom resource kind the cluster serves (grouping: capture needed) | from discovery | capture needed; Cogpit uses `additionalPrinterColumns` | – | missing |
+| Definitions | `apiextensions.k8s.io/v1` CustomResourceDefinition | capture needed | – | missing |
+| Custom Resources: one view per custom resource kind the cluster serves, under one collapsed group per API group, groups sorted by name (capture, 2026-10-11) | from discovery | capture needed; Cogpit uses `additionalPrinterColumns` | – | missing |
 
 ## Paid Lens Desktop views
 
@@ -163,7 +164,7 @@ come after it ([D-9](../developer/decisions.md#d-9-scope-against-lenss-paid-and-
 
 | View | Lens contents | Actions | Status |
 |---|---|---|---|
-| Flux CD | Sources (GitRepository, OCIRepository, HelmRepository, Bucket, ExternalArtifact), Workloads (Kustomization, HelmRelease), Image automation (ImageRepository, ImagePolicy, ImageUpdateAutomation), Notifications (Alert, Provider, Receiver), dashboard | reconcile and suspend not documented | missing |
+| Flux CD | sidebar group between Applications and Nodes (capture, 2026-10-11): Dashboard, Helm Releases, Kustomizations; Image Automation › Image Repositories, Image Policies, Image Update Automations; Notifications › Alerts, Providers, Receivers; Sources › Git Repositories, OCI Repositories, Helm Repositories, Buckets, External Artifacts | reconcile and suspend not documented | missing |
 | Argo CD | Dashboard, Applications, Application Sets, Projects, Settings › Repositories, Settings › Clusters | Sync `argocd.application.sync` (with Prune), Refresh `argocd.application.refresh` (Normal or Hard), both in bulk | missing |
 | Security Center | Images (Name, Platforms, Pods, Vulnerabilities, Exposed Secrets, Status), Resources, Roles; from the Trivy Operator | Scan image `securityCenter.image.scan`, Show details, CSV export | missing |
 | Cost Monitoring | costs over 24h, 7d, 30d; "Include idle" | Optimize cost with AI | missing |
@@ -179,6 +180,7 @@ the tables above. Everything else is created from YAML templates in the dock
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | From a capture of the running Lens Desktop (owner): Definitions (custom resource definitions) is a Lens view after all, 64 views; custom resources grouped by API group; Endpoint Slices before Endpoints; webhook view titles; the Flux CD sidebar structure |
 | 2026-10-11 | minor | The MVP: Nodes, Pods, Deployments, Services, Namespaces and Events views partial; Logs, Shell, Restart and Delete (pods) partial |
 | 2026-10-11 | major | Sources narrowed to Lens Desktop (D-12): the Freelens-only Definitions view, seven Freelens-only actions, `portforward.start` and Freelens column details removed; Ask AI superseded by the built-in agent |
 | 2026-10-11 | major | First version, from Lens Desktop's documentation and release notes to 2026.10.51501 and Freelens 1.10.3 source |

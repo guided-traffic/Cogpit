@@ -75,31 +75,51 @@ hotbar, navigator, tab bar, workspace, dock, status bar.
 
 ## Cluster sidebar
 
-The tree in the order of Lens Desktop's documentation; the in-app order needs a capture.
+The tree as the running Lens Desktop shows it: a capture by the owner on 2026-10-11 of a cluster
+with Flux CD installed, every group expanded except the custom resource groups (Lens version not
+recorded with the capture). Groups marked *NEW* carry that badge in Lens. Items in brackets were not
+in the capture, most likely because that cluster does not serve their API (inferred, not verified);
+their place follows Lens's documentation.
 
 ```text
-Overview · Applications · Nodes
-Workloads           Pods, Deployments, Daemon Sets, Stateful Sets, Replica Sets,
+Overview
+Applications
+Flux (NEW, paid)    Dashboard, Helm Releases, Kustomizations,
+                    Image Automation › Image Repositories, Image Policies, Image Update Automations,
+                    Notifications › Alerts, Providers, Receivers,
+                    Sources › Git Repositories, OCI Repositories, Helm Repositories, Buckets,
+                              External Artifacts
+Nodes
+Workloads           Overview, Pods, Deployments, Daemon Sets, Stateful Sets, Replica Sets,
                     Replication Controllers, Jobs, Cron Jobs
 Config              Config Maps, Secrets, Resource Quotas, Limit Ranges, Horizontal Pod
-                    Autoscalers, Vertical Pod Autoscalers, Pod Disruption Budgets, Priority
-                    Classes, Runtime Classes, Leases, Mutating Webhook Configs, Validating
-                    Webhook Configs, Admission Policies
-Network             Services, Endpoints, Endpoint Slices, Gateway API resources, Ingresses,
+                    Autoscalers, [Vertical Pod Autoscalers], Pod Disruption Budgets, Priority
+                    Classes, Runtime Classes, Leases, Mutating Webhook Configurations, Validating
+                    Webhook Configurations,
+                    Admission Policies (NEW) › Validating Admission Policies, Validating Admission
+                              Policy Bindings, [Mutating Admission Policies, Mutating Admission
+                              Policy Bindings]
+Network             Services, Endpoint Slices, Endpoints, [Gateway API resources], Ingresses,
                     Ingress Classes, Network Policies, Port Forwarding
 Storage             Persistent Volume Claims, Persistent Volumes, Storage Classes
-Device Resources    Resource Claims, Resource Claim Templates, Device Classes, Resource Slices
-Namespaces · Events
+Device Resources    (NEW) Resource Claims, Resource Claim Templates, Device Classes, Resource Slices
+Namespaces
+Events
 Helm                Charts, Releases
-Access Control      Service Accounts, Cluster Roles, Roles, Cluster Role Bindings, Role
-                    Bindings, Pod Security Policies
-Custom Resources
-Paid sections       Flux CD, Argo CD, Cost Monitoring, Security Center
+Access Control      Service Accounts, Cluster Roles, Roles, Cluster Role Bindings, Role Bindings,
+                    [Pod Security Policies]
+Custom Resources    Definitions, then one collapsed group per API group, sorted by name
+                    (acme.cert-manager.io, ceph.rook.io, cert-manager.io, chaos-mesh.org, …)
+[Paid sections]     [Argo CD, Cost Monitoring, Security Center]
 ```
+
+Where the documentation said otherwise, the capture wins: Flux sits between Applications and
+Nodes; Endpoint Slices come before Endpoints; the webhook views read "Configurations"; the
+admission policies are a sub-group of Config; Custom Resources starts with Definitions.
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| The tree above | free | partial: six kinds | six kinds: Nodes; Workloads › Pods, Deployments; Network › Services; Namespaces; Events ([`sidebar.go`](../../internal/ui/fyneui/sidebar.go)) |
+| The tree above | free | partial: six kinds, in the captured order | six kinds: Nodes; Workloads › Pods, Deployments; Network › Services; Namespaces; Events; the rest of the order is laid out for coming profiles ([`sidebar.go`](../../internal/ui/fyneui/sidebar.go) `navLayout`) |
 | A group or item appears only when the cluster serves its kinds (Admission Policies, Gateway API, Device Resources) | free | partial | [`connector.go`](../../internal/engine/connector.go) filters profiles by discovery |
 | Groups expand and collapse | free | partial | [`sidebar.go`](../../internal/ui/fyneui/sidebar.go) |
 
@@ -300,6 +320,7 @@ the table is taken as correct until a capture decides.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Cluster sidebar from a capture of the running Lens Desktop (owner): Flux placement and structure, Endpoint Slices before Endpoints, Admission Policies sub-group, Custom Resources › Definitions and groups |
 | 2026-10-11 | minor | The MVP: layout, sidebar, table, drawer, dock, follow, terminal and shell rows partial (24) |
 | 2026-10-11 | major | Sources narrowed to Lens Desktop (D-12): Freelens rows and details removed, sidebar tree in documentation order; Scope column replaced by Plan; Ask AI superseded by the built-in agent |
 | 2026-10-11 | major | First version, from Lens Desktop's documentation and release notes to 2026.10.51501 and Freelens 1.10.3 source |
