@@ -441,9 +441,11 @@ func TestTooltips(t *testing.T) {
 		return sh.tip.visibleText() == "CrashLoopBackOff; Containers not ready: app; 412 restarts"
 	})
 
-	// Scrolling moves the cells under the pointer: the tooltip closes.
-	test.Scroll(w.Canvas(), at(warn), 0, -40)
-	test.Scroll(w.Canvas(), at(warn), 0, 40)
+	// Scrolling moves the cells under the pointer: the tooltip closes. ScrollTo moves the offset
+	// as the wheel does; a synthetic wheel event would also arm Fyne's scroll-bar timer, whose
+	// fyne.Do the test driver runs on the timer's goroutine, racing the next test's widgets.
+	sh.view.table.ScrollTo(widget.TableCellID{Row: 400, Col: 0})
+	sh.view.table.ScrollTo(widget.TableCellID{Row: 0, Col: 0})
 	q.drain()
 	if sh.tip.visibleText() != "" {
 		t.Error("the tooltip stayed open while the table scrolled")
