@@ -1,0 +1,103 @@
+# Credentials
+
+Where cluster credentials and Cogpit's own secrets come from, where they live while Cogpit runs,
+and where they must never end up. No code exists yet (2026-10-11); each rule below gains a link to
+its code and test when it lands. Cluster authentication is client-go's, the code `kubectl` uses
+([D-6](../developer/decisions.md#d-6-kubernetes-libraries)).
+
+## Where credentials come from
+
+All cluster credentials come from kubeconfig files the user adds. The kubeconfig format carries
+them in these forms ([kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/),
+[authentication](https://kubernetes.io/docs/reference/access-authn-authz/authentication/)):
+
+| Form | Lives in | Cogpit's handling |
+|---|---|---|
+| Client certificate and key (`client-certificate[-data]`, `client-key[-data]`) | the kubeconfig, or a file it names | Read when connecting; held in memory by the TLS stack |
+| Static bearer token (`token`, `tokenFile`) | the kubeconfig, or a file it names | Read when connecting; held in memory |
+| Exec credential plugin (`exec`) | a program the kubeconfig names | Run on connect and on expiry; the returned credential is held in memory only, never written to disk |
+| Legacy auth provider `oidc` | the kubeconfig | Refreshed tokens go through a persister Cogpit supplies; see [H-4](#h-4-auth-provider-token-refresh) |
+| Legacy auth providers `azure` and `gcp` | the kubeconfig | client-go 0.37.1 rejects `azure` and points to kubelogin; the user replaces them with exec plugins |
+
+Cogpit adds no cluster credential source of its own: no account, no login, no cloud service.
+
+## Cogpit's own secrets
+
+| Secret | Lives in | Rule |
+|---|---|---|
+| MCP bearer token | a file in the app's runtime directory, owner-only | random per start; never logged ([agents and MCP](agents-and-mcp.md)) |
+| LLM API key (built-in agent) | the operating system's keychain (macOS Keychain first) | never written to a file, never logged, sent only to the configured endpoint |
+| Update public key | compiled into the app | not secret; its private counterpart never touches a user's machine ([updates](updates.md)) |
+
+## Where they live inside Cogpit
+
+- **Kubeconfig files stay where they are.** Cogpit stores the paths the user added, not copies.
+- **Pasted kubeconfigs** ("add cluster from text") are the one exception: they are written to
+  `<app data dir>/kubeconfigs/<id>.yaml`, readable by the owner only (mode `0600` on macOS and
+  Linux; an owner-only ACL on Windows), and removed when the user removes the cluster.
+- **In memory:** credentials are held by the connection that uses them and dropped when it closes.
+  Credential types implement `slog.LogValuer` and `fmt.Stringer` as `"<redacted>"`, so a stray log
+  statement cannot print them.
+
+## The terminal's kubeconfig
+
+A terminal opened for a cluster must make `kubectl` in it talk to that cluster and namespace,
+without copying credentials and without a local proxy that serves the user's identity to other
+processes. Kubeconfig merging gives this for free: when `KUBECONFIG` lists several files, the
+first file that sets a value wins
+([merging rules](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#merging-kubeconfig-files)).
+Each terminal therefore gets
+
+```text
+KUBECONFIG=<temp file>:<the user's kubeconfig files>
+```
+
+where the temp file holds only a `current-context` and one context entry naming the cluster and
+user entries that the user's own files define, plus the namespace. The temp file contains no
+credential, is owner-only, and is deleted when the terminal closes.
+
+## Where credentials must never end up
+
+| Place | Rule |
+|---|---|
+| Application log | No tokens, keys, certificates, exec-plugin output or Secret data, at any log level |
+| Error messages and toasts | Same rule; errors name the context, never the credential |
+| Crash reports | Cogpit has no crash upload. A local crash report follows the log rule |
+| Telemetry | Cogpit sends none. Any network call to something other than a cluster, a Helm repository, the configured LLM endpoint or the release channel needs a decision entry in [`decisions.md`](../developer/decisions.md) |
+| The LLM endpoint | Secret values only when the user allows it for that request ([H-13](agents-and-mcp.md#h-13-cluster-data-leaves-for-the-llm-endpoint)) |
+| Screenshots taken by automation | Secret values stay masked unless the user revealed them in the GUI |
+| Clipboard | Only on an explicit copy action |
+
+## Secret objects
+
+Kubernetes Secrets are data the user's identity may read, not Cogpit's own credentials, but they
+are handled with the same care: values are hidden until the user reveals one field, decoded
+values are never logged, and editing a Secret shows decoded values only inside the editor tab.
+
+## What this does not cover
+
+### H-4: Auth-provider token refresh
+
+client-go's legacy `oidc` auth provider hands refreshed tokens to a persister, which in `kubectl`
+writes them back into the kubeconfig file (client-go 0.37.1,
+`plugin/pkg/client/auth/oidc`). Cogpit supplies the persister, so it decides: write through
+(kubectl-compatible, but writes the user's file) or keep refreshed tokens in memory (no write, but
+`kubectl` in a terminal then refreshes on its own). The rule "no implicit kubeconfig writes" in
+[conventions](../developer/conventions.md#never-surprise-a-cluster) argues for memory only; it is
+not decided.
+
+### H-5: Kubeconfig files are plaintext
+
+Credentials embedded in kubeconfig files are plaintext files protected only by file permissions.
+Cogpit does not change that and does not move them into the operating system's keychain. Cogpit
+does not check or warn about world-readable kubeconfig files.
+
+### H-6: Exec plugins inherit the environment
+
+An exec plugin runs with Cogpit's environment plus the variables the kubeconfig declares. A GUI
+app started from the dock or start menu does not see `PATH` entries and variables set in shell
+profiles, so plugins that rely on them (cloud CLIs reading `AWS_PROFILE` and similar) can fail.
+Lens's technical FAQ tells users that exec-plugin binaries must be on `PATH` or named with an
+absolute path ([Lens technical FAQ](https://docs.lenshq.io/faq/technical-faq/)). Whether Cogpit
+reads the login shell's environment, and which variables it then passes to plugins, is not
+designed yet.
