@@ -13,7 +13,11 @@
     },
     {
       "column": "namespace",
-      "text": "infra"
+      "text": "infra",
+      "link": {
+        "kind": "namespaces",
+        "name": "infra"
+      }
     },
     {
       "column": "type",

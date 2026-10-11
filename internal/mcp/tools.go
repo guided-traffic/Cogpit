@@ -93,7 +93,7 @@ func toolFor(cmd *engine.Command) (*sdk.Tool, json.RawMessage, error) {
 			ReadOnlyHint:   harmless,
 			IdempotentHint: harmless,
 			// Explicit, because both hints default to true in the specification.
-			DestructiveHint: ptr(cmd.Danger == engine.DangerDestructive),
+			DestructiveHint: ptr(cmd.Danger == engine.DangerDestructive || cmd.Escalates),
 			OpenWorldHint:   ptr(false),
 		},
 	}, schema, nil
@@ -142,6 +142,9 @@ func describe(cmd *engine.Command) string {
 			"the namespace and the context. The call waits for the answer and fails if the user declines."
 	default:
 		note = "Danger level: " + string(cmd.Danger) + "."
+	}
+	if cmd.Escalates {
+		note += " Some calls are destructive (the description says which): those the user must always confirm."
 	}
 	return desc + "\n\n" + note
 }

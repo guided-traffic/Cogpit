@@ -13,7 +13,11 @@
     },
     {
       "column": "namespace",
-      "text": "ops"
+      "text": "ops",
+      "link": {
+        "kind": "namespaces",
+        "name": "ops"
+      }
     },
     {
       "column": "pods",

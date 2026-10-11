@@ -13,7 +13,11 @@
     },
     {
       "column": "namespace",
-      "text": "payments"
+      "text": "payments",
+      "link": {
+        "kind": "namespaces",
+        "name": "payments"
+      }
     },
     {
       "column": "pods",

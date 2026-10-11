@@ -248,7 +248,7 @@ func compareRows(a, b *model.Row, ci int, typ model.ColumnType, desc bool) int {
 	}
 	if !ea {
 		var c int
-		if typ == model.ColumnNumber || typ == model.ColumnAge {
+		if typ == model.ColumnNumber || typ == model.ColumnAge || typ == model.ColumnWarning {
 			c = cmp.Compare(ca.Num, cb.Num)
 		} else {
 			c = compareFold(ca.Text, cb.Text)
@@ -278,13 +278,16 @@ func cellAt(r *model.Row, i int) model.Cell {
 }
 
 // emptyCell reports whether a cell shows nothing (model.CellText): a text cell without text, an
-// age cell without a timestamp. A number cell always shows its number.
+// age cell without a timestamp, a warning cell without a warning. A number cell always shows its
+// number.
 func emptyCell(typ model.ColumnType, c model.Cell) bool {
 	switch typ {
 	case model.ColumnNumber:
 		return false
 	case model.ColumnAge:
 		return c.Num == 0 && c.Text == ""
+	case model.ColumnWarning:
+		return c.Num == 0 && c.Status == model.StatusNone
 	}
 	return c.Text == ""
 }

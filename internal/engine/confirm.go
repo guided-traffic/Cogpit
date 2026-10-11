@@ -57,9 +57,9 @@ func (f ConfirmFunc) Confirm(ctx context.Context, req ConfirmRequest) (bool, err
 	return f(ctx, req)
 }
 
-func newConfirmRequest(cmd *Command, origin Origin, uiContext string, targets []model.ObjectRef) ConfirmRequest {
+func newConfirmRequest(cmd *Command, danger Danger, origin Origin, uiContext string, targets []model.ObjectRef) ConfirmRequest {
 	req := ConfirmRequest{
-		Command: cmd.ID, Label: cmd.Label, Danger: cmd.Danger, Origin: origin,
+		Command: cmd.ID, Label: cmd.Label, Danger: danger, Origin: origin,
 		Context: uiContext, Objects: targets,
 	}
 	for _, t := range targets {

@@ -21,7 +21,11 @@
     },
     {
       "column": "namespace",
-      "text": "shop"
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
     },
     {
       "column": "involvedObject",

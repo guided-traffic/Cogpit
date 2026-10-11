@@ -13,7 +13,11 @@
     },
     {
       "column": "namespace",
-      "text": "edge"
+      "text": "edge",
+      "link": {
+        "kind": "namespaces",
+        "name": "edge"
+      }
     },
     {
       "column": "pods",

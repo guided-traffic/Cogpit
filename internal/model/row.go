@@ -13,6 +13,11 @@ const (
 	ColumnText   ColumnType = "text"   // sorts by Cell.Text, case-insensitively
 	ColumnNumber ColumnType = "number" // sorts by Cell.Num
 	ColumnAge    ColumnType = "age"    // Cell.Num is a Unix timestamp in seconds; rendered as an age relative to now
+	// ColumnWarning is Lens's warning-icon column right after Name. A cell with a Status shows an
+	// icon in that status's colour and its Text (the reason) as the icon's tooltip; an empty cell
+	// shows nothing. Num is 1 when the row has a warning, so that the column sorts warnings
+	// together; [CellText] returns the reason.
+	ColumnWarning ColumnType = "warning"
 )
 
 // Column describes one table column of a kind.
@@ -24,13 +29,20 @@ type Column struct {
 	Hidden bool       `json:"hidden,omitempty"`
 }
 
-// Cell is one table cell. Text is what the user reads; Num is the sort key for number and age
-// columns. Status colours the cell itself (a Status or Conditions column), independent of the
-// row's status.
+// Cell is one table cell. Text is what the user reads; Num is the sort key for number, age and
+// warning columns. Status colours the cell itself (a Status or Conditions column), independent of
+// the row's status.
+//
+// Link, when set, is the object the cell names (a Namespace, Node, Controlled By or Involved
+// Object cell), and the UI renders the cell as a link. Its Kind is a kind key; an empty Context
+// means the row's context. A link to a namespace in a list's Namespace column narrows the open
+// view's namespace filter to it (ui.setNamespace, owner 2026-10-11); other links go to the object
+// (ui.navigate). Rows are shared and immutable, and so are their links.
 type Cell struct {
-	Text   string `json:"text,omitempty"`
-	Num    int64  `json:"num,omitempty"`
-	Status Status `json:"status,omitempty"`
+	Text   string     `json:"text,omitempty"`
+	Num    int64      `json:"num,omitempty"`
+	Status Status     `json:"status,omitempty"`
+	Link   *ObjectRef `json:"link,omitempty"`
 }
 
 // Row is one object as a table row. Rows are immutable once built: snapshots share them.

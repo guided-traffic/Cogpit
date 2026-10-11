@@ -26,6 +26,11 @@ section wins.
 
 Layering is enforced by `depguard` in `make lint`, as planned in §3, with the demo package in L2.
 
+Decided on 2026-10-11 for the next implementation run: the kind key of custom resources
+([§4.5](#45-kind-keys)), and the contracts the parallel work shares: links in cells and the warning
+column ([§4.4](#44-tables-details-editors-and-streams)), and the command fields `Order`,
+`Escalate`, `Prefill` and `ErrNotApplicable` ([§4.2](#42-the-command-registry)).
+
 ---
 
 # Design plan (2026-10-11)
@@ -191,6 +196,23 @@ Each command registers:
 - `danger`: `Read`, `UI`, `Mutating` or `Destructive`;
 - `run`, returning a JSON-serializable result.
 
+Fields added on 2026-10-11 for row menus, the drawer's toolbar and dialogs
+([`registry.go`](../../internal/engine/registry.go)):
+
+- `Order`: the command's place among its kinds' actions in the row menu (⋮) and the drawer,
+  ascending; the kind's own actions in Lens's order below `OrderEdit` (900), then Edit and
+  `OrderDelete` (1000). Zero keeps a command out of row menus and drawers. Lens's captured orders:
+  Pod 100 Attach, 200 Shell, 300 Evict, 500 Logs; Node 100 Shell, 200 Cordon or Uncordon, 300
+  Drain; Deployment 100 Scale, 200 Restart, 300 Logs; Cron Job 100 Trigger, 200 Suspend or Resume.
+- `ErrNotApplicable`: an `enabled` error wrapping it hides the command for that object instead of
+  greying it out, so Uncordon takes Cordon's place on a cordoned node and Resume takes Suspend's on
+  a suspended cron job.
+- `Escalate`: a mutating command whose invocation is destructive for some parameters (Scale to
+  zero replicas) is confirmed and audited as destructive for those; its MCP tool carries
+  `destructiveHint`.
+- `Prefill`: parameters a schema-generated dialog starts with, read from the cache (the current
+  replica count for Scale).
+
 Every command is also an MCP tool, generated from the registry (`ui.navigate` → `ui_navigate`).
 Nothing is exposed to agents that the registry does not describe.
 
@@ -221,6 +243,30 @@ by "this pod".
   events, containers, a metrics slot.
 - **Editors, logs, terminals and chats** are engine sessions shown as dock tabs, so agents can open,
   read and close them too.
+- **Links and warnings in cells** (2026-10-11, [`row.go`](../../internal/model/row.go)): a cell
+  that names another object carries a `Link` (an object reference with a kind key; an empty context
+  means the row's), which the UI renders as a link. A Namespace link in a list narrows the view's
+  namespace filter (`ui.setNamespace`, owner 2026-10-11); other links navigate (`ui.navigate`).
+  Lens's warning-icon column right after Name is a column of type `warning`: a cell with a status
+  shows the icon in that status's colour with its text as the tooltip; an empty cell shows nothing.
+
+### 4.5 Kind keys
+
+A kind key names a kind in views, object references, `ui.*` commands and MCP tools (decided
+2026-10-11):
+
+- **Built-in kinds keep the bare plural resource name:** `pods`, `deployments`, `ingresses`,
+  `customresourcedefinitions`. These are the kinds the Kubernetes API server serves itself, which
+  Cogpit ships a curated profile for in [`model/kinds`](../../internal/model/kinds/).
+- **Kinds from custom resource definitions are `<plural>.<group>`**, as kubectl spells a resource
+  with its group: `gateways.gateway.networking.k8s.io`, `certificates.cert-manager.io`. Bare plurals
+  are not unique across groups (Gateway API's `gateways` and Istio's `gateways.networking.istio.io`
+  can both exist), and a group is part of what a CRD is.
+- The two never collide: a CRD's group always contains a dot, and a built-in key never does.
+- A curated profile for a CRD kind (Gateway API, Flux CD, a Vertical Pod Autoscaler) keeps the
+  `<plural>.<group>` key, so a key never changes when Cogpit learns to show a kind better.
+- The key carries no version: the version is the profile's preferred one (for CRDs, the highest
+  served version by Kubernetes version priority, as discovery orders them).
 
 **Litmus test:** `cogpit-cli` and MCP can do everything the GUI does, except draw it.
 
@@ -412,6 +458,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Kind keys of custom resources (§4.5); links and the warning column in cells; the registry's Order, ErrNotApplicable, Escalate and Prefill |
 | 2026-10-11 | major | Current state: the local MVP and where it differs from the plan |
 | 2026-10-11 | major | Design plan v2: Go; cache-first data flow (§5); UI state in the engine; MCP and the built-in agent (§7); Helm in-process with crash-safe actions; terminal via own PTY; updates |
 | 2026-10-11 | major | Design plan v1 (Rust), adapted from PhotoCraft's architecture |

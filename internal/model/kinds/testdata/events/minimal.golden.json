@@ -21,7 +21,11 @@
     },
     {
       "column": "namespace",
-      "text": "default"
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
     },
     {
       "column": "involvedObject",

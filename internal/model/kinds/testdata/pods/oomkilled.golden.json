@@ -13,7 +13,11 @@
     },
     {
       "column": "namespace",
-      "text": "analytics"
+      "text": "analytics",
+      "link": {
+        "kind": "namespaces",
+        "name": "analytics"
+      }
     },
     {
       "column": "containers",

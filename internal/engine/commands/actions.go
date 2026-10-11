@@ -17,8 +17,8 @@ type ActionResult struct {
 func registerActions(g *registrar) {
 	add(g, engine.Spec[refParams]{
 		ID: "deployment.restart", Label: "Restart", MenuPath: "Deployment/Restart", Kinds: []string{kindDeployments},
-		Danger: engine.DangerDestructive,
-		Verbs:  []engine.Verb{{Verb: "patch", Group: "apps", Resource: kindDeployments}},
+		Order: 200, Danger: engine.DangerDestructive,
+		Verbs: []engine.Verb{{Verb: "patch", Group: "apps", Resource: kindDeployments}},
 		Description: "Restarts a Deployment the way kubectl rollout restart does: it sets the pod template's restartedAt " +
 			"annotation and the controller replaces every pod. Always asks the user to confirm.",
 		Enabled: func(s *engine.Session, p refParams) error {
@@ -37,8 +37,8 @@ func registerActions(g *registrar) {
 
 	add(g, engine.Spec[refParams]{
 		ID: "object.delete", Label: "Delete", MenuPath: "Object/Delete", Kinds: []string{kindPods},
-		Danger: engine.DangerDestructive,
-		Verbs:  []engine.Verb{{Verb: "delete", Resource: kindPods}},
+		Order: engine.OrderDelete, Danger: engine.DangerDestructive,
+		Verbs: []engine.Verb{{Verb: "delete", Resource: kindPods}},
 		Description: "Deletes an object with its default grace period; its controller, if any, may replace it. This " +
 			"version deletes pods only. Always asks the user to confirm.",
 		Enabled: func(s *engine.Session, p refParams) error {

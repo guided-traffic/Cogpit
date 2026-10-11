@@ -17,11 +17,20 @@ Ordered checklists for the common additions. The packages they name are in
    behaviour (`k8s.io/kubectl/pkg/drain`, rollout). Unit-test it there.
 3. **Command** goes in `internal/engine/commands/<area>.go` and registers:
    - `id`, `label`, `menu path`, the kinds it applies to and Lens's default shortcut, if any;
+   - `Order`, its place in the kind's row menu and drawer ([architecture §4.2](architecture.md#42-the-command-registry));
+     `Enabled` wraps `engine.ErrNotApplicable` when the command does not apply to the object at all
+     (Cordon on a cordoned node), so that the menu hides it; `Escalate` when some invocations of a
+     mutating command are destructive; `Prefill` when a dialog should start from cached values;
    - a parameter struct with `json` and `jsonschema` tags (the schema agents read);
    - `enabled`, returning the reason when disabled;
    - `verbs` (every API verb and resource it uses) and `danger` (`Read`, `UI`, `Mutating`,
      `Destructive`);
    - `run`, returning a JSON-serializable result. Reads come from the cache.
+   Cluster writes go through an interface the backend's writer implements: `*cluster.Conn` in
+   the app, a fake in tests. Each area declares its own interface in its own engine file (as
+   `engine.Actions` does for the MVP's actions) and reaches it with a type assertion on
+   `Backend.Writer()`, so that two areas never edit the same interface; the test fake gets the
+   area's methods in the area's own test file.
 4. **Multi-step mutations** (several API calls in a row) are crash-safe
    ([conventions](conventions.md#crash-tolerant-crash-safe)): a worker process, or detection of the
    half-finished state on the next start.
@@ -29,7 +38,9 @@ Ordered checklists for the common additions. The packages they name are in
    selection acts on the whole selection), the user's permissions, and the origin's confirmation
    rules.
 6. **Tests:** behaviour against fake clients, the requests sent, disabled states with their
-   reasons, bad params returning errors, confirmation for each origin, and the fuzz target.
+   reasons, bad params returning errors, confirmation for each origin, and the fuzz target. Add
+   the command's id and danger to `wantCommands` in
+   [`commands_test.go`](../../internal/engine/commands/commands_test.go).
 7. **UI and MCP** follow from the registry: menus, context menus, the palette and the MCP tool
    appear without UI code. A command with parameters gets a schema-generated dialog; add a custom
    dialog only when the schema can't express it.
@@ -54,10 +65,19 @@ A kind without a profile already gets a generic view from discovery; a profile m
 3. Decide what the cache needs: full objects (`dynamicinformer`) or metadata only
    (`metadatainformer`).
 4. Golden tests from recorded objects in `internal/model/kinds/testdata/<kind>/`: healthy,
-   failing, terminating, and an object with optional fields missing.
-5. Register the profile with its group, version and resource. Discovery decides at runtime whether
-   the cluster serves it.
-6. Add its actions as commands (above).
+   failing, terminating, and an object with optional fields missing (`minimal`). `TestGolden`
+   and `TestTestdataComplete` pick them up; run `go test ./internal/model/kinds/ -update` and read
+   the golden diff. The kind's own `internal/model/kinds/<kind>_test.go` holds its fuzz target
+   (`func FuzzCronJobs(f *testing.F) { fuzzProfile(f, "cronjobs") }`) and its status assertions
+   (`checkStatusTexts(t, []statusText{...})`), so that adding a kind edits no shared test table.
+5. Cells that name another object carry a link (`linkTo`; `namespaceCell` already links the
+   namespace); a view with Lens's warning icon has `warningColumn` right after Name, filled with
+   `warningCell`. Mark any rule that is not captured from Lens as inferred in the parity row.
+6. Register the profile with its group, version and resource: one line in `builtin` in
+   [`kinds.go`](../../internal/model/kinds/kinds.go). Discovery decides at runtime whether the
+   cluster serves it. Built-in kinds keep the bare plural as their key; kinds from custom resource
+   definitions are `<plural>.<group>` ([architecture §4.5](architecture.md#45-kind-keys)).
+7. Add its actions as commands (above).
 
 ## Adding a cache consumer
 

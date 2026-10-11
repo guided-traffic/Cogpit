@@ -2,12 +2,13 @@ package model
 
 import "strings"
 
-// ObjectRef names one object in one cluster. Kind is the kind key of a [KindProfile] (the plural
-// resource name, "pods", "services"), not the Kubernetes Kind ("Pod"), because agents and views
-// address kinds by that key. Namespace is empty for cluster-scoped kinds.
+// ObjectRef names one object in one cluster. Kind is the kind key of a [KindProfile], not the
+// Kubernetes Kind ("Pod"), because agents and views address kinds by that key: the plural resource
+// name for built-in kinds ("pods", "services"), "<plural>.<group>" for kinds from custom resource
+// definitions ("gateways.gateway.networking.k8s.io"). Namespace is empty for cluster-scoped kinds.
 type ObjectRef struct {
 	Context   string `json:"context,omitempty" jsonschema:"kubeconfig context; empty means the active one"`
-	Kind      string `json:"kind" jsonschema:"kind key, the plural resource name, e.g. pods or services"`
+	Kind      string `json:"kind" jsonschema:"kind key: the plural resource name for built-in kinds (pods, services), <plural>.<group> for custom resources (gateways.gateway.networking.k8s.io); kinds_list lists them"`
 	Namespace string `json:"namespace,omitempty" jsonschema:"namespace; empty for cluster-scoped kinds"`
 	Name      string `json:"name" jsonschema:"object name"`
 }

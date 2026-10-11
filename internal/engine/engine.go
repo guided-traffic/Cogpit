@@ -218,7 +218,11 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 	s.mu.Unlock()
 	auditContext = uiContext
 
-	if NeedsConfirmation(cmd.Danger, inv.Origin, allowed) {
+	danger := cmd.Danger
+	if err := s.safeCall(cmd.ID, func() error { danger = cmd.dangerFor(s, p); return nil }); err != nil {
+		return nil, err
+	}
+	if NeedsConfirmation(danger, inv.Origin, allowed) {
 		var targets []model.ObjectRef
 		if err := s.safeCall(cmd.ID, func() (err error) { targets, err = cmd.targets(s, p); return err }); err != nil {
 			return nil, err
@@ -226,7 +230,7 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 		if confirmer == nil {
 			return nil, fmt.Errorf("command %s: %w", cmd.ID, ErrConfirmationUnavailable)
 		}
-		req := newConfirmRequest(cmd, inv.Origin, uiContext, targets)
+		req := newConfirmRequest(cmd, danger, inv.Origin, uiContext, targets)
 		ok, err := confirmer.Confirm(ctx, req)
 		if err != nil {
 			return nil, fmt.Errorf("command %s: confirmation: %w", cmd.ID, err)
@@ -236,12 +240,12 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 		}
 		ctx = context.WithValue(ctx, confirmedKey{}, req)
 		auditContext = req.Context
-	} else if allowed && cmd.Danger == DangerMutating && inv.Origin.IsAgent() {
+	} else if allowed && danger == DangerMutating && inv.Origin.IsAgent() {
 		// The user's allowance of agent writes is for one context: bind the command to it the way
 		// a confirmation would, so that it refuses to act if the cluster changes before it runs.
-		ctx = context.WithValue(ctx, confirmedKey{}, newConfirmRequest(cmd, inv.Origin, uiContext, nil))
+		ctx = context.WithValue(ctx, confirmedKey{}, newConfirmRequest(cmd, danger, inv.Origin, uiContext, nil))
 	}
-	if inv.Origin.IsAgent() && (cmd.Danger == DangerMutating || cmd.Danger == DangerDestructive) {
+	if inv.Origin.IsAgent() && (danger == DangerMutating || danger == DangerDestructive) {
 		// A write is logged before it runs too, so that one still running when Cogpit quits is in
 		// the log.
 		s.audit(inv, auditContext, auditRequested, nil)

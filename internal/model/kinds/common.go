@@ -31,6 +31,9 @@ const (
 	titleStatus  = "Status"
 )
 
+// keyNamespaces is the kind key namespace cells link to.
+const keyNamespaces = "namespaces"
+
 // Columns several kinds share.
 var (
 	nameColumn       = model.Column{ID: "name", Title: "Name", Type: model.ColumnText}
@@ -38,14 +41,39 @@ var (
 	ageColumn        = model.Column{ID: "age", Title: "Age", Type: model.ColumnAge}
 	statusColumn     = model.Column{ID: idStatus, Title: titleStatus, Type: model.ColumnText}
 	conditionsColumn = model.Column{ID: "conditions", Title: "Conditions", Type: model.ColumnText}
+	// warningColumn is Lens's warning-icon column; it comes right after Name in the views that
+	// have one (Pods, Nodes, Cron Jobs, Pod Disruption Budgets, the RBAC views). Its title is not
+	// shown in the header; it names the column for agents and resources.list.
+	warningColumn = model.Column{ID: "warning", Title: "Warning", Type: model.ColumnWarning, Width: 28}
 )
 
 func nameCell(obj any) model.Cell {
 	return model.Cell{Text: model.NestedString(obj, "metadata", "name")}
 }
 
+// namespaceCell is the Namespace cell, a link to the namespace: in a list it narrows the view's
+// namespace filter to that namespace.
 func namespaceCell(obj any) model.Cell {
-	return model.Cell{Text: model.NestedString(obj, "metadata", "namespace")}
+	ns := model.NestedString(obj, "metadata", "namespace")
+	return model.Cell{Text: ns, Link: linkTo(keyNamespaces, "", ns)}
+}
+
+// linkTo returns a link to an object of a kind key, or nil when the name is empty. Namespace is
+// empty for cluster-scoped kinds.
+func linkTo(kind, namespace, name string) *model.ObjectRef {
+	if name == "" {
+		return nil
+	}
+	return &model.ObjectRef{Kind: kind, Namespace: namespace, Name: name}
+}
+
+// warningCell is a cell of warningColumn: no warning when status is StatusNone, else the icon in
+// that status's colour with the reason as its tooltip.
+func warningCell(status model.Status, reason string) model.Cell {
+	if status == model.StatusNone {
+		return model.Cell{}
+	}
+	return model.Cell{Text: reason, Num: 1, Status: status}
 }
 
 func created(obj any) time.Time {

@@ -13,7 +13,11 @@
     },
     {
       "column": "namespace",
-      "text": "ml"
+      "text": "ml",
+      "link": {
+        "kind": "namespaces",
+        "name": "ml"
+      }
     },
     {
       "column": "containers",

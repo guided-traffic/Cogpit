@@ -21,7 +21,11 @@
     },
     {
       "column": "namespace",
-      "text": "legacy"
+      "text": "legacy",
+      "link": {
+        "kind": "namespaces",
+        "name": "legacy"
+      }
     },
     {
       "column": "involvedObject",

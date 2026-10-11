@@ -26,6 +26,20 @@ const (
 	DangerDestructive Danger = "destructive" // deletes, evicts, restarts or otherwise disrupts
 )
 
+// ErrNotApplicable marks a command that does not apply to its object at all, as opposed to one
+// that applies but cannot run now. Enabled wraps it when, for example, Cordon is asked of a node
+// that is already cordoned: the row menu and the drawer then hide the command (Uncordon takes its
+// place) instead of showing it greyed out with a reason. Dispatch refuses it like any disabled
+// command.
+var ErrNotApplicable = errors.New("does not apply")
+
+// Positions of the actions every kind shares, for Spec.Order: Lens's row menus and drawers end
+// with Edit and Delete, the kind's own actions come before them.
+const (
+	OrderEdit   = 900
+	OrderDelete = 1000
+)
+
 // Verb is one Kubernetes API verb on one resource that a command uses: the input for access
 // reviews and the privilege footprint (docs/security/privilege-footprint.md).
 type Verb struct {
@@ -44,8 +58,12 @@ type Spec[P any] struct {
 	Shortcut    string   // Lens's default shortcut, if any: "Cmd+Shift+P"
 	Description string   // one or two sentences for agents (the MCP tool description)
 	Kinds       []string // kind keys the command applies to; empty: not kind-specific
-	Danger      Danger
-	Verbs       []Verb
+	// Order places the command among its kinds' actions in the row menu (⋮) and the drawer's
+	// toolbar, ascending: the kind's own actions in Lens's order below OrderEdit, then Edit and
+	// Delete. Zero leaves the command out of row menus and drawers (ui.*, kinds.list, ...).
+	Order  int
+	Danger Danger
+	Verbs  []Verb
 
 	// Enabled returns nil when the command can run with p, else an error whose text says why
 	// not ("no cluster connected"). Nil means always enabled.
@@ -53,26 +71,39 @@ type Spec[P any] struct {
 	// Targets returns the objects a mutating or destructive command acts on, for the confirmation
 	// that names them. Required for DangerMutating and DangerDestructive.
 	Targets func(s *Session, p P) ([]model.ObjectRef, error)
+	// Escalate reports whether this invocation of a mutating command is destructive: Scale is
+	// mutating, but scaling to zero replicas is destructive (privilege-footprint.md). Dispatch then
+	// confirms and audits it as DangerDestructive. Nil never escalates; only DangerMutating
+	// commands may set it.
+	Escalate func(s *Session, p P) bool
+	// Prefill returns the parameters a dialog shows before the user edits them, read from the
+	// cache: the current replica count for Scale. Nil shows p as it is.
+	Prefill func(s *Session, p P) (P, error)
 	// Run executes the command and returns a JSON-serializable result. Reads come from the cache.
 	Run func(ctx context.Context, s *Session, p P) (any, error)
 }
 
 // Command is a registered command. Its fields are read-only after registration.
 type Command struct {
-	ID          string             `json:"id"`
-	Label       string             `json:"label"`
-	MenuPath    string             `json:"menuPath,omitempty"`
-	Shortcut    string             `json:"shortcut,omitempty"`
-	Description string             `json:"description,omitempty"`
-	Kinds       []string           `json:"kinds,omitempty"`
-	Danger      Danger             `json:"danger"`
-	Verbs       []Verb             `json:"verbs,omitempty"`
-	Schema      *jsonschema.Schema `json:"schema"`
+	ID          string   `json:"id"`
+	Label       string   `json:"label"`
+	MenuPath    string   `json:"menuPath,omitempty"`
+	Shortcut    string   `json:"shortcut,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Kinds       []string `json:"kinds,omitempty"`
+	Order       int      `json:"order,omitempty"`
+	Danger      Danger   `json:"danger"`
+	// Escalates is true when some invocations are destructive although Danger is mutating.
+	Escalates bool               `json:"escalates,omitempty"`
+	Verbs     []Verb             `json:"verbs,omitempty"`
+	Schema    *jsonschema.Schema `json:"schema"`
 
 	resolved *jsonschema.Resolved
 	decode   func(raw json.RawMessage) (any, error)
 	enabled  func(s *Session, p any) error
 	targets  func(s *Session, p any) ([]model.ObjectRef, error)
+	escalate func(s *Session, p any) bool
+	prefill  func(s *Session, p any) (any, error)
 	run      func(ctx context.Context, s *Session, p any) (any, error)
 }
 
@@ -87,6 +118,38 @@ func (c *Command) Enabled(s *Session, params json.RawMessage) error {
 		return err
 	}
 	return c.enabled(s, p)
+}
+
+// Applicable reports whether the command applies to the given parameters at all: false when
+// Enabled says ErrNotApplicable. A command that applies may still be disabled; Enabled says why.
+func (c *Command) Applicable(s *Session, params json.RawMessage) bool {
+	return !errors.Is(c.Enabled(s, params), ErrNotApplicable)
+}
+
+// Prefill returns the parameters a dialog for the command starts with: params completed from the
+// cache by the command's Prefill, or params unchanged.
+func (c *Command) Prefill(s *Session, params json.RawMessage) (json.RawMessage, error) {
+	p, err := c.decode(params)
+	if err != nil {
+		return nil, err
+	}
+	if c.prefill == nil {
+		return normalizeParams(params), nil
+	}
+	out, err := c.prefill(s, p)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(out)
+}
+
+// dangerFor is the danger of one invocation: the command's level, or destructive when the
+// command escalates for these parameters.
+func (c *Command) dangerFor(s *Session, p any) Danger {
+	if c.escalate != nil && c.escalate(s, p) {
+		return DangerDestructive
+	}
+	return c.Danger
 }
 
 // Registry holds every command. It is safe for concurrent use.
@@ -137,6 +200,12 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 	default:
 		return fmt.Errorf("command %s: unknown danger %q", spec.ID, spec.Danger)
 	}
+	if spec.Escalate != nil && spec.Danger != DangerMutating {
+		return fmt.Errorf("command %s: only mutating commands escalate", spec.ID)
+	}
+	if spec.Order < 0 {
+		return fmt.Errorf("command %s: negative order", spec.ID)
+	}
 	schema, err := jsonschema.For[P](nil)
 	if err != nil {
 		return fmt.Errorf("command %s: params schema: %w", spec.ID, err)
@@ -147,8 +216,8 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 	}
 	c := &Command{
 		ID: spec.ID, Label: spec.Label, MenuPath: spec.MenuPath, Shortcut: spec.Shortcut,
-		Description: spec.Description, Kinds: spec.Kinds, Danger: spec.Danger, Verbs: spec.Verbs,
-		Schema: schema, resolved: resolved,
+		Description: spec.Description, Kinds: spec.Kinds, Order: spec.Order, Danger: spec.Danger,
+		Escalates: spec.Escalate != nil, Verbs: spec.Verbs, Schema: schema, resolved: resolved,
 	}
 	c.decode = func(raw json.RawMessage) (any, error) {
 		var p P
@@ -178,6 +247,12 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 			return nil, nil
 		}
 		return spec.Targets(s, p.(P))
+	}
+	if spec.Escalate != nil {
+		c.escalate = func(s *Session, p any) bool { return spec.Escalate(s, p.(P)) }
+	}
+	if spec.Prefill != nil {
+		c.prefill = func(s *Session, p any) (any, error) { return spec.Prefill(s, p.(P)) }
 	}
 	c.run = func(ctx context.Context, s *Session, p any) (any, error) {
 		return spec.Run(ctx, s, p.(P))
