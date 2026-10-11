@@ -637,3 +637,47 @@ func TestDrawerPortActionsDispatch(t *testing.T) {
 		}
 	}
 }
+
+// Forwards are objects like any other for agents: resources_list, resources_find and object_get
+// read them unchanged, and the row menu is the captured one (Open, Edit, Stop, Delete): Edit and
+// Delete of API objects do not apply to a local kind.
+func TestPortForwardsForAgentsAndMenus(t *testing.T) {
+	h, _ := newForwardHarness(t, engine.Options{})
+	var f engine.Forward
+	h.must(t, engine.OriginGUI, "service.portForward", map[string]any{"ref": webService, "port": 80}, &f)
+	waitForward(t, h.s, f.Ref, "in the store", func(engine.Forward) bool { _, err := h.s.Lookup(f.Ref); return err == nil })
+	agent := engine.OriginExternalAgent
+
+	var list commands.ListResult
+	h.must(t, agent, "resources.list", map[string]any{"kind": engine.PortForwardKind}, &list)
+	if list.Total != 1 || list.Rows[0].Cells["Name"] != "web" || list.Rows[0].Cells["Kind"] != "Service" ||
+		list.Rows[0].Cells["Local Port"] != strconv.Itoa(int(f.LocalPort)) || list.Rows[0].Cells["Status"] != "Active" {
+		t.Errorf("resources.list: %+v", list)
+	}
+	var found commands.FindResult
+	h.must(t, agent, "resources.find", map[string]any{"kind": engine.PortForwardKind, "field": "localPort", "value": strconv.Itoa(int(f.LocalPort))}, &found)
+	if found.Count != 1 || found.Matches[0].Ref.Name != "service-web-80" {
+		t.Errorf("resources.find: %+v", found)
+	}
+	var detail engine.DetailModel
+	h.must(t, agent, "object.get", map[string]any{"ref": f.Ref, "noYaml": true}, &detail)
+	open := false
+	for _, it := range detail.Sections[0].Items {
+		for _, a := range it.Actions {
+			open = open || (it.Name == "URL" && it.Value == f.URL && a.Command == "portforward.open" && a.Link)
+		}
+	}
+	if !open {
+		t.Errorf("object.get has no URL that opens the forward: %+v", detail.Sections)
+	}
+
+	var labels []string
+	for _, c := range h.s.Registry().Actions(engine.PortForwardKind) {
+		if c.Applicable(h.s, c.ObjectParams(f.Ref, "")) {
+			labels = append(labels, c.Label)
+		}
+	}
+	if got := strings.Join(labels, ", "); got != "Open, Edit, Stop, Delete" {
+		t.Errorf("row menu %s", got)
+	}
+}
