@@ -309,19 +309,22 @@ the table is taken as correct until a capture decides.
 
 ## Cluster settings
 
-[Cluster settings](https://docs.lenshq.io/k8slens/cluster/cluster-settings/).
+[Cluster settings](https://docs.lenshq.io/k8slens/cluster/cluster-settings/). Captured (2026-10-11): the
+settings open as a tab "Settings - <context>" with the cluster's icon; a page list on the left
+holds General, Proxy, Terminal, Namespaces, Metrics, Lens Metrics, Cost and Node Shell, in that
+order, and each page shows its settings under upper-case headings with a help line below each.
 
 | Setting | Plan | Status | Evidence |
 |---|---|---|---|
-| General: cluster name, icon, kubeconfig path | free | missing | – |
-| Proxy: HTTP proxy for this cluster | free | missing | – |
-| Terminal: working directory, default namespace | free | missing | – |
-| Accessible namespaces (for users who may not list namespaces) | free | missing | – |
-| Metrics provider: auto-detect or Helm 14.x, Helm, Lens, Prometheus Operator, StackLight, VictoriaMetrics, VictoriaMetrics single; service address `namespace/service:port` | free | missing | – |
-| Hide metrics from the UI | free | missing | – |
-| Lens Metrics: install a bundled Prometheus, kube-state-metrics and node-exporter into the cluster on request | free | missing | – |
-| Node shell: image, image pull secret | free | missing | – |
-| Cost | paid | missing | – |
+| General: cluster name (a text field, the context name until changed), icon (the image beside it, with a "…" menu: its items, capture needed), kubeconfig path (in a box, as a link: where it leads, capture needed) (capture) | free | missing | – |
+| Proxy: HTTP proxy for this cluster's API traffic, one field (placeholder "http://<address>:<port>") (capture) | free | missing | – |
+| Terminal: starting working directory (a field with a folder picker, "$HOME" when unset), default namespace for kubectl ("default" when unset) (capture) | free | missing | – |
+| Accessible namespaces (for users who may not list namespaces): a field that adds one namespace at a time (capture) | free | missing | – |
+| Metrics provider: auto-detect or Helm 14.x, Helm, Lens, Prometheus Operator, StackLight, VictoriaMetrics, VictoriaMetrics single; service address `namespace/service:port`. Captured: a "Metrics source" dropdown ("Automatic", with a line naming the source in use; its other choices: capture needed), a "Prometheus" dropdown for the query format ("Auto Detect Prometheus"), a checkbox to filter empty containers out of the queries (on), the auto-detected provider and path (`<namespace>/services/<service>:<port>`), a checkbox for HTTPS requests (off), a custom path prefix | free | missing | – |
+| Hide metrics from the UI: a multi-select of metrics, "Hide all metrics" and "Reset" buttons, and a line saying all metrics are visible when none is hidden (capture) | free | missing | – |
+| Lens Metrics: install a bundled Prometheus, kube-state-metrics and node-exporter into the cluster on request; captured as three switches (all off) and an Apply button, greyed while nothing changed (inferred) | free | missing | – |
+| Node shell: image (the default, shown as the field's placeholder, is the tag `docker.io/alpine:3.19`), an optional image pull secret in `kube-system` (capture) | free | missing | – |
+| Cost: the source as a choice of Automatic (showing which source it uses), Kubecost, OpenCost, an estimate from node types and list prices (nothing to install), or Off, each with its state (Not found, Ready); rates: the hourly and monthly total for the cluster's nodes, an hourly rate per node type (prefilled, editable, "default" until changed), and fallback rates per core-hour, GiB-hour and GPU-hour for node types the price catalogue does not know (capture) | paid | missing | – |
 
 ## Cluster overview and charts
 
@@ -351,6 +354,7 @@ the table is taken as correct until a capture decides.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Captures of every cluster settings page: the page list and each page's settings |
 | 2026-10-11 | minor | Captures of a cordoned node: Uncordon in the drawer, tab tooltips, the node metrics toolbar |
 | 2026-10-11 | minor | Namespace links narrow the view's namespace filter (owner); the navigator's scope dropdown and item tooltips |
 | 2026-10-11 | minor | Captures of row menus, the warning icon and statuses: menu layout with submenus, Evicted in red, the navigator's cluster root |

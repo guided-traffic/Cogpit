@@ -102,7 +102,7 @@ related resources) are superseded by Cogpit's built-in agent
 | Endpoint Slices | `discovery.k8s.io/v1` EndpointSlice | Name, Namespace, Address Type, Endpoints, Ports, Age | – | missing |
 | Endpoints | `v1` Endpoints | Name, Namespace, Endpoints, Age | – | missing |
 | Ingresses | `networking.k8s.io/v1` Ingress | Name, Namespace, Load Balancers, Rules, Age | – | missing |
-| Ingress Classes | `networking.k8s.io/v1` IngressClass | Name, Controller, API Group, Scope, Kind (Lens's page also lists Namespace: capture needed) | – | missing |
+| Ingress Classes | `networking.k8s.io/v1` IngressClass | Name, (a star column, presumably marking the default class: inferred), Namespace (empty: the kind is cluster-scoped), Controller, API Group, Scope, Kind; no Age column and no namespace filter (capture, 2026-10-11) | – | missing |
 | Network Policies | `networking.k8s.io/v1` NetworkPolicy | Name, Namespace, Policy Types, Age | – | missing |
 | Port Forwarding | Cogpit's own state, not a kind | Name, Namespace, Kind, Pod Port, Local Port, Protocol, Status | Open `portforward.open`, Edit `portforward.edit`, Stop `portforward.stop`, Delete `portforward.remove` | missing |
 | Gateway API › Gateway Classes, Gateways, HTTP Routes, Backend TLS Policies, gRPC Routes, Listener Sets, Reference Grants (sidebar order, capture 2026-10-11) | `gateway.networking.k8s.io` (CRDs); Listener Sets from `gateway.networking.x-k8s.io` | capture needed | – | missing |
@@ -184,6 +184,7 @@ the tables above. Everything else is created from YAML templates in the dock
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Capture of Ingress Classes: its columns, a star column and an empty Namespace column, no Age |
 | 2026-10-11 | minor | Captures of a suspended Cron Job and a cordoned Node: Resume and Uncordon take Suspend's and Cordon's place; a cordoned node's Conditions and how Cogpit differs |
 | 2026-10-11 | minor | Columns of Cluster Roles, Roles, Cluster Role Bindings and Role Bindings from captures |
 | 2026-10-11 | minor | Events' Last Seen is a UTC timestamp and warning messages are red (Cogpit follows); Nodes columns captured; Share is not a target (owner), 39 actions |

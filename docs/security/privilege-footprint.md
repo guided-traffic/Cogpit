@@ -55,7 +55,8 @@ namespace and the context ([conventions](../developer/conventions.md#never-surpr
 ## Node shell
 
 Lens opens a node shell through a pod; its cluster settings name the image and an image pull
-secret in `kube-system` ([Lens cluster settings](https://docs.lenshq.io/k8slens/cluster/cluster-settings/)).
+secret in `kube-system` ([Lens cluster settings](https://docs.lenshq.io/k8slens/cluster/cluster-settings/));
+its default image is a tag, `docker.io/alpine:3.19` (captured 2026-10-11).
 A shell in the node's own namespaces cannot be had from the Kubernetes API without such a pod: it
 must share the host PID namespace and be privileged to enter PID 1's namespaces, or, as
 `kubectl debug node/<name>` does, share the host namespaces and mount the host's root filesystem
