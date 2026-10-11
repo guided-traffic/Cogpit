@@ -49,6 +49,7 @@ var builtin = []*model.KindProfile{
 	ingressClasses,
 	networkPolicies,
 	configMaps,
+	secrets,
 	resourceQuotas,
 	limitRanges,
 	horizontalPodAutoscalers,
