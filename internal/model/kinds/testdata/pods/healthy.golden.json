@@ -37,14 +37,14 @@
       "text": "Burstable"
     },
     {
-      "column": "age",
-      "text": "10d",
-      "num": 1790841600
-    },
-    {
       "column": "status",
       "text": "Running",
       "status": "ok"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790841600
     }
   ],
   "fields": {

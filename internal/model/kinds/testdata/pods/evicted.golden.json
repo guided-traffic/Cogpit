@@ -36,14 +36,14 @@
       "text": "BestEffort"
     },
     {
-      "column": "age",
-      "text": "3d",
-      "num": 1791417600
-    },
-    {
       "column": "status",
       "text": "Evicted",
       "status": "error"
+    },
+    {
+      "column": "age",
+      "text": "3d",
+      "num": 1791417600
     }
   ],
   "fields": {

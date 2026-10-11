@@ -39,8 +39,10 @@ var pods = &model.KindProfile{
 		{ID: "controlledBy", Title: "Controlled By", Type: model.ColumnText},
 		{ID: "node", Title: "Node", Type: model.ColumnText},
 		{ID: "qos", Title: "QoS", Type: model.ColumnText},
-		ageColumn,
+		// Status before Age, as the running Lens Desktop shows them (capture, 2026-10-11); its
+		// documentation lists them the other way round.
 		statusColumn,
+		ageColumn,
 	},
 	Cells: podCells,
 	Fields: map[string]fieldFunc{
@@ -87,8 +89,8 @@ func podCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 		{Text: ownerKind},
 		{Text: model.NestedString(obj, "spec", "nodeName")},
 		{Text: model.NestedString(obj, "status", "qosClass")},
-		model.AgeCell(created(obj)),
 		{Text: s.text, Status: s.status},
+		model.AgeCell(created(obj)),
 	}, s.status
 }
 

@@ -36,14 +36,14 @@
       "text": "Guaranteed"
     },
     {
-      "column": "age",
-      "text": "2m",
-      "num": 1791719880
-    },
-    {
       "column": "status",
       "text": "Init:1/2",
       "status": "pending"
+    },
+    {
+      "column": "age",
+      "text": "2m",
+      "num": 1791719880
     }
   ],
   "fields": {

@@ -37,14 +37,14 @@
       "text": "Guaranteed"
     },
     {
-      "column": "age",
-      "text": "1h",
-      "num": 1791716400
-    },
-    {
       "column": "status",
       "text": "Init:CrashLoopBackOff",
       "status": "error"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
     }
   ],
   "fields": {

@@ -38,14 +38,14 @@
       "text": "Burstable"
     },
     {
-      "column": "age",
-      "text": "2d",
-      "num": 1791547200
-    },
-    {
       "column": "status",
       "text": "Terminating",
       "status": "terminating"
+    },
+    {
+      "column": "age",
+      "text": "2d",
+      "num": 1791547200
     }
   ],
   "fields": {

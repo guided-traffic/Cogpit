@@ -36,14 +36,14 @@
       "text": "Guaranteed"
     },
     {
-      "column": "age",
-      "text": "3h",
-      "num": 1791709200
-    },
-    {
       "column": "status",
       "text": "OOMKilled",
       "status": "error"
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791709200
     }
   ],
   "fields": {

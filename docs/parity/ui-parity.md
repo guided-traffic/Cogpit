@@ -24,8 +24,8 @@ an activated Lens Desktop ([D-12](../developer/decisions.md#d-12-parity-sources)
 Modifier names are macOS first (⌘ ⌥ ⇧ ⌃); Windows and Linux use Ctrl and Alt. **Status:** as
 marked per row; rows without evidence are missing.
 
-**Summary (measured, 2026-10-11):** 24 of 127 rows exist, all **partial** and all free-plan rows
-(24 of 114); 6 more rows are not a target. No row is done: none has been compared with a running
+**Summary (measured, 2026-10-11):** 25 of 130 rows exist, all **partial** and all free-plan rows
+(25 of 117); 6 more rows are not a target. No row is done: none has been compared with a running
 Lens Desktop.
 Remaining (estimated): see gaps [G5](gaps.md#g5-app-shell-navigation-tables-and-drawer) (layout,
 sidebar, tables, drawer, dock), [G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)
@@ -163,9 +163,12 @@ Every list view is one table ([resource views](resource-parity.md)).
 | Keyboard: ↑↓ rows, Tab columns, ↵ or Space opens the details | free | missing | – |
 | Export the table as CSV (a download button beside the item count, "18 items"; the format is inferred) | free | missing | – |
 | Select rows with a checkbox column, all rows with the header's checkbox (capture, 2026-10-11) | free | missing | – |
-| Namespace cells are links (capture, 2026-10-11; where they lead: capture needed) | free | missing | – |
+| A warning column right after Name in built-in views (Pods, Pod Disruption Budgets; what it shows: capture needed) | free | missing | – |
+| A floating "+" button at the bottom right of every list (creates a resource: inferred, capture needed) | free | missing | – |
+| The sorted column shows an arrow beside its title | free | partial | `TestHeaderTapDispatchesSort` |
+| Cells that name another object are links: Namespace, Controlled By, Node, Involved Object, a definition's resource (captures, 2026-10-11; where each leads: capture needed) | free | missing | – |
 | Row line height (preference) | free | missing | – |
-| Status colours per state (palette: capture needed) | free | partial | status tokens mapped by `StatusColor` ([`theme.go`](../../internal/ui/fyneui/theme.go)); Cogpit's own palette |
+| Status colours per state (palette: capture needed; "Running" is green) | free | partial | status tokens mapped by `StatusColor` ([`theme.go`](../../internal/ui/fyneui/theme.go)); Cogpit's own palette |
 
 ## Detail drawer
 
@@ -344,6 +347,7 @@ the table is taken as correct until a capture decides.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Captures of Pods, Pod Disruption Budgets, Definitions and the Workloads Overview: object links, the warning column, the "+" button, the sort arrow |
 | 2026-10-11 | minor | From a capture of a custom resource view: navigator header, tab titles, search toggles, row checkboxes, row and column menus, CSV button, namespace links, dock controls |
 | 2026-10-11 | minor | Cluster sidebar from a second capture on Kubernetes 1.36.2: Mutating Admission Policies (version-dependent), the Gateway API sub-group (CRD-dependent), custom resource kinds by singular Kind name |
 | 2026-10-11 | minor | Cluster sidebar from a capture of the running Lens Desktop (owner): Flux placement and structure, Endpoint Slices before Endpoints, Admission Policies sub-group, Custom Resources › Definitions and groups |

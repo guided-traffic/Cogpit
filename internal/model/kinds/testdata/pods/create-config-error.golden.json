@@ -36,14 +36,14 @@
       "text": "BestEffort"
     },
     {
-      "column": "age",
-      "text": "30m",
-      "num": 1791718200
-    },
-    {
       "column": "status",
       "text": "CreateContainerConfigError",
       "status": "error"
+    },
+    {
+      "column": "age",
+      "text": "30m",
+      "num": 1791718200
     }
   ],
   "fields": {

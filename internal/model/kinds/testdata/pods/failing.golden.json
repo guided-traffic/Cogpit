@@ -37,14 +37,14 @@
       "text": "BestEffort"
     },
     {
-      "column": "age",
-      "text": "1h",
-      "num": 1791714600
-    },
-    {
       "column": "status",
       "text": "CrashLoopBackOff",
       "status": "error"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791714600
     }
   ],
   "fields": {

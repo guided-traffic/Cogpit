@@ -57,14 +57,14 @@ related resources) are superseded by Cogpit's built-in agent
 | Applications | workloads grouped by application | Instance, Namespace, Managed by, Version, Violations, Age, Status | Logs `workload.logs` | missing |
 | Nodes | `v1` Node | Name, CPU, Memory, Disk, Taints, Roles, Version, Age, Conditions | Shell `node.shell`, Cordon `node.cordon`, Uncordon `node.uncordon` (whether it is a separate item: capture needed), Drain `node.drain`; detail: Devices (DRA) | partial: view without CPU, Memory, Disk; no actions ([`nodes.go`](../../internal/model/kinds/nodes.go)) |
 | Namespaces | `v1` Namespace | Name, Labels, Age, Status | Create `namespace.create` | partial: view; no Create ([`namespaces.go`](../../internal/model/kinds/namespaces.go)) |
-| Events | `v1` Event | Type, Message, Namespace, Involved Object, Source, Count, Age, Last Seen | – | partial: column texts not checked against Lens ([`events.go`](../../internal/model/kinds/events.go)) |
+| Events | `v1` Event | Type, Message, Namespace, Involved Object, Source, Count, Age, Last Seen (documentation; the Workloads Overview's event table shows Type, Source, Namespace, Involved Object, Message, Count, Age, Last Seen, so the Events view's own order needs a capture) | – | partial: column texts not checked against Lens ([`events.go`](../../internal/model/kinds/events.go)) |
 
 ## Workloads
 
 | View | API | Lens columns | Actions | Status |
 |---|---|---|---|---|
-| Overview | all workload kinds | status summary per kind (release notes; layout: capture needed) | – | missing |
-| Pods | `v1` Pod | Name, Namespace, Containers, CPU, Memory, Restarts, Controlled By, Node, QoS, Age, Status | Logs `pod.logs`, Shell `pod.shell`, Attach `pod.attach`, Evict `pod.evict`, Share `pod.share` (semantics: capture needed), forward a container port `pod.portForward`; detail: Resource Claims | partial: view without CPU, Memory ([`pods.go`](../../internal/model/kinds/pods.go)); Logs partial (follow only, [`dock.go`](../../internal/engine/commands/dock.go)); Shell partial (`TestKindEngineWorkflows`, `TestKindPodExec`); the other actions missing |
+| Overview | all workload kinds | one link per kind with its count and a health bar, in two columns (Pods, Deployments, Daemon Sets, Stateful Sets; Replica Sets, Jobs, Cron Jobs), then the events of the selected namespaces with their own search: Type, Source, Namespace, Involved Object ("Kind: name", a link), Message, Count, Age, Last Seen (capture, 2026-10-11) | – | missing |
+| Pods | `v1` Pod | Name, (warning icon), Namespace, CPU, Memory, Containers (a square per container, coloured by its state), Restarts, Controlled By (owner kind, a link), Node (a link), QoS, Status, Age (capture, 2026-10-11; Lens's documentation lists Containers before CPU and Age before Status) | Logs `pod.logs`, Shell `pod.shell`, Attach `pod.attach`, Evict `pod.evict`, Share `pod.share` (semantics: capture needed), forward a container port `pod.portForward`; detail: Resource Claims | partial: view without CPU, Memory ([`pods.go`](../../internal/model/kinds/pods.go)); Logs partial (follow only, [`dock.go`](../../internal/engine/commands/dock.go)); Shell partial (`TestKindEngineWorkflows`, `TestKindPodExec`); the other actions missing |
 | Deployments | `apps/v1` Deployment | Name, Namespace, Pods, Replicas, Age, Conditions | Scale `deployment.scale`, Restart `deployment.restart`, Logs `workload.logs` | partial: view ([`deployments.go`](../../internal/model/kinds/deployments.go)); Restart partial (confirmed, tested against a fake clientset, [`actions.go`](../../internal/engine/commands/actions.go)); Scale and Logs missing |
 | Daemon Sets | `apps/v1` DaemonSet | Name, Namespace, Pods, Node Selector, Age | Restart `daemonset.restart`, Logs `workload.logs` | missing |
 | Stateful Sets | `apps/v1` StatefulSet | Name, Namespace, Pods, Replicas, Age | Restart `statefulset.restart`, Scale `statefulset.scale`, Logs `workload.logs` | missing |
@@ -83,7 +83,7 @@ related resources) are superseded by Cogpit's built-in agent
 | Limit Ranges | `v1` LimitRange | Name, Namespace, Age | – | missing |
 | Horizontal Pod Autoscalers | `autoscaling/v2` HorizontalPodAutoscaler | Name, Namespace, Metrics, Min Pods, Max Pods, Replicas, Age, Status | – | missing |
 | Vertical Pod Autoscalers | `autoscaling.k8s.io` VerticalPodAutoscaler (CRD) | Name, Namespace, Mode, Age, Status | – | missing |
-| Pod Disruption Budgets | `policy/v1` PodDisruptionBudget | capture needed (Lens's page repeats the Secrets columns) | – | missing |
+| Pod Disruption Budgets | `policy/v1` PodDisruptionBudget | Name, (warning icon), Namespace, Min Available, Max Unavailable, Current Healthy, Desired Healthy, Age; "N/A" when a bound is not set (capture, 2026-10-11) | – | missing |
 | Priority Classes | `scheduling.k8s.io/v1` PriorityClass | Name, Value, Global Default, Age; pod counts (2026.9) | – | missing |
 | Runtime Classes | `node.k8s.io/v1` RuntimeClass | Name, Handler, Age | – | missing |
 | Leases | `coordination.k8s.io/v1` Lease | Name, Namespace, Holder, Age | – | missing |
@@ -154,7 +154,7 @@ Shown only when the cluster serves `resource.k8s.io/v1` (Kubernetes 1.34 and lat
 
 | View | API | Lens columns | Actions | Status |
 |---|---|---|---|---|
-| Definitions | `apiextensions.k8s.io/v1` CustomResourceDefinition | capture needed | – | missing |
+| Definitions | `apiextensions.k8s.io/v1` CustomResourceDefinition | Resource (the Kind, a link), Group, Version, Scope, Age; a group filter ("All groups") instead of the namespace filter; listed in the order of the definitions' names, plural and group (capture, 2026-10-11; the order is inferred) | – | missing |
 | Custom Resources: one view per custom resource kind the cluster serves, titled by its singular Kind name, under one collapsed group per API group; groups and kinds sorted by name; groups with a curated section (Flux, Gateway API) are listed here too (captures, 2026-10-11) | from discovery | Name, Namespace (namespaced kinds), the `additionalPrinterColumns` of priority 0, Age (capture of cert-manager's Order: Name, Namespace, State, Age; that Issuer and Reason are hidden because of priority 1 is inferred) | – | missing |
 
 ## Paid Lens Desktop views
@@ -184,6 +184,7 @@ the tables above. Everything else is created from YAML templates in the dock
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Captures of Definitions, Pods, Pod Disruption Budgets and the Workloads Overview: their columns; Pods show Status before Age |
 | 2026-10-11 | minor | Capture of a custom resource view: its columns (printer columns of priority 0) and its row menu |
 | 2026-10-11 | minor | Second capture (Kubernetes 1.36.2): Gateway API sub-group and its order, Mutating Admission Policies first and version-dependent, custom resource kinds by singular Kind name |
 | 2026-10-11 | minor | From a capture of the running Lens Desktop (owner): Definitions (custom resource definitions) is a Lens view after all, 64 views; custom resources grouped by API group; Endpoint Slices before Endpoints; webhook view titles; the Flux CD sidebar structure |

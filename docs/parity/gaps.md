@@ -204,7 +204,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ### G5. App shell, navigation, tables and drawer
 - **Missing:** the Fyne window layout, the cluster sidebar, the table, the detail drawer and the
   dock frame; Cogpit's Fyne theme. Needs the [spike](../developer/spike-fyne.md) to pass.
-- **Evidence:** [ui-parity](ui-parity.md), 16 of 33 rows partial across Layout, Cluster sidebar,
+- **Evidence:** [ui-parity](ui-parity.md), 17 of 36 rows partial across Layout, Cluster sidebar,
   Tables, Detail drawer and Dock ([`internal/ui/fyneui`](../../internal/ui/fyneui/), Cogpit's theme
   with status tokens). The spike's gate results are recorded for the owner's decision
   ([spike](../developer/spike-fyne.md#results)). Still missing: title bar with history, tab bar,

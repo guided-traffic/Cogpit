@@ -36,14 +36,14 @@
       "text": "Burstable"
     },
     {
-      "column": "age",
-      "text": "20s",
-      "num": 1791719980
-    },
-    {
       "column": "status",
       "text": "ContainerCreating",
       "status": "pending"
+    },
+    {
+      "column": "age",
+      "text": "20s",
+      "num": 1791719980
     }
   ],
   "fields": {

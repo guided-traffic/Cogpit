@@ -36,14 +36,14 @@
       "text": "Burstable"
     },
     {
-      "column": "age",
-      "text": "15m",
-      "num": 1791719100
-    },
-    {
       "column": "status",
       "text": "ImagePullBackOff",
       "status": "error"
+    },
+    {
+      "column": "age",
+      "text": "15m",
+      "num": 1791719100
     }
   ],
   "fields": {

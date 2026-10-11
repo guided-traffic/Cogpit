@@ -38,14 +38,14 @@
       "text": "Burstable"
     },
     {
-      "column": "age",
-      "text": "1d",
-      "num": 1791633600
-    },
-    {
       "column": "status",
       "text": "Running",
       "status": "warning"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
     }
   ],
   "fields": {

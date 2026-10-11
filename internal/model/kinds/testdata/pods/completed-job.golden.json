@@ -36,14 +36,14 @@
       "text": "BestEffort"
     },
     {
-      "column": "age",
-      "text": "6h",
-      "num": 1791698400
-    },
-    {
       "column": "status",
       "text": "Completed",
       "status": "succeeded"
+    },
+    {
+      "column": "age",
+      "text": "6h",
+      "num": 1791698400
     }
   ],
   "fields": {

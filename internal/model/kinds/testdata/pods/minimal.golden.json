@@ -36,14 +36,14 @@
       "text": ""
     },
     {
-      "column": "age",
-      "text": "42s",
-      "num": 1791719958
-    },
-    {
       "column": "status",
       "text": "Unknown",
       "status": "unknown"
+    },
+    {
+      "column": "age",
+      "text": "42s",
+      "num": 1791719958
     }
   ],
   "fields": {
