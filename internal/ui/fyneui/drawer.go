@@ -292,7 +292,7 @@ func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
 		group = sec.Group
 		out = append(out, d.sectionTitle(sec), newDivider(false))
 		if sec.Table != nil {
-			out = append(out, detailTable(sec.Table))
+			out = append(out, d.detailTable(m.Ref, sec.Table))
 		}
 		if len(sec.Items) > 0 {
 			grid := box(kvLayout{})
@@ -425,8 +425,9 @@ func (d *drawer) chips(ref model.ObjectRef, chips []model.Chip) fyne.CanvasObjec
 }
 
 // detailTable renders a section's table: the column titles muted above the rows, each column as
-// wide as its widest text (detailTableLayout).
-func detailTable(t *model.DetailTable) fyne.CanvasObject {
+// wide as its widest text (detailTableLayout). A cell that names an object the view can show is a
+// link to it.
+func (d *drawer) detailTable(ref model.ObjectRef, t *model.DetailTable) fyne.CanvasObject {
 	if len(t.Columns) == 0 {
 		return container.NewVBox()
 	}
@@ -436,11 +437,16 @@ func detailTable(t *model.DetailTable) fyne.CanvasObject {
 		l.truncate = true
 		grid.Add(l)
 	}
-	for _, row := range t.Rows {
+	for r, row := range t.Rows {
 		for i := range t.Columns {
 			text := ""
 			if i < len(row) {
 				text = row[i]
+			}
+			if link := t.Link(r, i); link != nil && text != "" && d.sh.view.serves(link.Kind) {
+				to := *link
+				grid.Add(newLinkText(text, func() { d.sh.followLink(to, ref.Context, false) }))
+				continue
 			}
 			v := newTextLine(text, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{})
 			v.truncate = true
@@ -450,8 +456,9 @@ func detailTable(t *model.DetailTable) fyne.CanvasObject {
 	return grid
 }
 
-// detailTableLayout lays out textLines row by row in cols columns, each as wide as its widest
-// text; when they do not fit, every column gives up width in proportion and its texts shorten.
+// detailTableLayout lays out textLines and linkTexts row by row in cols columns, each as wide as
+// its widest text; when they do not fit, every column gives up width in proportion and its texts
+// shorten.
 type detailTableLayout struct{ cols int }
 
 func (l *detailTableLayout) widths(objs []fyne.CanvasObject) (w []float32, rowH, gap float32) {
@@ -460,8 +467,11 @@ func (l *detailTableLayout) widths(objs []fyne.CanvasObject) (w []float32, rowH,
 	w = make([]float32, l.cols)
 	size := th.Size(theme.SizeNameText)
 	for i, o := range objs {
-		if t, ok := o.(*textLine); ok {
+		switch t := o.(type) {
+		case *textLine:
 			w[i%l.cols] = fyne.Max(w[i%l.cols], fyne.MeasureText(t.text, size, t.style).Width)
+		case *linkText:
+			w[i%l.cols] = fyne.Max(w[i%l.cols], fyne.MeasureText(t.text, size, fyne.TextStyle{}).Width)
 		}
 		rowH = fyne.Max(rowH, o.MinSize().Height)
 	}

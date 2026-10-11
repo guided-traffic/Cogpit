@@ -34,6 +34,19 @@ type DetailSection struct {
 type DetailTable struct {
 	Columns []string   `json:"columns"`
 	Rows    [][]string `json:"rows"`
+	// Links, when set, are the objects cells name, by row and column as in Rows: nil for a plain
+	// cell. The drawer renders a cell with a link as a link that goes to the object (a binding's
+	// ServiceAccount subjects). Rows still hold every cell's text.
+	Links [][]*ObjectRef `json:"links,omitempty"`
+}
+
+// Link returns the object the cell at row and col names, or nil for a plain cell or one out of
+// range.
+func (t *DetailTable) Link(row, col int) *ObjectRef {
+	if t == nil || row < 0 || row >= len(t.Links) || col < 0 || col >= len(t.Links[row]) {
+		return nil
+	}
+	return t.Links[row][col]
 }
 
 // DetailItem is one line of a detail section: a name and a value.
