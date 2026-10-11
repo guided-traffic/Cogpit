@@ -327,6 +327,18 @@ the diagnostics view shows them, and tests assert the budgets P9–P11 in
 data the cache does not hold (subresources, a kind nobody watches), and its result does not bypass
 the cache's view of the world.
 
+**Custom resource kinds** (2026-10-11, [`customkinds.go`](../../internal/engine/customkinds.go)).
+A real cluster's backend holds one cache handle on `customresourcedefinitions` while it is
+connected (`Backend.CustomResources`; the demo cluster has none). Its watch events, coalesced,
+rebuild the generic profiles of the established definitions
+([`kinds.ParseCRD`](../../internal/model/kinds/customresources.go)), published as one immutable set
+behind an atomic pointer: `Backend.Profile` and `Backend.AllProfiles` read it without a lock, an
+update that changes nothing a view shows keeps the profile, and a change emits `EventKinds`, upon
+which the UI re-reads `kinds.list`. The open view and drawer follow their profile: a new served
+version moves them, a deleted definition leaves a view whose snapshot says the cluster no longer
+serves the kind. A custom kind costs one watch when opened, like any kind
+(`TestBudgetCustomResourceView`); the cache holds the definitions in full, schemas included.
+
 **Not across restarts** (decided, [D-13](decisions.md#d-13-cache)). The cache lives in memory
 only. Persisting it to disk would make start-up faster but would show stale state and put cluster
 data, Secrets included, at rest on the disk.
@@ -458,6 +470,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | §5: the watch on custom resource definitions and how custom kinds' profiles are published and read |
 | 2026-10-11 | minor | Kind keys of custom resources (§4.5); links and the warning column in cells; the registry's Order, ErrNotApplicable, Escalate and Prefill |
 | 2026-10-11 | major | Current state: the local MVP and where it differs from the plan |
 | 2026-10-11 | major | Design plan v2: Go; cache-first data flow (§5); UI state in the engine; MCP and the built-in agent (§7); Helm in-process with crash-safe actions; terminal via own PTY; updates |
