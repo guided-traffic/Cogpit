@@ -8,12 +8,6 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
-// The Replicas column of the workload views.
-const (
-	titleReplicas = "Replicas"
-	idReplicas    = "replicas"
-)
-
 // replicationControllers has the columns of Lens's documentation (not captured): Name, Namespace,
 // Replicas (the current pods, status.replicas), Desired Replicas (spec.replicas, which the API
 // defaults to 1) and Selector ("key=value, …"). Lens documents no Age column. The status rule is

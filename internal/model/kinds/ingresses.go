@@ -52,7 +52,7 @@ var ingresses = &model.KindProfile{
 		"ingressClass": func(obj *unstructured.Unstructured) []string {
 			return nonEmpty(ingressClassName(obj))
 		},
-		"service": func(obj *unstructured.Unstructured) []string {
+		fieldService: func(obj *unstructured.Unstructured) []string {
 			return ingressServices(obj)
 		},
 		"address": func(obj *unstructured.Unstructured) []string {

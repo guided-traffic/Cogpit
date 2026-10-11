@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/guided-traffic/cogpit/internal/demo"
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/model"
@@ -37,7 +39,21 @@ func TestNodeDrawerUnderDemoChurn(t *testing.T) {
 	if err != nil || len(nodes) == 0 {
 		t.Fatalf("demo nodes: %d, %v", len(nodes), err)
 	}
-	ref := model.ObjectRef{Context: engine.DemoContext, Kind: "nodes", Name: nodes[0].GetName()}
+	// The node running the most pods: the demo has not-ready and cordoned nodes with few, and the
+	// cache lists nodes in no particular order.
+	pods, err := s.Objects(ctx, "pods", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	perNode := map[string]int{}
+	busiest := nodes[0].GetName()
+	for _, p := range pods {
+		n, _, _ := unstructured.NestedString(p.Object, "spec", "nodeName")
+		if perNode[n]++; n != "" && perNode[n] > perNode[busiest] {
+			busiest = n
+		}
+	}
+	ref := model.ObjectRef{Context: engine.DemoContext, Kind: "nodes", Name: busiest}
 	s.UpdateUI(func(u *engine.UIState) { u.Drawer = &ref })
 	podsTable := func(m *engine.DetailModel) *model.DetailTable {
 		for _, sec := range m.Sections {

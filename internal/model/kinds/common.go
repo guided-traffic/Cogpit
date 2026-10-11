@@ -36,6 +36,14 @@ const (
 // keyNamespaces is the kind key namespace cells link to.
 const keyNamespaces = "namespaces"
 
+// Column ids, titles and searchable field names several kinds share.
+const (
+	idKind       = "kind"
+	titleKind    = "Kind"
+	titleTarget  = "Target"
+	fieldService = "service"
+)
+
 // Columns several kinds share.
 var (
 	nameColumn       = model.Column{ID: "name", Title: "Name", Type: model.ColumnText}

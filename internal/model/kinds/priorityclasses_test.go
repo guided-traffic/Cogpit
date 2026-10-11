@@ -25,10 +25,10 @@ func TestPriorityClassesStatusTexts(t *testing.T) {
 	})
 }
 
-// fakeRelated answers lookups from a map of index id and key to objects.
-type fakeRelated map[string][]*unstructured.Unstructured
+// indexedRelated answers lookups from a map of index id and key to objects.
+type indexedRelated map[string][]*unstructured.Unstructured
 
-func (f fakeRelated) Objects(ix model.RelatedIndex, key string) []*unstructured.Unstructured {
+func (f indexedRelated) Objects(ix model.RelatedIndex, key string) []*unstructured.Unstructured {
 	return f[ix.ID()+"/"+key]
 }
 
@@ -56,7 +56,7 @@ func TestPriorityClassPodCounts(t *testing.T) {
 	if len(p.Needs) != 1 || p.Needs[0].ID() != ix.ID() {
 		t.Fatalf("Needs = %+v", p.Needs)
 	}
-	rel := fakeRelated{ix.ID() + "/standard": {pod("shop", "web-1", "standard"), pod("batch", "etl-1", "standard")}}
+	rel := indexedRelated{ix.ID() + "/standard": {pod("shop", "web-1", "standard"), pod("batch", "etl-1", "standard")}}
 	for _, c := range loadCases(t, "priorityclasses") {
 		if c.name != "healthy" {
 			continue

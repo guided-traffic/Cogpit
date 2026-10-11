@@ -126,7 +126,7 @@ var endpointsAddressColumns = []model.Column{
 	{ID: fieldReady, Title: nodeReady, Type: model.ColumnText},
 	{ID: fieldHostname, Title: titleHostname, Type: model.ColumnText},
 	{ID: idNode, Title: titleNode, Type: model.ColumnText},
-	{ID: idTarget, Title: "Target", Type: model.ColumnText},
+	{ID: idTarget, Title: titleTarget, Type: model.ColumnText},
 	{ID: idPorts, Title: titlePorts, Type: model.ColumnText},
 }
 

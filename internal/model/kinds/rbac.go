@@ -210,7 +210,7 @@ func subjectsSection(sections []model.DetailSection, obj any) []model.DetailSect
 		return sections
 	}
 	bindingNS := model.NestedString(obj, "metadata", "namespace")
-	cols := []model.Column{{ID: "kind", Title: "Kind", Type: model.ColumnText}, nameColumn, namespaceColumn}
+	cols := []model.Column{{ID: idKind, Title: titleKind, Type: model.ColumnText}, nameColumn, namespaceColumn}
 	rows := make([][]model.Cell, 0, len(subs))
 	links := false
 	for _, s := range subs {

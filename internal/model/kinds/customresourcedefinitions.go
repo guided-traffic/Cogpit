@@ -57,7 +57,7 @@ var customResourceDefinitions = &model.KindProfile{
 		"group": func(obj *unstructured.Unstructured) []string {
 			return nonEmpty(model.NestedString(obj, "spec", "group"))
 		},
-		"kind": func(obj *unstructured.Unstructured) []string {
+		idKind: func(obj *unstructured.Unstructured) []string {
 			return nonEmpty(model.NestedString(obj, "spec", "names", "kind"))
 		},
 		idScope: func(obj *unstructured.Unstructured) []string {

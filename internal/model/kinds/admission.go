@@ -165,7 +165,7 @@ var webhookFields = map[string]fieldFunc{
 		return out
 	},
 	// "service" lists the services the webhooks call, as "namespace/name".
-	"service": func(obj *unstructured.Unstructured) []string {
+	fieldService: func(obj *unstructured.Unstructured) []string {
 		var out []string
 		for _, w := range model.NestedSlice(obj, "webhooks") {
 			svc := model.NestedMap(w, "clientConfig", "service")

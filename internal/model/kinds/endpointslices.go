@@ -14,7 +14,6 @@ const (
 	serviceNameLabel = "kubernetes.io/service-name"
 	// sliceManagedByLabel names the controller that manages an endpoint slice.
 	sliceManagedByLabel = "endpointslice.kubernetes.io/managed-by"
-	keyServices         = "services"
 	keyEndpoints        = "endpoints"
 	keyEndpointSlices   = "endpointslices"
 	fieldAddressType    = "addressType"
@@ -63,7 +62,7 @@ var endpointSlices = &model.KindProfile{
 	},
 	Cells: endpointSliceCells,
 	Fields: map[string]fieldFunc{
-		"service": func(obj *unstructured.Unstructured) []string {
+		fieldService: func(obj *unstructured.Unstructured) []string {
 			return nonEmpty(model.NestedString(obj, "metadata", "labels", serviceNameLabel))
 		},
 		fieldAddressType: func(obj *unstructured.Unstructured) []string {
@@ -229,7 +228,7 @@ var endpointColumns = []model.Column{
 	{ID: fieldHostname, Title: titleHostname, Type: model.ColumnText},
 	{ID: idNode, Title: titleNode, Type: model.ColumnText},
 	{ID: "zone", Title: "Zone", Type: model.ColumnText},
-	{ID: idTarget, Title: "Target", Type: model.ColumnText},
+	{ID: idTarget, Title: titleTarget, Type: model.ColumnText},
 }
 
 // endpointSliceDetail is Cogpit's drawer for a slice (inferred, Lens's is not captured): the

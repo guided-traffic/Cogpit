@@ -308,7 +308,7 @@ func hpaDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	sections := withSection(nil, model.TitleProperties, d)
 
 	if metrics := hpaMetrics(obj); len(metrics) > 0 {
-		t := &model.DetailTable{Columns: []string{"Metric", titleType, "Current", "Target"}}
+		t := &model.DetailTable{Columns: []string{"Metric", titleType, "Current", titleTarget}}
 		for _, m := range metrics {
 			t.Rows = append(t.Rows, []string{m.name, m.typ, m.current, m.target})
 		}

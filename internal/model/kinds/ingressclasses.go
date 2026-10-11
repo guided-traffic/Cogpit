@@ -37,7 +37,7 @@ var ingressClasses = &model.KindProfile{
 		{ID: "controller", Title: "Controller", Type: model.ColumnText},
 		{ID: "apiGroup", Title: "API Group", Type: model.ColumnText},
 		{ID: "scope", Title: "Scope", Type: model.ColumnText},
-		{ID: "kind", Title: "Kind", Type: model.ColumnText},
+		{ID: idKind, Title: titleKind, Type: model.ColumnText},
 	},
 	Cells: ingressClassCells,
 	Fields: map[string]fieldFunc{
