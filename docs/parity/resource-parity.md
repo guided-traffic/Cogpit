@@ -144,10 +144,10 @@ Shown only when the cluster serves `resource.k8s.io/v1` (Kubernetes 1.34 and lat
 | View | API | Lens columns | Actions | Status |
 |---|---|---|---|---|
 | Service Accounts | `v1` ServiceAccount | Name, Namespace, Age | Create `serviceAccount.create` | missing |
-| Cluster Roles | `rbac.authorization.k8s.io/v1` ClusterRole | capture needed | Create `clusterRole.create` | missing |
-| Roles | `rbac.authorization.k8s.io/v1` Role | capture needed | Create `role.create` | missing |
-| Cluster Role Bindings | `rbac.authorization.k8s.io/v1` ClusterRoleBinding | capture needed | Create `clusterRoleBinding.create` | missing |
-| Role Bindings | `rbac.authorization.k8s.io/v1` RoleBinding | capture needed | Create `roleBinding.create` | missing |
+| Cluster Roles | `rbac.authorization.k8s.io/v1` ClusterRole | Name, (warning icon), Age; no namespace filter (capture, 2026-10-11) | Create `clusterRole.create` | missing |
+| Roles | `rbac.authorization.k8s.io/v1` Role | Name, (warning icon), Namespace, Age (capture, 2026-10-11) | Create `role.create` | missing |
+| Cluster Role Bindings | `rbac.authorization.k8s.io/v1` ClusterRoleBinding | Name, (warning icon), Bindings (the bound subjects' names, comma-separated), Age; no namespace filter (capture, 2026-10-11) | Create `clusterRoleBinding.create` | missing |
+| Role Bindings | `rbac.authorization.k8s.io/v1` RoleBinding | Name, Namespace, Bindings (the bound subjects' names, comma-separated), Age; no warning icon seen (capture, 2026-10-11) | Create `roleBinding.create` | missing |
 | Pod Security Policies | `policy/v1beta1` PodSecurityPolicy (clusters before 1.25) | Name, Privileged, Volume, Age | – | missing |
 
 ## Custom Resources
@@ -184,6 +184,7 @@ the tables above. Everything else is created from YAML templates in the dock
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Columns of Cluster Roles, Roles, Cluster Role Bindings and Role Bindings from captures |
 | 2026-10-11 | minor | Events' Last Seen is a UTC timestamp and warning messages are red (Cogpit follows); Nodes columns captured; Share is not a target (owner), 39 actions |
 | 2026-10-11 | minor | Captures of the Pods row menu, the warning icon, an evicted pod and Cron Jobs: pod actions with submenus, Cron Jobs columns and actions |
 | 2026-10-11 | minor | Capture of the Events view: documented column order confirmed; Last Seen as a date |
