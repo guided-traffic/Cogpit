@@ -155,9 +155,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ### G6. Resource views
 - **Missing:** 37 of the 64 resource views ([resource-parity](resource-parity.md)), and the depth of
   the 26 partial ones (metrics columns, texts checked against a capture). Of the about 20 the alpha
-  gate needs, still missing: Secrets (waits for the owner's decision on
-  [H-8](../security/privilege-footprint.md#h-8-secret-data-arrives-with-the-list)), Helm Releases
-  and the cluster overview.
+  gate needs, still missing: the cluster overview (Secrets and Helm Releases are partial since
+  2026-10-11).
 - **Evidence:** resource-parity, 27 of 64 (2026-10-11): Nodes, Pods, Deployments, Services,
   Namespaces, Events (the MVP); Daemon Sets, Stateful Sets, Replica Sets, Jobs, Cron Jobs
   ([`kinds/`](../../internal/model/kinds/) `daemonsets.go` … `cronjobs.go`; Cron Jobs with the
@@ -202,6 +201,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   classes, volumes, claims and pods; on kind 1.36.1, a claim provisioned by the default class and
   mounted by a pod fills the Pods column, its volume, the node's Pods table and the Service's
   endpoint slices (`TestKindStorageAndNetworkViews`).
+  Secrets and Helm (2026-10-11, third run): Secrets partial, from a metadata-only watch as decided for H-8 (Keys and Type empty: metadata
+  carries neither), the drawer's one GET per open, values masked and revealed in the GUI only
+  ([`secrets.go`](../../internal/model/kinds/secrets.go), [`secretdata.go`](../../internal/engine/secretdata.go),
+  `TestBudgetSecretsViewAndDrawer`); Helm Releases partial, a virtual kind over the `owner=helm`
+  Secrets ([`releases.go`](../../internal/helm/releases.go), G11).
 - **Estimate:** 85–260 h (was 120–360; 2–6 h each for the 37 missing views, plus depth).
 
 ### G7. Resource actions
@@ -285,11 +289,21 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 10–20 h.
 
 ### G11. Helm
-- **Missing:** the Helm SDK in-process: releases, history, values and manifests from the cached
-  release Secrets (unblocked: the owner decided H-8 on 2026-10-11, and Helm's release Secrets come
-  from a watch on `owner=helm`, [D-13](../developer/decisions.md#d-13-cache)); install, upgrade, rollback and uninstall as crash-safe jobs; repositories, chart
-  index and search; the Helm Install and Helm Upgrade dock tabs. Views and actions count in G6 and G7.
-- **Evidence:** [resource-parity](resource-parity.md#helm), 2 views and 4 actions missing.
+- **Missing:** install and upgrade as crash-safe jobs; repositories, chart index and search; the
+  Helm Install and Helm Upgrade dock tabs. Views and actions count in G6 and G7.
+- **Evidence:** [resource-parity](resource-parity.md#helm), 2026-10-11 (third run): Releases partial,
+  Rollback and Delete (uninstall) partial; Charts, Install and Upgrade missing. Built: the release
+  Secrets of the `owner=helm` watch decoded into the virtual kind `helmreleases` (memoized per
+  Secret UID and resourceVersion, bounded; hostile payloads fuzzed), the drawer's history, values
+  (withheld from agents) and manifest (Secret data redacted), and `helm.release.rollback` and
+  `helm.release.uninstall` through the Helm SDK in-process, destructive, bound to the revision the
+  user confirmed, crash-safe through a journal offered on the next connect
+  ([`internal/helm`](../../internal/helm/), [`commands/helm.go`](../../internal/engine/commands/helm.go),
+  [`helmops.go`](../../internal/engine/helmops.go); `TestHelmCrashJournalOffer`; on kind
+  `TestKindHelmReleases`: a local chart installed and upgraded with the SDK, then listed, read, rolled
+  back and uninstalled through the engine, and a simulated crash offered and finished). Still
+  missing: repositories, chart index and search, install and upgrade, the Helm Install and Helm
+  Upgrade dock tabs, the ConfigMaps and SQL storage drivers.
 - **Estimate:** 30–60 h.
 
 ### G12. Metrics and cluster overview
@@ -441,6 +455,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | G6 and G11 evidence: Secrets and Helm Releases partial, Helm rollback and uninstall partial (third run) |
 | 2026-10-11 | minor | G10: port forwarding built (manager, local kind, commands, dialog, view); what is left: Lens's status texts and Edit dialog, access review of the forward's pod, a real-window browser check |
 | 2026-10-11 | minor | Access reviews built: G2 and G4 evidence, G3 and G9 no longer list them as missing; estimates not moved |
 | 2026-10-11 | minor | G6 evidence (third run, agent D): Endpoint Slices, Endpoints, Network Policies, Persistent Volumes, Storage Classes and Replication Controllers views partial; the related-objects index's first users (a claim's pods, a node's Pods table, a Service's endpoint slices) |
