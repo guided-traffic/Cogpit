@@ -83,6 +83,9 @@ var wantCommands = map[string]engine.Danger{
 	"object.copyName":     engine.DangerUI,
 	"ui.setColumns":       engine.DangerUI,
 	"ui.setGroups":        engine.DangerUI,
+	"ui.setColumns":       engine.DangerUI,
+	"ui.setGroups":        engine.DangerUI,
+	"table.exportCsv":     engine.DangerRead,
 }
 
 func TestRegistryComplete(t *testing.T) {

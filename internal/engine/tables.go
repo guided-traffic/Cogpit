@@ -1,7 +1,11 @@
 package engine
 
 import (
+	"encoding/csv"
+	"io"
 	"slices"
+	"strconv"
+	"time"
 
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
@@ -57,4 +61,57 @@ func groupFilter(p *model.KindProfile, groups []string) (int, map[string]struct{
 		set[g] = struct{}{}
 	}
 	return ci, set
+}
+
+// WriteCSV writes a table snapshot as CSV, as the table shows it (Lens's download button beside
+// the item count; its format is inferred): a header row with the titles of the visible columns,
+// then one record per row in the snapshot's order (filtered and sorted), each cell's text as the
+// table renders it at now (ages relative to now). The snapshot holds only what its cells show, so
+// a metadata-only kind (Secrets) exports no values.
+//
+// Cluster data is not trusted: a cell that a spreadsheet would read as a formula (one starting
+// with =, +, -, @, a tab or a carriage return, unless it is a plain number) is written with a
+// leading apostrophe, so that opening the file does not run an event message as a formula.
+func WriteCSV(w io.Writer, t *TableSnapshot, now time.Time) error {
+	cw := csv.NewWriter(w)
+	var visible []int
+	header := make([]string, 0, len(t.Columns))
+	for i, c := range t.Columns {
+		if !c.Hidden {
+			visible = append(visible, i)
+			header = append(header, csvSafe(c.Title))
+		}
+	}
+	if err := cw.Write(header); err != nil {
+		return err
+	}
+	record := make([]string, len(visible))
+	for ri := range t.Rows {
+		row := &t.Rows[ri]
+		for i, ci := range visible {
+			record[i] = csvSafe(model.CellText(t.Columns[ci], cellAt(row, ci), now))
+		}
+		if err := cw.Write(record); err != nil {
+			return err
+		}
+	}
+	cw.Flush()
+	return cw.Error()
+}
+
+// csvSafe neutralises a cell a spreadsheet would evaluate as a formula (OWASP's advice on CSV
+// injection): a leading =, +, -, @, tab or carriage return gets an apostrophe in front. Plain
+// numbers ("-1") and a lone "-" stay as they are.
+func csvSafe(s string) string {
+	if s == "" || s == "-" {
+		return s
+	}
+	switch s[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		if _, err := strconv.ParseFloat(s, 64); err == nil {
+			return s
+		}
+		return "'" + s
+	}
+	return s
 }

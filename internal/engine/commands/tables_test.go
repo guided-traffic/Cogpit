@@ -65,6 +65,30 @@ func TestSetColumns(t *testing.T) {
 	waitTable(t, h.s, "pods", func(s *engine.TableSnapshot) bool { return len(hiddenIDs(s)) == 0 })
 }
 
+// TestExportCSV: an agent exports the open view as the table shows it: visible columns, filtered
+// and sorted rows; only the open view can be exported.
+func TestExportCSV(t *testing.T) {
+	h := newHarness(t, seed(), engine.Options{})
+	agent := engine.OriginExternalAgent
+	h.must(t, agent, "ui.openView", map[string]any{"view": "services"}, nil)
+	h.must(t, agent, "ui.setNamespace", map[string]any{"namespaces": []string{"shop"}}, nil)
+	h.must(t, agent, "ui.sort", map[string]any{"column": "name", "desc": true}, nil)
+	h.must(t, agent, "ui.setColumns", map[string]any{"hidden": []string{"namespace"}}, nil)
+	waitTable(t, h.s, "services", func(s *engine.TableSnapshot) bool {
+		return len(s.Rows) == 2 && s.Sort.Desc && len(hiddenIDs(s)) == 1
+	})
+
+	var res commands.CSVResult
+	h.must(t, agent, "table.exportCsv", nil, &res)
+	want := "Name,Cluster IP\ncheckout,10.96.100.100\ncart,10.96.100.101\n"
+	if res.CSV != want || res.Rows != 2 || res.View != "services" || res.Filename != "services-test.csv" {
+		t.Fatalf("export %+v, want csv %q", res, want)
+	}
+	if err := h.run(t, agent, "table.exportCsv", map[string]any{"view": "pods"}, nil); err == nil || !strings.Contains(err.Error(), "only the open view") {
+		t.Fatalf("exporting a view that is not open: %v", err)
+	}
+}
+
 // TestSetGroups: the Definitions view's group filter is UI state, trimmed and without duplicates.
 func TestSetGroups(t *testing.T) {
 	h := newHarness(t, seed(), engine.Options{})

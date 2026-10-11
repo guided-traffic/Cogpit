@@ -24,6 +24,21 @@ type groupsParams struct {
 	Groups []string `json:"groups,omitempty" jsonschema:"API groups the Definitions view shows (cert-manager.io); empty or omitted shows all groups"`
 }
 
+type exportParams struct {
+	View string `json:"view,omitempty" jsonschema:"kind key of the view to export; it must be the open view; empty or omitted: the open view"`
+}
+
+// CSVResult is table.exportCsv's result.
+type CSVResult struct {
+	View string `json:"view"`
+	// Filename is a file name to suggest when saving: "<view>-<context>.csv".
+	Filename string `json:"filename"`
+	// Rows is the number of records after the header row.
+	Rows int `json:"rows"`
+	// CSV is the table: a header row with the visible columns' titles, then the rows as shown.
+	CSV string `json:"csv"`
+}
+
 func registerTables(g *registrar) {
 	add(g, engine.Spec[columnsParams]{
 		ID: "ui.setColumns", Label: "Columns", MenuPath: "View/Columns", Danger: engine.DangerUI,
@@ -79,6 +94,49 @@ func registerTables(g *registrar) {
 			return s.UpdateUI(func(u *engine.UIState) { u.Groups = gs }), nil
 		},
 	})
+
+	add(g, engine.Spec[exportParams]{
+		ID: "table.exportCsv", Label: "Download as CSV", MenuPath: "View/Download as CSV", Danger: engine.DangerRead, Verbs: cacheReads,
+		Description: "Exports the open view's table as CSV text, as the download button beside the item count does: a header " +
+			"row with the titles of the visible columns, then the rows as the table shows them (namespace filter, search " +
+			"and sort applied; ages relative to now). Reads the view's snapshot, never the API server. Cells a spreadsheet " +
+			"would evaluate as a formula start with an apostrophe. Returns {view, filename, rows, csv}.",
+		Enabled: func(s *engine.Session, _ exportParams) error { _, err := openView(s); return err },
+		Run: func(_ context.Context, s *engine.Session, p exportParams) (any, error) {
+			u := s.UIState()
+			if p.View != "" && p.View != u.View {
+				return nil, fmt.Errorf("only the open view can be exported, and %s is not open; open it with ui_openView", p.View)
+			}
+			t := s.Table(u.View)
+			if t == nil {
+				return nil, fmt.Errorf("the %s view has no rows yet", u.View)
+			}
+			var b strings.Builder
+			if err := engine.WriteCSV(&b, t, s.Now()); err != nil {
+				return nil, err
+			}
+			return CSVResult{View: t.View, Filename: csvFilename(t.View, t.Context), Rows: len(t.Rows), CSV: b.String()}, nil
+		},
+	})
+}
+
+// csvFilename is "<view>-<context>.csv" with every character but letters, digits, dots, dashes
+// and underscores replaced: context names may hold colons and slashes (an EKS context is an ARN).
+func csvFilename(view, context string) string {
+	clean := func(s string) string {
+		return strings.Map(func(r rune) rune {
+			switch {
+			case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '.', r == '-', r == '_':
+				return r
+			}
+			return '_'
+		}, s)
+	}
+	name := clean(view)
+	if context != "" {
+		name += "-" + clean(context)
+	}
+	return name + ".csv"
 }
 
 // hiddenColumns checks the ids against a kind's columns and returns them in the columns' order.
