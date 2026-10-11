@@ -1,0 +1,74 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "priorityclasses",
+    "name": "best-effort-batch"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "best-effort-batch"
+    },
+    {
+      "column": "value",
+      "text": "-10",
+      "num": -10
+    },
+    {
+      "column": "globalDefault",
+      "text": "false"
+    },
+    {
+      "column": "pods",
+      "text": "0"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790812800
+    }
+  ],
+  "fields": {
+    "globalDefault": [
+      "false"
+    ],
+    "label": [],
+    "name": [
+      "best-effort-batch"
+    ],
+    "namespace": [
+      ""
+    ],
+    "preemptionPolicy": [
+      "Never"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Value",
+          "value": "-10"
+        },
+        {
+          "name": "Global Default",
+          "value": "false"
+        },
+        {
+          "name": "Preemption Policy",
+          "value": "Never"
+        },
+        {
+          "name": "Description",
+          "value": "Batch jobs that run only on spare capacity."
+        },
+        {
+          "name": "Pods",
+          "value": "0"
+        }
+      ]
+    }
+  ]
+}

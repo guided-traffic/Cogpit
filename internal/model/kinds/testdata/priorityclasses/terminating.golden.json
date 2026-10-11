@@ -1,0 +1,64 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "priorityclasses",
+    "name": "legacy-high"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-high"
+    },
+    {
+      "column": "value",
+      "text": "100000",
+      "num": 100000
+    },
+    {
+      "column": "globalDefault",
+      "text": "false"
+    },
+    {
+      "column": "pods",
+      "text": "0"
+    },
+    {
+      "column": "age",
+      "text": "224d",
+      "num": 1772323200
+    }
+  ],
+  "fields": {
+    "globalDefault": [
+      "false"
+    ],
+    "label": [],
+    "name": [
+      "legacy-high"
+    ],
+    "namespace": [
+      ""
+    ],
+    "preemptionPolicy": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Value",
+          "value": "100000"
+        },
+        {
+          "name": "Global Default",
+          "value": "false"
+        },
+        {
+          "name": "Pods",
+          "value": "0"
+        }
+      ]
+    }
+  ]
+}

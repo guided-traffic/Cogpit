@@ -1,0 +1,63 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "priorityclasses",
+    "name": "bare"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "value",
+      "text": "0"
+    },
+    {
+      "column": "globalDefault",
+      "text": "false"
+    },
+    {
+      "column": "pods",
+      "text": "0"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "globalDefault": [
+      "false"
+    ],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      ""
+    ],
+    "preemptionPolicy": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Value",
+          "value": "0"
+        },
+        {
+          "name": "Global Default",
+          "value": "false"
+        },
+        {
+          "name": "Pods",
+          "value": "0"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+# Synthetic: a priority class has no state to fail; this is what goes wrong with one in practice: a
+# batch class below zero that never preempts, so its pods wait whenever the cluster is full.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: best-effort-batch
+  uid: 31829304-cccc-4b3c-4d5e-000000000002
+  creationTimestamp: "2026-10-01T00:00:00Z"
+value: -10
+globalDefault: false
+preemptionPolicy: Never
+description: Batch jobs that run only on spare capacity.

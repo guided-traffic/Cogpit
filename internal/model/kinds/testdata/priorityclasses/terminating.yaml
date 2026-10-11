@@ -1,0 +1,11 @@
+# Synthetic: a class held by a finalizer while it is deleted.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: legacy-high
+  uid: 31829304-cccc-4b3c-4d5e-000000000003
+  creationTimestamp: "2026-03-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - priorities.example.com/audit
+value: 100000

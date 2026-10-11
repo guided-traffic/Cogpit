@@ -1,0 +1,76 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "priorityclasses",
+    "name": "standard"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "standard"
+    },
+    {
+      "column": "value",
+      "text": "1000",
+      "num": 1000
+    },
+    {
+      "column": "globalDefault",
+      "text": "true"
+    },
+    {
+      "column": "pods",
+      "text": "0"
+    },
+    {
+      "column": "age",
+      "text": "132d",
+      "num": 1780272000
+    }
+  ],
+  "fields": {
+    "globalDefault": [
+      "true"
+    ],
+    "label": [
+      "app.kubernetes.io/managed-by=platform"
+    ],
+    "name": [
+      "standard"
+    ],
+    "namespace": [
+      ""
+    ],
+    "preemptionPolicy": [
+      "PreemptLowerPriority"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Value",
+          "value": "1000"
+        },
+        {
+          "name": "Global Default",
+          "value": "true"
+        },
+        {
+          "name": "Preemption Policy",
+          "value": "PreemptLowerPriority"
+        },
+        {
+          "name": "Description",
+          "value": "Default priority for workloads without a class."
+        },
+        {
+          "name": "Pods",
+          "value": "0"
+        }
+      ]
+    }
+  ]
+}

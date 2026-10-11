@@ -49,6 +49,7 @@ var builtin = []*model.KindProfile{
 	limitRanges,
 	horizontalPodAutoscalers,
 	podDisruptionBudgets,
+	priorityClasses,
 	persistentVolumeClaims,
 	namespaces,
 	events,

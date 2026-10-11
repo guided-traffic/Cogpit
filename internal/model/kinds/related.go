@@ -13,6 +13,8 @@ var (
 	// PodsByClaim indexes pods by the persistent volume claims they mount, as
 	// "<namespace>/<claimName>": a claim's pods.
 	PodsByClaim = model.RelatedIndex{Kind: podsResource, Name: "byClaim", Keys: podClaimKeys}
+	// PodsByPriorityClass indexes pods by spec.priorityClassName: a priority class's pods.
+	PodsByPriorityClass = model.RelatedIndex{Kind: podsResource, Name: "byPriorityClass", Keys: podPriorityClassKeys}
 )
 
 func podNodeKeys(pod *unstructured.Unstructured) []string {
