@@ -39,8 +39,8 @@ from discovery.
 | List view per kind the cluster serves and the user may list; hidden otherwise | partial: for the six built-in profiles, filtered by discovery; no permission check | [`connector.go`](../../internal/engine/connector.go) |
 | Generic columns: Name, Namespace (namespaced kinds), Age; plus `additionalPrinterColumns` for custom resources | missing | – |
 | Detail drawer: metadata, labels, annotations, owner references, events of the object; Lens merges metadata and the kind's state into one Properties section, shows no UID, and folds labels and annotations behind a count (capture, 2026-10-11) | partial: plus the kind's sections and the YAML (Secret values redacted); a separate Metadata section with the UID, labels unfolded | [`drawer.go`](../../internal/engine/drawer.go), `TestDetailWithEventsNewestFirst`, `TestDetailRedactsSecrets`; [PNG](../../internal/ui/fyneui/testdata/shell_dark.png) |
-| Edit (`object.edit`): YAML in a dock tab, offered when the user may patch | missing | – |
-| Delete (`object.delete`): confirm, offered when the user may delete; acts on the selection | partial: pods only, one object, confirmed for every origin; no permission check | [`actions.go`](../../internal/engine/commands/actions.go) |
+| Edit (`object.edit`): YAML in a dock tab, offered when the user may patch | partial: every kind, filled from the cache; applied as an update with the resourceVersion the tab started from (a concurrent change is a conflict, never overwritten), after a diff and a server-side dry run; Secrets refused (H-8); offered whenever the cluster can be written (no permission check yet) | [`commands/edit.go`](../../internal/engine/commands/edit.go), `TestEditDiffDryRunApply`, `TestApplyConflictNeverOverwrites`, `TestEditRefusesWhatItMustNot`, `TestKindEditCreateConflictDelete` |
+| Delete (`object.delete`): confirm, offered when the user may delete; acts on the selection | partial: every kind, with the cached UID as precondition, confirmed for every origin; one object, not the selection; no permission check | [`actions.go`](../../internal/engine/commands/actions.go), `TestDeleteAnyKind`, `TestDestructiveCommandsNeedConfirmation`, `TestKindEditCreateConflictDelete` |
 | Copy name (`object.copyName`) in the detail drawer | missing | – |
 | Row menu (⋮): Show Details, Edit, Delete for a custom resource; the kinds' own actions are added for built-in kinds (capture, 2026-10-11, of a custom resource only) | missing | – |
 | Right-click on a row opens the actions menu (since 2025.10.230725) | missing | – |
@@ -184,6 +184,7 @@ the tables above. Everything else is created from YAML templates in the dock
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Every kind: Edit (diff, dry run, apply with a resourceVersion precondition) and Delete (UID precondition) for every kind, both partial |
 | 2026-10-11 | minor | Capture of a pod drawer: Pod Anti Affinities, Init Containers before Containers, the port link's form |
 | 2026-10-11 | minor | Capture of Ingress Classes: its columns, a star column and an empty Namespace column, no Age |
 | 2026-10-11 | minor | Captures of a suspended Cron Job and a cordoned Node: Resume and Uncordon take Suspend's and Cordon's place; a cordoned node's Conditions and how Cogpit differs |

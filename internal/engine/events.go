@@ -15,6 +15,9 @@ const (
 	EventToast EventType = "toast"
 	// EventDiagnostics: request counters or cache stats changed; re-read Session.Diagnostics.
 	EventDiagnostics EventType = "diagnostics"
+	// EventEditor: an editor tab's text or base version changed (editor.setText, a conflict);
+	// Event.View holds the tab id, Event.Revision the text's revision. Re-read with editor.get.
+	EventEditor EventType = "editor"
 )
 
 // Event is something the UI or an agent may react to. Events carry little data: the receiver
