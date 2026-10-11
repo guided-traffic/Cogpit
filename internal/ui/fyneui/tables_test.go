@@ -9,7 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
@@ -116,6 +118,102 @@ func TestCSVButtonSavesTheView(t *testing.T) {
 		t.Error("no toast after saving")
 	}
 }
+
+// press sends a key to the focused widget, as the window does.
+func press(t *testing.T, w fyne.Window, name fyne.KeyName) {
+	t.Helper()
+	f := w.Canvas().Focused()
+	if f == nil {
+		t.Fatalf("%s: nothing has the focus", name)
+	}
+	f.TypedKey(&fyne.KeyEvent{Name: name})
+}
+
+// TestTableKeyboard: with the table focused, ↑↓ move between rows (the row band follows), Tab
+// and ⇧Tab between columns (a ring marks the cell), ↵ and Space open the row's details through
+// ui.select, as a click does, and Escape closes them.
+func TestTableKeyboard(t *testing.T) {
+	f := connectedFake(t, 50)
+	sh, w, q := newTestShell(t, f, Options{})
+	q.until(t, "the pods view", func() bool { return len(sh.kinds) > 0 && sh.view.snap != nil })
+	tv := sh.view
+	if !tv.table.AcceptsTab() {
+		t.Fatal("Tab would leave the table")
+	}
+	w.Canvas().Focus(tv.table)
+	if !tv.kbOn || tv.kbRow != 0 || tv.kbCol != 0 {
+		t.Fatalf("focused: on %v at %d,%d", tv.kbOn, tv.kbRow, tv.kbCol)
+	}
+	press(t, w, fyne.KeyDown)
+	press(t, w, fyne.KeyDown)
+	press(t, w, fyne.KeyDown)
+	press(t, w, fyne.KeyUp)
+	if tv.kbRow != 2 || tv.hoverRow != 2 {
+		t.Fatalf("after ↓↓↓↑: keyboard row %d, band row %d", tv.kbRow, tv.hoverRow)
+	}
+	press(t, w, fyne.KeyTab)
+	press(t, w, fyne.KeyTab)
+	tv.table.KeyDown(&fyne.KeyEvent{Name: desktop.KeyShiftLeft})
+	press(t, w, fyne.KeyTab)
+	tv.table.KeyUp(&fyne.KeyEvent{Name: desktop.KeyShiftLeft})
+	if tv.kbCol != 1 {
+		t.Fatalf("after Tab Tab ⇧Tab: column %d", tv.kbCol)
+	}
+	rings := 0
+	for _, c := range tv.cells {
+		if c.focused {
+			rings++
+			if c.row != 2 || c.col != 1 || !c.ring.Visible() {
+				t.Errorf("ring on %d,%d (visible %v), want 2,1", c.row, c.col, c.ring.Visible())
+			}
+		}
+	}
+	if rings != 1 {
+		t.Fatalf("%d cells ringed", rings)
+	}
+
+	press(t, w, fyne.KeyReturn)
+	q.until(t, "the drawer", func() bool { return sh.ui.Drawer != nil })
+	want := f.tables["pods"].Rows[2].Ref
+	if got := decodeParams[selectParams](t, f.callsOf("ui.select")[0]).Refs; len(got) != 1 || got[0] != want {
+		t.Fatalf("↵ selected %v, want %v", got, want)
+	}
+	press(t, w, fyne.KeyEscape)
+	q.until(t, "the drawer to close", func() bool { return sh.ui.Drawer == nil })
+	press(t, w, fyne.KeyDown)
+	press(t, w, fyne.KeySpace)
+	q.until(t, "the next row's drawer", func() bool {
+		return sh.ui.Drawer != nil && *sh.ui.Drawer == f.tables["pods"].Rows[3].Ref
+	})
+
+	// Leaving the table hides the ring; another view starts at its first cell.
+	w.Canvas().Unfocus()
+	for _, c := range tv.cells {
+		if c.focused {
+			t.Fatalf("cell %d,%d still ringed without the focus", c.row, c.col)
+		}
+	}
+	f.tables["nodes"] = kindSnapshot(t, "nodes", fixtureNodeObjects())
+	sh.dispatch("ui.openView", openViewParams{View: "nodes"}, nil)
+	q.until(t, "the nodes view", func() bool { return tv.snap != nil && tv.snap.View == "nodes" })
+	if tv.kbRow != 0 || tv.kbCol != 0 {
+		t.Fatalf("a new view starts at %d,%d", tv.kbRow, tv.kbCol)
+	}
+}
+
+func renderKeyboard(t *testing.T, mode ThemeMode, name string) {
+	f := kindsFake(t, "pods")
+	sh, w, q := newTestShell(t, f, Options{Theme: mode})
+	q.until(t, "the pods view", func() bool { return sh.view.snap != nil && sh.view.snap.View == "pods" && sh.diag.total > 0 })
+	w.Canvas().Focus(sh.view.table)
+	for _, k := range []fyne.KeyName{fyne.KeyDown, fyne.KeyDown, fyne.KeyDown, fyne.KeyTab, fyne.KeyTab} {
+		press(t, w, k)
+	}
+	savePNG(t, w, name)
+}
+
+func TestRenderKeyboardDark(t *testing.T)  { renderKeyboard(t, ThemeDark, "keyboard_dark.png") }
+func TestRenderKeyboardLight(t *testing.T) { renderKeyboard(t, ThemeLight, "keyboard_light.png") }
 
 // handleColumns makes the fake answer ui.setColumns as the engine does: the view's snapshot hides
 // the listed columns and the UI state records them.

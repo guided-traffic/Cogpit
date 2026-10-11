@@ -58,6 +58,9 @@ type tableView struct {
 	cells      []*tableCell // every cell the table has shown, pooled ones included
 	hoverRow   int
 	hoverCol   int
+	kbOn       bool // the table has the keyboard focus (tablekeys.go)
+	kbRow      int  // the cell the keyboard is on
+	kbCol      int
 	hoverCell  *tableCell    // the cell under the pointer or the keyboard highlight
 	pointer    fyne.Position // the pointer over the table, in window coordinates (tooltips)
 	pointerIn  bool
@@ -213,6 +216,7 @@ func (tv *tableView) setSnapshot(snap *engine.TableSnapshot) {
 	if snap == tv.snap && snap != nil {
 		return
 	}
+	newView := snap != nil && (tv.snap == nil || tv.snap.View != snap.View)
 	tv.snap = snap
 	key := ""
 	if snap != nil {
@@ -252,6 +256,9 @@ func (tv *tableView) setSnapshot(snap *engine.TableSnapshot) {
 	tv.updatePlaceholder()
 	tv.updateNamespaceButton() // cluster-scoped views hide the namespace filter
 	tv.syncColumnChecks()
+	if newView {
+		tv.table.resetKeyboard() // a view starts at its first cell, scrolled to the top
+	}
 	tv.table.Refresh()
 	tv.resolvePending()
 }
@@ -392,6 +399,7 @@ func (tv *tableView) updateCell(id widget.TableCellID, o fyne.CanvasObject) {
 	if c.set(id.Row, id.Col, content, tv.rowSelected(id.Row), hover, hover && id.Col == tv.hoverCol) && tv.sh.tip.owner == c {
 		tv.sh.tip.hide() // the cell under the tooltip shows something else now
 	}
+	c.setFocused(tv.keyboardOn(id.Row, id.Col))
 }
 
 func (tv *tableView) createHeader() fyne.CanvasObject {
@@ -814,7 +822,9 @@ func (tv *tableView) toggleNamespace(ns string, on bool) {
 // has the focus.
 type resourceTable struct {
 	widget.Table
-	tv *tableView
+	tv     *tableView
+	keying bool // set while a key moves Fyne's highlight (tablekeys.go)
+	shift  bool // Shift is held, for ⇧Tab
 }
 
 func newResourceTable(tv *tableView) *resourceTable {
@@ -829,7 +839,7 @@ func newResourceTable(tv *tableView) *resourceTable {
 	// lines and a full-row highlight themselves. HideSeparators hides both of Fyne's.
 	t.HideSeparators = true
 	t.OnSelected = tv.rowTapped
-	t.OnHighlighted = func(id widget.TableCellID) { tv.setHoverCell(id.Row, id.Col) }
+	t.OnHighlighted = tv.highlighted
 	t.ExtendBaseWidget(t)
 	return t
 }
@@ -871,15 +881,6 @@ func (t *resourceTable) MouseOut() {
 	t.tv.sh.tip.hide()
 }
 
-// TypedKey adds Escape (close the drawer) to the table's keyboard handling.
-func (t *resourceTable) TypedKey(ev *fyne.KeyEvent) {
-	if ev.Name == fyne.KeyEscape {
-		t.tv.sh.closeDrawer()
-		return
-	}
-	t.Table.TypedKey(ev)
-}
-
 // cellKind says what a body cell draws.
 type cellKind uint8
 
@@ -916,6 +917,7 @@ type tableCell struct {
 	icon  *canvas.Image  // made when the cell first shows an icon
 	line  *canvas.Rectangle
 	under *canvas.Rectangle // a hovered link's underline; made when the cell first shows a link
+	ring  *canvas.Rectangle // the keyboard's focus ring; made when the keyboard first reaches the cell
 	objs  int               // bumped when an object is added, so the renderer lists it
 
 	content   cellContent
@@ -926,6 +928,7 @@ type tableCell struct {
 	selected  bool
 	hover     bool // the pointer or the keyboard is on the row
 	linkHover bool // the pointer is on this cell, which is a link
+	focused   bool // the keyboard is on this cell (tablekeys.go)
 	tracked   bool // registered in tableView.cells
 	row, col  int
 }
@@ -970,6 +973,19 @@ func (c *tableCell) setSelected(on bool) {
 		c.selected = on
 		c.apply()
 	}
+}
+
+// setFocused rings the cell while the keyboard is on it.
+func (c *tableCell) setFocused(on bool) {
+	if on == c.focused {
+		return
+	}
+	c.focused = on
+	if c.ring == nil {
+		c.ring = canvas.NewRectangle(color.Transparent)
+		c.objs++
+	}
+	c.Refresh() // applies the ring's colour and lays it out; two cells per key press
 }
 
 // setHover marks the row as hovered and, for a link, the cell itself.
@@ -1063,6 +1079,18 @@ func (c *tableCell) apply() {
 		c.under.Refresh()
 	}
 	c.line.FillColor = themeColor(th, theme.ColorNameSeparator)
+	if c.ring != nil {
+		c.ring.FillColor = color.Transparent
+		c.ring.StrokeColor = themeColor(th, colorAccent)
+		c.ring.StrokeWidth = th.Size(theme.SizeNameInputBorder)
+		c.ring.CornerRadius = th.Size(theme.SizeNameSelectionRadius)
+		if c.focused {
+			c.ring.Show()
+		} else {
+			c.ring.Hide()
+		}
+		c.ring.Refresh()
+	}
 	c.setIcon(c.tv.cellIcon(c.content))
 	c.fit(th)
 	c.bg.Refresh()
@@ -1195,6 +1223,10 @@ func (r *tableCellRenderer) Layout(size fyne.Size) {
 	c.bg.Resize(fyne.NewSize(size.Width+gap, size.Height+gap))
 	c.line.Move(fyne.NewPos(-gap/2, size.Height+gap/2-1))
 	c.line.Resize(fyne.NewSize(size.Width+gap, 1))
+	if c.ring != nil {
+		c.ring.Move(fyne.NewPos(-gap/2, -gap/2))
+		c.ring.Resize(fyne.NewSize(size.Width+gap, size.Height+gap))
+	}
 	if c.fit(th) {
 		c.text.Refresh() // a column resize shortened or lengthened the text
 		for _, t := range c.more {
@@ -1251,6 +1283,9 @@ func (r *tableCellRenderer) Objects() []fyne.CanvasObject {
 		}
 		for _, t := range c.more {
 			r.objs = append(r.objs, t)
+		}
+		if c.ring != nil {
+			r.objs = append(r.objs, c.ring)
 		}
 	}
 	return r.objs
