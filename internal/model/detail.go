@@ -1,7 +1,6 @@
 package model
 
 import (
-	"sort"
 	"strings"
 	"time"
 
@@ -36,7 +35,7 @@ func MetadataSection(obj *unstructured.Unstructured, now time.Time) DetailSectio
 	if ns := obj.GetNamespace(); ns != "" {
 		s.Items = append(s.Items, DetailItem{Name: "Namespace", Value: ns})
 	}
-	if labels := sortedPairs(obj.GetLabels()); len(labels) > 0 {
+	if labels := SortedPairs(obj.GetLabels()); len(labels) > 0 {
 		s.Items = append(s.Items, DetailItem{Name: "Labels", Value: strings.Join(labels, "\n")})
 	}
 	if ann := obj.GetAnnotations(); len(ann) > 0 {
@@ -47,7 +46,7 @@ func MetadataSection(obj *unstructured.Unstructured, now time.Time) DetailSectio
 			}
 			filtered[k] = v
 		}
-		if pairs := sortedPairs(filtered); len(pairs) > 0 {
+		if pairs := SortedPairs(filtered); len(pairs) > 0 {
 			s.Items = append(s.Items, DetailItem{Name: "Annotations", Value: strings.Join(pairs, "\n")})
 		}
 	}
@@ -58,13 +57,4 @@ func MetadataSection(obj *unstructured.Unstructured, now time.Time) DetailSectio
 		s.Items = append(s.Items, DetailItem{Name: "UID", Value: string(uid)})
 	}
 	return s
-}
-
-func sortedPairs(m map[string]string) []string {
-	out := make([]string, 0, len(m))
-	for k, v := range m {
-		out = append(out, k+"="+v)
-	}
-	sort.Strings(out)
-	return out
 }
