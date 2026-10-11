@@ -242,11 +242,18 @@ func (b *Backend) CustomProfiles() []*model.KindProfile {
 	return nil
 }
 
-// Cached reports whether the backend's cache already watches a kind in all namespaces (a view, a
-// drawer or a lookup uses it, or used it within the warm period), so that reading it costs no
-// request.
+// Cached reports whether the backend's cache already watches a kind in all namespaces, in the
+// scope its profile gives it (a view, a drawer or a lookup uses it, or used it within the warm
+// period), so that reading it costs no request. A local kind is always cached: its store asks no
+// API server.
 func (b *Backend) Cached(p *model.KindProfile) bool {
-	return b.Cache != nil && p != nil && b.Cache.Running(cache.Scope{GVR: p.GVR()})
+	if p == nil {
+		return false
+	}
+	if p.Local {
+		return true
+	}
+	return b.Cache != nil && b.Cache.Running(b.Scope(p))
 }
 
 // customKindsNote explains why a custom resource kind key is unknown: the definitions are still

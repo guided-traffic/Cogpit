@@ -528,6 +528,9 @@ by hand, so the view, the drawer, `Lookup` and agents' reads of a kind share one
 Measured at the HTTP level: the Secrets of D-13 as metadata (`secrets (metadata)`) and Helm's
 release Secrets (`secrets with owner=helm`) are one initial list or streaming watch each, and no
 full or unselected Secrets request is sent (`TestBudgetSecretScopes`; on kind, `TestKindSecretScopes`).
+`resources.find` without a kind searches a virtual kind only when the cache holds it already
+(`Backend.Cached`, in the profile's scope), so an agent's search by name never starts the release
+Secrets' watch (review 2026-10-11, `TestBudgetFindWithoutKindStartsNoReleaseWatch`).
 The Secrets view's drawer (built 2026-10-11, [`secretdata.go`](../../internal/engine/secretdata.go))
 makes the one direct read of Secret values: a `get secrets` of the Secret it opens on, once per
 open, through `SecretReader` on `Backend.Writer` (`cluster.Conn.GetSecret`), skipped when the access

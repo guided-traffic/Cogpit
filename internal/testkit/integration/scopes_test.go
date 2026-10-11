@@ -2,13 +2,78 @@ package integration_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/cluster"
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/engine/commands"
+	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/testkit"
 )
+
+// TestBudgetFindWithoutKindStartsNoReleaseWatch: an agent's resources.find without a kind searches
+// the virtual kinds (Helm's releases) only when the cache holds them already: it must not start a
+// cluster-wide watch of the release Secrets, values and all, as a side effect of a search by name.
+// Once the releases are cached (their view was open), the same search finds them.
+func TestBudgetFindWithoutKindStartsNoReleaseWatch(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	srv := testkit.NewFakeAPIServer(testkit.FakeAPIOptions{
+		Resources: append(append([]testkit.FakeResource(nil), testkit.DefaultFakeResources...), testkit.FakeResource{GVR: testkit.SecretsGVR, Kind: "Secret", Namespaced: true}),
+	})
+	defer srv.Close()
+	srv.Set(testkit.SecretsGVR, helmSecret(t, "apps", "web", 1, "deployed"))
+	s := engine.New(engine.Options{
+		Connector:        &engine.ClusterConnector{KubeconfigPaths: []string{srv.WriteKubeconfig(t, "fake", "")}},
+		SnapshotInterval: 10 * time.Millisecond,
+	})
+	if err := commands.RegisterAll(s.Registry()); err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if err := s.Connect(ctx, "fake"); err != nil {
+		t.Fatal(err)
+	}
+	find := func() commands.FindResult {
+		t.Helper()
+		raw, _ := json.Marshal(map[string]any{"field": "name", "value": "web"})
+		res, err := s.Dispatch(ctx, engine.Invocation{ID: "resources.find", Params: raw, Origin: engine.OriginExternalAgent})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res.(commands.FindResult)
+	}
+	releaseRequests := func() int64 {
+		req := srv.Requests()
+		return req["list secrets with owner=helm"] + req["watchlist secrets with owner=helm"]
+	}
+
+	for _, m := range find().Matches {
+		if m.Ref.Kind == helm.ReleaseKind {
+			t.Errorf("found a release that was not cached: %+v", m)
+		}
+	}
+	if n := releaseRequests(); n != 0 {
+		t.Fatalf("resources.find without a kind started the release Secrets' watch: %v", srv.Requests())
+	}
+
+	if _, err := s.Objects(ctx, helm.ReleaseKind, nil); err != nil { // the Releases view opens
+		t.Fatal(err)
+	}
+	found := false
+	for _, m := range find().Matches {
+		found = found || (m.Ref.Kind == helm.ReleaseKind && m.Ref.Name == "web")
+	}
+	if !found {
+		t.Error("a search without a kind misses the cached releases")
+	}
+	if n := releaseRequests(); n != 1 {
+		t.Errorf("want the one initial request of the Releases view: %v", srv.Requests())
+	}
+}
 
 // TestBudgetSecretScopes proves the Secrets contract of D-13 (H-8, option b) at the HTTP level:
 // the metadata-only scope asks the server for PartialObjectMetadata, so no Secret value crosses
