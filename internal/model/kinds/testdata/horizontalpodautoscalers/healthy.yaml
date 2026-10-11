@@ -1,0 +1,74 @@
+# Synthetic: a deployment scaled on CPU utilization and average memory, with a scale-down
+# behaviour; able to scale, metrics flowing, not at a bound.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: web
+  namespace: shop
+  uid: 1f607182-aaaa-4f1a-2b3c-000000000001
+  creationTimestamp: "2026-09-20T08:00:00Z"
+  labels:
+    app: web
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: web
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: AverageValue
+        averageValue: 512Mi
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      selectPolicy: Max
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+status:
+  currentReplicas: 4
+  desiredReplicas: 4
+  lastScaleTime: "2026-10-11T10:30:00Z"
+  currentMetrics:
+  - type: Resource
+    resource:
+      name: memory
+      current:
+        averageValue: "301989888"
+  - type: Resource
+    resource:
+      name: cpu
+      current:
+        averageUtilization: 45
+        averageValue: 225m
+  conditions:
+  - type: AbleToScale
+    status: "True"
+    reason: ReadyForNewScale
+    message: recommended size matches current size
+    lastTransitionTime: "2026-09-20T08:01:00Z"
+  - type: ScalingActive
+    status: "True"
+    reason: ValidMetricFound
+    message: the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)
+    lastTransitionTime: "2026-09-20T08:01:00Z"
+  - type: ScalingLimited
+    status: "False"
+    reason: DesiredWithinRange
+    message: the desired count is within the acceptable range
+    lastTransitionTime: "2026-10-11T10:30:00Z"

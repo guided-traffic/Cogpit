@@ -1,0 +1,34 @@
+# Synthetic: the target was scaled to zero by hand, so the autoscaler switched itself off
+# (ScalingActive False, ScalingDisabled): not an error.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: reports
+  namespace: qa
+  uid: 1f607182-aaaa-4f1a-2b3c-000000000006
+  creationTimestamp: "2026-10-01T00:00:00Z"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: reports
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+status:
+  currentReplicas: 0
+  desiredReplicas: 0
+  conditions:
+  - type: AbleToScale
+    status: "True"
+    reason: SucceededGetScale
+  - type: ScalingActive
+    status: "False"
+    reason: ScalingDisabled
+    message: scaling is disabled since the replica count of the target is zero

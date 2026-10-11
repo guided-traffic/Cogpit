@@ -1,0 +1,89 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "horizontalpodautoscalers",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "metrics",
+      "text": "<none>"
+    },
+    {
+      "column": "minPods",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "maxPods",
+      "text": "4",
+      "num": 4
+    },
+    {
+      "column": "replicas",
+      "text": "0"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    },
+    {
+      "column": "status",
+      "text": "",
+      "status": "pending"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "metric": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "status": [],
+    "target": [
+      "Deployment/bare"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Reference",
+          "value": "Deployment/bare",
+          "link": {
+            "kind": "deployments",
+            "namespace": "default",
+            "name": "bare"
+          }
+        },
+        {
+          "name": "Min Pods",
+          "value": "1"
+        },
+        {
+          "name": "Max Pods",
+          "value": "4"
+        }
+      ]
+    }
+  ]
+}

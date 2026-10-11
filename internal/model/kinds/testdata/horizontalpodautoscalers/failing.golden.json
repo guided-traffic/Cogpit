@@ -1,0 +1,136 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "horizontalpodautoscalers",
+    "namespace": "payments",
+    "name": "worker"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "worker"
+    },
+    {
+      "column": "namespace",
+      "text": "payments",
+      "link": {
+        "kind": "namespaces",
+        "name": "payments"
+      }
+    },
+    {
+      "column": "metrics",
+      "text": "cpu: <unknown>/70%"
+    },
+    {
+      "column": "minPods",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "maxPods",
+      "text": "5",
+      "num": 5
+    },
+    {
+      "column": "replicas",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791709200
+    },
+    {
+      "column": "status",
+      "text": "AbleToScale",
+      "status": "error"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "metric": [
+      "cpu"
+    ],
+    "name": [
+      "worker"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "status": [
+      "AbleToScale"
+    ],
+    "target": [
+      "Deployment/worker"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Reference",
+          "value": "Deployment/worker",
+          "link": {
+            "kind": "deployments",
+            "namespace": "payments",
+            "name": "worker"
+          }
+        },
+        {
+          "name": "Min Pods",
+          "value": "1"
+        },
+        {
+          "name": "Max Pods",
+          "value": "5"
+        },
+        {
+          "name": "Current Replicas",
+          "value": "1"
+        },
+        {
+          "name": "Desired Replicas",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "title": "Metrics",
+      "table": {
+        "columns": [
+          "Metric",
+          "Type",
+          "Current",
+          "Target"
+        ],
+        "rows": [
+          [
+            "cpu",
+            "Resource",
+            "<unknown>",
+            "70%"
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "AbleToScale",
+          "value": "True (SucceededGetScale): the HPA controller was able to get the target's current scale",
+          "status": "ok"
+        },
+        {
+          "name": "ScalingActive",
+          "value": "False (FailedGetResourceMetric): the HPA was unable to compute the replica count: failed to get cpu utilization: unable to get metrics for resource cpu: no metrics returned from resource metrics API",
+          "status": "error"
+        }
+      ]
+    }
+  ]
+}

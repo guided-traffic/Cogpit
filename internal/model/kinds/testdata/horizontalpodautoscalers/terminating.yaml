@@ -1,0 +1,45 @@
+# Synthetic: an autoscaler held by a finalizer while it is deleted.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: legacy-api
+  namespace: legacy
+  uid: 1f607182-aaaa-4f1a-2b3c-000000000003
+  creationTimestamp: "2026-03-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - autoscaling.example.com/drain
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: legacy-api
+  minReplicas: 3
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60
+status:
+  currentReplicas: 3
+  desiredReplicas: 3
+  currentMetrics:
+  - type: Resource
+    resource:
+      name: cpu
+      current:
+        averageUtilization: 12
+  conditions:
+  - type: AbleToScale
+    status: "True"
+    reason: ReadyForNewScale
+  - type: ScalingActive
+    status: "True"
+    reason: ValidMetricFound
+  - type: ScalingLimited
+    status: "True"
+    reason: TooFewReplicas
+    message: the desired replica count is less than the minimum replica count

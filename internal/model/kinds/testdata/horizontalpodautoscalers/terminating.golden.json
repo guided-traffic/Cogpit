@@ -1,0 +1,140 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "horizontalpodautoscalers",
+    "namespace": "legacy",
+    "name": "legacy-api"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-api"
+    },
+    {
+      "column": "namespace",
+      "text": "legacy",
+      "link": {
+        "kind": "namespaces",
+        "name": "legacy"
+      }
+    },
+    {
+      "column": "metrics",
+      "text": "cpu: 12%/60%"
+    },
+    {
+      "column": "minPods",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "maxPods",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "replicas",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "age",
+      "text": "224d",
+      "num": 1772323200
+    },
+    {
+      "column": "status",
+      "text": "AbleToScale ScalingActive ScalingLimited",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "metric": [
+      "cpu"
+    ],
+    "name": [
+      "legacy-api"
+    ],
+    "namespace": [
+      "legacy"
+    ],
+    "status": [
+      "AbleToScale ScalingActive ScalingLimited"
+    ],
+    "target": [
+      "StatefulSet/legacy-api"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Reference",
+          "value": "StatefulSet/legacy-api",
+          "link": {
+            "kind": "statefulsets",
+            "namespace": "legacy",
+            "name": "legacy-api"
+          }
+        },
+        {
+          "name": "Min Pods",
+          "value": "3"
+        },
+        {
+          "name": "Max Pods",
+          "value": "3"
+        },
+        {
+          "name": "Current Replicas",
+          "value": "3"
+        },
+        {
+          "name": "Desired Replicas",
+          "value": "3"
+        }
+      ]
+    },
+    {
+      "title": "Metrics",
+      "table": {
+        "columns": [
+          "Metric",
+          "Type",
+          "Current",
+          "Target"
+        ],
+        "rows": [
+          [
+            "cpu",
+            "Resource",
+            "12%",
+            "60%"
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "AbleToScale",
+          "value": "True (ReadyForNewScale)",
+          "status": "ok"
+        },
+        {
+          "name": "ScalingActive",
+          "value": "True (ValidMetricFound)",
+          "status": "ok"
+        },
+        {
+          "name": "ScalingLimited",
+          "value": "True (TooFewReplicas): the desired replica count is less than the minimum replica count"
+        }
+      ]
+    }
+  ]
+}

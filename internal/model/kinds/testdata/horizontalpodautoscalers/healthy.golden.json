@@ -1,0 +1,157 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "horizontalpodautoscalers",
+    "namespace": "shop",
+    "name": "web"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "web"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "metrics",
+      "text": "cpu: 45%/80%, memory: 301989888/512Mi"
+    },
+    {
+      "column": "minPods",
+      "text": "2",
+      "num": 2
+    },
+    {
+      "column": "maxPods",
+      "text": "10",
+      "num": 10
+    },
+    {
+      "column": "replicas",
+      "text": "4",
+      "num": 4
+    },
+    {
+      "column": "age",
+      "text": "21d",
+      "num": 1789891200
+    },
+    {
+      "column": "status",
+      "text": "AbleToScale ScalingActive",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "label": [
+      "app=web"
+    ],
+    "metric": [
+      "cpu",
+      "memory"
+    ],
+    "name": [
+      "web"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "status": [
+      "AbleToScale ScalingActive"
+    ],
+    "target": [
+      "Deployment/web"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Reference",
+          "value": "Deployment/web",
+          "link": {
+            "kind": "deployments",
+            "namespace": "shop",
+            "name": "web"
+          }
+        },
+        {
+          "name": "Min Pods",
+          "value": "2"
+        },
+        {
+          "name": "Max Pods",
+          "value": "10"
+        },
+        {
+          "name": "Current Replicas",
+          "value": "4"
+        },
+        {
+          "name": "Desired Replicas",
+          "value": "4"
+        },
+        {
+          "name": "Last Scale",
+          "value": "2026-10-11T10:30:00Z"
+        },
+        {
+          "name": "Scale Down",
+          "value": "50% per 60s, 2 pods per 60s; select Max; stabilization window 300s"
+        }
+      ]
+    },
+    {
+      "title": "Metrics",
+      "table": {
+        "columns": [
+          "Metric",
+          "Type",
+          "Current",
+          "Target"
+        ],
+        "rows": [
+          [
+            "cpu",
+            "Resource",
+            "45%",
+            "80%"
+          ],
+          [
+            "memory",
+            "Resource",
+            "301989888",
+            "512Mi"
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "AbleToScale",
+          "value": "True (ReadyForNewScale): recommended size matches current size",
+          "status": "ok"
+        },
+        {
+          "name": "ScalingActive",
+          "value": "True (ValidMetricFound): the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)",
+          "status": "ok"
+        },
+        {
+          "name": "ScalingLimited",
+          "value": "False (DesiredWithinRange): the desired count is within the acceptable range"
+        }
+      ]
+    }
+  ]
+}

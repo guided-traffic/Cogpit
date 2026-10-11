@@ -1,0 +1,100 @@
+# Synthetic: held at maxReplicas while it wants more (ScalingLimited TooManyReplicas), with every
+# metric type: a container resource, pods, object and external metrics; the status lists them in
+# another order than the spec, and the external metric has no current value yet.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ingest
+  namespace: pipeline
+  uid: 1f607182-aaaa-4f1a-2b3c-000000000005
+  creationTimestamp: "2026-10-04T12:00:00Z"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ingest
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  - type: ContainerResource
+    containerResource:
+      name: cpu
+      container: app
+      target:
+        type: Utilization
+        averageUtilization: 75
+  - type: Pods
+    pods:
+      metric:
+        name: packets-per-second
+      target:
+        type: AverageValue
+        averageValue: 1k
+  - type: Object
+    object:
+      metric:
+        name: requests-per-second
+      describedObject:
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        name: ingest
+      target:
+        type: Value
+        value: 10k
+  - type: External
+    external:
+      metric:
+        name: queue_messages_ready
+        selector:
+          matchLabels:
+            queue: ingest
+      target:
+        type: AverageValue
+        averageValue: "30"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Pods
+        value: 4
+        periodSeconds: 15
+status:
+  currentReplicas: 8
+  desiredReplicas: 8
+  lastScaleTime: "2026-10-11T11:40:00Z"
+  currentMetrics:
+  - type: Object
+    object:
+      metric:
+        name: requests-per-second
+      describedObject:
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        name: ingest
+      current:
+        value: 14200
+  - type: Pods
+    pods:
+      metric:
+        name: packets-per-second
+      current:
+        averageValue: 1450
+  - type: ContainerResource
+    containerResource:
+      name: cpu
+      container: app
+      current:
+        averageUtilization: 96
+        averageValue: 960m
+  conditions:
+  - type: AbleToScale
+    status: "True"
+    reason: ScaleDownStabilized
+    message: recent recommendations were higher than current one, applying the highest recent recommendation
+  - type: ScalingActive
+    status: "True"
+    reason: ValidMetricFound
+  - type: ScalingLimited
+    status: "True"
+    reason: TooManyReplicas
+    message: the desired replica count is more than the maximum replica count

@@ -1,0 +1,13 @@
+# Synthetic: optional fields missing: no minReplicas (the API defaults it to 1), no metrics, no
+# status, no uid.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: bare
+  namespace: default
+  creationTimestamp: "2026-10-11T11:00:00Z"
+spec:
+  scaleTargetRef:
+    kind: Deployment
+    name: bare
+  maxReplicas: 4

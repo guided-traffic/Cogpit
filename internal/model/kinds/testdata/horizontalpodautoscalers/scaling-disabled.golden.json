@@ -1,0 +1,133 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "horizontalpodautoscalers",
+    "namespace": "qa",
+    "name": "reports"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "reports"
+    },
+    {
+      "column": "namespace",
+      "text": "qa",
+      "link": {
+        "kind": "namespaces",
+        "name": "qa"
+      }
+    },
+    {
+      "column": "metrics",
+      "text": "cpu: <unknown>/80%"
+    },
+    {
+      "column": "minPods",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "maxPods",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "replicas",
+      "text": "0"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790812800
+    },
+    {
+      "column": "status",
+      "text": "AbleToScale"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "metric": [
+      "cpu"
+    ],
+    "name": [
+      "reports"
+    ],
+    "namespace": [
+      "qa"
+    ],
+    "status": [
+      "AbleToScale"
+    ],
+    "target": [
+      "Deployment/reports"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Reference",
+          "value": "Deployment/reports",
+          "link": {
+            "kind": "deployments",
+            "namespace": "qa",
+            "name": "reports"
+          }
+        },
+        {
+          "name": "Min Pods",
+          "value": "1"
+        },
+        {
+          "name": "Max Pods",
+          "value": "3"
+        },
+        {
+          "name": "Current Replicas",
+          "value": "0"
+        },
+        {
+          "name": "Desired Replicas",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "title": "Metrics",
+      "table": {
+        "columns": [
+          "Metric",
+          "Type",
+          "Current",
+          "Target"
+        ],
+        "rows": [
+          [
+            "cpu",
+            "Resource",
+            "<unknown>",
+            "80%"
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "AbleToScale",
+          "value": "True (SucceededGetScale)",
+          "status": "ok"
+        },
+        {
+          "name": "ScalingActive",
+          "value": "False (ScalingDisabled): scaling is disabled since the replica count of the target is zero"
+        }
+      ]
+    }
+  ]
+}

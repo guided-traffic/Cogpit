@@ -1,0 +1,170 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "horizontalpodautoscalers",
+    "namespace": "pipeline",
+    "name": "ingest"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "ingest"
+    },
+    {
+      "column": "namespace",
+      "text": "pipeline",
+      "link": {
+        "kind": "namespaces",
+        "name": "pipeline"
+      }
+    },
+    {
+      "column": "metrics",
+      "text": "cpu (app): 96%/75%, packets-per-second: 1450/1k + 2 more..."
+    },
+    {
+      "column": "minPods",
+      "text": "2",
+      "num": 2
+    },
+    {
+      "column": "maxPods",
+      "text": "8",
+      "num": 8
+    },
+    {
+      "column": "replicas",
+      "text": "8",
+      "num": 8
+    },
+    {
+      "column": "age",
+      "text": "7d",
+      "num": 1791115200
+    },
+    {
+      "column": "status",
+      "text": "AbleToScale ScalingActive ScalingLimited",
+      "status": "warning"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "metric": [
+      "cpu (app)",
+      "packets-per-second",
+      "requests-per-second",
+      "queue_messages_ready"
+    ],
+    "name": [
+      "ingest"
+    ],
+    "namespace": [
+      "pipeline"
+    ],
+    "status": [
+      "AbleToScale ScalingActive ScalingLimited"
+    ],
+    "target": [
+      "Deployment/ingest"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Reference",
+          "value": "Deployment/ingest",
+          "link": {
+            "kind": "deployments",
+            "namespace": "pipeline",
+            "name": "ingest"
+          }
+        },
+        {
+          "name": "Min Pods",
+          "value": "2"
+        },
+        {
+          "name": "Max Pods",
+          "value": "8"
+        },
+        {
+          "name": "Current Replicas",
+          "value": "8"
+        },
+        {
+          "name": "Desired Replicas",
+          "value": "8"
+        },
+        {
+          "name": "Last Scale",
+          "value": "2026-10-11T11:40:00Z"
+        },
+        {
+          "name": "Scale Up",
+          "value": "4 pods per 15s; stabilization window 0s"
+        }
+      ]
+    },
+    {
+      "title": "Metrics",
+      "table": {
+        "columns": [
+          "Metric",
+          "Type",
+          "Current",
+          "Target"
+        ],
+        "rows": [
+          [
+            "cpu (app)",
+            "ContainerResource",
+            "96%",
+            "75%"
+          ],
+          [
+            "packets-per-second",
+            "Pods",
+            "1450",
+            "1k"
+          ],
+          [
+            "requests-per-second",
+            "Object",
+            "14200",
+            "10k"
+          ],
+          [
+            "queue_messages_ready",
+            "External",
+            "<unknown>",
+            "30"
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "AbleToScale",
+          "value": "True (ScaleDownStabilized): recent recommendations were higher than current one, applying the highest recent recommendation",
+          "status": "ok"
+        },
+        {
+          "name": "ScalingActive",
+          "value": "True (ValidMetricFound)",
+          "status": "ok"
+        },
+        {
+          "name": "ScalingLimited",
+          "value": "True (TooManyReplicas): the desired replica count is more than the maximum replica count",
+          "status": "warning"
+        }
+      ]
+    }
+  ]
+}
