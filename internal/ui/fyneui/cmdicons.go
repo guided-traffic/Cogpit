@@ -34,6 +34,7 @@ var commandIcons = map[string]fyne.ThemeIconName{
 	"cronjob.trigger":     theme.IconNameMediaSkipNext,
 	"cronjob.suspend":     theme.IconNameMediaPause,
 	"cronjob.resume":      theme.IconNameMediaPlay,
+	"object.copyName":     theme.IconNameContentCopy,
 	"object.edit":         theme.IconNameDocumentCreate,
 	"object.delete":       theme.IconNameDelete,
 

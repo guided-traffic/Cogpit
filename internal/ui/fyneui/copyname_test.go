@@ -1,0 +1,92 @@
+package fyneui
+
+import (
+	"context"
+	"encoding/json"
+	"testing"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/test"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/engine/commands"
+	"github.com/guided-traffic/cogpit/internal/model"
+)
+
+// TestCopyIsFirstInEveryDrawer: with the real registry, Copy (object.copyName) leads every kind's
+// drawer actions, and row menus leave it out (TestRegistryMenusAsLens).
+func TestCopyIsFirstInEveryDrawer(t *testing.T) {
+	r := engine.NewRegistry()
+	if err := commands.RegisterAll(r); err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []string{"pods", "nodes", "deployments", "cronjobs", "configmaps", "gateways.gateway.networking.k8s.io"} {
+		acts := r.Actions(kind)
+		if len(acts) == 0 || acts[0].ID != "object.copyName" || !acts[0].DrawerOnly {
+			t.Errorf("%s: drawer actions start with %v", kind, acts)
+		}
+	}
+}
+
+// withCopy registers Copy on the fake and answers it with the object's name, as the engine does.
+func withCopy(t testing.TB, f *fakeEngine) {
+	t.Helper()
+	if err := engine.Register(f.reg, engine.Spec[probeRef]{ID: "object.copyName", Label: "Copy", Order: 10, DrawerOnly: true,
+		Danger: engine.DangerUI, Run: func(context.Context, *engine.Session, probeRef) (any, error) { return nil, nil }}); err != nil {
+		t.Fatal(err)
+	}
+	f.handlers["object.copyName"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p probeRef
+		if err := json.Unmarshal(inv.Params, &p); err != nil {
+			return nil, err
+		}
+		return map[string]any{"ref": p.Ref, "name": p.Ref.Name}, nil
+	}
+}
+
+// copyScene is the pod drawer with Copy among its actions.
+func copyScene(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, model.ObjectRef) {
+	t.Helper()
+	f := kindsFake(t, "pods")
+	registerProbes(t, f)
+	withCopy(t, f)
+	ref := podDrawerRef(t)
+	f.ui.Selected, f.ui.Drawer = []model.ObjectRef{ref}, &ref
+	sh, w, q := newTestShell(t, f, Options{Theme: mode})
+	q.until(t, "the drawer's actions", func() bool {
+		return len(sh.kinds) > 0 && sh.drawer.last != nil && len(sh.drawer.actions.Objects) > 0 && sh.diag.total > 0
+	})
+	return sh, w, q, ref
+}
+
+// TestCopyPutsTheNameOnTheClipboard: the drawer's first action is Copy; it puts the object's name
+// on the clipboard and says so.
+func TestCopyPutsTheNameOnTheClipboard(t *testing.T) {
+	sh, _, q, ref := copyScene(t, ThemeDark)
+	b := sh.drawer.actions.Objects[0].(*tipButton)
+	if b.tip != "Copy" {
+		t.Fatalf("first action %q", b.tip)
+	}
+	sh.app.Clipboard().SetContent("")
+	toasts := len(sh.toasts.Objects)
+	test.Tap(b)
+	q.until(t, "the name on the clipboard", func() bool { return sh.app.Clipboard().Content() == ref.Name })
+	q.until(t, "the toast", func() bool { return len(sh.toasts.Objects) > toasts })
+	if got := labels(sh.rowMenu(ref, sh.evaluateActions(ref, []string{"app"}))); got[1] == "Copy" {
+		t.Errorf("Copy in the row menu: %q", got)
+	}
+}
+
+func TestRenderCopyDark(t *testing.T) {
+	sh, w, q, _ := copyScene(t, ThemeDark)
+	test.Tap(sh.drawer.actions.Objects[0].(*tipButton))
+	q.until(t, "the toast", func() bool { return len(sh.toasts.Objects) > 0 })
+	savePNG(t, w, "drawer_copy_dark.png")
+}
+
+func TestRenderCopyLight(t *testing.T) {
+	sh, w, q, _ := copyScene(t, ThemeLight)
+	test.Tap(sh.drawer.actions.Objects[0].(*tipButton))
+	q.until(t, "the toast", func() bool { return len(sh.toasts.Objects) > 0 })
+	savePNG(t, w, "drawer_copy_light.png")
+}

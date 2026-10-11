@@ -38,7 +38,9 @@ func TestRegistryMenusAsLens(t *testing.T) {
 	} {
 		var got []string
 		for _, c := range s.Registry().Actions(tt.kind) {
-			got = append(got, c.ID)
+			if !c.DrawerOnly { // Copy, first in every drawer (TestCopyIsFirstInEveryDrawer)
+				got = append(got, c.ID)
+			}
 		}
 		if strings.Join(got, ",") != strings.Join(tt.want, ",") {
 			t.Errorf("%s: actions %v, want %v (not built: %s)", tt.kind, got, tt.want, tt.missing)

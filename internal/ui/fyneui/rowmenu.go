@@ -117,7 +117,7 @@ func (sh *shell) runAction(a actionState, ref model.ObjectRef, container string)
 		sh.openParamDialog(a.cmd, ref, a.prefill)
 		return
 	}
-	sh.dispatch(a.cmd.ID, a.cmd.ObjectParams(ref, container), nil)
+	sh.dispatch(a.cmd.ID, a.cmd.ObjectParams(ref, container), sh.actionDone(a.cmd.ID))
 }
 
 // rowMenu builds the actions menu of a row, as Lens's (capture, 2026-10-11): Show Details, then
