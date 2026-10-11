@@ -103,6 +103,24 @@ data: hunter2
 	}
 }
 
+// A Secret Helm applies but whose text hides it from a substring search: a document on the line
+// of its "---" (Helm splits manifests at `(?m)^---[ \t]*`, so the rest of that line is the
+// document), and a kind spelled with a YAML escape, which decodes to "Secret". Both lose their
+// values like any other Secret.
+func TestRedactManifestFindsHiddenSecrets(t *testing.T) {
+	for name, manifest := range map[string]string{
+		"inline after the separator": "---\n# Source: web/templates/cm.yaml\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: web\n" +
+			"--- {apiVersion: v1, kind: Secret, metadata: {name: inline}, stringData: {password: hunter2}}\n",
+		"escaped kind": "---\n# Source: web/templates/secret.yaml\napiVersion: v1\nkind: \"Secr\\u0065t\"\nmetadata:\n  name: escaped\n" +
+			"stringData:\n  password: hunter2\n",
+	} {
+		got := redactManifest(manifest)
+		if strings.Contains(got, "hunter2") {
+			t.Errorf("%s: the value survived:\n%s", name, got)
+		}
+	}
+}
+
 func FuzzRedactManifest(f *testing.F) {
 	f.Add("apiVersion: v1\nkind: Secret\ndata:\n  k: dg==\n")
 	f.Add("---\nkind: List\nitems:\n- kind: Secret\n  stringData: {a: b}\n")

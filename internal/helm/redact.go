@@ -22,14 +22,12 @@ var secretKindLine = regexp.MustCompile(`(?m)^[\s-]*"?kind"?\s*:\s*["']?Secret(L
 // redactManifest returns a rendered manifest with the values of every Secret replaced by
 // model.Redacted: Secret documents, and the Secret items of List documents. A document that names
 // a Secret kind but does not parse is replaced by a note with its size. Every other document is
-// kept as it is, its comments included.
+// kept as it is, its comments included. Every document is parsed: a kind spelled with a YAML
+// escape ("Secret") is a Secret that no search of the text finds.
 func redactManifest(manifest string) string {
-	if !strings.Contains(manifest, "Secret") {
-		return manifest
-	}
 	docs := splitDocuments(manifest)
 	for i, d := range docs {
-		if strings.Contains(d.body, "Secret") {
+		if strings.TrimSpace(d.body) != "" {
 			docs[i].body = redactDocument(d.body)
 		}
 	}
@@ -46,17 +44,25 @@ func redactManifest(manifest string) string {
 // and its text.
 type document struct{ sep, body string }
 
-// splitDocuments splits a manifest at its document separators, lines that start with "---".
+// splitDocuments splits a manifest at its document separators, lines that start with "---", as
+// Helm does (`(?m)^---[ \t]*`): what follows the dashes and blanks on the separator's line is the
+// start of the next document ("--- {kind: Secret, ...}"), not part of the separator.
 func splitDocuments(text string) []document {
 	var docs []document
 	cur := document{}
 	for line := range strings.SplitAfterSeq(text, "\n") {
-		if strings.HasPrefix(line, "---") {
-			docs = append(docs, cur)
+		rest, ok := strings.CutPrefix(line, "---")
+		if !ok {
+			cur.body += line
+			continue
+		}
+		docs = append(docs, cur)
+		content := strings.TrimLeft(rest, " \t")
+		if c := strings.TrimSpace(content); c == "" || strings.HasPrefix(c, "#") {
 			cur = document{sep: line}
 			continue
 		}
-		cur.body += line
+		cur = document{sep: line[:len(line)-len(content)] + "\n", body: content}
 	}
 	return append(docs, cur)
 }
