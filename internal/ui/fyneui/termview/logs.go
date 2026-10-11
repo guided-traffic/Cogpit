@@ -42,6 +42,10 @@ const truncatedMark = " …"
 // characters (log lines are untrusted text, never markup) and queues them; a flusher hands the
 // queue to the main goroutine at most every logFlushEvery. Only the main goroutine touches the
 // widgets and the scrollback, and the list renders only the visible rows.
+//
+// How the lines show is a LogView (SetView): the resource names and timestamps in their colours or
+// hidden, long lines wrapped, a search highlighted or filtering. The list's rows are an index over
+// the kept lines, a part of a line each, kept up to date as lines come and go.
 type Logs struct {
 	widget.BaseWidget
 	stream io.ReadCloser
@@ -59,10 +63,20 @@ type Logs struct {
 	// Main goroutine only.
 	lines       *lineRing
 	follow      bool
-	list        *widget.List
+	list        *logList
 	followCheck *widget.Check
 	status      *widget.Label
+	controls    *fyne.Container // the caller's controls in the bar (SetControls)
 	batch       []string
+	view        LogView
+	rows        []displayRow // the list's rows, oldest first
+	rowLines    int          // lines with at least one row
+	cols        int          // characters per row while wrapping; 0 until laid out
+	runs        []logRun     // scratch for rendering a row
+	// The stream's state as the status shows it: lines received, and its end.
+	stReceived int64
+	stEnded    bool
+	stErr      error
 
 	stop       chan struct{}
 	flushed    chan struct{} // closed when the flusher has published the end of the stream or stopped
@@ -87,21 +101,13 @@ func NewLogsOn(stream io.ReadCloser, do func(func())) *Logs {
 		stop:    make(chan struct{}),
 		flushed: make(chan struct{}),
 	}
-	l.list = widget.NewList(
-		func() int { return l.lines.len() },
-		func() fyne.CanvasObject {
-			t := canvas.NewText("", theme.Color(theme.ColorNameForeground))
-			t.TextStyle = fyne.TextStyle{Monospace: true}
-			return t
-		},
-		func(id widget.ListItemID, o fyne.CanvasObject) {
-			t := o.(*canvas.Text)
-			t.Text = shownText(l.lines.at(id))
-			t.Color = theme.Color(theme.ColorNameForeground)
-			t.Refresh()
-		},
-	)
+	l.list = &logList{}
+	l.list.Length = func() int { return len(l.rows) }
+	l.list.CreateItem = func() fyne.CanvasObject { return newLogRow() }
+	l.list.UpdateItem = func(id widget.ListItemID, o fyne.CanvasObject) { o.(*logRow).set(l.rowRuns(id)) }
 	l.list.HideSeparators = true
+	l.list.ExtendBaseWidget(l.list)
+	l.controls = container.NewHBox()
 	l.followCheck = widget.NewCheck("Follow", nil)
 	l.followCheck.Checked = true
 	l.followCheck.OnChanged = l.setFollow
@@ -124,8 +130,156 @@ func (l *Logs) Close() error {
 
 // CreateRenderer implements fyne.Widget.
 func (l *Logs) CreateRenderer() fyne.WidgetRenderer {
-	bar := container.NewHBox(l.followCheck, layout.NewSpacer(), l.status)
-	return widget.NewSimpleRenderer(container.NewBorder(bar, nil, nil, nil, l.list))
+	bar := container.NewHBox(l.followCheck, l.controls, layout.NewSpacer(), l.status)
+	return &logsRenderer{l: l, root: container.NewBorder(bar, nil, nil, nil, l.list)}
+}
+
+// logsRenderer lays the bar and the list out and, while wrapping, re-wraps when the width in
+// characters changes.
+type logsRenderer struct {
+	l    *Logs
+	root *fyne.Container
+}
+
+func (r *logsRenderer) Layout(size fyne.Size) {
+	r.root.Resize(size)
+	r.l.widthChanged(r.l.list.Size().Width)
+}
+
+func (r *logsRenderer) MinSize() fyne.Size           { return r.root.MinSize() }
+func (r *logsRenderer) Refresh()                     { r.root.Refresh() }
+func (r *logsRenderer) Objects() []fyne.CanvasObject { return []fyne.CanvasObject{r.root} }
+func (r *logsRenderer) Destroy()                     {}
+
+// SetControls puts the caller's controls in the bar, after Follow. Main goroutine only.
+func (l *Logs) SetControls(objs ...fyne.CanvasObject) {
+	l.controls.Objects = objs
+	l.controls.Refresh()
+}
+
+// SetOnSlash sets what "/" does while the list has the keyboard focus: the logs tab focuses its
+// search. Main goroutine only.
+func (l *Logs) SetOnSlash(fn func()) { l.list.onSlash = fn }
+
+// View returns how the lines show. Main goroutine only.
+func (l *Logs) View() LogView { return l.view }
+
+// SetView changes how the lines show and rebuilds the rows. Main goroutine only.
+func (l *Logs) SetView(v LogView) {
+	if v == l.view {
+		return
+	}
+	l.view = v
+	l.rebuildRows()
+	l.refreshKeepingPlace(0)
+	l.updateStatus()
+}
+
+// ShownLines returns every line the view holds as it shows them (names and timestamps as shown,
+// not filtered, not wrapped): what a download saves. Main goroutine only.
+func (l *Logs) ShownLines() []string {
+	out := make([]string, 0, l.lines.len())
+	for i := range l.lines.len() {
+		text, _ := l.view.shown(l.lines.at(i))
+		out = append(out, text)
+	}
+	return out
+}
+
+// widthChanged re-wraps the rows when the width in characters changed while wrapping.
+func (l *Logs) widthChanged(width float32) {
+	th := l.list.Theme()
+	// The scroll bar and the row's inner padding take from the text's room.
+	room := width - th.Size(theme.SizeNameScrollBar) - 2*th.Size(theme.SizeNamePadding)
+	cols := max(int(room/charWidth(th)), 1)
+	if cols == l.cols {
+		return
+	}
+	l.cols = cols
+	if l.view.Wrap {
+		l.rebuildRows()
+		l.refreshKeepingPlace(0)
+	}
+}
+
+// rebuildRows indexes every kept line again under the current view.
+func (l *Logs) rebuildRows() {
+	l.rows, l.rowLines = l.rows[:0], 0
+	for i := range l.lines.len() {
+		l.addRows(l.lines.evicted + int64(i))
+	}
+}
+
+// addRows appends the rows of one kept line, if the view shows it.
+func (l *Logs) addRows(abs int64) {
+	text, _ := l.view.shown(l.lines.at(int(abs - l.lines.evicted)))
+	if l.view.Filter && !l.view.matches(text) {
+		return
+	}
+	l.rowLines++
+	if !l.view.Wrap {
+		l.rows = append(l.rows, displayRow{line: abs, to: -1})
+		return
+	}
+	wrapLine(text, l.cols, func(from, to int) {
+		l.rows = append(l.rows, displayRow{line: abs, from: int32(from), to: int32(to)})
+	})
+}
+
+// trimRows drops the rows of lines the scrollback dropped and returns how many it dropped.
+func (l *Logs) trimRows() int {
+	first, n := l.lines.evicted, 0
+	var last int64 = -1
+	for n < len(l.rows) && l.rows[n].line < first {
+		if l.rows[n].line != last {
+			l.rowLines--
+			last = l.rows[n].line
+		}
+		n++
+	}
+	if n > 0 {
+		l.rows = append(l.rows[:0], l.rows[n:]...)
+	}
+	return n
+}
+
+// rowRuns returns the coloured runs of row id. Main goroutine only.
+func (l *Logs) rowRuns(id widget.ListItemID) []logRun {
+	if id < 0 || id >= len(l.rows) {
+		return nil
+	}
+	r := l.rows[id]
+	text, sp := l.view.shown(l.lines.at(int(r.line - l.lines.evicted)))
+	from, to := int(r.from), int(r.to)
+	if to < 0 || to > len(text) {
+		to = len(text)
+	}
+	from = min(from, to)
+	cut := false
+	if !l.view.Wrap && to-from > logMaxShownBytes {
+		to = from + len(shownText(text[from:to])) - len(truncatedMark)
+		cut = true
+	}
+	l.runs = runsOf(text, sp, from, to, l.view.Search, l.runs)
+	if cut {
+		l.runs = append(l.runs, logRun{text: truncatedMark, color: theme.ColorNamePlaceHolder})
+	}
+	return l.runs
+}
+
+// refreshKeepingPlace redraws the list after dropped rows were taken off its front: following, it
+// stays at the newest row; else the rows in view stay where they are.
+func (l *Logs) refreshKeepingPlace(dropped int) {
+	if l.follow {
+		l.list.Refresh()
+		l.list.ScrollToBottom()
+		return
+	}
+	offset := l.list.GetScrollOffset()
+	l.list.Refresh()
+	if dropped > 0 {
+		l.list.ScrollToOffset(offset - float32(dropped)*l.stride())
+	}
 }
 
 // setFollow is the Follow toggle: on, the view jumps to the newest line and stays there.
@@ -255,25 +409,29 @@ func (l *Logs) onMain(fn func()) bool {
 
 // apply adds a batch to the scrollback and updates the widgets. Main goroutine only.
 func (l *Logs) apply(batch []string, received int64, ended bool, endErr error) {
-	evictedBefore := l.lines.evicted
 	for _, s := range batch {
 		l.lines.push(s)
 	}
-	evicted := l.lines.evicted - evictedBefore
+	// Rows of dropped lines go; the new lines that are still kept get theirs. Dropped rows shift
+	// every index, so a view that does not follow moves up by their height.
+	dropped := l.trimRows()
+	total := l.lines.evicted + int64(l.lines.len())
+	for abs := max(total-int64(len(batch)), l.lines.evicted); abs < total; abs++ {
+		l.addRows(abs)
+	}
+	l.stReceived, l.stEnded, l.stErr = received, ended, endErr
+	l.updateStatus()
+	l.refreshKeepingPlace(dropped)
+}
 
-	l.status.SetText(statusText(l.lines.len(), received, ended, endErr))
-	if l.follow {
-		l.list.Refresh()
-		l.list.ScrollToBottom()
-		return
+// updateStatus shows how many lines the view holds, how many match a filter, and the stream's
+// end.
+func (l *Logs) updateStatus() {
+	text := statusText(l.lines.len(), l.stReceived, l.stEnded, l.stErr)
+	if l.view.Filter && l.view.Search != "" {
+		text = fmt.Sprintf("%d of %s", l.rowLines, text)
 	}
-	// Not following: keep the lines in view where they are. Evicted lines shift every index, so
-	// the offset moves up by their height.
-	offset := l.list.GetScrollOffset()
-	l.list.Refresh()
-	if evicted > 0 {
-		l.list.ScrollToOffset(offset - float32(evicted)*l.stride())
-	}
+	l.status.SetText(text)
 }
 
 // stride is the height of one list row.

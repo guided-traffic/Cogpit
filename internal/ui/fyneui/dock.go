@@ -18,10 +18,11 @@ import (
 )
 
 // dock is the bottom panel: a tab strip (tabs from UIState.Dock, a "+" menu, a collapse toggle)
-// above the active tab's content. Log tabs show termview.Logs on Session.OpenLogs; terminal,
-// shell and attach tabs show termview.Terminal on Session.OpenTerminal; Edit and Create resource tabs show a
-// YAML editor whose text lives in the engine (editortab.go, createtab.go). A stream is opened when
-// its tab appears and closed when it disappears.
+// above the active tab's content. Log tabs show termview.Logs on Session.OpenLogs with their
+// options' toolbar (logtab.go); terminal, shell and attach tabs show termview.Terminal on
+// Session.OpenTerminal; Edit and Create resource tabs show a YAML editor whose text lives in the
+// engine (editortab.go, createtab.go). A stream is opened when its tab appears and closed when it
+// disappears.
 type dock struct {
 	sh *shell
 
@@ -46,6 +47,7 @@ type dockContent struct {
 	cancel context.CancelFunc
 	closer io.Closer
 	editor dockEditor // Edit and Create resource tabs
+	logs   *logTab    // logs tabs (logtab.go)
 	closed bool
 }
 
@@ -96,9 +98,12 @@ func (d *dock) sync(tabs []engine.DockTab, active string) {
 	seen := make(map[string]bool, len(tabs))
 	for _, t := range tabs {
 		seen[t.ID] = true
-		if _, ok := d.contents[t.ID]; !ok {
+		c, ok := d.contents[t.ID]
+		if !ok {
 			d.contents[t.ID] = d.openTab(t)
 			added = true
+		} else if c.logs != nil {
+			c.logs.update(t)
 		}
 	}
 	for id, c := range d.contents {
@@ -128,25 +133,8 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 	id := t.ID
 	switch t.Type {
 	case engine.DockLogs:
-		go func() {
-			defer d.sh.recoverTo("logs")
-			stream, err := d.sh.eng.OpenLogs(ctx, id)
-			d.sh.do(func() {
-				if c.closed {
-					if stream != nil {
-						go func() { _ = stream.Close() }() // the tab is gone; nobody to tell
-					}
-					return
-				}
-				if err != nil {
-					c.set(dockMessage("Could not open the logs: "+err.Error(), colorStatusError))
-					return
-				}
-				w := termview.NewLogsOn(stream, d.sh.do)
-				c.closer = w
-				c.set(w)
-			})
-		}()
+		c.logs = newLogTab(ctx, d.sh, c, t)
+		c.logs.open()
 	case engine.DockTerminal, engine.DockShell, engine.DockAttach:
 		go func() {
 			defer d.sh.recoverTo("terminal")

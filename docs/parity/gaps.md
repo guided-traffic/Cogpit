@@ -238,14 +238,19 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   with its own kubeconfig) and to client-go exec and attach streams; the node shell with the
   safeguards in [privilege footprint](../security/privilege-footprint.md#node-shell); the log
   viewer (virtualized, follow, filter, timestamps, previous container, download, multi-pod).
-- **Evidence:** [ui-parity](ui-parity.md#logs), 4 of 16 rows partial across logs and terminal:
-  the terminal tab on Cogpit's own PTY with its own kubeconfig, the pod shell over exec, the log
-  view with follow ([`internal/terminal`](../../internal/terminal/),
-  [`termview`](../../internal/ui/fyneui/termview/)); attach to a container's main process
-  (third run, 2026-10-11, [`terminal/attach.go`](../../internal/terminal/attach.go)). Still
-  missing: the node shell, log
-  options (timestamps, previous container, filter, download, multi-pod), and a terminal widget
-  hardened beyond the patched copy Cogpit builds against
+- **Evidence:** [ui-parity](ui-parity.md#logs), 10 of 16 rows partial across logs and terminal
+  (was 4): the terminal tab on Cogpit's own PTY with its own kubeconfig, the pod shell over exec,
+  the log view with follow ([`internal/terminal`](../../internal/terminal/),
+  [`termview`](../../internal/ui/fyneui/termview/)); from the third run (2026-10-11): attach to a
+  container's main process ([`terminal/attach.go`](../../internal/terminal/attach.go)), and the
+  log options as engine state of the tab (`logs.setOptions`): timestamps, previous container, word
+  wrap, search with a filter and `/`, download, and the logs of a controlling resource
+  (`workload.logs`, `logs.controller`: every pod's containers from the cache, joining while
+  following, each line named) ([`engine/logs.go`](../../internal/engine/logs.go),
+  [`engine/workloadlogs.go`](../../internal/engine/workloadlogs.go),
+  [`logtab.go`](../../internal/ui/fyneui/logtab.go)). Still missing: the node shell, the log
+  tab's pod and container selectors, jumping to a time and loading older lines, and a terminal
+  widget hardened beyond the patched copy Cogpit builds against
   ([H-19](../security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)).
 - **Impact:** triaging a failing pod (logs, then a shell) is the most common Lens workflow.
 - **Estimate:** 30–70 h (was 45–90), plus upstreaming or replacing the widget.

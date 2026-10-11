@@ -209,14 +209,14 @@ Every list view is one table ([resource views](resource-parity.md)).
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Pod and container selectors | free | missing | – |
+| Pod and container selectors | free | missing (2026-10-11: a controlling resource's tab shows every pod and container, each line named, with no selector to narrow it; a pod's tab shows the container picked in the row menu's submenu) | – |
 | Follow; jump to the latest line | free | partial | [`termview/logs.go`](../../internal/ui/fyneui/termview/logs.go), follow toggle tested |
-| Show timestamps | free | missing | – |
-| Word wrap | free | missing | – |
-| Show the previous terminated container | free | missing | – |
-| Logs of a controlling resource (all its pods), with resource names shown | free | missing | – |
-| Filter matching lines on or off (`/`) | free | missing | – |
-| Download logs | free | missing | – |
+| Show timestamps | free | partial (2026-10-11): an option of the tab in the engine (`logs.setOptions`, `ui_state` shows it), sent as `timestamps=true`, so the stream opens again; the API server's RFC 3339 timestamp shows muted before the message (its format and colour are inferred: the documentation says only "Display timestamps") | `TestPodLogOptions`, `TestWorkloadLogsPreviousAndTimestamps`, `TestLogTabOptionsAreEngineState`, `TestRunsColourNamesTimestampsAndMatches`, [PNG](../../internal/ui/fyneui/testdata/logs_pod_dark.png) |
+| Word wrap | free | partial (2026-10-11): an option of the tab in the engine; long lines wrap at the tab's width, after a space where the row has one (inferred), again when the width changes | `TestLogsViewOptions`, `TestLogsWrapFollowsTheWidth`, [PNG](../../internal/ui/fyneui/testdata/logs_wrap_filter_dark.png), [light](../../internal/ui/fyneui/testdata/logs_wrap_filter_light.png) |
+| Show the previous terminated container | free | partial (2026-10-11): an option of the tab in the engine, sent as `previous=true` without following; in a controlling resource's tab every container with a previous instance, after which the stream ends | `TestPodLogOptions`, `TestWorkloadLogsPreviousAndTimestamps`, `TestLogTabOptionsAreEngineState` |
+| Logs of a controlling resource (all its pods), with resource names shown | free | partial (2026-10-11): `workload.logs` from the row menus of Deployments, Daemon Sets, Stateful Sets, Replica Sets and Jobs, and, in a pod's tab, a button that moves the tab to the logs of the pod's controller (`logs.controller`; the documentation's "move to the logs of a controlling resource"; that a Deployment's pod moves to the Deployment, not its replica set, is inferred); every line starts with `<pod>/<container>`, in the accent colour, hidden with "Resource names" off (the documentation's "Show resource names"; the format is inferred); pods and restarted containers join while the tab follows | `TestWorkloadLogsMergeEveryContainer`, `TestWorkloadLogsFollowNewPodsAndRestarts`, `TestLogsControllerMovesTheTab`, `TestLogTabMovesToTheController`, [PNG](../../internal/ui/fyneui/testdata/logs_workload_dark.png), [light](../../internal/ui/fyneui/testdata/logs_workload_light.png) |
+| Filter matching lines on or off (`/`) | free | partial (2026-10-11): the tab's search (an option in the engine) highlights matches, case-insensitively; "Filter" on shows only the matching lines and the count ("2 of 9 lines"), as the documentation describes; `/` focuses the search when nothing else, or the log list, has the keyboard focus (whether Lens's "/" is a key or the control's label is not captured) | `TestLogsViewOptions`, `TestLogsFilterAppliesToNewLines`, `TestLogsSlashFocusesSearch`, `TestLogTabSearchIsDebouncedAndSlashFocusesIt`, [PNG](../../internal/ui/fyneui/testdata/logs_wrap_filter_dark.png) |
+| Download logs | free | partial (2026-10-11): a save dialog proposes a file named after the tab; the GUI writes every line the tab holds as it shows them (resource names and timestamps as toggled, not only the filtered lines; inferred) | `TestLogDownloadWritesTheShownLines`, `TestLogsViewOptions` |
 | Jump to a time and date | free | missing | – |
 | Load older lines when scrolling up | free | missing | – |
 
@@ -355,6 +355,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Logs (G8): timestamps, word wrap, previous container, logs of a controlling resource with resource names, filter and `/`, download partial, as engine-held options of the tab |
 | 2026-10-11 | minor | Terminal and shells: attach to a container as a dock tab (G8) |
 | 2026-10-11 | minor | Cluster sidebar: Helm › Releases (Charts missing); the dock's Helm tabs stay missing |
 | 2026-10-11 | minor | Port forwarding (G10): the port link and the Forward dialog done, the Port Forwarding view partial (status texts and Edit's dialog inferred); the drawer's Forward… done; Port Forwarding in the sidebar |

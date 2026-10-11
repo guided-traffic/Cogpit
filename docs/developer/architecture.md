@@ -349,6 +349,17 @@ by "this pod".
   not part of the JSON).
 - **Editors, logs, terminals and chats** are engine sessions shown as dock tabs, so agents can open,
   read and close them too.
+- **Logs tabs** (third run, 2026-10-11, [`engine/logs.go`](../../internal/engine/logs.go)): a logs
+  tab's options (previous container, timestamps, resource names, wrap, search, filter) are engine
+  state on its dock tab (`DockTab.Logs`), changed with `logs.setOptions` by the GUI and agents
+  alike. The GUI opens the stream again when its request changes (object, container, previous,
+  timestamps) and shows the lines it holds the new way for the others
+  ([`logtab.go`](../../internal/ui/fyneui/logtab.go)). The logs of a controlling resource
+  (`workload.logs`) are one stream the engine merges
+  ([`workloadlogs.go`](../../internal/engine/workloadlogs.go)): the resource's pods from the cache
+  by owner reference (a Deployment's through its replica sets), each container's log started when
+  the cache shows it running, so pods and restarted containers join while it follows; each line
+  starts with `<pod>/<container>`; at most 40 containers at once.
 - **Links and warnings in cells** (2026-10-11, [`row.go`](../../internal/model/row.go)): a cell
   that names another object carries a `Link` (an object reference with a kind key; an empty context
   means the row's), which the UI renders as a link. A Namespace link in a list narrows the view's

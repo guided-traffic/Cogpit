@@ -346,7 +346,11 @@ func TestWorkloadLogsPreviousAndTimestamps(t *testing.T) {
 	dep, _, _ := s.OpenWorkloadLogsTab(context.Background(), model.ObjectRef{Kind: "deployments", Namespace: "shop", Name: "web"})
 	_, _ = s.SetLogOptions(dep.ID, func(o *LogOptions) { o.Previous = true })
 	lr = readLines(openTabLogs(t, s, dep.ID, f))
-	<-lr.done
+	select {
+	case <-lr.done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("a stream without previous instances did not end")
+	}
 	if got := lr.all(); len(got) != 1 || !strings.HasPrefix(got[0], NoticePrefix+" no container of") {
 		t.Errorf("lines %q", got)
 	}

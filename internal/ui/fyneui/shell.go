@@ -571,7 +571,7 @@ func (sh *shell) copyMCPCommand() {
 }
 
 // installShortcuts adds Lens's keyboard shortcuts that the MVP supports: ⌘F (search), ⌘⇧T
-// (terminal session) and Escape (close the drawer).
+// (terminal session), Escape (close the drawer) and "/" (the logs tab's search).
 func (sh *shell) installShortcuts() {
 	c := sh.win.Canvas()
 	c.AddShortcut(&desktop.CustomShortcut{KeyName: fyne.KeyF, Modifier: fyne.KeyModifierShortcutDefault},
@@ -581,6 +581,11 @@ func (sh *shell) installShortcuts() {
 	c.SetOnTypedKey(func(ev *fyne.KeyEvent) {
 		if ev.Name == fyne.KeyEscape {
 			sh.closeDrawer()
+		}
+	})
+	c.SetOnTypedRune(func(r rune) {
+		if r == '/' {
+			sh.dock.focusLogSearch() // "/" focuses the active logs tab's search
 		}
 	})
 }
@@ -726,7 +731,8 @@ func dockEqual(a, b engine.UIState) bool {
 		return false
 	}
 	for i := range a.Dock {
-		if a.Dock[i].ID != b.Dock[i].ID || a.Dock[i].Title != b.Dock[i].Title {
+		x, y := a.Dock[i], b.Dock[i]
+		if x.ID != y.ID || x.Title != y.Title || x.Logs != y.Logs || x.Container != y.Container || !sameRef(x.Ref, y.Ref) {
 			return false
 		}
 	}
