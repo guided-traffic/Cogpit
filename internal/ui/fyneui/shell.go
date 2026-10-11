@@ -76,6 +76,7 @@ type shell struct {
 	toasts    *fyne.Container
 	picker    *picker
 	confirmer *guiConfirmer
+	drains    *drainBanner // unfinished drains, below the top bar (drains.go)
 
 	hsplit    *container.Split // table | drawer
 	vsplit    *container.Split // workspace / dock
@@ -102,6 +103,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.status = newStatusBar(sh)
 	sh.picker = newPicker(sh)
 	sh.confirmer = newGUIConfirmer(sh)
+	sh.drains = newDrainBanner(sh)
 	sh.toasts = box(&toastLayout{})
 
 	sh.hsplit = container.NewHSplit(sh.view.root, sh.drawer.root)
@@ -115,7 +117,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sidebar := sized(sizeSidebarWidth, "", newSurface(colorSidebar), sh.side.root)
 	main := container.NewBorder(nil, nil, container.NewHBox(sidebar, newDivider(true)), nil, sh.body)
 	frame := container.NewBorder(
-		container.NewVBox(sh.top.root, newDivider(false)),
+		container.NewVBox(sh.top.root, newDivider(false), sh.drains.root),
 		container.NewVBox(newDivider(false), sh.status.root),
 		nil, nil, main)
 	sh.root = container.NewStack(frame, sh.toasts)
@@ -209,6 +211,8 @@ func (sh *shell) onEvent(ev engine.Event) {
 	case engine.EventToast:
 		level, msg := ev.Level, ev.Message
 		sh.do(func() { sh.toast(level, msg) })
+	case engine.EventDrains:
+		sh.drains.request()
 	}
 }
 
