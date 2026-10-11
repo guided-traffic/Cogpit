@@ -187,27 +187,79 @@ func TestRestartDaemonSetsAndStatefulSets(t *testing.T) {
 	}
 }
 
-// TestRestartRefusesARecreatedObject: a stateful set deleted and created again under its name
-// while the confirmation was open is not restarted: the user confirmed the old one.
+// TestRestartRefusesARecreatedObject: a deployment, daemon set or stateful set deleted and created
+// again under its name while the confirmation was open is not restarted: the user confirmed the
+// old one.
 func TestRestartRefusesARecreatedObject(t *testing.T) {
-	h := newWorkloadHarness(t, nil, nil, engine.Options{})
-	db := actionRef("statefulsets", "shop", "db")
-	c := &confirmations{answer: true, during: func(ctx context.Context) {
-		obj := testkit.Object("apps/v1", "StatefulSet", "shop", "db", nil)
-		obj.SetUID("uid-shop-db-again")
-		h.src.Set(statefulSetsGVR, obj)
-		testkit.WaitFor(ctx, func() bool {
-			o, err := h.s.Lookup(db)
-			return err == nil && o.GetUID() == "uid-shop-db-again"
+	for _, tc := range []struct {
+		id   string
+		gvr  schema.GroupVersionResource
+		kind string
+		ref  model.ObjectRef
+	}{
+		{"statefulset.restart", statefulSetsGVR, "StatefulSet", actionRef("statefulsets", "shop", "db")},
+		{"daemonset.restart", daemonSetsGVR, "DaemonSet", actionRef("daemonsets", "ops", "proxy")},
+		{"deployment.restart", testkit.DeploymentsGVR, "Deployment", actionRef("deployments", "shop", "web")},
+	} {
+		t.Run(tc.id, func(t *testing.T) {
+			h := newWorkloadHarness(t, nil, nil, engine.Options{})
+			c := &confirmations{answer: true, during: func(ctx context.Context) {
+				obj := testkit.Object("apps/v1", tc.kind, tc.ref.Namespace, tc.ref.Name, nil)
+				obj.SetUID("uid-again")
+				h.src.Set(tc.gvr, obj)
+				testkit.WaitFor(ctx, func() bool {
+					o, err := h.s.Lookup(tc.ref)
+					return err == nil && o.GetUID() == "uid-again"
+				})
+			}}
+			h.s.SetConfirmer(c)
+			err := h.run(t, engine.OriginGUI, tc.id, map[string]any{"ref": tc.ref}, nil)
+			if !errors.Is(err, engine.ErrTargetsChanged) {
+				t.Errorf("restart of a recreated object: %v", err)
+			}
+			if calls := h.writer.Calls(); len(calls) != 0 {
+				t.Errorf("writes %v", calls)
+			}
 		})
-	}}
-	h.s.SetConfirmer(c)
-	err := h.run(t, engine.OriginGUI, "statefulset.restart", map[string]any{"ref": db}, nil)
-	if !errors.Is(err, engine.ErrTargetsChanged) {
-		t.Errorf("restart of a recreated stateful set: %v", err)
 	}
-	if calls := h.writer.Calls(); len(calls) != 0 {
-		t.Errorf("writes %v", calls)
+}
+
+// TestScaleToZeroRefusesARecreatedObject: Scale to zero is confirmed as destructive, so it binds
+// to the object the user confirmed like Restart does: a replica set, deployment or stateful set
+// deleted and created again under its name while the dialog was open is not scaled to zero. A
+// scale to a non-zero count is mutating and binds to nothing.
+func TestScaleToZeroRefusesARecreatedObject(t *testing.T) {
+	for _, tc := range []struct {
+		id   string
+		gvr  schema.GroupVersionResource
+		kind string
+		ref  model.ObjectRef
+	}{
+		{"replicaset.scale", replicaSetsGVR, "ReplicaSet", actionRef("replicasets", "shop", "orphan")},
+		{"statefulset.scale", statefulSetsGVR, "StatefulSet", actionRef("statefulsets", "shop", "db")},
+	} {
+		t.Run(tc.id, func(t *testing.T) {
+			h := newWorkloadHarness(t, nil, nil, engine.Options{})
+			c := &confirmations{answer: true, during: func(ctx context.Context) {
+				obj := testkit.Object("apps/v1", tc.kind, tc.ref.Namespace, tc.ref.Name, map[string]any{"spec": map[string]any{"replicas": int64(2)}})
+				obj.SetUID("uid-again")
+				h.src.Set(tc.gvr, obj)
+				testkit.WaitFor(ctx, func() bool {
+					o, err := h.s.Lookup(tc.ref)
+					return err == nil && o.GetUID() == "uid-again"
+				})
+			}}
+			h.s.SetConfirmer(c)
+			err := h.run(t, engine.OriginGUI, tc.id, scaleTo(tc.ref, 0), nil)
+			if !errors.Is(err, engine.ErrTargetsChanged) {
+				t.Errorf("scale to zero of a recreated object: %v", err)
+			}
+			if calls := h.writer.Calls(); len(calls) != 0 {
+				t.Errorf("writes %v", calls)
+			}
+			// A non-zero scale needs no confirmation from the GUI and binds to nothing.
+			h.must(t, engine.OriginGUI, tc.id, scaleTo(tc.ref, 3), nil)
+		})
 	}
 }
 

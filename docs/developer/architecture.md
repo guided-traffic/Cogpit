@@ -237,7 +237,10 @@ What a confirmation binds (2026-10-11, from the review): the context (`CheckConf
 objects (`CheckConfirmedTargets`: a create whose namespace came from the filter is refused when the
 filter moved while the dialog was open) and, for destructive commands, the objects' UIDs as the
 cache held them when the user was asked (`ConfirmRequest.UIDs`, `ActUID`): Delete and Evict send
-those as preconditions, never the UID of an object created again under the name. A command can ask
+those as preconditions, never the UID of an object created again under the name; Restart (every
+workload kind) and Scale to zero, whose patches carry no UID, refuse when the cache holds the
+object under another UID by then (review 2026-10-11, `TestRestartRefusesARecreatedObject`,
+`TestScaleToZeroRefusesARecreatedObject`). A command can ask
 who dispatched it (`OriginOf`); `editor.get` uses that to redact Secrets for agents.
 
 How menus use them ([`menu.go`](../../internal/engine/menu.go), 2026-10-11): `Registry.Actions(kind)`

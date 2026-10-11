@@ -30,6 +30,9 @@ func registerActions(g *registrar) {
 		Targets: func(s *engine.Session, p refParams) ([]model.ObjectRef, error) { return targetOf(s, p.Ref) },
 		Run: func(ctx context.Context, s *engine.Session, p refParams) (any, error) {
 			return act(ctx, s, p.Ref, "restarted", func(w engine.Actions, ref model.ObjectRef) error {
+				if err := sameAsConfirmed(ctx, s, ref); err != nil {
+					return err
+				}
 				return w.RestartDeployment(ctx, ref.Namespace, ref.Name)
 			})
 		},
