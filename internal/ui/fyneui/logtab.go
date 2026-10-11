@@ -146,7 +146,7 @@ func (lt *logTab) update(t engine.DockTab) {
 }
 
 // open opens the tab's stream off the main goroutine and shows it in a new view, which replaces
-// the one shown; until it is open, or if it fails, the tab says so.
+// the one shown; until it is open the tab says so, and an error shows in the view.
 func (lt *logTab) open() {
 	lt.seq++
 	seq, id, sh := lt.seq, lt.tab.ID, lt.sh
@@ -160,17 +160,18 @@ func (lt *logTab) open() {
 				}
 				return
 			}
+			if old := lt.c.closer; old != nil {
+				go func() { _ = old.Close() }() // the stream the tab showed before
+			}
 			if err != nil {
-				lt.c.set(dockMessage("Could not open the logs: "+err.Error(), colorStatusError))
-				return
+				// The error shows as the tab's only line, below the toolbar, so that the option
+				// that caused it (a previous container that does not exist) can be turned off.
+				stream = io.NopCloser(strings.NewReader("[cogpit] could not open the logs: " + err.Error() + "\n"))
 			}
 			w := termview.NewLogsOn(stream, sh.do)
 			w.SetControls(lt.controls...)
 			w.SetOnSlash(lt.focusSearch)
 			w.SetView(viewOf(lt.tab))
-			if old := lt.c.closer; old != nil {
-				go func() { _ = old.Close() }()
-			}
 			lt.view, lt.c.closer = w, w
 			lt.c.set(w)
 		})

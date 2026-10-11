@@ -3,6 +3,7 @@ package fyneui
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -64,6 +65,9 @@ func (e logsEngine) OpenLogs(_ context.Context, tabID string) (io.ReadCloser, er
 	e.mu.Unlock()
 	if !ok {
 		return nil, io.ErrClosedPipe
+	}
+	if tab.Logs.Previous && tab.Ref.Kind == kindPods {
+		return nil, errors.New(`logs of checkout/` + tab.Ref.Name + `: previous terminated container "api" in pod "` + tab.Ref.Name + `" not found`)
 	}
 	var b strings.Builder
 	for _, l := range demoMerged {
@@ -316,4 +320,24 @@ func TestRenderLogsPod(t *testing.T) {
 	lt := logTabOf(sh)
 	q.until(t, "the controller button", func() bool { return lt.controller.Visible() && !lt.controller.Disabled() })
 	savePNG(t, w, "logs_pod_dark.png")
+}
+
+// TestLogTabShowsAnOpenErrorBelowItsToolbar: a stream the server refuses (no previous container)
+// shows the error as the tab's line, under the toolbar, so that the option can be turned off.
+func TestLogTabShowsAnOpenErrorBelowItsToolbar(t *testing.T) {
+	sh, _, q, _ := logsScene(t, ThemeDark, false, engine.LogOptions{})
+	lt := logTabOf(sh)
+	test.Tap(lt.previous)
+	q.until(t, "the error line", func() bool {
+		lines := lt.view.ShownLines()
+		return len(lines) == 1 && strings.Contains(lines[0], `previous terminated container "api"`)
+	})
+	if !lt.previous.Checked {
+		t.Error("the Previous check is off although the engine holds it on")
+	}
+	test.Tap(lt.previous)
+	q.until(t, "the container's lines again", func() bool {
+		lines := lt.view.ShownLines()
+		return len(lines) == 3 && strings.HasPrefix(lines[0], "starting checkout-api")
+	})
 }
