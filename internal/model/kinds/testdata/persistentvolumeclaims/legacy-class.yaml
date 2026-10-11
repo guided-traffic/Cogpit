@@ -1,0 +1,18 @@
+# Synthetic: an old claim that names its class only in the beta annotation, waiting for a volume.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: legacy-data
+  namespace: archive
+  uid: 9d4e5f60-8888-4d9e-8f10-000000000009
+  creationTimestamp: "2024-10-11T12:00:00Z"
+  annotations:
+    volume.beta.kubernetes.io/storage-class: slow
+spec:
+  accessModes:
+  - ReadOnlyMany
+  resources:
+    requests:
+      storage: "1073741824"
+status:
+  phase: Pending

@@ -1,0 +1,82 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "ingressclasses",
+    "name": "haproxy"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "haproxy"
+    },
+    {
+      "column": "default",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": ""
+    },
+    {
+      "column": "controller",
+      "text": "haproxy.org/ingress-controller/haproxy"
+    },
+    {
+      "column": "apiGroup",
+      "text": "ingress.example.com"
+    },
+    {
+      "column": "scope",
+      "text": "Cluster"
+    },
+    {
+      "column": "kind",
+      "text": "HaproxyParameters"
+    }
+  ],
+  "fields": {
+    "controller": [
+      "haproxy.org/ingress-controller/haproxy"
+    ],
+    "default": [
+      "false"
+    ],
+    "label": [],
+    "name": [
+      "haproxy"
+    ],
+    "namespace": [
+      ""
+    ],
+    "parameters": []
+  },
+  "detail": [
+    {
+      "title": "Ingress Class",
+      "items": [
+        {
+          "name": "Controller",
+          "value": "haproxy.org/ingress-controller/haproxy"
+        }
+      ]
+    },
+    {
+      "title": "Parameters",
+      "items": [
+        {
+          "name": "API Group",
+          "value": "ingress.example.com"
+        },
+        {
+          "name": "Kind",
+          "value": "HaproxyParameters"
+        },
+        {
+          "name": "Scope",
+          "value": "Cluster"
+        }
+      ]
+    }
+  ]
+}

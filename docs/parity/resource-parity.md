@@ -77,7 +77,7 @@ related resources) are superseded by Cogpit's built-in agent
 
 | View | API | Lens columns | Actions | Status |
 |---|---|---|---|---|
-| Config Maps | `v1` ConfigMap | Name, Namespace, Keys, Age | – | missing |
+| Config Maps | `v1` ConfigMap | Name, Namespace, Keys, Age | – | partial: view as documented, not checked against a running Lens (capture needed); Keys lists data and binary-data keys sorted, comma-separated; no status token (inferred: a Config Map has no state); drawer: each value up to 4 KiB and 40 lines, 32 KiB and 400 lines in all, 100 keys, with a note where cut; binary data by size only (Cogpit's, inferred) ([`configmaps.go`](../../internal/model/kinds/configmaps.go), `TestGolden`, `TestConfigMapTexts`, `TestConfigMapDrawerCaps`) |
 | Secrets | `v1` Secret | Name, Namespace, Labels, Keys, Type, Age | Create `secret.create` | missing |
 | Resource Quotas | `v1` ResourceQuota | Name, Namespace, Age | Create `resourceQuota.create` | missing |
 | Limit Ranges | `v1` LimitRange | Name, Namespace, Age | – | missing |
@@ -101,8 +101,8 @@ related resources) are superseded by Cogpit's built-in agent
 | Services | `v1` Service | Name, Namespace, Type, Cluster IP, Ports, External IP, Selector, Age, Status | Forward a port `service.portForward`; detail tabs: Endpoint Slices, Routes | partial: view ([`services.go`](../../internal/model/kinds/services.go)); no port forward, no detail tabs |
 | Endpoint Slices | `discovery.k8s.io/v1` EndpointSlice | Name, Namespace, Address Type, Endpoints, Ports, Age | – | missing |
 | Endpoints | `v1` Endpoints | Name, Namespace, Endpoints, Age | – | missing |
-| Ingresses | `networking.k8s.io/v1` Ingress | Name, Namespace, Load Balancers, Rules, Age | – | missing |
-| Ingress Classes | `networking.k8s.io/v1` IngressClass | Name, (a star column, presumably marking the default class: inferred), Namespace (empty: the kind is cluster-scoped), Controller, API Group, Scope, Kind; no Age column and no namespace filter (capture, 2026-10-11) | – | missing |
+| Ingresses | `networking.k8s.io/v1` Ingress | Name, Namespace, Load Balancers, Rules, Age | – | partial: view as documented, not checked against a running Lens (capture needed); the cell formats are Cogpit's (inferred): Load Balancers one IP or hostname per `status.loadBalancer.ingress` entry, "-" without one; Rules "host/path -> service:port", "*" for a rule without a host, the default backend last as "(default) -> …", text without links (the cell names several services); no status token (inferred: some controllers never publish an address); drawer: class, load balancers with their ports and errors, default backend, rules with paths, path types and backends, TLS hosts with the Secret's name only; backend services are text, not links (drawer items carry no link) ([`ingresses.go`](../../internal/model/kinds/ingresses.go), `TestGolden`, `TestIngressTexts`, `TestIngressColumns`) |
+| Ingress Classes | `networking.k8s.io/v1` IngressClass | Name, (a star column, presumably marking the default class: inferred), Namespace (empty: the kind is cluster-scoped), Controller, API Group, Scope, Kind; no Age column and no namespace filter (capture, 2026-10-11) | – | partial: the captured columns in the captured order, empty Namespace column and no Age; the star column is titled Default and reads "Yes" on the default class (from `ingressclass.kubernetes.io/is-default-class: "true"`, inferred), because no star glyph is in Fyne's bundled fonts (U+2605 in none; U+2B50 only in the colour emoji font); Cogpit shows the namespace filter disabled on cluster-scoped views where Lens shows none ([`tableview.go`](../../internal/ui/fyneui/tableview.go) `updateNamespaceButton`); Scope shows the API server's default Cluster when parameters omit it ([`ingressclasses.go`](../../internal/model/kinds/ingressclasses.go), `TestGolden`, `TestIngressClassColumns`, `TestIngressClassTexts`) |
 | Network Policies | `networking.k8s.io/v1` NetworkPolicy | Name, Namespace, Policy Types, Age | – | missing |
 | Port Forwarding | Cogpit's own state, not a kind | Name, Namespace, Kind, Pod Port, Local Port, Protocol, Status | Open `portforward.open`, Edit `portforward.edit`, Stop `portforward.stop`, Delete `portforward.remove` | missing |
 | Gateway API › Gateway Classes, Gateways, HTTP Routes, Backend TLS Policies, gRPC Routes, Listener Sets, Reference Grants (sidebar order, capture 2026-10-11) | `gateway.networking.k8s.io` (CRDs); Listener Sets from `gateway.networking.x-k8s.io` | capture needed | – | missing |
@@ -117,7 +117,7 @@ Policies views follow the Kubernetes version instead: the mutating ones need
 
 | View | API | Lens columns | Actions | Status |
 |---|---|---|---|---|
-| Persistent Volume Claims | `v1` PersistentVolumeClaim | Name, Namespace, Storage Class, Size, Pods, Age, Status | – | missing |
+| Persistent Volume Claims | `v1` PersistentVolumeClaim | Name, Namespace, Storage Class, Size, Pods, Age, Status | – | partial: Pods column empty (needs a cross-kind index); view as documented, not checked against a running Lens (capture needed); Status from the phase, Bound ok, Pending pending, Lost error, and Terminating once deleted (inferred, as kubectl prints it); Size the capacity, else the request, sorted by bytes (inferred); Storage Class plain text, not a link, because Cogpit has no Storage Classes view yet; drawer: status, class, volume, access modes, volume mode, requested, capacity, allocated, resize status, volume attributes class, data source, selector, conditions ([`persistentvolumeclaims.go`](../../internal/model/kinds/persistentvolumeclaims.go), `TestGolden`, `TestPersistentVolumeClaimTexts`, `TestPersistentVolumeClaimSizeSorts`) |
 | Persistent Volumes | `v1` PersistentVolume | Name, Storage Class, Capacity, Claim, Age, Status | – | missing |
 | Storage Classes | `storage.k8s.io/v1` StorageClass | Name, Provisioner, Age, Reclaim Policy, Volume Binding Mode | – | missing |
 
@@ -184,6 +184,7 @@ the tables above. Everything else is created from YAML templates in the dock
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Ingresses, Ingress Classes, Config Maps and Persistent Volume Claims views partial: kind profiles with golden and fuzz tests; what is inferred is marked per row |
 | 2026-10-11 | minor | Capture of a pod drawer: Pod Anti Affinities, Init Containers before Containers, the port link's form |
 | 2026-10-11 | minor | Capture of Ingress Classes: its columns, a star column and an empty Namespace column, no Age |
 | 2026-10-11 | minor | Captures of a suspended Cron Job and a cordoned Node: Resume and Uncordon take Suspend's and Cordon's place; a cordoned node's Conditions and how Cogpit differs |

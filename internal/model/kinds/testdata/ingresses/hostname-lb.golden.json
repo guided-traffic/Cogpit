@@ -1,0 +1,95 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "ingresses",
+    "namespace": "saas",
+    "name": "tenants"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "tenants"
+    },
+    {
+      "column": "namespace",
+      "text": "saas",
+      "link": {
+        "kind": "namespaces",
+        "name": "saas"
+      }
+    },
+    {
+      "column": "loadBalancers",
+      "text": "k8s-saas-tenants-0123456789.elb.example.net"
+    },
+    {
+      "column": "rules",
+      "text": "*.tenants.example.com -> tenant-router:8443, */healthz -> health:8080, parked.example.com"
+    },
+    {
+      "column": "age",
+      "text": "30d",
+      "num": 1789128000
+    }
+  ],
+  "fields": {
+    "address": [
+      "k8s-saas-tenants-0123456789.elb.example.net"
+    ],
+    "host": [
+      "*.tenants.example.com",
+      "parked.example.com"
+    ],
+    "ingressClass": [
+      "alb"
+    ],
+    "label": [],
+    "name": [
+      "tenants"
+    ],
+    "namespace": [
+      "saas"
+    ],
+    "path": [
+      "/healthz"
+    ],
+    "service": [
+      "tenant-router",
+      "health"
+    ],
+    "tlsSecret": []
+  },
+  "detail": [
+    {
+      "title": "Ingress",
+      "items": [
+        {
+          "name": "Class",
+          "value": "alb"
+        },
+        {
+          "name": "Load Balancers",
+          "value": "k8s-saas-tenants-0123456789.elb.example.net (80/TCP, 443/TCP: CertificateNotFound: no certificate for *.tenants.example.com)"
+        }
+      ]
+    },
+    {
+      "title": "Rules",
+      "items": [
+        {
+          "name": "*.tenants.example.com",
+          "value": "(no path, ImplementationSpecific) -> tenant-router:8443"
+        },
+        {
+          "name": "*",
+          "value": "/healthz (Exact) -> health:8080"
+        },
+        {
+          "name": "parked.example.com",
+          "value": "no paths: requests go to the default backend"
+        }
+      ]
+    }
+  ]
+}

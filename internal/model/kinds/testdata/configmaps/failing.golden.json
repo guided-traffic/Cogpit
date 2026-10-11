@@ -1,0 +1,60 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "configmaps",
+    "namespace": "edge",
+    "name": "nginx-snippets"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "nginx-snippets"
+    },
+    {
+      "column": "namespace",
+      "text": "edge",
+      "link": {
+        "kind": "namespaces",
+        "name": "edge"
+      }
+    },
+    {
+      "column": "keys",
+      "text": "upstreams.conf, worker_connections"
+    },
+    {
+      "column": "age",
+      "text": "30m",
+      "num": 1791718200
+    }
+  ],
+  "fields": {
+    "key": [
+      "upstreams.conf",
+      "worker_connections"
+    ],
+    "label": [],
+    "name": [
+      "nginx-snippets"
+    ],
+    "namespace": [
+      "edge"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Data",
+      "items": [
+        {
+          "name": "upstreams.conf",
+          "value": "server backend-01.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-02.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-03.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-04.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-05.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-06.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-07.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-08.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-09.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-10.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-11.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-12.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-13.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-14.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-15.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-16.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-17.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-18.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-19.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-20.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-21.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-22.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-23.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-24.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-25.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-26.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-27.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-28.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-29.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-30.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-31.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-32.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-33.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-34.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-35.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-36.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-37.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-38.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-39.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\nserver backend-40.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;\n[cut: 3.0 KiB of 4.5 KiB shown; the full value is in the YAML]"
+        },
+        {
+          "name": "worker_connections",
+          "value": "1024"
+        }
+      ]
+    }
+  ]
+}

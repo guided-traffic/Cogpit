@@ -1,0 +1,26 @@
+# Synthetic: a claim deleted while a pod still uses it: pvc-protection holds it, still Bound.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uploads
+  namespace: shop
+  uid: 9d4e5f60-8888-4d9e-8f10-000000000003
+  creationTimestamp: "2026-06-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 500Gi
+  storageClassName: shared-nfs
+  volumeMode: Filesystem
+  volumeName: pvc-9d4e5f60-8888-4d9e-8f10-000000000003
+status:
+  accessModes:
+  - ReadWriteMany
+  capacity:
+    storage: 500Gi
+  phase: Bound

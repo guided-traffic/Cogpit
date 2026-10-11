@@ -1,0 +1,31 @@
+# Synthetic: a claim bound to a dynamically provisioned volume, as the API server stores it.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-postgres-0
+  namespace: payments
+  uid: 9d4e5f60-8888-4d9e-8f10-000000000001
+  creationTimestamp: "2026-10-01T00:00:00Z"
+  labels:
+    app: postgres
+  annotations:
+    pv.kubernetes.io/bind-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.kubernetes.io/storage-provisioner: csi.example.com
+  finalizers:
+  - kubernetes.io/pvc-protection
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: fast-ssd
+  volumeMode: Filesystem
+  volumeName: pvc-9d4e5f60-8888-4d9e-8f10-000000000001
+status:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 10Gi
+  phase: Bound

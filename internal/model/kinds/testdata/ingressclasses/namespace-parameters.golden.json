@@ -1,0 +1,92 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "ingressclasses",
+    "name": "tenant-gateway"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "tenant-gateway"
+    },
+    {
+      "column": "default",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": ""
+    },
+    {
+      "column": "controller",
+      "text": "example.com/tenant-gateway"
+    },
+    {
+      "column": "apiGroup",
+      "text": "gateway.example.com"
+    },
+    {
+      "column": "scope",
+      "text": "Namespace"
+    },
+    {
+      "column": "kind",
+      "text": "TenantGatewayConfig"
+    }
+  ],
+  "fields": {
+    "controller": [
+      "example.com/tenant-gateway"
+    ],
+    "default": [
+      "false"
+    ],
+    "label": [],
+    "name": [
+      "tenant-gateway"
+    ],
+    "namespace": [
+      ""
+    ],
+    "parameters": [
+      "TenantGatewayConfig/tenant-a"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Ingress Class",
+      "items": [
+        {
+          "name": "Controller",
+          "value": "example.com/tenant-gateway"
+        }
+      ]
+    },
+    {
+      "title": "Parameters",
+      "items": [
+        {
+          "name": "API Group",
+          "value": "gateway.example.com"
+        },
+        {
+          "name": "Kind",
+          "value": "TenantGatewayConfig"
+        },
+        {
+          "name": "Name",
+          "value": "tenant-a"
+        },
+        {
+          "name": "Namespace",
+          "value": "tenant-a"
+        },
+        {
+          "name": "Scope",
+          "value": "Namespace"
+        }
+      ]
+    }
+  ]
+}

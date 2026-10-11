@@ -1,0 +1,72 @@
+# Synthetic: a Config Map has no state to fail; this is the closest to trouble: a value too long
+# for the drawer (60 lines), which the drawer cuts after 40 lines with a note.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-snippets
+  namespace: edge
+  uid: 8c3d4e5f-7777-4c8d-9e0f-000000000002
+  creationTimestamp: "2026-10-11T11:30:00Z"
+data:
+  upstreams.conf: |
+    server backend-01.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-02.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-03.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-04.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-05.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-06.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-07.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-08.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-09.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-10.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-11.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-12.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-13.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-14.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-15.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-16.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-17.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-18.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-19.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-20.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-21.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-22.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-23.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-24.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-25.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-26.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-27.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-28.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-29.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-30.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-31.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-32.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-33.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-34.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-35.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-36.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-37.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-38.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-39.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-40.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-41.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-42.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-43.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-44.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-45.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-46.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-47.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-48.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-49.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-50.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-51.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-52.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-53.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-54.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-55.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-56.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-57.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-58.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-59.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+    server backend-60.edge.svc.cluster.local:8080 max_fails=3 fail_timeout=10s;
+  worker_connections: "1024"

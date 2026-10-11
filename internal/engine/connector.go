@@ -120,6 +120,17 @@ func servedProfiles(all []*model.KindProfile, served map[schema.GroupVersionReso
 	return out
 }
 
+// demoProfiles keeps the built-in profiles of the kinds the demo cluster serves, as discovery does
+// for a real cluster: a kind the demo has no objects for is not offered, rather than shown as an
+// error.
+func demoProfiles() []*model.KindProfile {
+	served := map[schema.GroupVersionResource]bool{}
+	for _, gvr := range demo.Resources() {
+		served[gvr] = true
+	}
+	return servedProfiles(kinds.Builtin(), served)
+}
+
 // connectDemo builds the synthetic cluster and starts its churn.
 func (c *ClusterConnector) connectDemo() (*Backend, error) {
 	dc := demo.New(c.DemoOptions)
@@ -140,7 +151,7 @@ func (c *ClusterConnector) connectDemo() (*Backend, error) {
 	}()
 	var once sync.Once
 	return &Backend{
-		Context: DemoContext, Namespace: "default", Cache: ch, Profiles: kinds.Builtin(), Demo: true,
+		Context: DemoContext, Namespace: "default", Cache: ch, Profiles: demoProfiles(), Demo: true,
 		DemoStats: func() any { return dc.Stats() },
 		Close: func() {
 			once.Do(func() {

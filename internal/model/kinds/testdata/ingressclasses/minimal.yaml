@@ -1,0 +1,6 @@
+# Synthetic: optional fields missing: no controller, no parameters, no annotations.
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: bare
+  creationTimestamp: "2026-10-11T11:00:00Z"

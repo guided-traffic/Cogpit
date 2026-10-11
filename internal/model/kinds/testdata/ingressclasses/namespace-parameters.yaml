@@ -1,0 +1,15 @@
+# Synthetic: namespace-scoped parameters: scope Namespace with the parameters' namespace.
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: tenant-gateway
+  uid: 7b2c3d4e-6666-4b7c-8d9e-000000000005
+  creationTimestamp: "2026-10-04T12:00:00Z"
+spec:
+  controller: example.com/tenant-gateway
+  parameters:
+    apiGroup: gateway.example.com
+    kind: TenantGatewayConfig
+    name: tenant-a
+    namespace: tenant-a
+    scope: Namespace

@@ -1,0 +1,21 @@
+# Synthetic: a claim of a WaitForFirstConsumer class that no pod uses yet: Pending, no volume, no
+# capacity; the Size column shows the request.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: scratch
+  namespace: ci
+  uid: 9d4e5f60-8888-4d9e-8f10-000000000005
+  creationTimestamp: "2026-10-11T11:50:00Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: standard
+  volumeMode: Filesystem
+status:
+  phase: Pending

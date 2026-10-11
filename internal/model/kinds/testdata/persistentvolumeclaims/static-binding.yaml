@@ -1,0 +1,37 @@
+# Synthetic: a claim with an explicit empty class that binds to a pre-created volume by label,
+# restored from a snapshot, as a raw block device with a volume attributes class.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: restored-db
+  namespace: payments
+  uid: 9d4e5f60-8888-4d9e-8f10-000000000008
+  creationTimestamp: "2026-10-11T10:00:00Z"
+spec:
+  accessModes:
+  - ReadWriteOncePod
+  resources:
+    requests:
+      storage: 750Mi
+  storageClassName: ""
+  volumeMode: Block
+  volumeAttributesClassName: gold
+  selector:
+    matchLabels:
+      tier: database
+    matchExpressions:
+    - key: zone
+      operator: In
+      values: [zone-a, zone-b]
+  dataSourceRef:
+    apiGroup: snapshot.storage.k8s.io
+    kind: VolumeSnapshot
+    name: db-nightly
+    namespace: backups
+  volumeName: static-db-volume
+status:
+  accessModes:
+  - ReadWriteOncePod
+  capacity:
+    storage: 1Gi
+  phase: Bound
