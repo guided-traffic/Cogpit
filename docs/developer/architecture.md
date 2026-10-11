@@ -249,13 +249,16 @@ evaluates them off its main goroutine.
 The connector sets `Backend.Access`, an `engine.Access` that answers `Allowed(namespace, verb)` from
 the access reviews cached per context and namespace, without blocking and without a request (an
 answer it does not hold yet is `known == false`, and may start a review in the background). The
-registry asks it before a command's own `Enabled`, for every `Verb` the command declares, whenever
+registry asks it in `Command.Enabled`, for every `Verb` the command declares, whenever
 the command's parameters name an object in a `ref` field: a verb on `*` is resolved to the ref's
 kind (its group and resource; the namespace dropped for cluster-scoped kinds), a namespaced verb is
 asked in the ref's namespace. A known denial makes `Enabled` return an error wrapping
 `ErrNotPermitted` ("not permitted: you may not patch deployments.apps in team-a"), so every menu
 greys the command with that reason and `Dispatch` refuses it for every origin; menus only read
-`Enabled`. An unknown answer, a kind without a profile, a local kind, and a command without a
+`Enabled`. The denial comes before the command's own reason, except `ErrNotApplicable`, which
+keeps the command hidden (amended 2026-10-11: a cordoned node offers Uncordon, greyed, not Cordon
+and Uncordon both). An unknown answer, a kind without a profile, a local kind, a verb on `*` for a
+virtual kind (no API resource; Edit and Delete do not apply to it), and a command without a
 `ref` pass: the API server decides. Nil `Access` allows everything.
 
 Every command is also an MCP tool, generated from the registry (`ui.navigate` → `ui_navigate`).

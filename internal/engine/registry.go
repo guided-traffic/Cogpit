@@ -241,13 +241,18 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 		return p, nil
 	}
 	c.enabled = func(s *Session, p any) error {
+		var own error
+		if spec.Enabled != nil {
+			// A command that does not apply stays hidden whatever the access reviews say (Uncordon
+			// on a node that is not cordoned is not offered, permitted or not).
+			if own = spec.Enabled(s, p.(P)); errors.Is(own, ErrNotApplicable) {
+				return own
+			}
+		}
 		if err := s.permitted(c, p); err != nil {
 			return err
 		}
-		if spec.Enabled == nil {
-			return nil
-		}
-		return spec.Enabled(s, p.(P))
+		return own
 	}
 	c.targets = func(s *Session, p any) ([]model.ObjectRef, error) {
 		if spec.Targets == nil {
