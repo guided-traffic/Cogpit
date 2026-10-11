@@ -24,14 +24,16 @@ func (d *drawer) table(ref model.ObjectRef, t *model.DetailTable) fyne.CanvasObj
 		}
 		return model.ColumnText
 	}
-	grid := box(&detailTableLayout{cols: len(t.Columns)})
+	// The cells go into the grid at once: Container.Add lays the grid out on every call, which
+	// for a node's hundreds of pods measures every cell hundreds of times.
+	objs := make([]fyne.CanvasObject, 0, len(t.Columns)*(len(t.Cells)+1))
 	for i, c := range t.Columns {
 		if colType(i) == model.ColumnWarning {
 			c = ""
 		}
 		l := newTextLine(c, colorMuted, theme.SizeNameText, fyne.TextStyle{})
 		l.truncate = true
-		grid.Add(l)
+		objs = append(objs, l)
 	}
 	for r, row := range t.Cells {
 		for i := range t.Columns {
@@ -43,10 +45,10 @@ func (d *drawer) table(ref model.ObjectRef, t *model.DetailTable) fyne.CanvasObj
 			if r < len(t.Rows) && i < len(t.Rows[r]) {
 				text = t.Rows[r][i]
 			}
-			grid.Add(d.tableCell(ref, colType(i), cell, text))
+			objs = append(objs, d.tableCell(ref, colType(i), cell, text))
 		}
 	}
-	return grid
+	return box(&detailTableLayout{cols: len(t.Columns)}, objs...)
 }
 
 // tableCell draws one cell of a table of cells.
