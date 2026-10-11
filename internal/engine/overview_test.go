@@ -91,10 +91,18 @@ func TestWorkloadsOverviewPage(t *testing.T) {
 	if got := model.CellText(snap.Columns[len(snap.Columns)-1], snap.Rows[0].Cells[len(snap.Columns)-1], now); got != "1m" {
 		t.Fatalf("Last Seen reads %q, want 1m", got)
 	}
-	m, _, err := s.WorkloadsOverview(context.Background(), nil, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// The page's kinds sync on their own informers; a slow machine may not have them all yet.
+	var m *WorkloadsOverviewModel
+	wctx, wcancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer wcancel()
+	testkit.WaitFor(wctx, func() bool {
+		var err error
+		m, _, err = s.WorkloadsOverview(context.Background(), nil, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return m.Synced
+	})
 	var keys []string
 	for _, k := range m.Kinds {
 		keys = append(keys, k.Kind)
