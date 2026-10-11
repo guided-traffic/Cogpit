@@ -16,9 +16,9 @@ import (
 // status token (inferred). The drawer's Type and Data come from the engine's GET of the Secret the
 // drawer shows, never from this profile.
 var secrets = &model.KindProfile{
-	Key:          "secrets",
+	Key:          keySecrets,
 	Version:      "v1",
-	Resource:     "secrets",
+	Resource:     keySecrets,
 	Kind:         "Secret",
 	Title:        "Secrets",
 	Namespaced:   true,
@@ -28,12 +28,15 @@ var secrets = &model.KindProfile{
 		namespaceColumn,
 		{ID: "labels", Title: "Labels", Type: model.ColumnText},
 		{ID: "keys", Title: "Keys", Type: model.ColumnText},
-		{ID: idType, Title: "Type", Type: model.ColumnText},
+		typeColumn,
 		ageColumn,
 	},
 	Cells:  secretCells,
 	Detail: secretDetail,
 }
+
+// keySecrets is the kind key and resource of Secrets.
+const keySecrets = "secrets"
 
 func secretCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 	return []model.Cell{
@@ -70,6 +73,6 @@ func secretKeys(obj any) []string {
 // metadata the cache holds does not, and the engine adds the Type and the Data it fetched.
 func secretDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	var props detailItems
-	props.add("Type", model.NestedString(obj, idType))
+	props.add(typeColumn.Title, model.NestedString(obj, idType))
 	return withSection(nil, model.TitleProperties, props)
 }

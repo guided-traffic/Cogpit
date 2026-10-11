@@ -50,6 +50,7 @@ var (
 	namespaceColumn  = model.Column{ID: "namespace", Title: "Namespace", Type: model.ColumnText}
 	ageColumn        = model.Column{ID: "age", Title: "Age", Type: model.ColumnAge}
 	statusColumn     = model.Column{ID: idStatus, Title: titleStatus, Type: model.ColumnText}
+	typeColumn       = model.Column{ID: idType, Title: "Type", Type: model.ColumnText}
 	conditionsColumn = model.Column{ID: "conditions", Title: "Conditions", Type: model.ColumnText}
 	// warningColumn is Lens's warning-icon column; it comes right after Name in the views that
 	// have one (Pods, Nodes, Cron Jobs, Pod Disruption Budgets, the RBAC views). Its title is not

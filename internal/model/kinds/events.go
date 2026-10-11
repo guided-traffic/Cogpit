@@ -27,7 +27,7 @@ var events = &model.KindProfile{
 		// Lens shows no name for events. The hidden name column keeps the model's rule that
 		// the first column is the name, which views and agents rely on to identify a row.
 		{ID: "name", Title: "Name", Type: model.ColumnText, Hidden: true},
-		{ID: idType, Title: "Type", Type: model.ColumnText},
+		typeColumn,
 		{ID: "message", Title: "Message", Type: model.ColumnText},
 		namespaceColumn,
 		{ID: "involvedObject", Title: "Involved Object", Type: model.ColumnText},

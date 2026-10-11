@@ -25,7 +25,7 @@ var services = &model.KindProfile{
 	Columns: []model.Column{
 		nameColumn,
 		namespaceColumn,
-		{ID: idType, Title: "Type", Type: model.ColumnText},
+		typeColumn,
 		{ID: "clusterIP", Title: "Cluster IP", Type: model.ColumnText},
 		{ID: "ports", Title: "Ports", Type: model.ColumnText},
 		{ID: idExternalIP, Title: "External IP", Type: model.ColumnText},
