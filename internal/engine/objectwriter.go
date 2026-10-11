@@ -150,6 +150,40 @@ func KindKeyFor(b *Backend, gvr schema.GroupVersionResource) string {
 	return gvr.Resource + "." + gvr.Group
 }
 
+// targetUIDs reads the targets' UIDs from the cache for a destructive command's confirmation,
+// in order, "" for an object it cannot resolve or does not hold. The waits are bounded by the
+// lookup timeouts; a target's kind is usually warm already, since the user sees it.
+func (s *Session) targetUIDs(ctx context.Context, targets []model.ObjectRef) []string {
+	uids := make([]string, len(targets))
+	for i, ref := range targets {
+		t, b, err := s.ResolveTarget(ctx, ref)
+		if err != nil {
+			continue
+		}
+		if obj, err := cachedObject(ctx, b, t); err == nil {
+			uids[i] = string(obj.GetUID())
+		}
+	}
+	return uids
+}
+
+// ActUID returns the UID a destructive write on ref must carry as its precondition: the one the
+// user confirmed, else, without a confirmation, the cache's. It fails when the object was not in
+// the cache when the user confirmed: whatever has the name now is not what they saw.
+func ActUID(ctx context.Context, ref model.ObjectRef, cached func() (string, bool)) (string, error) {
+	uid, confirmed := ConfirmedUID(ctx, ref)
+	if confirmed {
+		if uid == "" {
+			return "", fmt.Errorf("%s was not in Cogpit's cache when the action was confirmed; nothing was done", ref.String())
+		}
+		return uid, nil
+	}
+	if c, ok := cached(); ok && c != "" {
+		return c, nil
+	}
+	return "", fmt.Errorf("%s: %w", ref.String(), ErrNotFound)
+}
+
 // cachedObject returns a target's object as the cache holds it, acquiring a handle on its kind for
 // the call and waiting for the initial list like Session.Object. The object is shared and must not
 // be modified.
@@ -218,11 +252,16 @@ func (s *Session) DeleteObject(ctx context.Context, ref model.ObjectRef) (Delete
 	if err != nil {
 		return DeleteResult{}, err
 	}
-	obj, err := cachedObject(ctx, b, t)
+	uid, err := ActUID(ctx, t.Ref, func() (string, bool) {
+		obj, err := cachedObject(ctx, b, t)
+		if err != nil {
+			return "", false
+		}
+		return string(obj.GetUID()), true
+	})
 	if err != nil {
 		return DeleteResult{}, err
 	}
-	uid := string(obj.GetUID())
 	if err := w.DeleteObject(ctx, t.GVR, t.Ref.Namespace, t.Ref.Name, uid); err != nil {
 		return DeleteResult{}, fmt.Errorf("%s: %w", t.Ref.String(), err)
 	}

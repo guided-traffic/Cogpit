@@ -236,6 +236,14 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 			return nil, fmt.Errorf("command %s: %w", cmd.ID, ErrConfirmationUnavailable)
 		}
 		req := newConfirmRequest(cmd, danger, inv.Origin, uiContext, targets)
+		if cmd.detail != nil {
+			if err := s.safeCall(cmd.ID, func() error { req.Detail = cmd.detail(s, p); return nil }); err != nil {
+				return nil, err
+			}
+		}
+		if danger == DangerDestructive {
+			req.UIDs = s.targetUIDs(ctx, targets)
+		}
 		ok, err := confirmer.Confirm(ctx, req)
 		if err != nil {
 			return nil, fmt.Errorf("command %s: confirmation: %w", cmd.ID, err)
@@ -256,6 +264,7 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 		s.audit(inv, auditContext, auditRequested, nil)
 	}
 
+	ctx = context.WithValue(ctx, originKey{}, inv.Origin)
 	err = s.safeCall(cmd.ID, func() (err error) { result, err = cmd.run(ctx, s, p); return err })
 	return result, err
 }

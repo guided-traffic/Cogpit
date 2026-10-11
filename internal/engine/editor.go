@@ -109,6 +109,10 @@ type ConflictError struct {
 	CurrentResourceVersion string          `json:"currentResourceVersion,omitempty"` // empty: the cache has not seen it yet
 	Recreated              bool            `json:"recreated,omitempty"`              // deleted and created again under the name
 	Diff                   []DiffLine      `json:"diff,omitempty"`
+	// Rebased is true when the edit is now based on CurrentResourceVersion, so that applying again
+	// overwrites it. Only an apply rebases: a dry run, which agents run freely, never moves the
+	// base the user's review compares against.
+	Rebased bool `json:"rebased,omitempty"`
 }
 
 func (e *ConflictError) Error() string {
@@ -120,6 +124,12 @@ func (e *ConflictError) Error() string {
 		return fmt.Sprintf("%s %s since version %s, which the edit is based on; nothing was applied. "+
 			"Cogpit's cache has not seen the new version yet: compare again with editor_diff in a moment.",
 			e.Ref.String(), what, e.BaseResourceVersion)
+	}
+	if !e.Rebased {
+		return fmt.Sprintf("%s %s since version %s, which the edit is based on; nothing was applied, and the edit stays "+
+			"based on version %s. The cluster holds version %s: editor_diff shows the text against it; an apply reports "+
+			"this conflict again and only then bases the edit on the new version.",
+			e.Ref.String(), what, e.BaseResourceVersion, e.BaseResourceVersion, e.CurrentResourceVersion)
 	}
 	return fmt.Sprintf("%s %s since version %s, which the edit was based on; nothing was applied. The edit is now "+
 		"based on version %s: editor_diff shows the text against it, and applying again overwrites it.",
@@ -455,7 +465,7 @@ func (s *Session) DryRunEdit(ctx context.Context, id, text string) (DryRunResult
 		return DryRunResult{}, err
 	}
 	if _, err := w.UpdateObject(ctx, e.target.GVR, forUpdate(edited, e), true); err != nil {
-		return DryRunResult{}, s.writeError(ctx, b, e, edited, err)
+		return DryRunResult{}, s.writeError(ctx, b, e, edited, err, false)
 	}
 	return DryRunResult{Ref: e.target.Ref, Accepted: true, BaseResourceVersion: e.baseRV}, nil
 }
@@ -478,11 +488,11 @@ func (s *Session) ApplyEdit(ctx context.Context, id, text string) (ApplyResult, 
 	}
 	obj := forUpdate(edited, e)
 	if _, err := w.UpdateObject(ctx, e.target.GVR, obj, true); err != nil {
-		return ApplyResult{}, s.writeError(ctx, b, e, edited, err)
+		return ApplyResult{}, s.writeError(ctx, b, e, edited, err, true)
 	}
 	stored, err := w.UpdateObject(ctx, e.target.GVR, obj, false)
 	if err != nil {
-		return ApplyResult{}, s.writeError(ctx, b, e, edited, err)
+		return ApplyResult{}, s.writeError(ctx, b, e, edited, err, true)
 	}
 	stored = withTypeMeta(stored, e.target)
 	newText, err := EditableYAML(stored)
@@ -506,10 +516,60 @@ func (s *Session) ApplyEdit(ctx context.Context, id, text string) (ApplyResult, 
 	return ApplyResult{Ref: e.target.Ref, ResourceVersion: stored.GetResourceVersion(), Text: newText, Revision: after.rev}, nil
 }
 
+// EditScalesToZero reports whether applying an Edit tab's text (or text) sets spec.replicas to 0
+// on an object whose cached spec.replicas is not 0 (a missing count is the API's default, 1):
+// the same change Scale to zero makes, so object.apply confirms it as destructive. When the
+// cached object cannot be read, an edited count of 0 is enough.
+func (s *Session) EditScalesToZero(id, text string) bool {
+	e, err := s.editorOf(id)
+	if err != nil || e.tab.Type != DockEdit {
+		return false
+	}
+	if text == "" {
+		text = e.text
+	}
+	edited, err := ParseManifest(text)
+	if err != nil {
+		return false
+	}
+	if n, ok := replicasOf(edited); !ok || n != 0 {
+		return false
+	}
+	b := s.Backend()
+	if b == nil {
+		return true
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), syncTimeout)
+	defer cancel()
+	cached, err := cachedObject(ctx, b, e.target)
+	if err != nil {
+		return true
+	}
+	n, ok := replicasOf(cached)
+	return !ok || n != 0
+}
+
+// replicasOf reads spec.replicas as a whole number; ok is false when it is absent or not a number.
+func replicasOf(obj *unstructured.Unstructured) (int64, bool) {
+	v, found, _ := unstructured.NestedFieldNoCopy(obj.Object, "spec", "replicas")
+	if !found {
+		return 0, false
+	}
+	switch n := v.(type) {
+	case int64:
+		return n, true
+	case int:
+		return int64(n), true
+	case float64:
+		return int64(n), n == float64(int64(n))
+	}
+	return 0, false
+}
+
 // writeError turns a failed dry run or update into what the caller sees: *ConflictError for a 409,
-// after rebasing the tab on the version the cache now holds; a plain error naming the object
-// otherwise.
-func (s *Session) writeError(ctx context.Context, b *Backend, e editor, edited *unstructured.Unstructured, err error) error {
+// after rebasing the tab on the version the cache now holds when rebase is set (an apply); a plain
+// error naming the object otherwise.
+func (s *Session) writeError(ctx context.Context, b *Backend, e editor, edited *unstructured.Unstructured, err error, rebase bool) error {
 	if apierrors.IsNotFound(err) {
 		return fmt.Errorf("%s no longer exists on the cluster; nothing was applied: %w", e.target.Ref.String(), err)
 	}
@@ -530,7 +590,11 @@ func (s *Session) writeError(ctx context.Context, b *Backend, e editor, edited *
 	if lines, derr := diffAgainst(current, edited); derr == nil {
 		ce.Diff = CompactDiff(lines, DefaultDiffContext)
 	}
+	if !rebase {
+		return ce
+	}
 	baseText, _ := EditableYAML(current)
+	ce.Rebased = true
 	if _, uerr := s.updateEditor(e.tab.ID, func(x *editor) {
 		x.baseRV, x.baseUID, x.baseText = current.GetResourceVersion(), string(current.GetUID()), baseText
 	}); uerr != nil {

@@ -79,6 +79,9 @@ type Spec[P any] struct {
 	// Prefill returns the parameters a dialog shows before the user edits them, read from the
 	// cache: the current replica count for Scale. Nil shows p as it is.
 	Prefill func(s *Session, p P) (P, error)
+	// Detail adds a sentence to the confirmation for parameters the objects don't show: the drain
+	// options that lose data. Nil adds nothing.
+	Detail func(s *Session, p P) string
 	// Run executes the command and returns a JSON-serializable result. Reads come from the cache.
 	Run func(ctx context.Context, s *Session, p P) (any, error)
 }
@@ -104,6 +107,7 @@ type Command struct {
 	targets  func(s *Session, p any) ([]model.ObjectRef, error)
 	escalate func(s *Session, p any) bool
 	prefill  func(s *Session, p any) (any, error)
+	detail   func(s *Session, p any) string
 	run      func(ctx context.Context, s *Session, p any) (any, error)
 }
 
@@ -253,6 +257,9 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 	}
 	if spec.Prefill != nil {
 		c.prefill = func(s *Session, p any) (any, error) { return spec.Prefill(s, p.(P)) }
+	}
+	if spec.Detail != nil {
+		c.detail = func(s *Session, p any) string { return spec.Detail(s, p.(P)) }
 	}
 	c.run = func(ctx context.Context, s *Session, p any) (any, error) {
 		return spec.Run(ctx, s, p.(P))

@@ -132,6 +132,13 @@ func (s *Session) CreateObjects(ctx context.Context, text, namespace string) (Cr
 	if err := CheckConfirmedContext(ctx, b.Context); err != nil {
 		return CreateResult{}, err
 	}
+	refs := make([]model.ObjectRef, 0, len(plans))
+	for _, p := range plans {
+		refs = append(refs, p.t.Ref)
+	}
+	if err := CheckConfirmedTargets(ctx, refs); err != nil {
+		return CreateResult{}, err
+	}
 	res := CreateResult{Items: make([]CreateItem, 0, len(plans))}
 	var failures []string
 	for _, p := range plans {

@@ -372,3 +372,26 @@ func TestDrainPanicIsRecoveredAndRecorded(t *testing.T) {
 		t.Error("the panicked drain still counts as running")
 	}
 }
+
+// TestDrainConfirmationNamesDataLosingOptions: the confirmation of a drain with force or
+// deleteEmptyDirData says so; a drain with the defaults adds nothing.
+func TestDrainConfirmationNamesDataLosingOptions(t *testing.T) {
+	conf := &confirmations{answer: false}
+	h, _ := newActionsHarness(t, nil, engine.Options{Drains: engine.NewDrains(engine.NewMemoryDrainJournal()), Confirmer: conf})
+	params := actionNodeRef("worker-1")
+	params["force"] = true
+	params["deleteEmptyDirData"] = true
+	_ = h.run(t, engine.OriginExternalAgent, "node.drain", params, nil)
+	_ = h.run(t, engine.OriginGUI, "node.drain", actionNodeRef("worker-1"), nil)
+	conf.mu.Lock()
+	defer conf.mu.Unlock()
+	if len(conf.reqs) != 2 {
+		t.Fatalf("confirmations %+v", conf.reqs)
+	}
+	if d := conf.reqs[0].Detail; !strings.Contains(d, "emptyDir data") || !strings.Contains(d, "no controller") || !strings.Contains(conf.reqs[0].Message(), d) {
+		t.Errorf("the forced drain's confirmation: %q / %q", d, conf.reqs[0].Message())
+	}
+	if d := conf.reqs[1].Detail; d != "" {
+		t.Errorf("a drain with the defaults adds %q", d)
+	}
+}

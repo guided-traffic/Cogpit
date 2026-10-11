@@ -2,7 +2,9 @@ package engine
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -48,6 +50,11 @@ func (s *Session) audit(inv Invocation, context, phase string, err error) {
 	e.Params = auditParams(e.Params)
 	if err != nil {
 		e.Error = err.Error()
+		var pe *ParamsError
+		if errors.As(err, &pe) {
+			// The schema validator quotes the values it rejects, Secret data included.
+			e.Error = "command " + pe.Command + ": invalid params (the validator's message is not logged: it quotes the values)"
+		}
 	}
 	line, mErr := json.Marshal(e)
 	if mErr != nil {
@@ -62,44 +69,93 @@ func (s *Session) audit(inv Invocation, context, phase string, err error) {
 
 // auditParams keeps Secret values out of the audit log. Commands that take manifests (object.apply,
 // object.create, editor.setText, resource.createTab) carry them in a "yaml" parameter; an agent may
-// send a Secret's manifest even though Cogpit refuses to write Secrets. Its documents are logged
-// with every Secret's data, stringData and last-applied annotation replaced by model.Redacted; text
-// that does not parse as manifests is logged by its size only, since it may hold anything.
+// send a Secret's manifest even though Cogpit refuses to write Secrets. The parameter is logged as
+// RedactManifests returns it; a "yaml" parameter that is not a string is logged by its type only.
 func auditParams(raw json.RawMessage) json.RawMessage {
 	var params map[string]any
 	if json.Unmarshal(raw, &params) != nil {
 		return raw
 	}
-	text, ok := params["yaml"].(string)
-	if !ok || strings.TrimSpace(text) == "" {
+	v, ok := params["yaml"]
+	if !ok {
 		return raw
+	}
+	text, isString := v.(string)
+	if !isString {
+		params["yaml"] = fmt.Sprintf("<a %T, not a string; not logged>", v)
+		return marshalParams(params, raw)
+	}
+	out, changed := RedactManifests(text, true)
+	if !changed {
+		return raw
+	}
+	params["yaml"] = out
+	return marshalParams(params, raw)
+}
+
+// RedactManifests returns manifest text with every Secret's values replaced by model.Redacted:
+// Secret documents, and the items of any List (SecretList, v1 List, another group's List) that
+// are Secrets or belong to a SecretList. Text that does not parse as manifests is replaced by a
+// note with its size when strict is set (the audit log), or when it mentions a Secret kind;
+// otherwise (an agent reading a half-typed editor tab) it is returned as it is. It reports
+// whether it changed anything.
+func RedactManifests(text string, strict bool) (string, bool) {
+	if strings.TrimSpace(text) == "" {
+		return text, false
 	}
 	objs, err := ParseManifests(text)
 	if err != nil {
-		params["yaml"] = fmt.Sprintf("<%d bytes that are not manifests; not logged>", len(text))
-		return marshalParams(params, raw)
+		if strict || mentionsSecret.MatchString(text) {
+			return fmt.Sprintf("<%d bytes that are not manifests; not shown>", len(text)), true
+		}
+		return text, false
 	}
-	secret := false
-	for _, o := range objs {
-		secret = secret || o.GetKind() == "Secret"
-	}
-	if !secret {
-		return raw
-	}
+	changed := false
 	docs := make([]string, 0, len(objs))
 	for _, o := range objs {
-		if o.GetKind() == "Secret" {
-			o = redactSecret(o)
+		kind := o.GetKind()
+		switch {
+		case kind == kindSecret:
+			o, changed = redactSecret(o), true
+		case strings.HasSuffix(kind, "List"):
+			if redactListItems(o, kind == "SecretList") {
+				changed = true
+			}
 		}
 		y, err := yaml.Marshal(o.Object)
 		if err != nil {
-			params["yaml"] = fmt.Sprintf("<%d bytes holding a Secret; not logged>", len(text))
-			return marshalParams(params, raw)
+			return fmt.Sprintf("<%d bytes of manifests; not shown>", len(text)), true
 		}
 		docs = append(docs, string(y))
 	}
-	params["yaml"] = strings.Join(docs, "---\n")
-	return marshalParams(params, raw)
+	if !changed {
+		return text, false
+	}
+	return strings.Join(docs, "---\n"), true
+}
+
+// mentionsSecret finds a kind: Secret (or SecretList) line in text that does not parse.
+var mentionsSecret = regexp.MustCompile(`(?m)^\s*"?kind"?\s*:\s*["']?Secret(List)?["']?\s*,?\s*$`)
+
+// redactListItems redacts the Secret items of a list object in place (o is a fresh copy from
+// ParseManifests): all of them for a SecretList, whose items carry no kind.
+func redactListItems(o *unstructured.Unstructured, allSecrets bool) bool {
+	items, ok := o.Object["items"].([]any)
+	if !ok {
+		return false
+	}
+	changed := false
+	for i, it := range items {
+		m, ok := it.(map[string]any)
+		if !ok {
+			continue
+		}
+		if k, _ := m["kind"].(string); allSecrets || k == kindSecret {
+			items[i] = redactSecret(&unstructured.Unstructured{Object: m}).Object
+			changed = true
+		}
+	}
+	return changed
 }
 
 // redactSecret replaces a Secret manifest's values, whatever its apiVersion says and whatever

@@ -55,7 +55,7 @@ func TestAuditKeepsSecretValuesOut(t *testing.T) {
 		{"secret among others", "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: cfg\ndata:\n  mode: fast\n---\napiVersion: v9\nkind: Secret\nmetadata:\n  name: odd\ndata: c2VjcmV0LWJsb2I=\n",
 			[]string{"mode: fast", "name: odd"}, []string{"c2VjcmV0LWJsb2I="}},
 		{"not a manifest", "password: hunter2\n: [unbalanced",
-			[]string{"not manifests; not logged"}, []string{"hunter2"}},
+			[]string{"not manifests; not shown"}, []string{"hunter2"}},
 		{"configmap", "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: cfg\ndata:\n  mode: fast\n",
 			[]string{"mode: fast"}, nil},
 	}
@@ -86,5 +86,19 @@ func TestAuditKeepsSecretValuesOut(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRedactedKindNormalisesTheVersion(t *testing.T) {
+	for _, tc := range []struct {
+		apiVersion, kind string
+		want             bool
+	}{
+		{"v1", "Secret", true}, {"/v1", "Secret", true}, {"a/b/c", "Secret", true},
+		{"v1", "ConfigMap", false}, {"example.com/v1", "Secret", false},
+	} {
+		if got := RedactedKind(tc.apiVersion, tc.kind); got != tc.want {
+			t.Errorf("RedactedKind(%q, %q) = %v, want %v", tc.apiVersion, tc.kind, got, tc.want)
+		}
 	}
 }

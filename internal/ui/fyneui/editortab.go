@@ -326,7 +326,13 @@ func (e *editorTab) showConflict(text string, ce *engine.ConflictError) {
 	e.showReview(text, ce.Diff,
 		fmt.Sprintf("%s %s since version %s: nothing was applied. These are your changes against version %s.", e.tab.Title, what, ce.BaseResourceVersion, ce.CurrentResourceVersion),
 		colorStatusWarning)
-	e.setStatus("Apply again to overwrite version "+ce.CurrentResourceVersion+" with your text.", colorStatusWarning)
+	if ce.Rebased {
+		e.setStatus("Apply again to overwrite version "+ce.CurrentResourceVersion+" with your text.", colorStatusWarning)
+	} else {
+		// A dry run does not move the edit's base: Apply reports the conflict once more and then
+		// bases the edit on the new version, so that overwriting it always takes an apply.
+		e.setStatus("Apply to base your edit on version "+ce.CurrentResourceVersion+"; applying after that overwrites it.", colorStatusWarning)
+	}
 	e.applyBtn.Enable()
 }
 

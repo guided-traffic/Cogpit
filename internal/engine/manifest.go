@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utiljson "k8s.io/apimachinery/pkg/util/json"
 	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
@@ -184,11 +185,19 @@ func EditableYAML(obj *unstructured.Unstructured) (string, error) {
 	return string(b), nil
 }
 
+// kindSecret is the Kind whose values Cogpit redacts.
+const kindSecret = "Secret"
+
 // RedactedKind reports whether Cogpit redacts the YAML of a kind (Secrets: model.Redact). Such
 // objects are never edited or created from YAML: the text the editor would start from carries
 // placeholders, and applying it would write them into the cluster (H-8).
 func RedactedKind(apiVersion, kind string) bool {
-	probe := &unstructured.Unstructured{Object: map[string]any{"apiVersion": apiVersion, "kind": kind}}
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return kind == kindSecret // an apiVersion that does not parse: refuse rather than guess
+	}
+	// The normalised form: "/v1" and "v1" name the same core group.
+	probe := &unstructured.Unstructured{Object: map[string]any{"apiVersion": gv.String(), "kind": kind}}
 	return model.Redact(probe) != probe
 }
 

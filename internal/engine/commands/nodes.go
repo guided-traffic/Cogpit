@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -48,6 +49,28 @@ type drainParams struct {
 
 type pendingDrainsParams struct {
 	All bool `json:"all,omitempty" jsonschema:"list the pending drains of every context, not only the connected one's"`
+}
+
+// drainDetail names, for the confirmation, the drain options that lose data or end pods for good,
+// so that "Finish drain" or an agent's drain with them never reads like a plain drain.
+func drainDetail(_ *engine.Session, p drainParams) string {
+	var notes []string
+	if p.DeleteEmptyDirData {
+		notes = append(notes, "the emptyDir data of evicted pods is lost")
+	}
+	if p.Force {
+		notes = append(notes, "pods that no controller manages are evicted and not started again")
+	}
+	if p.IgnoreDaemonSets != nil && !*p.IgnoreDaemonSets {
+		notes = append(notes, "the drain refuses a node that runs DaemonSet pods")
+	}
+	if p.GracePeriodSeconds > 0 {
+		notes = append(notes, fmt.Sprintf("each pod gets %d seconds to shut down", p.GracePeriodSeconds))
+	}
+	if len(notes) == 0 {
+		return ""
+	}
+	return "With these options: " + strings.Join(notes, "; ") + "."
 }
 
 // drainVerbs are the requests kubectl's drain library makes, as cluster.DrainNode documents them;
@@ -115,6 +138,7 @@ func registerNodes(g *registrar) {
 			"controller manages; deleteEmptyDirData and force allow those. A drain that fails or times out leaves the " +
 			"node cordoned and partly drained; it stays in node_pendingDrains, and so does one a crash of Cogpit " +
 			"interrupts. Run it again to finish it. Always asks the user to confirm.",
+		Detail: drainDetail,
 		Enabled: func(s *engine.Session, p drainParams) error {
 			if _, err := cachedOfKind(s, p.Ref, nodeKindKey); err != nil {
 				return err

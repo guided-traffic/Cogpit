@@ -88,9 +88,15 @@ func registerEdit(g *registrar) {
 		ID: "editor.get", Label: "Read Editor", Danger: engine.DangerRead, Verbs: cacheReads,
 		Description: "Returns an editor tab's text (what the user has typed so far) and its revision; for an Edit tab also " +
 			"the resourceVersion the edit is based on, the one Cogpit's cache holds now, and whether they differ (stale: an " +
-			"apply would be refused with a conflict) or the object is gone (missing).",
+			"apply would be refused with a conflict) or the object is gone (missing). For agents, the values of any " +
+			"Secret in the text are replaced by <redacted>.",
 		Run: func(ctx context.Context, s *engine.Session, p editorParams) (any, error) {
-			return s.EditorState(ctx, p.ID)
+			st, err := s.EditorState(ctx, p.ID)
+			if err == nil && engine.OriginOf(ctx).IsAgent() {
+				// A Secret the user pasted into a Create tab is theirs to see, not an LLM's.
+				st.Text, _ = engine.RedactManifests(st.Text, false)
+			}
+			return st, err
 		},
 	})
 
@@ -139,8 +145,10 @@ func registerEdit(g *registrar) {
 		Description: "Writes an Edit tab's text (or yaml) to the cluster: a server-side dry run, then an update with the " +
 			"resourceVersion the edit is based on as precondition. If the object changed meanwhile nothing is written and " +
 			"the result is a conflict; the tab then compares with the newer version, and applying again overwrites it. On " +
-			"success returns the stored version, which becomes the tab's text. An agent's request waits for the user's acceptance.",
-		Enabled: func(s *engine.Session, _ editParams) error { _, err := writable(s); return err },
+			"success returns the stored version, which becomes the tab's text. An agent's request waits for the user's acceptance. " +
+			"An edit that scales the object to zero replicas is destructive and is always confirmed, as Scale to zero is.",
+		Escalate: func(s *engine.Session, p editParams) bool { return s.EditScalesToZero(p.ID, p.YAML) },
+		Enabled:  func(s *engine.Session, _ editParams) error { _, err := writable(s); return err },
 		Targets: func(s *engine.Session, p editParams) ([]model.ObjectRef, error) {
 			st, err := editTabRef(s, p.ID)
 			if err != nil {

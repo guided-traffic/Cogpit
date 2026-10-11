@@ -14,6 +14,9 @@ import (
 	"sync"
 	"time"
 
+	// Cron Jobs' Next execution reads spec.timeZone; Windows has no zone database of its own.
+	_ "time/tzdata"
+
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 

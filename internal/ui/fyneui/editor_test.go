@@ -116,7 +116,7 @@ func newEditorFake(f *fakeEngine) *editorFake {
 			e.conflict = false
 			lines := engine.DiffLines(strings.Replace(serviceYAML, "  selector:\n", "  selector:\n    tier: web\n", 1), p.YAML)
 			return nil, &engine.ConflictError{Ref: checkoutRef, BaseResourceVersion: "41", CurrentResourceVersion: "57",
-				Diff: engine.CompactDiff(lines, engine.DefaultDiffContext)}
+				Diff: engine.CompactDiff(lines, engine.DefaultDiffContext), Rebased: true} // an apply rebases
 		}
 		stored := strings.Replace(p.YAML, `resourceVersion: "41"`, `resourceVersion: "58"`, 1)
 		e.texts[p.ID] = stored

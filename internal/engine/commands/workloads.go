@@ -99,10 +99,16 @@ func registerWorkloads(g *registrar) {
 				if err != nil {
 					return err
 				}
-				// The cached pod's UID is what the user saw and confirmed.
-				uid := ""
-				if obj, err := s.Lookup(ref); err == nil {
-					uid = string(obj.GetUID())
+				// The UID the user confirmed, so that a pod created again under the name is not evicted.
+				uid, err := engine.ActUID(ctx, ref, func() (string, bool) {
+					obj, err := s.Lookup(ref)
+					if err != nil {
+						return "", false
+					}
+					return string(obj.GetUID()), true
+				})
+				if err != nil {
+					return err
 				}
 				return ww.EvictPod(ctx, ref.Namespace, ref.Name, uid)
 			})
