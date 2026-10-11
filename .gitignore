@@ -2,5 +2,8 @@
 /dist/
 /log/
 /plan/
+/.cache/
 *.test
 *.out
+*.prof
+/cmd/cogpit/Cogpit.app/

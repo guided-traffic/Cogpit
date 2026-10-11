@@ -1,0 +1,287 @@
+version: "2"
+
+run:
+  timeout: 10m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - depguard
+    - errcheck
+    - goconst
+    - govet
+    - ineffassign
+    - misspell
+    - prealloc
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+  settings:
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+        - name: var-naming
+        - name: indent-error-flow
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: receiver-naming
+        - name: increment-decrement
+        - name: unexported-return
+        - name: blank-imports
+        - name: context-as-argument
+        - name: dot-imports
+        - name: range
+        - name: time-naming
+        - name: var-declaration
+        - name: superfluous-else
+        - name: unreachable-code
+        - name: redefines-builtin-id
+    # Layering (docs/developer/architecture.md §3). A package imports only lower layers; only
+    # internal/ui/... imports Fyne; model and kubeconfig do no I/O; only cluster, cache, terminal,
+    # helm and metrics talk to the API server.
+    #   L5 cmd/*  ·  L4 ui/fyneui, mcp, agent, update  ·  L3 engine  ·  L2 helm, metrics, demo
+    #   L1 cluster, cache, terminal  ·  L0 model, kubeconfig
+    depguard:
+      rules:
+        fyne-only-in-ui:
+          files:
+            - "**/internal/**/*.go"
+            - "!**/internal/ui/**"
+          deny:
+            - pkg: "fyne.io/fyne"
+              desc: "only internal/ui/... imports Fyne"
+            - pkg: "github.com/fyne-io"
+              desc: "only internal/ui/... imports Fyne"
+        l0-model-kubeconfig:
+          files:
+            - "**/internal/model/**"
+            - "**/internal/kubeconfig/**"
+          deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
+              desc: "L0 imports nothing above L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/cache"
+              desc: "L0 imports nothing above L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/terminal"
+              desc: "L0 imports nothing above L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/demo"
+              desc: "L0 imports nothing above L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/helm"
+              desc: "L0 imports nothing above L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/metrics"
+              desc: "L0 imports nothing above L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/engine"
+              desc: "L0 imports nothing above L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/mcp"
+              desc: "L0 imports nothing above L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/agent"
+              desc: "L0 imports nothing above L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/update"
+              desc: "L0 imports nothing above L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/ui"
+              desc: "L0 imports nothing above L0"
+            - pkg: "k8s.io/client-go/kubernetes"
+              desc: "model and kubeconfig do no I/O"
+            - pkg: "k8s.io/client-go/rest"
+              desc: "model and kubeconfig do no I/O"
+            - pkg: "k8s.io/client-go/dynamic"
+              desc: "model and kubeconfig do no I/O"
+            - pkg: "k8s.io/client-go/discovery"
+              desc: "model and kubeconfig do no I/O"
+            - pkg: "k8s.io/client-go/transport"
+              desc: "model and kubeconfig do no I/O"
+            - pkg: "k8s.io/client-go/informers"
+              desc: "model and kubeconfig do no I/O"
+            - pkg: "k8s.io/client-go/metadata"
+              desc: "model and kubeconfig do no I/O"
+            - pkg: "k8s.io/client-go/tools/cache"
+              desc: "model and kubeconfig do no I/O"
+            - pkg: "k8s.io/client-go/tools/remotecommand"
+              desc: "model and kubeconfig do no I/O"
+            - pkg: "k8s.io/client-go/tools/clientcmd$"
+              desc: "model and kubeconfig do no I/O; use tools/clientcmd/api"
+            - pkg: "net/http"
+              desc: "model and kubeconfig do no I/O"
+            - pkg: "os/exec"
+              desc: "model and kubeconfig do no I/O"
+            - pkg: "os$"
+              desc: "model and kubeconfig do no I/O"
+        l1-cluster:
+          files:
+            - "**/internal/cluster/**"
+          deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/cache"
+              desc: "L1 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/terminal"
+              desc: "L1 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/demo"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/helm"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/metrics"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/engine"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/mcp"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/agent"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/update"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/ui"
+              desc: "L1 imports only L0"
+        l1-cache:
+          files:
+            - "**/internal/cache/**"
+          deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
+              desc: "L1 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/terminal"
+              desc: "L1 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/demo"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/helm"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/metrics"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/engine"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/mcp"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/agent"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/update"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/ui"
+              desc: "L1 imports only L0"
+        l1-terminal:
+          files:
+            - "**/internal/terminal/**"
+          deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
+              desc: "L1 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/cache"
+              desc: "L1 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/demo"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/helm"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/metrics"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/engine"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/mcp"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/agent"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/update"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/ui"
+              desc: "L1 imports only L0"
+        l2-demo-helm-metrics:
+          files:
+            - "**/internal/demo/**"
+            - "**/internal/helm/**"
+            - "**/internal/metrics/**"
+          deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/engine"
+              desc: "L2 imports only L0 and L1"
+            - pkg: "github.com/guided-traffic/cogpit/internal/mcp"
+              desc: "L2 imports only L0 and L1"
+            - pkg: "github.com/guided-traffic/cogpit/internal/agent"
+              desc: "L2 imports only L0 and L1"
+            - pkg: "github.com/guided-traffic/cogpit/internal/update"
+              desc: "L2 imports only L0 and L1"
+            - pkg: "github.com/guided-traffic/cogpit/internal/ui"
+              desc: "L2 imports only L0 and L1"
+        l3-engine:
+          files:
+            - "**/internal/engine/**"
+          deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/mcp"
+              desc: "L3 imports only lower layers"
+            - pkg: "github.com/guided-traffic/cogpit/internal/agent"
+              desc: "L3 imports only lower layers"
+            - pkg: "github.com/guided-traffic/cogpit/internal/update"
+              desc: "L3 imports only lower layers"
+            - pkg: "github.com/guided-traffic/cogpit/internal/ui"
+              desc: "L3 imports only lower layers"
+            - pkg: "k8s.io/client-go/kubernetes"
+              desc: "the engine reaches clusters only through cluster, cache and terminal"
+            - pkg: "k8s.io/client-go/dynamic"
+              desc: "the engine reaches clusters only through cluster, cache and terminal"
+            - pkg: "k8s.io/client-go/rest"
+              desc: "the engine reaches clusters only through cluster, cache and terminal"
+            - pkg: "k8s.io/client-go/tools/cache"
+              desc: "the engine reaches clusters only through cluster, cache and terminal"
+        l4-ui:
+          files:
+            - "**/internal/ui/**"
+          deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/mcp"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/agent"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/update"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
+              desc: "the UI reads only engine state"
+            - pkg: "github.com/guided-traffic/cogpit/internal/cache"
+              desc: "the UI reads only engine state"
+            - pkg: "github.com/guided-traffic/cogpit/internal/demo"
+              desc: "the UI reads only engine state"
+            - pkg: "k8s.io/client-go"
+              desc: "the UI never talks to the API server"
+        l4-mcp:
+          files:
+            - "**/internal/mcp/**"
+          deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/ui"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/agent"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/update"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
+              desc: "MCP tools dispatch engine commands only"
+            - pkg: "github.com/guided-traffic/cogpit/internal/cache"
+              desc: "MCP tools dispatch engine commands only"
+            - pkg: "github.com/guided-traffic/cogpit/internal/terminal"
+              desc: "MCP tools dispatch engine commands only"
+            - pkg: "github.com/guided-traffic/cogpit/internal/demo"
+              desc: "MCP tools dispatch engine commands only"
+            - pkg: "k8s.io/client-go"
+              desc: "MCP tools never talk to the API server"
+        no-testkit-in-product:
+          files:
+            - "**/internal/**/*.go"
+            - "**/cmd/**"
+            - "!$test"
+            - "!**/internal/testkit/**"
+          deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/testkit"
+              desc: "testkit is for tests only"
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - std-error-handling
+    rules:
+      - path: (_test\.go|internal/testkit/)
+        linters:
+          - goconst
+          - prealloc
+          - unparam
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/guided-traffic/cogpit
