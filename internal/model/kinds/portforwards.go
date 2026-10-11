@@ -28,7 +28,7 @@ import (
 //	  message: ...             # why it waits, reconnects or failed
 //	  localPort: 54321         # the port it listens on, on 127.0.0.1
 //	  address: 127.0.0.1:54321
-//	  url: http://localhost:54321
+//	  url: http://127.0.0.1:54321
 //	  pod: web-7c9f-x2l4q      # the pod it is connected to (a service's pod)
 //	  podPort: 8080            # the port in that pod (a service's target port)
 

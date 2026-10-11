@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -235,7 +236,7 @@ func assertLoopbackOnly(t *testing.T, f engine.Forward) {
 	if err != nil || host != "127.0.0.1" || port != strconv.Itoa(int(f.LocalPort)) {
 		t.Fatalf("address %q (local port %d), want 127.0.0.1:<port>", f.Address, f.LocalPort)
 	}
-	if f.URL != "http://localhost:"+port && f.URL != "https://localhost:"+port {
+	if f.URL != "http://127.0.0.1:"+port && f.URL != "https://127.0.0.1:"+port {
 		t.Errorf("URL %q", f.URL)
 	}
 	addrs, _ := net.InterfaceAddrs()
@@ -252,6 +253,47 @@ func assertLoopbackOnly(t *testing.T, f engine.Forward) {
 	if c, err := net.DialTimeout("tcp6", net.JoinHostPort("::1", port), 200*time.Millisecond); err == nil {
 		c.Close()
 		t.Error("the forward answers on ::1")
+	}
+}
+
+// TestForwardURLReachesTheForward: the URL a forward returns (and the GUI opens) reaches the
+// forward's own listener, never a socket another local process holds on [::1] at the same port:
+// the listener is on 127.0.0.1 only, and "localhost" resolves to ::1 first on macOS (curl, Go's
+// HTTP client and browsers then connect there).
+func TestForwardURLReachesTheForward(t *testing.T) {
+	squatter, err := net.Listen("tcp6", "[::1]:0")
+	if err != nil {
+		t.Skip("no IPv6 loopback:", err)
+	}
+	t.Cleanup(func() { _ = squatter.Close() })
+	go func() {
+		for {
+			c, err := squatter.Accept()
+			if err != nil {
+				return
+			}
+			_, _ = c.Write([]byte("squatter\n"))
+			_ = c.Close()
+		}
+	}()
+	port := uint16(squatter.Addr().(*net.TCPAddr).Port)
+
+	h, _ := newForwardHarness(t, engine.Options{})
+	var f engine.Forward
+	h.must(t, engine.OriginGUI, "pod.portForward", map[string]any{"ref": web0, "container": "app", "port": 8080, "localPort": port}, &f)
+	u, err := url.Parse(f.URL)
+	if err != nil {
+		t.Fatalf("URL %q: %v", f.URL, err)
+	}
+	c, err := net.DialTimeout("tcp", u.Host, 2*time.Second) // what a client of the URL dials
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	_ = c.SetDeadline(time.Now().Add(5 * time.Second))
+	line, _ := bufio.NewReader(c).ReadString('\n')
+	if got := strings.TrimSpace(line); got != "pod web-0 port 8080" {
+		t.Errorf("the forward's URL %s reached %q, not the forward on %s", f.URL, got, f.Address)
 	}
 }
 
@@ -293,7 +335,7 @@ func TestPortForwardLifecycle(t *testing.T) {
 	free := freePort(t)
 	var edited engine.Forward
 	h.must(t, gui, "portforward.edit", map[string]any{"ref": ref, "localPort": free, "https": true}, &edited)
-	if edited.LocalPort != free || edited.URL != "https://localhost:"+strconv.Itoa(int(free)) || edited.Phase != engine.ForwardActive || !edited.Spec.OpenInBrowser {
+	if edited.LocalPort != free || edited.URL != "https://127.0.0.1:"+strconv.Itoa(int(free)) || edited.Phase != engine.ForwardActive || !edited.Spec.OpenInBrowser {
 		t.Fatalf("edited %+v", edited)
 	}
 	if _, err := ask(t, f.Address); err == nil {
@@ -516,7 +558,7 @@ func TestPortForwardConfirmationPerOrigin(t *testing.T) {
 	if n := len(conf.all()); n != 3 {
 		t.Errorf("open, stop and delete asked for confirmation: %d", n)
 	}
-	if !strings.HasPrefix(opened.URL, "https://localhost:") {
+	if !strings.HasPrefix(opened.URL, "https://127.0.0.1:") {
 		t.Errorf("the agent's open: %+v", opened)
 	}
 	var ids []string

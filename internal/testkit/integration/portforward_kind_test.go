@@ -135,7 +135,7 @@ func TestKindPortForward(t *testing.T) {
 	var webFwd engine.Forward
 	d.must("service.portForward", map[string]any{"ref": web, "port": 80}, &webFwd)
 	host, _, _ := net.SplitHostPort(webFwd.Address)
-	if webFwd.Phase != engine.ForwardActive || host != "127.0.0.1" || !strings.HasPrefix(webFwd.URL, "http://localhost:") {
+	if webFwd.Phase != engine.ForwardActive || host != "127.0.0.1" || !strings.HasPrefix(webFwd.URL, "http://127.0.0.1:") {
 		t.Fatalf("web forward %+v", webFwd)
 	}
 	body, err := httpGet(ctx, "http://"+webFwd.Address+"/")

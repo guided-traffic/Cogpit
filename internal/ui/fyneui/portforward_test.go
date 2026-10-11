@@ -69,10 +69,10 @@ func (b *browserLog) opened() []string {
 	return slices.Clone(b.urls)
 }
 
-const forwardURLFixture = "http://localhost:54321"
+const forwardURLFixture = "http://127.0.0.1:54321"
 
 // registerForwardProbes adds the forward commands to the fake, at the places the engine gives
-// them, and answers them with a forward on localhost:54321.
+// them, and answers them with a forward on 127.0.0.1:54321.
 func registerForwardProbes(t testing.TB, f *fakeEngine) {
 	t.Helper()
 	must := func(err error) {
@@ -140,7 +140,7 @@ func fixtureForwardObjects() []*unstructured.Unstructured {
 		}
 		if phase != "Stopped" && phase != "Failed" {
 			status["localPort"], status["address"] = local, "127.0.0.1:"+strconv.FormatInt(local, 10)
-			status["url"] = protocol + "://localhost:" + strconv.FormatInt(local, 10)
+			status["url"] = protocol + "://127.0.0.1:" + strconv.FormatInt(local, 10)
 		}
 		if pod != "" {
 			status["pod"], status["podPort"] = pod, podPort
@@ -386,7 +386,7 @@ func TestOpenForwardURLOnlyLocal(t *testing.T) {
 	browser := recordBrowser(t)
 	f := forwardsFake(t, "pods")
 	sh, _, _ := newTestShell(t, f, Options{})
-	for _, u := range []string{"https://example.com/", "file:///etc/passwd", "http://localhost.example.com:80/", "javascript:alert(1)"} {
+	for _, u := range []string{"https://example.com/", "file:///etc/passwd", "http://localhost.example.com:80/", "javascript:alert(1)", "http://localhost:54321"} {
 		sh.openForwardURL(u)
 	}
 	sh.openForwardURL("https://127.0.0.1:9443")

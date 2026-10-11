@@ -90,7 +90,7 @@ type Forward struct {
 	Message   string          `json:"message,omitempty"`
 	LocalPort uint16          `json:"localPort,omitempty"` // the port it listens on, while it does
 	Address   string          `json:"address,omitempty"`   // "127.0.0.1:<localPort>"
-	URL       string          `json:"url,omitempty"`       // "http://localhost:<localPort>"
+	URL       string          `json:"url,omitempty"`       // "http://127.0.0.1:<localPort>"
 	Pod       string          `json:"pod,omitempty"`       // the pod it is connected to
 	PodPort   uint16          `json:"podPort,omitempty"`   // the port in that pod
 }
@@ -108,14 +108,16 @@ func ForwardName(target model.ObjectRef, port uint16) string {
 	return kind + "-" + target.Name + "-" + strconv.Itoa(int(port))
 }
 
-// forwardURL is a forward's URL. The listener is on 127.0.0.1 and the URL says localhost: a client
-// that resolves localhost to ::1 only does not reach it (Go's HTTP client tries 127.0.0.1 too).
+// forwardURL is a forward's URL. It names the address the listener is on, 127.0.0.1, never
+// localhost: localhost resolves to ::1 first on macOS, and a client (a browser, curl, Go's HTTP
+// client) then reaches whatever another local process listens on at [::1] and the same port,
+// never falling back to the forward (review 2026-10-11, TestForwardURLReachesTheForward).
 func forwardURL(https bool, port uint16) string {
 	scheme := schemeHTTP
 	if https {
 		scheme = schemeHTTPS
 	}
-	return scheme + "://localhost:" + strconv.Itoa(int(port))
+	return scheme + "://" + net.JoinHostPort(cluster.LoopbackAddress, strconv.Itoa(int(port)))
 }
 
 // The schemes of a forward's URL, its spec.protocol.

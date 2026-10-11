@@ -31,7 +31,7 @@ var forwardVerbs = []engine.Verb{
 // forwardOptions are the settings every way of starting a forward shares.
 type forwardOptions struct {
 	LocalPort     uint16 `json:"localPort,omitempty" jsonschema:"the local port to listen on, on 127.0.0.1 only; 0 or left out picks a free port"`
-	HTTPS         bool   `json:"https,omitempty" jsonschema:"the forward's URL is https://localhost:<port> instead of http://"`
+	HTTPS         bool   `json:"https,omitempty" jsonschema:"the forward's URL is https://127.0.0.1:<port> instead of http://"`
 	OpenInBrowser bool   `json:"openInBrowser,omitempty" jsonschema:"the GUI opens the URL in the browser once the forward runs; an agent gets the URL in the result and nothing opens"`
 }
 
@@ -68,7 +68,7 @@ func registerPortForward(g *registrar) {
 			"connect while it runs), as kubectl port-forward does, and keeps it up: it connects again when the " +
 			"connection is lost while the pod exists, and ends when the user stops it or Cogpit leaves the cluster. " +
 			"Starting the same pod and port again restarts that forward with the new settings. Returns the forward " +
-			"with its URL (http(s)://localhost:<port>). The user must accept an agent's request.",
+			"with its URL (http(s)://127.0.0.1:<port>). The user must accept an agent's request.",
 		Enabled: func(s *engine.Session, p podForwardParams) error {
 			pod, err := cachedOfKind(s, p.Ref, kindPods)
 			if err != nil {
@@ -153,7 +153,7 @@ func registerPortForward(g *registrar) {
 	add(g, engine.Spec[forwardRefParams]{
 		ID: "portforward.open", Label: "Open", MenuPath: "PortForward/Open", Kinds: []string{engine.PortForwardKind},
 		Order: 100, Danger: engine.DangerUI,
-		Description: "Returns a port forward's URL, http(s)://localhost:<port>; the GUI opens it in the browser. For an " +
+		Description: "Returns a port forward's URL, http(s)://127.0.0.1:<port>; the GUI opens it in the browser. For an " +
 			"agent nothing opens: it gets the URL.",
 		Enabled: func(s *engine.Session, p forwardRefParams) error {
 			f, err := cachedForward(s, p.Ref)

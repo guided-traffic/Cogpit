@@ -160,10 +160,11 @@ func (sh *shell) forwardDone(res any, err error, always bool) {
 	sh.openForwardURL(r.URL)
 }
 
-// openForwardURL opens a forward's URL, and only such a URL: http or https on localhost.
+// openForwardURL opens a forward's URL, and only such a URL: http or https on 127.0.0.1, where
+// forwards listen. Not localhost: it resolves to ::1 first, where another process may listen.
 func (sh *shell) openForwardURL(raw string) {
 	u, err := url.Parse(raw)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || (u.Hostname() != "localhost" && u.Hostname() != "127.0.0.1") {
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() != "127.0.0.1" {
 		sh.toast("error", "not a port forward's address: "+raw)
 		return
 	}

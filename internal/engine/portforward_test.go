@@ -102,7 +102,7 @@ func TestForwardObjectRoundTrip(t *testing.T) {
 	if got != f {
 		t.Errorf("round trip:\n got %+v\nwant %+v", got, f)
 	}
-	if f.URL != "https://localhost:9080" || ForwardName(f.Spec.Target, 80) != "service-web-80" ||
+	if f.URL != "https://127.0.0.1:9080" || ForwardName(f.Spec.Target, 80) != "service-web-80" ||
 		ForwardName(model.ObjectRef{Kind: "pods", Name: "web-0"}, 8080) != "pod-web-0-8080" {
 		t.Errorf("url %s, names %s", f.URL, ForwardName(f.Spec.Target, 80))
 	}
