@@ -116,6 +116,8 @@ malformed-input tests or fuzz targets.
 Small, focused commits in the [Conventional Commits](https://www.conventionalcommits.org/) form
 the team's other repositories use (`feat:`, `fix:`, `chore:`, `test:`, `docs:`, with a scope where
 it helps: `fix(cache): …`), because semantic-release derives the next version from them
-([releasing](releasing.md)). Commits and pull requests carry no `Co-Authored-By` trailers and no
+([releasing](releasing.md)). No commit carries `!` or a `BREAKING CHANGE:` footer until the owner
+wants 1.0.0: semantic-release continues from the anchor tag `v0.0.0`, and a breaking change would
+cut 1.0.0. Commits and pull requests carry no `Co-Authored-By` trailers and no
 "Generated with" lines (owner, 2026-10-11). A pull request that moves a parity number updates the progress docs in
 the same change ([rules](../parity/README.md#rules-for-every-progress-page)).

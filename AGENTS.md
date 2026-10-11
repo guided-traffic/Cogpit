@@ -134,7 +134,10 @@ make test-kind        # cluster tests, after make kind-up (never against your ow
 
 Then commit and push. Agents may commit and push to `main` on their own (owner, 2026-10-11), in
 [Conventional Commits](docs/developer/conventions.md#commits-and-pull-requests) form and **without
-`Co-Authored-By` trailers or "Generated with" lines**. Append a terse entry to `log/devlog.md`:
+`Co-Authored-By` trailers or "Generated with" lines**, and **never with `!` or a `BREAKING CHANGE:`
+footer**: releases continue from the owner's anchor tag `v0.0.0`, and a breaking change would cut
+1.0.0 before Cogpit is usable. Don't wait for CI before the next step (owner, 2026-10-11): run the
+gates locally, push, and look at CI when you next push. Append a terse entry to `log/devlog.md`:
 what landed, numbers, what's still open. Keep the tree building at every step.
 
 ## 6. Parallel agents

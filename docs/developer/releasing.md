@@ -140,7 +140,11 @@ release. Cogpit has the same [`.releaserc.json`](../../.releaserc.json) and the 
 semantic-release on a repository without tags cuts **1.0.0**: run locally on a clone of `main`
 (commit `59b42f2`) with the committed configuration on 2026-10-11, it reported "There is no previous release, the next release
 version is 1.0.0". A 1.0 tag and GitHub release for a pre-alpha is a promise nobody can take back
-quietly, so the job "Semantic Release (dry run)" has three guards, each enough on its own:
+quietly. The owner therefore created the tag and GitHub release **v0.0.0** (2026-10-11) as the
+anchor: semantic-release now continues from it (`feat:` → 0.1.0, `fix:` → 0.0.1), and 1.0.0 comes
+only from a breaking change, which is cut when Cogpit is usable (owner). Until then **no commit
+carries `!` or a `BREAKING CHANGE:` footer** ([conventions](conventions.md#commits-and-pull-requests)).
+The job "Semantic Release (dry run)" keeps three guards, each enough on its own:
 
 1. `npx semantic-release --dry-run`: no tag, no GitHub release, no release commit.
 2. The job's token is read-only (`contents: read`): GitHub refuses a pushed tag and a created
@@ -157,9 +161,9 @@ still goes to GitHub.
 
 The owner's call. To cut it:
 
-1. **Choose the first version.** semantic-release starts at 1.0.0. For a 0.x line, tag the chosen
-   commit `v0.1.0` by hand and push the tag; semantic-release then continues from it (`feat:` →
-   0.2.0, `fix:` → 0.1.1, a breaking change → 1.0.0).
+1. **The first version** continues from the owner's anchor tag `v0.0.0` (2026-10-11): the next
+   `feat:` makes 0.1.0, a `fix:` 0.0.1; a breaking change makes 1.0.0, which waits until Cogpit is
+   usable (owner).
 2. **Flip the job** in [`release.yml`](../../.github/workflows/release.yml), as the team's other
    repositories run it: remove `--dry-run`; remove the step "Redirect git pushes into a throwaway
    repository"; create a GitHub App token (`actions/create-github-app-token@v3` with

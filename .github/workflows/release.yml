@@ -5,8 +5,10 @@
 # ---------------------------------------------------------------------------------------------
 # DRY RUN ONLY: THIS WORKFLOW DOES NOT RELEASE.
 # Cogpit is pre-alpha. semantic-release derives the version from the commits since the last tag;
-# with no tag yet and feat: commits on main it would cut 1.0.0, tag it and publish a GitHub
-# release: a 1.0 promise for a pre-alpha. The first real release is the owner's call. Until the
+# without a tag it would cut 1.0.0: a 1.0 promise for a pre-alpha. The owner's anchor tag v0.0.0
+# (2026-10-11) makes the next release 0.x; a breaking-change commit (! or BREAKING CHANGE:) would
+# still make it 1.0.0, so none is written until 1.0 is wanted. The first real release is the
+# owner's call. Until the
 # owner flips it, three independent guards keep the job "Semantic Release (dry run)" from
 # releasing:
 #   1. --dry-run on the semantic-release step: no tag, no GitHub release, no release commit;
