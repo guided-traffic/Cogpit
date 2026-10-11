@@ -138,11 +138,12 @@ var builtinGroups = map[string]bool{
 
 // KindKeyFor returns the kind key of a resource: the key of the backend's profile that serves it,
 // else the bare plural for the API server's own groups and "<plural>.<group>" for every other
-// group (architecture §4.5).
+// group (architecture §4.5). Virtual and local kinds are skipped: Helm's releases are made from
+// Secrets, but a Secret's kind key is "secrets".
 func KindKeyFor(b *Backend, gvr schema.GroupVersionResource) string {
 	if b != nil {
 		for _, p := range b.Profiles {
-			if p.Group == gvr.Group && p.Resource == gvr.Resource {
+			if p.APIObject() && p.Group == gvr.Group && p.Resource == gvr.Resource {
 				return p.Key
 			}
 		}
