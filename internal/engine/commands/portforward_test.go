@@ -673,7 +673,7 @@ func TestPortForwardsForAgentsAndMenus(t *testing.T) {
 
 	var labels []string
 	for _, c := range h.s.Registry().Actions(engine.PortForwardKind) {
-		if c.Applicable(h.s, c.ObjectParams(f.Ref, "")) {
+		if !c.DrawerOnly && c.Applicable(h.s, c.ObjectParams(f.Ref, "")) { // the row menu leaves drawer-only Copy out
 			labels = append(labels, c.Label)
 		}
 	}
