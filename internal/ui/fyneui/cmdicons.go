@@ -36,6 +36,9 @@ var commandIcons = map[string]fyne.ThemeIconName{
 	"cronjob.resume":      theme.IconNameMediaPlay,
 	"object.edit":         theme.IconNameDocumentCreate,
 	"object.delete":       theme.IconNameDelete,
+
+	"helm.release.rollback":  theme.IconNameHistory,
+	"helm.release.uninstall": theme.IconNameDelete,
 }
 
 // genericCommandIcon is the icon of a command without its own.

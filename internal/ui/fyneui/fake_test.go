@@ -90,10 +90,17 @@ func (f *fakeEngine) reason(id string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if r := f.disabled[id]; r != "" {
+		if r == notApplicable {
+			return engine.ErrNotApplicable
+		}
 		return errors.New(r)
 	}
 	return nil
 }
+
+// notApplicable, as a reason in fakeEngine.disabled, makes the command not apply at all (hidden
+// from menus), as the engine's object.delete does for a virtual kind.
+const notApplicable = "\x00not applicable"
 
 func (f *fakeEngine) UIState() engine.UIState {
 	f.mu.Lock()

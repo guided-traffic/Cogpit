@@ -106,6 +106,7 @@ var navLayout = []navEntry{
 	navGroup("devices", "Device Resources", "resourceclaims", "resourceclaimtemplates", "deviceclasses", "resourceslices"),
 	{id: kindNamespaces},
 	{id: "events"},
+	navGroup("helm", "Helm", "helmreleases"), // Charts come with chart repositories (G11)
 	navGroup("access", "Access Control",
 		"serviceaccounts", "clusterroles", "roles", "clusterrolebindings", "rolebindings", "podsecuritypolicies"),
 	{id: customGroup, title: "Custom Resources", items: []navEntry{{id: kindDefinitions}}},
@@ -134,6 +135,7 @@ var navIcons = map[string]fyne.Resource{
 	kindNamespaces:            iconLayers,
 	"events":                  theme.HistoryIcon(),
 	groupPrefix + "devices":   theme.ComputerIcon(),
+	groupPrefix + "helm":      theme.FileApplicationIcon(),
 	groupPrefix + "access":    theme.AccountIcon(),
 	groupPrefix + "custom":    theme.ListIcon(),
 	groupPrefix + "other":     theme.MoreHorizontalIcon(),

@@ -1,0 +1,328 @@
+package fyneui
+
+import (
+	"bytes"
+	"compress/gzip"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/helm"
+	"github.com/guided-traffic/cogpit/internal/model"
+)
+
+// The Releases view and drawer as the engine serves them: release Secrets through the real
+// virtual kind (helm.NewReleaseProfile), and the drawer the real drawer model. Every name is made up.
+
+// fixtureRelease is one revision of a release.
+type fixtureRelease struct {
+	ns, name, chart, version, app, status string
+	rev                                   int
+	ago                                   time.Duration
+}
+
+// fixtureReleaseSecret encodes a revision the way Helm's Secrets driver stores it.
+func fixtureReleaseSecret(t testing.TB, r fixtureRelease) *unstructured.Unstructured {
+	t.Helper()
+	deployed := fixedNow.Add(-r.ago)
+	rls := map[string]any{
+		"name": r.name, "namespace": r.ns, "version": r.rev,
+		"info": map[string]any{"status": r.status, "first_deployed": fixedNow.Add(-90 * 24 * time.Hour).Format(time.RFC3339),
+			"last_deployed": deployed.Format(time.RFC3339), "description": releaseDescription(r)},
+		"chart": map[string]any{"metadata": map[string]any{"name": r.chart, "version": r.version, "appVersion": r.app}},
+		"config": map[string]any{
+			"controller": map[string]any{"replicaCount": 2, "service": map[string]any{"type": "LoadBalancer"}},
+			"auth":       map[string]any{"adminPassword": "correct-horse-battery-staple"},
+		},
+		"manifest": "---\n# Source: " + r.chart + "/templates/serviceaccount.yaml\napiVersion: v1\nkind: ServiceAccount\nmetadata:\n  name: " + r.name +
+			"\n  namespace: " + r.ns + "\n---\n# Source: " + r.chart + "/templates/secret.yaml\napiVersion: v1\nkind: Secret\nmetadata:\n  name: " +
+			r.name + "-auth\n  namespace: " + r.ns + "\ntype: Opaque\ndata:\n  admin-password: Y29ycmVjdC1ob3JzZQ==\n---\n# Source: " + r.chart +
+			"/templates/service.yaml\napiVersion: v1\nkind: Service\nmetadata:\n  name: " + r.name + "\nspec:\n  type: LoadBalancer\n  ports:\n  - port: 443\n",
+	}
+	raw, err := json.Marshal(rls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	_, _ = zw.Write(raw)
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	name := fmt.Sprintf("sh.helm.release.v1.%s.v%d", r.name, r.rev)
+	return &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1", "kind": "Secret", "type": "helm.sh/release.v1",
+		"metadata": map[string]any{
+			"name": name, "namespace": r.ns, "uid": "uid-" + r.ns + "-" + name, "resourceVersion": fmt.Sprint(1000 + r.rev),
+			"creationTimestamp": deployed.Format(time.RFC3339),
+			"labels":            map[string]any{"owner": "helm", "name": r.name, "version": fmt.Sprint(r.rev), "status": r.status},
+		},
+		"data": map[string]any{"release": base64.StdEncoding.EncodeToString([]byte(base64.StdEncoding.EncodeToString(buf.Bytes())))},
+	}}
+}
+
+func releaseDescription(r fixtureRelease) string {
+	switch {
+	case r.status == "failed":
+		return `Upgrade "` + r.name + `" failed: context deadline exceeded`
+	case r.status == "pending-upgrade":
+		return "Preparing upgrade"
+	case r.rev == 1:
+		return "Install complete"
+	}
+	return "Upgrade complete"
+}
+
+// fixtureReleaseSecrets are the release Secrets of a cluster: ingress-nginx with four revisions,
+// the others with one or two.
+func fixtureReleaseSecrets(t testing.TB) []*unstructured.Unstructured {
+	var out []*unstructured.Unstructured
+	for _, r := range []fixtureRelease{
+		{"ingress-nginx", "ingress-nginx", "ingress-nginx", "4.11.2", "1.11.2", "superseded", 1, 60 * 24 * time.Hour},
+		{"ingress-nginx", "ingress-nginx", "ingress-nginx", "4.11.3", "1.11.3", "superseded", 2, 32 * 24 * time.Hour},
+		{"ingress-nginx", "ingress-nginx", "ingress-nginx", "4.12.0", "1.12.0", "superseded", 3, 9 * 24 * time.Hour},
+		{"ingress-nginx", "ingress-nginx", "ingress-nginx", "4.12.1", "1.12.1", "deployed", 4, 26 * time.Hour},
+		{"cert-manager", "cert-manager", "cert-manager", "v1.16.2", "v1.16.2", "deployed", 1, 45 * 24 * time.Hour},
+		{"monitoring", "kube-prometheus-stack", "kube-prometheus-stack", "66.2.1", "v0.78.2", "superseded", 11, 12 * 24 * time.Hour},
+		{"monitoring", "kube-prometheus-stack", "kube-prometheus-stack", "66.3.0", "v0.79.0", "pending-upgrade", 12, 7 * time.Minute},
+		{"checkout", "checkout-api", "checkout-api", "2.14.0", "2.14.0", "deployed", 4, 3 * 24 * time.Hour},
+		{"checkout", "checkout-api", "checkout-api", "2.15.0", "2.15.0", "failed", 5, 2 * time.Hour},
+		{"data-pipeline", "kafka", "kafka", "31.1.0", "3.9.0", "uninstalling", 2, 3 * time.Minute},
+		{"logging", "loki", "loki", "6.24.0", "3.3.2", "deployed", 1, 20 * 24 * time.Hour},
+	} {
+		out = append(out, fixtureReleaseSecret(t, r))
+	}
+	return out
+}
+
+// releasesFake is a fake whose Releases view and drawers come from the release Secrets through
+// the real profile, with the rollback and uninstall commands in its registry.
+func releasesFake(t testing.TB) (*fakeEngine, model.ObjectRef) {
+	f := kindsFake(t, helm.ReleaseKind)
+	f.kinds = append(f.kinds,
+		kindInfo{Kind: "secrets", Title: "Secrets", APIKind: "Secret", Version: "v1", Namespaced: true},
+		kindInfo{Kind: helm.ReleaseKind, Title: "Releases", APIKind: "HelmRelease", Version: "v1", Namespaced: true})
+	p := helm.NewReleaseProfile()
+	objs := p.Derive(fixtureReleaseSecrets(t))
+	rows := make([]model.Row, 0, len(objs))
+	for _, o := range objs {
+		rows = append(rows, model.BuildRow(p, "demo", o))
+		ref := model.ObjectRef{Context: "demo", Kind: helm.ReleaseKind, Namespace: o.GetNamespace(), Name: o.GetName()}
+		m, err := engine.BuildDetail(p, ref, o, nil, fixedNow)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.details[ref.String()] = m
+	}
+	f.tables[helm.ReleaseKind] = &engine.TableSnapshot{
+		View: helm.ReleaseKind, Context: "demo", Title: p.Title, Namespaced: true, Columns: p.Columns, Rows: rows,
+		Sort: engine.SortSpec{Column: "name"}, Total: len(rows), Revision: 1, Synced: true,
+	}
+	targets := func(_ *engine.Session, p refParams) ([]model.ObjectRef, error) { return []model.ObjectRef{p.Ref}, nil }
+	run := func(context.Context, *engine.Session, refParams) (any, error) { return nil, nil }
+	for _, c := range []engine.Spec[refParams]{
+		{ID: "helm.release.rollback", Label: "Rollback", Kinds: []string{helm.ReleaseKind}, Order: 200, Danger: engine.DangerDestructive, Targets: targets, Run: run},
+		{ID: "helm.release.uninstall", Label: "Delete", Kinds: []string{helm.ReleaseKind}, Order: engine.OrderDelete, Danger: engine.DangerDestructive, Targets: targets, Run: run},
+	} {
+		if err := engine.Register(f.reg, c); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.disabled["object.delete"] = notApplicable // not to a virtual kind: helm.release.uninstall takes its place
+	ref := model.ObjectRef{Context: "demo", Kind: helm.ReleaseKind, Namespace: "ingress-nginx", Name: "ingress-nginx"}
+	f.ui.Selected, f.ui.Drawer = []model.ObjectRef{ref}, &ref
+	return f, ref
+}
+
+// The Releases view and drawer: one row per release with its newest revision, the sidebar's Helm
+// group, the drawer's history, values and manifest with the Secret's data redacted.
+func TestReleasesViewAndDrawer(t *testing.T) {
+	f, _ := releasesFake(t)
+	sh, _, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	q.until(t, "the releases and drawer", func() bool { return sh.view.snap != nil && sh.drawer.last != nil && len(sh.kinds) > 0 })
+	if got := len(sh.view.snap.Rows); got != 6 {
+		t.Errorf("%d releases, want 6", got)
+	}
+	if kids := sh.side.children[groupPrefix+"helm"]; len(kids) != 1 || kids[0] != helm.ReleaseKind || sh.side.titles[kids[0]] != "Releases" {
+		t.Errorf("Helm group %v", kids)
+	}
+	for _, s := range []string{"adminPassword: correct-horse-battery-staple", "admin-password: " + model.Redacted, "4.12.1", "Upgrade complete"} {
+		if !drawerHasText(sh.drawer, s) {
+			t.Errorf("the drawer lacks %q", s)
+		}
+	}
+	if drawerHasText(sh.drawer, "Y29ycmVjdC1ob3JzZQ==") {
+		t.Error("the manifest shows a Secret's data")
+	}
+}
+
+func renderReleases(t *testing.T, mode ThemeMode, name string) {
+	f, _ := releasesFake(t)
+	sh, w, q := newTestShell(t, f, Options{Theme: mode})
+	q.until(t, "the releases and drawer", func() bool {
+		return len(sh.kinds) > 0 && sh.view.snap != nil && sh.drawer.last != nil && len(sh.drawer.actions.Objects) > 0 && sh.diag.total > 0
+	})
+	settle(w)
+	savePNG(t, w, name)
+}
+
+func TestRenderReleasesDark(t *testing.T)  { renderReleases(t, ThemeDark, "releases_dark.png") }
+func TestRenderReleasesLight(t *testing.T) { renderReleases(t, ThemeLight, "releases_light.png") }
+
+// helmEngine is the fake engine with the commands the Helm banner dispatches: it answers
+// helm.pendingOperations with canned actions and records the others.
+type helmEngine struct {
+	*fakeEngine
+	mu      sync.Mutex
+	pending []engine.PendingHelmOpInfo
+	actions []engine.Invocation
+}
+
+func (h *helmEngine) Dispatch(ctx context.Context, inv engine.Invocation) (any, error) {
+	switch inv.ID {
+	case "helm.pendingOperations":
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		return append([]engine.PendingHelmOpInfo(nil), h.pending...), nil
+	case "helm.release.rollback", "helm.release.uninstall", "helm.dismissOperation":
+		h.mu.Lock()
+		h.actions = append(h.actions, inv)
+		h.mu.Unlock()
+		return map[string]any{"action": "ok"}, nil
+	}
+	return h.fakeEngine.Dispatch(ctx, inv)
+}
+
+func (h *helmEngine) set(list []engine.PendingHelmOpInfo) {
+	h.mu.Lock()
+	h.pending = list
+	h.mu.Unlock()
+	h.emit(engine.Event{Type: engine.EventHelm})
+}
+
+func (h *helmEngine) recorded() []engine.Invocation {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return append([]engine.Invocation(nil), h.actions...)
+}
+
+func newHelmTestShell(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, *helmEngine) {
+	t.Helper()
+	f, _ := releasesFake(t)
+	f.ui.Context = "kind-cogpit"
+	f.ui.Connection = engine.Connection{State: engine.Connected}
+	f.ui.Selected, f.ui.Drawer = nil, nil
+	f.diag.Context, f.diag.Demo, f.diag.DemoStats = "kind-cogpit", false, nil
+	h := &helmEngine{fakeEngine: f}
+	a := test.NewTempApp(t)
+	a.Settings().SetTheme(newTheme(mode))
+	w := test.NewTempWindow(t, nil)
+	w.SetPadded(false)
+	q := &mainQueue{}
+	sh := newShell(h, a, w, Options{Theme: mode}, q.do)
+	sh.now = func() time.Time { return fixedNow }
+	sh.confirmer.armDelay = 0
+	h.SetConfirmer(sh.confirmer)
+	w.SetContent(sh.root)
+	w.Resize(fyne.NewSize(1440, 900))
+	sh.start()
+	t.Cleanup(func() {
+		sh.stop()
+		q.drain()
+	})
+	q.until(t, "kinds", func() bool { return len(sh.kinds) > 0 })
+	return sh, w, q, h
+}
+
+// fixtureHelmOps: a rollback a crash interrupted (the release left pending-rollback), and an
+// uninstall that failed.
+func fixtureHelmOps() []engine.PendingHelmOpInfo {
+	started := time.Date(2026, 10, 11, 13, 41, 0, 0, time.UTC)
+	return []engine.PendingHelmOpInfo{
+		{
+			PendingHelmOp: engine.PendingHelmOp{Context: "kind-cogpit", Namespace: "ingress-nginx", Release: "ingress-nginx",
+				Action: engine.HelmRollback, Revision: 3, FromRevision: 4, Started: started, StartedBy: engine.OriginGUI, State: engine.HelmOpRunning},
+			Status: engine.HelmOpStatusInterrupted, ReleaseStatus: "pending-rollback", ReleaseRevision: 5,
+		},
+		{
+			PendingHelmOp: engine.PendingHelmOp{Context: "kind-cogpit", Namespace: "data-pipeline", Release: "kafka",
+				Action: engine.HelmUninstall, FromRevision: 2, Started: started.Add(6 * time.Minute), StartedBy: engine.OriginExternalAgent,
+				State: engine.HelmOpFailed, Error: `helm uninstall data-pipeline/kafka: failed to delete release: kafka`},
+			Status: engine.HelmOpStatusFailed, ReleaseStatus: "uninstalling", ReleaseRevision: 2,
+		},
+	}
+}
+
+func helmBannerButtons(b *helmBanner) map[string][]*widget.Button {
+	out := map[string][]*widget.Button{}
+	for _, x := range findAll[*widget.Button](b.root) {
+		out[x.Text] = append(out[x.Text], x)
+	}
+	return out
+}
+
+func TestHelmBannerShowsAndActs(t *testing.T) {
+	sh, _, q, h := newHelmTestShell(t, ThemeDark)
+	if sh.helm.root.Visible() {
+		t.Fatal("banner visible without pending actions")
+	}
+	h.set(fixtureHelmOps())
+	q.until(t, "the banner", func() bool { return sh.helm.root.Visible() && len(sh.helm.ops) == 2 })
+	b := helmBannerButtons(sh.helm)
+	if len(b["Finish rollback"]) != 1 || len(b["Finish uninstall"]) != 1 || len(b["Dismiss"]) != 2 {
+		t.Fatalf("buttons %v", b)
+	}
+	test.Tap(b["Finish rollback"][0])
+	test.Tap(b["Finish uninstall"][0])
+	test.Tap(b["Dismiss"][1])
+	q.until(t, "three actions", func() bool { return len(h.recorded()) == 3 })
+	want := []struct{ id, params string }{
+		{"helm.release.rollback", `{"ref":{"context":"kind-cogpit","kind":"helmreleases","namespace":"ingress-nginx","name":"ingress-nginx"},"revision":3}`},
+		{"helm.release.uninstall", `{"ref":{"context":"kind-cogpit","kind":"helmreleases","namespace":"data-pipeline","name":"kafka"}}`},
+		{"helm.dismissOperation", `{"ref":{"context":"kind-cogpit","kind":"helmreleases","namespace":"data-pipeline","name":"kafka"}}`},
+	}
+	for i, w := range want {
+		got := h.recorded()[i]
+		if got.ID != w.id || string(got.Params) != w.params || got.Origin != engine.OriginGUI {
+			t.Errorf("action %d: %s %s, want %s %s", i, got.ID, got.Params, w.id, w.params)
+		}
+	}
+	if got := helmOpDetail(fixtureHelmOps()[0]); !strings.Contains(got, "the release is pending-rollback at revision 5 · Cogpit ended before the action did") {
+		t.Errorf("detail %q", got)
+	}
+	running := fixtureHelmOps()[:1]
+	running[0].Status = engine.HelmOpStatusRunning
+	h.set(running)
+	q.until(t, "the running action", func() bool {
+		return len(sh.helm.ops) == 1 && sh.helm.ops[0].Status == engine.HelmOpStatusRunning
+	})
+	if b := helmBannerButtons(sh.helm); len(b) != 0 {
+		t.Errorf("buttons on a running action: %v", b)
+	}
+	if got := helmOpTitle(sh.helm.ops[0]); got != "Rolling back release ingress-nginx to revision 3" {
+		t.Errorf("title %q", got)
+	}
+	h.set(nil)
+	q.until(t, "the banner to go", func() bool { return !sh.helm.root.Visible() })
+}
+
+func renderHelmBanner(t *testing.T, mode ThemeMode, name string) {
+	sh, w, q, h := newHelmTestShell(t, mode)
+	h.set(fixtureHelmOps())
+	q.until(t, "the banner", func() bool { return sh.helm.root.Visible() && len(sh.helm.ops) == 2 && sh.view.snap != nil })
+	savePNG(t, w, name)
+}
+
+func TestRenderHelmBannerDark(t *testing.T)  { renderHelmBanner(t, ThemeDark, "helm_banner_dark.png") }
+func TestRenderHelmBannerLight(t *testing.T) { renderHelmBanner(t, ThemeLight, "helm_banner_light.png") }
