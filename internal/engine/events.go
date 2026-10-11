@@ -9,7 +9,8 @@ const (
 	EventUIState EventType = "uiState"
 	// EventTable: a new table snapshot for Event.View is available from Session.Table.
 	EventTable EventType = "table"
-	// EventDetail: the drawer object changed in the cache; re-read Session.Detail.
+	// EventDetail: the drawer object changed in the cache, or access reviews answered (its actions'
+	// Enabled may differ); re-read Session.Detail and the actions.
 	EventDetail EventType = "detail"
 	// EventToast: a message for the user (Event.Level, Event.Message).
 	EventToast EventType = "toast"
@@ -20,7 +21,8 @@ const (
 	// Event.Message, if set, says what to offer.
 	EventDrains EventType = "drains"
 	// EventKinds: the kinds the connected cluster serves changed (a custom resource definition was
-	// added, changed or deleted); re-read kinds.list.
+	// added, changed or deleted), or access reviews answered whether the user may list them;
+	// re-read kinds.list.
 	EventKinds EventType = "kinds"
 	// EventEditor: an editor tab's text or base version changed (editor.setText, a conflict);
 	// Event.View holds the tab id, Event.Revision the text's revision. Re-read with editor.get.
