@@ -19,6 +19,11 @@ type UIState struct {
 	View string `json:"view"`
 	// Namespaces filter namespaced views; empty means all namespaces.
 	Namespaces []string `json:"namespaces"`
+	// Groups filter the Definitions view by API group; empty means all groups.
+	Groups []string `json:"groups,omitempty"`
+	// HiddenColumns are the ids of the columns each view hides, by view key; a view without an
+	// entry hides the columns its kind hides by default (model.Column.Hidden).
+	HiddenColumns map[string][]string `json:"hiddenColumns,omitempty"`
 	// Filter is the view's search text.
 	Filter string `json:"filter"`
 	// Sort is the open view's sort order.
@@ -84,6 +89,13 @@ const (
 func (u UIState) Clone() UIState {
 	out := u
 	out.Namespaces = slices.Clone(u.Namespaces)
+	out.Groups = slices.Clone(u.Groups)
+	if u.HiddenColumns != nil {
+		out.HiddenColumns = make(map[string][]string, len(u.HiddenColumns))
+		for view, ids := range u.HiddenColumns {
+			out.HiddenColumns[view] = slices.Clone(ids)
+		}
+	}
 	out.Selected = slices.Clone(u.Selected)
 	if u.Drawer != nil {
 		d := *u.Drawer

@@ -345,14 +345,23 @@ func (s *Session) NewDockID(t DockType) string {
 // viewParams are the UI state a view's snapshot depends on.
 type viewParams struct {
 	namespaces []string
+	groups     []string // the Definitions view's API group filter
+	hidden     []string // the view's hidden column ids; only when hiddenSet
+	hiddenSet  bool     // false: the kind's default columns
 	filter     string
 	sort       SortSpec
 }
 
 func paramsOf(u UIState) viewParams {
-	return viewParams{namespaces: slices.Clone(u.Namespaces), filter: u.Filter, sort: u.Sort}
+	hidden, set := u.HiddenColumns[u.View]
+	return viewParams{
+		namespaces: slices.Clone(u.Namespaces), groups: slices.Clone(u.Groups),
+		hidden: slices.Clone(hidden), hiddenSet: set,
+		filter: u.Filter, sort: u.Sort,
+	}
 }
 
 func (p viewParams) equal(o viewParams) bool {
-	return p.filter == o.filter && p.sort == o.sort && slices.Equal(p.namespaces, o.namespaces)
+	return p.filter == o.filter && p.sort == o.sort && slices.Equal(p.namespaces, o.namespaces) &&
+		slices.Equal(p.groups, o.groups) && p.hiddenSet == o.hiddenSet && slices.Equal(p.hidden, o.hidden)
 }

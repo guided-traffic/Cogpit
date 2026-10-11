@@ -323,6 +323,10 @@ type UIState struct {
 
 The GUI changes state only through commands (`ui.openView`, `ui.select`, `ui.navigate`,
 `ui.setFilter`), so a selection made by the user and one made by an agent are the same event.
+Added 2026-10-11 ([`uistate.go`](../../internal/engine/uistate.go)): `Groups`, the Definitions
+view's API group filter (`ui.setGroups`), and `HiddenColumns`, the columns each view hides
+(`ui.setColumns`; a view without an entry hides its kind's default-hidden columns). The view's
+snapshot applies both: its `Columns` carry `Hidden` as the view hides them, at the kind's indexes.
 Agents read it with `ui_state`: this is how the built-in agent knows which object the user means
 by "this pod".
 

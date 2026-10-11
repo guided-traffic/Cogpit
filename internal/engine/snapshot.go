@@ -168,6 +168,7 @@ func (rc *rowCache) build(p *model.KindProfile, context string, objs []*unstruct
 		}
 	}
 	filter := strings.TrimSpace(params.filter)
+	groupCol, groupSet := groupFilter(p, params.groups)
 
 	kept := make([]*rowEntry, 0, len(objs))
 	for _, obj := range objs {
@@ -184,6 +185,11 @@ func (rc *rowCache) build(p *model.KindProfile, context string, objs []*unstruct
 		e.gen = rc.gen
 		if nsSet != nil {
 			if _, ok := nsSet[e.row.Ref.Namespace]; !ok {
+				continue
+			}
+		}
+		if groupSet != nil {
+			if _, ok := groupSet[cellAt(&e.row, groupCol).Text]; !ok {
 				continue
 			}
 		}
@@ -207,7 +213,7 @@ func (rc *rowCache) build(p *model.KindProfile, context string, objs []*unstruct
 	}
 	return &TableSnapshot{
 		View: p.Key, Context: context, Title: p.Title, Namespaced: p.Namespaced,
-		Columns: p.Columns, Rows: rows, Sort: params.sort,
+		Columns: ColumnsShown(p.Columns, params.hidden, params.hiddenSet), Rows: rows, Sort: params.sort,
 		Namespaces: slices.Clone(params.namespaces), Filter: params.filter,
 		Total: len(objs),
 	}
