@@ -43,9 +43,9 @@ UNTRUSTED                                   BOUNDARY                          TR
 | Cluster text to UI | `internal/model`, `internal/ui/fyneui` | Object names, labels, annotations and events are text, never markup; strip control characters before display |
 | Container output to terminal | `internal/terminal`, `internal/ui/fyneui/termview` | Drop or confirm OSC 52 (clipboard write), window-title and window-manipulation sequences ([xterm control sequences](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html)); cap scrollback; cap line length. The MVP drops every OSC, DCS, APC, PM and SOS string, media copy and window operations, clamps large counts, and strips escapes from log lines, which are capped at 64 KiB per line and 10,000 lines ([`termview/sanitize.go`](../../internal/ui/fyneui/termview/sanitize.go), fuzzed; [`termview/logs.go`](../../internal/ui/fyneui/termview/logs.go)); see [H-19](#h-19-the-terminal-widget-trusts-its-input) |
 | Editor to cluster | `internal/engine` | Show a diff and a server-side dry-run before apply; reject documents whose kind, name or namespace changed without saying so |
-| Port-forward to local socket | `internal/cluster` | Bind `127.0.0.1` only; show which local port maps to which pod |
+| Port-forward to local socket | `internal/cluster` | Bind `127.0.0.1` only; show which local port maps to which pod. Built 2026-10-11: `ListenLoopback` binds `tcp4` 127.0.0.1 and refuses any listener that ends up elsewhere ([`portforward.go`](../../internal/cluster/portforward.go), `TestListenLoopbackBindsIPv4LoopbackOnly`; the engine's tests try `::1` and every non-loopback interface address and expect refusal); the Port Forwarding view and a forward's drawer show the address, the pod and its port; a pod's error text is cut to one line of at most 512 bytes without control characters before it reaches the GUI or an agent; the GUI opens only `http(s)://localhost` or `127.0.0.1` URLs |
 | Chart to release | `internal/helm` | The Helm SDK renders in-process; Helm plugins and post-renderers (which run external programs) are not supported; chart provenance is verified where the repository provides it |
-| Request to command | `internal/engine` | Params validated against the schema; `enabled` and access review before `run`; confirmation by origin ([agents and MCP](agents-and-mcp.md)). The MVP validates against the schema and refuses unknown fields, checks `enabled` and the confirmation ([`engine.go`](../../internal/engine/engine.go) `Dispatch`); access reviews are not built |
+| Request to command | `internal/engine` | Params validated against the schema; `enabled` and access review before `run`; confirmation by origin ([agents and MCP](agents-and-mcp.md)). Built: the schema check refuses unknown fields, then `Command.Enabled` asks the connected user's cached access reviews about every declared verb whenever the parameters name an object, and a known denial refuses the command for every origin ("not permitted: you may not …"), an unknown answer passes and the API server decides; then the confirmation ([`engine.go`](../../internal/engine/engine.go) `Dispatch`, [`access.go`](../../internal/engine/access.go)); see [H-21](#h-21-access-reviews-guide-they-do-not-guard) |
 | MCP request to engine | `internal/mcp` | Loopback only, bearer token, `Host` and `Origin` checks: [`internal/mcp/http.go`](../../internal/mcp/http.go), `TestHTTPGuard`, `TestNewRefusesNonLoopbackAddresses` |
 | Cluster data to the LLM endpoint | `internal/agent` | Secret values withheld by default; what is sent is shown |
 | Download to installed app | `internal/update` | Signed manifest, checksum, OS code signature, no downgrade ([updates](updates.md)) |
@@ -66,7 +66,11 @@ first run) is defined above but its user interaction is not designed yet.
 
 A forwarded port on `127.0.0.1` is reachable by every process of every local user on the machine,
 with the pod's identity behind it. Binding to loopback limits it to the host, not to Cogpit. No
-per-connection authentication is possible for arbitrary TCP protocols.
+per-connection authentication is possible for arbitrary TCP protocols. As built (2026-10-11): a
+forward lives from Start until Stop, Delete, switching context or quitting, and is not restored on
+the next start; agents need the user's acceptance to start or edit one (`Mutating`, D-2) unless
+agent writes are allowed for the context, and may open, stop and delete forwards freely (`UI`);
+an agent that learns the URL can connect like any other local process.
 
 ### H-19: The terminal widget trusts its input
 
@@ -82,3 +86,13 @@ inputs nobody has found yet can still crash the widget (it was not written for h
 has had no fuzzing of its own); it has data races of its own (a configuration write at start-up,
 parser state on the reader goroutine); its ANSI colours are fixed, not theme tokens; and the fork
 must be kept in step with upstream until upstream takes equivalent fixes.
+
+### H-21: Access reviews guide, they do not guard
+
+Cogpit greys and refuses what the connected user's access reviews deny, and hides the kinds they
+may not list. The reviews are guidance for what Cogpit shows and offers, not an authorization
+boundary: their answers are kept until a refresh or the next connect, so a role changed meanwhile
+is not seen; a rules review can over-report a cluster-scoped kind that only a RoleBinding names,
+which is why Cogpit confirms such answers with an access review; and Kubernetes' documentation
+advises against rules reviews for authorization decisions. An unknown answer offers the command,
+and the API server stays the authority for every request.

@@ -264,7 +264,11 @@ priority does not carry over as is. Consequences:
 
   Each such operation either runs in a worker process that survives the UI, or detects the
   half-finished state on the next start and offers to finish or revert it. Which of the two, per
-  operation, is designed with the operation.
+  operation, is designed with the operation. Decided with the operations: drain (2026-10-11) and
+  Helm rollback and uninstall (2026-10-11, third run) detect it: a journal in the user's config
+  directory (`drains.json`, `helm.json`, mode 0600) records the operation before it starts, and the
+  next connect of that context offers to finish (run it again) or dismiss it. Helm install and
+  upgrade are open.
 - **Unsaved editor content** is kept in a local draft so that a crash does not lose it.
 
 ## D-12: Parity sources
@@ -308,6 +312,14 @@ and the Secrets view and Helm both need Secrets. The options weighed:
 | **(b) Metadata only for the list, a GET when a Secret's drawer opens, a watch on `owner=helm` for Helm (decided)** | Only Helm's release payloads, which Helm needs anyway, are held as data; one Secret's data is fetched when the user opens it | The Keys column cannot be filled from metadata: a documented difference from Lens |
 | (c) No cache for Secrets, a GET whenever needed | Nothing held | Breaks cache-first: the list costs a request per view |
 
+**Built (2026-10-11, third run)** as decided below, with one difference the decision did not
+foresee: the Type column cannot be filled from metadata either (`type` is a top-level field), so
+Keys and Type both stay empty. The server-side Table format (`as=Table`, `includeObject=Metadata`)
+would carry the type and the number of keys without values, at the cost of an informer that holds
+table rows and a Keys column that counts instead of naming; whether to use it is open for the
+owner. A second finding: the `kubectl.kubernetes.io/last-applied-configuration` annotation repeats
+a Secret's values in its metadata; the cache drops it from every Secret before the store.
+
 **Decided:** (b). The Secrets view lists through a metadata-only informer
 (`PartialObjectMetadata`); the drawer's GET of one Secret is the direct read architecture §5
 allows for data the cache does not hold, and its values stay masked until the user reveals a
@@ -318,6 +330,7 @@ full. RBAC cannot narrow `list secrets` by label, so the verbs are unchanged.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | D-11: Helm rollback and uninstall are crash-safe through a journal and an offer on the next connect (third run); D-13: the Secrets view built, the Type column found empty too, the Table format open for the owner |
 | 2026-10-11 | minor | D-13: Secrets in the cache decided (owner): metadata only for the list, a GET for an opened Secret, a label-selected watch for Helm's releases (H-8, option b) |
 | 2026-10-11 | minor | D-1 decided (owner): Fyne after the spike gate, with re-checks of S7 at M0's CI and S5 at M11, each reopening D-1 only for its platform |
 | 2026-10-11 | minor | D-1: the spike ran as the local MVP; results recorded, gate decision pending |
