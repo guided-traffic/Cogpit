@@ -23,20 +23,20 @@ own. **Human** marks what an agent can't finish alone.
 | # | Gap | Kind | Impact | Estimate | Parity doc |
 |---|---|---|---|---:|---|
 | G1 | Workspace, CI and progress generators | foundation | blocks alpha | 6–14 h | [roadmap](roadmap.md#milestones) |
-| G2 | Cluster connection and authentication | connectivity | blocks alpha | 18–40 h + human | [platform-parity](platform-parity.md#cluster-authentication-and-connectivity) |
-| G3 | Cache and the resource model | foundation | blocks alpha | 22–50 h | [architecture §5](../developer/architecture.md#5-cache) |
-| G4 | Engine and command registry | foundation | blocks alpha | 15–35 h | [architecture §4](../developer/architecture.md#4-the-ui-seam-the-most-important-interface) |
-| G5 | App shell, navigation, tables and drawer | UI | blocks alpha | 45–130 h | [ui-parity](ui-parity.md#layout) |
-| G6 | Resource views | features | blocks alpha (core kinds) | 85–260 h | [resource-parity](resource-parity.md) |
-| G7 | Resource actions | features | blocks alpha (core actions) | 45–140 h | [resource-parity](resource-parity.md) |
-| G8 | Logs, terminal and shells | features | blocks alpha | 30–70 h | [ui-parity](ui-parity.md#logs) |
-| G9 | YAML editor and create resource | features | blocks alpha | 10–25 h | [ui-parity](ui-parity.md#editor-and-create-resource) |
-| G10 | Port forwarding | features | blocks alpha | 10–20 h | [ui-parity](ui-parity.md#port-forwarding) |
-| G11 | Helm | features | blocks alpha | 30–60 h | [resource-parity](resource-parity.md#helm) |
+| G2 | Cluster connection and authentication | connectivity | blocks alpha | 14–34 h + human | [platform-parity](platform-parity.md#cluster-authentication-and-connectivity) |
+| G3 | Cache and the resource model | foundation | blocks alpha | 16–38 h | [architecture §5](../developer/architecture.md#5-cache) |
+| G4 | Engine and command registry | foundation | blocks alpha | 10–28 h | [architecture §4](../developer/architecture.md#4-the-ui-seam-the-most-important-interface) |
+| G5 | App shell, navigation, tables and drawer | UI | blocks alpha | 35–110 h | [ui-parity](ui-parity.md#layout) |
+| G6 | Resource views | features | blocks alpha (core kinds) | 30–100 h | [resource-parity](resource-parity.md) |
+| G7 | Resource actions | features | blocks alpha (core actions) | 20–70 h | [resource-parity](resource-parity.md) |
+| G8 | Logs, terminal and shells | features | blocks alpha | 16–40 h | [ui-parity](ui-parity.md#logs) |
+| G9 | YAML editor and create resource | features | blocks alpha | 8–22 h | [ui-parity](ui-parity.md#editor-and-create-resource) |
+| G10 | Port forwarding | features | blocks alpha | 2–6 h | [ui-parity](ui-parity.md#port-forwarding) |
+| G11 | Helm | features | blocks alpha | 20–45 h | [resource-parity](resource-parity.md#helm) |
 | G12 | Metrics and cluster overview | features | blocks beta | 40–80 h | [ui-parity](ui-parity.md#cluster-overview-and-charts) |
 | G13 | Clusters, hotbar, palette, menus, shortcuts and preferences | UI | partly alpha, rest beta | 65–165 h | [ui-parity](ui-parity.md#clusters) |
 | G14 | Packaging, signing and updates (macOS) | platforms | an unsigned build blocks alpha; signing and updates block beta | 22–45 h + human | [platform-parity](platform-parity.md#operating-systems-and-packages) |
-| G15 | Performance and API load at scale | performance | blocks beta | 30–70 h | [testing](../developer/testing.md#performance-budgets-proposed-not-measured) |
+| G15 | Performance and API load at scale | performance | blocks beta | 28–66 h | [testing](../developer/testing.md#performance-budgets-proposed-not-measured) |
 | G16 | Stability and the user bug backlog | stability | blocks beta | 100–200 h | this page |
 | G17 | MCP control | beyond Lens | basics in alpha, the rest beta | 12–30 h | [beyond-lens](beyond-lens.md#mcp-control-of-ui-and-cluster) |
 | G18 | Paid Lens Desktop features | features | low-medium | 110–220 h + human | [resource-parity](resource-parity.md#paid-lens-desktop-views) |
@@ -46,10 +46,10 @@ own. **Human** marks what an agent can't finish alone.
 | G22 | Windows and Linux | platforms | after the macOS beta | 40–80 h + human | [platform-parity](platform-parity.md#operating-systems-and-packages) |
 | G23 | Flux CD and Argo CD views | features | blocks beta ([D-9](../developer/decisions.md#d-9-scope-against-lenss-paid-and-vendor-features)) | 55–115 h | [resource-parity](resource-parity.md#paid-lens-desktop-views) |
 
-Totals (2026-10-11, after the second implementation run): Lens's free feature set on macOS
-(G1–G16) is **~570–1,400 h** (was ~670–1,650 after the MVP); the beta adds the Flux CD and Argo CD
-views (G23); with Lens's other paid features, Windows and Linux (G18, G22, G23), the full Lens
-target is **~780–1,820 h** (was ~870–2,060). The run re-estimated G1, G3, G5, G6, G7 and G9 from
+Totals (2026-10-11, after the third implementation run): Lens's free feature set on macOS
+(G1–G16) is **~430–1,060 h** (was ~570–1,400 after the second run); the beta adds the Flux CD and
+Argo CD views (G23); with Lens's other paid features, Windows and Linux (G18, G22, G23), the full
+Lens target is **~640–1,480 h** (was ~780–1,820). The third run re-estimated G2–G11 and G15 from
 what landed, with the same borrowed calibration. Cogpit's own targets beyond Lens (G17, G21) add **~50–110 h** (was ~70–140).
 G19 and G20 are not targets and not counted. The Fyne spike before M2 ran as part of the MVP and
 D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
@@ -107,7 +107,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Impact:** a user who cannot connect cannot use anything; exec plugins are how most cloud
   clusters authenticate. client-go carries the authentication itself, which is why this is smaller
   than it was in the Rust plan.
-- **Estimate:** 18–40 h (was 25–50). **Human:** accounts on EKS, GKE and AKS to verify the plugins against.
+- **Estimate:** 14–34 h (was 18–40; access reviews built, third run). **Human:** accounts on EKS, GKE and AKS to verify the plugins against.
 
 ### G3. Cache and the resource model
 - **Missing:** the cache of [architecture §5](../developer/architecture.md#5-cache): shared,
@@ -132,7 +132,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   (`TestSyncWaitsForTheInitialListToReachSubscribers`).
 - **Impact:** every view, every MCP read and the agent depend on it; it decides budgets P1–P4 and
   P9–P11 and the load Cogpit puts on API servers.
-- **Estimate:** 22–50 h (was 25–55).
+- **Estimate:** 16–38 h (was 22–50; scopes with label selectors and metadata only, local and virtual kinds and the related-objects index built, third run).
 
 ### G4. Engine and command registry
 - **Missing:** `Session`, the command registry with schemas, verbs, danger levels and disabled
@@ -148,15 +148,16 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestAccessReviewsGreyCommands`); `cluster.refreshAccess` asks again. Still missing: jobs and
   cancellation, `cogpit-cli` commands.
 - **Impact:** every action, menu, shortcut and MCP tool dispatches through it.
-- **Estimate:** 15–35 h (was 35–70).
+- **Estimate:** 10–28 h (was 15–35; access reviews in `Enabled`, drawer-only commands, third run).
 
 ## Feature gaps
 
 ### G6. Resource views
-- **Missing:** 37 of the 64 resource views ([resource-parity](resource-parity.md)), and the depth of
-  the 26 partial ones (metrics columns, texts checked against a capture). Of the about 20 the alpha
-  gate needs, still missing: the cluster overview (Secrets and Helm Releases are partial since
-  2026-10-11).
+- **Missing:** 9 of the 64 resource views ([resource-parity](resource-parity.md), 2026-10-11 after
+  the third run: the cluster Overview, Applications, Vertical Pod Autoscalers, the four Device
+  Resources views, Helm Charts, Pod Security Policies), and the depth of the 54 partial ones
+  (metrics columns, texts and rules checked against a capture). Of the about 20 the alpha gate
+  needs, still missing: the cluster overview.
 - **Evidence:** resource-parity, 27 of 64 (2026-10-11): Nodes, Pods, Deployments, Services,
   Namespaces, Events (the MVP); Daemon Sets, Stateful Sets, Replica Sets, Jobs, Cron Jobs
   ([`kinds/`](../../internal/model/kinds/) `daemonsets.go` … `cronjobs.go`; Cron Jobs with the
@@ -206,7 +207,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   ([`secrets.go`](../../internal/model/kinds/secrets.go), [`secretdata.go`](../../internal/engine/secretdata.go),
   `TestBudgetSecretsViewAndDrawer`); Helm Releases partial, a virtual kind over the `owner=helm`
   Secrets ([`releases.go`](../../internal/helm/releases.go), G11).
-- **Estimate:** 85–260 h (was 120–360; 2–6 h each for the 37 missing views, plus depth).
+- **Estimate:** 30–100 h (was 85–260; 2–6 h each for the 9 missing views, plus depth: captures, metrics columns).
 
 ### G7. Resource actions
 - **Missing:** the actions not listed under Evidence, of 39 (Share is not a target, owner 2026-10-11). The alpha gate needs about 20: logs, shell, attach, edit, delete,
@@ -231,7 +232,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   (2026-10-11, `make test-kind-drain`, `TestKindDrainCrashFinishUncordon`: a drain blocked by a
   PodDisruptionBudget and a simulated crash leave the journal entry, the next session offers it,
   finishing and uncordoning clear it).
-- **Estimate:** 45–140 h (was 62–195; 25 of 39 actions missing, 2–5 h each, plus depth).
+- **Estimate:** 20–70 h (was 45–140; 11 of 39 actions missing, mostly create dialogs, 2–5 h each, plus depth).
 
 ### G8. Logs, terminal and shells
 - **Missing:** the terminal tab on `fyne-io/terminal`, connected to Cogpit's own PTY (local shell
@@ -253,7 +254,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   widget hardened beyond the patched copy Cogpit builds against
   ([H-19](../security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)).
 - **Impact:** triaging a failing pod (logs, then a shell) is the most common Lens workflow.
-- **Estimate:** 30–70 h (was 45–90), plus upstreaming or replacing the widget.
+- **Estimate:** 16–40 h (was 30–70; log options, workload logs and attach built, third run), plus upstreaming or replacing the widget.
 
 ### G9. YAML editor and create resource
 - **Missing:** drafts kept for crash recovery, "Revert to original", the Create resource tab's save
@@ -272,7 +273,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   (`TestKindEditCreateConflictDelete`). Edit and Delete are greyed "not permitted" when the access
   reviews deny `update` or `delete` on the object (2026-10-11, `TestEditAndDeleteFollowAccessReviews`,
   `TestKindAccessReviews`).
-- **Estimate:** 10–25 h (was 27–60).
+- **Estimate:** 8–22 h (was 10–25; Edit and Delete follow the access reviews, third run).
 
 ### G10. Port forwarding
 - **Missing:** Lens's status texts in the Port Forwarding view and its Edit dialog (capture
@@ -296,7 +297,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   Tested against a fake forwarder and a fake kubelet (SPDY), and on kind: HTTP through forwards to
   the seed's service and pod, and a forward that reaches the replacement of a deleted pod
   (`TestKindPortForward`).
-- **Estimate:** 10–20 h.
+- **Estimate:** 2–6 h (was 10–20; built in the third run, left: Lens's status texts and Edit dialog by capture, a check in a real window).
 
 ### G11. Helm
 - **Missing:** install and upgrade as crash-safe jobs; repositories, chart index and search; the
@@ -314,7 +315,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   back and uninstalled through the engine, and a simulated crash offered and finished). Still
   missing: repositories, chart index and search, install and upgrade, the Helm Install and Helm
   Upgrade dock tabs, the ConfigMaps and SQL storage drivers.
-- **Estimate:** 30–60 h.
+- **Estimate:** 20–45 h (was 30–60; releases, history, values, manifest, rollback and uninstall built in the third run; left: upgrade, install, repositories and charts, the dock's Helm tabs).
 
 ### G12. Metrics and cluster overview
 - **Missing:** provider detection (metrics-server, Prometheus through the service proxy, the
@@ -364,7 +365,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   Cogpit's own title bar on macOS, built but not yet seen in a real window (smoke launch). Still
   missing from this list: history in the title bar, tab bar, welcome page, column reorder, row
   checkboxes and multi-selection, the drawer's Copy and Forward…, container squares.
-- **Estimate:** 45–130 h (was 60–165).
+- **Estimate:** 35–110 h (was 45–130; title bar, keyboard, columns, CSV and the Workloads Overview built, third run).
 
 ### G13. Clusters, hotbar, palette, menus, shortcuts and preferences
 - **Missing:** kubeconfig syncs and pasting (alpha needs these), the hotbar, the command palette,
@@ -425,7 +426,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   a frame (it hangs on the old meter, passes on the new).
 - **Impact:** large clusters are where users notice an IDE first, and where an IDE costs the API
   server most.
-- **Estimate:** 30–70 h (was 40–80).
+- **Estimate:** 28–66 h (was 30–70; the perf gate no longer hangs on a slow runner, third run).
 
 ### G16. Stability and the user bug backlog
 - **Missing:** nothing to fix yet. PhotoCraft's first public week produced hundreds of issues on
@@ -493,6 +494,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 | 2026-10-11 | minor | G6 evidence (third run, agent D): Endpoint Slices, Endpoints, Network Policies, Persistent Volumes, Storage Classes and Replication Controllers views partial; the related-objects index's first users (a claim's pods, a node's Pods table, a Service's endpoint slices) |
 | 2026-10-11 | minor | G6 Evidence: the Access Control views (five of them partial) |
 | 2026-10-11 | minor | G6 Evidence: the 13 Config views (third implementation run), admission policies by served version |
+| 2026-10-11 | major | Third implementation run: G2–G11 and G15 re-estimated from what landed; totals ~430–1,060 h free parity, ~640–1,480 h full target |
 | 2026-10-11 | minor | G11 unblocked by the H-8 decision; G5: Cogpit's own title bar on macOS (owner) |
 | 2026-10-11 | major | Second implementation run: G1 (CI green), G3, G5, G6 (27 of 64 views), G7 (14 of 39 actions, drain tested on three nodes) and G9 re-estimated; totals ~570–1,400 h free parity, ~780–1,820 h full target |
 | 2026-10-11 | minor | G5: row menus, drawer toolbar, warning column, links, tooltips and the drawer's Properties built; what remains |

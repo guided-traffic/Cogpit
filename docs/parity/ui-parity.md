@@ -24,10 +24,11 @@ an activated Lens Desktop ([D-12](../developer/decisions.md#d-12-parity-sources)
 Modifier names are macOS first (⌘ ⌥ ⇧ ⌃); Windows and Linux use Ctrl and Alt. **Status:** as
 marked per row; rows without evidence are missing.
 
-**Summary (measured, 2026-10-11, after the second implementation run):** 38 of 134 rows exist
-(was 26): 37 of the 121 free-plan rows (34 partial, 3 done: the cell tooltip, right-click on a
-row, the dock's "New tab" menu, each matching its captured row) and one paid row (the diff view,
-partial); 6 more rows are not a target.
+**Summary (measured, 2026-10-11, after the third implementation run):** 53 of 134 rows exist
+(was 38): 52 of the 121 free-plan rows (44 partial, 8 done: the cell tooltip, right-click on a
+row, the dock's "New tab" menu, keyboard navigation in tables and its shortcut row, the container
+port's link, the forward dialog and the drawer's Forward…, each matching its captured row) and one
+paid row (the diff view, partial); 6 more rows are not a target.
 Remaining (estimated): see gaps [G5](gaps.md#g5-app-shell-navigation-tables-and-drawer) (layout,
 sidebar, tables, drawer, dock), [G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)
 (clusters, hotbar, palette, menus, shortcuts, preferences, cluster settings),

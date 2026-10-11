@@ -1,6 +1,6 @@
 # Cogpit vs Lens Desktop: target-app parity
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (second measurement, after the second implementation run) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (third measurement, after the third implementation run) · **Target:** Lens Desktop 2026.10.51501
 
 The authoritative answer to "how close is Cogpit to Lens, and how much work is left". The
 one-page summary is [`ROADMAP.md`](../../ROADMAP.md); the ranked work list is
@@ -9,24 +9,26 @@ one-page summary is [`ROADMAP.md`](../../ROADMAP.md); the ranked work list is
 Cogpit adds beyond Lens is in [`beyond-lens.md`](beyond-lens.md). Method and vocabulary:
 [`README.md`](README.md).
 
-## Headline (2026-10-11, after the second implementation run)
+## Headline (2026-10-11, after the third implementation run)
 
 | Number | Value | Kind |
 |---|---|---|
-| **Feature breadth** (does each Lens feature exist?) | **~30%** (was ~12%) | measured: [breadth](#feature-breadth); 4 rows done, the rest partial |
-| **Ready for real work** (could a daily Lens user on macOS switch?) | **~14%** (was ~10%) | estimated: [weights](#ready-for-real-work) |
-| **Mainstream practitioner** (daily user of Lens's free features) | **~14%** (was ~8%) | estimated |
-| **Essentials user** (connect, pods, logs, shell, edit) | **~28%** (was ~23%) | estimated |
-| **Stage** | **pre-alpha** | the [alpha gate](roadmap.md#alpha-gate) fails: port forwarding and Helm do not exist; changing a workload and maintaining a node work on kind through the engine but are not yet checked end to end in the GUI |
-| Remaining to **alpha** on macOS | **~210–520 agent-hours** | estimated (was ~250–700), [calibration](#remaining-effort-and-calibration) |
-| Remaining to **beta** on macOS (~75% ready, GitOps views, notarized, updates, budgets met) | **~580–1,360 agent-hours** | estimated (was ~680–1,610) |
-| Remaining to **full parity** with Lens's free features on macOS | **~570–1,400 agent-hours** | estimated (was ~670–1,650) |
-| Remaining to the **full Lens target** (paid features, Windows and Linux) | **~780–1,820 agent-hours** | estimated (was ~870–2,060); several parts need owner decisions |
+| **Feature breadth** (does each Lens feature exist?) | **~54%** (was ~30%) | measured: [breadth](#feature-breadth); 9 rows done, the rest partial |
+| **Ready for real work** (could a daily Lens user on macOS switch?) | **~23%** (was ~14%) | estimated: [weights](#ready-for-real-work) |
+| **Mainstream practitioner** (daily user of Lens's free features) | **~24%** (was ~14%) | estimated |
+| **Essentials user** (connect, pods, logs, shell, edit) | **~32%** (was ~28%) | estimated |
+| **Stage** | **pre-alpha** | the [alpha gate](roadmap.md#alpha-gate) fails: every workflow exists in part now, port forwarding and Helm's read side, rollback and uninstall included, but none is checked end to end in the GUI on a real cluster, and Helm upgrade does not exist |
+| Remaining to **alpha** on macOS | **~150–400 agent-hours** | estimated (was ~210–520), [calibration](#remaining-effort-and-calibration) |
+| Remaining to **beta** on macOS (~75% ready, GitOps views, notarized, updates, budgets met) | **~440–1,020 agent-hours** | estimated (was ~580–1,360) |
+| Remaining to **full parity** with Lens's free features on macOS | **~430–1,060 agent-hours** | estimated (was ~570–1,400) |
+| Remaining to the **full Lens target** (paid features, Windows and Linux) | **~640–1,480 agent-hours** | estimated (was ~780–1,820); several parts need owner decisions |
 | Cogpit's targets **beyond Lens** (MCP control, built-in agent) | **~50–110 agent-hours** | estimated, unchanged; not part of the parity numbers |
 
-The second measurement. Breadth more than doubled because the run added whole views and actions
-(and ten Gateway API views that show as generic custom resource views); readiness moved less,
-because most new rows are partial and none was checked end to end by a person on a real cluster.
+The third measurement. Breadth grew by more than half again: 28 views (55 of 64 exist), 14
+actions (28 of 39) and 15 interface rows (52 of 121) came in one run, among them port forwarding
+and Helm's releases, the two alpha-gate workflows that did not exist. Readiness moved less, for
+the same reason as before: the new rows are partial, most texts and rules are inferred rather than
+captured, and no workflow was walked through end to end by a person on a real cluster.
 The remaining hours fall by what [gaps](gaps.md#summary) says is built, row by row; the borrowed
 calibration itself is unchanged ([data points](#remaining-effort-and-calibration)).
 
@@ -34,9 +36,9 @@ calibration itself is unchanged ([data points](#remaining-effort-and-calibration
 
 | Audience | Ready % | Agent-hours to ~95% | Work that dominates |
 |---|---:|---:|---|
-| Full Lens target | ~10% | 780–1,820 | Everything below, plus paid-plan features (G18, G23), Windows and Linux (G22) |
-| Mainstream practitioner (macOS) | ~14% | 570–1,400 | Resource views and actions (G6, G7: 130–400), the interface (G5, G13: 110–295), logs and terminal (G8), port forwarding and Helm |
-| Essentials user (macOS) | ~28% | 130–380 | The remaining foundation, log options, the Secrets view (H-8), cloud credential plugins, checking the flows end to end on real clusters |
+| Full Lens target | ~16% | 640–1,480 | Everything below, plus paid-plan features (G18, G23), Windows and Linux (G22) |
+| Mainstream practitioner (macOS) | ~24% | 430–1,060 | The interface (G5, G13: 100–275), stability (G16), metrics (G12), the depth of the views and actions (G6, G7: 50–170), Helm upgrade and charts |
+| Essentials user (macOS) | ~32% | 100–300 | Cloud credential plugins, pasting and syncing kubeconfigs, checking the flows end to end on real clusters, the remaining foundation |
 
 Each tier is a subset of the one above.
 
@@ -73,78 +75,78 @@ Each tier is a subset of the one above.
 
 ## Feature breadth
 
-**~30% (weighted, measured 2026-10-11, after the second implementation run; was ~12%).**
+**~54% (weighted, measured 2026-10-11, after the third implementation run; was ~30%).**
 Denominators count Lens Desktop's free features; paid features have their own component. A row
-counts when it exists in some form; four counted rows are done, the rest partial.
+counts when it exists in some form; nine counted rows are done, the rest partial.
 
 | Component | Weight | Ours / Lens | % | Kind |
 |---|---:|---|---:|---|
-| Resource views | 30% | 27 / 64 | 42.2% | measured ([resource-parity](resource-parity.md)); ten of them the Gateway API views, generic until captured |
-| Resource actions | 20% | 14 / 39 | 35.9% | measured ([resource-parity](resource-parity.md)) |
-| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 37 / 121 | 30.6% | measured ([ui-parity](ui-parity.md), free rows) |
-| Cluster authentication and connectivity | 10% | 2 / 13 | 15.4% | measured ([platform-parity](platform-parity.md#cluster-authentication-and-connectivity)) |
+| Resource views | 30% | 55 / 64 | 85.9% | measured ([resource-parity](resource-parity.md)); ten of them the Gateway API views, generic until captured |
+| Resource actions | 20% | 28 / 39 | 71.8% | measured ([resource-parity](resource-parity.md)) |
+| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 52 / 121 | 43.0% | measured ([ui-parity](ui-parity.md), free rows) |
+| Cluster authentication and connectivity | 10% | 3 / 13 | 23.1% | measured ([platform-parity](platform-parity.md#cluster-authentication-and-connectivity)) |
 | Platforms and packages | 5% | 1 / 13 | 7.7% | measured ([platform-parity](platform-parity.md#operating-systems-and-packages)) |
 | Paid Lens Desktop features | 10% | 1 / 11 | 9.1% | measured ([premium list](https://docs.lenshq.io/k8slens/premium-features/) without extensions, D-5): the editor's diff, partial |
-| **Weighted** | 100% | | **30.3%** | |
+| **Weighted** | 100% | | **54.5%** | |
 
 ## Ready for real work
 
-**~14% (weighted, estimated 2026-10-11, after the second implementation run; was ~10%).** Weights reflect what a daily Lens user depends on. Connectivity weighs as much
+**~23% (weighted, estimated 2026-10-11, after the third implementation run; was ~14%).** Weights reflect what a daily Lens user depends on. Connectivity weighs as much
 as the whole interface because a user who cannot authenticate to their cluster cannot use anything
 else.
 
 | Dimension | Weight | % ready | Remaining (agent-h) | Evidence | Detail |
 |---|---:|---:|---:|---|---|
-| Resource views and actions in depth | 28% | 14% | 130–400 | 27 of 64 views (one done) and 14 of 39 actions, the rest partial; most texts not checked against a capture | [resource-parity](resource-parity.md), G6, G7 |
-| Interface fidelity and feel | 15% | 15% | 120–320 | 37 of 121 rows (3 done); editing with diff, dry run and conflicts; row menus and drawer from the registry | [ui-parity](ui-parity.md), G5, G9, G13 |
-| Cluster connectivity and authentication | 15% | 15% | 18–40 + human | 2 of 13 rows partial; contexts from the default kubeconfig; no plugin verified | [platform-parity](platform-parity.md#cluster-authentication-and-connectivity), G2 |
-| Logs, terminal, shells, port forwarding | 10% | 20% | 40–90 | logs with follow, cluster-bound terminal, pod shell; no attach, node shell, port forwarding | [ui-parity](ui-parity.md#logs), G8, G10 |
-| Performance and API load | 10% | 25% | 30–70 | P2, P9–P11 measured; frames on the GPU only once | [testing](../developer/testing.md#performance-budgets-proposed-not-measured), G15 |
-| Stability | 10% | 8% | 100–200 | race-clean tests, guarded by CI on every push (macOS, Linux and Windows builds, kind on 1.37); no use on real clusters yet; the terminal widget runs as a patched copy (H-19) | [gaps](gaps.md#g16-stability-and-the-user-bug-backlog), G16 |
-| Helm releases and metrics | 5% | 0% | 70–140 | nothing built | G11, G12 |
+| Resource views and actions in depth | 28% | 28% | 50–170 | 55 of 64 views (one done) and 28 of 39 actions, the rest partial; most texts and rules inferred, not checked against a capture | [resource-parity](resource-parity.md), G6, G7 |
+| Interface fidelity and feel | 15% | 22% | 100–275 | 52 of 121 rows (8 done); Cogpit's own title bar on macOS (not yet seen in a real window), keyboard navigation, column choice, CSV, the Workloads Overview | [ui-parity](ui-parity.md), G5, G9, G13 |
+| Cluster connectivity and authentication | 15% | 18% | 14–34 + human | 3 of 13 rows partial; access reviews grey what the user may not do; no plugin verified | [platform-parity](platform-parity.md#cluster-authentication-and-connectivity), G2 |
+| Logs, terminal, shells, port forwarding | 10% | 45% | 18–46 | log options, logs of a workload's pods, attach, port forwarding with reconnects (on kind); no node shell | [ui-parity](ui-parity.md#logs), G8, G10 |
+| Performance and API load | 10% | 25% | 28–66 | P2, P9–P11 measured; frames on the GPU only once; the perf gate no longer hangs on a slow runner | [testing](../developer/testing.md#performance-budgets-proposed-not-measured), G15 |
+| Stability | 10% | 9% | 100–200 | race-clean tests and CI on every push; four timing-dependent tests fixed after the merge; no use on real clusters yet; the terminal widget runs as a patched copy (H-19) | [gaps](gaps.md#g16-stability-and-the-user-bug-backlog), G16 |
+| Helm releases and metrics | 5% | 15% | 60–125 | Helm releases read from the cache, rollback and uninstall crash-safe on kind; no upgrade, install, charts or metrics | G11, G12 |
 | Platforms and distribution | 5% | 5% | 62–125 + human | a local unsigned app bundle | [platform-parity](platform-parity.md#operating-systems-and-packages), G14, G22 |
 | Paid-plan integrations | 2% | 5% | 165–335 + human | 1 of 11 partial (the editor's diff) | G18, G23 |
-| Foundation: workspace, cache, engine (enables every row) | – | – | 43–99 | the cache, engine, lint layering and CI are built; generators, jobs and access reviews are not | G1, G3, G4 |
-| **Weighted** | 100% | **~14%** | **778–1,819** | | |
+| Foundation: workspace, cache, engine (enables every row) | – | – | 32–80 | the cache with scoped, metadata-only, local and virtual kinds, the related-objects index, access reviews, CI; generators and jobs are not | G1, G3, G4 |
+| **Weighted** | 100% | **~23%** | **629–1,456** | | |
 
 ## Mainstream practitioner
 
-**~14% (estimated; was ~8%).** A daily user of Lens's free features on macOS. Method as in PhotoCraft:
+**~24% (estimated; was ~14%).** A daily user of Lens's free features on macOS. Method as in PhotoCraft:
 weighted depth of the areas used every week, times discounts for what stops real work.
 
 | Area | Weight | Depth |
 |---|---:|---:|
-| Connect to and switch between clusters | 15% | 30% |
-| Workload views and actions | 25% | 30% |
-| Logs | 15% | 25% |
-| Shell into containers | 10% | 60% |
-| Edit and apply YAML | 10% | 50% |
-| Config, network and storage views | 10% | 20% |
-| Port forwarding | 5% | 0% |
-| Helm releases in the cluster | 5% | 0% |
+| Connect to and switch between clusters | 15% | 35% |
+| Workload views and actions | 25% | 55% |
+| Logs | 15% | 55% |
+| Shell into containers | 10% | 65% |
+| Edit and apply YAML | 10% | 55% |
+| Config, network and storage views | 10% | 55% |
+| Port forwarding | 5% | 60% |
+| Helm releases in the cluster | 5% | 35% |
 | Metrics at a glance | 5% | 0% |
-| **Weighted depth** | 100% | **~29%** |
+| **Weighted depth** | 100% | **~50%** |
 
 Discounts: stability on real clusters (unproven: ×0.7) and authentication against the cloud
-providers' credential plugins (unverified: ×0.7) give **~14%**. Speed on large clusters is not
+providers' credential plugins (unverified: ×0.7) give **~24%**. Speed on large clusters is not
 discounted: the demo cluster's 10,000 pods meet the budgets measured so far.
 
 ## Essentials user
 
-**~28% (estimated; was ~23%).** Someone who opens Lens to look at their pods and fix one.
+**~32% (estimated; was ~28%).** Someone who opens Lens to look at their pods and fix one.
 
 | Core feature | Weight | Depth |
 |---|---:|---:|
-| Add a kubeconfig and connect | 20% | 40% |
-| Pods list with status | 15% | 75% |
-| Logs of a pod | 20% | 40% |
-| Shell into a pod | 15% | 70% |
-| Details and events of an object | 10% | 70% |
-| Edit YAML and apply | 10% | 50% |
-| Delete, scale, restart | 10% | 70% |
-| **Weighted depth** | 100% | **~57%** |
+| Add a kubeconfig and connect | 20% | 42% |
+| Pods list with status | 15% | 78% |
+| Logs of a pod | 20% | 70% |
+| Shell into a pod | 15% | 72% |
+| Details and events of an object | 10% | 75% |
+| Edit YAML and apply | 10% | 55% |
+| Delete, scale, restart | 10% | 75% |
+| **Weighted depth** | 100% | **~65%** |
 
-With the same two discounts as above (×0.7 each): **~28%**.
+With the same two discounts as above (×0.7 each): **~32%**.
 
 ## Feature areas
 
@@ -153,16 +155,16 @@ each), contained in G6 and G7 above, plus the named subsystem where one exists.
 
 | Area | Views | Actions | % | Hours |
 |---|---:|---:|---:|---:|
-| Cluster: overview, applications, nodes, namespaces, events | 5 | 5 | ~20% (Nodes, Namespaces, Events views; Cordon, Uncordon, Drain partial) | 12–40, plus metrics (G12) |
-| Workloads | 9 | 16 | ~30% (7 of 9 views; Logs, Shell, Restart, Scale, Trigger, Suspend, Resume, Evict partial) | 25–80 |
-| Config | 16 | 2 | ~5% (Config Maps view partial) | 32–100 |
-| Network, Gateway API included | 17 | 5 | ~20% (Services, Ingresses, Ingress Classes; the Gateway API views generic) | 20–70, plus port forwarding (G10) |
-| Storage | 3 | – | ~20% (Persistent Volume Claims partial) | 4–14 |
+| Cluster: overview, applications, nodes, namespaces, events | 5 | 5 | ~25% (Nodes with its Pods table, Namespaces, Events; Cordon, Uncordon, Drain partial; no node shell, no Create Namespace) | 12–35, plus metrics (G12) |
+| Workloads | 9 | 16 | ~55% (every view, the Overview page included; all 15 actions that are targets exist, partial; Share is not a target) | 8–30 |
+| Config | 16 | 2 | ~40% (15 of 16 views partial, Secrets metadata only; no create dialogs) | 10–35 |
+| Network, Gateway API included | 17 | 5 | ~45% (every view; port forwarding and its four actions; the Gateway API views generic) | 6–25 |
+| Storage | 3 | – | ~40% (every view partial, a claim's pods) | 1–5 |
 | Device resources | 4 | – | 0% | 10–25 |
-| Helm releases and charts | 2 | 4 | 0% | 10–35, plus Helm (G11) |
-| Access control | 6 | 5 | 0% | 20–65 |
-| Custom resources (Definitions and the custom resource views) | 2 | – | ~60% (custom resource views done, Definitions partial) | 1–4 |
-| Actions on every kind (edit, delete, copy name) | – | 3 | ~40% (Edit and Delete for every kind, partial) | 2–8 |
+| Helm releases and charts | 2 | 4 | ~30% (Releases with history, values and manifest; rollback and uninstall; no charts, install, upgrade) | 6–20, plus Helm (G11) |
+| Access control | 6 | 5 | ~35% (5 of 6 views partial; no create dialogs) | 12–35 |
+| Custom resources (Definitions and the custom resource views) | 2 | – | ~65% (custom resource views done, Definitions with its group filter partial) | 1–3 |
+| Actions on every kind (edit, delete, copy name) | – | 3 | ~55% (all three, partial; Edit and Delete greyed by access reviews) | 1–5 |
 
 ## Remaining effort and calibration
 
@@ -178,10 +180,10 @@ make the cache and the editor more expensive. Replace the calibration with Cogpi
 
 | Milestone | Scope | Opus 5.5 agent-hours |
 |---|---|---:|
-| **Alpha (macOS)** | Foundation (G1–G4), the spike, core shell, ~20 views and ~20 actions, logs, shells, editor, port forwarding, Helm releases, MCP basics, an unsigned build | **~210–520** (was ~250–700): the alpha gate's rows (168–413) plus the foundation left (G1, G3, G4: 43–99) |
-| **Beta (macOS)** | Alpha plus metrics, most of the interface, MCP control, the Flux CD and Argo CD views, ~75% of views and actions, a notarized app with one-click updates, performance budgets, the first bug backlog | **~580–1,360** (was ~680–1,610; lowered by what the free-parity total lost) |
-| **Full parity (free features, macOS)** | G1–G16 | **~570–1,400** (was ~670–1,650) |
-| **Full Lens target** | plus G18, G22, G23 | **~780–1,820** (was ~870–2,060) |
+| **Alpha (macOS)** | Foundation (G1–G4), the spike, core shell, ~20 views and ~20 actions, logs, shells, editor, port forwarding, Helm releases, MCP basics, an unsigned build | **~150–400** (was ~210–520): the alpha gate's rows (120–317) plus the foundation left (G1, G3, G4: 32–80) |
+| **Beta (macOS)** | Alpha plus metrics, most of the interface, MCP control, the Flux CD and Argo CD views, ~75% of views and actions, a notarized app with one-click updates, performance budgets, the first bug backlog | **~440–1,020** (was ~580–1,360; lowered by what the free-parity total lost) |
+| **Full parity (free features, macOS)** | G1–G16 | **~430–1,060** (was ~570–1,400) |
+| **Full Lens target** | plus G18, G22, G23 | **~640–1,480** (was ~780–1,820) |
 | **Beyond Lens** | G17, G21 | **~50–110** (unchanged) |
 
 **Cogpit's first data point (2026-10-11), not yet a calibration.** The MVP was built in one session:
@@ -199,6 +201,15 @@ together), then merging, CI, a review and documentation. It retired about 100–
 agent-hours of the free-parity total (G1, G3, G5, G6, G7, G9) and 40–180 of the alpha estimate.
 As in the first run, most rows it touched are partial: the ratio says first passes are cheap, not
 that depth is.
+
+**Third data point (2026-10-11).** The third run: a serial Phase 0 by the lead (the shared
+contracts: scoped, metadata-only, local and virtual kinds; the related-objects index; access
+reviews in `Enabled`; item actions in the drawer; the Helm SDK in `go.mod`), then eight agents in
+parallel for 36 to 86 minutes each (about 7.8 agent-hours together), then merging one branch at a
+time, CI, a review and documentation. It retired about 140–340 estimated agent-hours of the
+free-parity total (G2–G11, G15) and 60–120 of the alpha estimate. Merging cost more than in the
+earlier runs: eight branches touched the same tables, constants and parity rows, and four tests
+that passed on every branch alone turned out to be timing-dependent on CI's slower runners.
 
 **Parallelism.** The foundation (G1–G4, 125–250 h) and the spike are serial: everything else builds
 on them. After that, about 80% parallelizes, as in PhotoCraft: one kind profile or command per agent.
@@ -226,6 +237,7 @@ LiteLLM or Open WebUI endpoint for the built-in agent.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | major | Third measurement after the third implementation run: breadth ~54% (measured: 55 of 64 views, 28 of 39 actions, 52 of 121 interface rows, 3 of 13 connectivity rows), ready ~23%, mainstream ~24%, essentials ~32% (estimated); alpha ~150–400 h, free parity ~430–1,060 h |
 | 2026-10-11 | major | Second measurement after the second implementation run: breadth ~30% (measured), ready ~14%, mainstream ~14%, essentials ~28% (estimated); remaining hours re-estimated from the gaps |
 | 2026-10-11 | major | First measurement after the local MVP: breadth ~12% (measured), ready ~10%, mainstream ~8%, essentials ~23% (estimated); remaining hours re-estimated from the gaps |
 | 2026-10-11 | major | Re-estimated for Go, client-go, the kubectl libraries and the Helm SDK; macOS first; sources narrowed to Lens Desktop; beyond-Lens targets separated |

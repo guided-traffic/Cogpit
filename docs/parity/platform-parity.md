@@ -12,9 +12,10 @@ it handles, and the external tools it depends on. Method: [`README.md`](README.m
 (`latest.yml`, `latest-mac.yml`, `latest-linux.yml` on `downloads.k8slens.dev`) and the
 2026.10.51501 release notes. Cogpit's ecosystem facts: [decisions](../developer/decisions.md).
 
-**Summary (measured, 2026-10-11):** 6 of 38 rows partial, none done (four more are not targets or
-have nothing to build): the macOS app bundle (1 of 13 package rows), client certificates and bearer
-tokens (2 of 13 authentication rows), Kubernetes 1.36 on kind locally and 1.37 in CI, kinds newer
+**Summary (measured, 2026-10-11, after the third implementation run):** 7 of 38 rows partial,
+none done (four more are not targets or have nothing to build): the macOS app bundle (1 of 13
+package rows), client certificates, bearer tokens and users limited to some namespaces through the
+access reviews (3 of 13 authentication rows), Kubernetes 1.36 on kind locally and 1.37 in CI, kinds newer
 than the client libraries (custom resources and edits), and `kubectl` from `PATH`. Cogpit ships for macOS first; Windows and Linux follow after the macOS beta
 ([D-7](../developer/decisions.md#d-7-language-and-platforms)). Remaining (estimated): 25–50 h for
 the macOS app, signing and one-click updates ([G14](gaps.md#g14-packaging-signing-and-updates-macos)),

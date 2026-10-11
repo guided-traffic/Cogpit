@@ -17,14 +17,18 @@ All views and actions on this page are in Lens Desktop's free plan, except the s
 (2026-10-11) made the first rows partial. **Command ids** are Cogpit's, following [conventions](../developer/conventions.md#style);
 they become the registry ids and, with underscores, the MCP tool names.
 
-**Summary (measured, 2026-10-11, after the second implementation run):** 27 of 64 resource views
-exist (was 6): one done (the custom resource views) and 26 partial, ten of them the Gateway API
-views, which show as generic custom resource views until their columns are captured. 14 of 39
-actions exist (was 4), all partial. Partial views lack the metrics columns, and most of their
-texts are not checked against a running Lens; the actions are limited as noted. Counted from the
-rows below (the two Gateway API rows hold seven and three views). Lens Desktop's paid features add
-24 views and 3 actions. Remaining (estimated, 2–6 h per view or action with tests): 85–260 h for
-the views ([G6](gaps.md#g6-resource-views)) and 45–140 h for the actions
+**Summary (measured, 2026-10-11, after the third implementation run):** 55 of 64 resource views
+exist (was 27): one done (the custom resource views) and 54 partial, ten of them the Gateway API
+views, which show as generic custom resource views until their columns are captured. Missing: the
+cluster Overview, Applications, Vertical Pod Autoscalers, the four Device Resources views, Helm
+Charts and Pod Security Policies. 28 of 39 actions exist (was 14), all partial; missing: the node
+shell, Helm install and upgrade, and the create dialogs (Namespace, Secret, Resource Quota,
+Service Account and the four RBAC kinds). Partial views lack the metrics columns, and most of
+their texts and rules are inferred, not checked against a running Lens; the actions are limited
+as noted. Counted from the rows below (the two Gateway API rows hold seven and three views; Share
+is not a target). Lens Desktop's paid features add 24 views and 3 actions. Remaining (estimated,
+2–6 h per view or action with tests): 30–100 h for the views
+([G6](gaps.md#g6-resource-views)) and 20–70 h for the actions
 ([G7](gaps.md#g7-resource-actions)), on top of the foundation in [G1–G4](gaps.md#summary).
 
 Evidence for the view rows: the kind profiles in
