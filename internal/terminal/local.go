@@ -31,7 +31,8 @@ func resolveLocal(opts LocalOptions) (localBinding, error) {
 	// Load parses and merges; it runs no exec credential plugin.
 	cfg, err := rules.Load()
 	if err != nil {
-		return localBinding{}, fmt.Errorf("local terminal: reading kubeconfig: %w", err)
+		// SafeError: client-go's errors for some malformed files echo users entries, tokens included.
+		return localBinding{}, fmt.Errorf("local terminal: reading kubeconfig: %w", kubeconfig.SafeError(err))
 	}
 	name := opts.Context
 	if name == "" {

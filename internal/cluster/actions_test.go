@@ -79,7 +79,7 @@ func TestDeletePod(t *testing.T) {
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "web-0"}}
 	c, cs := fakeConn(pod)
 	ctx := context.Background()
-	if err := c.DeletePod(ctx, "team-a", "web-0"); err != nil {
+	if err := c.DeletePod(ctx, "team-a", "web-0", ""); err != nil {
 		t.Fatalf("DeletePod: %v", err)
 	}
 	if _, err := cs.CoreV1().Pods("team-a").Get(ctx, "web-0", metav1.GetOptions{}); !apierrors.IsNotFound(err) {
@@ -95,8 +95,26 @@ func TestDeletePod(t *testing.T) {
 		t.Errorf("delete action %+v: want default options", del)
 	}
 
-	err := c.DeletePod(ctx, "team-a", "web-0")
+	err := c.DeletePod(ctx, "team-a", "web-0", "")
 	if !apierrors.IsNotFound(err) || !strings.Contains(err.Error(), "team-a/web-0") {
 		t.Errorf("second delete: %v", err)
 	}
+}
+
+func TestDeletePodWithUIDPrecondition(t *testing.T) {
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "web-0", UID: "uid-confirmed"}}
+	c, cs := fakeConn(pod)
+	if err := c.DeletePod(context.Background(), "team-a", "web-0", "uid-confirmed"); err != nil {
+		t.Fatalf("DeletePod: %v", err)
+	}
+	for _, a := range cs.Actions() {
+		if d, ok := a.(k8stesting.DeleteAction); ok {
+			pre := d.GetDeleteOptions().Preconditions
+			if pre == nil || pre.UID == nil || *pre.UID != types.UID("uid-confirmed") {
+				t.Errorf("delete without the UID precondition: %+v", d.GetDeleteOptions())
+			}
+			return
+		}
+	}
+	t.Fatal("no delete action")
 }

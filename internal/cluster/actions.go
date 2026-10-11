@@ -45,9 +45,16 @@ func (c *Conn) RestartDeployment(ctx context.Context, namespace, name string) er
 	return nil
 }
 
-// DeletePod deletes one pod with the default grace period.
-func (c *Conn) DeletePod(ctx context.Context, namespace, name string) error {
-	if err := c.kube.CoreV1().Pods(namespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
+// DeletePod deletes one pod with the default grace period. A non-empty uid is a precondition: the
+// API server refuses the delete if the pod with that name is another object by now (a StatefulSet
+// pod replaced while the user confirmed).
+func (c *Conn) DeletePod(ctx context.Context, namespace, name, uid string) error {
+	opts := metav1.DeleteOptions{}
+	if uid != "" {
+		u := types.UID(uid)
+		opts.Preconditions = &metav1.Preconditions{UID: &u}
+	}
+	if err := c.kube.CoreV1().Pods(namespace).Delete(ctx, name, opts); err != nil {
 		return fmt.Errorf("delete pod %s/%s: %w", namespace, name, err)
 	}
 	return nil
