@@ -34,7 +34,9 @@ var events = &model.KindProfile{
 		{ID: "source", Title: "Source", Type: model.ColumnText},
 		{ID: "count", Title: "Count", Type: model.ColumnNumber},
 		ageColumn,
-		{ID: "lastSeen", Title: "Last Seen", Type: model.ColumnAge},
+		// Lens shows Last Seen as a UTC timestamp ("2026-10-11T16:04:00Z"), not an age (capture,
+		// 2026-10-11); a number column sorts it by time and shows the text.
+		{ID: "lastSeen", Title: "Last Seen", Type: model.ColumnNumber},
 	},
 	Cells: eventCells,
 	Fields: map[string]fieldFunc{
@@ -61,25 +63,33 @@ var events = &model.KindProfile{
 
 func eventCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 	typ := model.NestedString(obj, "type")
-	typeToken := eventTypeToken(typ)
 	rowToken := model.StatusNone
+	msg := model.Cell{Text: singleLine(eventMessage(obj))}
 	if typ == eventWarning {
-		rowToken = model.StatusWarning // normal events stay uncoloured, so warnings stand out
+		// As in Lens: a warning's message is red; the Type cell and normal events stay
+		// uncoloured, so warnings stand out (capture, 2026-10-11).
+		rowToken = model.StatusWarning
+		msg.Status = model.StatusError
+	}
+	lastSeen := model.Cell{}
+	if t := eventLastSeen(obj); !t.IsZero() {
+		lastSeen = model.Cell{Text: timestamp(t), Num: t.Unix()}
 	}
 	return []model.Cell{
 		nameCell(obj),
-		{Text: typ, Status: typeToken},
-		{Text: singleLine(eventMessage(obj))},
+		{Text: typ},
+		msg,
 		namespaceCell(obj),
 		{Text: eventObjectText(obj)},
 		{Text: eventSourceText(obj)},
 		{Num: eventCount(obj)},
 		model.AgeCell(eventFirstSeen(obj)),
-		model.AgeCell(eventLastSeen(obj)),
+		lastSeen,
 	}, rowToken
 }
 
-// eventTypeToken colours the Type cell: Normal ok, Warning warning, anything newer uncoloured.
+// eventTypeToken colours the event type in the drawer: Normal ok, Warning warning, anything newer
+// uncoloured. The table leaves the Type cell plain and colours a warning's message instead.
 func eventTypeToken(typ string) model.Status {
 	switch typ {
 	case "Normal":

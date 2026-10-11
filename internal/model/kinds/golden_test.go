@@ -324,16 +324,20 @@ func TestStatusTexts(t *testing.T) {
 		{"nodes", "minimal", "roles", "<none>", model.StatusNone, model.StatusUnknown},
 		{"nodes", "failing", "taints", "3", model.StatusNone, model.StatusError},
 
-		{"events", "healthy", "type", "Normal", model.StatusOK, model.StatusNone},
-		{"events", "failing", "type", "Warning", model.StatusWarning, model.StatusWarning},
+		// As captured from Lens: the Type cell is plain, a warning's message is red.
+		{"events", "healthy", "type", "Normal", model.StatusNone, model.StatusNone},
+		{"events", "failing", "type", "Warning", model.StatusNone, model.StatusWarning},
+		{"events", "failing", "message", "Back-off restarting failed container worker in pod worker-6f8b9c7d4-q9m2z_payments (exit code 1)", model.StatusError, model.StatusWarning},
+		{"events", "healthy", "message", `Container image "registry.example.com/shop/web:1.4.2" already present on machine`, model.StatusNone, model.StatusNone},
 		{"events", "failing", "count", "42", model.StatusNone, model.StatusWarning},
 		{"events", "warning-series", "count", "17", model.StatusNone, model.StatusWarning},
-		{"events", "warning-series", "lastSeen", "1m", model.StatusNone, model.StatusWarning},
+		// Last Seen is a UTC timestamp, as captured from Lens.
+		{"events", "warning-series", "lastSeen", "2026-10-11T11:58:30Z", model.StatusNone, model.StatusWarning},
 		{"events", "warning-series", "age", "3h", model.StatusNone, model.StatusWarning}, // eventTime, whole seconds
 		{"events", "new-style", "source", "default-scheduler, default-scheduler-cp-1", model.StatusNone, model.StatusNone},
 		{"events", "new-style", "count", "1", model.StatusNone, model.StatusNone},
 		{"events", "events-api-shape", "involvedObject", "Deployment: search", model.StatusNone, model.StatusNone},
-		{"events", "minimal", "lastSeen", "5m", model.StatusNone, model.StatusNone},
+		{"events", "minimal", "lastSeen", "2026-10-11T11:55:00Z", model.StatusNone, model.StatusNone},
 	}
 	objects := map[string]*unstructured.Unstructured{}
 	for _, p := range kinds.Builtin() {

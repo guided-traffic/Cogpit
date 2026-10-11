@@ -13,8 +13,7 @@
     },
     {
       "column": "type",
-      "text": "Normal",
-      "status": "ok"
+      "text": "Normal"
     },
     {
       "column": "message",
@@ -44,7 +43,7 @@
     },
     {
       "column": "lastSeen",
-      "text": "20s",
+      "text": "2026-10-11T11:59:40Z",
       "num": 1791719980
     }
   ],

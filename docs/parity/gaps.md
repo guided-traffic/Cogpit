@@ -129,11 +129,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 120–360 h (was 130–380; 2–6 h each; Pods, Nodes and the overview at the high end).
 
 ### G7. Resource actions
-- **Missing:** all 40 actions. The alpha gate needs about 20: logs, shell, attach, edit, delete,
+- **Missing:** all but four of the 39 actions (Share is not a target, owner 2026-10-11). The alpha gate needs about 20: logs, shell, attach, edit, delete,
   scale, restart, cordon, uncordon, drain, trigger, the port-forward actions and the Helm release
   actions. Drain and rollout come from the kubectl libraries; drain is crash-safe
   ([D-11](../developer/decisions.md#d-11-crash-stance)).
-- **Evidence:** resource-parity, 4 of 40 partial: Logs, Shell, Restart (Deployment), Delete (pods
+- **Evidence:** resource-parity, 4 of 39 partial: Logs, Shell, Restart (Deployment), Delete (pods
   only).
 - **Estimate:** 62–195 h (was 70–210).
 

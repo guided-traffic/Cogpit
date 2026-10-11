@@ -13,12 +13,12 @@
     },
     {
       "column": "type",
-      "text": "Warning",
-      "status": "warning"
+      "text": "Warning"
     },
     {
       "column": "message",
-      "text": "Readiness probe failed: HTTP probe failed with statuscode: 503"
+      "text": "Readiness probe failed: HTTP probe failed with statuscode: 503",
+      "status": "error"
     },
     {
       "column": "namespace",
@@ -44,7 +44,7 @@
     },
     {
       "column": "lastSeen",
-      "text": "1m",
+      "text": "2026-10-11T11:58:30Z",
       "num": 1791719910
     }
   ],
