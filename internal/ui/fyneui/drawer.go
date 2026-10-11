@@ -293,7 +293,7 @@ func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
 		group = sec.Group
 		out = append(out, d.sectionTitle(sec), newDivider(false))
 		if sec.Table != nil {
-			out = append(out, d.detailTable(m.Ref, sec.Table))
+			out = append(out, d.table(m.Ref, sec.Table))
 		}
 		if len(sec.Items) > 0 {
 			grid := box(kvLayout{})
@@ -425,41 +425,37 @@ func (d *drawer) chips(ref model.ObjectRef, chips []model.Chip) fyne.CanvasObjec
 	return out
 }
 
-// detailTable renders a section's table: the column titles muted above the rows, each column as
-// wide as its widest line (detailTableLayout). A cell that names an object the view can show is a
-// link to it; a cell of several lines shows them one under the other.
-func (d *drawer) detailTable(ref model.ObjectRef, t *model.DetailTable) fyne.CanvasObject {
+// detailTable renders a plain table, its texts only: the column titles muted above the rows, each
+// column as wide as its widest line (detailTableLayout), a cell of several lines one line under
+// the other. Tables of cells (links, statuses, warning icons) are drawn by table.
+func detailTable(t *model.DetailTable) fyne.CanvasObject {
 	if len(t.Columns) == 0 {
 		return container.NewVBox()
 	}
-	grid := box(&detailTableLayout{cols: len(t.Columns)})
+	// The cells go into the grid at once: Container.Add lays the grid out on every call.
+	objs := make([]fyne.CanvasObject, 0, len(t.Columns)*(len(t.Rows)+1))
 	for _, c := range t.Columns {
 		l := newTextLine(c, colorMuted, theme.SizeNameText, fyne.TextStyle{})
 		l.truncate = true
-		grid.Add(l)
+		objs = append(objs, l)
 	}
-	for r, row := range t.Rows {
+	for _, row := range t.Rows {
 		for i := range t.Columns {
 			text := ""
 			if i < len(row) {
 				text = row[i]
 			}
-			if link := t.Link(r, i); link != nil && text != "" && d.sh.view.serves(link.Kind) {
-				to := *link
-				grid.Add(newLinkText(text, func() { d.sh.followLink(to, ref.Context, false) }))
-				continue
-			}
-			grid.Add(tableCellText(text))
+			objs = append(objs, tableCellText(text, theme.ColorNameForeground))
 		}
 	}
-	return grid
+	return box(&detailTableLayout{cols: len(t.Columns)}, objs...)
 }
 
-// tableCellText is a plain table cell: a truncating line per line of its text.
-func tableCellText(text string) fyne.CanvasObject {
+// tableCellText is a table cell of text in colour fg: a truncating line per line of its text.
+func tableCellText(text string, fg fyne.ThemeColorName) fyne.CanvasObject {
 	lines := strings.Split(text, "\n")
 	cell := func(s string) *textLine {
-		v := newTextLine(s, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{})
+		v := newTextLine(s, fg, theme.SizeNameText, fyne.TextStyle{})
 		v.truncate = true
 		return v
 	}
@@ -477,17 +473,34 @@ func tableCellText(text string) fyne.CanvasObject {
 // several lines) row by row in cols columns, each as wide as its widest line and each row as tall
 // as its tallest cell, rows of several lines further apart; when the columns do not fit, the
 // widest give up width first (capWidths) and their texts shorten.
-type detailTableLayout struct{ cols int }
+//
+// It keeps its last measurement while the objects and the text size stay the same: a table's
+// cells never change once built (the drawer builds a new table instead), and Fyne asks for MinSize
+// and Layout several times per pass, which for a node's hundreds of pods means thousands of texts.
+type detailTableLayout struct {
+	cols int
+
+	measured    []fyne.CanvasObject
+	textSize    float32
+	w, rowH     []float32
+	gap, rowGap float32
+}
 
 // widths measures the cells: each column's width, each row's height, the gap between columns and
-// the one between rows.
+// the one between rows. Callers may change the widths they get.
 func (l *detailTableLayout) widths(objs []fyne.CanvasObject) (w, rowH []float32, gap, rowGap float32) {
 	th := fyne.CurrentApp().Settings().Theme()
+	size := th.Size(theme.SizeNameText)
+	if len(objs) > 0 && len(objs) == len(l.measured) && &objs[0] == &l.measured[0] && size == l.textSize {
+		return slices.Clone(l.w), l.rowH, l.gap, l.rowGap
+	}
+	defer func() {
+		l.measured, l.textSize, l.w, l.rowH, l.gap, l.rowGap = objs, size, slices.Clone(w), rowH, gap, rowGap
+	}()
 	gap = th.Size(theme.SizeNamePadding) * 3
 	rowGap = gap / 3
 	w = make([]float32, l.cols)
 	rowH = make([]float32, (len(objs)+l.cols-1)/l.cols)
-	size := th.Size(theme.SizeNameText)
 	var measure func(o fyne.CanvasObject) float32
 	measure = func(o fyne.CanvasObject) float32 {
 		switch t := o.(type) {
@@ -502,7 +515,7 @@ func (l *detailTableLayout) widths(objs []fyne.CanvasObject) (w, rowH []float32,
 			}
 			return widest
 		}
-		return 0
+		return o.MinSize().Width // an icon
 	}
 	for i, o := range objs {
 		w[i%l.cols] = fyne.Max(w[i%l.cols], measure(o))

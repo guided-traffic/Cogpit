@@ -68,15 +68,27 @@
             "kube-dashboard"
           ]
         ],
-        "links": [
+        "types": [
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
           [
-            null,
             {
-              "kind": "serviceaccounts",
-              "namespace": "kube-dashboard",
-              "name": "dashboard"
+              "text": "ServiceAccount"
             },
-            null
+            {
+              "text": "dashboard",
+              "link": {
+                "kind": "serviceaccounts",
+                "namespace": "kube-dashboard",
+                "name": "dashboard"
+              }
+            },
+            {
+              "text": "kube-dashboard"
+            }
           ]
         ]
       }

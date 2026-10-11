@@ -33,22 +33,53 @@ type DetailSection struct {
 // DetailTable is a small table in the drawer: column titles and rows of cell texts. A cell's text
 // may hold several lines, separated by "\n" as in an item's value, shown one under the other: a
 // role's rules list their resources and verbs a line each.
+//
+// Rows is always the plain text, as Value is for an item. Types and Cells, when set, say how the
+// drawer draws a table whose cells name objects or carry a status (a node's pods, a binding's
+// subjects, an endpoint slice's endpoints): Types holds each column's type, Cells the rows as table
+// cells, row for row and column for column. A cell with a link is drawn as a link, one with a
+// status in its colour, as the lists draw them, and a cell of a warning column as Lens's warning
+// icon with the cell's text as its tooltip; a warning column's title is not shown. Build such a
+// table with [CellTable].
 type DetailTable struct {
-	Columns []string   `json:"columns"`
-	Rows    [][]string `json:"rows"`
-	// Links, when set, are the objects cells name, by row and column as in Rows: nil for a plain
-	// cell. The drawer renders a cell with a link as a link that goes to the object (a binding's
-	// ServiceAccount subjects). Rows still hold every cell's text.
-	Links [][]*ObjectRef `json:"links,omitempty"`
+	Columns []string     `json:"columns"`
+	Rows    [][]string   `json:"rows"`
+	Types   []ColumnType `json:"types,omitempty"`
+	Cells   [][]Cell     `json:"cells,omitempty"`
 }
 
-// Link returns the object the cell at row and col names, or nil for a plain cell or one out of
-// range.
+// Link returns the object the cell at row and col names, or nil for a plain cell, a table without
+// cells, or one out of range.
 func (t *DetailTable) Link(row, col int) *ObjectRef {
-	if t == nil || row < 0 || row >= len(t.Links) || col < 0 || col >= len(t.Links[row]) {
+	if t == nil || row < 0 || row >= len(t.Cells) || col < 0 || col >= len(t.Cells[row]) {
 		return nil
 	}
-	return t.Links[row][col]
+	return t.Cells[row][col].Link
+}
+
+// CellTable returns a drawer table of cells under columns: the titles and types of the columns,
+// the cells, and Rows with each cell's text ([CellText]). A row with fewer cells than columns is
+// padded with empty cells. Age and until columns need a clock, which a kind's Detail does not
+// have: render times as text.
+func CellTable(columns []Column, rows [][]Cell) *DetailTable {
+	t := &DetailTable{
+		Columns: make([]string, len(columns)), Types: make([]ColumnType, len(columns)),
+		Rows: make([][]string, 0, len(rows)), Cells: make([][]Cell, 0, len(rows)),
+	}
+	for i, c := range columns {
+		t.Columns[i], t.Types[i] = c.Title, c.Type
+	}
+	for _, r := range rows {
+		cells := make([]Cell, len(columns))
+		copy(cells, r)
+		texts := make([]string, len(columns))
+		for i, c := range cells {
+			texts[i] = CellText(columns[i], c, time.Time{})
+		}
+		t.Rows = append(t.Rows, texts)
+		t.Cells = append(t.Cells, cells)
+	}
+	return t
 }
 
 // DetailItem is one line of a detail section: a name and a value.

@@ -290,9 +290,12 @@ by "this pod".
   M7), one Properties section (the object's metadata without the UID, then the kind's own
   properties: a profile's first section titled "Properties" merges into it), the kind's other
   sections (a section may carry a `group` heading, "Containers", or a `table`, a node's
-  Capacity, whose cells may name objects in `links`, by row and column as in its rows, a
-  binding's ServiceAccount subjects, and hold several lines, a role's resources and verbs; both
-  added 2026-10-11), then the events. An item's `value` is always its plain text; `link` names the object
+  Capacity), then the events. A table cell may hold several lines (a role's resources and
+  verbs). A table of cells (`model.CellTable`, decided 2026-10-11 in the third run: a node's Pods,
+  a binding's subjects, an endpoint slice's endpoints) adds column `types` and `cells` beside the
+  plain `rows`, so that the drawer draws links, status colours and the warning icon as the lists
+  do; agents keep reading `rows`, and `DetailTable.Link` reads a cell's link. An item's `value` is
+  always its plain text; `link` names the object
   it shows, `chips` are a list's entries, and `fold` folds a long list behind its count ("6
   Labels"). `object_get` returns the same model.
 - **Editors, logs, terminals and chats** are engine sessions shown as dock tabs, so agents can open,
@@ -586,9 +589,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-11 | trivial | §4.4: links and cells of several lines in drawer tables (`DetailTable.Links`); telling a missing related object from a kind still listing |
-| 2026-10-11 | trivial | §4.4: links and cells of several lines in drawer tables (`DetailTable.Links`) |
-| 2026-10-11 | trivial | §4.4: links in drawer tables (`DetailTable.Links`) |
+| 2026-10-11 | minor | §4.4: drawer tables of cells (`model.CellTable`: links, status colours, the warning icon) and cells of several lines; telling a missing related object from a kind still listing |
 | 2026-10-11 | minor | §4.5: `FallbackVersions`, a built-in kind's older API versions, picked by discovery at connect |
 | 2026-10-11 | minor | Third run's Phase 0: cache scopes with label selector and metadata only, local and virtual kinds (§5), the related-objects index and item actions in the drawer (§4.4), access reviews in `Enabled` (§4.2), Helm v4.3.0 in `go.mod` |
 | 2026-10-11 | major | Current state after the second implementation run: 16 built-in profiles and custom resources, editing, node and workload actions, the drain journal, 41 commands, CI |

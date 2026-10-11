@@ -82,25 +82,45 @@
             ""
           ]
         ],
-        "links": [
+        "types": [
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
           [
-            null,
             {
-              "kind": "serviceaccounts",
-              "namespace": "monitoring",
-              "name": "metrics-collector"
+              "text": "ServiceAccount"
             },
-            null
+            {
+              "text": "metrics-collector",
+              "link": {
+                "kind": "serviceaccounts",
+                "namespace": "monitoring",
+                "name": "metrics-collector"
+              }
+            },
+            {
+              "text": "monitoring"
+            }
           ],
           [
-            null,
-            null,
-            null
+            {
+              "text": "Group"
+            },
+            {
+              "text": "oncall:sre"
+            },
+            {}
           ],
           [
-            null,
-            null,
-            null
+            {
+              "text": "User"
+            },
+            {
+              "text": "alice@example.com"
+            },
+            {}
           ]
         ]
       }

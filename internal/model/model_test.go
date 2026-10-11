@@ -222,6 +222,31 @@ func TestMergeProperties(t *testing.T) {
 	}
 }
 
+// TestCellTable checks a drawer table of cells: Rows holds the texts agents read, Types and Cells
+// what the drawer draws, and a short row is padded.
+func TestCellTable(t *testing.T) {
+	pod := &ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-0"}
+	tbl := CellTable([]Column{
+		{ID: "name", Title: "Name", Type: ColumnText},
+		{ID: "warning", Title: "Warning", Type: ColumnWarning},
+		{ID: "restarts", Title: "Restarts", Type: ColumnNumber},
+	}, [][]Cell{
+		{{Text: "web-0", Link: pod}, {Text: "CrashLoopBackOff", Num: 1, Status: StatusWarning}, {Num: 4}},
+		{{Text: "web-1"}},
+	})
+	if !slices.Equal(tbl.Columns, []string{"Name", "Warning", "Restarts"}) ||
+		!slices.Equal(tbl.Types, []ColumnType{ColumnText, ColumnWarning, ColumnNumber}) {
+		t.Errorf("columns %q, types %q", tbl.Columns, tbl.Types)
+	}
+	if len(tbl.Rows) != 2 || !slices.Equal(tbl.Rows[0], []string{"web-0", "CrashLoopBackOff", "4"}) ||
+		!slices.Equal(tbl.Rows[1], []string{"web-1", "", "0"}) {
+		t.Errorf("rows %q", tbl.Rows)
+	}
+	if len(tbl.Cells) != 2 || len(tbl.Cells[1]) != 3 || tbl.Cells[0][0].Link != pod || tbl.Cells[0][1].Status != StatusWarning {
+		t.Errorf("cells %+v", tbl.Cells)
+	}
+}
+
 func TestPartsCell(t *testing.T) {
 	c := PartsCell(StatusOK, CellPart{Text: "SchedulingDisabled"}, CellPart{}, CellPart{Text: "Ready", Status: StatusOK})
 	if c.Text != "SchedulingDisabled Ready" || c.Status != StatusOK || c.Parts == nil || len(*c.Parts) != 2 {

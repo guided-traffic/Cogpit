@@ -74,15 +74,27 @@
             "qa-preview-417"
           ]
         ],
-        "links": [
+        "types": [
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
           [
-            null,
             {
-              "kind": "serviceaccounts",
-              "namespace": "qa-preview-417",
-              "name": "preview-bot"
+              "text": "ServiceAccount"
             },
-            null
+            {
+              "text": "preview-bot",
+              "link": {
+                "kind": "serviceaccounts",
+                "namespace": "qa-preview-417",
+                "name": "preview-bot"
+              }
+            },
+            {
+              "text": "qa-preview-417"
+            }
           ]
         ]
       }

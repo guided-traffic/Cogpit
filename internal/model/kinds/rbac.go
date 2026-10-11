@@ -210,20 +210,21 @@ func subjectsSection(sections []model.DetailSection, obj any) []model.DetailSect
 		return sections
 	}
 	bindingNS := model.NestedString(obj, "metadata", "namespace")
-	t := &model.DetailTable{Columns: []string{"Kind", nameColumn.Title, namespaceColumn.Title}}
+	cols := []model.Column{{ID: "kind", Title: "Kind", Type: model.ColumnText}, nameColumn, namespaceColumn}
+	rows := make([][]model.Cell, 0, len(subs))
 	links := false
 	for _, s := range subs {
 		kind, name, ns := model.NestedString(s, "kind"), model.NestedString(s, "name"), subjectNamespace(s, bindingNS)
-		t.Rows = append(t.Rows, []string{kind, name, ns})
 		var link *model.ObjectRef
 		if kind == kindServiceAccount && ns != "" {
 			link = linkTo(keyServiceAccounts, ns, name)
 		}
 		links = links || link != nil
-		t.Links = append(t.Links, []*model.ObjectRef{nil, link, nil})
+		rows = append(rows, []model.Cell{{Text: kind}, {Text: name, Link: link}, {Text: ns}})
 	}
-	if !links {
-		t.Links = nil
+	t := model.CellTable(cols, rows)
+	if !links { // a plain table: the texts say it all
+		t.Types, t.Cells = nil, nil
 	}
 	return append(sections, model.DetailSection{Title: "Subjects", Table: t})
 }

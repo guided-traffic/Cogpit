@@ -74,15 +74,27 @@
             "checkout"
           ]
         ],
-        "links": [
+        "types": [
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
           [
-            null,
             {
-              "kind": "serviceaccounts",
-              "namespace": "checkout",
-              "name": "checkout-api"
+              "text": "ServiceAccount"
             },
-            null
+            {
+              "text": "checkout-api",
+              "link": {
+                "kind": "serviceaccounts",
+                "namespace": "checkout",
+                "name": "checkout-api"
+              }
+            },
+            {
+              "text": "checkout"
+            }
           ]
         ]
       }

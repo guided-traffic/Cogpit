@@ -3,6 +3,7 @@ package fyneui
 import (
 	"slices"
 	"testing"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
@@ -21,11 +22,10 @@ func TestDrawerTableLinks(t *testing.T) {
 	secret := &model.ObjectRef{Kind: "secrets", Namespace: ref.Namespace, Name: "db-password"}
 	f.details[ref.String()] = &engine.DetailModel{
 		Ref: ref, Title: "Pod: " + ref.Name, Events: []engine.EventItem{},
-		Sections: []model.DetailSection{{Title: "Placement", Table: &model.DetailTable{
-			Columns: []string{"Kind", "Name"},
-			Rows:    [][]string{{"Node", "worker-a-01"}, {"Secret", "db-password"}},
-			Links:   [][]*model.ObjectRef{{nil, node}, {nil, secret}},
-		}}},
+		Sections: []model.DetailSection{{Title: "Placement", Table: model.CellTable(
+			[]model.Column{{ID: "kind", Title: "Kind"}, {ID: "name", Title: "Name"}},
+			[][]model.Cell{{{Text: "Node"}, {Text: "worker-a-01", Link: node}}, {{Text: "Secret"}, {Text: "db-password", Link: secret}}},
+		)}},
 	}
 	f.ui.Selected, f.ui.Drawer = []model.ObjectRef{ref}, &ref
 	sh, _, q := newTestShell(t, f, Options{})
@@ -92,4 +92,73 @@ func TestCapWidths(t *testing.T) {
 		t.Errorf("columns that fit changed: %v", fits)
 	}
 	capWidths(nil, 10)
+	w = []float32{200, 40, 120, 30}
+	capWidths(w, 250)
+	if !slices.Equal(w, []float32{90, 40, 90, 30}) {
+		t.Errorf("capped widths %v", w)
+	}
+	w = []float32{200, 40}
+	capWidths(w, 10)
+	if !slices.Equal(w, []float32{5, 5}) {
+		t.Errorf("widths in too little room %v", w)
+	}
+}
+
+// TestDrawerCellTable: a drawer table of cells (model.CellTable) draws a cell with a link as a
+// link that navigates, a status in its colour, and the warning column as an icon whose tooltip
+// is the reason, under no title; Rows stays the text agents read.
+func TestDrawerCellTable(t *testing.T) {
+	f := kindsFake(t, "nodes")
+	ref := nodeDrawerRef
+	pod := model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-0"}
+	tbl := model.CellTable([]model.Column{
+		{ID: "name", Title: "Name", Type: model.ColumnText},
+		{ID: "warning", Title: "Warning", Type: model.ColumnWarning},
+		{ID: "status", Title: "Status", Type: model.ColumnText},
+	}, [][]model.Cell{
+		{{Text: pod.Name, Link: &pod}, {Text: "CrashLoopBackOff; 4 restarts", Num: 1, Status: model.StatusWarning}, {Text: "CrashLoopBackOff", Status: model.StatusError}},
+		{{Text: "web-1", Link: &model.ObjectRef{Kind: "secrets", Namespace: "shop", Name: "web-1"}}, {}, {Text: "Running", Status: model.StatusOK}},
+	})
+	f.details[ref.String()] = &engine.DetailModel{
+		Ref: ref, Title: "Node: " + ref.Name, Events: []engine.EventItem{},
+		Sections: []model.DetailSection{{Title: "Pods", Table: tbl}},
+	}
+	f.ui.Selected, f.ui.Drawer = []model.ObjectRef{ref}, &ref
+	sh, w, q := newTestShell(t, f, Options{})
+	q.until(t, "the drawer", func() bool { return sh.drawer.last != nil && len(findAll[*tipIcon](sh.drawer.details)) > 0 })
+	settle(w)
+
+	texts := drawerTexts(sh)
+	if slices.Contains(texts, "Warning") || !slices.Contains(texts, "Name") || !slices.Contains(texts, "Status") {
+		t.Errorf("the warning column has a title, or the others none: %q", texts)
+	}
+	if !slices.Contains(texts, "web-1") {
+		t.Errorf("a link to a kind without a view must be plain text: %q", texts)
+	}
+	for _, l := range findAll[*textLine](sh.drawer.details) {
+		if l.text == "CrashLoopBackOff" && l.color != statusColorName(model.StatusError) {
+			t.Errorf("status cell colour %q", l.color)
+		}
+	}
+	icons := findAll[*tipIcon](sh.drawer.details)
+	if len(icons) != 1 || icons[0].tip != "CrashLoopBackOff; 4 restarts" {
+		t.Fatalf("warning icons %+v", icons)
+	}
+
+	sh.tip.delay = time.Millisecond
+	pos := fyne.CurrentApp().Driver().AbsolutePositionForObject(icons[0]).AddXY(2, icons[0].Size().Height/2)
+	test.MoveMouse(w.Canvas(), pos)
+	q.until(t, "the tooltip", func() bool { return sh.tip.visibleText() == "CrashLoopBackOff; 4 restarts" })
+
+	link := drawerLinks(sh)[pod.Name]
+	if link == nil {
+		t.Fatalf("no link for the pod among %v", keys(drawerLinks(sh)))
+	}
+	test.Tap(link)
+	q.until(t, "ui.navigate", func() bool { return len(f.callsOf("ui.navigate")) == 1 })
+	want := pod
+	want.Context = ref.Context
+	if got := decodeParams[refParams](t, f.callsOf("ui.navigate")[0]).Ref; got != want {
+		t.Errorf("pod link %+v, want %+v", got, want)
+	}
 }

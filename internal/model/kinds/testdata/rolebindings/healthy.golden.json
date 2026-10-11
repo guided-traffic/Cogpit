@@ -85,29 +85,52 @@
             ""
           ]
         ],
-        "links": [
+        "types": [
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
           [
-            null,
             {
-              "kind": "serviceaccounts",
-              "namespace": "ci",
-              "name": "ci-deployer"
+              "text": "ServiceAccount"
             },
-            null
+            {
+              "text": "ci-deployer",
+              "link": {
+                "kind": "serviceaccounts",
+                "namespace": "ci",
+                "name": "ci-deployer"
+              }
+            },
+            {
+              "text": "ci"
+            }
           ],
           [
-            null,
             {
-              "kind": "serviceaccounts",
-              "namespace": "checkout",
-              "name": "checkout-api"
+              "text": "ServiceAccount"
             },
-            null
+            {
+              "text": "checkout-api",
+              "link": {
+                "kind": "serviceaccounts",
+                "namespace": "checkout",
+                "name": "checkout-api"
+              }
+            },
+            {
+              "text": "checkout"
+            }
           ],
           [
-            null,
-            null,
-            null
+            {
+              "text": "Group"
+            },
+            {
+              "text": "team:checkout"
+            },
+            {}
           ]
         ]
       }
