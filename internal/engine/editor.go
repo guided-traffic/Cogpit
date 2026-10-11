@@ -47,6 +47,9 @@ type editor struct {
 	// pending is set while the editor exists but its tab is not in the dock yet: pruning, which
 	// another command may run meanwhile, keeps it.
 	pending bool
+	// addedRev is the UI state revision whose dock first held the tab: pruning that works from an
+	// older snapshot of the dock must not take the tab's absence there for a closed tab.
+	addedRev uint64
 }
 
 // editStore holds the editors of a Session. Its zero value is ready to use. Entries whose tab is
@@ -139,13 +142,14 @@ func (e *ConflictError) Error() string {
 // editorOf returns a copy of an open editor tab's state, dropping editors whose tab was closed.
 func (s *Session) editorOf(id string) (editor, error) {
 	open := map[string]bool{}
-	for _, t := range s.UIState().Dock {
+	ui := s.UIState()
+	for _, t := range ui.Dock {
 		open[t.ID] = true
 	}
 	s.edits.mu.Lock()
 	defer s.edits.mu.Unlock()
 	for k, e := range s.edits.m {
-		if !open[k] && !e.pending {
+		if !open[k] && !e.pending && e.addedRev <= ui.Revision {
 			delete(s.edits.m, k)
 		}
 	}
@@ -184,7 +188,7 @@ func (s *Session) putEditor(e *editor) {
 
 // settleEditor ends a new editor's pending state once its tab is in the dock, or drops it when
 // no tab was added for it (another tab already edits the object).
-func (s *Session) settleEditor(id string, added bool) {
+func (s *Session) settleEditor(id string, added bool, rev uint64) {
 	s.edits.mu.Lock()
 	defer s.edits.mu.Unlock()
 	if !added {
@@ -193,6 +197,7 @@ func (s *Session) settleEditor(id string, added bool) {
 	}
 	if e, ok := s.edits.m[id]; ok {
 		e.pending = false
+		e.addedRev = rev
 	}
 }
 
@@ -241,7 +246,7 @@ func (s *Session) OpenEditTab(ctx context.Context, ref model.ObjectRef) (EditorS
 	}
 	s.putEditor(e)
 	tab, created := e.tab, true
-	s.UpdateUI(func(u *UIState) {
+	ui := s.UpdateUI(func(u *UIState) {
 		for _, x := range u.Dock {
 			if x.Type == DockEdit && x.Ref != nil && x.Ref.Same(t.Ref) && x.Context == t.Ref.Context {
 				tab, created = x, false
@@ -253,7 +258,7 @@ func (s *Session) OpenEditTab(ctx context.Context, ref model.ObjectRef) (EditorS
 		}
 		u.ActiveDock = tab.ID
 	})
-	s.settleEditor(e.tab.ID, created)
+	s.settleEditor(e.tab.ID, created, ui.Revision)
 	st, err := s.EditorState(ctx, tab.ID)
 	return st, created, err
 }
@@ -272,11 +277,11 @@ func (s *Session) OpenCreateTab(text string) (EditorState, error) {
 		text: text, rev: 1,
 	}
 	s.putEditor(e)
-	s.UpdateUI(func(u *UIState) {
+	ui := s.UpdateUI(func(u *UIState) {
 		u.Dock = append(u.Dock, e.tab)
 		u.ActiveDock = e.tab.ID
 	})
-	s.settleEditor(e.tab.ID, true)
+	s.settleEditor(e.tab.ID, true, ui.Revision)
 	return EditorState{Tab: e.tab, Text: text, Revision: 1}, nil
 }
 
