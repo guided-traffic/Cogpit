@@ -165,32 +165,31 @@ func serviceDetail(obj *unstructured.Unstructured) []model.DetailSection {
 		}
 		d.add("Load Balancer Ingress", ingress)
 	}
-	d.add("Ports", serviceDetailPorts(obj))
+	for _, it := range servicePortItems(obj) {
+		d.put(it)
+	}
 	d.add("Selector", strings.Join(model.SortedPairs(model.NestedStringMap(obj, "spec", "selector")), "\n"))
 	d.add("Session Affinity", model.NestedString(obj, "spec", "sessionAffinity"))
 	d.add("External Traffic Policy", model.NestedString(obj, "spec", "externalTrafficPolicy"))
 	return []model.DetailSection{{Title: "Connection", Items: d}}
 }
 
-// serviceDetailPorts renders "name: 443/TCP -> 8443, node port 30443" lines (ASCII: Fyne's bundled font has no arrow glyph).
-func serviceDetailPorts(obj any) string {
-	var lines []string
-	for _, p := range model.NestedSlice(obj, "spec", "ports") {
-		port := model.NestedIntOrString(p, "port")
-		if port == "" {
-			continue
-		}
-		line := port + "/" + protocol(p)
-		if name := model.NestedString(p, "name"); name != "" {
-			line = name + ": " + line
-		}
-		if target := model.NestedIntOrString(p, "targetPort"); target != "" {
-			line += " -> " + target
-		}
-		if node := model.NestedIntOrString(p, "nodePort"); node != "" && node != "0" {
-			line += ", node port " + node
-		}
-		lines = append(lines, line)
+// servicePortText renders a port as "name: 443/TCP -> 8443, node port 30443" (ASCII: Fyne's
+// bundled font has no arrow glyph); "" for a port without a number.
+func servicePortText(p any) string {
+	port := model.NestedIntOrString(p, "port")
+	if port == "" {
+		return ""
 	}
-	return strings.Join(lines, "\n")
+	line := port + "/" + protocol(p)
+	if name := model.NestedString(p, "name"); name != "" {
+		line = name + ": " + line
+	}
+	if target := model.NestedIntOrString(p, "targetPort"); target != "" {
+		line += " -> " + target
+	}
+	if node := model.NestedIntOrString(p, "nodePort"); node != "" && node != "0" {
+		line += ", node port " + node
+	}
+	return line
 }

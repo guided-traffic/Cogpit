@@ -122,13 +122,19 @@ func registerPortForward(g *registrar) {
 			if len(model.NestedStringMap(svc.Object, "spec", "selector")) == 0 {
 				return fmt.Errorf("service %s has no selector: there is no pod to forward to", p.Ref.Name)
 			}
+			other := ""
 			for _, sp := range model.NestedSlice(svc.Object, "spec", "ports") {
-				if n, _ := model.NestedInt64(sp, "port"); n == int64(p.Port) && p.Port != 0 {
-					if proto := model.NestedString(sp, "protocol"); proto != "" && proto != "TCP" {
-						return fmt.Errorf("port %d of service %s is %s: only TCP ports can be forwarded", p.Port, p.Ref.Name, proto)
-					}
-					return nil
+				if n, _ := model.NestedInt64(sp, "port"); n != int64(p.Port) || p.Port == 0 {
+					continue
 				}
+				if proto := model.NestedString(sp, "protocol"); proto != "" && proto != "TCP" {
+					other = proto // a port may be served over TCP and UDP: look on
+					continue
+				}
+				return nil
+			}
+			if other != "" {
+				return fmt.Errorf("port %d of service %s is %s: only TCP ports can be forwarded", p.Port, p.Ref.Name, other)
 			}
 			return fmt.Errorf("service %s has no port %d", p.Ref.Name, p.Port)
 		},

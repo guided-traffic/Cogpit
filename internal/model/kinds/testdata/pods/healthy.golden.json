@@ -212,7 +212,70 @@
         },
         {
           "name": "Ports",
-          "value": "http: 8080/TCP\n9090/TCP"
+          "value": "http: 8080/TCP",
+          "actions": [
+            {
+              "label": "Forward to a free port and open it",
+              "command": "pod.portForward",
+              "params": {
+                "container": "web",
+                "openInBrowser": true,
+                "port": 8080,
+                "ref": {
+                  "kind": "pods",
+                  "namespace": "shop",
+                  "name": "web-7d9c6b5f8-x2k4p"
+                }
+              },
+              "link": true
+            },
+            {
+              "label": "Forward…",
+              "command": "pod.portForward",
+              "params": {
+                "container": "web",
+                "port": 8080,
+                "ref": {
+                  "kind": "pods",
+                  "namespace": "shop",
+                  "name": "web-7d9c6b5f8-x2k4p"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "value": "9090/TCP",
+          "actions": [
+            {
+              "label": "Forward to a free port and open it",
+              "command": "pod.portForward",
+              "params": {
+                "container": "web",
+                "openInBrowser": true,
+                "port": 9090,
+                "ref": {
+                  "kind": "pods",
+                  "namespace": "shop",
+                  "name": "web-7d9c6b5f8-x2k4p"
+                }
+              },
+              "link": true
+            },
+            {
+              "label": "Forward…",
+              "command": "pod.portForward",
+              "params": {
+                "container": "web",
+                "port": 9090,
+                "ref": {
+                  "kind": "pods",
+                  "namespace": "shop",
+                  "name": "web-7d9c6b5f8-x2k4p"
+                }
+              }
+            }
+          ]
         },
         {
           "name": "Environment",

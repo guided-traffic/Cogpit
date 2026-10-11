@@ -97,7 +97,66 @@
         },
         {
           "name": "Ports",
-          "value": "http: 80/TCP -> 8080\nmetrics: 9090/TCP -> metrics"
+          "value": "http: 80/TCP -> 8080",
+          "actions": [
+            {
+              "label": "Forward to a free port and open it",
+              "command": "service.portForward",
+              "params": {
+                "openInBrowser": true,
+                "port": 80,
+                "ref": {
+                  "kind": "services",
+                  "namespace": "shop",
+                  "name": "web"
+                }
+              },
+              "link": true
+            },
+            {
+              "label": "Forward…",
+              "command": "service.portForward",
+              "params": {
+                "port": 80,
+                "ref": {
+                  "kind": "services",
+                  "namespace": "shop",
+                  "name": "web"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "value": "metrics: 9090/TCP -> metrics",
+          "actions": [
+            {
+              "label": "Forward to a free port and open it",
+              "command": "service.portForward",
+              "params": {
+                "openInBrowser": true,
+                "port": 9090,
+                "ref": {
+                  "kind": "services",
+                  "namespace": "shop",
+                  "name": "web"
+                }
+              },
+              "link": true
+            },
+            {
+              "label": "Forward…",
+              "command": "service.portForward",
+              "params": {
+                "port": 9090,
+                "ref": {
+                  "kind": "services",
+                  "namespace": "shop",
+                  "name": "web"
+                }
+              }
+            }
+          ]
         },
         {
           "name": "Selector",

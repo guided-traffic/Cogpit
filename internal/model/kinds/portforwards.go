@@ -41,6 +41,15 @@ const (
 	idLocalPort   = "localPort"
 )
 
+// What the port items of pods and services use.
+const (
+	protocolTCP = "TCP"
+	titlePorts  = "Ports"
+	fieldPort   = "port"
+	keyServices = "services"
+	paramRef    = "ref" // the object a command acts on (engine.ParamRef)
+)
+
 // Port forward phases, as status.phase holds them.
 const (
 	forwardActive       = "Active"
@@ -128,6 +137,73 @@ func forwardPhase(obj any) (string, model.Status) {
 	return phase, model.StatusNone
 }
 
+// containerPortItems are a container's ports in the pod drawer, an item each (the first named
+// Ports), as captured: the port is a link that forwards it to a free local port and opens the
+// browser, and "Forward…" beside it opens the forward dialog (pod.portForward). The port-forward
+// protocol carries TCP only: a UDP or SCTP port has no actions.
+func containerPortItems(pod model.ObjectRef, container string, spec any) []model.DetailItem {
+	var out []model.DetailItem
+	for _, p := range model.NestedSlice(spec, "ports") {
+		text := containerPortText(p)
+		if text == "" {
+			continue
+		}
+		it := model.DetailItem{Value: text}
+		if len(out) == 0 {
+			it.Name = titlePorts
+		}
+		n, _ := model.NestedInt64(p, "containerPort")
+		if protocol(p) == protocolTCP && n > 0 && n <= 65535 {
+			it.Actions = forwardActions("pod.portForward", map[string]any{paramRef: pod, "container": container, fieldPort: n})
+		}
+		out = append(out, it)
+	}
+	return out
+}
+
+// servicePortItems are a service's ports in its drawer, an item each (the first named Ports),
+// with the same actions as a container's ports (service.portForward; inferred: Lens's service
+// drawer is not captured). A service without a selector has no pods to forward to.
+func servicePortItems(svc any) []model.DetailItem {
+	var out []model.DetailItem
+	ref := model.ObjectRef{Kind: keyServices, Namespace: model.NestedString(svc, "metadata", "namespace"), Name: model.NestedString(svc, "metadata", "name")}
+	selector := len(model.NestedStringMap(svc, "spec", "selector")) > 0
+	for _, p := range model.NestedSlice(svc, "spec", "ports") {
+		text := servicePortText(p)
+		if text == "" {
+			continue
+		}
+		it := model.DetailItem{Value: text}
+		if len(out) == 0 {
+			it.Name = titlePorts
+		}
+		n, _ := model.NestedInt64(p, fieldPort)
+		if selector && protocol(p) == protocolTCP && n > 0 && n <= 65535 {
+			it.Actions = forwardActions("service.portForward", map[string]any{paramRef: ref, fieldPort: n})
+		}
+		out = append(out, it)
+	}
+	return out
+}
+
+// forwardActions are a port's two actions: the port itself, a link that forwards it to a free
+// local port and opens the browser, and "Forward…", which asks first.
+func forwardActions(command string, params map[string]any) []model.ItemAction {
+	asked, err := json.Marshal(params)
+	if err != nil {
+		return nil
+	}
+	params["openInBrowser"] = true
+	quick, err := json.Marshal(params)
+	if err != nil {
+		return nil
+	}
+	return []model.ItemAction{
+		{Label: "Forward to a free port and open it", Command: command, Params: quick, Link: true},
+		{Label: "Forward…", Command: command, Params: asked},
+	}
+}
+
 // portForwardDetail: what is forwarded (a link to it), where it listens and the URL, which opens
 // the forward in the browser (portforward.open), and its state.
 func portForwardDetail(obj *unstructured.Unstructured) []model.DetailSection {
@@ -140,7 +216,7 @@ func portForwardDetail(obj *unstructured.Unstructured) []model.DetailSection {
 		d.add("Container", model.NestedString(obj, "spec", "container"))
 		d.add("Pod Port", model.NestedIntOrString(obj, "spec", "port"))
 	case "Service":
-		d.put(linkedItem("Service", name, linkTo("services", ns, name)))
+		d.put(linkedItem("Service", name, linkTo(keyServices, ns, name)))
 		d.add("Service Port", model.NestedIntOrString(obj, "spec", "port"))
 		pod := model.NestedString(obj, "status", "pod")
 		d.put(linkedItem("Pod", pod, linkTo(podsResource, ns, pod)))
@@ -153,7 +229,7 @@ func portForwardDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	}
 	d.add("Address", model.NestedString(obj, "status", "address"))
 	if url := model.NestedString(obj, "status", "url"); url != "" {
-		params, _ := json.Marshal(map[string]any{"ref": model.ObjectRef{Kind: keyPortForwards, Namespace: ns, Name: model.NestedString(obj, "metadata", "name")}})
+		params, _ := json.Marshal(map[string]any{paramRef: model.ObjectRef{Kind: keyPortForwards, Namespace: ns, Name: model.NestedString(obj, "metadata", "name")}})
 		d.put(model.DetailItem{Name: "URL", Value: url, Actions: []model.ItemAction{
 			{Label: "Open", Command: "portforward.open", Params: params, Link: true},
 		}})

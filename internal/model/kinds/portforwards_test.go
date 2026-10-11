@@ -128,6 +128,54 @@ func TestPortForwardURLOpens(t *testing.T) {
 	}
 }
 
+// Every TCP port of a container, init containers too, is a link that forwards it and has
+// Forward… beside it; a UDP port has neither.
+func TestContainerPortsForward(t *testing.T) {
+	pods, _ := kinds.ByKey("pods")
+	obj := &unstructured.Unstructured{Object: map[string]any{
+		"metadata": map[string]any{"name": "web-0", "namespace": "shop"},
+		"spec": map[string]any{
+			"initContainers": []any{map[string]any{"name": "warmup", "ports": []any{map[string]any{"containerPort": int64(9000)}}}},
+			"containers": []any{map[string]any{"name": "app", "ports": []any{
+				map[string]any{"name": "dns", "containerPort": int64(53), "protocol": "UDP"},
+				map[string]any{"name": "http", "containerPort": int64(8080)},
+			}}},
+		},
+	}}
+	got := map[string]string{}
+	for _, sec := range pods.Detail(obj) {
+		if sec.Group == "" {
+			continue
+		}
+		for _, it := range sec.Items {
+			if !strings.Contains(it.Value, "/TCP") && !strings.Contains(it.Value, "/UDP") {
+				continue
+			}
+			desc := it.Name + "|"
+			for _, a := range it.Actions {
+				kind := "button"
+				if a.Link {
+					kind = "link"
+				}
+				desc += a.Command + ":" + string(a.Params) + ":" + kind + ";"
+			}
+			got[sec.Title+" "+it.Value] = desc
+		}
+	}
+	want := map[string]string{
+		"warmup 9000/TCP": `Ports|pod.portForward:{"container":"warmup","openInBrowser":true,"port":9000,"ref":{"kind":"pods","namespace":"shop","name":"web-0"}}:link;` +
+			`pod.portForward:{"container":"warmup","port":9000,"ref":{"kind":"pods","namespace":"shop","name":"web-0"}}:button;`,
+		"app dns: 53/UDP": "Ports|",
+		"app http: 8080/TCP": `|pod.portForward:{"container":"app","openInBrowser":true,"port":8080,"ref":{"kind":"pods","namespace":"shop","name":"web-0"}}:link;` +
+			`pod.portForward:{"container":"app","port":8080,"ref":{"kind":"pods","namespace":"shop","name":"web-0"}}:button;`,
+	}
+	for k, w := range want {
+		if got[k] != w {
+			t.Errorf("%s:\n got %s\nwant %s", k, got[k], w)
+		}
+	}
+}
+
 func FuzzPortForwards(f *testing.F) {
 	p := localProfile(f, "portforwards")
 	for _, c := range loadCases(f, p.Key) {

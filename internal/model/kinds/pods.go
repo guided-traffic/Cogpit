@@ -524,12 +524,13 @@ func podDetail(obj *unstructured.Unstructured) []model.DetailSection {
 		{"Containers", fieldContainers, "containerStatuses", true},
 		{"Ephemeral Containers", "ephemeralContainers", "ephemeralContainerStatuses", false},
 	}
+	podRef := model.ObjectRef{Kind: podsResource, Namespace: ns, Name: obj.GetName()}
 	for _, g := range groups {
 		statuses := model.NestedSlice(obj, "status", g.status)
 		for _, c := range model.NestedSlice(obj, "spec", g.spec) {
 			name := model.NestedString(c, "name")
 			probed := g.probed || isSidecar(c)
-			sec := containerSection(name, c, byName(statuses, name), probed)
+			sec := containerSection(podRef, name, c, byName(statuses, name), probed)
 			sec.Group = g.title
 			sections = append(sections, sec)
 		}
@@ -668,8 +669,9 @@ func podConditionToken(c condition) model.Status {
 // containerSection renders one container as Lens's drawer does (capture, 2026-10-11): Status, Last
 // Status, Image, Ports, Environment, Mounts, Command, Arguments, Requests, Limits. Environment
 // values from Secrets and ConfigMaps are named, never resolved. probed says whether readiness
-// applies to the container; a running probed container's status says whether it is ready.
-func containerSection(name string, spec, status any, probed bool) model.DetailSection {
+// applies to the container; a running probed container's status says whether it is ready. Each
+// port is an item of its own, which forwards it (portforwards.go).
+func containerSection(pod model.ObjectRef, name string, spec, status any, probed bool) model.DetailSection {
 	var d detailItems
 	if status != nil {
 		ready, _ := model.NestedBool(status, "ready")
@@ -689,7 +691,9 @@ func containerSection(name string, spec, status any, probed bool) model.DetailSe
 	if isSidecar(spec) {
 		d.add("Restart Policy", "Always")
 	}
-	d.add("Ports", containerPorts(spec))
+	for _, it := range containerPortItems(pod, name, spec) {
+		d.put(it)
+	}
 	d.put(model.DetailItem{Name: "Environment", Value: containerEnv(spec), Fold: "variables"})
 	d.put(model.DetailItem{Name: "Mounts", Value: containerMounts(spec), Fold: "mounts"})
 	d.add("Command", shellJoin(model.NestedStrings(spec, "command")))
@@ -768,20 +772,28 @@ func containerState(state map[string]any, ready bool) (string, model.Status) {
 func containerPorts(spec any) string {
 	var lines []string
 	for _, p := range model.NestedSlice(spec, "ports") {
-		port := model.NestedIntOrString(p, "containerPort")
-		if port == "" {
-			continue
+		if line := containerPortText(p); line != "" {
+			lines = append(lines, line)
 		}
-		line := port + "/" + protocol(p)
-		if name := model.NestedString(p, "name"); name != "" {
-			line = name + ": " + line
-		}
-		if host := model.NestedIntOrString(p, "hostPort"); host != "" && host != "0" {
-			line += " (host port " + host + ")"
-		}
-		lines = append(lines, line)
 	}
 	return strings.Join(lines, "\n")
+}
+
+// containerPortText renders one port as Lens's drawer does (capture, 2026-10-11): "name:
+// 8080/TCP", with the host port when one is bound; "" for a port without a number.
+func containerPortText(p any) string {
+	port := model.NestedIntOrString(p, "containerPort")
+	if port == "" {
+		return ""
+	}
+	line := port + "/" + protocol(p)
+	if name := model.NestedString(p, "name"); name != "" {
+		line = name + ": " + line
+	}
+	if host := model.NestedIntOrString(p, "hostPort"); host != "" && host != "0" {
+		line += " (host port " + host + ")"
+	}
+	return line
 }
 
 // protocol returns a port's protocol; the API defaults it to TCP.

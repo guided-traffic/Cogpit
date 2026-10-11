@@ -160,6 +160,13 @@ func forwardSeed() *testkit.MemorySource {
 	external := testkit.Service("shop", "external", "10.96.0.81")
 	unstructured.RemoveNestedField(external.Object, "spec", "selector")
 	src.Set(testkit.ServicesGVR, external)
+	dns := testkit.Service("shop", "dns", "10.96.0.10")
+	_ = unstructured.SetNestedSlice(dns.Object, []any{
+		map[string]any{"name": "udp", "port": int64(53), "protocol": "UDP"},
+		map[string]any{"name": "tcp", "port": int64(53), "protocol": "TCP"},
+		map[string]any{"name": "stats", "port": int64(54), "protocol": "UDP"},
+	}, "spec", "ports")
+	src.Set(testkit.ServicesGVR, dns)
 	return src
 }
 
@@ -556,6 +563,8 @@ func TestPortForwardDisabledReasons(t *testing.T) {
 		{"service.portForward", fmt.Sprintf(svc, "web", 80), ""},
 		{"service.portForward", fmt.Sprintf(svc, "web", 81), "has no port 81"},
 		{"service.portForward", fmt.Sprintf(svc, "external", 80), "no selector"},
+		{"service.portForward", fmt.Sprintf(svc, "dns", 53), ""}, // TCP and UDP
+		{"service.portForward", fmt.Sprintf(svc, "dns", 54), "is UDP"},
 		{"portforward.open", `{"ref":{"kind":"portforwards","namespace":"shop","name":"pod-web-0-1"}}`, "not found"},
 	} {
 		if got := reason(tt.id, tt.params); (tt.want == "") != (got == "") || !strings.Contains(got, tt.want) {
@@ -581,5 +590,50 @@ func TestPortForwardNotOnTheDemoCluster(t *testing.T) {
 	cmd, _ := s.Registry().Get("pod.portForward")
 	if err := cmd.Enabled(s, []byte(`{"ref":{"kind":"pods","namespace":"shop","name":"web-0"},"port":8080}`)); err == nil {
 		t.Error("pod.portForward enabled on the demo cluster")
+	}
+}
+
+// The drawers' port actions (the pods and services profiles) dispatch as they are: the port link
+// forwards to a free port and asks to open the browser, Forward… carries what the dialog needs.
+func TestDrawerPortActionsDispatch(t *testing.T) {
+	h, _ := newForwardHarness(t, engine.Options{})
+	for _, tc := range []struct {
+		kind string
+		obj  *unstructured.Unstructured
+	}{
+		{"pods", forwardPod("web-0", true)},
+		{"services", func() *unstructured.Unstructured {
+			objs, _ := h.s.Objects(context.Background(), "services", []string{"shop"})
+			for _, o := range objs {
+				if o.GetName() == "web" {
+					return o
+				}
+			}
+			t.Fatal("no service web")
+			return nil
+		}()},
+	} {
+		p, _ := kinds.ByKey(tc.kind)
+		ref := model.ObjectRef{Kind: tc.kind, Namespace: "shop", Name: tc.obj.GetName()}
+		m, err := engine.BuildDetail(p, ref, tc.obj, nil, time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+		var acts []model.ItemAction
+		for _, sec := range m.Sections {
+			for _, it := range sec.Items {
+				acts = append(acts, it.Actions...)
+			}
+		}
+		if len(acts) != 2 || !acts[0].Link || acts[1].Link {
+			t.Fatalf("%s: actions %+v (the UDP port must have none)", tc.kind, acts)
+		}
+		for _, a := range acts {
+			var f engine.Forward
+			h.must(t, engine.OriginGUI, a.Command, a.Params, &f)
+			if f.Phase != engine.ForwardActive || f.Spec.OpenInBrowser != a.Link {
+				t.Errorf("%s %s: %+v", tc.kind, a.Label, f)
+			}
+		}
 	}
 }

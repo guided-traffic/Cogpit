@@ -95,7 +95,38 @@
         },
         {
           "name": "Ports",
-          "value": "dns-udp: 53/UDP -> 5353, node port 30053\ndns-tcp: 53/TCP -> 5353, node port 30054"
+          "value": "dns-udp: 53/UDP -> 5353, node port 30053"
+        },
+        {
+          "value": "dns-tcp: 53/TCP -> 5353, node port 30054",
+          "actions": [
+            {
+              "label": "Forward to a free port and open it",
+              "command": "service.portForward",
+              "params": {
+                "openInBrowser": true,
+                "port": 53,
+                "ref": {
+                  "kind": "services",
+                  "namespace": "infra",
+                  "name": "dns-edge"
+                }
+              },
+              "link": true
+            },
+            {
+              "label": "Forward…",
+              "command": "service.portForward",
+              "params": {
+                "port": 53,
+                "ref": {
+                  "kind": "services",
+                  "namespace": "infra",
+                  "name": "dns-edge"
+                }
+              }
+            }
+          ]
         },
         {
           "name": "Selector",

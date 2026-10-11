@@ -87,7 +87,35 @@
         },
         {
           "name": "Ports",
-          "value": "grpc: 9000/TCP -> grpc"
+          "value": "grpc: 9000/TCP -> grpc",
+          "actions": [
+            {
+              "label": "Forward to a free port and open it",
+              "command": "service.portForward",
+              "params": {
+                "openInBrowser": true,
+                "port": 9000,
+                "ref": {
+                  "kind": "services",
+                  "namespace": "shop",
+                  "name": "api-headless"
+                }
+              },
+              "link": true
+            },
+            {
+              "label": "Forward…",
+              "command": "service.portForward",
+              "params": {
+                "port": 9000,
+                "ref": {
+                  "kind": "services",
+                  "namespace": "shop",
+                  "name": "api-headless"
+                }
+              }
+            }
+          ]
         },
         {
           "name": "Selector",
