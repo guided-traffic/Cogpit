@@ -1,0 +1,135 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "customresourcedefinitions",
+    "name": "backups.example.io"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "backups.example.io"
+    },
+    {
+      "column": "resource",
+      "text": "Backup",
+      "link": {
+        "kind": "backups.example.io",
+        "name": ""
+      }
+    },
+    {
+      "column": "group",
+      "text": "example.io"
+    },
+    {
+      "column": "version",
+      "text": "v1beta1"
+    },
+    {
+      "column": "scope",
+      "text": "Namespaced"
+    },
+    {
+      "column": "age",
+      "text": "99d",
+      "num": 1783157400
+    }
+  ],
+  "fields": {
+    "group": [
+      "example.io"
+    ],
+    "kind": [
+      "Backup"
+    ],
+    "label": [],
+    "name": [
+      "backups.example.io"
+    ],
+    "namespace": [
+      ""
+    ],
+    "scope": [
+      "Namespaced"
+    ],
+    "version": [
+      "v1beta1"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Custom Resource Definition",
+      "items": [
+        {
+          "name": "Group",
+          "value": "example.io"
+        },
+        {
+          "name": "Kind",
+          "value": "Backup"
+        },
+        {
+          "name": "Plural",
+          "value": "backups"
+        },
+        {
+          "name": "Singular",
+          "value": "backup"
+        },
+        {
+          "name": "Short Names",
+          "value": "bk"
+        },
+        {
+          "name": "Scope",
+          "value": "Namespaced"
+        },
+        {
+          "name": "Versions",
+          "value": "v1alpha1 (served, storage, deprecated), v1beta1 (served), v1 (not served)"
+        },
+        {
+          "name": "Stored Versions",
+          "value": "v1alpha1"
+        },
+        {
+          "name": "Conversion",
+          "value": "Webhook"
+        }
+      ]
+    },
+    {
+      "title": "Printer Columns",
+      "items": [
+        {
+          "name": "Phase",
+          "value": ".status.phase (string)"
+        },
+        {
+          "name": "Size",
+          "value": ".status.size (integer)"
+        },
+        {
+          "name": "Schedule",
+          "value": ".spec.schedule (string, priority 1)"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "NamesAccepted",
+          "value": "True (NoConflicts)",
+          "status": "ok"
+        },
+        {
+          "name": "Established",
+          "value": "True (InitialNamesAccepted)",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

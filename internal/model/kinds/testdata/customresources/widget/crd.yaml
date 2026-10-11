@@ -1,0 +1,48 @@
+# A cluster-scoped definition (synthetic) with every printer column type, a column named Name
+# (its id must not collide with the name column), an object-valued column, a priority-1 column,
+# and no Age printer column, so the view adds its own Age.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: widgets.e2e.cogpit.test
+spec:
+  group: e2e.cogpit.test
+  names:
+    kind: Widget
+    plural: widgets
+    singular: widget
+  scope: Cluster
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    additionalPrinterColumns:
+    - jsonPath: .spec.displayName
+      name: Name
+      type: string
+    - jsonPath: .spec.replicas
+      name: Replicas
+      type: integer
+    - jsonPath: .status.ratio
+      name: Ratio
+      type: number
+    - jsonPath: .spec.enabled
+      name: Enabled
+      type: boolean
+    - jsonPath: .status.lastSync
+      name: Last Sync
+      type: date
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: READY
+      type: string
+    - jsonPath: .spec.selector
+      name: Selector
+      type: string
+    - jsonPath: .status.ip
+      name: IP Address
+      type: string
+      priority: 1
+status:
+  conditions:
+  - type: Established
+    status: "True"

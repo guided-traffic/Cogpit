@@ -1,0 +1,22 @@
+apiVersion: e2e.cogpit.test/v1
+kind: Widget
+metadata:
+  name: sprocket
+  uid: 6e7f8a9b-0c1d-4e2f-9a3b-4c5d6e7f8a06
+  resourceVersion: "3002"
+  creationTimestamp: "2026-10-11T09:00:00Z"
+spec:
+  displayName: Sprocket
+  replicas: 0
+  enabled: false
+status:
+  ratio: 12
+  lastSync: "2026-10-11T09:00:05Z"
+  conditions:
+  - type: Ready
+    status: "False"
+    reason: BackendUnavailable
+    message: the widget backend did not answer
+  - type: Stalled
+    status: "True"
+    reason: RetryLimit

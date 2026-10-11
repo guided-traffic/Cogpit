@@ -1,0 +1,140 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "widgets.e2e.cogpit.test",
+    "name": "gizmo"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "gizmo"
+    },
+    {
+      "column": "name2",
+      "text": "Gizmo"
+    },
+    {
+      "column": "replicas",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "ratio",
+      "text": "0.75",
+      "num": 1
+    },
+    {
+      "column": "enabled",
+      "text": "true"
+    },
+    {
+      "column": "lastSync",
+      "text": "30s",
+      "num": 1791719970
+    },
+    {
+      "column": "ready",
+      "text": "True"
+    },
+    {
+      "column": "selector",
+      "text": "{\"app\":\"gizmo\"}"
+    },
+    {
+      "column": "ipAddress",
+      "text": "10.244.1.7"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    }
+  ],
+  "fields": {
+    "enabled": [
+      "true"
+    ],
+    "ipAddress": [
+      "10.244.1.7"
+    ],
+    "label": [
+      "tier=gold"
+    ],
+    "name": [
+      "gizmo"
+    ],
+    "name2": [
+      "Gizmo"
+    ],
+    "namespace": [
+      ""
+    ],
+    "ratio": [
+      "0.75"
+    ],
+    "ready": [
+      "True"
+    ],
+    "replicas": [
+      "3"
+    ],
+    "selector": [
+      "{\"app\":\"gizmo\"}"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Widget",
+      "items": [
+        {
+          "name": "Name",
+          "value": "Gizmo"
+        },
+        {
+          "name": "Replicas",
+          "value": "3"
+        },
+        {
+          "name": "Ratio",
+          "value": "0.75"
+        },
+        {
+          "name": "Enabled",
+          "value": "true"
+        },
+        {
+          "name": "Last Sync",
+          "value": "2026-10-11T11:59:30Z"
+        },
+        {
+          "name": "READY",
+          "value": "True"
+        },
+        {
+          "name": "Selector",
+          "value": "{\"app\":\"gizmo\"}"
+        },
+        {
+          "name": "IP Address",
+          "value": "10.244.1.7"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (Synced)",
+          "status": "ok"
+        },
+        {
+          "name": "Degraded",
+          "value": "False",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

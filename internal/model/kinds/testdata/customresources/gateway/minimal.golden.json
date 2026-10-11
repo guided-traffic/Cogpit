@@ -1,0 +1,64 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "gateways.gateway.networking.k8s.io",
+    "namespace": "ingress",
+    "name": "internal"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "internal"
+    },
+    {
+      "column": "namespace",
+      "text": "ingress",
+      "link": {
+        "kind": "namespaces",
+        "name": "ingress"
+      }
+    },
+    {
+      "column": "class",
+      "text": "envoy"
+    },
+    {
+      "column": "address",
+      "text": ""
+    },
+    {
+      "column": "programmed",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "address": [],
+    "class": [
+      "envoy"
+    ],
+    "label": [],
+    "name": [
+      "internal"
+    ],
+    "namespace": [
+      "ingress"
+    ],
+    "programmed": []
+  },
+  "detail": [
+    {
+      "title": "Gateway",
+      "items": [
+        {
+          "name": "Class",
+          "value": "envoy"
+        }
+      ]
+    }
+  ]
+}

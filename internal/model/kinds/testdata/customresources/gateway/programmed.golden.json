@@ -1,0 +1,92 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "gateways.gateway.networking.k8s.io",
+    "namespace": "ingress",
+    "name": "public"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "public"
+    },
+    {
+      "column": "namespace",
+      "text": "ingress",
+      "link": {
+        "kind": "namespaces",
+        "name": "ingress"
+      }
+    },
+    {
+      "column": "class",
+      "text": "envoy"
+    },
+    {
+      "column": "address",
+      "text": "203.0.113.20"
+    },
+    {
+      "column": "programmed",
+      "text": "True"
+    },
+    {
+      "column": "age",
+      "text": "2d",
+      "num": 1791547200
+    }
+  ],
+  "fields": {
+    "address": [
+      "203.0.113.20"
+    ],
+    "class": [
+      "envoy"
+    ],
+    "label": [],
+    "name": [
+      "public"
+    ],
+    "namespace": [
+      "ingress"
+    ],
+    "programmed": [
+      "True"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Gateway",
+      "items": [
+        {
+          "name": "Class",
+          "value": "envoy"
+        },
+        {
+          "name": "Address",
+          "value": "203.0.113.20"
+        },
+        {
+          "name": "Programmed",
+          "value": "True"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Accepted",
+          "value": "True (Accepted): Valid Gateway",
+          "status": "ok"
+        },
+        {
+          "name": "Programmed",
+          "value": "True (Programmed): Address assigned to the Gateway, 1/1 envoy replicas available",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

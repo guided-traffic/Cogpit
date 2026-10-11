@@ -1,0 +1,67 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "widgets.e2e.cogpit.test",
+    "name": "blank"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "blank"
+    },
+    {
+      "column": "name2",
+      "text": ""
+    },
+    {
+      "column": "replicas",
+      "text": "-"
+    },
+    {
+      "column": "ratio",
+      "text": "-"
+    },
+    {
+      "column": "enabled",
+      "text": ""
+    },
+    {
+      "column": "lastSync",
+      "text": ""
+    },
+    {
+      "column": "ready",
+      "text": ""
+    },
+    {
+      "column": "selector",
+      "text": ""
+    },
+    {
+      "column": "ipAddress",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "enabled": [],
+    "ipAddress": [],
+    "label": [],
+    "name": [
+      "blank"
+    ],
+    "name2": [],
+    "namespace": [
+      ""
+    ],
+    "ratio": [],
+    "ready": [],
+    "replicas": [],
+    "selector": []
+  },
+  "detail": null
+}

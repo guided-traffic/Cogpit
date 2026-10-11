@@ -1,0 +1,24 @@
+# Values of the wrong type for their columns, a huge number, a multi-line name and an
+# unparseable date: no value, the number without exponent, one line, "<invalid>".
+apiVersion: e2e.cogpit.test/v1
+kind: Widget
+metadata:
+  name: oddity
+  uid: 7f8a9b0c-1d2e-4f3a-8b4c-5d6e7f8a9b17
+  resourceVersion: "3003"
+  creationTimestamp: "2026-10-11T11:00:00Z"
+spec:
+  displayName: |-
+    first line
+    second line
+  replicas: three
+  enabled: "yes"
+  selector: [a, b]
+status:
+  ratio: 1e21
+  lastSync: yesterday
+  ip: 42
+  conditions:
+  - type: Ready
+    status: Unknown
+    reason: Pending

@@ -1,0 +1,39 @@
+# A definition whose short name collides with another one's (synthetic): names not accepted,
+# not established.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: widgets.shop.example.com
+  uid: 0c7e2a51-8a4b-4c55-b0a2-7c3d1e2f9a01
+  resourceVersion: "5120"
+  creationTimestamp: "2026-10-11T11:40:00Z"
+spec:
+  group: shop.example.com
+  names:
+    kind: Widget
+    listKind: WidgetList
+    plural: widgets
+    singular: widget
+    shortNames: [wd]
+  scope: Namespaced
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions:
+  - type: NamesAccepted
+    status: "False"
+    reason: ShortNamesConflict
+    message: '"wd" is already in use'
+  - type: Established
+    status: "False"
+    reason: NotAccepted
+    message: not all names are accepted
+  storedVersions: [v1]

@@ -1,0 +1,52 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "orders.acme.cert-manager.io",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "state",
+      "text": ""
+    },
+    {
+      "column": "issuer",
+      "text": ""
+    },
+    {
+      "column": "reason",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "issuer": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "reason": [],
+    "state": []
+  },
+  "detail": null
+}

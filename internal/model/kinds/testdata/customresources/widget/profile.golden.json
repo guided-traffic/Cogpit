@@ -1,0 +1,70 @@
+{
+  "key": "widgets.e2e.cogpit.test",
+  "group": "e2e.cogpit.test",
+  "version": "v1",
+  "resource": "widgets",
+  "kind": "Widget",
+  "title": "Widget",
+  "columns": [
+    {
+      "id": "name",
+      "title": "Name",
+      "type": "text"
+    },
+    {
+      "id": "name2",
+      "title": "Name",
+      "type": "text"
+    },
+    {
+      "id": "replicas",
+      "title": "Replicas",
+      "type": "number"
+    },
+    {
+      "id": "ratio",
+      "title": "Ratio",
+      "type": "number"
+    },
+    {
+      "id": "enabled",
+      "title": "Enabled",
+      "type": "text"
+    },
+    {
+      "id": "lastSync",
+      "title": "Last Sync",
+      "type": "age"
+    },
+    {
+      "id": "ready",
+      "title": "READY",
+      "type": "text"
+    },
+    {
+      "id": "selector",
+      "title": "Selector",
+      "type": "text"
+    },
+    {
+      "id": "ipAddress",
+      "title": "IP Address",
+      "type": "text",
+      "hidden": true
+    },
+    {
+      "id": "age",
+      "title": "Age",
+      "type": "age"
+    }
+  ],
+  "fields": [
+    "enabled",
+    "ipAddress",
+    "name2",
+    "ratio",
+    "ready",
+    "replicas",
+    "selector"
+  ]
+}

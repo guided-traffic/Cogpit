@@ -1,0 +1,18 @@
+apiVersion: acme.cert-manager.io/v1
+kind: Order
+metadata:
+  name: api-tls-3-1849203857
+  namespace: platform
+  uid: 2a3b4c5d-6e7f-4a8b-9c0d-1e2f3a4b5c62
+  resourceVersion: "91840"
+  creationTimestamp: "2026-10-11T11:55:00Z"
+spec:
+  issuerRef:
+    kind: Issuer
+    name: staging
+  dnsNames: [api.example.com]
+status:
+  state: pending
+  reason: |-
+    Waiting for HTTP-01 challenge propagation:
+    wrong status code '404', expected '200'

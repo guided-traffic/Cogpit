@@ -1,0 +1,110 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "customresourcedefinitions",
+    "name": "widgets.shop.example.com"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "widgets.shop.example.com"
+    },
+    {
+      "column": "resource",
+      "text": "Widget"
+    },
+    {
+      "column": "group",
+      "text": "shop.example.com"
+    },
+    {
+      "column": "version",
+      "text": "v1"
+    },
+    {
+      "column": "scope",
+      "text": "Namespaced"
+    },
+    {
+      "column": "age",
+      "text": "20m",
+      "num": 1791718800
+    }
+  ],
+  "fields": {
+    "group": [
+      "shop.example.com"
+    ],
+    "kind": [
+      "Widget"
+    ],
+    "label": [],
+    "name": [
+      "widgets.shop.example.com"
+    ],
+    "namespace": [
+      ""
+    ],
+    "scope": [
+      "Namespaced"
+    ],
+    "version": [
+      "v1"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Custom Resource Definition",
+      "items": [
+        {
+          "name": "Group",
+          "value": "shop.example.com"
+        },
+        {
+          "name": "Kind",
+          "value": "Widget"
+        },
+        {
+          "name": "Plural",
+          "value": "widgets"
+        },
+        {
+          "name": "Singular",
+          "value": "widget"
+        },
+        {
+          "name": "Short Names",
+          "value": "wd"
+        },
+        {
+          "name": "Scope",
+          "value": "Namespaced"
+        },
+        {
+          "name": "Versions",
+          "value": "v1 (served, storage)"
+        },
+        {
+          "name": "Stored Versions",
+          "value": "v1"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "NamesAccepted",
+          "value": "False (ShortNamesConflict): \"wd\" is already in use",
+          "status": "error"
+        },
+        {
+          "name": "Established",
+          "value": "False (NotAccepted): not all names are accepted",
+          "status": "error"
+        }
+      ]
+    }
+  ]
+}

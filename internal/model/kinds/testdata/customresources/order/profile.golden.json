@@ -1,0 +1,48 @@
+{
+  "key": "orders.acme.cert-manager.io",
+  "group": "acme.cert-manager.io",
+  "version": "v1",
+  "resource": "orders",
+  "kind": "Order",
+  "title": "Order",
+  "namespaced": true,
+  "columns": [
+    {
+      "id": "name",
+      "title": "Name",
+      "type": "text"
+    },
+    {
+      "id": "namespace",
+      "title": "Namespace",
+      "type": "text"
+    },
+    {
+      "id": "state",
+      "title": "State",
+      "type": "text"
+    },
+    {
+      "id": "issuer",
+      "title": "Issuer",
+      "type": "text",
+      "hidden": true
+    },
+    {
+      "id": "reason",
+      "title": "Reason",
+      "type": "text",
+      "hidden": true
+    },
+    {
+      "id": "age",
+      "title": "Age",
+      "type": "age"
+    }
+  ],
+  "fields": [
+    "issuer",
+    "reason",
+    "state"
+  ]
+}

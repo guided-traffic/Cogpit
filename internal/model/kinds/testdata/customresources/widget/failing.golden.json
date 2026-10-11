@@ -1,0 +1,125 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "widgets.e2e.cogpit.test",
+    "name": "sprocket"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "sprocket"
+    },
+    {
+      "column": "name2",
+      "text": "Sprocket"
+    },
+    {
+      "column": "replicas",
+      "text": "0"
+    },
+    {
+      "column": "ratio",
+      "text": "12",
+      "num": 12
+    },
+    {
+      "column": "enabled",
+      "text": "false"
+    },
+    {
+      "column": "lastSync",
+      "text": "2h",
+      "num": 1791709205
+    },
+    {
+      "column": "ready",
+      "text": "False"
+    },
+    {
+      "column": "selector",
+      "text": ""
+    },
+    {
+      "column": "ipAddress",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791709200
+    }
+  ],
+  "fields": {
+    "enabled": [
+      "false"
+    ],
+    "ipAddress": [],
+    "label": [],
+    "name": [
+      "sprocket"
+    ],
+    "name2": [
+      "Sprocket"
+    ],
+    "namespace": [
+      ""
+    ],
+    "ratio": [
+      "12"
+    ],
+    "ready": [
+      "False"
+    ],
+    "replicas": [
+      "0"
+    ],
+    "selector": []
+  },
+  "detail": [
+    {
+      "title": "Widget",
+      "items": [
+        {
+          "name": "Name",
+          "value": "Sprocket"
+        },
+        {
+          "name": "Replicas",
+          "value": "0"
+        },
+        {
+          "name": "Ratio",
+          "value": "12"
+        },
+        {
+          "name": "Enabled",
+          "value": "false"
+        },
+        {
+          "name": "Last Sync",
+          "value": "2026-10-11T09:00:05Z"
+        },
+        {
+          "name": "READY",
+          "value": "False"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "False (BackendUnavailable): the widget backend did not answer",
+          "status": "warning"
+        },
+        {
+          "name": "Stalled",
+          "value": "True (RetryLimit)",
+          "status": "error"
+        }
+      ]
+    }
+  ]
+}
