@@ -250,7 +250,12 @@ gate decision is the owner's ([results](../developer/spike-fyne.md#results)).
 - **Missing:** budgets P1, P3, P5–P8 on the GPU renderer and against Lens on the same machine
   ([testing](../developer/testing.md#performance-budgets-proposed-not-measured)), the nightly run on a
   fixed runner, request counts for the scenarios not covered yet. Measured on 2026-10-11: P2,
-  P9–P11, and the engine side of P4; `make bench` runs the benchmarks.
+  P3, P4, P7, P8, P9–P11 (GPU numbers on one Mac, no Lens comparison); `make bench` and
+  `cogpit --perf-mode gate` run the measurements.
+- **Start-up reservation of gate S1** (owner, 2026-10-11): every window stalls its main thread for
+  0.3–0.56 s while Fyne sets up GL, and the first fill of a 10,000-row table for 151–193 ms (text
+  textures). To try: render the first frame before the rows arrive, warm the text textures of the
+  first screen off the critical frame, and avoid second windows ([spike S1](../developer/spike-fyne.md#results)).
 - **Impact:** large clusters are where users notice an IDE first, and where an IDE costs the API
   server most.
 - **Estimate:** 30–70 h (was 40–80).

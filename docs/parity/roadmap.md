@@ -64,8 +64,8 @@ M11 and M12 do not depend on each other; their order is the owner's call.
 Ranked; each item links to its gap. Pick from the top unless an issue is assigned to you.
 
 1. **The owner's gate decision on the Fyne spike** ([results](../developer/spike-fyne.md#results),
-   [D-1](../developer/decisions.md#d-1-ui-toolkit)): S1's start-up stall, and keeping the patched
-   terminal widget ([H-19](../security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)).
+   [D-1](../developer/decisions.md#d-1-ui-toolkit)); S1 passed with a reservation (owner,
+   2026-10-11); open: D-1 itself and keeping the patched terminal widget ([H-19](../security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)).
 2. **Finish M0** ([G1](gaps.md#g1-workspace-ci-and-progress-generators)): CI with the race tests,
    lint and the kind tests, so that the MVP's tests guard `main`. 12–28 h.
 3. **Editing** ([G9](gaps.md#g9-yaml-editor-and-create-resource)): wire the YAML editor to an Edit

@@ -43,14 +43,14 @@ keeps its name so that links survive; the "Measured" column holds what Cogpit re
 |---|---|---|---|
 | P1 | Open a context to the first rows of the Pods list, 1,000-pod cluster | ≤ 1 s | not measured |
 | P2 | Sort a 10,000-pod list by a column | ≤ 50 ms | 10.2 ms sort, 11.6 ms command to new snapshot (`BenchmarkSortChange10k`, `BenchmarkSortCommand10k`); 41 µs to apply it to the table without paint |
-| P3 | Scroll a 10,000-pod list | every frame ≤ 16 ms | real window: no main-goroutine stall over 16 ms after the first second (jank meter, `cogpit --demo --perf`); a start-up stall of 43–460 ms in the first second ([S1](spike-fyne.md#results)) |
-| P4 | Apply a burst of 1,000 watch events per second to an open list | no frame over 16 ms | engine side: 29 snapshots in 3 s at 1,000 events/s (`TestDemoClusterThroughTheEngine`), a 10,000-row snapshot in 2.1–4.6 ms; frames: as P3, the same runs had the churn on |
+| P3 | Scroll a 10,000-pod list | every frame ≤ 16 ms | real window: after the first fill at most 3 stalls of 16–25 ms in 9 s of scrolling 3 rows per frame; the first fill of the table stalls 151–193 ms once per window ([S1](spike-fyne.md#results)) |
+| P4 | Apply a burst of 1,000 watch events per second to an open list | no frame over 16 ms | engine side: 29 snapshots in 3 s at 1,000 events/s (`TestDemoClusterThroughTheEngine`), a 10,000-row snapshot in 2.1–4.6 ms; frames: the P3 runs had the churn on; view switches under the churn at most 42 ms, p99 6.3–7.4 ms |
 | P5 | Follow a log stream at 10,000 lines per second | no frame over 16 ms; memory bounded by the scrollback limit | offscreen: 0.15 ms median, 2.3 ms max of work per 100 ms batch at ~9,800 lines/s; 1.5 MiB for 10,000 kept lines (termview logs test); no GPU frames measured |
 | P6 | Resident memory with three clusters open on their Pods lists | track only until measured against Lens | the demo cluster with 10,000 pods keeps ~98 MB of its own heap; Cogpit's not measured |
-| P7 | Cold start to an interactive window | ≤ 1 s | not measured |
-| P8 | Type into a 5 MB YAML document in the editor, highlighting on | keystroke to repaint ≤ 16 ms | 0.015 ms widget work; 26.4 ms offscreen repaint, of which 18.2 ms is the software painter's fixed cost; GPU not measured |
+| P7 | Cold start to an interactive window | ≤ 1 s | 0.44–0.58 s from the shell's start to the first rows of the demo cluster, of which 0.42–0.56 s is the window's GL set-up; the time before `fyneui.Run` (logger, engine, MCP) is not measured |
+| P8 | Type into a 5 MB YAML document in the editor, highlighting on | keystroke to repaint ≤ 16 ms | real window, one keystroke per frame: widget work p50 0.09 ms, max 2.1 ms; one frame of 19 ms in 645 keystrokes |
 | P9 | A view stays open on an idle cluster for 10 minutes | 0 list requests; only the view's watches | 0 requests in 2 s idle (fake API server) and 3 s idle (kind); 1 streaming watch per kind (`TestBudgetIdleViewAndWarmReopen`, `TestKindIdleViewsCostNoLists`); 10 minutes not run |
-| P10 | Reopen a view within the warm period | 0 list requests; rows shown ≤ 100 ms | 0 requests; rows in ~90 µs |
+| P10 | Reopen a view within the warm period | 0 list requests; rows shown ≤ 100 ms | 0 requests, rows in ~90 µs in the engine (fake API server); in the real window 48–51 ms from the switch to the rows on screen; a view opened for the first time on the demo cluster shows rows after 109–149 ms |
 | P11 | An agent asks `ui_state`, `resources_find` and `ui_navigate` for an object in a warm cache | 0 API requests | 0 lists and 0 watches on the source (`TestShowcaseServiceByClusterIP`) |
 
 ## Before a pull request

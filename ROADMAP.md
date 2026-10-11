@@ -64,7 +64,7 @@ triaging and kubectl in part; editing, port forwarding, Helm and node maintenanc
 
 | Rank | Milestone | Estimate |
 |---|---|---:|
-| 1 | The owner's gate decision on the Fyne spike ([results](docs/developer/spike-fyne.md#results)): S1's start-up stall, and keeping the patched terminal widget ([H-19](docs/security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)) | – |
+| 1 | The owner's decision on D-1 after the Fyne spike ([results](docs/developer/spike-fyne.md#results); S1 passed with a reservation), and keeping the patched terminal widget ([H-19](docs/security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)) | – |
 | 2 | Finish M0: CI, generators, semantic-release | 12–28 h |
 | 3 | Editing: the YAML editor in an Edit tab with diff, dry-run and apply | 27–60 h |
 | 4 | Finish M1: pasting and syncing kubeconfigs, access reviews, first CLI commands | 18–40 h + human |
@@ -76,6 +76,7 @@ Detail: [docs/parity/roadmap.md](docs/parity/roadmap.md).
 
 | Date | Entry |
 |---|---|
+| 2026-10-11 | Gate S1 and S4 measured again in a real window with view switches, typing and a CPU profile: start-up stall is Fyne's per-window GL set-up (0.31 s) plus the first table fill (151–193 ms); view switches ≤ 42 ms; typing into 5 MB fits the frame. Owner: S1 passes with a reservation; S4 passes. D-1 pending |
 | 2026-10-11 | Implementation started. A local MVP runs on macOS: the context picker (kubeconfig contexts and a synthetic demo cluster with 10,000 pods), six views from shared informers with snapshots coalesced to ten per second, the detail drawer with YAML, logs with follow, a cluster-bound terminal, a pod shell, Restart and Delete behind confirmation, and an MCP server whose `ui_navigate` drives the GUI. The Fyne spike ran with it ([results](docs/developer/spike-fyne.md#results)). Measured: breadth ~12%; sort of 10,000 rows 10 ms (P2); 0 API requests for an idle view, a warm reopen and the agent showcase (P9–P11). S1 in a real window: no frame over 16 ms after the first second, but a start-up stall of 43–460 ms. Found and fixed in a patched copy: the terminal widget froze or crashed on container output (H-19). Claude Code drove the GUI to the Service with ClusterIP 10.96.100.100 over MCP |
 | 2026-10-11 | Plan revised: Go instead of Rust, Fyne behind a spike gate, macOS first, cache-first data flow, MCP control of UI and cluster, a built-in agent on OpenAI-compatible endpoints, one-click updates. Nothing built |
 | 2026-10-11 | Repository started. Documentation method adopted from PhotoCraft; target fixed at Lens Desktop 2026.10.51501; baseline 0% |

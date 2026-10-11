@@ -28,8 +28,9 @@ projects' repositories; re-check them before relying on a version number.
 **Decided (owner, 2026-10-11): Fyne** (`fyne.io/fyne/v2` v2.8.1, BSD-3-Clause), subject to a
 spike gate: before milestone M2, a spike builds the three hardest widgets on Fyne and measures
 them. The spike's plan and gate criteria are in [`spike-fyne.md`](spike-fyne.md). It ran on
-2026-10-11 as the local MVP; its [results](spike-fyne.md#results) are recorded there, and the gate
-decision is the owner's.
+2026-10-11 as the local MVP; its [results](spike-fyne.md#results) are recorded there. S1 passes
+with a reservation (owner, 2026-10-11: the start-up stall is tracked in G15); the decision on D-1
+itself is pending.
 
 **If the gate fails**, the engine stays in Go and the UI moves to a separate Rust process with
 egui (option D of the 2026-10-11 discussion). That move needs no engine rewrite because the
