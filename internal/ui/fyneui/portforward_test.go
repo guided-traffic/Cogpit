@@ -275,12 +275,24 @@ func TestForwardDialogFromPodDrawer(t *testing.T) {
 	if len(entries) != 1 || entries[0].PlaceHolder != "Random" || entries[0].Text != "" || len(checks) != 2 || checks[0].Checked || !checks[1].Checked {
 		t.Fatalf("the dialog's fields: %d entries, checks %v", len(entries), checks)
 	}
-	test.Type(entries[0], "8080")
+	var start *widget.Button
 	for _, b := range findAll[*widget.Button](top) {
 		if b.Text == "Start" {
-			test.Tap(b)
+			start = b
 		}
 	}
+	test.Type(entries[0], "70000")
+	entries[0].FocusLost() // Fyne reports a field's error once it loses focus
+	if !start.Disabled() {
+		t.Error("Start is enabled for local port 70000")
+	}
+	entries[0].SetText("")
+	test.Type(entries[0], "8080")
+	entries[0].FocusLost()
+	if start.Disabled() {
+		t.Fatal("Start is disabled for local port 8080")
+	}
+	test.Tap(start)
 	q.until(t, "the forward and the browser", func() bool { return len(f.callsOf("pod.portForward")) == 1 && len(browser.opened()) == 1 })
 	var p probeForward
 	if err := json.Unmarshal(f.callsOf("pod.portForward")[0].Params, &p); err != nil {

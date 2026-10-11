@@ -261,9 +261,27 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 10–25 h (was 27–60).
 
 ### G10. Port forwarding
-- **Missing:** the forward manager (local listener on `127.0.0.1`, lifecycle, reconnects), the
-  forward dialog, opening in a browser. The Port Forwarding view and its actions count in G6 and G7.
-- **Evidence:** [ui-parity](ui-parity.md#port-forwarding), 3 rows missing.
+- **Missing:** Lens's status texts in the Port Forwarding view and its Edit dialog (capture
+  needed; Cogpit's are inferred), the access review of the pod behind a forward before Edit offers
+  it, a check in a real window that the browser opens (offscreen tests stop at Fyne's `OpenURL`).
+  The Port Forwarding view and its actions count in G6 and G7.
+- **Evidence:** [ui-parity](ui-parity.md#port-forwarding): 2 rows done, 1 partial. Built on
+  2026-10-11: a forward manager in the engine ([`engine/portforward.go`](../../internal/engine/portforward.go),
+  [`portforward_run.go`](../../internal/engine/portforward_run.go)) that listens on `127.0.0.1` only
+  ([`cluster/portforward.go`](../../internal/cluster/portforward.go) `ListenLoopback`) and carries
+  each local connection over a port-forward connection (WebSocket first, SPDY as the fallback, as
+  kubectl 0.37); forwards are objects of the local kind `portforwards`
+  ([`kinds/portforwards.go`](../../internal/model/kinds/portforwards.go)), so the view, the drawer,
+  row menus and agents read them like cluster objects; reconnects come from the cache's events (a
+  pod forward while its pod runs, a service forward to another ready pod of its selector) and from
+  dial retries after 1 s doubling to 30 s; every forward of a context ends when Cogpit leaves it;
+  commands `pod.portForward`, `service.portForward`, `portforward.open`, `portforward.edit`,
+  `portforward.stop`, `portforward.remove`
+  ([`commands/portforward.go`](../../internal/engine/commands/portforward.go)); the
+  captured dialog and the port links ([`fyneui/portforward.go`](../../internal/ui/fyneui/portforward.go)).
+  Tested against a fake forwarder and a fake kubelet (SPDY), and on kind: HTTP through forwards to
+  the seed's service and pod, and a forward that reaches the replacement of a deleted pod
+  (`TestKindPortForward`).
 - **Estimate:** 10–20 h.
 
 ### G11. Helm
@@ -423,6 +441,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | G10: port forwarding built (manager, local kind, commands, dialog, view); what is left: Lens's status texts and Edit dialog, access review of the forward's pod, a real-window browser check |
 | 2026-10-11 | minor | Access reviews built: G2 and G4 evidence, G3 and G9 no longer list them as missing; estimates not moved |
 | 2026-10-11 | minor | G6 evidence (third run, agent D): Endpoint Slices, Endpoints, Network Policies, Persistent Volumes, Storage Classes and Replication Controllers views partial; the related-objects index's first users (a claim's pods, a node's Pods table, a Service's endpoint slices) |
 | 2026-10-11 | minor | G6 Evidence: the Access Control views (five of them partial) |
