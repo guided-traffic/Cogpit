@@ -25,7 +25,7 @@ var roleBindings = &model.KindProfile{
 		ageColumn,
 	},
 	Cells:  roleBindingCells,
-	Fields: bindingFields,
+	Fields: rbacBindingFields,
 	Detail: roleBindingDetail,
 }
 

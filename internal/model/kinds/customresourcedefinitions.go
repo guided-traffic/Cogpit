@@ -46,7 +46,7 @@ var customResourceDefinitions = &model.KindProfile{
 	Title:    "Definitions",
 	Columns: []model.Column{
 		hiddenNameColumn,
-		{ID: "resource", Title: "Resource", Type: model.ColumnText},
+		{ID: idResource, Title: "Resource", Type: model.ColumnText},
 		{ID: "group", Title: "Group", Type: model.ColumnText},
 		{ID: idVersion, Title: "Version", Type: model.ColumnText},
 		{ID: idScope, Title: "Scope", Type: model.ColumnText},

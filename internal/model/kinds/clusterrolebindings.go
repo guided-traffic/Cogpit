@@ -30,16 +30,16 @@ var clusterRoleBindings = &model.KindProfile{
 		return clusterRoleBindingCells(obj, model.NoRelated)
 	},
 	CellsWith: clusterRoleBindingCells,
-	Fields:    bindingFields,
+	Fields:    rbacBindingFields,
 	Detail: func(obj *unstructured.Unstructured) []model.DetailSection {
 		return clusterRoleBindingDetail(obj, model.NoRelated)
 	},
 	DetailWith: clusterRoleBindingDetail,
 }
 
-// bindingFields are the searchable fields of both binding kinds: the role a binding names and its
+// rbacBindingFields are the searchable fields of both RBAC binding kinds: the role a binding names and its
 // subjects' names, as the Bindings column shows them.
-var bindingFields = map[string]fieldFunc{
+var rbacBindingFields = map[string]fieldFunc{
 	"role": func(obj *unstructured.Unstructured) []string {
 		return nonEmpty(model.NestedString(obj, "roleRef", "name"))
 	},

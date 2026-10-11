@@ -46,7 +46,7 @@ func roleFields(cluster bool) map[string]fieldFunc {
 		"verb": func(obj *unstructured.Unstructured) []string {
 			return ruleValues(obj, "verbs")
 		},
-		"resource": func(obj *unstructured.Unstructured) []string {
+		idResource: func(obj *unstructured.Unstructured) []string {
 			return ruleValues(obj, "resources")
 		},
 	}

@@ -32,7 +32,7 @@ const (
 // hpaSources maps a metric's type to the field of its source, in spec.metrics and in
 // status.currentMetrics alike.
 var hpaSources = map[string]string{
-	hpaTypeResource:     "resource",
+	hpaTypeResource:     idResource,
 	"ContainerResource": "containerResource",
 	"Pods":              "pods",
 	"Object":            "object",
