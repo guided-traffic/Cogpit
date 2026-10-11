@@ -479,7 +479,10 @@ func (e *entry) watchError(err error) {
 }
 
 // stripManagedFields is the informer transform: managedFields are large and only the editor's
-// "managed fields" toggle needs them, which fetches them on demand. It runs on the reflector's
+// "managed fields" toggle needs them, which fetches them on demand. For core Secrets in every
+// scope it also drops the last-applied-configuration annotation, which kubectl apply fills with
+// the Secret's whole manifest, data included: a metadata-only scope must not hold values through
+// it (H-8), and no scope needs it (Cogpit never writes Secrets). It runs on the reflector's
 // goroutine; if it panicked, the object is kept unchanged rather than lost.
 func (e *entry) stripManagedFields(obj any) (out any, err error) {
 	defer func() {
@@ -490,9 +493,16 @@ func (e *entry) stripManagedFields(obj any) (out any, err error) {
 	}()
 	if u, ok := obj.(*unstructured.Unstructured); ok {
 		unstructured.RemoveNestedField(u.Object, "metadata", "managedFields")
+		if e.scope.GVR.Group == "" && e.scope.GVR.Resource == "secrets" {
+			unstructured.RemoveNestedField(u.Object, "metadata", "annotations", LastAppliedAnnotation)
+		}
 	}
 	return obj, nil
 }
+
+// LastAppliedAnnotation is where kubectl apply keeps the manifest it applied; on a Secret it holds
+// the Secret's values, so the cache drops it from Secrets.
+const LastAppliedAnnotation = "kubectl.kubernetes.io/last-applied-configuration"
 
 // trackedLW wraps a Source's list-watcher: it records list and watch errors on the entry and
 // clears them when a list or a watch succeeds, turns a panic in the source into an error, and

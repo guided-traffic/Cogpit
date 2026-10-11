@@ -449,7 +449,11 @@ source, and cached with a time-to-live.
 
 **Small in memory.** A transform drops `metadata.managedFields` before an object enters the cache
 (the editor's "managed fields" toggle fetches them on demand). Memory per cluster and object counts
-per kind are visible in a diagnostics view.
+per kind are visible in a diagnostics view. From core Secrets, in every scope, the same transform
+also drops the `kubectl.kubernetes.io/last-applied-configuration` annotation (2026-10-11), which
+`kubectl apply` fills with the whole manifest, values included: without it a metadata-only scope
+would still hold the values of every applied Secret (`TestSecretsLoseTheLastAppliedAnnotation`).
+The annotation still crosses the wire with the metadata.
 
 **Measurable.** A counting HTTP round-tripper per cluster records requests by verb and resource;
 the diagnostics view shows them, and tests assert the budgets P9–P11 in
