@@ -1,0 +1,468 @@
+package commands_test
+
+import (
+	"context"
+	"errors"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/engine/commands"
+	"github.com/guided-traffic/cogpit/internal/model"
+)
+
+// The command ids the GUI and the MCP server rely on, with their danger levels.
+var wantCommands = map[string]engine.Danger{
+	"ui.state":           engine.DangerRead,
+	"ui.openView":        engine.DangerUI,
+	"ui.setNamespace":    engine.DangerUI,
+	"ui.setFilter":       engine.DangerUI,
+	"ui.sort":            engine.DangerUI,
+	"ui.select":          engine.DangerUI,
+	"ui.closeDrawer":     engine.DangerUI,
+	"ui.navigate":        engine.DangerUI,
+	"cluster.contexts":   engine.DangerRead,
+	"cluster.connect":    engine.DangerUI,
+	"kinds.list":         engine.DangerRead,
+	"resources.list":     engine.DangerRead,
+	"resources.find":     engine.DangerRead,
+	"object.get":         engine.DangerRead,
+	"pod.logs":           engine.DangerRead,
+	"pod.shell":          engine.DangerMutating,
+	"terminal.open":      engine.DangerUI,
+	"dock.close":         engine.DangerUI,
+	"dock.activate":      engine.DangerUI,
+	"deployment.restart": engine.DangerDestructive,
+	"object.delete":      engine.DangerDestructive,
+}
+
+func TestRegistryComplete(t *testing.T) {
+	r := engine.NewRegistry()
+	if err := commands.RegisterAll(r); err != nil {
+		t.Fatal(err)
+	}
+	cmds := r.Commands()
+	if len(cmds) != len(wantCommands) {
+		t.Errorf("%d commands registered, want %d", len(cmds), len(wantCommands))
+	}
+	for _, c := range cmds {
+		want, ok := wantCommands[c.ID]
+		if !ok {
+			t.Errorf("unexpected command %s", c.ID)
+			continue
+		}
+		if c.Danger != want {
+			t.Errorf("%s: danger %s, want %s", c.ID, c.Danger, want)
+		}
+		if c.Label == "" || len(c.Description) < 20 {
+			t.Errorf("%s: label %q, description %q", c.ID, c.Label, c.Description)
+		}
+		if c.Schema == nil || c.Schema.Type != "object" {
+			t.Errorf("%s: schema is not an object: %+v", c.ID, c.Schema)
+		}
+		if (c.Danger == engine.DangerMutating || c.Danger == engine.DangerDestructive) && len(c.Verbs) == 0 {
+			t.Errorf("%s writes but declares no verbs", c.ID)
+		}
+	}
+	if err := commands.RegisterAll(r); err == nil {
+		t.Error("registering twice succeeded")
+	}
+}
+
+// TestMCPFindAndNavigate is the agent flow of architecture §7: find the Service by its cluster IP,
+// show it to the user, and, once the cache is warm, do it again without a single list request
+// (budget P11 in miniature).
+func TestMCPFindAndNavigate(t *testing.T) {
+	h := newHarness(t, seed(), engine.Options{})
+	agent := engine.OriginExternalAgent
+	find := map[string]any{"kind": "services", "field": "clusterIP", "value": "10.96.100.100"}
+
+	flow := func() model.ObjectRef {
+		var st commands.StateResult
+		h.must(t, agent, "ui.state", nil, &st)
+		var found commands.FindResult
+		h.must(t, agent, "resources.find", find, &found)
+		if found.Count != 1 || len(found.Matches) != 1 {
+			t.Fatalf("find: %+v", found)
+		}
+		ref := found.Matches[0].Ref
+		if ref.Kind != "services" || ref.Namespace != "shop" || ref.Name != "checkout" || ref.Context != "test" {
+			t.Fatalf("found %+v", ref)
+		}
+		var nav commands.NavigateResult
+		h.must(t, agent, "ui.navigate", map[string]any{"ref": ref}, &nav)
+		if nav.View != "services" || !nav.Found {
+			t.Fatalf("navigate: %+v", nav)
+		}
+		u := h.s.UIState()
+		if u.View != "services" || len(u.Selected) != 1 || !u.Selected[0].Same(ref) || u.Drawer == nil || !u.Drawer.Same(ref) {
+			t.Fatalf("UI state after navigate: view %s selected %v drawer %v", u.View, u.Selected, u.Drawer)
+		}
+		snap := waitTable(t, h.s, "services", func(s *engine.TableSnapshot) bool { return s.Synced && s.IndexOf(ref) >= 0 })
+		if snap.Sort != engine.DefaultSort {
+			t.Errorf("services sort %+v", snap.Sort)
+		}
+		var detail engine.DetailModel
+		h.must(t, agent, "object.get", map[string]any{"ref": ref, "noYaml": true}, &detail)
+		if detail.Title != "Service: checkout" || len(detail.Events) != 1 || detail.YAML != "" {
+			t.Errorf("object.get: %+v", detail)
+		}
+		return ref
+	}
+
+	flow()
+	h.must(t, engine.OriginGUI, "ui.openView", map[string]any{"view": "pods"}, nil)
+	waitTable(t, h.s, "pods", func(s *engine.TableSnapshot) bool { return s.Synced })
+
+	lists, watches := h.src.Lists(), h.src.Watches()
+	flow()
+	time.Sleep(50 * time.Millisecond) // a late informer start would show up now
+	if dl, dw := h.src.Lists()-lists, h.src.Watches()-watches; dl != 0 || dw != 0 {
+		t.Errorf("the warm flow cost %d lists and %d watches, want 0", dl, dw)
+	}
+}
+
+func TestUICommands(t *testing.T) {
+	h := newHarness(t, seed(), engine.Options{})
+	gui := engine.OriginGUI
+	waitTable(t, h.s, "pods", func(s *engine.TableSnapshot) bool { return s.Synced && len(s.Rows) == 4 })
+
+	if err := h.run(t, gui, "ui.openView", map[string]any{"view": "widgets"}, nil); err == nil || !strings.Contains(err.Error(), "pods") {
+		t.Errorf("unknown view: %v", err)
+	}
+	h.must(t, gui, "ui.setNamespace", map[string]any{"namespaces": []string{"shop", " shop ", ""}}, nil)
+	if u := h.s.UIState(); !slices.Equal(u.Namespaces, []string{"shop"}) {
+		t.Errorf("namespaces %v", u.Namespaces)
+	}
+	h.must(t, gui, "ui.setFilter", map[string]any{"filter": "web-1"}, nil)
+	snap := waitTable(t, h.s, "pods", func(s *engine.TableSnapshot) bool { return s.Filter == "web-1" && len(s.Namespaces) == 1 })
+	if len(snap.Rows) != 1 || snap.Rows[0].Ref.Key() != "shop/web-1" {
+		t.Errorf("filtered rows %+v", snap.Rows)
+	}
+	if err := h.run(t, gui, "ui.sort", map[string]any{"column": "nope"}, nil); err == nil || !strings.Contains(err.Error(), "node") {
+		t.Errorf("unknown column: %v", err)
+	}
+	h.must(t, gui, "ui.sort", map[string]any{"column": "node", "desc": true}, nil)
+
+	// Opening a view clears selection, drawer and search; keeps namespaces; restores its sort.
+	h.must(t, gui, "ui.openView", map[string]any{"view": "services"}, nil)
+	u := h.s.UIState()
+	if u.View != "services" || u.Filter != "" || !slices.Equal(u.Namespaces, []string{"shop"}) || u.Sort != engine.DefaultSort {
+		t.Errorf("after openView: %+v", u)
+	}
+	h.must(t, gui, "ui.openView", map[string]any{"view": "pods"}, nil)
+	if u := h.s.UIState(); u.Sort != (engine.SortSpec{Column: "node", Desc: true}) {
+		t.Errorf("pods sort not remembered: %+v", u.Sort)
+	}
+
+	web0 := model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-0"}
+	web1 := model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-1"}
+	h.must(t, gui, "ui.select", map[string]any{"refs": []model.ObjectRef{web0, web1, web0}}, nil)
+	u = h.s.UIState()
+	if len(u.Selected) != 2 || u.Drawer == nil || !u.Drawer.Same(web0) || u.Drawer.Context != "test" {
+		t.Errorf("select: selected %v drawer %v", u.Selected, u.Drawer)
+	}
+	h.must(t, gui, "ui.select", map[string]any{"refs": []model.ObjectRef{web1}, "noDrawer": true}, nil)
+	if u := h.s.UIState(); len(u.Selected) != 1 || !u.Drawer.Same(web0) {
+		t.Errorf("select without drawer moved the drawer: %v", u.Drawer)
+	}
+	svc := model.ObjectRef{Kind: "services", Namespace: "shop", Name: "checkout"}
+	if err := h.run(t, gui, "ui.select", map[string]any{"refs": []model.ObjectRef{svc}}, nil); err == nil || !strings.Contains(err.Error(), "ui_navigate") {
+		t.Errorf("select of another kind: %v", err)
+	}
+	h.must(t, gui, "ui.closeDrawer", nil, nil)
+	if h.s.UIState().Drawer != nil {
+		t.Error("drawer still open")
+	}
+	h.must(t, gui, "ui.setNamespace", map[string]any{}, nil)
+	if u := h.s.UIState(); u.Namespaces != nil {
+		t.Errorf("empty namespaces: %v", u.Namespaces)
+	}
+
+	var st commands.StateResult
+	h.must(t, engine.OriginExternalAgent, "ui.state", map[string]any{}, &st)
+	if st.View != "pods" || st.ViewTitle != "Pods" || st.Context != "test" || st.Connection.State != engine.Connected {
+		t.Errorf("ui.state %+v", st)
+	}
+}
+
+func TestNavigateMakesTheObjectVisible(t *testing.T) {
+	h := newHarness(t, seed(), engine.Options{})
+	gui := engine.OriginGUI
+	h.must(t, gui, "ui.setNamespace", map[string]any{"namespaces": []string{"infra"}}, nil)
+	h.must(t, gui, "ui.setFilter", map[string]any{"filter": "web-1"}, nil)
+
+	// Same view: the namespace filter hides shop/web-0 and the search text hides it too.
+	ref := model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-0"}
+	h.must(t, gui, "ui.navigate", map[string]any{"ref": ref}, nil)
+	u := h.s.UIState()
+	if u.Namespaces != nil || u.Filter != "" || !u.Drawer.Same(ref) {
+		t.Errorf("after navigate: namespaces %v filter %q drawer %v", u.Namespaces, u.Filter, u.Drawer)
+	}
+	waitTable(t, h.s, "pods", func(s *engine.TableSnapshot) bool { return s.Filter == "" && s.IndexOf(ref) >= 0 })
+
+	// A search text that shows the object stays.
+	h.must(t, gui, "ui.setFilter", map[string]any{"filter": "web"}, nil)
+	h.must(t, gui, "ui.navigate", map[string]any{"ref": model.ObjectRef{Kind: "pods", Namespace: "infra", Name: "web-1"}}, nil)
+	if u := h.s.UIState(); u.Filter != "web" {
+		t.Errorf("a matching filter was cleared: %q", u.Filter)
+	}
+
+	// A missing object: the view and drawer are set, found is false.
+	var nav commands.NavigateResult
+	h.must(t, gui, "ui.navigate", map[string]any{"ref": model.ObjectRef{Kind: "deployments", Namespace: "shop", Name: "gone"}}, &nav)
+	if nav.Found || nav.View != "deployments" {
+		t.Errorf("navigate to a missing object: %+v", nav)
+	}
+	if err := h.run(t, gui, "ui.navigate", map[string]any{"ref": model.ObjectRef{Context: "prod", Kind: "pods", Namespace: "shop", Name: "web-0"}}, nil); !errors.Is(err, engine.ErrWrongCluster) {
+		t.Errorf("navigate into another cluster: %v", err)
+	}
+}
+
+func TestResourcesCommands(t *testing.T) {
+	h := newHarness(t, seed(), engine.Options{})
+	agent := engine.OriginExternalAgent
+
+	var kinds []commands.KindInfo
+	h.must(t, agent, "kinds.list", nil, &kinds)
+	if len(kinds) != 5 || kinds[0].Kind != "pods" || !slices.Equal(kinds[0].Fields, []string{"name", "namespace", "label", "node", "podIP"}) {
+		t.Errorf("kinds %+v", kinds)
+	}
+
+	var list commands.ListResult
+	h.must(t, agent, "resources.list", map[string]any{"kind": "pods", "namespaces": []string{"shop"}, "limit": 1}, &list)
+	if list.Total != 2 || list.Returned != 1 || list.Rows[0].Ref.Name != "web-0" || list.Rows[0].Cells["Node"] != "node-1" {
+		t.Errorf("list %+v", list)
+	}
+	h.must(t, agent, "resources.list", map[string]any{"kind": "pods", "filter": "web-1"}, &list)
+	if list.Total != 2 || list.Returned != 2 {
+		t.Errorf("filtered list %+v", list)
+	}
+	if err := h.run(t, agent, "resources.list", map[string]any{"kind": "pods", "limit": -1}, nil); err == nil {
+		t.Error("negative limit accepted")
+	}
+
+	var found commands.FindResult
+	h.must(t, agent, "resources.find", map[string]any{"field": "namespace", "value": "SHOP"}, &found)
+	if found.Count != 6 { // 2 pods, 1 deployment, 2 services, 1 event; namespace objects have none
+		t.Errorf("find by namespace over every kind: %+v", found)
+	}
+	h.must(t, agent, "resources.find", map[string]any{"kind": "services", "field": "clusterIP", "value": "10.96.100", "match": "prefix", "limit": 1}, &found)
+	if found.Count != 2 || len(found.Matches) != 1 || !found.Truncated {
+		t.Errorf("prefix find: %+v", found)
+	}
+	h.must(t, agent, "resources.find", map[string]any{"field": "label", "value": "app", "match": "contains"}, &found)
+	if found.Count != 0 {
+		t.Errorf("label find: %+v", found)
+	}
+	if err := h.run(t, agent, "resources.find", map[string]any{"kind": "pods", "field": "clusterIP", "value": "x"}, nil); err == nil || !strings.Contains(err.Error(), "podIP") {
+		t.Errorf("unknown field: %v", err)
+	}
+	if err := h.run(t, agent, "resources.find", map[string]any{"field": "name", "value": "x", "match": "regex"}, nil); err == nil {
+		t.Error("unknown match mode accepted")
+	}
+
+	var detail engine.DetailModel
+	h.must(t, agent, "object.get", map[string]any{"ref": model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-0"}}, &detail)
+	if detail.Title != "Pod: web-0" || !slices.Equal(detail.Containers, []string{"app"}) || !strings.Contains(detail.YAML, "web-0") {
+		t.Errorf("object.get %+v", detail)
+	}
+	h.must(t, agent, "object.get", map[string]any{"ref": model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "nope"}}, &detail)
+	if !detail.Missing {
+		t.Error("missing object not reported")
+	}
+}
+
+func TestDestructiveCommandsNeedConfirmation(t *testing.T) {
+	audit := &syncBuffer{}
+	h := newHarness(t, seed(), engine.Options{Audit: audit})
+	pod := map[string]any{"ref": model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-0"}}
+	deploy := map[string]any{"ref": model.ObjectRef{Kind: "deployments", Namespace: "infra", Name: "web"}}
+	if _, err := h.s.Objects(context.Background(), "deployments", nil); err != nil { // warm: Enabled does not wait
+		t.Fatal(err)
+	}
+	if _, err := h.s.Objects(context.Background(), "pods", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	// Headless: refused before anything runs.
+	if err := h.run(t, engine.OriginGUI, "object.delete", pod, nil); !errors.Is(err, engine.ErrConfirmationUnavailable) {
+		t.Errorf("headless delete: %v", err)
+	}
+
+	var asked []engine.ConfirmRequest
+	answer := false
+	h.s.SetConfirmer(engine.ConfirmFunc(func(_ context.Context, req engine.ConfirmRequest) (bool, error) {
+		asked = append(asked, req)
+		return answer, nil
+	}))
+	if err := h.run(t, engine.OriginGUI, "object.delete", pod, nil); !errors.Is(err, engine.ErrDeclined) {
+		t.Errorf("declined delete: %v", err)
+	}
+	if len(h.writer.Calls()) != 0 {
+		t.Fatalf("a declined command ran: %v", h.writer.Calls())
+	}
+	req := asked[0]
+	if req.Command != "object.delete" || req.Context != "test" || !slices.Equal(req.Namespaces, []string{"shop"}) ||
+		len(req.Objects) != 1 || req.Objects[0].Name != "web-0" || req.Objects[0].Context != "test" {
+		t.Errorf("confirmation request %+v", req)
+	}
+	if msg := req.Message(); !strings.Contains(msg, "pods web-0") || !strings.Contains(msg, "shop") || !strings.Contains(msg, "test") {
+		t.Errorf("confirmation message %q", msg)
+	}
+
+	answer = true
+	var res commands.ActionResult
+	h.must(t, engine.OriginExternalAgent, "deployment.restart", deploy, &res)
+	h.must(t, engine.OriginGUI, "object.delete", pod, nil)
+	if got := h.writer.Calls(); !slices.Equal(got, []string{"restart infra/web", "delete shop/web-0"}) {
+		t.Errorf("writes %v", got)
+	}
+	if res.Action != "restarted" || asked[len(asked)-2].Origin != engine.OriginExternalAgent {
+		t.Errorf("restart result %+v, origin %s", res, asked[len(asked)-2].Origin)
+	}
+
+	// Only agent commands are audited, with their outcome.
+	lines := audit.Lines()
+	if len(lines) != 1 || lines[0].Command != "deployment.restart" || !lines[0].OK || lines[0].Origin != engine.OriginExternalAgent || lines[0].Context != "test" {
+		t.Errorf("audit %+v", lines)
+	}
+
+	// Disabled with a reason: other kinds, objects not in the cache.
+	var dis *engine.DisabledError
+	if err := h.run(t, engine.OriginGUI, "object.delete", map[string]any{"ref": model.ObjectRef{Kind: "services", Namespace: "shop", Name: "cart"}}, nil); !errors.As(err, &dis) || !strings.Contains(dis.Reason, "pods only") {
+		t.Errorf("delete a service: %v", err)
+	}
+	if err := h.run(t, engine.OriginGUI, "deployment.restart", map[string]any{"ref": model.ObjectRef{Kind: "deployments", Namespace: "shop", Name: "gone"}}, nil); !errors.As(err, &dis) || !strings.Contains(dis.Reason, "not found") {
+		t.Errorf("restart a missing deployment: %v", err)
+	}
+	if err := h.run(t, engine.OriginGUI, "deployment.restart", pod, nil); !errors.As(err, &dis) {
+		t.Errorf("restart a pod: %v", err)
+	}
+}
+
+func TestConfirmationForAnotherClusterDoesNotApply(t *testing.T) {
+	h := newHarness(t, seed(), engine.Options{})
+	if _, err := h.s.Objects(context.Background(), "pods", nil); err != nil {
+		t.Fatal(err)
+	}
+	// While the dialog is open the user switches to another cluster that has the same pod.
+	h.s.SetConfirmer(engine.ConfirmFunc(func(ctx context.Context, _ engine.ConfirmRequest) (bool, error) {
+		if err := h.s.Connect(ctx, "other"); err != nil {
+			return false, err
+		}
+		return true, nil
+	}))
+	err := h.run(t, engine.OriginGUI, "object.delete", map[string]any{"ref": model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-0"}}, nil)
+	if !errors.Is(err, engine.ErrWrongCluster) {
+		t.Errorf("delete after a cluster switch: %v", err)
+	}
+	if len(h.writer.Calls()) != 0 {
+		t.Errorf("the delete reached the other cluster: %v", h.writer.Calls())
+	}
+}
+
+func TestDockCommands(t *testing.T) {
+	h := newHarness(t, seed(), engine.Options{})
+	gui := engine.OriginGUI
+	pod := model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-0"}
+
+	var first, again commands.DockResult
+	h.must(t, gui, "pod.logs", map[string]any{"ref": pod}, &first)
+	h.must(t, gui, "pod.logs", map[string]any{"ref": pod, "container": "app"}, &again)
+	if !first.Created || again.Created || first.Tab.ID != "logs-1" || again.Tab.ID != "logs-1" || first.Tab.Container != "app" {
+		t.Errorf("logs tabs %+v %+v", first, again)
+	}
+	if err := h.run(t, gui, "pod.logs", map[string]any{"ref": pod, "container": "sidecar"}, nil); err == nil || !strings.Contains(err.Error(), "app") {
+		t.Errorf("unknown container: %v", err)
+	}
+
+	var term commands.DockResult
+	h.must(t, gui, "terminal.open", nil, &term)
+	if term.Tab.ID != "terminal-1" || term.Tab.Title != "Terminal 1" || term.Tab.Context != "test" {
+		t.Errorf("terminal tab %+v", term.Tab)
+	}
+
+	// A shell from the GUI runs; from an agent it needs the user's acceptance.
+	var shell commands.DockResult
+	h.must(t, gui, "pod.shell", map[string]any{"ref": pod}, &shell)
+	if shell.Tab.Type != engine.DockShell || shell.Tab.ID != "shell-1" {
+		t.Errorf("shell tab %+v", shell.Tab)
+	}
+	if err := h.run(t, engine.OriginExternalAgent, "pod.shell", map[string]any{"ref": pod}, nil); !errors.Is(err, engine.ErrConfirmationUnavailable) {
+		t.Errorf("agent shell without a GUI: %v", err)
+	}
+	h.s.SetAgentWrites("test", true)
+	h.must(t, engine.OriginExternalAgent, "pod.shell", map[string]any{"ref": pod}, nil)
+
+	u := h.s.UIState()
+	if len(u.Dock) != 4 || u.ActiveDock != "shell-2" {
+		t.Fatalf("dock %+v active %s", u.Dock, u.ActiveDock)
+	}
+	h.must(t, gui, "dock.activate", map[string]any{"id": "logs-1"}, nil)
+	h.must(t, gui, "dock.close", map[string]any{"id": "logs-1"}, nil)
+	if u := h.s.UIState(); len(u.Dock) != 3 || u.ActiveDock != "terminal-1" {
+		t.Errorf("after close: %+v active %s", u.Dock, u.ActiveDock)
+	}
+	if err := h.run(t, gui, "dock.close", map[string]any{"id": "logs-1"}, nil); err == nil {
+		t.Error("closing a closed tab succeeded")
+	}
+	if err := h.run(t, gui, "dock.activate", map[string]any{"id": "nope"}, nil); err == nil {
+		t.Error("activating an unknown tab succeeded")
+	}
+}
+
+func TestDemoClusterDisablesStreamsAndWrites(t *testing.T) {
+	src := seed()
+	s := engine.New(engine.Options{Connector: &fakeConnector{src: src, writer: &fakeWriter{}, demo: true}, SnapshotInterval: 10 * time.Millisecond})
+	defer s.Close()
+	if err := commands.RegisterAll(s.Registry()); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Connect(context.Background(), "demo"); err != nil {
+		t.Fatal(err)
+	}
+	pod := []byte(`{"ref":{"kind":"pods","namespace":"shop","name":"web-0"}}`)
+	for id, params := range map[string][]byte{
+		"pod.logs": pod, "pod.shell": pod, "terminal.open": nil, "object.delete": pod,
+		"deployment.restart": []byte(`{"ref":{"kind":"deployments","namespace":"shop","name":"web"}}`),
+	} {
+		_, err := s.Dispatch(context.Background(), engine.Invocation{ID: id, Params: params, Origin: engine.OriginGUI})
+		var dis *engine.DisabledError
+		if !errors.As(err, &dis) || !strings.Contains(dis.Reason, "demo") {
+			t.Errorf("%s on the demo cluster: %v", id, err)
+		}
+	}
+}
+
+func TestClusterCommands(t *testing.T) {
+	h := newHarness(t, seed(), engine.Options{})
+	var ctxs []engine.ContextInfo
+	h.must(t, engine.OriginExternalAgent, "cluster.contexts", nil, &ctxs)
+	if len(ctxs) != 2 || ctxs[1].Name != "test" || !ctxs[1].Current {
+		t.Errorf("contexts %+v", ctxs)
+	}
+	var res commands.ConnectResult
+	h.must(t, engine.OriginExternalAgent, "cluster.connect", map[string]any{"context": "broken"}, &res)
+	if res.State != engine.ConnectError || !strings.Contains(res.Error, "refused") || res.Context != "broken" {
+		t.Errorf("connect broken: %+v", res)
+	}
+	var st commands.StateResult
+	if err := h.run(t, engine.OriginGUI, "ui.openView", map[string]any{"view": "pods"}, nil); !strings.Contains(errString(err), "no cluster connected") {
+		t.Errorf("openView while disconnected: %v", err)
+	}
+	h.must(t, engine.OriginExternalAgent, "cluster.connect", map[string]any{"context": "other"}, &res)
+	h.must(t, engine.OriginExternalAgent, "ui.state", nil, &st)
+	if res.State != engine.Connected || st.Context != "other" || st.View != "pods" {
+		t.Errorf("connect other: %+v, state %+v", res, st)
+	}
+}
+
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
