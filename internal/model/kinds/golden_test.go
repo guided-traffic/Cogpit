@@ -91,7 +91,7 @@ type golden struct {
 // model.BuildRow and model.FieldValues, because those recover from panics and would hide one.
 func render(t *testing.T, p *model.KindProfile, obj *unstructured.Unstructured) golden {
 	t.Helper()
-	cells, status := p.Cells(obj)
+	cells, status := cellsOf(p, obj)
 	if len(cells) != len(p.Columns) {
 		t.Fatalf("Cells returned %d cells for %d columns", len(cells), len(p.Columns))
 	}
@@ -126,8 +126,22 @@ func render(t *testing.T, p *model.KindProfile, obj *unstructured.Unstructured) 
 		sort.Strings(values) // labels come from a map
 		g.Fields[name] = nonNil(values)
 	}
-	g.Detail = p.Detail(obj)
+	g.Detail = detailOf(p, obj)
 	return g
+}
+
+// cellsOf calls the profile's cells function directly: CellsWith without related objects when
+// the profile reads them, else Cells.
+func cellsOf(p *model.KindProfile, obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
+	if p.CellsWith != nil {
+		return p.CellsWith(obj, model.NoRelated)
+	}
+	return p.Cells(obj)
+}
+
+// detailOf calls the profile's drawer sections directly, without related objects.
+func detailOf(p *model.KindProfile, obj *unstructured.Unstructured) []model.DetailSection {
+	return p.DetailSections(obj, model.NoRelated)
 }
 
 // sameCell compares cells by value, links and parts included.

@@ -22,7 +22,7 @@ func exercise(p *model.KindProfile, obj *unstructured.Unstructured) (err error) 
 			err = fmt.Errorf("%s: panic: %v\n%s", p.Key, r, debug.Stack())
 		}
 	}()
-	cells, _ := p.Cells(obj)
+	cells, _ := cellsOf(p, obj)
 	if len(cells) != len(p.Columns) {
 		return fmt.Errorf("%s: %d cells for %d columns", p.Key, len(cells), len(p.Columns))
 	}
@@ -37,8 +37,8 @@ func exercise(p *model.KindProfile, obj *unstructured.Unstructured) (err error) 
 	for _, name := range p.FieldNames() {
 		_ = model.FieldValues(p, name, obj)
 	}
-	_ = p.Detail(obj)
-	_ = model.MergeProperties(model.PropertiesSection(obj, now), p.Detail(obj))
+	_ = detailOf(p, obj)
+	_ = model.MergeProperties(model.PropertiesSection(obj, now), detailOf(p, obj))
 	return nil
 }
 
