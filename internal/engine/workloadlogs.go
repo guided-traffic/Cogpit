@@ -69,6 +69,7 @@ type workloadLogs struct {
 	started map[string]bool // "<pod uid>/<container>/<instance>" streams started
 	active  int
 	capped  bool
+	tail    int64 // the history each of the first containers starts with
 
 	closeOnce sync.Once
 }
@@ -134,6 +135,7 @@ func (s *Session) openWorkloadLogs(ctx context.Context, tab DockTab, b *Backend,
 	if len(first) == 0 {
 		wl.noticeAsync(wl.emptyNotice())
 	}
+	wl.tail = tail
 	wl.start(first, tail)
 	if wl.opts.Previous {
 		// The previous instances' logs are complete: the stream ends after them.
@@ -229,6 +231,9 @@ func (wl *workloadLogs) start(targets []logTarget, tail int64) {
 		if wl.ctx.Err() != nil {
 			return
 		}
+		if wl.started[t.key] { // another start took it since the scan (previous instances)
+			continue
+		}
 		if wl.active >= workloadLogStreams {
 			if !wl.capped {
 				wl.capped = true
@@ -250,6 +255,12 @@ func (wl *workloadLogs) stream(t logTarget, tail int64) {
 		wl.mu.Lock()
 		wl.active--
 		wl.mu.Unlock()
+		if wl.opts.Previous {
+			// No rescan runs for previous instances: start the ones left out here, before this
+			// stream's Done, so that the merged stream does not end in between.
+			wl.start(wl.scan(), wl.tail)
+			return
+		}
 		signal(wl.wake) // a container left out may start now
 	}()
 	defer wl.s.recoverTo("workload logs")

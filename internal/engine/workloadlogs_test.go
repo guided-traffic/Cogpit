@@ -432,6 +432,54 @@ func TestWorkloadLogsBoundsStreams(t *testing.T) {
 	}
 }
 
+// TestWorkloadLogsPreviousBeyondTheBound: the previous instances of more containers than stream at
+// once all show: the ones left out start as the first end, as the notice says, and the stream ends
+// after the last.
+func TestWorkloadLogsPreviousBeyondTheBound(t *testing.T) {
+	s, src := logsSession(t)
+	f := newFakeLogs()
+	f.content["db-0/db#previous"] = "old\n"
+	n := workloadLogStreams + 5
+	for i := range n {
+		name := fmt.Sprintf("db-%02d", i+1)
+		src.Set(testkit.PodsGVR, owned(logPod("shop", name, "db:running#1"), "apps/v1", "StatefulSet", "db", "uid-shop-db"))
+		f.content[name+"/db#previous"] = "old\n"
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	testkit.WaitFor(ctx, func() bool {
+		_, err := s.Lookup(model.ObjectRef{Kind: "pods", Namespace: "shop", Name: fmt.Sprintf("db-%02d", n)})
+		return err == nil
+	})
+	tab, _, err := s.OpenWorkloadLogsTab(context.Background(), model.ObjectRef{Kind: "statefulsets", Namespace: "shop", Name: "db"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SetLogOptions(tab.ID, func(o *LogOptions) { o.Previous = true }); err != nil {
+		t.Fatal(err)
+	}
+	lr := readLines(openTabLogs(t, s, tab.ID, f))
+	select {
+	case <-lr.done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the previous instances' stream did not end")
+	}
+	seen := map[string]int{}
+	for _, l := range lr.all() {
+		if prefix, ok := strings.CutSuffix(l, " old"); ok {
+			seen[prefix]++
+		}
+	}
+	if len(seen) != n+1 { // db-0 of logsSession has a previous instance too
+		t.Errorf("%d containers' previous logs, want %d", len(seen), n+1)
+	}
+	for prefix, c := range seen {
+		if c != 1 {
+			t.Errorf("%s's previous log shows %d times", prefix, c)
+		}
+	}
+}
+
 // TestPodLogOptions: a pod's tab asks for its container's log with the tab's options.
 func TestPodLogOptions(t *testing.T) {
 	ref := model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-0"}
