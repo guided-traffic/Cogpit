@@ -333,15 +333,22 @@ func runRawWidget(t *testing.T, input string) (panicked any, cwdAfter string) {
 	}
 }
 
-// The inputs that motivate escFilter: the bare widget acts on them, the filtered one does not.
+// Inputs that crashed or froze fyne-io/terminal at 91063bb29d69. Cogpit builds against a patched
+// copy (third_party/fyne-terminal, see its PATCHES.md) that survives most of them; escFilter
+// neutralises the rest. panics says whether the patched widget alone still panics or hangs.
 var widgetHazards = []struct {
 	name, input string
 	panics      bool
 }{
 	{"CSI with non-ASCII final", "\x1b[é", true},
 	{"set mode without ?", "\x1b[h", true},
-	{"delete characters past the row's end", "\x1b[1;10H\x1b[P", true},
-	{"reverse index before rows exist", "\x1bM", true},
+	{"delete characters past the row's end", "\x1b[1;10H\x1b[P", false},
+	{"reverse index before rows exist", "\x1bM", false},
+	{"delete characters at the pending-wrap column after erase line", "\x1b[9999Gx\x1b[2K\x1b[P", false},
+	{"tab at the right margin", "\x1b[999Gx\t", false},
+	{"tab after a full line", strings.Repeat("x", 50) + "\t", false},
+	{"insert characters on a fresh screen", "\x1b[5;1H\x1b[@", false},
+	{"scroll region with bottom 0, then index", "a\r\n\x1b[1;0r\x1bD", false},
 }
 
 func TestRawWidgetHazards(t *testing.T) {
@@ -355,7 +362,7 @@ func TestRawWidgetHazards(t *testing.T) {
 	}
 }
 
-func TestRawWidgetChangesProcessDirectoryOnOSC7(t *testing.T) {
+func TestWidgetIgnoresOSC7ForTheProcessDirectory(t *testing.T) {
 	orig, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -366,10 +373,9 @@ func TestRawWidgetChangesProcessDirectoryOnOSC7(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, cwd := runRawWidget(t, "\x1b]7;file://"+target+"\x07")
-	if cwd != target {
-		t.Skipf("bare widget no longer follows OSC 7 (cwd %s); the filter still drops it", cwd)
+	if cwd == target {
+		t.Errorf("the widget moved Cogpit's process to %s on OSC 7; the patched copy must not", cwd)
 	}
-	t.Logf("bare widget: OSC 7 moved Cogpit's process to %s", cwd)
 }
 
 func TestTerminalFilterNeutralisesHazards(t *testing.T) {

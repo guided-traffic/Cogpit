@@ -5,6 +5,7 @@ material ([conventions](docs/developer/conventions.md#clean-room)).
 
 | Path | Title | Author | Source | Licence |
 |---|---|---|---|---|
+| `third_party/fyne-terminal/` | fyne-io/terminal at commit `91063bb29d69`, with Cogpit's patches listed in its `PATCHES.md` | Fyne.io developers | https://github.com/fyne-io/terminal | BSD-3-Clause (`third_party/fyne-terminal/LICENSE`) |
 | `AGENTS.md`, `ROADMAP.md`, `docs/developer/*`, `docs/parity/*`, `docs/security/*` | Structure, method and some rule text adapted from PhotoCraft's documentation (`AGENTS.md`, `ROADMAP.md`, `docs/`) at commit `67e3d9be9f2a` | ArtCraft Team and the PhotoCraft contributors | https://github.com/storytold/photocraft | MIT (PhotoCraft is MIT OR Apache-2.0; used under MIT, notice below) |
 
 Facts about Lens Desktop in `docs/parity/` are descriptions of its behaviour with links to its
