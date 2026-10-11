@@ -4,6 +4,7 @@ import (
 	"flag"
 	"slices"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -144,7 +145,7 @@ func TestRedact(t *testing.T) {
 	}
 }
 
-func TestMetadataSection(t *testing.T) {
+func TestPropertiesSection(t *testing.T) {
 	obj := &unstructured.Unstructured{Object: map[string]any{
 		"metadata": map[string]any{
 			"name":              "web-0",
@@ -156,40 +157,106 @@ func TestMetadataSection(t *testing.T) {
 				"kubectl.kubernetes.io/last-applied-configuration": "{}",
 				"note": "x",
 			},
-			"ownerReferences": []any{map[string]any{"kind": "ReplicaSet", "name": "web-1a2b"}},
+			"ownerReferences": []any{
+				map[string]any{"apiVersion": "apps/v1", "kind": "ReplicaSet", "name": "web-1a2b"},
+				map[string]any{"apiVersion": "example.com/v1", "kind": "Widget", "name": "w"},
+			},
 		},
 	}}
-	s := MetadataSection(obj, now)
-	got := map[string]string{}
+	s := PropertiesSection(obj, now)
+	if s.Title != TitleProperties {
+		t.Fatalf("title %q", s.Title)
+	}
 	var order []string
+	byName := map[string]DetailItem{}
 	for _, it := range s.Items {
-		got[it.Name] = it.Value
 		order = append(order, it.Name)
-	}
-	want := map[string]string{
-		"Created":       "10d ago (2026-10-01T12:00:00Z)",
-		"Name":          "web-0",
-		"Namespace":     "shop",
-		"Labels":        "a=1\nb=2",
-		"Annotations":   "note=x",
-		"Controlled By": "ReplicaSet web-1a2b",
-		"UID":           "uid-1",
-	}
-	if s.Title != "Metadata" || len(got) != len(want) {
-		t.Fatalf("section = %+v", s)
-	}
-	for k, v := range want {
-		if got[k] != v {
-			t.Errorf("%s = %q, want %q", k, got[k], v)
+		if _, dup := byName[it.Name]; !dup {
+			byName[it.Name] = it
 		}
 	}
-	if order[0] != "Created" || order[len(order)-1] != "UID" {
-		t.Errorf("order = %v", order)
+	// Lens shows no UID; Controlled By once per owner (capture, 2026-10-11).
+	want := []string{"Created", "Name", "Namespace", "Labels", "Annotations", "Controlled By", "Controlled By"}
+	if strings.Join(order, ",") != strings.Join(want, ",") {
+		t.Fatalf("order = %v, want %v", order, want)
+	}
+	if it := byName["Created"]; it.Value != "10d ago (2026-10-01T12:00:00Z)" {
+		t.Errorf("created = %q", it.Value)
+	}
+	if it := byName["Namespace"]; it.Value != "shop" || it.Link == nil || *it.Link != (ObjectRef{Kind: "namespaces", Name: "shop"}) {
+		t.Errorf("namespace = %+v", it)
+	}
+	if it := byName["Labels"]; it.Value != "a=1\nb=2" || it.Fold != "Labels" || len(it.Chips) != 2 || it.Chips[0].Text != "a=1" || it.Entries() != 2 {
+		t.Errorf("labels = %+v", it)
+	}
+	if it := byName["Annotations"]; it.Value != "note=x" || it.Fold != "Annotations" || it.Entries() != 1 {
+		t.Errorf("annotations = %+v", it)
+	}
+	owner := s.Items[5]
+	if owner.Value != "ReplicaSet web-1a2b" || owner.Link == nil || *owner.Link != (ObjectRef{Kind: "replicasets", Namespace: "shop", Name: "web-1a2b"}) {
+		t.Errorf("controlled by = %+v", owner)
+	}
+	if custom := s.Items[6]; custom.Value != "Widget w" || custom.Link != nil {
+		t.Errorf("a custom owner kind must stay unlinked: %+v", custom)
 	}
 
-	bare := MetadataSection(&unstructured.Unstructured{Object: map[string]any{"metadata": map[string]any{"name": "n"}}}, now)
+	bare := PropertiesSection(&unstructured.Unstructured{Object: map[string]any{"metadata": map[string]any{"name": "n"}}}, now)
 	if len(bare.Items) != 1 || bare.Items[0].Name != "Name" {
-		t.Errorf("bare metadata = %+v", bare.Items)
+		t.Errorf("bare properties = %+v", bare.Items)
+	}
+}
+
+func TestMergeProperties(t *testing.T) {
+	props := DetailSection{Title: TitleProperties, Items: []DetailItem{{Name: "Name", Value: "n"}}}
+	kind := []DetailSection{
+		{Title: TitleProperties, Items: []DetailItem{{Name: "Status", Value: "Running"}}},
+		{Title: "Pod Volumes"},
+	}
+	got := MergeProperties(props, kind)
+	if len(got) != 2 || got[0].Title != TitleProperties || len(got[0].Items) != 2 || got[0].Items[1].Name != "Status" || got[1].Title != "Pod Volumes" {
+		t.Errorf("merged = %+v", got)
+	}
+	got = MergeProperties(props, []DetailSection{{Title: "Status"}})
+	if len(got) != 2 || len(got[0].Items) != 1 || got[1].Title != "Status" {
+		t.Errorf("no kind properties = %+v", got)
+	}
+}
+
+func TestPartsCell(t *testing.T) {
+	c := PartsCell(StatusOK, CellPart{Text: "SchedulingDisabled"}, CellPart{}, CellPart{Text: "Ready", Status: StatusOK})
+	if c.Text != "SchedulingDisabled Ready" || c.Status != StatusOK || c.Parts == nil || len(*c.Parts) != 2 {
+		t.Fatalf("cell = %+v", c)
+	}
+	if one := PartsCell(StatusError, CellPart{Text: "NotReady", Status: StatusError}); one.Parts != nil || one.Text != "NotReady" || one.Status != StatusError {
+		t.Errorf("one part = %+v", one)
+	}
+	if none := PartsCell(StatusUnknown); none != (Cell{Status: StatusUnknown}) {
+		t.Errorf("no parts = %+v", none)
+	}
+}
+
+func TestBuiltinKindKey(t *testing.T) {
+	for _, tt := range []struct {
+		apiVersion, kind, key string
+		namespaced, ok        bool
+	}{
+		{"apps/v1", "ReplicaSet", "replicasets", true, true},
+		{"batch/v1", "Job", "jobs", true, true},
+		{"v1", "Node", "nodes", false, true},
+		{"", "DaemonSet", "daemonsets", true, true},
+		{"apps/v1", "Node", "", false, false},
+		{"cert-manager.io/v1", "Certificate", "", false, false},
+	} {
+		key, namespaced, ok := BuiltinKindKey(tt.apiVersion, tt.kind)
+		if key != tt.key || namespaced != tt.namespaced || ok != tt.ok {
+			t.Errorf("BuiltinKindKey(%q, %q) = %q %v %v", tt.apiVersion, tt.kind, key, namespaced, ok)
+		}
+	}
+	if r := RefTo("v1", "Node", "ignored", "worker-1"); r == nil || *r != (ObjectRef{Kind: "nodes", Name: "worker-1"}) {
+		t.Errorf("RefTo node = %+v", r)
+	}
+	if r := RefTo("apps/v1", "ReplicaSet", "shop", ""); r != nil {
+		t.Errorf("RefTo without a name = %+v", r)
 	}
 }
 

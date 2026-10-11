@@ -212,9 +212,9 @@ func TestDeleteGoesThroughConfirmation(t *testing.T) {
 	f.ui.Selected, f.ui.Drawer = []model.ObjectRef{ref}, &ref
 	sh, _, q := newTestShell(t, f, Options{})
 	q.until(t, "the toolbar", func() bool { return len(sh.drawer.actions.Objects) == 3 })
-	del := sh.drawer.actions.Objects[2].(*widget.Button)
-	if del.Text != "Delete" || del.Disabled() {
-		t.Fatalf("third action %q disabled=%v", del.Text, del.Disabled())
+	del := sh.drawer.actions.Objects[2].(*tipButton) // Shell 200, Logs 500, Delete 1000
+	if del.tip != "Delete" || del.Disabled() {
+		t.Fatalf("third action %q disabled=%v", del.tip, del.Disabled())
 	}
 	test.Tap(del)
 	q.until(t, "the confirmation", func() bool { return sh.confirmer.current != nil })
@@ -235,16 +235,20 @@ func TestDrawerActionsDisabledWithReason(t *testing.T) {
 	f.ui.Selected, f.ui.Drawer = []model.ObjectRef{ref}, &ref
 	sh, _, q := newTestShell(t, f, Options{})
 	q.until(t, "the toolbar", func() bool { return len(sh.drawer.actions.Objects) == 3 })
+	// The icons' tooltips name the action and, for a disabled one, why.
+	var tips []string
 	states := map[string]bool{}
 	for _, o := range sh.drawer.actions.Objects {
-		b := o.(*widget.Button)
-		states[b.Text] = b.Disabled()
+		b := o.(*tipButton)
+		tips = append(tips, b.tip)
+		states[b.tip] = b.Disabled()
 	}
-	if states["Logs"] || !states["Shell"] || !states["Delete"] {
+	want := []string{"Shell: not available on the demo cluster", "Logs", "Delete: not available on the demo cluster"}
+	if strings.Join(tips, "|") != strings.Join(want, "|") {
+		t.Fatalf("tooltips %q, want %q", tips, want)
+	}
+	if states["Logs"] || !states[want[0]] || !states[want[2]] {
 		t.Fatalf("disabled states %v, want Shell and Delete disabled", states)
-	}
-	if got := sh.drawer.reasons.text; got != "Shell, Delete: not available on the demo cluster" {
-		t.Fatalf("reason line %q", got)
 	}
 }
 
@@ -350,8 +354,8 @@ func TestHiddenColumnsAreSkipped(t *testing.T) {
 	sh, w, q := newTestShell(t, f, Options{})
 	q.until(t, "kinds", func() bool { return len(sh.kinds) > 0 })
 	settle(w)
-	if rows, cols := sh.view.length(); rows != 1 || cols != 3 {
-		t.Fatalf("table %d×%d, want 1×3 without the hidden name", rows, cols)
+	if rows, cols := sh.view.length(); rows != 1 || cols != 4 {
+		t.Fatalf("table %d×%d, want 1×4: three columns without the hidden name, and the ⋮", rows, cols)
 	}
 	texts := map[int]string{}
 	for _, c := range sh.view.cells {

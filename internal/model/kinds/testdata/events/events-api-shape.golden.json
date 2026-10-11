@@ -29,7 +29,12 @@
     },
     {
       "column": "involvedObject",
-      "text": "Deployment: search"
+      "text": "Deployment: search",
+      "link": {
+        "kind": "deployments",
+        "namespace": "shop",
+        "name": "search"
+      }
     },
     {
       "column": "source",
@@ -74,7 +79,7 @@
   },
   "detail": [
     {
-      "title": "Event",
+      "title": "Properties",
       "items": [
         {
           "name": "Type",
@@ -91,7 +96,12 @@
         },
         {
           "name": "Involved Object",
-          "value": "Deployment: search"
+          "value": "Deployment: search",
+          "link": {
+            "kind": "deployments",
+            "namespace": "shop",
+            "name": "search"
+          }
         },
         {
           "name": "Source",

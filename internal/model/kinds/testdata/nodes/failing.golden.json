@@ -11,6 +11,12 @@
       "text": "worker-a2"
     },
     {
+      "column": "warning",
+      "text": "NotReady, DiskPressure, MemoryPressure",
+      "num": 1,
+      "status": "warning"
+    },
+    {
       "column": "taints",
       "text": "3",
       "num": 3
@@ -31,7 +37,21 @@
     {
       "column": "conditions",
       "text": "NotReady DiskPressure MemoryPressure",
-      "status": "error"
+      "status": "error",
+      "parts": [
+        {
+          "text": "NotReady",
+          "status": "error"
+        },
+        {
+          "text": "DiskPressure",
+          "status": "warning"
+        },
+        {
+          "text": "MemoryPressure",
+          "status": "warning"
+        }
+      ]
     }
   ],
   "fields": {
@@ -65,83 +85,54 @@
   },
   "detail": [
     {
-      "title": "Addresses",
+      "title": "Properties",
       "items": [
         {
-          "name": "InternalIP",
-          "value": "192.0.2.12"
+          "name": "Addresses",
+          "value": "InternalIP: 192.0.2.12\nExternalIP: 198.51.100.12\nHostname: worker-a2"
         },
         {
-          "name": "ExternalIP",
-          "value": "198.51.100.12"
+          "name": "OS",
+          "value": "amd64"
         },
-        {
-          "name": "Hostname",
-          "value": "worker-a2"
-        }
-      ]
-    },
-    {
-      "title": "System Info",
-      "items": [
         {
           "name": "OS Image",
           "value": "Example Linux 12"
         },
         {
-          "name": "Kernel Version",
+          "name": "Kernel version",
           "value": "6.12.0-example"
         },
         {
-          "name": "Container Runtime",
+          "name": "Container runtime",
           "value": "containerd://2.1.4"
         },
         {
-          "name": "Kubelet Version",
+          "name": "Kubelet version",
           "value": "v1.36.4"
         },
         {
-          "name": "Architecture",
-          "value": "amd64"
-        }
-      ]
-    },
-    {
-      "title": "Taints",
-      "items": [
-        {
-          "value": "node.kubernetes.io/not-ready:NoSchedule"
+          "name": "Conditions",
+          "value": "MemoryPressure: True (KubeletHasInsufficientMemory): kubelet has insufficient memory available\nDiskPressure: True (KubeletHasDiskPressure): kubelet has disk pressure\nPIDPressure: False (KubeletHasSufficientPID)\nReady: False (KubeletNotReady): container runtime network not ready: NetworkReady=false",
+          "chips": [
+            {
+              "text": "NotReady",
+              "status": "error"
+            },
+            {
+              "text": "DiskPressure",
+              "status": "warning"
+            },
+            {
+              "text": "MemoryPressure",
+              "status": "warning"
+            }
+          ]
         },
         {
-          "value": "node.kubernetes.io/memory-pressure:NoSchedule"
-        },
-        {
-          "value": "dedicated=payments:NoExecute"
-        }
-      ]
-    },
-    {
-      "title": "Conditions",
-      "items": [
-        {
-          "name": "MemoryPressure",
-          "value": "True (KubeletHasInsufficientMemory): kubelet has insufficient memory available",
-          "status": "warning"
-        },
-        {
-          "name": "DiskPressure",
-          "value": "True (KubeletHasDiskPressure): kubelet has disk pressure",
-          "status": "warning"
-        },
-        {
-          "name": "PIDPressure",
-          "value": "False (KubeletHasSufficientPID)",
-          "status": "ok"
-        },
-        {
-          "name": "Ready",
-          "value": "False (KubeletNotReady): container runtime network not ready: NetworkReady=false",
-          "status": "error"
+          "name": "Taints",
+          "value": "node.kubernetes.io/not-ready:NoSchedule\nnode.kubernetes.io/memory-pressure:NoSchedule\ndedicated=payments:NoExecute",
+          "fold": "Taints"
         }
       ]
     }

@@ -29,7 +29,12 @@
     },
     {
       "column": "involvedObject",
-      "text": "Pod: web-7d9c6b5f8-c8d9e"
+      "text": "Pod: web-7d9c6b5f8-c8d9e",
+      "link": {
+        "kind": "pods",
+        "namespace": "shop",
+        "name": "web-7d9c6b5f8-c8d9e"
+      }
     },
     {
       "column": "source",
@@ -75,7 +80,7 @@
   },
   "detail": [
     {
-      "title": "Event",
+      "title": "Properties",
       "items": [
         {
           "name": "Type",
@@ -92,7 +97,12 @@
         },
         {
           "name": "Involved Object",
-          "value": "Pod: web-7d9c6b5f8-c8d9e"
+          "value": "Pod: web-7d9c6b5f8-c8d9e",
+          "link": {
+            "kind": "pods",
+            "namespace": "shop",
+            "name": "web-7d9c6b5f8-c8d9e"
+          }
         },
         {
           "name": "Source",

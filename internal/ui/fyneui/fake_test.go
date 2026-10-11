@@ -67,13 +67,13 @@ func newFakeEngine(t testing.TB) *fakeEngine {
 			t.Fatal(err)
 		}
 	}
-	must(engine.Register(f.reg, engine.Spec[containerParams]{ID: "pod.logs", Label: "Logs", Danger: engine.DangerRead, Enabled: enabled("pod.logs"), Run: run}))
-	must(engine.Register(f.reg, engine.Spec[containerParams]{ID: "pod.shell", Label: "Shell", Danger: engine.DangerRead, Enabled: enabled("pod.shell"), Run: run}))
+	must(engine.Register(f.reg, engine.Spec[containerParams]{ID: "pod.logs", Label: "Logs", Kinds: []string{"pods"}, Order: 500, Danger: engine.DangerRead, Enabled: enabled("pod.logs"), Run: run}))
+	must(engine.Register(f.reg, engine.Spec[containerParams]{ID: "pod.shell", Label: "Shell", Kinds: []string{"pods"}, Order: 200, Danger: engine.DangerRead, Enabled: enabled("pod.shell"), Run: run}))
 	targets := func(_ *engine.Session, p refParams) ([]model.ObjectRef, error) { return []model.ObjectRef{p.Ref}, nil }
 	runRef := func(context.Context, *engine.Session, refParams) (any, error) { return nil, nil }
-	must(engine.Register(f.reg, engine.Spec[refParams]{ID: "object.delete", Label: "Delete", Danger: engine.DangerDestructive,
+	must(engine.Register(f.reg, engine.Spec[refParams]{ID: "object.delete", Label: "Delete", Order: engine.OrderDelete, Danger: engine.DangerDestructive,
 		Enabled: func(*engine.Session, refParams) error { return f.reason("object.delete") }, Targets: targets, Run: runRef}))
-	must(engine.Register(f.reg, engine.Spec[refParams]{ID: "deployment.restart", Label: "Restart", Danger: engine.DangerMutating,
+	must(engine.Register(f.reg, engine.Spec[refParams]{ID: "deployment.restart", Label: "Restart", Kinds: []string{"deployments"}, Order: 200, Danger: engine.DangerMutating,
 		Enabled: func(*engine.Session, refParams) error { return f.reason("deployment.restart") }, Targets: targets, Run: runRef}))
 	must(engine.Register(f.reg, engine.Spec[struct{}]{ID: "terminal.open", Label: "Terminal", Danger: engine.DangerUI,
 		Enabled: func(*engine.Session, struct{}) error { return f.reason("terminal.open") },
@@ -249,6 +249,9 @@ func (f *fakeEngine) Dispatch(ctx context.Context, inv engine.Invocation) (any, 
 		if err := params(&p); err != nil {
 			return nil, err
 		}
+		if f.unknownKind(p.Ref.Kind) {
+			return nil, fmt.Errorf("%w: %s", engine.ErrUnknownKind, p.Ref.Kind)
+		}
 		f.update(func(u *engine.UIState) { r := p.Ref; u.View, u.Selected, u.Drawer = r.Kind, []model.ObjectRef{r}, &r })
 	case "ui.sort":
 		var p sortParams
@@ -369,9 +372,27 @@ func (f *fakeEngine) Dispatch(ctx context.Context, inv engine.Invocation) (any, 
 		if h != nil {
 			return h(ctx, inv)
 		}
-		return nil, fmt.Errorf("%w: %q", engine.ErrUnknownCommand, inv.ID)
+		// Commands a test registered itself (row-menu probes) succeed; anything else is unknown.
+		if _, ok := f.reg.Get(inv.ID); !ok {
+			return nil, fmt.Errorf("%w: %q", engine.ErrUnknownCommand, inv.ID)
+		}
 	}
 	return nil, nil
+}
+
+// unknownKind reports a kind the fake cluster does not serve, as the engine refuses it.
+func (f *fakeEngine) unknownKind(kind string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.kinds) == 0 {
+		return false
+	}
+	for _, k := range f.kinds {
+		if k.Kind == kind {
+			return false
+		}
+	}
+	return true
 }
 
 func normalize(raw json.RawMessage) json.RawMessage {
@@ -573,29 +594,34 @@ func fixturePodDetail(row model.Row) *engine.DetailModel {
 	return &engine.DetailModel{
 		Ref: ref, Title: "Pod: " + ref.Name, Status: model.StatusOK,
 		Containers: []string{"api", "envoy"},
+		// The drawer model's shape (engine.DetailModel): Properties first, no UID, folded lists,
+		// links; the containers under their group.
 		Sections: []model.DetailSection{
-			{Title: "Metadata", Items: []model.DetailItem{
+			{Title: model.TitleProperties, Items: []model.DetailItem{
 				{Name: "Created", Value: model.FormatAge(fixedNow.Sub(created)) + " ago (" + created.Format(time.RFC3339) + ")"},
 				{Name: "Name", Value: ref.Name},
-				{Name: "Namespace", Value: ref.Namespace},
-				{Name: "Labels", Value: "app=checkout-api\npod-template-hash=" + strings.TrimPrefix(app, "checkout-api-") + "\ntier=backend"},
-				{Name: "Annotations", Value: "prometheus.io/port=9102\nprometheus.io/scrape=true"},
+				{Name: "Namespace", Value: ref.Namespace, Link: &model.ObjectRef{Kind: "namespaces", Name: ref.Namespace}},
+				{Name: "Labels", Fold: "Labels",
+					Value: "app=checkout-api\npod-template-hash=" + strings.TrimPrefix(app, "checkout-api-") + "\ntier=backend",
+					Chips: []model.Chip{{Text: "app=checkout-api"}, {Text: "pod-template-hash=" + strings.TrimPrefix(app, "checkout-api-")}, {Text: "tier=backend"}}},
+				{Name: "Annotations", Value: "prometheus.io/port=9102\nprometheus.io/scrape=true", Fold: "Annotations"},
 				{Name: "Controlled By", Value: row.Cells[4].Text},
-				{Name: "UID", Value: "4f1c2a7e-93d8-4b6e-a0c5-1d2e3f4a5b6c"},
-			}},
-			{Title: "Pod", Items: []model.DetailItem{
 				{Name: "Status", Value: "Running", Status: model.StatusOK},
-				{Name: "Node", Value: row.Cells[5].Text},
+				{Name: "Node", Value: row.Cells[5].Text, Link: &model.ObjectRef{Kind: "nodes", Name: row.Cells[5].Text}},
 				{Name: "Pod IP", Value: "10.244.7.31"},
-				{Name: "Service Account", Value: "checkout-api"},
+				{Name: "Service Account", Value: "checkout-api", Link: &model.ObjectRef{Kind: "serviceaccounts", Namespace: ref.Namespace, Name: "checkout-api"}},
 				{Name: "QoS Class", Value: row.Cells[6].Text},
-				{Name: "Conditions", Value: "Initialized · Ready · ContainersReady · PodScheduled"},
+				{Name: "Conditions", Value: "Initialized\nReady\nContainersReady\nPodScheduled", Chips: []model.Chip{
+					{Text: "Initialized", Status: model.StatusOK}, {Text: "Ready", Status: model.StatusOK},
+					{Text: "ContainersReady", Status: model.StatusOK}, {Text: "PodScheduled", Status: model.StatusOK}}},
 			}},
-			{Title: "Containers", Items: []model.DetailItem{
-				{Name: "api", Value: "Running", Status: model.StatusOK},
+			{Title: "api", Group: "Containers", Items: []model.DetailItem{
+				{Name: "Status", Value: "Running, ready", Status: model.StatusOK},
 				{Name: "Image", Value: "ghcr.io/example/checkout-api:2.14.1"},
-				{Name: "Ports", Value: "http 8080/TCP · metrics 9102/TCP"},
-				{Name: "envoy", Value: "Running", Status: model.StatusOK},
+				{Name: "Ports", Value: "http: 8080/TCP\nmetrics: 9102/TCP"},
+			}},
+			{Title: "envoy", Group: "Containers", Items: []model.DetailItem{
+				{Name: "Status", Value: "Running, ready", Status: model.StatusOK},
 				{Name: "Image", Value: "envoyproxy/envoy:v1.31.2"},
 			}},
 		},

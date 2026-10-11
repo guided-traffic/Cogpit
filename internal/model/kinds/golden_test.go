@@ -76,6 +76,7 @@ type goldenCell struct {
 	Num    int64            `json:"num,omitempty"`
 	Status model.Status     `json:"status,omitempty"`
 	Link   *model.ObjectRef `json:"link,omitempty"`
+	Parts  []model.CellPart `json:"parts,omitempty"`
 }
 
 type golden struct {
@@ -109,6 +110,7 @@ func render(t *testing.T, p *model.KindProfile, obj *unstructured.Unstructured) 
 			Num:    c.Num,
 			Status: c.Status,
 			Link:   c.Link,
+			Parts:  partsOf(c),
 		})
 	}
 	for name, f := range p.Fields {
@@ -128,12 +130,20 @@ func render(t *testing.T, p *model.KindProfile, obj *unstructured.Unstructured) 
 	return g
 }
 
-// sameCell compares cells by value, links included.
+// sameCell compares cells by value, links and parts included.
 func sameCell(a, b model.Cell) bool {
 	if a.Text != b.Text || a.Num != b.Num || a.Status != b.Status || (a.Link == nil) != (b.Link == nil) {
 		return false
 	}
-	return a.Link == nil || *a.Link == *b.Link
+	return (a.Link == nil || *a.Link == *b.Link) && slices.Equal(partsOf(a), partsOf(b))
+}
+
+// partsOf returns a cell's coloured parts, nil when it has none.
+func partsOf(c model.Cell) []model.CellPart {
+	if c.Parts == nil {
+		return nil
+	}
+	return *c.Parts
 }
 
 func nonNil(s []string) []string {
@@ -336,8 +346,10 @@ func TestStatusTexts(t *testing.T) {
 
 		{"nodes", "healthy", "conditions", "Ready", model.StatusOK, model.StatusOK},
 		{"nodes", "failing", "conditions", "NotReady DiskPressure MemoryPressure", model.StatusError, model.StatusError},
-		{"nodes", "cordoned", "conditions", "Ready SchedulingDisabled", model.StatusWarning, model.StatusWarning},
-		{"nodes", "cordoned", "roles", "worker", model.StatusNone, model.StatusWarning},
+		// A cordoned Ready node reads "SchedulingDisabled Ready" and is not a warning (capture,
+		// 2026-10-11); before, Cogpit showed "Ready SchedulingDisabled" in the warning colour.
+		{"nodes", "cordoned", "conditions", "SchedulingDisabled Ready", model.StatusOK, model.StatusOK},
+		{"nodes", "cordoned", "roles", "worker", model.StatusNone, model.StatusOK},
 		{"nodes", "unknown", "conditions", "Unknown", model.StatusUnknown, model.StatusUnknown},
 		{"nodes", "minimal", "roles", "<none>", model.StatusNone, model.StatusUnknown},
 		{"nodes", "failing", "taints", "3", model.StatusNone, model.StatusError},

@@ -12,6 +12,12 @@
       "text": "cache-5d6f7a8b9-ev1ct"
     },
     {
+      "column": "warning",
+      "text": "Evicted",
+      "num": 1,
+      "status": "warning"
+    },
+    {
       "column": "namespace",
       "text": "shop",
       "link": {
@@ -29,11 +35,20 @@
     },
     {
       "column": "controlledBy",
-      "text": "ReplicaSet"
+      "text": "ReplicaSet",
+      "link": {
+        "kind": "replicasets",
+        "namespace": "shop",
+        "name": "cache-5d6f7a8b9"
+      }
     },
     {
       "column": "node",
-      "text": "worker-a2"
+      "text": "worker-a2",
+      "link": {
+        "kind": "nodes",
+        "name": "worker-a2"
+      }
     },
     {
       "column": "qos",
@@ -81,7 +96,7 @@
   },
   "detail": [
     {
-      "title": "Status",
+      "title": "Properties",
       "items": [
         {
           "name": "Status",
@@ -90,7 +105,11 @@
         },
         {
           "name": "Node",
-          "value": "worker-a2"
+          "value": "worker-a2",
+          "link": {
+            "kind": "nodes",
+            "name": "worker-a2"
+          }
         },
         {
           "name": "QoS Class",
@@ -99,24 +118,17 @@
       ]
     },
     {
-      "title": "Container cache",
+      "title": "cache",
+      "group": "Containers",
       "items": [
         {
-          "name": "Image",
-          "value": "registry.example.com/shop/cache:7.2"
-        },
-        {
-          "name": "State",
+          "name": "Status",
           "value": "Terminated: ContainerStatusUnknown (exit code 137)",
           "status": "error"
         },
         {
-          "name": "Ready",
-          "value": "False"
-        },
-        {
-          "name": "Restarts",
-          "value": "0"
+          "name": "Image",
+          "value": "registry.example.com/shop/cache:7.2"
         }
       ]
     }

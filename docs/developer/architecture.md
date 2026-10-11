@@ -20,7 +20,7 @@ section wins.
 | [`internal/demo`](../../internal/demo/) (L2, new) | Built: the synthetic cluster for `--demo` behind a `cache.Source`: 10,000 pods, 300 services, 1,000 watch events per second, watch resume and 410 Gone | A package the plan did not list |
 | [`internal/engine`](../../internal/engine/), [`engine/commands`](../../internal/engine/commands/) | Built: Session, registry with JSON schemas, D-2 confirmation per origin, audit log, UI state, coalesced snapshots (≤ 10 per second per view), drawer, streams, 21 commands | No jobs or cancellation UI, no access reviews; a write command refuses to run if the user switched clusters while its confirmation was open |
 | [`internal/mcp`](../../internal/mcp/) | Built: every command as a tool, Streamable HTTP on loopback, bearer token, Host and Origin checks | Stateless HTTP (one session per request); the token lives in `<user config dir>/Cogpit/mcp-token` and changes with the port on every start; no stdio bridge |
-| [`internal/ui/fyneui`](../../internal/ui/fyneui/) and its [`yamlview`](../../internal/ui/fyneui/yamlview/) and [`termview`](../../internal/ui/fyneui/termview/) | Built: shell after Lens's layout, theme with status tokens, context picker, confirmation dialog, read-only YAML view, terminal and log widgets, a jank meter (`--perf`) | The YAML view is editable in Edit and Create resource tabs, whose text lives in the engine (`editor.get`, `editor.setText`); edits are applied as updates (PUT), not patches; the terminal widget is a patched copy of fyne-io/terminal ([`third_party/fyne-terminal`](../../third_party/fyne-terminal/PATCHES.md)) behind an escape filter, because the pinned upstream froze or crashed on container output |
+| [`internal/ui/fyneui`](../../internal/ui/fyneui/) and its [`yamlview`](../../internal/ui/fyneui/yamlview/) and [`termview`](../../internal/ui/fyneui/termview/) | Built: shell after Lens's layout, theme with status tokens, context picker, confirmation dialog, read-only YAML view, terminal and log widgets, a jank meter (`--perf`); row menus (⋮ and right-click) and the drawer's toolbar from the registry, schema-generated parameter dialogs, links and coloured parts in cells, Cogpit's own tooltips (Fyne 2.8 has none) | The YAML view is editable in Edit and Create resource tabs, whose text lives in the engine (`editor.get`, `editor.setText`); edits are applied as updates (PUT), not patches; the terminal widget is a patched copy of fyne-io/terminal ([`third_party/fyne-terminal`](../../third_party/fyne-terminal/PATCHES.md)) behind an escape filter, because the pinned upstream froze or crashed on container output |
 | [`cmd/cogpit`](../../cmd/cogpit/) | Built: wires the packages; flags `--kubeconfig`, `--context`, `--demo`, `--mcp-addr`, `--no-mcp`, `--perf`, `--theme` | client-go goroutine panics are logged instead of ending the app |
 | `cmd/cogpit-cli`, `internal/helm`, `internal/metrics`, `internal/agent`, `internal/update` | Not built (`cogpit-cli` is a stub) | – |
 
@@ -213,6 +213,18 @@ Fields added on 2026-10-11 for row menus, the drawer's toolbar and dialogs
 - `Prefill`: parameters a schema-generated dialog starts with, read from the cache (the current
   replica count for Scale).
 
+How menus use them ([`menu.go`](../../internal/engine/menu.go), 2026-10-11): `Registry.Actions(kind)`
+is a kind's row menu and drawer toolbar, the commands whose `Kinds` contain the kind or are empty,
+with an `Order`, sorted by `Order` then id. A command whose parameters have a `container` property
+opens a submenu of the pod's containers and init containers (`TakesContainer`); one whose schema
+requires more than `ref` and `container`, or that has a `Prefill` (then its optional fields too:
+Scale's replicas, Drain's options), opens a dialog generated from the schema of those fields
+(`DialogFields`: integer, number, string and boolean fields with their descriptions), started from
+`Prefill`. `ObjectParams(ref, container)` fills the other required fields with zero values and
+leaves the optional ones to `Prefill`, so that `Enabled`, `Applicable` and `Prefill` can be asked
+before the dialog has the real ones. The UI
+evaluates them off its main goroutine.
+
 Every command is also an MCP tool, generated from the registry (`ui.navigate` → `ui_navigate`).
 Nothing is exposed to agents that the registry does not describe.
 
@@ -240,7 +252,14 @@ by "this pod".
 - **Tables:** `TableSnapshot{Columns, Rows, Sort, Filter, Total, Revision}`; rows carry display
   text, sort keys and a status token that the toolkit maps to a theme colour.
 - **Details:** section models: metadata, labels and annotations, conditions, related objects,
-  events, containers, a metrics slot.
+  events, containers, a metrics slot. As built (2026-10-11, [`detail.go`](../../internal/engine/detail.go),
+  [`model/detail.go`](../../internal/model/detail.go)), in Lens's order: the metrics slot (not built,
+  M7), one Properties section (the object's metadata without the UID, then the kind's own
+  properties: a profile's first section titled "Properties" merges into it), the kind's other
+  sections (a section may carry a `group` heading, "Containers", or a `table`, a node's
+  Capacity), then the events. An item's `value` is always its plain text; `link` names the object
+  it shows, `chips` are a list's entries, and `fold` folds a long list behind its count ("6
+  Labels"). `object_get` returns the same model.
 - **Editors, logs, terminals and chats** are engine sessions shown as dock tabs, so agents can open,
   read and close them too.
 - **Links and warnings in cells** (2026-10-11, [`row.go`](../../internal/model/row.go)): a cell
@@ -249,6 +268,8 @@ by "this pod".
   namespace filter (`ui.setNamespace`, owner 2026-10-11); other links navigate (`ui.navigate`).
   Lens's warning-icon column right after Name is a column of type `warning`: a cell with a status
   shows the icon in that status's colour with its text as the tooltip; an empty cell shows nothing.
+  A cell with `parts` is drawn in coloured runs ("SchedulingDisabled" plain, "Ready" green on a
+  cordoned node); its text stays the runs joined by spaces, for sorting and search.
 
 ### 4.5 Kind keys
 
@@ -470,6 +491,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Row menus from the registry (`Actions`, submenus, schema dialogs); the drawer model's Properties section, links, chips, folds and tables; cells in coloured parts |
 | 2026-10-11 | minor | Current state: editing and creating objects of every kind (G9) in cluster, engine and UI |
 | 2026-10-11 | minor | §5: the watch on custom resource definitions and how custom kinds' profiles are published and read |
 | 2026-10-11 | minor | Kind keys of custom resources (§4.5); links and the warning column in cells; the registry's Order, ErrNotApplicable, Escalate and Prefill |

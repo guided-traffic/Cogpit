@@ -12,6 +12,10 @@
       "text": "web-7d9c6b5f8-c8d9e"
     },
     {
+      "column": "warning",
+      "text": ""
+    },
+    {
       "column": "namespace",
       "text": "shop",
       "link": {
@@ -33,7 +37,11 @@
     },
     {
       "column": "node",
-      "text": "worker-a3"
+      "text": "worker-a3",
+      "link": {
+        "kind": "nodes",
+        "name": "worker-a3"
+      }
     },
     {
       "column": "qos",
@@ -81,7 +89,7 @@
   },
   "detail": [
     {
-      "title": "Status",
+      "title": "Properties",
       "items": [
         {
           "name": "Status",
@@ -90,11 +98,11 @@
         },
         {
           "name": "Node",
-          "value": "worker-a3"
-        },
-        {
-          "name": "Host IP",
-          "value": "192.0.2.13"
+          "value": "worker-a3",
+          "link": {
+            "kind": "nodes",
+            "name": "worker-a3"
+          }
         },
         {
           "name": "QoS Class",
@@ -103,24 +111,17 @@
       ]
     },
     {
-      "title": "Container web",
+      "title": "web",
+      "group": "Containers",
       "items": [
         {
-          "name": "Image",
-          "value": "registry.example.com/shop/web:1.4.2"
-        },
-        {
-          "name": "State",
+          "name": "Status",
           "value": "Waiting: ContainerCreating",
           "status": "pending"
         },
         {
-          "name": "Ready",
-          "value": "False"
-        },
-        {
-          "name": "Restarts",
-          "value": "0"
+          "name": "Image",
+          "value": "registry.example.com/shop/web:1.4.2"
         }
       ]
     }

@@ -4,11 +4,15 @@
     "kind": "nodes",
     "name": "worker-a1"
   },
-  "status": "warning",
+  "status": "ok",
   "cells": [
     {
       "column": "name",
       "text": "worker-a1"
+    },
+    {
+      "column": "warning",
+      "text": ""
     },
     {
       "column": "taints",
@@ -30,8 +34,17 @@
     },
     {
       "column": "conditions",
-      "text": "Ready SchedulingDisabled",
-      "status": "warning"
+      "text": "SchedulingDisabled Ready",
+      "status": "ok",
+      "parts": [
+        {
+          "text": "SchedulingDisabled"
+        },
+        {
+          "text": "Ready",
+          "status": "ok"
+        }
+      ]
     }
   ],
   "fields": {
@@ -59,42 +72,37 @@
   },
   "detail": [
     {
-      "title": "Addresses",
+      "title": "Properties",
       "items": [
         {
-          "name": "InternalIP",
-          "value": "192.0.2.11"
-        }
-      ]
-    },
-    {
-      "title": "System Info",
-      "items": [
+          "name": "Addresses",
+          "value": "InternalIP: 192.0.2.11"
+        },
         {
-          "name": "Kubelet Version",
+          "name": "OS",
+          "value": "amd64"
+        },
+        {
+          "name": "Kubelet version",
           "value": "v1.37.1"
         },
         {
-          "name": "Architecture",
-          "value": "amd64"
-        }
-      ]
-    },
-    {
-      "title": "Taints",
-      "items": [
+          "name": "Conditions",
+          "value": "Ready: True (KubeletReady)",
+          "chips": [
+            {
+              "text": "SchedulingDisabled"
+            },
+            {
+              "text": "Ready",
+              "status": "ok"
+            }
+          ]
+        },
         {
-          "value": "node.kubernetes.io/unschedulable:NoSchedule"
-        }
-      ]
-    },
-    {
-      "title": "Conditions",
-      "items": [
-        {
-          "name": "Ready",
-          "value": "True (KubeletReady)",
-          "status": "ok"
+          "name": "Taints",
+          "value": "node.kubernetes.io/unschedulable:NoSchedule",
+          "fold": "Taints"
         }
       ]
     }

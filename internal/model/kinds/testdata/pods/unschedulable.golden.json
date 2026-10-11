@@ -12,6 +12,12 @@
       "text": "trainer-0"
     },
     {
+      "column": "warning",
+      "text": "Unschedulable",
+      "num": 1,
+      "status": "warning"
+    },
+    {
       "column": "namespace",
       "text": "ml",
       "link": {
@@ -77,7 +83,7 @@
   },
   "detail": [
     {
-      "title": "Status",
+      "title": "Properties",
       "items": [
         {
           "name": "Status",
@@ -87,21 +93,22 @@
         {
           "name": "QoS Class",
           "value": "Guaranteed"
-        }
-      ]
-    },
-    {
-      "title": "Conditions",
-      "items": [
+        },
         {
-          "name": "PodScheduled",
-          "value": "False (Unschedulable): 0/3 nodes are available: 3 Insufficient nvidia.com/gpu.",
-          "status": "warning"
+          "name": "Conditions",
+          "value": "PodScheduled: False (Unschedulable): 0/3 nodes are available: 3 Insufficient nvidia.com/gpu.",
+          "chips": [
+            {
+              "text": "PodScheduled",
+              "status": "warning"
+            }
+          ]
         }
       ]
     },
     {
-      "title": "Container trainer",
+      "title": "trainer",
+      "group": "Containers",
       "items": [
         {
           "name": "Image",

@@ -12,6 +12,10 @@
       "text": "bare"
     },
     {
+      "column": "warning",
+      "text": ""
+    },
+    {
       "column": "namespace",
       "text": "default",
       "link": {
@@ -71,7 +75,7 @@
   },
   "detail": [
     {
-      "title": "Status",
+      "title": "Properties",
       "items": [
         {
           "name": "Status",

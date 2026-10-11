@@ -12,6 +12,10 @@
       "text": "orders-6c5b4a3d2-s1d3c"
     },
     {
+      "column": "warning",
+      "text": ""
+    },
+    {
       "column": "namespace",
       "text": "shop",
       "link": {
@@ -31,11 +35,20 @@
     },
     {
       "column": "controlledBy",
-      "text": "ReplicaSet"
+      "text": "ReplicaSet",
+      "link": {
+        "kind": "replicasets",
+        "namespace": "shop",
+        "name": "orders-6c5b4a3d2"
+      }
     },
     {
       "column": "node",
-      "text": "worker-a2"
+      "text": "worker-a2",
+      "link": {
+        "kind": "nodes",
+        "name": "worker-a2"
+      }
     },
     {
       "column": "qos",
@@ -86,7 +99,7 @@
   },
   "detail": [
     {
-      "title": "Status",
+      "title": "Properties",
       "items": [
         {
           "name": "Status",
@@ -95,36 +108,54 @@
         },
         {
           "name": "Node",
-          "value": "worker-a2"
+          "value": "worker-a2",
+          "link": {
+            "kind": "nodes",
+            "name": "worker-a2"
+          }
+        },
+        {
+          "name": "Pod IP",
+          "value": "10.244.2.12"
         },
         {
           "name": "Pod IPs",
-          "value": "10.244.2.12"
+          "value": "10.244.2.12",
+          "chips": [
+            {
+              "text": "10.244.2.12"
+            }
+          ]
         },
         {
           "name": "QoS Class",
           "value": "Burstable"
-        }
-      ]
-    },
-    {
-      "title": "Conditions",
-      "items": [
-        {
-          "name": "Initialized",
-          "value": "True",
-          "status": "ok"
         },
         {
-          "name": "Ready",
-          "value": "True",
-          "status": "ok"
+          "name": "Conditions",
+          "value": "Initialized: True\nReady: True",
+          "chips": [
+            {
+              "text": "Initialized",
+              "status": "ok"
+            },
+            {
+              "text": "Ready",
+              "status": "ok"
+            }
+          ]
         }
       ]
     },
     {
-      "title": "Init Container log-shipper",
+      "title": "log-shipper",
+      "group": "Init Containers",
       "items": [
+        {
+          "name": "Status",
+          "value": "Running, ready, started 2026-10-11T00:00:03Z",
+          "status": "ok"
+        },
         {
           "name": "Image",
           "value": "registry.example.com/tools/log-shipper:4.4"
@@ -132,41 +163,21 @@
         {
           "name": "Restart Policy",
           "value": "Always"
-        },
-        {
-          "name": "State",
-          "value": "Running, started 2026-10-11T00:00:03Z",
-          "status": "ok"
-        },
-        {
-          "name": "Ready",
-          "value": "True"
-        },
-        {
-          "name": "Restarts",
-          "value": "1"
         }
       ]
     },
     {
-      "title": "Container orders",
+      "title": "orders",
+      "group": "Containers",
       "items": [
         {
-          "name": "Image",
-          "value": "registry.example.com/shop/orders:2.3.1"
-        },
-        {
-          "name": "State",
-          "value": "Running, started 2026-10-11T00:00:05Z",
+          "name": "Status",
+          "value": "Running, ready, started 2026-10-11T00:00:05Z",
           "status": "ok"
         },
         {
-          "name": "Ready",
-          "value": "True"
-        },
-        {
-          "name": "Restarts",
-          "value": "0"
+          "name": "Image",
+          "value": "registry.example.com/shop/orders:2.3.1"
         }
       ]
     }

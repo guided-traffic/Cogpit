@@ -2,6 +2,7 @@ package model
 
 import (
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -42,11 +43,57 @@ type Column struct {
 // view's namespace filter to it (ui.setNamespace, owner 2026-10-11); other links go to the object
 // (ui.navigate); a link with an empty Name opens the list view of its kind (ui.openView), as a
 // definition's Resource cell does. Rows are shared and immutable, and so are their links.
+//
+// Parts, when set, colours the cell in runs, each in its own status colour, drawn in order with a
+// space between them: a cordoned node's Conditions read "SchedulingDisabled Ready" with only
+// "Ready" green. Text is then the parts' texts joined by single spaces, so that sorting, search and
+// CellText work on the plain text, and Status is the cell's overall status. Parts is a pointer so
+// that Cell stays comparable; like links, parts are shared and immutable. Build it with
+// [PartsCell].
 type Cell struct {
-	Text   string     `json:"text,omitempty"`
-	Num    int64      `json:"num,omitempty"`
-	Status Status     `json:"status,omitempty"`
-	Link   *ObjectRef `json:"link,omitempty"`
+	Text   string      `json:"text,omitempty"`
+	Num    int64       `json:"num,omitempty"`
+	Status Status      `json:"status,omitempty"`
+	Link   *ObjectRef  `json:"link,omitempty"`
+	Parts  *[]CellPart `json:"parts,omitempty"`
+}
+
+// CellPart is one run of a cell's text in its own status colour; StatusNone draws it in the
+// foreground colour.
+type CellPart struct {
+	Text   string `json:"text"`
+	Status Status `json:"status,omitempty"`
+}
+
+// PartsCell returns a cell drawn in coloured parts, with status as the cell's overall status.
+// Empty parts are dropped; a single part needs no parts and becomes a plain cell with that part's
+// text.
+func PartsCell(status Status, parts ...CellPart) Cell {
+	kept := parts[:0:0]
+	for _, p := range parts {
+		if p.Text != "" {
+			kept = append(kept, p)
+		}
+	}
+	switch len(kept) {
+	case 0:
+		return Cell{Status: status}
+	case 1:
+		return Cell{Text: kept[0].Text, Status: status}
+	}
+	n := len(kept) - 1
+	for _, p := range kept {
+		n += len(p.Text)
+	}
+	var b strings.Builder
+	b.Grow(n)
+	for i, p := range kept {
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		b.WriteString(p.Text)
+	}
+	return Cell{Text: b.String(), Status: status, Parts: &kept}
 }
 
 // Row is one object as a table row. Rows are immutable once built: snapshots share them.

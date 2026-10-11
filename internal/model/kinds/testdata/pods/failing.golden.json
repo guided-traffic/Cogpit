@@ -12,6 +12,12 @@
       "text": "worker-6f8b9c7d4-q9m2z"
     },
     {
+      "column": "warning",
+      "text": "CrashLoopBackOff; Containers not ready: worker; 7 restarts",
+      "num": 1,
+      "status": "warning"
+    },
+    {
       "column": "namespace",
       "text": "payments",
       "link": {
@@ -30,11 +36,20 @@
     },
     {
       "column": "controlledBy",
-      "text": "ReplicaSet"
+      "text": "ReplicaSet",
+      "link": {
+        "kind": "replicasets",
+        "namespace": "payments",
+        "name": "worker-6f8b9c7d4"
+      }
     },
     {
       "column": "node",
-      "text": "worker-a2"
+      "text": "worker-a2",
+      "link": {
+        "kind": "nodes",
+        "name": "worker-a2"
+      }
     },
     {
       "column": "qos",
@@ -86,7 +101,7 @@
   },
   "detail": [
     {
-      "title": "Status",
+      "title": "Properties",
       "items": [
         {
           "name": "Status",
@@ -95,77 +110,72 @@
         },
         {
           "name": "Node",
-          "value": "worker-a2"
+          "value": "worker-a2",
+          "link": {
+            "kind": "nodes",
+            "name": "worker-a2"
+          }
         },
         {
-          "name": "Pod IPs",
+          "name": "Pod IP",
           "value": "10.244.2.31"
         },
         {
-          "name": "Host IP",
-          "value": "192.0.2.12"
+          "name": "Pod IPs",
+          "value": "10.244.2.31",
+          "chips": [
+            {
+              "text": "10.244.2.31"
+            }
+          ]
         },
         {
           "name": "QoS Class",
           "value": "BestEffort"
         },
         {
-          "name": "Restart Policy",
-          "value": "Always"
+          "name": "Conditions",
+          "value": "Initialized: True\nReady: False (ContainersNotReady): containers with unready status: [worker]\nContainersReady: False (ContainersNotReady): containers with unready status: [worker]\nPodScheduled: True",
+          "chips": [
+            {
+              "text": "Initialized",
+              "status": "ok"
+            },
+            {
+              "text": "Ready",
+              "status": "warning"
+            },
+            {
+              "text": "ContainersReady",
+              "status": "warning"
+            },
+            {
+              "text": "PodScheduled",
+              "status": "ok"
+            }
+          ]
         }
       ]
     },
     {
-      "title": "Conditions",
+      "title": "worker",
+      "group": "Containers",
       "items": [
         {
-          "name": "Initialized",
-          "value": "True",
-          "status": "ok"
+          "name": "Status",
+          "value": "Waiting: CrashLoopBackOff (back-off 5m0s restarting failed container=worker pod=worker-6f8b9c7d4-q9m2z_payments)",
+          "status": "error"
         },
         {
-          "name": "Ready",
-          "value": "False (ContainersNotReady): containers with unready status: [worker]",
-          "status": "warning"
+          "name": "Last Status",
+          "value": "Terminated: Error (exit code 1), started 2026-10-11T11:52:10Z, finished 2026-10-11T11:52:12Z"
         },
-        {
-          "name": "ContainersReady",
-          "value": "False (ContainersNotReady): containers with unready status: [worker]",
-          "status": "warning"
-        },
-        {
-          "name": "PodScheduled",
-          "value": "True",
-          "status": "ok"
-        }
-      ]
-    },
-    {
-      "title": "Container worker",
-      "items": [
         {
           "name": "Image",
           "value": "registry.example.com/payments/worker:2.0.0"
         },
         {
-          "name": "State",
-          "value": "Waiting: CrashLoopBackOff (back-off 5m0s restarting failed container=worker pod=worker-6f8b9c7d4-q9m2z_payments)",
-          "status": "error"
-        },
-        {
-          "name": "Last State",
-          "value": "Terminated: Error (exit code 1), started 2026-10-11T11:52:10Z, finished 2026-10-11T11:52:12Z"
-        },
-        {
-          "name": "Ready",
-          "value": "False"
-        },
-        {
-          "name": "Restarts",
-          "value": "7"
-        },
-        {
-          "name": "Args",
+          "name": "Arguments",
           "value": "--queue settlements"
         }
       ]

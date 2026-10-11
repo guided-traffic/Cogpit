@@ -43,14 +43,15 @@ func TestDispatchedParamsMatchTheRegistry(t *testing.T) {
 		{"deployment.restart", refParams{Ref: ref}},
 		{"object.delete", refParams{Ref: ref}},
 	}
-	for _, kind := range []string{kindPods, "deployments", "services"} {
-		for _, spec := range actionsFor(kind) {
+	// The row menus and the drawer's toolbar send ObjectParams for every action of a kind.
+	for _, kind := range []string{kindPods, "deployments", "services", "nodes", "namespaces", "events"} {
+		for _, cmd := range s.Registry().Actions(kind) {
 			r := ref
 			r.Kind = kind
 			cases = append(cases, struct {
 				id     string
 				params any
-			}{spec.command, actionState{spec: spec}.params(r, "app")})
+			}{cmd.ID, cmd.ObjectParams(r, "app")})
 		}
 	}
 	for _, c := range cases {

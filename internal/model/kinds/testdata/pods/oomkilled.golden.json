@@ -12,6 +12,12 @@
       "text": "import-batch-42"
     },
     {
+      "column": "warning",
+      "text": "OOMKilled",
+      "num": 1,
+      "status": "warning"
+    },
+    {
       "column": "namespace",
       "text": "analytics",
       "link": {
@@ -33,7 +39,11 @@
     },
     {
       "column": "node",
-      "text": "worker-a3"
+      "text": "worker-a3",
+      "link": {
+        "kind": "nodes",
+        "name": "worker-a3"
+      }
     },
     {
       "column": "qos",
@@ -79,7 +89,7 @@
   },
   "detail": [
     {
-      "title": "Status",
+      "title": "Properties",
       "items": [
         {
           "name": "Status",
@@ -88,37 +98,30 @@
         },
         {
           "name": "Node",
-          "value": "worker-a3"
+          "value": "worker-a3",
+          "link": {
+            "kind": "nodes",
+            "name": "worker-a3"
+          }
         },
         {
           "name": "QoS Class",
           "value": "Guaranteed"
-        },
-        {
-          "name": "Restart Policy",
-          "value": "Never"
         }
       ]
     },
     {
-      "title": "Container import",
+      "title": "import",
+      "group": "Containers",
       "items": [
         {
-          "name": "Image",
-          "value": "registry.example.com/analytics/import:1.0"
-        },
-        {
-          "name": "State",
+          "name": "Status",
           "value": "Terminated: OOMKilled (exit code 137), started 2026-10-11T09:00:05Z, finished 2026-10-11T09:14:59Z",
           "status": "error"
         },
         {
-          "name": "Ready",
-          "value": "False"
-        },
-        {
-          "name": "Restarts",
-          "value": "0"
+          "name": "Image",
+          "value": "registry.example.com/analytics/import:1.0"
         }
       ]
     }

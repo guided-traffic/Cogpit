@@ -11,6 +11,10 @@
       "text": "worker-b7"
     },
     {
+      "column": "warning",
+      "text": ""
+    },
+    {
       "column": "taints",
       "text": "0"
     },
@@ -29,8 +33,17 @@
     },
     {
       "column": "conditions",
-      "text": "Ready SchedulingDisabled",
-      "status": "warning"
+      "text": "SchedulingDisabled Ready",
+      "status": "ok",
+      "parts": [
+        {
+          "text": "SchedulingDisabled"
+        },
+        {
+          "text": "Ready",
+          "status": "ok"
+        }
+      ]
     }
   ],
   "fields": {
@@ -55,21 +68,24 @@
   },
   "detail": [
     {
-      "title": "System Info",
+      "title": "Properties",
       "items": [
         {
-          "name": "Kubelet Version",
+          "name": "Kubelet version",
           "value": "v1.37.1"
-        }
-      ]
-    },
-    {
-      "title": "Conditions",
-      "items": [
+        },
         {
-          "name": "Ready",
-          "value": "True (KubeletReady)",
-          "status": "ok"
+          "name": "Conditions",
+          "value": "Ready: True (KubeletReady)",
+          "chips": [
+            {
+              "text": "SchedulingDisabled"
+            },
+            {
+              "text": "Ready",
+              "status": "ok"
+            }
+          ]
         }
       ]
     }

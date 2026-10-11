@@ -51,8 +51,14 @@ func TestDetailWithEventsNewestFirst(t *testing.T) {
 	if e := m.Events[0]; e.Status != model.StatusWarning || e.Count != 2 || e.Source != "kubelet node-1" || e.LastSeen != base.Add(2*time.Minute).Unix() {
 		t.Errorf("event item %+v", e)
 	}
-	if len(m.Sections) != 2 || m.Sections[0].Title != "Metadata" || m.Sections[1].Title != "Containers" {
+	// Properties first (the metadata, no UID), then the kind's sections; events after them.
+	if len(m.Sections) != 2 || m.Sections[0].Title != model.TitleProperties || m.Sections[1].Title != "Containers" {
 		t.Errorf("sections %+v", m.Sections)
+	}
+	for _, it := range m.Sections[0].Items {
+		if it.Name == "UID" {
+			t.Errorf("the drawer shows the UID: %+v", it)
+		}
 	}
 	if !slices.Equal(m.Containers, []string{"app"}) {
 		t.Errorf("containers %v", m.Containers)

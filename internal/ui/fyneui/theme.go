@@ -35,6 +35,8 @@ const (
 	colorAccent       fyne.ThemeColorName = "cogpit.accent"
 	colorChip         fyne.ThemeColorName = "cogpit.chip"
 	colorToast        fyne.ThemeColorName = "cogpit.toast"
+	colorLink         fyne.ThemeColorName = "cogpit.link"    // a cell or drawer value that names an object
+	colorTooltip      fyne.ThemeColorName = "cogpit.tooltip" // a tooltip's background
 )
 
 // Status colour tokens, one per model.Status.
@@ -67,6 +69,11 @@ const (
 	sizeConfirmWidth  fyne.ThemeSizeName = "cogpit.confirmWidth"  // the confirmation dialog
 	sizePopupMaxList  fyne.ThemeSizeName = "cogpit.popupMaxList"  // the tallest list in a popup
 	sizeDockTabMaxLen fyne.ThemeSizeName = "cogpit.dockTabMaxLen" // the widest dock tab title
+	sizeMenuColumn    fyne.ThemeSizeName = "cogpit.menuColumn"    // the ⋮ column at each row's end
+	sizeCellIcon      fyne.ThemeSizeName = "cogpit.cellIcon"      // an icon in a table cell (the warning triangle, ⋮)
+	sizeTooltipWidth  fyne.ThemeSizeName = "cogpit.tooltipWidth"  // the widest tooltip; longer text wraps
+	sizeTooltipOffset fyne.ThemeSizeName = "cogpit.tooltipOffset" // a tooltip's distance from the pointer
+	sizeDialogWidth   fyne.ThemeSizeName = "cogpit.dialogWidth"   // a command's parameter dialog
 )
 
 // palette is one variant's colours. Cogpit's own choice: a blue-slate dark and a cool light, with
@@ -126,6 +133,8 @@ var darkPalette = palette{
 		colorAccent:       hex(0x8a94ff),
 		colorChip:         hex(0x262c38),
 		colorToast:        hex(0x232834),
+		colorLink:         hex(0x9aa3ff),
+		colorTooltip:      hex(0x2b313d),
 	},
 	status: map[model.Status]color.Color{
 		model.StatusOK:          hex(0x3dd68c),
@@ -182,6 +191,8 @@ var lightPalette = palette{
 		colorAccent:       hex(0x4f5bd5),
 		colorChip:         hex(0xeceff4),
 		colorToast:        hex(0xffffff),
+		colorLink:         hex(0x4f5bd5),
+		colorTooltip:      hex(0xfdfdfe),
 	},
 	status: map[model.Status]color.Color{
 		model.StatusOK:          hex(0x1f9d5c),
@@ -361,6 +372,16 @@ func (t *cogTheme) Size(n fyne.ThemeSizeName) float32 {
 		return 320
 	case sizeDockTabMaxLen:
 		return 220
+	case sizeMenuColumn:
+		return 30
+	case sizeCellIcon:
+		return 14
+	case sizeTooltipWidth:
+		return 440
+	case sizeTooltipOffset:
+		return 14
+	case sizeDialogWidth:
+		return 420
 	}
 	return t.base.Size(n)
 }

@@ -3,6 +3,7 @@ package fyneui
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,75 +17,39 @@ import (
 	"github.com/guided-traffic/cogpit/internal/ui/fyneui/yamlview"
 )
 
-// actionSpec is one button of the drawer's toolbar. The toolbar is data: kinds map to actions,
-// actions map to engine commands, and the engine decides whether each one is enabled.
-type actionSpec struct {
-	label     string
-	icon      fyne.Resource
-	command   string
-	container bool   // the command takes a container; with several, the user picks one
-	danger    bool   // styled as dangerous
-	done      string // toast after success; %s is the object, "pod web-0"
-}
+// Chips of a short list share one line; a longer list shows one chip per line.
+const (
+	chipsPerLine     = 6
+	chipsLineMaxText = 64 // the most characters of chip text on one line
+)
 
-// kindActions are the kind-specific actions, in Lens's order; every kind also gets Delete.
-var kindActions = map[string][]actionSpec{
-	kindPods: {
-		{label: "Logs", icon: theme.DocumentIcon(), command: "pod.logs", container: true},
-		{label: "Shell", icon: theme.ComputerIcon(), command: "pod.shell", container: true},
-	},
-	"deployments": {
-		{label: "Restart", icon: theme.ViewRefreshIcon(), command: "deployment.restart", done: "Restarted %s"},
-	},
-}
-
-var deleteAction = actionSpec{label: "Delete", icon: theme.DeleteIcon(), command: "object.delete", danger: true, done: "Deleted %s"}
-
-func actionsFor(kind string) []actionSpec {
-	return append(append([]actionSpec(nil), kindActions[kind]...), deleteAction)
-}
-
-// actionState is an action evaluated for one object, off the main goroutine.
-type actionState struct {
-	spec       actionSpec
-	reason     string // why the action is disabled; empty when it is enabled
-	hidden     bool   // this build has no such command
-	containers []string
-}
-
-func (a actionState) params(ref model.ObjectRef, container string) any {
-	if a.spec.container {
-		return containerParams{Ref: ref, Container: container}
-	}
-	return refParams{Ref: ref}
-}
-
-// drawer is the detail drawer: the object's kind, name and status, an action toolbar, and the
-// Details, Events and YAML tabs. It refreshes when the engine reports the object changed.
+// drawer is the detail drawer, after Lens's (capture, 2026-10-11): the object's kind and name in
+// the title bar with its actions as icons (the registry's actions for the kind, as in the row
+// menu), then the Properties section, the kind's own sections and the events. Cogpit's YAML view
+// is a second tab. It refreshes when the engine reports the object changed.
 type drawer struct {
 	sh *shell
 
 	shown       *model.ObjectRef
 	last        *engine.DetailModel
+	acts        []actionState
 	busy, dirty bool
+	expanded    map[string]bool // folded lists the user opened, by foldKey
 
 	kind     *textLine
 	title    *textLine
 	status   *pill
 	missing  *textLine
-	actions  *fyne.Container
-	reasons  *textLine
+	actions  *fyne.Container // the action icons in the title bar
 	tabs     *container.AppTabs
-	events   *container.TabItem
 	details  *fyne.Container
-	eventBox *fyne.Container
 	yaml     *yamlview.View
 	yamlText string
 	root     fyne.CanvasObject
 }
 
 func newDrawer(sh *shell) *drawer {
-	d := &drawer{sh: sh}
+	d := &drawer{sh: sh, expanded: map[string]bool{}}
 	d.kind = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	d.title = newTextLine("", theme.ColorNameForeground, theme.SizeNameSubHeadingText, fyne.TextStyle{Bold: true})
 	d.title.truncate = true
@@ -93,35 +58,29 @@ func newDrawer(sh *shell) *drawer {
 	d.missing = newTextLine("This object is no longer in the cluster.", colorStatusWarning, theme.SizeNameCaptionText, fyne.TextStyle{})
 	d.missing.Hide()
 	d.actions = container.NewHBox()
-	d.reasons = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
-	d.reasons.truncate = true
 
-	closeB := widget.NewButtonWithIcon("", theme.CancelIcon(), sh.closeDrawer)
-	closeB.Importance = widget.LowImportance
+	closeB := newTipButton(sh, theme.CancelIcon(), "Close", sh.closeDrawer)
 
 	d.details = container.NewVBox()
-	d.eventBox = container.NewVBox()
 	d.yaml = yamlview.New()
 	d.yaml.SetReadOnly(true)
-	d.events = container.NewTabItem("Events", container.NewVScroll(inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, d.eventBox)))
 	d.tabs = container.NewAppTabs(
 		container.NewTabItem("Details", container.NewVScroll(inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, d.details))),
-		d.events,
 		container.NewTabItem("YAML", d.yaml),
 	)
 
-	titleRow := container.NewBorder(nil, nil, nil, container.NewHBox(container.NewCenter(d.status), closeB), d.title)
-	toolbar := container.NewBorder(nil, nil, d.actions, nil, d.reasons)
+	titleRow := container.NewBorder(nil, nil, nil,
+		container.NewHBox(container.NewCenter(d.status), d.actions, newDivider(true), closeB), d.title)
 	header := container.NewStack(newSurface(colorDrawerHeader),
 		inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding,
-			container.NewVBox(d.kind, titleRow, toolbar, d.missing)))
+			container.NewVBox(d.kind, titleRow, d.missing)))
 	d.root = container.NewStack(newSurface(colorDrawer),
 		container.NewBorder(container.NewVBox(header, newDivider(false)), nil, nil, nil, d.tabs))
 	return d
 }
 
-// request fetches the drawer object's detail off the main goroutine and shows it. Requests that
-// arrive while one runs collapse into one more fetch afterwards.
+// request fetches the drawer object's detail and evaluates its actions off the main goroutine,
+// then shows them. Requests that arrive while one runs collapse into one more fetch afterwards.
 func (d *drawer) request() {
 	ref := d.sh.ui.Drawer
 	if ref == nil {
@@ -149,7 +108,11 @@ func (d *drawer) request() {
 				}
 			}()
 			m, err = d.sh.eng.Detail(r)
-			acts = d.evaluate(r, m)
+			var containers []string
+			if m != nil {
+				containers = append(append(containers, m.Containers...), m.InitContainers...)
+			}
+			acts = d.sh.evaluateActions(r, containers)
 		}()
 		d.sh.do(func() {
 			d.busy = false
@@ -164,48 +127,21 @@ func (d *drawer) request() {
 	}()
 }
 
-// evaluate asks the engine which actions are enabled for the object. Off the main goroutine.
-func (d *drawer) evaluate(ref model.ObjectRef, m *engine.DetailModel) []actionState {
-	var containers []string
-	if m != nil {
-		containers = m.Containers
-	}
-	specs := actionsFor(ref.Kind)
-	out := make([]actionState, 0, len(specs))
-	for _, spec := range specs {
-		a := actionState{spec: spec, containers: containers}
-		first := ""
-		if len(containers) > 0 {
-			first = containers[0]
-		}
-		if err := d.sh.commandEnabled(spec.command, a.params(ref, first)); err != nil {
-			if err == errUnavailable {
-				a.hidden = true
-			} else {
-				a.reason = err.Error()
-			}
-		}
-		out = append(out, a)
-	}
-	return out
-}
-
 // showLoading retargets the drawer at a new object while its detail loads.
 func (d *drawer) showLoading(ref model.ObjectRef) {
 	r := ref
 	d.shown = &r
 	d.last = nil
+	d.acts = nil
+	d.expanded = map[string]bool{}
 	d.kind.SetText(singular(d.sh.kindTitle(ref.Kind)))
 	d.title.SetText(ref.Name)
 	d.status.Hide()
 	d.missing.Hide()
 	d.actions.Objects = nil
 	d.actions.Refresh()
-	d.reasons.SetText("")
 	d.details.Objects = []fyne.CanvasObject{newTextLine("Loading…", colorMuted, theme.SizeNameText, fyne.TextStyle{})}
 	d.details.Refresh()
-	d.eventBox.Objects = nil
-	d.eventBox.Refresh()
 	d.setYAML("", false)
 	d.tabs.SelectIndex(0)
 }
@@ -231,8 +167,8 @@ func (d *drawer) show(ref model.ObjectRef, m *engine.DetailModel, err error, act
 	}
 	d.kind.SetText(kind)
 	d.title.SetText(name)
-	if m.Status != model.StatusNone {
-		d.status.Set(statusLabel(m), statusColorName(m.Status))
+	if label := statusLabel(m); label != "" && m.Status != model.StatusNone {
+		d.status.Set(label, statusColorName(m.Status))
 		d.status.Show()
 	} else {
 		d.status.Hide()
@@ -244,28 +180,29 @@ func (d *drawer) show(ref model.ObjectRef, m *engine.DetailModel, err error, act
 	}
 	d.showActions(ref, acts)
 
-	if d.last == nil || !reflect.DeepEqual(d.last.Sections, m.Sections) {
-		d.details.Objects = d.buildDetails(m.Sections)
-		d.details.Refresh()
-	}
-	if d.last == nil || !reflect.DeepEqual(d.last.Events, m.Events) {
-		d.eventBox.Objects = d.buildEvents(m.Events)
-		d.eventBox.Refresh()
-		d.events.Text = "Events"
-		if n := len(m.Events); n > 0 {
-			d.events.Text = fmt.Sprintf("Events (%d)", n)
-		}
-		d.tabs.Refresh()
+	prev := d.last
+	d.last = m
+	if prev == nil || !reflect.DeepEqual(prev.Sections, m.Sections) || !reflect.DeepEqual(prev.Events, m.Events) {
+		d.rebuild()
 	}
 	// The same object changed in the cache: keep the reader's place in the YAML. Another object:
 	// start at the top.
-	d.setYAML(m.YAML, d.last != nil && d.last.Ref.Same(m.Ref))
-	d.last = m
+	d.setYAML(m.YAML, prev != nil && prev.Ref.Same(m.Ref))
+}
+
+// rebuild renders the shown model's sections and events again.
+func (d *drawer) rebuild() {
+	if d.last == nil {
+		return
+	}
+	d.details.Objects = d.buildDetails(d.last)
+	d.details.Refresh()
 }
 
 // clear forgets the shown object when the drawer closes.
 func (d *drawer) clear() {
-	d.shown, d.last, d.dirty = nil, nil, false
+	d.shown, d.last, d.acts, d.dirty = nil, nil, nil, false
+	d.sh.tip.hide()
 }
 
 // setYAML hands the YAML to the viewer only when it changed. For an update of the shown object it
@@ -284,104 +221,153 @@ func (d *drawer) setYAML(text string, sameObject bool) {
 	d.yaml.Refresh()
 }
 
-// showActions rebuilds the toolbar: enabled buttons dispatch, disabled ones say why below.
+// showActions puts the object's actions in the title bar as icons, in the row menu's order (Lens:
+// a pod's seven icons end with Edit and Delete; a node shows Shell, Cordon or Uncordon, Drain,
+// Edit, Delete). The tooltip names the action and, for a disabled one, says why.
 func (d *drawer) showActions(ref model.ObjectRef, acts []actionState) {
+	if len(d.actions.Objects) > 0 && sameActions(d.acts, acts) {
+		return // a churning object keeps its buttons, and a hovered button its tooltip
+	}
+	d.acts = acts
 	d.actions.Objects = d.actions.Objects[:0]
-	var reasons []string
-	byReason := map[string][]string{}
 	for _, a := range acts {
-		if a.hidden {
-			continue
-		}
-		b := widget.NewButtonWithIcon(a.spec.label, a.spec.icon, nil)
+		b := newTipButton(d.sh, commandIcon(a.cmd.ID), actionTip(a), nil)
 		b.OnTapped = func() { d.run(ref, a, b) }
-		if a.spec.danger {
-			b.Importance = widget.DangerImportance
-		}
 		if a.reason != "" {
 			b.Disable()
-			if _, seen := byReason[a.reason]; !seen {
-				reasons = append(reasons, a.reason)
-			}
-			byReason[a.reason] = append(byReason[a.reason], a.spec.label)
 		}
 		d.actions.Add(b)
 	}
 	d.actions.Refresh()
-	parts := make([]string, 0, len(reasons))
-	for _, r := range reasons {
-		parts = append(parts, strings.Join(byReason[r], ", ")+": "+r)
-	}
-	d.reasons.SetText(strings.Join(parts, " · "))
 }
 
-// run dispatches an action. A container command on a pod with several containers asks which.
-func (d *drawer) run(ref model.ObjectRef, a actionState, from fyne.CanvasObject) {
-	dispatch := func(container string) {
-		d.sh.dispatch(a.spec.command, a.params(ref, container), func(_ any, err error) {
-			if err != nil {
-				d.sh.showError(err)
-				return
-			}
-			if a.spec.done != "" {
-				d.sh.toast("info", fmt.Sprintf(a.spec.done, strings.ToLower(singular(d.sh.kindTitle(ref.Kind)))+" "+ref.Name))
-			}
-		})
+// sameActions reports whether two evaluations of an object's actions show the same toolbar.
+func sameActions(a, b []actionState) bool {
+	if len(a) != len(b) {
+		return false
 	}
-	if !a.spec.container || len(a.containers) <= 1 {
+	for i := range a {
+		if a[i].cmd != b[i].cmd || a[i].reason != b[i].reason || a[i].dialog != b[i].dialog ||
+			strings.Join(a[i].containers, ",") != strings.Join(b[i].containers, ",") || string(a[i].prefill) != string(b[i].prefill) {
+			return false
+		}
+	}
+	return true
+}
+
+// run runs an action from the toolbar. A container command on a pod with several containers asks
+// which, in a menu below the icon.
+func (d *drawer) run(ref model.ObjectRef, a actionState, from fyne.CanvasObject) {
+	if len(a.containers) <= 1 || a.dialog {
 		first := ""
 		if len(a.containers) == 1 {
 			first = a.containers[0]
 		}
-		dispatch(first)
+		d.sh.runAction(a, ref, first)
 		return
 	}
 	items := make([]*fyne.MenuItem, 0, len(a.containers))
 	for _, c := range a.containers {
-		items = append(items, fyne.NewMenuItem(c, func() { dispatch(c) }))
+		items = append(items, fyne.NewMenuItem(c, func() { d.sh.runAction(a, ref, c) }))
 	}
 	if cnv := fyne.CurrentApp().Driver().CanvasForObject(from); cnv != nil {
-		widget.ShowPopUpMenuAtRelativePosition(fyne.NewMenu("Container", items...), cnv,
+		widget.ShowPopUpMenuAtRelativePosition(fyne.NewMenu(a.cmd.Label, items...), cnv,
 			fyne.NewPos(0, from.Size().Height), from)
 	}
 }
 
-// buildDetails renders the sections: a title, then name and value pairs.
-func (d *drawer) buildDetails(sections []model.DetailSection) []fyne.CanvasObject {
-	out := make([]fyne.CanvasObject, 0, 2*len(sections))
-	for i, sec := range sections {
+// buildDetails renders the sections in their order, a group heading ("Containers") above the
+// first section of each group, then the events.
+func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
+	out := make([]fyne.CanvasObject, 0, 4*len(m.Sections)+4)
+	group := ""
+	for i, sec := range m.Sections {
 		if i > 0 {
 			out = append(out, newSpace(theme.SizeNameInnerPadding))
 		}
-		out = append(out, newTextLine(sec.Title, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true}), newDivider(false))
-		grid := box(kvLayout{})
-		for _, it := range sec.Items {
-			name := newTextLine(it.Name, colorMuted, theme.SizeNameText, fyne.TextStyle{})
-			grid.Objects = append(grid.Objects, name, detailValue(it))
+		if sec.Group != "" && sec.Group != group {
+			out = append(out, newTextLine(sec.Group, theme.ColorNameForeground, theme.SizeNameSubHeadingText, fyne.TextStyle{Bold: true}),
+				newSpace(theme.SizeNamePadding))
 		}
-		out = append(out, grid)
+		group = sec.Group
+		out = append(out, d.sectionTitle(sec), newDivider(false))
+		if sec.Table != nil {
+			out = append(out, detailTable(sec.Table))
+		}
+		if len(sec.Items) > 0 {
+			grid := box(kvLayout{})
+			for _, it := range sec.Items {
+				name := newTextLine(it.Name, colorMuted, theme.SizeNameText, fyne.TextStyle{})
+				grid.Objects = append(grid.Objects, name, d.itemValue(m.Ref, sec, it))
+			}
+			out = append(out, grid)
+		}
 	}
-	return out
+	out = append(out, newSpace(theme.SizeNameInnerPadding),
+		newTextLine("Events", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true}), newDivider(false))
+	return append(out, d.buildEvents(m.Events)...)
 }
 
-// detailValue renders one value: a status pill, chips for labels, one line per line otherwise.
-func detailValue(it model.DetailItem) fyne.CanvasObject {
-	if it.Status != model.StatusNone {
+// sectionTitle is a section's bold title; a container's carries a dot in its status's colour.
+func (d *drawer) sectionTitle(sec model.DetailSection) fyne.CanvasObject {
+	title := newTextLine(sec.Title, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
+	if sec.Group == "" {
+		return title
+	}
+	for _, it := range sec.Items {
+		if it.Name == "Status" && it.Status != model.StatusNone {
+			return container.NewHBox(container.NewCenter(newDot(statusColorName(it.Status))), title)
+		}
+	}
+	return title
+}
+
+// foldKey names a folded list for the expanded state, which survives refreshes of the object.
+func foldKey(sec model.DetailSection, it model.DetailItem) string {
+	return sec.Group + "\x00" + sec.Title + "\x00" + it.Name
+}
+
+// itemValue renders one value: a folded list as its count ("6 Labels", a link that unfolds it),
+// chips, a link to the object it names, a status pill, else one line per line.
+func (d *drawer) itemValue(ref model.ObjectRef, sec model.DetailSection, it model.DetailItem) fyne.CanvasObject {
+	if it.Fold != "" {
+		key := foldKey(sec, it)
+		n := it.Entries()
+		noun := it.Fold
+		if n == 1 {
+			noun = singular(noun)
+		}
+		toggle := newLinkText(strconv.Itoa(n)+" "+noun, func() {
+			d.expanded[key] = !d.expanded[key]
+			d.rebuild()
+		})
+		if !d.expanded[key] {
+			return toggle
+		}
+		return container.NewVBox(toggle, d.plainValue(ref, it))
+	}
+	return d.plainValue(ref, it)
+}
+
+// plainValue renders a value without folding.
+func (d *drawer) plainValue(ref model.ObjectRef, it model.DetailItem) fyne.CanvasObject {
+	switch {
+	case len(it.Chips) > 0:
+		return d.chips(ref, it.Chips)
+	case it.Link != nil && d.sh.view.serves(it.Link.Kind):
+		link := *it.Link
+		return newLinkText(it.Value, func() { d.sh.followLink(link, ref.Context, false) })
+	case it.Status != model.StatusNone:
 		return container.NewHBox(newPill(it.Value, statusColorName(it.Status), true))
 	}
 	lines := strings.Split(it.Value, "\n")
-	chips := it.Name == "Labels"
-	if len(lines) == 1 && !chips {
+	if len(lines) == 1 {
 		t := newTextLine(it.Value, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{})
 		t.truncate = true
 		return t
 	}
 	v := container.NewVBox()
 	for _, l := range lines {
-		if chips {
-			v.Add(container.NewHBox(newPill(l, theme.ColorNameForeground, false)))
-			continue
-		}
 		t := newTextLine(l, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{})
 		t.truncate = true
 		v.Add(t)
@@ -389,10 +375,117 @@ func detailValue(it model.DetailItem) fyne.CanvasObject {
 	return v
 }
 
-// buildEvents renders the object's events, newest first, as Lens's drawer does.
+// chips renders a list as chips: a short list on one line, a longer one a chip per line. A chip
+// with a status is tinted in its colour; one with a link goes to the object.
+func (d *drawer) chips(ref model.ObjectRef, chips []model.Chip) fyne.CanvasObject {
+	total := 0
+	for _, c := range chips {
+		total += len(c.Text)
+	}
+	oneLine := len(chips) <= chipsPerLine && total <= chipsLineMaxText
+	out := container.NewVBox()
+	line := container.NewHBox()
+	for _, c := range chips {
+		var o fyne.CanvasObject
+		switch {
+		case c.Link != nil && d.sh.view.serves(c.Link.Kind):
+			link := *c.Link
+			o = newTapTarget(newPill(c.Text, colorLink, false), func() { d.sh.followLink(link, ref.Context, false) })
+		case c.Status != model.StatusNone:
+			o = newPill(c.Text, statusColorName(c.Status), true)
+		default:
+			o = newPill(c.Text, theme.ColorNameForeground, false)
+		}
+		if oneLine {
+			line.Add(o)
+		} else {
+			out.Add(container.NewHBox(o))
+		}
+	}
+	if oneLine {
+		return line
+	}
+	return out
+}
+
+// detailTable renders a section's table: the column titles muted above the rows, each column as
+// wide as its widest text (detailTableLayout).
+func detailTable(t *model.DetailTable) fyne.CanvasObject {
+	if len(t.Columns) == 0 {
+		return container.NewVBox()
+	}
+	grid := box(&detailTableLayout{cols: len(t.Columns)})
+	for _, c := range t.Columns {
+		l := newTextLine(c, colorMuted, theme.SizeNameText, fyne.TextStyle{})
+		l.truncate = true
+		grid.Add(l)
+	}
+	for _, row := range t.Rows {
+		for i := range t.Columns {
+			text := ""
+			if i < len(row) {
+				text = row[i]
+			}
+			v := newTextLine(text, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{})
+			v.truncate = true
+			grid.Add(v)
+		}
+	}
+	return grid
+}
+
+// detailTableLayout lays out textLines row by row in cols columns, each as wide as its widest
+// text; when they do not fit, every column gives up width in proportion and its texts shorten.
+type detailTableLayout struct{ cols int }
+
+func (l *detailTableLayout) widths(objs []fyne.CanvasObject) (w []float32, rowH, gap float32) {
+	th := fyne.CurrentApp().Settings().Theme()
+	gap = th.Size(theme.SizeNamePadding) * 3
+	w = make([]float32, l.cols)
+	size := th.Size(theme.SizeNameText)
+	for i, o := range objs {
+		if t, ok := o.(*textLine); ok {
+			w[i%l.cols] = fyne.Max(w[i%l.cols], fyne.MeasureText(t.text, size, t.style).Width)
+		}
+		rowH = fyne.Max(rowH, o.MinSize().Height)
+	}
+	return w, rowH, gap
+}
+
+func (l *detailTableLayout) MinSize(objs []fyne.CanvasObject) fyne.Size {
+	_, rowH, gap := l.widths(objs)
+	rows := (len(objs) + l.cols - 1) / l.cols
+	return fyne.NewSize(0, float32(rows)*(rowH+gap/3))
+}
+
+func (l *detailTableLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
+	w, rowH, gap := l.widths(objs)
+	total := gap * float32(l.cols-1)
+	for _, x := range w {
+		total += x
+	}
+	if total > size.Width && total > 0 {
+		scale := fyne.Max(size.Width-gap*float32(l.cols-1), 0) / (total - gap*float32(l.cols-1))
+		for i := range w {
+			w[i] *= scale
+		}
+	}
+	for i, o := range objs {
+		col, row := i%l.cols, i/l.cols
+		x := float32(0)
+		for c := 0; c < col; c++ {
+			x += w[c] + gap
+		}
+		o.Move(fyne.NewPos(x, float32(row)*(rowH+gap/3)))
+		o.Resize(fyne.NewSize(w[col], rowH))
+	}
+}
+
+// buildEvents renders the object's events, newest first, at the end of the drawer as Lens does;
+// "No events found" when there are none (capture, 2026-10-11).
 func (d *drawer) buildEvents(events []engine.EventItem) []fyne.CanvasObject {
 	if len(events) == 0 {
-		return []fyne.CanvasObject{newTextLine("No events.", colorMuted, theme.SizeNameText, fyne.TextStyle{})}
+		return []fyne.CanvasObject{newTextLine("No events found", colorMuted, theme.SizeNameText, fyne.TextStyle{})}
 	}
 	now := d.sh.now()
 	out := make([]fyne.CanvasObject, 0, 2*len(events))
@@ -434,7 +527,7 @@ func splitTitle(t string) (kind, name string) {
 }
 
 // statusLabel is the drawer's status pill text: the Status item of the first section that has
-// one, else the token itself.
+// one, else nothing (a node's state is its Conditions).
 func statusLabel(m *engine.DetailModel) string {
 	for _, s := range m.Sections {
 		for _, it := range s.Items {
@@ -443,10 +536,11 @@ func statusLabel(m *engine.DetailModel) string {
 			}
 		}
 	}
-	return string(m.Status)
+	return ""
 }
 
-// singular turns a view title into an object noun: "Pods" → "Pod", "Ingresses" → "Ingress".
+// singular turns a plural noun into its singular: "Pods" → "Pod", "Ingresses" → "Ingress",
+// "Policies" → "Policy", "volumes" → "volume".
 func singular(title string) string {
 	switch {
 	case strings.HasSuffix(title, "sses"):

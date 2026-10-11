@@ -11,6 +11,10 @@
       "text": "cp-1"
     },
     {
+      "column": "warning",
+      "text": ""
+    },
+    {
       "column": "taints",
       "text": "1",
       "num": 1
@@ -64,121 +68,86 @@
   },
   "detail": [
     {
-      "title": "Addresses",
+      "title": "Properties",
       "items": [
         {
-          "name": "InternalIP",
-          "value": "192.0.2.10"
+          "name": "Addresses",
+          "value": "InternalIP: 192.0.2.10\nInternalIP: fd00:192:0:2::10\nHostname: cp-1"
         },
         {
-          "name": "InternalIP",
-          "value": "fd00:192:0:2::10"
+          "name": "OS",
+          "value": "linux (arm64)"
         },
-        {
-          "name": "Hostname",
-          "value": "cp-1"
-        }
-      ]
-    },
-    {
-      "title": "System Info",
-      "items": [
         {
           "name": "OS Image",
           "value": "Example Linux 12"
         },
         {
-          "name": "Kernel Version",
+          "name": "Kernel version",
           "value": "6.12.0-example"
         },
         {
-          "name": "Container Runtime",
+          "name": "Container runtime",
           "value": "containerd://2.1.4"
         },
         {
-          "name": "Kubelet Version",
+          "name": "Kubelet version",
           "value": "v1.37.1"
         },
         {
-          "name": "Architecture",
-          "value": "arm64"
+          "name": "Conditions",
+          "value": "MemoryPressure: False (KubeletHasSufficientMemory): kubelet has sufficient memory available\nDiskPressure: False (KubeletHasNoDiskPressure): kubelet has no disk pressure\nPIDPressure: False (KubeletHasSufficientPID): kubelet has sufficient PID available\nReady: True (KubeletReady): kubelet is posting ready status",
+          "chips": [
+            {
+              "text": "Ready",
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "name": "Taints",
+          "value": "node-role.kubernetes.io/control-plane:NoSchedule",
+          "fold": "Taints"
         }
       ]
     },
     {
       "title": "Capacity",
-      "items": [
-        {
-          "name": "cpu",
-          "value": "4"
-        },
-        {
-          "name": "ephemeral-storage",
-          "value": "61202244Ki"
-        },
-        {
-          "name": "memory",
-          "value": "8148020Ki"
-        },
-        {
-          "name": "pods",
-          "value": "110"
-        }
-      ]
+      "table": {
+        "columns": [
+          "CPU",
+          "Memory",
+          "Ephemeral Storage",
+          "Pods"
+        ],
+        "rows": [
+          [
+            "4",
+            "8148020Ki",
+            "61202244Ki",
+            "110"
+          ]
+        ]
+      }
     },
     {
       "title": "Allocatable",
-      "items": [
-        {
-          "name": "cpu",
-          "value": "4"
-        },
-        {
-          "name": "ephemeral-storage",
-          "value": "56403987978"
-        },
-        {
-          "name": "memory",
-          "value": "8045620Ki"
-        },
-        {
-          "name": "pods",
-          "value": "110"
-        }
-      ]
-    },
-    {
-      "title": "Taints",
-      "items": [
-        {
-          "value": "node-role.kubernetes.io/control-plane:NoSchedule"
-        }
-      ]
-    },
-    {
-      "title": "Conditions",
-      "items": [
-        {
-          "name": "MemoryPressure",
-          "value": "False (KubeletHasSufficientMemory): kubelet has sufficient memory available",
-          "status": "ok"
-        },
-        {
-          "name": "DiskPressure",
-          "value": "False (KubeletHasNoDiskPressure): kubelet has no disk pressure",
-          "status": "ok"
-        },
-        {
-          "name": "PIDPressure",
-          "value": "False (KubeletHasSufficientPID): kubelet has sufficient PID available",
-          "status": "ok"
-        },
-        {
-          "name": "Ready",
-          "value": "True (KubeletReady): kubelet is posting ready status",
-          "status": "ok"
-        }
-      ]
+      "table": {
+        "columns": [
+          "CPU",
+          "Memory",
+          "Ephemeral Storage",
+          "Pods"
+        ],
+        "rows": [
+          [
+            "4",
+            "8045620Ki",
+            "56403987978",
+            "110"
+          ]
+        ]
+      }
     }
   ]
 }
