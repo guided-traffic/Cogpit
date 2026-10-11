@@ -259,8 +259,10 @@ func TestBuiltinProfiles(t *testing.T) {
 			}
 			seen[c.ID] = true
 		}
-		if p.Namespaced != seen["namespace"] {
-			t.Errorf("%s: namespaced %v but namespace column %v", p.Key, p.Namespaced, seen["namespace"])
+		// A cluster-scoped kind may still show Lens's empty Namespace column (Ingress Classes,
+		// captured 2026-10-11); a namespaced kind must show its namespace.
+		if p.Namespaced && !seen["namespace"] {
+			t.Errorf("%s: namespaced but no namespace column", p.Key)
 		}
 		for name := range p.Fields {
 			if !lowerCamel.MatchString(name) {

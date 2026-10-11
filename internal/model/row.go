@@ -40,7 +40,8 @@ type Column struct {
 // Object cell), and the UI renders the cell as a link. Its Kind is a kind key; an empty Context
 // means the row's context. A link to a namespace in a list's Namespace column narrows the open
 // view's namespace filter to it (ui.setNamespace, owner 2026-10-11); other links go to the object
-// (ui.navigate). Rows are shared and immutable, and so are their links.
+// (ui.navigate); a link with an empty Name opens the list view of its kind (ui.openView), as a
+// definition's Resource cell does. Rows are shared and immutable, and so are their links.
 type Cell struct {
 	Text   string     `json:"text,omitempty"`
 	Num    int64      `json:"num,omitempty"`
