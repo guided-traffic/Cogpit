@@ -24,8 +24,8 @@ an activated Lens Desktop ([D-12](../developer/decisions.md#d-12-parity-sources)
 Modifier names are macOS first (⌘ ⌥ ⇧ ⌃); Windows and Linux use Ctrl and Alt. **Status:** as
 marked per row; rows without evidence are missing.
 
-**Summary (measured, 2026-10-11):** 24 of 124 rows exist, all **partial** and all free-plan rows
-(24 of 111); 6 more rows are not a target. No row is done: none has been compared with a running
+**Summary (measured, 2026-10-11):** 24 of 127 rows exist, all **partial** and all free-plan rows
+(24 of 114); 6 more rows are not a target. No row is done: none has been compared with a running
 Lens Desktop.
 Remaining (estimated): see gaps [G5](gaps.md#g5-app-shell-navigation-tables-and-drawer) (layout,
 sidebar, tables, drawer, dock), [G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)
