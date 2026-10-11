@@ -156,7 +156,22 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   API views, shown as generic custom resource views. Golden, status-text and fuzz tests per kind
   (`TestGolden` and `TestCustomGolden` over 119 synthetic objects), views filled from watches on kind
   (`TestKindEngineWorkflows`, `TestKindCustomResources`). Inferred and marked per row: most status
-  rules, the Cron Jobs warning rule, the drawers of the new kinds.
+  rules, the Cron Jobs warning rule, the drawers of the new kinds. Third implementation run
+  (2026-10-11): the 13 Config views beyond Config Maps and Secrets, all partial: Resource Quotas,
+  Limit Ranges, Horizontal Pod Autoscalers, Pod Disruption Budgets (the captured columns with the
+  warning icon and "N/A"), Priority Classes with the pod counts of 2026.9 (the related-objects
+  index `PodsByPriorityClass`), Runtime Classes, Leases, Mutating and Validating Webhook
+  Configurations, and the four admission policy views, the validating ones falling back to v1beta1
+  and v1alpha1 through the profiles' `FallbackVersions`, the mutating ones at v1 only
+  ([`kinds/`](../../internal/model/kinds/) `resourcequotas.go` … `validatingadmissionpolicybindings.go`;
+  golden, status-text and fuzz tests per kind; `TestBuiltinAdmissionPoliciesFollowTheServedVersion`;
+  the PDB list rendered offscreen). On kind 1.36.1 (`TestKindConfigViews`): a budget, a quota, a
+  limit range and an autoscaler created in `cogpit-c` fill their views with what the controllers
+  report, the priority classes count the cluster's pods, a node's lease links its node, and the
+  runtime class, webhook and admission policy views sync (the test writes no cluster-scoped
+  objects, so those show no rows). Inferred and marked per row: the status and warning rules, the
+  HPA Metrics and Status forms, the Pods column's place, the drawers; Vertical Pod Autoscalers (a
+  CRD) are not covered.
 - **Estimate:** 85–260 h (was 120–360; 2–6 h each for the 37 missing views, plus depth).
 
 ### G7. Resource actions
@@ -377,6 +392,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | G6 Evidence: the 13 Config views (third implementation run), admission policies by served version |
 | 2026-10-11 | minor | G11 unblocked by the H-8 decision; G5: Cogpit's own title bar on macOS (owner) |
 | 2026-10-11 | major | Second implementation run: G1 (CI green), G3, G5, G6 (27 of 64 views), G7 (14 of 39 actions, drain tested on three nodes) and G9 re-estimated; totals ~570–1,400 h free parity, ~780–1,820 h full target |
 | 2026-10-11 | minor | G5: row menus, drawer toolbar, warning column, links, tooltips and the drawer's Properties built; what remains |
