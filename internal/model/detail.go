@@ -30,7 +30,9 @@ type DetailSection struct {
 	Table *DetailTable `json:"table,omitempty"`
 }
 
-// DetailTable is a small table in the drawer: column titles and rows of cell texts.
+// DetailTable is a small table in the drawer: column titles and rows of cell texts. A cell's text
+// may hold several lines, separated by "\n" as in an item's value, shown one under the other: a
+// role's rules list their resources and verbs a line each.
 type DetailTable struct {
 	Columns []string   `json:"columns"`
 	Rows    [][]string `json:"rows"`

@@ -3,6 +3,7 @@ package fyneui
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -425,8 +426,8 @@ func (d *drawer) chips(ref model.ObjectRef, chips []model.Chip) fyne.CanvasObjec
 }
 
 // detailTable renders a section's table: the column titles muted above the rows, each column as
-// wide as its widest text (detailTableLayout). A cell that names an object the view can show is a
-// link to it.
+// wide as its widest line (detailTableLayout). A cell that names an object the view can show is a
+// link to it; a cell of several lines shows them one under the other.
 func (d *drawer) detailTable(ref model.ObjectRef, t *model.DetailTable) fyne.CanvasObject {
 	if len(t.Columns) == 0 {
 		return container.NewVBox()
@@ -448,62 +449,124 @@ func (d *drawer) detailTable(ref model.ObjectRef, t *model.DetailTable) fyne.Can
 				grid.Add(newLinkText(text, func() { d.sh.followLink(to, ref.Context, false) }))
 				continue
 			}
-			v := newTextLine(text, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{})
-			v.truncate = true
-			grid.Add(v)
+			grid.Add(tableCellText(text))
 		}
 	}
 	return grid
 }
 
-// detailTableLayout lays out textLines and linkTexts row by row in cols columns, each as wide as
-// its widest text; when they do not fit, every column gives up width in proportion and its texts
-// shorten.
+// tableCellText is a plain table cell: a truncating line per line of its text.
+func tableCellText(text string) fyne.CanvasObject {
+	lines := strings.Split(text, "\n")
+	cell := func(s string) *textLine {
+		v := newTextLine(s, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{})
+		v.truncate = true
+		return v
+	}
+	if len(lines) == 1 {
+		return cell(text)
+	}
+	v := container.NewVBox()
+	for _, l := range lines {
+		v.Add(cell(l))
+	}
+	return v
+}
+
+// detailTableLayout lays out table cells (textLines, linkTexts, and boxes of textLines for cells of
+// several lines) row by row in cols columns, each as wide as its widest line and each row as tall
+// as its tallest cell, rows of several lines further apart; when the columns do not fit, the
+// widest give up width first (capWidths) and their texts shorten.
 type detailTableLayout struct{ cols int }
 
-func (l *detailTableLayout) widths(objs []fyne.CanvasObject) (w []float32, rowH, gap float32) {
+// widths measures the cells: each column's width, each row's height, the gap between columns and
+// the one between rows.
+func (l *detailTableLayout) widths(objs []fyne.CanvasObject) (w, rowH []float32, gap, rowGap float32) {
 	th := fyne.CurrentApp().Settings().Theme()
 	gap = th.Size(theme.SizeNamePadding) * 3
+	rowGap = gap / 3
 	w = make([]float32, l.cols)
+	rowH = make([]float32, (len(objs)+l.cols-1)/l.cols)
 	size := th.Size(theme.SizeNameText)
-	for i, o := range objs {
+	var measure func(o fyne.CanvasObject) float32
+	measure = func(o fyne.CanvasObject) float32 {
 		switch t := o.(type) {
 		case *textLine:
-			w[i%l.cols] = fyne.Max(w[i%l.cols], fyne.MeasureText(t.text, size, t.style).Width)
+			return fyne.MeasureText(t.text, size, t.style).Width
 		case *linkText:
-			w[i%l.cols] = fyne.Max(w[i%l.cols], fyne.MeasureText(t.text, size, fyne.TextStyle{}).Width)
+			return fyne.MeasureText(t.text, size, fyne.TextStyle{}).Width
+		case *fyne.Container:
+			widest := float32(0)
+			for _, c := range t.Objects {
+				widest = fyne.Max(widest, measure(c))
+			}
+			return widest
 		}
-		rowH = fyne.Max(rowH, o.MinSize().Height)
+		return 0
 	}
-	return w, rowH, gap
+	for i, o := range objs {
+		w[i%l.cols] = fyne.Max(w[i%l.cols], measure(o))
+		rowH[i/l.cols] = fyne.Max(rowH[i/l.cols], o.MinSize().Height)
+	}
+	if len(rowH) > 1 && slices.Max(rowH[1:]) > rowH[0] { // a row of several lines
+		rowGap = gap * 2 / 3
+	}
+	return w, rowH, gap, rowGap
 }
 
 func (l *detailTableLayout) MinSize(objs []fyne.CanvasObject) fyne.Size {
-	_, rowH, gap := l.widths(objs)
-	rows := (len(objs) + l.cols - 1) / l.cols
-	return fyne.NewSize(0, float32(rows)*(rowH+gap/3))
+	_, rowH, _, rowGap := l.widths(objs)
+	h := float32(0)
+	for _, rh := range rowH {
+		h += rh + rowGap
+	}
+	return fyne.NewSize(0, h)
 }
 
 func (l *detailTableLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
-	w, rowH, gap := l.widths(objs)
+	w, rowH, gap, rowGap := l.widths(objs)
 	total := gap * float32(l.cols-1)
 	for _, x := range w {
 		total += x
 	}
 	if total > size.Width && total > 0 {
-		scale := fyne.Max(size.Width-gap*float32(l.cols-1), 0) / (total - gap*float32(l.cols-1))
-		for i := range w {
-			w[i] *= scale
-		}
+		capWidths(w, fyne.Max(size.Width-gap*float32(l.cols-1), 0))
 	}
+	y := float32(0)
 	for i, o := range objs {
 		col, row := i%l.cols, i/l.cols
+		if col == 0 && row > 0 {
+			y += rowH[row-1] + rowGap
+		}
 		x := float32(0)
 		for c := 0; c < col; c++ {
 			x += w[c] + gap
 		}
-		o.Move(fyne.NewPos(x, float32(row)*(rowH+gap/3)))
-		o.Resize(fyne.NewSize(w[col], rowH))
+		o.Move(fyne.NewPos(x, y))
+		o.Resize(fyne.NewSize(w[col], o.MinSize().Height)) // at the top of a taller row
+	}
+}
+
+// capWidths makes column widths fit avail by capping the widest at one width: columns narrower
+// than their share keep their width, so a short column (a rule's verbs) is never cut because a
+// long one (its API groups) is too wide.
+func capWidths(w []float32, avail float32) {
+	if len(w) == 0 {
+		return
+	}
+	sorted := slices.Clone(w)
+	slices.Sort(sorted)
+	limit := sorted[len(sorted)-1]
+	remaining := avail
+	for i, x := range sorted {
+		if share := remaining / float32(len(sorted)-i); x > share {
+			limit = share
+			break
+		}
+		remaining -= x
+	}
+	for i := range w {
+		w[i] = fyne.Min(w[i], limit)
 	}
 }
 
