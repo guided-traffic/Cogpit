@@ -1,0 +1,263 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    ":automergeDigest"
+  ],
+  "schedule": [
+    "at any time"
+  ],
+  "timezone": "Europe/Berlin",
+  "labels": [
+    "dependencies"
+  ],
+  "platformAutomerge": true,
+  "automergeType": "pr",
+  "automergeStrategy": "squash",
+  "ignoreTests": false,
+  "prConcurrentLimit": 0,
+  "prHourlyLimit": 0,
+  "branchConcurrentLimit": 0,
+  "rebaseWhen": "auto",
+  "postUpdateOptions": [
+    "gomodTidy",
+    "gomodUpdateImportPaths"
+  ],
+  "packageRules": [
+    {
+      "description": "Go version: group all Go version updates together to keep them in sync (go.mod; the workflows read it through go-version-file)",
+      "matchDatasources": [
+        "golang-version"
+      ],
+      "groupName": "Go version",
+      "groupSlug": "go-version"
+    },
+    {
+      "description": "Bundle golang.org/x/* updates with Go version bumps so govulncheck sees a consistent set (e.g. golang.org/x/net fixes shipped alongside Go releases)",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchPackageNames": [
+        "/^golang\\.org\\/x\\//"
+      ],
+      "groupName": "Go version",
+      "groupSlug": "go-version"
+    },
+    {
+      "description": "Go version: automerge minor and patch updates after CI passes",
+      "matchDatasources": [
+        "golang-version"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "Go version: require manual review for major updates",
+      "matchDatasources": [
+        "golang-version"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "labels": [
+        "dependencies",
+        "major-update"
+      ]
+    },
+    {
+      "description": "Go modules: enable updates for indirect dependencies so transitive security patches (e.g. golang.org/x/net via govulncheck) land without waiting for a direct require to bump",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchDepTypes": [
+        "indirect"
+      ],
+      "enabled": true
+    },
+    {
+      "description": "Go modules: automerge minor and patch updates after CI passes",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchDepTypes": [
+        "require",
+        "indirect"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "Go modules: require manual review for major updates on direct requires",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchDepTypes": [
+        "require"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "labels": [
+        "dependencies",
+        "major-update"
+      ]
+    },
+    {
+      "description": "Go modules: never open major PRs for indirect deps. Module-path bumps (/v2 -> /v3) cannot be auto-applied without a direct importer, so go mod tidy resets the indirect line to the MVS minimum and Renovate keeps re-opening the same downgrade PR. Major updates land via the parent direct dependency.",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchDepTypes": [
+        "indirect"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "GitHub Actions: automerge minor and patch updates",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "GitHub Actions: automerge major updates after CI passes",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "Makefile-pinned Go tools (custom regex manager): automerge minor and patch updates",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "Makefile-pinned Go tools (custom regex manager): require manual review for major updates",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "labels": [
+        "dependencies",
+        "major-update"
+      ]
+    },
+    {
+      "description": "Group Kubernetes-related Go dependencies",
+      "matchManagers": [
+        "gomod"
+      ],
+      "groupName": "Kubernetes Go modules",
+      "groupSlug": "k8s-go-modules",
+      "matchPackageNames": [
+        "/^k8s.io//",
+        "/^sigs.k8s.io//"
+      ]
+    },
+    {
+      "description": "Group Fyne and its own modules (fyne.io/*, github.com/fyne-io/*): the toolkit, its terminal widget and the packaging tool move together",
+      "matchManagers": [
+        "gomod",
+        "custom.regex"
+      ],
+      "groupName": "Fyne",
+      "groupSlug": "fyne",
+      "matchPackageNames": [
+        "/^fyne\\.io\\//",
+        "/^github\\.com\\/fyne-io\\//"
+      ]
+    },
+    {
+      "description": "k8s.io/kube-openapi and sigs.k8s.io/structured-merge-diff are indirect deps whose compatible version is dictated by the k8s.io/apimachinery release branch, not by their own tip. Renovate's digest updates advanced kube-openapi past the commit where it switched to structured-merge-diff/v7, which apimachinery v0.37.0 cannot compile against. Let MVS pick both from apimachinery; they still advance whenever the k8s.io/* group does.",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchPackageNames": [
+        "k8s.io/kube-openapi",
+        "/^sigs\\.k8s\\.io/structured-merge-diff//"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Use 'fix' instead of 'chore' for dependency updates",
+      "semanticCommitType": "fix",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest",
+        "pin"
+      ]
+    },
+    {
+      "description": "GitHub Actions: use 'chore' instead of 'fix' for updates",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "semanticCommitType": "chore"
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "Update Go tool versions pinned in Makefile via renovate comments. The value may be a release or a Go pseudo-version (vX.Y.Z-0.<time>-<commit>), which semver orders below the next release, so a tool pinned to an upstream commit moves onto that release on its own.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^Makefile$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\n.+\\?=\\s*(?<currentValue>v\\d[^\\s]*)"
+      ],
+      "versioningTemplate": "semver"
+    },
+    {
+      "description": "Update Go version in go.mod",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^go\\.mod$/"
+      ],
+      "matchStrings": [
+        "\\ngo\\s+(?<currentValue>[\\d.]+)\\n"
+      ],
+      "depNameTemplate": "golang",
+      "datasourceTemplate": "golang-version",
+      "versioningTemplate": "semver"
+    }
+  ],
+  "gomod": {
+    "enabled": true,
+    "postUpdateOptions": [
+      "gomodTidy",
+      "gomodUpdateImportPaths"
+    ]
+  }
+}
