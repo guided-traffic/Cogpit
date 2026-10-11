@@ -8,8 +8,9 @@ import (
 
 // itemActionDialogs are the GUI's own dialogs for item actions, by command id: a command listed
 // here opens its dialog instead of running at once or getting the schema-generated one (the
-// port-forward dialog for pod.portForward). Each feature registers its dialog in an init of its
-// own file, so that features never edit a shared table.
+// port-forward dialog for pod.portForward), from a drawer item and from the row menu and the
+// drawer's toolbar alike (runAction). Each feature registers its dialog in an init of its own
+// file, so that features never edit a shared table.
 var itemActionDialogs = map[string]func(sh *shell, ref model.ObjectRef, a model.ItemAction){}
 
 // runItemAction runs a drawer item's action (model.ItemAction): its own dialog if one is

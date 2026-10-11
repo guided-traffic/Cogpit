@@ -98,7 +98,8 @@ func CellTable(columns []Column, rows [][]Cell) *DetailTable {
 //     "1 Label" for one entry) and expands it on click. The entries are the chips, else the lines
 //     of Value.
 //   - Actions are buttons beside the value that run a command for it: "Forward…" beside a
-//     container port.
+//     container port. An action marked Link is the value itself: the value is a link that runs
+//     it (a container port forwards at once and opens the browser).
 type DetailItem struct {
 	Name    string       `json:"name,omitempty"`
 	Value   string       `json:"value"`
@@ -119,6 +120,10 @@ type ItemAction struct {
 	Label   string          `json:"label"`
 	Command string          `json:"command"`
 	Params  json.RawMessage `json:"params,omitempty"`
+	// Link makes the action the item's value itself instead of a button beside it: the drawer
+	// renders the value as a link that runs the action; Label says what it does, for agents. At
+	// most one action of an item is a link.
+	Link bool `json:"link,omitempty"`
 }
 
 // Chip is one entry of a list value shown as a chip.

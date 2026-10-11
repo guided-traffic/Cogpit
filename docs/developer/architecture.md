@@ -357,7 +357,11 @@ by "this pod".
   shows ("Forward…" beside a container port: the pod, the container, the port). Agents see them in
   `object_get` and dispatch the same command. The GUI runs one as the row menu runs a command
   (a schema-generated dialog, prefilled with the params, when the command asks for more), unless a
-  feature registers a dialog of its own for the command in `itemActionDialogs` from its own file.
+  feature registers a dialog of its own for the command in `itemActionDialogs` from its own file;
+  the row menu and the drawer's toolbar open that dialog too (the port forward's Edit). An action
+  marked `link` (added 2026-10-11 by the port-forwarding run) is the value itself: the drawer draws
+  the value as a link that runs it (a container port forwards at once and opens the browser),
+  the other actions as buttons right after the value.
 - **Related objects** (decided 2026-10-11, [`model/related.go`](../../internal/model/related.go),
   [`engine/related.go`](../../internal/engine/related.go)): a cell or drawer section that shows
   objects of another kind (a PVC's Pods column, a node drawer's Pods table) reads them through an

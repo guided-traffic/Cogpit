@@ -329,20 +329,79 @@ func foldKey(sec model.DetailSection, it model.DetailItem) string {
 }
 
 // itemValue renders one value: a folded list as its count ("6 Labels", a link that unfolds it),
-// chips, a link to the object it names, a status pill, else one line per line.
+// chips, a link to the object it names, a status pill, else one line per line. An item's actions
+// follow the value as buttons; an action marked Link is the value itself, a link that runs it.
 func (d *drawer) itemValue(ref model.ObjectRef, sec model.DetailSection, it model.DetailItem) fyne.CanvasObject {
-	v := d.foldedValue(ref, sec, it)
 	if len(it.Actions) == 0 {
-		return v
+		return d.foldedValue(ref, sec, it)
 	}
-	row := container.NewHBox(v)
+	var v fyne.CanvasObject
+	objs := []fyne.CanvasObject{nil}
 	for _, a := range it.Actions {
 		act := a
+		if act.Link && v == nil {
+			v = newLinkText(it.Value, func() { d.sh.runItemAction(ref, act) })
+			continue
+		}
 		b := widget.NewButton(act.Label, func() { d.sh.runItemAction(ref, act) })
 		b.Importance = widget.LowImportance
-		row.Add(b)
+		objs = append(objs, b)
 	}
-	return row
+	if v == nil {
+		v = d.foldedValue(ref, sec, it)
+	}
+	objs[0] = v
+	natural := float32(0)
+	if it.Fold == "" {
+		size := d.sh.app.Settings().Theme().Size(theme.SizeNameText)
+		for _, line := range strings.Split(it.Value, "\n") {
+			natural = fyne.Max(natural, fyne.MeasureText(line, size, fyne.TextStyle{}).Width)
+		}
+	}
+	return box(actionRowLayout{natural: natural}, objs...)
+}
+
+// actionRowLayout puts a drawer value and its action buttons on one line: the value as wide as
+// its text (natural; 0 takes what the buttons leave), shortened when the drawer is narrower, the
+// buttons right after it. The value's own widgets ask for no width, since they shorten to fit.
+type actionRowLayout struct{ natural float32 }
+
+func (actionRowLayout) gap() float32 {
+	return fyne.CurrentApp().Settings().Theme().Size(theme.SizeNamePadding)
+}
+
+func (l actionRowLayout) MinSize(objs []fyne.CanvasObject) fyne.Size {
+	var w, h float32
+	for _, o := range objs {
+		ms := o.MinSize()
+		w += ms.Width + l.gap()
+		h = fyne.Max(h, ms.Height)
+	}
+	return fyne.NewSize(w, h)
+}
+
+func (l actionRowLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
+	if len(objs) == 0 {
+		return
+	}
+	var buttons float32
+	for _, b := range objs[1:] {
+		buttons += b.MinSize().Width + l.gap()
+	}
+	vw := fyne.Max(size.Width-buttons, 0)
+	if l.natural > 0 {
+		vw = fyne.Min(vw, l.natural+l.gap())
+	}
+	vh := objs[0].MinSize().Height
+	objs[0].Move(fyne.NewPos(0, (size.Height-vh)/2))
+	objs[0].Resize(fyne.NewSize(vw, vh))
+	x := vw + l.gap()
+	for _, b := range objs[1:] {
+		ms := b.MinSize()
+		b.Move(fyne.NewPos(x, (size.Height-ms.Height)/2))
+		b.Resize(ms)
+		x += ms.Width + l.gap()
+	}
 }
 
 // foldedValue renders a value, folded behind its count when the item folds.
