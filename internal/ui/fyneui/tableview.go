@@ -272,7 +272,29 @@ func (tv *tableView) resolvePending() {
 		return
 	}
 	tv.pending = nil
-	tv.table.ScrollTo(widget.TableCellID{Row: i, Col: 0})
+	tv.scrollTo(i)
+}
+
+// scrollTo scrolls a row into view and refreshes the cells: ScrollTo alone moves the offset but
+// leaves the old cells in place until the next refresh.
+func (tv *tableView) scrollTo(row int) {
+	tv.layoutTable()
+	tv.table.ScrollTo(widget.TableCellID{Row: row, Col: 0})
+	tv.table.Refresh()
+}
+
+// layoutTable lays the table out for its current row count. Fyne 2.8 lays out a table's scroller
+// only when the table is resized, and the scroller clamps its offset against its content's laid-out
+// size: right after the row count grew (a new view, a cleared filter), ScrollTo sets the table's
+// offset to the row but the scroller clamps its own to the old, smaller content and the cells are
+// drawn outside the viewport. Resizing by a point and back forces the layout.
+func (tv *tableView) layoutTable() {
+	sz := tv.table.Size()
+	if sz.IsZero() {
+		return
+	}
+	tv.table.Resize(sz.Add(fyne.NewSize(0, 1)))
+	tv.table.Resize(sz)
 }
 
 func (tv *tableView) rowSelected(row int) bool {

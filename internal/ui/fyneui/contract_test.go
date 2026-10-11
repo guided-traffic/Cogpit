@@ -1,0 +1,71 @@
+package fyneui
+
+import (
+	"encoding/json"
+	"errors"
+	"testing"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/engine/commands"
+	"github.com/guided-traffic/cogpit/internal/model"
+)
+
+// TestDispatchedParamsMatchTheRegistry checks the shell's command parameters against the real
+// registry: the engine decodes parameters strictly (unknown fields are refused), so a field the
+// shell sends that a command does not declare would turn a click into an error. The shell's own
+// tests run against a fake engine and cannot see that.
+func TestDispatchedParamsMatchTheRegistry(t *testing.T) {
+	s := engine.New(engine.Options{})
+	defer s.Close()
+	if err := commands.RegisterAll(s.Registry()); err != nil {
+		t.Fatal(err)
+	}
+	ref := model.ObjectRef{Context: "demo", Kind: "pods", Namespace: "default", Name: "web-0"}
+	cases := []struct {
+		id     string
+		params any
+	}{
+		{"cluster.connect", contextParams{Context: "demo"}},
+		{"kinds.list", struct{}{}},
+		{"resources.list", listParams{Kind: kindNamespaces}},
+		{"ui.openView", openViewParams{View: "pods"}},
+		{"ui.setNamespace", namespacesParams{Namespaces: []string{}}},
+		{"ui.setFilter", filterParams{Filter: "web"}},
+		{"ui.sort", sortParams{Column: "name", Desc: true}},
+		{"ui.select", selectParams{Refs: []model.ObjectRef{ref}}},
+		{"ui.closeDrawer", struct{}{}},
+		{"ui.navigate", refParams{Ref: ref}},
+		{"dock.activate", dockParams{ID: "logs-1"}},
+		{"dock.close", dockParams{ID: "logs-1"}},
+		{"terminal.open", struct{}{}},
+		{"pod.logs", containerParams{Ref: ref}},
+		{"pod.shell", containerParams{Ref: ref, Container: "app"}},
+		{"deployment.restart", refParams{Ref: ref}},
+		{"object.delete", refParams{Ref: ref}},
+	}
+	for _, kind := range []string{kindPods, "deployments", "services"} {
+		for _, spec := range actionsFor(kind) {
+			r := ref
+			r.Kind = kind
+			cases = append(cases, struct {
+				id     string
+				params any
+			}{spec.command, actionState{spec: spec}.params(r, "app")})
+		}
+	}
+	for _, c := range cases {
+		cmd, ok := s.Registry().Get(c.id)
+		if !ok {
+			t.Errorf("the shell dispatches %s, which the registry does not have", c.id)
+			continue
+		}
+		raw, err := json.Marshal(c.params)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var pe *engine.ParamsError
+		if err := cmd.Enabled(s, raw); errors.As(err, &pe) {
+			t.Errorf("%s %s: the registry refuses the shell's parameters: %v", c.id, raw, err)
+		}
+	}
+}
