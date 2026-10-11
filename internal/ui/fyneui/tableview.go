@@ -40,6 +40,7 @@ type tableView struct {
 	title, count, syncing *textLine
 	errLine               *textLine
 	nsButton              *widget.Button
+	nsBox                 *fyne.Container // the namespace filter's slot; hidden on cluster-scoped views
 	search                *widget.Entry
 	table                 *resourceTable
 	placeholder           *fyne.Container
@@ -108,8 +109,9 @@ func newTableView(sh *shell) *tableView {
 		container.NewCenter(tv.placeholderText), container.NewCenter(tv.connectButton)))
 
 	heading := container.NewHBox(tv.title, tv.count, tv.syncing)
+	tv.nsBox = sized(sizeFilterWidth, "", tv.nsButton)
 	tools := container.NewHBox(
-		sized(sizeFilterWidth, "", tv.nsButton),
+		tv.nsBox,
 		sized(sizeSearchWidth, "", tv.search),
 	)
 	header := container.NewStack(newSurface(theme.ColorNameBackground),
@@ -133,6 +135,7 @@ func (tv *tableView) viewChanged() {
 	tv.updateTitle()
 	tv.search.SetPlaceHolder("Search " + strings.ToLower(tv.sh.kindTitle(tv.sh.ui.View)) + "…")
 	tv.updatePlaceholder()
+	tv.updateNamespaceButton()
 }
 
 // updateTitle shows the view's title and item count: "Pods · 10,000".
@@ -641,12 +644,28 @@ func (tv *tableView) updateNamespaceButton() {
 	if tv.nsButton.Text != text {
 		tv.nsButton.SetText(text)
 	}
-	namespaced := tv.snap == nil || tv.snap.Namespaced
-	if namespaced {
-		tv.nsButton.Enable()
+	// Lens shows no namespace filter on a cluster-scoped view (captures of Nodes, Ingress Classes,
+	// Cluster Roles and Cluster Role Bindings, 2026-10-11).
+	if tv.viewNamespaced() {
+		tv.nsBox.Show()
 	} else {
-		tv.nsButton.Disable()
+		tv.nsBox.Hide()
 	}
+}
+
+// viewNamespaced reports whether the open view's kind is namespaced: from its snapshot, before
+// the first one from kinds.list, and true when neither knows (the filter then stays where it is
+// until the view's snapshot says otherwise).
+func (tv *tableView) viewNamespaced() bool {
+	if tv.snap != nil && tv.snap.View == tv.sh.ui.View {
+		return tv.snap.Namespaced
+	}
+	for _, k := range tv.sh.kinds {
+		if k.Kind == tv.sh.ui.View {
+			return k.Namespaced
+		}
+	}
+	return true
 }
 
 // namespacesLoaded refreshes an open namespace popup with the newly loaded names.

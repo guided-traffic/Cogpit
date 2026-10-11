@@ -381,6 +381,7 @@ func (sh *shell) loadKinds() {
 		sh.side.setKinds(kinds)
 		sh.side.selectView(sh.ui.View)
 		sh.view.updateTitle()
+		sh.view.updateNamespaceButton()
 		sh.win.SetMainMenu(sh.mainMenu())
 	})
 }
