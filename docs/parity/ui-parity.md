@@ -43,7 +43,7 @@ hotbar, navigator, tab bar, workspace, dock, status bar.
 | Hotbar down the left edge ([Hotbar](#hotbar)); captured: one tile per cluster with its icon or image and a short label, and a bank switcher ("‹ 1 ›") at the bottom | paid | missing | – |
 | Navigator with the cluster's resource tree ([Cluster sidebar](#cluster-sidebar)) | free | partial | [`sidebar.go`](../../internal/ui/fyneui/sidebar.go) |
 | Navigator header: a dropdown of the scope the tree shows, one cluster or a section such as "Local Kubeconfigs", and a search button; the tree's root is the cluster, with its icon, a connection dot and a ›, and a ‹ to go back; hovering an item shows "<item> - <context>" (captures, 2026-10-11) | free | missing | – |
-| Tab bar of cluster views: single click opens a preview tab, double-click (or ⇧↵) a fixed tab; a tab reads "<view> - <context>" with the cluster's icon and a close button; the preview tab's title is italic (capture, 2026-10-11; the italic-means-preview reading is inferred) | free | missing | – |
+| Tab bar of cluster views: single click opens a preview tab, double-click (or ⇧↵) a fixed tab; a tab reads "<view> - <context>" with the cluster's icon and a close button; the preview tab's title is italic; hovering a tab shows its full title (captures, 2026-10-11; the italic-means-preview reading is inferred) | free | missing | – |
 | Workspace showing the active view | free | partial | [`tableview.go`](../../internal/ui/fyneui/tableview.go); [PNG](../../internal/ui/fyneui/testdata/demo_pods.png) |
 | Detail drawer on the right ([Detail drawer](#detail-drawer)) | free | partial | [`drawer.go`](../../internal/ui/fyneui/drawer.go) |
 | Dock along the bottom ([Dock](#dock)) | free | partial | [`dock.go`](../../internal/ui/fyneui/dock.go) |
@@ -178,7 +178,7 @@ Every list view is one table ([resource views](resource-parity.md)).
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
 | Opens from the right when a row is selected, beside the narrowed table; titled "<Kind>: <name>" (capture, 2026-10-11) | free | partial | `TestRowTapDispatchesSelect`; `ui.select` opens the drawer |
-| Actions at the top: Copy, Edit, Delete and the kind's own actions; captured as icons in the drawer's title bar: for a pod seven icons ending with Edit and Delete, for a node Shell, Cordon (a pause icon), Drain, Edit, Delete (which pod icon is which action: inferred, tooltips needed) | free | partial: Delete and kind actions | partial: Delete and kind actions |
+| Actions at the top: Copy, Edit, Delete and the kind's own actions; captured as icons in the drawer's title bar: for a pod seven icons ending with Edit and Delete, for a node Shell, Cordon (a pause icon; Uncordon, a play icon, on a cordoned node), Drain, Edit, Delete (which pod icon is which action: inferred, tooltips needed) | free | partial: Delete and kind actions | partial: Delete and kind actions |
 | Drawer sections in order: Metrics, Properties, the kind's own sections, Events ("No events found" when none) (capture of a pod and a node) | free | partial: no metrics; Cogpit shows Metadata, then the kind's sections, then Events | [`drawer.go`](../../internal/ui/fyneui/drawer.go) |
 | Long values fold: Labels, Annotations, Tolerations, environment variables, mounts and volumes show a count ("6 Labels") and expand on click; lists of short values show as chips (pod IPs, conditions, images) (capture) | free | missing | – |
 | Object references in the drawer are links (namespace, controller, node, service account, secrets); container ports have a "Forward…" button (capture) | free | missing | – |
@@ -333,7 +333,7 @@ the table is taken as correct until a capture decides.
 | Master and worker node charts | free | missing | – |
 | Time range from 1 hour to 2 months | free | missing | – |
 | Issues | free | missing | – |
-| Metrics charts in detail drawers: pods, each container of a pod, nodes (captured); a time range (default "1h"), one tab per metric (CPU, memory, network, filesystem; a container has no network tab), a line naming the provider ("Displaying metrics from Prometheus: <namespace>/<service>:<port>"); legends: CPU usage, requests, limits, and for nodes allocatable capacity and capacity | free | missing | – |
+| Metrics charts in detail drawers: pods, each container of a pod, nodes (captured); a time range (default "1h"), one tab per metric (CPU, memory, network, filesystem; a container has no network tab), a line naming the provider ("Displaying metrics from Prometheus: <namespace>/<service>:<port>"); legends: CPU usage, requests, limits, and for nodes allocatable capacity and capacity; a node's toolbar has four metric icons, then after a divider a flag icon (its meaning: tooltip needed), and the section a ⋮ menu; the namespace and the service in the provider line are links (capture of a node) | free | missing | – |
 
 ## Appearance and application
 
@@ -351,6 +351,7 @@ the table is taken as correct until a capture decides.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Captures of a cordoned node: Uncordon in the drawer, tab tooltips, the node metrics toolbar |
 | 2026-10-11 | minor | Namespace links narrow the view's namespace filter (owner); the navigator's scope dropdown and item tooltips |
 | 2026-10-11 | minor | Captures of row menus, the warning icon and statuses: menu layout with submenus, Evicted in red, the navigator's cluster root |
 | 2026-10-11 | minor | Captures of the Events view and of Create resource: cell tooltips, the + button, the template picker |
