@@ -56,17 +56,28 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## Foundation gaps
 
 ### G1. Workspace, CI and progress generators
-- **Missing:** CI on macOS, Windows and Linux with cgo and Fyne's build dependencies, the `kind`
-  and envtest jobs, semantic-release as in the team's other repositories, the generators
-  `make parity` and `make scorecard` that turn the checklists into measured pages
-  ([method](README.md#the-pages)), and the README's build, coverage and Go Report Card badges once
-  `release.yml` and the coverage JSON exist.
+- **Missing:** the generators `make parity` and `make scorecard` that turn the checklists into
+  measured pages ([method](README.md#the-pages)); an envtest job (no test uses envtest yet); CI
+  observed green on GitHub (the workflows below have not run there yet); `make vuln` passing, which
+  needs `golang.org/x/net` ≥ v0.60.0 and `golang.org/x/image` ≥ v0.43.0 in `go.mod`; the first real
+  release, which is the owner's call ([releasing](../developer/releasing.md#the-first-real-release)).
 - **Evidence:** built on 2026-10-11: [`go.mod`](../../go.mod) (Go 1.27.2, pinned versions), the
   [`Makefile`](../../Makefile) with local targets, [`.golangci.yml`](../../.golangci.yml) with the
   team's linters and `depguard` rules for every layer (a forbidden import fails `make lint`;
   verified with probe imports). golangci-lint is pinned to v2.14.0 because v2.13 cannot read Go
-  1.27.2 export data.
-- **Impact:** without CI, nothing guards `main`.
+  1.27.2 export data. CI as workflow files (2026-10-11,
+  [releasing › CI](../developer/releasing.md#ci)): [`release.yml`](../../.github/workflows/release.yml)
+  calls [`build.yml`](../../.github/workflows/build.yml) on every push and pull request: macOS runs
+  `make lint`, the race tests with coverage and `make build`; Linux and Windows compile and link
+  every package and test with cgo and Fyne's dependencies; a Linux job runs `make test-kind` on a
+  kind cluster; govulncheck. On `main` it commits the coverage badge (84.5 % measured locally) and
+  runs semantic-release as a dry run ([`.releaserc.json`](../../.releaserc.json), the
+  `conventionalcommits` preset as in the team's other repositories); Renovate runs from
+  [`renovate.yml`](../../.github/workflows/renovate.yml). The README carries the build, coverage,
+  Go Report Card and licence badges. Verified locally: the macOS job's `make` targets pass,
+  actionlint, the Renovate config validator, the dry run against a stand-in for the GitHub API.
+- **Impact:** until the first runs are green on GitHub, nothing is known to guard `main`; without
+  the generators, the checklists are counted by hand.
 - **Estimate:** 12–28 h (was 20–40).
 
 ### G2. Cluster connection and authentication
@@ -319,6 +330,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | G1: CI and the semantic-release dry run exist as workflow files, not yet observed green; generators, the envtest job and a passing `make vuln` remain; estimate not moved |
 | 2026-10-11 | major | The MVP: G1–G9, G14, G15 and G17 re-estimated with evidence; new terminal-widget risk in G8 |
 | 2026-10-11 | minor | D-5: G19 (external extensions) is not a target and leaves the totals |
 | 2026-10-11 | minor | D-9: Flux CD and Argo CD views split from G18 into G23, in the beta |

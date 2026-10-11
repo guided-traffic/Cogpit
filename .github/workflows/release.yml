@@ -1,0 +1,147 @@
+# Test and Release: the pipeline of every push to main and every pull request, and the workflow
+# behind the README's build badge. It calls build.yml for the checks, keeps the coverage badge on
+# main current, and runs semantic-release as a DRY RUN.
+#
+# ---------------------------------------------------------------------------------------------
+# DRY RUN ONLY: THIS WORKFLOW DOES NOT RELEASE.
+# Cogpit is pre-alpha. semantic-release derives the version from the commits since the last tag;
+# with no tag yet and feat: commits on main it would cut 1.0.0, tag it and publish a GitHub
+# release: a 1.0 promise for a pre-alpha. The first real release is the owner's call. Until the
+# owner flips it, three independent guards keep the job "Semantic Release (dry run)" from
+# releasing:
+#   1. --dry-run on the semantic-release step: no tag, no GitHub release, no release commit;
+#   2. the job's token is read-only (contents: read): GitHub refuses a tag, a push or a release;
+#   3. every git push from that job goes to a throwaway bare repository (url.pushInsteadOf), which
+#      is also what lets semantic-release's push-permission check pass with a read-only token.
+# How the owner flips it: docs/developer/releasing.md#the-first-real-release
+# ---------------------------------------------------------------------------------------------
+name: Test and Release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Superseded pull request runs are cancelled. Runs on main queue instead, so that every push is
+  # checked and the coverage badge is committed in order.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    name: Build
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+
+  # The team's other repositories commit the badge with the release commit (@semantic-release/git).
+  # While releases are dry runs, this job does it: one commit to main that changes
+  # .github/badges/coverage.json and nothing else, only when the number changed. It runs no release
+  # tooling and creates no tag. Pushes made with GITHUB_TOKEN start no workflow, so it cannot loop.
+  coverage-badge:
+    name: Coverage Badge
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write  # the badge commit on main; see above
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Download coverage badge
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage-badge
+          path: ${{ runner.temp }}/coverage-badge
+
+      - name: Commit the badge to main if it changed
+        env:
+          BADGE: .github/badges/coverage.json
+        run: |
+          set -euo pipefail
+          cp "${RUNNER_TEMP}/coverage-badge/coverage.json" "${BADGE}"
+          coverage="$(jq -r .message "${BADGE}")"
+          if git diff --quiet -- "${BADGE}"; then
+            echo "Coverage badge unchanged: ${coverage}"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --quiet -m "chore(ci): coverage badge ${coverage} [skip ci]" -- "${BADGE}"
+          # The commit must touch the badge and nothing else.
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "${BADGE}"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:refs/heads/main; then
+              exit 0
+            fi
+            echo "main moved; rebasing the badge commit (attempt ${attempt})"
+            git pull --rebase --quiet origin main
+          done
+          exit 1
+
+  # DRY RUN ONLY; see the header. Shows the version and the release notes semantic-release would
+  # produce, and proves the release tooling still works.
+  semantic-release:
+    name: Semantic Release (dry run)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read  # guard 2: read-only on purpose until the owner cuts the first release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Kept for the flip: @semantic-release/git commits this file with the release, as in the
+      # team's other repositories. A dry run skips that step.
+      - name: Download coverage badge
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage-badge
+          path: .github/badges/
+        continue-on-error: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "lts/*"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify the integrity of provenance attestations and registry signatures for installed dependencies
+        run: npm audit signatures
+
+      # Guard 3. semantic-release first checks that it may push (git push --dry-run to the
+      # repository URL from package.json); a read-only token fails that check even in a dry run.
+      # Pushes to github.com from this checkout go to an empty bare repository in the runner's temp
+      # directory instead, so the check passes and nothing can reach GitHub. Fetches are unchanged.
+      - name: Redirect git pushes into a throwaway repository
+        run: |
+          set -euo pipefail
+          sink="${RUNNER_TEMP}/push-sink"
+          git init --quiet --bare "${sink}/guided-traffic/cogpit.git"
+          git config --local "url.${sink}/.pushInsteadOf" "https://github.com/"
+
+      - name: Release (dry run)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release --dry-run  # guard 1

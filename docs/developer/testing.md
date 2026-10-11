@@ -10,7 +10,7 @@ The MVP (2026-10-11) brought the first tiers; the table says for each whether it
 | Tier | Runs where | Needs | What it proves | State |
 |---|---|---|---|---|
 | Unit | `go test ./...` everywhere | nothing | logic in isolation; `model` and `kubeconfig` are fully testable without I/O | exists: `make test-unit` |
-| Race | `go test -race ./...` | nothing | no data races; a concurrent map write would end the process | exists: `make test-unit-race` (CI not set up) |
+| Race | `go test -race ./...` | nothing | no data races; a concurrent map write would end the process | exists: `make test-unit-race` (in CI on macOS as `make test-unit-coverage`, the same run with a coverage profile, and on Linux inside `make test-kind`; [releasing › CI](releasing.md#ci)) |
 | Kind-profile goldens | `internal/model` | recorded objects in `testdata/` | an object becomes the row and detail model Lens would show | exists: [`kinds/golden_test.go`](../../internal/model/kinds/golden_test.go), 49 synthetic objects; `-update` regenerates |
 | Cache | `internal/cache`, `internal/testkit/integration` | an in-memory source; a fake API server over HTTPS | watches, warm period, error state, transforms, and the API requests each scenario costs | exists; envtest not used yet ([`budget_test.go`](../../internal/testkit/integration/budget_test.go)) |
 | Engine | `internal/engine` | the real cache over an in-memory source | commands, snapshots, the drawer, confirmation per origin | exists |
