@@ -36,6 +36,8 @@ type Options struct {
 	// PerfDuration, with PerfReport, scrolls the table through its rows for this long, then
 	// reports and quits. Zero measures until the window closes, without scrolling.
 	PerfDuration time.Duration
+	// PerfMode, with PerfReport, picks the measurement: PerfScroll (the default) or PerfGate.
+	PerfMode string
 	// Theme picks the palette; empty means ThemeDark.
 	Theme ThemeMode
 }
@@ -49,9 +51,53 @@ type PerfStats struct {
 	MaxMs     float64 `json:"maxMs"`
 	Over16Ms  int     `json:"over16Ms"`
 	DurationS float64 `json:"durationS"`
-	// Stalls are the distinct stalls, each with its start (seconds after the meter started) and
-	// how long the first callback behind it waited; at most 20.
+	// Stalls are the distinct stalls, each with its start (seconds after the scroll phase started)
+	// and how long the first callback behind it waited; at most 20.
 	Stalls []PerfStall `json:"stalls,omitempty"`
+	// Phases covers the whole measurement, start-up included.
+	Phases []PerfPhase `json:"phases,omitempty"`
+}
+
+// PerfPhase is one phase of a measurement: "startup", "scroll", "views", "yaml". Times are seconds
+// since the meter started; stall times are relative to the phase's start.
+type PerfPhase struct {
+	Name     string  `json:"name"`
+	FromS    float64 `json:"fromS"`
+	ToS      float64 `json:"toS"`
+	Samples  int     `json:"samples"`
+	P50Ms    float64 `json:"p50Ms"`
+	P99Ms    float64 `json:"p99Ms"`
+	MaxMs    float64 `json:"maxMs"`
+	Over16Ms int     `json:"over16Ms"`
+	// Stalls of the phase, at most 20.
+	Stalls []PerfStall `json:"stalls,omitempty"`
+	// Switches are the view switches of the "views" phase.
+	Switches []PerfSwitch `json:"switches,omitempty"`
+	// Keystrokes is the typing of the "yaml" phase.
+	Keystrokes *PerfKeys `json:"keystrokes,omitempty"`
+}
+
+// PerfSwitch is one view switch: when it was dispatched (seconds since the meter started), how
+// long until the table showed the view's rows (-1: never within the dwell time), and the longest
+// wait of a main-goroutine callback within a second after it.
+type PerfSwitch struct {
+	View        string  `json:"view"`
+	AtS         float64 `json:"atS"`
+	RowsAfterMs float64 `json:"rowsAfterMs"`
+	Rows        int     `json:"rows"`
+	MaxLateMs   float64 `json:"maxLateMs"`
+}
+
+// PerfKeys is the typing into the YAML editor: one character per frame into the middle of the
+// document. Work is the widget's own time per keystroke (edit, tokenize, place); the phase's
+// callback latencies show whether keystroke and repaint fit a frame.
+type PerfKeys struct {
+	Count     int     `json:"count"`
+	DocBytes  int     `json:"docBytes"`
+	SetTextMs float64 `json:"setTextMs"`
+	WorkP50Ms float64 `json:"workP50Ms"`
+	WorkP99Ms float64 `json:"workP99Ms"`
+	WorkMaxMs float64 `json:"workMaxMs"`
 }
 
 // PerfStall is one stall of the main goroutine the jank meter saw.

@@ -10,6 +10,9 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
+	"sync"
+	"time"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
@@ -37,10 +40,22 @@ func run() int {
 		mcpAddr     = flag.String("mcp-addr", "127.0.0.1:0", "MCP listen address; loopback only")
 		noMCP       = flag.Bool("no-mcp", false, "do not start the MCP server")
 		perf        = flag.Duration("perf", 0, "measure main-loop latency while auto-scrolling the table for this long, print the result as JSON and quit")
+		perfMode    = flag.String("perf-mode", "", "with --perf (or alone for gate): scroll, or gate for start-up, scrolling, every view and typing into 5 MB of YAML in one run")
+		cpuProfile  = flag.String("cpuprofile", "", "write a CPU profile of the first --cpuprofile-for to this file")
+		cpuFor      = flag.Duration("cpuprofile-for", 5*time.Second, "how long --cpuprofile records")
 		themeName   = flag.String("theme", "dark", "colour theme: dark, light or system")
 		verbose     = flag.Bool("v", false, "debug logging")
 	)
 	flag.Parse()
+
+	if *cpuProfile != "" {
+		stop, err := startCPUProfile(*cpuProfile, *cpuFor)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "cogpit:", err)
+			return 1
+		}
+		defer stop()
+	}
 
 	logger := newLogger(*verbose)
 	slog.SetDefault(logger)
@@ -95,8 +110,9 @@ func run() int {
 			fmt.Printf("Cogpit MCP server: %s\nRegister it with Claude Code (the token changes on every start):\n\n  %s\n\n", srv.URL(), opts.MCPCommand)
 		}
 	}
-	if *perf > 0 {
+	if *perf > 0 || *perfMode != "" {
 		opts.PerfDuration = *perf
+		opts.PerfMode = *perfMode
 		opts.PerfReport = func(ps fyneui.PerfStats) {
 			b, _ := json.Marshal(ps)
 			fmt.Println(string(b))
@@ -147,4 +163,26 @@ func openAuditLog(logger *slog.Logger) (io.Writer, func()) {
 		return nil, func() {}
 	}
 	return f, func() { _ = f.Close() }
+}
+
+// startCPUProfile records a CPU profile for d (or until stop is called) into path; for the gate
+// measurements of the start-up.
+func startCPUProfile(path string, d time.Duration) (stop func(), err error) {
+	f, err := os.Create(path)
+	if err != nil {
+		return nil, err
+	}
+	if err := pprof.StartCPUProfile(f); err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	var once sync.Once
+	stop = func() {
+		once.Do(func() {
+			pprof.StopCPUProfile()
+			_ = f.Close()
+		})
+	}
+	time.AfterFunc(d, stop)
+	return stop, nil
 }
