@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (the MVP: evidence and new estimates for G1–G9, G14, G15, G17) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (second implementation run: G1, G3, G5, G6, G7, G9 re-estimated) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -22,15 +22,15 @@ own. **Human** marks what an agent can't finish alone.
 
 | # | Gap | Kind | Impact | Estimate | Parity doc |
 |---|---|---|---|---:|---|
-| G1 | Workspace, CI and progress generators | foundation | blocks alpha | 12–28 h | [roadmap](roadmap.md#milestones) |
+| G1 | Workspace, CI and progress generators | foundation | blocks alpha | 6–14 h | [roadmap](roadmap.md#milestones) |
 | G2 | Cluster connection and authentication | connectivity | blocks alpha | 18–40 h + human | [platform-parity](platform-parity.md#cluster-authentication-and-connectivity) |
-| G3 | Cache and the resource model | foundation | blocks alpha | 25–55 h | [architecture §5](../developer/architecture.md#5-cache) |
+| G3 | Cache and the resource model | foundation | blocks alpha | 22–50 h | [architecture §5](../developer/architecture.md#5-cache) |
 | G4 | Engine and command registry | foundation | blocks alpha | 15–35 h | [architecture §4](../developer/architecture.md#4-the-ui-seam-the-most-important-interface) |
-| G5 | App shell, navigation, tables and drawer | UI | blocks alpha | 60–165 h | [ui-parity](ui-parity.md#layout) |
-| G6 | Resource views | features | blocks alpha (core kinds) | 120–360 h | [resource-parity](resource-parity.md) |
-| G7 | Resource actions | features | blocks alpha (core actions) | 62–195 h | [resource-parity](resource-parity.md) |
+| G5 | App shell, navigation, tables and drawer | UI | blocks alpha | 45–130 h | [ui-parity](ui-parity.md#layout) |
+| G6 | Resource views | features | blocks alpha (core kinds) | 85–260 h | [resource-parity](resource-parity.md) |
+| G7 | Resource actions | features | blocks alpha (core actions) | 45–140 h | [resource-parity](resource-parity.md) |
 | G8 | Logs, terminal and shells | features | blocks alpha | 30–70 h | [ui-parity](ui-parity.md#logs) |
-| G9 | YAML editor and create resource | features | blocks alpha | 27–60 h | [ui-parity](ui-parity.md#editor-and-create-resource) |
+| G9 | YAML editor and create resource | features | blocks alpha | 10–25 h | [ui-parity](ui-parity.md#editor-and-create-resource) |
 | G10 | Port forwarding | features | blocks alpha | 10–20 h | [ui-parity](ui-parity.md#port-forwarding) |
 | G11 | Helm | features | blocks alpha | 30–60 h | [resource-parity](resource-parity.md#helm) |
 | G12 | Metrics and cluster overview | features | blocks beta | 40–80 h | [ui-parity](ui-parity.md#cluster-overview-and-charts) |
@@ -46,10 +46,11 @@ own. **Human** marks what an agent can't finish alone.
 | G22 | Windows and Linux | platforms | after the macOS beta | 40–80 h + human | [platform-parity](platform-parity.md#operating-systems-and-packages) |
 | G23 | Flux CD and Argo CD views | features | blocks beta ([D-9](../developer/decisions.md#d-9-scope-against-lenss-paid-and-vendor-features)) | 55–115 h | [resource-parity](resource-parity.md#paid-lens-desktop-views) |
 
-Totals (2026-10-11, after the MVP): Lens's free feature set on macOS (G1–G16) is **~670–1,650 h**
-(was ~800–1,850); the beta adds the Flux CD and Argo CD views (G23); with Lens's other paid
-features, Windows and Linux (G18, G22, G23), the full Lens target is **~870–2,060 h** (was
-~1,000–2,300). Cogpit's own targets beyond Lens (G17, G21) add **~50–110 h** (was ~70–140).
+Totals (2026-10-11, after the second implementation run): Lens's free feature set on macOS
+(G1–G16) is **~570–1,400 h** (was ~670–1,650 after the MVP); the beta adds the Flux CD and Argo CD
+views (G23); with Lens's other paid features, Windows and Linux (G18, G22, G23), the full Lens
+target is **~780–1,820 h** (was ~870–2,060). The run re-estimated G1, G3, G5, G6, G7 and G9 from
+what landed, with the same borrowed calibration. Cogpit's own targets beyond Lens (G17, G21) add **~50–110 h** (was ~70–140).
 G19 and G20 are not targets and not counted. The Fyne spike before M2 ran as part of the MVP and
 D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
@@ -57,10 +58,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 ### G1. Workspace, CI and progress generators
 - **Missing:** the generators `make parity` and `make scorecard` that turn the checklists into
-  measured pages ([method](README.md#the-pages)); an envtest job (no test uses envtest yet); CI
-  observed green on GitHub (the workflows below have not run there yet); `make vuln` passing, which
-  needs `golang.org/x/net` ≥ v0.60.0 and `golang.org/x/image` ≥ v0.43.0 in `go.mod`; the first real
-  release, which is the owner's call ([releasing](../developer/releasing.md#the-first-real-release)).
+  measured pages ([method](README.md#the-pages)); an envtest job (no test uses envtest yet); the
+  first real release, which is the owner's call ([releasing](../developer/releasing.md#the-first-real-release)).
 - **Evidence:** built on 2026-10-11: [`go.mod`](../../go.mod) (Go 1.27.2, pinned versions), the
   [`Makefile`](../../Makefile) with local targets, [`.golangci.yml`](../../.golangci.yml) with the
   team's linters and `depguard` rules for every layer (a forbidden import fails `make lint`;
@@ -76,9 +75,14 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   [`renovate.yml`](../../.github/workflows/renovate.yml). The README carries the build, coverage,
   Go Report Card and licence badges. Verified locally: the macOS job's `make` targets pass,
   actionlint, the Renovate config validator, the dry run against a stand-in for the GitHub API.
-- **Impact:** until the first runs are green on GitHub, nothing is known to guard `main`; without
-  the generators, the checklists are counted by hand.
-- **Estimate:** 12–28 h (was 20–40).
+  Observed on GitHub (2026-10-11): the first run failed Compile (linux) and the vulnerability
+  check (GLFW 3.4 needs the Wayland headers; fixed in the workflow) and the kind job (a flaky
+  test, fixed in the cache); from then on every job is green on `main`, including the kind job on
+  Kubernetes 1.37.0, govulncheck (after `golang.org/x/net` v0.60.0 and `golang.org/x/image`
+  v0.43.0), the coverage badge commit and the semantic-release dry run, which created no tag and
+  no release.
+- **Impact:** CI guards `main`; without the generators, the checklists are counted by hand.
+- **Estimate:** 6–14 h (was 12–28).
 
 ### G2. Cluster connection and authentication
 - **Missing:** kubeconfig discovery, merging and validation; pasted kubeconfigs stored owner-only;
@@ -111,11 +115,16 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   coalesced snapshots (≤ 10 per second per view). P9–P11 hold in tests
   ([testing](../developer/testing.md#performance-budgets-proposed-not-measured)). Still missing:
   namespace-scoped informers (views filter client-side), metadata-only informers, discovery cached
-  on disk, access reviews, polling sources, the diagnostics view, the generic custom-resource
-  profile.
+  on disk, access reviews, polling sources, the diagnostics view. Built in the second run
+  (2026-10-11): the generic custom-resource profile from a definition and its printer columns,
+  kept current through a watch on the cluster's definitions
+  ([`customresources.go`](../../internal/model/kinds/customresources.go),
+  [`customkinds.go`](../../internal/engine/customkinds.go), `TestBudgetCustomResourceView`); a
+  handle reports synced only once the initial list reached its subscribers
+  (`TestSyncWaitsForTheInitialListToReachSubscribers`).
 - **Impact:** every view, every MCP read and the agent depend on it; it decides budgets P1–P4 and
   P9–P11 and the load Cogpit puts on API servers.
-- **Estimate:** 25–55 h (was 45–90).
+- **Estimate:** 22–50 h (was 25–55).
 
 ### G4. Engine and command registry
 - **Missing:** `Session`, the command registry with schemas, verbs, danger levels and disabled
@@ -131,13 +140,23 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## Feature gaps
 
 ### G6. Resource views
-- **Missing:** all but six of the 64 resource views ([resource-parity](resource-parity.md)). The alpha gate needs
-  about 20: Pods, Deployments, Daemon Sets, Stateful Sets, Replica Sets, Jobs, Cron Jobs, Nodes,
-  Namespaces, Events, Services, Ingresses, Config Maps, Secrets, Persistent Volume Claims, Helm
-  Releases, the cluster overview and the generic custom-resource view.
-- **Evidence:** resource-parity, 6 of 64 partial (Nodes, Pods, Deployments, Services, Namespaces,
-  Events; no metrics columns).
-- **Estimate:** 120–360 h (was 130–380; 2–6 h each; Pods, Nodes and the overview at the high end).
+- **Missing:** 37 of the 64 resource views ([resource-parity](resource-parity.md)), and the depth of
+  the 26 partial ones (metrics columns, texts checked against a capture). Of the about 20 the alpha
+  gate needs, still missing: Secrets (waits for the owner's decision on
+  [H-8](../security/privilege-footprint.md#h-8-secret-data-arrives-with-the-list)), Helm Releases
+  and the cluster overview.
+- **Evidence:** resource-parity, 27 of 64 (2026-10-11): Nodes, Pods, Deployments, Services,
+  Namespaces, Events (the MVP); Daemon Sets, Stateful Sets, Replica Sets, Jobs, Cron Jobs
+  ([`kinds/`](../../internal/model/kinds/) `daemonsets.go` … `cronjobs.go`; Cron Jobs with the
+  captured columns and texts, Next execution from the schedule); Ingresses, Ingress Classes (the
+  captured columns), Config Maps, Persistent Volume Claims (Pods column empty: it needs a cross-kind
+  index); Definitions (no group filter) and the custom resource views (done: titled by Kind, grouped
+  by API group, printer columns of priority 0, following the definitions live); the ten Gateway
+  API views, shown as generic custom resource views. Golden, status-text and fuzz tests per kind
+  (`TestGolden` and `TestCustomGolden` over 119 synthetic objects), views filled from watches on kind
+  (`TestKindEngineWorkflows`, `TestKindCustomResources`). Inferred and marked per row: most status
+  rules, the Cron Jobs warning rule, the drawers of the new kinds.
+- **Estimate:** 85–260 h (was 120–360; 2–6 h each for the 37 missing views, plus depth).
 
 ### G7. Resource actions
 - **Missing:** the actions not listed under Evidence, of 39 (Share is not a target, owner 2026-10-11). The alpha gate needs about 20: logs, shell, attach, edit, delete,
@@ -155,9 +174,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   drawer's icons show them from the registry (G5, `TestRegistryMenusAsLens`); Scale and Drain
   open a dialog generated from their schemas, prefilled (the replicas from the cache, the drain
   options with their defaults). Still open for these: Lens's drain and scale dialogs (not
-  captured; drain defaults inferred), the drain test on a multi-node kind cluster
-  (`make test-kind-drain`, written, not run yet).
-- **Estimate:** 62–195 h (was 70–210).
+  captured; drain defaults inferred). The drain test passed on a three-node kind cluster
+  (2026-10-11, `make test-kind-drain`, `TestKindDrainCrashFinishUncordon`: a drain blocked by a
+  PodDisruptionBudget and a simulated crash leave the journal entry, the next session offers it,
+  finishing and uncordoning clear it).
+- **Estimate:** 45–140 h (was 62–195; 25 of 39 actions missing, 2–5 h each, plus depth).
 
 ### G8. Logs, terminal and shells
 - **Missing:** the terminal tab on `fyne-io/terminal`, connected to Cogpit's own PTY (local shell
@@ -190,7 +211,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   ([`engine/create.go`](../../internal/engine/create.go)); Delete for every kind with the cached UID
   as precondition; all of it as commands agents drive too, tested against fakes, fuzzed, and on kind
   (`TestKindEditCreateConflictDelete`).
-- **Estimate:** 27–60 h (was 35–70).
+- **Estimate:** 10–25 h (was 27–60).
 
 ### G10. Port forwarding
 - **Missing:** the forward manager (local listener on `127.0.0.1`, lifecycle, reconnects), the
@@ -244,7 +265,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   with history, tab bar, welcome page, keyboard navigation, CSV export, column reorder and hiding,
   row checkboxes and multi-selection in row menus, the drawer's Copy and port Forward…, the Pods
   view's container squares.
-- **Estimate:** 60–165 h (was 80–200).
+- **Estimate:** 45–130 h (was 60–165).
 
 ### G13. Clusters, hotbar, palette, menus, shortcuts and preferences
 - **Missing:** kubeconfig syncs and pasting (alpha needs these), the hotbar, the command palette,
@@ -353,6 +374,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | major | Second implementation run: G1 (CI green), G3, G5, G6 (27 of 64 views), G7 (14 of 39 actions, drain tested on three nodes) and G9 re-estimated; totals ~570–1,400 h free parity, ~780–1,820 h full target |
 | 2026-10-11 | minor | G5: row menus, drawer toolbar, warning column, links, tooltips and the drawer's Properties built; what remains |
 | 2026-10-11 | minor | G9: editing, create from templates and Delete for every kind built; what is left listed |
 | 2026-10-11 | minor | G7: node and workload actions partial (cordon, uncordon, crash-safe drain, scale, trigger, suspend, resume, evict) |

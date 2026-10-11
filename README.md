@@ -12,9 +12,10 @@ own credentials, and gives you the views Lens users know: workloads, logs, shell
 port forwarding and the Helm releases in your clusters. Every view reads from a cache that watches
 keep current, so it is fast for you and light on the API server. And agents can drive all of it
 over MCP, the UI included. Cogpit is a desktop client: it is never a web UI and is never deployed
-into a cluster. **Status: pre-alpha. A local MVP runs on macOS** — six views, the detail drawer,
-logs, a terminal, a pod shell and MCP control of the UI ([Run the MVP](#run-the-mvp)); it is not a
-release ([roadmap](ROADMAP.md)).
+into a cluster. **Status: pre-alpha. A local MVP runs on macOS** — 16 built-in views plus one per
+custom resource kind, the detail drawer with row menus, YAML editing with diff and dry-run, node
+and workload actions, logs, a terminal, a pod shell and MCP control of the UI
+([Run the MVP](#run-the-mvp)); it is not a release ([roadmap](ROADMAP.md)).
 
 ```mermaid
 flowchart LR
@@ -32,10 +33,15 @@ flowchart LR
 
 ## ✨ Key Features
 
-Planned. The local MVP already has, in part: the context picker, the Nodes, Pods, Deployments,
-Services, Namespaces and Events views from the cache, the detail drawer, logs with follow, the
-cluster-bound terminal, the pod shell, Restart and Delete with confirmation, and MCP control of the
-UI. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
+Planned. The local MVP already has, in part: the context picker; views from the cache for Nodes,
+Namespaces, Events, Pods, Deployments, Daemon Sets, Stateful Sets, Replica Sets, Jobs, Cron Jobs,
+Services, Ingresses, Ingress Classes, Config Maps, Persistent Volume Claims, Custom Resource
+Definitions and every custom resource kind (following the cluster's definitions live); the detail
+drawer and row menus from the command registry; editing YAML with a diff, a server-side dry run
+and a resourceVersion precondition; create from templates; Delete for every kind, Restart, Scale,
+Cordon, Uncordon, a crash-safe Drain, Trigger, Suspend, Resume and Evict, destructive ones
+confirmed; logs with follow, the cluster-bound terminal, the pod shell; and MCP control of all of
+it. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
 
 - 🖥️ A native macOS app first, Windows and Linux (Ubuntu first) after the macOS beta.
 - 🗂️ Every cluster from your kubeconfig files, synced folders or pasted text, side by side.
@@ -67,11 +73,12 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Packages | `internal/<area>` | `internal/cache` # example |
 | Command ids | `<kind-or-area>.<action>`, lowerCamelCase segments | `deployment.restart`, `ui.navigate` |
 | MCP tool names | the command id with dots replaced by underscores | `deployment_restart`, `ui_navigate` |
-| Kind keys (views, `kind` parameters) | the plural resource name | `pods`, `services` |
+| Kind keys (views, `kind` parameters) | the plural resource name for built-in kinds; `<plural>.<group>` for kinds from custom resource definitions ([why](docs/developer/architecture.md#45-kind-keys)) | `pods`, `services`, `gateways.gateway.networking.k8s.io` |
 | Environment variables | `COGPIT_<NAME>`; today only the test variables `COGPIT_KIND_KUBECONFIG`, `COGPIT_KIND_CONTEXT` and `COGPIT_PNG_DIR` | |
 | MCP endpoint | `http://127.0.0.1:<random port>/mcp`, new port on every start | `http://127.0.0.1:59449/mcp` # example |
 | MCP bearer token | `<user config dir>/Cogpit/mcp-token`, owner-only (0600, directory 0700), new on every start, removed on exit | |
 | Audit log | `<user config dir>/Cogpit/audit.log`, owner-only, one JSON line per agent-initiated command | |
+| Drain journal | `<user config dir>/Cogpit/drains.json`, owner-only (0600, directory 0700): the drains Cogpit started and has not finished, offered again on the next connect | |
 | App log | `<user cache dir>/Cogpit/cogpit.log`, and stderr | |
 | Terminal kubeconfig | a temporary file per terminal holding only a context, owner-only, deleted on close ([why](docs/security/credentials.md#the-terminals-kubeconfig)) | |
 | Demo context | `demo` (the synthetic cluster) | |
@@ -185,22 +192,42 @@ Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never a
 ([D-2](docs/developer/decisions.md#d-2-agent-interface-scope)).
 
 <details>
-<summary>All 21 commands</summary>
+<summary>All 41 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
 | `cluster.connect` | `cluster_connect` | ui | `context` | Connects to a kubeconfig context (or the demo cluster) and opens its Pods view, replacing the current connection |
 | `cluster.contexts` | `cluster_contexts` | read |  | Lists the kubeconfig contexts Cogpit can connect to (name, cluster, user, default namespace, server, whether it is the kubeconfig's current context) and the synthetic demo cluster if offered |
+| `cronjob.resume` | `cronjob_resume` | mutating | `ref` | Resumes a suspended cron job: sets spec.suspend to false, so that it runs on its schedule again |
+| `cronjob.suspend` | `cronjob_suspend` | mutating | `ref` | Suspends a cron job: sets spec.suspend to true, so that it starts no Jobs on its schedule; running Jobs go on |
+| `cronjob.trigger` | `cronjob_trigger` | mutating | `ref` | Runs a cron job now, as kubectl create job --from=cronjob/<name> does: creates a Job from the cron job's job template, with its labels and annotations, the annotation cronjob.kubernetes.io/instantiate=manual and the cron job as its controller, named <cronjob>-manual-<5 random characters> (within 63 characters) |
 | `deployment.restart` | `deployment_restart` | destructive | `ref` | Restarts a Deployment the way kubectl rollout restart does: it sets the pod template's restartedAt annotation and the controller replaces every pod |
+| `deployment.scale` | `deployment_scale` | mutating (destructive for some calls) | `ref`, `replicas`? | Sets a deployment's replica count, as kubectl scale does: a patch of spec.replicas on its scale subresource |
 | `dock.activate` | `dock_activate` | ui | `id` | Shows a dock tab |
 | `dock.close` | `dock_close` | ui | `id` | Closes a dock tab and ends its stream or shell |
-| `kinds.list` | `kinds_list` | read |  | Lists the kinds the connected cluster serves, as Cogpit shows them: kind key (what other tools take as kind), title, Kubernetes kind, group, version, whether it is namespaced, its table columns, and the fields resources_find can search by. |
-| `object.delete` | `object_delete` | destructive | `ref` | Deletes an object with its default grace period; its controller, if any, may replace it |
-| `object.get` | `object_get` | read | `noYaml`?, `ref` | Returns what the detail drawer shows for one object, from Cogpit's cache: title, status, the metadata and kind-specific sections, its events (newest first, at most 50), its container names for pods, and its YAML (managed fields dropped, Secret values redacted) unless noYaml |
+| `editor.diff` | `editor_diff` | read | `context`?, `id`, `yaml`? | Returns the line diff of an Edit tab's text (or of yaml) against the object as Cogpit's cache holds it now: lines with op "-" (removed), "+" (added) or "=" (context), with line numbers |
+| `editor.get` | `editor_get` | read | `id` | Returns an editor tab's text (what the user has typed so far) and its revision; for an Edit tab also the resourceVersion the edit is based on, the one Cogpit's cache holds now, and whether they differ (stale: an apply would be refused with a conflict) or the object is gone (missing) |
+| `editor.setText` | `editor_setText` | ui | `id`, `yaml` | Replaces an editor tab's text, as typing does; the tab shows it unless the user has unsaved typing of their own |
+| `kinds.list` | `kinds_list` | read |  | Lists the kinds the connected cluster serves, as Cogpit shows them: kind key (what other tools take as kind), title, Kubernetes kind, group, version, whether it is namespaced, its table columns, and the fields resources_find can search by |
+| `node.cordon` | `node_cordon` | mutating | `ref` | Cordons a node as kubectl cordon does: sets spec.unschedulable, so that no new pods are scheduled on it; running pods stay |
+| `node.dismissDrain` | `node_dismissDrain` | ui | `ref` | Forgets an unfinished drain from node_pendingDrains without changing the cluster: the node stays as it is (cordoned and partly drained, unless someone changed it) |
+| `node.drain` | `node_drain` | destructive | `deleteEmptyDirData`?, `force`?, `gracePeriodSeconds`?, `ignoreDaemonSets`?, `ref`, `timeoutSeconds`? | Drains a node as kubectl drain does: cordons it, then evicts every pod on it through the eviction API, which honours PodDisruptionBudgets, and waits until they are gone |
+| `node.pendingDrains` | `node_pendingDrains` | read | `all`? | Lists the drains Cogpit started on the connected context (all: on every context) that did not finish: context, node, when and by whom started, the settings, status (running in this Cogpit, interrupted by an earlier run of Cogpit ending, or failed with its error) and the node's state from the cache (cordoned, schedulable, missing, unknown) |
+| `node.uncordon` | `node_uncordon` | mutating | `ref` | Uncordons a cordoned node as kubectl uncordon does: removes spec.unschedulable, so that pods are scheduled on it again |
+| `object.apply` | `object_apply` | mutating | `id`, `yaml`? | Writes an Edit tab's text (or yaml) to the cluster: a server-side dry run, then an update with the resourceVersion the edit is based on as precondition |
+| `object.create` | `object_create` | mutating | `namespace`?, `yaml` | Creates the objects of a YAML text (several documents separated by ---) in order, each after a server-side dry run; an object that fails is reported and the next one is tried |
+| `object.delete` | `object_delete` | destructive | `ref` | Deletes an object of any kind with its default grace period, with the UID Cogpit's cache holds for it as a precondition, so that an object created again under the same name is not deleted; its dependents are garbage-collected, and its controller, if any, may replace it |
+| `object.dryRun` | `object_dryRun` | read | `id`, `yaml`? | Sends an Edit tab's text (or yaml) to the API server as an update with dryRun=All: the server validates it and runs admission, and stores nothing |
+| `object.edit` | `object_edit` | ui | `ref` | Opens a dock tab with an object's YAML from Cogpit's cache (managed fields dropped) for editing, or activates the tab already open on it |
+| `object.get` | `object_get` | read | `noYaml`?, `ref` | Returns what the detail drawer shows for one object, from Cogpit's cache: title, status, the sections (Properties first: the metadata and the kind's state; then the kind's own sections; values that name objects carry a link ref), its events (newest first, at most 50), its container names for pods, and its YAML (managed fields dropped, Secret values redacted) unless noYaml |
+| `pod.evict` | `pod_evict` | destructive | `ref` | Evicts a pod through the eviction API, which honours PodDisruptionBudgets: the pod is deleted with its grace period and its controller, if any, starts a replacement |
 | `pod.logs` | `pod_logs` | read | `container`?, `ref` | Opens a dock tab that follows a container's log (the last 1,000 lines, then new ones), or activates the tab already open for that pod and container |
 | `pod.shell` | `pod_shell` | mutating | `container`?, `ref` | Opens a dock tab with an interactive shell in a container (bash, else ash, else sh) |
+| `resource.createTab` | `resource_createTab` | ui | `template`?, `yaml`? | Opens a Create resource dock tab with yaml, with a template (resource_templates lists them), or with an example Pod |
+| `resource.templates` | `resource_templates` | read |  | Lists Cogpit's templates for new objects, one per kind in alphabetical order, each with its apiVersion, whether the kind is namespaced, and its YAML (without a namespace) |
 | `resources.find` | `resources_find` | read | `field`, `kind`?, `limit`?, `match`?, `value` | Finds objects by a field value in Cogpit's cache |
 | `resources.list` | `resources_list` | read | `filter`?, `kind`, `limit`?, `namespaces`? | Lists objects of one kind from Cogpit's cache, as table rows: reference, status and the cells by column title |
+| `statefulset.scale` | `statefulset_scale` | mutating (destructive for some calls) | `ref`, `replicas`? | Sets a stateful set's replica count, as kubectl scale does: a patch of spec.replicas on its scale subresource |
 | `terminal.open` | `terminal_open` | ui |  | Opens a dock tab with a local shell whose kubectl is bound to the connected context and to the namespace filter if it names exactly one namespace |
 | `ui.closeDrawer` | `ui_closeDrawer` | ui |  | Closes the detail drawer |
 | `ui.navigate` | `ui_navigate` | ui | `ref` | Shows one object to the user: opens its kind's view, makes sure the namespace filter and the search text do not hide it (resetting them if they do), selects it and opens its detail drawer |
@@ -220,6 +247,9 @@ Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never a
 | `make run`, `make run-demo` | run against the kind cluster, or the demo cluster |
 | `make test-unit-race`, `make test` | every test without a cluster, race detector on |
 | `make test-kind` | cluster tests against the kind cluster (build tag `kind`) |
+| `make test-unit-coverage`, `make coverage-badge` | the race tests with a coverage profile; `.github/badges/coverage.json` from it (CI keeps it current on main) |
+| `make vuln` | govulncheck over the code paths Cogpit calls |
+| `make kind-drain-up`, `make test-kind-drain`, `make kind-drain-down` | a separate three-node kind cluster (`cogpit-drain`, own kubeconfig `.cache/kind-drain/kubeconfig`) for the cordon, uncordon and drain tests |
 | `make bench` | the gate benchmarks (S1, S2) |
 | `make lint`, `make fmt` | golangci-lint v2.14.0 (installed into `bin/`) with the team's linters and the `depguard` layering |
 | `make kind-up`, `make kind-seed`, `make kind-down` | the local kind cluster and its seed |

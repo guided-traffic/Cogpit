@@ -1,14 +1,14 @@
 # Beyond Lens
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (the MVP: MCP control rows) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (editing through MCP; the unfinished drain offered on connect) · **Target:** Lens Desktop 2026.10.51501
 
 What Cogpit does that Lens Desktop does not, or does only in part. These rows are Cogpit's own
 targets, decided by the owner; they do not count toward the parity numbers in
 [`target-app-parity.md`](target-app-parity.md), which measure Cogpit against Lens. Method:
 [`README.md`](README.md).
 
-**Summary (measured, 2026-10-11):** 16 of 34 rows exist: 9 done and 7 partial, all in MCP control
-and cache transparency. Remaining (estimated): 30–60 h for MCP control
+**Summary (measured, 2026-10-11):** 17 of 34 rows exist: 10 done and 7 partial, in MCP control,
+cache transparency and crash recovery (the unfinished drain). Remaining (estimated): 30–60 h for MCP control
 ([G17](gaps.md#g17-mcp-control)), 40–80 h for the built-in agent
 ([G21](gaps.md#g21-built-in-agent)); updates, cache transparency and crash recovery are inside
 [G14](gaps.md#g14-packaging-signing-and-updates-macos), [G3](gaps.md#g3-cache-and-the-resource-model),
@@ -85,13 +85,14 @@ AppImage builds in place; APT and RPM installs update by hand
 | Feature | Status | Evidence |
 |---|---|---|
 | On start, Helm releases left `pending-install`, `pending-upgrade` or `pending-rollback` by Cogpit are shown with "finish" and "roll back" | missing | – |
-| On start, nodes Cogpit cordoned for a drain it did not finish are shown with "continue drain" and "uncordon" | missing | – |
+| On start, nodes Cogpit cordoned for a drain it did not finish are shown with "continue drain" and "uncordon" | done (2026-10-11): on connecting the context, a banner names the node and offers Finish drain, Uncordon and Dismiss; agents read the same list with `node_pendingDrains` | [`drains.go`](../../internal/engine/drains.go) (a journal written before the cordon), `TestKindDrainCrashFinishUncordon` (three-node kind cluster: a simulated crash, the offer on the next session, finish, uncordon), the banner's offscreen PNGs |
 | Unsaved editor content restored from its local draft | missing | – |
 
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Crash recovery: an unfinished drain is offered on the next connect (done); 17 of 34 rows |
 | 2026-10-11 | minor | G9: agents edit, check, apply, create and delete objects of every kind, and read and set editor tabs |
 | 2026-10-11 | minor | The MVP: MCP tools, transport, navigation and confirmation rows; the status bar's counters |
 | 2026-10-11 | major | First version: MCP control, built-in agent, updates, cache transparency, crash recovery |

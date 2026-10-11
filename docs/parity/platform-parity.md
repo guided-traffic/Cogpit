@@ -1,6 +1,6 @@
 # Platform parity: systems, packages, authentication and tools
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (the MVP: five rows partial) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (CI runs kind; newer kinds and fields partial) · **Target:** Lens Desktop 2026.10.51501
 
 Where and how Cogpit runs compared with Lens Desktop 2026.10.51501: operating systems and
 architectures, packages and updates, how it authenticates to clusters, which Kubernetes versions
@@ -12,9 +12,10 @@ it handles, and the external tools it depends on. Method: [`README.md`](README.m
 (`latest.yml`, `latest-mac.yml`, `latest-linux.yml` on `downloads.k8slens.dev`) and the
 2026.10.51501 release notes. Cogpit's ecosystem facts: [decisions](../developer/decisions.md).
 
-**Summary (measured, 2026-10-11):** 5 of 38 rows partial, none done (four more are not targets or
+**Summary (measured, 2026-10-11):** 6 of 38 rows partial, none done (four more are not targets or
 have nothing to build): the macOS app bundle (1 of 13 package rows), client certificates and bearer
-tokens (2 of 13 authentication rows), Kubernetes 1.36 on kind, and `kubectl` from `PATH`. Cogpit ships for macOS first; Windows and Linux follow after the macOS beta
+tokens (2 of 13 authentication rows), Kubernetes 1.36 on kind locally and 1.37 in CI, kinds newer
+than the client libraries (custom resources and edits), and `kubectl` from `PATH`. Cogpit ships for macOS first; Windows and Linux follow after the macOS beta
 ([D-7](../developer/decisions.md#d-7-language-and-platforms)). Remaining (estimated): 25–50 h for
 the macOS app, signing and one-click updates ([G14](gaps.md#g14-packaging-signing-and-updates-macos)),
 40–80 h for Windows and Linux ([G22](gaps.md#g22-windows-and-linux)) and 25–50 h for authentication
@@ -74,9 +75,9 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Row | Cogpit target | Status |
 |---|---|---|
-| Every minor version the Kubernetes project supports (1.35, 1.36 and 1.37 on 2026-10-11) | full support, tested against `kind` and envtest in CI; client-go 0.37.1 is the 1.37 release | partial: 1.36.1 on kind, locally (`make test-kind`); no CI |
+| Every minor version the Kubernetes project supports (1.35, 1.36 and 1.37 on 2026-10-11) | full support, tested against `kind` and envtest in CI; client-go 0.37.1 is the 1.37 release | partial: 1.37.0 on kind in CI (the Cluster Tests job of [`build.yml`](../../.github/workflows/build.yml)) and 1.36.1 locally (`make test-kind`); no 1.35, no envtest |
 | Older clusters | views from discovery; Pod Security Policies shown only before 1.25 | missing |
-| Kinds and fields newer than the client libraries | discovery-driven views; objects handled as unstructured content, so edits keep unknown fields | missing |
+| Kinds and fields newer than the client libraries | discovery-driven views; objects handled as unstructured content, so edits keep unknown fields | partial: kinds from custom resource definitions get views from their definitions ([`customkinds.go`](../../internal/engine/customkinds.go)); edits replace the object with the edited unstructured text, so fields the client libraries don't know survive ([`editor.go`](../../internal/engine/editor.go)); built-in kinds without a profile and aggregated APIs get no view yet |
 | The sidebar follows the served APIs, version by version | Lens shows Mutating Admission Policies on a 1.36.2 cluster and not on a 1.35.x one (captures, 2026-10-11; `admissionregistration.k8s.io/v1` from 1.36); Cogpit's profiles are filtered by discovery, so a kind appears where it is served; to be tested against kind node images of each supported minor version | partial: discovery filtering ([`connector.go`](../../internal/engine/connector.go)); only 1.36.1 on kind |
 | Device resources (`resource.k8s.io/v1`, 1.34 and later) and Gateway API (CRDs) | shown only when served | missing |
 
@@ -101,6 +102,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Kubernetes 1.37.0 on kind in CI; kinds and fields newer than the client libraries partial (custom resource views, edits keep unknown fields); 6 of 38 rows |
 | 2026-10-11 | minor | The MVP: local macOS app bundle, certificate and token authentication, Kubernetes 1.36 on kind, `kubectl` from `PATH` partial |
 | 2026-10-11 | minor | macOS first (D-7): Windows and Linux rows move after the macOS beta (G22) |
 | 2026-10-11 | major | Freelens column removed (D-12); client-go facts replace kube-rs; Helm in-process; one-click updates and signed update manifests; Fyne display facts |

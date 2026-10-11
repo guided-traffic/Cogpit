@@ -1,6 +1,6 @@
 # UI parity: layout, navigation, tables, dock and feel
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (the MVP: 24 rows partial) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (second implementation run: 38 of 134 rows) · **Target:** Lens Desktop 2026.10.51501
 
 How Cogpit's interface compares with Lens Desktop 2026.10.51501: the window layout, clusters and
 hotbar, the cluster sidebar, list tables, the detail drawer, the bottom dock with its editor, log
@@ -24,9 +24,10 @@ an activated Lens Desktop ([D-12](../developer/decisions.md#d-12-parity-sources)
 Modifier names are macOS first (⌘ ⌥ ⇧ ⌃); Windows and Linux use Ctrl and Alt. **Status:** as
 marked per row; rows without evidence are missing.
 
-**Summary (measured, 2026-10-11):** 26 of 134 rows exist, all **partial** and all free-plan rows
-(26 of 121); 6 more rows are not a target. No row is done: none has been compared with a running
-Lens Desktop.
+**Summary (measured, 2026-10-11, after the second implementation run):** 38 of 134 rows exist
+(was 26): 37 of the 121 free-plan rows (34 partial, 3 done: the cell tooltip, right-click on a
+row, the dock's "New tab" menu, each matching its captured row) and one paid row (the diff view,
+partial); 6 more rows are not a target.
 Remaining (estimated): see gaps [G5](gaps.md#g5-app-shell-navigation-tables-and-drawer) (layout,
 sidebar, tables, drawer, dock), [G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)
 (clusters, hotbar, palette, menus, shortcuts, preferences, cluster settings),
@@ -354,6 +355,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | major | Recount after the second implementation run: 37 of 121 free rows (3 done), the paid diff view partial |
 | 2026-10-11 | minor | Gap G5: cell tooltips and right-click done; row menus from the registry, the warning column, links in cells, the drawer's Properties, folds, links, toolbar icons and events order partial |
 | 2026-10-11 | minor | G9: Edit tab with review, dry run and apply; Create resource tab with Cogpit's templates; the dock's "New tab" menu and the list's "+" button (8 rows) |
 | 2026-10-11 | minor | Cluster sidebar: Custom Resources with its API groups, Network › Gateway API and Config › Admission Policies as sub-groups; custom kinds follow the cluster's definitions while connected |

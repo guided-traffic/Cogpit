@@ -1,8 +1,8 @@
 # Cogpit roadmap
 
-**Stage: pre-alpha** · a local MVP runs on macOS · next: alpha on macOS, ~250–700 agent-hours away (seven core workflows end to end)
+**Stage: pre-alpha** · a local MVP runs on macOS · next: alpha on macOS, ~210–520 agent-hours away (seven core workflows end to end)
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (first measurement after the local MVP) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (second measurement, after the second implementation run) · **Target:** Lens Desktop 2026.10.51501
 
 Cogpit's one-page summary of how close it is to Lens Desktop 2026.10.51501, the Kubernetes IDE it
 reimplements as a native desktop client in Go, for macOS first and Windows and Linux after the
@@ -22,53 +22,54 @@ serial foundation, about 80% of the work parallelizes.
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **~12%** | measured: 6 of 64 views, 4 of 39 actions, 26 of 121 interface rows, all partial |
-| **Ready for real work** | **~10%** | estimated |
-| Mainstream practitioner | ~8% | estimated |
-| Essentials user | ~23% | estimated |
-| Remaining to **alpha** (macOS) | **~250–700 h** | estimated (was ~400–950) |
-| Remaining to **beta** (macOS, with the Flux CD and Argo CD views) | **~680–1,610 h** | estimated (was ~840–1,870) |
-| Remaining to **full parity** (free features, macOS) | **~670–1,650 h** | estimated (was ~800–1,850) |
-| Remaining to the **full Lens target** (paid features, Windows and Linux) | **~870–2,060 h** | estimated (was ~1,000–2,300) |
-| **Beyond Lens** (MCP control of UI and cluster, built-in agent) | **~50–110 h** | estimated (was ~70–140); not part of the parity numbers; 9 of 34 rows done |
+| **Feature breadth** | **~30%** (was ~12%) | measured: 27 of 64 views (ten of them the Gateway API views, generic), 14 of 39 actions, 37 of 121 interface rows; 4 rows done, the rest partial |
+| **Ready for real work** | **~14%** (was ~10%) | estimated |
+| Mainstream practitioner | ~14% (was ~8%) | estimated |
+| Essentials user | ~28% (was ~23%) | estimated |
+| Remaining to **alpha** (macOS) | **~210–520 h** | estimated (was ~250–700) |
+| Remaining to **beta** (macOS, with the Flux CD and Argo CD views) | **~580–1,360 h** | estimated (was ~680–1,610) |
+| Remaining to **full parity** (free features, macOS) | **~570–1,400 h** | estimated (was ~670–1,650) |
+| Remaining to the **full Lens target** (paid features, Windows and Linux) | **~780–1,820 h** | estimated (was ~870–2,060) |
+| **Beyond Lens** (MCP control of UI and cluster, built-in agent) | **~50–110 h** | estimated, unchanged; not part of the parity numbers; 10 of 34 rows done, 7 partial |
 
 ### Readiness by audience
 
 | Audience | Ready % | Agent-hours to ~95% | Work that dominates |
 |---|---:|---:|---|
-| Full Lens target | ~7% | 870–2,060 | Everything below, plus paid-plan features, Windows and Linux |
-| Mainstream practitioner (macOS) | ~8% | 670–1,650 | Resource views and actions, the interface, logs and terminal |
-| Essentials user (macOS) | ~23% | 200–520 | Editing YAML, more core views and actions, log options, cloud credential plugins |
+| Full Lens target | ~10% | 780–1,820 | Everything below, plus paid-plan features, Windows and Linux |
+| Mainstream practitioner (macOS) | ~14% | 570–1,400 | Resource views and actions, the interface, logs and terminal, port forwarding and Helm |
+| Essentials user (macOS) | ~28% | 130–380 | The remaining foundation, log options, the Secrets view, cloud credential plugins, end-to-end checks on real clusters |
 
 **Why pre-alpha.** The [alpha gate](docs/parity/roadmap.md#alpha-gate) needs seven core workflows end
 to end on macOS: connect, triage a failing pod, change a workload, reach a service, manage Helm
-releases in the cluster, maintain a node, use kubectl in a terminal. The MVP covers connecting,
-triaging and kubectl in part; editing, port forwarding, Helm and node maintenance do not exist.
+releases in the cluster, maintain a node, use kubectl in a terminal. Connecting, triaging, changing
+a workload, maintaining a node and kubectl work in part (the last three on kind through the engine,
+not yet walked through in the GUI on a real cluster); port forwarding and Helm do not exist.
 
 ## By dimension
 
 | Dimension | % ready | Hours to full | Doc |
 |---|---:|---:|---|
-| Resource views and actions | 5% | 182–555 | [resource-parity](docs/parity/resource-parity.md) |
-| Interface fidelity and feel | 8% | 152–390 | [ui-parity](docs/parity/ui-parity.md) |
+| Resource views and actions | 14% | 130–400 | [resource-parity](docs/parity/resource-parity.md) |
+| Interface fidelity and feel | 15% | 120–320 | [ui-parity](docs/parity/ui-parity.md) |
 | Cluster connectivity and authentication | 15% | 18–40 + human | [platform-parity](docs/parity/platform-parity.md#cluster-authentication-and-connectivity) |
 | Logs, terminal, shells, port forwarding | 20% | 40–90 | [ui-parity](docs/parity/ui-parity.md#logs) |
 | Performance and API load | 25% (P2, P9–P11 measured) | 30–70 | [testing](docs/developer/testing.md#performance-budgets-proposed-not-measured) |
-| Stability | 5% | 100–200 | [gaps](docs/parity/gaps.md#g16-stability-and-the-user-bug-backlog) |
+| Stability | 8% | 100–200 | [gaps](docs/parity/gaps.md#g16-stability-and-the-user-bug-backlog) |
 | Helm releases and metrics | 0% | 70–140 | [gaps](docs/parity/gaps.md#g11-helm) |
 | Platforms and distribution (macOS, then Windows and Linux) | 5% | 62–125 + human | [platform-parity](docs/parity/platform-parity.md#operating-systems-and-packages) |
 | Paid-plan integrations (Flux CD and Argo CD in the beta) | 0% | 165–335 + human | [resource-parity](docs/parity/resource-parity.md#paid-lens-desktop-views) |
-| Foundation: workspace, cache, engine | built in part | 52–118 | [architecture](docs/developer/architecture.md#current-state-2026-10-11) |
+| Foundation: workspace, cache, engine, CI | built in part | 43–99 | [architecture](docs/developer/architecture.md#current-state-2026-10-11) |
 
 ## Upcoming
 
 | Rank | Milestone | Estimate |
 |---|---|---:|
-| 1 | The owner's decision on keeping the patched terminal widget ([H-19](docs/security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)) | – |
-| 2 | Finish M0: CI, generators, semantic-release | 12–28 h |
-| 3 | Editing: the YAML editor in an Edit tab with diff, dry-run and apply | 27–60 h |
-| 4 | Finish M1: pasting and syncing kubeconfigs, access reviews, first CLI commands | 18–40 h + human |
-| 5 | Finish M2: about 20 core views, the generic custom-resource view | 130–330 h |
+| 1 | The owner's decisions on the patched terminal widget ([H-19](docs/security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)) and the Secrets view's watch ([H-8](docs/security/privilege-footprint.md#h-8-secret-data-arrives-with-the-list)) | – |
+| 2 | Walk the new workflows in the GUI on kind and a real cluster: change a workload, maintain a node, edit and create | human |
+| 3 | Port forwarding (M5) | 20–55 h |
+| 4 | Helm releases in the cluster (M6) | 40–95 h |
+| 5 | Finish M0, M1 and M2: the generators, pasting and syncing kubeconfigs, access reviews, the remaining core views | 110–300 h + human |
 
 Detail: [docs/parity/roadmap.md](docs/parity/roadmap.md).
 
@@ -76,6 +77,7 @@ Detail: [docs/parity/roadmap.md](docs/parity/roadmap.md).
 
 | Date | Entry |
 |---|---|
+| 2026-10-11 | Second implementation run (seven agents in parallel, then merge, CI, review). CI is green on GitHub on every push: macOS lint, race tests and build, Windows and Linux compile checks, kind on 1.37, govulncheck, a coverage badge (81.7%), semantic-release as a dry run (no tag, no release). Built: 10 more built-in views (workloads, Ingresses, Ingress Classes, Config Maps, PVCs, Definitions) and a view per custom resource kind from a watch on the definitions, with the sidebar's Custom Resources and Gateway API groups; editing with diff, dry run and a resourceVersion precondition, create from Cogpit's templates, Delete for every kind; Cordon, Uncordon, a crash-safe Drain (tested on a three-node kind cluster), Scale, Trigger, Suspend, Resume, Evict; row menus and the drawer from the registry, links, warning icons, tooltips, the drawer's Properties. Measured: breadth ~30% (27 of 64 views, 14 of 39 actions, 37 of 121 interface rows); 41 commands and MCP tools |
 | 2026-10-11 | Gate S1 and S4 measured again in a real window with view switches, typing and a CPU profile: start-up stall is Fyne's per-window GL set-up (0.31 s) plus the first table fill (151–193 ms); view switches ≤ 42 ms; typing into 5 MB fits the frame. Owner: S1 passes with a reservation; S4 passes; D-1 decided for Fyne, with re-checks of S7 (CI) and S5 (Windows, Linux) |
 | 2026-10-11 | Implementation started. A local MVP runs on macOS: the context picker (kubeconfig contexts and a synthetic demo cluster with 10,000 pods), six views from shared informers with snapshots coalesced to ten per second, the detail drawer with YAML, logs with follow, a cluster-bound terminal, a pod shell, Restart and Delete behind confirmation, and an MCP server whose `ui_navigate` drives the GUI. The Fyne spike ran with it ([results](docs/developer/spike-fyne.md#results)). Measured: breadth ~12%; sort of 10,000 rows 10 ms (P2); 0 API requests for an idle view, a warm reopen and the agent showcase (P9–P11). S1 in a real window: no frame over 16 ms after the first second, but a start-up stall of 43–460 ms. Found and fixed in a patched copy: the terminal widget froze or crashed on container output (H-19). Claude Code drove the GUI to the Service with ClusterIP 10.96.100.100 over MCP |
 | 2026-10-11 | Plan revised: Go instead of Rust, Fyne behind a spike gate, macOS first, cache-first data flow, MCP control of UI and cluster, a built-in agent on OpenAI-compatible endpoints, one-click updates. Nothing built |
@@ -85,6 +87,7 @@ Detail: [docs/parity/roadmap.md](docs/parity/roadmap.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | major | Second measurement after the second implementation run |
 | 2026-10-11 | major | First measurement after the local MVP |
 | 2026-10-11 | major | Go plan, macOS first, beyond-Lens targets separated |
 | 2026-10-11 | major | First version |
