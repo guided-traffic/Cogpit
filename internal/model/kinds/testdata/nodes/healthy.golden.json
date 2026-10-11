@@ -1,0 +1,184 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "nodes",
+    "name": "cp-1"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "cp-1"
+    },
+    {
+      "column": "taints",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "roles",
+      "text": "control-plane"
+    },
+    {
+      "column": "version",
+      "text": "v1.37.1"
+    },
+    {
+      "column": "age",
+      "text": "274d",
+      "num": 1768003200
+    },
+    {
+      "column": "conditions",
+      "text": "Ready",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "externalIP": [],
+    "hostname": [
+      "cp-1"
+    ],
+    "internalIP": [
+      "192.0.2.10",
+      "fd00:192:0:2::10"
+    ],
+    "label": [
+      "kubernetes.io/arch=arm64",
+      "kubernetes.io/hostname=cp-1",
+      "kubernetes.io/os=linux",
+      "node-role.kubernetes.io/control-plane="
+    ],
+    "name": [
+      "cp-1"
+    ],
+    "namespace": [
+      ""
+    ],
+    "role": [
+      "control-plane"
+    ],
+    "version": [
+      "v1.37.1"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Addresses",
+      "items": [
+        {
+          "name": "InternalIP",
+          "value": "192.0.2.10"
+        },
+        {
+          "name": "InternalIP",
+          "value": "fd00:192:0:2::10"
+        },
+        {
+          "name": "Hostname",
+          "value": "cp-1"
+        }
+      ]
+    },
+    {
+      "title": "System Info",
+      "items": [
+        {
+          "name": "OS Image",
+          "value": "Example Linux 12"
+        },
+        {
+          "name": "Kernel Version",
+          "value": "6.12.0-example"
+        },
+        {
+          "name": "Container Runtime",
+          "value": "containerd://2.1.4"
+        },
+        {
+          "name": "Kubelet Version",
+          "value": "v1.37.1"
+        },
+        {
+          "name": "Architecture",
+          "value": "arm64"
+        }
+      ]
+    },
+    {
+      "title": "Capacity",
+      "items": [
+        {
+          "name": "cpu",
+          "value": "4"
+        },
+        {
+          "name": "ephemeral-storage",
+          "value": "61202244Ki"
+        },
+        {
+          "name": "memory",
+          "value": "8148020Ki"
+        },
+        {
+          "name": "pods",
+          "value": "110"
+        }
+      ]
+    },
+    {
+      "title": "Allocatable",
+      "items": [
+        {
+          "name": "cpu",
+          "value": "4"
+        },
+        {
+          "name": "ephemeral-storage",
+          "value": "56403987978"
+        },
+        {
+          "name": "memory",
+          "value": "8045620Ki"
+        },
+        {
+          "name": "pods",
+          "value": "110"
+        }
+      ]
+    },
+    {
+      "title": "Taints",
+      "items": [
+        {
+          "value": "node-role.kubernetes.io/control-plane:NoSchedule"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "MemoryPressure",
+          "value": "False (KubeletHasSufficientMemory): kubelet has sufficient memory available",
+          "status": "ok"
+        },
+        {
+          "name": "DiskPressure",
+          "value": "False (KubeletHasNoDiskPressure): kubelet has no disk pressure",
+          "status": "ok"
+        },
+        {
+          "name": "PIDPressure",
+          "value": "False (KubeletHasSufficientPID): kubelet has sufficient PID available",
+          "status": "ok"
+        },
+        {
+          "name": "Ready",
+          "value": "True (KubeletReady): kubelet is posting ready status",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

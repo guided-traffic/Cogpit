@@ -1,0 +1,82 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "events",
+    "namespace": "default",
+    "name": "bare.1a2b3c4d5e6f7087"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare.1a2b3c4d5e6f7087"
+    },
+    {
+      "column": "type",
+      "text": ""
+    },
+    {
+      "column": "message",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "default"
+    },
+    {
+      "column": "involvedObject",
+      "text": ""
+    },
+    {
+      "column": "source",
+      "text": ""
+    },
+    {
+      "column": "count",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "5m",
+      "num": 1791719700
+    },
+    {
+      "column": "lastSeen",
+      "text": "5m",
+      "num": 1791719700
+    }
+  ],
+  "fields": {
+    "involvedObject": [],
+    "label": [],
+    "name": [
+      "bare.1a2b3c4d5e6f7087"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "reason": [],
+    "source": [],
+    "type": []
+  },
+  "detail": [
+    {
+      "title": "Event",
+      "items": [
+        {
+          "name": "Count",
+          "value": "1"
+        },
+        {
+          "name": "First Seen",
+          "value": "2026-10-11T11:55:00Z"
+        },
+        {
+          "name": "Last Seen",
+          "value": "2026-10-11T11:55:00Z"
+        }
+      ]
+    }
+  ]
+}

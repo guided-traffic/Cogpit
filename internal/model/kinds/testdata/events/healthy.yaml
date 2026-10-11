@@ -1,0 +1,28 @@
+# Synthetic: a classic Normal event from the kubelet.
+apiVersion: v1
+kind: Event
+metadata:
+  name: web-7d9c6b5f8-x2k4p.1a2b3c4d5e6f7081
+  namespace: shop
+  uid: 5abc6d7f-6666-4b8d-8fa0-000000000001
+  resourceVersion: "48190"
+  creationTimestamp: "2026-10-11T11:40:00Z"
+involvedObject:
+  apiVersion: v1
+  kind: Pod
+  name: web-7d9c6b5f8-x2k4p
+  namespace: shop
+  uid: 0b6f1d2a-1111-4c3e-9a5b-000000000001
+  fieldPath: spec.containers{web}
+reason: Pulled
+message: Container image "registry.example.com/shop/web:1.4.2" already present on machine
+source:
+  component: kubelet
+  host: worker-a1
+firstTimestamp: "2026-10-11T11:40:00Z"
+lastTimestamp: "2026-10-11T11:40:00Z"
+count: 1
+type: Normal
+eventTime: null
+reportingComponent: kubelet
+reportingInstance: worker-a1

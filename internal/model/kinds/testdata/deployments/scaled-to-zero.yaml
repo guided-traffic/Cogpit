@@ -1,0 +1,28 @@
+# Synthetic: scaled to zero on purpose; nothing to colour.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nightly-tools
+  namespace: ops
+  uid: 1c7e2f3b-2222-4d4f-8b6c-000000000007
+  generation: 7
+  creationTimestamp: "2026-08-01T00:00:00Z"
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: nightly-tools
+  template:
+    spec:
+      containers:
+      - name: tools
+        image: registry.example.com/ops/tools:3
+status:
+  observedGeneration: 7
+  conditions:
+  - type: Available
+    status: "True"
+    reason: MinimumReplicasAvailable
+  - type: Progressing
+    status: "True"
+    reason: NewReplicaSetAvailable

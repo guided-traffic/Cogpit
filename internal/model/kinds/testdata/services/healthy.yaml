@@ -1,0 +1,35 @@
+# Synthetic: a dual-stack ClusterIP service with a named target port.
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: shop
+  uid: 2d8f3a4c-3333-4e5a-9c7d-000000000001
+  resourceVersion: "1200"
+  creationTimestamp: "2026-09-01T09:00:00Z"
+  labels:
+    app.kubernetes.io/name: web
+spec:
+  type: ClusterIP
+  clusterIP: 10.96.12.34
+  clusterIPs:
+  - 10.96.12.34
+  - fd00:10:96::1234
+  ipFamilies: [IPv4, IPv6]
+  ipFamilyPolicy: PreferDualStack
+  selector:
+    app.kubernetes.io/name: web
+    app.kubernetes.io/component: frontend
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  - name: metrics
+    port: 9090
+    protocol: TCP
+    targetPort: metrics
+  sessionAffinity: None
+  internalTrafficPolicy: Cluster
+status:
+  loadBalancer: {}

@@ -1,0 +1,60 @@
+# Synthetic: a ready control-plane node with its usual taint.
+apiVersion: v1
+kind: Node
+metadata:
+  name: cp-1
+  uid: 4fab5c6e-5555-4a7c-9e9f-000000000001
+  resourceVersion: "90001"
+  creationTimestamp: "2026-01-10T00:00:00Z"
+  labels:
+    kubernetes.io/hostname: cp-1
+    kubernetes.io/os: linux
+    kubernetes.io/arch: arm64
+    node-role.kubernetes.io/control-plane: ""
+spec:
+  podCIDR: 10.244.0.0/24
+  taints:
+  - key: node-role.kubernetes.io/control-plane
+    effect: NoSchedule
+status:
+  addresses:
+  - type: InternalIP
+    address: 192.0.2.10
+  - type: InternalIP
+    address: fd00:192:0:2::10
+  - type: Hostname
+    address: cp-1
+  capacity:
+    cpu: "4"
+    memory: 8148020Ki
+    pods: "110"
+    ephemeral-storage: 61202244Ki
+  allocatable:
+    cpu: "4"
+    memory: 8045620Ki
+    pods: "110"
+    ephemeral-storage: 56403987978
+  conditions:
+  - type: MemoryPressure
+    status: "False"
+    reason: KubeletHasSufficientMemory
+    message: kubelet has sufficient memory available
+  - type: DiskPressure
+    status: "False"
+    reason: KubeletHasNoDiskPressure
+    message: kubelet has no disk pressure
+  - type: PIDPressure
+    status: "False"
+    reason: KubeletHasSufficientPID
+    message: kubelet has sufficient PID available
+  - type: Ready
+    status: "True"
+    reason: KubeletReady
+    message: kubelet is posting ready status
+  nodeInfo:
+    architecture: arm64
+    containerRuntimeVersion: containerd://2.1.4
+    kernelVersion: 6.12.0-example
+    kubeletVersion: v1.37.1
+    operatingSystem: linux
+    osImage: Example Linux 12

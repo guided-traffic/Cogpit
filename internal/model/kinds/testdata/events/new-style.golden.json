@@ -1,0 +1,113 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "events",
+    "namespace": "shop",
+    "name": "web-7d9c6b5f8-c8d9e.1a2b3c4d5e6f7084"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "web-7d9c6b5f8-c8d9e.1a2b3c4d5e6f7084"
+    },
+    {
+      "column": "type",
+      "text": "Normal",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "Successfully assigned shop/web-7d9c6b5f8-c8d9e to worker-a3"
+    },
+    {
+      "column": "namespace",
+      "text": "shop"
+    },
+    {
+      "column": "involvedObject",
+      "text": "Pod: web-7d9c6b5f8-c8d9e"
+    },
+    {
+      "column": "source",
+      "text": "default-scheduler, default-scheduler-cp-1"
+    },
+    {
+      "column": "count",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "20s",
+      "num": 1791719980
+    },
+    {
+      "column": "lastSeen",
+      "text": "20s",
+      "num": 1791719980
+    }
+  ],
+  "fields": {
+    "involvedObject": [
+      "Pod/web-7d9c6b5f8-c8d9e"
+    ],
+    "label": [],
+    "name": [
+      "web-7d9c6b5f8-c8d9e.1a2b3c4d5e6f7084"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "reason": [
+      "Scheduled"
+    ],
+    "source": [
+      "default-scheduler",
+      "default-scheduler-cp-1"
+    ],
+    "type": [
+      "Normal"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Event",
+      "items": [
+        {
+          "name": "Type",
+          "value": "Normal",
+          "status": "ok"
+        },
+        {
+          "name": "Reason",
+          "value": "Scheduled"
+        },
+        {
+          "name": "Message",
+          "value": "Successfully assigned shop/web-7d9c6b5f8-c8d9e to worker-a3"
+        },
+        {
+          "name": "Involved Object",
+          "value": "Pod: web-7d9c6b5f8-c8d9e"
+        },
+        {
+          "name": "Source",
+          "value": "default-scheduler, default-scheduler-cp-1"
+        },
+        {
+          "name": "Count",
+          "value": "1"
+        },
+        {
+          "name": "First Seen",
+          "value": "2026-10-11T11:59:40Z"
+        },
+        {
+          "name": "Last Seen",
+          "value": "2026-10-11T11:59:40Z"
+        }
+      ]
+    }
+  ]
+}

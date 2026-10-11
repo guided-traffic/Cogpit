@@ -1,0 +1,80 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "pods",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "unknown",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "namespace",
+      "text": "default"
+    },
+    {
+      "column": "containers",
+      "text": "0/0"
+    },
+    {
+      "column": "restarts",
+      "text": "0"
+    },
+    {
+      "column": "controlledBy",
+      "text": ""
+    },
+    {
+      "column": "node",
+      "text": ""
+    },
+    {
+      "column": "qos",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "42s",
+      "num": 1791719958
+    },
+    {
+      "column": "status",
+      "text": "Unknown",
+      "status": "unknown"
+    }
+  ],
+  "fields": {
+    "controlledBy": [],
+    "hostIP": [],
+    "image": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "node": [],
+    "phase": [],
+    "podIP": [],
+    "qos": [],
+    "status": [
+      "Unknown"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Status",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Unknown",
+          "status": "unknown"
+        }
+      ]
+    }
+  ]
+}

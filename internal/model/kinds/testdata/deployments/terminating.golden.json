@@ -1,0 +1,79 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "deployments",
+    "namespace": "shop",
+    "name": "legacy-api"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-api"
+    },
+    {
+      "column": "namespace",
+      "text": "shop"
+    },
+    {
+      "column": "pods",
+      "text": "1/1",
+      "num": 1
+    },
+    {
+      "column": "replicas",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "290d",
+      "num": 1766599200
+    },
+    {
+      "column": "conditions",
+      "text": "Available",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/shop/legacy-api:0.1"
+    ],
+    "label": [],
+    "name": [
+      "legacy-api"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "selector": [
+      "app=legacy-api"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Deployment",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "1 desired / 1 updated / 1 ready / 1 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=legacy-api"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Available",
+          "value": "True (MinimumReplicasAvailable)",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

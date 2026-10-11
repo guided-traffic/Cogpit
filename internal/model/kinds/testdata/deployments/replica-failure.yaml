@@ -1,0 +1,39 @@
+# Synthetic: the namespace quota stops the controller from creating a new pod.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thumbnailer
+  namespace: media
+  uid: 1c7e2f3b-2222-4d4f-8b6c-000000000006
+  generation: 5
+  creationTimestamp: "2026-10-02T12:00:00Z"
+  annotations:
+    deployment.kubernetes.io/revision: "5"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: thumbnailer
+  template:
+    spec:
+      containers:
+      - name: thumbnailer
+        image: registry.example.com/media/thumbnailer:1.1
+status:
+  observedGeneration: 5
+  replicas: 2
+  updatedReplicas: 2
+  readyReplicas: 2
+  availableReplicas: 2
+  unavailableReplicas: 1
+  conditions:
+  - type: Available
+    status: "True"
+    reason: MinimumReplicasAvailable
+  - type: ReplicaFailure
+    status: "True"
+    reason: FailedCreate
+    message: 'pods "thumbnailer-7f6e5d4c3-z9y8x" is forbidden: exceeded quota: media-quota'
+  - type: Progressing
+    status: "True"
+    reason: ReplicaSetUpdated

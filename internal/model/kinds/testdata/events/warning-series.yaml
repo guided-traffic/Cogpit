@@ -1,0 +1,27 @@
+# Synthetic: a Warning event written through the events API as a series: no classic count or
+# timestamps, the occurrences in series, MicroTime timestamps with fractional seconds.
+apiVersion: v1
+kind: Event
+metadata:
+  name: gateway-8b7c6d5e4-r3s4t.1a2b3c4d5e6f7083
+  namespace: edge
+  uid: 5abc6d7f-6666-4b8d-8fa0-000000000003
+  creationTimestamp: "2026-10-11T09:00:00Z"
+involvedObject:
+  apiVersion: v1
+  kind: Pod
+  name: gateway-8b7c6d5e4-r3s4t
+  namespace: edge
+reason: Unhealthy
+message: "Readiness probe failed: HTTP probe failed with statuscode: 503"
+source: {}
+firstTimestamp: null
+lastTimestamp: null
+type: Warning
+eventTime: "2026-10-11T09:00:00.000001Z"
+series:
+  count: 17
+  lastObservedTime: "2026-10-11T11:58:30.123456Z"
+action: Probe
+reportingComponent: kubelet
+reportingInstance: worker-a1

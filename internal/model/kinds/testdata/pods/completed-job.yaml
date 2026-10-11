@@ -1,0 +1,48 @@
+# Synthetic: a Job's pod that ran to completion.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: report-29311440-7kq2d
+  namespace: analytics
+  uid: 0b6f1d2a-1111-4c3e-9a5b-000000000007
+  creationTimestamp: "2026-10-11T06:00:00Z"
+  labels:
+    batch.kubernetes.io/job-name: report-29311440
+  ownerReferences:
+  - apiVersion: batch/v1
+    kind: Job
+    name: report-29311440
+    uid: 0b6f1d2a-1111-4c3e-9a5b-0000000000ae
+    controller: true
+spec:
+  nodeName: worker-a3
+  restartPolicy: Never
+  containers:
+  - name: report
+    image: registry.example.com/analytics/report:2026.10
+status:
+  phase: Succeeded
+  qosClass: BestEffort
+  conditions:
+  - type: Initialized
+    status: "True"
+    reason: PodCompleted
+  - type: Ready
+    status: "False"
+    reason: PodCompleted
+  - type: ContainersReady
+    status: "False"
+    reason: PodCompleted
+  - type: PodScheduled
+    status: "True"
+  containerStatuses:
+  - name: report
+    ready: false
+    started: false
+    restartCount: 0
+    state:
+      terminated:
+        exitCode: 0
+        reason: Completed
+        startedAt: "2026-10-11T06:00:04Z"
+        finishedAt: "2026-10-11T06:03:41Z"

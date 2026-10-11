@@ -1,0 +1,151 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "pods",
+    "namespace": "analytics",
+    "name": "report-29311440-7kq2d"
+  },
+  "status": "succeeded",
+  "cells": [
+    {
+      "column": "name",
+      "text": "report-29311440-7kq2d"
+    },
+    {
+      "column": "namespace",
+      "text": "analytics"
+    },
+    {
+      "column": "containers",
+      "text": "0/1"
+    },
+    {
+      "column": "restarts",
+      "text": "0"
+    },
+    {
+      "column": "controlledBy",
+      "text": "Job"
+    },
+    {
+      "column": "node",
+      "text": "worker-a3"
+    },
+    {
+      "column": "qos",
+      "text": "BestEffort"
+    },
+    {
+      "column": "age",
+      "text": "6h",
+      "num": 1791698400
+    },
+    {
+      "column": "status",
+      "text": "Completed",
+      "status": "succeeded"
+    }
+  ],
+  "fields": {
+    "controlledBy": [
+      "Job/report-29311440"
+    ],
+    "hostIP": [],
+    "image": [
+      "registry.example.com/analytics/report:2026.10"
+    ],
+    "label": [
+      "batch.kubernetes.io/job-name=report-29311440"
+    ],
+    "name": [
+      "report-29311440-7kq2d"
+    ],
+    "namespace": [
+      "analytics"
+    ],
+    "node": [
+      "worker-a3"
+    ],
+    "phase": [
+      "Succeeded"
+    ],
+    "podIP": [],
+    "qos": [
+      "BestEffort"
+    ],
+    "status": [
+      "Completed"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Status",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Completed",
+          "status": "succeeded"
+        },
+        {
+          "name": "Node",
+          "value": "worker-a3"
+        },
+        {
+          "name": "QoS Class",
+          "value": "BestEffort"
+        },
+        {
+          "name": "Restart Policy",
+          "value": "Never"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Initialized",
+          "value": "True (PodCompleted)",
+          "status": "succeeded"
+        },
+        {
+          "name": "Ready",
+          "value": "False (PodCompleted)",
+          "status": "succeeded"
+        },
+        {
+          "name": "ContainersReady",
+          "value": "False (PodCompleted)",
+          "status": "succeeded"
+        },
+        {
+          "name": "PodScheduled",
+          "value": "True",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "title": "Container report",
+      "items": [
+        {
+          "name": "Image",
+          "value": "registry.example.com/analytics/report:2026.10"
+        },
+        {
+          "name": "State",
+          "value": "Terminated: Completed (exit code 0), started 2026-10-11T06:00:04Z, finished 2026-10-11T06:03:41Z",
+          "status": "succeeded"
+        },
+        {
+          "name": "Ready",
+          "value": "False"
+        },
+        {
+          "name": "Restarts",
+          "value": "0"
+        }
+      ]
+    }
+  ]
+}

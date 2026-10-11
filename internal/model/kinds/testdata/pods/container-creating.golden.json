@@ -1,0 +1,124 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "pods",
+    "namespace": "shop",
+    "name": "web-7d9c6b5f8-c8d9e"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "web-7d9c6b5f8-c8d9e"
+    },
+    {
+      "column": "namespace",
+      "text": "shop"
+    },
+    {
+      "column": "containers",
+      "text": "0/1"
+    },
+    {
+      "column": "restarts",
+      "text": "0"
+    },
+    {
+      "column": "controlledBy",
+      "text": ""
+    },
+    {
+      "column": "node",
+      "text": "worker-a3"
+    },
+    {
+      "column": "qos",
+      "text": "Burstable"
+    },
+    {
+      "column": "age",
+      "text": "20s",
+      "num": 1791719980
+    },
+    {
+      "column": "status",
+      "text": "ContainerCreating",
+      "status": "pending"
+    }
+  ],
+  "fields": {
+    "controlledBy": [],
+    "hostIP": [
+      "192.0.2.13"
+    ],
+    "image": [
+      "registry.example.com/shop/web:1.4.2"
+    ],
+    "label": [],
+    "name": [
+      "web-7d9c6b5f8-c8d9e"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "node": [
+      "worker-a3"
+    ],
+    "phase": [
+      "Pending"
+    ],
+    "podIP": [],
+    "qos": [
+      "Burstable"
+    ],
+    "status": [
+      "ContainerCreating"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Status",
+      "items": [
+        {
+          "name": "Status",
+          "value": "ContainerCreating",
+          "status": "pending"
+        },
+        {
+          "name": "Node",
+          "value": "worker-a3"
+        },
+        {
+          "name": "Host IP",
+          "value": "192.0.2.13"
+        },
+        {
+          "name": "QoS Class",
+          "value": "Burstable"
+        }
+      ]
+    },
+    {
+      "title": "Container web",
+      "items": [
+        {
+          "name": "Image",
+          "value": "registry.example.com/shop/web:1.4.2"
+        },
+        {
+          "name": "State",
+          "value": "Waiting: ContainerCreating",
+          "status": "pending"
+        },
+        {
+          "name": "Ready",
+          "value": "False"
+        },
+        {
+          "name": "Restarts",
+          "value": "0"
+        }
+      ]
+    }
+  ]
+}

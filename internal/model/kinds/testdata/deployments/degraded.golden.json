@@ -1,0 +1,88 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "deployments",
+    "namespace": "edge",
+    "name": "gateway"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "gateway"
+    },
+    {
+      "column": "namespace",
+      "text": "edge"
+    },
+    {
+      "column": "pods",
+      "text": "2/3",
+      "num": 2
+    },
+    {
+      "column": "replicas",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "conditions",
+      "text": "Available Progressing",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/edge/gateway:5.0"
+    ],
+    "label": [],
+    "name": [
+      "gateway"
+    ],
+    "namespace": [
+      "edge"
+    ],
+    "selector": [
+      "app=gateway"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Deployment",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "3 desired / 3 updated / 2 ready / 2 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=gateway"
+        },
+        {
+          "name": "Strategy",
+          "value": "RollingUpdate"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Available",
+          "value": "True (MinimumReplicasAvailable)",
+          "status": "ok"
+        },
+        {
+          "name": "Progressing",
+          "value": "True (NewReplicaSetAvailable)",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

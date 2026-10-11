@@ -1,0 +1,25 @@
+# Synthetic: a LoadBalancer the cloud has not provisioned yet (no ingress), so it is Pending.
+apiVersion: v1
+kind: Service
+metadata:
+  name: public-api
+  namespace: edge
+  uid: 2d8f3a4c-3333-4e5a-9c7d-000000000002
+  creationTimestamp: "2026-10-11T11:50:00Z"
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.200.7
+  clusterIPs: [10.96.200.7]
+  ipFamilies: [IPv4]
+  selector:
+    app: gateway
+  ports:
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 8443
+    nodePort: 30443
+  sessionAffinity: ClientIP
+  externalTrafficPolicy: Local
+status:
+  loadBalancer: {}

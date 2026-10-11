@@ -1,0 +1,11 @@
+# Synthetic: an ExternalName service aliasing a database outside the cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-db
+  namespace: shop
+  uid: 2d8f3a4c-3333-4e5a-9c7d-000000000007
+  creationTimestamp: "2026-06-01T00:00:00Z"
+spec:
+  type: ExternalName
+  externalName: orders-db.example.net

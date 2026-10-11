@@ -1,0 +1,24 @@
+# Synthetic: a new-style Normal event from the scheduler: eventTime and the reporting fields
+# only, no classic source, count or timestamps.
+apiVersion: v1
+kind: Event
+metadata:
+  name: web-7d9c6b5f8-c8d9e.1a2b3c4d5e6f7084
+  namespace: shop
+  uid: 5abc6d7f-6666-4b8d-8fa0-000000000004
+  creationTimestamp: "2026-10-11T11:59:41Z"
+involvedObject:
+  apiVersion: v1
+  kind: Pod
+  name: web-7d9c6b5f8-c8d9e
+  namespace: shop
+reason: Scheduled
+message: Successfully assigned shop/web-7d9c6b5f8-c8d9e to worker-a3
+source: {}
+firstTimestamp: null
+lastTimestamp: null
+type: Normal
+eventTime: "2026-10-11T11:59:40.654321Z"
+action: Binding
+reportingComponent: default-scheduler
+reportingInstance: default-scheduler-cp-1

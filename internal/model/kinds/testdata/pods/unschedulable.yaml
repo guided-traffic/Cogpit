@@ -1,0 +1,20 @@
+# Synthetic: no node fits; the scheduler reports why in the PodScheduled condition.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: trainer-0
+  namespace: ml
+  uid: 0b6f1d2a-1111-4c3e-9a5b-000000000012
+  creationTimestamp: "2026-10-11T11:00:00Z"
+spec:
+  containers:
+  - name: trainer
+    image: registry.example.com/ml/trainer:0.9
+status:
+  phase: Pending
+  qosClass: Guaranteed
+  conditions:
+  - type: PodScheduled
+    status: "False"
+    reason: Unschedulable
+    message: "0/3 nodes are available: 3 Insufficient nvidia.com/gpu."

@@ -1,0 +1,22 @@
+# Synthetic: an event being deleted (a finalizer added by some controller holds it).
+apiVersion: v1
+kind: Event
+metadata:
+  name: legacy.1a2b3c4d5e6f7086
+  namespace: legacy
+  uid: 5abc6d7f-6666-4b8d-8fa0-000000000006
+  creationTimestamp: "2026-10-10T07:00:00Z"
+  deletionTimestamp: "2026-10-10T08:00:00Z"
+  finalizers:
+  - example.com/archive
+involvedObject:
+  kind: Namespace
+  name: legacy
+reason: NamespaceDeletionStarted
+message: Namespace deletion started
+source:
+  component: namespace-controller
+firstTimestamp: "2026-10-10T07:00:00Z"
+lastTimestamp: "2026-10-10T07:00:00Z"
+count: 1
+type: Normal

@@ -1,0 +1,28 @@
+# Synthetic: the kubelet stopped posting status; the node controller set every condition to
+# Unknown.
+apiVersion: v1
+kind: Node
+metadata:
+  name: worker-a3
+  uid: 4fab5c6e-5555-4a7c-9e9f-000000000005
+  creationTimestamp: "2026-05-01T00:00:00Z"
+  labels:
+    node-role.kubernetes.io/worker: ""
+spec:
+  taints:
+  - key: node.kubernetes.io/unreachable
+    effect: NoExecute
+  - key: node.kubernetes.io/unreachable
+    effect: NoSchedule
+status:
+  conditions:
+  - type: MemoryPressure
+    status: Unknown
+    reason: NodeStatusUnknown
+    message: Kubelet stopped posting node status.
+  - type: Ready
+    status: Unknown
+    reason: NodeStatusUnknown
+    message: Kubelet stopped posting node status.
+  nodeInfo:
+    kubeletVersion: v1.37.1

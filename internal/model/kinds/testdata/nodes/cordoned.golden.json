@@ -1,0 +1,102 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "nodes",
+    "name": "worker-a1"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "worker-a1"
+    },
+    {
+      "column": "taints",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "roles",
+      "text": "worker"
+    },
+    {
+      "column": "version",
+      "text": "v1.37.1"
+    },
+    {
+      "column": "age",
+      "text": "163d",
+      "num": 1777593600
+    },
+    {
+      "column": "conditions",
+      "text": "Ready SchedulingDisabled",
+      "status": "warning"
+    }
+  ],
+  "fields": {
+    "externalIP": [],
+    "hostname": [],
+    "internalIP": [
+      "192.0.2.11"
+    ],
+    "label": [
+      "kubernetes.io/role=worker",
+      "node-role.kubernetes.io/worker="
+    ],
+    "name": [
+      "worker-a1"
+    ],
+    "namespace": [
+      ""
+    ],
+    "role": [
+      "worker"
+    ],
+    "version": [
+      "v1.37.1"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Addresses",
+      "items": [
+        {
+          "name": "InternalIP",
+          "value": "192.0.2.11"
+        }
+      ]
+    },
+    {
+      "title": "System Info",
+      "items": [
+        {
+          "name": "Kubelet Version",
+          "value": "v1.37.1"
+        },
+        {
+          "name": "Architecture",
+          "value": "amd64"
+        }
+      ]
+    },
+    {
+      "title": "Taints",
+      "items": [
+        {
+          "value": "node.kubernetes.io/unschedulable:NoSchedule"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (KubeletReady)",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

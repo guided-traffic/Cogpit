@@ -1,0 +1,37 @@
+# Synthetic: a new deployment rolling out; the controller has not reported availability yet.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search
+  namespace: shop
+  uid: 1c7e2f3b-2222-4d4f-8b6c-000000000004
+  generation: 1
+  creationTimestamp: "2026-10-11T11:59:30Z"
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: search
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    spec:
+      containers:
+      - name: search
+        image: registry.example.com/shop/search:0.4.0
+status:
+  observedGeneration: 1
+  replicas: 3
+  updatedReplicas: 3
+  readyReplicas: 1
+  unavailableReplicas: 2
+  conditions:
+  - type: Progressing
+    status: "True"
+    reason: ReplicaSetUpdated
+    message: ReplicaSet "search-5b6c7d8e9" is progressing.

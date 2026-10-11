@@ -1,0 +1,30 @@
+# Synthetic: the container references a Secret that does not exist.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: billing-4f3e2d1c0-b4d5e
+  namespace: payments
+  uid: 0b6f1d2a-1111-4c3e-9a5b-000000000014
+  creationTimestamp: "2026-10-11T11:30:00Z"
+spec:
+  nodeName: worker-a1
+  containers:
+  - name: billing
+    image: registry.example.com/payments/billing:1.8
+    env:
+    - name: API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: billing-keys
+          key: api-key
+status:
+  phase: Pending
+  qosClass: BestEffort
+  containerStatuses:
+  - name: billing
+    ready: false
+    restartCount: 0
+    state:
+      waiting:
+        reason: CreateContainerConfigError
+        message: secret "billing-keys" not found

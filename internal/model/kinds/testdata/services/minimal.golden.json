@@ -1,0 +1,76 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "services",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "namespace",
+      "text": "default"
+    },
+    {
+      "column": "type",
+      "text": "ClusterIP"
+    },
+    {
+      "column": "clusterIP",
+      "text": ""
+    },
+    {
+      "column": "ports",
+      "text": ""
+    },
+    {
+      "column": "externalIP",
+      "text": "-"
+    },
+    {
+      "column": "selector",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    },
+    {
+      "column": "status",
+      "text": "Active",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "clusterIP": [],
+    "externalIP": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "port": [],
+    "selector": [],
+    "type": [
+      "ClusterIP"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Connection",
+      "items": [
+        {
+          "name": "Type",
+          "value": "ClusterIP"
+        }
+      ]
+    }
+  ]
+}

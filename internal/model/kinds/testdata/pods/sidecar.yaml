@@ -1,0 +1,49 @@
+# Synthetic: a native sidecar (an init container with restartPolicy Always) running next to the
+# app container; both count in Containers and Restarts.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: orders-6c5b4a3d2-s1d3c
+  namespace: shop
+  uid: 0b6f1d2a-1111-4c3e-9a5b-000000000011
+  creationTimestamp: "2026-10-11T00:00:00Z"
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: ReplicaSet
+    name: orders-6c5b4a3d2
+    uid: 0b6f1d2a-1111-4c3e-9a5b-0000000000b1
+    controller: true
+spec:
+  nodeName: worker-a2
+  initContainers:
+  - name: log-shipper
+    image: registry.example.com/tools/log-shipper:4.4
+    restartPolicy: Always
+  containers:
+  - name: orders
+    image: registry.example.com/shop/orders:2.3.1
+status:
+  phase: Running
+  qosClass: Burstable
+  podIP: 10.244.2.12
+  conditions:
+  - type: Initialized
+    status: "True"
+  - type: Ready
+    status: "True"
+  initContainerStatuses:
+  - name: log-shipper
+    ready: true
+    started: true
+    restartCount: 1
+    state:
+      running:
+        startedAt: "2026-10-11T00:00:03Z"
+  containerStatuses:
+  - name: orders
+    ready: true
+    started: true
+    restartCount: 0
+    state:
+      running:
+        startedAt: "2026-10-11T00:00:05Z"

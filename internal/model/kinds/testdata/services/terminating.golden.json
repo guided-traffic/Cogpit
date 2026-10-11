@@ -1,0 +1,95 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "services",
+    "namespace": "edge",
+    "name": "old-ingress"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "old-ingress"
+    },
+    {
+      "column": "namespace",
+      "text": "edge"
+    },
+    {
+      "column": "type",
+      "text": "LoadBalancer"
+    },
+    {
+      "column": "clusterIP",
+      "text": "10.96.200.8"
+    },
+    {
+      "column": "ports",
+      "text": "80:31080/TCP"
+    },
+    {
+      "column": "externalIP",
+      "text": "203.0.113.20"
+    },
+    {
+      "column": "selector",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "224d",
+      "num": 1772323200
+    },
+    {
+      "column": "status",
+      "text": "Active",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "clusterIP": [
+      "10.96.200.8"
+    ],
+    "externalIP": [
+      "203.0.113.20"
+    ],
+    "label": [],
+    "name": [
+      "old-ingress"
+    ],
+    "namespace": [
+      "edge"
+    ],
+    "port": [
+      "80",
+      "31080"
+    ],
+    "selector": [],
+    "type": [
+      "LoadBalancer"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Connection",
+      "items": [
+        {
+          "name": "Type",
+          "value": "LoadBalancer"
+        },
+        {
+          "name": "Cluster IPs",
+          "value": "10.96.200.8"
+        },
+        {
+          "name": "Load Balancer Ingress",
+          "value": "203.0.113.20"
+        },
+        {
+          "name": "Ports",
+          "value": "80/TCP → 80, node port 31080"
+        }
+      ]
+    }
+  ]
+}

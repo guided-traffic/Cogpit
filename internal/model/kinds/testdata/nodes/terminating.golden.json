@@ -1,0 +1,77 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "nodes",
+    "name": "worker-b7"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "worker-b7"
+    },
+    {
+      "column": "taints",
+      "text": "0"
+    },
+    {
+      "column": "roles",
+      "text": "worker"
+    },
+    {
+      "column": "version",
+      "text": "v1.37.1"
+    },
+    {
+      "column": "age",
+      "text": "10h",
+      "num": 1791684000
+    },
+    {
+      "column": "conditions",
+      "text": "Ready SchedulingDisabled",
+      "status": "warning"
+    }
+  ],
+  "fields": {
+    "externalIP": [],
+    "hostname": [],
+    "internalIP": [],
+    "label": [
+      "node-role.kubernetes.io/worker="
+    ],
+    "name": [
+      "worker-b7"
+    ],
+    "namespace": [
+      ""
+    ],
+    "role": [
+      "worker"
+    ],
+    "version": [
+      "v1.37.1"
+    ]
+  },
+  "detail": [
+    {
+      "title": "System Info",
+      "items": [
+        {
+          "name": "Kubelet Version",
+          "value": "v1.37.1"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (KubeletReady)",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

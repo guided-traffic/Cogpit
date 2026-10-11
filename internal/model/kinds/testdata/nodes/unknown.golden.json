@@ -1,0 +1,94 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "nodes",
+    "name": "worker-a3"
+  },
+  "status": "unknown",
+  "cells": [
+    {
+      "column": "name",
+      "text": "worker-a3"
+    },
+    {
+      "column": "taints",
+      "text": "2",
+      "num": 2
+    },
+    {
+      "column": "roles",
+      "text": "worker"
+    },
+    {
+      "column": "version",
+      "text": "v1.37.1"
+    },
+    {
+      "column": "age",
+      "text": "163d",
+      "num": 1777593600
+    },
+    {
+      "column": "conditions",
+      "text": "Unknown",
+      "status": "unknown"
+    }
+  ],
+  "fields": {
+    "externalIP": [],
+    "hostname": [],
+    "internalIP": [],
+    "label": [
+      "node-role.kubernetes.io/worker="
+    ],
+    "name": [
+      "worker-a3"
+    ],
+    "namespace": [
+      ""
+    ],
+    "role": [
+      "worker"
+    ],
+    "version": [
+      "v1.37.1"
+    ]
+  },
+  "detail": [
+    {
+      "title": "System Info",
+      "items": [
+        {
+          "name": "Kubelet Version",
+          "value": "v1.37.1"
+        }
+      ]
+    },
+    {
+      "title": "Taints",
+      "items": [
+        {
+          "value": "node.kubernetes.io/unreachable:NoExecute"
+        },
+        {
+          "value": "node.kubernetes.io/unreachable:NoSchedule"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "MemoryPressure",
+          "value": "Unknown (NodeStatusUnknown): Kubelet stopped posting node status.",
+          "status": "unknown"
+        },
+        {
+          "name": "Ready",
+          "value": "Unknown (NodeStatusUnknown): Kubelet stopped posting node status.",
+          "status": "unknown"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+# Synthetic: running, but one of two containers fails its readiness probe.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gateway-8b7c6d5e4-r3s4t
+  namespace: edge
+  uid: 0b6f1d2a-1111-4c3e-9a5b-000000000010
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: ReplicaSet
+    name: gateway-8b7c6d5e4
+    uid: 0b6f1d2a-1111-4c3e-9a5b-0000000000b0
+    controller: true
+spec:
+  nodeName: worker-a1
+  containers:
+  - name: gateway
+    image: registry.example.com/edge/gateway:5.0
+  - name: auth-proxy
+    image: registry.example.com/edge/auth-proxy:1.2
+status:
+  phase: Running
+  qosClass: Burstable
+  podIP: 10.244.1.77
+  conditions:
+  - type: Ready
+    status: "False"
+    reason: ContainersNotReady
+    message: "containers with unready status: [auth-proxy]"
+  containerStatuses:
+  - name: auth-proxy
+    ready: false
+    started: true
+    restartCount: 2
+    state:
+      running:
+        startedAt: "2026-10-10T12:05:00Z"
+  - name: gateway
+    ready: true
+    started: true
+    restartCount: 0
+    state:
+      running:
+        startedAt: "2026-10-10T12:00:04Z"

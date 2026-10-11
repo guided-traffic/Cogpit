@@ -1,0 +1,28 @@
+# Synthetic: a NodePort service with a UDP port and an external IP routed to the nodes.
+apiVersion: v1
+kind: Service
+metadata:
+  name: dns-edge
+  namespace: infra
+  uid: 2d8f3a4c-3333-4e5a-9c7d-000000000004
+  creationTimestamp: "2026-09-20T00:00:00Z"
+spec:
+  type: NodePort
+  clusterIP: 10.96.53.53
+  clusterIPs: [10.96.53.53]
+  externalIPs: [198.51.100.7]
+  selector:
+    app: dns-edge
+  ports:
+  - name: dns-udp
+    port: 53
+    protocol: UDP
+    targetPort: 5353
+    nodePort: 30053
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
+    targetPort: 5353
+    nodePort: 30054
+  externalTrafficPolicy: Cluster
+  sessionAffinity: None

@@ -1,0 +1,82 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "deployments",
+    "namespace": "ops",
+    "name": "nightly-tools"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "nightly-tools"
+    },
+    {
+      "column": "namespace",
+      "text": "ops"
+    },
+    {
+      "column": "pods",
+      "text": "0/0"
+    },
+    {
+      "column": "replicas",
+      "text": "0"
+    },
+    {
+      "column": "age",
+      "text": "71d",
+      "num": 1785542400
+    },
+    {
+      "column": "conditions",
+      "text": "Available Progressing",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/ops/tools:3"
+    ],
+    "label": [],
+    "name": [
+      "nightly-tools"
+    ],
+    "namespace": [
+      "ops"
+    ],
+    "selector": [
+      "app=nightly-tools"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Deployment",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "0 desired / 0 updated / 0 ready / 0 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=nightly-tools"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Available",
+          "value": "True (MinimumReplicasAvailable)",
+          "status": "ok"
+        },
+        {
+          "name": "Progressing",
+          "value": "True (NewReplicaSetAvailable)",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+# Synthetic: optional fields missing: no type, message, source, count or timestamps.
+apiVersion: v1
+kind: Event
+metadata:
+  name: bare.1a2b3c4d5e6f7087
+  namespace: default
+  creationTimestamp: "2026-10-11T11:55:00Z"
+involvedObject: {}

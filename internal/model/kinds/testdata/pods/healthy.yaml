@@ -1,0 +1,106 @@
+# Synthetic: a running Deployment pod, one container, ready, dual-stack. Every name, IP and UID
+# is invented.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-7d9c6b5f8-x2k4p
+  namespace: shop
+  uid: 0b6f1d2a-1111-4c3e-9a5b-000000000001
+  resourceVersion: "48211"
+  creationTimestamp: "2026-10-01T08:00:00Z"
+  labels:
+    app.kubernetes.io/name: web
+    pod-template-hash: 7d9c6b5f8
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: ReplicaSet
+    name: web-7d9c6b5f8
+    uid: 0b6f1d2a-1111-4c3e-9a5b-0000000000aa
+    controller: true
+    blockOwnerDeletion: true
+spec:
+  nodeName: worker-a1
+  serviceAccountName: web
+  restartPolicy: Always
+  priorityClassName: shop-standard
+  priority: 1000
+  containers:
+  - name: web
+    image: registry.example.com/shop/web:1.4.2
+    command: ["/app/web"]
+    args: ["--listen", ":8080", "--greeting", "hello world"]
+    ports:
+    - name: http
+      containerPort: 8080
+      protocol: TCP
+    - containerPort: 9090
+    env:
+    - name: LOG_LEVEL
+      value: info
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: web-db
+          key: password
+    - name: FEATURE_FLAGS
+      valueFrom:
+        configMapKeyRef:
+          name: web-config
+          key: flags
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: CPU_LIMIT
+      valueFrom:
+        resourceFieldRef:
+          resource: limits.cpu
+    envFrom:
+    - configMapRef:
+        name: web-env
+    - secretRef:
+        name: web-tokens
+      prefix: TOKEN_
+    volumeMounts:
+    - name: config
+      mountPath: /etc/web
+      readOnly: true
+    - name: data
+      mountPath: /var/lib/web
+      subPath: cache
+    - name: kube-api-access-q7w2n
+      mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      readOnly: true
+status:
+  phase: Running
+  qosClass: Burstable
+  hostIP: 192.0.2.11
+  hostIPs:
+  - ip: 192.0.2.11
+  podIP: 10.244.1.17
+  podIPs:
+  - ip: 10.244.1.17
+  - ip: fd00:10:244:1::17
+  startTime: "2026-10-01T08:00:01Z"
+  conditions:
+  - type: PodReadyToStartContainers
+    status: "True"
+  - type: Initialized
+    status: "True"
+  - type: Ready
+    status: "True"
+  - type: ContainersReady
+    status: "True"
+  - type: PodScheduled
+    status: "True"
+  containerStatuses:
+  - name: web
+    image: registry.example.com/shop/web:1.4.2
+    imageID: registry.example.com/shop/web@sha256:1111111111111111111111111111111111111111111111111111111111111111
+    containerID: containerd://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    ready: true
+    started: true
+    restartCount: 0
+    state:
+      running:
+        startedAt: "2026-10-01T08:00:04Z"

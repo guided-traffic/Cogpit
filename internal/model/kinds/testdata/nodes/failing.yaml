@@ -1,0 +1,50 @@
+# Synthetic: NotReady under memory and disk pressure; the node controller has tainted it.
+apiVersion: v1
+kind: Node
+metadata:
+  name: worker-a2
+  uid: 4fab5c6e-5555-4a7c-9e9f-000000000002
+  creationTimestamp: "2026-05-01T00:00:00Z"
+  labels:
+    kubernetes.io/hostname: worker-a2
+    node-role.kubernetes.io/worker: ""
+    node-role.kubernetes.io/ingress: ""
+spec:
+  taints:
+  - key: node.kubernetes.io/not-ready
+    effect: NoSchedule
+  - key: node.kubernetes.io/memory-pressure
+    effect: NoSchedule
+  - key: dedicated
+    value: payments
+    effect: NoExecute
+status:
+  addresses:
+  - type: InternalIP
+    address: 192.0.2.12
+  - type: ExternalIP
+    address: 198.51.100.12
+  - type: Hostname
+    address: worker-a2
+  conditions:
+  - type: MemoryPressure
+    status: "True"
+    reason: KubeletHasInsufficientMemory
+    message: kubelet has insufficient memory available
+  - type: DiskPressure
+    status: "True"
+    reason: KubeletHasDiskPressure
+    message: kubelet has disk pressure
+  - type: PIDPressure
+    status: "False"
+    reason: KubeletHasSufficientPID
+  - type: Ready
+    status: "False"
+    reason: KubeletNotReady
+    message: "container runtime network not ready: NetworkReady=false"
+  nodeInfo:
+    architecture: amd64
+    containerRuntimeVersion: containerd://2.1.4
+    kernelVersion: 6.12.0-example
+    kubeletVersion: v1.36.4
+    osImage: Example Linux 12

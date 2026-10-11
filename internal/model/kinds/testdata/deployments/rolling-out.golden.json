@@ -1,0 +1,87 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "deployments",
+    "namespace": "shop",
+    "name": "search"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "search"
+    },
+    {
+      "column": "namespace",
+      "text": "shop"
+    },
+    {
+      "column": "pods",
+      "text": "1/3",
+      "num": 1
+    },
+    {
+      "column": "replicas",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "age",
+      "text": "30s",
+      "num": 1791719970
+    },
+    {
+      "column": "conditions",
+      "text": "Progressing",
+      "status": "pending"
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/shop/search:0.4.0"
+    ],
+    "label": [],
+    "name": [
+      "search"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "selector": [
+      "app=search"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Deployment",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "3 desired / 3 updated / 1 ready / 0 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=search"
+        },
+        {
+          "name": "Strategy",
+          "value": "RollingUpdate (max surge 1, max unavailable 0)"
+        },
+        {
+          "name": "Revision",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Progressing",
+          "value": "True (ReplicaSetUpdated): ReplicaSet \"search-5b6c7d8e9\" is progressing.",
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}

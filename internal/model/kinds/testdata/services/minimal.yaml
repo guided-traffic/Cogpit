@@ -1,0 +1,7 @@
+# Synthetic: optional fields missing: no type (the API defaults it to ClusterIP), no ports.
+apiVersion: v1
+kind: Service
+metadata:
+  name: bare
+  namespace: default
+  creationTimestamp: "2026-10-11T11:00:00Z"

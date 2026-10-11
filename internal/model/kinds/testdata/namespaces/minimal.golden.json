@@ -1,0 +1,52 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "namespaces",
+    "name": "bare"
+  },
+  "status": "unknown",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "labels",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1m",
+      "num": 1791719940
+    },
+    {
+      "column": "status",
+      "text": "Unknown",
+      "status": "unknown"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      ""
+    ],
+    "status": [
+      "Unknown"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Status",
+      "items": [
+        {
+          "name": "Phase",
+          "value": "Unknown",
+          "status": "unknown"
+        }
+      ]
+    }
+  ]
+}

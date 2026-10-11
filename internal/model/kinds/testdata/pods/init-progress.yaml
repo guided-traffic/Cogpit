@@ -1,0 +1,58 @@
+# Synthetic: the first of two init containers finished, the second runs; app containers wait.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: api-0
+  namespace: shop
+  uid: 0b6f1d2a-1111-4c3e-9a5b-000000000005
+  creationTimestamp: "2026-10-11T11:58:00Z"
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: StatefulSet
+    name: api
+    uid: 0b6f1d2a-1111-4c3e-9a5b-0000000000ad
+    controller: true
+spec:
+  nodeName: worker-a1
+  initContainers:
+  - name: fetch-schema
+    image: registry.example.com/tools/fetch:0.3
+  - name: migrate
+    image: registry.example.com/shop/api:3.1.0
+    command: ["/app/api", "migrate"]
+  containers:
+  - name: api
+    image: registry.example.com/shop/api:3.1.0
+status:
+  phase: Pending
+  qosClass: Guaranteed
+  podIP: 10.244.1.40
+  conditions:
+  - type: Initialized
+    status: "False"
+    reason: ContainersNotInitialized
+    message: "containers with incomplete status: [migrate]"
+  initContainerStatuses:
+  - name: fetch-schema
+    ready: true
+    restartCount: 0
+    state:
+      terminated:
+        exitCode: 0
+        reason: Completed
+        startedAt: "2026-10-11T11:58:05Z"
+        finishedAt: "2026-10-11T11:58:20Z"
+  - name: migrate
+    ready: false
+    started: true
+    restartCount: 0
+    state:
+      running:
+        startedAt: "2026-10-11T11:58:21Z"
+  containerStatuses:
+  - name: api
+    ready: false
+    restartCount: 0
+    state:
+      waiting:
+        reason: PodInitializing

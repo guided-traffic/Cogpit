@@ -1,0 +1,57 @@
+# Synthetic: CrashLoopBackOff. The container keeps exiting with code 1; the kubelet backs off and
+# keeps the last termination in lastState.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: worker-6f8b9c7d4-q9m2z
+  namespace: payments
+  uid: 0b6f1d2a-1111-4c3e-9a5b-000000000002
+  resourceVersion: "51077"
+  creationTimestamp: "2026-10-11T10:30:00Z"
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: ReplicaSet
+    name: worker-6f8b9c7d4
+    uid: 0b6f1d2a-1111-4c3e-9a5b-0000000000ab
+    controller: true
+spec:
+  nodeName: worker-a2
+  restartPolicy: Always
+  containers:
+  - name: worker
+    image: registry.example.com/payments/worker:2.0.0
+    args: ["--queue", "settlements"]
+status:
+  phase: Running
+  qosClass: BestEffort
+  hostIP: 192.0.2.12
+  podIP: 10.244.2.31
+  conditions:
+  - type: Initialized
+    status: "True"
+  - type: Ready
+    status: "False"
+    reason: ContainersNotReady
+    message: "containers with unready status: [worker]"
+  - type: ContainersReady
+    status: "False"
+    reason: ContainersNotReady
+    message: "containers with unready status: [worker]"
+  - type: PodScheduled
+    status: "True"
+  containerStatuses:
+  - name: worker
+    image: registry.example.com/payments/worker:2.0.0
+    ready: false
+    started: false
+    restartCount: 7
+    state:
+      waiting:
+        reason: CrashLoopBackOff
+        message: back-off 5m0s restarting failed container=worker pod=worker-6f8b9c7d4-q9m2z_payments
+    lastState:
+      terminated:
+        exitCode: 1
+        reason: Error
+        startedAt: "2026-10-11T11:52:10Z"
+        finishedAt: "2026-10-11T11:52:12Z"

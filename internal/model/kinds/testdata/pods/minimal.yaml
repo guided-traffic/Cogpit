@@ -1,0 +1,7 @@
+# Synthetic: every optional field missing; only what the API server always sets is left.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bare
+  namespace: default
+  creationTimestamp: "2026-10-11T11:59:18Z"

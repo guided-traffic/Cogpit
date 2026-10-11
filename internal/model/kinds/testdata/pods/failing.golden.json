@@ -1,0 +1,170 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "pods",
+    "namespace": "payments",
+    "name": "worker-6f8b9c7d4-q9m2z"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "worker-6f8b9c7d4-q9m2z"
+    },
+    {
+      "column": "namespace",
+      "text": "payments"
+    },
+    {
+      "column": "containers",
+      "text": "0/1"
+    },
+    {
+      "column": "restarts",
+      "text": "7",
+      "num": 7
+    },
+    {
+      "column": "controlledBy",
+      "text": "ReplicaSet"
+    },
+    {
+      "column": "node",
+      "text": "worker-a2"
+    },
+    {
+      "column": "qos",
+      "text": "BestEffort"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791714600
+    },
+    {
+      "column": "status",
+      "text": "CrashLoopBackOff",
+      "status": "error"
+    }
+  ],
+  "fields": {
+    "controlledBy": [
+      "ReplicaSet/worker-6f8b9c7d4"
+    ],
+    "hostIP": [
+      "192.0.2.12"
+    ],
+    "image": [
+      "registry.example.com/payments/worker:2.0.0"
+    ],
+    "label": [],
+    "name": [
+      "worker-6f8b9c7d4-q9m2z"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "node": [
+      "worker-a2"
+    ],
+    "phase": [
+      "Running"
+    ],
+    "podIP": [
+      "10.244.2.31"
+    ],
+    "qos": [
+      "BestEffort"
+    ],
+    "status": [
+      "CrashLoopBackOff"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Status",
+      "items": [
+        {
+          "name": "Status",
+          "value": "CrashLoopBackOff",
+          "status": "error"
+        },
+        {
+          "name": "Node",
+          "value": "worker-a2"
+        },
+        {
+          "name": "Pod IPs",
+          "value": "10.244.2.31"
+        },
+        {
+          "name": "Host IP",
+          "value": "192.0.2.12"
+        },
+        {
+          "name": "QoS Class",
+          "value": "BestEffort"
+        },
+        {
+          "name": "Restart Policy",
+          "value": "Always"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Initialized",
+          "value": "True",
+          "status": "ok"
+        },
+        {
+          "name": "Ready",
+          "value": "False (ContainersNotReady): containers with unready status: [worker]",
+          "status": "warning"
+        },
+        {
+          "name": "ContainersReady",
+          "value": "False (ContainersNotReady): containers with unready status: [worker]",
+          "status": "warning"
+        },
+        {
+          "name": "PodScheduled",
+          "value": "True",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "title": "Container worker",
+      "items": [
+        {
+          "name": "Image",
+          "value": "registry.example.com/payments/worker:2.0.0"
+        },
+        {
+          "name": "State",
+          "value": "Waiting: CrashLoopBackOff (back-off 5m0s restarting failed container=worker pod=worker-6f8b9c7d4-q9m2z_payments)",
+          "status": "error"
+        },
+        {
+          "name": "Last State",
+          "value": "Terminated: Error (exit code 1), started 2026-10-11T11:52:10Z, finished 2026-10-11T11:52:12Z"
+        },
+        {
+          "name": "Ready",
+          "value": "False"
+        },
+        {
+          "name": "Restarts",
+          "value": "7"
+        },
+        {
+          "name": "Args",
+          "value": "--queue settlements"
+        }
+      ]
+    }
+  ]
+}

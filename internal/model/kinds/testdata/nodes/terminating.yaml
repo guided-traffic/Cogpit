@@ -1,0 +1,19 @@
+# Synthetic: a node object being deleted (scaled down by an autoscaler).
+apiVersion: v1
+kind: Node
+metadata:
+  name: worker-b7
+  uid: 4fab5c6e-5555-4a7c-9e9f-000000000003
+  creationTimestamp: "2026-10-11T02:00:00Z"
+  deletionTimestamp: "2026-10-11T11:59:30Z"
+  labels:
+    node-role.kubernetes.io/worker: ""
+spec:
+  unschedulable: true
+status:
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: KubeletReady
+  nodeInfo:
+    kubeletVersion: v1.37.1

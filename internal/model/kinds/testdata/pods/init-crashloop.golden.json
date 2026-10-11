@@ -1,0 +1,157 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "pods",
+    "namespace": "shop",
+    "name": "api-1"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "api-1"
+    },
+    {
+      "column": "namespace",
+      "text": "shop"
+    },
+    {
+      "column": "containers",
+      "text": "0/1"
+    },
+    {
+      "column": "restarts",
+      "text": "4",
+      "num": 4
+    },
+    {
+      "column": "controlledBy",
+      "text": "StatefulSet"
+    },
+    {
+      "column": "node",
+      "text": "worker-a2"
+    },
+    {
+      "column": "qos",
+      "text": "Guaranteed"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    },
+    {
+      "column": "status",
+      "text": "Init:CrashLoopBackOff",
+      "status": "error"
+    }
+  ],
+  "fields": {
+    "controlledBy": [
+      "StatefulSet/api"
+    ],
+    "hostIP": [],
+    "image": [
+      "registry.example.com/shop/api:3.1.0"
+    ],
+    "label": [],
+    "name": [
+      "api-1"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "node": [
+      "worker-a2"
+    ],
+    "phase": [
+      "Pending"
+    ],
+    "podIP": [],
+    "qos": [
+      "Guaranteed"
+    ],
+    "status": [
+      "Init:CrashLoopBackOff"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Status",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Init:CrashLoopBackOff",
+          "status": "error"
+        },
+        {
+          "name": "Node",
+          "value": "worker-a2"
+        },
+        {
+          "name": "QoS Class",
+          "value": "Guaranteed"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Initialized",
+          "value": "False (ContainersNotInitialized)",
+          "status": "warning"
+        }
+      ]
+    },
+    {
+      "title": "Init Container migrate",
+      "items": [
+        {
+          "name": "Image",
+          "value": "registry.example.com/shop/api:3.1.0"
+        },
+        {
+          "name": "State",
+          "value": "Waiting: CrashLoopBackOff (back-off 1m20s restarting failed container=migrate pod=api-1_shop)",
+          "status": "error"
+        },
+        {
+          "name": "Last State",
+          "value": "Terminated: Error (exit code 2), started 2026-10-11T11:57:00Z, finished 2026-10-11T11:57:01Z"
+        },
+        {
+          "name": "Ready",
+          "value": "False"
+        },
+        {
+          "name": "Restarts",
+          "value": "4"
+        }
+      ]
+    },
+    {
+      "title": "Container api",
+      "items": [
+        {
+          "name": "Image",
+          "value": "registry.example.com/shop/api:3.1.0"
+        },
+        {
+          "name": "State",
+          "value": "Waiting: PodInitializing",
+          "status": "pending"
+        },
+        {
+          "name": "Ready",
+          "value": "False"
+        },
+        {
+          "name": "Restarts",
+          "value": "0"
+        }
+      ]
+    }
+  ]
+}

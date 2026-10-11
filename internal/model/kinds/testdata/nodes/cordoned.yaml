@@ -1,0 +1,28 @@
+# Synthetic: a ready node, cordoned for maintenance; roles from the node-role label and the
+# legacy kubernetes.io/role label name the same role once.
+apiVersion: v1
+kind: Node
+metadata:
+  name: worker-a1
+  uid: 4fab5c6e-5555-4a7c-9e9f-000000000004
+  creationTimestamp: "2026-05-01T00:00:00Z"
+  labels:
+    node-role.kubernetes.io/worker: ""
+    kubernetes.io/role: worker
+spec:
+  unschedulable: true
+  taints:
+  - key: node.kubernetes.io/unschedulable
+    effect: NoSchedule
+    timeAdded: "2026-10-11T10:00:00Z"
+status:
+  addresses:
+  - type: InternalIP
+    address: 192.0.2.11
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: KubeletReady
+  nodeInfo:
+    architecture: amd64
+    kubeletVersion: v1.37.1

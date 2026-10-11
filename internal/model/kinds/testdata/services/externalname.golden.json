@@ -1,0 +1,82 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "services",
+    "namespace": "shop",
+    "name": "orders-db"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "orders-db"
+    },
+    {
+      "column": "namespace",
+      "text": "shop"
+    },
+    {
+      "column": "type",
+      "text": "ExternalName"
+    },
+    {
+      "column": "clusterIP",
+      "text": ""
+    },
+    {
+      "column": "ports",
+      "text": ""
+    },
+    {
+      "column": "externalIP",
+      "text": "orders-db.example.net"
+    },
+    {
+      "column": "selector",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "132d",
+      "num": 1780272000
+    },
+    {
+      "column": "status",
+      "text": "Active",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "clusterIP": [],
+    "externalIP": [
+      "orders-db.example.net"
+    ],
+    "label": [],
+    "name": [
+      "orders-db"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "port": [],
+    "selector": [],
+    "type": [
+      "ExternalName"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Connection",
+      "items": [
+        {
+          "name": "Type",
+          "value": "ExternalName"
+        },
+        {
+          "name": "External Name",
+          "value": "orders-db.example.net"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "pods",
+    "namespace": "shop",
+    "name": "web-5c4d7f9b6-p0q1r"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "web-5c4d7f9b6-p0q1r"
+    },
+    {
+      "column": "namespace",
+      "text": "shop"
+    },
+    {
+      "column": "containers",
+      "text": "0/1"
+    },
+    {
+      "column": "restarts",
+      "text": "0"
+    },
+    {
+      "column": "controlledBy",
+      "text": "ReplicaSet"
+    },
+    {
+      "column": "node",
+      "text": "worker-a3"
+    },
+    {
+      "column": "qos",
+      "text": "Burstable"
+    },
+    {
+      "column": "age",
+      "text": "15m",
+      "num": 1791719100
+    },
+    {
+      "column": "status",
+      "text": "ImagePullBackOff",
+      "status": "error"
+    }
+  ],
+  "fields": {
+    "controlledBy": [
+      "ReplicaSet/web-5c4d7f9b6"
+    ],
+    "hostIP": [],
+    "image": [
+      "registry.example.com/shop/web:9.9.9"
+    ],
+    "label": [],
+    "name": [
+      "web-5c4d7f9b6-p0q1r"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "node": [
+      "worker-a3"
+    ],
+    "phase": [
+      "Pending"
+    ],
+    "podIP": [
+      "10.244.3.9"
+    ],
+    "qos": [
+      "Burstable"
+    ],
+    "status": [
+      "ImagePullBackOff"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Status",
+      "items": [
+        {
+          "name": "Status",
+          "value": "ImagePullBackOff",
+          "status": "error"
+        },
+        {
+          "name": "Node",
+          "value": "worker-a3"
+        },
+        {
+          "name": "Pod IPs",
+          "value": "10.244.3.9"
+        },
+        {
+          "name": "QoS Class",
+          "value": "Burstable"
+        }
+      ]
+    },
+    {
+      "title": "Container web",
+      "items": [
+        {
+          "name": "Image",
+          "value": "registry.example.com/shop/web:9.9.9"
+        },
+        {
+          "name": "State",
+          "value": "Waiting: ImagePullBackOff (Back-off pulling image \"registry.example.com/shop/web:9.9.9\")",
+          "status": "error"
+        },
+        {
+          "name": "Ready",
+          "value": "False"
+        },
+        {
+          "name": "Restarts",
+          "value": "0"
+        }
+      ]
+    }
+  ]
+}

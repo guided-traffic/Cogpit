@@ -1,0 +1,59 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "deployments",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "namespace",
+      "text": "default"
+    },
+    {
+      "column": "pods",
+      "text": "0/1"
+    },
+    {
+      "column": "replicas",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "5s",
+      "num": 1791719995
+    },
+    {
+      "column": "conditions",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "image": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "selector": []
+  },
+  "detail": [
+    {
+      "title": "Deployment",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "1 desired / 0 updated / 0 ready / 0 available"
+        }
+      ]
+    }
+  ]
+}

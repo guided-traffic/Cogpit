@@ -1,0 +1,111 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "services",
+    "namespace": "infra",
+    "name": "dns-edge"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "dns-edge"
+    },
+    {
+      "column": "namespace",
+      "text": "infra"
+    },
+    {
+      "column": "type",
+      "text": "NodePort"
+    },
+    {
+      "column": "clusterIP",
+      "text": "10.96.53.53"
+    },
+    {
+      "column": "ports",
+      "text": "53:30053/UDP, 53:30054/TCP"
+    },
+    {
+      "column": "externalIP",
+      "text": "198.51.100.7"
+    },
+    {
+      "column": "selector",
+      "text": "app=dns-edge"
+    },
+    {
+      "column": "age",
+      "text": "21d",
+      "num": 1789862400
+    },
+    {
+      "column": "status",
+      "text": "Active",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "clusterIP": [
+      "10.96.53.53"
+    ],
+    "externalIP": [
+      "198.51.100.7"
+    ],
+    "label": [],
+    "name": [
+      "dns-edge"
+    ],
+    "namespace": [
+      "infra"
+    ],
+    "port": [
+      "53",
+      "30053",
+      "5353",
+      "30054"
+    ],
+    "selector": [
+      "app=dns-edge"
+    ],
+    "type": [
+      "NodePort"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Connection",
+      "items": [
+        {
+          "name": "Type",
+          "value": "NodePort"
+        },
+        {
+          "name": "Cluster IPs",
+          "value": "10.96.53.53"
+        },
+        {
+          "name": "External IPs",
+          "value": "198.51.100.7"
+        },
+        {
+          "name": "Ports",
+          "value": "dns-udp: 53/UDP → 5353, node port 30053\ndns-tcp: 53/TCP → 5353, node port 30054"
+        },
+        {
+          "name": "Selector",
+          "value": "app=dns-edge"
+        },
+        {
+          "name": "Session Affinity",
+          "value": "None"
+        },
+        {
+          "name": "External Traffic Policy",
+          "value": "Cluster"
+        }
+      ]
+    }
+  ]
+}

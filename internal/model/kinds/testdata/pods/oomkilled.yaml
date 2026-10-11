@@ -1,0 +1,27 @@
+# Synthetic: a pod with restartPolicy Never whose container ran out of memory.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: import-batch-42
+  namespace: analytics
+  uid: 0b6f1d2a-1111-4c3e-9a5b-000000000009
+  creationTimestamp: "2026-10-11T09:00:00Z"
+spec:
+  nodeName: worker-a3
+  restartPolicy: Never
+  containers:
+  - name: import
+    image: registry.example.com/analytics/import:1.0
+status:
+  phase: Failed
+  qosClass: Guaranteed
+  containerStatuses:
+  - name: import
+    ready: false
+    restartCount: 0
+    state:
+      terminated:
+        exitCode: 137
+        reason: OOMKilled
+        startedAt: "2026-10-11T09:00:05Z"
+        finishedAt: "2026-10-11T09:14:59Z"

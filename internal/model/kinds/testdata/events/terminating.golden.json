@@ -1,0 +1,112 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "events",
+    "namespace": "legacy",
+    "name": "legacy.1a2b3c4d5e6f7086"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy.1a2b3c4d5e6f7086"
+    },
+    {
+      "column": "type",
+      "text": "Normal",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "Namespace deletion started"
+    },
+    {
+      "column": "namespace",
+      "text": "legacy"
+    },
+    {
+      "column": "involvedObject",
+      "text": "Namespace: legacy"
+    },
+    {
+      "column": "source",
+      "text": "namespace-controller"
+    },
+    {
+      "column": "count",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791615600
+    },
+    {
+      "column": "lastSeen",
+      "text": "1d",
+      "num": 1791615600
+    }
+  ],
+  "fields": {
+    "involvedObject": [
+      "Namespace/legacy"
+    ],
+    "label": [],
+    "name": [
+      "legacy.1a2b3c4d5e6f7086"
+    ],
+    "namespace": [
+      "legacy"
+    ],
+    "reason": [
+      "NamespaceDeletionStarted"
+    ],
+    "source": [
+      "namespace-controller"
+    ],
+    "type": [
+      "Normal"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Event",
+      "items": [
+        {
+          "name": "Type",
+          "value": "Normal",
+          "status": "ok"
+        },
+        {
+          "name": "Reason",
+          "value": "NamespaceDeletionStarted"
+        },
+        {
+          "name": "Message",
+          "value": "Namespace deletion started"
+        },
+        {
+          "name": "Involved Object",
+          "value": "Namespace: legacy"
+        },
+        {
+          "name": "Source",
+          "value": "namespace-controller"
+        },
+        {
+          "name": "Count",
+          "value": "1"
+        },
+        {
+          "name": "First Seen",
+          "value": "2026-10-10T07:00:00Z"
+        },
+        {
+          "name": "Last Seen",
+          "value": "2026-10-10T07:00:00Z"
+        }
+      ]
+    }
+  ]
+}

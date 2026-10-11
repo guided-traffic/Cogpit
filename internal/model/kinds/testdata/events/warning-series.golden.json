@@ -1,0 +1,113 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "events",
+    "namespace": "edge",
+    "name": "gateway-8b7c6d5e4-r3s4t.1a2b3c4d5e6f7083"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "gateway-8b7c6d5e4-r3s4t.1a2b3c4d5e6f7083"
+    },
+    {
+      "column": "type",
+      "text": "Warning",
+      "status": "warning"
+    },
+    {
+      "column": "message",
+      "text": "Readiness probe failed: HTTP probe failed with statuscode: 503"
+    },
+    {
+      "column": "namespace",
+      "text": "edge"
+    },
+    {
+      "column": "involvedObject",
+      "text": "Pod: gateway-8b7c6d5e4-r3s4t"
+    },
+    {
+      "column": "source",
+      "text": "kubelet, worker-a1"
+    },
+    {
+      "column": "count",
+      "text": "17",
+      "num": 17
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791709200
+    },
+    {
+      "column": "lastSeen",
+      "text": "1m",
+      "num": 1791719910
+    }
+  ],
+  "fields": {
+    "involvedObject": [
+      "Pod/gateway-8b7c6d5e4-r3s4t"
+    ],
+    "label": [],
+    "name": [
+      "gateway-8b7c6d5e4-r3s4t.1a2b3c4d5e6f7083"
+    ],
+    "namespace": [
+      "edge"
+    ],
+    "reason": [
+      "Unhealthy"
+    ],
+    "source": [
+      "kubelet",
+      "worker-a1"
+    ],
+    "type": [
+      "Warning"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Event",
+      "items": [
+        {
+          "name": "Type",
+          "value": "Warning",
+          "status": "warning"
+        },
+        {
+          "name": "Reason",
+          "value": "Unhealthy"
+        },
+        {
+          "name": "Message",
+          "value": "Readiness probe failed: HTTP probe failed with statuscode: 503"
+        },
+        {
+          "name": "Involved Object",
+          "value": "Pod: gateway-8b7c6d5e4-r3s4t"
+        },
+        {
+          "name": "Source",
+          "value": "kubelet, worker-a1"
+        },
+        {
+          "name": "Count",
+          "value": "17"
+        },
+        {
+          "name": "First Seen",
+          "value": "2026-10-11T09:00:00Z"
+        },
+        {
+          "name": "Last Seen",
+          "value": "2026-10-11T11:58:30Z"
+        }
+      ]
+    }
+  ]
+}

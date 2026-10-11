@@ -1,0 +1,26 @@
+# Synthetic: a provisioned LoadBalancer with an IP and a hostname ingress.
+apiVersion: v1
+kind: Service
+metadata:
+  name: storefront
+  namespace: shop
+  uid: 2d8f3a4c-3333-4e5a-9c7d-000000000005
+  creationTimestamp: "2026-10-01T00:00:00Z"
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.80.80
+  clusterIPs: [10.96.80.80]
+  selector:
+    app: storefront
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    nodePort: 31080
+    protocol: TCP
+  externalTrafficPolicy: Cluster
+status:
+  loadBalancer:
+    ingress:
+    - ip: 203.0.113.10
+    - hostname: storefront.lb.example.net

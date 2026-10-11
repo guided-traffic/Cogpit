@@ -1,0 +1,122 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "pods",
+    "namespace": "analytics",
+    "name": "import-batch-42"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "import-batch-42"
+    },
+    {
+      "column": "namespace",
+      "text": "analytics"
+    },
+    {
+      "column": "containers",
+      "text": "0/1"
+    },
+    {
+      "column": "restarts",
+      "text": "0"
+    },
+    {
+      "column": "controlledBy",
+      "text": ""
+    },
+    {
+      "column": "node",
+      "text": "worker-a3"
+    },
+    {
+      "column": "qos",
+      "text": "Guaranteed"
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791709200
+    },
+    {
+      "column": "status",
+      "text": "OOMKilled",
+      "status": "error"
+    }
+  ],
+  "fields": {
+    "controlledBy": [],
+    "hostIP": [],
+    "image": [
+      "registry.example.com/analytics/import:1.0"
+    ],
+    "label": [],
+    "name": [
+      "import-batch-42"
+    ],
+    "namespace": [
+      "analytics"
+    ],
+    "node": [
+      "worker-a3"
+    ],
+    "phase": [
+      "Failed"
+    ],
+    "podIP": [],
+    "qos": [
+      "Guaranteed"
+    ],
+    "status": [
+      "OOMKilled"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Status",
+      "items": [
+        {
+          "name": "Status",
+          "value": "OOMKilled",
+          "status": "error"
+        },
+        {
+          "name": "Node",
+          "value": "worker-a3"
+        },
+        {
+          "name": "QoS Class",
+          "value": "Guaranteed"
+        },
+        {
+          "name": "Restart Policy",
+          "value": "Never"
+        }
+      ]
+    },
+    {
+      "title": "Container import",
+      "items": [
+        {
+          "name": "Image",
+          "value": "registry.example.com/analytics/import:1.0"
+        },
+        {
+          "name": "State",
+          "value": "Terminated: OOMKilled (exit code 137), started 2026-10-11T09:00:05Z, finished 2026-10-11T09:14:59Z",
+          "status": "error"
+        },
+        {
+          "name": "Ready",
+          "value": "False"
+        },
+        {
+          "name": "Restarts",
+          "value": "0"
+        }
+      ]
+    }
+  ]
+}

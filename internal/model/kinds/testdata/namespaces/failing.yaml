@@ -1,0 +1,32 @@
+# Synthetic: a deletion stuck on content the namespace controller cannot remove.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: legacy
+  uid: 3e9a4b5d-4444-4f6b-8d8e-000000000002
+  creationTimestamp: "2025-06-01T00:00:00Z"
+  deletionTimestamp: "2026-10-10T08:00:00Z"
+  labels:
+    kubernetes.io/metadata.name: legacy
+spec:
+  finalizers:
+  - kubernetes
+status:
+  phase: Terminating
+  conditions:
+  - type: NamespaceDeletionDiscoveryFailure
+    status: "False"
+    reason: ResourcesDiscovered
+    message: All resources successfully discovered
+  - type: NamespaceDeletionContentFailure
+    status: "False"
+    reason: ContentDeleted
+    message: All content successfully deleted, may be waiting on finalization
+  - type: NamespaceContentRemaining
+    status: "True"
+    reason: SomeResourcesRemain
+    message: "Some resources are remaining: widgets.example.com has 1 resource instances"
+  - type: NamespaceFinalizersRemaining
+    status: "True"
+    reason: SomeFinalizersRemain
+    message: "Some content in the namespace has finalizers remaining: widgets.example.com/cleanup in 1 resource instances"

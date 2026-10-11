@@ -1,0 +1,78 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "namespaces",
+    "name": "legacy"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy"
+    },
+    {
+      "column": "labels",
+      "text": "kubernetes.io/metadata.name=legacy"
+    },
+    {
+      "column": "age",
+      "text": "1y",
+      "num": 1748736000
+    },
+    {
+      "column": "status",
+      "text": "Terminating",
+      "status": "terminating"
+    }
+  ],
+  "fields": {
+    "label": [
+      "kubernetes.io/metadata.name=legacy"
+    ],
+    "name": [
+      "legacy"
+    ],
+    "namespace": [
+      ""
+    ],
+    "status": [
+      "Terminating"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Status",
+      "items": [
+        {
+          "name": "Phase",
+          "value": "Terminating",
+          "status": "terminating"
+        },
+        {
+          "name": "Finalizers",
+          "value": "kubernetes"
+        },
+        {
+          "name": "NamespaceDeletionDiscoveryFailure",
+          "value": "False (ResourcesDiscovered): All resources successfully discovered",
+          "status": "ok"
+        },
+        {
+          "name": "NamespaceDeletionContentFailure",
+          "value": "False (ContentDeleted): All content successfully deleted, may be waiting on finalization",
+          "status": "ok"
+        },
+        {
+          "name": "NamespaceContentRemaining",
+          "value": "True (SomeResourcesRemain): Some resources are remaining: widgets.example.com has 1 resource instances",
+          "status": "warning"
+        },
+        {
+          "name": "NamespaceFinalizersRemaining",
+          "value": "True (SomeFinalizersRemain): Some content in the namespace has finalizers remaining: widgets.example.com/cleanup in 1 resource instances",
+          "status": "warning"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+# Synthetic: an init container fails again and again; the pod never initialises.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: api-1
+  namespace: shop
+  uid: 0b6f1d2a-1111-4c3e-9a5b-000000000006
+  creationTimestamp: "2026-10-11T11:00:00Z"
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: StatefulSet
+    name: api
+    uid: 0b6f1d2a-1111-4c3e-9a5b-0000000000ad
+    controller: true
+spec:
+  nodeName: worker-a2
+  initContainers:
+  - name: migrate
+    image: registry.example.com/shop/api:3.1.0
+  containers:
+  - name: api
+    image: registry.example.com/shop/api:3.1.0
+status:
+  phase: Pending
+  qosClass: Guaranteed
+  conditions:
+  - type: Initialized
+    status: "False"
+    reason: ContainersNotInitialized
+  initContainerStatuses:
+  - name: migrate
+    ready: false
+    restartCount: 4
+    state:
+      waiting:
+        reason: CrashLoopBackOff
+        message: back-off 1m20s restarting failed container=migrate pod=api-1_shop
+    lastState:
+      terminated:
+        exitCode: 2
+        reason: Error
+        startedAt: "2026-10-11T11:57:00Z"
+        finishedAt: "2026-10-11T11:57:01Z"
+  containerStatuses:
+  - name: api
+    ready: false
+    restartCount: 0
+    state:
+      waiting:
+        reason: PodInitializing

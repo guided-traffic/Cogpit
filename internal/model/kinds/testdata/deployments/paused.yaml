@@ -1,0 +1,43 @@
+# Synthetic: a rollout paused half-way: one pod runs the new template, two the old one. A paused
+# deployment does not progress, so being short of ready pods is a warning, not pending.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+  namespace: shop
+  uid: 1c7e2f3b-2222-4d4f-8b6c-000000000008
+  generation: 12
+  creationTimestamp: "2026-09-15T12:00:00Z"
+  annotations:
+    deployment.kubernetes.io/revision: "6"
+spec:
+  replicas: 3
+  paused: true
+  selector:
+    matchLabels:
+      app: checkout
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  template:
+    spec:
+      containers:
+      - name: checkout
+        image: registry.example.com/shop/checkout:4.0.0-rc1
+status:
+  observedGeneration: 12
+  replicas: 3
+  updatedReplicas: 1
+  readyReplicas: 2
+  availableReplicas: 2
+  unavailableReplicas: 1
+  conditions:
+  - type: Available
+    status: "True"
+    reason: MinimumReplicasAvailable
+  - type: Progressing
+    status: Unknown
+    reason: DeploymentPaused
+    message: Deployment is paused

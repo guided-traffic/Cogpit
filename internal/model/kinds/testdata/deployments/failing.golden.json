@@ -1,0 +1,94 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "deployments",
+    "namespace": "payments",
+    "name": "worker"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "worker"
+    },
+    {
+      "column": "namespace",
+      "text": "payments"
+    },
+    {
+      "column": "pods",
+      "text": "1/2",
+      "num": 1
+    },
+    {
+      "column": "replicas",
+      "text": "2",
+      "num": 2
+    },
+    {
+      "column": "age",
+      "text": "7d",
+      "num": 1791115200
+    },
+    {
+      "column": "conditions",
+      "text": "",
+      "status": "error"
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/payments/worker:2.0.0"
+    ],
+    "label": [],
+    "name": [
+      "worker"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "selector": [
+      "app=worker",
+      "tier in (backend,batch)",
+      "!canary"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Deployment",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "2 desired / 2 updated / 1 ready / 1 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=worker\ntier in (backend,batch)\n!canary"
+        },
+        {
+          "name": "Strategy",
+          "value": "Recreate"
+        },
+        {
+          "name": "Revision",
+          "value": "9"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Available",
+          "value": "False (MinimumReplicasUnavailable): Deployment does not have minimum availability.",
+          "status": "error"
+        },
+        {
+          "name": "Progressing",
+          "value": "False (ProgressDeadlineExceeded): ReplicaSet \"worker-6f8b9c7d4\" has timed out progressing.",
+          "status": "error"
+        }
+      ]
+    }
+  ]
+}

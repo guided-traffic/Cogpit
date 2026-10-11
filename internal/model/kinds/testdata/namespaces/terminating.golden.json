@@ -1,0 +1,59 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "namespaces",
+    "name": "preview-1234"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "preview-1234"
+    },
+    {
+      "column": "labels",
+      "text": "kubernetes.io/metadata.name=preview-1234, preview=true"
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791709200
+    },
+    {
+      "column": "status",
+      "text": "Terminating",
+      "status": "terminating"
+    }
+  ],
+  "fields": {
+    "label": [
+      "kubernetes.io/metadata.name=preview-1234",
+      "preview=true"
+    ],
+    "name": [
+      "preview-1234"
+    ],
+    "namespace": [
+      ""
+    ],
+    "status": [
+      "Terminating"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Status",
+      "items": [
+        {
+          "name": "Phase",
+          "value": "Terminating",
+          "status": "terminating"
+        },
+        {
+          "name": "Finalizers",
+          "value": "kubernetes"
+        }
+      ]
+    }
+  ]
+}

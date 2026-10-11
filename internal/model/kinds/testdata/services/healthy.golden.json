@@ -1,0 +1,109 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "services",
+    "namespace": "shop",
+    "name": "web"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "web"
+    },
+    {
+      "column": "namespace",
+      "text": "shop"
+    },
+    {
+      "column": "type",
+      "text": "ClusterIP"
+    },
+    {
+      "column": "clusterIP",
+      "text": "10.96.12.34"
+    },
+    {
+      "column": "ports",
+      "text": "80/TCP, 9090/TCP"
+    },
+    {
+      "column": "externalIP",
+      "text": "-"
+    },
+    {
+      "column": "selector",
+      "text": "app.kubernetes.io/component=frontend, app.kubernetes.io/name=web"
+    },
+    {
+      "column": "age",
+      "text": "40d",
+      "num": 1788253200
+    },
+    {
+      "column": "status",
+      "text": "Active",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "clusterIP": [
+      "10.96.12.34",
+      "fd00:10:96::1234"
+    ],
+    "externalIP": [],
+    "label": [
+      "app.kubernetes.io/name=web"
+    ],
+    "name": [
+      "web"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "port": [
+      "80",
+      "8080",
+      "9090",
+      "metrics"
+    ],
+    "selector": [
+      "app.kubernetes.io/component=frontend",
+      "app.kubernetes.io/name=web"
+    ],
+    "type": [
+      "ClusterIP"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Connection",
+      "items": [
+        {
+          "name": "Type",
+          "value": "ClusterIP"
+        },
+        {
+          "name": "Cluster IPs",
+          "value": "10.96.12.34, fd00:10:96::1234"
+        },
+        {
+          "name": "IP Families",
+          "value": "IPv4, IPv6"
+        },
+        {
+          "name": "Ports",
+          "value": "http: 80/TCP → 8080\nmetrics: 9090/TCP → metrics"
+        },
+        {
+          "name": "Selector",
+          "value": "app.kubernetes.io/component=frontend\napp.kubernetes.io/name=web"
+        },
+        {
+          "name": "Session Affinity",
+          "value": "None"
+        }
+      ]
+    }
+  ]
+}

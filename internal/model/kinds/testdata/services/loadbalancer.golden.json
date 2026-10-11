@@ -1,0 +1,107 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "services",
+    "namespace": "shop",
+    "name": "storefront"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "storefront"
+    },
+    {
+      "column": "namespace",
+      "text": "shop"
+    },
+    {
+      "column": "type",
+      "text": "LoadBalancer"
+    },
+    {
+      "column": "clusterIP",
+      "text": "10.96.80.80"
+    },
+    {
+      "column": "ports",
+      "text": "80:31080/TCP"
+    },
+    {
+      "column": "externalIP",
+      "text": "203.0.113.10, storefront.lb.example.net"
+    },
+    {
+      "column": "selector",
+      "text": "app=storefront"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790812800
+    },
+    {
+      "column": "status",
+      "text": "Active",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "clusterIP": [
+      "10.96.80.80"
+    ],
+    "externalIP": [
+      "203.0.113.10",
+      "storefront.lb.example.net"
+    ],
+    "label": [],
+    "name": [
+      "storefront"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "port": [
+      "80",
+      "31080",
+      "8080"
+    ],
+    "selector": [
+      "app=storefront"
+    ],
+    "type": [
+      "LoadBalancer"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Connection",
+      "items": [
+        {
+          "name": "Type",
+          "value": "LoadBalancer"
+        },
+        {
+          "name": "Cluster IPs",
+          "value": "10.96.80.80"
+        },
+        {
+          "name": "Load Balancer Ingress",
+          "value": "203.0.113.10, storefront.lb.example.net"
+        },
+        {
+          "name": "Ports",
+          "value": "http: 80/TCP → 8080, node port 31080"
+        },
+        {
+          "name": "Selector",
+          "value": "app=storefront"
+        },
+        {
+          "name": "External Traffic Policy",
+          "value": "Cluster"
+        }
+      ]
+    }
+  ]
+}

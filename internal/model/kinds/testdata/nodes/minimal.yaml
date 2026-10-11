@@ -1,0 +1,6 @@
+# Synthetic: optional fields missing: a node registered before its kubelet posted any status.
+apiVersion: v1
+kind: Node
+metadata:
+  name: bare
+  creationTimestamp: "2026-10-11T11:59:59Z"

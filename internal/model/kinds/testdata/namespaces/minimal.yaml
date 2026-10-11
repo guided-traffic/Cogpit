@@ -1,0 +1,6 @@
+# Synthetic: optional fields missing: no labels, no status.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bare
+  creationTimestamp: "2026-10-11T11:59:00Z"

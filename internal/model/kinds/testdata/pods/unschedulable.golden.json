@@ -1,0 +1,109 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "pods",
+    "namespace": "ml",
+    "name": "trainer-0"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "trainer-0"
+    },
+    {
+      "column": "namespace",
+      "text": "ml"
+    },
+    {
+      "column": "containers",
+      "text": "0/1"
+    },
+    {
+      "column": "restarts",
+      "text": "0"
+    },
+    {
+      "column": "controlledBy",
+      "text": ""
+    },
+    {
+      "column": "node",
+      "text": ""
+    },
+    {
+      "column": "qos",
+      "text": "Guaranteed"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    },
+    {
+      "column": "status",
+      "text": "Pending",
+      "status": "pending"
+    }
+  ],
+  "fields": {
+    "controlledBy": [],
+    "hostIP": [],
+    "image": [
+      "registry.example.com/ml/trainer:0.9"
+    ],
+    "label": [],
+    "name": [
+      "trainer-0"
+    ],
+    "namespace": [
+      "ml"
+    ],
+    "node": [],
+    "phase": [
+      "Pending"
+    ],
+    "podIP": [],
+    "qos": [
+      "Guaranteed"
+    ],
+    "status": [
+      "Pending"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Status",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Pending",
+          "status": "pending"
+        },
+        {
+          "name": "QoS Class",
+          "value": "Guaranteed"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "PodScheduled",
+          "value": "False (Unschedulable): 0/3 nodes are available: 3 Insufficient nvidia.com/gpu.",
+          "status": "warning"
+        }
+      ]
+    },
+    {
+      "title": "Container trainer",
+      "items": [
+        {
+          "name": "Image",
+          "value": "registry.example.com/ml/trainer:0.9"
+        }
+      ]
+    }
+  ]
+}

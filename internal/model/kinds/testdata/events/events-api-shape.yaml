@@ -1,0 +1,24 @@
+# Synthetic: an event in the field names of the events.k8s.io API (regarding, note,
+# reportingController, deprecated*), in case such an object reaches the cache.
+apiVersion: events.k8s.io/v1
+kind: Event
+metadata:
+  name: search.1a2b3c4d5e6f7085
+  namespace: shop
+  uid: 5abc6d7f-6666-4b8d-8fa0-000000000005
+  creationTimestamp: "2026-10-11T11:00:00Z"
+regarding:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: search
+  namespace: shop
+reason: ScalingReplicaSet
+note: Scaled up replica set search-5b6c7d8e9 from 0 to 3
+type: Normal
+eventTime: null
+reportingController: deployment-controller
+deprecatedSource:
+  component: deployment-controller
+deprecatedFirstTimestamp: "2026-10-11T11:00:00Z"
+deprecatedLastTimestamp: "2026-10-11T11:30:00Z"
+deprecatedCount: 2

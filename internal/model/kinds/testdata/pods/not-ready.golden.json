@@ -1,0 +1,161 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "pods",
+    "namespace": "edge",
+    "name": "gateway-8b7c6d5e4-r3s4t"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "gateway-8b7c6d5e4-r3s4t"
+    },
+    {
+      "column": "namespace",
+      "text": "edge"
+    },
+    {
+      "column": "containers",
+      "text": "1/2",
+      "num": 1
+    },
+    {
+      "column": "restarts",
+      "text": "2",
+      "num": 2
+    },
+    {
+      "column": "controlledBy",
+      "text": "ReplicaSet"
+    },
+    {
+      "column": "node",
+      "text": "worker-a1"
+    },
+    {
+      "column": "qos",
+      "text": "Burstable"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Running",
+      "status": "warning"
+    }
+  ],
+  "fields": {
+    "controlledBy": [
+      "ReplicaSet/gateway-8b7c6d5e4"
+    ],
+    "hostIP": [],
+    "image": [
+      "registry.example.com/edge/gateway:5.0",
+      "registry.example.com/edge/auth-proxy:1.2"
+    ],
+    "label": [],
+    "name": [
+      "gateway-8b7c6d5e4-r3s4t"
+    ],
+    "namespace": [
+      "edge"
+    ],
+    "node": [
+      "worker-a1"
+    ],
+    "phase": [
+      "Running"
+    ],
+    "podIP": [
+      "10.244.1.77"
+    ],
+    "qos": [
+      "Burstable"
+    ],
+    "status": [
+      "Running"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Status",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Running",
+          "status": "warning"
+        },
+        {
+          "name": "Node",
+          "value": "worker-a1"
+        },
+        {
+          "name": "Pod IPs",
+          "value": "10.244.1.77"
+        },
+        {
+          "name": "QoS Class",
+          "value": "Burstable"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "False (ContainersNotReady): containers with unready status: [auth-proxy]",
+          "status": "warning"
+        }
+      ]
+    },
+    {
+      "title": "Container gateway",
+      "items": [
+        {
+          "name": "Image",
+          "value": "registry.example.com/edge/gateway:5.0"
+        },
+        {
+          "name": "State",
+          "value": "Running, started 2026-10-10T12:00:04Z",
+          "status": "ok"
+        },
+        {
+          "name": "Ready",
+          "value": "True"
+        },
+        {
+          "name": "Restarts",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "title": "Container auth-proxy",
+      "items": [
+        {
+          "name": "Image",
+          "value": "registry.example.com/edge/auth-proxy:1.2"
+        },
+        {
+          "name": "State",
+          "value": "Running, started 2026-10-10T12:05:00Z",
+          "status": "warning"
+        },
+        {
+          "name": "Ready",
+          "value": "False"
+        },
+        {
+          "name": "Restarts",
+          "value": "2"
+        }
+      ]
+    }
+  ]
+}

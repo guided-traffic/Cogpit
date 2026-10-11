@@ -1,0 +1,113 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "events",
+    "namespace": "payments",
+    "name": "worker-6f8b9c7d4-q9m2z.1a2b3c4d5e6f7082"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "worker-6f8b9c7d4-q9m2z.1a2b3c4d5e6f7082"
+    },
+    {
+      "column": "type",
+      "text": "Warning",
+      "status": "warning"
+    },
+    {
+      "column": "message",
+      "text": "Back-off restarting failed container worker in pod worker-6f8b9c7d4-q9m2z_payments (exit code 1)"
+    },
+    {
+      "column": "namespace",
+      "text": "payments"
+    },
+    {
+      "column": "involvedObject",
+      "text": "Pod: worker-6f8b9c7d4-q9m2z"
+    },
+    {
+      "column": "source",
+      "text": "kubelet, worker-a2"
+    },
+    {
+      "column": "count",
+      "text": "42",
+      "num": 42
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791714660
+    },
+    {
+      "column": "lastSeen",
+      "text": "3m",
+      "num": 1791719820
+    }
+  ],
+  "fields": {
+    "involvedObject": [
+      "Pod/worker-6f8b9c7d4-q9m2z"
+    ],
+    "label": [],
+    "name": [
+      "worker-6f8b9c7d4-q9m2z.1a2b3c4d5e6f7082"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "reason": [
+      "BackOff"
+    ],
+    "source": [
+      "kubelet",
+      "worker-a2"
+    ],
+    "type": [
+      "Warning"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Event",
+      "items": [
+        {
+          "name": "Type",
+          "value": "Warning",
+          "status": "warning"
+        },
+        {
+          "name": "Reason",
+          "value": "BackOff"
+        },
+        {
+          "name": "Message",
+          "value": "Back-off restarting failed container worker in pod worker-6f8b9c7d4-q9m2z_payments\n(exit code 1)"
+        },
+        {
+          "name": "Involved Object",
+          "value": "Pod: worker-6f8b9c7d4-q9m2z"
+        },
+        {
+          "name": "Source",
+          "value": "kubelet, worker-a2"
+        },
+        {
+          "name": "Count",
+          "value": "42"
+        },
+        {
+          "name": "First Seen",
+          "value": "2026-10-11T10:31:00Z"
+        },
+        {
+          "name": "Last Seen",
+          "value": "2026-10-11T11:57:00Z"
+        }
+      ]
+    }
+  ]
+}

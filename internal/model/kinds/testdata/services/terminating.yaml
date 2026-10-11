@@ -1,0 +1,22 @@
+# Synthetic: a service held by a load-balancer cleanup finalizer while it is deleted.
+apiVersion: v1
+kind: Service
+metadata:
+  name: old-ingress
+  namespace: edge
+  uid: 2d8f3a4c-3333-4e5a-9c7d-000000000003
+  creationTimestamp: "2026-03-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - service.kubernetes.io/load-balancer-cleanup
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.200.8
+  ports:
+  - port: 80
+    nodePort: 31080
+    targetPort: 80
+status:
+  loadBalancer:
+    ingress:
+    - ip: 203.0.113.20

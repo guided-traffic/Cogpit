@@ -1,0 +1,32 @@
+# Synthetic: a deployment being deleted with foreground cascading deletion.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: legacy-api
+  namespace: shop
+  uid: 1c7e2f3b-2222-4d4f-8b6c-000000000003
+  generation: 2
+  creationTimestamp: "2025-12-24T18:00:00Z"
+  deletionTimestamp: "2026-10-11T11:59:00Z"
+  finalizers:
+  - foregroundDeletion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: legacy-api
+  template:
+    spec:
+      containers:
+      - name: api
+        image: registry.example.com/shop/legacy-api:0.1
+status:
+  observedGeneration: 2
+  replicas: 1
+  updatedReplicas: 1
+  readyReplicas: 1
+  availableReplicas: 1
+  conditions:
+  - type: Available
+    status: "True"
+    reason: MinimumReplicasAvailable

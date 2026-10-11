@@ -1,0 +1,96 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "deployments",
+    "namespace": "shop",
+    "name": "web"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "web"
+    },
+    {
+      "column": "namespace",
+      "text": "shop"
+    },
+    {
+      "column": "pods",
+      "text": "3/3",
+      "num": 3
+    },
+    {
+      "column": "replicas",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "age",
+      "text": "40d",
+      "num": 1788253200
+    },
+    {
+      "column": "conditions",
+      "text": "Available Progressing",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/tools/warm:0.2",
+      "registry.example.com/shop/web:1.4.2",
+      "registry.example.com/tools/exporter:0.9"
+    ],
+    "label": [
+      "app.kubernetes.io/name=web"
+    ],
+    "name": [
+      "web"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "selector": [
+      "app.kubernetes.io/name=web"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Deployment",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "3 desired / 3 updated / 3 ready / 3 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app.kubernetes.io/name=web"
+        },
+        {
+          "name": "Strategy",
+          "value": "RollingUpdate (max surge 25%, max unavailable 25%)"
+        },
+        {
+          "name": "Revision",
+          "value": "4"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Progressing",
+          "value": "True (NewReplicaSetAvailable): ReplicaSet \"web-7d9c6b5f8\" has successfully progressed.",
+          "status": "ok"
+        },
+        {
+          "name": "Available",
+          "value": "True (MinimumReplicasAvailable): Deployment has minimum availability.",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

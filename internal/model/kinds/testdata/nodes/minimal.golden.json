@@ -1,0 +1,51 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "nodes",
+    "name": "bare"
+  },
+  "status": "unknown",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "taints",
+      "text": "0"
+    },
+    {
+      "column": "roles",
+      "text": "<none>"
+    },
+    {
+      "column": "version",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1s",
+      "num": 1791719999
+    },
+    {
+      "column": "conditions",
+      "text": "Unknown",
+      "status": "unknown"
+    }
+  ],
+  "fields": {
+    "externalIP": [],
+    "hostname": [],
+    "internalIP": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      ""
+    ],
+    "role": [],
+    "version": []
+  },
+  "detail": null
+}

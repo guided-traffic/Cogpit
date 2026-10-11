@@ -1,0 +1,112 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "services",
+    "namespace": "edge",
+    "name": "public-api"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "public-api"
+    },
+    {
+      "column": "namespace",
+      "text": "edge"
+    },
+    {
+      "column": "type",
+      "text": "LoadBalancer"
+    },
+    {
+      "column": "clusterIP",
+      "text": "10.96.200.7"
+    },
+    {
+      "column": "ports",
+      "text": "443:30443/TCP"
+    },
+    {
+      "column": "externalIP",
+      "text": "-"
+    },
+    {
+      "column": "selector",
+      "text": "app=gateway"
+    },
+    {
+      "column": "age",
+      "text": "10m",
+      "num": 1791719400
+    },
+    {
+      "column": "status",
+      "text": "Pending",
+      "status": "pending"
+    }
+  ],
+  "fields": {
+    "clusterIP": [
+      "10.96.200.7"
+    ],
+    "externalIP": [],
+    "label": [],
+    "name": [
+      "public-api"
+    ],
+    "namespace": [
+      "edge"
+    ],
+    "port": [
+      "443",
+      "30443",
+      "8443"
+    ],
+    "selector": [
+      "app=gateway"
+    ],
+    "type": [
+      "LoadBalancer"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Connection",
+      "items": [
+        {
+          "name": "Type",
+          "value": "LoadBalancer"
+        },
+        {
+          "name": "Cluster IPs",
+          "value": "10.96.200.7"
+        },
+        {
+          "name": "IP Families",
+          "value": "IPv4"
+        },
+        {
+          "name": "Load Balancer Ingress",
+          "value": "Pending"
+        },
+        {
+          "name": "Ports",
+          "value": "https: 443/TCP → 8443, node port 30443"
+        },
+        {
+          "name": "Selector",
+          "value": "app=gateway"
+        },
+        {
+          "name": "Session Affinity",
+          "value": "ClientIP"
+        },
+        {
+          "name": "External Traffic Policy",
+          "value": "Local"
+        }
+      ]
+    }
+  ]
+}

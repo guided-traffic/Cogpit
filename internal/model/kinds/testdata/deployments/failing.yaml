@@ -1,0 +1,45 @@
+# Synthetic: the rollout missed its progress deadline and the deployment is unavailable.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: payments
+  uid: 1c7e2f3b-2222-4d4f-8b6c-000000000002
+  generation: 9
+  creationTimestamp: "2026-10-04T12:00:00Z"
+  annotations:
+    deployment.kubernetes.io/revision: "9"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: worker
+    matchExpressions:
+    - key: tier
+      operator: In
+      values: [backend, batch]
+    - key: canary
+      operator: DoesNotExist
+  strategy:
+    type: Recreate
+  template:
+    spec:
+      containers:
+      - name: worker
+        image: registry.example.com/payments/worker:2.0.0
+status:
+  observedGeneration: 9
+  replicas: 2
+  updatedReplicas: 2
+  readyReplicas: 1
+  availableReplicas: 1
+  unavailableReplicas: 1
+  conditions:
+  - type: Available
+    status: "False"
+    reason: MinimumReplicasUnavailable
+    message: Deployment does not have minimum availability.
+  - type: Progressing
+    status: "False"
+    reason: ProgressDeadlineExceeded
+    message: ReplicaSet "worker-6f8b9c7d4" has timed out progressing.

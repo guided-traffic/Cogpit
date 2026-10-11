@@ -1,0 +1,120 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "pods",
+    "namespace": "shop",
+    "name": "cache-5d6f7a8b9-ev1ct"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "cache-5d6f7a8b9-ev1ct"
+    },
+    {
+      "column": "namespace",
+      "text": "shop"
+    },
+    {
+      "column": "containers",
+      "text": "0/1"
+    },
+    {
+      "column": "restarts",
+      "text": "0"
+    },
+    {
+      "column": "controlledBy",
+      "text": "ReplicaSet"
+    },
+    {
+      "column": "node",
+      "text": "worker-a2"
+    },
+    {
+      "column": "qos",
+      "text": "BestEffort"
+    },
+    {
+      "column": "age",
+      "text": "3d",
+      "num": 1791417600
+    },
+    {
+      "column": "status",
+      "text": "Evicted",
+      "status": "error"
+    }
+  ],
+  "fields": {
+    "controlledBy": [
+      "ReplicaSet/cache-5d6f7a8b9"
+    ],
+    "hostIP": [],
+    "image": [
+      "registry.example.com/shop/cache:7.2"
+    ],
+    "label": [],
+    "name": [
+      "cache-5d6f7a8b9-ev1ct"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "node": [
+      "worker-a2"
+    ],
+    "phase": [
+      "Failed"
+    ],
+    "podIP": [],
+    "qos": [
+      "BestEffort"
+    ],
+    "status": [
+      "Evicted"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Status",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Evicted",
+          "status": "error"
+        },
+        {
+          "name": "Node",
+          "value": "worker-a2"
+        },
+        {
+          "name": "QoS Class",
+          "value": "BestEffort"
+        }
+      ]
+    },
+    {
+      "title": "Container cache",
+      "items": [
+        {
+          "name": "Image",
+          "value": "registry.example.com/shop/cache:7.2"
+        },
+        {
+          "name": "State",
+          "value": "Terminated: ContainerStatusUnknown (exit code 137)",
+          "status": "error"
+        },
+        {
+          "name": "Ready",
+          "value": "False"
+        },
+        {
+          "name": "Restarts",
+          "value": "0"
+        }
+      ]
+    }
+  ]
+}

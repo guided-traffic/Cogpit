@@ -1,0 +1,204 @@
+package kinds
+
+import (
+	"time"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/guided-traffic/cogpit/internal/model"
+)
+
+const eventWarning = "Warning"
+
+// events is the core v1 Event. The API serves one object in two shapes: the classic fields
+// (source, firstTimestamp, lastTimestamp, count) that older clients write, and the newer ones
+// (eventTime, series, reportingComponent, reportingInstance) that the events.k8s.io API writes.
+// Every reader here tries the classic field, then the newer one, and also accepts the field names
+// the events.k8s.io API uses (regarding, note, reportingController, deprecated*), so an object
+// cached from either API renders the same.
+var events = &model.KindProfile{
+	Key:        "events",
+	Version:    "v1",
+	Resource:   "events",
+	Kind:       "Event",
+	Title:      "Events",
+	Namespaced: true,
+	Columns: []model.Column{
+		// Lens shows no name for events. The hidden name column keeps the model's rule that
+		// the first column is the name, which views and agents rely on to identify a row.
+		{ID: "name", Title: "Name", Type: model.ColumnText, Hidden: true},
+		{ID: idType, Title: "Type", Type: model.ColumnText},
+		{ID: "message", Title: "Message", Type: model.ColumnText},
+		namespaceColumn,
+		{ID: "involvedObject", Title: "Involved Object", Type: model.ColumnText},
+		{ID: "source", Title: "Source", Type: model.ColumnText},
+		{ID: "count", Title: "Count", Type: model.ColumnNumber},
+		ageColumn,
+		{ID: "lastSeen", Title: "Last Seen", Type: model.ColumnAge},
+	},
+	Cells: eventCells,
+	Fields: map[string]fieldFunc{
+		"involvedObject": func(obj *unstructured.Unstructured) []string {
+			kind, name := eventObject(obj)
+			if kind == "" && name == "" {
+				return nil
+			}
+			return []string{kind + "/" + name}
+		},
+		"reason": func(obj *unstructured.Unstructured) []string {
+			return nonEmpty(model.NestedString(obj, "reason"))
+		},
+		idType: func(obj *unstructured.Unstructured) []string {
+			return nonEmpty(model.NestedString(obj, "type"))
+		},
+		"source": func(obj *unstructured.Unstructured) []string {
+			component, host := eventSource(obj)
+			return appendUnique(nil, component, host)
+		},
+	},
+	Detail: eventDetail,
+}
+
+func eventCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
+	typ := model.NestedString(obj, "type")
+	typeToken := eventTypeToken(typ)
+	rowToken := model.StatusNone
+	if typ == eventWarning {
+		rowToken = model.StatusWarning // normal events stay uncoloured, so warnings stand out
+	}
+	return []model.Cell{
+		nameCell(obj),
+		{Text: typ, Status: typeToken},
+		{Text: singleLine(eventMessage(obj))},
+		namespaceCell(obj),
+		{Text: eventObjectText(obj)},
+		{Text: eventSourceText(obj)},
+		{Num: eventCount(obj)},
+		model.AgeCell(eventFirstSeen(obj)),
+		model.AgeCell(eventLastSeen(obj)),
+	}, rowToken
+}
+
+// eventTypeToken colours the Type cell: Normal ok, Warning warning, anything newer uncoloured.
+func eventTypeToken(typ string) model.Status {
+	switch typ {
+	case "Normal":
+		return model.StatusOK
+	case eventWarning:
+		return model.StatusWarning
+	}
+	return model.StatusNone
+}
+
+func eventMessage(obj any) string {
+	if m := model.NestedString(obj, "message"); m != "" {
+		return m
+	}
+	return model.NestedString(obj, "note")
+}
+
+// eventObject returns the kind and name of the object the event is about.
+func eventObject(obj any) (kind, name string) {
+	ref := model.NestedMap(obj, "involvedObject")
+	if ref == nil {
+		ref = model.NestedMap(obj, "regarding")
+	}
+	return model.NestedString(ref, "kind"), model.NestedString(ref, "name")
+}
+
+// eventObjectText renders the involved object as "Kind: name".
+func eventObjectText(obj any) string {
+	kind, name := eventObject(obj)
+	if kind == "" {
+		return name
+	}
+	return kind + ": " + name
+}
+
+// eventSource returns who reported the event: the classic source (component and host) when it
+// is set, else the reporting controller and instance.
+func eventSource(obj any) (component, host string) {
+	if component, host = classicSource(obj, "source"); component != "" || host != "" {
+		return component, host
+	}
+	if component, host = classicSource(obj, "deprecatedSource"); component != "" || host != "" {
+		return component, host
+	}
+	component = model.NestedString(obj, "reportingComponent")
+	if component == "" {
+		component = model.NestedString(obj, "reportingController")
+	}
+	host = model.NestedString(obj, "reportingInstance")
+	if host == component {
+		host = "" // some controllers report their name as the instance too
+	}
+	return component, host
+}
+
+func classicSource(obj any, field string) (component, host string) {
+	return model.NestedString(obj, field, "component"), model.NestedString(obj, field, "host")
+}
+
+// eventSourceText renders the source as "component, host".
+func eventSourceText(obj any) string {
+	component, host := eventSource(obj)
+	switch {
+	case component == "":
+		return host
+	case host == "":
+		return component
+	}
+	return component + ", " + host
+}
+
+// eventCount is the number of occurrences: the series count for a newer event, the classic
+// count otherwise, and 1 when neither is set, since an event that exists happened once.
+func eventCount(obj any) int64 {
+	if n := nonNegative(obj, "series", "count"); n > 0 {
+		return n
+	}
+	if n := nonNegative(obj, "count"); n > 0 {
+		return n
+	}
+	if n := nonNegative(obj, "deprecatedCount"); n > 0 {
+		return n
+	}
+	return 1
+}
+
+// eventFirstSeen is when the event first happened: the classic first timestamp, else the
+// newer event time, else when the object was created.
+func eventFirstSeen(obj any) time.Time {
+	return firstTime(
+		model.NestedTime(obj, "firstTimestamp"),
+		model.NestedTime(obj, "deprecatedFirstTimestamp"),
+		model.NestedTime(obj, "eventTime"),
+		created(obj),
+	)
+}
+
+// eventLastSeen is when the event last happened: the classic last timestamp, else the series'
+// last observation, else the event time, else when the object was created.
+func eventLastSeen(obj any) time.Time {
+	return firstTime(
+		model.NestedTime(obj, "lastTimestamp"),
+		model.NestedTime(obj, "deprecatedLastTimestamp"),
+		model.NestedTime(obj, "series", "lastObservedTime"),
+		model.NestedTime(obj, "eventTime"),
+		created(obj),
+	)
+}
+
+func eventDetail(obj *unstructured.Unstructured) []model.DetailSection {
+	var d detailItems
+	typ := model.NestedString(obj, "type")
+	d.addStatus("Type", typ, eventTypeToken(typ))
+	d.add("Reason", model.NestedString(obj, "reason"))
+	d.add("Message", eventMessage(obj))
+	d.add("Involved Object", eventObjectText(obj))
+	d.add("Source", eventSourceText(obj))
+	d.add("Count", itoa(eventCount(obj)))
+	d.add("First Seen", timestamp(eventFirstSeen(obj)))
+	d.add("Last Seen", timestamp(eventLastSeen(obj)))
+	return []model.DetailSection{{Title: "Event", Items: d}}
+}

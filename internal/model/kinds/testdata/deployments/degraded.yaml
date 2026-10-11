@@ -1,0 +1,36 @@
+# Synthetic: the rollout finished, but one pod has since stopped being ready. Nothing is in
+# progress to fix it, so the row warns.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: edge
+  uid: 1c7e2f3b-2222-4d4f-8b6c-000000000005
+  generation: 3
+  creationTimestamp: "2026-10-10T12:00:00Z"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: gateway
+  strategy:
+    type: RollingUpdate
+  template:
+    spec:
+      containers:
+      - name: gateway
+        image: registry.example.com/edge/gateway:5.0
+status:
+  observedGeneration: 3
+  replicas: 3
+  updatedReplicas: 3
+  readyReplicas: 2
+  availableReplicas: 2
+  unavailableReplicas: 1
+  conditions:
+  - type: Available
+    status: "True"
+    reason: MinimumReplicasAvailable
+  - type: Progressing
+    status: "True"
+    reason: NewReplicaSetAvailable

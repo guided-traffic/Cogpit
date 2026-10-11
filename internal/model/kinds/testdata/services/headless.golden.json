@@ -1,0 +1,95 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "services",
+    "namespace": "shop",
+    "name": "api-headless"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "api-headless"
+    },
+    {
+      "column": "namespace",
+      "text": "shop"
+    },
+    {
+      "column": "type",
+      "text": "ClusterIP"
+    },
+    {
+      "column": "clusterIP",
+      "text": "None"
+    },
+    {
+      "column": "ports",
+      "text": "9000/TCP"
+    },
+    {
+      "column": "externalIP",
+      "text": "-"
+    },
+    {
+      "column": "selector",
+      "text": "app=api"
+    },
+    {
+      "column": "age",
+      "text": "6d",
+      "num": 1791158400
+    },
+    {
+      "column": "status",
+      "text": "Active",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "clusterIP": [
+      "None"
+    ],
+    "externalIP": [],
+    "label": [],
+    "name": [
+      "api-headless"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "port": [
+      "9000",
+      "grpc"
+    ],
+    "selector": [
+      "app=api"
+    ],
+    "type": [
+      "ClusterIP"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Connection",
+      "items": [
+        {
+          "name": "Type",
+          "value": "ClusterIP"
+        },
+        {
+          "name": "Cluster IPs",
+          "value": "None"
+        },
+        {
+          "name": "Ports",
+          "value": "grpc: 9000/TCP → grpc"
+        },
+        {
+          "name": "Selector",
+          "value": "app=api"
+        }
+      ]
+    }
+  ]
+}

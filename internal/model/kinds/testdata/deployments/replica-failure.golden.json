@@ -1,0 +1,93 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "deployments",
+    "namespace": "media",
+    "name": "thumbnailer"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "thumbnailer"
+    },
+    {
+      "column": "namespace",
+      "text": "media"
+    },
+    {
+      "column": "pods",
+      "text": "2/3",
+      "num": 2
+    },
+    {
+      "column": "replicas",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "age",
+      "text": "9d",
+      "num": 1790942400
+    },
+    {
+      "column": "conditions",
+      "text": "Available Progressing ReplicaFailure",
+      "status": "error"
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/media/thumbnailer:1.1"
+    ],
+    "label": [],
+    "name": [
+      "thumbnailer"
+    ],
+    "namespace": [
+      "media"
+    ],
+    "selector": [
+      "app=thumbnailer"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Deployment",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "3 desired / 2 updated / 2 ready / 2 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=thumbnailer"
+        },
+        {
+          "name": "Revision",
+          "value": "5"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Available",
+          "value": "True (MinimumReplicasAvailable)",
+          "status": "ok"
+        },
+        {
+          "name": "ReplicaFailure",
+          "value": "True (FailedCreate): pods \"thumbnailer-7f6e5d4c3-z9y8x\" is forbidden: exceeded quota: media-quota",
+          "status": "error"
+        },
+        {
+          "name": "Progressing",
+          "value": "True (ReplicaSetUpdated)",
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+# Synthetic: the image tag does not exist; the kubelet backs off pulling it.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-5c4d7f9b6-p0q1r
+  namespace: shop
+  uid: 0b6f1d2a-1111-4c3e-9a5b-000000000004
+  creationTimestamp: "2026-10-11T11:45:00Z"
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: ReplicaSet
+    name: web-5c4d7f9b6
+    uid: 0b6f1d2a-1111-4c3e-9a5b-0000000000ac
+    controller: true
+spec:
+  nodeName: worker-a3
+  containers:
+  - name: web
+    image: registry.example.com/shop/web:9.9.9
+status:
+  phase: Pending
+  qosClass: Burstable
+  podIP: 10.244.3.9
+  containerStatuses:
+  - name: web
+    image: registry.example.com/shop/web:9.9.9
+    ready: false
+    started: false
+    restartCount: 0
+    state:
+      waiting:
+        reason: ImagePullBackOff
+        message: Back-off pulling image "registry.example.com/shop/web:9.9.9"

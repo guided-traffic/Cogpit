@@ -1,0 +1,17 @@
+# Synthetic: deletion has just started; the cache holds the deletion timestamp before the
+# controller has moved the phase to Terminating.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: preview-1234
+  uid: 3e9a4b5d-4444-4f6b-8d8e-000000000003
+  creationTimestamp: "2026-10-11T09:00:00Z"
+  deletionTimestamp: "2026-10-11T11:59:58Z"
+  labels:
+    kubernetes.io/metadata.name: preview-1234
+    preview: "true"
+spec:
+  finalizers:
+  - kubernetes
+status:
+  phase: Active

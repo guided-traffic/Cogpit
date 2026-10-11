@@ -1,0 +1,113 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "events",
+    "namespace": "shop",
+    "name": "web-7d9c6b5f8-x2k4p.1a2b3c4d5e6f7081"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "web-7d9c6b5f8-x2k4p.1a2b3c4d5e6f7081"
+    },
+    {
+      "column": "type",
+      "text": "Normal",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "Container image \"registry.example.com/shop/web:1.4.2\" already present on machine"
+    },
+    {
+      "column": "namespace",
+      "text": "shop"
+    },
+    {
+      "column": "involvedObject",
+      "text": "Pod: web-7d9c6b5f8-x2k4p"
+    },
+    {
+      "column": "source",
+      "text": "kubelet, worker-a1"
+    },
+    {
+      "column": "count",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "20m",
+      "num": 1791718800
+    },
+    {
+      "column": "lastSeen",
+      "text": "20m",
+      "num": 1791718800
+    }
+  ],
+  "fields": {
+    "involvedObject": [
+      "Pod/web-7d9c6b5f8-x2k4p"
+    ],
+    "label": [],
+    "name": [
+      "web-7d9c6b5f8-x2k4p.1a2b3c4d5e6f7081"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "reason": [
+      "Pulled"
+    ],
+    "source": [
+      "kubelet",
+      "worker-a1"
+    ],
+    "type": [
+      "Normal"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Event",
+      "items": [
+        {
+          "name": "Type",
+          "value": "Normal",
+          "status": "ok"
+        },
+        {
+          "name": "Reason",
+          "value": "Pulled"
+        },
+        {
+          "name": "Message",
+          "value": "Container image \"registry.example.com/shop/web:1.4.2\" already present on machine"
+        },
+        {
+          "name": "Involved Object",
+          "value": "Pod: web-7d9c6b5f8-x2k4p"
+        },
+        {
+          "name": "Source",
+          "value": "kubelet, worker-a1"
+        },
+        {
+          "name": "Count",
+          "value": "1"
+        },
+        {
+          "name": "First Seen",
+          "value": "2026-10-11T11:40:00Z"
+        },
+        {
+          "name": "Last Seen",
+          "value": "2026-10-11T11:40:00Z"
+        }
+      ]
+    }
+  ]
+}

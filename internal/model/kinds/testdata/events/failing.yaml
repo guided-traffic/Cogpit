@@ -1,0 +1,26 @@
+# Synthetic: a classic Warning event repeated many times, with a multi-line message.
+apiVersion: v1
+kind: Event
+metadata:
+  name: worker-6f8b9c7d4-q9m2z.1a2b3c4d5e6f7082
+  namespace: payments
+  uid: 5abc6d7f-6666-4b8d-8fa0-000000000002
+  creationTimestamp: "2026-10-11T10:31:00Z"
+involvedObject:
+  apiVersion: v1
+  kind: Pod
+  name: worker-6f8b9c7d4-q9m2z
+  namespace: payments
+reason: BackOff
+message: |-
+  Back-off restarting failed container worker in pod worker-6f8b9c7d4-q9m2z_payments
+  (exit code 1)
+source:
+  component: kubelet
+  host: worker-a2
+firstTimestamp: "2026-10-11T10:31:00Z"
+lastTimestamp: "2026-10-11T11:57:00Z"
+count: 42
+type: Warning
+reportingComponent: ""
+reportingInstance: ""

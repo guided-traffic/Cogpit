@@ -1,0 +1,112 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "events",
+    "namespace": "shop",
+    "name": "search.1a2b3c4d5e6f7085"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "search.1a2b3c4d5e6f7085"
+    },
+    {
+      "column": "type",
+      "text": "Normal",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "Scaled up replica set search-5b6c7d8e9 from 0 to 3"
+    },
+    {
+      "column": "namespace",
+      "text": "shop"
+    },
+    {
+      "column": "involvedObject",
+      "text": "Deployment: search"
+    },
+    {
+      "column": "source",
+      "text": "deployment-controller"
+    },
+    {
+      "column": "count",
+      "text": "2",
+      "num": 2
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    },
+    {
+      "column": "lastSeen",
+      "text": "30m",
+      "num": 1791718200
+    }
+  ],
+  "fields": {
+    "involvedObject": [
+      "Deployment/search"
+    ],
+    "label": [],
+    "name": [
+      "search.1a2b3c4d5e6f7085"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "reason": [
+      "ScalingReplicaSet"
+    ],
+    "source": [
+      "deployment-controller"
+    ],
+    "type": [
+      "Normal"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Event",
+      "items": [
+        {
+          "name": "Type",
+          "value": "Normal",
+          "status": "ok"
+        },
+        {
+          "name": "Reason",
+          "value": "ScalingReplicaSet"
+        },
+        {
+          "name": "Message",
+          "value": "Scaled up replica set search-5b6c7d8e9 from 0 to 3"
+        },
+        {
+          "name": "Involved Object",
+          "value": "Deployment: search"
+        },
+        {
+          "name": "Source",
+          "value": "deployment-controller"
+        },
+        {
+          "name": "Count",
+          "value": "2"
+        },
+        {
+          "name": "First Seen",
+          "value": "2026-10-11T11:00:00Z"
+        },
+        {
+          "name": "Last Seen",
+          "value": "2026-10-11T11:30:00Z"
+        }
+      ]
+    }
+  ]
+}
