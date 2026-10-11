@@ -83,6 +83,7 @@ type shell struct {
 	confirmer *guiConfirmer
 	drains    *drainBanner // unfinished drains, below the top bar (drains.go)
 	helm      *helmBanner  // unfinished Helm release actions, below the drains (helmbanner.go)
+	titlebar  *titlebar    // Cogpit's own title bar on macOS (titlebar.go)
 
 	hsplit    *container.Split // table | drawer
 	vsplit    *container.Split // workspace / dock
@@ -101,6 +102,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.sess, _ = eng.(*engine.Session)
 	sh.ctx, sh.cancel = context.WithCancel(context.Background())
 	sh.saveFile = func(name string, rows int, data []byte) { sh.saveWithDialog(name, rows, data, nil) }
+	sh.titlebar = newTitlebar(sh)
 
 	sh.top = newTopBar(sh)
 	sh.side = newSidebar(sh)
@@ -167,6 +169,7 @@ func (sh *shell) stop() {
 	}
 	sh.cancel()
 	sh.dock.closeAll()
+	sh.titlebar.stop()
 }
 
 // tick re-renders age cells every ageRefresh, so "5m" becomes "6m" without an engine event.

@@ -3,6 +3,7 @@ package fyneui
 import (
 	"encoding/json"
 	"fmt"
+	"image/color"
 	"strconv"
 
 	"fyne.io/fyne/v2"
@@ -42,15 +43,20 @@ func connectionText(c engine.Connection) string {
 }
 
 // topBar is the window's top bar: the Cogpit wordmark, the active context with its connection
-// state, the context picker button and, when an MCP command is configured, an MCP button.
+// state, the context picker button and, when an MCP command is configured, an MCP button. On macOS
+// it is also the window's title bar (titlebar.go): room for the window buttons before the logo,
+// and a drag area under its contents.
 type topBar struct {
-	sh      *shell
-	dot     *dot
-	context *textLine
-	state   *textLine
-	switchB *widget.Button
-	mcp     *widget.Button
-	root    fyne.CanvasObject
+	sh          *shell
+	dot         *dot
+	context     *textLine
+	state       *textLine
+	switchB     *widget.Button
+	mcp         *widget.Button
+	lead        *canvas.Rectangle // the window buttons' room; hidden unless Cogpit draws the title bar
+	left        *fyne.Container
+	titleHeight float32 // the title bar's height the bar covers, in Fyne units; 0 without
+	root        fyne.CanvasObject
 }
 
 func newTopBar(sh *shell) *topBar {
@@ -63,7 +69,9 @@ func newTopBar(sh *shell) *topBar {
 	t.switchB.Importance = widget.LowImportance
 
 	wordmark := newTextLine("Cogpit", theme.ColorNameForeground, theme.SizeNameSubHeadingText, fyne.TextStyle{Bold: true})
-	left := container.NewHBox(newLogo(), wordmark, newHGap(theme.SizeNameInnerPadding), newDivider(true),
+	t.lead = canvas.NewRectangle(color.Transparent)
+	t.lead.Hide()
+	t.left = container.NewHBox(t.lead, newLogo(), wordmark, newHGap(theme.SizeNameInnerPadding), newDivider(true),
 		newHGap(theme.SizeNameInnerPadding), t.dot, t.context, t.state, t.switchB)
 	right := container.NewHBox()
 	if sh.opts.MCPCommand != "" {
@@ -71,8 +79,8 @@ func newTopBar(sh *shell) *topBar {
 		t.mcp.Importance = widget.LowImportance
 		right.Add(t.mcp)
 	}
-	t.root = sized("", sizeBarHeight, newSurface(colorTopBar),
-		inset(theme.SizeNameInnerPadding, "", container.NewBorder(nil, nil, left, right)))
+	t.root = box(&topBarLayout{t: t}, newSurface(colorTopBar), newBarDragArea(func() { sh.titlebar.mouseDown() }),
+		inset(theme.SizeNameInnerPadding, "", container.NewBorder(nil, nil, t.left, right)))
 	return t
 }
 

@@ -149,6 +149,9 @@ func Run(s *engine.Session, opts Options) error {
 	w.SetContent(sh.root)
 	w.SetMainMenu(sh.mainMenu())
 	w.Resize(fyne.NewSize(1440, 900))
+	// Cogpit's own title bar on macOS needs the window, which exists once the app started: queued
+	// from OnStarted, the install runs after the window's creation (titlebar.go).
+	a.Lifecycle().SetOnStarted(func() { do(sh.titlebar.install) })
 	sh.start()
 	if opts.PerfReport != nil {
 		sh.startPerf()

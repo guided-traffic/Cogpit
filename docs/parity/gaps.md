@@ -356,6 +356,14 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   row checkboxes and multi-selection in row menus, the drawer's Copy and port Forward…, the Pods
   view's container squares, Cogpit's own title bar on macOS (owner, 2026-10-11: no standard title
   bar, the logo beside the window buttons; [ui-parity](ui-parity.md#layout)).
+- **Evidence (2026-10-11, third run, tables and window):** cluster-scoped views hide the namespace
+  filter; show and hide columns from the header's ⋮ (`ui.setColumns`, per view in the UI state);
+  the Definitions view's group filter (`ui.setGroups`); keyboard navigation (done); a double click
+  on a column separator fits the column; "18 items" with a CSV download (`table.exportCsv`, written
+  in the engine); the Workloads Overview as a page (`workloads/overview`, `workloads.overview`);
+  Cogpit's own title bar on macOS, built but not yet seen in a real window (smoke launch). Still
+  missing from this list: history in the title bar, tab bar, welcome page, column reorder, row
+  checkboxes and multi-selection, the drawer's Copy and Forward…, container squares.
 - **Estimate:** 45–130 h (was 60–165).
 
 ### G13. Clusters, hotbar, palette, menus, shortcuts and preferences
