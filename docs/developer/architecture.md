@@ -278,7 +278,9 @@ the answers of one connection: a `SelfSubjectRulesReview` per namespace and a
 `SelfSubjectAccessReview` per question, until `cluster.refreshAccess` drops them or the context is
 connected again; nothing runs on a timer. A missing answer starts its review in the background,
 once (deduplicated), at most four at a time, on goroutines that recover from a panic and record a
-failed review instead of leaving it pending; arriving answers emit `EventKinds` (the sidebar reads
+failed review instead of leaving it pending; at most 512 namespaces' rules and 2,048 questions are
+kept until a refresh, and past them an answer stays unknown, since a command asks in whatever
+namespace its parameters name (review 2026-10-11, `TestAccessReviewsAreBounded`); arriving answers emit `EventKinds` (the sidebar reads
 `kinds.list` again) and `EventDetail` (the drawer asks its commands' `Enabled` again), coalesced
 to one pair per 200 ms. Which review answers what:
 

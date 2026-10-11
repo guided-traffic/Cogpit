@@ -20,6 +20,11 @@ const (
 	// namespaces: on a cluster with more, a kind no reviewed namespace lets the user list stays
 	// shown, because its answer is unknown.
 	accessNamespaceLimit = 32
+	// accessRulesLimit and accessChecksLimit bound the namespaces and the questions the reviews
+	// keep answers for until a refresh: commands ask in whatever namespace their parameters name.
+	// Past them an answer stays unknown and the API server decides.
+	accessRulesLimit  = 512
+	accessChecksLimit = 2048
 	// accessReviewTimeout bounds one review.
 	accessReviewTimeout = 30 * time.Second
 	// accessCoalesce stretches the snapshot interval for the events that follow arriving answers:
@@ -414,7 +419,7 @@ func (a *accessReviews) namespaceNamesLocked() ([]string, bool) {
 func (a *accessReviews) rulesLocked(ns string) *rulesReview {
 	r, ok := a.rules[ns]
 	if !ok {
-		if a.stopped || a.s == nil {
+		if a.stopped || a.s == nil || len(a.rules) >= accessRulesLimit {
 			return nil
 		}
 		r = &rulesReview{}
@@ -432,7 +437,7 @@ func (a *accessReviews) rulesLocked(ns string) *rulesReview {
 // (a server that does not answer them, or forbids them): then every question would cost a failing
 // request, so the answer stays unknown until the reviews are refreshed.
 func (a *accessReviews) checkLocked(q cluster.AccessAttributes) {
-	if _, ok := a.checks[q]; ok || a.failing || a.stopped || a.s == nil {
+	if _, ok := a.checks[q]; ok || a.failing || a.stopped || a.s == nil || len(a.checks) >= accessChecksLimit {
 		return
 	}
 	c := &accessCheck{}
