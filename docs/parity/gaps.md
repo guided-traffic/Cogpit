@@ -402,6 +402,19 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   0.3–0.56 s while Fyne sets up GL, and the first fill of a 10,000-row table for 151–193 ms (text
   textures). To try: render the first frame before the rows arrive, warm the text textures of the
   first screen off the critical frame, and avoid second windows ([spike S1](../developer/spike-fyne.md#results)).
+- **Evidence (2026-10-11, the gate's offscreen test):** `TestPerfGateRunsEveryPhase` hung once
+  until go test's 10-minute timeout on the macOS CI runner (7 s locally). Cause, reproduced with
+  a main queue slower than one callback per frame (the race detector and coverage on a loaded
+  runner): the jank meter kept posting a callback every 16 ms after it had reported, so the test's
+  drain never emptied the queue and never reached its deadline; and a sample still queued at the
+  report ended the measurement a second time, closing the YAML window twice, which panics inside
+  Fyne's test driver while it holds its window lock, so the cleanup's next driver call blocked for
+  good. Fixed in the meter ([`perf.go`](../../internal/ui/fyneui/perf.go)): it stops its ticker
+  when it reports, samples after the report do nothing, it never waits on the main goroutine for
+  the YAML document, and a view switch waits (at most 10 s) for the view's rows instead of
+  switching away from a slow view; the test drains in batches and checks its deadline between
+  them. `TestPerfGateFinishesOnASlowMainGoroutine` runs the gate with every callback slower than
+  a frame (it hangs on the old meter, passes on the new).
 - **Impact:** large clusters are where users notice an IDE first, and where an IDE costs the API
   server most.
 - **Estimate:** 30–70 h (was 40–80).

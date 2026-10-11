@@ -50,6 +50,10 @@ type perfMeter struct {
 	begin  time.Time
 	mode   string
 	report sync.Once
+	// stop ends the ticker once the meter has reported: a finished measurement must not keep
+	// posting to a main goroutine that may be slower than one callback per frame (a loaded CI
+	// runner with the race detector), which would then never catch up.
+	stop chan struct{}
 
 	// The rest is main goroutine only.
 	samples  []perfSample
@@ -82,7 +86,7 @@ type perfPhaseMark struct {
 
 // startPerf starts the meter; call it once, before the event loop runs.
 func (sh *shell) startPerf() {
-	m := &perfMeter{sh: sh, begin: time.Now(), mode: sh.opts.PerfMode}
+	m := &perfMeter{sh: sh, begin: time.Now(), mode: sh.opts.PerfMode, stop: make(chan struct{})}
 	if m.mode == "" {
 		m.mode = PerfScroll
 	}
@@ -102,6 +106,8 @@ func (m *perfMeter) run() {
 		select {
 		case <-m.sh.stopTickers:
 			return
+		case <-m.stop:
+			return
 		case <-t.C:
 			posted := time.Now()
 			m.sh.do(func() { m.sample(posted) })
@@ -115,8 +121,16 @@ func (m *perfMeter) enter(name string) {
 	m.phases = append(m.phases, perfPhaseMark{name: name, at: time.Since(m.begin)})
 }
 
-// sample records one callback's lateness and moves the phases on; on the main goroutine.
+// sample records one callback's lateness and moves the phases on; on the main goroutine. A sample
+// still queued when the meter reported does nothing: it would otherwise end the measurement a
+// second time and close the YAML window twice (Fyne's test driver panics on that while holding its
+// window lock, and every later call into the driver then blocks).
 func (m *perfMeter) sample(posted time.Time) {
+	select {
+	case <-m.stop:
+		return
+	default:
+	}
 	m.samples = append(m.samples, perfSample{at: posted.Sub(m.begin), late: time.Since(posted)})
 	now := time.Now()
 	tv := m.sh.view
@@ -143,7 +157,7 @@ func (m *perfMeter) sample(posted time.Time) {
 		m.nextAt = now
 	case "views":
 		m.trackSwitch()
-		if now.Before(m.nextAt) {
+		if now.Before(m.nextAt) || m.awaitingRows(now) {
 			return
 		}
 		if len(m.views) == 0 {
@@ -157,6 +171,10 @@ func (m *perfMeter) sample(posted time.Time) {
 		m.sh.dispatch("ui.openView", openViewParams{View: v}, nil)
 		m.nextAt = now.Add(gateViewDwell)
 	case "yaml":
+		if m.yamlView == nil {
+			m.startYAML() // the document was not built yet on the phase's first frame
+			return
+		}
 		m.typeKey()
 		if time.Since(m.yamlStart) >= gateYAMLFor {
 			m.done()
@@ -178,6 +196,18 @@ func (m *perfMeter) viewOrder() []string {
 		out = append(out, cur)
 	}
 	return out
+}
+
+// awaitingRows reports whether the last switched-to view has shown no rows yet and may still: the
+// next switch waits for them, at most perfGrace after the switch, so that a slow machine measures
+// every view instead of switching away before its rows arrive. A fast one never waits here: its
+// rows are on screen long before the dwell time ends.
+func (m *perfMeter) awaitingRows(now time.Time) bool {
+	if len(m.switches) == 0 {
+		return false
+	}
+	sw := m.switches[len(m.switches)-1]
+	return sw.RowsAfterMs < 0 && now.Sub(m.begin) < time.Duration(sw.AtS*float64(time.Second))+perfGrace
 }
 
 // trackSwitch records when the last switched-to view first shows rows.
@@ -210,9 +240,15 @@ func (m *perfMeter) scroll() {
 	tv.table.ScrollToOffset(fyne.NewPos(0, m.scrollY))
 }
 
-// startYAML opens a window with the editor on the generated document, caret in the middle.
+// startYAML opens a window with the editor on the generated document, caret in the middle. It
+// never waits on the main goroutine: while the document is still being built it returns, and the
+// next frame tries again.
 func (m *perfMeter) startYAML() {
-	m.yamlText = <-m.yamlDoc
+	select {
+	case m.yamlText = <-m.yamlDoc:
+	default:
+		return
+	}
 	m.yamlView = yamlview.New()
 	m.yamlWin = m.sh.app.NewWindow("Cogpit: YAML editor, 5 MB")
 	m.yamlWin.SetContent(m.yamlView)
@@ -246,9 +282,10 @@ func (m *perfMeter) done() {
 	m.sh.app.Quit()
 }
 
-// finish computes the statistics and hands them to Options.PerfReport, once.
+// finish stops the ticker, computes the statistics and hands them to Options.PerfReport, once.
 func (m *perfMeter) finish() {
 	m.report.Do(func() {
+		close(m.stop)
 		if m.sh.opts.PerfReport != nil {
 			m.sh.opts.PerfReport(m.stats())
 		}
