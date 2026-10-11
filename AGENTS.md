@@ -9,8 +9,11 @@ The product name is always written **Cogpit** in user-facing text; machine names
 first, then `docs/`.
 
 **State on 2026-10-11:** implementation has started (owner's go-ahead, 2026-10-11). A local MVP
-runs on macOS: six views from the cache, the detail drawer, logs, a terminal, a pod shell and MCP
-control of the UI; it doubled as the Fyne spike ([results](docs/developer/spike-fyne.md#results)).
+runs on macOS, extended by a second implementation run the same day: 16 built-in views and the
+custom resource views from the cache, the detail drawer and row menus, YAML editing with diff and
+dry run, node and workload actions with a crash-safe drain, logs, a terminal, a pod shell, CI on
+every push, and MCP control of all of it; it doubled as the Fyne spike
+([results](docs/developer/spike-fyne.md#results)).
 What is built and where it differs from the plan: [architecture › Current state](docs/developer/architecture.md#current-state-2026-10-11). The documentation method, and parts of
 this file, come from [PhotoCraft](https://github.com/storytold/photocraft)
 ([attribution](ATTRIBUTION.md)).

@@ -5,8 +5,10 @@ this page.
 
 ## What has to be in your head first
 
-1. **A local MVP is built** (2026-10-11): six views from the cache, drawer, logs, terminal, pod
-   shell, MCP control; it doubled as the [Fyne spike](spike-fyne.md#results). What exists and
+1. **A local MVP is built** (2026-10-11) and was extended the same day: 16 built-in views and the
+   custom resource views from the cache, drawer and row menus, editing, node and workload actions,
+   logs, terminal, pod shell, CI, MCP control (41 commands); it doubled as the
+   [Fyne spike](spike-fyne.md#results). What exists and
    where it differs from the plan: [architecture › Current state](architecture.md#current-state-2026-10-11).
 2. **Go and Fyne.** The engine is Go on client-go, the kubectl libraries and the Helm SDK. The UI
    is Fyne: the [spike](spike-fyne.md) passed and D-1 is decided; re-checks on Windows and Linux

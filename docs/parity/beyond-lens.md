@@ -22,7 +22,7 @@ read-only: `list-clusters`, `connect-cluster`, `disconnect-cluster`, `kubectl`, 
 
 | Feature | MCP tool | Status | Evidence |
 |---|---|---|---|
-| Every registry command is an MCP tool, with its schema and annotations | (generated) | done | [`mcp/tools.go`](../../internal/mcp/tools.go), `TestToolsMirrorRegistry` in [`tools_test.go`](../../internal/mcp/tools_test.go); 21 tools |
+| Every registry command is an MCP tool, with its schema and annotations | (generated) | done | [`mcp/tools.go`](../../internal/mcp/tools.go), `TestToolsMirrorRegistry` in [`tools_test.go`](../../internal/mcp/tools_test.go); 41 tools (2026-10-11, was 21) |
 | Read the UI state: context, view, namespaces, filter, selection, drawer object, dock tabs | `ui_state` | done | [`commands/ui.go`](../../internal/engine/commands/ui.go), `TestShowcaseServiceByClusterIP` |
 | Read the rows the user sees in the current view | `view_rows` | missing | – |
 | List the kinds the cluster serves and the user may list | `kinds_list` | partial: served kinds, no permission check | [`commands/resources.go`](../../internal/engine/commands/resources.go) |

@@ -133,7 +133,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Evidence:** built on 2026-10-11 ([`internal/engine`](../../internal/engine/)): `Session`, the
   registry with JSON schemas, verbs, danger levels and disabled reasons, UI state, events, the
   confirmation policy per origin (`TestDispatchConfirmationPolicy`), the audit log, `FuzzDispatch`,
-  21 commands. Still missing: jobs and cancellation, access reviews, `cogpit-cli` commands.
+  21 commands (41 after the second run, with the confirmation bound to its objects and their
+  UIDs). Still missing: jobs and cancellation, access reviews, `cogpit-cli` commands.
 - **Impact:** every action, menu, shortcut and MCP tool dispatches through it.
 - **Estimate:** 15–35 h (was 35–70).
 
