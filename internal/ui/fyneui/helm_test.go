@@ -324,5 +324,7 @@ func renderHelmBanner(t *testing.T, mode ThemeMode, name string) {
 	savePNG(t, w, name)
 }
 
-func TestRenderHelmBannerDark(t *testing.T)  { renderHelmBanner(t, ThemeDark, "helm_banner_dark.png") }
-func TestRenderHelmBannerLight(t *testing.T) { renderHelmBanner(t, ThemeLight, "helm_banner_light.png") }
+func TestRenderHelmBannerDark(t *testing.T) { renderHelmBanner(t, ThemeDark, "helm_banner_dark.png") }
+func TestRenderHelmBannerLight(t *testing.T) {
+	renderHelmBanner(t, ThemeLight, "helm_banner_light.png")
+}

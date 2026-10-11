@@ -171,13 +171,11 @@ type helmHarness struct {
 	journal *engine.MemoryHelmJournal
 	audit   *syncBuffer
 
-	mu       sync.Mutex
-	asked    []engine.ConfirmRequest
-	answer   bool
-	onAsk    func()
-	events   []engine.Event
-	noGUI    bool
-	confirmd func(context.Context, engine.ConfirmRequest) (bool, error)
+	mu     sync.Mutex
+	asked  []engine.ConfirmRequest
+	answer bool
+	onAsk  func()
+	events []engine.Event
 }
 
 func newHelmHarness(t *testing.T, journal *engine.MemoryHelmJournal, seed func(*helmServer)) *helmHarness {

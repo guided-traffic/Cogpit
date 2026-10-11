@@ -54,7 +54,7 @@ func secretFor(t testing.TB, r testRelease) *unstructured.Unstructured {
 		"metadata": map[string]any{
 			"name": name, "namespace": r.ns, "uid": "uid-" + r.ns + "-" + name, "resourceVersion": "1",
 			"creationTimestamp": t0.Add(time.Duration(r.rev) * time.Hour).Format(time.RFC3339),
-			"labels": map[string]any{"owner": "helm", "name": r.name, "version": fmt.Sprint(r.rev), "status": string(r.status)},
+			"labels":            map[string]any{"owner": "helm", "name": r.name, "version": fmt.Sprint(r.rev), "status": string(r.status)},
 		},
 		"data": map[string]any{"release": base64.StdEncoding.EncodeToString([]byte(payload))},
 	}}

@@ -348,4 +348,3 @@ func (s *Session) releaseState(ref model.ObjectRef) (string, int) {
 	}
 	return helm.ReleaseStatus(obj), helm.ReleaseRevision(obj)
 }
-

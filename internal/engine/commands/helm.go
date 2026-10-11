@@ -197,46 +197,46 @@ func previousRevision(obj *unstructured.Unstructured) int {
 	return best
 }
 
-// releaseTarget is what a release action acts on: the connected backend and its Helm writer, the
+// releaseTarget is what a release action acts on: the connected backend's Helm writer, the
 // resolved release, and the release as the cache holds it, bound to the revision the user
 // confirmed: a release that moved to a new revision since (its newest release Secret's UID
 // changed) is refused.
-func releaseTarget(ctx context.Context, s *engine.Session, ref model.ObjectRef) (*engine.Backend, engine.HelmWriter, model.ObjectRef, *unstructured.Unstructured, error) {
+func releaseTarget(ctx context.Context, s *engine.Session, ref model.ObjectRef) (engine.HelmWriter, model.ObjectRef, *unstructured.Unstructured, error) {
 	b, err := writable(s)
 	if err != nil {
-		return nil, nil, ref, nil, err
+		return nil, ref, nil, err
 	}
 	w, err := b.HelmWriter()
 	if err != nil {
-		return nil, nil, ref, nil, err
+		return nil, ref, nil, err
 	}
 	ref, _, err = s.ResolveRef(ref)
 	if err != nil {
-		return nil, nil, ref, nil, err
+		return nil, ref, nil, err
 	}
 	if ref.Context != b.Context {
-		return nil, nil, ref, nil, fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
+		return nil, ref, nil, fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
 	}
 	if err := engine.CheckConfirmedContext(ctx, b.Context); err != nil {
-		return nil, nil, ref, nil, err
+		return nil, ref, nil, err
 	}
 	obj, err := s.Object(ctx, ref)
 	if err != nil {
-		return nil, nil, ref, nil, err
+		return nil, ref, nil, err
 	}
 	uid, err := engine.ActUID(ctx, ref, func() (string, bool) { return string(obj.GetUID()), true })
 	if err != nil {
-		return nil, nil, ref, nil, err
+		return nil, ref, nil, err
 	}
 	if uid != string(obj.GetUID()) {
-		return nil, nil, ref, nil, fmt.Errorf("%w: release %s moved to revision %d since it was confirmed; nothing was done",
+		return nil, ref, nil, fmt.Errorf("%w: release %s moved to revision %d since it was confirmed; nothing was done",
 			engine.ErrTargetsChanged, ref.Name, helm.ReleaseRevision(obj))
 	}
-	return b, w, ref, obj, nil
+	return w, ref, obj, nil
 }
 
 func runRollback(ctx context.Context, s *engine.Session, p rollbackParams) (any, error) {
-	_, w, ref, obj, err := releaseTarget(ctx, s, p.Ref)
+	w, ref, obj, err := releaseTarget(ctx, s, p.Ref)
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +259,7 @@ func runRollback(ctx context.Context, s *engine.Session, p rollbackParams) (any,
 }
 
 func runUninstall(ctx context.Context, s *engine.Session, p refParams) (any, error) {
-	_, w, ref, obj, err := releaseTarget(ctx, s, p.Ref)
+	w, ref, obj, err := releaseTarget(ctx, s, p.Ref)
 	if err != nil {
 		return nil, err
 	}

@@ -14,20 +14,20 @@ import (
 // their place (object_get), because values can hold credentials; the manifest has every Secret's
 // data redacted for everyone, as the Secrets drawer masks values.
 func (m *memo) detail(o *unstructured.Unstructured) []model.DetailSection {
-	status := model.NestedString(o, "status")
+	status := model.NestedString(o, fieldStatus)
 	var props []model.DetailItem
 	add := func(it model.DetailItem) {
 		if it.Value != "" {
 			props = append(props, it)
 		}
 	}
-	rev, _ := model.NestedInt64(o, "revision")
-	add(model.DetailItem{Name: "Chart", Value: chartText(model.NestedString(o, "chart"), model.NestedString(o, "chartVersion"))})
-	add(model.DetailItem{Name: "Revision", Value: strconv.FormatInt(rev, 10)})
-	add(model.DetailItem{Name: "App Version", Value: model.NestedString(o, "appVersion")})
-	add(model.DetailItem{Name: "Status", Value: status, Status: StatusToken(status)})
-	add(model.DetailItem{Name: "Updated", Value: model.NestedString(o, "updated")})
-	add(model.DetailItem{Name: "Description", Value: model.NestedString(o, "description")})
+	rev, _ := model.NestedInt64(o, fieldRevision)
+	add(model.DetailItem{Name: titleChart, Value: chartText(model.NestedString(o, fieldChart), model.NestedString(o, fieldChartVersion))})
+	add(model.DetailItem{Name: titleRevision, Value: strconv.FormatInt(rev, 10)})
+	add(model.DetailItem{Name: titleAppVersion, Value: model.NestedString(o, fieldAppVersion)})
+	add(model.DetailItem{Name: titleStatus, Value: status, Status: StatusToken(status)})
+	add(model.DetailItem{Name: titleUpdated, Value: model.NestedString(o, fieldUpdated)})
+	add(model.DetailItem{Name: "Description", Value: model.NestedString(o, fieldDescription)})
 	if s := model.NestedString(o, "secret"); s != "" {
 		add(model.DetailItem{Name: "Release Secret", Value: s,
 			Link: &model.ObjectRef{Kind: "secrets", Namespace: o.GetNamespace(), Name: s}})
@@ -35,12 +35,12 @@ func (m *memo) detail(o *unstructured.Unstructured) []model.DetailSection {
 	add(model.DetailItem{Name: "Error", Value: model.NestedString(o, "error"), Status: model.StatusError})
 	sections := []model.DetailSection{{Title: model.TitleProperties, Items: props}}
 
-	table := &model.DetailTable{Columns: []string{"Revision", "Updated", "Status", "Chart", "App Version", "Description"}}
-	for _, h := range model.NestedSlice(o, "history") {
-		n, _ := model.NestedInt64(h, "revision")
+	table := &model.DetailTable{Columns: []string{titleRevision, titleUpdated, titleStatus, titleChart, titleAppVersion, "Description"}}
+	for _, h := range model.NestedSlice(o, fieldHistory) {
+		n, _ := model.NestedInt64(h, fieldRevision)
 		table.Rows = append(table.Rows, []string{
-			strconv.FormatInt(n, 10), model.NestedString(h, "updated"), model.NestedString(h, "status"),
-			model.NestedString(h, "chart"), model.NestedString(h, "appVersion"), model.NestedString(h, "description"),
+			strconv.FormatInt(n, 10), model.NestedString(h, fieldUpdated), model.NestedString(h, fieldStatus),
+			model.NestedString(h, fieldChart), model.NestedString(h, fieldAppVersion), model.NestedString(h, fieldDescription),
 		})
 	}
 	if len(table.Rows) > 0 {

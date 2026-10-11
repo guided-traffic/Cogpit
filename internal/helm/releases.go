@@ -37,6 +37,28 @@ const (
 	TitleManifest = "Manifest"
 )
 
+// Fields of a derived release object; the list's columns and the searchable fields take the same
+// names.
+const (
+	fieldChart        = "chart"
+	fieldChartVersion = "chartVersion"
+	fieldAppVersion   = "appVersion"
+	fieldRevision     = "revision"
+	fieldStatus       = "status"
+	fieldUpdated      = "updated"
+	fieldDescription  = "description"
+	fieldHistory      = "history"
+)
+
+// Titles the list's columns, the drawer's Properties and the History table share.
+const (
+	titleChart      = "Chart"
+	titleRevision   = "Revision"
+	titleAppVersion = "App Version"
+	titleStatus     = "Status"
+	titleUpdated    = "Updated"
+)
+
 // Bounds on what the drawer keeps of a release. A release's history is at most what Helm keeps
 // (10 revisions by default); the values and the manifest are cut for the drawer, which renders one
 // line per line.
@@ -72,17 +94,17 @@ func NewReleaseProfile() *model.KindProfile {
 		Columns: []model.Column{
 			{ID: "name", Title: "Name", Type: model.ColumnText},
 			{ID: "namespace", Title: "Namespace", Type: model.ColumnText},
-			{ID: "chart", Title: "Chart", Type: model.ColumnText},
-			{ID: "revision", Title: "Revision", Type: model.ColumnNumber},
+			{ID: fieldChart, Title: titleChart, Type: model.ColumnText},
+			{ID: fieldRevision, Title: titleRevision, Type: model.ColumnNumber},
 			{ID: "version", Title: "Version", Type: model.ColumnText},
-			{ID: "appVersion", Title: "App Version", Type: model.ColumnText},
-			{ID: "status", Title: "Status", Type: model.ColumnText},
-			{ID: "updated", Title: "Updated", Type: model.ColumnAge},
+			{ID: fieldAppVersion, Title: titleAppVersion, Type: model.ColumnText},
+			{ID: fieldStatus, Title: titleStatus, Type: model.ColumnText},
+			{ID: fieldUpdated, Title: titleUpdated, Type: model.ColumnAge},
 		},
 		Cells: releaseCells,
 		Fields: map[string]func(*unstructured.Unstructured) []string{
-			"chart":  func(o *unstructured.Unstructured) []string { return nonEmpty(model.NestedString(o, "chart")) },
-			"status": func(o *unstructured.Unstructured) []string { return nonEmpty(model.NestedString(o, "status")) },
+			fieldChart:  func(o *unstructured.Unstructured) []string { return nonEmpty(model.NestedString(o, fieldChart)) },
+			fieldStatus: func(o *unstructured.Unstructured) []string { return nonEmpty(model.NestedString(o, fieldStatus)) },
 		},
 		Derive: m.derive,
 		Detail: m.detail,
@@ -123,18 +145,18 @@ func Pending(status string) bool {
 
 // ReleaseRevision returns a release object's newest revision.
 func ReleaseRevision(o *unstructured.Unstructured) int {
-	n, _ := model.NestedInt64(o, "revision")
+	n, _ := model.NestedInt64(o, fieldRevision)
 	return int(n)
 }
 
 // ReleaseStatus returns the status of a release object's newest revision.
-func ReleaseStatus(o *unstructured.Unstructured) string { return model.NestedString(o, "status") }
+func ReleaseStatus(o *unstructured.Unstructured) string { return model.NestedString(o, fieldStatus) }
 
 // ReleaseRevisions returns the revisions in a release object's history, newest first.
 func ReleaseRevisions(o *unstructured.Unstructured) []int {
 	var out []int
-	for _, h := range model.NestedSlice(o, "history") {
-		if n, ok := model.NestedInt64(h, "revision"); ok {
+	for _, h := range model.NestedSlice(o, fieldHistory) {
+		if n, ok := model.NestedInt64(h, fieldRevision); ok {
 			out = append(out, int(n))
 		}
 	}
@@ -142,19 +164,19 @@ func ReleaseRevisions(o *unstructured.Unstructured) []int {
 }
 
 func releaseCells(o *unstructured.Unstructured) ([]model.Cell, model.Status) {
-	status := model.NestedString(o, "status")
+	status := model.NestedString(o, fieldStatus)
 	token := StatusToken(status)
-	rev, _ := model.NestedInt64(o, "revision")
+	rev, _ := model.NestedInt64(o, fieldRevision)
 	ns := o.GetNamespace()
 	return []model.Cell{
 		{Text: o.GetName()},
 		{Text: ns, Link: &model.ObjectRef{Kind: "namespaces", Name: ns}},
-		{Text: model.NestedString(o, "chart")},
+		{Text: model.NestedString(o, fieldChart)},
 		{Text: strconv.FormatInt(rev, 10), Num: rev},
-		{Text: model.NestedString(o, "chartVersion")},
-		{Text: model.NestedString(o, "appVersion")},
+		{Text: model.NestedString(o, fieldChartVersion)},
+		{Text: model.NestedString(o, fieldAppVersion)},
 		{Text: status, Status: token},
-		model.AgeCell(model.NestedTime(o, "updated")),
+		model.AgeCell(model.NestedTime(o, fieldUpdated)),
 	}, token
 }
 
@@ -343,15 +365,15 @@ func releaseObject(g []*revision) *unstructured.Unstructured {
 	history := make([]any, 0, min(len(g), historyRows))
 	for _, h := range g[:min(len(g), historyRows)] {
 		history = append(history, map[string]any{
-			"revision": int64(h.number), "updated": timeText(h.updated), "status": h.status,
-			"chart": chartText(h.chart, h.chartVersion), "appVersion": h.appVersion, "description": h.description,
+			fieldRevision: int64(h.number), fieldUpdated: timeText(h.updated), fieldStatus: h.status,
+			fieldChart: chartText(h.chart, h.chartVersion), fieldAppVersion: h.appVersion, fieldDescription: h.description,
 		})
 	}
 	obj := map[string]any{
 		"apiVersion": releaseAPIVersion, "kind": releaseObjectKind, "metadata": meta,
-		"chart": r.chart, "chartVersion": r.chartVersion, "appVersion": r.appVersion,
-		"revision": int64(r.number), "status": r.status, "updated": timeText(r.updated),
-		"description": r.description, "secret": r.secret, "history": history,
+		fieldChart: r.chart, fieldChartVersion: r.chartVersion, fieldAppVersion: r.appVersion,
+		fieldRevision: int64(r.number), fieldStatus: r.status, fieldUpdated: timeText(r.updated),
+		fieldDescription: r.description, "secret": r.secret, fieldHistory: history,
 	}
 	if r.err != "" {
 		obj["error"] = r.err
