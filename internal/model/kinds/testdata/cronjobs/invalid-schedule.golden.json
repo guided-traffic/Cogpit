@@ -1,0 +1,97 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "cronjobs",
+    "namespace": "shop",
+    "name": "broken-schedule"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "broken-schedule"
+    },
+    {
+      "column": "warning",
+      "text": "Unparsable schedule: no job runs",
+      "num": 1,
+      "status": "error"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "schedule",
+      "text": "61 * * * *"
+    },
+    {
+      "column": "suspend",
+      "text": "false"
+    },
+    {
+      "column": "active",
+      "text": "0"
+    },
+    {
+      "column": "lastSchedule",
+      "text": ""
+    },
+    {
+      "column": "nextExecution",
+      "text": ""
+    },
+    {
+      "column": "timeZone",
+      "text": "-"
+    },
+    {
+      "column": "age",
+      "text": "2h",
+      "num": 1791712800
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/shop/task:1.0"
+    ],
+    "label": [],
+    "name": [
+      "broken-schedule"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "schedule": [
+      "61 * * * *"
+    ],
+    "suspend": [
+      "false"
+    ],
+    "timeZone": []
+  },
+  "detail": [
+    {
+      "title": "Cron Job",
+      "items": [
+        {
+          "name": "Warning",
+          "value": "Unparsable schedule: no job runs",
+          "status": "error"
+        },
+        {
+          "name": "Schedule",
+          "value": "61 * * * *"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/shop/task:1.0"
+        }
+      ]
+    }
+  ]
+}

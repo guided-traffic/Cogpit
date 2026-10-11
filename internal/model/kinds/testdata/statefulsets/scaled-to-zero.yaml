@@ -1,0 +1,42 @@
+# Synthetic: a stateful set scaled to zero; its volume claims stay.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: analytics-db
+  namespace: analytics
+  uid: 5b2e6d8f-5555-4c3b-8d2e-000000000006
+  generation: 4
+  creationTimestamp: "2026-06-06T06:00:00Z"
+spec:
+  replicas: 0
+  serviceName: analytics-db
+  selector:
+    matchLabels:
+      app: analytics-db
+  updateStrategy:
+    type: OnDelete
+  template:
+    metadata:
+      labels:
+        app: analytics-db
+    spec:
+      containers:
+      - name: db
+        image: registry.example.com/analytics/db:2.3
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 50Gi
+  - metadata:
+      name: wal
+status:
+  observedGeneration: 4
+  replicas: 0
+  availableReplicas: 0
+  currentRevision: analytics-db-7c6b5a4d3
+  updateRevision: analytics-db-7c6b5a4d3

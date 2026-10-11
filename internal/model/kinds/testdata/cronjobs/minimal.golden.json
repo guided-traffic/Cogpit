@@ -1,0 +1,89 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "cronjobs",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "schedule",
+      "text": "@hourly"
+    },
+    {
+      "column": "suspend",
+      "text": "false"
+    },
+    {
+      "column": "active",
+      "text": "0"
+    },
+    {
+      "column": "lastSchedule",
+      "text": ""
+    },
+    {
+      "column": "nextExecution",
+      "text": "In about 1 hour",
+      "num": 1791723600
+    },
+    {
+      "column": "timeZone",
+      "text": "-"
+    },
+    {
+      "column": "age",
+      "text": "5s",
+      "num": 1791719995
+    }
+  ],
+  "fields": {
+    "image": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "schedule": [
+      "@hourly"
+    ],
+    "suspend": [
+      "false"
+    ],
+    "timeZone": []
+  },
+  "detail": [
+    {
+      "title": "Cron Job",
+      "items": [
+        {
+          "name": "Schedule",
+          "value": "@hourly"
+        },
+        {
+          "name": "Next Execution",
+          "value": "2026-10-11T13:00:00Z"
+        }
+      ]
+    }
+  ]
+}

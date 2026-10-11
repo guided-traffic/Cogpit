@@ -1,0 +1,98 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "statefulsets",
+    "namespace": "shop",
+    "name": "postgres"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "postgres"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "pods",
+      "text": "3/3",
+      "num": 3
+    },
+    {
+      "column": "replicas",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "age",
+      "text": "102d",
+      "num": 1782900000
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/db/postgres:17.6",
+      "registry.example.com/db/postgres-exporter:0.17"
+    ],
+    "label": [
+      "app.kubernetes.io/name=postgres"
+    ],
+    "name": [
+      "postgres"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "selector": [
+      "app.kubernetes.io/name=postgres"
+    ],
+    "serviceName": [
+      "postgres-headless"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Stateful Set",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "3 desired / 3 updated / 3 ready / 3 available"
+        },
+        {
+          "name": "Service",
+          "value": "postgres-headless"
+        },
+        {
+          "name": "Selector",
+          "value": "app.kubernetes.io/name=postgres"
+        },
+        {
+          "name": "Update Strategy",
+          "value": "RollingUpdate (partition 0)"
+        },
+        {
+          "name": "Pod Management Policy",
+          "value": "OrderedReady"
+        },
+        {
+          "name": "Current Revision",
+          "value": "postgres-6b8f9c7d5"
+        },
+        {
+          "name": "Volume Claim Templates",
+          "value": "data: 10Gi, ReadWriteOnce, class standard"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/db/postgres:17.6\nregistry.example.com/db/postgres-exporter:0.17"
+        }
+      ]
+    }
+  ]
+}

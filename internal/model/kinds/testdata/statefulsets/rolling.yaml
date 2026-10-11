@@ -1,0 +1,36 @@
+# Synthetic: a rolling update in progress: one of three pods runs the new revision, one is being
+# replaced.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: search
+  namespace: catalog
+  uid: 5b2e6d8f-5555-4c3b-8d2e-000000000004
+  generation: 7
+  creationTimestamp: "2026-04-18T09:30:00Z"
+spec:
+  replicas: 3
+  serviceName: search-nodes
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      app: search
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: search
+    spec:
+      containers:
+      - name: search
+        image: registry.example.com/catalog/search:9.1.0
+status:
+  observedGeneration: 7
+  replicas: 3
+  readyReplicas: 2
+  currentReplicas: 1
+  updatedReplicas: 1
+  availableReplicas: 2
+  currentRevision: search-5c7b9d8f6
+  updateRevision: search-6d8c0e9a7

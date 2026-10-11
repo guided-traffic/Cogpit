@@ -1,0 +1,38 @@
+# Synthetic: a rolling update half done: two of four pods run the new template, one pod is being
+# replaced, and one old pod still runs on a node the new selector excludes.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cni-agent
+  namespace: kube-system
+  uid: 3a1d5c7e-4444-4b2a-9c1d-000000000004
+  generation: 5
+  creationTimestamp: "2026-03-14T08:00:00Z"
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cni-agent
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+  template:
+    metadata:
+      labels:
+        k8s-app: cni-agent
+    spec:
+      initContainers:
+      - name: install-cni
+        image: registry.example.com/net/cni-installer:2.1.0
+      containers:
+      - name: agent
+        image: registry.example.com/net/cni-agent:2.1.0
+status:
+  observedGeneration: 5
+  currentNumberScheduled: 4
+  desiredNumberScheduled: 4
+  numberMisscheduled: 1
+  numberReady: 3
+  numberAvailable: 3
+  numberUnavailable: 1
+  updatedNumberScheduled: 2

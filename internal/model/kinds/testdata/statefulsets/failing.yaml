@@ -1,0 +1,34 @@
+# Synthetic: a stateful set short of ready pods: all three pods exist on the current revision,
+# two of them crash.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: queue
+  namespace: messaging
+  uid: 5b2e6d8f-5555-4c3b-8d2e-000000000002
+  generation: 1
+  creationTimestamp: "2026-10-09T16:00:00Z"
+spec:
+  replicas: 3
+  serviceName: queue
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: queue
+  template:
+    metadata:
+      labels:
+        app: queue
+    spec:
+      containers:
+      - name: broker
+        image: registry.example.com/messaging/broker:4.1.2
+status:
+  observedGeneration: 1
+  replicas: 3
+  readyReplicas: 1
+  currentReplicas: 3
+  updatedReplicas: 3
+  availableReplicas: 1
+  currentRevision: queue-7f6d5c4b3
+  updateRevision: queue-7f6d5c4b3

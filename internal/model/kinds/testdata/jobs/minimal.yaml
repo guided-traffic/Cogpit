@@ -1,0 +1,7 @@
+# Synthetic: optional fields missing: no completions or parallelism, no status yet.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bare
+  namespace: default
+  creationTimestamp: "2026-10-11T11:59:55Z"

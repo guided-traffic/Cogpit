@@ -1,0 +1,82 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "jobs",
+    "namespace": "shop",
+    "name": "import-orders"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "import-orders"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "completions",
+      "text": "0/1"
+    },
+    {
+      "column": "age",
+      "text": "20m",
+      "num": 1791718800
+    },
+    {
+      "column": "conditions",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "condition": [],
+    "controlledBy": [],
+    "image": [
+      "registry.example.com/shop/import:2.0.1"
+    ],
+    "label": [],
+    "name": [
+      "import-orders"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "selector": []
+  },
+  "detail": [
+    {
+      "title": "Job",
+      "items": [
+        {
+          "name": "Completions",
+          "value": "0/1"
+        },
+        {
+          "name": "Parallelism",
+          "value": "1"
+        },
+        {
+          "name": "Backoff Limit",
+          "value": "6"
+        },
+        {
+          "name": "Pods",
+          "value": "1 active / 0 ready / 0 succeeded / 2 failed"
+        },
+        {
+          "name": "Started",
+          "value": "2026-10-11T11:40:00Z"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/shop/import:2.0.1"
+        }
+      ]
+    }
+  ]
+}

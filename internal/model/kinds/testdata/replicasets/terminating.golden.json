@@ -1,0 +1,80 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "replicasets",
+    "namespace": "shop",
+    "name": "legacy-api-6a5b4c3d2"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-api-6a5b4c3d2"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "desired",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "current",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "ready",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "290d",
+      "num": 1766599200
+    }
+  ],
+  "fields": {
+    "controlledBy": [
+      "Deployment/legacy-api"
+    ],
+    "image": [
+      "registry.example.com/shop/legacy-api:0.1"
+    ],
+    "label": [],
+    "name": [
+      "legacy-api-6a5b4c3d2"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "selector": [
+      "app=legacy-api"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Replica Set",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "1 desired / 1 current / 1 ready / 1 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=legacy-api"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/shop/legacy-api:0.1"
+        }
+      ]
+    }
+  ]
+}

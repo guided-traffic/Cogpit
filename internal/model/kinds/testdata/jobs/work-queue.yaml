@@ -1,0 +1,24 @@
+# Synthetic: a work-queue job: no completions, two pods take work until the queue is empty.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: drain-queue
+  namespace: messaging
+  uid: 7d4a8f0b-7777-4e5d-8f4a-000000000006
+  generation: 1
+  creationTimestamp: "2026-10-11T11:50:00Z"
+spec:
+  parallelism: 2
+  backoffLimit: 6
+  completionMode: NonIndexed
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: worker
+        image: registry.example.com/messaging/drain:1.0
+status:
+  startTime: "2026-10-11T11:50:00Z"
+  active: 2
+  ready: 2
+  terminating: 0

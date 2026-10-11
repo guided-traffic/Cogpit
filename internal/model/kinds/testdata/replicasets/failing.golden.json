@@ -1,0 +1,90 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "replicasets",
+    "namespace": "quota-demo",
+    "name": "batch-api-5f4e3d2c1"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "batch-api-5f4e3d2c1"
+    },
+    {
+      "column": "namespace",
+      "text": "quota-demo",
+      "link": {
+        "kind": "namespaces",
+        "name": "quota-demo"
+      }
+    },
+    {
+      "column": "desired",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "current",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "ready",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "2h",
+      "num": 1791712800
+    }
+  ],
+  "fields": {
+    "controlledBy": [
+      "Deployment/batch-api"
+    ],
+    "image": [
+      "registry.example.com/batch/api:3.0"
+    ],
+    "label": [],
+    "name": [
+      "batch-api-5f4e3d2c1"
+    ],
+    "namespace": [
+      "quota-demo"
+    ],
+    "selector": [
+      "app=batch-api"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Replica Set",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "3 desired / 1 current / 1 ready / 1 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=batch-api"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/batch/api:3.0"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "ReplicaFailure",
+          "value": "True (FailedCreate): pods \"batch-api-5f4e3d2c1-x7k2p\" is forbidden: exceeded quota: compute, requested: cpu=500m, used: cpu=2, limited: cpu=2",
+          "status": "error"
+        }
+      ]
+    }
+  ]
+}

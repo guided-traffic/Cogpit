@@ -1,0 +1,39 @@
+# Synthetic: the controller cannot create pods: the namespace's quota is exhausted.
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: batch-api-5f4e3d2c1
+  namespace: quota-demo
+  uid: 6c3f7e9a-6666-4d4c-9e3f-000000000002
+  generation: 2
+  creationTimestamp: "2026-10-11T10:00:00Z"
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: batch-api
+    uid: 1c7e2f3b-2222-4d4f-8b6c-0000000000f2
+    controller: true
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: batch-api
+  template:
+    metadata:
+      labels:
+        app: batch-api
+    spec:
+      containers:
+      - name: api
+        image: registry.example.com/batch/api:3.0
+status:
+  observedGeneration: 2
+  replicas: 1
+  readyReplicas: 1
+  availableReplicas: 1
+  conditions:
+  - type: ReplicaFailure
+    status: "True"
+    reason: FailedCreate
+    message: 'pods "batch-api-5f4e3d2c1-x7k2p" is forbidden: exceeded quota: compute, requested: cpu=500m, used: cpu=2, limited: cpu=2'
+    lastTransitionTime: "2026-10-11T10:00:05Z"

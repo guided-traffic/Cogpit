@@ -1,0 +1,119 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "cronjobs",
+    "namespace": "analytics",
+    "name": "nightly-report"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "nightly-report"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "analytics",
+      "link": {
+        "kind": "namespaces",
+        "name": "analytics"
+      }
+    },
+    {
+      "column": "schedule",
+      "text": "57 13 * * *"
+    },
+    {
+      "column": "suspend",
+      "text": "false"
+    },
+    {
+      "column": "active",
+      "text": "0"
+    },
+    {
+      "column": "lastSchedule",
+      "text": "22h",
+      "num": 1791640620
+    },
+    {
+      "column": "nextExecution",
+      "text": "In about 1 hour 57 min",
+      "num": 1791727020
+    },
+    {
+      "column": "timeZone",
+      "text": "-"
+    },
+    {
+      "column": "age",
+      "text": "40d",
+      "num": 1788253200
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/analytics/fetch:1.1",
+      "registry.example.com/analytics/report:2026.10"
+    ],
+    "label": [
+      "app.kubernetes.io/name=nightly-report"
+    ],
+    "name": [
+      "nightly-report"
+    ],
+    "namespace": [
+      "analytics"
+    ],
+    "schedule": [
+      "57 13 * * *"
+    ],
+    "suspend": [
+      "false"
+    ],
+    "timeZone": []
+  },
+  "detail": [
+    {
+      "title": "Cron Job",
+      "items": [
+        {
+          "name": "Schedule",
+          "value": "57 13 * * *"
+        },
+        {
+          "name": "Concurrency Policy",
+          "value": "Forbid"
+        },
+        {
+          "name": "Starting Deadline",
+          "value": "300s"
+        },
+        {
+          "name": "History Limits",
+          "value": "3 successful / 1 failed"
+        },
+        {
+          "name": "Last Schedule",
+          "value": "2026-10-10T13:57:00Z"
+        },
+        {
+          "name": "Last Successful",
+          "value": "2026-10-10T13:58:12Z"
+        },
+        {
+          "name": "Next Execution",
+          "value": "2026-10-11T13:57:00Z"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/analytics/fetch:1.1\nregistry.example.com/analytics/report:2026.10"
+        }
+      ]
+    }
+  ]
+}

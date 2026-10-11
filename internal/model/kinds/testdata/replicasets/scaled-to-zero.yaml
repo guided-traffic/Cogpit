@@ -1,0 +1,35 @@
+# Synthetic: an old replica set a deployment keeps for rollbacks, scaled to zero.
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: web-5c4d3e2f1
+  namespace: shop
+  uid: 6c3f7e9a-6666-4d4c-9e3f-000000000006
+  generation: 3
+  creationTimestamp: "2026-09-01T09:00:00Z"
+  annotations:
+    deployment.kubernetes.io/revision: "3"
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: web
+    uid: 1c7e2f3b-2222-4d4f-8b6c-000000000001
+    controller: true
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web
+      pod-template-hash: 5c4d3e2f1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web
+        pod-template-hash: 5c4d3e2f1
+    spec:
+      containers:
+      - name: web
+        image: registry.example.com/shop/web:1.4.1
+status:
+  observedGeneration: 3
+  replicas: 0

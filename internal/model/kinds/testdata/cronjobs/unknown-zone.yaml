@@ -1,0 +1,21 @@
+# Synthetic: a time zone the zone database does not know, so the controller runs no job.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mars-report
+  namespace: research
+  uid: 8e5b9a1c-8888-4f6e-9a5b-000000000007
+  generation: 1
+  creationTimestamp: "2026-10-11T10:00:00Z"
+spec:
+  schedule: 0 6 * * *
+  timeZone: Mars/Olympus_Mons
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: report
+            image: registry.example.com/research/report:0.1
+status: {}

@@ -1,0 +1,25 @@
+# Synthetic: a job retrying after two failed pods, within its backoff limit.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: import-orders
+  namespace: shop
+  uid: 7d4a8f0b-7777-4e5d-8f4a-000000000007
+  generation: 1
+  creationTimestamp: "2026-10-11T11:40:00Z"
+spec:
+  completions: 1
+  parallelism: 1
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: import
+        image: registry.example.com/shop/import:2.0.1
+status:
+  startTime: "2026-10-11T11:40:00Z"
+  active: 1
+  ready: 0
+  failed: 2
+  terminating: 0

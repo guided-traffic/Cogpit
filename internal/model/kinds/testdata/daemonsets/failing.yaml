@@ -1,0 +1,43 @@
+# Synthetic: a daemon set short of ready pods: two of its three pods crash, nothing rolls out.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+  namespace: observability
+  uid: 3a1d5c7e-4444-4b2a-9c1d-000000000002
+  resourceVersion: "51377"
+  generation: 1
+  creationTimestamp: "2026-10-10T09:00:00Z"
+  labels:
+    app.kubernetes.io/name: node-exporter
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: node-exporter
+      app.kubernetes.io/component: metrics
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: node-exporter
+        app.kubernetes.io/component: metrics
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+        node.example.com/pool: general
+      containers:
+      - name: exporter
+        image: registry.example.com/observability/node-exporter:1.9.0
+status:
+  observedGeneration: 1
+  currentNumberScheduled: 3
+  desiredNumberScheduled: 3
+  numberMisscheduled: 0
+  numberReady: 1
+  numberAvailable: 1
+  numberUnavailable: 2
+  updatedNumberScheduled: 3

@@ -1,0 +1,115 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "jobs",
+    "namespace": "shop",
+    "name": "migrate-schema"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "migrate-schema"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "completions",
+      "text": "0/1"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    },
+    {
+      "column": "conditions",
+      "text": "Failed FailureTarget",
+      "status": "error"
+    }
+  ],
+  "fields": {
+    "condition": [
+      "Failed",
+      "FailureTarget"
+    ],
+    "controlledBy": [],
+    "image": [
+      "registry.example.com/shop/migrate:1.4.2"
+    ],
+    "label": [],
+    "name": [
+      "migrate-schema"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "selector": [
+      "batch.kubernetes.io/controller-uid=7d4a8f0b-7777-4e5d-8f4a-000000000002"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Job",
+      "items": [
+        {
+          "name": "Completions",
+          "value": "0/1"
+        },
+        {
+          "name": "Parallelism",
+          "value": "1"
+        },
+        {
+          "name": "Completion Mode",
+          "value": "NonIndexed"
+        },
+        {
+          "name": "Backoff Limit",
+          "value": "0"
+        },
+        {
+          "name": "Active Deadline",
+          "value": "600s"
+        },
+        {
+          "name": "Pods",
+          "value": "0 active / 0 ready / 0 succeeded / 1 failed"
+        },
+        {
+          "name": "Started",
+          "value": "2026-10-11T11:00:00Z"
+        },
+        {
+          "name": "Selector",
+          "value": "batch.kubernetes.io/controller-uid=7d4a8f0b-7777-4e5d-8f4a-000000000002"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/shop/migrate:1.4.2"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "FailureTarget",
+          "value": "True (BackoffLimitExceeded): Job has reached the specified backoff limit",
+          "status": "error"
+        },
+        {
+          "name": "Failed",
+          "value": "True (BackoffLimitExceeded): Job has reached the specified backoff limit",
+          "status": "error"
+        }
+      ]
+    }
+  ]
+}

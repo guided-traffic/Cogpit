@@ -1,0 +1,64 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "jobs",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "completions",
+      "text": "0/1"
+    },
+    {
+      "column": "age",
+      "text": "5s",
+      "num": 1791719995
+    },
+    {
+      "column": "conditions",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "condition": [],
+    "controlledBy": [],
+    "image": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "selector": []
+  },
+  "detail": [
+    {
+      "title": "Job",
+      "items": [
+        {
+          "name": "Completions",
+          "value": "0/1"
+        },
+        {
+          "name": "Pods",
+          "value": "0 active / 0 ready / 0 succeeded / 0 failed"
+        }
+      ]
+    }
+  ]
+}

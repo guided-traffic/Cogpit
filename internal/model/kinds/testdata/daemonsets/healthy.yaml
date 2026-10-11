@@ -1,0 +1,44 @@
+# Synthetic: a log shipper on every Linux node, all pods ready and up to date.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: log-shipper
+  namespace: observability
+  uid: 3a1d5c7e-4444-4b2a-9c1d-000000000001
+  resourceVersion: "51200"
+  generation: 2
+  creationTimestamp: "2026-08-20T07:30:00Z"
+  labels:
+    app.kubernetes.io/name: log-shipper
+  annotations:
+    deprecated.daemonset.template.generation: "2"
+spec:
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: log-shipper
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: log-shipper
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - operator: Exists
+      containers:
+      - name: shipper
+        image: registry.example.com/observability/shipper:3.2.1
+status:
+  observedGeneration: 2
+  currentNumberScheduled: 3
+  desiredNumberScheduled: 3
+  numberMisscheduled: 0
+  numberReady: 3
+  numberAvailable: 3
+  updatedNumberScheduled: 3

@@ -1,0 +1,27 @@
+# Synthetic: a finished job removed by its TTL.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-data
+  namespace: shop
+  uid: 7d4a8f0b-7777-4e5d-8f4a-000000000003
+  generation: 1
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  deletionTimestamp: "2026-10-11T11:59:30Z"
+  finalizers:
+  - foregroundDeletion
+spec:
+  completions: 1
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: seed
+        image: registry.example.com/shop/seed:0.3
+status:
+  startTime: "2026-10-10T12:00:00Z"
+  completionTime: "2026-10-10T12:00:20Z"
+  succeeded: 1
+  conditions:
+  - type: Complete
+    status: "True"

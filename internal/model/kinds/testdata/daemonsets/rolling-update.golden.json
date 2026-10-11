@@ -1,0 +1,77 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "daemonsets",
+    "namespace": "kube-system",
+    "name": "cni-agent"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "cni-agent"
+    },
+    {
+      "column": "namespace",
+      "text": "kube-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "kube-system"
+      }
+    },
+    {
+      "column": "pods",
+      "text": "3/4",
+      "num": 3
+    },
+    {
+      "column": "nodeSelector",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "211d",
+      "num": 1773475200
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/net/cni-installer:2.1.0",
+      "registry.example.com/net/cni-agent:2.1.0"
+    ],
+    "label": [],
+    "name": [
+      "cni-agent"
+    ],
+    "namespace": [
+      "kube-system"
+    ],
+    "nodeSelector": [],
+    "selector": [
+      "k8s-app=cni-agent"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Daemon Set",
+      "items": [
+        {
+          "name": "Pods",
+          "value": "4 desired / 4 current / 3 ready / 2 updated / 3 available / 1 misscheduled"
+        },
+        {
+          "name": "Selector",
+          "value": "k8s-app=cni-agent"
+        },
+        {
+          "name": "Update Strategy",
+          "value": "RollingUpdate (max unavailable 25%)"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/net/cni-installer:2.1.0\nregistry.example.com/net/cni-agent:2.1.0"
+        }
+      ]
+    }
+  ]
+}

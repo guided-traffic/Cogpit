@@ -1,0 +1,96 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "jobs",
+    "namespace": "shop",
+    "name": "seed-data"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "seed-data"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "completions",
+      "text": "1/1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "conditions",
+      "text": "Complete",
+      "status": "succeeded"
+    }
+  ],
+  "fields": {
+    "condition": [
+      "Complete"
+    ],
+    "controlledBy": [],
+    "image": [
+      "registry.example.com/shop/seed:0.3"
+    ],
+    "label": [],
+    "name": [
+      "seed-data"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "selector": []
+  },
+  "detail": [
+    {
+      "title": "Job",
+      "items": [
+        {
+          "name": "Completions",
+          "value": "1/1"
+        },
+        {
+          "name": "Pods",
+          "value": "0 active / 0 ready / 1 succeeded / 0 failed"
+        },
+        {
+          "name": "Started",
+          "value": "2026-10-10T12:00:00Z"
+        },
+        {
+          "name": "Completed",
+          "value": "2026-10-10T12:00:20Z"
+        },
+        {
+          "name": "Duration",
+          "value": "20s"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/shop/seed:0.3"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Complete",
+          "value": "True",
+          "status": "succeeded"
+        }
+      ]
+    }
+  ]
+}
