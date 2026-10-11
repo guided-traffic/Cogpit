@@ -10,12 +10,9 @@ import (
 )
 
 // The logic tests drive the widget without painting it, through a minimal fake app: Fyne's default
-// theme pinned to one variant, an in-memory clipboard, and text measured as a fixed monospace grid.
-// It exists because every offscreen painter Fyne exports (fyne.io/fyne/v2/test and
-// fyne.io/fyne/v2/driver/software) imports github.com/anthonynsimon/bild, and the test package also
-// github.com/stretchr/testify, neither of which go.mod lists. The tests that paint, and the S4
-// benchmarks, use fyne.io/fyne/v2/test behind the fynetest build tag (render_test.go,
-// bench_test.go).
+// theme pinned to one variant, an in-memory clipboard, and text measured as a fixed monospace grid,
+// so they are fast and independent of fonts. The tests that paint, and the S4 benchmarks, use
+// fyne.io/fyne/v2/test (render_test.go, bench_paint_test.go).
 
 // newLogicView returns a view of the given size under a fresh fake app with the dark theme.
 func newLogicView(w, h float32) (*View, *fakeApp) {

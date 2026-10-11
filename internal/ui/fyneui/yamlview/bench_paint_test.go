@@ -1,5 +1,3 @@
-//go:build fynetest
-
 package yamlview
 
 import (

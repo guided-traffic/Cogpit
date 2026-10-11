@@ -1,9 +1,3 @@
-//go:build fynetest
-
-// Tests that paint need Fyne's software painter, which imports github.com/anthonynsimon/bild, and
-// Fyne's test package, which imports github.com/stretchr/testify; go.mod lists neither yet. Run
-// them with -tags fynetest once `go mod tidy` has added both (harness_test.go explains).
-
 package yamlview
 
 import (
