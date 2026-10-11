@@ -29,7 +29,11 @@
     },
     {
       "column": "involvedObject",
-      "text": "Namespace: legacy"
+      "text": "Namespace: legacy",
+      "link": {
+        "kind": "namespaces",
+        "name": "legacy"
+      }
     },
     {
       "column": "source",
@@ -74,7 +78,7 @@
   },
   "detail": [
     {
-      "title": "Event",
+      "title": "Properties",
       "items": [
         {
           "name": "Type",
@@ -91,7 +95,11 @@
         },
         {
           "name": "Involved Object",
-          "value": "Namespace: legacy"
+          "value": "Namespace: legacy",
+          "link": {
+            "kind": "namespaces",
+            "name": "legacy"
+          }
         },
         {
           "name": "Source",

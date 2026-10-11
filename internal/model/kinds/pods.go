@@ -21,20 +21,24 @@ const (
 	podInitPrefix  = "Init:"
 )
 
-// podsResource is the pods kind key and plural resource.
-const podsResource = "pods"
+// podsResource is the pods kind key and plural resource; podsTitle the view's title.
+const (
+	podsResource = "pods"
+	podsTitle    = "Pods"
+)
 
 var pods = &model.KindProfile{
 	Key:        podsResource,
 	Version:    "v1",
 	Resource:   podsResource,
 	Kind:       "Pod",
-	Title:      "Pods",
+	Title:      podsTitle,
 	Namespaced: true,
 	Columns: []model.Column{
 		nameColumn,
+		warningColumn,
 		namespaceColumn,
-		{ID: "containers", Title: "Containers", Type: model.ColumnNumber},
+		{ID: fieldContainers, Title: "Containers", Type: model.ColumnNumber},
 		{ID: "restarts", Title: "Restarts", Type: model.ColumnNumber},
 		{ID: "controlledBy", Title: "Controlled By", Type: model.ColumnText},
 		{ID: "node", Title: "Node", Type: model.ColumnText},
@@ -55,7 +59,7 @@ var pods = &model.KindProfile{
 		"node": func(obj *unstructured.Unstructured) []string {
 			return nonEmpty(model.NestedString(obj, "spec", "nodeName"))
 		},
-		"image": func(obj *unstructured.Unstructured) []string {
+		fieldImage: func(obj *unstructured.Unstructured) []string {
 			return podSpecImages(model.NestedMap(obj, "spec"))
 		},
 		"phase": func(obj *unstructured.Unstructured) []string {
@@ -80,18 +84,75 @@ var pods = &model.KindProfile{
 
 func podCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 	s := summarisePod(obj)
-	ownerKind, _ := controller(obj)
+	ns := model.NestedString(obj, "metadata", "namespace")
+	ownerVersion, ownerKind, ownerName := controllerRef(obj)
+	node := model.NestedString(obj, "spec", "nodeName")
 	return []model.Cell{
 		nameCell(obj),
+		podWarning(obj, s),
 		namespaceCell(obj),
 		ratio(s.ready, s.total),
 		{Num: s.restarts},
-		{Text: ownerKind},
-		{Text: model.NestedString(obj, "spec", "nodeName")},
+		// Lens shows the owner's kind, a link to the owner (capture, 2026-10-11). An owner of a kind
+		// whose key is not known without discovery (a custom resource) stays unlinked.
+		{Text: ownerKind, Link: model.RefTo(ownerVersion, ownerKind, ns, ownerName)},
+		{Text: node, Link: linkTo(keyNodes, "", node)},
 		{Text: model.NestedString(obj, "status", "qosClass")},
 		{Text: s.text, Status: s.status},
 		model.AgeCell(created(obj)),
 	}, s.status
+}
+
+// keyNodes is the kind key node cells link to.
+const keyNodes = "nodes"
+
+// podWarning is the pod's cell of the warning column. Lens shows an orange triangle on a pod with
+// problems (captured on a pod with many restarts and a container not ready, 2026-10-11); the rule
+// is inferred. Cogpit's rule: a pod that is neither finished nor being deleted warns when its
+// status is an error (CrashLoopBackOff, ImagePullBackOff, Evicted, OOMKilled, ...), when it runs
+// with containers that are not ready, or when the scheduler cannot place it. The reason names
+// each problem and, with one, the restart count. Restarts alone do not warn.
+func podWarning(obj any, s podSummary) model.Cell {
+	if s.status == model.StatusSucceeded || s.status == model.StatusTerminating || deleting(obj) {
+		return warningCell(model.StatusNone, "")
+	}
+	var reasons []string
+	if s.status == model.StatusError {
+		reasons = append(reasons, s.text)
+	}
+	for _, c := range model.NestedSlice(obj, "status", "conditions") {
+		if model.NestedString(c, "type") == "PodScheduled" && model.NestedString(c, "status") == condFalse {
+			reason := model.NestedString(c, "reason")
+			if reason == "" {
+				reason = "Not scheduled"
+			}
+			reasons = append(reasons, reason)
+		}
+	}
+	if model.NestedString(obj, "status", "phase") == podRunning && s.ready < s.total {
+		var names []string
+		for _, cs := range model.NestedSlice(obj, "status", "containerStatuses") {
+			if ready, _ := model.NestedBool(cs, "ready"); !ready {
+				names = appendUnique(names, model.NestedString(cs, "name"))
+			}
+		}
+		if len(names) > 0 {
+			reasons = append(reasons, "Containers not ready: "+strings.Join(names, ", "))
+		} else {
+			reasons = append(reasons, itoa(s.total-s.ready)+" of "+itoa(s.total)+" containers not ready")
+		}
+	}
+	if len(reasons) == 0 {
+		return warningCell(model.StatusNone, "")
+	}
+	switch s.restarts {
+	case 0:
+	case 1:
+		reasons = append(reasons, "1 restart")
+	default:
+		reasons = append(reasons, itoa(s.restarts)+" restarts")
+	}
+	return warningCell(model.StatusWarning, strings.Join(reasons, "; "))
 }
 
 // podSummary is what the pod table derives from containers and their statuses.
@@ -352,6 +413,13 @@ func isDigits(s string) bool {
 // controller returns the kind and name of the object's controlling owner, or of its first owner
 // when none is marked as the controller.
 func controller(obj any) (kind, name string) {
+	_, kind, name = controllerRef(obj)
+	return kind, name
+}
+
+// controllerRef returns the API version, kind and name of the object's controlling owner, or of
+// its first owner when none is marked as the controller.
+func controllerRef(obj any) (apiVersion, kind, name string) {
 	owners := model.NestedSlice(obj, "metadata", "ownerReferences")
 	var first any
 	for _, o := range owners {
@@ -362,13 +430,14 @@ func controller(obj any) (kind, name string) {
 			first = o
 		}
 		if isController, _ := model.NestedBool(o, "controller"); isController {
-			return model.NestedString(o, "kind"), model.NestedString(o, "name")
+			first = o
+			break
 		}
 	}
 	if first == nil {
-		return "", ""
+		return "", "", ""
 	}
-	return model.NestedString(first, "kind"), model.NestedString(first, "name")
+	return model.NestedString(first, "apiVersion"), model.NestedString(first, "kind"), model.NestedString(first, "name")
 }
 
 // podIPs returns a pod's addresses: the plural list (dual-stack) and the singular field, which
@@ -381,49 +450,207 @@ func podIPs(obj any, single, plural string) []string {
 	return appendUnique(out, model.NestedString(obj, "status", single))
 }
 
+// podDetail is the pod's drawer as Lens shows it (capture, 2026-10-11): Properties (after the
+// generic metadata: Status, Node, Pod IP, Pod IPs, Service Account, QoS Class, Conditions,
+// Tolerations, Secrets, Pod Anti Affinities), Pod Volumes, then the init containers and the
+// containers. Lens's per-container metrics need a metrics provider (M7) and are not built.
 func podDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	s := summarisePod(obj)
-	var status detailItems
-	status.addStatus(titleStatus, s.text, s.status)
-	status.add("Node", model.NestedString(obj, "spec", "nodeName"))
-	status.add("Pod IPs", strings.Join(podIPs(obj, "podIP", "podIPs"), ", "))
-	status.add("Host IP", strings.Join(podIPs(obj, "hostIP", "hostIPs"), ", "))
-	status.add("QoS Class", model.NestedString(obj, "status", "qosClass"))
-	priority := model.NestedString(obj, "spec", "priorityClassName")
-	if n, ok := model.NestedInt64(obj, "spec", "priority"); ok && priority != "" {
-		priority += " (" + itoa(n) + ")"
+	ns := model.NestedString(obj, "metadata", "namespace")
+	var props detailItems
+	props.addStatus(titleStatus, s.text, s.status)
+	node := model.NestedString(obj, "spec", "nodeName")
+	props.put(linkedItem("Node", node, linkTo(keyNodes, "", node)))
+	props.add("Pod IP", model.NestedString(obj, "status", "podIP"))
+	ips := podIPs(obj, "podIP", "podIPs")
+	ipChips := make([]model.Chip, 0, len(ips))
+	for _, ip := range ips {
+		ipChips = append(ipChips, model.Chip{Text: ip})
 	}
-	status.add("Priority Class", priority)
+	props.put(model.ChipsItem("Pod IPs", ipChips))
 	account := model.NestedString(obj, "spec", "serviceAccountName")
 	if account == "" {
 		account = model.NestedString(obj, "spec", "serviceAccount") // deprecated alias
 	}
-	status.add("Service Account", account)
-	status.add("Restart Policy", model.NestedString(obj, "spec", "restartPolicy"))
-	sections := []model.DetailSection{{Title: titleStatus, Items: status}}
+	props.put(linkedItem("Service Account", account, linkTo("serviceaccounts", ns, account)))
+	props.add("QoS Class", model.NestedString(obj, "status", "qosClass"))
 
-	if cs, ok := conditionSection(conditions(obj, "status", "conditions"), podConditionToken); ok {
-		sections = append(sections, cs)
+	// Conditions as chips in their colours; the text keeps each condition's reason and message.
+	conds := conditions(obj, "status", "conditions")
+	condChips := make([]model.Chip, 0, len(conds))
+	condLines := make([]string, 0, len(conds))
+	for _, c := range conds {
+		condChips = append(condChips, model.Chip{Text: c.Type, Status: podConditionToken(c)})
+		condLines = append(condLines, c.Type+": "+c.text())
 	}
+	if len(condChips) > 0 {
+		props.put(model.DetailItem{Name: itemConditions, Value: strings.Join(condLines, "\n"), Chips: condChips})
+	}
+
+	var tolerations []string
+	for _, t := range model.NestedSlice(obj, "spec", "tolerations") {
+		if text := tolerationText(t); text != "" {
+			tolerations = append(tolerations, text)
+		}
+	}
+	props.put(model.DetailItem{Name: "Tolerations", Value: strings.Join(tolerations, "\n"), Fold: "Tolerations"})
+
+	secrets := podSecrets(obj)
+	secretChips := make([]model.Chip, 0, len(secrets))
+	for _, name := range secrets {
+		secretChips = append(secretChips, model.Chip{Text: name, Link: linkTo("secrets", ns, name)})
+	}
+	props.put(model.ChipsItem("Secrets", secretChips))
+
+	anti := len(model.NestedSlice(obj, "spec", "affinity", "podAntiAffinity", "requiredDuringSchedulingIgnoredDuringExecution")) +
+		len(model.NestedSlice(obj, "spec", "affinity", "podAntiAffinity", "preferredDuringSchedulingIgnoredDuringExecution"))
+	if anti > 0 {
+		props.add("Pod Anti Affinities", itoa(int64(anti)))
+	}
+	sections := []model.DetailSection{{Title: model.TitleProperties, Items: props}}
+
+	if volumes := podVolumes(obj, ns); len(volumes) > 0 {
+		sections = append(sections, model.DetailSection{Title: "Pod Volumes", Items: volumes})
+	}
+
 	// Readiness applies to app containers and sidecars only; init and ephemeral containers have
-	// no probes, so a running one is fine without being ready.
+	// no probes, so a running one is fine without being ready. Lens shows the init containers
+	// before the containers (capture, 2026-10-11); ephemeral containers are Cogpit's addition.
 	groups := []struct {
 		title, spec, status string
 		probed              bool
 	}{
-		{"Init Container ", "initContainers", "initContainerStatuses", false},
-		{"Container ", "containers", "containerStatuses", true},
-		{"Ephemeral Container ", "ephemeralContainers", "ephemeralContainerStatuses", false},
+		{"Init Containers", "initContainers", "initContainerStatuses", false},
+		{"Containers", fieldContainers, "containerStatuses", true},
+		{"Ephemeral Containers", "ephemeralContainers", "ephemeralContainerStatuses", false},
 	}
 	for _, g := range groups {
 		statuses := model.NestedSlice(obj, "status", g.status)
 		for _, c := range model.NestedSlice(obj, "spec", g.spec) {
 			name := model.NestedString(c, "name")
 			probed := g.probed || isSidecar(c)
-			sections = append(sections, containerSection(g.title+name, c, byName(statuses, name), probed))
+			sec := containerSection(name, c, byName(statuses, name), probed)
+			sec.Group = g.title
+			sections = append(sections, sec)
 		}
 	}
 	return sections
+}
+
+// tolerationText renders a toleration as "key=value:Effect", "key:Effect" for Exists, "*" for a
+// toleration of every taint, with " for 300s" when it is bounded.
+func tolerationText(t any) string {
+	key, op := model.NestedString(t, "key"), model.NestedString(t, "operator")
+	text := key
+	switch {
+	case key == "" && op == opExists:
+		text = "*"
+	case op != opExists:
+		if v := model.NestedString(t, "value"); v != "" {
+			text += "=" + v
+		}
+	}
+	if e := model.NestedString(t, "effect"); e != "" {
+		text += ":" + e
+	}
+	if text == "" {
+		return ""
+	}
+	if secs, ok := model.NestedInt64(t, "tolerationSeconds"); ok {
+		text += " for " + itoa(secs) + "s"
+	}
+	return text
+}
+
+// podSecrets returns the names of the Secrets a pod refers to, in order of appearance: volumes
+// (also inside projected volumes), image pull secrets, and the environment of every container.
+// Which references Lens counts is inferred.
+func podSecrets(obj any) []string {
+	var out []string
+	for _, v := range model.NestedSlice(obj, "spec", "volumes") {
+		out = appendUnique(out, model.NestedString(v, "secret", "secretName"))
+		for _, src := range model.NestedSlice(v, "projected", "sources") {
+			out = appendUnique(out, model.NestedString(src, "secret", "name"))
+		}
+	}
+	for _, s := range model.NestedSlice(obj, "spec", "imagePullSecrets") {
+		out = appendUnique(out, model.NestedString(s, "name"))
+	}
+	for _, group := range []string{"initContainers", fieldContainers, "ephemeralContainers"} {
+		for _, c := range model.NestedSlice(obj, "spec", group) {
+			for _, e := range model.NestedSlice(c, "envFrom") {
+				out = appendUnique(out, model.NestedString(e, "secretRef", "name"))
+			}
+			for _, e := range model.NestedSlice(c, "env") {
+				out = appendUnique(out, model.NestedString(e, "valueFrom", "secretKeyRef", "name"))
+			}
+		}
+	}
+	return out
+}
+
+// volumeTypes names the volume sources as the drawer groups them; a source not listed here is
+// shown under its field name.
+var volumeTypes = []struct{ field, title, linkKind, nameField string }{
+	{"configMap", "ConfigMap", "configmaps", fieldName},
+	{"secret", "Secret", "secrets", "secretName"},
+	{"persistentVolumeClaim", "PersistentVolumeClaim", "persistentvolumeclaims", "claimName"},
+	{"projected", "Projected", "", ""},
+	{"emptyDir", "EmptyDir", "", ""},
+	{"hostPath", "HostPath", "", ""},
+	{"downwardAPI", "DownwardAPI", "", ""},
+	{"ephemeral", "Ephemeral", "", ""},
+	{"csi", "CSI", "", ""},
+	{"nfs", "NFS", "", ""},
+	{fieldImage, "Image", "", ""},
+}
+
+// podVolumes groups a pod's volumes by type, one folded item per type with the volume names as
+// chips ("2 volumes"); a ConfigMap, Secret or claim volume links to its object. Lens shows a count
+// per volume type (capture, 2026-10-11); the folded names are inferred.
+func podVolumes(obj any, ns string) []model.DetailItem {
+	byType := map[string][]model.Chip{}
+	var order []string
+	for _, v := range model.NestedSlice(obj, "spec", "volumes") {
+		name := model.NestedString(v, "name")
+		m, _ := v.(map[string]any)
+		if name == "" || m == nil {
+			continue
+		}
+		title, chip := "", model.Chip{Text: name}
+		for _, t := range volumeTypes {
+			if _, ok := m[t.field]; !ok {
+				continue
+			}
+			title = t.title
+			if t.linkKind != "" {
+				chip.Link = linkTo(t.linkKind, ns, model.NestedString(m, t.field, t.nameField))
+			}
+			break
+		}
+		if title == "" {
+			for _, k := range sortedKeys(m) {
+				if k != fieldName {
+					title = k
+					break
+				}
+			}
+		}
+		if title == "" {
+			continue
+		}
+		if _, seen := byType[title]; !seen {
+			order = append(order, title)
+		}
+		byType[title] = append(byType[title], chip)
+	}
+	out := make([]model.DetailItem, 0, len(order))
+	for _, title := range order {
+		it := model.ChipsItem(title, byType[title])
+		it.Fold = "volumes"
+		out = append(out, it)
+	}
+	return out
 }
 
 // podConditionToken colours a pod condition. A False condition is a warning, not an error: it
@@ -438,11 +665,22 @@ func podConditionToken(c condition) model.Status {
 	return conditionToken(c.Status, model.StatusOK, model.StatusWarning)
 }
 
-// containerSection renders one container: its spec and, when the kubelet reported one, its
-// status. Environment values from Secrets and ConfigMaps are named, never resolved. probed says
-// whether readiness applies to the container.
-func containerSection(title string, spec, status any, probed bool) model.DetailSection {
+// containerSection renders one container as Lens's drawer does (capture, 2026-10-11): Status, Last
+// Status, Image, Ports, Environment, Mounts, Command, Arguments, Requests, Limits. Environment
+// values from Secrets and ConfigMaps are named, never resolved. probed says whether readiness
+// applies to the container; a running probed container's status says whether it is ready.
+func containerSection(name string, spec, status any, probed bool) model.DetailSection {
 	var d detailItems
+	if status != nil {
+		ready, _ := model.NestedBool(status, "ready")
+		text, token := containerState(model.NestedMap(status, "state"), ready || !probed)
+		if rest, ok := strings.CutPrefix(text, podRunning); ok && probed {
+			text = podRunning + ", " + map[bool]string{true: "ready", false: "not ready"}[ready] + rest
+		}
+		d.addStatus(titleStatus, text, token)
+		last, _ := containerState(model.NestedMap(status, "lastState"), false)
+		d.add("Last Status", last)
+	}
 	image := model.NestedString(spec, "image")
 	if image == "" {
 		image = model.NestedString(status, "image")
@@ -451,28 +689,26 @@ func containerSection(title string, spec, status any, probed bool) model.DetailS
 	if isSidecar(spec) {
 		d.add("Restart Policy", "Always")
 	}
-	if status != nil {
-		ready, _ := model.NestedBool(status, "ready")
-		text, token := containerState(model.NestedMap(status, "state"), ready || !probed)
-		d.addStatus("State", text, token)
-		last, _ := containerState(model.NestedMap(status, "lastState"), false)
-		d.add("Last State", last)
-		d.add("Ready", boolText(ready))
-		d.add("Restarts", itoa(nonNegative(status, "restartCount")))
-	}
 	d.add("Ports", containerPorts(spec))
+	d.put(model.DetailItem{Name: "Environment", Value: containerEnv(spec), Fold: "variables"})
+	d.put(model.DetailItem{Name: "Mounts", Value: containerMounts(spec), Fold: "mounts"})
 	d.add("Command", shellJoin(model.NestedStrings(spec, "command")))
-	d.add("Args", shellJoin(model.NestedStrings(spec, "args")))
-	d.add("Env", containerEnv(spec))
-	d.add("Mounts", containerMounts(spec))
-	return model.DetailSection{Title: title, Items: d}
+	d.add("Arguments", shellJoin(model.NestedStrings(spec, "args")))
+	d.add("Requests", resourceAmounts(spec, "requests"))
+	d.add("Limits", resourceAmounts(spec, "limits"))
+	return model.DetailSection{Title: name, Items: d}
 }
 
-func boolText(b bool) string {
-	if b {
-		return condTrue
+// resourceAmounts renders a container's resource requests or limits: "cpu: 100m, memory: 128Mi".
+func resourceAmounts(spec any, field string) string {
+	m := model.NestedMap(spec, "resources", field)
+	parts := make([]string, 0, len(m))
+	for _, k := range sortedKeys(m) {
+		if v := model.NestedIntOrString(m, k); v != "" {
+			parts = append(parts, k+": "+v)
+		}
 	}
-	return condFalse
+	return strings.Join(parts, ", ")
 }
 
 // containerState renders a container state: "Running, started …", "Waiting: Reason (message)",

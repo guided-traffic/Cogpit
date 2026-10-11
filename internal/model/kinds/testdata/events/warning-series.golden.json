@@ -30,7 +30,12 @@
     },
     {
       "column": "involvedObject",
-      "text": "Pod: gateway-8b7c6d5e4-r3s4t"
+      "text": "Pod: gateway-8b7c6d5e4-r3s4t",
+      "link": {
+        "kind": "pods",
+        "namespace": "edge",
+        "name": "gateway-8b7c6d5e4-r3s4t"
+      }
     },
     {
       "column": "source",
@@ -76,7 +81,7 @@
   },
   "detail": [
     {
-      "title": "Event",
+      "title": "Properties",
       "items": [
         {
           "name": "Type",
@@ -93,7 +98,12 @@
         },
         {
           "name": "Involved Object",
-          "value": "Pod: gateway-8b7c6d5e4-r3s4t"
+          "value": "Pod: gateway-8b7c6d5e4-r3s4t",
+          "link": {
+            "kind": "pods",
+            "namespace": "edge",
+            "name": "gateway-8b7c6d5e4-r3s4t"
+          }
         },
         {
           "name": "Source",

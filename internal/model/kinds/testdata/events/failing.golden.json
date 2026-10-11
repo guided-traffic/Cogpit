@@ -30,7 +30,12 @@
     },
     {
       "column": "involvedObject",
-      "text": "Pod: worker-6f8b9c7d4-q9m2z"
+      "text": "Pod: worker-6f8b9c7d4-q9m2z",
+      "link": {
+        "kind": "pods",
+        "namespace": "payments",
+        "name": "worker-6f8b9c7d4-q9m2z"
+      }
     },
     {
       "column": "source",
@@ -76,7 +81,7 @@
   },
   "detail": [
     {
-      "title": "Event",
+      "title": "Properties",
       "items": [
         {
           "name": "Type",
@@ -93,7 +98,12 @@
         },
         {
           "name": "Involved Object",
-          "value": "Pod: worker-6f8b9c7d4-q9m2z"
+          "value": "Pod: worker-6f8b9c7d4-q9m2z",
+          "link": {
+            "kind": "pods",
+            "namespace": "payments",
+            "name": "worker-6f8b9c7d4-q9m2z"
+          }
         },
         {
           "name": "Source",

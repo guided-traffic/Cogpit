@@ -12,6 +12,12 @@
       "text": "web-5c4d7f9b6-p0q1r"
     },
     {
+      "column": "warning",
+      "text": "ImagePullBackOff",
+      "num": 1,
+      "status": "warning"
+    },
+    {
       "column": "namespace",
       "text": "shop",
       "link": {
@@ -29,11 +35,20 @@
     },
     {
       "column": "controlledBy",
-      "text": "ReplicaSet"
+      "text": "ReplicaSet",
+      "link": {
+        "kind": "replicasets",
+        "namespace": "shop",
+        "name": "web-5c4d7f9b6"
+      }
     },
     {
       "column": "node",
-      "text": "worker-a3"
+      "text": "worker-a3",
+      "link": {
+        "kind": "nodes",
+        "name": "worker-a3"
+      }
     },
     {
       "column": "qos",
@@ -83,7 +98,7 @@
   },
   "detail": [
     {
-      "title": "Status",
+      "title": "Properties",
       "items": [
         {
           "name": "Status",
@@ -92,11 +107,24 @@
         },
         {
           "name": "Node",
-          "value": "worker-a3"
+          "value": "worker-a3",
+          "link": {
+            "kind": "nodes",
+            "name": "worker-a3"
+          }
+        },
+        {
+          "name": "Pod IP",
+          "value": "10.244.3.9"
         },
         {
           "name": "Pod IPs",
-          "value": "10.244.3.9"
+          "value": "10.244.3.9",
+          "chips": [
+            {
+              "text": "10.244.3.9"
+            }
+          ]
         },
         {
           "name": "QoS Class",
@@ -105,24 +133,17 @@
       ]
     },
     {
-      "title": "Container web",
+      "title": "web",
+      "group": "Containers",
       "items": [
         {
-          "name": "Image",
-          "value": "registry.example.com/shop/web:9.9.9"
-        },
-        {
-          "name": "State",
+          "name": "Status",
           "value": "Waiting: ImagePullBackOff (Back-off pulling image \"registry.example.com/shop/web:9.9.9\")",
           "status": "error"
         },
         {
-          "name": "Ready",
-          "value": "False"
-        },
-        {
-          "name": "Restarts",
-          "value": "0"
+          "name": "Image",
+          "value": "registry.example.com/shop/web:9.9.9"
         }
       ]
     }

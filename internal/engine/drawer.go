@@ -164,12 +164,9 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 		}
 	}
 
-	m := &DetailModel{
-		Ref: ref, Title: p.Kind + ": " + ref.Name,
-		Sections: []model.DetailSection{}, Events: []EventItem{},
-	}
 	obj, ok := h.Get(ref.Namespace, ref.Name)
 	if !ok {
+		m := &DetailModel{Ref: ref, Title: p.Kind + ": " + ref.Name, Sections: []model.DetailSection{}, Events: []EventItem{}}
 		if h.HasSynced() {
 			m.Missing = true
 		} else {
@@ -177,35 +174,60 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 		}
 		return m, nil
 	}
-	m.Status = model.BuildRow(p, b.Context, obj).Status
-	m.Sections = append(m.Sections, model.MetadataSection(obj, s.Now()))
-	m.Sections = append(m.Sections, s.profileSections(p, obj)...)
+	var events []*unstructured.Unstructured
 	if evh != nil {
-		m.Events = objectEvents(evh.List(), p.Kind, ref.Namespace, ref.Name, string(obj.GetUID()))
+		events = evh.List()
 	}
-	if y, err := yaml.Marshal(model.Redact(obj).Object); err == nil {
-		m.YAML = string(y)
-	} else {
-		s.log.Warn("engine: object not representable as YAML", "ref", ref.String(), "err", err)
+	m, perr := BuildDetail(p, ref, obj, events, s.Now())
+	if perr != nil {
+		s.log.Error("engine: kind profile detail panicked", "kind", p.Key, "panic", perr.Error())
 	}
-	if p.Key == "pods" && p.Group == "" {
-		m.Containers = ContainerNames(obj, false)
+	if m.YAML == "" {
+		s.log.Warn("engine: object not representable as YAML", "ref", ref.String())
 	}
 	return m, nil
 }
 
-// profileSections returns the kind's own drawer sections; a panicking profile yields none.
-func (s *Session) profileSections(p *model.KindProfile, obj *unstructured.Unstructured) (out []model.DetailSection) {
+// BuildDetail assembles the drawer model of one object from its profile, the object and the
+// cached events (of all objects; the object's own are picked out), with ages against now. It is
+// the drawer's content without the cache, for the engine and for tests of the UI.
+//
+// The sections are Properties (the generic metadata, then the items of the kind's own Properties
+// section) and the kind's other sections; the events follow, newest first. A profile whose Detail
+// panics yields only the generic sections, and the panic as the error.
+func BuildDetail(p *model.KindProfile, ref model.ObjectRef, obj *unstructured.Unstructured, events []*unstructured.Unstructured, now time.Time) (*DetailModel, error) {
+	m := &DetailModel{
+		Ref: ref, Title: p.Kind + ": " + ref.Name,
+		Sections: []model.DetailSection{}, Events: []EventItem{},
+	}
+	m.Status = model.BuildRow(p, ref.Context, obj).Status
+	kind, err := profileSections(p, obj)
+	m.Sections = model.MergeProperties(model.PropertiesSection(obj, now), kind)
+	if len(events) > 0 {
+		m.Events = objectEvents(events, p.Kind, ref.Namespace, ref.Name, string(obj.GetUID()))
+	}
+	if y, yerr := yaml.Marshal(model.Redact(obj).Object); yerr == nil {
+		m.YAML = string(y)
+	}
+	if p.Key == "pods" && p.Group == "" {
+		m.Containers = ContainerNames(obj, false)
+		m.InitContainers = containerNames(obj, "initContainers")
+	}
+	return m, err
+}
+
+// profileSections returns the kind's own drawer sections; a panicking profile yields none and
+// the panic as an error.
+func profileSections(p *model.KindProfile, obj *unstructured.Unstructured) (out []model.DetailSection, err error) {
 	if p.Detail == nil {
-		return nil
+		return nil, nil
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			s.log.Error("engine: kind profile detail panicked", "kind", p.Key, "panic", fmt.Sprint(r))
-			out = nil
+			out, err = nil, fmt.Errorf("%v", r)
 		}
 	}()
-	return p.Detail(obj)
+	return p.Detail(obj), nil
 }
 
 // objectEvents returns the events about one object, newest first, at most maxDetailEvents.

@@ -11,6 +11,12 @@
       "text": "worker-a3"
     },
     {
+      "column": "warning",
+      "text": "Ready status Unknown: the kubelet stopped reporting",
+      "num": 1,
+      "status": "warning"
+    },
+    {
       "column": "taints",
       "text": "2",
       "num": 2
@@ -56,37 +62,26 @@
   },
   "detail": [
     {
-      "title": "System Info",
+      "title": "Properties",
       "items": [
         {
-          "name": "Kubelet Version",
+          "name": "Kubelet version",
           "value": "v1.37.1"
-        }
-      ]
-    },
-    {
-      "title": "Taints",
-      "items": [
-        {
-          "value": "node.kubernetes.io/unreachable:NoExecute"
         },
         {
-          "value": "node.kubernetes.io/unreachable:NoSchedule"
-        }
-      ]
-    },
-    {
-      "title": "Conditions",
-      "items": [
-        {
-          "name": "MemoryPressure",
-          "value": "Unknown (NodeStatusUnknown): Kubelet stopped posting node status.",
-          "status": "unknown"
+          "name": "Conditions",
+          "value": "MemoryPressure: Unknown (NodeStatusUnknown): Kubelet stopped posting node status.\nReady: Unknown (NodeStatusUnknown): Kubelet stopped posting node status.",
+          "chips": [
+            {
+              "text": "Unknown",
+              "status": "unknown"
+            }
+          ]
         },
         {
-          "name": "Ready",
-          "value": "Unknown (NodeStatusUnknown): Kubelet stopped posting node status.",
-          "status": "unknown"
+          "name": "Taints",
+          "value": "node.kubernetes.io/unreachable:NoExecute\nnode.kubernetes.io/unreachable:NoSchedule",
+          "fold": "Taints"
         }
       ]
     }

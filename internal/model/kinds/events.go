@@ -80,7 +80,7 @@ func eventCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 		{Text: typ},
 		msg,
 		namespaceCell(obj),
-		{Text: eventObjectText(obj)},
+		{Text: eventObjectText(obj), Link: eventObjectLink(obj)},
 		{Text: eventSourceText(obj)},
 		{Num: eventCount(obj)},
 		model.AgeCell(eventFirstSeen(obj)),
@@ -114,6 +114,22 @@ func eventObject(obj any) (kind, name string) {
 		ref = model.NestedMap(obj, "regarding")
 	}
 	return model.NestedString(ref, "kind"), model.NestedString(ref, "name")
+}
+
+// eventObjectLink links the involved object ("Kind: name", a link in Lens, capture 2026-10-11).
+// Built-in kinds link by their key; a custom resource's key needs its plural, which an event does
+// not carry, so custom kinds stay unlinked. A namespaced object without a namespace in the
+// reference lives in the event's namespace.
+func eventObjectLink(obj any) *model.ObjectRef {
+	ref := model.NestedMap(obj, "involvedObject")
+	if ref == nil {
+		ref = model.NestedMap(obj, "regarding")
+	}
+	ns := model.NestedString(ref, "namespace")
+	if ns == "" {
+		ns = model.NestedString(obj, "metadata", "namespace")
+	}
+	return model.RefTo(model.NestedString(ref, "apiVersion"), model.NestedString(ref, "kind"), ns, model.NestedString(ref, "name"))
 }
 
 // eventObjectText renders the involved object as "Kind: name".
@@ -199,16 +215,17 @@ func eventLastSeen(obj any) time.Time {
 	)
 }
 
+// eventDetail adds the event's fields to the drawer's Properties, after the generic metadata.
 func eventDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	var d detailItems
 	typ := model.NestedString(obj, "type")
 	d.addStatus("Type", typ, eventTypeToken(typ))
 	d.add("Reason", model.NestedString(obj, "reason"))
 	d.add("Message", eventMessage(obj))
-	d.add("Involved Object", eventObjectText(obj))
+	d.put(linkedItem("Involved Object", eventObjectText(obj), eventObjectLink(obj)))
 	d.add("Source", eventSourceText(obj))
 	d.add("Count", itoa(eventCount(obj)))
 	d.add("First Seen", timestamp(eventFirstSeen(obj)))
 	d.add("Last Seen", timestamp(eventLastSeen(obj)))
-	return []model.DetailSection{{Title: "Event", Items: d}}
+	return []model.DetailSection{{Title: model.TitleProperties, Items: d}}
 }

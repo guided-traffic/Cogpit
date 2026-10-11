@@ -275,9 +275,13 @@ func TestNodeRolesAndConditions(t *testing.T) {
 	if roles := nodeRoles(obj); len(roles) != 1 || roles[0] != "master" {
 		t.Errorf("roles = %q", roles)
 	}
-	text, token := nodeConditions(obj)
-	if text != "NotReady KernelDeadlock SchedulingDisabled" || token != model.StatusError {
-		t.Errorf("conditions = %q %q", text, token)
+	// SchedulingDisabled comes first, as Lens shows a cordoned node (capture, 2026-10-11).
+	s := summariseNode(obj)
+	if c := s.conditionsCell(); c.Text != "SchedulingDisabled NotReady KernelDeadlock" || c.Status != model.StatusError || s.token != model.StatusError {
+		t.Errorf("conditions = %q %q, row %q", c.Text, c.Status, s.token)
+	}
+	if w := s.warning(); w.Status != model.StatusWarning || w.Text != "NotReady, KernelDeadlock" {
+		t.Errorf("warning = %+v", w)
 	}
 }
 

@@ -11,6 +11,10 @@
       "text": "bare"
     },
     {
+      "column": "warning",
+      "text": ""
+    },
+    {
       "column": "taints",
       "text": "0"
     },
@@ -47,5 +51,9 @@
     "role": [],
     "version": []
   },
-  "detail": null
+  "detail": [
+    {
+      "title": "Properties"
+    }
+  ]
 }

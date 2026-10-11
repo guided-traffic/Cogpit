@@ -133,8 +133,9 @@ func registerResources(g *registrar) {
 
 	add(g, engine.Spec[objectParams]{
 		ID: "object.get", Label: "Get Object", Danger: engine.DangerRead, Verbs: cacheReads,
-		Description: "Returns what the detail drawer shows for one object, from Cogpit's cache: title, status, the metadata " +
-			"and kind-specific sections, its events (newest first, at most 50), its container names for pods, and its YAML " +
+		Description: "Returns what the detail drawer shows for one object, from Cogpit's cache: title, status, the sections " +
+			"(Properties first: the metadata and the kind's state; then the kind's own sections; values that name objects " +
+			"carry a link ref), its events (newest first, at most 50), its container names for pods, and its YAML " +
 			"(managed fields dropped, Secret values redacted) unless noYaml. missing is true when the object is not in the cache.",
 		Enabled: func(s *engine.Session, _ objectParams) error { _, err := connected(s); return err },
 		Run: func(ctx context.Context, s *engine.Session, p objectParams) (any, error) {

@@ -38,7 +38,7 @@ func exercise(p *model.KindProfile, obj *unstructured.Unstructured) (err error) 
 		_ = model.FieldValues(p, name, obj)
 	}
 	_ = p.Detail(obj)
-	_ = model.MetadataSection(obj, now)
+	_ = model.MergeProperties(model.PropertiesSection(obj, now), p.Detail(obj))
 	return nil
 }
 

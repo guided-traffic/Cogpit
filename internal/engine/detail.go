@@ -6,19 +6,43 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
-// DetailModel is what the detail drawer shows for one object, built from the cache.
+// DetailModel is what the detail drawer shows for one object, built from the cache. It is also
+// MCP's object_get result, so its JSON shape is kept stable: fields are only ever added, and every
+// added field is optional.
+//
+// The drawer shows, in this order, as Lens does (capture, 2026-10-11): a metrics slot (not built:
+// metrics are milestone M7), the sections, then the events ("No events found" when there are
+// none). The YAML is Cogpit's own view of the object.
+//
+//	{
+//	  "ref": {...}, "title": "Pod: web-0", "status": "ok",
+//	  "sections": [
+//	    {"title": "Properties", "items": [{"name": "Created", ...}, {"name": "Labels", "fold": "Labels", "chips": [...]}, ...]},
+//	    {"title": "Pod Volumes", "items": [...]},
+//	    {"title": "app", "group": "Containers", "items": [...]}
+//	  ],
+//	  "events": [{"type": "Warning", "reason": "BackOff", ...}],
+//	  "yaml": "...", "containers": ["app"], "initContainers": ["migrate"]
+//	}
 type DetailModel struct {
 	Ref    model.ObjectRef `json:"ref"`
 	Title  string          `json:"title"` // "Pod: web-0"
 	Status model.Status    `json:"status,omitempty"`
-	// Sections: the generic metadata section first, then the kind's own sections.
+	// Sections in the drawer's order. The first is always Properties: the object's metadata
+	// (Created, Name, Namespace, Labels, Annotations, Controlled By; no UID, as in Lens) followed by
+	// the kind's own properties (a pod's Status, Node, Pod IP, ...). The kind's other sections
+	// follow (a pod's volumes and containers, a node's Capacity and Allocatable). Item values that
+	// name objects carry links; long lists fold behind a count (model.DetailItem).
 	Sections []model.DetailSection `json:"sections"`
-	// Events are the events whose involved object is this object, newest first.
+	// Events are the events whose involved object is this object, newest first, at most 50. The
+	// drawer shows them after the sections.
 	Events []EventItem `json:"events"`
 	// YAML is the object as YAML, managedFields dropped, Secret values redacted.
 	YAML string `json:"yaml"`
 	// Containers are the pod's container names (logs and shell pick one); empty for other kinds.
 	Containers []string `json:"containers,omitempty"`
+	// InitContainers are the pod's init container names, which logs and shell can pick too.
+	InitContainers []string `json:"initContainers,omitempty"`
 	// Missing is true when the object is not (or no longer) in the cache.
 	Missing bool `json:"missing,omitempty"`
 	// Loading is true while the object's kind is still being listed: the object may yet appear,

@@ -12,6 +12,12 @@
       "text": "billing-4f3e2d1c0-b4d5e"
     },
     {
+      "column": "warning",
+      "text": "CreateContainerConfigError",
+      "num": 1,
+      "status": "warning"
+    },
+    {
       "column": "namespace",
       "text": "payments",
       "link": {
@@ -33,7 +39,11 @@
     },
     {
       "column": "node",
-      "text": "worker-a1"
+      "text": "worker-a1",
+      "link": {
+        "kind": "nodes",
+        "name": "worker-a1"
+      }
     },
     {
       "column": "qos",
@@ -79,7 +89,7 @@
   },
   "detail": [
     {
-      "title": "Status",
+      "title": "Properties",
       "items": [
         {
           "name": "Status",
@@ -88,37 +98,49 @@
         },
         {
           "name": "Node",
-          "value": "worker-a1"
+          "value": "worker-a1",
+          "link": {
+            "kind": "nodes",
+            "name": "worker-a1"
+          }
         },
         {
           "name": "QoS Class",
           "value": "BestEffort"
+        },
+        {
+          "name": "Secrets",
+          "value": "billing-keys",
+          "chips": [
+            {
+              "text": "billing-keys",
+              "link": {
+                "kind": "secrets",
+                "namespace": "payments",
+                "name": "billing-keys"
+              }
+            }
+          ]
         }
       ]
     },
     {
-      "title": "Container billing",
+      "title": "billing",
+      "group": "Containers",
       "items": [
+        {
+          "name": "Status",
+          "value": "Waiting: CreateContainerConfigError (secret \"billing-keys\" not found)",
+          "status": "error"
+        },
         {
           "name": "Image",
           "value": "registry.example.com/payments/billing:1.8"
         },
         {
-          "name": "State",
-          "value": "Waiting: CreateContainerConfigError (secret \"billing-keys\" not found)",
-          "status": "error"
-        },
-        {
-          "name": "Ready",
-          "value": "False"
-        },
-        {
-          "name": "Restarts",
-          "value": "0"
-        },
-        {
-          "name": "Env",
-          "value": "API_KEY: from secret billing-keys/api-key"
+          "name": "Environment",
+          "value": "API_KEY: from secret billing-keys/api-key",
+          "fold": "variables"
         }
       ]
     }
