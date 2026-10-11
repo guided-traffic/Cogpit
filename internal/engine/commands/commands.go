@@ -49,6 +49,10 @@ func add[P any](g *registrar, spec engine.Spec[P]) {
 	}
 }
 
+// labelDelete is the label of every kind's last action, as Lens labels it: object.delete, and the
+// commands that take its place for kinds that are not API objects (Helm releases, port forwards).
+const labelDelete = "Delete"
+
 // cacheReads are the verbs of commands that read through the cache: the informer lists and
 // watches the kind they read. The kind is a parameter, hence the wildcard.
 var cacheReads = []engine.Verb{{Verb: "list", Resource: "*"}, {Verb: "watch", Resource: "*"}}

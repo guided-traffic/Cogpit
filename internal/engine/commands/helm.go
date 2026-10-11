@@ -84,7 +84,7 @@ func registerHelm(g *registrar) {
 	})
 
 	add(g, engine.Spec[refParams]{
-		ID: "helm.release.uninstall", Label: "Delete", MenuPath: "Helm/Uninstall", Kinds: []string{helm.ReleaseKind},
+		ID: "helm.release.uninstall", Label: labelDelete, MenuPath: "Helm/Uninstall", Kinds: []string{helm.ReleaseKind},
 		Order: engine.OrderDelete, Danger: engine.DangerDestructive,
 		Verbs: releaseSecretVerbs("list", "get", "update", "delete"),
 		Description: "Uninstalls a Helm release as helm uninstall does with its defaults: runs its hooks, deletes every object " +

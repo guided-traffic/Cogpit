@@ -36,7 +36,7 @@ func registerActions(g *registrar) {
 	})
 
 	add(g, engine.Spec[refParams]{
-		ID: "object.delete", Label: "Delete", MenuPath: "Object/Delete", Order: engine.OrderDelete, Danger: engine.DangerDestructive,
+		ID: "object.delete", Label: labelDelete, MenuPath: "Object/Delete", Order: engine.OrderDelete, Danger: engine.DangerDestructive,
 		Verbs: []engine.Verb{{Verb: "delete", Resource: "*"}},
 		Description: "Deletes an object of any kind with its default grace period, with the UID Cogpit's cache holds for it " +
 			"as a precondition, so that an object created again under the same name is not deleted; its dependents are " +

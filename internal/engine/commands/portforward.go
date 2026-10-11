@@ -262,7 +262,7 @@ func registerPortForward(g *registrar) {
 	})
 
 	add(g, engine.Spec[forwardRefParams]{
-		ID: "portforward.remove", Label: "Delete", MenuPath: "PortForward/Delete", Kinds: []string{engine.PortForwardKind},
+		ID: "portforward.remove", Label: labelDelete, MenuPath: "PortForward/Delete", Kinds: []string{engine.PortForwardKind},
 		Order: engine.OrderDelete, Danger: engine.DangerUI,
 		Description: "Stops a port forward and removes it from the list. Nothing in the cluster changes.",
 		Enabled: func(s *engine.Session, p forwardRefParams) error {

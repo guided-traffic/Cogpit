@@ -18,7 +18,6 @@ const (
 	keyServiceAccounts = "serviceaccounts"
 	keyClusterRoles    = "clusterroles"
 	keyRoles           = "roles"
-	keySecrets         = "secrets"
 	kindClusterRole    = "ClusterRole"
 	kindRole           = "Role"
 	kindServiceAccount = "ServiceAccount"
