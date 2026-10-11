@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (language switched to Go; Fyne behind a spike gate; MCP control, built-in agent, one-click updates, crash stance and parity sources decided by the owner) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (D-13: Secrets in the cache decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -21,7 +21,7 @@ projects' repositories; re-check them before relying on a version number.
 | [D-10](#d-10-built-in-agent) | Built-in agent and LLM interface | decided: chat beside the views, OpenAI-compatible endpoint; built after the alpha |
 | [D-11](#d-11-crash-stance) | Crash stance | decided: crash-tolerant UI, crash-safe cluster operations |
 | [D-12](#d-12-parity-sources) | Parity sources | decided: current Lens Desktop only; no OpenLens or Freelens |
-| [D-13](#d-13-cache) | Cache | decided: the UI reads only from a watch-fed cache, held in memory only |
+| [D-13](#d-13-cache) | Cache | decided: the UI reads only from a watch-fed cache, held in memory only; Secrets as metadata only, Helm's release Secrets in full |
 
 ## D-1: UI toolkit
 
@@ -298,10 +298,27 @@ disk would show the last known state immediately at start-up; the options weighe
 **Decided:** in memory only. Revisit only if the measured cold start (budget P7) is too slow, and
 then with this table as the starting point.
 
+**Secrets in the cache, decided (owner, 2026-10-11): metadata only, plus Helm's release Secrets.**
+Listing or watching Secrets returns their values ([H-8](../security/privilege-footprint.md#h-8-secret-data-arrives-with-the-list)),
+and the Secrets view and Helm both need Secrets. The options weighed:
+
+| Option | For | Against |
+|---|---|---|
+| (a) A full watch on Secrets | The Keys column as in Lens; Helm reads its releases from the same cache | Every Secret value of the watched namespaces in Cogpit's memory, masked only in the UI |
+| **(b) Metadata only for the list, a GET when a Secret's drawer opens, a watch on `owner=helm` for Helm (decided)** | Only Helm's release payloads, which Helm needs anyway, are held as data; one Secret's data is fetched when the user opens it | The Keys column cannot be filled from metadata: a documented difference from Lens |
+| (c) No cache for Secrets, a GET whenever needed | Nothing held | Breaks cache-first: the list costs a request per view |
+
+**Decided:** (b). The Secrets view lists through a metadata-only informer
+(`PartialObjectMetadata`); the drawer's GET of one Secret is the direct read architecture §5
+allows for data the cache does not hold, and its values stay masked until the user reveals a
+field; Helm's releases come from a label-selected informer (`owner=helm`) whose Secrets are held in
+full. RBAC cannot narrow `list secrets` by label, so the verbs are unchanged.
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | D-13: Secrets in the cache decided (owner): metadata only for the list, a GET for an opened Secret, a label-selected watch for Helm's releases (H-8, option b) |
 | 2026-10-11 | minor | D-1 decided (owner): Fyne after the spike gate, with re-checks of S7 at M0's CI and S5 at M11, each reopening D-1 only for its platform |
 | 2026-10-11 | minor | D-1: the spike ran as the local MVP; results recorded, gate decision pending |
 | 2026-10-11 | minor | D-7: macOS first, Windows and Linux after the macOS beta; Cogpit is a desktop client, never a web UI |

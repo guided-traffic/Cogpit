@@ -81,7 +81,7 @@ related resources) are superseded by Cogpit's built-in agent
 | View | API | Lens columns | Actions | Status |
 |---|---|---|---|---|
 | Config Maps | `v1` ConfigMap | Name, Namespace, Keys, Age | – | partial: view as documented, not checked against a running Lens (capture needed); Keys lists data and binary-data keys sorted, comma-separated; no status token (inferred: a Config Map has no state); drawer: each value up to 4 KiB and 40 lines, 32 KiB and 400 lines in all, 100 keys, with a note where cut; binary data by size only (Cogpit's, inferred) ([`configmaps.go`](../../internal/model/kinds/configmaps.go), `TestGolden`, `TestConfigMapTexts`, `TestConfigMapDrawerCaps`) |
-| Secrets | `v1` Secret | Name, Namespace, Labels, Keys, Type, Age | Create `secret.create` | missing |
+| Secrets | `v1` Secret | Name, Namespace, Labels, Keys, Type, Age | Create `secret.create` | missing; decided (owner, 2026-10-11, [D-13](../developer/decisions.md#d-13-cache), H-8 option b): the list from a metadata-only watch, one Secret's data fetched when its drawer opens; the Keys column will be a documented difference (metadata carries no keys) |
 | Resource Quotas | `v1` ResourceQuota | Name, Namespace, Age | Create `resourceQuota.create` | missing |
 | Limit Ranges | `v1` LimitRange | Name, Namespace, Age | – | missing |
 | Horizontal Pod Autoscalers | `autoscaling/v2` HorizontalPodAutoscaler | Name, Namespace, Metrics, Min Pods, Max Pods, Replicas, Age, Status | – | missing |
@@ -188,6 +188,7 @@ the tables above. Everything else is created from YAML templates in the dock
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Secrets: how the view will be built (H-8 option b, owner); Keys column a documented difference |
 | 2026-10-11 | major | Recount after the second implementation run: 27 of 64 views (one done), 14 of 39 actions, all others partial |
 | 2026-10-11 | minor | Gap G5: Nodes, Pods and Events views and drawers closer to the captures (cordoned node, warning column, links, Properties, folds); row menu partial, right-click done |
 | 2026-10-11 | minor | Every kind: Edit (diff, dry run, apply with a resourceVersion precondition) and Delete (UID precondition) for every kind, both partial |

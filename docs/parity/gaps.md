@@ -200,7 +200,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Missing:** drafts kept for crash recovery, "Revert to original", the Create resource tab's save
   and search buttons, permission checks before Edit and Delete are offered (access reviews), Delete
   of a selection, the create dialogs (Namespaces, Secrets, Resource Quotas, Service Accounts, RBAC)
-  and their YAML fallback, a Secrets path (waits for H-8).
+  and their YAML fallback, a Secrets path (editing or creating a Secret needs its values from a GET, not the redacted YAML; H-8 decided the view, not editing).
 - **Evidence:** [ui-parity](ui-parity.md#editor-and-create-resource): 4 rows partial, 1 missing;
   [resource-parity](resource-parity.md#every-kind): Edit and Delete partial. Built on 2026-10-11:
   an Edit tab per object on the editable [`yamlview`](../../internal/ui/fyneui/yamlview/), filled
@@ -222,7 +222,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 ### G11. Helm
 - **Missing:** the Helm SDK in-process: releases, history, values and manifests from the cached
-  release Secrets; install, upgrade, rollback and uninstall as crash-safe jobs; repositories, chart
+  release Secrets (unblocked: the owner decided H-8 on 2026-10-11, and Helm's release Secrets come
+  from a watch on `owner=helm`, [D-13](../developer/decisions.md#d-13-cache)); install, upgrade, rollback and uninstall as crash-safe jobs; repositories, chart
   index and search; the Helm Install and Helm Upgrade dock tabs. Views and actions count in G6 and G7.
 - **Evidence:** [resource-parity](resource-parity.md#helm), 2 views and 4 actions missing.
 - **Estimate:** 30–60 h.
@@ -265,7 +266,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   cordoned node's Conditions; cell tooltips and right-click are done. Still missing: title bar
   with history, tab bar, welcome page, keyboard navigation, CSV export, column reorder and hiding,
   row checkboxes and multi-selection in row menus, the drawer's Copy and port Forward…, the Pods
-  view's container squares.
+  view's container squares, Cogpit's own title bar on macOS (owner, 2026-10-11: no standard title
+  bar, the logo beside the window buttons; [ui-parity](ui-parity.md#layout)).
 - **Estimate:** 45–130 h (was 60–165).
 
 ### G13. Clusters, hotbar, palette, menus, shortcuts and preferences
@@ -375,6 +377,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | G11 unblocked by the H-8 decision; G5: Cogpit's own title bar on macOS (owner) |
 | 2026-10-11 | major | Second implementation run: G1 (CI green), G3, G5, G6 (27 of 64 views), G7 (14 of 39 actions, drain tested on three nodes) and G9 re-estimated; totals ~570–1,400 h free parity, ~780–1,820 h full target |
 | 2026-10-11 | minor | G5: row menus, drawer toolbar, warning column, links, tooltips and the drawer's Properties built; what remains |
 | 2026-10-11 | minor | G9: editing, create from templates and Delete for every kind built; what is left listed |

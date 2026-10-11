@@ -66,16 +66,17 @@ M11 and M12 do not depend on each other; their order is the owner's call.
 
 Ranked; each item links to its gap. Pick from the top unless an issue is assigned to you.
 
-1. **The owner's decisions** that hold work: the patched terminal widget
-   ([H-19](../security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)) and the
-   Secrets view's watch ([H-8](../security/privilege-footprint.md#h-8-secret-data-arrives-with-the-list)).
+1. **The owner's decision on the patched terminal widget**
+   ([H-19](../security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)). The
+   Secrets question (H-8) is decided ([D-13](../developer/decisions.md#d-13-cache)).
 2. **Walk the new workflows in the GUI** on kind and a real cluster (owner): change a workload,
    maintain a node, edit and create; record what differs in the parity rows.
 3. **Port forwarding** ([G10](gaps.md#g10-port-forwarding)): the next alpha-gate workflow that does
    not exist. 10–20 h, plus the Port Forwarding view and its actions (G6, G7).
-4. **Helm releases** ([G11](gaps.md#g11-helm)): the last missing alpha-gate workflow. 30–60 h.
+4. **Helm releases and the Secrets view** ([G11](gaps.md#g11-helm), [G6](gaps.md#g6-resource-views)):
+   the last missing alpha-gate workflow, unblocked by the H-8 decision. 30–60 h, plus the view.
 5. **Breadth and depth of M2 and M4** ([G6](gaps.md#g6-resource-views),
-   [G7](gaps.md#g7-resource-actions)): the remaining core views (Secrets after H-8, the RBAC views,
+   [G7](gaps.md#g7-resource-actions)): the remaining core views (Secrets as decided for H-8, the RBAC views,
    Persistent Volumes, Storage Classes, the Workloads overview), workload logs, attach, Restart of
    Daemon and Stateful Sets, access reviews; then the generators of M0
    ([G1](gaps.md#g1-workspace-ci-and-progress-generators)).
@@ -85,7 +86,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 | Next | Scope | Estimate |
 |---|---|---:|
 | 0.1 "connects" | the rest of M0 and M1: the generators, the CLI lists contexts and objects of any cluster | 24–54 h |
-| 0.2 "browses" | the rest of M2: the remaining core views (Secrets after H-8), access reviews | 90–250 h |
+| 0.2 "browses" | the rest of M2: the remaining core views (Secrets as decided for H-8), access reviews | 90–250 h |
 | Alpha (macOS) | M3–M6 and an unsigned build: the seven core workflows | ~210–520 h total |
 | Beta (macOS) | M7–M10, the GitOps views, performance, stability | ~580–1,360 h total |
 | After the macOS beta | M11 Windows and Linux, M12 built-in agent, M13 paid-plan features; Teamwork only if a relay service is wanted (G20) | 190–380 h, Teamwork 150–300 h |
@@ -94,6 +95,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | H-8 decided (owner): Helm and the Secrets view unblocked in the current focus |
 | 2026-10-11 | major | Second implementation run: CI green (M0), editing and node and workload actions (M4), 16 built-in views and custom resources (M2); "change a workload" and "maintain a node" partial; alpha ~210–520 h; new current focus |
 | 2026-10-11 | minor | M0: CI in workflow files (macOS gate, Windows and Linux compile checks, kind job, govulncheck, coverage badge), semantic-release as a dry run; not yet observed green |
 | 2026-10-11 | major | The local MVP: alpha gate rows partial where they work; M0, the spike, M1–M4 and M9 in progress; current focus: the gate decision, CI, editing, breadth |

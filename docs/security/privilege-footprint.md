@@ -25,8 +25,8 @@ The actions are Lens's (see [resource parity](../parity/resource-parity.md)).
 | Connect | `get` on the discovery endpoints; `create selfsubjectaccessreviews` and `selfsubjectrulesreviews` (planned: access reviews are not built) | The default `system:basic-user` and `system:discovery` roles grant these to every authenticated user |
 | Custom resource kinds | `list` once, then `watch` on `customresourcedefinitions.apiextensions.k8s.io` (cluster-scoped), for as long as the context is connected | Built: the kinds of established definitions become views and follow the definitions live ([`customkinds.go`](../../internal/engine/customkinds.go)). A user without these verbs gets no custom resource views and no error; the informer keeps retrying with client-go's backoff. The objects carry their full schemas, which Cogpit holds in memory |
 | Open a list view | `list` once, then `watch` on the kind, cluster-wide or per accessible namespace | One watch per kind and scope, shared by every view and agent query; it stays open for the warm period after the last consumer (default five minutes), then closes ([architecture §5](../developer/architecture.md#5-cache)). A user who may not list namespaces names them in cluster settings (Lens: "Accessible Namespaces") |
-| Secrets list | `list`, `watch` on `secrets` | A list response carries every Secret's data, not only names; see [H-8](#h-8-secret-data-arrives-with-the-list) |
-| Helm releases | `list` on `secrets` with label `owner=helm` | Helm keeps releases in Secrets by default ([Helm storage backends](https://helm.sh/docs/topics/advanced/#storage-backends)); RBAC cannot narrow `list secrets` by label, so seeing releases needs the right to read every Secret in that namespace |
+| Secrets list | `list`, `watch` on `secrets`, as metadata only (`PartialObjectMetadata`); `get` on one Secret when its drawer opens | Decided ([D-13](../developer/decisions.md#d-13-cache), H-8 option b, owner 2026-10-11; not built): the list holds names, labels and annotations, not values; the opened Secret's data is fetched once and masked until the user reveals a field. RBAC still grants the values with `list`, and the server sends no data only because Cogpit asks for metadata |
+| Helm releases | `list` on `secrets` with label `owner=helm` | Helm keeps releases in Secrets by default ([Helm storage backends](https://helm.sh/docs/topics/advanced/#storage-backends)); RBAC cannot narrow `list secrets` by label, so seeing releases needs the right to read every Secret in that namespace. Decided (H-8 option b): a watch with the label selector `owner=helm` keeps exactly these Secrets in full in the cache, because Helm needs their payloads |
 | Metrics (metrics-server) | `get`, `list` on `pods.metrics.k8s.io`, `nodes.metrics.k8s.io` | |
 | Metrics (Prometheus through the API server) | `get` on `services/proxy` for the Prometheus service; `create` when queries use `POST` | `services/proxy` lets the caller send any HTTP request to that service; queries run only while a visible view needs them |
 
@@ -86,10 +86,14 @@ offered as the default is not decided.
 
 ### H-8: Secret data arrives with the list
 
-Listing or watching Secrets returns their data, so a Secrets view holds every Secret value of the
-watched namespaces in Cogpit's memory, even though the UI masks them. A metadata-only watch
-(`PartialObjectMetadataList`) would avoid that, but cannot fill the "Keys" column Lens shows. The
-trade-off is not decided.
+Listing or watching Secrets returns their data. The owner decided (2026-10-11,
+[D-13](../developer/decisions.md#d-13-cache), option b) that the Secrets view watches metadata only
+(`PartialObjectMetadataList`), fetches one Secret's data when its drawer opens, and that Helm
+watches only its release Secrets (`owner=helm`). Not built yet. What remains once it is: the
+values of Helm's release Secrets (chart values, which can hold credentials) are in Cogpit's memory
+for as long as their namespace is watched; an opened Secret's values are in memory while its
+drawer shows them; the "Keys" column Lens shows stays empty, because metadata carries no keys; and
+RBAC cannot narrow `list secrets` by label, so the user's role still grants every value.
 
 ### H-9: Force finalize skips cleanup
 

@@ -40,7 +40,7 @@ hotbar, navigator, tab bar, workspace, dock, status bar.
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Title bar with history back and forward, notifications and a context menu with Preferences; captured (2026-10-11): back and forward arrows, an "Update" button with a menu when an update is available, the paid "AI" button with a menu, a notifications bell, and on the right the vendor's "UPGRADE" and account avatar (not targets, D-9) | free | missing | – |
+| Title bar with history back and forward, notifications and a context menu with Preferences; captured (2026-10-11): back and forward arrows, an "Update" button with a menu when an update is available, the paid "AI" button with a menu, a notifications bell, and on the right the vendor's "UPGRADE" and account avatar (not targets, D-9). Lens draws its bar into the window's title bar, beside the macOS window buttons (captured). Owner requirement (2026-10-11): Cogpit takes over the title-bar area too: no standard macOS title bar above Cogpit's top bar, the window draggable by Cogpit's own bar, and Cogpit's logo beside the window buttons, not below them. Fyne 2.8.1 hands out the `NSWindow` (`driver.NativeWindow.RunNative`, `MacWindowContext`), so a full-size content view with a transparent, hidden title is possible from `internal/ui` (verified in Fyne's source); whether dragging works without extra code is not verified | free | missing: Cogpit shows the standard macOS title bar above its own top bar | – |
 | Hotbar down the left edge ([Hotbar](#hotbar)); captured: one tile per cluster with its icon or image and a short label, and a bank switcher ("‹ 1 ›") at the bottom | paid | missing | – |
 | Navigator with the cluster's resource tree ([Cluster sidebar](#cluster-sidebar)) | free | partial | [`sidebar.go`](../../internal/ui/fyneui/sidebar.go) |
 | Navigator header: a dropdown of the scope the tree shows, one cluster or a section such as "Local Kubeconfigs", and a search button; the tree's root is the cluster, with its icon, a connection dot and a ›, and a ‹ to go back; hovering an item shows "<item> - <context>" (captures, 2026-10-11) | free | missing | – |
@@ -355,6 +355,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Title bar: the owner's requirement that Cogpit draws into the macOS title bar, logo beside the window buttons |
 | 2026-10-11 | major | Recount after the second implementation run: 37 of 121 free rows (3 done), the paid diff view partial |
 | 2026-10-11 | minor | Gap G5: cell tooltips and right-click done; row menus from the registry, the warning column, links in cells, the drawer's Properties, folds, links, toolbar icons and events order partial |
 | 2026-10-11 | minor | G9: Edit tab with review, dry run and apply; Create resource tab with Cogpit's templates; the dock's "New tab" menu and the list's "+" button (8 rows) |

@@ -65,7 +65,7 @@ not yet walked through in the GUI on a real cluster); port forwarding and Helm d
 
 | Rank | Milestone | Estimate |
 |---|---|---:|
-| 1 | The owner's decisions on the patched terminal widget ([H-19](docs/security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)) and the Secrets view's watch ([H-8](docs/security/privilege-footprint.md#h-8-secret-data-arrives-with-the-list)) | – |
+| 1 | The owner's decision on the patched terminal widget ([H-19](docs/security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)); H-8 is decided ([D-13](docs/developer/decisions.md#d-13-cache)) | – |
 | 2 | Walk the new workflows in the GUI on kind and a real cluster: change a workload, maintain a node, edit and create | human |
 | 3 | Port forwarding (M5) | 20–55 h |
 | 4 | Helm releases in the cluster (M6) | 40–95 h |
