@@ -25,8 +25,8 @@ var (
 // syncTimeout bounds how long a read waits for an informer's initial list.
 const syncTimeout = 15 * time.Second
 
-// Kind returns the connected backend and its profile for a kind key. The error names the served
-// kinds, so an agent can correct itself.
+// Kind returns the connected backend and its profile for a kind key, built-in or custom. The error
+// names the served kinds, custom ones included, so an agent can correct itself.
 func (s *Session) Kind(kind string) (*Backend, *model.KindProfile, error) {
 	b := s.Backend()
 	if b == nil {
@@ -34,11 +34,12 @@ func (s *Session) Kind(kind string) (*Backend, *model.KindProfile, error) {
 	}
 	p, ok := b.Profile(kind)
 	if !ok {
-		keys := make([]string, 0, len(b.Profiles))
-		for _, bp := range b.Profiles {
+		all := b.AllProfiles()
+		keys := make([]string, 0, len(all))
+		for _, bp := range all {
 			keys = append(keys, bp.Key)
 		}
-		return nil, nil, fmt.Errorf("%w %q; this cluster serves: %s", ErrUnknownKind, kind, strings.Join(keys, ", "))
+		return nil, nil, fmt.Errorf("%w %q; this cluster serves: %s%s", ErrUnknownKind, kind, strings.Join(keys, ", "), b.customKindsNote(kind))
 	}
 	return b, p, nil
 }

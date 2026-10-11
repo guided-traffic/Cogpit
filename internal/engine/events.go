@@ -15,6 +15,9 @@ const (
 	EventToast EventType = "toast"
 	// EventDiagnostics: request counters or cache stats changed; re-read Session.Diagnostics.
 	EventDiagnostics EventType = "diagnostics"
+	// EventKinds: the kinds the connected cluster serves changed (a custom resource definition was
+	// added, changed or deleted); re-read kinds.list.
+	EventKinds EventType = "kinds"
 )
 
 // Event is something the UI or an agent may react to. Events carry little data: the receiver

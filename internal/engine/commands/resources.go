@@ -70,14 +70,14 @@ type FindMatch struct {
 }
 
 type listParams struct {
-	Kind       string   `json:"kind" jsonschema:"kind key, e.g. pods; kinds_list lists them"`
+	Kind       string   `json:"kind" jsonschema:"kind key: the plural for built-in kinds (pods), <plural>.<group> for custom resources (orders.acme.cert-manager.io); kinds_list lists them"`
 	Namespaces []string `json:"namespaces,omitempty" jsonschema:"namespaces to list; empty lists all"`
 	Filter     string   `json:"filter,omitempty" jsonschema:"search text as in the view's search box: every term must occur in a cell, case-insensitively"`
 	Limit      int      `json:"limit,omitempty" jsonschema:"maximum rows to return; default 100, at most 1000"`
 }
 
 type findParams struct {
-	Kind  string `json:"kind,omitempty" jsonschema:"kind key to search; empty searches every kind that has the field"`
+	Kind  string `json:"kind,omitempty" jsonschema:"kind key to search (pods, or <plural>.<group> for a custom resource); empty searches every built-in kind that has the field and the custom resource kinds already in Cogpit's cache"`
 	Field string `json:"field" jsonschema:"field to match: name, namespace, label (key=value) or a kind's own field such as clusterIP, podIP or node; kinds_list lists them"`
 	Value string `json:"value" jsonschema:"value to look for"`
 	Match string `json:"match,omitempty" jsonschema:"exact (the default), contains or prefix; all case-insensitive"`
@@ -94,15 +94,19 @@ func registerResources(g *registrar) {
 		ID: "kinds.list", Label: "List Kinds", Danger: engine.DangerRead,
 		Description: "Lists the kinds the connected cluster serves, as Cogpit shows them: kind key (what other tools take as " +
 			"kind), title, Kubernetes kind, group, version, whether it is namespaced, its table columns, and the fields " +
-			"resources_find can search by.",
+			"resources_find can search by. Built-in kinds come first and keep their plural as the key (pods); then the kinds " +
+			"of the cluster's custom resource definitions, keyed <plural>.<group> (gateways.gateway.networking.k8s.io), " +
+			"titled by their Kind, with their printer columns. Custom kinds follow the definitions while connected: they " +
+			"appear shortly after connecting and change when a definition does.",
 		Enabled: func(s *engine.Session, _ struct{}) error { _, err := connected(s); return err },
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			b, err := connected(s)
 			if err != nil {
 				return nil, err
 			}
-			out := make([]KindInfo, 0, len(b.Profiles))
-			for _, p := range b.Profiles {
+			all := b.AllProfiles()
+			out := make([]KindInfo, 0, len(all))
+			for _, p := range all {
 				out = append(out, KindInfo{
 					Kind: p.Key, Title: p.Title, APIKind: p.Kind, Group: p.Group, Version: p.Version,
 					Namespaced: p.Namespaced, Columns: p.Columns, Fields: fieldNames(p),
@@ -125,8 +129,9 @@ func registerResources(g *registrar) {
 		ID: "resources.find", Label: "Find Resources", Danger: engine.DangerRead, Verbs: cacheReads,
 		Description: "Finds objects by a field value in Cogpit's cache, e.g. the Service with clusterIP 10.96.0.1 " +
 			"({kind: services, field: clusterIP, value: 10.96.0.1}) or the pods on a node. Without kind it searches every " +
-			"kind that has the field. Returns {count, matches: [{ref, field, values}]}; pass a match's ref to ui_navigate " +
-			"to show it to the user.",
+			"built-in kind that has the field, and the custom resource kinds already cached (a view or a lookup used them); " +
+			"name a custom kind to search it. Returns {count, matches: [{ref, field, values}]}; pass a match's ref to " +
+			"ui_navigate to show it to the user.",
 		Enabled: func(s *engine.Session, _ findParams) error { _, err := connected(s); return err },
 		Run:     findResources,
 	})
@@ -250,6 +255,13 @@ func findResources(ctx context.Context, s *engine.Session, p findParams) (any, e
 	} else {
 		for _, prof := range b.Profiles {
 			if hasField(prof, p.Field) {
+				profs = append(profs, prof)
+			}
+		}
+		// Custom kinds only when cached already: a cluster may define hundreds, and searching all of
+		// them would start a watch for each.
+		for _, prof := range b.CustomProfiles() {
+			if hasField(prof, p.Field) && b.Cached(prof) {
 				profs = append(profs, prof)
 			}
 		}

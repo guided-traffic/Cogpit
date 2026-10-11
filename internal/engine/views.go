@@ -34,6 +34,7 @@ type state struct {
 	backend       *Backend
 	appliedRev    uint64
 	view          *viewWorker
+	vanished      *TableSnapshot // the open view after the cluster stopped serving its kind (customkinds.go)
 	drawer        *drawerWatch
 	diagStop      chan struct{}
 	sorts         map[string]SortSpec  // the sort order remembered per view
@@ -75,6 +76,7 @@ func (st *state) reconcileLocked(now UIState) {
 	if b != nil {
 		prof, _ = b.Profile(now.View)
 	}
+	st.noteVanishedLocked(b, prof, now.View)
 	if st.view != nil && (st.view.backend != b || st.view.profile != prof) {
 		st.view.stop()
 		st.view = nil
@@ -93,15 +95,18 @@ func (st *state) reconcileLocked(now UIState) {
 		st.sorts[prof.Key] = now.Sort
 	}
 
-	// The drawer: a watch on its object and on the events.
-	if st.drawer != nil && (now.Drawer == nil || st.drawer.backend != b || st.drawer.ref != *now.Drawer) {
+	// The drawer: a watch on its object and on the events. A custom kind's profile changes with its
+	// definition (another version, or gone), and the drawer follows it.
+	var drawerProf *model.KindProfile
+	if b != nil && now.Drawer != nil {
+		drawerProf, _ = b.Profile(now.Drawer.Kind)
+	}
+	if st.drawer != nil && (now.Drawer == nil || st.drawer.backend != b || st.drawer.ref != *now.Drawer || st.drawer.profile != drawerProf) {
 		st.drawer.stop()
 		st.drawer = nil
 	}
-	if st.drawer == nil && now.Drawer != nil && b != nil {
-		if p, ok := b.Profile(now.Drawer.Kind); ok {
-			st.drawer = st.s.startDrawerWatch(b, p, *now.Drawer)
-		}
+	if st.drawer == nil && drawerProf != nil {
+		st.drawer = st.s.startDrawerWatch(b, drawerProf, *now.Drawer)
 	}
 }
 
@@ -243,6 +248,7 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 		b.close(s.log)
 		return fmt.Errorf("connect %s: superseded by a newer connect", name)
 	}
+	s.attachCustomKinds(b)
 	st.backend = b
 	st.diagStop = make(chan struct{})
 	diagStop := st.diagStop
@@ -311,12 +317,17 @@ func defaultSort(p *model.KindProfile) SortSpec {
 }
 
 // Table returns the latest snapshot of a view, or nil if the view is not open or has no snapshot
-// yet. Snapshots are immutable and shared: callers must not modify them.
+// yet. An open view whose kind the cluster stopped serving returns a snapshot without rows whose
+// Error says so. Snapshots are immutable and shared: callers must not modify them.
 func (s *Session) Table(view string) *TableSnapshot {
 	s.state.mu.Lock()
 	w := s.state.view
+	gone := s.state.vanished
 	s.state.mu.Unlock()
 	if w == nil || w.profile.Key != view {
+		if gone != nil && gone.View == view {
+			return gone
+		}
 		return nil
 	}
 	return w.snap.Load()
