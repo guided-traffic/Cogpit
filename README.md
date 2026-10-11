@@ -9,8 +9,9 @@ own credentials, and gives you the views Lens users know: workloads, logs, shell
 port forwarding and the Helm releases in your clusters. Every view reads from a cache that watches
 keep current, so it is fast for you and light on the API server. And agents can drive all of it
 over MCP, the UI included. Cogpit is a desktop client: it is never a web UI and is never deployed
-into a cluster. **Status: pre-alpha. This repository holds the plan and its documentation; no code
-exists yet** ([roadmap](ROADMAP.md)).
+into a cluster. **Status: pre-alpha. A local MVP runs on macOS** — six views, the detail drawer,
+logs, a terminal, a pod shell and MCP control of the UI ([Run the MVP](#run-the-mvp)); it is not a
+release ([roadmap](ROADMAP.md)).
 
 ```mermaid
 flowchart LR
@@ -28,7 +29,10 @@ flowchart LR
 
 ## ✨ Key Features
 
-Planned; none is built yet. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
+Planned. The local MVP already has, in part: the context picker, the Nodes, Pods, Deployments,
+Services, Namespaces and Events views from the cache, the detail drawer, logs with follow, the
+cluster-bound terminal, the pod shell, Restart and Delete with confirmation, and MCP control of the
+UI. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
 
 - 🖥️ A native macOS app first, Windows and Linux (Ubuntu first) after the macOS beta.
 - 🗂️ Every cluster from your kubeconfig files, synced folders or pasted text, side by side.
@@ -49,21 +53,29 @@ Planned; none is built yet. Progress against Lens is measured in [ROADMAP.md](RO
 
 ## 📛 Naming conventions
 
-Planned; nothing generates these names yet.
+Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
+`~/Library/Application Support`, `<user cache dir>` is `~/Library/Caches`.
 
 | What | Pattern | Example |
 |---|---|---|
 | Go module | `github.com/guided-traffic/cogpit` | |
-| Binaries | `cogpit` (desktop app), `cogpit-cli` (headless CLI and MCP stdio bridge) | |
+| Binaries | `cogpit` (desktop app), `cogpit-cli` (headless CLI and MCP stdio bridge; a stub today) | |
+| App bundle | `Cogpit.app`, bundle id `io.guided-traffic.cogpit` | `bin/Cogpit.app` # example |
 | Packages | `internal/<area>` | `internal/cache` # example |
-| Command ids | `<kind-or-area>.<action>`, lowerCamelCase segments | `deployment.restart`, `ui.navigate` # example |
-| MCP tool names | the command id with dots replaced by underscores | `deployment_restart`, `ui_navigate` # example |
-| Environment variables | `COGPIT_<NAME>` | |
-| Release artifacts | `Cogpit-<version>-macos-universal.dmg` (disk image with the app bundle `Cogpit.app`), `cogpit-cli-<version>-<os>-<arch>.tar.gz` | `Cogpit-0.1.0-macos-universal.dmg` # example |
-| MCP bearer token | a file in the app's runtime directory, owner-only | |
-| Pasted kubeconfigs | `<app data dir>/kubeconfigs/<id>.yaml`, owner-only | |
-| Terminal kubeconfig | a temporary file per terminal holding only a context, deleted on close ([why](docs/security/credentials.md#the-terminals-kubeconfig)) | |
-| Deep links | `cogpit://` | |
+| Command ids | `<kind-or-area>.<action>`, lowerCamelCase segments | `deployment.restart`, `ui.navigate` |
+| MCP tool names | the command id with dots replaced by underscores | `deployment_restart`, `ui_navigate` |
+| Kind keys (views, `kind` parameters) | the plural resource name | `pods`, `services` |
+| Environment variables | `COGPIT_<NAME>`; today only the test variables `COGPIT_KIND_KUBECONFIG`, `COGPIT_KIND_CONTEXT` and `COGPIT_PNG_DIR` | |
+| MCP endpoint | `http://127.0.0.1:<random port>/mcp`, new port on every start | `http://127.0.0.1:59449/mcp` # example |
+| MCP bearer token | `<user config dir>/Cogpit/mcp-token`, owner-only (0600, directory 0700), new on every start, removed on exit | |
+| Audit log | `<user config dir>/Cogpit/audit.log`, owner-only, one JSON line per agent-initiated command | |
+| App log | `<user cache dir>/Cogpit/cogpit.log`, and stderr | |
+| Terminal kubeconfig | a temporary file per terminal holding only a context, owner-only, deleted on close ([why](docs/security/credentials.md#the-terminals-kubeconfig)) | |
+| Demo context | `demo` (the synthetic cluster) | |
+| Local kind cluster | cluster `cogpit`, context `kind-cogpit`, kubeconfig `.cache/kind/kubeconfig` | |
+| Release artifacts (planned) | `Cogpit-<version>-macos-universal.dmg`, `cogpit-cli-<version>-<os>-<arch>.tar.gz` | `Cogpit-0.1.0-macos-universal.dmg` # example |
+| Pasted kubeconfigs (planned) | `<app data dir>/kubeconfigs/<id>.yaml`, owner-only | |
+| Deep links (planned) | `cogpit://` | |
 
 | Identifier | Meaning | Where |
 |---|---|---|
@@ -90,40 +102,135 @@ Planned; nothing generates these names yet.
 
 ## 🚀 TL;DR fast start
 
-There is nothing to install yet; implementation starts when the owner gives the go-ahead. To follow
-along or contribute:
+### Run the MVP
+
+The MVP is a local build for macOS (tested on Apple silicon, macOS 26). It needs Go (1.26 or
+later; the build fetches Go 1.27.2 itself), the Xcode Command Line Tools (Fyne uses cgo), and for
+the kind cluster Docker, `kind` and `kubectl`.
 
 ```sh
 git clone https://github.com/guided-traffic/Cogpit.git
 cd Cogpit
+
+make run-demo                 # synthetic cluster: 10,000 pods, 1,000 watch events per second
+
+make kind-up                  # a kind cluster "cogpit" with its own kubeconfig (.cache/kind/kubeconfig)
+make run                      # Cogpit connected to it; make kind-down removes it
+
+make build && bin/cogpit      # your own clusters: picks contexts from $KUBECONFIG or ~/.kube/config
+make app                      # bin/Cogpit.app (ad-hoc signed), starts by double-click
 ```
 
-Then read [ROADMAP.md](ROADMAP.md) for where things stand and [AGENTS.md](AGENTS.md) for how to
-work here; the current focus is at the top of [docs/parity/roadmap.md](docs/parity/roadmap.md#current-focus).
+`make kind-up` seeds the namespace `cogpit-demo` ([hack/kind](hack/kind/README.md)): deployments
+`web` and `api`, a crash-looping pod, a completed job, a `toolbox` pod with a shell, and the Service
+`web` with the ClusterIP `10.96.100.100`. Nothing touches `~/.kube/config`.
+
+**Drive it with an agent.** At start, Cogpit prints a ready-to-paste command:
+
+```sh
+claude mcp remove --scope user cogpit >/dev/null 2>&1; claude mcp add --scope user --transport http cogpit http://127.0.0.1:<port>/mcp --header "Authorization: Bearer <token>"
+```
+
+Run it, then ask Claude Code "show me the Service with ClusterIP 10.96.100.100": Cogpit opens
+Services, selects `web` and opens its drawer. Port and token change on every start, so repeat the
+command after a restart. Agents may read and navigate freely; Restart, Delete and the pod shell
+wait for your confirmation in Cogpit's window ([agents and MCP](docs/security/agents-and-mcp.md)).
+
+**Verify.** `make test-unit-race` runs every test without a cluster; with the kind cluster up,
+`make test-kind` also runs the cluster tests (views, logs, pod shell, `kubectl` in the terminal).
+
+**Not in the MVP:** editing and applying YAML, scale, port forwarding, Helm, metrics, attach and
+node shells, the command palette, preferences, Windows and Linux, signed releases.
+
+<details>
+<summary>Clean up</summary>
+
+```sh
+make kind-down     # deletes the kind cluster and its kubeconfig file
+make clean         # removes bin/ and dist/
+rm -rf ~/Library/Caches/Cogpit "~/Library/Application Support/Cogpit"   # logs, audit log, token
+```
+
+</details>
 
 ## 📖 Full reference
 
-No public interface exists yet. Each planned interface is specified where it will be built, and
-this section will introduce them once they exist:
+### `cogpit` flags
 
-| Interface | Specified in |
+| Flag | Default | Meaning |
+|---|---|---|
+| `--kubeconfig <files>` | empty: `$KUBECONFIG`, else `~/.kube/config` # default | kubeconfig files, separated by `:` |
+| `--context <name>` | empty: show the context picker # default | connect to this context at start |
+| `--demo` | `false` # default | connect to the synthetic demo cluster |
+| `--demo-pods <n>` | `10000` # default | pods in the demo cluster |
+| `--demo-events <n>` | `1000` # default | watch events per second in the demo cluster |
+| `--mcp-addr <addr>` | `127.0.0.1:0` # default | MCP listen address; anything but a loopback address is refused |
+| `--no-mcp` | `false` # default | do not start the MCP server |
+| `--perf <duration>` | `0` # default | measure main-loop latency while auto-scrolling the table, print it as JSON and quit |
+| `--theme <mode>` | `dark` # default | `dark`, `light` or `system` |
+| `-v` | `false` # default | debug logging |
+
+Security note on `--mcp-addr`: the server checks `Host`, `Origin` and the bearer token, and binds
+loopback addresses only, because any reachable listener would let others drive Cogpit with your
+cluster identities.
+
+### Commands and MCP tools
+
+Every command is an MCP tool (dots become underscores). `?` marks optional parameters; `ref` is
+`{context?, kind, namespace?, name}`. Danger decides confirmation: `destructive` always asks in
+Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never ask
+([D-2](docs/developer/decisions.md#d-2-agent-interface-scope)).
+
+<details>
+<summary>All 21 commands</summary>
+
+| Command | MCP tool | Danger | Parameters | What it does |
+|---|---|---|---|---|
+| `cluster.connect` | `cluster_connect` | ui | `context` | Connects to a kubeconfig context (or the demo cluster) and opens its Pods view, replacing the current connection |
+| `cluster.contexts` | `cluster_contexts` | read |  | Lists the kubeconfig contexts Cogpit can connect to (name, cluster, user, default namespace, server, whether it is the kubeconfig's current context) and the synthetic demo cluster if offered |
+| `deployment.restart` | `deployment_restart` | destructive | `ref` | Restarts a Deployment the way kubectl rollout restart does: it sets the pod template's restartedAt annotation and the controller replaces every pod |
+| `dock.activate` | `dock_activate` | ui | `id` | Shows a dock tab |
+| `dock.close` | `dock_close` | ui | `id` | Closes a dock tab and ends its stream or shell |
+| `kinds.list` | `kinds_list` | read |  | Lists the kinds the connected cluster serves, as Cogpit shows them: kind key (what other tools take as kind), title, Kubernetes kind, group, version, whether it is namespaced, its table columns, and the fields resources_find can search by. |
+| `object.delete` | `object_delete` | destructive | `ref` | Deletes an object with its default grace period; its controller, if any, may replace it |
+| `object.get` | `object_get` | read | `noYaml`?, `ref` | Returns what the detail drawer shows for one object, from Cogpit's cache: title, status, the metadata and kind-specific sections, its events (newest first, at most 50), its container names for pods, and its YAML (managed fields dropped, Secret values redacted) unless noYaml |
+| `pod.logs` | `pod_logs` | read | `container`?, `ref` | Opens a dock tab that follows a container's log (the last 1,000 lines, then new ones), or activates the tab already open for that pod and container |
+| `pod.shell` | `pod_shell` | mutating | `container`?, `ref` | Opens a dock tab with an interactive shell in a container (bash, else ash, else sh) |
+| `resources.find` | `resources_find` | read | `field`, `kind`?, `limit`?, `match`?, `value` | Finds objects by a field value in Cogpit's cache |
+| `resources.list` | `resources_list` | read | `filter`?, `kind`, `limit`?, `namespaces`? | Lists objects of one kind from Cogpit's cache, as table rows: reference, status and the cells by column title |
+| `terminal.open` | `terminal_open` | ui |  | Opens a dock tab with a local shell whose kubectl is bound to the connected context and to the namespace filter if it names exactly one namespace |
+| `ui.closeDrawer` | `ui_closeDrawer` | ui |  | Closes the detail drawer |
+| `ui.navigate` | `ui_navigate` | ui | `ref` | Shows one object to the user: opens its kind's view, makes sure the namespace filter and the search text do not hide it (resetting them if they do), selects it and opens its detail drawer |
+| `ui.openView` | `ui_openView` | ui | `view` | Opens the list view of a kind (pods, services, ...), as clicking it in the sidebar does |
+| `ui.select` | `ui_select` | ui | `noDrawer`?, `refs`? | Selects objects of the open view and, unless noDrawer is true, opens the detail drawer on the first one |
+| `ui.setFilter` | `ui_setFilter` | ui | `filter`? | Sets the search text of the open view: a row is shown when every whitespace-separated term occurs, case-insensitively, in one of its cells |
+| `ui.setNamespace` | `ui_setNamespace` | ui | `namespaces`? | Sets the namespace filter of the namespaced views; an empty list shows all namespaces |
+| `ui.sort` | `ui_sort` | ui | `column`, `desc`? | Sorts the open view by a column id (name, namespace, age, …) |
+| `ui.state` | `ui_state` | read |  | Returns what the user sees: the connected context and its connection state, the open view (kind key), the namespace filter, the search text, the sort order, the selected objects, the object in the detail drawer, the dock tabs, and how many rows the view shows of how many objects |
+</details>
+
+### Make targets
+
+| Target | What it does |
 |---|---|
-| Commands (ids, parameters, verbs, confirmation) | [architecture §4.2](docs/developer/architecture.md#42-the-command-registry), ids in [resource-parity](docs/parity/resource-parity.md) |
-| MCP tools and transport | [beyond Lens › MCP](docs/parity/beyond-lens.md#mcp-control-of-ui-and-cluster), [decision D-2](docs/developer/decisions.md#d-2-agent-interface-scope) |
-| Built-in agent and LLM endpoint settings | [decision D-10](docs/developer/decisions.md#d-10-built-in-agent) |
-| Preferences and cluster settings | [ui-parity › Preferences](docs/parity/ui-parity.md#preferences), [› Cluster settings](docs/parity/ui-parity.md#cluster-settings) |
-| Kubeconfig handling and credentials | [security › credentials](docs/security/credentials.md) |
+| `make build` | `bin/cogpit` (cgo, Fyne) and `bin/cogpit-cli` (pure Go) |
+| `make run`, `make run-demo` | run against the kind cluster, or the demo cluster |
+| `make test-unit-race`, `make test` | every test without a cluster, race detector on |
+| `make test-kind` | cluster tests against the kind cluster (build tag `kind`) |
+| `make bench` | the gate benchmarks (S1, S2) |
+| `make lint`, `make fmt` | golangci-lint v2.14.0 (installed into `bin/`) with the team's linters and the `depguard` layering |
+| `make kind-up`, `make kind-seed`, `make kind-down` | the local kind cluster and its seed |
+| `make app` | `bin/Cogpit.app` via `fyne package` |
 
 ## 🛠 Development
 
-Once milestone M0 creates the code, through the `Makefile` as in the team's other Go repositories:
+Through the `Makefile`, as in the team's other Go repositories:
 
 ```sh
 make build
-make run
 make lint
 make test-unit-race
-make test
+make test-kind      # needs make kind-up
 ```
 
 Everything else: [docs/developer/](docs/developer/README.md).

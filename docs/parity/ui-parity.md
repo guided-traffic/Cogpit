@@ -1,6 +1,6 @@
 # UI parity: layout, navigation, tables, dock and feel
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (sources narrowed to Lens Desktop: Freelens rows and details removed per D-12; Ask AI rows superseded by the built-in agent) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (the MVP: 24 rows partial) · **Target:** Lens Desktop 2026.10.51501
 
 How Cogpit's interface compares with Lens Desktop 2026.10.51501: the window layout, clusters and
 hotbar, the cluster sidebar, list tables, the detail drawer, the bottom dock with its editor, log
@@ -21,10 +21,12 @@ cluster pages ([cluster settings](https://docs.lenshq.io/k8slens/cluster/cluster
 an activated Lens Desktop ([D-12](../developer/decisions.md#d-12-parity-sources)).
 
 **Plan column:** *free* (Lens Desktop's Personal plan) or *paid* (Plus, Pro or Enterprise).
-Modifier names are macOS first (⌘ ⌥ ⇧ ⌃); Windows and Linux use Ctrl and Alt. **Status:** every
-row is **missing**; no code exists.
+Modifier names are macOS first (⌘ ⌥ ⇧ ⌃); Windows and Linux use Ctrl and Alt. **Status:** as
+marked per row; rows without evidence are missing.
 
-**Summary (measured, 2026-10-11):** 0 of 124 rows; 6 more rows are not a target. ~0% ready.
+**Summary (measured, 2026-10-11):** 24 of 124 rows exist, all **partial** and all free-plan rows
+(24 of 111); 6 more rows are not a target. No row is done: none has been compared with a running
+Lens Desktop.
 Remaining (estimated): see gaps [G5](gaps.md#g5-app-shell-navigation-tables-and-drawer) (layout,
 sidebar, tables, drawer, dock), [G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)
 (clusters, hotbar, palette, menus, shortcuts, preferences, cluster settings),
@@ -39,23 +41,23 @@ hotbar, navigator, tab bar, workspace, dock, status bar.
 |---|---|---|---|
 | Title bar with history back and forward, notifications and a context menu with Preferences | free | missing | – |
 | Hotbar down the left edge ([Hotbar](#hotbar)) | paid | missing | – |
-| Navigator with the cluster's resource tree ([Cluster sidebar](#cluster-sidebar)) | free | missing | – |
+| Navigator with the cluster's resource tree ([Cluster sidebar](#cluster-sidebar)) | free | partial | [`sidebar.go`](../../internal/ui/fyneui/sidebar.go) |
 | Tab bar of cluster views: single click opens a preview tab, double-click (or ⇧↵) a fixed tab | free | missing | – |
-| Workspace showing the active view | free | missing | – |
-| Detail drawer on the right ([Detail drawer](#detail-drawer)) | free | missing | – |
-| Dock along the bottom ([Dock](#dock)) | free | missing | – |
-| Status bar | free | missing | – |
+| Workspace showing the active view | free | partial | [`tableview.go`](../../internal/ui/fyneui/tableview.go); [PNG](../../internal/ui/fyneui/testdata/demo_pods.png) |
+| Detail drawer on the right ([Detail drawer](#detail-drawer)) | free | partial | [`drawer.go`](../../internal/ui/fyneui/drawer.go) |
+| Dock along the bottom ([Dock](#dock)) | free | partial | [`dock.go`](../../internal/ui/fyneui/dock.go) |
+| Status bar | free | partial | [`bars.go`](../../internal/ui/fyneui/bars.go): context, API requests, informers, snapshots, demo events/s |
 | Welcome page (Help › Welcome) | free | missing | – |
 
 ## Clusters
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Kubeconfig files in `~/.kube/` (`%USERPROFILE%\.kube` on Windows) are found without setup | free | missing | – |
+| Kubeconfig files in `~/.kube/` (`%USERPROFILE%\.kube` on Windows) are found without setup | free | partial: `$KUBECONFIG` or `~/.kube/config` only | `$KUBECONFIG` or `~/.kube/config` only (client-go's loading rules), not every file in `~/.kube/` |
 | Kubeconfig Syncs: add files and folders to watch | free | missing | – |
 | Add clusters by pasting a kubeconfig; Lens stores the text itself, not in `~/.kube/config` | free | missing | – |
 | Navigator sections: Kubernetes Clusters (Local Kubeconfigs and the cloud sections), Teamwork, Extensions | free | missing | – |
-| Search clusters by name (⌘P) | free | missing | – |
+| Search clusters by name (⌘P) | free | partial: filter in the context picker, no ⌘P | the context picker's filter field, [`picker.go`](../../internal/ui/fyneui/picker.go); no ⌘P |
 | Cluster menu: connect, disconnect, settings, add to hotbar, remove (labels: capture needed) | free | missing | – |
 | Cluster identity: upload an icon (.jpeg, .png, .svg) or pick a colour | free | missing | – |
 | Drill into a section or cluster with its chevron to filter the tabs to that scope | free | missing | – |
@@ -97,9 +99,9 @@ Paid sections       Flux CD, Argo CD, Cost Monitoring, Security Center
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| The tree above | free | missing | – |
-| A group or item appears only when the cluster serves its kinds (Admission Policies, Gateway API, Device Resources) | free | missing | – |
-| Groups expand and collapse | free | missing | – |
+| The tree above | free | partial: six kinds | six kinds: Nodes; Workloads › Pods, Deployments; Network › Services; Namespaces; Events ([`sidebar.go`](../../internal/ui/fyneui/sidebar.go)) |
+| A group or item appears only when the cluster serves its kinds (Admission Policies, Gateway API, Device Resources) | free | partial | [`connector.go`](../../internal/engine/connector.go) filters profiles by discovery |
+| Groups expand and collapse | free | partial | [`sidebar.go`](../../internal/ui/fyneui/sidebar.go) |
 
 ## Tables
 
@@ -107,19 +109,19 @@ Every list view is one table ([resource views](resource-parity.md)).
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Sort by a column header, ascending and descending arrows, empty values last | free | missing | – |
-| Resize columns by dragging | free | missing | – |
+| Sort by a column header, ascending and descending arrows, empty values last | free | partial | `TestHeaderTapDispatchesSort`; engine `SortRows` with empty text and age cells last |
+| Resize columns by dragging | free | partial | `TestColumnResizeByDraggingHeaderSeparator`; widths kept in memory only |
 | Double-click a column separator to fit its content | free | missing | – |
 | Reorder columns by dragging | free | missing | – |
 | Show and hide columns | free | missing | – |
-| Search field per view | free | missing | – |
-| Namespace filter: multi-select, default "All namespaces", Space toggles without closing | free | missing | – |
+| Search field per view | free | partial | `TestSearchIsDebounced`; terms matched in any cell |
+| Namespace filter: multi-select, default "All namespaces", Space toggles without closing | free | partial | multi-select popup, default all ([`tableview.go`](../../internal/ui/fyneui/tableview.go)); Space not verified |
 | Actions menu per row | free | missing | – |
 | Right-click on a row opens the actions menu (since 2025.10.230725) | free | missing | – |
 | Keyboard: ↑↓ rows, Tab columns, ↵ or Space opens the details | free | missing | – |
 | Export the table as CSV | free | missing | – |
 | Row line height (preference) | free | missing | – |
-| Status colours per state (palette: capture needed) | free | missing | – |
+| Status colours per state (palette: capture needed) | free | partial | status tokens mapped by `StatusColor` ([`theme.go`](../../internal/ui/fyneui/theme.go)); Cogpit's own palette |
 
 ## Detail drawer
 
@@ -127,15 +129,15 @@ Every list view is one table ([resource views](resource-parity.md)).
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Opens from the right when a row is selected | free | missing | – |
-| Actions at the top: Copy, Edit, Delete and the kind's own actions | free | missing | – |
+| Opens from the right when a row is selected | free | partial | `TestRowTapDispatchesSelect`; `ui.select` opens the drawer |
+| Actions at the top: Copy, Edit, Delete and the kind's own actions | free | partial: Delete and kind actions | Delete and the kind's actions (Logs, Shell, Restart), disabled with the reason; no Copy, no Edit |
 
 ## Dock
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Bottom dock with tabs: Terminal session, Create resource, Edit, logs, Helm Install, Helm Upgrade | free | missing | – |
-| "New tab" menu: Terminal session, Create resource | free | missing | – |
+| Bottom dock with tabs: Terminal session, Create resource, Edit, logs, Helm Install, Helm Upgrade | free | partial: terminal, shell, logs | `TestDockOpensAndClosesStreams`; terminal, shell and logs tabs only |
+| "New tab" menu: Terminal session, Create resource | free | partial: Terminal session | Terminal session only |
 | Tab icons take the cluster's colour | free | missing | – |
 
 ## Editor and create resource
@@ -156,7 +158,7 @@ Every list view is one table ([resource views](resource-parity.md)).
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
 | Pod and container selectors | free | missing | – |
-| Follow; jump to the latest line | free | missing | – |
+| Follow; jump to the latest line | free | partial | [`termview/logs.go`](../../internal/ui/fyneui/termview/logs.go), follow toggle tested |
 | Show timestamps | free | missing | – |
 | Word wrap | free | missing | – |
 | Show the previous terminated container | free | missing | – |
@@ -170,10 +172,10 @@ Every list view is one table ([resource views](resource-parity.md)).
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Terminal session for a cluster, with the working directory and default namespace from cluster settings | free | missing | – |
-| Pod shell, attach and node shell open as dock tabs | free | missing | – |
+| Terminal session for a cluster, with the working directory and default namespace from cluster settings | free | partial: context and namespace, no cluster settings | `TestStartLocalBindsKubectlToContextAndNamespace`, `TestKindEngineWorkflows`; namespace from the filter, no cluster settings |
+| Pod shell, attach and node shell open as dock tabs | free | partial: pod shell only | `TestKindPodExec`, `TestKindEngineWorkflows`; no attach, no node shell |
 | Copy and paste with the right mouse button (preference) | free | missing | – |
-| Copy and paste keys: ⌘C / ⌘V; Windows and Linux ⌃C, ⌃⇧C or ⌃Ins, and ⌃V, ⌃⇧V or ⇧Ins | free | missing | – |
+| Copy and paste keys: ⌘C / ⌘V; Windows and Linux ⌃C, ⌃⇧C or ⌃Ins, and ⌃V, ⌃⇧V or ⇧Ins | free | partial: macOS keys | fyne-io/terminal: ⌘C/⌘V on macOS (offscreen test, synthetic events); Ctrl+Shift+C/V on Linux and Windows |
 | Theme, font size and font family (preferences) | free | missing | – |
 | Shell path and shell arguments (2026.10: one argument per line) | free | missing | – |
 
@@ -286,7 +288,7 @@ the table is taken as correct until a capture decides.
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Dark and light themes following the system | free | missing | – |
+| Dark and light themes following the system | free | partial: command-line flag | `--theme dark|light|system`; no preference UI |
 | Zoom in, out and reset; full screen (capture needed) | free | missing | – |
 | Several windows (Window menu) | free | missing | – |
 | Deep links open the right view (Lens: `lens://`; Cogpit: `cogpit://`) | free | missing | – |
@@ -298,5 +300,6 @@ the table is taken as correct until a capture decides.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | The MVP: layout, sidebar, table, drawer, dock, follow, terminal and shell rows partial (24) |
 | 2026-10-11 | major | Sources narrowed to Lens Desktop (D-12): Freelens rows and details removed, sidebar tree in documentation order; Scope column replaced by Plan; Ask AI superseded by the built-in agent |
 | 2026-10-11 | major | First version, from Lens Desktop's documentation and release notes to 2026.10.51501 and Freelens 1.10.3 source |

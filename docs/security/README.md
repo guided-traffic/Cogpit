@@ -13,10 +13,11 @@ document nobody finishes is a document nobody checks. The file names are the ind
 
 ## State of this documentation
 
-No code exists yet (2026-10-11). These pages therefore describe the boundaries that exist in the
-problem itself (kubeconfig, the Kubernetes API, credential plugins, terminals, agents, updates) and
-the check each boundary needs. They name planned packages, not code. When a mechanism lands, its
-row gains a link to the code and the test that proves it, in the same change.
+These pages describe the boundaries that exist in the problem itself (kubeconfig, the Kubernetes
+API, credential plugins, terminals, agents, updates) and the check each boundary needs. Since the
+MVP (2026-10-11) the mechanisms it implements link to their code and tests; the rest names planned
+packages. When a mechanism lands, its row gains a link to the code and the test that proves it, in
+the same change.
 
 ## Form of every page
 
@@ -34,6 +35,9 @@ Reporting a vulnerability: [`SECURITY.md`](../../SECURITY.md).
 
 - **Isolation between clusters:** Cogpit is a single-user desktop app with no server side; the
   isolation that matters is between the clusters open in one process. An action, an editor apply,
-  a terminal or an agent's tool call must reach only the cluster whose view started it. No page
-  covers this yet; it is written together with the engine's command dispatch
+  a terminal or an agent's tool call must reach only the cluster whose view started it. The MVP has
+  one connection at a time; a write confirmed for one context refuses to run after the user
+  switched to another (`CheckConfirmedContext` in [`confirm.go`](../../internal/engine/confirm.go)),
+  and each terminal is bound to its context by its own kubeconfig. No page covers this yet; it is
+  due when several clusters can be open at once
   ([G4](../parity/gaps.md#g4-engine-and-command-registry)).

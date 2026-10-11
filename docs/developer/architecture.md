@@ -1,13 +1,30 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (design plan v2: Go instead of Rust, cache-first data flow, MCP control of UI and cluster, built-in agent, updates, crash-safe operations) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (current state of the local MVP) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-11)
 
-Nothing on this page is built; the repository holds documentation only. Implementation starts
-with milestone M0 when the owner gives the go-ahead. Before M2, a spike tests the UI toolkit
-([spike plan](spike-fyne.md)). When code lands and differs from this plan, a "Current state"
-summary at the top of this page wins over the plan.
+The local MVP is built: a macOS desktop app that connects to a kubeconfig context or a synthetic
+demo cluster, shows six views from a watch-fed cache, has a detail drawer, a dock with logs, a
+local terminal and a pod shell, and an MCP server that lets agents drive the UI. It doubles as the
+Fyne spike ([results](spike-fyne.md#results)). Where the code differs from the plan below, this
+section wins.
+
+| Package | State | Differs from the plan |
+|---|---|---|
+| [`internal/model`](../../internal/model/), [`model/kinds`](../../internal/model/kinds/) | Built: refs, rows, status tokens, panic-free accessors, Secret redaction; profiles for Nodes, Pods, Deployments, Services, Namespaces and Events with golden and fuzz tests | No generic profile for custom resources yet; no CPU and memory columns |
+| [`internal/kubeconfig`](../../internal/kubeconfig/) | Built: contexts from bytes, error text without credentials, the per-terminal kubeconfig | – |
+| [`internal/cluster`](../../internal/cluster/) | Built: connections through client-go's loading rules, the counting transport, discovery, log streams, restart and delete | Discovery is cached in memory for 10 minutes, not on disk; one rate limiter per cluster (QPS 5, burst 10) shared by every client, discovery with its own budget (50/300); no access reviews; implicit kubeconfig writes are switched off (the legacy `.kubeconfig` migration and the oidc persister, which keeps refreshed tokens in memory) |
+| [`internal/cache`](../../internal/cache/) | Built: one shared informer per scope, handles, warm period, `managedFields` transform, no resync, streaming initial lists where the server supports them, error state, stats | Views watch all namespaces and filter client-side; no metadata-only informers; no polling sources yet |
+| [`internal/terminal`](../../internal/terminal/) | Built: local shell on Cogpit's own PTY with the per-terminal kubeconfig; pod shell over exec (WebSocket, SPDY fallback) | No attach, no node shell; Windows has no local shell yet |
+| [`internal/demo`](../../internal/demo/) (L2, new) | Built: the synthetic cluster for `--demo` behind a `cache.Source`: 10,000 pods, 300 services, 1,000 watch events per second, watch resume and 410 Gone | A package the plan did not list |
+| [`internal/engine`](../../internal/engine/), [`engine/commands`](../../internal/engine/commands/) | Built: Session, registry with JSON schemas, D-2 confirmation per origin, audit log, UI state, coalesced snapshots (≤ 10 per second per view), drawer, streams, 21 commands | No jobs or cancellation UI, no access reviews; a write command refuses to run if the user switched clusters while its confirmation was open |
+| [`internal/mcp`](../../internal/mcp/) | Built: every command as a tool, Streamable HTTP on loopback, bearer token, Host and Origin checks | Stateless HTTP (one session per request); the token lives in `<user config dir>/Cogpit/mcp-token` and changes with the port on every start; no stdio bridge |
+| [`internal/ui/fyneui`](../../internal/ui/fyneui/) and its [`yamlview`](../../internal/ui/fyneui/yamlview/) and [`termview`](../../internal/ui/fyneui/termview/) | Built: shell after Lens's layout, theme with status tokens, context picker, confirmation dialog, read-only YAML view, terminal and log widgets, a jank meter (`--perf`) | The YAML view is not wired for editing yet; the terminal widget is a patched copy of fyne-io/terminal ([`third_party/fyne-terminal`](../../third_party/fyne-terminal/PATCHES.md)) behind an escape filter, because the pinned upstream froze or crashed on container output |
+| [`cmd/cogpit`](../../cmd/cogpit/) | Built: wires the packages; flags `--kubeconfig`, `--context`, `--demo`, `--mcp-addr`, `--no-mcp`, `--perf`, `--theme` | client-go goroutine panics are logged instead of ending the app |
+| `cmd/cogpit-cli`, `internal/helm`, `internal/metrics`, `internal/agent`, `internal/update` | Not built (`cogpit-cli` is a stub) | – |
+
+Layering is enforced by `depguard` in `make lint`, as planned in §3, with the demo package in L2.
 
 ---
 
@@ -395,5 +412,6 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | major | Current state: the local MVP and where it differs from the plan |
 | 2026-10-11 | major | Design plan v2: Go; cache-first data flow (§5); UI state in the engine; MCP and the built-in agent (§7); Helm in-process with crash-safe actions; terminal via own PTY; updates |
 | 2026-10-11 | major | Design plan v1 (Rust), adapted from PhotoCraft's architecture |

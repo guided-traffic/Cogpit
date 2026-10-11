@@ -5,9 +5,9 @@ this page.
 
 ## What has to be in your head first
 
-1. **Nothing is built yet.** As of 2026-10-11 the repository holds documentation only.
-   Implementation starts with milestone M0 when the owner gives the go-ahead
-   ([roadmap](../parity/roadmap.md#milestones)).
+1. **A local MVP is built** (2026-10-11): six views from the cache, drawer, logs, terminal, pod
+   shell, MCP control; it doubled as the [Fyne spike](spike-fyne.md#results). What exists and
+   where it differs from the plan: [architecture › Current state](architecture.md#current-state-2026-10-11).
 2. **Go, Fyne behind a gate.** The engine is Go on client-go, the kubectl libraries and the Helm
    SDK. The UI is Fyne if the [spike](spike-fyne.md) before M2 passes, a Rust/egui process if it
    fails ([decisions](decisions.md)).
@@ -34,26 +34,28 @@ this page.
 Where Cogpit stands against Lens: [`../parity/`](../parity/README.md). Security architecture:
 [`../security/`](../security/README.md).
 
-## Planned repository layout
+## Repository layout
 
 ```text
 cogpit/
 ├─ AGENTS.md, CLAUDE.md, ATTRIBUTION.md, README.md, ROADMAP.md, SECURITY.md, LICENSE
 ├─ go.mod                     module github.com/guided-traffic/cogpit
-├─ Makefile                   build, test, test-unit-race, lint, parity, scorecard, package
+├─ Makefile                   build, run, run-demo, test, test-unit-race, test-kind, bench, lint, kind-up, kind-down, app
 ├─ .golangci.yml              linters and the depguard layering rules
 ├─ cmd/cogpit/                desktop app (Fyne, cgo)
 ├─ cmd/cogpit-cli/            headless CLI and MCP stdio bridge (pure Go)
 ├─ internal/                  packages, layered L0–L4 (architecture.md §2–§3)
-├─ tools/                     generators for the parity checklist and the scorecard
-├─ packaging/                 per-OS packaging scripts and manifests
+├─ hack/kind/                 kind cluster config and seed manifests (make kind-up)
+├─ hack/icon/                 generator of the app icon
+├─ packaging/                 icon.png; per-OS packaging later
+├─ tools/                     (planned) generators for the parity checklist and the scorecard
 └─ docs/
    ├─ developer/              this directory
    ├─ parity/                 progress against Lens
    └─ security/               security architecture, one page per perspective
 ```
 
-## Planned packages
+## Packages
 
 | Package | Layer | Responsibility |
 |---|---|---|
@@ -62,14 +64,15 @@ cogpit/
 | `internal/cluster` | L1 | Connections: client-go config, auth, cached discovery, access reviews |
 | `internal/cache` | L1 | Shared informers, reference counting, warm period, transforms, request counters |
 | `internal/terminal` | L1 | PTY sessions: local shell with its own kubeconfig, pod exec and attach |
-| `internal/helm` | L2 | Helm SDK, crash-safe release actions |
-| `internal/metrics` | L2 | Metrics providers, polling while visible |
-| `internal/engine` | L3 | Session, command registry, UI state, jobs, events, confirmation, audit log |
+| `internal/helm` | L2 | Helm SDK, crash-safe release actions (not built) |
+| `internal/metrics` | L2 | Metrics providers, polling while visible (not built) |
+| `internal/demo` | L2 | The synthetic demo cluster behind a `cache.Source` |
+| `internal/engine`, `internal/engine/commands` | L3 | Session, command registry, UI state, snapshots, drawer, streams, confirmation, audit log; the commands one file per area |
 | `internal/mcp` | L4 | MCP server over the registry |
-| `internal/agent` | L4 | Built-in agent with an OpenAI-compatible endpoint |
-| `internal/update` | L4 | Update check, verification and install |
-| `internal/ui/fyneui` | L4 | The Fyne shell |
-| `internal/testkit` | – | Fixtures, fake clients, kind and envtest helpers |
+| `internal/agent` | L4 | Built-in agent with an OpenAI-compatible endpoint (not built) |
+| `internal/update` | L4 | Update check, verification and install (not built) |
+| `internal/ui/fyneui` | L4 | The Fyne shell; `yamlview` the YAML viewer and editor, `termview` the terminal and log widgets |
+| `internal/testkit` | – | In-memory source, fake API server, object builders; `integration/` holds cross-package and kind tests |
 
 ## Core flows, one fact each
 
@@ -85,14 +88,15 @@ cogpit/
 
 ## Build, test, lint
 
-Nothing builds yet. Once M0 lands, through the `Makefile` as in the team's other repositories:
+Through the `Makefile`, as in the team's other repositories (`make help` lists every target):
 
 | Task | Command |
 |---|---|
 | Build | `make build` |
-| Run the app | `make run` |
+| Run the app | `make run` (kind cluster), `make run-demo` (demo cluster), `bin/cogpit` (your kubeconfig) |
 | Unit tests with the race detector | `make test-unit-race` |
-| All test tiers you touched | `make test` |
-| Lint, layering included | `make lint` |
-| Regenerate parity checklist and scorecard | `make parity`, `make scorecard` |
-| Package for this platform | `make package` |
+| Cluster tests | `make kind-up && make test-kind` |
+| Benchmarks of the gate | `make bench` |
+| Lint, layering included | `make lint` (golangci-lint v2.14.0, installed into `bin/`) |
+| Package for macOS | `make app` |
+| Regenerate parity checklist and scorecard | not built yet (gap G1) |

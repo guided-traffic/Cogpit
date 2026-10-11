@@ -1,7 +1,10 @@
 # Extending Cogpit
 
-Ordered checklists for the common additions. The packages they name are the planned layout in
-[`architecture.md`](architecture.md#2-repository-layout-planned); none exists yet (2026-10-11).
+Ordered checklists for the common additions. The packages they name are in
+[`architecture.md`](architecture.md#2-repository-layout-planned); which of them exist is in its
+[Current state](architecture.md#current-state-2026-10-11). Worked examples: the commands in
+[`internal/engine/commands`](../../internal/engine/commands/) and the kind profiles in
+[`internal/model/kinds`](../../internal/model/kinds/).
 
 ## Adding a command
 

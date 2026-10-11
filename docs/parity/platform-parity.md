@@ -1,6 +1,6 @@
 # Platform parity: systems, packages, authentication and tools
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (Freelens column removed per D-12; Go and client-go facts; Helm in-process; one-click updates for every format) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (the MVP: five rows partial) · **Target:** Lens Desktop 2026.10.51501
 
 Where and how Cogpit runs compared with Lens Desktop 2026.10.51501: operating systems and
 architectures, packages and updates, how it authenticates to clusters, which Kubernetes versions
@@ -12,8 +12,9 @@ it handles, and the external tools it depends on. Method: [`README.md`](README.m
 (`latest.yml`, `latest-mac.yml`, `latest-linux.yml` on `downloads.k8slens.dev`) and the
 2026.10.51501 release notes. Cogpit's ecosystem facts: [decisions](../developer/decisions.md).
 
-**Summary (measured, 2026-10-11):** 0 of 38 rows (four more are not targets or have nothing to
-build). ~0% ready. Cogpit ships for macOS first; Windows and Linux follow after the macOS beta
+**Summary (measured, 2026-10-11):** 5 of 38 rows partial, none done (four more are not targets or
+have nothing to build): the macOS app bundle (1 of 13 package rows), client certificates and bearer
+tokens (2 of 13 authentication rows), Kubernetes 1.36 on kind, and `kubectl` from `PATH`. Cogpit ships for macOS first; Windows and Linux follow after the macOS beta
 ([D-7](../developer/decisions.md#d-7-language-and-platforms)). Remaining (estimated): 25–50 h for
 the macOS app, signing and one-click updates ([G14](gaps.md#g14-packaging-signing-and-updates-macos)),
 40–80 h for Windows and Linux ([G22](gaps.md#g22-windows-and-linux)) and 25–50 h for authentication
@@ -24,7 +25,7 @@ material, and real cloud accounts to test credential plugins against.
 
 | Platform | Lens Desktop | Cogpit target | Status |
 |---|---|---|---|
-| macOS | dmg for x64 and arm64, macOS 13 or later | the universal app bundle `Cogpit.app` (arm64 + x86_64) in a signed, notarized disk image to drag into Applications; macOS 13 or later ([D-4](../developer/decisions.md#d-4-packaging-and-updates)) | missing |
+| macOS | dmg for x64 and arm64, macOS 13 or later | the universal app bundle `Cogpit.app` (arm64 + x86_64) in a signed, notarized disk image to drag into Applications; macOS 13 or later ([D-4](../developer/decisions.md#d-4-packaging-and-updates)) | partial: `make app` builds an ad-hoc signed `Cogpit.app` for arm64 locally; not universal, no disk image, not notarized |
 | Windows | setup exe (architecture not stated); silent install with `/S`, `/allusers`, `/D=`; Windows 10 22H2 or Server 2022 | after the macOS beta: MSI and portable zip for x64 and arm64, code-signed | missing |
 | Linux | AppImage, deb, rpm for x86_64; APT and RPM repositories; Snap | after the macOS beta, Ubuntu first: AppImage, deb, rpm, tar.xz and Flatpak for x86_64 and aarch64 | missing |
 | Homebrew cask (macOS) | mentioned, name not verified | yes, from the same disk image, with `auto_updates true` | missing |
@@ -50,8 +51,8 @@ client-go from the process that holds the credentials, so that requirement does 
 
 | Method | Lens Desktop | Cogpit (client-go 0.37.1) | Status |
 |---|---|---|---|
-| Client certificate and key, inline or as files | yes | yes | missing |
-| Bearer token, inline or token file | yes | yes | missing |
+| Client certificate and key, inline or as files | yes | yes | partial: inline, against kind (`TestKindEngineWorkflows`, `TestKindIdleViewsCostNoLists`); files not tested |
+| Bearer token, inline or token file | yes | yes | partial: inline, against a fake API server over HTTPS (`TestBudgetIdleViewAndWarmReopen`, [`cluster_test.go`](../../internal/cluster/cluster_test.go)); token files not tested |
 | Exec credential plugin (`client.authentication.k8s.io`) | yes; the binary must be on `PATH` or absolute | yes, kubectl's own implementation | missing |
 | Exec plugin: `aws eks get-token` and `aws-iam-authenticator` (EKS) | yes | to verify against a real cluster (human) | missing |
 | Exec plugin: `gke-gcloud-auth-plugin` (GKE) | yes | to verify (human) | missing |
@@ -73,7 +74,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Row | Cogpit target | Status |
 |---|---|---|
-| Every minor version the Kubernetes project supports (1.35, 1.36 and 1.37 on 2026-10-11) | full support, tested against `kind` and envtest in CI; client-go 0.37.1 is the 1.37 release | missing |
+| Every minor version the Kubernetes project supports (1.35, 1.36 and 1.37 on 2026-10-11) | full support, tested against `kind` and envtest in CI; client-go 0.37.1 is the 1.37 release | partial: 1.36.1 on kind, locally (`make test-kind`); no CI |
 | Older clusters | views from discovery; Pod Security Policies shown only before 1.25 | missing |
 | Kinds and fields newer than the client libraries | discovery-driven views; objects handled as unstructured content, so edits keep unknown fields | missing |
 | Device resources (`resource.k8s.io/v1`, 1.34 and later) and Gateway API (CRDs) | shown only when served | missing |
@@ -82,7 +83,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Tool | Lens Desktop | Cogpit | Status |
 |---|---|---|---|
-| `kubectl` for terminals | downloads the version matching the cluster (mirror: Google or Azure; directory and path settings) | `PATH` first; when missing or more than one minor version away, a verified download of the matching version on one click ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries)) | missing |
+| `kubectl` for terminals | downloads the version matching the cluster (mirror: Google or Azure; directory and path settings) | `PATH` first; when missing or more than one minor version away, a verified download of the matching version on one click ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries)) | partial: `PATH` only, with the usual tool directories added for apps started from Finder; no download, no version check |
 | `helm` | bundled binary, Helm 3 ("latest 3.x" per 2026.3.130712) | none needed: the Helm SDK runs in-process | missing |
 
 ## Display, input and language
@@ -99,6 +100,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | The MVP: local macOS app bundle, certificate and token authentication, Kubernetes 1.36 on kind, `kubectl` from `PATH` partial |
 | 2026-10-11 | minor | macOS first (D-7): Windows and Linux rows move after the macOS beta (G22) |
 | 2026-10-11 | major | Freelens column removed (D-12); client-go facts replace kube-rs; Helm in-process; one-click updates and signed update manifests; Fyne display facts |
 | 2026-10-11 | major | First version, from Lens Desktop's install docs, FAQ and update feeds, Freelens 1.10.3, and the 2026-10-11 ecosystem survey |

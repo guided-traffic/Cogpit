@@ -1,9 +1,10 @@
 # Credentials
 
 Where cluster credentials and Cogpit's own secrets come from, where they live while Cogpit runs,
-and where they must never end up. No code exists yet (2026-10-11); each rule below gains a link to
-its code and test when it lands. Cluster authentication is client-go's, the code `kubectl` uses
-([D-6](../developer/decisions.md#d-6-kubernetes-libraries)).
+and where they must never end up. Rules that the MVP (2026-10-11) implements link to their code
+and test; the others are the plan. Cluster authentication is client-go's, the code `kubectl` uses
+([D-6](../developer/decisions.md#d-6-kubernetes-libraries)), loaded in
+[`internal/cluster/cluster.go`](../../internal/cluster/cluster.go).
 
 ## Where credentials come from
 
@@ -25,19 +26,24 @@ Cogpit adds no cluster credential source of its own: no account, no login, no cl
 
 | Secret | Lives in | Rule |
 |---|---|---|
-| MCP bearer token | a file in the app's runtime directory, owner-only | random per start; never logged ([agents and MCP](agents-and-mcp.md)) |
+| MCP bearer token | `<user config dir>/Cogpit/mcp-token` (macOS: `~/Library/Application Support/Cogpit/mcp-token`), file 0600 in a 0700 directory, written atomically, never through a symlink, removed on exit ([`internal/mcp/token.go`](../../internal/mcp/token.go), `TestTokenFileLifecycle`, `TestStartRefusesSymlinks`) | 32 random bytes, new on every start; printed to the terminal that started Cogpit inside the `claude mcp add` command, never logged (`TestTokenNeverLogged`) ([agents and MCP](agents-and-mcp.md)) |
 | LLM API key (built-in agent) | the operating system's keychain (macOS Keychain first) | never written to a file, never logged, sent only to the configured endpoint |
 | Update public key | compiled into the app | not secret; its private counterpart never touches a user's machine ([updates](updates.md)) |
 
 ## Where they live inside Cogpit
 
 - **Kubeconfig files stay where they are.** Cogpit stores the paths the user added, not copies.
+  The MVP switches off client-go's two implicit writes: the migration of a legacy
+  `~/.kube/.kubeconfig` into `~/.kube/config`, and the persister that writes refreshed `oidc` tokens
+  back into the file ([`cluster.go`](../../internal/cluster/cluster.go), `memoryPersister`).
 - **Pasted kubeconfigs** ("add cluster from text") are the one exception: they are written to
   `<app data dir>/kubeconfigs/<id>.yaml`, readable by the owner only (mode `0600` on macOS and
   Linux; an owner-only ACL on Windows), and removed when the user removes the cluster.
 - **In memory:** credentials are held by the connection that uses them and dropped when it closes.
-  Credential types implement `slog.LogValuer` and `fmt.Stringer` as `"<redacted>"`, so a stray log
-  statement cannot print them.
+  Rule for Cogpit's own credential types: they implement `slog.LogValuer` and `fmt.Stringer` as
+  `"<redacted>"`, so a stray log statement cannot print them. The MVP has no such type yet: cluster
+  credentials stay inside client-go's `rest.Config`, which Cogpit never logs, and the MCP token is
+  a plain string that only `cmd/cogpit` prints, inside the `claude mcp add` command.
 
 ## The terminal's kubeconfig
 
@@ -54,14 +60,20 @@ KUBECONFIG=<temp file>:<the user's kubeconfig files>
 
 where the temp file holds only a `current-context` and one context entry naming the cluster and
 user entries that the user's own files define, plus the namespace. The temp file contains no
-credential, is owner-only, and is deleted when the terminal closes.
+credential, is owner-only, and is deleted when the terminal closes. Implemented in
+[`internal/kubeconfig/terminal.go`](../../internal/kubeconfig/terminal.go) and
+[`internal/terminal/local.go`](../../internal/terminal/local.go); `TestStartLocalBindsKubectlToContextAndNamespace`
+checks that `kubectl` in the shell sees the context and namespace, that the file is 0600, holds no
+token and is gone after close, and that `kubectl config use-context` in the terminal leaves the
+user's file byte-identical. A shell profile can still override `KUBECONFIG`
+([H-20](#h-20-shell-profiles-can-override-the-terminals-kubeconfig)).
 
 ## Where credentials must never end up
 
 | Place | Rule |
 |---|---|
 | Application log | No tokens, keys, certificates, exec-plugin output or Secret data, at any log level |
-| Error messages and toasts | Same rule; errors name the context, never the credential |
+| Error messages and toasts | Same rule; errors name the context, never the credential. client-go's own errors can echo a kubeconfig's `users` entries; `kubeconfig.SafeError` ([`kubeconfig.go`](../../internal/kubeconfig/kubeconfig.go)) strips them, and connect errors are tested not to contain a known token |
 | Crash reports | Cogpit has no crash upload. A local crash report follows the log rule |
 | Telemetry | Cogpit sends none. Any network call to something other than a cluster, a Helm repository, the configured LLM endpoint or the release channel needs a decision entry in [`decisions.md`](../developer/decisions.md) |
 | The LLM endpoint | Secret values only when the user allows it for that request ([H-13](agents-and-mcp.md#h-13-cluster-data-leaves-for-the-llm-endpoint)) |
@@ -83,8 +95,8 @@ writes them back into the kubeconfig file (client-go 0.37.1,
 `plugin/pkg/client/auth/oidc`). Cogpit supplies the persister, so it decides: write through
 (kubectl-compatible, but writes the user's file) or keep refreshed tokens in memory (no write, but
 `kubectl` in a terminal then refreshes on its own). The rule "no implicit kubeconfig writes" in
-[conventions](../developer/conventions.md#never-surprise-a-cluster) argues for memory only; it is
-not decided.
+[conventions](../developer/conventions.md#never-surprise-a-cluster) argues for memory only, and
+the MVP's code keeps them in memory; the owner has not decided, so the behaviour may change.
 
 ### H-5: Kubeconfig files are plaintext
 
@@ -98,6 +110,16 @@ An exec plugin runs with Cogpit's environment plus the variables the kubeconfig 
 app started from the dock or start menu does not see `PATH` entries and variables set in shell
 profiles, so plugins that rely on them (cloud CLIs reading `AWS_PROFILE` and similar) can fail.
 Lens's technical FAQ tells users that exec-plugin binaries must be on `PATH` or named with an
-absolute path ([Lens technical FAQ](https://docs.lenshq.io/faq/technical-faq/)). Whether Cogpit
-reads the login shell's environment, and which variables it then passes to plugins, is not
-designed yet.
+absolute path ([Lens technical FAQ](https://docs.lenshq.io/faq/technical-faq/)). As a stopgap the
+MVP appends the usual tool directories (`/opt/homebrew/bin`, `/usr/local/bin`, `/opt/local/bin`,
+`~/.local/bin`, `~/bin`) that exist and are missing from `PATH` at start
+(`cluster.EnsureToolPath`); variables such as `AWS_PROFILE` are still missing. Whether Cogpit reads
+the login shell's environment, and which variables it then passes to plugins, is not designed yet.
+
+### H-20: Shell profiles can override the terminal's kubeconfig
+
+The terminal starts a login shell, so the user's shell profile runs after Cogpit set `KUBECONFIG`.
+A profile that exports `KUBECONFIG` (common with tools that manage several kubeconfig files)
+replaces Cogpit's value, and `kubectl` in that terminal then talks to whatever context the profile
+selects, not to the cluster whose view opened the terminal. Lens has the same behaviour. Cogpit
+does not detect it; a check after the profile ran, or a prompt hook, is not designed.

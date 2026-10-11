@@ -1,6 +1,6 @@
 # Resource parity: views, columns and actions
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (sources narrowed to Lens Desktop: Freelens views, columns and actions removed per D-12) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (the MVP: six views and four actions partial) · **Target:** Lens Desktop 2026.10.51501
 
 Every Kubernetes resource view Lens Desktop has, with the columns of its list and the actions it
 offers, against Cogpit. The layout around these views (sidebar, tables, detail drawer, dock) is in
@@ -13,14 +13,21 @@ Overview), and its release notes to 2026.10.51501. Lens Desktop was not run for 
 needed* marks what its documentation leaves open ([D-12](../developer/decisions.md#d-12-parity-sources)).
 
 All views and actions on this page are in Lens Desktop's free plan, except the section
-[Paid Lens Desktop views](#paid-lens-desktop-views). **Status:** all rows are **missing**: no code
-exists. **Command ids** are Cogpit's, following [conventions](../developer/conventions.md#style);
+[Paid Lens Desktop views](#paid-lens-desktop-views). **Status:** as marked per row; the MVP
+(2026-10-11) made the first rows partial. **Command ids** are Cogpit's, following [conventions](../developer/conventions.md#style);
 they become the registry ids and, with underscores, the MCP tool names.
 
-**Summary (measured, 2026-10-11):** 0 of 63 resource views and 0 of 40 actions; Lens Desktop's
-paid features add 24 views and 3 actions. Remaining (estimated, 2–6 h per view or action with
-tests): 130–380 h for the views ([G6](gaps.md#g6-resource-views)) and 70–210 h for the actions
-([G7](gaps.md#g7-resource-actions)), on top of the foundation in [G1–G4](gaps.md#summary).
+**Summary (measured, 2026-10-11):** 6 of 63 resource views and 4 of 40 actions exist, all
+**partial** (none done): the views lack the metrics columns and their texts are not checked against
+a running Lens; the actions are limited as noted. Lens Desktop's paid features add 24 views and
+3 actions. Remaining (estimated, 2–6 h per view or action with tests): 120–360 h for the views
+([G6](gaps.md#g6-resource-views)) and 62–195 h for the actions ([G7](gaps.md#g7-resource-actions)),
+on top of the foundation in [G1–G4](gaps.md#summary).
+
+Evidence for the view rows: the kind profiles in
+[`internal/model/kinds`](../../internal/model/kinds/) with their golden tests (`TestGolden`,
+`TestStatusTexts`, `TestBuiltinProfiles`), the engine's views, and the views filled from watches on
+kind (`TestKindEngineWorkflows`).
 
 ## Every kind
 
@@ -29,11 +36,11 @@ from discovery.
 
 | Behaviour | Status | Evidence |
 |---|---|---|
-| List view per kind the cluster serves and the user may list; hidden otherwise | missing | – |
+| List view per kind the cluster serves and the user may list; hidden otherwise | partial: for the six built-in profiles, filtered by discovery; no permission check | [`connector.go`](../../internal/engine/connector.go) |
 | Generic columns: Name, Namespace (namespaced kinds), Age; plus `additionalPrinterColumns` for custom resources | missing | – |
-| Detail drawer: metadata, labels, annotations, owner references, events of the object | missing | – |
+| Detail drawer: metadata, labels, annotations, owner references, events of the object | partial: plus the kind's sections and the YAML (Secret values redacted) | [`drawer.go`](../../internal/engine/drawer.go), `TestDetailWithEventsNewestFirst`, `TestDetailRedactsSecrets`; [PNG](../../internal/ui/fyneui/testdata/shell_dark.png) |
 | Edit (`object.edit`): YAML in a dock tab, offered when the user may patch | missing | – |
-| Delete (`object.delete`): confirm, offered when the user may delete; acts on the selection | missing | – |
+| Delete (`object.delete`): confirm, offered when the user may delete; acts on the selection | partial: pods only, one object, confirmed for every origin; no permission check | [`actions.go`](../../internal/engine/commands/actions.go) |
 | Copy name (`object.copyName`) in the detail drawer | missing | – |
 | Right-click on a row opens the actions menu (since 2025.10.230725) | missing | – |
 
@@ -47,17 +54,17 @@ related resources) are superseded by Cogpit's built-in agent
 |---|---|---|---|---|
 | Overview | metrics | CPU, memory and pod usage with requests, limits, allocatable, capacity; master and worker charts; Issues | time range from 1 hour to 2 months | missing |
 | Applications | workloads grouped by application | Instance, Namespace, Managed by, Version, Violations, Age, Status | Logs `workload.logs` | missing |
-| Nodes | `v1` Node | Name, CPU, Memory, Disk, Taints, Roles, Version, Age, Conditions | Shell `node.shell`, Cordon `node.cordon`, Uncordon `node.uncordon` (whether it is a separate item: capture needed), Drain `node.drain`; detail: Devices (DRA) | missing |
-| Namespaces | `v1` Namespace | Name, Labels, Age, Status | Create `namespace.create` | missing |
-| Events | `v1` Event | Type, Message, Namespace, Involved Object, Source, Count, Age, Last Seen | – | missing |
+| Nodes | `v1` Node | Name, CPU, Memory, Disk, Taints, Roles, Version, Age, Conditions | Shell `node.shell`, Cordon `node.cordon`, Uncordon `node.uncordon` (whether it is a separate item: capture needed), Drain `node.drain`; detail: Devices (DRA) | partial: view without CPU, Memory, Disk; no actions ([`nodes.go`](../../internal/model/kinds/nodes.go)) |
+| Namespaces | `v1` Namespace | Name, Labels, Age, Status | Create `namespace.create` | partial: view; no Create ([`namespaces.go`](../../internal/model/kinds/namespaces.go)) |
+| Events | `v1` Event | Type, Message, Namespace, Involved Object, Source, Count, Age, Last Seen | – | partial: column texts not checked against Lens ([`events.go`](../../internal/model/kinds/events.go)) |
 
 ## Workloads
 
 | View | API | Lens columns | Actions | Status |
 |---|---|---|---|---|
 | Overview | all workload kinds | status summary per kind (release notes; layout: capture needed) | – | missing |
-| Pods | `v1` Pod | Name, Namespace, Containers, CPU, Memory, Restarts, Controlled By, Node, QoS, Age, Status | Logs `pod.logs`, Shell `pod.shell`, Attach `pod.attach`, Evict `pod.evict`, Share `pod.share` (semantics: capture needed), forward a container port `pod.portForward`; detail: Resource Claims | missing |
-| Deployments | `apps/v1` Deployment | Name, Namespace, Pods, Replicas, Age, Conditions | Scale `deployment.scale`, Restart `deployment.restart`, Logs `workload.logs` | missing |
+| Pods | `v1` Pod | Name, Namespace, Containers, CPU, Memory, Restarts, Controlled By, Node, QoS, Age, Status | Logs `pod.logs`, Shell `pod.shell`, Attach `pod.attach`, Evict `pod.evict`, Share `pod.share` (semantics: capture needed), forward a container port `pod.portForward`; detail: Resource Claims | partial: view without CPU, Memory ([`pods.go`](../../internal/model/kinds/pods.go)); Logs partial (follow only, [`dock.go`](../../internal/engine/commands/dock.go)); Shell partial (`TestKindEngineWorkflows`, `TestKindPodExec`); the other actions missing |
+| Deployments | `apps/v1` Deployment | Name, Namespace, Pods, Replicas, Age, Conditions | Scale `deployment.scale`, Restart `deployment.restart`, Logs `workload.logs` | partial: view ([`deployments.go`](../../internal/model/kinds/deployments.go)); Restart partial (confirmed, tested against a fake clientset, [`actions.go`](../../internal/engine/commands/actions.go)); Scale and Logs missing |
 | Daemon Sets | `apps/v1` DaemonSet | Name, Namespace, Pods, Node Selector, Age | Restart `daemonset.restart`, Logs `workload.logs` | missing |
 | Stateful Sets | `apps/v1` StatefulSet | Name, Namespace, Pods, Replicas, Age | Restart `statefulset.restart`, Scale `statefulset.scale`, Logs `workload.logs` | missing |
 | Replica Sets | `apps/v1` ReplicaSet | Name, Namespace, Desired, Current, Ready, Age | Scale `replicaset.scale`, Logs `workload.logs` | missing |
@@ -90,7 +97,7 @@ related resources) are superseded by Cogpit's built-in agent
 
 | View | API | Lens columns | Actions | Status |
 |---|---|---|---|---|
-| Services | `v1` Service | Name, Namespace, Type, Cluster IP, Ports, External IP, Selector, Age, Status | Forward a port `service.portForward`; detail tabs: Endpoint Slices, Routes | missing |
+| Services | `v1` Service | Name, Namespace, Type, Cluster IP, Ports, External IP, Selector, Age, Status | Forward a port `service.portForward`; detail tabs: Endpoint Slices, Routes | partial: view ([`services.go`](../../internal/model/kinds/services.go)); no port forward, no detail tabs |
 | Endpoints | `v1` Endpoints | Name, Namespace, Endpoints, Age | – | missing |
 | Endpoint Slices | `discovery.k8s.io/v1` EndpointSlice | Name, Namespace, Address Type, Endpoints, Ports, Age | – | missing |
 | Ingresses | `networking.k8s.io/v1` Ingress | Name, Namespace, Load Balancers, Rules, Age | – | missing |
@@ -172,5 +179,6 @@ the tables above. Everything else is created from YAML templates in the dock
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | The MVP: Nodes, Pods, Deployments, Services, Namespaces and Events views partial; Logs, Shell, Restart and Delete (pods) partial |
 | 2026-10-11 | major | Sources narrowed to Lens Desktop (D-12): the Freelens-only Definitions view, seven Freelens-only actions, `portforward.start` and Freelens column details removed; Ask AI superseded by the built-in agent |
 | 2026-10-11 | major | First version, from Lens Desktop's documentation and release notes to 2026.10.51501 and Freelens 1.10.3 source |

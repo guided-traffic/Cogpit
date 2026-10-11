@@ -2,8 +2,8 @@
 
 Who may drive Cogpit besides the person at the keyboard, and what keeps an agent from doing what
 the user did not want. The perspective covers external agents over MCP, the built-in agent, and
-the LLM endpoint the built-in agent talks to. No code exists yet (2026-10-11); each rule gains a
-link to its code and test when it lands.
+the LLM endpoint the built-in agent talks to. The MVP (2026-10-11) implements the MCP side; its rules
+link to code and tests below. The built-in agent is not built.
 
 The decisions behind this page: everything is controllable over MCP, the UI included
 ([D-2](../developer/decisions.md#d-2-agent-interface-scope)), and a built-in agent uses the same
@@ -22,12 +22,12 @@ tools with an OpenAI-compatible endpoint ([D-10](../developer/decisions.md#d-10-
 
 | Rule | Where it is enforced |
 |---|---|
-| Every agent action is a registry command; nothing outside the registry is exposed | `internal/mcp`, `internal/agent` |
-| Read and UI commands run without asking; `Mutating` commands wait for the user's acceptance in the GUI unless the user allowed agent writes for that context; `Destructive` commands always wait for a confirmation naming objects, namespace and context | `internal/engine` (origin-aware confirmation) |
-| Without a GUI to confirm in (headless), commands that need a confirmation are refused | `internal/engine` |
-| Every agent-initiated command, its parameters and its outcome are written to an audit log the user can read | `internal/engine` |
-| The MCP endpoint listens on `127.0.0.1` only, requires the bearer token, and rejects requests whose `Host` or `Origin` is not local (DNS rebinding) | `internal/mcp` |
-| The token is random per start and stored owner-only in the app's runtime directory | `internal/mcp` |
+| Every agent action is a registry command; nothing outside the registry is exposed | `internal/mcp` ([`tools.go`](../../internal/mcp/tools.go): one tool per command, generated at start), `internal/agent` (not built) |
+| Read and UI commands run without asking; `Mutating` commands wait for the user's acceptance in the GUI unless the user allowed agent writes for that context; `Destructive` commands always wait for a confirmation naming objects, namespace and context | `internal/engine`: `NeedsConfirmation` and `Dispatch` in [`engine.go`](../../internal/engine/engine.go), `TestDispatchConfirmationPolicy`; the GUI's dialog in [`fyneui/confirm.go`](../../internal/ui/fyneui/confirm.go), one at a time in the order asked, its confirm button armed only after 750 ms (`TestConfirmationsOneAtATimeAndArmed`), so that an agent's request cannot slide under the user's click. A write confirmed, or allowed, for one context refuses to run if the user switched clusters meanwhile (`CheckConfirmedContext`, `TestAgentWriteAllowanceIsBoundToItsContext`). The per-context allowance exists in the engine (`SetAgentWrites`) but has no UI yet |
+| Without a GUI to confirm in (headless), commands that need a confirmation are refused | `internal/engine` (`ErrConfirmationUnavailable`, tested) |
+| Every agent-initiated command, its parameters and its outcome are written to an audit log the user can read | `internal/engine` ([`audit.go`](../../internal/engine/audit.go)): one line per command with the context it was dispatched for or confirmed in, and for writes a `requested` line before they run, so a write still running when Cogpit quits is logged; the app writes it to `<user config dir>/Cogpit/audit.log`, owner-only; no viewer in the GUI yet |
+| The MCP endpoint listens on `127.0.0.1` only, requires the bearer token, and rejects requests whose `Host` or `Origin` is not local (DNS rebinding) | `internal/mcp` ([`http.go`](../../internal/mcp/http.go), `TestHTTPGuard`, `TestNewRefusesNonLoopbackAddresses`); constant-time token comparison; the handler is stateless, so a pending confirmation ends with the client's HTTP request |
+| The token is random per start and stored owner-only in the app's runtime directory | `internal/mcp` ([`token.go`](../../internal/mcp/token.go)): `<user config dir>/Cogpit/mcp-token`, see [credentials](credentials.md#cogpits-own-secrets) |
 | The built-in agent's tool loop has limits per turn: tool calls, tokens, time | `internal/agent` |
 | Secret values are never sent to the LLM endpoint unless the user allows it for that request; what is sent is visible in the chat | `internal/agent` |
 | Tool results are passed to the model as data, never as instructions to Cogpit; Cogpit acts only on tool calls, and those go through the rules above | `internal/agent` |

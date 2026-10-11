@@ -1,13 +1,14 @@
 # Beyond Lens
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (first version: MCP control, built-in agent, updates, cache transparency, crash recovery) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (the MVP: MCP control rows) · **Target:** Lens Desktop 2026.10.51501
 
 What Cogpit does that Lens Desktop does not, or does only in part. These rows are Cogpit's own
 targets, decided by the owner; they do not count toward the parity numbers in
 [`target-app-parity.md`](target-app-parity.md), which measure Cogpit against Lens. Method:
 [`README.md`](README.md).
 
-**Summary (measured, 2026-10-11):** 0 of 34 rows. Remaining (estimated): 30–60 h for MCP control
+**Summary (measured, 2026-10-11):** 16 of 34 rows exist: 9 done and 7 partial, all in MCP control
+and cache transparency. Remaining (estimated): 30–60 h for MCP control
 ([G17](gaps.md#g17-mcp-control)), 40–80 h for the built-in agent
 ([G21](gaps.md#g21-built-in-agent)); updates, cache transparency and crash recovery are inside
 [G14](gaps.md#g14-packaging-signing-and-updates-macos), [G3](gaps.md#g3-cache-and-the-resource-model),
@@ -21,22 +22,22 @@ read-only: `list-clusters`, `connect-cluster`, `disconnect-cluster`, `kubectl`, 
 
 | Feature | MCP tool | Status | Evidence |
 |---|---|---|---|
-| Every registry command is an MCP tool, with its schema and annotations | (generated) | missing | – |
-| Read the UI state: context, view, namespaces, filter, selection, drawer object, dock tabs | `ui_state` | missing | – |
+| Every registry command is an MCP tool, with its schema and annotations | (generated) | done | [`mcp/tools.go`](../../internal/mcp/tools.go), `TestToolsMirrorRegistry` in [`tools_test.go`](../../internal/mcp/tools_test.go); 21 tools |
+| Read the UI state: context, view, namespaces, filter, selection, drawer object, dock tabs | `ui_state` | done | [`commands/ui.go`](../../internal/engine/commands/ui.go), `TestShowcaseServiceByClusterIP` |
 | Read the rows the user sees in the current view | `view_rows` | missing | – |
-| List the kinds the cluster serves and the user may list | `kinds_list` | missing | – |
-| Find objects by a searchable field (`clusterIP`, `podIP`, `node`, `image`, `label`) | `resources_find` | missing | – |
-| List objects of a kind, bounded | `resources_list` | missing | – |
-| Read one object (YAML, events, related objects) from the cache | `object_get` | missing | – |
-| Open a view, set namespaces and filter | `ui_openView`, `ui_setNamespace`, `ui_setFilter` | missing | – |
-| Select objects and open the drawer | `ui_select` | missing | – |
-| Navigate to an object: open its view, select it, scroll to it, open the drawer | `ui_navigate` | missing | – |
-| Open and read dock tabs (logs, terminal output, editor) | `dock_open`, `dock_read` | missing | – |
-| Run cluster actions with the GUI's verbs and danger levels | every action command | missing | – |
-| Mutating commands from agents wait for the user's acceptance unless allowed for the context | (engine) | missing | – |
-| Destructive commands from agents always wait for the user's confirmation in the GUI | (engine) | missing | – |
-| Audit log of every agent-initiated command, readable in the GUI | (engine) | missing | – |
-| Streamable HTTP on `127.0.0.1` with a bearer token; `Host` and `Origin` checks | (transport) | missing | – |
+| List the kinds the cluster serves and the user may list | `kinds_list` | partial: served kinds, no permission check | [`commands/resources.go`](../../internal/engine/commands/resources.go) |
+| Find objects by a searchable field (`clusterIP`, `podIP`, `node`, `image`, `label`) | `resources_find` | done | [`commands/resources.go`](../../internal/engine/commands/resources.go), `TestShowcaseServiceByClusterIP`, `TestDemoClusterThroughTheEngine` |
+| List objects of a kind, bounded | `resources_list` | done | [`commands/resources.go`](../../internal/engine/commands/resources.go), `TestKindEngineWorkflows` |
+| Read one object (YAML, events, related objects) from the cache | `object_get` | partial: YAML (redacted) and events; no related objects | [`commands/resources.go`](../../internal/engine/commands/resources.go) |
+| Open a view, set namespaces and filter | `ui_openView`, `ui_setNamespace`, `ui_setFilter` | done | [`commands/ui.go`](../../internal/engine/commands/ui.go) and its tests |
+| Select objects and open the drawer | `ui_select` | done | [`commands/ui.go`](../../internal/engine/commands/ui.go) |
+| Navigate to an object: open its view, select it, scroll to it, open the drawer | `ui_navigate` | done | `TestShowcaseServiceByClusterIP`; the GUI scrolls to the row (`TestNavigateScrollsOnceSnapshotHasRow`, `TestRenderDemoShowcase`, [PNG](../../internal/ui/fyneui/testdata/demo_showcase.png)) |
+| Open and read dock tabs (logs, terminal output, editor) | `dock_open`, `dock_read` | partial: agents open tabs with `pod_logs`, `pod_shell`, `terminal_open` and close them with `dock_close`; they cannot read them | [`commands/dock.go`](../../internal/engine/commands/dock.go) |
+| Run cluster actions with the GUI's verbs and danger levels | every action command | partial: Restart (Deployment) and Delete (pods) | [`commands/actions.go`](../../internal/engine/commands/actions.go) |
+| Mutating commands from agents wait for the user's acceptance unless allowed for the context | (engine) | partial: the engine and the GUI dialog do; the allowance has no UI | `TestDispatchConfirmationPolicy`, [`fyneui/confirm.go`](../../internal/ui/fyneui/confirm.go) |
+| Destructive commands from agents always wait for the user's confirmation in the GUI | (engine) | done | `TestDispatchConfirmationPolicy`, `TestDeleteGoesThroughConfirmation`, MCP tests for declined and headless calls |
+| Audit log of every agent-initiated command, readable in the GUI | (engine) | partial: written to `<user config dir>/Cogpit/audit.log`; not readable in the GUI | [`engine/audit.go`](../../internal/engine/audit.go) |
+| Streamable HTTP on `127.0.0.1` with a bearer token; `Host` and `Origin` checks | (transport) | done | [`mcp/http.go`](../../internal/mcp/http.go), `TestHTTPGuard`, `TestHTTPEndToEnd` |
 | `cogpit-cli mcp` stdio bridge for stdio-only agents | (transport) | missing | – |
 
 ## Built-in agent
@@ -75,7 +76,7 @@ AppImage builds in place; APT and RPM installs update by hand
 
 | Feature | Status | Evidence |
 |---|---|---|
-| Diagnostics view: API requests per cluster by verb and resource, open and warm watches, objects and memory per kind | missing | – |
+| Diagnostics view: API requests per cluster by verb and resource, open and warm watches, objects and memory per kind | partial: totals in the status bar (requests, lists, watches, informers, snapshots); no view | [`fyneui/bars.go`](../../internal/ui/fyneui/bars.go), [`engine/diagnostics.go`](../../internal/engine/diagnostics.go) |
 
 ## Crash recovery
 
@@ -91,4 +92,5 @@ AppImage builds in place; APT and RPM installs update by hand
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | The MVP: MCP tools, transport, navigation and confirmation rows; the status bar's counters |
 | 2026-10-11 | major | First version: MCP control, built-in agent, updates, cache transparency, crash recovery |

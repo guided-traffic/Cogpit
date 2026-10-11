@@ -9,7 +9,7 @@ projects' repositories; re-check them before relying on a version number.
 
 | Id | Decision | Status |
 |---|---|---|
-| [D-1](#d-1-ui-toolkit) | UI toolkit | decided: Fyne, behind a spike gate; fallback: a Rust/egui UI process |
+| [D-1](#d-1-ui-toolkit) | UI toolkit | decided: Fyne, behind a spike gate; fallback: a Rust/egui UI process; spike results recorded 2026-10-11, gate decision pending |
 | [D-2](#d-2-agent-interface-scope) | What agents may do over MCP | decided: everything, the UI included; destructive actions confirmed by the user |
 | [D-3](#d-3-helm-and-kubectl-binaries) | Where `helm` and `kubectl` come from | decided: Helm in-process; `kubectl` from `PATH`, a verified matching download on one click |
 | [D-4](#d-4-packaging-and-updates) | Packaging, signing and updates | decided for macOS: the app in a DMG, Homebrew cask, Sparkle updates; Windows and Linux with M11 |
@@ -27,8 +27,9 @@ projects' repositories; re-check them before relying on a version number.
 
 **Decided (owner, 2026-10-11): Fyne** (`fyne.io/fyne/v2` v2.8.1, BSD-3-Clause), subject to a
 spike gate: before milestone M2, a spike builds the three hardest widgets on Fyne and measures
-them. The spike's plan and gate criteria are in [`spike-fyne.md`](spike-fyne.md); its results
-get recorded there when it has run.
+them. The spike's plan and gate criteria are in [`spike-fyne.md`](spike-fyne.md). It ran on
+2026-10-11 as the local MVP; its [results](spike-fyne.md#results) are recorded there, and the gate
+decision is the owner's.
 
 **If the gate fails**, the engine stays in Go and the UI moves to a separate Rust process with
 egui (option D of the 2026-10-11 discussion). That move needs no engine rewrite because the
@@ -291,6 +292,7 @@ then with this table as the starting point.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | D-1: the spike ran as the local MVP; results recorded, gate decision pending |
 | 2026-10-11 | minor | D-7: macOS first, Windows and Linux after the macOS beta; Cogpit is a desktop client, never a web UI |
 | 2026-10-11 | minor | D-5 decided (owner): extensions are built into the code; no external extension mechanism for now |
 | 2026-10-11 | minor | D-9 decided (owner): Flux CD and Argo CD views in the beta, other paid features after it, vendor features never |

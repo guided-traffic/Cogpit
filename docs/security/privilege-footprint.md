@@ -4,9 +4,12 @@ What Cogpit does inside a cluster with the user's identity, verb by verb, and wh
 changes. Cogpit installs no cluster-side component and holds no identity of its own: every request
 is made with the credentials of the kubeconfig context the user opened, so Cogpit can never do
 more than `kubectl` and `helm` with the same context could. Commands from agents use the same verbs
-under the confirmation rules of [agents and MCP](agents-and-mcp.md). No code exists yet
-(2026-10-11); the table is the contract the command registry's `verbs` field must match
-([architecture §4.2](../developer/architecture.md#42-the-command-registry)).
+under the confirmation rules of [agents and MCP](agents-and-mcp.md). The table is the contract the
+command registry's `verbs` field must match
+([architecture §4.2](../developer/architecture.md#42-the-command-registry)). The MVP (2026-10-11)
+implements Connect (discovery only, no access reviews yet), list views, Logs, Pod shell, Restart
+(Deployment) and Delete (pods only), in
+[`internal/engine/commands`](../../internal/engine/commands/).
 
 Verbs and subresources follow Kubernetes RBAC
 ([RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/),
@@ -37,7 +40,7 @@ namespace and the context ([conventions](../developer/conventions.md#never-surpr
 | Edit and apply | `get`, `patch` (or `update`) | Mutating | The object; the editor shows a diff and a server-side dry-run first |
 | Create from template | `create` on the kind | Mutating | A new object |
 | Scale | `patch` on `<kind>/scale` | Mutating; `Destructive` when scaling to zero | Replica count |
-| Restart (Deployment, DaemonSet, StatefulSet) | `patch` on the workload | Mutating | A rolling restart of every pod: kubectl's `rollout restart` sets a pod-template annotation, which the controller rolls out |
+| Restart (Deployment, DaemonSet, StatefulSet) | `patch` on the workload | Destructive (owner, 2026-10-11: confirmed for every origin, because it replaces every pod) | A rolling restart of every pod: kubectl's `rollout restart` sets a pod-template annotation, which the controller rolls out |
 | Suspend / resume (Job, CronJob) | `patch` | Mutating | `spec.suspend` |
 | Trigger CronJob | `create jobs` | Mutating | A new Job from the CronJob's template, as `kubectl create job --from=cronjob/<name>` |
 | Cordon / uncordon | `patch nodes` | Mutating | `spec.unschedulable` |

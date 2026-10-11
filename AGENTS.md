@@ -8,9 +8,10 @@ The product name is always written **Cogpit** in user-facing text; machine names
 (module `github.com/guided-traffic/cogpit`, binaries `cogpit` and `cogpit-cli`). Read this file
 first, then `docs/`.
 
-**State on 2026-10-11:** the repository holds documentation only. **Implementation starts with
-milestone M0 when the owner gives the go-ahead; until then, sessions change documentation only.**
-The `make` targets below describe the tooling M0 creates. The documentation method, and parts of
+**State on 2026-10-11:** implementation has started (owner's go-ahead, 2026-10-11). A local MVP
+runs on macOS: six views from the cache, the detail drawer, logs, a terminal, a pod shell and MCP
+control of the UI; it doubled as the Fyne spike ([results](docs/developer/spike-fyne.md#results)).
+What is built and where it differs from the plan: [architecture › Current state](docs/developer/architecture.md#current-state-2026-10-11). The documentation method, and parts of
 this file, come from [PhotoCraft](https://github.com/storytold/photocraft)
 ([attribution](ATTRIBUTION.md)).
 
@@ -31,14 +32,14 @@ this file, come from [PhotoCraft](https://github.com/storytold/photocraft)
 | [`docs/developer/spike-fyne.md`](docs/developer/spike-fyne.md) | The UI toolkit gate before M2 |
 | [`docs/security/`](docs/security/README.md) | Trust boundaries, credentials, privilege footprint, agents and MCP, updates |
 
-## 2. Package map (planned)
+## 2. Package map
 
 ```text
 cmd/cogpit, cmd/cogpit-cli    L5 desktop app (Fyne, cgo); headless CLI and MCP stdio bridge (pure Go)
 internal/ui/fyneui            L4 the Fyne shell; the only package that imports Fyne
 internal/mcp agent update     L4 MCP server; built-in agent; update check and install
 internal/engine               L3 Session, command registry, UI state, jobs, events, confirmation, audit log
-internal/helm metrics         L2 Helm SDK; metrics providers
+internal/helm metrics demo    L2 Helm SDK; metrics providers (not built yet); the synthetic demo cluster
 internal/cluster cache        L1 connections and auth; shared informers (the cache)
 internal/terminal             L1 PTY sessions
 internal/model kubeconfig     L0 kind profiles and rows; kubeconfig parsing (no I/O)
@@ -119,14 +120,13 @@ Priorities: infrastructure first, then the alpha-gate workflows, then breadth, t
 
 ## 5. Before you finish a task
 
-Once the code exists:
-
 ```sh
 make lint             # golangci-lint, depguard layering included
 make test-unit-race   # go test -race ./...
 make test             # plus integration tiers you touched
-make parity           # if you added commands or views; commit the result
-make scorecard        # if you moved a number; commit the result
+make test-kind        # cluster tests, after make kind-up (never against your own kubeconfig)
+# make parity and make scorecard come with their generators (gap G1); until then update the
+# checklists by hand
 ```
 
 Then commit and push. Agents may commit and push to `main` on their own (owner, 2026-10-11), in
