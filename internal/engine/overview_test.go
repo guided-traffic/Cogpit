@@ -155,3 +155,25 @@ func TestWorkloadsOverviewPage(t *testing.T) {
 		t.Fatal("the on-demand read kept its handles")
 	}
 }
+
+// TestWorkloadsOverviewWithoutEventsStartsNoEventsWatch: an agent's workloads.overview without
+// events reads the workload kinds only: it starts no cluster-wide events watch, which would stay
+// warm for minutes after the read.
+func TestWorkloadsOverviewWithoutEventsStartsNoEventsWatch(t *testing.T) {
+	src := testkit.NewMemorySource()
+	src.Set(testkit.PodsGVR, overviewPod("shop", "web-0", "Running"))
+	s := overviewSession(t, src)
+	if _, events, err := s.WorkloadsOverview(context.Background(), nil, false); err != nil || events != nil {
+		t.Fatalf("overview without events: %v, events %v", err, events)
+	}
+	evp, _ := s.Backend().Profile("events")
+	if s.Backend().Cached(evp) {
+		t.Error("the overview without events started the events watch")
+	}
+	if _, events, err := s.WorkloadsOverview(context.Background(), nil, true); err != nil || events == nil {
+		t.Fatalf("overview with events: %v, events %v", err, events)
+	}
+	if !s.Backend().Cached(evp) {
+		t.Error("the overview with events did not read the events")
+	}
+}

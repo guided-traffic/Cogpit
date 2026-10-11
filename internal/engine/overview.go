@@ -211,8 +211,9 @@ type overviewStatus struct {
 }
 
 // newOverviewWorker acquires the page's handles; with notify, every change of its kinds wakes the
-// worker's loop (startOverview), which a one-off read does not run.
-func (s *Session) newOverviewWorker(b *Backend, params viewParams, notify bool) *overviewWorker {
+// worker's loop (startOverview), which a one-off read does not run. Without events it holds no
+// handle on the events (a one-off read that does not ask for them starts no events watch).
+func (s *Session) newOverviewWorker(b *Backend, params viewParams, notify, events bool) *overviewWorker {
 	w := &overviewWorker{
 		s: s, backend: b, params: params, rows: &rowCache{},
 		wake: make(chan struct{}, 1), quit: make(chan struct{}),
@@ -236,7 +237,7 @@ func (s *Session) newOverviewWorker(b *Backend, params viewParams, notify bool) 
 			w.kinds = append(w.kinds, k)
 		}
 	}
-	if w.events = overviewEvents(b); w.events != nil {
+	if w.events = overviewEvents(b); w.events != nil && events {
 		w.evts = b.Acquire(w.events)
 		w.unsubs = append(w.unsubs, w.evts.Subscribe(func(cache.Event) { onChange() }))
 	}
@@ -245,7 +246,7 @@ func (s *Session) newOverviewWorker(b *Backend, params viewParams, notify bool) 
 
 // startOverview starts the page's worker; the first build runs at once.
 func (s *Session) startOverview(b *Backend, params viewParams) *overviewWorker {
-	w := s.newOverviewWorker(b, params, true)
+	w := s.newOverviewWorker(b, params, true, true)
 	signal(w.wake)
 	s.goSafe("workloads overview", func() {
 		runCoalesced(w.quit, w.wake, s.opts.SnapshotInterval, w.unsettled, w.rebuild)
@@ -356,7 +357,7 @@ func (w *overviewWorker) build(p viewParams) (*WorkloadsOverviewModel, *TableSna
 	}
 
 	var snap *TableSnapshot
-	if w.events != nil {
+	if w.evts != nil {
 		synced := w.evts.HasSynced()
 		snap = w.rows.build(w.events, w.backend.Context, KindList(w.evts, w.events), p, model.NoRelated, 0)
 		snap.Synced = synced
@@ -441,7 +442,7 @@ func (s *Session) WorkloadsOverview(ctx context.Context, namespaces []string, ev
 			return m, page.snap.Load(), nil
 		}
 	}
-	w := s.newOverviewWorker(b, viewParams{}, false)
+	w := s.newOverviewWorker(b, viewParams{}, false, events)
 	defer w.release()
 	wctx, cancel := context.WithTimeout(ctx, syncTimeout)
 	defer cancel()
@@ -449,7 +450,7 @@ func (s *Session) WorkloadsOverview(ctx context.Context, namespaces []string, ev
 		k.handle.WaitForSync(wctx)
 		k.related.waitSynced(wctx)
 	}
-	if w.evts != nil && events {
+	if w.evts != nil {
 		w.evts.WaitForSync(wctx)
 	}
 	sort := defaultSort(w.events)
