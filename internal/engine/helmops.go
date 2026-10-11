@@ -31,6 +31,12 @@ var ErrNoHelmJournal = errors.New("this Cogpit session keeps no Helm journal, so
 type HelmOps struct {
 	journal HelmJournal
 
+	// jmu serialises the journal's changes with the running state they depend on: Begin's check
+	// and record, End's record and release, Forget's and dropFinished's check and removal. Without
+	// it a Begin between another operation's check and its write loses its entry (D-11). Taken
+	// before mu; never held while emitting events.
+	jmu sync.Mutex
+
 	mu       sync.Mutex
 	s        *Session
 	running  map[helmKey]bool
@@ -145,7 +151,8 @@ func (h *HelmOps) dropFinished(s *Session, ctxName string, pending []PendingHelm
 			kept = append(kept, e)
 			continue
 		}
-		if err := h.journal.Remove(e.Context, e.Namespace, e.Release); err != nil {
+		if err := h.forget(e.Context, e.Namespace, e.Release); err != nil {
+			// Unreadable journal, or the user started the action again while the cache synced.
 			s.log.Error("engine: dropping a finished Helm action", "release", e.Release, "err", err)
 			kept = append(kept, e)
 			continue
@@ -172,6 +179,16 @@ func (h *HelmOps) Begin(p PendingHelmOp) error {
 	if h == nil {
 		return ErrNoHelmJournal
 	}
+	if err := h.begin(p); err != nil {
+		return err
+	}
+	h.changed("")
+	return nil
+}
+
+func (h *HelmOps) begin(p PendingHelmOp) error {
+	h.jmu.Lock()
+	defer h.jmu.Unlock()
 	k := p.key()
 	h.mu.Lock()
 	if h.running[k] {
@@ -188,7 +205,6 @@ func (h *HelmOps) Begin(p PendingHelmOp) error {
 		h.mu.Unlock()
 		return fmt.Errorf("the %s was not started, because Cogpit could not record it first: %w", p.Action, err)
 	}
-	h.changed("")
 	return nil
 }
 
@@ -198,9 +214,16 @@ func (h *HelmOps) End(p PendingHelmOp, opErr error) error {
 	if h == nil {
 		return ErrNoHelmJournal
 	}
-	h.mu.Lock()
-	delete(h.running, p.key())
-	h.mu.Unlock()
+	err := h.end(p, opErr)
+	h.changed("")
+	return err
+}
+
+// end records the outcome while the action still counts as running, so that no Begin on the
+// release can record a new action that this write would then remove or overwrite.
+func (h *HelmOps) end(p PendingHelmOp, opErr error) error {
+	h.jmu.Lock()
+	defer h.jmu.Unlock()
 	var err error
 	if opErr == nil {
 		err = h.journal.Remove(p.Context, p.Namespace, p.Release)
@@ -208,7 +231,9 @@ func (h *HelmOps) End(p PendingHelmOp, opErr error) error {
 		p.State, p.Error = HelmOpFailed, opErr.Error()
 		err = h.journal.Put(p)
 	}
-	h.changed("")
+	h.mu.Lock()
+	delete(h.running, p.key())
+	h.mu.Unlock()
 	return err
 }
 
@@ -218,14 +243,21 @@ func (h *HelmOps) Forget(context, namespace, release string) error {
 	if h == nil {
 		return ErrNoHelmJournal
 	}
-	if h.Running(context, namespace, release) {
-		return fmt.Errorf("the Helm action on release %s is running", release)
-	}
-	if err := h.journal.Remove(context, namespace, release); err != nil {
+	if err := h.forget(context, namespace, release); err != nil {
 		return err
 	}
 	h.changed("")
 	return nil
+}
+
+// forget removes an entry unless its action runs, checked and removed as one step.
+func (h *HelmOps) forget(context, namespace, release string) error {
+	h.jmu.Lock()
+	defer h.jmu.Unlock()
+	if h.Running(context, namespace, release) {
+		return fmt.Errorf("the Helm action on release %s is running", release)
+	}
+	return h.journal.Remove(context, namespace, release)
 }
 
 // Running reports whether an action on the release runs in this process.
