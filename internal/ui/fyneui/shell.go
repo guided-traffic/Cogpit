@@ -331,6 +331,9 @@ func (sh *shell) refreshTable() {
 		return
 	}
 	sh.view.setSnapshot(sh.eng.Table(sh.ui.View))
+	if engine.IsPage(sh.ui.View) {
+		sh.view.overview.request() // the page's kinds changed with its table
+	}
 }
 
 // drawerChanged opens, closes or retargets the detail drawer.
@@ -405,8 +408,12 @@ func (sh *shell) loadNamespaces() {
 	})
 }
 
-// kindTitle returns the display title of a kind key: from kinds.list, else the key itself.
+// kindTitle returns the display title of a kind key (from kinds.list, else the key itself) or of
+// a page.
 func (sh *shell) kindTitle(key string) string {
+	if t, ok := engine.PageTitle(key); ok {
+		return t
+	}
 	for _, k := range sh.kinds {
 		if k.Kind == key {
 			return k.Title

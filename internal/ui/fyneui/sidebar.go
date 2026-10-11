@@ -31,14 +31,22 @@ const (
 const (
 	kindPods        = "pods"
 	kindNamespaces  = "namespaces"
+	kindEvents      = "events"
 	kindDefinitions = "customresourcedefinitions"
 )
 
-// navEntry is one node of navLayout: a kind, or a group of entries.
+// navEntry is one node of navLayout: a kind, a page, or a group of entries.
 type navEntry struct {
-	id    string     // a kind key, or groupPrefix + the group's path
+	id    string     // a kind key, a page key, or groupPrefix + the group's path
 	title string     // a group's title; for a kind, a title in place of its own (a CRD kind's plural title)
 	items []navEntry // a group's entries, in Lens's order
+	page  bool       // a page (engine.IsPage), shown while a cluster is connected
+}
+
+// page is a page of the navigator, titled as the engine titles it.
+func page(key string) navEntry {
+	title, _ := engine.PageTitle(key)
+	return navEntry{id: key, title: title, page: true}
 }
 
 // navGroup builds a group; items are kind keys (strings) and navEntry values (titled kinds,
@@ -72,12 +80,13 @@ const (
 // appear, and a group without any is left out: the Gateway API sub-group appears with its CRDs.
 // Custom Resources is built from the cluster's kinds: Definitions, then one collapsed group per
 // API group with its kinds by singular Kind name, the groups of curated sections included. Kinds
-// the layout does not know and that no CRD defines go under Other. Pages that are not kinds
-// (Overview, Applications, the Flux CD and Workloads dashboards, Port Forwarding, Helm) come with
-// their views. Listener Sets are listed under both groups Gateway API releases used for them.
+// the layout does not know and that no CRD defines go under Other. Pages (page) show while a
+// cluster is connected: Workloads › Overview; the others that are not kinds (Overview,
+// Applications, the Flux CD dashboard, Port Forwarding, Helm) come with their views. Listener Sets
+// are listed under both groups Gateway API releases used for them.
 var navLayout = []navEntry{
 	{id: "nodes"},
-	navGroup("workloads", "Workloads",
+	navGroup("workloads", "Workloads", page(engine.WorkloadsOverview),
 		kindPods, "deployments", "daemonsets", "statefulsets", "replicasets", "replicationcontrollers", "jobs", "cronjobs"),
 	navGroup("config", "Config",
 		"configmaps", "secrets", "resourcequotas", "limitranges", "horizontalpodautoscalers",
@@ -105,7 +114,7 @@ var navLayout = []navEntry{
 	navGroup("storage", "Storage", "persistentvolumeclaims", "persistentvolumes", "storageclasses"),
 	navGroup("devices", "Device Resources", "resourceclaims", "resourceclaimtemplates", "deviceclasses", "resourceslices"),
 	{id: kindNamespaces},
-	{id: "events"},
+	{id: kindEvents},
 	navGroup("helm", "Helm", "helmreleases"), // Charts come with chart repositories (G11)
 	navGroup("access", "Access Control",
 		"serviceaccounts", "clusterroles", "roles", "clusterrolebindings", "rolebindings", "podsecuritypolicies"),
@@ -133,7 +142,7 @@ var navIcons = map[string]fyne.Resource{
 	groupPrefix + "network":   iconNetwork,
 	groupPrefix + "storage":   theme.StorageIcon(),
 	kindNamespaces:            iconLayers,
-	"events":                  theme.HistoryIcon(),
+	kindEvents:                theme.HistoryIcon(),
 	groupPrefix + "devices":   theme.ComputerIcon(),
 	groupPrefix + "helm":      theme.FileApplicationIcon(),
 	groupPrefix + "access":    theme.AccountIcon(),
@@ -292,6 +301,11 @@ func (s *sidebar) build(n navEntry, parent string, have map[string]kindInfo, pla
 				kids = append(kids, id)
 			}
 		}
+	case n.page:
+		if len(have) == 0 {
+			return "" // not connected
+		}
+		return s.leaf(n.id, n.title, parent)
 	default:
 		k, ok := have[n.id]
 		if !ok {

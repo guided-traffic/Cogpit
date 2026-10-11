@@ -43,12 +43,22 @@ type tableView struct {
 	nsButton              *widget.Button
 	nsBox                 *fyne.Container // the namespace filter's slot; hidden on cluster-scoped views
 	search                *widget.Entry
-	table                 *resourceTable
-	placeholder           *fyne.Container
-	placeholderText       *textLine
-	connectButton         *widget.Button
-	create                *createButton // the floating "+" (createbutton.go)
-	root                  fyne.CanvasObject
+	searchBox             *fyne.Container
+	heading, tools        *fyne.Container // the header's left and right parts
+
+	// A page (the Workloads Overview) shows its own part between the header and the table: the
+	// kinds' tiles and the events' header, which then holds the count and the search.
+	overview                   *overviewPanel
+	eventsTitle                *textLine
+	eventsHeading, eventsTools *fyne.Container
+	pageBox                    *fyne.Container
+	pageMode                   bool
+	table                      *resourceTable
+	placeholder                *fyne.Container
+	placeholderText            *textLine
+	connectButton              *widget.Button
+	create                     *createButton // the floating "+" (createbutton.go)
+	root                       fyne.CanvasObject
 
 	snap    *engine.TableSnapshot
 	cols    []int  // visible column → index in snap.Columns
@@ -121,23 +131,55 @@ func newTableView(sh *shell) *tableView {
 	tv.csvButton = widget.NewButtonWithIcon("", theme.DownloadIcon(), tv.exportCSV)
 	tv.csvButton.Importance = widget.LowImportance
 	tv.csvButton.Hide()
-	heading := container.NewHBox(tv.title, tv.count, tv.csvButton, tv.syncing)
+	tv.heading = container.NewHBox(tv.title, tv.count, tv.csvButton, tv.syncing)
 	tv.nsBox = sized(sizeFilterWidth, "", tv.nsButton)
-	tools := container.NewHBox(
-		tv.nsBox,
-		sized(sizeSearchWidth, "", tv.search),
-	)
+	tv.searchBox = sized(sizeSearchWidth, "", tv.search)
+	tv.tools = container.NewHBox(tv.nsBox, tv.searchBox)
 	header := container.NewStack(newSurface(theme.ColorNameBackground),
 		inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
-			container.NewBorder(nil, nil, heading, tools)))
+			container.NewBorder(nil, nil, tv.heading, tv.tools)))
+
+	tv.overview = newOverviewPanel(sh)
+	tv.eventsTitle = newTextLine("Events", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
+	tv.eventsHeading, tv.eventsTools = container.NewHBox(), container.NewHBox()
+	tv.pageBox = container.NewVBox(tv.overview.root, newDivider(false),
+		container.NewStack(newSurface(theme.ColorNameBackground),
+			inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
+				container.NewBorder(nil, nil, tv.eventsHeading, tv.eventsTools))))
+	tv.pageBox.Hide()
 	frame := box(&stretchLayout{tv: tv}, tv.table)
 	tv.create = newCreateButton(sh)
 	body := container.NewStack(newSurface(theme.ColorNameBackground), frame, tv.placeholder, tv.create.floating())
 	tv.root = container.NewBorder(
-		container.NewVBox(header, inset(theme.SizeNameInnerPadding, "", tv.errLine)),
+		container.NewVBox(header, tv.pageBox, inset(theme.SizeNameInnerPadding, "", tv.errLine)),
 		nil, nil, nil, body)
 	tv.updatePlaceholder()
 	return tv
+}
+
+// setPageLayout arranges the header for a page or a kind's view. On the Workloads Overview the
+// header holds the page's title and the namespace filter, which applies to the whole page; the
+// tiles follow, then the events' own header with their count, download button and search.
+func (tv *tableView) setPageLayout(page bool) {
+	if page == tv.pageMode {
+		return
+	}
+	tv.pageMode = page
+	if page {
+		tv.heading.Objects = []fyne.CanvasObject{tv.title}
+		tv.tools.Objects = []fyne.CanvasObject{tv.nsBox}
+		tv.eventsHeading.Objects = []fyne.CanvasObject{tv.eventsTitle, tv.count, tv.csvButton, tv.syncing}
+		tv.eventsTools.Objects = []fyne.CanvasObject{tv.searchBox}
+		tv.pageBox.Show()
+	} else {
+		tv.eventsHeading.Objects, tv.eventsTools.Objects = nil, nil
+		tv.heading.Objects = []fyne.CanvasObject{tv.title, tv.count, tv.csvButton, tv.syncing}
+		tv.tools.Objects = []fyne.CanvasObject{tv.nsBox, tv.searchBox}
+		tv.pageBox.Hide()
+	}
+	for _, c := range []*fyne.Container{tv.heading, tv.tools, tv.eventsHeading, tv.eventsTools} {
+		c.Refresh()
+	}
 }
 
 // viewChanged follows a change of the open view: titles, placeholder, search hint.
@@ -145,15 +187,28 @@ func (tv *tableView) viewChanged() {
 	tv.pending = nil
 	tv.hoverRow, tv.hoverCol, tv.hoverCell = -1, -1, nil
 	tv.sh.tip.hide()
+	page := engine.IsPage(tv.sh.ui.View)
+	tv.setPageLayout(page)
+	if page {
+		tv.overview.request()
+	}
 	tv.updateTitle()
 	tv.updatePlaceholder()
 	tv.updateNamespaceButton()
 }
 
-// updateTitle shows the view's title and item count, "Pods · 10,000", and names the view in the
+// rowNoun names the open view's rows in hints: "pods"; a page's table lists events.
+func (tv *tableView) rowNoun() string {
+	if engine.IsPage(tv.sh.ui.View) {
+		return kindEvents // the kind key reads as the noun
+	}
+	return strings.ToLower(tv.sh.kindTitle(tv.sh.ui.View))
+}
+
+// updateTitle shows the view's title and item count, "Pods 18 items", and names the view in the
 // search hint; kinds.list may bring the title after the view opened.
 func (tv *tableView) updateTitle() {
-	tv.search.SetPlaceHolder("Search " + strings.ToLower(tv.sh.kindTitle(tv.sh.ui.View)) + "…")
+	tv.search.SetPlaceHolder("Search " + tv.rowNoun() + "…")
 	title := tv.sh.kindTitle(tv.sh.ui.View)
 	if tv.snap != nil && tv.snap.Title != "" {
 		title = tv.snap.Title
@@ -190,11 +245,11 @@ func (tv *tableView) updatePlaceholder() {
 	case ui.View == "":
 		msg = "Choose a view in the sidebar."
 	case tv.snap == nil || (!tv.snap.Synced && len(tv.snap.Rows) == 0 && tv.snap.Error == ""):
-		msg = "Loading " + strings.ToLower(tv.sh.kindTitle(ui.View)) + "…"
+		msg = "Loading " + tv.rowNoun() + "…"
 	case len(tv.snap.Rows) == 0 && (tv.snap.Filter != "" || len(tv.snap.Namespaces) > 0 || (tv.groupMode() && len(ui.Groups) > 0)):
-		msg = "No " + strings.ToLower(tv.snap.Title) + " match the filter."
+		msg = "No " + tv.rowNoun() + " match the filter."
 	case len(tv.snap.Rows) == 0:
-		msg = "No " + strings.ToLower(tv.snap.Title) + " found."
+		msg = "No " + tv.rowNoun() + " found."
 	}
 	tv.placeholderText.SetText(msg)
 	if connect {

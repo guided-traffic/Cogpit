@@ -74,6 +74,7 @@ const (
 	sizeTooltipWidth  fyne.ThemeSizeName = "cogpit.tooltipWidth"  // the widest tooltip; longer text wraps
 	sizeTooltipOffset fyne.ThemeSizeName = "cogpit.tooltipOffset" // a tooltip's distance from the pointer
 	sizeDialogWidth   fyne.ThemeSizeName = "cogpit.dialogWidth"   // a command's parameter dialog
+	sizeHealthBar     fyne.ThemeSizeName = "cogpit.healthBar"     // a health bar's height (Workloads Overview)
 )
 
 // palette is one variant's colours. Cogpit's own choice: a blue-slate dark and a cool light, with
@@ -382,6 +383,8 @@ func (t *cogTheme) Size(n fyne.ThemeSizeName) float32 {
 		return 14
 	case sizeDialogWidth:
 		return 420
+	case sizeHealthBar:
+		return 6
 	}
 	return t.base.Size(n)
 }
