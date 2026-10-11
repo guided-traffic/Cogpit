@@ -2,7 +2,11 @@ package cluster
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 // LogOptions select a container log stream.
@@ -16,8 +20,31 @@ type LogOptions struct {
 	TailLines  int64 // 0: the API server's default (all lines)
 }
 
-// StreamLogs opens a container log stream. The caller closes it.
+// StreamLogs opens a container log stream through the pod's log subresource. The caller closes
+// it; cancelling ctx ends it too. The stream's content is the container's output: untrusted.
 func (c *Conn) StreamLogs(ctx context.Context, opts LogOptions) (io.ReadCloser, error) {
-	_, _ = ctx, opts
-	return nil, ErrNotImplemented
+	if opts.Namespace == "" || opts.Pod == "" {
+		return nil, errors.New("logs: namespace and pod are required")
+	}
+	if opts.TailLines < 0 {
+		return nil, fmt.Errorf("logs: tail lines must not be negative, got %d", opts.TailLines)
+	}
+	if c == nil || c.kube == nil {
+		return nil, errors.New("logs: not connected")
+	}
+	lo := &corev1.PodLogOptions{
+		Container:  opts.Container,
+		Follow:     opts.Follow,
+		Previous:   opts.Previous,
+		Timestamps: opts.Timestamps,
+	}
+	if opts.TailLines > 0 {
+		tail := opts.TailLines
+		lo.TailLines = &tail
+	}
+	stream, err := c.kube.CoreV1().Pods(opts.Namespace).GetLogs(opts.Pod, lo).Stream(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("logs of %s/%s: %w", opts.Namespace, opts.Pod, err)
+	}
+	return stream, nil
 }
