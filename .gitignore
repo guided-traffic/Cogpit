@@ -7,3 +7,4 @@
 *.out
 *.prof
 /cmd/cogpit/Cogpit.app/
+/.claude/worktrees/
