@@ -301,6 +301,19 @@ func TestFailedDrainKeepsItsEntry(t *testing.T) {
 	<-running
 
 	events.waitEvent(t, engine.EventToast, "waits: the PodDisruptionBudget db-pdb")
+	// The drain's cordon reaches the cache through the watch, not at once: the checks below read it.
+	wctx, wcancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer wcancel()
+	if !testkit.WaitFor(wctx, func() bool {
+		obj, err := h.s.Lookup(model.ObjectRef{Kind: "nodes", Name: "worker-1"})
+		if err != nil {
+			return false
+		}
+		cordoned, _ := model.NestedBool(obj.Object, "spec", "unschedulable")
+		return cordoned
+	}) {
+		t.Fatal("the drain's cordon never reached the cache")
+	}
 	var pending []engine.PendingDrainInfo
 	h.must(t, engine.OriginExternalAgent, "node.pendingDrains", nil, &pending)
 	if len(pending) != 1 || pending[0].Status != engine.DrainStatusRunning || pending[0].Progress == nil ||
