@@ -121,12 +121,19 @@ func (sh *shell) runAction(a actionState, ref model.ObjectRef, container string)
 }
 
 // rowMenu builds the actions menu of a row, as Lens's (capture, 2026-10-11): Show Details, then
-// the kind's actions in their order, Edit and Delete last.
+// the kind's actions in their order, Edit and Delete last; the drawer-only ones (Copy) are not in
+// it.
 func (sh *shell) rowMenu(ref model.ObjectRef, acts []actionState) *fyne.Menu {
 	details := fyne.NewMenuItem("Show Details", func() {
 		sh.dispatch("ui.select", selectParams{Refs: []model.ObjectRef{ref}}, nil)
 	})
-	return fyne.NewMenu("", append([]*fyne.MenuItem{details}, sh.actionItems(ref, acts)...)...)
+	row := make([]actionState, 0, len(acts))
+	for _, a := range acts {
+		if !a.cmd.DrawerOnly {
+			row = append(row, a)
+		}
+	}
+	return fyne.NewMenu("", append([]*fyne.MenuItem{details}, sh.actionItems(ref, row)...)...)
 }
 
 // openRowMenu evaluates the actions of the row's object off the main goroutine and shows its

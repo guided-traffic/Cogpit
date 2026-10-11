@@ -225,6 +225,9 @@ Fields added on 2026-10-11 for row menus, the drawer's toolbar and dialogs
   replica count for Scale).
 - `Detail`: a sentence the confirmation adds for parameters its objects don't show (the drain
   options that lose data).
+- `DrawerOnly` (added in the third run, 2026-10-11): a command with an `Order` that the drawer's
+  toolbar shows and the row menu leaves out: Copy (`object.copyName`), which Lens's drawer has and
+  its captured row menus do not. Registering one without an `Order` is an error.
 
 What a confirmation binds (2026-10-11, from the review): the context (`CheckConfirmedContext`), the
 objects (`CheckConfirmedTargets`: a create whose namespace came from the filter is refused when the
@@ -234,8 +237,8 @@ those as preconditions, never the UID of an object created again under the name.
 who dispatched it (`OriginOf`); `editor.get` uses that to redact Secrets for agents.
 
 How menus use them ([`menu.go`](../../internal/engine/menu.go), 2026-10-11): `Registry.Actions(kind)`
-is a kind's row menu and drawer toolbar, the commands whose `Kinds` contain the kind or are empty,
-with an `Order`, sorted by `Order` then id. A command whose parameters have a `container` property
+is a kind's drawer toolbar and, without the drawer-only commands, its row menu: the commands whose
+`Kinds` contain the kind or are empty, with an `Order`, sorted by `Order` then id. A command whose parameters have a `container` property
 opens a submenu of the pod's containers and init containers (`TakesContainer`); one whose schema
 requires more than `ref` and `container`, or that has a `Prefill` (then its optional fields too:
 Scale's replicas, Drain's options), opens a dialog generated from the schema of those fields

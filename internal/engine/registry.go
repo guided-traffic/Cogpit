@@ -65,6 +65,10 @@ type Spec[P any] struct {
 	Danger Danger
 	Verbs  []Verb
 
+	// DrawerOnly keeps a command with an Order out of the row menu: it is one of the drawer's
+	// actions only (Copy, which Lens's drawer has and its row menus do not).
+	DrawerOnly bool
+
 	// Enabled returns nil when the command can run with p, else an error whose text says why
 	// not ("no cluster connected"). Nil means always enabled.
 	Enabled func(s *Session, p P) error
@@ -95,6 +99,7 @@ type Command struct {
 	Description string   `json:"description,omitempty"`
 	Kinds       []string `json:"kinds,omitempty"`
 	Order       int      `json:"order,omitempty"`
+	DrawerOnly  bool     `json:"drawerOnly,omitempty"` // in the drawer's actions, not in the row menu
 	Danger      Danger   `json:"danger"`
 	// Escalates is true when some invocations are destructive although Danger is mutating.
 	Escalates bool               `json:"escalates,omitempty"`
@@ -210,6 +215,9 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 	if spec.Order < 0 {
 		return fmt.Errorf("command %s: negative order", spec.ID)
 	}
+	if spec.DrawerOnly && spec.Order == 0 {
+		return fmt.Errorf("command %s: a drawer-only command needs an order", spec.ID)
+	}
 	schema, err := jsonschema.For[P](nil)
 	if err != nil {
 		return fmt.Errorf("command %s: params schema: %w", spec.ID, err)
@@ -220,7 +228,7 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 	}
 	c := &Command{
 		ID: spec.ID, Label: spec.Label, MenuPath: spec.MenuPath, Shortcut: spec.Shortcut,
-		Description: spec.Description, Kinds: spec.Kinds, Order: spec.Order, Danger: spec.Danger,
+		Description: spec.Description, Kinds: spec.Kinds, Order: spec.Order, DrawerOnly: spec.DrawerOnly, Danger: spec.Danger,
 		Escalates: spec.Escalate != nil, Verbs: spec.Verbs, Schema: schema, resolved: resolved,
 	}
 	c.decode = func(raw json.RawMessage) (any, error) {

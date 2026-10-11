@@ -17,7 +17,8 @@ Ordered checklists for the common additions. The packages they name are in
    behaviour (`k8s.io/kubectl/pkg/drain`, rollout). Unit-test it there.
 3. **Command** goes in `internal/engine/commands/<area>.go` and registers:
    - `id`, `label`, `menu path`, the kinds it applies to and Lens's default shortcut, if any;
-   - `Order`, its place in the kind's row menu and drawer ([architecture §4.2](architecture.md#42-the-command-registry));
+   - `Order`, its place in the kind's row menu and drawer ([architecture §4.2](architecture.md#42-the-command-registry)),
+     with `DrawerOnly` when Lens shows it in the drawer but not in the row menu (Copy);
      `Enabled` wraps `engine.ErrNotApplicable` when the command does not apply to the object at all
      (Cordon on a cordoned node), so that the menu hides it; `Escalate` when some invocations of a
      mutating command are destructive; `Prefill` when a dialog should start from cached values;

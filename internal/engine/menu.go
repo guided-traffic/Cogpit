@@ -20,7 +20,8 @@ const (
 // toolbar, in Lens's order: commands with an Order whose Kinds contain the kind, and those with an
 // Order and no Kinds (Edit and Delete apply to every kind), sorted by Order, then by id. A menu
 // shows each one unless [Command.Applicable] says it does not apply to the object (Cordon on a
-// cordoned node), greyed when [Command.Enabled] gives a reason.
+// cordoned node), greyed when [Command.Enabled] gives a reason. The row menu leaves out the
+// drawer-only ones (Command.DrawerOnly: Copy).
 func (r *Registry) Actions(kind string) []*Command {
 	r.mu.RLock()
 	out := make([]*Command, 0, 8)
