@@ -1,0 +1,132 @@
+package commands
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/model"
+)
+
+// Kind keys of the Restart and Scale commands of this file.
+const (
+	daemonSetKindKey  = "daemonsets"
+	replicaSetKindKey = "replicasets"
+)
+
+func registerWorkloadActions(g *registrar) {
+	// Lens's documented orders: Daemon Set Restart, Logs; Stateful Set Restart, Scale (200), Logs;
+	// Replica Set Scale, Logs.
+	add(g, restartSpec("daemonset.restart", "DaemonSet/Restart", daemonSetKindKey, "daemon set"))
+	add(g, restartSpec("statefulset.restart", "StatefulSet/Restart", statefulSetKindKey, "stateful set"))
+
+	rs := scaleSpec("replicaset.scale", "ReplicaSet/Scale", replicaSetKindKey, "replica set", 100)
+	rs.Description += " A replica set that a Deployment controls is set back to the Deployment's count by its controller."
+	run := rs.Run
+	rs.Run = func(ctx context.Context, s *engine.Session, p scaleParams) (any, error) {
+		res, err := run(ctx, s, p)
+		if err == nil {
+			if owner := deploymentOf(s, p.Ref); owner != "" {
+				userToast(s, engine.LevelWarning, fmt.Sprintf("Replica set %s is controlled by deployment %s, which may set its count back", p.Ref.Name, owner))
+			}
+		}
+		return res, err
+	}
+	add(g, rs)
+}
+
+// restartSpec builds the Restart command of a Daemon Set or Stateful Set: kubectl rollout
+// restart's patch, destructive (it replaces every pod), confirmed for every origin (owner,
+// 2026-10-11), first in the kind's menu.
+func restartSpec(id, menuPath, kind, noun string) engine.Spec[refParams] {
+	return engine.Spec[refParams]{
+		ID: id, Label: "Restart", MenuPath: menuPath, Kinds: []string{kind},
+		Order: 100, Danger: engine.DangerDestructive,
+		Verbs: []engine.Verb{{Verb: nwVerbPatch, Group: nwGroupApps, Resource: kind}},
+		Description: "Restarts a " + noun + " the way kubectl rollout restart does: it sets the pod template's " +
+			"kubectl.kubernetes.io/restartedAt annotation, and the controller replaces every pod by its update strategy " +
+			"(with OnDelete, only as pods are deleted). Always asks the user to confirm.",
+		Enabled: func(s *engine.Session, p refParams) error {
+			if _, err := cachedOfKind(s, p.Ref, kind); err != nil {
+				return err
+			}
+			_, _, err := restartsOf(s)
+			return err
+		},
+		Targets: func(s *engine.Session, p refParams) ([]model.ObjectRef, error) { return targetOf(s, p.Ref) },
+		Detail: func(s *engine.Session, p refParams) string {
+			obj, err := s.Lookup(p.Ref)
+			if err != nil {
+				return ""
+			}
+			if t := model.NestedString(obj, "spec", "updateStrategy", "type"); t == "OnDelete" {
+				return "Its update strategy is OnDelete: the pods are replaced only when they are deleted."
+			}
+			return ""
+		},
+		Run: func(ctx context.Context, s *engine.Session, p refParams) (any, error) {
+			return act(ctx, s, p.Ref, "restarted", func(w engine.Actions, ref model.ObjectRef) error {
+				rw, ok := w.(engine.WorkloadRestarts)
+				if !ok {
+					return errConnectionCannotRestart
+				}
+				if err := sameAsConfirmed(ctx, s, ref); err != nil {
+					return err
+				}
+				return rw.RestartWorkload(ctx, kind, ref.Namespace, ref.Name)
+			})
+		},
+	}
+}
+
+var errConnectionCannotRestart = errors.New("this connection cannot restart workloads")
+
+// restartsOf is the writable check of the Restart commands.
+func restartsOf(s *engine.Session) (*engine.Backend, engine.WorkloadRestarts, error) {
+	b, err := writable(s)
+	if err != nil {
+		return nil, nil, err
+	}
+	rw, ok := b.Writer().(engine.WorkloadRestarts)
+	if !ok {
+		return nil, nil, errConnectionCannotRestart
+	}
+	return b, rw, nil
+}
+
+// sameAsConfirmed refuses a destructive patch on an object the cache now holds under another UID
+// than the one the user confirmed: deleted and created again under the name while the dialog was
+// open. A patch, unlike a delete, carries no UID precondition in kubectl's form, so the check is
+// against the cache.
+func sameAsConfirmed(ctx context.Context, s *engine.Session, ref model.ObjectRef) error {
+	cached := func() (string, bool) {
+		obj, err := s.Lookup(ref)
+		if err != nil {
+			return "", false
+		}
+		return string(obj.GetUID()), true
+	}
+	uid, err := engine.ActUID(ctx, ref, cached)
+	if err != nil {
+		return err
+	}
+	if now, ok := cached(); !ok || now != uid {
+		return fmt.Errorf("%w: %s is no longer the object that was confirmed; nothing was done", engine.ErrTargetsChanged, ref.String())
+	}
+	return nil
+}
+
+// deploymentOf returns the name of the Deployment that controls a cached replica set, or "".
+func deploymentOf(s *engine.Session, ref model.ObjectRef) string {
+	obj, err := s.Lookup(ref)
+	if err != nil {
+		return ""
+	}
+	for _, o := range obj.GetOwnerReferences() {
+		if o.Controller != nil && *o.Controller && o.Kind == "Deployment" {
+			return o.Name
+		}
+	}
+	return ""
+}

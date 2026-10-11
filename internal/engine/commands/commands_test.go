@@ -72,6 +72,10 @@ var wantCommands = map[string]engine.Danger{
 	"helm.release.uninstall": engine.DangerDestructive,
 	"helm.pendingOperations": engine.DangerRead,
 	"helm.dismissOperation":  engine.DangerUI,
+	// Workload actions and logs (G7, G8).
+	"daemonset.restart":   engine.DangerDestructive,
+	"statefulset.restart": engine.DangerDestructive,
+	"replicaset.scale":    engine.DangerMutating, // destructive when scaling to zero (Escalate)
 }
 
 func TestRegistryComplete(t *testing.T) {

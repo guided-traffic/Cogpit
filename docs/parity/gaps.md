@@ -217,7 +217,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   Job) and Evict (Pod) partial (2026-10-11), as engine commands with the captured places and
   applicability, tested against client-go's fake clientset and the kind cluster
   ([`commands/nodes.go`](../../internal/engine/commands/nodes.go),
-  [`commands/workloads.go`](../../internal/engine/commands/workloads.go)). Drain uses kubectl's
+  [`commands/workloads.go`](../../internal/engine/commands/workloads.go)). Restart (Daemon Set,
+  Stateful Set) and Scale (Replica Set) partial (third run, 2026-10-11): kubectl rollout restart's
+  patch, compared with the one kubectl computes (`TestRestartWorkloadSendsKubectlsPatch`),
+  confirmed for every origin ([`commands/workloadactions.go`](../../internal/engine/commands/workloadactions.go)). Drain uses kubectl's
   drain library and is crash-safe ([D-11](../developer/decisions.md#d-11-crash-stance)): a journal
   records it before the node is cordoned, and the next connect of its context offers to finish,
   uncordon or dismiss it ([`drains.go`](../../internal/engine/drains.go)). The row menus and the
