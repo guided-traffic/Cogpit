@@ -172,6 +172,32 @@ func (l *flakyLW) Watch(opts metav1.ListOptions) (watch.Interface, error) {
 	return toolscache.ToWatcherWithContext(l.inner).WatchWithContext(context.Background(), opts)
 }
 
+// gatedSource holds every list until its gate closes.
+type gatedSource struct {
+	*testkit.MemorySource
+	gate chan struct{}
+}
+
+func (g *gatedSource) ListerWatcher(scope cache.Scope) toolscache.ListerWatcher {
+	return &gatedLW{gate: g.gate, inner: g.MemorySource.ListerWatcher(scope)}
+}
+
+type gatedLW struct {
+	gate  chan struct{}
+	inner toolscache.ListerWatcher
+}
+
+func (l *gatedLW) IsWatchListSemanticsUnSupported() bool { return true }
+
+func (l *gatedLW) List(opts metav1.ListOptions) (runtime.Object, error) {
+	<-l.gate
+	return toolscache.ToListerWithContext(l.inner).ListWithContext(context.Background(), opts)
+}
+
+func (l *gatedLW) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+	return toolscache.ToWatcherWithContext(l.inner).WatchWithContext(context.Background(), opts)
+}
+
 func TestErrorStateSetThenClearedWithoutEvents(t *testing.T) {
 	// An empty resource: recovery produces no event, so the error must clear on the successful
 	// list itself.
@@ -427,7 +453,10 @@ func TestSyncWaitsForTheInitialListToReachSubscribers(t *testing.T) {
 	for i := range 50 {
 		src.Set(testkit.PodsGVR, testkit.Pod("default", fmt.Sprintf("web-%d", i)))
 	}
-	c := cache.New(src, cache.Options{})
+	// The list waits until the subscriber is in place: on a slow machine the informer could
+	// otherwise deliver the initial list before Subscribe returns, to no subscriber at all.
+	gate := make(chan struct{})
+	c := cache.New(&gatedSource{MemorySource: src, gate: gate}, cache.Options{})
 	defer c.Close()
 	h := c.Acquire(cache.Scope{GVR: testkit.PodsGVR})
 	defer h.Release()
@@ -440,6 +469,7 @@ func TestSyncWaitsForTheInitialListToReachSubscribers(t *testing.T) {
 		<-release
 	})
 	defer unsub()
+	close(gate)
 	select {
 	case <-reached:
 	case <-time.After(5 * time.Second):

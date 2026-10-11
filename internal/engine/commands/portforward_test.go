@@ -646,6 +646,15 @@ func TestPortForwardsForAgentsAndMenus(t *testing.T) {
 	var f engine.Forward
 	h.must(t, engine.OriginGUI, "service.portForward", map[string]any{"ref": webService, "port": 80}, &f)
 	waitForward(t, h.s, f.Ref, "in the store", func(engine.Forward) bool { _, err := h.s.Lookup(f.Ref); return err == nil })
+	waitForward(t, h.s, f.Ref, "active", func(fw engine.Forward) bool { return fw.Phase == "Active" })
+	actx, acancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer acancel()
+	if !testkit.WaitFor(actx, func() bool {
+		obj, err := h.s.Lookup(f.Ref)
+		return err == nil && model.NestedString(obj, "status", "phase") == "Active"
+	}) {
+		t.Fatal("the store never showed the forward active")
+	}
 	agent := engine.OriginExternalAgent
 
 	var list commands.ListResult

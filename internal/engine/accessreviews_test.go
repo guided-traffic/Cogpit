@@ -531,6 +531,8 @@ func TestAccessRefresh(t *testing.T) {
 	if !waitAllowed(t, b.Access, "default", deletePods) {
 		t.Error("the refreshed rules were not asked")
 	}
+	// The reviews run on their own goroutines: the apps one may land after default's answer.
+	waitCond(t, "both namespaces reviewed again", func() bool { rules, _ := rev.calls(); return rules["apps"] >= 2 })
 	if rules, _ := rev.calls(); rules["default"] != 2 || rules["apps"] != 2 {
 		t.Errorf("rules reviews %v, want default and apps twice", rules)
 	}
