@@ -24,8 +24,8 @@ an activated Lens Desktop ([D-12](../developer/decisions.md#d-12-parity-sources)
 Modifier names are macOS first (⌘ ⌥ ⇧ ⌃); Windows and Linux use Ctrl and Alt. **Status:** as
 marked per row; rows without evidence are missing.
 
-**Summary (measured, 2026-10-11):** 25 of 130 rows exist, all **partial** and all free-plan rows
-(25 of 117); 6 more rows are not a target. No row is done: none has been compared with a running
+**Summary (measured, 2026-10-11):** 26 of 133 rows exist, all **partial** and all free-plan rows
+(26 of 120); 6 more rows are not a target. No row is done: none has been compared with a running
 Lens Desktop.
 Remaining (estimated): see gaps [G5](gaps.md#g5-app-shell-navigation-tables-and-drawer) (layout,
 sidebar, tables, drawer, dock), [G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)
@@ -39,8 +39,8 @@ hotbar, navigator, tab bar, workspace, dock, status bar.
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Title bar with history back and forward, notifications and a context menu with Preferences | free | missing | – |
-| Hotbar down the left edge ([Hotbar](#hotbar)) | paid | missing | – |
+| Title bar with history back and forward, notifications and a context menu with Preferences; captured (2026-10-11): back and forward arrows, an "Update" button with a menu when an update is available, the paid "AI" button with a menu, a notifications bell, and on the right the vendor's "UPGRADE" and account avatar (not targets, D-9) | free | missing | – |
+| Hotbar down the left edge ([Hotbar](#hotbar)); captured: one tile per cluster with its icon or image and a short label, and a bank switcher ("‹ 1 ›") at the bottom | paid | missing | – |
 | Navigator with the cluster's resource tree ([Cluster sidebar](#cluster-sidebar)) | free | partial | [`sidebar.go`](../../internal/ui/fyneui/sidebar.go) |
 | Navigator header: a dropdown of the cluster shown in the tree and a search button (capture, 2026-10-11) | free | missing | – |
 | Tab bar of cluster views: single click opens a preview tab, double-click (or ⇧↵) a fixed tab; a tab reads "<view> - <context>" with the cluster's icon and a close button; the preview tab's title is italic (capture, 2026-10-11; the italic-means-preview reading is inferred) | free | missing | – |
@@ -176,8 +176,11 @@ Every list view is one table ([resource views](resource-parity.md)).
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Opens from the right when a row is selected | free | partial | `TestRowTapDispatchesSelect`; `ui.select` opens the drawer |
-| Actions at the top: Copy, Edit, Delete and the kind's own actions | free | partial: Delete and kind actions | Delete and the kind's actions (Logs, Shell, Restart), disabled with the reason; no Copy, no Edit |
+| Opens from the right when a row is selected, beside the narrowed table; titled "<Kind>: <name>" (capture, 2026-10-11) | free | partial | `TestRowTapDispatchesSelect`; `ui.select` opens the drawer |
+| Actions at the top: Copy, Edit, Delete and the kind's own actions; captured as icons in the drawer's title bar: for a pod seven icons ending with Edit and Delete, for a node Shell, Cordon (a pause icon), Drain, Edit, Delete (which pod icon is which action: inferred, tooltips needed) | free | partial: Delete and kind actions | partial: Delete and kind actions |
+| Drawer sections in order: Metrics, Properties, the kind's own sections, Events ("No events found" when none) (capture of a pod and a node) | free | partial: no metrics; Cogpit shows Metadata, then the kind's sections, then Events | [`drawer.go`](../../internal/ui/fyneui/drawer.go) |
+| Long values fold: Labels, Annotations, Tolerations, environment variables, mounts and volumes show a count ("6 Labels") and expand on click; lists of short values show as chips (pod IPs, conditions, images) (capture) | free | missing | – |
+| Object references in the drawer are links (namespace, controller, node, service account, secrets); container ports have a "Forward…" button (capture) | free | missing | – |
 
 ## Dock
 
@@ -329,7 +332,7 @@ the table is taken as correct until a capture decides.
 | Master and worker node charts | free | missing | – |
 | Time range from 1 hour to 2 months | free | missing | – |
 | Issues | free | missing | – |
-| Metrics charts in detail drawers (which kinds: capture needed) | free | missing | – |
+| Metrics charts in detail drawers: pods, each container of a pod, nodes (captured); a time range (default "1h"), one tab per metric (CPU, memory, network, filesystem; a container has no network tab), a line naming the provider ("Displaying metrics from Prometheus: <namespace>/<service>:<port>"); legends: CPU usage, requests, limits, and for nodes allocatable capacity and capacity | free | missing | – |
 
 ## Appearance and application
 
@@ -347,6 +350,7 @@ the table is taken as correct until a capture decides.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Captures of the pod and node drawers and the window frame: drawer sections, folding and chips, links and Forward buttons, metrics in drawers, title bar, hotbar |
 | 2026-10-11 | minor | Captures of Pods, Pod Disruption Budgets, Definitions and the Workloads Overview: object links, the warning column, the "+" button, the sort arrow |
 | 2026-10-11 | minor | From a capture of a custom resource view: navigator header, tab titles, search toggles, row checkboxes, row and column menus, CSV button, namespace links, dock controls |
 | 2026-10-11 | minor | Cluster sidebar from a second capture on Kubernetes 1.36.2: Mutating Admission Policies (version-dependent), the Gateway API sub-group (CRD-dependent), custom resource kinds by singular Kind name |
