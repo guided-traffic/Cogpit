@@ -45,6 +45,9 @@ const truncatedMark = " …"
 type Logs struct {
 	widget.BaseWidget
 	stream io.ReadCloser
+	// do runs a function on the main goroutine; nil means fyne.DoAndWait. The shell passes its own
+	// (fyne.Do in the app, a queue in tests), so that tests drive the main goroutine themselves.
+	do func(func())
 
 	// Reader side, guarded by mu.
 	mu       sync.Mutex
@@ -70,8 +73,13 @@ type Logs struct {
 }
 
 // NewLogs shows stream; it reads until the stream ends or Close is called.
-func NewLogs(stream io.ReadCloser) *Logs {
+func NewLogs(stream io.ReadCloser) *Logs { return NewLogsOn(stream, nil) }
+
+// NewLogsOn is NewLogs with the function that runs work on the main goroutine (nil:
+// fyne.DoAndWait). The flusher waits for each batch to be applied, or for Close.
+func NewLogsOn(stream io.ReadCloser, do func(func())) *Logs {
 	l := &Logs{
+		do:      do,
 		stream:  stream,
 		pending: newLineRing(logScrollback, logMaxBytes),
 		lines:   newLineRing(logScrollback, logMaxBytes),
@@ -207,19 +215,41 @@ func (l *Logs) flush() {
 		l.batch = batch[:0] // reused once the main goroutine is done with it (DoAndWait)
 
 		if len(batch) > 0 || received != shownReceived || ended {
-			fyne.DoAndWait(func() {
+			applied := l.onMain(func() {
 				start := time.Now()
 				l.apply(batch, received, ended, endErr)
 				if l.onFlush != nil {
 					l.onFlush(time.Since(start), len(batch))
 				}
 			})
+			if !applied {
+				return // closed while the batch waited; it is not reused
+			}
 			shownReceived = received
 		}
 		clear(batch)
 		if ended {
 			return
 		}
+	}
+}
+
+// onMain runs fn on the main goroutine and waits for it, or for Close: it reports whether fn ran.
+func (l *Logs) onMain(fn func()) bool {
+	if l.do == nil {
+		fyne.DoAndWait(fn)
+		return true
+	}
+	done := make(chan struct{})
+	l.do(func() {
+		defer close(done)
+		fn()
+	})
+	select {
+	case <-done:
+		return true
+	case <-l.stop:
+		return false
 	}
 }
 

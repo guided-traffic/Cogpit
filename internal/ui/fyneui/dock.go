@@ -142,7 +142,7 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 					c.set(dockMessage("Could not open the logs: "+err.Error(), colorStatusError))
 					return
 				}
-				w := termview.NewLogs(stream)
+				w := termview.NewLogsOn(stream, d.sh.do)
 				c.closer = w
 				c.set(w)
 			})
