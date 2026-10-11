@@ -58,6 +58,13 @@ var wantCommands = map[string]engine.Danger{
 	"resource.templates": engine.DangerRead,
 
 	"cluster.refreshAccess": engine.DangerRead,
+
+	"pod.portForward":     engine.DangerMutating,
+	"service.portForward": engine.DangerMutating,
+	"portforward.open":    engine.DangerUI,
+	"portforward.edit":    engine.DangerMutating,
+	"portforward.stop":    engine.DangerUI,
+	"portforward.remove":  engine.DangerUI,
 }
 
 func TestRegistryComplete(t *testing.T) {
