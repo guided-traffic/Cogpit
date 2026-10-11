@@ -35,7 +35,7 @@ type NavigateResult struct {
 }
 
 type viewParams struct {
-	View string `json:"view" jsonschema:"kind key of the view to open: pods, services, or <plural>.<group> for a custom resource kind (gateways.gateway.networking.k8s.io); kinds_list lists them"`
+	View string `json:"view" jsonschema:"kind key of the view to open: pods, services, or <plural>.<group> for a custom resource kind (gateways.gateway.networking.k8s.io); kinds_list lists them. Or a page: workloads/overview (the Workloads Overview)"`
 }
 
 type namespaceParams struct {
@@ -77,17 +77,22 @@ func registerUI(g *registrar) {
 
 	add(g, engine.Spec[viewParams]{
 		ID: "ui.openView", Label: "Open View", MenuPath: "View/Open View", Danger: engine.DangerUI, Verbs: cacheReads,
-		Description: "Opens the list view of a kind (pods, services, ...), as clicking it in the sidebar does. Clears the " +
-			"selection, the detail drawer and the search text; keeps the namespace filter. Returns the new UI state.",
+		Description: "Opens the list view of a kind (pods, services, ...) or a page (workloads/overview, the Workloads " +
+			"Overview), as clicking it in the sidebar does. Clears the selection, the detail drawer and the search text; " +
+			"keeps the namespace filter. Returns the new UI state.",
 		Enabled: func(s *engine.Session, _ viewParams) error { _, err := connected(s); return err },
 		Run: func(_ context.Context, s *engine.Session, p viewParams) (any, error) {
-			_, prof, err := s.Kind(p.View)
-			if err != nil {
-				return nil, err
+			view := p.View
+			if _, page := engine.PageTitle(view); !page {
+				_, prof, err := s.Kind(view)
+				if err != nil {
+					return nil, err
+				}
+				view = prof.Key
 			}
-			sort := s.ViewSort(prof.Key)
+			sort := s.ViewSort(view)
 			return s.UpdateUI(func(u *engine.UIState) {
-				u.View, u.Sort = prof.Key, sort
+				u.View, u.Sort = view, sort
 				u.Selected, u.Drawer, u.Filter = nil, nil, ""
 			}), nil
 		},
@@ -123,16 +128,16 @@ func registerUI(g *registrar) {
 			"ascending unless desc is true. Empty cells sort last. The view remembers its sort order. Returns the new UI state.",
 		Enabled: func(s *engine.Session, _ engine.SortSpec) error { _, err := openView(s); return err },
 		Run: func(_ context.Context, s *engine.Session, p engine.SortSpec) (any, error) {
-			prof, err := openView(s)
+			view, prof, err := openViewKey(s)
 			if err != nil {
 				return nil, err
 			}
 			if prof.ColumnIndex(p.Column) < 0 {
-				return nil, fmt.Errorf("the %s view has no column %q; columns: %s", prof.Key, p.Column, columnIDs(prof))
+				return nil, fmt.Errorf("the %s view has no column %q; columns: %s", view, p.Column, columnIDs(prof))
 			}
 			applied := false
 			st := s.UpdateUI(func(u *engine.UIState) {
-				if u.View == prof.Key {
+				if u.View == view {
 					u.Sort, applied = p, true
 				}
 			})
@@ -234,18 +239,24 @@ func navigate(ctx context.Context, s *engine.Session, p refParams) (any, error) 
 	return NavigateResult{View: st.View, Ref: ref, Found: row != nil}, nil
 }
 
-// openView returns the profile of the open view, or why there is none.
+// openView returns the profile of the open view's rows, or why there is none.
 func openView(s *engine.Session) (*model.KindProfile, error) {
-	b, err := connected(s)
-	if err != nil {
-		return nil, err
+	_, p, err := openViewKey(s)
+	return p, err
+}
+
+// openViewKey returns the open view's key and the profile of its rows: the kind's, or a page's
+// table profile (the Workloads Overview's events).
+func openViewKey(s *engine.Session) (string, *model.KindProfile, error) {
+	if _, err := connected(s); err != nil {
+		return "", nil, err
 	}
 	view := s.UIState().View
-	p, ok := b.Profile(view)
+	p, ok := s.ViewProfile(view)
 	if !ok {
-		return nil, errors.New("no list view is open")
+		return "", nil, errors.New("no list view is open")
 	}
-	return p, nil
+	return view, p, nil
 }
 
 func columnIDs(p *model.KindProfile) string {

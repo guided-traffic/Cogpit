@@ -39,6 +39,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerLogs(g)
 	registerCopy(g)
 	registerTables(g)
+	registerOverview(g)
 	return g.err
 }
 

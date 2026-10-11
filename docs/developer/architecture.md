@@ -327,6 +327,17 @@ Added 2026-10-11 ([`uistate.go`](../../internal/engine/uistate.go)): `Groups`, t
 view's API group filter (`ui.setGroups`), and `HiddenColumns`, the columns each view hides
 (`ui.setColumns`; a view without an entry hides its kind's default-hidden columns). The view's
 snapshot applies both: its `Columns` carry `Hidden` as the view hides them, at the kind's indexes.
+
+**Pages** (decided 2026-10-11, [`overview.go`](../../internal/engine/overview.go)): a view that is
+not one kind's list has a page key with a slash, `<sidebar group>/<page>`, which no kind key has.
+The first is `workloads/overview`, the Workloads Overview; the cluster's own Overview keeps the free
+key `overview`. `ui.openView` opens a page like a kind. While it is open the engine runs the page's
+worker in place of a view worker: it holds handles on the kinds the page reads (the seven workload
+kinds and the events), released when another view opens, and builds the page's model (each kind's
+count and status tokens, `workloads.overview`) and its table (the events, `Session.Table` under the
+page key). The table's rows keep their kind's key (`events`), so `ui.select`, row menus and the
+drawer work on them; `Session.ViewProfile` returns a page's table profile, so `ui.sort`,
+`ui.setColumns` and `table.exportCsv` work on a page as on a kind's view.
 Agents read it with `ui_state`: this is how the built-in agent knows which object the user means
 by "this pod".
 

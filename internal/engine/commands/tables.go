@@ -56,8 +56,9 @@ func registerTables(g *registrar) {
 			if view == "" {
 				return nil, errors.New("no view is open; name one in view")
 			}
-			_, prof, err := s.Kind(view)
-			if err != nil {
+			prof, ok := s.ViewProfile(view) // a kind's columns, or a page table's
+			if !ok {
+				_, _, err := s.Kind(view) // says which kinds the cluster serves
 				return nil, err
 			}
 			hidden, err := hiddenColumns(prof, p.Hidden)

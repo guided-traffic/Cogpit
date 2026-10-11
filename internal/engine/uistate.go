@@ -15,7 +15,7 @@ type UIState struct {
 	Context string `json:"context"`
 	// Connection is the state of the connection to Context.
 	Connection Connection `json:"connection"`
-	// View is the open view's kind key ("pods") or page ("overview").
+	// View is the open view's kind key ("pods") or page key ("workloads/overview", overview.go).
 	View string `json:"view"`
 	// Namespaces filter namespaced views; empty means all namespaces.
 	Namespaces []string `json:"namespaces"`

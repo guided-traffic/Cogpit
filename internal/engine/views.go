@@ -34,7 +34,8 @@ type state struct {
 	backend       *Backend
 	appliedRev    uint64
 	view          *viewWorker
-	vanished      *TableSnapshot // the open view after the cluster stopped serving its kind (customkinds.go)
+	page          *overviewWorker // the open page's worker (overview.go); nil unless a page is open
+	vanished      *TableSnapshot  // the open view after the cluster stopped serving its kind (customkinds.go)
 	drawer        *drawerWatch
 	diagStop      chan struct{}
 	sorts         map[string]SortSpec  // the sort order remembered per view
@@ -94,6 +95,7 @@ func (st *state) reconcileLocked(now UIState) {
 	if prof != nil && prof.ColumnIndex(now.Sort.Column) >= 0 {
 		st.sorts[prof.Key] = now.Sort
 	}
+	st.reconcilePageLocked(b, now)
 
 	// The drawer: a watch on its object and on the events. A custom kind's profile changes with its
 	// definition (another version, or gone), and the drawer follows it.
@@ -116,6 +118,10 @@ func (st *state) detachLocked() *Backend {
 	if st.view != nil {
 		st.view.stop()
 		st.view = nil
+	}
+	if st.page != nil {
+		st.page.stop()
+		st.page = nil
 	}
 	if st.drawer != nil {
 		st.drawer.stop()
@@ -294,10 +300,7 @@ func (s *Session) ViewSort(view string) SortSpec {
 	st := s.state
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	var p *model.KindProfile
-	if st.backend != nil {
-		p, _ = st.backend.Profile(view)
-	}
+	p := st.backend.viewProfile(view) // a kind's profile, or a page's table profile
 	if sp, ok := st.sorts[view]; ok && (p == nil || p.ColumnIndex(sp.Column) >= 0) {
 		return sp
 	}
@@ -323,8 +326,12 @@ func defaultSort(p *model.KindProfile) SortSpec {
 func (s *Session) Table(view string) *TableSnapshot {
 	s.state.mu.Lock()
 	w := s.state.view
+	page := s.state.page
 	gone := s.state.vanished
 	s.state.mu.Unlock()
+	if page != nil && view == WorkloadsOverview {
+		return page.snap.Load()
+	}
 	if w == nil || w.profile.Key != view {
 		if gone != nil && gone.View == view {
 			return gone
