@@ -234,8 +234,8 @@ Every list view is one table ([resource views](resource-parity.md)).
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| A container port link forwards to a random local port and opens the browser | free | missing | – |
-| Forward dialog (fields: capture needed) | free | missing | – |
+| A container port link ("<name>: <port>/<protocol>" in the drawer, captured) forwards to a random local port and opens the browser | free | missing | – |
+| Forward dialog, from the "Forward…" button beside a container port (init containers too): titled "Port Forwarding for <pod>", a local port field ("Random" when empty), an "https" checkbox (off), an "Open in Browser" checkbox (on), Cancel and Start; the window behind is dimmed (capture, 2026-10-11) | free | missing | – |
 | Port Forwarding view to open, edit, stop and delete forwards ([resource parity](resource-parity.md#network)) | free | missing | – |
 
 ## Command palette
@@ -336,7 +336,7 @@ order, and each page shows its settings under upper-case headings with a help li
 | Master and worker node charts | free | missing | – |
 | Time range from 1 hour to 2 months | free | missing | – |
 | Issues | free | missing | – |
-| Metrics charts in detail drawers: pods, each container of a pod, nodes (captured); a time range (default "1h"), one tab per metric (CPU, memory, network, filesystem; a container has no network tab), a line naming the provider ("Displaying metrics from Prometheus: <namespace>/<service>:<port>"); legends: CPU usage, requests, limits, and for nodes allocatable capacity and capacity; a node's toolbar has four metric icons, then after a divider a flag icon (its meaning: tooltip needed), and the section a ⋮ menu; the namespace and the service in the provider line are links (capture of a node) | free | missing | – |
+| Metrics charts in detail drawers: pods, each container of a pod, nodes (captured); a time range (default "1h"), one tab per metric (CPU, memory, network, filesystem; a container has no network tab), a line naming the provider ("Displaying metrics from Prometheus: <namespace>/<service>:<port>"); legends: CPU usage, requests, limits, and for nodes allocatable capacity and capacity; a node's toolbar has four metric icons, then after a divider a flag icon with the tooltip "Show events" (presumably marks the events on the chart: inferred), and the section a ⋮ menu; the namespace and the service in the provider line are links (capture of a node) | free | missing | – |
 
 ## Appearance and application
 
@@ -354,6 +354,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Captures of the Forward dialog and the metrics toolbar's "Show events" tooltip |
 | 2026-10-11 | minor | Captures of every cluster settings page: the page list and each page's settings |
 | 2026-10-11 | minor | Captures of a cordoned node: Uncordon in the drawer, tab tooltips, the node metrics toolbar |
 | 2026-10-11 | minor | Namespace links narrow the view's namespace filter (owner); the navigator's scope dropdown and item tooltips |
