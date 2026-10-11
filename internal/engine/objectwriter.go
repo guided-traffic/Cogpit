@@ -77,6 +77,9 @@ func (s *Session) ResolveTarget(ctx context.Context, ref model.ObjectRef) (Objec
 		if err != nil {
 			return ObjectTarget{}, nil, err
 		}
+		if r.Context != b.Context { // the user switched clusters in between
+			return ObjectTarget{}, nil, fmt.Errorf("%w: the connected cluster changed", ErrWrongCluster)
+		}
 		gv := schema.GroupVersion{Group: p.Group, Version: p.Version}
 		return ObjectTarget{Ref: r, GVR: p.GVR(), APIVersion: gv.String(), Kind: p.Kind, Namespaced: p.Namespaced}, b, nil
 	}
