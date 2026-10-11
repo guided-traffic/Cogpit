@@ -1,0 +1,107 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "poddisruptionbudgets",
+    "namespace": "legacy",
+    "name": "legacy-api"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-api"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "legacy",
+      "link": {
+        "kind": "namespaces",
+        "name": "legacy"
+      }
+    },
+    {
+      "column": "minAvailable",
+      "text": "N/A"
+    },
+    {
+      "column": "maxUnavailable",
+      "text": "1"
+    },
+    {
+      "column": "currentHealthy",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "desiredHealthy",
+      "text": "2",
+      "num": 2
+    },
+    {
+      "column": "age",
+      "text": "224d",
+      "num": 1772323200
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "legacy-api"
+    ],
+    "namespace": [
+      "legacy"
+    ],
+    "selector": [
+      "app=legacy-api"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Selector",
+          "value": "app=legacy-api"
+        },
+        {
+          "name": "Min Available",
+          "value": "N/A"
+        },
+        {
+          "name": "Max Unavailable",
+          "value": "1"
+        },
+        {
+          "name": "Current Healthy",
+          "value": "3"
+        },
+        {
+          "name": "Desired Healthy",
+          "value": "2"
+        },
+        {
+          "name": "Disruptions Allowed",
+          "value": "1"
+        },
+        {
+          "name": "Expected Pods",
+          "value": "3"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "DisruptionAllowed",
+          "value": "True (SufficientPods)",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

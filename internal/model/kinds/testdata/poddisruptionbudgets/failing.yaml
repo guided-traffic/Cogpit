@@ -1,0 +1,34 @@
+# Synthetic: the budget is not met: one of the two pods it needs is not ready, so no pod may be
+# evicted.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ledger
+  namespace: payments
+  uid: 20718293-bbbb-4a2b-3c4d-000000000002
+  creationTimestamp: "2026-10-01T08:00:00Z"
+  generation: 2
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: ledger
+    matchExpressions:
+    - key: tier
+      operator: In
+      values:
+      - backend
+  unhealthyPodEvictionPolicy: AlwaysAllow
+status:
+  observedGeneration: 2
+  currentHealthy: 1
+  desiredHealthy: 2
+  disruptionsAllowed: 0
+  expectedPods: 2
+  conditions:
+  - type: DisruptionAllowed
+    status: "False"
+    reason: InsufficientPods
+    message: ""
+    observedGeneration: 2
+    lastTransitionTime: "2026-10-11T11:40:00Z"

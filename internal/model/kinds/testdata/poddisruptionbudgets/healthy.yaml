@@ -1,0 +1,29 @@
+# Synthetic: three healthy pods, two must stay: one disruption allowed.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web
+  namespace: shop
+  uid: 20718293-bbbb-4a2b-3c4d-000000000001
+  creationTimestamp: "2026-09-20T08:00:00Z"
+  generation: 1
+  labels:
+    app: web
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: web
+status:
+  observedGeneration: 1
+  currentHealthy: 3
+  desiredHealthy: 2
+  disruptionsAllowed: 1
+  expectedPods: 3
+  conditions:
+  - type: DisruptionAllowed
+    status: "True"
+    reason: SufficientPods
+    message: ""
+    observedGeneration: 1
+    lastTransitionTime: "2026-09-20T08:01:00Z"

@@ -1,0 +1,107 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "poddisruptionbudgets",
+    "namespace": "batch",
+    "name": "workers"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "workers"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "batch",
+      "link": {
+        "kind": "namespaces",
+        "name": "batch"
+      }
+    },
+    {
+      "column": "minAvailable",
+      "text": "50%"
+    },
+    {
+      "column": "maxUnavailable",
+      "text": "N/A"
+    },
+    {
+      "column": "currentHealthy",
+      "text": "10",
+      "num": 10
+    },
+    {
+      "column": "desiredHealthy",
+      "text": "5",
+      "num": 5
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "workers"
+    ],
+    "namespace": [
+      "batch"
+    ],
+    "selector": [
+      "app=workers"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Selector",
+          "value": "app=workers"
+        },
+        {
+          "name": "Min Available",
+          "value": "50%"
+        },
+        {
+          "name": "Max Unavailable",
+          "value": "N/A"
+        },
+        {
+          "name": "Current Healthy",
+          "value": "10"
+        },
+        {
+          "name": "Desired Healthy",
+          "value": "5"
+        },
+        {
+          "name": "Disruptions Allowed",
+          "value": "5"
+        },
+        {
+          "name": "Expected Pods",
+          "value": "10"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "DisruptionAllowed",
+          "value": "True (SufficientPods)",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

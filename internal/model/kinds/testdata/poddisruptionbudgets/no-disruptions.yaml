@@ -1,0 +1,23 @@
+# Synthetic: maxUnavailable 0: every pod is healthy, but the budget allows no eviction at all, so a
+# node drain waits on it for ever.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: etcd
+  namespace: platform
+  uid: 20718293-bbbb-4a2b-3c4d-000000000005
+  creationTimestamp: "2026-08-01T00:00:00Z"
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: etcd
+status:
+  currentHealthy: 3
+  desiredHealthy: 3
+  disruptionsAllowed: 0
+  expectedPods: 3
+  conditions:
+  - type: DisruptionAllowed
+    status: "False"
+    reason: InsufficientPods

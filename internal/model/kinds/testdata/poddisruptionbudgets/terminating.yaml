@@ -1,0 +1,25 @@
+# Synthetic: a budget held by a finalizer while it is deleted.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: legacy-api
+  namespace: legacy
+  uid: 20718293-bbbb-4a2b-3c4d-000000000003
+  creationTimestamp: "2026-03-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - budgets.example.com/audit
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: legacy-api
+status:
+  currentHealthy: 3
+  desiredHealthy: 2
+  disruptionsAllowed: 1
+  expectedPods: 3
+  conditions:
+  - type: DisruptionAllowed
+    status: "True"
+    reason: SufficientPods

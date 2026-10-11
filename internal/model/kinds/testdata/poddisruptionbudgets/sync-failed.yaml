@@ -1,0 +1,24 @@
+# Synthetic: the disruption controller could not compute the budget: a percentage bound over pods
+# whose controller has no scale subresource.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: agents
+  namespace: monitoring
+  uid: 20718293-bbbb-4a2b-3c4d-000000000008
+  creationTimestamp: "2026-10-09T00:00:00Z"
+spec:
+  maxUnavailable: 10%
+  selector:
+    matchLabels:
+      app: agents
+status:
+  currentHealthy: 0
+  desiredHealthy: 0
+  disruptionsAllowed: 0
+  expectedPods: 4
+  conditions:
+  - type: DisruptionAllowed
+    status: "False"
+    reason: SyncFailed
+    message: 'found no controllers for pod "agents-x7k2p"'

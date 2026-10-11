@@ -1,0 +1,106 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "poddisruptionbudgets",
+    "namespace": "qa",
+    "name": "reports"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "reports"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "qa",
+      "link": {
+        "kind": "namespaces",
+        "name": "qa"
+      }
+    },
+    {
+      "column": "minAvailable",
+      "text": "1"
+    },
+    {
+      "column": "maxUnavailable",
+      "text": "N/A"
+    },
+    {
+      "column": "currentHealthy",
+      "text": "0"
+    },
+    {
+      "column": "desiredHealthy",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790812800
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "reports"
+    ],
+    "namespace": [
+      "qa"
+    ],
+    "selector": [
+      "app=reports"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Selector",
+          "value": "app=reports"
+        },
+        {
+          "name": "Min Available",
+          "value": "1"
+        },
+        {
+          "name": "Max Unavailable",
+          "value": "N/A"
+        },
+        {
+          "name": "Current Healthy",
+          "value": "0"
+        },
+        {
+          "name": "Desired Healthy",
+          "value": "1"
+        },
+        {
+          "name": "Disruptions Allowed",
+          "value": "0"
+        },
+        {
+          "name": "Expected Pods",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "DisruptionAllowed",
+          "value": "False (InsufficientPods)",
+          "status": "warning"
+        }
+      ]
+    }
+  ]
+}

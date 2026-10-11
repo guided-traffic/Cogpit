@@ -1,0 +1,114 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "poddisruptionbudgets",
+    "namespace": "platform",
+    "name": "etcd"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "etcd"
+    },
+    {
+      "column": "warning",
+      "text": "Allows no disruptions: evictions and node drains wait",
+      "num": 1,
+      "status": "warning"
+    },
+    {
+      "column": "namespace",
+      "text": "platform",
+      "link": {
+        "kind": "namespaces",
+        "name": "platform"
+      }
+    },
+    {
+      "column": "minAvailable",
+      "text": "N/A"
+    },
+    {
+      "column": "maxUnavailable",
+      "text": "0"
+    },
+    {
+      "column": "currentHealthy",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "desiredHealthy",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "age",
+      "text": "71d",
+      "num": 1785542400
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "etcd"
+    ],
+    "namespace": [
+      "platform"
+    ],
+    "selector": [
+      "app=etcd"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Warning",
+          "value": "Allows no disruptions: evictions and node drains wait",
+          "status": "warning"
+        },
+        {
+          "name": "Selector",
+          "value": "app=etcd"
+        },
+        {
+          "name": "Min Available",
+          "value": "N/A"
+        },
+        {
+          "name": "Max Unavailable",
+          "value": "0"
+        },
+        {
+          "name": "Current Healthy",
+          "value": "3"
+        },
+        {
+          "name": "Desired Healthy",
+          "value": "3"
+        },
+        {
+          "name": "Disruptions Allowed",
+          "value": "0"
+        },
+        {
+          "name": "Expected Pods",
+          "value": "3"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "DisruptionAllowed",
+          "value": "False (InsufficientPods)",
+          "status": "warning"
+        }
+      ]
+    }
+  ]
+}

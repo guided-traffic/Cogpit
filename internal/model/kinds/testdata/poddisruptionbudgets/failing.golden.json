@@ -1,0 +1,119 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "poddisruptionbudgets",
+    "namespace": "payments",
+    "name": "ledger"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "ledger"
+    },
+    {
+      "column": "warning",
+      "text": "Budget not met: 1 of 2 desired pods healthy",
+      "num": 1,
+      "status": "warning"
+    },
+    {
+      "column": "namespace",
+      "text": "payments",
+      "link": {
+        "kind": "namespaces",
+        "name": "payments"
+      }
+    },
+    {
+      "column": "minAvailable",
+      "text": "2"
+    },
+    {
+      "column": "maxUnavailable",
+      "text": "N/A"
+    },
+    {
+      "column": "currentHealthy",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "desiredHealthy",
+      "text": "2",
+      "num": 2
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790841600
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "ledger"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "selector": [
+      "app=ledger",
+      "tier in (backend)"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Warning",
+          "value": "Budget not met: 1 of 2 desired pods healthy",
+          "status": "warning"
+        },
+        {
+          "name": "Selector",
+          "value": "app=ledger\ntier in (backend)"
+        },
+        {
+          "name": "Min Available",
+          "value": "2"
+        },
+        {
+          "name": "Max Unavailable",
+          "value": "N/A"
+        },
+        {
+          "name": "Unhealthy Pod Eviction Policy",
+          "value": "AlwaysAllow"
+        },
+        {
+          "name": "Current Healthy",
+          "value": "1"
+        },
+        {
+          "name": "Desired Healthy",
+          "value": "2"
+        },
+        {
+          "name": "Disruptions Allowed",
+          "value": "0"
+        },
+        {
+          "name": "Expected Pods",
+          "value": "2"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "DisruptionAllowed",
+          "value": "False (InsufficientPods)",
+          "status": "warning"
+        }
+      ]
+    }
+  ]
+}

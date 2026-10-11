@@ -1,0 +1,73 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "poddisruptionbudgets",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "minAvailable",
+      "text": "N/A"
+    },
+    {
+      "column": "maxUnavailable",
+      "text": "N/A"
+    },
+    {
+      "column": "currentHealthy",
+      "text": "0"
+    },
+    {
+      "column": "desiredHealthy",
+      "text": "0"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "selector": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Min Available",
+          "value": "N/A"
+        },
+        {
+          "name": "Max Unavailable",
+          "value": "N/A"
+        }
+      ]
+    }
+  ]
+}

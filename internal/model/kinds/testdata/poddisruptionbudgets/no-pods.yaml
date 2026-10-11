@@ -1,0 +1,23 @@
+# Synthetic: a selector that matches no pod (the deployment is scaled to zero): the budget guards
+# nothing, which is not a warning.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: reports
+  namespace: qa
+  uid: 20718293-bbbb-4a2b-3c4d-000000000007
+  creationTimestamp: "2026-10-01T00:00:00Z"
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: reports
+status:
+  currentHealthy: 0
+  desiredHealthy: 1
+  disruptionsAllowed: 0
+  expectedPods: 0
+  conditions:
+  - type: DisruptionAllowed
+    status: "False"
+    reason: InsufficientPods

@@ -1,0 +1,22 @@
+# Synthetic: a percentage bound over ten pods: 50% must stay, five disruptions allowed.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: workers
+  namespace: batch
+  uid: 20718293-bbbb-4a2b-3c4d-000000000006
+  creationTimestamp: "2026-10-10T12:00:00Z"
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: workers
+status:
+  currentHealthy: 10
+  desiredHealthy: 5
+  disruptionsAllowed: 5
+  expectedPods: 10
+  conditions:
+  - type: DisruptionAllowed
+    status: "True"
+    reason: SufficientPods
