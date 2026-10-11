@@ -24,8 +24,8 @@ an activated Lens Desktop ([D-12](../developer/decisions.md#d-12-parity-sources)
 Modifier names are macOS first (⌘ ⌥ ⇧ ⌃); Windows and Linux use Ctrl and Alt. **Status:** as
 marked per row; rows without evidence are missing.
 
-**Summary (measured, 2026-10-11):** 26 of 133 rows exist, all **partial** and all free-plan rows
-(26 of 120); 6 more rows are not a target. No row is done: none has been compared with a running
+**Summary (measured, 2026-10-11):** 26 of 134 rows exist, all **partial** and all free-plan rows
+(26 of 121); 6 more rows are not a target. No row is done: none has been compared with a running
 Lens Desktop.
 Remaining (estimated): see gaps [G5](gaps.md#g5-app-shell-navigation-tables-and-drawer) (layout,
 sidebar, tables, drawer, dock), [G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)
@@ -157,6 +157,7 @@ Every list view is one table ([resource views](resource-parity.md)).
 | Reorder columns by dragging | free | missing | – |
 | Show and hide columns (⋮ at the end of the header row) | free | missing | – |
 | Search field per view, with toggles for match case ("Aa") and regular expressions (".*") (capture, 2026-10-11) | free | partial: no toggles | `TestSearchIsDebounced`; terms matched in any cell |
+| A cell too narrow for its text shows the full text in a tooltip on hover (capture of an event message, 2026-10-11) | free | missing | – |
 | Namespace filter: multi-select, default "All namespaces", Space toggles without closing | free | partial | multi-select popup, default all ([`tableview.go`](../../internal/ui/fyneui/tableview.go)); Space not verified |
 | Actions menu per row (⋮ at the row's end); for a custom resource: Show Details, Edit, Delete (capture, 2026-10-11) | free | missing | – |
 | Right-click on a row opens the actions menu (since 2025.10.230725) | free | missing | – |
@@ -164,7 +165,7 @@ Every list view is one table ([resource views](resource-parity.md)).
 | Export the table as CSV (a download button beside the item count, "18 items"; the format is inferred) | free | missing | – |
 | Select rows with a checkbox column, all rows with the header's checkbox (capture, 2026-10-11) | free | missing | – |
 | A warning column right after Name in built-in views (Pods, Pod Disruption Budgets; what it shows: capture needed) | free | missing | – |
-| A floating "+" button at the bottom right of every list (creates a resource: inferred, capture needed) | free | missing | – |
+| A floating "+" button at the bottom right of every list opens a Create resource tab in the dock (capture, 2026-10-11) | free | missing | – |
 | The sorted column shows an arrow beside its title | free | partial | `TestHeaderTapDispatchesSort` |
 | Cells that name another object are links: Namespace, Controlled By, Node, Involved Object, a definition's resource (captures, 2026-10-11; where each leads: capture needed) | free | missing | – |
 | Row line height (preference) | free | missing | – |
@@ -196,7 +197,7 @@ Every list view is one table ([resource views](resource-parity.md)).
 |---|---|---|---|
 | Edit tab: YAML editor with syntax highlighting and Save | free | missing | – |
 | Diff view: "Show changes", "Revert to original", "Exit diff view" | paid | missing | – |
-| Create resource tab: template picker, "Create & Close" | free | missing | – |
+| Create resource tab: template picker, "Create & Close"; captured: a dock tab with save and search buttons, a "Select Template …" picker whose templates sit under a "LENS" heading, one per kind in alphabetical order (ClusterRole, ClusterRoleBinding, ConfigMap, CronJob, CustomResourceDefinition, DaemonSet, Deployment, Endpoint, EndpointSlice, HorizontalPodAutoscaler, Ingress, IngressClass, Job, …), and an example Pod manifest to start from; Cogpit writes its own templates (clean-room) | free | missing | – |
 | Bundled templates, device-resource templates included (2026.9) | free | missing | – |
 | Dialogs instead of YAML to create Namespaces, Secrets, Resource Quotas, Service Accounts and RBAC objects | free | missing | – |
 
@@ -350,6 +351,7 @@ the table is taken as correct until a capture decides.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Captures of the Events view and of Create resource: cell tooltips, the + button, the template picker |
 | 2026-10-11 | minor | Captures of the pod and node drawers and the window frame: drawer sections, folding and chips, links and Forward buttons, metrics in drawers, title bar, hotbar |
 | 2026-10-11 | minor | Captures of Pods, Pod Disruption Budgets, Definitions and the Workloads Overview: object links, the warning column, the "+" button, the sort arrow |
 | 2026-10-11 | minor | From a capture of a custom resource view: navigator header, tab titles, search toggles, row checkboxes, row and column menus, CSV button, namespace links, dock controls |

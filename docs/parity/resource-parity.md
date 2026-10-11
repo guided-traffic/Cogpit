@@ -57,7 +57,7 @@ related resources) are superseded by Cogpit's built-in agent
 | Applications | workloads grouped by application | Instance, Namespace, Managed by, Version, Violations, Age, Status | Logs `workload.logs` | missing |
 | Nodes | `v1` Node | Name, (warning icon), CPU, Memory, Disk (usage bars), Taints, Roles, Version, Age, Conditions (the first five captured, the rest per documentation); no namespace filter | Shell `node.shell`, Cordon `node.cordon`, Uncordon `node.uncordon` (whether it is a separate item: capture needed), Drain `node.drain`; detail: Devices (DRA); captured in the drawer: Shell, Cordon (a pause icon), Drain, Edit, Delete (whether Uncordon replaces Cordon on a cordoned node: capture needed); detail (captured): Metrics; Properties (Created, Name, Labels, Annotations, Managed by, Addresses, OS, OS Image, Kernel version, Container runtime, Kubelet version, Conditions); Capacity and Allocatable as tables (CPU, Memory, Ephemeral Storage, Hugepages, Pods); the node's Pods (Name, warning icon, Node, Namespace, Ready, CPU, Memory, Status); Events | partial: view without CPU, Memory, Disk; no actions ([`nodes.go`](../../internal/model/kinds/nodes.go)) |
 | Namespaces | `v1` Namespace | Name, Labels, Age, Status | Create `namespace.create` | partial: view; no Create ([`namespaces.go`](../../internal/model/kinds/namespaces.go)) |
-| Events | `v1` Event | Type, Message, Namespace, Involved Object, Source, Count, Age, Last Seen (documentation; the Workloads Overview's event table shows Type, Source, Namespace, Involved Object, Message, Count, Age, Last Seen, so the Events view's own order needs a capture) | – | partial: column texts not checked against Lens ([`events.go`](../../internal/model/kinds/events.go)) |
+| Events | `v1` Event | Type, Message, Namespace, Involved Object ("Kind: name", a link), Source, Count, Age, Last Seen (capture, 2026-10-11, confirms the documented order; Last Seen shows a date, "2026-10-11", where Age is relative; the Workloads Overview's event table orders them Type, Source, Namespace, Involved Object, Message, … and shows Last Seen relative) | – | partial: column texts not checked against Lens ([`events.go`](../../internal/model/kinds/events.go)) |
 
 ## Workloads
 
@@ -184,6 +184,7 @@ the tables above. Everything else is created from YAML templates in the dock
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Capture of the Events view: documented column order confirmed; Last Seen as a date |
 | 2026-10-11 | minor | Captures of the pod and node drawers and the Nodes list: their sections and fields, the node actions in the drawer |
 | 2026-10-11 | minor | Captures of Definitions, Pods, Pod Disruption Budgets and the Workloads Overview: their columns; Pods show Status before Age |
 | 2026-10-11 | minor | Capture of a custom resource view: its columns (printer columns of priority 0) and its row menu |

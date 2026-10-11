@@ -80,11 +80,11 @@ partial.
 |---|---:|---|---:|---|
 | Resource views | 30% | 6 / 64 | 9.4% | measured ([resource-parity](resource-parity.md)) |
 | Resource actions | 20% | 4 / 40 | 10% | measured ([resource-parity](resource-parity.md)) |
-| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 26 / 120 | 21.7% | measured ([ui-parity](ui-parity.md), free rows) |
+| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 26 / 121 | 21.5% | measured ([ui-parity](ui-parity.md), free rows) |
 | Cluster authentication and connectivity | 10% | 2 / 13 | 15.4% | measured ([platform-parity](platform-parity.md#cluster-authentication-and-connectivity)) |
 | Platforms and packages | 5% | 1 / 13 | 7.7% | measured ([platform-parity](platform-parity.md#operating-systems-and-packages)) |
 | Paid Lens Desktop features | 10% | 0 / 11 | 0% | measured ([premium list](https://docs.lenshq.io/k8slens/premium-features/) without extensions, D-5) |
-| **Weighted** | 100% | | **12.2%** | |
+| **Weighted** | 100% | | **12.1%** | |
 
 ## Ready for real work
 
@@ -95,7 +95,7 @@ else.
 | Dimension | Weight | % ready | Remaining (agent-h) | Evidence | Detail |
 |---|---:|---:|---:|---|---|
 | Resource views and actions in depth | 28% | 5% | 182–555 | 6 of 64 views and 4 of 40 actions, all partial | [resource-parity](resource-parity.md), G6, G7 |
-| Interface fidelity and feel | 15% | 8% | 152–390 | 26 of 120 rows partial; no editing | [ui-parity](ui-parity.md), G5, G9, G13 |
+| Interface fidelity and feel | 15% | 8% | 152–390 | 26 of 121 rows partial; no editing | [ui-parity](ui-parity.md), G5, G9, G13 |
 | Cluster connectivity and authentication | 15% | 15% | 18–40 + human | 2 of 13 rows partial; contexts from the default kubeconfig; no plugin verified | [platform-parity](platform-parity.md#cluster-authentication-and-connectivity), G2 |
 | Logs, terminal, shells, port forwarding | 10% | 20% | 40–90 | logs with follow, cluster-bound terminal, pod shell; no attach, node shell, port forwarding | [ui-parity](ui-parity.md#logs), G8, G10 |
 | Performance and API load | 10% | 25% | 30–70 | P2, P9–P11 measured; frames on the GPU only once | [testing](../developer/testing.md#performance-budgets-proposed-not-measured), G15 |
