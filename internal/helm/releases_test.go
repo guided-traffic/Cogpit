@@ -212,6 +212,34 @@ func TestDeriveMemo(t *testing.T) {
 	}
 }
 
+// The memo forgets the decoded values and manifests once nobody has asked for the releases for
+// memoIdle: Derive runs on every snapshot and lookup while a view, drawer or agent reads them, and
+// stops when the release Secrets are no longer watched. Without the purge, the values of every
+// release read once stayed in memory for as long as the cluster was connected (H-8 says: as long
+// as they are watched). Asked again, it decodes them again.
+func TestDeriveMemoForgetsWhenIdle(t *testing.T) {
+	old := memoIdle
+	memoIdle = 20 * time.Millisecond
+	t.Cleanup(func() { memoIdle = old })
+	m := newTestMemo()
+	secrets := releaseSecrets(t)
+	m.derive(secrets)
+	if m.size() == 0 {
+		t.Fatal("nothing memoized")
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for m.size() != 0 && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	if n := m.size(); n != 0 {
+		t.Fatalf("the memo holds %d revisions after it was idle", n)
+	}
+	objs := m.derive(secrets)
+	if len(objs) == 0 || m.heavyOf(objs[0]) == nil {
+		t.Error("the releases are not decoded again after the purge")
+	}
+}
+
 // Hostile release Secrets never panic and never hide a release: one that does not decode shows
 // with what its labels and name say, and the error.
 func TestDeriveToleratesHostilePayloads(t *testing.T) {

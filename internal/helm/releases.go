@@ -77,6 +77,12 @@ const (
 	memoEntries    = 4096
 )
 
+// memoIdle is how long the memo keeps what it decoded after the last Derive: Derive runs while a
+// view, a drawer or an agent reads the releases, and stops when nobody does and the release
+// Secrets' watch ends (the cache's warm period, five minutes by default). The decoded values then
+// leave memory with the Secrets they came from (H-8). A var for tests.
+var memoIdle = 5 * time.Minute
+
 // NewReleaseProfile returns the profile of the Helm releases of one cluster connection: a virtual
 // kind over the Secrets labelled owner=helm (D-13), one object per release, its newest revision
 // winning. Each call returns a profile with its own memo of decoded payloads; the connector makes
@@ -215,6 +221,24 @@ type memo struct {
 	cur   map[types.UID]*revision
 	prev  map[types.UID]*revision
 	calls int
+	idle  *time.Timer // purges the memo memoIdle after the last Derive
+}
+
+// touch arms the idle purge again. Called with m.mu held.
+func (m *memo) touch() {
+	if m.idle == nil {
+		m.idle = time.AfterFunc(memoIdle, m.purge)
+		return
+	}
+	m.idle.Reset(memoIdle)
+}
+
+// purge forgets every decoded revision, values and manifests included. A Derive after it decodes
+// the Secrets it is given again.
+func (m *memo) purge() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.cur, m.prev = map[types.UID]*revision{}, map[types.UID]*revision{}
 }
 
 // get returns the memo's revision for a Secret, or nil. Called with m.mu held.
@@ -314,6 +338,7 @@ func (m *memo) derive(objs []*unstructured.Unstructured) []*unstructured.Unstruc
 	if m.calls++; m.calls%memoGeneration == 0 {
 		m.rotate()
 	}
+	m.touch()
 	return out
 }
 

@@ -632,7 +632,10 @@ and the object carries that revision's Secret UID and resourceVersion and a summ
 history, never values or the manifest (the YAML tab shows this summary). Decoded payloads are
 memoized per Secret UID and resourceVersion, values and manifests for the newest revision of each
 release only; entries for Secrets that are gone leave the memo after two generations of 64 calls,
-and it holds at most 4,096. The drawer shows Properties, the History table, the user-supplied
+and it holds at most 4,096. Five minutes after the last `Derive` (nobody reads the releases, and
+their watch ends after the cache's warm period) the memo forgets everything it decoded, so the
+values leave memory with the Secrets they came from (review 2026-10-11,
+`TestDeriveMemoForgetsWhenIdle`); before, they stayed until the cluster was disconnected. The drawer shows Properties, the History table, the user-supplied
 values (marked `Private`: agents read `model.Withheld`) and the manifest with every Secret's data
 redacted for everyone, both cut for the drawer (16 KiB or 200 lines, 32 KiB or 400 lines).
 `helm.release.rollback` and `helm.release.uninstall` run `action.NewRollback` and
