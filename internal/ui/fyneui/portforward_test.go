@@ -218,8 +218,8 @@ func forwardButtons(sh *shell) []*widget.Button {
 	return out
 }
 
-// scrollDrawerTo scrolls the drawer's details so that o is in view.
-func scrollDrawerTo(sh *shell, w fyne.Window, o fyne.CanvasObject) {
+// scrollDrawerToObject scrolls the drawer's details so that o is in view.
+func scrollDrawerToObject(sh *shell, w fyne.Window, o fyne.CanvasObject) {
 	scrolls := findAll[*container.Scroll](sh.drawer.root)
 	if len(scrolls) == 0 {
 		return
@@ -426,7 +426,7 @@ func TestRenderForwardDialogLight(t *testing.T) {
 func renderPodDrawerPorts(t *testing.T, mode ThemeMode, name string) {
 	f := forwardsFake(t, "pods")
 	sh, w, _ := openPodDrawer(t, f, healthyPodRef(t), mode)
-	scrollDrawerTo(sh, w, forwardButtons(sh)[0])
+	scrollDrawerToObject(sh, w, forwardButtons(sh)[0])
 	savePNG(t, w, name)
 }
 

@@ -37,16 +37,14 @@ const keyPortForwards = "portforwards"
 
 // Column ids (and fields) of the port forwards.
 const (
-	idForwardKind = "kind"
+	idForwardKind = idKind
 	idLocalPort   = "localPort"
 )
 
 // What the port items of pods and services use.
 const (
 	protocolTCP = "TCP"
-	titlePorts  = "Ports"
 	fieldPort   = "port"
-	keyServices = "services"
 	paramRef    = "ref" // the object a command acts on (engine.ParamRef)
 )
 

@@ -56,7 +56,7 @@ func settledKinds(ctx context.Context, t *testing.T, s *engine.Session, want ...
 		}
 		clear(got)
 		for _, k := range res.([]commands.KindInfo) {
-			if k.Listable != nil {
+			if k.Listable != nil && k.Group != model.LocalGroup { // Cogpit's own kinds are always listable
 				got[k.Kind] = *k.Listable
 			}
 		}
@@ -221,7 +221,7 @@ func TestBudgetWithoutAccessReviews(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, k := range res.([]commands.KindInfo) {
-			if k.Listable != nil {
+			if k.Listable != nil && k.Group != model.LocalGroup {
 				t.Errorf("%s: listable %v from failing reviews", k.Kind, *k.Listable)
 			}
 		}
