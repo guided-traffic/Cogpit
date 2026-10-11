@@ -1,0 +1,81 @@
+# web: three nginx replicas serving a page from a ConfigMap, behind a Service with the fixed
+# ClusterIP 10.96.100.100 (the address the MCP demo looks up with resources_find).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-content
+  namespace: cogpit-demo
+  labels:
+    app.kubernetes.io/name: web
+    app.kubernetes.io/part-of: cogpit-demo
+data:
+  index.html: |
+    <!doctype html>
+    <title>cogpit-demo</title>
+    <p>Hello from the Cogpit kind seed.</p>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: cogpit-demo
+  labels:
+    app.kubernetes.io/name: web
+    app.kubernetes.io/part-of: cogpit-demo
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+        app.kubernetes.io/name: web
+        app.kubernetes.io/part-of: cogpit-demo
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.30.0-alpine
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: content
+              mountPath: /usr/share/nginx/html
+              readOnly: true
+      volumes:
+        - name: content
+          configMap:
+            name: web-content
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: cogpit-demo
+  labels:
+    app.kubernetes.io/name: web
+    app.kubernetes.io/part-of: cogpit-demo
+spec:
+  type: ClusterIP
+  # Fixed, inside kind's default service CIDR 10.96.0.0/16 (hack/kind/cluster.yaml).
+  clusterIP: 10.96.100.100
+  selector:
+    app: web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

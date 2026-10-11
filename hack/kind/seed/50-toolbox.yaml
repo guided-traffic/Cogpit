@@ -1,0 +1,29 @@
+# toolbox: a long-running pod with a shell, for the pod-shell demo (`pod.shell`). The loop exits
+# on SIGTERM, so deleting the pod does not wait for the grace period.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: toolbox
+  namespace: cogpit-demo
+  labels:
+    app: toolbox
+    app.kubernetes.io/name: toolbox
+    app.kubernetes.io/part-of: cogpit-demo
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+  containers:
+    - name: shell
+      image: busybox:1.37.0
+      command: ["sh", "-c", "trap 'exit 0' TERM; while true; do sleep 3600 & wait; done"]
+      resources:
+        requests:
+          cpu: 5m
+          memory: 8Mi
+        limits:
+          memory: 32Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]

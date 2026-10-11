@@ -1,0 +1,39 @@
+# crashloop: a container that exits with an error a few seconds after it starts, so the pod sits
+# in CrashLoopBackOff with a growing restart count and BackOff events.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crashloop
+  namespace: cogpit-demo
+  labels:
+    app.kubernetes.io/name: crashloop
+    app.kubernetes.io/part-of: cogpit-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crashloop
+  template:
+    metadata:
+      labels:
+        app: crashloop
+        app.kubernetes.io/name: crashloop
+        app.kubernetes.io/part-of: cogpit-demo
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: app
+          image: busybox:1.37.0
+          command: ["sh", "-c", "echo starting; sleep 5; echo 'fatal: cannot reach the database' >&2; exit 1"]
+          resources:
+            requests:
+              cpu: 5m
+              memory: 8Mi
+            limits:
+              memory: 16Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
