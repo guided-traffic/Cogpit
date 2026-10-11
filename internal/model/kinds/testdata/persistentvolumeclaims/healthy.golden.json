@@ -1,0 +1,108 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "persistentvolumeclaims",
+    "namespace": "payments",
+    "name": "data-postgres-0"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "data-postgres-0"
+    },
+    {
+      "column": "namespace",
+      "text": "payments",
+      "link": {
+        "kind": "namespaces",
+        "name": "payments"
+      }
+    },
+    {
+      "column": "storageClass",
+      "text": "fast-ssd"
+    },
+    {
+      "column": "size",
+      "text": "10Gi",
+      "num": 10737418240
+    },
+    {
+      "column": "pods",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790812800
+    },
+    {
+      "column": "status",
+      "text": "Bound",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "accessMode": [
+      "ReadWriteOnce"
+    ],
+    "label": [
+      "app=postgres"
+    ],
+    "name": [
+      "data-postgres-0"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "status": [
+      "Bound"
+    ],
+    "storageClass": [
+      "fast-ssd"
+    ],
+    "volumeMode": [
+      "Filesystem"
+    ],
+    "volumeName": [
+      "pvc-9d4e5f60-8888-4d9e-8f10-000000000001"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Persistent Volume Claim",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Bound",
+          "status": "ok"
+        },
+        {
+          "name": "Storage Class",
+          "value": "fast-ssd"
+        },
+        {
+          "name": "Volume",
+          "value": "pvc-9d4e5f60-8888-4d9e-8f10-000000000001"
+        },
+        {
+          "name": "Access Modes",
+          "value": "ReadWriteOnce"
+        },
+        {
+          "name": "Volume Mode",
+          "value": "Filesystem"
+        },
+        {
+          "name": "Requested",
+          "value": "10Gi"
+        },
+        {
+          "name": "Capacity",
+          "value": "10Gi"
+        }
+      ]
+    }
+  ]
+}

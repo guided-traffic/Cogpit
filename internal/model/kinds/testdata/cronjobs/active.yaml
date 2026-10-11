@@ -1,0 +1,31 @@
+# Synthetic: the job of the last schedule is still running; the last success is older, which is
+# no failure while a job is active.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sync-inventory
+  namespace: shop
+  uid: 8e5b9a1c-8888-4f6e-9a5b-000000000008
+  generation: 1
+  creationTimestamp: "2026-09-20T00:00:00Z"
+spec:
+  schedule: '*/5 * * * *'
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: sync
+            image: registry.example.com/shop/inventory-sync:3.3
+status:
+  active:
+  - apiVersion: batch/v1
+    kind: Job
+    name: sync-inventory-29862355
+    namespace: shop
+    uid: 7d4a8f0b-7777-4e5d-8f4a-0000000000a1
+    resourceVersion: "90500"
+  lastScheduleTime: "2026-10-11T11:55:00Z"
+  lastSuccessfulTime: "2026-10-11T11:50:31Z"

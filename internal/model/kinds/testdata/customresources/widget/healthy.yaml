@@ -1,0 +1,25 @@
+apiVersion: e2e.cogpit.test/v1
+kind: Widget
+metadata:
+  name: gizmo
+  uid: 5d6e7f8a-9b0c-4d1e-8f2a-3b4c5d6e7f95
+  resourceVersion: "3001"
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  labels:
+    tier: gold
+spec:
+  displayName: Gizmo
+  replicas: 3
+  enabled: true
+  selector:
+    app: gizmo
+status:
+  ratio: 0.75
+  lastSync: "2026-10-11T11:59:30Z"
+  ip: 10.244.1.7
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: Synced
+  - type: Degraded
+    status: "False"

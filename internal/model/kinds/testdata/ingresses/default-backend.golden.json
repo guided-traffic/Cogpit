@@ -1,0 +1,74 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "ingresses",
+    "namespace": "shop",
+    "name": "static-assets"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "static-assets"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "loadBalancers",
+      "text": "198.51.100.7"
+    },
+    {
+      "column": "rules",
+      "text": "(default) -> StorageBucket/static-assets"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    }
+  ],
+  "fields": {
+    "address": [
+      "198.51.100.7"
+    ],
+    "host": [],
+    "ingressClass": [
+      "gce"
+    ],
+    "label": [],
+    "name": [
+      "static-assets"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "path": [],
+    "service": [],
+    "tlsSecret": []
+  },
+  "detail": [
+    {
+      "title": "Ingress",
+      "items": [
+        {
+          "name": "Class",
+          "value": "gce"
+        },
+        {
+          "name": "Load Balancers",
+          "value": "198.51.100.7"
+        },
+        {
+          "name": "Default Backend",
+          "value": "StorageBucket/static-assets (storage.example.com)"
+        }
+      ]
+    }
+  ]
+}

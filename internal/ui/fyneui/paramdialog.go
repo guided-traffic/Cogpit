@@ -34,7 +34,7 @@ func (sh *shell) openParamDialog(cmd *engine.Command, ref model.ObjectRef, prefi
 	var read []func() error
 	for _, name := range cmd.DialogFields() {
 		prop := cmd.Schema.Properties[name]
-		item, get, err := formField(name, prop, params[name])
+		item, get, err := formField(name, prop, params[name], cmd.Requires(name))
 		if err != nil {
 			sh.toast("error", fmt.Sprintf("%s: %v", cmd.Label, err))
 			return
@@ -44,6 +44,10 @@ func (sh *shell) openParamDialog(cmd *engine.Command, ref model.ObjectRef, prefi
 			v, err := get()
 			if err != nil {
 				return fmt.Errorf("%s: %w", item.Text, err)
+			}
+			if v == nil {
+				delete(params, name) // an optional field left empty
+				return nil
 			}
 			params[name] = v
 			return nil
@@ -71,8 +75,8 @@ func (sh *shell) openParamDialog(cmd *engine.Command, ref model.ObjectRef, prefi
 const schemaInteger = "integer"
 
 // formField builds one form row for a parameter: the widget, prefilled with value, and a reader
-// that returns the value to send.
-func formField(name string, prop *jsonschema.Schema, value any) (*widget.FormItem, func() (any, error), error) {
+// that returns the value to send, or nil for an optional field left empty.
+func formField(name string, prop *jsonschema.Schema, value any, required bool) (*widget.FormItem, func() (any, error), error) {
 	label := prop.Title
 	if label == "" {
 		label = fieldLabel(name)
@@ -84,6 +88,7 @@ func formField(name string, prop *jsonschema.Schema, value any) (*widget.FormIte
 		if f, ok := value.(float64); ok {
 			e.SetText(strconv.FormatFloat(f, 'f', -1, 64))
 		}
+		empty := func(s string) bool { return !required && strings.TrimSpace(s) == "" }
 		parse := func(s string) (float64, error) {
 			f, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
 			if err != nil || math.IsInf(f, 0) || math.IsNaN(f) {
@@ -100,9 +105,18 @@ func formField(name string, prop *jsonschema.Schema, value any) (*widget.FormIte
 			}
 			return f, nil
 		}
-		e.Validator = func(s string) error { _, err := parse(s); return err }
+		e.Validator = func(s string) error {
+			if empty(s) {
+				return nil
+			}
+			_, err := parse(s)
+			return err
+		}
 		item.Widget = e
 		return item, func() (any, error) {
+			if empty(e.Text) {
+				return nil, nil
+			}
 			f, err := parse(e.Text)
 			if err != nil {
 				return nil, err
@@ -118,7 +132,12 @@ func formField(name string, prop *jsonschema.Schema, value any) (*widget.FormIte
 			e.SetText(s)
 		}
 		item.Widget = e
-		return item, func() (any, error) { return e.Text, nil }, nil
+		return item, func() (any, error) {
+			if !required && e.Text == "" {
+				return nil, nil
+			}
+			return e.Text, nil
+		}, nil
 	case "boolean":
 		c := widget.NewCheck("", nil)
 		if b, ok := value.(bool); ok {

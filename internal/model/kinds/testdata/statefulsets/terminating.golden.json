@@ -1,0 +1,79 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "statefulsets",
+    "namespace": "shop",
+    "name": "old-cache"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "old-cache"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "pods",
+      "text": "1/1",
+      "num": 1
+    },
+    {
+      "column": "replicas",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "314d",
+      "num": 1764547200
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/shop/cache:0.9"
+    ],
+    "label": [],
+    "name": [
+      "old-cache"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "selector": [
+      "app=old-cache"
+    ],
+    "serviceName": [
+      "old-cache"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Stateful Set",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "1 desired / 1 updated / 1 ready / 1 available"
+        },
+        {
+          "name": "Service",
+          "value": "old-cache"
+        },
+        {
+          "name": "Selector",
+          "value": "app=old-cache"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/shop/cache:0.9"
+        }
+      ]
+    }
+  ]
+}

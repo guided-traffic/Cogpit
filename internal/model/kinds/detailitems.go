@@ -7,7 +7,6 @@ const (
 	itemConditions  = "Conditions"
 	itemTaints      = "Taints"
 	opExists        = "Exists" // a toleration's or selector's operator
-	fieldName       = "name"
 	fieldImage      = "image"
 	fieldContainers = "containers"
 )

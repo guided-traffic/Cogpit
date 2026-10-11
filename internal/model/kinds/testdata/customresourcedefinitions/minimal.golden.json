@@ -1,0 +1,52 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "customresourcedefinitions",
+    "name": "things.example.com"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "things.example.com"
+    },
+    {
+      "column": "resource",
+      "text": ""
+    },
+    {
+      "column": "group",
+      "text": ""
+    },
+    {
+      "column": "version",
+      "text": ""
+    },
+    {
+      "column": "scope",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "group": [],
+    "kind": [],
+    "label": [],
+    "name": [
+      "things.example.com"
+    ],
+    "namespace": [
+      ""
+    ],
+    "scope": [],
+    "version": []
+  },
+  "detail": [
+    {
+      "title": "Custom Resource Definition"
+    }
+  ]
+}

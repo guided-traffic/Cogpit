@@ -1,0 +1,28 @@
+# Synthetic: an Ingress held by its controller's finalizer while it is deleted.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: legacy-site
+  namespace: edge
+  uid: 6a1b2c3d-5555-4a6b-9c7d-000000000003
+  creationTimestamp: "2026-03-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - ingress.example.com/load-balancer-cleanup
+spec:
+  ingressClassName: external-lb
+  rules:
+  - host: legacy.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: legacy
+            port:
+              number: 80
+status:
+  loadBalancer:
+    ingress:
+    - hostname: legacy-lb.example.net

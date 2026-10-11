@@ -1,0 +1,84 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "daemonsets",
+    "namespace": "observability",
+    "name": "log-shipper"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "log-shipper"
+    },
+    {
+      "column": "namespace",
+      "text": "observability",
+      "link": {
+        "kind": "namespaces",
+        "name": "observability"
+      }
+    },
+    {
+      "column": "pods",
+      "text": "3/3",
+      "num": 3
+    },
+    {
+      "column": "nodeSelector",
+      "text": "kubernetes.io/os=linux"
+    },
+    {
+      "column": "age",
+      "text": "52d",
+      "num": 1787211000
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/observability/shipper:3.2.1"
+    ],
+    "label": [
+      "app.kubernetes.io/name=log-shipper"
+    ],
+    "name": [
+      "log-shipper"
+    ],
+    "namespace": [
+      "observability"
+    ],
+    "nodeSelector": [
+      "kubernetes.io/os=linux"
+    ],
+    "selector": [
+      "app.kubernetes.io/name=log-shipper"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Daemon Set",
+      "items": [
+        {
+          "name": "Pods",
+          "value": "3 desired / 3 current / 3 ready / 3 updated / 3 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app.kubernetes.io/name=log-shipper"
+        },
+        {
+          "name": "Node Selector",
+          "value": "kubernetes.io/os=linux"
+        },
+        {
+          "name": "Update Strategy",
+          "value": "RollingUpdate (max unavailable 1, max surge 0)"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/observability/shipper:3.2.1"
+        }
+      ]
+    }
+  ]
+}

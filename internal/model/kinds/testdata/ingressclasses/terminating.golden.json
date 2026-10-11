@@ -1,0 +1,88 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "ingressclasses",
+    "name": "external-lb"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "external-lb"
+    },
+    {
+      "column": "default",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": ""
+    },
+    {
+      "column": "controller",
+      "text": "example.com/ingress-controller"
+    },
+    {
+      "column": "apiGroup",
+      "text": "elbv2.example.com"
+    },
+    {
+      "column": "scope",
+      "text": "Cluster"
+    },
+    {
+      "column": "kind",
+      "text": "IngressClassParams"
+    }
+  ],
+  "fields": {
+    "controller": [
+      "example.com/ingress-controller"
+    ],
+    "default": [
+      "false"
+    ],
+    "label": [],
+    "name": [
+      "external-lb"
+    ],
+    "namespace": [
+      ""
+    ],
+    "parameters": [
+      "IngressClassParams/external-lb"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Ingress Class",
+      "items": [
+        {
+          "name": "Controller",
+          "value": "example.com/ingress-controller"
+        }
+      ]
+    },
+    {
+      "title": "Parameters",
+      "items": [
+        {
+          "name": "API Group",
+          "value": "elbv2.example.com"
+        },
+        {
+          "name": "Kind",
+          "value": "IngressClassParams"
+        },
+        {
+          "name": "Name",
+          "value": "external-lb"
+        },
+        {
+          "name": "Scope",
+          "value": "Cluster"
+        }
+      ]
+    }
+  ]
+}

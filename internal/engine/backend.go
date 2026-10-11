@@ -23,14 +23,24 @@ type Backend struct {
 	// Actions performs the cluster writes of the action commands. Nil means Conn does; tests
 	// substitute a fake here.
 	Actions Actions
-	// Profiles are the kinds this cluster serves, in sidebar order.
+	// Profiles are the built-in kinds this cluster serves, in sidebar order. AllProfiles adds the
+	// kinds of its custom resource definitions.
 	Profiles []*model.KindProfile
+	// CustomResources makes the engine watch the cluster's custom resource definitions (one watch
+	// through the cache, for as long as the backend is connected) and offer a view for each kind
+	// they define. The real cluster connector sets it; the demo cluster and backends that leave it
+	// off have the built-in kinds only.
+	CustomResources bool
 	// Demo marks the synthetic demo cluster.
 	Demo bool
 	// DemoStats reports the demo cluster's counters; nil for real clusters.
 	DemoStats func() any
 	// Close stops the cache and closes the connection.
 	Close func()
+
+	// custom is the custom kinds watch (customkinds.go); the Session sets it before it publishes
+	// the backend, nil without CustomResources.
+	custom *customKinds
 }
 
 // Actions are the cluster writes of the MVP's action commands. *cluster.Conn implements them.
@@ -59,7 +69,13 @@ func (b *Backend) CanWrite() bool { return b.Writer() != nil }
 
 // close stops the backend's cache and connection, recovering a panicking Close.
 func (b *Backend) close(log *slog.Logger) {
-	if b == nil || b.Close == nil {
+	if b == nil {
+		return
+	}
+	if b.custom != nil {
+		b.custom.stop()
+	}
+	if b.Close == nil {
 		return
 	}
 	defer func() {
@@ -70,14 +86,32 @@ func (b *Backend) close(log *slog.Logger) {
 	b.Close()
 }
 
-// Profile returns the backend's profile for a kind key.
+// Profile returns the backend's profile for a kind key: a built-in kind ("pods"), or a kind of
+// the cluster's custom resource definitions ("gateways.gateway.networking.k8s.io"). A custom
+// kind's profile changes when its definition does: callers hold on to it for one operation only.
 func (b *Backend) Profile(kind string) (*model.KindProfile, bool) {
-	for _, p := range b.Profiles {
-		if p.Key == kind {
+	if p := b.builtinProfile(kind); p != nil {
+		return p, true
+	}
+	if set := b.customSet(); set != nil {
+		if p, ok := set.byKey[kind]; ok {
 			return p, true
 		}
 	}
 	return nil, false
+}
+
+// AllProfiles returns every kind the cluster serves: the built-in profiles in sidebar order, then
+// the kinds of its custom resource definitions sorted by API group and Kind. Callers must not
+// modify the result; it is a snapshot that a change of the definitions replaces.
+func (b *Backend) AllProfiles() []*model.KindProfile {
+	custom := b.CustomProfiles()
+	if len(custom) == 0 {
+		return b.Profiles
+	}
+	out := make([]*model.KindProfile, 0, len(b.Profiles)+len(custom))
+	out = append(out, b.Profiles...)
+	return append(out, custom...)
 }
 
 // ContextInfo is one entry of the context picker.

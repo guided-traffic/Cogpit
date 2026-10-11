@@ -10,16 +10,16 @@ The MVP (2026-10-11) brought the first tiers; the table says for each whether it
 | Tier | Runs where | Needs | What it proves | State |
 |---|---|---|---|---|
 | Unit | `go test ./...` everywhere | nothing | logic in isolation; `model` and `kubeconfig` are fully testable without I/O | exists: `make test-unit` |
-| Race | `go test -race ./...` | nothing | no data races; a concurrent map write would end the process | exists: `make test-unit-race` (CI not set up) |
+| Race | `go test -race ./...` | nothing | no data races; a concurrent map write would end the process | exists: `make test-unit-race` (in CI on macOS as `make test-unit-coverage`, the same run with a coverage profile, and on Linux inside `make test-kind`; [releasing › CI](releasing.md#ci)) |
 | Kind-profile goldens | `internal/model` | recorded objects in `testdata/` | an object becomes the row and detail model Lens would show | exists: [`kinds/golden_test.go`](../../internal/model/kinds/golden_test.go), 49 synthetic objects; `-update` regenerates |
 | Cache | `internal/cache`, `internal/testkit/integration` | an in-memory source; a fake API server over HTTPS | watches, warm period, error state, transforms, and the API requests each scenario costs | exists; envtest not used yet ([`budget_test.go`](../../internal/testkit/integration/budget_test.go)) |
 | Engine | `internal/engine` | the real cache over an in-memory source | commands, snapshots, the drawer, confirmation per origin | exists |
 | Command fuzzing | `go test -fuzz` on the registry | the in-memory source | every command, fed adversarial params, returns an error instead of panicking | exists: `FuzzDispatch` |
 | MCP | `internal/mcp`, `internal/testkit/integration` | the SDK's in-memory transports and loopback HTTP | tools match the registry; the showcase; the HTTP endpoint rejects missing tokens and foreign hosts and origins | exists ([`showcase_test.go`](../../internal/testkit/integration/showcase_test.go)) |
 | Agent | `internal/agent` | a fake OpenAI-compatible server | the tool loop, its limits, redaction of what is sent | not built |
-| Cluster | opt-in locally | Docker and `kind` | views, logs, exec, `kubectl` in the terminal against a real kubelet | exists for the MVP: `make test-kind` (build tag `kind`), [`engine_kind_test.go`](../../internal/testkit/integration/engine_kind_test.go), `exec_kind_test.go`, `kind_test.go`; attach, port-forward, node shell and Helm not yet |
+| Cluster | opt-in locally | Docker and `kind` | views, logs, exec, `kubectl` in the terminal against a real kubelet | exists for the MVP: `make test-kind` (build tag `kind`), [`engine_kind_test.go`](../../internal/testkit/integration/engine_kind_test.go), `exec_kind_test.go`, `kind_test.go`, [`edit_kind_test.go`](../../internal/testkit/integration/edit_kind_test.go) (create, edit, conflict and delete in namespace `cogpit-edit`; every template dry-run); attach, port-forward, node shell and Helm not yet |
 | UI | everywhere with cgo | Fyne's `test` package (offscreen) | views render from snapshots; images for visual review | exists: `internal/ui/...`, PNGs in `testdata/` (`-update` rewrites them) |
-| Fuzz | locally | `go test -fuzz` | kubeconfig parsing, kind profiles, YAML tokenizer and edits, terminal escape filter | targets exist; no nightly run |
+| Fuzz | locally | `go test -fuzz` | kubeconfig parsing, kind profiles, YAML tokenizer and edits, terminal escape filter, manifests for edit and create (`FuzzParseManifests`, `FuzzEditYAML`) | targets exist; no nightly run |
 | Performance | locally | Go benchmarks and `cogpit --perf` | the budgets below | exists: `make bench`; no fixed runner |
 
 ## Fixtures

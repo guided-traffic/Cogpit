@@ -1,0 +1,23 @@
+# Synthetic: an "@every" schedule runs on a grid from its last schedule (11:10), so the next run
+# is 12:40, not 90 minutes from now.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: warm-cache
+  namespace: shop
+  uid: 8e5b9a1c-8888-4f6e-9a5b-000000000009
+  generation: 1
+  creationTimestamp: "2026-10-11T08:10:00Z"
+spec:
+  schedule: '@every 90m'
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: warm
+            image: registry.example.com/shop/warm:1.2
+status:
+  lastScheduleTime: "2026-10-11T11:10:00Z"
+  lastSuccessfulTime: "2026-10-11T11:10:20Z"

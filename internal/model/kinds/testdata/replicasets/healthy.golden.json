@@ -1,0 +1,84 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "replicasets",
+    "namespace": "shop",
+    "name": "web-7d9c6b5f8"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "web-7d9c6b5f8"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "desired",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "current",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "ready",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790845200
+    }
+  ],
+  "fields": {
+    "controlledBy": [
+      "Deployment/web"
+    ],
+    "image": [
+      "registry.example.com/shop/web:1.4.2"
+    ],
+    "label": [
+      "app.kubernetes.io/name=web",
+      "pod-template-hash=7d9c6b5f8"
+    ],
+    "name": [
+      "web-7d9c6b5f8"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "selector": [
+      "app.kubernetes.io/name=web",
+      "pod-template-hash=7d9c6b5f8"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Replica Set",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "3 desired / 3 current / 3 ready / 3 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app.kubernetes.io/name=web\npod-template-hash=7d9c6b5f8"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/shop/web:1.4.2"
+        }
+      ]
+    }
+  ]
+}

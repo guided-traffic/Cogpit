@@ -1,0 +1,23 @@
+apiVersion: acme.cert-manager.io/v1
+kind: Order
+metadata:
+  name: storefront-tls-1-2846192735
+  namespace: storefront
+  uid: 1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a51
+  resourceVersion: "91233"
+  creationTimestamp: "2026-10-11T10:00:00Z"
+  ownerReferences:
+  - apiVersion: cert-manager.io/v1
+    kind: CertificateRequest
+    name: storefront-tls-1
+    uid: 0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d
+spec:
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: letsencrypt-prod
+  dnsNames: [shop.example.com]
+status:
+  state: valid
+  url: https://acme.example.org/acme/order/123/456
+  finalizeURL: https://acme.example.org/acme/finalize/123/456

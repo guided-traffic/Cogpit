@@ -1,0 +1,35 @@
+# Synthetic: a claim being expanded from 10Gi to 20Gi: the controller has resized the volume, the
+# file system waits for the node; capacity still reads 10Gi.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-elasticsearch-2
+  namespace: logging
+  uid: 9d4e5f60-8888-4d9e-8f10-000000000006
+  creationTimestamp: "2026-07-01T00:00:00Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: fast-ssd
+  volumeMode: Filesystem
+  volumeName: pvc-9d4e5f60-8888-4d9e-8f10-000000000006
+status:
+  accessModes:
+  - ReadWriteOnce
+  allocatedResourceStatuses:
+    storage: NodeResizePending
+  allocatedResources:
+    storage: 20Gi
+  capacity:
+    storage: 10Gi
+  conditions:
+  - type: FileSystemResizePending
+    status: "True"
+    lastTransitionTime: "2026-10-11T11:40:00Z"
+    message: Waiting for user to (re-)start a pod to finish file system resize of volume on node.
+  phase: Bound

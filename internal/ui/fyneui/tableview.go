@@ -45,6 +45,7 @@ type tableView struct {
 	placeholder           *fyne.Container
 	placeholderText       *textLine
 	connectButton         *widget.Button
+	create                *createButton // the floating "+" (createbutton.go)
 	root                  fyne.CanvasObject
 
 	snap    *engine.TableSnapshot
@@ -52,17 +53,20 @@ type tableView struct {
 	colsKey string // the view and column ids, to notice a column change
 	now     time.Time
 
-	cells     []*tableCell // every cell the table has shown, pooled ones included
-	hoverRow  int
-	hoverCol  int
-	hoverCell *tableCell    // the cell under the pointer or the keyboard highlight
-	pointer   fyne.Position // the pointer over the table, in window coordinates (tooltips)
-	pointerIn bool
-	icons     map[cellIconKey]fyne.Resource // the cells' icons, one per icon and colour
-	menu      *widget.PopUpMenu             // the row menu last opened
-	menuModel *fyne.Menu                    // and its items
-	selected  []model.ObjectRef
-	pending   *model.ObjectRef // a selected object to scroll to once a snapshot contains it
+	cells      []*tableCell // every cell the table has shown, pooled ones included
+	hoverRow   int
+	hoverCol   int
+	hoverCell  *tableCell    // the cell under the pointer or the keyboard highlight
+	pointer    fyne.Position // the pointer over the table, in window coordinates (tooltips)
+	pointerIn  bool
+	icons      map[cellIconKey]fyne.Resource // the cells' icons, one per icon and colour
+	menu       *widget.PopUpMenu             // the row menu last opened
+	menuModel  *fyne.Menu                    // and its items
+	kindSet    map[string]bool               // the kinds links may lead to (serves)
+	kindSetSrc *kindInfo
+	kindSetLen int
+	selected   []model.ObjectRef
+	pending    *model.ObjectRef // a selected object to scroll to once a snapshot contains it
 
 	userWidths map[string]float32 // widths the user dragged, by view and column id
 	setWidths  []float32          // the width the shell last gave each visible column
@@ -112,7 +116,8 @@ func newTableView(sh *shell) *tableView {
 		inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
 			container.NewBorder(nil, nil, heading, tools)))
 	frame := box(&stretchLayout{tv: tv}, tv.table)
-	body := container.NewStack(newSurface(theme.ColorNameBackground), frame, tv.placeholder)
+	tv.create = newCreateButton(sh)
+	body := container.NewStack(newSurface(theme.ColorNameBackground), frame, tv.placeholder, tv.create.floating())
 	tv.root = container.NewBorder(
 		container.NewVBox(header, inset(theme.SizeNameInnerPadding, "", tv.errLine)),
 		nil, nil, nil, body)
@@ -188,6 +193,7 @@ func (tv *tableView) updatePlaceholder() {
 	} else {
 		tv.placeholder.Show()
 	}
+	tv.create.update()
 }
 
 // setSnapshot shows a new snapshot. A replaced snapshot costs one table refresh: the table asks
@@ -363,6 +369,9 @@ func (tv *tableView) updateCell(id widget.TableCellID, o fyne.CanvasObject) {
 			status = tv.snap.Rows[id.Row].Status
 		}
 		content = cellContent{text: model.CellText(*col, cell, tv.now), status: status, link: cell.Link, parts: cell.Parts}
+		if content.link != nil && !tv.serves(content.link.Kind) {
+			content.link = nil // nowhere to go: plain text
+		}
 		if col.Type == model.ColumnWarning {
 			content.kind = cellWarning
 		}

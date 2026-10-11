@@ -373,6 +373,13 @@ func fixtureDeploymentObjects() []*unstructured.Unstructured {
 // drawer models (engine.BuildDetail).
 func kindsFake(t testing.TB, view string) *fakeEngine {
 	f := connectedFake(t, 1)
+	// The owners' kinds too, so that Controlled By and Involved Object links lead somewhere.
+	f.kinds = append(f.kinds,
+		kindInfo{Kind: "replicasets", Title: "Replica Sets", APIKind: "ReplicaSet", Group: "apps", Version: "v1", Namespaced: true},
+		kindInfo{Kind: "statefulsets", Title: "Stateful Sets", APIKind: "StatefulSet", Group: "apps", Version: "v1", Namespaced: true},
+		kindInfo{Kind: "daemonsets", Title: "Daemon Sets", APIKind: "DaemonSet", Group: "apps", Version: "v1", Namespaced: true},
+		kindInfo{Kind: "jobs", Title: "Jobs", APIKind: "Job", Group: "batch", Version: "v1", Namespaced: true},
+		kindInfo{Kind: "configmaps", Title: "Config Maps", APIKind: "ConfigMap", Version: "v1", Namespaced: true})
 	events := fixtureEventObjects()
 	for key, objs := range map[string][]*unstructured.Unstructured{
 		"pods": fixturePodObjects(), "nodes": fixtureNodeObjects(), "deployments": fixtureDeploymentObjects(), "events": events,

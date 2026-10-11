@@ -70,6 +70,8 @@ func FuzzDispatch(f *testing.F) {
 		`{"kind":"pods","limit":-5}`, `{"context":"test"}`, `{"context":"broken"}`, `{"id":"logs-1"}`,
 		`{"ref":{"kind":"pods","namespace":"shop","name":"web-0"},"container":"app"}`,
 		`{"ref":{"context":"prod","kind":"pods","namespace":"shop","name":"web-0"}}`,
+		`{"yaml":"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: x\n"}`, `{"id":"edit-1","yaml":"kind: ["}`,
+		`{"template":"Pod"}`, `{"ref":{"kind":"configmaps","namespace":"shop","name":"x"}}`,
 	}
 	for i := range ids {
 		for j, s := range seeds {

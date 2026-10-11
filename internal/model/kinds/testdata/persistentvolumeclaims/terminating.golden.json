@@ -1,0 +1,106 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "persistentvolumeclaims",
+    "namespace": "shop",
+    "name": "uploads"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "uploads"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "storageClass",
+      "text": "shared-nfs"
+    },
+    {
+      "column": "size",
+      "text": "500Gi",
+      "num": 536870912000
+    },
+    {
+      "column": "pods",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "132d",
+      "num": 1780272000
+    },
+    {
+      "column": "status",
+      "text": "Terminating",
+      "status": "terminating"
+    }
+  ],
+  "fields": {
+    "accessMode": [
+      "ReadWriteMany"
+    ],
+    "label": [],
+    "name": [
+      "uploads"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "status": [
+      "Terminating"
+    ],
+    "storageClass": [
+      "shared-nfs"
+    ],
+    "volumeMode": [
+      "Filesystem"
+    ],
+    "volumeName": [
+      "pvc-9d4e5f60-8888-4d9e-8f10-000000000003"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Persistent Volume Claim",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Terminating",
+          "status": "terminating"
+        },
+        {
+          "name": "Storage Class",
+          "value": "shared-nfs"
+        },
+        {
+          "name": "Volume",
+          "value": "pvc-9d4e5f60-8888-4d9e-8f10-000000000003"
+        },
+        {
+          "name": "Access Modes",
+          "value": "ReadWriteMany"
+        },
+        {
+          "name": "Volume Mode",
+          "value": "Filesystem"
+        },
+        {
+          "name": "Requested",
+          "value": "500Gi"
+        },
+        {
+          "name": "Capacity",
+          "value": "500Gi"
+        }
+      ]
+    }
+  ]
+}

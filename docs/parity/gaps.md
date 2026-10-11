@@ -56,17 +56,28 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## Foundation gaps
 
 ### G1. Workspace, CI and progress generators
-- **Missing:** CI on macOS, Windows and Linux with cgo and Fyne's build dependencies, the `kind`
-  and envtest jobs, semantic-release as in the team's other repositories, the generators
-  `make parity` and `make scorecard` that turn the checklists into measured pages
-  ([method](README.md#the-pages)), and the README's build, coverage and Go Report Card badges once
-  `release.yml` and the coverage JSON exist.
+- **Missing:** the generators `make parity` and `make scorecard` that turn the checklists into
+  measured pages ([method](README.md#the-pages)); an envtest job (no test uses envtest yet); CI
+  observed green on GitHub (the workflows below have not run there yet); `make vuln` passing, which
+  needs `golang.org/x/net` ≥ v0.60.0 and `golang.org/x/image` ≥ v0.43.0 in `go.mod`; the first real
+  release, which is the owner's call ([releasing](../developer/releasing.md#the-first-real-release)).
 - **Evidence:** built on 2026-10-11: [`go.mod`](../../go.mod) (Go 1.27.2, pinned versions), the
   [`Makefile`](../../Makefile) with local targets, [`.golangci.yml`](../../.golangci.yml) with the
   team's linters and `depguard` rules for every layer (a forbidden import fails `make lint`;
   verified with probe imports). golangci-lint is pinned to v2.14.0 because v2.13 cannot read Go
-  1.27.2 export data.
-- **Impact:** without CI, nothing guards `main`.
+  1.27.2 export data. CI as workflow files (2026-10-11,
+  [releasing › CI](../developer/releasing.md#ci)): [`release.yml`](../../.github/workflows/release.yml)
+  calls [`build.yml`](../../.github/workflows/build.yml) on every push and pull request: macOS runs
+  `make lint`, the race tests with coverage and `make build`; Linux and Windows compile and link
+  every package and test with cgo and Fyne's dependencies; a Linux job runs `make test-kind` on a
+  kind cluster; govulncheck. On `main` it commits the coverage badge (84.5 % measured locally) and
+  runs semantic-release as a dry run ([`.releaserc.json`](../../.releaserc.json), the
+  `conventionalcommits` preset as in the team's other repositories); Renovate runs from
+  [`renovate.yml`](../../.github/workflows/renovate.yml). The README carries the build, coverage,
+  Go Report Card and licence badges. Verified locally: the macOS job's `make` targets pass,
+  actionlint, the Renovate config validator, the dry run against a stand-in for the GitHub API.
+- **Impact:** until the first runs are green on GitHub, nothing is known to guard `main`; without
+  the generators, the checklists are counted by hand.
 - **Estimate:** 12–28 h (was 20–40).
 
 ### G2. Cluster connection and authentication
@@ -129,12 +140,23 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 120–360 h (was 130–380; 2–6 h each; Pods, Nodes and the overview at the high end).
 
 ### G7. Resource actions
-- **Missing:** all but four of the 39 actions (Share is not a target, owner 2026-10-11). The alpha gate needs about 20: logs, shell, attach, edit, delete,
+- **Missing:** the actions not listed under Evidence, of 39 (Share is not a target, owner 2026-10-11). The alpha gate needs about 20: logs, shell, attach, edit, delete,
   scale, restart, cordon, uncordon, drain, trigger, the port-forward actions and the Helm release
-  actions. Drain and rollout come from the kubectl libraries; drain is crash-safe
-  ([D-11](../developer/decisions.md#d-11-crash-stance)).
-- **Evidence:** resource-parity, 4 of 39 partial: Logs, Shell, Restart (Deployment), Delete (pods
-  only).
+  actions. Rollout comes from the kubectl libraries.
+- **Evidence:** resource-parity: Logs, Shell, Restart (Deployment), Delete (pods only) partial (the
+  MVP); Cordon, Uncordon, Drain, Scale (Deployment, Stateful Set), Trigger, Suspend, Resume (Cron
+  Job) and Evict (Pod) partial (2026-10-11), as engine commands with the captured places and
+  applicability, tested against client-go's fake clientset and the kind cluster
+  ([`commands/nodes.go`](../../internal/engine/commands/nodes.go),
+  [`commands/workloads.go`](../../internal/engine/commands/workloads.go)). Drain uses kubectl's
+  drain library and is crash-safe ([D-11](../developer/decisions.md#d-11-crash-stance)): a journal
+  records it before the node is cordoned, and the next connect of its context offers to finish,
+  uncordon or dismiss it ([`drains.go`](../../internal/engine/drains.go)). The row menus and the
+  drawer's icons show them from the registry (G5, `TestRegistryMenusAsLens`); Scale and Drain
+  open a dialog generated from their schemas, prefilled (the replicas from the cache, the drain
+  options with their defaults). Still open for these: Lens's drain and scale dialogs (not
+  captured; drain defaults inferred), the drain test on a multi-node kind cluster
+  (`make test-kind-drain`, written, not run yet).
 - **Estimate:** 62–195 h (was 70–210).
 
 ### G8. Logs, terminal and shells
@@ -153,15 +175,21 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 30–70 h (was 45–90), plus upstreaming or replacing the widget.
 
 ### G9. YAML editor and create resource
-- **Missing:** an editor that keeps its own lines and fills a viewport-sized grid (Fyne's TextGrid
-  stores every character, [spike](../developer/spike-fyne.md#known-before-the-spike)), YAML
-  highlighting, apply after a diff and a server-side dry-run, templates, create dialogs' YAML
-  fallback, drafts kept for crash recovery.
-- **Evidence:** [ui-parity](ui-parity.md#editor-and-create-resource), 5 rows missing. Built: the
-  editor widget that keeps its own lines and draws only the viewport, with YAML highlighting
-  ([`yamlview`](../../internal/ui/fyneui/yamlview/), spike S4); it is used read-only in the drawer.
-  Still missing: editing wired to an Edit tab, apply after a diff and a server-side dry-run,
-  templates, drafts.
+- **Missing:** drafts kept for crash recovery, "Revert to original", the Create resource tab's save
+  and search buttons, permission checks before Edit and Delete are offered (access reviews), Delete
+  of a selection, the create dialogs (Namespaces, Secrets, Resource Quotas, Service Accounts, RBAC)
+  and their YAML fallback, a Secrets path (waits for H-8).
+- **Evidence:** [ui-parity](ui-parity.md#editor-and-create-resource): 4 rows partial, 1 missing;
+  [resource-parity](resource-parity.md#every-kind): Edit and Delete partial. Built on 2026-10-11:
+  an Edit tab per object on the editable [`yamlview`](../../internal/ui/fyneui/yamlview/), filled
+  from the cache; Save shows the line diff against the object as the cache holds it, then a
+  server-side dry run, and Apply writes it as an update with the resourceVersion the tab started
+  from, so a concurrent change comes back as a conflict with the new diff and is never overwritten
+  ([`engine/editor.go`](../../internal/engine/editor.go)); Create resource tabs with Cogpit's own
+  templates and multi-document create, each object dry-run first
+  ([`engine/create.go`](../../internal/engine/create.go)); Delete for every kind with the cached UID
+  as precondition; all of it as commands agents drive too, tested against fakes, fuzzed, and on kind
+  (`TestKindEditCreateConflictDelete`).
 - **Estimate:** 27–60 h (was 35–70).
 
 ### G10. Port forwarding
@@ -326,6 +354,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-11 | minor | G5: row menus, drawer toolbar, warning column, links, tooltips and the drawer's Properties built; what remains |
+| 2026-10-11 | minor | G9: editing, create from templates and Delete for every kind built; what is left listed |
+| 2026-10-11 | minor | G7: node and workload actions partial (cordon, uncordon, crash-safe drain, scale, trigger, suspend, resume, evict) |
+| 2026-10-11 | minor | G1: CI and the semantic-release dry run exist as workflow files, not yet observed green; generators, the envtest job and a passing `make vuln` remain; estimate not moved |
 | 2026-10-11 | major | The MVP: G1–G9, G14, G15 and G17 re-estimated with evidence; new terminal-widget risk in G8 |
 | 2026-10-11 | minor | D-5: G19 (external extensions) is not a target and leaves the totals |
 | 2026-10-11 | minor | D-9: Flux CD and Argo CD views split from G18 into G23, in the beta |

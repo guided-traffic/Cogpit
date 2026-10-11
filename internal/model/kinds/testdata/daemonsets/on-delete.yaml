@@ -1,0 +1,34 @@
+# Synthetic: the OnDelete strategy: two pods still run the old template and the controller will
+# not replace them by itself, and one pod is not ready. Nothing is in progress.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: storage-plugin
+  namespace: storage
+  uid: 3a1d5c7e-4444-4b2a-9c1d-000000000006
+  generation: 4
+  creationTimestamp: "2026-05-05T05:05:00Z"
+spec:
+  selector:
+    matchLabels:
+      app: storage-plugin
+  updateStrategy:
+    type: OnDelete
+  template:
+    metadata:
+      labels:
+        app: storage-plugin
+    spec:
+      containers:
+      - name: plugin
+        image: registry.example.com/storage/plugin:1.8.0
+      - name: registrar
+        image: registry.example.com/storage/registrar:2.0.0
+status:
+  observedGeneration: 4
+  currentNumberScheduled: 3
+  desiredNumberScheduled: 3
+  numberReady: 2
+  numberAvailable: 2
+  numberUnavailable: 1
+  updatedNumberScheduled: 1

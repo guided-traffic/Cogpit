@@ -120,8 +120,9 @@ func TestDialogFieldsAndObjectParams(t *testing.T) {
 	scale, _ := r.Get("probe.scale")
 	logs, _ := r.Get("probe.logs")
 	del, _ := r.Get("probe.delete")
-	if f := scale.DialogFields(); len(f) != 1 || f[0] != "replicas" {
-		t.Errorf("scale dialog fields %v, want the required replicas only", f)
+	// A command with a Prefill shows its optional fields too (Note); one without, its required ones.
+	if f := scale.DialogFields(); strings.Join(f, ",") != "replicas,note" {
+		t.Errorf("scale dialog fields %v, want replicas and note", f)
 	}
 	if f := logs.DialogFields(); len(f) != 0 || !logs.TakesContainer() || del.TakesContainer() || len(del.DialogFields()) != 0 {
 		t.Errorf("logs fields %v container %v; delete container %v", f, logs.TakesContainer(), del.TakesContainer())
@@ -144,5 +145,42 @@ func TestDialogFieldsAndObjectParams(t *testing.T) {
 	_ = json.Unmarshal(logs.ObjectParams(model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-0"}, "envoy"), &withContainer)
 	if withContainer["container"] != "envoy" {
 		t.Errorf("container params %v", withContainer)
+	}
+}
+
+type menuScaleOptional struct {
+	Ref      model.ObjectRef `json:"ref"`
+	Replicas *uint16         `json:"replicas,omitempty"`
+}
+
+// TestDialogFieldsOfAPrefilledOptionalParameter: a command whose dialog parameter is optional in
+// its schema but filled by Prefill (the real Scale) still gets the dialog, and its stub leaves the
+// parameter out so that Prefill fills it from the cache.
+func TestDialogFieldsOfAPrefilledOptionalParameter(t *testing.T) {
+	r := NewRegistry()
+	if err := Register(r, Spec[menuScaleOptional]{ID: "probe.scale", Label: "Scale", Kinds: []string{"deployments"}, Order: 100,
+		Danger:  DangerMutating,
+		Targets: func(_ *Session, p menuScaleOptional) ([]model.ObjectRef, error) { return []model.ObjectRef{p.Ref}, nil },
+		Prefill: func(_ *Session, p menuScaleOptional) (menuScaleOptional, error) {
+			if p.Replicas == nil {
+				n := uint16(4)
+				p.Replicas = &n
+			}
+			return p, nil
+		},
+		Run: func(context.Context, *Session, menuScaleOptional) (any, error) { return nil, nil }}); err != nil {
+		t.Fatal(err)
+	}
+	c, _ := r.Get("probe.scale")
+	if f := c.DialogFields(); len(f) != 1 || f[0] != "replicas" || c.Requires("replicas") {
+		t.Fatalf("dialog fields %v, requires %v", f, c.Requires("replicas"))
+	}
+	params := c.ObjectParams(model.ObjectRef{Kind: "deployments", Namespace: "shop", Name: "web"}, "")
+	if strings.Contains(string(params), "replicas") {
+		t.Errorf("stub %s sets the optional replicas", params)
+	}
+	pre, err := c.Prefill(nil, params)
+	if err != nil || !strings.Contains(string(pre), `"replicas":4`) {
+		t.Errorf("prefill %s %v", pre, err)
 	}
 }

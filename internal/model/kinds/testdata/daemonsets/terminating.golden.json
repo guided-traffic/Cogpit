@@ -1,0 +1,72 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "daemonsets",
+    "namespace": "kube-system",
+    "name": "legacy-proxy"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-proxy"
+    },
+    {
+      "column": "namespace",
+      "text": "kube-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "kube-system"
+      }
+    },
+    {
+      "column": "pods",
+      "text": "2/2",
+      "num": 2
+    },
+    {
+      "column": "nodeSelector",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "343d",
+      "num": 1762077600
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/net/legacy-proxy:0.4"
+    ],
+    "label": [],
+    "name": [
+      "legacy-proxy"
+    ],
+    "namespace": [
+      "kube-system"
+    ],
+    "nodeSelector": [],
+    "selector": [
+      "k8s-app=legacy-proxy"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Daemon Set",
+      "items": [
+        {
+          "name": "Pods",
+          "value": "2 desired / 2 current / 2 ready / 2 updated / 2 available"
+        },
+        {
+          "name": "Selector",
+          "value": "k8s-app=legacy-proxy"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/net/legacy-proxy:0.4"
+        }
+      ]
+    }
+  ]
+}

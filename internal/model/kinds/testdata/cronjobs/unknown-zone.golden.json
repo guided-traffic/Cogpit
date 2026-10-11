@@ -1,0 +1,103 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "cronjobs",
+    "namespace": "research",
+    "name": "mars-report"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "mars-report"
+    },
+    {
+      "column": "warning",
+      "text": "Unknown time zone: no job runs",
+      "num": 1,
+      "status": "error"
+    },
+    {
+      "column": "namespace",
+      "text": "research",
+      "link": {
+        "kind": "namespaces",
+        "name": "research"
+      }
+    },
+    {
+      "column": "schedule",
+      "text": "0 6 * * *"
+    },
+    {
+      "column": "suspend",
+      "text": "false"
+    },
+    {
+      "column": "active",
+      "text": "0"
+    },
+    {
+      "column": "lastSchedule",
+      "text": ""
+    },
+    {
+      "column": "nextExecution",
+      "text": ""
+    },
+    {
+      "column": "timeZone",
+      "text": "Mars/Olympus_Mons"
+    },
+    {
+      "column": "age",
+      "text": "2h",
+      "num": 1791712800
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/research/report:0.1"
+    ],
+    "label": [],
+    "name": [
+      "mars-report"
+    ],
+    "namespace": [
+      "research"
+    ],
+    "schedule": [
+      "0 6 * * *"
+    ],
+    "suspend": [
+      "false"
+    ],
+    "timeZone": [
+      "Mars/Olympus_Mons"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Cron Job",
+      "items": [
+        {
+          "name": "Warning",
+          "value": "Unknown time zone: no job runs",
+          "status": "error"
+        },
+        {
+          "name": "Schedule",
+          "value": "0 6 * * *"
+        },
+        {
+          "name": "Time Zone",
+          "value": "Mars/Olympus_Mons"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/research/report:0.1"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+# Synthetic: the cluster's default class, without parameters.
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: nginx
+  uid: 7b2c3d4e-6666-4b7c-8d9e-000000000001
+  creationTimestamp: "2026-09-01T00:00:00Z"
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: "true"
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+spec:
+  controller: k8s.io/ingress-nginx

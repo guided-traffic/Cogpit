@@ -1,0 +1,17 @@
+apiVersion: acme.cert-manager.io/v1
+kind: Order
+metadata:
+  name: old-tls-1-998877
+  namespace: storefront
+  uid: 3b4c5d6e-7f8a-4b9c-8d0e-1f2a3b4c5d73
+  resourceVersion: "92001"
+  creationTimestamp: "2026-10-01T09:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers: [acme.cert-manager.io/finalizer]
+spec:
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt-prod
+status:
+  state: errored
+  reason: 'Failed to finalize Order: 429 urn:ietf:params:acme:error:rateLimited'

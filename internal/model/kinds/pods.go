@@ -592,9 +592,9 @@ func podSecrets(obj any) []string {
 // volumeTypes names the volume sources as the drawer groups them; a source not listed here is
 // shown under its field name.
 var volumeTypes = []struct{ field, title, linkKind, nameField string }{
-	{"configMap", "ConfigMap", "configmaps", fieldName},
+	{"configMap", "ConfigMap", configMaps.Key, fieldName},
 	{"secret", "Secret", "secrets", "secretName"},
-	{"persistentVolumeClaim", "PersistentVolumeClaim", "persistentvolumeclaims", "claimName"},
+	{"persistentVolumeClaim", "PersistentVolumeClaim", persistentVolumeClaims.Key, "claimName"},
 	{"projected", "Projected", "", ""},
 	{"emptyDir", "EmptyDir", "", ""},
 	{"hostPath", "HostPath", "", ""},

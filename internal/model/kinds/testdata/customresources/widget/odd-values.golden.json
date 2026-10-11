@@ -1,0 +1,119 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "widgets.e2e.cogpit.test",
+    "name": "oddity"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "oddity"
+    },
+    {
+      "column": "name2",
+      "text": "first line second line"
+    },
+    {
+      "column": "replicas",
+      "text": "-"
+    },
+    {
+      "column": "ratio",
+      "text": "1000000000000000000000",
+      "num": 9223372036854775807
+    },
+    {
+      "column": "enabled",
+      "text": ""
+    },
+    {
+      "column": "lastSync",
+      "text": "<invalid>"
+    },
+    {
+      "column": "ready",
+      "text": "Unknown"
+    },
+    {
+      "column": "selector",
+      "text": "[\"a\",\"b\"]"
+    },
+    {
+      "column": "ipAddress",
+      "text": "42"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "enabled": [],
+    "ipAddress": [
+      "42"
+    ],
+    "label": [],
+    "name": [
+      "oddity"
+    ],
+    "name2": [
+      "first line second line"
+    ],
+    "namespace": [
+      ""
+    ],
+    "ratio": [
+      "1000000000000000000000"
+    ],
+    "ready": [
+      "Unknown"
+    ],
+    "replicas": [],
+    "selector": [
+      "[\"a\",\"b\"]"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Widget",
+      "items": [
+        {
+          "name": "Name",
+          "value": "first line\nsecond line"
+        },
+        {
+          "name": "Ratio",
+          "value": "1000000000000000000000"
+        },
+        {
+          "name": "Last Sync",
+          "value": "<invalid>"
+        },
+        {
+          "name": "READY",
+          "value": "Unknown"
+        },
+        {
+          "name": "Selector",
+          "value": "[\"a\",\"b\"]"
+        },
+        {
+          "name": "IP Address",
+          "value": "42"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "Unknown (Pending)",
+          "status": "unknown"
+        }
+      ]
+    }
+  ]
+}

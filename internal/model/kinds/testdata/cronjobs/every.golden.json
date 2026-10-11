@@ -1,0 +1,104 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "cronjobs",
+    "namespace": "shop",
+    "name": "warm-cache"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "warm-cache"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "schedule",
+      "text": "@every 90m"
+    },
+    {
+      "column": "suspend",
+      "text": "false"
+    },
+    {
+      "column": "active",
+      "text": "0"
+    },
+    {
+      "column": "lastSchedule",
+      "text": "50m",
+      "num": 1791717000
+    },
+    {
+      "column": "nextExecution",
+      "text": "In about 40 min",
+      "num": 1791722400
+    },
+    {
+      "column": "timeZone",
+      "text": "-"
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791706200
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/shop/warm:1.2"
+    ],
+    "label": [],
+    "name": [
+      "warm-cache"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "schedule": [
+      "@every 90m"
+    ],
+    "suspend": [
+      "false"
+    ],
+    "timeZone": []
+  },
+  "detail": [
+    {
+      "title": "Cron Job",
+      "items": [
+        {
+          "name": "Schedule",
+          "value": "@every 90m"
+        },
+        {
+          "name": "Last Schedule",
+          "value": "2026-10-11T11:10:00Z"
+        },
+        {
+          "name": "Last Successful",
+          "value": "2026-10-11T11:10:20Z"
+        },
+        {
+          "name": "Next Execution",
+          "value": "2026-10-11T12:40:00Z"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/shop/warm:1.2"
+        }
+      ]
+    }
+  ]
+}

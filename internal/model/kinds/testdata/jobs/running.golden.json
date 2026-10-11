@@ -1,0 +1,87 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "jobs",
+    "namespace": "media",
+    "name": "render-frames"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "render-frames"
+    },
+    {
+      "column": "namespace",
+      "text": "media",
+      "link": {
+        "kind": "namespaces",
+        "name": "media"
+      }
+    },
+    {
+      "column": "completions",
+      "text": "3/5",
+      "num": 3
+    },
+    {
+      "column": "age",
+      "text": "30m",
+      "num": 1791718200
+    },
+    {
+      "column": "conditions",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "condition": [],
+    "controlledBy": [],
+    "image": [
+      "registry.example.com/media/render:4.0"
+    ],
+    "label": [],
+    "name": [
+      "render-frames"
+    ],
+    "namespace": [
+      "media"
+    ],
+    "selector": []
+  },
+  "detail": [
+    {
+      "title": "Job",
+      "items": [
+        {
+          "name": "Completions",
+          "value": "3/5"
+        },
+        {
+          "name": "Parallelism",
+          "value": "2"
+        },
+        {
+          "name": "Completion Mode",
+          "value": "Indexed"
+        },
+        {
+          "name": "Backoff Limit",
+          "value": "6"
+        },
+        {
+          "name": "Pods",
+          "value": "2 active / 2 ready / 3 succeeded / 0 failed"
+        },
+        {
+          "name": "Started",
+          "value": "2026-10-11T11:30:00Z"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/media/render:4.0"
+        }
+      ]
+    }
+  ]
+}

@@ -354,7 +354,7 @@ func (d *drawer) plainValue(ref model.ObjectRef, it model.DetailItem) fyne.Canva
 	switch {
 	case len(it.Chips) > 0:
 		return d.chips(ref, it.Chips)
-	case it.Link != nil:
+	case it.Link != nil && d.sh.view.serves(it.Link.Kind):
 		link := *it.Link
 		return newLinkText(it.Value, func() { d.sh.followLink(link, ref.Context, false) })
 	case it.Status != model.StatusNone:
@@ -388,7 +388,7 @@ func (d *drawer) chips(ref model.ObjectRef, chips []model.Chip) fyne.CanvasObjec
 	for _, c := range chips {
 		var o fyne.CanvasObject
 		switch {
-		case c.Link != nil:
+		case c.Link != nil && d.sh.view.serves(c.Link.Kind):
 			link := *c.Link
 			o = newTapTarget(newPill(c.Text, colorLink, false), func() { d.sh.followLink(link, ref.Context, false) })
 		case c.Status != model.StatusNone:

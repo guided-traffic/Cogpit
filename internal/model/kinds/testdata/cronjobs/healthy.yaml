@@ -1,0 +1,34 @@
+# Synthetic: a daily cron job whose last job succeeded; no time zone, so the schedule is UTC.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nightly-report
+  namespace: analytics
+  uid: 8e5b9a1c-8888-4f6e-9a5b-000000000001
+  resourceVersion: "90411"
+  generation: 2
+  creationTimestamp: "2026-09-01T09:00:00Z"
+  labels:
+    app.kubernetes.io/name: nightly-report
+spec:
+  schedule: 57 13 * * *
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  suspend: false
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          initContainers:
+          - name: fetch
+            image: registry.example.com/analytics/fetch:1.1
+          containers:
+          - name: report
+            image: registry.example.com/analytics/report:2026.10
+status:
+  lastScheduleTime: "2026-10-10T13:57:00Z"
+  lastSuccessfulTime: "2026-10-10T13:58:12Z"

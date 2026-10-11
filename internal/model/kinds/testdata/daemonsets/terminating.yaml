@@ -1,0 +1,28 @@
+# Synthetic: a daemon set being deleted with foreground cascading deletion.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: legacy-proxy
+  namespace: kube-system
+  uid: 3a1d5c7e-4444-4b2a-9c1d-000000000003
+  generation: 3
+  creationTimestamp: "2025-11-02T10:00:00Z"
+  deletionTimestamp: "2026-10-11T11:59:00Z"
+  finalizers:
+  - foregroundDeletion
+spec:
+  selector:
+    matchLabels:
+      k8s-app: legacy-proxy
+  template:
+    spec:
+      containers:
+      - name: proxy
+        image: registry.example.com/net/legacy-proxy:0.4
+status:
+  observedGeneration: 3
+  currentNumberScheduled: 2
+  desiredNumberScheduled: 2
+  numberReady: 2
+  numberAvailable: 2
+  updatedNumberScheduled: 2

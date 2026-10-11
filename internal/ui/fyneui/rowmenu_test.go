@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -350,9 +351,8 @@ func TestLinkClicks(t *testing.T) {
 		t.Errorf("namespace link %+v, want only %s", p, row.Ref.Namespace)
 	}
 
-	toasts := len(sh.toasts.Objects)
 	tapOnText(w, cellAt(t, sh, 0, columnOf(t, sh, "controlledBy")))
-	q.until(t, "the error toast", func() bool { return len(sh.toasts.Objects) > toasts })
+	q.until(t, "the owner link", func() bool { return len(f.callsOf("ui.navigate")) == 2 })
 	calls := f.callsOf("ui.navigate")
 	if p := decodeParams[refParams](t, calls[len(calls)-1]); p.Ref.Kind != "replicasets" || p.Ref.Namespace != row.Ref.Namespace {
 		t.Errorf("owner link %+v", p.Ref)
@@ -361,7 +361,25 @@ func TestLinkClicks(t *testing.T) {
 		t.Errorf("a link click selected the row (%d ui.select)", n)
 	}
 
+	// A link to a kind the cluster does not serve (or Cogpit has no view for) is plain text; one
+	// that fails anyway ends in an error toast, not a crash.
+	go f.update(func(u *engine.UIState) { u.View, u.Selected, u.Drawer = "pods", nil, nil })
+	q.until(t, "the pods view again", func() bool { return sh.view.snap != nil && sh.view.snap.View == "pods" })
+	sh.kinds = slices.DeleteFunc(slices.Clone(sh.kinds), func(k kindInfo) bool { return k.Kind == "replicasets" })
+	sh.view.table.Refresh()
+	settle(w)
+	if c := cellAt(t, sh, 0, columnOf(t, sh, "controlledBy")); c.content.link != nil || c.full != "ReplicaSet" {
+		t.Errorf("a link to an unserved kind is still a link: %+v", c.content)
+	}
+	toasts := len(sh.toasts.Objects)
+	f.mu.Lock()
+	f.kinds = sh.kinds
+	f.mu.Unlock()
+	sh.followLink(model.ObjectRef{Kind: "replicasets", Namespace: row.Ref.Namespace, Name: "x"}, "demo", false)
+	q.until(t, "the error toast", func() bool { return len(sh.toasts.Objects) > toasts })
+
 	// Next to the text, a link cell selects its row as any cell does.
+	settle(w)
 	c := cellAt(t, sh, 1, columnOf(t, sh, "node"))
 	pos := fyne.CurrentApp().Driver().AbsolutePositionForObject(c).AddXY(c.Size().Width-3, c.Size().Height/2)
 	test.TapCanvas(w.Canvas(), pos)

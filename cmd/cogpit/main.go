@@ -81,7 +81,7 @@ func run() int {
 		DemoOptions:     demo.Options{Pods: *demoPods, EventsPerSecond: *demoEvents},
 		Logger:          logger,
 	}
-	s := engine.New(engine.Options{Connector: connector, Audit: audit, Logger: logger})
+	s := engine.New(engine.Options{Connector: connector, Audit: audit, Logger: logger, Drains: openDrainJournal(logger)})
 	defer s.Close()
 	if err := commands.RegisterAll(s.Registry()); err != nil {
 		fmt.Fprintln(os.Stderr, "cogpit:", err)
@@ -163,6 +163,18 @@ func openAuditLog(logger *slog.Logger) (io.Writer, func()) {
 		return nil, func() {}
 	}
 	return f, func() { _ = f.Close() }
+}
+
+// openDrainJournal keeps the drains Cogpit starts in <user config dir>/Cogpit/drains.json,
+// owner-only, so that a drain a crash interrupts is offered again (D-11). Without a configuration
+// directory there is no journal, and node.drain is refused rather than run without one.
+func openDrainJournal(logger *slog.Logger) *engine.Drains {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		logger.Warn("drain journal disabled; node drains are refused", "err", err)
+		return nil
+	}
+	return engine.NewDrains(engine.NewFileDrainJournal(filepath.Join(dir, "Cogpit")))
 }
 
 // startCPUProfile records a CPU profile for d (or until stop is called) into path; for the gate

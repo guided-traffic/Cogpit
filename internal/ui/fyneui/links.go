@@ -36,6 +36,26 @@ func (sh *shell) followLink(link model.ObjectRef, rowContext string, namespaceCo
 	}
 }
 
+// serves reports whether a link to kind leads somewhere: the connected cluster serves the kind and
+// Cogpit has a view for it (kinds.list). Until the kinds are loaded every link counts. A cell or a
+// drawer value whose link does not lead anywhere shows as plain text; a link that fails anyway
+// (the kinds changed meanwhile) ends in an error toast. The set is rebuilt only when the kinds
+// change, so asking per table cell is a map lookup.
+func (tv *tableView) serves(kind string) bool {
+	kinds := tv.sh.kinds
+	if len(kinds) == 0 {
+		return true
+	}
+	if tv.kindSet == nil || tv.kindSetSrc != &kinds[0] || tv.kindSetLen != len(kinds) {
+		tv.kindSet = make(map[string]bool, len(kinds))
+		for _, k := range kinds {
+			tv.kindSet[k.Kind] = true
+		}
+		tv.kindSetSrc, tv.kindSetLen = &kinds[0], len(kinds)
+	}
+	return tv.kindSet[kind]
+}
+
 // linkText is one line of text in the link colour that runs onTap when clicked: a drawer value
 // that names an object, or a folded list's count. The pointer turns into a hand over it and the
 // text is underlined while hovered.

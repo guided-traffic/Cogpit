@@ -1,0 +1,88 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "ingressclasses",
+    "name": "contour"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "contour"
+    },
+    {
+      "column": "default",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": ""
+    },
+    {
+      "column": "controller",
+      "text": "projectcontour.io/ingress-controller"
+    },
+    {
+      "column": "apiGroup",
+      "text": "projectcontour.io"
+    },
+    {
+      "column": "scope",
+      "text": "Cluster"
+    },
+    {
+      "column": "kind",
+      "text": "ContourConfiguration"
+    }
+  ],
+  "fields": {
+    "controller": [
+      "projectcontour.io/ingress-controller"
+    ],
+    "default": [
+      "false"
+    ],
+    "label": [],
+    "name": [
+      "contour"
+    ],
+    "namespace": [
+      ""
+    ],
+    "parameters": [
+      "ContourConfiguration/contour"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Ingress Class",
+      "items": [
+        {
+          "name": "Controller",
+          "value": "projectcontour.io/ingress-controller"
+        }
+      ]
+    },
+    {
+      "title": "Parameters",
+      "items": [
+        {
+          "name": "API Group",
+          "value": "projectcontour.io"
+        },
+        {
+          "name": "Kind",
+          "value": "ContourConfiguration"
+        },
+        {
+          "name": "Name",
+          "value": "contour"
+        },
+        {
+          "name": "Scope",
+          "value": "Cluster"
+        }
+      ]
+    }
+  ]
+}

@@ -14,13 +14,13 @@ section wins.
 |---|---|---|
 | [`internal/model`](../../internal/model/), [`model/kinds`](../../internal/model/kinds/) | Built: refs, rows, status tokens, panic-free accessors, Secret redaction; profiles for Nodes, Pods, Deployments, Services, Namespaces and Events with golden and fuzz tests | No generic profile for custom resources yet; no CPU and memory columns |
 | [`internal/kubeconfig`](../../internal/kubeconfig/) | Built: contexts from bytes, error text without credentials, the per-terminal kubeconfig | – |
-| [`internal/cluster`](../../internal/cluster/) | Built: connections through client-go's loading rules, the counting transport, discovery, log streams, restart and delete | Discovery is cached in memory for 10 minutes, not on disk; one rate limiter per cluster (QPS 5, burst 10) shared by every client, discovery with its own budget (50/300); no access reviews; implicit kubeconfig writes are switched off (the legacy `.kubeconfig` migration and the oidc persister, which keeps refreshed tokens in memory) |
+| [`internal/cluster`](../../internal/cluster/) | Built: connections through client-go's loading rules, the counting transport, discovery, log streams, restart and delete; for every kind, a REST mapper over in-memory cached discovery and update (with a resourceVersion precondition), create (both with dryRun=All) and delete (with a UID precondition) through the dynamic client ([`objects.go`](../../internal/cluster/objects.go)); an update sent without `managedFields` (the cache drops them) keeps every manager's entry on the server and records Cogpit's fields under the manager `cogpit` (verified on kind 1.36.1, `TestKindEditCreateConflictDelete`) | Discovery is cached in memory for 10 minutes, not on disk; one rate limiter per cluster (QPS 5, burst 10) shared by every client, discovery with its own budget (50/300); no access reviews; implicit kubeconfig writes are switched off (the legacy `.kubeconfig` migration and the oidc persister, which keeps refreshed tokens in memory) |
 | [`internal/cache`](../../internal/cache/) | Built: one shared informer per scope, handles, warm period, `managedFields` transform, no resync, streaming initial lists where the server supports them, error state, stats | Views watch all namespaces and filter client-side; no metadata-only informers; no polling sources yet |
 | [`internal/terminal`](../../internal/terminal/) | Built: local shell on Cogpit's own PTY with the per-terminal kubeconfig; pod shell over exec (WebSocket, SPDY fallback) | No attach, no node shell; Windows has no local shell yet |
 | [`internal/demo`](../../internal/demo/) (L2, new) | Built: the synthetic cluster for `--demo` behind a `cache.Source`: 10,000 pods, 300 services, 1,000 watch events per second, watch resume and 410 Gone | A package the plan did not list |
 | [`internal/engine`](../../internal/engine/), [`engine/commands`](../../internal/engine/commands/) | Built: Session, registry with JSON schemas, D-2 confirmation per origin, audit log, UI state, coalesced snapshots (≤ 10 per second per view), drawer, streams, 21 commands | No jobs or cancellation UI, no access reviews; a write command refuses to run if the user switched clusters while its confirmation was open |
 | [`internal/mcp`](../../internal/mcp/) | Built: every command as a tool, Streamable HTTP on loopback, bearer token, Host and Origin checks | Stateless HTTP (one session per request); the token lives in `<user config dir>/Cogpit/mcp-token` and changes with the port on every start; no stdio bridge |
-| [`internal/ui/fyneui`](../../internal/ui/fyneui/) and its [`yamlview`](../../internal/ui/fyneui/yamlview/) and [`termview`](../../internal/ui/fyneui/termview/) | Built: shell after Lens's layout, theme with status tokens, context picker, confirmation dialog, read-only YAML view, terminal and log widgets, a jank meter (`--perf`); row menus (⋮ and right-click) and the drawer's toolbar from the registry, schema-generated parameter dialogs, links and coloured parts in cells, Cogpit's own tooltips (Fyne 2.8 has none) | The YAML view is not wired for editing yet; the terminal widget is a patched copy of fyne-io/terminal ([`third_party/fyne-terminal`](../../third_party/fyne-terminal/PATCHES.md)) behind an escape filter, because the pinned upstream froze or crashed on container output |
+| [`internal/ui/fyneui`](../../internal/ui/fyneui/) and its [`yamlview`](../../internal/ui/fyneui/yamlview/) and [`termview`](../../internal/ui/fyneui/termview/) | Built: shell after Lens's layout, theme with status tokens, context picker, confirmation dialog, read-only YAML view, terminal and log widgets, a jank meter (`--perf`); row menus (⋮ and right-click) and the drawer's toolbar from the registry, schema-generated parameter dialogs, links and coloured parts in cells, Cogpit's own tooltips (Fyne 2.8 has none) | The YAML view is editable in Edit and Create resource tabs, whose text lives in the engine (`editor.get`, `editor.setText`); edits are applied as updates (PUT), not patches; the terminal widget is a patched copy of fyne-io/terminal ([`third_party/fyne-terminal`](../../third_party/fyne-terminal/PATCHES.md)) behind an escape filter, because the pinned upstream froze or crashed on container output |
 | [`cmd/cogpit`](../../cmd/cogpit/) | Built: wires the packages; flags `--kubeconfig`, `--context`, `--demo`, `--mcp-addr`, `--no-mcp`, `--perf`, `--theme` | client-go goroutine panics are logged instead of ending the app |
 | `cmd/cogpit-cli`, `internal/helm`, `internal/metrics`, `internal/agent`, `internal/update` | Not built (`cogpit-cli` is a stub) | – |
 
@@ -217,10 +217,12 @@ How menus use them ([`menu.go`](../../internal/engine/menu.go), 2026-10-11): `Re
 is a kind's row menu and drawer toolbar, the commands whose `Kinds` contain the kind or are empty,
 with an `Order`, sorted by `Order` then id. A command whose parameters have a `container` property
 opens a submenu of the pod's containers and init containers (`TakesContainer`); one whose schema
-requires more than `ref` and `container` opens a dialog generated from the schema of those fields
+requires more than `ref` and `container`, or that has a `Prefill` (then its optional fields too:
+Scale's replicas, Drain's options), opens a dialog generated from the schema of those fields
 (`DialogFields`: integer, number, string and boolean fields with their descriptions), started from
-`Prefill`. `ObjectParams(ref, container)` fills the other required fields with zero values, so that
-`Enabled`, `Applicable` and `Prefill` can be asked before the dialog has the real ones. The UI
+`Prefill`. `ObjectParams(ref, container)` fills the other required fields with zero values and
+leaves the optional ones to `Prefill`, so that `Enabled`, `Applicable` and `Prefill` can be asked
+before the dialog has the real ones. The UI
 evaluates them off its main goroutine.
 
 Every command is also an MCP tool, generated from the registry (`ui.navigate` → `ui_navigate`).
@@ -345,6 +347,18 @@ the diagnostics view shows them, and tests assert the budgets P9–P11 in
 `resources_find` and every other read are served from the cache. A direct `GET` happens only for
 data the cache does not hold (subresources, a kind nobody watches), and its result does not bypass
 the cache's view of the world.
+
+**Custom resource kinds** (2026-10-11, [`customkinds.go`](../../internal/engine/customkinds.go)).
+A real cluster's backend holds one cache handle on `customresourcedefinitions` while it is
+connected (`Backend.CustomResources`; the demo cluster has none). Its watch events, coalesced,
+rebuild the generic profiles of the established definitions
+([`kinds.ParseCRD`](../../internal/model/kinds/customresources.go)), published as one immutable set
+behind an atomic pointer: `Backend.Profile` and `Backend.AllProfiles` read it without a lock, an
+update that changes nothing a view shows keeps the profile, and a change emits `EventKinds`, upon
+which the UI re-reads `kinds.list`. The open view and drawer follow their profile: a new served
+version moves them, a deleted definition leaves a view whose snapshot says the cluster no longer
+serves the kind. A custom kind costs one watch when opened, like any kind
+(`TestBudgetCustomResourceView`); the cache holds the definitions in full, schemas included.
 
 **Not across restarts** (decided, [D-13](decisions.md#d-13-cache)). The cache lives in memory
 only. Persisting it to disk would make start-up faster but would show stale state and put cluster
@@ -478,6 +492,8 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-11 | minor | Row menus from the registry (`Actions`, submenus, schema dialogs); the drawer model's Properties section, links, chips, folds and tables; cells in coloured parts |
+| 2026-10-11 | minor | Current state: editing and creating objects of every kind (G9) in cluster, engine and UI |
+| 2026-10-11 | minor | §5: the watch on custom resource definitions and how custom kinds' profiles are published and read |
 | 2026-10-11 | minor | Kind keys of custom resources (§4.5); links and the warning column in cells; the registry's Order, ErrNotApplicable, Escalate and Prefill |
 | 2026-10-11 | major | Current state: the local MVP and where it differs from the plan |
 | 2026-10-11 | major | Design plan v2: Go; cache-first data flow (§5); UI state in the engine; MCP and the built-in agent (§7); Helm in-process with crash-safe actions; terminal via own PTY; updates |

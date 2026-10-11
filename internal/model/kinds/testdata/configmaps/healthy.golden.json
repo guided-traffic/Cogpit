@@ -1,0 +1,67 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "configmaps",
+    "namespace": "shop",
+    "name": "storefront-config"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "storefront-config"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "keys",
+      "text": "FEATURE_FLAGS, LOG_LEVEL, app.properties"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790812800
+    }
+  ],
+  "fields": {
+    "key": [
+      "FEATURE_FLAGS",
+      "LOG_LEVEL",
+      "app.properties"
+    ],
+    "label": [
+      "app=storefront"
+    ],
+    "name": [
+      "storefront-config"
+    ],
+    "namespace": [
+      "shop"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Data",
+      "items": [
+        {
+          "name": "FEATURE_FLAGS",
+          "value": ""
+        },
+        {
+          "name": "LOG_LEVEL",
+          "value": "info"
+        },
+        {
+          "name": "app.properties",
+          "value": "mode=production\nworkers=4\ncache.ttl=300"
+        }
+      ]
+    }
+  ]
+}

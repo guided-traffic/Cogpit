@@ -1,0 +1,90 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "persistentvolumeclaims",
+    "namespace": "archive",
+    "name": "legacy-data"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-data"
+    },
+    {
+      "column": "namespace",
+      "text": "archive",
+      "link": {
+        "kind": "namespaces",
+        "name": "archive"
+      }
+    },
+    {
+      "column": "storageClass",
+      "text": "slow"
+    },
+    {
+      "column": "size",
+      "text": "1073741824",
+      "num": 1073741824
+    },
+    {
+      "column": "pods",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "2y",
+      "num": 1728648000
+    },
+    {
+      "column": "status",
+      "text": "Pending",
+      "status": "pending"
+    }
+  ],
+  "fields": {
+    "accessMode": [
+      "ReadOnlyMany"
+    ],
+    "label": [],
+    "name": [
+      "legacy-data"
+    ],
+    "namespace": [
+      "archive"
+    ],
+    "status": [
+      "Pending"
+    ],
+    "storageClass": [
+      "slow"
+    ],
+    "volumeMode": [],
+    "volumeName": []
+  },
+  "detail": [
+    {
+      "title": "Persistent Volume Claim",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Pending",
+          "status": "pending"
+        },
+        {
+          "name": "Storage Class",
+          "value": "slow"
+        },
+        {
+          "name": "Access Modes",
+          "value": "ReadOnlyMany"
+        },
+        {
+          "name": "Requested",
+          "value": "1073741824"
+        }
+      ]
+    }
+  ]
+}

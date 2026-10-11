@@ -76,7 +76,8 @@ func (c *ClusterConnector) Contexts() ([]ContextInfo, error) {
 
 // Connect connects one context: the demo cluster, or a kubeconfig context whose served kinds
 // (from discovery) select the built-in profiles. If discovery fails, every built-in profile is
-// offered and a kind the cluster lacks shows its error in its view.
+// offered and a kind the cluster lacks shows its error in its view. A real cluster's backend also
+// watches its custom resource definitions (Backend.CustomResources).
 func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, error) {
 	if c.IncludeDemo && name == DemoContext {
 		return c.connectDemo()
@@ -86,11 +87,13 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 		return nil, err
 	}
 	profiles := kinds.Builtin()
+	customResources := true
 	served, err := conn.ServedResources(ctx)
 	if err != nil {
 		c.logger().Warn("engine: discovery failed; offering every built-in kind", "context", name, "err", err)
 	} else {
 		profiles = servedProfiles(profiles, served)
+		customResources = served[crdsGVR]
 	}
 	ch := cache.New(cache.DynamicSource(conn.Dynamic()), cache.Options{WarmPeriod: c.WarmPeriod, Logger: c.Logger})
 	ctxName := conn.Context()
@@ -100,6 +103,7 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 	var once sync.Once
 	return &Backend{
 		Context: ctxName, Namespace: conn.Namespace(), Cache: ch, Conn: conn, Profiles: profiles,
+		CustomResources: customResources,
 		Close: func() {
 			once.Do(func() {
 				ch.Close()
@@ -118,6 +122,17 @@ func servedProfiles(all []*model.KindProfile, served map[schema.GroupVersionReso
 		}
 	}
 	return out
+}
+
+// demoProfiles keeps the built-in profiles of the kinds the demo cluster serves, as discovery does
+// for a real cluster: a kind the demo has no objects for is not offered, rather than shown as an
+// error.
+func demoProfiles() []*model.KindProfile {
+	served := map[schema.GroupVersionResource]bool{}
+	for _, gvr := range demo.Resources() {
+		served[gvr] = true
+	}
+	return servedProfiles(kinds.Builtin(), served)
 }
 
 // connectDemo builds the synthetic cluster and starts its churn.
@@ -140,7 +155,7 @@ func (c *ClusterConnector) connectDemo() (*Backend, error) {
 	}()
 	var once sync.Once
 	return &Backend{
-		Context: DemoContext, Namespace: "default", Cache: ch, Profiles: kinds.Builtin(), Demo: true,
+		Context: DemoContext, Namespace: "default", Cache: ch, Profiles: demoProfiles(), Demo: true,
 		DemoStats: func() any { return dc.Stats() },
 		Close: func() {
 			once.Do(func() {

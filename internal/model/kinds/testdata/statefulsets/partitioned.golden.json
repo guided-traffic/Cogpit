@@ -1,0 +1,95 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "statefulsets",
+    "namespace": "payments",
+    "name": "ledger"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "ledger"
+    },
+    {
+      "column": "namespace",
+      "text": "payments",
+      "link": {
+        "kind": "namespaces",
+        "name": "payments"
+      }
+    },
+    {
+      "column": "pods",
+      "text": "3/3",
+      "num": 3
+    },
+    {
+      "column": "replicas",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "age",
+      "text": "251d",
+      "num": 1769997720
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/payments/ledger:5.0.0-rc1"
+    ],
+    "label": [],
+    "name": [
+      "ledger"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "selector": [
+      "app=ledger"
+    ],
+    "serviceName": [
+      "ledger"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Stateful Set",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "3 desired / 1 updated / 3 ready / 3 available"
+        },
+        {
+          "name": "Service",
+          "value": "ledger"
+        },
+        {
+          "name": "Selector",
+          "value": "app=ledger"
+        },
+        {
+          "name": "Update Strategy",
+          "value": "RollingUpdate (partition 2)"
+        },
+        {
+          "name": "Pod Management Policy",
+          "value": "OrderedReady"
+        },
+        {
+          "name": "Current Revision",
+          "value": "ledger-4a5b6c7d8"
+        },
+        {
+          "name": "Update Revision",
+          "value": "ledger-9e8d7c6b5"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/payments/ledger:5.0.0-rc1"
+        }
+      ]
+    }
+  ]
+}

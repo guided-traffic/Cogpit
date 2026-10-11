@@ -1,0 +1,77 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "daemonsets",
+    "namespace": "storage",
+    "name": "storage-plugin"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "storage-plugin"
+    },
+    {
+      "column": "namespace",
+      "text": "storage",
+      "link": {
+        "kind": "namespaces",
+        "name": "storage"
+      }
+    },
+    {
+      "column": "pods",
+      "text": "2/3",
+      "num": 2
+    },
+    {
+      "column": "nodeSelector",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "159d",
+      "num": 1777957500
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/storage/plugin:1.8.0",
+      "registry.example.com/storage/registrar:2.0.0"
+    ],
+    "label": [],
+    "name": [
+      "storage-plugin"
+    ],
+    "namespace": [
+      "storage"
+    ],
+    "nodeSelector": [],
+    "selector": [
+      "app=storage-plugin"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Daemon Set",
+      "items": [
+        {
+          "name": "Pods",
+          "value": "3 desired / 3 current / 2 ready / 1 updated / 2 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=storage-plugin"
+        },
+        {
+          "name": "Update Strategy",
+          "value": "OnDelete"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/storage/plugin:1.8.0\nregistry.example.com/storage/registrar:2.0.0"
+        }
+      ]
+    }
+  ]
+}

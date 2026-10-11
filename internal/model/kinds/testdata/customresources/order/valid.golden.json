@@ -1,0 +1,71 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "orders.acme.cert-manager.io",
+    "namespace": "storefront",
+    "name": "storefront-tls-1-2846192735"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "storefront-tls-1-2846192735"
+    },
+    {
+      "column": "namespace",
+      "text": "storefront",
+      "link": {
+        "kind": "namespaces",
+        "name": "storefront"
+      }
+    },
+    {
+      "column": "state",
+      "text": "valid"
+    },
+    {
+      "column": "issuer",
+      "text": "letsencrypt-prod"
+    },
+    {
+      "column": "reason",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "2h",
+      "num": 1791712800
+    }
+  ],
+  "fields": {
+    "issuer": [
+      "letsencrypt-prod"
+    ],
+    "label": [],
+    "name": [
+      "storefront-tls-1-2846192735"
+    ],
+    "namespace": [
+      "storefront"
+    ],
+    "reason": [],
+    "state": [
+      "valid"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Order",
+      "items": [
+        {
+          "name": "State",
+          "value": "valid"
+        },
+        {
+          "name": "Issuer",
+          "value": "letsencrypt-prod"
+        }
+      ]
+    }
+  ]
+}

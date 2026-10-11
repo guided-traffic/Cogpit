@@ -1,0 +1,137 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "customresourcedefinitions",
+    "name": "orders.acme.cert-manager.io"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "orders.acme.cert-manager.io"
+    },
+    {
+      "column": "resource",
+      "text": "Order",
+      "link": {
+        "kind": "orders.acme.cert-manager.io",
+        "name": ""
+      }
+    },
+    {
+      "column": "group",
+      "text": "acme.cert-manager.io"
+    },
+    {
+      "column": "version",
+      "text": "v1"
+    },
+    {
+      "column": "scope",
+      "text": "Namespaced"
+    },
+    {
+      "column": "age",
+      "text": "40d",
+      "num": 1788249600
+    }
+  ],
+  "fields": {
+    "group": [
+      "acme.cert-manager.io"
+    ],
+    "kind": [
+      "Order"
+    ],
+    "label": [
+      "app.kubernetes.io/name=cert-manager"
+    ],
+    "name": [
+      "orders.acme.cert-manager.io"
+    ],
+    "namespace": [
+      ""
+    ],
+    "scope": [
+      "Namespaced"
+    ],
+    "version": [
+      "v1"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Custom Resource Definition",
+      "items": [
+        {
+          "name": "Group",
+          "value": "acme.cert-manager.io"
+        },
+        {
+          "name": "Kind",
+          "value": "Order"
+        },
+        {
+          "name": "Plural",
+          "value": "orders"
+        },
+        {
+          "name": "Singular",
+          "value": "order"
+        },
+        {
+          "name": "Categories",
+          "value": "cert-manager, cert-manager-acme"
+        },
+        {
+          "name": "Scope",
+          "value": "Namespaced"
+        },
+        {
+          "name": "Versions",
+          "value": "v1 (served, storage)"
+        },
+        {
+          "name": "Stored Versions",
+          "value": "v1"
+        }
+      ]
+    },
+    {
+      "title": "Printer Columns",
+      "items": [
+        {
+          "name": "State",
+          "value": ".status.state (string)"
+        },
+        {
+          "name": "Issuer",
+          "value": ".spec.issuerRef.name (string, priority 1)"
+        },
+        {
+          "name": "Reason",
+          "value": ".status.reason (string, priority 1)"
+        },
+        {
+          "name": "Age",
+          "value": ".metadata.creationTimestamp (date)"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "NamesAccepted",
+          "value": "True (NoConflicts): no conflicts found",
+          "status": "ok"
+        },
+        {
+          "name": "Established",
+          "value": "True (InitialNamesAccepted): the initial names have been accepted",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

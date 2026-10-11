@@ -1,0 +1,29 @@
+# Synthetic: a stateful set being deleted with foreground cascading deletion.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: old-cache
+  namespace: shop
+  uid: 5b2e6d8f-5555-4c3b-8d2e-000000000003
+  generation: 2
+  creationTimestamp: "2025-12-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:59:00Z"
+  finalizers:
+  - foregroundDeletion
+spec:
+  replicas: 1
+  serviceName: old-cache
+  selector:
+    matchLabels:
+      app: old-cache
+  template:
+    spec:
+      containers:
+      - name: cache
+        image: registry.example.com/shop/cache:0.9
+status:
+  observedGeneration: 2
+  replicas: 1
+  readyReplicas: 1
+  updatedReplicas: 1
+  availableReplicas: 1

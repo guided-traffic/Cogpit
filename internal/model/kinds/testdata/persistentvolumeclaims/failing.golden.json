@@ -1,0 +1,102 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "persistentvolumeclaims",
+    "namespace": "shop",
+    "name": "cache-redis-1"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "cache-redis-1"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "storageClass",
+      "text": "standard"
+    },
+    {
+      "column": "size",
+      "text": "2Gi",
+      "num": 2147483648
+    },
+    {
+      "column": "pods",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "71d",
+      "num": 1785542400
+    },
+    {
+      "column": "status",
+      "text": "Lost",
+      "status": "error"
+    }
+  ],
+  "fields": {
+    "accessMode": [
+      "ReadWriteOnce"
+    ],
+    "label": [],
+    "name": [
+      "cache-redis-1"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "status": [
+      "Lost"
+    ],
+    "storageClass": [
+      "standard"
+    ],
+    "volumeMode": [
+      "Filesystem"
+    ],
+    "volumeName": [
+      "pvc-9d4e5f60-8888-4d9e-8f10-000000000002"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Persistent Volume Claim",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Lost",
+          "status": "error"
+        },
+        {
+          "name": "Storage Class",
+          "value": "standard"
+        },
+        {
+          "name": "Volume",
+          "value": "pvc-9d4e5f60-8888-4d9e-8f10-000000000002"
+        },
+        {
+          "name": "Access Modes",
+          "value": "ReadWriteOnce"
+        },
+        {
+          "name": "Volume Mode",
+          "value": "Filesystem"
+        },
+        {
+          "name": "Requested",
+          "value": "2Gi"
+        }
+      ]
+    }
+  ]
+}

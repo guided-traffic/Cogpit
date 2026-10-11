@@ -1,0 +1,20 @@
+# Synthetic: no rules, only a default backend that is a resource (a storage bucket of a custom
+# kind), not a service.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: static-assets
+  namespace: shop
+  uid: 6a1b2c3d-5555-4a6b-9c7d-000000000005
+  creationTimestamp: "2026-10-10T12:00:00Z"
+spec:
+  ingressClassName: gce
+  defaultBackend:
+    resource:
+      apiGroup: storage.example.com
+      kind: StorageBucket
+      name: static-assets
+status:
+  loadBalancer:
+    ingress:
+    - ip: 198.51.100.7

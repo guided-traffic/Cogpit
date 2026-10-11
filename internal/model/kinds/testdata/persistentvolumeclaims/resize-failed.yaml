@@ -1,0 +1,33 @@
+# Synthetic: an expansion the storage driver refuses: infeasible, with the controller's error
+# condition; the claim itself stays Bound at its old size.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wal-archive
+  namespace: payments
+  uid: 9d4e5f60-8888-4d9e-8f10-000000000007
+  creationTimestamp: "2026-05-01T00:00:00Z"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Ti
+  storageClassName: standard-hdd
+  volumeMode: Filesystem
+  volumeName: pvc-9d4e5f60-8888-4d9e-8f10-000000000007
+status:
+  accessModes:
+  - ReadWriteOnce
+  allocatedResourceStatuses:
+    storage: ControllerResizeInfeasible
+  allocatedResources:
+    storage: 2Ti
+  capacity:
+    storage: 500Gi
+  conditions:
+  - type: ControllerResizeError
+    status: "True"
+    lastTransitionTime: "2026-10-11T11:20:00Z"
+    message: "resize volume: requested size 2Ti exceeds the driver's maximum of 1Ti"
+  phase: Bound

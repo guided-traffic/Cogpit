@@ -1,0 +1,25 @@
+# Synthetic: a cron job being deleted with foreground cascading deletion.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: legacy-cleanup
+  namespace: shop
+  uid: 8e5b9a1c-8888-4f6e-9a5b-000000000003
+  generation: 1
+  creationTimestamp: "2025-12-24T18:00:00Z"
+  deletionTimestamp: "2026-10-11T11:59:00Z"
+  finalizers:
+  - foregroundDeletion
+spec:
+  schedule: 0 4 * * 0
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: cleanup
+            image: registry.example.com/shop/cleanup:0.1
+status:
+  lastScheduleTime: "2026-10-11T04:00:00Z"
+  lastSuccessfulTime: "2026-10-11T04:00:31Z"

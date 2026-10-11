@@ -1,0 +1,89 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "statefulsets",
+    "namespace": "analytics",
+    "name": "analytics-db"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "analytics-db"
+    },
+    {
+      "column": "namespace",
+      "text": "analytics",
+      "link": {
+        "kind": "namespaces",
+        "name": "analytics"
+      }
+    },
+    {
+      "column": "pods",
+      "text": "0/0"
+    },
+    {
+      "column": "replicas",
+      "text": "0"
+    },
+    {
+      "column": "age",
+      "text": "127d",
+      "num": 1780725600
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/analytics/db:2.3"
+    ],
+    "label": [],
+    "name": [
+      "analytics-db"
+    ],
+    "namespace": [
+      "analytics"
+    ],
+    "selector": [
+      "app=analytics-db"
+    ],
+    "serviceName": [
+      "analytics-db"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Stateful Set",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "0 desired / 0 updated / 0 ready / 0 available"
+        },
+        {
+          "name": "Service",
+          "value": "analytics-db"
+        },
+        {
+          "name": "Selector",
+          "value": "app=analytics-db"
+        },
+        {
+          "name": "Update Strategy",
+          "value": "OnDelete"
+        },
+        {
+          "name": "Current Revision",
+          "value": "analytics-db-7c6b5a4d3"
+        },
+        {
+          "name": "Volume Claim Templates",
+          "value": "data: 50Gi, ReadWriteOnce\nwal"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/analytics/db:2.3"
+        }
+      ]
+    }
+  ]
+}

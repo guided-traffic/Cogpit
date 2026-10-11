@@ -1,0 +1,55 @@
+# Synthetic: a database with three ready replicas on the current revision.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: shop
+  uid: 5b2e6d8f-5555-4c3b-8d2e-000000000001
+  resourceVersion: "77310"
+  generation: 3
+  creationTimestamp: "2026-07-01T10:00:00Z"
+  labels:
+    app.kubernetes.io/name: postgres
+spec:
+  replicas: 3
+  serviceName: postgres-headless
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: registry.example.com/db/postgres:17.6
+      - name: exporter
+        image: registry.example.com/db/postgres-exporter:0.17
+  volumeClaimTemplates:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: standard
+      resources:
+        requests:
+          storage: 10Gi
+status:
+  observedGeneration: 3
+  replicas: 3
+  readyReplicas: 3
+  currentReplicas: 3
+  updatedReplicas: 3
+  availableReplicas: 3
+  currentRevision: postgres-6b8f9c7d5
+  updateRevision: postgres-6b8f9c7d5
+  collisionCount: 0

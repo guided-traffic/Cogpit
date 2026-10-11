@@ -1,0 +1,129 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "jobs",
+    "namespace": "analytics",
+    "name": "nightly-report-29862240"
+  },
+  "status": "succeeded",
+  "cells": [
+    {
+      "column": "name",
+      "text": "nightly-report-29862240"
+    },
+    {
+      "column": "namespace",
+      "text": "analytics",
+      "link": {
+        "kind": "namespaces",
+        "name": "analytics"
+      }
+    },
+    {
+      "column": "completions",
+      "text": "1/1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791709200
+    },
+    {
+      "column": "conditions",
+      "text": "Complete SuccessCriteriaMet",
+      "status": "succeeded"
+    }
+  ],
+  "fields": {
+    "condition": [
+      "Complete",
+      "SuccessCriteriaMet"
+    ],
+    "controlledBy": [
+      "CronJob/nightly-report"
+    ],
+    "image": [
+      "registry.example.com/analytics/report:2026.10"
+    ],
+    "label": [
+      "batch.kubernetes.io/controller-uid=7d4a8f0b-7777-4e5d-8f4a-000000000001",
+      "batch.kubernetes.io/job-name=nightly-report-29862240"
+    ],
+    "name": [
+      "nightly-report-29862240"
+    ],
+    "namespace": [
+      "analytics"
+    ],
+    "selector": [
+      "batch.kubernetes.io/controller-uid=7d4a8f0b-7777-4e5d-8f4a-000000000001"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Job",
+      "items": [
+        {
+          "name": "Completions",
+          "value": "1/1"
+        },
+        {
+          "name": "Parallelism",
+          "value": "1"
+        },
+        {
+          "name": "Completion Mode",
+          "value": "NonIndexed"
+        },
+        {
+          "name": "Backoff Limit",
+          "value": "6"
+        },
+        {
+          "name": "TTL After Finished",
+          "value": "86400s"
+        },
+        {
+          "name": "Pods",
+          "value": "0 active / 0 ready / 1 succeeded / 0 failed"
+        },
+        {
+          "name": "Started",
+          "value": "2026-10-11T09:00:00Z"
+        },
+        {
+          "name": "Completed",
+          "value": "2026-10-11T09:01:42Z"
+        },
+        {
+          "name": "Duration",
+          "value": "1m42s"
+        },
+        {
+          "name": "Selector",
+          "value": "batch.kubernetes.io/controller-uid=7d4a8f0b-7777-4e5d-8f4a-000000000001"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/analytics/report:2026.10"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "SuccessCriteriaMet",
+          "value": "True (CompletionsReached): Reached expected number of succeeded pods",
+          "status": "succeeded"
+        },
+        {
+          "name": "Complete",
+          "value": "True (CompletionsReached): Reached expected number of succeeded pods",
+          "status": "succeeded"
+        }
+      ]
+    }
+  ]
+}

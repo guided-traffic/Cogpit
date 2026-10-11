@@ -46,7 +46,8 @@ Ordered checklists for the common additions. The packages they name are in
    toolbar ([architecture §4.2](architecture.md#42-the-command-registry)); a `container`
    parameter makes it a submenu of the pod's containers; required parameters beyond `ref` and
    `container` get a schema-generated dialog (integer, number, string and boolean fields, the
-   `jsonschema` tag as the hint), started from `Prefill`. Add a custom dialog only when the schema
+   `jsonschema` tag as the hint), started from `Prefill`; a command with a `Prefill` gets the
+   dialog for its optional parameters too. Add a custom dialog only when the schema
    can't express it. Give the command an icon in the drawer's toolbar in
    [`cmdicons.go`](../../internal/ui/fyneui/cmdicons.go); others get a generic one.
 8. **Progress docs:** flip the row in the parity page and update [`gaps.md`](../parity/gaps.md).

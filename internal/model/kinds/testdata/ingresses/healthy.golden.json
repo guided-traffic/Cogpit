@@ -1,0 +1,109 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "ingresses",
+    "namespace": "shop",
+    "name": "storefront"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "storefront"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "loadBalancers",
+      "text": "203.0.113.30"
+    },
+    {
+      "column": "rules",
+      "text": "shop.example.com/api -> api:8080, shop.example.com/ -> web:80, www.shop.example.com/ -> web:http, (default) -> web:http"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790812800
+    }
+  ],
+  "fields": {
+    "address": [
+      "203.0.113.30"
+    ],
+    "host": [
+      "shop.example.com",
+      "www.shop.example.com"
+    ],
+    "ingressClass": [
+      "nginx"
+    ],
+    "label": [
+      "app=storefront"
+    ],
+    "name": [
+      "storefront"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "path": [
+      "/api",
+      "/"
+    ],
+    "service": [
+      "web",
+      "api"
+    ],
+    "tlsSecret": [
+      "shop-tls"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Ingress",
+      "items": [
+        {
+          "name": "Class",
+          "value": "nginx"
+        },
+        {
+          "name": "Load Balancers",
+          "value": "203.0.113.30"
+        },
+        {
+          "name": "Default Backend",
+          "value": "web:http"
+        }
+      ]
+    },
+    {
+      "title": "Rules",
+      "items": [
+        {
+          "name": "shop.example.com",
+          "value": "/api (Prefix) -> api:8080\n/ (Prefix) -> web:80"
+        },
+        {
+          "name": "www.shop.example.com",
+          "value": "/ (Prefix) -> web:http"
+        }
+      ]
+    },
+    {
+      "title": "TLS",
+      "items": [
+        {
+          "name": "shop-tls",
+          "value": "shop.example.com\nwww.shop.example.com"
+        }
+      ]
+    }
+  ]
+}

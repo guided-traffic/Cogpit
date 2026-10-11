@@ -55,6 +55,7 @@ type shell struct {
 	uiApplied  bool
 	kinds      []kindInfo
 	kindsFor   string // the context kinds were loaded for
+	kindsSeq   int    // the latest kinds.list request; older results are dropped
 	namespaces []string
 	diag       diagView
 
@@ -64,6 +65,7 @@ type shell struct {
 	pendingUI     *engine.UIState
 	tableQueued   atomic.Bool
 	detailQueued  atomic.Bool
+	kindsQueued   atomic.Bool
 	diagQueued    atomic.Bool
 	lastDiagFetch atomic.Int64 // UnixNano of the last diagnostics fetch
 
@@ -77,6 +79,7 @@ type shell struct {
 	tip       *tooltip // the one tooltip: cut-off cells, warning icons, drawer actions
 	picker    *picker
 	confirmer *guiConfirmer
+	drains    *drainBanner // unfinished drains, below the top bar (drains.go)
 
 	hsplit    *container.Split // table | drawer
 	vsplit    *container.Split // workspace / dock
@@ -103,6 +106,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.status = newStatusBar(sh)
 	sh.picker = newPicker(sh)
 	sh.confirmer = newGUIConfirmer(sh)
+	sh.drains = newDrainBanner(sh)
 	sh.toasts = box(&toastLayout{})
 	sh.tip = newTooltip(sh)
 
@@ -117,7 +121,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sidebar := sized(sizeSidebarWidth, "", newSurface(colorSidebar), sh.side.root)
 	main := container.NewBorder(nil, nil, container.NewHBox(sidebar, newDivider(true)), nil, sh.body)
 	frame := container.NewBorder(
-		container.NewVBox(sh.top.root, newDivider(false)),
+		container.NewVBox(sh.top.root, newDivider(false), sh.drains.root),
 		container.NewVBox(newDivider(false), sh.status.root),
 		nil, nil, main)
 	sh.root = container.NewStack(frame, sh.tip.layer, sh.toasts)
@@ -208,9 +212,24 @@ func (sh *shell) onEvent(ev engine.Event) {
 		}
 	case engine.EventDiagnostics:
 		sh.requestDiagnostics()
+	case engine.EventKinds:
+		// A custom resource definition changed: reload the kinds for the sidebar and the View menu.
+		if sh.kindsQueued.CompareAndSwap(false, true) {
+			sh.do(func() {
+				sh.kindsQueued.Store(false)
+				if sh.ui.Connection.State == engine.Connected {
+					sh.loadKinds()
+				}
+			})
+		}
 	case engine.EventToast:
 		level, msg := ev.Level, ev.Message
 		sh.do(func() { sh.toast(level, msg) })
+	case engine.EventDrains:
+		sh.drains.request()
+	case engine.EventEditor:
+		id, rev := ev.View, ev.Revision
+		sh.do(func() { sh.dock.editorEvent(id, rev) })
 	}
 }
 
@@ -339,8 +358,10 @@ func (sh *shell) layoutBody() {
 func (sh *shell) loadKinds() {
 	ctxName := sh.ui.Context
 	sh.kindsFor = ctxName
+	sh.kindsSeq++
+	seq := sh.kindsSeq
 	sh.dispatch("kinds.list", struct{}{}, func(res any, err error) {
-		if sh.ui.Context != ctxName {
+		if sh.ui.Context != ctxName || seq != sh.kindsSeq {
 			return
 		}
 		if err != nil {

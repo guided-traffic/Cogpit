@@ -45,19 +45,23 @@ func (c *Command) TakesContainer() bool {
 	return c.Schema != nil && c.Schema.Properties[ParamContainer] != nil
 }
 
-// DialogFields returns the required parameters beyond ref and container, in the order the
-// parameter struct declares them. A command with any needs a dialog before it runs (Scale's
-// replicas); the dialog is generated from the schema of each field.
+// DialogFields returns the parameters a dialog asks for before the command runs, in the order the
+// parameter struct declares them: those beyond ref and container that the schema requires, and,
+// for a command with a Prefill, the optional ones too (a Prefill means the command's values start
+// from the cache in a dialog: Scale's replicas, optional in its schema so that agents may leave
+// them to the dialog). A command with any needs a dialog; it is generated from each field's schema.
 func (c *Command) DialogFields() []string {
 	if c.Schema == nil {
 		return nil
 	}
 	var out []string
 	for _, name := range propertyOrder(c.Schema) {
-		if name == ParamRef || name == ParamContainer || !slices.Contains(c.Schema.Required, name) {
+		if name == ParamRef || name == ParamContainer {
 			continue
 		}
-		out = append(out, name)
+		if c.prefill != nil || slices.Contains(c.Schema.Required, name) {
+			out = append(out, name)
+		}
 	}
 	return out
 }
@@ -65,14 +69,17 @@ func (c *Command) DialogFields() []string {
 // ObjectParams returns parameters for the command on one object: the ref, the container when the
 // command takes one and container is set, and a zero value for every other required property
 // (0, "", false, the minimum of a bounded number, the first value of an enum). With them, Enabled,
-// Applicable and Prefill can be asked before a dialog has collected the real values.
+// Applicable and Prefill can be asked before a dialog has collected the real values. Optional
+// properties stay unset, so that Prefill fills them from the cache.
 func (c *Command) ObjectParams(ref model.ObjectRef, container string) json.RawMessage {
 	params := map[string]any{ParamRef: ref}
 	if container != "" && c.TakesContainer() {
 		params[ParamContainer] = container
 	}
 	for _, name := range c.DialogFields() {
-		params[name] = zeroValue(c.Schema.Properties[name])
+		if c.Requires(name) {
+			params[name] = zeroValue(c.Schema.Properties[name])
+		}
 	}
 	raw, err := json.Marshal(params)
 	if err != nil {
@@ -97,6 +104,11 @@ func propertyOrder(s *jsonschema.Schema) []string {
 	}
 	sort.Strings(rest)
 	return append(out, rest...)
+}
+
+// Requires reports whether the command's schema requires a parameter.
+func (c *Command) Requires(name string) bool {
+	return c.Schema != nil && slices.Contains(c.Schema.Required, name)
 }
 
 // SchemaType returns a property schema's JSON type: its Type, or the first of its Types that is

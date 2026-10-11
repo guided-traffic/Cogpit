@@ -1,0 +1,33 @@
+# Synthetic: a replica set being deleted with its deployment.
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: legacy-api-6a5b4c3d2
+  namespace: shop
+  uid: 6c3f7e9a-6666-4d4c-9e3f-000000000003
+  generation: 1
+  creationTimestamp: "2025-12-24T18:00:00Z"
+  deletionTimestamp: "2026-10-11T11:59:00Z"
+  finalizers:
+  - foregroundDeletion
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: legacy-api
+    uid: 1c7e2f3b-2222-4d4f-8b6c-000000000003
+    controller: true
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: legacy-api
+  template:
+    spec:
+      containers:
+      - name: api
+        image: registry.example.com/shop/legacy-api:0.1
+status:
+  observedGeneration: 1
+  replicas: 1
+  readyReplicas: 1
+  availableReplicas: 1

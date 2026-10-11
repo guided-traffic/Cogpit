@@ -1,0 +1,125 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "persistentvolumeclaims",
+    "namespace": "logging",
+    "name": "data-elasticsearch-2"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "data-elasticsearch-2"
+    },
+    {
+      "column": "namespace",
+      "text": "logging",
+      "link": {
+        "kind": "namespaces",
+        "name": "logging"
+      }
+    },
+    {
+      "column": "storageClass",
+      "text": "fast-ssd"
+    },
+    {
+      "column": "size",
+      "text": "10Gi",
+      "num": 10737418240
+    },
+    {
+      "column": "pods",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "102d",
+      "num": 1782864000
+    },
+    {
+      "column": "status",
+      "text": "Bound",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "accessMode": [
+      "ReadWriteOnce"
+    ],
+    "label": [],
+    "name": [
+      "data-elasticsearch-2"
+    ],
+    "namespace": [
+      "logging"
+    ],
+    "status": [
+      "Bound"
+    ],
+    "storageClass": [
+      "fast-ssd"
+    ],
+    "volumeMode": [
+      "Filesystem"
+    ],
+    "volumeName": [
+      "pvc-9d4e5f60-8888-4d9e-8f10-000000000006"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Persistent Volume Claim",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Bound",
+          "status": "ok"
+        },
+        {
+          "name": "Storage Class",
+          "value": "fast-ssd"
+        },
+        {
+          "name": "Volume",
+          "value": "pvc-9d4e5f60-8888-4d9e-8f10-000000000006"
+        },
+        {
+          "name": "Access Modes",
+          "value": "ReadWriteOnce"
+        },
+        {
+          "name": "Volume Mode",
+          "value": "Filesystem"
+        },
+        {
+          "name": "Requested",
+          "value": "20Gi"
+        },
+        {
+          "name": "Capacity",
+          "value": "10Gi"
+        },
+        {
+          "name": "Allocated",
+          "value": "20Gi"
+        },
+        {
+          "name": "Resize Status",
+          "value": "NodeResizePending",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "FileSystemResizePending",
+          "value": "True: Waiting for user to (re-)start a pod to finish file system resize of volume on node.",
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}

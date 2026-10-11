@@ -38,7 +38,7 @@ triaging work only in part.
 
 | M | Status | Scope | Definition of done | Estimate |
 |---|---|---|---|---:|
-| **M0** Skeleton | 🟡 (go.mod, Makefile, lint with layering done; CI, generators, semantic-release open) | `go.mod`, `Makefile`, golangci-lint with `depguard` layering, CI on macOS with compile checks for Windows and Linux, envtest and `kind` jobs, semantic-release, the parity and scorecard generators (G1) | `make lint test` green in CI; a forbidden import fails the lint; the generated parity pages match the hand-written checklists | 20–40 |
+| **M0** Skeleton | 🟡 (go.mod, Makefile, lint with layering done; CI written as workflow files ([releasing › CI](../developer/releasing.md#ci)), not yet observed green; semantic-release runs as a dry run; generators and the envtest job open) | `go.mod`, `Makefile`, golangci-lint with `depguard` layering, CI on macOS with compile checks for Windows and Linux, envtest and `kind` jobs, semantic-release, the parity and scorecard generators (G1) | `make lint test` green in CI; a forbidden import fails the lint; the generated parity pages match the hand-written checklists | 20–40 |
 | **Spike** Fyne gate | ✅ (ran as the local MVP; [results](../developer/spike-fyne.md#results); D-1 decided for Fyne, with re-checks of S7 and S5) | Table, YAML editor, terminal and MCP control on Fyne ([spike plan](../developer/spike-fyne.md)) | Gate criteria S1–S7 recorded; [D-1](../developer/decisions.md#d-1-ui-toolkit) confirmed or the fallback chosen | 16–24 |
 | **M1** Connect | 🟡 (contexts, connections, discovery, credential-safe errors; no CLI, no pasting) | `kubeconfig` and `cluster`: discovery, merge, pasting; every authentication form; cached discovery; access reviews; `cogpit-cli contexts` and `cogpit-cli get <kind>` (G2) | Connects to `kind` and envtest in CI with certificate and token auth; exec plugins verified on EKS, GKE and AKS (human); fuzzed kubeconfig parsing never panics | 25–50 |
 | **M2** Browse | 🟡 (cache, engine, shell, six views, MCP navigation; budgets P2 and P9–P11 met in tests) | The cache (G3), the engine and registry with UI state (G4), the Fyne shell: layout, sidebar from discovery, tables, drawer, namespace filter (part of G5); about 20 core views (part of G6); MCP `ui_state`, `resources_find`, `ui_navigate` (part of G17) | A 10,000-pod list meets budgets P2–P4; an idle view costs no list requests (P9); every built-in kind the cluster serves appears; an MCP client navigates the GUI to a Service by its cluster IP | 180–420 |
@@ -89,6 +89,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | M0: CI in workflow files (macOS gate, Windows and Linux compile checks, kind job, govulncheck, coverage badge), semantic-release as a dry run; not yet observed green |
 | 2026-10-11 | major | The local MVP: alpha gate rows partial where they work; M0, the spike, M1–M4 and M9 in progress; current focus: the gate decision, CI, editing, breadth |
 | 2026-10-11 | major | Go plan: spike gate, macOS-first alpha and beta, MCP basics in M2 and full control in M9, one-click updates in M10, Windows and Linux in M11, built-in agent in M12 |
 | 2026-10-11 | major | First version: alpha gate, M0–M10, current focus |

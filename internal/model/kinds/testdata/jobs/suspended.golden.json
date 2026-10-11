@@ -1,0 +1,97 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "jobs",
+    "namespace": "ml",
+    "name": "train-model"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "train-model"
+    },
+    {
+      "column": "namespace",
+      "text": "ml",
+      "link": {
+        "kind": "namespaces",
+        "name": "ml"
+      }
+    },
+    {
+      "column": "completions",
+      "text": "0/3"
+    },
+    {
+      "column": "age",
+      "text": "4h",
+      "num": 1791705600
+    },
+    {
+      "column": "conditions",
+      "text": "Suspended"
+    }
+  ],
+  "fields": {
+    "condition": [
+      "Suspended"
+    ],
+    "controlledBy": [],
+    "image": [
+      "registry.example.com/ml/trainer:0.12"
+    ],
+    "label": [],
+    "name": [
+      "train-model"
+    ],
+    "namespace": [
+      "ml"
+    ],
+    "selector": []
+  },
+  "detail": [
+    {
+      "title": "Job",
+      "items": [
+        {
+          "name": "Completions",
+          "value": "0/3"
+        },
+        {
+          "name": "Parallelism",
+          "value": "1"
+        },
+        {
+          "name": "Completion Mode",
+          "value": "NonIndexed"
+        },
+        {
+          "name": "Backoff Limit",
+          "value": "6"
+        },
+        {
+          "name": "Suspend",
+          "value": "True"
+        },
+        {
+          "name": "Pods",
+          "value": "0 active / 0 ready / 0 succeeded / 0 failed"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/ml/trainer:0.12"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Suspended",
+          "value": "True (JobSuspended): Job suspended"
+        }
+      ]
+    }
+  ]
+}

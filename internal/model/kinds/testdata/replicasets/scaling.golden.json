@@ -1,0 +1,80 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "replicasets",
+    "namespace": "shop",
+    "name": "checkout-8a7b6c5d4"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "checkout-8a7b6c5d4"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "desired",
+      "text": "5",
+      "num": 5
+    },
+    {
+      "column": "current",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "ready",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "controlledBy": [
+      "Deployment/checkout"
+    ],
+    "image": [
+      "registry.example.com/shop/checkout:7.3.1"
+    ],
+    "label": [],
+    "name": [
+      "checkout-8a7b6c5d4"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "selector": [
+      "app=checkout"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Replica Set",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "5 desired / 3 current / 3 ready / 3 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=checkout"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/shop/checkout:7.3.1"
+        }
+      ]
+    }
+  ]
+}

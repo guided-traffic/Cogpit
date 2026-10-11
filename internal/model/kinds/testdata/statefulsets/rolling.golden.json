@@ -1,0 +1,95 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "statefulsets",
+    "namespace": "catalog",
+    "name": "search"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "search"
+    },
+    {
+      "column": "namespace",
+      "text": "catalog",
+      "link": {
+        "kind": "namespaces",
+        "name": "catalog"
+      }
+    },
+    {
+      "column": "pods",
+      "text": "2/3",
+      "num": 2
+    },
+    {
+      "column": "replicas",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "age",
+      "text": "176d",
+      "num": 1776504600
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/catalog/search:9.1.0"
+    ],
+    "label": [],
+    "name": [
+      "search"
+    ],
+    "namespace": [
+      "catalog"
+    ],
+    "selector": [
+      "app=search"
+    ],
+    "serviceName": [
+      "search-nodes"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Stateful Set",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "3 desired / 1 updated / 2 ready / 2 available"
+        },
+        {
+          "name": "Service",
+          "value": "search-nodes"
+        },
+        {
+          "name": "Selector",
+          "value": "app=search"
+        },
+        {
+          "name": "Update Strategy",
+          "value": "RollingUpdate"
+        },
+        {
+          "name": "Pod Management Policy",
+          "value": "OrderedReady"
+        },
+        {
+          "name": "Current Revision",
+          "value": "search-5c7b9d8f6"
+        },
+        {
+          "name": "Update Revision",
+          "value": "search-6d8c0e9a7"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/catalog/search:9.1.0"
+        }
+      ]
+    }
+  ]
+}

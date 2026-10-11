@@ -1,0 +1,73 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "persistentvolumeclaims",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "unknown",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "storageClass",
+      "text": ""
+    },
+    {
+      "column": "size",
+      "text": "-"
+    },
+    {
+      "column": "pods",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    },
+    {
+      "column": "status",
+      "text": "Unknown",
+      "status": "unknown"
+    }
+  ],
+  "fields": {
+    "accessMode": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "status": [
+      "Unknown"
+    ],
+    "storageClass": [],
+    "volumeMode": [],
+    "volumeName": []
+  },
+  "detail": [
+    {
+      "title": "Persistent Volume Claim",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Unknown",
+          "status": "unknown"
+        }
+      ]
+    }
+  ]
+}

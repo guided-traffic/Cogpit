@@ -94,7 +94,7 @@ func (w *viewWorker) rebuild() {
 		if r := recover(); r != nil {
 			w.s.log.Error("engine: building a table snapshot failed", "view", w.profile.Key, "panic", fmt.Sprint(r), "stack", string(debug.Stack()))
 			if w.panicked.CompareAndSwap(false, true) {
-				w.s.emit(Event{Type: EventToast, Level: "error", Message: "the " + w.profile.Title + " view failed to update: internal error"})
+				w.s.emit(Event{Type: EventToast, Level: LevelError, Message: "the " + w.profile.Title + " view failed to update: internal error"})
 			}
 		}
 	}()

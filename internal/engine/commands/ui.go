@@ -22,6 +22,9 @@ type StateResult struct {
 	Total int `json:"total"`
 	// Synced is false while the view's kind is still being listed.
 	Synced bool `json:"synced"`
+	// ViewError is what keeps the view from showing objects: a list the cluster refuses, or a
+	// custom resource kind the cluster no longer serves.
+	ViewError string `json:"viewError,omitempty"`
 }
 
 // NavigateResult is ui.navigate's result.
@@ -32,7 +35,7 @@ type NavigateResult struct {
 }
 
 type viewParams struct {
-	View string `json:"view" jsonschema:"kind key of the view to open, e.g. pods or services; kinds_list lists them"`
+	View string `json:"view" jsonschema:"kind key of the view to open: pods, services, or <plural>.<group> for a custom resource kind (gateways.gateway.networking.k8s.io); kinds_list lists them"`
 }
 
 type namespaceParams struct {
@@ -62,7 +65,7 @@ func registerUI(g *registrar) {
 			u := s.UIState()
 			res := StateResult{UIState: u}
 			if t := s.Table(u.View); t != nil {
-				res.ViewTitle, res.Rows, res.Total, res.Synced = t.Title, len(t.Rows), t.Total, t.Synced
+				res.ViewTitle, res.Rows, res.Total, res.Synced, res.ViewError = t.Title, len(t.Rows), t.Total, t.Synced, t.Error
 			} else if b := s.Backend(); b != nil {
 				if p, ok := b.Profile(u.View); ok {
 					res.ViewTitle = p.Title

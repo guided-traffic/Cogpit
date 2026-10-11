@@ -1,0 +1,87 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "statefulsets",
+    "namespace": "messaging",
+    "name": "queue"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "queue"
+    },
+    {
+      "column": "namespace",
+      "text": "messaging",
+      "link": {
+        "kind": "namespaces",
+        "name": "messaging"
+      }
+    },
+    {
+      "column": "pods",
+      "text": "1/3",
+      "num": 1
+    },
+    {
+      "column": "replicas",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791561600
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/messaging/broker:4.1.2"
+    ],
+    "label": [],
+    "name": [
+      "queue"
+    ],
+    "namespace": [
+      "messaging"
+    ],
+    "selector": [
+      "app=queue"
+    ],
+    "serviceName": [
+      "queue"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Stateful Set",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "3 desired / 3 updated / 1 ready / 1 available"
+        },
+        {
+          "name": "Service",
+          "value": "queue"
+        },
+        {
+          "name": "Selector",
+          "value": "app=queue"
+        },
+        {
+          "name": "Pod Management Policy",
+          "value": "Parallel"
+        },
+        {
+          "name": "Current Revision",
+          "value": "queue-7f6d5c4b3"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/messaging/broker:4.1.2"
+        }
+      ]
+    }
+  ]
+}

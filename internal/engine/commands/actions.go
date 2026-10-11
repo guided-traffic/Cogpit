@@ -36,27 +36,27 @@ func registerActions(g *registrar) {
 	})
 
 	add(g, engine.Spec[refParams]{
-		ID: "object.delete", Label: "Delete", MenuPath: "Object/Delete", Kinds: []string{kindPods},
-		Order: engine.OrderDelete, Danger: engine.DangerDestructive,
-		Verbs: []engine.Verb{{Verb: "delete", Resource: kindPods}},
-		Description: "Deletes an object with its default grace period; its controller, if any, may replace it. This " +
-			"version deletes pods only. Always asks the user to confirm.",
-		Enabled: func(s *engine.Session, p refParams) error {
-			if _, err := writable(s); err != nil {
-				return err
-			}
-			return cachedTarget(s, p.Ref, kindPods, "this version deletes pods only")
-		},
-		Targets: func(s *engine.Session, p refParams) ([]model.ObjectRef, error) { return targetOf(s, p.Ref) },
+		ID: "object.delete", Label: "Delete", MenuPath: "Object/Delete", Order: engine.OrderDelete, Danger: engine.DangerDestructive,
+		Verbs: []engine.Verb{{Verb: "delete", Resource: "*"}},
+		Description: "Deletes an object of any kind with its default grace period, with the UID Cogpit's cache holds for it " +
+			"as a precondition, so that an object created again under the same name is not deleted; its dependents are " +
+			"garbage-collected, and its controller, if any, may replace it. Always asks the user to confirm.",
+		Enabled: func(s *engine.Session, p refParams) error { return cachedAny(s, p.Ref) },
+		Targets: func(s *engine.Session, p refParams) ([]model.ObjectRef, error) { return objectTarget(s, p.Ref) },
 		Run: func(ctx context.Context, s *engine.Session, p refParams) (any, error) {
-			return act(ctx, s, p.Ref, "deleted", func(w engine.Actions, ref model.ObjectRef) error {
-				// The cached pod's UID is what the user saw and confirmed.
-				uid := ""
-				if obj, err := s.Lookup(ref); err == nil {
-					uid = string(obj.GetUID())
-				}
-				return w.DeletePod(ctx, ref.Namespace, ref.Name, uid)
-			})
+			b, err := writable(s)
+			if err != nil {
+				return nil, err
+			}
+			if err := engine.CheckConfirmedContext(ctx, b.Context); err != nil {
+				return nil, err
+			}
+			res, err := s.DeleteObject(ctx, p.Ref)
+			if err != nil {
+				return nil, err
+			}
+			s.Emit(engine.Event{Type: engine.EventToast, Level: engine.LevelInfo, Message: res.Ref.Kind + " " + res.Ref.Key() + " deleted"})
+			return ActionResult{Ref: res.Ref, Action: "deleted"}, nil
 		},
 	})
 }
@@ -81,6 +81,6 @@ func act(ctx context.Context, s *engine.Session, ref model.ObjectRef, done strin
 	if err := write(b.Writer(), ref); err != nil {
 		return nil, fmt.Errorf("%s: %w", ref.String(), err)
 	}
-	s.Emit(engine.Event{Type: engine.EventToast, Level: "info", Message: ref.Kind + " " + ref.Key() + " " + done})
+	s.Emit(engine.Event{Type: engine.EventToast, Level: engine.LevelInfo, Message: ref.Kind + " " + ref.Key() + " " + done})
 	return ActionResult{Ref: ref, Action: done}, nil
 }
