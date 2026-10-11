@@ -213,6 +213,16 @@ Fields added on 2026-10-11 for row menus, the drawer's toolbar and dialogs
 - `Prefill`: parameters a schema-generated dialog starts with, read from the cache (the current
   replica count for Scale).
 
+How menus use them ([`menu.go`](../../internal/engine/menu.go), 2026-10-11): `Registry.Actions(kind)`
+is a kind's row menu and drawer toolbar, the commands whose `Kinds` contain the kind or are empty,
+with an `Order`, sorted by `Order` then id. A command whose parameters have a `container` property
+opens a submenu of the pod's containers and init containers (`TakesContainer`); one whose schema
+requires more than `ref` and `container` opens a dialog generated from the schema of those fields
+(`DialogFields`: integer, number, string and boolean fields with their descriptions), started from
+`Prefill`. `ObjectParams(ref, container)` fills the other required fields with zero values, so that
+`Enabled`, `Applicable` and `Prefill` can be asked before the dialog has the real ones. The UI
+evaluates them off its main goroutine.
+
 Every command is also an MCP tool, generated from the registry (`ui.navigate` → `ui_navigate`).
 Nothing is exposed to agents that the registry does not describe.
 
@@ -240,7 +250,14 @@ by "this pod".
 - **Tables:** `TableSnapshot{Columns, Rows, Sort, Filter, Total, Revision}`; rows carry display
   text, sort keys and a status token that the toolkit maps to a theme colour.
 - **Details:** section models: metadata, labels and annotations, conditions, related objects,
-  events, containers, a metrics slot.
+  events, containers, a metrics slot. As built (2026-10-11, [`detail.go`](../../internal/engine/detail.go),
+  [`model/detail.go`](../../internal/model/detail.go)), in Lens's order: the metrics slot (not built,
+  M7), one Properties section (the object's metadata without the UID, then the kind's own
+  properties: a profile's first section titled "Properties" merges into it), the kind's other
+  sections (a section may carry a `group` heading, "Containers", or a `table`, a node's
+  Capacity), then the events. An item's `value` is always its plain text; `link` names the object
+  it shows, `chips` are a list's entries, and `fold` folds a long list behind its count ("6
+  Labels"). `object_get` returns the same model.
 - **Editors, logs, terminals and chats** are engine sessions shown as dock tabs, so agents can open,
   read and close them too.
 - **Links and warnings in cells** (2026-10-11, [`row.go`](../../internal/model/row.go)): a cell
@@ -249,6 +266,8 @@ by "this pod".
   namespace filter (`ui.setNamespace`, owner 2026-10-11); other links navigate (`ui.navigate`).
   Lens's warning-icon column right after Name is a column of type `warning`: a cell with a status
   shows the icon in that status's colour with its text as the tooltip; an empty cell shows nothing.
+  A cell with `parts` is drawn in coloured runs ("SchedulingDisabled" plain, "Ready" green on a
+  cordoned node); its text stays the runs joined by spaces, for sorting and search.
 
 ### 4.5 Kind keys
 
@@ -458,6 +477,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Row menus from the registry (`Actions`, submenus, schema dialogs); the drawer model's Properties section, links, chips, folds and tables; cells in coloured parts |
 | 2026-10-11 | minor | Kind keys of custom resources (§4.5); links and the warning column in cells; the registry's Order, ErrNotApplicable, Escalate and Prefill |
 | 2026-10-11 | major | Current state: the local MVP and where it differs from the plan |
 | 2026-10-11 | major | Design plan v2: Go; cache-first data flow (§5); UI state in the engine; MCP and the built-in agent (§7); Helm in-process with crash-safe actions; terminal via own PTY; updates |
