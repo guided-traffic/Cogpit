@@ -35,7 +35,8 @@ type drawer struct {
 	last        *engine.DetailModel
 	acts        []actionState
 	busy, dirty bool
-	expanded    map[string]bool // folded lists the user opened, by foldKey
+	expanded    map[string]bool   // folded lists the user opened, by foldKey
+	revealed    map[string]string // values item actions show in place (a Secret's), by revealKey (secretreveal.go)
 
 	kind     *textLine
 	title    *textLine
@@ -50,7 +51,7 @@ type drawer struct {
 }
 
 func newDrawer(sh *shell) *drawer {
-	d := &drawer{sh: sh, expanded: map[string]bool{}}
+	d := &drawer{sh: sh, expanded: map[string]bool{}, revealed: map[string]string{}}
 	d.kind = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	d.title = newTextLine("", theme.ColorNameForeground, theme.SizeNameSubHeadingText, fyne.TextStyle{Bold: true})
 	d.title.truncate = true
@@ -135,6 +136,7 @@ func (d *drawer) showLoading(ref model.ObjectRef) {
 	d.last = nil
 	d.acts = nil
 	d.expanded = map[string]bool{}
+	d.revealed = map[string]string{}
 	d.kind.SetText(singular(d.sh.kindTitle(ref.Kind)))
 	d.title.SetText(ref.Name)
 	d.status.Hide()
@@ -203,6 +205,7 @@ func (d *drawer) rebuild() {
 // clear forgets the shown object when the drawer closes.
 func (d *drawer) clear() {
 	d.shown, d.last, d.acts, d.dirty = nil, nil, nil, false
+	d.revealed = map[string]string{}
 	d.sh.tip.hide()
 }
 
@@ -332,10 +335,14 @@ func foldKey(sec model.DetailSection, it model.DetailItem) string {
 // chips, a link to the object it names, a status pill, else one line per line. An item's actions
 // follow the value as buttons; an action marked Link is the value itself, a link that runs it.
 func (d *drawer) itemValue(ref model.ObjectRef, sec model.DetailSection, it model.DetailItem) fyne.CanvasObject {
+	it, revealed := d.revealedItem(it)
 	if len(it.Actions) == 0 {
 		return d.foldedValue(ref, sec, it)
 	}
 	var v fyne.CanvasObject
+	if revealed {
+		v = revealedValue(it.Value)
+	}
 	objs := []fyne.CanvasObject{nil}
 	for _, a := range it.Actions {
 		act := a
@@ -343,7 +350,7 @@ func (d *drawer) itemValue(ref model.ObjectRef, sec model.DetailSection, it mode
 			v = newLinkText(it.Value, func() { d.sh.runItemAction(ref, act) })
 			continue
 		}
-		b := widget.NewButton(act.Label, func() { d.sh.runItemAction(ref, act) })
+		b := widget.NewButton(d.actionLabel(act), func() { d.sh.runItemAction(ref, act) })
 		b.Importance = widget.LowImportance
 		objs = append(objs, b)
 	}
@@ -351,6 +358,9 @@ func (d *drawer) itemValue(ref model.ObjectRef, sec model.DetailSection, it mode
 		v = d.foldedValue(ref, sec, it)
 	}
 	objs[0] = v
+	if revealable(it) { // a revealed value takes the width the buttons leave and wraps in it
+		return container.NewBorder(nil, nil, nil, container.NewHBox(objs[1:]...), v)
+	}
 	natural := float32(0)
 	if it.Fold == "" {
 		size := d.sh.app.Settings().Theme().Size(theme.SizeNameText)

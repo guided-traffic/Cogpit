@@ -486,6 +486,13 @@ by hand, so the view, the drawer, `Lookup` and agents' reads of a kind share one
 Measured at the HTTP level: the Secrets of D-13 as metadata (`secrets (metadata)`) and Helm's
 release Secrets (`secrets with owner=helm`) are one initial list or streaming watch each, and no
 full or unselected Secrets request is sent (`TestBudgetSecretScopes`; on kind, `TestKindSecretScopes`).
+The Secrets view's drawer (built 2026-10-11, [`secretdata.go`](../../internal/engine/secretdata.go))
+makes the one direct read of Secret values: a `get secrets` of the Secret it opens on, once per
+open, through `SecretReader` on `Backend.Writer` (`cluster.Conn.GetSecret`), skipped when the access
+reviews deny it. The engine keeps the type and, per key, the size and the first 4 KiB of a text
+value while the drawer shows that Secret and wipes them when it closes or moves; the drawer model
+lists the keys masked, and `secret.reveal` hands one value to the GUI origin only
+(`TestBudgetSecretsViewAndDrawer`: one metadata watch and one GET).
 
 - **Local kinds** (`KindProfile.Local`, group `cogpit.io`): objects Cogpit makes itself, the port
   forwards. They live in the backend's local store, a `cache.Memory` with a cache over it, made on

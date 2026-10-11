@@ -65,6 +65,8 @@ var wantCommands = map[string]engine.Danger{
 	"portforward.edit":    engine.DangerMutating,
 	"portforward.stop":    engine.DangerUI,
 	"portforward.remove":  engine.DangerUI,
+
+	"secret.reveal": engine.DangerRead, // GUI only: refused for agents and the CLI
 }
 
 func TestRegistryComplete(t *testing.T) {
