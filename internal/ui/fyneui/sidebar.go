@@ -14,48 +14,101 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine"
 )
 
-const groupPrefix = "group:"
+// Tree node ids. A kind's node id is its kind key; a group's is groupPrefix and its path
+// ("group:network/gatewayapi"); the API-group branches of Custom Resources are
+// customGroupPrefix and the API group. A kind that a curated section places (Network › Gateway
+// API › Gateways) is listed again under Custom Resources, as Lens does: that second node's id is
+// aliasPrefix and the key, so ids stay unique, and selecting either opens the same view.
+const (
+	groupPrefix       = "group:"
+	aliasPrefix       = "alias:"
+	customGroup       = groupPrefix + "custom"
+	customGroupPrefix = customGroup + "/"
+	otherGroup        = groupPrefix + "other"
+)
 
 // Kind keys the shell refers to by name.
 const (
-	kindPods       = "pods"
-	kindNamespaces = "namespaces"
+	kindPods        = "pods"
+	kindNamespaces  = "namespaces"
+	kindDefinitions = "customresourcedefinitions"
+)
+
+// navEntry is one node of navLayout: a kind, or a group of entries.
+type navEntry struct {
+	id    string     // a kind key, or groupPrefix + the group's path
+	title string     // a group's title; for a kind, a title in place of its own (a CRD kind's plural title)
+	items []navEntry // a group's entries, in Lens's order
+}
+
+// navGroup builds a group; items are kind keys (strings) and navEntry values (titled kinds,
+// sub-groups).
+func navGroup(path, title string, items ...any) navEntry {
+	g := navEntry{id: groupPrefix + path, title: title}
+	for _, it := range items {
+		switch e := it.(type) {
+		case string:
+			g.items = append(g.items, navEntry{id: e})
+		case navEntry:
+			g.items = append(g.items, e)
+		}
+	}
+	return g
+}
+
+// titled is a kind the layout titles itself: CRD kinds in a curated section show Lens's plural
+// title there ("Gateway Classes"), and their singular Kind name under Custom Resources.
+func titled(key, title string) navEntry { return navEntry{id: key, title: title} }
+
+// Gateway API kind keys (CRDs, docs/developer/architecture.md › Kind keys).
+const (
+	gatewayAPI  = ".gateway.networking.k8s.io"
+	gatewayAPIX = ".gateway.networking.x-k8s.io"
 )
 
 // navLayout is the navigator's tree in the order of Lens's sidebar as captured from the running
-// app (docs/parity/ui-parity.md, Cluster sidebar): top-level kinds and groups of kinds. Only kinds
-// the cluster serves appear, and a group without any is left out; kinds the layout does not know
-// go under Other. Pages that are not kinds (Overview, Applications, the Flux CD and Workloads
-// dashboards, Port Forwarding, Helm) and sub-groups (Config › Admission Policies) come with their
-// views; until then the admission policies sit at the end of Config, where the sub-group is. The
-// Gateway API sub-group of Network (after Network Policies) waits for the key format of custom
-// resource kinds: plain plurals such as "gateways" are not unique across API groups.
-var navLayout = []struct {
-	id    string   // a kind key for a top-level item, or groupPrefix + a group name
-	title string   // the group's title
-	kinds []string // the group's kind keys, in Lens's order
-}{
+// app (docs/parity/ui-parity.md, Cluster sidebar): top-level kinds and groups of kinds, with
+// sub-groups (Config › Admission Policies, Network › Gateway API). Only kinds the cluster serves
+// appear, and a group without any is left out: the Gateway API sub-group appears with its CRDs.
+// Custom Resources is built from the cluster's kinds: Definitions, then one collapsed group per
+// API group with its kinds by singular Kind name, the groups of curated sections included. Kinds
+// the layout does not know and that no CRD defines go under Other. Pages that are not kinds
+// (Overview, Applications, the Flux CD and Workloads dashboards, Port Forwarding, Helm) come with
+// their views. Listener Sets are listed under both groups Gateway API releases used for them.
+var navLayout = []navEntry{
 	{id: "nodes"},
-	{id: groupPrefix + "workloads", title: "Workloads", kinds: []string{
-		kindPods, "deployments", "daemonsets", "statefulsets", "replicasets", "replicationcontrollers", "jobs", "cronjobs"}},
-	{id: groupPrefix + "config", title: "Config", kinds: []string{
+	navGroup("workloads", "Workloads",
+		kindPods, "deployments", "daemonsets", "statefulsets", "replicasets", "replicationcontrollers", "jobs", "cronjobs"),
+	navGroup("config", "Config",
 		"configmaps", "secrets", "resourcequotas", "limitranges", "horizontalpodautoscalers",
-		"verticalpodautoscalers", "poddisruptionbudgets", "priorityclasses", "runtimeclasses", "leases",
+		titled("verticalpodautoscalers.autoscaling.k8s.io", "Vertical Pod Autoscalers"),
+		"poddisruptionbudgets", "priorityclasses", "runtimeclasses", "leases",
 		"mutatingwebhookconfigurations", "validatingwebhookconfigurations",
-		"mutatingadmissionpolicies", "mutatingadmissionpolicybindings",
-		"validatingadmissionpolicies", "validatingadmissionpolicybindings"}},
-	{id: groupPrefix + "network", title: "Network", kinds: []string{
-		"services", "endpointslices", "endpoints", "ingresses", "ingressclasses", "networkpolicies"}},
-	{id: groupPrefix + "storage", title: "Storage", kinds: []string{
-		"persistentvolumeclaims", "persistentvolumes", "storageclasses"}},
-	{id: groupPrefix + "devices", title: "Device Resources", kinds: []string{
-		"resourceclaims", "resourceclaimtemplates", "deviceclasses", "resourceslices"}},
+		navGroup("config/admissionpolicies", "Admission Policies",
+			"mutatingadmissionpolicies", "mutatingadmissionpolicybindings",
+			"validatingadmissionpolicies", "validatingadmissionpolicybindings")),
+	navGroup("network", "Network",
+		"services", "endpointslices", "endpoints", "ingresses", "ingressclasses", "networkpolicies",
+		navGroup("network/gatewayapi", "Gateway API",
+			titled("gatewayclasses"+gatewayAPI, "Gateway Classes"),
+			titled("gateways"+gatewayAPI, "Gateways"),
+			titled("httproutes"+gatewayAPI, "HTTP Routes"),
+			titled("backendtlspolicies"+gatewayAPI, "Backend TLS Policies"),
+			titled("grpcroutes"+gatewayAPI, "gRPC Routes"),
+			titled("xlistenersets"+gatewayAPIX, "Listener Sets"),
+			titled("listenersets"+gatewayAPI, "Listener Sets"),
+			titled("referencegrants"+gatewayAPI, "Reference Grants"),
+			titled("tcproutes"+gatewayAPI, "TCP Routes"),
+			titled("tlsroutes"+gatewayAPI, "TLS Routes"),
+			titled("udproutes"+gatewayAPI, "UDP Routes"))),
+	navGroup("storage", "Storage", "persistentvolumeclaims", "persistentvolumes", "storageclasses"),
+	navGroup("devices", "Device Resources", "resourceclaims", "resourceclaimtemplates", "deviceclasses", "resourceslices"),
 	{id: kindNamespaces},
 	{id: "events"},
-	{id: groupPrefix + "access", title: "Access Control", kinds: []string{
-		"serviceaccounts", "clusterroles", "roles", "clusterrolebindings", "rolebindings", "podsecuritypolicies"}},
-	{id: groupPrefix + "custom", title: "Custom Resources", kinds: []string{"customresourcedefinitions"}},
-	{id: groupPrefix + "other", title: "Other"},
+	navGroup("access", "Access Control",
+		"serviceaccounts", "clusterroles", "roles", "clusterrolebindings", "rolebindings", "podsecuritypolicies"),
+	{id: customGroup, title: "Custom Resources", items: []navEntry{{id: kindDefinitions}}},
+	{id: otherGroup, title: "Other"},
 }
 
 // Cogpit's own navigator icons, drawn for Cogpit (not taken from any other product): a network
@@ -92,6 +145,9 @@ type sidebar struct {
 	tree      *widget.Tree
 	children  map[string][]string
 	titles    map[string]string
+	parents   map[string]string // node id → its branch's id
+	revealed  string            // the view whose branches selectView last opened
+	marked    string            // the selected node; Fyne's tree does not report it
 	selecting bool
 
 	badge     *pill
@@ -102,7 +158,7 @@ type sidebar struct {
 }
 
 func newSidebar(sh *shell) *sidebar {
-	s := &sidebar{sh: sh, children: map[string][]string{}, titles: map[string]string{}}
+	s := &sidebar{sh: sh, children: map[string][]string{}, titles: map[string]string{}, parents: map[string]string{}}
 	s.tree = widget.NewTree(
 		func(uid widget.TreeNodeID) []widget.TreeNodeID { return s.children[uid] },
 		// The root ("") is a branch too: Fyne's tree walks the root's children only if it is.
@@ -151,43 +207,42 @@ func (s *sidebar) updateHeader() {
 	}
 }
 
-// setKinds rebuilds the tree from kinds.list.
+// setKinds rebuilds the tree from kinds.list. It runs on connect and whenever the cluster's
+// custom resource kinds change; branches keep the open or closed state they had, new ones start
+// open, except the API groups of Custom Resources, which start closed (captured).
 func (s *sidebar) setKinds(kinds []kindInfo) {
+	wasOpen := map[string]bool{}
+	for id := range s.children {
+		if id != "" {
+			wasOpen[id] = s.tree.IsBranchOpen(id)
+		}
+	}
 	s.children = map[string][]string{}
 	s.titles = map[string]string{}
-	have := map[string]bool{}
+	s.parents = map[string]string{}
+
+	have := make(map[string]kindInfo, len(kinds))
 	for _, k := range kinds {
-		have[k.Kind] = true
-		s.titles[k.Kind] = k.Title
+		have[k.Kind] = k
 	}
-	known := map[string]bool{}
+	placed := map[string]bool{} // kinds the layout's sections show
+	var place func(n navEntry)
+	place = func(n navEntry) {
+		if _, ok := have[n.id]; ok {
+			placed[n.id] = true
+		}
+		for _, c := range n.items {
+			place(c)
+		}
+	}
+	for _, n := range navLayout {
+		place(n)
+	}
+
 	var roots []string
 	for _, n := range navLayout {
-		if !strings.HasPrefix(n.id, groupPrefix) {
-			known[n.id] = true
-			if have[n.id] {
-				roots = append(roots, n.id)
-			}
-			continue
-		}
-		var kids []string
-		for _, k := range n.kinds {
-			known[k] = true
-			if have[k] {
-				kids = append(kids, k)
-			}
-		}
-		if n.id == groupPrefix+"other" {
-			for _, k := range kinds {
-				if !known[k.Kind] && !slices.Contains(kids, k.Kind) {
-					kids = append(kids, k.Kind)
-				}
-			}
-		}
-		if len(kids) > 0 {
-			s.children[n.id] = kids
-			s.titles[n.id] = n.title
-			roots = append(roots, n.id)
+		if id := s.build(n, "", have, placed, kinds); id != "" {
+			roots = append(roots, id)
 		}
 	}
 	s.children[""] = roots
@@ -197,32 +252,175 @@ func (s *sidebar) setKinds(kinds []kindInfo) {
 		s.emptyHint.Hide()
 	}
 	s.tree.Refresh()
-	s.tree.OpenAllBranches()
+	for id := range s.children {
+		if id == "" {
+			continue
+		}
+		open, known := wasOpen[id]
+		if !known {
+			open = !strings.HasPrefix(id, customGroupPrefix)
+		}
+		if open {
+			s.tree.OpenBranch(id)
+		} else {
+			s.tree.CloseBranch(id)
+		}
+	}
 }
 
-// selectView marks the open view in the tree without dispatching anything.
+// build adds a layout entry the cluster serves to the tree and returns its node id, or "" when
+// the cluster serves none of it.
+func (s *sidebar) build(n navEntry, parent string, have map[string]kindInfo, placed map[string]bool, kinds []kindInfo) string {
+	var kids []string
+	switch {
+	case n.id == customGroup:
+		kids = s.buildCustom(have, placed, kinds)
+	case n.id == otherGroup:
+		for _, k := range kinds {
+			if !placed[k.Kind] && !isCustomKind(k.Kind) {
+				kids = append(kids, s.leaf(k.Kind, k.Title, n.id))
+			}
+		}
+	case strings.HasPrefix(n.id, groupPrefix):
+		for _, c := range n.items {
+			if id := s.build(c, n.id, have, placed, kinds); id != "" {
+				kids = append(kids, id)
+			}
+		}
+	default:
+		k, ok := have[n.id]
+		if !ok {
+			return ""
+		}
+		title := n.title
+		if title == "" {
+			title = k.Title
+		}
+		return s.leaf(n.id, title, parent)
+	}
+	if len(kids) == 0 {
+		return ""
+	}
+	s.children[n.id] = kids
+	s.titles[n.id] = n.title
+	s.parents[n.id] = parent
+	return n.id
+}
+
+// buildCustom fills Custom Resources: Definitions, then one branch per API group, sorted by name,
+// with its kinds by singular Kind name, sorted. A kind a curated section shows already gets an
+// alias node here.
+func (s *sidebar) buildCustom(have map[string]kindInfo, placed map[string]bool, kinds []kindInfo) []string {
+	var kids []string
+	if k, ok := have[kindDefinitions]; ok {
+		kids = append(kids, s.leaf(kindDefinitions, k.Title, customGroup))
+	}
+	byGroup := map[string][]kindInfo{}
+	for _, k := range kinds {
+		if isCustomKind(k.Kind) {
+			g := apiGroupOf(k)
+			byGroup[g] = append(byGroup[g], k)
+		}
+	}
+	groups := make([]string, 0, len(byGroup))
+	for g := range byGroup {
+		groups = append(groups, g)
+	}
+	slices.Sort(groups)
+	for _, g := range groups {
+		branch := customGroupPrefix + g
+		members := byGroup[g]
+		slices.SortFunc(members, func(a, b kindInfo) int {
+			if c := strings.Compare(customTitle(a), customTitle(b)); c != 0 {
+				return c
+			}
+			return strings.Compare(a.Kind, b.Kind)
+		})
+		var nodes []string
+		for _, k := range members {
+			id := k.Kind
+			if placed[id] {
+				id = aliasPrefix + id
+			}
+			nodes = append(nodes, s.leaf(id, customTitle(k), branch))
+		}
+		s.children[branch] = nodes
+		s.titles[branch] = g
+		s.parents[branch] = customGroup
+		kids = append(kids, branch)
+	}
+	return kids
+}
+
+// leaf records a kind's node and returns its id.
+func (s *sidebar) leaf(id, title, parent string) string {
+	s.titles[id] = title
+	s.parents[id] = parent
+	return id
+}
+
+// isCustomKind reports whether a kind key names a kind from a custom resource definition: those
+// keys are "<plural>.<group>", and built-in keys never contain a dot (architecture §4.5).
+func isCustomKind(key string) bool { return strings.Contains(key, ".") }
+
+// apiGroupOf is a custom kind's API group: kinds.list's group, else the key's.
+func apiGroupOf(k kindInfo) string {
+	if k.Group != "" {
+		return k.Group
+	}
+	_, g, _ := strings.Cut(k.Kind, ".")
+	return g
+}
+
+// customTitle is a kind's title under Custom Resources: its singular Kind name (captured).
+func customTitle(k kindInfo) string {
+	switch {
+	case k.APIKind != "":
+		return k.APIKind
+	case k.Title != "":
+		return k.Title
+	}
+	return k.Kind
+}
+
+// selectView marks the open view in the tree without dispatching anything: its node in a curated
+// section if it has one, else its node under Custom Resources. When the view changes, the
+// branches above it open, so that a view an agent opened inside a closed API group is visible.
 func (s *sidebar) selectView(view string) {
 	s.selecting = true
 	defer func() { s.selecting = false }()
 	if view == "" || s.titles[view] == "" {
 		s.tree.UnselectAll()
+		s.revealed, s.marked = "", ""
 		return
 	}
+	if view != s.revealed {
+		s.revealed = view
+		for p := s.parents[view]; p != ""; p = s.parents[p] {
+			s.tree.OpenBranch(p)
+		}
+	}
 	s.tree.Select(view)
+	s.marked = view
 }
 
-// selected opens a view, or toggles a group.
+// selected opens a view, or toggles a group. An alias node opens its kind's view; the mark then
+// moves to the kind's primary node.
 func (s *sidebar) selected(uid widget.TreeNodeID) {
 	if s.selecting {
 		return
 	}
+	s.marked = uid
 	if strings.HasPrefix(uid, groupPrefix) {
 		s.tree.ToggleBranch(uid)
 		s.selectView(s.sh.ui.View)
 		return
 	}
-	if uid != s.sh.ui.View {
-		s.sh.dispatch("ui.openView", openViewParams{View: uid}, nil)
+	key := strings.TrimPrefix(uid, aliasPrefix)
+	if key != s.sh.ui.View {
+		s.sh.dispatch("ui.openView", openViewParams{View: key}, nil)
+	} else if key != uid {
+		s.selectView(key)
 	}
 }
 

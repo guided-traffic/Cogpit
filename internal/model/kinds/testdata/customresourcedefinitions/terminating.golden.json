@@ -1,0 +1,115 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "customresourcedefinitions",
+    "name": "snapshots.backup.example.io"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "snapshots.backup.example.io"
+    },
+    {
+      "column": "resource",
+      "text": "Snapshot",
+      "link": {
+        "kind": "snapshots.backup.example.io",
+        "name": ""
+      }
+    },
+    {
+      "column": "group",
+      "text": "backup.example.io"
+    },
+    {
+      "column": "version",
+      "text": "v1"
+    },
+    {
+      "column": "scope",
+      "text": "Cluster"
+    },
+    {
+      "column": "age",
+      "text": "52d",
+      "num": 1787220000
+    }
+  ],
+  "fields": {
+    "group": [
+      "backup.example.io"
+    ],
+    "kind": [
+      "Snapshot"
+    ],
+    "label": [],
+    "name": [
+      "snapshots.backup.example.io"
+    ],
+    "namespace": [
+      ""
+    ],
+    "scope": [
+      "Cluster"
+    ],
+    "version": [
+      "v1"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Custom Resource Definition",
+      "items": [
+        {
+          "name": "Group",
+          "value": "backup.example.io"
+        },
+        {
+          "name": "Kind",
+          "value": "Snapshot"
+        },
+        {
+          "name": "Plural",
+          "value": "snapshots"
+        },
+        {
+          "name": "Singular",
+          "value": "snapshot"
+        },
+        {
+          "name": "Scope",
+          "value": "Cluster"
+        },
+        {
+          "name": "Versions",
+          "value": "v1 (served, storage)"
+        },
+        {
+          "name": "Stored Versions",
+          "value": "v1"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "NamesAccepted",
+          "value": "True (NoConflicts)",
+          "status": "ok"
+        },
+        {
+          "name": "Established",
+          "value": "True (InitialNamesAccepted)",
+          "status": "ok"
+        },
+        {
+          "name": "Terminating",
+          "value": "True (InstanceDeletionInProgress): could confirm 3 instances are being deleted",
+          "status": "terminating"
+        }
+      ]
+    }
+  ]
+}

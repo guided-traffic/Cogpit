@@ -55,6 +55,7 @@ type shell struct {
 	uiApplied  bool
 	kinds      []kindInfo
 	kindsFor   string // the context kinds were loaded for
+	kindsSeq   int    // the latest kinds.list request; older results are dropped
 	namespaces []string
 	diag       diagView
 
@@ -64,6 +65,7 @@ type shell struct {
 	pendingUI     *engine.UIState
 	tableQueued   atomic.Bool
 	detailQueued  atomic.Bool
+	kindsQueued   atomic.Bool
 	diagQueued    atomic.Bool
 	lastDiagFetch atomic.Int64 // UnixNano of the last diagnostics fetch
 
@@ -208,6 +210,16 @@ func (sh *shell) onEvent(ev engine.Event) {
 		}
 	case engine.EventDiagnostics:
 		sh.requestDiagnostics()
+	case engine.EventKinds:
+		// A custom resource definition changed: reload the kinds for the sidebar and the View menu.
+		if sh.kindsQueued.CompareAndSwap(false, true) {
+			sh.do(func() {
+				sh.kindsQueued.Store(false)
+				if sh.ui.Connection.State == engine.Connected {
+					sh.loadKinds()
+				}
+			})
+		}
 	case engine.EventToast:
 		level, msg := ev.Level, ev.Message
 		sh.do(func() { sh.toast(level, msg) })
@@ -341,8 +353,10 @@ func (sh *shell) layoutBody() {
 func (sh *shell) loadKinds() {
 	ctxName := sh.ui.Context
 	sh.kindsFor = ctxName
+	sh.kindsSeq++
+	seq := sh.kindsSeq
 	sh.dispatch("kinds.list", struct{}{}, func(res any, err error) {
-		if sh.ui.Context != ctxName {
+		if sh.ui.Context != ctxName || seq != sh.kindsSeq {
 			return
 		}
 		if err != nil {

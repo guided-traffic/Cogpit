@@ -1,0 +1,78 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "backups.example.io",
+    "namespace": "data-pipeline",
+    "name": "nightly-20261011"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "nightly-20261011"
+    },
+    {
+      "column": "namespace",
+      "text": "data-pipeline",
+      "link": {
+        "kind": "namespaces",
+        "name": "data-pipeline"
+      }
+    },
+    {
+      "column": "phase",
+      "text": "Completed"
+    },
+    {
+      "column": "size",
+      "text": "1073741824",
+      "num": 1073741824
+    },
+    {
+      "column": "schedule",
+      "text": "0 2 * * *"
+    },
+    {
+      "column": "age",
+      "text": "10h",
+      "num": 1791684000
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "nightly-20261011"
+    ],
+    "namespace": [
+      "data-pipeline"
+    ],
+    "phase": [
+      "Completed"
+    ],
+    "schedule": [
+      "0 2 * * *"
+    ],
+    "size": [
+      "1073741824"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Backup",
+      "items": [
+        {
+          "name": "Phase",
+          "value": "Completed"
+        },
+        {
+          "name": "Size",
+          "value": "1073741824"
+        },
+        {
+          "name": "Schedule",
+          "value": "0 2 * * *"
+        }
+      ]
+    }
+  ]
+}

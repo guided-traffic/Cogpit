@@ -1,0 +1,4 @@
+apiVersion: e2e.cogpit.test/v1
+kind: Widget
+metadata:
+  name: blank

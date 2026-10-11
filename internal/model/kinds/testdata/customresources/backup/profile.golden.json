@@ -1,0 +1,47 @@
+{
+  "key": "backups.example.io",
+  "group": "example.io",
+  "version": "v1beta1",
+  "resource": "backups",
+  "kind": "Backup",
+  "title": "Backup",
+  "namespaced": true,
+  "columns": [
+    {
+      "id": "name",
+      "title": "Name",
+      "type": "text"
+    },
+    {
+      "id": "namespace",
+      "title": "Namespace",
+      "type": "text"
+    },
+    {
+      "id": "phase",
+      "title": "Phase",
+      "type": "text"
+    },
+    {
+      "id": "size",
+      "title": "Size",
+      "type": "number"
+    },
+    {
+      "id": "schedule",
+      "title": "Schedule",
+      "type": "text",
+      "hidden": true
+    },
+    {
+      "id": "age",
+      "title": "Age",
+      "type": "age"
+    }
+  ],
+  "fields": [
+    "phase",
+    "schedule",
+    "size"
+  ]
+}

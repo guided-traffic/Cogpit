@@ -1,0 +1,46 @@
+{
+  "key": "gateways.gateway.networking.k8s.io",
+  "group": "gateway.networking.k8s.io",
+  "version": "v1",
+  "resource": "gateways",
+  "kind": "Gateway",
+  "title": "Gateway",
+  "namespaced": true,
+  "columns": [
+    {
+      "id": "name",
+      "title": "Name",
+      "type": "text"
+    },
+    {
+      "id": "namespace",
+      "title": "Namespace",
+      "type": "text"
+    },
+    {
+      "id": "class",
+      "title": "Class",
+      "type": "text"
+    },
+    {
+      "id": "address",
+      "title": "Address",
+      "type": "text"
+    },
+    {
+      "id": "programmed",
+      "title": "Programmed",
+      "type": "text"
+    },
+    {
+      "id": "age",
+      "title": "Age",
+      "type": "age"
+    }
+  ],
+  "fields": [
+    "address",
+    "class",
+    "programmed"
+  ]
+}

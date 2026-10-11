@@ -1,0 +1,77 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "orders.acme.cert-manager.io",
+    "namespace": "platform",
+    "name": "api-tls-3-1849203857"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "api-tls-3-1849203857"
+    },
+    {
+      "column": "namespace",
+      "text": "platform",
+      "link": {
+        "kind": "namespaces",
+        "name": "platform"
+      }
+    },
+    {
+      "column": "state",
+      "text": "pending"
+    },
+    {
+      "column": "issuer",
+      "text": "staging"
+    },
+    {
+      "column": "reason",
+      "text": "Waiting for HTTP-01 challenge propagation: wrong status code '404', expected '200'"
+    },
+    {
+      "column": "age",
+      "text": "5m",
+      "num": 1791719700
+    }
+  ],
+  "fields": {
+    "issuer": [
+      "staging"
+    ],
+    "label": [],
+    "name": [
+      "api-tls-3-1849203857"
+    ],
+    "namespace": [
+      "platform"
+    ],
+    "reason": [
+      "Waiting for HTTP-01 challenge propagation: wrong status code '404', expected '200'"
+    ],
+    "state": [
+      "pending"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Order",
+      "items": [
+        {
+          "name": "State",
+          "value": "pending"
+        },
+        {
+          "name": "Issuer",
+          "value": "staging"
+        },
+        {
+          "name": "Reason",
+          "value": "Waiting for HTTP-01 challenge propagation:\nwrong status code '404', expected '200'"
+        }
+      ]
+    }
+  ]
+}

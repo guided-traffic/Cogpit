@@ -1,0 +1,55 @@
+# A definition with several versions (synthetic): the oldest one is the storage version and v1
+# is not served yet, so the view uses v1beta1, the highest served version.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: backups.example.io
+  uid: 9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c03
+  resourceVersion: "8802"
+  creationTimestamp: "2026-07-04T09:30:00Z"
+spec:
+  group: example.io
+  names:
+    kind: Backup
+    listKind: BackupList
+    plural: backups
+    singular: backup
+    shortNames: [bk]
+  scope: Namespaced
+  conversion:
+    strategy: Webhook
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    deprecated: true
+    additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+  - name: v1beta1
+    served: true
+    storage: false
+    additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.size
+      name: Size
+      type: integer
+    - jsonPath: .spec.schedule
+      name: Schedule
+      type: string
+      priority: 1
+  - name: v1
+    served: false
+    storage: false
+status:
+  conditions:
+  - type: NamesAccepted
+    status: "True"
+    reason: NoConflicts
+  - type: Established
+    status: "True"
+    reason: InitialNamesAccepted
+  storedVersions: [v1alpha1]

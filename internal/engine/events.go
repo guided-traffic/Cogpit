@@ -19,6 +19,9 @@ const (
 	// started, progressed, ended or was dismissed); re-read them with node.pendingDrains.
 	// Event.Message, if set, says what to offer.
 	EventDrains EventType = "drains"
+	// EventKinds: the kinds the connected cluster serves changed (a custom resource definition was
+	// added, changed or deleted); re-read kinds.list.
+	EventKinds EventType = "kinds"
 )
 
 // Event is something the UI or an agent may react to. Events carry little data: the receiver

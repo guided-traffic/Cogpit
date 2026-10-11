@@ -1,0 +1,77 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "orders.acme.cert-manager.io",
+    "namespace": "storefront",
+    "name": "old-tls-1-998877"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "old-tls-1-998877"
+    },
+    {
+      "column": "namespace",
+      "text": "storefront",
+      "link": {
+        "kind": "namespaces",
+        "name": "storefront"
+      }
+    },
+    {
+      "column": "state",
+      "text": "errored"
+    },
+    {
+      "column": "issuer",
+      "text": "letsencrypt-prod"
+    },
+    {
+      "column": "reason",
+      "text": "Failed to finalize Order: 429 urn:ietf:params:acme:error:rateLimited"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790845200
+    }
+  ],
+  "fields": {
+    "issuer": [
+      "letsencrypt-prod"
+    ],
+    "label": [],
+    "name": [
+      "old-tls-1-998877"
+    ],
+    "namespace": [
+      "storefront"
+    ],
+    "reason": [
+      "Failed to finalize Order: 429 urn:ietf:params:acme:error:rateLimited"
+    ],
+    "state": [
+      "errored"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Order",
+      "items": [
+        {
+          "name": "State",
+          "value": "errored"
+        },
+        {
+          "name": "Issuer",
+          "value": "letsencrypt-prod"
+        },
+        {
+          "name": "Reason",
+          "value": "Failed to finalize Order: 429 urn:ietf:params:acme:error:rateLimited"
+        }
+      ]
+    }
+  ]
+}

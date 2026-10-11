@@ -39,4 +39,5 @@ var builtin = []*model.KindProfile{
 	persistentVolumeClaims,
 	namespaces,
 	events,
+	customResourceDefinitions,
 }

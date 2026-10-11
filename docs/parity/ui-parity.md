@@ -141,9 +141,9 @@ mutating first; Custom Resources starts with Definitions.
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| The tree above | free | partial: six kinds, in the captured order | six kinds: Nodes; Workloads › Pods, Deployments; Network › Services; Namespaces; Events; the rest of the order is laid out for coming profiles ([`sidebar.go`](../../internal/ui/fyneui/sidebar.go) `navLayout`) |
-| A group or item appears only when the cluster serves its kinds (Admission Policies, Gateway API, Device Resources) | free | partial | [`connector.go`](../../internal/engine/connector.go) filters profiles by discovery |
-| Groups expand and collapse | free | partial | [`sidebar.go`](../../internal/ui/fyneui/sidebar.go) |
+| The tree above | free | partial: the kinds Cogpit has profiles for, in the captured order; Custom Resources as captured (Definitions, then one closed group per API group, sorted, its kinds by singular Kind name, sorted; the groups of curated sections listed too, selecting either entry opens the same view); Network › Gateway API and Config › Admission Policies as sub-groups, Config › Vertical Pod Autoscalers (a CRD kind); pages that are not kinds (Overview, Applications, Flux, Port Forwarding, Helm) are missing | [`sidebar.go`](../../internal/ui/fyneui/sidebar.go) `navLayout`; `TestSidebarCustomResources`; PNGs [dark](../../internal/ui/fyneui/testdata/sidebar_custom_dark.png), [light](../../internal/ui/fyneui/testdata/sidebar_custom_light.png) |
+| A group or item appears only when the cluster serves its kinds (Admission Policies, Gateway API, Device Resources) | free | partial: built-in kinds by discovery at connect; custom resource kinds (Gateway API, Vertical Pod Autoscalers, every API group of Custom Resources) follow the cluster's definitions while connected, where Lens needs a reconnect; no permission check | [`connector.go`](../../internal/engine/connector.go), [`customkinds.go`](../../internal/engine/customkinds.go); `TestSidebarFollowsKindsEvent`, `TestCustomKindLifecycle` |
+| Groups expand and collapse | free | partial: the API groups of Custom Resources start collapsed (captured), the other groups open; open and closed states survive a change of the cluster's kinds, not a reconnect; the group of a view opened elsewhere (an agent, a link) opens to show it (inferred) | [`sidebar.go`](../../internal/ui/fyneui/sidebar.go); `TestSidebarFollowsKindsEvent` |
 
 ## Tables
 
@@ -354,6 +354,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Cluster sidebar: Custom Resources with its API groups, Network › Gateway API and Config › Admission Policies as sub-groups; custom kinds follow the cluster's definitions while connected |
 | 2026-10-11 | minor | Cluster settings: the metrics source choices, the icon menu, the kubeconfig link opens the file manager (owner) |
 | 2026-10-11 | minor | Captures of the Forward dialog and the metrics toolbar's "Show events" tooltip |
 | 2026-10-11 | minor | Captures of every cluster settings page: the page list and each page's settings |
