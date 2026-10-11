@@ -132,6 +132,35 @@ kind-down: ## Delete the kind cluster and its kubeconfig file
 	kind delete cluster --name $(KIND_CLUSTER) --kubeconfig $(KIND_KUBECONFIG)
 	rm -f $(KIND_KUBECONFIG)
 
+# The drain cluster: one control plane and two workers, for the tests that cordon and drain a
+# node, which must never run against the shared single-node cluster above.
+KIND_DRAIN_CLUSTER    ?= cogpit-drain
+KIND_DRAIN_KUBECONFIG ?= $(CACHE)/kind-drain/kubeconfig
+KIND_DRAIN_CONTEXT    := kind-$(KIND_DRAIN_CLUSTER)
+
+.PHONY: kind-drain-up test-kind-drain kind-drain-down
+
+kind-drain-up: ## Create the multi-node drain cluster (own kubeconfig file), or reuse it
+	@command -v kind >/dev/null || { echo "kind is not installed: https://kind.sigs.k8s.io"; exit 1; }
+	@mkdir -p $(dir $(KIND_DRAIN_KUBECONFIG))
+	@if kind get clusters 2>/dev/null | grep -qx '$(KIND_DRAIN_CLUSTER)'; then \
+		echo "kind cluster $(KIND_DRAIN_CLUSTER) exists"; \
+		kind export kubeconfig --name $(KIND_DRAIN_CLUSTER) --kubeconfig $(KIND_DRAIN_KUBECONFIG); \
+	else \
+		kind create cluster --name $(KIND_DRAIN_CLUSTER) --kubeconfig $(KIND_DRAIN_KUBECONFIG) \
+			--config hack/kind/drain-cluster.yaml --wait 120s; \
+	fi
+	@echo "kubeconfig: $(KIND_DRAIN_KUBECONFIG) (context $(KIND_DRAIN_CONTEXT))"
+
+test-kind-drain: ## Cordon, uncordon and drain tests against the drain cluster (make kind-drain-up first)
+	@test -s $(KIND_DRAIN_KUBECONFIG) || { echo "no kubeconfig at $(KIND_DRAIN_KUBECONFIG): run make kind-drain-up first"; exit 1; }
+	$(TEST_ENV) COGPIT_KIND_DRAIN_KUBECONFIG=$(KIND_DRAIN_KUBECONFIG) COGPIT_KIND_DRAIN_CONTEXT=$(KIND_DRAIN_CONTEXT) \
+		$(GO) test -race -tags kind -count=1 -v -timeout 15m -run 'TestKindDrain' ./internal/testkit/integration/
+
+kind-drain-down: ## Delete the drain cluster and its kubeconfig file
+	kind delete cluster --name $(KIND_DRAIN_CLUSTER) --kubeconfig $(KIND_DRAIN_KUBECONFIG)
+	rm -f $(KIND_DRAIN_KUBECONFIG)
+
 $(FYNE):
 	GOBIN=$(BIN) $(GO) install fyne.io/tools/cmd/fyne@$(FYNE_TOOLS)
 

@@ -15,6 +15,10 @@ const (
 	EventToast EventType = "toast"
 	// EventDiagnostics: request counters or cache stats changed; re-read Session.Diagnostics.
 	EventDiagnostics EventType = "diagnostics"
+	// EventDrains: the connected context's pending drains changed (offered on connect, one
+	// started, progressed, ended or was dismissed); re-read them with node.pendingDrains.
+	// Event.Message, if set, says what to offer.
+	EventDrains EventType = "drains"
 )
 
 // Event is something the UI or an agent may react to. Events carry little data: the receiver

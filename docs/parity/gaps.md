@@ -140,12 +140,21 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 120–360 h (was 130–380; 2–6 h each; Pods, Nodes and the overview at the high end).
 
 ### G7. Resource actions
-- **Missing:** all but four of the 39 actions (Share is not a target, owner 2026-10-11). The alpha gate needs about 20: logs, shell, attach, edit, delete,
+- **Missing:** the actions not listed under Evidence, of 39 (Share is not a target, owner 2026-10-11). The alpha gate needs about 20: logs, shell, attach, edit, delete,
   scale, restart, cordon, uncordon, drain, trigger, the port-forward actions and the Helm release
-  actions. Drain and rollout come from the kubectl libraries; drain is crash-safe
-  ([D-11](../developer/decisions.md#d-11-crash-stance)).
-- **Evidence:** resource-parity, 4 of 39 partial: Logs, Shell, Restart (Deployment), Delete (pods
-  only).
+  actions. Rollout comes from the kubectl libraries.
+- **Evidence:** resource-parity: Logs, Shell, Restart (Deployment), Delete (pods only) partial (the
+  MVP); Cordon, Uncordon, Drain, Scale (Deployment, Stateful Set), Trigger, Suspend, Resume (Cron
+  Job) and Evict (Pod) partial (2026-10-11), as engine commands with the captured places and
+  applicability, tested against client-go's fake clientset and the kind cluster
+  ([`commands/nodes.go`](../../internal/engine/commands/nodes.go),
+  [`commands/workloads.go`](../../internal/engine/commands/workloads.go)). Drain uses kubectl's
+  drain library and is crash-safe ([D-11](../developer/decisions.md#d-11-crash-stance)): a journal
+  records it before the node is cordoned, and the next connect of its context offers to finish,
+  uncordon or dismiss it ([`drains.go`](../../internal/engine/drains.go)). Still open for these:
+  the row menus and drawer icons that show them (G5's row-menu work), Lens's drain and scale
+  dialogs (not captured; drain defaults inferred), the drain test on a multi-node kind cluster
+  (`make test-kind-drain`, written, not run yet).
 - **Estimate:** 62–195 h (was 70–210).
 
 ### G8. Logs, terminal and shells
@@ -330,6 +339,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | G7: node and workload actions partial (cordon, uncordon, crash-safe drain, scale, trigger, suspend, resume, evict) |
 | 2026-10-11 | minor | G1: CI and the semantic-release dry run exist as workflow files, not yet observed green; generators, the envtest job and a passing `make vuln` remain; estimate not moved |
 | 2026-10-11 | major | The MVP: G1–G9, G14, G15 and G17 re-estimated with evidence; new terminal-widget risk in G8 |
 | 2026-10-11 | minor | D-5: G19 (external extensions) is not a target and leaves the totals |

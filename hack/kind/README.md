@@ -9,6 +9,7 @@ so Cogpit and kubectl never reach another cluster by accident.
 |---|---|
 | [`cluster.yaml`](cluster.yaml) | kind configuration: one control-plane node, the default service CIDR `10.96.0.0/16` |
 | [`seed/`](seed/) | the manifests `make kind-seed` applies, all in the namespace `cogpit-demo` |
+| [`drain-cluster.yaml`](drain-cluster.yaml) | the second, multi-node cluster `cogpit-drain` (one control plane, two workers) for the tests that cordon and drain a node; see [The drain cluster](#the-drain-cluster) |
 
 ## Use
 
@@ -62,3 +63,24 @@ privilege escalation and with all capabilities dropped.
 10,000 pods, 500 deployments, 300 services, 50 nodes, 20 namespaces and 2,000 events in memory and
 changes them at 1,000 watch events per second, through the same cache and informers as a real
 cluster. It has its own well-known service: `demo-mcp/web` with ClusterIP `10.96.100.100`.
+
+## The drain cluster
+
+Cordon, uncordon and drain change a node, and the cluster above has only one: draining it would
+stop every other test. Those tests run against a second cluster, `cogpit-drain`, with one control
+plane and two workers ([`drain-cluster.yaml`](drain-cluster.yaml)); its kubeconfig is its own file,
+`.cache/kind-drain/kubeconfig` (context `kind-cogpit-drain`).
+
+```sh
+make kind-drain-up     # create the cluster (or reuse it) and write .cache/kind-drain/kubeconfig
+make test-kind-drain   # TestKindDrainCrashFinishUncordon, in the namespace cogpit-drain-test
+make kind-drain-down   # delete the cluster and its kubeconfig file
+```
+
+The test drains the first worker by name: a Deployment's two pods, a pod a PodDisruptionBudget
+guards and a DaemonSet's pod are put on it; Cogpit "crashes" while the budget blocks an eviction,
+the next start offers the unfinished drain, finishing it fails while the budget stands and
+succeeds once it is gone, and the node is uncordoned at the end (and on cleanup). It pulls
+`busybox:1.37.0`. `make test-kind` skips it, because it runs only when
+`COGPIT_KIND_DRAIN_KUBECONFIG` and `COGPIT_KIND_DRAIN_CONTEXT` are set, and it refuses the context
+`kind-cogpit`.
