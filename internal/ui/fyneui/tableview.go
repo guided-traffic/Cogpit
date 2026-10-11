@@ -81,6 +81,12 @@ type tableView struct {
 	nsPopup  *widget.PopUp
 	nsChecks []*widget.Check
 	nsSync   bool
+
+	colPopup  *widget.PopUp // the column list of the header's ⋮ (tableheader.go)
+	colChecks []*widget.Check
+	colIDs    []string // the column id of each check
+	colView   string   // the view the list was opened for
+	colSync   bool
 }
 
 func newTableView(sh *shell) *tableView {
@@ -133,13 +139,14 @@ func (tv *tableView) viewChanged() {
 	tv.hoverRow, tv.hoverCol, tv.hoverCell = -1, -1, nil
 	tv.sh.tip.hide()
 	tv.updateTitle()
-	tv.search.SetPlaceHolder("Search " + strings.ToLower(tv.sh.kindTitle(tv.sh.ui.View)) + "…")
 	tv.updatePlaceholder()
 	tv.updateNamespaceButton()
 }
 
-// updateTitle shows the view's title and item count: "Pods · 10,000".
+// updateTitle shows the view's title and item count, "Pods · 10,000", and names the view in the
+// search hint; kinds.list may bring the title after the view opened.
 func (tv *tableView) updateTitle() {
+	tv.search.SetPlaceHolder("Search " + strings.ToLower(tv.sh.kindTitle(tv.sh.ui.View)) + "…")
 	title := tv.sh.kindTitle(tv.sh.ui.View)
 	if tv.snap != nil && tv.snap.Title != "" {
 		title = tv.snap.Title
@@ -180,7 +187,7 @@ func (tv *tableView) updatePlaceholder() {
 		msg = "Choose a view in the sidebar."
 	case tv.snap == nil || (!tv.snap.Synced && len(tv.snap.Rows) == 0 && tv.snap.Error == ""):
 		msg = "Loading " + strings.ToLower(tv.sh.kindTitle(ui.View)) + "…"
-	case len(tv.snap.Rows) == 0 && (tv.snap.Filter != "" || len(tv.snap.Namespaces) > 0):
+	case len(tv.snap.Rows) == 0 && (tv.snap.Filter != "" || len(tv.snap.Namespaces) > 0 || (tv.groupMode() && len(ui.Groups) > 0)):
 		msg = "No " + strings.ToLower(tv.snap.Title) + " match the filter."
 	case len(tv.snap.Rows) == 0:
 		msg = "No " + strings.ToLower(tv.snap.Title) + " found."
@@ -242,7 +249,8 @@ func (tv *tableView) setSnapshot(snap *engine.TableSnapshot) {
 	tv.now = tv.sh.now()
 	tv.updateTitle()
 	tv.updatePlaceholder()
-	tv.updateNamespaceButton() // cluster-scoped views disable the namespace filter
+	tv.updateNamespaceButton() // cluster-scoped views hide the namespace filter
+	tv.syncColumnChecks()
 	tv.table.Refresh()
 	tv.resolvePending()
 }
@@ -394,7 +402,8 @@ func (tv *tableView) createHeader() fyne.CanvasObject {
 func (tv *tableView) updateHeader(id widget.TableCellID, o fyne.CanvasObject) {
 	h := o.(*headerCell)
 	if id.Row != -1 || tv.snap == nil || id.Col < 0 || id.Col >= len(tv.cols) {
-		h.set(id.Col, "", 0) // the ⋮ column has no header
+		// The ⋮ column's header is the ⋮ that shows and hides columns.
+		h.setMenu(id.Col, id.Row == -1 && tv.snap != nil && id.Col == tv.menuColumn())
 		return
 	}
 	col := tv.snap.Columns[tv.cols[id.Col]]
@@ -418,8 +427,13 @@ func (tv *tableView) updateHeader(id widget.TableCellID, o fyne.CanvasObject) {
 	}
 }
 
-// headerTapped sorts by a column; tapping the sorted column again reverses the order.
+// headerTapped sorts by a column; tapping the sorted column again reverses the order. The ⋮ at the
+// end of the header row opens the column list.
 func (tv *tableView) headerTapped(col int) {
+	if tv.snap != nil && col == tv.menuColumn() {
+		tv.openColumns()
+		return
+	}
 	if tv.snap == nil || col < 0 || col >= len(tv.cols) {
 		return
 	}
@@ -631,26 +645,57 @@ func (tv *tableView) syncSearch() {
 	tv.syncing2 = false
 }
 
-// updateNamespaceButton labels the namespace filter: "All namespaces", one name, or a count.
+// updateNamespaceButton labels the namespace filter: "All namespaces", one name, or a count; on
+// the Definitions view the same button is the API group filter ("All groups").
 func (tv *tableView) updateNamespaceButton() {
-	ns := tv.sh.ui.Namespaces
-	text := "All namespaces"
+	all, _, sel := tv.filterChoices()
+	text := all
 	switch {
-	case len(ns) == 1:
-		text = ns[0]
-	case len(ns) > 1:
-		text = formatCount(int64(len(ns))) + " namespaces"
+	case len(sel) == 1:
+		text = sel[0]
+	case len(sel) > 1:
+		noun := "namespaces"
+		if tv.groupMode() {
+			noun = "groups"
+		}
+		text = formatCount(int64(len(sel))) + " " + noun
 	}
 	if tv.nsButton.Text != text {
 		tv.nsButton.SetText(text)
 	}
 	// Lens shows no namespace filter on a cluster-scoped view (captures of Nodes, Ingress Classes,
-	// Cluster Roles and Cluster Role Bindings, 2026-10-11).
-	if tv.viewNamespaced() {
+	// Cluster Roles and Cluster Role Bindings, 2026-10-11), and a group filter on Definitions.
+	if tv.groupMode() || tv.viewNamespaced() {
 		tv.nsBox.Show()
 	} else {
 		tv.nsBox.Hide()
 	}
+}
+
+// groupMode reports whether the filter button is the Definitions view's API group filter.
+func (tv *tableView) groupMode() bool { return engine.FiltersByGroup(tv.sh.ui.View) }
+
+// filterChoices returns what the filter button offers: the "all" entry's label, the names to
+// choose from, and the engine's selection. Namespaces come from the cluster; API groups from its
+// custom resource kinds (kinds.list), plus any group the selection holds.
+func (tv *tableView) filterChoices() (all string, names, selected []string) {
+	if !tv.groupMode() {
+		return "All namespaces", tv.sh.namespaces, tv.sh.ui.Namespaces
+	}
+	set := map[string]bool{}
+	for _, k := range tv.sh.kinds {
+		if isCustomKind(k.Kind) {
+			set[apiGroupOf(k)] = true
+		}
+	}
+	for _, g := range tv.sh.ui.Groups {
+		set[g] = true
+	}
+	for g := range set {
+		names = append(names, g)
+	}
+	slices.Sort(names)
+	return "All groups", names, tv.sh.ui.Groups
 }
 
 // viewNamespaced reports whether the open view's kind is namespaced: from its snapshot, before
@@ -676,16 +721,18 @@ func (tv *tableView) namespacesLoaded() {
 	}
 }
 
-// openNamespaces shows the namespace filter: "All namespaces" and one check per namespace.
-// Checks toggle without closing the popup, as Lens's filter does.
+// openNamespaces shows the namespace filter: "All namespaces" and one check per namespace (on
+// Definitions: "All groups" and one per API group). Checks toggle without closing the popup, as
+// Lens's filter does.
 func (tv *tableView) openNamespaces() {
-	names := append([]string{""}, tv.sh.namespaces...)
+	all, choices, _ := tv.filterChoices()
+	names := append([]string{""}, choices...)
 	tv.nsChecks = tv.nsChecks[:0]
 	list := container.NewVBox()
 	for _, ns := range names {
 		label := ns
 		if ns == "" {
-			label = "All namespaces"
+			label = all
 		}
 		c := widget.NewCheck(label, func(on bool) { tv.toggleNamespace(ns, on) })
 		tv.nsChecks = append(tv.nsChecks, c)
@@ -705,17 +752,17 @@ func (tv *tableView) openNamespaces() {
 	}
 	tv.nsPopup = widget.NewPopUp(scroll, c)
 	tv.nsPopup.ShowAtRelativePosition(fyne.NewPos(0, tv.nsButton.Size().Height), tv.nsButton)
-	if len(tv.sh.namespaces) == 0 {
+	if len(tv.sh.namespaces) == 0 && !tv.groupMode() {
 		tv.sh.loadNamespaces()
 	}
 }
 
-// syncNamespaceChecks makes the popup's checks show the engine's namespaces.
+// syncNamespaceChecks makes the popup's checks show the engine's namespaces (or groups).
 func (tv *tableView) syncNamespaceChecks() {
 	if len(tv.nsChecks) == 0 {
 		return
 	}
-	sel := tv.sh.ui.Namespaces
+	_, _, sel := tv.filterChoices()
 	tv.nsSync = true
 	for i, c := range tv.nsChecks {
 		want := len(sel) == 0
@@ -730,11 +777,12 @@ func (tv *tableView) syncNamespaceChecks() {
 }
 
 // toggleNamespace changes the namespace filter: "All" clears it, a namespace is added or removed.
+// On Definitions it changes the API group filter the same way.
 func (tv *tableView) toggleNamespace(ns string, on bool) {
 	if tv.nsSync {
 		return
 	}
-	cur := tv.sh.ui.Namespaces
+	_, _, cur := tv.filterChoices()
 	next := []string{}
 	switch {
 	case ns == "":
@@ -751,6 +799,10 @@ func (tv *tableView) toggleNamespace(ns string, on bool) {
 				next = append(next, n)
 			}
 		}
+	}
+	if tv.groupMode() {
+		tv.sh.dispatch("ui.setGroups", groupsParams{Groups: next}, nil)
+		return
 	}
 	tv.sh.dispatch("ui.setNamespace", namespacesParams{Namespaces: next}, nil)
 }
@@ -1236,13 +1288,15 @@ type cellIconKey struct {
 }
 
 // headerCell is a column header: the title, an arrow on the sorted column, and a short divider at
-// its right edge that marks where the column can be dragged wider. Tapping it sorts.
+// its right edge that marks where the column can be dragged wider. Tapping it sorts. The header of
+// the ⋮ column shows a ⋮ instead, which opens the list of columns to show and hide.
 type headerCell struct {
 	widget.BaseWidget
 	onTap func(col int)
 	col   int
 	title string
-	sort  int // 1 ascending, -1 descending, 0 not sorted
+	sort  int  // 1 ascending, -1 descending, 0 not sorted
+	menu  bool // the ⋮ at the end of the header row
 
 	text  *canvas.Text
 	arrow *iconImage
@@ -1264,11 +1318,29 @@ func newHeaderCell(onTap func(int)) *headerCell {
 
 func (h *headerCell) set(col int, title string, sort int) {
 	h.col = col
-	if title == h.title && sort == h.sort {
+	if title == h.title && sort == h.sort && !h.menu {
 		return
 	}
-	h.title, h.sort = title, sort
+	h.title, h.sort, h.menu = title, sort, false
 	h.Refresh()
+}
+
+// setMenu makes the cell the ⋮ of the header row (on), or an empty header.
+func (h *headerCell) setMenu(col int, on bool) {
+	h.col = col
+	if on == h.menu && h.title == "" && h.sort == 0 {
+		return
+	}
+	h.title, h.sort, h.menu = "", 0, on
+	h.Refresh()
+}
+
+// Cursor implements desktop.Cursorable: a hand over the ⋮.
+func (h *headerCell) Cursor() desktop.Cursor {
+	if h.menu {
+		return desktop.PointerCursor
+	}
+	return desktop.DefaultCursor
 }
 
 // Tapped implements fyne.Tappable.
@@ -1296,7 +1368,12 @@ func (r *headerCellRenderer) Layout(size fyne.Size) {
 	h.text.Move(fyne.NewPos(pad, (size.Height-ts.Height)/2))
 	h.text.Resize(ts)
 	is := th.Size(sizeSortIcon)
-	h.arrow.img.Move(fyne.NewPos(pad+ts.Width+gap/2, (size.Height-is)/2))
+	if h.menu {
+		is = th.Size(sizeCellIcon)
+		h.arrow.img.Move(fyne.NewPos((size.Width-is)/2, (size.Height-is)/2))
+	} else {
+		h.arrow.img.Move(fyne.NewPos(pad+ts.Width+gap/2, (size.Height-is)/2))
+	}
 	h.arrow.img.Resize(fyne.NewSize(is, is))
 	h.sep.Move(fyne.NewPos(size.Width+gap/2-0.5, size.Height/4))
 	h.sep.Resize(fyne.NewSize(1, size.Height/2))
@@ -1326,7 +1403,11 @@ func (r *headerCellRenderer) Refresh() {
 	case -1:
 		arrow = theme.MenuDropDownIcon()
 	}
-	h.arrow.set(th, arrow, colorAccent)
+	if h.menu {
+		h.arrow.set(th, theme.MoreVerticalIcon(), colorMuted)
+	} else {
+		h.arrow.set(th, arrow, colorAccent)
+	}
 	r.Layout(h.Size())
 	h.text.Refresh()
 	h.sep.Refresh()

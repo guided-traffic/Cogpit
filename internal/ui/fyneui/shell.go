@@ -305,7 +305,8 @@ func (sh *shell) applyUIState(st engine.UIState) {
 		sh.view.viewChanged()
 		sh.refreshTable()
 	}
-	if first || !slices.Equal(st.Namespaces, old.Namespaces) || st.Filter != old.Filter || st.Sort != old.Sort {
+	if first || !slices.Equal(st.Namespaces, old.Namespaces) || !slices.Equal(st.Groups, old.Groups) ||
+		st.Filter != old.Filter || st.Sort != old.Sort {
 		sh.view.stateChanged()
 	}
 	if first || !slices.Equal(st.Selected, old.Selected) {
@@ -606,6 +607,13 @@ type (
 	}
 	namespacesParams struct {
 		Namespaces []string `json:"namespaces"`
+	}
+	groupsParams struct {
+		Groups []string `json:"groups"`
+	}
+	columnsParams struct {
+		View   string   `json:"view"`
+		Hidden []string `json:"hidden"`
 	}
 	filterParams struct {
 		Filter string `json:"filter"`
