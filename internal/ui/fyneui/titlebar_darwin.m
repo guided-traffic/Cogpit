@@ -44,6 +44,11 @@ void cogpitTitlebarInstall(uintptr_t window, uintptr_t id) {
 	}
 	objc_setAssociatedObject(w, &observerKey, o, OBJC_ASSOCIATION_RETAIN);
 	[o release];
+
+	// The content view now covers the title bar's area too, without a resize event: announce one,
+	// so that GLFW's window delegate (which observes the window's notifications) reads the larger
+	// content size and Fyne lays the canvas out to it, and the observer above reads the geometry.
+	[nc postNotificationName:NSWindowDidResizeNotification object:w];
 }
 
 void cogpitTitlebarRemove(uintptr_t window) {
