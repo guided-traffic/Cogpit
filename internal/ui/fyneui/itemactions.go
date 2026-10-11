@@ -1,7 +1,6 @@
 package fyneui
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/guided-traffic/cogpit/internal/model"
@@ -34,5 +33,5 @@ func (sh *shell) runItemAction(ref model.ObjectRef, a model.ItemAction) {
 		sh.openParamDialog(cmd, ref, params)
 		return
 	}
-	sh.dispatch(cmd.ID, json.RawMessage(params), nil)
+	sh.dispatch(cmd.ID, params, nil)
 }
