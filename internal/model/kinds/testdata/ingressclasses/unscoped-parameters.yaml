@@ -1,0 +1,14 @@
+# Synthetic: parameters without a scope, as a client builds them before the API server defaults the
+# scope to Cluster; the view shows the default.
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: contour
+  uid: 7b2c3d4e-6666-4b7c-8d9e-000000000006
+  creationTimestamp: "2026-10-05T12:00:00Z"
+spec:
+  controller: projectcontour.io/ingress-controller
+  parameters:
+    apiGroup: projectcontour.io
+    kind: ContourConfiguration
+    name: contour

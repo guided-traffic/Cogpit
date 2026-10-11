@@ -1,0 +1,88 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "ingresses",
+    "namespace": "backoffice",
+    "name": "admin"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "admin"
+    },
+    {
+      "column": "namespace",
+      "text": "backoffice",
+      "link": {
+        "kind": "namespaces",
+        "name": "backoffice"
+      }
+    },
+    {
+      "column": "loadBalancers",
+      "text": "-"
+    },
+    {
+      "column": "rules",
+      "text": "admin.example.internal/ -> admin-ui:3000"
+    },
+    {
+      "column": "age",
+      "text": "30m",
+      "num": 1791718200
+    }
+  ],
+  "fields": {
+    "address": [],
+    "host": [
+      "admin.example.internal"
+    ],
+    "ingressClass": [
+      "traefik"
+    ],
+    "label": [],
+    "name": [
+      "admin"
+    ],
+    "namespace": [
+      "backoffice"
+    ],
+    "path": [
+      "/"
+    ],
+    "service": [
+      "admin-ui"
+    ],
+    "tlsSecret": []
+  },
+  "detail": [
+    {
+      "title": "Ingress",
+      "items": [
+        {
+          "name": "Class",
+          "value": "traefik"
+        }
+      ]
+    },
+    {
+      "title": "Rules",
+      "items": [
+        {
+          "name": "admin.example.internal",
+          "value": "/ (Prefix) -> admin-ui:3000"
+        }
+      ]
+    },
+    {
+      "title": "TLS",
+      "items": [
+        {
+          "name": "(no secret)",
+          "value": "admin.example.internal"
+        }
+      ]
+    }
+  ]
+}

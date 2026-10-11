@@ -1,0 +1,79 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "configmaps",
+    "namespace": "shop",
+    "name": "branding"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "branding"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "keys",
+      "text": "favicon.ico, theme.css, tiny.bin"
+    },
+    {
+      "column": "age",
+      "text": "2d",
+      "num": 1791547200
+    }
+  ],
+  "fields": {
+    "key": [
+      "favicon.ico",
+      "theme.css",
+      "tiny.bin"
+    ],
+    "label": [],
+    "name": [
+      "branding"
+    ],
+    "namespace": [
+      "shop"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Immutable",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "title": "Data",
+      "items": [
+        {
+          "name": "theme.css",
+          "value": ".brand-01 { color: #013a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-02 { color: #023a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-03 { color: #033a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-04 { color: #043a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-05 { color: #053a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-06 { color: #063a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-07 { color: #073a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-08 { color: #083a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-09 { color: #093a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-10 { color: #103a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-11 { color: #113a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-12 { color: #123a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-13 { color: #133a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-14 { color: #143a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-15 { color: #153a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-16 { color: #163a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-17 { color: #173a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-18 { color: #183a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-19 { color: #193a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-20 { color: #203a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-21 { color: #213a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-22 { color: #223a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-23 { color: #233a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-24 { color: #243a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-25 { color: #253a5f; background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%); } /* padding padding padding padding padding padding padding padding */\n.brand-26 { color: #263a5f; background: linear\n[cut: 4.0 KiB of 4.7 KiB shown; the full value is in the YAML]"
+        }
+      ]
+    },
+    {
+      "title": "Binary Data",
+      "items": [
+        {
+          "name": "favicon.ico",
+          "value": "62 bytes"
+        },
+        {
+          "name": "tiny.bin",
+          "value": "1 byte"
+        }
+      ]
+    }
+  ]
+}

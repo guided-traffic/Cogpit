@@ -1,0 +1,96 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "persistentvolumeclaims",
+    "namespace": "ci",
+    "name": "scratch"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "scratch"
+    },
+    {
+      "column": "namespace",
+      "text": "ci",
+      "link": {
+        "kind": "namespaces",
+        "name": "ci"
+      }
+    },
+    {
+      "column": "storageClass",
+      "text": "standard"
+    },
+    {
+      "column": "size",
+      "text": "1Gi",
+      "num": 1073741824
+    },
+    {
+      "column": "pods",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "10m",
+      "num": 1791719400
+    },
+    {
+      "column": "status",
+      "text": "Pending",
+      "status": "pending"
+    }
+  ],
+  "fields": {
+    "accessMode": [
+      "ReadWriteOnce"
+    ],
+    "label": [],
+    "name": [
+      "scratch"
+    ],
+    "namespace": [
+      "ci"
+    ],
+    "status": [
+      "Pending"
+    ],
+    "storageClass": [
+      "standard"
+    ],
+    "volumeMode": [
+      "Filesystem"
+    ],
+    "volumeName": []
+  },
+  "detail": [
+    {
+      "title": "Persistent Volume Claim",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Pending",
+          "status": "pending"
+        },
+        {
+          "name": "Storage Class",
+          "value": "standard"
+        },
+        {
+          "name": "Access Modes",
+          "value": "ReadWriteOnce"
+        },
+        {
+          "name": "Volume Mode",
+          "value": "Filesystem"
+        },
+        {
+          "name": "Requested",
+          "value": "1Gi"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "ingressclasses",
+    "name": "nginx"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "nginx"
+    },
+    {
+      "column": "default",
+      "text": "Yes"
+    },
+    {
+      "column": "namespace",
+      "text": ""
+    },
+    {
+      "column": "controller",
+      "text": "k8s.io/ingress-nginx"
+    },
+    {
+      "column": "apiGroup",
+      "text": ""
+    },
+    {
+      "column": "scope",
+      "text": ""
+    },
+    {
+      "column": "kind",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "controller": [
+      "k8s.io/ingress-nginx"
+    ],
+    "default": [
+      "true"
+    ],
+    "label": [
+      "app.kubernetes.io/name=ingress-nginx"
+    ],
+    "name": [
+      "nginx"
+    ],
+    "namespace": [
+      ""
+    ],
+    "parameters": []
+  },
+  "detail": [
+    {
+      "title": "Ingress Class",
+      "items": [
+        {
+          "name": "Controller",
+          "value": "k8s.io/ingress-nginx"
+        },
+        {
+          "name": "Default",
+          "value": "Yes: Ingresses without a class get this one"
+        }
+      ]
+    }
+  ]
+}

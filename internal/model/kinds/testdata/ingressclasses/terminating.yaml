@@ -1,0 +1,18 @@
+# Synthetic: a class held by a finalizer while it is deleted, with cluster-scoped parameters as the
+# API server stores them (scope defaulted to Cluster).
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: external-lb
+  uid: 7b2c3d4e-6666-4b7c-8d9e-000000000003
+  creationTimestamp: "2026-03-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - ingress.example.com/class-in-use
+spec:
+  controller: example.com/ingress-controller
+  parameters:
+    apiGroup: elbv2.example.com
+    kind: IngressClassParams
+    name: external-lb
+    scope: Cluster

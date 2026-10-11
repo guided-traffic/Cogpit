@@ -1,0 +1,85 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "ingresses",
+    "namespace": "edge",
+    "name": "legacy-site"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-site"
+    },
+    {
+      "column": "namespace",
+      "text": "edge",
+      "link": {
+        "kind": "namespaces",
+        "name": "edge"
+      }
+    },
+    {
+      "column": "loadBalancers",
+      "text": "legacy-lb.example.net"
+    },
+    {
+      "column": "rules",
+      "text": "legacy.example.com/ -> legacy:80"
+    },
+    {
+      "column": "age",
+      "text": "224d",
+      "num": 1772323200
+    }
+  ],
+  "fields": {
+    "address": [
+      "legacy-lb.example.net"
+    ],
+    "host": [
+      "legacy.example.com"
+    ],
+    "ingressClass": [
+      "external-lb"
+    ],
+    "label": [],
+    "name": [
+      "legacy-site"
+    ],
+    "namespace": [
+      "edge"
+    ],
+    "path": [
+      "/"
+    ],
+    "service": [
+      "legacy"
+    ],
+    "tlsSecret": []
+  },
+  "detail": [
+    {
+      "title": "Ingress",
+      "items": [
+        {
+          "name": "Class",
+          "value": "external-lb"
+        },
+        {
+          "name": "Load Balancers",
+          "value": "legacy-lb.example.net"
+        }
+      ]
+    },
+    {
+      "title": "Rules",
+      "items": [
+        {
+          "name": "legacy.example.com",
+          "value": "/ (Prefix) -> legacy:80"
+        }
+      ]
+    }
+  ]
+}

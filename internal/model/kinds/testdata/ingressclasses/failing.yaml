@@ -1,0 +1,16 @@
+# Synthetic: an Ingress Class has no state to fail; this is what goes wrong with one in practice:
+# the default annotation spelled "True", which Kubernetes does not count (only "true" makes a
+# class the default), and parameters naming no object.
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: haproxy
+  uid: 7b2c3d4e-6666-4b7c-8d9e-000000000002
+  creationTimestamp: "2026-10-11T10:00:00Z"
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: "True"
+spec:
+  controller: haproxy.org/ingress-controller/haproxy
+  parameters:
+    apiGroup: ingress.example.com
+    kind: HaproxyParameters

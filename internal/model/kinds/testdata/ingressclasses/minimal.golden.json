@@ -1,0 +1,53 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "ingressclasses",
+    "name": "bare"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "default",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": ""
+    },
+    {
+      "column": "controller",
+      "text": ""
+    },
+    {
+      "column": "apiGroup",
+      "text": ""
+    },
+    {
+      "column": "scope",
+      "text": ""
+    },
+    {
+      "column": "kind",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "controller": [],
+    "default": [
+      "false"
+    ],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      ""
+    ],
+    "parameters": []
+  },
+  "detail": null
+}

@@ -1,0 +1,21 @@
+# Synthetic: a claim whose bound volume was deleted: phase Lost, the data is gone.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cache-redis-1
+  namespace: shop
+  uid: 9d4e5f60-8888-4d9e-8f10-000000000002
+  creationTimestamp: "2026-08-01T00:00:00Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: standard
+  volumeMode: Filesystem
+  volumeName: pvc-9d4e5f60-8888-4d9e-8f10-000000000002
+status:
+  phase: Lost

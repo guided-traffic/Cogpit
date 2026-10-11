@@ -1,0 +1,125 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "persistentvolumeclaims",
+    "namespace": "payments",
+    "name": "wal-archive"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "wal-archive"
+    },
+    {
+      "column": "namespace",
+      "text": "payments",
+      "link": {
+        "kind": "namespaces",
+        "name": "payments"
+      }
+    },
+    {
+      "column": "storageClass",
+      "text": "standard-hdd"
+    },
+    {
+      "column": "size",
+      "text": "500Gi",
+      "num": 536870912000
+    },
+    {
+      "column": "pods",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "163d",
+      "num": 1777593600
+    },
+    {
+      "column": "status",
+      "text": "Bound",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "accessMode": [
+      "ReadWriteOnce"
+    ],
+    "label": [],
+    "name": [
+      "wal-archive"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "status": [
+      "Bound"
+    ],
+    "storageClass": [
+      "standard-hdd"
+    ],
+    "volumeMode": [
+      "Filesystem"
+    ],
+    "volumeName": [
+      "pvc-9d4e5f60-8888-4d9e-8f10-000000000007"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Persistent Volume Claim",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Bound",
+          "status": "ok"
+        },
+        {
+          "name": "Storage Class",
+          "value": "standard-hdd"
+        },
+        {
+          "name": "Volume",
+          "value": "pvc-9d4e5f60-8888-4d9e-8f10-000000000007"
+        },
+        {
+          "name": "Access Modes",
+          "value": "ReadWriteOnce"
+        },
+        {
+          "name": "Volume Mode",
+          "value": "Filesystem"
+        },
+        {
+          "name": "Requested",
+          "value": "2Ti"
+        },
+        {
+          "name": "Capacity",
+          "value": "500Gi"
+        },
+        {
+          "name": "Allocated",
+          "value": "2Ti"
+        },
+        {
+          "name": "Resize Status",
+          "value": "ControllerResizeInfeasible",
+          "status": "error"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "ControllerResizeError",
+          "value": "True: resize volume: requested size 2Ti exceeds the driver's maximum of 1Ti",
+          "status": "error"
+        }
+      ]
+    }
+  ]
+}

@@ -28,6 +28,10 @@ var builtin = []*model.KindProfile{
 	pods,
 	deployments,
 	services,
+	ingresses,
+	ingressClasses,
+	configMaps,
+	persistentVolumeClaims,
 	namespaces,
 	events,
 }

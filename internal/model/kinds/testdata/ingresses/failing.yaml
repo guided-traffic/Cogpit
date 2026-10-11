@@ -1,0 +1,28 @@
+# Synthetic: an Ingress no controller has admitted: no address in its status, the class only in
+# the older annotation, and a TLS entry without a secret.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: admin
+  namespace: backoffice
+  uid: 6a1b2c3d-5555-4a6b-9c7d-000000000002
+  creationTimestamp: "2026-10-11T11:30:00Z"
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  tls:
+  - hosts:
+    - admin.example.internal
+  rules:
+  - host: admin.example.internal
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: admin-ui
+            port:
+              number: 3000
+status:
+  loadBalancer: {}

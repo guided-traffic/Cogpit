@@ -1,0 +1,116 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "persistentvolumeclaims",
+    "namespace": "payments",
+    "name": "restored-db"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "restored-db"
+    },
+    {
+      "column": "namespace",
+      "text": "payments",
+      "link": {
+        "kind": "namespaces",
+        "name": "payments"
+      }
+    },
+    {
+      "column": "storageClass",
+      "text": ""
+    },
+    {
+      "column": "size",
+      "text": "1Gi",
+      "num": 1073741824
+    },
+    {
+      "column": "pods",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "2h",
+      "num": 1791712800
+    },
+    {
+      "column": "status",
+      "text": "Bound",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "accessMode": [
+      "ReadWriteOncePod"
+    ],
+    "label": [],
+    "name": [
+      "restored-db"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "status": [
+      "Bound"
+    ],
+    "storageClass": [],
+    "volumeMode": [
+      "Block"
+    ],
+    "volumeName": [
+      "static-db-volume"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Persistent Volume Claim",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Bound",
+          "status": "ok"
+        },
+        {
+          "name": "Storage Class",
+          "value": "none (binds only to volumes without a class)"
+        },
+        {
+          "name": "Volume",
+          "value": "static-db-volume"
+        },
+        {
+          "name": "Access Modes",
+          "value": "ReadWriteOncePod"
+        },
+        {
+          "name": "Volume Mode",
+          "value": "Block"
+        },
+        {
+          "name": "Requested",
+          "value": "750Mi"
+        },
+        {
+          "name": "Capacity",
+          "value": "1Gi"
+        },
+        {
+          "name": "Volume Attributes Class",
+          "value": "gold"
+        },
+        {
+          "name": "Data Source",
+          "value": "VolumeSnapshot/db-nightly, namespace backups"
+        },
+        {
+          "name": "Selector",
+          "value": "tier=database\nzone in (zone-a,zone-b)"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "configmaps",
+    "namespace": "payments",
+    "name": "migration-lock"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "migration-lock"
+    },
+    {
+      "column": "namespace",
+      "text": "payments",
+      "link": {
+        "kind": "namespaces",
+        "name": "payments"
+      }
+    },
+    {
+      "column": "keys",
+      "text": "holder"
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791709200
+    }
+  ],
+  "fields": {
+    "key": [
+      "holder"
+    ],
+    "label": [],
+    "name": [
+      "migration-lock"
+    ],
+    "namespace": [
+      "payments"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Data",
+      "items": [
+        {
+          "name": "holder",
+          "value": "migrate-7f9c"
+        }
+      ]
+    }
+  ]
+}
