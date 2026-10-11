@@ -241,7 +241,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Evidence:** [ui-parity](ui-parity.md#logs), 4 of 16 rows partial across logs and terminal:
   the terminal tab on Cogpit's own PTY with its own kubeconfig, the pod shell over exec, the log
   view with follow ([`internal/terminal`](../../internal/terminal/),
-  [`termview`](../../internal/ui/fyneui/termview/)). Still missing: attach, the node shell, log
+  [`termview`](../../internal/ui/fyneui/termview/)); attach to a container's main process
+  (third run, 2026-10-11, [`terminal/attach.go`](../../internal/terminal/attach.go)). Still
+  missing: the node shell, log
   options (timestamps, previous container, filter, download, multi-pod), and a terminal widget
   hardened beyond the patched copy Cogpit builds against
   ([H-19](../security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)).

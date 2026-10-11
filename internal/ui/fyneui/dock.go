@@ -18,8 +18,8 @@ import (
 )
 
 // dock is the bottom panel: a tab strip (tabs from UIState.Dock, a "+" menu, a collapse toggle)
-// above the active tab's content. Log tabs show termview.Logs on Session.OpenLogs; terminal and
-// shell tabs show termview.Terminal on Session.OpenTerminal; Edit and Create resource tabs show a
+// above the active tab's content. Log tabs show termview.Logs on Session.OpenLogs; terminal,
+// shell and attach tabs show termview.Terminal on Session.OpenTerminal; Edit and Create resource tabs show a
 // YAML editor whose text lives in the engine (editortab.go, createtab.go). A stream is opened when
 // its tab appears and closed when it disappears.
 type dock struct {
@@ -147,7 +147,7 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 				c.set(w)
 			})
 		}()
-	case engine.DockTerminal, engine.DockShell:
+	case engine.DockTerminal, engine.DockShell, engine.DockAttach:
 		go func() {
 			defer d.sh.recoverTo("terminal")
 			sess, err := d.sh.eng.OpenTerminal(ctx, id)
@@ -229,6 +229,8 @@ func (d *dock) rebuildStrip() {
 			icon = theme.DocumentCreateIcon()
 		case engine.DockCreate:
 			icon = theme.ContentAddIcon()
+		case engine.DockAttach:
+			icon = theme.MailAttachmentIcon()
 		}
 		objs = append(objs, newTabButton(t.Title, icon, id == d.active && d.open(),
 			func() {

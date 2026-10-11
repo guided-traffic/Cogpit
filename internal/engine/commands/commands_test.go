@@ -76,6 +76,7 @@ var wantCommands = map[string]engine.Danger{
 	"daemonset.restart":   engine.DangerDestructive,
 	"statefulset.restart": engine.DangerDestructive,
 	"replicaset.scale":    engine.DangerMutating, // destructive when scaling to zero (Escalate)
+	"pod.attach":          engine.DangerMutating,
 }
 
 func TestRegistryComplete(t *testing.T) {

@@ -225,7 +225,7 @@ Every list view is one table ([resource views](resource-parity.md)).
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
 | Terminal session for a cluster, with the working directory and default namespace from cluster settings | free | partial: context and namespace, no cluster settings | `TestStartLocalBindsKubectlToContextAndNamespace`, `TestKindEngineWorkflows`; namespace from the filter, no cluster settings |
-| Pod shell, attach and node shell open as dock tabs | free | partial: pod shell only | `TestKindPodExec`, `TestKindEngineWorkflows`; no attach, no node shell |
+| Pod shell, attach and node shell open as dock tabs | free | partial: pod shell and attach (2026-10-11: stdin and a TTY only as the container has them; the attachment icon on the tab is Cogpit's); no node shell | `TestKindPodExec`, `TestKindEngineWorkflows`; attach: `TestPodAttach`, `TestAttachWithoutTTY`, `TestAttachTabShowsATerminal`, [PNG](../../internal/ui/fyneui/testdata/attach_dark.png) |
 | Copy and paste with the right mouse button (preference) | free | missing | – |
 | Copy and paste keys: ⌘C / ⌘V; Windows and Linux ⌃C, ⌃⇧C or ⌃Ins, and ⌃V, ⌃⇧V or ⇧Ins | free | partial: macOS keys | fyne-io/terminal: ⌘C/⌘V on macOS (offscreen test, synthetic events); Ctrl+Shift+C/V on Linux and Windows |
 | Theme, font size and font family (preferences) | free | missing | – |
@@ -355,6 +355,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Terminal and shells: attach to a container as a dock tab (G8) |
 | 2026-10-11 | minor | Cluster sidebar: Helm › Releases (Charts missing); the dock's Helm tabs stay missing |
 | 2026-10-11 | minor | Port forwarding (G10): the port link and the Forward dialog done, the Port Forwarding view partial (status texts and Edit's dialog inferred); the drawer's Forward… done; Port Forwarding in the sidebar |
 | 2026-10-11 | minor | Sidebar: kinds the user may not list are left out (access reviews); the row stays partial |

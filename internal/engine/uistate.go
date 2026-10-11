@@ -74,6 +74,7 @@ const (
 	DockLogs     DockType = "logs"     // a container's log stream
 	DockTerminal DockType = "terminal" // a local shell bound to the context
 	DockShell    DockType = "shell"    // a shell in a container
+	DockAttach   DockType = "attach"   // attached to a container's main process (pod.attach)
 	DockEdit     DockType = "edit"     // a YAML editor on one object (object.edit)
 	DockCreate   DockType = "create"   // a YAML editor for new objects (resource.createTab)
 )
