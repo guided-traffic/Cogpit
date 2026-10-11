@@ -62,9 +62,14 @@ func anyOf(list []string, v string) bool {
 }
 
 // serveReview answers POST /apis/authorization.k8s.io/v1/<resource>. The typed clients send
-// protobuf; the answer is JSON, which they accept too.
+// protobuf; the answer is JSON, which they accept too. Without FakeAccess every review is 404.
 func (s *FakeAPIServer) serveReview(w http.ResponseWriter, r *http.Request, resource string) {
 	s.count("create", resource+".authorization.k8s.io")
+	a := s.opts.Access
+	if a == nil {
+		writeStatus(w, http.StatusNotFound, "NotFound", "the server could not find the requested resource")
+		return
+	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		writeStatus(w, http.StatusBadRequest, "BadRequest", "cannot read the review: "+err.Error())
@@ -75,7 +80,6 @@ func (s *FakeAPIServer) serveReview(w http.ResponseWriter, r *http.Request, reso
 		writeStatus(w, http.StatusBadRequest, "BadRequest", "cannot decode the review: "+err.Error())
 		return
 	}
-	a := s.opts.Access
 	switch review := obj.(type) {
 	case *authorizationv1.SelfSubjectRulesReview:
 		review.APIVersion, review.Kind = "authorization.k8s.io/v1", "SelfSubjectRulesReview"

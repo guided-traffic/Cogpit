@@ -25,6 +25,7 @@ type fakeReviewer struct {
 	rules       map[string][]cluster.AccessRule
 	incomplete  bool
 	failRules   bool
+	failAccess  bool
 	panicOn     string // the namespace whose rules review panics
 	gate        chan struct{}
 	inFlight    int
@@ -84,6 +85,9 @@ func (f *fakeReviewer) ReviewAccess(ctx context.Context, q cluster.AccessAttribu
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.accessCalls[q]++
+	if f.failAccess {
+		return false, false, errors.New(`the server could not find the requested resource`)
+	}
 	rules := slices.Clone(f.rules[""])
 	if q.Namespace != "" {
 		rules = append(rules, f.rules[q.Namespace]...)
@@ -533,6 +537,40 @@ func TestAccessRefresh(t *testing.T) {
 	waitCond(t, "the events of the refresh", func() bool { return rec.count(EventKinds, "") > 0 && rec.count(EventDetail, "") > 0 })
 	if _, ok := (&Backend{}).RefreshAccess(); ok || (&Backend{}).HasAccessReviews() {
 		t.Error("a backend without access reviews refreshed")
+	}
+}
+
+// A server that answers no reviews costs one failing rules review per namespace and one failing
+// access review, not one per question: the answers stay unknown, the commands offered, until a
+// refresh asks again.
+func TestAccessReviewsStopAskingAfterAFailure(t *testing.T) {
+	rev := newFakeReviewer(nil)
+	rev.failRules, rev.failAccess = true, true
+	s := newAccessSession(t, testkit.NewMemorySource(), rev, "default")
+	b := s.Backend()
+	waitCond(t, "the first access review", func() bool {
+		b.Access.Allowed("default", listPods)
+		_, access := rev.calls()
+		return len(access) == 1
+	})
+	time.Sleep(20 * time.Millisecond) // let it land
+	for _, v := range []Verb{listPods, deletePods, listNodes, listNamespace} {
+		for _, ns := range []string{"default", "", "apps"} {
+			if _, known := b.Access.Allowed(ns, v); known {
+				t.Errorf("%s %s in %q known from failing reviews", v.Verb, v.Resource, ns)
+			}
+		}
+		b.Listable(testDeployments, nil)
+	}
+	time.Sleep(20 * time.Millisecond)
+	rules, access := rev.calls()
+	if len(access) != 1 || rules["default"] != 1 || rules["apps"] != 1 || len(rules) != 2 {
+		t.Errorf("reviews after the failure: rules %v, access %v", rules, access)
+	}
+	rev.set(func(f *fakeReviewer) { f.failRules, f.failAccess = false, false })
+	b.RefreshAccess()
+	if waitAllowed(t, b.Access, "default", listPods) {
+		t.Error("allowed by an empty rule set")
 	}
 }
 

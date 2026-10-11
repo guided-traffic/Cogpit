@@ -281,6 +281,10 @@ to one pair per 200 ms. Which review answers what:
   role names namespaces), and an access review asks.
 - Rules limited to named objects answer nothing (Allowed names no object); wildcard verbs, groups
   and resources and a failed rules review go to an access review.
+- After an access review fails (a server that does not answer them, or forbids them), no more are
+  sent until a refresh: unanswered questions stay unknown, so commands are offered and the API
+  server decides. Measured: one failing rules review and at most the four access reviews in flight
+  (`TestBudgetWithoutAccessReviews`).
 
 Connecting prefetches the default namespace's rules, and a change of the namespace filter its
 namespaces' rules. `kinds.list` reports `listable` per kind for the sidebar, which hides a kind

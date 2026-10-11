@@ -33,8 +33,13 @@ const (
 	verbList = "list"
 )
 
-// errAccessReviewAborted marks a review that ended without an answer (a panic in the reviewer).
-var errAccessReviewAborted = errors.New("the access review ended without an answer")
+// Errors of reviews that ended without an answer.
+var (
+	// errAccessReviewAborted: a panic in the reviewer.
+	errAccessReviewAborted = errors.New("the access review ended without an answer")
+	// errAccessReviewsFailing: another access review failed while this one waited for its turn.
+	errAccessReviewsFailing = errors.New("access reviews are failing; not asked until refreshed")
+)
 
 // accessReviewer runs the access reviews of one connection. *cluster.Conn is one; tests
 // substitute fakes.
@@ -82,6 +87,7 @@ type accessReviews struct {
 	rules    map[string]*rulesReview
 	checks   map[cluster.AccessAttributes]*accessCheck
 	filter   []string      // the namespace filter last seen
+	failing  bool          // an access review failed: ask no more until refreshed (checkLocked)
 	nsHandle *cache.Handle // the namespaces, held once the sidebar needs them (visibleLocked)
 	nsUnsub  func()
 	uiUnsub  func()
@@ -175,6 +181,7 @@ func (a *accessReviews) refresh() []string {
 	}
 	a.rules = map[string]*rulesReview{}
 	a.checks = map[cluster.AccessAttributes]*accessCheck{}
+	a.failing = false
 	h, unsub := a.nsHandle, a.nsUnsub
 	a.nsHandle, a.nsUnsub = nil, nil
 	namespaces := a.prefetchLocked()
@@ -421,9 +428,11 @@ func (a *accessReviews) rulesLocked(ns string) *rulesReview {
 	return r
 }
 
-// checkLocked starts an access review for q unless one ran or runs.
+// checkLocked starts an access review for q unless one ran or runs, or an access review failed
+// (a server that does not answer them, or forbids them): then every question would cost a failing
+// request, so the answer stays unknown until the reviews are refreshed.
 func (a *accessReviews) checkLocked(q cluster.AccessAttributes) {
-	if _, ok := a.checks[q]; ok || a.stopped || a.s == nil {
+	if _, ok := a.checks[q]; ok || a.failing || a.stopped || a.s == nil {
 		return
 	}
 	c := &accessCheck{}
@@ -488,6 +497,13 @@ func (a *accessReviews) reviewAccess(q cluster.AccessAttributes, c *accessCheck)
 		return
 	}
 	defer a.release()
+	a.mu.Lock()
+	failing := a.failing
+	a.mu.Unlock()
+	if failing {
+		err = errAccessReviewsFailing // queued before another failed: do not send it
+		return
+	}
 	ctx, cancel := context.WithTimeout(a.ctx, accessReviewTimeout)
 	defer cancel()
 	allowed, known, err = a.rev.ReviewAccess(ctx, q)
@@ -501,9 +517,11 @@ func (a *accessReviews) finishAccess(q cluster.AccessAttributes, c *accessCheck,
 	}
 	c.done, c.allowed, c.known = true, allowed, known && err == nil
 	s, b := a.s, a.b
+	first := err != nil && !a.failing
+	a.failing = a.failing || err != nil
 	a.mu.Unlock()
-	if err != nil {
-		s.log.Warn("engine: access review failed; the API server decides", "context", b.Context, "review", q.String(), "err", err)
+	if first {
+		s.log.Warn("engine: access review failed; no more until refreshed, the API server decides", "context", b.Context, "review", q.String(), "err", err)
 	}
 	signal(a.wake)
 }

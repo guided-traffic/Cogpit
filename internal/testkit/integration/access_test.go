@@ -183,6 +183,67 @@ func TestBudgetAccessReviews(t *testing.T) {
 	})
 }
 
+// TestBudgetWithoutAccessReviews: a server that answers no access reviews (404) costs one failing
+// rules review and at most a burst of failing access reviews (those in flight when the first
+// fails) for a whole session of sidebar reloads and menus; every kind is shown and every command
+// offered, and the API server decides.
+func TestBudgetWithoutAccessReviews(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	srv := testkit.NewFakeAPIServer(testkit.FakeAPIOptions{})
+	defer srv.Close()
+	srv.Set(testkit.PodsGVR, testkit.Pod("default", "web"))
+	s := engine.New(engine.Options{Connector: &engine.ClusterConnector{KubeconfigPaths: []string{srv.WriteKubeconfig(t, "fake", "")}}})
+	defer s.Close()
+	if err := commands.RegisterAll(s.Registry()); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Connect(ctx, "fake"); err != nil {
+		t.Fatal(err)
+	}
+	conn := s.Backend().Conn
+	ref := model.ObjectRef{Kind: "pods", Namespace: "default", Name: "web"}
+	if !testkit.WaitFor(ctx, func() bool {
+		for _, cmd := range s.Registry().Actions("pods") {
+			_ = cmd.Enabled(s, cmd.ObjectParams(ref, "web"))
+		}
+		_, err := s.Dispatch(ctx, engine.Invocation{ID: "kinds.list", Origin: engine.OriginGUI})
+		_, a := reviews(conn.Counter().Snapshot())
+		return err == nil && a >= 1
+	}) {
+		t.Fatalf("no failing access review: %v", conn.Counter().Snapshot().ByVerbResource)
+	}
+	time.Sleep(100 * time.Millisecond)
+	failed := conn.Counter().Snapshot()
+	for range 5 {
+		res, err := s.Dispatch(ctx, engine.Invocation{ID: "kinds.list", Origin: engine.OriginGUI})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, k := range res.([]commands.KindInfo) {
+			if k.Listable != nil {
+				t.Errorf("%s: listable %v from failing reviews", k.Kind, *k.Listable)
+			}
+		}
+		for _, cmd := range s.Registry().Actions("pods") {
+			if err := cmd.Enabled(s, cmd.ObjectParams(ref, "web")); errors.Is(err, engine.ErrNotPermitted) {
+				t.Errorf("%s greyed by failing reviews: %v", cmd.ID, err)
+			}
+		}
+	}
+	st := conn.Counter().Snapshot()
+	if r, a := reviews(st); r != 1 || a > 4 {
+		t.Errorf("reviews: %d rules, %d access; want 1 and at most the 4 in flight", r, a)
+	}
+	if st.Total != failed.Total {
+		t.Errorf("asking again after the failure cost %d requests: %v", st.Total-failed.Total, diff(failed, st))
+	}
+	if !reviewsAgree(st, srv) {
+		t.Errorf("client counted %v, server served %v", st.ByVerbResource, srv.Requests())
+	}
+	t.Logf("requests: %v", st.ByVerbResource)
+}
+
 // reviewsAgree reports whether the client's counter and the server count the same reviews.
 func reviewsAgree(st cluster.RequestStats, srv *testkit.FakeAPIServer) bool {
 	served := srv.Requests()
