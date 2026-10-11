@@ -479,7 +479,9 @@ data, Secrets included, at rest on the disk.
   connection and keeps them (`Conn.Warnings`: at most 64, and how many arrived). client-go's
   default logged every one, and the API server attaches a deprecation warning to every request
   for a deprecated kind: v1 Endpoints since Kubernetes 1.33 warn on each list, each watch an
-  informer reconnects and each get (`TestConnectHandlesWarnings`).
+  informer reconnects and each get (`TestConnectHandlesWarnings`). Measured on kind 1.36.1
+  (`TestKindStorageAndNetworkViews`): the Endpoints view's streaming list brought one warning, each
+  further list one more, and one line was logged.
 
 ## 7. MCP and the built-in agent
 

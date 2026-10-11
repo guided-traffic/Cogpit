@@ -187,7 +187,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   (`TestClaimPodsColumnFollowsPods`), a node's Pods table as captured, CPU and Memory empty until
   metrics (`TestNodeDrawerPodsFollowPods`, under the demo's churn `TestNodeDrawerUnderDemoChurn`),
   a Service's endpoint slices in its drawer (`TestServiceEndpointSlices`); links to storage
-  classes, volumes, claims and pods.
+  classes, volumes, claims and pods; on kind 1.36.1, a claim provisioned by the default class and
+  mounted by a pod fills the Pods column, its volume, the node's Pods table and the Service's
+  endpoint slices (`TestKindStorageAndNetworkViews`).
 - **Estimate:** 85–260 h (was 120–360; 2–6 h each for the 37 missing views, plus depth).
 
 ### G7. Resource actions
