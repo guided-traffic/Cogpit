@@ -3,9 +3,14 @@ package fyneui
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -31,6 +36,84 @@ func TestNamespaceFilterHiddenOnClusterScopedViews(t *testing.T) {
 	q.until(t, "the pods view", func() bool { return sh.view.snap != nil && sh.view.snap.View == "pods" })
 	if !sh.view.nsBox.Visible() {
 		t.Error("the namespace filter is hidden on Pods")
+	}
+}
+
+func TestItemCount(t *testing.T) {
+	for _, c := range []struct {
+		shown, total int
+		want         string
+	}{
+		{18, 18, "18 items"}, {1, 1, "1 item"}, {0, 0, "0 items"}, {18, 10000, "18 of 10,000 items"}, {0, 1, "0 of 1 item"},
+	} {
+		if got := itemCount(c.shown, c.total); got != c.want {
+			t.Errorf("itemCount(%d, %d) = %q, want %q", c.shown, c.total, got, c.want)
+		}
+	}
+}
+
+// handleExport makes the fake answer table.exportCsv as the engine does, with the engine's writer.
+func handleExport(f *fakeEngine) {
+	f.handlers["table.exportCsv"] = func(context.Context, engine.Invocation) (any, error) {
+		f.mu.Lock()
+		s := f.tables[f.ui.View]
+		f.mu.Unlock()
+		var b strings.Builder
+		if err := engine.WriteCSV(&b, s, fixedNow); err != nil {
+			return nil, err
+		}
+		return map[string]any{"view": s.View, "filename": s.View + "-demo.csv", "rows": len(s.Rows), "csv": b.String()}, nil
+	}
+}
+
+// TestCSVButtonSavesTheView: the download button beside the item count asks the engine for the
+// view as CSV (table.exportCsv) and saves it with a file save dialog, suggesting the file name.
+func TestCSVButtonSavesTheView(t *testing.T) {
+	f := kindsFake(t, "nodes")
+	handleExport(f)
+	sh, w, q := newTestShell(t, f, Options{})
+	q.until(t, "the nodes view", func() bool { return sh.view.snap != nil && sh.view.snap.View == "nodes" })
+	tv := sh.view
+	if !tv.csvButton.Visible() || tv.count.text != "9 items" {
+		t.Fatalf("csv button visible %v, count %q", tv.csvButton.Visible(), tv.count.text)
+	}
+
+	dir := t.TempDir()
+	start, err := storage.ListerForURI(storage.NewFileURI(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var d *dialog.FileDialog
+	sh.saveFile = func(name string, rows int, data []byte) { d = sh.saveWithDialog(name, rows, data, start) }
+	test.Tap(tv.csvButton)
+	q.until(t, "the save dialog", func() bool { return d != nil })
+	if len(f.callsOf("table.exportCsv")) != 1 {
+		t.Fatal("the button did not dispatch table.exportCsv")
+	}
+	var save *widget.Button
+	for _, b := range findAll[*widget.Button](w.Canvas().Overlays().Top()) {
+		if b.Text == "Save" {
+			save = b
+		}
+	}
+	if save == nil {
+		t.Fatal("no Save button in the dialog")
+	}
+	test.Tap(save)
+	q.drain()
+	got, err := os.ReadFile(filepath.Join(dir, "nodes-demo.csv"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want strings.Builder
+	if err := engine.WriteCSV(&want, f.tables["nodes"], fixedNow); err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != want.String() || !strings.HasPrefix(string(got), "Name,Warning,Taints,") {
+		t.Fatalf("saved:\n%s\nwant:\n%s", got, want.String())
+	}
+	if len(sh.toasts.Objects) == 0 {
+		t.Error("no toast after saving")
 	}
 }
 

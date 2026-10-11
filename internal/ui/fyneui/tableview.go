@@ -38,6 +38,7 @@ type tableView struct {
 	sh *shell
 
 	title, count, syncing *textLine
+	csvButton             *widget.Button // beside the count: download the view as CSV (tableheader.go)
 	errLine               *textLine
 	nsButton              *widget.Button
 	nsBox                 *fyne.Container // the namespace filter's slot; hidden on cluster-scoped views
@@ -114,7 +115,10 @@ func newTableView(sh *shell) *tableView {
 	tv.placeholder = container.NewCenter(container.NewVBox(
 		container.NewCenter(tv.placeholderText), container.NewCenter(tv.connectButton)))
 
-	heading := container.NewHBox(tv.title, tv.count, tv.syncing)
+	tv.csvButton = widget.NewButtonWithIcon("", theme.DownloadIcon(), tv.exportCSV)
+	tv.csvButton.Importance = widget.LowImportance
+	tv.csvButton.Hide()
+	heading := container.NewHBox(tv.title, tv.count, tv.csvButton, tv.syncing)
 	tv.nsBox = sized(sizeFilterWidth, "", tv.nsButton)
 	tools := container.NewHBox(
 		tv.nsBox,
@@ -155,14 +159,11 @@ func (tv *tableView) updateTitle() {
 	if tv.snap == nil {
 		tv.count.SetText("")
 		tv.syncing.SetText("")
+		tv.csvButton.Hide()
 		return
 	}
-	n := int64(len(tv.snap.Rows))
-	text := "· " + formatCount(n)
-	if int64(tv.snap.Total) != n {
-		text += " of " + formatCount(int64(tv.snap.Total))
-	}
-	tv.count.SetText(text)
+	tv.count.SetText(itemCount(len(tv.snap.Rows), tv.snap.Total))
+	tv.csvButton.Show()
 	if tv.snap.Synced {
 		tv.syncing.SetText("")
 	} else {

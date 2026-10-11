@@ -1,10 +1,84 @@
 package fyneui
 
 import (
+	"errors"
+	"fmt"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 )
+
+// itemCount is the header's count of a view's rows: "18 items" as captured (2026-10-11); with a
+// filter that hides some, "18 of 10,000 items" (Cogpit's).
+func itemCount(shown, total int) string {
+	noun := " items"
+	if total == 1 {
+		noun = " item"
+	}
+	if shown != total {
+		return formatCount(int64(shown)) + " of " + formatCount(int64(total)) + noun
+	}
+	return formatCount(int64(shown)) + noun
+}
+
+// csvExport is what table.exportCsv returns.
+type csvExport struct {
+	Filename string `json:"filename"`
+	Rows     int    `json:"rows"`
+	CSV      string `json:"csv"`
+}
+
+// exportCSV is the download button beside the item count: the engine writes the open view as CSV
+// (table.exportCsv, so agents export the same text), and a file save dialog stores it.
+func (tv *tableView) exportCSV() {
+	tv.sh.dispatch("table.exportCsv", struct{}{}, func(res any, err error) {
+		if err != nil {
+			tv.sh.showError(err)
+			return
+		}
+		var out csvExport
+		if derr := decode(res, &out); derr != nil {
+			tv.sh.toast("error", "Unexpected table.exportCsv result: "+derr.Error())
+			return
+		}
+		tv.sh.saveFile(out.Filename, out.Rows, []byte(out.CSV))
+	})
+}
+
+// saveWithDialog asks where to save data, suggesting name, and writes it there; it is the shell's
+// saveFile. start, if set, is the folder the dialog opens in.
+func (sh *shell) saveWithDialog(name string, rows int, data []byte, start fyne.ListableURI) *dialog.FileDialog {
+	d := dialog.NewFileSave(func(w fyne.URIWriteCloser, err error) {
+		if err == nil && w == nil {
+			return // cancelled
+		}
+		if err == nil {
+			err = writeAndClose(w, data)
+		}
+		if err != nil {
+			sh.toast("error", "Could not save the table: "+err.Error())
+			return
+		}
+		sh.toast("info", fmt.Sprintf("Saved %s to %s", itemCount(rows, rows), w.URI().Name()))
+	}, sh.win)
+	d.SetFileName(name)
+	d.SetFilter(storage.NewExtensionFileFilter([]string{".csv"}))
+	if start != nil {
+		d.SetLocation(start)
+	}
+	d.Show()
+	return d
+}
+
+// writeAndClose writes data and closes w; a failing close (the file system did not take the
+// last bytes) is an error too.
+func writeAndClose(w fyne.URIWriteCloser, data []byte) error {
+	_, err := w.Write(data)
+	return errors.Join(err, w.Close())
+}
 
 // The column list behind the ⋮ at the end of the header row (ui-parity › Tables): one check per
 // column of the view, checked when the column shows. Hidden columns are engine state

@@ -47,6 +47,8 @@ type shell struct {
 	opts Options
 	do   func(func()) // runs a function on the main goroutine: fyne.Do, a queue in tests
 	now  func() time.Time
+	// saveFile asks where to save a file and writes it (a file save dialog; tests record it).
+	saveFile func(name string, rows int, data []byte)
 
 	ctx    context.Context // ends when the window closes; bounds every dispatch
 	cancel context.CancelFunc
@@ -98,6 +100,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh := &shell{eng: eng, app: a, win: w, opts: opts, do: do, now: time.Now, stopTickers: make(chan struct{})}
 	sh.sess, _ = eng.(*engine.Session)
 	sh.ctx, sh.cancel = context.WithCancel(context.Background())
+	sh.saveFile = func(name string, rows int, data []byte) { sh.saveWithDialog(name, rows, data, nil) }
 
 	sh.top = newTopBar(sh)
 	sh.side = newSidebar(sh)
