@@ -44,7 +44,7 @@ func TestKindIdleViewsCostNoLists(t *testing.T) {
 	}
 	t.Logf("discovery: %d resources that support list and watch", len(served))
 
-	c := cache.New(cache.DynamicSource(conn.Dynamic()), cache.Options{})
+	c := cache.New(cache.DynamicSource(conn.Dynamic(), conn.Metadata()), cache.Options{})
 	defer c.Close()
 	pods := c.Acquire(cache.Scope{GVR: testkit.PodsGVR})
 	services := c.Acquire(cache.Scope{GVR: testkit.ServicesGVR})

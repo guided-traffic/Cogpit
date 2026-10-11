@@ -22,6 +22,15 @@ func ByKey(key string) (*model.KindProfile, bool) {
 	return nil, false
 }
 
+// Local returns the profiles of the local kinds, the objects Cogpit makes itself (port forwards):
+// every real cluster's backend offers them, whatever its discovery says.
+func Local() []*model.KindProfile {
+	return local
+}
+
+// local lists the local kinds' profiles. Each profile lives in its own file.
+var local = []*model.KindProfile{}
+
 // builtin lists the profiles in sidebar order. Each profile lives in its own file.
 var builtin = []*model.KindProfile{
 	nodes,

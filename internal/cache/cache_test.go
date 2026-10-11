@@ -150,8 +150,8 @@ type flakySource struct {
 	failLists atomic.Int64
 }
 
-func (f *flakySource) ListerWatcher(gvr schema.GroupVersionResource, namespace string) toolscache.ListerWatcher {
-	return &flakyLW{f: f, inner: f.MemorySource.ListerWatcher(gvr, namespace)}
+func (f *flakySource) ListerWatcher(scope cache.Scope) toolscache.ListerWatcher {
+	return &flakyLW{f: f, inner: f.MemorySource.ListerWatcher(scope)}
 }
 
 type flakyLW struct {
@@ -201,7 +201,7 @@ func TestErrorStateSetThenClearedWithoutEvents(t *testing.T) {
 // panicSource panics where the cache calls into it.
 type panicSource struct{ inLW bool }
 
-func (p panicSource) ListerWatcher(schema.GroupVersionResource, string) toolscache.ListerWatcher {
+func (p panicSource) ListerWatcher(cache.Scope) toolscache.ListerWatcher {
 	if p.inLW {
 		panic("source bug")
 	}
@@ -362,7 +362,7 @@ func TestDynamicSourceWithFakeClient(t *testing.T) {
 		testkit.Pod("a", "p1"), testkit.Pod("b", "p2"),
 		testkit.Object("v1", "Namespace", "", "a", nil),
 	)
-	c := cache.New(cache.DynamicSource(client), cache.Options{})
+	c := cache.New(cache.DynamicSource(client, nil), cache.Options{})
 	defer c.Close()
 	ctx := testContext(t)
 

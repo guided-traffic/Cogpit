@@ -6,23 +6,23 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	toolscache "k8s.io/client-go/tools/cache"
+
+	"github.com/guided-traffic/cogpit/internal/cache"
 )
 
 // RefusingSource wraps a cache.Source and refuses to list and watch some resources with an error,
 // as the API server refuses a user without the permission.
 type RefusingSource struct {
-	Inner interface {
-		ListerWatcher(gvr schema.GroupVersionResource, namespace string) toolscache.ListerWatcher
-	}
+	Inner  cache.Source
 	Refuse map[schema.GroupVersionResource]error
 }
 
 // ListerWatcher implements cache.Source.
-func (r RefusingSource) ListerWatcher(gvr schema.GroupVersionResource, namespace string) toolscache.ListerWatcher {
-	if err, ok := r.Refuse[gvr]; ok {
+func (r RefusingSource) ListerWatcher(scope cache.Scope) toolscache.ListerWatcher {
+	if err, ok := r.Refuse[scope.GVR]; ok {
 		return refusingLW{err: err}
 	}
-	return r.Inner.ListerWatcher(gvr, namespace)
+	return r.Inner.ListerWatcher(scope)
 }
 
 type refusingLW struct{ err error }

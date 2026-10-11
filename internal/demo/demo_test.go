@@ -131,7 +131,7 @@ func TestChurnReachesTheInformers(t *testing.T) {
 
 	// The informers' stores match a fresh list of the cluster.
 	for _, h := range inf.handles {
-		lw := toolscache.ToListerWatcherWithContext(d.Source().ListerWatcher(h.Scope().GVR, ""))
+		lw := toolscache.ToListerWatcherWithContext(d.Source().ListerWatcher(cache.Scope{GVR: h.Scope().GVR}))
 		obj, err := lw.ListWithContext(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			t.Fatal(err)

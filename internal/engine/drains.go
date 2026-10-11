@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
@@ -133,7 +132,7 @@ func (d *Drains) dropMissingNodes(s *Session, ctxName string, pending []PendingD
 	if !ok {
 		return pending
 	}
-	h := b.Cache.Acquire(cache.Scope{GVR: p.GVR()})
+	h := b.Acquire(p)
 	defer h.Release()
 	deadline := time.Now().Add(offerWait)
 	for !h.HasSynced() {

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 )
@@ -74,11 +75,11 @@ type FakeAPIServer struct {
 }
 
 type apiWatcher struct {
-	gvr       schema.GroupVersionResource
-	namespace string
-	ch        chan memEvent
-	overflow  chan struct{}
-	once      sync.Once
+	gvr      schema.GroupVersionResource
+	req      fakeRequest // namespace and label selection; label changes are not turned into adds and deletes
+	ch       chan memEvent
+	overflow chan struct{}
+	once     sync.Once
 }
 
 // NewFakeAPIServer starts a server; Close stops it.
@@ -161,7 +162,7 @@ func (s *FakeAPIServer) Delete(gvr schema.GroupVersionResource, namespace, name 
 func (s *FakeAPIServer) publish(gvr schema.GroupVersionResource, ev memEvent) {
 	s.history[gvr] = append(s.history[gvr], ev)
 	for w := range s.watchers {
-		if w.gvr != gvr || (w.namespace != "" && ev.obj.GetNamespace() != w.namespace) {
+		if w.gvr != gvr || !w.req.matches(ev.obj) {
 			continue
 		}
 		select {
@@ -244,6 +245,28 @@ type fakeRequest struct {
 	namespace string
 	name      string
 	sub       string
+	selector  labels.Selector // from ?labelSelector=; nil selects everything
+	metadata  bool            // the client asked for PartialObjectMetadata (Accept: ...;as=PartialObjectMetadata...)
+}
+
+// matches reports whether an object is in the request's selection (namespace and labels).
+func (req fakeRequest) matches(o *unstructured.Unstructured) bool {
+	if req.namespace != "" && o.GetNamespace() != req.namespace {
+		return false
+	}
+	return req.selector == nil || req.selector.Matches(labels.Set(o.GetLabels()))
+}
+
+// render returns an object as the request receives it: in full, or as PartialObjectMetadata.
+func (req fakeRequest) render(o *unstructured.Unstructured) map[string]any {
+	if !req.metadata {
+		return o.DeepCopy().Object
+	}
+	out := map[string]any{"apiVersion": "meta.k8s.io/v1", "kind": "PartialObjectMetadata"}
+	if md, ok := o.DeepCopy().Object["metadata"]; ok {
+		out["metadata"] = md
+	}
+	return out
 }
 
 func (s *FakeAPIServer) serveHTTP(w http.ResponseWriter, r *http.Request) {
@@ -416,6 +439,20 @@ func (s *FakeAPIServer) serveResource(w http.ResponseWriter, r *http.Request, pa
 		resource += "." + req.res.GVR.Group
 	}
 	q := r.URL.Query()
+	if sel := q.Get("labelSelector"); sel != "" {
+		parsed, err := labels.Parse(sel)
+		if err != nil {
+			s.count("other", resource)
+			writeStatus(w, http.StatusBadRequest, "BadRequest", "invalid label selector: "+err.Error())
+			return
+		}
+		req.selector = parsed
+		resource += " with " + parsed.String()
+	}
+	if strings.Contains(r.Header.Get("Accept"), "as=PartialObjectMetadata") {
+		req.metadata = true
+		resource += " (metadata)"
+	}
 	watching := q.Get("watch") == "true" || q.Get("watch") == "1"
 	initial := q.Get("sendInitialEvents") == "true"
 	switch {
@@ -449,7 +486,7 @@ func (s *FakeAPIServer) serveGet(w http.ResponseWriter, req fakeRequest) {
 		writeStatus(w, http.StatusNotFound, "NotFound", fmt.Sprintf("%s %q not found", req.res.GVR.Resource, req.name))
 		return
 	}
-	writeJSON(w, http.StatusOK, obj.Object)
+	writeJSON(w, http.StatusOK, req.render(obj))
 }
 
 // snapshot returns the objects of req's scope, sorted by key, and the current resourceVersion.
@@ -458,7 +495,7 @@ func (s *FakeAPIServer) snapshot(req fakeRequest) ([]*unstructured.Unstructured,
 	byKey := s.objs[req.res.GVR]
 	keys := make([]string, 0, len(byKey))
 	for k, o := range byKey {
-		if req.namespace == "" || o.GetNamespace() == req.namespace {
+		if req.matches(o) {
 			keys = append(keys, k)
 		}
 	}
@@ -475,12 +512,15 @@ func (s *FakeAPIServer) serveList(w http.ResponseWriter, req fakeRequest) {
 	objs, rv := s.snapshot(req)
 	items := make([]any, 0, len(objs))
 	for _, o := range objs {
-		items = append(items, o.DeepCopy().Object)
+		items = append(items, req.render(o))
 	}
 	s.mu.Unlock()
-	apiVersion := req.res.GVR.GroupVersion().String()
+	apiVersion, kind := req.res.GVR.GroupVersion().String(), req.res.Kind+"List"
+	if req.metadata {
+		apiVersion, kind = "meta.k8s.io/v1", "PartialObjectMetadataList"
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"apiVersion": apiVersion, "kind": req.res.Kind + "List",
+		"apiVersion": apiVersion, "kind": kind,
 		"metadata": map[string]any{"resourceVersion": strconv.FormatInt(rv, 10)},
 		"items":    items,
 	})
@@ -501,18 +541,22 @@ func (s *FakeAPIServer) serveWatch(w http.ResponseWriter, r *http.Request, req f
 	}
 	fromRV := r.URL.Query().Get("resourceVersion")
 
-	wt := &apiWatcher{gvr: req.res.GVR, namespace: req.namespace, ch: make(chan memEvent, 4096), overflow: make(chan struct{})}
+	wt := &apiWatcher{gvr: req.res.GVR, req: req, ch: make(chan memEvent, 4096), overflow: make(chan struct{})}
 	var first []map[string]any
 	s.mu.Lock()
 	if initial || fromRV == "" || fromRV == "0" {
 		// Synthetic ADDED events for the current state, as a real server sends them.
 		objs, rv := s.snapshot(req)
 		for _, o := range objs {
-			first = append(first, map[string]any{"type": string(watch.Added), "object": o.DeepCopy().Object})
+			first = append(first, map[string]any{"type": string(watch.Added), "object": req.render(o)})
 		}
 		if initial {
+			bmAPIVersion, bmKind := req.res.GVR.GroupVersion().String(), req.res.Kind
+			if req.metadata {
+				bmAPIVersion, bmKind = "meta.k8s.io/v1", "PartialObjectMetadata"
+			}
 			first = append(first, map[string]any{"type": string(watch.Bookmark), "object": map[string]any{
-				"apiVersion": req.res.GVR.GroupVersion().String(), "kind": req.res.Kind,
+				"apiVersion": bmAPIVersion, "kind": bmKind,
 				"metadata": map[string]any{
 					"resourceVersion": strconv.FormatInt(rv, 10),
 					"annotations":     map[string]any{"k8s.io/initial-events-end": "true"},
@@ -522,8 +566,8 @@ func (s *FakeAPIServer) serveWatch(w http.ResponseWriter, r *http.Request, req f
 	} else {
 		from, _ := strconv.ParseInt(fromRV, 10, 64)
 		for _, ev := range s.history[req.res.GVR] {
-			if ev.rv > from && (req.namespace == "" || ev.obj.GetNamespace() == req.namespace) {
-				first = append(first, map[string]any{"type": string(ev.typ), "object": ev.obj.DeepCopy().Object})
+			if ev.rv > from && req.matches(ev.obj) {
+				first = append(first, map[string]any{"type": string(ev.typ), "object": req.render(ev.obj)})
 			}
 		}
 	}
@@ -550,7 +594,7 @@ func (s *FakeAPIServer) serveWatch(w http.ResponseWriter, r *http.Request, req f
 	for {
 		select {
 		case ev := <-wt.ch:
-			if enc.Encode(map[string]any{"type": string(ev.typ), "object": ev.obj.DeepCopy().Object}) != nil {
+			if enc.Encode(map[string]any{"type": string(ev.typ), "object": req.render(ev.obj)}) != nil {
 				return
 			}
 			flusher.Flush()

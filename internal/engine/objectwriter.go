@@ -58,6 +58,9 @@ type ObjectTarget struct {
 	APIVersion string                      `json:"apiVersion"` // "apps/v1"
 	Kind       string                      `json:"kind"`       // the Kubernetes kind, "Deployment"
 	Namespaced bool                        `json:"namespaced"`
+
+	// profile is the kind's profile when it has one: reads go through its scope (and Derive).
+	profile *model.KindProfile
 }
 
 // mappingTimeout bounds a discovery lookup made to resolve a kind without a profile.
@@ -81,7 +84,7 @@ func (s *Session) ResolveTarget(ctx context.Context, ref model.ObjectRef) (Objec
 			return ObjectTarget{}, nil, fmt.Errorf("%w: the connected cluster changed", ErrWrongCluster)
 		}
 		gv := schema.GroupVersion{Group: p.Group, Version: p.Version}
-		return ObjectTarget{Ref: r, GVR: p.GVR(), APIVersion: gv.String(), Kind: p.Kind, Namespaced: p.Namespaced}, b, nil
+		return ObjectTarget{Ref: r, GVR: p.GVR(), APIVersion: gv.String(), Kind: p.Kind, Namespaced: p.Namespaced, profile: p}, b, nil
 	}
 	if ref.Context != "" && ref.Context != b.Context {
 		return ObjectTarget{}, nil, fmt.Errorf("%w: %s is in context %q, connected is %q", ErrWrongCluster, ref.String(), ref.Context, b.Context)
@@ -188,23 +191,32 @@ func ActUID(ctx context.Context, ref model.ObjectRef, cached func() (string, boo
 // the call and waiting for the initial list like Session.Object. The object is shared and must not
 // be modified.
 func cachedObject(ctx context.Context, b *Backend, t ObjectTarget) (*unstructured.Unstructured, error) {
-	h := b.Cache.Acquire(cache.Scope{GVR: t.GVR})
+	h, p := t.acquire(b)
 	defer h.Release()
 	if err := waitSynced(ctx, h, t.Ref.Kind); err != nil {
 		return nil, err
 	}
-	obj, ok := h.Get(t.Ref.Namespace, t.Ref.Name)
+	obj, ok := KindGet(h, p, t.Ref.Namespace, t.Ref.Name)
 	if !ok {
 		return nil, fmt.Errorf("%s: %w", t.Ref.String(), ErrNotFound)
 	}
 	return obj, nil
 }
 
+// acquire returns a handle on the target's kind through its profile's scope, or on its GVR for a
+// kind without a profile, and the profile to read it with (a plain one for the latter).
+func (t ObjectTarget) acquire(b *Backend) (*cache.Handle, *model.KindProfile) {
+	if t.profile != nil {
+		return b.Acquire(t.profile), t.profile
+	}
+	return b.Cache.Acquire(cache.Scope{GVR: t.GVR}), &model.KindProfile{Key: t.Ref.Kind, Namespaced: t.Namespaced}
+}
+
 // waitForNewer waits, bounded by timeout, until the cache holds the target's object in another
 // version than rv (or holds none), and returns what it holds then: after a 409 Conflict the
 // watch event with the newer version may still be on its way.
 func waitForNewer(ctx context.Context, b *Backend, t ObjectTarget, rv string, timeout time.Duration) (*unstructured.Unstructured, bool) {
-	h := b.Cache.Acquire(cache.Scope{GVR: t.GVR})
+	h, p := t.acquire(b)
 	defer h.Release()
 	wake := make(chan struct{}, 1)
 	cancel := h.Subscribe(func(ev cache.Event) {
@@ -219,7 +231,7 @@ func waitForNewer(ctx context.Context, b *Backend, t ObjectTarget, rv string, ti
 		return nil, false
 	}
 	for {
-		obj, ok := h.Get(t.Ref.Namespace, t.Ref.Name)
+		obj, ok := KindGet(h, p, t.Ref.Namespace, t.Ref.Name)
 		if !ok {
 			return nil, true
 		}

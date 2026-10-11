@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/flowcontrol"
@@ -177,6 +178,7 @@ type Conn struct {
 	httpClient  *http.Client
 	kube        kubernetes.Interface
 	dyn         dynamic.Interface
+	meta        metadata.Interface
 	disco       discovery.DiscoveryInterface
 	counter     *RequestCounter
 
@@ -262,6 +264,12 @@ func Connect(ctx context.Context, opts Options) (*Conn, error) {
 	if err != nil {
 		return nil, &ConnectError{Context: name, Problem: "cannot build the client: " + kubeconfig.SafeError(err).Error(), Err: err}
 	}
+	// The metadata client serves metadata-only informers (Secrets, H-8): it asks the server for
+	// PartialObjectMetadata, so object content never crosses the wire.
+	meta, err := metadata.NewForConfigAndClient(cfg, httpClient)
+	if err != nil {
+		return nil, &ConnectError{Context: name, Problem: "cannot build the client: " + kubeconfig.SafeError(err).Error(), Err: err}
+	}
 	// Discovery gets its own, larger budget, as kubectl gives it: a cluster without aggregated
 	// discovery answers with one request per group version (and client-go repeats the round once
 	// when a group fails), which at 5 per second would take many seconds.
@@ -282,6 +290,7 @@ func Connect(ctx context.Context, opts Options) (*Conn, error) {
 		httpClient:  httpClient,
 		kube:        kube,
 		dyn:         dyn,
+		meta:        meta,
 		disco:       disco,
 		counter:     counter,
 	}
@@ -379,6 +388,9 @@ func (c *Conn) Kube() kubernetes.Interface { return c.kube }
 
 // Dynamic returns the dynamic client the cache builds its informers from.
 func (c *Conn) Dynamic() dynamic.Interface { return c.dyn }
+
+// Metadata returns the metadata client the cache builds its metadata-only informers from.
+func (c *Conn) Metadata() metadata.Interface { return c.meta }
 
 // Counter returns the connection's API request counter.
 func (c *Conn) Counter() *RequestCounter { return c.counter }

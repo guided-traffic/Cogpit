@@ -190,8 +190,7 @@ func listResources(ctx context.Context, s *engine.Session, p listParams) (any, e
 		return nil, err
 	}
 	rows := make([]model.Row, 0, len(objs))
-	for _, o := range objs {
-		r := model.BuildRow(prof, b.Context, o)
+	for _, r := range s.BuildRows(ctx, b, prof, objs) {
 		if model.MatchesFilter(r, p.Filter) {
 			rows = append(rows, r)
 		}

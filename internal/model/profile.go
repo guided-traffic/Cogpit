@@ -36,7 +36,49 @@ type KindProfile struct {
 	// Detail returns the kind's own drawer sections (containers, conditions, ports). The engine
 	// adds the generic metadata section, the events and the YAML itself.
 	Detail func(obj *unstructured.Unstructured) []DetailSection
+
+	// What the cache holds for the kind (architecture §5). The engine builds every cache scope of
+	// the kind from these, so a view, the drawer, Lookup and agents' reads share one informer.
+
+	// MetadataOnly makes the cache hold only the objects' metadata: the objects Cells and Detail
+	// see have apiVersion meta.k8s.io/v1, kind PartialObjectMetadata and metadata, nothing else
+	// (Secrets, H-8). Data the cache does not hold comes from a direct read the drawer makes.
+	MetadataOnly bool
+	// LabelSelector narrows the kind's watch on the server: "owner=helm".
+	LabelSelector string
+
+	// Derive makes the kind virtual: its objects are not the cached objects of GVR (with
+	// LabelSelector and MetadataOnly) but what Derive makes of them: Helm releases, one per release,
+	// from their release Secrets. It gets every cached object of the scope (or of one namespace) and
+	// returns the kind's objects, each with a name, a namespace if Namespaced, and a UID and
+	// resourceVersion that change when the object does (the row cache keys on them). It must be
+	// pure, must not modify its input, and must tolerate any content without panicking; the engine
+	// calls it on every snapshot, so it memoizes expensive work itself. Commands that write API
+	// objects (object.edit, object.delete) do not apply to virtual kinds.
+	Derive func(objs []*unstructured.Unstructured) []*unstructured.Unstructured
+	// Local marks a kind whose objects Cogpit makes itself, served from the backend's local store
+	// and never from the API server: the port forwards. Group and Version name Cogpit's own API
+	// (LocalGroup, "v1"). Commands that write API objects do not apply to local kinds.
+	Local bool
+
+	// Needs are the indexes over other kinds' cached objects that CellsWith and DetailWith read
+	// (a PVC's pods, a node's pods). While a view or the drawer of this kind is open, the engine
+	// holds a cache handle on each index's kind and rebuilds the rows when those objects change.
+	Needs []RelatedIndex
+	// CellsWith replaces Cells when set: the same, with the related objects of Needs. rel is never
+	// nil; its lookups return nothing while an index's kind is still listing or not served.
+	CellsWith func(obj *unstructured.Unstructured, rel Related) ([]Cell, Status)
+	// DetailWith replaces Detail when set: the same, with the related objects of Needs.
+	DetailWith func(obj *unstructured.Unstructured, rel Related) []DetailSection
 }
+
+// LocalGroup is the API group of the local kinds, the objects Cogpit makes itself (port forwards).
+// No Kubernetes API server serves it.
+const LocalGroup = "cogpit.io"
+
+// APIObject reports whether the kind's objects are objects of the cluster's API that commands may
+// write: false for virtual (Derive) and local kinds.
+func (p *KindProfile) APIObject() bool { return p.Derive == nil && !p.Local }
 
 // GVR returns the profile's group, version and resource.
 func (p *KindProfile) GVR() schema.GroupVersionResource {
@@ -64,8 +106,14 @@ func (p *KindProfile) FieldNames() []string {
 }
 
 // BuildRow turns an object into a table row for the given kubeconfig context. It never panics:
-// a profile whose Cells function panics yields a row with the name and an unknown status.
+// a profile whose Cells function panics yields a row with the name and an unknown status. A
+// profile with CellsWith sees no related objects; the engine's views use BuildRowWith.
 func BuildRow(p *KindProfile, context string, obj *unstructured.Unstructured) (row Row) {
+	return BuildRowWith(p, context, obj, nil)
+}
+
+// BuildRowWith is BuildRow with the related objects of the profile's Needs; nil means none.
+func BuildRowWith(p *KindProfile, context string, obj *unstructured.Unstructured, rel Related) (row Row) {
 	row = Row{
 		Ref: ObjectRef{
 			Context:   context,
@@ -85,14 +133,18 @@ func BuildRow(p *KindProfile, context string, obj *unstructured.Unstructured) (r
 			row.Cells, row.Status = cells, StatusUnknown
 		}
 	}()
-	if p.Cells == nil {
+	switch {
+	case p.CellsWith != nil:
+		row.Cells, row.Status = p.CellsWith(obj, relatedOrNone(rel))
+	case p.Cells != nil:
+		row.Cells, row.Status = p.Cells(obj)
+	default:
 		row.Cells = make([]Cell, len(p.Columns))
 		if len(row.Cells) > 0 {
 			row.Cells[0] = Cell{Text: obj.GetName()}
 		}
 		return row
 	}
-	row.Cells, row.Status = p.Cells(obj)
 	if len(row.Cells) != len(p.Columns) {
 		fixed := make([]Cell, len(p.Columns))
 		copy(fixed, row.Cells)

@@ -97,12 +97,12 @@ func (s *Session) Objects(ctx context.Context, kind string, namespaces []string)
 	if err != nil {
 		return nil, err
 	}
-	h := b.Cache.Acquire(cache.Scope{GVR: p.GVR()})
+	h := b.Acquire(p)
 	defer h.Release()
 	if err := waitSynced(ctx, h, kind); err != nil {
 		return nil, err
 	}
-	objs := h.List()
+	objs := KindList(h, p)
 	if !p.Namespaced || len(namespaces) == 0 {
 		return objs, nil
 	}
@@ -122,12 +122,12 @@ func (s *Session) Object(ctx context.Context, ref model.ObjectRef) (*unstructure
 	if err != nil {
 		return nil, err
 	}
-	h := b.Cache.Acquire(cache.Scope{GVR: p.GVR()})
+	h := b.Acquire(p)
 	defer h.Release()
 	if err := waitSynced(ctx, h, p.Key); err != nil {
 		return nil, err
 	}
-	obj, ok := h.Get(ref.Namespace, ref.Name)
+	obj, ok := KindGet(h, p, ref.Namespace, ref.Name)
 	if !ok {
 		return nil, fmt.Errorf("%s: %w", ref.String(), ErrNotFound)
 	}
@@ -141,12 +141,12 @@ func (s *Session) Lookup(ref model.ObjectRef) (*unstructured.Unstructured, error
 	if err != nil {
 		return nil, err
 	}
-	h := b.Cache.Acquire(cache.Scope{GVR: p.GVR()})
+	h := b.Acquire(p)
 	defer h.Release()
 	if !h.HasSynced() {
 		return nil, fmt.Errorf("%w %s yet", ErrNotSynced, p.Key)
 	}
-	obj, ok := h.Get(ref.Namespace, ref.Name)
+	obj, ok := KindGet(h, p, ref.Namespace, ref.Name)
 	if !ok {
 		return nil, fmt.Errorf("%s: %w", ref.String(), ErrNotFound)
 	}

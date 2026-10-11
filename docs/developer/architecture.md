@@ -34,6 +34,14 @@ Decided on 2026-10-11 for the next implementation run: the kind key of custom re
 column ([§4.4](#44-tables-details-editors-and-streams)), and the command fields `Order`,
 `Escalate`, `Prefill` and `ErrNotApplicable` ([§4.2](#42-the-command-registry)).
 
+Decided and built on 2026-10-11 for the third implementation run (its Phase 0, before the parallel
+work): cache scopes with a label selector and a metadata-only flag, taken from the kind's profile,
+and the local and virtual kinds ([§5 › Scopes](#scopes-local-and-virtual-kinds)); the
+related-objects index ([§4.4](#44-tables-details-editors-and-streams)); how access reviews reach
+`Command.Enabled` ([§4.2](#42-the-command-registry)); `helm.sh/helm/v4` v4.3.0 in `go.mod` with
+a first `internal/helm` (release decoding, the SDK's action configuration on the connection's own
+client configuration).
+
 ---
 
 # Design plan (2026-10-11)
@@ -237,6 +245,19 @@ leaves the optional ones to `Prefill`, so that `Enabled`, `Applicable` and `Pref
 before the dialog has the real ones. The UI
 evaluates them off its main goroutine.
 
+**Access reviews in `Enabled`** (decided 2026-10-11, [`access.go`](../../internal/engine/access.go)).
+The connector sets `Backend.Access`, an `engine.Access` that answers `Allowed(namespace, verb)` from
+the access reviews cached per context and namespace, without blocking and without a request (an
+answer it does not hold yet is `known == false`, and may start a review in the background). The
+registry asks it before a command's own `Enabled`, for every `Verb` the command declares, whenever
+the command's parameters name an object in a `ref` field: a verb on `*` is resolved to the ref's
+kind (its group and resource; the namespace dropped for cluster-scoped kinds), a namespaced verb is
+asked in the ref's namespace. A known denial makes `Enabled` return an error wrapping
+`ErrNotPermitted` ("not permitted: you may not patch deployments.apps in team-a"), so every menu
+greys the command with that reason and `Dispatch` refuses it for every origin; menus only read
+`Enabled`. An unknown answer, a kind without a profile, a local kind, and a command without a
+`ref` pass: the API server decides. Nil `Access` allows everything.
+
 Every command is also an MCP tool, generated from the registry (`ui.navigate` → `ui_navigate`).
 Nothing is exposed to agents that the registry does not describe.
 
@@ -282,6 +303,19 @@ by "this pod".
   shows the icon in that status's colour with its text as the tooltip; an empty cell shows nothing.
   A cell with `parts` is drawn in coloured runs ("SchedulingDisabled" plain, "Ready" green on a
   cordoned node); its text stays the runs joined by spaces, for sorting and search.
+- **Related objects** (decided 2026-10-11, [`model/related.go`](../../internal/model/related.go),
+  [`engine/related.go`](../../internal/engine/related.go)): a cell or drawer section that shows
+  objects of another kind (a PVC's Pods column, a node drawer's Pods table) reads them through an
+  index over that kind's cached objects, never through its own list. Indexes are declared once in
+  [`kinds/related.go`](../../internal/model/kinds/related.go) as a `model.RelatedIndex` (the
+  indexed kind, a name, and the keys an object is found under: `PodsByNode`, `PodsByClaim`); a
+  profile names the ones it reads in `Needs` and reads them in `CellsWith` and `DetailWith`
+  (which replace `Cells` and `Detail`) through `rel.Objects(index, key)`. While a view or drawer of
+  the kind is open, the engine holds a cache handle on each index's kind (shared with every other
+  consumer), rebuilds the view's rows when those objects change (the row cache keys on the related
+  objects' generation as well as the resourceVersion), and builds each index at most once per
+  snapshot. A lookup on a kind that is still listing or not served returns nothing. Rows built
+  outside a view (`resources.list`) use `Session.BuildRows`.
 
 ### 4.5 Kind keys
 
@@ -359,6 +393,39 @@ the diagnostics view shows them, and tests assert the budgets P9–P11 in
 `resources_find` and every other read are served from the cache. A direct `GET` happens only for
 data the cache does not hold (subresources, a kind nobody watches), and its result does not bypass
 the cache's view of the world.
+
+### Scopes, local and virtual kinds
+
+Decided and built on 2026-10-11 ([`cache.Scope`](../../internal/cache/cache.go),
+[`engine/kindscope.go`](../../internal/engine/kindscope.go)). A scope is a resource, a namespace
+(empty: all), a **label selector** and a **metadata-only** flag; each distinct scope is one informer
+and one watch, and `Acquire` normalises the selector, so `a=1,b=2` and `b=2,a=1` share one. Every
+`Source` honours the whole scope: the real cluster's source (`DynamicSource` over the dynamic and
+the metadata client) sends the selector to the server and asks for `PartialObjectMetadata` for a
+metadata-only scope, so object content never crosses the wire; in-memory sources apply
+`cache.FilterScope` or `cache.FilterListerWatcher`. A metadata-only object reaches a kind profile
+as an `unstructured.Unstructured` with apiVersion `meta.k8s.io/v1`, kind `PartialObjectMetadata`
+and the object's `metadata`, nothing else (`cache.MetadataObject`, `cache.IsMetadataObject`).
+
+A kind's profile decides its scope (`MetadataOnly`, `LabelSelector`), and every engine read of a
+kind goes through `Backend.Acquire(profile)` and `KindList`/`KindGet`, never through a scope built
+by hand, so the view, the drawer, `Lookup` and agents' reads of a kind share one informer.
+Measured at the HTTP level: the Secrets of D-13 as metadata (`secrets (metadata)`) and Helm's
+release Secrets (`secrets with owner=helm`) are one initial list or streaming watch each, and no
+full or unselected Secrets request is sent (`TestBudgetSecretScopes`; on kind, `TestKindSecretScopes`).
+
+- **Local kinds** (`KindProfile.Local`, group `cogpit.io`): objects Cogpit makes itself, the port
+  forwards. They live in the backend's local store, a `cache.Memory` with a cache over it, made on
+  first use and closed with the backend; writers call `Backend.PutLocal` and `DeleteLocal`; views,
+  the drawer, row menus and agents read them like cluster objects, and no API server is asked.
+  Every real cluster's backend offers the profiles in `kinds.Local()`.
+- **Virtual kinds** (`KindProfile.Derive`): a kind whose objects are made from the cached objects
+  of its scope, the Helm releases (one per release, from the release Secrets of each revision).
+  `Derive` runs on every snapshot and lookup and memoizes its own expensive work; the derived
+  objects carry a UID and resourceVersion that change with them, which the row cache and the
+  confirmation's UID binding use.
+- `object.edit` and `object.delete` do not apply to local and virtual kinds
+  (`KindProfile.APIObject`); such kinds bring their own commands.
 
 **Custom resource kinds** (2026-10-11, [`customkinds.go`](../../internal/engine/customkinds.go)).
 A real cluster's backend holds one cache handle on `customresourcedefinitions` while it is
@@ -485,7 +552,7 @@ Versions as the Go module proxy listed them; pinned when M0 creates `go.mod`.
 | Kubernetes API | `k8s.io/client-go`, `k8s.io/apimachinery`, `k8s.io/api` | v0.37.1 | Kubernetes 1.37 |
 | kubectl behaviour | `k8s.io/kubectl` | v0.37.1 | drain, rollout, describe |
 | Metrics API | `k8s.io/metrics` | v0.37.1 | |
-| Helm | `helm.sh/helm/v4` | v4.3.0 | in-process ([D-3](decisions.md#d-3-helm-and-kubectl-binaries)) |
+| Helm | `helm.sh/helm/v4` | v4.3.0 | in-process ([D-3](decisions.md#d-3-helm-and-kubectl-binaries)); in `go.mod` since 2026-10-11, built against k8s.io v0.37.0 and resolved to v0.37.1 with the rest (it also brings `k8s.io/apiserver`, `apiextensions-apiserver` v0.37.1, `controller-runtime` v0.24.1 and `oras-go` as indirect dependencies) |
 | MCP | `github.com/modelcontextprotocol/go-sdk` | v1.8.0 | MCP specification 2026-07-28 |
 | LLM client | `github.com/openai/openai-go/v3` | v3.76.0 | OpenAI-compatible endpoints |
 | Updates (macOS) | Sparkle | 2.10.0 | embedded framework, EdDSA-signed appcast ([D-4](decisions.md#d-4-packaging-and-updates)) |
@@ -503,6 +570,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Third run's Phase 0: cache scopes with label selector and metadata only, local and virtual kinds (§5), the related-objects index (§4.4), access reviews in `Enabled` (§4.2), Helm v4.3.0 in `go.mod` |
 | 2026-10-11 | major | Current state after the second implementation run: 16 built-in profiles and custom resources, editing, node and workload actions, the drain journal, 41 commands, CI |
 | 2026-10-11 | minor | §4.2: what a confirmation binds (context, objects, UIDs), `Detail`, `OriginOf` |
 | 2026-10-11 | minor | Row menus from the registry (`Actions`, submenus, schema dialogs); the drawer model's Properties section, links, chips, folds and tables; cells in coloured parts |

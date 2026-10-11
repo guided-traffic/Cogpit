@@ -1,6 +1,7 @@
 package testkit
 
 import (
+	"encoding/base64"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -15,7 +16,21 @@ var (
 	NodesGVR       = schema.GroupVersionResource{Version: "v1", Resource: "nodes"}
 	EventsGVR      = schema.GroupVersionResource{Version: "v1", Resource: "events"}
 	DeploymentsGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+	SecretsGVR     = schema.GroupVersionResource{Version: "v1", Resource: "secrets"}
 )
+
+// Secret builds a Secret with labels and data (values base64-encoded as the API sends them).
+func Secret(namespace, name string, labels map[string]string, data map[string]string) *unstructured.Unstructured {
+	d := map[string]any{}
+	for k, v := range data {
+		d[k] = base64.StdEncoding.EncodeToString([]byte(v))
+	}
+	obj := Object("v1", "Secret", namespace, name, map[string]any{"type": "Opaque", "data": d})
+	if len(labels) > 0 {
+		obj.SetLabels(labels)
+	}
+	return obj
+}
 
 // Object builds an unstructured object with apiVersion, kind, namespace, name, a UID derived from
 // the name and a fixed creation time, then merges fields into it (top-level keys such as "spec").

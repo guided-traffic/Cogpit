@@ -38,9 +38,15 @@ type Backend struct {
 	// Close stops the cache and closes the connection.
 	Close func()
 
+	// Access answers the access reviews of the connected user (access.go); nil allows everything,
+	// and the API server decides.
+	Access Access
+
 	// custom is the custom kinds watch (customkinds.go); the Session sets it before it publishes
 	// the backend, nil without CustomResources.
 	custom *customKinds
+	// local holds the objects of the local kinds (kindscope.go), made on first use.
+	local localStore
 }
 
 // Actions are the cluster writes of the MVP's action commands. *cluster.Conn implements them.
@@ -75,6 +81,7 @@ func (b *Backend) close(log *slog.Logger) {
 	if b.custom != nil {
 		b.custom.stop()
 	}
+	b.local.close()
 	if b.Close == nil {
 		return
 	}

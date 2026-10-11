@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/testkit"
@@ -96,7 +97,7 @@ func (w *fakeWriter) MapResource(_ context.Context, group, resource string) (clu
 func (srv *objectServer) current(gvr schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error) {
 	// testkit's MemorySource lists only through the plain List; the engine may not import
 	// client-go's tools/cache for the context adapter.
-	list, err := srv.src.ListerWatcher(gvr, "").List(metav1.ListOptions{}) //nolint:staticcheck // see above
+	list, err := srv.src.ListerWatcher(cache.Scope{GVR: gvr}).List(metav1.ListOptions{}) //nolint:staticcheck // see above
 	if err != nil {
 		return nil, err
 	}

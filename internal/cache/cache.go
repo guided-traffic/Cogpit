@@ -45,6 +45,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
@@ -63,27 +64,58 @@ const closeTimeout = 5 * time.Second
 // A ListerWatcher that does not support WatchList semantics (streaming initial lists) must
 // implement `IsWatchListSemanticsUnSupported() bool` returning true; client-go 0.37's reflector
 // otherwise expects a WatchList-capable server.
+//
+// A Source must honour the whole scope: the namespace, the label selector, and MetadataOnly. A
+// metadata-only scope must not transfer the objects' content at all (the real cluster's source asks
+// the API server for PartialObjectMetadata), because that is what keeps Secret values out of
+// Cogpit's memory (H-8). In-memory sources may apply FilterScope to what they hold.
 type Source interface {
-	ListerWatcher(gvr schema.GroupVersionResource, namespace string) toolscache.ListerWatcher
+	ListerWatcher(scope Scope) toolscache.ListerWatcher
 }
 
-// Scope is what one informer watches: a resource, in one namespace or (empty) in all.
+// Scope is what one informer watches: a resource, in one namespace or (empty) in all, optionally
+// narrowed by a label selector, and either the full objects or their metadata only. Each distinct
+// scope is one informer and one watch; Acquire normalises the label selector, so "a=1,b=2" and
+// "b=2,a=1" share one.
 type Scope struct {
 	GVR       schema.GroupVersionResource `json:"gvr"`
 	Namespace string                      `json:"namespace,omitempty"`
+	// LabelSelector narrows the list and watch on the server: "owner=helm".
+	LabelSelector string `json:"labelSelector,omitempty"`
+	// MetadataOnly holds only apiVersion, kind and metadata of each object, as the API server's
+	// PartialObjectMetadata: no spec, status or data. See MetadataObject for the shape.
+	MetadataOnly bool `json:"metadataOnly,omitempty"`
 }
 
 // String names the scope the way kubectl names resources: "pods", "deployments.apps",
-// "pods in team-a".
+// "pods in team-a", "secrets (metadata)", "secrets with owner=helm".
 func (s Scope) String() string {
 	name := s.GVR.Resource
 	if s.GVR.Group != "" {
 		name += "." + s.GVR.Group
 	}
+	if s.MetadataOnly {
+		name += " (metadata)"
+	}
+	if s.LabelSelector != "" {
+		name += " with " + s.LabelSelector
+	}
 	if s.Namespace != "" {
 		name += " in " + s.Namespace
 	}
 	return name
+}
+
+// normalize returns the scope with its label selector in canonical form; a selector that does not
+// parse is kept as it is, and the source's list fails with the server's error.
+func (s Scope) normalize() Scope {
+	if s.LabelSelector == "" {
+		return s
+	}
+	if sel, err := labels.Parse(s.LabelSelector); err == nil {
+		s.LabelSelector = sel.String()
+	}
+	return s
 }
 
 // Options configure a Cache.
@@ -162,6 +194,7 @@ type subscription struct {
 // caller must Release the handle when it stops showing or using the data. After Close, Acquire
 // returns a handle on an empty, never-syncing store.
 func (c *Cache) Acquire(scope Scope) *Handle {
+	scope = scope.normalize()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.closed {
@@ -240,7 +273,7 @@ func (c *Cache) listerWatcher(e *entry, scope Scope) (lw toolscache.ListerWatche
 			lw = failingLW{err: fmt.Errorf("cannot watch %s: internal error: %v", scope, r)}
 		}
 	}()
-	lw = c.src.ListerWatcher(scope.GVR, scope.Namespace)
+	lw = c.src.ListerWatcher(scope)
 	if lw == nil {
 		lw = failingLW{err: fmt.Errorf("cannot watch %s: the source has no list-watcher for it", scope)}
 	}

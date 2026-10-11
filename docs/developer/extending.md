@@ -71,8 +71,14 @@ A kind without a profile already gets a generic view from discovery; a profile m
    metadata; a first section titled `model.TitleProperties` adds the kind's own properties to it.
    Items that name objects carry a `Link`, lists of short values `Chips`, long lists a `Fold`
    noun ([`model/detail.go`](../../internal/model/detail.go)).
-3. Decide what the cache needs: full objects (`dynamicinformer`) or metadata only
-   (`metadatainformer`).
+3. Decide what the cache needs ([architecture § Scopes](architecture.md#scopes-local-and-virtual-kinds)):
+   full objects, or metadata only (`MetadataOnly`, as for Secrets), and a `LabelSelector` if the
+   kind is a labelled subset. A column or drawer section that shows objects of another kind
+   declares the index it reads in `Needs` (add the index to
+   [`kinds/related.go`](../../internal/model/kinds/related.go) if it is new) and reads it in
+   `CellsWith` or `DetailWith` ([architecture §4.4](architecture.md#44-tables-details-editors-and-streams)).
+   Objects Cogpit makes itself are a local kind (`Local`, listed in `kinds.Local()`, written with
+   `Backend.PutLocal`); objects made from other cached objects are a virtual kind (`Derive`).
 4. Golden tests from recorded objects in `internal/model/kinds/testdata/<kind>/`: healthy,
    failing, terminating, and an object with optional fields missing (`minimal`). `TestGolden`
    and `TestTestdataComplete` pick them up; run `go test ./internal/model/kinds/ -update` and read

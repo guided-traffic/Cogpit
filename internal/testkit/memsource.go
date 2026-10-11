@@ -14,6 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	toolscache "k8s.io/client-go/tools/cache"
+
+	"github.com/guided-traffic/cogpit/internal/cache"
 )
 
 // MemorySource is an in-memory cache.Source: a fake API server for informers, without HTTP. Tests
@@ -96,9 +98,10 @@ func (m *MemorySource) publish(gvr schema.GroupVersionResource, ev memEvent) {
 	}
 }
 
-// ListerWatcher implements cache.Source.
-func (m *MemorySource) ListerWatcher(gvr schema.GroupVersionResource, namespace string) toolscache.ListerWatcher {
-	return &memLW{m: m, gvr: gvr, namespace: namespace}
+// ListerWatcher implements cache.Source. It honours the scope's namespace, label selector and
+// MetadataOnly (cache.FilterScope), as the API server does.
+func (m *MemorySource) ListerWatcher(scope cache.Scope) toolscache.ListerWatcher {
+	return &memLW{m: m, gvr: scope.GVR, namespace: scope.Namespace, scope: scope}
 }
 
 func objKey(namespace, name string) string {
@@ -112,6 +115,7 @@ type memLW struct {
 	m         *MemorySource
 	gvr       schema.GroupVersionResource
 	namespace string
+	scope     cache.Scope
 }
 
 // IsWatchListSemanticsUnSupported tells client-go's reflector to list, then watch.
@@ -126,7 +130,9 @@ func (lw *memLW) List(_ metav1.ListOptions) (runtime.Object, error) {
 		if lw.namespace != "" && o.GetNamespace() != lw.namespace {
 			continue
 		}
-		list.Items = append(list.Items, *o.DeepCopy())
+		if f := cache.FilterScope(lw.scope, o); f != nil {
+			list.Items = append(list.Items, *f.DeepCopy())
+		}
 	}
 	list.SetResourceVersion(strconv.FormatInt(lw.m.rv, 10))
 	return list, nil
@@ -135,7 +141,7 @@ func (lw *memLW) List(_ metav1.ListOptions) (runtime.Object, error) {
 func (lw *memLW) Watch(opts metav1.ListOptions) (watch.Interface, error) {
 	lw.m.watches.Add(1)
 	from, _ := strconv.ParseInt(opts.ResourceVersion, 10, 64)
-	w := &memWatcher{ch: make(chan watch.Event, 4096), stop: make(chan struct{}), namespace: lw.namespace}
+	w := &memWatcher{ch: make(chan watch.Event, 4096), stop: make(chan struct{}), namespace: lw.namespace, scope: lw.scope}
 	lw.m.mu.Lock()
 	defer lw.m.mu.Unlock()
 	for _, ev := range lw.m.history[lw.gvr] {
@@ -162,6 +168,7 @@ type memWatcher struct {
 	stop      chan struct{}
 	once      sync.Once
 	namespace string
+	scope     cache.Scope
 	remove    func()
 }
 
@@ -169,8 +176,12 @@ func (w *memWatcher) send(ev memEvent) {
 	if w.namespace != "" && ev.obj.GetNamespace() != w.namespace {
 		return
 	}
+	obj := cache.FilterScope(w.scope, ev.obj)
+	if obj == nil {
+		return
+	}
 	select {
-	case w.ch <- watch.Event{Type: ev.typ, Object: ev.obj.DeepCopy()}:
+	case w.ch <- watch.Event{Type: ev.typ, Object: obj.DeepCopy()}:
 	case <-w.stop:
 	}
 }

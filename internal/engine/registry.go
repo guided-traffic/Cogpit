@@ -241,6 +241,9 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 		return p, nil
 	}
 	c.enabled = func(s *Session, p any) error {
+		if err := s.permitted(c, p); err != nil {
+			return err
+		}
 		if spec.Enabled == nil {
 			return nil
 		}

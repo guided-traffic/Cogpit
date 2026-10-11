@@ -15,6 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	toolscache "k8s.io/client-go/tools/cache"
+
+	"github.com/guided-traffic/cogpit/internal/cache"
 )
 
 var testNow = time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
@@ -53,7 +55,7 @@ func list(t testing.TB, c *Cluster, gvr schema.GroupVersionResource, namespace s
 
 // lwc returns the context-aware list-watcher the reflector uses.
 func lwc(c *Cluster, gvr schema.GroupVersionResource, namespace string) toolscache.ListerWatcherWithContext {
-	return toolscache.ToListerWatcherWithContext(c.Source().ListerWatcher(gvr, namespace))
+	return toolscache.ToListerWatcherWithContext(c.Source().ListerWatcher(cache.Scope{GVR: gvr, Namespace: namespace}))
 }
 
 func startWatch(t testing.TB, c *Cluster, gvr schema.GroupVersionResource, namespace, rv string, bookmarks bool) watch.Interface {
@@ -471,7 +473,7 @@ func TestSlowWatcherIsClosed(t *testing.T) {
 func TestWatchStopsWithItsContext(t *testing.T) {
 	c := newTestCluster(t, Options{Seed: 1, Pods: 300, Deployments: 20, Services: 10, Events: 20})
 	ctx, cancel := context.WithCancel(context.Background())
-	lw := c.Source().ListerWatcher(gvrOf(kindPods), "").(*listerWatcher)
+	lw := c.Source().ListerWatcher(cache.Scope{GVR: gvrOf(kindPods)}).(*listerWatcher)
 	w, err := lw.WatchWithContext(ctx, metav1.ListOptions{ResourceVersion: strconv.FormatInt(c.rv, 10)})
 	if err != nil {
 		t.Fatal(err)

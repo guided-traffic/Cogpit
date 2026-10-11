@@ -26,6 +26,7 @@ type viewWorker struct {
 	rows    *rowCache
 	handle  *cache.Handle
 	unsub   func()
+	related *relatedSet // the indexes of the profile's Needs; nil without
 
 	mu     sync.Mutex
 	params viewParams
@@ -42,11 +43,12 @@ type viewWorker struct {
 func (s *Session) startViewWorker(b *Backend, p *model.KindProfile, rc *rowCache, params viewParams) *viewWorker {
 	w := &viewWorker{
 		s: s, backend: b, profile: p, rows: rc, params: params,
-		handle: b.Cache.Acquire(cache.Scope{GVR: p.GVR()}),
+		handle: b.Acquire(p),
 		wake:   make(chan struct{}, 1),
 		quit:   make(chan struct{}),
 	}
 	w.unsub = w.handle.Subscribe(func(cache.Event) { signal(w.wake) })
+	w.related = newRelatedSet(b, p.Needs, func() { signal(w.wake) })
 	signal(w.wake)
 	s.goSafe("table view "+p.Key, func() {
 		runCoalesced(w.quit, w.wake, s.opts.SnapshotInterval, w.unsettled, w.rebuild)
@@ -75,6 +77,7 @@ func (w *viewWorker) stop() {
 	close(w.quit)
 	w.unsub()
 	w.handle.Release()
+	w.related.release()
 }
 
 // unsettled reports whether the informer's sync state or error changed since the last snapshot:
@@ -84,8 +87,12 @@ func (w *viewWorker) unsettled() bool {
 	if last == nil {
 		return true
 	}
-	return last.Synced != w.handle.HasSynced() || last.Error != errText(w.handle.Err())
+	return last.Synced != w.synced() || last.Error != errText(w.handle.Err())
 }
+
+// synced reports whether the view's kind and the kinds of its related-objects indexes finished
+// their initial lists.
+func (w *viewWorker) synced() bool { return w.handle.HasSynced() && w.related.synced() }
 
 // rebuild builds, stores and announces a snapshot. A panic is reported once per view as a toast
 // and does not end the loop.
@@ -102,9 +109,10 @@ func (w *viewWorker) rebuild() {
 	p := w.params
 	w.mu.Unlock()
 
-	synced := w.handle.HasSynced() // before List: a snapshot never claims a partial list is complete
+	synced := w.synced() // before List: a snapshot never claims a partial list is complete
 	errMsg := errText(w.handle.Err())
-	snap := w.rows.build(w.profile, w.backend.Context, w.handle.List(), p)
+	rel, relGen := w.related.view()
+	snap := w.rows.build(w.profile, w.backend.Context, KindList(w.handle, w.profile), p, rel, relGen)
 	snap.Synced = synced
 	snap.Error = errMsg
 	snap.Revision = w.s.state.snapshots.Add(1)
@@ -129,6 +137,7 @@ type rowCache struct {
 	mu      sync.Mutex
 	profile *model.KindProfile
 	context string
+	relGen  uint64 // the related objects' generation the rows were built at (profiles with Needs)
 	gen     uint32
 	rows    map[string]*rowEntry
 }
@@ -140,14 +149,14 @@ type rowEntry struct {
 }
 
 // build turns the objects into a snapshot: rows from the cache (rebuilt when the resourceVersion
-// changed), filtered by namespaces and search text, sorted. Total counts the objects before
-// filtering.
-func (rc *rowCache) build(p *model.KindProfile, context string, objs []*unstructured.Unstructured, params viewParams) *TableSnapshot {
+// changed, and all of them when the related objects of a profile with Needs changed), filtered by
+// namespaces and search text, sorted. Total counts the objects before filtering.
+func (rc *rowCache) build(p *model.KindProfile, context string, objs []*unstructured.Unstructured, params viewParams, rel model.Related, relGen uint64) *TableSnapshot {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
-	if rc.rows == nil || rc.profile != p || rc.context != context {
+	if rc.rows == nil || rc.profile != p || rc.context != context || (len(p.Needs) > 0 && rc.relGen != relGen) {
 		rc.rows = make(map[string]*rowEntry, len(objs))
-		rc.profile, rc.context = p, context
+		rc.profile, rc.context, rc.relGen = p, context, relGen
 	}
 	rc.gen++
 
@@ -169,7 +178,7 @@ func (rc *rowCache) build(p *model.KindProfile, context string, objs []*unstruct
 		rv := obj.GetResourceVersion()
 		e := rc.rows[key]
 		if e == nil || e.rv != rv || rv == "" {
-			e = &rowEntry{rv: rv, row: model.BuildRow(p, context, obj)}
+			e = &rowEntry{rv: rv, row: model.BuildRowWith(p, context, obj, rel)}
 			rc.rows[key] = e
 		}
 		e.gen = rc.gen

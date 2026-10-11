@@ -6,5 +6,5 @@ package cache
 func (c *Cache) Running(scope Scope) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.informers[scope] != nil
+	return c.informers[scope.normalize()] != nil
 }

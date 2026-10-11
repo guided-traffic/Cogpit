@@ -226,6 +226,9 @@ func editable(s *engine.Session, ref model.ObjectRef) error {
 		return err
 	}
 	if p, ok := b.Profile(ref.Kind); ok {
+		if !p.APIObject() {
+			return fmt.Errorf("%s are not objects of the cluster's API: %w", p.Title, engine.ErrNotApplicable)
+		}
 		gv := p.Group + "/" + p.Version
 		if p.Group == "" {
 			gv = p.Version
@@ -279,7 +282,10 @@ func cachedAny(s *engine.Session, ref model.ObjectRef) error {
 	if _, err := b.ObjectWriter(); err != nil {
 		return err
 	}
-	if _, ok := b.Profile(ref.Kind); ok {
+	if p, ok := b.Profile(ref.Kind); ok {
+		if !p.APIObject() {
+			return fmt.Errorf("%s are not objects of the cluster's API: %w", p.Title, engine.ErrNotApplicable)
+		}
 		_, err := s.Lookup(ref)
 		return err
 	}

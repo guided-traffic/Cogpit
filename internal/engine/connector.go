@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime/debug"
+	"slices"
 	"sync"
 	"time"
 
@@ -95,7 +96,9 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 		profiles = servedProfiles(profiles, served)
 		customResources = served[crdsGVR]
 	}
-	ch := cache.New(cache.DynamicSource(conn.Dynamic()), cache.Options{WarmPeriod: c.WarmPeriod, Logger: c.Logger})
+	// The local kinds (port forwards) are Cogpit's own objects: every real cluster offers them.
+	profiles = append(slices.Clip(profiles), kinds.Local()...)
+	ch := cache.New(cache.DynamicSource(conn.Dynamic(), conn.Metadata()), cache.Options{WarmPeriod: c.WarmPeriod, Logger: c.Logger})
 	ctxName := conn.Context()
 	if ctxName == "" {
 		ctxName = name

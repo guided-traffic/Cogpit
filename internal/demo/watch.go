@@ -18,6 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	toolscache "k8s.io/client-go/tools/cache"
+
+	"github.com/guided-traffic/cogpit/internal/cache"
 )
 
 // defaultQueueLimit is how many events a watcher may have pending before it is closed: five
@@ -31,10 +33,11 @@ const resultBuffer = 256
 // source implements cache.Source over the cluster.
 type source struct{ c *Cluster }
 
-// ListerWatcher implements cache.Source.
-func (s source) ListerWatcher(gvr schema.GroupVersionResource, namespace string) toolscache.ListerWatcher {
-	k, ok := kindOf(gvr)
-	return &listerWatcher{c: s.c, gvr: gvr, kind: k, known: ok, namespace: namespace}
+// ListerWatcher implements cache.Source; label selectors and metadata-only scopes are applied by
+// cache.FilterListerWatcher over the demo's own list and watch.
+func (s source) ListerWatcher(scope cache.Scope) toolscache.ListerWatcher {
+	k, ok := kindOf(scope.GVR)
+	return cache.FilterListerWatcher(scope, &listerWatcher{c: s.c, gvr: scope.GVR, kind: k, known: ok, namespace: scope.Namespace})
 }
 
 // listerWatcher lists and watches one resource, in one namespace or (empty) in all.

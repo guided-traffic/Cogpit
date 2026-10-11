@@ -30,6 +30,7 @@ type drawerWatch struct {
 	profile *model.KindProfile
 	obj     *cache.Handle
 	events  *cache.Handle // nil when the cluster serves no events
+	related *relatedSet   // the indexes of the profile's Needs; nil without
 	unsubs  []func()
 	wake    chan struct{}
 	quit    chan struct{}
@@ -39,7 +40,7 @@ type drawerWatch struct {
 func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.ObjectRef) *drawerWatch {
 	d := &drawerWatch{
 		backend: b, ref: ref, profile: p,
-		obj:  b.Cache.Acquire(cache.Scope{GVR: p.GVR()}),
+		obj:  b.Acquire(p),
 		wake: make(chan struct{}, 1),
 		quit: make(chan struct{}),
 	}
@@ -49,13 +50,14 @@ func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.O
 		}
 	}))
 	if ep, ok := b.Profile(eventsKind); ok {
-		d.events = b.Cache.Acquire(cache.Scope{GVR: ep.GVR()})
+		d.events = b.Acquire(ep)
 		d.unsubs = append(d.unsubs, d.events.Subscribe(func(ev cache.Event) {
 			if d.involves(ev.Object) {
 				signal(d.wake)
 			}
 		}))
 	}
+	d.related = newRelatedSet(b, p.Needs, func() { signal(d.wake) })
 	objSynced, evSynced := d.synced()
 	poll := func() bool {
 		o, e := d.synced()
@@ -81,7 +83,7 @@ func (d *drawerWatch) namespace() string {
 }
 
 func (d *drawerWatch) synced() (obj, events bool) {
-	obj = d.obj.HasSynced()
+	obj = d.obj.HasSynced() && d.related.synced()
 	events = d.events == nil || d.events.HasSynced()
 	return obj, events
 }
@@ -89,7 +91,7 @@ func (d *drawerWatch) synced() (obj, events bool) {
 // involves reports whether a core v1 event is about the drawer's object.
 func (d *drawerWatch) involves(ev *unstructured.Unstructured) bool {
 	var uid string
-	if o, ok := d.obj.Get(d.namespace(), d.ref.Name); ok {
+	if o, ok := KindGet(d.obj, d.profile, d.namespace(), d.ref.Name); ok {
 		uid = string(o.GetUID())
 	}
 	return eventInvolves(ev, d.profile.Kind, d.namespace(), d.ref.Name, uid)
@@ -107,6 +109,7 @@ func (d *drawerWatch) stop() {
 	if d.events != nil {
 		d.events.Release()
 	}
+	d.related.release()
 }
 
 // eventInvolves matches an event's involvedObject by UID when both are known, else by kind,
@@ -148,13 +151,15 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 	if err != nil {
 		return nil, err
 	}
-	h := b.Cache.Acquire(cache.Scope{GVR: p.GVR()})
+	h := b.Acquire(p)
 	defer h.Release()
 	var evh *cache.Handle
 	if ep, ok := b.Profile(eventsKind); ok {
-		evh = b.Cache.Acquire(cache.Scope{GVR: ep.GVR()})
+		evh = b.Acquire(ep)
 		defer evh.Release()
 	}
+	rs := newRelatedSet(b, p.Needs, nil)
+	defer rs.release()
 	if wait {
 		wctx, cancel := context.WithTimeout(ctx, syncTimeout)
 		defer cancel()
@@ -162,9 +167,10 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 		if evh != nil {
 			evh.WaitForSync(wctx)
 		}
+		rs.waitSynced(wctx)
 	}
 
-	obj, ok := h.Get(ref.Namespace, ref.Name)
+	obj, ok := KindGet(h, p, ref.Namespace, ref.Name)
 	if !ok {
 		m := &DetailModel{Ref: ref, Title: p.Kind + ": " + ref.Name, Sections: []model.DetailSection{}, Events: []EventItem{}}
 		if h.HasSynced() {
@@ -178,7 +184,8 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 	if evh != nil {
 		events = evh.List()
 	}
-	m, perr := BuildDetail(p, ref, obj, events, s.Now())
+	rel, _ := rs.view()
+	m, perr := BuildDetailWith(p, ref, obj, events, s.Now(), rel)
 	if perr != nil {
 		s.log.Error("engine: kind profile detail panicked", "kind", p.Key, "panic", perr.Error())
 	}
@@ -196,12 +203,17 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 // section) and the kind's other sections; the events follow, newest first. A profile whose Detail
 // panics yields only the generic sections, and the panic as the error.
 func BuildDetail(p *model.KindProfile, ref model.ObjectRef, obj *unstructured.Unstructured, events []*unstructured.Unstructured, now time.Time) (*DetailModel, error) {
+	return BuildDetailWith(p, ref, obj, events, now, nil)
+}
+
+// BuildDetailWith is BuildDetail with the related objects of the profile's Needs; nil means none.
+func BuildDetailWith(p *model.KindProfile, ref model.ObjectRef, obj *unstructured.Unstructured, events []*unstructured.Unstructured, now time.Time, rel model.Related) (*DetailModel, error) {
 	m := &DetailModel{
 		Ref: ref, Title: p.Kind + ": " + ref.Name,
 		Sections: []model.DetailSection{}, Events: []EventItem{},
 	}
-	m.Status = model.BuildRow(p, ref.Context, obj).Status
-	kind, err := profileSections(p, obj)
+	m.Status = model.BuildRowWith(p, ref.Context, obj, rel).Status
+	kind, err := profileSections(p, obj, rel)
 	m.Sections = model.MergeProperties(model.PropertiesSection(obj, now), kind)
 	if len(events) > 0 {
 		m.Events = objectEvents(events, p.Kind, ref.Namespace, ref.Name, string(obj.GetUID()))
@@ -218,8 +230,8 @@ func BuildDetail(p *model.KindProfile, ref model.ObjectRef, obj *unstructured.Un
 
 // profileSections returns the kind's own drawer sections; a panicking profile yields none and
 // the panic as an error.
-func profileSections(p *model.KindProfile, obj *unstructured.Unstructured) (out []model.DetailSection, err error) {
-	if p.Detail == nil {
+func profileSections(p *model.KindProfile, obj *unstructured.Unstructured, rel model.Related) (out []model.DetailSection, err error) {
+	if p.Detail == nil && p.DetailWith == nil {
 		return nil, nil
 	}
 	defer func() {
@@ -227,7 +239,7 @@ func profileSections(p *model.KindProfile, obj *unstructured.Unstructured) (out 
 			out, err = nil, fmt.Errorf("%v", r)
 		}
 	}()
-	return p.Detail(obj), nil
+	return p.DetailSections(obj, rel), nil
 }
 
 // objectEvents returns the events about one object, newest first, at most maxDetailEvents.

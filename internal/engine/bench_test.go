@@ -43,10 +43,10 @@ func BenchmarkSnapshot10k(b *testing.B) {
 	for _, c := range cases {
 		b.Run(c.name, func(b *testing.B) {
 			rc := &rowCache{}
-			rc.build(testPods, "bench", objs, c.params) // warm
+			rc.build(testPods, "bench", objs, c.params, nil, 0) // warm
 			b.ReportAllocs()
 			for b.Loop() {
-				snap := rc.build(testPods, "bench", objs, c.params)
+				snap := rc.build(testPods, "bench", objs, c.params, nil, 0)
 				if snap.Total != len(objs) {
 					b.Fatal("short snapshot")
 				}
@@ -61,7 +61,7 @@ func BenchmarkSnapshot10kCold(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		rc := &rowCache{}
-		rc.build(testPods, "bench", objs, viewParams{sort: SortSpec{Column: "name"}})
+		rc.build(testPods, "bench", objs, viewParams{sort: SortSpec{Column: "name"}}, nil, 0)
 	}
 }
 
@@ -74,12 +74,12 @@ func BenchmarkSortChange10k(b *testing.B) {
 		{Column: "node"}, {Column: "namespace", Desc: true}, {Column: "status"},
 	}
 	rc := &rowCache{}
-	rc.build(testPods, "bench", objs, viewParams{sort: sorts[0]})
+	rc.build(testPods, "bench", objs, viewParams{sort: sorts[0]}, nil, 0)
 	b.ReportAllocs()
 	i := 0
 	for b.Loop() {
 		i++
-		rc.build(testPods, "bench", objs, viewParams{sort: sorts[i%len(sorts)]})
+		rc.build(testPods, "bench", objs, viewParams{sort: sorts[i%len(sorts)]}, nil, 0)
 	}
 }
 

@@ -65,7 +65,7 @@ func TestBudgetIdleViewAndWarmReopen(t *testing.T) {
 				t.Fatalf("Connect: %v", err)
 			}
 			defer conn.Close()
-			c := cache.New(cache.DynamicSource(conn.Dynamic()), cache.Options{WarmPeriod: time.Minute})
+			c := cache.New(cache.DynamicSource(conn.Dynamic(), conn.Metadata()), cache.Options{WarmPeriod: time.Minute})
 			defer c.Close()
 
 			podsScope := cache.Scope{GVR: testkit.PodsGVR}
@@ -155,7 +155,7 @@ func TestBudgetExpiryAndRelist(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer conn.Close()
-	c := cache.New(cache.DynamicSource(conn.Dynamic()), cache.Options{WarmPeriod: 200 * time.Millisecond})
+	c := cache.New(cache.DynamicSource(conn.Dynamic(), conn.Metadata()), cache.Options{WarmPeriod: 200 * time.Millisecond})
 	defer c.Close()
 
 	scope := cache.Scope{GVR: testkit.PodsGVR, Namespace: "default"}
@@ -189,7 +189,7 @@ func TestRefusedResourceIsAState(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer conn.Close()
-	c := cache.New(cache.DynamicSource(conn.Dynamic()), cache.Options{})
+	c := cache.New(cache.DynamicSource(conn.Dynamic(), conn.Metadata()), cache.Options{})
 	defer c.Close()
 
 	// The fake server does not serve configmaps: every list and watch answers 404.
