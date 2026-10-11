@@ -42,8 +42,13 @@ Ordered checklists for the common additions. The packages they name are in
    the command's id and danger to `wantCommands` in
    [`commands_test.go`](../../internal/engine/commands/commands_test.go).
 7. **UI and MCP** follow from the registry: menus, context menus, the palette and the MCP tool
-   appear without UI code. A command with parameters gets a schema-generated dialog; add a custom
-   dialog only when the schema can't express it.
+   appear without UI code. With an `Order`, the command is in its kinds' row menu and drawer
+   toolbar ([architecture §4.2](architecture.md#42-the-command-registry)); a `container`
+   parameter makes it a submenu of the pod's containers; required parameters beyond `ref` and
+   `container` get a schema-generated dialog (integer, number, string and boolean fields, the
+   `jsonschema` tag as the hint), started from `Prefill`. Add a custom dialog only when the schema
+   can't express it. Give the command an icon in the drawer's toolbar in
+   [`cmdicons.go`](../../internal/ui/fyneui/cmdicons.go); others get a generic one.
 8. **Progress docs:** flip the row in the parity page and update [`gaps.md`](../parity/gaps.md).
 
 ## Adding an integration (what Lens calls an extension)
@@ -61,7 +66,10 @@ A kind without a profile already gets a generic view from discovery; a profile m
    [`resource-parity.md`](../parity/resource-parity.md).
 2. Add `internal/model/kinds/<kind>.go`: columns (title, value, sort key, default visibility), the
    status token rule, searchable fields for agents (`clusterIP`, `podIP`, `node`), and the detail
-   sections.
+   sections. The drawer starts with Lens's Properties section, which the engine fills with the
+   metadata; a first section titled `model.TitleProperties` adds the kind's own properties to it.
+   Items that name objects carry a `Link`, lists of short values `Chips`, long lists a `Fold`
+   noun ([`model/detail.go`](../../internal/model/detail.go)).
 3. Decide what the cache needs: full objects (`dynamicinformer`) or metadata only
    (`metadatainformer`).
 4. Golden tests from recorded objects in `internal/model/kinds/testdata/<kind>/`: healthy,

@@ -207,9 +207,15 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Evidence:** [ui-parity](ui-parity.md), 18 of 40 rows partial across Layout, Cluster sidebar,
   Tables, Detail drawer and Dock ([`internal/ui/fyneui`](../../internal/ui/fyneui/), Cogpit's theme
   with status tokens). The spike's gate results are recorded for the owner's decision
-  ([spike](../developer/spike-fyne.md#results)). Still missing: title bar with history, tab bar,
-  welcome page, row actions menu and right-click, keyboard navigation, CSV export, column reorder
-  and hiding.
+  ([spike](../developer/spike-fyne.md#results)). Since 2026-10-11 the captured differences in the
+  existing views are closed or narrowed: row menus (⋮ and right-click) built from the registry
+  with container submenus and schema-generated dialogs, the drawer's toolbar as icons with
+  tooltips, the warning column (Pods, Nodes; rules inferred), links in cells, tooltips on cut-off
+  cells, the drawer's Properties section with folded lists, links and the events at the end, a
+  cordoned node's Conditions; cell tooltips and right-click are done. Still missing: title bar
+  with history, tab bar, welcome page, keyboard navigation, CSV export, column reorder and hiding,
+  row checkboxes and multi-selection in row menus, the drawer's Copy and port Forward…, the Pods
+  view's container squares.
 - **Estimate:** 60–165 h (was 80–200).
 
 ### G13. Clusters, hotbar, palette, menus, shortcuts and preferences
@@ -319,6 +325,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | G5: row menus, drawer toolbar, warning column, links, tooltips and the drawer's Properties built; what remains |
 | 2026-10-11 | major | The MVP: G1–G9, G14, G15 and G17 re-estimated with evidence; new terminal-widget risk in G8 |
 | 2026-10-11 | minor | D-5: G19 (external extensions) is not a target and leaves the totals |
 | 2026-10-11 | minor | D-9: Flux CD and Argo CD views split from G18 into G23, in the beta |

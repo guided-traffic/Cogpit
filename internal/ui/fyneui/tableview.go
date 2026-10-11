@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -21,10 +22,10 @@ import (
 // next to the table and not in the theme.
 var defaultColumnWidths = map[string]float32{
 	"name": 250, "namespace": 130, "containers": 92, "cpu": 80, "memory": 86, "restarts": 76,
-	"controlledBy": 190, "node": 120, "qos": 96, "age": 56, "status": 130, "conditions": 180,
+	"controlledBy": 130, "node": 120, "qos": 96, "age": 56, "status": 130, "conditions": 240,
 	"pods": 72, "replicas": 86, "type": 100, "clusterIP": 120, "ports": 140, "externalIP": 120,
-	"selector": 200, "labels": 260, "message": 380, "involvedObject": 210, "source": 140,
-	"count": 60, "lastSeen": 84, "roles": 120, "version": 104, "taints": 64, "disk": 76,
+	"selector": 200, "labels": 260, "message": 300, "involvedObject": 210, "source": 140,
+	"count": 60, "lastSeen": 172, "roles": 120, "version": 104, "taints": 64, "disk": 76,
 }
 
 var defaultWidthByType = map[model.ColumnType]float32{
@@ -51,10 +52,17 @@ type tableView struct {
 	colsKey string // the view and column ids, to notice a column change
 	now     time.Time
 
-	cells    []*tableCell // every cell the table has shown, pooled ones included
-	hoverRow int
-	selected []model.ObjectRef
-	pending  *model.ObjectRef // a selected object to scroll to once a snapshot contains it
+	cells     []*tableCell // every cell the table has shown, pooled ones included
+	hoverRow  int
+	hoverCol  int
+	hoverCell *tableCell    // the cell under the pointer or the keyboard highlight
+	pointer   fyne.Position // the pointer over the table, in window coordinates (tooltips)
+	pointerIn bool
+	icons     map[cellIconKey]fyne.Resource // the cells' icons, one per icon and colour
+	menu      *widget.PopUpMenu             // the row menu last opened
+	menuModel *fyne.Menu                    // and its items
+	selected  []model.ObjectRef
+	pending   *model.ObjectRef // a selected object to scroll to once a snapshot contains it
 
 	userWidths map[string]float32 // widths the user dragged, by view and column id
 	setWidths  []float32          // the width the shell last gave each visible column
@@ -71,7 +79,7 @@ type tableView struct {
 }
 
 func newTableView(sh *shell) *tableView {
-	tv := &tableView{sh: sh, hoverRow: -1, userWidths: map[string]float32{}}
+	tv := &tableView{sh: sh, hoverRow: -1, hoverCol: -1, userWidths: map[string]float32{}, icons: map[cellIconKey]fyne.Resource{}}
 
 	tv.title = newTextLine("", theme.ColorNameForeground, theme.SizeNameSubHeadingText, fyne.TextStyle{Bold: true})
 	tv.count = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
@@ -115,7 +123,8 @@ func newTableView(sh *shell) *tableView {
 // viewChanged follows a change of the open view: titles, placeholder, search hint.
 func (tv *tableView) viewChanged() {
 	tv.pending = nil
-	tv.hoverRow = -1
+	tv.hoverRow, tv.hoverCol, tv.hoverCell = -1, -1, nil
+	tv.sh.tip.hide()
 	tv.updateTitle()
 	tv.search.SetPlaceHolder("Search " + strings.ToLower(tv.sh.kindTitle(tv.sh.ui.View)) + "…")
 	tv.updatePlaceholder()
@@ -310,15 +319,19 @@ func (tv *tableView) rowSelected(row int) bool {
 	return false
 }
 
-// length, createCell and updateCell are the table's data callbacks.
+// length, createCell and updateCell are the table's data callbacks. The table has one column
+// more than the view: the ⋮ that opens each row's actions menu.
 func (tv *tableView) length() (int, int) {
 	if tv.snap == nil {
 		return 0, len(tv.cols)
 	}
-	return len(tv.snap.Rows), len(tv.cols)
+	return len(tv.snap.Rows), len(tv.cols) + 1
 }
 
-func (tv *tableView) createCell() fyne.CanvasObject { return newTableCell() }
+// menuColumn is the table column of the ⋮.
+func (tv *tableView) menuColumn() int { return len(tv.cols) }
+
+func (tv *tableView) createCell() fyne.CanvasObject { return newTableCell(tv) }
 
 // updateCell fills one visible cell. It is O(1): an index into the snapshot, an age formatted
 // against the refresh's clock, and text and colour set on canvas objects the cell reuses.
@@ -330,22 +343,34 @@ func (tv *tableView) updateCell(id widget.TableCellID, o fyne.CanvasObject) {
 		c.tracked = true
 		tv.cells = append(tv.cells, c)
 	}
-	if tv.snap == nil || id.Row < 0 || id.Row >= len(tv.snap.Rows) || id.Col < 0 || id.Col >= len(tv.cols) {
-		c.set(id.Row, id.Col, "", model.StatusNone, false, false)
+	if tv.snap == nil || id.Row < 0 || id.Row >= len(tv.snap.Rows) || id.Col < 0 || id.Col > len(tv.cols) {
+		c.set(id.Row, id.Col, cellContent{}, false, false, false)
 		return
 	}
-	row := &tv.snap.Rows[id.Row]
-	ci := tv.cols[id.Col]
-	col := tv.snap.Columns[ci]
-	var cell model.Cell
-	if ci < len(row.Cells) {
-		cell = row.Cells[ci]
+	var content cellContent
+	if id.Col == tv.menuColumn() {
+		content.kind = cellMenu
+	} else {
+		row := &tv.snap.Rows[id.Row]
+		ci := tv.cols[id.Col]
+		col := &tv.snap.Columns[ci]
+		var cell model.Cell
+		if ci < len(row.Cells) {
+			cell = row.Cells[ci]
+		}
+		status := cell.Status
+		if status == model.StatusNone && col.ID == "status" {
+			status = tv.snap.Rows[id.Row].Status
+		}
+		content = cellContent{text: model.CellText(*col, cell, tv.now), status: status, link: cell.Link, parts: cell.Parts}
+		if col.Type == model.ColumnWarning {
+			content.kind = cellWarning
+		}
 	}
-	status := cell.Status
-	if status == model.StatusNone && col.ID == "status" {
-		status = row.Status
+	hover := id.Row == tv.hoverRow
+	if c.set(id.Row, id.Col, content, tv.rowSelected(id.Row), hover, hover && id.Col == tv.hoverCol) && tv.sh.tip.owner == c {
+		tv.sh.tip.hide() // the cell under the tooltip shows something else now
 	}
-	c.set(id.Row, id.Col, model.CellText(col, cell, tv.now), status, tv.rowSelected(id.Row), id.Row == tv.hoverRow)
 }
 
 func (tv *tableView) createHeader() fyne.CanvasObject {
@@ -357,7 +382,7 @@ func (tv *tableView) createHeader() fyne.CanvasObject {
 func (tv *tableView) updateHeader(id widget.TableCellID, o fyne.CanvasObject) {
 	h := o.(*headerCell)
 	if id.Row != -1 || tv.snap == nil || id.Col < 0 || id.Col >= len(tv.cols) {
-		h.set(id.Col, "", 0)
+		h.set(id.Col, "", 0) // the ⋮ column has no header
 		return
 	}
 	col := tv.snap.Columns[tv.cols[id.Col]]
@@ -368,8 +393,12 @@ func (tv *tableView) updateHeader(id widget.TableCellID, o fyne.CanvasObject) {
 			sort = -1
 		}
 	}
-	h.set(id.Col, col.Title, sort)
-	if !tv.fitting && id.Col < len(tv.setWidths) {
+	title := col.Title
+	if col.Type == model.ColumnWarning {
+		title = "" // Lens's warning column has no title; Title names it for agents
+	}
+	h.set(id.Col, title, sort)
+	if !tv.fitting && id.Col < len(tv.setWidths) && id.Col < len(tv.cols) {
 		if w := o.Size().Width; w > 0 && w != tv.setWidths[id.Col] {
 			tv.setWidths[id.Col] = w
 			tv.userWidths[tv.snap.View+"/"+col.ID] = w
@@ -393,22 +422,86 @@ func (tv *tableView) rowTapped(id widget.TableCellID) {
 	if tv.snap == nil || id.Row < 0 || id.Row >= len(tv.snap.Rows) {
 		return
 	}
-	tv.setHover(id.Row)
+	tv.setHoverCell(id.Row, id.Col)
+	tv.sh.tip.hide()
 	ref := tv.snap.Rows[id.Row].Ref
 	tv.sh.dispatch("ui.select", selectParams{Refs: []model.ObjectRef{ref}}, nil)
 }
 
 // setHover moves the row highlight that follows the pointer and the keyboard.
-func (tv *tableView) setHover(row int) {
-	if row == tv.hoverRow {
+func (tv *tableView) setHover(row int) { tv.setHoverCell(row, -1) }
+
+// setHoverCell moves the row highlight and the hovered cell: a link underlines, and a cell that
+// is cut off or a warning icon asks for its tooltip. It visits the cells the table has made (the
+// visible ones and its pool), never the rows.
+func (tv *tableView) setHoverCell(row, col int) {
+	if row == tv.hoverRow && col == tv.hoverCol {
 		return
 	}
-	old := tv.hoverRow
-	tv.hoverRow = row
+	oldRow := tv.hoverRow
+	tv.hoverRow, tv.hoverCol = row, col
 	for _, c := range tv.cells {
-		if c.row == old || c.row == row {
-			c.setHover(c.row == row)
+		if c.row == oldRow || c.row == row {
+			c.setHover(c.row == row, c.row == row && c.col == col)
 		}
+	}
+	tv.hoverCell = tv.cellUnderPointer(row, col)
+	tv.requestTip()
+}
+
+// cellUnderPointer returns the cell of a row and column that the pointer is on. The table's pool
+// keeps cells with the ids they last showed, so the id alone may name a cell that is not on
+// screen; the pointer decides. Only the cells with that id are measured.
+func (tv *tableView) cellUnderPointer(row, col int) *tableCell {
+	if !tv.pointerIn || row < 0 {
+		return nil
+	}
+	drv := fyne.CurrentApp().Driver()
+	for _, c := range tv.cells {
+		if c.row != row || c.col != col || !c.Visible() {
+			continue
+		}
+		p, s := drv.AbsolutePositionForObject(c), c.Size()
+		if tv.pointer.X >= p.X && tv.pointer.X < p.X+s.Width && tv.pointer.Y >= p.Y && tv.pointer.Y < p.Y+s.Height {
+			return c
+		}
+	}
+	return nil
+}
+
+// requestTip asks for the tooltip of the cell under the pointer, or hides the tooltip.
+func (tv *tableView) requestTip() {
+	if tv.hoverCell == nil || !tv.pointerIn {
+		tv.sh.tip.hide()
+		return
+	}
+	text := tv.hoverCell.tipText()
+	if text == "" {
+		tv.sh.tip.hide() // the pointer left the cell with the tooltip for one without
+		return
+	}
+	tv.sh.tip.hover(tv.hoverCell, text, tv.pointer)
+}
+
+// cellTapped handles a click on a body cell: the ⋮ opens the row's actions menu below it, a link
+// is followed (and the row is not selected), any other click selects the row through the table.
+func (tv *tableView) cellTapped(c *tableCell, e *fyne.PointEvent) {
+	tv.sh.tip.hide()
+	if tv.snap == nil || c.row < 0 || c.row >= len(tv.snap.Rows) {
+		return
+	}
+	drv := fyne.CurrentApp().Driver()
+	switch {
+	case c.content.kind == cellMenu:
+		tv.openRowMenu(c.row, drv.AbsolutePositionForObject(c).AddXY(0, c.Size().Height))
+	case c.onLink(e.Position):
+		nsColumn := c.col < len(tv.cols) && tv.snap.Columns[tv.cols[c.col]].ID == "namespace"
+		tv.sh.followLink(*c.content.link, tv.snap.Rows[c.row].Ref.Context, nsColumn)
+	default:
+		if cnv := drv.CanvasForObject(tv.table); cnv != nil {
+			cnv.Focus(tv.table)
+		}
+		tv.table.Select(widget.TableCellID{Row: c.row, Col: c.col})
 	}
 }
 
@@ -450,15 +543,16 @@ func (tv *tableView) fitColumns(width float32) {
 	if tv.snap == nil || len(tv.cols) == 0 || width <= 0 {
 		return
 	}
-	if width == tv.fitWidth && len(tv.setWidths) == len(tv.cols) {
+	if width == tv.fitWidth && len(tv.setWidths) == len(tv.cols)+1 {
 		return
 	}
 	tv.fitWidth = width
 	th := tv.table.Theme()
 	gap := th.Size(theme.SizeNamePadding)
 	flex := tv.flexColumn()
-	widths := make([]float32, len(tv.cols))
-	var others float32
+	widths := make([]float32, len(tv.cols)+1)
+	widths[len(tv.cols)] = th.Size(sizeMenuColumn)
+	others := widths[len(tv.cols)] + gap
 	for i := range tv.cols {
 		widths[i] = tv.columnWidth(i)
 		if i != flex {
@@ -633,9 +727,10 @@ func (tv *tableView) toggleNamespace(ns string, on bool) {
 	tv.sh.dispatch("ui.setNamespace", namespacesParams{Namespaces: next}, nil)
 }
 
-// resourceTable is widget.Table with the hooks Fyne does not offer as callbacks: the pointer
-// leaving the table clears the row highlight, and Escape closes the drawer while the table has
-// the focus.
+// resourceTable is widget.Table with the hooks Fyne does not offer as callbacks: the pointer's
+// position (for tooltips), the pointer leaving the table (clears the row highlight and the
+// tooltip), scrolling (closes the tooltip), and Escape, which closes the drawer while the table
+// has the focus.
 type resourceTable struct {
 	widget.Table
 	tv *tableView
@@ -653,15 +748,46 @@ func newResourceTable(tv *tableView) *resourceTable {
 	// lines and a full-row highlight themselves. HideSeparators hides both of Fyne's.
 	t.HideSeparators = true
 	t.OnSelected = tv.rowTapped
-	t.OnHighlighted = func(id widget.TableCellID) { tv.setHover(id.Row) }
+	t.OnHighlighted = func(id widget.TableCellID) { tv.setHoverCell(id.Row, id.Col) }
 	t.ExtendBaseWidget(t)
 	return t
 }
 
-// MouseOut clears the row highlight when the pointer leaves the table.
+// CreateRenderer adds a scroll hook to the table's: a scroll moves the cells under the pointer,
+// so the tooltip closes.
+func (t *resourceTable) CreateRenderer() fyne.WidgetRenderer {
+	r := t.Table.CreateRenderer()
+	for _, o := range r.Objects() {
+		if s, ok := o.(*container.Scroll); ok && s.OnScrolled != nil {
+			inner := s.OnScrolled
+			s.OnScrolled = func(p fyne.Position) {
+				inner(p)
+				t.tv.sh.tip.hide()
+			}
+		}
+	}
+	return r
+}
+
+// MouseIn records the pointer for tooltips.
+func (t *resourceTable) MouseIn(ev *desktop.MouseEvent) {
+	t.tv.pointer, t.tv.pointerIn = ev.AbsolutePosition, true
+	t.Table.MouseIn(ev)
+}
+
+// MouseMoved records the pointer; the table's hover callback then moves the highlight.
+func (t *resourceTable) MouseMoved(ev *desktop.MouseEvent) {
+	t.tv.pointer, t.tv.pointerIn = ev.AbsolutePosition, true
+	t.Table.MouseMoved(ev)
+	t.tv.requestTip()
+}
+
+// MouseOut clears the row highlight and the tooltip when the pointer leaves the table.
 func (t *resourceTable) MouseOut() {
 	t.Table.MouseOut()
+	t.tv.pointerIn = false
 	t.tv.setHover(-1)
+	t.tv.sh.tip.hide()
 }
 
 // TypedKey adds Escape (close the drawer) to the table's keyboard handling.
@@ -673,25 +799,65 @@ func (t *resourceTable) TypedKey(ev *fyne.KeyEvent) {
 	t.Table.TypedKey(ev)
 }
 
-// tableCell is one body cell: text in the cell's status colour, and a background and bottom line
-// that reach into the table's cell gaps so that a row reads as one band.
-type tableCell struct {
-	widget.BaseWidget
-	bg   *canvas.Rectangle
-	text *canvas.Text
-	line *canvas.Rectangle
+// cellKind says what a body cell draws.
+type cellKind uint8
 
-	full     string // the cell text; text.Text may be a truncated form of it
-	fitWidth float32
-	status   model.Status
-	selected bool
-	hover    bool
-	tracked  bool // registered in tableView.cells
-	row, col int
+const (
+	cellText    cellKind = iota // text, possibly a link or in coloured parts
+	cellWarning                 // Lens's warning icon; the text is the icon's tooltip
+	cellMenu                    // the ⋮ that opens the row's actions menu
+)
+
+// cellContent is what one body cell shows. Its fields are values or pointers into the immutable
+// snapshot, so building and comparing one allocates nothing.
+type cellContent struct {
+	text   string
+	status model.Status
+	link   *model.ObjectRef
+	parts  *[]model.CellPart
+	kind   cellKind
 }
 
-func newTableCell() *tableCell {
+// tableCell is one body cell: text in the cell's status colour (a link in the link colour, a cell
+// in coloured parts run by run), or an icon (the warning triangle, the ⋮), and a background and
+// bottom line that reach into the table's cell gaps so that a row reads as one band.
+//
+// The cell handles its own taps, so that a click on a link follows it instead of selecting the
+// row; any other click selects the row through the table, as before. A right-click opens the
+// row's actions menu.
+type tableCell struct {
+	widget.BaseWidget
+	tv    *tableView
+	bg    *canvas.Rectangle
+	text  *canvas.Text   // the text, or the first part
+	more  []*canvas.Text // the further parts of a cell in coloured parts; grown on demand
+	runX  []float32      // each part's x offset, set by fit
+	icon  *canvas.Image  // made when the cell first shows an icon
+	line  *canvas.Rectangle
+	under *canvas.Rectangle // a hovered link's underline; made when the cell first shows a link
+	objs  int               // bumped when an object is added, so the renderer lists it
+
+	content   cellContent
+	full      string // the cell text; text.Text may be a shortened form of it
+	fitWidth  float32
+	truncated bool // the shown text is shorter than full: the tooltip shows full
+	iconRes   fyne.Resource
+	selected  bool
+	hover     bool // the pointer or the keyboard is on the row
+	linkHover bool // the pointer is on this cell, which is a link
+	tracked   bool // registered in tableView.cells
+	row, col  int
+}
+
+var (
+	_ fyne.Tappable          = (*tableCell)(nil)
+	_ fyne.SecondaryTappable = (*tableCell)(nil)
+	_ desktop.Cursorable     = (*tableCell)(nil)
+)
+
+func newTableCell(tv *tableView) *tableCell {
 	c := &tableCell{
+		tv:   tv,
 		bg:   canvas.NewRectangle(color.Transparent),
 		text: canvas.NewText("", color.Transparent),
 		line: canvas.NewRectangle(color.Transparent),
@@ -701,21 +867,21 @@ func newTableCell() *tableCell {
 	return c
 }
 
-// set gives the cell new content; unchanged content costs a few comparisons.
-func (c *tableCell) set(row, col int, text string, status model.Status, selected, hover bool) {
+// set gives the cell new content; unchanged content costs a few comparisons. It reports whether
+// the content changed.
+func (c *tableCell) set(row, col int, content cellContent, selected, hover, linkHover bool) bool {
 	c.row, c.col = row, col
 	changed := false
-	if text != c.full {
-		c.full, c.fitWidth = text, -1
+	if content != c.content {
+		c.content, c.full, c.fitWidth = content, content.text, -1
 		changed = true
 	}
-	if status != c.status || selected != c.selected || hover != c.hover {
-		c.status, c.selected, c.hover = status, selected, hover
-		changed = true
-	}
-	if changed {
+	linkHover = linkHover && content.link != nil
+	if changed || selected != c.selected || hover != c.hover || linkHover != c.linkHover {
+		c.selected, c.hover, c.linkHover = selected, hover, linkHover
 		c.apply()
 	}
+	return changed
 }
 
 func (c *tableCell) setSelected(on bool) {
@@ -725,11 +891,48 @@ func (c *tableCell) setSelected(on bool) {
 	}
 }
 
-func (c *tableCell) setHover(on bool) {
-	if on != c.hover {
-		c.hover = on
+// setHover marks the row as hovered and, for a link, the cell itself.
+func (c *tableCell) setHover(row, cell bool) {
+	cell = cell && c.content.link != nil
+	if row != c.hover || cell != c.linkHover {
+		c.hover, c.linkHover = row, cell
 		c.apply()
 	}
+}
+
+// Tapped implements fyne.Tappable: follow a link, open the menu of the ⋮, else select the row.
+func (c *tableCell) Tapped(e *fyne.PointEvent) { c.tv.cellTapped(c, e) }
+
+// TappedSecondary implements fyne.SecondaryTappable: a right-click opens the row's actions menu
+// (Lens since 2025.10.230725).
+func (c *tableCell) TappedSecondary(e *fyne.PointEvent) { c.tv.openRowMenu(c.row, e.AbsolutePosition) }
+
+// Cursor implements desktop.Cursorable: a hand over a link the pointer is on and over the ⋮.
+func (c *tableCell) Cursor() desktop.Cursor {
+	if c.linkHover || c.content.kind == cellMenu {
+		return desktop.PointerCursor
+	}
+	return desktop.DefaultCursor
+}
+
+// onLink reports whether a point in the cell lies on its link text.
+func (c *tableCell) onLink(p fyne.Position) bool {
+	if c.content.link == nil || c.text.Text == "" {
+		return false
+	}
+	x := c.text.Position().X
+	return p.X >= x && p.X <= x+c.text.Size().Width
+}
+
+// tipText is the cell's tooltip: a warning's reason, or the full text of a cut-off cell.
+func (c *tableCell) tipText() string {
+	switch {
+	case c.content.kind == cellWarning:
+		return c.full
+	case c.content.kind == cellText && c.truncated:
+		return c.full
+	}
+	return ""
 }
 
 // apply recolours and refits the cell's canvas objects.
@@ -743,29 +946,133 @@ func (c *tableCell) apply() {
 	default:
 		c.bg.FillColor = color.Transparent
 	}
-	c.text.Color = themeColor(th, statusColorName(c.status))
-	c.text.TextSize = th.Size(theme.SizeNameText)
+	size := th.Size(theme.SizeNameText)
+	fg := statusColorName(c.content.status)
+	if c.content.link != nil {
+		fg = colorLink
+	}
+	c.text.Color = themeColor(th, fg)
+	c.text.TextSize = size
+	if c.content.parts != nil && c.content.kind == cellText {
+		parts := *c.content.parts
+		for len(c.more) < len(parts)-1 {
+			c.more = append(c.more, canvas.NewText("", color.Transparent))
+		}
+		if len(parts) > 0 {
+			c.text.Color = themeColor(th, statusColorName(parts[0].Status))
+		}
+		for i, t := range c.more {
+			t.TextSize = size
+			if i+1 < len(parts) {
+				t.Color = themeColor(th, statusColorName(parts[i+1].Status))
+			}
+		}
+	}
+	if c.under == nil && c.content.link != nil {
+		c.under = canvas.NewRectangle(color.Transparent)
+		c.objs++
+	}
+	if c.under != nil {
+		c.under.FillColor = themeColor(th, colorLink)
+		if c.linkHover {
+			c.under.Show()
+		} else {
+			c.under.Hide()
+		}
+		c.under.Refresh()
+	}
 	c.line.FillColor = themeColor(th, theme.ColorNameSeparator)
+	c.setIcon(c.tv.cellIcon(c.content))
 	c.fit(th)
 	c.bg.Refresh()
 	c.text.Refresh()
+	for _, t := range c.more {
+		t.Refresh()
+	}
 }
 
-// fit shows the text, shortened with an ellipsis when it is wider than the cell. Measuring is
-// cached by Fyne per string; the shortening runs only when the text or the width changed. It
-// reports whether the shown text changed.
+// setIcon shows res, or hides the icon for nil. The image is refreshed (its SVG rasterised) only
+// when the resource changes; the resources are shared per icon and colour (tableView.cellIcon).
+func (c *tableCell) setIcon(res fyne.Resource) {
+	if res == nil {
+		if c.icon != nil && c.icon.Visible() {
+			c.icon.Hide()
+		}
+		return
+	}
+	if c.icon == nil {
+		c.icon = canvas.NewImageFromResource(nil)
+		c.icon.FillMode = canvas.ImageFillContain
+		c.objs++
+	}
+	if res != c.iconRes {
+		c.iconRes = res
+		c.icon.Resource = res
+		c.icon.Refresh()
+	}
+	if !c.icon.Visible() {
+		c.icon.Show()
+	}
+}
+
+// fit shows the text, shortened with an ellipsis when it is wider than the cell; a cell in parts
+// shows its runs side by side and shortens the run that reaches the edge. Measuring is cached by
+// Fyne per string; the shortening runs only when the text or the width changed. It reports
+// whether the shown text changed.
 func (c *tableCell) fit(th fyne.Theme) bool {
 	avail := c.Size().Width - 2*th.Size(sizeCellPadding)
 	if avail == c.fitWidth {
 		return false
 	}
 	c.fitWidth = avail
-	shown := ellipsize(c.full, avail, c.text.TextSize, c.text.TextStyle)
-	if shown == c.text.Text {
-		return false
+	if c.content.kind != cellText {
+		c.truncated = false
+		changed := c.text.Text != ""
+		c.text.Text = ""
+		c.hideMore(0)
+		return changed
 	}
-	c.text.Text = shown
+	if c.content.parts == nil || len(*c.content.parts) == 0 {
+		shown := ellipsize(c.full, avail, c.text.TextSize, c.text.TextStyle)
+		c.truncated = shown != c.full
+		c.hideMore(0)
+		if shown == c.text.Text {
+			return false
+		}
+		c.text.Text = shown
+		return true
+	}
+	parts := *c.content.parts
+	space := fyne.MeasureText(" ", c.text.TextSize, c.text.TextStyle).Width
+	c.runX = c.runX[:0]
+	x := float32(0)
+	c.truncated = false
+	for i, p := range parts {
+		t := c.text
+		if i > 0 {
+			t = c.more[i-1]
+		}
+		c.runX = append(c.runX, x)
+		w := fyne.MeasureText(p.Text, t.TextSize, t.TextStyle).Width
+		switch {
+		case avail-x <= 0:
+			t.Text, c.truncated = "", true
+		case x+w > avail:
+			t.Text, c.truncated = ellipsize(p.Text, avail-x, t.TextSize, t.TextStyle), true
+		default:
+			t.Text = p.Text
+		}
+		x += w + space
+	}
+	c.hideMore(len(parts) - 1)
 	return true
+}
+
+// hideMore empties the part texts from index n on.
+func (c *tableCell) hideMore(n int) {
+	for i := n; i < len(c.more); i++ {
+		c.more[i].Text = ""
+	}
 }
 
 // ellipsize returns s, or its longest prefix plus "…" that fits in width.
@@ -792,7 +1099,12 @@ func (c *tableCell) CreateRenderer() fyne.WidgetRenderer {
 	return &tableCellRenderer{c: c}
 }
 
-type tableCellRenderer struct{ c *tableCell }
+type tableCellRenderer struct {
+	c     *tableCell
+	objs  []fyne.CanvasObject
+	nmore int
+	gen   int
+}
 
 func (r *tableCellRenderer) Layout(size fyne.Size) {
 	c := r.c
@@ -804,10 +1116,30 @@ func (r *tableCellRenderer) Layout(size fyne.Size) {
 	c.line.Resize(fyne.NewSize(size.Width+gap, 1))
 	if c.fit(th) {
 		c.text.Refresh() // a column resize shortened or lengthened the text
+		for _, t := range c.more {
+			t.Refresh()
+		}
 	}
+	pad := th.Size(sizeCellPadding)
 	ts := c.text.MinSize()
-	c.text.Move(fyne.NewPos(th.Size(sizeCellPadding), (size.Height-ts.Height)/2))
+	y := (size.Height - ts.Height) / 2
+	c.text.Move(fyne.NewPos(pad, y))
 	c.text.Resize(ts)
+	for i, t := range c.more {
+		if i+1 < len(c.runX) && t.Text != "" {
+			t.Move(fyne.NewPos(pad+c.runX[i+1], y))
+			t.Resize(t.MinSize())
+		}
+	}
+	if c.under != nil {
+		c.under.Move(fyne.NewPos(pad, y+ts.Height-2))
+		c.under.Resize(fyne.NewSize(ts.Width, 1))
+	}
+	if c.icon != nil {
+		is := th.Size(sizeCellIcon)
+		c.icon.Move(fyne.NewPos((size.Width-is)/2, (size.Height-is)/2))
+		c.icon.Resize(fyne.NewSize(is, is))
+	}
 }
 
 func (r *tableCellRenderer) MinSize() fyne.Size {
@@ -823,11 +1155,57 @@ func (r *tableCellRenderer) Refresh() {
 	r.c.line.Refresh()
 }
 
+// Objects returns the cell's canvas objects; the list is rebuilt only when the cell made a new
+// one (a part, its first icon or underline).
 func (r *tableCellRenderer) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{r.c.bg, r.c.line, r.c.text}
+	c := r.c
+	if r.objs == nil || r.nmore != len(c.more) || r.gen != c.objs {
+		r.nmore, r.gen = len(c.more), c.objs
+		r.objs = append(r.objs[:0], c.bg, c.line, c.text)
+		if c.under != nil {
+			r.objs = append(r.objs, c.under)
+		}
+		if c.icon != nil {
+			r.objs = append(r.objs, c.icon)
+		}
+		for _, t := range c.more {
+			r.objs = append(r.objs, t)
+		}
+	}
+	return r.objs
 }
 
 func (r *tableCellRenderer) Destroy() {}
+
+// cellIcon returns the icon a cell shows: the warning triangle in the cell's status colour, the ⋮
+// in the muted colour, or nil. The themed resources are made once per icon and colour, so that
+// updating cells allocates nothing and a cell's image is re-rasterised only when its icon changes.
+func (tv *tableView) cellIcon(content cellContent) fyne.Resource {
+	var key cellIconKey
+	switch content.kind {
+	case cellWarning:
+		if content.status == model.StatusNone {
+			return nil
+		}
+		key = cellIconKey{theme.IconNameWarning, statusColorName(content.status)}
+	case cellMenu:
+		key = cellIconKey{theme.IconNameMoreVertical, colorMuted}
+	default:
+		return nil
+	}
+	if res, ok := tv.icons[key]; ok {
+		return res
+	}
+	res := themedIcon(theme.Icon(key.icon), key.color)
+	tv.icons[key] = res
+	return res
+}
+
+// cellIconKey names a table icon in a colour.
+type cellIconKey struct {
+	icon  fyne.ThemeIconName
+	color fyne.ThemeColorName
+}
 
 // headerCell is a column header: the title, an arrow on the sorted column, and a short divider at
 // its right edge that marks where the column can be dragged wider. Tapping it sorts.

@@ -74,6 +74,7 @@ type shell struct {
 	dock      *dock
 	status    *statusBar
 	toasts    *fyne.Container
+	tip       *tooltip // the one tooltip: cut-off cells, warning icons, drawer actions
 	picker    *picker
 	confirmer *guiConfirmer
 
@@ -103,6 +104,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.picker = newPicker(sh)
 	sh.confirmer = newGUIConfirmer(sh)
 	sh.toasts = box(&toastLayout{})
+	sh.tip = newTooltip(sh)
 
 	sh.hsplit = container.NewHSplit(sh.view.root, sh.drawer.root)
 	sh.hsplit.SetOffset(drawerOffset)
@@ -118,7 +120,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 		container.NewVBox(sh.top.root, newDivider(false)),
 		container.NewVBox(newDivider(false), sh.status.root),
 		nil, nil, main)
-	sh.root = container.NewStack(frame, sh.toasts)
+	sh.root = container.NewStack(frame, sh.tip.layer, sh.toasts)
 	return sh
 }
 
