@@ -72,6 +72,7 @@ var wantCommands = map[string]engine.Danger{
 	"helm.release.uninstall": engine.DangerDestructive,
 	"helm.pendingOperations": engine.DangerRead,
 	"helm.dismissOperation":  engine.DangerUI,
+
 	// Workload actions and logs (G7, G8).
 	"daemonset.restart":   engine.DangerDestructive,
 	"statefulset.restart": engine.DangerDestructive,
@@ -81,15 +82,12 @@ var wantCommands = map[string]engine.Danger{
 	"logs.setOptions":     engine.DangerUI,
 	"logs.controller":     engine.DangerRead,
 	"object.copyName":     engine.DangerUI,
-	"ui.setColumns":       engine.DangerUI,
-	"ui.setGroups":        engine.DangerUI,
-	"ui.setColumns":       engine.DangerUI,
-	"ui.setGroups":        engine.DangerUI,
-	"table.exportCsv":     engine.DangerRead,
-	"ui.setColumns":       engine.DangerUI,
-	"ui.setGroups":        engine.DangerUI,
-	"table.exportCsv":     engine.DangerRead,
-	"workloads.overview":  engine.DangerRead,
+
+	// Tables and pages (G5).
+	"ui.setColumns":      engine.DangerUI,
+	"ui.setGroups":       engine.DangerUI,
+	"table.exportCsv":    engine.DangerRead,
+	"workloads.overview": engine.DangerRead,
 }
 
 func TestRegistryComplete(t *testing.T) {

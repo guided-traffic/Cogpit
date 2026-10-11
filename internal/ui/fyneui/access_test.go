@@ -38,7 +38,7 @@ func TestSidebarHidesKindsNotListable(t *testing.T) {
 	if got := titlesOf(s, s.children[""]); !slices.Equal(got, []string{"Workloads", "Network", "Namespaces", "Events"}) {
 		t.Errorf("top level %v, want Nodes left out", got)
 	}
-	if got := s.children[groupPrefix+"workloads"]; !slices.Equal(got, []string{"pods"}) {
+	if got := s.children[groupPrefix+"workloads"]; !slices.Equal(got, []string{"workloads/overview", "pods"}) {
 		t.Errorf("workloads %v, want Deployments left out", got)
 	}
 	if got := s.children[groupPrefix+"network"]; !slices.Equal(got, []string{"services"}) {
@@ -47,7 +47,7 @@ func TestSidebarHidesKindsNotListable(t *testing.T) {
 
 	setListable(f, map[string]bool{"nodes": false, "deployments": true, "pods": true})
 	f.emit(engine.Event{Type: engine.EventKinds})
-	q.until(t, "Deployments back", func() bool { return slices.Equal(s.children[groupPrefix+"workloads"], []string{"pods", "deployments"}) })
+	q.until(t, "Deployments back", func() bool { return slices.Equal(s.children[groupPrefix+"workloads"], []string{"workloads/overview", "pods", "deployments"}) })
 }
 
 // renderAccess: a user who may not list nodes and some workloads, and may not delete or shell

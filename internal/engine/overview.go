@@ -39,11 +39,9 @@ func PageTitle(view string) (string, bool) {
 // overviewKinds are the Workloads Overview's kinds in its two columns, as captured (2026-10-11):
 // Pods, Deployments, Daemon Sets, Stateful Sets; Replica Sets, Jobs, Cron Jobs.
 var overviewKinds = [2][]string{
-	{podsKind, "deployments", "daemonsets", "statefulsets"},
-	{"replicasets", "jobs", "cronjobs"},
+	{kindPods, logKindDeployments, logKindDaemonSets, logKindStatefulSets},
+	{logKindReplicaSets, logKindJobs, "cronjobs"},
 }
-
-const podsKind = "pods"
 
 // overviewEventColumns are the columns of the overview's events table after the events' own first
 // column (their hidden name: the first column is the name), as captured: Type, Source, Namespace,

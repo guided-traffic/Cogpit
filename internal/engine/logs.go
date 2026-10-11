@@ -41,9 +41,12 @@ type LogOptions struct {
 
 // Kind keys the logs code refers to.
 const (
-	logKindPods        = "pods"
-	logKindDeployments = "deployments"
-	logKindReplicaSets = "replicasets"
+	logKindPods         = "pods"
+	logKindDeployments  = "deployments"
+	logKindReplicaSets  = "replicasets"
+	logKindDaemonSets   = "daemonsets"
+	logKindStatefulSets = "statefulsets"
+	logKindJobs         = "jobs"
 )
 
 // MaxLogSearch bounds a logs tab's search text, in bytes.
@@ -51,11 +54,11 @@ const MaxLogSearch = 1024
 
 // WorkloadLogKinds are the kinds whose logs a tab shows for all their pods (workload.logs), as
 // Lens offers Logs for them.
-var WorkloadLogKinds = []string{logKindDeployments, "daemonsets", "statefulsets", logKindReplicaSets, "jobs"}
+var WorkloadLogKinds = []string{logKindDeployments, logKindDaemonSets, logKindStatefulSets, logKindReplicaSets, logKindJobs}
 
 // controllerKinds maps the controller kinds of pods to their kind keys.
 var controllerKinds = map[string]string{
-	"ReplicaSet": logKindReplicaSets, "DaemonSet": "daemonsets", "StatefulSet": "statefulsets", "Job": "jobs",
+	"ReplicaSet": logKindReplicaSets, "DaemonSet": logKindDaemonSets, "StatefulSet": logKindStatefulSets, "Job": logKindJobs,
 	"Deployment": logKindDeployments,
 }
 
