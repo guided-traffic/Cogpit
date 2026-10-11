@@ -1,0 +1,27 @@
+# Synthetic: a team's compute quota with room left on every resource.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute
+  namespace: payments
+  uid: 9d4e5f60-8888-4d9e-0f1a-000000000001
+  creationTimestamp: "2026-09-01T08:00:00Z"
+  labels:
+    team: payments
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.memory: 32Gi
+    pods: "50"
+status:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.memory: 32Gi
+    pods: "50"
+  used:
+    requests.cpu: 2250m
+    requests.memory: 6Gi
+    limits.memory: 12Gi
+    pods: "17"

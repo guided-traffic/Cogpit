@@ -1,0 +1,16 @@
+# Synthetic: a limit range held by a finalizer while it is deleted.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: storage-bounds
+  namespace: legacy
+  uid: 0e5f6071-9999-4e0f-1a2b-000000000003
+  creationTimestamp: "2026-03-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - limits.example.com/audit
+spec:
+  limits:
+  - type: PersistentVolumeClaim
+    max:
+      storage: 50Gi

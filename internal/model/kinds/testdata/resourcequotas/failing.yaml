@@ -1,0 +1,27 @@
+# Synthetic: a quota that ran out: pods at the limit, memory over a limit that was lowered below the
+# use; a limit of zero on load balancers that nothing uses, which forbids them and is not running
+# out.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute
+  namespace: batch
+  uid: 9d4e5f60-8888-4d9e-0f1a-000000000002
+  creationTimestamp: "2026-10-01T08:00:00Z"
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    pods: "20"
+    services.loadbalancers: "0"
+status:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    pods: "20"
+    services.loadbalancers: "0"
+  used:
+    requests.cpu: 3900m
+    requests.memory: 9Gi
+    pods: "20"
+    services.loadbalancers: "0"

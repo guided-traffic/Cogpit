@@ -1,0 +1,67 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "limitranges",
+    "namespace": "legacy",
+    "name": "storage-bounds"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "storage-bounds"
+    },
+    {
+      "column": "namespace",
+      "text": "legacy",
+      "link": {
+        "kind": "namespaces",
+        "name": "legacy"
+      }
+    },
+    {
+      "column": "age",
+      "text": "224d",
+      "num": 1772323200
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "storage-bounds"
+    ],
+    "namespace": [
+      "legacy"
+    ],
+    "type": [
+      "PersistentVolumeClaim"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Limits",
+      "table": {
+        "columns": [
+          "Type",
+          "Resource",
+          "Min",
+          "Max",
+          "Default Request",
+          "Default Limit",
+          "Max Limit/Request Ratio"
+        ],
+        "rows": [
+          [
+            "PersistentVolumeClaim",
+            "storage",
+            "",
+            "50Gi",
+            "",
+            "",
+            ""
+          ]
+        ]
+      }
+    }
+  ]
+}

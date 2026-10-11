@@ -1,0 +1,36 @@
+# Synthetic: container defaults and bounds, a pod maximum and a claim size range.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: defaults
+  namespace: payments
+  uid: 0e5f6071-9999-4e0f-1a2b-000000000001
+  creationTimestamp: "2026-09-01T08:00:00Z"
+  labels:
+    team: payments
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: 500m
+      memory: 512Mi
+    defaultRequest:
+      cpu: 100m
+      memory: 128Mi
+    min:
+      cpu: 10m
+      memory: 16Mi
+    max:
+      cpu: "2"
+      memory: 2Gi
+    maxLimitRequestRatio:
+      cpu: "10"
+  - type: Pod
+    max:
+      cpu: "4"
+      memory: 4Gi
+  - type: PersistentVolumeClaim
+    min:
+      storage: 1Gi
+    max:
+      storage: 100Gi

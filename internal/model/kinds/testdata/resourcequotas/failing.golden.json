@@ -1,0 +1,92 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourcequotas",
+    "namespace": "batch",
+    "name": "compute"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "compute"
+    },
+    {
+      "column": "namespace",
+      "text": "batch",
+      "link": {
+        "kind": "namespaces",
+        "name": "batch"
+      }
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790841600
+    }
+  ],
+  "fields": {
+    "atLimit": [
+      "pods",
+      "requests.memory"
+    ],
+    "label": [],
+    "name": [
+      "compute"
+    ],
+    "namespace": [
+      "batch"
+    ],
+    "resource": [
+      "pods",
+      "requests.cpu",
+      "requests.memory",
+      "services.loadbalancers"
+    ],
+    "scope": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "At Limit",
+          "value": "pods, requests.memory",
+          "status": "warning"
+        }
+      ]
+    },
+    {
+      "title": "Quotas",
+      "table": {
+        "columns": [
+          "Resource",
+          "Used",
+          "Hard"
+        ],
+        "rows": [
+          [
+            "pods",
+            "20",
+            "20"
+          ],
+          [
+            "requests.cpu",
+            "3900m",
+            "4"
+          ],
+          [
+            "requests.memory",
+            "9Gi",
+            "8Gi"
+          ],
+          [
+            "services.loadbalancers",
+            "0",
+            "0"
+          ]
+        ]
+      }
+    }
+  ]
+}

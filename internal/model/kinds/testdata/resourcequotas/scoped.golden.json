@@ -1,0 +1,82 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourcequotas",
+    "namespace": "payments",
+    "name": "high-priority"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "high-priority"
+    },
+    {
+      "column": "namespace",
+      "text": "payments",
+      "link": {
+        "kind": "namespaces",
+        "name": "payments"
+      }
+    },
+    {
+      "column": "age",
+      "text": "30s",
+      "num": 1791719970
+    }
+  ],
+  "fields": {
+    "atLimit": [],
+    "label": [],
+    "name": [
+      "high-priority"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "resource": [
+      "pods",
+      "requests.cpu"
+    ],
+    "scope": [
+      "NotTerminating"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Scopes",
+          "value": "NotTerminating"
+        },
+        {
+          "name": "Scope Selector",
+          "value": "PriorityClass In (high, critical)"
+        }
+      ]
+    },
+    {
+      "title": "Quotas",
+      "table": {
+        "columns": [
+          "Resource",
+          "Used",
+          "Hard"
+        ],
+        "rows": [
+          [
+            "pods",
+            "-",
+            "10"
+          ],
+          [
+            "requests.cpu",
+            "-",
+            "2"
+          ]
+        ]
+      }
+    }
+  ]
+}

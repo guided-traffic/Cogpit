@@ -45,6 +45,8 @@ var builtin = []*model.KindProfile{
 	ingresses,
 	ingressClasses,
 	configMaps,
+	resourceQuotas,
+	limitRanges,
 	persistentVolumeClaims,
 	namespaces,
 	events,

@@ -1,0 +1,67 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourcequotas",
+    "namespace": "legacy",
+    "name": "object-counts"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "object-counts"
+    },
+    {
+      "column": "namespace",
+      "text": "legacy",
+      "link": {
+        "kind": "namespaces",
+        "name": "legacy"
+      }
+    },
+    {
+      "column": "age",
+      "text": "224d",
+      "num": 1772323200
+    }
+  ],
+  "fields": {
+    "atLimit": [],
+    "label": [],
+    "name": [
+      "object-counts"
+    ],
+    "namespace": [
+      "legacy"
+    ],
+    "resource": [
+      "configmaps",
+      "count/deployments.apps"
+    ],
+    "scope": []
+  },
+  "detail": [
+    {
+      "title": "Quotas",
+      "table": {
+        "columns": [
+          "Resource",
+          "Used",
+          "Hard"
+        ],
+        "rows": [
+          [
+            "configmaps",
+            "12",
+            "40"
+          ],
+          [
+            "count/deployments.apps",
+            "3",
+            "10"
+          ]
+        ]
+      }
+    }
+  ]
+}

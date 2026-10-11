@@ -1,0 +1,107 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "limitranges",
+    "namespace": "payments",
+    "name": "defaults"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "defaults"
+    },
+    {
+      "column": "namespace",
+      "text": "payments",
+      "link": {
+        "kind": "namespaces",
+        "name": "payments"
+      }
+    },
+    {
+      "column": "age",
+      "text": "40d",
+      "num": 1788249600
+    }
+  ],
+  "fields": {
+    "label": [
+      "team=payments"
+    ],
+    "name": [
+      "defaults"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "type": [
+      "Container",
+      "Pod",
+      "PersistentVolumeClaim"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Limits",
+      "table": {
+        "columns": [
+          "Type",
+          "Resource",
+          "Min",
+          "Max",
+          "Default Request",
+          "Default Limit",
+          "Max Limit/Request Ratio"
+        ],
+        "rows": [
+          [
+            "Container",
+            "cpu",
+            "10m",
+            "2",
+            "100m",
+            "500m",
+            "10"
+          ],
+          [
+            "Container",
+            "memory",
+            "16Mi",
+            "2Gi",
+            "128Mi",
+            "512Mi",
+            ""
+          ],
+          [
+            "Pod",
+            "cpu",
+            "",
+            "4",
+            "",
+            "",
+            ""
+          ],
+          [
+            "Pod",
+            "memory",
+            "",
+            "4Gi",
+            "",
+            "",
+            ""
+          ],
+          [
+            "PersistentVolumeClaim",
+            "storage",
+            "1Gi",
+            "100Gi",
+            "",
+            "",
+            ""
+          ]
+        ]
+      }
+    }
+  ]
+}

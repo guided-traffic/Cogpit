@@ -1,0 +1,7 @@
+# Synthetic: optional fields missing: no hard limits, no status, no uid.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: empty
+  namespace: default
+  creationTimestamp: "2026-10-11T11:00:00Z"

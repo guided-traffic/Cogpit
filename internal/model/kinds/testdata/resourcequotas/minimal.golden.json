@@ -1,0 +1,41 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourcequotas",
+    "namespace": "default",
+    "name": "empty"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "empty"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "atLimit": [],
+    "label": [],
+    "name": [
+      "empty"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "resource": [],
+    "scope": []
+  },
+  "detail": null
+}

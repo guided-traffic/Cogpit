@@ -1,0 +1,22 @@
+# Synthetic: a quota on the pods of one priority class, just created: the quota controller has not
+# counted the use yet, so there is no status.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: high-priority
+  namespace: payments
+  uid: 9d4e5f60-8888-4d9e-0f1a-000000000005
+  creationTimestamp: "2026-10-11T11:59:30Z"
+spec:
+  hard:
+    pods: "10"
+    requests.cpu: "2"
+  scopes:
+  - NotTerminating
+  scopeSelector:
+    matchExpressions:
+    - scopeName: PriorityClass
+      operator: In
+      values:
+      - high
+      - critical

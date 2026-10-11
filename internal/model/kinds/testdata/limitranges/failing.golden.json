@@ -1,0 +1,76 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "limitranges",
+    "namespace": "batch",
+    "name": "broken-defaults"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "broken-defaults"
+    },
+    {
+      "column": "namespace",
+      "text": "batch",
+      "link": {
+        "kind": "namespaces",
+        "name": "batch"
+      }
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790841600
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "broken-defaults"
+    ],
+    "namespace": [
+      "batch"
+    ],
+    "type": [
+      "Container"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Limits",
+      "table": {
+        "columns": [
+          "Type",
+          "Resource",
+          "Min",
+          "Max",
+          "Default Request",
+          "Default Limit",
+          "Max Limit/Request Ratio"
+        ],
+        "rows": [
+          [
+            "Container",
+            "memory",
+            "",
+            "1Gi",
+            "4Gi",
+            "",
+            ""
+          ],
+          [
+            "",
+            "cpu",
+            "",
+            "1",
+            "",
+            "",
+            ""
+          ]
+        ]
+      }
+    }
+  ]
+}

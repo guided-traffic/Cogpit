@@ -1,0 +1,39 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "limitranges",
+    "namespace": "default",
+    "name": "empty"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "empty"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "empty"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "type": []
+  },
+  "detail": null
+}

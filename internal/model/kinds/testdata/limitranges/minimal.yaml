@@ -1,0 +1,7 @@
+# Synthetic: optional fields missing: no limits, no uid.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: empty
+  namespace: default
+  creationTimestamp: "2026-10-11T11:00:00Z"

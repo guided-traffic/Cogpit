@@ -1,0 +1,19 @@
+# Synthetic: a limit range has no state to fail; this is what goes wrong with one in practice: a
+# default request above the maximum, which the API server refuses for new objects but a range that
+# predates the check can still carry, and an entry without a type.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: broken-defaults
+  namespace: batch
+  uid: 0e5f6071-9999-4e0f-1a2b-000000000002
+  creationTimestamp: "2026-10-01T08:00:00Z"
+spec:
+  limits:
+  - type: Container
+    defaultRequest:
+      memory: 4Gi
+    max:
+      memory: 1Gi
+  - max:
+      cpu: "1"

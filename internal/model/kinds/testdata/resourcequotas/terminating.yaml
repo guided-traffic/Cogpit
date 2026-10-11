@@ -1,0 +1,22 @@
+# Synthetic: a quota held by a finalizer while it is deleted.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: object-counts
+  namespace: legacy
+  uid: 9d4e5f60-8888-4d9e-0f1a-000000000003
+  creationTimestamp: "2026-03-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - quotas.example.com/audit
+spec:
+  hard:
+    count/deployments.apps: "10"
+    configmaps: "40"
+status:
+  hard:
+    count/deployments.apps: "10"
+    configmaps: "40"
+  used:
+    count/deployments.apps: "3"
+    configmaps: "12"

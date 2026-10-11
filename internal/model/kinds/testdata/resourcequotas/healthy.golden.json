@@ -1,0 +1,81 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourcequotas",
+    "namespace": "payments",
+    "name": "compute"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "compute"
+    },
+    {
+      "column": "namespace",
+      "text": "payments",
+      "link": {
+        "kind": "namespaces",
+        "name": "payments"
+      }
+    },
+    {
+      "column": "age",
+      "text": "40d",
+      "num": 1788249600
+    }
+  ],
+  "fields": {
+    "atLimit": [],
+    "label": [
+      "team=payments"
+    ],
+    "name": [
+      "compute"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "resource": [
+      "limits.memory",
+      "pods",
+      "requests.cpu",
+      "requests.memory"
+    ],
+    "scope": []
+  },
+  "detail": [
+    {
+      "title": "Quotas",
+      "table": {
+        "columns": [
+          "Resource",
+          "Used",
+          "Hard"
+        ],
+        "rows": [
+          [
+            "limits.memory",
+            "12Gi",
+            "32Gi"
+          ],
+          [
+            "pods",
+            "17",
+            "50"
+          ],
+          [
+            "requests.cpu",
+            "2250m",
+            "8"
+          ],
+          [
+            "requests.memory",
+            "6Gi",
+            "16Gi"
+          ]
+        ]
+      }
+    }
+  ]
+}
