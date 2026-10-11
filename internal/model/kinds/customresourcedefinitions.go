@@ -20,8 +20,11 @@ const (
 	crdTerminating   = "Terminating"
 )
 
-// idVersion is the Version column and searchable field of the Definitions view.
-const idVersion = "version"
+// Ids of the Definitions view: columns, searchable fields and the spec fields they show.
+const (
+	idVersion = "version"
+	idScope   = "scope"
+)
 
 // hiddenNameColumn is the name column of a view that does not show it but sorts by it.
 var hiddenNameColumn = func() model.Column {
@@ -46,7 +49,7 @@ var customResourceDefinitions = &model.KindProfile{
 		{ID: "resource", Title: "Resource", Type: model.ColumnText},
 		{ID: "group", Title: "Group", Type: model.ColumnText},
 		{ID: idVersion, Title: "Version", Type: model.ColumnText},
-		{ID: "scope", Title: "Scope", Type: model.ColumnText},
+		{ID: idScope, Title: "Scope", Type: model.ColumnText},
 		ageColumn,
 	},
 	Cells: crdCells,
@@ -57,8 +60,8 @@ var customResourceDefinitions = &model.KindProfile{
 		"kind": func(obj *unstructured.Unstructured) []string {
 			return nonEmpty(model.NestedString(obj, "spec", "names", "kind"))
 		},
-		"scope": func(obj *unstructured.Unstructured) []string {
-			return nonEmpty(model.NestedString(obj, "spec", "scope"))
+		idScope: func(obj *unstructured.Unstructured) []string {
+			return nonEmpty(model.NestedString(obj, "spec", idScope))
 		},
 		idVersion: func(obj *unstructured.Unstructured) []string {
 			return nonEmpty(ServedVersionName(obj))
@@ -79,7 +82,7 @@ func crdCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 		resource,
 		{Text: model.NestedString(obj, "spec", "group")},
 		{Text: ServedVersionName(obj)},
-		{Text: model.NestedString(obj, "spec", "scope")},
+		{Text: model.NestedString(obj, "spec", idScope)},
 		model.AgeCell(created(obj)),
 	}, crdStatus(obj)
 }
@@ -107,7 +110,7 @@ func crdDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	d.add("Singular", model.NestedString(obj, "spec", "names", "singular"))
 	d.add("Short Names", strings.Join(model.NestedStrings(obj, "spec", "names", "shortNames"), ", "))
 	d.add("Categories", strings.Join(model.NestedStrings(obj, "spec", "names", "categories"), ", "))
-	d.add("Scope", model.NestedString(obj, "spec", "scope"))
+	d.add("Scope", model.NestedString(obj, "spec", idScope))
 	d.add("Versions", strings.Join(crdVersions(obj), ", "))
 	d.add("Stored Versions", strings.Join(model.NestedStrings(obj, "status", "storedVersions"), ", "))
 	d.add("Conversion", model.NestedString(obj, "spec", "conversion", "strategy"))

@@ -123,7 +123,7 @@ func parseCRD(crd *unstructured.Unstructured) (k CustomKind, err error) {
 		Group:      model.NestedString(spec, "group"),
 		Plural:     model.NestedString(spec, "names", "plural"),
 		Kind:       model.NestedString(spec, "names", "kind"),
-		Namespaced: model.NestedString(spec, "scope") == "Namespaced",
+		Namespaced: model.NestedString(spec, idScope) == "Namespaced",
 	}
 	// Kubernetes validates these, so a definition that breaks them did not come from an API
 	// server; a group without a dot would collide with built-in kind keys.
