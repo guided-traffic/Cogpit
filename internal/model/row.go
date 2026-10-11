@@ -18,6 +18,9 @@ const (
 	// shows nothing. Num is 1 when the row has a warning, so that the column sorts warnings
 	// together; [CellText] returns the reason.
 	ColumnWarning ColumnType = "warning"
+	// ColumnUntil is a time in the future: Cell.Num is a Unix timestamp in seconds, rendered as the
+	// time left from now ([FormatUntil]): a Cron Job's Next execution.
+	ColumnUntil ColumnType = "until"
 )
 
 // Column describes one table column of a kind.
@@ -63,6 +66,11 @@ func CellText(col Column, cell Cell, now time.Time) string {
 			return cell.Text
 		}
 		return FormatAge(now.Sub(time.Unix(cell.Num, 0)))
+	case ColumnUntil:
+		if cell.Num == 0 {
+			return cell.Text
+		}
+		return FormatUntil(time.Unix(cell.Num, 0).Sub(now))
 	case ColumnNumber:
 		if cell.Text == "" {
 			return strconv.FormatInt(cell.Num, 10)
