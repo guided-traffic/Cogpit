@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -50,13 +51,28 @@ type DetailTable struct {
 //   - Fold, when set, folds the list behind its count: the drawer shows "<n> <Fold>" ("6 Labels",
 //     "1 Label" for one entry) and expands it on click. The entries are the chips, else the lines
 //     of Value.
+//   - Actions are buttons beside the value that run a command for it: "Forward…" beside a
+//     container port.
 type DetailItem struct {
-	Name   string     `json:"name,omitempty"`
-	Value  string     `json:"value"`
-	Status Status     `json:"status,omitempty"`
-	Link   *ObjectRef `json:"link,omitempty"`
-	Chips  []Chip     `json:"chips,omitempty"`
-	Fold   string     `json:"fold,omitempty"`
+	Name    string       `json:"name,omitempty"`
+	Value   string       `json:"value"`
+	Status  Status       `json:"status,omitempty"`
+	Link    *ObjectRef   `json:"link,omitempty"`
+	Chips   []Chip       `json:"chips,omitempty"`
+	Fold    string       `json:"fold,omitempty"`
+	Actions []ItemAction `json:"actions,omitempty"`
+}
+
+// ItemAction is a button beside a drawer item's value (architecture §4.4): it runs the command
+// Command with Params, which name everything the command needs from the item (the pod, the
+// container, the port). Agents see it in object_get and can dispatch the same command. The GUI
+// runs it as the row menu runs a command (a schema-generated dialog when the command needs more
+// parameters, prefilled with Params), unless the GUI registers a dialog of its own for the
+// command (the port-forward dialog).
+type ItemAction struct {
+	Label   string          `json:"label"`
+	Command string          `json:"command"`
+	Params  json.RawMessage `json:"params,omitempty"`
 }
 
 // Chip is one entry of a list value shown as a chip.

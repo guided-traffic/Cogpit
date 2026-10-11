@@ -303,6 +303,13 @@ by "this pod".
   shows the icon in that status's colour with its text as the tooltip; an empty cell shows nothing.
   A cell with `parts` is drawn in coloured runs ("SchedulingDisabled" plain, "Ready" green on a
   cordoned node); its text stays the runs joined by spaces, for sorting and search.
+- **Item actions** (decided 2026-10-11, [`model/detail.go`](../../internal/model/detail.go)
+  `ItemAction`, [`itemactions.go`](../../internal/ui/fyneui/itemactions.go)): a drawer item can
+  carry buttons beside its value, each a command with the parameters that name what the item
+  shows ("Forward…" beside a container port: the pod, the container, the port). Agents see them in
+  `object_get` and dispatch the same command. The GUI runs one as the row menu runs a command
+  (a schema-generated dialog, prefilled with the params, when the command asks for more), unless a
+  feature registers a dialog of its own for the command in `itemActionDialogs` from its own file.
 - **Related objects** (decided 2026-10-11, [`model/related.go`](../../internal/model/related.go),
   [`engine/related.go`](../../internal/engine/related.go)): a cell or drawer section that shows
   objects of another kind (a PVC's Pods column, a node drawer's Pods table) reads them through an
@@ -570,7 +577,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-11 | minor | Third run's Phase 0: cache scopes with label selector and metadata only, local and virtual kinds (§5), the related-objects index (§4.4), access reviews in `Enabled` (§4.2), Helm v4.3.0 in `go.mod` |
+| 2026-10-11 | minor | Third run's Phase 0: cache scopes with label selector and metadata only, local and virtual kinds (§5), the related-objects index and item actions in the drawer (§4.4), access reviews in `Enabled` (§4.2), Helm v4.3.0 in `go.mod` |
 | 2026-10-11 | major | Current state after the second implementation run: 16 built-in profiles and custom resources, editing, node and workload actions, the drain journal, 41 commands, CI |
 | 2026-10-11 | minor | §4.2: what a confirmation binds (context, objects, UIDs), `Detail`, `OriginOf` |
 | 2026-10-11 | minor | Row menus from the registry (`Actions`, submenus, schema dialogs); the drawer model's Properties section, links, chips, folds and tables; cells in coloured parts |

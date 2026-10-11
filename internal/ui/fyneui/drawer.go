@@ -330,6 +330,22 @@ func foldKey(sec model.DetailSection, it model.DetailItem) string {
 // itemValue renders one value: a folded list as its count ("6 Labels", a link that unfolds it),
 // chips, a link to the object it names, a status pill, else one line per line.
 func (d *drawer) itemValue(ref model.ObjectRef, sec model.DetailSection, it model.DetailItem) fyne.CanvasObject {
+	v := d.foldedValue(ref, sec, it)
+	if len(it.Actions) == 0 {
+		return v
+	}
+	row := container.NewHBox(v)
+	for _, a := range it.Actions {
+		act := a
+		b := widget.NewButton(act.Label, func() { d.sh.runItemAction(ref, act) })
+		b.Importance = widget.LowImportance
+		row.Add(b)
+	}
+	return row
+}
+
+// foldedValue renders a value, folded behind its count when the item folds.
+func (d *drawer) foldedValue(ref model.ObjectRef, sec model.DetailSection, it model.DetailItem) fyne.CanvasObject {
 	if it.Fold != "" {
 		key := foldKey(sec, it)
 		n := it.Entries()
