@@ -83,8 +83,12 @@ user's file byte-identical. A shell profile can still override `KUBECONFIG`
 ## Secret objects
 
 Kubernetes Secrets are data the user's identity may read, not Cogpit's own credentials, but they
-are handled with the same care: values are hidden until the user reveals one field, decoded
-values are never logged, and editing a Secret shows decoded values only inside the editor tab.
+are handled with the same care: the list holds metadata only, an opened Secret's values are
+masked until the user reveals one field, decoded values are never logged, and editing or creating
+a Secret from YAML is refused (its values are redacted there). As built (2026-10-11): when the
+drawer closes or moves, the engine zeroes the bytes it kept of the opened Secret; the GET's
+response and a revealed value's string wait for the garbage collector, so the wipe is best effort
+([privilege footprint › H-8](privilege-footprint.md#h-8-secret-data-arrives-with-the-list)).
 
 ## What this does not cover
 

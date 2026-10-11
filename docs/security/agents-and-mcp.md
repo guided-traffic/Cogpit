@@ -63,3 +63,12 @@ production clusters is marked, is not designed yet.
 
 The per-context allowance trades safety for convenience. There is no expiry, no scope finer than a
 context, and no per-command allowance yet.
+
+### H-23: Secret annotations other than kubectl's reach agents
+
+The cache drops `kubectl.kubernetes.io/last-applied-configuration` from every Secret, because it
+repeats the values, and agents never get a Secret's data. Other tools may keep a copy of a
+manifest in an annotation too (which ones, and whether any of them copies a Secret's data, is not
+verified); such an annotation reaches the Secrets view, `object_get` and the agents verbatim.
+Dropping more annotations is a policy decision that is not made: the list would have to name
+tools Cogpit does not know.
