@@ -100,6 +100,9 @@ func CellTable(columns []Column, rows [][]Cell) *DetailTable {
 //   - Actions are buttons beside the value that run a command for it: "Forward…" beside a
 //     container port. An action marked Link is the value itself: the value is a link that runs
 //     it (a container port forwards at once and opens the browser).
+//   - Private marks a value agents must not read (Helm's user-supplied values, which can hold
+//     credentials): object_get gives agents [Withheld] in its place (WithholdPrivate), the user's
+//     own window shows it. It is not part of the JSON.
 type DetailItem struct {
 	Name    string       `json:"name,omitempty"`
 	Value   string       `json:"value"`
@@ -108,6 +111,41 @@ type DetailItem struct {
 	Chips   []Chip       `json:"chips,omitempty"`
 	Fold    string       `json:"fold,omitempty"`
 	Actions []ItemAction `json:"actions,omitempty"`
+	Private bool         `json:"-"`
+}
+
+// Withheld is what agents read in place of a private item's value.
+const Withheld = "<withheld: Cogpit shows this value only in its own window>"
+
+// WithholdPrivate returns sections with every private item's value replaced by [Withheld], its
+// chips, link and actions dropped: what an agent may see of a drawer. Sections without a private
+// item are shared, the others copied; the input is not modified.
+func WithholdPrivate(sections []DetailSection) []DetailSection {
+	var out []DetailSection
+	for i, sec := range sections {
+		private := false
+		for _, it := range sec.Items {
+			private = private || it.Private
+		}
+		if !private {
+			continue
+		}
+		if out == nil {
+			out = append([]DetailSection(nil), sections...)
+		}
+		items := make([]DetailItem, len(sec.Items))
+		for j, it := range sec.Items {
+			if it.Private {
+				it = DetailItem{Name: it.Name, Value: Withheld, Private: true}
+			}
+			items[j] = it
+		}
+		out[i].Items = items
+	}
+	if out == nil {
+		return sections
+	}
+	return out
 }
 
 // ItemAction is a button beside a drawer item's value (architecture §4.4): it runs the command

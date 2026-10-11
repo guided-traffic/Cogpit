@@ -189,6 +189,9 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 	if perr != nil {
 		s.log.Error("engine: kind profile detail panicked", "kind", p.Key, "panic", perr.Error())
 	}
+	if OriginOf(ctx).IsAgent() {
+		m.Sections = model.WithholdPrivate(m.Sections) // object_get: agents never read private values
+	}
 	if m.YAML == "" {
 		s.log.Warn("engine: object not representable as YAML", "ref", ref.String())
 	}

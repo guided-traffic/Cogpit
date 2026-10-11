@@ -340,7 +340,10 @@ by "this pod".
   do; agents keep reading `rows`, and `DetailTable.Link` reads a cell's link. An item's `value` is
   always its plain text; `link` names the object
   it shows, `chips` are a list's entries, and `fold` folds a long list behind its count ("6
-  Labels"). `object_get` returns the same model.
+  Labels"). `object_get` returns the same model, except that an item marked `Private` (Helm's
+  user-supplied values, which can hold credentials) reads `model.Withheld` for agents
+  (`model.WithholdPrivate`, applied in `DetailWait` by the dispatching origin; added 2026-10-11,
+  not part of the JSON).
 - **Editors, logs, terminals and chats** are engine sessions shown as dock tabs, so agents can open,
   read and close them too.
 - **Links and warnings in cells** (2026-10-11, [`row.go`](../../internal/model/row.go)): a cell
