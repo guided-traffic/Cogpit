@@ -537,7 +537,9 @@ The Secrets view's drawer (built 2026-10-11, [`secretdata.go`](../../internal/en
 makes the one direct read of Secret values: a `get secrets` of the Secret it opens on, once per
 open, through `SecretReader` on `Backend.Writer` (`cluster.Conn.GetSecret`), skipped when the access
 reviews deny it. The engine keeps the type and, per key, the size and the first 4 KiB of a text
-value while the drawer shows that Secret and wipes them when it closes or moves; the drawer model
+value while the drawer shows that Secret and drops them when it closes or moves, zeroing the bytes
+it kept (best effort: the GET's decoded response and the string a reveal returns are left to the
+garbage collector, since Go strings cannot be overwritten); the drawer model
 lists the keys masked, and `secret.reveal` hands one value to the GUI origin only
 (`TestBudgetSecretsViewAndDrawer`: one metadata watch and one GET).
 
