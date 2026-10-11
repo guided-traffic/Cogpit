@@ -427,6 +427,7 @@ func newTestShell(t testing.TB, f *fakeEngine, opts Options) (*shell, fyne.Windo
 	q := &mainQueue{}
 	sh := newShell(f, a, w, opts, q.do)
 	sh.now = func() time.Time { return fixedNow }
+	sh.confirmer.armDelay = 0 // tests tap at once; TestConfirmationsOneAtATimeAndArmed covers the delay
 	f.SetConfirmer(sh.confirmer)
 	w.SetContent(sh.root)
 	w.Resize(fyne.NewSize(1440, 900))

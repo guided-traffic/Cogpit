@@ -101,7 +101,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.dock = newDock(sh)
 	sh.status = newStatusBar(sh)
 	sh.picker = newPicker(sh)
-	sh.confirmer = &guiConfirmer{sh: sh}
+	sh.confirmer = newGUIConfirmer(sh)
 	sh.toasts = box(&toastLayout{})
 
 	sh.hsplit = container.NewHSplit(sh.view.root, sh.drawer.root)

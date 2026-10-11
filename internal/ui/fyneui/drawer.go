@@ -206,7 +206,7 @@ func (d *drawer) showLoading(ref model.ObjectRef) {
 	d.details.Refresh()
 	d.eventBox.Objects = nil
 	d.eventBox.Refresh()
-	d.setYAML("")
+	d.setYAML("", false)
 	d.tabs.SelectIndex(0)
 }
 
@@ -257,7 +257,9 @@ func (d *drawer) show(ref model.ObjectRef, m *engine.DetailModel, err error, act
 		}
 		d.tabs.Refresh()
 	}
-	d.setYAML(m.YAML)
+	// The same object changed in the cache: keep the reader's place in the YAML. Another object:
+	// start at the top.
+	d.setYAML(m.YAML, d.last != nil && d.last.Ref.Same(m.Ref))
 	d.last = m
 }
 
@@ -266,13 +268,19 @@ func (d *drawer) clear() {
 	d.shown, d.last, d.dirty = nil, nil, false
 }
 
-// setYAML hands the YAML to the viewer only when it changed: SetText scrolls to the top.
-func (d *drawer) setYAML(text string) {
+// setYAML hands the YAML to the viewer only when it changed. For an update of the shown object it
+// keeps the scroll position, caret and selection (UpdateText); SetText would jump to the top on
+// every watch event.
+func (d *drawer) setYAML(text string, sameObject bool) {
 	if text == d.yamlText {
 		return
 	}
 	d.yamlText = text
-	d.yaml.SetText(text)
+	if sameObject {
+		d.yaml.UpdateText(text)
+	} else {
+		d.yaml.SetText(text)
+	}
 	d.yaml.Refresh()
 }
 

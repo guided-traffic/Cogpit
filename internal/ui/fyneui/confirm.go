@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -17,9 +18,23 @@ import (
 // guiConfirmer is the engine's Confirmer for the desktop app: a dialog that names the command,
 // the objects, the namespace, the context and who asked. The engine calls Confirm on its own
 // goroutines; the dialog is shown on the main goroutine and Confirm waits for the answer.
+//
+// One dialog is shown at a time, in the order the requests came: a second request (an agent's,
+// while the user is about to confirm their own) would otherwise open on top, with its confirm
+// button where the user's pointer already is. For the same reason the confirm button arms only
+// armDelay after the dialog appears.
 type guiConfirmer struct {
-	sh      *shell
-	current *confirmDialog // the dialog on screen; main goroutine only
+	sh       *shell
+	slot     chan struct{}  // holds a token while a dialog is shown
+	armDelay time.Duration  // how long the confirm button stays disabled
+	current  *confirmDialog // the dialog on screen; main goroutine only
+}
+
+// defaultArmDelay keeps a click meant for the previous dialog, or a double click, from confirming.
+const defaultArmDelay = 750 * time.Millisecond
+
+func newGUIConfirmer(sh *shell) *guiConfirmer {
+	return &guiConfirmer{sh: sh, slot: make(chan struct{}, 1), armDelay: defaultArmDelay}
 }
 
 var _ engine.Confirmer = (*guiConfirmer)(nil)
@@ -34,6 +49,12 @@ type confirmDialog struct {
 // Confirm implements engine.Confirmer. It returns the user's answer, or ctx's error when ctx ends
 // first; the dialog is then taken down. It must not be called on the main goroutine.
 func (c *guiConfirmer) Confirm(ctx context.Context, req engine.ConfirmRequest) (bool, error) {
+	select {
+	case c.slot <- struct{}{}:
+	case <-ctx.Done():
+		return false, ctx.Err()
+	}
+	defer func() { <-c.slot }()
 	answer := make(chan bool, 1)
 	var once sync.Once
 	reply := func(ok bool) { once.Do(func() { answer <- ok }) }
@@ -105,6 +126,10 @@ func (c *guiConfirmer) show(req engine.ConfirmRequest, reply func(bool)) *confir
 		}
 	})
 	cd.confirm.OnTapped = func() { reply(true); cd.d.Hide() }
+	if c.armDelay > 0 {
+		cd.confirm.Disable()
+		time.AfterFunc(c.armDelay, func() { c.sh.do(cd.confirm.Enable) })
+	}
 	cd.cancel.OnTapped = func() { reply(false); cd.d.Hide() }
 	c.current = cd
 	cd.d.Show() // no button has the focus: Enter must not confirm a destructive command by accident

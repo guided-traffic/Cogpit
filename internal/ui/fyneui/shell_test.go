@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -433,4 +434,50 @@ func mustJSON(t *testing.T, v any) json.RawMessage {
 		t.Fatal(err)
 	}
 	return b
+}
+
+// TestConfirmationsOneAtATimeAndArmed checks the review finding that confirmations stacked: a
+// second request waits until the first is answered, and a fresh dialog's confirm button ignores
+// taps until it arms.
+func TestConfirmationsOneAtATimeAndArmed(t *testing.T) {
+	f := connectedFake(t, 10)
+	sh, _, q := newTestShell(t, f, Options{})
+	sh.confirmer.armDelay = 150 * time.Millisecond
+	mk := func(name string) engine.ConfirmRequest {
+		return engine.ConfirmRequest{Command: "object.delete", Label: "Delete", Danger: engine.DangerDestructive,
+			Origin: engine.OriginExternalAgent, Context: "demo", Namespaces: []string{"default"},
+			Objects: []model.ObjectRef{{Kind: "pods", Namespace: "default", Name: name}}}
+	}
+	answers := make(chan string, 2)
+	ask := func(name string) {
+		go func() {
+			ok, _ := sh.confirmer.Confirm(context.Background(), mk(name))
+			answers <- fmt.Sprintf("%s=%v", name, ok)
+		}()
+	}
+	ask("first")
+	q.until(t, "the first dialog", func() bool { return sh.confirmer.current != nil })
+	first := sh.confirmer.current
+	ask("second")
+	time.Sleep(50 * time.Millisecond)
+	q.drain()
+	if sh.confirmer.current != first {
+		t.Fatal("a second dialog opened while the first was on screen")
+	}
+	test.Tap(first.confirm) // not armed yet: ignored
+	select {
+	case a := <-answers:
+		t.Fatalf("an unarmed confirm button answered: %s", a)
+	case <-time.After(30 * time.Millisecond):
+	}
+	q.until(t, "the confirm button to arm", func() bool { return !first.confirm.Disabled() })
+	test.Tap(first.confirm)
+	if a := <-answers; a != "first=true" {
+		t.Fatalf("first answer %q", a)
+	}
+	q.until(t, "the second dialog", func() bool { return sh.confirmer.current != nil && sh.confirmer.current != first })
+	test.Tap(sh.confirmer.current.cancel)
+	if a := <-answers; a != "second=false" {
+		t.Fatalf("second answer %q", a)
+	}
 }

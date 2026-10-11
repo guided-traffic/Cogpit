@@ -9,6 +9,9 @@ package fyneui
 import (
 	"context"
 	"io"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -85,6 +88,20 @@ func Run(s *engine.Session, opts Options) error {
 	if opts.PerfReport != nil {
 		sh.startPerf()
 	}
+	// Ctrl+C or SIGTERM quits the way closing the window does, so the caller's cleanup runs (the
+	// MCP token file is removed, the informers stop) instead of the process ending mid-way.
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sig)
+	ran := make(chan struct{})
+	defer close(ran)
+	go func() {
+		select {
+		case <-sig:
+			fyne.Do(a.Quit)
+		case <-ran:
+		}
+	}()
 	w.ShowAndRun()
 	if sh.perf != nil {
 		sh.perf.finish() // the window closed before PerfDuration ended, or there is none
