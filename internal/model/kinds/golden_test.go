@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
-	"os" //nolint:depguard // tests read testdata and write goldens; L0's no-I/O rule is for product code
+	"os"
 	"path/filepath"
 	"regexp"
 	"slices"

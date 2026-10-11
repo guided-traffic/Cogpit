@@ -61,6 +61,7 @@ linters:
           files:
             - "**/internal/model/**"
             - "**/internal/kubeconfig/**"
+            - "!$test"
           deny:
             - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
               desc: "L0 imports nothing above L0"
