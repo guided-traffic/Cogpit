@@ -42,7 +42,7 @@ hotbar, navigator, tab bar, workspace, dock, status bar.
 | Title bar with history back and forward, notifications and a context menu with Preferences; captured (2026-10-11): back and forward arrows, an "Update" button with a menu when an update is available, the paid "AI" button with a menu, a notifications bell, and on the right the vendor's "UPGRADE" and account avatar (not targets, D-9) | free | missing | – |
 | Hotbar down the left edge ([Hotbar](#hotbar)); captured: one tile per cluster with its icon or image and a short label, and a bank switcher ("‹ 1 ›") at the bottom | paid | missing | – |
 | Navigator with the cluster's resource tree ([Cluster sidebar](#cluster-sidebar)) | free | partial | [`sidebar.go`](../../internal/ui/fyneui/sidebar.go) |
-| Navigator header: a dropdown of the cluster shown in the tree and a search button (capture, 2026-10-11) | free | missing | – |
+| Navigator header: a dropdown of the cluster shown in the tree and a search button; the tree's root is the cluster, with its icon, a connection dot and a ›, and a ‹ to go back (captures, 2026-10-11) | free | missing | – |
 | Tab bar of cluster views: single click opens a preview tab, double-click (or ⇧↵) a fixed tab; a tab reads "<view> - <context>" with the cluster's icon and a close button; the preview tab's title is italic (capture, 2026-10-11; the italic-means-preview reading is inferred) | free | missing | – |
 | Workspace showing the active view | free | partial | [`tableview.go`](../../internal/ui/fyneui/tableview.go); [PNG](../../internal/ui/fyneui/testdata/demo_pods.png) |
 | Detail drawer on the right ([Detail drawer](#detail-drawer)) | free | partial | [`drawer.go`](../../internal/ui/fyneui/drawer.go) |
@@ -159,17 +159,17 @@ Every list view is one table ([resource views](resource-parity.md)).
 | Search field per view, with toggles for match case ("Aa") and regular expressions (".*") (capture, 2026-10-11) | free | partial: no toggles | `TestSearchIsDebounced`; terms matched in any cell |
 | A cell too narrow for its text shows the full text in a tooltip on hover (capture of an event message, 2026-10-11) | free | missing | – |
 | Namespace filter: multi-select, default "All namespaces", Space toggles without closing | free | partial | multi-select popup, default all ([`tableview.go`](../../internal/ui/fyneui/tableview.go)); Space not verified |
-| Actions menu per row (⋮ at the row's end); for a custom resource: Show Details, Edit, Delete (capture, 2026-10-11) | free | missing | – |
+| Actions menu per row (⋮ at the row's end), starting with Show Details and ending with Edit and Delete, the kind's own actions between; items with a › open a submenu (captures of a custom resource, a pod and a cron job, 2026-10-11) | free | missing | – |
 | Right-click on a row opens the actions menu (since 2025.10.230725) | free | missing | – |
 | Keyboard: ↑↓ rows, Tab columns, ↵ or Space opens the details | free | missing | – |
 | Export the table as CSV (a download button beside the item count, "18 items"; the format is inferred) | free | missing | – |
 | Select rows with a checkbox column, all rows with the header's checkbox (capture, 2026-10-11) | free | missing | – |
-| A warning column right after Name in built-in views (Pods, Pod Disruption Budgets; what it shows: capture needed) | free | missing | – |
+| A warning column right after Name in built-in views (Pods, Pod Disruption Budgets, Cron Jobs): an orange triangle on rows with a problem (seen on a pod with many restarts and a container not ready; the rule is inferred) | free | missing | – |
 | A floating "+" button at the bottom right of every list opens a Create resource tab in the dock (capture, 2026-10-11) | free | missing | – |
 | The sorted column shows an arrow beside its title | free | partial | `TestHeaderTapDispatchesSort` |
 | Cells that name another object are links: Namespace, Controlled By, Node, Involved Object, a definition's resource (captures, 2026-10-11; where each leads: capture needed) | free | missing | – |
 | Row line height (preference) | free | missing | – |
-| Status colours per state (palette: capture needed; "Running" is green) | free | partial | status tokens mapped by `StatusColor` ([`theme.go`](../../internal/ui/fyneui/theme.go)); Cogpit's own palette |
+| Status colours per state (palette: capture needed; seen: "Running" green, "Evicted" red) | free | partial | status tokens mapped by `StatusColor` ([`theme.go`](../../internal/ui/fyneui/theme.go)); Cogpit's own palette |
 
 ## Detail drawer
 
@@ -351,6 +351,7 @@ the table is taken as correct until a capture decides.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Captures of row menus, the warning icon and statuses: menu layout with submenus, Evicted in red, the navigator's cluster root |
 | 2026-10-11 | minor | Captures of the Events view and of Create resource: cell tooltips, the + button, the template picker |
 | 2026-10-11 | minor | Captures of the pod and node drawers and the window frame: drawer sections, folding and chips, links and Forward buttons, metrics in drawers, title bar, hotbar |
 | 2026-10-11 | minor | Captures of Pods, Pod Disruption Budgets, Definitions and the Workloads Overview: object links, the warning column, the "+" button, the sort arrow |
