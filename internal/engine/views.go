@@ -249,6 +249,7 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 		return fmt.Errorf("connect %s: superseded by a newer connect", name)
 	}
 	s.attachCustomKinds(b)
+	s.attachAccess(b)
 	st.backend = b
 	st.diagStop = make(chan struct{})
 	diagStop := st.diagStop

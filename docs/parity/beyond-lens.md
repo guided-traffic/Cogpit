@@ -25,7 +25,7 @@ read-only: `list-clusters`, `connect-cluster`, `disconnect-cluster`, `kubectl`, 
 | Every registry command is an MCP tool, with its schema and annotations | (generated) | done | [`mcp/tools.go`](../../internal/mcp/tools.go), `TestToolsMirrorRegistry` in [`tools_test.go`](../../internal/mcp/tools_test.go); 41 tools (2026-10-11, was 21) |
 | Read the UI state: context, view, namespaces, filter, selection, drawer object, dock tabs | `ui_state` | done | [`commands/ui.go`](../../internal/engine/commands/ui.go), `TestShowcaseServiceByClusterIP` |
 | Read the rows the user sees in the current view | `view_rows` | missing | – |
-| List the kinds the cluster serves and the user may list | `kinds_list` | partial: served kinds, no permission check | [`commands/resources.go`](../../internal/engine/commands/resources.go) |
+| List the kinds the cluster serves and the user may list | `kinds_list` | partial: served kinds, each with `listable` from the access reviews (2026-10-11); absent while the reviews have not answered, and for a namespaced kind no reviewed namespace allows when the user may list more than 32 namespaces | [`commands/resources.go`](../../internal/engine/commands/resources.go), [`accessreviews.go`](../../internal/engine/accessreviews.go); `TestKindsListListable`, `TestBudgetAccessReviews`, `TestKindAccessReviews` |
 | Find objects by a searchable field (`clusterIP`, `podIP`, `node`, `image`, `label`) | `resources_find` | done | [`commands/resources.go`](../../internal/engine/commands/resources.go), `TestShowcaseServiceByClusterIP`, `TestDemoClusterThroughTheEngine` |
 | List objects of a kind, bounded | `resources_list` | done | [`commands/resources.go`](../../internal/engine/commands/resources.go), `TestKindEngineWorkflows` |
 | Read one object (YAML, events, related objects) from the cache | `object_get` | partial: YAML (redacted) and events; no related objects | [`commands/resources.go`](../../internal/engine/commands/resources.go) |
@@ -92,6 +92,7 @@ AppImage builds in place; APT and RPM installs update by hand
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | `kinds_list` reports per kind whether the user may list it (access reviews); still partial |
 | 2026-10-11 | minor | Crash recovery: an unfinished drain is offered on the next connect (done); 17 of 34 rows |
 | 2026-10-11 | minor | G9: agents edit, check, apply, create and delete objects of every kind, and read and set editor tabs |
 | 2026-10-11 | minor | The MVP: MCP tools, transport, navigation and confirmation rows; the status bar's counters |

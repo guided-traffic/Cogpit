@@ -49,6 +49,9 @@ type FakeAPIOptions struct {
 	BrokenGroups []string
 	// Resources are the resources served; nil means DefaultFakeResources.
 	Resources []FakeResource
+	// Access, when set, answers access reviews from its rules (fakeaccess.go); nil answers them
+	// 404, as any resource the server does not serve.
+	Access *FakeAccess
 }
 
 // FakeAPIServer is a minimal Kubernetes API server over HTTPS (httptest, HTTP/2), for tests that
@@ -300,6 +303,8 @@ func (s *FakeAPIServer) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	case parts[0] == "apis" && len(parts) == 3:
 		s.count("discovery", "")
 		s.serveResourceList(w, parts[1], parts[2])
+	case s.opts.Access != nil && r.Method == http.MethodPost && len(parts) == 4 && parts[1] == "authorization.k8s.io" && parts[2] == "v1":
+		s.serveReview(w, r, parts[3])
 	case parts[0] == "api" || parts[0] == "apis":
 		s.serveResource(w, r, parts)
 	default:

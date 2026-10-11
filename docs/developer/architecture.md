@@ -17,11 +17,11 @@ crash-safe drain), and an MCP server that lets agents drive all of it. CI runs o
 |---|---|---|
 | [`internal/model`](../../internal/model/), [`model/kinds`](../../internal/model/kinds/) | Built: refs, rows (links, coloured parts, warning and until columns), status tokens, panic-free accessors, Secret redaction, the drawer's Properties; 16 built-in profiles (Nodes, Pods, Deployments, Daemon Sets, Stateful Sets, Replica Sets, Jobs, Cron Jobs, Services, Ingresses, Ingress Classes, Config Maps, Persistent Volume Claims, Namespaces, Events, Custom Resource Definitions) and a generic profile built from a custom resource definition and its printer columns, with golden and fuzz tests | No CPU and memory columns; no generic view for built-in kinds without a profile or for aggregated APIs; Cron Jobs' Next execution uses `time.LoadLocation` (the zone database is embedded in `cmd/cogpit` for Windows) |
 | [`internal/kubeconfig`](../../internal/kubeconfig/) | Built: contexts from bytes, error text without credentials, the per-terminal kubeconfig | – |
-| [`internal/cluster`](../../internal/cluster/) | Built: connections through client-go's loading rules, the counting transport, discovery, log streams, restart and delete; for every kind, a REST mapper over in-memory cached discovery and update (with a resourceVersion precondition), create (both with dryRun=All) and delete (with a UID precondition) through the dynamic client ([`objects.go`](../../internal/cluster/objects.go)); an update sent without `managedFields` (the cache drops them) keeps every manager's entry on the server and records Cogpit's fields under the manager `cogpit` (verified on kind 1.36.1, `TestKindEditCreateConflictDelete`) | Discovery is cached in memory for 10 minutes, not on disk; one rate limiter per cluster (QPS 5, burst 10) shared by every client, discovery with its own budget (50/300); no access reviews; implicit kubeconfig writes are switched off (the legacy `.kubeconfig` migration and the oidc persister, which keeps refreshed tokens in memory) |
+| [`internal/cluster`](../../internal/cluster/) | Built: connections through client-go's loading rules, the counting transport, discovery, log streams, restart and delete; for every kind, a REST mapper over in-memory cached discovery and update (with a resourceVersion precondition), create (both with dryRun=All) and delete (with a UID precondition) through the dynamic client ([`objects.go`](../../internal/cluster/objects.go)); an update sent without `managedFields` (the cache drops them) keeps every manager's entry on the server and records Cogpit's fields under the manager `cogpit` (verified on kind 1.36.1, `TestKindEditCreateConflictDelete`); access reviews (`ReviewRules`, `ReviewAccess`, [`access.go`](../../internal/cluster/access.go)) | Discovery is cached in memory for 10 minutes, not on disk; one rate limiter per cluster (QPS 5, burst 10) shared by every client, discovery with its own budget (50/300), access reviews with theirs (10/20, so that they never delay a view's list); implicit kubeconfig writes are switched off (the legacy `.kubeconfig` migration and the oidc persister, which keeps refreshed tokens in memory) |
 | [`internal/cache`](../../internal/cache/) | Built: one shared informer per scope, handles, warm period, `managedFields` transform, no resync, streaming initial lists where the server supports them, error state, stats; a handle reports synced only once the initial list reached its subscribers | Views watch all namespaces and filter client-side; no metadata-only informers; no polling sources yet |
 | [`internal/terminal`](../../internal/terminal/) | Built: local shell on Cogpit's own PTY with the per-terminal kubeconfig; pod shell over exec (WebSocket, SPDY fallback) | No attach, no node shell; Windows has no local shell yet |
 | [`internal/demo`](../../internal/demo/) (L2, new) | Built: the synthetic cluster for `--demo` behind a `cache.Source`: 10,000 pods, 300 services, 1,000 watch events per second, watch resume and 410 Gone | A package the plan did not list |
-| [`internal/engine`](../../internal/engine/), [`engine/commands`](../../internal/engine/commands/) | Built: Session, registry with JSON schemas, `Order`, `Escalate`, `Prefill`, `Detail` and `ErrNotApplicable` (§4.2), D-2 confirmation per origin bound to its context, objects and UIDs, audit log with Secrets redacted, UI state, coalesced snapshots (≤ 10 per second per view), the drawer model, streams, editor tabs, the custom kinds from a watch on the definitions, the drain journal, 41 commands | No jobs or cancellation UI (a drain runs in its dispatch call), no access reviews; a write command refuses to run if the user switched clusters while its confirmation was open |
+| [`internal/engine`](../../internal/engine/), [`engine/commands`](../../internal/engine/commands/) | Built: Session, registry with JSON schemas, `Order`, `Escalate`, `Prefill`, `Detail` and `ErrNotApplicable` (§4.2), D-2 confirmation per origin bound to its context, objects and UIDs, audit log with Secrets redacted, UI state, coalesced snapshots (≤ 10 per second per view), the drawer model, streams, editor tabs, the custom kinds from a watch on the definitions, the drain journal, 41 commands; the access reviews of the connected user ([`accessreviews.go`](../../internal/engine/accessreviews.go), §4.2) | No jobs or cancellation UI (a drain runs in its dispatch call); a write command refuses to run if the user switched clusters while its confirmation was open; access reviews have no time-to-live (§5): they are kept until `cluster.refreshAccess` or the next connect |
 | [`internal/mcp`](../../internal/mcp/) | Built: every command as a tool, Streamable HTTP on loopback, bearer token, Host and Origin checks | Stateless HTTP (one session per request); the token lives in `<user config dir>/Cogpit/mcp-token` and changes with the port on every start; no stdio bridge |
 | [`internal/ui/fyneui`](../../internal/ui/fyneui/) and its [`yamlview`](../../internal/ui/fyneui/yamlview/) and [`termview`](../../internal/ui/fyneui/termview/) | Built: shell after Lens's layout, theme with status tokens, context picker, confirmation dialog, the YAML view, terminal and log widgets, a jank meter (`--perf`); row menus (⋮ and right-click) and the drawer's toolbar from the registry, schema-generated parameter dialogs, links and coloured parts in cells, Cogpit's own tooltips (Fyne 2.8 has none) | The YAML view is editable in Edit and Create resource tabs, whose text lives in the engine (`editor.get`, `editor.setText`); edits are applied as updates (PUT), not patches; the terminal widget is a patched copy of fyne-io/terminal ([`third_party/fyne-terminal`](../../third_party/fyne-terminal/PATCHES.md)) behind an escape filter, because the pinned upstream froze or crashed on container output |
 | [`cmd/cogpit`](../../cmd/cogpit/) | Built: wires the packages and the drain journal (`<user config dir>/Cogpit/drains.json`); flags `--kubeconfig`, `--context`, `--demo`, `--mcp-addr`, `--no-mcp`, `--perf`, `--theme` | client-go goroutine panics are logged instead of ending the app |
@@ -261,6 +261,42 @@ and Uncordon both). An unknown answer, a kind without a profile, a local kind, a
 virtual kind (no API resource; Edit and Delete do not apply to it), and a command without a
 `ref` pass: the API server decides. Nil `Access` allows everything.
 
+As built (2026-10-11, [`accessreviews.go`](../../internal/engine/accessreviews.go),
+[`cluster/access.go`](../../internal/cluster/access.go)). The cluster connector gives every real
+cluster's backend an `Access` over the connection's reviews; the demo cluster has none. It keeps
+the answers of one connection: a `SelfSubjectRulesReview` per namespace and a
+`SelfSubjectAccessReview` per question, until `cluster.refreshAccess` drops them or the context is
+connected again; nothing runs on a timer. A missing answer starts its review in the background,
+once (deduplicated), at most four at a time, on goroutines that recover from a panic and record a
+failed review instead of leaving it pending; arriving answers emit `EventKinds` (the sidebar reads
+`kinds.list` again) and `EventDetail` (the drawer asks its commands' `Enabled` again), coalesced
+to one pair per 200 ms. Which review answers what:
+
+- A verb in a namespace: that namespace's rules. A rule naming it allows it; no rule denies it,
+  unless the rules are incomplete (an authorizer that cannot list its rules, such as a cloud
+  provider's IAM webhook, or an evaluation error), and then an access review asks.
+- A verb on a cluster-scoped resource or in every namespace: the default namespace's rules deny it
+  when complete and naming it nowhere, because every namespace's rules carry the cluster-wide
+  bindings' rules. When they name it, a binding in that namespace may be why (Kubernetes' `view`
+  role names namespaces), and an access review asks.
+- Rules limited to named objects answer nothing (Allowed names no object); wildcard verbs, groups
+  and resources and a failed rules review go to an access review.
+
+Connecting prefetches the default namespace's rules, and a change of the namespace filter its
+namespaces' rules. `kinds.list` reports `listable` per kind for the sidebar, which hides a kind
+known not listable and shows one not known yet: a cluster-scoped kind is listable when the default
+namespace's rules name it (no access review per kind; a RoleBinding naming a cluster-scoped kind
+is told apart only for namespaces, below); a namespaced kind is listable when any namespace
+reviewed so far names it, and not listable only when every namespace the user can see was
+reviewed, completely, and none names it. The namespaces the user can see are the default namespace
+and the namespace filter's; if an access review says the user may list namespaces, also the
+namespaces the cache lists (the reviews hold one handle on them while connected, shared with the
+namespace filter), at most 32: with more, such a kind stays shown. Measured on the fake API
+server (`TestBudgetAccessReviews`): connecting costs one rules review; a user limited to their
+namespace settles the sidebar with one rules review and one access review; a user who may list
+namespaces with one rules review per namespace (five for four namespaces) and one access review;
+browsing, menus and the sidebar asking again cost no request once answered.
+
 Every command is also an MCP tool, generated from the registry (`ui.navigate` → `ui_navigate`).
 Nothing is exposed to agents that the registry does not describe.
 
@@ -394,7 +430,7 @@ watch and Cogpit's memory.
 | Namespace-scoped informers | Users limited to some namespaces, or a namespace filter, watch only those | per-namespace factories |
 | Metadata-only informers | Views that show only metadata transfer and store only metadata | `metadatainformer` |
 | Discovery cached on disk with a TTL, refreshed when CRDs change | Connecting again costs no discovery round trips | `discovery/cached/disk` |
-| Access reviews cached per context and namespace with a TTL | Menus and sidebars don't ask the API server on every render | engine cache |
+| Access reviews cached per context and namespace (built without a TTL: kept until refreshed on demand or on reconnect, §4.2) | Menus and sidebars don't ask the API server on every render | engine cache |
 | Client-side rate limit per cluster | Bounds lists, gets and writes; established watches are not affected | `rest.Config` QPS and Burst (defaults 5 and 10; a preference) |
 
 **Current, but cheap.** Watch events land in the cache as they arrive; the engine rebuilds the
@@ -600,6 +636,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Access reviews built (§4.2): which review answers what, the namespaces the sidebar reviews, bounds and events, measured request counts; no TTL (§5); `ErrNotApplicable` before a denial |
 | 2026-10-11 | minor | §4.4: drawer tables of cells (`model.CellTable`: links, status colours, the warning icon) and cells of several lines; telling a missing related object from a kind still listing |
 | 2026-10-11 | minor | §4.5: `FallbackVersions`, a built-in kind's older API versions, picked by discovery at connect |
 | 2026-10-11 | minor | Third run's Phase 0: cache scopes with label selector and metadata only, local and virtual kinds (§5), the related-objects index and item actions in the drawer (§4.4), access reviews in `Enabled` (§4.2), Helm v4.3.0 in `go.mod` |

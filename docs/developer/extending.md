@@ -24,7 +24,9 @@ Ordered checklists for the common additions. The packages they name are in
    - a parameter struct with `json` and `jsonschema` tags (the schema agents read);
    - `enabled`, returning the reason when disabled;
    - `verbs` (every API verb and resource it uses) and `danger` (`Read`, `UI`, `Mutating`,
-     `Destructive`);
+     `Destructive`). When the parameters name an object (`ref`), the registry asks the access
+     reviews about each verb and greys the command "not permitted" on a denial, so declare the
+     verb its purpose needs (Edit declares `update`, which its tab ends in);
    - `run`, returning a JSON-serializable result. Reads come from the cache.
    Cluster writes go through an interface the backend's writer implements: `*cluster.Conn` in
    the app, a fake in tests. Each area declares its own interface in its own engine file (as

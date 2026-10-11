@@ -95,8 +95,15 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   cloud-account row belongs to G18). Built: contexts from the merged kubeconfig files, connections
   through client-go's loading rules with credential-free errors, implicit kubeconfig writes
   switched off, cached discovery, the per-terminal kubeconfig ([`internal/cluster`](../../internal/cluster/),
-  [`internal/kubeconfig`](../../internal/kubeconfig/)). Still missing from the list above: pasted
-  kubeconfigs, the exec-plugin environment (only a `PATH` stopgap), access reviews.
+  [`internal/kubeconfig`](../../internal/kubeconfig/)). Access reviews built on 2026-10-11
+  ([`cluster/access.go`](../../internal/cluster/access.go),
+  [`engine/accessreviews.go`](../../internal/engine/accessreviews.go)): `SelfSubjectRulesReview` per
+  namespace and `SelfSubjectAccessReview` where rules cannot answer, with their own request budget,
+  cached per connection until refreshed or reconnected; measured, connecting costs one rules review
+  and settling the sidebar one more access review for a user limited to a namespace
+  (`TestBudgetAccessReviews`; on kind with a ServiceAccount token, `TestKindAccessReviews`). Still
+  missing from the list above: pasted kubeconfigs, the exec-plugin environment (only a `PATH`
+  stopgap).
 - **Impact:** a user who cannot connect cannot use anything; exec plugins are how most cloud
   clusters authenticate. client-go carries the authentication itself, which is why this is smaller
   than it was in the Rust plan.
@@ -115,7 +122,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   coalesced snapshots (≤ 10 per second per view). P9–P11 hold in tests
   ([testing](../developer/testing.md#performance-budgets-proposed-not-measured)). Still missing:
   namespace-scoped informers (views filter client-side), metadata-only informers, discovery cached
-  on disk, access reviews, polling sources, the diagnostics view. Built in the second run
+  on disk, polling sources, the diagnostics view (access reviews are cached since 2026-10-11, G2).
+  Built in the second run
   (2026-10-11): the generic custom-resource profile from a definition and its printer columns,
   kept current through a watch on the cluster's definitions
   ([`customresources.go`](../../internal/model/kinds/customresources.go),
@@ -134,7 +142,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   registry with JSON schemas, verbs, danger levels and disabled reasons, UI state, events, the
   confirmation policy per origin (`TestDispatchConfirmationPolicy`), the audit log, `FuzzDispatch`,
   21 commands (41 after the second run, with the confirmation bound to its objects and their
-  UIDs). Still missing: jobs and cancellation, access reviews, `cogpit-cli` commands.
+  UIDs). Access reviews in `Enabled` built on 2026-10-11: a command whose verbs the connected
+  user's reviews deny is greyed "not permitted: you may not …" in every menu and refused for every
+  origin; answers never block a menu and arrive as events (`TestAccessReviewsAnswerWithoutBlocking`,
+  `TestAccessReviewsGreyCommands`); `cluster.refreshAccess` asks again. Still missing: jobs and
+  cancellation, `cogpit-cli` commands.
 - **Impact:** every action, menu, shortcut and MCP tool dispatches through it.
 - **Estimate:** 15–35 h (was 35–70).
 
@@ -231,8 +243,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 ### G9. YAML editor and create resource
 - **Missing:** drafts kept for crash recovery, "Revert to original", the Create resource tab's save
-  and search buttons, permission checks before Edit and Delete are offered (access reviews), Delete
-  of a selection, the create dialogs (Namespaces, Secrets, Resource Quotas, Service Accounts, RBAC)
+  and search buttons, Delete of a selection, the create dialogs (Namespaces, Secrets, Resource Quotas, Service Accounts, RBAC)
   and their YAML fallback, a Secrets path (editing or creating a Secret needs its values from a GET, not the redacted YAML; H-8 decided the view, not editing).
 - **Evidence:** [ui-parity](ui-parity.md#editor-and-create-resource): 4 rows partial, 1 missing;
   [resource-parity](resource-parity.md#every-kind): Edit and Delete partial. Built on 2026-10-11:
@@ -244,7 +255,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   templates and multi-document create, each object dry-run first
   ([`engine/create.go`](../../internal/engine/create.go)); Delete for every kind with the cached UID
   as precondition; all of it as commands agents drive too, tested against fakes, fuzzed, and on kind
-  (`TestKindEditCreateConflictDelete`).
+  (`TestKindEditCreateConflictDelete`). Edit and Delete are greyed "not permitted" when the access
+  reviews deny `update` or `delete` on the object (2026-10-11, `TestEditAndDeleteFollowAccessReviews`,
+  `TestKindAccessReviews`).
 - **Estimate:** 10–25 h (was 27–60).
 
 ### G10. Port forwarding
@@ -410,6 +423,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Access reviews built: G2 and G4 evidence, G3 and G9 no longer list them as missing; estimates not moved |
 | 2026-10-11 | minor | G6 evidence (third run, agent D): Endpoint Slices, Endpoints, Network Policies, Persistent Volumes, Storage Classes and Replication Controllers views partial; the related-objects index's first users (a claim's pods, a node's Pods table, a Service's endpoint slices) |
 | 2026-10-11 | minor | G6 Evidence: the Access Control views (five of them partial) |
 | 2026-10-11 | minor | G6 Evidence: the 13 Config views (third implementation run), admission policies by served version |

@@ -56,6 +56,8 @@ var wantCommands = map[string]engine.Danger{
 	"object.create":      engine.DangerMutating,
 	"resource.createTab": engine.DangerUI,
 	"resource.templates": engine.DangerRead,
+
+	"cluster.refreshAccess": engine.DangerRead,
 }
 
 func TestRegistryComplete(t *testing.T) {

@@ -78,7 +78,8 @@ func (c *ClusterConnector) Contexts() ([]ContextInfo, error) {
 // Connect connects one context: the demo cluster, or a kubeconfig context whose served kinds
 // (from discovery) select the built-in profiles. If discovery fails, every built-in profile is
 // offered and a kind the cluster lacks shows its error in its view. A real cluster's backend also
-// watches its custom resource definitions (Backend.CustomResources).
+// watches its custom resource definitions (Backend.CustomResources) and answers its commands'
+// Enabled from the connected user's access reviews (Backend.Access, accessreviews.go).
 func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, error) {
 	if c.IncludeDemo && name == DemoContext {
 		return c.connectDemo()
@@ -103,12 +104,14 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 	if ctxName == "" {
 		ctxName = name
 	}
+	access := newAccessReviews(conn, conn.Namespace())
 	var once sync.Once
 	return &Backend{
 		Context: ctxName, Namespace: conn.Namespace(), Cache: ch, Conn: conn, Profiles: profiles,
-		CustomResources: customResources,
+		CustomResources: customResources, Access: access,
 		Close: func() {
 			once.Do(func() {
+				access.stop()
 				ch.Close()
 				conn.Close()
 			})

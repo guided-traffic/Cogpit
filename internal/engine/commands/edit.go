@@ -70,7 +70,7 @@ const lookupTimeout = 15 * time.Second
 func registerEdit(g *registrar) {
 	add(g, engine.Spec[refParams]{
 		ID: "object.edit", Label: "Edit", MenuPath: "Object/Edit", Order: engine.OrderEdit, Danger: engine.DangerUI,
-		Verbs: cacheReads,
+		Verbs: append(append([]engine.Verb(nil), cacheReads...), edits...), // offered when the user may update it (access reviews)
 		Description: "Opens a dock tab with an object's YAML from Cogpit's cache (managed fields dropped) for editing, or " +
 			"activates the tab already open on it. Returns the tab id, the text and the resourceVersion the edit is based " +
 			"on. Continue with editor_diff, object_dryRun and object_apply. Secrets cannot be edited (their values are redacted).",

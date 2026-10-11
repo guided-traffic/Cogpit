@@ -37,6 +37,9 @@ type KindInfo struct {
 	Namespaced bool           `json:"namespaced"`
 	Columns    []model.Column `json:"columns"`
 	Fields     []string       `json:"fields"` // what resources_find searches by
+	// Listable says whether the user may list the kind (access reviews); absent while unknown,
+	// and then the sidebar shows the kind.
+	Listable *bool `json:"listable,omitempty"`
 }
 
 // ListResult is resources.list's result.
@@ -97,7 +100,8 @@ func registerResources(g *registrar) {
 			"resources_find can search by. Built-in kinds come first and keep their plural as the key (pods); then the kinds " +
 			"of the cluster's custom resource definitions, keyed <plural>.<group> (gateways.gateway.networking.k8s.io), " +
 			"titled by their Kind, with their printer columns. Custom kinds follow the definitions while connected: they " +
-			"appear shortly after connecting and change when a definition does.",
+			"appear shortly after connecting and change when a definition does. listable says whether the user may list " +
+			"the kind (in every namespace or one they can see), from Cogpit's access reviews; it is absent until they answer.",
 		Enabled: func(s *engine.Session, _ struct{}) error { _, err := connected(s); return err },
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			b, err := connected(s)
@@ -105,12 +109,17 @@ func registerResources(g *registrar) {
 				return nil, err
 			}
 			all := b.AllProfiles()
+			filter := s.UIState().Namespaces
 			out := make([]KindInfo, 0, len(all))
 			for _, p := range all {
-				out = append(out, KindInfo{
+				info := KindInfo{
 					Kind: p.Key, Title: p.Title, APIKind: p.Kind, Group: p.Group, Version: p.Version,
 					Namespaced: p.Namespaced, Columns: p.Columns, Fields: fieldNames(p),
-				})
+				}
+				if listable, known := b.Listable(p, filter); known {
+					info.Listable = &listable
+				}
+				out = append(out, info)
 			}
 			return out, nil
 		},
