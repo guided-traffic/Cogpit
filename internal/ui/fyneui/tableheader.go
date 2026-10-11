@@ -3,13 +3,128 @@ package fyneui
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/storage"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
+
+var _ fyne.DoubleTappable = (*resourceTable)(nil)
+
+// DoubleTapped fits a column to its content when the double click is on the separator at its right
+// edge in the header row (ui-parity › Tables), where the resize cursor shows. The header cells do
+// not cover the separators, so only double clicks there and in the gaps between body cells reach
+// the table; the latter do nothing.
+func (t *resourceTable) DoubleTapped(ev *fyne.PointEvent) {
+	if col := t.tv.separatorAt(ev.Position); col >= 0 {
+		t.tv.fitToContent(col)
+	}
+}
+
+// separatorAt returns the visible column whose right-edge separator in the header row is at pos
+// (relative to the table), or -1.
+func (tv *tableView) separatorAt(pos fyne.Position) int {
+	if tv.snap == nil || pos.Y < 0 || pos.Y > newHeaderCell(nil).MinSize().Height {
+		return -1
+	}
+	gap := tv.table.Theme().Size(theme.SizeNamePadding)
+	x := pos.X + tv.table.offset.X
+	start := float32(0)
+	for i := 0; i < len(tv.cols) && i < len(tv.setWidths); i++ {
+		end := start + tv.setWidths[i]
+		if x >= end && x < end+gap {
+			return i
+		}
+		start = end + gap
+	}
+	return -1
+}
+
+// fitToContent sizes a visible column to its widest content: its title (with the sort arrow) and
+// the text of every row as the table shows it, not only the rows on screen. The width counts as
+// the user's, as a dragged one does.
+func (tv *tableView) fitToContent(col int) {
+	if tv.snap == nil || col < 0 || col >= len(tv.cols) {
+		return
+	}
+	th := tv.table.Theme()
+	pad := th.Size(sizeCellPadding)
+	ci := tv.cols[col]
+	c := tv.snap.Columns[ci]
+	size := th.Size(theme.SizeNameText)
+	w := fyne.MeasureText(c.Title, size, fyne.TextStyle{Bold: true}).Width
+	if tv.snap.Sort.Column == c.ID {
+		w += th.Size(theme.SizeNamePadding)/2 + th.Size(sizeSortIcon)
+	}
+	switch c.Type {
+	case model.ColumnWarning:
+		w = max(w, th.Size(sizeCellIcon))
+	default:
+		rows := tv.snap.Rows
+		w = max(w, widestText(len(rows), func(i int) string {
+			var cell model.Cell
+			if ci < len(rows[i].Cells) {
+				cell = rows[i].Cells[ci]
+			}
+			return model.CellText(c, cell, tv.now)
+		}, size))
+	}
+	tv.userWidths[tv.snap.View+"/"+c.ID] = w + 2*pad + 1 // a point of slack against rounding
+	tv.fitWidth = 0
+	tv.fitColumns(tv.table.Size().Width)
+}
+
+// fitCandidates is how many of the widest texts by estimate widestText measures exactly.
+const fitCandidates = 16
+
+// widestText returns the width of the widest of n texts. Measuring 10,000 distinct names with
+// fyne.MeasureText (text shaping) costs about 150 ms on the main goroutine; widestText estimates
+// each text from the advance widths of its runes, measured once per rune, and measures only the
+// widest candidates exactly. Kerning moves a text by a fraction of a point, far less than what
+// separates a candidate from the texts it beat.
+func widestText(n int, text func(int) string, size float32) float32 {
+	style := fyne.TextStyle{}
+	adv := map[rune]float32{}
+	type cand struct {
+		s string
+		w float32
+	}
+	var top []cand // the widest by estimate, widest first
+	for i := range n {
+		s := text(i)
+		est := float32(0)
+		for _, r := range s {
+			a, ok := adv[r]
+			if !ok {
+				a = fyne.MeasureText(string(r), size, style).Width
+				adv[r] = a
+			}
+			est += a
+		}
+		if len(top) == fitCandidates && est <= top[len(top)-1].w {
+			continue
+		}
+		at := len(top)
+		for at > 0 && top[at-1].w < est {
+			at--
+		}
+		top = slices.Insert(top, at, cand{s, est})
+		if len(top) > fitCandidates {
+			top = top[:fitCandidates]
+		}
+	}
+	w := float32(0)
+	for _, c := range top {
+		w = max(w, fyne.MeasureText(c.s, size, style).Width)
+	}
+	return w
+}
 
 // itemCount is the header's count of a view's rows: "18 items" as captured (2026-10-11); with a
 // filter that hides some, "18 of 10,000 items" (Cogpit's).

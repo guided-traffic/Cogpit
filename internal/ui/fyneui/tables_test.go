@@ -14,6 +14,7 @@ import (
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -214,6 +215,58 @@ func renderKeyboard(t *testing.T, mode ThemeMode, name string) {
 
 func TestRenderKeyboardDark(t *testing.T)  { renderKeyboard(t, ThemeDark, "keyboard_dark.png") }
 func TestRenderKeyboardLight(t *testing.T) { renderKeyboard(t, ThemeLight, "keyboard_light.png") }
+
+// TestDoubleClickSeparatorFitsColumn: a double click on the separator right of a column in the
+// header fits the column to its widest content (every row, not only those on screen) and keeps
+// that width as the user's; a double click between body cells changes nothing.
+func TestDoubleClickSeparatorFitsColumn(t *testing.T) {
+	f := connectedFake(t, 200)
+	sh, w, q := newTestShell(t, f, Options{})
+	q.until(t, "kinds", func() bool { return len(sh.kinds) > 0 && sh.view.snap != nil })
+	settle(w)
+	tv := sh.view
+	th := tv.table.Theme()
+	gap, pad, size := th.Size(theme.SizeNamePadding), th.Size(sizeCellPadding), th.Size(theme.SizeNameText)
+	header := headerFor(t, sh, 0).Size().Height
+	widest := func(col int) float32 {
+		w := float32(0)
+		for _, r := range f.tables["pods"].Rows {
+			w = max(w, fyne.MeasureText(r.Cells[col].Text, size, fyne.TextStyle{}).Width)
+		}
+		return w + 2*pad + 1
+	}
+	at := func(col int) fyne.Position { // the middle of the separator right of col
+		x := float32(0)
+		for i := 0; i < col; i++ {
+			x += tv.setWidths[i] + gap
+		}
+		return fyne.NewPos(x+tv.setWidths[col]+gap/2, header/2)
+	}
+
+	before := tv.setWidths[1]
+	tv.table.DoubleTapped(&fyne.PointEvent{Position: at(1).AddXY(0, 3*header)}) // between body cells
+	if tv.setWidths[1] != before {
+		t.Fatal("a double click between body cells resized a column")
+	}
+	stretched := tv.setWidths[0]
+	tv.table.DoubleTapped(&fyne.PointEvent{Position: at(0)})
+	if got, want := tv.setWidths[0], widest(0); got != want || got >= stretched {
+		t.Fatalf("Name fitted to %v, want %v (it was stretched to %v)", got, want, stretched)
+	}
+	tv.table.DoubleTapped(&fyne.PointEvent{Position: at(1)})
+	if got, want := tv.setWidths[1], widest(1); got != want {
+		t.Fatalf("Namespace fitted to %v, want %v", got, want)
+	}
+	if tv.userWidths["pods/namespace"] != tv.setWidths[1] {
+		t.Fatal("the fitted width is not kept as the user's")
+	}
+	// A refit (window resize, new snapshot) keeps the fitted widths.
+	tv.fitWidth = 0
+	tv.fitColumns(tv.table.Size().Width + 200)
+	if tv.setWidths[0] != widest(0) {
+		t.Fatalf("refit changed the fitted Name width to %v", tv.setWidths[0])
+	}
+}
 
 // handleColumns makes the fake answer ui.setColumns as the engine does: the view's snapshot hides
 // the listed columns and the UI state records them.

@@ -823,8 +823,9 @@ func (tv *tableView) toggleNamespace(ns string, on bool) {
 type resourceTable struct {
 	widget.Table
 	tv     *tableView
-	keying bool // set while a key moves Fyne's highlight (tablekeys.go)
-	shift  bool // Shift is held, for ⇧Tab
+	keying bool          // set while a key moves Fyne's highlight (tablekeys.go)
+	shift  bool          // Shift is held, for ⇧Tab
+	offset fyne.Position // the scroll offset, as the scroller last reported it
 }
 
 func newResourceTable(tv *tableView) *resourceTable {
@@ -845,7 +846,7 @@ func newResourceTable(tv *tableView) *resourceTable {
 }
 
 // CreateRenderer adds a scroll hook to the table's: a scroll moves the cells under the pointer,
-// so the tooltip closes.
+// so the tooltip closes; the offset is kept for finding the column separator under a double click.
 func (t *resourceTable) CreateRenderer() fyne.WidgetRenderer {
 	r := t.Table.CreateRenderer()
 	for _, o := range r.Objects() {
@@ -853,6 +854,7 @@ func (t *resourceTable) CreateRenderer() fyne.WidgetRenderer {
 			inner := s.OnScrolled
 			s.OnScrolled = func(p fyne.Position) {
 				inner(p)
+				t.offset = p
 				t.tv.sh.tip.hide()
 			}
 		}
