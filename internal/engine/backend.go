@@ -37,8 +37,9 @@ type Backend struct {
 type Actions interface {
 	// RestartDeployment restarts a Deployment as `kubectl rollout restart` does.
 	RestartDeployment(ctx context.Context, namespace, name string) error
-	// DeletePod deletes one pod with the default grace period.
-	DeletePod(ctx context.Context, namespace, name string) error
+	// DeletePod deletes one pod with the default grace period; a non-empty uid must match the
+	// pod's, so that a replacement with the same name is not deleted.
+	DeletePod(ctx context.Context, namespace, name, uid string) error
 }
 
 // Writer returns what performs the backend's writes, or nil when it cannot write (the demo

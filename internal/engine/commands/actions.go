@@ -50,7 +50,12 @@ func registerActions(g *registrar) {
 		Targets: func(s *engine.Session, p refParams) ([]model.ObjectRef, error) { return targetOf(s, p.Ref) },
 		Run: func(ctx context.Context, s *engine.Session, p refParams) (any, error) {
 			return act(ctx, s, p.Ref, "deleted", func(w engine.Actions, ref model.ObjectRef) error {
-				return w.DeletePod(ctx, ref.Namespace, ref.Name)
+				// The cached pod's UID is what the user saw and confirmed.
+				uid := ""
+				if obj, err := s.Lookup(ref); err == nil {
+					uid = string(obj.GetUID())
+				}
+				return w.DeletePod(ctx, ref.Namespace, ref.Name, uid)
 			})
 		},
 	})

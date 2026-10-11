@@ -324,9 +324,12 @@ func TestDestructiveCommandsNeedConfirmation(t *testing.T) {
 		t.Errorf("restart result %+v, origin %s", res, asked[len(asked)-2].Origin)
 	}
 
-	// Only agent commands are audited, with their outcome.
+	// Only agent commands are audited: a write with a "requested" line before it runs and a
+	// "done" line with its outcome, both naming the confirmed context.
 	lines := audit.Lines()
-	if len(lines) != 1 || lines[0].Command != "deployment.restart" || !lines[0].OK || lines[0].Origin != engine.OriginExternalAgent || lines[0].Context != "test" {
+	if len(lines) != 2 || lines[0].Phase != "requested" || lines[1].Phase != "done" ||
+		lines[1].Command != "deployment.restart" || !lines[1].OK || lines[1].Origin != engine.OriginExternalAgent ||
+		lines[0].Context != "test" || lines[1].Context != "test" {
 		t.Errorf("audit %+v", lines)
 	}
 

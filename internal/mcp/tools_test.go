@@ -166,8 +166,10 @@ func TestDestructiveAsksTheUser(t *testing.T) {
 		!slices.Equal(req.Objects, []model.ObjectRef{podRef}) || !slices.Equal(req.Namespaces, []string{"default"}) {
 		t.Errorf("confirm request %+v", req)
 	}
+	// A write gets a "requested" line before it runs and a "done" line with the outcome.
 	entries := f.auditEntries(t)
-	if len(entries) != 1 || entries[0].Origin != engine.OriginExternalAgent || entries[0].Command != "pods.delete" || !entries[0].OK {
+	if len(entries) != 2 || entries[0].Phase != "requested" || entries[1].Phase != "done" ||
+		entries[1].Origin != engine.OriginExternalAgent || entries[1].Command != "pods.delete" || !entries[1].OK {
 		t.Errorf("audit %+v", entries)
 	}
 }

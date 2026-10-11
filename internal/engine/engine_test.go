@@ -145,3 +145,32 @@ func TestUpdateUIEmitsEvents(t *testing.T) {
 		t.Fatalf("revision %d, events %+v", st.Revision, got)
 	}
 }
+
+// TestAgentWriteAllowanceIsBoundToItsContext: when the user allowed agent writes for one context,
+// a mutating agent command runs without asking, but refuses to act on another context (the user
+// switched clusters before it ran).
+func TestAgentWriteAllowanceIsBoundToItsContext(t *testing.T) {
+	s := New(Options{})
+	s.UpdateUI(func(u *UIState) { u.Context = "kind-a" })
+	s.SetAgentWrites("kind-a", true)
+	var actOn string
+	err := Register(s.Registry(), Spec[struct{}]{
+		ID: "probe.write", Label: "Write", Danger: DangerMutating,
+		Targets: func(*Session, struct{}) ([]model.ObjectRef, error) { return nil, nil },
+		Run: func(ctx context.Context, _ *Session, _ struct{}) (any, error) {
+			return nil, CheckConfirmedContext(ctx, actOn)
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inv := Invocation{ID: "probe.write", Origin: OriginExternalAgent}
+	actOn = "kind-a"
+	if _, err := s.Dispatch(context.Background(), inv); err != nil {
+		t.Fatalf("allowed write on its own context: %v", err)
+	}
+	actOn = "kind-b"
+	if _, err := s.Dispatch(context.Background(), inv); !errors.Is(err, ErrWrongCluster) {
+		t.Fatalf("allowed write acting on another context: err=%v, want ErrWrongCluster", err)
+	}
+}

@@ -197,8 +197,11 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 	if !inv.Origin.valid() {
 		return nil, fmt.Errorf("command %s: invalid origin %q", inv.ID, inv.Origin)
 	}
+	// auditContext is the context the command was dispatched for (or, once confirmed, the one the
+	// user confirmed), not whatever is connected when it finishes.
+	var auditContext string
 	if inv.Origin.IsAgent() {
-		defer func() { s.audit(inv, result, err) }()
+		defer func() { s.audit(inv, auditContext, auditDone, err) }()
 	}
 	p, err := cmd.decode(inv.Params)
 	if err != nil {
@@ -213,6 +216,7 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 	allowed := s.agentWrites[uiContext]
 	confirmer := s.confirmer
 	s.mu.Unlock()
+	auditContext = uiContext
 
 	if NeedsConfirmation(cmd.Danger, inv.Origin, allowed) {
 		var targets []model.ObjectRef
@@ -231,6 +235,16 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 			return nil, fmt.Errorf("command %s: %w", cmd.ID, ErrDeclined)
 		}
 		ctx = context.WithValue(ctx, confirmedKey{}, req)
+		auditContext = req.Context
+	} else if allowed && cmd.Danger == DangerMutating && inv.Origin.IsAgent() {
+		// The user's allowance of agent writes is for one context: bind the command to it the way
+		// a confirmation would, so that it refuses to act if the cluster changes before it runs.
+		ctx = context.WithValue(ctx, confirmedKey{}, newConfirmRequest(cmd, inv.Origin, uiContext, nil))
+	}
+	if inv.Origin.IsAgent() && (cmd.Danger == DangerMutating || cmd.Danger == DangerDestructive) {
+		// A write is logged before it runs too, so that one still running when Cogpit quits is in
+		// the log.
+		s.audit(inv, auditContext, auditRequested, nil)
 	}
 
 	err = s.safeCall(cmd.ID, func() (err error) { result, err = cmd.run(ctx, s, p); return err })

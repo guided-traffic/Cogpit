@@ -110,11 +110,17 @@ func (d *drawerWatch) stop() {
 }
 
 // eventInvolves matches an event's involvedObject by UID when both are known, else by kind,
-// namespace and name.
+// namespace and name. Nodes match by kind and name: the kubelet reports node events with the
+// node's name as the involved object's UID, not the Node object's UID.
 func eventInvolves(ev *unstructured.Unstructured, kind, namespace, name, uid string) bool {
 	inv, ok := ev.Object["involvedObject"].(map[string]any)
 	if !ok {
 		return false
+	}
+	if kind == "Node" {
+		k, _ := inv["kind"].(string)
+		n, _ := inv["name"].(string)
+		return k == kind && n == name
 	}
 	if evUID, _ := inv["uid"].(string); evUID != "" && uid != "" {
 		return evUID == uid

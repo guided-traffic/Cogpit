@@ -103,7 +103,7 @@ func (w *fakeWriter) RestartDeployment(_ context.Context, namespace, name string
 	return nil
 }
 
-func (w *fakeWriter) DeletePod(_ context.Context, namespace, name string) error {
+func (w *fakeWriter) DeletePod(_ context.Context, namespace, name, _ string) error {
 	w.record("delete " + namespace + "/" + name)
 	return nil
 }
