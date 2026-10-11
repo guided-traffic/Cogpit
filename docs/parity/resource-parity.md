@@ -88,10 +88,10 @@ related resources) are superseded by Cogpit's built-in agent
 | Leases | `coordination.k8s.io/v1` Lease | Name, Namespace, Holder, Age | – | missing |
 | Mutating Webhook Configurations | `admissionregistration.k8s.io/v1` | Name, Webhooks, Age | – | missing |
 | Validating Webhook Configurations | `admissionregistration.k8s.io/v1` | Name, Webhooks, Age | – | missing |
-| Validating Admission Policies | `admissionregistration.k8s.io` (v1, falling back to v1beta1, v1alpha1) | Name, Validations, Failure Policy, Age | – | missing |
-| Validating Admission Policy Bindings | same | Name, Policy, Validation Actions, Age | – | missing |
 | Mutating Admission Policies | same | Name, Mutations, Reinvocation Policy, Failure Policy, Age | – | missing |
 | Mutating Admission Policy Bindings | same | Name, Policy, Age | – | missing |
+| Validating Admission Policies | `admissionregistration.k8s.io` (v1, falling back to v1beta1, v1alpha1) | Name, Validations, Failure Policy, Age | – | missing |
+| Validating Admission Policy Bindings | same | Name, Policy, Validation Actions, Age | – | missing |
 
 ## Network
 
@@ -104,10 +104,13 @@ related resources) are superseded by Cogpit's built-in agent
 | Ingress Classes | `networking.k8s.io/v1` IngressClass | Name, Controller, API Group, Scope, Kind (Lens's page also lists Namespace: capture needed) | – | missing |
 | Network Policies | `networking.k8s.io/v1` NetworkPolicy | Name, Namespace, Policy Types, Age | – | missing |
 | Port Forwarding | Cogpit's own state, not a kind | Name, Namespace, Kind, Pod Port, Local Port, Protocol, Status | Open `portforward.open`, Edit `portforward.edit`, Stop `portforward.stop`, Delete `portforward.remove` | missing |
-| Gateway Classes, Gateways, HTTP Routes, GRPC Routes, Reference Grants, Backend TLS Policies | `gateway.networking.k8s.io` (CRDs) | capture needed | – | missing |
-| TCP Routes, UDP Routes, TLS Routes, Listener Sets (experimental) | `gateway.networking.k8s.io` (CRDs) | capture needed | – | missing |
+| Gateway API › Gateway Classes, Gateways, HTTP Routes, Backend TLS Policies, gRPC Routes, Listener Sets, Reference Grants (sidebar order, capture 2026-10-11) | `gateway.networking.k8s.io` (CRDs); Listener Sets from `gateway.networking.x-k8s.io` | capture needed | – | missing |
+| Gateway API › TCP Routes, TLS Routes, UDP Routes (experimental channel) | `gateway.networking.k8s.io` (CRDs) | capture needed | – | missing |
 
-Gateway API views appear only when their CRDs exist; Lens needs a reconnect after the CRDs change.
+Gateway API views appear only when their CRDs exist, as a sub-group of Network after Network
+Policies (capture, Kubernetes 1.36.2); Lens needs a reconnect after the CRDs change. The Admission
+Policies views follow the Kubernetes version instead: the mutating ones need
+`admissionregistration.k8s.io/v1` (1.36 and later), see [ui-parity](ui-parity.md#cluster-sidebar).
 
 ## Storage
 
@@ -151,7 +154,7 @@ Shown only when the cluster serves `resource.k8s.io/v1` (Kubernetes 1.34 and lat
 | View | API | Lens columns | Actions | Status |
 |---|---|---|---|---|
 | Definitions | `apiextensions.k8s.io/v1` CustomResourceDefinition | capture needed | – | missing |
-| Custom Resources: one view per custom resource kind the cluster serves, under one collapsed group per API group, groups sorted by name (capture, 2026-10-11) | from discovery | capture needed; Cogpit uses `additionalPrinterColumns` | – | missing |
+| Custom Resources: one view per custom resource kind the cluster serves, titled by its singular Kind name, under one collapsed group per API group; groups and kinds sorted by name; groups with a curated section (Flux, Gateway API) are listed here too (captures, 2026-10-11) | from discovery | capture needed; Cogpit uses `additionalPrinterColumns` | – | missing |
 
 ## Paid Lens Desktop views
 
@@ -180,6 +183,7 @@ the tables above. Everything else is created from YAML templates in the dock
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Second capture (Kubernetes 1.36.2): Gateway API sub-group and its order, Mutating Admission Policies first and version-dependent, custom resource kinds by singular Kind name |
 | 2026-10-11 | minor | From a capture of the running Lens Desktop (owner): Definitions (custom resource definitions) is a Lens view after all, 64 views; custom resources grouped by API group; Endpoint Slices before Endpoints; webhook view titles; the Flux CD sidebar structure |
 | 2026-10-11 | minor | The MVP: Nodes, Pods, Deployments, Services, Namespaces and Events views partial; Logs, Shell, Restart and Delete (pods) partial |
 | 2026-10-11 | major | Sources narrowed to Lens Desktop (D-12): the Freelens-only Definitions view, seven Freelens-only actions, `portforward.start` and Freelens column details removed; Ask AI superseded by the built-in agent |

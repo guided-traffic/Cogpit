@@ -77,6 +77,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 | Every minor version the Kubernetes project supports (1.35, 1.36 and 1.37 on 2026-10-11) | full support, tested against `kind` and envtest in CI; client-go 0.37.1 is the 1.37 release | partial: 1.36.1 on kind, locally (`make test-kind`); no CI |
 | Older clusters | views from discovery; Pod Security Policies shown only before 1.25 | missing |
 | Kinds and fields newer than the client libraries | discovery-driven views; objects handled as unstructured content, so edits keep unknown fields | missing |
+| The sidebar follows the served APIs, version by version | Lens shows Mutating Admission Policies on a 1.36.2 cluster and not on a 1.35.x one (captures, 2026-10-11; `admissionregistration.k8s.io/v1` from 1.36); Cogpit's profiles are filtered by discovery, so a kind appears where it is served; to be tested against kind node images of each supported minor version | partial: discovery filtering ([`connector.go`](../../internal/engine/connector.go)); only 1.36.1 on kind |
 | Device resources (`resource.k8s.io/v1`, 1.34 and later) and Gateway API (CRDs) | shown only when served | missing |
 
 ## External tools

@@ -75,11 +75,10 @@ hotbar, navigator, tab bar, workspace, dock, status bar.
 
 ## Cluster sidebar
 
-The tree as the running Lens Desktop shows it: a capture by the owner on 2026-10-11 of a cluster
-with Flux CD installed, every group expanded except the custom resource groups (Lens version not
-recorded with the capture). Groups marked *NEW* carry that badge in Lens. Items in brackets were not
-in the capture, most likely because that cluster does not serve their API (inferred, not verified);
-their place follows Lens's documentation.
+The tree as the running Lens Desktop shows it: captures by the owner on 2026-10-11 of two clusters
+with Flux CD installed, one on Kubernetes 1.35.x and one on 1.36.2, every group expanded (Lens
+version not recorded with the captures). Groups marked *NEW* carry that badge in Lens. Items in
+brackets were in neither capture; their place follows Lens's documentation.
 
 ```text
 Overview
@@ -96,11 +95,15 @@ Config              Config Maps, Secrets, Resource Quotas, Limit Ranges, Horizon
                     Autoscalers, [Vertical Pod Autoscalers], Pod Disruption Budgets, Priority
                     Classes, Runtime Classes, Leases, Mutating Webhook Configurations, Validating
                     Webhook Configurations,
-                    Admission Policies (NEW) › Validating Admission Policies, Validating Admission
-                              Policy Bindings, [Mutating Admission Policies, Mutating Admission
-                              Policy Bindings]
-Network             Services, Endpoint Slices, Endpoints, [Gateway API resources], Ingresses,
-                    Ingress Classes, Network Policies, Port Forwarding
+                    Admission Policies (NEW) › Mutating Admission Policies, Mutating Admission
+                              Policy Bindings, Validating Admission Policies, Validating
+                              Admission Policy Bindings
+Network             Services, Endpoint Slices, Endpoints, Ingresses, Ingress Classes, Network
+                    Policies,
+                    Gateway API (NEW) › Gateway Classes, Gateways, HTTP Routes, Backend TLS
+                              Policies, gRPC Routes, Listener Sets, Reference Grants, TCP Routes,
+                              TLS Routes, UDP Routes
+                    Port Forwarding
 Storage             Persistent Volume Claims, Persistent Volumes, Storage Classes
 Device Resources    (NEW) Resource Claims, Resource Claim Templates, Device Classes, Resource Slices
 Namespaces
@@ -108,14 +111,32 @@ Events
 Helm                Charts, Releases
 Access Control      Service Accounts, Cluster Roles, Roles, Cluster Role Bindings, Role Bindings,
                     [Pod Security Policies]
-Custom Resources    Definitions, then one collapsed group per API group, sorted by name
-                    (acme.cert-manager.io, ceph.rook.io, cert-manager.io, chaos-mesh.org, …)
+Custom Resources    Definitions, then one collapsed group per API group, sorted by name; inside a
+                    group its kinds by Kind name, singular and sorted (acme.cert-manager.io ›
+                    Challenge, Order)
 [Paid sections]     [Argo CD, Cost Monitoring, Security Center]
 ```
 
-Where the documentation said otherwise, the capture wins: Flux sits between Applications and
-Nodes; Endpoint Slices come before Endpoints; the webhook views read "Configurations"; the
-admission policies are a sub-group of Config; Custom Resources starts with Definitions.
+**What decides which items appear** is what the cluster serves, two ways:
+
+- **The Kubernetes version** for built-in APIs. Mutating Admission Policies and their bindings were
+  in the 1.36.2 capture and not in the 1.35.x one: `admissionregistration.k8s.io/v1`
+  `MutatingAdmissionPolicy` exists from 1.36 (the `prerelease-lifecycle-gen:introduced=1.36` tag in
+  k8s.io/api v0.37.1); before, it is `v1beta1` only, and beta APIs are off by default.
+- **Installed CRDs** for everything else. Gateway API was in the 1.36.2 capture only; it is a set of
+  CRDs (`gateway.networking.k8s.io`, and `gateway.networking.x-k8s.io` for Listener Sets), so its
+  absence on the other cluster is a matter of what is installed there, not of the version (that
+  capture's custom resource list is cut off, so it is not verified). Flux CD and Vertical Pod
+  Autoscalers work the same way.
+
+A curated section does not take its groups out of Custom Resources: the Flux toolkit groups
+(`helm.toolkit.fluxcd.io`, `kustomize.toolkit.fluxcd.io`, …) and `gateway.networking.k8s.io` are
+listed there too.
+
+Where the documentation said otherwise, the captures win: Flux sits between Applications and
+Nodes; Endpoint Slices come before Endpoints; Gateway API is a sub-group of Network after Network
+Policies; the webhook views read "Configurations"; the admission policies are a sub-group of Config,
+mutating first; Custom Resources starts with Definitions.
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
@@ -320,6 +341,7 @@ the table is taken as correct until a capture decides.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | Cluster sidebar from a second capture on Kubernetes 1.36.2: Mutating Admission Policies (version-dependent), the Gateway API sub-group (CRD-dependent), custom resource kinds by singular Kind name |
 | 2026-10-11 | minor | Cluster sidebar from a capture of the running Lens Desktop (owner): Flux placement and structure, Endpoint Slices before Endpoints, Admission Policies sub-group, Custom Resources › Definitions and groups |
 | 2026-10-11 | minor | The MVP: layout, sidebar, table, drawer, dock, follow, terminal and shell rows partial (24) |
 | 2026-10-11 | major | Sources narrowed to Lens Desktop (D-12): Freelens rows and details removed, sidebar tree in documentation order; Scope column replaced by Plan; Ask AI superseded by the built-in agent |

@@ -27,7 +27,9 @@ const (
 // the cluster serves appear, and a group without any is left out; kinds the layout does not know
 // go under Other. Pages that are not kinds (Overview, Applications, the Flux CD and Workloads
 // dashboards, Port Forwarding, Helm) and sub-groups (Config › Admission Policies) come with their
-// views; until then the admission policies sit at the end of Config, where the sub-group is.
+// views; until then the admission policies sit at the end of Config, where the sub-group is. The
+// Gateway API sub-group of Network (after Network Policies) waits for the key format of custom
+// resource kinds: plain plurals such as "gateways" are not unique across API groups.
 var navLayout = []struct {
 	id    string   // a kind key for a top-level item, or groupPrefix + a group name
 	title string   // the group's title
@@ -40,8 +42,8 @@ var navLayout = []struct {
 		"configmaps", "secrets", "resourcequotas", "limitranges", "horizontalpodautoscalers",
 		"verticalpodautoscalers", "poddisruptionbudgets", "priorityclasses", "runtimeclasses", "leases",
 		"mutatingwebhookconfigurations", "validatingwebhookconfigurations",
-		"validatingadmissionpolicies", "validatingadmissionpolicybindings",
-		"mutatingadmissionpolicies", "mutatingadmissionpolicybindings"}},
+		"mutatingadmissionpolicies", "mutatingadmissionpolicybindings",
+		"validatingadmissionpolicies", "validatingadmissionpolicybindings"}},
 	{id: groupPrefix + "network", title: "Network", kinds: []string{
 		"services", "endpointslices", "endpoints", "ingresses", "ingressclasses", "networkpolicies"}},
 	{id: groupPrefix + "storage", title: "Storage", kinds: []string{
