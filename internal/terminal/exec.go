@@ -1,6 +1,7 @@
 package terminal
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -93,8 +94,10 @@ func newExecutor(config *rest.Config, req *rest.Request) (remotecommand.Executor
 	})
 }
 
-// execSession is a TTY stream to a process in a container.
+// execSession is a stream to a process in a container: a shell's TTY (exec) or an attached
+// container's own stdin and output (attach.go).
 type execSession struct {
+	mode    streamMode
 	input   *inputQueue
 	outR    *io.PipeReader
 	outW    *io.PipeWriter
@@ -106,11 +109,30 @@ type execSession struct {
 	closeOnce sync.Once
 }
 
-// startStream runs exec in the background and returns the session around it.
+// streamMode is what a stream carries: a TTY (stdout and stderr then arrive as one, and the size
+// is sent), stdin (keystrokes reach the process; without it they are dropped), and the name its
+// end message uses ("shell ended: …").
+type streamMode struct {
+	tty, stdin bool
+	what       string
+	notice     string // written before the stream's output; empty: nothing
+}
+
+// shellMode is a pod shell's stream: an interactive TTY.
+var shellMode = streamMode{tty: true, stdin: true, what: "shell"}
+
+// startStream runs exec as a pod shell in the background and returns the session around it.
 func startStream(ctx context.Context, exec remotecommand.Executor) *execSession {
+	return startStreamMode(ctx, exec, shellMode)
+}
+
+// startStreamMode runs exec in the background with the given mode and returns the session around
+// it.
+func startStreamMode(ctx context.Context, exec remotecommand.Executor, mode streamMode) *execSession {
 	ctx, cancel := context.WithCancel(ctx)
 	outR, outW := io.Pipe()
 	s := &execSession{
+		mode:   mode,
 		input:  newInputQueue(),
 		outR:   outR,
 		outW:   outW,
@@ -133,29 +155,46 @@ func (s *execSession) run(ctx context.Context, exec remotecommand.Executor) {
 	var err error
 	defer func() {
 		if err != nil && !s.closing.Load() {
-			_, _ = io.WriteString(s.outW, "\r\n[cogpit] shell ended: "+execMessage(err)+"\r\n")
+			_, _ = io.WriteString(s.outW, "\r\n[cogpit] "+s.mode.what+" ended: "+execMessage(err)+"\r\n")
 		}
 		_ = s.outW.Close()
 	}()
-	defer recoverTo("pod shell stream", func(e error) { err = e })
+	defer recoverTo("pod "+s.mode.what+" stream", func(e error) { err = e })
 
-	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
-		Stdin:             s.input,
-		Stdout:            s.outW,
-		Tty:               true,
-		TerminalSizeQueue: s.sizes,
-	})
+	if s.mode.notice != "" {
+		if _, werr := io.WriteString(s.outW, s.mode.notice); werr != nil {
+			return // closed before the reader took it
+		}
+	}
+
+	opts := remotecommand.StreamOptions{Stdout: s.outW, Tty: s.mode.tty}
+	if s.mode.stdin {
+		opts.Stdin = s.input
+	}
+	if s.mode.tty {
+		opts.TerminalSizeQueue = s.sizes
+	} else {
+		// Without a TTY nothing turns the process's line feeds into the carriage return and line
+		// feed a terminal needs, and stderr arrives on its own.
+		out := crlfWriter{s.outW}
+		opts.Stdout, opts.Stderr = out, out
+	}
+	err = exec.StreamWithContext(ctx, opts)
 }
 
 // execMessage makes a stream error fit for the terminal: one line, no control characters (the
 // text can come from the cluster), bounded.
-func execMessage(err error) string {
-	msg := strings.Map(func(r rune) rune {
+func execMessage(err error) string { return printable(err.Error()) }
+
+// printable makes text from the cluster fit for one terminal line: control characters become
+// spaces, and it is bounded.
+func printable(msg string) string {
+	msg = strings.Map(func(r rune) rune {
 		if unicode.IsControl(r) {
 			return ' '
 		}
 		return r
-	}, err.Error())
+	}, msg)
 	if len(msg) > maxExecMessage {
 		msg = strings.ToValidUTF8(msg[:maxExecMessage], "") + "…"
 	}
@@ -171,19 +210,36 @@ func (s *execSession) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// Write queues keystrokes; they reach the container once the stream is connected.
+// Write queues keystrokes; they reach the container once the stream is connected. A stream
+// without stdin drops them; one without a TTY gets Enter as the line feed a TTY would have made
+// of it (and no echo).
 func (s *execSession) Write(p []byte) (int, error) {
+	if !s.mode.stdin {
+		if s.closing.Load() {
+			return 0, io.ErrClosedPipe
+		}
+		return len(p), nil
+	}
+	if !s.mode.tty && bytes.IndexByte(p, '\r') >= 0 {
+		if _, err := s.input.Write(bytes.ReplaceAll(p, []byte("\r"), []byte("\n"))); err != nil {
+			return 0, err
+		}
+		return len(p), nil
+	}
 	return s.input.Write(p)
 }
 
 // Resize sends the terminal size to the container's TTY. The latest size wins; one set before
-// the stream connects is sent when it does.
+// the stream connects is sent when it does. A stream without a TTY has no size to set.
 func (s *execSession) Resize(cols, rows uint16) error {
 	if cols == 0 || rows == 0 {
-		return fmt.Errorf("pod shell: invalid size %dx%d", cols, rows)
+		return fmt.Errorf("pod %s: invalid size %dx%d", s.mode.what, cols, rows)
+	}
+	if !s.mode.tty {
+		return nil
 	}
 	if !s.sizes.set(remotecommand.TerminalSize{Width: cols, Height: rows}) {
-		return errors.New("pod shell: session ended")
+		return fmt.Errorf("pod %s: session ended", s.mode.what)
 	}
 	return nil
 }

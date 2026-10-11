@@ -1,5 +1,6 @@
 // Package terminal runs interactive sessions for dock tabs: a local shell on Cogpit's own PTY with
-// a per-terminal kubeconfig, and a shell in a pod through client-go's exec stream.
+// a per-terminal kubeconfig, a shell in a pod through client-go's exec stream, and a session
+// attached to a container's main process through its attach stream.
 //
 // Layer L1. Terminal output is untrusted: it comes from the shell or the container. This package
 // passes it through unchanged; the terminal widget filters escape sequences before rendering
