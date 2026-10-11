@@ -400,6 +400,10 @@ func TestWorkloadLogsBoundsStreams(t *testing.T) {
 	rc := openTabLogs(t, s, tab.ID, f)
 	lr := readLines(rc)
 	lr.wait(t, fmt.Sprintf("%s showing %d containers' logs at once; the others join as these end", NoticePrefix, workloadLogStreams))
+	// The streams open on their own goroutines; the notice may come before the last has asked.
+	wctx, wcancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer wcancel()
+	testkit.WaitFor(wctx, func() bool { return len(f.requests()) >= workloadLogStreams })
 	if n := len(f.requests()); n != workloadLogStreams {
 		t.Errorf("%d streams, want %d", n, workloadLogStreams)
 	}

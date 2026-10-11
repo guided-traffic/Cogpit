@@ -47,7 +47,9 @@ func TestSidebarHidesKindsNotListable(t *testing.T) {
 
 	setListable(f, map[string]bool{"nodes": false, "deployments": true, "pods": true})
 	f.emit(engine.Event{Type: engine.EventKinds})
-	q.until(t, "Deployments back", func() bool { return slices.Equal(s.children[groupPrefix+"workloads"], []string{"workloads/overview", "pods", "deployments"}) })
+	q.until(t, "Deployments back", func() bool {
+		return slices.Equal(s.children[groupPrefix+"workloads"], []string{"workloads/overview", "pods", "deployments"})
+	})
 }
 
 // renderAccess: a user who may not list nodes and some workloads, and may not delete or shell

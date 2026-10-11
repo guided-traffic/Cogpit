@@ -135,8 +135,12 @@ func TestDrainBannerShowsAndActs(t *testing.T) {
 	if len(buttons["Finish drain"]) != 2 || len(buttons["Dismiss"]) != 2 || len(buttons["Uncordon"]) != 1 {
 		t.Fatalf("buttons %v (Uncordon only for the cordoned node)", buttons)
 	}
+	// Each tap dispatches on its own goroutine (shell.dispatch): wait for one before the next, so
+	// that the recorded order is the order of the taps.
 	test.Tap(buttons["Finish drain"][0])
+	q.until(t, "the first action", func() bool { return len(d.recorded()) == 1 })
 	test.Tap(buttons["Uncordon"][0])
+	q.until(t, "the second action", func() bool { return len(d.recorded()) == 2 })
 	test.Tap(buttons["Dismiss"][1])
 	q.until(t, "three actions", func() bool { return len(d.recorded()) == 3 })
 	got := d.recorded()
