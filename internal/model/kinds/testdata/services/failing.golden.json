@@ -92,7 +92,7 @@
         },
         {
           "name": "Ports",
-          "value": "https: 443/TCP → 8443, node port 30443"
+          "value": "https: 443/TCP -> 8443, node port 30443"
         },
         {
           "name": "Selector",

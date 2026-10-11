@@ -93,7 +93,7 @@
         },
         {
           "name": "Ports",
-          "value": "http: 80/TCP → 8080\nmetrics: 9090/TCP → metrics"
+          "value": "http: 80/TCP -> 8080\nmetrics: 9090/TCP -> metrics"
         },
         {
           "name": "Selector",

@@ -170,7 +170,7 @@ func serviceDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	return []model.DetailSection{{Title: "Connection", Items: d}}
 }
 
-// serviceDetailPorts renders "name: 443/TCP → 8443, node port 30443" lines.
+// serviceDetailPorts renders "name: 443/TCP -> 8443, node port 30443" lines (ASCII: Fyne's bundled font has no arrow glyph).
 func serviceDetailPorts(obj any) string {
 	var lines []string
 	for _, p := range model.NestedSlice(obj, "spec", "ports") {
@@ -183,7 +183,7 @@ func serviceDetailPorts(obj any) string {
 			line = name + ": " + line
 		}
 		if target := model.NestedIntOrString(p, "targetPort"); target != "" {
-			line += " → " + target
+			line += " -> " + target
 		}
 		if node := model.NestedIntOrString(p, "nodePort"); node != "" && node != "0" {
 			line += ", node port " + node

@@ -91,7 +91,7 @@
         },
         {
           "name": "Ports",
-          "value": "dns-udp: 53/UDP → 5353, node port 30053\ndns-tcp: 53/TCP → 5353, node port 30054"
+          "value": "dns-udp: 53/UDP -> 5353, node port 30053\ndns-tcp: 53/TCP -> 5353, node port 30054"
         },
         {
           "name": "Selector",

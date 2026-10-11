@@ -87,7 +87,7 @@
         },
         {
           "name": "Ports",
-          "value": "80/TCP → 80, node port 31080"
+          "value": "80/TCP -> 80, node port 31080"
         }
       ]
     }

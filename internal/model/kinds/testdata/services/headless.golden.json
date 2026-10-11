@@ -83,7 +83,7 @@
         },
         {
           "name": "Ports",
-          "value": "grpc: 9000/TCP → grpc"
+          "value": "grpc: 9000/TCP -> grpc"
         },
         {
           "name": "Selector",
