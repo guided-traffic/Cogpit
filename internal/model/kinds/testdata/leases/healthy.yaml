@@ -1,0 +1,14 @@
+# Synthetic: a controller's leader election lease, renewed two seconds ago.
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: kube-controller-manager
+  namespace: kube-system
+  uid: 53a41526-eeee-4d5e-6f70-000000000001
+  creationTimestamp: "2026-05-01T00:00:00Z"
+spec:
+  holderIdentity: control-plane-1_9c1d7f2e-4b6a-4f3e-8a21-6d0b5c9e1f34
+  leaseDurationSeconds: 15
+  acquireTime: "2026-10-09T03:12:44.512309Z"
+  renewTime: "2026-10-11T11:59:58.104217Z"
+  leaseTransitions: 4

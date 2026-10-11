@@ -1,0 +1,71 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "leases",
+    "namespace": "kube-node-lease",
+    "name": "worker-b-03"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "worker-b-03"
+    },
+    {
+      "column": "namespace",
+      "text": "kube-node-lease",
+      "link": {
+        "kind": "namespaces",
+        "name": "kube-node-lease"
+      }
+    },
+    {
+      "column": "holder",
+      "text": "worker-b-03",
+      "link": {
+        "kind": "nodes",
+        "name": "worker-b-03"
+      }
+    },
+    {
+      "column": "age",
+      "text": "163d",
+      "num": 1777593600
+    }
+  ],
+  "fields": {
+    "holder": [
+      "worker-b-03"
+    ],
+    "label": [],
+    "name": [
+      "worker-b-03"
+    ],
+    "namespace": [
+      "kube-node-lease"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Holder",
+          "value": "worker-b-03",
+          "link": {
+            "kind": "nodes",
+            "name": "worker-b-03"
+          }
+        },
+        {
+          "name": "Lease Duration",
+          "value": "40s"
+        },
+        {
+          "name": "Renewed",
+          "value": "2026-10-11T11:20:10Z"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# Synthetic: a lease nobody holds any more: the last holder released it and no candidate took it
+# over, so the controller it elects is not running anywhere.
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: cert-manager-controller
+  namespace: cert-manager
+  uid: 53a41526-eeee-4d5e-6f70-000000000002
+  creationTimestamp: "2026-08-01T00:00:00Z"
+spec:
+  leaseDurationSeconds: 60
+  acquireTime: "2026-10-10T08:00:00.000000Z"
+  renewTime: "2026-10-10T21:14:03.000000Z"
+  leaseTransitions: 17

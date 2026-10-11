@@ -1,0 +1,65 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "leases",
+    "namespace": "cert-manager",
+    "name": "cert-manager-controller"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "cert-manager-controller"
+    },
+    {
+      "column": "namespace",
+      "text": "cert-manager",
+      "link": {
+        "kind": "namespaces",
+        "name": "cert-manager"
+      }
+    },
+    {
+      "column": "holder",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "71d",
+      "num": 1785542400
+    }
+  ],
+  "fields": {
+    "holder": [],
+    "label": [],
+    "name": [
+      "cert-manager-controller"
+    ],
+    "namespace": [
+      "cert-manager"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Lease Duration",
+          "value": "60s"
+        },
+        {
+          "name": "Acquired",
+          "value": "2026-10-10T08:00:00Z"
+        },
+        {
+          "name": "Renewed",
+          "value": "2026-10-10T21:14:03Z"
+        },
+        {
+          "name": "Transitions",
+          "value": "17"
+        }
+      ]
+    }
+  ]
+}

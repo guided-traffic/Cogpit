@@ -1,0 +1,71 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "leases",
+    "namespace": "kube-system",
+    "name": "kube-controller-manager"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "kube-controller-manager"
+    },
+    {
+      "column": "namespace",
+      "text": "kube-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "kube-system"
+      }
+    },
+    {
+      "column": "holder",
+      "text": "control-plane-1_9c1d7f2e-4b6a-4f3e-8a21-6d0b5c9e1f34"
+    },
+    {
+      "column": "age",
+      "text": "163d",
+      "num": 1777593600
+    }
+  ],
+  "fields": {
+    "holder": [
+      "control-plane-1_9c1d7f2e-4b6a-4f3e-8a21-6d0b5c9e1f34"
+    ],
+    "label": [],
+    "name": [
+      "kube-controller-manager"
+    ],
+    "namespace": [
+      "kube-system"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Holder",
+          "value": "control-plane-1_9c1d7f2e-4b6a-4f3e-8a21-6d0b5c9e1f34"
+        },
+        {
+          "name": "Lease Duration",
+          "value": "15s"
+        },
+        {
+          "name": "Acquired",
+          "value": "2026-10-09T03:12:44Z"
+        },
+        {
+          "name": "Renewed",
+          "value": "2026-10-11T11:59:58Z"
+        },
+        {
+          "name": "Transitions",
+          "value": "4"
+        }
+      ]
+    }
+  ]
+}

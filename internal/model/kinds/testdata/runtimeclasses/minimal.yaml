@@ -1,0 +1,7 @@
+# Synthetic: optional fields missing: no handler (the API requires one), no overhead or
+# scheduling, no uid.
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: bare
+  creationTimestamp: "2026-10-11T11:00:00Z"

@@ -1,0 +1,46 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "runtimeclasses",
+    "name": "kata"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "kata"
+    },
+    {
+      "column": "handler",
+      "text": "kata-qemu-not-installed"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791590400
+    }
+  ],
+  "fields": {
+    "handler": [
+      "kata-qemu-not-installed"
+    ],
+    "label": [],
+    "name": [
+      "kata"
+    ],
+    "namespace": [
+      ""
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Handler",
+          "value": "kata-qemu-not-installed"
+        }
+      ]
+    }
+  ]
+}

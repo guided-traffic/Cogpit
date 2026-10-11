@@ -1,0 +1,46 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "runtimeclasses",
+    "name": "legacy-runc"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-runc"
+    },
+    {
+      "column": "handler",
+      "text": "runc"
+    },
+    {
+      "column": "age",
+      "text": "224d",
+      "num": 1772323200
+    }
+  ],
+  "fields": {
+    "handler": [
+      "runc"
+    ],
+    "label": [],
+    "name": [
+      "legacy-runc"
+    ],
+    "namespace": [
+      ""
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Handler",
+          "value": "runc"
+        }
+      ]
+    }
+  ]
+}

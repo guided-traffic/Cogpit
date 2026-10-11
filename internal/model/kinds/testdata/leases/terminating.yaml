@@ -1,0 +1,21 @@
+# Synthetic: a node's heartbeat lease in kube-node-lease, deleted with its node and held by a
+# finalizer.
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: worker-b-03
+  namespace: kube-node-lease
+  uid: 53a41526-eeee-4d5e-6f70-000000000003
+  creationTimestamp: "2026-05-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - leases.example.com/audit
+  ownerReferences:
+  - apiVersion: v1
+    kind: Node
+    name: worker-b-03
+    uid: 64b52637-ffff-4e6f-7081-000000000003
+spec:
+  holderIdentity: worker-b-03
+  leaseDurationSeconds: 40
+  renewTime: "2026-10-11T11:20:10.000000Z"

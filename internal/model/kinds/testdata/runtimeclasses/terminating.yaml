@@ -1,0 +1,11 @@
+# Synthetic: a runtime class held by a finalizer while it is deleted.
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: legacy-runc
+  uid: 42930415-dddd-4c4d-5e6f-000000000003
+  creationTimestamp: "2026-03-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - runtimes.example.com/audit
+handler: runc

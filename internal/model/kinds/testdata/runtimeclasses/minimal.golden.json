@@ -1,0 +1,34 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "runtimeclasses",
+    "name": "bare"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "handler",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "handler": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      ""
+    ]
+  },
+  "detail": null
+}

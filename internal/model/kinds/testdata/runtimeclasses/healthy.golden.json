@@ -1,0 +1,60 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "runtimeclasses",
+    "name": "gvisor"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "gvisor"
+    },
+    {
+      "column": "handler",
+      "text": "runsc"
+    },
+    {
+      "column": "age",
+      "text": "102d",
+      "num": 1782864000
+    }
+  ],
+  "fields": {
+    "handler": [
+      "runsc"
+    ],
+    "label": [
+      "app.kubernetes.io/managed-by=platform"
+    ],
+    "name": [
+      "gvisor"
+    ],
+    "namespace": [
+      ""
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Handler",
+          "value": "runsc"
+        },
+        {
+          "name": "Pod Overhead",
+          "value": "cpu=250m, memory=120Mi"
+        },
+        {
+          "name": "Node Selector",
+          "value": "sandbox.example.com/runtime=gvisor"
+        },
+        {
+          "name": "Tolerations",
+          "value": "sandbox.example.com/runtime=gvisor:NoSchedule"
+        }
+      ]
+    }
+  ]
+}
