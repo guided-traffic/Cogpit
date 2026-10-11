@@ -92,7 +92,7 @@ func cronJobCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 // cronSuspendText is the Suspend column: "true" or "false", as captured.
 func cronSuspendText(obj any) string {
 	if suspended, _ := model.NestedBool(obj, "spec", "suspend"); suspended {
-		return "true"
+		return textTrue
 	}
 	return "false"
 }

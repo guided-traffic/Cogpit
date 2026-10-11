@@ -19,7 +19,6 @@ const (
 	// storageClassAnnotation is the class annotation that predates spec.storageClassName.
 	storageClassAnnotation = "volume.beta.kubernetes.io/storage-class"
 	resourceStorage        = "storage"
-	pvcPodsTitle           = "Pods"
 )
 
 // persistentVolumeClaims has the columns of Lens's documentation (not captured). The Pods column
@@ -38,7 +37,7 @@ var persistentVolumeClaims = &model.KindProfile{
 		namespaceColumn,
 		{ID: "storageClass", Title: "Storage Class", Type: model.ColumnText},
 		{ID: "size", Title: "Size", Type: model.ColumnNumber}, // sorted by bytes
-		{ID: "pods", Title: pvcPodsTitle, Type: model.ColumnText},
+		{ID: idPods, Title: titlePods, Type: model.ColumnText},
 		ageColumn,
 		statusColumn,
 	},

@@ -78,7 +78,7 @@ func configMapKeys(obj any) []string {
 func configMapDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	var sections []model.DetailSection
 	if immutable, _ := model.NestedBool(obj, "immutable"); immutable {
-		sections = withSection(sections, "Properties", detailItems{{Name: "Immutable", Value: "true"}})
+		sections = withSection(sections, "Properties", detailItems{{Name: "Immutable", Value: textTrue}})
 	}
 
 	data := model.NestedMap(obj, "data")

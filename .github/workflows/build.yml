@@ -116,7 +116,7 @@ jobs:
       # The packages Fyne 2.8 documents for Debian and Ubuntu: a C compiler, OpenGL, X11, xkbcommon.
       - name: Install Fyne's build dependencies (Linux)
         if: matrix.os == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev
+        run: sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev libwayland-dev wayland-protocols
 
       # Fyne on Windows needs a MinGW-w64 gcc for cgo; MSYS2 is the toolchain Fyne documents.
       - name: Install MinGW-w64 gcc (Windows)
@@ -172,7 +172,7 @@ jobs:
 
       # make test-kind compiles every package, the Fyne UI included.
       - name: Install Fyne's build dependencies
-        run: sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev
+        run: sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev libwayland-dev wayland-protocols
 
       - name: Install dependencies
         run: go mod download
@@ -229,7 +229,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Install Fyne's build dependencies
-        run: sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev
+        run: sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev libwayland-dev wayland-protocols
 
       - name: Install dependencies
         run: go mod download

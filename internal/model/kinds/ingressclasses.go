@@ -77,7 +77,7 @@ func ingressClassCells(obj *unstructured.Unstructured) ([]model.Cell, model.Stat
 }
 
 func isDefaultIngressClass(obj any) bool {
-	return model.NestedString(obj, "metadata", "annotations", ingressClassDefault) == "true"
+	return model.NestedString(obj, "metadata", "annotations", ingressClassDefault) == textTrue
 }
 
 // ingressClassScope is spec.parameters.scope; the API server defaults it to Cluster when the class

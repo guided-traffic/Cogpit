@@ -14,11 +14,13 @@ import (
 // fieldFunc is the type of a searchable field (model.KindProfile.Fields).
 type fieldFunc = func(obj *unstructured.Unstructured) []string
 
-// Condition statuses as the API writes them, and the text for a state nobody reported.
+// Condition statuses as the API writes them, the text for a state nobody reported, and a boolean
+// as annotations and table cells spell it.
 const (
 	condTrue    = "True"
 	condFalse   = "False"
 	textUnknown = "Unknown"
+	textTrue    = "true"
 )
 
 // Ids that name a column or a searchable field of more than one kind. A column and a field that
