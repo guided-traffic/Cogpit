@@ -196,10 +196,11 @@ func (t *tunnel) Forward(conn net.Conn, port uint16) (err error) {
 		err error
 	}
 	errc := make(chan readResult, 1)
-	go func() {
-		msg, err := io.ReadAll(io.LimitReader(errStream, maxForwardMessage+1))
-		errc <- readResult{msg, err}
-	}()
+	goRecover("error stream", func() {
+		res := readResult{err: errStreamPanicked} // what Forward gets if the read panics
+		defer func() { errc <- res }()
+		res.msg, res.err = io.ReadAll(io.LimitReader(errStream, maxForwardMessage+1))
+	})
 
 	headers.Set(corev1.StreamType, corev1.StreamTypeData)
 	data, err := t.conn.CreateStream(headers)
@@ -210,16 +211,21 @@ func (t *tunnel) Forward(conn net.Conn, port uint16) (err error) {
 
 	remoteDone := make(chan struct{})
 	localFailed := make(chan struct{})
-	go func() {
+	goRecover("data from the pod", func() {
 		defer close(remoteDone)
 		_, _ = io.Copy(conn, data) // the pod's side to the local client
-	}()
-	go func() {
-		defer func() { _ = data.Close() }() // the pod's side sees the end of the client's data
-		if _, err := io.Copy(data, conn); err != nil && !isClosedError(err) {
-			close(localFailed)
-		}
-	}()
+	})
+	goRecover("data to the pod", func() {
+		failed := true // also when the copy panics
+		defer func() {
+			_ = data.Close() // the pod's side sees the end of the client's data
+			if failed {
+				close(localFailed)
+			}
+		}()
+		_, err := io.Copy(data, conn)
+		failed = err != nil && !isClosedError(err)
+	})
 	select {
 	case <-remoteDone:
 	case <-localFailed:
@@ -236,6 +242,23 @@ func (t *tunnel) Forward(conn net.Conn, port uint16) (err error) {
 		return fmt.Errorf("port %d: %s", port, forwardMessage(res.msg))
 	}
 	return nil
+}
+
+// errStreamPanicked is the error-stream read's result when the read panicked.
+var errStreamPanicked = errors.New("internal error reading the error stream")
+
+// goRecover runs one stream copy of a forwarded connection on its own goroutine and turns a panic
+// into a log line: the goroutine boundary of cluster I/O (AGENTS.md). fn's own defers still run,
+// so the copy reports its end to Forward.
+func goRecover(what string, fn func()) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("cluster: a port-forward stream panicked", "stream", what, "panic", fmt.Sprint(r), "stack", string(debug.Stack()))
+			}
+		}()
+		fn()
+	}()
 }
 
 // isClosedError reports the errors of a connection closed on purpose.
