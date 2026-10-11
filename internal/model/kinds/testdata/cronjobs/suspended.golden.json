@@ -1,0 +1,116 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "cronjobs",
+    "namespace": "observability",
+    "name": "rotate-logs"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "rotate-logs"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "observability",
+      "link": {
+        "kind": "namespaces",
+        "name": "observability"
+      }
+    },
+    {
+      "column": "schedule",
+      "text": "0 2 * * *"
+    },
+    {
+      "column": "suspend",
+      "text": "true"
+    },
+    {
+      "column": "active",
+      "text": "0"
+    },
+    {
+      "column": "lastSchedule",
+      "text": "3d",
+      "num": 1791424800
+    },
+    {
+      "column": "nextExecution",
+      "text": "In about 14 hours",
+      "num": 1791770400
+    },
+    {
+      "column": "timeZone",
+      "text": "-"
+    },
+    {
+      "column": "age",
+      "text": "88d",
+      "num": 1784116800
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/observability/rotate:1.0"
+    ],
+    "label": [],
+    "name": [
+      "rotate-logs"
+    ],
+    "namespace": [
+      "observability"
+    ],
+    "schedule": [
+      "0 2 * * *"
+    ],
+    "suspend": [
+      "true"
+    ],
+    "timeZone": []
+  },
+  "detail": [
+    {
+      "title": "Cron Job",
+      "items": [
+        {
+          "name": "Schedule",
+          "value": "0 2 * * *"
+        },
+        {
+          "name": "Suspend",
+          "value": "True"
+        },
+        {
+          "name": "Concurrency Policy",
+          "value": "Replace"
+        },
+        {
+          "name": "History Limits",
+          "value": "1 successful / 1 failed"
+        },
+        {
+          "name": "Last Schedule",
+          "value": "2026-10-08T02:00:00Z"
+        },
+        {
+          "name": "Last Successful",
+          "value": "2026-10-08T02:03:10Z"
+        },
+        {
+          "name": "Next Execution",
+          "value": "2026-10-12T02:00:00Z"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/observability/rotate:1.0"
+        }
+      ]
+    }
+  ]
+}

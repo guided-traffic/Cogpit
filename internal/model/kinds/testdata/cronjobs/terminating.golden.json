@@ -1,0 +1,104 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "cronjobs",
+    "namespace": "shop",
+    "name": "legacy-cleanup"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-cleanup"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "schedule",
+      "text": "0 4 * * 0"
+    },
+    {
+      "column": "suspend",
+      "text": "false"
+    },
+    {
+      "column": "active",
+      "text": "0"
+    },
+    {
+      "column": "lastSchedule",
+      "text": "8h",
+      "num": 1791691200
+    },
+    {
+      "column": "nextExecution",
+      "text": "In about 6 days 16 hours",
+      "num": 1792296000
+    },
+    {
+      "column": "timeZone",
+      "text": "-"
+    },
+    {
+      "column": "age",
+      "text": "290d",
+      "num": 1766599200
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/shop/cleanup:0.1"
+    ],
+    "label": [],
+    "name": [
+      "legacy-cleanup"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "schedule": [
+      "0 4 * * 0"
+    ],
+    "suspend": [
+      "false"
+    ],
+    "timeZone": []
+  },
+  "detail": [
+    {
+      "title": "Cron Job",
+      "items": [
+        {
+          "name": "Schedule",
+          "value": "0 4 * * 0"
+        },
+        {
+          "name": "Last Schedule",
+          "value": "2026-10-11T04:00:00Z"
+        },
+        {
+          "name": "Last Successful",
+          "value": "2026-10-11T04:00:31Z"
+        },
+        {
+          "name": "Next Execution",
+          "value": "2026-10-18T04:00:00Z"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/shop/cleanup:0.1"
+        }
+      ]
+    }
+  ]
+}

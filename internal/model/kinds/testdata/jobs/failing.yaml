@@ -1,0 +1,39 @@
+# Synthetic: a job that reached its backoff limit: FailureTarget first, Failed once its pods have
+# terminated.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate-schema
+  namespace: shop
+  uid: 7d4a8f0b-7777-4e5d-8f4a-000000000002
+  generation: 1
+  creationTimestamp: "2026-10-11T11:00:00Z"
+spec:
+  backoffLimit: 0
+  completionMode: NonIndexed
+  completions: 1
+  parallelism: 1
+  activeDeadlineSeconds: 600
+  selector:
+    matchLabels:
+      batch.kubernetes.io/controller-uid: 7d4a8f0b-7777-4e5d-8f4a-000000000002
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: migrate
+        image: registry.example.com/shop/migrate:1.4.2
+status:
+  startTime: "2026-10-11T11:00:00Z"
+  failed: 1
+  ready: 0
+  terminating: 0
+  conditions:
+  - type: FailureTarget
+    status: "True"
+    reason: BackoffLimitExceeded
+    message: Job has reached the specified backoff limit
+  - type: Failed
+    status: "True"
+    reason: BackoffLimitExceeded
+    message: Job has reached the specified backoff limit

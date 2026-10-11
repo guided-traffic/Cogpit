@@ -1,0 +1,20 @@
+# Synthetic: a schedule the controller cannot parse (minute 61), so no job ever runs.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: broken-schedule
+  namespace: shop
+  uid: 8e5b9a1c-8888-4f6e-9a5b-000000000006
+  generation: 1
+  creationTimestamp: "2026-10-11T10:00:00Z"
+spec:
+  schedule: 61 * * * *
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: task
+            image: registry.example.com/shop/task:1.0
+status: {}

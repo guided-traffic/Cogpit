@@ -1,0 +1,80 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "replicasets",
+    "namespace": "payments",
+    "name": "worker-6f8b9c7d4"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "worker-6f8b9c7d4"
+    },
+    {
+      "column": "namespace",
+      "text": "payments",
+      "link": {
+        "kind": "namespaces",
+        "name": "payments"
+      }
+    },
+    {
+      "column": "desired",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "current",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "ready",
+      "text": "0"
+    },
+    {
+      "column": "age",
+      "text": "6h",
+      "num": 1791698400
+    }
+  ],
+  "fields": {
+    "controlledBy": [
+      "Deployment/worker"
+    ],
+    "image": [
+      "registry.example.com/payments/worker:2.2.0"
+    ],
+    "label": [],
+    "name": [
+      "worker-6f8b9c7d4"
+    ],
+    "namespace": [
+      "payments"
+    ],
+    "selector": [
+      "app=worker",
+      "pod-template-hash=6f8b9c7d4"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Replica Set",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "1 desired / 1 current / 0 ready / 0 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=worker\npod-template-hash=6f8b9c7d4"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/payments/worker:2.2.0"
+        }
+      ]
+    }
+  ]
+}

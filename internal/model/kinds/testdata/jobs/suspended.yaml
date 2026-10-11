@@ -1,0 +1,29 @@
+# Synthetic: a job created suspended, waiting for a queue controller to start it.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: train-model
+  namespace: ml
+  uid: 7d4a8f0b-7777-4e5d-8f4a-000000000004
+  generation: 1
+  creationTimestamp: "2026-10-11T08:00:00Z"
+spec:
+  suspend: true
+  completions: 3
+  parallelism: 1
+  backoffLimit: 6
+  completionMode: NonIndexed
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: train
+        image: registry.example.com/ml/trainer:0.12
+status:
+  ready: 0
+  terminating: 0
+  conditions:
+  - type: Suspended
+    status: "True"
+    reason: JobSuspended
+    message: Job suspended

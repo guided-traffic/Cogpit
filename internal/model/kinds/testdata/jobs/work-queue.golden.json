@@ -1,0 +1,86 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "jobs",
+    "namespace": "messaging",
+    "name": "drain-queue"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "drain-queue"
+    },
+    {
+      "column": "namespace",
+      "text": "messaging",
+      "link": {
+        "kind": "namespaces",
+        "name": "messaging"
+      }
+    },
+    {
+      "column": "completions",
+      "text": "0/1 of 2"
+    },
+    {
+      "column": "age",
+      "text": "10m",
+      "num": 1791719400
+    },
+    {
+      "column": "conditions",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "condition": [],
+    "controlledBy": [],
+    "image": [
+      "registry.example.com/messaging/drain:1.0"
+    ],
+    "label": [],
+    "name": [
+      "drain-queue"
+    ],
+    "namespace": [
+      "messaging"
+    ],
+    "selector": []
+  },
+  "detail": [
+    {
+      "title": "Job",
+      "items": [
+        {
+          "name": "Completions",
+          "value": "0/1 of 2"
+        },
+        {
+          "name": "Parallelism",
+          "value": "2"
+        },
+        {
+          "name": "Completion Mode",
+          "value": "NonIndexed"
+        },
+        {
+          "name": "Backoff Limit",
+          "value": "6"
+        },
+        {
+          "name": "Pods",
+          "value": "2 active / 2 ready / 0 succeeded / 0 failed"
+        },
+        {
+          "name": "Started",
+          "value": "2026-10-11T11:50:00Z"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/messaging/drain:1.0"
+        }
+      ]
+    }
+  ]
+}

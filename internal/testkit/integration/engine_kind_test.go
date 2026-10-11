@@ -53,7 +53,8 @@ func TestKindEngineWorkflows(t *testing.T) {
 		return res
 	}
 
-	for _, view := range []string{"nodes", "pods", "deployments", "services", "namespaces", "events"} {
+	// Daemon sets come with kind (kube-proxy, kindnet); replica sets and the job with the seed.
+	for _, view := range []string{"nodes", "pods", "deployments", "daemonsets", "replicasets", "jobs", "services", "namespaces", "events"} {
 		dispatch("ui.openView", map[string]any{"view": view})
 		if !testkit.WaitFor(ctx, func() bool {
 			tbl := s.Table(view)

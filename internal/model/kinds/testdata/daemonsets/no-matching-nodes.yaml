@@ -1,0 +1,29 @@
+# Synthetic: a daemon set whose node selector matches no node, so it should run no pod.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: gpu-driver
+  namespace: gpu-operator
+  uid: 3a1d5c7e-4444-4b2a-9c1d-000000000005
+  generation: 1
+  creationTimestamp: "2026-10-01T12:00:00Z"
+spec:
+  selector:
+    matchLabels:
+      app: gpu-driver
+  template:
+    metadata:
+      labels:
+        app: gpu-driver
+    spec:
+      nodeSelector:
+        node.example.com/accelerator: gpu
+      containers:
+      - name: driver
+        image: registry.example.com/gpu/driver:550.1
+status:
+  observedGeneration: 1
+  currentNumberScheduled: 0
+  desiredNumberScheduled: 0
+  numberMisscheduled: 0
+  numberReady: 0

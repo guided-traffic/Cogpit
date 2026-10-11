@@ -1,0 +1,60 @@
+# Synthetic: a cron job's job that finished: since Kubernetes 1.31 SuccessCriteriaMet comes first,
+# Complete once the pods have terminated.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nightly-report-29862240
+  namespace: analytics
+  uid: 7d4a8f0b-7777-4e5d-8f4a-000000000001
+  resourceVersion: "90410"
+  generation: 1
+  creationTimestamp: "2026-10-11T09:00:00Z"
+  labels:
+    batch.kubernetes.io/controller-uid: 7d4a8f0b-7777-4e5d-8f4a-000000000001
+    batch.kubernetes.io/job-name: nightly-report-29862240
+  ownerReferences:
+  - apiVersion: batch/v1
+    kind: CronJob
+    name: nightly-report
+    uid: 8e5b9a1c-8888-4f6e-9a5b-000000000001
+    controller: true
+    blockOwnerDeletion: true
+spec:
+  backoffLimit: 6
+  completionMode: NonIndexed
+  completions: 1
+  parallelism: 1
+  ttlSecondsAfterFinished: 86400
+  suspend: false
+  selector:
+    matchLabels:
+      batch.kubernetes.io/controller-uid: 7d4a8f0b-7777-4e5d-8f4a-000000000001
+  template:
+    metadata:
+      labels:
+        batch.kubernetes.io/job-name: nightly-report-29862240
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: report
+        image: registry.example.com/analytics/report:2026.10
+status:
+  startTime: "2026-10-11T09:00:00Z"
+  completionTime: "2026-10-11T09:01:42Z"
+  succeeded: 1
+  ready: 0
+  terminating: 0
+  uncountedTerminatedPods: {}
+  conditions:
+  - type: SuccessCriteriaMet
+    status: "True"
+    reason: CompletionsReached
+    message: Reached expected number of succeeded pods
+    lastProbeTime: "2026-10-11T09:01:42Z"
+    lastTransitionTime: "2026-10-11T09:01:42Z"
+  - type: Complete
+    status: "True"
+    reason: CompletionsReached
+    message: Reached expected number of succeeded pods
+    lastProbeTime: "2026-10-11T09:01:42Z"
+    lastTransitionTime: "2026-10-11T09:01:42Z"

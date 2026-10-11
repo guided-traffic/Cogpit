@@ -1,0 +1,64 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "replicasets",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "desired",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "current",
+      "text": "0"
+    },
+    {
+      "column": "ready",
+      "text": "0"
+    },
+    {
+      "column": "age",
+      "text": "5s",
+      "num": 1791719995
+    }
+  ],
+  "fields": {
+    "controlledBy": [],
+    "image": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "selector": []
+  },
+  "detail": [
+    {
+      "title": "Replica Set",
+      "items": [
+        {
+          "name": "Replicas",
+          "value": "1 desired / 0 current / 0 ready / 0 available"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+# Synthetic: optional fields missing: only the (required) schedule, as a descriptor; no status yet.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: bare
+  namespace: default
+  creationTimestamp: "2026-10-11T11:59:55Z"
+spec:
+  schedule: '@hourly'

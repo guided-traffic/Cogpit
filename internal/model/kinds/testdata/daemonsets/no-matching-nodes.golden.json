@@ -1,0 +1,77 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "daemonsets",
+    "namespace": "gpu-operator",
+    "name": "gpu-driver"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "gpu-driver"
+    },
+    {
+      "column": "namespace",
+      "text": "gpu-operator",
+      "link": {
+        "kind": "namespaces",
+        "name": "gpu-operator"
+      }
+    },
+    {
+      "column": "pods",
+      "text": "0/0"
+    },
+    {
+      "column": "nodeSelector",
+      "text": "node.example.com/accelerator=gpu"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790856000
+    }
+  ],
+  "fields": {
+    "image": [
+      "registry.example.com/gpu/driver:550.1"
+    ],
+    "label": [],
+    "name": [
+      "gpu-driver"
+    ],
+    "namespace": [
+      "gpu-operator"
+    ],
+    "nodeSelector": [
+      "node.example.com/accelerator=gpu"
+    ],
+    "selector": [
+      "app=gpu-driver"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Daemon Set",
+      "items": [
+        {
+          "name": "Pods",
+          "value": "0 desired / 0 current / 0 ready / 0 updated / 0 available"
+        },
+        {
+          "name": "Selector",
+          "value": "app=gpu-driver"
+        },
+        {
+          "name": "Node Selector",
+          "value": "node.example.com/accelerator=gpu"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/gpu/driver:550.1"
+        }
+      ]
+    }
+  ]
+}

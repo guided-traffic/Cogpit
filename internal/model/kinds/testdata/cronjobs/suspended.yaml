@@ -1,0 +1,27 @@
+# Synthetic: a suspended cron job. As captured from Lens, Suspend reads "true" and Next execution
+# still shows when the schedule would run next.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rotate-logs
+  namespace: observability
+  uid: 8e5b9a1c-8888-4f6e-9a5b-000000000004
+  generation: 3
+  creationTimestamp: "2026-07-15T12:00:00Z"
+spec:
+  schedule: 0 2 * * *
+  suspend: true
+  concurrencyPolicy: Replace
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: rotate
+            image: registry.example.com/observability/rotate:1.0
+status:
+  lastScheduleTime: "2026-10-08T02:00:00Z"
+  lastSuccessfulTime: "2026-10-08T02:03:10Z"

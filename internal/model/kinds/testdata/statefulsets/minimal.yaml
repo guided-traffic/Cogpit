@@ -1,0 +1,7 @@
+# Synthetic: optional fields missing: no replicas (the API defaults them to 1), no status yet.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: bare
+  namespace: default
+  creationTimestamp: "2026-10-11T11:59:55Z"
