@@ -102,14 +102,14 @@ func (f Forward) Listening() bool { return f.LocalPort != 0 }
 // "service-web-80". One forward per target and port: starting it again restarts it.
 func ForwardName(target model.ObjectRef, port uint16) string {
 	kind := "pod"
-	if target.Kind == "services" {
+	if target.Kind == kindServices {
 		kind = "service"
 	}
 	return kind + "-" + target.Name + "-" + strconv.Itoa(int(port))
 }
 
-// forwardURL is a forward's URL. The listener is on 127.0.0.1; the URL says localhost, as Lens's
-// does (a client that resolves localhost to ::1 only will not reach it).
+// forwardURL is a forward's URL. The listener is on 127.0.0.1 and the URL says localhost: a client
+// that resolves localhost to ::1 only does not reach it (Go's HTTP client tries 127.0.0.1 too).
 func forwardURL(https bool, port uint16) string {
 	scheme := schemeHTTP
 	if https {
