@@ -138,9 +138,14 @@ func (c *ClusterConnector) connectDemo() (*Backend, error) {
 		}()
 		dc.Start(churn)
 	}()
+	// The demo serves a few kinds; like discovery on a real cluster, they select the profiles.
+	served := map[schema.GroupVersionResource]bool{}
+	for _, gvr := range demo.Resources() {
+		served[gvr] = true
+	}
 	var once sync.Once
 	return &Backend{
-		Context: DemoContext, Namespace: "default", Cache: ch, Profiles: kinds.Builtin(), Demo: true,
+		Context: DemoContext, Namespace: "default", Cache: ch, Profiles: servedProfiles(kinds.Builtin(), served), Demo: true,
 		DemoStats: func() any { return dc.Stats() },
 		Close: func() {
 			once.Do(func() {
