@@ -72,7 +72,12 @@ func newFakeEngine(t testing.TB) *fakeEngine {
 	targets := func(_ *engine.Session, p refParams) ([]model.ObjectRef, error) { return []model.ObjectRef{p.Ref}, nil }
 	runRef := func(context.Context, *engine.Session, refParams) (any, error) { return nil, nil }
 	must(engine.Register(f.reg, engine.Spec[refParams]{ID: "object.delete", Label: "Delete", Order: engine.OrderDelete, Danger: engine.DangerDestructive,
-		Enabled: func(*engine.Session, refParams) error { return f.reason("object.delete") }, Targets: targets, Run: runRef}))
+		Enabled: func(_ *engine.Session, p refParams) error {
+			if p.Ref.Kind == kindPortForwards { // as the engine: a local kind is no API object
+				return fmt.Errorf("%w: a local kind", engine.ErrNotApplicable)
+			}
+			return f.reason("object.delete")
+		}, Targets: targets, Run: runRef}))
 	must(engine.Register(f.reg, engine.Spec[refParams]{ID: "deployment.restart", Label: "Restart", Kinds: []string{"deployments"}, Order: 200, Danger: engine.DangerMutating,
 		Enabled: func(*engine.Session, refParams) error { return f.reason("deployment.restart") }, Targets: targets, Run: runRef}))
 	must(engine.Register(f.reg, engine.Spec[struct{}]{ID: "terminal.open", Label: "Terminal", Danger: engine.DangerUI,

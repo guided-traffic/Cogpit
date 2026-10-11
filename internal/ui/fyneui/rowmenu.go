@@ -102,11 +102,15 @@ func (sh *shell) actionItems(ref model.ObjectRef, acts []actionState) []*fyne.Me
 }
 
 // runAction runs an evaluated action on ref: a command with a dialog of its own in
-// itemActionDialogs opens that (the port forward's Edit), another dialog command opens its
-// schema-generated dialog first.
+// itemActionDialogs opens that (the port forward's Edit), started from the command's Prefill,
+// another dialog command opens its schema-generated dialog first.
 func (sh *shell) runAction(a actionState, ref model.ObjectRef, container string) {
 	if open, ok := itemActionDialogs[a.cmd.ID]; ok {
-		open(sh, ref, model.ItemAction{Label: a.cmd.Label, Command: a.cmd.ID, Params: a.cmd.ObjectParams(ref, container)})
+		params := a.cmd.ObjectParams(ref, container)
+		if a.dialog && len(a.prefill) > 0 {
+			params = a.prefill
+		}
+		open(sh, ref, model.ItemAction{Label: a.cmd.Label, Command: a.cmd.ID, Params: params})
 		return
 	}
 	if a.dialog {
