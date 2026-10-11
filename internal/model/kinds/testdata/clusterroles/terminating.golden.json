@@ -1,0 +1,62 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "clusterroles",
+    "name": "legacy-dashboard"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-dashboard"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1y",
+      "num": 1736683200
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "legacy-dashboard"
+    ],
+    "namespace": [
+      ""
+    ],
+    "nonResourceURL": [],
+    "resource": [
+      "*"
+    ],
+    "verb": [
+      "get",
+      "list",
+      "watch"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Rules",
+      "table": {
+        "columns": [
+          "API Groups",
+          "Resources",
+          "Resource Names",
+          "Verbs"
+        ],
+        "rows": [
+          [
+            "*",
+            "*",
+            "",
+            "get\nlist\nwatch"
+          ]
+        ]
+      }
+    }
+  ]
+}

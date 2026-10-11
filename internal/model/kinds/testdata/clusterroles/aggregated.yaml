@@ -1,0 +1,33 @@
+# Synthetic: an aggregated cluster role whose rules the aggregation controller filled from the
+# cluster roles its selectors match: two selectors, the second with an expression.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: monitoring-edit
+  uid: 2b4d6f8a-0c2e-4b6d-9f1a-3c5e7b9d1f3a
+  resourceVersion: "51990"
+  creationTimestamp: "2026-08-20T14:00:00Z"
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      rbac.example.com/aggregate-to-monitoring-edit: "true"
+  - matchExpressions:
+    - key: rbac.example.com/aggregate-to
+      operator: In
+      values:
+      - monitoring
+      - observability
+rules:
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - prometheusrules
+  - servicemonitors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

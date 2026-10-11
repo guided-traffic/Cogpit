@@ -1,0 +1,57 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "clusterrolebindings",
+    "name": "system:node"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "system:node"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "bindings",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "132d",
+      "num": 1780272000
+    }
+  ],
+  "fields": {
+    "bindings": [],
+    "label": [
+      "kubernetes.io/bootstrapping=rbac-defaults"
+    ],
+    "name": [
+      "system:node"
+    ],
+    "namespace": [
+      ""
+    ],
+    "role": [
+      "system:node"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Role",
+          "value": "ClusterRole system:node",
+          "link": {
+            "kind": "clusterroles",
+            "name": "system:node"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -172,6 +172,13 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   objects, so those show no rows). Inferred and marked per row: the status and warning rules, the
   HPA Metrics and Status forms, the Pods column's place, the drawers; Vertical Pod Autoscalers (a
   CRD) are not covered.
+  Access Control (2026-10-11, third run): Service Accounts, Cluster Roles, Roles, Cluster Role Bindings and Role Bindings
+  partial, with the captured columns ([`kinds/rbac.go`](../../internal/model/kinds/rbac.go) and
+  one file per kind); the warning rules (a role or binding that grants nothing; a binding's
+  missing cluster role read through the related-objects index `ClusterRolesByName`) and the
+  drawers (rules and subjects as tables, links to roles and service accounts) inferred; 24
+  synthetic objects in the goldens, the views filled on kind (`TestKindAccessControlViews`);
+  Pod Security Policies (clusters before 1.25) and the Create dialogs still missing.
 - **Estimate:** 85–260 h (was 120–360; 2–6 h each for the 37 missing views, plus depth).
 
 ### G7. Resource actions
@@ -392,6 +399,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | minor | G6 Evidence: the Access Control views (five of them partial) |
 | 2026-10-11 | minor | G6 Evidence: the 13 Config views (third implementation run), admission policies by served version |
 | 2026-10-11 | minor | G11 unblocked by the H-8 decision; G5: Cogpit's own title bar on macOS (owner) |
 | 2026-10-11 | major | Second implementation run: G1 (CI green), G3, G5, G6 (27 of 64 views), G7 (14 of 39 actions, drain tested on three nodes) and G9 re-estimated; totals ~570–1,400 h free parity, ~780–1,820 h full target |

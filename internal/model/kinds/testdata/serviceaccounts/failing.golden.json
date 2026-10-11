@@ -1,0 +1,91 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "serviceaccounts",
+    "namespace": "ci",
+    "name": "build-bot"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "build-bot"
+    },
+    {
+      "column": "namespace",
+      "text": "ci",
+      "link": {
+        "kind": "namespaces",
+        "name": "ci"
+      }
+    },
+    {
+      "column": "age",
+      "text": "2y",
+      "num": 1710756000
+    }
+  ],
+  "fields": {
+    "imagePullSecret": [
+      "registry-credentials",
+      "mirror-credentials"
+    ],
+    "label": [],
+    "name": [
+      "build-bot"
+    ],
+    "namespace": [
+      "ci"
+    ],
+    "secret": [
+      "build-bot-token-x7k2p"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Automount Token",
+          "value": "true"
+        },
+        {
+          "name": "Secrets",
+          "value": "build-bot-token-x7k2p",
+          "chips": [
+            {
+              "text": "build-bot-token-x7k2p",
+              "link": {
+                "kind": "secrets",
+                "namespace": "ci",
+                "name": "build-bot-token-x7k2p"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Image Pull Secrets",
+          "value": "registry-credentials\nmirror-credentials",
+          "chips": [
+            {
+              "text": "registry-credentials",
+              "link": {
+                "kind": "secrets",
+                "namespace": "ci",
+                "name": "registry-credentials"
+              }
+            },
+            {
+              "text": "mirror-credentials",
+              "link": {
+                "kind": "secrets",
+                "namespace": "ci",
+                "name": "mirror-credentials"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

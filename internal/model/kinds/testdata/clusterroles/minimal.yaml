@@ -1,0 +1,7 @@
+# Synthetic: optional fields missing: no rules, no aggregation rule, no labels. Without rules the
+# role grants nothing, so it warns.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: bare
+  creationTimestamp: "2026-10-11T11:00:00Z"

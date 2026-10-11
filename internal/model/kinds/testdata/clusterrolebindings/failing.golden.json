@@ -1,0 +1,62 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "clusterrolebindings",
+    "name": "backup-operator"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "backup-operator"
+    },
+    {
+      "column": "warning",
+      "text": "No subjects: grants nothing",
+      "num": 1,
+      "status": "warning"
+    },
+    {
+      "column": "bindings",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790834400
+    }
+  ],
+  "fields": {
+    "bindings": [],
+    "label": [],
+    "name": [
+      "backup-operator"
+    ],
+    "namespace": [
+      ""
+    ],
+    "role": [
+      "backup-operator"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Warning",
+          "value": "No subjects: grants nothing",
+          "status": "warning"
+        },
+        {
+          "name": "Role",
+          "value": "ClusterRole backup-operator",
+          "link": {
+            "kind": "clusterroles",
+            "name": "backup-operator"
+          }
+        }
+      ]
+    }
+  ]
+}

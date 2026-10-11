@@ -1,0 +1,11 @@
+# Synthetic: a Role has no state to fail; this is what goes wrong with one in practice: a role
+# left without rules, so every binding to it grants nothing.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: reporting-reader
+  namespace: analytics
+  uid: 6f8a0c2e-4b6d-4f8a-b0c2-e4b6d8f0a2c4
+  resourceVersion: "60033"
+  creationTimestamp: "2026-10-01T06:00:00Z"
+rules: []

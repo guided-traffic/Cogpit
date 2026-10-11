@@ -324,7 +324,10 @@ by "this pod".
   consumer), rebuilds the view's rows when those objects change (the row cache keys on the related
   objects' generation as well as the resourceVersion), and builds each index at most once per
   snapshot. A lookup on a kind that is still listing or not served returns nothing. Rows built
-  outside a view (`resources.list`) use `Session.BuildRows`.
+  outside a view (`resources.list`) use `Session.BuildRows`. A rule that warns about an object
+  that does not exist (a binding's cluster role) must tell that from a kind still listing: its
+  index also files every object under a key no object has (`ClusterRolesByName` under `""`), and
+  the rule warns only once that key returns objects (2026-10-11).
 
 ### 4.5 Kind keys
 
@@ -583,6 +586,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-11 | trivial | §4.4: links and cells of several lines in drawer tables (`DetailTable.Links`); telling a missing related object from a kind still listing |
 | 2026-10-11 | trivial | §4.4: links and cells of several lines in drawer tables (`DetailTable.Links`) |
 | 2026-10-11 | trivial | §4.4: links in drawer tables (`DetailTable.Links`) |
 | 2026-10-11 | minor | §4.5: `FallbackVersions`, a built-in kind's older API versions, picked by discovery at connect |

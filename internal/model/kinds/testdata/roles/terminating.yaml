@@ -1,0 +1,18 @@
+# Synthetic: a role being deleted with its namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: preview-deployer
+  namespace: qa-preview-417
+  uid: 1a3c5e7a-9b1d-4f3a-c5e7-a9b1d3f5a7c9
+  resourceVersion: "77318"
+  creationTimestamp: "2026-10-10T09:30:00Z"
+  deletionTimestamp: "2026-10-11T11:59:00Z"
+rules:
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - deployments/scale
+  verbs:
+  - '*'

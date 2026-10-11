@@ -1,0 +1,25 @@
+# Synthetic: a cluster role binding with one subject of each kind: a service account, a group and
+# a user.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: metrics-collector
+  uid: 9b1d3f5a-7c9e-4b1d-8f5a-7c9e1b3d5f7a
+  resourceVersion: "51811"
+  creationTimestamp: "2026-08-20T14:00:00Z"
+  labels:
+    app.kubernetes.io/name: metrics-collector
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: metrics-collector
+subjects:
+- kind: ServiceAccount
+  name: metrics-collector
+  namespace: monitoring
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: oncall:sre
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: alice@example.com

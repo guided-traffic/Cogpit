@@ -1,0 +1,10 @@
+# Synthetic: a service account being deleted with its namespace.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: qa-preview-417
+  uid: 9a2c4e6f-8b1d-4c3e-a5f7-0b9d2e4f6a81
+  resourceVersion: "77310"
+  creationTimestamp: "2026-10-10T09:30:00Z"
+  deletionTimestamp: "2026-10-11T11:59:00Z"

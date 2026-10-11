@@ -1,0 +1,109 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "clusterrolebindings",
+    "name": "metrics-collector"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "metrics-collector"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "bindings",
+      "text": "metrics-collector, oncall:sre, alice@example.com"
+    },
+    {
+      "column": "age",
+      "text": "51d",
+      "num": 1787234400
+    }
+  ],
+  "fields": {
+    "bindings": [
+      "metrics-collector",
+      "oncall:sre",
+      "alice@example.com"
+    ],
+    "label": [
+      "app.kubernetes.io/name=metrics-collector"
+    ],
+    "name": [
+      "metrics-collector"
+    ],
+    "namespace": [
+      ""
+    ],
+    "role": [
+      "metrics-collector"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Role",
+          "value": "ClusterRole metrics-collector",
+          "link": {
+            "kind": "clusterroles",
+            "name": "metrics-collector"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Subjects",
+      "table": {
+        "columns": [
+          "Kind",
+          "Name",
+          "Namespace"
+        ],
+        "rows": [
+          [
+            "ServiceAccount",
+            "metrics-collector",
+            "monitoring"
+          ],
+          [
+            "Group",
+            "oncall:sre",
+            ""
+          ],
+          [
+            "User",
+            "alice@example.com",
+            ""
+          ]
+        ],
+        "links": [
+          [
+            null,
+            {
+              "kind": "serviceaccounts",
+              "namespace": "monitoring",
+              "name": "metrics-collector"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null
+          ]
+        ]
+      }
+    }
+  ]
+}

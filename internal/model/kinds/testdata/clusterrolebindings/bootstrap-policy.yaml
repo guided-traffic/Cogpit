@@ -1,0 +1,17 @@
+# Synthetic, shaped like the API server's own system:node binding: part of the bootstrap policy
+# (the autoupdate annotation) and without subjects on purpose, so it does not warn.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: system:node
+  uid: 1d3f5a7c-9e1b-4d3f-b7c9-e1b3d5f7a9c1
+  resourceVersion: "151"
+  creationTimestamp: "2026-06-01T00:00:00Z"
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  labels:
+    kubernetes.io/bootstrapping: rbac-defaults
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:node

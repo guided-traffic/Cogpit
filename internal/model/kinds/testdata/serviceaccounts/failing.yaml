@@ -1,0 +1,18 @@
+# Synthetic: a Service Account has no state to fail; this is the closest to trouble: a long-lived
+# token Secret from before Kubernetes 1.24 still listed under secrets, the same image pull secret
+# named twice, and the token mounted into every pod.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: build-bot
+  namespace: ci
+  uid: 0d7e3a91-2c4b-4f6e-8a15-93b7c0d2e4f8
+  resourceVersion: "1022"
+  creationTimestamp: "2024-03-18T10:00:00Z"
+automountServiceAccountToken: true
+secrets:
+- name: build-bot-token-x7k2p
+imagePullSecrets:
+- name: registry-credentials
+- name: registry-credentials
+- name: mirror-credentials

@@ -1,0 +1,57 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "roles",
+    "namespace": "analytics",
+    "name": "reporting-reader"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "reporting-reader"
+    },
+    {
+      "column": "warning",
+      "text": "No rules: grants nothing",
+      "num": 1,
+      "status": "warning"
+    },
+    {
+      "column": "namespace",
+      "text": "analytics",
+      "link": {
+        "kind": "namespaces",
+        "name": "analytics"
+      }
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790834400
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "reporting-reader"
+    ],
+    "namespace": [
+      "analytics"
+    ],
+    "resource": [],
+    "verb": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Warning",
+          "value": "No rules: grants nothing",
+          "status": "warning"
+        }
+      ]
+    }
+  ]
+}

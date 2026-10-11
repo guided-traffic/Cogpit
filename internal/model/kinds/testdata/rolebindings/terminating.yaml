@@ -1,0 +1,18 @@
+# Synthetic: a role binding being deleted with its namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: preview-deployer
+  namespace: qa-preview-417
+  uid: 6c8e0a2c-4e6b-4c8e-a2c4-e6b8d0f2a4c6
+  resourceVersion: "77320"
+  creationTimestamp: "2026-10-10T09:30:00Z"
+  deletionTimestamp: "2026-10-11T11:59:00Z"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: preview-deployer
+subjects:
+- kind: ServiceAccount
+  name: preview-bot
+  namespace: qa-preview-417

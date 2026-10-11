@@ -1,0 +1,50 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "serviceaccounts",
+    "namespace": "qa-preview-417",
+    "name": "default"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "default"
+    },
+    {
+      "column": "namespace",
+      "text": "qa-preview-417",
+      "link": {
+        "kind": "namespaces",
+        "name": "qa-preview-417"
+      }
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791624600
+    }
+  ],
+  "fields": {
+    "imagePullSecret": [],
+    "label": [],
+    "name": [
+      "default"
+    ],
+    "namespace": [
+      "qa-preview-417"
+    ],
+    "secret": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Automount Token",
+          "value": "true (default)"
+        }
+      ]
+    }
+  ]
+}

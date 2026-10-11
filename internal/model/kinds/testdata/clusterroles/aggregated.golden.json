@@ -1,0 +1,76 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "clusterroles",
+    "name": "monitoring-edit"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "monitoring-edit"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "51d",
+      "num": 1787234400
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "monitoring-edit"
+    ],
+    "namespace": [
+      ""
+    ],
+    "nonResourceURL": [],
+    "resource": [
+      "prometheusrules",
+      "servicemonitors"
+    ],
+    "verb": [
+      "create",
+      "delete",
+      "get",
+      "list",
+      "patch",
+      "update",
+      "watch"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Aggregation Rule",
+          "value": "rbac.example.com/aggregate-to-monitoring-edit=true\nrbac.example.com/aggregate-to in (monitoring,observability)"
+        }
+      ]
+    },
+    {
+      "title": "Rules",
+      "table": {
+        "columns": [
+          "API Groups",
+          "Resources",
+          "Resource Names",
+          "Verbs"
+        ],
+        "rows": [
+          [
+            "monitoring.coreos.com",
+            "prometheusrules\nservicemonitors",
+            "",
+            "create\ndelete\nget\nlist\npatch\nupdate\nwatch"
+          ]
+        ]
+      }
+    }
+  ]
+}

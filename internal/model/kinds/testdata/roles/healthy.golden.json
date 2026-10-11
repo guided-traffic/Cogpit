@@ -1,0 +1,88 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "roles",
+    "namespace": "checkout",
+    "name": "checkout-api"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "checkout-api"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "checkout",
+      "link": {
+        "kind": "namespaces",
+        "name": "checkout"
+      }
+    },
+    {
+      "column": "age",
+      "text": "39d",
+      "num": 1788336900
+    }
+  ],
+  "fields": {
+    "label": [
+      "app.kubernetes.io/name=checkout-api"
+    ],
+    "name": [
+      "checkout-api"
+    ],
+    "namespace": [
+      "checkout"
+    ],
+    "resource": [
+      "configmaps",
+      "leases"
+    ],
+    "verb": [
+      "get",
+      "list",
+      "watch",
+      "update",
+      "patch",
+      "create"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Rules",
+      "table": {
+        "columns": [
+          "API Groups",
+          "Resources",
+          "Resource Names",
+          "Verbs"
+        ],
+        "rows": [
+          [
+            "\"\" (core)",
+            "configmaps",
+            "",
+            "get\nlist\nwatch"
+          ],
+          [
+            "\"\" (core)",
+            "configmaps",
+            "checkout-feature-flags",
+            "update\npatch"
+          ],
+          [
+            "coordination.k8s.io",
+            "leases",
+            "",
+            "get\ncreate\nupdate"
+          ]
+        ]
+      }
+    }
+  ]
+}

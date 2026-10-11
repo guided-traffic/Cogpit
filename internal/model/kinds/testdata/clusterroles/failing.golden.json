@@ -1,0 +1,51 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "clusterroles",
+    "name": "backup-operator"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "backup-operator"
+    },
+    {
+      "column": "warning",
+      "text": "No rules: grants nothing",
+      "num": 1,
+      "status": "warning"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790834400
+    }
+  ],
+  "fields": {
+    "label": [
+      "app.kubernetes.io/managed-by=Helm"
+    ],
+    "name": [
+      "backup-operator"
+    ],
+    "namespace": [
+      ""
+    ],
+    "nonResourceURL": [],
+    "resource": [],
+    "verb": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Warning",
+          "value": "No rules: grants nothing",
+          "status": "warning"
+        }
+      ]
+    }
+  ]
+}

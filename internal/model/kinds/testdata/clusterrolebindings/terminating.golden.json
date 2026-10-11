@@ -1,0 +1,85 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "clusterrolebindings",
+    "name": "legacy-dashboard"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-dashboard"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "bindings",
+      "text": "dashboard"
+    },
+    {
+      "column": "age",
+      "text": "1y",
+      "num": 1736683200
+    }
+  ],
+  "fields": {
+    "bindings": [
+      "dashboard"
+    ],
+    "label": [],
+    "name": [
+      "legacy-dashboard"
+    ],
+    "namespace": [
+      ""
+    ],
+    "role": [
+      "legacy-dashboard"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Role",
+          "value": "ClusterRole legacy-dashboard",
+          "link": {
+            "kind": "clusterroles",
+            "name": "legacy-dashboard"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Subjects",
+      "table": {
+        "columns": [
+          "Kind",
+          "Name",
+          "Namespace"
+        ],
+        "rows": [
+          [
+            "ServiceAccount",
+            "dashboard",
+            "kube-dashboard"
+          ]
+        ],
+        "links": [
+          [
+            null,
+            {
+              "kind": "serviceaccounts",
+              "namespace": "kube-dashboard",
+              "name": "dashboard"
+            },
+            null
+          ]
+        ]
+      }
+    }
+  ]
+}

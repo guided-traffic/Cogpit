@@ -1,0 +1,38 @@
+# Synthetic: an application's role: reads its config maps, updates one by name, and holds a
+# leader-election lease.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: checkout-api
+  namespace: checkout
+  uid: 5e7a9c1e-3b5d-4f7a-9c1e-3b5d7f9a1c3e
+  resourceVersion: "48230"
+  creationTimestamp: "2026-09-02T08:15:00Z"
+  labels:
+    app.kubernetes.io/name: checkout-api
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  resourceNames:
+  - checkout-feature-flags
+  verbs:
+  - update
+  - patch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - create
+  - update

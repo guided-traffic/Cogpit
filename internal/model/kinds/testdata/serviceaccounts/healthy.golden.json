@@ -1,0 +1,69 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "serviceaccounts",
+    "namespace": "checkout",
+    "name": "checkout-api"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "checkout-api"
+    },
+    {
+      "column": "namespace",
+      "text": "checkout",
+      "link": {
+        "kind": "namespaces",
+        "name": "checkout"
+      }
+    },
+    {
+      "column": "age",
+      "text": "39d",
+      "num": 1788336900
+    }
+  ],
+  "fields": {
+    "imagePullSecret": [
+      "registry-credentials"
+    ],
+    "label": [
+      "app.kubernetes.io/name=checkout-api",
+      "app.kubernetes.io/part-of=shop"
+    ],
+    "name": [
+      "checkout-api"
+    ],
+    "namespace": [
+      "checkout"
+    ],
+    "secret": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Automount Token",
+          "value": "false"
+        },
+        {
+          "name": "Image Pull Secrets",
+          "value": "registry-credentials",
+          "chips": [
+            {
+              "text": "registry-credentials",
+              "link": {
+                "kind": "secrets",
+                "namespace": "checkout",
+                "name": "registry-credentials"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

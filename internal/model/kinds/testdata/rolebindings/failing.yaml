@@ -1,0 +1,15 @@
+# Synthetic: a Role Binding has no state to fail; this is what goes wrong with one in practice: a
+# binding without subjects, which grants nothing. Lens shows no warning icon for role bindings
+# (capture, 2026-10-11), so only the drawer says so.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: reporting-reader
+  namespace: analytics
+  uid: 5b7d9f1b-3d5f-4b7d-f1b3-d5f7a9c1e3b5
+  resourceVersion: "60036"
+  creationTimestamp: "2026-10-01T06:00:00Z"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: reporting-reader

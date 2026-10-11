@@ -1,0 +1,53 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "clusterroles",
+    "name": "tenant-admin"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "tenant-admin"
+    },
+    {
+      "column": "warning",
+      "text": "Aggregates no rules: grants nothing",
+      "num": 1,
+      "status": "warning"
+    },
+    {
+      "column": "age",
+      "text": "26d",
+      "num": 1789462800
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "tenant-admin"
+    ],
+    "namespace": [
+      ""
+    ],
+    "nonResourceURL": [],
+    "resource": [],
+    "verb": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Warning",
+          "value": "Aggregates no rules: grants nothing",
+          "status": "warning"
+        },
+        {
+          "name": "Aggregation Rule",
+          "value": "rbac.example.com/aggregate-to-tenant-admn=true"
+        }
+      ]
+    }
+  ]
+}

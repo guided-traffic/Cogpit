@@ -1,0 +1,66 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "rolebindings",
+    "namespace": "analytics",
+    "name": "reporting-reader"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "reporting-reader"
+    },
+    {
+      "column": "namespace",
+      "text": "analytics",
+      "link": {
+        "kind": "namespaces",
+        "name": "analytics"
+      }
+    },
+    {
+      "column": "bindings",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790834400
+    }
+  ],
+  "fields": {
+    "bindings": [],
+    "label": [],
+    "name": [
+      "reporting-reader"
+    ],
+    "namespace": [
+      "analytics"
+    ],
+    "role": [
+      "reporting-reader"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Warning",
+          "value": "No subjects: grants nothing",
+          "status": "warning"
+        },
+        {
+          "name": "Role",
+          "value": "Role reporting-reader",
+          "link": {
+            "kind": "roles",
+            "namespace": "analytics",
+            "name": "reporting-reader"
+          }
+        }
+      ]
+    }
+  ]
+}

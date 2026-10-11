@@ -1,0 +1,19 @@
+# Synthetic: a cluster role binding being deleted while a finalizer holds it.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: legacy-dashboard
+  uid: 2e4b6d8f-0a2c-4e4b-c8f0-a2c4e6b8d0f2
+  resourceVersion: "77405"
+  creationTimestamp: "2025-01-12T12:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - example.com/audit
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: legacy-dashboard
+subjects:
+- kind: ServiceAccount
+  name: dashboard
+  namespace: kube-dashboard

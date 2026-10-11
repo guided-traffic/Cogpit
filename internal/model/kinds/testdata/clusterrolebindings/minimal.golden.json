@@ -1,0 +1,62 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "clusterrolebindings",
+    "name": "bare"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "warning",
+      "text": "No subjects: grants nothing",
+      "num": 1,
+      "status": "warning"
+    },
+    {
+      "column": "bindings",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "bindings": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      ""
+    ],
+    "role": [
+      "view"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Warning",
+          "value": "No subjects: grants nothing",
+          "status": "warning"
+        },
+        {
+          "name": "Role",
+          "value": "ClusterRole view",
+          "link": {
+            "kind": "clusterroles",
+            "name": "view"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "clusterroles",
+    "name": "bare"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "warning",
+      "text": "No rules: grants nothing",
+      "num": 1,
+      "status": "warning"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      ""
+    ],
+    "nonResourceURL": [],
+    "resource": [],
+    "verb": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Warning",
+          "value": "No rules: grants nothing",
+          "status": "warning"
+        }
+      ]
+    }
+  ]
+}

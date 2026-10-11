@@ -1,0 +1,8 @@
+# Synthetic: optional fields missing: no rules, no labels. Without rules the role grants nothing,
+# so it warns.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: bare
+  namespace: default
+  creationTimestamp: "2026-10-11T11:00:00Z"

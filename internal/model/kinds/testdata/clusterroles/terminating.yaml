@@ -1,0 +1,20 @@
+# Synthetic: a cluster role being deleted while a finalizer holds it.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: legacy-dashboard
+  uid: 8f0b2d4f-6a8c-4e0b-c2d4-f6a8c0e2b4d6
+  resourceVersion: "77402"
+  creationTimestamp: "2025-01-12T12:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - example.com/audit
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch

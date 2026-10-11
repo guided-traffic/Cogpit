@@ -61,5 +61,10 @@ var builtin = []*model.KindProfile{
 	persistentVolumeClaims,
 	namespaces,
 	events,
+	serviceAccounts,
+	clusterRoles,
+	roles,
+	clusterRoleBindings,
+	roleBindings,
 	customResourceDefinitions,
 }

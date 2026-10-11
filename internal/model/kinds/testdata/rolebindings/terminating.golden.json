@@ -1,0 +1,91 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "rolebindings",
+    "namespace": "qa-preview-417",
+    "name": "preview-deployer"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "preview-deployer"
+    },
+    {
+      "column": "namespace",
+      "text": "qa-preview-417",
+      "link": {
+        "kind": "namespaces",
+        "name": "qa-preview-417"
+      }
+    },
+    {
+      "column": "bindings",
+      "text": "preview-bot"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791624600
+    }
+  ],
+  "fields": {
+    "bindings": [
+      "preview-bot"
+    ],
+    "label": [],
+    "name": [
+      "preview-deployer"
+    ],
+    "namespace": [
+      "qa-preview-417"
+    ],
+    "role": [
+      "preview-deployer"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Role",
+          "value": "Role preview-deployer",
+          "link": {
+            "kind": "roles",
+            "namespace": "qa-preview-417",
+            "name": "preview-deployer"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Subjects",
+      "table": {
+        "columns": [
+          "Kind",
+          "Name",
+          "Namespace"
+        ],
+        "rows": [
+          [
+            "ServiceAccount",
+            "preview-bot",
+            "qa-preview-417"
+          ]
+        ],
+        "links": [
+          [
+            null,
+            {
+              "kind": "serviceaccounts",
+              "namespace": "qa-preview-417",
+              "name": "preview-bot"
+            },
+            null
+          ]
+        ]
+      }
+    }
+  ]
+}

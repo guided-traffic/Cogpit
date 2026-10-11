@@ -1,0 +1,46 @@
+# Synthetic: a monitoring agent's cluster role: core and apps resources, one object by name, and
+# the API server's health endpoints (non-resource URLs, which only cluster roles can grant).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: metrics-collector
+  uid: 3c5e7a9b-1d2f-4a6c-8e0b-5d7f9a1c3e5b
+  resourceVersion: "51804"
+  creationTimestamp: "2026-08-20T14:00:00Z"
+  labels:
+    app.kubernetes.io/name: metrics-collector
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - nodes/metrics
+  - pods
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  resourceNames:
+  - metrics-collector-config
+  verbs:
+  - get
+  - update
+- nonResourceURLs:
+  - /metrics
+  - /healthz
+  verbs:
+  - get

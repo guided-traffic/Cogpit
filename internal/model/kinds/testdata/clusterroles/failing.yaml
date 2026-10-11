@@ -1,0 +1,15 @@
+# Synthetic: a Cluster Role has no state to fail; this is what goes wrong with one in practice: a
+# role left without rules (a chart rendered an empty list), so every binding to it grants nothing.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: backup-operator
+  uid: 7e9a1c3e-5b7d-4f9a-b1c3-e5f7a9b1d3f5
+  resourceVersion: "60012"
+  creationTimestamp: "2026-10-01T06:00:00Z"
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    meta.helm.sh/release-name: backup
+    meta.helm.sh/release-namespace: backup
+rules: []

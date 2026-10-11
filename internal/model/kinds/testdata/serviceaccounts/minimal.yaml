@@ -1,0 +1,7 @@
+# Synthetic: optional fields missing: no secrets, no image pull secrets, automount not set.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bare
+  namespace: default
+  creationTimestamp: "2026-10-11T11:00:00Z"

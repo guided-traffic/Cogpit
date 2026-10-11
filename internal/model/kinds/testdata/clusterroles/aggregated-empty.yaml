@@ -1,0 +1,14 @@
+# Synthetic: an aggregated cluster role whose selector matches no cluster role that grants
+# anything (a typo in the label), so the aggregation controller left its rules empty.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tenant-admin
+  uid: 4d6f8a0c-2e4b-4d8f-a1c3-5e7b9d1f3a5c
+  resourceVersion: "52007"
+  creationTimestamp: "2026-09-15T09:00:00Z"
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      rbac.example.com/aggregate-to-tenant-admn: "true"
+rules: null

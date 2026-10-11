@@ -1,0 +1,116 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "rolebindings",
+    "namespace": "checkout",
+    "name": "deployers"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "deployers"
+    },
+    {
+      "column": "namespace",
+      "text": "checkout",
+      "link": {
+        "kind": "namespaces",
+        "name": "checkout"
+      }
+    },
+    {
+      "column": "bindings",
+      "text": "ci-deployer, checkout-api, team:checkout"
+    },
+    {
+      "column": "age",
+      "text": "39d",
+      "num": 1788336960
+    }
+  ],
+  "fields": {
+    "bindings": [
+      "ci-deployer",
+      "checkout-api",
+      "team:checkout"
+    ],
+    "label": [],
+    "name": [
+      "deployers"
+    ],
+    "namespace": [
+      "checkout"
+    ],
+    "role": [
+      "edit"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Role",
+          "value": "ClusterRole edit",
+          "link": {
+            "kind": "clusterroles",
+            "name": "edit"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Subjects",
+      "table": {
+        "columns": [
+          "Kind",
+          "Name",
+          "Namespace"
+        ],
+        "rows": [
+          [
+            "ServiceAccount",
+            "ci-deployer",
+            "ci"
+          ],
+          [
+            "ServiceAccount",
+            "checkout-api",
+            "checkout"
+          ],
+          [
+            "Group",
+            "team:checkout",
+            ""
+          ]
+        ],
+        "links": [
+          [
+            null,
+            {
+              "kind": "serviceaccounts",
+              "namespace": "ci",
+              "name": "ci-deployer"
+            },
+            null
+          ],
+          [
+            null,
+            {
+              "kind": "serviceaccounts",
+              "namespace": "checkout",
+              "name": "checkout-api"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null
+          ]
+        ]
+      }
+    }
+  ]
+}

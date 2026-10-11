@@ -1,0 +1,69 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "roles",
+    "namespace": "qa-preview-417",
+    "name": "preview-deployer"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "preview-deployer"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "qa-preview-417",
+      "link": {
+        "kind": "namespaces",
+        "name": "qa-preview-417"
+      }
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791624600
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "preview-deployer"
+    ],
+    "namespace": [
+      "qa-preview-417"
+    ],
+    "resource": [
+      "deployments",
+      "deployments/scale"
+    ],
+    "verb": [
+      "*"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Rules",
+      "table": {
+        "columns": [
+          "API Groups",
+          "Resources",
+          "Resource Names",
+          "Verbs"
+        ],
+        "rows": [
+          [
+            "apps",
+            "deployments\ndeployments/scale",
+            "",
+            "*"
+          ]
+        ]
+      }
+    }
+  ]
+}

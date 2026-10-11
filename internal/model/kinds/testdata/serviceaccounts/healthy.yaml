@@ -1,0 +1,16 @@
+# Synthetic: an application's service account that pulls from a private registry and opts out of
+# the automatically mounted API token.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: checkout-api
+  namespace: checkout
+  uid: 6b1f0c2e-5a3d-4e8b-9c71-2f4a8d0e1b37
+  resourceVersion: "48211"
+  creationTimestamp: "2026-09-02T08:15:00Z"
+  labels:
+    app.kubernetes.io/name: checkout-api
+    app.kubernetes.io/part-of: shop
+automountServiceAccountToken: false
+imagePullSecrets:
+- name: registry-credentials

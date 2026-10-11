@@ -1,0 +1,97 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "clusterroles",
+    "name": "metrics-collector"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "metrics-collector"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "51d",
+      "num": 1787234400
+    }
+  ],
+  "fields": {
+    "label": [
+      "app.kubernetes.io/name=metrics-collector"
+    ],
+    "name": [
+      "metrics-collector"
+    ],
+    "namespace": [
+      ""
+    ],
+    "nonResourceURL": [
+      "/metrics",
+      "/healthz"
+    ],
+    "resource": [
+      "nodes",
+      "nodes/metrics",
+      "pods",
+      "services",
+      "deployments",
+      "statefulsets",
+      "configmaps"
+    ],
+    "verb": [
+      "get",
+      "list",
+      "watch",
+      "update"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Rules",
+      "table": {
+        "columns": [
+          "API Groups",
+          "Resources",
+          "Non-Resource URLs",
+          "Resource Names",
+          "Verbs"
+        ],
+        "rows": [
+          [
+            "\"\" (core)",
+            "nodes\nnodes/metrics\npods\nservices",
+            "",
+            "",
+            "get\nlist\nwatch"
+          ],
+          [
+            "apps",
+            "deployments\nstatefulsets",
+            "",
+            "",
+            "get\nlist\nwatch"
+          ],
+          [
+            "\"\" (core)",
+            "configmaps",
+            "",
+            "metrics-collector-config",
+            "get\nupdate"
+          ],
+          [
+            "",
+            "",
+            "/metrics\n/healthz",
+            "",
+            "get"
+          ]
+        ]
+      }
+    }
+  ]
+}
