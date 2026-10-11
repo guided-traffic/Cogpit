@@ -36,6 +36,17 @@ var wantCommands = map[string]engine.Danger{
 	"dock.activate":      engine.DangerUI,
 	"deployment.restart": engine.DangerDestructive,
 	"object.delete":      engine.DangerDestructive,
+	"node.cordon":        engine.DangerMutating,
+	"node.uncordon":      engine.DangerMutating,
+	"node.drain":         engine.DangerDestructive,
+	"node.pendingDrains": engine.DangerRead,
+	"node.dismissDrain":  engine.DangerUI,
+	"deployment.scale":   engine.DangerMutating, // destructive when scaling to zero (Escalate)
+	"statefulset.scale":  engine.DangerMutating, // destructive when scaling to zero (Escalate)
+	"cronjob.trigger":    engine.DangerMutating,
+	"cronjob.suspend":    engine.DangerMutating,
+	"cronjob.resume":     engine.DangerMutating,
+	"pod.evict":          engine.DangerDestructive,
 }
 
 func TestRegistryComplete(t *testing.T) {
