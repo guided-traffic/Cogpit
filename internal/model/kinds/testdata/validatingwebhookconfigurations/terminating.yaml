@@ -1,0 +1,29 @@
+# Synthetic: a configuration held by a finalizer while it is deleted.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: legacy-validator
+  uid: 64b52637-1111-4e6f-7081-000000000003
+  creationTimestamp: "2026-03-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - webhooks.example.com/audit
+webhooks:
+- name: legacy.example.com
+  admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      namespace: legacy
+      name: validator
+  rules:
+  - operations:
+    - DELETE
+    apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    resources:
+    - namespaces
+    scope: Cluster
+  sideEffects: None

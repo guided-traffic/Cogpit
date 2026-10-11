@@ -1,0 +1,126 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "validatingwebhookconfigurations",
+    "name": "policy-engine"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "policy-engine"
+    },
+    {
+      "column": "webhooks",
+      "text": "2",
+      "num": 2
+    },
+    {
+      "column": "age",
+      "text": "71d",
+      "num": 1785542400
+    }
+  ],
+  "fields": {
+    "label": [
+      "app.kubernetes.io/name=policy-engine"
+    ],
+    "name": [
+      "policy-engine"
+    ],
+    "namespace": [
+      ""
+    ],
+    "service": [
+      "policy-system/policy-engine"
+    ],
+    "webhook": [
+      "workloads.policy.example.com",
+      "core.policy.example.com"
+    ]
+  },
+  "detail": [
+    {
+      "title": "workloads.policy.example.com",
+      "group": "Webhooks",
+      "items": [
+        {
+          "name": "Client",
+          "value": "policy-system/policy-engine:443/validate/workloads",
+          "link": {
+            "kind": "services",
+            "namespace": "policy-system",
+            "name": "policy-engine"
+          }
+        },
+        {
+          "name": "Rules",
+          "value": "CREATE, UPDATE apps/v1 deployments, statefulsets (Namespaced)"
+        },
+        {
+          "name": "Failure Policy",
+          "value": "Fail"
+        },
+        {
+          "name": "Match Policy",
+          "value": "Equivalent"
+        },
+        {
+          "name": "Side Effects",
+          "value": "None"
+        },
+        {
+          "name": "Timeout",
+          "value": "10s"
+        },
+        {
+          "name": "Namespace Selector",
+          "value": "kubernetes.io/metadata.name notin (kube-system,policy-system)"
+        },
+        {
+          "name": "Match Conditions",
+          "value": "exclude-leases: !(request.resource.group == \"coordination.k8s.io\" && request.resource.resource == \"leases\")"
+        },
+        {
+          "name": "Admission Review Versions",
+          "value": "v1"
+        }
+      ]
+    },
+    {
+      "title": "core.policy.example.com",
+      "group": "Webhooks",
+      "items": [
+        {
+          "name": "Client",
+          "value": "policy-system/policy-engine/validate/core",
+          "link": {
+            "kind": "services",
+            "namespace": "policy-system",
+            "name": "policy-engine"
+          }
+        },
+        {
+          "name": "Rules",
+          "value": "* core/* *"
+        },
+        {
+          "name": "Failure Policy",
+          "value": "Ignore"
+        },
+        {
+          "name": "Side Effects",
+          "value": "NoneOnDryRun"
+        },
+        {
+          "name": "Timeout",
+          "value": "5s"
+        },
+        {
+          "name": "Admission Review Versions",
+          "value": "v1, v1beta1"
+        }
+      ]
+    }
+  ]
+}

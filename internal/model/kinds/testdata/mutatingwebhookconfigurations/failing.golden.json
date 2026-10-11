@@ -1,0 +1,76 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "mutatingwebhookconfigurations",
+    "name": "defaulter"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "defaulter"
+    },
+    {
+      "column": "webhooks",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791709200
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "defaulter"
+    ],
+    "namespace": [
+      ""
+    ],
+    "service": [
+      "defaulter/webhook"
+    ],
+    "webhook": [
+      "pods.defaulter.example.com"
+    ]
+  },
+  "detail": [
+    {
+      "title": "pods.defaulter.example.com",
+      "group": "Webhooks",
+      "items": [
+        {
+          "name": "Client",
+          "value": "defaulter/webhook",
+          "link": {
+            "kind": "services",
+            "namespace": "defaulter",
+            "name": "webhook"
+          }
+        },
+        {
+          "name": "Rules",
+          "value": "CREATE, UPDATE core/v1 pods"
+        },
+        {
+          "name": "Failure Policy",
+          "value": "Fail"
+        },
+        {
+          "name": "Side Effects",
+          "value": "None"
+        },
+        {
+          "name": "Reinvocation Policy",
+          "value": "Never"
+        },
+        {
+          "name": "Admission Review Versions",
+          "value": "v1"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "mutatingwebhookconfigurations",
+    "name": "sidecar-injector"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "sidecar-injector"
+    },
+    {
+      "column": "webhooks",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "71d",
+      "num": 1785542400
+    }
+  ],
+  "fields": {
+    "label": [
+      "app.kubernetes.io/name=mesh"
+    ],
+    "name": [
+      "sidecar-injector"
+    ],
+    "namespace": [
+      ""
+    ],
+    "service": [
+      "mesh-system/injector"
+    ],
+    "webhook": [
+      "inject.mesh.example.com"
+    ]
+  },
+  "detail": [
+    {
+      "title": "inject.mesh.example.com",
+      "group": "Webhooks",
+      "items": [
+        {
+          "name": "Client",
+          "value": "mesh-system/injector:9443/inject",
+          "link": {
+            "kind": "services",
+            "namespace": "mesh-system",
+            "name": "injector"
+          }
+        },
+        {
+          "name": "Rules",
+          "value": "CREATE core/v1 pods (Namespaced)"
+        },
+        {
+          "name": "Failure Policy",
+          "value": "Fail"
+        },
+        {
+          "name": "Match Policy",
+          "value": "Equivalent"
+        },
+        {
+          "name": "Side Effects",
+          "value": "None"
+        },
+        {
+          "name": "Timeout",
+          "value": "10s"
+        },
+        {
+          "name": "Reinvocation Policy",
+          "value": "IfNeeded"
+        },
+        {
+          "name": "Namespace Selector",
+          "value": "mesh.example.com/inject=enabled"
+        },
+        {
+          "name": "Object Selector",
+          "value": "mesh.example.com/inject notin (false)"
+        },
+        {
+          "name": "Admission Review Versions",
+          "value": "v1"
+        }
+      ]
+    }
+  ]
+}

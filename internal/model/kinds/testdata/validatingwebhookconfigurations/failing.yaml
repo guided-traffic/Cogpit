@@ -1,0 +1,28 @@
+# Synthetic: a webhook configuration has no state to fail; this is what goes wrong with one in
+# practice: a webhook outside the cluster (a URL) that rejects requests when it cannot be reached
+# (failurePolicy Fail) on every resource, with the longest timeout, and a webhook without a name.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: external-gatekeeper
+  uid: 64b52637-1111-4e6f-7081-000000000002
+  creationTimestamp: "2026-10-11T09:00:00Z"
+webhooks:
+- name: all.gatekeeper.example.net
+  admissionReviewVersions:
+  - v1
+  clientConfig:
+    url: https://gatekeeper.example.net:8443/validate
+  rules:
+  - operations:
+    - '*'
+    apiGroups:
+    - '*'
+    apiVersions:
+    - '*'
+    resources:
+    - '*/*'
+  failurePolicy: Fail
+  sideEffects: Unknown
+  timeoutSeconds: 30
+- clientConfig: {}

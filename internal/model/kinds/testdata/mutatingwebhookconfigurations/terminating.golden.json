@@ -1,0 +1,57 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "mutatingwebhookconfigurations",
+    "name": "legacy-mutator"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-mutator"
+    },
+    {
+      "column": "webhooks",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "224d",
+      "num": 1772323200
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "legacy-mutator"
+    ],
+    "namespace": [
+      ""
+    ],
+    "service": [],
+    "webhook": [
+      "legacy.example.com"
+    ]
+  },
+  "detail": [
+    {
+      "title": "legacy.example.com",
+      "group": "Webhooks",
+      "items": [
+        {
+          "name": "Client",
+          "value": "https://mutator.legacy.example.com/mutate"
+        },
+        {
+          "name": "Side Effects",
+          "value": "None"
+        },
+        {
+          "name": "Admission Review Versions",
+          "value": "v1"
+        }
+      ]
+    }
+  ]
+}

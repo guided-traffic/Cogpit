@@ -1,0 +1,68 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "validatingwebhookconfigurations",
+    "name": "legacy-validator"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-validator"
+    },
+    {
+      "column": "webhooks",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "224d",
+      "num": 1772323200
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "legacy-validator"
+    ],
+    "namespace": [
+      ""
+    ],
+    "service": [
+      "legacy/validator"
+    ],
+    "webhook": [
+      "legacy.example.com"
+    ]
+  },
+  "detail": [
+    {
+      "title": "legacy.example.com",
+      "group": "Webhooks",
+      "items": [
+        {
+          "name": "Client",
+          "value": "legacy/validator",
+          "link": {
+            "kind": "services",
+            "namespace": "legacy",
+            "name": "validator"
+          }
+        },
+        {
+          "name": "Rules",
+          "value": "DELETE core/v1 namespaces (Cluster)"
+        },
+        {
+          "name": "Side Effects",
+          "value": "None"
+        },
+        {
+          "name": "Admission Review Versions",
+          "value": "v1"
+        }
+      ]
+    }
+  ]
+}

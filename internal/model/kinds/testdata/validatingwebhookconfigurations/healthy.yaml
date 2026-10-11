@@ -1,0 +1,71 @@
+# Synthetic: a policy engine's two webhooks: one for workloads, through its service, with
+# selectors and a match condition; one for every resource in the core group, ignoring failures.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: policy-engine
+  uid: 64b52637-1111-4e6f-7081-000000000001
+  creationTimestamp: "2026-08-01T00:00:00Z"
+  generation: 3
+  labels:
+    app.kubernetes.io/name: policy-engine
+webhooks:
+- name: workloads.policy.example.com
+  admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      namespace: policy-system
+      name: policy-engine
+      path: /validate/workloads
+      port: 443
+    caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJrVENDQVRlZ0F3SUJBZ0lJWQo=
+  rules:
+  - operations:
+    - CREATE
+    - UPDATE
+    apiGroups:
+    - apps
+    apiVersions:
+    - v1
+    resources:
+    - deployments
+    - statefulsets
+    scope: Namespaced
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  sideEffects: None
+  timeoutSeconds: 10
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kube-system
+      - policy-system
+  objectSelector: {}
+  matchConditions:
+  - name: exclude-leases
+    expression: '!(request.resource.group == "coordination.k8s.io" && request.resource.resource == "leases")'
+- name: core.policy.example.com
+  admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      namespace: policy-system
+      name: policy-engine
+      path: /validate/core
+  rules:
+  - operations:
+    - '*'
+    apiGroups:
+    - ""
+    apiVersions:
+    - '*'
+    resources:
+    - '*'
+    scope: '*'
+  failurePolicy: Ignore
+  sideEffects: NoneOnDryRun
+  timeoutSeconds: 5

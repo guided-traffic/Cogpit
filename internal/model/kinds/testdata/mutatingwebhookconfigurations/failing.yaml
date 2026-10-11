@@ -1,0 +1,30 @@
+# Synthetic: a webhook configuration has no state to fail; this is what goes wrong with one in
+# practice: a defaulting webhook on every pod, including its own, whose failurePolicy Fail blocks
+# its own pods from starting once its service is gone.
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: defaulter
+  uid: 75c63748-2222-4f70-8192-000000000002
+  creationTimestamp: "2026-10-11T09:00:00Z"
+webhooks:
+- name: pods.defaulter.example.com
+  admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      namespace: defaulter
+      name: webhook
+  rules:
+  - operations:
+    - CREATE
+    - UPDATE
+    apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    resources:
+    - pods
+  failurePolicy: Fail
+  reinvocationPolicy: Never
+  sideEffects: None

@@ -52,6 +52,8 @@ var builtin = []*model.KindProfile{
 	priorityClasses,
 	runtimeClasses,
 	leases,
+	mutatingWebhookConfigurations,
+	validatingWebhookConfigurations,
 	persistentVolumeClaims,
 	namespaces,
 	events,

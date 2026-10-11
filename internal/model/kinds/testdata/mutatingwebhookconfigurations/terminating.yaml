@@ -1,0 +1,17 @@
+# Synthetic: a configuration held by a finalizer while it is deleted.
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: legacy-mutator
+  uid: 75c63748-2222-4f70-8192-000000000003
+  creationTimestamp: "2026-03-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - webhooks.example.com/audit
+webhooks:
+- name: legacy.example.com
+  admissionReviewVersions:
+  - v1
+  clientConfig:
+    url: https://mutator.legacy.example.com/mutate
+  sideEffects: None

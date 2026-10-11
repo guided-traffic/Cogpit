@@ -1,0 +1,45 @@
+# Synthetic: a sidecar injector on pod creation in labelled namespaces, called again when another
+# webhook changed the pod (reinvocationPolicy IfNeeded).
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: sidecar-injector
+  uid: 75c63748-2222-4f70-8192-000000000001
+  creationTimestamp: "2026-08-01T00:00:00Z"
+  labels:
+    app.kubernetes.io/name: mesh
+webhooks:
+- name: inject.mesh.example.com
+  admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      namespace: mesh-system
+      name: injector
+      path: /inject
+      port: 9443
+    caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJrVENDQVRlZ0F3SUJBZ0lJWQo=
+  rules:
+  - operations:
+    - CREATE
+    apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    resources:
+    - pods
+    scope: Namespaced
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  reinvocationPolicy: IfNeeded
+  sideEffects: None
+  timeoutSeconds: 10
+  namespaceSelector:
+    matchLabels:
+      mesh.example.com/inject: enabled
+  objectSelector:
+    matchExpressions:
+    - key: mesh.example.com/inject
+      operator: NotIn
+      values:
+      - "false"

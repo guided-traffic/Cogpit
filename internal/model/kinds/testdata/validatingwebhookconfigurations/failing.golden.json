@@ -1,0 +1,73 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "validatingwebhookconfigurations",
+    "name": "external-gatekeeper"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "external-gatekeeper"
+    },
+    {
+      "column": "webhooks",
+      "text": "2",
+      "num": 2
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791709200
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "external-gatekeeper"
+    ],
+    "namespace": [
+      ""
+    ],
+    "service": [],
+    "webhook": [
+      "all.gatekeeper.example.net"
+    ]
+  },
+  "detail": [
+    {
+      "title": "all.gatekeeper.example.net",
+      "group": "Webhooks",
+      "items": [
+        {
+          "name": "Client",
+          "value": "https://gatekeeper.example.net:8443/validate"
+        },
+        {
+          "name": "Rules",
+          "value": "* */* */*"
+        },
+        {
+          "name": "Failure Policy",
+          "value": "Fail"
+        },
+        {
+          "name": "Side Effects",
+          "value": "Unknown"
+        },
+        {
+          "name": "Timeout",
+          "value": "30s"
+        },
+        {
+          "name": "Admission Review Versions",
+          "value": "v1"
+        }
+      ]
+    },
+    {
+      "title": "Webhook 2",
+      "group": "Webhooks"
+    }
+  ]
+}

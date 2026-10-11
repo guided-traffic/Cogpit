@@ -1,0 +1,35 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "validatingwebhookconfigurations",
+    "name": "bare"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "webhooks",
+      "text": "0"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      ""
+    ],
+    "service": [],
+    "webhook": []
+  },
+  "detail": null
+}
