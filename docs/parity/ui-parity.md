@@ -1,6 +1,6 @@
 # UI parity: layout, navigation, tables, dock and feel
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (second implementation run: 38 of 134 rows) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (third run: 53 of 134 rows; Lens's Helm Upgrade tab captured 2026-10-12) · **Target:** Lens Desktop 2026.10.51501
 
 How Cogpit's interface compares with Lens Desktop 2026.10.51501: the window layout, clusters and
 hotbar, the cluster sidebar, list tables, the detail drawer, the bottom dock with its editor, log
@@ -189,7 +189,7 @@ Every list view is one table ([resource views](resource-parity.md)).
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Bottom dock with tabs: Terminal session, Create resource, Edit, logs, Helm Install, Helm Upgrade; tabs named after their object ("Pod <name>"), with a close button; on the right, maximize and collapse (capture, 2026-10-11) | free | partial: terminal, shell, logs, Edit ("ConfigMap demo") and Create resource; no Helm tabs, no maximize | `TestDockOpensAndClosesStreams`, `TestEditTabSaveReviewsThenApplies`, `TestCreateTabTemplatesAndCreate` |
+| Bottom dock with tabs: Terminal session, Create resource, Edit, logs, Helm Install, Helm Upgrade; tabs named after their object ("Pod <name>"), with a close button; on the right, maximize and collapse (capture, 2026-10-11) | free | partial: terminal, shell, logs, Edit ("ConfigMap demo") and Create resource; no Helm tabs, no maximize | `TestDockOpensAndClosesStreams`, `TestEditTabSaveReviewsThenApplies`, `TestCreateTabTemplatesAndCreate`; Lens's "Helm Upgrade: <name>" tab captured 2026-10-12 (save and search icons, the chart's version and a version picker, the release's values in a YAML editor; [resource parity](resource-parity.md#helm)) |
 | "New tab" menu: Terminal session, Create resource | free | done | [`dock.go`](../../internal/ui/fyneui/dock.go) `addMenu`, `TestDockAddMenuOffersCreateResource`; an item the engine disables names its reason |
 | Tab icons take the cluster's colour | free | missing | – |
 
@@ -356,6 +356,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | trivial | Dock: Lens's Helm Upgrade tab captured |
 | 2026-10-11 | minor | Third run, tables and window (G5): the macOS title bar partial (built, not seen in a real window yet); Tables: no namespace filter on cluster-scoped views, show and hide columns, fit a column, CSV export partial, keyboard done (and its shortcut row); the sidebar's Workloads › Overview |
 | 2026-10-11 | minor | Logs (G8): timestamps, word wrap, previous container, logs of a controlling resource with resource names, filter and `/`, download partial, as engine-held options of the tab; the drawer's Copy |
 | 2026-10-11 | minor | Terminal and shells: attach to a container as a dock tab (G8) |

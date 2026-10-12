@@ -1,6 +1,6 @@
 # Releasing
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (CI in workflow files; semantic-release as a dry run; the coverage badge; Renovate) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (the first real release decided: dry runs until the alpha, D-16) · **Target:** Lens Desktop 2026.10.51501
 
 CI exists as workflow files since 2026-10-11; they have not run on GitHub yet, so no job is known
 to be green there. Releases do not exist: semantic-release runs as a **dry run** until the owner
@@ -159,7 +159,9 @@ still goes to GitHub.
 
 ### The first real release
 
-The owner's call. To cut it:
+Decided (owner, 2026-10-12, [D-16](decisions.md#d-16-the-first-real-release)): releases stay dry
+runs until the alpha; the alpha's release is the first real one, together with the job that builds
+the unsigned macOS app as a download (part of the alpha's work). To cut it:
 
 1. **The first version** continues from the owner's anchor tag `v0.0.0` (2026-10-11): the next
    `feat:` makes 0.1.0, a `fix:` 0.0.1; a breaking change makes 1.0.0, which waits until Cogpit is

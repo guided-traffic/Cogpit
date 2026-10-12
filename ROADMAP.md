@@ -2,7 +2,7 @@
 
 **Stage: pre-alpha** · a local MVP runs on macOS; every alpha-gate workflow exists in part · next: alpha on macOS, ~150–400 agent-hours away (seven core workflows end to end)
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (third measurement, after the third implementation run) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (the owner's decisions of 2026-10-12 in Upcoming; third measurement unchanged) · **Target:** Lens Desktop 2026.10.51501
 
 Cogpit's one-page summary of how close it is to Lens Desktop 2026.10.51501, the Kubernetes IDE it
 reimplements as a native desktop client in Go, for macOS first and Windows and Linux after the
@@ -66,7 +66,7 @@ plugins are missing.
 
 | Rank | Milestone | Estimate |
 |---|---|---:|
-| 1 | The owner's decisions: the patched terminal widget ([H-19](docs/security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)), the Secrets view's Type column ([H-8](docs/security/privilege-footprint.md#h-8-secret-data-arrives-with-the-list)), the progress generators, the first real release | – |
+| 1 | The owner's decisions of 2026-10-12: the Secrets view as a full watch (D-13), the terminal widget fuzzed and upstreamed (D-14), `make parity` as a checker (D-15); releases stay dry runs until the alpha (D-16) | 6–16 h |
 | 2 | Walk the workflows in the GUI on kind and a real cluster: change a workload, maintain a node, reach a service, Helm rollback and uninstall, the title bar | human |
 | 3 | Helm upgrade, then install and charts (M6) | 20–45 h |
 | 4 | Connect: adding, pasting and syncing kubeconfigs; credential plugins (M1) | 14–34 h + human |
@@ -89,6 +89,7 @@ Detail: [docs/parity/roadmap.md](docs/parity/roadmap.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Upcoming: the owner's decisions D-13 (revised), D-14, D-15, D-16 |
 | 2026-10-11 | major | Third measurement after the third implementation run |
 | 2026-10-11 | major | Second measurement after the second implementation run |
 | 2026-10-11 | major | First measurement after the local MVP |

@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (second implementation run: G1, G3, G5, G6, G7, G9 re-estimated) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (third run's re-estimates; the owner's decisions of 2026-10-12 in G1, G6, G8, G11, G14) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -58,7 +58,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 ### G1. Workspace, CI and progress generators
 - **Missing:** the generators `make parity` and `make scorecard` that turn the checklists into
-  measured pages ([method](README.md#the-pages)); an envtest job (no test uses envtest yet); the
+  measured pages ([method](README.md#the-pages)); decided (owner, 2026-10-12,
+  [D-15](../developer/decisions.md#d-15-progress-generators)): `make parity` first, as a counter
+  and checker in CI (duplicate rows, rows without evidence, command ids the registry does not
+  know), the generated pages and the scorecard later; an envtest job (no test uses envtest yet); the
   first real release, which is the owner's call ([releasing](../developer/releasing.md#the-first-real-release)).
 - **Evidence:** built on 2026-10-11: [`go.mod`](../../go.mod) (Go 1.27.2, pinned versions), the
   [`Makefile`](../../Makefile) with local targets, [`.golangci.yml`](../../.golangci.yml) with the
@@ -207,6 +210,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   ([`secrets.go`](../../internal/model/kinds/secrets.go), [`secretdata.go`](../../internal/engine/secretdata.go),
   `TestBudgetSecretsViewAndDrawer`); Helm Releases partial, a virtual kind over the `owner=helm`
   Secrets ([`releases.go`](../../internal/helm/releases.go), G11).
+- **Decided (owner, 2026-10-12):** the Secrets view moves to a full watch on Secrets, so that
+  Keys and Type are filled as in Lens ([D-13](../developer/decisions.md#d-13-cache), revised; not
+  built, about 1–2 h with its tests and the docs of H-8).
 - **Estimate:** 30–100 h (was 85–260; 2–6 h each for the 9 missing views, plus depth: captures, metrics columns).
 
 ### G7. Resource actions
@@ -254,7 +260,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   widget hardened beyond the patched copy Cogpit builds against
   ([H-19](../security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)).
 - **Impact:** triaging a failing pod (logs, then a shell) is the most common Lens workflow.
-- **Estimate:** 16–40 h (was 30–70; log options, workload logs and attach built, third run), plus upstreaming or replacing the widget.
+- **Decided (owner, 2026-10-12, [D-14](../developer/decisions.md#d-14-terminal-widget)):** the
+  patched terminal widget stays; its patches are offered upstream and it is fuzzed on its own,
+  the two inputs that still make it panic alone patched first (3–8 h).
+- **Estimate:** 16–40 h (was 30–70; log options, workload logs and attach built, third run), plus the terminal widget's fuzzing and upstreaming (3–8 h).
 
 ### G9. YAML editor and create resource
 - **Missing:** drafts kept for crash recovery, "Revert to original", the Create resource tab's save
@@ -315,6 +324,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   back and uninstalled through the engine, and a simulated crash offered and finished). Still
   missing: repositories, chart index and search, install and upgrade, the Helm Install and Helm
   Upgrade dock tabs, the ConfigMaps and SQL storage drivers.
+- **Captured (2026-10-12, Lens Desktop on a real cluster):** the release drawer (Chart with an
+  Upgrade button, Updated, Namespace, Version, Status; editable values with "User-supplied values
+  only" and Save; Notes; Resources by kind), its icons (Rollback, Upgrade, Delete), the Rollback
+  dialog (every revision, newest first, the current one selected), the Delete dialog, the Helm
+  Upgrade dock tab, and a rollback keeping 10 revisions ([resource-parity](resource-parity.md#helm)).
 - **Estimate:** 20–45 h (was 30–60; releases, history, values, manifest, rollback and uninstall built in the third run; left: upgrade, install, repositories and charts, the dock's Helm tabs).
 
 ### G12. Metrics and cluster overview
@@ -386,6 +400,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Impact:** an unsigned build is enough for alpha testers; beta users need a notarized app and
   updates.
 - **Evidence (2026-10-11):** `make app` builds an ad-hoc signed `Cogpit.app` for arm64 locally.
+- **Decided (owner, 2026-10-12, [D-16](../developer/decisions.md#d-16-the-first-real-release)):**
+  releases stay dry runs until the alpha; the job that builds the unsigned app as a download
+  belongs to the alpha's work and is switched on with the first real release.
 - **Estimate:** 22–45 h (was 25–50). **Human:** Apple Developer ID, the update signing key.
 
 ### G22. Windows and Linux
@@ -494,6 +511,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 | 2026-10-11 | minor | G6 evidence (third run, agent D): Endpoint Slices, Endpoints, Network Policies, Persistent Volumes, Storage Classes and Replication Controllers views partial; the related-objects index's first users (a claim's pods, a node's Pods table, a Service's endpoint slices) |
 | 2026-10-11 | minor | G6 Evidence: the Access Control views (five of them partial) |
 | 2026-10-11 | minor | G6 Evidence: the 13 Config views (third implementation run), admission policies by served version |
+| 2026-10-12 | minor | Owner's decisions: G1 the parity checker first (D-15); G6 Secrets as a full watch (D-13 revised); G8 the terminal widget kept, upstreamed and fuzzed (D-14); G11 Lens's Helm release drawer, dialogs and upgrade tab captured; G14 the download job belongs to the alpha (D-16) |
 | 2026-10-11 | major | Third implementation run: G2–G11 and G15 re-estimated from what landed; totals ~430–1,060 h free parity, ~640–1,480 h full target |
 | 2026-10-11 | minor | G11 unblocked by the H-8 decision; G5: Cogpit's own title bar on macOS (owner) |
 | 2026-10-11 | major | Second implementation run: G1 (CI green), G3, G5, G6 (27 of 64 views), G7 (14 of 39 actions, drain tested on three nodes) and G9 re-estimated; totals ~570–1,400 h free parity, ~780–1,820 h full target |

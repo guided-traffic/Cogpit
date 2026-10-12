@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (D-13: Secrets in the cache decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -320,16 +320,72 @@ table rows and a Keys column that counts instead of naming; whether to use it is
 owner. A second finding: the `kubectl.kubernetes.io/last-applied-configuration` annotation repeats
 a Secret's values in its metadata; the cache drops it from every Secret before the store.
 
-**Decided:** (b). The Secrets view lists through a metadata-only informer
+**Revised (owner, 2026-10-12): (a), a full watch on Secrets.** The Secrets view will list and
+watch Secrets in full, so that its Keys and Type columns are filled as in Lens. This revokes the
+choice of (b) below, which is built (2026-10-11) and stays until (a) is: the full scope replaces the
+metadata-only one, the drawer reads the opened Secret from the cache instead of its own GET, and
+Helm's releases can come from the same informer while it runs (the `owner=helm` scope stays for when
+it does not, so that the Releases view alone never holds every Secret). Every value of the watched
+namespaces is then in Cogpit's memory while the scope runs, its warm period included; the UI keeps
+values masked until the user reveals one, and agents keep getting them redacted
+([H-8](../security/privilege-footprint.md#h-8-secret-data-arrives-with-the-list)). Whether Secrets
+can then be edited from YAML is a separate decision, not made.
+
+**Decided before (owner, 2026-10-11, revised above):** (b). The Secrets view lists through a metadata-only informer
 (`PartialObjectMetadata`); the drawer's GET of one Secret is the direct read architecture §5
 allows for data the cache does not hold, and its values stay masked until the user reveals a
 field; Helm's releases come from a label-selected informer (`owner=helm`) whose Secrets are held in
 full. RBAC cannot narrow `list secrets` by label, so the verbs are unchanged.
 
+## D-14: Terminal widget
+
+**Decided (owner, 2026-10-12):** keep the patched copy of `fyne-io/terminal` in
+`third_party/fyne-terminal`, offer its patches upstream, and fuzz the widget on its own, without
+Cogpit's escape filter in front of it ([H-19](../security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)).
+The options weighed:
+
+| Option | For | Against |
+|---|---|---|
+| **(a) Keep the fork, offer the patches upstream, fuzz the widget alone (decided)** | Closes the largest open risk, inputs nobody has found yet, for a few hours; the patches are small and general | The fork stays to maintain until upstream merges equivalent fixes |
+| (b) Keep the fork as it is | Nothing to do | Unknown crashing inputs stay untested; the fork drifts from upstream |
+| (c) Cogpit's own terminal widget on a maintained VT emulator | Full control over hostile input, colours from the theme | 20–40 h; replaces tested code; budget P5 to prove again |
+| (d) Back to upstream without the patches | – | The known crashes come back |
+
+Upstream's head needs an unreleased Fyne (v2.8.2, 2026-10-12), so returning to upstream waits for
+that release and for the patches to be merged; (c) is the step to take only if fuzzing shows the
+parser cannot be kept. Two inputs still make the patched widget alone panic (a CSI whose final
+character is not ASCII, a set mode without `?`; only the filter catches them today): they are the
+first patches to add.
+
+## D-15: Progress generators
+
+**Decided (owner, 2026-10-12):** `make parity` is built first, as a counter and checker of the
+hand-written checklists that runs in CI: it counts the views, actions and interface rows the
+progress pages report, and fails on a row that appears twice, a row marked partial or done without
+evidence, and a command id in a row that the registry does not know. The generated
+`parity-checklist.md` and the scorecard (`make scorecard`) come later, the scorecard once
+performance budgets are measured regularly on a fixed runner. The options weighed: both generators
+as planned (6–14 h, a scorecard with hardly any data yet), the checker alone (3–6 h, decided),
+counting by hand for good (0 h), after the alpha (0 h now). Why the checker first: merging the
+third run's eight branches put the same parity rows in twice, twice, and the counts needed
+throwaway scripts whose denominator (121 or 123 free interface rows) could not be reproduced.
+
+## D-16: The first real release
+
+**Decided (owner, 2026-10-12):** semantic-release stays a dry run until the alpha. The alpha's
+release is the first real one, cut together with the job that builds the unsigned macOS app as a
+download, so that the first version (0.1.0) has something to install; that job is part of the
+alpha's work ([releasing](releasing.md#the-first-real-release),
+[G14](../parity/gaps.md#g14-packaging-signing-and-updates-macos)). The options weighed: the dry run
+until the alpha (decided), releasing now as the team's other repositories do (a release on every
+push to `main`, without downloads), releasing with a minimal artifact job now, or releasing by hand
+once per run.
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Owner's decisions after the third run: D-13 revised to a full watch on Secrets (option a); D-14 terminal widget (keep the fork, upstream, fuzz); D-15 the parity checker before the generators; D-16 dry runs until the alpha's release |
 | 2026-10-11 | minor | D-11: Helm rollback and uninstall are crash-safe through a journal and an offer on the next connect (third run); D-13: the Secrets view built, the Type column found empty too, the Table format open for the owner |
 | 2026-10-11 | minor | D-13: Secrets in the cache decided (owner): metadata only for the list, a GET for an opened Secret, a label-selected watch for Helm's releases (H-8, option b) |
 | 2026-10-11 | minor | D-1 decided (owner): Fyne after the spike gate, with re-checks of S7 at M0's CI and S5 at M11, each reopening D-1 only for its platform |

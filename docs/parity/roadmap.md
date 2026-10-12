@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (third implementation run: alpha gate, milestones and current focus re-assessed) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (the owner's decisions of 2026-10-12 in the current focus) · **Target:** Lens Desktop 2026.10.51501
 
 Forward-looking plan: the alpha gate, the milestones, the **current focus** and what's next with
 estimates. Where Cogpit stands is in [`target-app-parity.md`](target-app-parity.md); the ranked
@@ -66,11 +66,13 @@ M11 and M12 do not depend on each other; their order is the owner's call.
 
 Ranked; each item links to its gap. Pick from the top unless an issue is assigned to you.
 
-1. **The owner's decisions** waiting since this run: the patched terminal widget
-   ([H-19](../security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)); the
-   Secrets view's Type column, which metadata cannot fill (the server-side Table format would carry
-   it and a key count without values, [H-8](../security/privilege-footprint.md#h-8-secret-data-arrives-with-the-list));
-   the progress generators (G1); the first real release.
+1. **The owner's decisions of 2026-10-12, built:** the Secrets view as a full watch
+   ([D-13](../developer/decisions.md#d-13-cache), revised; [G6](gaps.md#g6-resource-views)); the
+   terminal widget fuzzed alone and its patches offered upstream
+   ([D-14](../developer/decisions.md#d-14-terminal-widget), [G8](gaps.md#g8-logs-terminal-and-shells));
+   `make parity` as a counter and checker in CI ([D-15](../developer/decisions.md#d-15-progress-generators),
+   [G1](gaps.md#g1-workspace-ci-and-progress-generators)). Releases stay dry runs until the alpha
+   ([D-16](../developer/decisions.md#d-16-the-first-real-release)).
 2. **Walk the workflows in the GUI** on kind and a real cluster (owner): change a workload,
    maintain a node, edit and create, reach a service (the browser opening), Helm rollback and
    uninstall, Cogpit's own title bar on macOS; record what differs in the parity rows.
@@ -98,6 +100,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | The owner's decisions (D-13 revised, D-14, D-15, D-16) in the current focus |
 | 2026-10-11 | major | Third implementation run: "reach a service" and "manage Helm releases" partial (no Helm upgrade), every alpha-gate workflow exists in part; M2–M6 re-assessed; alpha ~150–400 h; new current focus |
 | 2026-10-11 | minor | H-8 decided (owner): Helm and the Secrets view unblocked in the current focus |
 | 2026-10-11 | major | Second implementation run: CI green (M0), editing and node and workload actions (M4), 16 built-in views and custom resources (M2); "change a workload" and "maintain a node" partial; alpha ~210–520 h; new current focus |

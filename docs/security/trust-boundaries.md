@@ -88,7 +88,11 @@ to the patched widget alone and behind the filter
 inputs nobody has found yet can still crash the widget (it was not written for hostile input and
 has had no fuzzing of its own); it has data races of its own (a configuration write at start-up,
 parser state on the reader goroutine); its ANSI colours are fixed, not theme tokens; and the fork
-must be kept in step with upstream until upstream takes equivalent fixes.
+must be kept in step with upstream until upstream takes equivalent fixes. Two inputs still make the
+patched widget alone panic (a CSI whose final character is not ASCII, a set mode without `?`);
+only the escape filter catches them (`TestRawWidgetHazards`). How the risk is handled is decided
+([D-14](../developer/decisions.md#d-14-terminal-widget), owner 2026-10-12): the fork stays, its
+patches are offered upstream, and the widget is fuzzed on its own.
 
 ### H-21: Access reviews guide, they do not guard
 
