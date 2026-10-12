@@ -1911,6 +1911,20 @@ history from before the page opened (Prometheus's pod counts are not asked: Cogp
 `cluster.overview` without the page reads the current values from one `Hub.Fetch` of the nodes (a
 result younger than 15 s is served without a request) and starts no poll.
 
+**Checked on kind on 2026-10-13** (Kubernetes 1.36.1, one control-plane node, the cluster's
+metrics-server and the `prometheus` chart of `make kind-prometheus`;
+[`TestKindClusterOverview`](../../internal/testkit/integration/clusteroverview_kind_test.go), read-only,
+skipped without that Prometheus):
+
+| Checked | Seen |
+|---|---|
+| Groups | master 1 (`cogpit-control-plane`), worker 0: the charts show the masters (the default without workers) over 1h; source "Prometheus (monitoring/prometheus-server) and Kubernetes Metrics Server" |
+| CPU | the hour's history from Prometheus, 120 points at 30 s (23:40:30–00:40:00), no step longer than 30 s at the seam; current 0.204 cores against metrics.get's node at 206m; requests 1.11, limits 0.1 (the few containers that set one), allocatable and capacity 20 cores |
+| Memory | 2,577,469,440 bytes (metrics.get: 2.4GiB); requests 586MiB, limits 758MiB, allocatable and capacity 15.8GiB |
+| Pods | 18 of 110 (allocatable and capacity), from the cache |
+| Budget P14 | 5 Prometheus requests in the page's first 45 s (1 probe + 4 range queries: CPU and memory of every node and of the master), then none; 5 node lists in 45 s (one per 15 s poll); a range change to 3h: 4 requests, 333 points; closed (the Nodes view open): no Prometheus request and no node list in 20 s; no write |
+| Issues | 3: the `cogpit-demo/crashloop` pod (status "Error; Containers not ready: app; 417 restarts"), its Deployment ("0 of 1 pods ready"), its BackOff event of the last hour; every issue's object resolves |
+
 *On kube-prometheus-stack* the cluster has no history, as a node has none there (its kubelet
 ServiceMonitor drops the root cgroup's series): the charts show the Metrics Server's live sums from
 the page's opening. A Prometheus that scrapes cAdvisor twice (two jobs) would count every node

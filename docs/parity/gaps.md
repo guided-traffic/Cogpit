@@ -632,7 +632,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   hour (**the rule is Cogpit's: Lens documents "system messages and warnings" only**); `cluster.overview`,
   `ui.setOverviewRange`, `ui.setOverviewNodes`; budget P14 ([testing](../developer/testing.md#performance-budgets-proposed-not-measured)).
   Inferred: the page's layout, colours, wording ("No issues found."), the default group (the workers),
-  the newest-first order of the Issues. Differs: ranges stop at 30 days (Lens: 2 months).
+  the newest-first order of the Issues. Differs: ranges stop at 30 days (Lens: 2 months). **Checked on
+  kind** (2026-10-13, `TestKindClusterOverview`, the cluster's metrics-server and the `prometheus` chart):
+  the master's hour from Prometheus (120 points at 30 s), the Metrics Server's sums after it (0.204 cores
+  against metrics.get's 206m), 5 Prometheus requests when the page opened and none after, 3 issues
+  (a crash-looping pod, its Deployment, its BackOff event).
 - **Missing:** the Overview's Pods history from Prometheus, its ranges beyond 30 days, the explicit Lens
   Metrics install, the settings rows (metrics source, hide metrics), the Disk column, Lens's usage bars in
   the Nodes list, CPU and Memory in a node drawer's Pods table, history that outlives a closed drawer.
