@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -449,9 +449,26 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   columns in the Pods and Nodes lists; the drawer's Metrics section for a pod (per container too) and a
   node with a chart, requests and limits as lines and event markers, every chart (the pod's and each container's) with its own range, variant buttons and events flag; `metrics.get` for agents; the
   demo cluster's synthetic Metrics Server. Design and numbers: [architecture §9](../developer/architecture.md#9-metrics-internalmetrics).
-- **Missing:** Prometheus through the service proxy (detection, the provider variants Lens lists,
-  the override in cluster settings, history, Network and Filesystem, ranges beyond an hour, events from
-  its own queries), the overview page with its charts and Issues, the explicit Lens Metrics install, the
+- **Built (2026-10-12, second slice, backend only):** Prometheus through the API server's service proxy
+  ([architecture §9](../developer/architecture.md#9-metrics-internalmetrics)). Detection among the
+  cached Services by the charts' and Lens's well-known names (kube-prometheus-stack, `prometheus-k8s`,
+  `prometheus-operated`, the `prometheus` chart's `prometheus-server`, `prometheus` in `monitoring`,
+  `prometheus` or `lens-metrics`) with one buildinfo probe per candidate (at most 3), cached like the
+  Metrics Server (10 minutes found, 2 not), forbidden/unavailable/not found as states, an override
+  (namespace, service, port, prefix) on the detector; the chain Prometheus, then Metrics Server; range
+  queries for the pod and each container in CPU, Memory, Network (per pod) and Filesystem (usage, else
+  read and write rates), requests and limits from the pod spec as before, the source line
+  `Prometheus (<namespace>/<service>)`, per-chart ranges (`Session.SetMetricsRange`, 1 minute to 30
+  days), node charts from cAdvisor's root cgroup; budget P13, tested against a fake Prometheus behind
+  the fake API server's service proxy. **Not verified against a real Prometheus.**
+- **Left of Prometheus:** the window: enable the Network and Filesystem buttons from
+  `ObjectMetrics.Capabilities`, draw `MetricsTarget.Network` and `.Filesystem`, call
+  `SetMetricsRange` when a range button changes (and ranges beyond 1 h in the range buttons), the
+  cluster settings page that sets the override (`Backend.PrometheusDetector.SetOverride`, then
+  `Hub.Forget`), a check against a real kube-prometheus-stack and the `prometheus` chart, the
+  Lens-provider variants that are not Prometheus-compatible by name (Thanos, VictoriaMetrics under
+  other service names: reachable through the override only).
+- **Missing:** the overview page with its charts and Issues, the explicit Lens Metrics install, the
   settings rows (metrics source, hide metrics), the Disk column, Lens's usage bars in the Nodes list, CPU and
   Memory in a node drawer's Pods table, history that outlives a closed drawer.
 - **Evidence:** [ui-parity](ui-parity.md#cluster-overview-and-charts), 4 rows missing and the drawer
@@ -650,6 +667,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | G12: Prometheus through the service proxy, backend (detection, range queries for CPU, Memory, Network and Filesystem, per-chart ranges, budget P13); the window's Network and Filesystem buttons left; estimate not moved |
 | 2026-10-12 | minor | G12: the owner's hover requirement built (crosshair, dots and a panel with time, values, request and limit, events); estimate not moved |
 | 2026-10-12 | minor | G12: every drawer chart has its own controls (owner's smoke launch: "no main button"); estimate not moved |
 | 2026-10-12 | minor | G2 (scope C2): the Kubeconfig Syncs captures followed: dot files, a closed connection, one dialog, `~/.kube` by default, the connect log, the Remove confirmation; estimate not moved (the lead recounts) |

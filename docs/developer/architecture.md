@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-12)
 
@@ -1290,15 +1290,109 @@ drawer, not per object: closing the drawer drops it. The Pods and Nodes lists fi
 with the new columns only because the default widths of several columns were trimmed
 (`defaultColumnWidths`); a user's dragged widths still win.
 
-**Designed for Prometheus, not built.** The slice after this one adds a second `Provider` that
-reads Prometheus through the API server's service proxy (privilege footprint: `get` on
-`services/proxy`), and a `Detector` that tries Prometheus first and falls back to the Metrics Server,
-with the override in cluster settings. A provider with `Capabilities.History` answers range queries
-itself, so the hub keeps no series for it and the chart asks for the time range the user picked
-(1h by default, up to the provider's retention); `Network` and `Filesystem` enable the two buttons
-the drawer already shows disabled with the reason "needs Prometheus". The chart widget
-(`internal/ui/fyneui/chart.go`) takes plain series, request/limit lines and event markers, and does
-not know where they came from.
+**Built 2026-10-12 (G12, second slice, backend): Prometheus through the API server's service
+proxy.** The Provider/Detector seam of the first slice took it without a change of shape; the window's
+Network and Filesystem buttons and range menus are not wired yet (below).
+
+| Piece | File | Responsibility |
+|---|---|---|
+| `Prometheus` | [`prom.go`](../../internal/metrics/prom.go), [`promrange.go`](../../internal/metrics/promrange.go) | The provider, `Capabilities{History, Network, Filesystem}` all true, label `Prometheus (<namespace>/<service>)`. Requests are client-go's `Services(ns).ProxyGet` on the connection's own clients: counted, rate limited (5 per second, burst 10 for lists, gets and the proxy), authenticated as the user. Only `GET`. `ListPods`, `GetPod`, `ListNodes`, `GetNode` are instant queries (the lists, `metrics.get`); `ObjectRange` (interface `RangeProvider`) is the drawer's history |
+| PromQL | [`promql.go`](../../internal/metrics/promql.go) | Every query is built here. Pod, namespace and node names are user data and go through `quoteLabel` (a double-quoted literal with `\\`, `\"`, newlines and control characters escaped; `FuzzQuoteLabel` checks that it reads back as the name), node names also through `regexp.QuoteMeta` for the instance regular expression |
+| `PrometheusDetector`, `Candidates`, `Chain` | [`promdetect.go`](../../internal/metrics/promdetect.go), [`chain.go`](../../internal/metrics/chain.go) | Detection and the chain "Prometheus if found, else Metrics Server, else not served" |
+| `Hub` additions | [`hub.go`](../../internal/metrics/hub.go) | Range queries for watched objects, `Subscription.SetWindows`, `Hub.History`, `Hub.Capabilities`, `Hub.Forget` |
+
+*Detection.* The engine hands the detector the cluster's **cached Services** (`Backend.promServices`:
+the Services kind's informer, shared with the Services view, no list of its own; it waits up to 3 s
+for the access reviews and does not watch Services for a user known not to be allowed to list them,
+and up to 8 s for the informer's first list). Candidates are picked by name only, so no unrelated
+Service is probed (clean-room, from the charts' and Lens's documented defaults):
+
+| Score | Service name | From |
+|---|---|---|
+| 100 | `<release>-kube-prometheus-prometheus`, `kube-prometheus-stack-prometheus` | kube-prometheus-stack |
+| 95 | `prometheus-k8s` | kube-prometheus manifests |
+| 90 | `prometheus-operated` | Prometheus Operator's governing service |
+| 80 | `prometheus-server` | the `prometheus` Helm chart |
+| 70 | `prometheus` in `monitoring`, `prometheus` or `lens-metrics` | Lens's own install, hand-written installs |
+| 40 | `prometheus` in any other namespace | |
+
+Ties go to those namespaces in that order, then by name. The port is the one named `http-web`, `web`,
+`http`, `http-prometheus`, `prometheus` or `tcp-prometheus` (in that order; ports with `reloader`,
+`grpc` or `thanos` in their name are skipped), else 9090, else 80, else the first port; a named
+port is passed by name, which the service proxy resolves. At most `MaxProbes` (3) candidates are
+probed, best first, each with one `GET /api/v1/status/buildinfo` through
+`/api/v1/namespaces/<ns>/services/<name>:<port>/proxy/`; a 200 whose body is Prometheus's
+`{"status":"success","data":{"version":…}}` wins. A 403 or 401 stops the search with the state
+**forbidden** ("may not use the service proxy of …, get services/proxy"). A 404 or a body that is not
+buildinfo moves on to the next candidate and counts as not found. Anything else (a 503 for a Service
+without endpoints, a timeout) moves on too, but if nothing answers the state is **unavailable** and
+names the candidate. No candidate is **notServed** and costs no request. The hub keeps the answer like
+the Metrics Server's: 10 minutes when found, 2 minutes otherwise. **Override:**
+`PrometheusDetector.SetOverride(&metrics.Override{Namespace, Service, Port, Prefix})` (Port a number or
+a port name, Prefix the route prefix); with an override only that service is probed, no Service list
+is read, and `Backend.PrometheusDetector` plus `Hub.Forget()` apply it at once. Nothing calls it yet:
+the cluster settings page is not built. The chain (`metrics.ChainForConn`) returns the first provider
+found; if none, the most telling state (forbidden, then unavailable, then notServed), so a Prometheus
+the user may not read is reported instead of "no metrics-server".
+
+*Queries* (`rate` over `[2m]`; `C` = `container!="",container!="POD"`, which leaves out the pod's own
+cgroup and the pause container; `P` = `namespace="<ns>",pod="<pod>"`, each value quoted):
+
+| Variant | Pod chart and container charts | Node chart |
+|---|---|---|
+| CPU | `sum by (container) (rate(container_cpu_usage_seconds_total{P,C}[2m]))`; the pod's line is the sum of its containers | `sum(rate(container_cpu_usage_seconds_total{id="/",node="<n>"}[2m])) or sum(rate(…{id="/",instance=~"<n>(:[0-9]+)?"}[2m]))` |
+| Memory | `sum by (container) (container_memory_working_set_bytes{P,C})` | the same on the root cgroup |
+| Network | `sum(rate(container_network_receive_bytes_total{P}[2m]))` and `…transmit…`: per pod (the network belongs to the pod's network namespace); a container's target carries the pod's samples and `NetworkOfPod` | the same on the root cgroup (`id="/"`, summed over interfaces) |
+| Filesystem | `sum by (container) (container_fs_usage_bytes{P,C})`; the pod's line is the sum. **Discovered by trying:** if that has no series, `rate(container_fs_reads_bytes_total…)` and `…writes…` (`FilesystemSource` is `"usage"` or `"io"`; the provider remembers the answer for as long as the detection lives, 10 minutes) | the same on the root cgroup |
+| Lists | `sum by (namespace, pod, container) (rate(…cpu…{C}[2m]))` and the memory gauge, one instant query each, optionally `namespace="<ns>"` | `sum by (node, instance) (…{id="/"})` for CPU and memory; the name is the `node` label, else the `instance` without its port |
+
+Nodes use **cAdvisor's root cgroup, not node-exporter**: node-exporter series are labelled with the
+exporter's own address, which has no reliable link to the node's name, while cAdvisor's carry the
+`node` label (kube-prometheus-stack) or the node's name as the instance (the `prometheus` chart's
+cAdvisor job). A Prometheus that labels neither shows empty node charts and columns; this is
+**not verified against a real Prometheus**, only against the fake HTTP API in the tests.
+
+*Ranges and polling.* A drawer on a provider with history does not use the hub's own series. Its
+poll is one range query set: `ObjectRange` with `from = alignDown(now − window, step)`, `to = now`,
+`step = max(15 s, shortest window / 120, longest window / 1000)` rounded up to whole seconds; the
+window is the longest any of the drawer's charts shows, and the default hour is always among them, so
+a chart nobody set has data (1 h alone: 30 s steps, 120 points). The grid is aligned to the epoch, so
+successive polls give the same points. The poll interval is the step, so there is one new point per
+poll. A pod costs **five queries per poll, issued at once**: CPU, memory, receive, transmit and the
+filesystem usage (seven while the filesystem metric is still being discovered or neither exists).
+Only the CPU and memory queries must succeed; a failing network or filesystem query leaves its
+series out (debug log). One poll serves every chart and every consumer of the scope; the Pods and
+Nodes lists keep their 60 s and the instant queries (two per poll). The hub stores the latest
+point as the pod's current usage, so the lists, `Hub.Pod` and the drawer's `Current` need nothing
+else. `Subscription.SetWindows` (from `Session.SetMetricsRange`) wakes the poll early when the
+ranges change.
+
+Bounds: a response is cut at 16 MiB (`DefaultMaxResponseBytes`; larger is the state unavailable), a
+query at 15 s, a poll at 20 s, a series at 11,000 points (Prometheus's own limit), range steps keep
+the longest window within 1,000 points. NaN and infinite samples are dropped. A Prometheus failure
+is a state with its own text (`StateError`): 403 forbidden, 404 notServed (and the next poll detects
+again), 503 and timeouts unavailable. Query strings carry label values only; no credential is ever
+part of a query or a log line (the credentials travel in the transport's headers, which the
+logger never sees).
+
+*In the engine.* `Session.ObjectMetrics(ref)` returns, with Prometheus, the targets' `Samples`
+(CPU and memory, the old field), `Network` and `Filesystem` cut to each chart's range,
+`ObjectMetrics.FilesystemSource`, the capabilities of the detected provider (so the window can
+enable the two buttons) and the source line `Prometheus (<namespace>/<service>)`. A target's range
+defaults to the hub's hour; `Session.SetMetricsRange(ref, target, window)` (target "" for the pod's
+or node's chart, or a container's name; 1 minute to 30 days; 0 for the default) sets one chart's,
+wakes the poll and emits `EventMetrics`; it applies to the open drawer only and `ErrDrawerNotOpen`
+refuses it otherwise. `metrics.get` serves the instant values from whichever provider is active
+(`verbs` now include `get services/proxy`). **Detection puts a watch on Services** into the cache
+for as long as a metrics view is open (and the warm period after): the Pods view that opens at
+connect is such a view, so a connection holds one more watch than before (`TestBudgetCustomResourceView`
+counts four).
+
+*Left for the window* (not built, UI is not touched by this slice): enable the Network and Filesystem
+buttons from `Capabilities` and draw `Network` (receive and transmit lines) and `Filesystem`
+(usage, or read and write rates for `FilesystemSource` "io"); call `SetMetricsRange` when a range
+button changes and for every chart that appears; a range list longer than 1 h (the range button
+already offers 5m–1h); events as markers need nothing new (they come from the drawer model).
 
 ## 10. Terminal (`internal/terminal`)
 
@@ -1378,6 +1472,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | §9 Prometheus (G12, second slice, backend): detection among the cached Services and the override, the provider with range and instant queries, the detector chain, `RangeProvider`, per-chart ranges (`SetMetricsRange`), `ObjectMetrics` with network and filesystem series |
 | 2026-10-12 | minor | §9 as built (G12 first slice): `internal/metrics` (the Metrics Server provider, detection as states, a hub with per-scope polling at 60 s and 15 s, a TTL cache, a bounded series per watched object), `KindProfile.Usage` and the usage columns, `Session.ObjectMetrics`, `EventMetrics`, `metrics.get`, the drawer's Metrics section and chart widget, the demo's synthetic Metrics Server |
 | 2026-10-12 | minor | §4.3: panel widths (sidebar, drawer) are user-dragged, stored in the preferences and GUI-only; why the drawer followed its content and the rule that ends it |
 | 2026-10-12 | minor | §6 (D-28 built, scope C3): the default kubeconfig no longer merged; `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, a bare context name resolved to the one file that defines it; plugins of `config` asked for like any file |
