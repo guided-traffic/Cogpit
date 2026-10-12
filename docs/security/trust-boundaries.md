@@ -90,7 +90,7 @@ built as follows:
   ([H-24](#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token)), and, **for a program or
   a CA file that resolves to a file inside the kubeconfig's own folder (the place a writer of a
   synced folder can write), the SHA-256 of its content** (review of the fourth run, R-5, owner
-  decision 2026-10-12, "programs in the folder only"): replacing `./login.sh` or the CA file
+  decision, [D-26](../developer/decisions.md#d-26-binding-a-credential-plugins-approval-to-its-program), "programs in the folder only"): replacing `./login.sh` or the CA file
   after the approval asks again, at the next listing and at connect time, where the files are read
   again right before the policy decides (`TestExecApprovalRefusedAfterPluginBinaryChanged`,
   `TestCAFileSwapAsksAgain`). A link in the folder is bound by its resolved target as well, so

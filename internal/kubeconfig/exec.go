@@ -70,7 +70,7 @@ type TLSView struct {
 }
 
 // FileFacts are the file-content facts an approval binds beyond paths, found by the cluster
-// package (R-5, D-17). A program or CA file that resolves to a file inside the kubeconfig's own
+// package (R-5, D-26, D-17). A program or CA file that resolves to a file inside the kubeconfig's own
 // folder (the place a writer of a synced folder can write, H-1) is bound by the SHA-256 of its
 // content; one resolved elsewhere (PATH, /usr/local/bin) stays bound by its path, so a tool update
 // does not ask again. All fields are empty until SetFiles.

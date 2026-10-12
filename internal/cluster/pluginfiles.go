@@ -16,7 +16,7 @@ import (
 // noteUnreadable is the note of a file that cannot be opened, statted or read.
 const noteUnreadable = "unreadable"
 
-// Bounds of the content hashing of files a kubeconfig names (R-5).
+// Bounds of the content hashing of files a kubeconfig names (R-5, D-26).
 const (
 	// MaxBoundProgramSize is the largest program inside a kubeconfig's folder Cogpit hashes. A
 	// credential plugin is a script or a small binary; a larger file is bound by its size and
