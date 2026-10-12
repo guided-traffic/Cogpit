@@ -1,6 +1,7 @@
 package fyneui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/guided-traffic/cogpit/internal/kubeconfig"
@@ -25,10 +26,10 @@ func shortDigest(hex string) string {
 	return hex
 }
 
-// connectionFacts derives the lines from the plugin the engine described.
-func connectionFacts(info execPluginView) approvalFacts {
+// connectionFacts derives the lines from how the engine described one context's connection.
+func connectionFacts(c approvalContextView) approvalFacts {
 	show := func(s string) string { return kubeconfig.DisplayText(s, maxShownPath) }
-	pl := info.Plugin
+	pl := c
 	var f approvalFacts
 	ownCA := pl.TLS.CAEmbedded || pl.TLS.CAFile != ""
 	if pl.TLS.Insecure {
@@ -75,8 +76,8 @@ func connectionFacts(info execPluginView) approvalFacts {
 }
 
 // programFileText says how the program's file is bound, "" when it is bound by its path alone.
-func programFileText(info execPluginView) string {
-	f := info.Plugin.Files
+func programFileText(g approvalGroupView) string {
+	f := g.Plugin.Files
 	switch {
 	case f.ProgramSHA256 != "":
 		return "inside the kubeconfig's folder; content SHA-256 " + shortDigest(f.ProgramSHA256) + ", replacing the file asks again"
@@ -89,43 +90,71 @@ func programFileText(info execPluginView) string {
 	return ""
 }
 
+// changedCount is how many of the group's contexts the user allowed in an earlier form.
+func changedCount(g approvalGroupView) int {
+	n := 0
+	for _, c := range g.Contexts {
+		if c.State == "changed" {
+			n++
+		}
+	}
+	return n
+}
+
 // approvalTitle and approvalLead are the dialog's title and first paragraph by kind and state.
-func approvalTitle(info execPluginView) string {
-	changed := info.State == "changed"
-	switch info.Kind {
+func approvalTitle(g approvalGroupView) string {
+	many := len(g.Contexts) > 1
+	changed := changedCount(g) == len(g.Contexts)
+	switch g.Kind {
 	case kubeconfig.LoginTokenFile:
-		if changed {
+		switch {
+		case changed:
 			return "The token file changed"
+		case many:
+			return fmt.Sprintf("Allow this file as the login token for %d contexts?", len(g.Contexts))
 		}
 		return "Allow this file as the login token?"
 	}
-	if changed {
+	switch {
+	case changed:
 		return "The login program changed"
+	case many:
+		return fmt.Sprintf("Allow this program to log in to %d contexts?", len(g.Contexts))
 	}
 	return "Allow this program to log in?"
 }
 
-func approvalLead(info execPluginView) string {
-	ctx := kubeconfig.DisplayText(info.Plugin.Context, maxShownPath)
-	switch info.Kind {
-	case kubeconfig.LoginTokenFile:
-		return "To log in to " + ctx + ", this kubeconfig sends the content of a file outside its own folder, on this " +
-			"computer, to the server below as the login token. Cogpit reads it only if you allow it. Allow it only if " +
-			"you trust where the kubeconfig came from."
-	case kubeconfig.LoginBoth:
-		return "To log in to " + ctx + ", this kubeconfig runs a program on this computer, with your permissions, and " +
-			"sends the content of a file outside its own folder to the server below. Cogpit does so only if you allow " +
-			"it. Allow it only if you trust where the kubeconfig came from."
+func approvalLead(g approvalGroupView) string {
+	to := "To log in to " + kubeconfig.DisplayText(g.Contexts[0].KubeContext, maxShownPath)
+	all := ""
+	if len(g.Contexts) > 1 {
+		to = fmt.Sprintf("To log in to the %d contexts below", len(g.Contexts))
+		all = " Allowing it allows it for every context listed."
 	}
-	return "To log in to " + ctx + ", this kubeconfig runs a program on this computer, with your " +
-		"permissions. Cogpit runs it only if you allow it. Allow it only if you trust where the kubeconfig came from."
+	switch g.Kind {
+	case kubeconfig.LoginTokenFile:
+		return to + ", this kubeconfig sends the content of a file outside its own folder, on this " +
+			"computer, to the server of each as the login token. Cogpit reads it only if you allow it." + all +
+			" Allow it only if you trust where the kubeconfig came from."
+	case kubeconfig.LoginBoth:
+		return to + ", this kubeconfig runs a program on this computer, with your permissions, and " +
+			"sends the content of a file outside its own folder to the server of each. Cogpit does so only if you allow " +
+			"it." + all + " Allow it only if you trust where the kubeconfig came from."
+	}
+	return to + ", this kubeconfig runs a program on this computer, with your " +
+		"permissions. Cogpit runs it only if you allow it." + all + " Allow it only if you trust where the kubeconfig came from."
 }
 
-func approvalChangedNote(info execPluginView) string {
-	if info.Kind == kubeconfig.LoginTokenFile {
-		return "You allowed an earlier form of this login. Its token file or server changed since."
+// approvalChangedNote says what changed; n of the group's contexts were allowed in an earlier form.
+func approvalChangedNote(g approvalGroupView, n int) string {
+	of := ""
+	if len(g.Contexts) > 1 {
+		of = fmt.Sprintf(" (%d of %d, marked changed)", n, len(g.Contexts))
 	}
-	return "You allowed an earlier form of this plugin. Its program (or the file behind it), arguments, environment, " +
+	if g.Kind == kubeconfig.LoginTokenFile {
+		return "You allowed an earlier form of this login" + of + ". Its token file or server changed since."
+	}
+	return "You allowed an earlier form of this plugin" + of + ". Its program (or the file behind it), arguments, environment, " +
 		"server or how the server is reached changed since."
 }
 

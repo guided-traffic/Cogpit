@@ -255,7 +255,7 @@ func TestAddedFilesAreNeverWritten(t *testing.T) {
 	if err != nil || info.State != ExecRequired {
 		t.Fatalf("ExecPlugin: %+v %v", info, err)
 	}
-	if _, err := s.ApproveExec(info.Context, info.Fingerprint); err != nil {
+	if _, err := s.ApproveExecAll([]ExecApprovalItem{{Context: info.Context, Fingerprint: info.Fingerprint}}); err != nil {
 		t.Fatal(err)
 	}
 	_, statuses, err := k.Files()

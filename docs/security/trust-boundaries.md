@@ -104,6 +104,26 @@ built as follows:
   forgets its approvals.
   The GUI asks before removing one, naming the path and saying that only Cogpit's link goes and
   the files stay on disk, and a connection made from the source closes.
+- **Asked once per file and plugin** (owner, 2026-10-12, [D-28](../developer/decisions.md#d-28-the-default-kubeconfig-as-sources-as-lens-has-it);
+  only the asking is bundled). Contexts of one file whose logins are the same plugin (the same
+  command, arguments, environment, API version, interactive mode, `provideClusterInfo`, program
+  binding and, for D-17, token file: `kubeconfig.ExecPlugin.Identity`) are one dialog, which lists
+  **every context that is not allowed yet, each with its own server and how that server is reached
+  and trusted** (the R-11 warning lines per context, under its name), and one click allows them all.
+  Nothing in what an approval binds got looser: the engine still stores **one approval per context
+  with that context's own fingerprint**, which binds the server, its CA, proxy, TLS server name and
+  insecure flag, so a changed server in one context asks again for that context only, even when
+  its siblings are allowed. The approving command takes the `(context, fingerprint)` list the
+  dialog showed, checks each against the file as it is now, and refuses the **whole** list, naming
+  the contexts, if any changed or left meanwhile; nothing is stored then
+  (`TestApprovalIsRefusedAsAWholeWhenOneContextChanged`). A context added to the file later is not
+  in an earlier approval and asks on its own, or with the other new ones
+  (`TestAContextAddedLaterAsksOnItsOwn`). What one click means is wider than before, and that is the
+  point of the owner's decision: the user allows every listed context, each shown with its server
+  and trust, in one step; with many contexts the dialog scrolls, and its buttons stay visible
+  without the user having scrolled to the end of the list. Agents and the CLI still cannot approve,
+  and read the grouped listing (`kubeconfig.pendingApprovals`) without arguments and environment
+  values (`TestPendingApprovalsAreBundledAndApprovedByTheGUIOnly`).
 - **Who.** Adding a file or a folder, removing a source and allowing a plugin are GUI
   only: the engine refuses them for the CLI, external agents and the built-in agent, whose
   confirmation dialog could not show the user an agent-chosen path for review
@@ -124,8 +144,8 @@ could replace `config` and have kubectl run its plugin; in Cogpit it gets a dial
 (dormant, and narrower than before, when `config`'s plugin ran unasked); a kubeconfig that arrives in
 the folder by accident becomes contexts, and its plugin waits for the user (the approval holds); its
 `tokenFile` is H-24 below, live for these files as for every file. The cost, accepted by the owner:
-a `config` with a plugin (EKS, GKE, AKS) asks once per context, as any other file does, and again
-when the plugin changes. The user can remove the folder (Kubeconfig Sources), and the engine takes
+a `config` with a plugin (EKS, GKE, AKS) asks, as any other file does, and again
+when the plugin changes (once per file and plugin, listing its contexts, since the owner's decision of the same day, above). The user can remove the folder (Kubeconfig Sources), and the engine takes
 the folder and the session files as options, so tests never read the real ones
 (`TestNoDefaultFolderWithoutTheOption`, `TestConfigWithAPluginAsksForApprovalOnce`,
 `TestDefaultKubeconfigIsOneFileOfTheSyncedFolder`).

@@ -843,13 +843,39 @@ its path)
 [`cluster/pluginfiles.go`](../../internal/cluster/pluginfiles.go) for the file I/O: `kubeconfig`
 does none, so `cluster.BindPluginFiles` reads the files, bounded and regular files only, when a
 file is described and again right before the policy decides at connect time); any change asks
-again. `kubeconfig.execPlugin` returns how the server is reached and trusted (`tls`: proxy URL
+again. `kubeconfig.execPlugin` (one context) and `kubeconfig.pendingApprovals` (a group) return how the server is reached and trusted (`tls`: proxy URL
 without user information, insecure, TLS server name, own CA) and the file facts, which the
 approval dialog shows (R-11). Every file is a source now, `~/.kube/config` and the `$KUBECONFIG`
-files included, so every plugin waits for the user: one dialog per context's plugin (the
-fingerprint binds the context, user and server), remembered across restarts in
+files included, so every plugin waits for the user, remembered across restarts in
 `exec-approvals.json`, asked again when the plugin changes
 (`TestConfigWithAPluginAsksForApprovalOnce`).
+
+**Asking once per file and plugin** (D-28, owner 2026-10-12, built in scope C4;
+[`engine/kubeconfigs_approvals.go`](../../internal/engine/kubeconfigs_approvals.go)). Only the
+asking is bundled, the approvals are not. `Session.PendingExecApprovals` (the command
+`kubeconfig.pendingApprovals`, read-only, open to every origin, arguments withheld from agents as in
+`kubeconfig.execPlugin`) lists the logins that wait, grouped by **(file, plugin identity)**.
+`kubeconfig.ExecPlugin.Identity` is the SHA-256 over the API version, command, arguments,
+environment names and values, interactive mode, `provideClusterInfo`, the program's binding (resolved
+path; the content digest or note for a program inside the folder, D-26) and the token file when it
+needs approval (D-17); it leaves out the context, user, server, CA, proxy and TLS settings, which
+differ per context and which each context's group entry lists itself (`ExecApprovalContext`: server,
+`tls`, CA file facts, state, fingerprint). Only contexts that are not allowed yet are listed, so a
+context added to the file later is a group of its own, or of the other new ones; a context whose
+plugin changed is listed with state `changed`, and a file whose contexts changed together stays one
+group. The dialog shows the shared plugin once and each context's server and R-11 warnings under its
+name ([`kubeconfigs_approval.go`](../../internal/ui/fyneui/kubeconfigs_approval.go); it scrolls as a
+whole when it would not fit the window). `kubeconfig.approveExec` (GUI only) takes the list of
+`(context, fingerprint)` the dialog showed. `Session.ApproveExecAll` reads the files once, compares
+every fingerprint with the file as it is now and, if any differs or its context left, records
+nothing and returns `*ExecChangedError` naming those contexts (`errors.Is` `ErrExecChangedSinceShown`);
+otherwise `KubeconfigSources.ApproveAll` writes one approval per context, each with its own
+fingerprint, in one write. Because the fingerprint still binds the server and its trust, a changed
+server in one context asks again for it even when its siblings are allowed
+(`TestPendingApprovalsGroupContextsByFileAndPlugin`, `TestApprovingAGroupApprovesExactlyItsContexts`,
+`TestApprovalIsRefusedAsAWholeWhenOneContextChanged`, `TestAContextAddedLaterAsksOnItsOwn`,
+`TestTokenFileApprovalsBundleToo`, `TestPendingApprovalsAreBundledAndApprovedByTheGUIOnly`,
+`TestApprovalDialogListsEveryContextOfThePlugin`, `TestApprovalDialogOneConfirmApprovesAll`).
 
 **What `~/.kube` as a default folder means for the trust model** (2026-10-12; the same text is in
 [trust-boundaries H-1](../security/trust-boundaries.md#h-1-kubeconfig-files-added-by-sync-folders)):
@@ -886,7 +912,7 @@ Adding a file or folder, removing a source and allowing a plugin are refused for
 origin but the GUI (`engine.ErrGUIOnly`, checked in each command's `run`), as `secret.reveal` is:
 a kubeconfig can name a program to run on the user's computer, so an agent must not be able to
 put one there or let one run. Agents may list the sources (`kubeconfig.sources`) and read a
-plugin's description (`kubeconfig.execPlugin`, without its arguments).
+plugin's description (`kubeconfig.execPlugin`, `kubeconfig.pendingApprovals`, without its arguments).
 
 **Pasting is not a target** ([D-21](decisions.md#d-21-pasting-a-kubeconfig), owner, 2026-10-12): the
 paste command, dialog and owner-only store built earlier the same day were removed. A build that

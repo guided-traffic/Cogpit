@@ -47,9 +47,29 @@ type execParams struct {
 	Context string `json:"context" jsonschema:"context id of a kubeconfig source as cluster_contexts lists it: <context> [<source>]"`
 }
 
+// PendingGroup is one group of kubeconfig_pendingApprovals' result: the contexts of one file that
+// use the same plugin. Agents get the plugin without its arguments (ArgsWithheld counts them).
+type PendingGroup struct {
+	engine.ExecApprovalGroup
+	ArgsWithheld int `json:"argsWithheld,omitempty"`
+}
+
+// PendingResult is kubeconfig.pendingApprovals' result.
+type PendingResult struct {
+	Groups []PendingGroup `json:"groups"`
+}
+
+// ApprovedResult is kubeconfig.approveExec's result: the contexts now allowed.
+type ApprovedResult struct {
+	Approved []engine.ExecPluginInfo `json:"approved"`
+}
+
+type pendingParams struct {
+	Context string `json:"context,omitempty" jsonschema:"only the group this context of a kubeconfig source belongs to (cluster_contexts lists them); empty lists every group"`
+}
+
 type approveParams struct {
-	Context     string `json:"context" jsonschema:"context id of a kubeconfig source as cluster_contexts lists it"`
-	Fingerprint string `json:"fingerprint" jsonschema:"the plugin's fingerprint as kubeconfig_execPlugin returned it, binding the approval to what the user was shown"`
+	Approvals []engine.ExecApprovalItem `json:"approvals" jsonschema:"the contexts to allow, each with the fingerprint the dialog listed for it: all of them or none are allowed, and the call is refused, naming the contexts, if any changed since"`
 }
 
 // guiOnly is the note every GUI-only command's description ends with.
@@ -209,17 +229,52 @@ func registerKubeconfigs(g *registrar) {
 		},
 	})
 
+	add(g, engine.Spec[pendingParams]{
+		ID: "kubeconfig.pendingApprovals", Label: "Show Pending Credential Plugins", Danger: engine.DangerRead,
+		Description: "Lists the logins of kubeconfig source contexts that wait for the user's approval, grouped by kubeconfig file " +
+			"and plugin: contexts of one file that run the same program the same way (command, arguments, environment, API " +
+			"version, interactive mode) or read the same token file are one group, asked about once. Each context of a group " +
+			"has its own server, how that server is reached and trusted (proxy URL, insecure-skip-tls-verify, TLS server " +
+			"name, own CA) and fingerprint. Contexts that are allowed already are not listed. With a context, only its " +
+			"group. Agents get the argument count, not the arguments. Cogpit runs a plugin only once the user allowed it in " +
+			"Cogpit's window; agents cannot allow it. Runs nothing.",
+		Enabled: func(s *engine.Session, _ pendingParams) error { return enabled(s) },
+		Run: func(ctx context.Context, s *engine.Session, p pendingParams) (any, error) {
+			groups, err := s.PendingExecApprovals(p.Context)
+			if err != nil {
+				return nil, err
+			}
+			out := PendingResult{Groups: make([]PendingGroup, 0, len(groups))}
+			for _, grp := range groups {
+				pg := PendingGroup{ExecApprovalGroup: grp}
+				if engine.OriginOf(ctx) != engine.OriginGUI && len(grp.Plugin.Args) > 0 {
+					plugin := *grp.Plugin
+					pg.ArgsWithheld, plugin.Args = len(plugin.Args), nil
+					pg.Plugin = &plugin
+				}
+				out.Groups = append(out.Groups, pg)
+			}
+			return out, nil
+		},
+	})
+
 	add(g, engine.Spec[approveParams]{
-		ID: "kubeconfig.approveExec", Label: "Allow Credential Plugin", Danger: engine.DangerUI,
-		Description: "Records that the user allows a kubeconfig source context's credential plugin to run, exactly as shown " +
-			"(the fingerprint binds the command, its arguments, its environment and the server); a later change asks again." +
+		ID: "kubeconfig.approveExec", Label: "Allow Credential Plugins", Danger: engine.DangerUI,
+		Description: "Records that the user allows the credential plugins of the listed kubeconfig source contexts to run, " +
+			"exactly as shown (each context's fingerprint binds the command, its arguments, its environment, the server and " +
+			"how it is trusted); a later change asks again. One approval is stored per context. Every fingerprint is checked " +
+			"against the file as it is now: if any changed, nothing is allowed and the error names those contexts." +
 			guiOnly,
 		Enabled: func(s *engine.Session, _ approveParams) error { return enabled(s) },
 		Run: func(ctx context.Context, s *engine.Session, p approveParams) (any, error) {
 			if err := requireGUI(ctx); err != nil {
 				return nil, err
 			}
-			return s.ApproveExec(p.Context, p.Fingerprint)
+			approved, err := s.ApproveExecAll(p.Approvals)
+			if err != nil {
+				return nil, err
+			}
+			return ApprovedResult{Approved: approved}, nil
 		},
 	})
 }

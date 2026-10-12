@@ -95,7 +95,7 @@ var wantCommands = map[string]engine.Danger{
 	// Kubeconfig sources (G2); the UI ones are GUI-only (TestKubeconfigCommandsAreGUIOnly).
 	"kubeconfig.sources": engine.DangerRead, "kubeconfig.addFile": engine.DangerUI, "kubeconfig.addFolder": engine.DangerUI,
 	"kubeconfig.remove": engine.DangerUI, "kubeconfig.execPlugin": engine.DangerRead,
-	"kubeconfig.approveExec": engine.DangerUI,
+	"kubeconfig.approveExec": engine.DangerUI, "kubeconfig.pendingApprovals": engine.DangerRead,
 }
 
 func TestRegistryComplete(t *testing.T) {

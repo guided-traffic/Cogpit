@@ -243,10 +243,10 @@ func TestConfigWithAPluginAsksForApprovalOnce(t *testing.T) {
 	if err != nil || info.State != ExecRequired || info.Plugin.Command != "aws" {
 		t.Fatalf("ExecPlugin: %+v, %v", info, err)
 	}
-	if _, err := s.ApproveExec(id, "sha256:other"); !errors.Is(err, ErrExecChangedSinceShown) {
+	if _, err := s.ApproveExecAll([]ExecApprovalItem{{Context: id, Fingerprint: "sha256:other"}}); !errors.Is(err, ErrExecChangedSinceShown) {
 		t.Errorf("approving a plugin other than the one shown: %v", err)
 	}
-	if _, err := s.ApproveExec(id, info.Fingerprint); err != nil {
+	if _, err := s.ApproveExecAll([]ExecApprovalItem{{Context: id, Fingerprint: info.Fingerprint}}); err != nil {
 		t.Fatal(err)
 	}
 

@@ -29,19 +29,33 @@ func sourceContexts() []engine.ContextInfo {
 	)
 }
 
-// pluginView is what kubeconfig.execPlugin returns for the EKS context of sourceContexts.
-func pluginView(state string) map[string]any {
+// eksContext is one context of an approval group as kubeconfig.pendingApprovals returns it.
+func eksContext(name, state, fingerprint string) map[string]any {
 	return map[string]any{
-		"context": "prod-eks [eks.yaml]", "source": "eks.yaml", "state": state, "fingerprint": "sha256:feed",
+		"context": name + " [eks.yaml]", "kubeContext": name, "state": state, "fingerprint": fingerprint,
+		"server": "https://" + name + ".gr7.eu-central-1.eks.amazonaws.com", "tls": map[string]any{}, "files": map[string]any{},
+	}
+}
+
+// pendingFixture is what kubeconfig.pendingApprovals returns for the EKS context of sourceContexts:
+// one group of one context. Tests add contexts to groups[0]["contexts"].
+func pendingFixture(state string) map[string]any {
+	ctx := eksContext("prod-eks", state, "sha256:feed")
+	ctx["server"] = "https://ABCDEF.gr7.eu-central-1.eks.amazonaws.com"
+	return map[string]any{"groups": []any{map[string]any{
+		"source": "eks.yaml", "file": "/Users/me/Downloads/eks.yaml", "kind": "program",
 		"plugin": map[string]any{
-			"file": "/Users/me/Downloads/eks.yaml", "context": "prod-eks", "user": "eks-user",
-			"server": "https://ABCDEF.gr7.eu-central-1.eks.amazonaws.com", "apiVersion": "client.authentication.k8s.io/v1beta1",
-			"command": "aws", "args": []string{"--region", "eu-central-1", "eks", "get-token", "--cluster-name", "prod"},
+			"apiVersion": "client.authentication.k8s.io/v1beta1",
+			"command":    "aws", "args": []string{"--region", "eu-central-1", "eks", "get-token", "--cluster-name", "prod"},
 			"envNames": []string{"AWS_PROFILE", "PATH"},
 		},
 		"found": "/opt/homebrew/bin/aws", "riskyEnv": []string{"PATH"},
-	}
+		"contexts": []any{ctx},
+	}}}
 }
+
+// group returns the first group of a pendingView.
+func group(v map[string]any) map[string]any { return v["groups"].([]any)[0].(map[string]any) }
 
 // recorder records the kubeconfig commands a test's fake engine receives.
 type recorder struct {
@@ -78,6 +92,20 @@ func (r *recorder) params(id string) map[string]string {
 	return nil
 }
 
+// approvals returns the approvals of the first kubeconfig.approveExec call.
+func (r *recorder) approvals() []approvalItem {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, c := range r.calls {
+		if c.ID == "kubeconfig.approveExec" {
+			var p approveParams
+			_ = json.Unmarshal(c.Params, &p)
+			return p.Approvals
+		}
+	}
+	return nil
+}
+
 // kubeconfigFake is a fake engine with the source contexts and handlers for the kubeconfig
 // commands; cluster.connect is recorded too.
 func kubeconfigFake(t *testing.T, state string) (*fakeEngine, *recorder) {
@@ -87,8 +115,8 @@ func kubeconfigFake(t *testing.T, state string) (*fakeEngine, *recorder) {
 	handle := func(id string, res func(engine.Invocation) (any, error)) {
 		f.handlers[id] = func(_ context.Context, inv engine.Invocation) (any, error) { rec.add(inv); return res(inv) }
 	}
-	handle("kubeconfig.execPlugin", func(engine.Invocation) (any, error) { return pluginView(state), nil })
-	handle("kubeconfig.approveExec", func(engine.Invocation) (any, error) { return pluginView(engine.ExecApproved), nil })
+	handle("kubeconfig.pendingApprovals", func(engine.Invocation) (any, error) { return pendingFixture(state), nil })
+	handle("kubeconfig.approveExec", func(engine.Invocation) (any, error) { return map[string]any{"approved": []any{}}, nil })
 	handle("kubeconfig.sources", func(engine.Invocation) (any, error) {
 		return map[string]any{"sources": []map[string]any{
 			{"id": ".kube/", "kind": "folder", "default": true, "path": "/Users/me/.kube", "files": []string{".kube/team.yaml", ".kube/.dev.kubeconfig"}, "contexts": 2, "covered": 1, "skipped": 1},
@@ -172,7 +200,7 @@ func TestPickerShowsTheLoginProgramBeforeItRuns(t *testing.T) {
 	}
 	test.Tap(sh.kc.approval.allow)
 	q.until(t, "the connection", func() bool { return len(f.connects()) == 1 })
-	if p := rec.params("kubeconfig.approveExec"); p["context"] != "prod-eks [eks.yaml]" || p["fingerprint"] != "sha256:feed" {
+	if p := rec.approvals(); len(p) != 1 || p[0].Context != "prod-eks [eks.yaml]" || p[0].Fingerprint != "sha256:feed" {
 		t.Errorf("approveExec %v", p)
 	}
 	if got := f.connects(); got[0] != "prod-eks [eks.yaml]" {
@@ -204,7 +232,7 @@ func TestPickerConnectsContextsWithoutAProgramDirectly(t *testing.T) {
 	sh, _, q := newTestShell(t, f, Options{})
 	selectAndConnect(t, sh, q, "kind-cogpit [kind.yaml]")
 	q.until(t, "the connection", func() bool { return len(f.connects()) == 1 })
-	if sh.kc.approval != nil || slices.Contains(rec.ids(), "kubeconfig.execPlugin") {
+	if sh.kc.approval != nil || slices.Contains(rec.ids(), "kubeconfig.pendingApprovals") {
 		t.Errorf("asked about a context without a program: %v", rec.ids())
 	}
 }

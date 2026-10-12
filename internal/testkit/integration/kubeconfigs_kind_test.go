@@ -160,7 +160,7 @@ contexts:
 		t.Fatal(err)
 	}
 	if err := sourcesDispatch(t, s, engine.OriginGUI, "kubeconfig.approveExec",
-		map[string]string{"context": id, "fingerprint": info.Fingerprint}, nil); err != nil {
+		approvals(id, info.Fingerprint), nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := sourcesDispatch(t, s, engine.OriginGUI, "cluster.connect", map[string]string{"context": id}, &res); err != nil {

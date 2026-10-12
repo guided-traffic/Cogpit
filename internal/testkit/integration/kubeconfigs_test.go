@@ -147,7 +147,7 @@ func TestKubeconfigCommandsAreGUIOnly(t *testing.T) {
 		{"kubeconfig.addFile", map[string]string{"path": file}},
 		{"kubeconfig.addFolder", map[string]string{"path": filepath.Dir(file)}},
 		{"kubeconfig.remove", map[string]string{"source": "dev.yaml"}},
-		{"kubeconfig.approveExec", map[string]string{"context": "x [y]", "fingerprint": "sha256:00"}},
+		{"kubeconfig.approveExec", map[string]any{"approvals": []map[string]string{{"context": "x [y]", "fingerprint": "sha256:00"}}}},
 	}
 	for _, origin := range []engine.Origin{engine.OriginExternalAgent, engine.OriginBuiltInAgent, engine.OriginCLI} {
 		for _, c := range calls {
@@ -291,15 +291,15 @@ func TestExecPluginRunsOnlyOnceAllowed(t *testing.T) {
 		t.Fatalf("execPlugin for the GUI: %+v", forGUI)
 	}
 	if err := sourcesDispatch(t, s, engine.OriginExternalAgent, "kubeconfig.approveExec",
-		map[string]string{"context": id, "fingerprint": forGUI.Fingerprint}, nil); !errors.Is(err, engine.ErrGUIOnly) {
+		approvals(id, forGUI.Fingerprint), nil); !errors.Is(err, engine.ErrGUIOnly) {
 		t.Fatalf("an agent allowed the plugin: %v", err)
 	}
 	if err := sourcesDispatch(t, s, engine.OriginGUI, "kubeconfig.approveExec",
-		map[string]string{"context": id, "fingerprint": "sha256:stale"}, nil); !errors.Is(err, engine.ErrExecChangedSinceShown) {
+		approvals(id, "sha256:stale"), nil); !errors.Is(err, engine.ErrExecChangedSinceShown) {
 		t.Fatalf("a stale fingerprint: %v", err)
 	}
 	if err := sourcesDispatch(t, s, engine.OriginGUI, "kubeconfig.approveExec",
-		map[string]string{"context": id, "fingerprint": forGUI.Fingerprint}, nil); err != nil {
+		approvals(id, forGUI.Fingerprint), nil); err != nil {
 		t.Fatal(err)
 	}
 	if c := contextIDs(t, s)[id]; c.Exec != engine.ExecApproved {
@@ -337,4 +337,9 @@ func TestExecPluginRunsOnlyOnceAllowed(t *testing.T) {
 	if strings.Contains(audit.String(), sourceToken) || strings.Contains(audit.String(), marker) {
 		t.Errorf("the audit log carries the token or the plugin's environment:\n%s", audit.String())
 	}
+}
+
+// approvals is the parameter of kubeconfig.approveExec for one context.
+func approvals(id, fingerprint string) map[string]any {
+	return map[string]any{"approvals": []map[string]string{{"context": id, "fingerprint": fingerprint}}}
 }

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -41,39 +40,11 @@ type (
 		Source   sourceStatus `json:"source"`
 		Contexts []string     `json:"contexts"`
 	}
-	execPluginView struct {
-		Context     string `json:"context"`
-		Source      string `json:"source"`
-		State       string `json:"state"`
-		Kind        string `json:"kind"`
-		Fingerprint string `json:"fingerprint"`
-		Plugin      struct {
-			File       string   `json:"file"`
-			Context    string   `json:"context"`
-			Server     string   `json:"server"`
-			APIVersion string   `json:"apiVersion"`
-			Command    string   `json:"command"`
-			Args       []string `json:"args"`
-			EnvNames   []string `json:"envNames"`
-			TokenFile  string   `json:"tokenFile"`
-			// TLS and Files mirror kubeconfig.TLSView and kubeconfig.FileFacts: how the credential
-			// travels, and the files whose content the approval binds (R-11, R-5).
-			TLS   kubeconfig.TLSView   `json:"tls"`
-			Files kubeconfig.FileFacts `json:"files"`
-		} `json:"plugin"`
-		Found        string   `json:"found"`
-		RiskyEnv     []string `json:"riskyEnv"`
-		ArgsWithheld int      `json:"argsWithheld"`
-	}
 	pathParams struct {
 		Path string `json:"path"`
 	}
 	sourceParams struct {
 		Source string `json:"source"`
-	}
-	approveParams struct {
-		Context     string `json:"context"`
-		Fingerprint string `json:"fingerprint"`
 	}
 )
 
@@ -171,158 +142,6 @@ func errorText(err error) string {
 		return dis.Reason
 	}
 	return err.Error()
-}
-
-// reviewPlugin shows the credential plugin of a source context and asks whether it may run. done
-// gets true once the user allowed it and the engine recorded that; false when the user cancelled
-// or the plugin could not be shown.
-func (k *kubeconfigUI) reviewPlugin(contextID string, done func(allowed bool)) {
-	k.sh.dispatch("kubeconfig.execPlugin", map[string]string{"context": contextID}, func(res any, err error) {
-		if err != nil {
-			k.sh.showError(err)
-			done(false)
-			return
-		}
-		var info execPluginView
-		if err := decode(res, &info); err != nil {
-			k.sh.toast("error", "Unexpected credential plugin description: "+err.Error())
-			done(false)
-			return
-		}
-		if info.State == engine.ExecApproved {
-			done(true)
-			return
-		}
-		k.showApproval(info, done)
-	})
-}
-
-// approvalDialog shows a credential plugin before its first run.
-type approvalDialog struct {
-	d      *dialog.CustomDialog
-	allow  *widget.Button
-	cancel *widget.Button
-	info   execPluginView
-}
-
-// showApproval builds and shows the approval dialog for info.
-func (k *kubeconfigUI) showApproval(info execPluginView, done func(bool)) {
-	if k.approval != nil {
-		k.approval.d.Hide()
-	}
-	th := k.sh.app.Settings().Theme()
-	width := th.Size(sizePickerWidth)
-	valueW := width - th.Size(sizeDrawerLabel) - 2*th.Size(theme.SizeNamePadding)
-	pl := info.Plugin
-	show := func(s string) string { return kubeconfig.DisplayText(s, maxShownPath) }
-
-	rows := box(kvLayout{})
-	addRow := func(name string, value fyne.CanvasObject) {
-		rows.Objects = append(rows.Objects, newTextLine(name, colorMuted, theme.SizeNameText, fyne.TextStyle{}), value)
-	}
-	mono := func(s string) fyne.CanvasObject {
-		l := newTextLine(s, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Monospace: true})
-		l.truncate = true
-		return l
-	}
-	hasProgram := info.Kind != kubeconfig.LoginTokenFile
-	if hasProgram {
-		addRow("Program", mono(show(pl.Command)))
-		if t := programFileText(info); t != "" {
-			addRow("", newParagraph(t, theme.ColorNameForeground, valueW))
-		}
-		switch {
-		case info.Found == "":
-			addRow("Found", newParagraph("not found on Cogpit's PATH now: connecting would fail", colorStatusWarning, valueW))
-		case info.Found != pl.Command:
-			addRow("Found at", mono(show(info.Found)))
-		}
-		args := container.NewVBox()
-		for i, a := range pl.Args {
-			if i == maxShownArgs {
-				args.Add(newTextLine(fmt.Sprintf("… and %d more", len(pl.Args)-maxShownArgs), colorMuted, theme.SizeNameText, fyne.TextStyle{}))
-				break
-			}
-			args.Add(mono(kubeconfig.DisplayText(a, maxShownArg)))
-		}
-		if len(pl.Args) == 0 {
-			args.Add(newTextLine("none", colorMuted, theme.SizeNameText, fyne.TextStyle{}))
-		}
-		addRow("Arguments", args)
-		env := "none"
-		if len(pl.EnvNames) > 0 {
-			env = joinNames(pl.EnvNames) + " (values not shown)"
-		}
-		addRow("Environment", newParagraph(env, theme.ColorNameForeground, valueW))
-		if len(info.RiskyEnv) > 0 {
-			addRow("", newParagraph("Sets "+strings.Join(info.RiskyEnv, ", ")+", which decides which programs run or what they load.",
-				colorStatusWarning, valueW))
-		}
-	}
-	if info.Kind == kubeconfig.LoginTokenFile || info.Kind == kubeconfig.LoginBoth {
-		addRow("Token file", mono(show(pl.TokenFile)))
-		if pl.Files.TokenFileResolved != "" {
-			addRow("", newParagraph("a link in the kubeconfig's folder, pointing to "+show(pl.Files.TokenFileResolved), colorMuted, valueW))
-		}
-	}
-	addRow("Credential for", mono(show(pl.Server)))
-	facts := connectionFacts(info)
-	for _, r := range facts.rows {
-		addRow(r[0], newParagraph(r[1], theme.ColorNameForeground, valueW))
-	}
-	addRow("Kubeconfig", newParagraph(show(pl.File), theme.ColorNameForeground, valueW))
-	addRow("Context", newParagraph(show(pl.Context)+" ("+show(info.Source)+")", theme.ColorNameForeground, valueW))
-
-	content := container.NewVBox(newParagraph(approvalLead(info), theme.ColorNameForeground, width), newSpace(theme.SizeNamePadding))
-	if info.State == engine.ExecChanged {
-		content.Add(newParagraph(approvalChangedNote(info), colorStatusWarning, width))
-		content.Add(newSpace(theme.SizeNamePadding))
-	}
-	// An insecure, proxied or own-CA connection decides who can read the credential: said before
-	// the rows, in the warning colour, not as one more row (R-11).
-	for _, w := range facts.warnings {
-		content.Add(newParagraph(w, colorStatusWarning, width))
-		content.Add(newSpace(theme.SizeNamePadding))
-	}
-	content.Add(rows)
-
-	a := &approvalDialog{info: info}
-	a.allow = widget.NewButtonWithIcon("Allow and Connect", theme.ConfirmIcon(), nil)
-	a.allow.Importance = widget.WarningImportance
-	a.cancel = widget.NewButton("Cancel", nil)
-	a.d = dialog.NewCustomWithoutButtons(approvalTitle(info), content, k.sh.win)
-	a.d.SetButtons([]fyne.CanvasObject{a.cancel, a.allow})
-	answered := false
-	a.d.SetOnClosed(func() {
-		if k.approval == a {
-			k.approval = nil
-		}
-		if !answered {
-			answered = true
-			done(false)
-		}
-	})
-	a.cancel.OnTapped = a.d.Hide
-	a.allow.OnTapped = func() {
-		a.allow.Disable()
-		k.sh.dispatch("kubeconfig.approveExec", approveParams{Context: info.Context, Fingerprint: info.Fingerprint}, func(_ any, err error) {
-			if err != nil {
-				k.sh.showError(err) // a stale fingerprint: the dialog closes, connecting again shows the new form
-				a.d.Hide()
-				return
-			}
-			answered = true
-			a.d.Hide()
-			done(true)
-		})
-	}
-	// As the confirmation's: a click meant for something else, or a double click, must not allow.
-	if delay := k.sh.confirmer.armDelay; delay > 0 {
-		a.allow.Disable()
-		time.AfterFunc(delay, func() { k.sh.do(a.allow.Enable) })
-	}
-	k.approval = a
-	a.d.Show() // no button has the focus: Enter must not allow a program by accident
 }
 
 // sourcesDialog lists the kubeconfig sources with a Remove button each.

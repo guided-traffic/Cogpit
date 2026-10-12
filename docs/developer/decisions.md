@@ -681,11 +681,32 @@ who had removed `~/.kube` loses `config`'s contexts now. The options weighed: `c
 reads it, merged with `$KUBECONFIG` and not removable (as built by C2); as Lens (decided); and
 for `$KUBECONFIG` under it: its files as sources (decided) or ignored, as Lens does.
 
+**Asking once per file and plugin (owner, 2026-10-12, built the same day, scope C4).** A `config`
+with ten EKS contexts and the same `aws eks get-token` plugin must not ask ten times. One dialog
+per file and identical plugin lists every context of that file that uses it and is not allowed yet,
+each with its server and how that server is reached and trusted (the warning lines of review R-11
+per context where they apply), and one click allows all of them. "Identical" is
+`kubeconfig.ExecPlugin.Identity`: the same command, arguments, environment (names and values), API
+version, interactive mode, `provideClusterInfo`, and, after D-26, the same binding of the program
+(its resolved path and, inside the folder, its content digest); for token files (D-17) the same token
+file. Context, user, server and trust are not part of it. The approvals stay **one per context, each
+with its own fingerprint** (server and trust bound, as strict as H-1 had it); only the asking is
+bundled. A context added to the file later asks on its own, or with the other new ones. The approve
+command stays GUI-only and takes the list of (context, fingerprint) the dialog showed; it checks
+each against the file as it is now and refuses the whole list, naming the contexts, if any changed or
+left meanwhile (`kubeconfig.pendingApprovals`, `kubeconfig.approveExec`; `TestPendingApprovalsGroupContextsByFileAndPlugin`,
+`TestApprovingAGroupApprovesExactlyItsContexts`, `TestApprovalIsRefusedAsAWholeWhenOneContextChanged`).
+The options weighed: one dialog per context (as built before; ten clicks and ten dialogs, which
+invites approving without reading); one approval for the file's plugin whatever the context (one
+click, but an approval that no longer binds the server: a changed server in `config` would not ask);
+**one dialog, per-context approvals (decided)**.
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-12 | minor | D-14: the upstream pull requests opened (#155–#158, owner's OK) |
+| 2026-10-12 | minor | D-28 (owner, built, scope C4): one approval dialog per file and identical plugin, listing every context with its server and trust; the approvals stay per context with their own fingerprints; approveExec takes the list and refuses all if one changed |
 | 2026-10-12 | minor | D-28 built (scope C3): every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; the default kubeconfig no longer merged |
 | 2026-10-12 | minor | D-28 (owner): the default kubeconfig as sources, as Lens (config an ordinary synced file, `$KUBECONFIG`'s files sources of their own); C1's Rollback on the current revision does what helm does (owner) |
 | 2026-10-12 | minor | D-25 (owner, built): a copied Secret value marked concealed for clipboard managers and kept from Universal Clipboard on macOS (H-25) |

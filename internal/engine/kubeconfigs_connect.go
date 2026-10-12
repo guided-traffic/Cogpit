@@ -119,7 +119,7 @@ type ExecPluginInfo struct {
 	State string `json:"state"`
 	// Kind is what needs the approval: kubeconfig.LoginProgram, LoginTokenFile or LoginBoth.
 	Kind string `json:"kind"`
-	// Fingerprint binds an approval to exactly this plugin (kubeconfig.approveExec takes it back).
+	// Fingerprint binds an approval to exactly this plugin (kubeconfig.approveExec takes it back, with the other contexts of its group).
 	Fingerprint string                 `json:"fingerprint"`
 	Plugin      *kubeconfig.ExecPlugin `json:"plugin"`
 	// Found is where the command is found now: itself when it is a path, else the first match on
@@ -156,28 +156,6 @@ func (s *Session) ExecPlugin(id string) (*ExecPluginInfo, error) {
 		Context: id, Source: f.Label, State: state, Kind: p.Kind(), Fingerprint: p.Fingerprint(), Plugin: p,
 		Found: cluster.LookPathNow(p.Command), RiskyEnv: p.RiskyEnv(),
 	}, nil
-}
-
-// ErrExecChangedSinceShown refuses an approval whose fingerprint is not the plugin's current one:
-// the kubeconfig changed while the user looked at the dialog.
-var ErrExecChangedSinceShown = errors.New("the credential plugin changed since it was shown; review it again")
-
-// ApproveExec records the user's allowance of a source context's credential plugin, provided it
-// is still the one the user was shown (fingerprint). Only the GUI's command calls it.
-func (s *Session) ApproveExec(id, fingerprint string) (*ExecPluginInfo, error) {
-	info, err := s.ExecPlugin(id)
-	if err != nil {
-		return nil, err
-	}
-	if info.Fingerprint != fingerprint {
-		return nil, ErrExecChangedSinceShown
-	}
-	if err := s.KubeconfigSources().Approve(info.Plugin); err != nil {
-		return nil, err
-	}
-	info.State = ExecApproved
-	s.emit(Event{Type: EventContexts})
-	return info, nil
 }
 
 // WatchKubeconfigs looks at the kubeconfig sources every interval (zero means

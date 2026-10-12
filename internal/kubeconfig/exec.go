@@ -219,6 +219,59 @@ func (p *ExecPlugin) Fingerprint() string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
+// identityDoc is the canonical form Identity hashes: what a login does, without the context, user,
+// server and trust that carry it.
+type identityDoc struct {
+	Version            int         `json:"v"`
+	APIVersion         string      `json:"apiVersion"`
+	Command            string      `json:"command"`
+	Args               []string    `json:"args"`
+	Env                [][2]string `json:"env"`
+	InteractiveMode    string      `json:"interactiveMode"`
+	ProvideClusterInfo bool        `json:"provideClusterInfo"`
+	ProgramResolved    string      `json:"programResolved"`
+	ProgramSHA256      string      `json:"programSHA256"`
+	ProgramNote        string      `json:"programNote"`
+	TokenFile          string      `json:"tokenFile"`
+	TokenFileResolved  string      `json:"tokenFileResolved"`
+}
+
+// Identity returns "login:<hex>" over what the login does and nothing about where it is used: the
+// API version, command, arguments in order, environment names and values in order, interactive
+// mode, provideClusterInfo, how the program is bound (its resolved path and, inside the folder, the
+// SHA-256 of its content or the note saying why there is none: D-26), and the token file when it
+// needs approval. Two contexts of one file whose logins have the same identity run the same
+// program the same way (or read the same token file), so the approval dialog asks about them once
+// (D-28, 2026-10-12). It is no replacement for Fingerprint: the approval stays bound per context,
+// to the server and how it is trusted as well. An empty identity (nil or no login that needs
+// approval) groups with nothing.
+func (p *ExecPlugin) Identity() string {
+	if !p.NeedsApproval() {
+		return ""
+	}
+	doc := identityDoc{
+		Version: 1, APIVersion: p.APIVersion, Command: p.Command, Args: p.Args, InteractiveMode: p.InteractiveMode,
+		ProvideClusterInfo: p.ProvideClusterInfo, ProgramResolved: p.Files.ProgramResolved,
+		ProgramSHA256: p.Files.ProgramSHA256, ProgramNote: p.Files.ProgramNote,
+	}
+	if p.AsksForTokenFile() {
+		doc.TokenFile, doc.TokenFileResolved = p.TokenFile, p.Files.TokenFileResolved
+	}
+	if doc.Args == nil {
+		doc.Args = []string{}
+	}
+	doc.Env = make([][2]string, 0, len(p.env))
+	for _, e := range p.env {
+		doc.Env = append(doc.Env, [2]string{e.Name, e.Value})
+	}
+	data, err := json.Marshal(doc)
+	if err != nil { // cannot happen for these types
+		return ""
+	}
+	sum := sha256.Sum256(data)
+	return "login:" + hex.EncodeToString(sum[:])
+}
+
 // AsksForTokenFile reports whether the plugin names a token file that needs the user's approval:
 // one outside the kubeconfig's folder.
 func (p *ExecPlugin) AsksForTokenFile() bool {

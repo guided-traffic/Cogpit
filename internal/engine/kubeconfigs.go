@@ -638,10 +638,16 @@ func (k *KubeconfigSources) ExecState(p *kubeconfig.ExecPlugin) (string, error) 
 
 // Approve records the user's allowance of plugin p for its file and context, replacing an earlier
 // one for them.
-func (k *KubeconfigSources) Approve(p *kubeconfig.ExecPlugin) error {
-	fp := p.Fingerprint()
-	if fp == "" {
-		return errors.New("credential plugin approvals: the plugin has no fingerprint")
+func (k *KubeconfigSources) Approve(p *kubeconfig.ExecPlugin) error { return k.ApproveAll(p) }
+
+// ApproveAll records the allowance of every plugin in ps, each for its own file and context and
+// with its own fingerprint, in one write: all or none. A plugin without a fingerprint refuses the
+// whole call.
+func (k *KubeconfigSources) ApproveAll(ps ...*kubeconfig.ExecPlugin) error {
+	for _, p := range ps {
+		if p.Fingerprint() == "" {
+			return errors.New("credential plugin approvals: the plugin has no fingerprint")
+		}
 	}
 	k.mu.Lock()
 	defer k.mu.Unlock()
@@ -649,8 +655,11 @@ func (k *KubeconfigSources) Approve(p *kubeconfig.ExecPlugin) error {
 	if err != nil {
 		return err
 	}
-	list = slices.DeleteFunc(list, func(a ExecApproval) bool { return a.File == p.File && a.Context == p.Context })
-	list = append(list, ExecApproval{File: p.File, Context: p.Context, Fingerprint: fp, Command: p.Command, Approved: k.now().UTC()})
+	now := k.now().UTC()
+	for _, p := range ps {
+		list = slices.DeleteFunc(list, func(a ExecApproval) bool { return a.File == p.File && a.Context == p.Context })
+		list = append(list, ExecApproval{File: p.File, Context: p.Context, Fingerprint: p.Fingerprint(), Command: p.Command, Approved: now})
+	}
 	return k.saveApprovals(list)
 }
 
