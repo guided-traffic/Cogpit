@@ -678,8 +678,9 @@ in the level's colour, a bold title, the text and a close button. They last 6 s 
   an interface beside `OpenLogs`. The API has no "before" cursor: the engine asks each container
   the tab shows and does not hold whole for its tail again with 1,000 more lines than it holds
   (shared, at least 100 each; at most 8 requests at once), keeps the lines older than the oldest
-  held and those at that timestamp, merges them in time order and keeps the newest that fit the
-  room. A container the server sent fewer lines of than asked is held whole and not asked again.
+  held and those at that timestamp (at most 32 MiB of them, the view's own byte bound, so that
+  long lines cannot make a request grow beyond it), merges them in time order and keeps the newest
+  that fit the room. A container the server sent fewer lines of than asked is held whole and not asked again.
   The view drops the lines at its oldest timestamp it holds (timestamp and text), puts the rest
   before its lines with their rows, keeps the rows in view in place and stops following. Lines of
   a container it held nothing of go in as well, and the stream's own copy of them is dropped when

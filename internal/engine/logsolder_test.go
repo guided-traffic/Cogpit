@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
@@ -155,5 +156,25 @@ func TestRequestOlderLogsCounts(t *testing.T) {
 	}
 	if _, err := s.RequestOlderLogs("logs-404"); err == nil {
 		t.Error("a tab that does not exist")
+	}
+}
+
+// TestReadOlderBoundsBytes: long lines cannot make a request for older lines keep more than its
+// byte bound: the newest that fit stay, and the source is not held whole.
+func TestReadOlderBoundsBytes(t *testing.T) {
+	f := newServerLogs()
+	long := strings.Repeat("x", 100)
+	for i := range 10 {
+		f.add("web-1-a/app", olderAt(i), fmt.Sprintf("%d %s", i, long))
+	}
+	opts := cluster.LogOptions{Namespace: "shop", Pod: "web-1-a", Container: "app", Timestamps: true, TailLines: 50}
+	lineBytes := len(stampedText(olderAt(0), "0 "+long))
+	got, n, trimmed, err := readOlder(context.Background(), f, opts, time.Time{}, 3*lineBytes+10)
+	if err != nil || n != 10 || !trimmed || len(got) != 3 || !strings.HasPrefix(got[0].line, stampedText(olderAt(7), "7 ")) {
+		t.Errorf("%d lines from %d, trimmed %v, %v", len(got), n, trimmed, err)
+	}
+	got, _, trimmed, err = readOlder(context.Background(), f, opts, time.Time{}, 100*lineBytes)
+	if err != nil || trimmed || len(got) != 10 {
+		t.Errorf("unbounded: %d lines, trimmed %v, %v", len(got), trimmed, err)
 	}
 }

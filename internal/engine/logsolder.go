@@ -31,6 +31,9 @@ const (
 	olderLogStep = 1000
 	// olderLogRequests bounds the requests running at once.
 	olderLogRequests = 8
+	// olderLogBytes bounds the bytes of the lines a request keeps, shared by the containers it
+	// asks: what a tab's view keeps at most (32 MiB), so that long lines cannot make it grow beyond.
+	olderLogBytes = 32 << 20
 )
 
 // HeldLog is what a logs tab holds of one container's log.
@@ -123,8 +126,10 @@ func (s *Session) olderLogs(ctx context.Context, tab DockTab, streamer logStream
 		src     olderSource
 		lines   []stampedLog
 		n, tail int64 // lines the server sent, of the tail asked for
+		trimmed bool  // the byte bound left its oldest lines out
 		err     error
 	}
+	maxBytes := olderLogBytes / len(ask)
 	results := make([]result, len(ask))
 	sem := make(chan struct{}, olderLogRequests)
 	var wg sync.WaitGroup
@@ -143,8 +148,8 @@ func (s *Session) olderLogs(ctx context.Context, tab DockTab, streamer logStream
 			if !req.Since.IsZero() {
 				opts.SinceTime = req.Since.Truncate(time.Second)
 			}
-			lines, n, err := readOlder(ctx, streamer, opts, held[src.prefix].Oldest)
-			results[i] = result{src: src, lines: lines, n: int64(n), tail: tail, err: err}
+			lines, n, trimmed, err := readOlder(ctx, streamer, opts, held[src.prefix].Oldest, maxBytes)
+			results[i] = result{src: src, lines: lines, n: int64(n), tail: tail, trimmed: trimmed, err: err}
 		}()
 	}
 	wg.Wait()
@@ -159,6 +164,7 @@ func (s *Session) olderLogs(ctx context.Context, tab DockTab, streamer logStream
 			out.Notes = append(out.Notes, NoticePrefix+" "+orPod(r.src)+": "+oneLine(r.err.Error()))
 			continue
 		}
+		cut[r.src.prefix] = r.trimmed
 		for i := range r.lines {
 			r.lines[i].source = r.src.prefix
 		}
@@ -239,17 +245,18 @@ type stampedLog struct {
 }
 
 // readOlder reads one container's lines and keeps those older than before (all when before is
-// zero), and those at it, which the tab may or may not hold. It returns them, oldest first, and
-// how many lines the server sent. Lines without a timestamp cannot be placed and are left out;
-// longer lines are cut as the stream cuts them.
-func readOlder(ctx context.Context, streamer logStreamer, opts cluster.LogOptions, before time.Time) ([]stampedLog, int, error) {
+// zero), and those at it, which the tab may or may not hold. It returns them, oldest first, how
+// many lines the server sent, and whether maxBytes left the oldest of them out (it keeps the
+// newest that fit). Lines without a timestamp cannot be placed and are left out; longer lines are
+// cut as the stream cuts them.
+func readOlder(ctx context.Context, streamer logStreamer, opts cluster.LogOptions, before time.Time, maxBytes int) ([]stampedLog, int, bool, error) {
 	rc, err := streamer.StreamLogs(ctx, opts)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, false, err
 	}
 	defer rc.Close()
 	var out []stampedLog
-	n := 0
+	n, first, size, trimmed := 0, 0, 0, false
 	br := bufio.NewReaderSize(rc, workloadLogLineBytes)
 	for int64(n) < opts.TailLines { // the server sends no more; a bound all the same
 		line, err := br.ReadSlice('\n')
@@ -257,7 +264,15 @@ func readOlder(ctx context.Context, streamer logStreamer, opts cluster.LogOption
 		if len(line) > 0 {
 			n++
 			if ts, _, ok := splitLogTimestamp(line); ok && (before.IsZero() || !ts.After(before)) {
-				out = append(out, stampedLog{at: ts, line: string(trimLineEnd(line))})
+				l := stampedLog{at: ts, line: string(trimLineEnd(line))}
+				out = append(out, l)
+				size += len(l.line)
+				for size > maxBytes && first < len(out) {
+					size -= len(out[first].line)
+					out[first] = stampedLog{} // its text can go
+					first++
+					trimmed = true
+				}
 			}
 		}
 		for full {
@@ -268,10 +283,10 @@ func readOlder(ctx context.Context, streamer logStreamer, opts cluster.LogOption
 			break
 		}
 		if err != nil {
-			return nil, n, fmt.Errorf("reading the log: %w", err)
+			return nil, n, false, fmt.Errorf("reading the log: %w", err)
 		}
 	}
-	return out, n, nil
+	return out[first:], n, trimmed, nil
 }
 
 // trimLineEnd drops a line's line feed and carriage return.
