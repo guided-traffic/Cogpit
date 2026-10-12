@@ -283,7 +283,8 @@ As built (2026-10-11, [`accessreviews.go`](../../internal/engine/accessreviews.g
 cluster's backend an `Access` over the connection's reviews; the demo cluster has none. It keeps
 the answers of one connection: a `SelfSubjectRulesReview` per namespace and a
 `SelfSubjectAccessReview` per question, until `cluster.refreshAccess` drops them or the context is
-connected again; nothing runs on a timer. A missing answer starts its review in the background,
+connected again (the GUI's Cluster menu has it as Refresh Access Reviews since 2026-10-12,
+disabled on the demo cluster); nothing runs on a timer. A missing answer starts its review in the background,
 once (deduplicated), at most four at a time, on goroutines that recover from a panic and record a
 failed review instead of leaving it pending; at most 512 namespaces' rules and 2,048 questions are
 kept until a refresh, and past them an answer stays unknown, since a command asks in whatever
@@ -306,8 +307,9 @@ to one pair per 200 ms. Which review answers what:
   (`TestBudgetWithoutAccessReviews`).
 
 Connecting prefetches the default namespace's rules, and a change of the namespace filter its
-namespaces' rules. `kinds.list` reports `listable` per kind for the sidebar, which hides a kind
-known not listable and shows one not known yet: a cluster-scoped kind is listable when the default
+namespaces' rules. `kinds.list` reports `listable` per kind for the sidebar and the View menu
+(the same filter since 2026-10-12), which hide a kind known not listable and show one not known
+yet: a cluster-scoped kind is listable when the default
 namespace's rules name it (no access review per kind; a RoleBinding naming a cluster-scoped kind
 is told apart only for namespaces, below); a namespaced kind is listable when any namespace
 reviewed so far names it, and not listable only when every namespace the user can see was
@@ -970,6 +972,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5); the View menu and Refresh Access Reviews in the GUI (§4.2) |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5) |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere) |
 | 2026-10-12 | minor | Fourth run (agent D): kubeconfig sources (added files, pasted kubeconfigs, sync folders), each file read on its own, and credential plugins of sources run only after the user allowed them (§6; current state rows) |

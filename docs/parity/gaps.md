@@ -171,7 +171,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   UIDs). Access reviews in `Enabled` built on 2026-10-11: a command whose verbs the connected
   user's reviews deny is greyed "not permitted: you may not …" in every menu and refused for every
   origin; answers never block a menu and arrive as events (`TestAccessReviewsAnswerWithoutBlocking`,
-  `TestAccessReviewsGreyCommands`); `cluster.refreshAccess` asks again. Still missing: jobs and
+  `TestAccessReviewsGreyCommands`); `cluster.refreshAccess` asks again (the Cluster menu's Refresh Access Reviews, 2026-10-12), and the View menu, like the sidebar, leaves out the kinds the user may not list (2026-10-12). Still missing: jobs and
   cancellation, `cogpit-cli` commands.
 - **Impact:** every action, menu, shortcut and MCP tool dispatches through it.
 - **Estimate:** 10–28 h (was 15–35; access reviews in `Enabled`, drawer-only commands, third run).
@@ -546,6 +546,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); G4 evidence (Refresh Access Reviews in the menu, the View menu hides what the sidebar hides); estimates not moved |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); estimates not moved |
 | 2026-10-12 | minor | G2 (fourth run, agent D): kubeconfig files, sync folders and pasted kubeconfigs, the approval of their credential plugins; estimate 10–28 h |
 | 2026-10-12 | minor | G11 (fourth run): the Helm upgrade and its dock tab, Lens's release drawer and Rollback dialog built; estimate 12–30 h (the totals not recounted) |

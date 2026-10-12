@@ -572,8 +572,9 @@ func (toastLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
 func (sh *shell) mainMenu() *fyne.MainMenu {
 	cluster := fyne.NewMenu("Cluster", fyne.NewMenuItem("Switch Context…", sh.picker.show))
 	cluster.Items = append(cluster.Items, sh.kc.menuItems()...)
+	cluster.Items = append(cluster.Items, sh.refreshAccessItem())
 	var items []*fyne.MenuItem
-	for _, k := range sh.kinds {
+	for _, k := range listableKinds(sh.kinds) { // as the sidebar: no kind the user may not list
 		key := k.Kind
 		items = append(items, fyne.NewMenuItem(k.Title, func() {
 			sh.dispatch("ui.openView", openViewParams{View: key}, nil)

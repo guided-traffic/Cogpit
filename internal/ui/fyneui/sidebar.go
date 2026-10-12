@@ -224,7 +224,7 @@ func (s *sidebar) updateHeader() {
 // state they had, new ones start open, except the API groups of Custom Resources, which start
 // closed (captured). A kind the user may not list is left out; one not known yet is shown.
 func (s *sidebar) setKinds(kinds []kindInfo) {
-	kinds = slices.DeleteFunc(slices.Clone(kinds), func(k kindInfo) bool { return k.Listable != nil && !*k.Listable })
+	kinds = listableKinds(kinds) // the View menu offers the same (menuaccess.go)
 	wasOpen := map[string]bool{}
 	for id := range s.children {
 		if id != "" {
