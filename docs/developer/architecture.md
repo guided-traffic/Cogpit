@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-12)
 
@@ -25,6 +25,7 @@ evening (2026-10-12) it draws the drawer's resource charts from the Metrics Serv
 it finds in the cluster (CPU, Memory, Network, Filesystem; ranges to 30 days held by the engine; a
 hover panel with the exact values), keeps a crash report when it crashes, and lets the user switch
 the external MCP server off in the status bar.
+Since the night run (2026-10-12) a hotbar of pinned clusters in banks of twelve sits at the window's left edge (G13): engine state (`UIState.Hotbar`, nine `hotbar.*` commands, `<user config dir>/Cogpit/hotbar.json`), F1–F12 and ⇧F1–⇧F12 ([§4.3](#43-ui-state)).
 CI runs on every push ([releasing › CI](releasing.md#ci)). The MVP doubled as the Fyne spike
 ([results](spike-fyne.md#results)). Where the code differs from the plan below, this section wins.
 
@@ -366,6 +367,7 @@ type UIState struct {
 	Selected  []model.ObjectRef
 	Drawer    *model.ObjectRef  // object shown in the detail drawer
 	Dock      []DockTab         // terminal, logs, editor, chat tabs and the active one
+	Hotbar    *HotbarState      // the hotbar's banks and the shown one (2026-10-12)
 }
 ```
 
@@ -388,6 +390,30 @@ drawer work on them; `Session.ViewProfile` returns a page's table profile, so `u
 `ui.setColumns` and `table.exportCsv` work on a page as on a kind's view.
 Agents read it with `ui_state`: this is how the built-in agent knows which object the user means
 by "this pod".
+
+**The hotbar is engine state** (built 2026-10-12, G13, [`engine/hotbar.go`](../../internal/engine/hotbar.go),
+[`commands/hotbar.go`](../../internal/engine/commands/hotbar.go), [`fyneui/hotbar.go`](../../internal/ui/fyneui/hotbar.go)).
+`UIState.Hotbar` holds the banks (numbered from 1, as the switcher and ⇧F1–⇧F12 number them), each a
+name and up to 12 tiles that store their context id only, and the shown bank; nil in a session
+without a hotbar (`Options.Hotbar` unset, a headless session), which disables the commands with
+`ErrNoHotbar` and hides the bar. The store (`engine.Hotbar`) keeps it in
+`<user config dir>/Cogpit/hotbar.json` (0600 in a 0700 directory, written whole through
+`writePrivateFile`); a file that does not load leaves an empty hotbar and is moved to
+`hotbar.json.unreadable` before the first change writes, never overwritten. `Session.ChangeHotbar`
+applies a pure operation of `HotbarState` (add, remove, move, create, rename, remove or switch a
+bank; their `Check*` twins are the commands' `Enabled`), writes the file, and only then shows the
+result through `UpdateUI`; a failed operation or write changes nothing. One lock orders the changes
+from the write to the UI state, another guards the state alone, so a subscriber of the UI state may
+read the hotbar while a change is shown. What a tile shows is derived, never stored:
+`Session.HotbarView` (`hotbar.list`, and `ui.state`'s `hotbar`) adds each tile's label, the state of
+a connection to it (Cogpit holds one), whether no kubeconfig source offers its context any more
+(`missing`: the tile stays, inferred; counted only when the contexts list without an error) and its
+credential plugin's approval. `hotbar.openCluster` connects through `Session.Connect`, as
+`cluster.connect` does. The GUI reads `hotbar.list` again whenever `UIState.Hotbar`, the connection
+or the contexts (`EventContexts`) change and changes the hotbar only through the commands. Fyne makes
+no shortcut of an unmodified or shifted key, so F1–F12 and ⇧F1–⇧F12 reach the window's typed-key
+handler (Shift read from the desktop driver) and the table's `TypedKey` (which tracks Shift), both
+of which hand them to the hotbar; a focused text field or terminal keeps them.
 
 **Panel widths are GUI-only** (decided 2026-10-12, [`panelwidths.go`](../../internal/ui/fyneui/panelwidths.go)):
 the width of the primary sidebar and of the detail drawer is a window-layout preference, not UI
@@ -1574,6 +1600,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | §4.3 the hotbar as engine state (G13, night run): `UIState.Hotbar`, the store in `hotbar.json`, `ChangeHotbar` and `HotbarView`, the GUI's bar and its F-keys; one line in Current state |
 | 2026-10-12 | minor | Current state after the fifth run's evening: crash reports, the MCP switch, the window's metrics and chart hover, the quit crash fixed |
 | 2026-10-12 | minor | §9 Prometheus in the window (G12, third slice): the variants per provider, Network and Filesystem drawn, the second series colour, byte axes in binary steps, ranges to 30 days held by the engine (`ui.setMetricsRange`, `MetricsTarget.Range`, `ui.state`'s `drawerCharts`); checked against a real Prometheus on kind, and the three faults it found fixed (the filesystem metric per kind, a node's disks only, the rate windows) |
 | 2026-10-12 | minor | §9 Prometheus (G12, second slice, backend): detection among the cached Services and the override, the provider with range and instant queries, the detector chain, `RangeProvider`, per-chart ranges (`SetMetricsRange`), `ObjectMetrics` with network and filesystem series |

@@ -585,13 +585,25 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 ### G13. Clusters, hotbar, palette, menus, shortcuts and preferences
 - **Required next (owner, 2026-10-12: "still missing, do not forget"):** the hotbar (Lens's
-  vertical bar at the window's left edge with the pinned clusters' icons).
-- **Missing:** kubeconfig syncs (alpha needs these; pasting is not a target, D-21), the hotbar, the command palette,
+  vertical bar at the window's left edge with the pinned clusters' icons). **Built 2026-10-12**
+  (night run, [`engine/hotbar.go`](../../internal/engine/hotbar.go),
+  [`fyneui/hotbar.go`](../../internal/ui/fyneui/hotbar.go)): banks of up to 12 pinned clusters as engine
+  state (`UIState.Hotbar`, nine `hotbar.*` commands and MCP tools that write only
+  `<user config dir>/Cogpit/hotbar.json`), the bar left of the navigator with initials tiles, a
+  connection dot, the context as tooltip and the "‹ 1 ›" switcher, a click or F1–F12 to connect,
+  ⇧F1–⇧F12 to switch banks, Add to Hotbar in the picker's row menu and the Cluster menu
+  (`TestHotbarCommands`, `TestHotbarFunctionKeys`, [PNG](../../internal/ui/fyneui/testdata/hotbar_bank_dark.png)).
+  Differs from Lens: initials instead of the cluster's icon (cluster identity missing), Move Up and
+  Down instead of dragging, no command palette, the F-keys do nothing while a text field or a
+  terminal has the focus, not tried in a real window; inferred: missing contexts kept as marked
+  tiles, at most 12 banks, the arrows wrap, the confirmation before removing a bank with clusters
+  ([ui-parity › Hotbar](ui-parity.md#hotbar)).
+- **Missing:** kubeconfig syncs (alpha needs these; pasting is not a target, D-21), the hotbar's icons and dragging, the command palette,
   the application menu, every keyboard shortcut, preferences, cluster settings, appearance and
   application integration.
 - **Evidence:** [ui-parity](ui-parity.md), 65 rows across those sections (6 more are marked not a
-  target).
-- **Estimate:** 65–165 h (1–2.5 h per row; the registry makes shortcuts and menus cheap).
+  target); 7 of them partial since 2026-10-12 (the hotbar's six and the Cluster menu).
+- **Estimate:** 58–150 h (was 65–165; the hotbar's rows built, night run; 1–2.5 h per row, the registry makes shortcuts and menus cheap).
 
 ## Platform gaps
 
@@ -718,6 +730,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | G13: the hotbar built (night run), what differs from Lens and what is inferred; estimate 58–150 h (the totals not recounted) |
 | 2026-10-12 | minor | G12: the owner's evening requirements (a status line per provider; history from Prometheus, then live values from the Metrics Server; one of the two alone only when the other fails or is missing) and the step of mixed ranges waiting for the owner; G16: the quit crash fixed |
 | 2026-10-12 | minor | G12: checked against a real Prometheus on kind (the `prometheus` chart); three faults it found fixed; only kube-prometheus-stack and the override left unchecked; estimate not moved |
 | 2026-10-12 | minor | G12: the window draws Prometheus (Network, Filesystem, ranges to 30 days held by the engine through `ui.setMetricsRange`); range values beyond 1h inferred; estimate not moved |

@@ -45,6 +45,7 @@ it. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
 
 - 🖥️ A native macOS app first, Windows and Linux (Ubuntu first) after the macOS beta.
 - 🗂️ Every cluster from your kubeconfig files and synced folders, side by side.
+- 📌 A hotbar of pinned clusters at the window's edge, in banks of twelve: F1–F12 to switch cluster, ⇧F1–⇧F12 to switch bank.
 - 🔐 Your credentials stay yours: kubectl's own authentication code (certificates, tokens, exec plugins for EKS, GKE, AKS); no local proxy, no login.
 - ⚡ Cache first: views read from a watch-fed cache; switching back to a view costs no API request.
 - 📋 Lens's resource views: workloads, config, network, storage, access control, custom resources.
@@ -79,6 +80,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | MCP bearer token | `<user config dir>/Cogpit/mcp-token`, owner-only (0600, directory 0700), new on every start, removed on exit and when you switch the external MCP server off | |
 | Audit log | `<user config dir>/Cogpit/audit.log`, owner-only, one JSON line per agent-initiated command | |
 | Drain journal | `<user config dir>/Cogpit/drains.json`, owner-only (0600, directory 0700): the drains Cogpit started and has not finished, offered again on the next connect | |
+| Hotbar | `<user config dir>/Cogpit/hotbar.json`, owner-only (0600, directory 0700): the banks of pinned clusters by context id; an unreadable one is moved to `hotbar.json.unreadable` at the first change | |
 | App log | `<user cache dir>/Cogpit/cogpit.log`, and stderr | |
 | Terminal kubeconfig | a temporary file per terminal holding only a context, owner-only, deleted on close ([why](docs/security/credentials.md#the-terminals-kubeconfig)) | |
 | Demo context | `demo` (the synthetic cluster) | |
@@ -192,7 +194,7 @@ Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never a
 registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 79 commands</summary>
+<summary>All 88 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -219,6 +221,15 @@ registry with `go run ./hack/readmecmds`.
 | `helm.release.upgrade` | `helm_release_upgrade` | mutating | `ref`, `revision`?, `tab`?, `textRevision`?, `values`?, `version`? | Upgrades a Helm release as helm upgrade does with its defaults (hooks waited for, ten revisions kept), with the release's own chart and new user-supplied values, which replace the old ones whole: the values of a Helm Upgrade tab (tab), or values given here with the revision they are based on |
 | `helm.release.upgradeTab` | `helm_release_upgradeTab` | ui | `ref` | Opens a release's Helm Upgrade dock tab, or activates the one already open on it: the release's chart, the version the upgrade installs (the release's own: Cogpit has no chart repositories yet) and its user-supplied values in an editor, read from Cogpit's cache |
 | `helm.release.values` | `helm_release_values` | read | `all`?, `ref` | Returns a release's values from Cogpit's cache, the newest revision's: the user-supplied ones, or all of them with the chart's defaults (all), with the revision and chart they are of |
+| `hotbar.addCluster` | `hotbar_addCluster` | ui | `bank`?, `context`? | Pins a cluster to the hotbar: a tile for the context at the end of a bank, which F1–F12 open by its place |
+| `hotbar.createBank` | `hotbar_createBank` | ui | `name`? | Adds an empty bank after the others and shows it; the hotbar holds at most 12 banks, the ones ⇧F1–⇧F12 reach |
+| `hotbar.list` | `hotbar_list` | read |  | Returns the hotbar, the bar of pinned clusters at the left edge of Cogpit's window: its banks (numbered from 1, as the switcher shows them) with their names and tiles, top to bottom, and the bank shown now (current) |
+| `hotbar.moveCluster` | `hotbar_moveCluster` | ui | `bank`?, `context`, `position` | Moves a tile to another place in its bank (from 1, the top), which changes the F-key that opens it; the tiles between move one place |
+| `hotbar.openCluster` | `hotbar_openCluster` | ui | `bank`?, `slot` | Opens the cluster of a hotbar tile, as clicking it or pressing its F-key does (F1 the top tile of the bank shown): connects to its context and opens its Pods view, replacing the current connection, exactly as cluster_connect does; a tile of the cluster connected already changes nothing |
+| `hotbar.removeBank` | `hotbar_removeBank` | ui | `bank`? | Removes a bank of the hotbar with its tiles; the banks after it move up one number, and the hotbar keeps at least one bank |
+| `hotbar.removeCluster` | `hotbar_removeCluster` | ui | `bank`?, `context`? | Unpins a cluster: removes the context's tile from a bank; the tiles below it move up one place |
+| `hotbar.renameBank` | `hotbar_renameBank` | ui | `bank`?, `name` | Renames a bank of the hotbar; the switcher shows the name as its tooltip |
+| `hotbar.switchBank` | `hotbar_switchBank` | ui | `bank` | Shows another bank of the hotbar, as the switcher's arrows or ⇧F1–⇧F12 do; F1–F12 then open that bank's clusters |
 | `kinds.list` | `kinds_list` | read |  | Lists the kinds the connected cluster serves, as Cogpit shows them: kind key (what other tools take as kind), title, Kubernetes kind, group, version, whether it is namespaced, its table columns, and the fields resources_find can search by |
 | `kubeconfig.addFile` | `kubeconfig_addFile` | ui | `path` | Adds a kubeconfig file the user picked as a source: its contexts become available as "<context> [<file name>]", read from that file alone, and follow its changes |
 | `kubeconfig.addFolder` | `kubeconfig_addFolder` | ui | `path` | Adds a sync folder: every kubeconfig file in it (not in its subfolders) becomes available as "<context> [<folder>/<file>]", and files that appear in it or leave it later are picked up or dropped |
@@ -272,7 +283,7 @@ registry with `go run ./hack/readmecmds`.
 | `ui.setMetricsRange` | `ui_setMetricsRange` | ui | `container`?, `range`?, `ref` | Sets the time range of one chart in the detail drawer's Metrics section, as the chart's range control does: the pod's or node's own chart, or with container one container's chart |
 | `ui.setNamespace` | `ui_setNamespace` | ui | `namespaces`? | Sets the namespace filter of the namespaced views; an empty list shows all namespaces |
 | `ui.sort` | `ui_sort` | ui | `column`, `desc`? | Sorts the open view by a column id (name, namespace, age, ... as kinds_list reports them), ascending unless desc is true |
-| `ui.state` | `ui_state` | read |  | Returns what the user sees: the connected context and its connection state, the open view (kind key), the namespace filter, the search text, the sort order, the selected objects, the object in the detail drawer, the dock tabs, how many rows the view shows of how many objects, and for a pod's or node's drawer the time range of each metrics chart (drawerCharts) |
+| `ui.state` | `ui_state` | read |  | Returns what the user sees: the connected context and its connection state, the open view (kind key), the namespace filter, the search text, the sort order, the selected objects, the object in the detail drawer, the dock tabs, how many rows the view shows of how many objects, for a pod's or node's drawer the time range of each metrics chart (drawerCharts), and the hotbar of pinned clusters as hotbar_list returns it |
 | `workload.logs` | `workload_logs` | read | `ref` | Opens a dock tab with the logs of every container of every pod a Deployment, Daemon Set, Stateful Set, Replica Set or Job controls (a Deployment's through its replica sets), each line starting with <pod>/<container>, and follows them: pods and restarted containers join as they start |
 | `workloads.overview` | `workloads_overview` | read | `events`?, `namespaces`? | Reads the Workloads Overview: for each workload kind the cluster serves (pods, deployments, daemon sets, stateful sets, replica sets, jobs, cron jobs) the number of objects in the selected namespaces and their health, as counts per status token (ok, succeeded, pending, warning, error, terminating, unknown, and none); with events, also the events of those namespaces |
 
