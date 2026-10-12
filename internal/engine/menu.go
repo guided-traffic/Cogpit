@@ -21,12 +21,13 @@ const (
 // Order and no Kinds (Edit and Delete apply to every kind), sorted by Order, then by id. A menu
 // shows each one unless [Command.Applicable] says it does not apply to the object (Cordon on a
 // cordoned node), greyed when [Command.Enabled] gives a reason. The row menu leaves out the
-// drawer-only ones (Command.DrawerOnly: Copy).
+// drawer-only ones (Command.DrawerOnly: Copy). The actions on a selection (Command.TakesSelection,
+// selection.go) are a selection's menu's, not one object's.
 func (r *Registry) Actions(kind string) []*Command {
 	r.mu.RLock()
 	out := make([]*Command, 0, 8)
 	for _, c := range r.cmds {
-		if c.Order > 0 && (len(c.Kinds) == 0 || slices.Contains(c.Kinds, kind)) {
+		if c.Order > 0 && !c.TakesSelection() && (len(c.Kinds) == 0 || slices.Contains(c.Kinds, kind)) {
 			out = append(out, c)
 		}
 	}

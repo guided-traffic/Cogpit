@@ -40,6 +40,7 @@ var wantCommands = map[string]engine.Danger{
 	"dock.activate":      engine.DangerUI,
 	"deployment.restart": engine.DangerDestructive,
 	"object.delete":      engine.DangerDestructive,
+	"object.deleteMany":  engine.DangerDestructive, // Delete of the table's selection (TestDeleteManyOneConfirmation)
 	"node.cordon":        engine.DangerMutating,
 	"node.uncordon":      engine.DangerMutating,
 	"node.drain":         engine.DangerDestructive,

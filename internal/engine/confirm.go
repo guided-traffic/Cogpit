@@ -34,8 +34,14 @@ type ConfirmRequest struct {
 	Review string `json:"-"`
 }
 
+// ConfirmNamed is how many objects the confirmation's message names before it gives the count of
+// the rest ("and 12 more"); the dialog lists every object below it (a selection's Delete).
+const ConfirmNamed = 10
+
 // Message is the confirmation text: "Delete pod web-0 in namespace default (context kind-cogpit)?"
-// with the origin named when an agent asked.
+// with the origin named when an agent asked. Several objects are counted first and named up to
+// ConfirmNamed: "Delete 3 objects: configmaps a, configmaps b, configmaps c in namespace shop
+// (context kind-cogpit)?".
 func (r ConfirmRequest) Message() string {
 	var b strings.Builder
 	if r.Origin.IsAgent() {
@@ -43,13 +49,23 @@ func (r ConfirmRequest) Message() string {
 	}
 	b.WriteString(r.Label)
 	b.WriteString(" ")
-	names := make([]string, 0, len(r.Objects))
-	for _, o := range r.Objects {
+	if len(r.Objects) > 1 {
+		fmt.Fprintf(&b, "%d objects: ", len(r.Objects))
+	}
+	names := make([]string, 0, min(len(r.Objects), ConfirmNamed))
+	for _, o := range r.Objects[:min(len(r.Objects), ConfirmNamed)] {
 		names = append(names, o.Kind+" "+o.Name)
 	}
 	b.WriteString(strings.Join(names, ", "))
-	if len(r.Namespaces) > 0 {
+	if more := len(r.Objects) - ConfirmNamed; more > 0 {
+		fmt.Fprintf(&b, " and %d more", more)
+	}
+	switch {
+	case len(r.Namespaces) == 1:
 		b.WriteString(" in namespace ")
+		b.WriteString(r.Namespaces[0])
+	case len(r.Namespaces) > 1:
+		b.WriteString(" in namespaces ")
 		b.WriteString(strings.Join(r.Namespaces, ", "))
 	}
 	fmt.Fprintf(&b, " (context %s)?", r.Context)

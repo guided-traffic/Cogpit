@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G5, G13: the welcome page, the Help and Window menus, Disconnect and Remove from Cogpit built, four rows partial, estimates not moved; G8: the log tab's pod and container selectors, older lines and jump to a time partial; G8: the log tab's pod and container selectors and older lines partial; G8: the log tab's pod and container selectors partial; G11: a release upgraded to a version from the user's repositories; G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G9, G7: Delete of a selection built in the engine (`object.deleteMany`), estimates not moved; G5, G13: the welcome page, the Help and Window menus, Disconnect and Remove from Cogpit built, four rows partial, estimates not moved; G8: the log tab's pod and container selectors, older lines and jump to a time partial; G8: the log tab's pod and container selectors and older lines partial; G8: the log tab's pod and container selectors partial; G11: a release upgraded to a version from the user's repositories; G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -389,7 +389,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 ### G9. YAML editor and create resource
 - **Missing:** drafts kept for crash recovery, "Revert to original", the Create resource tab's save
-  and search buttons, Delete of a selection, the Secret create dialog (the other seven partial since 2026-10-12, G7)
+  and search buttons, the Secret create dialog (the other seven partial since 2026-10-12, G7)
   and their YAML fallback, a Secrets path (**built 2026-10-12**, `TestSecretEditAndCreateAreGUIOnly`; decided 2026-10-12, [D-19](../developer/decisions.md#d-19-editing-and-creating-secrets-from-yaml): Secrets editable and creatable from YAML in the GUI only, the values from the cache since the full watch, agents refused; 4–8 h).
 - **Evidence:** [ui-parity](ui-parity.md#editor-and-create-resource): 4 rows partial, 1 missing;
   [resource-parity](resource-parity.md#every-kind): Edit and Delete partial. Built on 2026-10-11:
@@ -404,6 +404,16 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   (`TestKindEditCreateConflictDelete`). Edit and Delete are greyed "not permitted" when the access
   reviews deny `update` or `delete` on the object (2026-10-11, `TestEditAndDeleteFollowAccessReviews`,
   `TestKindAccessReviews`).
+- **Delete of a selection (built 2026-10-13, night run):** `object.deleteMany` deletes up to 500
+  objects of any kinds after one confirmation for every origin that lists every object (its message
+  the first ten and the count), their namespaces and the context; each object is deleted with its
+  own confirmed UID as the precondition, one failure does not stop the others and is reported with
+  its reason, nothing is retried; the deleted objects leave the selection, which `ui.select` sets
+  with modes for agents and the window alike ([architecture §4.2](../developer/architecture.md#42-the-command-registry),
+  [`commands/selection.go`](../../internal/engine/commands/selection.go); `TestDeleteManyOneConfirmation`,
+  `TestDeleteManyPartialFailure`, `TestDeleteManyNeedsTheAgentsAcceptance`). Inferred, Cogpit's
+  defaults: the bound of 500, the wording, the other actions staying on one object. Estimate not
+  moved (the lead recounts).
 - **Estimate:** 8–22 h (was 10–25; Edit and Delete follow the access reviews, third run).
 
 ### G10. Port forwarding

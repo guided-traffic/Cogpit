@@ -56,8 +56,11 @@ type filterParams struct {
 }
 
 type selectParams struct {
-	Refs     []model.ObjectRef `json:"refs,omitempty" jsonschema:"objects of the open view to select; empty clears the selection"`
-	NoDrawer bool              `json:"noDrawer,omitempty" jsonschema:"select without opening the detail drawer on the first object"`
+	Refs []model.ObjectRef `json:"refs,omitempty" jsonschema:"objects of the open view to select; empty with mode replace clears the selection"`
+	Mode string            `json:"mode,omitempty" jsonschema:"how the objects change the selection: replace (the default: they become the selection), add, toggle (each is added, or removed when selected) or remove"`
+	All  bool              `json:"all,omitempty" jsonschema:"true: the objects are every row the open view shows (its namespace filter and search applied), in place of refs"`
+	// NoDrawer applies to mode replace; the other modes never change the drawer.
+	NoDrawer bool `json:"noDrawer,omitempty" jsonschema:"with mode replace: select without opening the detail drawer on the first object (or, with no objects, without closing it); the other modes never change the drawer"`
 }
 
 type refParams struct {
@@ -167,42 +170,15 @@ func registerUI(g *registrar) {
 
 	add(g, engine.Spec[selectParams]{
 		ID: "ui.select", Label: "Select", Danger: engine.DangerUI, Verbs: cacheReads,
-		Description: "Selects objects of the open view and, unless noDrawer is true, opens the detail drawer on the first " +
-			"one. An empty list clears the selection (and closes the drawer unless noDrawer). On the cluster Overview " +
-			"the objects are its issues' (any kind). To select an object of another kind or one hidden by the filters, " +
-			"use ui_navigate. Returns the new UI state.",
+		Description: "Selects objects of the open view, as a click on a row, its checkbox, ⌘-click, ⇧-click or the " +
+			"header's checkbox does. mode replace (the default) makes them the selection and, unless noDrawer is true, " +
+			"opens the detail drawer on the first one; an empty list clears the selection (and closes the drawer unless " +
+			"noDrawer). mode add, toggle and remove change the selection and leave the drawer as it is. all: true takes " +
+			"every row the view shows (namespace filter and search applied) in place of refs. Actions on the selection " +
+			"take its objects (object_deleteMany). On the cluster Overview the objects are its issues' (any kind). To " +
+			"select an object of another kind or one hidden by the filters, use ui_navigate. Returns the new UI state.",
 		Enabled: func(s *engine.Session, _ selectParams) error { _, err := openView(s); return err },
-		Run: func(_ context.Context, s *engine.Session, p selectParams) (any, error) {
-			view, prof, err := openViewKey(s)
-			if err != nil {
-				return nil, err
-			}
-			refs := make([]model.ObjectRef, 0, len(p.Refs))
-			for _, r := range p.Refs {
-				if r.Kind != prof.Key && !engine.MixedKinds(view) {
-					return nil, fmt.Errorf("%s is not of the open view's kind %s; use ui_navigate", r.String(), prof.Key)
-				}
-				rr, _, err := s.ResolveRef(r)
-				if err != nil {
-					return nil, err
-				}
-				if !slices.ContainsFunc(refs, rr.Same) {
-					refs = append(refs, rr)
-				}
-			}
-			return s.UpdateUI(func(u *engine.UIState) {
-				u.Selected = refs
-				if p.NoDrawer {
-					return
-				}
-				if len(refs) == 0 {
-					u.Drawer = nil
-					return
-				}
-				d := refs[0]
-				u.Drawer = &d
-			}), nil
-		},
+		Run:     selectObjects,
 	})
 
 	add(g, engine.Spec[struct{}]{

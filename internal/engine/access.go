@@ -31,7 +31,8 @@ type Access interface {
 var ErrNotPermitted = errors.New("not permitted")
 
 // permitted is the registry's generic access check (Command.Enabled): every declared verb, for
-// the object the parameters name. Commands without a "ref" parameter, kinds Cogpit makes itself
+// the object the parameters name, or for every object of a selection ("refs", object.deleteMany:
+// the first denial greys the whole action). Commands without a "ref" parameter, kinds Cogpit makes itself
 // (local kinds), a verb on "*" for a kind that is no API object (a virtual kind: Edit and Delete
 // do not apply to it), and answers the reviews do not have pass.
 func (s *Session) permitted(c *Command, p any) error {
@@ -42,10 +43,16 @@ func (s *Session) permitted(c *Command, p any) error {
 	if b == nil || b.Access == nil {
 		return nil
 	}
-	ref, ok := paramsRef(p)
-	if !ok {
-		return nil
+	for _, ref := range paramsRefs(p) {
+		if err := s.permittedOn(b, c, ref); err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+// permittedOn checks every verb a command declares for one object.
+func (s *Session) permittedOn(b *Backend, c *Command, ref model.ObjectRef) error {
 	prof, hasProf := b.Profile(ref.Kind)
 	if hasProf && prof.Local {
 		return nil
@@ -86,17 +93,28 @@ func describeVerb(v Verb, namespace string) string {
 	return out
 }
 
-// paramsRef returns the object a command's parameters name in their "ref" field.
-func paramsRef(p any) (model.ObjectRef, bool) {
+// paramsRefs returns the objects a command's parameters name: the one in their "ref" field, and
+// a selection's in their "refs" field (object.deleteMany), each checked as one object's would be.
+func paramsRefs(p any) []model.ObjectRef {
 	raw, err := json.Marshal(p)
 	if err != nil {
-		return model.ObjectRef{}, false
+		return nil
 	}
 	var withRef struct {
-		Ref *model.ObjectRef `json:"ref"`
+		Ref  *model.ObjectRef  `json:"ref"`
+		Refs []model.ObjectRef `json:"refs"`
 	}
-	if json.Unmarshal(raw, &withRef) != nil || withRef.Ref == nil || withRef.Ref.Kind == "" {
-		return model.ObjectRef{}, false
+	if json.Unmarshal(raw, &withRef) != nil {
+		return nil
 	}
-	return *withRef.Ref, true
+	var out []model.ObjectRef
+	if withRef.Ref != nil && withRef.Ref.Kind != "" {
+		out = append(out, *withRef.Ref)
+	}
+	for _, r := range withRef.Refs {
+		if r.Kind != "" {
+			out = append(out, r)
+		}
+	}
+	return out
 }

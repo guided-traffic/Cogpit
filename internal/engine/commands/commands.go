@@ -27,6 +27,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerResources(g)
 	registerDock(g)
 	registerActions(g)
+	registerSelection(g)
 	registerNodes(g)
 	registerWorkloads(g)
 	registerEdit(g)
