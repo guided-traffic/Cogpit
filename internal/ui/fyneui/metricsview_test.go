@@ -164,9 +164,40 @@ func podMetricsFixture(ref model.ObjectRef) *engine.ObjectMetrics {
 // metricsDrawer opens the rich fixture pod's drawer with canned metrics.
 func metricsDrawer(t *testing.T, mode ThemeMode, mutate func(*engine.ObjectMetrics)) (*shell, *fakeEngine, *mainQueue) {
 	t.Helper()
+	return metricsDrawerFor(t, richPod(t), mode, mutate)
+}
+
+// twoContainerPod is a fixture pod with the containers app and envoy.
+func twoContainerPod(t testing.TB) podSpec {
+	t.Helper()
+	for _, p := range fixturePodSpecs() {
+		if slices.Equal(p.containers, []string{"app", "envoy"}) && p.state == podOK {
+			return p
+		}
+	}
+	t.Fatal("no fixture pod with the containers app and envoy")
+	return podSpec{}
+}
+
+// withEnvoy adds the numbers of a second container, envoy, with other requests and limits.
+func withEnvoy(m *engine.ObjectMetrics) {
+	app := m.Targets[1]
+	samples := metricsSeries(len(app.Samples), func(i int) model.Usage {
+		u := app.Samples[i].Usage
+		return model.Usage{CPUMilli: u.CPUMilli / 4, MemoryBytes: u.MemoryBytes / 3}
+	})
+	cur := samples[len(samples)-1].Usage
+	m.Targets = append(m.Targets, engine.MetricsTarget{
+		Name: "envoy", Current: &cur, At: fixedNow, Samples: samples,
+		Requests: model.Usage{CPUMilli: 50, MemoryBytes: 64 << 20}, Limits: model.Usage{CPUMilli: 100, MemoryBytes: 96 << 20},
+	})
+}
+
+// metricsDrawerFor opens a fixture pod's drawer with canned metrics.
+func metricsDrawerFor(t *testing.T, p podSpec, mode ThemeMode, mutate func(*engine.ObjectMetrics)) (*shell, *fakeEngine, *mainQueue) {
+	t.Helper()
 	f := kindsFake(t, "pods")
 	withUsageCells(t, f, "pods")
-	p := richPod(t)
 	ref := model.ObjectRef{Context: "demo", Kind: "pods", Namespace: p.ns, Name: p.name}
 	m := podMetricsFixture(ref)
 	if mutate != nil {
@@ -218,11 +249,11 @@ func TestPodDrawerMetricsSection(t *testing.T) {
 		t.Errorf("axis %v to %v", d.From, d.To)
 	}
 	// Each container has a chart of its own under its section title.
-	if len(p.perBox) != 1 || p.perBox["app"] == nil || len(p.perBox["app"].data.Series) != 1 {
+	if len(p.perBox) != 1 || p.perBox["app"] == nil || len(p.perBox["app"].plot.data.Series) != 1 {
 		t.Fatalf("container charts = %v", p.perBox)
 	}
-	if !p.perBox["app"].data.Compact || p.perBox["app"].data.Lines[0].Value != 0.2 {
-		t.Errorf("app's chart: %+v", p.perBox["app"].data)
+	if !p.perBox["app"].plot.data.Compact || p.perBox["app"].plot.data.Lines[0].Value != 0.2 {
+		t.Errorf("app's chart: %+v", p.perBox["app"].plot.data)
 	}
 }
 
@@ -406,24 +437,32 @@ func TestRenderMetricsDrawer(t *testing.T) {
 	for _, c := range []struct {
 		mode   ThemeMode
 		name   string
-		scroll float32 // how far the drawer is scrolled: to a container's chart
+		width  float32 // the drawer's width; 0 keeps the default
+		scroll float32 // how far the drawer is scrolled: to the containers' charts
 	}{
-		{ThemeDark, "pod_metrics_dark.png", 0}, {ThemeLight, "pod_metrics_light.png", 0},
-		{ThemeDark, "pod_metrics_containers_dark.png", 700},
+		{ThemeDark, "pod_metrics_dark.png", 0, 0}, {ThemeLight, "pod_metrics_light.png", 0, 0},
+		{ThemeDark, "pod_metrics_containers_dark.png", 0, 400}, {ThemeLight, "pod_metrics_containers_light.png", 0, 400},
+		{ThemeDark, "pod_metrics_narrow_dark.png", minDrawerWidth, 0}, {ThemeLight, "pod_metrics_narrow_containers_light.png", minDrawerWidth, 600},
 	} {
-		mode, name, scroll := c.mode, c.name, c.scroll
-		t.Run(name, func(t *testing.T) {
-			sh, _, _ := metricsDrawer(t, mode, nil)
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			sh, _, q := metricsDrawerFor(t, twoContainerPod(t), c.mode, withEnvoy)
+			if c.width > 0 {
+				sh.setDrawerWidth(c.width)
+				q.until(t, "the drawer to take the width", func() bool { return sh.drawer.width == c.width })
+				settle(sh.win)
+			}
 			p := sh.drawer.kept[metricsKey].(*metricsPanel)
 			p.flag.OnTapped() // events on, as the capture shows them
-			sh.drawer.scroll.Offset.Y = scroll
+			p.perBox["envoy"].variants[variantMemory].OnTapped()
+			sh.drawer.scroll.Offset.Y = c.scroll
 			sh.drawer.scroll.Refresh()
 			settle(sh.win)
 			dir := os.Getenv("COGPIT_PNG_DIR")
 			if dir == "" {
 				dir = t.TempDir()
 			}
-			f, err := os.Create(filepath.Join(dir, name))
+			f, err := os.Create(filepath.Join(dir, c.name))
 			if err != nil {
 				t.Fatal(err)
 			}

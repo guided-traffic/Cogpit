@@ -1234,11 +1234,20 @@ Metrics section; the drawer then builds a `metricsPanel` above the Properties an
 rebuilds (`drawer.kept`). The panel reads `Session.ObjectMetrics` off the main goroutine, and again
 on every `EventMetrics`, and updates its widgets in place: a new measurement redraws the chart and
 nothing else (`TestMetricsEventUpdatesInPlace`). It shows the source line ("Displaying metrics from
-Kubernetes Metrics Server") or, without metrics, the reason in place of the chart, a range select (5m,
-15m, 30m, 1h; 1h at first), the variant buttons (CPU, Memory; Network and Filesystem disabled with
-the tooltip "needs Prometheus") and a flag button that marks the object's events from the drawer
-model. The pod drawer's containers get a compact chart each under their section title, following the
-pod's variant and range. The chart widget takes plain series, dashed reference lines and markers and
+Kubernetes Metrics Server") or, without metrics, the reason in place of the chart. **Every chart has
+its own row of controls** (`chartCtl`; there is no main button): the pod's or node's chart, and the
+compact chart under each container's section title. A row is a time range (5m, 15m, 30m, 1h; 1h at
+first), the variant buttons (CPU, Memory; Network and Filesystem disabled with the tooltip "needs
+Prometheus") and a flag button that marks the object's events from the drawer model. Range, variant
+and flag are per chart, so changing one chart changes only that chart; the container's row is
+smaller (a "1h" button that opens a menu of the ranges, the labels CPU, Mem, Net, FS, no divider),
+so it stays on one line at the drawer's minimum width. The data stays one poll per drawer: the
+panel's `ObjectMetrics` feeds every chart, each reading its target by name and drawing it in its own
+variant, with that container's requests and limits (`TestEveryChartHasItsOwnControls`). The
+`chartCtl`s live in the panel (`perBox` for the containers), which `drawer.kept` keeps across
+rebuilds, so a selection survives watch events and polls; a container that appears later gets a new
+`chartCtl` with the defaults (CPU, 1h, events off: `TestLateContainerStartsWithCPU`). A selection is
+not kept when the drawer shows another object or is closed. The chart widget takes plain series, dashed reference lines and markers and
 draws them with canvas lines in theme tokens: usage in the accent colour, requests and allocatable
 capacity in the warning colour, limits and capacity in the error colour, events in the pending
 yellow; its width is never more than the drawer's.

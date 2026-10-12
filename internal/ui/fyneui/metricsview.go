@@ -53,74 +53,53 @@ var metricsRanges = []struct {
 const defaultMetricsRange = "1h"
 
 type metricsPanel struct {
+	*chartCtl // the pod's or node's own chart and controls
+
 	d   *drawer
 	ref model.ObjectRef
 
-	data       *engine.ObjectMetrics
-	events     []engine.EventItem
+	data   *engine.ObjectMetrics
+	events []engine.EventItem
+	loads  int
+	closed bool
+
+	root    *fyne.Container
+	caption *textLine
+	note    *textLine
+	perBox  map[string]*chartCtl // each container's compact chart and controls, by container name
+}
+
+// chartCtl is one chart with its own row of controls: the time range, the variant, the events
+// flag. Its selection is its own, so changing one chart changes only that chart; the panel's data
+// (one poll per drawer) feeds them all. It lives as long as the panel, so its selection survives
+// the drawer's rebuilds and the polls.
+type chartCtl struct {
+	p       *metricsPanel
+	name    string // the container's name; "" for the pod or node
+	compact bool
+
 	variant    string
 	window     time.Duration
 	showEvents bool
-	loads      int
-	closed     bool
 
-	root     *fyne.Container
+	root     *fyne.Container // a container's controls and chart; nil for the pod's, which the panel's root holds
 	controls *fyne.Container
-	rangeSel *widget.Select
+	rangeSel *widget.Select // the pod's; a container's chart has rangeBtn
+	rangeBtn *tipButton
 	variants map[string]*tipButton
 	flag     *tipButton
 	plot     *chart
-	caption  *textLine
-	note     *textLine
-	perBox   map[string]*chart // each container's compact chart, by container name
 }
 
-var metricsVariants = []struct{ id, label string }{
-	{variantCPU, "CPU"}, {variantMemory, "Memory"}, {variantNetwork, "Network"}, {variantFilesystem, "Filesystem"},
+// metricsVariants are the buttons of every chart; short is the label on a compact chart's small
+// buttons (the tooltip has the full name).
+var metricsVariants = []struct{ id, label, short string }{
+	{variantCPU, "CPU", "CPU"}, {variantMemory, "Memory", "Mem"}, {variantNetwork, "Network", "Net"}, {variantFilesystem, "Filesystem", "FS"},
 }
 
 func newMetricsPanel(d *drawer, ref model.ObjectRef) *metricsPanel {
-	p := &metricsPanel{d: d, ref: ref, variant: variantCPU, window: time.Hour, variants: map[string]*tipButton{}, perBox: map[string]*chart{}}
-	sh := d.sh
-
-	labels := make([]string, len(metricsRanges))
-	for i, r := range metricsRanges {
-		labels[i] = r.label
-	}
-	p.rangeSel = widget.NewSelect(labels, func(l string) {
-		for _, r := range metricsRanges {
-			if r.label == l {
-				p.window = r.d
-			}
-		}
-		p.render()
-	})
-	p.rangeSel.Selected = defaultMetricsRange
-
-	ctl := make([]fyne.CanvasObject, 1, 3+len(metricsVariants))
-	ctl[0] = p.rangeSel
-	for _, v := range metricsVariants {
-		id := v.id
-		b := newTipButton(sh, nil, v.label, func() { p.setVariant(id) })
-		b.Text = v.label
-		p.variants[id] = b
-		ctl = append(ctl, b)
-	}
-	p.variants[variantNetwork].tip = "Network: " + needsPrometheus
-	p.variants[variantFilesystem].tip = "Filesystem: " + needsPrometheus
-	p.variants[variantNetwork].Disable()
-	p.variants[variantFilesystem].Disable()
-	p.variants[variantCPU].tip = "CPU usage"
-	p.variants[variantMemory].tip = "Memory usage"
-
-	p.flag = newTipButton(sh, flagIcon, "Show events", func() {
-		p.showEvents = !p.showEvents
-		p.render()
-	})
-	ctl = append(ctl, newDivider(true), p.flag)
-	p.controls = box(&flowLayout{avail: d.contentWidth}, ctl...)
-
-	p.plot = newChart()
+	p := &metricsPanel{d: d, ref: ref, perBox: map[string]*chartCtl{}}
+	p.chartCtl = newChartCtl(p, "", false)
 	p.caption = newTextLine("Loading metrics…", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	p.caption.truncate = true
 	p.note = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
@@ -130,16 +109,99 @@ func newMetricsPanel(d *drawer, ref model.ObjectRef) *metricsPanel {
 	return p
 }
 
+// newChartCtl makes a chart with its controls: CPU selected, the default range, events off.
+func newChartCtl(p *metricsPanel, name string, compact bool) *chartCtl {
+	c := &chartCtl{p: p, name: name, compact: compact, variant: variantCPU, window: time.Hour, variants: map[string]*tipButton{}}
+	sh := p.d.sh
+
+	// The pod's chart picks its range in a select; a container's compact chart in a small button
+	// that opens a menu, so that its whole row of controls fits the drawer's minimum width.
+	ctl := make([]fyne.CanvasObject, 0, 3+len(metricsVariants))
+	if compact {
+		c.rangeBtn = newTipButton(sh, nil, "Time range", nil)
+		c.rangeBtn.Text, c.rangeBtn.Importance = defaultMetricsRange, widget.MediumImportance
+		c.rangeBtn.OnTapped = func() { c.rangeMenu() }
+		ctl = append(ctl, c.rangeBtn)
+	} else {
+		labels := make([]string, len(metricsRanges))
+		for i, r := range metricsRanges {
+			labels[i] = r.label
+		}
+		c.rangeSel = widget.NewSelect(labels, c.setRange)
+		c.rangeSel.Selected = defaultMetricsRange
+		ctl = append(ctl, c.rangeSel)
+	}
+	for _, v := range metricsVariants {
+		id := v.id
+		b := newTipButton(sh, nil, v.label, func() { c.setVariant(id) })
+		b.Text = v.label
+		if compact {
+			b.Text = v.short
+		}
+		c.variants[id] = b
+		ctl = append(ctl, b)
+	}
+	c.variants[variantNetwork].tip = "Network: " + needsPrometheus
+	c.variants[variantFilesystem].tip = "Filesystem: " + needsPrometheus
+	c.variants[variantNetwork].Disable()
+	c.variants[variantFilesystem].Disable()
+	c.variants[variantCPU].tip = "CPU usage"
+	c.variants[variantMemory].tip = "Memory usage"
+
+	c.flag = newTipButton(sh, flagIcon, "Show events", func() {
+		c.showEvents = !c.showEvents
+		c.p.render()
+	})
+	if !compact {
+		ctl = append(ctl, newDivider(true))
+	}
+	ctl = append(ctl, c.flag)
+	c.controls = box(&flowLayout{avail: p.d.contentWidth}, ctl...)
+	c.plot = newChart()
+	return c
+}
+
 // close stops the panel's loads from landing (keptCloser).
 func (p *metricsPanel) close() { p.closed = true }
 
-// setVariant switches the chart to CPU or Memory.
-func (p *metricsPanel) setVariant(id string) {
-	if id == p.variant {
+// setRange sets this chart's time range by its label.
+func (c *chartCtl) setRange(label string) {
+	for _, r := range metricsRanges {
+		if r.label == label {
+			c.window = r.d
+		}
+	}
+	if c.rangeSel != nil && c.rangeSel.Selected != label {
+		c.rangeSel.Selected = label
+		c.rangeSel.Refresh()
+	}
+	if c.rangeBtn != nil {
+		c.rangeBtn.Text = label
+		c.rangeBtn.Refresh()
+	}
+	c.p.render()
+}
+
+// rangeMenu opens the menu of ranges under a compact chart's range button.
+func (c *chartCtl) rangeMenu() {
+	items := make([]*fyne.MenuItem, len(metricsRanges))
+	for i, r := range metricsRanges {
+		label := r.label
+		items[i] = fyne.NewMenuItem(label, func() { c.setRange(label) })
+		items[i].Checked = r.d == c.window
+	}
+	if cnv := fyne.CurrentApp().Driver().CanvasForObject(c.rangeBtn); cnv != nil {
+		widget.ShowPopUpMenuAtRelativePosition(fyne.NewMenu("", items...), cnv, fyne.NewPos(0, c.rangeBtn.Size().Height), c.rangeBtn)
+	}
+}
+
+// setVariant switches this chart to CPU or Memory.
+func (c *chartCtl) setVariant(id string) {
+	if id == c.variant {
 		return
 	}
-	p.variant = id
-	p.render()
+	c.variant = id
+	c.p.render()
 }
 
 // setEvents hands the panel the object's events, whose times the flag button marks.
@@ -148,9 +210,21 @@ func (p *metricsPanel) setEvents(ev []engine.EventItem) {
 		return
 	}
 	p.events = ev
-	if p.showEvents {
-		p.render()
+	for _, c := range p.charts() {
+		if c.showEvents {
+			c.update()
+		}
 	}
+}
+
+// charts are the pod's or node's chart and the containers'.
+func (p *metricsPanel) charts() []*chartCtl {
+	out := make([]*chartCtl, 1, 1+len(p.perBox))
+	out[0] = p.chartCtl
+	for _, c := range p.perBox {
+		out = append(out, c)
+	}
+	return out
 }
 
 // refresh reads the engine's current numbers off the main goroutine and renders them.
@@ -197,40 +271,24 @@ func (p *metricsPanel) containerNames() []string {
 	return names
 }
 
-// containerChart returns the compact chart of a container, or nil without numbers for it.
+// containerChart returns the chart of a container with its own controls, or nil without numbers
+// for it.
 func (p *metricsPanel) containerChart(name string) fyne.CanvasObject {
 	if !slices.Contains(p.containerNames(), name) {
 		return nil
 	}
 	c := p.perBox[name]
 	if c == nil {
-		c = newChart()
+		c = newChartCtl(p, name, true)
+		c.root = container.NewVBox(c.controls, c.plot)
 		p.perBox[name] = c
-		p.renderTarget(c, name, true)
+		c.update()
 	}
-	return c
+	return c.root
 }
 
 // render draws the state: the source line or the reason there is none, and the charts.
 func (p *metricsPanel) render() {
-	for id, b := range p.variants {
-		b.Importance = widget.MediumImportance
-		if id == p.variant && id != variantNetwork && id != variantFilesystem {
-			b.Importance = widget.HighImportance
-		}
-		b.Refresh()
-	}
-	if p.showEvents {
-		p.flag.Importance = widget.HighImportance
-	} else {
-		p.flag.Importance = widget.LowImportance
-	}
-	p.flag.tip = "Show events"
-	if p.showEvents {
-		p.flag.tip = "Hide events"
-	}
-	p.flag.Refresh()
-
 	m := p.data
 	switch {
 	case m == nil:
@@ -255,9 +313,8 @@ func (p *metricsPanel) render() {
 		}
 		p.note.SetText(note)
 	}
-	p.renderTarget(p.plot, "", false)
-	for name, c := range p.perBox {
-		p.renderTarget(c, name, true)
+	for _, c := range p.charts() {
+		c.update()
 	}
 	p.root.Refresh()
 }
@@ -303,11 +360,34 @@ func (p *metricsPanel) coversWindow(t *engine.MetricsTarget) bool {
 	return p.d.sh.now().Sub(t.Samples[0].At) >= p.window
 }
 
-// renderTarget fills a chart with one target's series, lines and the events.
-func (p *metricsPanel) renderTarget(c *chart, name string, compact bool) {
+// update shows the chart's selection on its buttons and fills the chart.
+func (c *chartCtl) update() {
+	for id, b := range c.variants {
+		b.Importance = widget.MediumImportance
+		if id == c.variant && id != variantNetwork && id != variantFilesystem {
+			b.Importance = widget.HighImportance
+		}
+		b.Refresh()
+	}
+	c.flag.Importance = widget.LowImportance
+	c.flag.tip = "Show events"
+	if c.showEvents {
+		c.flag.Importance = widget.HighImportance
+		c.flag.tip = "Hide events"
+	}
+	c.flag.Refresh()
+	c.renderTarget()
+	if c.root != nil {
+		c.root.Refresh()
+	}
+}
+
+// renderTarget fills the chart with its target's series, lines and the events.
+func (c *chartCtl) renderTarget() {
+	p := c.p
 	to := p.d.sh.now()
-	d := chartData{From: to.Add(-p.window), To: to, Compact: compact, Loc: p.d.sh.loc(), Empty: "No data yet"}
-	cpu := p.variant == variantCPU
+	d := chartData{From: to.Add(-c.window), To: to, Compact: c.compact, Loc: p.d.sh.loc(), Empty: "No data yet"}
+	cpu := c.variant == variantCPU
 	if cpu {
 		d.Format = formatCores
 	} else {
@@ -319,9 +399,9 @@ func (p *metricsPanel) renderTarget(c *chart, name string, compact bool) {
 		}
 		return float64(u.MemoryBytes)
 	}
-	t := p.target(name)
+	t := p.target(c.name)
 	if t == nil || p.data == nil || p.data.Status != metrics.StatusAvailable {
-		c.Set(d)
+		c.plot.Set(d)
 		return
 	}
 	title := "Memory usage"
@@ -347,14 +427,14 @@ func (p *metricsPanel) renderTarget(c *chart, name string, compact bool) {
 			{Name: "Limits", Color: colorStatusError, Value: value(t.Limits)},
 		}
 	}
-	if p.showEvents {
+	if c.showEvents {
 		for _, e := range p.events {
 			if e.LastSeen > 0 {
 				d.Markers = append(d.Markers, chartMarker{At: time.Unix(e.LastSeen, 0), Name: "Events", Color: colorStatusPending})
 			}
 		}
 	}
-	c.Set(d)
+	c.plot.Set(d)
 }
 
 // flagIcon is the events toggle's icon: a flag, as Lens's "Show events" button has (a Material

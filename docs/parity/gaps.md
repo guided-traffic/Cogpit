@@ -442,7 +442,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   of a scope, cached for a 15 s TTL, no request when nothing is open: P12 in
   [testing](../developer/testing.md#performance-budgets-proposed-not-measured)); CPU and Memory
   columns in the Pods and Nodes lists; the drawer's Metrics section for a pod (per container too) and a
-  node with a chart, requests and limits as lines and event markers; `metrics.get` for agents; the
+  node with a chart, requests and limits as lines and event markers, every chart (the pod's and each container's) with its own range, variant buttons and events flag; `metrics.get` for agents; the
   demo cluster's synthetic Metrics Server. Design and numbers: [architecture §9](../developer/architecture.md#9-metrics-internalmetrics).
 - **Missing:** Prometheus through the service proxy (detection, the provider variants Lens lists,
   the override in cluster settings, history, Network and Filesystem, ranges beyond an hour, events from
@@ -641,6 +641,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | G12: every drawer chart has its own controls (owner's smoke launch: "no main button"); estimate not moved |
 | 2026-10-12 | minor | G2 (scope C2): the Kubeconfig Syncs captures followed: dot files, a closed connection, one dialog, `~/.kube` by default, the connect log, the Remove confirmation; estimate not moved (the lead recounts) |
 | 2026-10-12 | major | Totals after the fourth run: free parity ~420–1,040 h, full target ~620–1,450 h |
 | 2026-10-12 | minor | G8: the terminal widget fuzzed alone, its crashes, hangs and races patched, the upstream series prepared (D-14, fourth run); estimate of that part done |
