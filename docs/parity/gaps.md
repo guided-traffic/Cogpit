@@ -338,6 +338,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   cluster-admin and cluster-wide ones are confirmed for every origin (the lead's default, not the
   owner's decision; [H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache)).
   Still open: the Secret's dialog, the node shell, Helm install, captures of Lens's dialogs.
+  Delete acts on the table's selection since 2026-10-13 (`object.deleteMany`, one confirmation
+  naming every object; G9, G5); the other actions stay on one object (Cogpit's default, inferred).
 - **Estimate:** 12–45 h, estimated (was 20–70; 3 of 39 actions missing: the node shell, Helm install and the Secret's dialog, plus depth and captures).
 
 ### G8. Logs, terminal and shells
