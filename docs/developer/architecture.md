@@ -1354,7 +1354,8 @@ Where it differs from the contract above, this paragraph wins.
   release is pending.
 - **The tab in the GUI** ([`helmupgradetab.go`](../../internal/ui/fyneui/helmupgradetab.go)): save and
   find icons, the chart and its version as text beside a separate version picker (placeholder
-  "Select…"; it offers the release's own version, as Cogpit has no repositories), the line "Release
+  "Select…"; without a repository that lists the chart it offers the release's own version; with
+  one, since 2026-10-13, below), the line "Release
   <name> values.yaml, version …, on <namespace> namespace." with the release and the namespace as
   links (`ui.navigate`) and a spinner in the version's place until the values are loaded, and the
   values editor. The find icon opens the editor's find widget at its bottom
@@ -1536,6 +1537,18 @@ above, this paragraph wins.
   download whose index no longer lists the digest the detail promised is refused too
   (`TestHelmUpgradeFromARepositoryAgents`). The GUI's Save names the version and the repository the
   tab shows.
+- **The tab in the GUI** ([`helmupgradetab.go`](../../internal/ui/fyneui/helmupgradetab.go); inferred:
+  Lens with a repository is not captured). With a repository the chart reads
+  "<repository>/<chart>" (the captured "/<chart>" read as an empty repository) and the version text
+  drops "(no repository)"; the picker lists the versions, the release's own marked "(current)",
+  on the engine's choice; a second picker chooses the repository when several list the chart; the
+  info line's version is the chosen one, and the status line names a change of chart version
+  ("from chart version 4.12.1 to 4.13.0, downloaded from …"). A pick dispatches
+  `helm.release.upgradeTab` and the pickers follow the engine's tab, which the GUI reads from its UI
+  state when the tab's EventEditor arrives: the dock syncs its tabs when they come, go or move, not
+  when a tab's choice changes (`dockEqual` in [`shell.go`](../../internal/ui/fyneui/shell.go)), so the
+  engine emits the EventEditor after the UI state (`TestHelmUpgradeTabRepositoryVersions`,
+  `TestHelmUpgradeTabRepositoryChoice`, PNGs `helm_upgrade_picker_{dark,light}.png`).
 - **No preview.** The upgrade has no preview or dry run, so nothing renders an agent's values
   against the cluster before the user accepts the upgrade itself (the install's preview renders
   offline for agents, above, for the `lookup` through `tpl` reason). What the accepted upgrade

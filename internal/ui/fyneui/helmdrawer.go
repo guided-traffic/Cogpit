@@ -61,6 +61,8 @@ type (
 		TextRevision uint64  `json:"textRevision,omitempty"`
 		Values       *string `json:"values,omitempty"`
 		Revision     int     `json:"revision,omitempty"`
+		Version      string  `json:"version,omitempty"`    // the Upgrade tab's chosen chart version
+		Repository   string  `json:"repository,omitempty"` // where another version is downloaded from
 	}
 )
 

@@ -231,12 +231,11 @@ func newestUpgrade(c helm.IndexChart, own string) string {
 	return own
 }
 
-// setHelmUpgradeChoice gives an open Helm Upgrade tab a new choice, in its editor and in the dock.
+// setHelmUpgradeChoice gives an open Helm Upgrade tab a new choice, in the dock and then in its
+// editor, whose EventEditor (the text's revision unchanged) tells the GUI's tab to read the dock
+// again: a tab's choice is not among what makes the GUI sync its dock.
 func (s *Session) setHelmUpgradeChoice(id string, t *HelmUpgradeTab) error {
-	if _, err := s.updateEditor(id, func(e *editor) {
-		c := *t // a new value: copies of the editor share the old one
-		e.tab.Helm = &c
-	}); err != nil {
+	if _, err := s.editorOf(id); err != nil {
 		return err
 	}
 	s.UpdateUI(func(u *UIState) {
@@ -247,5 +246,9 @@ func (s *Session) setHelmUpgradeChoice(id string, t *HelmUpgradeTab) error {
 			}
 		}
 	})
-	return nil
+	_, err := s.updateEditor(id, func(e *editor) {
+		c := *t // a new value: copies of the editor share the old one
+		e.tab.Helm = &c
+	})
+	return err
 }

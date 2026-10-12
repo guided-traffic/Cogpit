@@ -61,6 +61,8 @@ func helmDispatches() []struct {
 		{"helm.release.upgrade", helmUpgradeParams{refParams: refParams{Ref: ref}, Values: &values, Revision: 3}},
 		{"helm.release.rollback", helmRollbackParams{refParams: refParams{Ref: ref}, Revision: 2}},
 		{helm.UpgradeTabCommand, refParams{Ref: ref}},
+		{helm.UpgradeTabCommand, helmUpgradeTabParams{refParams: refParams{Ref: ref}, Repository: "ingress-nginx", Version: "4.13.0"}},
+		{"helm.release.upgrade", helmUpgradeParams{refParams: refParams{Ref: ref}, Tab: "helmUpgrade-1", TextRevision: 2, Version: "4.13.0", Repository: "ingress-nginx"}},
 		{"editor.setText", editorTextParams{ID: "helmUpgrade-1", YAML: values}},
 	}
 }

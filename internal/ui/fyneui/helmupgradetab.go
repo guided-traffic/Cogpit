@@ -3,6 +3,7 @@ package fyneui
 import (
 	"errors"
 	"fmt"
+	"reflect"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -20,10 +21,18 @@ import (
 // namespace." with the release and the namespace as links, and the release's values in a YAML
 // editor whose text lives in the engine (editor.get, editor.setText, as an Edit tab's). The search
 // icon opens the editor's find widget at its bottom (findbar.go). Save sends the text, then
-// upgrades the release with it (helm.release.upgrade with the tab id and the text revision the
-// send made). Cogpit has no chart repositories, so the picker offers the release's own version
-// only and the version in the line needs no spinner past the load; the status line at the bottom
-// is Cogpit's: what the values are based on, progress and errors.
+// upgrades the release with it (helm.release.upgrade with the tab id, the text revision the send
+// made and the chart version the tab shows). The status line at the bottom is Cogpit's: what the
+// values are based on, what Save does, progress and errors.
+//
+// Without a chart repository that lists the release's chart the picker offers the release's own
+// version only, with Lens's "Select…" and "(no repository)" (captured). With one (2026-10-13;
+// inferred, Lens with a repository is not captured) the chart reads "<repository>/<chart>", the
+// version text loses "(no repository)", the picker offers the repository's versions with the
+// release's own marked "(current)" and starts on the engine's choice, the newest when it is newer,
+// and a second picker chooses the repository when several list the chart. A pick goes to the
+// engine (helm.release.upgradeTab with the repository and version), whose tab is what the pickers
+// show (update).
 type helmUpgradeTab struct {
 	sh   *shell
 	tab  engine.DockTab
@@ -32,7 +41,11 @@ type helmUpgradeTab struct {
 	saveBtn     *tipButton
 	searchBtn   *tipButton
 	find        *findBar
+	chartText   *textLine
 	version     *widget.Select
+	versionBox  *fyne.Container
+	repo        *widget.Select
+	repoBox     *fyne.Container
 	versionText *textLine
 	releaseLink *linkText
 	nsLink      *linkText
@@ -42,18 +55,32 @@ type helmUpgradeTab struct {
 	root        fyne.CanvasObject
 
 	busy bool
+	// labels maps the picker's options to the versions they name ("0.1.0 (current)" → "0.1.0").
+	labels map[string]string
+	// syncing is set while the pickers follow the engine, whose answer must not be sent back.
+	syncing bool
+	// loaded is the state the values were read at; showingBase says the status line shows it (not
+	// a result), so that a new choice may rewrite it.
+	loaded      engine.EditorState
+	showingBase bool
 }
 
 // noRepository marks a version that comes from the release itself, not from a chart repository,
 // as Lens writes it (captured 2026-10-12).
 const noRepository = " (no repository)"
 
+// currentVersion marks the release's own version among a repository's (inferred).
+const currentVersion = " (current)"
+
+// helmUpgradeTabParams mirror helm.release.upgradeTab's parameters.
+type helmUpgradeTabParams struct {
+	refParams
+	Repository string `json:"repository,omitempty"`
+	Version    string `json:"version,omitempty"`
+}
+
 func newHelmUpgradeTab(sh *shell, t engine.DockTab) *helmUpgradeTab {
 	u := &helmUpgradeTab{sh: sh, tab: t, pane: newEditorPane(sh, t.ID)}
-	chart, version, versions := "", "", []string(nil)
-	if t.Helm != nil {
-		chart, version, versions = t.Helm.Chart, t.Helm.Version, t.Helm.Versions
-	}
 	name, namespace, ctx := "", "", t.Context
 	if t.Ref != nil {
 		name, namespace = t.Ref.Name, t.Ref.Namespace
@@ -65,9 +92,15 @@ func newHelmUpgradeTab(sh *shell, t engine.DockTab) *helmUpgradeTab {
 	u.saveBtn = newTipButton(sh, theme.DocumentSaveIcon(), "Save: upgrade the release with these values", u.save)
 	u.searchBtn = newTipButton(sh, theme.SearchIcon(), "Find", u.toggleSearch)
 	u.find = newFindBar(sh, u.pane.view)
-	u.version = widget.NewSelect(versions, nil)
+	u.chartText = newTextLine("", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
+	u.version = widget.NewSelect(nil, nil)
 	u.version.PlaceHolder = "Select…"
-	u.versionText = newTextLine("version: "+version+noRepository, colorMuted, theme.SizeNameText, fyne.TextStyle{})
+	u.version.OnChanged = u.pickVersion
+	u.versionBox = box(fitSelect{}, u.version)
+	u.repo = widget.NewSelect(nil, nil)
+	u.repo.OnChanged = u.pickRepository
+	u.repoBox = box(fitSelect{}, u.repo)
+	u.versionText = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 
 	u.releaseLink = newLinkText(name, func() {
 		sh.followLink(model.ObjectRef{Context: ctx, Kind: helm.ReleaseKind, Namespace: namespace, Name: name}, ctx, false)
@@ -75,7 +108,7 @@ func newHelmUpgradeTab(sh *shell, t engine.DockTab) *helmUpgradeTab {
 	u.nsLink = newLinkText(namespace, func() {
 		sh.followLink(model.ObjectRef{Context: ctx, Kind: kindNamespaces, Name: namespace}, ctx, false)
 	})
-	u.infoVersion = newTextLine(version, colorMuted, theme.SizeNameText, fyne.TextStyle{})
+	u.infoVersion = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	u.infoVersion.Hide()
 	u.spinner = widget.NewActivity()
 	u.spinner.Start()
@@ -87,11 +120,10 @@ func newHelmUpgradeTab(sh *shell, t engine.DockTab) *helmUpgradeTab {
 
 	u.status = newTextLine("Loading…", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	u.status.truncate = true
+	u.showChoice()
 
 	chartLine := container.NewHBox(u.saveBtn, u.searchBtn, newDivider(true),
-		container.NewCenter(newTextLine("/"+chart, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})),
-		container.NewCenter(u.versionText),
-		box(fitSelect{options: append([]string{u.version.PlaceHolder}, versions...)}, u.version))
+		container.NewCenter(u.chartText), container.NewCenter(u.versionText), u.repoBox, u.versionBox)
 	header := container.NewStack(newSurface(colorDock), inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
 		container.NewVBox(chartLine, info)))
 	footer := container.NewStack(newSurface(colorDock), inset(theme.SizeNameInnerPadding, theme.SizeNamePadding, u.status))
@@ -113,19 +145,150 @@ func newHelmUpgradeTab(sh *shell, t engine.DockTab) *helmUpgradeTab {
 	return u
 }
 
-// showBase says which revision the values are based on, and whether the release has moved on.
+// choice is the engine's choice of chart and version for the tab.
+func (u *helmUpgradeTab) choice() engine.HelmUpgradeTab {
+	if u.tab.Helm == nil {
+		return engine.HelmUpgradeTab{}
+	}
+	return *u.tab.Helm
+}
+
+// showChoice shows the engine's choice: the chart (with its repository), the release's own
+// version, the repository picker when several list the chart, and the version picker on the
+// version the upgrade installs.
+func (u *helmUpgradeTab) showChoice() {
+	h := u.choice()
+	own := h.ReleaseVersion
+	if own == "" {
+		own = h.Version
+	}
+	u.syncing = true
+	defer func() { u.syncing = false }()
+	if h.Repository == "" {
+		u.chartText.SetText("/" + h.Chart)
+		u.versionText.SetText("version: " + own + noRepository)
+	} else {
+		u.chartText.SetText(h.Repository + "/" + h.Chart)
+		u.versionText.SetText("version: " + own)
+	}
+
+	if len(h.Repositories) > 1 {
+		u.repo.Options = h.Repositories
+		u.repoBox.Layout = fitSelect{options: h.Repositories}
+		u.repo.SetSelected(h.Repository)
+		u.repoBox.Show()
+	} else {
+		u.repoBox.Hide()
+	}
+	u.repoBox.Refresh()
+
+	u.labels = make(map[string]string, len(h.Versions))
+	options := make([]string, 0, len(h.Versions))
+	selected := ""
+	for _, v := range h.Versions {
+		label := v
+		if h.Repository != "" && v == own {
+			label += currentVersion
+		}
+		u.labels[label] = v
+		options = append(options, label)
+		if v == h.Version {
+			selected = label
+		}
+	}
+	u.version.Options = options
+	u.versionBox.Layout = fitSelect{options: append([]string{u.version.PlaceHolder}, options...)}
+	switch {
+	case h.Repository != "" && selected != "":
+		u.version.SetSelected(selected) // the engine's choice: the newest, or the user's pick
+	case u.labels[u.version.Selected] == "":
+		u.version.ClearSelected() // without a repository "Select…", as Lens shows it (captured)
+	}
+	u.version.Refresh()
+	u.versionBox.Refresh()
+	u.infoVersion.SetText(h.Version)
+}
+
+// update follows the engine's tab: a new choice of repository or version.
+func (u *helmUpgradeTab) update(t engine.DockTab) {
+	old := u.tab.Helm
+	u.tab = t
+	if t.Helm == nil || (old != nil && reflect.DeepEqual(*old, *t.Helm)) {
+		return
+	}
+	u.showChoice()
+	if u.showingBase {
+		u.showBase(u.loaded)
+	}
+}
+
+// pickVersion sends the user's pick to the engine; the pickers follow its answer (update).
+func (u *helmUpgradeTab) pickVersion(label string) {
+	h := u.choice()
+	v := u.labels[label]
+	if u.syncing || u.tab.Ref == nil || v == "" || v == h.Version {
+		return
+	}
+	u.choose(helmUpgradeTabParams{refParams: refParams{Ref: *u.tab.Ref}, Repository: h.Repository, Version: v}, "Version "+v)
+}
+
+// pickRepository sends the user's pick of a repository; the engine chooses its version.
+func (u *helmUpgradeTab) pickRepository(name string) {
+	if u.syncing || u.tab.Ref == nil || name == "" || name == u.choice().Repository {
+		return
+	}
+	u.choose(helmUpgradeTabParams{refParams: refParams{Ref: *u.tab.Ref}, Repository: name}, "Repository "+name)
+}
+
+func (u *helmUpgradeTab) choose(p helmUpgradeTabParams, what string) {
+	u.sh.dispatch(upgradeTabCommand, p, func(_ any, err error) {
+		if u.pane.closed {
+			return
+		}
+		if err == nil {
+			u.follow()
+			return
+		}
+		u.showChoice() // back to the engine's choice
+		u.setStatus(what+" was not chosen: "+errText(err), colorStatusError)
+	})
+}
+
+// follow reads the tab from the window's UI state. The dock syncs its tabs when they come, go or
+// move, not when a tab's choice changes (shell.go's dockEqual), so a choice the engine changed
+// arrives here: after the user's pick, and with the tab's EventEditor for an agent's (remote).
+func (u *helmUpgradeTab) follow() {
+	if t, ok := u.sh.ui.DockTab(u.tab.ID); ok {
+		u.update(t)
+	}
+}
+
+// showBase says which revision the values are based on, whether the release has moved on, and
+// what Save does: a change of the chart version is named.
 func (u *helmUpgradeTab) showBase(st engine.EditorState) {
+	u.loaded = st
 	switch {
 	case st.Missing:
 		u.setStatus("The release no longer exists.", colorStatusWarning)
 	case st.Stale:
 		u.setStatus(fmt.Sprintf("The release moved to revision %d since these values (revision %d) were read: Save is refused.", st.CachedRevision, st.BaseRevision), colorStatusWarning)
 	default:
-		u.setStatus(fmt.Sprintf("The user-supplied values of revision %d. Save upgrades the release with them.", st.BaseRevision), colorMuted)
+		text := fmt.Sprintf("The user-supplied values of revision %d. Save upgrades the release with them.", st.BaseRevision)
+		if h := u.choice(); h.Repository != "" && h.ReleaseVersion != "" && h.Version != h.ReleaseVersion {
+			to := "to"
+			if c, ok := helm.CompareVersions(h.Version, h.ReleaseVersion); ok && c < 0 {
+				to = "back to the older"
+			}
+			text = fmt.Sprintf("The user-supplied values of revision %d. Save upgrades the release with them from chart version %s %s %s, downloaded from %s.",
+				st.BaseRevision, h.ReleaseVersion, to, h.Version, h.Repository)
+		}
+		u.setStatus(text, colorMuted)
 	}
+	u.showingBase = true
 }
 
 func (u *helmUpgradeTab) setStatus(text string, c fyne.ThemeColorName) {
+	u.showingBase = false
 	u.status.SetText(text)
 	u.status.SetColor(c)
 }
@@ -137,6 +300,20 @@ func (u *helmUpgradeTab) setBusy(b bool) {
 	} else {
 		u.saveBtn.Enable()
 	}
+}
+
+// saveParams are the upgrade's parameters: the tab at the text revision the send made, and the
+// chart version the tab shows (with the repository it is downloaded from when it is not the
+// release's own), so that the upgrade installs what the user sees.
+func (u *helmUpgradeTab) saveParams(textRevision uint64) helmUpgradeParams {
+	p := helmUpgradeParams{refParams: refParams{Ref: *u.tab.Ref}, Tab: u.tab.ID, TextRevision: textRevision}
+	if h := u.choice(); h.Version != "" {
+		p.Version = h.Version
+		if h.Repository != "" && h.ReleaseVersion != "" && h.Version != h.ReleaseVersion {
+			p.Repository = h.Repository
+		}
+	}
+	return p
 }
 
 // save hands the text to the engine, then upgrades the release with the tab's values: in that
@@ -164,7 +341,7 @@ func (u *helmUpgradeTab) save() {
 			u.pane.pushed = tr.Revision
 		}
 		u.pane.dirty = u.pane.view.Text() != text
-		u.sh.dispatch("helm.release.upgrade", helmUpgradeParams{refParams: refParams{Ref: *u.tab.Ref}, Tab: u.tab.ID, TextRevision: tr.Revision}, func(res any, err error) {
+		u.sh.dispatch("helm.release.upgrade", u.saveParams(tr.Revision), func(res any, err error) {
 			if u.pane.closed {
 				return
 			}
@@ -218,7 +395,12 @@ func (l fitSelect) Layout(objs []fyne.CanvasObject, size fyne.Size) {
 	}
 }
 
-func (u *helmUpgradeTab) remote(rev uint64) { u.pane.remote(rev) }
+// remote follows the tab's EventEditor: text from elsewhere (an agent's editor.setText), or a new
+// choice of chart version (helm.release.upgradeTab, an upgrade's rebase).
+func (u *helmUpgradeTab) remote(rev uint64) {
+	u.pane.remote(rev)
+	u.follow()
+}
 
 func (u *helmUpgradeTab) close() {
 	u.spinner.Stop()

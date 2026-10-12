@@ -433,15 +433,15 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   version picker, its info line with links, and the editor's find widget (`findbar.go`). Cogpit
   keeps upgrading with the release's stored chart where Lens needs a repository (deliberate), so
   the picker offers that version only and the info line's spinner lasts only while the values load.
-- **Missing:** the repositories' versions in the Upgrade tab's picker (the engine offers them and
-  upgrades to them since 2026-10-13, below); authenticated, plain-http and OCI repositories
+- **Missing:** authenticated, plain-http and OCI repositories
   ([H-29](../security/credentials.md#h-29-authenticated-helm-repositories)); a list of public
   repositories to pick; chart icons and the README in the chart's drawer; the ConfigMaps and SQL
   storage drivers; captures of Lens's Charts view, chart drawer and Helm Install tab (Cogpit's
   are inferred). Views and actions count in G6 and G7.
 - **Evidence (2026-10-13, night run, the upgrade from repositories):** a release whose chart a
   repository added to Cogpit lists (by name) is upgraded to a version of it: the Upgrade tab's
-  choice (`helm.release.upgradeTab` with `repository`, `version`: the repository's versions newest
+  version picker with the repository's versions and a repository picker when several list the
+  chart (inferred: Lens with a repository is not captured), the engine's choice (`helm.release.upgradeTab` with `repository`, `version`: the repository's versions newest
   first, prereleases after, the release's own marked; a new tab on the newest when it is newer,
   Cogpit's defaults), `helm.release.upgrade` with `version` and `repository`, the chart downloaded
   and checked against the index's digest before the journal records anything, the confirmation
@@ -449,7 +449,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   ([architecture §8](../developer/architecture.md#8-helm-internalhelm);
   `TestHelmUpgradeTabOffersTheRepositorysVersions`, `TestHelmUpgradeFromARepository`,
   `TestHelmUpgradeFromARepositoryAgents`, `TestHelmUpgradeRepositoryRefusals`,
-  `TestHelmUpgradeRepositoryCrashJournal`, `TestUpgradeToARepositoryChart`).
+  `TestHelmUpgradeRepositoryCrashJournal`, `TestUpgradeToARepositoryChart`; GUI
+  `TestHelmUpgradeTabRepositoryVersions`, PNGs `helm_upgrade_picker_{dark,light}.png`).
 - **Evidence (2026-10-13, night run):** Charts partial and Install partial: public https chart
   repositories the user adds (`helm.repo.add`, `remove`, `update`, `list`; Helm › Repositories…),
   kept in Cogpit's own folders (`<user config dir>/Cogpit/helm/repositories.json`, the indexes in
@@ -489,8 +490,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   only" and Save; Notes; Resources by kind), its icons (Rollback, Upgrade, Delete), the Rollback
   dialog (every revision, newest first, the current one selected), the Delete dialog, the Helm
   Upgrade dock tab, and a rollback keeping 10 revisions ([resource-parity](resource-parity.md#helm)).
-- **Estimate:** 5–14 h (was 10–26; repositories, charts and the install with its dock tab built in the night run, 2026-10-13; left: the repositories' versions in the Upgrade tab, authenticated and OCI repositories, captures of Lens's Charts view and Install tab, the other storage drivers).
-- **Still to capture in Lens** (night run, 2026-10-13): the Charts view (its icon column, search hint and order), a chart's drawer, the Helm Install tab (its fields, the default release name and namespace, what Install does first) and the Helm Charts preferences.
+- **Estimate:** 4–12 h (was 5–14; the repositories' versions in the Upgrade tab built in the night run, 2026-10-13; left: authenticated and OCI repositories, captures of Lens's Charts view, Install tab and Upgrade tab with a repository, the other storage drivers).
+- **Still to capture in Lens** (night run, 2026-10-13): the Charts view (its icon column, search hint and order), a chart's drawer, the Helm Install tab (its fields, the default release name and namespace, what Install does first), the Helm Charts preferences, and the Upgrade tab of a release whose chart a repository holds (what "/<chart>" and "(no repository)" become, the picker's order, which version it starts on, prereleases, several repositories).
 - **Still to capture in Lens** (the staging cluster's release with five revisions, one failed): what the Rollback dialog's button does with the current revision selected, what Save does with the box cleared, where the checkbox sits relative to the editor, the texts of states other than Deployed and Failed, what the find widget's Replace does with a regular expression's groups.
 
 ### G12. Metrics and cluster overview
