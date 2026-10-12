@@ -12,6 +12,17 @@
   "labels": [
     "dependencies"
   ],
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/examples/**",
+    "**/__tests__/**",
+    "**/test/**",
+    "**/tests/**",
+    "**/__fixtures__/**",
+    "third_party/**"
+  ],
   "platformAutomerge": true,
   "automergeType": "pr",
   "automergeStrategy": "squash",
@@ -199,15 +210,30 @@
       ]
     },
     {
-      "description": "k8s.io/kube-openapi and sigs.k8s.io/structured-merge-diff are indirect deps whose compatible version is dictated by the k8s.io/apimachinery release branch, not by their own tip. Renovate's digest updates advanced kube-openapi past the commit where it switched to structured-merge-diff/v7, which apimachinery v0.37.0 cannot compile against. Let MVS pick both from apimachinery; they still advance whenever the k8s.io/* group does.",
+      "description": "k8s.io/kube-openapi, sigs.k8s.io/structured-merge-diff and sigs.k8s.io/kustomize/* are indirect deps whose compatible version is dictated by the k8s.io/apimachinery release branch, not by their own tip. Renovate's digest updates advanced kube-openapi past the commit where it switched to structured-merge-diff/v7, which apimachinery v0.37.x cannot compile against; kustomize/api and kyaml v0.21.3 require that kube-openapi too (2026-10-12). Let MVS pick them from apimachinery, kubectl and Helm; they still advance whenever the k8s.io/* group does.",
       "matchManagers": [
         "gomod"
       ],
       "matchPackageNames": [
         "k8s.io/kube-openapi",
-        "/^sigs\\.k8s\\.io/structured-merge-diff//"
+        "/^sigs\\.k8s\\.io/structured-merge-diff//",
+        "/^sigs\\.k8s\\.io/kustomize//"
       ],
       "enabled": false
+    },
+    {
+      "description": "github.com/godbus/dbus/v5 v5.2.3 does not compile on macOS and Windows (conn_darwin.go and conn_windows.go: not enough return values; 2026-10-12). Fyne's systray imports it on every platform. Skip that version; a later one is tried as usual.",
+      "matchPackageNames": [
+        "github.com/godbus/dbus/v5"
+      ],
+      "allowedVersions": "!/^v5\\.2\\.3$/"
+    },
+    {
+      "description": "github.com/fyne-io/terminal is replaced by the patched copy in third_party/fyne-terminal, so bumping its require line changes no code and would only make go.mod name a base the copy is not on. Its update is the signal to move the copy onto that upstream commit (third_party/fyne-terminal/PATCHES.md); never automerge it.",
+      "matchPackageNames": [
+        "github.com/fyne-io/terminal"
+      ],
+      "automerge": false
     },
     {
       "description": "Use 'fix' instead of 'chore' for dependency updates",

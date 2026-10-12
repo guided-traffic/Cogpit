@@ -703,19 +703,20 @@ Security perspective: [updates](../security/updates.md).
 
 Tiers, fixtures and budgets: [`testing.md`](testing.md).
 
-## 14. Key dependencies (observed 2026-10-11)
+## 14. Key dependencies (observed 2026-10-11, revised 2026-10-12)
 
-Versions as the Go module proxy listed them; pinned when M0 creates `go.mod`.
+Versions as the Go module proxy listed them; pinned when M0 creates `go.mod`. Revised 2026-10-12
+after the dependency update that cleared Renovate's backlog ([releasing › Renovate](releasing.md#renovate)).
 
 | Need | Module | Version | Note |
 |---|---|---|---|
 | UI toolkit | `fyne.io/fyne/v2` | v2.8.1 | decided after the spike gate ([D-1](decisions.md#d-1-ui-toolkit)) |
-| Terminal widget | `github.com/fyne-io/terminal` | commit `91063bb29d69` (2026-09-27) | untagged; newer commits require an unreleased Fyne |
+| Terminal widget | `github.com/fyne-io/terminal` | commit `46cd12724ff3` (2026-10-09), as a patched copy | untagged; its `go.mod` asks for an unreleased Fyne, its code builds on v2.8.1, and the copy's `go.mod` requires v2.8.1 ([PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)) |
 | Packaging | `fyne.io/tools` | v1.7.3 | `fyne package` |
 | Kubernetes API | `k8s.io/client-go`, `k8s.io/apimachinery`, `k8s.io/api` | v0.37.1 | Kubernetes 1.37 |
 | kubectl behaviour | `k8s.io/kubectl` | v0.37.1 | drain, rollout, describe |
 | Metrics API | `k8s.io/metrics` | v0.37.1 | |
-| Helm | `helm.sh/helm/v4` | v4.3.0 | in-process ([D-3](decisions.md#d-3-helm-and-kubectl-binaries)); in `go.mod` since 2026-10-11, built against k8s.io v0.37.0 and resolved to v0.37.1 with the rest (it also brings `k8s.io/apiserver`, `apiextensions-apiserver` v0.37.1, `controller-runtime` v0.24.1 and `oras-go` as indirect dependencies) |
+| Helm | `helm.sh/helm/v4` | v4.3.0 | in-process ([D-3](decisions.md#d-3-helm-and-kubectl-binaries)); in `go.mod` since 2026-10-11, built against k8s.io v0.37.0 and resolved to v0.37.1 with the rest (it also brings `k8s.io/apiserver`, `apiextensions-apiserver` v0.37.1, `controller-runtime` v0.25.2 since 2026-10-12, and `oras-go` as indirect dependencies) |
 | MCP | `github.com/modelcontextprotocol/go-sdk` | v1.8.0 | MCP specification 2026-07-28 |
 | LLM client | `github.com/openai/openai-go/v3` | v3.76.0 | OpenAI-compatible endpoints |
 | Updates (macOS) | Sparkle | 2.10.0 | embedded framework, EdDSA-signed appcast ([D-4](decisions.md#d-4-packaging-and-updates)) |

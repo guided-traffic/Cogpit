@@ -28,7 +28,7 @@ except the Coverage Badge job's; Renovate works with the team's GitHub App token
 timeout. Actions are pinned to the tags the team's other repositories use
 (`actions/checkout@v7`, `actions/setup-go@v7`, `actions/upload-artifact@v7`,
 `actions/download-artifact@v8`, `actions/setup-node@v7`, `msys2/setup-msys2@v2`,
-`helm/kind-action@v1.15.1`, `renovatebot/github-action@v46.3.7`,
+`helm/kind-action@v1.15.1`, `renovatebot/github-action@v46.3.8`,
 `actions/create-github-app-token@v3`); Renovate moves them.
 
 | Job | Runner | Runs | What it proves |
@@ -49,7 +49,7 @@ with a coverage profile, the same packages and the same race detector.
 test-unit-race`, `make test-unit-coverage` and `make build` pass; actionlint 1.7.12 with
 shellcheck finds nothing in `build.yml` and `release.yml` (in `renovate.yml` it flags
 `client-id`, which `actions/create-github-app-token@v3` accepts and its bundled metadata predates);
-Renovate 44.150.1's config validator accepts [`.github/renovate.json`](../../.github/renovate.json);
+Renovate 44.151.2's config validator accepts [`.github/renovate.json`](../../.github/renovate.json) with `--strict` (2026-10-12);
 the dry run passes with the committed configuration against a stand-in for the GitHub API.
 **Not verified, because it only runs on GitHub:** the Windows and Linux cgo builds, the kind job,
 the dry run with the real `GITHUB_TOKEN`, the badge commit. `make vuln` fails today: govulncheck
@@ -105,6 +105,20 @@ out (container images, Helm charts, Valkey images) and one group added (Fyne):
   and the workflows follow it through `go-version-file`.
 - Dependency updates are committed as `fix:` (a patch release once releases are real), Actions
   updates as `chore:`.
+- `third_party/**` is not scanned (2026-10-12): the patched terminal widget keeps upstream's
+  `go.mod` and workflows, which Cogpit's build does not use (the root `go.mod` decides every version
+  through MVS, and GitHub runs only the root's workflows). The widget itself is tracked through
+  the `github.com/fyne-io/terminal` line of the root `go.mod`, which never merges on its own: the
+  `replace` makes that bump a no-op, so its pull request is the signal to move the copy onto the new
+  upstream commit ([PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)).
+- Held back, each with the reason in its rule: `k8s.io/kube-openapi`, `structured-merge-diff` and
+  `sigs.k8s.io/kustomize/*` follow the `k8s.io/*` release (kustomize v0.21.3 needs a kube-openapi
+  on `structured-merge-diff/v7`, which apimachinery v0.37.x does not compile against);
+  `github.com/godbus/dbus/v5` v5.2.3 does not compile on macOS and Windows.
+
+Automerge needs every check green, so one flaky test holds back every pull request: on 2026-10-12,
+44 were open, 3 of them broken by the update itself (the three held back above) and the rest by
+tests that assumed an order of asynchronous results, which CI's slower runners do not keep.
 
 Renovate's pull requests change `go.mod` and `go.sum` on their own branches; agents working in
 parallel rebase onto them like onto any other commit on `main`. Renovate runs `go mod tidy` after

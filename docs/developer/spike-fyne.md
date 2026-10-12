@@ -61,7 +61,7 @@ Verified on 2026-10-11 by reading the sources of the pinned versions:
 | Wayland is supported by default and picked at runtime | Fyne changelog | test both X11 and Wayland in S5 |
 | `fyne-io/terminal`'s `RunLocalShell` starts the shell with the process's own environment | `term_unix.go` | per-terminal `KUBECONFIG` needs Cogpit's own PTY and `RunWithConnection` |
 | `fyne-io/terminal` uses ConPTY on Windows | `term_windows.go` | the same approach is available to Cogpit's own PTY |
-| `fyne-io/terminal` has no tagged releases; commit `46cd12724ff3` (2026-10-09) requires an unreleased Fyne, commit `91063bb29d69` (2026-09-27) builds with Fyne 2.8.1 | its `go.mod` history | pin `91063bb29d69` |
+| `fyne-io/terminal` has no tagged releases; commit `46cd12724ff3` (2026-10-09) requires an unreleased Fyne, commit `91063bb29d69` (2026-09-27) builds with Fyne 2.8.1 | its `go.mod` history | pin `91063bb29d69`; 2026-10-12: `46cd12724ff3`'s code builds and passes its tests on Fyne 2.8.1 (only its `go.mod` asks for more), and Cogpit's copy moved to it ([PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)) |
 | Widget updates from other goroutines go through `fyne.Do` or `fyne.DoAndWait` | `fyne.io/fyne/v2@v2.8.1/thread.go` | engine events reach the UI only through `fyne.Do` |
 
 ## Effort

@@ -1,7 +1,8 @@
 # Cogpit's patches to fyne-io/terminal
 
-This directory is `github.com/fyne-io/terminal` at commit `91063bb29d69` (2026-09-27), without its
-`cmd/` and `img/` directories, used by Cogpit through a `replace` directive in Cogpit's `go.mod`.
+This directory is `github.com/fyne-io/terminal` at commit `46cd12724ff3` (2026-10-09; moved from
+`91063bb29d69` on 2026-10-12, whose two upstream commits since touch none of the patched code),
+without its `cmd/` and `img/` directories, used by Cogpit through a `replace` directive in Cogpit's `go.mod`.
 Terminal output comes from containers, which anyone who can deploy to a cluster controls; the
 upstream widget crashed or froze Cogpit's whole process on some of it, on Fyne's main goroutine,
 where nothing can recover. Each patch is marked `Cogpit patch:` in the code. They are candidates
@@ -18,5 +19,8 @@ for upstream; drop the fork once upstream has equivalent fixes.
 | `osc.go` | OSC 7 (the shell reporting its directory) records the directory in the configuration instead of changing the whole process's working directory |
 | `escape_test.go` | `TestScrollBack_Tmux` expects the 5 rows of its screen rather than the 46 an unclamped region grew the grid to |
 
-Upstream's `TestExitCode*` tests start a shell and hang in this environment with and without the
-patches. Licence: BSD-3-Clause, see [`LICENSE`](LICENSE).
+`go.mod` requires Fyne v2.8.1, the latest release, where upstream's asks for an unreleased Fyne
+(`v2.8.2-0.20261009111023-0a528b3a387b`); its indirect requirements are the ones `go mod tidy`
+derives from that, so the copy never raises a module in Cogpit's build above what Fyne v2.8.1
+needs. The code builds and its tests pass on v2.8.1 (2026-10-12), `TestExitCode*` included, which
+hung before upstream's `c8f30fa`. Licence: BSD-3-Clause, see [`LICENSE`](LICENSE).

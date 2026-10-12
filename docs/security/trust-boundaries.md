@@ -77,7 +77,8 @@ verified; kubectl has the same exposure.
 
 ### H-19: The terminal widget trusts its input
 
-The terminal widget, `github.com/fyne-io/terminal` at the pinned commit `91063bb29d69`, froze or
+The terminal widget, `github.com/fyne-io/terminal` at commit `91063bb29d69` (Cogpit's copy has been
+on `46cd12724ff3` since 2026-10-12; upstream's commits in between touch none of this), froze or
 crashed the whole app on output a container can send (a tab at the right margin looped forever;
 delete and insert characters and some scroll regions indexed out of range, on the main goroutine
 where nothing recovers), and changed Cogpit's working directory on OSC 7. Cogpit builds against a

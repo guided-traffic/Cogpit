@@ -20,6 +20,22 @@ func TestNewTerminal(t *testing.T) {
 	assert.NotNil(t, term.content)
 }
 
+func TestTerminal_CreateRenderer_KeepsContent(t *testing.T) {
+	term := New()
+	term.Resize(fyne.NewSize(200, 100))
+	term.handleOutput([]byte("Hello"))
+	assert.Equal(t, "Hello", term.Text())
+
+	grid, cursor := term.content, term.cursor
+	// Fyne destroys renderers of widgets that have not been drawn for a while
+	// (e.g. a background tab) and then calls CreateRenderer again.
+	term.CreateRenderer()
+
+	assert.Same(t, grid, term.content)
+	assert.Same(t, cursor, term.cursor)
+	assert.Equal(t, "Hello", term.Text())
+}
+
 func TestExitCode(t *testing.T) {
 	term := New()
 	assert.Equal(t, term.ExitCode(), int(-1))
@@ -34,7 +50,7 @@ func testExitCodeN(t *testing.T, n int) {
 	err := errors.New("NotYet")
 	for err != nil {
 		time.Sleep(50 * time.Millisecond)
-		_, _ = fmt.Fprintf(term, "exit %d\n", n)
+		_, err = fmt.Fprintf(term, "exit %d\n", n)
 	}
 	for term.ExitCode() == -1 {
 		time.Sleep(50 * time.Millisecond)
