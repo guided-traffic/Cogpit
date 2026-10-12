@@ -28,7 +28,7 @@ own. **Human** marks what an agent can't finish alone.
 | G4 | Engine and command registry | foundation | blocks alpha | 10–28 h | [architecture §4](../developer/architecture.md#4-the-ui-seam-the-most-important-interface) |
 | G5 | App shell, navigation, tables and drawer | UI | blocks alpha | 35–110 h | [ui-parity](ui-parity.md#layout) |
 | G6 | Resource views | features | blocks alpha (core kinds) | 30–100 h | [resource-parity](resource-parity.md) |
-| G7 | Resource actions | features | blocks alpha (core actions) | 20–70 h | [resource-parity](resource-parity.md) |
+| G7 | Resource actions | features | blocks alpha (core actions) | 12–45 h | [resource-parity](resource-parity.md) |
 | G8 | Logs, terminal and shells | features | blocks alpha | 16–40 h | [ui-parity](ui-parity.md#logs) |
 | G9 | YAML editor and create resource | features | blocks alpha | 8–22 h | [ui-parity](ui-parity.md#editor-and-create-resource) |
 | G10 | Port forwarding | features | blocks alpha | 2–6 h | [ui-parity](ui-parity.md#port-forwarding) |
@@ -299,7 +299,16 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   or scaled, whatever the origin, also when Cogpit's cache has not seen it yet
   (`TestKindPatchesBoundToTheUID` on Kubernetes 1.36.1, `TestRestartAndScaleCarryTheUID`;
   [architecture §4.2](../developer/architecture.md#42-the-command-registry)).
-- **Estimate:** 20–70 h (was 45–140; 11 of 39 actions missing, mostly create dialogs, 2–5 h each, plus depth).
+  Create dialogs (2026-10-12, [resource-parity › Create dialogs](resource-parity.md#create-dialogs)):
+  Namespace, Service Account, Role, Cluster Role, Role Binding, Cluster Role Binding and Resource
+  Quota partial, behind their views' "+", as engine commands that check the fields, dry-run and
+  create ([`commands/createdialogs.go`](../../internal/engine/commands/createdialogs.go),
+  [`createdialog.go`](../../internal/ui/fyneui/createdialog.go); `TestKindCreateDialogs` on
+  Kubernetes 1.36.1); their fields are inferred, Lens's dialogs not captured. Bindings to
+  cluster-admin and cluster-wide ones are confirmed for every origin (the lead's default, not the
+  owner's decision; [H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache)).
+  Still open: the Secret's dialog, the node shell, Helm install, captures of Lens's dialogs.
+- **Estimate:** 12–45 h, estimated (was 20–70; 3 of 39 actions missing: the node shell, Helm install and the Secret's dialog, plus depth and captures).
 
 ### G8. Logs, terminal and shells
 - **Missing:** the terminal tab on `fyne-io/terminal`, connected to Cogpit's own PTY (local shell
@@ -730,6 +739,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | G7: seven create dialogs partial (Namespace, Service Account, the four RBAC kinds, Resource Quota); 3 of 39 actions missing; estimate 12–45 h (was 20–70); totals not recounted |
 | 2026-10-12 | minor | G13: the hotbar built (night run), what differs from Lens and what is inferred; estimate 58–150 h (the totals not recounted) |
 | 2026-10-12 | minor | G12: the owner's evening requirements (a status line per provider; history from Prometheus, then live values from the Metrics Server; one of the two alone only when the other fails or is missing) and the step of mixed ranges waiting for the owner; G16: the quit crash fixed |
 | 2026-10-12 | minor | G12: checked against a real Prometheus on kind (the `prometheus` chart); three faults it found fixed; only kube-prometheus-stack and the override left unchecked; estimate not moved |
