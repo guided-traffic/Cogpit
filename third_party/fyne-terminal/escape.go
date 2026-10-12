@@ -190,7 +190,6 @@ func escapeDeleteChars(t *Terminal, msg string) {
 	if i == 0 {
 		i = 1
 	}
-	right := t.cursorCol + i
 
 	row := t.content.Row(t.cursorRow)
 	// Cogpit patch: the cursor can be past the row's cells (a short row, a cleared line); slicing
@@ -198,6 +197,12 @@ func escapeDeleteChars(t *Terminal, msg string) {
 	if t.cursorCol >= len(row.Cells) {
 		return
 	}
+	// Cogpit patch: the count is clamped to the cells right of the cursor; a count near MaxInt
+	// overflowed cursorCol+count and sliced at a negative index.
+	if room := len(row.Cells) - t.cursorCol; i > room {
+		i = room
+	}
+	right := t.cursorCol + i
 	cells := row.Cells[:t.cursorCol]
 	if right < len(row.Cells) {
 		cells = append(cells, row.Cells[right:]...)

@@ -6,8 +6,8 @@ without its `cmd/` and `img/` directories, used by Cogpit through a `replace` di
 Terminal output comes from containers, which anyone who can deploy to a cluster controls; the
 upstream widget crashed or froze Cogpit's whole process on some of it, on Fyne's main goroutine,
 where nothing can recover. Each patch is marked `Cogpit patch:` in the code. They are candidates
-for upstream (prepared as a patch series against upstream's master on 2026-10-12, not sent: the
-owner decides); drop the fork once upstream has equivalent fixes ([D-14](../../docs/developer/decisions.md#d-14-terminal-widget)).
+for upstream (the patch series against upstream's master is not built yet, and nothing is sent
+before the owner's OK); drop the fork once upstream has equivalent fixes ([D-14](../../docs/developer/decisions.md#d-14-terminal-widget)).
 
 ## Crashes and hangs
 
@@ -24,6 +24,7 @@ owner decides); drop the fork once upstream has equivalent fixes ([D-14](../../d
 | `escape.go` | 2026-10-12: set and reset mode (`CSI h`, `CSI l`) check for the `?` of the private modes (`escapeMode`); without a parameter (`ESC [ h`) they sliced out of range, and with one the ANSI mode lost its first digit, so `CSI 20 h` (new line mode) did nothing and `CSI 125 l` hid the cursor. ANSI mode 20 sets new line mode; `CSI ? 20 h` still does too |
 | `escape.go` | 2026-10-12: with debug output on, the device attribute queries without a parameter (`ESC [ > c`, which vim sends) logged `code[1]` and indexed out of range |
 | `escape.go` | 2026-10-12: repeat (`CSI b`) skips the whole lines past a screenful and a line, which leave the screen and the cursor as they were (`TestRepeatChar_LargeCount` compares with writing the character that often); a large count looped for as long as the count |
+| `escape.go` | 2026-10-12: delete characters (`CSI P`) clamps its count to the cells right of the cursor; a count near `MaxInt` overflowed the cursor's column plus the count and sliced at a negative index (`TestDeleteChars_LargeCount`; found by Cogpit's review of the fork, unreachable through Cogpit's terminal view, which caps every number at 9999) |
 | `escape.go` | 2026-10-12: delete lines, insert lines, scroll up and scroll down (`CSI M`, `L`, `S`, `T`) clamp their count to the lines the region has below the cursor or in all; a large count looped for as long as the count (scroll down overflowed `scrollTop+lines`) and blanked lines above the cursor or the region |
 | `output.go` | 2026-10-12: the sequence or string being parsed is a byte buffer (`addCode`, `takeCode`) instead of a string grown with `+=`; an unterminated OSC, APC or DCS string, or a long CSI, took time quadratic in its length on the reader goroutine (about a minute for 1 MiB) and memory without a bound. One longer than 1 MiB (`maxCodeLen`) is dropped |
 | `output.go` | 2026-10-12: ST (`ESC \`) ends an APC string as well as an OSC one; the APC went on, and all later output was added to it instead of being shown, until a NUL arrived |
@@ -51,7 +52,7 @@ goroutine that reads the connection. These patches keep each field on one of the
 
 | File | What |
 |---|---|
-| `escape_test.go` | `TestScrollBack_Tmux` expects the 5 rows of its screen rather than the 46 an unclamped region grew the grid to; 2026-10-12: a test per patch above (`TestHandleEscape_NonASCIIFinal`, `TestSetMode_WithoutPrivateMarker`, `TestDeviceAttributes_Debug`, `TestInsertLines`, `TestLineCounts_Overflow`, `TestRepeatChar_LargeCount`) |
+| `escape_test.go` | `TestScrollBack_Tmux` expects the 5 rows of its screen rather than the 46 an unclamped region grew the grid to; 2026-10-12: a test per patch above (`TestHandleEscape_NonASCIIFinal`, `TestSetMode_WithoutPrivateMarker`, `TestDeviceAttributes_Debug`, `TestInsertLines`, `TestLineCounts_Overflow`, `TestRepeatChar_LargeCount`, `TestDeleteChars_LargeCount`) |
 | `apc_test.go`, `osc_test.go` | 2026-10-12: `TestAPC_StringTerminator`, `TestOSC_LongStrings` |
 | `fuzz_test.go` | 2026-10-12: `FuzzHandleOutput`, output at sizes from 0x0 to 255x255 with a resize part way, debug output on or off; a panic, or an input not done within 30 seconds, fails. Seeds: every input above and real programs' output in `test_data/sessions` (vim 9.1, less 668, macOS `nano` (UW PICO 5.09) and GNU screen 4.00.03 running less, recorded in an 80x24 pseudo-terminal on synthetic files) |
 | `mainloop_test.go` | 2026-10-12: the fuzz target runs `fyne.Do` on a stand-in for the desktop driver's main goroutine, so that the race detector sees the two goroutines; Fyne's test driver runs `fyne.Do` on the calling goroutine |

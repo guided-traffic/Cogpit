@@ -375,8 +375,7 @@ they were the first patches to add.
 panic with debug output on, five sequences whose counts made the widget loop for as long as the
 count, strings parsed in quadratic time, an APC that never ended, and data races between its two
 goroutines ([PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)). Its tests and fuzz seeds run
-in `make test-unit-race` and CI (`make test-fork`). The patch series for upstream is prepared, not
-sent: offering it is the owner's step. Nothing found so far calls for option (c).
+in `make test-unit-race` and CI (`make test-fork`). The patch series for upstream is not built yet (the fourth run's record said prepared; corrected 2026-10-12): building it is the lead's step, offering it the owner's. Nothing found so far calls for option (c).
 
 **Decided how (owner, 2026-10-12):** the lead prepares the upstream series as three or four grouped
 pull requests (crashes, hangs and performance, races, OSC 7), each fix one commit with a test in

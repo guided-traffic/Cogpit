@@ -32,6 +32,7 @@ var fuzzSeeds = []string{
 	"x\x1b[9223372036854775807b",                             // repeat a character many times
 	"\x1b[9223372036854775807M", "\x1b[9223372036854775807L", // delete and insert many lines
 	"\x1b[9223372036854775807S", "\x1b[2;5r\x1b[9223372036854775807T", // scroll many lines
+	"abcdef\x1b[1;3H\x1b[9223372036854775807P", // delete many characters
 	"\x1b[>c", "\x1b[=c", "\x1b[c", // device attributes
 	"\x1b[5ihidden\x1b[4i",                                    // media copy
 	"\x1b]0;title\x07\x1b]7;file:///tmp\x1b\\",                // OSC

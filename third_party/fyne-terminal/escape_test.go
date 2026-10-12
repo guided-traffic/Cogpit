@@ -480,6 +480,31 @@ func TestLineCounts_Overflow(t *testing.T) {
 	}
 }
 
+func TestDeleteChars_LargeCount(t *testing.T) {
+	tests := map[string]struct {
+		input    string
+		expected string
+	}{
+		"within the row":   {input: "\x1b[1;3H\x1b[2P", expected: "abef\n2\n3\n4\n5"},
+		"past the row":     {input: "\x1b[1;3H\x1b[9P", expected: "ab\n2\n3\n4\n5"},
+		"largest":          {input: "\x1b[1;3H\x1b[9223372036854775807P", expected: "ab\n2\n3\n4\n5"},
+		"largest, at last": {input: "\x1b[1;6H\x1b[9223372036854775807P", expected: "abcde\n2\n3\n4\n5"},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			term := New()
+			term.config.Columns = 10
+			term.config.Rows = 5
+			term.scrollBottom = 4
+			term.Refresh() // ensure visuals set up
+			term.handleOutput([]byte("abcdef\r\n2\r\n3\r\n4\r\n5"))
+			term.handleOutput([]byte(test.input))
+			assert.Equal(t, test.expected, term.content.Text())
+		})
+	}
+}
+
 func TestRepeatChar_LargeCount(t *testing.T) {
 	newTerm := func(cols, rows uint) *Terminal {
 		term := New()
