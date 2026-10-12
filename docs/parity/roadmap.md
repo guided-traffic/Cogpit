@@ -74,8 +74,8 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
    ([G5](gaps.md#g5-app-shell-navigation-tables-and-drawer)).
 2. **Finish the fifth run:** the default kubeconfig as sources
    ([D-28](../developer/decisions.md#d-28-the-default-kubeconfig-as-sources-as-lens-has-it)), the
-   UI PNGs regenerated, the announced smoke launch with the owner, the upstream pull requests of the
-   terminal widget ([G8](gaps.md#g8-logs-terminal-and-shells)).
+   UI PNGs regenerated and the announced smoke launch with the owner; the terminal widget's upstream pull
+   requests are open ([#155–#158](https://github.com/fyne-io/terminal/pull/158), G8): follow them.
 3. **Walk the workflows in the GUI** on kind and a real cluster (owner): change a workload,
    maintain a node, reach a service, Helm upgrade, rollback and uninstall, adding and syncing
    kubeconfigs, Cogpit's own title bar; record what differs in the parity rows.

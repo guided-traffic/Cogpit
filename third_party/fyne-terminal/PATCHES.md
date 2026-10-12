@@ -6,9 +6,12 @@ without its `cmd/` and `img/` directories, used by Cogpit through a `replace` di
 Terminal output comes from containers, which anyone who can deploy to a cluster controls; the
 upstream widget crashed or froze Cogpit's whole process on some of it, on Fyne's main goroutine,
 where nothing can recover. Each patch is marked `Cogpit patch:` in the code. They are candidates
-for upstream: the series against upstream's master is built (2026-10-12, four pull requests: the
-crashes, the hangs, OSC 7, the races with the fuzz test; one commit and test per fix), kept outside
-the repository, and not sent: the owner decides; drop the fork once upstream has equivalent fixes ([D-14](../../docs/developer/decisions.md#d-14-terminal-widget)).
+offered upstream (owner's OK, 2026-10-12) as four pull requests from the owner's fork, one commit
+and test per fix: [#155](https://github.com/fyne-io/terminal/pull/155) the crashes,
+[#156](https://github.com/fyne-io/terminal/pull/156) the hangs,
+[#157](https://github.com/fyne-io/terminal/pull/157) OSC 7, and
+[#158](https://github.com/fyne-io/terminal/pull/158) the races with the fuzz test (built on the
+other three); drop the fork once upstream has equivalent fixes ([D-14](../../docs/developer/decisions.md#d-14-terminal-widget)).
 
 ## Crashes and hangs
 

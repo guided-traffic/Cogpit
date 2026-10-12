@@ -375,7 +375,7 @@ they were the first patches to add.
 panic with debug output on, five sequences whose counts made the widget loop for as long as the
 count, strings parsed in quadratic time, an APC that never ended, and data races between its two
 goroutines ([PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)). Its tests and fuzz seeds run
-in `make test-unit-race` and CI (`make test-fork`). The patch series for upstream is built (2026-10-12, fifth run: 20 commits in four pull requests, each fix with a test that failed before it) and waits for the owner's look and OK; nothing is sent before that. Nothing found so far calls for option (c).
+in `make test-unit-race` and CI (`make test-fork`). The patch series is offered upstream since 2026-10-12 (owner's OK): pull requests [#155](https://github.com/fyne-io/terminal/pull/155) (crashes), [#156](https://github.com/fyne-io/terminal/pull/156) (hangs), [#157](https://github.com/fyne-io/terminal/pull/157) (OSC 7) and [#158](https://github.com/fyne-io/terminal/pull/158) (races and the fuzz test), 20 commits, each fix with a test that failed before it. The fork stays until upstream has equivalent fixes. Nothing found so far calls for option (c).
 
 **Decided how (owner, 2026-10-12):** the lead prepares the upstream series as three or four grouped
 pull requests (crashes, hangs and performance, races, OSC 7), each fix one commit with a test in
@@ -677,6 +677,7 @@ for `$KUBECONFIG` under it: its files as sources (decided) or ignored, as Lens d
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | D-14: the upstream pull requests opened (#155–#158, owner's OK) |
 | 2026-10-12 | minor | D-28 (owner): the default kubeconfig as sources, as Lens (config an ordinary synced file, `$KUBECONFIG`'s files sources of their own), not built; C1's Rollback on the current revision does what helm does (owner) |
 | 2026-10-12 | minor | D-25 (owner, built): a copied Secret value marked concealed for clipboard managers and kept from Universal Clipboard on macOS (H-25) |
 | 2026-10-12 | minor | D-26 (owner): a credential plugin's approval binds the program's content when it lies in the kubeconfig's or sync folder; D-27 (owner, built): an agent's inline Helm values shown in the confirmation |
