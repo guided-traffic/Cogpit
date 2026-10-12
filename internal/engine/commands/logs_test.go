@@ -194,3 +194,29 @@ func TestLogSourceCommands(t *testing.T) {
 		t.Error("sources of a tab that does not exist")
 	}
 }
+
+// TestLogLoadOlderCommand: logs.loadOlder is a read an agent may call; it counts the request on
+// the tab for Cogpit's window to carry out, as ui_state shows.
+func TestLogLoadOlderCommand(t *testing.T) {
+	h := newWorkloadHarness(t, nil, nil, engine.Options{})
+	cmd, _ := h.s.Registry().Get("logs.loadOlder")
+	if cmd.Danger != engine.DangerRead || len(cmd.Verbs) == 0 || cmd.Verbs[0].Subresource != "log" {
+		t.Errorf("logs.loadOlder: %+v", cmd)
+	}
+	var res commands.DockResult
+	h.must(t, engine.OriginGUI, "pod.logs", map[string]any{"ref": actionRef("pods", "shop", "web-7d9f-a1")}, &res)
+	var tab engine.DockTab
+	h.must(t, engine.OriginExternalAgent, "logs.loadOlder", map[string]any{"id": res.Tab.ID}, &tab)
+	h.must(t, engine.OriginGUI, "logs.loadOlder", map[string]any{"id": res.Tab.ID}, &tab)
+	if tab.Logs.LoadOlder != 2 {
+		t.Errorf("requests %d", tab.Logs.LoadOlder)
+	}
+	var st commands.StateResult
+	h.must(t, engine.OriginExternalAgent, "ui.state", nil, &st)
+	if got, _ := st.DockTab(res.Tab.ID); got.Logs.LoadOlder != 2 {
+		t.Errorf("ui_state's tab %+v", got.Logs)
+	}
+	if err := h.run(t, engine.OriginGUI, "logs.loadOlder", map[string]any{"id": "logs-9"}, nil); err == nil {
+		t.Error("a tab that does not exist")
+	}
+}

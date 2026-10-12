@@ -99,6 +99,7 @@ var wantCommands = map[string]engine.Danger{
 	"logs.controller":     engine.DangerRead,
 	"logs.sources":        engine.DangerRead,
 	"logs.setSource":      engine.DangerRead,
+	"logs.loadOlder":      engine.DangerRead,
 	"object.copyName":     engine.DangerUI,
 
 	// Tables and pages (G5).

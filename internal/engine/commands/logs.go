@@ -156,4 +156,23 @@ func registerLogs(g *registrar) {
 			return s.SetLogSource(ctx, p.ID, p.Pod, p.Container)
 		},
 	})
+
+	add(g, engine.Spec[dockParams]{
+		ID: "logs.loadOlder", Label: "Load Older Lines", Danger: engine.DangerRead, Verbs: workloadLogVerbs,
+		Description: "Loads the lines before the oldest a logs tab holds, as selecting the tab's \"Load older lines\" " +
+			"row does: Cogpit's window asks the API server for each container's tail again with 1,000 more lines " +
+			"(shared by a controlling resource's containers, at least 100 each) and puts the older ones on top, " +
+			"without repeating a line; a tab holds at most 10,000 lines. The window carries it out; ui_state counts " +
+			"the requests among the tab's log options (loadOlder). Returns the tab.",
+		Enabled: func(s *engine.Session, p dockParams) error {
+			if _, err := s.LogsTab(p.ID); err != nil {
+				return err
+			}
+			_, err := streamable(s, "logs")
+			return err
+		},
+		Run: func(_ context.Context, s *engine.Session, p dockParams) (any, error) {
+			return s.RequestOlderLogs(p.ID)
+		},
+	})
 }

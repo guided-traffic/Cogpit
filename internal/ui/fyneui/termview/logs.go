@@ -72,8 +72,11 @@ type Logs struct {
 	view        LogView
 	rows        []displayRow // the list's rows, oldest first
 	rowLines    int          // lines with at least one row
-	cols        int          // characters per row while wrapping; 0 until laid out
-	runs        []logRun     // scratch for rendering a row
+	head        headRow      // the row above the lines (logsolder.go)
+	fences      map[string]*fence
+	prepended   int64    // lines Prepend added
+	cols        int      // characters per row while wrapping; 0 until laid out
+	runs        []logRun // scratch for rendering a row
 	// The stream's state as the status shows it: lines received, and its end.
 	stReceived int64
 	stEnded    bool
@@ -103,9 +106,10 @@ func NewLogsOn(stream io.ReadCloser, do func(func())) *Logs {
 		flushed: make(chan struct{}),
 	}
 	l.list = &logList{}
-	l.list.Length = func() int { return len(l.rows) }
+	l.list.Length = func() int { return len(l.rows) + l.headRows() }
 	l.list.CreateItem = func() fyne.CanvasObject { return newLogRow() }
-	l.list.UpdateItem = func(id widget.ListItemID, o fyne.CanvasObject) { o.(*logRow).set(l.rowRuns(id)) }
+	l.list.UpdateItem = func(id widget.ListItemID, o fyne.CanvasObject) { o.(*logRow).set(l.itemRuns(id)) }
+	l.list.OnSelected = l.selected
 	l.list.HideSeparators = true
 	l.list.ExtendBaseWidget(l.list)
 	l.controls = container.NewHBox()
@@ -235,22 +239,30 @@ func (l *Logs) rebuildRows() {
 
 // addRows appends the rows of one kept line, if the view shows it.
 func (l *Logs) addRows(abs int64) {
+	var ok bool
+	if l.rows, ok = l.appendRows(l.rows, abs); ok {
+		l.rowLines++
+	}
+}
+
+// appendRows appends the rows of one kept line to dst, if the view shows it, and reports whether
+// it does.
+func (l *Logs) appendRows(dst []displayRow, abs int64) ([]displayRow, bool) {
 	raw := l.lines.at(int(abs - l.lines.evicted))
 	if !l.view.selects(raw) {
-		return
+		return dst, false
 	}
 	text, _ := l.view.shown(raw)
 	if l.view.Filter && !l.view.matches(text) {
-		return
+		return dst, false
 	}
-	l.rowLines++
 	if !l.view.Wrap {
-		l.rows = append(l.rows, displayRow{line: abs, to: -1})
-		return
+		return append(dst, displayRow{line: abs, to: -1}), true
 	}
 	wrapLine(text, l.cols, func(from, to int) {
-		l.rows = append(l.rows, displayRow{line: abs, from: int32(from), to: int32(to)})
+		dst = append(dst, displayRow{line: abs, from: int32(from), to: int32(to)})
 	})
+	return dst, true
 }
 
 // trimRows drops the rows of lines the scrollback dropped and returns how many it dropped.
@@ -308,6 +320,12 @@ func (l *Logs) refreshKeepingPlace(dropped int) {
 		l.list.ScrollToOffset(offset - float32(dropped)*l.stride())
 	}
 }
+
+// SetFollow turns following on or off, as the Follow check does. Main goroutine only.
+func (l *Logs) SetFollow(on bool) { l.followCheck.SetChecked(on) }
+
+// Following reports whether the view follows the newest line. Main goroutine only.
+func (l *Logs) Following() bool { return l.follow }
 
 // setFollow is the Follow toggle: on, the view jumps to the newest line and stays there.
 func (l *Logs) setFollow(on bool) {
@@ -436,6 +454,9 @@ func (l *Logs) onMain(fn func()) bool {
 
 // apply adds a batch to the scrollback and updates the widgets. Main goroutine only.
 func (l *Logs) apply(batch []string, received int64, ended bool, endErr error) {
+	if len(l.fences) > 0 {
+		batch = l.dropFenced(batch)
+	}
 	for _, s := range batch {
 		l.lines.push(s)
 	}
@@ -454,7 +475,7 @@ func (l *Logs) apply(batch []string, received int64, ended bool, endErr error) {
 // updateStatus shows how many lines the view holds, how many it shows when a filter or a
 // selection narrows it, and the stream's end.
 func (l *Logs) updateStatus() {
-	text := statusText(l.lines.len(), l.stReceived, l.stEnded, l.stErr)
+	text := statusText(l.lines.len(), l.stReceived+l.prepended, l.stEnded, l.stErr)
 	if l.view.Filter && l.view.Search != "" || l.view.narrows() {
 		text = fmt.Sprintf("%d of %s", l.rowLines, text)
 	}

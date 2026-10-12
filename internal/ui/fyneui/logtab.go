@@ -29,10 +29,12 @@ type logTab struct {
 	c   *dockContent
 	ctx context.Context
 
-	tab  engine.DockTab
-	key  logStreamKey
-	view *termview.Logs // nil until the stream opened
-	seq  int            // the newest open; an older one that arrives late is closed
+	tab    engine.DockTab
+	key    logStreamKey
+	view   *termview.Logs // nil until the stream opened
+	seq    int            // the newest open; an older one that arrives late is closed
+	failed bool           // the view shows why the stream did not open
+	older  olderState     // older lines (logtab_older.go)
 
 	timestamps, previous, names, wrap, filter *widget.Check
 	search                                    *widget.Entry
@@ -79,6 +81,8 @@ type logOptionsParams struct {
 
 func newLogTab(ctx context.Context, sh *shell, c *dockContent, t engine.DockTab) *logTab {
 	lt := &logTab{sh: sh, c: c, ctx: ctx, tab: t, key: streamKeyOf(t)}
+	lt.older.seen = t.Logs.LoadOlder // requests before the tab was shown are not carried out
+	lt.resetOlder()
 	check := func(label string, set func(p *logOptionsParams, on bool)) *widget.Check {
 		return widget.NewCheck(label, func(on bool) {
 			if lt.syncing {
@@ -157,12 +161,21 @@ func viewOf(t engine.DockTab) termview.LogView {
 // request changed; otherwise the view shows the lines it holds the new way.
 func (lt *logTab) update(t engine.DockTab) {
 	key := streamKeyOf(t)
+	narrowed := selectionOf(lt.tab) != selectionOf(t)
 	lt.follow(t)
-	if key != lt.key {
+	switch {
+	case key != lt.key:
 		lt.key = key
 		lt.open()
+	case narrowed && lt.older.complete:
+		lt.older.complete = false // the containers it shows changed
+		lt.updateHead()
 	}
+	lt.followOlder(t)
 }
+
+// selectionOf is what a tab's lines are narrowed to.
+func selectionOf(t engine.DockTab) [2]string { return [2]string{t.Logs.Pod, t.Container} }
 
 // open opens the tab's stream off the main goroutine and shows it in a new view, which replaces
 // the one shown; until it is open the tab says so, and an error shows in the view.
@@ -192,8 +205,14 @@ func (lt *logTab) open() {
 			w.SetControls(lt.controls...)
 			w.SetOnSlash(lt.focusSearch)
 			w.SetView(viewOf(lt.tab))
-			lt.view, lt.c.closer = w, w
+			lt.view, lt.c.closer, lt.failed = w, w, err != nil
+			lt.resetOlder()
+			lt.updateHead()
 			lt.c.set(w)
+			if lt.older.pending {
+				lt.older.pending = false
+				lt.loadOlder(time.Time{}, nil)
+			}
 		})
 	}()
 }

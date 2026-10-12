@@ -43,6 +43,16 @@ type LogOptions struct {
 	// Pod narrows a controlling resource's tab to one of its pods; empty: every pod. (The
 	// container a tab shows, or narrows to, is DockTab.Container.)
 	Pod string `json:"pod,omitempty"`
+	// LoadOlder counts the requests for older lines (logs.loadOlder): the GUI loads the lines
+	// before the oldest it holds once per request (logsolder.go).
+	LoadOlder int `json:"loadOlder,omitempty"`
+}
+
+// RequestOlderLogs asks an open logs tab for the lines before the oldest it holds: the GUI loads
+// them (OlderLogs) as it does when the user selects the tab's "Load older lines" row. It returns
+// the tab.
+func (s *Session) RequestOlderLogs(id string) (DockTab, error) {
+	return s.updateLogsTab(id, func(t *DockTab) { t.Logs.LoadOlder++ })
 }
 
 // Kind keys the logs code refers to.

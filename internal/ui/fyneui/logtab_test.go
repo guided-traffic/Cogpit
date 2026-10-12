@@ -7,7 +7,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -44,8 +46,76 @@ func startShell(t testing.TB, eng Engine, f *fakeEngine, opts Options) (*shell, 
 
 // logsEngine is the fake engine whose log streams are what the real engine streams for the tab:
 // a pod's container, or a deployment's pods with "<pod>/<container> " before every line, with
-// the server's timestamps (every stream carries them). Streams stay open until closed.
-type logsEngine struct{ *fakeEngine }
+// the server's timestamps (every stream carries them). Streams stay open until closed. Its older
+// lines are demoOlder's.
+type logsEngine struct {
+	*fakeEngine
+	older *olderFake
+}
+
+func newLogsEngine(f *fakeEngine) logsEngine { return logsEngine{fakeEngine: f, older: &olderFake{}} }
+
+// olderFake records the requests for older lines.
+type olderFake struct {
+	mu   sync.Mutex
+	reqs []engine.OlderRequest
+}
+
+func (o *olderFake) requests() []engine.OlderRequest {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return slices.Clone(o.reqs)
+}
+
+// demoOlder are lines written before demoMerged's.
+var demoOlder = []struct{ source, ts, msg string }{
+	{"checkout-api-7d9f8b6c4-x2k9p/api", "2026-10-11T14:27:58.100000000Z", "loading configuration from /etc/checkout/config.yaml"},
+	{"checkout-api-7d9f8b6c4-q8w3n/api", "2026-10-11T14:27:58.200000000Z", "loading configuration from /etc/checkout/config.yaml"},
+	{"checkout-api-7d9f8b6c4-x2k9p/api", "2026-10-11T14:27:59.900000000Z", "connected to postgres at db:5432"},
+}
+
+// OlderLogs answers as the engine does from demoOlder and demoMerged: of every source the tab
+// shows, the lines older than the oldest it holds (with since, from then on); nothing is older
+// than demoOlder, so every source is whole.
+func (e logsEngine) OlderLogs(_ context.Context, tabID string, req engine.OlderRequest) (engine.OlderLines, error) {
+	e.older.mu.Lock()
+	e.older.reqs = append(e.older.reqs, req)
+	e.older.mu.Unlock()
+	e.mu.Lock()
+	tab, _ := e.ui.DockTab(tabID)
+	e.mu.Unlock()
+	oldest := map[string]time.Time{}
+	for _, h := range req.Held {
+		oldest[h.Source] = h.Oldest
+	}
+	out := engine.OlderLines{Complete: true}
+	all := append(slices.Clone(demoOlder), demoMerged...)
+	for _, l := range all {
+		src := l.source
+		if tab.Ref.Kind == kindPods {
+			if src != tab.Ref.Name+"/"+tab.Container {
+				continue
+			}
+			src = ""
+		}
+		at, _ := time.Parse(time.RFC3339Nano, l.ts)
+		if o, held := oldest[src]; held && !at.Before(o) || !req.Since.IsZero() && at.Before(req.Since.Truncate(time.Second)) {
+			continue
+		}
+		if src != "" {
+			out.Lines = append(out.Lines, src+" "+l.ts+" "+l.msg)
+		} else {
+			out.Lines = append(out.Lines, l.ts+" "+l.msg)
+		}
+		if !slices.Contains(out.Whole, src) {
+			out.Whole = append(out.Whole, src)
+		}
+	}
+	if len(out.Lines) > req.Room {
+		out.Lines, out.Complete = out.Lines[len(out.Lines)-req.Room:], false
+	}
+	return out, nil
+}
 
 var demoMerged = []struct{ source, ts, msg string }{
 	{"checkout-api-7d9f8b6c4-x2k9p/api", "2026-10-11T14:28:01.204118340Z", "starting checkout-api version=2.14.1 commit=9f3c2e1"},
@@ -131,6 +201,20 @@ func withLogCommands(t testing.TB, f *fakeEngine, deployment model.ObjectRef) {
 		})
 		return nil, nil
 	}
+	f.handlers["logs.loadOlder"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p dockParams
+		if err := json.Unmarshal(inv.Params, &p); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) {
+			for i := range u.Dock {
+				if u.Dock[i].ID == p.ID {
+					u.Dock[i].Logs.LoadOlder++
+				}
+			}
+		})
+		return nil, nil
+	}
 	f.handlers["logs.sources"] = func(_ context.Context, inv engine.Invocation) (any, error) {
 		var p dockParams
 		if err := json.Unmarshal(inv.Params, &p); err != nil {
@@ -192,7 +276,7 @@ func logsScene(t *testing.T, mode ThemeMode, workload bool, opts engine.LogOptio
 		tab = engine.DockTab{ID: "logs-1", Type: engine.DockLogs, Title: "Logs: Deployment checkout-api", Context: "demo", Ref: &dep, Logs: opts}
 	}
 	f.ui.Dock, f.ui.ActiveDock = []engine.DockTab{tab}, "logs-1"
-	sh, w, q := startShell(t, logsEngine{f}, f, Options{Theme: mode})
+	sh, w, q := startShell(t, newLogsEngine(f), f, Options{Theme: mode})
 	q.until(t, "the log lines", func() bool {
 		lt := logTabOf(sh)
 		return len(sh.kinds) > 0 && lt != nil && lt.view != nil && len(lt.view.ShownLines()) > 0
@@ -421,11 +505,71 @@ func TestLogTabMovesToTheController(t *testing.T) {
 	f2.disabled["logs.controller"] = "pod web-0 has no controlling resource"
 	pod := f2.tables["pods"].Rows[0].Ref
 	f2.ui.Dock, f2.ui.ActiveDock = []engine.DockTab{{ID: "logs-1", Type: engine.DockLogs, Title: "Logs", Context: "demo", Ref: &pod, Container: "api"}}, "logs-1"
-	sh2, _, q2 := startShell(t, logsEngine{f2}, f2, Options{})
+	sh2, _, q2 := startShell(t, newLogsEngine(f2), f2, Options{})
 	q2.until(t, "the greyed controller button", func() bool {
 		lt := logTabOf(sh2)
 		return lt != nil && lt.controller.Disabled() && strings.Contains(lt.controller.tip, "no controlling resource")
 	})
+}
+
+// olderOf is the fake's record of the requests for older lines.
+func olderOf(sh *shell) *olderFake { return sh.eng.(logsEngine).older }
+
+// TestLogTabLoadsOlderLines: the row above a tab's lines loads older ones through the engine's
+// state (logs.loadOlder), whoever asks: the tab sends what it holds of each container, puts the
+// older lines on top without repeating one, stops following and then says it holds the beginning;
+// a request it holds everything for adds nothing.
+func TestLogTabLoadsOlderLines(t *testing.T) {
+	sh, _, q, f := logsScene(t, ThemeDark, true, engine.LogOptions{ResourceNames: true, Timestamps: true})
+	lt := logTabOf(sh)
+	q.until(t, "every line", func() bool { return len(lt.view.ShownLines()) == len(demoMerged) })
+	if lt.view.Head() != headLoadOlder || !lt.view.Following() {
+		t.Fatalf("head %q, following %v", lt.view.Head(), lt.view.Following())
+	}
+	lt.requestOlder() // the head row's action
+	q.until(t, "the older lines", func() bool { return len(lt.view.ShownLines()) == len(demoMerged)+len(demoOlder) })
+	if calls := f.callsOf("logs.loadOlder"); len(calls) != 1 {
+		t.Errorf("loadOlder calls %v", calls)
+	}
+	reqs := olderOf(sh).requests()
+	if len(reqs) != 1 || len(reqs[0].Held) != 3 || reqs[0].Room != lt.view.Capacity()-len(demoMerged) || !reqs[0].Since.IsZero() {
+		t.Fatalf("requests %+v", reqs)
+	}
+	lines := lt.view.ShownLines()
+	if lines[0] != demoOlder[0].source+" "+demoOlder[0].ts+" "+demoOlder[0].msg || lines[3] != demoMerged[0].source+" "+demoMerged[0].ts+" "+demoMerged[0].msg {
+		t.Errorf("lines %q", lines[:4])
+	}
+	q.until(t, "the beginning", func() bool { return lt.view.Head() == headBeginning })
+	if lt.view.Following() {
+		t.Error("the tab still follows after older lines came")
+	}
+
+	// An agent asks again: the tab sends its sources as whole, and nothing is added.
+	go func() {
+		_, _ = f.Dispatch(context.Background(), engine.Invocation{ID: "logs.loadOlder", Origin: engine.OriginExternalAgent,
+			Params: mustJSON(t, map[string]any{"id": "logs-1"})})
+	}()
+	q.until(t, "the agent's request", func() bool { return len(olderOf(sh).requests()) == 2 })
+	q.until(t, "its answer", func() bool { return lt.view.Head() == headBeginning && !lt.older.busy })
+	if got := olderOf(sh).requests()[1]; !got.Held[0].Whole {
+		t.Errorf("held %+v: want the sources whole", got.Held)
+	}
+	if n := len(lt.view.ShownLines()); n != len(demoMerged)+len(demoOlder) {
+		t.Errorf("%d lines after loading nothing new", n)
+	}
+}
+
+// TestLogTabOlderLinesAfterReopening: a tab whose stream opens again forgets what it knew of
+// older lines and offers them again.
+func TestLogTabOlderLinesAfterReopening(t *testing.T) {
+	sh, _, q, _ := logsScene(t, ThemeDark, false, engine.LogOptions{})
+	lt := logTabOf(sh)
+	lt.requestOlder()
+	q.until(t, "the pod's older lines", func() bool { return len(lt.view.ShownLines()) == 5 && lt.view.Head() == headBeginning })
+	test.Tap(lt.previous) // the fake refuses a previous container: the tab shows why, without the row
+	q.until(t, "the error", func() bool { return lt.failed && lt.view.Head() == "" })
+	test.Tap(lt.previous)
+	q.until(t, "the row again", func() bool { return !lt.failed && lt.view.Head() == headLoadOlder && len(lt.view.ShownLines()) == 3 })
 }
 
 // TestLogDownloadWritesTheShownLines: the download writes every line the tab holds as shown, to
@@ -480,6 +624,18 @@ func TestRenderLogsWorkloadSources(t *testing.T) {
 			q.popUpMenu(t, w)
 			savePNG(t, w, "logs_workload_containers_dark.png")
 		}
+	}
+}
+
+// TestRenderLogsOlder: a pod's tab after loading its older lines, the row above them saying it
+// holds the beginning, dark and light.
+func TestRenderLogsOlder(t *testing.T) {
+	for _, mode := range []ThemeMode{ThemeDark, ThemeLight} {
+		sh, w, q, _ := logsScene(t, mode, false, engine.LogOptions{Timestamps: true})
+		lt := logTabOf(sh)
+		lt.requestOlder()
+		q.until(t, "the older lines", func() bool { return len(lt.view.ShownLines()) == 5 && lt.view.Head() == headBeginning })
+		savePNG(t, w, "logs_older_"+string(mode)+".png")
 	}
 }
 
