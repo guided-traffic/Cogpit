@@ -71,8 +71,8 @@ cogpit/
 | `internal/cache` | L1 | Shared informers, reference counting, warm period, transforms, request counters |
 | `internal/terminal` | L1 | PTY sessions: local shell with its own kubeconfig, pod exec and attach |
 | `internal/helm` | L2 | Helm SDK, crash-safe release actions (not built) |
-| `internal/metrics` | L2 | Metrics providers, polling while visible (not built) |
-| `internal/demo` | L2 | The synthetic demo cluster behind a `cache.Source` |
+| `internal/metrics` | L2 | Metrics providers (the Metrics Server built, Prometheus next), the hub that polls while subscribed, its TTL cache and series ([architecture §9](architecture.md#9-metrics-internalmetrics)) |
+| `internal/demo` | L2 | The synthetic demo cluster behind a `cache.Source`, and its synthetic Metrics Server (a `metrics.Provider`: demo and metrics are both L2, so the import is allowed) |
 | `internal/engine`, `internal/engine/commands` | L3 | Session, command registry, UI state, snapshots, drawer, streams, confirmation, audit log; the commands one file per area |
 | `internal/mcp` | L4 | MCP server over the registry |
 | `internal/agent` | L4 | Built-in agent with an OpenAI-compatible endpoint (not built) |

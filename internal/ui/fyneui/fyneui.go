@@ -113,6 +113,7 @@ type Engine interface {
 	UIState() engine.UIState
 	Table(view string) *engine.TableSnapshot
 	Detail(ref model.ObjectRef) (*engine.DetailModel, error)
+	ObjectMetrics(ref model.ObjectRef) (*engine.ObjectMetrics, error)
 	Subscribe(fn func(engine.Event)) (cancel func())
 	Diagnostics() engine.Diagnostics
 	Registry() *engine.Registry

@@ -239,6 +239,7 @@ func BuildDetailWith(p *model.KindProfile, ref model.ObjectRef, obj *unstructure
 		Sections: []model.DetailSection{}, Events: []EventItem{},
 	}
 	m.Status = model.BuildRowWith(p, ref.Context, obj, rel).Status
+	m.Metrics = p.Usage != ""
 	kind, err := profileSections(p, obj, rel)
 	if p.Derive != nil { // a virtual kind's drawer is the profile's alone (model.KindProfile.Detail)
 		m.NoEvents, m.Plain = true, true

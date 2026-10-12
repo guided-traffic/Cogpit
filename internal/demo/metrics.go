@@ -185,13 +185,14 @@ func usageReference(c any) (cpuMilli, memBytes int64) {
 }
 
 // level is a container's share of its reference at a moment: a steady level of its own between 15 %
-// and 85 %, a wave of ±20 % of the reference on a period of 3 to 12 minutes, and noise of ±3 %
-// that changes with every measurement.
+// and 85 %, a slow wave on a period of 3 to 12 minutes, a faster one of about a minute and a half
+// and noise of ±3 % that changes with every measurement.
 func level(key string, at time.Time, res time.Duration) float64 {
 	steady := 0.15 + 0.7*unit(key, 0)
 	period := time.Duration(3+int(9*unit(key, 1))) * time.Minute
 	noise := (unit(key, at.UnixNano()/int64(res)+2) - 0.5) * 0.06
-	return min(max(steady*0.7+0.3*steady*(1+math.Sin(phase(key, at, period)))+noise, 0.02), 1.15)
+	fast := 0.12 * steady * math.Sin(phase(key+"/fast", at, 80*time.Second+time.Duration(unit(key, 3)*float64(30*time.Second))))
+	return min(max(steady*0.7+0.3*steady*(1+math.Sin(phase(key, at, period)))+fast+noise, 0.02), 1.15)
 }
 
 // memoryCurve makes memory move slower than CPU and only climb within a period (a leak that a

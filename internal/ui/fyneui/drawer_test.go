@@ -51,6 +51,11 @@ func TestDrawerSectionsAsLens(t *testing.T) {
 	q.until(t, "the drawer", func() bool { return sh.drawer.last != nil && len(sh.drawer.details.Objects) > 2 })
 
 	texts := drawerTexts(sh)
+	// The Metrics section (metricsview.go) is the first of Lens's order; the rest follows it.
+	if texts[0] != "Metrics" {
+		t.Fatalf("Metrics must come first: %q", texts)
+	}
+	texts = texts[slices.Index(texts, "Properties"):]
 	idx := func(s string) int { return slices.Index(texts, s) }
 	order := []string{"Properties", "Pod Volumes", "Init Containers", "migrate", "Containers", "app", "Events"}
 	for i := 1; i < len(order); i++ {

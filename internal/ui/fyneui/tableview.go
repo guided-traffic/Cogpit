@@ -21,8 +21,8 @@ import (
 // hint. They are data about Kubernetes columns (an age is short, a message is long), so they sit
 // next to the table and not in the theme.
 var defaultColumnWidths = map[string]float32{
-	"name": 250, "namespace": 130, "containers": 92, "cpu": 80, "memory": 86, "restarts": 76,
-	"controlledBy": 130, "node": 120, "qos": 96, "age": 56, "status": 130, "conditions": 240,
+	"name": 220, "namespace": 130, "containers": 84, "cpu": 64, "memory": 88, "restarts": 64,
+	"controlledBy": 108, "node": 104, "qos": 80, "age": 56, "status": 120, "conditions": 240,
 	"pods": 72, "replicas": 86, "type": 100, "clusterIP": 120, "ports": 140, "externalIP": 120,
 	"selector": 200, "labels": 260, "message": 300, "involvedObject": 210, "source": 140,
 	"count": 60, "lastSeen": 172, "roles": 120, "version": 104, "taints": 64, "disk": 76,

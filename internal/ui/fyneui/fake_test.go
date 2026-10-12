@@ -31,6 +31,7 @@ type fakeEngine struct {
 	ui         engine.UIState
 	tables     map[string]*engine.TableSnapshot
 	details    map[string]*engine.DetailModel
+	metrics    map[string]*engine.ObjectMetrics
 	subs       map[int]func(engine.Event)
 	nextSub    int
 	calls      []engine.Invocation
@@ -121,6 +122,12 @@ func (f *fakeEngine) Detail(ref model.ObjectRef) (*engine.DetailModel, error) {
 		return d, nil
 	}
 	return &engine.DetailModel{Ref: ref, Title: singular(strings.ToUpper(ref.Kind[:1])+ref.Kind[1:]) + ": " + ref.Name}, nil
+}
+
+func (f *fakeEngine) ObjectMetrics(ref model.ObjectRef) (*engine.ObjectMetrics, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.metrics[ref.String()], nil
 }
 
 func (f *fakeEngine) Subscribe(fn func(engine.Event)) func() {

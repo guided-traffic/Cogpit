@@ -53,7 +53,7 @@ it. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
 - ✏️ YAML editing with a diff and a server-side dry-run before every apply.
 - 🔌 Port forwarding, one click to the browser.
 - ⎈ The Helm releases in your clusters (Lens's Helm view): history, values, upgrade, rollback, through the Helm SDK, no `helm` binary needed.
-- 📈 Metrics from metrics-server or Prometheus.
+- 📈 CPU and memory from the cluster's metrics-server: columns in the Pods and Nodes lists, a chart with requests and limits in the pod and node drawers (Prometheus graphs follow).
 - 🛡️ Never surprises a cluster: destructive actions confirm, nothing is installed or written implicitly.
 - 🤖 Fully controllable over MCP, the UI included: an agent sees what you see and navigates for you.
 - 💬 A built-in agent in a chat beside your views, on any OpenAI-compatible endpoint such as LiteLLM or Open WebUI.

@@ -10,8 +10,8 @@ import (
 // MCP's object_get result, so its JSON shape is kept stable: fields are only ever added, and every
 // added field is optional.
 //
-// The drawer shows, in this order, as Lens does (capture, 2026-10-11): a metrics slot (not built:
-// metrics are milestone M7), the sections, then the events ("No events found" when there are
+// The drawer shows, in this order, as Lens does (capture, 2026-10-11): the Metrics section of a pod
+// or node (Metrics; its data is Session.ObjectMetrics), the sections, then the events ("No events found" when there are
 // none). The YAML is Cogpit's own view of the object.
 //
 //	{
@@ -51,6 +51,9 @@ type DetailModel struct {
 	// NoEvents is true for a kind whose objects no event is about (a virtual kind: Helm
 	// releases): the drawer shows no Events section, as Lens's release drawer has none.
 	NoEvents bool `json:"noEvents,omitempty"`
+	// Metrics is true for a kind with a Metrics section (a pod, a node): the drawer shows it above
+	// the Properties, from Session.ObjectMetrics, which follows the open drawer (EventMetrics).
+	Metrics bool `json:"metrics,omitempty"`
 	// Plain is true for a kind whose drawer is Lens's flat one (a virtual kind: Helm releases,
 	// captured 2026-10-12): the title on one line, no Details and YAML tabs, no status pill in the
 	// title bar.

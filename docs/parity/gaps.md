@@ -435,12 +435,24 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
     (vertical lines with a diamond, toggled by a flag button) at the time they happened.
   - Captured from Lens with the owner (screenshot, 2026-10-12): the Metrics panel's range dropdown,
     the four variant buttons and the event-marker toggle, the source line, the time axis, a legend.
-- **Missing:** provider detection (metrics-server, Prometheus through the service proxy, the
-  provider variants Lens lists), polling while visible, charts, the overview page, the explicit
-  Lens Metrics install.
-- **Evidence:** [ui-parity](ui-parity.md#cluster-overview-and-charts), 5 rows missing, plus the
-  metrics rows of cluster settings.
-- **Estimate:** 40–80 h.
+- **Built (2026-10-12, first slice):** the Metrics Server end to end. Provider detection per cluster
+  through discovery, with "not served", "forbidden" and "unavailable" as states
+  ([`internal/metrics`](../../internal/metrics/)); polling only while a view or drawer that shows
+  metrics is open (a list every 60 s, an open drawer's object every 15 s, shared by every consumer
+  of a scope, cached for a 15 s TTL, no request when nothing is open: P12 in
+  [testing](../developer/testing.md#performance-budgets-proposed-not-measured)); CPU and Memory
+  columns in the Pods and Nodes lists; the drawer's Metrics section for a pod (per container too) and a
+  node with a chart, requests and limits as lines and event markers; `metrics.get` for agents; the
+  demo cluster's synthetic Metrics Server. Design and numbers: [architecture §9](../developer/architecture.md#9-metrics-internalmetrics).
+- **Missing:** Prometheus through the service proxy (detection, the provider variants Lens lists,
+  the override in cluster settings, history, Network and Filesystem, ranges beyond an hour, events from
+  its own queries), the overview page with its charts and Issues, the explicit Lens Metrics install, the
+  settings rows (metrics source, hide metrics), the Disk column, Lens's usage bars in the Nodes list, CPU and
+  Memory in a node drawer's Pods table, history that outlives a closed drawer.
+- **Evidence:** [ui-parity](ui-parity.md#cluster-overview-and-charts), 4 rows missing and the drawer
+  charts row partial, plus the metrics rows of cluster settings.
+- **Estimate:** 40–80 h before the first slice; the remainder, mostly Prometheus and the overview page, is
+  about 30–65 h (the lead's estimate to apply to the table above).
 
 ### G23. Flux CD and Argo CD views
 - **Missing:** kind profiles with columns, status and searchable fields for Flux CD (GitRepository,

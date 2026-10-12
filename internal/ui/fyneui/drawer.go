@@ -373,6 +373,11 @@ func (d *drawer) run(ref model.ObjectRef, a actionState, from fyne.CanvasObject)
 func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
 	d.pruneRevealed(m)
 	out := make([]fyne.CanvasObject, 0, 4*len(m.Sections)+4)
+	panel := d.metricsPanel(m) // a pod's or node's Metrics section comes first, as in Lens
+	if panel != nil {
+		out = append(out, d.metricsSection(panel)...)
+		out = append(out, newSpace(theme.SizeNameInnerPadding))
+	}
 	group := ""
 	for i, sec := range m.Sections {
 		if i > 0 {
@@ -384,6 +389,11 @@ func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
 		}
 		group = sec.Group
 		out = append(out, d.sectionTitle(sec), newDivider(false))
+		if panel != nil && containerTitleHasChart(sec) {
+			if c := panel.containerChart(sec.Title); c != nil {
+				out = append(out, c, newSpace(theme.SizeNamePadding))
+			}
+		}
 		if render, ok := drawerSections[m.Ref.Kind+"\x00"+sec.Title]; ok && sec.Group == "" {
 			out = append(out, render(d, m.Ref, sec))
 			continue

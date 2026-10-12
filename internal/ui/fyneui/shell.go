@@ -69,6 +69,7 @@ type shell struct {
 	pendingUI     *engine.UIState
 	tableQueued   atomic.Bool
 	detailQueued  atomic.Bool
+	metricsQueued atomic.Bool
 	kindsQueued   atomic.Bool
 	diagQueued    atomic.Bool
 	lastDiagFetch atomic.Int64 // UnixNano of the last diagnostics fetch
@@ -256,6 +257,13 @@ func (sh *shell) onEvent(ev engine.Event) {
 			sh.do(func() {
 				sh.detailQueued.Store(false)
 				sh.drawer.request()
+			})
+		}
+	case engine.EventMetrics:
+		if sh.metricsQueued.CompareAndSwap(false, true) {
+			sh.do(func() {
+				sh.metricsQueued.Store(false)
+				sh.drawer.metricsChanged()
 			})
 		}
 	case engine.EventDiagnostics:
