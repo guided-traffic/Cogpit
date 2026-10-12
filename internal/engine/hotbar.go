@@ -109,29 +109,27 @@ func defaultHotbar() HotbarState {
 
 // normalize makes a state read from a file one that the commands can work on: at least one bank and
 // at most HotbarMaxBanks, each named, with at most HotbarBankSize tiles of distinct, non-empty
-// contexts, and the shown bank one of them. It reports whether it changed anything.
-func (h *HotbarState) normalize() bool {
-	changed := false
+// contexts, and the shown bank one of them.
+func (h *HotbarState) normalize() {
 	if len(h.Banks) > HotbarMaxBanks {
-		h.Banks, changed = h.Banks[:HotbarMaxBanks], true
+		h.Banks = h.Banks[:HotbarMaxBanks]
 	}
 	if len(h.Banks) == 0 {
 		*h = defaultHotbar()
-		return true
+		return
 	}
 	for i := range h.Banks {
 		b := &h.Banks[i]
 		if name, err := cleanBankName(b.Name); err != nil {
-			b.Name, changed = fmt.Sprintf("Bank %d", i+1), true
-		} else if name != b.Name {
-			b.Name, changed = name, true
+			b.Name = fmt.Sprintf("Bank %d", i+1)
+		} else {
+			b.Name = name
 		}
 		var tiles []HotbarTile
 		for _, t := range b.Clusters {
 			c := t.Context
 			if strings.TrimSpace(c) == "" || len(c) > maxHotbarContext || !utf8.ValidString(c) ||
 				slices.ContainsFunc(tiles, func(o HotbarTile) bool { return o.Context == c }) || len(tiles) == HotbarBankSize {
-				changed = true
 				continue
 			}
 			tiles = append(tiles, HotbarTile{Context: c})
@@ -142,9 +140,8 @@ func (h *HotbarState) normalize() bool {
 		b.Clusters = tiles
 	}
 	if h.Current < 1 || h.Current > len(h.Banks) {
-		h.Current, changed = 1, true
+		h.Current = 1
 	}
-	return changed
 }
 
 // cleanBankName trims a bank's name and refuses an empty, overlong or multi-line one.
