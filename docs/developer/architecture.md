@@ -415,6 +415,11 @@ icon and the selection ([D-25](decisions.md#d-25-copying-values)). A new drawer 
 for width beyond `contentWidth`; `TestDrawerWidthNeverFollowsItsContent` checks this on a model
 with a 400-character value of every kind.
 
+Toasts (`shell.toast`) are cards in the bottom-right corner: a surface of their own
+(`colorToast`, `colorToastText`, 4.5:1 checked in `TestPaletteContrast`), a bar, border and icon
+in the level's colour, a bold title, the text and a close button. They last 6 s (info), 9 s
+(warning) or 14 s (error), and not while the pointer is over them.
+
 ### 4.4 Tables, details, editors and streams
 
 - **Tables:** `TableSnapshot{Columns, Rows, Sort, Filter, Total, Revision}`; rows carry display

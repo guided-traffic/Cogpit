@@ -623,6 +623,15 @@ Universal Clipboard); the 60 seconds and the clearing on close stay. Options wei
   list has no icon while folded; an entry of the form `key=value` (labels, annotations, selectors,
   environment variables) is copied as `key: value`, any other entry as a YAML scalar, quoted only
   where YAML needs it (`yamlEntry`, through sigs.k8s.io/yaml). Single values are copied as shown.
+- **Reach and confirmation (owner, 2026-10-12):** every chip owns the room for its icon (the
+  `hoverWrap` gutter), the last of a row and one alone on its line too: the icon sits after the
+  chip, and the pointer's way from the chip to it stays inside the chip's hover area. Before, only
+  a chip with a right neighbour had that room, so the icon of a label chip hid (its `MouseOut`)
+  before the pointer reached it, while the icon of a Pod IP, whose area spans the whole value
+  cell, could be reached. After a copy the icon is a checkmark in the OK colour for 1.5 s
+  (`copyConfirmTime`, the shell's `copyConfirm`), then the copy icon again while the pointer is on
+  the value; a Secret's value confirms the same way. `TestCopyIconReachableOnLabelChips`,
+  `TestCopyIconReachableOnWrappedChips`, `TestCopyIconTurnsIntoACheckmark`.
 - A masked Secret value has no icon; a revealed one has, and copies the value alone (not the note
   that a long value was cut). A copy of a Secret value, by the icon or by ⌘C on its selection, goes
   through `shell.copyText(…, secret=true)`: 60 seconds later (`secretClipboardTTL`; the shell's

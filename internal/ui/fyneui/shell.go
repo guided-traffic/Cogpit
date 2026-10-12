@@ -27,8 +27,7 @@ import (
 const (
 	searchDebounce   = 150 * time.Millisecond // typing pause before the filter is sent
 	ageRefresh       = 10 * time.Second       // how often age cells are re-rendered
-	toastLifetime    = 5 * time.Second
-	dockOffset       = 0.66 // the workspace's share of the height while the dock is open
+	dockOffset       = 0.66                   // the workspace's share of the height while the dock is open
 	diagnosticsEvery = 250 * time.Millisecond
 )
 
@@ -105,6 +104,10 @@ type shell struct {
 	clipTimer     *time.Timer
 	clipSecret    string
 	secretClipTTL time.Duration
+	// copyConfirm is how long the copy icon shows a checkmark after a copy (a test shortens it).
+	copyConfirm time.Duration
+	// toastTime, when set, replaces every toast's lifetime (a test shortens it).
+	toastTime time.Duration
 	// setConcealed puts a Secret's value on the system clipboard marked for clipboard managers to
 	// skip (clipboard_darwin.go); nil in tests, which use Fyne's test clipboard and must not touch
 	// the system's. It reports false when it could not, and Fyne's clipboard is used.
@@ -117,7 +120,7 @@ type shell struct {
 
 // newShell builds every widget. Nothing talks to the engine until start.
 func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func())) *shell {
-	sh := &shell{eng: eng, app: a, win: w, opts: opts, now: time.Now, stopTickers: make(chan struct{}), secretClipTTL: secretClipboardTTL}
+	sh := &shell{eng: eng, app: a, win: w, opts: opts, now: time.Now, stopTickers: make(chan struct{}), secretClipTTL: secretClipboardTTL, copyConfirm: copyConfirmTime}
 	// Work that reaches the main goroutine after stop would apply engine state to a window that
 	// is gone, possibly under another app and theme (tests run shells one after another).
 	sh.do = func(fn func()) {
@@ -545,38 +548,129 @@ func (sh *shell) commandEnabled(id string, params any) (err error) {
 // errUnavailable marks a command this build does not register; its button is hidden.
 var errUnavailable = errors.New("not available in this build")
 
-// toast shows a short message in the bottom-right corner for toastLifetime.
+// toastLifetimes is how long a toast stays per level; an error stays longest, because it asks for
+// a reaction. The pointer over a toast pauses its time.
+var toastLifetimes = map[string]time.Duration{"info": 6 * time.Second, "warning": 9 * time.Second, "error": 14 * time.Second}
+
+// toast shows a message in the bottom-right corner: a card on a strong surface with a bar, border
+// and icon in the level's colour, a bold title, the text and a close button.
 func (sh *shell) toast(level, msg string) {
 	if msg == "" {
 		return
 	}
-	c := colorAccent
-	icon := theme.InfoIcon()
+	c, title, icon := colorAccent, "Info", theme.InfoIcon()
 	switch level {
 	case "error":
-		c, icon = colorStatusError, theme.ErrorIcon()
+		c, title, icon = colorStatusError, "Error", theme.ErrorIcon()
 	case "warning":
-		c, icon = colorStatusWarning, theme.WarningIcon()
+		c, title, icon = colorStatusWarning, "Warning", theme.WarningIcon()
+	}
+	life := toastLifetimes[level]
+	if life == 0 {
+		life = toastLifetimes["info"]
+	}
+	if sh.toastTime > 0 {
+		life = sh.toastTime
 	}
 	th := sh.app.Settings().Theme()
 	pad := th.Size(theme.SizeNamePadding)
-	text := newParagraph(msg, theme.ColorNameForeground,
-		th.Size(sizeToastWidth)-th.Size(theme.SizeNameInlineIcon)-6*pad)
+	text := newParagraph(msg, colorToastText,
+		th.Size(sizeToastWidth)-2*th.Size(theme.SizeNameInlineIcon)-8*pad-toastBar)
+	head := newTextLine(title, colorToastText, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	bg := newSurface(colorToast)
-	bg.radius, bg.stroke = theme.SizeNameInputRadius, theme.ColorNameInputBorder
-	t := container.NewStack(
+	bg.stroke = c
+	bar := newSurface(c)
+	bar.min = fyne.NewSize(toastBar, 0)
+	card := &toastCard{}
+	card.ExtendBaseWidget(card)
+	closeBtn := newToastClose(func() { sh.dismissToast(card) })
+	card.life = life
+	card.expire = func() { sh.do(func() { sh.dismissToast(card) }) }
+	card.content = container.NewStack(
 		bg,
-		inset(theme.SizeNamePadding, theme.SizeNamePadding,
-			container.NewBorder(nil, nil, container.NewCenter(widget.NewIcon(themedIcon(icon, c))), nil, text)),
+		container.NewBorder(nil, nil, bar, nil,
+			inset(theme.SizeNamePadding, theme.SizeNamePadding,
+				container.NewBorder(nil, nil,
+					container.NewVBox(container.NewPadded(widget.NewIcon(themedIcon(icon, c)))),
+					container.NewVBox(closeBtn),
+					container.NewVBox(head, text)))),
 	)
-	sh.toasts.Objects = append(sh.toasts.Objects, t)
+	sh.toasts.Objects = append(sh.toasts.Objects, card)
 	sh.toasts.Refresh()
-	time.AfterFunc(toastLifetime, func() {
-		sh.do(func() {
-			sh.toasts.Objects = slices.DeleteFunc(sh.toasts.Objects, func(o fyne.CanvasObject) bool { return o == t })
-			sh.toasts.Refresh()
-		})
-	})
+	card.arm()
+}
+
+// toastBar is the width of the level's colour bar at a toast's left edge.
+const toastBar = 5
+
+// dismissToast removes a toast, on expiry or by its close button.
+func (sh *shell) dismissToast(card *toastCard) {
+	card.disarm()
+	sh.toasts.Objects = slices.DeleteFunc(sh.toasts.Objects, func(o fyne.CanvasObject) bool { return o == card })
+	sh.toasts.Refresh()
+}
+
+// toastCard is one toast. Its time runs while the pointer is away: entering stops it, leaving
+// starts the full lifetime again.
+type toastCard struct {
+	widget.BaseWidget
+	content fyne.CanvasObject
+	life    time.Duration
+	expire  func() // called on a timer goroutine
+	mu      sync.Mutex
+	timer   *time.Timer
+	hovered bool
+}
+
+var _ desktop.Hoverable = (*toastCard)(nil)
+
+func (c *toastCard) arm() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.timer != nil {
+		c.timer.Stop()
+	}
+	if !c.hovered {
+		c.timer = time.AfterFunc(c.life, c.expire)
+	}
+}
+
+func (c *toastCard) disarm() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.timer != nil {
+		c.timer.Stop()
+		c.timer = nil
+	}
+}
+
+// MouseIn implements desktop.Hoverable.
+func (c *toastCard) MouseIn(*desktop.MouseEvent) {
+	c.mu.Lock()
+	c.hovered = true
+	c.mu.Unlock()
+	c.disarm()
+}
+
+// MouseMoved implements desktop.Hoverable.
+func (c *toastCard) MouseMoved(*desktop.MouseEvent) {}
+
+// MouseOut implements desktop.Hoverable.
+func (c *toastCard) MouseOut() {
+	c.mu.Lock()
+	c.hovered = false
+	c.mu.Unlock()
+	c.arm()
+}
+
+// CreateRenderer implements fyne.Widget.
+func (c *toastCard) CreateRenderer() fyne.WidgetRenderer { return widget.NewSimpleRenderer(c.content) }
+
+// newToastClose is the small × of a toast.
+func newToastClose(fn func()) *widget.Button {
+	b := widget.NewButtonWithIcon("", themedIcon(theme.CancelIcon(), colorToastText), fn)
+	b.Importance = widget.LowImportance
+	return b
 }
 
 // toastLayout stacks toasts upwards from the bottom-right corner, above the status bar.

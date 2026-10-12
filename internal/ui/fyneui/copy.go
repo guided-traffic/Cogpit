@@ -28,6 +28,9 @@ import (
 // secretClipboardTTL is how long a copied Secret value stays on the clipboard.
 const secretClipboardTTL = 60 * time.Second
 
+// copyConfirmTime is how long the copy icon shows a checkmark after a copy.
+const copyConfirmTime = 1500 * time.Millisecond
+
 // copyText puts text on the clipboard. A Secret's value (secret) is cleared again after the
 // shell's secretClipTTL if the clipboard still holds it; a later copy of anything replaces it and
 // cancels the clearing.
@@ -127,6 +130,9 @@ func (d *drawer) showCopy(w fyne.CanvasObject, h *copyHook, natural float32) {
 	if lineH := fyne.MeasureText("Mg", d.sh.app.Settings().Theme().Size(theme.SizeNameText), fyne.TextStyle{}).Height; w.Size().Height <= 1.6*lineH {
 		y = (w.Size().Height - ms.Height) / 2
 	}
+	if d.copyOwner != w {
+		d.resetConfirm()
+	}
 	d.copyOwner, d.copyHook, d.copyStale = w, h, nil
 	d.hostLayout.over = at.AddXY(fyne.Max(x, 0), y)
 	d.copyBtn.Show()
@@ -147,6 +153,9 @@ func (d *drawer) hideCopy(w fyne.CanvasObject) {
 // resetCopy forgets the value the icon was shown for: the drawer rebuilt or moved.
 func (d *drawer) resetCopy() {
 	d.copyOwner, d.copyHook, d.copyStale, d.copyHooks = nil, nil, nil, nil
+	if d.copyBtn != nil {
+		d.resetConfirm()
+	}
 	if d.copyBtn != nil && d.copyBtn.Visible() {
 		d.copyBtn.Hide()
 	}
@@ -207,11 +216,42 @@ func (d *drawer) copyHovered() {
 		return
 	}
 	d.sh.copyText(h.text, h.secret)
+	d.confirmCopy()
 	if h.secret {
 		d.sh.toast("info", fmt.Sprintf("Copied. The clipboard is cleared in %s.", ttlText(d.sh.secretClipTTL)))
 		return
 	}
 	d.sh.toast("info", "Copied to the clipboard")
+}
+
+// confirmCopy turns the copy icon into a checkmark for the shell's copyConfirm, then back to the
+// copy icon. If the pointer has left the value by then the icon is hidden already, and only the
+// state is reset.
+func (d *drawer) confirmCopy() {
+	if d.copyDone != nil {
+		d.copyDone.Stop()
+	}
+	d.copyBtn.setDone(true)
+	btn := d.copyBtn
+	var t *time.Timer
+	t = time.AfterFunc(d.sh.copyConfirm, func() {
+		d.sh.do(func() {
+			if d.copyDone == t {
+				d.copyDone = nil
+			}
+			btn.setDone(false)
+		})
+	})
+	d.copyDone = t
+}
+
+// resetConfirm drops a checkmark shown for an earlier copy: the icon moved to another value.
+func (d *drawer) resetConfirm() {
+	if d.copyDone != nil {
+		d.copyDone.Stop()
+		d.copyDone = nil
+	}
+	d.copyBtn.setDone(false)
 }
 
 // ttlText renders a duration the toast names: "60 seconds".
@@ -237,7 +277,8 @@ func ttlText(t time.Duration) string {
 // hundreds of values; a button each would cost).
 type copyButton struct {
 	widget.BaseWidget
-	d *drawer
+	d    *drawer
+	done bool // a copy succeeded just now: a checkmark instead of the copy icon
 }
 
 var (
@@ -250,6 +291,14 @@ func newCopyButton(d *drawer) *copyButton {
 	b.ExtendBaseWidget(b)
 	b.Hide()
 	return b
+}
+
+// setDone switches between the copy icon and the checkmark.
+func (b *copyButton) setDone(done bool) {
+	if b.done != done {
+		b.done = done
+		b.Refresh()
+	}
 }
 
 // Tapped implements fyne.Tappable.
@@ -308,7 +357,11 @@ func (r *copyButtonRenderer) Refresh() {
 	r.bg.StrokeColor = themeColor(th, theme.ColorNameInputBorder)
 	r.bg.StrokeWidth = th.Size(theme.SizeNameInputBorder)
 	r.bg.CornerRadius = th.Size(theme.SizeNameInputRadius)
-	r.img.Resource = themedIcon(theme.ContentCopyIcon(), theme.ColorNameForeground)
+	if r.b.done {
+		r.img.Resource = themedIcon(theme.ConfirmIcon(), colorStatusOK)
+	} else {
+		r.img.Resource = themedIcon(theme.ContentCopyIcon(), theme.ColorNameForeground)
+	}
 	r.Layout(r.b.Size())
 	r.bg.Refresh()
 	r.img.Refresh()

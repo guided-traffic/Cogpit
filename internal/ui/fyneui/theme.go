@@ -40,7 +40,8 @@ const (
 	colorMuted            fyne.ThemeColorName = "cogpit.muted"
 	colorAccent           fyne.ThemeColorName = "cogpit.accent"
 	colorChip             fyne.ThemeColorName = "cogpit.chip"
-	colorToast            fyne.ThemeColorName = "cogpit.toast"
+	colorToast            fyne.ThemeColorName = "cogpit.toast"      // a toast's surface: stronger than the window
+	colorToastText        fyne.ThemeColorName = "cogpit.toastText"  // the text on it
 	colorLink             fyne.ThemeColorName = "cogpit.link"       // a cell or drawer value that names an object
 	colorTooltip          fyne.ThemeColorName = "cogpit.tooltip"    // a tooltip's background
 	colorLogo             fyne.ThemeColorName = "cogpit.logo"       // the logo's C, handles and outer ring
@@ -155,7 +156,8 @@ var darkPalette = palette{
 		colorMuted:            hex(0x718588),
 		colorAccent:           hex(solCyan),
 		colorChip:             hex(0x004052),
-		colorToast:            hex(0x003847),
+		colorToast:            hex(0x0b4556), // lighter than the window and the drawer, so a toast stands out
+		colorToastText:        hex(0xeee8d5), // base2
 		colorLink:             hex(solCyan),
 		colorLogo:             hex(0x93a1a1), // base1
 		colorLogoAccent:       hex(solCyan),
@@ -220,7 +222,8 @@ var lightPalette = palette{
 		colorMuted:            hex(0x657b83),
 		colorAccent:           hex(0x1f7f78),
 		colorChip:             hex(0xddd6c1),
-		colorToast:            hex(0xeee8d5),
+		colorToast:            hex(0xffffff), // lighter than the window, with the level's border and bar
+		colorToastText:        hex(0x073642), // base02
 		colorLink:             hex(0x1b6761),
 		colorLogo:             hex(0x586e75), // base01, as the reference's mark for light bars
 		colorLogoAccent:       hex(solCyan),
@@ -391,7 +394,7 @@ func (t *cogTheme) Size(n fyne.ThemeSizeName) float32 {
 	case sizeDotDiameter:
 		return 8
 	case sizeToastWidth:
-		return 360
+		return 400
 	case sizeFilterWidth:
 		return 190
 	case sizeSearchWidth:

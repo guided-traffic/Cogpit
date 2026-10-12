@@ -62,6 +62,7 @@ type drawer struct {
 	copyBtn    *copyButton
 	copyOwner  fyne.CanvasObject // the value the copy icon is shown for
 	copyHook   *copyHook
+	copyDone   *time.Timer       // the checkmark's timer; nil when none shows
 	copyStale  fyne.CanvasObject // the value it was shown for before the last rebuild
 	copyHooks  []*copyHook       // the hooks of the values built last (keepCopy)
 }
@@ -629,24 +630,33 @@ func (d *drawer) chips(ref model.ObjectRef, chips []model.Chip, copyOf func(stri
 		natural += fyne.MeasureText(c.Text, size, fyne.TextStyle{}).Width + 3*d.sh.app.Settings().Theme().Size(theme.SizeNamePadding)
 	}
 	gutter := d.copyBtn.MinSize().Width + d.sh.app.Settings().Theme().Size(theme.SizeNamePadding)
-	natural += float32(len(chips)-1) * gutter // room for the copy icon after each chip but the last
+	natural += float32(len(chips)) * gutter // room for the copy icon after each chip
 	oneLine := len(chips) <= chipsPerLine && total <= chipsLineMaxText && natural <= d.valueWidth()
 	out := container.NewVBox()
 	line := container.NewHBox()
-	for i, c := range chips {
+	for _, c := range chips {
 		var o fyne.CanvasObject
 		switch {
 		case c.Link != nil && d.sh.view.serves(c.Link.Kind):
 			link := *c.Link
-			o = newTapTarget(d.valuePill(c.Text, colorLink, false), func() { d.sh.followLink(link, ref.Context, false) })
+			p := d.valuePill(c.Text, colorLink, false)
+			p.limit(max(d.valueWidth()-gutter, 0), true)
+			o = newTapTarget(p, func() { d.sh.followLink(link, ref.Context, false) })
 		case c.Status != model.StatusNone:
-			o = d.valuePill(c.Text, statusColorName(c.Status), true)
+			p := d.valuePill(c.Text, statusColorName(c.Status), true)
+			p.limit(max(d.valueWidth()-gutter, 0), true)
+			o = p
 		default:
-			o = d.valuePill(c.Text, theme.ColorNameForeground, false)
+			p := d.valuePill(c.Text, theme.ColorNameForeground, false)
+			p.limit(max(d.valueWidth()-gutter, 0), true)
+			o = p
 		}
 		o = wrapCopy(o, d.copyFor(copyOf(c.Text), false))
-		if hw, ok := o.(*hoverWrap); ok && oneLine && i < len(chips)-1 {
-			hw.gutter = gutter // so that the icon, which sits after the chip, covers no neighbour
+		if hw, ok := o.(*hoverWrap); ok {
+			// Every chip owns the room for its icon, the last of a row and one alone on its line
+			// too: the icon sits after the chip, and the pointer on its way there must stay in
+			// the chip's hover area.
+			hw.gutter = gutter
 		}
 		if oneLine {
 			line.Add(o)

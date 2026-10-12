@@ -175,7 +175,7 @@ func TestPaletteContrast(t *testing.T) {
 			theme.ColorNameBackground: 4.5, colorSidebar: 4.3, colorDrawer: 4.3, colorStatusBar: 4.3,
 			colorTopBar: 4.3, theme.ColorNameMenuBackground: 4.3,
 			theme.ColorNameHeaderBackground: 3.5, colorRowHover: 3.5, theme.ColorNameInputBackground: 3.5,
-			colorToast: 3.5, colorTooltip: 3.5,
+			colorTooltip: 3.5,
 		}
 		check := func(what string, fg color.Color, bg fyne.ThemeColorName, floor float64) {
 			t.Helper()
@@ -206,6 +206,13 @@ func TestPaletteContrast(t *testing.T) {
 		check("text on error", c(theme.ColorNameForegroundOnError), theme.ColorNameError, 3.5)
 		check("text on success", c(theme.ColorNameForegroundOnSuccess), theme.ColorNameSuccess, 3.5)
 		check("text on warning", c(theme.ColorNameForegroundOnWarning), theme.ColorNameWarning, 3.5)
+		// A toast has its own surface and text colour; the level's bar, border and icon (accent, warning,
+		// error) are graphics and ask 3:1 on it.
+		check("toast text", c(colorToastText), colorToast, 4.5)
+		check("toast info", c(colorAccent), colorToast, 3.0)
+		check("toast warning", p.status[model.StatusWarning], colorToast, 3.0)
+		check("toast error", p.status[model.StatusError], colorToast, 3.0)
+		check("toast close icon", c(colorToastText), colorToast, 3.0)
 		check("placeholder", c(theme.ColorNamePlaceHolder), theme.ColorNameInputBackground, 3.0)
 	}
 }
