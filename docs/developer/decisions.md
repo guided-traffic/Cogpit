@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -569,6 +569,13 @@ the light values the same way):
 | Status tokens | the Solarized accents | green #859900, yellow #B58900, orange #CB4B16, red #DC322F, blue #268BD2, magenta #D33682, violet #6C71C4 |
 | Terminal | `terminal.ansi*` | the theme's sixteen colours |
 
+**Amended 2026-10-13 (G13, Cogpit's default, not the owner's decision):** the theme is also a
+preference (Preferences › App › Theme: Sync with computer, Dark, Light, Lens's three), switched at
+once and kept in `preferences.json`; `--theme` stays and overrides it for one run; Dark stays the
+default until the user picks another. A cluster's icon colour (Cluster settings › General) is one
+of Solarized's eight accents, in each variant's legible shade (`identityColors` in
+[`theme.go`](../../internal/ui/fyneui/theme.go), 3:1 held by `TestIdentityColorsContrast`).
+
 ## D-23: A link to the owner in the status bar
 
 **Decided (owner, 2026-10-12):** the status bar shows, always (before connecting and on the demo
@@ -759,6 +766,7 @@ click, but an approval that no longer binds the server: a changed server in `con
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-22 amended (Cogpit's default): the theme is a preference too, `--theme` overrides it for a run; the clusters' icon colours are Solarized's accents |
 | 2026-10-13 | minor | D-11: Helm install built on the journal's road as the lead's default (an interrupted install offered as an uninstall); the decision stays the owner's |
 | 2026-10-12 | minor | D-11: crash reports kept locally (built), and what they found first |
 | 2026-10-12 | minor | D-14: the upstream pull requests opened (#155–#158, owner's OK) |

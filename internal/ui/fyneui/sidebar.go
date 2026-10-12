@@ -229,9 +229,10 @@ func (s *sidebar) updateHeader() {
 		s.subtitle.SetText("")
 		return
 	}
-	name, file := splitContextID(ui.Context)
-	s.badge.set(initials(name), false)
-	s.name.SetText(name)
+	_, file := splitContextID(ui.Context)
+	id := s.sh.identity(ui.Context) // the display name and icon from the cluster's settings
+	s.badge.setIdentity(id)
+	s.name.SetText(id.name)
 	switch {
 	case ui.Connection.Demo:
 		s.subtitle.SetText("Synthetic demo cluster")

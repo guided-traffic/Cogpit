@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -85,6 +87,7 @@ type shell struct {
 	palette   *cmdPalette   // the command palette, ⌘⇧P (palette.go)
 	hot       *hotbar       // the pinned clusters at the window's left edge (hotbar.go)
 	kc        *kubeconfigUI // the kubeconfig sources' dialogs (kubeconfigs.go)
+	settings  *settingsPage // Preferences and Cluster settings (preferences_page.go)
 	confirmer *guiConfirmer
 	drains    *drainBanner // unfinished drains, below the top bar (drains.go)
 	helm      *helmBanner  // unfinished Helm release actions, below the drains (helmbanner.go)
@@ -92,6 +95,7 @@ type shell struct {
 
 	hsplit    *fyne.Container // table | drawer, the drawer's width set by the user (panelwidths.go)
 	mainRow   *fyne.Container // sidebar | body, the sidebar's width set by the user
+	center    *fyne.Container // mainRow, or the open settings page in its place
 	sidebarW  float32         // the user's widths of the two panels, stored in the preferences
 	drawerW   float32
 	sideLay   *panelLayout
@@ -123,6 +127,12 @@ type shell struct {
 	mcpMenu *fyne.MenuItem // Help › Copy MCP command, disabled while the server is off
 
 	helmRepos *helmReposDialog // the open Helm repositories dialog (helmcharts.go)
+	// zone is the Preferences' time zone for the charts; nil: the clock's (preferences.go).
+	zone *time.Location
+	// icons are the clusters' uploaded icons by file, nil for one that cannot be read;
+	// iconLoading the files being read (clusteridentity.go).
+	icons       map[string]fyne.Resource
+	iconLoading map[string]bool
 }
 
 // newShell builds every widget. Nothing talks to the engine until start.
@@ -153,6 +163,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.kc = newKubeconfigUI(sh)
 	sh.picker = newPicker(sh)
 	sh.palette = newCmdPalette(sh)
+	sh.settings = newSettingsPage(sh)
 	sh.confirmer = newGUIConfirmer(sh)
 	sh.drains = newDrainBanner(sh)
 	sh.helm = newHelmBanner(sh)
@@ -179,10 +190,11 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 		func(w float32) float32 { return sh.setSidebarWidth(w) },
 		sh.saveWidths))
 	sh.mainRow = main
+	sh.center = container.NewStack(main)
 	frame := container.NewBorder(
 		container.NewVBox(sh.top.root, newDivider(false), sh.drains.root, sh.helm.root),
 		container.NewVBox(newDivider(false), sh.status.root),
-		sh.hot.root, nil, main)
+		sh.hot.root, nil, sh.center)
 	sh.root = container.NewStack(frame, sh.tip.layer, sh.toasts)
 	return sh
 }
@@ -285,6 +297,7 @@ func (sh *shell) onEvent(ev engine.Event) {
 			sh.do(func() {
 				sh.metricsQueued.Store(false)
 				sh.drawer.metricsChanged()
+				sh.settings.metricsChanged() // the Prometheus setting may be new
 			})
 		}
 	case engine.EventDiagnostics:
@@ -408,6 +421,19 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	}
 	if first || st.Palette || old.Palette { // while open, what it lists follows the state
 		sh.palette.stateChanged()
+	}
+	if first || !reflect.DeepEqual(st.Preferences, old.Preferences) {
+		sh.preferencesChanged()
+	}
+	if !first && (!maps.Equal(st.ClusterSettings, old.ClusterSettings) || st.Context != old.Context) {
+		sh.identitiesChanged()
+	}
+	if first || !reflect.DeepEqual(st.Settings, old.Settings) || (st.Settings != nil && (!reflect.DeepEqual(st.Preferences, old.Preferences) ||
+		!maps.Equal(st.ClusterSettings, old.ClusterSettings) || st.Context != old.Context || st.Connection != old.Connection)) {
+		sh.settings.stateChanged()
+	}
+	if first || (st.Context == "") != (old.Context == "") {
+		sh.win.SetMainMenu(sh.mainMenu()) // Cluster Settings… is enabled while a cluster is chosen
 	}
 }
 
@@ -734,6 +760,7 @@ func (sh *shell) mainMenu() *fyne.MainMenu {
 	}
 	cluster.Items = append(cluster.Items, sh.kc.menuItems()...)
 	cluster.Items = append(cluster.Items, sh.refreshAccessItem())
+	cluster.Items = append(cluster.Items, sh.settingsMenuItems()...) // ⌘⇧, and ⌘, from any focus
 	var items []*fyne.MenuItem
 	for _, k := range listableKinds(sh.kinds) { // as the sidebar: no kind the user may not list
 		key := k.Kind
@@ -801,6 +828,10 @@ func (sh *shell) installShortcuts() {
 			}
 			if sh.picker.visible() { // the picker first: it lies over the drawer
 				sh.picker.popup.dismiss()
+				return
+			}
+			if sh.settings.visible() { // a settings page lies over the views
+				sh.dispatch("settings.close", struct{}{}, nil)
 				return
 			}
 			sh.closeDrawer()

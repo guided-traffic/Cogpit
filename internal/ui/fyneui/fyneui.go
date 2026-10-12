@@ -47,7 +47,8 @@ type Options struct {
 	PerfDuration time.Duration
 	// PerfMode, with PerfReport, picks the measurement: PerfScroll (the default) or PerfGate.
 	PerfMode string
-	// Theme picks the palette; empty means ThemeDark.
+	// Theme picks the palette for the run (--theme), over the Preferences' theme; empty: the
+	// Preferences' theme, ThemeDark without one.
 	Theme ThemeMode
 }
 
@@ -138,7 +139,14 @@ var _ Engine = (*engine.Session)(nil)
 // until the window closes.
 func Run(s *engine.Session, opts Options) error {
 	a := app.NewWithID("io.guided-traffic.cogpit")
-	a.Settings().SetTheme(newTheme(opts.Theme))
+	mode, rowHeight := opts.Theme, 0 // --theme for the run, else the Preferences' (preferences.go)
+	if p := s.UIState().Preferences; p != nil {
+		if mode == "" {
+			mode = ThemeMode(p.Theme)
+		}
+		rowHeight = p.TableRowHeight
+	}
+	a.Settings().SetTheme(newThemeFor(mode, rowHeight))
 	title := opts.Title
 	if title == "" {
 		title = "Cogpit"

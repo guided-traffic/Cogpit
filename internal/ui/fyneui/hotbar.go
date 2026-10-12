@@ -276,7 +276,8 @@ func (h *hotbar) showMenu(m *fyne.Menu, pos fyne.Position) {
 	pm.ShowAtPosition(pos)
 }
 
-// tileMenu is a tile's menu: Connect, Move Up, Move Down, Remove from Hotbar (Cogpit's, inferred).
+// tileMenu is a tile's menu: Connect, Settings, Move Up, Move Down, Remove from Hotbar (Cogpit's,
+// inferred).
 func (h *hotbar) tileMenu(slot int, pos fyne.Position) {
 	b, ok := h.bank()
 	if !ok || slot < 1 || slot > len(b.Clusters) {
@@ -297,7 +298,12 @@ func (h *hotbar) tileMenu(slot int, pos fyne.Position) {
 	remove := fyne.NewMenuItem("Remove from Hotbar", func() {
 		h.sh.dispatch("hotbar.removeCluster", hotbarClusterParams{Context: t.Context, Bank: bank}, nil)
 	})
-	h.showMenu(fyne.NewMenu("", connect, fyne.NewMenuItemSeparator(), up, down, fyne.NewMenuItemSeparator(), remove), pos)
+	items := []*fyne.MenuItem{connect}
+	if settings := h.sh.settingsItem(t.Context); settings != nil { // the cluster's Settings page
+		items = append(items, settings)
+	}
+	items = append(items, fyne.NewMenuItemSeparator(), up, down, fyne.NewMenuItemSeparator(), remove)
+	h.showMenu(fyne.NewMenu("", items...), pos)
 }
 
 // bankMenu is the switcher's menu: the banks to switch to, then New, Rename and Remove Bank.
@@ -516,9 +522,10 @@ func (t *hotbarTile) MouseOut() {
 // CreateRenderer implements fyne.Widget.
 func (t *hotbarTile) CreateRenderer() fyne.WidgetRenderer {
 	r := &hotbarTileRenderer{t: t,
-		bg: canvas.NewRectangle(color.Transparent), initials: canvas.NewText(initials(t.tile.Label), color.Transparent),
+		bg: canvas.NewRectangle(color.Transparent), initials: canvas.NewText("", color.Transparent),
 		ring: canvas.NewCircle(color.Transparent), dot: canvas.NewCircle(color.Transparent),
-		label: canvas.NewText("", color.Transparent)}
+		label: canvas.NewText("", color.Transparent),
+		img:   &canvas.Image{FillMode: canvas.ImageFillContain, ScaleMode: canvas.ImageScaleSmooth}}
 	r.initials.TextStyle = fyne.TextStyle{Bold: true}
 	r.Refresh()
 	return r
@@ -530,6 +537,8 @@ type hotbarTileRenderer struct {
 	initials  *canvas.Text
 	ring, dot *canvas.Circle
 	label     *canvas.Text
+	img       *canvas.Image   // the cluster's uploaded icon (clusteridentity.go), over the square
+	id        clusterIdentity // the cluster's name and icon, from its settings
 }
 
 func (r *hotbarTileRenderer) sizes() (side, pad, dot float32) {
@@ -548,6 +557,8 @@ func (r *hotbarTileRenderer) Layout(size fyne.Size) {
 	x := (size.Width - side) / 2
 	r.bg.Move(fyne.NewPos(x, pad))
 	r.bg.Resize(fyne.NewSize(side, side))
+	r.img.Move(fyne.NewPos(x+2, pad+2))
+	r.img.Resize(fyne.NewSize(side-4, side-4))
 	is := r.initials.MinSize()
 	r.initials.Move(fyne.NewPos(x+(side-is.Width)/2, pad+(side-is.Height)/2))
 	r.initials.Resize(is)
@@ -556,7 +567,7 @@ func (r *hotbarTileRenderer) Layout(size fyne.Size) {
 	r.ring.Resize(fyne.NewSize(ring, ring))
 	r.dot.Move(fyne.NewPos(x+side-d, pad+side-d))
 	r.dot.Resize(fyne.NewSize(d, d))
-	r.label.Text = ellipsize(r.t.tile.Label, size.Width-pad, r.label.TextSize, r.label.TextStyle)
+	r.label.Text = ellipsize(r.id.name, size.Width-pad, r.label.TextSize, r.label.TextStyle)
 	ls := r.label.MinSize()
 	r.label.Move(fyne.NewPos((size.Width-ls.Width)/2, pad+side+pad/2))
 	r.label.Resize(ls)
@@ -565,7 +576,12 @@ func (r *hotbarTileRenderer) Layout(size fyne.Size) {
 func (r *hotbarTileRenderer) Refresh() {
 	t := r.t
 	th := t.Theme()
-	accent := themeColor(th, colorAccent)
+	r.id = clusterIdentity{name: t.tile.Label, initials: nameInitials(t.tile.Label), ink: colorAccent}
+	if sh := t.h.sh; sh != nil {
+		r.id = sh.identity(t.tile.Context)
+	}
+	r.initials.Text = r.id.initials
+	accent := themeColor(th, r.id.ink) // the cluster's icon colour, the accent by default
 	r.bg.CornerRadius = th.Size(theme.SizeNameInputRadius)
 	r.bg.StrokeWidth = 0
 	r.initials.TextSize = th.Size(theme.SizeNameSubHeadingText)
@@ -596,6 +612,15 @@ func (r *hotbarTileRenderer) Refresh() {
 	}
 	r.dot.FillColor = themeColor(th, dot)
 	r.ring.FillColor = themeColor(th, theme.ColorNameHeaderBackground) // sets the dot off the tile
+	if r.id.image != nil && !t.tile.Missing {                          // the uploaded icon in place of the initials
+		r.img.Resource = r.id.image
+		r.img.Show()
+		r.initials.Hide()
+	} else {
+		r.img.Resource = nil
+		r.img.Hide()
+		r.initials.Show()
+	}
 	r.Layout(t.Size())
 	for _, o := range r.Objects() {
 		o.Refresh()
@@ -603,7 +628,7 @@ func (r *hotbarTileRenderer) Refresh() {
 }
 
 func (r *hotbarTileRenderer) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{r.bg, r.initials, r.ring, r.dot, r.label}
+	return []fyne.CanvasObject{r.bg, r.img, r.initials, r.ring, r.dot, r.label}
 }
 
 func (r *hotbarTileRenderer) Destroy() {}

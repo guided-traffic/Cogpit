@@ -55,6 +55,7 @@ type editorPane struct {
 func newEditorPane(sh *shell, id string) *editorPane {
 	p := &editorPane{sh: sh, id: id, view: yamlview.New()}
 	p.view.SetReadOnly(false)
+	sh.applyEditorPrefs(p.view) // font size, line numbers, tab size (preferences.go)
 	p.view.OnChanged = p.changed
 	return p
 }

@@ -531,15 +531,21 @@ var (
 	_ desktop.Hoverable      = (*navRootRow)(nil)
 )
 
-// TappedSecondary implements fyne.SecondaryTappable: the cluster's menu, while it has an item.
+// TappedSecondary implements fyne.SecondaryTappable: the cluster's menu (Settings, the hotbar's
+// item), while it has an item.
 func (r *navRootRow) TappedSecondary(ev *fyne.PointEvent) {
 	sh := r.s.sh
-	item := sh.hot.contextItem(sh.ui.Context)
-	if item == nil {
+	var items []*fyne.MenuItem
+	for _, item := range []*fyne.MenuItem{sh.settingsItem(sh.ui.Context), sh.hot.contextItem(sh.ui.Context)} {
+		if item != nil {
+			items = append(items, item)
+		}
+	}
+	if len(items) == 0 {
 		return
 	}
 	sh.tip.hide()
-	r.menuModel = fyne.NewMenu("", item)
+	r.menuModel = fyne.NewMenu("", items...)
 	widget.NewPopUpMenu(r.menuModel, sh.win.Canvas()).ShowAtPosition(ev.AbsolutePosition)
 }
 
@@ -620,76 +626,7 @@ func (rr *navRootRenderer) Objects() []fyne.CanvasObject {
 
 func (rr *navRootRenderer) Destroy() {}
 
-// clusterBadge is a cluster's initials on a tinted square, as the hotbar's tiles show them; "–" in
-// the muted colour without a cluster.
-type clusterBadge struct {
-	widget.BaseWidget
-	text  string
-	muted bool
-}
-
-func newClusterBadge() *clusterBadge {
-	b := &clusterBadge{text: "–", muted: true}
-	b.ExtendBaseWidget(b)
-	return b
-}
-
-// set changes the initials; muted draws them without a cluster's colour.
-func (b *clusterBadge) set(text string, muted bool) {
-	if text == b.text && muted == b.muted {
-		return
-	}
-	b.text, b.muted = text, muted
-	b.Refresh()
-}
-
-// CreateRenderer implements fyne.Widget.
-func (b *clusterBadge) CreateRenderer() fyne.WidgetRenderer {
-	r := &clusterBadgeRenderer{b: b, bg: canvas.NewRectangle(color.Transparent), txt: canvas.NewText("", color.Transparent)}
-	r.txt.TextStyle = fyne.TextStyle{Bold: true}
-	r.Refresh()
-	return r
-}
-
-type clusterBadgeRenderer struct {
-	b   *clusterBadge
-	bg  *canvas.Rectangle
-	txt *canvas.Text
-}
-
-func (r *clusterBadgeRenderer) MinSize() fyne.Size {
-	side := r.b.Theme().Size(sizeNavBadge)
-	return fyne.NewSize(side, side)
-}
-
-func (r *clusterBadgeRenderer) Layout(size fyne.Size) {
-	side := r.b.Theme().Size(sizeNavBadge)
-	x, y := (size.Width-side)/2, (size.Height-side)/2
-	r.bg.Move(fyne.NewPos(x, y))
-	r.bg.Resize(fyne.NewSize(side, side))
-	ts := r.txt.MinSize()
-	r.txt.Move(fyne.NewPos(x+(side-ts.Width)/2, y+(side-ts.Height)/2))
-	r.txt.Resize(ts)
-}
-
-func (r *clusterBadgeRenderer) Refresh() {
-	th := r.b.Theme()
-	ink := themeColor(th, colorAccent)
-	if r.b.muted {
-		ink = themeColor(th, colorMuted)
-	}
-	r.bg.FillColor = withAlpha(ink, 0x2c) // the hotbar tile's tint
-	r.bg.CornerRadius = th.Size(theme.SizeNameInputRadius)
-	r.txt.Text = r.b.text
-	r.txt.Color = ink
-	r.txt.TextSize = th.Size(theme.SizeNameText)
-	r.Layout(r.b.Size())
-	r.bg.Refresh()
-	r.txt.Refresh()
-}
-
-func (r *clusterBadgeRenderer) Objects() []fyne.CanvasObject { return []fyne.CanvasObject{r.bg, r.txt} }
-func (r *clusterBadgeRenderer) Destroy()                     {}
+// clusterBadge, the cluster's identity at the root, is drawn in clusteridentity.go.
 
 // navIconButton is a small icon with a tooltip and a hover background: the root's ‹. It takes no
 // keyboard focus, so Tab leaves the tree at once (the top bar's "Switch context" does what it does).

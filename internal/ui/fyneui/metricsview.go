@@ -679,9 +679,6 @@ func metricIcon(name, elements string) fyne.Resource {
 		[]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">`+elements+`</svg>`)))
 }
 
-// loc is the time zone of the chart's time axis: the clock's.
-func (sh *shell) loc() *time.Location { return sh.now().Location() }
-
 // formatCores formats cores for the value axis: "0.25", "1.5", "2".
 func formatCores(v float64) string { return fmt.Sprintf("%.3g", v) }
 

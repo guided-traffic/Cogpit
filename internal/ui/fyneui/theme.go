@@ -248,11 +248,33 @@ var lightPalette = palette{
 	},
 }
 
-// init files each palette's status colours under their theme names, so that Color is one lookup.
+// identityColorName is the token of a cluster's icon colour (Cluster settings › General › Pick
+// Icon Color): one per accent of the palette, engine.IconColors.
+func identityColorName(color string) fyne.ThemeColorName {
+	return fyne.ThemeColorName("cogpit.identity." + color)
+}
+
+// identityColors are the icon colours per variant: Solarized's eight accents in the shades the
+// status tokens use, so that a cluster's initials read at 3:1 on the hotbar, the navigator and the
+// picker (TestIdentityColorsContrast); cyan is each variant's accent.
+var identityColors = map[fyne.ThemeVariant]map[string]uint32{
+	theme.VariantDark: {"cyan": solCyan, "blue": 0x4099d7, "violet": 0x898dd0, "magenta": 0xe0619c,
+		"red": 0xe66d6b, "orange": 0xd97a53, "yellow": 0xb78d08, "green": 0x899c08},
+	theme.VariantLight: {"cyan": 0x1f7f78, "blue": 0x237ebf, "violet": 0x6c71c4, "magenta": 0xc4307a,
+		"red": 0xdc322f, "orange": 0xcb4b16, "yellow": 0x987300, "green": 0x6e7f00},
+}
+
+// init files each palette's status and identity colours under their theme names, so that Color
+// is one lookup.
 func init() {
 	for _, p := range []*palette{&darkPalette, &lightPalette} {
 		for s, name := range statusColorNames {
 			p.fyne[name] = p.status[s]
+		}
+	}
+	for v, colors := range identityColors {
+		for name, rgb := range colors {
+			paletteFor(v).fyne[identityColorName(name)] = hex(rgb)
 		}
 	}
 }
@@ -300,6 +322,10 @@ func paletteFor(v fyne.ThemeVariant) *palette {
 type cogTheme struct {
 	mode ThemeMode
 	base fyne.Theme
+	// rowHeight is the Preferences' table row height in points (0: the default); rowPadding is
+	// the padding above and below a row's text that gives it.
+	rowHeight  int
+	rowPadding float32
 }
 
 var _ fyne.Theme = (*cogTheme)(nil)
@@ -311,6 +337,31 @@ func newTheme(mode ThemeMode) *cogTheme {
 	}
 	return &cogTheme{mode: mode, base: theme.DefaultTheme()}
 }
+
+// newThemeFor returns the theme for a mode with the Preferences' table row height (0: the
+// default). It measures text, so an app must exist.
+func newThemeFor(mode ThemeMode, rowHeight int) *cogTheme {
+	t := newTheme(mode)
+	if rowHeight > 0 {
+		t.rowHeight = rowHeight
+		t.rowPadding = max(1, (float32(rowHeight)-rowTextHeight())/2)
+	}
+	return t
+}
+
+// defaultRowPadding is the padding above and below a table row's text without a preference.
+const defaultRowPadding = 6
+
+// rowTextHeight is the height of a table row's text, the views' text size.
+func rowTextHeight() float32 {
+	return fyne.MeasureText("Mg", textSize, fyne.TextStyle{}).Height
+}
+
+// defaultRowHeight is a table row's height without a preference, rounded to whole points.
+func defaultRowHeight() int { return int(rowTextHeight() + 2*defaultRowPadding + 0.5) }
+
+// textSize is the views' text size, a step smaller than Fyne's default (Size).
+const textSize = 13
 
 // variant resolves the mode against the variant Fyne asks for: only ThemeSystem follows it.
 func (t *cogTheme) variant(v fyne.ThemeVariant) fyne.ThemeVariant {
@@ -354,7 +405,7 @@ func (t *cogTheme) Icon(n fyne.ThemeIconName) fyne.Resource {
 func (t *cogTheme) Size(n fyne.ThemeSizeName) float32 {
 	switch n {
 	case theme.SizeNameText:
-		return 13
+		return textSize
 	case theme.SizeNameCaptionText:
 		return 11
 	case theme.SizeNameSubHeadingText:
@@ -401,7 +452,10 @@ func (t *cogTheme) Size(n fyne.ThemeSizeName) float32 {
 	case sizeCellPadding:
 		return 10
 	case sizeRowPadding:
-		return 6
+		if t.rowPadding > 0 {
+			return t.rowPadding
+		}
+		return defaultRowPadding
 	case sizeDrawerLabel:
 		return 128
 	case sizeChipRadius:

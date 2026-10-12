@@ -284,7 +284,7 @@ func (s *Session) ChangeClusterSettings(context string, fn func(*ClusterSettings
 			delete(all, context)
 		} else {
 			if _, ok := all[context]; !ok && len(all) >= maxClusterSettings {
-				return ClusterSettings{}, nil, fmt.Errorf("Cogpit keeps the settings of at most %d clusters", maxClusterSettings)
+				return ClusterSettings{}, nil, fmt.Errorf("this Cogpit keeps the settings of at most %d clusters", maxClusterSettings)
 			}
 			all[context] = cs
 		}

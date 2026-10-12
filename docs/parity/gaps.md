@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -366,6 +366,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   container runs, from the newest line's timestamp without repeating lines, and forget ended pods
   and container instances (`TestWorkloadLogsResumeADroppedStream`,
   `TestWorkloadLogsForgetEndedInstances`; [architecture §4.4](../developer/architecture.md#44-tables-details-editors-and-streams)).
+  Since 2026-10-13 (G13's Preferences and Cluster settings): the local terminal's shell, its
+  arguments and the terminals' font size are preferences, and a cluster's terminals start in its
+  working directory with its namespace (`TestLocalTerminalOptionsFromTheSettings`); two rows
+  partial (font size, shell path and arguments), one updated.
 - **Impact:** triaging a failing pod (logs, then a shell) is the most common Lens workflow.
 - **Decided (owner, 2026-10-12, [D-14](../developer/decisions.md#d-14-terminal-widget)):** the
   patched terminal widget stays; its patches are offered upstream and it is fuzzed on its own,
@@ -747,16 +751,42 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   the captured rows, the greyed rows, the ranking; not tried in a real window
   (`TestCommandPaletteTypeAndRun`, `TestPaletteListsWhatTheMenusOffer`,
   [PNG](../../internal/ui/fyneui/testdata/command_palette_dark.png)).
-- **Missing:** kubeconfig syncs (alpha needs these; pasting is not a target, D-21), the hotbar's icons and dragging,
-  the application menu, the shortcuts of features that do not exist yet (tabs and their history,
-  preferences, cluster settings, Ask AI), preferences, cluster settings, appearance and
-  application integration.
+- **Built 2026-10-13 (night run):** Preferences (⌘,) and a cluster's Settings (⌘⇧,), as engine
+  state and commands ([`engine/preferences.go`](../../internal/engine/preferences.go),
+  [`engine/clustersettings.go`](../../internal/engine/clustersettings.go): `UIState.Preferences`,
+  `UIState.ClusterSettings`, the open page in `UIState.Settings`; `preferences.*`,
+  `cluster.settings.*`, `settings.close`, each an MCP tool) kept in Cogpit's own
+  `preferences.json`, `cluster-settings.json` and `cluster-icons/`, never in a kubeconfig. The
+  pages ([`fyneui/preferences_page.go`](../../internal/ui/fyneui/preferences_page.go)) take the
+  views' place until closed (Cogpit has no tabs). Preferences: the theme (switched at once;
+  `--theme` overrides it for a run), the time zone (the drawer's Created, the charts), the
+  tables' row height, the editor's font size, line numbers and tab size, the terminal's font
+  size, shell and arguments (the shell GUI-only). Cluster settings: the display name and the
+  identity (the theme's accent colours or an uploaded image, checked and kept as Cogpit's copy)
+  that the hotbar, the picker and the navigator show; the kubeconfig's path with its folder in
+  the file manager; the terminals' working directory and namespace; the Prometheus dialog linked.
+  Settings… in the picker's, the hotbar tile's and the navigator root's menus; Preferences… moves
+  into macOS's application menu (`TestPreferencesOpenWithTheShortcutAndSwitchTheTheme`,
+  `TestClusterSettingsFromThePickerSetIdentityAndTerminal`, `TestClusterSettingsCommandsNeverTouchTheKubeconfig`,
+  [PNG](../../internal/ui/fyneui/testdata/cluster_settings_dark.png)). Inferred or Cogpit's
+  defaults: the page in place of the views, the sections' grouping, the swatches, the bounds, the
+  cluster namespace replacing the filter's, Dark as the default theme; not tried in a real window.
+- **Missing:** kubeconfig syncs (alpha needs these; pasting is not a target, D-21), dragging on the
+  hotbar, the shortcuts of features that do not exist yet (tabs and their history, Ask AI), the
+  Preferences that are not built (proxy, untrusted certificate authorities, kubectl download,
+  Helm repositories and `HELM_DRIVER`, update channel, start at login, the editor's minimap and
+  font family, the terminal's copy and paste behaviour, theme and font family), the cluster
+  settings' Proxy, Namespaces, Node Shell and Lens Metrics pages, the Cluster menu's Disconnect and
+  Remove, and the rest of appearance and application integration (zoom, windows, deep links).
 - **Evidence:** [ui-parity](ui-parity.md), 65 rows across those sections (6 more are marked not a
   target); 7 of them partial since 2026-10-12 (the hotbar's six and the Cluster menu), the
   navigator keyboard since 2026-10-13 (⇧↵ without a fixed tab; [G5](#g5-app-shell-navigation-tables-and-drawer)'s navigator),
   and 7 more since 2026-10-13 (the palette's two free rows and five shortcut rows; the paid bank
-  commands' row updated).
-- **Estimate:** 50–140 h (was 58–150; the palette and five shortcut rows built, night run; 1–2.5 h per row, the registry makes shortcuts and menus cheap).
+  commands' row updated); 11 more since 2026-10-13 (Preferences and Cluster settings: the two
+  shortcut rows, the application menu's Preferences, Cluster identity, Theme, Locale timezone,
+  Editor, Tables, Terminal, Cluster settings › General and Terminal; the Cluster menu, Kubeconfig
+  syncs, Metrics provider and Appearance's theme row updated).
+- **Estimate:** 50–140 h (was 58–150; the palette and five shortcut rows built, night run; 1–2.5 h per row, the registry makes shortcuts and menus cheap); not moved for Preferences and Cluster settings (2026-10-13): the lead recounts.
 
 ## Platform gaps
 
@@ -886,11 +916,13 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | G13: Preferences and Cluster settings built (night run): the two pages and their shortcuts, cluster identity, the theme, time zone, editor, tables and terminal preferences, the cluster's terminal settings; G8: the terminal's font size, shell and arguments; what is inferred and Cogpit's defaults named; estimates not moved (the lead recounts) |
 | 2026-10-13 | minor | G12: the cluster Overview built (night run, M7): charts of the master or worker nodes through a cluster scope of the hub, lines and Pods from the cache, the Issues from the cache, three commands, budget P14; the remainder re-estimated 15–35 h (the summary table not recounted) |
 | 2026-10-13 | minor | G6: Applications partial (a virtual kind over the cached workloads, Logs per workload); 3 views missing, estimate 12–60 h |
 | 2026-10-13 | minor | G6: Vertical Pod Autoscalers partial (a curated profile of the CRD kind); 4 views missing, estimate 16–70 h |
 | 2026-10-13 | minor | G6: Resource Claims, Resource Claim Templates, Device Classes and Resource Slices partial (Lens's documented columns), the pod drawer's Resource Claims section; 5 views missing, estimate 20–80 h |
 | 2026-10-13 | minor | G11: chart repositories in Cogpit's own folders, the Charts view, the Helm Install tab and the install as a crash-safe job (night run); what is left and what to capture |
+| 2026-10-12 | minor | G12: the evening's requirements built (fourth slice): both providers together (Prometheus's history once, the Metrics Server's live values, the network and the filesystem only while shown: the lead's proposal), the fallback, a status line per provider (also in `metrics.get` and `ui.state`), a chart's variant as engine state, a missing value as an empty cell; budget P13 measured on kind; no count moved |
 | 2026-10-13 | minor | G17: the `cogpit-cli mcp` stdio bridge built, evidence added; estimate unchanged |
 | 2026-10-13 | minor | G2: `cogpit-cli contexts` and `cogpit-cli get` built (milestone 0.1), evidence added; estimate unchanged |
 | 2026-10-13 | minor | G5, G13: the navigator built (night run): header, the cluster as the tree's root, item tooltips, keyboard; what differs from Lens and what is inferred; estimates not moved (the lead recounts) |

@@ -219,11 +219,14 @@ func CheckShell(path string) error {
 	if !fi.Mode().IsRegular() {
 		return fmt.Errorf("the shell %s is not a file", path)
 	}
-	if runtime.GOOS != "windows" && fi.Mode().Perm()&0o111 == 0 {
+	if runtime.GOOS != goosWindows && fi.Mode().Perm()&0o111 == 0 {
 		return fmt.Errorf("the shell %s is not executable", path)
 	}
 	return nil
 }
+
+// goosWindows is runtime.GOOS on Windows, where file modes say nothing about executing.
+const goosWindows = "windows"
 
 // checkShellArgs refuses arguments that are not lines of text: each argument is one line, as the
 // Preferences page takes one per line.
@@ -396,13 +399,24 @@ const (
 	SettingsCluster     = "cluster"
 )
 
+// The settings pages' sections.
+const (
+	SectionApp        = "app"
+	SectionKubernetes = "kubernetes"
+	SectionEditor     = "editor"
+	SectionTerminal   = "terminal"
+	SectionTables     = "tables"
+	SectionGeneral    = "general"
+	SectionMetrics    = "metrics"
+)
+
 // PreferencesSections are the Preferences page's sections: App (theme, time zone), Kubernetes
 // (kubeconfig syncs), Editor, Terminal, Tables. Cogpit's grouping, inferred from Lens's page.
-var PreferencesSections = []string{"app", "kubernetes", "editor", "terminal", "tables"}
+var PreferencesSections = []string{SectionApp, SectionKubernetes, SectionEditor, SectionTerminal, SectionTables}
 
 // ClusterSettingsSections are the Cluster settings page's built sections, in Lens's captured
 // order (General, Proxy, Terminal, Namespaces, Metrics, ..., Node Shell) without the missing ones.
-var ClusterSettingsSections = []string{"general", "terminal", "metrics"}
+var ClusterSettingsSections = []string{SectionGeneral, SectionTerminal, SectionMetrics}
 
 // SettingsPage is the open settings page: Preferences, or one context's Cluster settings, and the
 // section shown.

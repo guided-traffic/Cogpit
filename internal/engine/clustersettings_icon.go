@@ -44,6 +44,12 @@ const (
 	iconFileDigits = 64 // hex digits of the SHA-256 that names a kept icon
 )
 
+// The formats of a kept icon, its file's extension.
+const (
+	iconPNG = "png"
+	iconSVG = "svg"
+)
+
 // ErrIconGUIOnly refuses an icon upload from anywhere but the user's own action in Cogpit's window.
 var ErrIconGUIOnly = errors.New("only the user, in Cogpit's own window, can upload a cluster's icon; agents and the " +
 	"CLI are refused (it reads a file on this computer); an agent can pick an icon colour instead")
@@ -52,7 +58,7 @@ var ErrIconGUIOnly = errors.New("only the user, in Cogpit's own window, can uplo
 // that a tampered settings file cannot point outside ClusterIconsDir.
 func validIconFile(name string) bool {
 	base, ext, ok := strings.Cut(name, ".")
-	if !ok || (ext != "png" && ext != "svg") || len(base) != iconFileDigits {
+	if !ok || (ext != iconPNG && ext != iconSVG) || len(base) != iconFileDigits {
 		return false
 	}
 	for _, r := range base {
@@ -106,12 +112,12 @@ func CheckIcon(raw []byte) (data []byte, format string, err error) {
 	switch {
 	case bytes.HasPrefix(raw, []byte("\x89PNG\r\n\x1a\n")), bytes.HasPrefix(raw, []byte{0xff, 0xd8, 0xff}):
 		data, err := rasterIcon(raw)
-		return data, "png", err
+		return data, iconPNG, err
 	case looksLikeSVG(raw):
 		if err := checkSVG(raw); err != nil {
 			return nil, "", err
 		}
-		return raw, "svg", nil
+		return raw, iconSVG, nil
 	}
 	return nil, "", errors.New("the icon is not a PNG, JPEG or SVG image")
 }
@@ -291,7 +297,7 @@ func (s *Session) SetClusterIcon(context, path string) (ClusterSettings, error) 
 		return ClusterSettings{}, ErrNoClusterSettings
 	}
 	if c.dir == "" {
-		return ClusterSettings{}, errors.New("Cogpit has no configuration folder to keep an icon in")
+		return ClusterSettings{}, errors.New("this Cogpit has no configuration folder to keep an icon in")
 	}
 	data, format, err := ReadIconFile(path)
 	if err != nil {
@@ -339,7 +345,7 @@ func (s *Session) ClusterIcon(context string) (data []byte, format string, err e
 	// The kept copy is checked again before the GUI decodes it: a file someone else put there is
 	// no reason to decode a huge image or render a foreign document.
 	format = strings.TrimPrefix(filepath.Ext(cs.Icon), ".")
-	if format == "svg" {
+	if format == iconSVG {
 		err = checkSVG(data)
 	} else if cfg, cerr := png.DecodeConfig(bytes.NewReader(data)); cerr != nil || cfg.Width > iconSide || cfg.Height > iconSide {
 		err = errors.New("not a PNG Cogpit wrote")

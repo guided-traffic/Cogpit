@@ -154,7 +154,7 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 				}
 				w := termview.NewTerminal(sess)
 				c.closer = w
-				c.set(w)
+				c.set(d.sh.terminalScope(w)) // the Preferences' terminal font size (preferences.go)
 			})
 		}()
 	case engine.DockEdit:
