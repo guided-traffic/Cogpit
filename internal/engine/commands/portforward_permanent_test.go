@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -19,14 +20,29 @@ import (
 var podsResource = schema.GroupResource{Resource: "pods"}
 
 // portFree reports whether nothing listens on the forward's local address any more.
+// The forward's port comes from the ephemeral range, so once it is freed another test process may
+// take it for an outgoing connection and make Listen fail (a CI flake): a refused dial says no
+// listener is left just as well. Either is retried for a moment.
 func portFree(t *testing.T, addr string) bool {
 	t.Helper()
-	ln, err := net.Listen("tcp4", addr)
-	if err != nil {
-		return false
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if ln, err := net.Listen("tcp4", addr); err == nil {
+			_ = ln.Close()
+			return true
+		}
+		conn, err := net.DialTimeout("tcp4", addr, 200*time.Millisecond)
+		if err != nil && errors.Is(err, syscall.ECONNREFUSED) {
+			return true
+		}
+		if conn != nil {
+			_ = conn.Close()
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
-	_ = ln.Close()
-	return true
 }
 
 // TestPortForwardFailsAtOncePermanentErrors (D-20): a connection that cannot be made, and that

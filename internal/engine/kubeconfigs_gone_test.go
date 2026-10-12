@@ -159,7 +159,11 @@ func TestConnectionClosesWhenItsSourceIsRemoved(t *testing.T) {
 	}
 	// The watcher (5 ms) may close it first; either way it is closed, exactly once.
 	g.s.CloseGoneSourceConnection()
-	waitFor(t, "the connection to close after the source was removed", func() bool { return g.s.Backend() == nil })
+	// The backend is detached before the UI state says Disconnected (disconnectBackend closes it in
+	// between): wait for both, or the check below reads the state in that gap (a CI flake).
+	waitFor(t, "the connection to close after the source was removed", func() bool {
+		return g.s.Backend() == nil && g.s.UIState().Connection.State == Disconnected
+	})
 	ui := g.s.UIState()
 	if ui.Connection.State != Disconnected || !strings.Contains(ui.Connection.Error, "source was removed") ||
 		!strings.Contains(ui.Connection.Error, "untouched") {
