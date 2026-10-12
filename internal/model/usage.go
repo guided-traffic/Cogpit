@@ -85,3 +85,22 @@ func FormatPercent(share float64) string {
 	}
 	return strconv.FormatFloat(p, 'f', 0, 64) + "%"
 }
+
+// NetworkSample is one point of a pod's or node's network traffic: bytes per second received and
+// transmitted, averaged over the provider's rate window. Only a provider with history and network
+// metrics (Prometheus) produces it; the network is a pod's, not a container's.
+type NetworkSample struct {
+	At                  time.Time `json:"at"`
+	ReceiveBytesPerSec  float64   `json:"receiveBytesPerSec"`
+	TransmitBytesPerSec float64   `json:"transmitBytesPerSec"`
+}
+
+// FilesystemSample is one point of a container's, pod's or node's filesystem: the bytes in use
+// when the provider has the usage metric, else (the series' FilesystemSource says "io") the read
+// and write rates in bytes per second. The fields the source does not give are 0.
+type FilesystemSample struct {
+	At               time.Time `json:"at"`
+	UsageBytes       float64   `json:"usageBytes,omitempty"`
+	ReadBytesPerSec  float64   `json:"readBytesPerSec,omitempty"`
+	WriteBytesPerSec float64   `json:"writeBytesPerSec,omitempty"`
+}

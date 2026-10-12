@@ -18,3 +18,16 @@ func ForConn(conn *cluster.Conn) (*Server, error) {
 	}
 	return NewServer(conn.Discovery(), client), nil
 }
+
+// ChainForConn returns the detector of a connection: Prometheus through the service proxy if one
+// is found among services (or named by the override set on the returned PrometheusDetector), else
+// the Metrics Server. All requests go through the connection's clients, so they are counted and
+// rate limited.
+func ChainForConn(conn *cluster.Conn, services ServiceSource, opts PrometheusOptions) (Detector, *PrometheusDetector, error) {
+	server, err := ForConn(conn)
+	if err != nil {
+		return nil, nil, err
+	}
+	prom := NewPrometheusDetector(conn.Kube(), services, opts)
+	return Chain(prom, server), prom, nil
+}

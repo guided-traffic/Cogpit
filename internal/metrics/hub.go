@@ -64,6 +64,16 @@ const (
 	DefaultRetryDetectTTL = 2 * time.Minute
 	// DefaultRequestTimeout bounds one poll.
 	DefaultRequestTimeout = 20 * time.Second
+	// DefaultRangeWindow is the time range of a chart of a provider with history: Lens's default,
+	// one hour.
+	DefaultRangeWindow = time.Hour
+	// DefaultMinStep is the finest step of a range query: a Prometheus rarely scrapes faster.
+	DefaultMinStep = 15 * time.Second
+	// StepsPerWindow is how many points a chart gets across its time range (window / 120): a
+	// chart a few hundred pixels wide gains nothing from more.
+	StepsPerWindow = 120
+	// DefaultMaxPoints bounds the points of one series however long the longest range is.
+	DefaultMaxPoints = 1000
 )
 
 // Options tune a Hub; zero fields take the defaults above. Tests shrink the intervals.
@@ -76,6 +86,12 @@ type Options struct {
 	DetectTTL      time.Duration
 	RetryDetectTTL time.Duration
 	RequestTimeout time.Duration
+	// RangeWindow is the time range a drawer's charts show unless a window was set with
+	// Subscription.SetWindows; MinStep the finest step of a range query; MaxRangePoints the most
+	// points a range query returns per series.
+	RangeWindow    time.Duration
+	MinStep        time.Duration
+	MaxRangePoints int
 	// Now is the clock; nil means time.Now.
 	Now func() time.Time
 	// Logger receives poll failures; nil means slog.Default().
@@ -95,6 +111,11 @@ func (o Options) withDefaults() Options {
 	def(&o.DetectTTL, DefaultDetectTTL)
 	def(&o.RetryDetectTTL, DefaultRetryDetectTTL)
 	def(&o.RequestTimeout, DefaultRequestTimeout)
+	def(&o.RangeWindow, DefaultRangeWindow)
+	def(&o.MinStep, DefaultMinStep)
+	if o.MaxRangePoints <= 0 {
+		o.MaxRangePoints = DefaultMaxPoints
+	}
 	if o.SeriesPoints <= 0 {
 		o.SeriesPoints = DefaultSeriesPoints
 	}
@@ -168,7 +189,8 @@ type scopeState struct {
 	attempted time.Time
 	inflight  *flight
 	series    map[string]*seriesBuf
-	touched   time.Time // the last use, for pruning
+	touched   time.Time     // the last use, for pruning
+	kick      chan struct{} // wakes the poll goroutine early: a chart's range changed
 }
 
 // dataSet is one result: immutable once stored.
@@ -176,6 +198,10 @@ type dataSet struct {
 	at    time.Time // when the hub got it
 	pods  map[string]model.PodUsage
 	nodes map[string]model.NodeUsage
+	// series is the history of a provider that has some (Capabilities.History), over window at
+	// step; nil for instant results.
+	series       *ObjectSeries
+	window, step time.Duration
 }
 
 type flight struct {
@@ -190,6 +216,7 @@ type Subscription struct {
 	scope    Scope
 	onChange func()
 	once     sync.Once
+	windows  []time.Duration // the time ranges its charts show (guarded by Hub.mu); empty: the default
 }
 
 // Subscribe starts polling scope (if nobody polls it yet) until the returned subscription is
@@ -211,7 +238,7 @@ func (h *Hub) Subscribe(scope Scope, onChange func()) *Subscription {
 		ctx, cancel := context.WithCancel(h.ctx)
 		st.cancel = cancel
 		h.wg.Add(1)
-		go h.loop(ctx, scope, h.intervalOf(scope), h.firstWaitLocked(st))
+		go h.loop(ctx, scope, st.kick, h.firstWaitLocked(st))
 	}
 	return sub
 }
@@ -251,10 +278,79 @@ func (h *Hub) intervalOf(s Scope) time.Duration {
 	return h.opts.ObjectInterval
 }
 
+// intervalLocked is how often a scope is polled: the list or object interval, and for a drawer on
+// a provider with history the range query's step (a new point exists only once per step).
+func (h *Hub) intervalLocked(st *scopeState) time.Duration {
+	iv := h.intervalOf(st.scope)
+	if !st.scope.IsList() && h.rangeProviderLocked() != nil {
+		_, step := h.rangeOfLocked(st)
+		iv = max(iv, step)
+	}
+	return iv
+}
+
+// rangeProviderLocked returns the detected provider if it has history.
+func (h *Hub) rangeProviderLocked() RangeProvider {
+	if rp, ok := h.prov.(RangeProvider); ok && h.prov.Capabilities().History {
+		return rp
+	}
+	return nil
+}
+
+// rangeOfLocked is the time range one poll of an object scope asks for and its step. The window is
+// the longest any subscribed chart shows (the default one hour is always among them, so a chart
+// that was not told otherwise has data), the step follows the shortest: window / 120, at least
+// MinStep, and coarse enough that the longest window stays within MaxRangePoints.
+func (h *Hub) rangeOfLocked(st *scopeState) (window, step time.Duration) {
+	window = h.opts.RangeWindow
+	shortest := window
+	for s := range st.subs {
+		for _, w := range s.windows {
+			if w <= 0 {
+				continue
+			}
+			window = max(window, w)
+			shortest = min(shortest, w)
+		}
+	}
+	step = max(h.opts.MinStep, shortest/StepsPerWindow, window/time.Duration(h.opts.MaxRangePoints))
+	if step >= time.Second {
+		step = (step + time.Second - 1) / time.Second * time.Second
+	}
+	return window, step
+}
+
+// SetWindows tells the hub which time ranges the subscriber's charts show; with a provider that
+// has history (Prometheus) the next poll asks for the longest, at the step of the shortest, and
+// one poll serves every chart of the scope. A subscription that never calls it shows the default
+// range. A change makes the scope poll at once. Providers without history ignore it.
+func (s *Subscription) SetWindows(windows ...time.Duration) {
+	if s == nil {
+		return
+	}
+	h := s.h
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if slices.Equal(s.windows, windows) {
+		return
+	}
+	s.windows = slices.Clone(windows)
+	if st := h.scopes[s.scope]; st != nil && st.cancel != nil && !s.scope.IsList() && h.rangeProviderLocked() != nil {
+		select {
+		case st.kick <- struct{}{}:
+		default:
+		}
+	}
+}
+
+// Forget makes the next poll detect the provider again: the user changed the cluster's metrics
+// settings (the Prometheus override), or knows a provider was installed.
+func (h *Hub) Forget() { h.forgetDetection() }
+
 func (h *Hub) scopeLocked(s Scope) *scopeState {
 	st := h.scopes[s]
 	if st == nil {
-		st = &scopeState{scope: s, subs: map[*Subscription]struct{}{}}
+		st = &scopeState{scope: s, subs: map[*Subscription]struct{}{}, kick: make(chan struct{}, 1)}
 		h.scopes[s] = st
 	}
 	st.touched = h.opts.Now()
@@ -276,6 +372,11 @@ func (h *Hub) pruneLocked() {
 func (h *Hub) firstWaitLocked(st *scopeState) time.Duration {
 	if st.data == nil {
 		return 0
+	}
+	if st.data.series != nil {
+		if w, step := h.rangeOfLocked(st); w != st.data.window || step != st.data.step {
+			return 0 // the held history was asked for another range
+		}
 	}
 	return max(h.opts.TTL-h.opts.Now().Sub(st.data.at), 0)
 }
@@ -309,13 +410,13 @@ func (h *Hub) validLocked(st *scopeState) bool {
 	}
 	limit := h.opts.TTL
 	if st.cancel != nil {
-		limit = max(limit, 2*h.intervalOf(st.scope))
+		limit = max(limit, 2*h.intervalLocked(st))
 	}
 	return h.opts.Now().Sub(st.data.at) <= limit
 }
 
 // loop is a scope's poll goroutine.
-func (h *Hub) loop(ctx context.Context, sc Scope, interval, first time.Duration) {
+func (h *Hub) loop(ctx context.Context, sc Scope, kick <-chan struct{}, first time.Duration) {
 	defer h.wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
@@ -329,6 +430,13 @@ func (h *Hub) loop(ctx context.Context, sc Scope, interval, first time.Duration)
 		case <-ctx.Done():
 			return
 		case <-timer.C:
+		case <-kick:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
 		}
 		pctx, cancel := context.WithTimeout(ctx, h.opts.RequestTimeout)
 		_ = h.fetch(pctx, sc)
@@ -337,8 +445,18 @@ func (h *Hub) loop(ctx context.Context, sc Scope, interval, first time.Duration)
 			return
 		}
 		h.notify(sc)
-		timer.Reset(interval)
+		timer.Reset(h.pollInterval(sc))
 	}
+}
+
+// pollInterval is how long a scope waits after a poll.
+func (h *Hub) pollInterval(sc Scope) time.Duration {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if st := h.scopes[sc]; st != nil {
+		return h.intervalLocked(st)
+	}
+	return h.intervalOf(sc)
 }
 
 // notify calls the subscribers of a scope.
@@ -438,7 +556,7 @@ func (h *Hub) fetch(ctx context.Context, sc Scope) State {
 	st.attempted, st.state = h.opts.Now(), state
 	if data != nil {
 		st.data = data
-		if st.cancel != nil && !sc.IsList() { // series only while the object is watched
+		if st.cancel != nil && !sc.IsList() && data.series == nil { // series only while the object is watched
 			h.recordLocked(st, data)
 		}
 	}
@@ -455,6 +573,9 @@ func (h *Hub) query(ctx context.Context, sc Scope) (*dataSet, State) {
 		return nil, state
 	}
 	ok := State{Status: StatusAvailable, Provider: prov.ID(), Label: prov.Label()}
+	if rp, window, step := h.historyFor(prov, sc); rp != nil {
+		return h.queryHistory(ctx, rp, sc, window, step, ok)
+	}
 	ds := &dataSet{at: h.opts.Now()}
 	var err error
 	func() {
@@ -507,14 +628,125 @@ func (h *Hub) query(ctx context.Context, sc Scope) (*dataSet, State) {
 	case errors.Is(err, ErrNoData):
 		return ds, ok // an empty result: the object has no measurement yet
 	}
-	s := StateFromError(err, "the cluster serves no metrics.k8s.io API (no metrics-server installed)")
+	return nil, h.failure(ctx, sc, err)
+}
+
+// failure turns a provider's error into the scope's state. An error that carries its state
+// (StateError) is taken as it is; a not-served state makes detection run again.
+func (h *Hub) failure(ctx context.Context, sc Scope, err error) State {
+	var s State
+	var se *StateError
+	if errors.As(err, &se) {
+		s = se.State
+	} else {
+		s = StateFromError(err, "the cluster serves no metrics.k8s.io API (no metrics-server installed)")
+	}
 	if s.Status == StatusNotServed {
 		h.forgetDetection()
 	}
 	if s.Status != StatusAvailable && ctx.Err() == nil {
 		h.opts.Logger.Debug("metrics: a poll failed", "kind", sc.Kind, "namespace", sc.Namespace, "name", sc.Name, "status", s.Status)
 	}
-	return nil, s
+	return s
+}
+
+// historyFor returns the provider's range interface and the range to ask for when the scope is a
+// watched object and the provider has history; nil otherwise (lists and one-off reads use the
+// instant path).
+func (h *Hub) historyFor(prov Provider, sc Scope) (RangeProvider, time.Duration, time.Duration) {
+	rp, ok := prov.(RangeProvider)
+	if !ok || !prov.Capabilities().History || sc.IsList() {
+		return nil, 0, 0
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	st := h.scopes[sc]
+	if st == nil || st.cancel == nil {
+		return nil, 0, 0
+	}
+	window, step := h.rangeOfLocked(st)
+	return rp, window, step
+}
+
+// alignDown rounds t down to a multiple of step since the Unix epoch, so that the grid of
+// successive range queries is the same and a point does not move between polls.
+func alignDown(t time.Time, step time.Duration) time.Time {
+	if step < time.Second {
+		return t
+	}
+	s := int64(step / time.Second)
+	return time.Unix(t.Unix()/s*s, 0)
+}
+
+// queryHistory asks a provider with history for an object's series over the window.
+func (h *Hub) queryHistory(ctx context.Context, rp RangeProvider, sc Scope, window, step time.Duration, ok State) (*dataSet, State) {
+	now := h.opts.Now()
+	q := RangeQuery{Kind: sc.Kind, Namespace: sc.Namespace, Name: sc.Name, From: alignDown(now.Add(-window), step), To: now, Step: step}
+	var (
+		series *ObjectSeries
+		err    error
+	)
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("provider panicked: %v", r)
+			}
+		}()
+		series, err = rp.ObjectRange(ctx, q)
+	}()
+	if err != nil {
+		return nil, h.failure(ctx, sc, err)
+	}
+	ds := &dataSet{at: now, series: series, window: window, step: step}
+	switch sc.Kind {
+	case KindPods:
+		ds.pods = map[string]model.PodUsage{}
+		if p, found := latestPod(sc, series); found {
+			ds.pods[podKey(sc.Namespace, sc.Name)] = p
+		}
+	case KindNodes:
+		ds.nodes = map[string]model.NodeUsage{}
+		if t := series.Targets[""]; t != nil && len(t.Usage) > 0 {
+			last := t.Usage[len(t.Usage)-1]
+			ds.nodes[sc.Name] = model.NodeUsage{Name: sc.Name, Timestamp: last.At, Usage: last.Usage}
+		}
+	}
+	return ds, ok
+}
+
+// latestPod is the newest sample of a pod's series as a measurement.
+func latestPod(sc Scope, s *ObjectSeries) (model.PodUsage, bool) {
+	whole := s.Targets[""]
+	if whole == nil || len(whole.Usage) == 0 {
+		return model.PodUsage{}, false
+	}
+	p := model.PodUsage{Namespace: sc.Namespace, Name: sc.Name, Timestamp: whole.Usage[len(whole.Usage)-1].At}
+	names := make([]string, 0, len(s.Targets))
+	for n := range s.Targets {
+		if n != "" {
+			names = append(names, n)
+		}
+	}
+	slices.Sort(names)
+	for _, n := range names {
+		if u := s.Targets[n].Usage; len(u) > 0 {
+			p.Containers = append(p.Containers, model.ContainerUsage{Name: n, Usage: u[len(u)-1].Usage})
+		}
+	}
+	return p, true
+}
+
+// History returns the series a provider with history gave for an object scope that is polled,
+// as of the last poll, or nil: lists, a scope nobody watches, a provider without history, a result
+// that went stale. Without history the hub's own bounded Series applies.
+func (h *Hub) History(sc Scope) *ObjectSeries {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	st := h.scopes[sc]
+	if st == nil || st.data == nil || st.data.series == nil || !h.validLocked(st) {
+		return nil
+	}
+	return st.data.series
 }
 
 // Fetch returns the current result of a scope without subscribing: from a fresh result (the scope's

@@ -18,6 +18,7 @@ package metrics
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/guided-traffic/cogpit/internal/model"
 )
@@ -104,4 +105,65 @@ func Fixed(p Provider) Detector {
 	return DetectorFunc(func(context.Context) (Provider, State) {
 		return p, State{Status: StatusAvailable, Provider: p.ID(), Label: p.Label()}
 	})
+}
+
+// StateError is a provider error that already says which state it means (a forbidden service
+// proxy, a Prometheus that went away); the hub uses the state as it is instead of guessing from
+// the error's text.
+type StateError struct {
+	State State
+	Err   error
+}
+
+// Error implements error.
+func (e *StateError) Error() string {
+	if e.Err != nil {
+		return e.State.Message + ": " + e.Err.Error()
+	}
+	return e.State.Message
+}
+
+// Unwrap returns the underlying error.
+func (e *StateError) Unwrap() error { return e.Err }
+
+// RangeQuery asks a history provider for an object's series between From and To, one point per
+// Step. Kind is KindPods or KindNodes; Namespace is empty for a node.
+type RangeQuery struct {
+	Kind      Kind
+	Namespace string
+	Name      string
+	From, To  time.Time
+	Step      time.Duration
+}
+
+// TargetSeries are the series of one chart: the object as a whole (key "" of ObjectSeries), or one
+// container of a pod.
+type TargetSeries struct {
+	// Usage: CPU and memory, in the units of the Metrics Server's measurements, oldest first.
+	Usage []model.UsageSample `json:"usage,omitempty"`
+	// Network is set for the whole object only: the network is a pod's, not a container's.
+	Network    []model.NetworkSample    `json:"network,omitempty"`
+	Filesystem []model.FilesystemSample `json:"filesystem,omitempty"`
+}
+
+// ObjectSeries is the answer to a RangeQuery.
+type ObjectSeries struct {
+	// Targets: "" is the pod or node as a whole, then one entry per container that has series.
+	Targets map[string]*TargetSeries `json:"targets"`
+	// FilesystemSource says which metric the Filesystem series come from: "usage" (bytes in use),
+	// "io" (read and write rates, used when the cluster's Prometheus has no usage series), or ""
+	// when there are no filesystem series.
+	FilesystemSource string `json:"filesystemSource,omitempty"`
+	// From, To and Step are the grid the series were asked for.
+	From, To time.Time
+	Step     time.Duration
+}
+
+// RangeProvider is a Provider with history (Capabilities.History): it answers range queries, so
+// the hub keeps no series of its own for it. Implementations are safe for concurrent use.
+type RangeProvider interface {
+	Provider
+	// ObjectRange returns the series of one pod or node. An object with no series is an empty
+	// result, not an error.
+	ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeries, error)
 }

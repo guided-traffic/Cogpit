@@ -75,6 +75,7 @@ type FakeAPIServer struct {
 	history   map[schema.GroupVersionResource][]memEvent
 	watchers  map[*apiWatcher]struct{}
 	requests  map[string]int64
+	proxies   map[string]http.Handler // "namespace/name:port" -> the service behind the proxy
 }
 
 type apiWatcher struct {
@@ -98,6 +99,7 @@ func NewFakeAPIServer(opts FakeAPIOptions) *FakeAPIServer {
 		history:   map[schema.GroupVersionResource][]memEvent{},
 		watchers:  map[*apiWatcher]struct{}{},
 		requests:  map[string]int64{},
+		proxies:   map[string]http.Handler{},
 	}
 	for _, r := range opts.Resources {
 		s.resources[r.GVR] = r
@@ -472,6 +474,10 @@ func (s *FakeAPIServer) serveResource(w http.ResponseWriter, r *http.Request, pa
 		resource += " (metadata)"
 	}
 	req.key = resource
+	if req.sub == "proxy" {
+		s.serveProxy(w, r, req)
+		return
+	}
 	watching := q.Get("watch") == "true" || q.Get("watch") == "1"
 	initial := q.Get("sendInitialEvents") == "true"
 	switch {
@@ -495,6 +501,41 @@ func (s *FakeAPIServer) serveResource(w http.ResponseWriter, r *http.Request, pa
 		s.count("list", resource)
 		s.serveList(w, req)
 	}
+}
+
+// SetProxy puts a service behind the API server's service proxy: a request for
+// /api/v1/namespaces/<namespace>/services/<service>/proxy/<path> reaches h with the path after
+// "/proxy" and is counted as "get services/proxy". service is the name as the request writes it,
+// "name:port" or "name". A service nobody set answers 503 like a service without endpoints.
+func (s *FakeAPIServer) SetProxy(namespace, service string, h http.Handler) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if h == nil {
+		delete(s.proxies, namespace+"/"+service)
+		return
+	}
+	s.proxies[namespace+"/"+service] = h
+}
+
+func (s *FakeAPIServer) serveProxy(w http.ResponseWriter, r *http.Request, req fakeRequest) {
+	s.count("get", "services/proxy")
+	s.mu.Lock()
+	h := s.proxies[req.namespace+"/"+req.name]
+	s.mu.Unlock()
+	if h == nil {
+		writeStatus(w, http.StatusServiceUnavailable, "ServiceUnavailable", "no endpoints available for service "+req.name)
+		return
+	}
+	rest := r.URL.Path
+	if i := strings.Index(rest, "/proxy"); i >= 0 {
+		rest = rest[i+len("/proxy"):]
+	}
+	if rest == "" {
+		rest = "/"
+	}
+	r2 := r.Clone(r.Context())
+	r2.URL.Path = rest
+	h.ServeHTTP(w, r2)
 }
 
 func (s *FakeAPIServer) serveGet(w http.ResponseWriter, req fakeRequest) {
