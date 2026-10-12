@@ -60,6 +60,10 @@ func TestMCPOverRealStdio(t *testing.T) {
 	if err := cs.Close(); err != nil {
 		t.Errorf("close: %v; stderr: %s", err, stderr.String())
 	}
+	// Closing stdin is the normal end: exit code 0, no error.
+	if cmd.ProcessState == nil || cmd.ProcessState.ExitCode() != exitOK || strings.Contains(stderr.String(), "cogpit-cli: ") {
+		t.Errorf("process state %v; stderr: %s", cmd.ProcessState, stderr.String())
+	}
 	// -v logs at debug level, to stderr: the bridge found no running Cogpit and served its own engine.
 	if !strings.Contains(stderr.String(), "no running Cogpit serves MCP") {
 		t.Errorf("stderr: %s", stderr.String())
