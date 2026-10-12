@@ -111,14 +111,11 @@ func doubleClickSetting() titlebarAction {
 	return doubleClickAction(C.GoString(&buf[0]), legacySet != 0, legacyMinimize != 0)
 }
 
-// stop ends AppKit's reports; the window keeps its style until it closes.
+// stop ends AppKit's reports. It runs once the app's run ended, when GLFW has terminated and
+// destroyed the window: asking GLFW for the window then panics, which every quit did until
+// 2026-10-12. Forgetting the id is enough: the observer is the window's associated object and goes
+// with it, and a report still on its way finds no title bar under the id.
 func (tb *titlebar) stop() {
-	if tb.window == 0 {
-		return
-	}
-	if tb.nsWindow() == tb.window {
-		C.cogpitTitlebarRemove(C.uintptr_t(tb.window))
-	}
 	titlebars.Delete(tb.id)
 	tb.window = 0
 }

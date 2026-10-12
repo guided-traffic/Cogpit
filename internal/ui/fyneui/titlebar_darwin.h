@@ -16,8 +16,6 @@ typedef struct {
 // title bar without a title, and reports layout changes (full screen, resizes, a new screen) to the
 // Go function cogpitTitlebarChanged with id.
 void cogpitTitlebarInstall(uintptr_t window, uintptr_t id);
-// cogpitTitlebarRemove stops the reports.
-void cogpitTitlebarRemove(uintptr_t window);
 // cogpitTitlebarGeometry reads the title bar's layout.
 void cogpitTitlebarGeometry(uintptr_t window, cogpitTitlebarGeom *geom);
 // cogpitTitlebarClickCount returns the click count of the event AppKit is dispatching when it is a

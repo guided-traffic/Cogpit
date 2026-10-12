@@ -51,15 +51,6 @@ void cogpitTitlebarInstall(uintptr_t window, uintptr_t id) {
 	[nc postNotificationName:NSWindowDidResizeNotification object:w];
 }
 
-void cogpitTitlebarRemove(uintptr_t window) {
-	NSWindow *w = windowOf(window);
-	id o = objc_getAssociatedObject(w, &observerKey);
-	if (o != nil) {
-		[[NSNotificationCenter defaultCenter] removeObserver:o];
-		objc_setAssociatedObject(w, &observerKey, nil, OBJC_ASSOCIATION_RETAIN);
-	}
-}
-
 void cogpitTitlebarGeometry(uintptr_t window, cogpitTitlebarGeom *geom) {
 	NSWindow *w = windowOf(window);
 	memset(geom, 0, sizeof(*geom));
