@@ -552,16 +552,38 @@ the light values the same way):
 
 ## D-23: A link to the owner in the status bar
 
-**Decided (owner, 2026-10-12):** the status bar shows at its left end, always (before connecting
-and on the demo cluster too), "Need a Kubernetes Expert? Visit: hans-fischer.com"; a click opens
+**Decided (owner, 2026-10-12):** the status bar shows, always (before connecting and on the demo
+cluster too), "Need a Kubernetes Expert? Visit: hans-fischer.com"; a click opens
 https://hans-fischer.com in the user's default browser. Nothing is sent or tracked; only the
 click opens it. When the bar is too narrow, the link gives way first, so that the context and the
 connection state stay readable. It is a GUI link, not an engine command: a documented exception
 to "everything is a command", so that no agent can open the page. **Built 2026-10-12** in
-[`bars.go`](../../internal/ui/fyneui/bars.go) (`statusLayout`): the link is the status bar's first
-item, with a divider; the bar's minimum width is the status items' alone, and the link takes the
-room left, is shortened with an ellipsis and, below the width of "Need a…", hidden with its
-divider. It opens through `openBrowser`, the function the port-forward view uses.
+[`bars.go`](../../internal/ui/fyneui/bars.go) (`statusLayout`): the link is a status bar item with a
+divider; the bar's minimum width is the status items' alone, and the link takes the room left,
+is shortened with an ellipsis and, below the width of "Need a…", hidden with its divider. It opens
+through `openBrowser`, the function the port-forward view uses.
+
+**Moved (owner, 2026-10-12):** the link sits at the right end of the bar, directly left of the MCP
+item (and ends the bar under `--no-mcp`, without a divider). The other items stay at the left end
+with their widths; the link still gives way first.
+
+**The MCP item is a switch (owner, 2026-10-12).** A click on the status bar's MCP item switches the
+*external* MCP server, the loopback HTTP endpoint other programs on this computer reach with the
+bearer token, off and on. Off: the endpoint stops listening, every connection and every pending
+confirmation of an agent ends (its command does not run), the token file is removed, the item shows
+a muted, struck pill with the tooltip "External MCP server (for other apps on this computer): off —
+click to start", and the top bar's MCP button and Help › Copy MCP command are disabled, so no stale
+command is offered. On: the server starts again with a new token and port (the registration
+command changes; the copy controls give the new one) and the tooltip names the URL. Like the link
+it is a GUI control and not an engine command or an MCP tool: an agent cannot switch the server on
+(`TestMCPSwitchIsNoCommand`). Nothing else is coupled to it: the engine and an in-process agent
+(D-10, origin `BuiltInAgent`) keep working while the external server is off. The user's switch is
+one line in the audit log (origin `gui`, command `gui.mcpServer`, `{"enabled":true|false}`).
+**Persistence (built as recommended; the owner may revise):** the choice is stored in Fyne's
+preferences (`mcp.enabled`, written by a click that worked) and read at the next launch; no stored
+choice means on, as before. `--no-mcp` still wins (no server, no item), and `--mcp-addr` only sets
+the address; there is no environment variable. A failed start at launch shows the item off with the
+reason in its tooltip and leaves the stored choice alone.
 
 ## D-24: Logo
 

@@ -116,6 +116,9 @@ type shell struct {
 	unsubscribe func()
 	stopTickers chan struct{}
 	perf        *perfMeter
+
+	mcp     mcpState       // the MCP server as the window knows it (mcp.go)
+	mcpMenu *fyne.MenuItem // Help › Copy MCP command, disabled while the server is off
 }
 
 // newShell builds every widget. Nothing talks to the engine until start.
@@ -130,6 +133,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 			}
 		})
 	}
+	sh.mcp = mcpState{on: opts.MCP == nil && opts.MCPCommand != "", command: opts.MCPCommand}
 	sh.sess, _ = eng.(*engine.Session)
 	sh.ctx, sh.cancel = context.WithCancel(context.Background())
 	sh.saveFile = func(name string, rows int, data []byte) { sh.saveWithDialog(name, rows, data, nil) }
@@ -711,15 +715,21 @@ func (sh *shell) mainMenu() *fyne.MainMenu {
 		items = append(items, none)
 	}
 	menus := []*fyne.Menu{cluster, fyne.NewMenu("View", items...)}
-	if sh.opts.MCPCommand != "" {
-		menus = append(menus, fyne.NewMenu("Help", fyne.NewMenuItem("Copy MCP command", sh.copyMCPCommand)))
+	if sh.hasMCP() {
+		sh.mcpMenu = fyne.NewMenuItem("Copy MCP command", sh.copyMCPCommand)
+		sh.mcpMenu.Disabled = !sh.mcp.on
+		menus = append(menus, fyne.NewMenu("Help", sh.mcpMenu))
 	}
 	return fyne.NewMainMenu(menus...)
 }
 
-// copyMCPCommand puts the `claude mcp add` command on the clipboard and shows it.
+// copyMCPCommand puts the `claude mcp add` command of the running server on the clipboard and shows
+// it. While the server is off there is no command: the old one names a token that no longer works.
 func (sh *shell) copyMCPCommand() {
-	cmd := sh.opts.MCPCommand
+	cmd := sh.mcp.command
+	if !sh.mcp.on || cmd == "" {
+		return
+	}
 	sh.app.Clipboard().SetContent(cmd)
 	entry := widget.NewEntry()
 	entry.SetText(cmd)

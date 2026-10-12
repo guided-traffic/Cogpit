@@ -102,9 +102,6 @@ func run(previousCrash string) int {
 		return 1
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	opts := fyneui.Options{AutoConnect: *contextName, Theme: fyneui.ThemeMode(*themeName)}
 	if previousCrash != "" {
 		at := time.Now()
@@ -119,17 +116,14 @@ func run(previousCrash string) int {
 	}
 	if !*noMCP {
 		srv, err := mcp.New(s, mcp.Options{Addr: *mcpAddr, Version: version, Logger: logger})
-		if err == nil {
-			err = srv.Start(ctx)
-		}
 		if err != nil {
 			logger.Warn("MCP server not started", "err", err)
 		} else {
+			// The window starts the server, unless the user switched it off in an earlier run, and
+			// switches it from the status bar. Quitting closes it for good. --no-mcp wins over
+			// the stored choice: no server, no item.
 			defer func() { _ = srv.Close() }()
-			// The command carries the token: print it to the terminal that started Cogpit, never
-			// through the logger.
-			opts.MCPCommand = srv.ClaudeAddCommand()
-			fmt.Printf("Cogpit MCP server: %s\nRegister it with Claude Code (the token changes on every start):\n\n  %s\n\n", srv.URL(), opts.MCPCommand)
+			opts.MCP = &mcpControl{srv: srv, session: s, logger: logger, out: os.Stdout}
 		}
 	}
 	if *perf > 0 || *perfMode != "" {

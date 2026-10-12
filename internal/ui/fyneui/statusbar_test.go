@@ -12,16 +12,17 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
 )
 
-// statusSizes lays the status bar out at width and returns the link's and the items' rectangles.
+// statusSizes lays the status bar out at width and returns the link's and the items' positions,
+// the link's width and whether it is shown.
 func statusSizes(sh *shell, width float32) (link, left fyne.Position, linkW float32, linkShown bool) {
 	s := sh.status
 	s.root.Resize(fyne.NewSize(width, s.root.MinSize().Height))
 	return s.link.Position(), s.layout.left.Position(), s.link.Size().Width, s.link.Visible()
 }
 
-// TestStatusBarOwnerLink: D-23. The status bar's left end shows "Need a Kubernetes Expert? Visit:
-// hans-fischer.com", also before a connection; a click opens https://hans-fischer.com in the
-// browser, and nothing opens it before.
+// TestStatusBarOwnerLink: D-23. The status bar shows "Need a Kubernetes Expert? Visit:
+// hans-fischer.com" directly left of the MCP item, also before a connection; a click opens
+// https://hans-fischer.com in the browser, and nothing opens it before.
 func TestStatusBarOwnerLink(t *testing.T) {
 	for name, connected := range map[string]bool{"before connecting": false, "connected": true} {
 		t.Run(name, func(t *testing.T) {
@@ -31,16 +32,22 @@ func TestStatusBarOwnerLink(t *testing.T) {
 				f.ui.Context = ""
 			}
 			browser := recordBrowser(t)
-			sh, w, q := newTestShell(t, f, Options{})
+			sh, w, q := newTestShell(t, f, Options{MCPCommand: "claude mcp add cogpit -- cogpit-cli mcp"})
 			q.until(t, "the kinds", func() bool { return len(sh.kinds) > 0 || !connected })
 			settle(w)
+			statusSizes(sh, 2000)
 
-			l := sh.status.link
+			l, s := sh.status.link, sh.status
 			if !l.Visible() || l.text != "Need a Kubernetes Expert? Visit: hans-fischer.com" {
 				t.Fatalf("link visible %v, text %q", l.Visible(), l.text)
 			}
-			if p := l.Position(); p.X != 0 {
-				t.Errorf("the link is at x=%v, want the left end", p.X)
+			// Left to right: the status items, the link, its divider, the MCP item.
+			linkEnd, sepX, mcpX := l.Position().X+l.Size().Width, s.layout.sep.Position().X, s.layout.right.Position().X
+			if l.Position().X < s.layout.left.Position().X+s.layout.left.Size().Width {
+				t.Errorf("the link starts at x=%v, inside the status items", l.Position().X)
+			}
+			if !(linkEnd <= sepX && sepX < mcpX && mcpX+s.layout.right.Size().Width == 2000-2*fyne.CurrentApp().Settings().Theme().Size(theme.SizeNameInnerPadding)) {
+				t.Errorf("link ends at %v, divider at %v, MCP item at %v: want the link directly left of the MCP item at the bar's right end", linkEnd, sepX, mcpX)
 			}
 			if len(browser.opened()) != 0 {
 				t.Fatalf("the browser was opened before a click: %v", browser.opened())
@@ -69,8 +76,8 @@ func TestStatusBarOwnerLinkIsNoCommand(t *testing.T) {
 }
 
 // TestStatusBarOwnerLinkGivesWayFirst: when the bar is too narrow the link is shortened and then
-// hidden, and the status items keep their widths and their room, at the same place right of where
-// the link would end.
+// hidden, and the status items keep their widths and their place at the left end; the link sits
+// between them and the MCP item.
 func TestStatusBarOwnerLinkGivesWayFirst(t *testing.T) {
 	f := connectedFake(t, 20)
 	sh, w, q := newTestShell(t, f, Options{MCPCommand: "claude mcp add cogpit -- cogpit-cli mcp"})
@@ -85,12 +92,12 @@ func TestStatusBarOwnerLinkGivesWayFirst(t *testing.T) {
 	pad := 2 * th.Size(theme.SizeNameInnerPadding) // the bar's own inset
 
 	// Wide: the whole link, then the items.
-	_, left, linkW, shown := statusSizes(sh, items+pad+full+gaps+40)
+	link, left, linkW, shown := statusSizes(sh, items+pad+full+gaps+40)
 	if !shown || linkW < full {
 		t.Fatalf("wide: link shown %v, %v wide, its text needs %v", shown, linkW, full)
 	}
-	if left.X < linkW {
-		t.Errorf("wide: the items start at %v, inside the link (%v wide)", left.X, linkW)
+	if left.X != 0 || link.X < s.layout.left.Size().Width {
+		t.Errorf("wide: the items start at %v and end at %v, the link at %v", left.X, s.layout.left.Size().Width, link.X)
 	}
 	itemsW := s.layout.left.Size().Width
 	if itemsW != s.layout.left.MinSize().Width {
@@ -98,15 +105,18 @@ func TestStatusBarOwnerLinkGivesWayFirst(t *testing.T) {
 	}
 
 	// Half the link's room: shortened, the items unharmed.
-	_, left, linkW, shown = statusSizes(sh, items+pad+gaps+full/2)
+	link, left, linkW, shown = statusSizes(sh, items+pad+gaps+full/2)
 	if !shown || linkW >= full || linkW <= 0 {
 		t.Errorf("narrow: link shown %v, %v wide, want shortened below %v", shown, linkW, full)
 	}
 	if got := s.layout.left.Size().Width; got != itemsW {
 		t.Errorf("narrow: the items are %v wide, want %v as when wide", got, itemsW)
 	}
-	if left.X < linkW {
-		t.Errorf("narrow: the items start at %v, inside the link (%v wide)", left.X, linkW)
+	if left.X != 0 || link.X < s.layout.left.Size().Width {
+		t.Errorf("narrow: the items start at %v and end at %v, the link at %v", left.X, s.layout.left.Size().Width, link.X)
+	}
+	if link.X+linkW > s.layout.sep.Position().X {
+		t.Errorf("narrow: the link ends at %v, past its divider at %v", link.X+linkW, s.layout.sep.Position().X)
 	}
 	if got := s.link.Size().Width; fyne.MeasureText(shortened(s), th.Size(theme.SizeNameCaptionText), fyne.TextStyle{}).Width > got {
 		t.Errorf("narrow: the link's text overflows its %v", got)

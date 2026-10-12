@@ -941,6 +941,14 @@ which are the user's: they can be added again as files, or deleted by hand
   (`readOnlyHint` for `Read` and `UI`, `destructiveHint` for `Destructive`);
 - Streamable HTTP on `127.0.0.1`, a random bearer token written owner-only to the app's runtime
   directory, `Host` and `Origin` checks against DNS rebinding;
+- the user can switch this *external* endpoint off and on from the status bar item
+  ([D-23](decisions.md#d-23-a-link-to-the-owner-in-the-status-bar)): `Server.Stop` ends the
+  listener, every connection and pending call and removes the token file, and `Start` brings it
+  back with a new token and port. The window holds the switch as `fyneui.MCPControl`, implemented in
+  [`cmd/cogpit/mcpcontrol.go`](../../cmd/cogpit/mcpcontrol.go) (internal/ui may not import
+  internal/mcp); the choice is kept in Fyne's preferences and `--no-mcp` overrides it. The switch
+  stops only the HTTP listener: the engine, and the built-in agent below, which calls
+  `Session.Dispatch` in-process, do not depend on it;
 - `cogpit-cli mcp` as a stdio bridge for agents that only speak stdio: it reads the token and
   forwards to the running app, or runs a headless engine when no app is running.
 

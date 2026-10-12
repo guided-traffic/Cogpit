@@ -76,7 +76,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Kind keys (views, `kind` parameters) | the plural resource name for built-in kinds; `<plural>.<group>` for kinds from custom resource definitions ([why](docs/developer/architecture.md#45-kind-keys)) | `pods`, `services`, `gateways.gateway.networking.k8s.io` |
 | Environment variables | `COGPIT_<NAME>`; today only the test variables `COGPIT_KIND_KUBECONFIG`, `COGPIT_KIND_CONTEXT` and `COGPIT_PNG_DIR` | |
 | MCP endpoint | `http://127.0.0.1:<random port>/mcp`, new port on every start | `http://127.0.0.1:59449/mcp` # example |
-| MCP bearer token | `<user config dir>/Cogpit/mcp-token`, owner-only (0600, directory 0700), new on every start, removed on exit | |
+| MCP bearer token | `<user config dir>/Cogpit/mcp-token`, owner-only (0600, directory 0700), new on every start, removed on exit and when you switch the external MCP server off | |
 | Audit log | `<user config dir>/Cogpit/audit.log`, owner-only, one JSON line per agent-initiated command | |
 | Drain journal | `<user config dir>/Cogpit/drains.json`, owner-only (0600, directory 0700): the drains Cogpit started and has not finished, offered again on the next connect | |
 | App log | `<user cache dir>/Cogpit/cogpit.log`, and stderr | |
@@ -174,7 +174,7 @@ rm -rf ~/Library/Caches/Cogpit "~/Library/Application Support/Cogpit"   # logs, 
 | `--demo-pods <n>` | `10000` # default | pods in the demo cluster |
 | `--demo-events <n>` | `1000` # default | watch events per second in the demo cluster |
 | `--mcp-addr <addr>` | `127.0.0.1:0` # default | MCP listen address; anything but a loopback address is refused |
-| `--no-mcp` | `false` # default | do not start the MCP server |
+| `--no-mcp` | `false` # default | do not start the external MCP server; without it, click the MCP item in the status bar to switch the server off and on (the choice is remembered; `--no-mcp` wins over it) |
 | `--perf <duration>` | `0` # default | measure main-loop latency while auto-scrolling the table, print it as JSON and quit |
 | `--theme <mode>` | `dark` # default | `dark` (Solarized Dark), `light` (Solarized Light) or `system` |
 | `-v` | `false` # default | debug logging |

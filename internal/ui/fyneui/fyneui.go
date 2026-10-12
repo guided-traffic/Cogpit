@@ -27,7 +27,13 @@ import (
 type Options struct {
 	// Title is the window title; empty means "Cogpit".
 	Title string
-	// MCPCommand is the `claude mcp add` command shown in the Help menu; empty hides it.
+	// MCP switches the MCP server off and on from the status bar and starts it at launch (unless
+	// the user switched it off in an earlier run); nil means the window has no MCP server, as with
+	// --no-mcp, and shows no MCP item, button or menu entry.
+	MCP MCPControl
+	// MCPCommand is the `claude mcp add` command of a server already running that the window
+	// cannot switch: with it and without MCP the item only indicates, and the Help menu offers the
+	// command. Empty hides them. With MCP set the command comes from the control's Start.
 	MCPCommand string
 	// AutoConnect connects this context at start instead of showing the picker first.
 	AutoConnect string
@@ -150,6 +156,7 @@ func Run(s *engine.Session, opts Options) error {
 	}
 	sh := newShell(s, a, w, opts, do)
 	sh.setConcealed = setConcealedClipboard // the real app's system clipboard (H-25)
+	sh.startMCP()                           // before the menu, which offers the command only while the server runs
 	s.SetConfirmer(sh.confirmer)
 	w.SetContent(sh.root)
 	w.SetOnClosed(sh.clearSecretClipboard) // a copied Secret value does not outlive the window on the clipboard

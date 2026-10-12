@@ -82,9 +82,12 @@ func newTopBar(sh *shell) *topBar {
 	t.left = container.NewHBox(t.lead, newLogo(), wordmark, newHGap(theme.SizeNameInnerPadding), newDivider(true),
 		newHGap(theme.SizeNameInnerPadding), t.dot, t.context, t.file, t.state, t.switchB)
 	right := container.NewHBox()
-	if sh.opts.MCPCommand != "" {
+	if sh.hasMCP() {
 		t.mcp = widget.NewButtonWithIcon("MCP", theme.ContentCopyIcon(), sh.copyMCPCommand)
 		t.mcp.Importance = widget.LowImportance
+		if !sh.mcp.on {
+			t.mcp.Disable()
+		}
 		right.Add(t.mcp)
 	}
 	t.root = box(&topBarLayout{t: t}, newSurface(colorTopBar), newBarDragArea(func() { sh.titlebar.mouseDown() }),
@@ -216,7 +219,8 @@ func newDiagView(d engine.Diagnostics) diagView {
 // the demo cluster's event rate and the MCP indicator.
 type statusBar struct {
 	sh        *shell
-	link      *linkText // the link to the owner (D-23), at the left end
+	link      *linkText // the link to the owner (D-23), left of the MCP item
+	mcp       *mcpItem  // the MCP indicator and its switch, at the right end; nil without an MCP server
 	layout    *statusLayout
 	dot       *dot
 	context   *textLine
@@ -239,8 +243,9 @@ func newStatusBar(sh *shell) *statusBar {
 	left := container.NewHBox(s.dot, s.context, newDivider(true), s.requests, newDivider(true),
 		s.informers, newDivider(true), s.snapshots, s.demoSep, s.demo)
 	right := container.NewHBox()
-	if sh.opts.MCPCommand != "" {
-		right.Add(newPill("MCP", colorAccent, true))
+	if sh.hasMCP() {
+		s.mcp = newMCPItem(sh, sh.mcp.on)
+		right.Add(s.mcp)
 	}
 	s.link = newLinkText(ownerLinkText, func() { sh.openOwnerLink() })
 	s.link.size = theme.SizeNameCaptionText
@@ -269,11 +274,11 @@ func (sh *shell) openOwnerLink() {
 	}
 }
 
-// statusLayout lays the status bar out: the link to the owner and its divider at the left end, then
-// the status items, and the MCP pill at the right end. The items keep their minimum widths; the
-// link takes what is left, is shortened with an ellipsis when that is less than its text, and is
-// hidden, with its divider, when it is less than a few characters. The bar's minimum width is the
-// items' alone, so the link never costs them room (D-23).
+// statusLayout lays the status bar out: the status items at the left end, the MCP item at the right
+// end, and the link to the owner and its divider directly left of the MCP item. The items keep
+// their minimum widths; the link takes what is left between them, is shortened with an ellipsis
+// when that is less than its text, and is hidden, with its divider, when it is less than a few
+// characters. The bar's minimum width is the items' alone, so the link never costs them room (D-23).
 type statusLayout struct {
 	link, sep   fyne.CanvasObject
 	left, right fyne.CanvasObject
@@ -297,20 +302,31 @@ func (l *statusLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 	}
 	full := fyne.MeasureText(ownerLinkText, textSize, fyne.TextStyle{}).Width
 	least := fyne.MeasureText(linkMinChars, textSize, fyne.TextStyle{}).Width
-	room := size.Width - lm.Width - rm.Width - 2*gap - 1 // for the link; the divider and its gaps come off
-	x := float32(0)
+	// What is left between the items for the link; its divider and the gaps around it come off. The
+	// divider sits between the link and the MCP item, and a gap keeps the link off the left items.
+	// Without an MCP item (--no-mcp) the link ends the bar and has no divider.
+	withSep := rm.Width > 0
+	room := size.Width - lm.Width - rm.Width - 3*gap - 1
+	if !withSep {
+		room += gap + 1
+	}
 	if room >= least {
 		w := fyne.Min(room, full+1)
 		l.show(true)
-		l.link.Move(fyne.NewPos(0, 0))
+		if withSep {
+			sepX := size.Width - rm.Width - gap - 1
+			l.link.Move(fyne.NewPos(sepX-gap-w, 0))
+			l.sep.Move(fyne.NewPos(sepX, 0))
+			l.sep.Resize(fyne.NewSize(1, size.Height))
+		} else {
+			l.link.Move(fyne.NewPos(size.Width-w, 0))
+			l.sep.Hide()
+		}
 		l.link.Resize(fyne.NewSize(w, size.Height))
-		l.sep.Move(fyne.NewPos(w+gap, 0))
-		l.sep.Resize(fyne.NewSize(1, size.Height))
-		x = w + 2*gap + 1
 	} else {
 		l.show(false)
 	}
-	l.left.Move(fyne.NewPos(x, 0))
+	l.left.Move(fyne.NewPos(0, 0))
 	l.left.Resize(fyne.NewSize(lm.Width, size.Height))
 	l.right.Resize(fyne.NewSize(rm.Width, size.Height))
 	l.right.Move(fyne.NewPos(size.Width-rm.Width, 0))

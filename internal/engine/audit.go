@@ -67,6 +67,17 @@ func (s *Session) audit(inv Invocation, context, phase string, err error) {
 	}
 }
 
+// AuditUser writes one line for something the user did in the window that is no command, such as
+// switching the MCP server off: origin gui, the action's name as the command, its parameters and
+// whether it worked. Nothing an agent does reaches it; the shell and the app's main call it.
+func (s *Session) AuditUser(action string, params any, err error) {
+	raw, mErr := json.Marshal(params)
+	if mErr != nil {
+		raw = nil
+	}
+	s.audit(Invocation{ID: action, Params: raw, Origin: OriginGUI}, "", auditDone, err)
+}
+
 // auditParams keeps Secret values out of the audit log. Commands that take manifests (object.apply,
 // object.create, editor.setText, resource.createTab) carry them in a "yaml" parameter; an agent may
 // send a Secret's manifest even though Cogpit refuses to write Secrets. The parameter is logged as
