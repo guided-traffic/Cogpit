@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G2: kubeconfig sources and the approval of their credential plugins) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G2: kubeconfig sources and the approval of their credential plugins; G8: the terminal widget fuzzed and patched) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -298,8 +298,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   following, each line named) ([`engine/logs.go`](../../internal/engine/logs.go),
   [`engine/workloadlogs.go`](../../internal/engine/workloadlogs.go),
   [`logtab.go`](../../internal/ui/fyneui/logtab.go)). Still missing: the node shell, the log
-  tab's pod and container selectors, jumping to a time and loading older lines, and a terminal
-  widget hardened beyond the patched copy Cogpit builds against
+  tab's pod and container selectors, jumping to a time and loading older lines. The terminal
+  widget (2026-10-12, fourth run): the patched copy survives every input found by fuzzing it
+  alone, without the escape filter (`FuzzHandleOutput`, `FuzzRawWidget`; the crash, hang and
+  race patches in [PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)), and its tests run
+  in CI (`make test-fork`); its upstream series is prepared, not sent
   ([H-19](../security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)).
   Fourth run (2026-10-12): a workload's logs resume a follow stream the server ended while its
   container runs, from the newest line's timestamp without repeating lines, and forget ended pods
@@ -308,8 +311,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Impact:** triaging a failing pod (logs, then a shell) is the most common Lens workflow.
 - **Decided (owner, 2026-10-12, [D-14](../developer/decisions.md#d-14-terminal-widget)):** the
   patched terminal widget stays; its patches are offered upstream and it is fuzzed on its own,
-  the two inputs that still make it panic alone patched first (3–8 h).
-- **Estimate:** 16–40 h (was 30–70; log options, workload logs and attach built, third run), plus the terminal widget's fuzzing and upstreaming (3–8 h).
+  the two inputs that still make it panic alone patched first (3–8 h). Built 2026-10-12 except
+  the offer, which waits for the owner.
+- **Estimate:** 16–40 h (was 30–70; log options, workload logs and attach built, third run); the terminal widget's fuzzing and patches done (fourth run), sending the upstream series under 1 h.
 
 ### G9. YAML editor and create resource
 - **Missing:** drafts kept for crash recovery, "Revert to original", the Create resource tab's save
@@ -561,6 +565,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | G8: the terminal widget fuzzed alone, its crashes, hangs and races patched, the upstream series prepared (D-14, fourth run); estimate of that part done |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); G4 evidence (Refresh Access Reviews in the menu, the View menu hides what the sidebar hides); G3 evidence (live related-objects indexes, measured); G8 evidence (workload log streams resumed and pruned); G7 evidence (Restart and Scale bound to the UID in their patches); estimates not moved |
 | 2026-10-12 | minor | G2 (fourth run, agent D): kubeconfig files, sync folders and pasted kubeconfigs, the approval of their credential plugins; estimate 10–28 h |
 | 2026-10-12 | minor | G11 (fourth run): the Helm upgrade and its dock tab, Lens's release drawer and Rollback dialog built; estimate 12–30 h (the totals not recounted) |

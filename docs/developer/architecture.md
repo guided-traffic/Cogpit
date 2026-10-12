@@ -946,7 +946,12 @@ on Windows) with the per-terminal kubeconfig of
 [security › credentials](../security/credentials.md#the-terminals-kubeconfig), and connects the
 widget with `RunWithConnection`. Pod exec and attach streams from client-go connect the same way.
 Terminal output is untrusted: escape sequences that write the clipboard or change window state are
-filtered ([trust boundaries](../security/trust-boundaries.md)).
+filtered ([trust boundaries](../security/trust-boundaries.md)). The widget is a patched copy
+([PATCHES.md](../../third_party/fyne-terminal/PATCHES.md), [D-14](decisions.md#d-14-terminal-widget)):
+it parses output on the goroutine that reads the connection and changes the screen, the
+configuration, the selection and the character sets only on Fyne's main goroutine, through
+`fyne.Do`; media copy, which changes how the following output is parsed, stays on the reading
+goroutine. It is fuzzed on its own, without the filter (`FuzzHandleOutput`, `FuzzRawWidget`).
 
 ## 11. Updates (`internal/update`)
 
@@ -1010,6 +1015,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | §10: the patched terminal widget's two goroutines (parser on the reading one, screen and state on the main one) and its fuzz targets |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5); the View menu and Refresh Access Reviews in the GUI (§4.2); live related-objects indexes shared with the drawer's fetches, the cluster-role rule on `Listed`, `ui.navigate`'s filter check with related cells (§4.4); workload logs resume dropped streams and forget ended instances (§4.4); Restart's and Scale's patches carry the UID, mutating confirmations record cached UIDs (§4.2) |
 | 2026-10-12 | minor | Fourth run (agent D): kubeconfig sources (added files, pasted kubeconfigs, sync folders), each file read on its own, and credential plugins of sources run only after the user allowed them (§6; current state rows) |
 | 2026-10-12 | minor | Fourth run, Helm: the upgrade as built (§8: what binds, the SDK's context, `ErrUnchanged`, values scrubbed, the Rollback dialog as the confirmation); Lens's release drawer; virtual kinds' drawers without metadata and events, `DetailTitle` (§4.4) |

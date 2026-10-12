@@ -333,30 +333,35 @@ func runRawWidget(t *testing.T, input string) (panicked any, cwdAfter string) {
 	}
 }
 
-// Inputs that crashed or froze fyne-io/terminal at 91063bb29d69. Cogpit builds against a patched
-// copy (third_party/fyne-terminal, see its PATCHES.md) that survives most of them; escFilter
-// neutralises the rest. panics says whether the patched widget alone still panics or hangs.
+// Inputs that crashed or froze fyne-io/terminal at 91063bb29d69 (the first nine) or at
+// 46cd12724ff3 (found by fuzzing the widget alone, 2026-10-12). Cogpit builds against a patched
+// copy (third_party/fyne-terminal, see its PATCHES.md) that survives all of them, and keeps
+// escFilter in front of it.
 var widgetHazards = []struct {
 	name, input string
-	panics      bool
 }{
-	{"CSI with non-ASCII final", "\x1b[é", true},
-	{"set mode without ?", "\x1b[h", true},
-	{"delete characters past the row's end", "\x1b[1;10H\x1b[P", false},
-	{"reverse index before rows exist", "\x1bM", false},
-	{"delete characters at the pending-wrap column after erase line", "\x1b[9999Gx\x1b[2K\x1b[P", false},
-	{"tab at the right margin", "\x1b[999Gx\t", false},
-	{"tab after a full line", strings.Repeat("x", 50) + "\t", false},
-	{"insert characters on a fresh screen", "\x1b[5;1H\x1b[@", false},
-	{"scroll region with bottom 0, then index", "a\r\n\x1b[1;0r\x1bD", false},
+	{"CSI with non-ASCII final", "\x1b[é"},
+	{"set mode without ?", "\x1b[h"},
+	{"delete characters past the row's end", "\x1b[1;10H\x1b[P"},
+	{"reverse index before rows exist", "\x1bM"},
+	{"delete characters at the pending-wrap column after erase line", "\x1b[9999Gx\x1b[2K\x1b[P"},
+	{"tab at the right margin", "\x1b[999Gx\t"},
+	{"tab after a full line", strings.Repeat("x", 50) + "\t"},
+	{"insert characters on a fresh screen", "\x1b[5;1H\x1b[@"},
+	{"scroll region with bottom 0, then index", "a\r\n\x1b[1;0r\x1bD"},
+	{"repeat a character the largest number of times", "x\x1b[9223372036854775807b"},
+	{"delete the largest number of lines", "\x1b[9223372036854775807M"},
+	{"insert the largest number of lines", "\x1b[9223372036854775807L"},
+	{"scroll up the largest number of lines", "\x1b[9223372036854775807S"},
+	{"scroll down the largest number of lines in a region", "\x1b[2;5r\x1b[9223372036854775807T"},
+	{"APC ended by ST", "\x1b_Gf=100;AAAA\x1b\\"},
 }
 
 func TestRawWidgetHazards(t *testing.T) {
 	for _, h := range widgetHazards {
 		t.Run(h.name, func(t *testing.T) {
-			p, _ := runRawWidget(t, h.input)
-			if (p != nil) != h.panics {
-				t.Errorf("bare widget on %q: panic %v, want panic %v", h.input, p, h.panics)
+			if p, _ := runRawWidget(t, h.input); p != nil {
+				t.Errorf("bare widget on %q: panic %v", h.input, p)
 			}
 		})
 	}

@@ -51,8 +51,20 @@ test: test-unit-race ## All tests that need no cluster (race detector on); test-
 test-unit: ## Unit tests without the race detector
 	$(TEST_ENV) $(GO) test ./...
 
-test-unit-race: ## Unit tests with the race detector
+test-unit-race: test-fork ## Unit tests with the race detector, the terminal widget's included
 	$(TEST_ENV) $(GO) test -race ./...
+
+# The patched terminal widget (third_party/fyne-terminal, D-14) is a module of its own, which
+# go test ./... from the root leaves out: its tests and fuzz seeds run here. The tests that start a
+# local shell race inside the widget's RunLocalShell, which Cogpit does not use (it connects the
+# widget with RunWithConnection), so they run without the race detector.
+FORK_DIR         := third_party/fyne-terminal
+FORK_SHELL_TESTS := ^(TestExitCode01|TestRunLocalShell_MissingStartDir|TestTerminal_Close|TestTerminal_Close_BeforeOpen)$$
+
+.PHONY: test-fork
+test-fork: ## Tests and fuzz seeds of the patched terminal widget, a module of its own
+	cd $(FORK_DIR) && $(TEST_ENV) $(GO) test -race -skip '$(FORK_SHELL_TESTS)' ./...
+	cd $(FORK_DIR) && $(TEST_ENV) $(GO) test -run '$(FORK_SHELL_TESTS)' ./...
 
 test-kind: ## Cluster tests against the kind cluster (make kind-up first)
 	@test -s $(KIND_KUBECONFIG) || { echo "no kubeconfig at $(KIND_KUBECONFIG): run make kind-up first"; exit 1; }
@@ -74,7 +86,7 @@ GOVULNCHECK     := $(BIN)/govulncheck
 
 .PHONY: test-unit-coverage coverage-badge vuln
 
-test-unit-coverage: ## Unit tests with the race detector and a coverage profile (.cache/coverage/unit.out)
+test-unit-coverage: test-fork ## Unit tests with the race detector and a coverage profile (.cache/coverage/unit.out)
 	@mkdir -p $(COVERAGE_DIR)
 	$(TEST_ENV) $(GO) test -race -covermode=atomic -coverprofile=$(COVERAGE_DIR)/unit.out ./...
 	@$(GO) tool cover -func=$(COVERAGE_DIR)/unit.out | tail -n 1

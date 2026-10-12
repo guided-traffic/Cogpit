@@ -5,6 +5,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/widget"
@@ -46,9 +47,11 @@ func (t *Terminal) handleEscape(code string) {
 		return
 	}
 
-	runes := []rune(code)
-	if esc, ok := escapes[runes[len(code)-1]]; ok {
-		esc(t, code[:len(code)-1])
+	// Cogpit patch: the final character can be any rune. Indexing the code's runes with its length
+	// in bytes panicked on Fyne's main goroutine when that rune was not ASCII ("ESC [ é").
+	final, size := utf8.DecodeLastRuneInString(code)
+	if esc, ok := escapes[final]; ok {
+		esc(t, code[:len(code)-size])
 	} else if t.debug {
 		log.Println("Unrecognised Escape:", strconv.QuoteToASCII(code))
 	}
@@ -237,6 +240,15 @@ func escapeDeleteLines(t *Terminal, msg string) {
 	if lines == 0 {
 		lines = 1
 	}
+	// Cogpit patch: only the lines from the cursor to the bottom of the scroll region can be
+	// deleted. A larger count blanked lines above the cursor, and looped for as long as the count
+	// on Fyne's main goroutine.
+	if limit := t.scrollBottom - t.cursorRow + 1; lines > limit {
+		lines = limit
+	}
+	if lines <= 0 {
+		return
+	}
 	for i := t.cursorRow; i <= t.scrollBottom-lines; i++ {
 		t.content.SetRow(i, t.content.Row(i+lines))
 	}
@@ -251,6 +263,15 @@ func escapeScrollDown(t *Terminal, msg string) {
 	lines, _ := strconv.Atoi(msg)
 	if lines == 0 {
 		lines = 1
+	}
+	// Cogpit patch: at most the scroll region's height. A larger count overflowed scrollTop+lines
+	// when the region did not start at the top, and the loop below then ran for as long as the
+	// count on Fyne's main goroutine.
+	if limit := t.scrollBottom - t.scrollTop + 1; lines > limit {
+		lines = limit
+	}
+	if lines <= 0 {
+		return
 	}
 	for i := t.scrollBottom; i >= t.scrollTop+lines; i-- {
 		t.content.SetRow(i, t.content.Row(i-lines))
@@ -269,6 +290,18 @@ func escapeRepeatChar(t *Terminal, msg string) {
 	}
 	if t.lastChar == 0 {
 		return
+	}
+	// Cogpit patch: the loop ran for as long as the count on Fyne's main goroutine. After a
+	// screenful and a line of the same character, from wherever the cursor started, each further
+	// line of it leaves the screen and the cursor as they were, so the whole lines past that are
+	// skipped. Without columns every character leaves the same state.
+	cols, rows := int(t.config.Columns), int(t.config.Rows)
+	if limit := (cols + 1) * (rows + 2); count > limit {
+		period := cols
+		if period == 0 {
+			period = 1
+		}
+		count = limit + (count-limit)%period
 	}
 	for i := 0; i < count; i++ {
 		t.handleOutputChar(t.lastChar)
@@ -357,8 +390,20 @@ func escapeInsertLines(t *Terminal, msg string) {
 	if rows == 0 {
 		rows = 1
 	}
+	// Cogpit patch: only the lines from the cursor to the bottom of the scroll region can be
+	// pushed down. A larger count overflowed t.cursorRow+rows, and the loop below then ran for as
+	// long as the count on Fyne's main goroutine.
+	if limit := t.scrollBottom - t.cursorRow + 1; rows > limit {
+		rows = limit
+	}
+	if rows <= 0 {
+		return
+	}
 	i := t.scrollBottom
-	for ; i > t.cursorRow-rows+1; i-- {
+	// Cogpit patch: the lines move down by rows from the cursor's line on, so the copying stops
+	// above the rows lines that become blank. It stopped at t.cursorRow-rows+1, which copied the
+	// lines above the cursor into them when more than one line was inserted.
+	for ; i > t.cursorRow+rows-1; i-- {
 		t.content.SetRow(i, t.content.Row(i-rows))
 	}
 	for ; i >= t.cursorRow; i-- {
@@ -470,11 +515,41 @@ func escapePrivateMode(t *Terminal, msg string, enable bool) {
 }
 
 func escapePrivateModeOff(t *Terminal, msg string) {
-	escapePrivateMode(t, msg[1:], false)
+	escapeMode(t, msg, false)
 }
 
 func escapePrivateModeOn(t *Terminal, msg string) {
-	escapePrivateMode(t, msg[1:], true)
+	escapeMode(t, msg, true)
+}
+
+// escapeMode handles CSI Pm h and CSI Pm l (SM and RM), and their DEC private forms with "?".
+//
+// Cogpit patch: the first character was dropped without checking that it was "?". A set or reset
+// mode without it panicked on Fyne's main goroutine when it had no parameter ("ESC [ h"), and
+// with one, the ANSI mode was misread as a private mode with its first digit dropped (ANSI mode
+// 20, new line mode, became private mode 0).
+func escapeMode(t *Terminal, msg string, enable bool) {
+	if strings.HasPrefix(msg, "?") {
+		escapePrivateMode(t, msg[1:], enable)
+		return
+	}
+
+	for _, mode := range strings.Split(msg, ";") {
+		switch mode {
+		case "20":
+			t.newLineMode = enable // LNM - new line mode
+		case "":
+			// empty mode, ignore
+		default:
+			m := "l"
+			if enable {
+				m = "h"
+			}
+			if t.debug {
+				log.Println("Unknown mode escape code", fmt.Sprintf("%s%s", mode, m))
+			}
+		}
+	}
 }
 
 func escapeMoveCursor(t *Terminal, msg string) {
@@ -550,6 +625,11 @@ func escapeScrollUp(t *Terminal, msg string) {
 	if t.cursorRow < t.scrollTop || t.cursorRow > t.scrollBottom {
 		return
 	}
+	// Cogpit patch: at most the scroll region's height. A larger count blanked lines above the
+	// region, and the loop below ran for as long as the count on Fyne's main goroutine.
+	if limit := t.scrollBottom - t.scrollTop + 1; lines > limit {
+		lines = limit
+	}
 
 	// Calculate new cursor position after scrolling
 	newCursorRow := t.cursorRow - lines
@@ -616,14 +696,17 @@ func escapeDeviceAttribute(t *Terminal, code string) {
 		return
 	}
 
+	// Cogpit patch: the queries for the secondary and tertiary attributes usually have no
+	// parameter ("ESC [ > c", as vim sends it); logging code[1] panicked on Fyne's main goroutine
+	// whenever debug output was on.
 	if t.debug {
 		switch code[0] {
 		case '>':
-			log.Println("Unhandled secondary device attribute", code[1])
+			log.Println("Unhandled secondary device attribute", code[1:])
 		case '=':
-			log.Println("Unhandled tertiary device attribute", code[1])
+			log.Println("Unhandled tertiary device attribute", code[1:])
 		default:
-			log.Println("Unknown device attribute", code[0])
+			log.Println("Unknown device attribute", code)
 		}
 	}
 }

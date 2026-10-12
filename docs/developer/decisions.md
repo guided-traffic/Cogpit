@@ -362,9 +362,17 @@ Upstream's head asks in its `go.mod` for an unreleased Fyne (v2.8.2), but its co
 its tests on Fyne 2.8.1: Cogpit's copy moved onto it on 2026-10-12 and keeps its `go.mod` at 2.8.1
 ([PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)). Returning to upstream waits for the
 patches to be merged; (c) is the step to take only if fuzzing shows the
-parser cannot be kept. Two inputs still make the patched widget alone panic (a CSI whose final
-character is not ASCII, a set mode without `?`; only the filter catches them today): they are the
-first patches to add.
+parser cannot be kept. Two inputs still made the patched widget alone panic when this was decided
+(a CSI whose final character is not ASCII, a set mode without `?`; only the filter caught them):
+they were the first patches to add.
+
+**Built (2026-10-12):** both patched, and the widget fuzzed alone (`FuzzHandleOutput` in the copy,
+`FuzzRawWidget` in `termview`); the fuzzing and the review that came with it found and fixed a
+panic with debug output on, five sequences whose counts made the widget loop for as long as the
+count, strings parsed in quadratic time, an APC that never ended, and data races between its two
+goroutines ([PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)). Its tests and fuzz seeds run
+in `make test-unit-race` and CI (`make test-fork`). The patch series for upstream is prepared, not
+sent: offering it is the owner's step. Nothing found so far calls for option (c).
 
 ## D-15: Progress generators
 
@@ -400,6 +408,7 @@ once per run.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | D-14 built: the two panics patched, the widget fuzzed alone, further crashes, hangs and races fixed; the upstream series prepared, not sent |
 | 2026-10-12 | minor | D-13 as revised built (fourth run): the Secrets view on a full watch, the drawer from the cache, Helm's releases through covering scopes |
 | 2026-10-12 | minor | D-15 built (`make parity`); D-14: the copy is on upstream's head, whose code builds on Fyne 2.8.1 |
 | 2026-10-12 | minor | Owner's decisions after the third run: D-13 revised to a full watch on Secrets (option a); D-14 terminal widget (keep the fork, upstream, fuzz); D-15 the parity checker before the generators; D-16 dry runs until the alpha's release |

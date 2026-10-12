@@ -36,29 +36,32 @@ const (
 )
 
 // escFilter sits between a terminal session and the fyne-io/terminal widget. Session output is
-// untrusted (docs/security/trust-boundaries.md), and the widget, at the pinned commit, acts on
-// sequences a container must not be able to send:
+// untrusted (docs/security/trust-boundaries.md), and the widget, upstream at 91063bb29d69 and
+// 46cd12724ff3, acts on sequences a container must not be able to send:
 //
 //   - OSC 7 ("current directory") calls os.Chdir in Cogpit's own process; OSC 0/1/2 set the
 //     title. All OSC strings are dropped, and with them OSC 52 (clipboard write), which the widget
 //     does not implement today but a newer one might. DCS, APC, PM and SOS strings are dropped
-//     too; the widget buffers them, and OSC strings, without a bound.
+//     too; upstream buffers them, and OSC strings, without a bound and in quadratic time.
 //   - Some sequences panic the widget inside fyne.Do, on the main goroutine, which ends the app:
 //     a control sequence whose final character is not ASCII ("ESC [ é"), set/reset mode without
 //     the "?" marker ("ESC [ h"), delete-character with the cursor past the row's last cell, and
 //     reverse index ("ESC M") before the screen's rows exist (on the reader goroutine).
-//   - Large counts (repeat, insert/delete lines) make the widget loop for as long as the count.
+//   - Large counts (repeat, insert/delete lines, scroll) make the widget loop for as long as the
+//     count.
 //
-// The filter therefore parses the stream (ECMA-48, as xterm does) and passes on only plain text,
-// the C0 controls a terminal needs, and a known set of escape and control sequences, re-emitted
-// in a canonical form with numbers clamped. Invalid UTF-8 is dropped (the widget drops it too),
-// and every Read ends on a rune boundary, because the widget decodes each Read on its own and
-// would lose a character split across two.
+// Cogpit builds against a patched copy (third_party/fyne-terminal, PATCHES.md) that survives all
+// of these and is fuzzed on its own (FuzzHandleOutput there, FuzzRawWidget here); the filter stays
+// in front of it for what nobody has found yet. It parses the stream (ECMA-48, as xterm does) and
+// passes on only plain text, the C0 controls a terminal needs, and a known set of escape and
+// control sequences, re-emitted in a canonical form with numbers clamped. Invalid UTF-8 is dropped
+// (the widget drops it too), and every Read ends on a rune boundary, because the widget decodes
+// each Read on its own and would lose a character split across two.
 //
-// Not covered: insert-character ("ESC [ @") still panics the widget when the cursor is past the
-// row's last cell or on a row nothing was written to ("ESC [ 5;1H ESC [ @" on a fresh screen).
-// Whether that is the case depends on the screen's state, which the filter does not track, and
-// dropping the sequence would break line editing in shells. Only a fix in the widget closes it.
+// Insert-character ("ESC [ @") is passed on although it panicked upstream's widget when the cursor
+// was past the row's last cell or on a row nothing was written to: whether that is the case
+// depends on the screen's state, which the filter does not track, and dropping the sequence would
+// break line editing in shells. The patched copy fixes it.
 type escFilter struct {
 	src  io.Reader
 	in   []byte
