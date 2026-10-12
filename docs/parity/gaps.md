@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G8: the log tab's pod and container selectors, older lines and jump to a time partial; G8: the log tab's pod and container selectors and older lines partial; G8: the log tab's pod and container selectors partial; G11: a release upgraded to a version from the user's repositories; G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G5, G13: the welcome page, the Help and Window menus, Disconnect and Remove from Cogpit built, four rows partial, estimates not moved; G8: the log tab's pod and container selectors, older lines and jump to a time partial; G8: the log tab's pod and container selectors and older lines partial; G8: the log tab's pod and container selectors partial; G11: a release upgraded to a version from the user's repositories; G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -741,6 +741,17 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   previous. Still missing: the title bar's history arrows, "Tab icons take the cluster's colour"
   (needs cluster identity), filtering the tabs to a section's scope. Not tried in a real window.
   Estimate not moved (the lead recounts).
+- **Welcome page (built 2026-10-13, night run):** the workspace shows Cogpit's welcome page while
+  it has nothing else to show (no cluster connected, or no tab active) and from Help › Welcome:
+  the logo, a line about Cogpit, the clusters to connect with one click (the hotbar's bank, this
+  session's, on a first start the kubeconfigs'), All Clusters…, Add Kubeconfigs… and the README on
+  GitHub. Engine state: `UIState.Welcome`, derived after every change, and `ui.welcome.open`, which
+  leaves the active tab keeping its state ([`fyneui/welcome.go`](../../internal/ui/fyneui/welcome.go),
+  [`engine/welcome.go`](../../internal/engine/welcome.go), `TestWelcomePageOverTheEngine`,
+  [PNG](../../internal/ui/fyneui/testdata/welcome_dark.png), [ui-parity › Layout](ui-parity.md#layout)).
+  Lens's page is not captured: its contents, wording and layout are Cogpit's (inferred, Cogpit's
+  defaults); the context picker still opens by itself at start, over the page. Not tried in a real
+  window. Estimate not moved (the lead recounts).
 - **Missing:** the Fyne window layout, the cluster sidebar, the table, the detail drawer and the
   dock frame; Cogpit's Fyne theme. Needs the [spike](../developer/spike-fyne.md) to pass.
 - **Evidence:** [ui-parity](ui-parity.md), 18 of 40 rows partial across Layout, Cluster sidebar,
@@ -762,7 +773,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   on a column separator fits the column; "18 items" with a CSV download (`table.exportCsv`, written
   in the engine); the Workloads Overview as a page (`workloads/overview`, `workloads.overview`);
   Cogpit's own title bar on macOS, built but not yet seen in a real window (smoke launch). Still
-  missing from this list: history in the title bar (the tab bar and its history built 2026-10-13), welcome page, column reorder, row
+  missing from this list: history in the title bar (the tab bar and its history built 2026-10-13), column reorder (the welcome page built 2026-10-13), row
   checkboxes and multi-selection, the drawer's Copy and Forward…, container squares.
 - **Estimate:** 35–110 h (was 45–130; title bar, keyboard, columns, CSV and the Workloads Overview built, third run).
 
@@ -814,13 +825,32 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   [PNG](../../internal/ui/fyneui/testdata/cluster_settings_dark.png)). Inferred or Cogpit's
   defaults: the page in place of the views, the sections' grouping, the swatches, the bounds, the
   cluster namespace replacing the filter's, Dark as the default theme; not tried in a real window.
+- **Built 2026-10-13 (night run):** the Help and Window menus and a cluster's Disconnect and
+  Remove from Cogpit ([`fyneui/menus.go`](../../internal/ui/fyneui/menus.go),
+  [`fyneui/menus_cluster.go`](../../internal/ui/fyneui/menus_cluster.go)). Help: Welcome
+  (`ui.welcome.open`), Documentation (the README on GitHub), Copy MCP command, About Cogpit (the
+  build's version); "Open Onboarding Wizard..." not a target (the lead's default). Window: on macOS
+  GLFW's own menu stays (Minimize ⌘M, Zoom, Bring All to Front, Enter Full Screen ⌃⌘F, the windows;
+  verified in GLFW 3.4's and Fyne 2.8.1's source, Cogpit adds none); on Windows and Linux Close
+  Window and Toggle Full Screen, Minimize missing (Fyne has no call for it). Disconnect
+  (`cluster.disconnect`) closes the connection without a request to the cluster; Remove from Cogpit
+  (`cluster.remove`, GUI only) removes Cogpit's link to a kubeconfig file the user added after a
+  confirmation naming the path and the contexts that leave, never the file; a context of a synced
+  folder (the default `~/.kube` too) or of a `$KUBECONFIG` file is greyed with the reason
+  (`cluster.links`). Both in the Cluster menu and the clusters' menus (picker, hotbar tile, navigator
+  root, welcome page). Zoom stays missing: Fyne has no runtime scale, ⌘- is the tab history's Back on
+  Windows and Linux, and the level would need a Preferences field. Inferred or Cogpit's defaults:
+  the labels, which contexts can be removed, the Window menu on Windows and Linux; not tried in a
+  real window (`TestRemoveFromCogpitAsksFirst`, `TestHelpAndWindowMenus`, `TestClusterRemove`,
+  `TestDisconnect`; [ui-parity › Application menu](ui-parity.md#application-menu)). Estimate not
+  moved (the lead recounts).
 - **Missing:** kubeconfig syncs (alpha needs these; pasting is not a target, D-21), dragging on the
   hotbar, the shortcuts of features that do not exist yet (Ask AI; the tabs' five built 2026-10-13), the
   Preferences that are not built (proxy, untrusted certificate authorities, kubectl download,
   Helm repositories and `HELM_DRIVER`, update channel, start at login, the editor's minimap and
   font family, the terminal's copy and paste behaviour, theme and font family), the cluster
-  settings' Proxy, Namespaces, Node Shell and Lens Metrics pages, the Cluster menu's Disconnect and
-  Remove, and the rest of appearance and application integration (zoom, windows, deep links).
+  settings' Proxy, Namespaces, Node Shell and Lens Metrics pages, and the rest of appearance and
+  application integration (zoom, Minimize on Windows and Linux, several windows, deep links).
 - **Evidence:** [ui-parity](ui-parity.md), 65 rows across those sections (6 more are marked not a
   target); 7 of them partial since 2026-10-12 (the hotbar's six and the Cluster menu), the
   navigator keyboard since 2026-10-13 ([G5](#g5-app-shell-navigation-tables-and-drawer)'s navigator; ⇧↵ opens a fixed tab since the tab bar),
@@ -829,7 +859,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   shortcut rows, the application menu's Preferences, Cluster identity, Theme, Locale timezone,
   Editor, Tables, Terminal, Cluster settings › General and Terminal; the Cluster menu, Kubeconfig
   syncs, Metrics provider and Appearance's theme row updated); and 5 more since 2026-10-13 (the tab
-  bar's shortcut rows: close the tab, back and forward, next, previous, tab *n*; G5's tab bar).
+  bar's shortcut rows: close the tab, back and forward, next, previous, tab *n*; G5's tab bar); and
+  3 more since 2026-10-13 (the Window menu, Help › Welcome, zoom and full screen; the Cluster menu
+  updated; G5's welcome page is the fourth).
 - **Estimate:** 50–140 h (was 58–150; the palette and five shortcut rows built, night run; 1–2.5 h per row, the registry makes shortcuts and menus cheap); not moved for Preferences and Cluster settings (2026-10-13): the lead recounts.
 
 ## Platform gaps
@@ -960,6 +992,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | G5, G13: the welcome page (`UIState.Welcome`, `ui.welcome.open`), the Help and Window menus (macOS keeps GLFW's Window menu, verified in source), Disconnect and Remove from Cogpit (`cluster.disconnect`, `cluster.links`, `cluster.remove`) built (night run); four free rows partial; zoom missing with its reasons; estimates not moved (the lead recounts) |
 | 2026-10-13 | minor | G8 evidence (night run): jumping to a time partial, every Logs row exists; estimate not moved |
 | 2026-10-13 | minor | G8 evidence (night run): loading older lines partial; estimate not moved |
 | 2026-10-13 | minor | G8 evidence (night run): the log tab's pod and container selectors partial; estimate not moved |

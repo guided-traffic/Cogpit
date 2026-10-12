@@ -1,0 +1,542 @@
+package fyneui
+
+import (
+	"encoding/json"
+	"image"
+	"image/color"
+	"math"
+	"net/url"
+	"runtime"
+	"strings"
+	"sync"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/kubeconfig"
+	logoart "github.com/guided-traffic/cogpit/internal/ui/logo"
+)
+
+// The welcome page (ui-parity › Layout, "Welcome page (Help › Welcome)"; G5, G13). Lens has one
+// behind Help › Welcome; its content is not captured, so the page, its wording and its layout are
+// Cogpit's own (inferred, Cogpit's defaults 2026-10-13, not the owner's decision):
+//   - Cogpit's logo, "Welcome to Cogpit" and a line saying what Cogpit is;
+//   - a line about the connection when there is one to tell: a connect that failed, a connection
+//     Cogpit closed, or the cluster that stays connected under the page;
+//   - the clusters to connect with one click: the hotbar's shown bank, then the clusters of this
+//     session (the connected or last one, the tabs' ones), and on a first start, without either,
+//     the clusters the kubeconfig sources offer (the kubeconfig's current one first); each row is
+//     the context picker's, with its right-click menu;
+//   - "All Clusters…" (the context picker, ⌘P) and "Add Kubeconfigs…" (the Sync Files and Folders
+//     dialog), the documentation (Cogpit's README on GitHub, opened in the browser) and the
+//     shortcuts to remember.
+//
+// Whether the page shows is engine state, UIState.Welcome (engine/welcome.go): the workspace shows it
+// while no cluster is connected and while no tab is active, Help › Welcome (ui.welcome.open) over a
+// connected cluster. It lies over the workspace and the dock, below the tab bar, so that a tab or a
+// navigator item brings the views back (the settings pages take the navigator's place too). The
+// tab bar holds it: the page is the workspace's state when no tab is active.
+
+const (
+	welcomeColumn    = 600 // the page's column, in points
+	welcomeLogoSize  = 72  // the logo's side
+	welcomeMaxRecent = 6   // clusters of this session listed
+	welcomeMaxOthers = 8   // clusters listed on a first start
+	welcomeTopMargin = 48  // above the column, when the workspace is tall enough
+	readmeURL        = "https://github.com/guided-traffic/cogpit#readme"
+	welcomeTagline   = "Cogpit is a Kubernetes IDE: it shows your clusters from a live cache, asks before it changes anything, " +
+		"and lets agents drive it over MCP."
+)
+
+// welcomePage is the welcome page. Main goroutine, except what says otherwise.
+type welcomePage struct {
+	sh   *shell
+	root *fyne.Container // over the workspace and the dock while shown
+
+	status    *textLine       // the connection's line; hidden without one
+	list      *fyne.Container // the groups of clusters
+	hint      *textLine
+	allB      *widget.Button
+	addB      *widget.Button
+	docs      *widget.Hyperlink
+	shown     bool
+	built     string        // the signature the list was built for
+	rows      []*pickerRow  // the clusters' rows in the order shown, for tests
+	links     *clusterLinks // the clusters' links, for Remove from Cogpit (menus_cluster.go)
+	menuModel *fyne.Menu    // a row's open menu, for tests
+
+	contexts []engine.ContextInfo // the contexts the sources offer, read off the main goroutine
+	loadSeq  int
+	loaded   bool
+
+	subOnce  sync.Once
+	sigMu    sync.Mutex
+	eventSig string // the last UI state event's signature (event goroutines)
+}
+
+func newWelcomePage(sh *shell) *welcomePage {
+	w := &welcomePage{sh: sh}
+	w.links = newClusterLinks(sh)
+	title := newTextLine("Welcome to Cogpit", theme.ColorNameForeground, theme.SizeNameHeadingText, fyne.TextStyle{Bold: true})
+	tagline := newParagraph(welcomeTagline, colorMuted, welcomeColumn-welcomeLogoSize-24)
+	head := container.NewBorder(nil, nil, container.NewHBox(newWelcomeLogo(welcomeLogoSize), newHGap(theme.SizeNameInnerPadding)), nil,
+		container.NewVBox(layout.NewSpacer(), title, tagline, layout.NewSpacer()))
+	w.status = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
+	w.status.truncate = true
+	w.status.Hide()
+	w.list = container.NewVBox()
+	w.allB = widget.NewButtonWithIcon("All Clusters…", theme.SearchIcon(), func() { sh.picker.show() })
+	w.addB = widget.NewButtonWithIcon("Add Kubeconfigs…", theme.ContentAddIcon(), sh.kc.addKubeconfigs)
+	u, _ := url.Parse(readmeURL)
+	w.docs = widget.NewHyperlink("Cogpit's README on GitHub: features, shortcuts, the commands agents use", u)
+	w.docs.OnTapped = func() { sh.openDocumentation() }
+	w.hint = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+	column := container.NewVBox(
+		head,
+		newSpace(theme.SizeNameInnerPadding),
+		w.status,
+		newSpace(theme.SizeNameInnerPadding),
+		heading("Clusters"),
+		w.list,
+		container.NewHBox(w.allB, w.addB),
+		newSpace(theme.SizeNameInnerPadding),
+		heading("Documentation"),
+		w.docs,
+		w.hint,
+	)
+	page := box(welcomeLayout{}, column)
+	w.root = container.NewStack(newSurface(theme.ColorNameBackground), container.NewVScroll(page))
+	w.root.Hide()
+	return w
+}
+
+// workspace is the tab bar's hook into the window's centre (newShell): the workspace with the dock,
+// and the welcome page over both while it shows.
+func (b *tabBar) workspace(body fyne.CanvasObject) fyne.CanvasObject {
+	return container.NewStack(body, b.welcome.root)
+}
+
+// sync follows UIState.Welcome: shows or hides the page, and refreshes what it lists. The tab bar
+// calls it whenever the tabs, the connection or a cluster's identity change.
+func (w *welcomePage) sync() {
+	w.subscribe()
+	show := w.sh.ui.Welcome
+	if show != w.shown {
+		w.shown = show
+		if show {
+			w.sh.tip.hide()
+			w.sh.win.Canvas().Unfocus() // no key may reach a table or a field the page hides
+			w.root.Show()
+			w.load()
+		} else {
+			w.root.Hide()
+		}
+	}
+	if show {
+		w.render()
+	}
+}
+
+// subscribe follows what the page lists beyond the tab bar's changes, for as long as the shell
+// runs: the contexts (a kubeconfig synced or removed) and the hotbar. It never touches a widget on
+// the engine's goroutine.
+func (w *welcomePage) subscribe() {
+	w.subOnce.Do(func() {
+		cancel := w.sh.eng.Subscribe(func(ev engine.Event) {
+			switch ev.Type {
+			case engine.EventContexts:
+				w.sh.do(func() {
+					if w.shown {
+						w.load()
+					}
+				})
+			case engine.EventUIState:
+				if ev.UIState == nil {
+					return
+				}
+				sig := welcomeStateSig(*ev.UIState)
+				w.sigMu.Lock()
+				changed := sig != w.eventSig
+				w.eventSig = sig
+				w.sigMu.Unlock()
+				if changed {
+					w.sh.do(func() {
+						if w.shown {
+							w.render()
+						}
+					})
+				}
+			}
+		})
+		go func() {
+			<-w.sh.ctx.Done()
+			cancel()
+		}()
+	})
+}
+
+// welcomeStateSig is what of a UI state the page's list depends on beyond the tab bar's changes:
+// the hotbar's banks and the tabs' clusters.
+func welcomeStateSig(st engine.UIState) string {
+	var b strings.Builder
+	if h := st.Hotbar; h != nil {
+		raw, _ := json.Marshal(h)
+		b.Write(raw)
+	}
+	for _, t := range st.Tabs {
+		b.WriteString("|" + t.Context)
+	}
+	return b.String()
+}
+
+// load reads the contexts and their links off the main goroutine, then renders. A newer load
+// supersedes an older one.
+func (w *welcomePage) load() {
+	w.loadSeq++
+	seq := w.loadSeq
+	go func() {
+		defer w.sh.recoverTo("the welcome page")
+		ctxs, _ := w.sh.eng.Contexts() // a partial list is shown; the picker says what failed
+		links := w.links.read()
+		w.sh.do(func() {
+			if seq != w.loadSeq {
+				return
+			}
+			w.contexts, w.loaded = ctxs, true
+			w.links.set(links)
+			w.built = "" // the rows' contexts may have changed under the same ids
+			if w.shown {
+				w.render()
+			}
+		})
+	}()
+}
+
+// welcomeGroup is one group of clusters on the page.
+type welcomeGroup struct {
+	title    string
+	contexts []engine.ContextInfo
+}
+
+// groups are the clusters to list (see the top of the file). The hotbar and the tabs come from the
+// engine's state as it is now: a hotbar change reaches the page through its own subscription,
+// before the shell applies it.
+func (w *welcomePage) groups() []welcomeGroup {
+	st := w.sh.eng.UIState()
+	byName := make(map[string]engine.ContextInfo, len(w.contexts))
+	for _, c := range w.contexts {
+		byName[c.Name] = c
+	}
+	seen := map[string]bool{}
+	take := func(g *welcomeGroup, id string) {
+		if c, ok := byName[id]; ok && !seen[id] {
+			seen[id] = true
+			g.contexts = append(g.contexts, c)
+		}
+	}
+	var out []welcomeGroup
+	if h := st.Hotbar; h != nil && h.Current >= 1 && h.Current <= len(h.Banks) {
+		b := h.Banks[h.Current-1]
+		g := welcomeGroup{title: "Hotbar · " + b.Name}
+		for _, t := range b.Clusters {
+			take(&g, t.Context)
+		}
+		if len(g.contexts) > 0 {
+			out = append(out, g)
+		}
+	}
+	recent := welcomeGroup{title: "This session"}
+	ids := make([]string, 0, 1+len(st.Tabs))
+	ids = append(ids, st.Context)
+	for _, t := range st.Tabs {
+		ids = append(ids, t.Context)
+	}
+	for _, id := range ids {
+		if len(recent.contexts) < welcomeMaxRecent {
+			take(&recent, id)
+		}
+	}
+	if len(recent.contexts) > 0 {
+		out = append(out, recent)
+	}
+	if len(out) == 0 { // a first start: what the kubeconfigs offer, their current context first
+		all := welcomeGroup{title: "Your clusters"}
+		for _, c := range w.contexts {
+			if c.Current {
+				take(&all, c.Name)
+			}
+		}
+		for _, c := range w.contexts {
+			if len(all.contexts) < welcomeMaxOthers {
+				take(&all, c.Name)
+			}
+		}
+		if len(all.contexts) > 0 {
+			out = append(out, all)
+		}
+	}
+	return out
+}
+
+// render shows the connection's line and the clusters. The list is rebuilt only when what it shows
+// changed.
+func (w *welcomePage) render() {
+	w.renderStatus()
+	w.renderHint()
+	groups := w.groups()
+	ui := w.sh.ui
+	var sig strings.Builder
+	sig.WriteString(string(ui.Connection.State) + "|" + ui.Context)
+	for _, g := range groups {
+		sig.WriteString("|" + g.title)
+		for _, c := range g.contexts {
+			id := w.sh.identity(c.Name)
+			sig.WriteString("|" + c.Name + "/" + id.name + "/" + string(id.ink) + "/" + c.Exec)
+			if id.image != nil {
+				sig.WriteString("/img")
+			}
+			if c.ConnectProblem {
+				sig.WriteString("/!")
+			}
+		}
+	}
+	if !w.loaded {
+		sig.WriteString("|loading")
+	}
+	if sig.String() == w.built {
+		return
+	}
+	w.built = sig.String()
+	w.rows = w.rows[:0]
+	var objs []fyne.CanvasObject
+	for _, g := range groups {
+		objs = append(objs, newTextLine(g.title, colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{}))
+		for _, c := range g.contexts {
+			objs = append(objs, w.row(c))
+		}
+		objs = append(objs, newSpace(theme.SizeNamePadding))
+	}
+	if len(objs) == 0 {
+		msg := "No clusters yet. Add a kubeconfig file, or a folder of them: Cogpit reads them and never writes them."
+		if !w.loaded {
+			msg = "Reading your kubeconfigs…"
+		}
+		objs = append(objs, newParagraph(msg, colorMuted, welcomeColumn), newSpace(theme.SizeNamePadding))
+	}
+	w.list.Objects = objs
+	w.list.Refresh()
+}
+
+// row is one cluster: the context picker's row, connecting with one click.
+func (w *welcomePage) row(c engine.ContextInfo) *pickerRow {
+	sh := w.sh
+	title, sub := contextLabels(c)
+	if cs := sh.ui.ClusterSettings[c.Name]; cs.Name != "" { // the display name, the context below it
+		sub = strings.TrimSuffix("context "+title+" · "+sub, " · ")
+		title = kubeconfig.DisplayText(cs.Name, maxShownPath)
+	}
+	name := c.Name
+	connect := func() { w.connect(name) }
+	r := newPickerRow(c, title, sub, false, connect, connect, func() { sh.kc.showConnectLog(name) })
+	r.badge.setIdentity(sh.identity(name))
+	if sh.ui.Context == name && sh.ui.Connection.State == engine.Connected {
+		r.badges.Add(newPill("connected", connectionColor(sh.ui.Connection), true))
+	}
+	r.onMenu = func(pos fyne.Position) { w.menu(name, pos) }
+	w.rows = append(w.rows, r)
+	return r
+}
+
+// connect connects a cluster as the context picker does: a login program the user has not allowed
+// yet is shown first; the connection's outcome shows on the page (or the cluster's tab replaces it).
+func (w *welcomePage) connect(name string) {
+	sh := w.sh
+	if sh.ui.Context == name && sh.ui.Connection.State == engine.Connected {
+		if len(sh.ui.Tabs) > 0 { // under Help › Welcome: back to the cluster's last tab
+			for _, t := range sh.ui.Tabs {
+				if t.Context == name {
+					sh.dispatch("ui.tab.select", tabSelectParams{ID: t.ID}, nil)
+					return
+				}
+			}
+		}
+		sh.dispatch("ui.openView", openViewParams{View: kindPods}, nil)
+		return
+	}
+	for _, c := range w.contexts {
+		if c.Name == name && (c.Exec == engine.ExecRequired || c.Exec == engine.ExecChanged) {
+			sh.kc.reviewPlugin(name, func(allowed bool) {
+				if allowed {
+					sh.dispatch("cluster.connect", contextParams{Context: name}, nil)
+				}
+			})
+			return
+		}
+	}
+	sh.dispatch("cluster.connect", contextParams{Context: name}, nil)
+}
+
+// menu is a cluster row's right-click menu: Connect, Settings, the hotbar's item, Disconnect and
+// Remove from Cogpit, as the picker's rows have them.
+func (w *welcomePage) menu(name string, pos fyne.Position) {
+	sh := w.sh
+	items := []*fyne.MenuItem{fyne.NewMenuItem("Connect", func() { w.connect(name) })}
+	if item := sh.settingsItem(name); item != nil {
+		items = append(items, item)
+	}
+	if item := sh.hot.contextItem(name); item != nil {
+		items = append(items, item)
+	}
+	items = append(items, sh.clusterItems(name)...)
+	sh.tip.hide()
+	w.menuModel = fyne.NewMenu("", items...)
+	widget.NewPopUpMenu(w.menuModel, sh.win.Canvas()).ShowAtPosition(pos)
+}
+
+// renderStatus shows what there is to say about the connection: a failed connect, a connection
+// Cogpit closed, or the cluster still connected under the page.
+func (w *welcomePage) renderStatus() {
+	ui := w.sh.ui
+	name := ""
+	if ui.Context != "" {
+		name = w.sh.identity(ui.Context).name
+	}
+	text, c := "", colorMuted
+	switch ui.Connection.State {
+	case engine.ConnectError:
+		text, c = "Could not connect to "+name+": "+ui.Connection.Error, colorStatusError
+	case engine.Disconnected:
+		if ui.Connection.Error != "" { // Cogpit closed it: its kubeconfig file went away
+			text, c = ui.Connection.Error, colorStatusWarning
+		}
+	case engine.Connected:
+		text = "Connected to " + name + ": pick a view in the navigator, or a tab above."
+	}
+	w.status.SetText(text)
+	w.status.SetColor(c)
+	if text == "" {
+		w.status.Hide()
+	} else {
+		w.status.Show()
+	}
+}
+
+// renderHint names the shortcuts worth knowing, as the registry declares them.
+func (w *welcomePage) renderHint() {
+	var parts []string
+	for _, k := range []struct{ id, what string }{
+		{"cluster.connect", "finds a cluster by name"}, {engine.PaletteOpenCommand, "runs any command"},
+		{"preferences.open", "opens the Preferences"},
+	} {
+		if c, ok := w.sh.eng.Registry().Get(k.id); ok && c.Shortcut != "" {
+			parts = append(parts, shortcutText(c.Shortcut, runtime.GOOS == goosMac)+" "+k.what)
+		}
+	}
+	w.hint.SetText(strings.Join(parts, " · "))
+}
+
+// openDocumentation opens Cogpit's README on GitHub in the browser (Help › Documentation and the
+// welcome page). A GUI link, not an engine command, as the status bar's link (D-23): no agent opens
+// a browser on the user's computer.
+func (sh *shell) openDocumentation() {
+	u, _ := url.Parse(readmeURL)
+	if err := openBrowser(sh.app, u); err != nil {
+		sh.toast("error", "Could not open "+readmeURL+": "+err.Error())
+	}
+}
+
+// welcomeLayout puts the page's column at the top centre, welcomeColumn wide (narrower in a narrow
+// workspace), with a margin above it while the workspace is tall enough.
+type welcomeLayout struct{}
+
+func (welcomeLayout) MinSize(objs []fyne.CanvasObject) fyne.Size {
+	ms := fyne.NewSize(0, 0)
+	for _, o := range objs {
+		ms = ms.Max(o.MinSize())
+	}
+	pad := fyne.CurrentApp().Settings().Theme().Size(theme.SizeNameInnerPadding)
+	return ms.AddWidthHeight(2*pad, 2*pad+welcomeTopMargin)
+}
+
+func (welcomeLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
+	pad := fyne.CurrentApp().Settings().Theme().Size(theme.SizeNameInnerPadding)
+	for _, o := range objs {
+		ms := o.MinSize()
+		w := float32(math.Max(float64(ms.Width), math.Min(welcomeColumn, float64(size.Width-2*pad))))
+		x := float32(math.Max(float64(pad), float64(size.Width-w)/2))
+		o.Move(fyne.NewPos(x, pad+welcomeTopMargin))
+		o.Resize(fyne.NewSize(w, ms.Height))
+	}
+}
+
+// welcomeLogo is Cogpit's logo at a large size: the app icon's line weights (internal/ui/logo)
+// without its plate, in the theme's logo tokens, drawn at the pixel size the canvas shows it at.
+type welcomeLogo struct {
+	widget.BaseWidget
+	side       float32
+	px         int
+	frame, acc color.Color // the inks it was drawn with
+}
+
+func newWelcomeLogo(side float32) *welcomeLogo {
+	l := &welcomeLogo{side: side}
+	l.ExtendBaseWidget(l)
+	return l
+}
+
+// CreateRenderer implements fyne.Widget.
+func (l *welcomeLogo) CreateRenderer() fyne.WidgetRenderer {
+	img := canvas.NewImageFromImage(nil)
+	img.FillMode, img.ScaleMode = canvas.ImageFillContain, canvas.ImageScaleSmooth
+	r := &welcomeLogoRenderer{l: l, img: img}
+	r.Refresh()
+	return r
+}
+
+type welcomeLogoRenderer struct {
+	l   *welcomeLogo
+	img *canvas.Image
+}
+
+func (r *welcomeLogoRenderer) MinSize() fyne.Size { return fyne.NewSize(r.l.side, r.l.side) }
+
+func (r *welcomeLogoRenderer) Layout(size fyne.Size) {
+	s := r.l.side
+	r.img.Move(fyne.NewPos((size.Width-s)/2, (size.Height-s)/2))
+	r.img.Resize(fyne.NewSize(s, s))
+}
+
+func (r *welcomeLogoRenderer) Refresh() {
+	l, th := r.l, r.l.Theme()
+	frame, accent := themeColor(th, colorLogo), themeColor(th, colorLogoAccent)
+	scale := float32(1)
+	if c := fyne.CurrentApp().Driver().CanvasForObject(l); c != nil {
+		scale = c.Scale()
+	}
+	px := int(math.Ceil(float64(l.side * scale)))
+	if px != l.px || frame != l.frame || accent != l.acc || r.img.Image == nil {
+		img := image.NewNRGBA(image.Rect(0, 0, px, px))
+		logoart.Draw(img, logoart.Icon(nil), logoart.Colors{Frame: frame, Accent: accent}, float64(px)/logoart.Box, 0, 0)
+		r.img.Image = img
+		l.px, l.frame, l.acc = px, frame, accent
+	}
+	r.Layout(l.Size())
+	r.img.Refresh()
+}
+
+func (r *welcomeLogoRenderer) Objects() []fyne.CanvasObject { return []fyne.CanvasObject{r.img} }
+func (r *welcomeLogoRenderer) Destroy()                     {}
+
+// shownClusters are the contexts of the page's rows in their order (tests).
+func (w *welcomePage) shownClusters() []string {
+	out := make([]string, 0, len(w.rows))
+	for _, r := range w.rows {
+		out = append(out, r.title.text)
+	}
+	return out
+}

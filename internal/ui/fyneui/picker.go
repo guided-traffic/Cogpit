@@ -240,6 +240,7 @@ func (p *picker) menu(name string, pos fyne.Position) {
 	if item := p.sh.hot.contextItem(name); item != nil {
 		items = append(items, item)
 	}
+	items = append(items, p.sh.clusterItems(name)...) // Disconnect, Remove from Cogpit (menus_cluster.go)
 	p.sh.tip.hide()
 	p.menuModel = fyne.NewMenu("", items...)
 	widget.NewPopUpMenu(p.menuModel, p.sh.win.Canvas()).ShowAtPosition(pos)

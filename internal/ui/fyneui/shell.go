@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -187,7 +188,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 
 	sidebar := box(lockedWidth{}, newSurface(colorSidebar), sh.side.root)
 	sh.sideLay = &panelLayout{first: true, want: func() float32 { return sh.sidebarW }, lo: minSidebarWidth, hi: maxSidebarWidth, restMin: minTableRoom}
-	main := newPanel(sh.sideLay, sidebar, container.NewBorder(sh.tabs.root, nil, nil, nil, sh.body), newResizeHandle(1,
+	main := newPanel(sh.sideLay, sidebar, container.NewBorder(sh.tabs.root, nil, nil, nil, sh.tabs.workspace(sh.body)), newResizeHandle(1,
 		func() float32 { return sh.sideLay.got },
 		func(w float32) float32 { return sh.setSidebarWidth(w) },
 		sh.saveWidths))
@@ -755,7 +756,8 @@ func (toastLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
 	}
 }
 
-// mainMenu builds the window menu: Cluster, View (one item per kind) and Help.
+// mainMenu builds the window menu: Cluster, View (one item per kind), Helm, on Windows and Linux
+// Window, and Help (menus.go).
 func (sh *shell) mainMenu() *fyne.MainMenu {
 	// ⌘P (search a cluster by name) is cluster.connect's shortcut in the registry: the picker asks
 	// for the context.
@@ -763,6 +765,7 @@ func (sh *shell) mainMenu() *fyne.MainMenu {
 	if item := sh.hot.contextItem(sh.ui.Context); item != nil { // Lens's cluster menu: "Add to Hotbar"
 		cluster.Items = append(cluster.Items, item)
 	}
+	cluster.Items = append(cluster.Items, sh.clusterMenuItems()...) // Disconnect, Remove from Cogpit… (menus_cluster.go)
 	cluster.Items = append(cluster.Items, sh.kc.menuItems()...)
 	cluster.Items = append(cluster.Items, sh.refreshAccessItem())
 	cluster.Items = append(cluster.Items, sh.settingsMenuItems()...) // ⌘⇧, and ⌘, from any focus
@@ -785,12 +788,10 @@ func (sh *shell) mainMenu() *fyne.MainMenu {
 		view.Items = append([]*fyne.MenuItem{pal, fyne.NewMenuItemSeparator()}, view.Items...)
 	}
 	menus := []*fyne.Menu{cluster, view, sh.helmMenu()}
-	if sh.hasMCP() {
-		sh.mcpMenu = fyne.NewMenuItem("Copy MCP command", sh.copyMCPCommand)
-		sh.mcpMenu.Disabled = !sh.mcp.on
-		menus = append(menus, fyne.NewMenu("Help", sh.mcpMenu))
+	if window := sh.windowMenu(runtime.GOOS); window != nil { // macOS keeps GLFW's Window menu (menus.go)
+		menus = append(menus, window)
 	}
-	return fyne.NewMainMenu(menus...)
+	return fyne.NewMainMenu(append(menus, sh.helpMenu())...)
 }
 
 // copyMCPCommand puts the `claude mcp add` command of the running server on the clipboard and shows

@@ -50,6 +50,8 @@ type tabBar struct {
 	row    *fyne.Container
 	scroll *container.Scroll
 	shown  []*viewTab // the tab widgets in order
+	// welcome is the workspace's page while no tab is active (welcome.go).
+	welcome *welcomePage
 
 	now      func() time.Time // the clock of double clicks (a test moves it)
 	tabClick click            // the last click on a tab
@@ -68,6 +70,7 @@ func newTabBar(sh *shell) *tabBar {
 	b.scroll = container.NewHScroll(b.row)
 	b.root = container.NewBorder(nil, newDivider(false), nil, nil, container.NewStack(newSurface(colorDock), b.scroll))
 	b.root.Hide()
+	b.welcome = newWelcomePage(sh)
 	return b
 }
 
@@ -84,6 +87,7 @@ func (b *tabBar) double(last *click, id string) bool {
 
 // sync shows UIState.Tabs: one widget per tab, the active one raised and scrolled into view.
 func (b *tabBar) sync() {
+	defer b.welcome.sync() // the welcome page while the workspace has nothing else (welcome.go)
 	ui := b.sh.ui
 	if len(ui.Tabs) == 0 {
 		b.shown, b.row.Objects = nil, nil

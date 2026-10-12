@@ -303,6 +303,7 @@ func (h *hotbar) tileMenu(slot int, pos fyne.Position) {
 	if settings := h.sh.settingsItem(t.Context); settings != nil { // the cluster's Settings page
 		items = append(items, settings)
 	}
+	items = append(items, h.sh.clusterItems(t.Context)...) // Disconnect, Remove from Cogpit (menus_cluster.go)
 	items = append(items, fyne.NewMenuItemSeparator(), up, down, fyne.NewMenuItemSeparator(), remove)
 	h.showMenu(fyne.NewMenu("", items...), pos)
 }
