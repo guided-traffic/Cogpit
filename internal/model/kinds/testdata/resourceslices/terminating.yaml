@@ -1,0 +1,19 @@
+# Synthetic: a slice of a removed node being deleted, held by a finalizer.
+apiVersion: resource.k8s.io/v1
+kind: ResourceSlice
+metadata:
+  name: worker-b-01-nic.example.net-h4t8w
+  uid: af405162-0001-4d8e-bf90-000000000003
+  creationTimestamp: "2026-09-20T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:59:00Z"
+  finalizers:
+  - slices.example.com/audit
+spec:
+  driver: nic.example.net
+  pool:
+    name: worker-b-01
+    generation: 7
+    resourceSliceCount: 2
+  nodeName: worker-b-01
+  devices:
+  - name: vf-7

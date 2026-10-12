@@ -1,0 +1,32 @@
+# Synthetic: a claim being deleted after its pod finished: still allocated, no longer reserved,
+# held by the controller's finalizer.
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  name: batch-nic
+  namespace: batch
+  uid: 7c1d2e3f-0001-4a5b-8c6d-000000000003
+  creationTimestamp: "2026-10-11T08:00:00Z"
+  deletionTimestamp: "2026-10-11T11:59:00Z"
+  finalizers:
+  - resource.kubernetes.io/delete-protection
+  ownerReferences:
+  - apiVersion: v1
+    kind: Pod
+    name: batch-run-42
+    uid: 7c1d2e3f-0002-4a5b-8c6d-000000000003
+    controller: true
+spec:
+  devices:
+    requests:
+    - name: nic
+      exactly:
+        deviceClassName: nic.example.net
+status:
+  allocation:
+    devices:
+      results:
+      - request: nic
+        driver: nic.example.net
+        pool: worker-b-01
+        device: vf-7

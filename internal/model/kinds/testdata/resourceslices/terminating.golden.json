@@ -1,0 +1,127 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourceslices",
+    "name": "worker-b-01-nic.example.net-h4t8w"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "worker-b-01-nic.example.net-h4t8w"
+    },
+    {
+      "column": "driver",
+      "text": "nic.example.net"
+    },
+    {
+      "column": "pool",
+      "text": "worker-b-01"
+    },
+    {
+      "column": "node",
+      "text": "worker-b-01",
+      "link": {
+        "kind": "nodes",
+        "name": "worker-b-01"
+      }
+    },
+    {
+      "column": "devices",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "allocated",
+      "text": "-"
+    },
+    {
+      "column": "age",
+      "text": "21d",
+      "num": 1789862400
+    }
+  ],
+  "fields": {
+    "device": [
+      "vf-7"
+    ],
+    "driver": [
+      "nic.example.net"
+    ],
+    "label": [],
+    "name": [
+      "worker-b-01-nic.example.net-h4t8w"
+    ],
+    "namespace": [
+      ""
+    ],
+    "node": [
+      "worker-b-01"
+    ],
+    "pool": [
+      "worker-b-01"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Driver",
+          "value": "nic.example.net"
+        },
+        {
+          "name": "Pool",
+          "value": "worker-b-01 (generation 7, 2 slices)"
+        },
+        {
+          "name": "Node",
+          "value": "worker-b-01",
+          "link": {
+            "kind": "nodes",
+            "name": "worker-b-01"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Devices",
+      "table": {
+        "columns": [
+          "Name",
+          "Attributes",
+          "Capacity",
+          "Taints",
+          "Claim"
+        ],
+        "rows": [
+          [
+            "vf-7",
+            "",
+            "",
+            "",
+            ""
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "vf-7"
+            },
+            {},
+            {},
+            {},
+            {}
+          ]
+        ]
+      }
+    }
+  ]
+}

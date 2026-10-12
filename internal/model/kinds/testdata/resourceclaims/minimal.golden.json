@@ -1,0 +1,77 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourceclaims",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "state",
+      "text": "Pending",
+      "status": "pending"
+    },
+    {
+      "column": "deviceClasses",
+      "text": ""
+    },
+    {
+      "column": "devices",
+      "text": ""
+    },
+    {
+      "column": "reservedFor",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "device": [],
+    "deviceClass": [],
+    "driver": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "reservedFor": [],
+    "state": [
+      "Pending"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "State",
+          "value": "Pending",
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}

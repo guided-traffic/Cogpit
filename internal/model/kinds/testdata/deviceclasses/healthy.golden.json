@@ -1,0 +1,81 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "deviceclasses",
+    "name": "gpu.example.com"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "gpu.example.com"
+    },
+    {
+      "column": "driver",
+      "text": "gpu.example.com"
+    },
+    {
+      "column": "age",
+      "text": "40d",
+      "num": 1788220800
+    }
+  ],
+  "fields": {
+    "driver": [
+      "gpu.example.com"
+    ],
+    "label": [],
+    "name": [
+      "gpu.example.com"
+    ],
+    "namespace": [
+      ""
+    ],
+    "selector": [
+      "device.driver == \"gpu.example.com\""
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Driver",
+          "value": "gpu.example.com"
+        },
+        {
+          "name": "Extended Resource Name",
+          "value": "example.com/gpu"
+        }
+      ]
+    },
+    {
+      "title": "Selectors",
+      "table": {
+        "columns": [
+          "CEL Expression"
+        ],
+        "rows": [
+          [
+            "device.driver == \"gpu.example.com\""
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Config",
+      "table": {
+        "columns": [
+          "Driver",
+          "Parameters"
+        ],
+        "rows": [
+          [
+            "gpu.example.com",
+            "{\"apiVersion\":\"gpu.example.com/v1\",\"kind\":\"GpuConfig\",\"sharing\":{\"strategy\":\"TimeSlicing\"}}"
+          ]
+        ]
+      }
+    }
+  ]
+}

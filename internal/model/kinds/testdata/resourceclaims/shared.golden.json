@@ -1,0 +1,236 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourceclaims",
+    "namespace": "ml",
+    "name": "shared-accel"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "shared-accel"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "ml",
+      "link": {
+        "kind": "namespaces",
+        "name": "ml"
+      }
+    },
+    {
+      "column": "state",
+      "text": "Allocated (reserved: 2)",
+      "status": "ok"
+    },
+    {
+      "column": "deviceClasses",
+      "text": "gpu.example.com, nic.example.net"
+    },
+    {
+      "column": "devices",
+      "text": "gpu-0, gpu-1, gpu-2 + 2 more",
+      "num": 5
+    },
+    {
+      "column": "reservedFor",
+      "text": "worker-0, worker-1"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790812800
+    }
+  ],
+  "fields": {
+    "device": [
+      "gpu-0",
+      "gpu-1",
+      "gpu-2",
+      "gpu-3",
+      "vf-0"
+    ],
+    "deviceClass": [
+      "gpu.example.com",
+      "nic.example.net"
+    ],
+    "driver": [
+      "gpu.example.com",
+      "nic.example.net"
+    ],
+    "label": [],
+    "name": [
+      "shared-accel"
+    ],
+    "namespace": [
+      "ml"
+    ],
+    "reservedFor": [
+      "worker-0",
+      "worker-1"
+    ],
+    "state": [
+      "Allocated (reserved: 2)"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "State",
+          "value": "Allocated (reserved: 2)",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "title": "Requests",
+      "table": {
+        "columns": [
+          "Request",
+          "Device Class",
+          "Count",
+          "Selectors",
+          "Admin Access"
+        ],
+        "rows": [
+          [
+            "gpus",
+            "gpu.example.com",
+            "4",
+            "",
+            ""
+          ],
+          [
+            "nic",
+            "nic.example.net",
+            "1",
+            "",
+            ""
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Allocation",
+      "table": {
+        "columns": [
+          "Request",
+          "Driver",
+          "Pool",
+          "Device"
+        ],
+        "rows": [
+          [
+            "gpus",
+            "gpu.example.com",
+            "worker-a-01",
+            "gpu-0"
+          ],
+          [
+            "gpus",
+            "gpu.example.com",
+            "worker-a-01",
+            "gpu-1"
+          ],
+          [
+            "gpus",
+            "gpu.example.com",
+            "worker-a-01",
+            "gpu-2"
+          ],
+          [
+            "gpus",
+            "gpu.example.com",
+            "worker-a-01",
+            "gpu-3"
+          ],
+          [
+            "nic",
+            "nic.example.net",
+            "worker-a-01",
+            "vf-0"
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Reserved For",
+      "table": {
+        "columns": [
+          "Resource",
+          "Name"
+        ],
+        "rows": [
+          [
+            "pods",
+            "worker-0"
+          ],
+          [
+            "pods",
+            "worker-1"
+          ]
+        ],
+        "types": [
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "pods"
+            },
+            {
+              "text": "worker-0",
+              "link": {
+                "kind": "pods",
+                "namespace": "ml",
+                "name": "worker-0"
+              }
+            }
+          ],
+          [
+            {
+              "text": "pods"
+            },
+            {
+              "text": "worker-1",
+              "link": {
+                "kind": "pods",
+                "namespace": "ml",
+                "name": "worker-1"
+              }
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Device Status",
+      "table": {
+        "columns": [
+          "Device",
+          "Driver",
+          "Pool",
+          "Conditions",
+          "Network"
+        ],
+        "rows": [
+          [
+            "vf-0",
+            "nic.example.net",
+            "worker-a-01",
+            "Ready=True",
+            "net1\n10.9.8.7/24\n02:42:ac:11:00:02"
+          ]
+        ]
+      }
+    }
+  ]
+}

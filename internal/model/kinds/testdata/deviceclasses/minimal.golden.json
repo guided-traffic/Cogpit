@@ -1,0 +1,35 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "deviceclasses",
+    "name": "any-device"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "any-device"
+    },
+    {
+      "column": "driver",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "driver": [],
+    "label": [],
+    "name": [
+      "any-device"
+    ],
+    "namespace": [
+      ""
+    ],
+    "selector": []
+  },
+  "detail": null
+}

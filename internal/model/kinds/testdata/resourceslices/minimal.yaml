@@ -1,0 +1,7 @@
+# Synthetic: optional fields missing: an empty spec, no uid.
+apiVersion: resource.k8s.io/v1
+kind: ResourceSlice
+metadata:
+  name: bare
+  creationTimestamp: "2026-10-11T11:00:00Z"
+spec: {}

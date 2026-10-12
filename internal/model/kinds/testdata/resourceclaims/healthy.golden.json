@@ -1,0 +1,198 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourceclaims",
+    "namespace": "ml",
+    "name": "trainer-gpu"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "trainer-gpu"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "ml",
+      "link": {
+        "kind": "namespaces",
+        "name": "ml"
+      }
+    },
+    {
+      "column": "state",
+      "text": "Allocated (reserved: 1)",
+      "status": "ok"
+    },
+    {
+      "column": "deviceClasses",
+      "text": "gpu.example.com"
+    },
+    {
+      "column": "devices",
+      "text": "gpu-0",
+      "num": 1
+    },
+    {
+      "column": "reservedFor",
+      "text": "trainer-0",
+      "link": {
+        "kind": "pods",
+        "namespace": "ml",
+        "name": "trainer-0"
+      }
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791622800
+    }
+  ],
+  "fields": {
+    "device": [
+      "gpu-0"
+    ],
+    "deviceClass": [
+      "gpu.example.com"
+    ],
+    "driver": [
+      "gpu.example.com"
+    ],
+    "label": [],
+    "name": [
+      "trainer-gpu"
+    ],
+    "namespace": [
+      "ml"
+    ],
+    "reservedFor": [
+      "trainer-0"
+    ],
+    "state": [
+      "Allocated (reserved: 1)"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "State",
+          "value": "Allocated (reserved: 1)",
+          "status": "ok"
+        },
+        {
+          "name": "Node",
+          "value": "worker-a-01",
+          "link": {
+            "kind": "nodes",
+            "name": "worker-a-01"
+          }
+        },
+        {
+          "name": "Allocated",
+          "value": "2026-10-10T09:00:05Z"
+        }
+      ]
+    },
+    {
+      "title": "Requests",
+      "table": {
+        "columns": [
+          "Request",
+          "Device Class",
+          "Count",
+          "Selectors",
+          "Admin Access"
+        ],
+        "rows": [
+          [
+            "gpu",
+            "gpu.example.com",
+            "1",
+            "device.attributes[\"gpu.example.com\"].model == \"A100\"",
+            ""
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Allocation",
+      "table": {
+        "columns": [
+          "Request",
+          "Driver",
+          "Pool",
+          "Device"
+        ],
+        "rows": [
+          [
+            "gpu",
+            "gpu.example.com",
+            "worker-a-01",
+            "gpu-0"
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Reserved For",
+      "table": {
+        "columns": [
+          "Resource",
+          "Name"
+        ],
+        "rows": [
+          [
+            "pods",
+            "trainer-0"
+          ]
+        ],
+        "types": [
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "pods"
+            },
+            {
+              "text": "trainer-0",
+              "link": {
+                "kind": "pods",
+                "namespace": "ml",
+                "name": "trainer-0"
+              }
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Device Status",
+      "table": {
+        "columns": [
+          "Device",
+          "Driver",
+          "Pool",
+          "Conditions",
+          "Network"
+        ],
+        "rows": [
+          [
+            "gpu-0",
+            "gpu.example.com",
+            "worker-a-01",
+            "Ready=True",
+            ""
+          ]
+        ]
+      }
+    }
+  ]
+}

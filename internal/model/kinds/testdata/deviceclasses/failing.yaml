@@ -1,0 +1,18 @@
+# Synthetic: a class whose selector does not compare device.driver: the driver comes from its
+# configuration. A class has no state, so "failing" is the class the Driver column must still name.
+apiVersion: resource.k8s.io/v1
+kind: DeviceClass
+metadata:
+  name: fast-nic
+  uid: 9e3f4051-0001-4c7d-ae8f-000000000002
+  creationTimestamp: "2026-10-11T11:30:00Z"
+spec:
+  selectors:
+  - cel:
+      expression: |-
+        device.attributes["nic.example.net"].speed >= 100 &&
+        device.attributes["nic.example.net"].rdma
+  config:
+  - opaque:
+      driver: nic.example.net
+      parameters: {mtu: 9000}

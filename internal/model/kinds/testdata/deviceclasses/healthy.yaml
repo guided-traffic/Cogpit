@@ -1,0 +1,21 @@
+# Synthetic: a GPU class selecting one driver's devices, with the driver's configuration and an
+# extended resource name.
+apiVersion: resource.k8s.io/v1
+kind: DeviceClass
+metadata:
+  name: gpu.example.com
+  uid: 9e3f4051-0001-4c7d-ae8f-000000000001
+  creationTimestamp: "2026-09-01T00:00:00Z"
+spec:
+  selectors:
+  - cel:
+      expression: device.driver == "gpu.example.com"
+  config:
+  - opaque:
+      driver: gpu.example.com
+      parameters:
+        apiVersion: gpu.example.com/v1
+        kind: GpuConfig
+        sharing:
+          strategy: TimeSlicing
+  extendedResourceName: example.com/gpu

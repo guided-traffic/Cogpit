@@ -1,0 +1,96 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourceclaimtemplates",
+    "namespace": "media",
+    "name": "gpu-and-nic"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "gpu-and-nic"
+    },
+    {
+      "column": "namespace",
+      "text": "media",
+      "link": {
+        "kind": "namespaces",
+        "name": "media"
+      }
+    },
+    {
+      "column": "deviceClasses",
+      "text": "gpu-large.example.com, gpu.example.com, nic.example.net"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "deviceClass": [
+      "gpu-large.example.com",
+      "gpu.example.com",
+      "nic.example.net"
+    ],
+    "label": [],
+    "name": [
+      "gpu-and-nic"
+    ],
+    "namespace": [
+      "media"
+    ],
+    "request": [
+      "gpu/large",
+      "gpu/small",
+      "spare",
+      "nic"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Requests",
+      "table": {
+        "columns": [
+          "Request",
+          "Device Class",
+          "Count",
+          "Selectors",
+          "Admin Access"
+        ],
+        "rows": [
+          [
+            "gpu/large",
+            "gpu-large.example.com",
+            "1",
+            "",
+            ""
+          ],
+          [
+            "gpu/small",
+            "gpu.example.com",
+            "2",
+            "",
+            ""
+          ],
+          [
+            "spare",
+            "gpu.example.com",
+            "1",
+            "",
+            ""
+          ],
+          [
+            "nic",
+            "nic.example.net",
+            "all",
+            "",
+            ""
+          ]
+        ]
+      }
+    }
+  ]
+}

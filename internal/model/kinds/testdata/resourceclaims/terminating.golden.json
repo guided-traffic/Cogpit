@@ -1,0 +1,124 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourceclaims",
+    "namespace": "batch",
+    "name": "batch-nic"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "batch-nic"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "batch",
+      "link": {
+        "kind": "namespaces",
+        "name": "batch"
+      }
+    },
+    {
+      "column": "state",
+      "text": "Allocated",
+      "status": "ok"
+    },
+    {
+      "column": "deviceClasses",
+      "text": "nic.example.net"
+    },
+    {
+      "column": "devices",
+      "text": "vf-7",
+      "num": 1
+    },
+    {
+      "column": "reservedFor",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "4h",
+      "num": 1791705600
+    }
+  ],
+  "fields": {
+    "device": [
+      "vf-7"
+    ],
+    "deviceClass": [
+      "nic.example.net"
+    ],
+    "driver": [
+      "nic.example.net"
+    ],
+    "label": [],
+    "name": [
+      "batch-nic"
+    ],
+    "namespace": [
+      "batch"
+    ],
+    "reservedFor": [],
+    "state": [
+      "Allocated"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "State",
+          "value": "Allocated",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "title": "Requests",
+      "table": {
+        "columns": [
+          "Request",
+          "Device Class",
+          "Count",
+          "Selectors",
+          "Admin Access"
+        ],
+        "rows": [
+          [
+            "nic",
+            "nic.example.net",
+            "1",
+            "",
+            ""
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Allocation",
+      "table": {
+        "columns": [
+          "Request",
+          "Driver",
+          "Pool",
+          "Device"
+        ],
+        "rows": [
+          [
+            "nic",
+            "nic.example.net",
+            "worker-b-01",
+            "vf-7"
+          ]
+        ]
+      }
+    }
+  ]
+}

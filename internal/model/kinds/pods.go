@@ -586,6 +586,9 @@ func podDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	if volumes := podVolumes(obj, ns); len(volumes) > 0 {
 		sections = append(sections, model.DetailSection{Title: "Pod Volumes", Items: volumes})
 	}
+	if claims, ok := podResourceClaimsSection(obj, ns); ok { // resourceclaims_pods.go
+		sections = append(sections, claims)
+	}
 
 	// Readiness applies to app containers and sidecars only; init and ephemeral containers have
 	// no probes, so a running one is fine without being ready. Lens shows the init containers

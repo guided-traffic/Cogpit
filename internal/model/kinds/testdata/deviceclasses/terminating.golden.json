@@ -1,0 +1,62 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "deviceclasses",
+    "name": "legacy-fpga"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-fpga"
+    },
+    {
+      "column": "driver",
+      "text": "fpga.example.org"
+    },
+    {
+      "column": "age",
+      "text": "132d",
+      "num": 1780272000
+    }
+  ],
+  "fields": {
+    "driver": [
+      "fpga.example.org"
+    ],
+    "label": [],
+    "name": [
+      "legacy-fpga"
+    ],
+    "namespace": [
+      ""
+    ],
+    "selector": [
+      "'fpga.example.org' == device.driver"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Driver",
+          "value": "fpga.example.org"
+        }
+      ]
+    },
+    {
+      "title": "Selectors",
+      "table": {
+        "columns": [
+          "CEL Expression"
+        ],
+        "rows": [
+          [
+            "'fpga.example.org' == device.driver"
+          ]
+        ]
+      }
+    }
+  ]
+}

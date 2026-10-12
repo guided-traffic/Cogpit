@@ -1,0 +1,25 @@
+# Synthetic: a pool reachable from one rack's nodes, chosen by a node selector.
+apiVersion: resource.k8s.io/v1
+kind: ResourceSlice
+metadata:
+  name: rack-7-storage.example.com-0
+  uid: af405162-0001-4d8e-bf90-000000000005
+  creationTimestamp: "2026-10-01T00:00:00Z"
+spec:
+  driver: storage.example.com
+  pool:
+    name: rack-7
+    generation: 2
+    resourceSliceCount: 1
+  nodeSelector:
+    nodeSelectorTerms:
+    - matchExpressions:
+      - key: topology.example.com/rack
+        operator: In
+        values: ["7"]
+      - key: node-role.kubernetes.io/storage
+        operator: Exists
+  devices:
+  - name: nvme-0
+    capacity:
+      size: {value: 3840Gi}

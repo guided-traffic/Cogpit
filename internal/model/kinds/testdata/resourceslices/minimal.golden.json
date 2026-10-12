@@ -1,0 +1,53 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourceslices",
+    "name": "bare"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "driver",
+      "text": ""
+    },
+    {
+      "column": "pool",
+      "text": ""
+    },
+    {
+      "column": "node",
+      "text": ""
+    },
+    {
+      "column": "devices",
+      "text": "0"
+    },
+    {
+      "column": "allocated",
+      "text": "-"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "device": [],
+    "driver": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      ""
+    ],
+    "node": [],
+    "pool": []
+  },
+  "detail": null
+}

@@ -1,0 +1,133 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourceslices",
+    "name": "worker-a-02-gpu.example.com-q9m2z"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "worker-a-02-gpu.example.com-q9m2z"
+    },
+    {
+      "column": "driver",
+      "text": "gpu.example.com"
+    },
+    {
+      "column": "pool",
+      "text": "worker-a-02"
+    },
+    {
+      "column": "node",
+      "text": "worker-a-02",
+      "link": {
+        "kind": "nodes",
+        "name": "worker-a-02"
+      }
+    },
+    {
+      "column": "devices",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "allocated",
+      "text": "-"
+    },
+    {
+      "column": "age",
+      "text": "2h",
+      "num": 1791712800
+    }
+  ],
+  "fields": {
+    "device": [
+      "gpu-3"
+    ],
+    "driver": [
+      "gpu.example.com"
+    ],
+    "label": [],
+    "name": [
+      "worker-a-02-gpu.example.com-q9m2z"
+    ],
+    "namespace": [
+      ""
+    ],
+    "node": [
+      "worker-a-02"
+    ],
+    "pool": [
+      "worker-a-02"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Driver",
+          "value": "gpu.example.com"
+        },
+        {
+          "name": "Pool",
+          "value": "worker-a-02 (generation 3, 1 slice)"
+        },
+        {
+          "name": "Node",
+          "value": "worker-a-02",
+          "link": {
+            "kind": "nodes",
+            "name": "worker-a-02"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Devices",
+      "table": {
+        "columns": [
+          "Name",
+          "Attributes",
+          "Capacity",
+          "Taints",
+          "Claim"
+        ],
+        "rows": [
+          [
+            "gpu-3",
+            "model: H100",
+            "memory: 80Gi",
+            "gpu.example.com/unhealthy=xid-79:NoSchedule\ngpu.example.com/maintenance:NoExecute",
+            ""
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "gpu-3"
+            },
+            {
+              "text": "model: H100"
+            },
+            {
+              "text": "memory: 80Gi"
+            },
+            {
+              "text": "gpu.example.com/unhealthy=xid-79:NoSchedule\ngpu.example.com/maintenance:NoExecute"
+            },
+            {}
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+# Synthetic: a network-attached device pool every node reaches.
+apiVersion: resource.k8s.io/v1
+kind: ResourceSlice
+metadata:
+  name: fabric-fpga.example.org-0
+  uid: af405162-0001-4d8e-bf90-000000000004
+  creationTimestamp: "2026-10-01T00:00:00Z"
+spec:
+  driver: fpga.example.org
+  pool:
+    name: fabric
+    generation: 1
+    resourceSliceCount: 1
+  allNodes: true
+  devices:
+  - name: fpga-0
+  - name: fpga-1
+  - name: fpga-2

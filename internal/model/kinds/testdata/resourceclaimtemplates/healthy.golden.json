@@ -1,0 +1,93 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourceclaimtemplates",
+    "namespace": "ml",
+    "name": "single-gpu"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "single-gpu"
+    },
+    {
+      "column": "namespace",
+      "text": "ml",
+      "link": {
+        "kind": "namespaces",
+        "name": "ml"
+      }
+    },
+    {
+      "column": "deviceClasses",
+      "text": "gpu.example.com"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790812800
+    }
+  ],
+  "fields": {
+    "deviceClass": [
+      "gpu.example.com"
+    ],
+    "label": [],
+    "name": [
+      "single-gpu"
+    ],
+    "namespace": [
+      "ml"
+    ],
+    "request": [
+      "gpu"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Claim Labels",
+          "value": "team=ml",
+          "chips": [
+            {
+              "text": "team=ml"
+            }
+          ]
+        },
+        {
+          "name": "Claim Annotations",
+          "value": "example.com/cost-center=4711",
+          "chips": [
+            {
+              "text": "example.com/cost-center=4711"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Requests",
+      "table": {
+        "columns": [
+          "Request",
+          "Device Class",
+          "Count",
+          "Selectors",
+          "Admin Access"
+        ],
+        "rows": [
+          [
+            "gpu",
+            "gpu.example.com",
+            "1",
+            "device.capacity[\"gpu.example.com\"].memory.compareTo(quantity(\"40Gi\")) >= 0",
+            ""
+          ]
+        ]
+      }
+    }
+  ]
+}

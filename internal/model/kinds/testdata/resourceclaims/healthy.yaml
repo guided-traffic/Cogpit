@@ -1,0 +1,49 @@
+# Synthetic: a claim for one GPU, allocated on a node and reserved by the pod that uses it; the
+# driver reports the device Ready.
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  name: trainer-gpu
+  namespace: ml
+  uid: 7c1d2e3f-0001-4a5b-8c6d-000000000001
+  creationTimestamp: "2026-10-10T09:00:00Z"
+spec:
+  devices:
+    requests:
+    - name: gpu
+      exactly:
+        deviceClassName: gpu.example.com
+        allocationMode: ExactCount
+        count: 1
+        selectors:
+        - cel:
+            expression: device.attributes["gpu.example.com"].model == "A100"
+status:
+  allocation:
+    allocationTimestamp: "2026-10-10T09:00:05Z"
+    devices:
+      results:
+      - request: gpu
+        driver: gpu.example.com
+        pool: worker-a-01
+        device: gpu-0
+    nodeSelector:
+      nodeSelectorTerms:
+      - matchFields:
+        - key: metadata.name
+          operator: In
+          values:
+          - worker-a-01
+  reservedFor:
+  - resource: pods
+    name: trainer-0
+    uid: 7c1d2e3f-0002-4a5b-8c6d-000000000001
+  devices:
+  - driver: gpu.example.com
+    pool: worker-a-01
+    device: gpu-0
+    conditions:
+    - type: Ready
+      status: "True"
+      reason: DeviceReady
+      lastTransitionTime: "2026-10-10T09:00:10Z"

@@ -1,0 +1,47 @@
+# Synthetic: a claim shared by two pods, holding five devices of two drivers, with network data
+# from the NIC driver.
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  name: shared-accel
+  namespace: ml
+  uid: 7c1d2e3f-0001-4a5b-8c6d-000000000005
+  creationTimestamp: "2026-10-01T00:00:00Z"
+spec:
+  devices:
+    requests:
+    - name: gpus
+      exactly:
+        deviceClassName: gpu.example.com
+        count: 4
+    - name: nic
+      exactly:
+        deviceClassName: nic.example.net
+status:
+  allocation:
+    devices:
+      results:
+      - {request: gpus, driver: gpu.example.com, pool: worker-a-01, device: gpu-0}
+      - {request: gpus, driver: gpu.example.com, pool: worker-a-01, device: gpu-1}
+      - {request: gpus, driver: gpu.example.com, pool: worker-a-01, device: gpu-2}
+      - {request: gpus, driver: gpu.example.com, pool: worker-a-01, device: gpu-3}
+      - {request: nic, driver: nic.example.net, pool: worker-a-01, device: vf-0}
+  reservedFor:
+  - resource: pods
+    name: worker-0
+    uid: 7c1d2e3f-0002-4a5b-8c6d-000000000010
+  - resource: pods
+    name: worker-1
+    uid: 7c1d2e3f-0002-4a5b-8c6d-000000000011
+  devices:
+  - driver: nic.example.net
+    pool: worker-a-01
+    device: vf-0
+    conditions:
+    - type: Ready
+      status: "True"
+    networkData:
+      interfaceName: net1
+      ips:
+      - 10.9.8.7/24
+      hardwareAddress: "02:42:ac:11:00:02"

@@ -1,0 +1,70 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourceclaimtemplates",
+    "namespace": "batch",
+    "name": "old-nic"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "old-nic"
+    },
+    {
+      "column": "namespace",
+      "text": "batch",
+      "link": {
+        "kind": "namespaces",
+        "name": "batch"
+      }
+    },
+    {
+      "column": "deviceClasses",
+      "text": "nic.example.net"
+    },
+    {
+      "column": "age",
+      "text": "40d",
+      "num": 1788220800
+    }
+  ],
+  "fields": {
+    "deviceClass": [
+      "nic.example.net"
+    ],
+    "label": [],
+    "name": [
+      "old-nic"
+    ],
+    "namespace": [
+      "batch"
+    ],
+    "request": [
+      "nic"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Requests",
+      "table": {
+        "columns": [
+          "Request",
+          "Device Class",
+          "Count",
+          "Selectors",
+          "Admin Access"
+        ],
+        "rows": [
+          [
+            "nic",
+            "nic.example.net",
+            "1",
+            "",
+            ""
+          ]
+        ]
+      }
+    }
+  ]
+}

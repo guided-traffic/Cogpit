@@ -1,0 +1,274 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "pods",
+    "namespace": "ml",
+    "name": "trainer-0"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "trainer-0"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "ml",
+      "link": {
+        "kind": "namespaces",
+        "name": "ml"
+      }
+    },
+    {
+      "column": "cpu",
+      "text": ""
+    },
+    {
+      "column": "memory",
+      "text": ""
+    },
+    {
+      "column": "containers",
+      "text": "1/1",
+      "num": 1
+    },
+    {
+      "column": "restarts",
+      "text": "0"
+    },
+    {
+      "column": "controlledBy",
+      "text": ""
+    },
+    {
+      "column": "node",
+      "text": "worker-a-01",
+      "link": {
+        "kind": "nodes",
+        "name": "worker-a-01"
+      }
+    },
+    {
+      "column": "qos",
+      "text": "BestEffort"
+    },
+    {
+      "column": "status",
+      "text": "Running",
+      "status": "ok"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791622800
+    }
+  ],
+  "fields": {
+    "controlledBy": [],
+    "hostIP": [],
+    "image": [
+      "registry.example.com/ml/warmup:1.0",
+      "registry.example.com/ml/trainer:3.2"
+    ],
+    "label": [],
+    "name": [
+      "trainer-0"
+    ],
+    "namespace": [
+      "ml"
+    ],
+    "node": [
+      "worker-a-01"
+    ],
+    "phase": [
+      "Running"
+    ],
+    "podIP": [
+      "10.244.1.20"
+    ],
+    "qos": [
+      "BestEffort"
+    ],
+    "status": [
+      "Running"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Running",
+          "status": "ok"
+        },
+        {
+          "name": "Node",
+          "value": "worker-a-01",
+          "link": {
+            "kind": "nodes",
+            "name": "worker-a-01"
+          }
+        },
+        {
+          "name": "Pod IP",
+          "value": "10.244.1.20"
+        },
+        {
+          "name": "Pod IPs",
+          "value": "10.244.1.20",
+          "chips": [
+            {
+              "text": "10.244.1.20"
+            }
+          ]
+        },
+        {
+          "name": "QoS Class",
+          "value": "BestEffort"
+        },
+        {
+          "name": "Conditions",
+          "value": "Ready: True",
+          "chips": [
+            {
+              "text": "Ready",
+              "status": "ok"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Resource Claims",
+      "table": {
+        "columns": [
+          "Name",
+          "Claim",
+          "Template",
+          "Containers"
+        ],
+        "rows": [
+          [
+            "gpu",
+            "trainer-0-gpu-x2v9k",
+            "single-gpu",
+            "warmup\ntrainer"
+          ],
+          [
+            "shared",
+            "shared-accel",
+            "",
+            "trainer (nic)"
+          ],
+          [
+            "scratch",
+            "(not generated yet)",
+            "scratch-nvme",
+            ""
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "gpu"
+            },
+            {
+              "text": "trainer-0-gpu-x2v9k",
+              "link": {
+                "kind": "resourceclaims",
+                "namespace": "ml",
+                "name": "trainer-0-gpu-x2v9k"
+              }
+            },
+            {
+              "text": "single-gpu",
+              "link": {
+                "kind": "resourceclaimtemplates",
+                "namespace": "ml",
+                "name": "single-gpu"
+              }
+            },
+            {
+              "text": "warmup\ntrainer"
+            }
+          ],
+          [
+            {
+              "text": "shared"
+            },
+            {
+              "text": "shared-accel",
+              "link": {
+                "kind": "resourceclaims",
+                "namespace": "ml",
+                "name": "shared-accel"
+              }
+            },
+            {},
+            {
+              "text": "trainer (nic)"
+            }
+          ],
+          [
+            {
+              "text": "scratch"
+            },
+            {
+              "text": "(not generated yet)"
+            },
+            {
+              "text": "scratch-nvme",
+              "link": {
+                "kind": "resourceclaimtemplates",
+                "namespace": "ml",
+                "name": "scratch-nvme"
+              }
+            },
+            {}
+          ]
+        ]
+      }
+    },
+    {
+      "title": "warmup",
+      "group": "Init Containers",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Terminated: Completed (exit code 0), started 2026-10-10T09:00:10Z, finished 2026-10-10T09:00:20Z",
+          "status": "succeeded"
+        },
+        {
+          "name": "Image",
+          "value": "registry.example.com/ml/warmup:1.0"
+        }
+      ]
+    },
+    {
+      "title": "trainer",
+      "group": "Containers",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Running, ready, started 2026-10-10T09:00:21Z",
+          "status": "ok"
+        },
+        {
+          "name": "Image",
+          "value": "registry.example.com/ml/trainer:3.2"
+        }
+      ]
+    }
+  ]
+}

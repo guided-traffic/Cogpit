@@ -1,0 +1,37 @@
+# Synthetic: the slice a GPU driver publishes for one node: two devices with attributes and
+# capacity.
+apiVersion: resource.k8s.io/v1
+kind: ResourceSlice
+metadata:
+  name: worker-a-01-gpu.example.com-x7k2p
+  uid: af405162-0001-4d8e-bf90-000000000001
+  creationTimestamp: "2026-10-10T00:00:00Z"
+  ownerReferences:
+  - apiVersion: v1
+    kind: Node
+    name: worker-a-01
+    uid: af405162-0002-4d8e-bf90-000000000001
+spec:
+  driver: gpu.example.com
+  pool:
+    name: worker-a-01
+    generation: 1
+    resourceSliceCount: 1
+  nodeName: worker-a-01
+  devices:
+  - name: gpu-0
+    attributes:
+      model: {string: A100}
+      driverVersion: {version: 1.2.3}
+      index: {int: 0}
+      mig: {bool: false}
+    capacity:
+      memory: {value: 40Gi}
+  - name: gpu-1
+    attributes:
+      model: {string: A100}
+      driverVersion: {version: 1.2.3}
+      index: {int: 1}
+      mig: {bool: true}
+    capacity:
+      memory: {value: 40Gi}

@@ -1,0 +1,116 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourceclaims",
+    "namespace": "media",
+    "name": "render-devices"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "render-devices"
+    },
+    {
+      "column": "warning",
+      "text": ""
+    },
+    {
+      "column": "namespace",
+      "text": "media",
+      "link": {
+        "kind": "namespaces",
+        "name": "media"
+      }
+    },
+    {
+      "column": "state",
+      "text": "Pending",
+      "status": "pending"
+    },
+    {
+      "column": "deviceClasses",
+      "text": "gpu-large.example.com, gpu.example.com, nic.example.net"
+    },
+    {
+      "column": "devices",
+      "text": ""
+    },
+    {
+      "column": "reservedFor",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "5m",
+      "num": 1791719700
+    }
+  ],
+  "fields": {
+    "device": [],
+    "deviceClass": [
+      "gpu-large.example.com",
+      "gpu.example.com",
+      "nic.example.net"
+    ],
+    "driver": [],
+    "label": [],
+    "name": [
+      "render-devices"
+    ],
+    "namespace": [
+      "media"
+    ],
+    "reservedFor": [],
+    "state": [
+      "Pending"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "State",
+          "value": "Pending",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "title": "Requests",
+      "table": {
+        "columns": [
+          "Request",
+          "Device Class",
+          "Count",
+          "Selectors",
+          "Admin Access"
+        ],
+        "rows": [
+          [
+            "gpu/large",
+            "gpu-large.example.com",
+            "1",
+            "",
+            ""
+          ],
+          [
+            "gpu/small",
+            "gpu.example.com",
+            "2",
+            "",
+            ""
+          ],
+          [
+            "nics",
+            "nic.example.net",
+            "all",
+            "",
+            "true"
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,151 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourceslices",
+    "name": "fabric-fpga.example.org-0"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "fabric-fpga.example.org-0"
+    },
+    {
+      "column": "driver",
+      "text": "fpga.example.org"
+    },
+    {
+      "column": "pool",
+      "text": "fabric"
+    },
+    {
+      "column": "node",
+      "text": "All nodes"
+    },
+    {
+      "column": "devices",
+      "text": "3",
+      "num": 3
+    },
+    {
+      "column": "allocated",
+      "text": "-"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790812800
+    }
+  ],
+  "fields": {
+    "device": [
+      "fpga-0",
+      "fpga-1",
+      "fpga-2"
+    ],
+    "driver": [
+      "fpga.example.org"
+    ],
+    "label": [],
+    "name": [
+      "fabric-fpga.example.org-0"
+    ],
+    "namespace": [
+      ""
+    ],
+    "node": [],
+    "pool": [
+      "fabric"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Driver",
+          "value": "fpga.example.org"
+        },
+        {
+          "name": "Pool",
+          "value": "fabric (generation 1, 1 slice)"
+        },
+        {
+          "name": "Node",
+          "value": "All nodes"
+        }
+      ]
+    },
+    {
+      "title": "Devices",
+      "table": {
+        "columns": [
+          "Name",
+          "Attributes",
+          "Capacity",
+          "Taints",
+          "Claim"
+        ],
+        "rows": [
+          [
+            "fpga-0",
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "fpga-1",
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "fpga-2",
+            "",
+            "",
+            "",
+            ""
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "fpga-0"
+            },
+            {},
+            {},
+            {},
+            {}
+          ],
+          [
+            {
+              "text": "fpga-1"
+            },
+            {},
+            {},
+            {},
+            {}
+          ],
+          [
+            {
+              "text": "fpga-2"
+            },
+            {},
+            {},
+            {},
+            {}
+          ]
+        ]
+      }
+    }
+  ]
+}

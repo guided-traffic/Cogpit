@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -208,9 +208,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## Feature gaps
 
 ### G6. Resource views
-- **Missing:** 9 of the 64 resource views ([resource-parity](resource-parity.md), 2026-10-11 after
-  the third run: the cluster Overview, Applications, Vertical Pod Autoscalers, the four Device
-  Resources views, Helm Charts, Pod Security Policies), and the depth of the 54 partial ones
+- **Missing:** 5 of the 64 resource views ([resource-parity](resource-parity.md), 2026-10-13: the
+  cluster Overview, Applications, Vertical Pod Autoscalers, Helm Charts, Pod Security Policies; the
+  four Device Resources views partial since 2026-10-13), and the depth of the partial ones
   (metrics columns, texts and rules checked against a capture). Of the about 20 the alpha gate
   needs, still missing: the cluster overview.
 - **Evidence:** resource-parity, 27 of 64 (2026-10-11): Nodes, Pods, Deployments, Services,
@@ -268,7 +268,18 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestBudgetSecretsViewAndDrawer`, `TestAgentsReadSecretsRedacted`, `TestKindSecretsView`); Helm's
   releases read from that watch while it runs and from their own `owner=helm` watch otherwise
   (covering scopes, G3, `TestBudgetSecretsAndReleasesShareOneWatch`).
-- **Estimate:** 30–100 h (was 85–260; 2–6 h each for the 9 missing views, plus depth: captures, metrics columns).
+  Device Resources (2026-10-13): Resource Claims, Resource Claim Templates, Device Classes and
+  Resource Slices partial, at `resource.k8s.io/v1` only as Lens reads them, with the columns, the
+  claim's State texts and the warning icon's tooltip of Lens's documentation (no capture;
+  [`resourceclaims.go`](../../internal/model/kinds/resourceclaims.go) and one file per kind; 21
+  synthetic objects in the goldens, `TestDeviceResourcesColumns`, `TestResourceClaimsStatusTexts`);
+  Resource Slices' Allocated from the related-objects index `ClaimsByPool` (`TestResourceSliceAllocated`);
+  the pod drawer's Resource Claims section without the claim's state (`TestPodResourceClaimsSection`);
+  offered at v1 only (`TestBuiltinDeviceResourcesFollowTheServedVersion`), filled on kind 1.36.1
+  (`TestKindDeviceResources`).
+  Inferred and marked per row: which device conditions warn, the colours, the drawers. Still
+  missing: the node drawer's Devices section.
+- **Estimate:** 20–80 h (was 30–100; 2–6 h each for the 5 missing views, plus depth: captures, metrics columns).
 
 ### G7. Resource actions
 - **Missing:** the actions not listed under Evidence, of 39 (Share is not a target, owner 2026-10-11). The alpha gate needs about 20: logs, shell, attach, edit, delete,
@@ -841,6 +852,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | G6: Resource Claims, Resource Claim Templates, Device Classes and Resource Slices partial (Lens's documented columns), the pod drawer's Resource Claims section; 5 views missing, estimate 20–80 h |
 | 2026-10-13 | minor | G11: chart repositories in Cogpit's own folders, the Charts view, the Helm Install tab and the install as a crash-safe job (night run); what is left and what to capture |
 | 2026-10-13 | minor | G17: the `cogpit-cli mcp` stdio bridge built, evidence added; estimate unchanged |
 | 2026-10-13 | minor | G2: `cogpit-cli contexts` and `cogpit-cli get` built (milestone 0.1), evidence added; estimate unchanged |

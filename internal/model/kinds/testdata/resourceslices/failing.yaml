@@ -1,0 +1,26 @@
+# Synthetic: a slice whose driver tainted a broken device so that no new claim gets it.
+apiVersion: resource.k8s.io/v1
+kind: ResourceSlice
+metadata:
+  name: worker-a-02-gpu.example.com-q9m2z
+  uid: af405162-0001-4d8e-bf90-000000000002
+  creationTimestamp: "2026-10-11T10:00:00Z"
+spec:
+  driver: gpu.example.com
+  pool:
+    name: worker-a-02
+    generation: 3
+    resourceSliceCount: 1
+  nodeName: worker-a-02
+  devices:
+  - name: gpu-3
+    attributes:
+      model: {string: H100}
+    capacity:
+      memory: {value: 80Gi}
+    taints:
+    - key: gpu.example.com/unhealthy
+      value: xid-79
+      effect: NoSchedule
+    - key: gpu.example.com/maintenance
+      effect: NoExecute

@@ -1,0 +1,193 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourceclaims",
+    "namespace": "ml",
+    "name": "inference-gpu"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "inference-gpu"
+    },
+    {
+      "column": "warning",
+      "text": "Device gpu-3 (gpu.example.com) reports Ready=False: Xid 79: GPU has fallen off the bus",
+      "num": 1,
+      "status": "warning"
+    },
+    {
+      "column": "namespace",
+      "text": "ml",
+      "link": {
+        "kind": "namespaces",
+        "name": "ml"
+      }
+    },
+    {
+      "column": "state",
+      "text": "Allocated (reserved: 1)",
+      "status": "ok"
+    },
+    {
+      "column": "deviceClasses",
+      "text": "gpu.example.com"
+    },
+    {
+      "column": "devices",
+      "text": "gpu-3",
+      "num": 1
+    },
+    {
+      "column": "reservedFor",
+      "text": "inference-7d9f-abcde",
+      "link": {
+        "kind": "pods",
+        "namespace": "ml",
+        "name": "inference-7d9f-abcde"
+      }
+    },
+    {
+      "column": "age",
+      "text": "2h",
+      "num": 1791712800
+    }
+  ],
+  "fields": {
+    "device": [
+      "gpu-3"
+    ],
+    "deviceClass": [
+      "gpu.example.com"
+    ],
+    "driver": [
+      "gpu.example.com"
+    ],
+    "label": [],
+    "name": [
+      "inference-gpu"
+    ],
+    "namespace": [
+      "ml"
+    ],
+    "reservedFor": [
+      "inference-7d9f-abcde"
+    ],
+    "state": [
+      "Allocated (reserved: 1)"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "State",
+          "value": "Allocated (reserved: 1)",
+          "status": "ok"
+        },
+        {
+          "name": "Warning",
+          "value": "Device gpu-3 (gpu.example.com) reports Ready=False: Xid 79: GPU has fallen off the bus",
+          "status": "warning"
+        }
+      ]
+    },
+    {
+      "title": "Requests",
+      "table": {
+        "columns": [
+          "Request",
+          "Device Class",
+          "Count",
+          "Selectors",
+          "Admin Access"
+        ],
+        "rows": [
+          [
+            "gpu",
+            "gpu.example.com",
+            "1",
+            "",
+            ""
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Allocation",
+      "table": {
+        "columns": [
+          "Request",
+          "Driver",
+          "Pool",
+          "Device"
+        ],
+        "rows": [
+          [
+            "gpu",
+            "gpu.example.com",
+            "worker-a-02",
+            "gpu-3"
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Reserved For",
+      "table": {
+        "columns": [
+          "Resource",
+          "Name"
+        ],
+        "rows": [
+          [
+            "pods",
+            "inference-7d9f-abcde"
+          ]
+        ],
+        "types": [
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "pods"
+            },
+            {
+              "text": "inference-7d9f-abcde",
+              "link": {
+                "kind": "pods",
+                "namespace": "ml",
+                "name": "inference-7d9f-abcde"
+              }
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Device Status",
+      "table": {
+        "columns": [
+          "Device",
+          "Driver",
+          "Pool",
+          "Conditions",
+          "Network"
+        ],
+        "rows": [
+          [
+            "gpu-3",
+            "gpu.example.com",
+            "worker-a-02",
+            "Ready=False",
+            ""
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+# Synthetic: a pod using dynamic resource allocation: a claim from a template (generated), a claim
+# named directly, and a template claim the controller has not generated yet; the app container
+# asks for one request of the shared claim, the init container for the GPU.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: trainer-0
+  namespace: ml
+  uid: 0b6f1d2a-1111-4c3e-9a5b-000000000031
+  creationTimestamp: "2026-10-10T09:00:00Z"
+spec:
+  nodeName: worker-a-01
+  resourceClaims:
+  - name: gpu
+    resourceClaimTemplateName: single-gpu
+  - name: shared
+    resourceClaimName: shared-accel
+  - name: scratch
+    resourceClaimTemplateName: scratch-nvme
+  initContainers:
+  - name: warmup
+    image: registry.example.com/ml/warmup:1.0
+    resources:
+      claims:
+      - name: gpu
+  containers:
+  - name: trainer
+    image: registry.example.com/ml/trainer:3.2
+    resources:
+      claims:
+      - name: gpu
+      - name: shared
+        request: nic
+status:
+  phase: Running
+  qosClass: BestEffort
+  podIP: 10.244.1.20
+  conditions:
+  - type: Ready
+    status: "True"
+  resourceClaimStatuses:
+  - name: gpu
+    resourceClaimName: trainer-0-gpu-x2v9k
+  - name: scratch
+  initContainerStatuses:
+  - name: warmup
+    ready: false
+    restartCount: 0
+    state:
+      terminated:
+        exitCode: 0
+        reason: Completed
+        startedAt: "2026-10-10T09:00:10Z"
+        finishedAt: "2026-10-10T09:00:20Z"
+  containerStatuses:
+  - name: trainer
+    ready: true
+    started: true
+    restartCount: 0
+    state:
+      running:
+        startedAt: "2026-10-10T09:00:21Z"

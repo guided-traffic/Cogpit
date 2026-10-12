@@ -1,0 +1,77 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "deviceclasses",
+    "name": "fast-nic"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "fast-nic"
+    },
+    {
+      "column": "driver",
+      "text": "nic.example.net"
+    },
+    {
+      "column": "age",
+      "text": "30m",
+      "num": 1791718200
+    }
+  ],
+  "fields": {
+    "driver": [
+      "nic.example.net"
+    ],
+    "label": [],
+    "name": [
+      "fast-nic"
+    ],
+    "namespace": [
+      ""
+    ],
+    "selector": [
+      "device.attributes[\"nic.example.net\"].speed >= 100 && device.attributes[\"nic.example.net\"].rdma"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Driver",
+          "value": "nic.example.net"
+        }
+      ]
+    },
+    {
+      "title": "Selectors",
+      "table": {
+        "columns": [
+          "CEL Expression"
+        ],
+        "rows": [
+          [
+            "device.attributes[\"nic.example.net\"].speed >= 100 && device.attributes[\"nic.example.net\"].rdma"
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Config",
+      "table": {
+        "columns": [
+          "Driver",
+          "Parameters"
+        ],
+        "rows": [
+          [
+            "nic.example.net",
+            "{\"mtu\":9000}"
+          ]
+        ]
+      }
+    }
+  ]
+}

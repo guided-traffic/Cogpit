@@ -1,0 +1,25 @@
+# Synthetic: a claim waiting for the scheduler: one request with alternatives (a large GPU, else
+# two small ones), one for every matching NIC with admin access.
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  name: render-devices
+  namespace: media
+  uid: 7c1d2e3f-0001-4a5b-8c6d-000000000004
+  creationTimestamp: "2026-10-11T11:55:00Z"
+spec:
+  devices:
+    requests:
+    - name: gpu
+      firstAvailable:
+      - name: large
+        deviceClassName: gpu-large.example.com
+      - name: small
+        deviceClassName: gpu.example.com
+        allocationMode: ExactCount
+        count: 2
+    - name: nics
+      exactly:
+        deviceClassName: nic.example.net
+        allocationMode: All
+        adminAccess: true

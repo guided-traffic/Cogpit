@@ -1,0 +1,67 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "deviceclasses",
+    "name": "any-gpu"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "any-gpu"
+    },
+    {
+      "column": "driver",
+      "text": "gpu.example.com, gpu.example.org"
+    },
+    {
+      "column": "age",
+      "text": "6d",
+      "num": 1791158400
+    }
+  ],
+  "fields": {
+    "driver": [
+      "gpu.example.com",
+      "gpu.example.org"
+    ],
+    "label": [],
+    "name": [
+      "any-gpu"
+    ],
+    "namespace": [
+      ""
+    ],
+    "selector": [
+      "device.driver == 'gpu.example.com' || device.driver == \"gpu.example.org\"",
+      "device.attributes[\"gpu.example.com\"].model != \"K80\""
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Driver",
+          "value": "gpu.example.com, gpu.example.org"
+        }
+      ]
+    },
+    {
+      "title": "Selectors",
+      "table": {
+        "columns": [
+          "CEL Expression"
+        ],
+        "rows": [
+          [
+            "device.driver == 'gpu.example.com' || device.driver == \"gpu.example.org\""
+          ],
+          [
+            "device.attributes[\"gpu.example.com\"].model != \"K80\""
+          ]
+        ]
+      }
+    }
+  ]
+}

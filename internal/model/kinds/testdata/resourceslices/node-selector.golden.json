@@ -1,0 +1,123 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourceslices",
+    "name": "rack-7-storage.example.com-0"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "rack-7-storage.example.com-0"
+    },
+    {
+      "column": "driver",
+      "text": "storage.example.com"
+    },
+    {
+      "column": "pool",
+      "text": "rack-7"
+    },
+    {
+      "column": "node",
+      "text": "Node selector"
+    },
+    {
+      "column": "devices",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "allocated",
+      "text": "-"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790812800
+    }
+  ],
+  "fields": {
+    "device": [
+      "nvme-0"
+    ],
+    "driver": [
+      "storage.example.com"
+    ],
+    "label": [],
+    "name": [
+      "rack-7-storage.example.com-0"
+    ],
+    "namespace": [
+      ""
+    ],
+    "node": [],
+    "pool": [
+      "rack-7"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Driver",
+          "value": "storage.example.com"
+        },
+        {
+          "name": "Pool",
+          "value": "rack-7 (generation 2, 1 slice)"
+        },
+        {
+          "name": "Node",
+          "value": "Node selector"
+        },
+        {
+          "name": "Node Selector",
+          "value": "topology.example.com/rack In (7), node-role.kubernetes.io/storage Exists"
+        }
+      ]
+    },
+    {
+      "title": "Devices",
+      "table": {
+        "columns": [
+          "Name",
+          "Attributes",
+          "Capacity",
+          "Taints",
+          "Claim"
+        ],
+        "rows": [
+          [
+            "nvme-0",
+            "",
+            "size: 3840Gi",
+            "",
+            ""
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "nvme-0"
+            },
+            {},
+            {
+              "text": "size: 3840Gi"
+            },
+            {},
+            {}
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+# Synthetic: an allocated, reserved claim whose driver reports the device not Ready (Lens's
+# warning icon, as its documentation describes it).
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  name: inference-gpu
+  namespace: ml
+  uid: 7c1d2e3f-0001-4a5b-8c6d-000000000002
+  creationTimestamp: "2026-10-11T10:00:00Z"
+spec:
+  devices:
+    requests:
+    - name: gpu
+      exactly:
+        deviceClassName: gpu.example.com
+status:
+  allocation:
+    devices:
+      results:
+      - request: gpu
+        driver: gpu.example.com
+        pool: worker-a-02
+        device: gpu-3
+  reservedFor:
+  - resource: pods
+    name: inference-7d9f-abcde
+    uid: 7c1d2e3f-0002-4a5b-8c6d-000000000002
+  devices:
+  - driver: gpu.example.com
+    pool: worker-a-02
+    device: gpu-3
+    conditions:
+    - type: Ready
+      status: "False"
+      reason: XidError
+      message: |-
+        Xid 79: GPU has fallen
+        off the bus
+      lastTransitionTime: "2026-10-11T11:50:00Z"

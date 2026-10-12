@@ -1,0 +1,13 @@
+# Synthetic: a class that selects the devices of either of two drivers, in two selectors.
+apiVersion: resource.k8s.io/v1
+kind: DeviceClass
+metadata:
+  name: any-gpu
+  uid: 9e3f4051-0001-4c7d-ae8f-000000000004
+  creationTimestamp: "2026-10-05T00:00:00Z"
+spec:
+  selectors:
+  - cel:
+      expression: device.driver == 'gpu.example.com' || device.driver == "gpu.example.org"
+  - cel:
+      expression: device.attributes["gpu.example.com"].model != "K80"

@@ -1,0 +1,24 @@
+# Synthetic: the template a training job's pods get their GPU claims from, labelling the
+# generated claims.
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaimTemplate
+metadata:
+  name: single-gpu
+  namespace: ml
+  uid: 8d2e3f40-0001-4b6c-9d7e-000000000001
+  creationTimestamp: "2026-10-01T00:00:00Z"
+spec:
+  metadata:
+    labels:
+      team: ml
+    annotations:
+      example.com/cost-center: "4711"
+  spec:
+    devices:
+      requests:
+      - name: gpu
+        exactly:
+          deviceClassName: gpu.example.com
+          selectors:
+          - cel:
+              expression: device.capacity["gpu.example.com"].memory.compareTo(quantity("40Gi")) >= 0

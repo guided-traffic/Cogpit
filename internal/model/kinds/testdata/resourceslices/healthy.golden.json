@@ -1,0 +1,152 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "resourceslices",
+    "name": "worker-a-01-gpu.example.com-x7k2p"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "worker-a-01-gpu.example.com-x7k2p"
+    },
+    {
+      "column": "driver",
+      "text": "gpu.example.com"
+    },
+    {
+      "column": "pool",
+      "text": "worker-a-01"
+    },
+    {
+      "column": "node",
+      "text": "worker-a-01",
+      "link": {
+        "kind": "nodes",
+        "name": "worker-a-01"
+      }
+    },
+    {
+      "column": "devices",
+      "text": "2",
+      "num": 2
+    },
+    {
+      "column": "allocated",
+      "text": "-"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791590400
+    }
+  ],
+  "fields": {
+    "device": [
+      "gpu-0",
+      "gpu-1"
+    ],
+    "driver": [
+      "gpu.example.com"
+    ],
+    "label": [],
+    "name": [
+      "worker-a-01-gpu.example.com-x7k2p"
+    ],
+    "namespace": [
+      ""
+    ],
+    "node": [
+      "worker-a-01"
+    ],
+    "pool": [
+      "worker-a-01"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Driver",
+          "value": "gpu.example.com"
+        },
+        {
+          "name": "Pool",
+          "value": "worker-a-01 (generation 1, 1 slice)"
+        },
+        {
+          "name": "Node",
+          "value": "worker-a-01",
+          "link": {
+            "kind": "nodes",
+            "name": "worker-a-01"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Devices",
+      "table": {
+        "columns": [
+          "Name",
+          "Attributes",
+          "Capacity",
+          "Taints",
+          "Claim"
+        ],
+        "rows": [
+          [
+            "gpu-0",
+            "driverVersion: 1.2.3\nindex: 0\nmig: false\nmodel: A100",
+            "memory: 40Gi",
+            "",
+            ""
+          ],
+          [
+            "gpu-1",
+            "driverVersion: 1.2.3\nindex: 1\nmig: true\nmodel: A100",
+            "memory: 40Gi",
+            "",
+            ""
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "gpu-0"
+            },
+            {
+              "text": "driverVersion: 1.2.3\nindex: 0\nmig: false\nmodel: A100"
+            },
+            {
+              "text": "memory: 40Gi"
+            },
+            {},
+            {}
+          ],
+          [
+            {
+              "text": "gpu-1"
+            },
+            {
+              "text": "driverVersion: 1.2.3\nindex: 1\nmig: true\nmodel: A100"
+            },
+            {
+              "text": "memory: 40Gi"
+            },
+            {},
+            {}
+          ]
+        ]
+      }
+    }
+  ]
+}
