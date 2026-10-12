@@ -418,7 +418,8 @@ func (v *view) settle(src *source) {
 
 // caughtUp reports whether a pending source can take over exactly: it has synced, and its
 // handler has delivered a version at least as new as every object the view holds, so that it has
-// seen everything the subscribers were told (its events arrive in resourceVersion order). Where
+// seen everything the subscribers were told (a watch's events arrive in resourceVersion order; a
+// relist's notifications do not, which diff allows for by asking the informer's store). Where
 // resourceVersions are not comparable, having synced is enough.
 func (v *view) caughtUp(src *source) bool {
 	v.mu.Lock()
@@ -520,8 +521,8 @@ func (v *view) cutover(src *source, exact bool) (old *source, ok, retry bool) {
 }
 
 // diff brings the view to what a pending source holds and returns the events that tell the
-// subscribers. When the source has caught up, an object it does not hold is gone, and the version
-// it has come to buries it. When its wait timed out instead, an object its informer holds but its
+// subscribers. When the source has caught up, an object neither its handler nor its informer's
+// store holds is gone, and the version it has come to buries it. When its wait timed out instead, an object its informer holds but its
 // handler has not delivered yet is left as the view has it, and a removal buries nothing; before
 // the source's first list nothing is removed at all (settle does it once it has listed). Called
 // with v.mu held.
@@ -548,6 +549,11 @@ func (v *view) diff(src *source, exact bool) []Event {
 		now, was := src.staging[k], v.seen[k]
 		switch {
 		case now == nil && exact:
+			if inStore(k) {
+				// Its informer holds it and its handler has not delivered it yet: a relist notifies
+				// in key order, not resourceVersion order, so pos says nothing about it (R-8).
+				continue
+			}
 			v.remove(k, src.pos)
 			evs = append(evs, Event{Type: Deleted, Object: was})
 		case now == nil:

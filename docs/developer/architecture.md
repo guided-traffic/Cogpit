@@ -647,7 +647,11 @@ about, which an event handler on the serving informer keeps (client-go's `AddEve
 consistent snapshot of the store, then every change). A handover registers a handler on the new
 informer that fills a staging copy, and moves the view onto it once that handler has synced and has
 delivered a resourceVersion at least as new as every object the view holds; the subscribers then
-get the difference as events, and the old informer's events are ignored. With comparable
+get the difference as events, and the old informer's events are ignored. An object the new
+informer's store holds but its handler has not delivered yet is kept, not reported deleted: a
+relist notifies in key order, not resourceVersion order, so the newest version delivered says
+nothing about the others (R-8 of the fourth run's review,
+`TestExactHandoverDuringRelistKeepsUndeliveredObject`). With comparable
 resourceVersions (KEP-5504: well-formed integers, which every Kubernetes API server's built-in
 resources have; `k8s.io/apimachinery/pkg/util/resourceversion`) the events stay exact across a
 handover: never a version older than or equal to one already sent, never an object sent as deleted
@@ -1048,7 +1052,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | Review of the fourth run, fixed (§4: an apply from a tab's text bound to its text revision, R-10; §5 Secrets: a revealed value bound to the Secret's version, R-6; §5 covering scopes: a handover that timed out before the own informer's first list keeps the view instead of reporting every object deleted, R-7; §8): an upgrade from a tab bound to the tab's text revision (R-2); upgrade and rollback checked against the server's newest revision, not only the cache's (R-1); values scrubbed in their quoted forms (R-4); the Rollback dialog's answer bound to the picked revision and dropped after its dispatch (R-3) |
+| 2026-10-12 | minor | Review of the fourth run, fixed (§4: an apply from a tab's text bound to its text revision, R-10; §5 Secrets: a revealed value bound to the Secret's version, R-6; §5 covering scopes: a handover that timed out before the own informer's first list keeps the view instead of reporting every object deleted, R-7, and an exact handover during a relist keeps what the new informer holds, R-8; §8): an upgrade from a tab bound to the tab's text revision (R-2); upgrade and rollback checked against the server's newest revision, not only the cache's (R-1); values scrubbed in their quoted forms (R-4); the Rollback dialog's answer bound to the picked revision and dropped after its dispatch (R-3) |
 | 2026-10-12 | minor | §10: the patched terminal widget's two goroutines (parser on the reading one, screen and state on the main one) and its fuzz targets |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5); the View menu and Refresh Access Reviews in the GUI (§4.2); live related-objects indexes shared with the drawer's fetches, the cluster-role rule on `Listed`, `ui.navigate`'s filter check with related cells (§4.4); workload logs resume dropped streams and forget ended instances (§4.4); Restart's and Scale's patches carry the UID, mutating confirmations record cached UIDs (§4.2) |
 | 2026-10-12 | minor | §6: pasting a kubeconfig removed (D-21): the command, the dialog, the owner-only store; sources of kind `pasted` from earlier builds are no longer listed, their files stay; 75 commands |

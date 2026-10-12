@@ -192,6 +192,36 @@ func TestViewHandoverRules(t *testing.T) {
 	}
 }
 
+// An exact handover during a relist of the new source keeps an object the source's informer holds
+// but its handler has not delivered yet: a relist delivers in key order, not resourceVersion order,
+// so the newest version delivered says nothing about the others (review of the fourth run, R-8).
+func TestExactHandoverDuringRelistKeepsUndeliveredObject(t *testing.T) {
+	v, got := ruleView(t)
+	applyAll(v, Added, obj("b-held", "500", "b", true), false) // from the old source
+	*got = nil
+	src := ruleSource(v)
+	src.reg = fakeRegistration(true)
+	for _, u := range []*unstructured.Unstructured{obj("a-new", "590", "a", true), obj("b-held", "500", "b", true)} {
+		if err := src.run.inf.GetStore().Add(u); err != nil { // the relist replaced the store first
+			t.Fatal(err)
+		}
+	}
+	v.mu.Lock()
+	v.next = src
+	v.mu.Unlock()
+	src.on(Updated, obj("a-new", "590", "a", true)) // the relist's first notification, in key order
+	if _, ok, retry := v.cutover(src, true); !ok || retry {
+		t.Fatalf("cutover ok %v retry %v", ok, retry)
+	}
+	src.on(Added, obj("b-held", "500", "b", true)) // its own notification, after the cutover
+	if s := strings.Join(*got, ", "); strings.Contains(s, "deleted b-held") {
+		t.Errorf("an object the source holds was reported deleted: %s", s)
+	}
+	if _, ok := v.get("a/b-held"); !ok {
+		t.Error("an object the source holds left the view")
+	}
+}
+
 // fakeRegistration is a handler registration that has, or has not, received its informer's
 // initial list.
 type fakeRegistration bool
