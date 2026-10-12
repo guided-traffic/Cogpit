@@ -84,6 +84,9 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Audit log | `<user config dir>/Cogpit/audit.log`, owner-only, one JSON line per agent-initiated command | |
 | Drain journal | `<user config dir>/Cogpit/drains.json`, owner-only (0600, directory 0700): the drains Cogpit started and has not finished, offered again on the next connect | |
 | Hotbar | `<user config dir>/Cogpit/hotbar.json`, owner-only (0600, directory 0700): the banks of pinned clusters by context id; an unreadable one is moved to `hotbar.json.unreadable` at the first change | |
+| Helm chart repositories | `<user config dir>/Cogpit/helm/repositories.json`, owner-only (0600, directory 0700): the public https repositories you added, by name and URL, no credentials; never Helm's own `repositories.yaml` | |
+| Helm repository indexes | `<user cache dir>/Cogpit/helm/<repository>-index.yaml`, owner-only (0600, directory 0700) | `~/Library/Caches/Cogpit/helm/bitnami-index.yaml` # example |
+| Helm chart objects | kind `helmcharts`, named `<repository>.<chart>` (a repository's name has no dot) | `bitnami.nginx` # example |
 | App log | `<user cache dir>/Cogpit/cogpit.log`, and stderr | |
 | Terminal kubeconfig | a temporary file per terminal holding only a context, owner-only, deleted on close ([why](docs/security/credentials.md#the-terminals-kubeconfig)) | |
 | Demo context | `demo` (the synthetic cluster) | |
@@ -270,6 +273,10 @@ registry with `go run ./hack/readmecmds`.
 | `helm.release.upgrade` | `helm_release_upgrade` | mutating | `ref`, `revision`?, `tab`?, `textRevision`?, `values`?, `version`? | Upgrades a Helm release as helm upgrade does with its defaults (hooks waited for, ten revisions kept), with the release's own chart and new user-supplied values, which replace the old ones whole: the values of a Helm Upgrade tab (tab), or values given here with the revision they are based on |
 | `helm.release.upgradeTab` | `helm_release_upgradeTab` | ui | `ref` | Opens a release's Helm Upgrade dock tab, or activates the one already open on it: the release's chart, the version the upgrade installs (the release's own: Cogpit has no chart repositories yet) and its user-supplied values in an editor, read from Cogpit's cache |
 | `helm.release.values` | `helm_release_values` | read | `all`?, `ref` | Returns a release's values from Cogpit's cache, the newest revision's: the user-supplied ones, or all of them with the chart's defaults (all), with the revision and chart they are of |
+| `helm.repo.add` | `helm_repo_add` | ui | `name`, `url` | Adds a public Helm chart repository by name and https URL: Cogpit downloads its index.yaml (at most 32 MiB) and keeps the repository in its own configuration, not in Helm's |
+| `helm.repo.list` | `helm_repo_list` | read |  | Lists the Helm chart repositories added to Cogpit, in the order they were added: name, URL, when each was added and its index last downloaded, how many charts the index lists, and the last download's error |
+| `helm.repo.remove` | `helm_repo_remove` | ui | `name` | Removes a Helm chart repository from Cogpit and deletes its downloaded index; its charts leave the helmcharts kind |
+| `helm.repo.update` | `helm_repo_update` | ui | `names`? | Downloads the index of every Helm repository added to Cogpit (or of those named) again, one after the other, as helm repo update does |
 | `hotbar.addCluster` | `hotbar_addCluster` | ui | `bank`?, `context`? | Pins a cluster to the hotbar: a tile for the context at the end of a bank, which F1–F12 open by its place |
 | `hotbar.createBank` | `hotbar_createBank` | ui | `name`? | Adds an empty bank after the others and shows it; the hotbar holds at most 12 banks, the ones ⇧F1–⇧F12 reach |
 | `hotbar.list` | `hotbar_list` | read |  | Returns the hotbar, the bar of pinned clusters at the left edge of Cogpit's window: its banks (numbered from 1, as the switcher shows them) with their names and tiles, top to bottom, and the bank shown now (current) |

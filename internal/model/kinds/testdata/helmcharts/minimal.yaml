@@ -1,0 +1,4 @@
+apiVersion: cogpit.io/v1
+kind: HelmChart
+metadata:
+  name: r.c

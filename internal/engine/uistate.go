@@ -77,6 +77,8 @@ type DockTab struct {
 	Container string           `json:"container,omitempty"` // the container for logs and shells
 	Logs      LogOptions       `json:"logs,omitzero"`       // a logs tab's options (logs.go)
 	Helm      *HelmUpgradeTab  `json:"helm,omitempty"`      // a Helm Upgrade tab's chart and version
+	// HelmInstall is a Helm Install tab's chart, version and defaults (helminstall.go).
+	HelmInstall *HelmInstallTab `json:"helmInstall,omitempty"`
 }
 
 // HelmUpgradeTab is what a Helm Upgrade tab shows beside its values editor (Lens's "Helm Upgrade:
@@ -107,6 +109,8 @@ const (
 	DockCreate   DockType = "create"   // a YAML editor for new objects (resource.createTab)
 	// DockHelmUpgrade: a release's values and chart version, saved by helm.release.upgrade.
 	DockHelmUpgrade DockType = "helmUpgrade"
+	// DockHelmInstall: a chart's values and version, installed by helm.chart.install (helminstall.go).
+	DockHelmInstall DockType = "helmInstall"
 )
 
 // Clone returns a deep copy.

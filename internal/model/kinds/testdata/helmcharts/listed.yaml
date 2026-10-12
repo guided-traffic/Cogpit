@@ -1,0 +1,23 @@
+apiVersion: cogpit.io/v1
+kind: HelmChart
+metadata:
+  name: bitnami.nginx
+  uid: 6c1f2e4a-0000-4000-8000-000000000001
+  resourceVersion: "3"
+spec:
+  repository: bitnami
+  name: nginx
+  version: 18.2.0
+  appVersion: 1.27.1
+  description: NGINX Open Source is a web server that can be also used as a reverse proxy, load balancer, and HTTP cache.
+  home: https://example.com/charts/nginx
+  kubeVersion: ">=1.23.0-0"
+  digest: 0a3f5c6e1b2d4f60718293a4b5c6d7e8f90123456789abcdef0123456789abcd
+  created: "2026-09-30T08:15:00Z"
+  keywords: [nginx, http, web, proxy]
+  maintainers: [Broadcom]
+  sources: [https://example.com/src/nginx]
+  versions:
+  - {version: 18.3.0-rc.1, appVersion: 1.27.2, created: "2026-10-02T08:00:00Z"}
+  - {version: 18.2.0, appVersion: 1.27.1, created: "2026-09-30T08:15:00Z"}
+  - {version: 18.1.4, appVersion: 1.27.0, created: "2026-09-01T10:00:00Z"}

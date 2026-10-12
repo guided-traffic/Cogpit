@@ -59,6 +59,13 @@ Cogpit adds no cluster credential source of its own: no account, no login, no cl
 - **Token files** (`tokenFile`) of an added or synced kubeconfig are read by client-go when the
   user connects, and only after the user allowed a file outside the kubeconfig's folder
   (since 2026-10-12, D-17, [trust boundaries › H-24](trust-boundaries.md#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token)).
+- **Helm chart repositories hold no credential** (built 2026-10-13, G11): Cogpit adds public
+  https repositories only, by name and URL, refuses a URL with a user or password (without
+  echoing it in the error, `TestCheckRepository`), and keeps the list in its own
+  `<user config dir>/Cogpit/helm/repositories.json` (0600), never in Helm's `repositories.yaml`,
+  whose entries can hold a password in plain text. The indexes it downloads are public data in
+  `<user cache dir>/Cogpit/helm/` (0600). A repository that needs a login is
+  [H-29](#h-29-authenticated-helm-repositories).
 - **In memory:** credentials are held by the connection that uses them and dropped when it closes.
   Rule for Cogpit's own credential types: they implement `slog.LogValuer` and `fmt.Stringer` as
   `"<redacted>"`, so a stray log statement cannot print them. The MVP has no such type yet: cluster
@@ -160,6 +167,15 @@ history of the value; any process of the user can read it while it is there; Cog
 ending within the 60 seconds (a crash, `kill -9`) leaves it on the clipboard; on Linux and Windows
 the copy goes through Fyne's clipboard unmarked. Only values the user revealed and copied are
 affected; an agent has no way to copy.
+
+### H-29: Authenticated Helm repositories
+
+Cogpit adds public https chart repositories only (2026-10-13): no username and password, no
+client certificate and key, no CA file, no plain http, no OCI registry. Lens's preferences offer
+all of these. A repository behind a login cannot be added, and a chart it serves cannot be
+installed from Cogpit. Where such a credential would live (the operating system's keychain, as for
+the LLM key, or a file next to `repositories.json`) and how it is kept out of logs, errors and the
+redirects a download follows to other hosts (Helm's `pass_credentials_all`) is not designed.
 
 ### H-20: Shell profiles can override the terminal's kubeconfig
 

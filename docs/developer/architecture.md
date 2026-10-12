@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7; `cogpit-cli` contexts and get, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (§8: Helm chart repositories kept in Cogpit's own folders and the Charts view, G11; the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7; `cogpit-cli` contexts and get, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-12)
 
@@ -1255,6 +1255,50 @@ Where it differs from the contract above, this paragraph wins.
   no other rollback in its window (R-3 of the fourth run's review). Agents' requests carry their own
   origin and never match. The banner's and the agents' rollbacks are confirmed as before.
 
+**Chart repositories and the Charts view (built 2026-10-13, night run; G11;
+[`helm/repo.go`](../../internal/helm/repo.go), [`engine/helmrepos.go`](../../internal/engine/helmrepos.go),
+[`commands/helmrepos.go`](../../internal/engine/commands/helmrepos.go),
+[`kinds/helmcharts.go`](../../internal/model/kinds/helmcharts.go)).**
+
+- **Where they are kept: the lead's default (2026-10-13), not the owner's decision** (the owner's
+  open question "where Helm chart repositories are kept"). The list is Cogpit's own:
+  `<user config dir>/Cogpit/helm/repositories.json` (0600 in a 0700 directory, replaced atomically
+  through the same writer as the other private files, at most 64 repositories); each index lives in
+  Cogpit's own cache folder, `<user cache dir>/Cogpit/helm/<name>-index.yaml` (0600, replaced only
+  after the Helm SDK parsed the new download). Cogpit never reads or writes Helm's
+  `repositories.yaml`, `$HELM_CONFIG_HOME` or `$HELM_CACHE_HOME`: no implicit writes outside
+  Cogpit's folders (the golden rules), and Helm's file keeps an authenticated repository's
+  password in plain text, which Cogpit would then hold. So the helm CLI's repositories do not
+  appear in Cogpit until the user adds them here; whether Lens reads Helm's own repositories is not
+  verified.
+- **Public https repositories only.** A name is 1 to 63 letters, digits, `-` or `_` (no dot: a
+  chart's object is named `<repository>.<chart>`); a URL is https with a host and without a user,
+  password, query or fragment; redirects are followed to https only, at most 10. No credentials,
+  client certificates, CA files or plain http (an authenticated repository is
+  [H-29](../security/credentials.md#h-29-authenticated-helm-repositories)), no OCI registries.
+- **Downloads.** On `helm.repo.add` (a repository whose index does not download and parse is not
+  added), on `helm.repo.update`, and, as §5 has it for data that cannot be watched, while the
+  Charts view is the open view or a Helm Install tab is in the dock: the indexes older than their
+  time-to-live (10 minutes, Cogpit's default) are downloaded at once and the age is checked every
+  minute; with neither open nothing is downloaded (`TestHelmIndexRefreshedOnlyWhileShown`). One
+  download at a time, each bounded (Cogpit's defaults): an index to 32 MiB, a chart archive to
+  16 MiB, two minutes. The index is parsed with the SDK (`repo.LoadIndexFile`, which also drops
+  entries it finds invalid); Cogpit keeps of each version its version, app version, description
+  (cut to 512 bytes), home, icon URL (never fetched), Kubernetes version, type, keywords,
+  maintainers' names, sources, deprecation, creation time, digest and URLs, at most 1,000 versions
+  per chart (`FuzzLoadIndex`).
+- **The charts are the local kind `helmcharts`** (`cogpit.io/v1` `HelmChart`, cluster-scoped,
+  named `<repository>.<chart>`): written into the connected backend's local store on connect and
+  after every change of an index, so that the Charts view, its search, the drawer and agents'
+  `resources.*` read them like any kind; the demo cluster has none. A chart is listed with its
+  newest version that is not a semantic-version prerelease (helm search's default; Lens's choice is
+  inferred), its object carries every version newest first. The navigator's Helm group lists
+  Charts before Releases, as captured.
+- **Commands.** `helm.repo.list` (read), `helm.repo.add` and `helm.repo.remove` (UI; refused for
+  agents before anyone is asked: like the kubeconfig sources, where Cogpit fetches charts from and
+  which https servers it reaches from the user's computer is the user's choice; the lead's default),
+  `helm.repo.update` (UI, every origin).
+
 ## 9. Metrics (`internal/metrics`)
 
 Metrics cannot be watched, so they are the one documented exception to "never poll what can be
@@ -1823,6 +1867,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | §8 chart repositories (G11, night run): kept in Cogpit's own folders (the lead's default), public https only, indexes downloaded on add, on update and while the Charts view or a Helm Install tab is open past a 10-minute TTL, bounded and parsed with the SDK; the charts as the local kind `helmcharts` |
 | 2026-10-13 | minor | §4.2 the command palette (G13, night run): which commands it lists by the registry's metadata, how it runs them, the shortcuts bound from the registry; §4.3 `UIState.Palette`; one line in Current state, 97 commands |
 | 2026-10-13 | minor | §7 the stdio bridge as built: the endpoint file beside the token, forwarding with origin `ExternalAgent`, following a restart, the headless fallback; Current state rows of `internal/mcp` and `cmd/cogpit-cli` |
 | 2026-10-13 | minor | `cogpit-cli contexts` and `get` (Current state); `internal/app`, the wiring both binaries share, in §2 and §3 with its `depguard` rule |

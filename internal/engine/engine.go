@@ -105,6 +105,10 @@ type Options struct {
 	// Hotbar keeps the hotbar (hotbar.go), shown in UIState.Hotbar. Nil: the session has none and
 	// the hotbar commands are disabled.
 	Hotbar *Hotbar
+	// HelmRepos keeps the Helm chart repositories the user added and their indexes (helmrepos.go),
+	// whose charts are the local kind helmcharts. Nil: the session has none, the repository
+	// commands are disabled and charts cannot be installed.
+	HelmRepos *HelmRepos
 }
 
 // Session is the engine for one desktop app or headless process. It is safe for concurrent use.
@@ -155,6 +159,7 @@ func New(opts Options) *Session {
 	opts.Drains.attach(s) // nil-safe
 	opts.Helm.attach(s)   // nil-safe
 	opts.Hotbar.attach(s) // nil-safe
+	opts.HelmRepos.attach(s)
 	return s
 }
 

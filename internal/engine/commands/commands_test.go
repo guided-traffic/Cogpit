@@ -81,6 +81,10 @@ var wantCommands = map[string]engine.Danger{
 	"helm.dismissOperation":   engine.DangerUI,
 	"helm.release.upgradeTab": engine.DangerUI, "helm.release.upgrade": engine.DangerMutating,
 	"helm.release.values": engine.DangerRead, "helm.release.history": engine.DangerRead,
+	// Helm chart repositories (G11): Cogpit's own configuration; an agent's add or remove is
+	// refused (TestHelmReposAreTheUsers).
+	"helm.repo.list": engine.DangerRead, "helm.repo.add": engine.DangerUI, "helm.repo.remove": engine.DangerUI,
+	"helm.repo.update": engine.DangerUI,
 
 	// Workload actions and logs (G7, G8).
 	"daemonset.restart":   engine.DangerDestructive,

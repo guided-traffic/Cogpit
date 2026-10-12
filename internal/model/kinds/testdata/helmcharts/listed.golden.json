@@ -1,0 +1,173 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "helmcharts",
+    "name": "bitnami.nginx"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "nginx"
+    },
+    {
+      "column": "description",
+      "text": "NGINX Open Source is a web server that can be also used as a reverse proxy, load balancer, and HTTP cache."
+    },
+    {
+      "column": "version",
+      "text": "18.2.0"
+    },
+    {
+      "column": "appVersion",
+      "text": "1.27.1"
+    },
+    {
+      "column": "repository",
+      "text": "bitnami"
+    }
+  ],
+  "fields": {
+    "chart": [
+      "nginx"
+    ],
+    "keyword": [
+      "nginx",
+      "http",
+      "web",
+      "proxy"
+    ],
+    "label": [],
+    "name": [
+      "bitnami.nginx"
+    ],
+    "namespace": [
+      ""
+    ],
+    "repository": [
+      "bitnami"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Version",
+          "value": "18.2.0"
+        },
+        {
+          "name": "App Version",
+          "value": "1.27.1"
+        },
+        {
+          "name": "Repository",
+          "value": "bitnami"
+        },
+        {
+          "name": "Home",
+          "value": "https://example.com/charts/nginx"
+        },
+        {
+          "name": "Maintainers",
+          "value": "Broadcom"
+        },
+        {
+          "name": "Keywords",
+          "value": "nginx, http, web, proxy"
+        },
+        {
+          "name": "Sources",
+          "value": "https://example.com/src/nginx"
+        },
+        {
+          "name": "Kubernetes Version",
+          "value": ">=1.23.0-0"
+        },
+        {
+          "name": "Created",
+          "value": "2026-09-30 08:15 UTC"
+        },
+        {
+          "name": "Digest",
+          "value": "0a3f5c6e1b2d4f60718293a4b5c6d7e8f90123456789abcdef0123456789abcd"
+        }
+      ]
+    },
+    {
+      "title": "Description",
+      "items": [
+        {
+          "value": "NGINX Open Source is a web server that can be also used as a reverse proxy, load balancer, and HTTP cache."
+        }
+      ]
+    },
+    {
+      "title": "Versions",
+      "table": {
+        "columns": [
+          "Version",
+          "App Version",
+          "Created"
+        ],
+        "rows": [
+          [
+            "18.3.0-rc.1",
+            "1.27.2",
+            "2026-10-02"
+          ],
+          [
+            "18.2.0",
+            "1.27.1",
+            "2026-09-30"
+          ],
+          [
+            "18.1.4",
+            "1.27.0",
+            "2026-09-01"
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "18.3.0-rc.1"
+            },
+            {
+              "text": "1.27.2"
+            },
+            {
+              "text": "2026-10-02"
+            }
+          ],
+          [
+            {
+              "text": "18.2.0"
+            },
+            {
+              "text": "1.27.1"
+            },
+            {
+              "text": "2026-09-30"
+            }
+          ],
+          [
+            {
+              "text": "18.1.4"
+            },
+            {
+              "text": "1.27.0"
+            },
+            {
+              "text": "2026-09-01"
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

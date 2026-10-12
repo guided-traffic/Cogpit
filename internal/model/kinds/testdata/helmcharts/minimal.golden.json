@@ -1,0 +1,54 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "helmcharts",
+    "name": "r.c"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": ""
+    },
+    {
+      "column": "description",
+      "text": ""
+    },
+    {
+      "column": "version",
+      "text": ""
+    },
+    {
+      "column": "appVersion",
+      "text": ""
+    },
+    {
+      "column": "repository",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "chart": [],
+    "keyword": [],
+    "label": [],
+    "name": [
+      "r.c"
+    ],
+    "namespace": [
+      ""
+    ],
+    "repository": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Digest",
+          "value": "none: the index lists no digest, so an install cannot verify the archive",
+          "status": "warning"
+        }
+      ]
+    }
+  ]
+}

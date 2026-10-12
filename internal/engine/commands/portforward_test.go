@@ -702,7 +702,7 @@ func TestPortForwardsForAgentsAndMenus(t *testing.T) {
 	var kinds []commands.KindInfo // Port Forwarding is a local kind: the GUI shows no "+" on it
 	h.must(t, agent, "kinds.list", nil, &kinds)
 	for _, k := range kinds {
-		if k.Local != (k.Kind == engine.PortForwardKind) || k.Virtual {
+		if k.Local != (k.Kind == engine.PortForwardKind || k.Kind == "helmcharts") || k.Virtual { // the Helm charts are local too (G11)
 			t.Errorf("kinds.list: %s local %v, virtual %v", k.Kind, k.Local, k.Virtual)
 		}
 	}

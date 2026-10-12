@@ -1,0 +1,102 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "helmcharts",
+    "name": "stable.old-app"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "old-app"
+    },
+    {
+      "column": "description",
+      "text": ""
+    },
+    {
+      "column": "version",
+      "text": "0.9.0"
+    },
+    {
+      "column": "appVersion",
+      "text": ""
+    },
+    {
+      "column": "repository",
+      "text": "stable"
+    }
+  ],
+  "fields": {
+    "chart": [
+      "old-app"
+    ],
+    "keyword": [],
+    "label": [],
+    "name": [
+      "stable.old-app"
+    ],
+    "namespace": [
+      ""
+    ],
+    "repository": [
+      "stable"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Version",
+          "value": "0.9.0"
+        },
+        {
+          "name": "Repository",
+          "value": "stable"
+        },
+        {
+          "name": "Deprecated",
+          "value": "yes",
+          "status": "warning"
+        },
+        {
+          "name": "Digest",
+          "value": "none: the index lists no digest, so an install cannot verify the archive",
+          "status": "warning"
+        }
+      ]
+    },
+    {
+      "title": "Versions",
+      "table": {
+        "columns": [
+          "Version",
+          "App Version",
+          "Created"
+        ],
+        "rows": [
+          [
+            "0.9.0",
+            "",
+            ""
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "0.9.0"
+            },
+            {},
+            {}
+          ]
+        ]
+      }
+    }
+  ]
+}

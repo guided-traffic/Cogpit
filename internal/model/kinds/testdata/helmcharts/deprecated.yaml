@@ -1,0 +1,13 @@
+apiVersion: cogpit.io/v1
+kind: HelmChart
+metadata:
+  name: stable.old-app
+  uid: 6c1f2e4a-0000-4000-8000-000000000002
+  resourceVersion: "1"
+spec:
+  repository: stable
+  name: old-app
+  version: 0.9.0
+  deprecated: true
+  versions:
+  - {version: 0.9.0}

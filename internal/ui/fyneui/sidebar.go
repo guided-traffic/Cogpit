@@ -113,7 +113,7 @@ var navLayout = []navEntry{
 	navGroup("devices", "Device Resources", "resourceclaims", "resourceclaimtemplates", "deviceclasses", "resourceslices"),
 	{id: kindNamespaces},
 	{id: kindEvents},
-	navGroup("helm", "Helm", "helmreleases"), // Charts come with chart repositories (G11)
+	navGroup("helm", "Helm", "helmcharts", "helmreleases"), // Charts from the repositories the user added (G11)
 	navGroup("access", "Access Control",
 		"serviceaccounts", "clusterroles", "roles", "clusterrolebindings", "rolebindings", "podsecuritypolicies"),
 	{id: customGroup, title: "Custom Resources", items: []navEntry{{id: kindDefinitions}}},

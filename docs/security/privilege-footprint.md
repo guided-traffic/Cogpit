@@ -14,7 +14,9 @@ Port forward, Edit and apply, Create, Delete (every kind), Restart (Deployment, 
 Stateful Set), Scale (Deployment, Stateful Set, Replica Set), Cordon, Uncordon, Drain, Trigger,
 Suspend and Resume (Cron Job), Evict, a Secret's drawer, Helm rollback and uninstall, Helm
 upgrade (2026-10-12), and the create dialogs of Namespaces, Service Accounts, the four RBAC kinds
-and Resource Quotas (2026-10-12). The rows below say which. Adding and syncing kubeconfigs
+and Resource Quotas (2026-10-12). The rows below say which. Adding, updating and removing Helm chart
+repositories and listing their charts (2026-10-13) sends no request to a cluster either: it
+downloads public indexes over https from the repositories the user added ([architecture §8](../developer/architecture.md#8-helm-internalhelm)). Adding and syncing kubeconfigs
 (2026-10-12) sends no request to a cluster; what they let run on the user's computer is in
 [credentials](credentials.md) and [trust boundaries](trust-boundaries.md#h-1-kubeconfig-files-added-by-sync-folders).
 
