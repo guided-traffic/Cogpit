@@ -409,7 +409,7 @@ func runUpgrade(ctx context.Context, s *engine.Session, p upgradeParams) (any, e
 		return helm.Scrubbed(err, vals)
 	})
 	if err != nil {
-		return nil, movedErr(err)
+		return nil, forCaller(ctx, "upgrade", ref.Name, movedErr(err))
 	}
 	if revision <= cur {
 		revision = cur + 1

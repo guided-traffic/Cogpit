@@ -354,7 +354,7 @@ func runInstall(ctx context.Context, s *engine.Session, p installParams) (any, e
 		return helm.Scrubbed(err, scrub)
 	})
 	if err != nil {
-		return nil, err
+		return nil, forCaller(ctx, "install", p.Name, err)
 	}
 	if revision < 1 {
 		revision = 1

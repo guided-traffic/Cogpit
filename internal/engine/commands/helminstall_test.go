@@ -363,3 +363,33 @@ func TestHelmInstallCrashJournal(t *testing.T) {
 		t.Errorf("journal after finishing: %+v", list)
 	}
 }
+
+// An agent's install that fails in the SDK gets the failure without its text: a chart's templates
+// can quote what lookup read (values reach lookup through tpl), a Secret's data included. The user
+// reads the error in the window's toast (review 2026-10-13).
+func TestHelmInstallErrorStaysInTheWindow(t *testing.T) {
+	h, fi := installHarness(t)
+	h.answer = true
+	params := map[string]any{"repository": "test", "chart": "web", "version": "0.2.0", "values": "a: b\n", "namespace": "apps", "name": "web"}
+	fi.err = errors.New("helm install apps/web: template: web/templates/cm.yaml: name LOOKED-UP-SECRET-DATA is not valid")
+	_, err := h.dispatch(engine.OriginExternalAgent, "helm.chart.install", params)
+	if err == nil || strings.Contains(err.Error(), "LOOKED-UP-SECRET-DATA") || !strings.Contains(err.Error(), "Cogpit's window") {
+		t.Errorf("the agent's error: %v", err)
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	shown := false
+	for _, ev := range h.events {
+		shown = shown || (ev.Type == engine.EventToast && strings.Contains(ev.Message, "LOOKED-UP-SECRET-DATA"))
+	}
+	if !shown {
+		t.Error("the window was not shown the error")
+	}
+	h.mu.Unlock()
+	res, err := h.dispatch(engine.OriginExternalAgent, "helm.pendingOperations", struct{}{})
+	h.mu.Lock()
+	list, _ := res.([]engine.PendingHelmOpInfo)
+	if err != nil || len(list) != 1 || list[0].Error == "" || strings.Contains(list[0].Error, "LOOKED-UP-SECRET-DATA") {
+		t.Errorf("the agent's pending operations: %+v %v", list, err)
+	}
+}

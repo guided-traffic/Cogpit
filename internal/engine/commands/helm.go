@@ -114,13 +114,20 @@ func registerHelm(g *registrar) {
 			"helm_release_rollback or helm_release_uninstall again to finish a rollback or an uninstall; an upgrade is " +
 			"finished by helm_release_rollback to its fromRevision (the Helm SDK refuses to upgrade a release left " +
 			"pending-upgrade); an install by helm_release_uninstall. helm_dismissOperation forgets one.",
-		Run: func(_ context.Context, s *engine.Session, p pendingHelmParams) (any, error) {
+		Run: func(ctx context.Context, s *engine.Session, p pendingHelmParams) (any, error) {
 			list, err := s.PendingHelmOps(p.All)
 			if err != nil {
 				return nil, err
 			}
 			if list == nil {
 				list = []engine.PendingHelmOpInfo{}
+			}
+			if engine.OriginOf(ctx) != engine.OriginGUI {
+				for i := range list { // the SDK's text can quote what a chart's lookup read (forCaller)
+					if list[i].Error != "" {
+						list[i].Error = withheldHelmError
+					}
+				}
 			}
 			return list, nil
 		},
@@ -323,6 +330,34 @@ func runHelmOp(s *engine.Session, op engine.PendingHelmOp, starting string, run 
 		return fmt.Errorf("%w; the release may be left pending: run it again to finish, or dismiss it in helm_pendingOperations", opErr)
 	}
 	return nil
+}
+
+// withheldErr is a Helm action's error as a caller outside Cogpit's window gets it: the SDK's text
+// stays in the window (runHelmOp's toast), errors.Is still sees what it wraps.
+type withheldErr struct {
+	msg string
+	err error
+}
+
+func (e *withheldErr) Error() string { return e.msg }
+func (e *withheldErr) Unwrap() error { return e.err }
+
+// withheldHelmError stands for a failed Helm action's error where a caller outside Cogpit's
+// window reads it (forCaller).
+const withheldHelmError = "failed; the error is shown in Cogpit's window only"
+
+// forCaller keeps the text of an install's or upgrade's error from agents and the CLI. A chart's
+// templates run the values through tpl, so an agent's values can reach lookup, and the SDK's error
+// can quote what lookup read, a Secret's data included (review 2026-10-13); the values themselves
+// are scrubbed (helm.Scrubbed), what the cluster returned is not. The user reads the full error in
+// the window's toast; the caller learns that the action failed and where to look.
+func forCaller(ctx context.Context, action, release string, err error) error {
+	if err == nil || engine.OriginOf(ctx) == engine.OriginGUI {
+		return err
+	}
+	return &withheldErr{err: err, msg: fmt.Sprintf("the %s of release %s failed; Cogpit's window shows the error, which is not "+
+		"passed on because a chart's templates can quote what they read from the cluster; a release left pending is listed "+
+		"by helm_pendingOperations", action, release)}
 }
 
 // helmSafely runs a release action and turns a panic into an error: the action's goroutine
