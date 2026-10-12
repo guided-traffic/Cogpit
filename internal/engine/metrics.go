@@ -310,6 +310,22 @@ func (b *Backend) promServices(ctx context.Context) ([]metrics.Service, error) {
 	if !ok {
 		return nil, nil
 	}
+	// A user who is known not to be allowed to list Services gets no watch that would be refused.
+	// The access reviews that answer it start with the connection and take a moment: wait for them
+	// briefly, and go ahead when they do not answer (the API server decides).
+	for range accessWaitTries {
+		listable, known := b.Listable(p, nil)
+		if known && !listable {
+			return nil, errors.New("the current user may not list services, so Prometheus cannot be looked for (name it in the cluster settings)")
+		}
+		if known || ctx.Err() != nil {
+			break
+		}
+		select {
+		case <-ctx.Done():
+		case <-time.After(accessWaitStep):
+		}
+	}
 	h := b.Acquire(p)
 	defer h.Release()
 	wctx, cancel := context.WithTimeout(ctx, servicesSyncTimeout)
@@ -322,6 +338,13 @@ func (b *Backend) promServices(ctx context.Context) ([]metrics.Service, error) {
 	}
 	return servicesOf(KindList(h, p)), nil
 }
+
+// accessWaitTries and accessWaitStep bound how long detection waits for the access reviews that
+// say whether the user may list Services: 3 seconds.
+const (
+	accessWaitTries = 30
+	accessWaitStep  = 100 * time.Millisecond
+)
 
 // servicesSyncTimeout is how long detection waits for the Services informer's first list.
 const servicesSyncTimeout = 8 * time.Second

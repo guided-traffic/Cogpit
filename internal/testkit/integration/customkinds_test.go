@@ -64,9 +64,10 @@ func TestBudgetCustomResourceView(t *testing.T) {
 	if !testkit.WaitFor(ctx, func() bool { tbl := s.Table(widgetsKey); return tbl != nil && tbl.Synced && tbl.Total == 20 }) {
 		t.Fatalf("the Widget view never filled: %+v", s.Table(widgetsKey))
 	}
-	// The definitions, the Pods view the connection opened first (warm), and the Widget view.
-	if !testkit.WaitFor(ctx, func() bool { return srv.OpenWatches() == 3 }) {
-		t.Fatalf("open watches: %d, want 3", srv.OpenWatches())
+	// The definitions, the Pods view the connection opened first (warm), the Widget view, and the
+	// Services: the Pods view's CPU and Memory columns detect Prometheus among the cached Services.
+	if !testkit.WaitFor(ctx, func() bool { return srv.OpenWatches() == 4 }) {
+		t.Fatalf("open watches: %d, want 4", srv.OpenWatches())
 	}
 	conn := s.Backend().Conn
 	synced := conn.Counter().Snapshot()

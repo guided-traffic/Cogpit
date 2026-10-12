@@ -90,7 +90,11 @@ func TestPrometheusInTheDrawer(t *testing.T) {
 
 	// The Pods list is the open view: its CPU and Memory columns cost the detection's probe and
 	// two instant queries (cpu, memory) for all pods, once per 60 s.
-	time.Sleep(300 * time.Millisecond)
+	// (This fake API server answers no access reviews, so detection waits its 3 seconds for them.)
+	if !testkit.WaitFor(ctx, func() bool { return proxy() >= 3 }) {
+		t.Fatalf("%d proxy requests with the Pods list open, want 3 (probe + 2 queries)", proxy())
+	}
+	time.Sleep(200 * time.Millisecond)
 	if n := proxy(); n != 3 {
 		t.Fatalf("%d proxy requests with the Pods list open, want 3 (probe + 2 queries)", n)
 	}
