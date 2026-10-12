@@ -1350,6 +1350,11 @@ is inferred).
   install never stored it); otherwise (pending-install, failed) it is offered and finishing it
   uninstalls the release (`TestHelmInstallCrashJournal`). A journal holding an `install` entry is
   unreadable for a Cogpit from before 2026-10-13 (the file format stays version 1).
+- **On kind** (`TestKindHelmInstall`, 2026-10-13): a chart served by an httptest repository (the
+  SDK runs in Cogpit's process; the cluster never reaches the repository) added in temporary
+  folders, previewed (no request that writes), installed from its tab with `createNamespace`, an
+  agent's install with inline values confirmed and audited without them, both uninstalled; the
+  requests are in the [privilege footprint](../security/privilege-footprint.md#actions-that-write).
 
 ## 9. Metrics (`internal/metrics`)
 
