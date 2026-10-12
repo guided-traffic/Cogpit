@@ -39,6 +39,9 @@ func (v *View) metrics() metrics {
 		barRadius: th.Size(theme.SizeNameScrollBarRadius),
 		caretW:    max(2*th.Size(theme.SizeNameInputBorder), 2),
 	}
+	if v.textSize > 0 { // the Preferences' editor font size
+		m.textSize = v.textSize
+	}
 	if app := fyne.CurrentApp(); app != nil && app.Driver() != nil {
 		// Ten columns, so that the fractional advance survives; a line's runs are placed at
 		// column × advance and must meet where the font would have put them.
@@ -48,6 +51,10 @@ func (v *View) metrics() metrics {
 	}
 	if m.cw <= 0 || m.lh <= 0 {
 		m.cw, m.lh = float64(m.textSize)*0.6, math.Ceil(float64(m.textSize)*1.3)
+	}
+	if v.hideNumbers { // a thin margin with the separator, no numbers
+		m.gutterW = 2 * m.pad
+		return m
 	}
 	digits := max(len(strconv.Itoa(len(v.doc.lines))), 2)
 	m.numW = float32(float64(digits) * m.cw)
@@ -196,6 +203,9 @@ func (r *viewRenderer) build(size fyne.Size) {
 	setRect(r.gutterSep, pal.separator, m.gutterW-1, 0, 1, size.Height)
 	objects = append(objects, r.gutterBg, r.gutterSep)
 	nn := 0
+	if v.hideNumbers {
+		last = first // no numbers to draw
+	}
 	for i := first; i < last; i++ {
 		if nn == len(r.nums) {
 			t := canvas.NewText("", nil)

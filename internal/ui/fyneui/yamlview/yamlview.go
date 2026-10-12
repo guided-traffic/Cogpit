@@ -55,6 +55,12 @@ type View struct {
 	// cache holds the tokens of recently drawn lines, keyed by line index and checked against the
 	// line's text and start state, so an edit or a shift of line numbers never shows stale colours.
 	cache map[int]lineCache
+
+	// The editor's preferences (Cogpit's Preferences › Editor): the text size in points (0: the
+	// theme's), whether line numbers are hidden, and the indentation step (0: two spaces).
+	textSize    float32
+	hideNumbers bool
+	tabSize     int
 }
 
 type lineCache struct {
@@ -98,6 +104,43 @@ func New() *View {
 	}
 	v.ExtendBaseWidget(v)
 	return v
+}
+
+// SetTextSize sets the text size in points; 0 takes the theme's.
+func (v *View) SetTextSize(size float32) {
+	if size != v.textSize {
+		v.textSize = size
+		v.Refresh()
+	}
+}
+
+// SetLineNumbers shows or hides the line numbers; they are shown by default.
+func (v *View) SetLineNumbers(on bool) {
+	if on == v.hideNumbers {
+		v.hideNumbers = !on
+		v.Refresh()
+	}
+}
+
+// SetTabSize sets the indentation step in spaces: what Tab inserts and indents by, Shift+Tab and
+// Backspace in the indentation take away, and a new line after a key adds. Below 1 means two.
+func (v *View) SetTabSize(n int) { v.tabSize = n }
+
+// TextSize is the text size SetTextSize set; 0: the theme's.
+func (v *View) TextSize() float32 { return v.textSize }
+
+// LineNumbers reports whether the view shows line numbers.
+func (v *View) LineNumbers() bool { return !v.hideNumbers }
+
+// TabSize is the indentation step in spaces.
+func (v *View) TabSize() int { return v.indentStep() }
+
+// indentStep is the indentation step in spaces.
+func (v *View) indentStep() int {
+	if v.tabSize < 1 {
+		return 2
+	}
+	return v.tabSize
 }
 
 // SetText replaces the document, clears the selection and scrolls to the top. The view keeps text
@@ -643,7 +686,7 @@ func (v *View) newline() {
 	indent := line[:min(indentOf(line), a.off)]
 	before := strings.TrimRight(line[:a.off], " \t")
 	if strings.HasSuffix(before, ":") || endsWithBlockHeader(before) {
-		indent += "  "
+		indent += strings.Repeat(" ", v.indentStep())
 	}
 	v.replaceSelection("\n" + indent)
 }
@@ -664,10 +707,11 @@ func (v *View) backspace() {
 	if v.anchor == v.caret {
 		line := v.doc.lines[v.caret.line]
 		if v.caret.off > 0 && indentOf(line) >= v.caret.off {
-			// In the indentation: back to the previous two-space stop.
-			n := v.caret.off % 2
+			// In the indentation: back to the previous indentation stop.
+			step := v.indentStep()
+			n := v.caret.off % step
 			if n == 0 {
-				n = 2
+				n = step
 			}
 			v.anchor = pos{v.caret.line, v.caret.off - n}
 		} else {
@@ -688,7 +732,8 @@ func (v *View) deleteForward() {
 }
 
 // tab indents the selected lines when the selection spans lines, and otherwise inserts spaces to
-// the next two-space stop; YAML forbids tabs for indentation.
+// the next indentation stop (two spaces unless SetTabSize says otherwise); YAML forbids tabs for
+// indentation.
 func (v *View) tab() {
 	if v.readOnly {
 		return
@@ -698,12 +743,13 @@ func (v *View) tab() {
 		return
 	}
 	a, _ := order(v.anchor, v.caret)
-	n := 2 - displayCol(v.doc.lines[a.line], a.off)%2
+	step := v.indentStep()
+	n := step - displayCol(v.doc.lines[a.line], a.off)%step
 	v.replaceSelection(strings.Repeat(" ", n))
 }
 
-// indentLines adds or removes two spaces of indentation on every line the selection touches, or on
-// the caret's line. A selection ending at column 0 leaves that line alone.
+// indentLines adds or removes one indentation step (indentStep) on every line the selection
+// touches, or on the caret's line. A selection ending at column 0 leaves that line alone.
 func (v *View) indentLines(add bool) {
 	if v.readOnly {
 		return
@@ -714,16 +760,17 @@ func (v *View) indentLines(add bool) {
 		last--
 	}
 	changed := false
+	step := v.indentStep()
 	for i := a.line; i <= last; i++ {
 		var delta int
 		if add {
 			if v.doc.lines[i] == "" {
 				continue
 			}
-			v.doc.insert(pos{i, 0}, "  ")
-			delta = 2
+			v.doc.insert(pos{i, 0}, strings.Repeat(" ", step))
+			delta = step
 		} else {
-			n := min(2, indentOf(v.doc.lines[i]))
+			n := min(step, indentOf(v.doc.lines[i]))
 			if n == 0 {
 				continue
 			}
