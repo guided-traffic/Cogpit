@@ -1145,7 +1145,7 @@ func (c *tableCell) apply() {
 		}
 		for i, r := range c.marks {
 			if i < len(marks) {
-				r.FillColor = themeColor(th, statusColorName(marks[i].Status))
+				r.FillColor = themeColor(th, markColorName(marks[i].Status))
 			}
 		}
 	}
@@ -1361,6 +1361,15 @@ func (r *tableCellRenderer) Layout(size fyne.Size) {
 		r.Resize(fyne.NewSize(ms, ms))
 		r.Show()
 	}
+}
+
+// markColorName is a square's colour: its status colour, but a running container (StatusOK) in the
+// greener colorContainerRunning (owner, 2026-10-12).
+func markColorName(s model.Status) fyne.ThemeColorName {
+	if s == model.StatusOK {
+		return colorContainerRunning
+	}
+	return statusColorName(s)
 }
 
 // markSize is the side of a cell's square and the gap between two, from the text size: a square

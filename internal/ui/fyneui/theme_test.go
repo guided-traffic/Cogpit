@@ -198,6 +198,8 @@ func TestPaletteContrast(t *testing.T) {
 			check(fmt.Sprintf("status %s", s), col, colorRowSelected, 2.5)
 		}
 		check("selected row text", c(colorRowSelectedText), colorRowSelected, 4.5)
+		check("running container", c(colorContainerRunning), colorRowSelected, 2.5)
+		check("running container", c(colorContainerRunning), theme.ColorNameBackground, 3.0)
 		check("active tab", c(colorDockTabText), colorDockTab, 4.5)
 		check("inactive tab", c(colorDockTabDim), colorDock, 3.5)
 		check("text on primary", c(theme.ColorNameForegroundOnPrimary), theme.ColorNamePrimary, 4.4)

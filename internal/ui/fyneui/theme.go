@@ -22,26 +22,29 @@ const (
 // Cogpit's own colour tokens, beyond Fyne's. Widgets look them up through the theme so that no
 // widget decides a colour itself (docs/developer/conventions.md, UI).
 const (
-	colorTopBar          fyne.ThemeColorName = "cogpit.topBar"
-	colorStatusBar       fyne.ThemeColorName = "cogpit.statusBar"
-	colorSidebar         fyne.ThemeColorName = "cogpit.sidebar"
-	colorRowHover        fyne.ThemeColorName = "cogpit.rowHover"
-	colorRowSelected     fyne.ThemeColorName = "cogpit.rowSelected"
-	colorRowSelectedText fyne.ThemeColorName = "cogpit.rowSelectedText" // text on a selected row
-	colorDrawer          fyne.ThemeColorName = "cogpit.drawer"
-	colorDrawerHeader    fyne.ThemeColorName = "cogpit.drawerHeader"
-	colorDock            fyne.ThemeColorName = "cogpit.dock"
-	colorDockTab         fyne.ThemeColorName = "cogpit.dockTab"
-	colorDockTabText     fyne.ThemeColorName = "cogpit.dockTabText" // the active tab's title
-	colorDockTabDim      fyne.ThemeColorName = "cogpit.dockTabDim"  // an inactive tab's title
-	colorMuted           fyne.ThemeColorName = "cogpit.muted"
-	colorAccent          fyne.ThemeColorName = "cogpit.accent"
-	colorChip            fyne.ThemeColorName = "cogpit.chip"
-	colorToast           fyne.ThemeColorName = "cogpit.toast"
-	colorLink            fyne.ThemeColorName = "cogpit.link"       // a cell or drawer value that names an object
-	colorTooltip         fyne.ThemeColorName = "cogpit.tooltip"    // a tooltip's background
-	colorLogo            fyne.ThemeColorName = "cogpit.logo"       // the logo's C, handles and outer ring
-	colorLogoAccent      fyne.ThemeColorName = "cogpit.logoAccent" // the logo's wheel, needle and hub
+	colorTopBar      fyne.ThemeColorName = "cogpit.topBar"
+	colorStatusBar   fyne.ThemeColorName = "cogpit.statusBar"
+	colorSidebar     fyne.ThemeColorName = "cogpit.sidebar"
+	colorRowHover    fyne.ThemeColorName = "cogpit.rowHover"
+	colorRowSelected fyne.ThemeColorName = "cogpit.rowSelected"
+	// colorContainerRunning is a running container's square in a pod's Containers cell: the
+	// Running green Cogpit had before the Solarized theme, which the owner wants there (2026-10-12).
+	colorContainerRunning fyne.ThemeColorName = "cogpit.containerRunning"
+	colorRowSelectedText  fyne.ThemeColorName = "cogpit.rowSelectedText" // text on a selected row
+	colorDrawer           fyne.ThemeColorName = "cogpit.drawer"
+	colorDrawerHeader     fyne.ThemeColorName = "cogpit.drawerHeader"
+	colorDock             fyne.ThemeColorName = "cogpit.dock"
+	colorDockTab          fyne.ThemeColorName = "cogpit.dockTab"
+	colorDockTabText      fyne.ThemeColorName = "cogpit.dockTabText" // the active tab's title
+	colorDockTabDim       fyne.ThemeColorName = "cogpit.dockTabDim"  // an inactive tab's title
+	colorMuted            fyne.ThemeColorName = "cogpit.muted"
+	colorAccent           fyne.ThemeColorName = "cogpit.accent"
+	colorChip             fyne.ThemeColorName = "cogpit.chip"
+	colorToast            fyne.ThemeColorName = "cogpit.toast"
+	colorLink             fyne.ThemeColorName = "cogpit.link"       // a cell or drawer value that names an object
+	colorTooltip          fyne.ThemeColorName = "cogpit.tooltip"    // a tooltip's background
+	colorLogo             fyne.ThemeColorName = "cogpit.logo"       // the logo's C, handles and outer ring
+	colorLogoAccent       fyne.ThemeColorName = "cogpit.logoAccent" // the logo's wheel, needle and hub
 )
 
 // Status colour tokens, one per model.Status.
@@ -136,26 +139,27 @@ var darkPalette = palette{
 		theme.ColorNameSuccess:             hex(0x899c08),
 		theme.ColorNameWarning:             hex(0xd97a53),
 
-		colorTopBar:          hex(0x002c39), // titleBar.activeBackground
-		colorStatusBar:       hex(0x00212b), // statusBar.background
-		colorSidebar:         hex(0x00212b), // sideBar.background
-		colorRowHover:        hex(0x003a4a), // list.hoverBackground #004454aa over the background
-		colorRowSelected:     hex(0x005a6f), // list.activeSelectionBackground
-		colorRowSelectedText: hex(0xeee8d5), // base2: the foreground is too faint on the selection
-		colorDrawer:          hex(0x00212b),
-		colorDrawerHeader:    hex(0x003847),
-		colorDock:            hex(0x004052), // tab.inactiveBackground, the strip behind the tabs
-		colorDockTab:         hex(0x002b37), // tab.activeBackground
-		colorDockTabText:     hex(0xd6dbdb), // tab.activeForeground
-		colorDockTabDim:      hex(0x93a1a1), // base1
-		colorMuted:           hex(0x718588),
-		colorAccent:          hex(solCyan),
-		colorChip:            hex(0x004052),
-		colorToast:           hex(0x003847),
-		colorLink:            hex(solCyan),
-		colorLogo:            hex(0x93a1a1), // base1
-		colorLogoAccent:      hex(solCyan),
-		colorTooltip:         hex(0x003847), // editorHoverWidget.background #004052 is 3.6:1 under the text
+		colorTopBar:           hex(0x002c39), // titleBar.activeBackground
+		colorStatusBar:        hex(0x00212b), // statusBar.background
+		colorSidebar:          hex(0x00212b), // sideBar.background
+		colorRowHover:         hex(0x003a4a), // list.hoverBackground #004454aa over the background
+		colorRowSelected:      hex(0x005a6f), // list.activeSelectionBackground
+		colorContainerRunning: hex(0x3dd68c), // the earlier Running green (owner, 2026-10-12)
+		colorRowSelectedText:  hex(0xeee8d5), // base2: the foreground is too faint on the selection
+		colorDrawer:           hex(0x00212b),
+		colorDrawerHeader:     hex(0x003847),
+		colorDock:             hex(0x004052), // tab.inactiveBackground, the strip behind the tabs
+		colorDockTab:          hex(0x002b37), // tab.activeBackground
+		colorDockTabText:      hex(0xd6dbdb), // tab.activeForeground
+		colorDockTabDim:       hex(0x93a1a1), // base1
+		colorMuted:            hex(0x718588),
+		colorAccent:           hex(solCyan),
+		colorChip:             hex(0x004052),
+		colorToast:            hex(0x003847),
+		colorLink:             hex(solCyan),
+		colorLogo:             hex(0x93a1a1), // base1
+		colorLogoAccent:       hex(solCyan),
+		colorTooltip:          hex(0x003847), // editorHoverWidget.background #004052 is 3.6:1 under the text
 	},
 	status: map[model.Status]color.Color{
 		model.StatusOK:          hex(0x899c08), // green #859900
@@ -200,26 +204,27 @@ var lightPalette = palette{
 		theme.ColorNameSuccess:             hex(0x6e7f00),
 		theme.ColorNameWarning:             hex(0xcb4b16),
 
-		colorTopBar:          hex(0xeee8d5), // titleBar.activeBackground
-		colorStatusBar:       hex(0xeee8d5), // statusBar.background
-		colorSidebar:         hex(0xeee8d5), // sideBar.background
-		colorRowHover:        hex(0xf5eacb), // list.hoverBackground #dfca8844 over the background
-		colorRowSelected:     hex(0xdfca88), // list.activeSelectionBackground
-		colorRowSelectedText: hex(0x073642), // base02
-		colorDrawer:          hex(0xeee8d5),
-		colorDrawerHeader:    hex(0xddd6c1),
-		colorDock:            hex(0xddd6c1), // the strip behind the tabs (tab.inactiveBackground #d3cbb7 is 3.3:1 under its text)
-		colorDockTab:         hex(0xfdf6e3), // tab.activeBackground
-		colorDockTabText:     hex(0x586e75),
-		colorDockTabDim:      hex(0x586e75), // tab.inactiveForeground
-		colorMuted:           hex(0x657b83),
-		colorAccent:          hex(0x1f7f78),
-		colorChip:            hex(0xddd6c1),
-		colorToast:           hex(0xeee8d5),
-		colorLink:            hex(0x1b6761),
-		colorLogo:            hex(0x586e75), // base01, as the reference's mark for light bars
-		colorLogoAccent:      hex(solCyan),
-		colorTooltip:         hex(0xeee8d5), // editorHoverWidget.background #ccc4b0 is 3.1:1 under the text
+		colorTopBar:           hex(0xeee8d5), // titleBar.activeBackground
+		colorStatusBar:        hex(0xeee8d5), // statusBar.background
+		colorSidebar:          hex(0xeee8d5), // sideBar.background
+		colorRowHover:         hex(0xf5eacb), // list.hoverBackground #dfca8844 over the background
+		colorRowSelected:      hex(0xdfca88), // list.activeSelectionBackground
+		colorContainerRunning: hex(0x1a8f53), // the earlier Running green #1f9d5c, darkened to read on a selected row
+		colorRowSelectedText:  hex(0x073642), // base02
+		colorDrawer:           hex(0xeee8d5),
+		colorDrawerHeader:     hex(0xddd6c1),
+		colorDock:             hex(0xddd6c1), // the strip behind the tabs (tab.inactiveBackground #d3cbb7 is 3.3:1 under its text)
+		colorDockTab:          hex(0xfdf6e3), // tab.activeBackground
+		colorDockTabText:      hex(0x586e75),
+		colorDockTabDim:       hex(0x586e75), // tab.inactiveForeground
+		colorMuted:            hex(0x657b83),
+		colorAccent:           hex(0x1f7f78),
+		colorChip:             hex(0xddd6c1),
+		colorToast:            hex(0xeee8d5),
+		colorLink:             hex(0x1b6761),
+		colorLogo:             hex(0x586e75), // base01, as the reference's mark for light bars
+		colorLogoAccent:       hex(solCyan),
+		colorTooltip:          hex(0xeee8d5), // editorHoverWidget.background #ccc4b0 is 3.1:1 under the text
 	},
 	status: map[model.Status]color.Color{
 		model.StatusOK:          hex(0x6e7f00), // green #859900

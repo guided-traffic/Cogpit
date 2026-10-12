@@ -27,7 +27,7 @@ func TestContainersCellDrawsSquares(t *testing.T) {
 		}
 		th := c.Theme()
 		for i, m := range marks {
-			if !c.marks[i].Visible() || c.marks[i].FillColor != themeColor(th, statusColorName(m.Status)) {
+			if !c.marks[i].Visible() || c.marks[i].FillColor != themeColor(th, markColorName(m.Status)) {
 				t.Errorf("row %d square %d: visible %v, colour %v for %s", row, i, c.marks[i].Visible(), c.marks[i].FillColor, m.Status)
 			}
 			if !strings.Contains(c.tipText(), m.Text) {
