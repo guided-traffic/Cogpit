@@ -242,6 +242,9 @@ func (tv *tableView) updatePlaceholder() {
 		if ui.Connection.State == engine.ConnectError && ui.Connection.Error != "" {
 			msg = "Could not connect to " + ui.Context + ": " + ui.Connection.Error
 		}
+		if ui.Connection.State == engine.Disconnected && ui.Connection.Error != "" {
+			msg = ui.Connection.Error // Cogpit closed the connection: its kubeconfig file went away
+		}
 	case ui.View == "":
 		msg = "Choose a view in the sidebar."
 	case tv.snap == nil || (!tv.snap.Synced && len(tv.snap.Rows) == 0 && tv.snap.Error == ""):

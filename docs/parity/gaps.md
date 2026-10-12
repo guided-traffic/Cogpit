@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** major (fourth run: totals recounted from the table; G1, G2, G11 re-estimated) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -97,11 +97,15 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 3–8 h (was 6–14; `make parity` built, 2026-10-12).
 
 ### G2. Cluster connection and authentication
-- **To follow Lens's captures of 2026-10-12** ([ui parity › Clusters](ui-parity.md#clusters), 2–4 h):
-  dot files in sync folders read; a connected cluster closed when its file goes; the "Add
-  Kubeconfigs" entry as one file dialog for files and folders; `~/.kube` as a default synced
-  folder; a connect's log ("Connection Updates") behind a warning icon. Owner requirement: removing
-  a synced item asks, naming the path, that only the link is removed.
+- **Lens's captures of 2026-10-12 followed** ([ui parity › Clusters](ui-parity.md#clusters), built 2026-10-12, scope C2): dot files in sync
+  folders read (regular files only, at most 1 MiB, a FIFO never opened: `readBounded` also looks before it opens now); a connected
+  cluster closed when its file is deleted or its source removed; one dialog, "Sync Files and Folders", for files and folders;
+  `~/.kube` a default synced folder (removable, the removal remembered); a connect's log ("Connection Updates") behind a
+  warning icon in the picker; owner requirement: removing a synced item asks, naming the path, that only the link is removed.
+  **Still open:** the plugin's standard error in the connect log (client-go writes it to Cogpit's own standard error; capturing it
+  means replacing the process-wide `os.Stderr`, not done); the ↻ beside the ⚠; Lens's system file dialog instead of Cogpit's own
+  browser (a native `NSOpenPanel` for files and folders needs cgo per platform); the default `config` stays the default loading's,
+  not a removable synced item; a deleted default kubeconfig does not close its connection. The estimate is not moved (the lead recounts).
 - **Decided (owner, 2026-10-12, [D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs)):**
   a `tokenFile` of an added or synced kubeconfig outside its folder is asked for in the
   plugin approval dialog (H-24); **built 2026-10-12** (`TestTokenFileOutsideTheFolderIsAskedFor`;
@@ -594,6 +598,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | G2 (scope C2): the Kubeconfig Syncs captures followed: dot files, a closed connection, one dialog, `~/.kube` by default, the connect log, the Remove confirmation; estimate not moved (the lead recounts) |
 | 2026-10-12 | major | Totals after the fourth run: free parity ~420–1,040 h, full target ~620–1,450 h |
 | 2026-10-12 | minor | G8: the terminal widget fuzzed alone, its crashes, hangs and races patched, the upstream series prepared (D-14, fourth run); estimate of that part done |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); G4 evidence (Refresh Access Reviews in the menu, the View menu hides what the sidebar hides); G3 evidence (live related-objects indexes, measured); G8 evidence (workload log streams resumed and pruned); G7 evidence (Restart and Scale bound to the UID in their patches); estimates not moved |

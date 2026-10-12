@@ -30,7 +30,7 @@ type picker struct {
 	status     *textLine
 	connectB   *widget.Button
 	cancelB    *widget.Button
-	addB       *widget.Button // "Add Kubeconfigs": add a file or a sync folder (kubeconfigs.go)
+	addB       *widget.Button // "Add Kubeconfigs": sync a file or a folder (syncpicker.go)
 	contexts   []engine.ContextInfo
 	selected   string
 	connecting string
@@ -55,9 +55,7 @@ func newPicker(sh *shell) *picker {
 	p.connectB.Importance = widget.HighImportance
 	p.cancelB = widget.NewButton("Not now", p.hide)
 	p.addB = widget.NewButtonWithIcon("Add Kubeconfigs", theme.ContentAddIcon(), nil)
-	p.addB.OnTapped = func() {
-		widget.ShowPopUpMenuAtRelativePosition(sh.kc.addMenu(), sh.win.Canvas(), fyne.NewPos(0, p.addB.Size().Height), p.addB)
-	}
+	p.addB.OnTapped = sh.kc.addKubeconfigs
 
 	listBg := newSurface(theme.ColorNameInputBackground)
 	listBg.radius, listBg.stroke = theme.SizeNameInputRadius, theme.ColorNameInputBorder
@@ -168,7 +166,8 @@ func (p *picker) render() {
 		name := c.Name
 		rows = append(rows, newPickerRow(c, title, sub, name == p.selected,
 			func() { p.selected = name; p.render() },
-			func() { p.selected = name; p.connect() }))
+			func() { p.selected = name; p.connect() },
+			func() { p.sh.kc.showConnectLog(name) }))
 	}
 	if len(rows) == 0 {
 		rows = append(rows, inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding,
@@ -266,9 +265,10 @@ type pickerRow struct {
 	title  *textLine
 	sub    *textLine
 	badges *fyne.Container
+	warn   *widget.Button // opens the connect log; present when the last connect failed
 }
 
-func newPickerRow(c engine.ContextInfo, title, sub string, selected bool, onTap, onDouble func()) *pickerRow {
+func newPickerRow(c engine.ContextInfo, title, sub string, selected bool, onTap, onDouble, onWarn func()) *pickerRow {
 	r := &pickerRow{selected: selected, onTap: onTap, onDouble: onDouble, bg: canvas.NewRectangle(color.Transparent)}
 	r.title = newTextLine(title, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	r.sub = newTextLine(sub, colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
@@ -292,6 +292,11 @@ func newPickerRow(c engine.ContextInfo, title, sub string, selected bool, onTap,
 		r.badges.Add(newPill(what+" not allowed yet", colorStatusWarning, true))
 	case engine.ExecChanged:
 		r.badges.Add(newPill(what+" changed", colorStatusWarning, true))
+	}
+	if c.ConnectProblem { // Lens: a warning icon beside the context opens the log of the connect
+		r.warn = widget.NewButtonWithIcon("", theme.NewColoredResource(theme.WarningIcon(), colorStatusWarning), onWarn)
+		r.warn.Importance = widget.LowImportance
+		r.badges.Add(r.warn)
 	}
 	r.ExtendBaseWidget(r)
 	return r

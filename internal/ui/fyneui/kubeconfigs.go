@@ -17,11 +17,12 @@ import (
 )
 
 // The kubeconfig sources in the GUI (G2): the Cluster menu's and the picker's "Add Kubeconfigs"
-// items, the sources dialog, and the dialog that shows a credential plugin before
-// its first run (trust-boundaries H-1). Every change goes through the engine's kubeconfig commands,
-// which only the GUI may run; the dialogs here are where the user does it. Lens's own dialogs are
-// not captured: the layout is Cogpit's, the labels follow Lens's documentation where it names them
-// ("Add Kubeconfigs").
+// entry (one dialog for files and folders, syncpicker.go), the sources dialog with its Remove
+// confirmation, the log of a connect behind the picker's warning icon, and the dialog that shows a
+// credential plugin before its first run (trust-boundaries H-1). Every change goes through the
+// engine's kubeconfig commands, which only the GUI may run; the dialogs here are where the user
+// does it. Lens's own dialogs are captured only from the outside (the system file dialog, the
+// "Connection Updates" log): the layout is Cogpit's, the labels follow the captures.
 
 // Result types of the kubeconfig commands, mirroring the engine's JSON.
 type (
@@ -32,6 +33,8 @@ type (
 		Files    []string `json:"files"`
 		Contexts int      `json:"contexts"`
 		Skipped  int      `json:"skipped"`
+		Covered  int      `json:"covered"`
+		Default  bool     `json:"default"`
 		Error    string   `json:"error"`
 	}
 	sourceAdded struct {
@@ -84,16 +87,21 @@ const (
 // kubeconfigUI holds the kubeconfig dialogs of one shell.
 type kubeconfigUI struct {
 	sh *shell
-	// pick asks for a file (folder false) or a folder and calls done with its path; Fyne's file
-	// dialogs in the app, a recorder in tests.
-	pick func(folder bool, done func(path string))
+	// pick asks for a file or a folder, one dialog for both, and calls done with the path and
+	// whether it is a folder; the sync picker in the app, a recorder in tests.
+	pick func(done func(path string, folder bool))
+	// startDir is the folder the sync picker opens in: the home directory in the app, a temporary
+	// directory in tests.
+	startDir func() string
 
-	approval *approvalDialog // the open approval dialog; main goroutine only
-	sources  *sourcesDialog  // the open sources dialog; main goroutine only
+	approval   *approvalDialog // the open approval dialog; main goroutine only
+	sources    *sourcesDialog  // the open sources dialog; main goroutine only
+	syncing    *syncPicker     // the open sync picker; main goroutine only
+	connectLog *connectLogDialog
 }
 
 func newKubeconfigUI(sh *shell) *kubeconfigUI {
-	k := &kubeconfigUI{sh: sh}
+	k := &kubeconfigUI{sh: sh, startDir: defaultStartFolder}
 	k.pick = k.pickWithDialog
 	return k
 }
@@ -102,60 +110,20 @@ func newKubeconfigUI(sh *shell) *kubeconfigUI {
 func (k *kubeconfigUI) menuItems() []*fyne.MenuItem {
 	return []*fyne.MenuItem{
 		fyne.NewMenuItemSeparator(),
-		fyne.NewMenuItem("Add Kubeconfig File…", k.addFile),
-		fyne.NewMenuItem("Add Sync Folder…", k.addFolder),
+		fyne.NewMenuItem("Sync Files and Folders…", k.addKubeconfigs),
 		fyne.NewMenuItem("Kubeconfig Sources…", k.showSources),
 	}
 }
 
-// addMenu is the picker's "Add Kubeconfigs" menu.
-func (k *kubeconfigUI) addMenu() *fyne.Menu {
-	return fyne.NewMenu("",
-		fyne.NewMenuItem("Add kubeconfig file…", k.addFile),
-		fyne.NewMenuItem("Add sync folder…", k.addFolder),
-		fyne.NewMenuItemSeparator(),
-		fyne.NewMenuItem("Manage kubeconfig sources…", k.showSources),
-	)
-}
-
-// pickWithDialog shows Fyne's file or folder dialog.
-func (k *kubeconfigUI) pickWithDialog(folder bool, done func(string)) {
-	if folder {
-		d := dialog.NewFolderOpen(func(u fyne.ListableURI, err error) {
-			if err != nil {
-				k.sh.toast("error", "Could not open the folder: "+err.Error())
-				return
-			}
-			if u != nil {
-				done(u.Path())
-			}
-		}, k.sh.win)
-		d.Show()
-		return
-	}
-	d := dialog.NewFileOpen(func(r fyne.URIReadCloser, err error) {
-		if err != nil {
-			k.sh.toast("error", "Could not open the file: "+err.Error())
-			return
+// addKubeconfigs asks for a kubeconfig file or a folder of them, in one dialog, and syncs it.
+func (k *kubeconfigUI) addKubeconfigs() {
+	k.pick(func(path string, folder bool) {
+		id := "kubeconfig.addFile"
+		if folder {
+			id = "kubeconfig.addFolder"
 		}
-		if r == nil {
-			return // cancelled
-		}
-		path := r.URI().Path()
-		_ = r.Close() // the engine reads the file itself
-		done(path)
-	}, k.sh.win)
-	d.Show()
-}
-
-// addFile asks for a kubeconfig file and adds it.
-func (k *kubeconfigUI) addFile() {
-	k.pick(false, func(path string) { k.addPath("kubeconfig.addFile", path) })
-}
-
-// addFolder asks for a sync folder and adds it.
-func (k *kubeconfigUI) addFolder() {
-	k.pick(true, func(path string) { k.addPath("kubeconfig.addFolder", path) })
+		k.addPath(id, path)
+	})
 }
 
 func (k *kubeconfigUI) addPath(id, path string) {
@@ -175,7 +143,7 @@ func (k *kubeconfigUI) announce(res any) {
 		return
 	}
 	n := len(a.Contexts)
-	k.sh.toast("info", fmt.Sprintf("Added %s: %d %s", kubeconfig.DisplayText(a.Source.ID, maxShownPath), n, nounFor(n, "context", "contexts")))
+	k.sh.toast("info", fmt.Sprintf("Synced %s: %d %s", kubeconfig.DisplayText(a.Source.ID, maxShownPath), n, nounFor(n, "context", "contexts")))
 	k.contextsChanged()
 }
 
@@ -365,6 +333,8 @@ type sourcesDialog struct {
 	status  *textLine
 	removeB map[string]*widget.Button // by source id, for tests
 	rows    []sourceStatus
+	// removing is the open Remove confirmation, for tests.
+	removing *dialog.ConfirmDialog
 }
 
 // showSources opens the sources dialog.
@@ -376,21 +346,16 @@ func (k *kubeconfigUI) showSources() {
 	sd := &sourcesDialog{k: k, list: container.NewVBox(), removeB: map[string]*widget.Button{}}
 	sd.status = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	sd.status.truncate = true
-	intro := newParagraph("Kubeconfig files and sync folders Cogpit reads (and never writes). Your default kubeconfig ($KUBECONFIG or ~/.kube/config) is "+
-		"read as well and is not listed here.", colorMuted, k.sh.app.Settings().Theme().Size(sizePickerWidth))
+	intro := newParagraph("Kubeconfig files and folders Cogpit syncs: it reads them, follows their changes and never "+
+		"writes them. Removing one removes only Cogpit's link to it. Your default kubeconfig ($KUBECONFIG or "+
+		"~/.kube/config) is read as well and is not listed here.", colorMuted, k.sh.app.Settings().Theme().Size(sizePickerWidth))
 	listBg := newSurface(theme.ColorNameInputBackground)
 	listBg.radius, listBg.stroke = theme.SizeNameInputRadius, theme.ColorNameInputBorder
 	list := container.NewStack(listBg, inset(theme.SizeNamePadding, theme.SizeNamePadding, container.NewVScroll(sd.list)))
 	content := sized(sizePickerWidth, sizePickerHeight, container.NewBorder(
 		container.NewVBox(intro, newSpace(theme.SizeNamePadding)), sd.status, nil, nil, list))
 	sd.d = dialog.NewCustomWithoutButtons("Kubeconfig Sources", content, k.sh.win)
-	addB := widget.NewButtonWithIcon("Add", theme.ContentAddIcon(), nil)
-	addB.OnTapped = func() {
-		widget.ShowPopUpMenuAtRelativePosition(fyne.NewMenu("",
-			fyne.NewMenuItem("Add kubeconfig file…", k.addFile),
-			fyne.NewMenuItem("Add sync folder…", k.addFolder),
-		), k.sh.win.Canvas(), fyne.NewPos(0, addB.Size().Height), addB)
-	}
+	addB := widget.NewButtonWithIcon("Sync Files and Folders…", theme.ContentAddIcon(), k.addKubeconfigs)
 	closeB := widget.NewButton("Close", nil)
 	sd.d.SetButtons([]fyne.CanvasObject{addB, closeB})
 	closeB.OnTapped = sd.d.Hide
@@ -434,6 +399,10 @@ func (sd *sourcesDialog) render() {
 		src := s
 		title := newTextLine(kubeconfig.DisplayText(src.ID, maxShownPath), theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 		kind := newPill(sourceKindLabel(src.Kind), colorAccent, true)
+		badges := container.NewHBox(title, kind)
+		if src.Default {
+			badges.Add(newPill("default", colorMuted, true))
+		}
 		path := newTextLine(kubeconfig.DisplayText(src.Path, maxShownPath), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 		path.truncate = true
 		remove := widget.NewButtonWithIcon("Remove", theme.DeleteIcon(), func() { sd.confirmRemove(src) })
@@ -446,7 +415,7 @@ func (sd *sourcesDialog) render() {
 			info = newTextLine(sourceSummary(src), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 		}
 		row := inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, container.NewBorder(nil, nil, nil,
-			container.NewCenter(remove), container.NewVBox(container.NewHBox(title, kind), path, info)))
+			container.NewCenter(remove), container.NewVBox(badges, path, info)))
 		objs = append(objs, row)
 	}
 	if len(objs) == 0 {
@@ -471,6 +440,9 @@ func sourceSummary(s sourceStatus) string {
 	parts := []string{fmt.Sprintf("%d %s", s.Contexts, nounFor(s.Contexts, "context", "contexts"))}
 	if s.Kind == string(engine.SourceFolder) {
 		parts = append([]string{fmt.Sprintf("%d %s", len(s.Files), nounFor(len(s.Files), "kubeconfig", "kubeconfigs"))}, parts...)
+		if s.Covered > 0 {
+			parts = append(parts, fmt.Sprintf("%d read as your default kubeconfig", s.Covered))
+		}
 		if s.Skipped > 0 {
 			parts = append(parts, fmt.Sprintf("%d other %s skipped", s.Skipped, nounFor(s.Skipped, "file", "files")))
 		}
@@ -478,20 +450,38 @@ func sourceSummary(s sourceStatus) string {
 	return strings.Join(parts, " · ")
 }
 
+// removeText is what the Remove confirmation says: the path, that only Cogpit's link goes and
+// the files stay on disk, and what else follows.
+func removeText(src sourceStatus) (title, msg string) {
+	path := kubeconfig.DisplayText(src.Path, maxShownPath)
+	title = "Remove " + kubeconfig.DisplayText(src.ID, maxShownPath) + "?"
+	if src.Kind == string(engine.SourceFolder) {
+		msg = "Cogpit stops syncing the folder\n\n" + path + "\n\nOnly Cogpit's link to the folder is removed. The folder and " +
+			"its files stay on your disk, unchanged. Their contexts are no longer offered, the login programs you allowed " +
+			"for them are forgotten, and a connection made from one of them is closed."
+	} else {
+		msg = "Cogpit stops syncing the file\n\n" + path + "\n\nOnly Cogpit's link to the file is removed. The file stays on " +
+			"your disk, unchanged. Its contexts are no longer offered, the login programs you allowed for it are forgotten, " +
+			"and a connection made from it is closed."
+	}
+	if src.Default {
+		msg += " Sync Files and Folders adds it again."
+	}
+	return title, msg
+}
+
 // confirmRemove asks before removing a source.
 func (sd *sourcesDialog) confirmRemove(src sourceStatus) {
-	msg := "Its contexts are no longer offered, and the login programs you allowed for it are forgotten. The " +
-		"file stays as it is."
-	switch src.Kind {
-	case string(engine.SourceFolder):
-		msg = "Its kubeconfigs are no longer offered, and the login programs you allowed for them are forgotten. " +
-			"The folder and its files stay as they are."
-	}
-	dialog.ShowConfirm("Remove "+kubeconfig.DisplayText(src.ID, maxShownPath)+"?", msg, func(ok bool) {
+	title, msg := removeText(src)
+	width := sd.k.sh.app.Settings().Theme().Size(sizePickerWidth)
+	d := dialog.NewCustomConfirm(title, "Remove", "Cancel", newParagraph(msg, theme.ColorNameForeground, width), func(ok bool) {
+		sd.removing = nil
 		if ok {
 			sd.remove(src.ID)
 		}
 	}, sd.k.sh.win)
+	sd.removing = d
+	d.Show()
 }
 
 func (sd *sourcesDialog) remove(id string) {

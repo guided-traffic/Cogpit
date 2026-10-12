@@ -1,0 +1,315 @@
+package fyneui
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"fyne.io/fyne/v2/test"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+)
+
+// syncTree is a folder the sync picker browses: two kubeconfigs (one hidden), a note and a
+// subfolder with a kubeconfig of its own. Nothing here is the developer's home or ~/.kube.
+func syncTree(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	for _, f := range []string{"team.yaml", ".dev.kubeconfig", "notes.txt", filepath.Join("clusters", "prod.yaml")} {
+		p := filepath.Join(dir, f)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
+func openSyncPicker(t *testing.T, sh *shell, q *mainQueue, dir string) *syncPicker {
+	t.Helper()
+	sh.kc.startDir = func() string { return dir }
+	sh.kc.addKubeconfigs() // the real pick: the sync picker
+	q.until(t, "the sync picker's listing", func() bool {
+		return sh.kc.syncing != nil && len(sh.kc.syncing.entries) > 0
+	})
+	return sh.kc.syncing
+}
+
+// TestSyncPickerTakesFilesAndFoldersInOneDialog: one dialog lists folders first, then files, hidden
+// ones too; the status line names what Sync adds. A selected file goes to kubeconfig.addFile, a
+// selected folder and "nothing selected" (the folder shown) to kubeconfig.addFolder.
+func TestSyncPickerTakesFilesAndFoldersInOneDialog(t *testing.T) {
+	f, rec := kubeconfigFake(t, engine.ExecRequired)
+	f.handlers["kubeconfig.addFolder"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		rec.add(inv)
+		return map[string]any{"source": map[string]any{"id": "x/", "kind": "folder"}, "contexts": []string{}}, nil
+	}
+	dir := syncTree(t)
+	sh, w, q := newTestShell(t, f, Options{})
+	sp := openSyncPicker(t, sh, q, dir)
+
+	var names []string
+	for _, e := range sp.entries {
+		names = append(names, e.name)
+	}
+	if want := []string{"clusters", ".dev.kubeconfig", "notes.txt", "team.yaml"}; !slices.Equal(names, want) {
+		t.Fatalf("entries %v, want %v", names, want)
+	}
+	if findButton(w, "Sync") == nil || findButton(w, "Cancel") == nil {
+		t.Error("the dialog lacks its Sync and Cancel buttons")
+	}
+	if !strings.HasPrefix(sp.status.text, "Sync folder: "+dir) {
+		t.Errorf("status %q", sp.status.text)
+	}
+
+	// A hidden file: selected, named, synced as a file.
+	test.Tap(sp.rows[".dev.kubeconfig"])
+	if want := "Sync file: " + filepath.Join(dir, ".dev.kubeconfig"); sp.status.text != want {
+		t.Errorf("status %q, want %q", sp.status.text, want)
+	}
+	test.Tap(sp.syncB)
+	q.until(t, "kubeconfig.addFile", func() bool { return slices.Contains(rec.ids(), "kubeconfig.addFile") })
+	if p := rec.params("kubeconfig.addFile"); p["path"] != filepath.Join(dir, ".dev.kubeconfig") {
+		t.Errorf("addFile %v", p)
+	}
+	if sh.kc.syncing != nil {
+		t.Error("the dialog stays open after Sync")
+	}
+
+	// A selected folder is synced as a folder; so is the folder shown when nothing is selected.
+	sp = openSyncPicker(t, sh, q, dir)
+	test.Tap(sp.rows["clusters"])
+	test.Tap(sp.syncB)
+	q.until(t, "kubeconfig.addFolder", func() bool { return len(f.callsOf("kubeconfig.addFolder")) == 1 })
+	sp = openSyncPicker(t, sh, q, dir)
+	test.Tap(sp.syncB)
+	q.until(t, "the second kubeconfig.addFolder", func() bool { return len(f.callsOf("kubeconfig.addFolder")) == 2 })
+	var got []string
+	for _, c := range f.callsOf("kubeconfig.addFolder") {
+		got = append(got, string(c.Params))
+	}
+	if !strings.Contains(got[0], filepath.Join(dir, "clusters")) || !strings.Contains(got[1], dir) || strings.Contains(got[1], "clusters") {
+		t.Errorf("addFolder calls %v", got)
+	}
+}
+
+// TestSyncPickerNavigates: a double tap opens a folder, the up button returns with the folder
+// selected, a typed file path opens its folder with the file selected, a typed folder opens it, a
+// bad path says so; Cancel adds nothing.
+func TestSyncPickerNavigates(t *testing.T) {
+	f, rec := kubeconfigFake(t, engine.ExecRequired)
+	dir := syncTree(t)
+	sh, _, q := newTestShell(t, f, Options{})
+	sp := openSyncPicker(t, sh, q, dir)
+
+	sp.rows["clusters"].DoubleTapped(nil)
+	q.until(t, "the subfolder", func() bool { return sp.dir == filepath.Join(dir, "clusters") && len(sp.entries) == 1 })
+	if sp.entries[0].name != "prod.yaml" || sp.pathEntry.Text != sp.dir {
+		t.Errorf("entries %+v, path %q", sp.entries, sp.pathEntry.Text)
+	}
+	test.Tap(sp.upB)
+	q.until(t, "the parent", func() bool { return sp.dir == dir && len(sp.entries) == 4 })
+	if sp.selected != filepath.Join(dir, "clusters") {
+		t.Errorf("after up the folder we came from is selected, got %q", sp.selected)
+	}
+
+	sp.pathEntry.SetText(filepath.Join(dir, "team.yaml"))
+	sp.pathEntry.OnSubmitted(sp.pathEntry.Text)
+	q.until(t, "the typed file", func() bool { return sp.selected == filepath.Join(dir, "team.yaml") })
+	sp.pathEntry.OnSubmitted(filepath.Join(dir, "clusters"))
+	q.until(t, "the typed folder", func() bool {
+		return sp.dir == filepath.Join(dir, "clusters") && len(sp.entries) == 1 // listed, not just chosen
+	})
+	sp.pathEntry.OnSubmitted(filepath.Join(dir, "nope"))
+	q.until(t, "the error", func() bool { return strings.Contains(sp.status.text, "no such file") })
+
+	test.Tap(sp.cancelB)
+	if sh.kc.syncing != nil || len(rec.ids()) != 0 {
+		t.Errorf("Cancel left the dialog open or added something: %v", rec.ids())
+	}
+}
+
+// TestSyncPickerDoubleTapOnAFileSyncsIt: the shortcut for the common case.
+func TestSyncPickerDoubleTapOnAFileSyncsIt(t *testing.T) {
+	f, rec := kubeconfigFake(t, engine.ExecRequired)
+	dir := syncTree(t)
+	sh, _, q := newTestShell(t, f, Options{})
+	sp := openSyncPicker(t, sh, q, dir)
+	sp.rows["team.yaml"].DoubleTapped(nil)
+	q.until(t, "kubeconfig.addFile", func() bool { return slices.Contains(rec.ids(), "kubeconfig.addFile") })
+	if p := rec.params("kubeconfig.addFile"); p["path"] != filepath.Join(dir, "team.yaml") {
+		t.Errorf("addFile %v", p)
+	}
+}
+
+// TestSyncPickerNeverStartsInTheHomeInTests: the shell the tests build opens the picker in a
+// temporary directory, so no test lists the developer's home or ~/.kube.
+func TestSyncPickerNeverStartsInTheHomeInTests(t *testing.T) {
+	sh, _, _ := newTestShell(t, newFakeEngine(t), Options{})
+	home, _ := os.UserHomeDir()
+	if got := sh.kc.startDir(); got == "" || got == home || strings.HasPrefix(got, filepath.Join(home, ".kube")) {
+		t.Errorf("startDir = %q", got)
+	}
+}
+
+// TestRemoveConfirmationNamesThePathAndSaysOnlyTheLinkGoes: for a file, a folder and the default
+// folder; the sources dialog asks before kubeconfig.remove, and Cancel sends nothing.
+func TestRemoveConfirmationNamesThePathAndSaysOnlyTheLinkGoes(t *testing.T) {
+	for _, tt := range []struct {
+		src  sourceStatus
+		want []string
+	}{
+		{sourceStatus{ID: "eks.yaml", Kind: "file", Path: "/Users/me/Downloads/eks.yaml"},
+			[]string{"/Users/me/Downloads/eks.yaml", "Only Cogpit's link to the file is removed", "stays on your disk, unchanged", "connection made from it is closed"}},
+		{sourceStatus{ID: "kubeconfigs/", Kind: "folder", Path: "/Users/me/kubeconfigs"},
+			[]string{"/Users/me/kubeconfigs", "Only Cogpit's link to the folder is removed", "The folder and its files stay on your disk"}},
+		{sourceStatus{ID: ".kube/", Kind: "folder", Path: "/Users/me/.kube", Default: true},
+			[]string{"/Users/me/.kube", "Only Cogpit's link", "adds it again"}},
+	} {
+		title, msg := removeText(tt.src)
+		if !strings.Contains(title, tt.src.ID) {
+			t.Errorf("title %q", title)
+		}
+		for _, w := range tt.want {
+			if !strings.Contains(msg, w) {
+				t.Errorf("%s: %q lacks %q", tt.src.ID, msg, w)
+			}
+		}
+	}
+
+	f, rec := kubeconfigFake(t, engine.ExecRequired)
+	sh, w, q := newTestShell(t, f, Options{})
+	q.until(t, "the picker", sh.picker.visible)
+	sh.kc.showSources()
+	sd := sh.kc.sources
+	q.until(t, "the sources", func() bool { return len(sd.rows) == 5 })
+	test.Tap(sd.removeB[".kube/"])
+	cancel := findButton(w, "Cancel")
+	if cancel == nil || findButton(w, "Remove") == nil {
+		t.Fatal("no confirmation")
+	}
+	test.Tap(cancel)
+	q.drain()
+	if slices.Contains(rec.ids(), "kubeconfig.remove") {
+		t.Error("Cancel removed the source")
+	}
+}
+
+// TestPickerMarksAFailedConnectAndOpensItsLog: a context whose last connect failed carries a
+// warning icon; it opens "Connection Updates: <context>" with the engine's lines; contexts without
+// a problem have no icon.
+func TestPickerMarksAFailedConnectAndOpensItsLog(t *testing.T) {
+	f, rec := kubeconfigFake(t, engine.ExecRequired)
+	at := time.Date(2026, 10, 12, 14, 3, 9, 0, time.UTC)
+	f.handlers["cluster.connectLog"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		rec.add(inv)
+		return map[string]any{"context": "team [kubeconfigs/team.yaml]", "lines": []map[string]any{
+			{"time": at, "level": "INFO", "text": "Connecting to team [kubeconfigs/team.yaml]"},
+			{"time": at.Add(2 * time.Second), "level": "ERROR", "text": "exec: fork/exec /opt/bin/team-login: no such file or directory"},
+		}}, nil
+	}
+	sh, _, q := newTestShell(t, f, Options{})
+	q.until(t, "the picker rows", func() bool { return sh.picker.visible() && len(sh.picker.list.Objects) == len(f.contexts) })
+	var warned []string
+	for _, o := range sh.picker.list.Objects {
+		if r, ok := o.(*pickerRow); ok && r.warn != nil {
+			warned = append(warned, r.title.text)
+		}
+	}
+	if !slices.Equal(warned, []string{"team"}) {
+		t.Fatalf("rows with a warning: %v", warned)
+	}
+	for _, o := range sh.picker.list.Objects {
+		if r, ok := o.(*pickerRow); ok && r.warn != nil {
+			test.Tap(r.warn)
+		}
+	}
+	q.until(t, "the log dialog", func() bool { return sh.kc.connectLog != nil })
+	if p := rec.params("cluster.connectLog"); p["context"] != "team [kubeconfigs/team.yaml]" {
+		t.Errorf("connectLog %v", p)
+	}
+	if n := len(sh.kc.connectLog.view.Lines); n != 2 {
+		t.Errorf("%d lines", n)
+	}
+	test.Tap(sh.kc.connectLog.close)
+	if sh.kc.connectLog != nil {
+		t.Error("Close left the log open")
+	}
+}
+
+// TestDisconnectedByAGoneFileSaysWhy: a connection Cogpit closed because its kubeconfig file went
+// away leaves the workspace saying so, with the way to connect again; the toast reaches the user.
+func TestDisconnectedByAGoneFileSaysWhy(t *testing.T) {
+	f, _ := kubeconfigFake(t, engine.ExecRequired)
+	sh, _, q := newTestShell(t, f, Options{})
+	q.until(t, "the picker", sh.picker.visible)
+	reason := "Disconnected from kind-cogpit [kind.yaml]: its kubeconfig file /Users/me/kind.yaml is gone."
+	f.update(func(u *engine.UIState) {
+		u.Context = "kind-cogpit [kind.yaml]"
+		u.Connection = engine.Connection{State: engine.Disconnected, Error: reason}
+	})
+	q.until(t, "the placeholder", func() bool { return sh.view.placeholderText.text == reason })
+	if !sh.view.connectButton.Visible() {
+		t.Error("no way to connect again")
+	}
+	f.emit(engine.Event{Type: engine.EventToast, Level: engine.LevelWarning, Message: reason})
+	q.drain()
+}
+
+func TestRenderSyncPicker(t *testing.T) {
+	f, _ := kubeconfigFake(t, engine.ExecRequired)
+	dir := syncTree(t)
+	sh, w, q := newTestShell(t, f, Options{})
+	sp := openSyncPicker(t, sh, q, dir)
+	test.Tap(sp.rows[".dev.kubeconfig"])
+	savePNG(t, w, "sync_picker_dark.png")
+}
+
+func TestRenderRemoveConfirmation(t *testing.T) {
+	f, _ := kubeconfigFake(t, engine.ExecRequired)
+	sh, w, q := newTestShell(t, f, Options{})
+	q.until(t, "the picker", sh.picker.visible)
+	sh.kc.showSources()
+	sd := sh.kc.sources
+	q.until(t, "the sources", func() bool { return len(sd.rows) == 5 })
+	test.Tap(sd.removeB[".kube/"])
+	savePNG(t, w, "kubeconfig_remove_confirm_dark.png")
+}
+
+func TestRenderConnectionUpdates(t *testing.T) {
+	f, _ := kubeconfigFake(t, engine.ExecRequired)
+	at := time.Date(2026, 10, 12, 14, 3, 9, 0, time.UTC)
+	f.handlers["cluster.connectLog"] = func(context.Context, engine.Invocation) (any, error) {
+		return map[string]any{"context": "team [kubeconfigs/team.yaml]", "lines": []map[string]any{
+			{"time": at, "level": "INFO", "text": "Connecting to team [kubeconfigs/team.yaml]"},
+			{"time": at.Add(time.Second), "level": "ERROR", "text": "cannot connect to https://team.example:6443: dial tcp 10.0.0.7:6443: i/o timeout"},
+			{"time": at.Add(2 * time.Second), "level": "ERROR", "text": "Disconnected from team [kubeconfigs/team.yaml]: its kubeconfig file /Users/me/kubeconfigs/team.yaml is gone."},
+		}}, nil
+	}
+	sh, w, q := newTestShell(t, f, Options{})
+	q.until(t, "the picker rows", func() bool { return sh.picker.visible() && len(sh.picker.list.Objects) == len(f.contexts) })
+	savePNG(t, w, "picker_connect_problem_dark.png")
+	sh.kc.showConnectLog("team [kubeconfigs/team.yaml]")
+	q.until(t, "the log dialog", func() bool { return sh.kc.connectLog != nil })
+	savePNG(t, w, "connection_updates_dark.png")
+}
+
+func TestRenderDisconnectedPlaceholder(t *testing.T) {
+	f, _ := kubeconfigFake(t, engine.ExecRequired)
+	sh, w, q := newTestShell(t, f, Options{})
+	q.until(t, "the picker", sh.picker.visible)
+	sh.picker.hide()
+	reason := "Disconnected from kind-cogpit [kind.yaml]: its kubeconfig file /Users/me/kind.yaml is gone."
+	f.update(func(u *engine.UIState) {
+		u.Context = "kind-cogpit [kind.yaml]"
+		u.Connection = engine.Connection{State: engine.Disconnected, Error: reason}
+	})
+	q.until(t, "the placeholder", func() bool { return sh.view.placeholderText.text == reason })
+	savePNG(t, w, "disconnected_file_gone_dark.png")
+}

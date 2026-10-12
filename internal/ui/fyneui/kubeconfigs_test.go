@@ -24,7 +24,8 @@ func sourceContexts() []engine.ContextInfo {
 		engine.ContextInfo{Name: "prod-eks [eks.yaml]", KubeContext: "prod-eks", Source: "eks.yaml", Cluster: "arn:aws:eks:eu-central-1:000000000000:cluster/prod",
 			Server: "https://ABCDEF.gr7.eu-central-1.eks.amazonaws.com", File: "/Users/me/Downloads/eks.yaml", Exec: engine.ExecRequired},
 		engine.ContextInfo{Name: "team [kubeconfigs/team.yaml]", KubeContext: "team", Source: "kubeconfigs/team.yaml", Cluster: "team",
-			Server: "https://team.example:6443", Namespace: "team-a", File: "/Users/me/kubeconfigs/team.yaml", Exec: engine.ExecChanged},
+			Server: "https://team.example:6443", Namespace: "team-a", File: "/Users/me/kubeconfigs/team.yaml", Exec: engine.ExecChanged,
+			ConnectProblem: true},
 	)
 }
 
@@ -90,6 +91,7 @@ func kubeconfigFake(t *testing.T, state string) (*fakeEngine, *recorder) {
 	handle("kubeconfig.approveExec", func(engine.Invocation) (any, error) { return pluginView(engine.ExecApproved), nil })
 	handle("kubeconfig.sources", func(engine.Invocation) (any, error) {
 		return map[string]any{"sources": []map[string]any{
+			{"id": ".kube/", "kind": "folder", "default": true, "path": "/Users/me/.kube", "files": []string{".kube/team.yaml", ".kube/.dev.kubeconfig"}, "contexts": 2, "covered": 1, "skipped": 1},
 			{"id": "kind.yaml", "kind": "file", "path": "/Users/me/kind.yaml", "files": []string{"kind.yaml"}, "contexts": 1},
 			{"id": "eks.yaml", "kind": "file", "path": "/Users/me/Downloads/eks.yaml", "files": []string{"eks.yaml"}, "contexts": 1},
 			{"id": "kubeconfigs/", "kind": "folder", "path": "/Users/me/kubeconfigs", "files": []string{"kubeconfigs/team.yaml"}, "contexts": 1, "skipped": 2},
@@ -214,10 +216,10 @@ func TestSourcesDialogRemovesAfterConfirming(t *testing.T) {
 	q.until(t, "the picker", sh.picker.visible)
 	sh.kc.showSources()
 	sd := sh.kc.sources
-	q.until(t, "the sources", func() bool { return len(sd.rows) == 4 })
+	q.until(t, "the sources", func() bool { return len(sd.rows) == 5 })
 	test.Tap(sd.removeB["eks.yaml"])
-	confirm := findButton(w, "Yes")
-	if confirm == nil {
+	confirm := findButton(w, "Remove")
+	if confirm == nil || sd.removing == nil {
 		t.Fatal("no confirmation before removing")
 	}
 	if slices.Contains(rec.ids(), "kubeconfig.remove") {
@@ -230,27 +232,49 @@ func TestSourcesDialogRemovesAfterConfirming(t *testing.T) {
 	}
 }
 
-// TestAddFileFromTheMenuAndEventsReloadThePicker: the Cluster menu offers the kubeconfig items; a
-// picked file goes to kubeconfig.addFile; EventContexts makes the open picker list again.
-func TestAddFileFromTheMenuAndEventsReloadThePicker(t *testing.T) {
+// TestSyncFromTheMenuAndEventsReloadThePicker: the Cluster menu offers one entry for files and
+// folders (the old two are gone); a path the dialog hands back goes to kubeconfig.addFile or
+// kubeconfig.addFolder by what it is; EventContexts makes the open picker list again.
+func TestSyncFromTheMenuAndEventsReloadThePicker(t *testing.T) {
 	f, rec := kubeconfigFake(t, engine.ExecRequired)
+	f.handlers["kubeconfig.addFolder"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		rec.add(inv)
+		return map[string]any{"source": map[string]any{"id": "team/", "kind": "folder"}, "contexts": []string{}}, nil
+	}
 	sh, _, q := newTestShell(t, f, Options{})
 	q.until(t, "the picker", func() bool { return sh.picker.visible() && len(sh.picker.contexts) == len(f.contexts) })
 	var labels []string
 	for _, it := range sh.mainMenu().Items[0].Items {
 		labels = append(labels, it.Label)
 	}
-	for _, want := range []string{"Add Kubeconfig File…", "Add Sync Folder…", "Kubeconfig Sources…"} {
+	for _, want := range []string{"Sync Files and Folders…", "Kubeconfig Sources…"} {
 		if !slices.Contains(labels, want) {
 			t.Errorf("Cluster menu %v lacks %q", labels, want)
 		}
 	}
-	var asked []bool
-	sh.kc.pick = func(folder bool, done func(string)) { asked = append(asked, folder); done("/Users/me/dev.yaml") }
-	sh.kc.addFile()
+	for _, gone := range []string{"Add Kubeconfig File…", "Add Sync Folder…"} {
+		if slices.Contains(labels, gone) {
+			t.Errorf("Cluster menu still has %q", gone)
+		}
+	}
+	var asked int
+	sh.kc.pick = func(done func(string, bool)) {
+		asked++
+		if asked == 1 {
+			done("/Users/me/dev.yaml", false)
+		} else {
+			done("/Users/me/team", true)
+		}
+	}
+	sh.kc.addKubeconfigs()
 	q.until(t, "kubeconfig.addFile", func() bool { return slices.Contains(rec.ids(), "kubeconfig.addFile") })
-	if p := rec.params("kubeconfig.addFile"); p["path"] != "/Users/me/dev.yaml" || len(asked) != 1 || asked[0] {
-		t.Errorf("addFile %v, asked %v", p, asked)
+	sh.kc.addKubeconfigs()
+	q.until(t, "kubeconfig.addFolder", func() bool { return slices.Contains(rec.ids(), "kubeconfig.addFolder") })
+	if p := rec.params("kubeconfig.addFile"); p["path"] != "/Users/me/dev.yaml" {
+		t.Errorf("addFile %v", p)
+	}
+	if p := rec.params("kubeconfig.addFolder"); p["path"] != "/Users/me/team" || asked != 2 {
+		t.Errorf("addFolder %v, asked %d", p, asked)
 	}
 
 	f.mu.Lock()
@@ -288,6 +312,6 @@ func TestRenderKubeconfigSources(t *testing.T) {
 	sh, w, q := newTestShell(t, f, Options{})
 	q.until(t, "the picker", sh.picker.visible)
 	sh.kc.showSources()
-	q.until(t, "the sources", func() bool { return sh.kc.sources != nil && len(sh.kc.sources.rows) == 4 })
+	q.until(t, "the sources", func() bool { return sh.kc.sources != nil && len(sh.kc.sources.rows) == 5 })
 	savePNG(t, w, "kubeconfig_sources_dark.png")
 }
