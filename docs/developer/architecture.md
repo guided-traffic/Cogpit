@@ -395,7 +395,7 @@ preferences (`cogpit.ui.sidebarWidth`, `cogpit.ui.drawerWidth`, in points) when 
 read again when the shell is built. Bounds: sidebar 160 to 480 (default 216), drawer 320 to 1000
 (default 600), and the room beside a panel (the workspace beside the sidebar, the table beside the
 drawer) keeps 480 points, whichever comes first; a stored value outside the bounds, zero or not a
-number is clamped or replaced by the default, and a window too narrow for the stored width shows
+number is clamped or replaced by the default, a drag is anchored to the pointer (the width is the one at the drag's start plus the pointer's total travel, clamped, so after overshooting a limit the edge stays until the pointer is back over it), and a window too narrow for the stored width shows
 the panel narrower without overwriting the stored value.
 
 **Why the content used to drive the drawer's width, and the rule now.** The drawer sat in a

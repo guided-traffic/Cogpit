@@ -62,6 +62,8 @@ type drawer struct {
 	copyBtn    *copyButton
 	copyOwner  fyne.CanvasObject // the value the copy icon is shown for
 	copyHook   *copyHook
+	copyStale  fyne.CanvasObject // the value it was shown for before the last rebuild
+	copyHooks  []*copyHook       // the hooks of the values built last (keepCopy)
 }
 
 func newDrawer(sh *shell) *drawer {
@@ -282,9 +284,11 @@ func (d *drawer) rebuild() {
 	if d.last == nil {
 		return
 	}
+	anchor := d.copyAnchorNow()
 	d.resetCopy()
 	d.details.Objects = d.buildDetails(d.last)
 	d.details.Refresh()
+	d.keepCopy(anchor)
 }
 
 // clear forgets the shown object when the drawer closes.
@@ -477,7 +481,7 @@ func (d *drawer) itemValue(ref model.ObjectRef, sec model.DetailSection, it mode
 		if act.Link && v == nil {
 			l := newLinkText(it.Value, func() { d.sh.runItemAction(ref, act) })
 			if copyable {
-				l.hook = d.copyFor(it.Value, false)
+				d.hookLink(l, it.Value)
 			}
 			v = l
 			continue
@@ -587,7 +591,7 @@ func (d *drawer) plainValue(ref model.ObjectRef, it model.DetailItem, copyable b
 	case it.Link != nil && d.sh.view.serves(it.Link.Kind):
 		link := *it.Link
 		l := newLinkText(it.Value, func() { d.sh.followLink(link, ref.Context, false) })
-		l.hook = d.copyFor(copyOf(it.Value), false)
+		d.hookLink(l, copyOf(it.Value))
 		return l
 	case it.Pill:
 		return wrapCopy(container.NewHBox(d.valuePill(it.Value, colorMuted, true)), d.copyFor(copyOf(it.Value), false))
@@ -624,10 +628,12 @@ func (d *drawer) chips(ref model.ObjectRef, chips []model.Chip, copyOf func(stri
 		total += len(c.Text)
 		natural += fyne.MeasureText(c.Text, size, fyne.TextStyle{}).Width + 3*d.sh.app.Settings().Theme().Size(theme.SizeNamePadding)
 	}
+	gutter := d.copyBtn.MinSize().Width + d.sh.app.Settings().Theme().Size(theme.SizeNamePadding)
+	natural += float32(len(chips)-1) * gutter // room for the copy icon after each chip but the last
 	oneLine := len(chips) <= chipsPerLine && total <= chipsLineMaxText && natural <= d.valueWidth()
 	out := container.NewVBox()
 	line := container.NewHBox()
-	for _, c := range chips {
+	for i, c := range chips {
 		var o fyne.CanvasObject
 		switch {
 		case c.Link != nil && d.sh.view.serves(c.Link.Kind):
@@ -639,6 +645,9 @@ func (d *drawer) chips(ref model.ObjectRef, chips []model.Chip, copyOf func(stri
 			o = d.valuePill(c.Text, theme.ColorNameForeground, false)
 		}
 		o = wrapCopy(o, d.copyFor(copyOf(c.Text), false))
+		if hw, ok := o.(*hoverWrap); ok && oneLine && i < len(chips)-1 {
+			hw.gutter = gutter // so that the icon, which sits after the chip, covers no neighbour
+		}
 		if oneLine {
 			line.Add(o)
 		} else {

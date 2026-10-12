@@ -613,8 +613,12 @@ Universal Clipboard); the 60 seconds and the clearing on close stay. Options wei
   its lines. Not drag-selectable, because they are tappable or drawn as shapes: links, chips and
   status pills (they have the copy icon).
 - One copy icon (`copyButton`), which the drawer moves to the value the pointer is over. It sits
-  right after the value's text, or on the value's right end when the value is wider, and on a chip
-  it covers the chip's last characters. A tap puts the value on the clipboard and shows a toast
+  right after the value's text, or on the value's right end when the value is wider; on a chip or
+  a pill it sits right after the chip, outside it and vertically centred (a chip with a neighbour
+  in its row keeps a gap for it), so it covers no chip text. When the drawer rebuilds under a
+  stationary pointer (a watch event), the icon is shown again at the value that now covers the
+  place of the old one, without a new `MouseIn` (`keepCopy`); it goes when the pointer moves
+  away. A tap puts the value on the clipboard and shows a toast
   ("Copied to the clipboard"). Values of several entries copy the entry under the pointer: a folded
   list has no icon while folded; an entry of the form `key=value` (labels, annotations, selectors,
   environment variables) is copied as `key: value`, any other entry as a YAML scalar, quoted only

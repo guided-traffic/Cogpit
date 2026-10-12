@@ -59,7 +59,7 @@ func (d *drawer) tableCell(ref model.ObjectRef, typ model.ColumnType, c model.Ce
 	case c.Link != nil && text != "" && d.sh.view.serves(c.Link.Kind):
 		link := *c.Link
 		l := newLinkText(text, func() { d.sh.followLink(link, ref.Context, false) })
-		l.hook = d.copyFor(text, false)
+		d.hookLink(l, text)
 		return l
 	}
 	fg := theme.ColorNameForeground

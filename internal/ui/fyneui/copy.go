@@ -8,6 +8,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -63,17 +64,41 @@ type copyHook struct {
 	d      *drawer
 	text   string
 	secret bool
+	chip   bool // the value is a chip or a pill: the icon sits after it, outside (showCopy)
+	val    hoverValue
+}
+
+// hoverValue is a value widget that shows the copy icon when the pointer enters it.
+type hoverValue interface {
+	fyne.CanvasObject
+	desktop.Hoverable
 }
 
 func (h *copyHook) enter(w fyne.CanvasObject, natural float32) { h.d.showCopy(w, h, natural) }
 func (h *copyHook) leave(w fyne.CanvasObject)                  { h.d.hideCopy(w) }
+
+// bind tells the hook which widget it belongs to, so that the drawer can show the icon again at
+// the value under a pointer that has not moved after a rebuild (keepCopy). Nil-safe.
+func (h *copyHook) bind(w hoverValue) {
+	if h != nil {
+		h.val = w
+	}
+}
+
+// hookLink gives the link text l the copy icon for text.
+func (d *drawer) hookLink(l *linkText, text string) {
+	l.hook = d.copyFor(text, false)
+	l.hook.bind(l)
+}
 
 // copyFor returns the hook for a value, or nil for text that has none.
 func (d *drawer) copyFor(text string, secret bool) *copyHook {
 	if text == "" {
 		return nil
 	}
-	return &copyHook{d: d, text: text, secret: secret}
+	h := &copyHook{d: d, text: text, secret: secret}
+	d.copyHooks = append(d.copyHooks, h)
+	return h
 }
 
 // line returns a selectable text line of the drawer. copyText is what its icon copies; "" for none.
@@ -84,36 +109,95 @@ func (d *drawer) line(text string, fg fyne.ThemeColorName, size fyne.ThemeSizeNa
 }
 
 // showCopy puts the copy icon by the value w, which the pointer entered. natural is the width of
-// the value's text: the icon sits right after it, or at the value's right end when it is wider.
+// the value's text. For a text value the icon sits right after the text, or at the value's right
+// end when the text is wider. For a chip or a pill it sits right after the chip, outside it, so
+// that it covers no chip text of its own; at the right end of the details when the chip reaches
+// it. Either way it is centred on a single-line value and at the top of a wrapped one.
 func (d *drawer) showCopy(w fyne.CanvasObject, h *copyHook, natural float32) {
 	drv := fyne.CurrentApp().Driver()
 	host := drv.AbsolutePositionForObject(d.host)
 	at := drv.AbsolutePositionForObject(w).Subtract(host)
 	ms := d.copyBtn.MinSize()
-	x := fyne.Min(natural+d.sh.app.Settings().Theme().Size(theme.SizeNamePadding), w.Size().Width-ms.Width)
+	room := w.Size().Width - ms.Width
+	if h.chip {
+		room = d.host.Size().Width - ms.Width - at.X
+	}
+	x := fyne.Min(natural+d.sh.app.Settings().Theme().Size(theme.SizeNamePadding), room)
 	y := float32(0)
 	if lineH := fyne.MeasureText("Mg", d.sh.app.Settings().Theme().Size(theme.SizeNameText), fyne.TextStyle{}).Height; w.Size().Height <= 1.6*lineH {
 		y = (w.Size().Height - ms.Height) / 2
 	}
-	d.copyOwner, d.copyHook = w, h
+	d.copyOwner, d.copyHook, d.copyStale = w, h, nil
 	d.hostLayout.over = at.AddXY(fyne.Max(x, 0), y)
 	d.copyBtn.Show()
 	d.host.Refresh()
 }
 
-// hideCopy hides the copy icon when w is the value it is shown for.
+// hideCopy hides the copy icon when w is the value it is shown for, or the one it was shown for
+// before a rebuild: the pointer leaves that one when it moves on.
 func (d *drawer) hideCopy(w fyne.CanvasObject) {
-	if d.copyOwner == w && d.copyBtn.Visible() {
+	if (d.copyOwner == w || d.copyStale == w) && d.copyBtn.Visible() {
 		d.copyBtn.Hide()
+	}
+	if d.copyStale == w {
+		d.copyStale = nil
 	}
 }
 
 // resetCopy forgets the value the icon was shown for: the drawer rebuilt or moved.
 func (d *drawer) resetCopy() {
-	d.copyOwner, d.copyHook = nil, nil
+	d.copyOwner, d.copyHook, d.copyStale, d.copyHooks = nil, nil, nil, nil
 	if d.copyBtn != nil && d.copyBtn.Visible() {
 		d.copyBtn.Hide()
 	}
+}
+
+// copyAnchor is where the copy icon was when the drawer began to rebuild.
+type copyAnchor struct {
+	owner fyne.CanvasObject
+	rect  fyne.Position // top left, relative to the details
+	size  fyne.Size
+}
+
+// copyAnchorNow remembers the value the visible icon belongs to, or returns nil.
+func (d *drawer) copyAnchorNow() *copyAnchor {
+	if d.copyOwner == nil || d.copyBtn == nil || !d.copyBtn.Visible() {
+		return nil
+	}
+	drv := fyne.CurrentApp().Driver()
+	at := drv.AbsolutePositionForObject(d.copyOwner).Subtract(drv.AbsolutePositionForObject(d.host))
+	return &copyAnchor{owner: d.copyOwner, rect: at, size: d.copyOwner.Size()}
+}
+
+// keepCopy shows the icon again after a rebuild, at the new value that covers most of the place of
+// the old one: the pointer has not moved, so it is still there (the demo cluster rebuilds the
+// drawer every few seconds). The old widget is remembered so that its MouseOut, which is what the
+// driver sends when the pointer moves on, hides the icon.
+func (d *drawer) keepCopy(a *copyAnchor) {
+	if a == nil {
+		return
+	}
+	drv := fyne.CurrentApp().Driver()
+	host := drv.AbsolutePositionForObject(d.host)
+	var best *copyHook
+	var bestArea float32
+	for _, h := range d.copyHooks {
+		if h.val == nil || !h.val.Visible() {
+			continue
+		}
+		at := drv.AbsolutePositionForObject(h.val).Subtract(host)
+		sz := h.val.Size()
+		ow := fyne.Min(a.rect.X+a.size.Width, at.X+sz.Width) - fyne.Max(a.rect.X, at.X)
+		oh := fyne.Min(a.rect.Y+a.size.Height, at.Y+sz.Height) - fyne.Max(a.rect.Y, at.Y)
+		if ow > 0 && oh > 0 && ow*oh > bestArea {
+			best, bestArea = h, ow*oh
+		}
+	}
+	if best == nil {
+		return
+	}
+	best.val.MouseIn(&desktop.MouseEvent{})
+	d.copyStale = a.owner
 }
 
 // copyHovered runs the copy icon: the value's text on the clipboard, and a toast that says so.
@@ -251,6 +335,7 @@ type hoverWrap struct {
 	widget.BaseWidget
 	content fyne.CanvasObject
 	hook    *copyHook
+	gutter  float32 // room kept empty after the content, for the copy icon: a chip with a neighbour
 }
 
 var _ desktop.Hoverable = (*hoverWrap)(nil)
@@ -260,13 +345,15 @@ func wrapCopy(content fyne.CanvasObject, hook *copyHook) fyne.CanvasObject {
 	if hook == nil {
 		return content
 	}
+	hook.chip = true
 	w := &hoverWrap{content: content, hook: hook}
 	w.ExtendBaseWidget(w)
+	hook.bind(w)
 	return w
 }
 
 // MouseIn implements desktop.Hoverable.
-func (w *hoverWrap) MouseIn(*desktop.MouseEvent) { w.hook.enter(w, w.content.MinSize().Width) }
+func (w *hoverWrap) MouseIn(*desktop.MouseEvent) { w.hook.enter(w, w.Size().Width-w.gutter) }
 
 // MouseMoved implements desktop.Hoverable.
 func (w *hoverWrap) MouseMoved(*desktop.MouseEvent) {}
@@ -275,7 +362,21 @@ func (w *hoverWrap) MouseMoved(*desktop.MouseEvent) {}
 func (w *hoverWrap) MouseOut() { w.hook.leave(w) }
 
 // CreateRenderer implements fyne.Widget.
-func (w *hoverWrap) CreateRenderer() fyne.WidgetRenderer { return widget.NewSimpleRenderer(w.content) }
+func (w *hoverWrap) CreateRenderer() fyne.WidgetRenderer {
+	return widget.NewSimpleRenderer(container.New(gutterLayout{w}, w.content))
+}
+
+// gutterLayout puts the content of a hoverWrap at its left and leaves the gutter free.
+type gutterLayout struct{ w *hoverWrap }
+
+func (l gutterLayout) MinSize(objs []fyne.CanvasObject) fyne.Size {
+	return objs[0].MinSize().AddWidthHeight(l.w.gutter, 0)
+}
+
+func (l gutterLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
+	objs[0].Move(fyne.Position{})
+	objs[0].Resize(fyne.NewSize(size.Width-l.w.gutter, size.Height))
+}
 
 var entryKey = regexp.MustCompile(`^[A-Za-z0-9_./-]+$`)
 

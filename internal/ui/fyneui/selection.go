@@ -188,6 +188,7 @@ var _ desktop.Hoverable = (*selLine)(nil)
 
 func newSelLine(line *textLine, hook *copyHook, copied func(string)) *selLine {
 	s := &selLine{line: line, hook: hook}
+	hook.bind(s)
 	s.ExtendBaseWidget(s)
 	s.self = s
 	s.getText = func() string { return line.text }
@@ -329,6 +330,7 @@ const secretMinCols = 16
 
 func newSecretText(text string, hook *copyHook, copied func(string)) *secretText {
 	t := &secretText{text: text, hook: hook, cols: 48}
+	hook.bind(t)
 	t.ExtendBaseWidget(t)
 	t.self = t
 	t.getText = func() string { return t.text }
