@@ -1266,6 +1266,24 @@ draws them with canvas lines in theme tokens: usage in the accent colour, reques
 capacity in the warning colour, limits and capacity in the error colour, events in the pending
 yellow; its width is never more than the drawer's.
 
+**Hovering a chart** (2026-10-12, owner: "hover and get information about the exact time and value";
+[`chart_hover.go`](../../internal/ui/fyneui/chart_hover.go)). Over the plot, a vertical crosshair stands
+on the data point nearest to the pointer, a dot sits on each series at that point, and a panel inside
+the chart (not the shell's delayed tooltip, so it needs no shell, has no delay and flips to the
+crosshair's other side before it leaves the chart, which keeps it readable at the drawer's 320-unit
+minimum) lists the local time with seconds and "N s ago", each series' value and the dashed lines'
+values (request and limit, or allocatable capacity and capacity). The values use `chartData.Detail`
+(CPU in millicores below one core, memory in binary units with one decimal; the axis's `Format` when
+unset); within 5 units of an event marker the panel also names the event (reason, count, time, the
+message cut to one line), taken from the marker's own `Reason`, `Message` and `Count`. The chart
+implements only `desktop.Hoverable`, so clicks and scrolls pass through; `MouseOut`, `Hide` and no
+data clear the panel. The pointer is kept across `Set`: a new poll recomputes the crosshair at the
+same x, and only the overlay's objects are replaced, never the chart's own, so nothing flickers
+(`TestHoverSnapsToTheNearestPoint`, `TestHoverNamesTheEventNearAMarker`,
+`TestHoverOutHidesAndDataRefreshKeepsTheCrosshair`, `TestHoverNoDataNoPanelAndClicksPassThrough`,
+`TestDrawerChartsHoverPerChartAndVariant`). The chart still knows nothing of its data's source, so the
+Prometheus provider's series hover the same way.
+
 *Limits worth knowing.* The Metrics Server keeps no history: the chart starts when the drawer opens
 (the hub seeds it with the list's last measurement) and the panel says so. The series is per
 drawer, not per object: closing the drawer drops it. The Pods and Nodes lists fit a 1,440-pixel window

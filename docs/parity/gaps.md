@@ -435,6 +435,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
     (vertical lines with a diamond, toggled by a flag button) at the time they happened.
   - **Interactive charts (owner, 2026-10-12):** hovering a chart shows the exact time and value
     under the pointer (each series' value, the request and limit, an event marker's event).
+    **Built 2026-10-12:** a crosshair on the nearest data point, a dot per series and a panel with
+    the exact time, the values, the request and limit and the event near a marker, on every chart
+    and variant ([architecture §9](../developer/architecture.md#9-metrics-internalmetrics)).
   - Captured from Lens with the owner (screenshot, 2026-10-12): the Metrics panel's range dropdown,
     the four variant buttons and the event-marker toggle, the source line, the time axis, a legend.
 - **Built (2026-10-12, first slice):** the Metrics Server end to end. Provider detection per cluster
@@ -647,6 +650,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | G12: the owner's hover requirement built (crosshair, dots and a panel with time, values, request and limit, events); estimate not moved |
 | 2026-10-12 | minor | G12: every drawer chart has its own controls (owner's smoke launch: "no main button"); estimate not moved |
 | 2026-10-12 | minor | G2 (scope C2): the Kubeconfig Syncs captures followed: dot files, a closed connection, one dialog, `~/.kube` by default, the connect log, the Remove confirmation; estimate not moved (the lead recounts) |
 | 2026-10-12 | major | Totals after the fourth run: free parity ~420–1,040 h, full target ~620–1,450 h |

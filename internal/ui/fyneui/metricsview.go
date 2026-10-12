@@ -2,7 +2,9 @@ package fyneui
 
 import (
 	"fmt"
+	"math"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -389,9 +391,9 @@ func (c *chartCtl) renderTarget() {
 	d := chartData{From: to.Add(-c.window), To: to, Compact: c.compact, Loc: p.d.sh.loc(), Empty: "No data yet"}
 	cpu := c.variant == variantCPU
 	if cpu {
-		d.Format = formatCores
+		d.Format, d.Detail = formatCores, formatCoresExact
 	} else {
-		d.Format = formatBytesShort
+		d.Format, d.Detail = formatBytesShort, formatBytesExact
 	}
 	value := func(u model.Usage) float64 {
 		if cpu {
@@ -430,7 +432,10 @@ func (c *chartCtl) renderTarget() {
 	if c.showEvents {
 		for _, e := range p.events {
 			if e.LastSeen > 0 {
-				d.Markers = append(d.Markers, chartMarker{At: time.Unix(e.LastSeen, 0), Name: "Events", Color: colorStatusPending})
+				d.Markers = append(d.Markers, chartMarker{
+					At: time.Unix(e.LastSeen, 0), Name: "Events", Color: colorStatusPending,
+					Reason: e.Reason, Message: e.Message, Count: e.Count,
+				})
 			}
 		}
 	}
@@ -468,6 +473,30 @@ func (sh *shell) loc() *time.Location { return sh.now().Location() }
 
 // formatCores formats cores for the value axis: "0.25", "1.5", "2".
 func formatCores(v float64) string { return fmt.Sprintf("%.3g", v) }
+
+// formatCoresExact formats cores for the hover panel: millicores below one core ("250m"), else
+// cores with up to three decimals ("1.25").
+func formatCoresExact(v float64) string {
+	if v < 1 {
+		return fmt.Sprintf("%dm", int(math.Round(v*1000)))
+	}
+	return strconv.FormatFloat(math.Round(v*1000)/1000, 'f', -1, 64)
+}
+
+// formatBytesExact formats bytes for the hover panel in binary units with one decimal where it
+// matters: "192.4Mi", "1.5Gi"; below 1Ki the plain count with "B".
+func formatBytesExact(v float64) string {
+	if v < 1024 {
+		return fmt.Sprintf("%.0fB", v)
+	}
+	units := []string{"Ki", "Mi", "Gi", "Ti", "Pi"}
+	i := -1
+	for v >= 1024 && i < len(units)-1 {
+		v /= 1024
+		i++
+	}
+	return strconv.FormatFloat(math.Round(v*10)/10, 'f', -1, 64) + units[i]
+}
 
 // formatBytesShort formats bytes for the value axis in binary units without the "B": "64Mi", "1.5Gi".
 func formatBytesShort(v float64) string {

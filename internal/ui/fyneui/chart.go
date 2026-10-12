@@ -23,6 +23,14 @@ import (
 type chart struct {
 	widget.BaseWidget
 	data chartData
+
+	// The hover (chart_hover.go): the pointer while it is over the chart, the plot's geometry from
+	// the last layout, the panel computed from both, and the renderer that draws it.
+	hovering bool
+	pointer  fyne.Position
+	geom     chartGeom
+	hover    *chartHover
+	rend     *chartRenderer
 }
 
 // chartData is what a chart draws.
@@ -38,6 +46,8 @@ type chartData struct {
 	Markers []chartMarker
 	// Format formats a value for the axis; nil prints the number.
 	Format func(float64) string
+	// Detail formats a value for the hover panel, more exactly than the axis; nil uses Format.
+	Detail func(float64) string
 	// Empty is the text shown in place of the plot while there is no point to draw.
 	Empty string
 	// Compact leaves out the legend and the horizontal grid's labels get a smaller plot (a
@@ -64,8 +74,11 @@ type chartLine struct {
 
 type chartMarker struct {
 	At    time.Time
-	Name  string
+	Name  string // the kind of moment, for the legend ("Events")
 	Color fyne.ThemeColorName
+	// Reason, Message and Count say what happened; the hover panel names them.
+	Reason, Message string
+	Count           int64
 }
 
 // Chart geometry, in Fyne units.
@@ -98,17 +111,24 @@ func (c *chart) Set(d chartData) {
 // CreateRenderer implements fyne.Widget.
 func (c *chart) CreateRenderer() fyne.WidgetRenderer {
 	r := &chartRenderer{c: c}
+	c.rend = r
 	r.Refresh()
 	return r
 }
 
 type chartRenderer struct {
-	c    *chart
-	objs []fyne.CanvasObject
+	c       *chart
+	objs    []fyne.CanvasObject
+	overlay []fyne.CanvasObject // the hover's crosshair, dots and panel, above the rest
 }
 
-func (r *chartRenderer) Objects() []fyne.CanvasObject { return r.objs }
-func (r *chartRenderer) Destroy()                     {}
+func (r *chartRenderer) Objects() []fyne.CanvasObject {
+	if len(r.overlay) == 0 {
+		return r.objs
+	}
+	return append(r.objs[:len(r.objs):len(r.objs)], r.overlay...)
+}
+func (r *chartRenderer) Destroy() {}
 
 func (r *chartRenderer) Refresh() {
 	r.Layout(r.c.Size())
@@ -250,14 +270,10 @@ func (r *chartRenderer) Layout(size fyne.Size) {
 	}
 	left := labelW + m.pad*2
 	plotW := fyne.Max(size.Width-left-m.pad, 1)
-	y := func(v float64) float32 { return top + plotH - float32(v/top2)*plotH }
 	span := d.To.Sub(d.From)
-	x := func(t time.Time) float32 {
-		if span <= 0 {
-			return left
-		}
-		return left + float32(float64(t.Sub(d.From))/float64(span))*plotW
-	}
+	g := chartGeom{left: left, top: top, w: plotW, h: plotH, top2: top2, from: d.From, span: span}
+	r.c.geom = g
+	y, x := g.y, g.x
 
 	// Plot background and grid.
 	bg := canvas.NewRectangle(col(theme.ColorNameInputBackground))
@@ -403,6 +419,10 @@ func (r *chartRenderer) Layout(size fyne.Size) {
 			entry(d.Markers[0].Name, fallback(d.Markers[0].Color, colorStatusPending))
 		}
 	}
+
+	// A pointer still over the chart after new data or a resize gets its crosshair at the same x.
+	r.c.hover = r.c.computeHover()
+	r.buildOverlay()
 }
 
 func fallback(n, def fyne.ThemeColorName) fyne.ThemeColorName {
