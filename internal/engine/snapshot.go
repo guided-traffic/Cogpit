@@ -252,7 +252,8 @@ func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unst
 	}
 	return &TableSnapshot{
 		View: p.Key, Context: context, Title: p.Title, Namespaced: p.Namespaced,
-		Columns: ColumnsShown(p.Columns, params.hidden, params.hiddenSet), Rows: rows, Sort: params.sort,
+		Columns: ColumnsShown(p.Columns, params.hidden, params.hiddenSet), Order: ColumnOrder(p.Columns, params.order),
+		Rows: rows, Sort: params.sort,
 		Namespaces: slices.Clone(params.namespaces), Filter: params.filter,
 		Total: len(objs),
 	}

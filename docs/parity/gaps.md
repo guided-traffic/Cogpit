@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G5: row checkboxes and the selection's menu built; G9, G7: Delete of a selection built in the engine (`object.deleteMany`), estimates not moved; G5, G13: the welcome page, the Help and Window menus, Disconnect and Remove from Cogpit built, four rows partial, estimates not moved; G8: the log tab's pod and container selectors, older lines and jump to a time partial; G8: the log tab's pod and container selectors and older lines partial; G8: the log tab's pod and container selectors partial; G11: a release upgraded to a version from the user's repositories; G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G5: column reorder by dragging built; G5: row checkboxes and the selection's menu built; G9, G7: Delete of a selection built in the engine (`object.deleteMany`), estimates not moved; G5, G13: the welcome page, the Help and Window menus, Disconnect and Remove from Cogpit built, four rows partial, estimates not moved; G8: the log tab's pod and container selectors, older lines and jump to a time partial; G8: the log tab's pod and container selectors and older lines partial; G8: the log tab's pod and container selectors partial; G11: a release upgraded to a version from the user's repositories; G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -776,6 +776,13 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestHeaderCheckbox`, `TestSelectionMenu`, [PNG](../../internal/ui/fyneui/testdata/selection_menu_dark.png),
   [ui-parity › Tables](ui-parity.md#tables)). Not tried in a real window. Estimate not moved (the
   lead recounts).
+- **Column reorder (built 2026-10-13, night run):** a header dragged into another gap moves its
+  column; the order is engine state per view (`ui.setColumnOrder`, `UIState.ColumnOrder`), kept for
+  the session, followed by the table, the column list and the CSV export, reset from the header's
+  ⋮. Inferred, Cogpit's look: a chip under the pointer and an accent line in the gap
+  ([`columnorder.go`](../../internal/ui/fyneui/columnorder.go), `TestDragHeaderReordersColumns`,
+  `TestSetColumnOrder`, [PNG](../../internal/ui/fyneui/testdata/column_drag_dark.png)). Not tried
+  with a real pointer. Estimate not moved (the lead recounts).
 - **Missing:** the Fyne window layout, the cluster sidebar, the table, the detail drawer and the
   dock frame; Cogpit's Fyne theme. Needs the [spike](../developer/spike-fyne.md) to pass.
 - **Evidence:** [ui-parity](ui-parity.md), 18 of 40 rows partial across Layout, Cluster sidebar,
@@ -787,7 +794,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   tooltips, the warning column (Pods, Nodes; rules inferred), links in cells, tooltips on cut-off
   cells, the drawer's Properties section with folded lists, links and the events at the end, a
   cordoned node's Conditions; cell tooltips and right-click are done. Still missing: title bar
-  with history, welcome page, keyboard navigation, CSV export, column reorder and hiding,
+  with history, welcome page, keyboard navigation, CSV export, column reorder (built 2026-10-13) and hiding,
   row checkboxes and multi-selection in row menus (built 2026-10-13), the drawer's Copy and port Forward…, the Pods
   view's container squares, Cogpit's own title bar on macOS (owner, 2026-10-11: no standard title
   bar, the logo beside the window buttons; [ui-parity](ui-parity.md#layout)).
@@ -797,8 +804,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   on a column separator fits the column; "18 items" with a CSV download (`table.exportCsv`, written
   in the engine); the Workloads Overview as a page (`workloads/overview`, `workloads.overview`);
   Cogpit's own title bar on macOS, built but not yet seen in a real window (smoke launch). Still
-  missing from this list: history in the title bar (the tab bar and its history built 2026-10-13), column reorder (the welcome page built 2026-10-13), the
-  drawer's Copy and Forward…, container squares (row checkboxes and multi-selection built 2026-10-13).
+  missing from this list: history in the title bar (the tab bar and its history built 2026-10-13), the
+  drawer's Copy and Forward…, container squares (the welcome page, row checkboxes, multi-selection and column reorder built 2026-10-13).
 - **Estimate:** 35–110 h (was 45–130; title bar, keyboard, columns, CSV and the Workloads Overview built, third run).
 
 ### G13. Clusters, hotbar, palette, menus, shortcuts and preferences

@@ -87,6 +87,7 @@ type tableView struct {
 	selected   []model.ObjectRef
 	pending    *model.ObjectRef // a selected object to scroll to once a snapshot contains it
 	check      tableChecks      // the row checkboxes, the header's and the selection bar (tablecheck.go)
+	order      *columnDrag      // a header dragged to another place (columnorder.go)
 
 	userWidths map[string]float32 // widths the user dragged, by view and column id
 	setWidths  []float32          // the width the shell last gave each visible column
@@ -110,6 +111,7 @@ type tableView struct {
 
 func newTableView(sh *shell) *tableView {
 	tv := &tableView{sh: sh, hoverRow: -1, hoverCol: -1, userWidths: map[string]float32{}, icons: map[cellIconKey]fyne.Resource{}}
+	tv.order = newColumnDrag(tv) // before the table: its header cells take the drag's callbacks
 
 	tv.title = newTextLine("", theme.ColorNameForeground, theme.SizeNameSubHeadingText, fyne.TextStyle{Bold: true})
 	tv.count = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
@@ -157,7 +159,7 @@ func newTableView(sh *shell) *tableView {
 	tv.pageBox.Hide()
 	frame := box(&stretchLayout{tv: tv}, tv.table)
 	tv.create = newCreateButton(sh)
-	body := container.NewStack(newSurface(theme.ColorNameBackground), frame, tv.placeholder, tv.create.floating())
+	body := container.NewStack(newSurface(theme.ColorNameBackground), frame, tv.order.layer, tv.placeholder, tv.create.floating())
 	tv.root = container.NewBorder(
 		container.NewVBox(header, tv.pageBox, inset(theme.SizeNameInnerPadding, "", tv.errLine)),
 		nil, nil, nil, body)
@@ -315,7 +317,8 @@ func (tv *tableView) setSnapshot(snap *engine.TableSnapshot) {
 	if snap != nil {
 		var b strings.Builder
 		b.WriteString(snap.View)
-		for _, c := range snap.Columns {
+		for _, i := range snap.DisplayOrder() { // the order the user arranged (columnorder.go)
+			c := snap.Columns[i]
 			b.WriteByte('|')
 			b.WriteString(c.ID)
 			if c.Hidden {
@@ -328,8 +331,8 @@ func (tv *tableView) setSnapshot(snap *engine.TableSnapshot) {
 		tv.colsKey = key
 		tv.cols = tv.cols[:0]
 		if snap != nil {
-			for i, c := range snap.Columns {
-				if !c.Hidden {
+			for _, i := range snap.DisplayOrder() {
+				if !snap.Columns[i].Hidden {
 					tv.cols = append(tv.cols, i)
 				}
 			}
@@ -497,7 +500,9 @@ func (tv *tableView) updateCell(id widget.TableCellID, o fyne.CanvasObject) {
 }
 
 func (tv *tableView) createHeader() fyne.CanvasObject {
-	return newHeaderCell(tv.headerTapped)
+	h := newHeaderCell(tv.headerTapped)
+	h.onDrag, h.onDragEnd = tv.order.dragged, tv.order.ended // a column's header moves it (columnorder.go)
+	return h
 }
 
 // updateHeader fills a column header and notices widths the user dragged: Fyne has no column
@@ -1530,13 +1535,15 @@ type cellIconKey struct {
 // the ⋮ column shows a ⋮ instead, which opens the list of columns to show and hide.
 type headerCell struct {
 	widget.BaseWidget
-	onTap func(col int)
-	col   int
-	title string
-	sort  int  // 1 ascending, -1 descending, 0 not sorted
-	menu  bool // the ⋮ at the end of the header row
-	box   bool // the checkbox at the start of the header row (tablecheck.go)
-	boxed int  // the checkbox's state: checkNone, checkSome or checkAll
+	onTap     func(col int)
+	onDrag    func(col int, ev *fyne.DragEvent) // dragging the header moves its column (columnorder.go)
+	onDragEnd func(col int)
+	col       int
+	title     string
+	sort      int  // 1 ascending, -1 descending, 0 not sorted
+	menu      bool // the ⋮ at the end of the header row
+	box       bool // the checkbox at the start of the header row (tablecheck.go)
+	boxed     int  // the checkbox's state: checkNone, checkSome or checkAll
 
 	text  *canvas.Text
 	arrow *iconImage

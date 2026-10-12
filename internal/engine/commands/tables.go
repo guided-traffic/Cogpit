@@ -20,6 +20,12 @@ type columnsParams struct {
 	Reset  bool     `json:"reset,omitempty" jsonschema:"true: go back to the view's default columns; hidden is then ignored"`
 }
 
+type columnOrderParams struct {
+	View  string   `json:"view,omitempty" jsonschema:"kind key of the view; empty or omitted: the open view"`
+	Order []string `json:"order,omitempty" jsonschema:"column ids in the order to show them, left to right (kinds_list lists a kind's columns); the columns left out follow in the kind's order"`
+	Reset bool     `json:"reset,omitempty" jsonschema:"true: go back to the kind's order; order is then ignored"`
+}
+
 type groupsParams struct {
 	Groups []string `json:"groups,omitempty" jsonschema:"API groups the Definitions view shows (cert-manager.io); empty or omitted shows all groups"`
 }
@@ -75,6 +81,44 @@ func registerTables(g *registrar) {
 					u.HiddenColumns = map[string][]string{}
 				}
 				u.HiddenColumns[view] = hidden
+			}), nil
+		},
+	})
+
+	add(g, engine.Spec[columnOrderParams]{
+		ID: "ui.setColumnOrder", Label: "Column Order", Danger: engine.DangerUI,
+		Description: "Arranges the columns of a view, as dragging a column's header does: order lists column ids " +
+			"left to right, and the columns it leaves out follow in the kind's order. Each view keeps its own order " +
+			"for the session, hidden columns included (ui_setColumns hides them); reset returns a view to its " +
+			"kind's order, as Reset Column Order in the header's ⋮ does. ui_state shows the arranged views in " +
+			"columnOrder; a view's table and its CSV export follow it. Returns the new UI state.",
+		Enabled: func(s *engine.Session, _ columnOrderParams) error { _, err := connected(s); return err },
+		Run: func(_ context.Context, s *engine.Session, p columnOrderParams) (any, error) {
+			view := p.View
+			if view == "" {
+				view = s.UIState().View
+			}
+			if view == "" {
+				return nil, errors.New("no view is open; name one in view")
+			}
+			prof, ok := s.ViewProfile(view)
+			if !ok {
+				_, _, err := s.Kind(view)
+				return nil, err
+			}
+			order, err := columnOrder(prof, p.Order)
+			if err != nil {
+				return nil, err
+			}
+			return s.UpdateUI(func(u *engine.UIState) {
+				if p.Reset || engine.ColumnOrder(prof.Columns, order) == nil {
+					delete(u.ColumnOrder, view)
+					return
+				}
+				if u.ColumnOrder == nil {
+					u.ColumnOrder = map[string][]string{}
+				}
+				u.ColumnOrder[view] = order
 			}), nil
 		},
 	})
@@ -138,6 +182,28 @@ func csvFilename(view, context string) string {
 		name += "-" + clean(context)
 	}
 	return name + ".csv"
+}
+
+// columnOrder checks the ids against a kind's columns and returns every column id in the order
+// to show them: the ids given, then the others in the kind's order. An unknown or repeated id is
+// refused.
+func columnOrder(prof *model.KindProfile, ids []string) ([]string, error) {
+	out := make([]string, 0, len(prof.Columns))
+	for _, id := range ids {
+		if prof.ColumnIndex(id) < 0 {
+			return nil, fmt.Errorf("the %s view has no column %q; columns: %s", prof.Key, id, columnIDs(prof))
+		}
+		if slices.Contains(out, id) {
+			return nil, fmt.Errorf("column %q is listed twice", id)
+		}
+		out = append(out, id)
+	}
+	for _, c := range prof.Columns {
+		if !slices.Contains(out, c.ID) {
+			out = append(out, c.ID)
+		}
+	}
+	return out, nil
 }
 
 // hiddenColumns checks the ids against a kind's columns and returns them in the columns' order.

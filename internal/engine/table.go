@@ -12,10 +12,14 @@ type TableSnapshot struct {
 	Title      string         `json:"title"`
 	Namespaced bool           `json:"namespaced"`
 	Columns    []model.Column `json:"columns"`
-	Rows       []model.Row    `json:"rows"`
-	Sort       SortSpec       `json:"sort"`
-	Namespaces []string       `json:"namespaces,omitempty"`
-	Filter     string         `json:"filter,omitempty"`
+	// Order is the order the table shows its columns in, as indexes into Columns (hidden ones
+	// included), when the user arranged them (UIState.ColumnOrder); nil: Columns' order. Columns
+	// keep the kind's order and indexes, so that rows built for the kind fit them.
+	Order      []int       `json:"order,omitempty"`
+	Rows       []model.Row `json:"rows"`
+	Sort       SortSpec    `json:"sort"`
+	Namespaces []string    `json:"namespaces,omitempty"`
+	Filter     string      `json:"filter,omitempty"`
 	// Total is the number of objects before filtering.
 	Total int `json:"total"`
 	// Revision increases with every snapshot of the view.
@@ -24,6 +28,19 @@ type TableSnapshot struct {
 	Synced bool `json:"synced"`
 	// Error is the informer's last error, if any (a forbidden kind, a lost connection).
 	Error string `json:"error,omitempty"`
+}
+
+// DisplayOrder returns the indexes of Columns in the order the table shows them: Order, or
+// Columns' own order.
+func (t *TableSnapshot) DisplayOrder() []int {
+	if t.Order != nil {
+		return t.Order
+	}
+	out := make([]int, len(t.Columns))
+	for i := range out {
+		out[i] = i
+	}
+	return out
 }
 
 // IndexOf returns the index of the row for ref, or -1.

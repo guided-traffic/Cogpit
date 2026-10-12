@@ -384,6 +384,7 @@ type viewParams struct {
 	groups     []string // the Definitions view's API group filter
 	hidden     []string // the view's hidden column ids; only when hiddenSet
 	hiddenSet  bool     // false: the kind's default columns
+	order      []string // the view's column ids in the user's order; nil: the kind's
 	filter     string
 	sort       SortSpec
 }
@@ -393,11 +394,13 @@ func paramsOf(u UIState) viewParams {
 	return viewParams{
 		namespaces: slices.Clone(u.Namespaces), groups: slices.Clone(u.Groups),
 		hidden: slices.Clone(hidden), hiddenSet: set,
+		order:  slices.Clone(u.ColumnOrder[u.View]),
 		filter: u.Filter, sort: u.Sort,
 	}
 }
 
 func (p viewParams) equal(o viewParams) bool {
 	return p.filter == o.filter && p.sort == o.sort && slices.Equal(p.namespaces, o.namespaces) &&
-		slices.Equal(p.groups, o.groups) && p.hiddenSet == o.hiddenSet && slices.Equal(p.hidden, o.hidden)
+		slices.Equal(p.groups, o.groups) && p.hiddenSet == o.hiddenSet && slices.Equal(p.hidden, o.hidden) &&
+		slices.Equal(p.order, o.order)
 }

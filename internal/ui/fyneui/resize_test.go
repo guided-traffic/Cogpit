@@ -39,7 +39,18 @@ func TestColumnResizeByDraggingHeaderSeparator(t *testing.T) {
 		t.Fatalf("cursor over the header gap: %v, want the horizontal resize cursor", cur)
 	}
 	tv.table.MouseDown(&desktop.MouseEvent{PointEvent: fyne.PointEvent{Position: rel, AbsolutePosition: abs}, Button: desktop.MouseButtonPrimary})
-	test.Drag(c, abs.AddXY(60, 0), 60, 0)
+	// The press point is in the gap, where no header cell is: the draggable there is the table's
+	// header row, which forwards to Table.Dragged (a header cell's drag moves its column instead,
+	// columnorder.go). test.Drag would look the draggable up at the end point and send it the
+	// start position, so the events are sent as the GLFW driver sends them.
+	for _, h := range findAll[*headerCell](tv.table) {
+		p := fyne.CurrentApp().Driver().AbsolutePositionForObject(h)
+		if h.Visible() && abs.X >= p.X && abs.X < p.X+h.Size().Width && abs.Y >= p.Y && abs.Y < p.Y+h.Size().Height {
+			t.Fatalf("the press point is on the header of column %d, not in the gap", h.col)
+		}
+	}
+	tv.table.Dragged(&fyne.DragEvent{PointEvent: fyne.PointEvent{Position: rel.AddXY(60, 0), AbsolutePosition: abs.AddXY(60, 0)}, Dragged: fyne.NewDelta(60, 0)})
+	tv.table.DragEnd()
 	q.drain()
 	settle(w)
 

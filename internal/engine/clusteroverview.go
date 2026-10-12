@@ -363,7 +363,8 @@ func issuesTable(context string, ob *overviewBuild, p viewParams) *TableSnapshot
 	SortRows(rows, issuesProfile.Columns, p.sort)
 	return &TableSnapshot{
 		View: ClusterOverview, Context: context, Title: pageTitles[ClusterOverview], Namespaced: true,
-		Columns: ColumnsShown(issuesProfile.Columns, p.hidden, p.hiddenSet), Rows: rows, Sort: p.sort,
+		Columns: ColumnsShown(issuesProfile.Columns, p.hidden, p.hiddenSet), Order: ColumnOrder(issuesProfile.Columns, p.order),
+		Rows: rows, Sort: p.sort,
 		Namespaces: slices.Clone(p.namespaces), Filter: p.filter, Total: len(ob.issues),
 		Synced: ob.synced, Error: ob.errText,
 	}

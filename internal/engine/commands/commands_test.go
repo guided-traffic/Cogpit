@@ -106,6 +106,7 @@ var wantCommands = map[string]engine.Danger{
 
 	// Tables and pages (G5).
 	"ui.setColumns":       engine.DangerUI,
+	"ui.setColumnOrder":   engine.DangerUI, // dragging a header (TestSetColumnOrder)
 	"ui.setGroups":        engine.DangerUI,
 	"table.exportCsv":     engine.DangerRead,
 	"workloads.overview":  engine.DangerRead,

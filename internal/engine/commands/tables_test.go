@@ -103,3 +103,74 @@ func TestSetGroups(t *testing.T) {
 		t.Fatalf("groups %v after clearing", g)
 	}
 }
+
+// columnIDsIn returns a snapshot's column ids in the order the table shows them.
+func columnIDsIn(t *engine.TableSnapshot) []string {
+	var out []string
+	for _, i := range t.DisplayOrder() {
+		out = append(out, t.Columns[i].ID)
+	}
+	return out
+}
+
+// TestSetColumnOrder: an agent arranges a view's columns as dragging a header does; the order is
+// per view, visible in ui_state, applied to the view's snapshot (its columns keep their indexes)
+// and to its CSV export, validated, and reset.
+func TestSetColumnOrder(t *testing.T) {
+	h := newHarness(t, seed(), engine.Options{})
+	agent := engine.OriginExternalAgent
+	h.must(t, agent, "ui.openView", map[string]any{"view": "services"}, nil)
+	before := waitTable(t, h.s, "services", func(s *engine.TableSnapshot) bool { return len(s.Rows) == 3 })
+	natural := columnIDsIn(before)
+	if before.Order != nil || len(natural) < 3 {
+		t.Fatalf("a new view's order %v, columns %v", before.Order, natural)
+	}
+	last := natural[len(natural)-1]
+
+	h.must(t, agent, "ui.setColumnOrder", map[string]any{"order": []string{last, "name"}}, nil)
+	var st commands.StateResult
+	h.must(t, agent, "ui.state", nil, &st)
+	want := append([]string{last, "name"}, slices.DeleteFunc(slices.Clone(natural), func(id string) bool { return id == last || id == "name" })...)
+	if got := st.ColumnOrder["services"]; !slices.Equal(got, want) {
+		t.Fatalf("columnOrder %v, want %v", st.ColumnOrder, want)
+	}
+	snap := waitTable(t, h.s, "services", func(s *engine.TableSnapshot) bool { return slices.Equal(columnIDsIn(s), want) })
+	for i, c := range snap.Columns {
+		if c.ID != natural[i] {
+			t.Fatalf("the snapshot's columns moved: %d is %s, want %s", i, c.ID, natural[i])
+		}
+	}
+	var csv commands.CSVResult
+	h.must(t, agent, "ui.setColumns", map[string]any{"hidden": []string{"namespace"}}, nil)
+	waitTable(t, h.s, "services", func(s *engine.TableSnapshot) bool { return len(hiddenIDs(s)) == 1 && s.Order != nil })
+	h.must(t, agent, "table.exportCsv", nil, &csv)
+	header, _, _ := strings.Cut(csv.CSV, "\n")
+	if titles := strings.Split(header, ","); titles[0] != snap.Columns[slices.Index(natural, last)].Title || titles[1] != "Name" || slices.Contains(titles, "Namespace") {
+		t.Fatalf("CSV header %q does not follow the order without the hidden column", header)
+	}
+
+	// Another view keeps its own order; the kind's order is no entry; reset drops one.
+	h.must(t, agent, "ui.setColumnOrder", map[string]any{"view": "pods", "order": []string{"node"}}, nil)
+	h.must(t, agent, "ui.setColumnOrder", map[string]any{"view": "services", "order": natural}, nil)
+	if u := h.s.UIState(); u.ColumnOrder["services"] != nil || u.ColumnOrder["pods"][0] != "node" {
+		t.Fatalf("columnOrder %v", u.ColumnOrder)
+	}
+	h.must(t, agent, "ui.setColumnOrder", map[string]any{"view": "pods", "reset": true}, nil)
+	if u := h.s.UIState(); len(u.ColumnOrder) != 0 {
+		t.Fatalf("columnOrder %v after a reset", u.ColumnOrder)
+	}
+	waitTable(t, h.s, "services", func(s *engine.TableSnapshot) bool { return s.Order == nil })
+
+	for _, bad := range []struct {
+		params map[string]any
+		want   string
+	}{
+		{map[string]any{"order": []string{"ip"}}, `no column "ip"`},
+		{map[string]any{"order": []string{"name", "name"}}, "listed twice"},
+		{map[string]any{"view": "widgets", "order": []string{"name"}}, "unknown kind"},
+	} {
+		if err := h.run(t, agent, "ui.setColumnOrder", bad.params, nil); err == nil || !strings.Contains(err.Error(), bad.want) {
+			t.Errorf("%v: %v, want %q", bad.params, err, bad.want)
+		}
+	}
+}

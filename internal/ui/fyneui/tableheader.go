@@ -212,7 +212,8 @@ func (tv *tableView) openColumns() {
 	tv.colView = tv.snap.View
 	tv.colChecks, tv.colIDs = tv.colChecks[:0], tv.colIDs[:0]
 	list := container.NewVBox()
-	for _, c := range tv.snap.Columns {
+	for _, i := range tv.snap.DisplayOrder() { // the columns as the table shows them (columnorder.go)
+		c := tv.snap.Columns[i]
 		id := c.ID
 		ch := widget.NewCheck(c.Title, func(on bool) { tv.toggleColumn(id, on) })
 		tv.colChecks = append(tv.colChecks, ch)
@@ -220,6 +221,10 @@ func (tv *tableView) openColumns() {
 		list.Add(ch)
 	}
 	tv.syncColumnChecks()
+	if tv.snap.Order != nil { // the user arranged the columns: the way back (columnorder.go)
+		list.Add(widget.NewSeparator())
+		list.Add(tv.order.resetButton(tv.colView))
+	}
 	th := tv.table.Theme()
 	scroll := container.NewVScroll(list)
 	header := newHeaderCell(nil).MinSize().Height

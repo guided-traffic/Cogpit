@@ -26,6 +26,9 @@ type UIState struct {
 	// HiddenColumns are the ids of the columns each view hides, by view key; a view without an
 	// entry hides the columns its kind hides by default (model.Column.Hidden).
 	HiddenColumns map[string][]string `json:"hiddenColumns,omitempty"`
+	// ColumnOrder are the column ids of each view in the order the user arranged them (dragging a
+	// header, ui.setColumnOrder), by view key; a view without an entry shows its kind's order.
+	ColumnOrder map[string][]string `json:"columnOrder,omitempty"`
 	// Filter is the view's search text.
 	Filter string `json:"filter"`
 	// Sort is the open view's sort order.
@@ -156,6 +159,12 @@ func (u UIState) Clone() UIState {
 		out.HiddenColumns = make(map[string][]string, len(u.HiddenColumns))
 		for view, ids := range u.HiddenColumns {
 			out.HiddenColumns[view] = slices.Clone(ids)
+		}
+	}
+	if u.ColumnOrder != nil {
+		out.ColumnOrder = make(map[string][]string, len(u.ColumnOrder))
+		for view, ids := range u.ColumnOrder {
+			out.ColumnOrder[view] = slices.Clone(ids)
 		}
 	}
 	out.Selected = slices.Clone(u.Selected)

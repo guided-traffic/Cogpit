@@ -132,3 +132,34 @@ func hiddenOf(t *TableSnapshot) []string {
 	}
 	return out
 }
+
+// TestColumnOrder: the ids first, in their order (unknown and repeated ones skipped), then the
+// other columns in the kind's order; nil for none and for the kind's own order; the CSV follows it.
+func TestColumnOrder(t *testing.T) {
+	cols := []model.Column{{ID: "name", Title: "Name"}, {ID: "namespace", Title: "Namespace"}, {ID: "status", Title: "Status"}, {ID: "age", Title: "Age"}}
+	for _, tc := range []struct {
+		ids  []string
+		want []int
+	}{
+		{nil, nil},
+		{[]string{"age", "name"}, []int{3, 0, 1, 2}},
+		{[]string{"status", "x", "status"}, []int{2, 0, 1, 3}},
+		{[]string{"name", "namespace"}, nil},
+		{[]string{"name", "namespace", "status", "age"}, nil},
+	} {
+		if got := ColumnOrder(cols, tc.ids); !slices.Equal(got, tc.want) {
+			t.Errorf("ColumnOrder(%v) = %v, want %v", tc.ids, got, tc.want)
+		}
+	}
+	snap := &TableSnapshot{Columns: cols}
+	if got := snap.DisplayOrder(); !slices.Equal(got, []int{0, 1, 2, 3}) {
+		t.Errorf("DisplayOrder without an order: %v", got)
+	}
+	snap.Order = []int{3, 0, 1, 2}
+	snap.Columns[1].Hidden = true
+	snap.Rows = []model.Row{{Cells: []model.Cell{{Text: "web"}, {Text: "shop"}, {Text: "ok"}, {Text: "x"}}}}
+	var b strings.Builder
+	if err := WriteCSV(&b, snap, time.Now()); err != nil || b.String() != "Age,Name,Status\nx,web,ok\n" {
+		t.Errorf("CSV in the shown order: %q, %v", b.String(), err)
+	}
+}

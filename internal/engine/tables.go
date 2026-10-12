@@ -31,6 +31,37 @@ func ColumnsShown(cols []model.Column, hidden []string, set bool) []model.Column
 	return out
 }
 
+// ColumnOrder returns the order a view shows a kind's columns in, as indexes into cols: the
+// columns ids names, in its order (unknown and repeated ids skipped), then every other column in
+// the kind's order. It returns nil for no ids and for the kind's own order.
+func ColumnOrder(cols []model.Column, ids []string) []int {
+	if len(ids) == 0 {
+		return nil
+	}
+	out := make([]int, 0, len(cols))
+	used := make([]bool, len(cols))
+	for _, id := range ids {
+		for i, c := range cols {
+			if c.ID == id && !used[i] {
+				used[i] = true
+				out = append(out, i)
+				break
+			}
+		}
+	}
+	for i := range cols {
+		if !used[i] {
+			out = append(out, i)
+		}
+	}
+	for i, ci := range out {
+		if i != ci {
+			return out
+		}
+	}
+	return nil
+}
+
 // HiddenByDefault returns the ids of the columns a kind hides by default.
 func HiddenByDefault(cols []model.Column) []string {
 	var ids []string
@@ -64,9 +95,10 @@ func groupFilter(p *model.KindProfile, groups []string) (int, map[string]struct{
 }
 
 // WriteCSV writes a table snapshot as CSV, as the table shows it (Lens's download button beside
-// the item count; its format is inferred): a header row with the titles of the visible columns,
-// then one record per row in the snapshot's order (filtered and sorted), each cell's text as the
-// table renders it at now (ages relative to now). The snapshot holds only what its cells show, so
+// the item count; its format is inferred): a header row with the titles of the visible columns in
+// their shown order (DisplayOrder), then one record per row in the snapshot's order (filtered and
+// sorted), each cell's text as the table renders it at now (ages relative to now). The snapshot
+// holds only what its cells show, so
 // a metadata-only kind (Secrets) exports no values.
 //
 // Cluster data is not trusted: a cell that a spreadsheet would read as a formula (one starting
@@ -76,8 +108,8 @@ func WriteCSV(w io.Writer, t *TableSnapshot, now time.Time) error {
 	cw := csv.NewWriter(w)
 	var visible []int
 	header := make([]string, 0, len(t.Columns))
-	for i, c := range t.Columns {
-		if !c.Hidden {
+	for _, i := range t.DisplayOrder() { // the columns as the user arranged them
+		if c := t.Columns[i]; !c.Hidden {
 			visible = append(visible, i)
 			header = append(header, csvSafe(c.Title))
 		}
