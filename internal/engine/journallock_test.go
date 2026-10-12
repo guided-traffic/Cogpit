@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"runtime"
 	"bufio"
 	"errors"
 	"fmt"
@@ -361,9 +362,14 @@ func TestDrainsOfAnotherProcess(t *testing.T) {
 	if err := other.Put(drainEntry("c", "worker-1")); err != nil {
 		t.Fatal(err)
 	}
+	// The other process lives until the test ends: unreferenced, its owner file's finalizer
+	// closes the file and releases the lock, and the process looks ended (a CI flake under load).
+	defer runtime.KeepAlive(other)
 	d := NewDrains(newFileDrainJournal(newJournalDir(dir)))
 	s := New(Options{Drains: d})
 	defer s.Close()
+	runtime.GC() // run the finalizers now, which load did before
+	runtime.GC()
 	infos, err := s.PendingDrains(true)
 	if err != nil || len(infos) != 1 || infos[0].Status != DrainStatusRunning || !infos[0].Elsewhere || infos[0].Progress != nil {
 		t.Fatalf("pending drains: %+v, %v", infos, err)
