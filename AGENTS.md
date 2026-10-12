@@ -128,8 +128,9 @@ make lint             # golangci-lint, depguard layering included
 make test-unit-race   # go test -race ./...
 make test             # plus integration tiers you touched
 make test-kind        # cluster tests, after make kind-up (never against your own kubeconfig)
-# make parity and make scorecard come with their generators (gap G1); until then update the
-# checklists by hand
+make parity           # the checklists' rows and the numbers the progress pages report (D-15);
+                      # PARITY_FLAGS=-rows while the lead's recount is still due
+# make scorecard comes with its generator (gap G1)
 ```
 
 Then commit and push. Agents may commit and push to `main` on their own (owner, 2026-10-11), in

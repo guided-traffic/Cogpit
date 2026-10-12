@@ -1,5 +1,5 @@
 # Cogpit — developer targets. CI (.github/workflows/build.yml) runs the same ones: lint,
-# test-unit-coverage and build on macOS; vuln, kind-up and test-kind on Linux
+# parity, test-unit-coverage and build on macOS; vuln, kind-up and test-kind on Linux
 # (docs/developer/releasing.md#ci).
 #
 # Go: go.mod declares go 1.27.2; GOTOOLCHAIN=auto fetches it when the local Go is older.
@@ -27,7 +27,7 @@ APP_ID          := io.guided-traffic.cogpit
 APP_OS          ?= $(shell $(GO) env GOOS)
 TEST_ENV        := KUBECONFIG=/dev/null
 
-.PHONY: all build run run-demo test test-unit test-unit-race test-kind bench lint fmt tidy \
+.PHONY: all build run run-demo test test-unit test-unit-race test-kind bench lint parity fmt tidy \
         kind-up kind-down kind-seed app icon clean help
 
 all: lint test-unit-race build ## Lint, race tests, build
@@ -101,6 +101,9 @@ $(GOLANGCI_LINT):
 
 lint: $(GOLANGCI_LINT) ## golangci-lint: the team's linters plus depguard layering
 	$(GOLANGCI_LINT) run ./...
+
+parity: ## Check the parity checklists and the numbers the progress pages report (D-15); PARITY_FLAGS=-rows skips the numbers
+	$(GO) run ./hack/parity $(PARITY_FLAGS)
 
 fmt: $(GOLANGCI_LINT) ## Format with gofmt and goimports
 	$(GOLANGCI_LINT) fmt ./...

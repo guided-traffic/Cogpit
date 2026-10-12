@@ -1,6 +1,6 @@
 # UI parity: layout, navigation, tables, dock and feel
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (third run: 53 of 134 rows; Lens's Helm Upgrade tab captured 2026-10-12) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (`make parity`: the shortcuts table gets Plan and Evidence columns; evidence for three partial rows) · **Target:** Lens Desktop 2026.10.51501
 
 How Cogpit's interface compares with Lens Desktop 2026.10.51501: the window layout, clusters and
 hotbar, the cluster sidebar, list tables, the detail drawer, the bottom dock with its editor, log
@@ -56,7 +56,7 @@ hotbar, navigator, tab bar, workspace, dock, status bar.
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Kubeconfig files in `~/.kube/` (`%USERPROFILE%\.kube` on Windows) are found without setup | free | partial: `$KUBECONFIG` or `~/.kube/config` only | `$KUBECONFIG` or `~/.kube/config` only (client-go's loading rules), not every file in `~/.kube/` |
+| Kubeconfig files in `~/.kube/` (`%USERPROFILE%\.kube` on Windows) are found without setup | free | partial: `$KUBECONFIG` or `~/.kube/config` only | `$KUBECONFIG` or `~/.kube/config` only (client-go's loading rules), not every file in `~/.kube/`: [`cluster.go`](../../internal/cluster/cluster.go) `loadingRules`, `TestListContextsDefaultRulesUseKUBECONFIG`, `TestListContextsMergesInPrecedenceOrder` |
 | Kubeconfig Syncs: add files and folders to watch | free | missing | – |
 | Add clusters by pasting a kubeconfig; Lens stores the text itself, not in `~/.kube/config` | free | missing | – |
 | Navigator sections: Kubernetes Clusters (Local Kubeconfigs and the cloud sections), Teamwork, Extensions | free | missing | – |
@@ -228,7 +228,7 @@ Every list view is one table ([resource views](resource-parity.md)).
 | Terminal session for a cluster, with the working directory and default namespace from cluster settings | free | partial: context and namespace, no cluster settings | `TestStartLocalBindsKubectlToContextAndNamespace`, `TestKindEngineWorkflows`; namespace from the filter, no cluster settings |
 | Pod shell, attach and node shell open as dock tabs | free | partial: pod shell and attach (2026-10-11: stdin and a TTY only as the container has them; the attachment icon on the tab is Cogpit's); no node shell | `TestKindPodExec`, `TestKindEngineWorkflows`; attach: `TestPodAttach`, `TestAttachWithoutTTY`, `TestAttachTabShowsATerminal`, `TestKindWorkloadLogsAttachRestartScale`, [PNG](../../internal/ui/fyneui/testdata/attach_dark.png) |
 | Copy and paste with the right mouse button (preference) | free | missing | – |
-| Copy and paste keys: ⌘C / ⌘V; Windows and Linux ⌃C, ⌃⇧C or ⌃Ins, and ⌃V, ⌃⇧V or ⇧Ins | free | partial: macOS keys | fyne-io/terminal: ⌘C/⌘V on macOS (offscreen test, synthetic events); Ctrl+Shift+C/V on Linux and Windows |
+| Copy and paste keys: ⌘C / ⌘V; Windows and Linux ⌃C, ⌃⇧C or ⌃Ins, and ⌃V, ⌃⇧V or ⇧Ins | free | partial: macOS keys | fyne-io/terminal: ⌘C/⌘V on macOS (offscreen, synthetic events: `TestTerminalCopyAndPaste` in [`termview/terminal_test.go`](../../internal/ui/fyneui/termview/terminal_test.go)); Ctrl+Shift+C/V on Linux and Windows |
 | Theme, font size and font family (preferences) | free | missing | – |
 | Shell path and shell arguments (2026.10: one argument per line) | free | missing | – |
 
@@ -264,25 +264,25 @@ Lens Desktop's [shortcuts page](https://docs.lenshq.io/k8slens/using-lens/shortc
 2026-07-09). Its terminal page gives ⌘⇧, for a terminal session, which contradicts this table;
 the table is taken as correct until a capture decides.
 
-| Action | Windows / Linux | macOS | Status |
-|---|---|---|---|
-| Command palette | Ctrl+Shift+P | ⌘⇧P | missing |
-| Search a cluster by name | Ctrl+P | ⌘P | missing |
-| Search in the tab | Ctrl+F | ⌘F | missing |
-| Preferences | Ctrl+, | ⌘, | missing |
-| Cluster settings | Ctrl+Shift+, | ⌘⇧, | missing |
-| Ask AI (cluster tab, paid) | Ctrl+I | ⌘I | missing (opens Cogpit's agent chat, [D-10](../developer/decisions.md#d-10-built-in-agent)) |
-| Terminal session (cluster tab) | Ctrl+Shift+T | ⌘⇧T | missing |
-| Close the tab | Ctrl+W | ⌘W | missing |
-| Reload | Ctrl+R | ⌘R | missing |
-| Back / forward in the tab's history | Alt+← / Alt+→ | ⌃- / ⌃⇧- | missing |
-| Next tab | Ctrl+PageUp (as documented) | ⌘⌥→ | missing |
-| Previous tab | Ctrl+PageDown (as documented) | ⌘⌥← | missing |
-| Tab *n* | Ctrl+*n* | ⌘*n* | missing |
-| Cluster in the hotbar bank / switch bank (paid) | F1–F12 / Shift+F1–F12 | same | missing |
-| New space (Teamwork) | Ctrl+N | ⌘N | not a target ([D-9](../developer/decisions.md#d-9-scope-against-lenss-paid-and-vendor-features)) |
-| Quit | Alt+F4 | ⌘Q | missing |
-| Table: rows / columns / details | ↑↓ / Tab / ↵ or Space | same | done (2026-10-11, `TestTableKeyboard`; ⇧Tab goes back a column) |
+| Action | Windows / Linux | macOS | Plan | Status | Evidence |
+|---|---|---|---|---|---|
+| Command palette | Ctrl+Shift+P | ⌘⇧P | free | missing | – |
+| Search a cluster by name | Ctrl+P | ⌘P | free | missing | – |
+| Search in the tab | Ctrl+F | ⌘F | free | missing | – |
+| Preferences | Ctrl+, | ⌘, | free | missing | – |
+| Cluster settings | Ctrl+Shift+, | ⌘⇧, | free | missing | – |
+| Ask AI (cluster tab) | Ctrl+I | ⌘I | paid | missing (opens Cogpit's agent chat, [D-10](../developer/decisions.md#d-10-built-in-agent)) | – |
+| Terminal session (cluster tab) | Ctrl+Shift+T | ⌘⇧T | free | missing | – |
+| Close the tab | Ctrl+W | ⌘W | free | missing | – |
+| Reload | Ctrl+R | ⌘R | free | missing | – |
+| Back / forward in the tab's history | Alt+← / Alt+→ | ⌃- / ⌃⇧- | free | missing | – |
+| Next tab | Ctrl+PageUp (as documented) | ⌘⌥→ | free | missing | – |
+| Previous tab | Ctrl+PageDown (as documented) | ⌘⌥← | free | missing | – |
+| Tab *n* | Ctrl+*n* | ⌘*n* | free | missing | – |
+| Cluster in the hotbar bank / switch bank | F1–F12 / Shift+F1–F12 | same | paid | missing | – |
+| New space (Teamwork) | Ctrl+N | ⌘N | free | not a target ([D-9](../developer/decisions.md#d-9-scope-against-lenss-paid-and-vendor-features)) | – |
+| Quit | Alt+F4 | ⌘Q | free | missing | – |
+| Table: rows / columns / details | ↑↓ / Tab / ↵ or Space | same | free | done (2026-10-11; ⇧Tab goes back a column) | `TestTableKeyboard` |
 
 ## Preferences
 
@@ -344,7 +344,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Dark and light themes following the system | free | partial: command-line flag | `--theme dark|light|system`; no preference UI |
+| Dark and light themes following the system | free | partial: command-line flag | `--theme dark\|light\|system` ([`main.go`](../../cmd/cogpit/main.go), [`theme.go`](../../internal/ui/fyneui/theme.go), `TestThemeModeIgnoresSystemVariantUnlessSystem`); no preference UI |
 | Zoom in, out and reset; full screen (capture needed) | free | missing | – |
 | Several windows (Window menu) | free | missing | – |
 | Deep links open the right view (Lens: `lens://`; Cogpit: `cogpit://`) | free | missing | – |
@@ -356,6 +356,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | `make parity`: Keyboard shortcuts with Plan and Evidence columns, so that the two paid shortcuts no longer read as free (the 121 free rows, reproduced); evidence named for kubeconfig loading, terminal copy and paste, and the theme flag; the theme row's pipes escaped |
 | 2026-10-12 | trivial | Dock: Lens's Helm Upgrade tab captured |
 | 2026-10-11 | minor | Third run, tables and window (G5): the macOS title bar partial (built, not seen in a real window yet); Tables: no namespace filter on cluster-scoped views, show and hide columns, fit a column, CSV export partial, keyboard done (and its shortcut row); the sidebar's Workloads › Overview |
 | 2026-10-11 | minor | Logs (G8): timestamps, word wrap, previous container, logs of a controlling resource with resource names, filter and `/`, download partial, as engine-held options of the tab; the drawer's Copy |

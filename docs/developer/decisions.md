@@ -351,8 +351,10 @@ The options weighed:
 | (c) Cogpit's own terminal widget on a maintained VT emulator | Full control over hostile input, colours from the theme | 20–40 h; replaces tested code; budget P5 to prove again |
 | (d) Back to upstream without the patches | – | The known crashes come back |
 
-Upstream's head needs an unreleased Fyne (v2.8.2, 2026-10-12), so returning to upstream waits for
-that release and for the patches to be merged; (c) is the step to take only if fuzzing shows the
+Upstream's head asks in its `go.mod` for an unreleased Fyne (v2.8.2), but its code builds and passes
+its tests on Fyne 2.8.1: Cogpit's copy moved onto it on 2026-10-12 and keeps its `go.mod` at 2.8.1
+([PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)). Returning to upstream waits for the
+patches to be merged; (c) is the step to take only if fuzzing shows the
 parser cannot be kept. Two inputs still make the patched widget alone panic (a CSI whose final
 character is not ASCII, a set mode without `?`; only the filter catches them today): they are the
 first patches to add.
@@ -370,6 +372,12 @@ counting by hand for good (0 h), after the alpha (0 h now). Why the checker firs
 third run's eight branches put the same parity rows in twice, twice, and the counts needed
 throwaway scripts whose denominator (121 or 123 free interface rows) could not be reproduced.
 
+**Built (2026-10-12):** [`hack/parity`](../../hack/parity/main.go), run by `make parity` as a CI
+step after the lint; it also refuses links to missing files and unknown test names, and compares
+its counts with the numbers ROADMAP and the progress pages report. The 121 holds: the 123
+counted the two paid keyboard shortcuts, whose table had no Plan column
+([rules](../parity/README.md#make-parity)).
+
 ## D-16: The first real release
 
 **Decided (owner, 2026-10-12):** semantic-release stays a dry run until the alpha. The alpha's
@@ -385,6 +393,7 @@ once per run.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | D-15 built (`make parity`); D-14: the copy is on upstream's head, whose code builds on Fyne 2.8.1 |
 | 2026-10-12 | minor | Owner's decisions after the third run: D-13 revised to a full watch on Secrets (option a); D-14 terminal widget (keep the fork, upstream, fuzz); D-15 the parity checker before the generators; D-16 dry runs until the alpha's release |
 | 2026-10-11 | minor | D-11: Helm rollback and uninstall are crash-safe through a journal and an offer on the next connect (third run); D-13: the Secrets view built, the Type column found empty too, the Table format open for the owner |
 | 2026-10-11 | minor | D-13: Secrets in the cache decided (owner): metadata only for the list, a GET for an opened Secret, a label-selected watch for Helm's releases (H-8, option b) |

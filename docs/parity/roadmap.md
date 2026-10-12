@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (the owner's decisions of 2026-10-12 in the current focus) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (M0: `make parity` built) · **Target:** Lens Desktop 2026.10.51501
 
 Forward-looking plan: the alpha gate, the milestones, the **current focus** and what's next with
 estimates. Where Cogpit stands is in [`target-app-parity.md`](target-app-parity.md); the ranked
@@ -41,7 +41,7 @@ credential plugins are missing.
 
 | M | Status | Scope | Definition of done | Estimate |
 |---|---|---|---|---:|
-| **M0** Skeleton | 🟡 (go.mod, Makefile, lint with layering done; CI green on GitHub since 2026-10-11 ([releasing › CI](../developer/releasing.md#ci)): lint, race tests and build on macOS, compile checks for Windows and Linux, kind on 1.37, govulncheck; semantic-release runs as a dry run; generators and the envtest job open) | `go.mod`, `Makefile`, golangci-lint with `depguard` layering, CI on macOS with compile checks for Windows and Linux, envtest and `kind` jobs, semantic-release, the parity and scorecard generators (G1) | `make lint test` green in CI; a forbidden import fails the lint; the generated parity pages match the hand-written checklists | 20–40 |
+| **M0** Skeleton | 🟡 (go.mod, Makefile, lint with layering done; CI green on GitHub since 2026-10-11 ([releasing › CI](../developer/releasing.md#ci)): lint, race tests and build on macOS, compile checks for Windows and Linux, kind on 1.37, govulncheck; semantic-release runs as a dry run; `make parity` checks the checklists in CI since 2026-10-12; the generated pages, the scorecard and the envtest job open) | `go.mod`, `Makefile`, golangci-lint with `depguard` layering, CI on macOS with compile checks for Windows and Linux, envtest and `kind` jobs, semantic-release, the parity and scorecard generators (G1) | `make lint test` green in CI; a forbidden import fails the lint; the generated parity pages match the hand-written checklists | 20–40 |
 | **Spike** Fyne gate | ✅ (ran as the local MVP; [results](../developer/spike-fyne.md#results); D-1 decided for Fyne, with re-checks of S7 and S5) | Table, YAML editor, terminal and MCP control on Fyne ([spike plan](../developer/spike-fyne.md)) | Gate criteria S1–S7 recorded; [D-1](../developer/decisions.md#d-1-ui-toolkit) confirmed or the fallback chosen | 16–24 |
 | **M1** Connect | 🟡 (contexts, connections, discovery, credential-safe errors; no CLI, no pasting) | `kubeconfig` and `cluster`: discovery, merge, pasting; every authentication form; cached discovery; access reviews; `cogpit-cli contexts` and `cogpit-cli get <kind>` (G2) | Connects to `kind` and envtest in CI with certificate and token auth; exec plugins verified on EKS, GKE and AKS (human); fuzzed kubeconfig parsing never panics | 25–50 |
 | **M2** Browse | 🟡 (cache with scoped, metadata-only, local and virtual kinds, engine, shell, 41 built-in profiles, the Port Forwarding (local) and Helm Releases (virtual) views, the Workloads Overview page and the custom resource views, row menus from the registry, MCP navigation, access reviews; budgets P2 and P9–P11 met in tests; the Secrets view from metadata only (H-8); 9 views and the cluster overview missing) | The cache (G3), the engine and registry with UI state (G4), the Fyne shell: layout, sidebar from discovery, tables, drawer, namespace filter (part of G5); about 20 core views (part of G6); MCP `ui_state`, `resources_find`, `ui_navigate` (part of G17) | A 10,000-pod list meets budgets P2–P4; an idle view costs no list requests (P9); every built-in kind the cluster serves appears; an MCP client navigates the GUI to a Service by its cluster IP | 180–420 |
@@ -71,7 +71,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
    terminal widget fuzzed alone and its patches offered upstream
    ([D-14](../developer/decisions.md#d-14-terminal-widget), [G8](gaps.md#g8-logs-terminal-and-shells));
    `make parity` as a counter and checker in CI ([D-15](../developer/decisions.md#d-15-progress-generators),
-   [G1](gaps.md#g1-workspace-ci-and-progress-generators)). Releases stay dry runs until the alpha
+   [G1](gaps.md#g1-workspace-ci-and-progress-generators); built 2026-10-12). Releases stay dry runs until the alpha
    ([D-16](../developer/decisions.md#d-16-the-first-real-release)).
 2. **Walk the workflows in the GUI** on kind and a real cluster (owner): change a workload,
    maintain a node, edit and create, reach a service (the browser opening), Helm rollback and
@@ -100,6 +100,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | M0: `make parity` checks the checklists in CI (D-15); current focus item 1 notes it built |
 | 2026-10-12 | minor | The owner's decisions (D-13 revised, D-14, D-15, D-16) in the current focus |
 | 2026-10-11 | major | Third implementation run: "reach a service" and "manage Helm releases" partial (no Helm upgrade), every alpha-gate workflow exists in part; M2–M6 re-assessed; alpha ~150–400 h; new current focus |
 | 2026-10-11 | minor | H-8 decided (owner): Helm and the Secrets view unblocked in the current focus |

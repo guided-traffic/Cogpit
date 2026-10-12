@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (third run's re-estimates; the owner's decisions of 2026-10-12 in G1, G6, G8, G11, G14) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G1: `make parity` built) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -22,7 +22,7 @@ own. **Human** marks what an agent can't finish alone.
 
 | # | Gap | Kind | Impact | Estimate | Parity doc |
 |---|---|---|---|---:|---|
-| G1 | Workspace, CI and progress generators | foundation | blocks alpha | 6–14 h | [roadmap](roadmap.md#milestones) |
+| G1 | Workspace, CI and progress generators | foundation | blocks alpha | 3–8 h | [roadmap](roadmap.md#milestones) |
 | G2 | Cluster connection and authentication | connectivity | blocks alpha | 14–34 h + human | [platform-parity](platform-parity.md#cluster-authentication-and-connectivity) |
 | G3 | Cache and the resource model | foundation | blocks alpha | 16–38 h | [architecture §5](../developer/architecture.md#5-cache) |
 | G4 | Engine and command registry | foundation | blocks alpha | 10–28 h | [architecture §4](../developer/architecture.md#4-the-ui-seam-the-most-important-interface) |
@@ -57,11 +57,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## Foundation gaps
 
 ### G1. Workspace, CI and progress generators
-- **Missing:** the generators `make parity` and `make scorecard` that turn the checklists into
-  measured pages ([method](README.md#the-pages)); decided (owner, 2026-10-12,
-  [D-15](../developer/decisions.md#d-15-progress-generators)): `make parity` first, as a counter
-  and checker in CI (duplicate rows, rows without evidence, command ids the registry does not
-  know), the generated pages and the scorecard later; an envtest job (no test uses envtest yet); the
+- **Missing:** the generated pages (`parity-checklist.md`) and `make scorecard`
+  ([method](README.md#the-pages); later, by [D-15](../developer/decisions.md#d-15-progress-generators));
+  an envtest job (no test uses envtest yet); the
   first real release, which is the owner's call ([releasing](../developer/releasing.md#the-first-real-release)).
 - **Evidence:** built on 2026-10-11: [`go.mod`](../../go.mod) (Go 1.27.2, pinned versions), the
   [`Makefile`](../../Makefile) with local targets, [`.golangci.yml`](../../.golangci.yml) with the
@@ -84,8 +82,18 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   Kubernetes 1.37.0, govulncheck (after `golang.org/x/net` v0.60.0 and `golang.org/x/image`
   v0.43.0), the coverage badge commit and the semantic-release dry run, which created no tag and
   no release.
-- **Impact:** CI guards `main`; without the generators, the checklists are counted by hand.
-- **Estimate:** 6–14 h (was 12–28).
+  Built on 2026-10-12: `make parity` ([`hack/parity`](../../hack/parity/main.go), D-15), a CI
+  step after the lint: it refuses duplicated rows, rows marked done or partial without evidence,
+  command ids the registry does not know, links to missing files and unknown test names, and
+  compares its counts with the numbers ROADMAP and the progress pages report
+  ([rules](README.md#make-parity)); its first run found six partial rows without evidence and a
+  platform summary that counted 7 partial rows instead of 8, and reproduced the 121 free
+  interface rows (the 123 counted the two paid shortcuts). The dependency backlog of 2026-10-12
+  (44 Renovate pull requests) was held by flaky tests, not by the updates
+  ([releasing › Renovate](../developer/releasing.md#renovate)).
+- **Impact:** CI guards `main`; `make parity` keeps the hand-written checklists honest until the
+  generated pages exist.
+- **Estimate:** 3–8 h (was 6–14; `make parity` built, 2026-10-12).
 
 ### G2. Cluster connection and authentication
 - **Missing:** kubeconfig discovery, merging and validation; pasted kubeconfigs stored owner-only;
@@ -504,6 +512,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | G1: `make parity` built (D-15); its first run's findings; estimate 3–8 h |
 | 2026-10-11 | minor | G5: evidence of the third run's tables and window work; G15: why the gate's offscreen test hung in CI, and the fix |
 | 2026-10-11 | minor | G6 and G11 evidence: Secrets and Helm Releases partial, Helm rollback and uninstall partial (third run) |
 | 2026-10-11 | minor | G10: port forwarding built (manager, local kind, commands, dialog, view); what is left: Lens's status texts and Edit dialog, access review of the forward's pod, a real-window browser check |

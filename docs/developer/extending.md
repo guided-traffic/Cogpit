@@ -53,7 +53,8 @@ Ordered checklists for the common additions. The packages they name are in
    dialog for its optional parameters too. Add a custom dialog only when the schema
    can't express it. Give the command an icon in the drawer's toolbar in
    [`cmdicons.go`](../../internal/ui/fyneui/cmdicons.go); others get a generic one.
-8. **Progress docs:** flip the row in the parity page and update [`gaps.md`](../parity/gaps.md).
+8. **Progress docs:** flip the row in the parity page and update [`gaps.md`](../parity/gaps.md);
+   `make parity` checks the row and the numbers it feeds.
 
 ## Adding an integration (what Lens calls an extension)
 

@@ -42,7 +42,7 @@ Where Cogpit stands against Lens: [`../parity/`](../parity/README.md). Security 
 cogpit/
 ├─ AGENTS.md, CLAUDE.md, ATTRIBUTION.md, README.md, ROADMAP.md, SECURITY.md, LICENSE
 ├─ go.mod                     module github.com/guided-traffic/cogpit
-├─ Makefile                   build, run, run-demo, test, test-unit-race, test-kind, bench, lint, kind-up, kind-down, app
+├─ Makefile                   build, run, run-demo, test, test-unit-race, test-kind, bench, lint, parity, kind-up, kind-down, app
 ├─ .golangci.yml              linters and the depguard layering rules
 ├─ .github/                   CI workflows (build, release, renovate), renovate.json, the coverage badge
 ├─ .releaserc.json            semantic-release config; package.json pins its npm tooling (CI only)
@@ -51,8 +51,10 @@ cogpit/
 ├─ internal/                  packages, layered L0–L4 (architecture.md §2–§3)
 ├─ hack/kind/                 kind cluster config and seed manifests (make kind-up)
 ├─ hack/icon/                 generator of the app icon
+├─ hack/parity/               make parity: checks the parity checklists and counts what they report
+├─ hack/readmecmds/           the README's table of commands, from the registry
 ├─ packaging/                 icon.png; per-OS packaging later
-├─ tools/                     (planned) generators for the parity checklist and the scorecard
+├─ tools/                     (planned) generators of the parity checklist page and the scorecard
 └─ docs/
    ├─ developer/              this directory
    ├─ parity/                 progress against Lens
@@ -103,4 +105,5 @@ Through the `Makefile`, as in the team's other repositories (`make help` lists e
 | Benchmarks of the gate | `make bench` |
 | Lint, layering included | `make lint` (golangci-lint v2.14.0, installed into `bin/`) |
 | Package for macOS | `make app` |
-| Regenerate parity checklist and scorecard | not built yet (gap G1) |
+| Check the parity checklists and their numbers | `make parity` ([rules](../parity/README.md#make-parity)) |
+| Regenerate the parity checklist page and the scorecard | not built yet (gap G1) |

@@ -1,6 +1,6 @@
 # Cogpit vs Lens Desktop: target-app parity
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (third measurement, after the third implementation run) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (`make parity` reproduces every measured breadth number; how to re-measure); last major: (third measurement, after the third implementation run) · **Target:** Lens Desktop 2026.10.51501
 
 The authoritative answer to "how close is Cogpit to Lens, and how much work is left". The
 one-page summary is [`ROADMAP.md`](../../ROADMAP.md); the ranked work list is
@@ -224,9 +224,12 @@ LiteLLM or Open WebUI endpoint for the built-in agent.
 
 ## How to re-measure
 
-1. Once the generators exist (G1): `make parity` and `make scorecard` for the measured rows.
+1. `make parity` counts views, actions and interface rows from the checklists and fails when a
+   number on this page, `ROADMAP.md` or a checklist's summary differs from its count
+   ([rules](README.md#make-parity)); `make scorecard` comes later (G1).
 2. Views and actions: compare the kind-profile and command registries with the tables in
-   [`resource-parity.md`](resource-parity.md).
+   [`resource-parity.md`](resource-parity.md); `make parity` counts an action as existing when the
+   registry has its id.
 3. Interface: walk the rows of [`ui-parity.md`](ui-parity.md) in the running app, with a screenshot
    as evidence for visual rows.
 4. Lens side: for every Lens Desktop release after the target, read its release notes, update the
@@ -237,6 +240,7 @@ LiteLLM or Open WebUI endpoint for the built-in agent.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | `make parity` reproduces the breadth table (55 / 64, 28 / 39, 52 / 121, 3 / 13, 1 / 13; 54.5% weighted) and guards it in CI; how to re-measure |
 | 2026-10-11 | major | Third measurement after the third implementation run: breadth ~54% (measured: 55 of 64 views, 28 of 39 actions, 52 of 121 interface rows, 3 of 13 connectivity rows), ready ~23%, mainstream ~24%, essentials ~32% (estimated); alpha ~150–400 h, free parity ~430–1,060 h |
 | 2026-10-11 | major | Second measurement after the second implementation run: breadth ~30% (measured), ready ~14%, mainstream ~14%, essentials ~28% (estimated); remaining hours re-estimated from the gaps |
 | 2026-10-11 | major | First measurement after the local MVP: breadth ~12% (measured), ready ~10%, mainstream ~8%, essentials ~23% (estimated); remaining hours re-estimated from the gaps |

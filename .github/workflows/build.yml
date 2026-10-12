@@ -40,6 +40,9 @@ jobs:
       - name: Lint (golangci-lint with the depguard layering)
         run: make lint
 
+      - name: Parity checklists and the numbers they report (make parity, D-15)
+        run: make parity
+
       # test-unit-race plus a coverage profile: the same packages and the same race detector.
       - name: Race tests with coverage
         run: make test-unit-coverage

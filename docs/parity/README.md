@@ -1,6 +1,6 @@
 # Parity and progress documents
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (beyond-Lens page added; sources limited to Lens Desktop; generators run through make) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (`make parity` checks the rows and counts the numbers; the counting rules) · **Target:** Lens Desktop 2026.10.51501
 
 Cogpit is a clean-room reimplementation of the Kubernetes IDE Lens. These pages answer two
 questions and nothing else: **how close are we to Lens**, and **what is left to do**. The method is
@@ -21,10 +21,12 @@ Rust), whose progress docs follow the same structure.
 | [`beyond-lens.md`](beyond-lens.md) | Cogpit's own targets beyond Lens: MCP control of UI and cluster, built-in agent, updates, cache transparency, crash recovery | checklist, not counted in parity numbers |
 
 Two generated pages exist in PhotoCraft and are part of this method, but have no generator here
-yet: `parity-checklist.md` (from `make parity`, every Lens view, action and interface row, live or
-missing) and `scorecard.md` (from `make scorecard`, measured checklists and performance and API-load
-budgets). Until their generators exist, the checklists in the hand-written pages are the only
-source. The generators are part of milestone M0 in [`roadmap.md`](roadmap.md).
+yet: `parity-checklist.md` (every Lens view, action and interface row, live or missing) and
+`scorecard.md` (from `make scorecard`, measured checklists and performance and API-load budgets).
+The checklists in the hand-written pages are the only source; since 2026-10-12
+[`make parity`](#make-parity) checks them and counts what they report
+([D-15](../developer/decisions.md#d-15-progress-generators)). The generated pages are part of
+milestone M0 in [`roadmap.md`](roadmap.md).
 
 ## Rules for every progress page
 
@@ -56,6 +58,48 @@ source. The generators are part of milestone M0 in [`roadmap.md`](roadmap.md).
 9. **Stable headings.** Numbers go in the text under a heading, never in the heading itself, so
    links to a section survive every re-measurement.
 
+## make parity
+
+`make parity` ([`hack/parity`](../../hack/parity/main.go)) reads `ROADMAP.md` and the pages
+above, and runs in CI after the lint ([releasing › CI](../developer/releasing.md#ci)). It
+refuses:
+
+- **a row that appears twice:** two rows of one section with the same first cell (links read as
+  their text, code marks and case ignored); in a revision history or a progress log, two
+  identical rows;
+- **a status it cannot read:** a checklist row's Status cell starts with `done`, `partial`,
+  `missing`, `not a target` or `–` (nothing to build);
+- **a row marked done or partial without evidence** in its Status or Evidence cell: a link to a
+  code file or a picture (a link to another page of documentation is not evidence), a test name
+  in backticks, or an issue (`#12`) ([rule 3](#rules-for-every-progress-page));
+- **a reference that does not resolve:** a link on a progress page to a file that does not exist,
+  a test named in a checklist that no `_test.go` file declares;
+- **a command id the registry does not know** in a checklist's status or evidence. The first
+  column, Actions and MCP tool name the target and may name a planned id; anywhere else an id is
+  a claim about the code;
+- **a reported number that differs from the count:** the Feature breadth and Beyond Lens rows of
+  `ROADMAP.md`, the headline and the breadth table of [`target-app-parity.md`](target-app-parity.md)
+  (fractions, percentages and the weighted sum), and the Summary paragraphs of the four
+  checklists. Keep those sentences' form ("55 of 64 resource views exist"): a reworded one fails
+  until [`claims.go`](../../hack/parity/claims.go) learns it.
+
+While a recount is due (agents working in parallel move rows, the lead recounts after the merge),
+`make parity PARITY_FLAGS=-rows` checks the rows and leaves the reported numbers alone.
+
+### How make parity counts
+
+A row **exists** when it is done or partial. Rows marked `not a target` or `–` count in no
+denominator.
+
+| Component | Rows counted |
+|---|---|
+| Resource views | the rows of [`resource-parity.md`](resource-parity.md)'s view tables (first column "View") outside Paid Lens Desktop views; a row is one view, or the number its first cell gives as "(N views" (the Gateway API rows) |
+| Resource actions | the distinct command ids in those tables' Actions columns and in the first column of Every kind, except an id followed by "not a target" before the next comma; an action exists when the registry has its id |
+| Interface rows | the rows of [`ui-parity.md`](ui-parity.md) by their Plan column, `free` or `paid`; every table there has one. The free denominator is 121 (2026-10-12); the 123 that the third run could not reproduce counted the two paid shortcuts, whose table had no Plan column then |
+| Packages, authentication | the rows of [`platform-parity.md`](platform-parity.md)'s two sections; a row whose first cell says "(paid)" belongs to another gap and does not count |
+| Beyond Lens | every row of [`beyond-lens.md`](beyond-lens.md); not part of breadth |
+| Weighted breadth | each component's fraction times its weight in the breadth table; the paid features' row comes from Lens's premium list, not a checklist, and is taken as written |
+
 ## Stages
 
 | Stage | Meaning |
@@ -81,5 +125,6 @@ counted as "live" in the menu checklist. Never quote breadth as progress on its 
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | `make parity`: what it refuses, how it counts, where it compares the reported numbers (D-15) |
 | 2026-10-11 | minor | Beyond-Lens page; source rule (D-12); generators through make; stages macOS first |
 | 2026-10-11 | major | First version: method, page map, rules and stages adopted from PhotoCraft |
