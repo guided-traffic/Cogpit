@@ -12,9 +12,9 @@ first, then `docs/`.
 runs on macOS, extended by four further implementation runs (2026-10-11 and 2026-10-12): 41
 built-in views and the custom resource views from the cache, the detail drawer and row menus,
 YAML editing, node and workload actions with a crash-safe drain, Helm rollback, uninstall and
-upgrade, kubeconfig sources with approved credential plugins, logs, a terminal, pod shells, CI on
-every push, and MCP control of all of it; it doubled as the Fyne spike
-([results](docs/developer/spike-fyne.md#results)).
+upgrade, kubeconfig sources with approved credential plugins, metrics from the Metrics Server and
+Prometheus, logs, a terminal, pod shells, CI on every push, and MCP control of all of it; it
+doubled as the Fyne spike ([results](docs/developer/spike-fyne.md#results)).
 What is built and where it differs from the plan: [architecture › Current state](docs/developer/architecture.md#current-state-2026-10-12). The documentation method, and parts of
 this file, come from [PhotoCraft](https://github.com/storytold/photocraft)
 ([attribution](ATTRIBUTION.md)).
