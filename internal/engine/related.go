@@ -108,11 +108,20 @@ func (r *relatedSet) waitSynced(ctx context.Context) {
 
 // view returns the set's lookups at the current generation: one snapshot of rows reads every
 // index at most once, however many rows it builds. A nil set yields model.NoRelated.
+//
+// The generation also says whether every kind had synced: an index is empty until its kind
+// syncs, and an informer counts its initial list's last event (bumping gen) before it reports
+// synced, with no event after. Rows built in between would otherwise stay cached at a generation
+// that never changes, empty related columns and all. The events are counted before synced is
+// read, so a view that says synced has every index full.
 func (r *relatedSet) view() (model.Related, uint64) {
 	if r == nil {
 		return model.NoRelated, 0
 	}
-	g := r.gen.Load()
+	g := r.gen.Load() << 1
+	if r.synced() {
+		g |= 1
+	}
 	return &relatedView{r: r, gen: g, idx: map[string]map[string][]*unstructured.Unstructured{}}, g
 }
 

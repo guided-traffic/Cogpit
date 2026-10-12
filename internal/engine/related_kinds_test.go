@@ -3,11 +3,13 @@ package engine
 import (
 	"context"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 	"github.com/guided-traffic/cogpit/internal/testkit"
@@ -101,6 +103,74 @@ func TestClaimPodsColumnFollowsPods(t *testing.T) {
 	}
 	if len(chips) != 1 || chips[0].Text != "db-1" || !sameLink(chips[0].Link, link("db-1")) {
 		t.Errorf("drawer's Pods %+v", chips)
+	}
+}
+
+// TestRelatedRowsRebuiltWhenTheKindSyncs: a row built while a related kind had delivered its
+// initial list but did not report synced yet is rebuilt once it does, though no event follows. The
+// informer counts the initial list's last event before it reports synced; the generation rows were
+// cached at did not change between the two, and the claims view kept an empty Pods column in a
+// synced snapshot (TestClaimPodsColumnFollowsPods failed on slow machines). A second consumer of
+// the pods holds the informer on that last event to make the window deterministic.
+func TestRelatedRowsRebuiltWhenTheKindSyncs(t *testing.T) {
+	mem := testkit.NewMemorySource()
+	mem.Set(claimsGVR, testkit.Object("v1", "PersistentVolumeClaim", "apps", "data", map[string]any{"status": map[string]any{"phase": "Bound"}}))
+	mem.Set(testkit.PodsGVR, podOnNode("apps", "db-0", "node-1", "data"))
+	src := testkit.NewGatedSource(mem, testkit.PodsGVR)
+	c := cache.New(src, cache.Options{WarmPeriod: time.Minute})
+	defer c.Close()
+	pvc := builtinProfile(t, "persistentvolumeclaims")
+	b := &Backend{Context: "test", Cache: c, Profiles: append(testProfiles(), pvc)}
+
+	rs := newRelatedSet(b, pvc.Needs, nil) // subscribes to the pods first
+	defer rs.release()
+	pods := b.Acquire(testPods)
+	defer pods.Release()
+	held, resume := make(chan struct{}), make(chan struct{})
+	var resumeOnce sync.Once
+	release := func() { resumeOnce.Do(func() { close(resume) }) }
+	defer release()
+	var holdOnce sync.Once
+	unsub := pods.Subscribe(func(ev cache.Event) {
+		if ev.Object.GetName() == "db-0" {
+			holdOnce.Do(func() { close(held); <-resume })
+		}
+	})
+	defer unsub()
+	src.Open()
+	select {
+	case <-held:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the pods' initial list never arrived")
+	}
+
+	claims := b.Acquire(pvc)
+	defer claims.Release()
+	waitFor(t, "the claims", func() bool { return claims.HasSynced() })
+	col := pvc.ColumnIndex("pods")
+	cell := func(snap *TableSnapshot) string {
+		if len(snap.Rows) != 1 {
+			return "?"
+		}
+		return snap.Rows[0].Cells[col].Text
+	}
+	rc := &rowCache{}
+	rel, gen := rs.view()
+	if rs.synced() {
+		t.Fatal("the pods report synced while their handler still runs")
+	}
+	if got := cell(rc.build(pvc, b.Context, KindList(claims, pvc), viewParams{}, rel, gen)); got != "" {
+		t.Fatalf("Pods column before the pods synced: %q, want empty", got)
+	}
+
+	release()
+	waitFor(t, "the pods to sync", rs.synced)
+	rel, synced := rs.view()
+	if synced == gen {
+		t.Errorf("the related generation stayed %d when the pods synced", gen)
+	}
+	if got := cell(rc.build(pvc, b.Context, KindList(claims, pvc), viewParams{}, rel, synced)); got != "db-0" {
+		t.Errorf("Pods column after the pods synced: %q, want db-0", got)
 	}
 }
 
