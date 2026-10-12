@@ -13,11 +13,18 @@ import (
 type logOptionsParams struct {
 	ID            string  `json:"id" jsonschema:"logs tab id as ui_state lists it, e.g. logs-1"`
 	Previous      *bool   `json:"previous,omitempty" jsonschema:"show the log of the container's previous, terminated instance (the stream opens again)"`
-	Timestamps    *bool   `json:"timestamps,omitempty" jsonschema:"start each line with the API server's RFC 3339 timestamp (the stream opens again)"`
+	Timestamps    *bool   `json:"timestamps,omitempty" jsonschema:"show each line's RFC 3339 timestamp from the API server (the stream carries it either way)"`
 	ResourceNames *bool   `json:"resourceNames,omitempty" jsonschema:"show each line's pod and container, in tabs of a controlling resource"`
 	Wrap          *bool   `json:"wrap,omitempty" jsonschema:"wrap long lines instead of cutting them at the tab's edge"`
 	Search        *string `json:"search,omitempty" jsonschema:"text to find in the lines, case-insensitively, at most 1024 bytes; empty clears it"`
 	Filter        *bool   `json:"filter,omitempty" jsonschema:"show only the lines that contain search; off shows every line with the matches highlighted"`
+}
+
+// logSourceParams are logs.setSource's parameters: the tab, and the parts of its source to change.
+type logSourceParams struct {
+	ID        string  `json:"id" jsonschema:"logs tab id as ui_state lists it, e.g. logs-1"`
+	Pod       *string `json:"pod,omitempty" jsonschema:"the pod to show, one logs_sources lists; empty: every pod of a controlling resource's tab (a pod's tab shows one pod)"`
+	Container *string `json:"container,omitempty" jsonschema:"the container to show, one logs_sources lists (an init container too); empty: every container of a controlling resource's tab (a pod's tab shows one)"`
 }
 
 // workloadLogVerbs are what a controlling resource's logs cost: the pods' (and for a Deployment
@@ -63,8 +70,8 @@ func registerLogs(g *registrar) {
 		ID: "logs.setOptions", Label: "Log Options", Danger: engine.DangerUI,
 		Description: "Changes a logs tab's options, as the tab's toolbar does: previous (the previous terminated " +
 			"container's log), timestamps, resourceNames, wrap, search and filter. Options left out keep their value. " +
-			"Changing previous or timestamps opens the stream again; the others change how the tab shows its lines. " +
-			"ui_state lists every tab's options. Returns the tab.",
+			"Changing previous opens the stream again; the others change how the tab shows its lines. Which pod and " +
+			"container a tab shows: logs_setSource. ui_state lists every tab's options. Returns the tab.",
 		Enabled: func(s *engine.Session, p logOptionsParams) error {
 			_, err := s.LogsTab(p.ID)
 			return err
@@ -112,6 +119,41 @@ func registerLogs(g *registrar) {
 		},
 		Run: func(ctx context.Context, s *engine.Session, p dockParams) (any, error) {
 			return s.MoveLogsTab(ctx, p.ID)
+		},
+	})
+
+	add(g, engine.Spec[dockParams]{
+		ID: "logs.sources", Label: "Log Sources", Danger: engine.DangerRead, Verbs: workloadLogVerbs[1:],
+		Description: "Lists what a logs tab's pod and container selectors offer, from Cogpit's cache: for the logs of " +
+			"a controlling resource (allPods true) its pods, and the containers of the pod the tab shows or of every " +
+			"pod; for a pod's tab the pods of the resource that controls it (the pod alone if none does) and the " +
+			"pod's containers. Init containers are listed apart. Makes no API request once the pods are cached.",
+		Enabled: func(s *engine.Session, p dockParams) error { _, err := s.LogsTab(p.ID); return err },
+		Run: func(ctx context.Context, s *engine.Session, p dockParams) (any, error) {
+			return s.LogSources(ctx, p.ID)
+		},
+	})
+
+	add(g, engine.Spec[logSourceParams]{
+		ID: "logs.setSource", Label: "Show Pod or Container", Danger: engine.DangerRead, Verbs: workloadLogVerbs,
+		Description: "Changes which pod and container a logs tab shows, as the tab's selectors do (choices: " +
+			"logs_sources). For the logs of a controlling resource, pod narrows the tab to one of its pods and " +
+			"container to the containers of that name, an init container's too; an empty value selects every pod or " +
+			"container again (init containers that ran to completion only when named). The merged stream follows " +
+			"at once: the streams left out end, the others go on, and a container selected again resumes from its " +
+			"newest line with at most 1,000 lines written meanwhile. For a pod's tab, pod switches to another pod " +
+			"of the resource that controls it (keeping the container if that pod has it) and container to another " +
+			"of the pod's containers; its stream opens again. Parts left out stay. ui_state shows the tab's pod " +
+			"(logs.pod) and container. Returns the tab.",
+		Enabled: func(s *engine.Session, p logSourceParams) error {
+			if _, err := s.LogsTab(p.ID); err != nil {
+				return err
+			}
+			_, err := streamable(s, "logs")
+			return err
+		},
+		Run: func(ctx context.Context, s *engine.Session, p logSourceParams) (any, error) {
+			return s.SetLogSource(ctx, p.ID, p.Pod, p.Container)
 		},
 	})
 }

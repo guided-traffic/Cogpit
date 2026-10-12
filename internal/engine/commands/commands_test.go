@@ -97,6 +97,8 @@ var wantCommands = map[string]engine.Danger{
 	"workload.logs":       engine.DangerRead,
 	"logs.setOptions":     engine.DangerUI,
 	"logs.controller":     engine.DangerRead,
+	"logs.sources":        engine.DangerRead,
+	"logs.setSource":      engine.DangerRead,
 	"object.copyName":     engine.DangerUI,
 
 	// Tables and pages (G5).

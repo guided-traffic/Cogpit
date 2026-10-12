@@ -16,16 +16,19 @@ import (
 // Logs tabs (ui-parity › Logs, gap G8). A logs tab shows a pod's container (pod.logs) or every
 // container of the pods a controlling resource owns (workload.logs). Its options live in the
 // engine, on the tab (DockTab.Logs), so that agents read them with ui_state and set them with
-// logs_setOptions like the user does; the GUI renders them. Previous and Timestamps change the
-// request to the API server, so the GUI opens the stream again when they change; the others are
-// how the tab shows the lines it holds.
+// logs_setOptions like the user does; the GUI renders them. Previous changes the request to the
+// API server, so the GUI opens the stream again when it changes; the others are how the tab shows
+// the lines it holds. Every stream carries the API server's timestamps since 2026-10-13, whether
+// the tab shows them or not: the tab jumps to a time and loads older lines by them
+// (logsolder.go), and the GUI hides them unless Timestamps is on. What a tab shows (its pod and
+// container) is its source (logsources.go).
 
 // LogOptions are a logs tab's options.
 type LogOptions struct {
 	// Previous shows the log of the container's previous, terminated instance (kubectl logs -p).
 	Previous bool `json:"previous,omitempty"`
-	// Timestamps starts each line with the API server's RFC 3339 timestamp (kubectl logs
-	// --timestamps).
+	// Timestamps shows each line's RFC 3339 timestamp from the API server (kubectl logs
+	// --timestamps). The stream carries them either way.
 	Timestamps bool `json:"timestamps,omitempty"`
 	// ResourceNames shows each line's pod and container in a controlling resource's tab, whose
 	// stream starts every line with "<pod>/<container> ".
@@ -37,6 +40,9 @@ type LogOptions struct {
 	// Filter shows only the lines that contain Search; off, the tab shows every line and
 	// highlights the matches.
 	Filter bool `json:"filter,omitempty"`
+	// Pod narrows a controlling resource's tab to one of its pods; empty: every pod. (The
+	// container a tab shows, or narrows to, is DockTab.Container.)
+	Pod string `json:"pod,omitempty"`
 }
 
 // Kind keys the logs code refers to.
@@ -78,10 +84,11 @@ func (s *Session) openLogs(ctx context.Context, tab DockTab, b *Backend, streame
 
 // podLogOptions is the log request of a pod's tab: the last 1,000 lines, then follow; the
 // previous container's whole log (up to 1,000 lines) without following when Previous is set.
+// Always with timestamps, which the GUI hides unless the tab shows them.
 func podLogOptions(tab DockTab) cluster.LogOptions {
 	return cluster.LogOptions{
 		Namespace: tab.Ref.Namespace, Pod: tab.Ref.Name, Container: tab.Container,
-		Follow: !tab.Logs.Previous, Previous: tab.Logs.Previous, Timestamps: tab.Logs.Timestamps,
+		Follow: !tab.Logs.Previous, Previous: tab.Logs.Previous, Timestamps: true,
 		TailLines: logTailLines,
 	}
 }
@@ -248,7 +255,7 @@ func (s *Session) MoveLogsTab(ctx context.Context, id string) (DockTab, error) {
 			}
 			r := target
 			t.Ref, t.Container, t.Title = &r, "", "Logs: "+p.Kind+" "+target.Name
-			t.Logs.ResourceNames = true
+			t.Logs.ResourceNames, t.Logs.Pod = true, ""
 			out, found = *t, true
 			return
 		}

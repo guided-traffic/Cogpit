@@ -18,10 +18,12 @@ import (
 )
 
 // logTab is a logs dock tab: termview.Logs on Session.OpenLogs, with the tab's options in its
-// toolbar (ui-parity › Logs). The options are engine state (DockTab.Logs): a toggle dispatches
-// logs.setOptions, and the widgets follow the tab as the engine reports it, whoever changed it.
-// A change of the stream's request (another object or container, previous, timestamps) opens the
-// stream again; the other options change how the view shows the lines it holds.
+// toolbar and its pod and container selectors above it (ui-parity › Logs). The options and the
+// source are engine state (DockTab.Logs, DockTab.Container): a toggle dispatches logs.setOptions,
+// a selector logs.setSource, and the widgets follow the tab as the engine reports it, whoever
+// changed it. A change of the stream's request (another pod's or container's tab, previous)
+// opens the stream again; the other options, and a controlling resource's selection, change how
+// the view shows the lines it holds (the engine narrows the merged stream itself).
 type logTab struct {
 	sh  *shell
 	c   *dockContent
@@ -36,6 +38,8 @@ type logTab struct {
 	search                                    *widget.Entry
 	controller, download                      *tipButton
 	controls                                  []fyne.CanvasObject
+	podPick, containerPick                    *widget.Button // the source selectors (logtab_sources.go)
+	header                                    []fyne.CanvasObject
 	syncing                                   bool // set while the widgets follow engine state
 	searchTimer                               *time.Timer
 	searchBusy                                int // search texts typed but not acknowledged yet
@@ -43,15 +47,21 @@ type logTab struct {
 
 // logStreamKey is what a logs tab's stream depends on: when it changes, the stream opens again.
 type logStreamKey struct {
-	ref                  model.ObjectRef
-	container            string
-	previous, timestamps bool
+	ref            model.ObjectRef
+	container, pod string
+	previous       bool
 }
 
+// streamKeyOf: a pod's tab's stream is its container's; a controlling resource's merged stream
+// follows the tab's selection itself while it follows, and opens again for it with Previous, whose
+// stream ends after the previous instances. Timestamps come with every stream.
 func streamKeyOf(t engine.DockTab) logStreamKey {
-	k := logStreamKey{container: t.Container, previous: t.Logs.Previous, timestamps: t.Logs.Timestamps}
+	k := logStreamKey{previous: t.Logs.Previous}
 	if t.Ref != nil {
 		k.ref = *t.Ref
+	}
+	if k.ref.Kind == kindPods || t.Logs.Previous {
+		k.container, k.pod = t.Container, t.Logs.Pod
 	}
 	return k
 }
@@ -96,6 +106,8 @@ func newLogTab(ctx context.Context, sh *shell, c *dockContent, t engine.DockTab)
 		lt.controller, lt.timestamps, lt.previous, lt.names, lt.wrap,
 		sized(sizeSearchWidth, "", lt.search), lt.filter, lt.download,
 	}
+	lt.podPick, lt.containerPick = lt.newPicker(true), lt.newPicker(false)
+	lt.header = []fyne.CanvasObject{lt.podPick, lt.containerPick}
 	lt.follow(t)
 	return lt
 }
@@ -112,6 +124,8 @@ func (lt *logTab) follow(t engine.DockTab) {
 	if lt.searchBusy == 0 && lt.search.Text != t.Logs.Search {
 		lt.search.SetText(t.Logs.Search)
 	}
+	lt.podPick.SetText("Pod: " + podLabel(t))
+	lt.containerPick.SetText("Container: " + containerLabel(t))
 	lt.syncing = false
 	if workload := t.Ref != nil && t.Ref.Kind != kindPods; workload {
 		lt.names.Show()
@@ -126,12 +140,17 @@ func (lt *logTab) follow(t engine.DockTab) {
 	}
 }
 
-// viewOf is how a tab's lines show.
+// viewOf is how a tab's lines show: every stream carries the server's timestamps, shown or not;
+// a controlling resource's tab shows the lines of the pods and containers it selects.
 func viewOf(t engine.DockTab) termview.LogView {
-	return termview.LogView{
-		Prefixed: t.Ref != nil && t.Ref.Kind != kindPods, Names: t.Logs.ResourceNames, Timestamps: t.Logs.Timestamps,
+	v := termview.LogView{
+		Prefixed: t.Ref != nil && t.Ref.Kind != kindPods, Names: t.Logs.ResourceNames, Stamped: true, Timestamps: t.Logs.Timestamps,
 		Wrap: t.Logs.Wrap, Search: t.Logs.Search, Filter: t.Logs.Filter,
 	}
+	if v.Prefixed {
+		v.Pod, v.Container = t.Logs.Pod, t.Container
+	}
+	return v
 }
 
 // update follows a change of the tab in the engine's state: the stream opens again when its
@@ -169,6 +188,7 @@ func (lt *logTab) open() {
 				stream = io.NopCloser(strings.NewReader("[cogpit] could not open the logs: " + err.Error() + "\n"))
 			}
 			w := termview.NewLogsOn(stream, sh.do)
+			w.SetHeader(lt.header...)
 			w.SetControls(lt.controls...)
 			w.SetOnSlash(lt.focusSearch)
 			w.SetView(viewOf(lt.tab))

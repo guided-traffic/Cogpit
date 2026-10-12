@@ -148,3 +148,49 @@ func TestLogsControllerMovesTheTab(t *testing.T) {
 		t.Error("moved a tab that does not exist")
 	}
 }
+
+// TestLogSourceCommands: logs.sources lists what a tab's selectors offer and logs.setSource
+// changes the tab's pod and container, for agents too (reads), as ui_state shows them; a pod's tab
+// switches to another pod of its controller.
+func TestLogSourceCommands(t *testing.T) {
+	h := newWorkloadHarness(t, nil, nil, engine.Options{})
+	var res commands.DockResult
+	h.must(t, engine.OriginExternalAgent, "workload.logs", map[string]any{"ref": actionRef("deployments", "shop", "web")}, &res)
+	id := res.Tab.ID
+	var src engine.LogSources
+	h.must(t, engine.OriginExternalAgent, "logs.sources", map[string]any{"id": id}, &src)
+	if !src.AllPods || strings.Join(src.Pods, ",") != "web-7d9f-a1,web-7d9f-b2" || strings.Join(src.Containers, ",") != "app" {
+		t.Errorf("sources %+v", src)
+	}
+	var tab engine.DockTab
+	h.must(t, engine.OriginExternalAgent, "logs.setSource", map[string]any{"id": id, "pod": "web-7d9f-b2", "container": "app"}, &tab)
+	if tab.Logs.Pod != "web-7d9f-b2" || tab.Container != "app" || tab.Ref.Kind != "deployments" {
+		t.Errorf("tab %+v", tab)
+	}
+	var st commands.StateResult
+	h.must(t, engine.OriginExternalAgent, "ui.state", nil, &st)
+	if got, _ := st.DockTab(id); got.Logs.Pod != "web-7d9f-b2" || got.Container != "app" {
+		t.Errorf("ui_state's tab %+v", got)
+	}
+	tab = engine.DockTab{} // the result omits what is empty
+	h.must(t, engine.OriginGUI, "logs.setSource", map[string]any{"id": id, "pod": "", "container": ""}, &tab)
+	if tab.Logs.Pod != "" || tab.Container != "" {
+		t.Errorf("every pod and container again: %+v", tab)
+	}
+	if err := h.run(t, engine.OriginGUI, "logs.setSource", map[string]any{"id": id, "pod": "db-0"}, nil); err == nil || !strings.Contains(err.Error(), "web-7d9f-a1, web-7d9f-b2") {
+		t.Errorf("a pod of another resource: %v", err)
+	}
+
+	h.must(t, engine.OriginGUI, "pod.logs", map[string]any{"ref": actionRef("pods", "shop", "web-7d9f-a1")}, &res)
+	h.must(t, engine.OriginGUI, "logs.sources", map[string]any{"id": res.Tab.ID}, &src)
+	if src.AllPods || strings.Join(src.Pods, ",") != "web-7d9f-a1,web-7d9f-b2" {
+		t.Errorf("a pod's sources %+v", src)
+	}
+	h.must(t, engine.OriginGUI, "logs.setSource", map[string]any{"id": res.Tab.ID, "pod": "web-7d9f-b2"}, &tab)
+	if tab.Ref.Kind != "pods" || tab.Ref.Name != "web-7d9f-b2" || tab.Container != "app" || tab.Title != "Logs: web-7d9f-b2/app" {
+		t.Errorf("the pod's tab moved to %+v", tab)
+	}
+	if err := h.run(t, engine.OriginGUI, "logs.sources", map[string]any{"id": "logs-42"}, nil); err == nil {
+		t.Error("sources of a tab that does not exist")
+	}
+}

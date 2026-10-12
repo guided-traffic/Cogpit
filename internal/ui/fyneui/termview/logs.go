@@ -67,6 +67,7 @@ type Logs struct {
 	followCheck *widget.Check
 	status      *widget.Label
 	controls    *fyne.Container // the caller's controls in the bar (SetControls)
+	header      *fyne.Container // the caller's row above the bar (SetHeader); hidden while empty
 	batch       []string
 	view        LogView
 	rows        []displayRow // the list's rows, oldest first
@@ -108,6 +109,8 @@ func NewLogsOn(stream io.ReadCloser, do func(func())) *Logs {
 	l.list.HideSeparators = true
 	l.list.ExtendBaseWidget(l.list)
 	l.controls = container.NewHBox()
+	l.header = container.NewHBox()
+	l.header.Hide()
 	l.followCheck = widget.NewCheck("Follow", nil)
 	l.followCheck.Checked = true
 	l.followCheck.OnChanged = l.setFollow
@@ -131,7 +134,7 @@ func (l *Logs) Close() error {
 // CreateRenderer implements fyne.Widget.
 func (l *Logs) CreateRenderer() fyne.WidgetRenderer {
 	bar := container.NewHBox(l.followCheck, l.controls, layout.NewSpacer(), l.status)
-	return &logsRenderer{l: l, root: container.NewBorder(bar, nil, nil, nil, l.list)}
+	return &logsRenderer{l: l, root: container.NewBorder(container.NewVBox(l.header, bar), nil, nil, nil, l.list)}
 }
 
 // logsRenderer lays the bar and the list out and, while wrapping, re-wraps when the width in
@@ -157,9 +160,25 @@ func (l *Logs) SetControls(objs ...fyne.CanvasObject) {
 	l.controls.Refresh()
 }
 
+// SetHeader puts the caller's row above the bar (a logs tab's pod and container selectors); none
+// hides it. Main goroutine only.
+func (l *Logs) SetHeader(objs ...fyne.CanvasObject) {
+	l.header.Objects = objs
+	if len(objs) == 0 {
+		l.header.Hide()
+	} else {
+		l.header.Show()
+	}
+	l.header.Refresh()
+}
+
 // SetOnSlash sets what "/" does while the list has the keyboard focus: the logs tab focuses its
 // search. Main goroutine only.
 func (l *Logs) SetOnSlash(fn func()) { l.list.onSlash = fn }
+
+// StatusText returns the status at the bar's right: the lines held, shown and dropped, and the
+// stream's end. Main goroutine only.
+func (l *Logs) StatusText() string { return l.status.Text }
 
 // View returns how the lines show. Main goroutine only.
 func (l *Logs) View() LogView { return l.view }
@@ -175,12 +194,16 @@ func (l *Logs) SetView(v LogView) {
 	l.updateStatus()
 }
 
-// ShownLines returns every line the view holds as it shows them (names and timestamps as shown,
-// not filtered, not wrapped): what a download saves. Main goroutine only.
+// ShownLines returns every line the view holds of the sources it shows, as it shows them (names
+// and timestamps as shown, not filtered, not wrapped): what a download saves. Main goroutine only.
 func (l *Logs) ShownLines() []string {
 	out := make([]string, 0, l.lines.len())
 	for i := range l.lines.len() {
-		text, _ := l.view.shown(l.lines.at(i))
+		raw := l.lines.at(i)
+		if !l.view.selects(raw) {
+			continue
+		}
+		text, _ := l.view.shown(raw)
 		out = append(out, text)
 	}
 	return out
@@ -212,7 +235,11 @@ func (l *Logs) rebuildRows() {
 
 // addRows appends the rows of one kept line, if the view shows it.
 func (l *Logs) addRows(abs int64) {
-	text, _ := l.view.shown(l.lines.at(int(abs - l.lines.evicted)))
+	raw := l.lines.at(int(abs - l.lines.evicted))
+	if !l.view.selects(raw) {
+		return
+	}
+	text, _ := l.view.shown(raw)
 	if l.view.Filter && !l.view.matches(text) {
 		return
 	}
@@ -424,11 +451,11 @@ func (l *Logs) apply(batch []string, received int64, ended bool, endErr error) {
 	l.refreshKeepingPlace(dropped)
 }
 
-// updateStatus shows how many lines the view holds, how many match a filter, and the stream's
-// end.
+// updateStatus shows how many lines the view holds, how many it shows when a filter or a
+// selection narrows it, and the stream's end.
 func (l *Logs) updateStatus() {
 	text := statusText(l.lines.len(), l.stReceived, l.stEnded, l.stErr)
-	if l.view.Filter && l.view.Search != "" {
+	if l.view.Filter && l.view.Search != "" || l.view.narrows() {
 		text = fmt.Sprintf("%d of %s", l.rowLines, text)
 	}
 	l.status.SetText(text)

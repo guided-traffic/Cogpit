@@ -19,8 +19,10 @@ type LogView struct {
 	Prefixed bool
 	// Names shows that prefix, in the accent colour; off, it is hidden.
 	Names bool
-	// Timestamps says the line (after the prefix) starts with the API server's RFC 3339
-	// timestamp, which is shown muted.
+	// Stamped says every line from the cluster starts (after the prefix) with the API server's
+	// RFC 3339 timestamp: shown with Timestamps, hidden without.
+	Stamped bool
+	// Timestamps shows the line's timestamp (after the prefix), muted.
 	Timestamps bool
 	// Wrap wraps long lines at the view's width, at a space where one is near.
 	Wrap bool
@@ -28,6 +30,10 @@ type LogView struct {
 	Search string
 	// Filter shows only the lines that contain Search.
 	Filter bool
+	// Pod and Container narrow a prefixed view to the lines of one pod, and of the containers of
+	// one name; empty selects all. Lines without a "<pod>/<container>" prefix (Cogpit's own)
+	// always show.
+	Pod, Container string
 }
 
 // Bounds of the log view's rendering.
@@ -48,8 +54,8 @@ type shownSpans struct {
 	nameEnd, tsStart, tsEnd int
 }
 
-// shown returns the text a line shows under v (the prefix dropped when names are hidden) and
-// where its name and timestamp are.
+// shown returns the text a line shows under v (the prefix dropped when names are hidden, a
+// stamped line's timestamp when timestamps are) and where its name and timestamp are.
 func (v LogView) shown(raw string) (string, shownSpans) {
 	text := raw
 	var sp shownSpans
@@ -66,17 +72,37 @@ func (v LogView) shown(raw string) (string, shownSpans) {
 			text = text[min(i+1, len(text)):]
 		}
 	}
-	if v.Timestamps {
+	if v.Timestamps || v.Stamped {
 		rest := text[start:]
 		end := strings.IndexByte(rest, ' ')
 		if end < 0 {
 			end = len(rest)
 		}
-		if looksLikeTimestamp(rest[:end]) {
+		switch {
+		case !looksLikeTimestamp(rest[:end]):
+		case v.Timestamps:
 			sp.tsStart, sp.tsEnd = start, start+end
+		case start == 0:
+			text = text[min(end+1, len(text)):]
+		default:
+			text = text[:start] + text[min(start+end+1, len(text)):]
 		}
 	}
 	return text, sp
+}
+
+// narrows reports whether the view shows the lines of some sources only.
+func (v LogView) narrows() bool { return v.Prefixed && (v.Pod != "" || v.Container != "") }
+
+// selects reports whether the view shows a line by its source: every line unless it narrows, and
+// then the lines of the selected pod and containers and the lines without a source.
+func (v LogView) selects(raw string) bool {
+	if !v.narrows() {
+		return true
+	}
+	src, _, _ := strings.Cut(raw, " ")
+	pod, c, ok := strings.Cut(src, "/")
+	return !ok || (v.Pod == "" || v.Pod == pod) && (v.Container == "" || v.Container == c)
 }
 
 // looksLikeTimestamp reports whether s has the shape of an RFC 3339 timestamp:

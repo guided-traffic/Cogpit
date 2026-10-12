@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G11: a release upgraded to a version from the user's repositories; G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G8: the log tab's pod and container selectors partial; G11: a release upgraded to a version from the user's repositories; G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -345,9 +345,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   with its own kubeconfig) and to client-go exec and attach streams; the node shell with the
   safeguards in [privilege footprint](../security/privilege-footprint.md#node-shell); the log
   viewer (virtualized, follow, filter, timestamps, previous container, download, multi-pod).
-- **Evidence:** [ui-parity](ui-parity.md#logs), 10 of 16 rows partial across logs and terminal
-  (was 4): the terminal tab on Cogpit's own PTY with its own kubeconfig, the pod shell over exec,
-  the log view with follow ([`internal/terminal`](../../internal/terminal/),
+- **Evidence:** [ui-parity](ui-parity.md#logs), 11 of 16 rows partial across logs and terminal
+  (was 10 before 2026-10-13, 4 before the third run): the terminal tab on Cogpit's own PTY with
+  its own kubeconfig, the pod shell over exec, the log view with follow ([`internal/terminal`](../../internal/terminal/),
   [`termview`](../../internal/ui/fyneui/termview/)); from the third run (2026-10-11): attach to a
   container's main process ([`terminal/attach.go`](../../internal/terminal/attach.go)), and the
   log options as engine state of the tab (`logs.setOptions`): timestamps, previous container, word
@@ -355,8 +355,12 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   (`workload.logs`, `logs.controller`: every pod's containers from the cache, joining while
   following, each line named) ([`engine/logs.go`](../../internal/engine/logs.go),
   [`engine/workloadlogs.go`](../../internal/engine/workloadlogs.go),
-  [`logtab.go`](../../internal/ui/fyneui/logtab.go)). Still missing: the node shell, the log
-  tab's pod and container selectors, jumping to a time and loading older lines. The terminal
+  [`logtab.go`](../../internal/ui/fyneui/logtab.go)). Night run (2026-10-13): the log tab's pod
+  and container selectors (`logs.sources`, `logs.setSource`): a controlling resource's merged
+  stream narrows without opening the streams that stay again, and every stream carries the
+  server's timestamps ([`engine/logsources.go`](../../internal/engine/logsources.go),
+  [`logtab_sources.go`](../../internal/ui/fyneui/logtab_sources.go)). Still missing: the node
+  shell, jumping to a time and loading older lines. The terminal
   widget (2026-10-12, fourth run): the patched copy survives every input found by fuzzing it
   alone, without the escape filter (`FuzzHandleOutput`, `FuzzRawWidget`; the crash, hang and
   race patches in [PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)), and its tests run
@@ -950,6 +954,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | G8 evidence (night run): the log tab's pod and container selectors partial; estimate not moved |
 | 2026-10-13 | minor | G11: a release upgraded to a chart version from the user's repositories (the Upgrade tab's choice, `helm.release.upgrade` with `version` and `repository`, the chart downloaded and checked first, the confirmation's from and to bound to what runs; night run) |
 | 2026-10-13 | minor | G5, G13: the tab bar of cluster views built (night run): engine state with eight `ui.tab.*` commands, the bar, the navigator's preview and fixed tabs, five shortcut rows; what differs from Lens and what is inferred; estimates not moved (the lead recounts) |
 | 2026-10-13 | minor | G13: Preferences and Cluster settings built (night run): the two pages and their shortcuts, cluster identity, the theme, time zone, editor, tables and terminal preferences, the cluster's terminal settings; G8: the terminal's font size, shell and arguments; what is inferred and Cogpit's defaults named; estimates not moved (the lead recounts) |

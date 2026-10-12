@@ -13,6 +13,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/model"
@@ -43,7 +44,7 @@ func startShell(t testing.TB, eng Engine, f *fakeEngine, opts Options) (*shell, 
 
 // logsEngine is the fake engine whose log streams are what the real engine streams for the tab:
 // a pod's container, or a deployment's pods with "<pod>/<container> " before every line, with
-// the server's timestamps when the tab asks for them. Streams stay open until closed.
+// the server's timestamps (every stream carries them). Streams stay open until closed.
 type logsEngine struct{ *fakeEngine }
 
 var demoMerged = []struct{ source, ts, msg string }{
@@ -73,15 +74,19 @@ func (e logsEngine) OpenLogs(_ context.Context, tabID string) (io.ReadCloser, er
 	for _, l := range demoMerged {
 		if tab.Ref.Kind != kindPods {
 			b.WriteString(l.source + " ")
-		} else if !strings.HasSuffix(l.source, "x2k9p/api") {
+		} else if l.source != tab.Ref.Name+"/"+tab.Container {
 			continue
 		}
-		if tab.Logs.Timestamps {
-			b.WriteString(l.ts + " ")
-		}
-		b.WriteString(l.msg + "\n")
+		b.WriteString(l.ts + " " + l.msg + "\n")
 	}
 	return newOpenStream(e.fakeEngine, tabID, b.String()), nil
+}
+
+// demoSources are what the deployment's tab offers: its two pods, their containers, an init
+// container apart.
+var demoSources = engine.LogSources{
+	AllPods: true, Pods: []string{"checkout-api-7d9f8b6c4-q8w3n", "checkout-api-7d9f8b6c4-x2k9p"},
+	Containers: []string{"api", "envoy"}, InitContainers: []string{"migrate-db"},
 }
 
 // withLogCommands answers logs.setOptions and logs.controller as the engine does.
@@ -126,6 +131,48 @@ func withLogCommands(t testing.TB, f *fakeEngine, deployment model.ObjectRef) {
 		})
 		return nil, nil
 	}
+	f.handlers["logs.sources"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p dockParams
+		if err := json.Unmarshal(inv.Params, &p); err != nil {
+			return nil, err
+		}
+		f.mu.Lock()
+		tab, _ := f.ui.DockTab(p.ID)
+		f.mu.Unlock()
+		if tab.Ref != nil && tab.Ref.Kind == kindPods {
+			return engine.LogSources{Pods: demoSources.Pods, Containers: []string{"api", "envoy"}}, nil
+		}
+		return demoSources, nil
+	}
+	f.handlers["logs.setSource"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p logSourceParams
+		if err := json.Unmarshal(inv.Params, &p); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) {
+			for i := range u.Dock {
+				t := &u.Dock[i]
+				if t.ID != p.ID {
+					continue
+				}
+				switch {
+				case t.Ref.Kind == kindPods && p.Pod != nil:
+					r := *t.Ref
+					r.Name = *p.Pod
+					t.Ref = &r
+				case p.Pod != nil:
+					t.Logs.Pod = *p.Pod
+				}
+				if p.Container != nil {
+					t.Container = *p.Container
+				}
+				if t.Ref.Kind == kindPods {
+					t.Title = "Logs: " + t.Ref.Name + "/" + t.Container
+				}
+			}
+		})
+		return nil, nil
+	}
 	if err := engine.Register(f.reg, engine.Spec[dockParams]{ID: "logs.controller", Label: "Logs of the Controlling Resource", Danger: engine.DangerRead,
 		Enabled: func(*engine.Session, dockParams) error { return f.reason("logs.controller") },
 		Run:     func(context.Context, *engine.Session, dockParams) (any, error) { return nil, nil }}); err != nil {
@@ -162,7 +209,7 @@ func logTabOf(sh *shell) *logTab {
 
 // TestLogTabOptionsAreEngineState: a toggle in the toolbar asks the engine (logs.setOptions) and
 // the view follows the engine's state, whoever changed it; an option that changes the request
-// (timestamps) opens the stream again, the others do not.
+// (previous) opens the stream again, the others (timestamps since 2026-10-13) do not.
 func TestLogTabOptionsAreEngineState(t *testing.T) {
 	sh, _, q, f := logsScene(t, ThemeDark, false, engine.LogOptions{})
 	lt := logTabOf(sh)
@@ -183,11 +230,6 @@ func TestLogTabOptionsAreEngineState(t *testing.T) {
 	q.until(t, "the agent's options", func() bool {
 		return lt.timestamps.Checked && lt.filter.Checked && lt.search.Text == "POST" && lt.view.View().Search == "POST"
 	})
-	q.until(t, "the stream opened again", func() bool {
-		f.mu.Lock()
-		defer f.mu.Unlock()
-		return f.opened["logs-1"] == 2
-	})
 	q.until(t, "the timestamped lines", func() bool {
 		lines := lt.view.ShownLines()
 		return len(lines) > 0 && strings.HasPrefix(lines[0], "2026-10-11T14:28:01.204118340Z ")
@@ -196,10 +238,141 @@ func TestLogTabOptionsAreEngineState(t *testing.T) {
 		t.Errorf("%d setOptions calls", n)
 	}
 	f.mu.Lock()
-	closed := f.closed["logs-1"]
+	opened := f.opened["logs-1"]
 	f.mu.Unlock()
-	if closed < 1 {
-		t.Error("the first stream was not closed")
+	if opened != 1 {
+		t.Errorf("the stream opened %d times: timestamps come with every stream", opened)
+	}
+
+	// Previous changes the request: the stream opens again, and the first one is closed.
+	test.Tap(lt.previous)
+	q.until(t, "the stream opened again", func() bool {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		return f.opened["logs-1"] == 2 && f.closed["logs-1"] >= 1
+	})
+}
+
+// TestLogTabSourceSelectors: a deployment's tab names its pod and container above the toolbar;
+// a selector's menu lists what the engine offers (logs.sources), every pod or container first and
+// the init containers apart, the shown one checked; a choice asks the engine (logs.setSource) and
+// the view shows that pod's lines without a new stream; an agent's choice moves the selectors. A
+// pod's tab switches its container by opening the stream again.
+func TestLogTabSourceSelectors(t *testing.T) {
+	sh, w, q, f := logsScene(t, ThemeDark, true, engine.LogOptions{ResourceNames: true})
+	lt := logTabOf(sh)
+	if lt.podPick.Text != "Pod: All pods" || lt.containerPick.Text != "Container: All containers" {
+		t.Errorf("selectors %q %q", lt.podPick.Text, lt.containerPick.Text)
+	}
+	test.Tap(lt.podPick)
+	if n := len(q.popUpMenu(t, w).Items); n != 4 {
+		t.Errorf("the pod menu shows %d items", n)
+	}
+	if len(f.callsOf("logs.sources")) != 1 {
+		t.Error("the menu did not ask the engine")
+	}
+	menu := lt.sourceMenu(demoSources, true)
+	if got := sourceMenuLabels(menu); strings.Join(got, "|") != "All pods|---|checkout-api-7d9f8b6c4-q8w3n|checkout-api-7d9f8b6c4-x2k9p" {
+		t.Errorf("pod menu %q", got)
+	}
+	if !menu.Items[0].Checked {
+		t.Error("All pods is not checked")
+	}
+	dismissOverlays(w)
+	menu.Items[2].Action()
+	q.until(t, "the pod's lines", func() bool {
+		lines := lt.view.ShownLines()
+		return lt.podPick.Text == "Pod: checkout-api-7d9f8b6c4-q8w3n" && len(lines) == 4 && strings.HasPrefix(lines[0], "checkout-api-7d9f8b6c4-q8w3n/api ")
+	})
+	if calls := f.callsOf("logs.setSource"); len(calls) != 1 || !strings.Contains(string(calls[0].Params), `"pod":"checkout-api-7d9f8b6c4-q8w3n"`) ||
+		strings.Contains(string(calls[0].Params), "container") {
+		t.Errorf("setSource calls %v", calls)
+	}
+	q.until(t, "the status counts the pod's lines", func() bool { return strings.HasPrefix(lt.view.StatusText(), "4 of 9 lines") })
+
+	menu = lt.sourceMenu(demoSources, false)
+	if got := sourceMenuLabels(menu); strings.Join(got, "|") != "All containers|---|api|envoy|---|Init containers|migrate-db" {
+		t.Errorf("container menu %q", got)
+	}
+	if !menu.Items[5].Disabled || !menu.Items[0].Checked {
+		t.Error("the init containers' heading can be chosen, or All containers is not checked")
+	}
+
+	// An agent narrows to the envoys of every pod.
+	go func() {
+		_, _ = f.Dispatch(context.Background(), engine.Invocation{ID: "logs.setSource", Origin: engine.OriginExternalAgent,
+			Params: mustJSON(t, map[string]any{"id": "logs-1", "pod": "", "container": "envoy"})})
+	}()
+	q.until(t, "the envoys' lines", func() bool {
+		lines := lt.view.ShownLines()
+		return lt.containerPick.Text == "Container: envoy" && lt.podPick.Text == "Pod: All pods" && len(lines) == 2
+	})
+	f.mu.Lock()
+	opened := f.opened["logs-1"]
+	f.mu.Unlock()
+	if opened != 1 {
+		t.Errorf("the merged stream opened %d times; the engine narrows it itself", opened)
+	}
+
+	// A pod's tab: the container selector switches the container; its stream opens again.
+	sh2, w2, q2, f2 := logsScene(t, ThemeDark, false, engine.LogOptions{})
+	lt2 := logTabOf(sh2)
+	if lt2.podPick.Text != "Pod: checkout-api-7d9f8b6c4-x2k9p" || lt2.containerPick.Text != "Container: api" {
+		t.Errorf("a pod's selectors %q %q", lt2.podPick.Text, lt2.containerPick.Text)
+	}
+	test.Tap(lt2.containerPick)
+	q2.popUpMenu(t, w2)
+	dismissOverlays(w2)
+	menu = lt2.sourceMenu(engine.LogSources{Pods: demoSources.Pods, Containers: []string{"api", "envoy"}}, false)
+	if got := sourceMenuLabels(menu); strings.Join(got, "|") != "api|envoy" || !menu.Items[0].Checked {
+		t.Errorf("a pod's container menu %q", got)
+	}
+	menu.Items[1].Action()
+	q2.until(t, "the envoy's lines", func() bool {
+		lines := lt2.view.ShownLines()
+		return lt2.containerPick.Text == "Container: envoy" && len(lines) == 2 && strings.HasPrefix(lines[0], "envoy ready")
+	})
+	f2.mu.Lock()
+	opened = f2.opened["logs-1"]
+	f2.mu.Unlock()
+	if opened != 2 {
+		t.Errorf("a pod's tab opened its stream %d times, want again for the other container", opened)
+	}
+}
+
+// popUpMenu waits for the pop-up menu a selector shows and returns its menu as it draws it.
+func (q *mainQueue) popUpMenu(t *testing.T, w fyne.Window) *widget.Menu {
+	t.Helper()
+	var m *widget.Menu
+	q.until(t, "a pop-up menu", func() bool {
+		if top := w.Canvas().Overlays().Top(); top != nil {
+			if menus := findAll[*widget.PopUpMenu](top); len(menus) > 0 {
+				m = menus[0].Menu
+				return true
+			}
+		}
+		return false
+	})
+	return m
+}
+
+// sourceMenuLabels lists a menu's labels, "---" for a separator.
+func sourceMenuLabels(m *fyne.Menu) []string {
+	var out []string
+	for _, it := range m.Items {
+		if it.IsSeparator {
+			out = append(out, "---")
+			continue
+		}
+		out = append(out, it.Label)
+	}
+	return out
+}
+
+// dismissOverlays closes the window's pop-ups.
+func dismissOverlays(w fyne.Window) {
+	for _, o := range w.Canvas().Overlays().List() {
+		w.Canvas().Overlays().Remove(o)
 	}
 }
 
@@ -291,6 +464,22 @@ func TestLogDownloadWritesTheShownLines(t *testing.T) {
 	test.Tap(lt.download)
 	if len(sh.win.Canvas().Overlays().List()) == 0 {
 		t.Error("no save dialog")
+	}
+}
+
+// TestRenderLogsWorkloadSources: a deployment's tab narrowed to one pod by its selectors, dark and
+// light, and its container selector open.
+func TestRenderLogsWorkloadSources(t *testing.T) {
+	for _, mode := range []ThemeMode{ThemeDark, ThemeLight} {
+		sh, w, q, _ := logsScene(t, mode, true, engine.LogOptions{ResourceNames: true, Timestamps: true, Pod: "checkout-api-7d9f8b6c4-x2k9p"})
+		lt := logTabOf(sh)
+		q.until(t, "the pod's lines", func() bool { return len(lt.view.ShownLines()) == 5 })
+		savePNG(t, w, "logs_workload_sources_"+string(mode)+".png")
+		if mode == ThemeDark {
+			test.Tap(lt.containerPick)
+			q.popUpMenu(t, w)
+			savePNG(t, w, "logs_workload_containers_dark.png")
+		}
 	}
 }
 

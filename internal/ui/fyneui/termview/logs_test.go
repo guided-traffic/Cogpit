@@ -330,3 +330,41 @@ func TestLogsScreenshot(t *testing.T) {
 	l.Refresh()
 	writePNG(t, w, "logs.png")
 }
+
+// TestLogsStampedAndSelection: a stamped view hides the server's timestamps unless asked to show
+// them, before or after the names; a selection shows the lines of one pod or of one container's
+// name, Cogpit's own lines always, counts them in the status and downloads them alone.
+func TestLogsStampedAndSelection(t *testing.T) {
+	l, _ := showMerged(t, mergedLogs, LogView{Prefixed: true, Names: true, Stamped: true}, fyne.NewSize(900, 300))
+	if got := rowTexts(l); got[0] != "web-7d9f-a1/app starting order-service version=1.42.0" || got[6] != mergedLogs[6] {
+		t.Errorf("stamped rows without timestamps %q", got)
+	}
+	l.SetView(LogView{Prefixed: true, Stamped: true})
+	if got := rowTexts(l)[0]; got != "starting order-service version=1.42.0" {
+		t.Errorf("without names and timestamps %q", got)
+	}
+	l.SetView(LogView{Prefixed: true, Names: true, Stamped: true, Timestamps: true})
+	if got := rowTexts(l)[0]; got != mergedLogs[0] {
+		t.Errorf("with names and timestamps %q", got)
+	}
+
+	l.SetView(LogView{Prefixed: true, Names: true, Stamped: true, Pod: "web-7d9f-a1"})
+	got := rowTexts(l)
+	if len(got) != 5 || !strings.HasPrefix(got[1], "web-7d9f-a1/proxy ") || !strings.HasPrefix(got[3], "[cogpit] ") {
+		t.Errorf("one pod's rows %q", got)
+	}
+	if st := l.StatusText(); !strings.HasPrefix(st, "5 of 9 lines") {
+		t.Errorf("status %q", st)
+	}
+	if lines := l.ShownLines(); len(lines) != 5 {
+		t.Errorf("a download of one pod holds %d lines", len(lines))
+	}
+	l.SetView(LogView{Prefixed: true, Names: true, Stamped: true, Container: "proxy"})
+	if got := rowTexts(l); len(got) != 2 || !strings.HasPrefix(got[0], "web-7d9f-a1/proxy ") {
+		t.Errorf("the proxies' rows %q", got)
+	}
+	l.SetView(LogView{Prefixed: true, Names: true, Stamped: true, Pod: "web-7d9f-b2", Container: "app", Search: "payment", Filter: true})
+	if got := rowTexts(l); len(got) != 2 {
+		t.Errorf("one pod's container, filtered: %q", got)
+	}
+}

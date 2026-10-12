@@ -481,11 +481,12 @@ func TestWorkloadLogsPreviousBeyondTheBound(t *testing.T) {
 	}
 }
 
-// TestPodLogOptions: a pod's tab asks for its container's log with the tab's options.
+// TestPodLogOptions: a pod's tab asks for its container's log with the tab's options, always with
+// the server's timestamps (the GUI hides them unless the tab shows them).
 func TestPodLogOptions(t *testing.T) {
 	ref := model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-0"}
 	got := podLogOptions(DockTab{Ref: &ref, Container: "app"})
-	if got != (cluster.LogOptions{Namespace: "shop", Pod: "web-0", Container: "app", Follow: true, TailLines: logTailLines}) {
+	if got != (cluster.LogOptions{Namespace: "shop", Pod: "web-0", Container: "app", Follow: true, Timestamps: true, TailLines: logTailLines}) {
 		t.Errorf("default %+v", got)
 	}
 	got = podLogOptions(DockTab{Ref: &ref, Container: "app", Logs: LogOptions{Previous: true, Timestamps: true, Wrap: true, Search: "x"}})

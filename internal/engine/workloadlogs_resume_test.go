@@ -35,6 +35,7 @@ type stampedLine struct {
 type serverStream struct {
 	lines      chan stampedLine
 	timestamps bool
+	done       chan struct{} // closed when the stream has ended, whoever ended it
 }
 
 func newServerLogs() *serverLogs {
@@ -63,7 +64,7 @@ func (f *serverLogs) StreamLogs(ctx context.Context, opts cluster.LogOptions) (i
 	if opts.TailLines > 0 && int64(len(initial)) > opts.TailLines {
 		initial = initial[int64(len(initial))-opts.TailLines:]
 	}
-	st := &serverStream{lines: make(chan stampedLine, 64), timestamps: opts.Timestamps}
+	st := &serverStream{lines: make(chan stampedLine, 64), timestamps: opts.Timestamps, done: make(chan struct{})}
 	if opts.Follow && !f.dropAtOnce[key] {
 		f.open[key] = append(f.open[key], st)
 	} else {
@@ -71,6 +72,12 @@ func (f *serverLogs) StreamLogs(ctx context.Context, opts cluster.LogOptions) (i
 	}
 	pr, pw := io.Pipe()
 	go func() {
+		defer func() { // no longer open, however it ended
+			f.mu.Lock()
+			f.open[key] = slices.DeleteFunc(f.open[key], func(o *serverStream) bool { return o == st })
+			f.mu.Unlock()
+			close(st.done)
+		}()
 		for _, l := range initial {
 			if _, err := io.WriteString(pw, l.format(opts.Timestamps)); err != nil {
 				return
@@ -95,14 +102,22 @@ func (f *serverLogs) StreamLogs(ctx context.Context, opts cluster.LogOptions) (i
 	return pr, nil
 }
 
-// add appends a line to a container's log and sends it on its newest open stream.
+// add appends a line to a container's log and sends it on its newest open stream, unless that
+// stream ends first.
 func (f *serverLogs) add(key string, at time.Time, text string) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	l := stampedLine{at: at, text: text}
 	f.log[key] = append(f.log[key], l)
+	var st *serverStream
 	if open := f.open[key]; len(open) > 0 {
-		open[len(open)-1].lines <- l
+		st = open[len(open)-1]
+	}
+	f.mu.Unlock()
+	if st != nil {
+		select {
+		case st.lines <- l:
+		case <-st.done:
+		}
 	}
 }
 
@@ -132,6 +147,11 @@ func (f *serverLogs) requestsFor(key string) []cluster.LogOptions {
 		}
 	}
 	return out
+}
+
+// stamped is a merged stream's line: the prefix, the server's timestamp, the text.
+func stamped(prefix string, at time.Time, text string) string {
+	return prefix + " " + at.Format(time.RFC3339Nano) + " " + text
 }
 
 func fastResumes(t *testing.T, resumes int) {
@@ -166,20 +186,23 @@ func TestWorkloadLogsResumeADroppedStream(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	line := func(ms int, text string) string {
+		return stamped("db-0/db", t0.Add(time.Duration(ms)*time.Millisecond), text)
+	}
 	lr := readLines(openTabLogs(t, s, tab.ID, f))
-	lr.wait(t, "db-0/db one", "db-0/db two", "db-0/db two again")
+	lr.wait(t, line(100, "one"), line(200, "two"), line(200, "two again"))
 	waitUntil(t, "the stream to follow", func() bool { return f.opened(key) })
 	f.add(key, t0.Add(500*time.Millisecond), "three")
-	lr.wait(t, "db-0/db three")
+	lr.wait(t, line(500, "three"))
 
 	f.drop(key)
 	f.add(key, t0.Add(1700*time.Millisecond), "four") // during the gap, or on the resumed stream
-	lr.wait(t, "db-0/db four")
+	lr.wait(t, line(1700, "four"))
 	waitUntil(t, "the resumed stream to follow", func() bool { return f.opened(key) })
 	f.add(key, t0.Add(2*time.Second), "five")
-	lr.wait(t, "db-0/db five")
+	lr.wait(t, line(2000, "five"))
 
-	want := []string{"db-0/db one", "db-0/db two", "db-0/db two again", "db-0/db three", "db-0/db four", "db-0/db five"}
+	want := []string{line(100, "one"), line(200, "two"), line(200, "two again"), line(500, "three"), line(1700, "four"), line(2000, "five")}
 	if got := lr.all(); !slices.Equal(got, want) {
 		t.Errorf("lines %q, want %q", got, want)
 	}
@@ -199,6 +222,7 @@ func TestWorkloadLogsStopResumingWithoutNewLines(t *testing.T) {
 	s, _ := logsSession(t)
 	f := newServerLogs()
 	const key = "db-0/db"
+	only := stamped("db-0/db", time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC), "only")
 	f.add(key, time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC), "only")
 	f.dropAtOnce[key] = true
 	tab, _, err := s.OpenWorkloadLogsTab(context.Background(), model.ObjectRef{Kind: "statefulsets", Namespace: "shop", Name: "db"})
@@ -213,7 +237,7 @@ func TestWorkloadLogsStopResumingWithoutNewLines(t *testing.T) {
 	if n := len(f.requestsFor(key)); n != 3 {
 		t.Errorf("%d requests, want the first and two resumptions", n)
 	}
-	if got := lr.all(); slices.Index(got, "db-0/db only") < 0 || len(slices.DeleteFunc(slices.Clone(got), func(l string) bool { return l != "db-0/db only" })) != 1 {
+	if got := lr.all(); slices.Index(got, only) < 0 || len(slices.DeleteFunc(slices.Clone(got), func(l string) bool { return l != only })) != 1 {
 		t.Errorf("lines %q: the line once", got)
 	}
 }
@@ -231,7 +255,7 @@ func TestWorkloadLogsNoResumeAfterTheContainerEnded(t *testing.T) {
 		t.Fatal(err)
 	}
 	lr := readLines(openTabLogs(t, s, tab.ID, f))
-	lr.wait(t, "db-0/db bye")
+	lr.wait(t, stamped("db-0/db", time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC), "bye"))
 	src.Set(testkit.PodsGVR, owned(logPod("shop", "db-0", "db:terminated#1"), "apps/v1", "StatefulSet", "db", "uid-shop-db"))
 	waitUntil(t, "the cache to show the container ended", func() bool {
 		pod, err := s.Lookup(model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "db-0"})
@@ -288,8 +312,8 @@ func TestWorkloadLogsForgetEndedInstances(t *testing.T) {
 	})
 }
 
-// TestWorkloadLogsFollowKeepsTimestampsWhenShown: a tab that shows timestamps gets the server's,
-// and a resumption still drops what it has.
+// TestWorkloadLogsFollowKeepsTimestampsWhenShown: a tab that shows timestamps gets the server's
+// (every tab does since 2026-10-13: the GUI hides them), and a resumption still drops what it has.
 func TestWorkloadLogsFollowKeepsTimestampsWhenShown(t *testing.T) {
 	fastResumes(t, 5)
 	s, _ := logsSession(t)

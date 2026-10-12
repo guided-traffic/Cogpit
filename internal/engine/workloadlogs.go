@@ -21,10 +21,15 @@ import (
 
 // The logs of a controlling resource (workload.logs): one stream that merges the logs of every
 // container of every pod the resource controls (for a Deployment, through its ReplicaSets), each
-// line starting with "<pod>/<container> ". The pods come from the cache, never from a list
-// request: the stream holds cache handles on pods (and replica sets) while it is open and starts
-// the log of a container when the cache shows it running, so pods that join while the tab
-// follows (a rollout, a scale-up, a restarted container) join the stream.
+// line starting with "<pod>/<container> " and the API server's timestamp. The pods come from the
+// cache, never from a list request: the stream holds cache handles on pods (and replica sets)
+// while it is open and starts the log of a container when the cache shows it running, so pods that
+// join while the tab follows (a rollout, a scale-up, a restarted container) join the stream.
+//
+// The tab's selection (logsources.go) narrows the stream while it follows: the streams of the
+// containers it leaves out end, the others go on untouched, and a container selected again
+// resumes from the newest line it had written (sinceTime), with the lines written meanwhile, at
+// most workloadLogTail of them.
 
 // Bounds of a controlling resource's logs.
 const (
@@ -49,6 +54,7 @@ const NoticePrefix = "[cogpit]"
 // ends every container's stream and releases the cache handles.
 type workloadLogs struct {
 	s        *Session
+	tabID    string
 	ref      model.ObjectRef
 	noun     string // "Deployment web"
 	opts     LogOptions
@@ -70,10 +76,13 @@ type workloadLogs struct {
 	// started holds the "<pod uid>/<container>/<instance>" streams started; scan forgets the ones
 	// whose pod or container instance the cache no longer shows, which never come back.
 	started   map[string]bool
-	streaming map[string]bool // the started streams still running
-	active    int
-	capped    bool
-	tail      int64 // the history each of the first containers starts with
+	streaming map[string]streamEntry // the started streams still running
+	// cursors are where the streams the selection ended stood, for when it selects them again.
+	cursors map[string]logCursor
+	sel     logSelection // what the tab narrows to
+	active  int
+	capped  bool
+	tail    int64 // the history each of the first containers starts with
 
 	closeOnce sync.Once
 }
@@ -83,6 +92,19 @@ type logTarget struct {
 	key, pod, container string
 	uid                 string // the pod's
 	restarts            int64  // the instance: the container's restart count
+	// named: an init container that is no sidecar, streamed only when the selection names it.
+	named bool
+}
+
+// selects reports whether the selection takes the target in.
+func (sel logSelection) selects(t logTarget) bool {
+	return (!t.named || sel.container == t.container) && sel.matches(t.pod, t.container)
+}
+
+// streamEntry is a running stream: its target, and how the selection ends it.
+type streamEntry struct {
+	target logTarget
+	cancel context.CancelFunc
 }
 
 // openWorkloadLogs opens the merged logs of the resource a logs tab names.
@@ -101,8 +123,9 @@ func (s *Session) openWorkloadLogs(ctx context.Context, tab DockTab, b *Backend,
 		noun = p.Kind + " " + ref.Name
 	}
 	wl := &workloadLogs{
-		s: s, ref: ref, noun: noun, opts: tab.Logs, streamer: streamer, uid: string(obj.GetUID()),
-		wake: make(chan struct{}, 1), stop: make(chan struct{}), started: map[string]bool{}, streaming: map[string]bool{},
+		s: s, tabID: tab.ID, ref: ref, noun: noun, opts: tab.Logs, streamer: streamer, uid: string(obj.GetUID()),
+		wake: make(chan struct{}, 1), stop: make(chan struct{}), started: map[string]bool{},
+		streaming: map[string]streamEntry{}, cursors: map[string]logCursor{}, sel: selectionOf(tab),
 	}
 	wl.pods = b.Acquire(podsP)
 	if ref.Kind == logKindDeployments {
@@ -119,6 +142,18 @@ func (s *Session) openWorkloadLogs(ctx context.Context, tab DockTab, b *Backend,
 			if h != nil {
 				wl.unsub = append(wl.unsub, h.Subscribe(func(cache.Event) { signal(wl.wake) }))
 			}
+		}
+		// The tab's selection, whoever changes it; read again after subscribing, so that no
+		// change is missed between the two. A tab with Previous opens again instead (the GUI).
+		wl.unsub = append(wl.unsub, s.Subscribe(func(ev Event) {
+			if ev.Type == EventUIState && ev.UIState != nil {
+				if t, ok := ev.UIState.DockTab(wl.tabID); ok {
+					wl.setSelection(selectionOf(t))
+				}
+			}
+		}))
+		if t, ok := s.UIState().DockTab(wl.tabID); ok {
+			wl.sel = selectionOf(t)
 		}
 	}
 	for _, h := range []*cache.Handle{wl.pods, wl.rs} {
@@ -165,11 +200,31 @@ func (wl *workloadLogs) emptyNotice() string {
 	return fmt.Sprintf("%s %s has no running containers yet; their logs show here when they start", NoticePrefix, wl.noun)
 }
 
+// setSelection narrows (or widens) the stream to sel: the streams of the containers sel leaves out
+// end, keeping where they stood; a rescan starts those it selects that do not stream.
+func (wl *workloadLogs) setSelection(sel logSelection) {
+	wl.mu.Lock()
+	if sel == wl.sel {
+		wl.mu.Unlock()
+		return
+	}
+	wl.sel = sel
+	for _, e := range wl.streaming {
+		if !sel.selects(e.target) {
+			e.cancel()
+		}
+	}
+	wl.mu.Unlock()
+	signal(wl.wake)
+}
+
 // scan returns the containers whose logs are not streamed yet: those of the resource's pods that
-// run or have run (for Previous: that have a previous instance), in pod and container order. It
-// forgets the started streams whose pod or container instance the cache no longer shows (a pod
-// replaced in a rollout, a container restarted): their keys never come back, since a pod's UID is
-// never reused and a restart count only grows, so the set holds no more than the pods' containers.
+// run or have run (for Previous: that have a previous instance) and that the selection selects,
+// in pod and container order. Init containers that are no sidecars (restartPolicy Always) count
+// only when the selection names one. It forgets the started streams whose pod or container
+// instance the cache no longer shows (a pod replaced in a rollout, a container restarted): their
+// keys never come back, since a pod's UID is never reused and a restart count only grows, so the
+// set holds no more than the pods' containers.
 func (wl *workloadLogs) scan() []logTarget {
 	owners := map[string]bool{wl.uid: true}
 	if wl.rs != nil {
@@ -187,16 +242,8 @@ func (wl *workloadLogs) scan() []logTarget {
 		if !owners[controllerUID(pod)] {
 			continue
 		}
-		statuses := map[string]any{}
-		for _, st := range model.NestedSlice(pod, "status", "containerStatuses") {
-			statuses[model.NestedString(st, "name")] = st
-		}
-		for _, c := range model.NestedSlice(pod, "spec", "containers") {
-			name := model.NestedString(c, "name")
-			st, ok := statuses[name]
-			if name == "" || !ok {
-				continue
-			}
+		for _, cs := range podContainerStatuses(pod) {
+			name, st := cs.name, cs.status
 			restarts, _ := model.NestedInt64(st, "restartCount")
 			instance := fmt.Sprint(restarts)
 			if wl.opts.Previous {
@@ -204,7 +251,10 @@ func (wl *workloadLogs) scan() []logTarget {
 			}
 			key := string(pod.GetUID()) + "/" + name + "/" + instance
 			shown[key] = true
+			target := logTarget{key: key, pod: pod.GetName(), container: name, uid: string(pod.GetUID()), restarts: restarts, named: cs.init && !cs.sidecar}
 			switch {
+			case !wl.sel.selects(target):
+				continue
 			case wl.opts.Previous:
 				if model.NestedMap(st, "lastState", "terminated") == nil {
 					continue
@@ -213,13 +263,18 @@ func (wl *workloadLogs) scan() []logTarget {
 				continue // waiting: no log yet
 			}
 			if !wl.started[key] {
-				out = append(out, logTarget{key: key, pod: pod.GetName(), container: name, uid: string(pod.GetUID()), restarts: restarts})
+				out = append(out, target)
 			}
 		}
 	}
 	for key := range wl.started {
-		if !shown[key] && !wl.streaming[key] {
+		if _, running := wl.streaming[key]; !shown[key] && !running {
 			delete(wl.started, key)
+		}
+	}
+	for key := range wl.cursors {
+		if !shown[key] {
+			delete(wl.cursors, key) // the pod or the instance is gone: nothing to resume
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -228,6 +283,35 @@ func (wl *workloadLogs) scan() []logTarget {
 		}
 		return out[i].container < out[j].container
 	})
+	return out
+}
+
+// containerStatus is a container of a pod's spec with its status.
+type containerStatus struct {
+	name   string
+	status any
+	// init: an init container; sidecar: one that runs beside the others (restartPolicy Always).
+	init, sidecar bool
+}
+
+// podContainerStatuses returns a pod's containers that have a status, in spec order, its init
+// containers after them.
+func podContainerStatuses(pod *unstructured.Unstructured) []containerStatus {
+	var out []containerStatus
+	add := func(specs, statuses string, init bool) {
+		byName := map[string]any{}
+		for _, st := range model.NestedSlice(pod, "status", statuses) {
+			byName[model.NestedString(st, "name")] = st
+		}
+		for _, c := range model.NestedSlice(pod, "spec", specs) {
+			name := model.NestedString(c, "name")
+			if st, ok := byName[name]; ok && name != "" {
+				out = append(out, containerStatus{name: name, status: st, init: init, sidecar: init && model.NestedString(c, "restartPolicy") == "Always"})
+			}
+		}
+	}
+	add("containers", "containerStatuses", false)
+	add("initContainers", "initContainerStatuses", true)
 	return out
 }
 
@@ -259,10 +343,13 @@ func (wl *workloadLogs) start(targets []logTarget, tail int64) {
 			}
 			return
 		}
-		wl.started[t.key], wl.streaming[t.key] = true, true
+		ctx, cancel := context.WithCancel(wl.ctx)
+		wl.started[t.key], wl.streaming[t.key] = true, streamEntry{target: t, cancel: cancel}
+		cur, resumed := wl.cursors[t.key]
+		delete(wl.cursors, t.key)
 		wl.active++
 		wl.wg.Add(1)
-		go wl.stream(t, tail)
+		go wl.stream(ctx, t, tail, cur, resumed)
 	}
 }
 
@@ -293,13 +380,23 @@ type logCursor struct {
 // stream copies one container's log into the merged stream, line by line, each with its prefix.
 // A follow stream the server ends while the cache still shows the container instance running is
 // opened again from the newest line's timestamp (sinceTime), after a backoff, at most
-// workloadLogResumes times in a row without a new line.
-func (wl *workloadLogs) stream(t logTarget, tail int64) {
+// workloadLogResumes times in a row without a new line. ctx ends with the merged stream, or when
+// the selection leaves the container out: then the stream keeps its cursor, and when the selection
+// takes the container in again it starts from it (resumed), with at most workloadLogTail lines.
+func (wl *workloadLogs) stream(ctx context.Context, t logTarget, tail int64, cur logCursor, resumed bool) {
 	defer wl.wg.Done()
 	defer func() {
+		deselected := ctx.Err() != nil && wl.ctx.Err() == nil // asked before the cancel below
 		wl.mu.Lock()
 		wl.active--
+		wl.streaming[t.key].cancel()
 		delete(wl.streaming, t.key)
+		if deselected { // left out by the selection: started again when selected
+			delete(wl.started, t.key)
+			if cur.lines > 0 {
+				wl.cursors[t.key] = cur
+			}
+		}
 		wl.mu.Unlock()
 		if wl.opts.Previous {
 			// No rescan runs for previous instances: start the ones left out here, before this
@@ -312,23 +409,28 @@ func (wl *workloadLogs) stream(t logTarget, tail int64) {
 	defer wl.s.recoverTo("workload logs")
 	prefix := t.pod + "/" + t.container
 	follow := !wl.opts.Previous
-	var cur logCursor
 	drops := 0 // resumptions in a row without a new line
 	for attempt := 0; ; attempt++ {
 		opts := cluster.LogOptions{
 			Namespace: wl.ref.Namespace, Pod: t.pod, Container: t.container,
-			// A follow stream asks for timestamps whether the tab shows them or not: a resumption
-			// starts from them. The tab gets them stripped.
-			Follow: follow, Previous: wl.opts.Previous, Timestamps: wl.opts.Timestamps || follow, TailLines: tail,
+			// Every stream asks for timestamps: a resumption starts from them, and the tab jumps
+			// to a time and loads older lines by them. The GUI hides them unless the tab shows
+			// them.
+			Follow: follow, Previous: wl.opts.Previous, Timestamps: true, TailLines: tail,
 		}
-		if !cur.last.IsZero() {
+		gapCheck := false
+		switch {
+		case attempt == 0 && resumed && !cur.last.IsZero():
+			// Selected again: the lines since it was left out, but no more than a fresh start.
+			opts.TailLines, opts.SinceTime, gapCheck = workloadLogTail, cur.last.Truncate(time.Second), true
+		case !cur.last.IsZero():
 			opts.TailLines, opts.SinceTime = 0, cur.last.Truncate(time.Second)
 		}
 		opened := time.Now()
-		rc, err := wl.streamer.StreamLogs(wl.ctx, opts)
+		rc, err := wl.streamer.StreamLogs(ctx, opts)
 		fresh := 0
 		if err != nil {
-			if wl.ctx.Err() != nil {
+			if ctx.Err() != nil {
 				return
 			}
 			if attempt == 0 {
@@ -337,15 +439,15 @@ func (wl *workloadLogs) stream(t logTarget, tail int64) {
 			}
 		} else {
 			var open bool
-			fresh, open = wl.copyLines(rc, prefix, &cur, follow)
+			fresh, open = wl.copyLines(rc, prefix, &cur, gapCheck)
 			_ = rc.Close()
 			if !open {
 				return // the tab closed
 			}
 		}
 		// Ended: by the container (it exited or restarted; the scan starts its next instance), by
-		// the tab, or by the server while the container runs on.
-		if !follow || wl.ctx.Err() != nil || !wl.stillRunning(t) {
+		// the tab or the selection, or by the server while the container runs on.
+		if !follow || ctx.Err() != nil || !wl.stillRunning(t) {
 			return
 		}
 		if cur.last.IsZero() && cur.lines > 0 {
@@ -361,7 +463,7 @@ func (wl *workloadLogs) stream(t logTarget, tail int64) {
 		}
 		wait := time.NewTimer(min(workloadLogBackoff<<(drops-1), workloadLogMaxBackoff))
 		select {
-		case <-wl.ctx.Done():
+		case <-ctx.Done():
 			wait.Stop()
 			return
 		case <-wait.C:
@@ -376,11 +478,11 @@ func (wl *workloadLogs) stream(t logTarget, tail int64) {
 }
 
 // copyLines copies one opened stream's lines into the merged stream and returns how many it
-// wrote; open is false once the merged stream is closed. With stamped (a follow stream, which asks
-// for timestamps), each line's leading timestamp moves cur, lines at or before cur's are dropped
-// (a resumption sends the second it starts in again), and the timestamp is cut off unless the tab
-// shows timestamps.
-func (wl *workloadLogs) copyLines(rc io.Reader, prefix string, cur *logCursor, stamped bool) (fresh int, open bool) {
+// wrote; open is false once the merged stream is closed. Each line's leading timestamp (every
+// stream asks for them) moves cur, and lines at or before cur's are dropped (a resumption sends
+// the second it starts in again). With gapCheck (a stream selected again, whose request is
+// bounded), a first line newer than cur's means the bound cut lines off: a notice says so.
+func (wl *workloadLogs) copyLines(rc io.Reader, prefix string, cur *logCursor, gapCheck bool) (fresh int, open bool) {
 	// What the stream had when this one opened: lines before it, and the first atIt lines at it,
 	// are written already.
 	had, skip := cur.last, cur.atIt
@@ -388,9 +490,15 @@ func (wl *workloadLogs) copyLines(rc io.Reader, prefix string, cur *logCursor, s
 	for {
 		line, err := br.ReadSlice('\n')
 		full := errors.Is(err, bufio.ErrBufferFull)
-		out, keep := line, len(line) > 0
-		if keep && stamped {
-			if ts, rest, ok := splitLogTimestamp(line); ok {
+		keep := len(line) > 0
+		if keep {
+			if ts, _, ok := splitLogTimestamp(line); ok {
+				if gapCheck && ts.After(had) && !wl.write(NoticePrefix, []byte(fmt.Sprintf(
+					"%s: more lines were written while it was not selected than Cogpit loads again (%d); the older ones are not shown",
+					prefix, workloadLogTail))) {
+					return fresh, false
+				}
+				gapCheck = false
 				switch {
 				case ts.Before(had):
 					keep = false
@@ -402,13 +510,10 @@ func (wl *workloadLogs) copyLines(rc io.Reader, prefix string, cur *logCursor, s
 				default:
 					cur.atIt++
 				}
-				if !wl.opts.Timestamps {
-					out = rest
-				}
 			}
 		}
 		if keep {
-			if !wl.write(prefix, out) {
+			if !wl.write(prefix, line) {
 				return fresh, false
 			}
 			fresh++
@@ -445,10 +550,10 @@ func (wl *workloadLogs) stillRunning(t logTarget) bool {
 	if !ok || string(pod.GetUID()) != t.uid {
 		return false
 	}
-	for _, st := range model.NestedSlice(pod, "status", "containerStatuses") {
-		if model.NestedString(st, "name") == t.container {
-			restarts, _ := model.NestedInt64(st, "restartCount")
-			return restarts == t.restarts && model.NestedMap(st, "state", "running") != nil
+	for _, cs := range podContainerStatuses(pod) {
+		if cs.name == t.container {
+			restarts, _ := model.NestedInt64(cs.status, "restartCount")
+			return restarts == t.restarts && model.NestedMap(cs.status, "state", "running") != nil
 		}
 	}
 	return false
