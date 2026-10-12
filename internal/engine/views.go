@@ -19,8 +19,10 @@ var ErrClosed = errors.New("the session is closed")
 // state holds the connected backend, the open view with its cache handle and coalesced snapshots,
 // the drawer's watch, and the diagnostics loop.
 //
-// Lock order: Session.mu is never held while state.mu is taken (UpdateUI releases it before
-// calling uiChanged), and state.mu is never held while emitting events or building snapshots.
+// Lock order: state.mu before Session.mu. Session.mu is never held while state.mu is taken
+// (UpdateUI releases it before calling uiChanged); state.mu may be held while Session.mu is taken
+// briefly to read the UI state (customKindsChanged reconciles against the latest one). state.mu is
+// never held while emitting events or building snapshots.
 type state struct {
 	s *Session
 

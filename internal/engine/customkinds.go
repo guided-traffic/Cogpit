@@ -170,13 +170,17 @@ func (s *Session) customKindsChanged(b *Backend) {
 	if b.Conn != nil {
 		b.Conn.InvalidateServedResources()
 	}
-	ui := s.UIState()
 	st := s.state
 	st.mu.Lock()
 	if st.closed || st.backend != b {
 		st.mu.Unlock()
 		return
 	}
+	// The UI state is read under state.mu: read before it, it could be older than one an UpdateUI
+	// applied in between, and reconciling against it would close the drawer or view that update
+	// opened. Read here, it is the latest; an UpdateUI still on its way to uiChanged reconciles the
+	// same state again.
+	ui := s.UIState()
 	if ui.Revision > st.appliedRev {
 		st.appliedRev = ui.Revision
 	}

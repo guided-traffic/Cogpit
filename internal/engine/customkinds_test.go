@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -211,6 +212,53 @@ func TestCustomKindDrawerFollowsProfile(t *testing.T) {
 	if _, err := s.Detail(ref); !errors.Is(err, ErrUnknownKind) {
 		t.Errorf("detail of a vanished kind: %v", err)
 	}
+}
+
+// TestCustomKindsChangeKeepsNewerUI: following a change of the custom kinds never applies a UI
+// state older than one an UpdateUI wrote meanwhile. customKindsChanged used to read the UI state
+// before taking state.mu; an UpdateUI in between that opened the drawer was undone, and the drawer
+// stayed closed while the UI state named it (TestCustomKindDrawerFollowsProfile then found the
+// drawer stopped before the definition was even deleted). The test holds state.mu, lets
+// customKindsChanged block on it, and only then writes the UI state, as UpdateUI does before its
+// own reconcile.
+func TestCustomKindsChangeKeepsNewerUI(t *testing.T) {
+	src := testkit.NewMemorySource()
+	src.Set(testkit.PodsGVR, testkit.Pod("shop", "web-0"))
+	s := newCRDSession(t, src)
+	b := s.Backend()
+	ref := model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-0"}
+
+	s.state.mu.Lock()
+	done := make(chan struct{})
+	go func() { defer close(done); s.customKindsChanged(b) }()
+	waitFor(t, "customKindsChanged to wait for state.mu", func() bool { return blockedOnMutex("(*Session).customKindsChanged") })
+	s.mu.Lock() // UpdateUI's first half: the new state is written, its reconcile still to come
+	s.ui.Drawer = &ref
+	s.ui.Revision++
+	rev := s.ui.Revision
+	s.mu.Unlock()
+	s.state.mu.Unlock()
+	<-done
+
+	s.state.mu.Lock()
+	defer s.state.mu.Unlock()
+	if s.state.drawer == nil || s.state.appliedRev != rev {
+		t.Fatalf("reconciled an older UI state: drawer watch %v, applied revision %d, want %d",
+			s.state.drawer != nil, s.state.appliedRev, rev)
+	}
+}
+
+// blockedOnMutex reports whether a goroutine waits for a sync.Mutex inside fn (a function name as
+// a stack trace prints it).
+func blockedOnMutex(fn string) bool {
+	buf := make([]byte, 1<<20)
+	buf = buf[:runtime.Stack(buf, true)]
+	for g := range strings.SplitSeq(string(buf), "\n\n") {
+		if strings.Contains(g, "sync.(*Mutex).Lock") && strings.Contains(g, fn) {
+			return true
+		}
+	}
+	return false
 }
 
 // TestCuratedProfileWins: a built-in profile for a CRD kind keeps its key; the generic one is not
