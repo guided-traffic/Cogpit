@@ -93,6 +93,15 @@ func TestOpenTabPreviewAndFixed(t *testing.T) {
 	if u.Filter != "" || len(u.Tabs[1].Back) != 0 {
 		t.Errorf("reopened in preview: filter %q, history %q", u.Filter, u.Tabs[1].Back)
 	}
+	// A double click on the active fixed tab's view keeps its search; ui.openView opens it afresh.
+	s.SelectTab(context.Background(), "tab-3") //nolint:errcheck
+	s.UpdateUI(func(u *UIState) { u.Filter = "web" })
+	if u = s.OpenTab("deployments", true); u.Filter != "web" || len(u.Tabs) != 3 {
+		t.Errorf("fixed open of the active fixed tab's view: filter %q, %q", u.Filter, tabSummary(u))
+	}
+	if u = s.OpenTab("deployments", false); u.Filter != "" || u.ActiveTab != "tab-3" {
+		t.Errorf("openView of the active fixed tab's view: filter %q, active %q", u.Filter, u.ActiveTab)
+	}
 }
 
 // Every tab keeps its namespace filter, search, sort, selection and drawer; switching tabs brings

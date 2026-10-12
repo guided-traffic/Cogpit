@@ -278,16 +278,18 @@ func (u *UIState) syncTabs(old UIState, viewTitle func(string) string) {
 }
 
 // openTab opens a view of the connected cluster: in the preview tab, or in a new fixed tab when
-// fixed is set. A fixed tab of the cluster that shows the view already is activated instead (and,
-// when it is the active one, opened afresh); asked for fixed, the preview tab showing the view
-// becomes fixed.
+// fixed is set. A fixed tab of the cluster that shows the view already is activated instead, with
+// its own state (only ui.openView of the active tab's view opens it afresh, as it always did);
+// asked for fixed, the preview tab showing the view becomes fixed.
 func (u *UIState) openTab(view string, sort SortSpec, fixed bool) {
 	p := u.previewIndex()
 	switch i := u.fixedTabOf(u.Context, view); {
-	case i >= 0 && u.ActiveTab != u.Tabs[i].ID:
-		u.activateTab(i)
+	case i >= 0 && (fixed || u.ActiveTab != u.Tabs[i].ID):
+		if u.ActiveTab != u.Tabs[i].ID {
+			u.activateTab(i)
+		}
 		return
-	case i >= 0: // the active tab shows it: opened afresh, as ui.openView always did
+	case i >= 0: // ui.openView of the active tab's view: opened afresh
 	case fixed && p >= 0 && u.Tabs[p].Context == u.Context && u.Tabs[p].View == view:
 		u.Tabs[p].Preview = false
 		if u.ActiveTab != u.Tabs[p].ID {
