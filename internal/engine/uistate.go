@@ -54,6 +54,13 @@ type UIState struct {
 	// Settings is the open settings page, Preferences (⌘,) or a context's Cluster settings (⌘⇧,);
 	// nil while none is open.
 	Settings *SettingsPage `json:"settings,omitempty"`
+	// Tabs are the tab bar's tabs in their order, each a view of one cluster with its own state
+	// (tabs.go); ActiveTab is the shown one's id, empty when none is shown. View, Namespaces,
+	// Groups, Filter, Sort, Selected and Drawer above are the active tab's.
+	Tabs      []ViewTab `json:"tabs,omitempty"`
+	ActiveTab string    `json:"activeTab,omitempty"`
+	tabSeq    uint64    // the number of the last tab id handed out
+	tabClock  uint64    // counts tab activations, for ViewTab.used
 }
 
 // Connection is the state of the active cluster connection.
@@ -168,6 +175,7 @@ func (u UIState) Clone() UIState {
 		p := *u.Settings
 		out.Settings = &p
 	}
+	out.Tabs = cloneTabs(u.Tabs)
 	return out
 }
 

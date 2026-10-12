@@ -127,6 +127,10 @@ var wantCommands = map[string]engine.Danger{
 	"settings.close": engine.DangerUI, "cluster.settings.get": engine.DangerRead, "cluster.settings.set": engine.DangerUI,
 	"cluster.settings.uploadIcon": engine.DangerUI, "cluster.settings.resetIcon": engine.DangerUI,
 	"cluster.settings.open": engine.DangerUI,
+	// The tab bar (G5): which views the window shows (TestTabCommands).
+	"ui.tab.open": engine.DangerUI, "ui.tab.pin": engine.DangerUI, "ui.tab.close": engine.DangerUI,
+	"ui.tab.select": engine.DangerUI, "ui.tab.next": engine.DangerUI, "ui.tab.previous": engine.DangerUI,
+	"ui.tab.back": engine.DangerUI, "ui.tab.forward": engine.DangerUI,
 }
 
 func TestRegistryComplete(t *testing.T) {

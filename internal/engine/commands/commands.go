@@ -53,6 +53,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerApplications(g)
 	registerPreferences(g)
 	registerClusterSettings(g)
+	registerTabs(g)
 	return g.err
 }
 

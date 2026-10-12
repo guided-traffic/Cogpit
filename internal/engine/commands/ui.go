@@ -69,7 +69,8 @@ func registerUI(g *registrar) {
 		ID: "ui.state", Label: "Show UI State", Danger: engine.DangerRead,
 		Description: "Returns what the user sees: the connected context and its connection state, the open view (kind key), " +
 			"the namespace filter, the search text, the sort order, the selected objects, the object in the detail drawer, " +
-			"the dock tabs, how many rows the view shows of how many objects, for a pod's or node's drawer the time " +
+			"the tab bar's tabs (tabs and activeTab: each tab's id, context, view, title, preview or fixed, its own " +
+			"filter and selection, and its history), the dock tabs, how many rows the view shows of how many objects, for a pod's or node's drawer the time " +
 			"range and variant of each metrics chart (drawerCharts) and the metrics providers' status line " +
 			"(drawerMetricsProviders: Prometheus and the Metrics Server, answering or not, what each serves), " +
 			"and the hotbar of pinned clusters as hotbar_list returns it. Use it to learn which object the user means.",
@@ -100,24 +101,17 @@ func registerUI(g *registrar) {
 	add(g, engine.Spec[viewParams]{
 		ID: "ui.openView", Label: "Open View", MenuPath: "View/Open View", Danger: engine.DangerUI, Verbs: cacheReads,
 		Description: "Opens the list view of a kind (pods, services, ...) or a page (cluster/overview, the cluster " +
-			"Overview; workloads/overview, the Workloads Overview), as clicking it in the sidebar does. Clears the " +
-			"selection, the detail drawer and the search text; " +
-			"keeps the namespace filter. Returns the new UI state.",
+			"Overview; workloads/overview, the Workloads Overview), as clicking it in the sidebar does: in the preview tab " +
+			"of the tab bar, which the next view opened this way replaces, or by activating a fixed tab of the cluster " +
+			"that shows the view (ui_tab_open opens fixed tabs). Clears the selection, the detail drawer and the search " +
+			"text; keeps the namespace filter. Returns the new UI state.",
 		Enabled: func(s *engine.Session, _ viewParams) error { _, err := connected(s); return err },
 		Run: func(_ context.Context, s *engine.Session, p viewParams) (any, error) {
-			view := p.View
-			if _, page := engine.PageTitle(view); !page {
-				_, prof, err := s.Kind(view)
-				if err != nil {
-					return nil, err
-				}
-				view = prof.Key
+			view, err := viewKey(s, p.View)
+			if err != nil {
+				return nil, err
 			}
-			sort := s.ViewSort(view)
-			return s.UpdateUI(func(u *engine.UIState) {
-				u.View, u.Sort = view, sort
-				u.Selected, u.Drawer, u.Filter = nil, nil, ""
-			}), nil
+			return s.OpenTab(view, false), nil
 		},
 	})
 
@@ -253,6 +247,7 @@ func navigate(ctx context.Context, s *engine.Session, p refParams) (any, error) 
 	case !errors.Is(err, engine.ErrNotFound):
 		return nil, err
 	}
+	s.NoteViewTitle(prof.Key, prof.Title) // the active tab's title when the view changes (engine/tabs.go)
 	sort := s.ViewSort(prof.Key)
 	st := s.UpdateUI(func(u *engine.UIState) {
 		if u.View != prof.Key {

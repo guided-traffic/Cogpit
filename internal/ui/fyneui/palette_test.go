@@ -443,7 +443,8 @@ func TestRegistryShortcutsDoNotCollide(t *testing.T) {
 			t.Errorf("ui.tab.select and %s share ⌘%c", other, n)
 		}
 	}
-	for _, id := range []string{"ui.palette.open", "cluster.connect", "ui.setFilter", "terminal.open"} {
+	for _, id := range []string{"ui.palette.open", "cluster.connect", "ui.setFilter", "terminal.open", "ui.tab.close",
+		"ui.tab.next", "ui.tab.previous", "ui.tab.back", "ui.tab.forward"} {
 		if !slices.Contains(mapValues(bound), id) {
 			t.Errorf("%s has no shortcut", id)
 		}

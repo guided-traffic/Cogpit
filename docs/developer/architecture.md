@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (Preferences and cluster settings, G13, §4.3: engine state, stores, commands, the GUI that applies them; the cluster Overview, G12: §4.3 the page and `UIState.Overview`, §9 the cluster scope of the metrics hub; §5 a virtual kind made of several kinds, the Applications; §4.5 curated profiles of CRD kinds, the Vertical Pod Autoscalers; Current state: the four Device Resources views, 45 built-in views; §8: Helm chart repositories kept in Cogpit's own folders, the Charts view and the install, G11; the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (the tab bar of cluster views, G5, §4.3: `UIState.Tabs` and `ActiveTab`, kept in step by `syncTabs`, the `ui.tab.*` commands, `ui.openView` in the preview tab; Preferences and cluster settings, G13, §4.3: engine state, stores, commands, the GUI that applies them; the cluster Overview, G12: §4.3 the page and `UIState.Overview`, §9 the cluster scope of the metrics hub; §5 a virtual kind made of several kinds, the Applications; §4.5 curated profiles of CRD kinds, the Vertical Pod Autoscalers; Current state: the four Device Resources views, 45 built-in views; §8: Helm chart repositories kept in Cogpit's own folders, the Charts view and the install, G11; the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-12)
 
@@ -421,6 +421,8 @@ type UIState struct {
 	Preferences     *Preferences               // Cogpit's own settings (2026-10-13)
 	ClusterSettings map[string]ClusterSettings // display name, icon, terminal, per context (2026-10-13)
 	Settings        *SettingsPage              // the open Preferences or Cluster settings page (2026-10-13)
+	Tabs      []ViewTab         // the tab bar: a view of one cluster each, with its own state (2026-10-13)
+	ActiveTab string            // the shown tab; View, Namespace, Filter, Selected, Drawer are its
 }
 ```
 
@@ -523,6 +525,30 @@ derived from `UIState.ClusterSettings` (`shell.identity`); the image's bytes com
 checked copy (`Session.ClusterIcon`, read off the main goroutine once per image). ⌘, and ⌘⇧, are
 main-menu items (Preferences… moves into macOS's application menu); Settings… is in the picker's,
 the hotbar tile's and the navigator root's menus.
+
+**The tab bar is engine state** (built 2026-10-13, G5, [`engine/tabs.go`](../../internal/engine/tabs.go),
+[`commands/tabs.go`](../../internal/engine/commands/tabs.go)). `UIState.Tabs` lists the tabs in their
+order, each a `ViewTab`: an id (`tab-1`), the context it belongs to, the view, the title
+"<view> - <context>" (the context without its kubeconfig file), whether it is the preview tab, its
+own namespace filter, API groups, search, sort, selection and drawer, and its history (`Back`,
+`Forward`: view keys, at most 50 each way). `ActiveTab` names the shown one, and the familiar fields
+(`View`, `Namespaces`, `Filter`, `Sort`, `Selected`, `Drawer`) are that tab's live state, so every
+command that reads or sets them works unchanged. One function keeps both in step:
+`UIState.syncTabs`, which `UpdateUI` runs after every change, whichever command made it. While the
+active tab's cluster is connected the tab's saved state follows the live one; a view changed by a
+command that knows nothing of tabs (`ui.navigate`, a link) goes into the tab's history; a view opened
+while no tab is active goes to the preview tab; a connect leaves no tab active until it succeeded,
+then shows the cluster's active or most recently used tab with its own state, or else the connected
+view in the preview tab. The tab commands (`ui.tab.open`, `.pin`, `.close`, `.select`, `.next`,
+`.previous`, `.back`, `.forward`; all `DangerUI`) call `Session.OpenTab`, `PinTab`, `CloseTab`,
+`SelectTab`, `CycleTab` and `TabHistory`; `ui.openView` is `OpenTab` in preview, so agents and every
+existing caller open views as before. The titles' view part comes from a map the commands that
+resolve a profile fill (`Session.NoteViewTitle`), so `UpdateUI` takes no lock but the map's; a view
+never resolved is named by its key with a capital letter (`pods` → `Pods`, the default view).
+Cogpit holds one connection (§6): the tabs of other clusters stay in the bar, and selecting one
+connects to its cluster as `cluster.connect` does and then restores the tab. What is inferred there
+(one preview tab in all, the neighbour shown on close, the history's contents) is listed in
+`tabs.go` and in [ui-parity › Layout](../parity/ui-parity.md#layout).
 
 **Panel widths are GUI-only** (decided 2026-10-12, [`panelwidths.go`](../../internal/ui/fyneui/panelwidths.go)):
 the width of the primary sidebar and of the detail drawer is a window-layout preference, not UI

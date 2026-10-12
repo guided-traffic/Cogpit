@@ -134,8 +134,9 @@ type Session struct {
 
 	auditMu sync.Mutex
 
-	state *state    // views, backend and streams: views.go
-	edits editStore // the editor tabs' texts and base versions: editor.go
+	state  *state    // views, backend and streams: views.go
+	edits  editStore // the editor tabs' texts and base versions: editor.go
+	titles sync.Map  // view key → the view's title, for the tabs' titles (tabs.go)
 }
 
 // New returns a Session with an empty registry. Register commands (package commands) before use.
@@ -322,13 +323,15 @@ func (s *Session) UIState() UIState {
 	return s.ui.Clone()
 }
 
-// UpdateUI changes the UI state with fn, bumps its revision, lets the views follow the change
-// (acquire and release cache handles, rebuild snapshots) and emits EventUIState. Commands call it;
-// the GUI never does directly. It returns the new state.
+// UpdateUI changes the UI state with fn, keeps the tabs in step with it (UIState.syncTabs), bumps
+// its revision, lets the views follow the change (acquire and release cache handles, rebuild
+// snapshots) and emits EventUIState. Commands call it; the GUI never does directly. It returns the
+// new state.
 func (s *Session) UpdateUI(fn func(*UIState)) UIState {
 	s.mu.Lock()
 	old := s.ui.Clone()
 	fn(&s.ui)
+	s.ui.syncTabs(old, s.viewTitle) // the active tab follows the view, whoever changed it (tabs.go)
 	s.ui.Revision = old.Revision + 1
 	now := s.ui.Clone()
 	s.mu.Unlock()
