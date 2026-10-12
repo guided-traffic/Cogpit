@@ -357,7 +357,6 @@ order, and each page shows its settings under upper-case headings with a help li
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: no "+" on Port Forwarding and Helm Releases; the View menu hides the kinds the sidebar hides |
-| 2026-10-12 | minor | Fourth run, the third run's leftovers: no "+" on Port Forwarding and Helm Releases |
 | 2026-10-12 | trivial | Dock: the Helm Upgrade tab built (fourth run) |
 | 2026-10-12 | minor | Fourth run (agent D, G2): Kubeconfig Syncs, adding a kubeconfig by pasting and the Kubeconfig syncs preference partial; Lens's dialogs not captured, their layout inferred |
 | 2026-10-12 | minor | `make parity`: Keyboard shortcuts with Plan and Evidence columns, so that the two paid shortcuts no longer read as free (the 121 free rows, reproduced); evidence named for kubeconfig loading, terminal copy and paste, and the theme flag; the theme row's pipes escaped |
