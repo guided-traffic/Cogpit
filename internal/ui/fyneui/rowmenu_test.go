@@ -119,7 +119,7 @@ func columnOf(t testing.TB, sh *shell, id string) int {
 	t.Helper()
 	for i, ci := range sh.view.cols {
 		if sh.view.snap.Columns[ci].ID == id {
-			return i
+			return firstDataColumn + i
 		}
 	}
 	t.Fatalf("no visible column %s", id)

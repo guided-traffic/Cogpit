@@ -1,0 +1,362 @@
+package fyneui
+
+import (
+	"errors"
+	"fmt"
+	"slices"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/model"
+)
+
+// Row checkboxes and actions on a selection (ui-parity › Tables, G5, G7, G9). Captured (2026-10-11):
+// a checkbox column at the left of every list, the header's checkbox selects every row. The
+// selection is the engine's (UIState.Selected, set with ui.select), so a checkbox, a click and an
+// agent change the same selection, and each tab keeps its own.
+//
+// Cogpit's defaults (inferred, not the owner's decision, 2026-10-13):
+//   - a checkbox toggles its row without opening the drawer; a click on a row selects only that row
+//     and opens the drawer, as before;
+//   - ⌘-click (Ctrl-click off macOS) toggles a row, ⇧-click (on a row or a checkbox) adds the rows
+//     from the last row clicked or checked, neither opens the drawer;
+//   - the header's checkbox selects the rows the view shows (the namespace filter and the search
+//     applied), or clears the selection when every one of them is selected already; it shows a
+//     dash while some are;
+//   - with two objects or more selected, the header shows "N selected", Delete and a clear button,
+//     and the row menu of a selected row acts on the selection (Delete, Clear Selection); Delete is
+//     the only action on a selection, the others stay on one object.
+
+// checkColumn is the table column of the row checkboxes; the view's visible columns follow it from
+// firstDataColumn, and the ⋮ ends the row (tableView.menuColumn).
+const (
+	checkColumn     = 0
+	firstDataColumn = 1
+)
+
+// The header checkbox's states.
+const (
+	checkNone = iota // no row the view shows is selected
+	checkSome        // some are
+	checkAll         // every one is
+)
+
+// minSelectionBar is the selection size from which the header shows the selection's actions:
+// one selected object is the drawer's, and its row menu acts on it.
+const minSelectionBar = 2
+
+// selectModeParams are ui.select's parameters with its mode (engine/commands/ui.go).
+type selectModeParams struct {
+	Refs     []model.ObjectRef `json:"refs"`
+	Mode     string            `json:"mode,omitempty"`
+	All      bool              `json:"all,omitempty"`
+	NoDrawer bool              `json:"noDrawer"`
+}
+
+// keyModifiers returns the modifier keys held now, for ⌘- and ⇧-click; the test driver has none,
+// so tests replace it.
+var keyModifiers = func() fyne.KeyModifier {
+	if d, ok := fyne.CurrentApp().Driver().(desktop.Driver); ok {
+		return d.CurrentKeyModifiers()
+	}
+	return 0
+}
+
+// selRef identifies a row's object in the open view: comparing it allocates nothing, so that each
+// cell update asks the selection in O(1).
+type selRef struct{ kind, namespace, name string }
+
+func keyOf(r model.ObjectRef) selRef { return selRef{r.Kind, r.Namespace, r.Name} }
+
+// tableChecks is the table's selection as the checkboxes show it: the engine's selection as a set,
+// the anchor of ⇧-click, the header's checkbox and the selection bar.
+type tableChecks struct {
+	set    map[selRef]bool
+	anchor *model.ObjectRef // the row last clicked or checked
+	head   *headerCell      // the header cell that shows the checkbox, while it does
+	state  int              // the header checkbox's state
+	bar    *selectionBar
+}
+
+// setSelection takes the engine's selection.
+func (c *tableChecks) setSelection(sel []model.ObjectRef) {
+	c.set = make(map[selRef]bool, len(sel))
+	for _, r := range sel {
+		c.set[keyOf(r)] = true
+	}
+}
+
+// has reports whether an object is selected.
+func (c *tableChecks) has(r model.ObjectRef) bool { return c.set[keyOf(r)] }
+
+// showHeader makes a header cell the header's checkbox.
+func (c *tableChecks) showHeader(h *headerCell) {
+	c.head = h
+	h.setCheck(checkColumn, c.state)
+}
+
+// dataColumn returns the visible column a table column shows, or false for the checkbox and the ⋮.
+func (tv *tableView) dataColumn(col int) (int, bool) {
+	i := col - firstDataColumn
+	return i, i >= 0 && i < len(tv.cols)
+}
+
+// checksChanged follows the selection or the rows: the header's checkbox and the selection bar.
+// It visits every row once to count the selected ones the view shows.
+func (tv *tableView) checksChanged() {
+	state := checkNone
+	if tv.snap != nil && len(tv.check.set) > 0 {
+		n := 0
+		for i := range tv.snap.Rows {
+			if tv.check.has(tv.snap.Rows[i].Ref) {
+				n++
+			}
+		}
+		switch {
+		case n > 0 && n == len(tv.snap.Rows):
+			state = checkAll
+		case n > 0:
+			state = checkSome
+		}
+	}
+	tv.check.state = state
+	if h := tv.check.head; h != nil && h.box && h.col == checkColumn {
+		h.setCheck(checkColumn, state)
+	}
+	if tv.check.bar != nil {
+		tv.check.bar.update(len(tv.selected))
+	}
+}
+
+// selectRows dispatches ui.select with a mode, never opening the drawer.
+func (tv *tableView) selectRows(refs []model.ObjectRef, mode engine.SelectMode) {
+	if refs == nil {
+		refs = []model.ObjectRef{}
+	}
+	tv.sh.dispatch("ui.select", selectModeParams{Refs: refs, Mode: string(mode), NoDrawer: true}, nil)
+}
+
+// checkTapped toggles a row's checkbox; with ⇧ held it adds the rows from the anchor to it.
+func (tv *tableView) checkTapped(row int) {
+	if tv.snap == nil || row < 0 || row >= len(tv.snap.Rows) {
+		return
+	}
+	if keyModifiers()&fyne.KeyModifierShift != 0 && tv.selectRange(row) {
+		return
+	}
+	ref := tv.snap.Rows[row].Ref
+	tv.check.anchor = &ref
+	tv.selectRows([]model.ObjectRef{ref}, engine.SelectToggle)
+}
+
+// modifiedClick handles a click on a row with ⌘ (Ctrl off macOS) or ⇧ held, and reports whether it
+// did; a plain click selects the row through the table.
+func (tv *tableView) modifiedClick(row int) bool {
+	if tv.snap == nil || row < 0 || row >= len(tv.snap.Rows) {
+		return false
+	}
+	mods := keyModifiers()
+	switch {
+	case mods&fyne.KeyModifierShortcutDefault != 0:
+		ref := tv.snap.Rows[row].Ref
+		tv.check.anchor = &ref
+		tv.selectRows([]model.ObjectRef{ref}, engine.SelectToggle)
+		return true
+	case mods&fyne.KeyModifierShift != 0:
+		if !tv.selectRange(row) {
+			ref := tv.snap.Rows[row].Ref
+			tv.check.anchor = &ref
+			tv.selectRows([]model.ObjectRef{ref}, engine.SelectToggle)
+		}
+		return true
+	}
+	return false
+}
+
+// selectRange adds the rows from the anchor to row, in the table's order, and reports whether it
+// could: false without an anchor the view shows.
+func (tv *tableView) selectRange(row int) bool {
+	if tv.check.anchor == nil {
+		return false
+	}
+	from := tv.snap.IndexOf(*tv.check.anchor)
+	if from < 0 {
+		return false
+	}
+	lo, hi := min(from, row), max(from, row)
+	refs := make([]model.ObjectRef, 0, hi-lo+1)
+	for i := lo; i <= hi; i++ {
+		refs = append(refs, tv.snap.Rows[i].Ref)
+	}
+	tv.selectRows(refs, engine.SelectAdd)
+	return true
+}
+
+// toggleAll is the header's checkbox: every row the view shows, or none when all of them are
+// selected already.
+func (tv *tableView) toggleAll() {
+	if tv.snap == nil {
+		return
+	}
+	if tv.check.state == checkAll {
+		tv.clearSelection()
+		return
+	}
+	tv.sh.dispatch("ui.select", selectModeParams{Refs: []model.ObjectRef{}, All: true, NoDrawer: true}, nil)
+}
+
+// clearSelection empties the selection and leaves the drawer open.
+func (tv *tableView) clearSelection() {
+	tv.selectRows(nil, engine.SelectReplace)
+}
+
+// inSelection reports whether a row's menu acts on the selection: the row is selected, with others.
+func (tv *tableView) inSelection(row int) bool {
+	return len(tv.selected) >= minSelectionBar && tv.rowSelected(row)
+}
+
+// selectionAction is an action on a selection evaluated off the main goroutine.
+type selectionAction struct {
+	cmd    *engine.Command
+	reason string
+}
+
+// evaluateSelection returns the actions on a selection that apply to its objects, each with why
+// it cannot run now. It reads the cache through Enabled: call it off the main goroutine.
+func (sh *shell) evaluateSelection(refs []model.ObjectRef) []selectionAction {
+	params := engine.SelectionParams(refs)
+	cmds := sh.eng.Registry().SelectionActions(engine.SelectionKinds(refs))
+	out := make([]selectionAction, 0, len(cmds))
+	for _, cmd := range cmds {
+		a := selectionAction{cmd: cmd}
+		err := sh.commandEnabled(cmd.ID, params)
+		switch {
+		case errors.Is(err, engine.ErrNotApplicable):
+			continue
+		case err != nil:
+			a.reason = err.Error()
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
+// selectionMenu is the row menu of a selected row while several are selected: what the selection
+// is, its actions, and Clear Selection.
+func (tv *tableView) selectionMenu(refs []model.ObjectRef, acts []selectionAction) *fyne.Menu {
+	title := fyne.NewMenuItem(fmt.Sprintf("%d objects selected", len(refs)), nil)
+	title.Disabled = true
+	items := make([]*fyne.MenuItem, 0, len(acts)+4)
+	items = append(items, title, fyne.NewMenuItemSeparator())
+	for _, a := range acts {
+		item := fyne.NewMenuItem(a.cmd.Label, nil)
+		if a.reason != "" {
+			item.Label = a.cmd.Label + " — " + shorten(a.reason, maxReasonRunes)
+			item.Disabled = true
+		} else {
+			id := a.cmd.ID
+			item.Action = func() { tv.runOnSelection(id, refs) }
+		}
+		items = append(items, item)
+	}
+	items = append(items, fyne.NewMenuItemSeparator(), fyne.NewMenuItem("Clear Selection", tv.clearSelection))
+	return fyne.NewMenu("", items...)
+}
+
+// openSelectionMenu evaluates the actions on the selection off the main goroutine and shows their
+// menu at pos (window coordinates), unless the selection changed meanwhile.
+func (tv *tableView) openSelectionMenu(pos fyne.Position) {
+	sh := tv.sh
+	refs := slices.Clone(tv.selected)
+	go func() {
+		defer sh.recoverTo("selection menu")
+		acts := sh.evaluateSelection(refs)
+		sh.do(func() {
+			if !slices.Equal(tv.selected, refs) {
+				return
+			}
+			c := fyne.CurrentApp().Driver().CanvasForObject(tv.table)
+			if c == nil {
+				return
+			}
+			tv.menuModel = tv.selectionMenu(refs, acts)
+			tv.menu = widget.NewPopUpMenu(tv.menuModel, c)
+			tv.menu.ShowAtPosition(pos)
+		})
+	}()
+}
+
+// runOnSelection runs an action on the selection's objects; the engine asks the user to confirm
+// a destructive one, naming every object.
+func (tv *tableView) runOnSelection(id string, refs []model.ObjectRef) {
+	tv.sh.dispatch(id, engine.SelectionParams(refs), tv.sh.actionDone(id))
+}
+
+// selectionBar is the header's part for a selection of several objects: "3 selected", Delete and
+// a button that clears the selection (Cogpit's placement, inferred).
+type selectionBar struct {
+	tv    *tableView
+	count *textLine
+	del   *widget.Button
+	clear *widget.Button
+	root  *fyne.Container
+}
+
+func newSelectionBar(tv *tableView) *selectionBar {
+	b := &selectionBar{tv: tv}
+	b.count = newTextLine("", colorAccent, theme.SizeNameText, fyne.TextStyle{Bold: true})
+	b.del = widget.NewButtonWithIcon("Delete", theme.DeleteIcon(), func() {
+		tv.runOnSelection("object.deleteMany", slices.Clone(tv.selected))
+	})
+	b.del.Importance = widget.DangerImportance
+	b.clear = widget.NewButtonWithIcon("", theme.CancelIcon(), tv.clearSelection)
+	b.clear.Importance = widget.LowImportance
+	b.root = container.NewHBox(newHGap(theme.SizeNamePadding), b.count, b.del, b.clear)
+	b.root.Hide()
+	return b
+}
+
+// update shows the bar for n selected objects, from minSelectionBar on.
+func (b *selectionBar) update(n int) {
+	if n < minSelectionBar {
+		b.root.Hide()
+		return
+	}
+	b.count.SetText(formatCount(int64(n)) + " selected")
+	b.root.Show()
+}
+
+// setCheck makes the header cell the header's checkbox in a state.
+func (h *headerCell) setCheck(col, state int) {
+	h.col = col
+	if h.box && h.boxed == state && h.title == "" && h.sort == 0 && !h.menu {
+		return
+	}
+	h.title, h.sort, h.menu, h.box, h.boxed = "", 0, false, true, state
+	h.Refresh()
+}
+
+// headerCheckIcon is the header checkbox's icon and colour for a state.
+func headerCheckIcon(state int) (fyne.Resource, fyne.ThemeColorName) {
+	switch state {
+	case checkAll:
+		return theme.Icon(theme.IconNameCheckButtonChecked), colorAccent
+	case checkSome:
+		return theme.Icon(theme.IconNameCheckButtonPartial), colorAccent
+	}
+	return theme.Icon(theme.IconNameCheckButton), colorMuted
+}
+
+// checkIconKey is a row checkbox's icon: checked on a selected row, in the selected row's text
+// colour, else empty in the muted colour.
+func checkIconKey(selected bool) cellIconKey {
+	if selected {
+		return cellIconKey{theme.IconNameCheckButtonChecked, colorRowSelectedText}
+	}
+	return cellIconKey{theme.IconNameCheckButton, colorMuted}
+}

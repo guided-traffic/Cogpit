@@ -137,14 +137,18 @@ func (sh *shell) rowMenu(ref model.ObjectRef, acts []actionState) *fyne.Menu {
 }
 
 // openRowMenu evaluates the actions of the row's object off the main goroutine and shows its
-// menu at pos (window coordinates), unless the view changed meanwhile. Multi-selection (a row
-// inside the selection acting on the whole selection) is not built: the menu acts on its row.
+// menu at pos (window coordinates), unless the view changed meanwhile. A row inside a selection of
+// several objects opens the selection's menu instead, which acts on all of them (tablecheck.go).
 func (tv *tableView) openRowMenu(row int, pos fyne.Position) {
 	if tv.snap == nil || row < 0 || row >= len(tv.snap.Rows) {
 		return
 	}
 	sh := tv.sh
 	sh.tip.hide()
+	if tv.inSelection(row) {
+		tv.openSelectionMenu(pos)
+		return
+	}
 	ref := tv.snap.Rows[row].Ref
 	view := tv.snap.View
 	go func() {

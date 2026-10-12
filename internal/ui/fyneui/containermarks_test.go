@@ -16,7 +16,7 @@ func TestContainersCellDrawsSquares(t *testing.T) {
 	col := columnOf(t, sh, "containers")
 	found := false
 	for row, r := range sh.view.snap.Rows {
-		ci := sh.view.cols[col]
+		ci := sh.view.cols[col-firstDataColumn]
 		if ci >= len(r.Cells) || r.Cells[ci].Marks == nil {
 			continue
 		}

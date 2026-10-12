@@ -257,14 +257,29 @@ func (f *fakeEngine) Dispatch(ctx context.Context, inv engine.Invocation) (any, 
 		}
 		f.update(func(u *engine.UIState) { u.View, u.Selected, u.Drawer = p.View, nil, nil })
 	case "ui.select":
-		var p selectParams
+		var p selectModeParams // the modes and all as the engine applies them (tablecheck.go)
 		if err := params(&p); err != nil {
 			return nil, err
 		}
+		mode, err := engine.ParseSelectMode(p.Mode)
+		if err != nil {
+			return nil, err
+		}
+		refs := p.Refs
+		if p.All {
+			refs = nil
+			f.mu.Lock()
+			if s := f.tables[f.ui.View]; s != nil {
+				for _, r := range s.Rows {
+					refs = append(refs, r.Ref)
+				}
+			}
+			f.mu.Unlock()
+		}
 		f.update(func(u *engine.UIState) {
-			u.Selected = p.Refs
-			if !p.NoDrawer && len(p.Refs) > 0 {
-				r := p.Refs[0]
+			u.Selected = engine.ApplySelection(u.Selected, refs, mode)
+			if mode == engine.SelectReplace && !p.NoDrawer && len(refs) > 0 {
+				r := refs[0]
 				u.Drawer = &r
 			}
 		})

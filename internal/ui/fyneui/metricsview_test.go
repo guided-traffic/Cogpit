@@ -83,7 +83,7 @@ func TestPodsListShowsCPUAndMemory(t *testing.T) {
 	if want := []string{"name", "warning", "namespace", "cpu", "memory"}; !slices.Equal(ids, want) {
 		t.Fatalf("first columns = %v, want %v (Lens: Name, warning, Namespace, CPU, Memory)", ids, want)
 	}
-	cpuCol, memCol := 3, 4
+	cpuCol, memCol := firstDataColumn+3, firstDataColumn+4 // table columns: the checkboxes first
 	shown := 0
 	for r := range min(len(sh.view.snap.Rows), 12) { // the table draws the rows on screen only
 		c := sh.view.cellAt(t, r, cpuCol)
@@ -113,7 +113,7 @@ func TestNodesListShowsCPUAndMemoryAsShares(t *testing.T) {
 	if got := sh.view.snap.Columns[2].ID + "," + sh.view.snap.Columns[3].ID; got != "cpu,memory" {
 		t.Fatalf("columns after the warning icon = %s, want cpu,memory (Lens)", got)
 	}
-	if c := sh.view.cellAt(t, 0, 2); !strings.HasSuffix(c.full, "%") {
+	if c := sh.view.cellAt(t, 0, firstDataColumn+2); !strings.HasSuffix(c.full, "%") {
 		t.Errorf("node cpu = %q, want a share of allocatable", c.full)
 	}
 }

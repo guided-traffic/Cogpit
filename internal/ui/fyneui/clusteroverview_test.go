@@ -249,7 +249,7 @@ func TestClusterOverviewPage(t *testing.T) {
 
 	// An issue's name opens its object's details over the page.
 	row := tv.snap.Rows[0]
-	test.Tap(tv.cellAt(t, 0, 0))
+	test.Tap(tv.cellAt(t, 0, firstDataColumn))
 	q.until(t, "the issue's drawer", func() bool { return sh.ui.Drawer != nil })
 	if d := *sh.ui.Drawer; !d.Same(row.Ref) || sh.ui.View != engine.ClusterOverview || len(f.callsOf("ui.navigate")) != 0 {
 		t.Fatalf("the name link opened %v on %s", d, sh.ui.View)

@@ -142,7 +142,7 @@ func TestTableKeyboard(t *testing.T) {
 		t.Fatal("Tab would leave the table")
 	}
 	w.Canvas().Focus(tv.table)
-	if !tv.kbOn || tv.kbRow != 0 || tv.kbCol != 0 {
+	if !tv.kbOn || tv.kbRow != 0 || tv.kbCol != firstDataColumn { // the first column right of the checkboxes
 		t.Fatalf("focused: on %v at %d,%d", tv.kbOn, tv.kbRow, tv.kbCol)
 	}
 	press(t, w, fyne.KeyDown)
@@ -157,15 +157,15 @@ func TestTableKeyboard(t *testing.T) {
 	tv.table.KeyDown(&fyne.KeyEvent{Name: desktop.KeyShiftLeft})
 	press(t, w, fyne.KeyTab)
 	tv.table.KeyUp(&fyne.KeyEvent{Name: desktop.KeyShiftLeft})
-	if tv.kbCol != 1 {
+	if tv.kbCol != firstDataColumn+1 {
 		t.Fatalf("after Tab Tab ⇧Tab: column %d", tv.kbCol)
 	}
 	rings := 0
 	for _, c := range tv.cells {
 		if c.focused {
 			rings++
-			if c.row != 2 || c.col != 1 || !c.ring.Visible() {
-				t.Errorf("ring on %d,%d (visible %v), want 2,1", c.row, c.col, c.ring.Visible())
+			if c.row != 2 || c.col != firstDataColumn+1 || !c.ring.Visible() {
+				t.Errorf("ring on %d,%d (visible %v), want 2,2", c.row, c.col, c.ring.Visible())
 			}
 		}
 	}
@@ -197,7 +197,7 @@ func TestTableKeyboard(t *testing.T) {
 	f.tables["nodes"] = kindSnapshot(t, "nodes", fixtureNodeObjects())
 	sh.dispatch("ui.openView", openViewParams{View: "nodes"}, nil)
 	q.until(t, "the nodes view", func() bool { return tv.snap != nil && tv.snap.View == "nodes" })
-	if tv.kbRow != 0 || tv.kbCol != 0 {
+	if tv.kbRow != 0 || tv.kbCol != firstDataColumn {
 		t.Fatalf("a new view starts at %d,%d", tv.kbRow, tv.kbCol)
 	}
 }
@@ -227,7 +227,7 @@ func TestDoubleClickSeparatorFitsColumn(t *testing.T) {
 	tv := sh.view
 	th := tv.table.Theme()
 	gap, pad, size := th.Size(theme.SizeNamePadding), th.Size(sizeCellPadding), th.Size(theme.SizeNameText)
-	header := headerFor(t, sh, 0).Size().Height
+	header := headerFor(t, sh, firstDataColumn).Size().Height
 	widest := func(col int) float32 {
 		w := float32(0)
 		for _, r := range f.tables["pods"].Rows {
@@ -235,36 +235,43 @@ func TestDoubleClickSeparatorFitsColumn(t *testing.T) {
 		}
 		return w + 2*pad + 1
 	}
-	at := func(col int) fyne.Position { // the middle of the separator right of col
+	// setWidths are by table column: the checkbox's, then the view's columns from firstDataColumn.
+	at := func(col int) fyne.Position { // the middle of the separator right of the visible column col
 		x := float32(0)
-		for i := 0; i < col; i++ {
+		for i := 0; i < firstDataColumn+col; i++ {
 			x += tv.setWidths[i] + gap
 		}
-		return fyne.NewPos(x+tv.setWidths[col]+gap/2, header/2)
+		return fyne.NewPos(x+tv.setWidths[firstDataColumn+col]+gap/2, header/2)
 	}
+	width := func(col int) float32 { return tv.setWidths[firstDataColumn+col] }
 
-	before := tv.setWidths[1]
+	before := width(1)
 	tv.table.DoubleTapped(&fyne.PointEvent{Position: at(1).AddXY(0, 3*header)}) // between body cells
-	if tv.setWidths[1] != before {
+	if width(1) != before {
 		t.Fatal("a double click between body cells resized a column")
 	}
-	stretched := tv.setWidths[0]
+	checks := tv.setWidths[checkColumn]
+	tv.table.DoubleTapped(&fyne.PointEvent{Position: fyne.NewPos(checks+gap/2, header/2)})
+	if tv.setWidths[checkColumn] != checks || len(tv.userWidths) != 0 {
+		t.Fatal("a double click on the checkboxes' separator fitted a column")
+	}
+	stretched := width(0)
 	tv.table.DoubleTapped(&fyne.PointEvent{Position: at(0)})
-	if got, want := tv.setWidths[0], widest(0); got != want || got >= stretched {
+	if got, want := width(0), widest(0); got != want || got >= stretched {
 		t.Fatalf("Name fitted to %v, want %v (it was stretched to %v)", got, want, stretched)
 	}
 	tv.table.DoubleTapped(&fyne.PointEvent{Position: at(1)})
-	if got, want := tv.setWidths[1], widest(1); got != want {
+	if got, want := width(1), widest(1); got != want {
 		t.Fatalf("Namespace fitted to %v, want %v", got, want)
 	}
-	if tv.userWidths["pods/namespace"] != tv.setWidths[1] {
+	if tv.userWidths["pods/namespace"] != width(1) {
 		t.Fatal("the fitted width is not kept as the user's")
 	}
 	// A refit (window resize, new snapshot) keeps the fitted widths.
 	tv.fitWidth = 0
 	tv.fitColumns(tv.table.Size().Width + 200)
-	if tv.setWidths[0] != widest(0) {
-		t.Fatalf("refit changed the fitted Name width to %v", tv.setWidths[0])
+	if width(0) != widest(0) {
+		t.Fatalf("refit changed the fitted Name width to %v", width(0))
 	}
 }
 

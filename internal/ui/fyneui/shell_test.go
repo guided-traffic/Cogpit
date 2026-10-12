@@ -70,7 +70,7 @@ func TestHeaderTapDispatchesSort(t *testing.T) {
 	q.until(t, "kinds", func() bool { return len(sh.kinds) > 0 })
 	settle(w)
 
-	restarts := 3 // the visible index of the Restarts column
+	restarts := firstDataColumn + 3 // the table column of Restarts, the fourth visible column
 	test.Tap(headerFor(t, sh, restarts))
 	q.until(t, "ui.sort", func() bool { return len(f.callsOf("ui.sort")) == 1 })
 	if p := decodeParams[sortParams](t, f.callsOf("ui.sort")[0]); p.Column != "restarts" || p.Desc {
@@ -115,7 +115,7 @@ func TestRowTapDispatchesSelect(t *testing.T) {
 
 	var cell *tableCell
 	for _, c := range sh.view.cells {
-		if c.row == 3 && c.col == 1 && c.Visible() {
+		if c.row == 3 && c.col == firstDataColumn+1 && c.Visible() {
 			cell = c
 		}
 	}
@@ -372,8 +372,8 @@ func TestHiddenColumnsAreSkipped(t *testing.T) {
 	sh, w, q := newTestShell(t, f, Options{})
 	q.until(t, "kinds", func() bool { return len(sh.kinds) > 0 })
 	settle(w)
-	if rows, cols := sh.view.length(); rows != 1 || cols != 4 {
-		t.Fatalf("table %d×%d, want 1×4: three columns without the hidden name, and the ⋮", rows, cols)
+	if rows, cols := sh.view.length(); rows != 1 || cols != 5 {
+		t.Fatalf("table %d×%d, want 1×5: the checkbox, three columns without the hidden name, and the ⋮", rows, cols)
 	}
 	texts := map[int]string{}
 	for _, c := range sh.view.cells {
@@ -381,7 +381,7 @@ func TestHiddenColumnsAreSkipped(t *testing.T) {
 			texts[c.col] = c.full
 		}
 	}
-	if texts[0] != "Warning" || texts[1] != "Back-off" || texts[2] != "1m" {
+	if texts[1] != "Warning" || texts[2] != "Back-off" || texts[3] != "1m" {
 		t.Fatalf("row cells %v", texts)
 	}
 	if sh.view.flexColumn() != 1 {

@@ -86,6 +86,7 @@ type tableView struct {
 	kindSetLen int
 	selected   []model.ObjectRef
 	pending    *model.ObjectRef // a selected object to scroll to once a snapshot contains it
+	check      tableChecks      // the row checkboxes, the header's and the selection bar (tablecheck.go)
 
 	userWidths map[string]float32 // widths the user dragged, by view and column id
 	setWidths  []float32          // the width the shell last gave each visible column
@@ -135,7 +136,8 @@ func newTableView(sh *shell) *tableView {
 	tv.csvButton = widget.NewButtonWithIcon("", theme.DownloadIcon(), tv.exportCSV)
 	tv.csvButton.Importance = widget.LowImportance
 	tv.csvButton.Hide()
-	tv.heading = container.NewHBox(tv.title, tv.count, tv.csvButton, tv.syncing)
+	tv.check.bar = newSelectionBar(tv)
+	tv.heading = container.NewHBox(tv.title, tv.count, tv.csvButton, tv.syncing, tv.check.bar.root)
 	tv.nsBox = sized(sizeFilterWidth, "", tv.nsButton)
 	tv.searchBox = sized(sizeSearchWidth, "", tv.search)
 	tv.tools = container.NewHBox(tv.nsBox, tv.searchBox)
@@ -186,12 +188,12 @@ func (tv *tableView) setPageLayout(view string) {
 	if page {
 		tv.heading.Objects = []fyne.CanvasObject{tv.title}
 		tv.tools.Objects = []fyne.CanvasObject{tv.nsBox}
-		tv.eventsHeading.Objects = []fyne.CanvasObject{tv.eventsTitle, tv.count, tv.csvButton, tv.syncing}
+		tv.eventsHeading.Objects = []fyne.CanvasObject{tv.eventsTitle, tv.count, tv.csvButton, tv.syncing, tv.check.bar.root}
 		tv.eventsTools.Objects = []fyne.CanvasObject{tv.searchBox}
 		tv.pageBox.Show()
 	} else {
 		tv.eventsHeading.Objects, tv.eventsTools.Objects = nil, nil
-		tv.heading.Objects = []fyne.CanvasObject{tv.title, tv.count, tv.csvButton, tv.syncing}
+		tv.heading.Objects = []fyne.CanvasObject{tv.title, tv.count, tv.csvButton, tv.syncing, tv.check.bar.root}
 		tv.tools.Objects = []fyne.CanvasObject{tv.nsBox, tv.searchBox}
 		tv.pageBox.Hide()
 	}
@@ -347,6 +349,7 @@ func (tv *tableView) setSnapshot(snap *engine.TableSnapshot) {
 	tv.updatePlaceholder()
 	tv.updateNamespaceButton() // cluster-scoped views hide the namespace filter
 	tv.syncColumnChecks()
+	tv.checksChanged() // the header's checkbox counts the rows shown
 	if newView {
 		tv.table.resetKeyboard() // a view starts at its first cell, scrolled to the top
 	}
@@ -375,6 +378,7 @@ func (tv *tableView) stateChanged() {
 // a view whose snapshot has not arrived yet.
 func (tv *tableView) selectionChanged(sel []model.ObjectRef) {
 	tv.selected = slices.Clone(sel)
+	tv.check.setSelection(sel)
 	if len(sel) > 0 {
 		ref := sel[0]
 		tv.pending = &ref
@@ -384,6 +388,7 @@ func (tv *tableView) selectionChanged(sel []model.ObjectRef) {
 	for _, c := range tv.cells {
 		c.setSelected(tv.rowSelected(c.row))
 	}
+	tv.checksChanged()
 	tv.resolvePending()
 }
 
@@ -426,26 +431,21 @@ func (tv *tableView) rowSelected(row int) bool {
 	if tv.snap == nil || row < 0 || row >= len(tv.snap.Rows) || len(tv.selected) == 0 {
 		return false
 	}
-	ref := tv.snap.Rows[row].Ref
-	for _, s := range tv.selected {
-		if s.Same(ref) {
-			return true
-		}
-	}
-	return false
+	return tv.check.has(tv.snap.Rows[row].Ref)
 }
 
-// length, createCell and updateCell are the table's data callbacks. The table has one column
-// more than the view: the ⋮ that opens each row's actions menu.
+// length, createCell and updateCell are the table's data callbacks. The table has two columns
+// more than the view: the row's checkbox first (checkColumn, tablecheck.go), the ⋮ that opens each
+// row's actions menu last.
 func (tv *tableView) length() (int, int) {
 	if tv.snap == nil {
 		return 0, len(tv.cols)
 	}
-	return len(tv.snap.Rows), len(tv.cols) + 1
+	return len(tv.snap.Rows), len(tv.cols) + 2
 }
 
 // menuColumn is the table column of the ⋮.
-func (tv *tableView) menuColumn() int { return len(tv.cols) }
+func (tv *tableView) menuColumn() int { return firstDataColumn + len(tv.cols) }
 
 func (tv *tableView) createCell() fyne.CanvasObject { return newTableCell(tv) }
 
@@ -459,16 +459,19 @@ func (tv *tableView) updateCell(id widget.TableCellID, o fyne.CanvasObject) {
 		c.tracked = true
 		tv.cells = append(tv.cells, c)
 	}
-	if tv.snap == nil || id.Row < 0 || id.Row >= len(tv.snap.Rows) || id.Col < 0 || id.Col > len(tv.cols) {
+	if tv.snap == nil || id.Row < 0 || id.Row >= len(tv.snap.Rows) || id.Col < 0 || id.Col > tv.menuColumn() {
 		c.set(id.Row, id.Col, cellContent{}, false, false, false)
 		return
 	}
 	var content cellContent
-	if id.Col == tv.menuColumn() {
+	switch id.Col {
+	case tv.menuColumn():
 		content.kind = cellMenu
-	} else {
+	case checkColumn:
+		content.kind = cellCheck
+	default:
 		row := &tv.snap.Rows[id.Row]
-		ci := tv.cols[id.Col]
+		ci := tv.cols[id.Col-firstDataColumn]
 		col := &tv.snap.Columns[ci]
 		var cell model.Cell
 		if ci < len(row.Cells) {
@@ -501,12 +504,17 @@ func (tv *tableView) createHeader() fyne.CanvasObject {
 // resize callback, but it resizes the header before updating it.
 func (tv *tableView) updateHeader(id widget.TableCellID, o fyne.CanvasObject) {
 	h := o.(*headerCell)
-	if id.Row != -1 || tv.snap == nil || id.Col < 0 || id.Col >= len(tv.cols) {
+	if id.Row == -1 && tv.snap != nil && id.Col == checkColumn {
+		tv.check.showHeader(h) // the header's checkbox: every row shown, or none
+		return
+	}
+	vis, data := tv.dataColumn(id.Col)
+	if id.Row != -1 || tv.snap == nil || !data {
 		// The ⋮ column's header is the ⋮ that shows and hides columns.
 		h.setMenu(id.Col, id.Row == -1 && tv.snap != nil && id.Col == tv.menuColumn())
 		return
 	}
-	col := tv.snap.Columns[tv.cols[id.Col]]
+	col := tv.snap.Columns[tv.cols[vis]]
 	sort := 0
 	if s := tv.snap.Sort; s.Column == col.ID {
 		sort = 1
@@ -519,7 +527,7 @@ func (tv *tableView) updateHeader(id widget.TableCellID, o fyne.CanvasObject) {
 		title = "" // Lens's warning column has no title; Title names it for agents
 	}
 	h.set(id.Col, title, sort)
-	if !tv.fitting && id.Col < len(tv.setWidths) && id.Col < len(tv.cols) {
+	if !tv.fitting && id.Col < len(tv.setWidths) {
 		if w := o.Size().Width; w > 0 && w != tv.setWidths[id.Col] {
 			tv.setWidths[id.Col] = w
 			tv.userWidths[tv.snap.View+"/"+col.ID] = w
@@ -534,10 +542,15 @@ func (tv *tableView) headerTapped(col int) {
 		tv.openColumns()
 		return
 	}
-	if tv.snap == nil || col < 0 || col >= len(tv.cols) {
+	if tv.snap != nil && col == checkColumn {
+		tv.toggleAll()
 		return
 	}
-	id := tv.snap.Columns[tv.cols[col]].ID
+	vis, ok := tv.dataColumn(col)
+	if tv.snap == nil || !ok {
+		return
+	}
+	id := tv.snap.Columns[tv.cols[vis]].ID
 	cur := tv.sh.ui.Sort
 	tv.sh.dispatch("ui.sort", sortParams{Column: id, Desc: cur.Column == id && !cur.Desc}, nil)
 }
@@ -550,7 +563,12 @@ func (tv *tableView) rowTapped(id widget.TableCellID) {
 	}
 	tv.setHoverCell(id.Row, id.Col)
 	tv.sh.tip.hide()
+	if id.Col == checkColumn { // Space or ↵ with the keyboard on a checkbox
+		tv.checkTapped(id.Row)
+		return
+	}
 	ref := tv.snap.Rows[id.Row].Ref
+	tv.check.anchor = &ref // ⇧-click selects from here (tablecheck.go)
 	tv.sh.dispatch("ui.select", selectParams{Refs: []model.ObjectRef{ref}}, nil)
 }
 
@@ -620,13 +638,17 @@ func (tv *tableView) cellTapped(c *tableCell, e *fyne.PointEvent) {
 	switch {
 	case c.content.kind == cellMenu:
 		tv.openRowMenu(c.row, drv.AbsolutePositionForObject(c).AddXY(0, c.Size().Height))
+	case c.content.kind == cellCheck:
+		tv.checkTapped(c.row)
 	case c.onLink(e.Position) && c.content.link.Same(tv.snap.Rows[c.row].Ref):
 		// A link to the row's own object (an issue's name on the cluster Overview) opens its
 		// details over the page, as a click on the row does.
 		tv.sh.dispatch("ui.select", selectParams{Refs: []model.ObjectRef{tv.snap.Rows[c.row].Ref}}, nil)
 	case c.onLink(e.Position):
-		nsColumn := c.col < len(tv.cols) && tv.snap.Columns[tv.cols[c.col]].ID == "namespace"
+		vis, ok := tv.dataColumn(c.col)
+		nsColumn := ok && tv.snap.Columns[tv.cols[vis]].ID == "namespace"
 		tv.sh.followLink(*c.content.link, tv.snap.Rows[c.row].Ref.Context, nsColumn)
+	case tv.modifiedClick(c.row): // ⌘-click toggles the row, ⇧-click selects a range (tablecheck.go)
 	default:
 		if cnv := drv.CanvasForObject(tv.table); cnv != nil {
 			cnv.Focus(tv.table)
@@ -667,32 +689,44 @@ func (tv *tableView) flexColumn() int {
 	return 0
 }
 
+// minFlexWidth is how narrow the flex column gets before the table scrolls sideways: since the
+// checkbox column (2026-10-13) a view with many columns, such as Pods, gives up width of its name
+// rather than push the ⋮ out of a window of 1440 points (Cogpit's, inferred).
+const minFlexWidth = 140
+
 // fitColumns gives every column its width and stretches the flex column to fill the frame, as
-// Lens does, unless the user sized it.
+// Lens does, unless the user sized it; when the columns are wider than the frame, the flex column
+// gives up width down to minFlexWidth first.
 func (tv *tableView) fitColumns(width float32) {
 	if tv.snap == nil || len(tv.cols) == 0 || width <= 0 {
 		return
 	}
-	if width == tv.fitWidth && len(tv.setWidths) == len(tv.cols)+1 {
+	if width == tv.fitWidth && len(tv.setWidths) == len(tv.cols)+2 {
 		return
 	}
 	tv.fitWidth = width
 	th := tv.table.Theme()
 	gap := th.Size(theme.SizeNamePadding)
 	flex := tv.flexColumn()
-	widths := make([]float32, len(tv.cols)+1)
-	widths[len(tv.cols)] = th.Size(sizeMenuColumn)
-	others := widths[len(tv.cols)] + gap
+	// One width per table column: the checkbox, the view's columns, the ⋮.
+	widths := make([]float32, len(tv.cols)+2)
+	widths[checkColumn] = th.Size(sizeMenuColumn)
+	widths[tv.menuColumn()] = th.Size(sizeMenuColumn)
+	others := widths[checkColumn] + gap + widths[tv.menuColumn()] + gap
 	for i := range tv.cols {
-		widths[i] = tv.columnWidth(i)
+		widths[firstDataColumn+i] = tv.columnWidth(i)
 		if i != flex {
-			others += widths[i] + gap
+			others += widths[firstDataColumn+i] + gap
 		}
 	}
 	col := tv.snap.Columns[tv.cols[flex]]
 	if _, user := tv.userWidths[tv.snap.View+"/"+col.ID]; !user {
-		if fill := width - others - th.Size(theme.SizeNameScrollBar); fill > widths[flex] {
-			widths[flex] = fill
+		fill := width - others - th.Size(theme.SizeNameScrollBar)
+		switch w := &widths[firstDataColumn+flex]; {
+		case fill > *w:
+			*w = fill
+		case fill < *w:
+			*w = max(fill, min(*w, minFlexWidth))
 		}
 	}
 	if len(tv.setWidths) != len(widths) {
@@ -985,6 +1019,7 @@ const (
 	cellText    cellKind = iota // text, possibly a link or in coloured parts
 	cellWarning                 // Lens's warning icon; the text is the icon's tooltip
 	cellMenu                    // the ⋮ that opens the row's actions menu
+	cellCheck                   // the row's checkbox (tablecheck.go)
 )
 
 // cellContent is what one body cell shows. Its fields are values or pointers into the immutable
@@ -1106,7 +1141,7 @@ func (c *tableCell) TappedSecondary(e *fyne.PointEvent) { c.tv.openRowMenu(c.row
 
 // Cursor implements desktop.Cursorable: a hand over a link the pointer is on and over the ⋮.
 func (c *tableCell) Cursor() desktop.Cursor {
-	if c.linkHover || c.content.kind == cellMenu {
+	if c.linkHover || c.content.kind == cellMenu || c.content.kind == cellCheck {
 		return desktop.PointerCursor
 	}
 	return desktop.DefaultCursor
@@ -1212,7 +1247,7 @@ func (c *tableCell) apply() {
 		}
 		c.ring.Refresh()
 	}
-	c.setIcon(c.tv.cellIcon(c.content))
+	c.setIcon(c.tv.cellIcon(c.content, c.selected))
 	c.fit(th)
 	c.bg.Refresh()
 	c.text.Refresh()
@@ -1458,11 +1493,14 @@ func (r *tableCellRenderer) Objects() []fyne.CanvasObject {
 func (r *tableCellRenderer) Destroy() {}
 
 // cellIcon returns the icon a cell shows: the warning triangle in the cell's status colour, the ⋮
-// in the muted colour, or nil. The themed resources are made once per icon and colour, so that
-// updating cells allocates nothing and a cell's image is re-rasterised only when its icon changes.
-func (tv *tableView) cellIcon(content cellContent) fyne.Resource {
+// in the muted colour, the row's checkbox (checked on a selected row), or nil. The themed resources
+// are made once per icon and colour, so that updating cells allocates nothing and a cell's image
+// is re-rasterised only when its icon changes.
+func (tv *tableView) cellIcon(content cellContent, selected bool) fyne.Resource {
 	var key cellIconKey
 	switch content.kind {
+	case cellCheck:
+		key = checkIconKey(selected)
 	case cellWarning:
 		if content.status == model.StatusNone {
 			return nil
@@ -1497,6 +1535,8 @@ type headerCell struct {
 	title string
 	sort  int  // 1 ascending, -1 descending, 0 not sorted
 	menu  bool // the ⋮ at the end of the header row
+	box   bool // the checkbox at the start of the header row (tablecheck.go)
+	boxed int  // the checkbox's state: checkNone, checkSome or checkAll
 
 	text  *canvas.Text
 	arrow *iconImage
@@ -1518,26 +1558,26 @@ func newHeaderCell(onTap func(int)) *headerCell {
 
 func (h *headerCell) set(col int, title string, sort int) {
 	h.col = col
-	if title == h.title && sort == h.sort && !h.menu {
+	if title == h.title && sort == h.sort && !h.menu && !h.box {
 		return
 	}
-	h.title, h.sort, h.menu = title, sort, false
+	h.title, h.sort, h.menu, h.box = title, sort, false, false
 	h.Refresh()
 }
 
 // setMenu makes the cell the ⋮ of the header row (on), or an empty header.
 func (h *headerCell) setMenu(col int, on bool) {
 	h.col = col
-	if on == h.menu && h.title == "" && h.sort == 0 {
+	if on == h.menu && h.title == "" && h.sort == 0 && !h.box {
 		return
 	}
-	h.title, h.sort, h.menu = "", 0, on
+	h.title, h.sort, h.menu, h.box = "", 0, on, false
 	h.Refresh()
 }
 
-// Cursor implements desktop.Cursorable: a hand over the ⋮.
+// Cursor implements desktop.Cursorable: a hand over the ⋮ and the checkbox.
 func (h *headerCell) Cursor() desktop.Cursor {
-	if h.menu {
+	if h.menu || h.box {
 		return desktop.PointerCursor
 	}
 	return desktop.DefaultCursor
@@ -1568,7 +1608,7 @@ func (r *headerCellRenderer) Layout(size fyne.Size) {
 	h.text.Move(fyne.NewPos(pad, (size.Height-ts.Height)/2))
 	h.text.Resize(ts)
 	is := th.Size(sizeSortIcon)
-	if h.menu {
+	if h.menu || h.box {
 		is = th.Size(sizeCellIcon)
 		h.arrow.img.Move(fyne.NewPos((size.Width-is)/2, (size.Height-is)/2))
 	} else {
@@ -1603,9 +1643,13 @@ func (r *headerCellRenderer) Refresh() {
 	case -1:
 		arrow = theme.MenuDropDownIcon()
 	}
-	if h.menu {
+	switch {
+	case h.box:
+		res, c := headerCheckIcon(h.boxed)
+		h.arrow.set(th, res, c)
+	case h.menu:
 		h.arrow.set(th, theme.MoreVerticalIcon(), colorMuted)
-	} else {
+	default:
 		h.arrow.set(th, arrow, colorAccent)
 	}
 	r.Layout(h.Size())

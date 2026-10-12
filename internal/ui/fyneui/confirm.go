@@ -106,9 +106,13 @@ func (c *guiConfirmer) show(req engine.ConfirmRequest, reply func(bool)) *confir
 	for _, o := range req.Objects {
 		objects = append(objects, singular(c.sh.kindTitle(o.Kind))+" "+o.Name)
 	}
-	addRow("Objects", strings.Join(objects, "\n"))
-	if len(req.Namespaces) > 0 {
-		addRow("Namespace", strings.Join(req.Namespaces, ", "))
+	name, value := confirmObjects(objects, width-th.Size(sizeDrawerLabel)-2*th.Size(theme.SizeNamePadding)) // every object, a long list scrolling (tablecheck_confirm.go)
+	rows.Objects = append(rows.Objects, name, value)
+	switch {
+	case len(req.Namespaces) == 1:
+		addRow("Namespace", req.Namespaces[0])
+	case len(req.Namespaces) > 1: // a selection's objects (Delete of a selection)
+		addRow("Namespaces", strings.Join(req.Namespaces, ", "))
 	}
 	addRow("Context", req.Context)
 	addRow("Requested by", originText(req.Origin))

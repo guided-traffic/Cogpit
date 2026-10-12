@@ -99,15 +99,16 @@ func (tv *tableView) keyboardOn(row, col int) bool {
 	return tv.kbOn && row == tv.kbRow && col == tv.kbCol && row >= 0
 }
 
-// resetKeyboard moves the keyboard to the first cell, as for a view just opened. Fyne keeps its
-// highlight private, and Select is the only way to move it; the table's OnSelected (which would
-// open the drawer) is off meanwhile, and the selection is dropped again.
+// resetKeyboard moves the keyboard to the first row's first column of the view (right of its
+// checkbox), as for a view just opened. Fyne keeps its highlight private, and Select is the only way
+// to move it; the table's OnSelected (which would open the drawer) is off meanwhile, and the
+// selection is dropped again.
 func (t *resourceTable) resetKeyboard() {
 	on := t.OnSelected
 	t.OnSelected = nil
-	t.Select(widget.TableCellID{})
+	t.Select(widget.TableCellID{Col: firstDataColumn})
 	t.UnselectAll()
 	t.OnSelected = on
-	t.tv.kbRow, t.tv.kbCol = 0, 0
+	t.tv.kbRow, t.tv.kbCol = 0, firstDataColumn
 	t.tv.updateKeyboardCell()
 }

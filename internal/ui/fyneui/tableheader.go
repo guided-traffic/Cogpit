@@ -28,7 +28,7 @@ func (t *resourceTable) DoubleTapped(ev *fyne.PointEvent) {
 }
 
 // separatorAt returns the visible column whose right-edge separator in the header row is at pos
-// (relative to the table), or -1.
+// (relative to the table), or -1; the checkbox's separator is none. setWidths are by table column.
 func (tv *tableView) separatorAt(pos fyne.Position) int {
 	if tv.snap == nil || pos.Y < 0 || pos.Y > newHeaderCell(nil).MinSize().Height {
 		return -1
@@ -36,10 +36,13 @@ func (tv *tableView) separatorAt(pos fyne.Position) int {
 	gap := tv.table.Theme().Size(theme.SizeNamePadding)
 	x := pos.X + tv.table.offset.X
 	start := float32(0)
-	for i := 0; i < len(tv.cols) && i < len(tv.setWidths); i++ {
-		end := start + tv.setWidths[i]
+	for col := 0; col < tv.menuColumn() && col < len(tv.setWidths); col++ {
+		end := start + tv.setWidths[col]
 		if x >= end && x < end+gap {
-			return i
+			if vis, ok := tv.dataColumn(col); ok {
+				return vis
+			}
+			return -1
 		}
 		start = end + gap
 	}

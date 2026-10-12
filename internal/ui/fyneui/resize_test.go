@@ -24,9 +24,10 @@ func TestColumnResizeByDraggingHeaderSeparator(t *testing.T) {
 	c := w.Canvas()
 
 	gap := tv.table.Theme().Size(theme.SizeNamePadding)
-	before := tv.setWidths[0]
-	header := headerFor(t, sh, 0)
-	rel := fyne.NewPos(before+gap/2, header.Size().Height/2) // between the Name and Namespace headers
+	before := tv.setWidths[firstDataColumn]
+	header := headerFor(t, sh, firstDataColumn)
+	// between the Name and Namespace headers; the checkbox's column comes first
+	rel := fyne.NewPos(tv.setWidths[checkColumn]+gap+before+gap/2, header.Size().Height/2)
 	abs := fyne.CurrentApp().Driver().AbsolutePositionForObject(tv.table).Add(rel)
 
 	test.MoveMouse(c, fyne.CurrentApp().Driver().AbsolutePositionForObject(header).AddXY(10, 5))
@@ -42,7 +43,7 @@ func TestColumnResizeByDraggingHeaderSeparator(t *testing.T) {
 	q.drain()
 	settle(w)
 
-	if got := headerFor(t, sh, 0).Size().Width; got != before+60 {
+	if got := headerFor(t, sh, firstDataColumn).Size().Width; got != before+60 {
 		t.Fatalf("Name column %v wide after dragging 60 from %v", got, before)
 	}
 	if got := tv.userWidths["pods/name"]; got != before+60 {
@@ -51,7 +52,7 @@ func TestColumnResizeByDraggingHeaderSeparator(t *testing.T) {
 	// A refit (window resize, new snapshot) keeps the user's width instead of stretching the column.
 	tv.fitWidth = 0
 	tv.fitColumns(tv.table.Size().Width + 200)
-	if got := tv.setWidths[0]; got != before+60 {
+	if got := tv.setWidths[firstDataColumn]; got != before+60 {
 		t.Fatalf("refit changed the dragged width to %v", got)
 	}
 }
