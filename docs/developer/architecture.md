@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (the tab bar of cluster views, G5, §4.3: `UIState.Tabs` and `ActiveTab`, kept in step by `syncTabs`, the `ui.tab.*` commands, `ui.openView` in the preview tab; Preferences and cluster settings, G13, §4.3: engine state, stores, commands, the GUI that applies them; the cluster Overview, G12: §4.3 the page and `UIState.Overview`, §9 the cluster scope of the metrics hub; §5 a virtual kind made of several kinds, the Applications; §4.5 curated profiles of CRD kinds, the Vertical Pod Autoscalers; Current state: the four Device Resources views, 45 built-in views; §8: Helm chart repositories kept in Cogpit's own folders, the Charts view and the install, G11; the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (the tab bar of cluster views, G5, §4.3: `UIState.Tabs` and `ActiveTab`, kept in step by `syncTabs`, the `ui.tab.*` commands, `ui.openView` in the preview tab, the window's bar (`tabbar.go`) and its View menu keys, §4.2; the tab bar of cluster views, G5, §4.3: `UIState.Tabs` and `ActiveTab`, kept in step by `syncTabs`, the `ui.tab.*` commands, `ui.openView` in the preview tab; Preferences and cluster settings, G13, §4.3: engine state, stores, commands, the GUI that applies them; the cluster Overview, G12: §4.3 the page and `UIState.Overview`, §9 the cluster scope of the metrics hub; §5 a virtual kind made of several kinds, the Applications; §4.5 curated profiles of CRD kinds, the Vertical Pod Autoscalers; Current state: the four Device Resources views, 45 built-in views; §8: Helm chart repositories kept in Cogpit's own folders, the Charts view and the install, G11; the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-12)
 
@@ -31,6 +31,7 @@ Since 2026-10-13 the navigator has Lens's header (a scope dropdown and a search)
 Since 2026-10-13 a command palette (⌘⇧P, G13) lists what the menus offer by the registry's metadata and runs it as the menus do; its open state is `UIState.Palette`, and the registry's shortcuts ⌘⇧P and ⌘P sit on main-menu items ([§4.2](#42-the-command-registry)).
 Since 2026-10-13 the cluster Overview (`cluster/overview`, the navigator's first item, G12) shows the cluster's CPU, Memory and Pods for its master or worker nodes over a range, through a cluster scope of the metrics hub, and the Issues from the cache; its range and node group are `UIState.Overview` ([§4.3](#43-ui-state), [§9](#9-metrics-internalmetrics)).
 Since 2026-10-13 Preferences (⌘,) and a cluster's Settings (⌘⇧,) are engine state and commands kept in Cogpit's own `preferences.json`, `cluster-settings.json` and `cluster-icons/` (G13): the theme switched live, the time zone, the tables' row height, the editor's and the terminal's settings, a cluster's display name and icon in the hotbar, the picker and the navigator, its terminals' directory and namespace ([§4.3](#43-ui-state)).
+Since 2026-10-13 a tab bar of cluster views sits above the workspace (G5): a click in the navigator opens a preview tab, a double click or ⇧↵ a fixed one, each tab keeps its own filter, selection and history, and the tabs are engine state (`UIState.Tabs`, the `ui.tab.*` commands; [§4.3](#43-ui-state)); a tab of another cluster connects to it when shown, since Cogpit holds one connection.
 CI runs on every push ([releasing › CI](releasing.md#ci)). The MVP doubled as the Fyne spike
 ([results](spike-fyne.md#results)). Where the code differs from the plan below, this section wins.
 
@@ -398,7 +399,10 @@ every term of the query against the label and the category (label start, word st
 category, then fuzzy from a word's start). The registry's shortcuts are bound from the registry:
 ⌘⇧P (`ui.palette.open`) and ⌘P (`cluster.connect`, the picker) on main-menu items, which Fyne asks
 before the focused widget (on macOS the native menu's key equivalents), ⌘F (`ui.setFilter`) and
-⌘⇧T (`terminal.open`) as window shortcuts; F1–F12 stay typed keys of the hotbar. ⌘Q is the
+⌘⇧T (`terminal.open`) as window shortcuts; F1–F12 stay typed keys of the hotbar. Since 2026-10-13 the
+tab bar's ⌘W, ⌘⌥→ and ⌘⌥←, ⌃- and ⌃⇧- are View menu items with the registry's shortcuts too, and
+`ui.tab.select`'s range ⌘1–9 is bound key by key (⌘1–⌘8 the n-th tab, ⌘9 the last), as F1–F12 are
+(`tabBar.menuItems`). ⌘Q is the
 platform's (GLFW's macOS app menu), and nothing binds ⌘R.
 
 Every command is also an MCP tool, generated from the registry (`ui.navigate` → `ui_navigate`).
@@ -548,7 +552,12 @@ never resolved is named by its key with a capital letter (`pods` → `Pods`, the
 Cogpit holds one connection (§6): the tabs of other clusters stay in the bar, and selecting one
 connects to its cluster as `cluster.connect` does and then restores the tab. What is inferred there
 (one preview tab in all, the neighbour shown on close, the history's contents) is listed in
-`tabs.go` and in [ui-parity › Layout](../parity/ui-parity.md#layout).
+`tabs.go` and in [ui-parity › Layout](../parity/ui-parity.md#layout). The window draws the bar
+([`fyneui/tabbar.go`](../../internal/ui/fyneui/tabbar.go)) above the workspace from `UIState.Tabs`
+and changes the tabs only through the commands: a click selects, the × closes, a double click on
+the preview tab pins; the keys are View menu items (§4.2). Each tab draws its cluster's initials
+badge as the navigator's root does, muted while that cluster is not connected; a cluster icon or
+colour (cluster identity) is to replace it in both places.
 
 **Panel widths are GUI-only** (decided 2026-10-12, [`panelwidths.go`](../../internal/ui/fyneui/panelwidths.go)):
 the width of the primary sidebar and of the detail drawer is a window-layout preference, not UI
@@ -567,7 +576,10 @@ the panel narrower without overwriting the stored value.
 2026-10-13, not the owner's decision; [`navigator.go`](../../internal/ui/fyneui/navigator.go)). They
 change which views the navigator lists, not what a view shows, so, as with the panel widths, no
 command sets them and `ui_state` does not report them; an agent lists the views with `kinds_list`.
-What the navigator opens is engine state: a click, ↵ and the search's ↵ dispatch `ui.openView`. The
+What the navigator opens is engine state: a click, ↵ and the search's ↵ dispatch `ui.openView` (the
+preview tab), a double click and ⇧↵ `ui.tab.open` with `fixed` (since 2026-10-13). The navigator and
+the tab bar tell a double click themselves (two clicks within 500 ms, macOS's default): Fyne's own
+double tap delays every single tap by 300 ms. The
 tree is Cogpit's own rows (`navTree`), not Fyne's `widget.Tree`, whose rows keep their hover and
 keyboard highlight private: an item's tooltip needs the pointer, the focus ring the keyboard's row.
 

@@ -65,8 +65,8 @@ func registerCluster(g *registrar) {
 
 	add(g, engine.Spec[connectParams]{
 		ID: "cluster.connect", Label: "Connect to Cluster", MenuPath: "File/Connect to Cluster", Shortcut: "Cmd+P", Danger: engine.DangerUI,
-		Description: "Connects to a kubeconfig context (or the demo cluster) and opens its Pods view, replacing the current " +
-			"connection. Connecting only reads from the cluster. Returns {context, state, error}; state is connected or error.",
+		Description: "Connects to a kubeconfig context (or the demo cluster), replacing the current connection, and shows its most " +
+			"recently used tab, or else its Pods view in the preview tab; the other clusters' tabs stay. Connecting only reads from the cluster. Returns {context, state, error}; state is connected or error.",
 		Run: func(ctx context.Context, s *engine.Session, p connectParams) (any, error) {
 			err := s.Connect(ctx, p.Context)
 			u := s.UIState()

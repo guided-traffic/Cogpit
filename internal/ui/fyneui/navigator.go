@@ -30,15 +30,16 @@ import (
 //     groups above it, a matching group with everything in it, and groups show open while a search
 //     is on (their own open state comes back after it); Escape clears and closes the field, ↓ moves
 //     into the tree, ↵ opens the first match, and a letter typed in the tree starts a search;
-//   - Cogpit has no tabs, so ↵ and ⇧↵ both open the item's view through ui.openView; on a group
-//     they open or close it, on the root they do nothing; Space does what ↵ does; Home and End go to
+//   - ↵ and a click open the item's view in the preview tab (ui.openView), ⇧↵ and a double click in
+//     a fixed tab (ui.tab.open; tabbar.go); on a group they open or close it, on the root they do
+//     nothing; Space does what ↵ does; Home and End go to
 //     the first and the last row; Escape clears the search, else closes the detail drawer;
 //   - a click focuses the tree, and the row the keyboard is on has a ring in the accent colour
 //     while the tree has the focus, as the table's keyboard cell has (tablekeys.go).
 //
 // The search text, the keyboard's row and which groups are open are the window's, not engine
 // state: they change what the navigator lists, not what a view shows (architecture §4.3). Opening a
-// view is engine state and goes through ui.openView, so agents see it.
+// view is engine state and goes through ui.openView or ui.tab.open, so agents see it.
 
 // rootNode is the node id of the tree's root, the connected cluster. Kind keys, page keys, groups
 // and aliases never take this form.
@@ -278,8 +279,12 @@ func (t *navTree) TypedKey(ev *fyne.KeyEvent) {
 		t.right()
 	case fyne.KeyLeft:
 		t.left()
-	case fyne.KeyReturn, fyne.KeyEnter, fyne.KeySpace: // ⇧↵ too: without tabs it is ↵
-		t.s.activate(t.focus)
+	case fyne.KeyReturn, fyne.KeyEnter, fyne.KeySpace:
+		if t.shift && ev.Name != fyne.KeySpace { // ⇧↵: a fixed tab (tabbar.go)
+			t.s.openFixed(t.focus)
+			return
+		}
+		t.s.activate(t.focus) // the preview tab
 	case fyne.KeyEscape:
 		if t.s.head.searching() {
 			t.s.head.closeSearch()
@@ -381,6 +386,10 @@ func (r *navRow) tipText() string { return navTip(r.title, r.t.s.sh.ui.Context) 
 // Tapped implements fyne.Tappable.
 func (r *navRow) Tapped(*fyne.PointEvent) {
 	r.t.s.sh.tip.hideFor(r)
+	if r.t.s.navClicked(r.id) { // a double click's second: a fixed tab (tabbar.go)
+		r.t.s.openFixed(r.id)
+		return
+	}
 	r.t.tapped(r.id)
 }
 

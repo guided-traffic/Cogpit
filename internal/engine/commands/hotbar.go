@@ -188,7 +188,7 @@ func registerHotbar(g *registrar) {
 	add(g, engine.Spec[hotbarSlotParams]{
 		ID: "hotbar.openCluster", Label: "Open Hotbar Cluster", MenuPath: "Hotbar/Open Cluster", Shortcut: "F1–F12", Danger: engine.DangerUI,
 		Description: "Opens the cluster of a hotbar tile, as clicking it or pressing its F-key does (F1 the top tile of the bank " +
-			"shown): connects to its context and opens its Pods view, replacing the current connection, exactly as " +
+			"shown): connects to its context and shows its last used tab or its Pods view, replacing the current connection, exactly as " +
 			"cluster_connect does; a tile of the cluster connected already changes nothing. Connecting only reads from the " +
 			"cluster. A tile whose context no kubeconfig source offers any more is disabled. Returns {context, state, error}.",
 		Enabled: func(s *engine.Session, p hotbarSlotParams) error {

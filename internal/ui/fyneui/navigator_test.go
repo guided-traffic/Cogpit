@@ -286,7 +286,9 @@ func TestNavigatorKeyboard(t *testing.T) {
 		t.Error("↵ did not close Custom Resources")
 	}
 
-	// ↵ opens the view of the keyboard's row; ⇧↵ does the same (no tabs); so does Space.
+	// ↵ opens the view of the keyboard's row in the preview tab (ui.openView); ⇧↵ in a fixed tab
+	// (ui.tab.open, tabbar.go); Space does what ↵ does.
+	fakeTabCommands(t, f)
 	key(fyne.KeyHome)
 	key(fyne.KeyDown)
 	at(engine.ClusterOverview)
@@ -301,10 +303,14 @@ func TestNavigatorKeyboard(t *testing.T) {
 	key(fyne.KeyReturn)
 	tr.KeyUp(&fyne.KeyEvent{Name: desktop.KeyShiftLeft})
 	q.until(t, "the Workloads Overview", func() bool { return sh.ui.View == "workloads/overview" })
+	if calls := f.callsOf("ui.tab.open"); len(calls) != 1 ||
+		decodeParams[tabOpenParams](t, calls[0]) != (tabOpenParams{View: "workloads/overview", Fixed: true}) {
+		t.Errorf("⇧↵: ui.tab.open %v", calls)
+	}
 	key(fyne.KeyDown)
 	key(fyne.KeySpace)
 	q.until(t, "the Pods view", func() bool { return sh.ui.View == "pods" })
-	if got := openViews(t, f); !slices.Equal(got, []string{"nodes", "workloads/overview", "pods"}) {
+	if got := openViews(t, f); !slices.Equal(got, []string{"nodes", "pods"}) {
 		t.Errorf("ui.openView %v", got)
 	}
 	if s.marked != "pods" || tr.focus != "pods" {

@@ -1,0 +1,420 @@
+package fyneui
+
+import (
+	"image/color"
+	"slices"
+	"strings"
+	"time"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+)
+
+// The tab bar of cluster views above the workspace, right of the navigator (ui-parity › Layout;
+// the tabs are engine state, engine/tabs.go). Captured from Lens Desktop (2026-10-11): a tab reads
+// "<view> - <context>" with the cluster's icon and a close button, the preview tab's title is
+// italic (that italic means preview is inferred), hovering a tab shows its full title; a single
+// click in the navigator opens a preview tab, a double click or ⇧↵ a fixed tab. Cogpit's defaults
+// (inferred, not the owner's decision, 2026-10-13):
+//   - a tab's icon is the cluster's initials badge, drawn as the navigator's root and the hotbar's
+//     tiles draw it (an icon or colour of the user's is missing: cluster identity), muted while its
+//     cluster is not the connected one;
+//   - the bar takes the dock's tab colours; the active tab is raised and underlined in the accent
+//     colour, as the dock's active tab is;
+//   - a title wider than the dock's widest tab title is cut with an ellipsis; tabs that do not fit
+//     scroll sideways, the active one scrolled into view;
+//   - a double click on a preview tab fixes it (ui.tab.pin), as editors do;
+//   - the bar is hidden while there is no tab (before the first connect);
+//   - the shortcuts are main-menu items of the View menu, so they work whatever has the focus:
+//     ⌘W, ⌘⌥→ and ⌘⌥←, ⌘1–⌘8 and ⌘9 (the last tab), ⌃- and ⌃⇧-; on Windows and Linux they are the
+//     Ctrl forms of the same keys, not Lens's Ctrl+PageUp/PageDown and Alt+←/→ (G22).
+//
+// The bar changes the tabs only through ui.tab.* commands: UI state is engine state.
+
+// doubleClickTime is how close two clicks on the same tab or navigator item make a double click:
+// macOS's default interval (Fyne's own double tap waits 300 ms before every single tap, which would
+// slow every click on the navigator, so the bar and the navigator count clicks themselves).
+const doubleClickTime = 500 * time.Millisecond
+
+// tabBar is the bar of tabs.
+type tabBar struct {
+	sh     *shell
+	root   *fyne.Container // the bar and its divider; hidden while there is no tab
+	row    *fyne.Container
+	scroll *container.Scroll
+	shown  []*viewTab // the tab widgets in order
+
+	now      func() time.Time // the clock of double clicks (a test moves it)
+	tabClick click            // the last click on a tab
+	navClick click            // the last click on a navigator item
+}
+
+// click is a click on something with an id, for telling a double click.
+type click struct {
+	id string
+	at time.Time
+}
+
+func newTabBar(sh *shell) *tabBar {
+	b := &tabBar{sh: sh, now: time.Now}
+	b.row = container.NewHBox()
+	b.scroll = container.NewHScroll(b.row)
+	b.root = container.NewBorder(nil, newDivider(false), nil, nil, container.NewStack(newSurface(colorDock), b.scroll))
+	b.root.Hide()
+	return b
+}
+
+// double reports whether a click on id is the second of a double click, and remembers it.
+func (b *tabBar) double(last *click, id string) bool {
+	now := b.now()
+	if last.id == id && now.Sub(last.at) >= 0 && now.Sub(last.at) < doubleClickTime {
+		*last = click{}
+		return true
+	}
+	*last = click{id: id, at: now}
+	return false
+}
+
+// sync shows UIState.Tabs: one widget per tab, the active one raised and scrolled into view.
+func (b *tabBar) sync() {
+	ui := b.sh.ui
+	if len(ui.Tabs) == 0 {
+		b.shown, b.row.Objects = nil, nil
+		b.root.Hide()
+		b.row.Refresh()
+		return
+	}
+	live := ui.Connection.State == engine.Connected
+	for len(b.shown) < len(ui.Tabs) {
+		b.shown = append(b.shown, newViewTab(b))
+	}
+	b.shown = b.shown[:len(ui.Tabs)]
+	objs := make([]fyne.CanvasObject, len(ui.Tabs))
+	var active *viewTab
+	for i, t := range ui.Tabs {
+		w := b.shown[i]
+		w.set(t, t.ID == ui.ActiveTab, live && t.Context == ui.Context)
+		if w.active {
+			active = w
+		}
+		objs[i] = w
+	}
+	b.row.Objects = objs
+	b.root.Show()
+	b.scroll.Refresh()
+	if active != nil {
+		b.reveal(active)
+	}
+}
+
+// reveal scrolls a tab into view.
+func (b *tabBar) reveal(t *viewTab) {
+	x, w, view, off := t.Position().X, t.Size().Width, b.scroll.Size().Width, b.scroll.Offset.X
+	switch {
+	case view <= 0:
+	case x < off:
+		b.scroll.ScrollToOffset(fyne.NewPos(x, 0))
+	case x+w > off+view:
+		b.scroll.ScrollToOffset(fyne.NewPos(x+w-view, 0))
+	}
+}
+
+// tapped is a click on a tab: it activates the tab, and the second click of a double click on the
+// preview tab fixes it.
+func (b *tabBar) tapped(t engine.ViewTab) {
+	if b.double(&b.tabClick, t.ID) && t.Preview {
+		b.sh.dispatch("ui.tab.pin", tabIDParams{ID: t.ID}, nil)
+		return
+	}
+	ui := b.sh.ui
+	if t.ID != ui.ActiveTab || ui.Connection.State != engine.Connected {
+		b.sh.dispatch("ui.tab.select", tabSelectParams{ID: t.ID}, nil)
+	}
+}
+
+// menuItems are the View menu's tab items with the registry's shortcuts: main-menu items, so that
+// the keys work whatever has the focus. An item does nothing where its command could not run (no
+// tab, nowhere to go back to), rather than showing why in a toast at every keypress.
+func (b *tabBar) menuItems() []*fyne.MenuItem {
+	sh := b.sh
+	var items []*fyne.MenuItem
+	add := func(id string, run func()) {
+		if c, ok := sh.eng.Registry().Get(id); ok {
+			items = append(items, sh.withShortcut(fyne.NewMenuItem(c.Label, run), id))
+		}
+	}
+	whenTabs := func(id string) func() {
+		return func() {
+			if len(sh.ui.Tabs) > 0 {
+				sh.dispatch(id, struct{}{}, nil)
+			}
+		}
+	}
+	add("ui.tab.close", whenTabs("ui.tab.close"))
+	add("ui.tab.pin", func() {
+		if t, ok := sh.ui.Tab(sh.ui.ActiveTab); ok && t.Preview {
+			sh.dispatch("ui.tab.pin", struct{}{}, nil)
+		}
+	})
+	add("ui.tab.next", whenTabs("ui.tab.next"))
+	add("ui.tab.previous", whenTabs("ui.tab.previous"))
+	add("ui.tab.back", b.history(true))
+	add("ui.tab.forward", b.history(false))
+	if c, ok := sh.eng.Registry().Get("ui.tab.select"); ok {
+		var goTo []*fyne.MenuItem
+		for n := 1; n <= 9; n++ {
+			label, params := "Tab "+string(rune('0'+n)), tabSelectParams{Index: n}
+			if n == 9 {
+				label, params = "Last Tab", tabSelectParams{Last: true}
+			}
+			item := fyne.NewMenuItem(label, func() {
+				if len(sh.ui.Tabs) >= params.Index && len(sh.ui.Tabs) > 0 {
+					sh.dispatch(c.ID, params, nil)
+				}
+			})
+			item.Shortcut = &desktop.CustomShortcut{KeyName: fyne.KeyName(string(rune('0' + n))), Modifier: fyne.KeyModifierShortcutDefault}
+			goTo = append(goTo, item)
+		}
+		parent := fyne.NewMenuItem(c.Label, nil)
+		parent.ChildMenu = fyne.NewMenu("", goTo...)
+		items = append(items, parent)
+	}
+	if len(items) > 0 {
+		items = append(items, fyne.NewMenuItemSeparator())
+	}
+	return items
+}
+
+// history is the action of Back (or Forward): it runs only when the active tab has somewhere to go.
+func (b *tabBar) history(back bool) func() {
+	return func() {
+		t, ok := b.sh.ui.Tab(b.sh.ui.ActiveTab)
+		switch {
+		case !ok:
+		case back && len(t.Back) > 0:
+			b.sh.dispatch("ui.tab.back", struct{}{}, nil)
+		case !back && len(t.Forward) > 0:
+			b.sh.dispatch("ui.tab.forward", struct{}{}, nil)
+		}
+	}
+}
+
+// tabsChanged reports whether the tab bar shows something else in st than in old.
+func tabsChanged(st, old engine.UIState) bool {
+	return st.ActiveTab != old.ActiveTab || st.Context != old.Context || st.Connection.State != old.Connection.State ||
+		!slices.EqualFunc(st.Tabs, old.Tabs, func(a, b engine.ViewTab) bool {
+			return a.ID == b.ID && a.Title == b.Title && a.Preview == b.Preview && a.Context == b.Context
+		})
+}
+
+// openFixed opens a navigator item's view in a fixed tab (⇧↵, a double click); on a group or the
+// root it does what ↵ does.
+func (s *sidebar) openFixed(id string) {
+	if id == "" || id == rootNode || s.isBranch(id) {
+		s.activate(id)
+		return
+	}
+	key := strings.TrimPrefix(id, aliasPrefix)
+	s.marked = id
+	s.tree.rebuild()
+	s.sh.dispatch("ui.tab.open", tabOpenParams{View: key, Fixed: true}, func(_ any, err error) {
+		if err != nil {
+			s.sh.showError(err)
+			s.selectView(s.sh.ui.View)
+		}
+	})
+}
+
+// navClicked tells a navigator item's double click: the second click of one opens the item's view
+// in a fixed tab (its first opened the preview tab). Groups and the root have none.
+func (s *sidebar) navClicked(id string) bool {
+	if id == rootNode || s.isBranch(id) {
+		return false
+	}
+	return s.sh.tabs.double(&s.sh.tabs.navClick, id)
+}
+
+// Command parameters of the tab commands, mirroring the engine's schemas.
+type (
+	tabIDParams struct {
+		ID string `json:"id,omitempty"`
+	}
+	tabSelectParams struct {
+		ID    string `json:"id,omitempty"`
+		Index int    `json:"index,omitempty"`
+		Last  bool   `json:"last,omitempty"`
+	}
+	tabOpenParams struct {
+		View  string `json:"view"`
+		Fixed bool   `json:"fixed,omitempty"`
+	}
+)
+
+// viewTab is one tab of the bar: the cluster's badge, the title (italic for the preview tab) and a
+// close button; the full title is its tooltip.
+type viewTab struct {
+	widget.BaseWidget
+	bar     *tabBar
+	tab     engine.ViewTab
+	active  bool
+	live    bool // its cluster is the connected one
+	hovered bool
+	close   *widget.Button
+}
+
+var (
+	_ fyne.Tappable     = (*viewTab)(nil)
+	_ desktop.Hoverable = (*viewTab)(nil)
+)
+
+func newViewTab(b *tabBar) *viewTab {
+	t := &viewTab{bar: b}
+	t.close = widget.NewButtonWithIcon("", theme.CancelIcon(), func() {
+		b.sh.tip.hideFor(t)
+		b.sh.dispatch("ui.tab.close", tabIDParams{ID: t.tab.ID}, nil)
+	})
+	t.close.Importance = widget.LowImportance
+	t.ExtendBaseWidget(t)
+	return t
+}
+
+// set changes what the tab shows.
+func (t *viewTab) set(tab engine.ViewTab, active, live bool) {
+	if tab.ID == t.tab.ID && tab.Title == t.tab.Title && tab.Preview == t.tab.Preview && tab.Context == t.tab.Context &&
+		active == t.active && live == t.live {
+		t.tab = tab
+		return
+	}
+	t.tab, t.active, t.live = tab, active, live
+	t.Refresh()
+}
+
+// Tapped implements fyne.Tappable.
+func (t *viewTab) Tapped(*fyne.PointEvent) {
+	t.bar.sh.tip.hideFor(t)
+	t.bar.tapped(t.tab)
+}
+
+// MouseIn implements desktop.Hoverable: the full title as the tooltip.
+func (t *viewTab) MouseIn(ev *desktop.MouseEvent) {
+	t.hovered = true
+	t.Refresh()
+	t.bar.sh.tip.hover(t, t.tab.Title, ev.AbsolutePosition)
+}
+
+// MouseMoved implements desktop.Hoverable.
+func (t *viewTab) MouseMoved(ev *desktop.MouseEvent) { t.bar.sh.tip.moved(t, ev.AbsolutePosition) }
+
+// MouseOut implements desktop.Hoverable.
+func (t *viewTab) MouseOut() {
+	t.hovered = false
+	t.Refresh()
+	t.bar.sh.tip.hideFor(t)
+}
+
+// CreateRenderer implements fyne.Widget.
+func (t *viewTab) CreateRenderer() fyne.WidgetRenderer {
+	r := &viewTabRenderer{t: t, bg: canvas.NewRectangle(color.Transparent), under: canvas.NewRectangle(color.Transparent),
+		badge: canvas.NewRectangle(color.Transparent), initials: canvas.NewText("", color.Transparent),
+		title: canvas.NewText("", color.Transparent)}
+	r.initials.TextStyle = fyne.TextStyle{Bold: true}
+	r.Refresh()
+	return r
+}
+
+type viewTabRenderer struct {
+	t                *viewTab
+	bg, under, badge *canvas.Rectangle
+	initials, title  *canvas.Text
+}
+
+// dims are the inner padding, the badge's side, the widest title and the title's style.
+func (r *viewTabRenderer) dims() (pad, side, maxText float32, style fyne.TextStyle) {
+	th := r.t.Theme()
+	return th.Size(theme.SizeNameInnerPadding), th.Size(theme.SizeNameInlineIcon) + 2, th.Size(sizeDockTabMaxLen),
+		fyne.TextStyle{Italic: r.t.tab.Preview}
+}
+
+func (r *viewTabRenderer) textWidth() float32 {
+	_, _, maxText, style := r.dims()
+	w := fyne.MeasureText(r.t.tab.Title, r.t.Theme().Size(theme.SizeNameText), style).Width
+	return fyne.Min(w, maxText)
+}
+
+func (r *viewTabRenderer) MinSize() fyne.Size {
+	pad, side, _, _ := r.dims()
+	c := r.t.close.MinSize()
+	return fyne.NewSize(pad+side+pad+r.textWidth()+pad/2+c.Width, fyne.Max(c.Height, side+2*pad))
+}
+
+func (r *viewTabRenderer) Layout(size fyne.Size) {
+	t := r.t
+	th := t.Theme()
+	pad, side, _, style := r.dims()
+	line := th.Size(theme.SizeNameSeparatorThickness) * 2
+	r.bg.Move(fyne.NewPos(0, 0))
+	r.bg.Resize(size)
+	r.under.Move(fyne.NewPos(0, size.Height-line))
+	r.under.Resize(fyne.NewSize(size.Width, line))
+	r.badge.Move(fyne.NewPos(pad, (size.Height-side)/2))
+	r.badge.Resize(fyne.NewSize(side, side))
+	is := r.initials.MinSize()
+	r.initials.Move(fyne.NewPos(pad+(side-is.Width)/2, (size.Height-is.Height)/2))
+	r.initials.Resize(is)
+	c := t.close.MinSize()
+	x := pad + side + pad
+	tw := fyne.Max(size.Width-x-pad/2-c.Width, 0)
+	r.title.Text = ellipsize(t.tab.Title, tw, th.Size(theme.SizeNameText), style)
+	ts := r.title.MinSize()
+	r.title.Move(fyne.NewPos(x, (size.Height-ts.Height)/2))
+	r.title.Resize(fyne.NewSize(tw, ts.Height))
+	t.close.Move(fyne.NewPos(size.Width-c.Width, (size.Height-c.Height)/2))
+	t.close.Resize(c)
+}
+
+func (r *viewTabRenderer) Refresh() {
+	t := r.t
+	th := t.Theme()
+	accent := themeColor(th, colorAccent)
+	ink := accent
+	if !t.live {
+		ink = themeColor(th, colorMuted)
+	}
+	r.badge.FillColor = withAlpha(ink, 0x2c) // the navigator badge's and the hotbar tile's tint
+	r.badge.CornerRadius = th.Size(theme.SizeNameInputRadius)
+	r.initials.Text = initials(engine.ContextLabel(t.tab.Context))
+	r.initials.Color = ink
+	r.initials.TextSize = th.Size(theme.SizeNameCaptionText)
+	r.title.TextStyle = fyne.TextStyle{Italic: t.tab.Preview}
+	r.title.TextSize = th.Size(theme.SizeNameText)
+	switch {
+	case t.active:
+		r.bg.FillColor = themeColor(th, colorDockTab)
+		r.title.Color = themeColor(th, colorDockTabText)
+		r.under.FillColor = accent
+	case t.hovered:
+		r.bg.FillColor = themeColor(th, theme.ColorNameHover)
+		r.title.Color = themeColor(th, colorDockTabDim)
+		r.under.FillColor = color.Transparent
+	default:
+		r.bg.FillColor = color.Transparent
+		r.title.Color = themeColor(th, colorDockTabDim)
+		r.under.FillColor = color.Transparent
+	}
+	r.Layout(t.Size())
+	for _, o := range []fyne.CanvasObject{r.bg, r.under, r.badge, r.initials, r.title} {
+		o.Refresh()
+	}
+}
+
+func (r *viewTabRenderer) Objects() []fyne.CanvasObject {
+	return []fyne.CanvasObject{r.bg, r.under, r.badge, r.initials, r.title, r.t.close}
+}
+
+func (r *viewTabRenderer) Destroy() {}

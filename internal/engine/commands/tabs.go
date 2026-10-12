@@ -110,7 +110,7 @@ func registerTabs(g *registrar) {
 	})
 
 	add(g, engine.Spec[struct{}]{
-		ID: "ui.tab.back", Label: "Back", MenuPath: "View/Back", Shortcut: "Ctrl+-", Danger: engine.DangerUI, Verbs: cacheReads,
+		ID: "ui.tab.back", Label: "Go Back", MenuPath: "View/Go Back", Shortcut: "Ctrl+-", Danger: engine.DangerUI, Verbs: cacheReads,
 		Description: "Goes back to the view the active tab showed before (its history: views opened in the preview tab, " +
 			"ui_navigate to another kind). The view opens as ui_openView opens one. Returns the new UI state.",
 		Enabled: func(s *engine.Session, _ struct{}) error { return s.CheckTabHistory(true) },
@@ -120,7 +120,7 @@ func registerTabs(g *registrar) {
 	})
 
 	add(g, engine.Spec[struct{}]{
-		ID: "ui.tab.forward", Label: "Forward", MenuPath: "View/Forward", Shortcut: "Ctrl+Shift+-", Danger: engine.DangerUI, Verbs: cacheReads,
+		ID: "ui.tab.forward", Label: "Go Forward", MenuPath: "View/Go Forward", Shortcut: "Ctrl+Shift+-", Danger: engine.DangerUI, Verbs: cacheReads,
 		Description: "Goes forward again in the active tab's history, after ui_tab_back. Returns the new UI state.",
 		Enabled:     func(s *engine.Session, _ struct{}) error { return s.CheckTabHistory(false) },
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {

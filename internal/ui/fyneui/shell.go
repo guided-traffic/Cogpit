@@ -86,6 +86,7 @@ type shell struct {
 	picker    *picker
 	palette   *cmdPalette   // the command palette, ⌘⇧P (palette.go)
 	hot       *hotbar       // the pinned clusters at the window's left edge (hotbar.go)
+	tabs      *tabBar       // the tabs of cluster views above the workspace (tabbar.go)
 	kc        *kubeconfigUI // the kubeconfig sources' dialogs (kubeconfigs.go)
 	settings  *settingsPage // Preferences and Cluster settings (preferences_page.go)
 	confirmer *guiConfirmer
@@ -170,6 +171,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.toasts = box(&toastLayout{})
 	sh.tip = newTooltip(sh)
 	sh.hot = newHotbar(sh)
+	sh.tabs = newTabBar(sh)
 
 	sh.drawerLay = &panelLayout{want: func() float32 { return sh.drawerW }, lo: minDrawerWidth, hi: maxDrawerWidth, restMin: minTableRoom,
 		onGot: func(float32) { sh.do(sh.drawer.widthChanged) }}
@@ -185,7 +187,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 
 	sidebar := box(lockedWidth{}, newSurface(colorSidebar), sh.side.root)
 	sh.sideLay = &panelLayout{first: true, want: func() float32 { return sh.sidebarW }, lo: minSidebarWidth, hi: maxSidebarWidth, restMin: minTableRoom}
-	main := newPanel(sh.sideLay, sidebar, sh.body, newResizeHandle(1,
+	main := newPanel(sh.sideLay, sidebar, container.NewBorder(sh.tabs.root, nil, nil, nil, sh.body), newResizeHandle(1,
 		func() float32 { return sh.sideLay.got },
 		func(w float32) float32 { return sh.setSidebarWidth(w) },
 		sh.saveWidths))
@@ -434,6 +436,9 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	}
 	if first || (st.Context == "") != (old.Context == "") {
 		sh.win.SetMainMenu(sh.mainMenu()) // Cluster Settings… is enabled while a cluster is chosen
+	}
+	if first || tabsChanged(st, old) {
+		sh.tabs.sync()
 	}
 }
 
@@ -774,6 +779,8 @@ func (sh *shell) mainMenu() *fyne.MainMenu {
 		items = append(items, none)
 	}
 	view := fyne.NewMenu("View", items...)
+	// The tab bar's ⌘W, ⌘⌥→ and ⌘⌥←, ⌘1–9, ⌃- and ⌃⇧-, from any focus (tabbar.go).
+	view.Items = append(sh.tabs.menuItems(), view.Items...)
 	if pal := sh.paletteMenuItem(); pal != nil { // ⌘⇧P, from any focus: menu shortcuts come first
 		view.Items = append([]*fyne.MenuItem{pal, fyne.NewMenuItemSeparator()}, view.Items...)
 	}

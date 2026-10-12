@@ -141,7 +141,9 @@ func TestCloseTab(t *testing.T) {
 	wantTabs(t, u, "tab-1 pods@test", "tab-3 deployments@test *", "tab-4 events@test p")
 	u, _ = s.CloseTab("tab-1") // not the active one
 	wantTabs(t, u, "tab-3 deployments@test *", "tab-4 events@test p")
-	u, _ = s.CloseTab("tab-4")
+	if _, err := s.CloseTab("tab-4"); err != nil {
+		t.Fatal(err)
+	}
 	u, _ = s.CloseTab("tab-3")
 	wantTabs(t, u)
 	if u.View != "" || u.ActiveTab != "" || u.Drawer != nil {
