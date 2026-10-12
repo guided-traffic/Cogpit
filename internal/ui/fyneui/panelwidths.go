@@ -145,7 +145,7 @@ func newPanel(l *panelLayout, panel, rest fyne.CanvasObject, h *resizeHandle) *f
 }
 
 // resizeHandle is the grab area on a panel's edge: a one-point line, highlighted under the pointer,
-// and a horizontal resize cursor. A drag moves the edge by the pointer's distance; sign is +1 when
+// and a horizontal resize cursor. A drag moves the edge by the pointer's total travel; sign is +1 when
 // the panel is on the left of the edge (dragging right widens it) and -1 when it is on the right.
 type resizeHandle struct {
 	widget.BaseWidget
@@ -183,16 +183,16 @@ func (h *resizeHandle) MouseMoved(*desktop.MouseEvent) {}
 // MouseOut implements desktop.Hoverable.
 func (h *resizeHandle) MouseOut() { h.hovered = false; h.Refresh() }
 
-// Dragged implements fyne.Draggable. The distance is summed from the width at the drag's start,
-// and what the limits did not allow is not kept, so that the edge follows the pointer back as
-// soon as it returns.
+// Dragged implements fyne.Draggable. The edge is anchored to the pointer: the unclamped width is
+// the width at the drag's start plus the pointer's total travel, and the panel shows it clamped.
+// The travel past a limit is kept, so that after overshooting the edge stays at the limit until
+// the pointer is back over it, and then follows it again.
 func (h *resizeHandle) Dragged(e *fyne.DragEvent) {
 	if !h.dragging {
 		h.dragging, h.start, h.moved = true, h.current(), 0
 	}
 	h.moved += e.Dragged.DX
-	got := h.set(h.start + h.sign*h.moved)
-	h.moved = (got - h.start) * h.sign
+	h.set(h.start + h.sign*h.moved)
 }
 
 // DragEnd implements fyne.Draggable.
