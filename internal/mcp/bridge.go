@@ -295,10 +295,13 @@ func (d *delivery) undelivered() bool { return d.dialFailed.Load() || d.unauthor
 
 // bearerClient is the HTTP client of one connection to the app: it sends the token on every
 // request, follows no redirect (the token goes to the endpoint and nowhere else) and uses no
-// proxy.
+// proxy. It keeps no idle connection: a POST on a pooled connection the stopped app had closed
+// failed without a dial error, so the call counted as delivered and was not sent to the restarted
+// app (a CI flake of TestBridgeFollowsARestart). A fresh loopback dial per request costs little.
 func bearerClient(token string) *http.Client {
 	base := http.DefaultTransport.(*http.Transport).Clone()
 	base.Proxy = nil
+	base.DisableKeepAlives = true
 	return &http.Client{
 		Transport:     &bearerTransport{token: token, base: base},
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
