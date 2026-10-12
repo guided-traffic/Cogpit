@@ -23,7 +23,7 @@ import (
 
 // secretsServer is a fake API server that serves Secrets, and an engine connected to it whose
 // cache keeps an unused informer warm for warm.
-func secretsServer(t *testing.T, ctx context.Context, warm time.Duration) (*testkit.FakeAPIServer, *engine.Session) {
+func secretsServer(ctx context.Context, t *testing.T, warm time.Duration) (*testkit.FakeAPIServer, *engine.Session) {
 	t.Helper()
 	srv := testkit.NewFakeAPIServer(testkit.FakeAPIOptions{
 		Resources: append(append([]testkit.FakeResource(nil), testkit.DefaultFakeResources...),
@@ -60,7 +60,7 @@ func secretsInitial(srv *testkit.FakeAPIServer, resource string) int64 {
 func TestBudgetSecretsViewAndDrawer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	srv, s := secretsServer(t, ctx, 0)
+	srv, s := secretsServer(ctx, t, 0)
 	db := testkit.Secret("apps", "db", map[string]string{"app": "db"}, map[string]string{"password": "hunter2"})
 	db.SetAnnotations(map[string]string{cache.LastAppliedAnnotation: `{"apiVersion":"v1","kind":"Secret","stringData":{"password":"hunter2"}}`})
 	srv.Set(testkit.SecretsGVR, db)
@@ -146,7 +146,7 @@ func TestBudgetSecretsViewAndDrawer(t *testing.T) {
 func TestBudgetSecretsAndReleasesShareOneWatch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	srv, s := secretsServer(t, ctx, 300*time.Millisecond)
+	srv, s := secretsServer(ctx, t, 300*time.Millisecond)
 	for rev, status := range []string{"superseded", "deployed"} {
 		srv.Set(testkit.SecretsGVR, helmSecret(t, "apps", "web", rev+1, status))
 	}

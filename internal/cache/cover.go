@@ -386,13 +386,6 @@ func (v *view) caughtUpLocked(src *source) bool {
 	return true
 }
 
-func (s *source) synced() bool {
-	s.v.mu.Lock()
-	reg := s.reg
-	s.v.mu.Unlock()
-	return reg != nil && reg.HasSynced()
-}
-
 // on handles one event of a source's informer: a pending source's go to its staging copy, the
 // current source's to the view and its subscribers; a dropped source's are ignored.
 func (s *source) on(typ EventType, obj any) {

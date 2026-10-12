@@ -19,7 +19,7 @@ func registerSecrets(g *registrar) {
 	add(g, engine.Spec[engine.RevealParams]{
 		ID: engine.RevealCommand, Label: "Show Value", Kinds: []string{kindSecrets}, Danger: engine.DangerRead,
 		// The value comes from the cache, which lists and watches Secrets with their values.
-		Verbs: []engine.Verb{{Verb: "list", Resource: kindSecrets}},
+		Verbs: []engine.Verb{{Verb: nwVerbList, Resource: kindSecrets}},
 		Description: "Shows the user one value of the Secret open in the drawer, in Cogpit's own window (the drawer lists " +
 			"the keys with their values masked). Only the user's click in the GUI runs it: agents and the CLI are refused " +
 			"and never receive a Secret's value. Makes no request: the value comes from Cogpit's cache.",
