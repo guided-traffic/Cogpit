@@ -11,7 +11,7 @@ built-in views, the Port Forwarding view (a local kind), the Helm Releases view 
 the Workloads Overview page and one view per custom resource kind from a watch-fed cache, greys
 what the user's access reviews deny, has a detail drawer and row menus from the command registry,
 a dock with logs (with their options and the logs of a workload's pods), a local terminal, pod
-shells, attach and Edit and Create resource tabs, writes through 100 commands (reads included) (editing, Secrets
+shells, attach and Edit and Create resource tabs, writes through 107 commands (reads included) (editing, Secrets
 from YAML in the GUI only, delete, node and workload actions, a crash-safe drain, port forwards
 that fail at once on permanent errors, Helm rollback, uninstall and upgrade with a crash journal
 locked between Cogpit processes, each bound to the revision the server holds), adds and syncs
