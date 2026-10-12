@@ -55,7 +55,8 @@ UNTRUSTED                                   BOUNDARY                          TR
 ### H-1: Kubeconfig files added by sync folders
 
 Lens watches `~/.kube/` and any files and folders listed under Preferences › Kubernetes ›
-Kubeconfig Syncs, and adds every kubeconfig that appears there
+Kubeconfig Syncs, and adds every kubeconfig that appears there; captured 2026-10-12, it runs a
+synced file's credential plugin on connect without asking
 ([add a local cluster](https://docs.lenshq.io/k8slens/getting-started/add-clusters/add-local-cluster/),
 [preferences](https://docs.lenshq.io/k8slens/using-lens/preferences/)). Cogpit adds kubeconfig
 files, pasted kubeconfigs and sync folders since 2026-10-12, and a file dropped into a synced

@@ -97,6 +97,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 3–8 h (was 6–14; `make parity` built, 2026-10-12).
 
 ### G2. Cluster connection and authentication
+- **To follow Lens's captures of 2026-10-12** ([ui parity › Clusters](ui-parity.md#clusters), 2–4 h):
+  dot files in sync folders read; a connected cluster closed when its file goes; the "Add
+  Kubeconfigs" entry as one file dialog for files and folders; `~/.kube` as a default synced
+  folder; a connect's log ("Connection Updates") behind a warning icon. Owner requirement: removing
+  a synced item asks, naming the path, that only the link is removed.
 - **Decided (owner, 2026-10-12, [D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs)):**
   a `tokenFile` of an added, pasted or synced kubeconfig outside its folder is asked for in the
   plugin approval dialog (H-24); not built, 2–4 h.
@@ -368,6 +373,12 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 2–6 h (was 10–20; built in the third run, left: Lens's status texts and Edit dialog by capture, a check in a real window).
 
 ### G11. Helm
+- **To follow Lens's captures of 2026-10-12** ([resource parity › Helm](resource-parity.md#helm), 2–5 h):
+  the drawer's title on one line without Details and YAML tabs, Chart as "<chart>-<version>",
+  Namespace as text, a grey status pill, "User-supplied values only" unchecked at first, Save as a
+  full-width bar; Rollback enabled with the current revision; the Upgrade tab's separate version
+  picker, its info line with links, and the editor's find widget for search. Cogpit keeps
+  upgrading with the release's stored chart where Lens needs a repository (deliberate).
 - **Missing:** install as a crash-safe job; repositories, chart index and search (so an upgrade
   can install the release's own chart version only); the Helm Install dock tab; the ConfigMaps
   and SQL storage drivers. Views and actions count in G6 and G7.
