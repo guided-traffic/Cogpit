@@ -44,7 +44,7 @@ type NavigateResult struct {
 }
 
 type viewParams struct {
-	View string `json:"view" jsonschema:"kind key of the view to open: pods, services, or <plural>.<group> for a custom resource kind (gateways.gateway.networking.k8s.io); kinds_list lists them. Or a page: workloads/overview (the Workloads Overview)"`
+	View string `json:"view" jsonschema:"kind key of the view to open: pods, services, or <plural>.<group> for a custom resource kind (gateways.gateway.networking.k8s.io); kinds_list lists them. Or a page: cluster/overview (the cluster Overview), workloads/overview (the Workloads Overview)"`
 }
 
 type namespaceParams struct {
@@ -99,8 +99,9 @@ func registerUI(g *registrar) {
 
 	add(g, engine.Spec[viewParams]{
 		ID: "ui.openView", Label: "Open View", MenuPath: "View/Open View", Danger: engine.DangerUI, Verbs: cacheReads,
-		Description: "Opens the list view of a kind (pods, services, ...) or a page (workloads/overview, the Workloads " +
-			"Overview), as clicking it in the sidebar does. Clears the selection, the detail drawer and the search text; " +
+		Description: "Opens the list view of a kind (pods, services, ...) or a page (cluster/overview, the cluster " +
+			"Overview; workloads/overview, the Workloads Overview), as clicking it in the sidebar does. Clears the " +
+			"selection, the detail drawer and the search text; " +
 			"keeps the namespace filter. Returns the new UI state.",
 		Enabled: func(s *engine.Session, _ viewParams) error { _, err := connected(s); return err },
 		Run: func(_ context.Context, s *engine.Session, p viewParams) (any, error) {
@@ -173,17 +174,18 @@ func registerUI(g *registrar) {
 	add(g, engine.Spec[selectParams]{
 		ID: "ui.select", Label: "Select", Danger: engine.DangerUI, Verbs: cacheReads,
 		Description: "Selects objects of the open view and, unless noDrawer is true, opens the detail drawer on the first " +
-			"one. An empty list clears the selection (and closes the drawer unless noDrawer). To select an object of " +
-			"another kind or one hidden by the filters, use ui_navigate. Returns the new UI state.",
+			"one. An empty list clears the selection (and closes the drawer unless noDrawer). On the cluster Overview " +
+			"the objects are its issues' (any kind). To select an object of another kind or one hidden by the filters, " +
+			"use ui_navigate. Returns the new UI state.",
 		Enabled: func(s *engine.Session, _ selectParams) error { _, err := openView(s); return err },
 		Run: func(_ context.Context, s *engine.Session, p selectParams) (any, error) {
-			prof, err := openView(s)
+			view, prof, err := openViewKey(s)
 			if err != nil {
 				return nil, err
 			}
 			refs := make([]model.ObjectRef, 0, len(p.Refs))
 			for _, r := range p.Refs {
-				if r.Kind != prof.Key {
+				if r.Kind != prof.Key && !engine.MixedKinds(view) {
 					return nil, fmt.Errorf("%s is not of the open view's kind %s; use ui_navigate", r.String(), prof.Key)
 				}
 				rr, _, err := s.ResolveRef(r)

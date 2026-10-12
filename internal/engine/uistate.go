@@ -15,7 +15,8 @@ type UIState struct {
 	Context string `json:"context"`
 	// Connection is the state of the connection to Context.
 	Connection Connection `json:"connection"`
-	// View is the open view's kind key ("pods") or page key ("workloads/overview", overview.go).
+	// View is the open view's kind key ("pods") or page key ("workloads/overview", overview.go;
+	// "cluster/overview", clusteroverview.go).
 	View string `json:"view"`
 	// Namespaces filter namespaced views; empty means all namespaces.
 	Namespaces []string `json:"namespaces"`
@@ -38,6 +39,9 @@ type UIState struct {
 	// Hotbar is the hotbar's banks and the shown one (hotbar.go); nil in a session without one.
 	// Its tiles carry their contexts only; ui.state adds what each tile shows (Session.HotbarView).
 	Hotbar *HotbarState `json:"hotbar,omitempty"`
+	// Overview is what the cluster Overview's charts show: their time range and node group
+	// (clusteroverview.go); zero: the defaults.
+	Overview OverviewChoice `json:"overview,omitzero"`
 	// Palette is set while the command palette is open (ui.palette.open, ⌘⇧P; palette.go). What
 	// the user types in it stays in the window, as the context picker's filter does.
 	Palette bool `json:"palette,omitempty"`

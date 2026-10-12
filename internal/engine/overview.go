@@ -28,7 +28,7 @@ const WorkloadsOverview = "workloads/overview"
 func IsPage(view string) bool { return strings.Contains(view, "/") }
 
 // pageTitles are the pages and their titles.
-var pageTitles = map[string]string{WorkloadsOverview: "Overview"}
+var pageTitles = map[string]string{WorkloadsOverview: "Overview", ClusterOverview: "Overview"}
 
 // PageTitle returns a page's title, and whether the key names a page.
 func PageTitle(view string) (string, bool) {
@@ -154,8 +154,11 @@ func (b *Backend) viewProfile(view string) *model.KindProfile {
 	if p, ok := b.Profile(view); ok {
 		return p
 	}
-	if view == WorkloadsOverview {
+	switch view {
+	case WorkloadsOverview:
 		return overviewEvents(b)
+	case ClusterOverview:
+		return issuesProfile // clusteroverview.go
 	}
 	return nil
 }

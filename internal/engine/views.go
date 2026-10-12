@@ -36,8 +36,9 @@ type state struct {
 	backend       *Backend
 	appliedRev    uint64
 	view          *viewWorker
-	page          *overviewWorker // the open page's worker (overview.go); nil unless a page is open
-	vanished      *TableSnapshot  // the open view after the cluster stopped serving its kind (customkinds.go)
+	page          *overviewWorker        // the open page's worker (overview.go); nil unless a page is open
+	cluster       *clusterOverviewWorker // the cluster Overview's worker (clusteroverview.go); nil unless it is open
+	vanished      *TableSnapshot         // the open view after the cluster stopped serving its kind (customkinds.go)
 	drawer        *drawerWatch
 	diagStop      chan struct{}
 	sorts         map[string]SortSpec  // the sort order remembered per view
@@ -100,6 +101,7 @@ func (st *state) reconcileLocked(now UIState) {
 		st.sorts[prof.Key] = now.Sort
 	}
 	st.reconcilePageLocked(b, now)
+	st.reconcileClusterPageLocked(b, now)
 
 	// The drawer: a watch on its object and on the events. A custom kind's profile changes with its
 	// definition (another version, or gone), and the drawer follows it.
@@ -126,6 +128,10 @@ func (st *state) detachLocked() *Backend {
 	if st.page != nil {
 		st.page.stop()
 		st.page = nil
+	}
+	if st.cluster != nil {
+		st.cluster.stop()
+		st.cluster = nil
 	}
 	if st.drawer != nil {
 		st.drawer.stop()
@@ -330,6 +336,9 @@ var DefaultSort = SortSpec{Column: "name"}
 const lastSeenColumn = "lastSeen"
 
 func defaultSort(p *model.KindProfile) SortSpec {
+	if p == issuesProfile { // the cluster Overview's Issues, newest first (clusteroverview.go)
+		return issuesSort
+	}
 	if p != nil && p.Key == eventsKind && p.ColumnIndex(lastSeenColumn) >= 0 {
 		return SortSpec{Column: lastSeenColumn, Desc: true}
 	}
@@ -343,10 +352,14 @@ func (s *Session) Table(view string) *TableSnapshot {
 	s.state.mu.Lock()
 	w := s.state.view
 	page := s.state.page
+	cluster := s.state.cluster
 	gone := s.state.vanished
 	s.state.mu.Unlock()
 	if page != nil && view == WorkloadsOverview {
 		return page.snap.Load()
+	}
+	if cluster != nil && view == ClusterOverview {
+		return cluster.snap.Load()
 	}
 	if w == nil || w.profile.Key != view {
 		if gone != nil && gone.View == view {
