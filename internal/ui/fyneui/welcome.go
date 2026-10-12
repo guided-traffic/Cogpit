@@ -29,9 +29,9 @@ import (
 //   - a line about the connection when there is one to tell: a connect that failed, a connection
 //     Cogpit closed, or the cluster that stays connected under the page;
 //   - the clusters to connect with one click: the hotbar's shown bank, then the clusters of this
-//     session (the connected or last one, the tabs' ones), and on a first start, without either,
-//     the clusters the kubeconfig sources offer (the kubeconfig's current one first); each row is
-//     the context picker's, with its right-click menu;
+//     session (the connected or last one, the tabs' ones), then up to eight other clusters the
+//     kubeconfig sources offer (the kubeconfig's current one first), so that a failed connect
+//     always leaves another to try; each row is the context picker's, with its right-click menu;
 //   - "All Clusters…" (the context picker, ⌘P) and "Add Kubeconfigs…" (the Sync Files and Folders
 //     dialog), the documentation (Cogpit's README on GitHub, opened in the browser) and the
 //     shortcuts to remember.
@@ -46,7 +46,7 @@ const (
 	welcomeColumn    = 600 // the page's column, in points
 	welcomeLogoSize  = 72  // the logo's side
 	welcomeMaxRecent = 6   // clusters of this session listed
-	welcomeMaxOthers = 8   // clusters listed on a first start
+	welcomeMaxOthers = 8   // other clusters listed
 	welcomeTopMargin = 48  // above the column, when the workspace is tall enough
 	readmeURL        = "https://github.com/guided-traffic/cogpit#readme"
 	welcomeTagline   = "Cogpit is a Kubernetes IDE: it shows your clusters from a live cache, asks before it changes anything, " +
@@ -58,7 +58,7 @@ type welcomePage struct {
 	sh   *shell
 	root *fyne.Container // over the workspace and the dock while shown
 
-	status    *textLine       // the connection's line; hidden without one
+	status    *paragraph      // the connection's line, wrapped; hidden without one
 	list      *fyne.Container // the groups of clusters
 	hint      *textLine
 	allB      *widget.Button
@@ -86,8 +86,7 @@ func newWelcomePage(sh *shell) *welcomePage {
 	tagline := newParagraph(welcomeTagline, colorMuted, welcomeColumn-welcomeLogoSize-24)
 	head := container.NewBorder(nil, nil, container.NewHBox(newWelcomeLogo(welcomeLogoSize), newHGap(theme.SizeNameInnerPadding)), nil,
 		container.NewVBox(layout.NewSpacer(), title, tagline, layout.NewSpacer()))
-	w.status = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
-	w.status.truncate = true
+	w.status = newParagraph("", colorMuted, welcomeColumn)
 	w.status.Hide()
 	w.list = container.NewVBox()
 	w.allB = widget.NewButtonWithIcon("All Clusters…", theme.SearchIcon(), func() { sh.picker.show() })
@@ -264,21 +263,24 @@ func (w *welcomePage) groups() []welcomeGroup {
 	if len(recent.contexts) > 0 {
 		out = append(out, recent)
 	}
-	if len(out) == 0 { // a first start: what the kubeconfigs offer, their current context first
-		all := welcomeGroup{title: "Your clusters"}
-		for _, c := range w.contexts {
-			if c.Current {
-				take(&all, c.Name)
-			}
+	// The other clusters the kubeconfigs offer, their current context first, so that a failed
+	// connect or a small hotbar never leaves the page without a cluster to try next.
+	all := welcomeGroup{title: "Other clusters"}
+	if len(out) == 0 { // a first start
+		all.title = "Your clusters"
+	}
+	for _, c := range w.contexts {
+		if c.Current {
+			take(&all, c.Name)
 		}
-		for _, c := range w.contexts {
-			if len(all.contexts) < welcomeMaxOthers {
-				take(&all, c.Name)
-			}
+	}
+	for _, c := range w.contexts {
+		if len(all.contexts) < welcomeMaxOthers {
+			take(&all, c.Name)
 		}
-		if len(all.contexts) > 0 {
-			out = append(out, all)
-		}
+	}
+	if len(all.contexts) > 0 {
+		out = append(out, all)
 	}
 	return out
 }
@@ -417,8 +419,10 @@ func (w *welcomePage) renderStatus() {
 	case engine.Connected:
 		text = "Connected to " + name + ": pick a view in the navigator, or a tab above."
 	}
-	w.status.SetText(text)
-	w.status.SetColor(c)
+	if text != w.status.text || c != w.status.color {
+		w.status.text, w.status.color = text, c
+		w.status.Refresh()
+	}
 	if text == "" {
 		w.status.Hide()
 	} else {

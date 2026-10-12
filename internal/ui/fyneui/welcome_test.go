@@ -74,9 +74,11 @@ func TestWelcomePageOverTheEngine(t *testing.T) {
 		t.Errorf("status %q (visible %v), hint %q", w.status.text, w.status.Visible(), w.hint.text)
 	}
 
-	// Pinned to the hotbar, the demo is listed under the hotbar, and only it.
+	// Pinned to the hotbar, the demo is listed first, under the hotbar; the others follow.
 	mustDispatch(t, s, "hotbar.addCluster", map[string]string{"context": engine.DemoContext})
-	q.until(t, "the hotbar's group", func() bool { return slices.Equal(w.shownClusters(), []string{demoLabel}) })
+	q.until(t, "the hotbar's group", func() bool {
+		return slices.Equal(w.shownClusters(), []string{demoLabel, "kind-dev", "prod-eu-central", "staging"})
+	})
 
 	// One click connects through the engine; the cluster's tab takes the workspace.
 	test.Tap(w.rows[0])
@@ -116,7 +118,7 @@ func TestWelcomePageOverTheEngine(t *testing.T) {
 	if len(sh.toasts.Objects) != toasts || len(sh.ui.Tabs) != 1 {
 		t.Errorf("⌘W on the welcome page: %d toasts (was %d), tabs %v", len(sh.toasts.Objects), toasts, sh.ui.Tabs)
 	}
-	q.until(t, "the connected row", func() bool { return len(w.rows) == 1 && w.rows[0].badges.Objects != nil })
+	q.until(t, "the connected row", func() bool { return len(w.rows) == 4 && w.rows[0].title.text == demoLabel })
 	test.Tap(w.rows[0])
 	q.until(t, "the tab back", func() bool { return !w.shown && sh.ui.ActiveTab != "" && sh.ui.View != "" })
 
@@ -348,4 +350,21 @@ func TestRenderAboutDark(t *testing.T) {
 	sh.showAbout()
 	q.drain()
 	savePNG(t, w, "about_dark.png")
+}
+
+// A click on a cluster that cannot be reached: the connect fails, the page stays and says why, in
+// full (wrapped); the cluster heads this session's group and the others stay to try next.
+func TestWelcomeShowsAFailedConnect(t *testing.T) {
+	s := welcomeEngine(t)
+	sh, win, q := newEngineShell(t, s, Options{})
+	w := welcomeShown(t, sh, q)
+	test.Tap(w.rows[0]) // kind-dev, at https://127.0.0.1:1
+	q.until(t, "the failed connect", func() bool { return sh.ui.Connection.State == engine.ConnectError && w.status.Visible() })
+	if !w.shown || !strings.HasPrefix(w.status.text, "Could not connect to kind-dev: ") || w.status.color != colorStatusError {
+		t.Errorf("after a failed connect: shown %v, status %q in %s", w.shown, w.status.text, w.status.color)
+	}
+	q.until(t, "this session's group", func() bool {
+		return slices.Equal(w.shownClusters(), []string{"kind-dev", "prod-eu-central", "staging", demoLabel})
+	})
+	savePNG(t, win, "welcome_connect_error_dark.png")
 }

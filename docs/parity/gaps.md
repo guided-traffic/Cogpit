@@ -744,7 +744,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Welcome page (built 2026-10-13, night run):** the workspace shows Cogpit's welcome page while
   it has nothing else to show (no cluster connected, or no tab active) and from Help › Welcome:
   the logo, a line about Cogpit, the clusters to connect with one click (the hotbar's bank, this
-  session's, on a first start the kubeconfigs'), All Clusters…, Add Kubeconfigs… and the README on
+  session's, then up to eight others), All Clusters…, Add Kubeconfigs… and the README on
   GitHub. Engine state: `UIState.Welcome`, derived after every change, and `ui.welcome.open`, which
   leaves the active tab keeping its state ([`fyneui/welcome.go`](../../internal/ui/fyneui/welcome.go),
   [`engine/welcome.go`](../../internal/engine/welcome.go), `TestWelcomePageOverTheEngine`,
