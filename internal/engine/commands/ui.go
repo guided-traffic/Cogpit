@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
@@ -217,6 +219,14 @@ func navigate(ctx context.Context, s *engine.Session, p refParams) (any, error) 
 	switch {
 	case err == nil:
 		r := model.BuildRow(prof, ref.Context, obj)
+		if cur := s.UIState(); len(prof.Needs) > 0 && cur.View == prof.Key && cur.Filter != "" {
+			// The view's rows show related objects (a claim's pods) and its filter may match only
+			// those: check the row the view shows. The open view holds the related kinds, so this
+			// waits for nothing.
+			if b := s.Backend(); b != nil && b.Context == ref.Context {
+				r = s.BuildRows(ctx, b, prof, []*unstructured.Unstructured{obj})[0]
+			}
+		}
 		row = &r
 	case !errors.Is(err, engine.ErrNotFound):
 		return nil, err

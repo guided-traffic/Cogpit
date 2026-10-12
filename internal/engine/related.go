@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -16,36 +17,79 @@ import (
 )
 
 // relatedSet serves the related-objects indexes a profile declares in Needs (architecture §4.4):
-// it holds a cache handle on each index's kind for as long as its owner (a view, the drawer, one
-// read) runs, counts the changes of those kinds, and builds an index from the cache when a lookup
-// needs it and the kind changed since the last build. Nothing here lists or watches by itself: the
-// handles share the cache's informers with every other consumer.
+// it holds a cache handle on each index's kind for as long as its owners (a view, the drawer and
+// the fetches it serves, one read) hold it, counts the changes of those kinds, and keeps each index
+// current. Nothing here lists or watches by itself: the handles share the cache's informers with
+// every other consumer.
+//
+// An index is built from the cache on its first lookup and then kept current by the kind's
+// events, each of which moves one object between keys; a lookup copies one key's objects and never
+// rebuilds the index. A kind whose objects are derived (Derive) has no such events: its index is
+// built again on the first lookup after a change.
 type relatedSet struct {
 	needs    []model.RelatedIndex
 	profiles map[string]*model.KindProfile // by kind key; a kind the cluster does not serve is absent
 	handles  map[string]*cache.Handle      // by kind key
 	unsubs   []func()
 
-	gen atomic.Uint64 // bumped by every event of an indexed kind
+	gen    atomic.Uint64 // bumped by every event of an indexed kind
+	builds atomic.Int64  // indexes built from the cache, for tests
 
-	mu    sync.Mutex
-	built map[string]*builtIndex // by index ID
+	// track: onChange runs only for an event that moves an object into, out of or within a key a
+	// lookup asked for (the drawer, which shows a few keys); without it, for every event (a view,
+	// whose rows ask for any key).
+	track    bool
+	onChange func()
+
+	bmu sync.Mutex // serialises index builds; taken before mu, never by an event
+
+	mu      sync.Mutex
+	holds   int                      // owners; the handles go back when the last one releases
+	indexes map[string]*liveIndex    // by index ID, built on first lookup
+	pending map[string]*pendingMoves // by index ID: the events that arrive while it is built
 }
 
-type builtIndex struct {
-	gen   uint64
-	byKey map[string][]*unstructured.Unstructured
+// pendingMoves are the events of an index's kind that arrived while the index was built from
+// the cache, to apply after the build in their order.
+type pendingMoves struct {
+	moves []pendingMove
+	stale bool // a derived kind changed: the build is good for its lookup only
 }
+
+type pendingMove struct {
+	id   string
+	obj  *unstructured.Unstructured
+	keys []string
+}
+
+// liveIndex is one index: every object of the kind under its keys.
+type liveIndex struct {
+	byKey   map[string]map[string]*unstructured.Unstructured // key → object id → object
+	keysOf  map[string][]string                              // object id → its keys
+	watched map[string]bool                                  // keys a lookup asked for (track)
+}
+
+// maxWatchedKeys bounds the keys a tracking set remembers; past it every event wakes, as without
+// tracking. A drawer asks for a handful.
+const maxWatchedKeys = 1024
 
 // newRelatedSet acquires the handles of needs' kinds on b; onChange, if set, runs (on an informer
 // goroutine; it must not block) after every change of one of them. It returns nil for no needs.
+// The caller holds it once and releases it.
 func newRelatedSet(b *Backend, needs []model.RelatedIndex, onChange func()) *relatedSet {
+	return newRelatedSetTracking(b, needs, onChange, false)
+}
+
+// newRelatedSetTracking is newRelatedSet whose onChange runs, with track, only for the changes of
+// the keys looked up through the set.
+func newRelatedSetTracking(b *Backend, needs []model.RelatedIndex, onChange func(), track bool) *relatedSet {
 	if len(needs) == 0 {
 		return nil
 	}
 	r := &relatedSet{
 		needs: needs, profiles: map[string]*model.KindProfile{}, handles: map[string]*cache.Handle{},
-		built: map[string]*builtIndex{},
+		track: track, onChange: onChange, holds: 1, indexes: map[string]*liveIndex{},
+		pending: map[string]*pendingMoves{},
 	}
 	for _, ix := range needs {
 		if _, done := r.handles[ix.Kind]; done {
@@ -56,20 +100,51 @@ func newRelatedSet(b *Backend, needs []model.RelatedIndex, onChange func()) *rel
 			continue
 		}
 		h := b.Acquire(p)
-		r.profiles[ix.Kind], r.handles[ix.Kind] = p, h
-		r.unsubs = append(r.unsubs, h.Subscribe(func(cache.Event) {
+		kind, derived := ix.Kind, p.Derive != nil // the callback reads no map this loop still fills
+		r.profiles[kind], r.handles[kind] = p, h
+		r.unsubs = append(r.unsubs, h.Subscribe(func(ev cache.Event) {
 			r.gen.Add(1)
-			if onChange != nil {
-				onChange()
+			if r.apply(kind, derived, ev) || !track {
+				if onChange != nil {
+					onChange()
+				}
 			}
 		}))
 	}
 	return r
 }
 
-// release gives the handles back; the informers stay warm.
+// hold adds an owner, unless the set was released; a held set must be released once more.
+func (r *relatedSet) hold() bool {
+	if r == nil {
+		return false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.holds == 0 {
+		return false
+	}
+	r.holds++
+	return true
+}
+
+// release gives up one hold; with the last, the handles go back (the informers stay warm).
 func (r *relatedSet) release() {
 	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	if r.holds == 0 {
+		r.mu.Unlock()
+		return
+	}
+	r.holds--
+	last := r.holds == 0
+	if last {
+		r.indexes, r.pending = nil, nil
+	}
+	r.mu.Unlock()
+	if !last {
 		return
 	}
 	for _, u := range r.unsubs {
@@ -78,6 +153,74 @@ func (r *relatedSet) release() {
 	for _, h := range r.handles {
 		h.Release()
 	}
+}
+
+// apply moves an event's object between the keys of every built index on its kind (or keeps it for
+// an index being built), and reports whether it touched a key a lookup asked for. It runs on the
+// kind's informer goroutine and never waits for a build.
+func (r *relatedSet) apply(kind string, derived bool, ev cache.Event) bool {
+	if ev.Object == nil {
+		return false
+	}
+	id := ev.Object.GetNamespace() + "/" + ev.Object.GetName()
+	relevant := false
+	for _, ix := range r.needs {
+		if ix.Kind != kind {
+			continue
+		}
+		var keys []string
+		if ev.Type != cache.Deleted && !derived {
+			keys = indexKeys(ix, ev.Object) // outside the lock: a profile's code
+		}
+		r.mu.Lock()
+		li, pend := r.indexes[ix.ID()], r.pending[ix.ID()]
+		switch {
+		case derived:
+			// The event is about a source object (a Secret of a release): any key may have
+			// changed, so the index is built again on the next lookup, and it wakes.
+			delete(r.indexes, ix.ID())
+			if pend != nil {
+				pend.stale = true
+			}
+			relevant = true
+		case li != nil:
+			relevant = li.move(id, ev.Object, keys) || relevant
+		case pend != nil:
+			pend.moves = append(pend.moves, pendingMove{id: id, obj: ev.Object, keys: keys})
+		}
+		r.mu.Unlock()
+	}
+	return relevant
+}
+
+// move files the object with id under keys (none: it is gone) and reports whether a watched key
+// gained or lost it. Called with the set's mu held.
+func (li *liveIndex) move(id string, obj *unstructured.Unstructured, keys []string) bool {
+	relevant := len(li.watched) >= maxWatchedKeys
+	for _, k := range li.keysOf[id] {
+		if m := li.byKey[k]; m != nil {
+			delete(m, id)
+			if len(m) == 0 {
+				delete(li.byKey, k)
+			}
+		}
+		relevant = relevant || li.watched[k]
+	}
+	if len(keys) == 0 {
+		delete(li.keysOf, id)
+		return relevant
+	}
+	li.keysOf[id] = keys
+	for _, k := range keys {
+		m := li.byKey[k]
+		if m == nil {
+			m = map[string]*unstructured.Unstructured{}
+			li.byKey[k] = m
+		}
+		m[id] = obj
+		relevant = relevant || li.watched[k]
+	}
+	return relevant
 }
 
 // synced reports whether every served kind of the set finished its initial list.
@@ -106,8 +249,8 @@ func (r *relatedSet) waitSynced(ctx context.Context) {
 	}
 }
 
-// view returns the set's lookups at the current generation: one snapshot of rows reads every
-// index at most once, however many rows it builds. A nil set yields model.NoRelated.
+// view returns the set's lookups and its generation: the rows of one snapshot read a key once,
+// however many rows ask for it. A nil set yields model.NoRelated.
 //
 // The generation also says whether every kind had synced: an index is empty until its kind
 // syncs, and an informer counts its initial list's last event (bumping gen) before it reports
@@ -122,35 +265,78 @@ func (r *relatedSet) view() (model.Related, uint64) {
 	if r.synced() {
 		g |= 1
 	}
-	return &relatedView{r: r, gen: g, idx: map[string]map[string][]*unstructured.Unstructured{}}, g
+	return &relatedView{r: r, seen: map[lookupKey][]*unstructured.Unstructured{}}, g
 }
 
-// index returns the index with id at generation gen, building it if the last build is older.
-func (r *relatedSet) index(ix model.RelatedIndex, gen uint64) map[string][]*unstructured.Unstructured {
+// lookup returns the objects ix files under key, sorted by namespace and name, building the index
+// first if it is not built; nil while the kind is listing or not served.
+func (r *relatedSet) lookup(ix model.RelatedIndex, key string) []*unstructured.Unstructured {
 	h, ok := r.handles[ix.Kind]
 	if !ok || !h.HasSynced() || ix.Keys == nil {
 		return nil
 	}
-	id := ix.ID()
+	r.bmu.Lock()
+	defer r.bmu.Unlock()
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if b := r.built[id]; b != nil && b.gen == gen {
-		return b.byKey
+	if r.holds == 0 {
+		return nil
 	}
-	byKey := buildIndex(ix, KindList(h, r.profiles[ix.Kind]))
-	r.built[id] = &builtIndex{gen: gen, byKey: byKey}
-	return byKey
-}
-
-// buildIndex maps every object to its keys; an index function that panics on an object skips it.
-func buildIndex(ix model.RelatedIndex, objs []*unstructured.Unstructured) map[string][]*unstructured.Unstructured {
-	out := map[string][]*unstructured.Unstructured{}
-	for _, o := range objs {
-		for _, k := range indexKeys(ix, o) {
-			out[k] = append(out[k], o)
+	id := ix.ID()
+	li := r.indexes[id]
+	if li == nil {
+		// Built from the cache outside the lock, so that the kind's informer never waits for it.
+		// The events that arrive meanwhile are applied after the build, in order: one whose
+		// object the list holds already moves it to the same keys again, which changes nothing;
+		// one the list missed is applied. Objects reach the cache before their event.
+		pend := &pendingMoves{}
+		r.pending[id] = pend
+		r.mu.Unlock()
+		built := buildIndex(ix, KindList(h, r.profiles[ix.Kind]))
+		r.builds.Add(1)
+		r.mu.Lock()
+		if r.holds == 0 {
+			return nil
+		}
+		delete(r.pending, id)
+		for _, m := range pend.moves {
+			built.move(m.id, m.obj, m.keys)
+		}
+		li = built
+		if !pend.stale {
+			r.indexes[id] = li
 		}
 	}
+	if r.track && len(li.watched) < maxWatchedKeys {
+		li.watched[key] = true
+	}
+	m := li.byKey[key]
+	if len(m) == 0 {
+		return nil
+	}
+	out := make([]*unstructured.Unstructured, 0, len(m))
+	for _, o := range m {
+		out = append(out, o)
+	}
+	slices.SortFunc(out, func(a, b *unstructured.Unstructured) int {
+		return cmp.Or(cmp.Compare(a.GetNamespace(), b.GetNamespace()), cmp.Compare(a.GetName(), b.GetName()))
+	})
 	return out
+}
+
+// buildIndex files every object under its keys; an index function that panics on an object skips
+// it.
+func buildIndex(ix model.RelatedIndex, objs []*unstructured.Unstructured) *liveIndex {
+	li := &liveIndex{
+		byKey:  map[string]map[string]*unstructured.Unstructured{},
+		keysOf: make(map[string][]string, len(objs)), watched: map[string]bool{},
+	}
+	for _, o := range objs {
+		if keys := indexKeys(ix, o); len(keys) > 0 {
+			li.move(o.GetNamespace()+"/"+o.GetName(), o, keys)
+		}
+	}
+	return li
 }
 
 func indexKeys(ix model.RelatedIndex, o *unstructured.Unstructured) (keys []string) {
@@ -163,37 +349,42 @@ func indexKeys(ix model.RelatedIndex, o *unstructured.Unstructured) (keys []stri
 	return ix.Keys(o)
 }
 
-// relatedView is a relatedSet's lookups at one generation.
+// relatedView is a relatedSet's lookups for one build of rows or one drawer model.
 type relatedView struct {
-	r   *relatedSet
-	gen uint64
-	idx map[string]map[string][]*unstructured.Unstructured // not shared between goroutines
+	r    *relatedSet
+	seen map[lookupKey][]*unstructured.Unstructured // not shared between goroutines
+}
+
+type lookupKey struct{ index, key string }
+
+// declared returns the declared index with ix's ID.
+func (v *relatedView) declared(ix model.RelatedIndex) (model.RelatedIndex, bool) {
+	id := ix.ID()
+	for _, n := range v.r.needs {
+		if n.ID() == id {
+			return n, true
+		}
+	}
+	return model.RelatedIndex{}, false
 }
 
 // Objects implements model.Related. Only the indexes the profile declared are served.
 func (v *relatedView) Objects(ix model.RelatedIndex, key string) []*unstructured.Unstructured {
-	id := ix.ID()
-	byKey, ok := v.idx[id]
-	if !ok {
-		declared := false
-		for _, n := range v.r.needs {
-			if n.ID() == id {
-				ix, declared = n, true
-				break
-			}
-		}
-		if declared {
-			byKey = v.r.index(ix, v.gen)
-		}
-		v.idx[id] = byKey
+	lk := lookupKey{ix.ID(), key}
+	if objs, ok := v.seen[lk]; ok {
+		return objs
 	}
-	return byKey[key]
+	var objs []*unstructured.Unstructured
+	if n, ok := v.declared(ix); ok {
+		objs = v.r.lookup(n, key)
+	}
+	v.seen[lk] = objs
+	return objs
 }
 
 // Listed implements model.Related: the index is declared, its kind served and listed.
 func (v *relatedView) Listed(ix model.RelatedIndex) bool {
-	id := ix.ID()
-	if !slices.ContainsFunc(v.r.needs, func(n model.RelatedIndex) bool { return n.ID() == id }) {
+	if _, ok := v.declared(ix); !ok {
 		return false
 	}
 	h, ok := v.r.handles[ix.Kind]

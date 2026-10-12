@@ -15,8 +15,8 @@ var (
 	PodsByClaim = model.RelatedIndex{Kind: podsResource, Name: "byClaim", Keys: podClaimKeys}
 	// PodsByPriorityClass indexes pods by spec.priorityClassName: a priority class's pods.
 	PodsByPriorityClass = model.RelatedIndex{Kind: podsResource, Name: "byPriorityClass", Keys: podPriorityClassKeys}
-	// ClusterRolesByName indexes cluster roles by name, and all of them under "" as well, so that
-	// a lookup can tell a cluster role that does not exist from one not listed yet (rbac.go).
+	// ClusterRolesByName indexes cluster roles by name; Related.Listed tells a cluster role that
+	// does not exist from one not listed yet (rbac.go).
 	ClusterRolesByName = model.RelatedIndex{Kind: keyClusterRoles, Name: "byName", Keys: clusterRoleKeys}
 	// EndpointSlicesByService indexes endpoint slices by the Service they belong to (their
 	// kubernetes.io/service-name label), as "<namespace>/<service>": a Service's slices.

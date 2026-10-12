@@ -27,11 +27,6 @@ const (
 	// annotationAutoupdate marks the RBAC objects of the API server's bootstrap policy, which it
 	// reconciles on every start (cluster-admin, system:node).
 	annotationAutoupdate = "rbac.authorization.kubernetes.io/autoupdate"
-	// keyAll is the key an RBAC index finds every object under, besides its name. Names are never
-	// empty, so a lookup of keyAll that returns objects shows the index has listed its kind: a
-	// lookup by name alone cannot tell an object that does not exist from a kind that is still
-	// listing or that the user may not list.
-	keyAll = ""
 	// rulesShown caps the rows of a role's Rules table; the YAML has every rule.
 	rulesShown = 200
 	// coreGroup is how the rules table shows the core API group, whose name is empty.
@@ -58,23 +53,22 @@ func grantsNothing(causes []string) string {
 // subjects.
 var bindingsColumn = model.Column{ID: idBindings, Title: "Bindings", Type: model.ColumnText, Width: 380}
 
-// clusterRoleKeys finds a cluster role under its name and under keyAll (ClusterRolesByName).
+// clusterRoleKeys finds a cluster role under its name (ClusterRolesByName).
 func clusterRoleKeys(obj *unstructured.Unstructured) []string {
-	name := model.NestedString(obj, "metadata", "name")
-	if name == "" {
-		return nil
+	if name := model.NestedString(obj, "metadata", "name"); name != "" {
+		return []string{name}
 	}
-	return []string{name, keyAll}
+	return nil
 }
 
 // clusterRoleMissing reports whether the cluster role a binding names is known not to exist: the
-// index has listed cluster roles (every cluster has some) and none has the name. While the index
-// is listing, or the user may not list cluster roles, nothing is known and nothing warns.
+// index's kind is listed (Related.Listed) and no cluster role has the name. While the cluster
+// roles are listing, or the user may not list them, nothing is known and nothing warns.
 func clusterRoleMissing(rel model.Related, name string) bool {
 	if name == "" || len(rel.Objects(ClusterRolesByName, name)) > 0 {
 		return false
 	}
-	return len(rel.Objects(ClusterRolesByName, keyAll)) > 0
+	return rel.Listed(ClusterRolesByName)
 }
 
 // roleRules returns a role's rules that are objects; anything else in the list is skipped.

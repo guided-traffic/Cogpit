@@ -118,11 +118,11 @@ func TestClusterRoleBindingRoleNotFound(t *testing.T) {
 	}
 }
 
-// TestClusterRolesByNameKeys: a cluster role is found under its name and under the key that says
-// the index has listed; an object without a name, or with hostile metadata, under none.
+// TestClusterRolesByNameKeys: a cluster role is found under its name only (Related.Listed says
+// whether the index has listed); an object without a name, or with hostile metadata, under none.
 func TestClusterRolesByNameKeys(t *testing.T) {
 	keys := kinds.ClusterRolesByName.Keys
-	if got := keys(accessClusterRole("view")); !slices.Equal(got, []string{"view", ""}) {
+	if got := keys(accessClusterRole("view")); !slices.Equal(got, []string{"view"}) {
 		t.Errorf("keys %q", got)
 	}
 	for _, obj := range []map[string]any{{}, {"metadata": nil}, {"metadata": "x"}, {"metadata": map[string]any{"name": int64(3)}}} {

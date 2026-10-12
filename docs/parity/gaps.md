@@ -158,6 +158,12 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestBudgetSecretScopes`, `TestKindSecretScopes`).
 - **Impact:** every view, every MCP read and the agent depend on it; it decides budgets P1–P4 and
   P9–P11 and the load Cogpit puts on API servers.
+  Fourth run (2026-10-12): the related-objects indexes are kept current by their kind's events
+  instead of being rebuilt per lookup, and a drawer shares its indexes with its fetches and wakes
+  only for the keys it shows: a node drawer's fetch on the demo cluster fell from 13–33 ms to
+  2.6 ms (p50), its fetches from 14–43 % to 2.3–2.5 % of a core
+  ([architecture §4.4](../developer/architecture.md#44-tables-details-editors-and-streams),
+  `TestNodeDrawerUnderDemoChurn`, `TestLiveIndexBuiltDuringChurn`).
 - **Estimate:** 16–38 h (was 22–50; scopes with label selectors and metadata only, local and virtual kinds and the related-objects index built, third run).
 
 ### G4. Engine and command registry
@@ -546,7 +552,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); G4 evidence (Refresh Access Reviews in the menu, the View menu hides what the sidebar hides); estimates not moved |
+| 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); G4 evidence (Refresh Access Reviews in the menu, the View menu hides what the sidebar hides); G3 evidence (live related-objects indexes, measured); estimates not moved |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); estimates not moved |
 | 2026-10-12 | minor | G2 (fourth run, agent D): kubeconfig files, sync folders and pasted kubeconfigs, the approval of their credential plugins; estimate 10–28 h |
 | 2026-10-12 | minor | G11 (fourth run): the Helm upgrade and its dock tab, Lens's release drawer and Rollback dialog built; estimate 12–30 h (the totals not recounted) |

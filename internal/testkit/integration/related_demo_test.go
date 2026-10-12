@@ -20,9 +20,11 @@ import (
 // TestNodeDrawerUnderDemoChurn opens a node's drawer on the demo cluster (10,000 pods on 50 nodes,
 // 1,000 watch events per second) and reads it the way the window does: on every EventDetail it
 // fetches the detail and redraws only when the sections changed (drawer.show compares them). The
-// node's Pods table comes from the related-objects index over all pods, so every pod event in the
-// cluster wakes the drawer; the engine must still announce it at most ten times a second, and the
-// redraws can be no more than those announcements.
+// node's Pods table comes from the related-objects index over all pods, which the drawer keeps
+// current and shares with its fetches; it wakes for its own node's pods only, which under the
+// demo's churn still change several times a second. The engine must announce it at most ten
+// times a second, and the redraws can be no more than those announcements. The test logs what a
+// fetch costs and the process's CPU with and without the drawer (architecture §4.4).
 func TestNodeDrawerUnderDemoChurn(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds the 10,000-pod demo cluster")
@@ -54,6 +56,14 @@ func TestNodeDrawerUnderDemoChurn(t *testing.T) {
 		}
 	}
 	ref := model.ObjectRef{Context: engine.DemoContext, Kind: "nodes", Name: busiest}
+
+	// The baseline: the same cluster and churn without the drawer, its informers warm.
+	const window = 3 * time.Second
+	cpu0, measured := processCPU()
+	time.Sleep(window)
+	cpu1, _ := processCPU()
+	baseline := cpu1 - cpu0
+
 	s.UpdateUI(func(u *engine.UIState) { u.Drawer = &ref })
 	podsTable := func(m *engine.DetailModel) *model.DetailTable {
 		for _, sec := range m.Sections {
@@ -118,8 +128,9 @@ func TestNodeDrawerUnderDemoChurn(t *testing.T) {
 		}
 	}()
 
-	const window = 3 * time.Second
+	cpu2, _ := processCPU()
 	time.Sleep(window)
+	cpu3, _ := processCPU()
 	cancelSub()
 	close(stop)
 	<-done
@@ -127,13 +138,22 @@ func TestNodeDrawerUnderDemoChurn(t *testing.T) {
 	n, f, r := events.Load(), fetches.Load(), redraws.Load()
 	mu.Lock()
 	slices.Sort(took)
-	var p50, maxTook time.Duration
+	var p50, maxTook, inFetch time.Duration
 	if len(took) > 0 {
 		p50, maxTook = took[len(took)/2], took[len(took)-1]
 	}
+	for _, d := range took {
+		inFetch += d
+	}
 	mu.Unlock()
-	t.Logf("node %s with %d pods, %s of churn: %d detail events, %d fetches, %d redraws; detail built in %v (p50), %v (max)",
-		ref.Name, rows, window, n, f, r, p50, maxTook)
+	t.Logf("node %s with %d pods, %s of churn: %d detail events, %d fetches, %d redraws; detail built in %v (p50), %v (max); fetching took %.1f%% of a core",
+		ref.Name, rows, window, n, f, r, p50, maxTook, 100*inFetch.Seconds()/window.Seconds())
+	if measured {
+		// What the open drawer and its reader cost the process beyond the churn alone.
+		t.Logf("process CPU: %.1f%% of a core without the drawer, %.1f%% with it: the drawer costs %.1f%%",
+			100*baseline.Seconds()/window.Seconds(), 100*(cpu3-cpu2).Seconds()/window.Seconds(),
+			100*((cpu3-cpu2)-baseline).Seconds()/window.Seconds())
+	}
 	if limit := int64(window/(100*time.Millisecond)) + 2; n > limit {
 		t.Errorf("%d detail events in %s: coalescing allows at most %d", n, window, limit)
 	}

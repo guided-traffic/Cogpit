@@ -57,7 +57,9 @@ func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.O
 			}
 		}))
 	}
-	d.related = newRelatedSet(b, p.Needs, func() { signal(d.wake) })
+	// Woken only by changes to the keys the drawer's model looked up (a node's pods, not every
+	// pod); Detail reads through this set while the drawer shows ref (drawerRelated).
+	d.related = newRelatedSetTracking(b, p.Needs, func() { signal(d.wake) }, true)
 	objSynced, evSynced := d.synced()
 	poll := func() bool {
 		o, e := d.synced()
@@ -158,7 +160,10 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 		evh = b.Acquire(ep)
 		defer evh.Release()
 	}
-	rs := newRelatedSet(b, p.Needs, nil)
+	rs := s.drawerRelated(b, p, ref)
+	if rs == nil {
+		rs = newRelatedSet(b, p.Needs, nil)
+	}
 	defer rs.release()
 	if wait {
 		wctx, cancel := context.WithTimeout(ctx, syncTimeout)
@@ -196,6 +201,20 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 		s.log.Warn("engine: object not representable as YAML", "ref", ref.String())
 	}
 	return m, nil
+}
+
+// drawerRelated returns the open drawer's related set, held, when the drawer shows ref through p
+// on b, else nil. A fetch of the drawer's model reads the indexes the drawer keeps current instead
+// of building its own, and its lookups tell the drawer which keys to wake for.
+func (s *Session) drawerRelated(b *Backend, p *model.KindProfile, ref model.ObjectRef) *relatedSet {
+	st := s.state
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	d := st.drawer
+	if d == nil || d.backend != b || d.profile != p || !d.ref.Same(ref) || !d.related.hold() {
+		return nil
+	}
+	return d.related
 }
 
 // BuildDetail assembles the drawer model of one object from its profile, the object and the

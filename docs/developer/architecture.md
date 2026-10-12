@@ -429,14 +429,32 @@ by "this pod".
   consumer), rebuilds the view's rows when those objects change (the row cache keys on the related
   objects' generation as well as the resourceVersion; the generation also changes when the
   indexed kinds finish their initial list, which comes with no event of its own, so rows built
-  while they were listing are rebuilt, 2026-10-12), and builds each index at most once per
-  snapshot. A lookup on a kind that is still listing or not served returns nothing. Rows built
-  outside a view (`resources.list`) use `Session.BuildRows`. A rule that warns about an object
-  that does not exist (a binding's cluster role) must tell that from a kind still listing: it asks
-  `rel.Listed(index)` (2026-10-12), true once the index is declared and its kind served and
-  listed, and warns only then. Until the fourth run moves the rule onto it, `ClusterRolesByName`
-  also files every object under a key no object has (`""`), and the rule warns only once that key
-  returns objects (2026-10-11).
+  while they were listing are rebuilt, 2026-10-12), and builds each index once per
+  view or drawer (2026-10-12, below). A lookup on a kind that is still listing or not served returns
+  nothing. Rows built outside a view (`resources.list`) use `Session.BuildRows`. A rule that warns
+  about an object that does not exist (a binding's cluster role) must tell that from a kind still
+  listing: it asks `rel.Listed(index)` (2026-10-12), true once the index is declared and its kind
+  served and listed, and warns only then. The cluster-role rule does since 2026-10-12;
+  `ClusterRolesByName` files a cluster role under its name only.
+- **Live indexes** (2026-10-12, fourth run, [`related.go`](../../internal/engine/related.go)): an
+  index is built from the cache on its first lookup and then kept current by its kind's events,
+  each of which moves one object between keys (its old keys are remembered per object), so a
+  lookup copies one key's objects and never rebuilds the index. The build runs outside the set's
+  lock; events that arrive meanwhile are applied after it, in order. A virtual kind's index
+  (none yet) is built again after each change, since its events are about the source objects.
+  The drawer's set is shared with the fetches of the drawer's model (`Detail`, `object.get` while
+  the drawer shows the object): they read the drawer's indexes instead of building their own,
+  and their lookups tell the drawer which keys to wake for: a node's drawer wakes for its own
+  pods (entering, changing in or leaving the node), not for every pod. Views still wake for
+  every change of an indexed kind, since their rows read any key. Measured on the demo cluster
+  (10,000 pods on 50 nodes, 1,000 events per second, a node with 261 pods; Apple M1 Ultra with
+  other agents' builds running, `TestNodeDrawerUnderDemoChurn`): a fetch of the node's drawer took
+  13–33 ms (p50, three runs) and the fetches 14–43 % of a core before, 2.6 ms and 2.3–2.5 % after;
+  the drawer still fetches about nine times a second, because the node's own pods change that
+  often under the demo's churn. The process-wide CPU difference with and without the drawer
+  (6–14 % before, −6 to 11 % after) is within the churn's own variance and shows no trend.
+  `ui.navigate` checks the view's filter against the row as the view shows it, related cells
+  included (a claim found by its pod's name keeps the filter).
 
 ### 4.5 Kind keys
 
@@ -972,7 +990,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5); the View menu and Refresh Access Reviews in the GUI (§4.2) |
+| 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5); the View menu and Refresh Access Reviews in the GUI (§4.2); live related-objects indexes shared with the drawer's fetches, the cluster-role rule on `Listed`, `ui.navigate`'s filter check with related cells (§4.4) |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5) |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere) |
 | 2026-10-12 | minor | Fourth run (agent D): kubeconfig sources (added files, pasted kubeconfigs, sync folders), each file read on its own, and credential plugins of sources run only after the user allowed them (§6; current state rows) |
