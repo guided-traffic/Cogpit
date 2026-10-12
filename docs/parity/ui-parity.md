@@ -1,6 +1,6 @@
 # UI parity: layout, navigation, tables, dock and feel
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (`make parity`: the shortcuts table gets Plan and Evidence columns; evidence for three partial rows) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (fourth run: Kubeconfig Syncs, pasting a kubeconfig and the Kubeconfig syncs preference partial) · **Target:** Lens Desktop 2026.10.51501
 
 How Cogpit's interface compares with Lens Desktop 2026.10.51501: the window layout, clusters and
 hotbar, the cluster sidebar, list tables, the detail drawer, the bottom dock with its editor, log
@@ -57,8 +57,8 @@ hotbar, navigator, tab bar, workspace, dock, status bar.
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
 | Kubeconfig files in `~/.kube/` (`%USERPROFILE%\.kube` on Windows) are found without setup | free | partial: `$KUBECONFIG` or `~/.kube/config` only | `$KUBECONFIG` or `~/.kube/config` only (client-go's loading rules), not every file in `~/.kube/`: [`cluster.go`](../../internal/cluster/cluster.go) `loadingRules`, `TestListContextsDefaultRulesUseKUBECONFIG`, `TestListContextsMergesInPrecedenceOrder` |
-| Kubeconfig Syncs: add files and folders to watch | free | missing | – |
-| Add clusters by pasting a kubeconfig; Lens stores the text itself, not in `~/.kube/config` | free | missing | – |
+| Kubeconfig Syncs: add files and folders to watch | free | partial (2026-10-12): files (`kubeconfig.addFile`) and folders (`kubeconfig.addFolder`) added from the Cluster menu, the picker's "Add Kubeconfigs" or the Kubeconfig Sources dialog; a folder's files are picked up and dropped as they come and go (polled every 2 s); each file is read on its own and offered as `<context> [<file>]`; a credential plugin of such a file runs only after the user allowed it (Cogpit's own, H-1). Lens's own dialogs and whether it reads subfolders are not captured: the layout is inferred | [`engine/kubeconfigs.go`](../../internal/engine/kubeconfigs.go), [`fyneui/kubeconfigs.go`](../../internal/ui/fyneui/kubeconfigs.go); `TestSyncFolderPicksUpAndDropsFiles`, `TestAddedFilesAreNeverWritten`, `TestExecPluginRunsOnlyOnceAllowed`, `TestAddFileFromTheMenuAndEventsReloadThePicker` |
+| Add clusters by pasting a kubeconfig; Lens stores the text itself, not in `~/.kube/config` | free | partial (2026-10-12): "Add kubeconfig by pasting" in the picker's "Add Kubeconfigs" menu and the Cluster menu, a text field and an "Add Clusters" button (`kubeconfig.paste`; labels from Lens's documentation, layout inferred, not captured); stored as Cogpit's own file, owner-only, never in the user's kubeconfig, offered as `<context> [pasted <n>]`; removed from the Kubeconfig Sources dialog (`kubeconfig.remove`) | [`fyneui/kubeconfigs.go`](../../internal/ui/fyneui/kubeconfigs.go); `TestPasteStoresItOwnerOnly`, `TestPastedKubeconfigConnects`, `TestKindPastedKubeconfig`, `TestPasteDialog` |
 | Navigator sections: Kubernetes Clusters (Local Kubeconfigs and the cloud sections), Teamwork, Extensions | free | missing | – |
 | Search clusters by name (⌘P) | free | partial: filter in the context picker, no ⌘P | the context picker's filter field, [`picker.go`](../../internal/ui/fyneui/picker.go); no ⌘P |
 | Cluster menu: connect, disconnect, settings, add to hotbar, remove (labels: capture needed) | free | missing | – |
@@ -300,7 +300,7 @@ the table is taken as correct until a capture decides.
 | kubectl: download binaries, download mirror (Google or Azure), directory for binaries, path to kubectl | free | missing | – |
 | Helm repositories: pick public ones, add custom (name, URL, key, CA and certificate files, username and password; OCI registries) | free | missing | – |
 | `HELM_DRIVER`: secret (default), configmap, sql | free | missing | – |
-| Kubeconfig syncs | free | missing | – |
+| Kubeconfig syncs | free | partial (2026-10-12): the Kubeconfig Sources dialog (Cluster menu › Kubeconfig Sources…, `kubeconfig.sources`) lists the added files, pasted kubeconfigs and sync folders with their contexts and errors and removes them; Cogpit has no Preferences page yet, and Lens's page is not captured (inferred) | [`fyneui/kubeconfigs.go`](../../internal/ui/fyneui/kubeconfigs.go); `TestSourcesDialogRemovesAfterConfirming`, `TestRenderKubeconfigSources` |
 | Editor: show minimap and its position, line numbers, tab size, font size, font family | free | missing | – |
 | Tables: row line height | free | missing | – |
 | Terminal: shell path, shell arguments, copy and paste behaviour, theme, font size, font family | free | missing | – |
@@ -357,6 +357,7 @@ order, and each page shows its settings under upper-case headings with a help li
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-12 | trivial | Dock: the Helm Upgrade tab built (fourth run) |
+| 2026-10-12 | minor | Fourth run (agent D, G2): Kubeconfig Syncs, adding a kubeconfig by pasting and the Kubeconfig syncs preference partial; Lens's dialogs not captured, their layout inferred |
 | 2026-10-12 | minor | `make parity`: Keyboard shortcuts with Plan and Evidence columns, so that the two paid shortcuts no longer read as free (the 121 free rows, reproduced); evidence named for kubeconfig loading, terminal copy and paste, and the theme flag; the theme row's pipes escaped |
 | 2026-10-12 | trivial | Dock: Lens's Helm Upgrade tab captured |
 | 2026-10-11 | minor | Third run, tables and window (G5): the macOS title bar partial (built, not seen in a real window yet); Tables: no namespace filter on cluster-scoped views, show and hide columns, fit a column, CSV export partial, keyboard done (and its shortcut row); the sidebar's Workloads › Overview |

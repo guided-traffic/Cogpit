@@ -83,6 +83,7 @@ type shell struct {
 	toasts    *fyne.Container
 	tip       *tooltip // the one tooltip: cut-off cells, warning icons, drawer actions
 	picker    *picker
+	kc        *kubeconfigUI // the kubeconfig sources' dialogs (kubeconfigs.go)
 	confirmer *guiConfirmer
 	drains    *drainBanner // unfinished drains, below the top bar (drains.go)
 	helm      *helmBanner  // unfinished Helm release actions, below the drains (helmbanner.go)
@@ -122,6 +123,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.drawer = newDrawer(sh)
 	sh.dock = newDock(sh)
 	sh.status = newStatusBar(sh)
+	sh.kc = newKubeconfigUI(sh)
 	sh.picker = newPicker(sh)
 	sh.confirmer = newGUIConfirmer(sh)
 	sh.drains = newDrainBanner(sh)
@@ -254,6 +256,8 @@ func (sh *shell) onEvent(ev engine.Event) {
 	case engine.EventEditor:
 		id, rev := ev.View, ev.Revision
 		sh.do(func() { sh.dock.editorEvent(id, rev) })
+	case engine.EventContexts:
+		sh.do(sh.kc.contextsChanged)
 	}
 }
 
@@ -566,6 +570,7 @@ func (toastLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
 // mainMenu builds the window menu: Cluster, View (one item per kind) and Help.
 func (sh *shell) mainMenu() *fyne.MainMenu {
 	cluster := fyne.NewMenu("Cluster", fyne.NewMenuItem("Switch Context…", sh.picker.show))
+	cluster.Items = append(cluster.Items, sh.kc.menuItems()...)
 	var items []*fyne.MenuItem
 	for _, k := range sh.kinds {
 		key := k.Kind

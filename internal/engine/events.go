@@ -31,6 +31,9 @@ const (
 	// EventEditor: an editor tab's text or base version changed (editor.setText, a conflict);
 	// Event.View holds the tab id, Event.Revision the text's revision. Re-read with editor.get.
 	EventEditor EventType = "editor"
+	// EventContexts: the contexts Cogpit can connect to changed (a kubeconfig source was added or
+	// removed, a sync folder's files changed, a credential plugin was allowed); re-read them.
+	EventContexts EventType = "contexts"
 )
 
 // Toast levels (Event.Level).

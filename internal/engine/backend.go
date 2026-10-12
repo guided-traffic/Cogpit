@@ -133,6 +133,16 @@ type ContextInfo struct {
 	Server    string `json:"server,omitempty"`
 	Current   bool   `json:"current,omitempty"` // the kubeconfig's current-context
 	Demo      bool   `json:"demo,omitempty"`    // the synthetic demo cluster
+	// Source, KubeContext and File describe a context from a kubeconfig source the user added in
+	// Cogpit (kubeconfigs.go): the file's label ("dev.yaml", "pasted 1", "kubeconfigs/team.yaml"),
+	// the context's name in that file (Name is then "<context> [<label>]") and the file's path.
+	// Empty for the default kubeconfig files.
+	Source      string `json:"source,omitempty"`
+	KubeContext string `json:"kubeContext,omitempty"`
+	File        string `json:"file,omitempty"`
+	// Exec is ExecApproved, ExecRequired or ExecChanged for a source context whose user runs an
+	// exec credential plugin, which runs only once the user allowed it; empty otherwise.
+	Exec string `json:"exec,omitempty"`
 }
 
 // Connector lists the contexts a user can connect to and connects one.

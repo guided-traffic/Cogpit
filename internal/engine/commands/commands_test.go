@@ -90,6 +90,11 @@ var wantCommands = map[string]engine.Danger{
 	"ui.setGroups":       engine.DangerUI,
 	"table.exportCsv":    engine.DangerRead,
 	"workloads.overview": engine.DangerRead,
+
+	// Kubeconfig sources (G2); the UI ones are GUI-only (TestKubeconfigCommandsAreGUIOnly).
+	"kubeconfig.sources": engine.DangerRead, "kubeconfig.addFile": engine.DangerUI, "kubeconfig.addFolder": engine.DangerUI,
+	"kubeconfig.paste": engine.DangerUI, "kubeconfig.remove": engine.DangerUI, "kubeconfig.execPlugin": engine.DangerRead,
+	"kubeconfig.approveExec": engine.DangerUI,
 }
 
 func TestRegistryComplete(t *testing.T) {

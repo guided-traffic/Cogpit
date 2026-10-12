@@ -1,6 +1,6 @@
 # Platform parity: systems, packages, authentication and tools
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (`make parity` counts 8 partial rows, not 7: the sidebar following the served APIs was left out of the summary; evidence for two rows) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (fourth run: exec credential plugins partial) · **Target:** Lens Desktop 2026.10.51501
 
 Where and how Cogpit runs compared with Lens Desktop 2026.10.51501: operating systems and
 architectures, packages and updates, how it authenticates to clusters, which Kubernetes versions
@@ -56,7 +56,7 @@ client-go from the process that holds the credentials, so that requirement does 
 |---|---|---|---|
 | Client certificate and key, inline or as files | yes | yes | partial: inline, against kind (`TestKindEngineWorkflows`, `TestKindIdleViewsCostNoLists`); files not tested |
 | Bearer token, inline or token file | yes | yes | partial: inline, against a fake API server over HTTPS (`TestBudgetIdleViewAndWarmReopen`, [`cluster_test.go`](../../internal/cluster/cluster_test.go)); token files not tested |
-| Exec credential plugin (`client.authentication.k8s.io`) | yes; the binary must be on `PATH` or absolute | yes, kubectl's own implementation | missing |
+| Exec credential plugin (`client.authentication.k8s.io`) | yes; the binary must be on `PATH` or absolute | yes, kubectl's own implementation | partial (2026-10-12): a test plugin authenticated against kind (an ExecCredential with the kind user's client certificate, `TestKindExecPluginAfterApproval`) and a fake API server (a token, `TestConnectAsksTheExecPolicyBeforeThePluginRuns`), a relative command resolved against its kubeconfig's folder as client-go does; a plugin of a kubeconfig source added in Cogpit runs only after the user allowed it in the GUI, the default kubeconfig's run as kubectl runs them ([`cluster/sources.go`](../../internal/cluster/sources.go), [`engine/kubeconfigs.go`](../../internal/engine/kubeconfigs.go)). Missing: the cloud plugins (rows below), the plugin's environment ([H-6](../security/credentials.md#h-6-exec-plugins-inherit-the-environment)) |
 | Exec plugin: `aws eks get-token` and `aws-iam-authenticator` (EKS) | yes | to verify against a real cluster (human) | missing |
 | Exec plugin: `gke-gcloud-auth-plugin` (GKE) | yes | to verify (human) | missing |
 | Exec plugin: `kubelogin` (AKS, Entra ID) | yes | to verify (human) | missing |
@@ -104,6 +104,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Fourth run (agent D): exec credential plugins partial, on kind and a fake API server, with the approval of a kubeconfig source's plugin |
 | 2026-10-12 | minor | Recount by `make parity`: 8 of 38 rows partial (the summary left out the sidebar following the served APIs); evidence named for the macOS app bundle and `kubectl` from `PATH` |
 | 2026-10-11 | minor | Users who may list only some namespaces partial: access reviews per namespace hide the kinds they may not list and grey what they may not do |
 | 2026-10-11 | minor | Kubernetes 1.37.0 on kind in CI; kinds and fields newer than the client libraries partial (custom resource views, edits keep unknown fields); 6 of 38 rows |

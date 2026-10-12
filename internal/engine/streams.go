@@ -74,7 +74,7 @@ func (s *Session) OpenTerminal(ctx context.Context, tabID string) (terminal.Sess
 			ns = u.Namespaces[0]
 		}
 		return terminal.StartLocal(terminal.LocalOptions{
-			KubeconfigPaths: b.Conn.KubeconfigPaths(), Context: b.Context, Namespace: ns,
+			KubeconfigPaths: b.Conn.KubeconfigPaths(), Context: b.Conn.Context(), Namespace: ns, // the name in the file, not a source's id
 		})
 	}
 	return terminal.StartPodExec(ctx, b.Conn.RESTConfig(), b.Conn.Kube(), terminal.ExecOptions{

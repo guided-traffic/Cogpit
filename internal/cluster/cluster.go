@@ -72,6 +72,12 @@ type Options struct {
 	// ConnectTimeout bounds Connect's reachability check only; later requests are not bounded
 	// by it, because watches stay open. Zero means DefaultConnectTimeout.
 	ConnectTimeout time.Duration
+	// ExecPolicy, when set, is asked before a context whose user runs an exec credential plugin
+	// gets a client. It receives the plugin as client-go will run it (taken from the very
+	// configuration the client is built from, so a file changed meanwhile cannot slip another
+	// command past it); an error refuses the connection before the plugin runs. Nil runs plugins
+	// as kubectl does.
+	ExecPolicy func(*kubeconfig.ExecPlugin) error
 }
 
 // loadingRules returns client-go's loading rules for paths: exactly these files in this order,
@@ -225,6 +231,9 @@ func Connect(ctx context.Context, opts Options) (*Conn, error) {
 	cfg, err := cc.ClientConfig()
 	if err != nil {
 		return nil, &ConnectError{Context: name, Problem: "invalid kubeconfig: " + kubeconfig.SafeError(err).Error()}
+	}
+	if err := checkExecPolicy(opts.ExecPolicy, raw, name, kctx, cfg); err != nil {
+		return nil, &ConnectError{Context: name, Problem: err.Error(), Err: err}
 	}
 	// clientcmd's persister writes tokens a legacy auth provider (oidc) refreshes back into the
 	// user's kubeconfig file. Cogpit makes no implicit kubeconfig writes: refreshed tokens stay in

@@ -41,6 +41,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerCopy(g)
 	registerTables(g)
 	registerOverview(g)
+	registerKubeconfigs(g)
 	return g.err
 }
 

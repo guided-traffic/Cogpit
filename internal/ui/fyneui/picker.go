@@ -12,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/kubeconfig"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
@@ -29,6 +30,7 @@ type picker struct {
 	status     *textLine
 	connectB   *widget.Button
 	cancelB    *widget.Button
+	addB       *widget.Button // "Add Kubeconfigs": paste, add a file or a sync folder (kubeconfigs.go)
 	contexts   []engine.ContextInfo
 	selected   string
 	connecting string
@@ -52,12 +54,16 @@ func newPicker(sh *shell) *picker {
 	p.connectB = widget.NewButtonWithIcon("Connect", theme.LoginIcon(), p.connect)
 	p.connectB.Importance = widget.HighImportance
 	p.cancelB = widget.NewButton("Not now", p.hide)
+	p.addB = widget.NewButtonWithIcon("Add Kubeconfigs", theme.ContentAddIcon(), nil)
+	p.addB.OnTapped = func() {
+		widget.ShowPopUpMenuAtRelativePosition(sh.kc.addMenu(), sh.win.Canvas(), fyne.NewPos(0, p.addB.Size().Height), p.addB)
+	}
 
 	listBg := newSurface(theme.ColorNameInputBackground)
 	listBg.radius, listBg.stroke = theme.SizeNameInputRadius, theme.ColorNameInputBorder
 	list := container.NewStack(listBg, inset(theme.SizeNamePadding, theme.SizeNamePadding, container.NewVScroll(p.list)))
 	top := container.NewVBox(title, intro, newSpace(theme.SizeNamePadding), p.filter, newSpace(theme.SizeNamePadding))
-	bottom := container.NewBorder(newSpace(theme.SizeNameInnerPadding), nil, nil,
+	bottom := container.NewBorder(newSpace(theme.SizeNameInnerPadding), nil, p.addB,
 		container.NewHBox(p.cancelB, p.connectB), p.status)
 	p.content = sized(sizePickerWidth, sizePickerHeight,
 		inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, container.NewBorder(top, bottom, nil, nil, list)))
@@ -75,6 +81,12 @@ func (p *picker) show() {
 		p.status.SetColor(colorMuted)
 		p.status.SetText("")
 	}
+	p.load()
+}
+
+// load reads the contexts off the main goroutine and shows them: when the picker opens, and when
+// the engine reports that they changed (a kubeconfig source was added, a sync folder changed).
+func (p *picker) load() {
 	go func() {
 		defer p.sh.recoverTo("contexts")
 		ctxs, err := p.sh.eng.Contexts()
@@ -150,7 +162,7 @@ func (p *picker) render() {
 	rows := make([]fyne.CanvasObject, 0, len(p.contexts))
 	for _, c := range p.contexts {
 		title, sub := contextLabels(c)
-		if f != "" && !strings.Contains(strings.ToLower(c.Name+" "+title+" "+sub), f) {
+		if f != "" && !strings.Contains(strings.ToLower(c.Name+" "+title+" "+sub+" "+c.Source), f) {
 			continue
 		}
 		name := c.Name
@@ -166,7 +178,9 @@ func (p *picker) render() {
 	p.list.Refresh()
 }
 
-// connect connects the selected context.
+// connect connects the selected context. A context whose login program (an exec credential
+// plugin of a kubeconfig source) the user has not allowed, or that changed since, first shows that
+// program (kubeconfigs.go); connecting goes on only once the user allowed it.
 func (p *picker) connect() {
 	name := p.selected
 	if name == "" || p.connecting != "" {
@@ -174,6 +188,36 @@ func (p *picker) connect() {
 	}
 	p.connecting = name
 	p.connectB.Disable()
+	p.status.SetColor(colorMuted)
+	if c, ok := p.context(name); ok && (c.Exec == engine.ExecRequired || c.Exec == engine.ExecChanged) {
+		p.status.SetText("Review the program " + name + " runs to log in…")
+		p.sh.kc.reviewPlugin(name, func(allowed bool) {
+			if !allowed {
+				p.connecting = ""
+				p.connectB.Enable()
+				p.status.SetColor(colorStatusWarning)
+				p.status.SetText("Not connected: the program that logs in to " + name + " was not allowed.")
+				return
+			}
+			p.dispatchConnect(name)
+		})
+		return
+	}
+	p.dispatchConnect(name)
+}
+
+// context returns the listed context with this id.
+func (p *picker) context(name string) (engine.ContextInfo, bool) {
+	for _, c := range p.contexts {
+		if c.Name == name {
+			return c, true
+		}
+	}
+	return engine.ContextInfo{}, false
+}
+
+// dispatchConnect runs cluster.connect for name.
+func (p *picker) dispatchConnect(name string) {
 	p.status.SetColor(colorMuted)
 	p.status.SetText("Connecting to " + name + "…")
 	p.sh.dispatch("cluster.connect", contextParams{Context: name}, func(_ any, err error) {
@@ -190,6 +234,10 @@ func contextLabels(c engine.ContextInfo) (title, sub string) {
 	if c.Demo {
 		return demoLabel, "context " + c.Name + " · generated in memory, no credentials needed"
 	}
+	title = c.Name
+	if c.KubeContext != "" { // a kubeconfig source's context: its name in the file, the source as a badge
+		title = c.KubeContext
+	}
 	var parts []string
 	if c.Cluster != "" {
 		parts = append(parts, c.Cluster)
@@ -200,7 +248,7 @@ func contextLabels(c engine.ContextInfo) (title, sub string) {
 	if c.Namespace != "" {
 		parts = append(parts, "namespace "+c.Namespace)
 	}
-	return c.Name, strings.Join(parts, " · ")
+	return kubeconfig.DisplayText(title, maxShownPath), kubeconfig.DisplayText(strings.Join(parts, " · "), maxShownPath)
 }
 
 // pickerRow is one context in the picker: title, badges and a subtitle. A tap selects it, a
@@ -227,6 +275,15 @@ func newPickerRow(c engine.ContextInfo, title, sub string, selected bool, onTap,
 	}
 	if c.Demo {
 		r.badges.Add(newPill("demo", statusColorName(model.StatusSucceeded), true))
+	}
+	if c.Source != "" {
+		r.badges.Add(newPill(kubeconfig.DisplayText(c.Source, maxShownArg), colorMuted, true))
+	}
+	switch c.Exec {
+	case engine.ExecRequired:
+		r.badges.Add(newPill("login program not allowed yet", colorStatusWarning, true))
+	case engine.ExecChanged:
+		r.badges.Add(newPill("login program changed", colorStatusWarning, true))
 	}
 	r.ExtendBaseWidget(r)
 	return r

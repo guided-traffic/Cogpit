@@ -14,15 +14,17 @@ type ConnectResult struct {
 }
 
 type connectParams struct {
-	Context string `json:"context" jsonschema:"kubeconfig context name as cluster_contexts lists it; demo is the synthetic demo cluster"`
+	Context string `json:"context" jsonschema:"context id as cluster_contexts lists it: a default kubeconfig context's name, <context> [<source>] for a kubeconfig source added in Cogpit, demo for the synthetic demo cluster"`
 }
 
 func registerCluster(g *registrar) {
 	add(g, engine.Spec[struct{}]{
 		ID: "cluster.contexts", Label: "List Contexts", Danger: engine.DangerRead,
 		Description: "Lists the kubeconfig contexts Cogpit can connect to (name, cluster, user, default namespace, server, " +
-			"whether it is the kubeconfig's current context) and the synthetic demo cluster if offered. Reads only the " +
-			"kubeconfig files; no credential is returned.",
+			"whether it is the kubeconfig's current context) and the synthetic demo cluster if offered. Contexts of the " +
+			"kubeconfig sources added in Cogpit (kubeconfig_sources) are named \"<context> [<source>]\" and carry source, " +
+			"kubeContext, file and exec (approved, required or changed: whether their credential plugin may run; the user " +
+			"allows it in Cogpit's window). Reads only the kubeconfig files; no credential is returned.",
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			list, err := s.Contexts()
 			if err != nil && len(list) == 0 {

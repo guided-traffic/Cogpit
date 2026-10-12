@@ -84,10 +84,12 @@ func run() int {
 		IncludeDemo:     true,
 		DemoOptions:     demo.Options{Pods: *demoPods, EventsPerSecond: *demoEvents},
 		Logger:          logger,
+		Sources:         openKubeconfigSources(logger),
 	}
 	s := engine.New(engine.Options{Connector: connector, Audit: audit, Logger: logger, Drains: openDrainJournal(logger),
 		Helm: openHelmJournal(logger)})
 	defer s.Close()
+	defer s.WatchKubeconfigs(0)() // sync folders: files that appear or leave are picked up
 	if err := commands.RegisterAll(s.Registry()); err != nil {
 		fmt.Fprintln(os.Stderr, "cogpit:", err)
 		return 1
@@ -192,6 +194,18 @@ func openHelmJournal(logger *slog.Logger) *engine.HelmOps {
 		return nil
 	}
 	return engine.NewHelmOps(engine.NewFileHelmJournal(filepath.Join(dir, "Cogpit")))
+}
+
+// openKubeconfigSources keeps the kubeconfig files, pasted kubeconfigs and sync folders the user
+// adds in <user config dir>/Cogpit (kubeconfigs.json, kubeconfigs/, exec-approvals.json), each
+// owner-only. Without a configuration directory there are none.
+func openKubeconfigSources(logger *slog.Logger) *engine.KubeconfigSources {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		logger.Warn("kubeconfig sources disabled; only the default kubeconfig is read", "err", err)
+		return nil
+	}
+	return engine.NewKubeconfigSources(filepath.Join(dir, "Cogpit"))
 }
 
 // startCPUProfile records a CPU profile for d (or until stop is called) into path; for the gate

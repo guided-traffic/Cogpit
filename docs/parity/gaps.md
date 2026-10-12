@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G1: `make parity` built) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G2: kubeconfig sources and the approval of their credential plugins) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -23,7 +23,7 @@ own. **Human** marks what an agent can't finish alone.
 | # | Gap | Kind | Impact | Estimate | Parity doc |
 |---|---|---|---|---:|---|
 | G1 | Workspace, CI and progress generators | foundation | blocks alpha | 3–8 h | [roadmap](roadmap.md#milestones) |
-| G2 | Cluster connection and authentication | connectivity | blocks alpha | 14–34 h + human | [platform-parity](platform-parity.md#cluster-authentication-and-connectivity) |
+| G2 | Cluster connection and authentication | connectivity | blocks alpha | 10–28 h + human | [platform-parity](platform-parity.md#cluster-authentication-and-connectivity) |
 | G3 | Cache and the resource model | foundation | blocks alpha | 16–38 h | [architecture §5](../developer/architecture.md#5-cache) |
 | G4 | Engine and command registry | foundation | blocks alpha | 10–28 h | [architecture §4](../developer/architecture.md#4-the-ui-seam-the-most-important-interface) |
 | G5 | App shell, navigation, tables and drawer | UI | blocks alpha | 35–110 h | [ui-parity](ui-parity.md#layout) |
@@ -96,7 +96,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 3–8 h (was 6–14; `make parity` built, 2026-10-12).
 
 ### G2. Cluster connection and authentication
-- **Missing:** kubeconfig discovery, merging and validation; pasted kubeconfigs stored owner-only;
+- **Missing:** kubeconfig discovery, merging and validation;
   connections through client-go with every authentication form; the persister for the legacy
   `oidc` provider; the environment for exec plugins; access reviews; connection states and errors
   a user can act on; the per-terminal kubeconfig
@@ -112,13 +112,23 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   namespace and `SelfSubjectAccessReview` where rules cannot answer, with their own request budget,
   cached per connection until refreshed or reconnected; measured, connecting costs one rules review
   and settling the sidebar one more access review for a user limited to a namespace
-  (`TestBudgetAccessReviews`; on kind with a ServiceAccount token, `TestKindAccessReviews`). Still
-  missing from the list above: pasted kubeconfigs, the exec-plugin environment (only a `PATH`
-  stopgap).
+  (`TestBudgetAccessReviews`; on kind with a ServiceAccount token, `TestKindAccessReviews`). Built
+  on 2026-10-12 (fourth run): kubeconfig files and sync folders added in Cogpit and pasted
+  kubeconfigs stored owner-only (0600 in a 0700 folder), each file read on its own and offered as
+  `<context> [<source>]`, sync folders watched by polling; a source's exec credential plugin runs
+  only after the user allowed it in the GUI, bound to a fingerprint of the command, arguments,
+  environment and server; adding, pasting, removing and allowing refused for agents and the CLI
+  ([`engine/kubeconfigs.go`](../../internal/engine/kubeconfigs.go); `TestExecPluginRunsOnlyOnceAllowed`,
+  `TestPasteStoresItOwnerOnly`, `TestAddedFilesAreNeverWritten`, `TestSyncFolderPicksUpAndDropsFiles`;
+  on kind `TestKindPastedKubeconfig`, `TestKindExecPluginAfterApproval`); exec plugins partial in
+  [platform-parity](platform-parity.md#cluster-authentication-and-connectivity). Still missing from
+  the list above: the exec-plugin environment (only a `PATH` stopgap); Lens's own dialogs for
+  adding kubeconfigs are not captured (the built ones are inferred), and `~/.kube/` is not watched
+  without setup.
 - **Impact:** a user who cannot connect cannot use anything; exec plugins are how most cloud
   clusters authenticate. client-go carries the authentication itself, which is why this is smaller
   than it was in the Rust plan.
-- **Estimate:** 14–34 h (was 18–40; access reviews built, third run). **Human:** accounts on EKS, GKE and AKS to verify the plugins against.
+- **Estimate:** 10–28 h (was 14–34; kubeconfig sources and exec plugins built, fourth run). **Human:** accounts on EKS, GKE and AKS to verify the plugins against.
 
 ### G3. Cache and the resource model
 - **Missing:** the cache of [architecture §5](../developer/architecture.md#5-cache): shared,
@@ -531,6 +541,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | G2 (fourth run, agent D): kubeconfig files, sync folders and pasted kubeconfigs, the approval of their credential plugins; estimate 10–28 h |
 | 2026-10-12 | minor | G11 (fourth run): the Helm upgrade and its dock tab, Lens's release drawer and Rollback dialog built; estimate 12–30 h (the totals not recounted) |
 | 2026-10-12 | minor | G3 evidence: covering scopes (fourth run); G6 evidence: Secrets on a full watch, Keys and Type filled, the drawer from the cache (D-13 revised, built) |
 | 2026-10-12 | minor | G1: `make parity` built (D-15); its first run's findings; estimate 3–8 h |

@@ -48,6 +48,10 @@ func (s *Session) audit(inv Invocation, context, phase string, err error) {
 		e.Params = nil
 	}
 	e.Params = auditParams(e.Params)
+	if inv.ID == PasteKubeconfigCommand {
+		// Pasted kubeconfig text carries credentials, whatever shape an agent sent it in: its size only.
+		e.Params = fmt.Appendf(nil, `{"kubeconfig":"<%d bytes; not logged>"}`, len(inv.Params))
+	}
 	if err != nil {
 		e.Error = err.Error()
 		var pe *ParamsError

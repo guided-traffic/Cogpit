@@ -42,6 +42,9 @@ type ClusterConnector struct {
 	WarmPeriod time.Duration
 	// Logger receives connection warnings; nil means slog.Default().
 	Logger *slog.Logger
+	// Sources are the kubeconfig files, pasted kubeconfigs and sync folders the user added in
+	// Cogpit (kubeconfigs.go); their contexts are offered as "<context> [<source>]". Nil: none.
+	Sources *KubeconfigSources
 }
 
 func (c *ClusterConnector) logger() *slog.Logger {
@@ -67,6 +70,7 @@ func (c *ClusterConnector) Contexts() ([]ContextInfo, error) {
 			Server: k.Server, Current: k.Current,
 		})
 	}
+	out, err = c.withSourceContexts(out, err)
 	if c.IncludeDemo {
 		out = append(out, ContextInfo{Name: DemoContext, Namespace: "default", Demo: true})
 	}
@@ -85,7 +89,11 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 	if c.IncludeDemo && name == DemoContext {
 		return c.connectDemo()
 	}
-	conn, err := cluster.Connect(ctx, cluster.Options{KubeconfigPaths: c.KubeconfigPaths, Context: name})
+	opts, sourceID, err := c.connectOptions(name)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := cluster.Connect(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -109,6 +117,9 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 	ctxName := conn.Context()
 	if ctxName == "" {
 		ctxName = name
+	}
+	if sourceID != "" { // a source's context is known by its id, not its name in the file
+		ctxName = sourceID
 	}
 	access := newAccessReviews(conn, conn.Namespace())
 	var once sync.Once
