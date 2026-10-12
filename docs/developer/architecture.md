@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, §8) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, §8) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-11)
 
@@ -902,7 +902,12 @@ Where it differs from the contract above, this paragraph wins.
   tab) or the `revision` parameter, checked when the command runs, after any confirmation. A
   release that moved meanwhile is refused with `ErrTargetsChanged`, also while an agent's
   confirmation was open; the tab shows itself stale (`editor.get`: `baseRevision`,
-  `cachedRevision`). An upgrade from a tab also names the tab's text revision it takes
+  `cachedRevision`). The cache can lag behind the server, so the upgrade (and a rollback, with the
+  cached newest revision) also hands that revision to the SDK action (`HelmUpgradeRequest.FromRevision`,
+  `Actions.Rollback`'s `from`), which compares it with the newest revision it reads from the
+  server and refuses with `helm.ErrReleaseMoved` and `helm.ErrUnchanged` before anything changes;
+  the command reports `ErrTargetsChanged` (R-1 of the fourth run's review; the SDK reads the
+  revision once more itself, a window of milliseconds). An upgrade from a tab also names the tab's text revision it takes
   (`textRevision`, required with `tab`; the GUI's Save passes the one its own `editor.setText`
   returned): a text changed since, by an agent's `editor.setText` while the confirmation is open
   or between Save's two dispatches, is refused with `ErrTargetsChanged` (review of the fourth run,

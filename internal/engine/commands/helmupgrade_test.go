@@ -246,6 +246,33 @@ func TestHelmUpgradeTabBoundToTheReviewedText(t *testing.T) {
 	}
 }
 
+// A release the server holds at a newer revision than the cache has seen yet (a watch that lags)
+// is neither upgraded nor rolled back: the actions name the cached revision and the server's
+// refusal reads as ErrTargetsChanged, with nothing left in the journal (review of the fourth run,
+// R-1).
+func TestHelmActionsRefusedWhenTheServerMovedUnseen(t *testing.T) {
+	journal := engine.NewMemoryHelmJournal()
+	h := newHelmHarness(t, journal, nil)
+	tab := openUpgradeTab(t, h, engine.OriginGUI)
+	h.server.moveUnseen("apps", "web", 4)
+	_, err := h.dispatch(engine.OriginGUI, "helm.release.upgrade", map[string]any{"ref": webRef, "tab": tab.Tab.ID, "textRevision": tabRevision(t, h, tab.Tab.ID)})
+	if !errors.Is(err, engine.ErrTargetsChanged) || !strings.Contains(err.Error(), "revision 4 on the server") {
+		t.Errorf("upgrade while the cache lags: %v", err)
+	}
+	if _, err := h.dispatch(engine.OriginGUI, "helm.release.rollback", map[string]any{"ref": webRef, "revision": 1}); !errors.Is(err, engine.ErrTargetsChanged) {
+		t.Errorf("rollback while the cache lags: %v", err)
+	}
+	h.server.mu.Lock()
+	ran := len(h.server.upgrades)
+	h.server.mu.Unlock()
+	if ran != 0 || len(h.server.recorded()) != 0 {
+		t.Errorf("actions ran: %d upgrades, calls %v", ran, h.server.recorded())
+	}
+	if ops, _ := journal.List(); len(ops) != 0 {
+		t.Errorf("journal holds %+v", ops)
+	}
+}
+
 func TestHelmUpgradeFailures(t *testing.T) {
 	journal := engine.NewMemoryHelmJournal()
 	h := newHelmHarness(t, journal, nil)

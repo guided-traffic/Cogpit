@@ -118,13 +118,17 @@ func (h *helmServer) begin(call string) error {
 	return err
 }
 
-func (h *helmServer) RollbackRelease(_ context.Context, namespace, name string, revision int) error {
-	if err := h.begin(fmt.Sprintf("rollback %s/%s to %d", namespace, name, revision)); err != nil {
-		return err
-	}
+func (h *helmServer) RollbackRelease(_ context.Context, namespace, name string, revision, from int) error {
 	h.mu.Lock()
 	cur := h.revs[namespace+"/"+name]
 	h.mu.Unlock()
+	if from > 0 && from != cur { // as helm.Actions.Rollback: the server's newest revision first
+		return fmt.Errorf("helm rollback %s/%s: %w: it is at revision %d on the server, the action is based on revision %d; %w",
+			namespace, name, helm.ErrReleaseMoved, cur, from, helm.ErrUnchanged)
+	}
+	if err := h.begin(fmt.Sprintf("rollback %s/%s to %d", namespace, name, revision)); err != nil {
+		return err
+	}
 	for r := 1; r <= cur; r++ {
 		h.src.Set(testkit.SecretsGVR, releaseSecret(h.t, namespace, name, r, common.StatusSuperseded))
 	}
@@ -151,6 +155,12 @@ func (h *helmServer) UninstallRelease(_ context.Context, namespace, name string)
 func (h *helmServer) UpgradeRelease(_ context.Context, namespace, name string, up engine.HelmUpgradeRequest) (int, error) {
 	h.mu.Lock()
 	cur := h.revs[namespace+"/"+name]
+	h.mu.Unlock()
+	if up.FromRevision > 0 && up.FromRevision != cur { // as helm.Actions.Upgrade
+		return 0, fmt.Errorf("helm upgrade %s/%s: %w: it is at revision %d on the server, the action is based on revision %d; %w",
+			namespace, name, helm.ErrReleaseMoved, cur, up.FromRevision, helm.ErrUnchanged)
+	}
+	h.mu.Lock()
 	h.upgrades = append(h.upgrades, up)
 	h.mu.Unlock()
 	if err := h.begin(fmt.Sprintf("upgrade %s/%s from %d", namespace, name, cur)); err != nil {
@@ -164,6 +174,14 @@ func (h *helmServer) UpgradeRelease(_ context.Context, namespace, name string, u
 	h.mu.Unlock()
 	h.src.Set(testkit.SecretsGVR, releaseSecretWith(h.t, namespace, name, cur+1, common.StatusDeployed, fmt.Sprintf("0.%d.0", cur), up.Values))
 	return cur + 1, nil
+}
+
+// moveUnseen makes the server hold a release at a newer revision the cache has not seen: a watch
+// that lags.
+func (h *helmServer) moveUnseen(namespace, name string, revision int) {
+	h.mu.Lock()
+	h.revs[namespace+"/"+name] = revision
+	h.mu.Unlock()
 }
 
 func (h *helmServer) recorded() []string {

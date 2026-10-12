@@ -73,23 +73,43 @@ func last(t *testing.T, store *storage.Storage) *rspb.Release {
 // can be rolled back again.
 func TestRollbackThroughTheSDK(t *testing.T) {
 	a, store := sdkFixture(t, common.StatusSuperseded, common.StatusDeployed)
-	if err := a.Rollback("apps", "web", 1); err != nil {
+	if err := a.Rollback("apps", "web", 1, 2); err != nil {
 		t.Fatal(err)
 	}
 	rls := last(t, store)
 	if rls.Version != 3 || rls.Info.Status != common.StatusDeployed || rls.Config["rev"] != 1 || rls.Info.RollbackRevision != 1 {
 		t.Errorf("after rollback: revision %d status %s config %v", rls.Version, rls.Info.Status, rls.Config)
 	}
-	if err := a.Rollback("apps", "web", 9); err == nil || !strings.Contains(err.Error(), "helm rollback apps/web to revision 9") {
+	if err := a.Rollback("apps", "web", 9, 0); err == nil || !strings.Contains(err.Error(), "helm rollback apps/web to revision 9") {
 		t.Errorf("rollback to a missing revision: %v", err)
 	}
 
 	crashed, store2 := sdkFixture(t, common.StatusSuperseded, common.StatusDeployed, common.StatusPendingRollback)
-	if err := crashed.Rollback("apps", "web", 1); err != nil {
+	if err := crashed.Rollback("apps", "web", 1, 0); err != nil {
 		t.Fatalf("finishing a pending rollback: %v", err)
 	}
 	if rls := last(t, store2); rls.Version != 4 || rls.Info.Status != common.StatusDeployed {
 		t.Errorf("after finishing: revision %d status %s", rls.Version, rls.Info.Status)
+	}
+}
+
+// An upgrade or a rollback based on a revision the server no longer holds as its newest (the
+// caller's cache lagged) is refused before the SDK changes anything (review of the fourth run,
+// R-1).
+func TestActionsRefuseWhenTheServerMoved(t *testing.T) {
+	a, store := sdkFixture(t, common.StatusSuperseded, common.StatusDeployed)
+	if _, err := a.Upgrade(context.Background(), "apps", "web", "", 1, map[string]any{"greeting": "stale"}); !errors.Is(err, ErrReleaseMoved) || !errors.Is(err, ErrUnchanged) ||
+		!strings.Contains(err.Error(), "revision 2 on the server") {
+		t.Errorf("upgrade based on revision 1 of 2: %v", err)
+	}
+	if err := a.Rollback("apps", "web", 1, 1); !errors.Is(err, ErrReleaseMoved) || !errors.Is(err, ErrUnchanged) {
+		t.Errorf("rollback based on revision 1 of 2: %v", err)
+	}
+	if rls := last(t, store); rls.Version != 2 || rls.Info.Status != common.StatusDeployed {
+		t.Errorf("the release changed: revision %d status %s", rls.Version, rls.Info.Status)
+	}
+	if _, err := a.Upgrade(context.Background(), "apps", "web", "", 1, map[string]any{"boom": "s3cr3t-value"}); errors.Is(err, ErrReleaseMoved) && strings.Contains(err.Error(), "s3cr3t") {
+		t.Errorf("the refusal quotes a value: %v", err)
 	}
 }
 
@@ -118,7 +138,7 @@ func TestUninstallThroughTheSDK(t *testing.T) {
 // revisions, and refuses another chart version.
 func TestUpgradeThroughTheSDK(t *testing.T) {
 	a, store := sdkFixture(t, common.StatusSuperseded, common.StatusDeployed)
-	rev, err := a.Upgrade(context.Background(), "apps", "web", "1.0.0", map[string]any{"greeting": "hi"})
+	rev, err := a.Upgrade(context.Background(), "apps", "web", "1.0.0", 2, map[string]any{"greeting": "hi"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,13 +152,13 @@ func TestUpgradeThroughTheSDK(t *testing.T) {
 	if prev, err := store.Get("web", 2); err != nil || prev.(*rspb.Release).Info.Status != common.StatusSuperseded {
 		t.Errorf("revision 2 after the upgrade: %v", err)
 	}
-	if _, err := a.Upgrade(context.Background(), "apps", "web", "", nil); err != nil {
+	if _, err := a.Upgrade(context.Background(), "apps", "web", "", 0, nil); err != nil {
 		t.Fatal(err)
 	}
 	if rls := last(t, store); rls.Version != 4 || len(rls.Config) != 0 {
 		t.Errorf("an upgrade with no values reused the old ones: %v", rls.Config)
 	}
-	if _, err := a.Upgrade(context.Background(), "apps", "web", "2.0.0", nil); !errors.Is(err, ErrNoRepository) || !errors.Is(err, ErrUnchanged) {
+	if _, err := a.Upgrade(context.Background(), "apps", "web", "2.0.0", 0, nil); !errors.Is(err, ErrNoRepository) || !errors.Is(err, ErrUnchanged) {
 		t.Errorf("another chart version: %v", err)
 	}
 
@@ -146,7 +166,7 @@ func TestUpgradeThroughTheSDK(t *testing.T) {
 	failing, store3 := sdkFixture(t, common.StatusDeployed)
 	cfg, _ := failing.config("apps", nil)
 	cfg.KubeClient = &kubefake.FailingKubeClient{PrintingKubeClient: kubefake.PrintingKubeClient{Out: io.Discard}, UpdateError: errors.New("the server rejected it")}
-	if _, err := failing.Upgrade(context.Background(), "apps", "web", "", map[string]any{"greeting": "x"}); err == nil || errors.Is(err, ErrUnchanged) ||
+	if _, err := failing.Upgrade(context.Background(), "apps", "web", "", 0, map[string]any{"greeting": "x"}); err == nil || errors.Is(err, ErrUnchanged) ||
 		!strings.Contains(err.Error(), "rejected") {
 		t.Errorf("failing update: %v", err)
 	}
@@ -157,7 +177,7 @@ func TestUpgradeThroughTheSDK(t *testing.T) {
 	many, store2 := sdkFixture(t, common.StatusSuperseded, common.StatusSuperseded, common.StatusSuperseded, common.StatusSuperseded,
 		common.StatusSuperseded, common.StatusSuperseded, common.StatusSuperseded, common.StatusSuperseded, common.StatusSuperseded,
 		common.StatusSuperseded, common.StatusDeployed)
-	if _, err := many.Upgrade(context.Background(), "apps", "web", "", map[string]any{"greeting": "x"}); err != nil {
+	if _, err := many.Upgrade(context.Background(), "apps", "web", "", 0, map[string]any{"greeting": "x"}); err != nil {
 		t.Fatal(err)
 	}
 	if h, _ := store2.History("web"); len(h) != MaxHistory {
@@ -169,11 +189,11 @@ func TestUpgradeThroughTheSDK(t *testing.T) {
 // to the revision before, which is how Cogpit finishes an interrupted upgrade, works.
 func TestUpgradeRefusesAPendingRelease(t *testing.T) {
 	a, store := sdkFixture(t, common.StatusDeployed, common.StatusPendingUpgrade)
-	if _, err := a.Upgrade(context.Background(), "apps", "web", "", map[string]any{"greeting": "x"}); err == nil ||
+	if _, err := a.Upgrade(context.Background(), "apps", "web", "", 0, map[string]any{"greeting": "x"}); err == nil ||
 		!strings.Contains(err.Error(), "in progress") {
 		t.Fatalf("upgrade of a pending release: %v", err)
 	}
-	if err := a.Rollback("apps", "web", 1); err != nil {
+	if err := a.Rollback("apps", "web", 1, 0); err != nil {
 		t.Fatalf("rolling back an interrupted upgrade: %v", err)
 	}
 	if rls := last(t, store); rls.Version != 3 || rls.Info.Status != common.StatusDeployed || rls.Config["rev"] != 1 {
@@ -192,7 +212,7 @@ func TestUpgradeScrubsValuesFromErrors(t *testing.T) {
 		return cfg, nil
 	}
 	a.log = slog.New(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	_, err := a.Upgrade(context.Background(), "apps", "web", "", map[string]any{"boom": "s3cr3t-token", "greeting": "fine"})
+	_, err := a.Upgrade(context.Background(), "apps", "web", "", 0, map[string]any{"boom": "s3cr3t-token", "greeting": "fine"})
 	if err == nil || strings.Contains(err.Error(), "s3cr3t-token") || !strings.Contains(err.Error(), "cannot use "+withheldValue) ||
 		!errors.Is(err, ErrUnchanged) {
 		t.Errorf("error %v", err)
@@ -204,7 +224,7 @@ func TestUpgradeScrubsValuesFromErrors(t *testing.T) {
 		t.Errorf("a failed render made revision %d", rls.Version)
 	}
 	panicky := &Actions{config: func(string, *slog.Logger) (*action.Configuration, error) { panic("boom with s3cr3t-token") }}
-	if _, err := panicky.Upgrade(context.Background(), "apps", "web", "", map[string]any{"x": "s3cr3t-token"}); err == nil ||
+	if _, err := panicky.Upgrade(context.Background(), "apps", "web", "", 0, map[string]any{"x": "s3cr3t-token"}); err == nil ||
 		strings.Contains(err.Error(), "s3cr3t-token") || !strings.Contains(err.Error(), "internal error") {
 		t.Errorf("panic: %v", err)
 	}
@@ -213,14 +233,14 @@ func TestUpgradeScrubsValuesFromErrors(t *testing.T) {
 // A configuration that cannot be made, or an SDK that panics, is the action's error.
 func TestActionsReportFailures(t *testing.T) {
 	broken := &Actions{config: func(string, *slog.Logger) (*action.Configuration, error) { return nil, errors.New("no client") }}
-	if err := broken.Rollback("apps", "web", 1); err == nil || !strings.Contains(err.Error(), "no client") {
+	if err := broken.Rollback("apps", "web", 1, 0); err == nil || !strings.Contains(err.Error(), "no client") {
 		t.Errorf("rollback: %v", err)
 	}
 	panicky := &Actions{config: func(string, *slog.Logger) (*action.Configuration, error) { return &action.Configuration{}, nil }}
 	if err := panicky.Uninstall("apps", "web"); err == nil || !strings.Contains(err.Error(), "internal error") {
 		t.Errorf("uninstall with an empty configuration: %v", err)
 	}
-	if _, err := panicky.Upgrade(context.Background(), "apps", "web", "", nil); err == nil || !strings.Contains(err.Error(), "internal error") {
+	if _, err := panicky.Upgrade(context.Background(), "apps", "web", "", 0, nil); err == nil || !strings.Contains(err.Error(), "internal error") {
 		t.Errorf("upgrade with an empty configuration: %v", err)
 	}
 	if err := NewActions(nil, nil).Uninstall("apps", "web"); err == nil {

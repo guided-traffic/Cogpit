@@ -205,10 +205,11 @@ func (e *scrubError) Error() string   { return e.msg }
 func (e *scrubError) Unwrap() []error { return e.sentinels }
 
 // scrubSentinels are the errors a scrubbed error still matches with errors.Is.
-var scrubSentinels = []error{ErrUnchanged, ErrNoRepository, context.Canceled, context.DeadlineExceeded}
+var scrubSentinels = []error{ErrUnchanged, ErrNoRepository, ErrReleaseMoved, context.Canceled, context.DeadlineExceeded}
 
 // Scrubbed returns err with its text scrubbed of values (ScrubValues), or nil; it still matches
-// ErrUnchanged, ErrNoRepository and the context errors with errors.Is, and nothing else.
+// ErrUnchanged, ErrNoRepository, ErrReleaseMoved and the context errors with errors.Is, and
+// nothing else.
 func Scrubbed(err error, values map[string]any) error {
 	if err == nil {
 		return nil

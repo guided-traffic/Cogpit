@@ -252,10 +252,10 @@ func runRollback(ctx context.Context, s *engine.Session, p rollbackParams) (any,
 		Revision: p.Revision, FromRevision: cur, Started: s.Now().UTC(), StartedBy: startedBy(ctx),
 	}
 	err = runHelmOp(s, op, fmt.Sprintf("Rolling back release %s to revision %d…", ref.Name, p.Revision), func() error {
-		return w.RollbackRelease(ctx, ref.Namespace, ref.Name, p.Revision)
+		return w.RollbackRelease(ctx, ref.Namespace, ref.Name, p.Revision, cur)
 	})
 	if err != nil {
-		return nil, err
+		return nil, movedErr(err)
 	}
 	userToast(s, engine.LevelInfo, fmt.Sprintf("Release %s rolled back to revision %d", ref.Name, p.Revision))
 	return HelmResult{Ref: ref, Action: "rolledBack", Revision: p.Revision}, nil
@@ -281,6 +281,16 @@ func runUninstall(ctx context.Context, s *engine.Session, p refParams) (any, err
 }
 
 // runHelmOp records an action, runs it with a panic boundary (D-11), and records its outcome.
+// movedErr marks an action the Helm SDK refused because the server holds a newer revision than
+// the cache showed (helm.ErrReleaseMoved) as ErrTargetsChanged, as a release that moved in the
+// cache is.
+func movedErr(err error) error {
+	if errors.Is(err, helm.ErrReleaseMoved) && !errors.Is(err, engine.ErrTargetsChanged) {
+		return fmt.Errorf("%w: %w", engine.ErrTargetsChanged, err)
+	}
+	return err
+}
+
 func runHelmOp(s *engine.Session, op engine.PendingHelmOp, starting string, run func() error) error {
 	ops := s.HelmOps()
 	if ops == nil {

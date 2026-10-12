@@ -258,11 +258,11 @@ func runUpgrade(ctx context.Context, s *engine.Session, p upgradeParams) (any, e
 				err = helm.Scrubbed(fmt.Errorf("internal error: %v", r), vals)
 			}
 		}()
-		revision, err = w.UpgradeRelease(ctx, ref.Namespace, ref.Name, engine.HelmUpgradeRequest{ChartVersion: version, Values: vals})
+		revision, err = w.UpgradeRelease(ctx, ref.Namespace, ref.Name, engine.HelmUpgradeRequest{ChartVersion: version, Values: vals, FromRevision: cur})
 		return helm.Scrubbed(err, vals)
 	})
 	if err != nil {
-		return nil, err
+		return nil, movedErr(err)
 	}
 	if revision <= cur {
 		revision = cur + 1

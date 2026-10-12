@@ -79,11 +79,24 @@ func (a *Actions) logger() *slog.Logger {
 // leaves it so (D-11). The Helm SDK takes no context: the action runs to its end or its timeout.
 // A release left pending-upgrade by an interrupted upgrade can be rolled back (the SDK's rollback
 // does not refuse a pending release).
-func (a *Actions) Rollback(namespace, name string, revision int) (err error) {
+//
+// from is the revision the caller saw as the newest (its cache's): when the server holds another
+// one, the rollback is refused with ErrReleaseMoved and ErrUnchanged before anything changes; 0
+// checks nothing.
+func (a *Actions) Rollback(namespace, name string, revision, from int) (err error) {
 	defer recoverAction(&err, "rollback", namespace, name)
 	cfg, err := a.config(namespace, a.logger())
 	if err != nil {
 		return fmt.Errorf("helm rollback %s/%s: %w", namespace, name, err)
+	}
+	if from > 0 {
+		rls, err := lastRelease(cfg, name)
+		if err == nil {
+			err = movedFrom(rls, from)
+		}
+		if err != nil {
+			return fmt.Errorf("helm rollback %s/%s: %w; %w", namespace, name, err, ErrUnchanged)
+		}
 	}
 	rb := action.NewRollback(cfg)
 	rb.Version = revision
@@ -131,7 +144,13 @@ func (a *Actions) Uninstall(namespace, name string) (err error) {
 // the release as it was (refused before the SDK made a revision: a template or schema that
 // rejects the values, a pending release, another chart version) matches ErrUnchanged. It
 // returns the new revision.
-func (a *Actions) Upgrade(ctx context.Context, namespace, name, chartVersion string, values map[string]any) (revision int, err error) {
+//
+// from is the revision the values are based on (the caller's cache's newest): when the server
+// holds another one, the upgrade is refused with ErrReleaseMoved and ErrUnchanged before the SDK
+// runs, so a cache that lags never lets the values replace a revision nobody reviewed; 0 checks
+// nothing. The SDK reads the newest revision again itself, a window of milliseconds, not of a
+// watch's lag.
+func (a *Actions) Upgrade(ctx context.Context, namespace, name, chartVersion string, from int, values map[string]any) (revision int, err error) {
 	defer func() { err = Scrubbed(err, values) }() // last: also scrubs a panic's text
 	defer recoverAction(&err, "upgrade", namespace, name)
 	unchanged := func(err error) error {
@@ -143,6 +162,9 @@ func (a *Actions) Upgrade(ctx context.Context, namespace, name, chartVersion str
 	}
 	rls, err := lastRelease(cfg, name)
 	if err != nil {
+		return 0, unchanged(err)
+	}
+	if err := movedFrom(rls, from); err != nil {
 		return 0, unchanged(err)
 	}
 	if v := rls.Chart.Metadata.Version; chartVersion != "" && chartVersion != v {
@@ -170,6 +192,18 @@ func (a *Actions) Upgrade(ctx context.Context, namespace, name, chartVersion str
 // ErrUnchanged marks an upgrade that failed before it changed the release: no revision was made,
 // and nothing is left to finish or roll back.
 var ErrUnchanged = errors.New("the release is unchanged")
+
+// ErrReleaseMoved marks an action refused because the server holds another newest revision than
+// the one the caller based it on: its cache had not seen a newer one yet.
+var ErrReleaseMoved = errors.New("the release moved")
+
+// movedFrom fails with ErrReleaseMoved when rls is not at revision from (0: no check).
+func movedFrom(rls *rspb.Release, from int) error {
+	if from > 0 && rls.Version != from {
+		return fmt.Errorf("%w: it is at revision %d on the server, the action is based on revision %d", ErrReleaseMoved, rls.Version, from)
+	}
+	return nil
+}
 
 // lastRelease returns a release's newest revision with its chart, as the SDK reads it (a list of
 // the release's Secrets: part of the action).
