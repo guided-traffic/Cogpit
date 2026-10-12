@@ -195,6 +195,21 @@ func (h *harness) must(t testing.TB, origin engine.Origin, id string, params any
 	}
 }
 
+// waitSettled waits until every informer of the connected cluster has synced and opened its watch
+// (testkit.Settled): the baseline of a request budget.
+func (h *harness) waitSettled(t testing.TB) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	b := h.s.Backend()
+	if b == nil {
+		t.Fatal("not connected")
+	}
+	if !testkit.WaitFor(ctx, func() bool { return testkit.Settled(b.Cache, h.src) }) {
+		t.Fatalf("the cache never settled: %+v", b.Cache.Stats())
+	}
+}
+
 func waitTable(t testing.TB, s *engine.Session, view string, cond func(*engine.TableSnapshot) bool) *engine.TableSnapshot {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

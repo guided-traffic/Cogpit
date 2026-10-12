@@ -171,8 +171,13 @@ func TestKindPortForward(t *testing.T) {
 	var echoFwd engine.Forward
 	d.must("service.portForward", map[string]any{"ref": echo, "port": 80}, &echoFwd)
 	first, err := httpGet(ctx, "http://"+echoFwd.Address+"/hostname")
-	if err != nil || first != echoFwd.Pod {
-		t.Fatalf("GET /hostname through the echo forward: %q, %v (forward %+v)", first, err, echoFwd)
+	// The command answered with the forward as it started: Waiting if the cache had not seen the
+	// pod ready yet (the API server said ready above; the watch event can still be on its way). A
+	// connection is carried only once the forward is Active on a pod, so after the GET the forward
+	// names the pod that answered.
+	echoNow, ferr := s.ForwardOf(echoFwd.Ref)
+	if err != nil || ferr != nil || echoNow.Phase != engine.ForwardActive || first != echoNow.Pod {
+		t.Fatalf("GET /hostname through the echo forward: %q, %v (forward %+v, %v; at start %+v)", first, err, echoNow, ferr, echoFwd)
 	}
 	if err := kube.CoreV1().Pods(ns).Delete(ctx, first, metav1.DeleteOptions{}); err != nil {
 		t.Fatal(err)

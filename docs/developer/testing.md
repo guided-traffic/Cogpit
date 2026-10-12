@@ -1,6 +1,6 @@
 # Testing
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (the third run's tiers: scopes, access reviews, port forwarding, Secrets and Helm on kind; timing-dependent tests made deterministic) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (asynchronous results: the rules the CI flakes of 2026-10-12 broke; budget baselines once the cache is settled) · **Target:** Lens Desktop 2026.10.51501
 
 The MVP (2026-10-11) brought the first tiers; the table says for each whether it exists, the
 `make` target and where it lives. Tiers without code are the plan.
@@ -34,6 +34,34 @@ The MVP (2026-10-11) brought the first tiers; the table says for each whether it
 - **API request counting:** tests wrap the client's transport in a counting round-tripper and
   assert the requests a scenario may cost.
 
+## Asynchronous results
+
+CI runs on slower, loaded machines (a three-core macOS runner for the race tests); a test that
+passes here because goroutines usually finish in some order fails there. The rules the flaky tests
+of 2026-10-12 broke:
+
+- **Wait for the result, never for time.** Poll the condition with a deadline
+  (`testkit.WaitFor`, `waitTable`, a UI test's `q.until`), or gate the step that has to come
+  first. A bare sleep is neither a wait nor a proof that something did not happen.
+- **Wait for the thing you assert, not for something that usually comes with it.** A synced
+  events table is not a synced Workloads Overview (its kinds list on their own); a recorded
+  `Dispatch` call is not its UI state change (the fake records the call first); an `EventKinds`
+  after a change may be one still on its way from before it.
+- **Request budgets take their baseline once the cache is settled.** A list-then-watch
+  informer reports synced after its list and opens its watch only after that, and a view or
+  drawer acquires its informers (endpoint slices of services, the drawer's events) without
+  waiting for them. On a `MemorySource`, wait for `testkit.Settled(cache, src)` (every informer
+  synced and its watch open) before reading the counters, and again before comparing them; on
+  the fake API server, wait for `OpenWatches`. A budget stays at what it is: an extra request
+  after a settled baseline is a finding, not noise.
+- **State a test sets on a fake while a shell runs goes through the fake's lock** (`update`),
+  and a test that starts a second shell on the same fake stops the first one.
+- **Reproduce before fixing.** Run the test many times under load (`go test -race -count=50
+  -cpu 1,2` while other packages' tests run), or make the suspected window wide on purpose: a
+  short delay in a fake source's List and Watch, or in a fake's handler, turns a rare
+  interleaving into a deterministic one. A product race gets a regression test that forces the
+  interleaving (a gated source, a held mutex), not one that hopes to hit it.
+
 ## Performance budgets (proposed, not measured)
 
 Targets to validate against Lens Desktop on the same machine before they are enforced. The heading
@@ -52,7 +80,7 @@ keeps its name so that links survive; the "Measured" column holds what Cogpit re
 | P8 | Type into a 5 MB YAML document in the editor, highlighting on | keystroke to repaint ≤ 16 ms | real window, one keystroke per frame: widget work p50 0.09 ms, max 2.1 ms; one frame of 19 ms in 645 keystrokes |
 | P9 | A view stays open on an idle cluster for 10 minutes | 0 list requests; only the view's watches | 0 requests in 2 s idle (fake API server) and 3 s idle (kind); 1 streaming watch per kind (`TestBudgetIdleViewAndWarmReopen`, `TestKindIdleViewsCostNoLists`); 10 minutes not run |
 | P10 | Reopen a view within the warm period | 0 list requests; rows shown ≤ 100 ms | 0 requests, rows in ~90 µs in the engine (fake API server); in the real window 48–51 ms from the switch to the rows on screen; a view opened for the first time on the demo cluster shows rows after 109–149 ms |
-| P11 | An agent asks `ui_state`, `resources_find` and `ui_navigate` for an object in a warm cache | 0 API requests | 0 lists and 0 watches on the source (`TestShowcaseServiceByClusterIP`) |
+| P11 | An agent asks `ui_state`, `resources_find` and `ui_navigate` for an object in a warm cache | 0 API requests | 0 lists and 0 watches on the source (`TestShowcaseServiceByClusterIP`; counted from a settled cache to a settled cache since 2026-10-12) |
 
 ## Before a pull request
 

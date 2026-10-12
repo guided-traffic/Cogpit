@@ -1,12 +1,15 @@
 package commands_test
 
 import (
+	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
 	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/testkit"
 )
 
 // TestWorkloadsOverviewCommands: an agent opens the Workloads Overview as a page, reads it, and
@@ -23,8 +26,18 @@ func TestWorkloadsOverviewCommands(t *testing.T) {
 		t.Fatalf("state %+v", st)
 	}
 
+	// The open page answers with its latest build; the events table above synced on its own, the
+	// kinds' lists may still be running (Synced false, counts 0), as an agent would see them too.
 	var res commands.OverviewResult
-	h.must(t, agent, "workloads.overview", map[string]any{"events": true}, &res)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if !testkit.WaitFor(ctx, func() bool {
+		res = commands.OverviewResult{}
+		h.must(t, agent, "workloads.overview", map[string]any{"events": true}, &res)
+		return res.Synced
+	}) {
+		t.Fatalf("the open page never synced: %+v", res.Kinds)
+	}
 	if len(res.Kinds) != 2 || res.Kinds[0].Kind != "pods" || res.Kinds[0].Count != 4 || res.Kinds[1].Kind != "deployments" || res.Kinds[1].Count != 2 {
 		t.Fatalf("overview kinds %+v", res.Kinds)
 	}

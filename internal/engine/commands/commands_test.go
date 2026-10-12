@@ -167,10 +167,13 @@ func TestMCPFindAndNavigate(t *testing.T) {
 	flow()
 	h.must(t, engine.OriginGUI, "ui.openView", map[string]any{"view": "pods"}, nil)
 	waitTable(t, h.s, "pods", func(s *engine.TableSnapshot) bool { return s.Synced })
+	// The baseline once every informer the first flow started has synced and opened its watch:
+	// a synced view's informer may not have reached its watch yet (docs/developer/testing.md).
+	h.waitSettled(t)
 
 	lists, watches := h.src.Lists(), h.src.Watches()
 	flow()
-	time.Sleep(50 * time.Millisecond) // a late informer start would show up now
+	h.waitSettled(t) // an informer the warm flow started has listed and watched by now
 	if dl, dw := h.src.Lists()-lists, h.src.Watches()-watches; dl != 0 || dw != 0 {
 		t.Errorf("the warm flow cost %d lists and %d watches, want 0", dl, dw)
 	}

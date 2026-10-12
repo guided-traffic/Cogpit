@@ -53,6 +53,37 @@ func (m *MemorySource) Lists() int64 { return m.lists.Load() }
 // Watches returns the number of Watch calls so far.
 func (m *MemorySource) Watches() int64 { return m.watches.Load() }
 
+// Watching reports whether a watch on scope is open right now: started and not stopped.
+func (m *MemorySource) Watching(scope cache.Scope) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for w := range m.watchers[scope.GVR] {
+		if w.scope != scope {
+			continue
+		}
+		select {
+		case <-w.stop: // stopped; its removal is on its way
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+// Settled reports whether every informer of c has synced and holds its watch on src open. An
+// informer that lists, then watches, reports synced after its list and opens its watch only after
+// that, and a view or drawer that opened acquires its informers without waiting for either: a
+// request count read before Settled holds can still miss a list or a watch the scenario already
+// caused. Tests that assert request budgets on a MemorySource take their baseline once it holds.
+func Settled(c *cache.Cache, src *MemorySource) bool {
+	for _, st := range c.Stats() {
+		if !st.Synced || !src.Watching(st.Scope) {
+			return false
+		}
+	}
+	return true
+}
+
 // Set adds or replaces an object and sends Added or Modified to the watchers. It assigns the
 // object's resourceVersion.
 func (m *MemorySource) Set(gvr schema.GroupVersionResource, obj *unstructured.Unstructured) {

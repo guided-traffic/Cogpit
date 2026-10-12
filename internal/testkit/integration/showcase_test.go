@@ -146,11 +146,24 @@ func TestShowcaseServiceByClusterIP(t *testing.T) {
 		callTool(ctx, t, cs, "ui_state", map[string]any{}, &state)
 	}
 
+	settled := func() {
+		t.Helper()
+		if !testkit.WaitFor(ctx, func() bool { return testkit.Settled(s.Backend().Cache, src) }) {
+			t.Fatalf("the cache never settled: %+v", s.Backend().Cache.Stats())
+		}
+	}
+
 	showcase()
+	// The baseline once every informer the first round started (the pods of the first view, the
+	// services, their endpoint slices, the drawer's events) has synced and opened its watch: the
+	// round waits for the services' row only, and on a slow machine the other lists and watches
+	// reached the source after a baseline taken right away.
+	settled()
 	lists, watches := src.Lists(), src.Watches()
 	// Leave the view so the informer is released, then repeat on the warm cache.
 	callTool(ctx, t, cs, "ui_openView", map[string]any{"view": "pods"}, nil)
 	showcase()
+	settled() // an informer the warm round started has listed and watched by now
 	if src.Lists() != lists || src.Watches() != watches {
 		t.Errorf("warm repeat cost %d lists and %d watches, want 0 and 0 (P11)", src.Lists()-lists, src.Watches()-watches)
 	}

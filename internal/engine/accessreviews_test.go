@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -475,10 +476,19 @@ func TestAccessListable(t *testing.T) {
 			t.Errorf("rules reviews %v, want default and ns-0 … ns-4 once each", rules)
 		}
 		// A namespace created later is reviewed when the sidebar asks again, which its event makes
-		// it do.
-		rec := record(s)
+		// it do. Only an EventKinds sent once the cache holds the namespace counts: one still on
+		// its way from the answers above let the sidebar ask before the namespace arrived.
+		nsHandle := b.Acquire(testNamespaces)
+		defer nsHandle.Release()
+		var asked atomic.Bool
+		unsub := s.Subscribe(func(ev Event) {
+			if _, arrived := nsHandle.Get("", "ns-new"); arrived && ev.Type == EventKinds {
+				asked.Store(true)
+			}
+		})
+		defer unsub()
 		src.Set(testkit.NamespacesGVR, testkit.Object("v1", "Namespace", "", "ns-new", nil))
-		waitCond(t, "EventKinds after the new namespace", func() bool { return rec.count(EventKinds, "") > 0 })
+		waitCond(t, "EventKinds after the new namespace", asked.Load)
 		listable(t, b, testDeployments, nil)
 		if rules, _ := rev.calls(); rules["ns-new"] != 1 {
 			t.Errorf("the new namespace was not reviewed: %v", rules)
