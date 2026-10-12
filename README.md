@@ -51,7 +51,7 @@ it. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
 - 🔐 Your credentials stay yours: kubectl's own authentication code (certificates, tokens, exec plugins for EKS, GKE, AKS); no local proxy, no login.
 - ⚡ Cache first: views read from a watch-fed cache; switching back to a view costs no API request.
 - 📋 Lens's resource views: workloads, config, network, storage, access control, custom resources.
-- 📜 Logs with follow, filter, timestamps and the previous container.
+- 📜 Logs with follow, filter, timestamps, the previous container, pod and container selectors, older lines and a jump to a time.
 - 💻 Pod shells, attach, node shells, and a terminal bound to the cluster's context.
 - ✏️ YAML editing with a diff and a server-side dry-run before every apply.
 - 🔌 Port forwarding, one click to the browser.
