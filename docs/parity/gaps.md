@@ -466,7 +466,17 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   which the demo changes every few seconds) widened the drawer and made the whole layout jump. The
   user sets the width by dragging the drawer's edge, and it stays; long values wrap or are cut.
   The user can also set the width of the primary sidebar (the navigator) by dragging its edge.
-  Both widths persist. In progress 2026-10-12.
+  Both widths persist. **Built 2026-10-12** ([`panelwidths.go`](../../internal/ui/fyneui/panelwidths.go),
+  [architecture §4.3](../developer/architecture.md#43-ui-state)): the drawer and the sidebar are a fixed
+  number of points wide, set by dragging their edge (drawer 320 to 1000, default 600; sidebar 160 to 480,
+  default 216; the table keeps 480 beside the drawer), stored in Fyne's preferences when the drag ends
+  and restored at the next start; GUI-only, not engine state. The cause was the `container.Split`
+  clamping its offset by the drawer's content-driven minimum width. Long values now wrap (statuses,
+  properties, chips) or are cut (title bar, event header, links, lines), the full text stays in the copy
+  icon and the selection (`TestDrawerWidthNeverFollowsItsContent`, `TestDrawerWidthByDraggingItsEdge`,
+  `TestSidebarWidthByDraggingItsEdge`, `TestPanelWidthsSurviveARestart`, `TestDrawerRebuildsToItsWidth`;
+  render `TestRenderDrawerLongStatus`). Not verified: dragging with a real pointer in a window (the tests
+  drive the handle's `Dragged` events), Fyne's preference file on disk across a real restart.
 - **Missing:** the Fyne window layout, the cluster sidebar, the table, the detail drawer and the
   dock frame; Cogpit's Fyne theme. Needs the [spike](../developer/spike-fyne.md) to pass.
 - **Evidence:** [ui-parity](ui-parity.md), 18 of 40 rows partial across Layout, Cluster sidebar,

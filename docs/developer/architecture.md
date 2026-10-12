@@ -384,6 +384,36 @@ drawer work on them; `Session.ViewProfile` returns a page's table profile, so `u
 Agents read it with `ui_state`: this is how the built-in agent knows which object the user means
 by "this pod".
 
+**Panel widths are GUI-only** (decided 2026-10-12, [`panelwidths.go`](../../internal/ui/fyneui/panelwidths.go)):
+the width of the primary sidebar and of the detail drawer is a window-layout preference, not UI
+state. What an agent drives is what the views show (view, filter, selection, which object the
+drawer shows); how many points wide a panel is changes none of it, so no command sets the widths
+and `ui_state` does not report them. The user drags a panel's edge (a 5 point grab area with a
+one point line, the resize cursor and a highlight under the pointer); the width is kept in Fyne's
+preferences (`cogpit.ui.sidebarWidth`, `cogpit.ui.drawerWidth`, in points) when the drag ends and
+read again when the shell is built. Bounds: sidebar 160 to 480 (default 216), drawer 320 to 1000
+(default 600), and the room beside a panel (the workspace beside the sidebar, the table beside the
+drawer) keeps 480 points, whichever comes first; a stored value outside the bounds, zero or not a
+number is clamped or replaced by the default, and a window too narrow for the stored width shows
+the panel narrower without overwriting the stored value.
+
+**Why the content used to drive the drawer's width, and the rule now.** The drawer sat in a
+`container.Split` whose offset is a fraction, and a Split clamps it by the minimum sizes of its
+children: the drawer's minimum width was the widest thing in it (a status pill, an event's
+header line, an unwrapped line), so a long value, such as a container's
+`Waiting: CrashLoopBackOff (back-off …)` that the demo changes every few seconds, pushed the
+divider and, through the window's minimum size, the table's columns and the toolbar with it. Now a
+panel is a fixed number of points wide (`panelLayout`), its container's minimum width is a constant
+whatever it holds, and the drawer builds its widgets to the width it has
+(`drawer.contentWidth`, rebuilt by `widthChanged` when a layout gives it another): pills for
+statuses, properties and chips wrap at any character (`wrapHard`) within a value's width, the
+title bar's status pill is cut at 40% of the drawer, an event's header line cuts the reason and the
+source (`eventHead`), links, text lines and table cells were already cut with an ellipsis, and the
+event message is a wrapping label. The full text of a cut value stays available through the copy
+icon and the selection ([D-25](decisions.md#d-25-copying-values)). A new drawer widget must not ask
+for width beyond `contentWidth`; `TestDrawerWidthNeverFollowsItsContent` checks this on a model
+with a 400-character value of every kind.
+
 ### 4.4 Tables, details, editors and streams
 
 - **Tables:** `TableSnapshot{Columns, Rows, Sort, Filter, Total, Revision}`; rows carry display
@@ -1145,6 +1175,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | §4.3: panel widths (sidebar, drawer) are user-dragged, stored in the preferences and GUI-only; why the drawer followed its content and the rule that ends it |
 | 2026-10-12 | minor | §6: sync folders read dot files (regular files only); `~/.kube` a default sync folder and what that means for the trust model; one dialog for files and folders; a connection closed when its file goes; the connect log |
 | 2026-10-12 | minor | Fifth run, look and use (D-22 to D-25): Solarized theme tokens and the terminal palette, the status bar link, the C helm logo (`internal/ui/logo`), copying values from the drawer (selectable lines, one copy icon, entries in YAML, a copied Secret value cleared from the clipboard); current state row |
 | 2026-10-12 | minor | Review of the fourth run, fixed (§4: an apply from a tab's text bound to its text revision, R-10; §5 Secrets: a revealed value bound to the Secret's version, R-6; §5 covering scopes: a handover that timed out before the own informer's first list keeps the view instead of reporting every object deleted, R-7, and an exact handover during a relist keeps what the new informer holds, R-8; §8): an upgrade from a tab bound to the tab's text revision (R-2); upgrade and rollback checked against the server's newest revision, not only the cache's (R-1); values scrubbed in their quoted forms (R-4); the Rollback dialog's answer bound to the picked revision and dropped after its dispatch (R-3) |

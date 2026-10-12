@@ -193,13 +193,17 @@ func (r *surfaceRenderer) Refresh() {
 
 // pill is a short text on a rounded background: a status badge, or a tag such as "current".
 // With a status colour the background is the same hue, translucent; otherwise it is the chip
-// colour.
+// colour. A pill with a maximum width (maxW) never asks for more: a longer text is cut with an
+// ellipsis, or with wrap set broken into lines, so that a long value cannot widen what holds it
+// (the detail drawer's width is the user's, panelwidths.go).
 type pill struct {
 	widget.BaseWidget
 	text   string
 	fg     fyne.ThemeColorName
 	tinted bool // background tinted from fg instead of the chip colour
 	bold   bool
+	maxW   float32 // the widest the pill may be, padding included; 0: as wide as its text
+	wrap   bool    // with maxW: break a longer text into lines instead of cutting it
 }
 
 func newPill(text string, fg fyne.ThemeColorName, tinted bool) *pill {
@@ -217,17 +221,29 @@ func (p *pill) Set(text string, fg fyne.ThemeColorName) {
 	p.Refresh()
 }
 
+// wrapped is the lines the pill's text is shown in.
+func (p *pill) wrapped() []string { return (&pillRenderer{p: p}).shown() }
+
+// limit sets the maximum width and whether a longer text wraps; an unchanged limit costs nothing.
+func (p *pill) limit(maxW float32, wrap bool) {
+	if maxW == p.maxW && wrap == p.wrap {
+		return
+	}
+	p.maxW, p.wrap = maxW, wrap
+	p.Refresh()
+}
+
 // CreateRenderer implements fyne.Widget.
 func (p *pill) CreateRenderer() fyne.WidgetRenderer {
-	r := &pillRenderer{p: p, bg: canvas.NewRectangle(color.Transparent), txt: canvas.NewText("", color.Transparent)}
+	r := &pillRenderer{p: p, bg: canvas.NewRectangle(color.Transparent)}
 	r.Refresh()
 	return r
 }
 
 type pillRenderer struct {
-	p   *pill
-	bg  *canvas.Rectangle
-	txt *canvas.Text
+	p    *pill
+	bg   *canvas.Rectangle
+	txts []*canvas.Text
 }
 
 func (r *pillRenderer) padding() (h, v float32) {
@@ -235,10 +251,37 @@ func (r *pillRenderer) padding() (h, v float32) {
 	return pad * 2, pad / 2
 }
 
+func (r *pillRenderer) textSize() float32 {
+	return r.p.Theme().Size(theme.SizeNameCaptionText)
+}
+
+// lineHeight is the height of one line of the pill's text.
+func (r *pillRenderer) lineHeight() float32 {
+	return fyne.MeasureText("Mg", r.textSize(), fyne.TextStyle{Bold: r.p.bold}).Height
+}
+
+// shown is the pill's text as lines: one, or, within maxW, the wrapped or the cut text.
+func (r *pillRenderer) shown() []string {
+	p := r.p
+	size, style := r.textSize(), fyne.TextStyle{Bold: p.bold}
+	if p.maxW <= 0 {
+		return []string{p.text}
+	}
+	h, _ := r.padding()
+	avail := p.maxW - 2*h
+	if p.wrap {
+		return wrapHard(p.text, avail, size, style)
+	}
+	return []string{ellipsize(p.text, avail, size, style)}
+}
+
 func (r *pillRenderer) MinSize() fyne.Size {
 	h, v := r.padding()
-	t := r.txt.MinSize()
-	return fyne.NewSize(t.Width+2*h, t.Height+2*v)
+	var w float32
+	for _, t := range r.txts {
+		w = fyne.Max(w, t.MinSize().Width)
+	}
+	return fyne.NewSize(w+2*h, float32(len(r.txts))*r.lineHeight()+2*v)
 }
 
 func (r *pillRenderer) Layout(size fyne.Size) {
@@ -246,19 +289,35 @@ func (r *pillRenderer) Layout(size fyne.Size) {
 	// A pill keeps its own height and sits centred, so that a tall row does not stretch it.
 	y := (size.Height - ms.Height) / 2
 	r.bg.Move(fyne.NewPos(0, y))
-	r.bg.Resize(fyne.NewSize(ms.Width, ms.Height))
-	t := r.txt.MinSize()
-	r.txt.Move(fyne.NewPos((ms.Width-t.Width)/2, y+(ms.Height-t.Height)/2))
-	r.txt.Resize(t)
+	r.bg.Resize(ms)
+	h, v := r.padding()
+	lh := r.lineHeight()
+	for i, t := range r.txts {
+		tw := t.MinSize().Width
+		x := h
+		if len(r.txts) == 1 {
+			x = (ms.Width - tw) / 2
+		}
+		t.Move(fyne.NewPos(x, y+v+float32(i)*lh))
+		t.Resize(fyne.NewSize(tw, lh))
+	}
 }
 
 func (r *pillRenderer) Refresh() {
 	th := r.p.Theme()
 	fg := themeColor(th, r.p.fg)
-	r.txt.Text = r.p.text
-	r.txt.Color = fg
-	r.txt.TextSize = th.Size(theme.SizeNameCaptionText)
-	r.txt.TextStyle = fyne.TextStyle{Bold: r.p.bold}
+	lines := r.shown()
+	for len(r.txts) < len(lines) {
+		r.txts = append(r.txts, canvas.NewText("", color.Transparent))
+	}
+	r.txts = r.txts[:len(lines)]
+	for i, t := range r.txts {
+		t.Text = lines[i]
+		t.Color = fg
+		t.TextSize = r.textSize()
+		t.TextStyle = fyne.TextStyle{Bold: r.p.bold}
+		t.Refresh()
+	}
 	if r.p.tinted {
 		r.bg.FillColor = withAlpha(fg, 0x2c)
 	} else {
@@ -267,11 +326,17 @@ func (r *pillRenderer) Refresh() {
 	r.bg.CornerRadius = th.Size(sizeChipRadius)
 	r.Layout(r.p.Size())
 	r.bg.Refresh()
-	r.txt.Refresh()
 }
 
-func (r *pillRenderer) Objects() []fyne.CanvasObject { return []fyne.CanvasObject{r.bg, r.txt} }
-func (r *pillRenderer) Destroy()                     {}
+func (r *pillRenderer) Objects() []fyne.CanvasObject {
+	objs := make([]fyne.CanvasObject, 1, 1+len(r.txts))
+	objs[0] = r.bg
+	for _, t := range r.txts {
+		objs = append(objs, t)
+	}
+	return objs
+}
+func (r *pillRenderer) Destroy() {}
 
 // dot is a small filled circle in a theme colour: connection state, a status marker.
 type dot struct {
@@ -430,6 +495,36 @@ func wrapLines(text string, width, size float32, style fyne.TextStyle) []string 
 		lines = append(lines, line)
 	}
 	return lines
+}
+
+// wrapHard is wrapLines that also breaks a word wider than width, at any character: a value such
+// as "pod=alert-api-5d9c8b7f6-x2x4v(047c82cc-1c0e-4b7e)" has no space to break at.
+func wrapHard(text string, width, size float32, style fyne.TextStyle) []string {
+	if width <= 0 {
+		return []string{text}
+	}
+	var out []string
+	for _, line := range wrapLines(text, width, size, style) {
+		for fyne.MeasureText(line, size, style).Width > width {
+			runes := []rune(line)
+			if len(runes) < 2 {
+				break
+			}
+			lo, hi := 1, len(runes)-1
+			for lo < hi { // the longest prefix that fits, at least one character
+				mid := (lo + hi + 1) / 2
+				if fyne.MeasureText(string(runes[:mid]), size, style).Width <= width {
+					lo = mid
+				} else {
+					hi = mid - 1
+				}
+			}
+			out = append(out, string(runes[:lo]))
+			line = string(runes[lo:])
+		}
+		out = append(out, line)
+	}
+	return out
 }
 
 // paragraph is text wrapped to a known width. widget.Label wraps too, but reports its height

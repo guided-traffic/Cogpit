@@ -28,7 +28,6 @@ const (
 	searchDebounce   = 150 * time.Millisecond // typing pause before the filter is sent
 	ageRefresh       = 10 * time.Second       // how often age cells are re-rendered
 	toastLifetime    = 5 * time.Second
-	drawerOffset     = 0.55 // the table's share of the width while the drawer is open (drawer ≈ 45%)
 	dockOffset       = 0.66 // the workspace's share of the height while the dock is open
 	diagnosticsEvery = 250 * time.Millisecond
 )
@@ -89,7 +88,12 @@ type shell struct {
 	helm      *helmBanner  // unfinished Helm release actions, below the drains (helmbanner.go)
 	titlebar  *titlebar    // Cogpit's own title bar on macOS (titlebar.go)
 
-	hsplit    *container.Split // table | drawer
+	hsplit    *fyne.Container // table | drawer, the drawer's width set by the user (panelwidths.go)
+	mainRow   *fyne.Container // sidebar | body, the sidebar's width set by the user
+	sidebarW  float32         // the user's widths of the two panels, stored in the preferences
+	drawerW   float32
+	sideLay   *panelLayout
+	drawerLay *panelLayout
 	vsplit    *container.Split // workspace / dock
 	workspace *fyne.Container  // the table view, or hsplit while the drawer is open
 	body      *fyne.Container  // the workspace, with the dock below it
@@ -126,6 +130,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.ctx, sh.cancel = context.WithCancel(context.Background())
 	sh.saveFile = func(name string, rows int, data []byte) { sh.saveWithDialog(name, rows, data, nil) }
 	sh.titlebar = newTitlebar(sh)
+	sh.loadWidths() // before the drawer, which wraps its values to the width it will have
 
 	sh.top = newTopBar(sh)
 	sh.side = newSidebar(sh)
@@ -141,16 +146,25 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.toasts = box(&toastLayout{})
 	sh.tip = newTooltip(sh)
 
-	sh.hsplit = container.NewHSplit(sh.view.root, sh.drawer.root)
-	sh.hsplit.SetOffset(drawerOffset)
+	sh.drawerLay = &panelLayout{want: func() float32 { return sh.drawerW }, lo: minDrawerWidth, hi: maxDrawerWidth, restMin: minTableRoom,
+		onGot: func(float32) { sh.do(sh.drawer.widthChanged) }}
+	sh.hsplit = newPanel(sh.drawerLay, sh.drawer.root, sh.view.root, newResizeHandle(-1,
+		func() float32 { return sh.drawerLay.got },
+		func(w float32) float32 { return sh.setDrawerWidth(w) },
+		sh.saveWidths))
 	sh.vsplit = container.NewVSplit(widget.NewLabel(""), widget.NewLabel(""))
 	sh.vsplit.SetOffset(dockOffset)
 	sh.workspace = container.NewStack(sh.view.root)
 	sh.body = container.NewStack()
 	sh.layoutBody()
 
-	sidebar := sized(sizeSidebarWidth, "", newSurface(colorSidebar), sh.side.root)
-	main := container.NewBorder(nil, nil, container.NewHBox(sidebar, newDivider(true)), nil, sh.body)
+	sidebar := box(lockedWidth{}, newSurface(colorSidebar), sh.side.root)
+	sh.sideLay = &panelLayout{first: true, want: func() float32 { return sh.sidebarW }, lo: minSidebarWidth, hi: maxSidebarWidth, restMin: minTableRoom}
+	main := newPanel(sh.sideLay, sidebar, sh.body, newResizeHandle(1,
+		func() float32 { return sh.sideLay.got },
+		func(w float32) float32 { return sh.setSidebarWidth(w) },
+		sh.saveWidths))
+	sh.mainRow = main
 	frame := container.NewBorder(
 		container.NewVBox(sh.top.root, newDivider(false), sh.drains.root, sh.helm.root),
 		container.NewVBox(newDivider(false), sh.status.root),
@@ -373,7 +387,6 @@ func (sh *shell) drawerChanged() {
 		sh.drawer.clear()
 		sh.workspace.Objects = []fyne.CanvasObject{sh.view.root}
 	} else {
-		sh.hsplit.Leading, sh.hsplit.Trailing = sh.view.root, sh.drawer.root
 		sh.workspace.Objects = []fyne.CanvasObject{sh.hsplit}
 		sh.hsplit.Refresh()
 		sh.drawer.request()

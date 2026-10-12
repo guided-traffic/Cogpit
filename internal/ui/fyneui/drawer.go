@@ -30,7 +30,8 @@ const (
 // menu), then the Properties section, the kind's own sections and the events. Cogpit's YAML view
 // is a second tab. It refreshes when the engine reports the object changed.
 type drawer struct {
-	sh *shell
+	sh    *shell
+	width float32 // the drawer's width the details were built for (contentWidth)
 
 	shown       *model.ObjectRef
 	last        *engine.DetailModel
@@ -95,9 +96,42 @@ func newDrawer(sh *shell) *drawer {
 	header := container.NewStack(newSurface(colorDrawerHeader),
 		inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding,
 			container.NewVBox(d.kind, titleRow, d.missing)))
-	d.root = container.NewStack(newSurface(colorDrawer),
+	// The root's minimum width is a constant: the drawer's width is the user's (panelwidths.go).
+	d.root = box(lockedWidth{}, newSurface(colorDrawer),
 		container.NewBorder(container.NewVBox(header, newDivider(false)), nil, nil, nil, d.body))
+	d.width = clampWidth(sh.drawerW, minDrawerWidth, maxDrawerWidth, minDrawerWidth)
+	d.status.limit(d.statusWidth(), false)
 	return d
+}
+
+// contentWidth is the width of the details: the drawer's width less its padding and the scroll
+// bar. The widgets of the details are built to it, so that none asks for more than the drawer has
+// (long values wrap or are cut), and they are built again when the drawer's width changes.
+func (d *drawer) contentWidth() float32 {
+	th := d.sh.app.Settings().Theme()
+	return max(d.width-2*th.Size(theme.SizeNameInnerPadding)-th.Size(theme.SizeNameScrollBar)-th.Size(theme.SizeNamePadding), 0)
+}
+
+// valueWidth is the width of a value beside its name in a Properties-style grid (kvLayout).
+func (d *drawer) valueWidth() float32 {
+	th := d.sh.app.Settings().Theme()
+	return max(d.contentWidth()-th.Size(sizeDrawerLabel)-2*th.Size(theme.SizeNamePadding), 0)
+}
+
+// statusWidth is the most the status pill in the title bar may take: the title and the icons
+// keep the rest.
+func (d *drawer) statusWidth() float32 { return d.width * 0.4 }
+
+// widthChanged runs after a layout gave the drawer another width (a drag, the window's size): the
+// widgets that were built to the old width are built again to the new one.
+func (d *drawer) widthChanged() {
+	w := d.sh.drawerLay.got
+	if w == d.width || w <= 0 {
+		return
+	}
+	d.width = w
+	d.status.limit(d.statusWidth(), false)
+	d.rebuild()
 }
 
 // request fetches the drawer object's detail and evaluates its actions off the main goroutine,
@@ -546,9 +580,9 @@ func (d *drawer) plainValue(ref model.ObjectRef, it model.DetailItem, copyable b
 		l.hook = d.copyFor(copyOf(it.Value), false)
 		return l
 	case it.Pill:
-		return wrapCopy(container.NewHBox(newPill(it.Value, colorMuted, true)), d.copyFor(copyOf(it.Value), false))
+		return wrapCopy(container.NewHBox(d.valuePill(it.Value, colorMuted, true)), d.copyFor(copyOf(it.Value), false))
 	case it.Status != model.StatusNone:
-		return wrapCopy(container.NewHBox(newPill(it.Value, statusColorName(it.Status), true)), d.copyFor(copyOf(it.Value), false))
+		return wrapCopy(container.NewHBox(d.valuePill(it.Value, statusColorName(it.Status), true)), d.copyFor(copyOf(it.Value), false))
 	}
 	if len(lines) == 1 {
 		return d.line(it.Value, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{}, true, copyOf(it.Value))
@@ -560,14 +594,27 @@ func (d *drawer) plainValue(ref model.ObjectRef, it model.DetailItem, copyable b
 	return v
 }
 
+// valuePill is a pill for a value in the details: as wide as its text up to the width a value has
+// beside its name, then wrapped (the text stays whole in the copy icon and the selection).
+func (d *drawer) valuePill(text string, fg fyne.ThemeColorName, tinted bool) *pill {
+	p := newPill(text, fg, tinted)
+	p.limit(d.valueWidth(), true)
+	return p
+}
+
 // chips renders a list as chips: a short list on one line, a longer one a chip per line. A chip
-// with a status is tinted in its colour; one with a link goes to the object.
+// with a status is tinted in its colour; one with a link goes to the object. A list that does
+// not fit the value's width on one line takes a line per chip, and a chip wider than the width
+// wraps.
 func (d *drawer) chips(ref model.ObjectRef, chips []model.Chip, copyOf func(string) string) fyne.CanvasObject {
 	total := 0
+	var natural float32
+	size := d.sh.app.Settings().Theme().Size(theme.SizeNameCaptionText)
 	for _, c := range chips {
 		total += len(c.Text)
+		natural += fyne.MeasureText(c.Text, size, fyne.TextStyle{}).Width + 3*d.sh.app.Settings().Theme().Size(theme.SizeNamePadding)
 	}
-	oneLine := len(chips) <= chipsPerLine && total <= chipsLineMaxText
+	oneLine := len(chips) <= chipsPerLine && total <= chipsLineMaxText && natural <= d.valueWidth()
 	out := container.NewVBox()
 	line := container.NewHBox()
 	for _, c := range chips {
@@ -575,11 +622,11 @@ func (d *drawer) chips(ref model.ObjectRef, chips []model.Chip, copyOf func(stri
 		switch {
 		case c.Link != nil && d.sh.view.serves(c.Link.Kind):
 			link := *c.Link
-			o = newTapTarget(newPill(c.Text, colorLink, false), func() { d.sh.followLink(link, ref.Context, false) })
+			o = newTapTarget(d.valuePill(c.Text, colorLink, false), func() { d.sh.followLink(link, ref.Context, false) })
 		case c.Status != model.StatusNone:
-			o = newPill(c.Text, statusColorName(c.Status), true)
+			o = d.valuePill(c.Text, statusColorName(c.Status), true)
 		default:
-			o = newPill(c.Text, theme.ColorNameForeground, false)
+			o = d.valuePill(c.Text, theme.ColorNameForeground, false)
 		}
 		o = wrapCopy(o, d.copyFor(copyOf(c.Text), false))
 		if oneLine {
@@ -777,16 +824,61 @@ func (d *drawer) buildEvents(events []engine.EventItem) []fyne.CanvasObject {
 		if e.LastSeen > 0 {
 			meta = append(meta, model.FormatAge(now.Sub(time.Unix(e.LastSeen, 0)))+" ago")
 		}
-		head := container.NewBorder(nil, nil,
-			container.NewHBox(newPill(e.Type, statusColorName(st), true),
-				d.line(e.Reason, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true}, false, "")),
-			d.line(strings.Join(meta, " · "), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{}, false, ""))
+		head := box(eventHead{},
+			newPill(e.Type, statusColorName(st), true),
+			d.line(e.Reason, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true}, true, e.Reason),
+			d.line(strings.Join(meta, " · "), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{}, true, ""))
 		msg := widget.NewLabel(e.Message)
 		msg.Wrapping = fyne.TextWrapWord
 		msg.Selectable = true
 		out = append(out, container.NewVBox(head, wrapCopy(msg, d.copyFor(e.Message, false))), newDivider(false))
 	}
 	return out
+}
+
+// eventHead lays out an event's first line: the type pill, the reason beside it and the source,
+// count and age at the right. It asks for the pill's width only; when the line is wider than the
+// drawer, the meta text keeps at most 45% of what the pill leaves and the reason the rest, and
+// both are cut (the drawer's width is the user's, panelwidths.go). Objects: pill, reason, meta.
+type eventHead struct{}
+
+func (eventHead) gap() float32 {
+	return fyne.CurrentApp().Settings().Theme().Size(theme.SizeNamePadding) * 2
+}
+
+func (eventHead) natural(o fyne.CanvasObject) float32 {
+	if s, ok := o.(*selLine); ok {
+		return fyne.MeasureText(s.line.text, fyne.CurrentApp().Settings().Theme().Size(s.line.size), s.line.style).Width
+	}
+	return o.MinSize().Width
+}
+
+func (l eventHead) MinSize(objs []fyne.CanvasObject) fyne.Size {
+	var h float32
+	for _, o := range objs {
+		h = fyne.Max(h, o.MinSize().Height)
+	}
+	return fyne.NewSize(objs[0].MinSize().Width, h)
+}
+
+func (l eventHead) Layout(objs []fyne.CanvasObject, size fyne.Size) {
+	pill, reason, meta := objs[0], objs[1], objs[2]
+	g := l.gap()
+	pw := pill.MinSize().Width
+	avail := fyne.Max(size.Width-pw-2*g, 0)
+	rw, mw := l.natural(reason), l.natural(meta)
+	if rw+mw > avail {
+		mw = fyne.Min(mw, avail*0.45)
+		rw = fyne.Min(rw, avail-mw)
+	}
+	place := func(o fyne.CanvasObject, x, w float32) {
+		h := o.MinSize().Height
+		o.Move(fyne.NewPos(x, (size.Height-h)/2))
+		o.Resize(fyne.NewSize(w, h))
+	}
+	place(pill, 0, pw)
+	place(reason, pw+g, rw)
+	place(meta, size.Width-mw, mw)
 }
 
 // splitTitle splits "Pod: web-0" into "Pod" and "web-0".

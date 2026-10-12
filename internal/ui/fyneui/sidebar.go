@@ -198,6 +198,8 @@ func newSidebar(sh *shell) *sidebar {
 	s.badge.bold = true
 	s.name = newTextLine("Not connected", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	s.subtitle = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+	// The sidebar's width is the user's (panelwidths.go): a long context name is cut, not widened.
+	s.name.truncate, s.subtitle.truncate = true, true
 	s.emptyHint = newTextLine("Connect a cluster to browse it.", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 
 	header := inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding,
