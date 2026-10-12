@@ -497,7 +497,8 @@ func parseShortcut(s string) *desktop.CustomShortcut {
 	return &desktop.CustomShortcut{KeyName: key, Modifier: mod}
 }
 
-// shortcutKey is the key of a shortcut's last part: a letter, a digit, a comma, F1 to F12.
+// shortcutKey is the key of a shortcut's last part: a letter, a digit, a comma, a minus, Left or
+// Right (the arrows), F1 to F12.
 func shortcutKey(k string) fyne.KeyName {
 	if len(k) == 1 {
 		switch c := k[0]; {
@@ -505,10 +506,12 @@ func shortcutKey(k string) fyne.KeyName {
 			return fyne.KeyName(k)
 		case c == ',':
 			return fyne.KeyComma
+		case c == '-':
+			return fyne.KeyMinus
 		}
 		return ""
 	}
-	if n := functionKey(fyne.KeyName(k)); n > 0 {
+	if n := functionKey(fyne.KeyName(k)); n > 0 || k == string(fyne.KeyLeft) || k == string(fyne.KeyRight) {
 		return fyne.KeyName(k)
 	}
 	return ""
@@ -524,12 +527,17 @@ func shortcutText(s string, mac bool) string {
 		return strings.ReplaceAll(s, "Cmd+", "Ctrl+")
 	}
 	symbols := map[string]string{"Cmd": "⌘", "Shift": "⇧", "Alt": "⌥", "Ctrl": "⌃"}
+	arrows := map[string]string{"Left": "←", "Right": "→"}
 	parts := strings.Split(s, "+")
 	var b strings.Builder
 	for i, part := range parts {
 		last := i == len(parts)-1
 		if sym, ok := symbols[part]; ok && !last {
 			b.WriteString(sym)
+			continue
+		}
+		if arrow, ok := arrows[part]; ok && last && i > 0 {
+			b.WriteString(arrow)
 			continue
 		}
 		b.WriteString(part)

@@ -354,17 +354,21 @@ func TestPaletteProbesMatchTheRegistry(t *testing.T) {
 func TestParseShortcut(t *testing.T) {
 	sd := fyne.KeyModifierShortcutDefault
 	for s, want := range map[string]*desktop.CustomShortcut{
-		"Cmd+Shift+P":  {KeyName: fyne.KeyP, Modifier: sd | fyne.KeyModifierShift},
-		"Cmd+P":        {KeyName: fyne.KeyP, Modifier: sd},
-		"Cmd+,":        {KeyName: fyne.KeyComma, Modifier: sd},
-		"Alt+Cmd+F2":   {KeyName: fyne.KeyF2, Modifier: sd | fyne.KeyModifierAlt},
-		"F1–F12":       nil, // the hotbar's, a typed key
-		"Shift+F1–F12": nil,
-		"Shift+F2":     nil, // Fyne makes no shortcut of a shifted key
-		"P":            nil,
-		"Hyper+P":      nil,
-		"Cmd+Space":    nil,
-		"":             nil,
+		"Cmd+Shift+P":   {KeyName: fyne.KeyP, Modifier: sd | fyne.KeyModifierShift},
+		"Cmd+P":         {KeyName: fyne.KeyP, Modifier: sd},
+		"Cmd+,":         {KeyName: fyne.KeyComma, Modifier: sd},
+		"Alt+Cmd+F2":    {KeyName: fyne.KeyF2, Modifier: sd | fyne.KeyModifierAlt},
+		"Cmd+W":         {KeyName: fyne.KeyW, Modifier: sd},
+		"Cmd+Alt+Right": {KeyName: fyne.KeyRight, Modifier: sd | fyne.KeyModifierAlt},
+		"Ctrl+Shift+-":  {KeyName: fyne.KeyMinus, Modifier: fyne.KeyModifierControl | fyne.KeyModifierShift},
+		"Cmd+1–9":       nil, // the tab bar's, bound per digit (tabbar.go)
+		"F1–F12":        nil, // the hotbar's, a typed key
+		"Shift+F1–F12":  nil,
+		"Shift+F2":      nil, // Fyne makes no shortcut of a shifted key
+		"P":             nil,
+		"Hyper+P":       nil,
+		"Cmd+Space":     nil,
+		"":              nil,
 	} {
 		got := parseShortcut(s)
 		if (got == nil) != (want == nil) || (got != nil && got.ShortcutName() != want.ShortcutName()) {
@@ -374,6 +378,7 @@ func TestParseShortcut(t *testing.T) {
 	for s, want := range map[string][2]string{
 		"Cmd+Shift+P": {"⌘⇧P", "Ctrl+Shift+P"}, "Cmd+P": {"⌘P", "Ctrl+P"}, "Shift+F2": {"⇧F2", "Shift+F2"},
 		"F1–F12": {"F1–F12", "F1–F12"}, "F3": {"F3", "F3"}, "": {"", ""},
+		"Cmd+Alt+Left": {"⌘⌥←", "Ctrl+Alt+Left"}, "Ctrl+-": {"⌃-", "Ctrl+-"}, "Cmd+1–9": {"⌘1–9", "Ctrl+1–9"},
 	} {
 		if mac, other := shortcutText(s, true), shortcutText(s, false); mac != want[0] || other != want[1] {
 			t.Errorf("%q: %q and %q, want %q", s, mac, other, want)
@@ -416,10 +421,12 @@ func TestRegistryShortcutsDoNotCollide(t *testing.T) {
 		}
 		sc := parseShortcut(c.Shortcut)
 		if sc == nil {
-			if !strings.HasPrefix(strings.TrimPrefix(c.Shortcut, "Shift+"), "F1") {
+			if !strings.Contains(c.Shortcut, "–") {
 				t.Errorf("%s: shortcut %q cannot be bound", c.ID, c.Shortcut)
 			}
-			continue // F1–F12, ⇧F1–⇧F12: the hotbar's typed keys (hotbar.go)
+			// A range its owner binds key by key: F1–F12 and ⇧F1–⇧F12, the hotbar's typed keys
+			// (hotbar.go); ⌘1–9, the tab bar's main-menu items (tabbar.go), checked below.
+			continue
 		}
 		name := sc.ShortcutName()
 		if who, ok := reserved[name]; ok {
@@ -429,6 +436,12 @@ func TestRegistryShortcutsDoNotCollide(t *testing.T) {
 			t.Errorf("%s and %s share %s", c.ID, other, c.Shortcut)
 		}
 		bound[name] = c.ID
+	}
+	for n := '1'; n <= '9'; n++ { // ⌘1–⌘9: the tab bar's
+		name := (&desktop.CustomShortcut{KeyName: fyne.KeyName(string(n)), Modifier: sd}).ShortcutName()
+		if other, ok := bound[name]; ok {
+			t.Errorf("ui.tab.select and %s share ⌘%c", other, n)
+		}
 	}
 	for _, id := range []string{"ui.palette.open", "cluster.connect", "ui.setFilter", "terminal.open"} {
 		if !slices.Contains(mapValues(bound), id) {
