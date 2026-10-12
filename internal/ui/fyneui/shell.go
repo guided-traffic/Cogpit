@@ -410,6 +410,7 @@ func (sh *shell) loadKinds() {
 		sh.side.selectView(sh.ui.View)
 		sh.view.updateTitle()
 		sh.view.updateNamespaceButton()
+		sh.view.create.update() // local and virtual kinds have no "+"
 		sh.win.SetMainMenu(sh.mainMenu())
 	})
 }
@@ -686,6 +687,8 @@ type kindInfo struct {
 	Namespaced bool           `json:"namespaced"`
 	Columns    []model.Column `json:"columns"`
 	Listable   *bool          `json:"listable,omitempty"` // nil: the access reviews have not answered
+	Local      bool           `json:"local,omitempty"`    // port forwards: Cogpit's own objects
+	Virtual    bool           `json:"virtual,omitempty"`  // Helm releases: made from other objects
 }
 
 // decode turns a command result into out through JSON: results cross the engine seam as

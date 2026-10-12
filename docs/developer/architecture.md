@@ -618,7 +618,8 @@ closes; opening the Secrets view again moves the releases back and closes theirs
   objects carry a UID and resourceVersion that change with them, which the row cache and the
   confirmation's UID binding use.
 - `object.edit` and `object.delete` do not apply to local and virtual kinds
-  (`KindProfile.APIObject`); such kinds bring their own commands.
+  (`KindProfile.APIObject`); such kinds bring their own commands. `kinds.list` marks them `local`
+  and `virtual` (2026-10-12), and the GUI shows no "+" (Create resource) on their views.
 
 **Custom resource kinds** (2026-10-11, [`customkinds.go`](../../internal/engine/customkinds.go)).
 A real cluster's backend holds one cache handle on `customresourcedefinitions` while it is
@@ -969,6 +970,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5) |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere) |
 | 2026-10-12 | minor | Fourth run (agent D): kubeconfig sources (added files, pasted kubeconfigs, sync folders), each file read on its own, and credential plugins of sources run only after the user allowed them (§6; current state rows) |
 | 2026-10-12 | minor | Fourth run, Helm: the upgrade as built (§8: what binds, the SDK's context, `ErrUnchanged`, values scrubbed, the Rollback dialog as the confirmation); Lens's release drawer; virtual kinds' drawers without metadata and events, `DetailTitle` (§4.4) |

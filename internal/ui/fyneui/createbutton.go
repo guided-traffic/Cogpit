@@ -37,14 +37,26 @@ func newCreateButton(sh *shell) *createButton {
 // input itself, so the table below it keeps every click outside the button.
 func (b *createButton) floating() *fyne.Container { return box(floatLayout{}, b) }
 
-// update shows the button while a cluster is connected and a view is open.
+// update shows the button while a cluster is connected and a view is open, except on the views
+// of local and virtual kinds (Port Forwarding, Helm Releases): no manifest creates their objects,
+// so a Create resource tab would only offer to create something else (owner, 2026-10-12).
 func (b *createButton) update() {
 	ui := b.sh.ui
-	if ui.Connection.State == engine.Connected && ui.View != "" {
+	if ui.Connection.State == engine.Connected && ui.View != "" && !b.sh.cogpitKind(ui.View) {
 		b.Show()
 	} else {
 		b.Hide()
 	}
+}
+
+// cogpitKind reports whether kinds.list marks a kind key local or virtual.
+func (sh *shell) cogpitKind(key string) bool {
+	for _, k := range sh.kinds {
+		if k.Kind == key {
+			return k.Local || k.Virtual
+		}
+	}
+	return false
 }
 
 // Tapped implements fyne.Tappable.

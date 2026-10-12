@@ -167,7 +167,7 @@ func forwardsFake(t testing.TB, view string) *fakeEngine {
 	f := kindsFake(t, view)
 	registerForwardProbes(t, f)
 	p := forwardsProfile(t)
-	f.kinds = append(f.kinds, kindInfo{Kind: p.Key, Title: p.Title, APIKind: p.Kind, Group: p.Group, Version: p.Version, Namespaced: true, Columns: p.Columns})
+	f.kinds = append(f.kinds, kindInfo{Kind: p.Key, Title: p.Title, APIKind: p.Kind, Group: p.Group, Version: p.Version, Namespaced: true, Columns: p.Columns, Local: p.Local})
 	rows := make([]model.Row, 0, 5)
 	for _, o := range fixtureForwardObjects() {
 		rows = append(rows, model.BuildRow(p, "demo", o))

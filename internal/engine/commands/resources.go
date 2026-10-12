@@ -40,6 +40,11 @@ type KindInfo struct {
 	// Listable says whether the user may list the kind (access reviews); absent while unknown,
 	// and then the sidebar shows the kind.
 	Listable *bool `json:"listable,omitempty"`
+	// Local marks a kind whose objects Cogpit makes itself (port forwards), Virtual one made from
+	// other cached objects (Helm releases): neither is an API resource that object_create,
+	// object_edit or object_delete can write; their own commands change them.
+	Local   bool `json:"local,omitempty"`
+	Virtual bool `json:"virtual,omitempty"`
 }
 
 // ListResult is resources.list's result.
@@ -101,7 +106,9 @@ func registerResources(g *registrar) {
 			"of the cluster's custom resource definitions, keyed <plural>.<group> (gateways.gateway.networking.k8s.io), " +
 			"titled by their Kind, with their printer columns. Custom kinds follow the definitions while connected: they " +
 			"appear shortly after connecting and change when a definition does. listable says whether the user may list " +
-			"the kind (in every namespace or one they can see), from Cogpit's access reviews; it is absent until they answer.",
+			"the kind (in every namespace or one they can see), from Cogpit's access reviews; it is absent until they answer. " +
+			"local marks Cogpit's own kinds (port forwards), virtual the kinds made from other objects (Helm releases): " +
+			"no API resource to create, edit or delete; their own commands change them.",
 		Enabled: func(s *engine.Session, _ struct{}) error { _, err := connected(s); return err },
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			b, err := connected(s)
@@ -115,6 +122,7 @@ func registerResources(g *registrar) {
 				info := KindInfo{
 					Kind: p.Key, Title: p.Title, APIKind: p.Kind, Group: p.Group, Version: p.Version,
 					Namespaced: p.Namespaced, Columns: p.Columns, Fields: fieldNames(p),
+					Local: p.Local, Virtual: p.Derive != nil,
 				}
 				if listable, known := b.Listable(p, filter); known {
 					info.Listable = &listable

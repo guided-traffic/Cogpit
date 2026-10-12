@@ -699,6 +699,14 @@ func TestPortForwardsForAgentsAndMenus(t *testing.T) {
 	}
 	agent := engine.OriginExternalAgent
 
+	var kinds []commands.KindInfo // Port Forwarding is a local kind: the GUI shows no "+" on it
+	h.must(t, agent, "kinds.list", nil, &kinds)
+	for _, k := range kinds {
+		if k.Local != (k.Kind == engine.PortForwardKind) || k.Virtual {
+			t.Errorf("kinds.list: %s local %v, virtual %v", k.Kind, k.Local, k.Virtual)
+		}
+	}
+
 	var list commands.ListResult
 	h.must(t, agent, "resources.list", map[string]any{"kind": engine.PortForwardKind}, &list)
 	if list.Total != 1 || list.Rows[0].Cells["Name"] != "web" || list.Rows[0].Cells["Kind"] != "Service" ||
