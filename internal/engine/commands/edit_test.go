@@ -310,6 +310,42 @@ func TestEditConfirmationPerOrigin(t *testing.T) {
 	}
 }
 
+// An apply from a tab's text (no yaml) names the tab's text revision the user reviewed: an agent
+// that changes the text while the confirmation is open has the apply refused, and an apply from a
+// tab without a revision is refused (review of the fourth run, R-10).
+func TestApplyFromTabBoundToTheReviewedText(t *testing.T) {
+	h, srv := editHarness(t, engine.Options{})
+	agent := engine.OriginExternalAgent
+	var opened commands.EditResult
+	h.must(t, agent, "object.edit", map[string]any{"ref": checkout}, &opened)
+	reviewed := strings.Replace(opened.Text, "clusterIP: 10.96.100.100", "clusterIP: 10.96.100.100\n  sessionAffinity: ClientIP", 1)
+	var set commands.TextResult
+	h.must(t, agent, "editor.setText", map[string]any{"id": opened.Tab.ID, "yaml": reviewed}, &set)
+	h.s.SetConfirmer(engine.ConfirmFunc(func(context.Context, engine.ConfirmRequest) (bool, error) {
+		swapped := strings.Replace(reviewed, "ClientIP", "None", 1)
+		if err := h.run(t, agent, "editor.setText", map[string]any{"id": opened.Tab.ID, "yaml": swapped}, nil); err != nil {
+			t.Error(err)
+		}
+		return true, nil
+	}))
+	if err := h.run(t, agent, "object.apply", map[string]any{"id": opened.Tab.ID, "textRevision": set.Revision}, nil); !errors.Is(err, engine.ErrTargetsChanged) {
+		t.Errorf("apply with the text changed during its confirmation: %v", err)
+	}
+	h.s.SetConfirmer(engine.ConfirmFunc(func(context.Context, engine.ConfirmRequest) (bool, error) { return true, nil }))
+	if err := h.run(t, agent, "object.apply", map[string]any{"id": opened.Tab.ID}, nil); err == nil || !strings.Contains(err.Error(), "textRevision") {
+		t.Errorf("apply from a tab without a text revision: %v", err)
+	}
+	if srv.lastUpdate() != nil {
+		t.Fatal("an update was sent")
+	}
+	var st engine.EditorState
+	h.must(t, agent, "editor.get", map[string]any{"id": opened.Tab.ID}, &st)
+	h.must(t, agent, "object.apply", map[string]any{"id": opened.Tab.ID, "textRevision": st.Revision}, nil)
+	if u := srv.lastUpdate(); u == nil || model.NestedString(u.Object, "spec", "sessionAffinity") != "None" {
+		t.Errorf("the reviewed text was not applied: %v", u)
+	}
+}
+
 func TestEditTabOfAnotherCluster(t *testing.T) {
 	h, _ := editHarness(t, engine.Options{})
 	var opened commands.EditResult

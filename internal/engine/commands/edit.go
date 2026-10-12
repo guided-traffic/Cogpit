@@ -45,6 +45,15 @@ type editParams struct {
 	YAML string `json:"yaml,omitempty" jsonschema:"the edited YAML of the object; empty uses the tab's text"`
 }
 
+// applyParams are object.apply's: an apply from the tab's text names the text revision it takes,
+// so that a text changed after the user reviewed it (an agent's editor.setText while the
+// confirmation is open) is refused (R-10 of the fourth run's review).
+type applyParams struct {
+	ID           string `json:"id" jsonschema:"Edit tab id as object_edit returned it, e.g. edit-1"`
+	YAML         string `json:"yaml,omitempty" jsonschema:"the edited YAML of the object; empty uses the tab's text at textRevision"`
+	TextRevision uint64 `json:"textRevision,omitempty" jsonschema:"without yaml: the tab's text revision to apply (editor_get and editor_setText return it); the apply is refused when the text changed since"`
+}
+
 type diffParams struct {
 	ID      string `json:"id" jsonschema:"Edit tab id as object_edit returned it, e.g. edit-1"`
 	YAML    string `json:"yaml,omitempty" jsonschema:"the edited YAML of the object; empty uses the tab's text"`
@@ -145,24 +154,24 @@ func registerEdit(g *registrar) {
 		},
 	})
 
-	add(g, engine.Spec[editParams]{
+	add(g, engine.Spec[applyParams]{
 		ID: "object.apply", Label: "Apply", MenuPath: "Object/Apply", Danger: engine.DangerMutating, Verbs: edits,
-		Description: "Writes an Edit tab's text (or yaml) to the cluster: a server-side dry run, then an update with the " +
+		Description: "Writes an Edit tab's text at textRevision (or yaml) to the cluster: a server-side dry run, then an update with the " +
 			"resourceVersion the edit is based on as precondition. If the object changed meanwhile nothing is written and " +
 			"the result is a conflict; the tab then compares with the newer version, and applying again overwrites it. On " +
 			"success returns the stored version, which becomes the tab's text. An agent's request waits for the user's acceptance. " +
 			"An edit that scales the object to zero replicas is destructive and is always confirmed, as Scale to zero is.",
-		Escalate: func(s *engine.Session, p editParams) bool { return s.EditScalesToZero(p.ID, p.YAML) },
-		Enabled:  func(s *engine.Session, _ editParams) error { _, err := writable(s); return err },
-		Targets: func(s *engine.Session, p editParams) ([]model.ObjectRef, error) {
+		Escalate: func(s *engine.Session, p applyParams) bool { return s.EditScalesToZero(p.ID, p.YAML) },
+		Enabled:  func(s *engine.Session, _ applyParams) error { _, err := writable(s); return err },
+		Targets: func(s *engine.Session, p applyParams) ([]model.ObjectRef, error) {
 			st, err := editTabRef(s, p.ID)
 			if err != nil {
 				return nil, err
 			}
 			return []model.ObjectRef{st}, nil
 		},
-		Run: func(ctx context.Context, s *engine.Session, p editParams) (any, error) {
-			return s.ApplyEdit(ctx, p.ID, p.YAML)
+		Run: func(ctx context.Context, s *engine.Session, p applyParams) (any, error) {
+			return s.ApplyEdit(ctx, p.ID, p.YAML, p.TextRevision)
 		},
 	})
 

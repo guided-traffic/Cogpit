@@ -492,13 +492,22 @@ func (s *Session) DryRunEdit(ctx context.Context, id, text string) (DryRunResult
 // resourceVersion the edit is based on as precondition. On success the stored object becomes the
 // tab's text and base. On 409 Conflict nothing is written and *ConflictError says what changed.
 // The caller has checked the confirmation's context; ApplyEdit checks it again.
-func (s *Session) ApplyEdit(ctx context.Context, id, text string) (ApplyResult, error) {
+func (s *Session) ApplyEdit(ctx context.Context, id, text string, textRevision uint64) (ApplyResult, error) {
 	e, b, w, err := s.editTarget(id)
 	if err != nil {
 		return ApplyResult{}, err
 	}
 	if err := CheckConfirmedContext(ctx, b.Context); err != nil {
 		return ApplyResult{}, err
+	}
+	if text == "" { // the tab's text, as the revision the caller (and the user) reviewed names it
+		if textRevision == 0 {
+			return ApplyResult{}, fmt.Errorf("give yaml, or textRevision: the revision of the tab %s's text to apply (editor_get shows it); nothing was written", id)
+		}
+		if e.rev != textRevision {
+			return ApplyResult{}, fmt.Errorf("%w: the tab %s's text changed since text revision %d (now %d); nothing was written: review it and apply again",
+				ErrTargetsChanged, id, textRevision, e.rev)
+		}
 	}
 	edited, err := editedObject(e, text)
 	if err != nil {
