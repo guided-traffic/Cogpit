@@ -201,29 +201,34 @@ func TestKindHelmReleases(t *testing.T) {
 	var list commands.ListResult
 	b, _ := json.Marshal(res)
 	_ = json.Unmarshal(b, &list)
-	if list.Total != 1 || list.Rows[0].Cells["Revision"] != "2" || list.Rows[0].Cells["Status"] != "deployed" || list.Rows[0].Cells["Chart"] != "cogpit-test" {
+	if list.Total != 1 || list.Rows[0].Cells["Revision"] != "2" || list.Rows[0].Cells["Status"] != "Deployed" || list.Rows[0].Cells["Chart"] != "cogpit-test" {
 		t.Fatalf("releases: %s", b)
 	}
 
-	// The drawer: history, values (withheld from agents), manifest (Secret data redacted).
+	// The drawer as Lens's: values and notes withheld from agents, the resources by kind; the
+	// history from helm.release.history.
 	m := k.detail(ctx, t, engine.OriginExternalAgent, ref)
 	if b, _ := json.Marshal(m); strings.Contains(string(b), "values-s3cr3t") {
 		t.Fatalf("object.get for an agent carries a value: %s", b)
 	}
-	if sectionOf(m, helm.TitleValues) != model.Withheld {
-		t.Errorf("values for an agent: %q", sectionOf(m, helm.TitleValues))
+	if sectionOf(m, helm.TitleValues) != model.Withheld || sectionOf(m, helm.TitleNotes) != model.Withheld {
+		t.Errorf("values and notes for an agent: %q, %q", sectionOf(m, helm.TitleValues), sectionOf(m, helm.TitleNotes))
 	}
-	if man := sectionOf(m, helm.TitleManifest); !strings.Contains(man, "password: "+model.Redacted) || !strings.Contains(man, `greeting: "v2"`) {
-		t.Errorf("manifest: %q", man)
-	}
-	var hist *model.DetailTable
+	var kinds []string
 	for _, s := range m.Sections {
-		if s.Title == helm.TitleHistory {
-			hist = s.Table
+		if s.Group == helm.GroupResources {
+			kinds = append(kinds, s.Title)
 		}
 	}
-	if hist == nil || len(hist.Rows) != 2 || hist.Rows[0][2] != "deployed" || hist.Rows[1][2] != "superseded" {
-		t.Errorf("history %+v", hist)
+	if strings.Join(kinds, ",") != "ConfigMap,Secret" {
+		t.Errorf("resources %v", kinds)
+	}
+	hres, err := k.dispatch(ctx, engine.OriginExternalAgent, "helm.release.history", map[string]any{"ref": ref})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h := hres.(commands.ReleaseHistory); len(h.History) != 2 || h.History[0].Status != "deployed" || h.History[1].Status != "superseded" {
+		t.Errorf("history %+v", h)
 	}
 	if cli := k.detail(ctx, t, engine.OriginCLI, ref); !strings.Contains(sectionOf(cli, helm.TitleValues), "greeting: v2") {
 		t.Errorf("values for the CLI: %q", sectionOf(cli, helm.TitleValues))

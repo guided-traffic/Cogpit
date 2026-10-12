@@ -44,6 +44,10 @@ type editor struct {
 	baseUID  string
 	baseText string
 
+	// Helm Upgrade tabs only: the revision the values are based on (helmupgrade.go). Never
+	// changed in place: a rebase sets a new one.
+	helm *helmBase
+
 	// pending is set while the editor exists but its tab is not in the dock yet: pruning, which
 	// another command may run meanwhile, keeps it.
 	pending bool
@@ -70,6 +74,11 @@ type EditorState struct {
 	CachedResourceVersion string `json:"cachedResourceVersion,omitempty"`
 	Stale                 bool   `json:"stale,omitempty"`
 	Missing               bool   `json:"missing,omitempty"`
+	// Helm Upgrade tabs: the release revision the values are based on and the one the cache
+	// holds now; Stale and Missing say whether the release moved (an upgrade would be refused)
+	// or is gone.
+	BaseRevision   int `json:"baseRevision,omitempty"`
+	CachedRevision int `json:"cachedRevision,omitempty"`
 }
 
 // EditDiff is the diff of an Edit tab's text against the object as the cache holds it now.
@@ -293,6 +302,10 @@ func (s *Session) EditorState(ctx context.Context, id string) (EditorState, erro
 		return EditorState{}, err
 	}
 	st := EditorState{Tab: e.tab, Text: e.text, Revision: e.rev}
+	if e.tab.Type == DockHelmUpgrade {
+		s.helmEditorState(&st, e)
+		return st, nil
+	}
 	if e.tab.Type != DockEdit {
 		return st, nil
 	}

@@ -163,6 +163,10 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 		e := newCreateTab(d.sh, t)
 		c.editor = e
 		c.set(e.root)
+	case engine.DockHelmUpgrade:
+		e := newHelmUpgradeTab(d.sh, t)
+		c.editor = e
+		c.set(e.root)
 	default:
 		c.set(dockMessage(fmt.Sprintf("Cogpit cannot show %q tabs yet.", t.Type), colorMuted))
 	}
@@ -219,6 +223,8 @@ func (d *dock) rebuildStrip() {
 			icon = theme.ContentAddIcon()
 		case engine.DockAttach:
 			icon = theme.MailAttachmentIcon()
+		case engine.DockHelmUpgrade:
+			icon = theme.Icon(commandIcons[upgradeTabCommand])
 		}
 		objs = append(objs, newTabButton(t.Title, icon, id == d.active && d.open(),
 			func() {

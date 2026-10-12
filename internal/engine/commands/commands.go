@@ -34,6 +34,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerPortForward(g)
 	registerSecrets(g)
 	registerHelm(g)
+	registerHelmUpgrade(g)
 	registerWorkloadActions(g)
 	registerAttach(g)
 	registerLogs(g)

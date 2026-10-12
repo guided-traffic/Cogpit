@@ -68,10 +68,12 @@ var wantCommands = map[string]engine.Danger{
 
 	"secret.reveal": engine.DangerRead, // GUI only: refused for agents and the CLI
 
-	"helm.release.rollback":  engine.DangerDestructive,
-	"helm.release.uninstall": engine.DangerDestructive,
-	"helm.pendingOperations": engine.DangerRead,
-	"helm.dismissOperation":  engine.DangerUI,
+	"helm.release.rollback":   engine.DangerDestructive,
+	"helm.release.uninstall":  engine.DangerDestructive,
+	"helm.pendingOperations":  engine.DangerRead,
+	"helm.dismissOperation":   engine.DangerUI,
+	"helm.release.upgradeTab": engine.DangerUI, "helm.release.upgrade": engine.DangerMutating,
+	"helm.release.values": engine.DangerRead, "helm.release.history": engine.DangerRead,
 
 	// Workload actions and logs (G7, G8).
 	"daemonset.restart":   engine.DangerDestructive,

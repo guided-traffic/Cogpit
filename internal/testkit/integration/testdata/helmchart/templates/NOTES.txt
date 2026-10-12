@@ -1,0 +1,1 @@
+{{ .Release.Name }} greets with {{ .Values.greeting | quote }}.

@@ -1,0 +1,195 @@
+package fyneui
+
+import (
+	"errors"
+	"fmt"
+	"sync"
+	"time"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/helm"
+	"github.com/guided-traffic/cogpit/internal/model"
+)
+
+// Lens's Rollback dialog (captured 2026-10-12): "Rollback <name>", a REVISION dropdown of every
+// revision, newest first, the current one selected, each "12 - <chart>-<version> - <appVersion>,
+// updated: 12/10/2026, 08:30:16", then Cancel and Rollback, and no second confirmation.
+//
+// Rollback is destructive, so the engine asks the GUI's confirmer for every origin (D-2). The
+// dialog is that confirmation: it names the release, its namespace and its context, as Cogpit's
+// confirmations do, and when the user picks Rollback it hands the confirmer the release's newest
+// revision as it showed it (its release Secret's UID). The engine's confirmation of exactly that
+// command, from this window, on that release in that context, then takes the user's answer from
+// the dialog instead of asking again; one whose release moved to another revision while the dialog
+// was open is refused, as the engine refuses a confirmed rollback whose release moved. Agents'
+// requests never match: they carry their own origin.
+
+func init() { itemActionDialogs["helm.release.rollback"] = openRollbackDialog }
+
+// rollbackCommand is the command the dialog confirms.
+const rollbackCommand = "helm.release.rollback"
+
+// dialogConfirmWindow is how long a dialog's answer waits for the engine's confirmation of it: the
+// dispatch follows the click at once.
+const dialogConfirmWindow = 10 * time.Second
+
+// releaseHistory mirrors helm.release.history's result.
+type releaseHistory struct {
+	Ref      model.ObjectRef     `json:"ref"`
+	Revision int                 `json:"revision"`
+	UID      string              `json:"uid"`
+	History  []helm.HistoryEntry `json:"history"`
+}
+
+// rollbackZone is the zone the dialog writes times in; a var for tests.
+var rollbackZone = time.Local
+
+// openRollbackDialog reads the release's history from the cache and shows the dialog.
+func openRollbackDialog(sh *shell, ref model.ObjectRef, _ model.ItemAction) {
+	sh.dispatch("helm.release.history", refParams{Ref: ref}, func(res any, err error) {
+		var h releaseHistory
+		if err == nil {
+			err = decode(res, &h)
+		}
+		if err != nil {
+			sh.showError(err)
+			return
+		}
+		sh.showRollbackDialog(h)
+	})
+}
+
+// rollbackDialog is a shown Rollback dialog.
+type rollbackDialog struct {
+	d        *dialog.CustomDialog
+	revision *widget.Select
+	confirm  *widget.Button
+	cancel   *widget.Button
+	choices  []int // the revision of each option
+}
+
+// showRollbackDialog builds and shows the dialog for a release's history.
+func (sh *shell) showRollbackDialog(h releaseHistory) *rollbackDialog {
+	th := sh.app.Settings().Theme()
+	width := th.Size(sizeConfirmWidth)
+	rd := &rollbackDialog{}
+	options := make([]string, 0, len(h.History))
+	selected := ""
+	for _, e := range h.History {
+		text := helm.RevisionText(e, rollbackZone)
+		options = append(options, text)
+		rd.choices = append(rd.choices, e.Revision)
+		if e.Revision == h.Revision {
+			selected = text
+		}
+	}
+	rd.revision = widget.NewSelect(options, nil)
+	rd.confirm = widget.NewButton("Rollback", nil)
+	rd.confirm.Importance = widget.DangerImportance
+	rd.cancel = widget.NewButton("Cancel", nil)
+	pick := func() int {
+		if i := rd.revision.SelectedIndex(); i >= 0 && i < len(rd.choices) {
+			return rd.choices[i]
+		}
+		return 0
+	}
+	armed := false
+	enable := func() {
+		if armed && pick() > 0 && pick() != h.Revision {
+			rd.confirm.Enable()
+		} else {
+			rd.confirm.Disable() // the current revision is no rollback
+		}
+	}
+	rd.revision.OnChanged = func(string) { enable() }
+	if selected != "" {
+		rd.revision.SetSelected(selected)
+	}
+	rd.confirm.Disable()
+
+	where := fmt.Sprintf("Release %s in namespace %s (context %s). Rolling back changes the release's objects to the chosen revision.",
+		h.Ref.Name, h.Ref.Namespace, h.Ref.Context)
+	content := container.NewVBox(
+		newTextLine("REVISION", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{Bold: true}),
+		rd.revision,
+		newSpace(theme.SizeNamePadding),
+		newParagraph(where, colorMuted, width),
+	)
+	rd.d = dialog.NewCustomWithoutButtons("Rollback "+h.Ref.Name, content, sh.win)
+	rd.d.SetButtons([]fyne.CanvasObject{rd.cancel, rd.confirm})
+	rd.cancel.OnTapped = rd.d.Hide
+	rd.confirm.OnTapped = func() {
+		rev := pick()
+		if rev == 0 || rev == h.Revision {
+			return
+		}
+		rd.d.Hide()
+		sh.confirmer.confirmedByDialog(rollbackCommand, h.Ref, h.UID)
+		sh.dispatch(rollbackCommand, helmRollbackParams{refParams: refParams{Ref: h.Ref}, Revision: rev}, nil)
+	}
+	if d := sh.confirmer.armDelay; d > 0 { // as the confirmation dialog: a stray click must not roll back
+		time.AfterFunc(d, func() { sh.do(func() { armed = true; enable() }) })
+	} else {
+		armed = true
+		enable()
+	}
+	rd.d.Resize(fyne.NewSize(width, rd.d.MinSize().Height))
+	rd.d.Show()
+	return rd
+}
+
+// dialogConfirmation is an answer the user gave in a command's own dialog, waiting for the
+// engine's confirmation of the same command.
+type dialogConfirmation struct {
+	command string
+	ref     model.ObjectRef
+	uid     string
+	until   time.Time
+}
+
+// dialogAnswers holds the guiConfirmer's dialog answer; one at a time, the last one wins.
+type dialogAnswers struct {
+	mu sync.Mutex
+	c  *dialogConfirmation
+}
+
+// errMovedWhileOpen refuses a confirmation whose release moved to another revision while its
+// dialog was open.
+var errMovedWhileOpen = errors.New("the release moved to another revision while the dialog was open; nothing was done")
+
+// confirmedByDialog records that the user confirmed command on ref, at the object's uid as the
+// dialog showed it.
+func (c *guiConfirmer) confirmedByDialog(command string, ref model.ObjectRef, uid string) {
+	c.answers.mu.Lock()
+	defer c.answers.mu.Unlock()
+	c.answers.c = &dialogConfirmation{command: command, ref: ref, uid: uid, until: time.Now().Add(dialogConfirmWindow)}
+}
+
+// takeDialogAnswer answers a confirmation from a dialog the user already answered: handled is
+// false when no dialog answer matches the request (another command, origin, object or context, or
+// too late), and the confirmer asks as usual. A matching answer is used once.
+func (c *guiConfirmer) takeDialogAnswer(req engine.ConfirmRequest) (ok, handled bool, err error) {
+	c.answers.mu.Lock()
+	defer c.answers.mu.Unlock()
+	a := c.answers.c
+	if a == nil || time.Now().After(a.until) || req.Command != a.command || req.Origin != engine.OriginGUI ||
+		req.Context != a.ref.Context || len(req.Objects) != 1 || !sameObject(req.Objects[0], a.ref) {
+		return false, false, nil
+	}
+	c.answers.c = nil
+	if len(req.UIDs) != 1 || a.uid == "" || req.UIDs[0] != a.uid {
+		return false, true, errMovedWhileOpen
+	}
+	return true, true, nil
+}
+
+// sameObject compares two references by kind, namespace and name.
+func sameObject(a, b model.ObjectRef) bool {
+	return a.Kind == b.Kind && a.Namespace == b.Namespace && a.Name == b.Name
+}

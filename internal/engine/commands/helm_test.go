@@ -33,13 +33,21 @@ var releaseT0 = time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 
 // releaseSecret encodes one revision the way Helm's Secrets driver stores it.
 func releaseSecret(t testing.TB, ns, name string, rev int, status common.Status) *unstructured.Unstructured {
+	return releaseSecretWith(t, ns, name, rev, status, fmt.Sprintf("0.%d.0", rev), map[string]any{"adminPassword": "hunter2", "replicas": rev})
+}
+
+// releaseSecretWith is releaseSecret with a chart version and user-supplied values.
+func releaseSecretWith(t testing.TB, ns, name string, rev int, status common.Status, version string, config map[string]any) *unstructured.Unstructured {
 	t.Helper()
 	rls := &rspb.Release{
 		Name: name, Namespace: ns, Version: rev,
 		Info: &rspb.Info{Status: status, FirstDeployed: releaseT0, LastDeployed: releaseT0.Add(time.Duration(rev) * time.Hour),
-			Description: fmt.Sprintf("Revision %d", rev)},
-		Chart:  &chart.Chart{Metadata: &chart.Metadata{Name: name, Version: fmt.Sprintf("0.%d.0", rev), AppVersion: "1.0"}},
-		Config: map[string]any{"adminPassword": "hunter2", "replicas": rev},
+			Description: fmt.Sprintf("Revision %d", rev), Notes: "Thank you for installing " + name + ".\nPassword: hunter2"},
+		Chart: &chart.Chart{
+			Metadata: &chart.Metadata{Name: name, Version: version, AppVersion: "1.0"},
+			Values:   map[string]any{"replicas": 1, "image": "web:1"},
+		},
+		Config: config,
 		Manifest: "---\n# Source: " + name + "/templates/secret.yaml\napiVersion: v1\nkind: Secret\nmetadata:\n  name: " + name +
 			"\nstringData:\n  password: hunter2\n---\n# Source: " + name + "/templates/cm.yaml\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: " +
 			name + "\ndata:\n  mode: fast\n",
@@ -73,12 +81,13 @@ type helmServer struct {
 	src *testkit.MemorySource
 	t   testing.TB
 
-	mu      sync.Mutex
-	calls   []string
-	revs    map[string]int // namespace/name → newest revision
-	failErr error
-	block   chan struct{} // closed to let a blocked action continue; nil: no block
-	started chan struct{}
+	mu       sync.Mutex
+	calls    []string
+	revs     map[string]int // namespace/name → newest revision
+	failErr  error
+	block    chan struct{} // closed to let a blocked action continue; nil: no block
+	started  chan struct{}
+	upgrades []engine.HelmUpgradeRequest
 }
 
 var _ engine.HelmWriter = (*helmServer)(nil)
@@ -135,6 +144,26 @@ func (h *helmServer) UninstallRelease(_ context.Context, namespace, name string)
 		h.src.Delete(testkit.SecretsGVR, namespace, fmt.Sprintf("sh.helm.release.v1.%s.v%d", name, r))
 	}
 	return nil
+}
+
+// UpgradeRelease supersedes every revision and adds a deployed one with the release's chart
+// version and the given values, as the Helm SDK's upgrade would; failErr fails it before that.
+func (h *helmServer) UpgradeRelease(_ context.Context, namespace, name string, up engine.HelmUpgradeRequest) (int, error) {
+	h.mu.Lock()
+	cur := h.revs[namespace+"/"+name]
+	h.upgrades = append(h.upgrades, up)
+	h.mu.Unlock()
+	if err := h.begin(fmt.Sprintf("upgrade %s/%s from %d", namespace, name, cur)); err != nil {
+		return 0, err
+	}
+	for r := 1; r <= cur; r++ {
+		h.src.Set(testkit.SecretsGVR, releaseSecret(h.t, namespace, name, r, common.StatusSuperseded))
+	}
+	h.mu.Lock()
+	h.revs[namespace+"/"+name] = cur + 1
+	h.mu.Unlock()
+	h.src.Set(testkit.SecretsGVR, releaseSecretWith(h.t, namespace, name, cur+1, common.StatusDeployed, fmt.Sprintf("0.%d.0", cur), up.Values))
+	return cur + 1, nil
 }
 
 func (h *helmServer) recorded() []string {
@@ -266,8 +295,8 @@ func (h *helmHarness) waitRelease(t *testing.T, ns, name string, rev int) {
 var webRef = model.ObjectRef{Context: "test", Kind: helm.ReleaseKind, Namespace: "apps", Name: "web"}
 
 // The Releases view and drawer come from the cache's release Secrets: one row per release, the
-// drawer's history, values and manifest; for agents the values are withheld, and the manifest
-// shows no Secret's data for anybody.
+// drawer as Lens's (Properties, values, notes, resources); for agents the values and the notes
+// are withheld; the drawer opens no events watch.
 func TestHelmReleasesViewAndDrawer(t *testing.T) {
 	h := newHelmHarness(t, engine.NewMemoryHelmJournal(), nil)
 	var list commands.ListResult
@@ -277,7 +306,7 @@ func TestHelmReleasesViewAndDrawer(t *testing.T) {
 	}
 	b, _ := json.Marshal(res)
 	_ = json.Unmarshal(b, &list)
-	if list.Total != 2 || list.Rows[1].Cells["Revision"] != "3" || list.Rows[1].Cells["Status"] != "deployed" || list.Rows[1].Cells["Chart"] != "web" {
+	if list.Total != 2 || list.Rows[1].Cells["Revision"] != "3" || list.Rows[1].Cells["Status"] != "Deployed" || list.Rows[1].Cells["Chart"] != "web" {
 		t.Fatalf("releases list %s", b)
 	}
 	if strings.Contains(string(b), "hunter2") {
@@ -298,23 +327,40 @@ func TestHelmReleasesViewAndDrawer(t *testing.T) {
 	if strings.Contains(agentJSON, "hunter2") {
 		t.Errorf("object.get for an agent carries a value: %s", agentJSON)
 	}
-	if sectionText(m, helm.TitleValues) != model.Withheld {
-		t.Errorf("values for an agent: %q", sectionText(m, helm.TitleValues))
+	if sectionText(m, helm.TitleValues) != model.Withheld || sectionText(m, helm.TitleNotes) != model.Withheld {
+		t.Errorf("values and notes for an agent: %q, %q", sectionText(m, helm.TitleValues), sectionText(m, helm.TitleNotes))
 	}
-	if man := sectionText(m, helm.TitleManifest); !strings.Contains(man, "password: "+model.Redacted) || !strings.Contains(man, "mode: fast") {
-		t.Errorf("manifest %q", man)
+	if m.Title != "Release: web" || !m.NoEvents || len(m.Events) != 0 {
+		t.Errorf("title %q, no events %v", m.Title, m.NoEvents)
 	}
-	var history *model.DetailTable
+	var titles []string
 	for _, s := range m.Sections {
-		if s.Title == helm.TitleHistory {
-			history = s.Table
-		}
+		titles = append(titles, s.Group+"/"+s.Title)
 	}
-	if history == nil || len(history.Rows) != 3 || history.Rows[0][0] != "3" || history.Rows[0][2] != "deployed" {
-		t.Errorf("history %+v", history)
+	if strings.Join(titles, ",") != "/Properties,/Values,/Notes,Resources/ConfigMap,Resources/Secret" {
+		t.Errorf("sections %v", titles)
+	}
+	var names []string
+	for _, it := range m.Sections[0].Items {
+		names = append(names, it.Name)
+	}
+	if strings.Join(names, ",") != "Chart,Updated,Namespace,Version,Status" || !strings.Contains(sectionText(m, model.TitleProperties), "Deployed") {
+		t.Errorf("properties %v: %q", names, sectionText(m, model.TitleProperties))
 	}
 	if !strings.Contains(m.YAML, "kind: HelmRelease") || strings.Contains(m.YAML, "adminPassword") {
 		t.Errorf("YAML %q", m.YAML)
+	}
+	// The drawer open in the GUI watches the release Secrets, not the events.
+	if _, err := h.dispatch(engine.OriginGUI, "ui.navigate", map[string]any{"ref": webRef}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.s.Detail(webRef); err != nil {
+		t.Fatal(err)
+	}
+	for _, inf := range h.s.Diagnostics().Informers {
+		if inf.Scope.GVR.Resource == "events" {
+			t.Errorf("a release's drawer watches events: %+v", inf)
+		}
 	}
 	if _, cli := get(engine.OriginCLI); !strings.Contains(sectionText(cli, helm.TitleValues), "adminPassword: hunter2") {
 		t.Errorf("values for the CLI: %q", sectionText(cli, helm.TitleValues))

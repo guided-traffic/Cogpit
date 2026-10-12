@@ -3,6 +3,8 @@ package fyneui
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
+
+	"github.com/guided-traffic/cogpit/internal/helm"
 )
 
 // commandIcons are the icons of the drawer's action toolbar, by command id, from Fyne's theme.
@@ -40,7 +42,11 @@ var commandIcons = map[string]fyne.ThemeIconName{
 
 	"helm.release.rollback":  theme.IconNameHistory,
 	"helm.release.uninstall": theme.IconNameDelete,
+	upgradeTabCommand:        theme.IconNameViewRefresh, // Lens: a circular arrow (captured 2026-10-12)
 }
+
+// upgradeTabCommand opens a release's Helm Upgrade tab.
+const upgradeTabCommand = helm.UpgradeTabCommand
 
 // genericCommandIcon is the icon of a command without its own.
 const genericCommandIcon = theme.IconNameSettings

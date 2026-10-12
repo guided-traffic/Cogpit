@@ -23,8 +23,8 @@ import (
 // HelmResult is the result of a release action.
 type HelmResult struct {
 	Ref      model.ObjectRef `json:"ref"`
-	Action   string          `json:"action"`             // "rolledBack", "uninstalled", "dismissed"
-	Revision int             `json:"revision,omitempty"` // a rollback's target
+	Action   string          `json:"action"`             // "rolledBack", "uninstalled", "upgraded", "dismissed"
+	Revision int             `json:"revision,omitempty"` // a rollback's target; the revision an upgrade made
 }
 
 type rollbackParams struct {
@@ -106,12 +106,15 @@ func registerHelm(g *registrar) {
 
 	add(g, engine.Spec[pendingHelmParams]{
 		ID: "helm.pendingOperations", Label: "Unfinished Helm Actions", Danger: engine.DangerRead,
-		Verbs: []engine.Verb{{Verb: "list", Resource: kindSecrets}, {Verb: "watch", Resource: kindSecrets}},
-		Description: "Lists the Helm rollbacks and uninstalls Cogpit started on the connected context (all: on every context) " +
-			"that did not finish: context, namespace, release, action, the target revision of a rollback, when and by whom " +
-			"started, status (running in this Cogpit, interrupted by an earlier run of Cogpit ending, or failed with its " +
-			"error) and the release's status from the cache (pending-rollback, uninstalling, deployed, missing, unknown). " +
-			"Offer helm_release_rollback or helm_release_uninstall again to finish one, or helm_dismissOperation to forget it.",
+		Verbs: releaseCacheReads,
+		Description: "Lists the Helm rollbacks, uninstalls and upgrades Cogpit started on the connected context (all: on every " +
+			"context) that did not finish: context, namespace, release, action, the target revision of a rollback, the " +
+			"revision an upgrade started from (fromRevision) and its chart, when and by whom started, status (running in " +
+			"this Cogpit, interrupted by an earlier run of Cogpit ending, or failed with its error) and the release's status " +
+			"from the cache (pending-rollback, pending-upgrade, uninstalling, deployed, missing, unknown). Offer " +
+			"helm_release_rollback or helm_release_uninstall again to finish a rollback or an uninstall; an upgrade is " +
+			"finished by helm_release_rollback to its fromRevision (the Helm SDK refuses to upgrade a release left " +
+			"pending-upgrade). helm_dismissOperation forgets one.",
 		Run: func(_ context.Context, s *engine.Session, p pendingHelmParams) (any, error) {
 			list, err := s.PendingHelmOps(p.All)
 			if err != nil {
@@ -288,9 +291,17 @@ func runHelmOp(s *engine.Session, op engine.PendingHelmOp, starting string, run 
 	}
 	userToast(s, engine.LevelInfo, starting)
 	opErr := helmSafely(s, op, run)
-	if err := ops.End(op, opErr); err != nil {
+	recorded := opErr
+	if errors.Is(opErr, helm.ErrUnchanged) {
+		recorded = nil // refused before it changed the release: nothing to finish or roll back
+	}
+	if err := ops.End(op, recorded); err != nil {
 		s.Logger().Error("helm: recording the end of a release action", "release", op.Release, "err", err)
 		userToast(s, engine.LevelError, "Cogpit could not record the end of the "+string(op.Action)+" of release "+op.Release+": "+err.Error())
+	}
+	if recorded == nil && opErr != nil {
+		userToast(s, engine.LevelWarning, fmt.Sprintf("Release %s was not changed: %v", op.Release, opErr))
+		return opErr
 	}
 	if opErr != nil {
 		userToast(s, engine.LevelWarning, fmt.Sprintf("The %s of release %s did not finish: %v", op.Action, op.Release, opErr))

@@ -42,8 +42,13 @@ type KindProfile struct {
 	Fields map[string]func(obj *unstructured.Unstructured) []string
 
 	// Detail returns the kind's own drawer sections (containers, conditions, ports). The engine
-	// adds the generic metadata section, the events and the YAML itself.
+	// adds the generic metadata section, the events and the YAML itself; for a virtual kind
+	// (Derive) it adds neither metadata nor events, whose objects are Cogpit's own and are no
+	// event's involved object: its Detail returns the whole drawer, Properties first.
 	Detail func(obj *unstructured.Unstructured) []DetailSection
+	// DetailTitle, when set, names the kind in the drawer's title ("<DetailTitle>: <name>") in
+	// place of Kind: Lens titles a Helm release's drawer "Release: <name>" (captured 2026-10-12).
+	DetailTitle string
 
 	// What the cache holds for the kind (architecture §5). The engine builds every cache scope of
 	// the kind from these, so a view, the drawer, Lookup and agents' reads share one informer.

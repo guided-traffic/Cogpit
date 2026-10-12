@@ -1,0 +1,2 @@
+{{- /* A value the chart refuses, quoting it in its error: the kind tests check that Cogpit never shows it. */ -}}
+{{- if .Values.refuse }}{{ fail (printf "refused %s" .Values.refuse) }}{{ end -}}

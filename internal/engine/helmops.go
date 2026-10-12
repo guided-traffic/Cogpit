@@ -147,7 +147,8 @@ func (h *HelmOps) dropFinished(s *Session, ctxName string, pending []PendingHelm
 	kept := pending[:0]
 	for _, e := range pending {
 		obj, found := KindGet(hd, p, e.Namespace, e.Release)
-		if !helmOpFinished(e, obj, found) {
+		done := helmOpFinished(e, obj, found)
+		if done == "" {
 			kept = append(kept, e)
 			continue
 		}
@@ -159,18 +160,29 @@ func (h *HelmOps) dropFinished(s *Session, ctxName string, pending []PendingHelm
 		}
 		s.log.Info("engine: dropped a Helm action that finished", "context", e.Context, "namespace", e.Namespace, "release", e.Release, "action", e.Action)
 		s.emit(Event{Type: EventToast, Level: LevelInfo, Message: fmt.Sprintf(
-			"Cogpit dropped the unfinished %s of release %s (context %s): the cluster shows it finished.", e.Action, e.Release, e.Context)})
+			"Cogpit dropped the unfinished %s of release %s (context %s): %s.", e.Action, e.Release, e.Context, done)})
 	}
 	return kept
 }
 
-// helmOpFinished reports whether the cache shows a recorded action done.
-func helmOpFinished(e PendingHelmOp, obj *unstructured.Unstructured, found bool) bool {
+// helmOpFinished says why the cache shows a recorded action needs nothing more, or "" when it is
+// still to be offered: a release that is gone (uninstalled, or nothing left to roll back), a
+// rollback or an upgrade whose release is deployed at a revision above the one it started from,
+// and an upgrade whose release is still at that revision, which never started: Cogpit ended (or
+// the Helm SDK refused) before the SDK made its pending revision, and nothing changed. An upgrade
+// left pending-upgrade or failed above it is offered: finishing it rolls back to FromRevision.
+func helmOpFinished(e PendingHelmOp, obj *unstructured.Unstructured, found bool) string {
 	if !found {
-		return true // uninstalled, or nothing left to roll back
+		return "the release no longer exists"
 	}
-	return e.Action == HelmRollback && helm.ReleaseRevision(obj) > e.FromRevision &&
-		helm.ReleaseStatus(obj) == "deployed"
+	rev, deployed := helm.ReleaseRevision(obj), helm.ReleaseStatus(obj) == "deployed"
+	switch {
+	case e.Action == HelmUpgrade && rev == e.FromRevision:
+		return "it never reached the cluster, the release is unchanged"
+	case deployed && rev > e.FromRevision && (e.Action == HelmRollback || e.Action == HelmUpgrade):
+		return "the cluster shows it finished"
+	}
+	return ""
 }
 
 // Begin records an action before the Helm SDK runs. It fails, and the action must not start, when

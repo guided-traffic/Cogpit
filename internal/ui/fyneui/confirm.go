@@ -28,6 +28,7 @@ type guiConfirmer struct {
 	slot     chan struct{}  // holds a token while a dialog is shown
 	armDelay time.Duration  // how long the confirm button stays disabled
 	current  *confirmDialog // the dialog on screen; main goroutine only
+	answers  dialogAnswers  // the user's answer in a command's own dialog (helmrollback.go)
 }
 
 // defaultArmDelay keeps a click meant for the previous dialog, or a double click, from confirming.
@@ -49,6 +50,9 @@ type confirmDialog struct {
 // Confirm implements engine.Confirmer. It returns the user's answer, or ctx's error when ctx ends
 // first; the dialog is then taken down. It must not be called on the main goroutine.
 func (c *guiConfirmer) Confirm(ctx context.Context, req engine.ConfirmRequest) (bool, error) {
+	if ok, handled, err := c.takeDialogAnswer(req); handled {
+		return ok, err // the user answered in the command's own dialog (Rollback)
+	}
 	select {
 	case c.slot <- struct{}{}:
 	case <-ctx.Done():

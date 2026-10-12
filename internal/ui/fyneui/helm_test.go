@@ -39,8 +39,10 @@ func fixtureReleaseSecret(t testing.TB, r fixtureRelease) *unstructured.Unstruct
 	rls := map[string]any{
 		"name": r.name, "namespace": r.ns, "version": r.rev,
 		"info": map[string]any{"status": r.status, "first_deployed": fixedNow.Add(-90 * 24 * time.Hour).Format(time.RFC3339),
-			"last_deployed": deployed.Format(time.RFC3339), "description": releaseDescription(r)},
-		"chart": map[string]any{"metadata": map[string]any{"name": r.chart, "version": r.version, "appVersion": r.app}},
+			"last_deployed": deployed.Format(time.RFC3339), "description": releaseDescription(r),
+			"notes": "The " + r.chart + " controller has been installed.\nGet the admin password with:\n  kubectl get secret " + r.name + "-auth -n " + r.ns + " -o jsonpath='{.data.admin-password}'"},
+		"chart": map[string]any{"metadata": map[string]any{"name": r.chart, "version": r.version, "appVersion": r.app},
+			"values": map[string]any{"controller": map[string]any{"replicaCount": 1, "image": map[string]any{"tag": "v" + r.app}}}},
 		"config": map[string]any{
 			"controller": map[string]any{"replicaCount": 2, "service": map[string]any{"type": "LoadBalancer"}},
 			"auth":       map[string]any{"adminPassword": "correct-horse-battery-staple"},
@@ -48,7 +50,9 @@ func fixtureReleaseSecret(t testing.TB, r fixtureRelease) *unstructured.Unstruct
 		"manifest": "---\n# Source: " + r.chart + "/templates/serviceaccount.yaml\napiVersion: v1\nkind: ServiceAccount\nmetadata:\n  name: " + r.name +
 			"\n  namespace: " + r.ns + "\n---\n# Source: " + r.chart + "/templates/secret.yaml\napiVersion: v1\nkind: Secret\nmetadata:\n  name: " +
 			r.name + "-auth\n  namespace: " + r.ns + "\ntype: Opaque\ndata:\n  admin-password: Y29ycmVjdC1ob3JzZQ==\n---\n# Source: " + r.chart +
-			"/templates/service.yaml\napiVersion: v1\nkind: Service\nmetadata:\n  name: " + r.name + "\nspec:\n  type: LoadBalancer\n  ports:\n  - port: 443\n",
+			"/templates/service.yaml\napiVersion: v1\nkind: Service\nmetadata:\n  name: " + r.name + "\nspec:\n  type: LoadBalancer\n  ports:\n  - port: 443\n" +
+			"---\n# Source: " + r.chart + "/templates/deployment.yaml\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: " + r.name + "-controller\n" +
+			"---\n# Source: " + r.chart + "/templates/clusterrole.yaml\napiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\nmetadata:\n  name: " + r.name + "\n",
 	}
 	raw, err := json.Marshal(rls)
 	if err != nil {
@@ -114,8 +118,10 @@ func releasesFake(t testing.TB) (*fakeEngine, model.ObjectRef) {
 		kindInfo{Kind: "secrets", Title: "Secrets", APIKind: "Secret", Version: "v1", Namespaced: true},
 		kindInfo{Kind: helm.ReleaseKind, Title: "Releases", APIKind: "HelmRelease", Version: "v1", Namespaced: true})
 	p := helm.NewReleaseProfile()
-	objs := p.Derive(fixtureReleaseSecrets(t))
+	secrets := fixtureReleaseSecrets(t)
+	objs := p.Derive(secrets)
 	rows := make([]model.Row, 0, len(objs))
+	byRef := map[string]*unstructured.Unstructured{}
 	for _, o := range objs {
 		rows = append(rows, model.BuildRow(p, "demo", o))
 		ref := model.ObjectRef{Context: "demo", Kind: helm.ReleaseKind, Namespace: o.GetNamespace(), Name: o.GetName()}
@@ -123,7 +129,44 @@ func releasesFake(t testing.TB) (*fakeEngine, model.ObjectRef) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		for i, it := range m.Sections[0].Items {
+			if it.Name == "Updated" { // the drawer's age against the tests' clock, in UTC
+				m.Sections[0].Items[i].Value = helm.UpdatedText(model.NestedTime(o, "updated"), fixedNow, time.UTC)
+			}
+		}
 		f.details[ref.String()] = m
+		byRef[ref.Namespace+"/"+ref.Name] = o
+	}
+	secretOf := func(o *unstructured.Unstructured) *unstructured.Unstructured {
+		for _, s := range secrets {
+			if s.GetNamespace() == o.GetNamespace() && s.GetName() == helm.ReleaseSecret(o) {
+				return s
+			}
+		}
+		return nil
+	}
+	params := func(inv engine.Invocation, p any) error { return json.Unmarshal(normalize(inv.Params), p) }
+	f.handlers["helm.release.values"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p helmValuesParams
+		if err := params(inv, &p); err != nil {
+			return nil, err
+		}
+		o := byRef[p.Ref.Namespace+"/"+p.Ref.Name]
+		if o == nil {
+			return nil, engine.ErrNotFound
+		}
+		return helm.ReleaseValues(secretOf(o), p.All)
+	}
+	f.handlers["helm.release.history"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p refParams
+		if err := params(inv, &p); err != nil {
+			return nil, err
+		}
+		o := byRef[p.Ref.Namespace+"/"+p.Ref.Name]
+		if o == nil {
+			return nil, engine.ErrNotFound
+		}
+		return releaseHistory{Ref: p.Ref, Revision: helm.ReleaseRevision(o), UID: string(o.GetUID()), History: helm.ReleaseHistory(o)}, nil
 	}
 	f.tables[helm.ReleaseKind] = &engine.TableSnapshot{
 		View: helm.ReleaseKind, Context: "demo", Title: p.Title, Namespaced: true, Columns: p.Columns, Rows: rows,
@@ -133,6 +176,7 @@ func releasesFake(t testing.TB) (*fakeEngine, model.ObjectRef) {
 	run := func(context.Context, *engine.Session, refParams) (any, error) { return nil, nil }
 	for _, c := range []engine.Spec[refParams]{
 		{ID: "helm.release.rollback", Label: "Rollback", Kinds: []string{helm.ReleaseKind}, Order: 200, Danger: engine.DangerDestructive, Targets: targets, Run: run},
+		{ID: helm.UpgradeTabCommand, Label: "Upgrade", Kinds: []string{helm.ReleaseKind}, Order: 300, Danger: engine.DangerUI, Run: run},
 		{ID: "helm.release.uninstall", Label: "Delete", Kinds: []string{helm.ReleaseKind}, Order: engine.OrderDelete, Danger: engine.DangerDestructive, Targets: targets, Run: run},
 	} {
 		if err := engine.Register(f.reg, c); err != nil {
@@ -145,25 +189,48 @@ func releasesFake(t testing.TB) (*fakeEngine, model.ObjectRef) {
 	return f, ref
 }
 
-// The Releases view and drawer: one row per release with its newest revision, the sidebar's Helm
-// group, the drawer's history, values and manifest with the Secret's data redacted.
+// The Releases view and drawer: one row per release with its newest revision and Lens's status
+// text, the sidebar's Helm group, and the drawer as Lens's (captured 2026-10-12): "Release" and
+// the name, the icons Rollback, Upgrade, Delete, Properties with an Upgrade button beside Chart,
+// the values in an editor, the notes, the resources by kind, no events.
 func TestReleasesViewAndDrawer(t *testing.T) {
 	f, _ := releasesFake(t)
 	sh, _, q := newTestShell(t, f, Options{Theme: ThemeDark})
-	q.until(t, "the releases and drawer", func() bool { return sh.view.snap != nil && sh.drawer.last != nil && len(sh.kinds) > 0 })
+	q.until(t, "the releases and drawer", func() bool {
+		rv, _ := sh.drawer.kept[releaseValuesKey].(*releaseValues)
+		return sh.view.snap != nil && sh.drawer.last != nil && len(sh.kinds) > 0 && len(sh.drawer.actions.Objects) == 3 && rv != nil && rv.revision > 0
+	})
 	if got := len(sh.view.snap.Rows); got != 6 {
 		t.Errorf("%d releases, want 6", got)
 	}
 	if kids := sh.side.children[groupPrefix+"helm"]; len(kids) != 1 || kids[0] != helm.ReleaseKind || sh.side.titles[kids[0]] != "Releases" {
 		t.Errorf("Helm group %v", kids)
 	}
-	for _, s := range []string{"adminPassword: correct-horse-battery-staple", "admin-password: " + model.Redacted, "4.12.1", "Upgrade complete"} {
-		if !drawerHasText(sh.drawer, s) {
+	if sh.drawer.kind.text != "Release" || sh.drawer.title.text != "ingress-nginx" {
+		t.Errorf("drawer title %q %q", sh.drawer.kind.text, sh.drawer.title.text)
+	}
+	var tips []string
+	for _, o := range sh.drawer.actions.Objects {
+		tips = append(tips, o.(*tipButton).tip)
+	}
+	if strings.Join(tips, ",") != "Rollback,Upgrade,Delete" {
+		t.Errorf("icons %v", tips)
+	}
+	texts := releaseDrawerText(sh.drawer)
+	for _, s := range []string{"4.12.1", "Deployed", "26h ago (10 Oct 2026, 12:30:00 UTC)", "ingress-nginx-controller", "has been installed", "Resources", "ClusterRole"} {
+		if !strings.Contains(texts, s) {
 			t.Errorf("the drawer lacks %q", s)
 		}
 	}
-	if drawerHasText(sh.drawer, "Y29ycmVjdC1ob3JzZQ==") {
-		t.Error("the manifest shows a Secret's data")
+	if strings.Contains(texts, "Events") || strings.Contains(texts, "Y29ycmVjdC1ob3JzZQ==") {
+		t.Error("the release drawer shows events or a Secret's data")
+	}
+	if b := drawerButtons(sh.drawer)["Upgrade"]; len(b) != 1 {
+		t.Errorf("Upgrade buttons beside Chart: %d", len(b))
+	}
+	rv := sh.drawer.kept[releaseValuesKey].(*releaseValues)
+	if got := rv.view.Text(); !strings.Contains(got, "adminPassword: correct-horse-battery-staple") || strings.Contains(got, "image:") {
+		t.Errorf("values editor %q", got)
 	}
 }
 

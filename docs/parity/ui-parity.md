@@ -189,7 +189,7 @@ Every list view is one table ([resource views](resource-parity.md)).
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Bottom dock with tabs: Terminal session, Create resource, Edit, logs, Helm Install, Helm Upgrade; tabs named after their object ("Pod <name>"), with a close button; on the right, maximize and collapse (capture, 2026-10-11) | free | partial: terminal, shell, logs, Edit ("ConfigMap demo") and Create resource; no Helm tabs, no maximize | `TestDockOpensAndClosesStreams`, `TestEditTabSaveReviewsThenApplies`, `TestCreateTabTemplatesAndCreate`; Lens's "Helm Upgrade: <name>" tab captured 2026-10-12 (save and search icons, the chart's version and a version picker, the release's values in a YAML editor; [resource parity](resource-parity.md#helm)) |
+| Bottom dock with tabs: Terminal session, Create resource, Edit, logs, Helm Install, Helm Upgrade; tabs named after their object ("Pod <name>"), with a close button; on the right, maximize and collapse (capture, 2026-10-11) | free | partial: terminal, shell, logs, Edit ("ConfigMap demo"), Create resource and Helm Upgrade ("Helm Upgrade: <name>", 2026-10-12, as captured that day: save and search icons, "/<chart>" with "version:" and a picker of the release's own version, "(no repository)", the info line and the values in a YAML editor; a status line is Cogpit's); no Helm Install tab, no maximize | `TestDockOpensAndClosesStreams`, `TestEditTabSaveReviewsThenApplies`, `TestCreateTabTemplatesAndCreate`, `TestHelmUpgradeTabSaves`, PNGs [dark](../../internal/ui/fyneui/testdata/helm_upgrade_tab_dark.png), [light](../../internal/ui/fyneui/testdata/helm_upgrade_tab_light.png) ([resource parity](resource-parity.md#helm)) |
 | "New tab" menu: Terminal session, Create resource | free | done | [`dock.go`](../../internal/ui/fyneui/dock.go) `addMenu`, `TestDockAddMenuOffersCreateResource`; an item the engine disables names its reason |
 | Tab icons take the cluster's colour | free | missing | – |
 
@@ -356,6 +356,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | trivial | Dock: the Helm Upgrade tab built (fourth run) |
 | 2026-10-12 | minor | `make parity`: Keyboard shortcuts with Plan and Evidence columns, so that the two paid shortcuts no longer read as free (the 121 free rows, reproduced); evidence named for kubeconfig loading, terminal copy and paste, and the theme flag; the theme row's pipes escaped |
 | 2026-10-12 | trivial | Dock: Lens's Helm Upgrade tab captured |
 | 2026-10-11 | minor | Third run, tables and window (G5): the macOS title bar partial (built, not seen in a real window yet); Tables: no namespace filter on cluster-scoped views, show and hide columns, fit a column, CSV export partial, keyboard done (and its shortcut row); the sidebar's Workloads › Overview |

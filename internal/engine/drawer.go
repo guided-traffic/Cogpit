@@ -49,7 +49,7 @@ func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.O
 			signal(d.wake)
 		}
 	}))
-	if ep, ok := b.Profile(eventsKind); ok {
+	if ep, ok := b.Profile(eventsKind); ok && p.Derive == nil { // no event involves a virtual kind's object
 		d.events = b.Acquire(ep)
 		d.unsubs = append(d.unsubs, d.events.Subscribe(func(ev cache.Event) {
 			if d.involves(ev.Object) {
@@ -154,7 +154,7 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 	h := b.Acquire(p)
 	defer h.Release()
 	var evh *cache.Handle
-	if ep, ok := b.Profile(eventsKind); ok {
+	if ep, ok := b.Profile(eventsKind); ok && p.Derive == nil {
 		evh = b.Acquire(ep)
 		defer evh.Release()
 	}
@@ -172,7 +172,7 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 
 	obj, ok := KindGet(h, p, ref.Namespace, ref.Name)
 	if !ok {
-		m := &DetailModel{Ref: ref, Title: p.Kind + ": " + ref.Name, Sections: []model.DetailSection{}, Events: []EventItem{}}
+		m := &DetailModel{Ref: ref, Title: detailTitle(p, ref), Sections: []model.DetailSection{}, Events: []EventItem{}, NoEvents: p.Derive != nil}
 		if h.HasSynced() {
 			m.Missing = true
 		} else {
@@ -212,22 +212,29 @@ func BuildDetail(p *model.KindProfile, ref model.ObjectRef, obj *unstructured.Un
 // BuildDetailWith is BuildDetail with the related objects of the profile's Needs; nil means none.
 func BuildDetailWith(p *model.KindProfile, ref model.ObjectRef, obj *unstructured.Unstructured, events []*unstructured.Unstructured, now time.Time, rel model.Related) (*DetailModel, error) {
 	m := &DetailModel{
-		Ref: ref, Title: p.Kind + ": " + ref.Name,
+		Ref: ref, Title: detailTitle(p, ref),
 		Sections: []model.DetailSection{}, Events: []EventItem{},
 	}
 	m.Status = model.BuildRowWith(p, ref.Context, obj, rel).Status
 	kind, err := profileSections(p, obj, rel)
-	meta := obj
-	if isSecrets(p) {
-		// The cache drops a Secret's last-applied annotation, which repeats its values; should
-		// one arrive another way, its Annotations show it redacted.
-		meta = model.Redact(obj)
+	if p.Derive != nil { // a virtual kind's drawer is the profile's alone (model.KindProfile.Detail)
+		m.NoEvents = true
+		if kind != nil {
+			m.Sections = kind
+		}
+	} else {
+		meta := obj
+		if isSecrets(p) {
+			// The cache drops a Secret's last-applied annotation, which repeats its values; should
+			// one arrive another way, its Annotations show it redacted.
+			meta = model.Redact(obj)
+		}
+		m.Sections = model.MergeProperties(model.PropertiesSection(meta, now), kind)
+		if isSecrets(p) {
+			m.Sections = append(m.Sections, secretDataSection(ref, obj)) // keys and sizes, values masked
+		}
 	}
-	m.Sections = model.MergeProperties(model.PropertiesSection(meta, now), kind)
-	if isSecrets(p) {
-		m.Sections = append(m.Sections, secretDataSection(ref, obj)) // keys and sizes, values masked
-	}
-	if len(events) > 0 {
+	if len(events) > 0 && !m.NoEvents {
 		m.Events = objectEvents(events, p.Kind, ref.Namespace, ref.Name, string(obj.GetUID()))
 	}
 	if y, yerr := yaml.Marshal(model.Redact(obj).Object); yerr == nil {
@@ -238,6 +245,14 @@ func BuildDetailWith(p *model.KindProfile, ref model.ObjectRef, obj *unstructure
 		m.InitContainers = containerNames(obj, "initContainers")
 	}
 	return m, err
+}
+
+// detailTitle is the drawer's title: "Pod: web-0", "Release: web" (a profile's DetailTitle).
+func detailTitle(p *model.KindProfile, ref model.ObjectRef) string {
+	if p.DetailTitle != "" {
+		return p.DetailTitle + ": " + ref.Name
+	}
+	return p.Kind + ": " + ref.Name
 }
 
 // profileSections returns the kind's own drawer sections; a panicking profile yields none and

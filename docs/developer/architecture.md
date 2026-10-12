@@ -28,7 +28,7 @@ CI runs on every push ([releasing › CI](releasing.md#ci)). The MVP doubled as 
 | [`internal/mcp`](../../internal/mcp/) | Built: every command as a tool, Streamable HTTP on loopback, bearer token, Host and Origin checks | Stateless HTTP (one session per request); the token lives in `<user config dir>/Cogpit/mcp-token` and changes with the port on every start; no stdio bridge |
 | [`internal/ui/fyneui`](../../internal/ui/fyneui/) and its [`yamlview`](../../internal/ui/fyneui/yamlview/) and [`termview`](../../internal/ui/fyneui/termview/) | Built: shell after Lens's layout, theme with status tokens, context picker, confirmation dialog, the YAML view, terminal and log widgets, a jank meter (`--perf`); row menus (⋮ and right-click) and the drawer's toolbar from the registry, schema-generated parameter dialogs, links and coloured parts in cells, Cogpit's own tooltips (Fyne 2.8 has none); third run: Cogpit's own title bar on macOS through a cgo bridge to the `NSWindow` ([`titlebar_darwin.go`](../../internal/ui/fyneui/titlebar_darwin.go); `COGPIT_SYSTEM_TITLEBAR=1` keeps the system one), the column menu, keyboard navigation, fit-to-content, CSV download, the Workloads Overview, item actions in the drawer (Forward…, Show), the port-forward dialog, the Helm banner, log tabs with their toolbar | The YAML view is editable in Edit and Create resource tabs, whose text lives in the engine (`editor.get`, `editor.setText`); edits are applied as updates (PUT), not patches; the terminal widget is a patched copy of fyne-io/terminal ([`third_party/fyne-terminal`](../../third_party/fyne-terminal/PATCHES.md)) behind an escape filter, because the pinned upstream froze or crashed on container output |
 | [`cmd/cogpit`](../../cmd/cogpit/) | Built: wires the packages, the drain journal (`<user config dir>/Cogpit/drains.json`) and the Helm journal (`helm.json`); flags `--kubeconfig`, `--context`, `--demo`, `--mcp-addr`, `--no-mcp`, `--perf`, `--theme` | client-go goroutine panics are logged instead of ending the app |
-| [`internal/helm`](../../internal/helm/) (L2) | Built in the third run: release payloads decoded (bounded, fuzzed), the Releases profile as a virtual kind over the `owner=helm` Secrets with a bounded memo, the drawer (history, values as private items, the manifest with Secret data redacted), rollback and uninstall through the Helm SDK on the connection's own client configuration | Install, upgrade, repositories and charts not built; the SDK takes no context, so an action cannot be cancelled (it runs up to its 5-minute timeout) |
+| [`internal/helm`](../../internal/helm/) (L2) | Built in the third run: release payloads decoded (bounded, fuzzed), the Releases profile as a virtual kind over the `owner=helm` Secrets with a bounded memo, rollback and uninstall through the Helm SDK on the connection's own client configuration; fourth run (2026-10-12): Lens's release drawer (Properties, values and notes as private items, resources by kind), the upgrade with the release's own chart, values read from the cached Secret (`ReleaseValues`), values scrubbed from errors and the SDK's log (`ScrubValues`, `RedactSDKLog`) | Install, repositories and charts not built, so an upgrade installs the release's own chart version only; no action can be cancelled: rollback and uninstall take no context, and the upgrade's context is not passed on (§8) |
 | `cmd/cogpit-cli`, `internal/metrics`, `internal/agent`, `internal/update` | Not built (`cogpit-cli` is a stub) | – |
 
 Layering is enforced by `depguard` in `make lint`, as planned in §3, with the demo package in L2.
@@ -367,7 +367,12 @@ by "this pod".
   M7), one Properties section (the object's metadata without the UID, then the kind's own
   properties: a profile's first section titled "Properties" merges into it), the kind's other
   sections (a section may carry a `group` heading, "Containers", or a `table`, a node's
-  Capacity), then the events. A table cell may hold several lines (a role's resources and
+  Capacity), then the events. A virtual kind's drawer (2026-10-12, fourth run: Helm releases) is
+  its profile's sections alone, without the generic metadata and without events, which never
+  involve Cogpit's own objects (`DetailModel.NoEvents`; the drawer acquires no events watch for
+  it), and a profile's `DetailTitle` names the kind in the title ("Release: web"). The GUI may draw
+  a section of a kind itself (`drawerSections` in [`drawer.go`](../../internal/ui/fyneui/drawer.go):
+  a release's values in an editor); agents read the section as items. A table cell may hold several lines (a role's resources and
   verbs). A table of cells (`model.CellTable`, decided 2026-10-11 in the third run: a node's Pods,
   a binding's subjects, an endpoint slice's endpoints) adds column `types` and `cells` beside the
   plain `rows`, so that the drawer draws links, status colours and the warning icon as the lists
@@ -699,9 +704,17 @@ release only; entries for Secrets that are gone leave the memo after two generat
 and it holds at most 4,096. Five minutes after the last `Derive` (nobody reads the releases, and
 their watch ends after the cache's warm period) the memo forgets everything it decoded, so the
 values leave memory with the Secrets they came from (review 2026-10-11,
-`TestDeriveMemoForgetsWhenIdle`); before, they stayed until the cluster was disconnected. The drawer shows Properties, the History table, the user-supplied
-values (marked `Private`: agents read `model.Withheld`) and the manifest with every Secret's data
-redacted for everyone, both cut for the drawer (16 KiB or 200 lines, 32 KiB or 400 lines).
+`TestDeriveMemoForgetsWhenIdle`); before, they stayed until the cluster was disconnected. The drawer
+is Lens's since the fourth run (captured 2026-10-12; [`detail.go`](../../internal/helm/detail.go)):
+"Release: <name>" (`KindProfile.DetailTitle`), Properties with Chart (an Upgrade button beside it,
+an item action), Updated ("68s ago (12 Oct 2026, 8:30:16 CEST)"), Namespace, Version (the chart's
+version, inferred) and Status as Lens writes it ("Deployed"; the other states capitalized the same
+way, inferred), then the user-supplied values, the chart's notes (both `Private`: agents read
+`model.Withheld`; cut for the drawer to 16 KiB or 200 lines) and the resources of the newest
+revision's manifest, one table of Name and Namespace per kind with links for built-in kinds. As
+for every virtual kind, the engine adds no generic metadata and no events, and the drawer opens no
+events watch (§4.4). The History table and the redacted manifest of the third run are gone: Lens's
+drawer has neither; the history is `helm.release.history`, the YAML tab Cogpit's summary.
 `helm.release.rollback` and `helm.release.uninstall` run `action.NewRollback` and
 `action.NewUninstall` in-process with the helm CLI's defaults (hooks waited for, 5 minutes,
 rollback history kept to ten) on the connection's own client configuration, behind the
@@ -743,6 +756,57 @@ The Helm SDK takes no context, so a running action cannot be cancelled; the SDK'
 - **The journal files** (`drains.json`, `helm.json`) get a lock across Cogpit processes and an
   owning process per entry ([H-22](../security/privilege-footprint.md#h-22-two-cogpit-processes-share-the-journals)),
   a change of the journals' storage that the upgrade's entries ride on.
+
+**Upgrade as built (2026-10-12, the fourth run; [`helmupgrade.go`](../../internal/engine/helmupgrade.go),
+[`commands/helmupgrade.go`](../../internal/engine/commands/helmupgrade.go),
+[`helm/actions.go`](../../internal/helm/actions.go), [`helm/values.go`](../../internal/helm/values.go)).**
+Where it differs from the contract above, this paragraph wins.
+
+- **Commands.** `helm.release.upgradeTab` (UI, the drawer's and row menu's Upgrade at order 300,
+  between Rollback and Delete as Lens orders its icons) opens the tab with the user-supplied values
+  decoded from the newest release Secret in the cache; agents read its result and `editor.get`
+  withheld. `helm.release.upgrade` (Mutating) takes `ref` with `tab`, or `values` with the
+  `revision` they are based on (the drawer's Save, agents), and `version` (only the release's own).
+  Two reads were added for the GUI: `helm.release.values` (the user-supplied or all values from the
+  cache, the drawer's editor; withheld from agents) and `helm.release.history` (the revisions from
+  the cache, newest first, with the newest Secret's UID: the Rollback dialog).
+- **What binds.** The engine records UIDs only in destructive confirmations, so an upgrade does not
+  bind through its confirmation: it binds to the revision its values are based on, the tab's (its
+  revision and release Secret UID when it read the values, moved by a successful upgrade from the
+  tab) or the `revision` parameter, checked when the command runs, after any confirmation. A
+  release that moved meanwhile is refused with `ErrTargetsChanged`, also while an agent's
+  confirmation was open; the tab shows itself stale (`editor.get`: `baseRevision`,
+  `cachedRevision`). A release pending another action is refused before anything runs.
+- **SDK.** The chart is the newest revision's own (read by the SDK, part of the action); the values
+  replace the user-supplied ones whole (`ResetValues`: an empty editor is no values, where the helm
+  CLI would keep the old ones); history ten, hooks waited for, 5 minutes. `RunWithContext` gets
+  `context.WithoutCancel`: the SDK's upgrade marks a release failed when its context ends while its
+  own goroutine goes on changing the cluster, so an upgrade runs to its end or timeout like
+  rollback and uninstall. An error the SDK returns before it made a revision (a template or schema
+  that refuses the values, a pending release, another chart version) is `helm.ErrUnchanged`: its
+  journal entry is removed, since nothing is left to finish.
+- **Values never leave the user's window.** Errors, toasts, the journal's error text and the SDK's
+  own log lines during an upgrade are scrubbed of every value of four or more characters, also in
+  base64 (`helm.ScrubValues`; values a template transformed otherwise are not found); the audit log
+  records `values` and a Helm Upgrade tab's `editor.setText` text by size only; YAML parse errors
+  name the line, never a value. A revision's description, which Helm writes from a failed
+  upgrade's error (seen on a real cluster, 2026-10-12: the API server's message), reaches the
+  release object scrubbed of that revision's values. The SDK's value coalescing writes conflicting values with the
+  standard library's `log`, which reaches Cogpit's log through `slog.SetDefault`: `cmd/cogpit`
+  wraps its handler in `helm.RedactSDKLog`, which drops them.
+- **Crash safety.** On connect an upgrade entry is dropped when the release is gone, deployed above
+  `FromRevision` (finished), or still at `FromRevision` (it never reached the cluster); otherwise
+  (pending-upgrade or failed above it) the banner offers "Roll back to revision N"
+  (`helm.release.rollback` to `FromRevision`), and `helm.release.upgrade` stays refused while the
+  release is pending.
+- **The Rollback dialog is the confirmation** (GUI, [`helmrollback.go`](../../internal/ui/fyneui/helmrollback.go)).
+  Rollback stays destructive and the engine asks the GUI's confirmer for every origin. Lens's dialog
+  (a REVISION dropdown, newest first, the current one selected) names the release, its namespace and
+  its context, and when the user picks Rollback hands the confirmer the newest release Secret's UID
+  it showed; the engine's confirmation of exactly that command, from the GUI origin, on that release
+  and context, within ten seconds, takes that answer instead of a second dialog, and one whose UID
+  differs (the release moved while the dialog was open) is refused. Agents' requests carry their own
+  origin and never match. The banner's and the agents' rollbacks are confirmed as before.
 
 ## 9. Metrics (`internal/metrics`)
 
@@ -824,6 +888,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Fourth run, Helm: the upgrade as built (§8: what binds, the SDK's context, `ErrUnchanged`, values scrubbed, the Rollback dialog as the confirmation); Lens's release drawer; virtual kinds' drawers without metadata and events, `DetailTitle` (§4.4) |
 | 2026-10-12 | minor | Fourth run, agent A: covering scopes built (§5, how a handover stays exact, the measured budgets); the Secrets view on a full watch, its drawer from the cache without a GET; `resources.find` without a kind skips uncached kinds that hold Secret values; the last-applied annotation re-checked and kept dropped |
 | 2026-10-12 | minor | §4.4: the related objects' generation changes when the indexed kinds finish their initial list; §12: a stopped shell drops the work it queued for the main goroutine |
 | 2026-10-12 | minor | Phase 0 of the fourth run: `model.Related.Listed`; covering scopes for the full Secrets watch and Helm's releases; the Helm upgrade's commands, seam, journal entry and dock tab |

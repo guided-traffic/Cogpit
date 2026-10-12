@@ -24,6 +24,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/demo"
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
+	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/mcp"
 	"github.com/guided-traffic/cogpit/internal/ui/fyneui"
 )
@@ -60,7 +61,7 @@ func run() int {
 		defer stop()
 	}
 
-	logger := newLogger(*verbose)
+	logger := slog.New(helm.RedactSDKLog(newLogger(*verbose).Handler())) // Helm values never reach the log
 	slog.SetDefault(logger)
 	klog.SetSlogLogger(logger)
 	// client-go's informer goroutines re-panic after logging by default, which would end the app

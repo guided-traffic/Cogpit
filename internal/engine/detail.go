@@ -48,6 +48,9 @@ type DetailModel struct {
 	// Loading is true while the object's kind is still being listed: the object may yet appear,
 	// and an EventDetail follows when the list is done.
 	Loading bool `json:"loading,omitempty"`
+	// NoEvents is true for a kind whose objects no event is about (a virtual kind: Helm
+	// releases): the drawer shows no Events section, as Lens's release drawer has none.
+	NoEvents bool `json:"noEvents,omitempty"`
 }
 
 // EventItem is one event in the drawer.

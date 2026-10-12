@@ -95,11 +95,16 @@ func (b *helmBanner) row(op engine.PendingHelmOpInfo) fyne.CanvasObject {
 		dismiss.Importance = widget.LowImportance
 		buttons.Add(dismiss)
 		var finish *widget.Button
-		if op.Action == engine.HelmRollback {
+		switch op.Action {
+		case engine.HelmRollback:
 			finish = widget.NewButtonWithIcon("Finish rollback", theme.MediaPlayIcon(), func() {
 				b.sh.dispatch("helm.release.rollback", helmRollbackParams{refParams: refParams{Ref: ref}, Revision: op.Revision}, nil)
 			})
-		} else {
+		case engine.HelmUpgrade: // the SDK refuses to upgrade a release left pending-upgrade: roll back (architecture §8)
+			finish = widget.NewButtonWithIcon(fmt.Sprintf("Roll back to revision %d", op.FromRevision), theme.MediaPlayIcon(), func() {
+				b.sh.dispatch("helm.release.rollback", helmRollbackParams{refParams: refParams{Ref: ref}, Revision: op.FromRevision}, nil)
+			})
+		default:
 			finish = widget.NewButtonWithIcon("Finish uninstall", theme.MediaPlayIcon(), func() {
 				b.sh.dispatch("helm.release.uninstall", refParams{Ref: ref}, nil)
 			})
@@ -117,13 +122,19 @@ func (b *helmBanner) row(op engine.PendingHelmOpInfo) fyne.CanvasObject {
 // helmOpTitle is a row's first line.
 func helmOpTitle(op engine.PendingHelmOpInfo) string {
 	what := "The uninstall of release " + op.Release
-	if op.Action == engine.HelmRollback {
+	switch op.Action {
+	case engine.HelmRollback:
 		what = fmt.Sprintf("The rollback of release %s to revision %d", op.Release, op.Revision)
+	case engine.HelmUpgrade:
+		what = fmt.Sprintf("The upgrade of release %s from revision %d to %s %s", op.Release, op.FromRevision, op.Chart, op.ChartVersion)
 	}
 	switch op.Status {
 	case engine.HelmOpStatusRunning:
-		if op.Action == engine.HelmRollback {
+		switch op.Action {
+		case engine.HelmRollback:
 			return fmt.Sprintf("Rolling back release %s to revision %d", op.Release, op.Revision)
+		case engine.HelmUpgrade:
+			return fmt.Sprintf("Upgrading release %s to %s %s", op.Release, op.Chart, op.ChartVersion)
 		}
 		return "Uninstalling release " + op.Release
 	case engine.HelmOpStatusFailed:

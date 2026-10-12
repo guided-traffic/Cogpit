@@ -71,14 +71,24 @@ func (s *Session) audit(inv Invocation, context, phase string, err error) {
 // object.create, editor.setText, resource.createTab) carry them in a "yaml" parameter; an agent may
 // send a Secret's manifest even though Cogpit refuses to write Secrets. The parameter is logged as
 // RedactManifests returns it; a "yaml" parameter that is not a string is logged by its type only.
+// Helm values, which can hold credentials, are never logged: helm.release.upgrade's "values", and
+// the "yaml" an agent sets in a Helm Upgrade tab (editor.setText with a helmUpgrade-… id).
 func auditParams(raw json.RawMessage) json.RawMessage {
 	var params map[string]any
 	if json.Unmarshal(raw, &params) != nil {
 		return raw
 	}
+	if v, ok := params["values"]; ok {
+		params["values"] = withheldParam(v)
+		raw = marshalParams(params, raw)
+	}
 	v, ok := params["yaml"]
 	if !ok {
 		return raw
+	}
+	if id, _ := params["id"].(string); strings.HasPrefix(id, string(DockHelmUpgrade)+"-") {
+		params["yaml"] = withheldParam(v)
+		return marshalParams(params, raw)
 	}
 	text, isString := v.(string)
 	if !isString {
@@ -185,6 +195,14 @@ func redactSecret(o *unstructured.Unstructured) *unstructured.Unstructured {
 		}
 	}
 	return cp
+}
+
+// withheldParam is what the audit log records of a parameter that holds Helm values: its size.
+func withheldParam(v any) string {
+	if s, ok := v.(string); ok {
+		return fmt.Sprintf("<%d bytes of Helm values; not logged>", len(s))
+	}
+	return "<Helm values; not logged>"
 }
 
 func marshalParams(params map[string]any, fallback json.RawMessage) json.RawMessage {

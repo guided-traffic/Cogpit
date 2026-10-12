@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"helm.sh/helm/v4/pkg/release/common"
@@ -30,11 +31,12 @@ const (
 	releaseObjectKind = "HelmRelease"
 )
 
-// Titles of the release drawer's sections.
+// Titles of the release drawer's sections, as Lens titles them (captured 2026-10-12): the values,
+// the chart's notes, and the release's resources, one section per kind under the group heading.
 const (
-	TitleHistory  = "History"
-	TitleValues   = "Values"
-	TitleManifest = "Manifest"
+	TitleValues    = "Values"
+	TitleNotes     = "Notes"
+	GroupResources = "Resources"
 )
 
 // Fields of a derived release object; the list's columns and the searchable fields take the same
@@ -50,6 +52,14 @@ const (
 	fieldHistory      = "history"
 )
 
+// The name and namespace the list, the drawer and its resource tables share.
+const (
+	fieldName      = "name"
+	fieldNamespace = "namespace"
+	titleNamespace = "Namespace"
+	kindNamespaces = "namespaces" // the kind key a namespace links to
+)
+
 // Titles the list's columns, the drawer's Properties and the History table share.
 const (
 	titleChart      = "Chart"
@@ -60,14 +70,15 @@ const (
 )
 
 // Bounds on what the drawer keeps of a release. A release's history is at most what Helm keeps
-// (10 revisions by default); the values and the manifest are cut for the drawer, which renders one
-// line per line.
+// (10 revisions by default); the values and the notes are cut for the drawer, which renders one
+// line per line; the resources are the first maxResources objects of the manifest.
 const (
-	historyRows   = 100      // revisions in the History table
-	valuesBytes   = 16 << 10 // of the user-supplied values as YAML
-	valuesLines   = 200
-	manifestBytes = 32 << 10 // of the rendered manifest
-	manifestLines = 400
+	historyRows  = 100      // revisions in the release object's history
+	valuesBytes  = 16 << 10 // of the user-supplied values as YAML
+	valuesLines  = 200
+	notesBytes   = 16 << 10 // of the chart's rendered notes
+	notesLines   = 200
+	maxResources = 500
 )
 
 // The memo's bounds: entries for Secrets that are gone leave it after two generations of this
@@ -95,11 +106,12 @@ func NewReleaseProfile() *model.KindProfile {
 		Resource:      "secrets",
 		Kind:          releaseObjectKind,
 		Title:         "Releases",
+		DetailTitle:   "Release",
 		Namespaced:    true,
 		LabelSelector: ReleaseSelector,
 		Columns: []model.Column{
-			{ID: "name", Title: "Name", Type: model.ColumnText},
-			{ID: "namespace", Title: "Namespace", Type: model.ColumnText},
+			{ID: fieldName, Title: "Name", Type: model.ColumnText},
+			{ID: fieldNamespace, Title: titleNamespace, Type: model.ColumnText},
 			{ID: fieldChart, Title: titleChart, Type: model.ColumnText},
 			{ID: fieldRevision, Title: titleRevision, Type: model.ColumnNumber},
 			{ID: "version", Title: "Version", Type: model.ColumnText},
@@ -122,6 +134,17 @@ func nonEmpty(s string) []string {
 		return nil
 	}
 	return []string{s}
+}
+
+// StatusText is a release status as Lens writes it: capitalized, "Deployed" (captured 2026-10-12);
+// the other states capitalized the same way, "Pending-upgrade", "Superseded" (inferred). The
+// release object, helm.pendingOperations and resources_find keep Helm's own spelling.
+func StatusText(status string) string {
+	if status == "" {
+		return ""
+	}
+	r, n := utf8.DecodeRuneInString(status)
+	return string(unicode.ToUpper(r)) + status[n:]
 }
 
 // StatusToken colours a release status (inferred: Lens's colours are not captured): deployed is
@@ -169,6 +192,47 @@ func ReleaseRevisions(o *unstructured.Unstructured) []int {
 	return out
 }
 
+// ReleaseChart returns the chart name and version of a release object's newest revision.
+func ReleaseChart(o *unstructured.Unstructured) (name, version string) {
+	return model.NestedString(o, fieldChart), model.NestedString(o, fieldChartVersion)
+}
+
+// ReleaseSecret returns the name of the release Secret that holds a release object's newest
+// revision, in the release's namespace.
+func ReleaseSecret(o *unstructured.Unstructured) string { return model.NestedString(o, "secret") }
+
+// HistoryEntry is one revision of a release, as the release object's history holds it.
+type HistoryEntry struct {
+	Revision     int       `json:"revision"`
+	Chart        string    `json:"chart"` // the chart's name
+	ChartVersion string    `json:"chartVersion"`
+	AppVersion   string    `json:"appVersion,omitempty"`
+	Status       string    `json:"status"` // Helm's own spelling: "deployed", "superseded"
+	Updated      time.Time `json:"updated,omitzero"`
+	Description  string    `json:"description,omitempty"`
+}
+
+// ReleaseHistory returns the revisions in a release object's history, newest first: the release
+// Secrets the cache holds, at most historyRows.
+func ReleaseHistory(o *unstructured.Unstructured) []HistoryEntry {
+	hist := model.NestedSlice(o, fieldHistory)
+	out := make([]HistoryEntry, 0, len(hist))
+	for _, h := range hist {
+		n, _ := model.NestedInt64(h, fieldRevision)
+		e := HistoryEntry{
+			Revision: int(n), ChartVersion: model.NestedString(h, fieldChartVersion),
+			AppVersion: model.NestedString(h, fieldAppVersion), Status: model.NestedString(h, fieldStatus),
+			Updated: model.NestedTime(h, fieldUpdated), Description: model.NestedString(h, fieldDescription),
+		}
+		e.Chart = model.NestedString(h, fieldChart)
+		if e.ChartVersion != "" {
+			e.Chart = strings.TrimSuffix(e.Chart, "-"+e.ChartVersion)
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
 func releaseCells(o *unstructured.Unstructured) ([]model.Cell, model.Status) {
 	status := model.NestedString(o, fieldStatus)
 	token := StatusToken(status)
@@ -176,12 +240,12 @@ func releaseCells(o *unstructured.Unstructured) ([]model.Cell, model.Status) {
 	ns := o.GetNamespace()
 	return []model.Cell{
 		{Text: o.GetName()},
-		{Text: ns, Link: &model.ObjectRef{Kind: "namespaces", Name: ns}},
+		{Text: ns, Link: &model.ObjectRef{Kind: kindNamespaces, Name: ns}},
 		{Text: model.NestedString(o, fieldChart)},
 		{Text: strconv.FormatInt(rev, 10), Num: rev},
 		{Text: model.NestedString(o, fieldChartVersion)},
 		{Text: model.NestedString(o, fieldAppVersion)},
-		{Text: status, Status: token},
+		{Text: StatusText(status), Status: token},
 		model.AgeCell(model.NestedTime(o, fieldUpdated)),
 	}, token
 }
@@ -201,14 +265,15 @@ type revision struct {
 	description                     string
 	err                             string // why the payload could not be read; the rest is from the labels
 
-	// heavy are the values and the manifest, kept for the newest revision of each release only.
+	// heavy are the values, notes and resources, kept for the newest revision of each release only.
 	heavy *heavy
 }
 
 // heavy is what the drawer shows of a release's newest revision beyond its summary.
 type heavy struct {
-	values   string // the user-supplied values as YAML, cut to valuesBytes and valuesLines
-	manifest string // the rendered manifest, Secret documents redacted, cut to manifestBytes and manifestLines
+	values    string     // the user-supplied values as YAML, cut to valuesBytes and valuesLines
+	notes     string     // the chart's rendered notes, cut to notesBytes and notesLines
+	resources []resource // the objects of the manifest, at most maxResources
 }
 
 // memo keeps the revisions Derive decoded, by the Secret's UID, valid for one resourceVersion, so
@@ -373,8 +438,8 @@ func groupReleases(revs []*revision) [][]*revision {
 
 // releaseObject builds a release's object from its revisions, newest first: the newest revision's
 // summary, its Secret's UID and resourceVersion (a confirmation binds to the revision the user
-// saw), and the history. It holds no values and no manifest: the YAML tab shows this object, and
-// the drawer's Values and Manifest come from the memo (detail). Called with m.mu held.
+// saw), and the history. It holds no values, notes or manifest: the YAML tab shows this object,
+// and the drawer's Values, Notes and Resources come from the memo (detail). Called with m.mu held.
 func releaseObject(g []*revision) *unstructured.Unstructured {
 	r := g[0]
 	created := r.firstDeployed
@@ -382,7 +447,7 @@ func releaseObject(g []*revision) *unstructured.Unstructured {
 		created = g[len(g)-1].created
 	}
 	meta := map[string]any{
-		"name": r.name, "namespace": r.namespace, "uid": string(r.uid), "resourceVersion": r.rv,
+		fieldName: r.name, fieldNamespace: r.namespace, "uid": string(r.uid), "resourceVersion": r.rv,
 	}
 	if !created.IsZero() {
 		meta["creationTimestamp"] = created.UTC().Format(time.RFC3339)
@@ -391,7 +456,8 @@ func releaseObject(g []*revision) *unstructured.Unstructured {
 	for _, h := range g[:min(len(g), historyRows)] {
 		history = append(history, map[string]any{
 			fieldRevision: int64(h.number), fieldUpdated: timeText(h.updated), fieldStatus: h.status,
-			fieldChart: chartText(h.chart, h.chartVersion), fieldAppVersion: h.appVersion, fieldDescription: h.description,
+			fieldChart: chartText(h.chart, h.chartVersion), fieldChartVersion: h.chartVersion, fieldAppVersion: h.appVersion,
+			fieldDescription: h.description,
 		})
 	}
 	obj := map[string]any{
@@ -446,12 +512,19 @@ func decodeRevision(o *unstructured.Unstructured) *revision {
 	r.number = cmp.Or(rls.Version, r.number)
 	if rls.Info != nil {
 		r.status = cmp.Or(string(rls.Info.Status), r.status)
-		r.updated, r.firstDeployed, r.description = rls.Info.LastDeployed, rls.Info.FirstDeployed, rls.Info.Description
+		r.updated, r.firstDeployed = rls.Info.LastDeployed, rls.Info.FirstDeployed
+		// A failed revision's description quotes the error, which can quote a rendered value
+		// (the API server's "Invalid value: …"); the release object, which agents read, shows it
+		// scrubbed of the revision's own values.
+		r.description = ScrubValues(rls.Info.Description, rls.Config)
 	}
 	if rls.Chart != nil && rls.Chart.Metadata != nil {
 		r.chart, r.chartVersion, r.appVersion = rls.Chart.Metadata.Name, rls.Chart.Metadata.Version, rls.Chart.Metadata.AppVersion
 	}
-	r.heavy = &heavy{manifest: cut(redactManifest(rls.Manifest), manifestBytes, manifestLines)}
+	r.heavy = &heavy{resources: manifestResources(rls.Manifest, r.namespace)}
+	if rls.Info != nil && strings.TrimSpace(rls.Info.Notes) != "" {
+		r.heavy.notes = cut(strings.TrimRight(rls.Info.Notes, "\n"), notesBytes, notesLines)
+	}
 	if len(rls.Config) > 0 {
 		if y, err := yaml.Marshal(rls.Config); err == nil {
 			r.heavy.values = cut(strings.TrimSuffix(string(y), "\n"), valuesBytes, valuesLines)

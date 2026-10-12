@@ -32,7 +32,7 @@ own. **Human** marks what an agent can't finish alone.
 | G8 | Logs, terminal and shells | features | blocks alpha | 16–40 h | [ui-parity](ui-parity.md#logs) |
 | G9 | YAML editor and create resource | features | blocks alpha | 8–22 h | [ui-parity](ui-parity.md#editor-and-create-resource) |
 | G10 | Port forwarding | features | blocks alpha | 2–6 h | [ui-parity](ui-parity.md#port-forwarding) |
-| G11 | Helm | features | blocks alpha | 20–45 h | [resource-parity](resource-parity.md#helm) |
+| G11 | Helm | features | blocks alpha | 12–30 h | [resource-parity](resource-parity.md#helm) |
 | G12 | Metrics and cluster overview | features | blocks beta | 40–80 h | [ui-parity](ui-parity.md#cluster-overview-and-charts) |
 | G13 | Clusters, hotbar, palette, menus, shortcuts and preferences | UI | partly alpha, rest beta | 65–165 h | [ui-parity](ui-parity.md#clusters) |
 | G14 | Packaging, signing and updates (macOS) | platforms | an unsigned build blocks alpha; signing and updates block beta | 22–45 h + human | [platform-parity](platform-parity.md#operating-systems-and-packages) |
@@ -325,8 +325,19 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 2–6 h (was 10–20; built in the third run, left: Lens's status texts and Edit dialog by capture, a check in a real window).
 
 ### G11. Helm
-- **Missing:** install and upgrade as crash-safe jobs; repositories, chart index and search; the
-  Helm Install and Helm Upgrade dock tabs. Views and actions count in G6 and G7.
+- **Missing:** install as a crash-safe job; repositories, chart index and search (so an upgrade
+  can install the release's own chart version only); the Helm Install dock tab; the ConfigMaps
+  and SQL storage drivers. Views and actions count in G6 and G7.
+- **Evidence (2026-10-12, fourth run):** Upgrade partial: Lens's "Helm Upgrade: <name>" dock tab
+  and `helm.release.upgrade` through the Helm SDK (the release's own chart, values replacing the
+  user-supplied ones, ten revisions kept), mutating, bound to the revision its values were read
+  from, crash-safe (an interrupted upgrade is offered as a rollback to the revision it started
+  from), values withheld from agents, the audit log, errors and logs; Lens's release drawer (the
+  values in an editor with Save, notes, resources by kind) and Rollback dialog, which is the
+  rollback's confirmation in the GUI ([resource-parity](resource-parity.md#helm),
+  [architecture §8](../developer/architecture.md#8-helm-internalhelm); `TestHelmUpgradeTab`,
+  `TestHelmUpgradeCrashJournal`, `TestUpgradeThroughTheSDK`, `TestRollbackDialogConfirms`; on kind
+  `TestKindHelmUpgrade`).
 - **Evidence:** [resource-parity](resource-parity.md#helm), 2026-10-11 (third run): Releases partial,
   Rollback and Delete (uninstall) partial; Charts, Install and Upgrade missing. Built: the release
   Secrets of the `owner=helm` watch decoded into the virtual kind `helmreleases` (memoized per
@@ -337,15 +348,15 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   ([`internal/helm`](../../internal/helm/), [`commands/helm.go`](../../internal/engine/commands/helm.go),
   [`helmops.go`](../../internal/engine/helmops.go); `TestHelmCrashJournalOffer`; on kind
   `TestKindHelmReleases`: a local chart installed and upgraded with the SDK, then listed, read, rolled
-  back and uninstalled through the engine, and a simulated crash offered and finished). Still
-  missing: repositories, chart index and search, install and upgrade, the Helm Install and Helm
-  Upgrade dock tabs, the ConfigMaps and SQL storage drivers.
+  back and uninstalled through the engine, and a simulated crash offered and finished). The
+  drawer's history and manifest gave way to Lens's drawer in the fourth run (above).
 - **Captured (2026-10-12, Lens Desktop on a real cluster):** the release drawer (Chart with an
   Upgrade button, Updated, Namespace, Version, Status; editable values with "User-supplied values
   only" and Save; Notes; Resources by kind), its icons (Rollback, Upgrade, Delete), the Rollback
   dialog (every revision, newest first, the current one selected), the Delete dialog, the Helm
   Upgrade dock tab, and a rollback keeping 10 revisions ([resource-parity](resource-parity.md#helm)).
-- **Estimate:** 20–45 h (was 30–60; releases, history, values, manifest, rollback and uninstall built in the third run; left: upgrade, install, repositories and charts, the dock's Helm tabs).
+- **Estimate:** 12–30 h (was 20–45; the upgrade, its dock tab and Lens's drawer built in the fourth run; left: install and its dock tab, repositories and charts, the other storage drivers).
+- **Still to capture in Lens** (a release with five revisions, one failed, prepared on the staging cluster in its own namespace, 2026-10-12): the drawer's Version and Chart texts, "User-supplied values only" at first and what Save does, the texts of states other than Deployed, Rollback with the current revision selected, the upgrade tab's search.
 
 ### G12. Metrics and cluster overview
 - **Missing:** provider detection (metrics-server, Prometheus through the service proxy, the
@@ -520,6 +531,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | G11 (fourth run): the Helm upgrade and its dock tab, Lens's release drawer and Rollback dialog built; estimate 12–30 h (the totals not recounted) |
 | 2026-10-12 | minor | G3 evidence: covering scopes (fourth run); G6 evidence: Secrets on a full watch, Keys and Type filled, the drawer from the cache (D-13 revised, built) |
 | 2026-10-12 | minor | G1: `make parity` built (D-15); its first run's findings; estimate 3–8 h |
 | 2026-10-11 | minor | G5: evidence of the third run's tables and window work; G15: why the gate's offscreen test hung in CI, and the fix |

@@ -26,6 +26,7 @@ type testRelease struct {
 	status   common.Status
 	values   map[string]any
 	manifest string
+	notes    string
 }
 
 // secretFor encodes a revision the way Helm's Secrets driver stores it: the Secret's name and
@@ -36,7 +37,7 @@ func secretFor(t testing.TB, r testRelease) *unstructured.Unstructured {
 		Name: r.name, Namespace: r.ns, Version: r.rev, Config: r.values, Manifest: r.manifest,
 		Info: &rspb.Info{
 			Status: r.status, FirstDeployed: t0, LastDeployed: t0.Add(time.Duration(r.rev) * time.Hour),
-			Description: fmt.Sprintf("Revision %d", r.rev),
+			Description: fmt.Sprintf("Revision %d", r.rev), Notes: r.notes,
 		},
 		Chart: &chart.Chart{Metadata: &chart.Metadata{Name: "web", Version: fmt.Sprintf("1.%d.0", r.rev), AppVersion: "2.0"}},
 	}
@@ -106,7 +107,7 @@ func TestDeriveGroupsReleasesNewestWins(t *testing.T) {
 	for i, c := range row.Cells {
 		texts[i] = model.CellText(p.Columns[i], c, t0.Add(5*time.Hour))
 	}
-	if strings.Join(texts, "|") != "web|apps|web|3|1.3.0|2.0|deployed|2h" || row.Status != model.StatusOK {
+	if strings.Join(texts, "|") != "web|apps|web|3|1.3.0|2.0|Deployed|2h" || row.Status != model.StatusOK {
 		t.Errorf("row %q status %q", texts, row.Status)
 	}
 	if model.BuildRow(p, "test", got["apps/db"]).Status != model.StatusPending ||
@@ -125,39 +126,135 @@ func TestDeriveGroupsReleasesNewestWins(t *testing.T) {
 	}
 }
 
-// The drawer: Properties with the summary and a link to the release Secret, the history as a
-// table, the newest revision's values (private) and its manifest.
+// The drawer, as Lens's (captured 2026-10-12): Properties with Chart (and its Upgrade button),
+// Updated, Namespace, Version and Status as Lens writes it; the newest revision's values and the
+// chart's notes (both private); the resources, one table per kind with links.
 func TestReleaseDetail(t *testing.T) {
+	oldClock, oldZone := clock, zone
+	clock, zone = func() time.Time { return t0.Add(3*time.Hour + 68*time.Second) }, time.FixedZone("CEST", 2*60*60)
+	t.Cleanup(func() { clock, zone = oldClock, oldZone })
 	p := NewReleaseProfile()
-	web := byKey(p.Derive(releaseSecrets(t)))["apps/web"]
+	manifest := "---\n# Source: web/templates/cm.yaml\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: web\n" +
+		"--- {apiVersion: apps/v1, kind: Deployment, metadata: {name: web, namespace: elsewhere}}\n" +
+		"---\napiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\nmetadata:\n  name: web-reader\n" +
+		"---\napiVersion: example.com/v1\nkind: Widget\nmetadata:\n  name: w\n---\n# empty\n---\nnot: [valid\n" +
+		"---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: aaa\n"
+	secrets := []*unstructured.Unstructured{
+		secretFor(t, testRelease{ns: "apps", name: "web", rev: 2, status: common.StatusSuperseded}),
+		secretFor(t, testRelease{ns: "apps", name: "web", rev: 3, status: common.StatusDeployed, notes: "Visit http://web.apps\nPassword: hunter2",
+			values: map[string]any{"password": "hunter2", "replicas": 2}, manifest: manifest}),
+	}
+	web := byKey(p.Derive(secrets))["apps/web"]
 	secs := p.Detail(web)
 	titles := make([]string, len(secs))
 	for i, s := range secs {
-		titles[i] = s.Title
+		titles[i] = s.Group + "/" + s.Title
 	}
-	if strings.Join(titles, ",") != "Properties,History,Values,Manifest" {
+	if strings.Join(titles, ",") != "/Properties,/Values,/Notes,Resources/ClusterRole,Resources/ConfigMap,Resources/Deployment,Resources/Widget" {
 		t.Fatalf("sections %v", titles)
 	}
+	var names []string
 	props := map[string]model.DetailItem{}
 	for _, it := range secs[0].Items {
+		names = append(names, it.Name)
 		props[it.Name] = it
 	}
-	if props["Chart"].Value != "web-1.3.0" || props["Status"].Status != model.StatusOK || props["Revision"].Value != "3" ||
-		props["Release Secret"].Link == nil || props["Release Secret"].Link.Kind != "secrets" {
+	if strings.Join(names, ",") != "Chart,Updated,Namespace,Version,Status" {
+		t.Errorf("properties %v", names)
+	}
+	if c := props["Chart"]; c.Value != "web" || len(c.Actions) != 1 || c.Actions[0].Command != UpgradeTabCommand || c.Actions[0].Label != "Upgrade" ||
+		string(c.Actions[0].Params) != `{"ref":{"kind":"helmreleases","namespace":"apps","name":"web"}}` {
+		t.Errorf("chart %+v", c)
+	}
+	if got := props["Updated"].Value; got != "68s ago (1 Oct 2026, 17:00:00 CEST)" {
+		t.Errorf("updated %q", got)
+	}
+	if props["Status"].Value != "Deployed" || props["Status"].Status != model.StatusOK || props["Version"].Value != "1.3.0" ||
+		props["Namespace"].Link == nil || props["Namespace"].Link.Name != "apps" {
 		t.Errorf("properties %+v", props)
 	}
-	if tb := secs[1].Table; tb == nil || len(tb.Rows) != 3 || tb.Rows[0][0] != "3" || tb.Rows[2][3] != "web-1.1.0" {
-		t.Errorf("history %+v", secs[1].Table)
-	}
-	values := secs[2].Items[0]
+	values := secs[1].Items[0]
 	if !values.Private || !strings.Contains(values.Value, "password: hunter2") || !strings.Contains(values.Value, "replicas: 2") {
 		t.Errorf("values %+v", values)
 	}
-	if !strings.Contains(secs[3].Items[0].Value, "# Source: web/templates/cm.yaml") {
-		t.Errorf("manifest %q", secs[3].Items[0].Value)
+	if notes := secs[2].Items[0]; !notes.Private || notes.Value != "Visit http://web.apps\nPassword: hunter2" {
+		t.Errorf("notes %+v", notes)
 	}
-	if got := model.WithholdPrivate(secs)[2].Items[0].Value; got != model.Withheld {
-		t.Errorf("values for agents %q", got)
+	cm := secs[4].Table
+	if cm == nil || len(cm.Rows) != 2 || cm.Rows[0][0] != "aaa" || cm.Rows[1][1] != "apps" ||
+		cm.Link(1, 0) == nil || cm.Link(1, 0).Kind != "configmaps" || cm.Link(1, 1) == nil || cm.Link(1, 1).Kind != "namespaces" {
+		t.Errorf("config maps %+v", cm)
+	}
+	if cr := secs[3].Table; cr.Rows[0][1] != "" || cr.Link(0, 0) == nil || cr.Link(0, 0).Namespace != "" {
+		t.Errorf("a cluster role has a namespace: %+v", cr)
+	}
+	if d := secs[5].Table; d.Rows[0][1] != "elsewhere" || d.Link(0, 0).Kind != "deployments" {
+		t.Errorf("deployment %+v", d)
+	}
+	if w := secs[6].Table; w.Rows[0][1] != "apps" || w.Link(0, 0) != nil {
+		t.Errorf("a custom kind %+v", w)
+	}
+	withheld := model.WithholdPrivate(secs)
+	if withheld[1].Items[0].Value != model.Withheld || withheld[2].Items[0].Value != model.Withheld {
+		t.Errorf("values and notes for agents %+v", withheld[1:3])
+	}
+}
+
+// A failed revision's description, which Helm writes from the error and the API server's error
+// can quote a value in, reaches the release object scrubbed of the revision's values.
+func TestReleaseDescriptionScrubbed(t *testing.T) {
+	s := secretFor(t, testRelease{ns: "apps", name: "web", rev: 2, status: common.StatusFailed, values: map[string]any{"host": "hunter2.example"}})
+	rls, err := DecodeSecret(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rls.Info.Description = `Upgrade "web" failed: Ingress.networking.k8s.io "web" is invalid: spec.rules[0].host: Invalid value: "hunter2.example"`
+	s.Object["data"] = map[string]any{"release": base64.StdEncoding.EncodeToString([]byte(encode(t, rls, true)))}
+	web := NewReleaseProfile().Derive([]*unstructured.Unstructured{s})[0]
+	if d := model.NestedString(web, "description"); strings.Contains(d, "hunter2") || !strings.Contains(d, "Invalid value") {
+		t.Errorf("description %q", d)
+	}
+	if h := ReleaseHistory(web); strings.Contains(h[0].Description, "hunter2") {
+		t.Errorf("history %q", h[0].Description)
+	}
+}
+
+// Statuses as Lens writes them: capitalized.
+func TestStatusText(t *testing.T) {
+	for in, want := range map[string]string{"deployed": "Deployed", "pending-upgrade": "Pending-upgrade", "": "", "ünicode": "Ünicode"} {
+		if got := StatusText(in); got != want {
+			t.Errorf("%q: %q, want %q", in, got, want)
+		}
+	}
+}
+
+// The history of a release object, newest first, with each revision's chart, and the Rollback
+// dialog's text for one revision, as Lens's (captured 2026-10-12).
+func TestReleaseHistoryAndRevisionText(t *testing.T) {
+	web := byKey(NewReleaseProfile().Derive(releaseSecrets(t)))["apps/web"]
+	h := ReleaseHistory(web)
+	if len(h) != 3 || h[0].Revision != 3 || h[0].Chart != "web" || h[0].ChartVersion != "1.3.0" || h[0].AppVersion != "2.0" ||
+		h[0].Status != "deployed" || !h[0].Updated.Equal(t0.Add(3*time.Hour)) || h[2].Revision != 1 {
+		t.Fatalf("history %+v", h)
+	}
+	if got := RevisionText(h[0], time.FixedZone("CEST", 2*60*60)); got != "3 - web-1.3.0 - 2.0, updated: 01/10/2026, 17:00:00" {
+		t.Errorf("revision text %q", got)
+	}
+	if name, version := ReleaseChart(web); name != "web" || version != "1.3.0" || ReleaseSecret(web) != "sh.helm.release.v1.web.v3" {
+		t.Errorf("chart %s %s secret %s", name, version, ReleaseSecret(web))
+	}
+}
+
+// The manifest's documents: separators with content after them, comments, and nothing copied line
+// by line.
+func TestSplitDocuments(t *testing.T) {
+	docs := splitDocuments("a: 1\n---\nb: 2\n--- {c: 3}\n---  # comment\nd: 4\n---")
+	want := []string{"a: 1\n", "b: 2\n", "{c: 3}\n", "d: 4\n", ""}
+	if strings.Join(docs, "|") != strings.Join(want, "|") {
+		t.Errorf("documents %q, want %q", docs, want)
+	}
+	if n := len(manifestResources(strings.Repeat("---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: x\n", maxResources+5), "apps")); n != 1 {
+		t.Errorf("%d resources of one repeated object", n)
 	}
 }
 

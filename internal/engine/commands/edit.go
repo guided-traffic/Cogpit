@@ -88,11 +88,16 @@ func registerEdit(g *registrar) {
 		ID: "editor.get", Label: "Read Editor", Danger: engine.DangerRead, Verbs: cacheReads,
 		Description: "Returns an editor tab's text (what the user has typed so far) and its revision; for an Edit tab also " +
 			"the resourceVersion the edit is based on, the one Cogpit's cache holds now, and whether they differ (stale: an " +
-			"apply would be refused with a conflict) or the object is gone (missing). For agents, the values of any " +
-			"Secret in the text are replaced by <redacted>.",
+			"apply would be refused with a conflict) or the object is gone (missing); for a Helm Upgrade tab the release " +
+			"revision its values are based on. For agents, the values of any Secret in the text are replaced by " +
+			"<redacted>, and a Helm Upgrade tab's values are withheld whole.",
 		Run: func(ctx context.Context, s *engine.Session, p editorParams) (any, error) {
 			st, err := s.EditorState(ctx, p.ID)
-			if err == nil && engine.OriginOf(ctx).IsAgent() {
+			switch {
+			case err != nil || !engine.OriginOf(ctx).IsAgent():
+			case st.Tab.Type == engine.DockHelmUpgrade:
+				st.Text = model.Withheld // a release's values can hold credentials (helmupgrade.go)
+			default:
 				// A Secret the user pasted into a Create tab is theirs to see, not an LLM's.
 				st.Text, _ = engine.RedactManifests(st.Text, false)
 			}

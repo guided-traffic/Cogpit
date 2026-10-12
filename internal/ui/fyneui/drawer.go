@@ -37,6 +37,7 @@ type drawer struct {
 	busy, dirty bool
 	expanded    map[string]bool   // folded lists the user opened, by foldKey
 	revealed    map[string]string // values item actions show in place (a Secret's), by revealKey (secretreveal.go)
+	kept        map[string]any    // what section renderers keep across rebuilds for the shown object (drawerSections)
 
 	kind     *textLine
 	title    *textLine
@@ -51,7 +52,7 @@ type drawer struct {
 }
 
 func newDrawer(sh *shell) *drawer {
-	d := &drawer{sh: sh, expanded: map[string]bool{}, revealed: map[string]string{}}
+	d := &drawer{sh: sh, expanded: map[string]bool{}, revealed: map[string]string{}, kept: map[string]any{}}
 	d.kind = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	d.title = newTextLine("", theme.ColorNameForeground, theme.SizeNameSubHeadingText, fyne.TextStyle{Bold: true})
 	d.title.truncate = true
@@ -137,6 +138,7 @@ func (d *drawer) showLoading(ref model.ObjectRef) {
 	d.acts = nil
 	d.expanded = map[string]bool{}
 	d.revealed = map[string]string{}
+	d.dropKept()
 	d.kind.SetText(singular(d.sh.kindTitle(ref.Kind)))
 	d.title.SetText(ref.Name)
 	d.status.Hide()
@@ -206,6 +208,7 @@ func (d *drawer) rebuild() {
 func (d *drawer) clear() {
 	d.shown, d.last, d.acts, d.dirty = nil, nil, nil, false
 	d.revealed = map[string]string{}
+	d.dropKept()
 	d.sh.tip.hide()
 }
 
@@ -295,6 +298,10 @@ func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
 		}
 		group = sec.Group
 		out = append(out, d.sectionTitle(sec), newDivider(false))
+		if render, ok := drawerSections[m.Ref.Kind+"\x00"+sec.Title]; ok && sec.Group == "" {
+			out = append(out, render(d, m.Ref, sec))
+			continue
+		}
 		if sec.Table != nil {
 			out = append(out, d.table(m.Ref, sec.Table))
 		}
@@ -307,9 +314,32 @@ func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
 			out = append(out, grid)
 		}
 	}
+	if m.NoEvents { // a kind no event is about (Helm releases): Lens's drawer has no Events
+		return out
+	}
 	out = append(out, newSpace(theme.SizeNameInnerPadding),
 		newTextLine("Events", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true}), newDivider(false))
 	return append(out, d.buildEvents(m.Events)...)
+}
+
+// drawerSections are the GUI's own renderings of drawer sections, by kind and section title: a
+// section listed here is drawn by its function instead of as items or a table (a release's values
+// in an editor, helmdrawer.go). Each feature registers its renderer in an init of its own file. A
+// renderer may keep widgets in drawer.kept across rebuilds of the same object's sections.
+var drawerSections = map[string]func(d *drawer, ref model.ObjectRef, sec model.DetailSection) fyne.CanvasObject{}
+
+// keptCloser is something a section renderer keeps that must stop (timers, loads) when the drawer
+// moves to another object or closes.
+type keptCloser interface{ close() }
+
+// dropKept forgets what section renderers kept for the shown object.
+func (d *drawer) dropKept() {
+	for _, k := range d.kept {
+		if c, ok := k.(keptCloser); ok {
+			c.close()
+		}
+	}
+	d.kept = map[string]any{}
 }
 
 // sectionTitle is a section's bold title; a container's carries a dot in its status's colour.
