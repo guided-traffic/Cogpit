@@ -87,6 +87,7 @@ type metricsPanel struct {
 	root    *fyne.Container
 	caption *textLine
 	note    *textLine
+	status  *providerStatusLine  // each provider's state under the charts (metricsstatus.go)
 	perBox  map[string]*chartCtl // each container's compact chart and controls, by container name
 }
 
@@ -99,10 +100,11 @@ type chartCtl struct {
 	name    string // the container's name; "" for the pod or node
 	compact bool
 
-	variant    string
-	window     time.Duration // as the engine reports it (MetricsTarget.Window), or as just asked for
-	pending    bool          // the engine has not answered the range just asked for
-	showEvents bool
+	variant        string        // as the engine reports it (MetricsTarget.Variant), or as just asked for
+	variantPending bool          // the engine has not answered the variant just asked for
+	window         time.Duration // as the engine reports it (MetricsTarget.Window), or as just asked for
+	pending        bool          // the engine has not answered the range just asked for
+	showEvents     bool
 
 	root     *fyne.Container // a container's controls and chart; nil for the pod's, which the panel's root holds
 	controls *fyne.Container
@@ -131,7 +133,9 @@ func newMetricsPanel(d *drawer, ref model.ObjectRef) *metricsPanel {
 	p.caption.truncate = true
 	p.note = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	p.note.truncate = true
-	p.root = container.NewVBox(p.controls, p.plot, p.hint, p.caption, p.note)
+	p.status = newProviderStatusLine(d.sh)
+	p.status.root.Hide()
+	p.root = container.NewVBox(p.controls, p.plot, p.hint, p.caption, p.note, p.status.root)
 	p.render()
 	return p
 }
@@ -256,6 +260,9 @@ func (c *chartCtl) follow() {
 	if available {
 		caps = p.data.Capabilities
 	}
+	if t := p.target(c.name); t != nil && t.Variant != "" && !c.variantPending {
+		c.variant = t.Variant // the engine's, whoever set it (ui.setMetricsVariant)
+	}
 	if !c.enableVariants(caps) && available {
 		c.variant = variantCPU
 	}
@@ -284,13 +291,29 @@ func (c *chartCtl) rangeMenu() {
 	}
 }
 
-// setVariant switches this chart to CPU, Memory, Network or Filesystem.
+// setVariant switches this chart to CPU, Memory, Network or Filesystem: at once on screen, and in
+// the engine, which holds the variant (ui.setMetricsVariant) and asks Prometheus for the network
+// and the filesystem only while a chart shows them. Until the engine answered, the panel's loads do
+// not put the old variant back; then the chart follows the engine's again, whatever the answer.
 func (c *chartCtl) setVariant(id string) {
 	if id == c.variant {
 		return
 	}
-	c.variant = id
-	c.p.render()
+	c.variant, c.variantPending = id, true
+	p := c.p
+	p.render()
+	params := struct {
+		Ref       model.ObjectRef `json:"ref"`
+		Container string          `json:"container,omitempty"`
+		Variant   string          `json:"variant"`
+	}{p.ref, c.name, id}
+	p.d.sh.dispatch("ui.setMetricsVariant", params, func(_ any, err error) {
+		c.variantPending = false
+		if err != nil && !errors.Is(err, engine.ErrDrawerNotOpen) {
+			p.d.sh.showError(err)
+		}
+		p.refresh()
+	})
 }
 
 // setEvents hands the panel the object's events, whose times the flag button marks.
@@ -404,7 +427,10 @@ func (p *metricsPanel) render() {
 		} else if t != nil && !m.Capabilities.History && !p.coversWindow(t) {
 			note = "The Metrics Server keeps no history: the chart starts when this drawer opened."
 		}
-		p.note.SetText(note)
+		p.setNote(note)
+	}
+	if m != nil {
+		p.status.set(m.Providers, p.d.sh.now())
 	}
 	for _, c := range p.charts() {
 		c.update()
@@ -432,7 +458,18 @@ func (p *metricsPanel) setState(charts bool, caption string) {
 	}
 	p.caption.SetText(caption)
 	if !charts {
-		p.note.SetText("")
+		p.setNote("")
+	}
+}
+
+// setNote shows a note under the source line, or no line at all for none, so that the status line
+// follows the source line without a gap.
+func (p *metricsPanel) setNote(text string) {
+	p.note.SetText(text)
+	if text == "" {
+		p.note.Hide()
+	} else {
+		p.note.Show()
 	}
 }
 
@@ -558,11 +595,16 @@ func usageSeries(t *engine.MetricsTarget, cpu, node bool) ([]chartSeries, []char
 	if cpu {
 		title, variant = "CPU usage", variantCPU
 	}
+	// A point without this part (Usage.Missing: Prometheus had memory but no CPU rate yet) is left
+	// out, not drawn as 0.
+	has := func(u model.Usage) bool { return cpu && u.HasCPU() || !cpu && u.HasMemory() }
 	s := chartSeries{Name: title, Color: colorAccent}
 	for _, sm := range t.Samples {
-		s.Points = append(s.Points, chartPoint{At: sm.At, Value: value(sm.Usage)})
+		if has(sm.Usage) {
+			s.Points = append(s.Points, chartPoint{At: sm.At, Value: value(sm.Usage)})
+		}
 	}
-	if len(s.Points) == 0 && t.Current != nil {
+	if len(s.Points) == 0 && t.Current != nil && has(*t.Current) {
 		s.Points = append(s.Points, chartPoint{At: t.At, Value: value(*t.Current)})
 	}
 	lines := []chartLine{

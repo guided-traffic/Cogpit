@@ -206,6 +206,7 @@ func metricsDrawerFor(t *testing.T, p podSpec, mode ThemeMode, mutate func(*engi
 	f.metrics = map[string]*engine.ObjectMetrics{ref.String(): m}
 	f.ui.Selected, f.ui.Drawer = []model.ObjectRef{ref}, &ref
 	withRangeCommand(f)
+	withVariantCommand(f)
 	sh, w, q := newTestShell(t, f, Options{Theme: mode})
 	q.until(t, "the metrics", func() bool {
 		pm, ok := sh.drawer.kept[metricsKey].(*metricsPanel)

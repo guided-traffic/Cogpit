@@ -23,12 +23,13 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
-// TestKindPrometheusDrawer is the window against a real Prometheus (make kind-prometheus): the real
-// engine connected to the kind cluster, a running pod's drawer with the source line naming
-// Prometheus, the Network and Filesystem buttons enabled, each variant drawn from the range
-// queries, the ranges beyond an hour offered. It renders each variant for a look, to
-// COGPIT_PNG_DIR or a temporary directory: these are pictures of the kind cluster, never committed.
-// It only reads. Skipped when the cluster has no Prometheus.
+// TestKindPrometheusDrawer is the window against a real Prometheus (make kind-prometheus) and the
+// kind cluster's metrics-server: the real engine connected to the kind cluster, a running pod's
+// drawer with the source line naming both, the status line (Prometheus serves the history, the
+// Metrics Server the live values), the Network and Filesystem buttons enabled and each variant
+// drawn once the engine asked Prometheus for it, the ranges beyond an hour offered. It renders
+// each variant for a look, to COGPIT_PNG_DIR or a temporary directory: these are pictures of the
+// kind cluster, never committed. It only reads. Skipped when the cluster has no Prometheus.
 func TestKindPrometheusDrawer(t *testing.T) {
 	kubeconfig, contextName := os.Getenv("COGPIT_KIND_KUBECONFIG"), os.Getenv("COGPIT_KIND_CONTEXT")
 	if kubeconfig == "" || contextName == "" {
@@ -94,14 +95,19 @@ func TestKindPrometheusDrawer(t *testing.T) {
 		if !ok || p.data == nil || p.data.Status != metrics.StatusAvailable || len(p.data.Targets) < 2 {
 			return false
 		}
-		w := p.data.Targets[0]
-		return len(w.Samples) > 0 && len(w.Network) > 0 && len(w.Filesystem) > 0
+		return len(p.data.Targets[0].Samples) > 0 && strings.Contains(p.data.Source, " and ")
 	})
 	settle(w)
-	const source = "Displaying metrics from Prometheus (monitoring/prometheus-server)"
+	// Both providers: Prometheus's history, then the Metrics Server's live values (G12, owner).
+	const source = "Displaying metrics from Prometheus (monitoring/prometheus-server) and Kubernetes Metrics Server"
 	texts := drawerTexts(sh)
 	if !slices.Contains(texts, source) {
 		t.Errorf("the drawer lacks %q: %q", source, texts[:8])
+	}
+	if st := statusTexts(p); len(st) != 2 || !strings.HasPrefix(st[0], "Prometheus monitoring/prometheus-server:http: history") || !strings.HasPrefix(st[1], "Kubernetes Metrics Server: live values") {
+		t.Errorf("status line = %q", st)
+	} else {
+		t.Logf("status line: %q", st)
 	}
 	for _, s := range texts {
 		if strings.Contains(s, "keeps no history") {
@@ -134,8 +140,24 @@ func TestKindPrometheusDrawer(t *testing.T) {
 		}
 		t.Log("rendered", f.Name())
 	}
+	shot("kind_prom_status.png")
 	for _, v := range []string{variantCPU, variantMemory, variantNetwork, variantFilesystem} {
 		p.variants[v].OnTapped()
+		// The network and the filesystem are asked of Prometheus only now that the chart shows them.
+		until(v+" from the engine", func() bool {
+			if p.variantPending || len(p.data.Targets) == 0 || p.data.Targets[0].Variant != v {
+				return false
+			}
+			t0 := p.data.Targets[0]
+			switch v {
+			case variantNetwork:
+				return len(t0.Network) > 0
+			case variantFilesystem:
+				return len(t0.Filesystem) > 0
+			}
+			return true
+		})
+		settle(w)
 		d := p.plot.data
 		points := 0
 		for _, s := range d.Series {
@@ -155,6 +177,9 @@ func TestKindPrometheusDrawer(t *testing.T) {
 		shot("kind_prom_" + v + ".png")
 	}
 	p.variants[variantNetwork].OnTapped()
+	until("the network again", func() bool {
+		return !p.variantPending && len(p.data.Targets) > 0 && len(p.data.Targets[0].Network) > 0
+	})
 	settle(w)
 	g := p.plot.geom
 	p.plot.MouseMoved(&desktop.MouseEvent{PointEvent: fyne.PointEvent{Position: fyne.NewPos(g.left+g.w*0.97, g.top+g.h*0.5)}})
