@@ -57,30 +57,31 @@ const (
 
 // Cogpit's own size tokens. Fyne's sizes (text, padding) are set for density in [cogTheme.Size].
 const (
-	sizeSidebarWidth  fyne.ThemeSizeName = "cogpit.sidebarWidth"  // the navigator's width
-	sizeBarHeight     fyne.ThemeSizeName = "cogpit.barHeight"     // the top bar's height
-	sizeStatusHeight  fyne.ThemeSizeName = "cogpit.statusHeight"  // the status bar's height
-	sizeCellPadding   fyne.ThemeSizeName = "cogpit.cellPadding"   // horizontal padding inside a table cell
-	sizeRowPadding    fyne.ThemeSizeName = "cogpit.rowPadding"    // vertical padding inside a table row
-	sizeDrawerLabel   fyne.ThemeSizeName = "cogpit.drawerLabel"   // the name column of the drawer's details
-	sizeChipRadius    fyne.ThemeSizeName = "cogpit.chipRadius"    // corner radius of chips and pills
-	sizeSortIcon      fyne.ThemeSizeName = "cogpit.sortIcon"      // the sort arrow in a column header
-	sizeDotDiameter   fyne.ThemeSizeName = "cogpit.dot"           // connection and status dots
-	sizeToastWidth    fyne.ThemeSizeName = "cogpit.toastWidth"    // the width of a toast
-	sizeFilterWidth   fyne.ThemeSizeName = "cogpit.filterWidth"   // the namespace filter button
-	sizeSearchWidth   fyne.ThemeSizeName = "cogpit.searchWidth"   // the search entry
-	sizePickerWidth   fyne.ThemeSizeName = "cogpit.pickerWidth"   // the context picker
-	sizePickerHeight  fyne.ThemeSizeName = "cogpit.pickerHeight"  // the context picker
-	sizeConfirmWidth  fyne.ThemeSizeName = "cogpit.confirmWidth"  // the confirmation dialog
-	sizePopupMaxList  fyne.ThemeSizeName = "cogpit.popupMaxList"  // the tallest list in a popup
-	sizeDockTabMaxLen fyne.ThemeSizeName = "cogpit.dockTabMaxLen" // the widest dock tab title
-	sizeMenuColumn    fyne.ThemeSizeName = "cogpit.menuColumn"    // the ⋮ column at each row's end
-	sizeCellIcon      fyne.ThemeSizeName = "cogpit.cellIcon"      // an icon in a table cell (the warning triangle, ⋮)
-	sizeTooltipWidth  fyne.ThemeSizeName = "cogpit.tooltipWidth"  // the widest tooltip; longer text wraps
-	sizeTooltipOffset fyne.ThemeSizeName = "cogpit.tooltipOffset" // a tooltip's distance from the pointer
-	sizeDialogWidth   fyne.ThemeSizeName = "cogpit.dialogWidth"   // a command's parameter dialog
-	sizeHealthBar     fyne.ThemeSizeName = "cogpit.healthBar"     // a health bar's height (Workloads Overview)
-	sizeLogo          fyne.ThemeSizeName = "cogpit.logo"          // the header's mark (D-24: 20 pixels)
+	sizeSidebarWidth   fyne.ThemeSizeName = "cogpit.sidebarWidth"   // the navigator's width
+	sizeBarHeight      fyne.ThemeSizeName = "cogpit.barHeight"      // the top bar's height
+	sizeStatusHeight   fyne.ThemeSizeName = "cogpit.statusHeight"   // the status bar's height
+	sizeCellPadding    fyne.ThemeSizeName = "cogpit.cellPadding"    // horizontal padding inside a table cell
+	sizeRowPadding     fyne.ThemeSizeName = "cogpit.rowPadding"     // vertical padding inside a table row
+	sizeDrawerLabel    fyne.ThemeSizeName = "cogpit.drawerLabel"    // the name column of the drawer's details
+	sizeChipRadius     fyne.ThemeSizeName = "cogpit.chipRadius"     // corner radius of chips and pills
+	sizeSortIcon       fyne.ThemeSizeName = "cogpit.sortIcon"       // the sort arrow in a column header
+	sizeDotDiameter    fyne.ThemeSizeName = "cogpit.dot"            // connection and status dots
+	sizeToastWidth     fyne.ThemeSizeName = "cogpit.toastWidth"     // the width of a toast
+	sizeFilterWidth    fyne.ThemeSizeName = "cogpit.filterWidth"    // the namespace filter button
+	sizeSearchWidth    fyne.ThemeSizeName = "cogpit.searchWidth"    // the search entry
+	sizeFindCountWidth fyne.ThemeSizeName = "cogpit.findCountWidth" // the find widget's "1 of 1"
+	sizePickerWidth    fyne.ThemeSizeName = "cogpit.pickerWidth"    // the context picker
+	sizePickerHeight   fyne.ThemeSizeName = "cogpit.pickerHeight"   // the context picker
+	sizeConfirmWidth   fyne.ThemeSizeName = "cogpit.confirmWidth"   // the confirmation dialog
+	sizePopupMaxList   fyne.ThemeSizeName = "cogpit.popupMaxList"   // the tallest list in a popup
+	sizeDockTabMaxLen  fyne.ThemeSizeName = "cogpit.dockTabMaxLen"  // the widest dock tab title
+	sizeMenuColumn     fyne.ThemeSizeName = "cogpit.menuColumn"     // the ⋮ column at each row's end
+	sizeCellIcon       fyne.ThemeSizeName = "cogpit.cellIcon"       // an icon in a table cell (the warning triangle, ⋮)
+	sizeTooltipWidth   fyne.ThemeSizeName = "cogpit.tooltipWidth"   // the widest tooltip; longer text wraps
+	sizeTooltipOffset  fyne.ThemeSizeName = "cogpit.tooltipOffset"  // a tooltip's distance from the pointer
+	sizeDialogWidth    fyne.ThemeSizeName = "cogpit.dialogWidth"    // a command's parameter dialog
+	sizeHealthBar      fyne.ThemeSizeName = "cogpit.healthBar"      // a health bar's height (Workloads Overview)
+	sizeLogo           fyne.ThemeSizeName = "cogpit.logo"           // the header's mark (D-24: 20 pixels)
 )
 
 // palette is one variant's colours: Solarized Dark and Solarized Light as VS Code's built-in themes
@@ -386,6 +387,8 @@ func (t *cogTheme) Size(n fyne.ThemeSizeName) float32 {
 		return 190
 	case sizeSearchWidth:
 		return 240
+	case sizeFindCountWidth:
+		return 80
 	case sizePickerWidth:
 		return 600
 	case sizePickerHeight:

@@ -29,7 +29,7 @@ type HelmResult struct {
 
 type rollbackParams struct {
 	Ref      model.ObjectRef `json:"ref" jsonschema:"the release: kind helmreleases, its namespace and name"`
-	Revision int             `json:"revision" jsonschema:"the earlier revision to roll back to, from the release's history; the dialog starts with the one before the newest"`
+	Revision int             `json:"revision" jsonschema:"a revision of the release's history to roll back to: an earlier one, or the newest (a new revision equal to it); the dialog starts with the one before the newest"`
 }
 
 type pendingHelmParams struct {
@@ -54,7 +54,8 @@ func registerHelm(g *registrar) {
 		Verbs: releaseSecretVerbs("list", "get", "create", "update", "delete"),
 		Description: "Rolls a Helm release back to an earlier revision of its history, as helm rollback does with its " +
 			"defaults (hooks waited for, ten revisions kept): a new revision with that revision's chart, values and " +
-			"manifest, and the release's objects changed to it. Offered after an upgrade (a release at revision 2 or later). " +
+			"manifest, and the release's objects changed to it. The target may be the newest revision itself (Lens's dialog " +
+			"allows it): helm then writes a new revision equal to it and applies its manifest again. Offered after an upgrade (a release at revision 2 or later). " +
 			"Besides the release's Secrets it needs whatever verbs the release's objects need. Refused when the release " +
 			"moved to another revision since the user confirmed. A rollback a crash of Cogpit interrupts stays in " +
 			"helm_pendingOperations; run it again to finish it. Always asks the user to confirm.",
@@ -248,8 +249,8 @@ func runRollback(ctx context.Context, s *engine.Session, p rollbackParams) (any,
 		return nil, err
 	}
 	cur, revs := helm.ReleaseRevision(obj), helm.ReleaseRevisions(obj)
-	if p.Revision < 1 || p.Revision >= cur || !slices.Contains(revs, p.Revision) {
-		return nil, fmt.Errorf("release %s has no earlier revision %d to roll back to (its revisions: %s)", ref.Name, p.Revision, revisionList(revs))
+	if p.Revision < 1 || p.Revision > cur || !slices.Contains(revs, p.Revision) {
+		return nil, fmt.Errorf("release %s has no revision %d to roll back to (its revisions: %s)", ref.Name, p.Revision, revisionList(revs))
 	}
 	op := engine.PendingHelmOp{
 		Context: ref.Context, Namespace: ref.Namespace, Release: ref.Name, Action: engine.HelmRollback,

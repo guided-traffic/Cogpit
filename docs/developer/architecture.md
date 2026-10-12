@@ -835,15 +835,22 @@ their watch ends after the cache's warm period) the memo forgets everything it d
 values leave memory with the Secrets they came from (review 2026-10-11,
 `TestDeriveMemoForgetsWhenIdle`); before, they stayed until the cluster was disconnected. The drawer
 is Lens's since the fourth run (captured 2026-10-12; [`detail.go`](../../internal/helm/detail.go)):
-"Release: <name>" (`KindProfile.DetailTitle`), Properties with Chart (an Upgrade button beside it,
-an item action), Updated ("68s ago (12 Oct 2026, 8:30:16 CEST)"), Namespace, Version (the chart's
-version, inferred) and Status as Lens writes it ("Deployed"; the other states capitalized the same
-way, inferred), then the user-supplied values, the chart's notes (both `Private`: agents read
+"Release: <name>" (`KindProfile.DetailTitle`), Properties with Chart ("<chart>-<version>", an Upgrade
+button beside it, an item action), Updated ("68s ago (12 Oct 2026, 8:30:16 CEST)"), Namespace
+(plain text), Version (the chart's version, inferred) and Status as Lens writes it ("Deployed"; the
+other states capitalized the same way, inferred) in a neutral grey pill (`DetailItem.Pill`; the
+list's column keeps its status colours), then the user-supplied values, the chart's notes (both `Private`: agents read
 `model.Withheld`; cut for the drawer to 16 KiB or 200 lines) and the resources of the newest
 revision's manifest, one table of Name and Namespace per kind with links for built-in kinds. As
 for every virtual kind, the engine adds no generic metadata and no events, and the drawer opens no
 events watch (§4.4). The History table and the redacted manifest of the third run are gone: Lens's
-drawer has neither; the history is `helm.release.history`, the YAML tab Cogpit's summary.
+drawer has neither; the history is `helm.release.history`. The model is `Plain` (set for every
+virtual kind with `NoEvents`): the GUI draws the title on one line, hides the status pill beside
+the icons and the Details and YAML tabs (the details scroll alone; no YAML is set), as the capture
+shows ([`drawer.go`](../../internal/ui/fyneui/drawer.go) `setPlain`). In the GUI the values section
+([`helmdrawer.go`](../../internal/ui/fyneui/helmdrawer.go)) is a "User-supplied values only"
+checkbox, unchecked at first (the editor reads every value, `helm.release.values` with `all`), the
+editor, and Save as a bar the drawer's width under it.
 `helm.release.rollback` and `helm.release.uninstall` run `action.NewRollback` and
 `action.NewUninstall` in-process with the helm CLI's defaults (hooks waited for, 5 minutes,
 rollback history kept to ten) on the connection's own client configuration, behind the
@@ -970,9 +977,23 @@ Where it differs from the contract above, this paragraph wins.
   (pending-upgrade or failed above it) the banner offers "Roll back to revision N"
   (`helm.release.rollback` to `FromRevision`), and `helm.release.upgrade` stays refused while the
   release is pending.
+- **The tab in the GUI** ([`helmupgradetab.go`](../../internal/ui/fyneui/helmupgradetab.go)): save and
+  find icons, the chart and its version as text beside a separate version picker (placeholder
+  "Select…"; it offers the release's own version, as Cogpit has no repositories), the line "Release
+  <name> values.yaml, version …, on <namespace> namespace." with the release and the namespace as
+  links (`ui.navigate`) and a spinner in the version's place until the values are loaded, and the
+  values editor. The find icon opens the editor's find widget at its bottom
+  ([`findbar.go`](../../internal/ui/fyneui/findbar.go)): search text with match case, whole word and
+  regular expression, replace with Replace and Replace all, previous and next, "1 of 3". It works
+  on the editor's text through `yamlview.View` (`SelectRange` for the match, `ReplaceSelection` for
+  an edit, which reaches the engine like typing does); matches are per line and capped, nothing
+  here touches the engine. Save is unchanged: it sends the editor's text, then upgrades bound to the
+  text revision its own `editor.setText` returned.
 - **The Rollback dialog is the confirmation** (GUI, [`helmrollback.go`](../../internal/ui/fyneui/helmrollback.go)).
   Rollback stays destructive and the engine asks the GUI's confirmer for every origin. Lens's dialog
-  (a REVISION dropdown, newest first, the current one selected) names the release, its namespace and
+  (a REVISION dropdown, newest first, the current one selected, Rollback enabled with it, as
+  captured; the engine accepts the newest revision as a target and helm writes a new revision equal
+  to it, a reading of helm's behaviour, not of Lens's, which the dialog says) names the release, its namespace and
   its context, and when the user picks Rollback hands the confirmer the newest release Secret's UID
   it showed; the engine's confirmation of exactly that command, from the GUI origin, on that release
   and context, for the revision the user picked (the confirmation's detail names it,
@@ -1076,6 +1097,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 | 2026-10-12 | minor | Fourth run, Helm: the upgrade as built (§8: what binds, the SDK's context, `ErrUnchanged`, values scrubbed, the Rollback dialog as the confirmation); Lens's release drawer; virtual kinds' drawers without metadata and events, `DetailTitle` (§4.4) |
 | 2026-10-12 | minor | Fourth run, agent A: covering scopes built (§5, how a handover stays exact, the measured budgets); the Secrets view on a full watch, its drawer from the cache without a GET; `resources.find` without a kind skips uncached kinds that hold Secret values; the last-applied annotation re-checked and kept dropped |
 | 2026-10-12 | minor | §4.4: the related objects' generation changes when the indexed kinds finish their initial list; §12: a stopped shell drops the work it queued for the main goroutine |
+| 2026-10-12 | minor | §8: Lens's release drawer as captured the second time (`DetailModel.Plain`, `DetailItem.Pill`, Chart "<chart>-<version>", Namespace plain, the checkbox unchecked at first, Save a bar), the Rollback dialog enabled with the current revision (the engine accepts the newest revision as a target), the Upgrade tab's picker, links and find widget (C1) |
 | 2026-10-12 | minor | Phase 0 of the fourth run: `model.Related.Listed`; covering scopes for the full Secrets watch and Helm's releases; the Helm upgrade's commands, seam, journal entry and dock tab |
 | 2026-10-11 | minor | Access reviews built (§4.2): which review answers what, the namespaces the sidebar reviews, bounds and events, measured request counts; no TTL (§5); `ErrNotApplicable` before a denial |
 | 2026-10-11 | minor | §4.4: drawer tables of cells (`model.CellTable`: links, status colours, the warning icon) and cells of several lines; telling a missing related object from a kind still listing |

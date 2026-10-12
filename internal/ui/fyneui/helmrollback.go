@@ -19,7 +19,10 @@ import (
 
 // Lens's Rollback dialog (captured 2026-10-12): "Rollback <name>", a REVISION dropdown of every
 // revision, newest first, the current one selected, each "12 - <chart>-<version> - <appVersion>,
-// updated: 12/10/2026, 08:30:16", then Cancel and Rollback, and no second confirmation.
+// updated: 12/10/2026, 08:30:16", then Cancel and Rollback, and no second confirmation. Rollback
+// stays enabled with the current revision selected; what Lens does then is not captured. Cogpit
+// rolls back to it as helm does: a new revision equal to the current one, its manifest applied
+// again, which the dialog says.
 //
 // Rollback is destructive, so the engine asks the GUI's confirmer for every origin (D-2). The
 // dialog is that confirmation: it names the release, its namespace and its context, as Cogpit's
@@ -101,10 +104,10 @@ func (sh *shell) showRollbackDialog(h releaseHistory) *rollbackDialog {
 	}
 	armed := false
 	enable := func() {
-		if armed && pick() > 0 && pick() != h.Revision {
-			rd.confirm.Enable()
+		if armed && pick() > 0 {
+			rd.confirm.Enable() // the current revision too, as in Lens's dialog
 		} else {
-			rd.confirm.Disable() // the current revision is no rollback
+			rd.confirm.Disable()
 		}
 	}
 	rd.revision.OnChanged = func(string) { enable() }
@@ -113,7 +116,7 @@ func (sh *shell) showRollbackDialog(h releaseHistory) *rollbackDialog {
 	}
 	rd.confirm.Disable()
 
-	where := fmt.Sprintf("Release %s in namespace %s (context %s). Rolling back changes the release's objects to the chosen revision.",
+	where := fmt.Sprintf("Release %s in namespace %s (context %s). Rolling back changes the release's objects to the chosen revision; the current revision gives a new revision equal to it.",
 		h.Ref.Name, h.Ref.Namespace, h.Ref.Context)
 	content := container.NewVBox(
 		newTextLine("REVISION", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{Bold: true}),
@@ -126,7 +129,7 @@ func (sh *shell) showRollbackDialog(h releaseHistory) *rollbackDialog {
 	rd.cancel.OnTapped = rd.d.Hide
 	rd.confirm.OnTapped = func() {
 		rev := pick()
-		if rev == 0 || rev == h.Revision {
+		if rev == 0 {
 			return
 		}
 		rd.d.Hide()

@@ -14,6 +14,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/ui/fyneui/yamlview"
 )
@@ -46,6 +47,10 @@ type drawer struct {
 	missing  *textLine
 	actions  *fyne.Container // the action icons in the title bar
 	tabs     *container.AppTabs
+	body     *fyne.Container // the tabs, or for a plain drawer (Lens's release drawer) the details alone
+	pane     *fyne.Container // the details' place in the first tab
+	scroll   *container.Scroll
+	plain    bool
 	details  *fyne.Container
 	host     *fyne.Container // details with the copy icon above them (copy.go)
 	yaml     *yamlview.View
@@ -77,10 +82,13 @@ func newDrawer(sh *shell) *drawer {
 	d.host = box(d.hostLayout, d.details, d.copyBtn)
 	d.yaml = yamlview.New()
 	d.yaml.SetReadOnly(true)
+	d.scroll = container.NewVScroll(inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, d.host))
+	d.pane = container.NewStack(d.scroll)
 	d.tabs = container.NewAppTabs(
-		container.NewTabItem("Details", container.NewVScroll(inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, d.host))),
+		container.NewTabItem("Details", d.pane),
 		container.NewTabItem("YAML", d.yaml),
 	)
+	d.body = container.NewStack(d.tabs)
 
 	titleRow := container.NewBorder(nil, nil, nil,
 		container.NewHBox(container.NewCenter(d.status), d.actions, newDivider(true), closeB), d.title)
@@ -88,7 +96,7 @@ func newDrawer(sh *shell) *drawer {
 		inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding,
 			container.NewVBox(d.kind, titleRow, d.missing)))
 	d.root = container.NewStack(newSurface(colorDrawer),
-		container.NewBorder(container.NewVBox(header, newDivider(false)), nil, nil, nil, d.tabs))
+		container.NewBorder(container.NewVBox(header, newDivider(false)), nil, nil, nil, d.body))
 	return d
 }
 
@@ -151,6 +159,7 @@ func (d *drawer) showLoading(ref model.ObjectRef) {
 	d.revealedLen = map[string]int{}
 	d.dropKept()
 	d.resetCopy()
+	d.setPlain(ref.Kind == helm.ReleaseKind)
 	d.kind.SetText(singular(d.sh.kindTitle(ref.Kind)))
 	d.title.SetText(ref.Name)
 	d.status.Hide()
@@ -161,6 +170,27 @@ func (d *drawer) showLoading(ref model.ObjectRef) {
 	d.details.Refresh()
 	d.setYAML("", false)
 	d.tabs.SelectIndex(0)
+}
+
+// setPlain switches between the drawer with Details and YAML tabs and Lens's flat release drawer
+// (captured 2026-10-12): the title "Release: <name>" on one line, no tabs, no status pill beside the
+// icons (the Status property is a pill of its own).
+func (d *drawer) setPlain(plain bool) {
+	if plain == d.plain {
+		return
+	}
+	d.plain = plain
+	if plain {
+		d.pane.Objects = nil
+		d.body.Objects = []fyne.CanvasObject{d.scroll}
+		d.kind.Hide()
+	} else {
+		d.pane.Objects = []fyne.CanvasObject{d.scroll}
+		d.body.Objects = []fyne.CanvasObject{d.tabs}
+		d.kind.Show()
+	}
+	d.pane.Refresh()
+	d.body.Refresh()
 }
 
 // show renders a detail model. Unchanged sections are not rebuilt, so that a churning object does
@@ -178,13 +208,17 @@ func (d *drawer) show(ref model.ObjectRef, m *engine.DetailModel, err error, act
 		d.details.Refresh()
 		return
 	}
+	d.setPlain(m.Plain)
 	kind, name := splitTitle(m.Title)
 	if kind == "" {
 		kind = singular(d.sh.kindTitle(ref.Kind))
 	}
 	d.kind.SetText(kind)
 	d.title.SetText(name)
-	if label := statusLabel(m); label != "" && m.Status != model.StatusNone {
+	if m.Plain {
+		d.title.SetText(m.Title) // "Release: web" on one line
+	}
+	if label := statusLabel(m); label != "" && m.Status != model.StatusNone && !m.Plain {
 		d.status.Set(label, statusColorName(m.Status))
 		d.status.Show()
 	} else {
@@ -204,7 +238,9 @@ func (d *drawer) show(ref model.ObjectRef, m *engine.DetailModel, err error, act
 	}
 	// The same object changed in the cache: keep the reader's place in the YAML. Another object:
 	// start at the top.
-	d.setYAML(m.YAML, prev != nil && prev.Ref.Same(m.Ref))
+	if !m.Plain {
+		d.setYAML(m.YAML, prev != nil && prev.Ref.Same(m.Ref))
+	}
 }
 
 // rebuild renders the shown model's sections and events again.
@@ -509,6 +545,8 @@ func (d *drawer) plainValue(ref model.ObjectRef, it model.DetailItem, copyable b
 		l := newLinkText(it.Value, func() { d.sh.followLink(link, ref.Context, false) })
 		l.hook = d.copyFor(copyOf(it.Value), false)
 		return l
+	case it.Pill:
+		return wrapCopy(container.NewHBox(newPill(it.Value, colorMuted, true)), d.copyFor(copyOf(it.Value), false))
 	case it.Status != model.StatusNone:
 		return wrapCopy(container.NewHBox(newPill(it.Value, statusColorName(it.Status), true)), d.copyFor(copyOf(it.Value), false))
 	}

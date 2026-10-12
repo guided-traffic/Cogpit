@@ -177,7 +177,7 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 
 	obj, ok := KindGet(h, p, ref.Namespace, ref.Name)
 	if !ok {
-		m := &DetailModel{Ref: ref, Title: detailTitle(p, ref), Sections: []model.DetailSection{}, Events: []EventItem{}, NoEvents: p.Derive != nil}
+		m := &DetailModel{Ref: ref, Title: detailTitle(p, ref), Sections: []model.DetailSection{}, Events: []EventItem{}, NoEvents: p.Derive != nil, Plain: p.Derive != nil}
 		if h.HasSynced() {
 			m.Missing = true
 		} else {
@@ -237,7 +237,7 @@ func BuildDetailWith(p *model.KindProfile, ref model.ObjectRef, obj *unstructure
 	m.Status = model.BuildRowWith(p, ref.Context, obj, rel).Status
 	kind, err := profileSections(p, obj, rel)
 	if p.Derive != nil { // a virtual kind's drawer is the profile's alone (model.KindProfile.Detail)
-		m.NoEvents = true
+		m.NoEvents, m.Plain = true, true
 		if kind != nil {
 			m.Sections = kind
 		}

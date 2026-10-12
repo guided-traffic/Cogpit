@@ -15,13 +15,14 @@ import (
 	"github.com/guided-traffic/cogpit/internal/ui/fyneui/yamlview"
 )
 
-// The release drawer's values, as Lens's (captured 2026-10-12): the values in an editor, a "User-
-// supplied values only" checkbox and Save. The drawer model's Values item is cut for the drawer and
-// withheld from agents; the editor reads the whole values with helm.release.values (from the
-// cache, for the GUI only) and Save upgrades the release with the editor's text through
-// helm.release.upgrade, based on the revision it read (inferred from Lens: its Save upgrades the
-// release). With the checkbox cleared the editor shows every value, the chart's defaults
-// included, and Save makes all of them user-supplied values; the status line says so.
+// The release drawer's values, as Lens's (captured 2026-10-12): a "User-supplied values only"
+// checkbox, unchecked at first, the values in an editor and Save as a bar the drawer's width under
+// the editor. The drawer model's Values item is cut for the drawer and withheld from agents; the
+// editor reads the whole values with helm.release.values (from the cache, for the GUI only) and
+// Save upgrades the release with the editor's text through helm.release.upgrade, based on the
+// revision it read (inferred from Lens: its Save upgrades the release). Unchecked, the editor shows
+// every value, the chart's defaults merged in, and Save makes all of them user-supplied values,
+// which the status line says once the text is edited; checked, it shows the user-supplied ones.
 
 func init() {
 	drawerSections[helm.ReleaseKind+"\x00"+helm.TitleValues] = releaseValuesSection
@@ -96,7 +97,7 @@ func releaseValuesSection(d *drawer, ref model.ObjectRef, _ model.DetailSection)
 }
 
 func newReleaseValues(sh *shell, ref model.ObjectRef) *releaseValues {
-	rv := &releaseValues{sh: sh, ref: ref, view: yamlview.New()}
+	rv := &releaseValues{sh: sh, ref: ref, view: yamlview.New(), all: true}
 	rv.view.SetReadOnly(false)
 	rv.view.OnChanged = rv.changed
 	rv.userOnly = widget.NewCheck("User-supplied values only", func(on bool) {
@@ -106,14 +107,13 @@ func newReleaseValues(sh *shell, ref model.ObjectRef) *releaseValues {
 		rv.all = !on
 		rv.load()
 	})
-	rv.userOnly.SetChecked(true)
 	rv.save = widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), rv.upgrade)
 	rv.save.Importance = widget.HighImportance
 	rv.save.Disable()
 	rv.status = newTextLine("Loading…", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	rv.status.truncate = true
 	editor := box(linesHeight{lines: valuesEditorLines}, container.NewStack(newSurface(theme.ColorNameInputBackground), rv.view))
-	rv.root = container.NewVBox(editor, container.NewBorder(nil, nil, rv.userOnly, rv.save, rv.status))
+	rv.root = container.NewVBox(rv.userOnly, editor, rv.save, rv.status)
 	return rv
 }
 
@@ -121,7 +121,10 @@ func newReleaseValues(sh *shell, ref model.ObjectRef) *releaseValues {
 func (rv *releaseValues) dirty() bool { return rv.view.Text() != rv.loaded }
 
 func (rv *releaseValues) changed() {
-	if rv.dirty() {
+	switch {
+	case rv.dirty() && rv.all:
+		rv.setStatus(fmt.Sprintf("Edited, based on revision %d: Save upgrades the release and makes every value in the editor a user-supplied value.", rv.revision), colorStatusWarning)
+	case rv.dirty():
 		rv.setStatus(fmt.Sprintf("Edited, based on revision %d: Save upgrades the release.", rv.revision), colorMuted)
 	}
 }
@@ -156,7 +159,7 @@ func (rv *releaseValues) load() {
 func (rv *releaseValues) showLoaded() {
 	switch {
 	case rv.all:
-		rv.setStatus(fmt.Sprintf("Revision %d, every value: Save makes all of them user-supplied values.", rv.revision), colorStatusWarning)
+		rv.setStatus(fmt.Sprintf("Revision %d, every value, the chart's defaults included.", rv.revision), colorMuted)
 	case rv.loaded == "":
 		rv.setStatus(fmt.Sprintf("Revision %d: no user-supplied values.", rv.revision), colorMuted)
 	default:

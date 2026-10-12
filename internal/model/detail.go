@@ -111,7 +111,10 @@ type DetailItem struct {
 	Chips   []Chip       `json:"chips,omitempty"`
 	Fold    string       `json:"fold,omitempty"`
 	Actions []ItemAction `json:"actions,omitempty"`
-	Private bool         `json:"-"`
+	// Pill draws the value as a neutral grey pill, carrying no status colour (a Helm release's
+	// Status in Lens's drawer, captured 2026-10-12).
+	Pill    bool `json:"pill,omitempty"`
+	Private bool `json:"-"`
 }
 
 // Withheld is what agents read in place of a private item's value.

@@ -162,15 +162,16 @@ func TestReleaseDetail(t *testing.T) {
 	if strings.Join(names, ",") != "Chart,Updated,Namespace,Version,Status" {
 		t.Errorf("properties %v", names)
 	}
-	if c := props["Chart"]; c.Value != "web" || len(c.Actions) != 1 || c.Actions[0].Command != UpgradeTabCommand || c.Actions[0].Label != "Upgrade" ||
+	if c := props["Chart"]; c.Value != "web-1.3.0" || len(c.Actions) != 1 || c.Actions[0].Command != UpgradeTabCommand || c.Actions[0].Label != "Upgrade" ||
 		string(c.Actions[0].Params) != `{"ref":{"kind":"helmreleases","namespace":"apps","name":"web"}}` {
 		t.Errorf("chart %+v", c)
 	}
+	// Chart reads "<chart>-<version>", Namespace is plain text and Status a neutral pill (captured 2026-10-12).
 	if got := props["Updated"].Value; got != "68s ago (1 Oct 2026, 17:00:00 CEST)" {
 		t.Errorf("updated %q", got)
 	}
-	if props["Status"].Value != "Deployed" || props["Status"].Status != model.StatusOK || props["Version"].Value != "1.3.0" ||
-		props["Namespace"].Link == nil || props["Namespace"].Link.Name != "apps" {
+	if props["Status"].Value != "Deployed" || !props["Status"].Pill || props["Status"].Status != model.StatusNone ||
+		props["Version"].Value != "1.3.0" || props["Namespace"].Value != "apps" || props["Namespace"].Link != nil {
 		t.Errorf("properties %+v", props)
 	}
 	values := secs[1].Items[0]

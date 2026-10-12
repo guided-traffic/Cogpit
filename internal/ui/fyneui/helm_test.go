@@ -206,7 +206,7 @@ func TestReleasesViewAndDrawer(t *testing.T) {
 	if kids := sh.side.children[groupPrefix+"helm"]; len(kids) != 1 || kids[0] != helm.ReleaseKind || sh.side.titles[kids[0]] != "Releases" {
 		t.Errorf("Helm group %v", kids)
 	}
-	if sh.drawer.kind.text != "Release" || sh.drawer.title.text != "ingress-nginx" {
+	if sh.drawer.title.text != "Release: ingress-nginx" || sh.drawer.kind.Visible() {
 		t.Errorf("drawer title %q %q", sh.drawer.kind.text, sh.drawer.title.text)
 	}
 	var tips []string
@@ -229,7 +229,7 @@ func TestReleasesViewAndDrawer(t *testing.T) {
 		t.Errorf("Upgrade buttons beside Chart: %d", len(b))
 	}
 	rv := sh.drawer.kept[releaseValuesKey].(*releaseValues)
-	if got := rv.view.Text(); !strings.Contains(got, "adminPassword: correct-horse-battery-staple") || strings.Contains(got, "image:") {
+	if got := rv.view.Text(); !strings.Contains(got, "adminPassword: correct-horse-battery-staple") || !strings.Contains(got, "image:") {
 		t.Errorf("values editor %q", got)
 	}
 }

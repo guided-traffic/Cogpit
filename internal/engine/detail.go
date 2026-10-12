@@ -51,6 +51,10 @@ type DetailModel struct {
 	// NoEvents is true for a kind whose objects no event is about (a virtual kind: Helm
 	// releases): the drawer shows no Events section, as Lens's release drawer has none.
 	NoEvents bool `json:"noEvents,omitempty"`
+	// Plain is true for a kind whose drawer is Lens's flat one (a virtual kind: Helm releases,
+	// captured 2026-10-12): the title on one line, no Details and YAML tabs, no status pill in the
+	// title bar.
+	Plain bool `json:"plain,omitempty"`
 }
 
 // EventItem is one event in the drawer.

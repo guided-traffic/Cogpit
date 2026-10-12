@@ -376,12 +376,14 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 2–6 h (was 10–20; built in the third run, left: Lens's status texts and Edit dialog by capture, a check in a real window).
 
 ### G11. Helm
-- **To follow Lens's captures of 2026-10-12** ([resource parity › Helm](resource-parity.md#helm), 2–5 h):
-  the drawer's title on one line without Details and YAML tabs, Chart as "<chart>-<version>",
-  Namespace as text, a grey status pill, "User-supplied values only" unchecked at first, Save as a
-  full-width bar; Rollback enabled with the current revision; the Upgrade tab's separate version
-  picker, its info line with links, and the editor's find widget for search. Cogpit keeps
-  upgrading with the release's stored chart where Lens needs a repository (deliberate).
+- **Followed from Lens's captures of 2026-10-12** ([resource parity › Helm](resource-parity.md#helm),
+  built 2026-10-12, was 2–5 h): the drawer's title on one line without Details and YAML tabs, Chart
+  as "<chart>-<version>", Namespace as text, a grey status pill, "User-supplied values only"
+  unchecked at first, Save as a full-width bar; Rollback enabled with the current revision (a new
+  revision equal to it, as helm does; what Lens does is not captured); the Upgrade tab's separate
+  version picker, its info line with links, and the editor's find widget (`findbar.go`). Cogpit
+  keeps upgrading with the release's stored chart where Lens needs a repository (deliberate), so
+  the picker offers that version only and the info line's spinner lasts only while the values load.
 - **Missing:** install as a crash-safe job; repositories, chart index and search (so an upgrade
   can install the release's own chart version only); the Helm Install dock tab; the ConfigMaps
   and SQL storage drivers. Views and actions count in G6 and G7.
@@ -412,8 +414,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   only" and Save; Notes; Resources by kind), its icons (Rollback, Upgrade, Delete), the Rollback
   dialog (every revision, newest first, the current one selected), the Delete dialog, the Helm
   Upgrade dock tab, and a rollback keeping 10 revisions ([resource-parity](resource-parity.md#helm)).
-- **Estimate:** 12–30 h (was 20–45; the upgrade, its dock tab and Lens's drawer built in the fourth run; left: install and its dock tab, repositories and charts, the other storage drivers).
-- **Still to capture in Lens** (a release with five revisions, one failed, prepared on the staging cluster in its own namespace, 2026-10-12): the drawer's Version and Chart texts, "User-supplied values only" at first and what Save does, the texts of states other than Deployed, Rollback with the current revision selected, the upgrade tab's search.
+- **Estimate:** 10–26 h (was 12–30; the upgrade, its dock tab and Lens's drawer built in the fourth run, the second capture followed 2026-10-12; left: install and its dock tab, repositories and charts, the other storage drivers).
+- **Still to capture in Lens** (the staging cluster's release with five revisions, one failed): what the Rollback dialog's button does with the current revision selected, what Save does with the box cleared, where the checkbox sits relative to the editor, the texts of states other than Deployed and Failed, what the find widget's Replace does with a regular expression's groups.
 
 ### G12. Metrics and cluster overview
 - **Missing:** provider detection (metrics-server, Prometheus through the service proxy, the
@@ -596,6 +598,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 | 2026-10-12 | minor | G8: the terminal widget fuzzed alone, its crashes, hangs and races patched, the upstream series prepared (D-14, fourth run); estimate of that part done |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); G4 evidence (Refresh Access Reviews in the menu, the View menu hides what the sidebar hides); G3 evidence (live related-objects indexes, measured); G8 evidence (workload log streams resumed and pruned); G7 evidence (Restart and Scale bound to the UID in their patches); estimates not moved |
 | 2026-10-12 | minor | G2 (fourth run, agent D): kubeconfig files, sync folders and pasted kubeconfigs, the approval of their credential plugins; estimate 10–28 h |
+| 2026-10-12 | minor | G11 (C1): the release drawer, Rollback dialog and Upgrade tab follow the second capture; estimate 10–26 h (the totals not recounted) |
 | 2026-10-12 | minor | G11 (fourth run): the Helm upgrade and its dock tab, Lens's release drawer and Rollback dialog built; estimate 12–30 h (the totals not recounted) |
 | 2026-10-12 | minor | G3 evidence: covering scopes (fourth run); G6 evidence: Secrets on a full watch, Keys and Type filled, the drawer from the cache (D-13 revised, built) |
 | 2026-10-12 | minor | G1: `make parity` built (D-15); its first run's findings; estimate 3–8 h |

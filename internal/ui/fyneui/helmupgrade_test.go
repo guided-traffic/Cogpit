@@ -125,6 +125,56 @@ func TestReleaseDrawerContent(t *testing.T) {
 	}
 }
 
+// The drawer's look as Lens's (captured 2026-10-12): the title on one line, no Details and YAML
+// tabs, Chart as "<chart>-<version>", Namespace as plain text, Status as a neutral grey pill, the
+// checkbox unchecked at first (the editor holds every value), Save a bar under the editor.
+func TestReleaseDrawerLooksLikeLens(t *testing.T) {
+	sh, w, _, _, _ := releaseDrawerShell(t, ThemeDark)
+	settle(w)
+	d := sh.drawer
+	if d.title.text != "Release: ingress-nginx" || d.kind.Visible() {
+		t.Errorf("title %q, kind line shown %v", d.title.text, d.kind.Visible())
+	}
+	if len(d.body.Objects) != 1 || d.body.Objects[0] != d.scroll || len(findAll[*container.AppTabs](d.root)) != 0 {
+		t.Error("the release drawer has tabs")
+	}
+	if d.status.Visible() {
+		t.Error("a status pill beside the icons")
+	}
+	texts := releaseDrawerText(d)
+	if !strings.Contains(texts, "ingress-nginx-4.12.1") {
+		t.Errorf("Chart is not <chart>-<version>: %s", texts)
+	}
+	for _, it := range d.last.Sections[0].Items {
+		if it.Name == "Namespace" && (it.Link != nil || it.Value != d.shown.Namespace) {
+			t.Errorf("Namespace %+v is not plain text", it)
+		}
+	}
+	var deployed *pill
+	for _, p := range findAll[*pill](d.details) {
+		if p.text == "Deployed" {
+			deployed = p
+		}
+	}
+	if deployed == nil || deployed.fg != colorMuted {
+		t.Errorf("Status pill %+v, want a neutral one", deployed)
+	}
+	rv := d.kept[releaseValuesKey].(*releaseValues)
+	if rv.userOnly.Checked || !rv.all || !strings.Contains(rv.view.Text(), "image:") {
+		t.Errorf("at first: checked %v, all %v, editor %q", rv.userOnly.Checked, rv.all, rv.view.Text())
+	}
+	// Save is a bar the editor's width, below it.
+	editorPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(rv.view)
+	savePos := fyne.CurrentApp().Driver().AbsolutePositionForObject(rv.save)
+	if rv.save.Size().Width < rv.view.Size().Width || savePos.Y <= editorPos.Y+rv.view.Size().Height-1 {
+		t.Errorf("Save %v at %v, editor %v at %v", rv.save.Size(), savePos, rv.view.Size(), editorPos)
+	}
+	// Another kind's drawer keeps its tabs.
+	if sh.drawer.plain && sh.drawer.shown.Kind != helm.ReleaseKind {
+		t.Error("plain drawer for another kind")
+	}
+}
+
 func hasCheck(d *drawer, label string) bool {
 	for _, c := range findAll[*widget.Check](d.details) {
 		if c.Text == label {
@@ -140,13 +190,20 @@ func hasCheck(d *drawer, label string) bool {
 func TestReleaseDrawerValuesSave(t *testing.T) {
 	sh, _, q, f, up := releaseDrawerShell(t, ThemeDark)
 	rv := sh.drawer.kept[releaseValuesKey].(*releaseValues)
-	rv.userOnly.SetChecked(false)
-	q.until(t, "all values", func() bool { return rv.all && strings.Contains(rv.view.Text(), "image:") })
-	if !strings.Contains(rv.status.text, "every value") {
-		t.Errorf("status %q", rv.status.text)
+	if !rv.all || !strings.Contains(rv.view.Text(), "image:") || !strings.Contains(rv.status.text, "every value") {
+		t.Errorf("at first: all %v, status %q", rv.all, rv.status.text)
 	}
 	rv.userOnly.SetChecked(true)
 	q.until(t, "the user-supplied values", func() bool { return !rv.all && !strings.Contains(rv.view.Text(), "image:") })
+	rv.userOnly.SetChecked(false)
+	q.until(t, "all values", func() bool { return rv.all && strings.Contains(rv.view.Text(), "image:") })
+	rv.view.SetText(rv.view.Text() + "typed: 1\n")
+	rv.changed()
+	if !strings.Contains(rv.status.text, "makes every value in the editor a user-supplied value") {
+		t.Errorf("status of an edit of every value: %q", rv.status.text)
+	}
+	rv.userOnly.SetChecked(true)
+	q.until(t, "the user-supplied values again", func() bool { return !rv.all && !strings.Contains(rv.view.Text(), "image:") })
 
 	rv.view.SetText(rv.view.Text() + "extra: true\n")
 	rv.changed()
@@ -179,8 +236,8 @@ func TestReleaseDrawerValuesSave(t *testing.T) {
 	_ = f
 }
 
-// The Rollback dialog: every revision newest first, the current one selected and not offered as a
-// rollback; picking an older one and Rollback dispatches the rollback and answers the engine's
+// The Rollback dialog: every revision newest first, the current one selected and Rollback enabled
+// with it, as Lens's; picking an older one and Rollback dispatches the rollback and answers the engine's
 // confirmation of it without a second dialog; a confirmation whose release moved meanwhile, an
 // agent's, or another command's is not answered by the dialog.
 func TestRollbackDialogConfirms(t *testing.T) {
@@ -215,7 +272,7 @@ func TestRollbackDialogConfirms(t *testing.T) {
 	})
 	q.until(t, "the dialog", func() bool { return rd != nil })
 	if len(rd.revision.Options) != 4 || rd.revision.Selected != rd.revision.Options[0] ||
-		rd.revision.Options[0] != "4 - ingress-nginx-4.12.1 - 1.12.1, updated: 10/10/2026, 12:30:00" || !rd.confirm.Disabled() {
+		rd.revision.Options[0] != "4 - ingress-nginx-4.12.1 - 1.12.1, updated: 10/10/2026, 12:30:00" || rd.confirm.Disabled() {
 		t.Fatalf("options %q selected %q, Rollback disabled %v", rd.revision.Options, rd.revision.Selected, rd.confirm.Disabled())
 	}
 	rd.revision.SetSelectedIndex(2)
@@ -254,6 +311,42 @@ func TestRollbackDialogConfirms(t *testing.T) {
 	}
 	if _, handled, _ := sh.confirmer.takeDialogAnswer(req); handled {
 		t.Error("a dialog's answer was used twice")
+	}
+}
+
+// Rollback with the current revision selected, as the dialog opens (captured 2026-10-12: enabled):
+// the rollback is dispatched for the current revision and the dialog's answer confirms it.
+func TestRollbackDialogCurrentRevision(t *testing.T) {
+	sh, _, q, f, _ := releaseDrawerShell(t, ThemeDark)
+	var mu sync.Mutex
+	var answered []bool
+	f.handlers["helm.release.rollback"] = func(ctx context.Context, inv engine.Invocation) (any, error) {
+		var p helmRollbackParams
+		_ = json.Unmarshal(normalize(inv.Params), &p)
+		ok, err := sh.confirmer.Confirm(ctx, engine.ConfirmRequest{Command: inv.ID, Label: "Rollback", Danger: engine.DangerDestructive, Origin: inv.Origin,
+			Context: "demo", Namespaces: []string{p.Ref.Namespace}, Objects: []model.ObjectRef{p.Ref},
+			UIDs: []string{"uid-ingress-nginx-sh.helm.release.v1.ingress-nginx.v4"}, Detail: commands.RollbackDetail(p.Revision)})
+		mu.Lock()
+		answered = append(answered, ok)
+		mu.Unlock()
+		return nil, err
+	}
+	var rd *rollbackDialog
+	sh.dispatch("helm.release.history", refParams{Ref: *sh.drawer.shown}, func(res any, err error) {
+		var h releaseHistory
+		if err == nil && decode(res, &h) == nil {
+			rd = sh.showRollbackDialog(h)
+		}
+	})
+	q.until(t, "the dialog", func() bool { return rd != nil })
+	if rd.confirm.Disabled() || rd.revision.SelectedIndex() != 0 {
+		t.Fatalf("Rollback disabled %v with %q selected", rd.confirm.Disabled(), rd.revision.Selected)
+	}
+	test.Tap(rd.confirm)
+	q.until(t, "the rollback", func() bool { mu.Lock(); defer mu.Unlock(); return len(answered) == 1 })
+	inv := f.callsOf("helm.release.rollback")
+	if len(inv) != 1 || !strings.Contains(string(inv[0].Params), `"revision":4`) || !answered[0] || sh.confirmer.current != nil {
+		t.Errorf("rollback %v, answered %v, a second dialog %v", inv, answered, sh.confirmer.current != nil)
 	}
 }
 
@@ -317,9 +410,14 @@ func TestHelmUpgradeTabSaves(t *testing.T) {
 		}
 		return u != nil && !u.busy && strings.Contains(u.pane.view.Text(), "replicaCount")
 	})
-	if u.version.Selected != "4.12.1 (no repository)" || len(u.version.Options) != 1 ||
-		u.info.text != "Release ingress-nginx values.yaml, version 4.12.1, on ingress-nginx namespace." {
-		t.Errorf("picker %q %v, info %q", u.version.Selected, u.version.Options, u.info.text)
+	// The version is text, the picker a separate element with its placeholder (captured 2026-10-12).
+	if u.versionText.text != "version: 4.12.1 (no repository)" || u.version.Selected != "" || u.version.PlaceHolder != "Select…" ||
+		len(u.version.Options) != 1 || u.version.Options[0] != "4.12.1" {
+		t.Errorf("version text %q, picker %q %q %v", u.versionText.text, u.version.Selected, u.version.PlaceHolder, u.version.Options)
+	}
+	// The info line: the release and the namespace are links; the spinner gave way to the version.
+	if u.releaseLink.text != "ingress-nginx" || u.nsLink.text != "ingress-nginx" || u.spinner.Visible() || !u.infoVersion.Visible() || u.infoVersion.text != "4.12.1" {
+		t.Errorf("info line: %q %q, spinner %v, version %q", u.releaseLink.text, u.nsLink.text, u.spinner.Visible(), u.infoVersion.text)
 	}
 	u.pane.view.SetText("controller:\n  replicaCount: 3\n")
 	test.Tap(u.saveBtn)
@@ -346,10 +444,46 @@ func TestHelmUpgradeTabSaves(t *testing.T) {
 	}
 
 	u.toggleSearch()
-	u.search.SetText("REPLICA")
-	if line, col := u.pane.view.CursorPosition(); line != 1 || col != 2 {
-		t.Errorf("search moved the caret to %d:%d", line, col)
+	u.find.find.SetText("REPLICA")
+	if line, col := u.pane.view.CursorPosition(); line != 1 || col != 9 || u.pane.view.SelectedText() != "replica" {
+		t.Errorf("find moved the caret to %d:%d, selected %q", line, col, u.pane.view.SelectedText())
 	}
+}
+
+// The info line's links lead to the release and its namespace.
+func TestHelmUpgradeTabLinks(t *testing.T) {
+	f, ref := releasesFake(t)
+	ed := newEditorFake(f)
+	tab := engine.DockTab{ID: "helmUpgrade-1", Type: engine.DockHelmUpgrade, Title: "Helm Upgrade: ingress-nginx", Context: "demo", Ref: &ref,
+		Helm: &engine.HelmUpgradeTab{Chart: "ingress-nginx", Version: "4.12.1", Versions: []string{"4.12.1"}, UserSuppliedOnly: true}}
+	ed.texts[tab.ID], ed.revs[tab.ID] = "a: 1\n", 1
+	f.ui.Dock, f.ui.ActiveDock = []engine.DockTab{tab}, tab.ID
+	sh, _, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	var u *helmUpgradeTab
+	q.until(t, "the tab", func() bool {
+		if c := sh.dock.contents[tab.ID]; c != nil {
+			u, _ = c.editor.(*helmUpgradeTab)
+		}
+		return u != nil && !u.busy && u.pane.view.Text() == "a: 1\n"
+	})
+	test.Tap(u.nsLink)
+	q.until(t, "the namespace", func() bool {
+		for _, c := range f.callsOf("ui.navigate") {
+			if strings.Contains(string(c.Params), `"kind":"namespaces"`) && strings.Contains(string(c.Params), `"name":"ingress-nginx"`) {
+				return true
+			}
+		}
+		return false
+	})
+	test.Tap(u.releaseLink)
+	q.until(t, "the release", func() bool {
+		for _, c := range f.callsOf("ui.navigate") {
+			if strings.Contains(string(c.Params), `"kind":"`+helm.ReleaseKind+`"`) && strings.Contains(string(c.Params), `"name":"ingress-nginx"`) {
+				return true
+			}
+		}
+		return false
+	})
 }
 
 // The banner offers an interrupted upgrade's remedy: a rollback to the revision it started from.
@@ -425,7 +559,7 @@ func TestRenderRollbackDialog(t *testing.T) {
 	savePNG(t, w, "rollback_dialog_dark.png")
 }
 
-func renderHelmUpgradeTab(t *testing.T, mode ThemeMode, name string) {
+func renderHelmUpgradeTab(t *testing.T, mode ThemeMode, name string, find bool) {
 	f, ref := releasesFake(t)
 	ed := newEditorFake(f)
 	tab := engine.DockTab{ID: "helmUpgrade-1", Type: engine.DockHelmUpgrade, Title: "Helm Upgrade: ingress-nginx", Context: "demo", Ref: &ref,
@@ -449,12 +583,25 @@ func renderHelmUpgradeTab(t *testing.T, mode ThemeMode, name string) {
 		return u != nil && !u.busy && strings.Contains(u.status.text, "revision 4") && sh.drawer.last != nil && sh.diag.total > 0 &&
 			rv != nil && rv.revision == 4
 	})
+	if find { // the editor's find widget with a match
+		u := sh.dock.contents[tab.ID].editor.(*helmUpgradeTab)
+		u.toggleSearch()
+		settle(w) // the editor shrinks for the widget before the match is revealed
+		u.find.replace.SetText("3")
+		u.find.find.SetText("replica")
+	}
 	savePNG(t, w, name)
 }
 
 func TestRenderHelmUpgradeTabDark(t *testing.T) {
-	renderHelmUpgradeTab(t, ThemeDark, "helm_upgrade_tab_dark.png")
+	renderHelmUpgradeTab(t, ThemeDark, "helm_upgrade_tab_dark.png", false)
 }
 func TestRenderHelmUpgradeTabLight(t *testing.T) {
-	renderHelmUpgradeTab(t, ThemeLight, "helm_upgrade_tab_light.png")
+	renderHelmUpgradeTab(t, ThemeLight, "helm_upgrade_tab_light.png", false)
+}
+func TestRenderHelmUpgradeFindDark(t *testing.T) {
+	renderHelmUpgradeTab(t, ThemeDark, "helm_upgrade_find_dark.png", true)
+}
+func TestRenderHelmUpgradeFindLight(t *testing.T) {
+	renderHelmUpgradeTab(t, ThemeLight, "helm_upgrade_find_light.png", true)
 }

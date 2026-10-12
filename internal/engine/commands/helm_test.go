@@ -500,18 +500,28 @@ func TestHelmRollbackAndUninstall(t *testing.T) {
 		t.Error("object.delete applies to a release")
 	}
 
-	if _, err := h.dispatch(engine.OriginGUI, "helm.release.rollback", map[string]any{"ref": webRef, "revision": 3}); err == nil ||
-		!strings.Contains(err.Error(), "no earlier revision 3") {
-		t.Errorf("rollback to the newest revision: %v", err)
+	if _, err := h.dispatch(engine.OriginGUI, "helm.release.rollback", map[string]any{"ref": webRef, "revision": 4}); err == nil ||
+		!strings.Contains(err.Error(), "no revision 4") {
+		t.Errorf("rollback to a revision the release never had: %v", err)
 	}
-	res, err := h.dispatch(engine.OriginGUI, "helm.release.rollback", map[string]any{"ref": webRef, "revision": 1})
+	// The newest revision is a target too, as Lens's dialog allows (captured 2026-10-12): a new
+	// revision equal to it.
+	res, err := h.dispatch(engine.OriginGUI, "helm.release.rollback", map[string]any{"ref": webRef, "revision": 3})
+	if err != nil {
+		t.Fatalf("rollback to the newest revision: %v", err)
+	}
+	if r := res.(commands.HelmResult); r.Action != "rolledBack" || r.Revision != 3 {
+		t.Errorf("result %+v", r)
+	}
+	h.waitRelease(t, "apps", "web", 4)
+	res, err = h.dispatch(engine.OriginGUI, "helm.release.rollback", map[string]any{"ref": webRef, "revision": 1})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if r := res.(commands.HelmResult); r.Action != "rolledBack" || r.Revision != 1 {
 		t.Errorf("result %+v", r)
 	}
-	h.waitRelease(t, "apps", "web", 4)
+	h.waitRelease(t, "apps", "web", 5)
 	if list, _ := journal.List(); len(list) != 0 {
 		t.Errorf("journal after a rollback: %+v", list)
 	}
@@ -537,7 +547,7 @@ func TestHelmRollbackAndUninstall(t *testing.T) {
 	if list, _ := journal.List(); len(list) != 0 {
 		t.Errorf("journal after the uninstall: %+v", list)
 	}
-	want := []string{"rollback apps/web to 1", "uninstall apps/web", "uninstall apps/web"}
+	want := []string{"rollback apps/web to 3", "rollback apps/web to 1", "uninstall apps/web", "uninstall apps/web"}
 	if got := h.server.recorded(); strings.Join(got, ";") != strings.Join(want, ";") {
 		t.Errorf("calls %v, want %v", got, want)
 	}

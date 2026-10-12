@@ -24,8 +24,9 @@ var (
 )
 
 // detail is the profile's Detail: Lens's release drawer (captured 2026-10-12). Properties holds
-// Chart (with an Upgrade button), Updated, Namespace, Version (the chart's version, inferred: the
-// list's Version column) and Status (a pill, written as Lens writes it); then the newest revision's
+// Chart ("<chart>-<version>", with an Upgrade button), Updated, Namespace (plain text), Version
+// (the chart's version, inferred: the list's Version column) and Status (a neutral grey pill,
+// written as Lens writes it; the texts captured 2026-10-12); then the newest revision's
 // user-supplied values, which the GUI shows in an editor with Save and "User-supplied values
 // only"; the chart's notes; and the release's resources, one table per kind. The values and the
 // notes are private: agents read model.Withheld in their place (object_get), because values can
@@ -41,7 +42,7 @@ func (m *memo) detail(o *unstructured.Unstructured) []model.DetailSection {
 			props = append(props, it)
 		}
 	}
-	chartItem := model.DetailItem{Name: titleChart, Value: chart}
+	chartItem := model.DetailItem{Name: titleChart, Value: chartText(chart, version)}
 	if params, err := json.Marshal(map[string]any{"ref": model.ObjectRef{Kind: ReleaseKind, Namespace: ns, Name: o.GetName()}}); err == nil {
 		chartItem.Actions = []model.ItemAction{{Label: "Upgrade", Command: UpgradeTabCommand, Params: params}}
 	}
@@ -49,9 +50,9 @@ func (m *memo) detail(o *unstructured.Unstructured) []model.DetailSection {
 	if t := model.NestedTime(o, fieldUpdated); !t.IsZero() {
 		add(model.DetailItem{Name: titleUpdated, Value: UpdatedText(t, clock(), zone)})
 	}
-	add(model.DetailItem{Name: titleNamespace, Value: ns, Link: &model.ObjectRef{Kind: kindNamespaces, Name: ns}})
+	add(model.DetailItem{Name: titleNamespace, Value: ns})
 	add(model.DetailItem{Name: "Version", Value: version})
-	add(model.DetailItem{Name: titleStatus, Value: StatusText(status), Status: StatusToken(status)})
+	add(model.DetailItem{Name: titleStatus, Value: StatusText(status), Pill: true})
 	add(model.DetailItem{Name: "Error", Value: model.NestedString(o, "error"), Status: model.StatusError})
 	sections := []model.DetailSection{{Title: model.TitleProperties, Items: props}}
 
