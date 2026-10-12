@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -72,11 +73,36 @@ func (s *Session) ReleaseValues(ctx context.Context, ref model.ObjectRef, all bo
 }
 
 // OpenHelmUpgradeTab opens a release's Helm Upgrade tab, its editor filled with the release's
-// user-supplied values from the cache, or activates the tab already open on it.
-func (s *Session) OpenHelmUpgradeTab(ctx context.Context, ref model.ObjectRef) (EditorState, bool, error) {
+// user-supplied values from the cache, or activates the tab already open on it. The tab offers the
+// versions of a repository that lists the release's chart (helmupgrade_repos.go): pick chooses the
+// repository and the version, an empty field keeps the open tab's choice or takes the default.
+func (s *Session) OpenHelmUpgradeTab(ctx context.Context, ref model.ObjectRef, pick HelmUpgradePick) (EditorState, bool, error) {
 	b, ref, obj, secret, err := s.cachedRelease(ctx, ref)
 	if err != nil {
 		return EditorState{}, false, err
+	}
+	chart, version := helm.ReleaseChart(obj)
+	for _, t := range s.UIState().Dock {
+		if t.Type != DockHelmUpgrade || t.Ref == nil || !t.Ref.Same(ref) || t.Context != b.Context {
+			continue
+		}
+		choice, err := s.upgradeChoice(chart, version, pick, t.Helm)
+		if err != nil {
+			return EditorState{}, false, fmt.Errorf("release %s: %w", ref.Name, err)
+		}
+		if t.Helm == nil || !reflect.DeepEqual(*choice, *t.Helm) {
+			if err := s.setHelmUpgradeChoice(t.ID, choice); err != nil {
+				return EditorState{}, false, err
+			}
+		}
+		id := t.ID
+		s.UpdateUI(func(u *UIState) { u.ActiveDock = id })
+		st, err := s.EditorState(ctx, id)
+		return st, false, err
+	}
+	choice, err := s.upgradeChoice(chart, version, pick, nil)
+	if err != nil {
+		return EditorState{}, false, fmt.Errorf("release %s: %w", ref.Name, err)
 	}
 	vals, err := helm.ReleaseValues(secret, false)
 	if err != nil {
@@ -85,12 +111,11 @@ func (s *Session) OpenHelmUpgradeTab(ctx context.Context, ref model.ObjectRef) (
 	if len(vals.YAML) > MaxManifestBytes {
 		return EditorState{}, false, fmt.Errorf("release %s: %d bytes of values is more than the %d an editor takes", ref.Name, len(vals.YAML), MaxManifestBytes)
 	}
-	chart, version := helm.ReleaseChart(obj)
 	r := ref
 	e := &editor{
 		tab: DockTab{
 			ID: s.NewDockID(DockHelmUpgrade), Type: DockHelmUpgrade, Title: helmUpgradeTitle + ref.Name, Context: b.Context, Ref: &r,
-			Helm: &HelmUpgradeTab{Chart: chart, Version: version, Versions: []string{version}, UserSuppliedOnly: true},
+			Helm: choice,
 		},
 		text: vals.YAML, rev: 1,
 		helm: &helmBase{revision: helm.ReleaseRevision(obj), uid: string(obj.GetUID())},
@@ -181,11 +206,23 @@ func (t HelmUpgradeTabInfo) CheckTabBase(obj *unstructured.Unstructured) error {
 }
 
 // RebaseHelmUpgradeTab moves a Helm Upgrade tab's base to the revision an upgrade from it made,
-// with that revision's release Secret's UID once the cache has seen it (uid "" until then).
-func (s *Session) RebaseHelmUpgradeTab(id string, revision int, uid string) {
-	_, _ = s.updateEditor(id, func(e *editor) {
+// with that revision's release Secret's UID once the cache has seen it (uid "" until then), and its
+// choice to the chart version the release now has, which the picker marks as the current one.
+func (s *Session) RebaseHelmUpgradeTab(id string, revision int, uid, chartVersion string) {
+	e, err := s.updateEditor(id, func(e *editor) {
 		if e.helm != nil {
 			e.helm = &helmBase{revision: revision, uid: uid} // a new value: copies of the editor share the old one
 		}
 	})
+	if err != nil || e.tab.Helm == nil || chartVersion == "" || chartVersion == e.tab.Helm.ReleaseVersion {
+		return
+	}
+	cur := e.tab.Helm
+	choice, err := s.upgradeChoice(cur.Chart, chartVersion, HelmUpgradePick{Repository: cur.Repository, Version: chartVersion}, cur)
+	if err != nil { // the repository went meanwhile: the release's own version alone
+		choice, err = s.upgradeChoice(cur.Chart, chartVersion, HelmUpgradePick{}, nil)
+	}
+	if err == nil {
+		_ = s.setHelmUpgradeChoice(id, choice)
+	}
 }

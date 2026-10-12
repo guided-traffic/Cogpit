@@ -28,12 +28,15 @@ type HelmWriter interface {
 	UpgradeRelease(ctx context.Context, namespace, name string, up HelmUpgradeRequest) (revision int, err error)
 }
 
-// HelmUpgradeRequest is what an upgrade installs: the chart version (empty: the release's own; the
-// only one there is without chart repositories) and the values, which replace the release's
-// user-supplied values whole.
+// HelmUpgradeRequest is what an upgrade installs: the chart version (empty: the release's own),
+// the chart downloaded from a repository for it (nil: the release's own chart, which must then be
+// at ChartVersion) and the values, which replace the release's user-supplied values whole.
 type HelmUpgradeRequest struct {
 	ChartVersion string
-	Values       map[string]any
+	// Chart is the chart a repository serves at ChartVersion, downloaded and checked against its
+	// index's digest (helmupgrade.go); nil upgrades with the release's own chart.
+	Chart  *helm.Chart
+	Values map[string]any
 	// FromRevision is the revision the values are based on, as the cache showed it: a release the
 	// server holds at another one is refused (helm.ErrReleaseMoved with helm.ErrUnchanged).
 	FromRevision int
@@ -69,5 +72,8 @@ func (h sdkHelm) UninstallRelease(_ context.Context, namespace, name string) err
 }
 
 func (h sdkHelm) UpgradeRelease(ctx context.Context, namespace, name string, up HelmUpgradeRequest) (int, error) {
+	if up.Chart != nil {
+		return h.a.UpgradeChart(ctx, namespace, name, up.Chart, up.FromRevision, up.Values)
+	}
 	return h.a.Upgrade(ctx, namespace, name, up.ChartVersion, up.FromRevision, up.Values)
 }

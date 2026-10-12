@@ -105,11 +105,21 @@ type DockTab struct {
 // <name>" tab, captured 2026-10-12): the release's chart, the version the upgrade installs and the
 // versions its picker offers. The tab's Ref is the release (kind helmreleases); its values are the
 // tab's editor text (editor.get, editor.setText), which agents read withheld (model.Withheld).
+// helm.release.upgradeTab with a repository or a version changes the choice (helmupgrade.go).
 type HelmUpgradeTab struct {
-	Chart   string `json:"chart"`
+	Chart string `json:"chart"`
+	// Version is the version the upgrade installs: the release's own (its stored chart), or one of
+	// Repository's.
 	Version string `json:"version"`
-	// Versions are the picker's choices: without chart repositories, the release's own chart
-	// version only.
+	// ReleaseVersion is the release's own chart version, which the picker marks as the current one.
+	ReleaseVersion string `json:"releaseVersion,omitempty"`
+	// Repository is the chart repository whose versions the picker offers, "" when no repository
+	// added to Cogpit lists the chart; Repositories are every one that does, in the order they were
+	// added.
+	Repository   string   `json:"repository,omitempty"`
+	Repositories []string `json:"repositories,omitempty"`
+	// Versions are the picker's choices: the release's own chart version, and Repository's versions
+	// newest first, prereleases after the others.
 	Versions []string `json:"versions"`
 	// UserSuppliedOnly: the editor holds the user-supplied values only, not the chart's defaults
 	// merged in (Lens's "User-supplied values only").
@@ -159,6 +169,7 @@ func (u UIState) Clone() UIState {
 		if t.Helm != nil {
 			h := *t.Helm
 			h.Versions = slices.Clone(t.Helm.Versions)
+			h.Repositories = slices.Clone(t.Helm.Repositories)
 			out.Dock[i].Helm = &h
 		}
 	}

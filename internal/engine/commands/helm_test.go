@@ -172,7 +172,11 @@ func (h *helmServer) UpgradeRelease(_ context.Context, namespace, name string, u
 	h.mu.Lock()
 	h.revs[namespace+"/"+name] = cur + 1
 	h.mu.Unlock()
-	h.src.Set(testkit.SecretsGVR, releaseSecretWith(h.t, namespace, name, cur+1, common.StatusDeployed, fmt.Sprintf("0.%d.0", cur), up.Values))
+	version := fmt.Sprintf("0.%d.0", cur)
+	if up.Chart != nil { // a chart downloaded from a repository (helmupgrade_repo_test.go)
+		version = up.Chart.Version
+	}
+	h.src.Set(testkit.SecretsGVR, releaseSecretWith(h.t, namespace, name, cur+1, common.StatusDeployed, version, up.Values))
 	return cur + 1, nil
 }
 

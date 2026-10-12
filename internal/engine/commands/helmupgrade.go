@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/helm"
@@ -16,6 +19,8 @@ import (
 // with the release's values (captured 2026-10-12); helm.release.upgrade upgrades the release with
 // the tab's values, or with values a caller passes (the drawer's Save), through the Helm SDK in
 // Cogpit's process, mutating (privilege-footprint.md), recorded in the Helm journal first (D-11).
+// The chart is the release's own, or a version of it a repository added to Cogpit lists, which is
+// downloaded (bounded, checked against the index's digest) before anything is recorded or changed.
 // The values are the user's: agents read them withheld, and no log, error, toast, audit line or
 // journal entry carries them.
 
@@ -24,19 +29,26 @@ import (
 const orderUpgrade = 300
 
 type upgradeTabParams struct {
+	Ref        model.ObjectRef `json:"ref" jsonschema:"the release: kind helmreleases, its namespace and name"`
+	Repository string          `json:"repository,omitempty" jsonschema:"a chart repository added to Cogpit that lists the release's chart, whose versions the tab offers (the tab's repositories list them); empty: the tab's, or the default"`
+	Version    string          `json:"version,omitempty" jsonschema:"the chart version the upgrade installs, one of the tab's versions: the release's own (its stored chart) or one of the repository's; empty: the tab's, or for a new tab the repository's newest when it is newer than the release's"`
+}
+
+type releaseParams struct {
 	Ref model.ObjectRef `json:"ref" jsonschema:"the release: kind helmreleases, its namespace and name"`
 }
 
 type upgradeParams struct {
 	Ref model.ObjectRef `json:"ref" jsonschema:"the release: kind helmreleases, its namespace and name"`
-	Tab string          `json:"tab,omitempty" jsonschema:"a Helm Upgrade dock tab id as helm_release_upgradeTab returned it, e.g. helmUpgrade-1: upgrade with the tab's values (editor_setText changes them), based on the revision the tab read them from; give tab or values"`
+	Tab string          `json:"tab,omitempty" jsonschema:"a Helm Upgrade dock tab id as helm_release_upgradeTab returned it, e.g. helmUpgrade-1: upgrade with the tab's values (editor_setText changes them) and, unless version or repository is given, the tab's chart version, based on the revision the tab read the values from; give tab or values"`
 	// Values is a pointer so that empty values (no user-supplied values) differ from none given.
 	Values   *string `json:"values,omitempty" jsonschema:"the release's new user-supplied values as YAML, replacing the old ones whole (empty: none); give tab or values"`
 	Revision int     `json:"revision,omitempty" jsonschema:"with values: the release's newest revision the values are based on (object_get or helm_release_history shows it); the upgrade is refused when the release moved past it"`
 	// TextRevision binds an upgrade from a tab to the text the user reviewed: a change of the
 	// tab's text after it (an agent's editor.setText while the confirmation is open) refuses it.
 	TextRevision uint64 `json:"textRevision,omitempty" jsonschema:"with tab: the tab's text revision the upgrade takes the values at (editor_get and editor_setText return it); the upgrade is refused when the text changed since"`
-	Version      string `json:"version,omitempty" jsonschema:"the chart version to install; empty: the release's own, the only one without chart repositories"`
+	Version      string `json:"version,omitempty" jsonschema:"the chart version to install: empty or the release's own upgrades with the release's stored chart (unless repository is given); another one is downloaded from the repository that lists it (helmcharts objects list the versions)"`
+	Repository   string `json:"repository,omitempty" jsonschema:"the chart repository added to Cogpit to download the chart from (helm_repo_list); empty: the tab's, else the one repository that lists the version; with an empty version its newest version that is not a prerelease"`
 }
 
 type releaseValuesParams struct {
@@ -64,9 +76,12 @@ func registerHelmUpgrade(g *registrar) {
 		ID: helm.UpgradeTabCommand, Label: "Upgrade", MenuPath: "Helm/Upgrade", Kinds: []string{helm.ReleaseKind},
 		Order: orderUpgrade, Danger: engine.DangerUI, Verbs: releaseCacheReads,
 		Description: "Opens a release's Helm Upgrade dock tab, or activates the one already open on it: the release's chart, " +
-			"the version the upgrade installs (the release's own: Cogpit has no chart repositories yet) and its user-supplied " +
-			"values in an editor, read from Cogpit's cache. Writes nothing. Agents read the tab's values withheld " +
-			"(editor_get) but may replace them (editor_setText); helm_release_upgrade with the tab id upgrades the release.",
+			"the version the upgrade installs and the versions to choose from, and its user-supplied values in an editor, read " +
+			"from Cogpit's cache. When a chart repository added to Cogpit lists the release's chart (by name), the versions are " +
+			"that repository's (repositories: every one that lists it) and a new tab starts with the newest that is not a " +
+			"prerelease when it is newer than the release's; otherwise the release's own version only. repository and version " +
+			"change the tab's choice. Writes nothing. Agents read the tab's values withheld (editor_get) but may replace them " +
+			"(editor_setText); helm_release_upgrade with the tab id upgrades the release.",
 		Enabled: func(s *engine.Session, p upgradeTabParams) error {
 			if _, err := cachedOfKind(s, p.Ref, helm.ReleaseKind); err != nil {
 				return err
@@ -79,7 +94,7 @@ func registerHelmUpgrade(g *registrar) {
 			return err
 		},
 		Run: func(ctx context.Context, s *engine.Session, p upgradeTabParams) (any, error) {
-			st, created, err := s.OpenHelmUpgradeTab(ctx, p.Ref)
+			st, created, err := s.OpenHelmUpgradeTab(ctx, p.Ref, engine.HelmUpgradePick{Repository: p.Repository, Version: p.Version})
 			if err != nil {
 				return nil, err
 			}
@@ -94,12 +109,14 @@ func registerHelmUpgrade(g *registrar) {
 		ID: "helm.release.upgrade", Label: "Upgrade", Kinds: []string{helm.ReleaseKind},
 		Danger: engine.DangerMutating, Verbs: releaseSecretVerbs("list", "get", "create", "update", "delete"),
 		Description: "Upgrades a Helm release as helm upgrade does with its defaults (hooks waited for, ten revisions kept), " +
-			"with the release's own chart and new user-supplied values, which replace the old ones whole: the values of a " +
-			"Helm Upgrade tab (tab), or values given here with the revision they are based on. Refused when the release " +
-			"moved to another revision since the values were read, and while another Helm action on it is pending. " +
-			"Besides the release's Secrets it needs whatever verbs the release's objects need. An agent's request waits " +
-			"for the user's acceptance. An upgrade a crash of Cogpit interrupts stays in helm_pendingOperations; " +
-			"helm_release_rollback to its fromRevision finishes it.",
+			"with new user-supplied values, which replace the old ones whole: the values of a Helm Upgrade tab (tab), or values " +
+			"given here with the revision they are based on. The chart is the release's own, or another version of it that a " +
+			"chart repository added to Cogpit lists (version, repository; from a tab, the tab's choice), downloaded first and " +
+			"checked against the index's digest when it lists one. Refused when the release moved to another revision since " +
+			"the values were read, and while another Helm action on it is pending. Besides the release's Secrets it needs " +
+			"whatever verbs the release's objects need, and create and delete for objects another chart version adds or drops. " +
+			"An agent's request waits for the user's acceptance, which names the chart version from and to. An upgrade a crash " +
+			"of Cogpit interrupts stays in helm_pendingOperations; helm_release_rollback to its fromRevision finishes it.",
 		Enabled: func(s *engine.Session, p upgradeParams) error {
 			obj, err := cachedOfKind(s, p.Ref, helm.ReleaseKind)
 			if err != nil {
@@ -108,36 +125,32 @@ func registerHelmUpgrade(g *registrar) {
 			if st := helm.ReleaseStatus(obj); helm.Pending(st) {
 				return fmt.Errorf("release %s is %s: another Helm action on it did not finish; finish or roll it back first", p.Ref.Name, st)
 			}
+			moved := false
 			switch {
 			case p.Tab != "" && p.Values != nil:
 				return errors.New("give tab or values, not both")
 			case p.Tab != "":
-				if _, err := upgradeTab(s, p); err != nil {
+				tab, err := upgradeTab(s, p)
+				if err != nil {
 					return err
 				}
+				moved = tab.CheckTabBase(obj) != nil
 			case p.Values == nil:
 				return errors.New("give the values: a Helm Upgrade tab (tab) or values with the revision they are based on")
 			case p.Revision < 1:
 				return errors.New("give the revision the values are based on (the release's newest revision when you read them)")
+			default:
+				moved = engine.CheckReleaseBase(obj, p.Revision, "") != nil
+			}
+			if !moved { // a release that moved is refused when the command runs, as ErrTargetsChanged
+				if _, err := resolveUpgradeTarget(s, p, obj); err != nil {
+					return err
+				}
 			}
 			return helmWritable(s, p.Ref)
 		},
 		Targets: func(s *engine.Session, p upgradeParams) ([]model.ObjectRef, error) { return targetOf(s, p.Ref) },
-		Detail: func(s *engine.Session, p upgradeParams) string {
-			chart, version := "", p.Version
-			if obj, err := s.Lookup(p.Ref); err == nil {
-				name, own := helm.ReleaseChart(obj)
-				chart = name
-				if version == "" {
-					version = own
-				}
-			}
-			from := "the values below, which replace the release's user-supplied values whole"
-			if p.Tab != "" {
-				from = fmt.Sprintf("the values in the tab %s at its text revision %d (review them there; a change refuses the upgrade)", p.Tab, p.TextRevision)
-			}
-			return fmt.Sprintf("The release is upgraded to chart %s %s with %s; its objects change to the new manifest.", chart, version, from)
-		},
+		Detail:  upgradeDetail,
 		// The values an agent passes inline are shown to the user before they answer (owner,
 		// 2026-10-12: R-2's remainder); from a tab, the tab is what the user reviews.
 		Review: func(_ *engine.Session, p upgradeParams) string {
@@ -173,16 +186,16 @@ func registerHelmUpgrade(g *registrar) {
 		},
 	})
 
-	add(g, engine.Spec[upgradeTabParams]{
+	add(g, engine.Spec[releaseParams]{
 		ID: "helm.release.history", Label: "Release History", Danger: engine.DangerRead, Verbs: releaseCacheReads,
 		Description: "Returns a release's revisions from Cogpit's cache, newest first (as many as Helm keeps, ten by default): " +
 			"each revision's chart and version, app version, status, when it was deployed and its description, with the " +
 			"release's newest revision and status. Rollback picks one of them.",
-		Enabled: func(s *engine.Session, p upgradeTabParams) error {
+		Enabled: func(s *engine.Session, p releaseParams) error {
 			_, err := cachedOfKind(s, p.Ref, helm.ReleaseKind)
 			return err
 		},
-		Run: func(ctx context.Context, s *engine.Session, p upgradeTabParams) (any, error) {
+		Run: func(ctx context.Context, s *engine.Session, p releaseParams) (any, error) {
 			ref, _, err := s.ResolveRef(p.Ref)
 			if err != nil {
 				return nil, err
@@ -212,6 +225,112 @@ func upgradeTab(s *engine.Session, p upgradeParams) (engine.HelmUpgradeTabInfo, 
 	return t, nil
 }
 
+// upgradeTarget is the chart an upgrade installs: the release's chart from version from to version
+// to, from repository (downloaded) or, with repository "", the release's own stored chart.
+type upgradeTarget struct {
+	chart, from, to string
+	repository      string
+	// digest: the repository's index lists the version's digest, which the download is checked
+	// against.
+	digest bool
+}
+
+// own reports whether the upgrade keeps the release's stored chart.
+func (t upgradeTarget) own() bool { return t.repository == "" }
+
+// journalChart is the chart as the journal records it: an install's form, "<repository>/<chart>",
+// for a downloaded one.
+func (t upgradeTarget) journalChart() string {
+	if t.own() {
+		return t.chart
+	}
+	return t.repository + "/" + t.chart
+}
+
+// resolveUpgradeTarget resolves the chart an upgrade installs, from the cache and the indexes
+// Cogpit holds (no download): version and repository as given; from a tab without either, the
+// tab's choice; a version other than the release's own from the repository given, else the tab's,
+// else the one repository that lists it. A version that no repository lists is refused with
+// helm.ErrNoRepository.
+func resolveUpgradeTarget(s *engine.Session, p upgradeParams, obj *unstructured.Unstructured) (upgradeTarget, error) {
+	chart, own := helm.ReleaseChart(obj)
+	t := upgradeTarget{chart: chart, from: own, to: p.Version, repository: p.Repository}
+	hint := ""
+	if p.Tab != "" {
+		if tab, err := s.HelmUpgradeTab(p.Tab); err == nil && tab.Tab.Helm != nil {
+			if t.to == "" && t.repository == "" {
+				t.to = tab.Tab.Helm.Version
+			}
+			hint = tab.Tab.Helm.Repository
+		}
+	}
+	if t.repository == "" && (t.to == "" || t.to == own) {
+		t.to = own
+		return t, nil
+	}
+	repos := s.HelmRepos()
+	if repos == nil {
+		return t, fmt.Errorf("chart %s %s: %w (the release's own is %s)", chart, t.to, helm.ErrNoRepository, own)
+	}
+	if t.repository == "" {
+		names, err := repos.ChartRepositories(chart, t.to)
+		if err != nil {
+			return t, err
+		}
+		switch {
+		case hint != "" && slices.Contains(names, hint):
+			t.repository = hint
+		case len(names) == 1:
+			t.repository = names[0]
+		case len(names) == 0:
+			return t, fmt.Errorf("chart %s %s: %w (the release's own is %s)", chart, t.to, helm.ErrNoRepository, own)
+		default:
+			return t, fmt.Errorf("chart %s %s is listed by the repositories %s: give repository", chart, t.to, strings.Join(names, ", "))
+		}
+	}
+	v, err := repos.IndexedVersion(t.repository, chart, t.to)
+	if err != nil {
+		return t, err
+	}
+	t.to, t.digest = v.Version, v.Digest != ""
+	return t, nil
+}
+
+// upgradeDetail is the confirmation's sentence: the chart version from and to, where the chart
+// comes from and how it is checked, and where the values come from. The objects name the release,
+// its namespace and the context. runUpgrade checks that the sentence is still true when it runs.
+func upgradeDetail(s *engine.Session, p upgradeParams) string {
+	values := "the values below, which replace the release's user-supplied values whole"
+	if p.Tab != "" {
+		values = fmt.Sprintf("the values in the tab %s at its text revision %d (review them there; a change refuses the upgrade)", p.Tab, p.TextRevision)
+	}
+	obj, err := s.Lookup(p.Ref)
+	if err != nil {
+		return fmt.Sprintf("The release is upgraded with %s; its objects change to the new manifest.", values)
+	}
+	t, err := resolveUpgradeTarget(s, p, obj)
+	if err != nil {
+		return fmt.Sprintf("The release is upgraded with %s; its objects change to the new manifest.", values)
+	}
+	var b strings.Builder
+	switch {
+	case t.own():
+		fmt.Fprintf(&b, "The release is upgraded from chart %s %s to %s, its own chart (nothing is downloaded),", t.chart, t.from, t.to)
+	default:
+		fmt.Fprintf(&b, "The release is upgraded from chart %s %s to %s %s from repository %s", t.chart, t.from, t.chart, t.to, t.repository)
+		if c, ok := helm.CompareVersions(t.to, t.from); ok && c < 0 {
+			b.WriteString(", an older version,")
+		}
+		if t.digest {
+			b.WriteString(" (the archive is checked against the index's digest),")
+		} else {
+			b.WriteString(" (the index lists no digest, so the archive cannot be checked),")
+		}
+	}
+	fmt.Fprintf(&b, " with %s; its objects change to the new manifest.", values)
+	return b.String()
+}
+
 // rebaseWait bounds how long a successful upgrade from a tab waits for the cache to show the new
 // revision, whose release Secret's UID becomes the tab's base.
 const rebaseWait = 3 * time.Second
@@ -222,9 +341,9 @@ func runUpgrade(ctx context.Context, s *engine.Session, p upgradeParams) (any, e
 		return nil, err
 	}
 	text := ""
-	var tab engine.HelmUpgradeTabInfo
 	if p.Tab != "" {
-		if tab, err = upgradeTab(s, p); err != nil {
+		tab, err := upgradeTab(s, p)
+		if err != nil {
 			return nil, err
 		}
 		if p.TextRevision == 0 {
@@ -250,27 +369,43 @@ func runUpgrade(ctx context.Context, s *engine.Session, p upgradeParams) (any, e
 	if st := helm.ReleaseStatus(obj); helm.Pending(st) {
 		return nil, fmt.Errorf("release %s is %s: another Helm action on it did not finish; nothing was done", ref.Name, st)
 	}
-	chart, version := helm.ReleaseChart(obj)
-	if p.Version != "" && p.Version != version {
-		return nil, fmt.Errorf("release %s: chart %s %s: %w (%s)", ref.Name, chart, p.Version, helm.ErrNoRepository, version)
+	target, err := resolveUpgradeTarget(s, p, obj)
+	if err != nil {
+		return nil, fmt.Errorf("release %s: %w; nothing was done", ref.Name, err)
+	}
+	// What the user accepted is what runs: a confirmation whose sentence (the chart version from
+	// and to, the repository, the digest check) would read differently now, because the tab's
+	// choice or an index changed while it was open, is refused.
+	if req, ok := engine.Confirmed(ctx); ok && req.Detail != "" && req.Detail != upgradeDetail(s, p) {
+		return nil, fmt.Errorf("%w: the chart the upgrade installs changed since it was confirmed; nothing was done: review it and upgrade again", engine.ErrTargetsChanged)
 	}
 	vals, err := helm.ParseValues(text)
 	if err != nil {
 		return nil, fmt.Errorf("release %s: %w; nothing was done", ref.Name, err)
 	}
+	var downloaded *helm.Chart
+	if !target.own() {
+		if downloaded, err = fetchUpgradeChart(ctx, s, target); err != nil {
+			return nil, fmt.Errorf("release %s: %w; nothing was done", ref.Name, err)
+		}
+	}
 	cur := helm.ReleaseRevision(obj)
 	op := engine.PendingHelmOp{
 		Context: ref.Context, Namespace: ref.Namespace, Release: ref.Name, Action: engine.HelmUpgrade,
-		FromRevision: cur, Chart: chart, ChartVersion: version, Started: s.Now().UTC(), StartedBy: startedBy(ctx),
+		FromRevision: cur, Chart: target.journalChart(), ChartVersion: target.to, Started: s.Now().UTC(), StartedBy: startedBy(ctx),
+	}
+	starting := fmt.Sprintf("Upgrading release %s…", ref.Name)
+	if !target.own() {
+		starting = fmt.Sprintf("Upgrading release %s to %s %s from %s…", ref.Name, target.chart, target.to, target.repository)
 	}
 	var revision int
-	err = runHelmOp(s, op, fmt.Sprintf("Upgrading release %s…", ref.Name), func() (err error) {
+	err = runHelmOp(s, op, starting, func() (err error) {
 		defer func() {
 			if r := recover(); r != nil { // scrubbed here: helmSafely would quote the panic as it is
 				err = helm.Scrubbed(fmt.Errorf("internal error: %v", r), vals)
 			}
 		}()
-		revision, err = w.UpgradeRelease(ctx, ref.Namespace, ref.Name, engine.HelmUpgradeRequest{ChartVersion: version, Values: vals, FromRevision: cur})
+		revision, err = w.UpgradeRelease(ctx, ref.Namespace, ref.Name, engine.HelmUpgradeRequest{ChartVersion: target.to, Chart: downloaded, Values: vals, FromRevision: cur})
 		return helm.Scrubbed(err, vals)
 	})
 	if err != nil {
@@ -280,10 +415,33 @@ func runUpgrade(ctx context.Context, s *engine.Session, p upgradeParams) (any, e
 		revision = cur + 1
 	}
 	if p.Tab != "" {
-		s.RebaseHelmUpgradeTab(p.Tab, revision, newRevisionUID(ctx, s, ref, revision))
+		s.RebaseHelmUpgradeTab(p.Tab, revision, newRevisionUID(ctx, s, ref, revision), target.to)
 	}
-	userToast(s, engine.LevelInfo, fmt.Sprintf("Release %s upgraded to revision %d", ref.Name, revision))
+	done := fmt.Sprintf("Release %s upgraded to revision %d", ref.Name, revision)
+	if !target.own() {
+		done += fmt.Sprintf(", chart %s %s from %s", target.chart, target.to, target.repository)
+	}
+	userToast(s, engine.LevelInfo, done)
 	return HelmResult{Ref: ref, Action: "upgraded", Revision: revision}, nil
+}
+
+// fetchUpgradeChart downloads the chart version an upgrade installs from its repository (bounded,
+// checked against the index's digest when it lists one, the archive holding the chart and version
+// the index names). An index that listed a digest when the target was resolved and lists none now
+// is refused: the confirmation said the archive is checked.
+func fetchUpgradeChart(ctx context.Context, s *engine.Session, t upgradeTarget) (*helm.Chart, error) {
+	repos := s.HelmRepos()
+	if repos == nil {
+		return nil, engine.ErrNoHelmRepos
+	}
+	ch, _, err := repos.FetchChart(ctx, t.repository, t.chart, t.to)
+	if err != nil {
+		return nil, err
+	}
+	if t.digest && !ch.Verified {
+		return nil, fmt.Errorf("%w: chart %s/%s %s: the index no longer lists the digest the archive was to be checked against", engine.ErrTargetsChanged, t.repository, t.chart, t.to)
+	}
+	return ch, nil
 }
 
 // newRevisionUID waits, bounded by rebaseWait, for the cache to show a release at a revision and

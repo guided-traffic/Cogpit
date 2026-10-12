@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G11: a release upgraded to a version from the user's repositories; G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -433,12 +433,23 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   version picker, its info line with links, and the editor's find widget (`findbar.go`). Cogpit
   keeps upgrading with the release's stored chart where Lens needs a repository (deliberate), so
   the picker offers that version only and the info line's spinner lasts only while the values load.
-- **Missing:** the repositories' versions in the Upgrade tab (an upgrade still installs the
-  release's own chart version only); authenticated, plain-http and OCI repositories
+- **Missing:** the repositories' versions in the Upgrade tab's picker (the engine offers them and
+  upgrades to them since 2026-10-13, below); authenticated, plain-http and OCI repositories
   ([H-29](../security/credentials.md#h-29-authenticated-helm-repositories)); a list of public
   repositories to pick; chart icons and the README in the chart's drawer; the ConfigMaps and SQL
   storage drivers; captures of Lens's Charts view, chart drawer and Helm Install tab (Cogpit's
   are inferred). Views and actions count in G6 and G7.
+- **Evidence (2026-10-13, night run, the upgrade from repositories):** a release whose chart a
+  repository added to Cogpit lists (by name) is upgraded to a version of it: the Upgrade tab's
+  choice (`helm.release.upgradeTab` with `repository`, `version`: the repository's versions newest
+  first, prereleases after, the release's own marked; a new tab on the newest when it is newer,
+  Cogpit's defaults), `helm.release.upgrade` with `version` and `repository`, the chart downloaded
+  and checked against the index's digest before the journal records anything, the confirmation
+  naming the chart version from and to and refusing when that changed while the user was asked
+  ([architecture §8](../developer/architecture.md#8-helm-internalhelm);
+  `TestHelmUpgradeTabOffersTheRepositorysVersions`, `TestHelmUpgradeFromARepository`,
+  `TestHelmUpgradeFromARepositoryAgents`, `TestHelmUpgradeRepositoryRefusals`,
+  `TestHelmUpgradeRepositoryCrashJournal`, `TestUpgradeToARepositoryChart`).
 - **Evidence (2026-10-13, night run):** Charts partial and Install partial: public https chart
   repositories the user adds (`helm.repo.add`, `remove`, `update`, `list`; Helm › Repositories…),
   kept in Cogpit's own folders (`<user config dir>/Cogpit/helm/repositories.json`, the indexes in
@@ -936,6 +947,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | G11: a release upgraded to a chart version from the user's repositories (the Upgrade tab's choice, `helm.release.upgrade` with `version` and `repository`, the chart downloaded and checked first, the confirmation's from and to bound to what runs; night run) |
 | 2026-10-13 | minor | G5, G13: the tab bar of cluster views built (night run): engine state with eight `ui.tab.*` commands, the bar, the navigator's preview and fixed tabs, five shortcut rows; what differs from Lens and what is inferred; estimates not moved (the lead recounts) |
 | 2026-10-13 | minor | G13: Preferences and Cluster settings built (night run): the two pages and their shortcuts, cluster identity, the theme, time zone, editor, tables and terminal preferences, the cluster's terminal settings; G8: the terminal's font size, shell and arguments; what is inferred and Cogpit's defaults named; estimates not moved (the lead recounts) |
 | 2026-10-13 | minor | G12: the cluster Overview built (night run, M7): charts of the master or worker nodes through a cluster scope of the hub, lines and Pods from the cache, the Issues from the cache, three commands, budget P14; the remainder re-estimated 15–35 h (the summary table not recounted) |

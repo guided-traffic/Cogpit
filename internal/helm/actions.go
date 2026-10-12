@@ -1,7 +1,6 @@
 package helm
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -24,10 +23,6 @@ const (
 	// deletes the oldest release Secrets beyond it.
 	MaxHistory = 10
 )
-
-// ErrNoRepository refuses a chart version other than the release's own: without chart
-// repositories the release's own chart, taken from its newest revision, is the only one Cogpit has.
-var ErrNoRepository = errors.New("without chart repositories only the release's own chart version can be installed")
 
 // Actions runs Helm release actions with the Helm SDK in Cogpit's process (D-3), on one
 // connection's own client configuration (NewActionConfig: its credentials, rate limiter and
@@ -127,66 +122,6 @@ func (a *Actions) Uninstall(namespace, name string) (err error) {
 		return fmt.Errorf("helm uninstall %s/%s: %w", namespace, name, err)
 	}
 	return nil
-}
-
-// Upgrade upgrades a release to its own chart (the chart its newest revision holds: Cogpit has no
-// chart repositories yet) with new values, as helm upgrade <name> <chart> --version <v> -f values
-// does with its defaults: a new revision pending-upgrade, the objects changed to its manifest,
-// hooks run and waited for (not the objects' readiness), history kept to ten revisions (Lens's).
-// The values replace the user-supplied ones whole (--reset-values): what the editor holds is what
-// the release gets, and an empty editor is no user-supplied values, where the helm CLI would keep
-// the old ones. A release left pending by another action is refused by the SDK.
-//
-// ctx is the dispatch's context, but its cancellation does not reach the SDK: the SDK's upgrade
-// marks a release failed when its context ends while its own goroutine keeps changing the
-// cluster, so the upgrade runs to its end or its timeout, as rollback and uninstall do. Every
-// error and every line the SDK logs is scrubbed of the values (ScrubValues). An error that left
-// the release as it was (refused before the SDK made a revision: a template or schema that
-// rejects the values, a pending release, another chart version) matches ErrUnchanged. It
-// returns the new revision.
-//
-// from is the revision the values are based on (the caller's cache's newest): when the server
-// holds another one, the upgrade is refused with ErrReleaseMoved and ErrUnchanged before the SDK
-// runs, so a cache that lags never lets the values replace a revision nobody reviewed; 0 checks
-// nothing. The SDK reads the newest revision again itself, a window of milliseconds, not of a
-// watch's lag.
-func (a *Actions) Upgrade(ctx context.Context, namespace, name, chartVersion string, from int, values map[string]any) (revision int, err error) {
-	defer func() { err = Scrubbed(err, values) }() // last: also scrubs a panic's text
-	defer recoverAction(&err, "upgrade", namespace, name)
-	unchanged := func(err error) error {
-		return fmt.Errorf("helm upgrade %s/%s: %w; %w", namespace, name, err, ErrUnchanged)
-	}
-	cfg, err := a.config(namespace, slog.New(scrubHandler{next: a.logger().Handler(), values: values}))
-	if err != nil {
-		return 0, unchanged(err)
-	}
-	rls, err := lastRelease(cfg, name)
-	if err != nil {
-		return 0, unchanged(err)
-	}
-	if err := movedFrom(rls, from); err != nil {
-		return 0, unchanged(err)
-	}
-	if v := rls.Chart.Metadata.Version; chartVersion != "" && chartVersion != v {
-		return 0, unchanged(fmt.Errorf("chart %s %s: %w (%s)", rls.Chart.Metadata.Name, chartVersion, ErrNoRepository, v))
-	}
-	up := action.NewUpgrade(cfg)
-	up.Namespace = namespace
-	up.WaitStrategy = kube.HookOnlyStrategy
-	up.Timeout = a.timeout()
-	up.MaxHistory = MaxHistory
-	up.ResetValues = true
-	res, err := up.RunWithContext(context.WithoutCancel(ctx), name, rls.Chart, values)
-	if err != nil {
-		if now, lerr := lastRelease(cfg, name); lerr == nil && now.Version == rls.Version {
-			return 0, unchanged(err) // the SDK refused before it made a revision
-		}
-		return 0, fmt.Errorf("helm upgrade %s/%s: %w", namespace, name, err)
-	}
-	if out, ok := res.(*rspb.Release); ok && out != nil {
-		return out.Version, nil
-	}
-	return rls.Version + 1, nil
 }
 
 // ErrUnchanged marks an upgrade that failed before it changed the release: no revision was made,
