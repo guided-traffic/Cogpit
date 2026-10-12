@@ -57,20 +57,25 @@ const (
 	stateClosed
 )
 
-// Server is the MCP endpoint for one engine session. Create it with New, call Start once, and
-// Close it on exit; a closed server cannot be started again, so a new process start is a new
-// Server with a new token.
+// Server is the MCP endpoint for one engine session. Create it with New, call Start, and Close it
+// on exit. Stop ends the endpoint like Close does but lets Start bring it back, with a new token
+// and a new port (the user's switch in the status bar); a closed server cannot be started again.
 type Server struct {
 	session *engine.Session
 	opts    Options
 	log     *slog.Logger
 
-	// lifetime ends with Close. Every tool call's context ends with it, so that a call waiting for
-	// the user's confirmation does not outlive the server.
+	// ctl serialises Start, Stop and Close as wholes, so that a Start right after a Stop finds the
+	// port free again and the old run's token file gone.
+	ctl sync.Mutex
+
+	mu sync.Mutex
+	// lifetime ends with Stop or Close. Every tool call's context ends with it, so that a call
+	// waiting for the user's confirmation does not outlive the endpoint. Each Start after a Stop
+	// gets a new one. Guarded by mu.
 	lifetime context.Context
 	stop     context.CancelFunc
 
-	mu        sync.Mutex
 	state     serverState
 	token     string
 	tokenPath string
@@ -110,6 +115,8 @@ func New(session *engine.Session, opts Options) (*Server, error) {
 // start-up, and Close stops the server. Commands registered after Start are not tools until the
 // next start.
 func (s *Server) Start(ctx context.Context) error {
+	s.ctl.Lock()
+	defer s.ctl.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	switch s.state {
@@ -151,6 +158,7 @@ func (s *Server) Start(ctx context.Context) error {
 		return err
 	}
 
+	life := s.lifetime
 	srv, tools := s.newMCPServer()
 	sdkHandler := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return srv }, &sdk.StreamableHTTPOptions{
 		// Stateless: every POST is its own session. Clients of both protocol generations work
@@ -172,7 +180,7 @@ func (s *Server) Start(ctx context.Context) error {
 		IdleTimeout:       2 * time.Minute,
 		ErrorLog:          slog.NewLogLogger(s.log.Handler(), slog.LevelWarn),
 		// Request contexts end with Close, so streams and pending calls unwind at once.
-		BaseContext: func(net.Listener) context.Context { return s.lifetime },
+		BaseContext: func(net.Listener) context.Context { return life },
 	}
 	s.served = make(chan struct{})
 	go s.serve(s.httpSrv, ln, s.served)
@@ -291,21 +299,48 @@ func (s *Server) endpoint() (url, token string) {
 	return s.url, s.token
 }
 
-// Close stops the server, ends pending tool calls (a call waiting for a confirmation fails and its
-// command does not run) and removes the token file if it still holds this server's token. It is
-// safe to call more than once.
-func (s *Server) Close() error {
+// life returns the context that ends when the endpoint stops.
+func (s *Server) life() context.Context {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.lifetime
+}
+
+// Close stops the server for good, ends pending tool calls (a call waiting for a confirmation fails
+// and its command does not run) and removes the token file if it still holds this server's token.
+// It is safe to call more than once.
+func (s *Server) Close() error { return s.halt(true) }
+
+// Stop ends the endpoint as Close does: it stops listening, ends every connection and pending tool
+// call, and removes the token file. Unlike Close it leaves the server startable: Start brings the
+// endpoint back with a new token and a new listener. Stopping a server that is not running does
+// nothing. The user's switch in the status bar is the one caller; no tool can reach it.
+func (s *Server) Stop() error { return s.halt(false) }
+
+func (s *Server) halt(final bool) error {
+	s.ctl.Lock()
+	defer s.ctl.Unlock()
 	s.mu.Lock()
 	if s.state == stateClosed {
 		s.mu.Unlock()
 		return nil
 	}
 	wasRunning := s.state == stateRunning
-	srv, served, path, token := s.httpSrv, s.served, s.tokenPath, s.token
-	s.state, s.token, s.httpSrv = stateClosed, "", nil
+	srv, served, path, token, stop := s.httpSrv, s.served, s.tokenPath, s.token, s.stop
+	s.token, s.httpSrv, s.url = "", nil, ""
+	switch {
+	case final:
+		s.state = stateClosed
+	case wasRunning:
+		s.state = stateNew
+		s.lifetime, s.stop = context.WithCancel(context.Background())
+	}
 	s.mu.Unlock()
 
-	s.stop()
+	if !wasRunning && !final {
+		return nil
+	}
+	stop()
 	if !wasRunning {
 		return nil
 	}

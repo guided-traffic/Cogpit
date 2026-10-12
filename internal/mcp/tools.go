@@ -198,7 +198,7 @@ func (s *Server) handler(cmd *engine.Command, schema json.RawMessage) sdk.ToolHa
 // is the one that carries this call.
 func (s *Server) callContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancelCause(ctx)
-	stops := []func() bool{context.AfterFunc(s.lifetime, func() { cancel(errServerClosed) })}
+	stops := []func() bool{context.AfterFunc(s.life(), func() { cancel(errServerClosed) })}
 	if reqCtx, ok := ctx.Value(requestContextKey{}).(context.Context); ok {
 		stops = append(stops, context.AfterFunc(reqCtx, func() { cancel(errRequestEnded) }))
 	}
