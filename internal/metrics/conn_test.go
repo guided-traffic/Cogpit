@@ -96,11 +96,14 @@ func TestHubOverTheCountingTransport(t *testing.T) {
 	// requests is the counter's, not twice it (the typed client is built on the connection's client).
 	// The counter counts a request when it is sent and the server when it handles it: a poll still
 	// in flight when the subscriptions ended lands later, so wait for the two to agree (a CI flake).
+	// A poll cancelled by the release while in flight is counted by the client and may never reach
+	// the server (seen once under -race -count=2, 2026-10-12): one more on the client's side, per
+	// key, is that poll, not a request counted twice.
 	keys := []string{"list pods.metrics.k8s.io", "get pods.metrics.k8s.io", "list nodes.metrics.k8s.io"}
 	agree := func() bool {
 		snap := conn.Counter().Snapshot()
 		for _, key := range keys {
-			if got, want := snap.ByVerbResource[key], srv.Requests()[key]; got != want || got == 0 {
+			if got, want := snap.ByVerbResource[key], srv.Requests()[key]; got < want || got > want+1 || want == 0 {
 				return false
 			}
 		}

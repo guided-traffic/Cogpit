@@ -36,8 +36,10 @@ func registerMetrics(g *registrar) {
 	add(g, engine.Spec[metricsGetParams]{
 		ID: "metrics.get", Label: "Get Metrics", Danger: engine.DangerRead, Verbs: metricsReads,
 		Description: "Reads the current CPU (millicores) and memory (bytes) usage of a pod, of the pods of a namespace or of all " +
-			"namespaces, of a node, or of all nodes, from the cluster's Prometheus (read through the API server's service proxy) when one is found, else from its Kubernetes " +
-			"Metrics Server (metrics.k8s.io); the result's source says which. The numbers are the latest measurement (the kubelets' " +
+			"namespaces, of a node, or of all nodes, from the cluster's Kubernetes Metrics Server (metrics.k8s.io), or from its " +
+			"Prometheus (read through the API server's service proxy) when the Metrics Server fails or is missing; the result's " +
+			"source says which, and its providers say what Cogpit knows of each (answering or not, the last good answer, the last " +
+			"failure's class, what it serves). The numbers are the latest measurement (the kubelets' " +
 			"every 15 seconds at best), per container for pods; a result newer than 15 seconds " +
 			"is served without a request, otherwise one request is sent and nothing keeps polling. Without either the " +
 			"result's status says so (notServed, forbidden, unavailable) and carries no items: that is a state, not an error. " +

@@ -62,6 +62,8 @@ var wantCommands = map[string]engine.Danger{
 
 	"cluster.refreshAccess": engine.DangerRead,
 
+	"ui.setMetricsVariant": engine.DangerUI,
+
 	"pod.portForward":     engine.DangerMutating,
 	"service.portForward": engine.DangerMutating,
 	"portforward.open":    engine.DangerUI,

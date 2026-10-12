@@ -146,7 +146,23 @@ type MetricsTarget struct {
 	// writes it ("1h", "7d").
 	Window time.Duration `json:"-"`
 	Range  string        `json:"range"`
+	// Variant is what the chart shows as the engine holds it: "cpu" (the default), "memory",
+	// "network" or "filesystem" (ui.setMetricsVariant). A variant the providers do not have (the
+	// network without Prometheus) reads as "cpu". The network and the filesystem are asked of
+	// Prometheus only while a chart shows them.
+	Variant string `json:"variant"`
 }
+
+// The variants of a chart (MetricsTarget.Variant, ui.setMetricsVariant).
+const (
+	VariantCPU        = "cpu"
+	VariantMemory     = "memory"
+	VariantNetwork    = "network"
+	VariantFilesystem = "filesystem"
+)
+
+// MetricsVariants are the variants a chart can show, in the order of its buttons.
+var MetricsVariants = []string{VariantCPU, VariantMemory, VariantNetwork, VariantFilesystem}
 
 // ObjectMetrics is the drawer's Metrics section for a pod or a node: where the numbers come from,
 // or why there are none, and for each target its latest measurement, its requests and limits and
@@ -167,6 +183,10 @@ type ObjectMetrics struct {
 	// FilesystemSource says which filesystem metric the Filesystem series are: "usage" (bytes in
 	// use) or "io" (read and write rates); empty when there are none.
 	FilesystemSource string `json:"filesystemSource,omitempty"`
+	// Providers is the status line under the charts: each of the cluster's providers (Prometheus,
+	// the Metrics Server), whether Cogpit reached it and it answered, its last good answer and last
+	// failure (a class, never a response body), and what it serves now (history, live values).
+	Providers []metrics.ProviderStatus `json:"providers,omitempty"`
 	// Targets: the object first, then a pod's containers in spec order.
 	Targets []MetricsTarget `json:"targets"`
 }
@@ -189,29 +209,49 @@ func (s *Session) ObjectMetrics(ref model.ObjectRef) (*ObjectMetrics, error) {
 	scope := usageScope(p.Usage, ref.Namespace, ref.Name)
 	st := b.Metrics.State(scope)
 	out.Status, out.Message, out.Source = st.Status, st.Message, st.Label
+	out.Providers = b.Metrics.Providers()
+	caps := b.Metrics.Capabilities()
 	if st.Usable() {
 		out.Message = ""
-		out.Capabilities = b.Metrics.Capabilities()
+		out.Capabilities = caps
 	}
 	h := b.Acquire(p)
 	defer h.Release()
 	obj, _ := KindGet(h, p, ref.Namespace, ref.Name)
-	series := map[string][]model.UsageSample{}
-	for _, sr := range b.Metrics.Series(scope) {
-		series[sr.Container] = sr.Samples
-	}
 	switch p.Usage {
 	case model.UsagePods:
-		out.Targets = podTargets(b.Metrics, ref, obj, series)
+		out.Targets = podTargets(b.Metrics, ref, obj)
 	case model.UsageNodes:
-		out.Targets = nodeTargets(b.Metrics, ref, obj, series)
+		out.Targets = nodeTargets(b.Metrics, ref, obj)
 	}
 	setWindows(out.Targets, s.chartWindows(ref), b.Metrics.DefaultWindow())
+	setVariants(out.Targets, s.chartVariants(ref), caps)
 	if hist := b.Metrics.History(scope); hist != nil && st.Usable() {
 		out.FilesystemSource = hist.FilesystemSource
 		applyHistory(out.Targets, hist)
 	}
 	return out, nil
+}
+
+// setVariants gives each target its chart's variant: the one set for it if the providers have
+// it, else CPU.
+func setVariants(targets []MetricsTarget, variants map[string]string, caps metrics.Capabilities) {
+	for i := range targets {
+		t := &targets[i]
+		t.Variant = VariantCPU
+		switch v := variants[t.Name]; v {
+		case VariantMemory:
+			t.Variant = v
+		case VariantNetwork:
+			if caps.Network {
+				t.Variant = v
+			}
+		case VariantFilesystem:
+			if caps.Filesystem {
+				t.Variant = v
+			}
+		}
+	}
 }
 
 // setWindows gives each target its chart's time range: the one set for it, else the default.
@@ -303,12 +343,11 @@ func FormatChartRange(d time.Duration) string {
 }
 
 // SetMetricsRange sets the time range of one chart of the open drawer: target is "" for the pod's
-// or node's chart, or a container's name. A provider with history (Prometheus) is then asked for
-// the longest range any chart shows, at the step of the shortest, in one query set per poll for
-// all of them, and the next poll comes at once. Window 0 puts the chart back to the default range
-// (one hour). The Metrics Server has no history: the range is remembered and changes nothing the
-// engine returns. The charts' ranges are the drawer's: they end when it closes or shows another
-// object.
+// or node's chart, or a container's name. A provider with history (Prometheus) is then asked once
+// for the longest range any chart shows, at the step of the shortest, one query set for all of
+// them, at once. Window 0 puts the chart back to the default range (one hour). The Metrics Server
+// has no history: the range is remembered and changes nothing the engine returns. The charts'
+// ranges are the drawer's: they end when it closes or shows another object.
 func (s *Session) SetMetricsRange(ref model.ObjectRef, target string, window time.Duration) error {
 	if window < 0 || window > 0 && window < MinChartWindow || window > MaxChartWindow {
 		return fmt.Errorf("a chart's time range is between %s and %s", FormatChartRange(MinChartWindow), FormatChartRange(MaxChartWindow))
@@ -356,6 +395,74 @@ func (s *Session) chartWindows(ref model.ObjectRef) map[string]time.Duration {
 	d.wmu.Lock()
 	defer d.wmu.Unlock()
 	return maps.Clone(d.windows)
+}
+
+// SetMetricsVariant sets what one chart of the open drawer shows: target is "" for the pod's or
+// node's chart, or a container's name; variant is "cpu", "memory", "network" or "filesystem" ("" is
+// "cpu"). The network and the filesystem exist only in Prometheus: they are asked of it only while
+// a chart shows them (once over the chart's range, then at its step), so this is what starts and
+// stops those requests. A variant the cluster's providers do not have is refused.
+func (s *Session) SetMetricsVariant(ref model.ObjectRef, target, variant string) error {
+	if variant == "" {
+		variant = VariantCPU
+	}
+	if !slices.Contains(MetricsVariants, variant) {
+		return fmt.Errorf("a chart shows %s, not %q", strings.Join(MetricsVariants, ", "), variant)
+	}
+	st := s.state
+	st.mu.Lock()
+	d := st.drawer
+	if d == nil || !d.ref.Same(ref) {
+		st.mu.Unlock()
+		return ErrDrawerNotOpen
+	}
+	st.mu.Unlock()
+	if b := d.backend; variant == VariantNetwork || variant == VariantFilesystem {
+		caps := metrics.Capabilities{}
+		if b.Metrics != nil {
+			caps = b.Metrics.Capabilities()
+		}
+		if variant == VariantNetwork && !caps.Network || variant == VariantFilesystem && !caps.Filesystem {
+			return fmt.Errorf("%w: the %s chart needs Prometheus, and this cluster's metrics come without it", ErrNotApplicable, variant)
+		}
+	}
+	d.wmu.Lock()
+	if d.variants == nil {
+		d.variants = map[string]string{}
+	}
+	if variant == VariantCPU {
+		delete(d.variants, target)
+	} else {
+		d.variants[target] = variant
+	}
+	var want metrics.Want
+	for _, v := range d.variants {
+		switch v {
+		case VariantNetwork:
+			want |= metrics.WantNetwork
+		case VariantFilesystem:
+			want |= metrics.WantFilesystem
+		}
+	}
+	d.wmu.Unlock()
+	d.usage.SetWants(want)
+	s.emit(Event{Type: EventMetrics, View: ref.Kind})
+	return nil
+}
+
+// chartVariants returns the variants set for the charts of the open drawer if it shows ref.
+func (s *Session) chartVariants(ref model.ObjectRef) map[string]string {
+	st := s.state
+	st.mu.Lock()
+	d := st.drawer
+	if d == nil || !d.ref.Same(ref) {
+		st.mu.Unlock()
+		return nil
+	}
+	st.mu.Unlock()
+	d.wmu.Lock()
+	defer d.wmu.Unlock()
+	return maps.Clone(d.variants)
 }
 
 // promServices lists the cluster's Services for Prometheus detection, from the cache: the Services
@@ -436,13 +543,13 @@ func servicesOf(objs []*unstructured.Unstructured) []metrics.Service {
 	return out
 }
 
-func podTargets(hub *metrics.Hub, ref model.ObjectRef, obj *unstructured.Unstructured, series map[string][]model.UsageSample) []MetricsTarget {
+func podTargets(hub *metrics.Hub, ref model.ObjectRef, obj *unstructured.Unstructured) []MetricsTarget {
 	pu, have := hub.Pod(ref.Namespace, ref.Name)
 	var res []model.ContainerResources
 	if obj != nil {
 		res = model.PodResources(obj)
 	}
-	whole := MetricsTarget{Samples: series[""]}
+	whole := MetricsTarget{}
 	whole.Requests, whole.Limits = model.PodTotals(res)
 	if have {
 		total := pu.Total()
@@ -451,7 +558,7 @@ func podTargets(hub *metrics.Hub, ref model.ObjectRef, obj *unstructured.Unstruc
 	targets := make([]MetricsTarget, 1, 1+len(res))
 	targets[0] = whole
 	for _, r := range res {
-		t := MetricsTarget{Name: r.Name, Requests: r.Requests, Limits: r.Limits, Samples: series[r.Name]}
+		t := MetricsTarget{Name: r.Name, Requests: r.Requests, Limits: r.Limits}
 		for _, c := range pu.Containers {
 			if c.Name == r.Name && have {
 				u := c.Usage
@@ -463,8 +570,8 @@ func podTargets(hub *metrics.Hub, ref model.ObjectRef, obj *unstructured.Unstruc
 	return targets
 }
 
-func nodeTargets(hub *metrics.Hub, ref model.ObjectRef, obj *unstructured.Unstructured, series map[string][]model.UsageSample) []MetricsTarget {
-	t := MetricsTarget{Samples: series[""]}
+func nodeTargets(hub *metrics.Hub, ref model.ObjectRef, obj *unstructured.Unstructured) []MetricsTarget {
+	t := MetricsTarget{}
 	if obj != nil {
 		t.Allocatable, t.Capacity = model.NodeCapacity(obj)
 	}
@@ -497,6 +604,11 @@ type MetricsResult struct {
 	// Total counts the matching objects before Limit cut the list.
 	Total     int  `json:"total"`
 	Truncated bool `json:"truncated,omitempty"`
+	// Providers is what Cogpit knows of each of the cluster's providers (the drawer's status
+	// line): reached and answering or not, the last good answer, the last failure's class, what it
+	// serves now. Prometheus is looked for only when a drawer opens or the Metrics Server fails,
+	// so it may be "unknown".
+	Providers []metrics.ProviderStatus `json:"providers,omitempty"`
 }
 
 // DefaultMetricsLimit is how many pods metrics.get returns unless asked for fewer or more.
@@ -530,7 +642,7 @@ func (s *Session) MetricsGet(ctx context.Context, kind, namespace, name string, 
 		return &MetricsResult{Status: metrics.StatusNotServed, Message: "this cluster has no metrics provider"}, nil
 	}
 	r := b.Metrics.Fetch(ctx, scope)
-	out := &MetricsResult{Status: r.State.Status, Source: r.State.Label, Message: r.State.Message, At: r.At}
+	out := &MetricsResult{Status: r.State.Status, Source: r.State.Label, Message: r.State.Message, At: r.At, Providers: b.Metrics.Providers()}
 	if r.State.Usable() {
 		out.Message = ""
 	}

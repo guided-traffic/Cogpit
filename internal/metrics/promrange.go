@@ -91,10 +91,12 @@ func hasPoints(s []promSeries) bool {
 	return false
 }
 
-// ObjectRange implements RangeProvider. For a pod it sends CPU and memory per container, the
-// pod's network received and transmitted, and the filesystem per container: five queries at once
-// (seven while neither filesystem metric is known to exist). Only the CPU and memory queries must
-// succeed; a failing network or filesystem query leaves its series out.
+// ObjectRange implements RangeProvider. For a pod it sends what q.Want asks for, all at once: CPU
+// and memory per container (two queries), the pod's network received and transmitted (two), the
+// filesystem per container (one, two with the read and write rates, three while neither
+// filesystem metric is known to exist); a zero Want asks for all of them, five queries. With the
+// usage asked for, the CPU and memory queries must succeed and a failing network or filesystem
+// query leaves its series out; without it, the query fails only when every query failed.
 func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeries, error) {
 	if q.Step <= 0 || !q.To.After(q.From) {
 		return nil, fmt.Errorf("invalid range %s..%s step %s", q.From, q.To, q.Step)
@@ -108,6 +110,10 @@ func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeri
 	default:
 		return nil, fmt.Errorf("kind %q has no metrics", q.Kind)
 	}
+	want := q.Want
+	if want == 0 {
+		want = WantAll
+	}
 	run := func(expr string) ([]promSeries, error) { return p.queryRange(ctx, expr, q.From, q.To, q.Step) }
 
 	var (
@@ -115,20 +121,32 @@ func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeri
 		cpuErr, memErr      error
 		rxErr, txErr, fsErr error
 		fs                  fsData
+		jobs                []func()
 	)
-	runParallel(
-		func() { cpu, cpuErr = run(plan.cpu) },
-		func() { mem, memErr = run(plan.mem) },
-		func() { rx, rxErr = run(plan.rx) },
-		func() { tx, txErr = run(plan.tx) },
-		func() { fs, fsErr = p.rangeFilesystem(q.Kind, plan, run) },
-	)
-	if err := firstStateError(cpuErr, memErr); err != nil {
-		return nil, err
+	if want.Has(WantUsage) {
+		jobs = append(jobs, func() { cpu, cpuErr = run(plan.cpu) }, func() { mem, memErr = run(plan.mem) })
+	}
+	if want.Has(WantNetwork) {
+		jobs = append(jobs, func() { rx, rxErr = run(plan.rx) }, func() { tx, txErr = run(plan.tx) })
+	}
+	if want.Has(WantFilesystem) {
+		jobs = append(jobs, func() { fs, fsErr = p.rangeFilesystem(q.Kind, plan, run) })
+	}
+	runParallel(jobs...)
+	if want.Has(WantUsage) {
+		if err := firstStateError(cpuErr, memErr); err != nil {
+			return nil, err
+		}
+	} else {
+		netFailed := !want.Has(WantNetwork) || rxErr != nil || txErr != nil
+		fsFailed := !want.Has(WantFilesystem) || fsErr != nil
+		if netFailed && fsFailed {
+			return nil, firstStateError(rxErr, txErr, fsErr)
+		}
 	}
 	for _, e := range []error{rxErr, txErr, fsErr} {
 		if e != nil && ctx.Err() == nil {
-			p.opts.Logger.Debug("metrics: an optional query failed", "service", p.target.String(), "err", e.Error())
+			p.opts.Logger.Debug("metrics: an optional query failed", "service", p.target.String(), "class", errorClass(e))
 		}
 	}
 
@@ -152,13 +170,13 @@ func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeri
 		}
 	}
 
-	if rxErr == nil && txErr == nil {
+	if want.Has(WantNetwork) && rxErr == nil && txErr == nil {
 		if n := mergeNetwork(groupByContainer(rx)[""], groupByContainer(tx)[""]); len(n) > 0 {
 			target("").Network = n
 		}
 	}
 
-	if fsErr == nil && fs.source != "" {
+	if want.Has(WantFilesystem) && fsErr == nil && fs.source != "" {
 		out.FilesystemSource = fs.source
 		var a, b map[string][]point // usage, or reads and writes
 		if fs.source == FilesystemUsage {
@@ -249,15 +267,24 @@ func unionKeys[V any](a, b map[string]V) []string {
 
 // join walks two series by timestamp (the union, oldest first); a missing side is 0.
 func join(a, b []point, emit func(t time.Time, a, b float64)) {
-	ma := make(map[int64][2]float64, len(a)+len(b))
+	joinHas(a, b, func(t time.Time, a, b float64, _, _ bool) { emit(t, a, b) })
+}
+
+// joinHas walks two series by timestamp and says which side has a point at each time.
+func joinHas(a, b []point, emit func(t time.Time, a, b float64, hasA, hasB bool)) {
+	type side struct {
+		v   [2]float64
+		has [2]bool
+	}
+	ma := make(map[int64]side, len(a)+len(b))
 	for _, p := range a {
 		e := ma[p.t]
-		e[0] = p.v
+		e.v[0], e.has[0] = p.v, true
 		ma[p.t] = e
 	}
 	for _, p := range b {
 		e := ma[p.t]
-		e[1] = p.v
+		e.v[1], e.has[1] = p.v, true
 		ma[p.t] = e
 	}
 	ts := make([]int64, 0, len(ma))
@@ -266,15 +293,25 @@ func join(a, b []point, emit func(t time.Time, a, b float64)) {
 	}
 	slices.Sort(ts)
 	for _, t := range ts {
-		emit(time.UnixMilli(t), ma[t][0], ma[t][1])
+		e := ma[t]
+		emit(time.UnixMilli(t), e.v[0], e.v[1], e.has[0], e.has[1])
 	}
 }
 
-// mergeUsage joins CPU (cores) and memory (bytes) into the Metrics Server's units.
+// mergeUsage joins CPU (cores) and memory (bytes) into the Metrics Server's units. A time only one
+// of them has is a sample with the other part missing, not 0: a chart leaves that point out of the
+// other variant.
 func mergeUsage(cpu, mem []point) []model.UsageSample {
 	var out []model.UsageSample
-	join(cpu, mem, func(t time.Time, c, m float64) {
-		out = append(out, model.UsageSample{At: t, Usage: model.Usage{CPUMilli: seconds2milli(c), MemoryBytes: int64(m)}})
+	joinHas(cpu, mem, func(t time.Time, c, m float64, hasC, hasM bool) {
+		u := model.Usage{CPUMilli: seconds2milli(c), MemoryBytes: int64(m)}
+		if !hasC {
+			u.Missing |= model.UsageCPU
+		}
+		if !hasM {
+			u.Missing |= model.UsageMemory
+		}
+		out = append(out, model.UsageSample{At: t, Usage: u})
 	})
 	return out
 }

@@ -19,10 +19,24 @@ func ForConn(conn *cluster.Conn) (*Server, error) {
 	return NewServer(conn.Discovery(), client), nil
 }
 
-// ChainForConn returns the detector of a connection: Prometheus through the service proxy if one
+// SourcesForConn returns a connection's two providers for NewHubFor: the Metrics Server for the
+// current values, and Prometheus through the service proxy, found among services (or named by the
+// override set on the returned PrometheusDetector), for history. All requests go through the
+// connection's clients, so they are counted and rate limited.
+func SourcesForConn(conn *cluster.Conn, services ServiceSource, opts PrometheusOptions) (Sources, *PrometheusDetector, error) {
+	server, err := ForConn(conn)
+	if err != nil {
+		return Sources{}, nil, err
+	}
+	prom := NewPrometheusDetector(conn.Kube(), services, opts)
+	return Sources{Live: server, History: prom}, prom, nil
+}
+
+// ChainForConn returns one detector for a connection: Prometheus through the service proxy if one
 // is found among services (or named by the override set on the returned PrometheusDetector), else
-// the Metrics Server. All requests go through the connection's clients, so they are counted and
-// rate limited.
+// the Metrics Server; a hub over it (NewHub) serves everything from the one it found. The engine
+// uses SourcesForConn, both together; the chain remains for a single provider. All requests go
+// through the connection's clients, so they are counted and rate limited.
 func ChainForConn(conn *cluster.Conn, services ServiceSource, opts PrometheusOptions) (Detector, *PrometheusDetector, error) {
 	server, err := ForConn(conn)
 	if err != nil {

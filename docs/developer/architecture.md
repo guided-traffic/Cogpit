@@ -44,7 +44,7 @@ CI runs on every push ([releasing › CI](releasing.md#ci)). The MVP doubled as 
 | [`internal/ui/fyneui`](../../internal/ui/fyneui/) and its [`yamlview`](../../internal/ui/fyneui/yamlview/) and [`termview`](../../internal/ui/fyneui/termview/) | Built: shell after Lens's layout, theme with status tokens, context picker, confirmation dialog, the YAML view, terminal and log widgets, a jank meter (`--perf`); row menus (⋮ and right-click) and the drawer's toolbar from the registry, schema-generated parameter dialogs, links and coloured parts in cells, Cogpit's own tooltips (Fyne 2.8 has none); third run: Cogpit's own title bar on macOS through a cgo bridge to the `NSWindow` ([`titlebar_darwin.go`](../../internal/ui/fyneui/titlebar_darwin.go); `COGPIT_SYSTEM_TITLEBAR=1` keeps the system one), the column menu, keyboard navigation, fit-to-content, CSV download, the Workloads Overview, item actions in the drawer (Forward…, Show), the port-forward dialog, the Helm banner, log tabs with their toolbar; fourth run (2026-10-12): the kubeconfig dialogs (paste, sources, the credential plugin's approval) and the picker's "Add Kubeconfigs" ([`kubeconfigs.go`](../../internal/ui/fyneui/kubeconfigs.go)); fifth run (2026-10-12): the Solarized Dark and Light colours as theme tokens, with the terminal's sixteen colours ([D-22](decisions.md#d-22-colour-theme), contrast held by `TestPaletteContrast`), and the C helm logo drawn by [`internal/ui/logo`](../../internal/ui/logo/logo.go) for the app icon and the header's mark ([D-24](decisions.md#d-24-logo)), copying values from the drawer (selectable lines, one copy icon moved to the value under the pointer, entries copied in YAML, a copied Secret value cleared from the clipboard after 60 seconds; [D-25](decisions.md#d-25-copying-values), [`selection.go`](../../internal/ui/fyneui/selection.go), [`copy.go`](../../internal/ui/fyneui/copy.go)), and the status bar's link to the owner, a GUI link outside the registry that gives way first when the bar is narrow ([D-23](decisions.md#d-23-a-link-to-the-owner-in-the-status-bar), `statusLayout` in [`bars.go`](../../internal/ui/fyneui/bars.go)); the fifth run's evening (the owner's smoke test): a pod's containers as squares, the drawer's Metrics section with each chart's own controls and a hover panel ([`chart_hover.go`](../../internal/ui/fyneui/chart_hover.go)), toasts as cards, a checkmark after a copy, sidebar groups closed at first, the status bar's text at 13 points with the link left of the MCP item that switches the external server, the context picker closed by a click outside, and a quit that no longer asks the terminated GLFW for the window ([`titlebar_darwin.go`](../../internal/ui/fyneui/titlebar_darwin.go)) | The YAML view is editable in Edit and Create resource tabs, whose text lives in the engine (`editor.get`, `editor.setText`); edits are applied as updates (PUT), not patches; the terminal widget is a patched copy of fyne-io/terminal ([`third_party/fyne-terminal`](../../third_party/fyne-terminal/PATCHES.md)) behind an escape filter, because the pinned upstream froze or crashed on container output |
 | [`cmd/cogpit`](../../cmd/cogpit/) | Built: wires the packages, the drain journal (`<user config dir>/Cogpit/drains.json`) and the Helm journal (`helm.json`); the kubeconfig sources (`kubeconfigs.json`, `kubeconfigs/`, `exec-approvals.json`, fourth run) and their watcher; flags `--kubeconfig`, `--context`, `--demo`, `--mcp-addr`, `--no-mcp`, `--perf`, `--theme`; fifth run (2026-10-12): crash reports (`runtime/debug.SetCrashOutput` into `crash.log`, moved to `crashes/` at the next start and named in a toast, [`crash.go`](../../cmd/cogpit/crash.go), [D-11](decisions.md#d-11-crash-stance)), the external MCP server switched from the status bar and remembered (Fyne preference `mcp.enabled`, `--no-mcp` wins, [`mcpcontrol.go`](../../cmd/cogpit/mcpcontrol.go)) | client-go goroutine panics are logged instead of ending the app |
 | [`internal/helm`](../../internal/helm/) (L2) | Built in the third run: release payloads decoded (bounded, fuzzed), the Releases profile as a virtual kind over the `owner=helm` Secrets with a bounded memo, rollback and uninstall through the Helm SDK on the connection's own client configuration; fourth run (2026-10-12): Lens's release drawer (Properties, values and notes as private items, resources by kind), the upgrade with the release's own chart, values read from the cached Secret (`ReleaseValues`), values scrubbed from errors and the SDK's log (`ScrubValues`, `RedactSDKLog`) | Install, repositories and charts not built, so an upgrade installs the release's own chart version only; no action can be cancelled: rollback and uninstall take no context, and the upgrade's context is not passed on (§8) |
-| [`internal/metrics`](../../internal/metrics/) (L2) | Built 2026-10-12 (G12): the Metrics Server provider and its detection, the hub that polls while subscribed; Prometheus through the API server's service proxy, found among the cached Services by name, range queries per chart range, the chain Prometheus then Metrics Server; checked against a real Prometheus on kind ([§9](#9-metrics-internalmetrics)) | Prometheus is found by name only (H-26); its override (namespace, service, port, prefix) has no settings page yet; the owner's evening requirements (a status line per provider, history from Prometheus then live values from the Metrics Server) are not built |
+| [`internal/metrics`](../../internal/metrics/) (L2) | Built 2026-10-12 (G12): the Metrics Server provider and its detection, the hub that polls while subscribed; Prometheus through the API server's service proxy, found among the cached Services by name, range queries per chart range; checked against a real Prometheus on kind. Fourth slice (the owner's evening requirements): both providers together, history from Prometheus once and the live values from the Metrics Server, the network and the filesystem only while a chart shows them, one provider alone only while the other fails or is missing, a status line per provider (`Hub.Providers`), a missing value as an empty cell, not 0 ([§9](#9-metrics-internalmetrics)) | Prometheus is found by name only (H-26); its override (namespace, service, port, prefix) has no settings page yet |
 | [`cmd/cogpit-cli`](../../cmd/cogpit-cli/) | Built 2026-10-13 (milestone 0.1, G2): a headless engine (no confirmer, no journals, no hotbar) over the same kubeconfig sources and credential plugin approvals as the app (`internal/app`), commands dispatched with origin CLI; `contexts` (`cluster.contexts`: table, JSON or YAML; context names and other untrusted text escaped for the terminal), `get <kind> [name]` (`cluster.connect`, then `kinds.list` and `resources.list` for a list or `object.get` for one object: the cache's first list awaited, the kind's columns as the view shows them, `resources_list`'s result or the manifest as JSON or YAML; a key that is not built in waits for the custom resource definitions' first list, `Backend.CustomKindsSettled`), `mcp` (the stdio bridge of [§7](#7-mcp-and-the-built-in-agent): forwarded to the running app, else a headless engine of its own), `version`, `--help` per command, exit codes 0 (done), 1 (failed), 2 (usage) | Without a configuration directory it refuses to connect, where the app merges the kubeconfig files as kubectl does and so runs their plugins unasked (Cogpit's default, not the owner's decision); `get` connects with `cluster.connect`, which opens the Pods view as in the app, so a `get` of another kind lists the pods once too (inferred cost, not measured); `-o json` of a list prints rows, not manifests (kubectl prints manifests) |
 | [`internal/app`](../../internal/app/) (L4, new) | Built 2026-10-13: the wiring both binaries share: `UserDirs`, `Dirs.KubeconfigSources`, `Dirs.OpenAuditLog`; `cmd/cogpit` calls it from `openKubeconfigSources` and `openAuditLog` | A package the plan did not list |
 | `internal/agent`, `internal/update` | Not built | – |
@@ -1293,8 +1293,9 @@ while a view is open, nothing otherwise.
 
 *A series per watched object.* While an object scope is subscribed, the hub keeps a bounded time
 series of the object (a pod's total and each of its containers, by the measurement's own
-timestamp): at most 240 points (an hour at 15 s) and none more than an hour older than the newest
-(`DefaultSeriesPoints`, `DefaultSeriesAge`; `TestSeriesBounds`). A new drawer starts with the point
+timestamp): none more than an hour older than the newest, so 240 points at 15 s (`DefaultSeriesAge`;
+`TestSeriesBounds`; since the fourth slice the series is the drawer's chart, which keeps its longest
+range and at most 5,760 points, below). A new drawer starts with the point
 a fresh list already holds. The series ends with the last subscription: Cogpit holds no history
 across drawers; that is what Prometheus is for (below).
 
@@ -1396,7 +1397,7 @@ draws it since the third slice (below).
 |---|---|---|
 | `Prometheus` | [`prom.go`](../../internal/metrics/prom.go), [`promrange.go`](../../internal/metrics/promrange.go) | The provider, `Capabilities{History, Network, Filesystem}` all true, label `Prometheus (<namespace>/<service>)`. Requests are client-go's `Services(ns).ProxyGet` on the connection's own clients: counted, rate limited (5 per second, burst 10 for lists, gets and the proxy), authenticated as the user. Only `GET`. `ListPods`, `GetPod`, `ListNodes`, `GetNode` are instant queries (the lists, `metrics.get`); `ObjectRange` (interface `RangeProvider`) is the drawer's history |
 | PromQL | [`promql.go`](../../internal/metrics/promql.go) | Every query is built here. Pod, namespace and node names are user data and go through `quoteLabel` (a double-quoted literal with `\\`, `\"`, newlines and control characters escaped; `FuzzQuoteLabel` checks that it reads back as the name), node names also through `regexp.QuoteMeta` for the instance regular expression |
-| `PrometheusDetector`, `Candidates`, `Chain` | [`promdetect.go`](../../internal/metrics/promdetect.go), [`chain.go`](../../internal/metrics/chain.go) | Detection and the chain "Prometheus if found, else Metrics Server, else not served" |
+| `PrometheusDetector`, `Candidates`, `Chain` | [`promdetect.go`](../../internal/metrics/promdetect.go), [`chain.go`](../../internal/metrics/chain.go) | Detection and the chain "Prometheus if found, else Metrics Server, else not served"; since the fourth slice the engine holds both providers apart (below) and the chain serves a hub over one detector only |
 | `Hub` additions | [`hub.go`](../../internal/metrics/hub.go) | Range queries for watched objects, `Subscription.SetWindows`, `Hub.History`, `Hub.Capabilities`, `Hub.Forget` |
 
 *Detection.* The engine hands the detector the cluster's **cached Services** (`Backend.promServices`:
@@ -1431,7 +1432,9 @@ a port name, Prefix the route prefix); with an override only that service is pro
 is read, and `Backend.PrometheusDetector` plus `Hub.Forget()` apply it at once. Nothing calls it yet:
 the cluster settings page is not built. The chain (`metrics.ChainForConn`) returns the first provider
 found; if none, the most telling state (forbidden, then unavailable, then notServed), so a Prometheus
-the user may not read is reported instead of "no metrics-server".
+the user may not read is reported instead of "no metrics-server". (Fourth slice: the engine holds both
+providers apart and looks for Prometheus only when a drawer opens or the Metrics Server fails; the
+most telling state is the hub's when neither answers.)
 
 *Queries* (`rate` over `[R]`; `C` = `container!="",container!="POD"`, which leaves out the pod's own
 cgroup and the pause container; `P` = `namespace="<ns>",pod="<pod>"`, each value quoted). **The rate
@@ -1473,7 +1476,9 @@ series out (debug log). One poll serves every chart and every consumer of the sc
 Nodes lists keep their 60 s and the instant queries (two per poll). The hub stores the latest
 point as the pod's current usage, so the lists, `Hub.Pod` and the drawer's `Current` need nothing
 else. `Subscription.SetWindows` (from `Session.SetMetricsRange`) wakes the poll early when the
-ranges change.
+ranges change. **Superseded by the fourth slice** (below): the history is asked for once, the live
+values come from the Metrics Server, the network and the filesystem only while a chart shows them,
+and the grid, steps and rate windows above apply to each of those queries.
 
 Bounds: a response is cut at 16 MiB (`DefaultMaxResponseBytes`; larger is the state unavailable), a
 query at 15 s, a poll at 20 s, a series at 11,000 points (Prometheus's own limit), range steps keep
@@ -1506,7 +1511,10 @@ fake service proxy, `TestPrometheusInTheDrawer` checks the targets' `Range`). `m
 (`verbs` now include `get services/proxy`). **Detection puts a watch on Services** into the cache
 for as long as a metrics view is open (and the warm period after): the Pods view that opens at
 connect is such a view, so a connection holds one more watch than before (`TestBudgetCustomResourceView`
-counts four).
+counts four). Since the fourth slice `metrics.get` and the lists ask the Metrics Server first, and
+Prometheus is looked for (and Services watched) only when a drawer opens or the Metrics Server
+fails or is missing; `TestBudgetCustomResourceView`'s fake API server has no Metrics API, so it
+still counts four.
 
 **Built 2026-10-12 (G12, third slice): the window draws Prometheus**
 ([`metricsview.go`](../../internal/ui/fyneui/metricsview.go), [`chart.go`](../../internal/ui/fyneui/chart.go),
@@ -1587,7 +1595,119 @@ label, a 30 s scrape), `container_fs_usage_bytes` for containers (runtimes that 
 refused the service proxy, a route prefix, the override, Thanos and VictoriaMetrics, and history
 longer than the hour the kind Prometheus had (the 7d and 30d charts drew it at their right edge).
 Seen once and not again in four runs: right after connecting, a Nodes list poll whose instant
-query had memory but no CPU, which the list shows as 0%.
+query had memory but no CPU, which the list showed as 0%: fixed in the fourth slice (a part
+without a series is *missing*, below).
+
+**Built 2026-10-12 (G12, fourth slice): both providers together, the status line** (the owner's
+requirements of the evening). The chain of the second slice (Prometheus if found, else the Metrics
+Server) is gone from the engine: the hub holds **both providers at once**, each with its own
+detection, state, last good answer and last failure, and gives each its part.
+
+| Piece | File | Responsibility |
+|---|---|---|
+| `NewHubFor(Sources{Live, History})`, the slots | [`hub.go`](../../internal/metrics/hub.go) | One slot per provider: the Metrics Server (`Live`) and Prometheus (`History`), from `metrics.SourcesForConn` in the engine's connector. `NewHub(det)` stays for one detector (the demo cluster's fixed provider, the chain in tests) |
+| The drawer's poll | [`hubobject.go`](../../internal/metrics/hubobject.go) | History once, then live values; the network and the filesystem while shown; the fallback; the gap |
+| The chart | [`chart.go`](../../internal/metrics/chart.go) | An object's series while a drawer shows it: history and live values merged per target, spliced by time, bounded |
+| `ProviderStatus`, error classes | [`status.go`](../../internal/metrics/status.go) | The status line's data (`Hub.Providers`); a failure as a class (`errorClass`), never a response body |
+| `RangeQuery.Want` | [`provider.go`](../../internal/metrics/provider.go), [`promrange.go`](../../internal/metrics/promrange.go) | Which series a range query asks for: CPU and memory, the network, the filesystem |
+
+*Who serves what.* The history role goes to the first provider that answers range queries
+(Prometheus), the live role to the first one without (the Metrics Server), else to the history
+provider. Prometheus is **looked for only when it is needed**: when a drawer opens (its history) or
+when the Metrics Server fails or is missing (the fallback). A Pods or Nodes list on a cluster whose
+Metrics Server answers sends Prometheus nothing and puts no watch on Services
+(`TestListsUseTheMetricsServerAndFallBack`, `TestBothProvidersBudget`).
+
+*A drawer's poll* ([`hubobject.go`](../../internal/metrics/hubobject.go)), every 15 s
+(`ObjectInterval`), or at the range's step while Prometheus serves the live values:
+
+| What | When | Requests |
+|---|---|---|
+| History: CPU and memory over the longest chart range, at the step of the shortest | the drawer opens; a range changes (window or step); Prometheus answers again after it had not given the history; `Hub.Forget` | 2 range queries, once |
+| Live values: the Metrics Server's measurement of the object | every poll | 1 `get pods.metrics.k8s.io` (or nodes) |
+| Network, filesystem: over the chart range, then from their last point on | a chart shows them (`ui.setMetricsVariant`, `Subscription.SetWants`): at once, then once per step (30 s at 1 h); a series no chart shows any more is dropped and asked for over the range when shown again | 2 (receive, transmit) and 1 (usage) or 2 (read, write) range queries |
+| Live values from Prometheus: CPU and memory from the chart's last point on | the Metrics Server failed in this poll (at once, the same poll), then once per step while it is left alone | 2 range queries |
+| The gap: CPU and memory between two points more than two resolutions and a step apart (a live value after both providers were away) | once, when Prometheus answers | 2 range queries |
+
+Asking for the network and the filesystem only while a chart shows them is **the lead's proposal,
+not the owner's decision** (G12): the alternative is asking for them with the history at every
+open, three or four more queries per drawer.
+
+*The seam.* The chart keeps one point per time per target, oldest first: a range query's answer
+replaces what the chart held from its start on (`splice`), a live value is added only when it is
+newer than the target's last point, so the history's last point and the first measurement never
+make a point twice. A live value more than `2 × 15 s + step` after the last point records a gap,
+which Prometheus fills once (`TestGapIsFilledOnceFromPrometheus`). A series keeps what lies within its
+longest chart range back from its own newest point (at least an hour; the cluster's clock, not the
+desktop's, decides) and at most `DefaultSeriesPoints`, 5,760 (a day of 15 s measurements), the
+oldest dropped first, so a long-open drawer loses its left edge, never a middle.
+
+*Falling back* (owner): a provider that fails a request while in use gets the failure's state
+(unavailable, forbidden; a 404 makes detection run again) and is left alone for `ProviderRetry`
+(**one minute, Cogpit's default**, not the owner's) while the other serves its part; then it is
+asked again and takes its part back when it answers. A provider nothing can stand in for is asked
+at every poll. The Metrics Server down: Prometheus gives the live values in the same poll
+(`TestMetricsServerFailsPrometheusTakesOver`), and the lists take Prometheus's instant queries.
+Prometheus down: the Metrics Server's live values go on, the chart keeps the history it has, and
+the history (or the network) is asked again once Prometheus answers
+(`TestPrometheusGoneLeavesTheLiveValues`). Neither: the most telling state (forbidden, then
+unavailable, then not served), as the chain had it. A provider that is found but fails keeps its
+chart variants (the buttons stay enabled, the status line says why nothing moves); one that is not
+found any more takes them away.
+
+*The status line* (`Hub.Providers`, `ObjectMetrics.Providers`, `metrics.get`'s `providers`,
+`ui.state`'s `drawerMetricsProviders`): per provider, Prometheus first, its id and label, the
+service where Prometheus was found (`monitoring/prometheus-server:http`, the port by name or
+number, with the route prefix), its status (`available`, `notServed`, `forbidden`, `unavailable`,
+`unknown`: not looked for yet), the last good answer, the last error with its time, and what it
+serves now (`history`, `live`, `network`, `filesystem`). The last error is a class and a short
+reason (`unavailable (HTTP 503)`, `forbidden (HTTP 403)`, `timeout`, `unreadable answer`;
+`errorClass`); the states' messages quote the API server's own Status text only, never a body the
+proxied service or the metrics-server sent (client-go quotes such bodies in its errors; `errorText`
+and Prometheus's `parseResult` leave them out: `TestErrorClassesCarryNoBodies`). A provider that
+nothing asked since it last answered (Prometheus while only CPU and Memory are shown) shows that
+answer's state and age: Cogpit sends no probe to keep the line current.
+
+*The window* ([`metricsstatus.go`](../../internal/ui/fyneui/metricsstatus.go)): under the source
+line, one row per provider: an icon in a status token (a check in `status.ok`, a warning in
+`status.warning`, an error in `status.error`, an info or a question mark in `muted`), then
+"Prometheus monitoring/prometheus-server:http: history, network, filesystem · 40 s ago" or
+"Kubernetes Metrics Server: not answering, unavailable (HTTP 503) · last answer 3 min ago", cut to
+the drawer's width; the tooltip over a row has the whole state, with the times
+(`TestProviderStatusLine`, `TestProviderLineStates`, `TestRenderMetricsStatusLine`). The wording and
+the icons are Cogpit's (inferred); Lens shows a source line only. The source line names both:
+"Displaying metrics from Prometheus (monitoring/prometheus-server) and Kubernetes Metrics Server".
+
+*A chart's variant is engine state* (rule 2): `ui.setMetricsVariant {ref, container?, variant}`
+([`commands/metricsvariant.go`](../../internal/engine/commands/metricsvariant.go); `DangerUI`, no
+verbs) sets what a chart of the open drawer shows (`cpu`, `memory`, `network`, `filesystem`; the
+last two refused without Prometheus), `MetricsTarget.Variant` and `ui.state`'s `drawerCharts` report
+it, and the window's variant buttons dispatch it and follow it (`TestMetricsVariantIsEngineState`).
+The variants decide what the hub asks Prometheus for (`Session.SetMetricsVariant` →
+`Subscription.SetWants`).
+
+*Missing, not 0.* `model.Usage.Missing` names the parts a provider had no value for: a Prometheus
+whose CPU rate has no series for a node or container it has memory for (a counter needs two samples
+in the rate window), and a range answer's time that only one of CPU and memory has (`mergeUsage`).
+The Pods and Nodes lists show such a part as an empty cell, sorted last
+(`TestUsageCellsLeaveAMissingPartEmpty`), a pod's total lacks it only when every container does, and
+a chart leaves the point out of that variant (`TestMissingPartIsLeftOutOfTheChart`). The Metrics
+Server always measures both.
+
+**Checked on kind on 2026-10-12** (Kubernetes 1.36.1, the cluster's metrics-server and the
+`prometheus` chart of the third slice; `TestKindPrometheus`, `TestKindPrometheusDrawer`, and
+`TestKindMetricsFallback`, which scales both deployments to zero and back and restores them, run only
+with `COGPIT_KIND_FALLBACK=1`):
+
+| Checked | Seen |
+|---|---|
+| The Pods list alone | the Metrics Server's lists, 0 Prometheus requests, no watch on Services |
+| A node's and a pod's drawer | source "Prometheus (monitoring/prometheus-server) and Kubernetes Metrics Server"; the hour's history from Prometheus (121 points for the node, 120 for the pod at 30 s), the Metrics Server's measurements after it, one point per time, no step longer than 30 s at the seam; the network and the filesystem only once a chart showed them; the status line "Prometheus monitoring/prometheus-server:http: history, network, filesystem" and "Kubernetes Metrics Server: live values" |
+| Budgets, 90 s with the Pods list and a pod's drawer at 1 h | CPU and Memory shown: 0 Prometheus requests, 6 Metrics Server gets, 2 lists (before this slice: 16 Prometheus requests); the network shown: 6 Prometheus requests (2 at once, 2 per 30 s step), 6 gets, 1 list |
+| The Metrics Server scaled to zero | seen at the drawer's next poll (15 s), which took Prometheus's newest points in the same poll; the chart went on at 30 s; `metrics.get nodes` answered from Prometheus; the status line "Kubernetes Metrics Server: not answering, unavailable (HTTP 503)" |
+| The Metrics Server back | serving the live values again 9 s after its pod was ready (the test's `ProviderRetry` of 20 s; a minute by default) |
+| Prometheus scaled to zero | seen at the next request it got (a range change to 3 h): "unavailable (HTTP 503)"; the Metrics Server's live values went on |
+| Prometheus back | the 3 h history asked for again and served 28 s after its pod was ready; no step longer than 30 s in the chart's last 15 minutes (the kind Prometheus's own history has an 11-minute hole from a Docker restart) |
 
 ## 10. Terminal (`internal/terminal`)
 

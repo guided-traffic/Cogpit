@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/metrics"
@@ -27,6 +29,9 @@ type fakeProm struct {
 type promRule struct {
 	contains string
 	series   []promTestSeries
+	// rel: the values' times are seconds before the query's end (an instant query's: now), so
+	// that the answer lies in the range the hub asked for, as a real Prometheus's does.
+	rel bool
 }
 
 type promTestSeries struct {
@@ -46,6 +51,13 @@ func (f *fakeProm) on(contains string, series ...promTestSeries) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.rules = append(f.rules, promRule{contains: contains, series: series})
+}
+
+// onRel is on with the values' times as seconds before the query's end (negative or zero).
+func (f *fakeProm) onRel(contains string, series ...promTestSeries) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.rules = append(f.rules, promRule{contains: contains, series: series, rel: true})
 }
 
 func (f *fakeProm) requests() []promRequest {
@@ -96,11 +108,19 @@ func (f *fakeProm) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if !strings.Contains(q.Get("query"), rule.contains) {
 				continue
 			}
+			end := float64(time.Now().UnixMilli()) / 1000
+			if e, err := strconv.ParseFloat(q.Get("end"), 64); err == nil {
+				end = e
+			}
 			for _, s := range rule.series {
 				item := map[string]any{"metric": s.labels}
 				var vals [][]any
 				for _, v := range s.values {
-					vals = append(vals, []any{v[0], formatValue(v[1])})
+					t := v[0]
+					if rule.rel {
+						t += end
+					}
+					vals = append(vals, []any{t, formatValue(v[1])})
 				}
 				if path == "/api/v1/query" {
 					if len(vals) > 0 {

@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/metrics"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
@@ -28,8 +29,11 @@ type StateResult struct {
 	// custom resource kind the cluster no longer serves.
 	ViewError string `json:"viewError,omitempty"`
 	// DrawerCharts are the charts of the drawer's Metrics section (a pod's or a node's) with their
-	// time ranges, which ui_setMetricsRange sets.
+	// time ranges and variants, which ui_setMetricsRange and ui_setMetricsVariant set.
 	DrawerCharts []ChartRange `json:"drawerCharts,omitempty"`
+	// DrawerMetricsProviders is the status line under those charts: each metrics provider (Prometheus,
+	// the Metrics Server), whether it answers, its last good answer and last failure, what it serves.
+	DrawerMetricsProviders []metrics.ProviderStatus `json:"drawerMetricsProviders,omitempty"`
 }
 
 // NavigateResult is ui.navigate's result.
@@ -66,8 +70,9 @@ func registerUI(g *registrar) {
 		Description: "Returns what the user sees: the connected context and its connection state, the open view (kind key), " +
 			"the namespace filter, the search text, the sort order, the selected objects, the object in the detail drawer, " +
 			"the dock tabs, how many rows the view shows of how many objects, for a pod's or node's drawer the time " +
-			"range of each metrics chart (drawerCharts), and the hotbar of pinned clusters as hotbar_list returns it. Use it " +
-			"to learn which object the user means.",
+			"range and variant of each metrics chart (drawerCharts) and the metrics providers' status line " +
+			"(drawerMetricsProviders: Prometheus and the Metrics Server, answering or not, what each serves), " +
+			"and the hotbar of pinned clusters as hotbar_list returns it. Use it to learn which object the user means.",
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			u := s.UIState()
 			res := StateResult{UIState: u}
@@ -85,7 +90,7 @@ func registerUI(g *registrar) {
 			}
 			if u.Drawer != nil {
 				if m, err := s.ObjectMetrics(*u.Drawer); err == nil && m != nil {
-					res.DrawerCharts = chartRanges(m)
+					res.DrawerCharts, res.DrawerMetricsProviders = chartRanges(m), m.Providers
 				}
 			}
 			return res, nil

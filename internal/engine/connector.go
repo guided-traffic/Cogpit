@@ -157,12 +157,13 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 			})
 		},
 	}
-	// Metrics: nothing is asked of the cluster until a Pods or Nodes view or a drawer is open. The
-	// detector tries Prometheus (found among the cached Services) before the Metrics Server.
-	if det, prom, err := metrics.ChainForConn(conn, metrics.ServiceSourceFunc(be.promServices), metrics.PrometheusOptions{Logger: c.logger()}); err != nil {
+	// Metrics: nothing is asked of the cluster until a Pods or Nodes view or a drawer is open. Both
+	// providers together: the Metrics Server for the current values, Prometheus (found among the
+	// cached Services when a drawer opens or the Metrics Server fails) for history (§9).
+	if src, prom, err := metrics.SourcesForConn(conn, metrics.ServiceSourceFunc(be.promServices), metrics.PrometheusOptions{Logger: c.logger()}); err != nil {
 		c.logger().Warn("engine: no metrics client; CPU and memory stay empty", "context", name, "err", err)
 	} else {
-		be.Metrics, be.PrometheusDetector = metrics.NewHub(det, c.metricsOptions()), prom
+		be.Metrics, be.PrometheusDetector = metrics.NewHubFor(src, c.metricsOptions()), prom
 	}
 	return be, nil
 }

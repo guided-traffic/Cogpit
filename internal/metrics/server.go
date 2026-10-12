@@ -68,32 +68,46 @@ func (s *Server) Detect(ctx context.Context) (Provider, State) {
 
 // StateFromError turns a failed request into the state it means: not found is "not served"
 // (notFound is the message for it), forbidden and unauthorized are "forbidden", anything else
-// "unavailable" with the error's text. The text is the API server's, never a credential.
+// "unavailable" with the error's text. The text is the API server's, never a credential or a
+// response body (errorText); Reason is the failure's class for the status line.
 func StateFromError(err error, notFound string) State {
+	reason := errorClass(err)
 	switch {
 	case err == nil:
 		return State{Status: StatusAvailable}
 	case apierrors.IsForbidden(err), apierrors.IsUnauthorized(err):
-		return State{Status: StatusForbidden, Message: "the current user may not read the Metrics API: " + errorText(err)}
+		return State{Status: StatusForbidden, Message: "the current user may not read the Metrics API: " + errorText(err), Reason: reason}
 	case apierrors.IsNotFound(err):
 		return State{Status: StatusNotServed, Message: notFound}
 	case apierrors.IsServiceUnavailable(err):
-		return State{Status: StatusUnavailable, Message: "the Metrics API is registered but not answering (is the metrics-server running?): " + errorText(err)}
+		return State{Status: StatusUnavailable, Message: "the Metrics API is registered but not answering (is the metrics-server running?): " + errorText(err), Reason: reason}
 	case errors.Is(err, context.Canceled):
 		return State{Status: StatusUnavailable, Message: msgCancelled}
 	default:
-		return State{Status: StatusUnavailable, Message: "the Metrics API failed: " + errorText(err)}
+		return State{Status: StatusUnavailable, Message: "the Metrics API failed: " + errorText(err), Reason: reason}
 	}
 }
 
+// errorText is the API server's own message of a failed request (a Status it sent: "pods.metrics.k8s.io
+// is forbidden: User ... cannot list ...", "no endpoints available for service ..."), else the
+// failure's class. An answer that was not a Status (the proxied service's or the metrics-server's
+// own body, which client-go quotes in the error's message) is never quoted: its class stands in.
 func errorText(err error) string {
 	var st apierrors.APIStatus
 	if errors.As(err, &st) {
-		if m := st.Status().Message; m != "" {
-			return m
+		s := st.Status()
+		if s.Details != nil {
+			for _, c := range s.Details.Causes {
+				if c.Type == metav1.CauseTypeUnexpectedServerResponse {
+					return errorClass(err)
+				}
+			}
+		}
+		if s.Message != "" && s.Code < 500 || s.Reason == metav1.StatusReasonServiceUnavailable && s.Message != "" {
+			return s.Message
 		}
 	}
-	return err.Error()
+	return errorClass(err)
 }
 
 // ListPods implements Provider.

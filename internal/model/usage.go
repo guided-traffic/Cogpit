@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -11,11 +12,62 @@ import (
 type Usage struct {
 	CPUMilli    int64 `json:"cpuMilli"`
 	MemoryBytes int64 `json:"memoryBytes"`
+	// Missing names the parts the provider had no value for: a Prometheus whose CPU rate has no
+	// series yet for a node it has memory for (seen once on kind right after connecting). Such a
+	// part is unknown, not 0: its field holds 0, its list cell stays empty and a chart leaves the
+	// point out. The Metrics Server always measures both.
+	Missing UsagePart `json:"missing,omitempty"`
 }
 
-// Add returns the sum of two usages.
+// UsagePart is a set of a usage's parts: CPU, memory.
+type UsagePart uint8
+
+// The parts of a usage.
+const (
+	UsageCPU UsagePart = 1 << iota
+	UsageMemory
+)
+
+// MarshalJSON writes the parts as names: ["cpu"], ["cpu","memory"].
+func (p UsagePart) MarshalJSON() ([]byte, error) {
+	names := []string{}
+	if p&UsageCPU != 0 {
+		names = append(names, "cpu")
+	}
+	if p&UsageMemory != 0 {
+		names = append(names, "memory")
+	}
+	return json.Marshal(names)
+}
+
+// UnmarshalJSON reads what MarshalJSON writes; unknown names are ignored.
+func (p *UsagePart) UnmarshalJSON(b []byte) error {
+	var names []string
+	if err := json.Unmarshal(b, &names); err != nil {
+		return err
+	}
+	*p = 0
+	for _, n := range names {
+		switch n {
+		case "cpu":
+			*p |= UsageCPU
+		case "memory":
+			*p |= UsageMemory
+		}
+	}
+	return nil
+}
+
+// HasCPU reports whether the CPU was measured.
+func (u Usage) HasCPU() bool { return u.Missing&UsageCPU == 0 }
+
+// HasMemory reports whether the memory was measured.
+func (u Usage) HasMemory() bool { return u.Missing&UsageMemory == 0 }
+
+// Add returns the sum of two usages. A part is missing from the sum only when both lack it: the
+// sum of what was measured is the best number there is.
 func (u Usage) Add(o Usage) Usage {
-	return Usage{CPUMilli: u.CPUMilli + o.CPUMilli, MemoryBytes: u.MemoryBytes + o.MemoryBytes}
+	return Usage{CPUMilli: u.CPUMilli + o.CPUMilli, MemoryBytes: u.MemoryBytes + o.MemoryBytes, Missing: u.Missing & o.Missing}
 }
 
 // ContainerUsage is one container's usage.
@@ -33,10 +85,14 @@ type PodUsage struct {
 	Containers []ContainerUsage `json:"containers"`
 }
 
-// Total is the pod's usage: the sum of its containers'.
+// Total is the pod's usage: the sum of its containers'. A part is missing only when every
+// container lacks it.
 func (p PodUsage) Total() Usage {
-	var u Usage
-	for _, c := range p.Containers {
+	if len(p.Containers) == 0 {
+		return Usage{}
+	}
+	u := p.Containers[0].Usage
+	for _, c := range p.Containers[1:] {
 		u = u.Add(c.Usage)
 	}
 	return u

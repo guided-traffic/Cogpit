@@ -20,20 +20,24 @@ type metricsRangeParams struct {
 	Range     string          `json:"range,omitempty" jsonschema:"the time range, 1m to 30d, as 15m, 6h or 7d; omitted or default: the default 1h"`
 }
 
-// ChartRange is one chart of the drawer's Metrics section and its time range.
+// ChartRange is one chart of the drawer's Metrics section, its time range and its variant.
 type ChartRange struct {
 	// Container is the container's name; empty for the pod's or node's own chart.
 	Container string `json:"container,omitempty"`
 	Range     string `json:"range"`
+	// Variant is what the chart shows: cpu, memory, network or filesystem (ui.setMetricsVariant).
+	Variant string `json:"variant"`
 }
 
-// MetricsRangeResult is ui.setMetricsRange's result: every chart of the drawer with its range.
+// MetricsRangeResult is ui.setMetricsRange's and ui.setMetricsVariant's result: every chart of the
+// drawer with its range and variant.
 type MetricsRangeResult struct {
 	Ref    model.ObjectRef `json:"ref"`
 	Charts []ChartRange    `json:"charts"`
 }
 
 func registerMetricsRange(g *registrar) {
+	registerMetricsVariant(g)
 	add(g, engine.Spec[metricsRangeParams]{
 		ID: "ui.setMetricsRange", Label: "Metrics Time Range", Danger: engine.DangerUI,
 		Description: "Sets the time range of one chart in the detail drawer's Metrics section, as the chart's range " +
@@ -82,7 +86,7 @@ func chartNames(m *engine.ObjectMetrics) []string {
 func chartRanges(m *engine.ObjectMetrics) []ChartRange {
 	out := make([]ChartRange, 0, len(m.Targets))
 	for _, t := range m.Targets {
-		out = append(out, ChartRange{Container: t.Name, Range: t.Range})
+		out = append(out, ChartRange{Container: t.Name, Range: t.Range, Variant: t.Variant})
 	}
 	return out
 }

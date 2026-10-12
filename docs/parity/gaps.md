@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -512,6 +512,41 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
     open: a Metrics Server that stops answering hands the live values to Prometheus, a Prometheus
     that is gone leaves the Metrics Server's live values without history. The status line says
     which provider serves what.
+- **Built (2026-10-12, fourth slice: the evening's requirements):** the hub holds both providers
+  apart (`metrics.NewHubFor`, [architecture §9](../developer/architecture.md#9-metrics-internalmetrics)).
+  A drawer that opens asks Prometheus once for its charts' range (CPU and memory: two range queries;
+  once more on a range change), then the live values come from the Metrics Server's get every 15 s;
+  history and live values meet without a point twice, and a hole after both were away is filled
+  from Prometheus once. The network and the filesystem are asked of Prometheus only while a chart
+  shows them (**the lead's proposal, not the owner's decision**); a chart's variant is engine state
+  for that (`ui.setMetricsVariant`, `ui.state`'s `drawerCharts`). Falling back as required, also
+  while a drawer is open; a failed provider is asked again after **a minute (Cogpit's default)** and
+  takes its part back when it answers. The lists and `metrics.get` ask the Metrics Server and
+  Prometheus only when it fails or is missing; Prometheus is looked for only then or when a drawer
+  opens. **The status line** under the charts: a row per provider (Prometheus with
+  namespace/service:port, the Metrics Server), its state (answering, not answering, not allowed, not
+  found, not looked for yet) as an icon in a status token with the whole state as its tooltip, what
+  it serves (history, live values, network, filesystem), the last good answer's age and the last
+  failure's class (`unavailable (HTTP 503)`: never a response body); the same in `metrics.get`'s
+  `providers` and `ui.state`'s `drawerMetricsProviders`. The wording and icons are Cogpit's
+  (**inferred**); Lens shows a source line only, which now names both providers. **A missing value
+  is an empty cell, not 0%:** the Nodes list's CPU at 0% beside a memory value came from a
+  Prometheus instant query with memory but no CPU series for the node; such a part is now
+  `Usage.Missing`, an empty cell, and a point left out of the chart. Tests against fakes:
+  `TestHistoryThenLiveValues`, `TestNetworkAndFilesystemOnlyWhileShown`,
+  `TestMetricsServerFailsPrometheusTakesOver`, `TestPrometheusGoneLeavesTheLiveValues`,
+  `TestGapIsFilledOnceFromPrometheus`, `TestListsUseTheMetricsServerAndFallBack`,
+  `TestBothProvidersBudget`, `TestPrometheusInTheDrawer`, `TestProviderStatusLine`,
+  `TestMetricsVariantIsEngineState`, `TestUsageCellsLeaveAMissingPartEmpty`. Budget P13 per open
+  drawer at 1 h showing CPU or Memory: was a query set of five or six every 30 s (600–720 an hour),
+  now two queries when it opens. **Measured on kind** (2026-10-12, the cluster's metrics-server and
+  the `prometheus` chart): 90 s with the Pods list and a pod's drawer showing CPU cost 0 Prometheus
+  requests (was 16), 6 Metrics Server gets and 2 lists; with the network shown 6 Prometheus requests.
+  The fallback watched live (`TestKindMetricsFallback`, both deployments scaled to zero and back,
+  then restored): the Metrics Server's absence seen at the next poll (15 s) with Prometheus's values
+  in the same poll, its return served 9 s after it was ready; Prometheus's absence seen at its next
+  request (`unavailable (HTTP 503)`) while the live values went on, its return served 28 s after it
+  was ready ([architecture §9](../developer/architecture.md#9-metrics-internalmetrics)).
 - **Waiting for the owner (2026-10-12):** charts of one drawer whose ranges lie far apart (a 7-day
   pod chart beside 1-hour container charts) share one query step, set by the longest range, so the
   short charts get about six points. Recommended: a query set of its own per range once the ranges
@@ -521,11 +556,12 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   scrape), possibly reading the scrape interval from Prometheus.
 - **Left of Prometheus:** the cluster settings page that sets the override
   (`Backend.PrometheusDetector.SetOverride`, then `Hub.Forget`), a check against a real
-  kube-prometheus-stack, a check of the Nodes list's CPU right after connecting (seen once at 0% with
-  memory present, not reproduced; a missing value should leave the cell empty, not show 0%), the source line's port and its namespace and service as links (Lens:
-  "Prometheus: <namespace>/<service>:<port>"), the Lens-provider variants that are not
+  kube-prometheus-stack, the namespace and service as links (Lens:
+  "Prometheus: <namespace>/<service>:<port>"; the port shows on the status line since the fourth
+  slice), the Lens-provider variants that are not
   Prometheus-compatible by name (Thanos, VictoriaMetrics under other service names: reachable through
-  the override only).
+  the override only). A provider nothing asked since its last answer (Prometheus while only CPU and
+  Memory are shown) is shown as of that answer, with its age: no probe keeps the status line current.
 - **Missing:** the overview page with its charts and Issues, the explicit Lens Metrics install, the
   settings rows (metrics source, hide metrics), the Disk column, Lens's usage bars in the Nodes list, CPU and
   Memory in a node drawer's Pods table, history that outlives a closed drawer.
@@ -773,6 +809,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | G12: the evening's requirements built (fourth slice): both providers together (Prometheus's history once, the Metrics Server's live values, the network and the filesystem only while shown: the lead's proposal), the fallback, a status line per provider (also in `metrics.get` and `ui.state`), a chart's variant as engine state, a missing value as an empty cell; budget P13 measured on kind; no count moved |
 | 2026-10-13 | minor | G17: the `cogpit-cli mcp` stdio bridge built, evidence added; estimate unchanged |
 | 2026-10-13 | minor | G2: `cogpit-cli contexts` and `cogpit-cli get` built (milestone 0.1), evidence added; estimate unchanged |
 | 2026-10-13 | minor | G5, G13: the navigator built (night run): header, the cluster as the tree's root, item tooltips, keyboard; what differs from Lens and what is inferred; estimates not moved (the lead recounts) |

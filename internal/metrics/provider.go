@@ -50,6 +50,10 @@ type State struct {
 	Label string `json:"label,omitempty"`
 	// Message says why metrics are not available, in a sentence the UI shows.
 	Message string `json:"message,omitempty"`
+	// Reason is the failure's class and short reason ("unavailable (HTTP 503)", "timeout"), the
+	// status line's last error; empty when nothing failed (a provider that is simply not installed
+	// has none).
+	Reason string `json:"reason,omitempty"`
 }
 
 // Usable reports whether a provider answers.
@@ -139,14 +143,36 @@ func (e *StateError) Error() string {
 func (e *StateError) Unwrap() error { return e.Err }
 
 // RangeQuery asks a history provider for an object's series between From and To, one point per
-// Step. Kind is KindPods or KindNodes; Namespace is empty for a node.
+// Step. Kind is KindPods or KindNodes; Namespace is empty for a node. Want says which series; zero
+// asks for all of them.
 type RangeQuery struct {
 	Kind      Kind
 	Namespace string
 	Name      string
 	From, To  time.Time
 	Step      time.Duration
+	Want      Want
 }
+
+// Want is a set of the series a range query asks for. The hub asks for what the open drawer's
+// charts show: CPU and memory always (one variant switch must not wait for a request), the network
+// and the filesystem only while a chart shows them.
+type Want uint8
+
+// The series of a range query.
+const (
+	// WantUsage: CPU and memory (two queries).
+	WantUsage Want = 1 << iota
+	// WantNetwork: the bytes received and transmitted (two queries).
+	WantNetwork
+	// WantFilesystem: the filesystem's usage, or its read and write rates (one or two queries).
+	WantFilesystem
+	// WantAll is every series.
+	WantAll = WantUsage | WantNetwork | WantFilesystem
+)
+
+// Has reports whether w includes every series of o.
+func (w Want) Has(o Want) bool { return w&o == o }
 
 // TargetSeries are the series of one chart: the object as a whole (key "" of ObjectSeries), or one
 // container of a pod.

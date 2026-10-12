@@ -20,10 +20,16 @@ var (
 )
 
 // podUsageCells shows a pod's usage as Lens's Pods list does: CPU in cores with three decimals
-// ("0.012"), memory in binary units ("19.5MiB"). Num is the sort key: millicores and bytes.
+// ("0.012"), memory in binary units ("19.5MiB"). Num is the sort key: millicores and bytes. A part
+// the provider did not measure (Usage.Missing) is an empty cell, never "0".
 func podUsageCells(_ *unstructured.Unstructured, u model.Usage) (cpu, memory model.Cell) {
-	return model.Cell{Text: model.FormatCPU(u.CPUMilli), Num: u.CPUMilli},
-		model.Cell{Text: model.FormatBytes(u.MemoryBytes), Num: u.MemoryBytes}
+	if u.HasCPU() {
+		cpu = model.Cell{Text: model.FormatCPU(u.CPUMilli), Num: u.CPUMilli}
+	}
+	if u.HasMemory() {
+		memory = model.Cell{Text: model.FormatBytes(u.MemoryBytes), Num: u.MemoryBytes}
+	}
+	return cpu, memory
 }
 
 // nodeUsageCells shows a node's usage as a share of what the node can allocate ("7.5%"), the text
@@ -32,11 +38,11 @@ func podUsageCells(_ *unstructured.Unstructured, u model.Usage) (cpu, memory mod
 func nodeUsageCells(obj *unstructured.Unstructured, u model.Usage) (cpu, memory model.Cell) {
 	alloc, _ := model.NodeCapacity(obj)
 	cpu, memory = podUsageCells(obj, u)
-	if alloc.CPUMilli > 0 {
+	if alloc.CPUMilli > 0 && u.HasCPU() {
 		share := float64(u.CPUMilli) / float64(alloc.CPUMilli)
 		cpu = model.Cell{Text: model.FormatPercent(share), Num: int64(share * 1000)}
 	}
-	if alloc.MemoryBytes > 0 {
+	if alloc.MemoryBytes > 0 && u.HasMemory() {
 		share := float64(u.MemoryBytes) / float64(alloc.MemoryBytes)
 		memory = model.Cell{Text: model.FormatPercent(share), Num: int64(share * 1000)}
 	}

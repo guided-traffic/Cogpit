@@ -50,6 +50,16 @@ type Target struct {
 // String is "namespace/service", the name the source line shows.
 func (t Target) String() string { return t.Namespace + "/" + t.Service }
 
+// Where is "namespace/service:port" with the route prefix if one is set, as the status line and
+// Lens's settings write it.
+func (t Target) Where() string {
+	w := t.String()
+	if t.Port != "" {
+		w += ":" + t.Port
+	}
+	return w + t.prefix()
+}
+
 func (t Target) prefix() string {
 	p := strings.Trim(t.Prefix, "/")
 	if p == "" {
@@ -79,7 +89,7 @@ func (k kubeProxy) get(ctx context.Context, t Target, path string, params map[st
 		return nil, err
 	}
 	if int64(len(b)) > limit {
-		return nil, fmt.Errorf("the answer is larger than %d bytes", limit)
+		return nil, fmt.Errorf("%w: larger than %d bytes", errTooLarge, limit)
 	}
 	return b, nil
 }
@@ -149,6 +159,9 @@ func (p *Prometheus) Label() string { return "Prometheus (" + p.target.String() 
 
 // Target returns the service the provider reads.
 func (p *Prometheus) Target() Target { return p.target }
+
+// Where implements Located: "namespace/service:port".
+func (p *Prometheus) Where() string { return p.target.Where() }
 
 // Capabilities implements Provider: history, network and filesystem.
 func (p *Prometheus) Capabilities() Capabilities {
@@ -221,30 +234,31 @@ type resultItem struct {
 
 // parseResult parses the body of /api/v1/query or /api/v1/query_range into series. NaN and
 // infinite samples (a rate over a counter reset, a division by zero) are dropped. A "status":
-// "error" body is an error carrying Prometheus's own text.
+// "error" body is an error naming Prometheus's error type ("bad_data"), not its text: an answer's
+// text never reaches a message (it is the service's response body).
 func parseResult(body []byte) ([]promSeries, error) {
 	var r apiResponse
 	if err := json.Unmarshal(body, &r); err != nil {
-		return nil, fmt.Errorf("not a Prometheus answer: %w", err)
+		return nil, fmt.Errorf("%w: not a Prometheus answer", errUnreadable)
 	}
 	if r.Status != "success" {
-		return nil, fmt.Errorf("prometheus: %s: %s", r.ErrorType, r.Error)
+		return nil, fmt.Errorf("%w: Prometheus answered %q", errUnreadable, safeWord(r.ErrorType))
 	}
 	var items []resultItem
 	switch r.Data.ResultType {
 	case "matrix", "vector":
 		if err := json.Unmarshal(r.Data.Result, &items); err != nil {
-			return nil, fmt.Errorf("unreadable %s result: %w", r.Data.ResultType, err)
+			return nil, fmt.Errorf("%w: a %s result Cogpit cannot read", errUnreadable, r.Data.ResultType)
 		}
 	case "scalar", "string":
 		return nil, nil
 	default:
-		return nil, fmt.Errorf("unexpected result type %q", r.Data.ResultType)
+		return nil, fmt.Errorf("%w: unexpected result type %q", errUnreadable, safeWord(r.Data.ResultType))
 	}
 	out := make([]promSeries, 0, len(items))
 	for _, it := range items {
 		if len(it.Values) > maxPointsPerSeries {
-			return nil, fmt.Errorf("a series of %d points is more than expected", len(it.Values))
+			return nil, fmt.Errorf("%w: a series of %d points is more than expected", errTooLarge, len(it.Values))
 		}
 		s := promSeries{labels: it.Metric}
 		if s.labels == nil {
@@ -259,6 +273,24 @@ func parseResult(body []byte) ([]promSeries, error) {
 		out = append(out, s)
 	}
 	return out, nil
+}
+
+// safeWord keeps a word from an answer (an error type, a result type) only when it is a short
+// identifier, so that nothing else of a body can travel in a message.
+func safeWord(s string) string {
+	if len(s) == 0 || len(s) > 32 {
+		return "?"
+	}
+	for _, r := range s {
+		if !isWordRune(r) {
+			return "?"
+		}
+	}
+	return s
+}
+
+func isWordRune(r rune) bool {
+	return r == '_' || r == '-' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9'
 }
 
 func appendFinite(pts []point, p point) []point {
@@ -298,25 +330,28 @@ func (p *Prometheus) run(ctx context.Context, path string, params map[string]str
 	}
 	s, err := parseResult(body)
 	if err != nil {
-		return nil, &StateError{State: State{Status: StatusUnavailable, Message: "Prometheus " + p.target.String() + " sent an answer Cogpit cannot read: " + err.Error()}, Err: err}
+		return nil, &StateError{State: State{Status: StatusUnavailable, Message: "Prometheus " + p.target.String() + " sent an answer Cogpit cannot read: " + err.Error(), Reason: errorClass(err)}, Err: err}
 	}
 	return s, nil
 }
 
-// classify turns a failed proxy request into an error the hub reads as a state.
+// classify turns a failed proxy request into an error the hub reads as a state. The messages name
+// the service and the class of the failure, never the answer's text: through the service proxy
+// that can be the service's own response body.
 func (p *Prometheus) classify(ctx context.Context, err error) error {
 	where := p.target.String()
+	reason := errorClass(err)
 	switch {
 	case apierrors.IsForbidden(err), apierrors.IsUnauthorized(err):
-		return &StateError{State: State{Status: StatusForbidden, Message: "the current user may not use the service proxy of " + where + ": " + errorText(err)}, Err: err}
+		return &StateError{State: State{Status: StatusForbidden, Message: "the current user may not use the service proxy of " + where + ": " + errorText(err), Reason: reason}, Err: err}
 	case apierrors.IsNotFound(err):
-		return &StateError{State: State{Status: StatusNotServed, Message: where + " does not answer the Prometheus API (the service is gone or serves another path): " + errorText(err)}, Err: err}
+		return &StateError{State: State{Status: StatusNotServed, Message: where + " does not answer the Prometheus API (the service is gone or serves another path): " + reason, Reason: reason}, Err: err}
 	case errors.Is(err, context.Canceled) && ctx.Err() != nil:
 		return err
 	case apierrors.IsServiceUnavailable(err), errors.Is(err, context.DeadlineExceeded), apierrors.IsTimeout(err), apierrors.IsServerTimeout(err):
-		return &StateError{State: State{Status: StatusUnavailable, Message: where + " does not answer (is Prometheus running?): " + errorText(err)}, Err: err}
+		return &StateError{State: State{Status: StatusUnavailable, Message: where + " does not answer (is Prometheus running?): " + errorText(err), Reason: reason}, Err: err}
 	}
-	return &StateError{State: State{Status: StatusUnavailable, Message: "Prometheus " + where + " failed: " + errorText(err)}, Err: err}
+	return &StateError{State: State{Status: StatusUnavailable, Message: "Prometheus " + where + " failed: " + errorText(err), Reason: reason}, Err: err}
 }
 
 // --- current values (the lists, a one-off read) ---
@@ -438,7 +473,9 @@ func podUsages(cpu, mem []promSeries) []model.PodUsage {
 		name := s.labels["container"]
 		cu := cont[k][name]
 		if cu == nil {
-			cu = &model.ContainerUsage{Name: name}
+			// Missing until a series gives the part: a container with memory but no CPU rate yet
+			// (a counter needs two samples) has an unknown CPU, not 0.
+			cu = &model.ContainerUsage{Name: name, Usage: model.Usage{Missing: model.UsageCPU | model.UsageMemory}}
 			cont[k][name] = cu
 		}
 		if ts := time.UnixMilli(s.points[0].t); ts.After(pu.Timestamp) {
@@ -449,11 +486,13 @@ func podUsages(cpu, mem []promSeries) []model.PodUsage {
 	for _, s := range cpu {
 		if cu, ok := get(s); ok {
 			cu.CPUMilli = seconds2milli(s.points[0].v)
+			cu.Missing &^= model.UsageCPU
 		}
 	}
 	for _, s := range mem {
 		if cu, ok := get(s); ok {
 			cu.MemoryBytes = int64(s.points[0].v)
+			cu.Missing &^= model.UsageMemory
 		}
 	}
 	out := make([]model.PodUsage, 0, len(pods))
@@ -496,7 +535,9 @@ func nodeUsages(cpu, mem []promSeries) []model.NodeUsage {
 		}
 		nu := nodes[n]
 		if nu == nil {
-			nu = &model.NodeUsage{Name: n}
+			// Missing until a series gives the part (G12: a Nodes list showed CPU 0% beside a
+			// memory value when the CPU rate had no series for the node yet).
+			nu = &model.NodeUsage{Name: n, Usage: model.Usage{Missing: model.UsageCPU | model.UsageMemory}}
 			nodes[n] = nu
 		}
 		if ts := time.UnixMilli(s.points[0].t); ts.After(nu.Timestamp) {
@@ -507,11 +548,13 @@ func nodeUsages(cpu, mem []promSeries) []model.NodeUsage {
 	for _, s := range cpu {
 		if nu := get(s); nu != nil {
 			nu.CPUMilli = seconds2milli(s.points[0].v)
+			nu.Missing &^= model.UsageCPU
 		}
 	}
 	for _, s := range mem {
 		if nu := get(s); nu != nil {
 			nu.MemoryBytes = int64(s.points[0].v)
+			nu.Missing &^= model.UsageMemory
 		}
 	}
 	out := make([]model.NodeUsage, 0, len(nodes))

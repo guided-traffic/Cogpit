@@ -40,6 +40,9 @@ type drawerWatch struct {
 	wake    chan struct{}
 	quit    chan struct{}
 	stopped atomic.Bool
+
+	// variants is what each chart shows, by target name; absent: CPU (metrics.go). Guarded by wmu.
+	variants map[string]string
 }
 
 func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.ObjectRef) *drawerWatch {

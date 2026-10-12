@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -55,8 +56,10 @@ func promHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // The whole path in the engine against a fake API server with a Prometheus behind the service
-// proxy: detection from the cached Services, the drawer's charts from range queries, the charts'
-// ranges, the source line, and the request budget (P13).
+// proxy and no Metrics Server (Prometheus alone serves everything): detection from the cached
+// Services, the drawer's charts from range queries, the charts' ranges and variants, the network
+// and the filesystem asked for only while a chart shows them, the source line and the status line,
+// and the request budget (P13).
 func TestPrometheusInTheDrawer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
 	defer cancel()
@@ -106,28 +109,62 @@ func TestPrometheusInTheDrawer(t *testing.T) {
 	var m *engine.ObjectMetrics
 	if !testkit.WaitFor(ctx, func() bool {
 		m, _ = s.ObjectMetrics(ref)
-		return m != nil && len(m.Targets) == 2 && len(m.Targets[0].Samples) == 3 && len(m.Targets[0].Network) == 3 && len(m.Targets[1].Filesystem) == 3
+		return m != nil && len(m.Targets) == 2 && len(m.Targets[0].Samples) >= 3 && len(m.Targets[1].Samples) >= 3
 	}) {
 		t.Fatalf("the drawer never got the history: %+v", m)
+	}
+	// The drawer's first poll: CPU and memory over the hour, nothing else; the next poll (the newest
+	// points) is a step (30 s) away.
+	if n := proxy(); n != 3+2 {
+		t.Errorf("%d proxy requests after the drawer opened, want 5 (3 + cpu and memory once)", n)
 	}
 	if m.Status != metrics.StatusAvailable || m.Source != "Prometheus (monitoring/prometheus-server)" || m.Message != "" {
 		t.Errorf("status %q source %q message %q", m.Status, m.Source, m.Message)
 	}
-	if c := m.Capabilities; !c.History || !c.Network || !c.Filesystem || m.FilesystemSource != "usage" {
-		t.Errorf("capabilities %+v, filesystem source %q", c, m.FilesystemSource)
+	if c := m.Capabilities; !c.History || !c.Network || !c.Filesystem || m.FilesystemSource != "" || len(m.Targets[0].Network) != 0 {
+		t.Errorf("capabilities %+v, filesystem source %q, %d network points before a chart showed the network", c, m.FilesystemSource, len(m.Targets[0].Network))
 	}
 	whole, app := m.Targets[0], m.Targets[1]
-	if whole.Current == nil || whole.Current.CPUMilli != 1500 || app.Name != "app" || app.Current == nil || app.Limits.CPUMilli != 500 {
+	if whole.Current == nil || whole.Current.CPUMilli != 1500 || app.Name != "app" || app.Current == nil || app.Limits.CPUMilli != 500 || whole.Variant != "cpu" {
 		t.Errorf("targets = %+v / %+v", whole, app)
 	}
-	if !app.NetworkOfPod || len(app.Network) != 3 || whole.NetworkOfPod {
-		t.Errorf("network: pod %v, container %v of pod %v", len(whole.Network), len(app.Network), app.NetworkOfPod)
+	// The status line: Prometheus serves the history and the live values, the Metrics Server is
+	// not served; ui.state carries the same.
+	if len(m.Providers) != 2 || m.Providers[0].Provider != "prometheus" || m.Providers[0].Service != "monitoring/prometheus-server:80" ||
+		!slices.Contains(m.Providers[0].Serves, metrics.ServesHistory) || !slices.Contains(m.Providers[0].Serves, metrics.ServesLive) ||
+		m.Providers[1].Provider != "metrics-server" || m.Providers[1].Status != metrics.StatusNotServed {
+		t.Errorf("providers = %+v", m.Providers)
+	}
+	raw, err := s.Dispatch(ctx, engine.Invocation{ID: "ui.state", Params: json.RawMessage(`{}`), Origin: engine.OriginExternalAgent})
+	if st, ok := raw.(commands.StateResult); err != nil || !ok || len(st.DrawerMetricsProviders) != 2 || len(st.DrawerCharts) != 2 || st.DrawerCharts[0].Variant != "cpu" {
+		t.Errorf("ui.state: %+v, %v", raw, err)
 	}
 
 	// The detection came from the cached Services: one list-and-watch of them, no list of our own.
 	reqs := srv.Requests()
 	if n := reqs["list services"] + reqs["watchlist services"]; n != 1 {
 		t.Errorf("services were read %d times (%v), want the cache's one", n, reqs)
+	}
+
+	// The pod's chart shows the network, the container's the filesystem: each asked for once over
+	// the hour, at once (receive and transmit, the filesystem's usage).
+	for _, p := range []string{`{"ref":{"kind":"pods","namespace":"web","name":"a"},"variant":"network"}`, `{"ref":{"kind":"pods","namespace":"web","name":"a"},"container":"app","variant":"filesystem"}`} {
+		if _, err := s.Dispatch(ctx, engine.Invocation{ID: "ui.setMetricsVariant", Params: json.RawMessage(p), Origin: engine.OriginGUI}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !testkit.WaitFor(ctx, func() bool {
+		m, _ = s.ObjectMetrics(ref)
+		return m != nil && len(m.Targets) == 2 && len(m.Targets[0].Network) == 3 && len(m.Targets[1].Filesystem) == 3
+	}) {
+		t.Fatalf("the network and the filesystem never came: %+v", m)
+	}
+	whole, app = m.Targets[0], m.Targets[1]
+	if !app.NetworkOfPod || len(app.Network) != 3 || whole.NetworkOfPod || m.FilesystemSource != "usage" || whole.Variant != "network" || app.Variant != "filesystem" {
+		t.Errorf("network: pod %v, container %v of pod %v; filesystem %q; variants %q %q", len(whole.Network), len(app.Network), app.NetworkOfPod, m.FilesystemSource, whole.Variant, app.Variant)
+	}
+	if !testkit.WaitFor(ctx, func() bool { return proxy() == 3+2+3 }) {
+		t.Errorf("%d proxy requests after the network and the filesystem were shown, want 8 (5 + 2 + 1)", proxy())
 	}
 
 	// A chart set to ten minutes shows the tail: the sample 50 minutes back is gone, the others stay.
@@ -143,9 +180,10 @@ func TestPrometheusInTheDrawer(t *testing.T) {
 	if m.Targets[0].Range != "10m" || m.Targets[1].Range != "1h" {
 		t.Errorf("the targets' ranges are %q and %q, want 10m and the default 1h", m.Targets[0].Range, m.Targets[1].Range)
 	}
-	// The change also made the drawer poll at once, at the finer step: one more query set.
-	if !testkit.WaitFor(ctx, func() bool { return proxy() == 3+5+5 }) {
-		t.Errorf("%d proxy requests after the range changed, want 13 (3 + 2 query sets of 5)", proxy())
+	// The change also made the drawer ask once more, at the finer step, for what the charts show:
+	// CPU and memory, the network, the filesystem.
+	if !testkit.WaitFor(ctx, func() bool { return proxy() == 8+5 }) {
+		t.Errorf("%d proxy requests after the range changed, want 13 (8 + 2 + 2 + 1)", proxy())
 	}
 	if err := s.SetMetricsRange(ref, "", -time.Second); err == nil {
 		t.Error("a negative range was accepted")

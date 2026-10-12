@@ -199,6 +199,15 @@ func NewPrometheusDetector(kube kubernetes.Interface, services ServiceSource, op
 	return &PrometheusDetector{px: kubeProxy{kube}, services: services, opts: opts}
 }
 
+// PrometheusLabel names Prometheus in the status line before one is found.
+const PrometheusLabel = "Prometheus"
+
+// ID implements Identified: the detector looks for "prometheus".
+func (d *PrometheusDetector) ID() string { return PrometheusID }
+
+// Label implements Identified.
+func (d *PrometheusDetector) Label() string { return PrometheusLabel }
+
 // SetOverride sets (or, with nil, clears) the Prometheus to use instead of detection. It takes
 // effect at the next detection: call Hub.Forget to run it at once.
 func (d *PrometheusDetector) SetOverride(o *Override) {
@@ -207,7 +216,22 @@ func (d *PrometheusDetector) SetOverride(o *Override) {
 	if o != nil && !o.Valid() {
 		o = nil
 	}
+	if o != nil {
+		c := *o
+		o = &c
+	}
 	d.override = o
+}
+
+// Override returns the override in effect, or nil when Prometheus is detected.
+func (d *PrometheusDetector) Override() *Override {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.override == nil {
+		return nil
+	}
+	c := *d.override
+	return &c
 }
 
 // probe is the request that tells a Prometheus from any other service.
@@ -250,14 +274,14 @@ func (d *PrometheusDetector) Detect(ctx context.Context) (Provider, State) {
 			return nil, State{Status: StatusUnavailable, Message: msgCancelled}
 		}
 		if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) {
-			return nil, State{Status: StatusForbidden, Message: "the current user may not use the service proxy of " + c.Target.String() + " (get services/proxy), so Prometheus cannot be read: " + errorText(err)}
+			return nil, State{Status: StatusForbidden, Message: "the current user may not use the service proxy of " + c.Target.String() + " (get services/proxy), so Prometheus cannot be read: " + errorText(err), Reason: errorClass(err)}
 		}
 		if !errors.Is(err, errNotPrometheus) && !apierrors.IsNotFound(err) {
 			lastErr, lastTarget = err, c.Target
 		}
 	}
 	if lastErr != nil {
-		return nil, State{Status: StatusUnavailable, Message: fmt.Sprintf("%s looks like a Prometheus but does not answer: %s", lastTarget, errorText(lastErr))}
+		return nil, State{Status: StatusUnavailable, Message: fmt.Sprintf("%s looks like a Prometheus but does not answer: %s", lastTarget, errorText(lastErr)), Reason: errorClass(lastErr)}
 	}
 	return nil, State{Status: StatusNotServed, Message: "no Prometheus found (the candidates do not serve the Prometheus API)"}
 }
