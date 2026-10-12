@@ -116,7 +116,7 @@ func releasesFake(t testing.TB) (*fakeEngine, model.ObjectRef) {
 	f := kindsFake(t, helm.ReleaseKind)
 	f.kinds = append(f.kinds,
 		kindInfo{Kind: "secrets", Title: "Secrets", APIKind: "Secret", Version: "v1", Namespaced: true},
-		kindInfo{Kind: helm.ReleaseKind, Title: "Releases", APIKind: "HelmRelease", Version: "v1", Namespaced: true})
+		kindInfo{Kind: helm.ReleaseKind, Title: "Releases", APIKind: "HelmRelease", Group: model.LocalGroup, Version: "v1", Namespaced: true, Virtual: true})
 	p := helm.NewReleaseProfile()
 	secrets := fixtureReleaseSecrets(t)
 	objs := p.Derive(secrets)
