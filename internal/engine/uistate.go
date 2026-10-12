@@ -70,6 +70,22 @@ type DockTab struct {
 	Ref       *model.ObjectRef `json:"ref,omitempty"`       // the pod for logs and shells
 	Container string           `json:"container,omitempty"` // the container for logs and shells
 	Logs      LogOptions       `json:"logs,omitzero"`       // a logs tab's options (logs.go)
+	Helm      *HelmUpgradeTab  `json:"helm,omitempty"`      // a Helm Upgrade tab's chart and version
+}
+
+// HelmUpgradeTab is what a Helm Upgrade tab shows beside its values editor (Lens's "Helm Upgrade:
+// <name>" tab, captured 2026-10-12): the release's chart, the version the upgrade installs and the
+// versions its picker offers. The tab's Ref is the release (kind helmreleases); its values are the
+// tab's editor text (editor.get, editor.setText), which agents read withheld (model.Withheld).
+type HelmUpgradeTab struct {
+	Chart   string `json:"chart"`
+	Version string `json:"version"`
+	// Versions are the picker's choices: without chart repositories, the release's own chart
+	// version only.
+	Versions []string `json:"versions"`
+	// UserSuppliedOnly: the editor holds the user-supplied values only, not the chart's defaults
+	// merged in (Lens's "User-supplied values only").
+	UserSuppliedOnly bool `json:"userSuppliedOnly"`
 }
 
 // DockType is a dock tab's kind.
@@ -83,6 +99,8 @@ const (
 	DockAttach   DockType = "attach"   // attached to a container's main process (pod.attach)
 	DockEdit     DockType = "edit"     // a YAML editor on one object (object.edit)
 	DockCreate   DockType = "create"   // a YAML editor for new objects (resource.createTab)
+	// DockHelmUpgrade: a release's values and chart version, saved by helm.release.upgrade.
+	DockHelmUpgrade DockType = "helmUpgrade"
 )
 
 // Clone returns a deep copy.
@@ -107,6 +125,11 @@ func (u UIState) Clone() UIState {
 		if t.Ref != nil {
 			r := *t.Ref
 			out.Dock[i].Ref = &r
+		}
+		if t.Helm != nil {
+			h := *t.Helm
+			h.Versions = slices.Clone(t.Helm.Versions)
+			out.Dock[i].Helm = &h
 		}
 	}
 	return out

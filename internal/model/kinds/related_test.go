@@ -16,6 +16,9 @@ import (
 // would: an object is found under every key its index's Keys returns.
 type fakeRelated map[string][]*unstructured.Unstructured
 
+// Listed: a kind the fake holds objects of is listed.
+func (r fakeRelated) Listed(ix model.RelatedIndex) bool { _, ok := r[ix.Kind]; return ok }
+
 func (r fakeRelated) Objects(ix model.RelatedIndex, key string) []*unstructured.Unstructured {
 	var out []*unstructured.Unstructured
 	for _, o := range r[ix.Kind] {

@@ -160,6 +160,8 @@ func newRBACRelated(ix model.RelatedIndex, objs []*unstructured.Unstructured) rb
 	return rbacRelated{ix.ID(): byKey}
 }
 
+func (r rbacRelated) Listed(ix model.RelatedIndex) bool { return len(r[ix.ID()]) > 0 }
+
 func (r rbacRelated) Objects(ix model.RelatedIndex, key string) []*unstructured.Unstructured {
 	return r[ix.ID()][key]
 }

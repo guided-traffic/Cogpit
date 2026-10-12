@@ -28,12 +28,18 @@ type Related interface {
 	// index's kind is still listing, when the cluster does not serve it, or when the profile did
 	// not declare the index.
 	Objects(index RelatedIndex, key string) []*unstructured.Unstructured
+	// Listed reports whether the profile declared the index, the cluster serves its kind and the
+	// kind finished its initial list: only then does an empty Objects mean that no object has the
+	// key, rather than that the objects are not known yet (a binding to a cluster role that does
+	// not exist warns; one whose roles are still listing does not).
+	Listed(index RelatedIndex) bool
 }
 
-// noRelated answers every lookup with nothing.
+// noRelated answers every lookup with nothing, and knows nothing.
 type noRelated struct{}
 
 func (noRelated) Objects(RelatedIndex, string) []*unstructured.Unstructured { return nil }
+func (noRelated) Listed(RelatedIndex) bool                                  { return false }
 
 // NoRelated is a Related without objects, for rows and details built outside a view.
 var NoRelated Related = noRelated{}

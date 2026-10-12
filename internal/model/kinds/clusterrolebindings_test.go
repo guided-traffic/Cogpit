@@ -55,6 +55,9 @@ func accessRelatedFrom(ix model.RelatedIndex, objs ...*unstructured.Unstructured
 	return accessRelated{ix.ID(): byKey}
 }
 
+// Listed: a fake built without objects stands for a kind still listing.
+func (r accessRelated) Listed(ix model.RelatedIndex) bool { return len(r[ix.ID()]) > 0 }
+
 func (r accessRelated) Objects(ix model.RelatedIndex, key string) []*unstructured.Unstructured {
 	return r[ix.ID()][key]
 }

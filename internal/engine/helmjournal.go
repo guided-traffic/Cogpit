@@ -19,7 +19,16 @@ type HelmAction string
 const (
 	HelmRollback  HelmAction = "rollback"
 	HelmUninstall HelmAction = "uninstall"
+	// HelmUpgrade: an upgrade of a release to a chart version with new values (helm upgrade). The
+	// entry names the chart and version, never the values: they can hold credentials, and the
+	// release's pending revision in the cluster holds them anyway. An interrupted upgrade leaves the
+	// release pending-upgrade, which the Helm SDK's upgrade refuses; its remedy is a rollback to
+	// FromRevision (architecture §8).
+	HelmUpgrade HelmAction = "upgrade"
 )
+
+// known reports whether the journal knows how to offer an action.
+func (a HelmAction) known() bool { return a == HelmRollback || a == HelmUninstall || a == HelmUpgrade }
 
 // HelmOpState is a journal entry's state.
 type HelmOpState string
@@ -44,7 +53,10 @@ type PendingHelmOp struct {
 	// Revision is the revision a rollback goes back to.
 	Revision int `json:"revision,omitempty"`
 	// FromRevision is the release's newest revision when the action started.
-	FromRevision int         `json:"fromRevision,omitempty"`
+	FromRevision int `json:"fromRevision,omitempty"`
+	// Chart and ChartVersion are what an upgrade installs: the chart's name and version.
+	Chart        string      `json:"chart,omitempty"`
+	ChartVersion string      `json:"chartVersion,omitempty"`
 	Started      time.Time   `json:"started"`
 	StartedBy    Origin      `json:"startedBy"`
 	State        HelmOpState `json:"state"`
@@ -210,7 +222,7 @@ func (j *FileHelmJournal) load() ([]PendingHelmOp, error) {
 		return nil, &HelmJournalError{Path: j.path, Err: fmt.Errorf("format version %d, this Cogpit reads %d", doc.Version, helmJournalVersion)}
 	}
 	for _, e := range doc.Operations {
-		if e.Context == "" || e.Namespace == "" || e.Release == "" || (e.Action != HelmRollback && e.Action != HelmUninstall) {
+		if e.Context == "" || e.Namespace == "" || e.Release == "" || !e.Action.known() {
 			return nil, &HelmJournalError{Path: j.path, Err: errors.New("an entry without a context, namespace, release or known action")}
 		}
 	}

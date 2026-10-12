@@ -46,6 +46,12 @@ related-objects index ([§4.4](#44-tables-details-editors-and-streams)); how acc
 a first `internal/helm` (release decoding, the SDK's action configuration on the connection's own
 client configuration).
 
+Decided on 2026-10-12 for the fourth implementation run (its Phase 0): `model.Related.Listed`
+([§4.4](#44-tables-details-editors-and-streams), built); how the full Secrets scope and Helm's
+`owner=helm` scope share one watch ([§5 › Scopes](#scopes-local-and-virtual-kinds)); the Helm
+upgrade seam, its journal entry and the Helm Upgrade dock tab ([§8](#8-helm-internalhelm); the
+journal action `upgrade` and the tab's type `helmUpgrade` built, the rest by the run).
+
 ---
 
 # Design plan (2026-10-11)
@@ -416,9 +422,11 @@ by "this pod".
   objects' generation as well as the resourceVersion), and builds each index at most once per
   snapshot. A lookup on a kind that is still listing or not served returns nothing. Rows built
   outside a view (`resources.list`) use `Session.BuildRows`. A rule that warns about an object
-  that does not exist (a binding's cluster role) must tell that from a kind still listing: its
-  index also files every object under a key no object has (`ClusterRolesByName` under `""`), and
-  the rule warns only once that key returns objects (2026-10-11).
+  that does not exist (a binding's cluster role) must tell that from a kind still listing: it asks
+  `rel.Listed(index)` (2026-10-12), true once the index is declared and its kind served and
+  listed, and warns only then. Until the fourth run moves the rule onto it, `ClusterRolesByName`
+  also files every object under a key no object has (`""`), and the rule warns only once that key
+  returns objects (2026-10-11).
 
 ### 4.5 Kind keys
 
@@ -543,6 +551,21 @@ garbage collector, since Go strings cannot be overwritten); the drawer model
 lists the keys masked, and `secret.reveal` hands one value to the GUI origin only
 (`TestBudgetSecretsViewAndDrawer`: one metadata watch and one GET).
 
+**Covering scopes** (decided 2026-10-12 with [D-13](decisions.md#d-13-cache)'s revision, built by
+the fourth run). A label-selected scope is a subset of the unselected scope of the same resource,
+namespace and metadata flag. While that unselected scope runs (a handle holds it, or it is warm),
+the cache serves the selected scope from it: the selected scope's handles list and get the
+covering informer's objects that match the selector and see its events filtered by it (an object
+whose labels leave the selection arrives as a delete), and no second watch starts. A covered scope
+never keeps its cover alive: when the cover is about to stop while covered handles are open, the
+selected scope starts its own informer, the cover stays until that one has synced, and the
+handover sends the covered handles the difference as events; a selected scope with its own
+informer moves onto a cover that starts later, once the cover has synced. Helm's releases
+(`owner=helm`) are the case it is built for: with the Secrets view open (a full watch since the
+revision of D-13) they are derived from the full Secrets watch, and alone they cost the
+label-selected watch only, so that the Releases view alone never holds every Secret. Helm's
+profile and `Derive` do not change.
+
 - **Local kinds** (`KindProfile.Local`, group `cogpit.io`): objects Cogpit makes itself, the port
   forwards. They live in the backend's local store, a `cache.Memory` with a cache over it, made on
   first use and closed with the backend; writers call `Backend.PutLocal` and `DeleteLocal`; views,
@@ -655,6 +678,35 @@ newer revision after a rollback) is dropped with a note ([`helmops.go`](../../in
 The Helm SDK takes no context, so a running action cannot be cancelled; the SDK's own reads
 (the release history, discovery) are part of the action, not cache reads.
 
+**Upgrade (decided 2026-10-12, Phase 0 of the fourth run; G11, M6).** Lens's Upgrade opens a
+"Helm Upgrade: <name>" dock tab (captured 2026-10-12, [resource parity](../parity/resource-parity.md#helm)):
+
+- **Commands.** `helm.release.upgradeTab` (UI) opens or focuses a release's tab: a `DockTab` of
+  type `helmUpgrade` whose `Ref` is the release and whose `Helm` holds the chart, the version the
+  upgrade installs, the versions the picker offers (the release's own chart version only until
+  chart repositories exist) and Lens's "User-supplied values only"; its values are the tab's editor
+  text (`editor.get`, `editor.setText`), the release's user-supplied values, which agents read as
+  `model.Withheld` as in the drawer. `helm.release.upgrade` (Mutating, as the
+  [privilege footprint](../security/privilege-footprint.md) will rate it) upgrades the release with
+  the tab's values and version, or with a `values` parameter; agents need the user's acceptance as
+  for every mutating command (D-2), and the audit log records it without the values. The
+  confirmation binds the newest release Secret's UID, as rollback's does: a release that moved to
+  another revision since is refused.
+- **Seam.** `HelmWriter` gains `UpgradeRelease(ctx, namespace, name string, up HelmUpgradeRequest)
+  (revision int, err error)` with the chart version and the values; the SDK side takes the chart
+  from the release's newest revision (no repository) and runs `action.Upgrade.RunWithContext`
+  (the upgrade takes a context, unlike rollback and uninstall) with the helm CLI's defaults (hooks
+  waited for, 5 minutes) and history kept to ten revisions, as Lens does (captured 2026-10-12).
+- **Crash safety.** The journal records an `upgrade` (built: the action, `FromRevision`, `Chart`,
+  `ChartVersion`, never the values, which can hold credentials and which the release's pending
+  revision holds anyway). On the next connect an entry is dropped as finished when the cache shows
+  the release deployed at a revision above `FromRevision`; otherwise it is offered, and finishing
+  it rolls the release back to `FromRevision`: the Helm SDK's upgrade refuses a release left
+  `pending-upgrade`, its rollback does not.
+- **The journal files** (`drains.json`, `helm.json`) get a lock across Cogpit processes and an
+  owning process per entry ([H-22](../security/privilege-footprint.md#h-22-two-cogpit-processes-share-the-journals)),
+  a change of the journals' storage that the upgrade's entries ride on.
+
 ## 9. Metrics (`internal/metrics`)
 
 Detect a provider per cluster (metrics-server, Prometheus through the API server's service proxy,
@@ -734,6 +786,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Phase 0 of the fourth run: `model.Related.Listed`; covering scopes for the full Secrets watch and Helm's releases; the Helm upgrade's commands, seam, journal entry and dock tab |
 | 2026-10-11 | minor | Access reviews built (§4.2): which review answers what, the namespaces the sidebar reviews, bounds and events, measured request counts; no TTL (§5); `ErrNotApplicable` before a denial |
 | 2026-10-11 | minor | §4.4: drawer tables of cells (`model.CellTable`: links, status colours, the warning icon) and cells of several lines; telling a missing related object from a kind still listing |
 | 2026-10-11 | minor | §4.5: `FallbackVersions`, a built-in kind's older API versions, picked by discovery at connect |

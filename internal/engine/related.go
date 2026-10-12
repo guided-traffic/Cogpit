@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime/debug"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -178,6 +179,16 @@ func (v *relatedView) Objects(ix model.RelatedIndex, key string) []*unstructured
 		v.idx[id] = byKey
 	}
 	return byKey[key]
+}
+
+// Listed implements model.Related: the index is declared, its kind served and listed.
+func (v *relatedView) Listed(ix model.RelatedIndex) bool {
+	id := ix.ID()
+	if !slices.ContainsFunc(v.r.needs, func(n model.RelatedIndex) bool { return n.ID() == id }) {
+		return false
+	}
+	h, ok := v.r.handles[ix.Kind]
+	return ok && h.HasSynced()
 }
 
 // BuildRows builds table rows for objects of a kind as its view would, related objects included:

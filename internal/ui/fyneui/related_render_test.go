@@ -25,6 +25,8 @@ import (
 // engine's index does: an object is found under every key its index's Keys returns.
 type fixtureRelated map[string][]*unstructured.Unstructured
 
+func (r fixtureRelated) Listed(ix model.RelatedIndex) bool { _, ok := r[ix.Kind]; return ok }
+
 func (r fixtureRelated) Objects(ix model.RelatedIndex, key string) []*unstructured.Unstructured {
 	var out []*unstructured.Unstructured
 	for _, o := range r[ix.Kind] {

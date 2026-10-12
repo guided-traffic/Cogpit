@@ -28,6 +28,9 @@ func TestPriorityClassesStatusTexts(t *testing.T) {
 // indexedRelated answers lookups from a map of index id and key to objects.
 type indexedRelated map[string][]*unstructured.Unstructured
 
+// Listed: every index of the fake is listed.
+func (f indexedRelated) Listed(model.RelatedIndex) bool { return true }
+
 func (f indexedRelated) Objects(ix model.RelatedIndex, key string) []*unstructured.Unstructured {
 	return f[ix.ID()+"/"+key]
 }
