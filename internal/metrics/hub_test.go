@@ -288,9 +288,8 @@ func TestMissingAPIIsDetectedAgain(t *testing.T) {
 	f := newFake()
 	det.set(f, metrics.State{Status: metrics.StatusAvailable, Provider: "fake", Label: "Fake"})
 	eventually(t, "polls after the install", func() bool { return f.count("list pods") > 0 })
-	if !h.State(allPods).Usable() {
-		t.Errorf("state = %+v, want available", h.State(allPods))
-	}
+	// The state is stored after the list returns: wait for it, not for the call (testing.md).
+	eventually(t, "the state available", func() bool { return h.State(allPods).Usable() })
 }
 
 func TestErrorsAreStates(t *testing.T) {

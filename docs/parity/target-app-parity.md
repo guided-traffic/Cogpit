@@ -84,11 +84,11 @@ counts when it exists in some form; nine counted rows are done, the rest partial
 |---|---:|---|---:|---|
 | Resource views | 30% | 55 / 64 | 85.9% | measured ([resource-parity](resource-parity.md)); ten of them the Gateway API views, generic until captured |
 | Resource actions | 20% | 29 / 39 | 74.4% | measured ([resource-parity](resource-parity.md)) |
-| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 54 / 120 | 45.0% | measured ([ui-parity](ui-parity.md), free rows) |
+| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 55 / 120 | 45.8% | measured ([ui-parity](ui-parity.md), free rows) |
 | Cluster authentication and connectivity | 10% | 4 / 13 | 30.8% | measured ([platform-parity](platform-parity.md#cluster-authentication-and-connectivity)) |
 | Platforms and packages | 5% | 1 / 13 | 7.7% | measured ([platform-parity](platform-parity.md#operating-systems-and-packages)) |
 | Paid Lens Desktop features | 10% | 1 / 11 | 9.1% | measured ([premium list](https://docs.lenshq.io/k8slens/premium-features/) without extensions, D-5): the editor's diff, partial |
-| **Weighted** | 100% | | **56.3%** | |
+| **Weighted** | 100% | | **56.5%** | |
 
 ## Ready for real work
 
@@ -241,6 +241,7 @@ LiteLLM or Open WebUI endpoint for the built-in agent.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Recount after the fifth run (lead): the interface 55 of 120 free rows (CPU and Memory columns from metrics-server), weighted 56.5% |
 | 2026-10-12 | major | Fourth measurement after the fourth implementation run, counted by `make parity`: breadth ~56% (55 of 64 views, 29 of 39 actions, 54 of 120 interface rows after D-21, 4 of 13 connectivity rows), ready ~26%, mainstream ~25%, essentials ~34% (estimated); alpha ~135–370 h, free parity ~420–1,040 h |
 | 2026-10-12 | minor | `make parity` reproduces the breadth table (55 / 64, 28 / 39, 52 / 121, 3 / 13, 1 / 13; 54.5% weighted) and guards it in CI; how to re-measure |
 | 2026-10-11 | major | Third measurement after the third implementation run: breadth ~54% (measured: 55 of 64 views, 28 of 39 actions, 52 of 121 interface rows, 3 of 13 connectivity rows), ready ~23%, mainstream ~24%, essentials ~32% (estimated); alpha ~150–400 h, free parity ~430–1,060 h |

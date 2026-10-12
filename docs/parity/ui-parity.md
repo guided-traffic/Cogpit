@@ -25,7 +25,7 @@ Modifier names are macOS first (⌘ ⌥ ⇧ ⌃); Windows and Linux use Ctrl and
 marked per row; rows without evidence are missing.
 
 **Summary (measured, 2026-10-12, after the fourth implementation run, counted by `make parity`):**
-55 of 133 rows exist (was 53): 54 of the 120 free-plan rows (46 partial, 8 done: the cell tooltip, right-click on a
+56 of 133 rows exist (was 55): 55 of the 120 free-plan rows (47 partial, 8 done: the cell tooltip, right-click on a
 row, the dock's "New tab" menu, keyboard navigation in tables and its shortcut row, the container
 port's link, the forward dialog and the drawer's Forward…, each matching its captured row) and one
 paid row (the diff view, partial); 7 more rows are not a target. The fourth run added Kubeconfig
@@ -358,6 +358,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Recount after the fifth run (lead): 56 of 133 rows exist, 55 of the 120 free rows (47 partial, 8 done) |
 | 2026-10-12 | minor | Scope U (G5): the drawer's and the sidebar's widths are the user's, dragged and stored; no row changes status |
 | 2026-10-12 | minor | Scope C2 (G2), following the Kubeconfig Syncs capture: dot files read, a connection closed when its file goes, one dialog for files and folders, `~/.kube` synced by default, a connect's log behind a warning icon, a Remove confirmation naming the path (owner requirement); the two rows stay partial with their remaining differences named; no count moved |
 | 2026-10-12 | trivial | Status colours row: Solarized's accents, contrast held by a test (D-22 built); no count moved |
