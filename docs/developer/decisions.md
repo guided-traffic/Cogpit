@@ -240,6 +240,17 @@ both targets offer: the LiteLLM proxy ("OpenAI-Compatible": `/chat/completions`,
 Settings: base URL, API key (kept in the operating system's keychain), model. Go client candidate:
 `github.com/openai/openai-go/v3` v3.76.0.
 
+**The owner's requirements, restated (2026-10-12, "so that they are not lost"):** a chat inside
+Cogpit like the chat of Claude Code for VS Code, switched on and off by the user; connected to an
+OpenAI-compatible API such as Open WebUI or LiteLLM, so that local models can be used; its agent
+gets Cogpit's tools (the same as the MCP tools) to operate the UI and the cluster. The external
+MCP server (the loopback endpoint other apps on the computer use) can be switched off while the
+chat keeps working: the chat's agent does not go through that server but dispatches the
+registry's commands in-process (`Session.Dispatch` with origin `BuiltInAgent`), so the status
+bar's MCP switch (built 2026-10-12, [D-23](#d-23-a-link-to-the-owner-in-the-status-bar) and
+[architecture §7](architecture.md#7-mcp-and-the-built-in-agent)) affects external agents only.
+The owner confirmed the timing below on 2026-10-12 (the chat comes later).
+
 **Timing:** after the alpha (milestone M10). **Open details:** what cluster data may be sent to
 the LLM endpoint (Secret values never, by default); whether Open WebUI passes client-defined tools
 through to every model (not verified).

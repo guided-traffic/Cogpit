@@ -433,6 +433,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
     pod and one per container, each in the variants **CPU, Memory, Network and Filesystem**; the
     containers' **requests and limits drawn as lines** in the graphs; **events as yellow markers**
     (vertical lines with a diamond, toggled by a flag button) at the time they happened.
+  - **Interactive charts (owner, 2026-10-12):** hovering a chart shows the exact time and value
+    under the pointer (each series' value, the request and limit, an event marker's event).
   - Captured from Lens with the owner (screenshot, 2026-10-12): the Metrics panel's range dropdown,
     the four variant buttons and the event-marker toggle, the source line, the time axis, a legend.
 - **Built (2026-10-12, first slice):** the Metrics Server end to end. Provider detection per cluster
@@ -605,6 +607,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 12–30 h (was 30–60).
 
 ### G21. Built-in agent
+- **Required (owner, 2026-10-12, later, after the alpha):** a VS Code-like chat in Cogpit (as in
+  Claude Code for VS Code), switchable on and off; an OpenAI-compatible endpoint (Open WebUI,
+  LiteLLM) so that local models work; the agent gets Cogpit's tools to operate the UI; it keeps
+  working while the external MCP server is switched off (in-process dispatch, D-10).
 - **Missing:** the chat tab, the OpenAI-compatible client, the tool loop over the registry, limits,
   the data-egress controls, settings with the API key in the keychain
   ([D-10](../developer/decisions.md#d-10-built-in-agent)).
