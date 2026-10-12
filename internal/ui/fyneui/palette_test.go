@@ -388,13 +388,19 @@ func TestParseShortcut(t *testing.T) {
 func TestRegistryShortcutsDoNotCollide(t *testing.T) {
 	sd := fyne.KeyModifierShortcutDefault
 	reserved := map[string]string{}
-	for _, sc := range []*desktop.CustomShortcut{
+	platform := []*desktop.CustomShortcut{
 		{KeyName: fyne.KeyQ, Modifier: sd}, {KeyName: fyne.KeyH, Modifier: sd}, {KeyName: fyne.KeyH, Modifier: sd | fyne.KeyModifierAlt},
-		{KeyName: fyne.KeyM, Modifier: sd}, {KeyName: fyne.KeyF, Modifier: sd | fyne.KeyModifierControl},
+		{KeyName: fyne.KeyM, Modifier: sd},
 		{KeyName: fyne.KeyA, Modifier: sd}, {KeyName: fyne.KeyC, Modifier: sd}, {KeyName: fyne.KeyV, Modifier: sd},
 		{KeyName: fyne.KeyX, Modifier: sd}, {KeyName: fyne.KeyZ, Modifier: sd}, {KeyName: fyne.KeyY, Modifier: sd},
 		{KeyName: fyne.KeyZ, Modifier: sd | fyne.KeyModifierShift},
-	} {
+	}
+	if sd != fyne.KeyModifierControl {
+		// macOS's full screen, ⌃⌘F; where the default modifier is Control (Linux, Windows) the same
+		// expression would read Ctrl+F, the filter's own shortcut there (CI 2026-10-13).
+		platform = append(platform, &desktop.CustomShortcut{KeyName: fyne.KeyF, Modifier: sd | fyne.KeyModifierControl})
+	}
+	for _, sc := range platform {
 		reserved[sc.ShortcutName()] = "the platform or a text field"
 	}
 	for _, k := range []fyne.KeyName{fyne.KeyLeft, fyne.KeyRight, fyne.KeyUp, fyne.KeyDown, fyne.KeyHome, fyne.KeyEnd, fyne.KeyBackspace, fyne.KeyDelete} {

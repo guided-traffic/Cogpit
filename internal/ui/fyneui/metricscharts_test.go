@@ -1,6 +1,7 @@
 package fyneui
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -82,10 +83,19 @@ func TestEveryChartHasItsOwnControls(t *testing.T) {
 
 // A container that appears later gets the defaults, whatever the others show.
 func TestLateContainerStartsWithCPU(t *testing.T) {
-	sh, _, _ := metricsDrawerFor(t, twoContainerPod(t), ThemeDark, nil)
+	sh, _, q := metricsDrawerFor(t, twoContainerPod(t), ThemeDark, nil)
 	p := sh.drawer.kept[metricsKey].(*metricsPanel)
 	p.variants[variantMemory].OnTapped()
-	withEnvoy(p.data)
+	// The tap reaches the engine on another goroutine, which reads the metrics it holds: wait for
+	// its answer, then add the container to a copy (mutating the shared one raced, CI 2026-10-13).
+	q.until(t, "the pod's Memory from the engine", func() bool {
+		p = sh.drawer.kept[metricsKey].(*metricsPanel)
+		return p.data != nil && len(p.data.Targets) > 0 && p.data.Targets[0].Variant == engine.VariantMemory
+	})
+	d := *p.data
+	d.Targets = slices.Clone(d.Targets)
+	withEnvoy(&d)
+	p.data = &d
 	p.render()
 	p.d.rebuild()
 	settle(sh.win)
