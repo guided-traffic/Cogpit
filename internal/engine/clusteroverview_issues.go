@@ -64,7 +64,10 @@ type overviewBuild struct {
 	groups  map[string]groupTotals
 	masters []string // the control-plane nodes, sorted
 	synced  bool
-	errText string
+	// nodesSynced: the nodes are listed (or cannot be read), so masters names the whole control plane
+	// as far as Cogpit can know it.
+	nodesSynced bool
+	errText     string
 	// expires is when the next event's issue leaves the last hour; zero when none will.
 	expires time.Time
 }
@@ -124,7 +127,8 @@ func (src *overviewSource) build(now time.Time) *overviewBuild {
 	src.mu.Lock()
 	defer src.mu.Unlock()
 	ob := &overviewBuild{at: now, synced: src.synced(), errText: src.errText(), // before the lists: never claims more
-		groups: map[string]groupTotals{NodesMaster: {}, NodesWorker: {}}}
+		nodesSynced: src.nodes == nil || src.nodes.handle.HasSynced() || src.nodes.handle.Err() != nil,
+		groups:      map[string]groupTotals{NodesMaster: {}, NodesWorker: {}}}
 	context := src.b.Context
 
 	nodeGroup := map[string]string{}

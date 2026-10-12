@@ -162,8 +162,8 @@ func (c *overviewCharts) follow(ob *overviewBuild) {
 	if changed && ob.synced { // a count of a partial list is not the cluster's
 		c.sampleLocked(ob, ob.at)
 	}
-	if c.b.Metrics == nil || !ob.synced && len(ob.masters) == 0 && ob.groups[NodesWorker].nodes == 0 {
-		return // no nodes known yet: subscribe once they are, not to a scope about to change
+	if c.b.Metrics == nil || !ob.nodesSynced {
+		return // the nodes are still listing: subscribe once the control plane is known, not to a scope about to change
 	}
 	sc := metrics.ClusterScope(ob.masters)
 	if c.sub != nil && c.scope == sc {
