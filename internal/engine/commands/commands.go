@@ -36,6 +36,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerHelm(g)
 	registerHelmUpgrade(g)
 	registerHelmRepos(g)
+	registerHelmInstall(g)
 	registerWorkloadActions(g)
 	registerAttach(g)
 	registerLogs(g)

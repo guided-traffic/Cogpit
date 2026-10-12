@@ -83,7 +83,8 @@ func (s *Session) AuditUser(action string, params any, err error) {
 // send a Secret's manifest even though Cogpit refuses to write Secrets. The parameter is logged as
 // RedactManifests returns it; a "yaml" parameter that is not a string is logged by its type only.
 // Helm values, which can hold credentials, are never logged: helm.release.upgrade's "values", and
-// the "yaml" an agent sets in a Helm Upgrade tab (editor.setText with a helmUpgrade-… id).
+// the "yaml" an agent sets in a Helm Upgrade or Install tab (editor.setText with a helmUpgrade-… or
+// helmInstall-… id).
 func auditParams(raw json.RawMessage) json.RawMessage {
 	var params map[string]any
 	if json.Unmarshal(raw, &params) != nil {
@@ -97,7 +98,7 @@ func auditParams(raw json.RawMessage) json.RawMessage {
 	if !ok {
 		return raw
 	}
-	if id, _ := params["id"].(string); strings.HasPrefix(id, string(DockHelmUpgrade)+"-") {
+	if id, _ := params["id"].(string); strings.HasPrefix(id, string(DockHelmUpgrade)+"-") || strings.HasPrefix(id, string(DockHelmInstall)+"-") {
 		params["yaml"] = withheldParam(v)
 		return marshalParams(params, raw)
 	}

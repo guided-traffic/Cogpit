@@ -47,6 +47,8 @@ type editor struct {
 	// Helm Upgrade tabs only: the revision the values are based on (helmupgrade.go). Never
 	// changed in place: a rebase sets a new one.
 	helm *helmBase
+	// Helm Install tabs only: the chart the tab installs (helminstall.go).
+	install *helmInstallBase
 
 	// pending is set while the editor exists but its tab is not in the dock yet: pruning, which
 	// another command may run meanwhile, keeps it.

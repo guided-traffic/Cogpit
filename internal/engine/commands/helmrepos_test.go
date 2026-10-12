@@ -70,8 +70,14 @@ func (c *chartConnector) Connect(_ context.Context, name string) (*engine.Backen
 
 func newChartHarness(t *testing.T, actions engine.Actions, opts ...engine.HelmReposOption) *chartHarness {
 	t.Helper()
-	h := &chartHarness{src: testkit.NewMemorySource(), cfg: t.TempDir(), cacheDir: t.TempDir(), audit: &syncBuffer{},
-		journal: engine.NewMemoryHelmJournal(), answer: true}
+	return newChartHarnessWith(t, engine.NewMemoryHelmJournal(), testkit.NewMemorySource(), actions, opts...)
+}
+
+// newChartHarnessWith is newChartHarness on a journal and a source of the test's own.
+func newChartHarnessWith(t *testing.T, journal *engine.MemoryHelmJournal, src *testkit.MemorySource, actions engine.Actions, opts ...engine.HelmReposOption) *chartHarness {
+	t.Helper()
+	h := &chartHarness{src: src, cfg: t.TempDir(), cacheDir: t.TempDir(), audit: &syncBuffer{},
+		journal: journal, answer: true}
 	h.repo = testkit.NewHelmRepo(t, webChartV("0.1.0"), webChartV("0.2.0"))
 	if actions == nil {
 		actions = &fakeWriter{}

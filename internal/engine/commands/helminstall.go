@@ -1,0 +1,357 @@
+package commands
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/helm"
+	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
+)
+
+// Installing a chart (G11, architecture §8): Install on a chart (the Charts view's row menu and
+// drawer) opens a "Helm Install: <chart>" dock tab with the chart's values.yaml from its
+// repository; helm.chart.preview renders the install against the cluster without changing it and
+// names the objects; helm.chart.install installs the chart through the Helm SDK in Cogpit's
+// process, mutating (privilege-footprint.md), recorded in the Helm journal first (D-11). The
+// values are the user's: agents read them withheld, and no log, error, toast, audit line or journal
+// entry carries them; an agent's inline values are shown to the user before they answer (D-27).
+
+// orderInstall is Install's place in a chart's row menu and drawer: its only action.
+const orderInstall = 100
+
+type installTabParams struct {
+	Ref     model.ObjectRef `json:"ref" jsonschema:"the chart: kind helmcharts, name <repository>.<chart> as resources_list lists it"`
+	Version string          `json:"version,omitempty" jsonschema:"the chart version; empty: the version the chart is listed with (the newest that is not a prerelease)"`
+}
+
+type installParams struct {
+	Tab string `json:"tab,omitempty" jsonschema:"a Helm Install dock tab id as helm_chart_installTab returned it, e.g. helmInstall-1: install its chart and version with its values (editor_setText changes them); give tab, or repository, chart, version and values"`
+	// TextRevision binds an install from a tab to the text the user reviewed.
+	TextRevision uint64 `json:"textRevision,omitempty" jsonschema:"with tab: the tab's text revision the install takes the values at (editor_get and editor_setText return it); the install is refused when the text changed since"`
+	Repository   string `json:"repository,omitempty" jsonschema:"without tab: the chart's repository as helm_repo_list lists it"`
+	Chart        string `json:"chart,omitempty" jsonschema:"without tab: the chart's name"`
+	Version      string `json:"version,omitempty" jsonschema:"without tab: the chart version (the helmcharts object's spec.versions lists them)"`
+	// Values is a pointer so that empty values (the chart's defaults alone) differ from none given.
+	Values          *string `json:"values,omitempty" jsonschema:"without tab: the release's values as YAML, which become its user-supplied values (empty: the chart's defaults alone)"`
+	Namespace       string  `json:"namespace" jsonschema:"the namespace to install the release into"`
+	Name            string  `json:"name" jsonschema:"the release's name: lowercase letters, digits, '-' and '.', at most 53 characters"`
+	CreateNamespace bool    `json:"createNamespace,omitempty" jsonschema:"create the namespace if it does not exist (helm install --create-namespace); default: no"`
+}
+
+// InstallPreview is what helm.chart.preview returns: the release, the chart and version with the
+// archive's digest, and the objects the install would create, by kind and name.
+type InstallPreview struct {
+	Release    model.ObjectRef `json:"release"`
+	Repository string          `json:"repository"`
+	Chart      string          `json:"chart"`
+	Version    string          `json:"version"`
+	Digest     string          `json:"digest"`
+	Verified   bool            `json:"verified"`
+	helm.InstallPreview
+}
+
+// installSource is what an install installs: the chart and version, and the values text.
+type installSource struct {
+	repository, chart, version string
+	verified                   bool
+	archive                    *helm.Chart // nil until fetched (inline installs)
+	text                       string
+}
+
+func registerHelmInstall(g *registrar) {
+	add(g, engine.Spec[installTabParams]{
+		ID: "helm.chart.installTab", Label: "Install", MenuPath: "Helm/Install", Kinds: []string{kinds.HelmChartsKey},
+		Order: orderInstall, Danger: engine.DangerUI,
+		Description: "Opens a Helm Install dock tab on a chart of a repository added to Cogpit, or activates the one already " +
+			"open on it (at another version: loads that version): Cogpit downloads the chart's archive (checked against the " +
+			"index's digest when it lists one) and shows its values.yaml in an editor, with the versions the repository " +
+			"lists. Writes nothing to a cluster. Agents read the tab's values withheld (editor_get) but may replace them " +
+			"(editor_setText); helm_chart_preview and helm_chart_install with the tab id preview and install it.",
+		Enabled: func(s *engine.Session, p installTabParams) error {
+			if _, _, err := chartOf(s, p.Ref); err != nil {
+				return err
+			}
+			if _, err := helmRepos(s); err != nil {
+				return err
+			}
+			b, err := writable(s)
+			if err != nil {
+				return err
+			}
+			_, err = b.HelmInstaller()
+			return err
+		},
+		Run: func(ctx context.Context, s *engine.Session, p installTabParams) (any, error) {
+			repo, chart, err := chartOf(s, p.Ref)
+			if err != nil {
+				return nil, err
+			}
+			st, created, err := s.OpenHelmInstallTab(ctx, repo, chart, p.Version)
+			if err != nil {
+				return nil, err
+			}
+			if engine.OriginOf(ctx).IsAgent() {
+				st.Text = model.Withheld
+			}
+			return EditResult{Tab: st.Tab, Created: created, Text: st.Text, Revision: st.Revision}, nil
+		},
+	})
+
+	add(g, engine.Spec[installParams]{
+		ID: "helm.chart.preview", Label: "Preview Helm Install", Danger: engine.DangerRead,
+		Verbs: []engine.Verb{{Verb: nwVerbGet, Resource: "*"}},
+		Description: "Renders a chart install against the connected cluster without changing it (helm install " +
+			"--dry-run=server): the chart's templates run with the values, and every object they render is read from the " +
+			"cluster to find one that exists already. Returns the objects, hooks and custom resource definitions the " +
+			"install would create, by kind, namespace and name, never their content. Takes the same parameters as " +
+			"helm_chart_install.",
+		Enabled: func(s *engine.Session, p installParams) error { return installEnabled(s, p) },
+		Run: func(ctx context.Context, s *engine.Session, p installParams) (any, error) {
+			b, err := writable(s)
+			if err != nil {
+				return nil, err
+			}
+			installer, err := b.HelmInstaller()
+			if err != nil {
+				return nil, err
+			}
+			src, err := installSourceOf(ctx, s, p, false)
+			if err != nil {
+				return nil, err
+			}
+			vals, err := helm.ParseValues(src.text)
+			if err != nil {
+				return nil, fmt.Errorf("release %s: %w; nothing was rendered", p.Name, err)
+			}
+			pre, err := installer.PreviewInstall(ctx, helm.InstallRequest{Namespace: p.Namespace, Name: p.Name, Chart: src.archive, Values: vals, CreateNamespace: p.CreateNamespace})
+			if err != nil {
+				return nil, helm.Scrubbed(err, src.archive.UserValues(vals))
+			}
+			return InstallPreview{Release: engine.HelmReleaseRef(b.Context, p.Namespace, p.Name), Repository: src.repository, Chart: src.chart,
+				Version: src.version, Digest: src.archive.Digest, Verified: src.archive.Verified, InstallPreview: pre}, nil
+		},
+	})
+
+	add(g, engine.Spec[installParams]{
+		ID: "helm.chart.install", Label: "Install", Danger: engine.DangerMutating, Verbs: releaseSecretVerbs("list", "get", "create", "update"),
+		Description: "Installs a chart from a repository added to Cogpit as a new release, as helm install does with its " +
+			"defaults (hooks waited for, 5 minutes; no --create-namespace unless createNamespace): the chart and version of a " +
+			"Helm Install tab with its values (tab), or a chart, version and values given here. The archive is checked " +
+			"against its index's digest when the index lists one. Refused when a release of that name exists in the " +
+			"namespace. Besides the release's Secrets it needs whatever verbs creating the chart's objects needs (server-side " +
+			"apply: patch, and create), create on namespaces with createNamespace and on customresourcedefinitions for a " +
+			"chart's crds/ folder; helm_chart_preview names the objects first. An agent's request waits for the user's " +
+			"acceptance, which shows values given here. An install a crash of Cogpit interrupts stays in " +
+			"helm_pendingOperations; helm_release_uninstall finishes it.",
+		Enabled: func(s *engine.Session, p installParams) error {
+			if err := installEnabled(s, p); err != nil {
+				return err
+			}
+			if s.HelmOps() == nil {
+				return engine.ErrNoHelmJournal
+			}
+			if b := s.Backend(); b != nil && s.HelmOps().Running(b.Context, p.Namespace, p.Name) {
+				return fmt.Errorf("a Helm action on release %s is running", p.Name)
+			}
+			return nil
+		},
+		Targets: func(s *engine.Session, p installParams) ([]model.ObjectRef, error) {
+			b, err := connected(s)
+			if err != nil {
+				return nil, err
+			}
+			return []model.ObjectRef{engine.HelmReleaseRef(b.Context, p.Namespace, p.Name)}, nil
+		},
+		Detail: installDetail,
+		// The values an agent passes inline are shown to the user before they answer (D-27); from
+		// a tab, the tab is what the user reviews.
+		Review: func(_ *engine.Session, p installParams) string {
+			switch {
+			case p.Tab != "" || p.Values == nil:
+				return ""
+			case strings.TrimSpace(*p.Values) == "":
+				return "# no values: the chart's defaults"
+			}
+			return *p.Values
+		},
+		Run: runInstall,
+	})
+}
+
+// chartOf resolves a chart reference (kind helmcharts) to its repository and chart name; the chart
+// must be listed.
+func chartOf(s *engine.Session, ref model.ObjectRef) (repository, chart string, err error) {
+	if ref.Kind != kinds.HelmChartsKey {
+		return "", "", fmt.Errorf("%w: %s is not a Helm chart", engine.ErrNotApplicable, ref.String())
+	}
+	repository, chart, ok := kinds.SplitHelmChartName(ref.Name)
+	if !ok {
+		return "", "", fmt.Errorf("%q names no chart: <repository>.<chart>", ref.Name)
+	}
+	if _, err := s.Lookup(ref); err != nil {
+		return "", "", err
+	}
+	return repository, chart, nil
+}
+
+// installEnabled checks what the preview and the install share: a cluster that can be written to,
+// the repositories, the names, and the tab or the chart.
+func installEnabled(s *engine.Session, p installParams) error {
+	if _, err := helmRepos(s); err != nil {
+		return err
+	}
+	b, err := writable(s)
+	if err != nil {
+		return err
+	}
+	if _, err := b.HelmInstaller(); err != nil {
+		return err
+	}
+	if err := helm.CheckReleaseName(p.Name); err != nil {
+		return err
+	}
+	if err := helm.CheckNamespace(p.Namespace); err != nil {
+		return err
+	}
+	switch {
+	case p.Tab != "" && (p.Values != nil || p.Repository != "" || p.Chart != "" || p.Version != ""):
+		return errors.New("give tab, or repository, chart, version and values, not both")
+	case p.Tab != "":
+		t, err := s.HelmInstallTab(p.Tab)
+		if err != nil {
+			return err
+		}
+		if t.Tab.Context != b.Context {
+			return fmt.Errorf("%w: the tab %s belongs to context %s", engine.ErrWrongCluster, p.Tab, t.Tab.Context)
+		}
+	case p.Repository == "" || p.Chart == "" || p.Version == "":
+		return errors.New("give a Helm Install tab (tab), or the chart's repository, chart and version")
+	case p.Values == nil:
+		return errors.New("give the values (empty: the chart's defaults alone)")
+	}
+	return nil
+}
+
+// installSourceOf resolves what an install installs: a tab's chart, version and values (with
+// bound, the text revision the request names must be the tab's), or a chart version downloaded
+// from its repository now, checked against the index's digest.
+func installSourceOf(ctx context.Context, s *engine.Session, p installParams, bound bool) (installSource, error) {
+	if p.Tab != "" {
+		t, err := s.HelmInstallTab(p.Tab)
+		if err != nil {
+			return installSource{}, err
+		}
+		if bound {
+			if p.TextRevision == 0 {
+				return installSource{}, fmt.Errorf("give textRevision, the revision of the tab %s's text the install takes (editor_get shows it); nothing was done", p.Tab)
+			}
+			if t.TextRevision != p.TextRevision {
+				return installSource{}, fmt.Errorf("%w: the values in the tab %s changed since text revision %d (now %d); nothing was done: review them and install again",
+					engine.ErrTargetsChanged, p.Tab, p.TextRevision, t.TextRevision)
+			}
+		}
+		hi := t.Tab.HelmInstall
+		return installSource{repository: hi.Repository, chart: hi.Chart, version: hi.Version, verified: hi.Verified, archive: t.Chart, text: t.Values}, nil
+	}
+	repos, err := helmRepos(s)
+	if err != nil {
+		return installSource{}, err
+	}
+	ch, _, err := repos.FetchChart(ctx, p.Repository, p.Chart, p.Version)
+	if err != nil {
+		return installSource{}, err
+	}
+	return installSource{repository: p.Repository, chart: p.Chart, version: p.Version, verified: ch.Verified, archive: ch, text: *p.Values}, nil
+}
+
+// installDetail is the confirmation's sentence: the chart, its version and how its archive was
+// checked, and where the values come from. The objects name the release, its namespace and the
+// context.
+func installDetail(s *engine.Session, p installParams) string {
+	repo, chart, version, checked := p.Repository, p.Chart, p.Version, ""
+	if p.Tab != "" {
+		if t, err := s.HelmInstallTab(p.Tab); err == nil && t.Tab.HelmInstall != nil {
+			hi := t.Tab.HelmInstall
+			repo, chart, version = hi.Repository, hi.Chart, hi.Version
+			checked = "its archive did not match a digest: the index lists none"
+			if hi.Verified {
+				checked = "its archive matched the index's digest"
+			}
+		}
+	} else if repos := s.HelmRepos(); repos != nil {
+		if _, _, v, err := repos.ChartVersion(p.Repository, p.Chart, p.Version); err == nil {
+			checked = "the index lists no digest, so the archive cannot be checked"
+			if v.Digest != "" {
+				checked = "the archive is checked against the index's digest"
+			}
+		}
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "A new release is installed from chart %s/%s %s", repo, chart, version)
+	if checked != "" {
+		fmt.Fprintf(&b, " (%s)", checked)
+	}
+	if p.CreateNamespace {
+		fmt.Fprintf(&b, ", creating namespace %s if it does not exist", p.Namespace)
+	}
+	if p.Tab != "" {
+		fmt.Fprintf(&b, ", with the values in the tab %s at its text revision %d (review them there; a change refuses the install).", p.Tab, p.TextRevision)
+	} else {
+		b.WriteString(", with the values below.")
+	}
+	b.WriteString(" Its objects are created with your identity; helm_chart_preview names them.")
+	return b.String()
+}
+
+func runInstall(ctx context.Context, s *engine.Session, p installParams) (any, error) {
+	b, err := writable(s)
+	if err != nil {
+		return nil, err
+	}
+	installer, err := b.HelmInstaller()
+	if err != nil {
+		return nil, err
+	}
+	if err := engine.CheckConfirmedContext(ctx, b.Context); err != nil {
+		return nil, err
+	}
+	ref := engine.HelmReleaseRef(b.Context, p.Namespace, p.Name)
+	if _, err := s.Lookup(ref); err == nil {
+		return nil, fmt.Errorf("a release named %s exists in namespace %s; nothing was done", p.Name, p.Namespace)
+	}
+	src, err := installSourceOf(ctx, s, p, true)
+	if err != nil {
+		return nil, err
+	}
+	vals, err := helm.ParseValues(src.text)
+	if err != nil {
+		return nil, fmt.Errorf("release %s: %w; nothing was done", p.Name, err)
+	}
+	scrub := src.archive.UserValues(vals)
+	op := engine.PendingHelmOp{
+		Context: b.Context, Namespace: p.Namespace, Release: p.Name, Action: engine.HelmInstall,
+		Chart: src.repository + "/" + src.chart, ChartVersion: src.version, Started: s.Now().UTC(), StartedBy: startedBy(ctx),
+	}
+	var revision int
+	err = runHelmOp(s, op, fmt.Sprintf("Installing release %s from %s/%s %s…", p.Name, src.repository, src.chart, src.version), func() (err error) {
+		defer func() {
+			if r := recover(); r != nil { // scrubbed here: helmSafely would quote the panic as it is
+				err = helm.Scrubbed(fmt.Errorf("internal error: %v", r), scrub)
+			}
+		}()
+		revision, err = installer.InstallChart(ctx, helm.InstallRequest{Namespace: p.Namespace, Name: p.Name, Chart: src.archive, Values: vals, CreateNamespace: p.CreateNamespace})
+		return helm.Scrubbed(err, scrub)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if revision < 1 {
+		revision = 1
+	}
+	userToast(s, engine.LevelInfo, fmt.Sprintf("Release %s installed in namespace %s from %s/%s %s", p.Name, p.Namespace, src.repository, src.chart, src.version))
+	return HelmResult{Ref: ref, Action: "installed", Revision: revision}, nil
+}

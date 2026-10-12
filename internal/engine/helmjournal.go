@@ -25,10 +25,17 @@ const (
 	// release pending-upgrade, which the Helm SDK's upgrade refuses; its remedy is a rollback to
 	// FromRevision (architecture §8).
 	HelmUpgrade HelmAction = "upgrade"
+	// HelmInstall: an install of a chart as a new release (helm install, helminstall.go). The entry
+	// names the chart ("<repository>/<chart>") and version, never the values. An interrupted
+	// install leaves the release pending-install (or failed); its remedy is an uninstall. An entry
+	// of this kind makes the journal unreadable for a Cogpit from before 2026-10-13.
+	HelmInstall HelmAction = "install"
 )
 
 // known reports whether the journal knows how to offer an action.
-func (a HelmAction) known() bool { return a == HelmRollback || a == HelmUninstall || a == HelmUpgrade }
+func (a HelmAction) known() bool {
+	return a == HelmRollback || a == HelmUninstall || a == HelmUpgrade || a == HelmInstall
+}
 
 // HelmOpState is a journal entry's state.
 type HelmOpState string
@@ -54,7 +61,8 @@ type PendingHelmOp struct {
 	Revision int `json:"revision,omitempty"`
 	// FromRevision is the release's newest revision when the action started.
 	FromRevision int `json:"fromRevision,omitempty"`
-	// Chart and ChartVersion are what an upgrade installs: the chart's name and version.
+	// Chart and ChartVersion are what an upgrade installs (the chart's name and version) or an
+	// install installs ("<repository>/<chart>" and the version).
 	Chart        string      `json:"chart,omitempty"`
 	ChartVersion string      `json:"chartVersion,omitempty"`
 	Started      time.Time   `json:"started"`

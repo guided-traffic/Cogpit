@@ -105,9 +105,9 @@ func registerEdit(g *registrar) {
 			st, err := s.EditorState(ctx, p.ID)
 			switch {
 			case err != nil || engine.OriginOf(ctx) == engine.OriginGUI:
-			case st.Tab.Type == engine.DockHelmUpgrade:
+			case engine.HelmValuesTab(st.Tab.Type):
 				if engine.OriginOf(ctx).IsAgent() {
-					st.Text = model.Withheld // a release's values can hold credentials (helmupgrade.go)
+					st.Text = model.Withheld // Helm values can hold credentials (helmupgrade.go, helminstall.go)
 				}
 			case s.EditorHoldsSecret(p.ID):
 				// A Secret in an Edit or Create tab is the user's to see, not an agent's or the CLI's (D-19).

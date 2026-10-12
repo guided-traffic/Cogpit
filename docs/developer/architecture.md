@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (§8: Helm chart repositories kept in Cogpit's own folders and the Charts view, G11; the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7; `cogpit-cli` contexts and get, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (§8: Helm chart repositories kept in Cogpit's own folders, the Charts view and the install, G11; §8: Helm chart repositories kept in Cogpit's own folders and the Charts view, G11; the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7; `cogpit-cli` contexts and get, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-12)
 
@@ -1299,6 +1299,58 @@ Where it differs from the contract above, this paragraph wins.
   which https servers it reaches from the user's computer is the user's choice; the lead's default),
   `helm.repo.update` (UI, every origin).
 
+**Install (built 2026-10-13, night run; G11; [`helm/install.go`](../../internal/helm/install.go),
+[`engine/helminstall.go`](../../internal/engine/helminstall.go),
+[`commands/helminstall.go`](../../internal/engine/commands/helminstall.go)).** Lens's Install
+opens a "Helm Install" dock tab (resource parity; the tab itself is not captured, so its layout
+is inferred).
+
+- **The tab.** `helm.chart.installTab` (UI; Install in a chart's row menu and drawer, `ref` the
+  chart, `version` optional: the listed version) downloads the chart's archive (bounded, checked
+  against the index's digest when the index lists one, `ErrDigestMismatch` otherwise; the archive
+  must hold the chart and version the index names) and opens a `DockTab` of type `helmInstall`,
+  titled "Helm Install: <chart>", whose `HelmInstall` holds the repository, chart, version, the
+  versions the index lists, the archive's digest and whether it was verified, the namespace the
+  tab starts with (the namespace filter's single one, else the context's, else `default`) and a
+  release name made from the chart's with five random characters (Cogpit's default; Lens's is not
+  captured). Its editor holds the chart's `values.yaml` as shipped, comments included; agents read
+  it withheld, the audit log records a `helmInstall-…` tab's `editor.setText` by size only, as for
+  an Upgrade tab. The archive stays in memory with the tab, so that the install installs exactly
+  what the tab showed; another version reloads the tab and replaces the values with that
+  version's.
+- **Preview.** `helm.chart.preview` (read) runs the SDK's install with `DryRunServer`: the
+  templates render against the cluster's capabilities, every rendered object is read to find one
+  that exists already and is not the release's, nothing is written. It returns the objects, the
+  hooks and the custom resource definitions of the chart's `crds/` folder by kind, namespace and
+  name, never their content (a rendered manifest holds the values).
+- **Install.** `helm.chart.install` (mutating) takes a tab with its text revision (an install from
+  a tab is bound to the text the user reviewed, as an upgrade is), or a repository, chart, version
+  and values (agents); the namespace, the release name and `createNamespace` (off by default) are
+  parameters. Refused when the cache holds a release of that name in the namespace; the SDK side
+  refuses one whose history exists on the server before anything runs. The SDK runs with the helm
+  CLI's defaults: server-side apply, hooks waited for, 5 minutes, no `--atomic`, no dependency
+  update (a chart whose `charts/` lacks a dependency is refused, as is a library chart), no
+  post-renderer, no DNS lookups; `RunWithContext` gets `context.WithoutCancel` as the upgrade does.
+  An error the SDK returns before it stored revision 1 (a template or schema that refuses the
+  values, an object that exists, a missing namespace) is `helm.ErrUnchanged`: the journal entry is
+  removed. Custom resource definitions from `crds/` and a namespace created with
+  `createNamespace` stay after such an error, as helm leaves them.
+- **What binds and who is asked.** The GUI's install is not confirmed by the engine (mutating, D-2);
+  the Install tab shows the preview first and installs only from that dialog (Cogpit's choice).
+  An agent's install waits for the user's acceptance: the confirmation names the release, its
+  namespace and the context (its object), the chart, version and how the archive was checked
+  (its detail), and shows values given inline ([D-27](decisions.md#d-27-an-agents-helm-values-in-the-confirmation)).
+- **Values never leave the user's window.** Errors, toasts, the journal and the SDK's log lines
+  during a preview or an install are scrubbed (`ScrubValues`) of the values that differ from the
+  chart's defaults (`Chart.UserValues`): the defaults are public, and scrubbing them would hide an
+  image or a service type from every message.
+- **Crash safety** ([D-11](decisions.md#d-11-crash-stance)). The journal records an `install`
+  (`Chart` as `<repository>/<chart>`, `ChartVersion`, never the values) before the SDK runs. On the
+  next connect the entry is dropped when the release is deployed (finished) or does not exist (the
+  install never stored it); otherwise (pending-install, failed) it is offered and finishing it
+  uninstalls the release (`TestHelmInstallCrashJournal`). A journal holding an `install` entry is
+  unreadable for a Cogpit from before 2026-10-13 (the file format stays version 1).
+
 ## 9. Metrics (`internal/metrics`)
 
 Metrics cannot be watched, so they are the one documented exception to "never poll what can be
@@ -1867,6 +1919,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | §8 install (G11, night run): the Helm Install tab with the chart downloaded and checked against the index digest, the server-side dry run as the preview, the install as a crash-safe job offered as an uninstall, values scrubbed of what differs from the chart's defaults |
 | 2026-10-13 | minor | §8 chart repositories (G11, night run): kept in Cogpit's own folders (the lead's default), public https only, indexes downloaded on add, on update and while the Charts view or a Helm Install tab is open past a 10-minute TTL, bounded and parsed with the SDK; the charts as the local kind `helmcharts` |
 | 2026-10-13 | minor | §4.2 the command palette (G13, night run): which commands it lists by the registry's metadata, how it runs them, the shortcuts bound from the registry; §4.3 `UIState.Palette`; one line in Current state, 97 commands |
 | 2026-10-13 | minor | §7 the stdio bridge as built: the endpoint file beside the token, forwarding with origin `ExternalAgent`, following a restart, the headless fallback; Current state rows of `internal/mcp` and `cmd/cogpit-cli` |

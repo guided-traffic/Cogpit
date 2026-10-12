@@ -106,14 +106,14 @@ func registerHelm(g *registrar) {
 	add(g, engine.Spec[pendingHelmParams]{
 		ID: "helm.pendingOperations", Label: "Unfinished Helm Actions", Danger: engine.DangerRead,
 		Verbs: releaseCacheReads,
-		Description: "Lists the Helm rollbacks, uninstalls and upgrades Cogpit started on the connected context (all: on every " +
+		Description: "Lists the Helm rollbacks, uninstalls, upgrades and installs Cogpit started on the connected context (all: on every " +
 			"context) that did not finish: context, namespace, release, action, the target revision of a rollback, the " +
-			"revision an upgrade started from (fromRevision) and its chart, when and by whom started, status (running in " +
+			"revision an upgrade started from (fromRevision) and its chart (an install's as <repository>/<chart>), when and by whom started, status (running in " +
 			"this Cogpit or, with elsewhere and its owner's process, in another one, interrupted by an earlier run of Cogpit ending, or failed with its error) and the release's status " +
-			"from the cache (pending-rollback, pending-upgrade, uninstalling, deployed, missing, unknown). Offer " +
+			"from the cache (pending-install, pending-rollback, pending-upgrade, uninstalling, deployed, missing, unknown). Offer " +
 			"helm_release_rollback or helm_release_uninstall again to finish a rollback or an uninstall; an upgrade is " +
 			"finished by helm_release_rollback to its fromRevision (the Helm SDK refuses to upgrade a release left " +
-			"pending-upgrade). helm_dismissOperation forgets one.",
+			"pending-upgrade); an install by helm_release_uninstall. helm_dismissOperation forgets one.",
 		Run: func(_ context.Context, s *engine.Session, p pendingHelmParams) (any, error) {
 			list, err := s.PendingHelmOps(p.All)
 			if err != nil {

@@ -170,8 +170,13 @@ func (h *HelmOps) dropFinished(s *Session, ctxName string, pending []PendingHelm
 // rollback or an upgrade whose release is deployed at a revision above the one it started from,
 // and an upgrade whose release is still at that revision, which never started: Cogpit ended (or
 // the Helm SDK refused) before the SDK made its pending revision, and nothing changed. An upgrade
-// left pending-upgrade or failed above it is offered: finishing it rolls back to FromRevision.
+// left pending-upgrade or failed above it is offered: finishing it rolls back to FromRevision. An
+// install (FromRevision 0) whose release is deployed finished; one whose release does not exist
+// never stored it; one left pending-install or failed is offered, and finishing it uninstalls.
 func helmOpFinished(e PendingHelmOp, obj *unstructured.Unstructured, found bool) string {
+	if !found && e.Action == HelmInstall {
+		return "the release does not exist: the install never stored it, or it was uninstalled since"
+	}
 	if !found {
 		return "the release no longer exists"
 	}
@@ -179,7 +184,7 @@ func helmOpFinished(e PendingHelmOp, obj *unstructured.Unstructured, found bool)
 	switch {
 	case e.Action == HelmUpgrade && rev == e.FromRevision:
 		return "it never reached the cluster, the release is unchanged"
-	case deployed && rev > e.FromRevision && (e.Action == HelmRollback || e.Action == HelmUpgrade):
+	case deployed && rev > e.FromRevision && (e.Action == HelmRollback || e.Action == HelmUpgrade || e.Action == HelmInstall):
 		return "the cluster shows it finished"
 	}
 	return ""

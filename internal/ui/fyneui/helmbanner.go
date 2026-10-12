@@ -15,7 +15,7 @@ import (
 
 // helmBanner shows the connected context's unfinished Helm release actions below the top bar, one
 // row each, as drainBanner shows drains (D-11): what happened to the release, and Finish (the
-// rollback or uninstall again, as recorded, confirmed as usual) and Dismiss
+// rollback or uninstall again, as recorded, confirmed as usual; an install's Uninstall) and Dismiss
 // (helm.dismissOperation). An action running in this window shows as running. The engine announces
 // changes with EventHelm; the banner reads the actions with helm.pendingOperations, so that it
 // shows what an agent would read.
@@ -104,6 +104,10 @@ func (b *helmBanner) row(op engine.PendingHelmOpInfo) fyne.CanvasObject {
 			finish = widget.NewButtonWithIcon(fmt.Sprintf("Roll back to revision %d", op.FromRevision), theme.MediaPlayIcon(), func() {
 				b.sh.dispatch("helm.release.rollback", helmRollbackParams{refParams: refParams{Ref: ref}, Revision: op.FromRevision}, nil)
 			})
+		case engine.HelmInstall: // an install left pending-install or failed is undone by an uninstall
+			finish = widget.NewButtonWithIcon("Uninstall", theme.DeleteIcon(), func() {
+				b.sh.dispatch("helm.release.uninstall", refParams{Ref: ref}, nil)
+			})
 		default:
 			finish = widget.NewButtonWithIcon("Finish uninstall", theme.MediaPlayIcon(), func() {
 				b.sh.dispatch("helm.release.uninstall", refParams{Ref: ref}, nil)
@@ -127,6 +131,8 @@ func helmOpTitle(op engine.PendingHelmOpInfo) string {
 		what = fmt.Sprintf("The rollback of release %s to revision %d", op.Release, op.Revision)
 	case engine.HelmUpgrade:
 		what = fmt.Sprintf("The upgrade of release %s from revision %d to %s %s", op.Release, op.FromRevision, op.Chart, op.ChartVersion)
+	case engine.HelmInstall:
+		what = fmt.Sprintf("The install of release %s from %s %s", op.Release, op.Chart, op.ChartVersion)
 	}
 	switch op.Status {
 	case engine.HelmOpStatusRunning:
@@ -135,6 +141,8 @@ func helmOpTitle(op engine.PendingHelmOpInfo) string {
 			return fmt.Sprintf("Rolling back release %s to revision %d", op.Release, op.Revision)
 		case engine.HelmUpgrade:
 			return fmt.Sprintf("Upgrading release %s to %s %s", op.Release, op.Chart, op.ChartVersion)
+		case engine.HelmInstall:
+			return fmt.Sprintf("Installing release %s from %s %s", op.Release, op.Chart, op.ChartVersion)
 		}
 		return "Uninstalling release " + op.Release
 	case engine.HelmOpStatusFailed:

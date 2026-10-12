@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -283,7 +283,9 @@ priority does not carry over as is. Consequences:
   values), and one interrupted with the release `pending-upgrade` is offered as a rollback to the
   revision it started from, since the Helm SDK's upgrade refuses a pending release and its
   rollback does not. The journals are locked between Cogpit processes, each entry naming its
-  owning process (H-22). Helm install is open.
+  owning process (H-22). Helm install is open; built 2026-10-13 on the same road as the lead's
+  default until the owner decides: the journal records the install, never its values, and one
+  interrupted with the release `pending-install` or failed is offered as an uninstall.
 - **Unsaved editor content** is kept in a local draft so that a crash does not lose it.
 - **Crash reports (built 2026-10-12, after a crash in the owner's smoke test left nothing to read):**
   the Go runtime writes a crash's text into `<user config dir>/Cogpit/crash.log` as well (mode 0600,
@@ -757,6 +759,7 @@ click, but an approval that no longer binds the server: a changed server in `con
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-11: Helm install built on the journal's road as the lead's default (an interrupted install offered as an uninstall); the decision stays the owner's |
 | 2026-10-12 | minor | D-11: crash reports kept locally (built), and what they found first |
 | 2026-10-12 | minor | D-14: the upstream pull requests opened (#155–#158, owner's OK) |
 | 2026-10-12 | minor | D-28 (owner, built, scope C4): one approval dialog per file and identical plugin, listing every context with its server and trust; the approvals stay per context with their own fingerprints; approveExec takes the list and refuses all if one changed |

@@ -85,6 +85,8 @@ var wantCommands = map[string]engine.Danger{
 	// refused (TestHelmReposAreTheUsers).
 	"helm.repo.list": engine.DangerRead, "helm.repo.add": engine.DangerUI, "helm.repo.remove": engine.DangerUI,
 	"helm.repo.update": engine.DangerUI,
+	// Installing a chart (G11): the tab is UI, the preview a read, the install mutating (D-2).
+	"helm.chart.installTab": engine.DangerUI, "helm.chart.preview": engine.DangerRead, "helm.chart.install": engine.DangerMutating,
 
 	// Workload actions and logs (G7, G8).
 	"daemonset.restart":   engine.DangerDestructive,

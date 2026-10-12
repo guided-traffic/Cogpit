@@ -59,7 +59,7 @@ func (s *Session) EditorHoldsSecret(id string) bool {
 	if e.tab.Type == DockEdit && RedactedKind(e.target.APIVersion, e.target.Kind) {
 		return true
 	}
-	return e.tab.Type != DockHelmUpgrade && TextHoldsSecret(e.text)
+	return !HelmValuesTab(e.tab.Type) && TextHoldsSecret(e.text)
 }
 
 // GuardSecretEditor refuses every origin but the GUI a command on the editor tab id when the tab
