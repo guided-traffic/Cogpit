@@ -27,6 +27,9 @@ type StateResult struct {
 	// ViewError is what keeps the view from showing objects: a list the cluster refuses, or a
 	// custom resource kind the cluster no longer serves.
 	ViewError string `json:"viewError,omitempty"`
+	// DrawerCharts are the charts of the drawer's Metrics section (a pod's or a node's) with their
+	// time ranges, which ui_setMetricsRange sets.
+	DrawerCharts []ChartRange `json:"drawerCharts,omitempty"`
 }
 
 // NavigateResult is ui.navigate's result.
@@ -62,7 +65,8 @@ func registerUI(g *registrar) {
 		ID: "ui.state", Label: "Show UI State", Danger: engine.DangerRead,
 		Description: "Returns what the user sees: the connected context and its connection state, the open view (kind key), " +
 			"the namespace filter, the search text, the sort order, the selected objects, the object in the detail drawer, " +
-			"the dock tabs, and how many rows the view shows of how many objects. Use it to learn which object the user means.",
+			"the dock tabs, how many rows the view shows of how many objects, and for a pod's or node's drawer the time " +
+			"range of each metrics chart (drawerCharts). Use it to learn which object the user means.",
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			u := s.UIState()
 			res := StateResult{UIState: u}
@@ -71,6 +75,11 @@ func registerUI(g *registrar) {
 			} else if b := s.Backend(); b != nil {
 				if p, ok := b.Profile(u.View); ok {
 					res.ViewTitle = p.Title
+				}
+			}
+			if u.Drawer != nil {
+				if m, err := s.ObjectMetrics(*u.Drawer); err == nil && m != nil {
+					res.DrawerCharts = chartRanges(m)
 				}
 			}
 			return res, nil

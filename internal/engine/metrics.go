@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -138,6 +140,12 @@ type MetricsTarget struct {
 	// Filesystem is from a provider with the Filesystem capability: bytes in use, or read and
 	// write rates when ObjectMetrics.FilesystemSource says "io".
 	Filesystem []model.FilesystemSample `json:"filesystem,omitempty"`
+	// Window is the chart's time range as the engine holds it: the default hour unless
+	// ui.setMetricsRange (Session.SetMetricsRange) set another for this chart of the open drawer.
+	// The window's range control shows it, whoever set it. Range is the same as ui.setMetricsRange
+	// writes it ("1h", "7d").
+	Window time.Duration `json:"-"`
+	Range  string        `json:"range"`
 }
 
 // ObjectMetrics is the drawer's Metrics section for a pod or a node: where the numbers come from,
@@ -198,17 +206,30 @@ func (s *Session) ObjectMetrics(ref model.ObjectRef) (*ObjectMetrics, error) {
 	case model.UsageNodes:
 		out.Targets = nodeTargets(b.Metrics, ref, obj, series)
 	}
+	setWindows(out.Targets, s.chartWindows(ref), b.Metrics.DefaultWindow())
 	if hist := b.Metrics.History(scope); hist != nil && st.Usable() {
 		out.FilesystemSource = hist.FilesystemSource
-		applyHistory(out.Targets, hist, s.chartWindows(ref), b.Metrics.DefaultWindow())
+		applyHistory(out.Targets, hist)
 	}
 	return out, nil
+}
+
+// setWindows gives each target its chart's time range: the one set for it, else the default.
+func setWindows(targets []MetricsTarget, windows map[string]time.Duration, def time.Duration) {
+	for i := range targets {
+		t := &targets[i]
+		t.Window = def
+		if w, ok := windows[t.Name]; ok {
+			t.Window = w
+		}
+		t.Range = FormatChartRange(t.Window)
+	}
 }
 
 // applyHistory fills the targets' series from a provider with history, each cut to its chart's
 // time range (counted back from the end of the query). The hub fetched the longest range any
 // chart asked for; a chart that shows less gets the tail.
-func applyHistory(targets []MetricsTarget, hist *metrics.ObjectSeries, windows map[string]time.Duration, def time.Duration) {
+func applyHistory(targets []MetricsTarget, hist *metrics.ObjectSeries) {
 	whole := hist.Targets[""]
 	for i := range targets {
 		t := &targets[i]
@@ -216,11 +237,7 @@ func applyHistory(targets []MetricsTarget, hist *metrics.ObjectSeries, windows m
 		if series == nil {
 			continue
 		}
-		window := def
-		if w, ok := windows[t.Name]; ok {
-			window = w
-		}
-		cutoff := hist.To.Add(-window)
+		cutoff := hist.To.Add(-t.Window)
 		t.Samples = tail(series.Usage, cutoff, func(x model.UsageSample) time.Time { return x.At })
 		t.Filesystem = tail(series.Filesystem, cutoff, func(x model.FilesystemSample) time.Time { return x.At })
 		if whole != nil && len(whole.Network) > 0 {
@@ -239,11 +256,51 @@ func tail[T any](pts []T, cutoff time.Time, at func(T) time.Time) []T {
 	return pts[i:]
 }
 
-// maxChartWindow bounds a chart's time range: Prometheus's default retention is 15 days.
-const maxChartWindow = 30 * 24 * time.Hour
+// MaxChartWindow bounds a chart's time range: Prometheus's default retention is 15 days.
+const MaxChartWindow = 30 * 24 * time.Hour
 
-// minChartWindow is the shortest range a chart can show.
-const minChartWindow = time.Minute
+// MinChartWindow is the shortest range a chart can show.
+const MinChartWindow = time.Minute
+
+// DefaultChartRange names the default time range in ui.setMetricsRange.
+const DefaultChartRange = "default"
+
+// ParseChartRange reads a chart's time range as ui.setMetricsRange takes it: a Go duration ("15m",
+// "1h", "90m") or whole days ("7d"); "" or "default" is the default range (0).
+func ParseChartRange(s string) (time.Duration, error) {
+	s = strings.TrimSpace(s)
+	if s == "" || s == DefaultChartRange {
+		return 0, nil
+	}
+	if days, ok := strings.CutSuffix(s, "d"); ok {
+		n, err := strconv.Atoi(days)
+		if err != nil || n <= 0 {
+			return 0, fmt.Errorf("time range %q: days are a whole number, as in 7d", s)
+		}
+		return time.Duration(n) * 24 * time.Hour, nil
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0, fmt.Errorf("time range %q: use minutes, hours or days, as in 15m, 6h, 7d", s)
+	}
+	return d, nil
+}
+
+// FormatChartRange writes a time range the way ParseChartRange reads it, in its largest whole
+// unit: "5m", "1h", "7d"; anything else as a Go duration.
+func FormatChartRange(d time.Duration) string {
+	switch {
+	case d <= 0:
+		return ""
+	case d%(24*time.Hour) == 0:
+		return strconv.FormatInt(int64(d/(24*time.Hour)), 10) + "d"
+	case d%time.Hour == 0:
+		return strconv.FormatInt(int64(d/time.Hour), 10) + "h"
+	case d%time.Minute == 0:
+		return strconv.FormatInt(int64(d/time.Minute), 10) + "m"
+	}
+	return d.String()
+}
 
 // SetMetricsRange sets the time range of one chart of the open drawer: target is "" for the pod's
 // or node's chart, or a container's name. A provider with history (Prometheus) is then asked for
@@ -253,8 +310,8 @@ const minChartWindow = time.Minute
 // engine returns. The charts' ranges are the drawer's: they end when it closes or shows another
 // object.
 func (s *Session) SetMetricsRange(ref model.ObjectRef, target string, window time.Duration) error {
-	if window < 0 || window > 0 && window < minChartWindow || window > maxChartWindow {
-		return fmt.Errorf("a chart's time range is between %s and %s", minChartWindow, maxChartWindow)
+	if window < 0 || window > 0 && window < MinChartWindow || window > MaxChartWindow {
+		return fmt.Errorf("a chart's time range is between %s and %s", FormatChartRange(MinChartWindow), FormatChartRange(MaxChartWindow))
 	}
 	st := s.state
 	st.mu.Lock()

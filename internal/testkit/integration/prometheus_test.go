@@ -140,6 +140,9 @@ func TestPrometheusInTheDrawer(t *testing.T) {
 	}) {
 		t.Fatalf("pod chart %d samples, container chart %d, want 2 and 3", len(m.Targets[0].Samples), len(m.Targets[1].Samples))
 	}
+	if m.Targets[0].Range != "10m" || m.Targets[1].Range != "1h" {
+		t.Errorf("the targets' ranges are %q and %q, want 10m and the default 1h", m.Targets[0].Range, m.Targets[1].Range)
+	}
 	// The change also made the drawer poll at once, at the finer step: one more query set.
 	if !testkit.WaitFor(ctx, func() bool { return proxy() == 3+5+5 }) {
 		t.Errorf("%d proxy requests after the range changed, want 13 (3 + 2 query sets of 5)", proxy())

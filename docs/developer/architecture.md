@@ -1392,7 +1392,19 @@ enable the two buttons) and the source line `Prometheus (<namespace>/<service>)`
 defaults to the hub's hour; `Session.SetMetricsRange(ref, target, window)` (target "" for the pod's
 or node's chart, or a container's name; 1 minute to 30 days; 0 for the default) sets one chart's,
 wakes the poll and emits `EventMetrics`; it applies to the open drawer only and `ErrDrawerNotOpen`
-refuses it otherwise. `metrics.get` serves the instant values from whichever provider is active
+refuses it otherwise.
+
+**A chart's range is UI state the engine holds** (2026-10-12, rule 2): the drawer's `drawerWatch`
+keeps it per chart, every `MetricsTarget` reports it (`Window`, and `Range` as text: `"1h"`, `"7d"`;
+the default for a chart nobody set), and the command **`ui.setMetricsRange {ref, container?, range?}`**
+([`commands/metricsrange.go`](../../internal/engine/commands/metricsrange.go); `DangerUI`, no verbs,
+it sends nothing itself) sets it for the GUI and agents alike: `range` is a Go duration or whole days
+(`15m`, `6h`, `7d`; `ParseChartRange`, `FormatChartRange`), `default` or empty puts the chart back to
+the hour; a container the drawer's object does not have, a kind without charts and a range outside
+1 minute to 30 days are refused, a drawer showing another object is `ErrDrawerNotOpen`. It returns
+every chart's range, and **`ui.state` lists them as `drawerCharts`** while a pod's or node's drawer is
+open, so an agent sees what the user sees (`TestMetricsRangeCommand`; with Prometheus behind the
+fake service proxy, `TestPrometheusInTheDrawer` checks the targets' `Range`). `metrics.get` serves the instant values from whichever provider is active
 (`verbs` now include `get services/proxy`). **Detection puts a watch on Services** into the cache
 for as long as a metrics view is open (and the warm period after): the Pods view that opens at
 connect is such a view, so a connection holds one more watch than before (`TestBudgetCustomResourceView`

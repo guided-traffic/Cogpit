@@ -43,6 +43,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerOverview(g)
 	registerKubeconfigs(g)
 	registerMetrics(g)
+	registerMetricsRange(g)
 	return g.err
 }
 
