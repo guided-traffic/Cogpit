@@ -147,6 +147,7 @@ func Run(s *engine.Session, opts Options) error {
 	sh := newShell(s, a, w, opts, do)
 	s.SetConfirmer(sh.confirmer)
 	w.SetContent(sh.root)
+	w.SetOnClosed(sh.clearSecretClipboard) // a copied Secret value does not outlive the window on the clipboard
 	w.SetMainMenu(sh.mainMenu())
 	w.Resize(fyne.NewSize(1440, 900))
 	// Cogpit's own title bar on macOS needs the window, which exists once the app started: queued

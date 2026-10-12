@@ -37,6 +37,7 @@ type drawer struct {
 	busy, dirty bool
 	expanded    map[string]bool   // folded lists the user opened, by foldKey
 	revealed    map[string]string // values item actions show in place (a Secret's), by revealKey (secretreveal.go)
+	revealedLen map[string]int    // how many bytes of a revealed text are the value; the rest is a note that it was cut
 	kept        map[string]any    // what section renderers keep across rebuilds for the shown object (drawerSections)
 
 	kind     *textLine
@@ -46,13 +47,19 @@ type drawer struct {
 	actions  *fyne.Container // the action icons in the title bar
 	tabs     *container.AppTabs
 	details  *fyne.Container
+	host     *fyne.Container // details with the copy icon above them (copy.go)
 	yaml     *yamlview.View
 	yamlText string
 	root     fyne.CanvasObject
+
+	hostLayout *overlayLayout
+	copyBtn    *copyButton
+	copyOwner  fyne.CanvasObject // the value the copy icon is shown for
+	copyHook   *copyHook
 }
 
 func newDrawer(sh *shell) *drawer {
-	d := &drawer{sh: sh, expanded: map[string]bool{}, revealed: map[string]string{}, kept: map[string]any{}}
+	d := &drawer{sh: sh, expanded: map[string]bool{}, revealed: map[string]string{}, revealedLen: map[string]int{}, kept: map[string]any{}}
 	d.kind = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	d.title = newTextLine("", theme.ColorNameForeground, theme.SizeNameSubHeadingText, fyne.TextStyle{Bold: true})
 	d.title.truncate = true
@@ -65,10 +72,13 @@ func newDrawer(sh *shell) *drawer {
 	closeB := newTipButton(sh, theme.CancelIcon(), "Close", sh.closeDrawer)
 
 	d.details = container.NewVBox()
+	d.copyBtn = newCopyButton(d)
+	d.hostLayout = &overlayLayout{}
+	d.host = box(d.hostLayout, d.details, d.copyBtn)
 	d.yaml = yamlview.New()
 	d.yaml.SetReadOnly(true)
 	d.tabs = container.NewAppTabs(
-		container.NewTabItem("Details", container.NewVScroll(inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, d.details))),
+		container.NewTabItem("Details", container.NewVScroll(inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, d.host))),
 		container.NewTabItem("YAML", d.yaml),
 	)
 
@@ -138,7 +148,9 @@ func (d *drawer) showLoading(ref model.ObjectRef) {
 	d.acts = nil
 	d.expanded = map[string]bool{}
 	d.revealed = map[string]string{}
+	d.revealedLen = map[string]int{}
 	d.dropKept()
+	d.resetCopy()
 	d.kind.SetText(singular(d.sh.kindTitle(ref.Kind)))
 	d.title.SetText(ref.Name)
 	d.status.Hide()
@@ -200,6 +212,7 @@ func (d *drawer) rebuild() {
 	if d.last == nil {
 		return
 	}
+	d.resetCopy()
 	d.details.Objects = d.buildDetails(d.last)
 	d.details.Refresh()
 }
@@ -208,7 +221,9 @@ func (d *drawer) rebuild() {
 func (d *drawer) clear() {
 	d.shown, d.last, d.acts, d.dirty = nil, nil, nil, false
 	d.revealed = map[string]string{}
+	d.revealedLen = map[string]int{}
 	d.dropKept()
+	d.resetCopy()
 	d.sh.tip.hide()
 }
 
@@ -294,7 +309,7 @@ func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
 			out = append(out, newSpace(theme.SizeNameInnerPadding))
 		}
 		if sec.Group != "" && sec.Group != group {
-			out = append(out, newTextLine(sec.Group, theme.ColorNameForeground, theme.SizeNameSubHeadingText, fyne.TextStyle{Bold: true}),
+			out = append(out, d.line(sec.Group, theme.ColorNameForeground, theme.SizeNameSubHeadingText, fyne.TextStyle{Bold: true}, false, ""),
 				newSpace(theme.SizeNamePadding))
 		}
 		group = sec.Group
@@ -309,7 +324,7 @@ func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
 		if len(sec.Items) > 0 {
 			grid := box(kvLayout{})
 			for _, it := range sec.Items {
-				name := newTextLine(it.Name, colorMuted, theme.SizeNameText, fyne.TextStyle{})
+				name := d.line(it.Name, colorMuted, theme.SizeNameText, fyne.TextStyle{}, false, "")
 				grid.Objects = append(grid.Objects, name, d.itemValue(m.Ref, sec, it))
 			}
 			out = append(out, grid)
@@ -319,7 +334,7 @@ func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
 		return out
 	}
 	out = append(out, newSpace(theme.SizeNameInnerPadding),
-		newTextLine("Events", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true}), newDivider(false))
+		d.line("Events", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true}, false, ""), newDivider(false))
 	return append(out, d.buildEvents(m.Events)...)
 }
 
@@ -345,7 +360,7 @@ func (d *drawer) dropKept() {
 
 // sectionTitle is a section's bold title; a container's carries a dot in its status's colour.
 func (d *drawer) sectionTitle(sec model.DetailSection) fyne.CanvasObject {
-	title := newTextLine(sec.Title, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
+	title := d.line(sec.Title, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true}, false, "")
 	if sec.Group == "" {
 		return title
 	}
@@ -367,18 +382,24 @@ func foldKey(sec model.DetailSection, it model.DetailItem) string {
 // follow the value as buttons; an action marked Link is the value itself, a link that runs it.
 func (d *drawer) itemValue(ref model.ObjectRef, sec model.DetailSection, it model.DetailItem) fyne.CanvasObject {
 	it, revealed := d.revealedItem(it)
+	// A Secret's value is copyable once it is revealed, and not before (D-25).
+	copyable := !revealable(it) || revealed
 	if len(it.Actions) == 0 {
-		return d.foldedValue(ref, sec, it)
+		return d.foldedValue(ref, sec, it, copyable)
 	}
 	var v fyne.CanvasObject
 	if revealed {
-		v = revealedValue(it.Value)
+		v = d.revealedValue(it)
 	}
 	objs := []fyne.CanvasObject{nil}
 	for _, a := range it.Actions {
 		act := a
 		if act.Link && v == nil {
-			v = newLinkText(it.Value, func() { d.sh.runItemAction(ref, act) })
+			l := newLinkText(it.Value, func() { d.sh.runItemAction(ref, act) })
+			if copyable {
+				l.hook = d.copyFor(it.Value, false)
+			}
+			v = l
 			continue
 		}
 		b := widget.NewButton(d.actionLabel(act), func() { d.sh.runItemAction(ref, act) })
@@ -386,7 +407,7 @@ func (d *drawer) itemValue(ref model.ObjectRef, sec model.DetailSection, it mode
 		objs = append(objs, b)
 	}
 	if v == nil {
-		v = d.foldedValue(ref, sec, it)
+		v = d.foldedValue(ref, sec, it, copyable)
 	}
 	objs[0] = v
 	if revealable(it) { // a revealed value takes the width the buttons leave and wraps in it
@@ -446,7 +467,7 @@ func (l actionRowLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
 }
 
 // foldedValue renders a value, folded behind its count when the item folds.
-func (d *drawer) foldedValue(ref model.ObjectRef, sec model.DetailSection, it model.DetailItem) fyne.CanvasObject {
+func (d *drawer) foldedValue(ref model.ObjectRef, sec model.DetailSection, it model.DetailItem, copyable bool) fyne.CanvasObject {
 	if it.Fold != "" {
 		key := foldKey(sec, it)
 		n := it.Entries()
@@ -461,40 +482,49 @@ func (d *drawer) foldedValue(ref model.ObjectRef, sec model.DetailSection, it mo
 		if !d.expanded[key] {
 			return toggle
 		}
-		return container.NewVBox(toggle, d.plainValue(ref, it))
+		return container.NewVBox(toggle, d.plainValue(ref, it, copyable))
 	}
-	return d.plainValue(ref, it)
+	return d.plainValue(ref, it, copyable)
 }
 
-// plainValue renders a value without folding.
-func (d *drawer) plainValue(ref model.ObjectRef, it model.DetailItem) fyne.CanvasObject {
+// plainValue renders a value without folding. Its copy icon (copyable) copies the value, or, for a
+// value of several entries, the entry the pointer is over, in YAML syntax (D-25).
+func (d *drawer) plainValue(ref model.ObjectRef, it model.DetailItem, copyable bool) fyne.CanvasObject {
+	lines := strings.Split(it.Value, "\n")
+	list := entryList(len(it.Chips), len(lines), it.Fold != "")
+	copyOf := func(entry string) string {
+		switch {
+		case !copyable || entry == "":
+			return ""
+		case list:
+			return yamlEntry(entry)
+		}
+		return entry
+	}
 	switch {
 	case len(it.Chips) > 0:
-		return d.chips(ref, it.Chips)
+		return d.chips(ref, it.Chips, copyOf)
 	case it.Link != nil && d.sh.view.serves(it.Link.Kind):
 		link := *it.Link
-		return newLinkText(it.Value, func() { d.sh.followLink(link, ref.Context, false) })
+		l := newLinkText(it.Value, func() { d.sh.followLink(link, ref.Context, false) })
+		l.hook = d.copyFor(copyOf(it.Value), false)
+		return l
 	case it.Status != model.StatusNone:
-		return container.NewHBox(newPill(it.Value, statusColorName(it.Status), true))
+		return wrapCopy(container.NewHBox(newPill(it.Value, statusColorName(it.Status), true)), d.copyFor(copyOf(it.Value), false))
 	}
-	lines := strings.Split(it.Value, "\n")
 	if len(lines) == 1 {
-		t := newTextLine(it.Value, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{})
-		t.truncate = true
-		return t
+		return d.line(it.Value, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{}, true, copyOf(it.Value))
 	}
 	v := container.NewVBox()
 	for _, l := range lines {
-		t := newTextLine(l, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{})
-		t.truncate = true
-		v.Add(t)
+		v.Add(d.line(l, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{}, true, copyOf(l)))
 	}
 	return v
 }
 
 // chips renders a list as chips: a short list on one line, a longer one a chip per line. A chip
 // with a status is tinted in its colour; one with a link goes to the object.
-func (d *drawer) chips(ref model.ObjectRef, chips []model.Chip) fyne.CanvasObject {
+func (d *drawer) chips(ref model.ObjectRef, chips []model.Chip, copyOf func(string) string) fyne.CanvasObject {
 	total := 0
 	for _, c := range chips {
 		total += len(c.Text)
@@ -513,6 +543,7 @@ func (d *drawer) chips(ref model.ObjectRef, chips []model.Chip) fyne.CanvasObjec
 		default:
 			o = newPill(c.Text, theme.ColorNameForeground, false)
 		}
+		o = wrapCopy(o, d.copyFor(copyOf(c.Text), false))
 		if oneLine {
 			line.Add(o)
 		} else {
@@ -528,16 +559,14 @@ func (d *drawer) chips(ref model.ObjectRef, chips []model.Chip) fyne.CanvasObjec
 // detailTable renders a plain table, its texts only: the column titles muted above the rows, each
 // column as wide as its widest line (detailTableLayout), a cell of several lines one line under
 // the other. Tables of cells (links, statuses, warning icons) are drawn by table.
-func detailTable(t *model.DetailTable) fyne.CanvasObject {
+func (d *drawer) detailTable(t *model.DetailTable) fyne.CanvasObject {
 	if len(t.Columns) == 0 {
 		return container.NewVBox()
 	}
 	// The cells go into the grid at once: Container.Add lays the grid out on every call.
 	objs := make([]fyne.CanvasObject, 0, len(t.Columns)*(len(t.Rows)+1))
 	for _, c := range t.Columns {
-		l := newTextLine(c, colorMuted, theme.SizeNameText, fyne.TextStyle{})
-		l.truncate = true
-		objs = append(objs, l)
+		objs = append(objs, d.line(c, colorMuted, theme.SizeNameText, fyne.TextStyle{}, true, ""))
 	}
 	for _, row := range t.Rows {
 		for i := range t.Columns {
@@ -545,19 +574,18 @@ func detailTable(t *model.DetailTable) fyne.CanvasObject {
 			if i < len(row) {
 				text = row[i]
 			}
-			objs = append(objs, tableCellText(text, theme.ColorNameForeground))
+			objs = append(objs, d.tableCellText(text, theme.ColorNameForeground))
 		}
 	}
 	return box(&detailTableLayout{cols: len(t.Columns)}, objs...)
 }
 
-// tableCellText is a table cell of text in colour fg: a truncating line per line of its text.
-func tableCellText(text string, fg fyne.ThemeColorName) fyne.CanvasObject {
+// tableCellText is a table cell of text in colour fg: a truncating, selectable line per line of its
+// text, each with a copy icon.
+func (d *drawer) tableCellText(text string, fg fyne.ThemeColorName) fyne.CanvasObject {
 	lines := strings.Split(text, "\n")
-	cell := func(s string) *textLine {
-		v := newTextLine(s, fg, theme.SizeNameText, fyne.TextStyle{})
-		v.truncate = true
-		return v
+	cell := func(s string) *selLine {
+		return d.line(s, fg, theme.SizeNameText, fyne.TextStyle{}, true, s)
 	}
 	if len(lines) == 1 {
 		return cell(text)
@@ -606,6 +634,8 @@ func (l *detailTableLayout) widths(objs []fyne.CanvasObject) (w, rowH []float32,
 		switch t := o.(type) {
 		case *textLine:
 			return fyne.MeasureText(t.text, size, t.style).Width
+		case *selLine:
+			return fyne.MeasureText(t.line.text, size, t.line.style).Width
 		case *linkText:
 			return fyne.MeasureText(t.text, size, fyne.TextStyle{}).Width
 		case *fyne.Container:
@@ -711,11 +741,12 @@ func (d *drawer) buildEvents(events []engine.EventItem) []fyne.CanvasObject {
 		}
 		head := container.NewBorder(nil, nil,
 			container.NewHBox(newPill(e.Type, statusColorName(st), true),
-				newTextLine(e.Reason, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})),
-			newTextLine(strings.Join(meta, " · "), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{}))
+				d.line(e.Reason, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true}, false, "")),
+			d.line(strings.Join(meta, " · "), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{}, false, ""))
 		msg := widget.NewLabel(e.Message)
 		msg.Wrapping = fyne.TextWrapWord
-		out = append(out, container.NewVBox(head, msg), newDivider(false))
+		msg.Selectable = true
+		out = append(out, container.NewVBox(head, wrapCopy(msg, d.copyFor(e.Message, false))), newDivider(false))
 	}
 	return out
 }

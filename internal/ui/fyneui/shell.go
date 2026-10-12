@@ -95,6 +95,12 @@ type shell struct {
 	body      *fyne.Container  // the workspace, with the dock below it
 	root      fyne.CanvasObject
 
+	// A Secret's value copied from the drawer is cleared from the clipboard after secretClipTTL
+	// (copy.go); main goroutine only.
+	clipTimer     *time.Timer
+	clipSecret    string
+	secretClipTTL time.Duration
+
 	unsubscribe func()
 	stopTickers chan struct{}
 	perf        *perfMeter
@@ -102,7 +108,7 @@ type shell struct {
 
 // newShell builds every widget. Nothing talks to the engine until start.
 func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func())) *shell {
-	sh := &shell{eng: eng, app: a, win: w, opts: opts, now: time.Now, stopTickers: make(chan struct{})}
+	sh := &shell{eng: eng, app: a, win: w, opts: opts, now: time.Now, stopTickers: make(chan struct{}), secretClipTTL: secretClipboardTTL}
 	// Work that reaches the main goroutine after stop would apply engine state to a window that
 	// is gone, possibly under another app and theme (tests run shells one after another).
 	sh.do = func(fn func()) {

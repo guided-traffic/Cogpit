@@ -88,7 +88,7 @@ user's file byte-identical. A shell profile can still override `KUBECONFIG`
 | Telemetry | Cogpit sends none. Any network call to something other than a cluster, a Helm repository, the configured LLM endpoint or the release channel needs a decision entry in [`decisions.md`](../developer/decisions.md) |
 | The LLM endpoint | Secret values only when the user allows it for that request ([H-13](agents-and-mcp.md#h-13-cluster-data-leaves-for-the-llm-endpoint)) |
 | Screenshots taken by automation | Secret values stay masked unless the user revealed them in the GUI |
-| Clipboard | Only on an explicit copy action |
+| Clipboard | Only on an explicit copy action; a copied Secret value is cleared after 60 seconds if the clipboard still holds it ([H-25](#h-25-a-copied-secret-value-reaches-the-clipboard)) |
 
 ## Secret objects
 
@@ -99,6 +99,11 @@ a Secret from YAML is refused (its values are redacted there). As built (2026-10
 drawer closes or moves, the engine zeroes the bytes it kept of the opened Secret; the GET's
 response and a revealed value's string wait for the garbage collector, so the wipe is best effort
 ([privilege footprint › H-8](privilege-footprint.md#h-8-secret-data-arrives-with-the-list)).
+A revealed value can be copied from the drawer, by its copy icon or by selecting it (D-25, built
+2026-10-12): a masked value has no icon, and the clipboard is emptied 60 seconds after such a copy
+if it still holds the value (`shell.copyText`, `TestSecretValueCopyOnlyOnceRevealed`,
+`TestSecretClipboardKeepsWhatReplacedIt`). Copying is a GUI behaviour with no command, so no agent
+can put a Secret on the clipboard (`TestCopyHasNoCommand`).
 
 ## What this does not cover
 
@@ -129,6 +134,17 @@ MVP appends the usual tool directories (`/opt/homebrew/bin`, `/usr/local/bin`, `
 `~/.local/bin`, `~/bin`) that exist and are missing from `PATH` at start
 (`cluster.EnsureToolPath`); variables such as `AWS_PROFILE` are still missing. Whether Cogpit reads
 the login shell's environment, and which variables it then passes to plugins, is not designed yet.
+
+### H-25: A copied Secret value reaches the clipboard
+
+A Secret's value that the user copies from the drawer goes on the system clipboard, where Cogpit
+cannot guard it. It clears the clipboard after 60 seconds if the clipboard still holds the value,
+and when the window closes, but the clipboard is shared: a clipboard manager keeps its own history
+of what passed through, Universal Clipboard sends it to the user's other devices at once, and any
+process of the user can read it while it is there. Fyne's clipboard interface can only set text, so
+Cogpit cannot mark it as concealed for managers that honour such a mark. Cogpit's process ending
+within the 60 seconds (a crash, `kill -9`) leaves the value on the clipboard. Only values the user
+revealed and copied are affected; an agent has no way to copy.
 
 ### H-20: Shell profiles can override the terminal's kubeconfig
 

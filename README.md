@@ -176,7 +176,7 @@ rm -rf ~/Library/Caches/Cogpit "~/Library/Application Support/Cogpit"   # logs, 
 | `--mcp-addr <addr>` | `127.0.0.1:0` # default | MCP listen address; anything but a loopback address is refused |
 | `--no-mcp` | `false` # default | do not start the MCP server |
 | `--perf <duration>` | `0` # default | measure main-loop latency while auto-scrolling the table, print it as JSON and quit |
-| `--theme <mode>` | `dark` # default | `dark`, `light` or `system` |
+| `--theme <mode>` | `dark` # default | `dark` (Solarized Dark), `light` (Solarized Light) or `system` |
 | `-v` | `false` # default | debug logging |
 
 Security note on `--mcp-addr`: the server checks `Host`, `Origin` and the bearer token, and binds

@@ -177,14 +177,14 @@ func TestPaletteContrast(t *testing.T) {
 			theme.ColorNameHeaderBackground: 3.5, colorRowHover: 3.5, theme.ColorNameInputBackground: 3.5,
 			colorToast: 3.5, colorTooltip: 3.5,
 		}
-		check := func(what string, fg color.Color, bg fyne.ThemeColorName, min float64) {
+		check := func(what string, fg color.Color, bg fyne.ThemeColorName, floor float64) {
 			t.Helper()
-			if got := contrastRatio(fg, c(bg)); got < min {
-				t.Errorf("%s: %s on %s is %.2f:1, want %.1f:1", name, what, bg, got, min)
+			if got := contrastRatio(fg, c(bg)); got < floor {
+				t.Errorf("%s: %s on %s is %.2f:1, want %.1f:1", name, what, bg, got, floor)
 			}
 		}
-		for bg, min := range surfaces {
-			check("foreground", c(theme.ColorNameForeground), bg, min)
+		for bg, floor := range surfaces {
+			check("foreground", c(theme.ColorNameForeground), bg, floor)
 			check("muted", c(colorMuted), bg, 2.9)
 			check("link", c(colorLink), bg, 3.0)
 			for s := range p.status {

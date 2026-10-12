@@ -16,7 +16,7 @@ import (
 // tooltip, under no title. Other tables are plain text (detailTable).
 func (d *drawer) table(ref model.ObjectRef, t *model.DetailTable) fyne.CanvasObject {
 	if len(t.Cells) == 0 || len(t.Columns) == 0 {
-		return detailTable(t)
+		return d.detailTable(t)
 	}
 	colType := func(i int) model.ColumnType {
 		if i < len(t.Types) {
@@ -31,9 +31,7 @@ func (d *drawer) table(ref model.ObjectRef, t *model.DetailTable) fyne.CanvasObj
 		if colType(i) == model.ColumnWarning {
 			c = ""
 		}
-		l := newTextLine(c, colorMuted, theme.SizeNameText, fyne.TextStyle{})
-		l.truncate = true
-		objs = append(objs, l)
+		objs = append(objs, d.line(c, colorMuted, theme.SizeNameText, fyne.TextStyle{}, true, ""))
 	}
 	for r, row := range t.Cells {
 		for i := range t.Columns {
@@ -60,13 +58,15 @@ func (d *drawer) tableCell(ref model.ObjectRef, typ model.ColumnType, c model.Ce
 		text = ""
 	case c.Link != nil && text != "" && d.sh.view.serves(c.Link.Kind):
 		link := *c.Link
-		return newLinkText(text, func() { d.sh.followLink(link, ref.Context, false) })
+		l := newLinkText(text, func() { d.sh.followLink(link, ref.Context, false) })
+		l.hook = d.copyFor(text, false)
+		return l
 	}
 	fg := theme.ColorNameForeground
 	if c.Status != model.StatusNone {
 		fg = statusColorName(c.Status)
 	}
-	return tableCellText(text, fg)
+	return d.tableCellText(text, fg)
 }
 
 // tipIcon is an icon in a theme colour with a tooltip: the warning icon of a drawer table's row,

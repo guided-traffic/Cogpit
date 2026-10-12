@@ -4,7 +4,6 @@ import (
 	"strconv"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/model"
@@ -28,6 +27,7 @@ func toggleReveal(sh *shell, ref model.ObjectRef, a model.ItemAction) {
 	key := revealKey(a)
 	if _, shown := d.revealed[key]; shown {
 		delete(d.revealed, key)
+		delete(d.revealedLen, key)
 		d.rebuild()
 		return
 	}
@@ -45,6 +45,7 @@ func toggleReveal(sh *shell, ref model.ObjectRef, a model.ItemAction) {
 			text += "\n[the first " + byteText(len(v.Value)) + " of " + byteText(v.Size) + "]"
 		}
 		d.revealed[key] = text
+		d.revealedLen[key] = len(v.Value)
 		d.rebuild()
 	})
 }
@@ -67,6 +68,7 @@ func (d *drawer) pruneRevealed(m *engine.DetailModel) {
 	for k := range d.revealed {
 		if !offered[k] {
 			delete(d.revealed, k)
+			delete(d.revealedLen, k)
 		}
 	}
 }
@@ -84,12 +86,17 @@ func (d *drawer) revealedItem(it model.DetailItem) (model.DetailItem, bool) {
 }
 
 // revealedValue renders a revealed value: selectable text in the monospace face, wrapped, so that
-// a long token can be read and copied whole.
-func revealedValue(text string) fyne.CanvasObject {
-	l := widget.NewLabelWithStyle(text, fyne.TextAlignLeading, fyne.TextStyle{Monospace: true})
-	l.Wrapping = fyne.TextWrapBreak
-	l.Selectable = true
-	return l
+// a long token can be read and copied whole. Its copy icon and the copy shortcut put it on the
+// clipboard through shell.copyText as a Secret value, which is cleared again later (D-25). The
+// icon copies the value alone; the note that a long value was cut is part of the shown text only.
+func (d *drawer) revealedValue(it model.DetailItem) fyne.CanvasObject {
+	value := it.Value
+	for _, a := range it.Actions {
+		if n, ok := d.revealedLen[revealKey(a)]; ok && n <= len(value) {
+			value = value[:n]
+		}
+	}
+	return newSecretText(it.Value, d.copyFor(value, true), func(sel string) { d.sh.copyText(sel, true) })
 }
 
 // actionLabel is an item action's button text: Hide for a value the action revealed.

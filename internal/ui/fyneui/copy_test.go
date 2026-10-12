@@ -1,0 +1,409 @@
+package fyneui
+
+import (
+	"strings"
+	"testing"
+	"time"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/test"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/engine/commands"
+	"github.com/guided-traffic/cogpit/internal/model"
+)
+
+// Copying values from the drawer (D-25): everything selectable, a copy icon on hover, entries in
+// YAML syntax, Secret values only once revealed and cleared from the clipboard later.
+
+func TestYAMLEntry(t *testing.T) {
+	for entry, want := range map[string]string{
+		"app.kubernetes.io/name=grafana":  "app.kubernetes.io/name: grafana",
+		"team=payments":                   "team: payments",
+		"NODE_ENV=":                       `NODE_ENV: ""`,
+		"url=https://a.example/x?y=1":     "url: https://a.example/x?y=1",
+		"10.244.2.23":                     "10.244.2.23",
+		"from secret checkout-db":         "from secret checkout-db",
+		"/data from data (ro)":            "/data from data (ro)",
+		"has space=value":                 "has space=value", // not a key: a plain scalar
+		"enabled=true":                    `enabled: "true"`,
+		"note=a: b":                       "note: 'a: b'",
+		"node.kubernetes.io/ready:NoExec": "node.kubernetes.io/ready:NoExec",
+	} {
+		if got := yamlEntry(entry); got != want {
+			t.Errorf("yamlEntry(%q) = %q, want %q", entry, got, want)
+		}
+	}
+}
+
+func mouse() *desktop.MouseEvent { return &desktop.MouseEvent{} }
+
+// selLineWith returns the drawer's selectable line that reads text.
+func selLineWith(t *testing.T, d *drawer, text string) *selLine {
+	t.Helper()
+	for _, l := range findAll[*selLine](d.details) {
+		if l.line.text == text {
+			return l
+		}
+	}
+	t.Fatalf("no selectable line %q in the drawer", text)
+	return nil
+}
+
+func podDrawerScene(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, model.ObjectRef) {
+	t.Helper()
+	f := kindsFake(t, "pods")
+	p := richPod(t)
+	ref := model.ObjectRef{Context: "demo", Kind: "pods", Namespace: p.ns, Name: p.name}
+	f.ui.Selected, f.ui.Drawer = []model.ObjectRef{ref}, &ref
+	sh, w, q := newTestShell(t, f, Options{Theme: mode})
+	q.until(t, "the drawer", func() bool { return sh.drawer.last != nil && len(sh.drawer.details.Objects) > 2 && sh.diag.total > 0 })
+	settle(w)
+	return sh, w, q, ref
+}
+
+// TestDrawerCopyIconOnHover: the copy icon shows when the pointer is over a value, sits by the
+// value, hides when the pointer leaves, and a tap puts the value on the clipboard and says so.
+func TestDrawerCopyIconOnHover(t *testing.T) {
+	sh, _, q, ref := podDrawerScene(t, ThemeDark)
+	d := sh.drawer
+	if d.copyBtn.Visible() {
+		t.Fatal("the copy icon shows before the pointer is over a value")
+	}
+	name := selLineWith(t, d, ref.Name)
+	name.MouseIn(mouse())
+	if !d.copyBtn.Visible() {
+		t.Fatal("the copy icon did not show over the Name value")
+	}
+	drv := fyne.CurrentApp().Driver()
+	btn, val := drv.AbsolutePositionForObject(d.copyBtn), drv.AbsolutePositionForObject(name)
+	if btn.X <= val.X || btn.X > val.X+name.Size().Width || btn.Y < val.Y-d.copyBtn.Size().Height || btn.Y > val.Y+name.Size().Height {
+		t.Errorf("the icon is at %v, the value at %v (%v wide)", btn, val, name.Size())
+	}
+
+	sh.app.Clipboard().SetContent("")
+	toasts := len(sh.toasts.Objects)
+	test.Tap(d.copyBtn)
+	if got := sh.app.Clipboard().Content(); got != ref.Name {
+		t.Errorf("the clipboard holds %q, want %q", got, ref.Name)
+	}
+	if len(sh.toasts.Objects) != toasts+1 {
+		t.Error("copying showed no toast")
+	}
+	name.MouseOut()
+	if d.copyBtn.Visible() {
+		t.Error("the copy icon stays after the pointer left the value")
+	}
+	// Moving from the value onto the icon keeps it: out of the value, then in to the icon.
+	name.MouseIn(mouse())
+	name.MouseOut()
+	d.copyBtn.MouseIn(mouse())
+	if !d.copyBtn.Visible() {
+		t.Error("the icon vanished under the pointer")
+	}
+	d.copyBtn.MouseOut()
+	if d.copyBtn.Visible() {
+		t.Error("the icon stays after the pointer left it")
+	}
+	_ = q
+}
+
+// TestDrawerCopiesEntriesInYAML: a value of several entries copies the entry under the pointer in
+// YAML syntax, labels and annotations as key: value; the folded count has no icon.
+func TestDrawerCopiesEntriesInYAML(t *testing.T) {
+	sh, _, _, _ := podDrawerScene(t, ThemeDark)
+	d := sh.drawer
+	fold := drawerLinks(sh)["2 Labels"]
+	if fold == nil {
+		t.Fatalf("no folded labels among %v", keys(drawerLinks(sh)))
+	}
+	fold.MouseIn(mouse())
+	if d.copyBtn.Visible() {
+		t.Error("the folded count has a copy icon")
+	}
+	fold.MouseOut()
+	test.Tap(fold)
+
+	var chips []*hoverWrap
+	for _, w := range findAll[*hoverWrap](d.details) {
+		if p := findAll[*pill](w.content); len(p) == 1 && strings.Contains(p[0].text, "=") {
+			chips = append(chips, w)
+		}
+	}
+	if len(chips) != 2 {
+		t.Fatalf("%d label chips with a copy icon, want 2", len(chips))
+	}
+	for _, w := range chips {
+		text := findAll[*pill](w.content)[0].text
+		k, v, _ := strings.Cut(text, "=")
+		w.MouseIn(mouse())
+		if !d.copyBtn.Visible() {
+			t.Fatalf("no copy icon over the chip %q", text)
+		}
+		sh.app.Clipboard().SetContent("")
+		test.Tap(d.copyBtn)
+		if got, want := sh.app.Clipboard().Content(), k+": "+v; got != want {
+			t.Errorf("chip %q copied %q, want %q", text, got, want)
+		}
+		w.MouseOut()
+	}
+
+	// Annotations unfold into lines, each with its own icon.
+	test.Tap(drawerLinks(sh)["2 Annotations"])
+	var ann *selLine
+	for _, l := range findAll[*selLine](d.details) {
+		if strings.Contains(l.line.text, "=") && l.hook != nil && strings.Contains(l.hook.text, ": ") {
+			ann = l
+			break
+		}
+	}
+	if ann == nil {
+		t.Fatal("no annotation line with a copy icon")
+	}
+	k, v, _ := strings.Cut(ann.line.text, "=")
+	if ann.hook.text != yamlEntry(ann.line.text) || !strings.HasPrefix(ann.hook.text, k+": ") || !strings.Contains(ann.hook.text, strings.Trim(v, `"'`)) {
+		t.Errorf("the annotation %q copies %q", ann.line.text, ann.hook.text)
+	}
+
+	// A single value is copied as it is, not as YAML.
+	created := selLineWith(t, d, "Properties") // a title: no icon
+	created.MouseIn(mouse())
+	if d.copyBtn.Visible() {
+		t.Error("a section title has a copy icon")
+	}
+}
+
+// TestDrawerTextIsSelectable: a drag selects, a double click selects a word, the copy shortcut
+// copies the selection; Tab does not stop at the lines.
+func TestDrawerTextIsSelectable(t *testing.T) {
+	sh, w, _, ref := podDrawerScene(t, ThemeDark)
+	l := selLineWith(t, sh.drawer, ref.Name)
+	size := l.Theme().Size(l.line.size)
+	at := func(prefix string) fyne.Position {
+		return fyne.NewPos(fyne.MeasureText(prefix, size, l.line.style).Width, l.Size().Height/2)
+	}
+	runes := []rune(ref.Name)
+
+	// A drag from before the third character to after the sixth.
+	l.MouseDown(&desktop.MouseEvent{PointEvent: fyne.PointEvent{Position: at(string(runes[:2]))}, Button: desktop.MouseButtonPrimary})
+	// The first event of a drag carries the delta since the press: the start is position - delta.
+	from, to := at(string(runes[:2])), at(string(runes[:6]))
+	l.Dragged(&fyne.DragEvent{PointEvent: fyne.PointEvent{Position: to}, Dragged: fyne.NewDelta(to.X-from.X, 0)})
+	l.DragEnd()
+	if got, want := l.SelectedText(), string(runes[2:6]); got != want {
+		t.Fatalf("a drag over characters 2 to 6 selected %q, want %q", got, want)
+	}
+	sh.app.Clipboard().SetContent("")
+	l.TypedShortcut(&fyne.ShortcutCopy{Clipboard: sh.app.Clipboard()})
+	if got := sh.app.Clipboard().Content(); got != l.SelectedText() {
+		t.Errorf("the copy shortcut put %q on the clipboard, want the selection %q", got, l.SelectedText())
+	}
+
+	l.TypedShortcut(&fyne.ShortcutSelectAll{})
+	if l.SelectedText() != ref.Name {
+		t.Errorf("select all: %q", l.SelectedText())
+	}
+	l.FocusLost()
+	if l.SelectedText() != "" {
+		t.Errorf("the selection stays when the focus leaves: %q", l.SelectedText())
+	}
+
+	// A double click selects the word: a name has no spaces, so all of it.
+	l.DoubleTapped(&fyne.PointEvent{Position: at(string(runes[:3]))})
+	if l.SelectedText() != ref.Name {
+		t.Errorf("double click selected %q, want %q", l.SelectedText(), ref.Name)
+	}
+
+	// Tab skips the lines: the first focusable object is no selectable line.
+	l.FocusLost()
+	for range 3 {
+		w.Canvas().FocusNext()
+		switch f := w.Canvas().Focused().(type) {
+		case *selLine, *secretText:
+			t.Fatalf("Tab stopped at %T", f)
+		}
+	}
+}
+
+// TestDrawerLongNamesSelectUnderTheEllipsis: a value cut off with an ellipsis selects and copies
+// whole when the selection reaches the ellipsis.
+func TestDrawerLongNamesSelectUnderTheEllipsis(t *testing.T) {
+	sh, _, _, _ := podDrawerScene(t, ThemeDark)
+	d := sh.drawer
+	long := "a-very-long-name-that-cannot-fit-the-drawer-whatever-its-width-is-0123456789-0123456789-0123456789-0123456789-0123456789"
+	l := d.line(long, "cogpit.muted", "text", fyne.TextStyle{}, true, long)
+	box := test.NewTempWindow(t, l)
+	box.Resize(fyne.NewSize(120, 30))
+	shown, cut := l.shown()
+	if !cut || shown == long {
+		t.Fatalf("the line is not cut off: %q", shown)
+	}
+	l.TypedShortcut(&fyne.ShortcutSelectAll{})
+	if l.SelectedText() != long {
+		t.Errorf("select all of a cut-off line gave %q", l.SelectedText())
+	}
+	// A press right of the ellipsis is the end of the text.
+	if got := l.offset(fyne.NewPos(l.Size().Width+50, 5)); got != len([]rune(long)) {
+		t.Errorf("a press past the ellipsis is offset %d, want the end %d", got, len([]rune(long)))
+	}
+}
+
+// TestSecretValueCopyOnlyOnceRevealed: a masked Secret value has no copy icon; after Show it has
+// one, the copy goes to the clipboard, and the clipboard is cleared after the TTL if it still
+// holds the value. The TTL is shortened for the test.
+func TestSecretValueCopyOnlyOnceRevealed(t *testing.T) {
+	f, _ := secretsFake(t)
+	sh, _, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	sh.secretClipTTL = 40 * time.Millisecond
+	d := sh.drawer
+	q.until(t, "the drawer", func() bool { return sh.drawer.last != nil && len(drawerButtons(d)["Show"]) == 4 })
+
+	// Masked: nothing to copy.
+	for _, l := range findAll[*selLine](d.details) {
+		if l.hook != nil && strings.Contains(l.hook.text, "correct-horse") {
+			t.Fatalf("a masked value has the copy icon for %q", l.hook.text)
+		}
+	}
+	for _, l := range findAll[*selLine](d.details) {
+		if strings.Contains(l.line.text, "•") {
+			l.MouseIn(mouse())
+			if d.copyBtn.Visible() {
+				t.Error("the copy icon shows over a masked value")
+			}
+			l.MouseOut()
+		}
+	}
+
+	test.Tap(drawerButtons(d)["Show"][2]) // DB_PASSWORD
+	q.until(t, "the value", func() bool { return len(findAll[*secretText](d.details)) == 1 })
+	st := findAll[*secretText](d.details)[0]
+	if st.text != "correct-horse-battery-staple" {
+		t.Fatalf("the revealed text is %q", st.text)
+	}
+	st.MouseIn(mouse())
+	if !d.copyBtn.Visible() {
+		t.Fatal("no copy icon over the revealed value")
+	}
+	sh.app.Clipboard().SetContent("")
+	test.Tap(d.copyBtn)
+	if got := sh.app.Clipboard().Content(); got != "correct-horse-battery-staple" {
+		t.Fatalf("the clipboard holds %q", got)
+	}
+	var toast string
+	for _, tl := range findAll[*paragraph](sh.toasts) {
+		toast += tl.text
+	}
+	if !strings.Contains(toast, "cleared") || strings.Contains(toast, "correct-horse") {
+		t.Errorf("the toast %q should say the clipboard is cleared, and never show the value", toast)
+	}
+	q.until(t, "the clipboard to be cleared", func() bool { return sh.app.Clipboard().Content() == "" })
+	if sh.clipSecret != "" || sh.clipTimer != nil {
+		t.Error("the shell still remembers the value")
+	}
+}
+
+// TestSecretClipboardKeepsWhatReplacedIt: when something else was copied meanwhile, the clearing
+// leaves it alone; a second Secret copy restarts the clearing.
+func TestSecretClipboardKeepsWhatReplacedIt(t *testing.T) {
+	f, _ := secretsFake(t)
+	sh, _, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	sh.secretClipTTL = 40 * time.Millisecond
+
+	sh.copyText("secret-one", true)
+	sh.app.Clipboard().SetContent("something the user copied elsewhere")
+	time.Sleep(120 * time.Millisecond)
+	q.drain()
+	if got := sh.app.Clipboard().Content(); got != "something the user copied elsewhere" {
+		t.Errorf("the clearing took the user's own copy: %q", got)
+	}
+
+	sh.copyText("secret-two", false) // a plain copy: never cleared
+	time.Sleep(120 * time.Millisecond)
+	q.drain()
+	if got := sh.app.Clipboard().Content(); got != "secret-two" {
+		t.Errorf("a plain copy was cleared: %q", got)
+	}
+
+	sh.copyText("secret-three", true)
+	sh.clearSecretClipboard() // as the window's close does
+	if got := sh.app.Clipboard().Content(); got != "" {
+		t.Errorf("clearing on close left %q", got)
+	}
+}
+
+// TestSecretTextSelectionCopiesAsASecret: the copy shortcut on a revealed value goes through the
+// same clearing as the icon.
+func TestSecretTextSelectionCopiesAsASecret(t *testing.T) {
+	f, _ := secretsFake(t)
+	sh, _, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	sh.secretClipTTL = 40 * time.Millisecond
+	d := sh.drawer
+	q.until(t, "the drawer", func() bool { return sh.drawer.last != nil && len(drawerButtons(d)["Show"]) == 4 })
+	test.Tap(drawerButtons(d)["Show"][0]) // DATABASE_URL, a long value that wraps
+	q.until(t, "the value", func() bool { return len(findAll[*secretText](d.details)) == 1 })
+	st := findAll[*secretText](d.details)[0]
+	test.NewTempWindow(t, st).Resize(fyne.NewSize(200, 200))
+
+	if lines := st.lines(); len(lines) < 2 || strings.Join(lines, "") != st.text {
+		t.Errorf("the value wraps into %q", lines)
+	}
+	st.TypedShortcut(&fyne.ShortcutSelectAll{})
+	if st.SelectedText() != st.text {
+		t.Fatalf("select all: %q", st.SelectedText())
+	}
+	st.TypedShortcut(&fyne.ShortcutCopy{Clipboard: sh.app.Clipboard()})
+	if got := sh.app.Clipboard().Content(); got != st.text {
+		t.Fatalf("the clipboard holds %q", got)
+	}
+	q.until(t, "the clipboard to be cleared", func() bool { return sh.app.Clipboard().Content() == "" })
+
+	// A drag across the first line selects a part of it.
+	charW, lineH := st.metrics()
+	st.MouseDown(&desktop.MouseEvent{PointEvent: fyne.PointEvent{Position: fyne.NewPos(charW*2+1, lineH/2)}, Button: desktop.MouseButtonPrimary})
+	st.Dragged(&fyne.DragEvent{PointEvent: fyne.PointEvent{Position: fyne.NewPos(charW*7+1, lineH/2)}, Dragged: fyne.NewDelta(charW*5, 0)})
+	st.DragEnd()
+	if got, want := st.SelectedText(), st.text[2:7]; got != want {
+		t.Errorf("a drag over columns 2 to 7 selected %q, want %q", got, want)
+	}
+}
+
+// TestCopyHasNoCommand: copying is a GUI behaviour (D-25); the registry has no command that puts a
+// value on the clipboard but the object name's, so no agent can copy a Secret to the clipboard.
+func TestCopyHasNoCommand(t *testing.T) {
+	r := engine.NewRegistry()
+	if err := commands.RegisterAll(r); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range r.Commands() {
+		id := strings.ToLower(c.ID)
+		if (strings.Contains(id, "copy") || strings.Contains(id, "clipboard")) && c.ID != "object.copyName" {
+			t.Errorf("command %q copies to the clipboard", c.ID)
+		}
+	}
+}
+
+func TestRenderDrawerCopyIconDark(t *testing.T) {
+	renderCopyIcon(t, ThemeDark, "drawer_copyicon_dark.png")
+}
+func TestRenderDrawerCopyIconLight(t *testing.T) {
+	renderCopyIcon(t, ThemeLight, "drawer_copyicon_light.png")
+}
+
+// renderCopyIcon shows the pod drawer with its labels unfolded, the pointer over one label and the
+// copy icon beside it, and one line selected.
+func renderCopyIcon(t *testing.T, mode ThemeMode, name string) {
+	sh, w, _, ref := podDrawerScene(t, mode)
+	d := sh.drawer
+	test.Tap(drawerLinks(sh)["2 Labels"])
+	settle(w)
+	sel := selLineWith(t, d, ref.Name)
+	sel.TypedShortcut(&fyne.ShortcutSelectAll{})
+	for _, hw := range findAll[*hoverWrap](d.details) {
+		if p := findAll[*pill](hw.content); len(p) == 1 && strings.Contains(p[0].text, "=") {
+			hw.MouseIn(mouse())
+			break
+		}
+	}
+	savePNG(t, w, name)
+}

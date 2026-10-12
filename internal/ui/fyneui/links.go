@@ -65,6 +65,7 @@ type linkText struct {
 	size    fyne.ThemeSizeName
 	onTap   func()
 	hovered bool
+	hook    *copyHook // the copy icon's target (drawer values); nil: none
 }
 
 func newLinkText(text string, onTap func()) *linkText {
@@ -84,13 +85,25 @@ func (l *linkText) Tapped(*fyne.PointEvent) {
 func (l *linkText) Cursor() desktop.Cursor { return desktop.PointerCursor }
 
 // MouseIn implements desktop.Hoverable.
-func (l *linkText) MouseIn(*desktop.MouseEvent) { l.hovered = true; l.Refresh() }
+func (l *linkText) MouseIn(*desktop.MouseEvent) {
+	l.hovered = true
+	l.Refresh()
+	if l.hook != nil {
+		l.hook.enter(l, fyne.MeasureText(l.text, l.Theme().Size(l.size), fyne.TextStyle{}).Width)
+	}
+}
 
 // MouseMoved implements desktop.Hoverable.
 func (l *linkText) MouseMoved(*desktop.MouseEvent) {}
 
 // MouseOut implements desktop.Hoverable.
-func (l *linkText) MouseOut() { l.hovered = false; l.Refresh() }
+func (l *linkText) MouseOut() {
+	l.hovered = false
+	l.Refresh()
+	if l.hook != nil {
+		l.hook.leave(l)
+	}
+}
 
 // CreateRenderer implements fyne.Widget.
 func (l *linkText) CreateRenderer() fyne.WidgetRenderer {

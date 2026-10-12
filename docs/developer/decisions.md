@@ -583,7 +583,32 @@ so in a toast; a value made of several entries (labels, annotations, ports, imag
 entry, in YAML syntax (`app.kubernetes.io/name: grafana`). A Secret's value can be copied only once
 revealed, in the GUI, and the clipboard is cleared 60 seconds later if it still holds that value.
 Agents get no copy command (they read values through `object_get` already). This is Cogpit's own
-approach; how Lens Desktop copies is not captured and not needed. Not built yet.
+approach; how Lens Desktop copies is not captured and not needed. **Built 2026-10-12**
+([`selection.go`](../../internal/ui/fyneui/selection.go), [`copy.go`](../../internal/ui/fyneui/copy.go),
+[`secretreveal.go`](../../internal/ui/fyneui/secretreveal.go)):
+
+- The drawer's text lines (names, values, table cells, section titles, events' reason and
+  source) are `selLine`s: a drag selects, a double click selects a word, ⌘C or Ctrl+C copies, all
+  inside one line; Tab does not stop at them (Fyne's focus chain skips a "disabled" object that has
+  `SelectedText`, and a click still focuses it). An event's message is a selectable `widget.Label`.
+  A revealed Secret value is a `secretText`: monospace, wrapped at any character, selectable over
+  its lines. Not drag-selectable, because they are tappable or drawn as shapes: links, chips and
+  status pills (they have the copy icon).
+- One copy icon (`copyButton`), which the drawer moves to the value the pointer is over. It sits
+  right after the value's text, or on the value's right end when the value is wider, and on a chip
+  it covers the chip's last characters. A tap puts the value on the clipboard and shows a toast
+  ("Copied to the clipboard"). Values of several entries copy the entry under the pointer: a folded
+  list has no icon while folded; an entry of the form `key=value` (labels, annotations, selectors,
+  environment variables) is copied as `key: value`, any other entry as a YAML scalar, quoted only
+  where YAML needs it (`yamlEntry`, through sigs.k8s.io/yaml). Single values are copied as shown.
+- A masked Secret value has no icon; a revealed one has, and copies the value alone (not the note
+  that a long value was cut). A copy of a Secret value, by the icon or by ⌘C on its selection, goes
+  through `shell.copyText(…, secret=true)`: 60 seconds later (`secretClipboardTTL`; the shell's
+  `secretClipTTL`, shortened in tests) the clipboard is emptied if it still holds that value; a
+  later copy of anything cancels the clearing, and closing the window clears at once
+  (`w.SetOnClosed`).
+- It is no command and no tool: `TestCopyHasNoCommand`. The one copy command, `object.copyName`
+  (the drawer's first icon), is older and stays.
 
 ## D-26: Binding a credential plugin's approval to its program
 
@@ -623,6 +648,7 @@ the upgrade is bound to its text revision (R-2). Built 2026-10-12 by the lead
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-12 | minor | D-26 (owner): a credential plugin's approval binds the program's content when it lies in the kubeconfig's or sync folder; D-27 (owner, built): an agent's inline Helm values shown in the confirmation |
+| 2026-10-12 | minor | D-22 to D-25 built: Solarized theme tokens (contrast departures listed), the status bar link, the C helm logo (`internal/ui/logo`), copying values from the drawer |
 | 2026-10-12 | minor | Owner's decisions on look and use: D-22 Solarized colours, D-23 the status bar link, D-24 the C helm logo, D-25 copying values |
 | 2026-10-12 | minor | D-21 (owner): no adding of kubeconfigs from pasted text; the paste feature built the same day is removed (pasted sources of earlier builds are no longer listed, their files stay) |
 | 2026-10-12 | minor | D-20 (owner): a port forward fails at once on permanent errors (option a), not built |

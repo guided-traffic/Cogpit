@@ -358,6 +358,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | trivial | Status colours row: Solarized's accents, contrast held by a test (D-22 built); no count moved |
 | 2026-10-12 | minor | Owner requirements noted on the status bar (D-23) and the themes (D-22) |
 | 2026-10-12 | minor | Kubeconfig Syncs captured (owner): the file dialog for files and folders, no subfolders but dot files, new files within 1–2 s, a removed file's cluster closed, plugins run without asking, "Connection Updates"; the Preferences list; owner requirement: confirm removing a synced item |
 | 2026-10-12 | minor | Adding a kubeconfig by pasting: not a target (owner, D-21); 54 of 120 free rows |
