@@ -6,8 +6,9 @@ without its `cmd/` and `img/` directories, used by Cogpit through a `replace` di
 Terminal output comes from containers, which anyone who can deploy to a cluster controls; the
 upstream widget crashed or froze Cogpit's whole process on some of it, on Fyne's main goroutine,
 where nothing can recover. Each patch is marked `Cogpit patch:` in the code. They are candidates
-for upstream (the patch series against upstream's master is not built yet, and nothing is sent
-before the owner's OK); drop the fork once upstream has equivalent fixes ([D-14](../../docs/developer/decisions.md#d-14-terminal-widget)).
+for upstream: the series against upstream's master is built (2026-10-12, four pull requests: the
+crashes, the hangs, OSC 7, the races with the fuzz test; one commit and test per fix), kept outside
+the repository, and not sent: the owner decides; drop the fork once upstream has equivalent fixes ([D-14](../../docs/developer/decisions.md#d-14-terminal-widget)).
 
 ## Crashes and hangs
 
@@ -19,7 +20,7 @@ before the owner's OK); drop the fork once upstream has equivalent fixes ([D-14]
 | `escape.go` | Scroll margins (`CSI r`) are clamped to the screen, and a region whose top is not above its bottom resets to the full screen; a bottom of 0 made scrolling index out of range |
 | `output.go` | `scrollUp` and `scrollDown` grow the rows to the region and ignore an invalid region |
 | `output.go` | `ESC 7`, `ESC 8`, `ESC D` and `ESC M` run on Fyne's main goroutine like the CSI sequences, instead of the reader goroutine; the restored cursor goes through `moveCursor`, which clamps it to the screen |
-| `osc.go` | OSC 7 (the shell reporting its directory) records the directory in the configuration instead of changing the whole process's working directory |
+| `osc.go` | OSC 7 (the shell reporting its directory) records the directory in the configuration instead of changing the whole process's working directory; 2026-10-12: as the path, read with `net/url` (the host of `file://host/path` dropped, the percent-encoding decoded), the form offered upstream (`TestOSC_Directory`) |
 | `escape.go` | 2026-10-12: a control sequence's final character is decoded as a rune (`handleEscape`); indexing the runes with the length in bytes panicked on a non-ASCII final (`ESC [ é`) |
 | `escape.go` | 2026-10-12: set and reset mode (`CSI h`, `CSI l`) check for the `?` of the private modes (`escapeMode`); without a parameter (`ESC [ h`) they sliced out of range, and with one the ANSI mode lost its first digit, so `CSI 20 h` (new line mode) did nothing and `CSI 125 l` hid the cursor. ANSI mode 20 sets new line mode; `CSI ? 20 h` still does too |
 | `escape.go` | 2026-10-12: with debug output on, the device attribute queries without a parameter (`ESC [ > c`, which vim sends) logged `code[1]` and indexed out of range |
