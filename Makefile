@@ -51,8 +51,12 @@ test: test-unit-race ## All tests that need no cluster (race detector on); test-
 test-unit: ## Unit tests without the race detector
 	$(TEST_ENV) $(GO) test ./...
 
+# The race detector makes the UI's tests (internal/ui/fyneui) take about 6 minutes here and more
+# than go test's default 10 on CI's macOS runner; RACE_TIMEOUT bounds a package instead.
+RACE_TIMEOUT ?= 25m
+
 test-unit-race: test-fork ## Unit tests with the race detector, the terminal widget's included
-	$(TEST_ENV) $(GO) test -race ./...
+	$(TEST_ENV) $(GO) test -race -timeout $(RACE_TIMEOUT) ./...
 
 # The patched terminal widget (third_party/fyne-terminal, D-14) is a module of its own, which
 # go test ./... from the root leaves out: its tests and fuzz seeds run here. The tests that start a
@@ -88,7 +92,7 @@ GOVULNCHECK     := $(BIN)/govulncheck
 
 test-unit-coverage: test-fork ## Unit tests with the race detector and a coverage profile (.cache/coverage/unit.out)
 	@mkdir -p $(COVERAGE_DIR)
-	$(TEST_ENV) $(GO) test -race -covermode=atomic -coverprofile=$(COVERAGE_DIR)/unit.out ./...
+	$(TEST_ENV) $(GO) test -race -timeout $(RACE_TIMEOUT) -covermode=atomic -coverprofile=$(COVERAGE_DIR)/unit.out ./...
 	@$(GO) tool cover -func=$(COVERAGE_DIR)/unit.out | tail -n 1
 
 coverage-badge: ## Write .github/badges/coverage.json from the profile of test-unit-coverage
