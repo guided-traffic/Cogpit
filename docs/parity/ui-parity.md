@@ -25,7 +25,7 @@ Modifier names are macOS first (⌘ ⌥ ⇧ ⌃); Windows and Linux use Ctrl and
 marked per row; rows without evidence are missing.
 
 **Summary (measured, 2026-10-12, after the fourth implementation run and the hotbar, counted by `make parity`):**
-64 of 133 rows exist (was 56): 56 of the 120 free-plan rows (48 partial, 8 done: the cell tooltip, right-click on a
+65 of 133 rows exist (was 56): 57 of the 120 free-plan rows (49 partial, 8 done: the cell tooltip, right-click on a
 row, the dock's "New tab" menu, keyboard navigation in tables and its shortcut row, the container
 port's link, the forward dialog and the drawer's Forward…, each matching its captured row) and 8
 paid rows (the diff view and the hotbar's seven, partial); 7 more rows are not a target. The hotbar

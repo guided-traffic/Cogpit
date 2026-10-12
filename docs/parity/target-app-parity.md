@@ -13,7 +13,7 @@ Cogpit adds beyond Lens is in [`beyond-lens.md`](beyond-lens.md). Method and voc
 
 | Number | Value | Kind |
 |---|---|---|
-| **Feature breadth** (does each Lens feature exist?) | **~57%** (was ~56%) | measured by `make parity`: [breadth](#feature-breadth); 9 rows done, the rest partial |
+| **Feature breadth** (does each Lens feature exist?) | **~60%** (was ~56%) | measured by `make parity`: [breadth](#feature-breadth); 9 rows done, the rest partial |
 | **Ready for real work** (could a daily Lens user on macOS switch?) | **~26%** (was ~23%) | estimated: [weights](#ready-for-real-work) |
 | **Mainstream practitioner** (daily user of Lens's free features) | **~25%** (was ~24%) | estimated |
 | **Essentials user** (connect, pods, logs, shell, edit) | **~34%** (was ~32%) | estimated |
@@ -83,12 +83,12 @@ counts when it exists in some form; nine counted rows are done, the rest partial
 | Component | Weight | Ours / Lens | % | Kind |
 |---|---:|---|---:|---|
 | Resource views | 30% | 55 / 64 | 85.9% | measured ([resource-parity](resource-parity.md)); ten of them the Gateway API views, generic until captured |
-| Resource actions | 20% | 29 / 39 | 74.4% | measured ([resource-parity](resource-parity.md)) |
-| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 56 / 120 | 46.7% | measured ([ui-parity](ui-parity.md), free rows) |
+| Resource actions | 20% | 36 / 39 | 92.3% | measured ([resource-parity](resource-parity.md)) |
+| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 57 / 120 | 47.5% | measured ([ui-parity](ui-parity.md), free rows) |
 | Cluster authentication and connectivity | 10% | 4 / 13 | 30.8% | measured ([platform-parity](platform-parity.md#cluster-authentication-and-connectivity)) |
 | Platforms and packages | 5% | 1 / 13 | 7.7% | measured ([platform-parity](platform-parity.md#operating-systems-and-packages)) |
 | Paid Lens Desktop features | 10% | 1 / 11 | 9.1% | measured ([premium list](https://docs.lenshq.io/k8slens/premium-features/) without extensions, D-5): the editor's diff, partial |
-| **Weighted** | 100% | | **56.7%** | |
+| **Weighted** | 100% | | **60.5%** | |
 
 ## Ready for real work
 
@@ -156,14 +156,14 @@ each), contained in G6 and G7 above, plus the named subsystem where one exists.
 
 | Area | Views | Actions | % | Hours |
 |---|---:|---:|---:|---:|
-| Cluster: overview, applications, nodes, namespaces, events | 5 | 5 | ~25% (Nodes with its Pods table, Namespaces, Events; Cordon, Uncordon, Drain partial; no node shell, no Create Namespace) | 12–35, plus metrics (G12) |
+| Cluster: overview, applications, nodes, namespaces, events | 5 | 5 | ~25% (Nodes with its Pods table, Namespaces, Events; Cordon, Uncordon, Drain partial; no node shell; Create Namespace partial, 2026-10-12) | 12–35, plus metrics (G12) |
 | Workloads | 9 | 16 | ~55% (every view, the Overview page included; all 15 actions that are targets exist, partial; Share is not a target) | 8–30 |
-| Config | 16 | 2 | ~42% (15 of 16 views partial, Secrets on a full watch with Keys and Type; no create dialogs) | 10–35 |
+| Config | 16 | 2 | ~42% (15 of 16 views partial, Secrets on a full watch with Keys and Type; the Resource Quota create dialog partial, no Secret dialog, 2026-10-12) | 10–35 |
 | Network, Gateway API included | 17 | 5 | ~45% (every view; port forwarding and its four actions; the Gateway API views generic) | 6–25 |
 | Storage | 3 | – | ~40% (every view partial, a claim's pods) | 1–5 |
 | Device resources | 4 | – | 0% | 10–25 |
 | Helm releases and charts | 2 | 4 | ~45% (Releases with Lens's drawer, values and notes; rollback with Lens's dialog, uninstall, upgrade from the Helm Upgrade tab; no charts, no install) | 6–20, plus Helm (G11) |
-| Access control | 6 | 5 | ~35% (5 of 6 views partial; no create dialogs) | 12–35 |
+| Access control | 6 | 5 | ~35% (5 of 6 views partial; the create dialogs of Service Accounts and the four RBAC kinds partial, 2026-10-12) | 12–35 |
 | Custom resources (Definitions and the custom resource views) | 2 | – | ~65% (custom resource views done, Definitions with its group filter partial) | 1–3 |
 | Actions on every kind (edit, delete, copy name) | – | 3 | ~55% (all three, partial; Edit and Delete greyed by access reviews) | 1–5 |
 

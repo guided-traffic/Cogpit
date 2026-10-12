@@ -21,9 +21,8 @@ they become the registry ids and, with underscores, the MCP tool names.
 exist (was 27 after the second run): one done (the custom resource views) and 54 partial, ten of them the Gateway API
 views, which show as generic custom resource views until their columns are captured. Missing: the
 cluster Overview, Applications, Vertical Pod Autoscalers, the four Device Resources views, Helm
-Charts and Pod Security Policies. 29 of 39 actions exist (was 28 after the third run; Helm
-upgrade, 2026-10-12), all partial; missing: the node shell, Helm install, and the create dialogs (Namespace, Secret, Resource Quota,
-Service Account and the four RBAC kinds). Partial views lack the metrics columns, and most of
+Charts and Pod Security Policies. 36 of 39 actions exist (was 29; the seven create dialogs,
+2026-10-12), all partial; missing: the node shell, Helm install, and the Secret create dialog. Partial views lack the metrics columns, and most of
 their texts and rules are inferred, not checked against a running Lens; the actions are limited
 as noted. Counted from the rows below (the two Gateway API rows hold seven and three views; Share
 is not a target). Lens Desktop's paid features add 24 views and 3 actions. Remaining (estimated,
