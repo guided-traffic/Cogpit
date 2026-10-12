@@ -240,7 +240,8 @@ func cutLine(s string, n int) string {
 	return strings.TrimSpace(string(r[:n-1])) + "…"
 }
 
-// agoText says how long before the chart's end a moment lies: "30 s ago", "2 min 5 s ago".
+// agoText says how long before the chart's end a moment lies: "30 s ago", "2 min 5 s ago",
+// "1 h 2 min ago", "3 d 4 h ago".
 func agoText(d time.Duration) string {
 	s := int(math.Round(d.Seconds()))
 	switch {
@@ -254,7 +255,10 @@ func agoText(d time.Duration) string {
 		}
 		return fmt.Sprintf("%d min %d s ago", s/60, s%60)
 	}
-	return fmt.Sprintf("%d h %d min ago", s/3600, s%3600/60)
+	if s < 86400 {
+		return fmt.Sprintf("%d h %d min ago", s/3600, s%3600/60)
+	}
+	return fmt.Sprintf("%d d %d h ago", s/86400, s%86400/3600)
 }
 
 // hoverTime formats a moment for the panel: local time with seconds, with the date on a range of a

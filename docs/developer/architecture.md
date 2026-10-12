@@ -1249,10 +1249,11 @@ on every `EventMetrics`, and updates its widgets in place: a new measurement red
 nothing else (`TestMetricsEventUpdatesInPlace`). It shows the source line ("Displaying metrics from
 Kubernetes Metrics Server") or, without metrics, the reason in place of the chart. **Every chart has
 its own row of controls** (`chartCtl`; there is no main button): the pod's or node's chart, and the
-compact chart under each container's section title. A row is a time range (5m, 15m, 30m, 1h; 1h at
-first), the variant buttons as icons with their names as tooltips (CPU a chip, Memory a memory
+compact chart under each container's section title. A row is a time range (5m, 15m, 30m, 1h with the
+Metrics Server; 1h at first; longer with Prometheus, and held by the engine since the third slice,
+below), the variant buttons as icons with their names as tooltips (CPU a chip, Memory a memory
 module, Network arrows both ways, Filesystem a stack of drives: Cogpit's own drawings; Network and
-Filesystem disabled with the tooltip "needs Prometheus") and a flag button that marks the object's events from the drawer model. Range, variant
+Filesystem disabled with the tooltip "needs Prometheus" unless the provider has them) and a flag button that marks the object's events from the drawer model. Range, variant
 and flag are per chart, so changing one chart changes only that chart; the container's row is
 smaller (a "1h" button that opens a menu of the ranges, no divider),
 so it stays on one line at the drawer's minimum width. The data stays one poll per drawer: the
@@ -1291,8 +1292,8 @@ with the new columns only because the default widths of several columns were tri
 (`defaultColumnWidths`); a user's dragged widths still win.
 
 **Built 2026-10-12 (G12, second slice, backend): Prometheus through the API server's service
-proxy.** The Provider/Detector seam of the first slice took it without a change of shape; the window's
-Network and Filesystem buttons and range menus are not wired yet (below).
+proxy.** The Provider/Detector seam of the first slice took it without a change of shape; the window
+draws it since the third slice (below).
 
 | Piece | File | Responsibility |
 |---|---|---|
@@ -1410,11 +1411,57 @@ for as long as a metrics view is open (and the warm period after): the Pods view
 connect is such a view, so a connection holds one more watch than before (`TestBudgetCustomResourceView`
 counts four).
 
-*Left for the window* (not built, UI is not touched by this slice): enable the Network and Filesystem
-buttons from `Capabilities` and draw `Network` (receive and transmit lines) and `Filesystem`
-(usage, or read and write rates for `FilesystemSource` "io"); call `SetMetricsRange` when a range
-button changes and for every chart that appears; a range list longer than 1 h (the range button
-already offers 5m–1h); events as markers need nothing new (they come from the drawer model).
+**Built 2026-10-12 (G12, third slice): the window draws Prometheus**
+([`metricsview.go`](../../internal/ui/fyneui/metricsview.go), [`chart.go`](../../internal/ui/fyneui/chart.go),
+[`chart_hover.go`](../../internal/ui/fyneui/chart_hover.go)). The chart widget did not change shape:
+it still draws the plain series, lines and markers it is given; what changed is what the panel gives
+it per variant.
+
+| Variant | Series (hover names) | Lines | Units: axis, hover |
+|---|---|---|---|
+| CPU | "CPU usage" | requests and limits (a node: allocatable capacity and capacity) | cores: `0.25`; `250m`, `1.25` |
+| Memory | "Memory usage" | the same | binary bytes: `192Mi`; `192.4Mi` |
+| Network | "Receive" (accent), "Transmit" (`colorChartSecond`) | none | bytes per second: `48KiB/s`; `30.6KiB/s` |
+| Filesystem, source `usage` | "Usage" | none | binary bytes, as Memory |
+| Filesystem, source `io` | "Read" (accent), "Write" (`colorChartSecond`) | none | bytes per second, as Network |
+
+- **The buttons follow the provider** (`chartCtl.follow`, `enableVariants`): Network and Filesystem
+  are enabled from `ObjectMetrics.Capabilities` while the status is available, else disabled with the
+  tooltip "Network: needs Prometheus"; the buttons stay icons, the names are their tooltips (owner).
+  A chart showing a variant the provider no longer has goes back to CPU; a failed poll (a moment
+  without metrics) keeps the choice.
+- **A container's Network is the pod's** (`NetworkOfPod`): its chart says so in a line under the plot,
+  "Network is per pod: its containers share it." Lens has no network tab on a container (capture);
+  Cogpit shows the pod's because the owner asked for every variant on every chart. A compact chart
+  draws its legend when it has two series, which only the legend tells apart.
+- **Byte axes step in their unit** (`chartData.Binary`, `binaryStep`): 25KiB/s, 50KiB/s, not 24.4KiB/s;
+  the Memory axis follows too. **Time axes** carry the date from a range of a day ("Oct 11 14:30") and
+  the date alone from a week ("Oct 4"); the hover's "ago" counts days ("2 d 2 h ago").
+- **Colours from tokens only**: the second series is the new `colorChartSecond` (Solarized violet,
+  lightened to 4:1 on the plot in the dark theme, darkened to 3.9:1 in the light one); both series
+  colours keep 3:1 on the plot and the hover panel (`TestPaletteContrast`) and a CIE76 difference of
+  at least 40 from each other and from the requests', limits' and events' colours in both themes
+  (`TestChartColoursAreDistinct`).
+- **Ranges** (`metricsRanges`): 5m, 15m, 30m, 1h, 3h, 6h, 12h, 1d, 2d, 7d, 14d, 30d with a provider
+  that has history, up to 1h with the Metrics Server, which keeps none. Lens's capture shows the
+  default "1h" only; the other values are Cogpit's choice (inferred). The pod's chart offers them in a
+  select, a container's in its small button's menu. **Choosing one asks the engine**
+  (`ui.setMetricsRange`): the chart shows the new range at once, and until the engine answered a
+  load in flight does not put the old one back (`chartCtl.pending`); then the range control follows
+  what the engine reports, whoever set it, so an agent's change shows in the window. A drawer that
+  shows another object by then (`ErrDrawerNotOpen`) is refused quietly, any other refusal is a toast,
+  and either way the chart follows the engine's range again (`TestMetricsRangeIsEngineState`).
+- **The source line** reads "Displaying metrics from Prometheus (<namespace>/<service>)"; the note
+  "The Metrics Server keeps no history" shows only for a provider without history
+  (`TestPrometheusSourceAndVariants`).
+- **Hover** needs nothing new: each series is named in the panel with the variant's hover format
+  (`TestHoverNetworkAndFilesystem`).
+
+Tests on canned data: `TestPrometheusSourceAndVariants`, `TestPrometheusFilesystemIO`,
+`TestVariantsFollowTheProvider`, `TestMetricsRangeIsEngineState`, `TestHoverNetworkAndFilesystem`,
+`TestRateFormatsAndLongRanges`; renders of each variant in both themes, a container's network, a
+week and the hover at the narrowest drawer (`TestRenderPrometheusMetrics`, to `COGPIT_PNG_DIR`).
+Against a real Prometheus: below.
 
 ## 10. Terminal (`internal/terminal`)
 

@@ -214,5 +214,62 @@ func TestPaletteContrast(t *testing.T) {
 		check("toast error", p.status[model.StatusError], colorToast, 3.0)
 		check("toast close icon", c(colorToastText), colorToast, 3.0)
 		check("placeholder", c(theme.ColorNamePlaceHolder), theme.ColorNameInputBackground, 3.0)
+		// A chart's lines are graphics on the plot (the input background), and their swatches sit
+		// in the hover panel (the tooltip).
+		for _, n := range []fyne.ThemeColorName{colorAccent, colorChartSecond} {
+			check("chart series "+string(n), c(n), theme.ColorNameInputBackground, 3.0)
+			check("chart swatch "+string(n), c(n), colorTooltip, 3.0)
+		}
+	}
+}
+
+// lab converts a colour to CIE L*a*b* (D65), for colour differences.
+func lab(c color.Color) [3]float64 {
+	n := color.NRGBAModel.Convert(c).(color.NRGBA)
+	lin := func(b uint8) float64 {
+		v := float64(b) / 255
+		if v <= 0.04045 {
+			return v / 12.92
+		}
+		return math.Pow((v+0.055)/1.055, 2.4)
+	}
+	r, g, b := lin(n.R), lin(n.G), lin(n.B)
+	x := (0.4124*r + 0.3576*g + 0.1805*b) / 0.95047
+	y := 0.2126*r + 0.7152*g + 0.0722*b
+	z := (0.0193*r + 0.1192*g + 0.9505*b) / 1.08883
+	f := func(t float64) float64 {
+		if t > 216.0/24389 {
+			return math.Cbrt(t)
+		}
+		return (24389.0/27*t + 16) / 116
+	}
+	return [3]float64{116*f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))}
+}
+
+// deltaE is the CIE76 colour difference: about 2.3 is just noticeable, above 40 the colours read
+// as different hues at a glance.
+func deltaE(a, b color.Color) float64 {
+	la, lb := lab(a), lab(b)
+	return math.Sqrt((la[0]-lb[0])*(la[0]-lb[0]) + (la[1]-lb[1])*(la[1]-lb[1]) + (la[2]-lb[2])*(la[2]-lb[2]))
+}
+
+// TestChartColoursAreDistinct: a chart's two series (receive and transmit, read and write) and
+// what is drawn with them (requests, limits, event markers) are told apart in both themes.
+func TestChartColoursAreDistinct(t *testing.T) {
+	for name, p := range map[string]*palette{"dark": &darkPalette, "light": &lightPalette} {
+		chart := map[string]color.Color{
+			"first series": p.fyne[colorAccent], "second series": p.fyne[colorChartSecond],
+			"requests": p.status[model.StatusWarning], "limits": p.status[model.StatusError], "events": p.status[model.StatusPending],
+		}
+		for _, series := range []string{"first series", "second series"} {
+			for other, oc := range chart {
+				if other == series {
+					continue
+				}
+				if d := deltaE(chart[series], oc); d < 40 {
+					t.Errorf("%s: the %s and the %s differ by ΔE %.1f, want 40", name, series, other, d)
+				}
+			}
+		}
 	}
 }

@@ -48,10 +48,14 @@ type chartData struct {
 	Format func(float64) string
 	// Detail formats a value for the hover panel, more exactly than the axis; nil uses Format.
 	Detail func(float64) string
+	// Binary says the values are bytes (or bytes per second): the value axis steps at round
+	// amounts of KiB, MiB or GiB (25KiB, 50KiB), not of decimal bytes (24.4KiB, 48.8KiB).
+	Binary bool
 	// Empty is the text shown in place of the plot while there is no point to draw.
 	Empty string
-	// Compact leaves out the legend and the horizontal grid's labels get a smaller plot (a
-	// container's chart under its section title).
+	// Compact gives a smaller plot and leaves out the legend unless the chart has several series
+	// (receive and transmit), which only the legend tells apart (a container's chart under its
+	// section title).
 	Compact bool
 }
 
@@ -157,8 +161,17 @@ func (r *chartRenderer) plotHeight() float32 {
 	return chartPlotHeight
 }
 
+// legend reports whether the chart draws a legend: a full chart with anything to name, a compact one
+// only to tell several series apart.
+func (d chartData) legend() bool {
+	if d.Compact {
+		return len(d.Series) > 1
+	}
+	return len(d.Series)+len(d.Lines)+len(d.Markers) > 0
+}
+
 func (r *chartRenderer) legendHeight() float32 {
-	if r.c.data.Compact || len(r.c.data.Series)+len(r.c.data.Lines)+len(r.c.data.Markers) == 0 {
+	if !r.c.data.legend() {
 		return 0
 	}
 	m := r.sizes()
@@ -204,6 +217,16 @@ func niceStep(top float64, n int) float64 {
 	return 10 * exp
 }
 
+// binaryStep is niceStep in the binary unit (B, KiB, MiB, ...) the top of the axis is counted in, so
+// that the steps of a byte axis are round in the unit its labels show.
+func binaryStep(top float64, n int) float64 {
+	unit := 1.0
+	for top/unit >= 1024 {
+		unit *= 1024
+	}
+	return niceStep(top/unit, n) * unit
+}
+
 func (d chartData) format(v float64) string {
 	if d.Format != nil {
 		return d.Format(v)
@@ -211,16 +234,22 @@ func (d chartData) format(v float64) string {
 	return fmt.Sprintf("%g", v)
 }
 
-// timeLabel formats an axis time: with seconds on a short range.
+// timeLabel formats an axis time: with seconds on a short range, with the date on a range of a day
+// or more, the date alone from a week on.
 func (d chartData) timeLabel(t time.Time) string {
 	loc := d.Loc
 	if loc == nil {
 		loc = time.Local
 	}
-	if d.To.Sub(d.From) < 10*time.Minute {
+	switch span := d.To.Sub(d.From); {
+	case span < 10*time.Minute:
 		return t.In(loc).Format("15:04:05")
+	case span < 24*time.Hour:
+		return t.In(loc).Format("15:04")
+	case span < 7*24*time.Hour:
+		return t.In(loc).Format("Jan 2 15:04")
 	}
-	return t.In(loc).Format("15:04")
+	return t.In(loc).Format("Jan 2")
 }
 
 func (r *chartRenderer) Layout(size fyne.Size) {
@@ -254,6 +283,9 @@ func (r *chartRenderer) Layout(size fyne.Size) {
 	}
 	ymax := d.valueMax()
 	step := niceStep(ymax, chartGridLines)
+	if d.Binary {
+		step = binaryStep(ymax, chartGridLines)
+	}
 	ticks := int(math.Ceil(ymax / step))
 	top2 := step * float64(ticks) // the top of the axis, a whole number of steps
 	if top2 <= 0 {
@@ -411,7 +443,7 @@ func (r *chartRenderer) Layout(size fyne.Size) {
 			entry(s.Name, s.Color)
 		}
 		for _, l := range d.Lines {
-			if l.Value > 0 {
+			if l.Value > 0 && !d.Compact {
 				entry(l.Name, l.Color)
 			}
 		}

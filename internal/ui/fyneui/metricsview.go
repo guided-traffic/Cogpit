@@ -1,6 +1,7 @@
 package fyneui
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"slices"
@@ -20,11 +21,15 @@ import (
 
 // The drawer's Metrics section (G12, architecture §9), after Lens's (capture, 2026-10-12): above the
 // Properties of a pod or node, a line naming the source ("Displaying metrics from Kubernetes
-// Metrics Server"), a time range (1h at first), a button for each variant (CPU, Memory, Network,
-// Filesystem), a flag button that marks the object's events on the chart, and the chart with the
-// requests and limits as dashed lines. Network and Filesystem need Prometheus and are disabled
-// with that reason. Each container of a pod gets a compact chart of its own under its section's
-// title, following the same variant and range.
+// Metrics Server", "Displaying metrics from Prometheus (monitoring/prometheus-server)"), and
+// charts, each with its own time range (1h at first), a button for each variant (CPU, Memory,
+// Network, Filesystem), a flag button that marks the object's events on the chart, and the chart
+// with the requests and limits as dashed lines (CPU and Memory). Network and Filesystem need a
+// provider that has them (Prometheus) and are disabled with that reason otherwise. Each container
+// of a pod gets a compact chart of its own under its section's title.
+//
+// A chart's time range is engine state (ui.setMetricsRange), so that agents see and set it: the
+// range control asks the engine and follows what the engine reports, whoever changed it.
 //
 // The panel keeps its widgets across the drawer's rebuilds (drawer.kept) and updates them in place
 // when the engine reports new numbers (engine.EventMetrics, about every 15 seconds while the drawer
@@ -39,20 +44,34 @@ const (
 	variantFilesystem = "filesystem"
 
 	needsPrometheus = "needs Prometheus"
+
+	// networkPerPod says under a container's Network chart that the numbers are the pod's.
+	networkPerPod = "Network is per pod: its containers share it."
 )
 
-// metricsRanges are the time ranges the panel offers, by label. The Metrics Server keeps no
-// history, so the hub's series (an hour at most) is what a range shows; Prometheus will add the
-// longer ranges.
-var metricsRanges = []struct {
-	label string
-	d     time.Duration
-}{
-	{"5m", 5 * time.Minute}, {"15m", 15 * time.Minute}, {"30m", 30 * time.Minute}, {"1h", time.Hour},
+// metricsRanges are the time ranges a chart offers, labelled as ui.setMetricsRange writes them.
+// Lens's default, 1h, is captured; the others are Cogpit's choice (docs/parity/ui-parity.md). The
+// ranges beyond an hour need a provider with history (Prometheus): the Metrics Server keeps none,
+// and the hub's series of it holds an hour at most.
+var metricsRanges = []time.Duration{
+	5 * time.Minute, 15 * time.Minute, 30 * time.Minute, time.Hour,
+	3 * time.Hour, 6 * time.Hour, 12 * time.Hour, 24 * time.Hour, 2 * 24 * time.Hour, 7 * 24 * time.Hour,
+	14 * 24 * time.Hour, 30 * 24 * time.Hour,
 }
 
-// defaultMetricsRange is Lens's default time range.
-const defaultMetricsRange = "1h"
+// defaultMetricsWindow is Lens's default time range.
+const defaultMetricsWindow = time.Hour
+
+// rangeLabels are the labels of the ranges a chart offers: up to an hour without history.
+func rangeLabels(history bool) []string {
+	out := make([]string, 0, len(metricsRanges))
+	for _, d := range metricsRanges {
+		if history || d <= time.Hour {
+			out = append(out, engine.FormatChartRange(d))
+		}
+	}
+	return out
+}
 
 type metricsPanel struct {
 	*chartCtl // the pod's or node's own chart and controls
@@ -81,7 +100,8 @@ type chartCtl struct {
 	compact bool
 
 	variant    string
-	window     time.Duration
+	window     time.Duration // as the engine reports it (MetricsTarget.Window), or as just asked for
+	pending    bool          // the engine has not answered the range just asked for
 	showEvents bool
 
 	root     *fyne.Container // a container's controls and chart; nil for the pod's, which the panel's root holds
@@ -91,6 +111,7 @@ type chartCtl struct {
 	variants map[string]*tipButton
 	flag     *tipButton
 	plot     *chart
+	hint     *textLine // under the chart: what its numbers are (a container's network is the pod's)
 }
 
 // metricsVariants are the buttons of every chart: icons, as Lens's are, with the name as the
@@ -110,31 +131,28 @@ func newMetricsPanel(d *drawer, ref model.ObjectRef) *metricsPanel {
 	p.caption.truncate = true
 	p.note = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	p.note.truncate = true
-	p.root = container.NewVBox(p.controls, p.plot, p.caption, p.note)
+	p.root = container.NewVBox(p.controls, p.plot, p.hint, p.caption, p.note)
 	p.render()
 	return p
 }
 
 // newChartCtl makes a chart with its controls: CPU selected, the default range, events off.
 func newChartCtl(p *metricsPanel, name string, compact bool) *chartCtl {
-	c := &chartCtl{p: p, name: name, compact: compact, variant: variantCPU, window: time.Hour, variants: map[string]*tipButton{}}
+	c := &chartCtl{p: p, name: name, compact: compact, variant: variantCPU, window: defaultMetricsWindow, variants: map[string]*tipButton{}}
 	sh := p.d.sh
 
 	// The pod's chart picks its range in a select; a container's compact chart in a small button
 	// that opens a menu, so that its whole row of controls fits the drawer's minimum width.
 	ctl := make([]fyne.CanvasObject, 0, 3+len(metricsVariants))
+	label := engine.FormatChartRange(defaultMetricsWindow)
 	if compact {
 		c.rangeBtn = newTipButton(sh, nil, "Time range", nil)
-		c.rangeBtn.Text, c.rangeBtn.Importance = defaultMetricsRange, widget.MediumImportance
+		c.rangeBtn.Text, c.rangeBtn.Importance = label, widget.MediumImportance
 		c.rangeBtn.OnTapped = func() { c.rangeMenu() }
 		ctl = append(ctl, c.rangeBtn)
 	} else {
-		labels := make([]string, len(metricsRanges))
-		for i, r := range metricsRanges {
-			labels[i] = r.label
-		}
-		c.rangeSel = widget.NewSelect(labels, c.setRange)
-		c.rangeSel.Selected = defaultMetricsRange
+		c.rangeSel = widget.NewSelect(rangeLabels(false), c.setRange)
+		c.rangeSel.Selected = label
 		ctl = append(ctl, c.rangeSel)
 	}
 	for _, v := range metricsVariants {
@@ -143,12 +161,7 @@ func newChartCtl(p *metricsPanel, name string, compact bool) *chartCtl {
 		c.variants[id] = b
 		ctl = append(ctl, b)
 	}
-	c.variants[variantNetwork].tip = "Network: " + needsPrometheus
-	c.variants[variantFilesystem].tip = "Filesystem: " + needsPrometheus
-	c.variants[variantNetwork].Disable()
-	c.variants[variantFilesystem].Disable()
-	c.variants[variantCPU].tip = "CPU"
-	c.variants[variantMemory].tip = "Memory"
+	c.enableVariants(metrics.Capabilities{})
 
 	c.flag = newTipButton(sh, flagIcon, "Show events", func() {
 		c.showEvents = !c.showEvents
@@ -160,44 +173,118 @@ func newChartCtl(p *metricsPanel, name string, compact bool) *chartCtl {
 	ctl = append(ctl, c.flag)
 	c.controls = box(&flowLayout{avail: p.d.contentWidth}, ctl...)
 	c.plot = newChart()
+	c.hint = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+	c.hint.truncate = true
+	c.hint.Hide()
 	return c
+}
+
+// enableVariants enables the variants the provider has: CPU and Memory always, Network and
+// Filesystem with a provider that has them (Prometheus), else disabled with the reason. It reports
+// whether the chart's variant is among them.
+func (c *chartCtl) enableVariants(caps metrics.Capabilities) bool {
+	have := map[string]bool{variantCPU: true, variantMemory: true, variantNetwork: caps.Network, variantFilesystem: caps.Filesystem}
+	for _, v := range metricsVariants {
+		b := c.variants[v.id]
+		if have[v.id] {
+			b.tip = v.label
+			if b.Disabled() {
+				b.Enable()
+			}
+			continue
+		}
+		b.tip = v.label + ": " + needsPrometheus
+		if !b.Disabled() {
+			b.Disable()
+		}
+	}
+	return have[c.variant]
 }
 
 // close stops the panel's loads from landing (keptCloser).
 func (p *metricsPanel) close() { p.closed = true }
 
-// setRange sets this chart's time range by its label.
+// setRange is the user's choice of this chart's time range, by its label: the chart shows it at once
+// and the engine, which holds the range (ui.setMetricsRange), is told; a poll it starts brings the
+// history. Until the engine answered, the panel's loads do not put the old range back. A drawer
+// that shows another object by now refuses quietly; any other refusal shows; either way the chart
+// follows the engine's range again.
 func (c *chartCtl) setRange(label string) {
-	for _, r := range metricsRanges {
-		if r.label == label {
-			c.window = r.d
-		}
+	d, err := engine.ParseChartRange(label)
+	if err != nil || d <= 0 || d == c.window {
+		c.showRange()
+		return
 	}
+	c.window, c.pending = d, true
+	c.showRange()
+	p := c.p
+	p.render()
+	params := struct {
+		Ref       model.ObjectRef `json:"ref"`
+		Container string          `json:"container,omitempty"`
+		Range     string          `json:"range"`
+	}{p.ref, c.name, label}
+	p.d.sh.dispatch("ui.setMetricsRange", params, func(_ any, err error) {
+		c.pending = false
+		if err != nil && !errors.Is(err, engine.ErrDrawerNotOpen) {
+			p.d.sh.showError(err)
+		}
+		p.refresh() // the engine's range from now on, whatever the answer
+	})
+}
+
+// showRange shows the chart's range on its select or button, without asking the engine.
+func (c *chartCtl) showRange() {
+	label := engine.FormatChartRange(c.window)
 	if c.rangeSel != nil && c.rangeSel.Selected != label {
 		c.rangeSel.Selected = label
 		c.rangeSel.Refresh()
 	}
-	if c.rangeBtn != nil {
+	if c.rangeBtn != nil && c.rangeBtn.Text != label {
 		c.rangeBtn.Text = label
 		c.rangeBtn.Refresh()
 	}
-	c.p.render()
+}
+
+// follow takes the engine's state for this chart: its time range, and the variants and ranges the
+// provider offers. A chart that shows a variant the provider does not have (any more) goes back to
+// CPU; a moment without metrics (a failed poll) keeps the choice.
+func (c *chartCtl) follow() {
+	p := c.p
+	var caps metrics.Capabilities
+	available := p.data != nil && p.data.Status == metrics.StatusAvailable
+	if available {
+		caps = p.data.Capabilities
+	}
+	if !c.enableVariants(caps) && available {
+		c.variant = variantCPU
+	}
+	if c.rangeSel != nil {
+		if labels := rangeLabels(caps.History); !slices.Equal(labels, c.rangeSel.Options) {
+			c.rangeSel.SetOptions(labels)
+		}
+	}
+	if t := p.target(c.name); t != nil && t.Window > 0 && !c.pending {
+		c.window = t.Window
+	}
+	c.showRange()
 }
 
 // rangeMenu opens the menu of ranges under a compact chart's range button.
 func (c *chartCtl) rangeMenu() {
-	items := make([]*fyne.MenuItem, len(metricsRanges))
-	for i, r := range metricsRanges {
-		label := r.label
+	history := c.p.data != nil && c.p.data.Status == metrics.StatusAvailable && c.p.data.Capabilities.History
+	labels := rangeLabels(history)
+	items := make([]*fyne.MenuItem, len(labels))
+	for i, label := range labels {
 		items[i] = fyne.NewMenuItem(label, func() { c.setRange(label) })
-		items[i].Checked = r.d == c.window
+		items[i].Checked = label == engine.FormatChartRange(c.window)
 	}
 	if cnv := fyne.CurrentApp().Driver().CanvasForObject(c.rangeBtn); cnv != nil {
 		widget.ShowPopUpMenuAtRelativePosition(fyne.NewMenu("", items...), cnv, fyne.NewPos(0, c.rangeBtn.Size().Height), c.rangeBtn)
 	}
 }
 
-// setVariant switches this chart to CPU or Memory.
+// setVariant switches this chart to CPU, Memory, Network or Filesystem.
 func (c *chartCtl) setVariant(id string) {
 	if id == c.variant {
 		return
@@ -254,6 +341,9 @@ func (p *metricsPanel) apply(m *engine.ObjectMetrics, err error) {
 	}
 	hadBoxes := len(p.containerNames())
 	p.data = m
+	for _, c := range p.charts() {
+		c.follow()
+	}
 	p.render()
 	if len(p.containerNames()) != hadBoxes {
 		p.d.rebuild() // the containers' charts appear with the first numbers
@@ -282,8 +372,9 @@ func (p *metricsPanel) containerChart(name string) fyne.CanvasObject {
 	c := p.perBox[name]
 	if c == nil {
 		c = newChartCtl(p, name, true)
-		c.root = container.NewVBox(c.controls, c.plot)
+		c.root = container.NewVBox(c.controls, c.plot, c.hint)
 		p.perBox[name] = c
+		c.follow()
 		c.update()
 	}
 	return c.root
@@ -310,7 +401,7 @@ func (p *metricsPanel) render() {
 		var note string
 		if t := p.target(""); t != nil && t.Current == nil {
 			note = "No metrics for this " + singular(p.d.sh.kindTitle(p.ref.Kind)) + " yet."
-		} else if t != nil && !p.coversWindow(t) {
+		} else if t != nil && !m.Capabilities.History && !p.coversWindow(t) {
 			note = "The Metrics Server keeps no history: the chart starts when this drawer opened."
 		}
 		p.note.SetText(note)
@@ -330,6 +421,9 @@ func (p *metricsPanel) setState(charts bool, caption string) {
 		} else {
 			o.Hide()
 		}
+	}
+	if !charts {
+		p.hint.Hide()
 	}
 	if !charts {
 		p.caption.SetColor(colorStatusWarning)
@@ -366,7 +460,7 @@ func (p *metricsPanel) coversWindow(t *engine.MetricsTarget) bool {
 func (c *chartCtl) update() {
 	for id, b := range c.variants {
 		b.Importance = widget.MediumImportance
-		if id == c.variant && id != variantNetwork && id != variantFilesystem {
+		if id == c.variant {
 			b.Importance = widget.HighImportance
 		}
 		b.Refresh()
@@ -384,50 +478,33 @@ func (c *chartCtl) update() {
 	}
 }
 
-// renderTarget fills the chart with its target's series, lines and the events.
+// renderTarget fills the chart with its target's series in the chart's variant, the requests and
+// limits (CPU and Memory), the hint under it and the events.
 func (c *chartCtl) renderTarget() {
 	p := c.p
 	to := p.d.sh.now()
-	d := chartData{From: to.Add(-c.window), To: to, Compact: c.compact, Loc: p.d.sh.loc(), Empty: "No data yet"}
-	cpu := c.variant == variantCPU
-	if cpu {
-		d.Format, d.Detail = formatCores, formatCoresExact
-	} else {
-		d.Format, d.Detail = formatBytesShort, formatBytesExact
-	}
-	value := func(u model.Usage) float64 {
-		if cpu {
-			return float64(u.CPUMilli) / 1000
-		}
-		return float64(u.MemoryBytes)
+	d := chartData{
+		From: to.Add(-c.window), To: to, Compact: c.compact, Loc: p.d.sh.loc(), Empty: "No data yet",
+		Binary: c.variant != variantCPU, // bytes, or bytes per second
 	}
 	t := p.target(c.name)
 	if t == nil || p.data == nil || p.data.Status != metrics.StatusAvailable {
+		d.Format, d.Detail = variantFormats(c.variant, "")
+		c.setHint("")
 		c.plot.Set(d)
 		return
 	}
-	title := "Memory usage"
-	if cpu {
-		title = "CPU usage"
-	}
-	s := chartSeries{Name: title, Color: colorAccent}
-	for _, sm := range t.Samples {
-		s.Points = append(s.Points, chartPoint{At: sm.At, Value: value(sm.Usage)})
-	}
-	if len(s.Points) == 0 && t.Current != nil {
-		s.Points = append(s.Points, chartPoint{At: t.At, Value: value(*t.Current)})
-	}
-	d.Series = []chartSeries{s}
-	if p.ref.Kind == string(model.UsageNodes) {
-		d.Lines = []chartLine{
-			{Name: "Allocatable capacity", Color: colorStatusWarning, Value: value(t.Allocatable)},
-			{Name: "Capacity", Color: colorStatusError, Value: value(t.Capacity)},
+	hint := ""
+	switch c.variant {
+	case variantNetwork:
+		d.Series, d.Format, d.Detail = networkSeries(t.Network)
+		if t.NetworkOfPod {
+			hint = networkPerPod
 		}
-	} else {
-		d.Lines = []chartLine{
-			{Name: "Requests", Color: colorStatusWarning, Value: value(t.Requests)},
-			{Name: "Limits", Color: colorStatusError, Value: value(t.Limits)},
-		}
+	case variantFilesystem:
+		d.Series, d.Format, d.Detail = filesystemSeries(t.Filesystem, p.data.FilesystemSource)
+	default:
+		d.Series, d.Lines, d.Format, d.Detail = usageSeries(t, c.variant == variantCPU, p.ref.Kind == string(model.UsageNodes))
 	}
 	if c.showEvents {
 		for _, e := range p.events {
@@ -439,7 +516,99 @@ func (c *chartCtl) renderTarget() {
 			}
 		}
 	}
+	c.setHint(hint)
 	c.plot.Set(d)
+}
+
+// setHint shows a line under the chart, or hides it.
+func (c *chartCtl) setHint(text string) {
+	c.hint.SetText(text)
+	if text == "" {
+		c.hint.Hide()
+	} else {
+		c.hint.Show()
+	}
+}
+
+// variantFormats are a variant's axis and hover formats: cores, bytes, or bytes per second (the
+// network, and the filesystem's read and write rates).
+func variantFormats(variant, fsSource string) (axis, detail func(float64) string) {
+	switch {
+	case variant == variantCPU:
+		return formatCores, formatCoresExact
+	case variant == variantNetwork, variant == variantFilesystem && fsSource == filesystemIO:
+		return formatRateShort, formatRateExact
+	}
+	return formatBytesShort, formatBytesExact
+}
+
+// filesystemIO is ObjectMetrics.FilesystemSource for read and write rates instead of bytes in use.
+const filesystemIO = "io"
+
+// usageSeries is the CPU or Memory chart: the usage, and the requests and limits (a node's
+// allocatable capacity and capacity) as lines.
+func usageSeries(t *engine.MetricsTarget, cpu, node bool) ([]chartSeries, []chartLine, func(float64) string, func(float64) string) {
+	value := func(u model.Usage) float64 {
+		if cpu {
+			return float64(u.CPUMilli) / 1000
+		}
+		return float64(u.MemoryBytes)
+	}
+	title, variant := "Memory usage", variantMemory
+	if cpu {
+		title, variant = "CPU usage", variantCPU
+	}
+	s := chartSeries{Name: title, Color: colorAccent}
+	for _, sm := range t.Samples {
+		s.Points = append(s.Points, chartPoint{At: sm.At, Value: value(sm.Usage)})
+	}
+	if len(s.Points) == 0 && t.Current != nil {
+		s.Points = append(s.Points, chartPoint{At: t.At, Value: value(*t.Current)})
+	}
+	lines := []chartLine{
+		{Name: "Requests", Color: colorStatusWarning, Value: value(t.Requests)},
+		{Name: "Limits", Color: colorStatusError, Value: value(t.Limits)},
+	}
+	if node {
+		lines = []chartLine{
+			{Name: "Allocatable capacity", Color: colorStatusWarning, Value: value(t.Allocatable)},
+			{Name: "Capacity", Color: colorStatusError, Value: value(t.Capacity)},
+		}
+	}
+	axis, detail := variantFormats(variant, "")
+	return []chartSeries{s}, lines, axis, detail
+}
+
+// networkSeries is the Network chart: bytes per second received and transmitted.
+func networkSeries(samples []model.NetworkSample) ([]chartSeries, func(float64) string, func(float64) string) {
+	rx := chartSeries{Name: "Receive", Color: colorAccent}
+	tx := chartSeries{Name: "Transmit", Color: colorChartSecond}
+	for _, sm := range samples {
+		rx.Points = append(rx.Points, chartPoint{At: sm.At, Value: sm.ReceiveBytesPerSec})
+		tx.Points = append(tx.Points, chartPoint{At: sm.At, Value: sm.TransmitBytesPerSec})
+	}
+	axis, detail := variantFormats(variantNetwork, "")
+	return []chartSeries{rx, tx}, axis, detail
+}
+
+// filesystemSeries is the Filesystem chart: the bytes in use, or with the source "io" the bytes per
+// second read and written.
+func filesystemSeries(samples []model.FilesystemSample, source string) ([]chartSeries, func(float64) string, func(float64) string) {
+	axis, detail := variantFormats(variantFilesystem, source)
+	if source == filesystemIO {
+		rd := chartSeries{Name: "Read", Color: colorAccent}
+		wr := chartSeries{Name: "Write", Color: colorChartSecond}
+		for _, sm := range samples {
+			rd.Points = append(rd.Points, chartPoint{At: sm.At, Value: sm.ReadBytesPerSec})
+			wr.Points = append(wr.Points, chartPoint{At: sm.At, Value: sm.WriteBytesPerSec})
+		}
+		return []chartSeries{rd, wr}, axis, detail
+	}
+	u := chartSeries{Name: "Usage", Color: colorAccent}
+	for _, sm := range samples {
+		u.Points = append(u.Points, chartPoint{At: sm.At, Value: sm.UsageBytes})
+	}
+	return []chartSeries{u}, axis, detail
 }
 
 // flagIcon is the events toggle's icon: a flag, as Lens's "Show events" button has (a Material
@@ -496,6 +665,34 @@ func formatBytesExact(v float64) string {
 		i++
 	}
 	return strconv.FormatFloat(math.Round(v*10)/10, 'f', -1, 64) + units[i]
+}
+
+// formatRateShort formats bytes per second for the value axis: "512B/s", "1.5KiB/s", "12MiB/s".
+func formatRateShort(v float64) string {
+	if v == 0 {
+		return "0"
+	}
+	n, unit := binaryUnit(v)
+	return fmt.Sprintf("%.3g%s/s", n, unit)
+}
+
+// formatRateExact formats bytes per second for the hover panel, with one decimal where it matters:
+// "512B/s", "1.5KiB/s", "190.7MiB/s".
+func formatRateExact(v float64) string {
+	n, unit := binaryUnit(v)
+	return strconv.FormatFloat(math.Round(n*10)/10, 'f', -1, 64) + unit + "/s"
+}
+
+// binaryUnit scales bytes to the largest binary unit that keeps the number at 1 or more: B, KiB,
+// MiB, GiB, TiB, PiB.
+func binaryUnit(v float64) (float64, string) {
+	units := []string{"B", "KiB", "MiB", "GiB", "TiB", "PiB"}
+	i := 0
+	for math.Abs(v) >= 1024 && i < len(units)-1 {
+		v /= 1024
+		i++
+	}
+	return v, units[i]
 }
 
 // formatBytesShort formats bytes for the value axis in binary units without the "B": "64Mi", "1.5Gi".

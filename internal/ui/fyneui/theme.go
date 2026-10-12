@@ -39,6 +39,7 @@ const (
 	colorDockTabDim       fyne.ThemeColorName = "cogpit.dockTabDim"  // an inactive tab's title
 	colorMuted            fyne.ThemeColorName = "cogpit.muted"
 	colorAccent           fyne.ThemeColorName = "cogpit.accent"
+	colorChartSecond      fyne.ThemeColorName = "cogpit.chartSecond" // a chart's second series (Transmit, Write); the first is the accent
 	colorChip             fyne.ThemeColorName = "cogpit.chip"
 	colorToast            fyne.ThemeColorName = "cogpit.toast"      // a toast's surface: stronger than the window
 	colorToastText        fyne.ThemeColorName = "cogpit.toastText"  // the text on it
@@ -156,6 +157,7 @@ var darkPalette = palette{
 		colorDockTabDim:       hex(0x93a1a1), // base1
 		colorMuted:            hex(0x718588),
 		colorAccent:           hex(solCyan),
+		colorChartSecond:      hex(0x898dd0), // violet #6c71c4, lightened to 4:1 on the plot
 		colorChip:             hex(0x004052),
 		colorToast:            hex(0x0b4556), // lighter than the window and the drawer, so a toast stands out
 		colorToastText:        hex(0xeee8d5), // base2
@@ -222,6 +224,7 @@ var lightPalette = palette{
 		colorDockTabDim:       hex(0x586e75), // tab.inactiveForeground
 		colorMuted:            hex(0x657b83),
 		colorAccent:           hex(0x1f7f78),
+		colorChartSecond:      hex(0x5a5fb5), // violet #6c71c4, darkened to 3.9:1 on the plot
 		colorChip:             hex(0xddd6c1),
 		colorToast:            hex(0xffffff), // lighter than the window, with the level's border and bar
 		colorToastText:        hex(0x073642), // base02

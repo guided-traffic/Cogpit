@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -461,13 +461,27 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `Prometheus (<namespace>/<service>)`, per-chart ranges (`Session.SetMetricsRange`, 1 minute to 30
   days), node charts from cAdvisor's root cgroup; budget P13, tested against a fake Prometheus behind
   the fake API server's service proxy. **Not verified against a real Prometheus.**
-- **Left of Prometheus:** the window: enable the Network and Filesystem buttons from
-  `ObjectMetrics.Capabilities`, draw `MetricsTarget.Network` and `.Filesystem`, call
-  `SetMetricsRange` when a range button changes (and ranges beyond 1 h in the range buttons), the
-  cluster settings page that sets the override (`Backend.PrometheusDetector.SetOverride`, then
-  `Hub.Forget`), a check against a real kube-prometheus-stack and the `prometheus` chart, the
-  Lens-provider variants that are not Prometheus-compatible by name (Thanos, VictoriaMetrics under
-  other service names: reachable through the override only).
+- **Built (2026-10-12, third slice, the window):** the Network and Filesystem buttons enabled from
+  `ObjectMetrics.Capabilities` (icons, names as tooltips; disabled with "needs Prometheus" without
+  them); Network drawn as Receive and Transmit in bytes per second, a container's chart showing the
+  pod's with the line "Network is per pod" (Lens has no network tab on a container: Cogpit's, by the
+  owner's "each in the variants"); Filesystem as Usage in bytes or Read and Write per second, as the
+  cluster's Prometheus has it; requests and limits only on CPU and Memory; a second series colour
+  token held to contrast and colour-difference tests in both themes; byte axes in round KiB, MiB, GiB
+  steps, dates on the time axis from a day's range; the hover naming every new series with its unit;
+  ranges up to 30 days with Prometheus (5m, 15m, 30m, 1h, 3h, 6h, 12h, 1d, 2d, 7d, 14d, 30d; up to 1h
+  with the Metrics Server), **each chart's range held by the engine** (`ui.setMetricsRange` for the
+  GUI and agents, `ui.state`'s `drawerCharts`), the source line "Displaying metrics from Prometheus
+  (<namespace>/<service>)" without the Metrics Server's "keeps no history" note
+  ([architecture §9](../developer/architecture.md#9-metrics-internalmetrics)). **Captured:** the default
+  range "1h", the four variant icons, the source line's wording up to the provider. **Inferred:** every
+  range value but 1h, the Network and Filesystem series' names and units, the per-pod line.
+- **Left of Prometheus:** the cluster settings page that sets the override
+  (`Backend.PrometheusDetector.SetOverride`, then `Hub.Forget`), a check against a real
+  kube-prometheus-stack, the source line's port and its namespace and service as links (Lens:
+  "Prometheus: <namespace>/<service>:<port>"), the Lens-provider variants that are not
+  Prometheus-compatible by name (Thanos, VictoriaMetrics under other service names: reachable through
+  the override only).
 - **Missing:** the overview page with its charts and Issues, the explicit Lens Metrics install, the
   settings rows (metrics source, hide metrics), the Disk column, Lens's usage bars in the Nodes list, CPU and
   Memory in a node drawer's Pods table, history that outlives a closed drawer.
@@ -667,6 +681,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | G12: the window draws Prometheus (Network, Filesystem, ranges to 30 days held by the engine through `ui.setMetricsRange`); range values beyond 1h inferred; estimate not moved |
 | 2026-10-12 | minor | G12: Prometheus through the service proxy, backend (detection, range queries for CPU, Memory, Network and Filesystem, per-chart ranges, budget P13); the window's Network and Filesystem buttons left; estimate not moved |
 | 2026-10-12 | minor | G12: the owner's hover requirement built (crosshair, dots and a panel with time, values, request and limit, events); estimate not moved |
 | 2026-10-12 | minor | G12: every drawer chart has its own controls (owner's smoke launch: "no main button"); estimate not moved |
