@@ -223,14 +223,14 @@ func withTypeMeta(obj *unstructured.Unstructured, t ObjectTarget) *unstructured.
 }
 
 // OpenEditTab opens an Edit tab on an object, filled from the cache, or activates the tab already
-// open on it. Kinds whose YAML Cogpit redacts are refused.
+// open on it. A Secret's tab opens only for the GUI (D-19).
 func (s *Session) OpenEditTab(ctx context.Context, ref model.ObjectRef) (EditorState, bool, error) {
 	t, b, err := s.ResolveTarget(ctx, ref)
 	if err != nil {
 		return EditorState{}, false, err
 	}
-	if RedactedKind(t.APIVersion, t.Kind) {
-		return EditorState{}, false, errRedactedKind(t.Kind)
+	if err := requireGUIForKind(ctx, t.APIVersion, t.Kind); err != nil {
+		return EditorState{}, false, err
 	}
 	if _, err := b.ObjectWriter(); err != nil {
 		return EditorState{}, false, err
@@ -358,9 +358,6 @@ func (s *Session) editTarget(id string) (editor, *Backend, ObjectWriter, error) 
 	if e.tab.Context != b.Context {
 		return editor{}, nil, nil, fmt.Errorf("%w: the Edit tab %q belongs to context %q, connected is %q", ErrWrongCluster, id, e.tab.Context, b.Context)
 	}
-	if RedactedKind(e.target.APIVersion, e.target.Kind) {
-		return editor{}, nil, nil, errRedactedKind(e.target.Kind)
-	}
 	w, err := b.ObjectWriter()
 	if err != nil {
 		return editor{}, nil, nil, err
@@ -380,9 +377,6 @@ func editedObject(e editor, text string) (*unstructured.Unstructured, error) {
 		return nil, err
 	}
 	t := e.target
-	if RedactedKind(obj.GetAPIVersion(), obj.GetKind()) {
-		return nil, errRedactedKind(obj.GetKind())
-	}
 	if obj.GetAPIVersion() != t.APIVersion {
 		return nil, fmt.Errorf("%w: apiVersion must stay %s; an edit cannot change an object's API version", ErrManifest, t.APIVersion)
 	}
@@ -437,6 +431,9 @@ func diffAgainst(current, edited *unstructured.Unstructured) ([]DiffLine, error)
 // EditDiff returns the diff of an Edit tab's text (or text, when given) against the object as the
 // cache holds it now, keeping context unchanged lines around each change (negative: all).
 func (s *Session) EditDiff(ctx context.Context, id, text string, context int) (EditDiff, error) {
+	if err := s.GuardSecretEditor(ctx, id, text); err != nil {
+		return EditDiff{}, err
+	}
 	e, b, _, err := s.editTarget(id)
 	if err != nil {
 		return EditDiff{}, err
@@ -474,6 +471,9 @@ func (s *Session) EditDiff(ctx context.Context, id, text string, context int) (E
 // the base version as precondition: the server validates and admits it, and stores nothing. A
 // conflict returns *ConflictError.
 func (s *Session) DryRunEdit(ctx context.Context, id, text string) (DryRunResult, error) {
+	if err := s.GuardSecretEditor(ctx, id, text); err != nil {
+		return DryRunResult{}, err
+	}
 	e, b, w, err := s.editTarget(id)
 	if err != nil {
 		return DryRunResult{}, err
@@ -483,7 +483,7 @@ func (s *Session) DryRunEdit(ctx context.Context, id, text string) (DryRunResult
 		return DryRunResult{}, err
 	}
 	if _, err := w.UpdateObject(ctx, e.target.GVR, forUpdate(edited, e), true); err != nil {
-		return DryRunResult{}, s.writeError(ctx, b, e, edited, err, false)
+		return DryRunResult{}, scrubSecretWrite(s.writeError(ctx, b, e, edited, err, false), edited)
 	}
 	return DryRunResult{Ref: e.target.Ref, Accepted: true, BaseResourceVersion: e.baseRV}, nil
 }
@@ -493,6 +493,9 @@ func (s *Session) DryRunEdit(ctx context.Context, id, text string) (DryRunResult
 // tab's text and base. On 409 Conflict nothing is written and *ConflictError says what changed.
 // The caller has checked the confirmation's context; ApplyEdit checks it again.
 func (s *Session) ApplyEdit(ctx context.Context, id, text string, textRevision uint64) (ApplyResult, error) {
+	if err := s.GuardSecretEditor(ctx, id, text); err != nil {
+		return ApplyResult{}, err
+	}
 	e, b, w, err := s.editTarget(id)
 	if err != nil {
 		return ApplyResult{}, err
@@ -515,11 +518,11 @@ func (s *Session) ApplyEdit(ctx context.Context, id, text string, textRevision u
 	}
 	obj := forUpdate(edited, e)
 	if _, err := w.UpdateObject(ctx, e.target.GVR, obj, true); err != nil {
-		return ApplyResult{}, s.writeError(ctx, b, e, edited, err, true)
+		return ApplyResult{}, scrubSecretWrite(s.writeError(ctx, b, e, edited, err, true), edited)
 	}
 	stored, err := w.UpdateObject(ctx, e.target.GVR, obj, false)
 	if err != nil {
-		return ApplyResult{}, s.writeError(ctx, b, e, edited, err, true)
+		return ApplyResult{}, scrubSecretWrite(s.writeError(ctx, b, e, edited, err, true), edited)
 	}
 	stored = withTypeMeta(stored, e.target)
 	newText, err := EditableYAML(stored)

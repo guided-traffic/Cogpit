@@ -459,7 +459,7 @@ in `stringData`) and works like any other editor tab (diff, server-side dry run,
 resourceVersion precondition); agents and the CLI can neither open such a tab, nor read its text
 (`<withheld>`), nor apply or create a Secret; values never reach the audit log, an error or a
 toast. The same pattern as `secret.reveal` and the Helm Upgrade tab. Lens's Secret editor is not
-captured (inferred). Not built yet; 4–8 h. The options weighed:
+captured (inferred). **Built 2026-10-12** ([`secretedit.go`](../../internal/engine/secretedit.go)). The options weighed:
 
 | Option | For | Against |
 |---|---|---|
@@ -651,6 +651,7 @@ the upgrade is bound to its text revision (R-2). Built 2026-10-12 by the lead
 |---|---|---|
 | 2026-10-12 | minor | D-26 (owner): a credential plugin's approval binds the program's content when it lies in the kubeconfig's or sync folder; D-27 (owner, built): an agent's inline Helm values shown in the confirmation |
 | 2026-10-12 | minor | D-22 to D-25 built: Solarized theme tokens (contrast departures listed), the status bar link, the C helm logo (`internal/ui/logo`), copying values from the drawer |
+| 2026-10-12 | minor | D-19 built: Secrets edited and created from YAML in the GUI only; agents and the CLI refused in the engine, values scrubbed from errors |
 | 2026-10-12 | minor | D-17 built: a token file outside an added kubeconfig's folder is asked for in the plugin dialog; the approval binds the content of a program or CA file inside the folder (R-5, D-26) and the dialog shows proxy, insecure and own CA (R-11) |
 | 2026-10-12 | minor | Owner's decisions on look and use: D-22 Solarized colours, D-23 the status bar link, D-24 the C helm logo, D-25 copying values |
 | 2026-10-12 | minor | D-21 (owner): no adding of kubeconfigs from pasted text; the paste feature built the same day is removed (pasted sources of earlier builds are no longer listed, their files stay) |

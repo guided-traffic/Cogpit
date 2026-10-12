@@ -200,9 +200,6 @@ func TestEditRefusesWhatItMustNot(t *testing.T) {
 	h.src.Set(secretsGVR, testkit.Object("v1", "Secret", "shop", "db", map[string]any{"data": map[string]any{"password": "aHVudGVyMg=="}}))
 
 	var dis *engine.DisabledError
-	if err := h.run(t, gui, "object.edit", map[string]any{"ref": model.ObjectRef{Kind: "secrets", Namespace: "shop", Name: "db"}}, nil); !errors.As(err, &dis) || !strings.Contains(dis.Reason, "redacted") {
-		t.Errorf("edit a Secret: %v", err)
-	}
 	if err := h.run(t, gui, "object.edit", map[string]any{"ref": model.ObjectRef{Kind: "services", Namespace: "shop", Name: "gone"}}, nil); !errors.As(err, &dis) || !strings.Contains(dis.Reason, "not found") {
 		t.Errorf("edit a missing object: %v", err)
 	}
@@ -218,7 +215,7 @@ func TestEditRefusesWhatItMustNot(t *testing.T) {
 		"malformed":    {"apiVersion: v1\nkind: [Service\n", "invalid manifest"},
 		"not a map":    {"- a\n- b\n", "not a YAML mapping"},
 		"two objects":  {opened.Text + "---\n" + opened.Text, "holds 2 objects"},
-		"a Secret":     {"apiVersion: v1\nkind: Secret\nmetadata:\n  name: checkout\n  namespace: shop\n", "redacted"},
+		"a Secret":     {"apiVersion: v1\nkind: Secret\nmetadata:\n  name: checkout\n  namespace: shop\n", "kind must stay"},
 		"no kind":      {"apiVersion: v1\nmetadata:\n  name: checkout\n", "kind is missing"},
 		"bad metadata": {"apiVersion: v1\nkind: Service\nmetadata: oops\n", "metadata is not a mapping"},
 	} {
@@ -387,11 +384,9 @@ metadata:
   namespace: infra
 ---
 apiVersion: v1
-kind: Secret
+kind: Gadget
 metadata:
   name: creds
-stringData:
-  password: <redacted>
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -433,7 +428,7 @@ metadata:
 	if role.GetNamespace() != "" {
 		t.Errorf("a cluster-scoped object kept namespace %q", role.GetNamespace())
 	}
-	if !strings.Contains(err.Error(), "redacted") || !strings.Contains(err.Error(), "Widget") {
+	if !strings.Contains(err.Error(), "Gadget") || !strings.Contains(err.Error(), "Widget") {
 		t.Errorf("failures not named: %v", err)
 	}
 

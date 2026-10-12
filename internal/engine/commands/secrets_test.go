@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"strings"
 	"sync"
@@ -267,26 +268,24 @@ func TestAgentsReadSecretsRedacted(t *testing.T) {
 	}
 }
 
-// Secrets stay out of Edit and Create from YAML with the full watch too: Edit is disabled, and an
-// apply or a create of a Secret's manifest is refused.
-func TestSecretsStayRefusedForEditAndCreate(t *testing.T) {
+// Opening a Secret's Edit tab is the user's alone (D-19): agents and the CLI are refused before
+// anything is read, and no value reaches the audit log, the events or the log. The GUI's own edit,
+// apply and create are in TestSecretEditAndCreateAreGUIOnly.
+func TestSecretEditIsRefusedToAgentsAndTheCLI(t *testing.T) {
 	h := newSecretsHarness(t)
 	ref := model.ObjectRef{Context: "test", Kind: "secrets", Namespace: "apps", Name: "db"}
 	if _, err := h.s.Objects(context.Background(), "secrets", nil); err != nil {
 		t.Fatal(err)
 	}
-	cmd, _ := h.s.Registry().Get("object.edit")
-	raw, _ := json.Marshal(map[string]any{"ref": ref})
-	if err := cmd.Enabled(h.s, raw); err == nil || !strings.Contains(err.Error(), "cannot be edited") {
-		t.Errorf("object.edit on a Secret: %v", err)
+	for _, origin := range []engine.Origin{engine.OriginCLI, engine.OriginExternalAgent, engine.OriginBuiltInAgent} {
+		_, err := h.dispatch(origin, "object.edit", map[string]any{"ref": ref})
+		if !errors.Is(err, engine.ErrSecretGUIOnly) {
+			t.Errorf("object.edit on a Secret from %s: %v", origin, err)
+		} else if l := leak(err.Error()); l != "" {
+			t.Errorf("the refusal carries %q", l)
+		}
 	}
-	if _, err := h.dispatch(engine.OriginGUI, "object.edit", map[string]any{"ref": ref}); err == nil {
-		t.Error("object.edit opened a Secret")
-	}
-	_, err := h.dispatch(engine.OriginGUI, "object.create", map[string]any{
-		"yaml": "apiVersion: v1\nkind: Secret\nmetadata:\n  name: new\n  namespace: apps\nstringData:\n  k: v\n",
-	})
-	if err == nil || !strings.Contains(err.Error(), "values are redacted") {
-		t.Errorf("object.create of a Secret: %v", err)
+	if l := leak(h.trail()); l != "" {
+		t.Errorf("%q in the audit log, the events or the log", l)
 	}
 }

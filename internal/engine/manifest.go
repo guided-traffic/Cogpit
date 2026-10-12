@@ -189,8 +189,8 @@ func EditableYAML(obj *unstructured.Unstructured) (string, error) {
 const kindSecret = "Secret"
 
 // RedactedKind reports whether Cogpit redacts the YAML of a kind (Secrets: model.Redact). Such
-// objects are never edited or created from YAML: the text the editor would start from carries
-// placeholders, and applying it would write them into the cluster (H-8).
+// objects are edited and created from YAML in the GUI only, where the editor shows their values
+// (D-19, secretedit.go); agents and the CLI never see or write them.
 func RedactedKind(apiVersion, kind string) bool {
 	gv, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
@@ -199,12 +199,6 @@ func RedactedKind(apiVersion, kind string) bool {
 	// The normalised form: "/v1" and "v1" name the same core group.
 	probe := &unstructured.Unstructured{Object: map[string]any{"apiVersion": gv.String(), "kind": kind}}
 	return model.Redact(probe) != probe
-}
-
-// errRedactedKind is the reason Edit, Apply and Create give for a kind whose YAML is redacted.
-func errRedactedKind(kind string) error {
-	return fmt.Errorf("editing and creating %ss from YAML is off: their values are redacted in the editor, "+
-		"and applying the text would write the placeholders into the cluster (H-8)", kind)
 }
 
 // CompactDiff keeps the changed lines of a diff and up to context unchanged lines around each

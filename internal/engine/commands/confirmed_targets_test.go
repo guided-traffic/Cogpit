@@ -138,7 +138,7 @@ func TestAuditRedactsSecretLists(t *testing.T) {
 }
 
 // TestEditorGetRedactsSecretsForAgents: a Secret the user pasted into a Create tab is shown to
-// the user (GUI origin) and redacted for agents.
+// the user (GUI origin) and withheld whole from agents (D-19).
 func TestEditorGetRedactsSecretsForAgents(t *testing.T) {
 	h := newHarness(t, seed(), engine.Options{})
 	serveObjects(h)
@@ -151,7 +151,7 @@ func TestEditorGetRedactsSecretsForAgents(t *testing.T) {
 	if !strings.Contains(gui.Text, "hunter2-paste") {
 		t.Errorf("the user's own tab lost its text: %q", gui.Text)
 	}
-	if strings.Contains(agent.Text, "hunter2-paste") || !strings.Contains(agent.Text, model.Redacted) {
+	if strings.Contains(agent.Text, "hunter2-paste") || agent.Text != model.Withheld {
 		t.Errorf("an agent read the Secret: %q", agent.Text)
 	}
 }

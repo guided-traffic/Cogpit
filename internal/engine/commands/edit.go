@@ -82,7 +82,8 @@ func registerEdit(g *registrar) {
 		Verbs: append(append([]engine.Verb(nil), cacheReads...), edits...), // offered when the user may update it (access reviews)
 		Description: "Opens a dock tab with an object's YAML from Cogpit's cache (managed fields dropped) for editing, or " +
 			"activates the tab already open on it. Returns the tab id, the text and the resourceVersion the edit is based " +
-			"on. Continue with editor_diff, object_dryRun and object_apply. Secrets cannot be edited (their values are redacted).",
+			"on. Continue with editor_diff, object_dryRun and object_apply. Secrets are edited by the user in Cogpit's window " +
+			"only: an agent or the CLI is refused (D-19).",
 		Enabled: func(s *engine.Session, p refParams) error { return editable(s, p.Ref) },
 		Run: func(ctx context.Context, s *engine.Session, p refParams) (any, error) {
 			st, created, err := s.OpenEditTab(ctx, p.Ref)
@@ -98,17 +99,19 @@ func registerEdit(g *registrar) {
 		Description: "Returns an editor tab's text (what the user has typed so far) and its revision; for an Edit tab also " +
 			"the resourceVersion the edit is based on, the one Cogpit's cache holds now, and whether they differ (stale: an " +
 			"apply would be refused with a conflict) or the object is gone (missing); for a Helm Upgrade tab the release " +
-			"revision its values are based on. For agents, the values of any Secret in the text are replaced by " +
-			"<redacted>, and a Helm Upgrade tab's values are withheld whole.",
+			"revision its values are based on. For agents and the CLI, the text of a tab that holds a Secret is withheld " +
+			"whole (<withheld>, D-19), and for agents so are a Helm Upgrade tab's values.",
 		Run: func(ctx context.Context, s *engine.Session, p editorParams) (any, error) {
 			st, err := s.EditorState(ctx, p.ID)
 			switch {
-			case err != nil || !engine.OriginOf(ctx).IsAgent():
+			case err != nil || engine.OriginOf(ctx) == engine.OriginGUI:
 			case st.Tab.Type == engine.DockHelmUpgrade:
-				st.Text = model.Withheld // a release's values can hold credentials (helmupgrade.go)
-			default:
-				// A Secret the user pasted into a Create tab is theirs to see, not an LLM's.
-				st.Text, _ = engine.RedactManifests(st.Text, false)
+				if engine.OriginOf(ctx).IsAgent() {
+					st.Text = model.Withheld // a release's values can hold credentials (helmupgrade.go)
+				}
+			case s.EditorHoldsSecret(p.ID):
+				// A Secret in an Edit or Create tab is the user's to see, not an agent's or the CLI's (D-19).
+				st.Text = model.Withheld
 			}
 			return st, err
 		},
@@ -118,7 +121,10 @@ func registerEdit(g *registrar) {
 		ID: "editor.setText", Label: "Set Editor Text", Danger: engine.DangerUI,
 		Description: "Replaces an editor tab's text, as typing does; the tab shows it unless the user has unsaved typing " +
 			"of their own. Writes nothing to the cluster. Returns the text's new revision.",
-		Run: func(_ context.Context, s *engine.Session, p editorTextParams) (any, error) {
+		Run: func(ctx context.Context, s *engine.Session, p editorTextParams) (any, error) {
+			if err := s.GuardSecretEditor(ctx, p.ID, p.YAML); err != nil { // a Secret's text: the GUI only (D-19)
+				return nil, err
+			}
 			rev, err := s.SetEditorText(p.ID, p.YAML)
 			if err != nil {
 				return nil, err
@@ -181,7 +187,7 @@ func registerEdit(g *registrar) {
 		Description: "Creates the objects of a YAML text (several documents separated by ---) in order, each after a " +
 			"server-side dry run; an object that fails is reported and the next one is tried. Objects without a namespace " +
 			"land in namespace, else in the namespace filter's single namespace, else in the context's default. Secrets are " +
-			"refused. Returns one item per object. An agent's request waits for the user's acceptance.",
+			"created by the user in Cogpit's window only: for an agent or the CLI each Secret in the text is refused (D-19). Returns one item per object. An agent's request waits for the user's acceptance.",
 		Enabled: func(s *engine.Session, _ createParams) error { _, err := writable(s); return err },
 		Targets: func(s *engine.Session, p createParams) ([]model.ObjectRef, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), lookupTimeout)
@@ -198,7 +204,10 @@ func registerEdit(g *registrar) {
 		Description: "Opens a Create resource dock tab with yaml, with a template (resource_templates lists them), or with " +
 			"an example Pod. Writes nothing: the user reviews the text and creates it, or object_create does. Returns the tab.",
 		Enabled: func(s *engine.Session, _ createTabParams) error { _, err := writable(s); return err },
-		Run: func(_ context.Context, s *engine.Session, p createTabParams) (any, error) {
+		Run: func(ctx context.Context, s *engine.Session, p createTabParams) (any, error) {
+			if err := engine.GuardSecretText(ctx, p.YAML); err != nil { // a Secret's text: the GUI only (D-19)
+				return nil, err
+			}
 			text := p.YAML
 			if text == "" {
 				name := p.Template
@@ -243,18 +252,9 @@ func editable(s *engine.Session, ref model.ObjectRef) error {
 		if !p.APIObject() {
 			return fmt.Errorf("%s are not objects of the cluster's API: %w", p.Title, engine.ErrNotApplicable)
 		}
-		gv := p.Group + "/" + p.Version
-		if p.Group == "" {
-			gv = p.Version
-		}
-		if engine.RedactedKind(gv, p.Kind) {
-			return fmt.Errorf("%s cannot be edited here: their values are redacted (H-8)", p.Title)
-		}
+		// A Secret is editable: object.edit's Run opens its tab for the GUI only (D-19).
 		_, err := s.Lookup(ref)
 		return err
-	}
-	if ref.Kind == "secrets" {
-		return errors.New("editing Secrets is off: their values are redacted (H-8)")
 	}
 	return nil
 }

@@ -331,7 +331,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ### G9. YAML editor and create resource
 - **Missing:** drafts kept for crash recovery, "Revert to original", the Create resource tab's save
   and search buttons, Delete of a selection, the create dialogs (Namespaces, Secrets, Resource Quotas, Service Accounts, RBAC)
-  and their YAML fallback, a Secrets path (decided 2026-10-12, [D-19](../developer/decisions.md#d-19-editing-and-creating-secrets-from-yaml): Secrets editable and creatable from YAML in the GUI only, the values from the cache since the full watch, agents refused; 4–8 h).
+  and their YAML fallback, a Secrets path (**built 2026-10-12**, `TestSecretEditAndCreateAreGUIOnly`; decided 2026-10-12, [D-19](../developer/decisions.md#d-19-editing-and-creating-secrets-from-yaml): Secrets editable and creatable from YAML in the GUI only, the values from the cache since the full watch, agents refused; 4–8 h).
 - **Evidence:** [ui-parity](ui-parity.md#editor-and-create-resource): 4 rows partial, 1 missing;
   [resource-parity](resource-parity.md#every-kind): Edit and Delete partial. Built on 2026-10-11:
   an Edit tab per object on the editable [`yamlview`](../../internal/ui/fyneui/yamlview/), filled

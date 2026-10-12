@@ -173,7 +173,7 @@ func redactListItems(o *unstructured.Unstructured, allSecrets bool) bool {
 // and the last-applied annotation, which repeats them.
 func redactSecret(o *unstructured.Unstructured) *unstructured.Unstructured {
 	cp := o.DeepCopy()
-	for _, field := range []string{"data", "stringData"} {
+	for _, field := range secretValueFields {
 		v, ok := cp.Object[field]
 		if !ok {
 			continue

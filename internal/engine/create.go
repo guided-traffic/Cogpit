@@ -68,8 +68,8 @@ func (s *Session) planCreate(ctx context.Context, text, namespace string) (*Back
 			p.t.Ref.Name = obj.GetGenerateName() + "*"
 		}
 		switch {
-		case RedactedKind(p.t.APIVersion, p.t.Kind):
-			p.err = errRedactedKind(p.t.Kind)
+		case requireGUIForKind(ctx, p.t.APIVersion, p.t.Kind) != nil: // a Secret: the GUI only (D-19)
+			p.err = ErrSecretGUIOnly
 		case obj.GetName() == "" && obj.GetGenerateName() == "":
 			p.err = fmt.Errorf("%w: a %s needs metadata.name (or metadata.generateName)", ErrManifest, p.t.Kind)
 		}
@@ -154,6 +154,7 @@ func (s *Session) CreateObjects(ctx context.Context, text, namespace string) (Cr
 			}
 		}
 		if err != nil {
+			err = scrubSecretWrite(err, p.obj) // an API message that quotes a Secret's value
 			item.Error = err.Error()
 			res.Failed++
 			failures = append(failures, item.Ref.String()+": "+item.Error)
