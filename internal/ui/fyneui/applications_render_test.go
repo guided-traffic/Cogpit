@@ -203,16 +203,16 @@ func TestRenderResourceClaimsViewLight(t *testing.T) {
 	renderDataView(t, "resourceclaims", inferenceGPU, ThemeLight, "resourceclaims_view_light.png")
 }
 
-// TestSidebarApplicationsAndDeviceResources: Applications is the first item under the cluster, as
-// Lens's sidebar has it after Overview, and the Device Resources group holds its four views
-// between Storage and Namespaces.
+// TestSidebarApplicationsAndDeviceResources: Applications follows the cluster Overview, as Lens's
+// sidebar has it, and the Device Resources group holds its four views between Storage and
+// Namespaces.
 func TestSidebarApplicationsAndDeviceResources(t *testing.T) {
 	f := dataFake(t, kinds.ApplicationsKey, storefrontApp)
 	sh, _, q := newTestShell(t, f, Options{})
 	q.until(t, "the sidebar", func() bool { return len(sh.kinds) > 0 })
 	roots := sh.side.children[""]
-	if len(roots) == 0 || roots[0] != kinds.ApplicationsKey {
-		t.Errorf("sidebar roots %v: Applications first", roots)
+	if len(roots) < 2 || roots[0] != engine.ClusterOverview || roots[1] != kinds.ApplicationsKey {
+		t.Errorf("sidebar roots %v: the Overview, then Applications", roots)
 	}
 	devices := sh.side.children[groupPrefix+"devices"]
 	if strings.Join(devices, ",") != "resourceclaims,resourceclaimtemplates,deviceclasses,resourceslices" {
