@@ -100,6 +100,10 @@ type shell struct {
 	clipTimer     *time.Timer
 	clipSecret    string
 	secretClipTTL time.Duration
+	// setConcealed puts a Secret's value on the system clipboard marked for clipboard managers to
+	// skip (clipboard_darwin.go); nil in tests, which use Fyne's test clipboard and must not touch
+	// the system's. It reports false when it could not, and Fyne's clipboard is used.
+	setConcealed func(string) bool
 
 	unsubscribe func()
 	stopTickers chan struct{}

@@ -332,6 +332,37 @@ func TestSecretClipboardKeepsWhatReplacedIt(t *testing.T) {
 	}
 }
 
+// A Secret's value goes to the system clipboard through the concealed path (marked for clipboard
+// managers to skip, this Mac only: the owner's decision on H-25), a plain copy never does, and a
+// concealed copy that fails falls back to Fyne's clipboard; the clearing works on either.
+func TestSecretCopyGoesThroughTheConcealedClipboard(t *testing.T) {
+	f, _ := secretsFake(t)
+	sh, _, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	sh.secretClipTTL = 40 * time.Millisecond
+	var concealed []string
+	works := true
+	sh.setConcealed = func(text string) bool {
+		concealed = append(concealed, text)
+		if works {
+			sh.app.Clipboard().SetContent(text) // as the system clipboard would hold it
+		}
+		return works
+	}
+
+	sh.copyText("plain-name", false)
+	sh.copyText("secret-one", true)
+	if len(concealed) != 1 || concealed[0] != "secret-one" || sh.app.Clipboard().Content() != "secret-one" {
+		t.Fatalf("concealed copies %q, clipboard %q", concealed, sh.app.Clipboard().Content())
+	}
+	q.until(t, "the concealed copy to be cleared", func() bool { return sh.app.Clipboard().Content() == "" })
+
+	works = false
+	sh.copyText("secret-two", true)
+	if len(concealed) != 2 || sh.app.Clipboard().Content() != "secret-two" {
+		t.Errorf("a failed concealed copy did not fall back: clipboard %q", sh.app.Clipboard().Content())
+	}
+}
+
 // TestSecretTextSelectionCopiesAsASecret: the copy shortcut on a revealed value goes through the
 // same clearing as the icon.
 func TestSecretTextSelectionCopiesAsASecret(t *testing.T) {

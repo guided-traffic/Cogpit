@@ -31,7 +31,9 @@ const secretClipboardTTL = 60 * time.Second
 // shell's secretClipTTL if the clipboard still holds it; a later copy of anything replaces it and
 // cancels the clearing.
 func (sh *shell) copyText(text string, secret bool) {
-	sh.app.Clipboard().SetContent(text)
+	if !secret || sh.setConcealed == nil || !sh.setConcealed(text) {
+		sh.app.Clipboard().SetContent(text)
+	}
 	if sh.clipTimer != nil {
 		sh.clipTimer.Stop()
 	}

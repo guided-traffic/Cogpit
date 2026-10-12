@@ -596,7 +596,12 @@ so in a toast; a value made of several entries (labels, annotations, ports, imag
 entry, in YAML syntax (`app.kubernetes.io/name: grafana`). A Secret's value can be copied only once
 revealed, in the GUI, and the clipboard is cleared 60 seconds later if it still holds that value.
 Agents get no copy command (they read values through `object_get` already). This is Cogpit's own
-approach; how Lens Desktop copies is not captured and not needed. **Built 2026-10-12**
+approach; how Lens Desktop copies is not captured and not needed.
+
+**Added (owner, 2026-10-12, H-25):** on macOS a copied Secret value is marked for clipboard
+managers to skip (nspasteboard.org's concealed and transient types) and kept to this Mac (no
+Universal Clipboard); the 60 seconds and the clearing on close stay. Options weighed: marking it
+(decided), leaving it as built, a shorter time, no copying of Secret values at all. **Built 2026-10-12**
 ([`selection.go`](../../internal/ui/fyneui/selection.go), [`copy.go`](../../internal/ui/fyneui/copy.go),
 [`secretreveal.go`](../../internal/ui/fyneui/secretreveal.go)):
 
@@ -660,6 +665,7 @@ the upgrade is bound to its text revision (R-2). Built 2026-10-12 by the lead
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | D-25 (owner, built): a copied Secret value marked concealed for clipboard managers and kept from Universal Clipboard on macOS (H-25) |
 | 2026-10-12 | minor | D-26 (owner): a credential plugin's approval binds the program's content when it lies in the kubeconfig's or sync folder; D-27 (owner, built): an agent's inline Helm values shown in the confirmation |
 | 2026-10-12 | minor | D-22 to D-25 built: Solarized theme tokens (contrast departures listed), the status bar link, the C helm logo (`internal/ui/logo`), copying values from the drawer |
 | 2026-10-12 | minor | D-19 built: Secrets edited and created from YAML in the GUI only; agents and the CLI refused in the engine, values scrubbed from errors |

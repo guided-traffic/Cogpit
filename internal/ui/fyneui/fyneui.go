@@ -145,6 +145,7 @@ func Run(s *engine.Session, opts Options) error {
 		}
 	}
 	sh := newShell(s, a, w, opts, do)
+	sh.setConcealed = setConcealedClipboard // the real app's system clipboard (H-25)
 	s.SetConfirmer(sh.confirmer)
 	w.SetContent(sh.root)
 	w.SetOnClosed(sh.clearSecretClipboard) // a copied Secret value does not outlive the window on the clipboard

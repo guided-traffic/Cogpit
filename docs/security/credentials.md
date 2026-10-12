@@ -145,12 +145,16 @@ the login shell's environment, and which variables it then passes to plugins, is
 
 A Secret's value that the user copies from the drawer goes on the system clipboard, where Cogpit
 cannot guard it. It clears the clipboard after 60 seconds if the clipboard still holds the value,
-and when the window closes, but the clipboard is shared: a clipboard manager keeps its own history
-of what passed through, Universal Clipboard sends it to the user's other devices at once, and any
-process of the user can read it while it is there. Fyne's clipboard interface can only set text, so
-Cogpit cannot mark it as concealed for managers that honour such a mark. Cogpit's process ending
-within the 60 seconds (a crash, `kill -9`) leaves the value on the clipboard. Only values the user
-revealed and copied are affected; an agent has no way to copy.
+and when the window closes. On macOS (owner's decision, 2026-10-12) the copy is marked with
+nspasteboard.org's concealed and transient types, which clipboard managers that honour them
+neither show nor record, and is kept to this Mac, out of Universal Clipboard
+(`NSPasteboardContentsCurrentHostOnly`; [`clipboard_darwin.m`](../../internal/ui/fyneui/clipboard_darwin.m),
+`TestSecretCopyGoesThroughTheConcealedClipboard` for the routing; the AppKit side is checked by
+hand, not by a test). What remains: a clipboard manager that ignores those types keeps its own
+history of the value; any process of the user can read it while it is there; Cogpit's process
+ending within the 60 seconds (a crash, `kill -9`) leaves it on the clipboard; on Linux and Windows
+the copy goes through Fyne's clipboard unmarked. Only values the user revealed and copied are
+affected; an agent has no way to copy.
 
 ### H-20: Shell profiles can override the terminal's kubeconfig
 
