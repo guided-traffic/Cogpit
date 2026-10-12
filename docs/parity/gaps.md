@@ -97,6 +97,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 3–8 h (was 6–14; `make parity` built, 2026-10-12).
 
 ### G2. Cluster connection and authentication
+- **Decided (owner, 2026-10-12, [D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs)):**
+  a `tokenFile` of an added, pasted or synced kubeconfig outside its folder is asked for in the
+  plugin approval dialog (H-24); not built, 2–4 h.
 - **Missing:** kubeconfig discovery, merging and validation;
   connections through client-go with every authentication form; the persister for the legacy
   `oidc` provider; the environment for exec plugins; access reviews; connection states and errors
@@ -319,7 +322,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ### G9. YAML editor and create resource
 - **Missing:** drafts kept for crash recovery, "Revert to original", the Create resource tab's save
   and search buttons, Delete of a selection, the create dialogs (Namespaces, Secrets, Resource Quotas, Service Accounts, RBAC)
-  and their YAML fallback, a Secrets path (editing or creating a Secret needs its values from a GET, not the redacted YAML; H-8 decided the view, not editing).
+  and their YAML fallback, a Secrets path (decided 2026-10-12, [D-19](../developer/decisions.md#d-19-editing-and-creating-secrets-from-yaml): Secrets editable and creatable from YAML in the GUI only, the values from the cache since the full watch, agents refused; 4–8 h).
 - **Evidence:** [ui-parity](ui-parity.md#editor-and-create-resource): 4 rows partial, 1 missing;
   [resource-parity](resource-parity.md#every-kind): Edit and Delete partial. Built on 2026-10-11:
   an Edit tab per object on the editable [`yamlview`](../../internal/ui/fyneui/yamlview/), filled
@@ -336,6 +339,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 8–22 h (was 10–25; Edit and Delete follow the access reviews, third run).
 
 ### G10. Port forwarding
+- **Decided (owner, 2026-10-12, [D-20](../developer/decisions.md#d-20-a-port-forward-that-cannot-connect)):**
+  a forward that cannot connect for a permanent reason (forbidden, unauthorized, the namespace
+  gone) turns Failed at once and frees its port; passing errors keep the backoff; not built, 1–2 h.
 - **Missing:** Lens's status texts in the Port Forwarding view and its Edit dialog (capture
   needed; Cogpit's are inferred), the access review of the pod behind a forward before Edit offers
   it, a check in a real window that the browser opens (offscreen tests stop at Fyne's `OpenURL`).

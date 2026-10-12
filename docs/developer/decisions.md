@@ -378,6 +378,14 @@ goroutines ([PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)). Its tests
 in `make test-unit-race` and CI (`make test-fork`). The patch series for upstream is prepared, not
 sent: offering it is the owner's step. Nothing found so far calls for option (c).
 
+**Decided how (owner, 2026-10-12):** the lead prepares the upstream series as three or four grouped
+pull requests (crashes, hangs and performance, races, OSC 7), each fix one commit with a test in
+upstream's style; the owner looks at the series once; after the owner's OK the lead opens the pull
+requests under the owner's GitHub account. Nothing is published before that OK. The options
+weighed: the lead opens them after the owner's OK (decided), the owner opens them, issues with
+reproducing inputs instead of pull requests, or keeping the fork for good (which would reverse
+the decision above).
+
 ## D-15: Progress generators
 
 **Decided (owner, 2026-10-12):** `make parity` is built first, as a counter and checker of the
@@ -408,10 +416,83 @@ until the alpha (decided), releasing now as the team's other repositories do (a 
 push to `main`, without downloads), releasing with a minimal artifact job now, or releasing by hand
 once per run.
 
+## D-17: Token files named by added kubeconfigs
+
+**Decided (owner, 2026-10-12):** a context of an added, pasted or synced kubeconfig whose user names
+a `tokenFile` outside the kubeconfig's own folder connects only after the user allowed it, in the
+same GUI dialog and with the same approval store as a credential plugin
+([H-24](../security/trust-boundaries.md#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token),
+[H-1](../security/trust-boundaries.md#h-1-kubeconfig-files-added-by-sync-folders)): the dialog
+names the file and the server its content goes to, the approval is bound to the path (and, as for
+plugins, to the server and its trust), and only the GUI can give it. A token file in the
+kubeconfig's own folder comes from the same source as the kubeconfig and needs no approval; the
+default kubeconfig keeps kubectl's behaviour. Not built yet. The options weighed:
+
+| Option | For | Against |
+|---|---|---|
+| **(a) Ask, as for plugins (decided)** | Closes the gap without breaking a legitimate setup; one mechanism for everything a kubeconfig does on the user's computer; 2–4 h | One more dialog for setups that use token files |
+| (b) Refuse for synced files only | No dialog | A legitimate synced setup breaks without recourse; pasted and added kubeconfigs stay open |
+| (c) Refuse every file reference of an added kubeconfig | Strictest | Breaks the many kubeconfigs that name certificate files, which send nothing that matters (a client key is never sent; a client certificate only in the TLS handshake) |
+| (d) Document only | Nothing to do | The gap stays live from the moment a file lands in a synced folder |
+
+## D-18: Secret annotations seen by agents
+
+**Decided (owner, 2026-10-12):** agents keep seeing a Secret's annotations in full (except
+kubectl's `last-applied-configuration`, which the cache drops); the risk that a tool copies a
+Secret's manifest, values included, into an annotation is documented and accepted
+([H-23](../security/agents-and-mcp.md#h-23-secret-annotations-other-than-kubectls-reach-agents)).
+Only `object_get` shows annotations to agents; lists, CSV and search do not. The options weighed:
+
+| Option | For | Against |
+|---|---|---|
+| (a) Withhold every Secret annotation's value from agents | Safe without knowing the tools; 1–2 h | Agents lose harmless values (a certificate's issuer) |
+| (b) An allowlist of harmless annotations | More useful to agents | A list to maintain; 2–3 h |
+| (c) A denylist of known manifest copies | Keeps everything else | Never complete: an unknown tool slips through |
+| **(d) Document only (decided)** | Agents see what the user sees in the drawer; nothing to build | A Secret deployed by a tool that copies its manifest into an annotation reaches agents with its values |
+
+## D-19: Editing and creating Secrets from YAML
+
+**Decided (owner, 2026-10-12):** Secrets can be edited and created from YAML in the GUI only. An Edit
+or Create resource tab that holds a Secret shows the user its values (base64 in `data`, plain text
+in `stringData`) and works like any other editor tab (diff, server-side dry run, the
+resourceVersion precondition); agents and the CLI can neither open such a tab, nor read its text
+(`<withheld>`), nor apply or create a Secret; values never reach the audit log, an error or a
+toast. The same pattern as `secret.reveal` and the Helm Upgrade tab. Lens's Secret editor is not
+captured (inferred). Not built yet; 4–8 h. The options weighed:
+
+| Option | For | Against |
+|---|---|---|
+| **(a) GUI only (decided)** | Lens's Edit for the user; values never reach an agent | Agents cannot change a Secret |
+| (b) Agents too, writing values they bring without reading existing ones | Agents can rotate credentials | Keeping withheld values on save is complex; an agent can overwrite credentials |
+| (c) Metadata only (labels, annotations) | Little risk | Half of Lens's Edit |
+| (d) Keep refusing | Nothing to build | Users need kubectl to change a Secret |
+
+## D-20: A port forward that cannot connect
+
+**Decided (owner, 2026-10-12):** a forward whose connection to the pod fails with an error that
+does not go away by waiting (forbidden, unauthorized, the namespace gone) turns Failed at once,
+releases its local port and names the cause; an error that can pass (the network, a pod still
+starting, a server error) is retried with the backoff as today. Today a forward that first waited
+for a pod and then could not connect stays Reconnecting and retries for ever
+([`portforward_run.go`](../../internal/engine/portforward_run.go)). Lens's behaviour is not
+captured. Not built yet; 1–2 h. The options weighed:
+
+| Option | For | Against |
+|---|---|---|
+| **(a) Permanent errors fail at once (decided)** | A clear state, no pointless requests, the port freed; passing errors still bridged | Which errors count as permanent is a list to keep right |
+| (b) Fail after N attempts that never connected | Simple | A slow pod start kills the forward |
+| (c) Retry for ever with a distinct "Failing" state | Never gives up | The load and the occupied port stay |
+| (d) Leave it | Nothing to build | "Reconnecting: forbidden" for ever |
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | D-20 (owner): a port forward fails at once on permanent errors (option a), not built |
+| 2026-10-12 | minor | D-14 (owner): the upstream pull requests grouped, opened by the lead after the owner's OK on the series |
+| 2026-10-12 | minor | D-19 (owner): Secrets editable and creatable from YAML in the GUI only (option a), not built |
+| 2026-10-12 | minor | D-18 (owner): Secret annotations stay visible to agents; H-23 documented and accepted (option d) |
+| 2026-10-12 | minor | D-17 (owner): token files of added kubeconfigs outside their folder are asked for like credential plugins (H-24, option a) |
 | 2026-10-12 | minor | D-11: Helm upgrade decided and built (journal, offered as a rollback), journals locked between processes |
 | 2026-10-12 | minor | D-14 built: the two panics patched, the widget fuzzed alone, further crashes, hangs and races fixed; the upstream series prepared, not sent |
 | 2026-10-12 | minor | D-13 as revised built (fourth run): the Secrets view on a full watch, the drawer from the cache, Helm's releases through covering scopes |

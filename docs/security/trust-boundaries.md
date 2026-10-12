@@ -152,6 +152,8 @@ server as a bearer token. Kubernetes' documentation names this ("file exposure",
 The plugin approval of [H-1](#h-1-kubeconfig-files-added-by-sync-folders) does not cover it: a
 context without an `exec` section connects without asking. Live since 2026-10-12 for added, pasted
 and synced kubeconfigs, at the moment the user connects to such a context; dormant for the default
-kubeconfig, which kubectl reads the same way. Not decided: extending the approval to file
-references outside the kubeconfig's folder, or refusing them for synced files.
+kubeconfig, which kubectl reads the same way. How it is handled is decided
+([D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs), owner 2026-10-12):
+a token file outside the kubeconfig's folder is asked for in the same GUI dialog as a credential
+plugin, bound to its path and server; not built yet, so the gap is live until then.
 

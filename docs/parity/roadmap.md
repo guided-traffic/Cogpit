@@ -73,10 +73,12 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 2. **Walk the workflows in the GUI** on kind and a real cluster (owner): change a workload,
    maintain a node, reach a service, Helm upgrade, rollback and uninstall, adding and pasting
    kubeconfigs, Cogpit's own title bar; record what differs in the parity rows.
-3. **The owner's open decisions:** a kubeconfig naming local files as tokens
-   ([H-24](../security/trust-boundaries.md#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token)),
-   Secret annotations to agents (H-23), editing Secrets from YAML, the captures of Lens's Helm and
-   kubeconfig dialogs listed in the run's report.
+3. **The owner's decisions of 2026-10-12, built:** token files of added kubeconfigs asked for like
+   credential plugins ([D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs),
+   H-24), Secrets edited and created from YAML in the GUI only
+   ([D-19](../developer/decisions.md#d-19-editing-and-creating-secrets-from-yaml)), port forwards
+   failing at once on permanent errors ([D-20](../developer/decisions.md#d-20-a-port-forward-that-cannot-connect));
+   H-23 is accepted (D-18). The captures of Lens's Helm and kubeconfig dialogs (owner).
 4. **Helm install and charts** ([G11](gaps.md#g11-helm)), then the credential plugins verified on
    EKS, GKE and AKS ([G2](gaps.md#g2-cluster-connection-and-authentication), human).
 5. **Breadth and depth of M2 and M4** ([G6](gaps.md#g6-resource-views),

@@ -74,5 +74,7 @@ verified); such an annotation reaches the Secrets view, `object_get` and the age
 Properties' Annotations and in the YAML's `metadata.annotations` (re-checked 2026-10-12 with the
 full Secrets watch, which does not change this; `resources_list`, the CSV and `resources_find`
 show no annotations). A candidate is Carvel kapp's `kapp.k14s.io/original` (not verified).
-Dropping more annotations is a policy decision that is not made: the list would have to name
-tools Cogpit does not know.
+Decided (owner, 2026-10-12, [D-18](../developer/decisions.md#d-18-secret-annotations-seen-by-agents)):
+nothing more is dropped or withheld; the risk is accepted. It is live for every Secret a tool
+deployed with a copy of its manifest in an annotation, whenever an agent reads that Secret with
+`object_get`.
