@@ -89,7 +89,11 @@ A kind without a profile already gets a generic view from discovery; a profile m
    [`kinds/related.go`](../../internal/model/kinds/related.go) if it is new) and reads it in
    `CellsWith` or `DetailWith` ([architecture §4.4](architecture.md#44-tables-details-editors-and-streams)).
    Objects Cogpit makes itself are a local kind (`Local`, listed in `kinds.Local()`, written with
-   `Backend.PutLocal`); objects made from other cached objects are a virtual kind (`Derive`).
+   `Backend.PutLocal`); objects made from other cached objects are a virtual kind (`Derive`). A
+   virtual kind made of several kinds' objects cannot derive from one scope: it gets a cache of its
+   own over `cache.Held`, filled while it is read, as the Applications are
+   ([architecture § Scopes](architecture.md#scopes-local-and-virtual-kinds),
+   [`engine/applications.go`](../../internal/engine/applications.go)).
 4. Golden tests from recorded objects in `internal/model/kinds/testdata/<kind>/`: healthy,
    failing, terminating, and an object with optional fields missing (`minimal`). `TestGolden`
    and `TestTestdataComplete` pick them up; run `go test ./internal/model/kinds/ -update` and read
@@ -104,6 +108,11 @@ A kind without a profile already gets a generic view from discovery; a profile m
    cluster serves it; a kind that older clusters serve at another version of the same shape lists
    those in `FallbackVersions`, preferred first. Built-in kinds keep the bare plural as their key; kinds from custom resource
    definitions are `<plural>.<group>` ([architecture §4.5](architecture.md#45-kind-keys)).
+   A curated profile of a kind from a custom resource definition (the Vertical Pod Autoscalers)
+   keeps that key and goes in `curated` in
+   [`verticalpodautoscalers.go`](../../internal/model/kinds/verticalpodautoscalers.go), not in
+   `builtin`: the custom kinds watch takes it through `kinds.ProfileFor` while the cluster's
+   definition serves its version; its goldens are `TestCuratedGolden`'s.
 7. Add its actions as commands (above).
 
 ## Adding a cache consumer
