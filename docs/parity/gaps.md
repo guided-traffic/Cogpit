@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -617,17 +617,33 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   ⇧F1–⇧F12 to switch banks, Add to Hotbar in the picker's row menu and the Cluster menu
   (`TestHotbarCommands`, `TestHotbarFunctionKeys`, [PNG](../../internal/ui/fyneui/testdata/hotbar_bank_dark.png)).
   Differs from Lens: initials instead of the cluster's icon (cluster identity missing), Move Up and
-  Down instead of dragging, no command palette, the F-keys do nothing while a text field or a
+  Down instead of dragging, the F-keys do nothing while a text field or a
   terminal has the focus, not tried in a real window; inferred: missing contexts kept as marked
   tiles, at most 12 banks, the arrows wrap, the confirmation before removing a bank with clusters
   ([ui-parity › Hotbar](ui-parity.md#hotbar)).
-- **Missing:** kubeconfig syncs (alpha needs these; pasting is not a target, D-21), the hotbar's icons and dragging, the command palette,
-  the application menu, every keyboard shortcut, preferences, cluster settings, appearance and
+- **Built 2026-10-13 (night run):** the command palette, ⌘⇧P
+  ([`engine/palette.go`](../../internal/engine/palette.go), [`fyneui/palette.go`](../../internal/ui/fyneui/palette.go)):
+  an overlay with a filter over what the menus offer in the current state, listed from the
+  registry's metadata (the drawer object's actions, menu commands only, no tool meant for agents,
+  Switch to *view* per navigator view, the hotbar's clusters and banks, commands with required
+  parameters only where the window has a dialog for them), run as their menu items run them
+  (confirmation, dialogs, audit); its open state is UI state (`ui.palette.open`, `ui.palette.close`).
+  Shortcuts through the registry: ⌘⇧P and ⌘P (the picker) on main-menu items, so they work from
+  any focus; ⌘F and ⌘⇧T taken from the registry; ⌘Q left to the platform (GLFW's app menu), ⌘R
+  not bound (nothing to reload in a watch-fed view). Inferred: the list's order and contents beyond
+  the captured rows, the greyed rows, the ranking; not tried in a real window
+  (`TestCommandPaletteTypeAndRun`, `TestPaletteListsWhatTheMenusOffer`,
+  [PNG](../../internal/ui/fyneui/testdata/command_palette_dark.png)).
+- **Missing:** kubeconfig syncs (alpha needs these; pasting is not a target, D-21), the hotbar's icons and dragging,
+  the application menu, the shortcuts of features that do not exist yet (tabs and their history,
+  preferences, cluster settings, Ask AI), preferences, cluster settings, appearance and
   application integration.
 - **Evidence:** [ui-parity](ui-parity.md), 65 rows across those sections (6 more are marked not a
-  target); 7 of them partial since 2026-10-12 (the hotbar's six and the Cluster menu), and the
-  navigator keyboard since 2026-10-13 (⇧↵ without a fixed tab; [G5](#g5-app-shell-navigation-tables-and-drawer)'s navigator).
-- **Estimate:** 58–150 h (was 65–165; the hotbar's rows built, night run; 1–2.5 h per row, the registry makes shortcuts and menus cheap).
+  target); 7 of them partial since 2026-10-12 (the hotbar's six and the Cluster menu), the
+  navigator keyboard since 2026-10-13 (⇧↵ without a fixed tab; [G5](#g5-app-shell-navigation-tables-and-drawer)'s navigator),
+  and 7 more since 2026-10-13 (the palette's two free rows and five shortcut rows; the paid bank
+  commands' row updated).
+- **Estimate:** 50–140 h (was 58–150; the palette and five shortcut rows built, night run; 1–2.5 h per row, the registry makes shortcuts and menus cheap).
 
 ## Platform gaps
 

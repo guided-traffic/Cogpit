@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (`cogpit-cli` contexts, get and the MCP stdio bridge, §7; `cogpit-cli` contexts and get, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7; `cogpit-cli` contexts and get, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-12)
 
@@ -11,7 +11,7 @@ built-in views, the Port Forwarding view (a local kind), the Helm Releases view 
 the Workloads Overview page and one view per custom resource kind from a watch-fed cache, greys
 what the user's access reviews deny, has a detail drawer and row menus from the command registry,
 a dock with logs (with their options and the logs of a workload's pods), a local terminal, pod
-shells, attach and Edit and Create resource tabs, writes through 95 commands (reads included) (editing, Secrets
+shells, attach and Edit and Create resource tabs, writes through 97 commands (reads included) (editing, Secrets
 from YAML in the GUI only, delete, node and workload actions, a crash-safe drain, port forwards
 that fail at once on permanent errors, Helm rollback, uninstall and upgrade with a crash journal
 locked between Cogpit processes, each bound to the revision the server holds), adds and syncs
@@ -27,6 +27,7 @@ hover panel with the exact values), keeps a crash report when it crashes, and le
 the external MCP server off in the status bar.
 Since the night run (2026-10-12) a hotbar of pinned clusters in banks of twelve sits at the window's left edge (G13): engine state (`UIState.Hotbar`, nine `hotbar.*` commands, `<user config dir>/Cogpit/hotbar.json`), F1–F12 and ⇧F1–⇧F12 ([§4.3](#43-ui-state)).
 Since 2026-10-13 the navigator has Lens's header (a scope dropdown and a search), the cluster as the tree's root, "<item> - <context>" tooltips and its keyboard, in Cogpit's own tree rows ([`navigator.go`](../../internal/ui/fyneui/navigator.go); its search and keyboard are the window's, [§4.3](#43-ui-state)).
+Since 2026-10-13 a command palette (⌘⇧P, G13) lists what the menus offer by the registry's metadata and runs it as the menus do; its open state is `UIState.Palette`, and the registry's shortcuts ⌘⇧P and ⌘P sit on main-menu items ([§4.2](#42-the-command-registry)).
 CI runs on every push ([releasing › CI](releasing.md#ci)). The MVP doubled as the Fyne spike
 ([results](spike-fyne.md#results)). Where the code differs from the plan below, this section wins.
 
@@ -362,6 +363,41 @@ namespace settles the sidebar with one rules review and one access review; a use
 namespaces with one rules review per namespace (five for four namespaces) and one access review;
 browsing, menus and the sidebar asking again cost no request once answered.
 
+**The command palette** (built 2026-10-13, G13, [`engine/palette.go`](../../internal/engine/palette.go),
+[`fyneui/palette.go`](../../internal/ui/fyneui/palette.go)) lists what the window's menus offer in
+the current UI state, decided by the registry's metadata, so a command appears in it without
+palette code (`Registry.Palette`; default rule, not the owner's, 2026-10-13):
+
+1. The palette's object (the drawer's, else the one selected object) brings its kind's actions as
+   the drawer's toolbar lists them (`Registry.Actions`), without those that do not apply; one entry
+   per container for a command that takes one when the pod has more than one.
+2. Every other command needs a `MenuPath`: one without is a tool for agents (`ui.state`,
+   `kinds.list`, `resources.list`, `editor.get`, ...). The palette's own commands are left out.
+3. A read without an `Order` returns data to its caller: it is offered only where the window
+   presents its result (the CSV download, the kubeconfig sources); `hotbar.list` and
+   `workloads.overview` are not.
+4. A command with a `ref` and no `Order` is left out: its object is picked elsewhere
+   (`pod.portForward`'s port in the drawer, `ui.navigate`'s object by a search).
+5. A kind's command without a `ref` (the create commands) comes with its kind's view.
+6. The palette fills three parameters itself: `ui.openView` becomes Switch to *view* per view the
+   navigator offers but the open one, `hotbar.switchBank` an entry per other bank (⇧F1–⇧F12),
+   `hotbar.openCluster` one per tile of the shown bank (F1–F12).
+7. A command with other parameters is offered when the window has a dialog of its own for them
+   (`PaletteInput.Runs`, the GUI's `paletteRunners`: the picker for `cluster.connect`, a bank's
+   name, the create dialogs, the search field for `ui.setFilter`); else only when none is
+   required, and it runs with its schema's defaults. One with a required parameter and no dialog
+   (`hotbar.moveCluster`, `object.apply`, `object.create`) is left out.
+
+A command that cannot run now stays, greyed with its reason; running an entry dispatches its
+command with origin GUI as its menu item would (an object's action through the row menu's
+`runAction`), so confirmations, dialogs and the audit log apply unchanged. `FilterPalette` matches
+every term of the query against the label and the category (label start, word start, substring,
+category, then fuzzy from a word's start). The registry's shortcuts are bound from the registry:
+⌘⇧P (`ui.palette.open`) and ⌘P (`cluster.connect`, the picker) on main-menu items, which Fyne asks
+before the focused widget (on macOS the native menu's key equivalents), ⌘F (`ui.setFilter`) and
+⌘⇧T (`terminal.open`) as window shortcuts; F1–F12 stay typed keys of the hotbar. ⌘Q is the
+platform's (GLFW's macOS app menu), and nothing binds ⌘R.
+
 Every command is also an MCP tool, generated from the registry (`ui.navigate` → `ui_navigate`).
 Nothing is exposed to agents that the registry does not describe.
 
@@ -377,6 +413,7 @@ type UIState struct {
 	Drawer    *model.ObjectRef  // object shown in the detail drawer
 	Dock      []DockTab         // terminal, logs, editor, chat tabs and the active one
 	Hotbar    *HotbarState      // the hotbar's banks and the shown one (2026-10-12)
+	Palette   bool              // the command palette is open (2026-10-13)
 }
 ```
 
@@ -1630,6 +1667,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | §4.2 the command palette (G13, night run): which commands it lists by the registry's metadata, how it runs them, the shortcuts bound from the registry; §4.3 `UIState.Palette`; one line in Current state, 97 commands |
 | 2026-10-13 | minor | §7 the stdio bridge as built: the endpoint file beside the token, forwarding with origin `ExternalAgent`, following a restart, the headless fallback; Current state rows of `internal/mcp` and `cmd/cogpit-cli` |
 | 2026-10-13 | minor | `cogpit-cli contexts` and `get` (Current state); `internal/app`, the wiring both binaries share, in §2 and §3 with its `depguard` rule |
 | 2026-10-13 | minor | §4.3 the navigator (night run): its search, keyboard row and open groups GUI-only (Cogpit's default), its tree Cogpit's own rows; one line in Current state |

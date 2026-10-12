@@ -82,6 +82,7 @@ type shell struct {
 	toasts    *fyne.Container
 	tip       *tooltip // the one tooltip: cut-off cells, warning icons, drawer actions
 	picker    *picker
+	palette   *cmdPalette   // the command palette, ⌘⇧P (palette.go)
 	hot       *hotbar       // the pinned clusters at the window's left edge (hotbar.go)
 	kc        *kubeconfigUI // the kubeconfig sources' dialogs (kubeconfigs.go)
 	confirmer *guiConfirmer
@@ -149,6 +150,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.status = newStatusBar(sh)
 	sh.kc = newKubeconfigUI(sh)
 	sh.picker = newPicker(sh)
+	sh.palette = newCmdPalette(sh)
 	sh.confirmer = newGUIConfirmer(sh)
 	sh.drains = newDrainBanner(sh)
 	sh.helm = newHelmBanner(sh)
@@ -389,6 +391,9 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	}
 	if first || !sameHotbar(st.Hotbar, old.Hotbar) || st.Context != old.Context || st.Connection != old.Connection {
 		sh.hot.stateChanged()
+	}
+	if first || st.Palette || old.Palette { // while open, what it lists follows the state
+		sh.palette.stateChanged()
 	}
 }
 
@@ -707,7 +712,9 @@ func (toastLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
 
 // mainMenu builds the window menu: Cluster, View (one item per kind) and Help.
 func (sh *shell) mainMenu() *fyne.MainMenu {
-	cluster := fyne.NewMenu("Cluster", fyne.NewMenuItem("Switch Context…", sh.picker.show))
+	// ⌘P (search a cluster by name) is cluster.connect's shortcut in the registry: the picker asks
+	// for the context.
+	cluster := fyne.NewMenu("Cluster", sh.withShortcut(fyne.NewMenuItem("Switch Context…", sh.picker.show), "cluster.connect"))
 	if item := sh.hot.contextItem(sh.ui.Context); item != nil { // Lens's cluster menu: "Add to Hotbar"
 		cluster.Items = append(cluster.Items, item)
 	}
@@ -725,7 +732,11 @@ func (sh *shell) mainMenu() *fyne.MainMenu {
 		none.Disabled = true
 		items = append(items, none)
 	}
-	menus := []*fyne.Menu{cluster, fyne.NewMenu("View", items...)}
+	view := fyne.NewMenu("View", items...)
+	if pal := sh.paletteMenuItem(); pal != nil { // ⌘⇧P, from any focus: menu shortcuts come first
+		view.Items = append([]*fyne.MenuItem{pal, fyne.NewMenuItemSeparator()}, view.Items...)
+	}
+	menus := []*fyne.Menu{cluster, view}
 	if sh.hasMCP() {
 		sh.mcpMenu = fyne.NewMenuItem("Copy MCP command", sh.copyMCPCommand)
 		sh.mcpMenu.Disabled = !sh.mcp.on
@@ -752,20 +763,28 @@ func (sh *shell) copyMCPCommand() {
 	d.Show()
 }
 
-// installShortcuts adds Lens's keyboard shortcuts that the MVP supports: ⌘F (search), ⌘⇧T
-// (terminal session), Escape (close the picker, else the drawer), "/" (the logs tab's search), and
-// F1–F12 and ⇧F1–⇧F12 for the hotbar while no text field has the focus (the table passes them on).
+// installShortcuts adds Lens's keyboard shortcuts that Cogpit supports, as the registry declares
+// them: ⌘F (ui.setFilter: the search), ⌘⇧T (terminal.open), Escape (close the palette or the
+// picker, else the drawer), "/" (the logs tab's search), and F1–F12 and ⇧F1–⇧F12 for the hotbar
+// while no text field has the focus (the table passes them on). ⌘⇧P and ⌘P are the main menu's
+// (mainMenu), which take them from any focus.
 func (sh *shell) installShortcuts() {
 	c := sh.win.Canvas()
-	c.AddShortcut(&desktop.CustomShortcut{KeyName: fyne.KeyF, Modifier: fyne.KeyModifierShortcutDefault},
-		func(fyne.Shortcut) { c.Focus(sh.view.search) })
-	c.AddShortcut(&desktop.CustomShortcut{KeyName: fyne.KeyT, Modifier: fyne.KeyModifierShortcutDefault | fyne.KeyModifierShift},
-		func(fyne.Shortcut) { sh.dispatch("terminal.open", struct{}{}, nil) })
+	if sc := sh.registryShortcut("ui.setFilter"); sc != nil {
+		c.AddShortcut(sc, func(fyne.Shortcut) { c.Focus(sh.view.search) })
+	}
+	if sc := sh.registryShortcut("terminal.open"); sc != nil {
+		c.AddShortcut(sc, func(fyne.Shortcut) { sh.dispatch("terminal.open", struct{}{}, nil) })
+	}
 	c.SetOnTypedKey(func(ev *fyne.KeyEvent) {
 		if sh.hot.key(ev.Name, shiftHeld()) { // F1–F12, ⇧F1–⇧F12: the hotbar (Fyne has no shortcut for them)
 			return
 		}
 		if ev.Name == fyne.KeyEscape {
+			if sh.palette.visible() { // the palette lies over everything
+				sh.palette.dismissThen(nil)
+				return
+			}
 			if sh.picker.visible() { // the picker first: it lies over the drawer
 				sh.picker.popup.dismiss()
 				return

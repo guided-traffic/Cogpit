@@ -25,7 +25,7 @@ type picker struct {
 	sh *shell
 
 	popup      *dismissOverlay // a click outside or Escape closes it (owner, 2026-10-12)
-	filter     *widget.Entry
+	filter     *keyEntry       // takes Escape itself: a focused field gets every key
 	list       *fyne.Container
 	status     *textLine
 	connectB   *widget.Button
@@ -44,7 +44,13 @@ func newPicker(sh *shell) *picker {
 	intro := newTextLine("Pick a kubeconfig context. Cogpit browses read-only and asks before it changes anything.",
 		colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	intro.truncate = true
-	p.filter = widget.NewEntry()
+	p.filter = newKeyEntry(func(ev *fyne.KeyEvent) bool {
+		if ev.Name != fyne.KeyEscape || !p.visible() {
+			return false
+		}
+		p.popup.dismiss() // the window's Escape never sees a key the focused filter gets
+		return true
+	})
 	p.filter.SetPlaceHolder("Filter contexts…")
 	p.filter.SetIcon(theme.SearchIcon())
 	p.filter.OnChanged = func(string) { p.render() }
@@ -71,6 +77,9 @@ func newPicker(sh *shell) *picker {
 
 // show opens the picker and loads the contexts off the main goroutine.
 func (p *picker) show() {
+	if p.sh.palette.visible() { // ⌘P from the command palette: the picker takes its place
+		p.sh.palette.dismissThen(nil)
+	}
 	if p.popup == nil {
 		p.popup = newDismissOverlay(p.sh.win.Canvas(), p.content)
 	}

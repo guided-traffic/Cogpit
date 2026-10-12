@@ -52,7 +52,13 @@ Ordered checklists for the common additions. The packages they name are in
    `jsonschema` tag as the hint), started from `Prefill`; a command with a `Prefill` gets the
    dialog for its optional parameters too. Add a custom dialog only when the schema
    can't express it. Give the command an icon in the drawer's toolbar in
-   [`cmdicons.go`](../../internal/ui/fyneui/cmdicons.go); others get a generic one.
+   [`cmdicons.go`](../../internal/ui/fyneui/cmdicons.go); others get a generic one. The command
+   palette lists an object action with its object, and any other command with a `MenuPath`
+   ([rules](architecture.md#42-the-command-registry)); one with a required parameter beyond its
+   object (a context, a name, a file) is listed only where
+   [`paletteRunners`](../../internal/ui/fyneui/palette.go) opens a dialog for it. A `Shortcut` such as
+   `Cmd+Shift+P` (Cmd is Ctrl on Windows and Linux) is shown in the palette; check it against
+   `TestRegistryShortcutsDoNotCollide` and bind it where the window binds the others.
 8. **Progress docs:** flip the row in the parity page and update [`gaps.md`](../parity/gaps.md);
    `make parity` checks the row and the numbers it feeds.
 
