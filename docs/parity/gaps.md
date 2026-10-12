@@ -100,6 +100,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Decided (owner, 2026-10-12, [D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs)):**
   a `tokenFile` of an added, pasted or synced kubeconfig outside its folder is asked for in the
   plugin approval dialog (H-24); not built, 2–4 h.
+- **Decided (owner, 2026-10-12, [D-21](../developer/decisions.md#d-21-pasting-a-kubeconfig)):**
+  no pasted kubeconfigs; the paste feature built on 2026-10-12 is removed (1–2 h).
 - **Missing:** kubeconfig discovery, merging and validation;
   connections through client-go with every authentication form; the persister for the legacy
   `oidc` provider; the environment for exec plugins; access reviews; connection states and errors

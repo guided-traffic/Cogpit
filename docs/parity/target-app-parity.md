@@ -84,11 +84,11 @@ counts when it exists in some form; nine counted rows are done, the rest partial
 |---|---:|---|---:|---|
 | Resource views | 30% | 55 / 64 | 85.9% | measured ([resource-parity](resource-parity.md)); ten of them the Gateway API views, generic until captured |
 | Resource actions | 20% | 29 / 39 | 74.4% | measured ([resource-parity](resource-parity.md)) |
-| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 55 / 121 | 45.5% | measured ([ui-parity](ui-parity.md), free rows) |
+| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 54 / 120 | 45.0% | measured ([ui-parity](ui-parity.md), free rows) |
 | Cluster authentication and connectivity | 10% | 4 / 13 | 30.8% | measured ([platform-parity](platform-parity.md#cluster-authentication-and-connectivity)) |
 | Platforms and packages | 5% | 1 / 13 | 7.7% | measured ([platform-parity](platform-parity.md#operating-systems-and-packages)) |
 | Paid Lens Desktop features | 10% | 1 / 11 | 9.1% | measured ([premium list](https://docs.lenshq.io/k8slens/premium-features/) without extensions, D-5): the editor's diff, partial |
-| **Weighted** | 100% | | **56.4%** | |
+| **Weighted** | 100% | | **56.3%** | |
 
 ## Ready for real work
 
@@ -99,7 +99,7 @@ else.
 | Dimension | Weight | % ready | Remaining (agent-h) | Evidence | Detail |
 |---|---:|---:|---:|---|---|
 | Resource views and actions in depth | 28% | 29% | 50–170 | 55 of 64 views (one done) and 29 of 39 actions, the rest partial; Secrets' Keys and Type filled from a full watch; most texts and rules inferred, not checked against a capture | [resource-parity](resource-parity.md), G6, G7 |
-| Interface fidelity and feel | 15% | 23% | 100–275 | 55 of 121 rows (8 done); adding, pasting and syncing kubeconfigs, the Helm Upgrade tab, the View menu following the sidebar; Cogpit's own title bar on macOS not yet seen in a real window | [ui-parity](ui-parity.md), G5, G9, G13 |
+| Interface fidelity and feel | 15% | 23% | 100–275 | 54 of 120 rows (8 done); adding and syncing kubeconfigs, the Helm Upgrade tab, the View menu following the sidebar; Cogpit's own title bar on macOS not yet seen in a real window | [ui-parity](ui-parity.md), G5, G9, G13 |
 | Cluster connectivity and authentication | 15% | 28% | 10–28 + human | 4 of 13 rows partial; kubeconfig files, pasted kubeconfigs and sync folders, each read on its own; credential plugins run only once the user allowed them; no cloud plugin verified | [platform-parity](platform-parity.md#cluster-authentication-and-connectivity), G2 |
 | Logs, terminal, shells, port forwarding | 10% | 47% | 18–46 | log options, logs of a workload's pods that resume a dropped stream, attach, port forwarding with reconnects (on kind); the terminal widget fuzzed on its own, twelve crashes, hangs and races fixed; no node shell | [ui-parity](ui-parity.md#logs), G8, G10 |
 | Performance and API load | 10% | 25% | 28–66 | P2, P9–P11 measured; frames on the GPU only once; the perf gate no longer hangs on a slow runner | [testing](../developer/testing.md#performance-budgets-proposed-not-measured), G15 |
@@ -241,7 +241,7 @@ LiteLLM or Open WebUI endpoint for the built-in agent.
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | major | Fourth measurement after the fourth implementation run, counted by `make parity`: breadth ~56% (55 of 64 views, 29 of 39 actions, 55 of 121 interface rows, 4 of 13 connectivity rows), ready ~26%, mainstream ~25%, essentials ~34% (estimated); alpha ~135–370 h, free parity ~420–1,040 h |
+| 2026-10-12 | major | Fourth measurement after the fourth implementation run, counted by `make parity`: breadth ~56% (55 of 64 views, 29 of 39 actions, 54 of 120 interface rows after D-21, 4 of 13 connectivity rows), ready ~26%, mainstream ~25%, essentials ~34% (estimated); alpha ~135–370 h, free parity ~420–1,040 h |
 | 2026-10-12 | minor | `make parity` reproduces the breadth table (55 / 64, 28 / 39, 52 / 121, 3 / 13, 1 / 13; 54.5% weighted) and guards it in CI; how to re-measure |
 | 2026-10-11 | major | Third measurement after the third implementation run: breadth ~54% (measured: 55 of 64 views, 28 of 39 actions, 52 of 121 interface rows, 3 of 13 connectivity rows), ready ~23%, mainstream ~24%, essentials ~32% (estimated); alpha ~150–400 h, free parity ~430–1,060 h |
 | 2026-10-11 | major | Second measurement after the second implementation run: breadth ~30% (measured), ready ~14%, mainstream ~14%, essentials ~28% (estimated); remaining hours re-estimated from the gaps |

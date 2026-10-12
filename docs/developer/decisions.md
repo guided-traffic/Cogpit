@@ -484,10 +484,21 @@ captured. Not built yet; 1–2 h. The options weighed:
 | (c) Retry for ever with a distinct "Failing" state | Never gives up | The load and the occupied port stay |
 | (d) Leave it | Nothing to build | "Reconnecting: forbidden" for ever |
 
+## D-21: Pasting a kubeconfig
+
+**Decided (owner, 2026-10-12):** Cogpit does not add kubeconfigs from pasted text. Lens's "Add
+Kubeconfigs" menu offers "Paste from clipboard" beside syncing files and folders (captured
+2026-10-12); Cogpit offers files and sync folders only. The paste dialog, the
+`kubeconfig.paste` command and the owner-only store of pasted kubeconfigs built on 2026-10-12 are
+to be removed, with their tests and the documentation that describes them. The options weighed:
+keeping Cogpit's paste dialog without copying Lens's, removing it (decided), or reading the
+clipboard directly as Lens's menu item does.
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | D-21 (owner): no adding of kubeconfigs from pasted text; the paste feature built the same day is to be removed |
 | 2026-10-12 | minor | D-20 (owner): a port forward fails at once on permanent errors (option a), not built |
 | 2026-10-12 | minor | D-14 (owner): the upstream pull requests grouped, opened by the lead after the owner's OK on the series |
 | 2026-10-12 | minor | D-19 (owner): Secrets editable and creatable from YAML in the GUI only (option a), not built |

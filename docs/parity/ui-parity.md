@@ -25,12 +25,12 @@ Modifier names are macOS first (⌘ ⌥ ⇧ ⌃); Windows and Linux use Ctrl and
 marked per row; rows without evidence are missing.
 
 **Summary (measured, 2026-10-12, after the fourth implementation run, counted by `make parity`):**
-56 of 134 rows exist (was 53): 55 of the 121 free-plan rows (47 partial, 8 done: the cell tooltip, right-click on a
+55 of 133 rows exist (was 53): 54 of the 120 free-plan rows (46 partial, 8 done: the cell tooltip, right-click on a
 row, the dock's "New tab" menu, keyboard navigation in tables and its shortcut row, the container
 port's link, the forward dialog and the drawer's Forward…, each matching its captured row) and one
-paid row (the diff view, partial); 6 more rows are not a target. The fourth run added Kubeconfig
-Syncs, adding a kubeconfig by pasting and the Kubeconfig syncs preference (partial, their dialogs
-inferred).
+paid row (the diff view, partial); 7 more rows are not a target. The fourth run added Kubeconfig
+Syncs and the Kubeconfig syncs preference (partial, their dialogs inferred); adding a kubeconfig
+by pasting is not a target since the owner's decision D-21 (2026-10-12).
 Remaining (estimated): see gaps [G5](gaps.md#g5-app-shell-navigation-tables-and-drawer) (layout,
 sidebar, tables, drawer, dock), [G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)
 (clusters, hotbar, palette, menus, shortcuts, preferences, cluster settings),
@@ -60,7 +60,7 @@ hotbar, navigator, tab bar, workspace, dock, status bar.
 |---|---|---|---|
 | Kubeconfig files in `~/.kube/` (`%USERPROFILE%\.kube` on Windows) are found without setup | free | partial: `$KUBECONFIG` or `~/.kube/config` only | `$KUBECONFIG` or `~/.kube/config` only (client-go's loading rules), not every file in `~/.kube/`: [`cluster.go`](../../internal/cluster/cluster.go) `loadingRules`, `TestListContextsDefaultRulesUseKUBECONFIG`, `TestListContextsMergesInPrecedenceOrder` |
 | Kubeconfig Syncs: add files and folders to watch | free | partial (2026-10-12): files (`kubeconfig.addFile`) and folders (`kubeconfig.addFolder`) added from the Cluster menu, the picker's "Add Kubeconfigs" or the Kubeconfig Sources dialog; a folder's files are picked up and dropped as they come and go (polled every 2 s); each file is read on its own and offered as `<context> [<file>]`; a credential plugin of such a file runs only after the user allowed it (Cogpit's own, H-1). Lens's own dialogs and whether it reads subfolders are not captured: the layout is inferred | [`engine/kubeconfigs.go`](../../internal/engine/kubeconfigs.go), [`fyneui/kubeconfigs.go`](../../internal/ui/fyneui/kubeconfigs.go); `TestSyncFolderPicksUpAndDropsFiles`, `TestAddedFilesAreNeverWritten`, `TestExecPluginRunsOnlyOnceAllowed`, `TestAddFileFromTheMenuAndEventsReloadThePicker` |
-| Add clusters by pasting a kubeconfig; Lens stores the text itself, not in `~/.kube/config` | free | partial (2026-10-12): "Add kubeconfig by pasting" in the picker's "Add Kubeconfigs" menu and the Cluster menu, a text field and an "Add Clusters" button (`kubeconfig.paste`; labels from Lens's documentation, layout inferred, not captured); stored as Cogpit's own file, owner-only, never in the user's kubeconfig, offered as `<context> [pasted <n>]`; removed from the Kubeconfig Sources dialog (`kubeconfig.remove`) | [`fyneui/kubeconfigs.go`](../../internal/ui/fyneui/kubeconfigs.go); `TestPasteStoresItOwnerOnly`, `TestPastedKubeconfigConnects`, `TestKindPastedKubeconfig`, `TestPasteDialog` |
+| Add clusters by pasting a kubeconfig; Lens stores the text itself, not in `~/.kube/config`; its "Add Kubeconfigs" menu offers "Paste from clipboard" (capture, 2026-10-12) | free | not a target ([D-21](../developer/decisions.md#d-21-pasting-a-kubeconfig), owner 2026-10-12; the paste dialog built the same day is to be removed) | – |
 | Navigator sections: Kubernetes Clusters (Local Kubeconfigs and the cloud sections), Teamwork, Extensions | free | missing | – |
 | Search clusters by name (⌘P) | free | partial: filter in the context picker, no ⌘P | the context picker's filter field, [`picker.go`](../../internal/ui/fyneui/picker.go); no ⌘P |
 | Cluster menu: connect, disconnect, settings, add to hotbar, remove (labels: capture needed) | free | missing | – |
@@ -358,6 +358,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Adding a kubeconfig by pasting: not a target (owner, D-21); 54 of 120 free rows |
 | 2026-10-12 | major | Recount after the fourth run (`make parity`): 56 of 134 rows, 55 of the 121 free rows (47 partial, 8 done) |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: no "+" on Port Forwarding and Helm Releases; the View menu hides the kinds the sidebar hides |
 | 2026-10-12 | trivial | Dock: the Helm Upgrade tab built (fourth run) |

@@ -22,7 +22,7 @@ serial foundation, about 80% of the work parallelizes.
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **~56%** (was ~54%) | measured by `make parity`: 55 of 64 views (ten of them the Gateway API views, generic), 29 of 39 actions, 55 of 121 interface rows; 9 rows done, the rest partial |
+| **Feature breadth** | **~56%** (was ~54%) | measured by `make parity`: 55 of 64 views (ten of them the Gateway API views, generic), 29 of 39 actions, 54 of 120 interface rows (pasting kubeconfigs is not a target, D-21); 9 rows done, the rest partial |
 | **Ready for real work** | **~26%** (was ~23%) | estimated |
 | Mainstream practitioner | ~25% (was ~24%) | estimated |
 | Essentials user | ~34% (was ~32%) | estimated |
@@ -67,7 +67,7 @@ no cloud credential plugin is verified.
 | Rank | Milestone | Estimate |
 |---|---|---:|
 | 1 | Finish the fourth run: its review (the diff of 2026-10-12, verified with failing tests), the announced smoke launch, the terminal widget's upstream patch series (the owner decides on the pull requests), longer fuzz runs | 6–14 h |
-| 2 | Walk the workflows in the GUI on kind and a real cluster: change a workload, maintain a node, reach a service, Helm upgrade, rollback and uninstall, adding and pasting kubeconfigs, the title bar | human |
+| 2 | Walk the workflows in the GUI on kind and a real cluster: change a workload, maintain a node, reach a service, Helm upgrade, rollback and uninstall, adding and syncing kubeconfigs, the title bar | human |
 | 3 | Build the owner's decisions of 2026-10-12: token files of added kubeconfigs asked for like plugins (D-17), Secrets edited and created from YAML in the GUI only (D-19), port forwards failing at once on permanent errors (D-20); the captures of Lens's Helm and kubeconfig dialogs (owner) | 7–14 h + owner |
 | 4 | Helm install and charts (M6); credential plugins verified on EKS, GKE and AKS (M1) | 25–55 h + human |
 | 5 | Finish M0 and M2: the generated pages and scorecard, the cluster overview with metrics, the create dialogs, captures of inferred rows | 80–200 h + human |
