@@ -2,13 +2,14 @@ package fyneui
 
 import (
 	"context"
-	"fyne.io/fyne/v2"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"fyne.io/fyne/v2"
 
 	"fyne.io/fyne/v2/test"
 
