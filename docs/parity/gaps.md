@@ -733,7 +733,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   connection dot, the context as tooltip and the "‹ 1 ›" switcher, a click or F1–F12 to connect,
   ⇧F1–⇧F12 to switch banks, Add to Hotbar in the picker's row menu and the Cluster menu
   (`TestHotbarCommands`, `TestHotbarFunctionKeys`, [PNG](../../internal/ui/fyneui/testdata/hotbar_bank_dark.png)).
-  Differs from Lens: initials instead of the cluster's icon (cluster identity missing), Move Up and
+  Differs from Lens: Move Up and
   Down instead of dragging, the F-keys do nothing while a text field or a
   terminal has the focus, not tried in a real window; inferred: missing contexts kept as marked
   tiles, at most 12 banks, the arrows wrap, the confirmation before removing a bank with clusters

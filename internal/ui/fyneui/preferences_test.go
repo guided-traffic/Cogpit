@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -362,10 +363,18 @@ func TestClusterSettingsShortcutAndMenus(t *testing.T) {
 		probe[clusterSettingsOpenParams](t, f, c)
 	}
 	withHotbar(f, 1, engine.HotbarBank{Name: "Default", Clusters: []engine.HotbarTile{{Context: "demo"}}})
+	var mu sync.Mutex // the handler runs on dispatch goroutines
 	opened := []clusterSettingsOpenParams{}
+	openedSoFar := func() []clusterSettingsOpenParams {
+		mu.Lock()
+		defer mu.Unlock()
+		return slices.Clone(opened)
+	}
 	f.handlers["cluster.settings.open"] = func(_ context.Context, inv engine.Invocation) (any, error) {
 		p := decodeParams[clusterSettingsOpenParams](t, inv)
+		mu.Lock()
 		opened = append(opened, p)
+		mu.Unlock()
 		if p.Context == "" {
 			p.Context = f.UIState().Context
 		}
@@ -386,8 +395,8 @@ func TestClusterSettingsShortcutAndMenus(t *testing.T) {
 	}
 	item.Action()
 	q.until(t, "the page", sh.settings.visible)
-	if len(opened) != 1 || opened[0].Context != "" || sh.settings.title.text != "Settings - demo" {
-		t.Errorf("opened %+v, title %q", opened, sh.settings.title.text)
+	if o := openedSoFar(); len(o) != 1 || o[0].Context != "" || sh.settings.title.text != "Settings - demo" {
+		t.Errorf("opened %+v, title %q", o, sh.settings.title.text)
 	}
 
 	tilesOf(sh.hot)[0].TappedSecondary(&fyne.PointEvent{})
@@ -400,9 +409,9 @@ func TestClusterSettingsShortcutAndMenus(t *testing.T) {
 		t.Fatalf("root menu %+v", m)
 	}
 	sh.side.rootRow.menuModel.Items[0].Action()
-	q.until(t, "three opens", func() bool { return len(opened) == 3 })
-	if opened[1].Context != "demo" || opened[2].Context != "demo" {
-		t.Errorf("opened %+v", opened)
+	q.until(t, "three opens", func() bool { return len(openedSoFar()) == 3 })
+	if o := openedSoFar(); o[1].Context != "demo" || o[2].Context != "demo" {
+		t.Errorf("opened %+v", o)
 	}
 }
 

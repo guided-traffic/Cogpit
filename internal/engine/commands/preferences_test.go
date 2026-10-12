@@ -131,6 +131,32 @@ func TestPreferencesCommands(t *testing.T) {
 	}
 }
 
+// The palette offers both pages through the registry's metadata (MenuPath, no required
+// parameter), with their shortcuts; the setters, the getters and settings.close are agents' tools.
+func TestPaletteOpensTheSettingsPages(t *testing.T) {
+	cfg := t.TempDir()
+	h := newHarness(t, seed(), engine.Options{Preferences: engine.NewPreferencesStore(cfg), ClusterSettings: engine.NewClusterSettingsStore(cfg)})
+	entries := paletteOf(h, nil)
+	prefs, ok := entryOf(entries, "preferences.open")
+	if !ok || prefs.Label != "Preferences" || prefs.Shortcut != "Cmd+," || prefs.Reason != "" {
+		t.Errorf("preferences.open entry %+v", prefs)
+	}
+	cluster, ok := entryOf(entries, "cluster.settings.open")
+	if !ok || cluster.Label != "Cluster Settings" || cluster.Shortcut != "Cmd+Shift+," || cluster.Category != "Cluster" || cluster.Reason != "" {
+		t.Errorf("cluster.settings.open entry %+v", cluster)
+	}
+	for _, id := range []string{"preferences.get", "preferences.set", "settings.close", "cluster.settings.get", "cluster.settings.set",
+		"cluster.settings.uploadIcon", "cluster.settings.resetIcon"} {
+		if e, ok := entryOf(entries, id); ok {
+			t.Errorf("%s offered: %+v", id, e)
+		}
+	}
+	h.must(t, engine.OriginGUI, "cluster.settings.open", struct{}{}, nil) // the connected cluster's, as ⌘⇧,
+	if p := h.s.UIState().Settings; p == nil || p.Context != "test" || p.Section != engine.SectionGeneral {
+		t.Errorf("⌘⇧, opened %+v", p)
+	}
+}
+
 func testPNG(t *testing.T) []byte {
 	t.Helper()
 	var b bytes.Buffer

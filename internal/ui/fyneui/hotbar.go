@@ -20,9 +20,10 @@ import (
 
 // The hotbar (G13; engine/hotbar.go): a narrow bar at the window's left edge, left of the
 // navigator, with one tile per pinned cluster of the shown bank and the bank switcher "‹ 1 ›" at
-// the bottom, as captured from Lens (2026-10-11). A tile is the context's initials badge (the
-// sidebar header's, in the same colours), a short label under it and a dot for the connection's
-// state; its tooltip is the full context id. A click opens the cluster (hotbar.openCluster); the
+// the bottom, as captured from Lens (2026-10-11). A tile is the cluster's identity
+// (clusteridentity.go: its initials in its icon colour, the accent by default, or its uploaded
+// image), its name under it (the display name its Settings give it, else the context's) and a dot
+// for the connection's state; its tooltip is the full context id. A click opens the cluster (hotbar.openCluster); the
 // tile's menu (right-click) connects, moves it up or down and removes it; the switcher's arrows
 // and its number (a menu of the banks) switch, create, rename and remove banks. F1–F12 open a tile
 // of the shown bank, ⇧F1–⇧F12 show a bank. Inferred, Cogpit's own: the "+" below the tiles that

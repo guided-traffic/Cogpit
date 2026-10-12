@@ -48,8 +48,7 @@ func TestIdentityFromTheClusterSettings(t *testing.T) {
 		t.Errorf("default: %+v", id)
 	}
 	// A fake without icons draws the initials even when a file is named.
-	f.ui.ClusterSettings["kind-dev [.kube/config]"] = engine.ClusterSettings{Icon: "x.png"}
-	sh.ui.ClusterSettings = f.ui.ClusterSettings
+	sh.ui.ClusterSettings = map[string]engine.ClusterSettings{"kind-dev [.kube/config]": {Icon: "x.png"}}
 	if id := sh.identity("kind-dev [.kube/config]"); id.image != nil || id.initials != "KD" {
 		t.Errorf("icon without a source: %+v", id)
 	}
