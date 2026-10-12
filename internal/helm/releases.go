@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -360,8 +361,13 @@ func (m *memo) derive(objs []*unstructured.Unstructured) []*unstructured.Unstruc
 	m.mu.Unlock()
 
 	decoded := make([]*revision, 0, len(misses))
+	releases := make(map[types.UID]*rspb.Release, len(misses)) // this call's decodes, until the newest are known
 	for _, o := range misses {
-		decoded = append(decoded, decodeRevision(o))
+		r, rls := decodeRevision(o)
+		decoded = append(decoded, r)
+		if rls != nil {
+			releases[r.uid] = rls
+		}
 	}
 
 	m.mu.Lock()
@@ -381,17 +387,22 @@ func (m *memo) derive(objs []*unstructured.Unstructured) []*unstructured.Unstruc
 	}
 	m.mu.Unlock()
 
-	// A revision that was older and became the newest (a newer one was deleted) is decoded again
-	// for its values and manifest.
+	// The newest revision's values and manifest: from this call's decode, or, for a revision that
+	// was older and became the newest (a newer one was deleted), decoded again.
 	for _, r := range refill {
-		if o := byUID[r.uid]; o != nil {
-			h := decodeRevision(o).heavy
-			m.mu.Lock()
-			if r.heavy == nil {
-				r.heavy = h
-			}
-			m.mu.Unlock()
+		rls := releases[r.uid]
+		if o := byUID[r.uid]; rls == nil && o != nil {
+			_, rls = decodeRevision(o)
 		}
+		if rls == nil {
+			continue
+		}
+		h := heavyOf(rls, r.namespace)
+		m.mu.Lock()
+		if r.heavy == nil {
+			r.heavy = h
+		}
+		m.mu.Unlock()
 	}
 
 	m.mu.Lock()
@@ -487,9 +498,11 @@ func chartText(name, version string) string {
 	return name + "-" + version
 }
 
-// decodeRevision reads one release Secret. The payload is untrusted input: a Secret that does not
-// decode yields a revision from its labels and name, with the error, never a panic.
-func decodeRevision(o *unstructured.Unstructured) *revision {
+// decodeRevision reads one release Secret without its values and manifest (heavyOf reads those,
+// for the newest revision of a release only), and returns the decoded release for that, nil when
+// it does not decode. The payload is untrusted input: a Secret that does not decode yields a
+// revision from its labels and name, with the error, never a panic.
+func decodeRevision(o *unstructured.Unstructured) (*revision, *rspb.Release) {
 	labels := o.GetLabels()
 	r := &revision{
 		uid: o.GetUID(), rv: o.GetResourceVersion(), secret: o.GetName(), namespace: o.GetNamespace(),
@@ -506,7 +519,7 @@ func decodeRevision(o *unstructured.Unstructured) *revision {
 	if err != nil {
 		r.err = err.Error()
 		r.name = cmp.Or(r.name, o.GetName()) // a release needs a name: the Secret's, when nothing else says one
-		return r
+		return r, nil
 	}
 	r.name = cmp.Or(rls.Name, r.name)
 	r.number = cmp.Or(rls.Version, r.number)
@@ -521,16 +534,27 @@ func decodeRevision(o *unstructured.Unstructured) *revision {
 	if rls.Chart != nil && rls.Chart.Metadata != nil {
 		r.chart, r.chartVersion, r.appVersion = rls.Chart.Metadata.Name, rls.Chart.Metadata.Version, rls.Chart.Metadata.AppVersion
 	}
-	r.heavy = &heavy{resources: manifestResources(rls.Manifest, r.namespace)}
+	return r, rls
+}
+
+// heavyBuilt counts heavyOf's calls, for the test that derive builds one per release.
+var heavyBuilt atomic.Int64
+
+// heavyOf is what the drawer shows of a release's newest revision: its resources from the manifest
+// (a YAML parse per document), notes and values. Derive builds it once per release, not once per
+// revision (R-13 of the fourth run's review).
+func heavyOf(rls *rspb.Release, namespace string) *heavy {
+	heavyBuilt.Add(1)
+	h := &heavy{resources: manifestResources(rls.Manifest, namespace)}
 	if rls.Info != nil && strings.TrimSpace(rls.Info.Notes) != "" {
-		r.heavy.notes = cut(strings.TrimRight(rls.Info.Notes, "\n"), notesBytes, notesLines)
+		h.notes = cut(strings.TrimRight(rls.Info.Notes, "\n"), notesBytes, notesLines)
 	}
 	if len(rls.Config) > 0 {
 		if y, err := yaml.Marshal(rls.Config); err == nil {
-			r.heavy.values = cut(strings.TrimSuffix(string(y), "\n"), valuesBytes, valuesLines)
+			h.values = cut(strings.TrimSuffix(string(y), "\n"), valuesBytes, valuesLines)
 		}
 	}
-	return r
+	return h
 }
 
 // errUnreadable stands for a decoder that panicked on a payload.

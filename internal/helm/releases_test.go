@@ -264,7 +264,13 @@ func TestSplitDocuments(t *testing.T) {
 func TestDeriveMemo(t *testing.T) {
 	m := newTestMemo()
 	secrets := releaseSecrets(t)
-	m.derive(secrets)
+	built := heavyBuilt.Load()
+	releases := m.derive(secrets)
+	// The manifest, notes and values are read for the newest revision of each release only, not for
+	// every revision (review of the fourth run, R-13).
+	if n := heavyBuilt.Load() - built; n != int64(len(releases)) || len(releases) >= len(secrets) {
+		t.Errorf("%d manifests parsed for %d releases of %d revisions", n, len(releases), len(secrets))
+	}
 	v3 := types.UID("uid-apps-sh.helm.release.v1.web.v3")
 	first := m.cur[v3]
 	if first == nil || first.heavy == nil {
