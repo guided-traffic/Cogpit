@@ -28,6 +28,8 @@ Remove from Cogpit (2026-10-13: `cluster.disconnect`, `cluster.remove`) send no 
 Disconnect stops the connection's informers and port forwards as switching clusters does, and
 Remove takes out Cogpit's link to a kubeconfig file the user added, never editing or deleting the
 file (`TestDisconnectAndWelcomeCommands`, `TestClusterRemove`).
+The notification list (2026-10-13: `notifications.*`) is the session's memory of its toasts: it
+sends no request and writes no file.
 
 Verbs and subresources follow Kubernetes RBAC
 ([RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/),
@@ -217,6 +219,8 @@ renders values through `tpl` lets the values call `lookup`, which reads whatever
 Secrets included; an accepted install or upgrade can then write what it read into an object the
 chart creates (a ConfigMap's data, a label), and the agent reads that object like any other. The
 preview an agent asks for renders offline and a failed action's error is withheld from it
-(2026-10-13), but the action itself runs with the user's identity. What stands in the way: the
+(2026-10-13), in the command's result and in the notification list, where the toast that quotes the
+error is kept for the window only (`notifications_list` reads it withheld, `TestHelmErrorToastStaysInTheWindow`),
+but the action itself runs with the user's identity. What stands in the way: the
 confirmation shows an agent's values inline ([D-27](../developer/decisions.md#d-27-an-agents-helm-values-in-the-confirmation)),
 where a `lookup` or a `tpl` is visible to a user who reads them; nothing flags it.

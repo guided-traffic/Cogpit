@@ -125,6 +125,7 @@ type Session struct {
 
 	mu          sync.Mutex
 	ui          UIState
+	notes       notificationLog // the toasts the user was shown (notifications.go)
 	confirmer   Confirmer
 	agentWrites map[string]bool // contexts where the user allowed agent writes (D-2)
 
@@ -358,8 +359,12 @@ func (s *Session) Subscribe(fn func(Event)) (cancel func()) {
 	}
 }
 
-// emit delivers an event to every subscriber. A panicking subscriber is logged and skipped.
+// emit delivers an event to every subscriber. A panicking subscriber is logged and skipped. A
+// toast goes into the notification log first, and the event carries its id (notifications.go).
 func (s *Session) emit(ev Event) {
+	if ev.Type == EventToast && ev.Message != "" {
+		ev.Notification = s.recordToast(ev.Level, ev.Message, ev.WindowOnly)
+	}
 	s.subMu.Lock()
 	fns := make([]func(Event), 0, len(s.subs))
 	for _, fn := range s.subs {

@@ -16,7 +16,9 @@ const (
 	// Session.ObjectMetrics. Sent after every poll of the open drawer's pod or node, about every 15
 	// seconds, and only while the drawer is open.
 	EventMetrics EventType = "metrics"
-	// EventToast: a message for the user (Event.Level, Event.Message).
+	// EventToast: a message for the user (Event.Level, Event.Message). The engine keeps it in the
+	// notification log (notifications.go) and sets Event.Notification to its id; Event.WindowOnly
+	// keeps its text from callers outside the window there.
 	EventToast EventType = "toast"
 	// EventDiagnostics: request counters or cache stats changed; re-read Session.Diagnostics.
 	EventDiagnostics EventType = "diagnostics"
@@ -56,4 +58,9 @@ type Event struct {
 	UIState  *UIState  `json:"uiState,omitempty"`
 	Level    string    `json:"level,omitempty"` // toast: LevelInfo, LevelWarning, LevelError
 	Message  string    `json:"message,omitempty"`
+	// WindowOnly marks a toast whose text may quote what the cluster returned to a Helm action
+	// (H-31): the notification log withholds it from agents and the CLI (notifications.go).
+	WindowOnly bool `json:"windowOnly,omitempty"`
+	// Notification is a toast's id in the notification log, set by the engine.
+	Notification uint64 `json:"notification,omitempty"`
 }

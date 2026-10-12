@@ -141,6 +141,8 @@ var wantCommands = map[string]engine.Danger{
 	// cluster or a kubeconfig file; cluster.remove GUI-only (TestClusterRemove).
 	"ui.welcome.open": engine.DangerUI, "cluster.disconnect": engine.DangerUI, "cluster.links": engine.DangerRead,
 	"cluster.remove": engine.DangerUI,
+	// The notification log (G5): Cogpit's own state, never a cluster (TestNotificationCommands).
+	"notifications.list": engine.DangerRead, "notifications.markRead": engine.DangerUI, "notifications.clear": engine.DangerUI,
 }
 
 func TestRegistryComplete(t *testing.T) {

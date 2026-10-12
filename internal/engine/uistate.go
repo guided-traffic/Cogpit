@@ -61,6 +61,9 @@ type UIState struct {
 	// Settings is the open settings page, Preferences (⌘,) or a context's Cluster settings (⌘⇧,);
 	// nil while none is open.
 	Settings *SettingsPage `json:"settings,omitempty"`
+	// Notifications sums up the notification log, the toasts the user was shown (notifications.go):
+	// how many, how many unread, the most severe unread level; notifications.list reads them.
+	Notifications NotificationSummary `json:"notifications,omitzero"`
 	// Tabs are the tab bar's tabs in their order, each a view of one cluster with its own state
 	// (tabs.go); ActiveTab is the shown one's id, empty when none is shown. View, Namespaces,
 	// Groups, Filter, Sort, Selected and Drawer above are the active tab's.

@@ -36,6 +36,7 @@ tools with an OpenAI-compatible endpoint ([D-10](../developer/decisions.md#d-10-
 | Commands that let a program run on the user's computer or add credentials stay with the GUI: adding a kubeconfig file or a sync folder, removing a source (and removing a cluster from Cogpit, `cluster.remove`, which removes its file's source; 2026-10-13) and allowing an exec plugin are refused for the CLI, external agents and the built-in agent (2026-10-12; their MCP tools carry `readOnlyHint` because their danger is UI, which is misleading but harmless since the engine refuses them) | `internal/engine` (`ErrGUIOnly`, `TestKubeconfigCommandsAreGUIOnly`, `TestClusterRemove`) |
 | Preferences that name a program to run stay with the GUI (2026-10-13): agents set the theme, the time zone, the editor and the cluster settings freely (UI commands that write only Cogpit's own `preferences.json` and `cluster-settings.json`), but the local terminal's shell and its arguments are refused in `preferences.set` for the CLI, external agents and the built-in agent, before anything is written: an agent that could set them and then open a terminal (`terminal_open`, a UI command) would run a program of its choice as the user without being asked. Uploading a cluster's icon reads a file on this computer and is the user's own action too (an agent can pick an icon colour instead); its refusal names no file, so it tells an agent nothing about what exists | `internal/engine` (`ErrShellGUIOnly`, `ErrIconGUIOnly`; `TestPreferencesCommands`, `TestClusterSettingsCommandsNeverTouchTheKubeconfig`) |
 | Commands that only the GUI can complete stay with the GUI: downloading logs and exporting a table write files the user picks in a save dialog; agents get the CSV text of `table_exportCsv` but no command writes a file | `internal/ui/fyneui` |
+| An agent reads what the user was told (`notifications_list`, 2026-10-13: the session's toasts, level, time and text), but not what the window keeps to itself: a toast the window raised itself (a GUI command's error, which the engine hands the window in full, such as a failed Helm install's, [H-31](privilege-footprint.md#h-31-an-agents-helm-values-can-copy-what-lookup-reads)) and an engine toast emitted window-only (the warning that quotes a failed Helm action's error) read `model.Withheld` for every origin but the GUI. Toasts carry no values: what a toast says is what the notification keeps. Marking read and clearing are UI commands an agent may run; the audit log records them ([H-32](#h-32-an-agent-can-clear-the-users-notifications)) | `internal/engine` ([`notifications.go`](../../internal/engine/notifications.go): `Session.Notifications`, `Event.WindowOnly`; `TestWindowOnlyNotificationsAreWithheld`, `TestNotificationCommands`, `TestHelmErrorToastStaysInTheWindow`) |
 | The built-in agent's tool loop has limits per turn: tool calls, tokens, time | `internal/agent` |
 | Secret values are never sent to the LLM endpoint unless the user allows it for that request; what is sent is visible in the chat | `internal/agent` |
 | Tool results are passed to the model as data, never as instructions to Cogpit; Cogpit acts only on tool calls, and those go through the rules above | `internal/agent` |
@@ -95,3 +96,14 @@ Decided (owner, 2026-10-12, [D-18](../developer/decisions.md#d-18-secret-annotat
 nothing more is dropped or withheld; the risk is accepted. It is live for every Secret a tool
 deployed with a copy of its manifest in an annotation, whenever an agent reads that Secret with
 `object_get`.
+
+### H-32: An agent can clear the user's notifications
+
+Live today for external agents, over MCP or the stdio bridge (2026-10-13): `notifications_markRead` and
+`notifications_clear` are UI commands ([D-2](../developer/decisions.md#d-2-agent-interface-scope)), so an
+agent can take the title bar's badge down or empty its list, including the toast that reported its own
+failed or surprising action, before the user looks. What stands in the way: the toast itself was
+shown when it happened (6 to 14 seconds, longer while the pointer rests on it), and the audit log
+records every agent command, the clear included, with its time. Nothing tells the user in the window
+that an agent cleared the list. Whether agents should be allowed to change the list at all is open
+for the owner; until then the commands follow D-2 as every UI command does (Cogpit's default).

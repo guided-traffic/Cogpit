@@ -322,11 +322,11 @@ func runHelmOp(s *engine.Session, op engine.PendingHelmOp, starting string, run 
 		userToast(s, engine.LevelError, "Cogpit could not record the end of the "+string(op.Action)+" of release "+op.Release+": "+err.Error())
 	}
 	if recorded == nil && opErr != nil {
-		userToast(s, engine.LevelWarning, fmt.Sprintf("Release %s was not changed: %v", op.Release, opErr))
+		windowToast(s, engine.LevelWarning, fmt.Sprintf("Release %s was not changed: %v", op.Release, opErr))
 		return opErr
 	}
 	if opErr != nil {
-		userToast(s, engine.LevelWarning, fmt.Sprintf("The %s of release %s did not finish: %v", op.Action, op.Release, opErr))
+		windowToast(s, engine.LevelWarning, fmt.Sprintf("The %s of release %s did not finish: %v", op.Action, op.Release, opErr))
 		return fmt.Errorf("%w; the release may be left pending: run it again to finish, or dismiss it in helm_pendingOperations", opErr)
 	}
 	return nil
