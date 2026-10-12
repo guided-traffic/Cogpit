@@ -1,6 +1,7 @@
 package commands_test
 
 import (
+	"context"
 	"errors"
 	"net"
 	"strings"
@@ -92,6 +93,17 @@ func TestPortForwardThatWaitedFailsOnAPermanentError(t *testing.T) {
 	pending := forwardPod("web-0", false)
 	_ = unstructured.SetNestedField(pending.Object, "Pending", "status", "phase")
 	h.src.Set(testkit.PodsGVR, pending)
+	// The cache sees the pending pod after the source has it: wait for it, or the forward starts
+	// against the running pod the harness seeded (a CI flake under the race detector).
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if !testkit.WaitFor(ctx, func() bool {
+		obj, err := h.s.Lookup(web0)
+		phase, _, _ := unstructured.NestedString(objOrEmpty(obj, err), "status", "phase")
+		return phase == "Pending"
+	}) {
+		t.Fatal("the cache never saw the pending pod")
+	}
 	var f engine.Forward
 	h.must(t, engine.OriginGUI, "pod.portForward", map[string]any{"ref": web0, "port": 8080}, &f)
 	if f.Phase != engine.ForwardWaiting {
@@ -106,4 +118,12 @@ func TestPortForwardThatWaitedFailsOnAPermanentError(t *testing.T) {
 	if !portFree(t, f.Address) {
 		t.Errorf("the local port %s is not freed", f.Address)
 	}
+}
+
+// objOrEmpty is a looked-up object's content, or nothing when the lookup failed.
+func objOrEmpty(obj *unstructured.Unstructured, err error) map[string]any {
+	if err != nil || obj == nil {
+		return nil
+	}
+	return obj.Object
 }

@@ -40,7 +40,13 @@ func TestConnectionToASourceClosesWhenItsFileIsDeleted(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if !testkit.WaitFor(ctx, func() bool { return s.Backend() == nil }) {
+	// The backend goes first; the UI state and the connect log's error follow: wait for what is
+	// asserted (testing.md), not for the closed backend alone (a CI flake).
+	if !testkit.WaitFor(ctx, func() bool {
+		lines := s.ConnectLog(id)
+		return s.Backend() == nil && s.UIState().Connection.State == engine.Disconnected &&
+			len(lines) > 0 && lines[len(lines)-1].Level == engine.LogError
+	}) {
 		t.Fatal("the connection stayed open after its file was deleted")
 	}
 	var log commands.ConnectLogResult
