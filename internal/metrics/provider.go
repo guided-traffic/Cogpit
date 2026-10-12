@@ -107,6 +107,18 @@ func Fixed(p Provider) Detector {
 	})
 }
 
+// msgCancelled is the state message of a request that was cancelled: it says nothing about the
+// cluster.
+const msgCancelled = "the request was cancelled"
+
+// The filesystem metrics a series can come from (ObjectSeries.FilesystemSource).
+const (
+	// FilesystemUsage: bytes in use (container_fs_usage_bytes).
+	FilesystemUsage = "usage"
+	// FilesystemIO: read and write rates, when the cluster has no usage metric.
+	FilesystemIO = "io"
+)
+
 // StateError is a provider error that already says which state it means (a forbidden service
 // proxy, a Prometheus that went away); the hub uses the state as it is instead of guessing from
 // the error's text.

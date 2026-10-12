@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -30,9 +31,11 @@ type drawerWatch struct {
 	ref     model.ObjectRef
 	profile *model.KindProfile
 	obj     *cache.Handle
-	events  *cache.Handle         // nil when the cluster serves no events
-	related *relatedSet           // the indexes of the profile's Needs; nil without
-	usage   *metrics.Subscription // the pod's or node's metrics poll (metrics.go); nil without
+	events  *cache.Handle            // nil when the cluster serves no events
+	related *relatedSet              // the indexes of the profile's Needs; nil without
+	usage   *metrics.Subscription    // the pod's or node's metrics poll (metrics.go); nil without
+	wmu     sync.Mutex               // guards windows
+	windows map[string]time.Duration // the time range of each chart, by target name (metrics.go)
 	unsubs  []func()
 	wake    chan struct{}
 	quit    chan struct{}

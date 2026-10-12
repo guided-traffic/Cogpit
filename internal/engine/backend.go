@@ -35,6 +35,10 @@ type Backend struct {
 	// Metrics polls the cluster's metrics while a view or the drawer that shows them is open
 	// (metrics.go, architecture §9). Nil means the backend has none; it is closed with the backend.
 	Metrics *metrics.Hub
+	// PrometheusDetector is the Prometheus half of the metrics detection, kept so that the cluster's
+	// settings can set the override (SetOverride, then Metrics.Forget); nil without a hub of a real
+	// cluster.
+	PrometheusDetector *metrics.PrometheusDetector
 	// Demo marks the synthetic demo cluster.
 	Demo bool
 	// DemoStats reports the demo cluster's counters; nil for real clusters.

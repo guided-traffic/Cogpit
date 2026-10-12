@@ -148,9 +148,9 @@ func (p *Prometheus) Capabilities() Capabilities {
 func (p *Prometheus) FilesystemSource() string {
 	switch p.fsMode.Load() {
 	case fsUsage:
-		return "usage"
+		return FilesystemUsage
 	case fsIO:
-		return "io"
+		return FilesystemIO
 	}
 	return ""
 }
@@ -412,9 +412,9 @@ func podUsages(cpu, mem []promSeries) []model.PodUsage {
 	type key struct{ ns, pod string }
 	pods := map[key]*model.PodUsage{}
 	cont := map[key]map[string]*model.ContainerUsage{}
-	get := func(s promSeries) (*model.ContainerUsage, *model.PodUsage, bool) {
+	get := func(s promSeries) (*model.ContainerUsage, bool) {
 		if len(s.points) == 0 || s.labels["pod"] == "" {
-			return nil, nil, false
+			return nil, false
 		}
 		k := key{s.labels["namespace"], s.labels["pod"]}
 		pu := pods[k]
@@ -432,15 +432,15 @@ func podUsages(cpu, mem []promSeries) []model.PodUsage {
 		if ts := time.UnixMilli(s.points[0].t); ts.After(pu.Timestamp) {
 			pu.Timestamp = ts
 		}
-		return cu, pu, true
+		return cu, true
 	}
 	for _, s := range cpu {
-		if cu, _, ok := get(s); ok {
+		if cu, ok := get(s); ok {
 			cu.CPUMilli = seconds2milli(s.points[0].v)
 		}
 	}
 	for _, s := range mem {
-		if cu, _, ok := get(s); ok {
+		if cu, ok := get(s); ok {
 			cu.MemoryBytes = int64(s.points[0].v)
 		}
 	}

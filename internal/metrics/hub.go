@@ -343,6 +343,20 @@ func (s *Subscription) SetWindows(windows ...time.Duration) {
 	}
 }
 
+// Capabilities are the detected provider's: which chart variants it can draw. Zero until a
+// provider was found.
+func (h *Hub) Capabilities() Capabilities {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.prov == nil {
+		return Capabilities{}
+	}
+	return h.prov.Capabilities()
+}
+
+// DefaultWindow is the time range a chart shows unless told otherwise.
+func (h *Hub) DefaultWindow() time.Duration { return h.opts.RangeWindow }
+
 // Forget makes the next poll detect the provider again: the user changed the cluster's metrics
 // settings (the Prometheus override), or knows a provider was installed.
 func (h *Hub) Forget() { h.forgetDetection() }
@@ -509,7 +523,7 @@ func (h *Hub) provider(ctx context.Context) (Provider, State) {
 		p, s = h.det.Detect(ctx)
 	}()
 	if ctx.Err() != nil { // cancelled: say nothing about the cluster
-		return nil, State{Status: StatusUnavailable, Message: "the request was cancelled"}
+		return nil, State{Status: StatusUnavailable, Message: msgCancelled}
 	}
 	h.mu.Lock()
 	h.prov, h.state, h.detectedAt = p, s, h.opts.Now()

@@ -80,7 +80,7 @@ func StateFromError(err error, notFound string) State {
 	case apierrors.IsServiceUnavailable(err):
 		return State{Status: StatusUnavailable, Message: "the Metrics API is registered but not answering (is the metrics-server running?): " + errorText(err)}
 	case errors.Is(err, context.Canceled):
-		return State{Status: StatusUnavailable, Message: "the request was cancelled"}
+		return State{Status: StatusUnavailable, Message: msgCancelled}
 	default:
 		return State{Status: StatusUnavailable, Message: "the Metrics API failed: " + errorText(err)}
 	}

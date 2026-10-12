@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -124,8 +126,18 @@ type MetricsTarget struct {
 	Limits      model.Usage `json:"limits"`
 	Allocatable model.Usage `json:"allocatable"`
 	Capacity    model.Usage `json:"capacity"`
-	// Samples are the measurements since the drawer opened, oldest first, bounded to an hour.
+	// Samples are the CPU and memory measurements, oldest first. With the Metrics Server: since
+	// the drawer opened, bounded to an hour. With Prometheus: the chart's time range, from its
+	// history.
 	Samples []model.UsageSample `json:"samples,omitempty"`
+	// Network is the traffic in bytes per second, from a provider with the Network capability
+	// (Prometheus). The network belongs to the pod: a container's target carries the pod's samples
+	// and says so with NetworkOfPod.
+	Network      []model.NetworkSample `json:"network,omitempty"`
+	NetworkOfPod bool                  `json:"networkOfPod,omitempty"`
+	// Filesystem is from a provider with the Filesystem capability: bytes in use, or read and
+	// write rates when ObjectMetrics.FilesystemSource says "io".
+	Filesystem []model.FilesystemSample `json:"filesystem,omitempty"`
 }
 
 // ObjectMetrics is the drawer's Metrics section for a pod or a node: where the numbers come from,
@@ -144,6 +156,9 @@ type ObjectMetrics struct {
 	// Capabilities say which variants the provider can draw (network and filesystem need
 	// Prometheus).
 	Capabilities metrics.Capabilities `json:"capabilities"`
+	// FilesystemSource says which filesystem metric the Filesystem series are: "usage" (bytes in
+	// use) or "io" (read and write rates); empty when there are none.
+	FilesystemSource string `json:"filesystemSource,omitempty"`
 	// Targets: the object first, then a pod's containers in spec order.
 	Targets []MetricsTarget `json:"targets"`
 }
@@ -168,6 +183,7 @@ func (s *Session) ObjectMetrics(ref model.ObjectRef) (*ObjectMetrics, error) {
 	out.Status, out.Message, out.Source = st.Status, st.Message, st.Label
 	if st.Usable() {
 		out.Message = ""
+		out.Capabilities = b.Metrics.Capabilities()
 	}
 	h := b.Acquire(p)
 	defer h.Release()
@@ -182,7 +198,162 @@ func (s *Session) ObjectMetrics(ref model.ObjectRef) (*ObjectMetrics, error) {
 	case model.UsageNodes:
 		out.Targets = nodeTargets(b.Metrics, ref, obj, series)
 	}
+	if hist := b.Metrics.History(scope); hist != nil && st.Usable() {
+		out.FilesystemSource = hist.FilesystemSource
+		applyHistory(out.Targets, hist, s.chartWindows(ref), b.Metrics.DefaultWindow())
+	}
 	return out, nil
+}
+
+// applyHistory fills the targets' series from a provider with history, each cut to its chart's
+// time range (counted back from the end of the query). The hub fetched the longest range any
+// chart asked for; a chart that shows less gets the tail.
+func applyHistory(targets []MetricsTarget, hist *metrics.ObjectSeries, windows map[string]time.Duration, def time.Duration) {
+	whole := hist.Targets[""]
+	for i := range targets {
+		t := &targets[i]
+		series := hist.Targets[t.Name]
+		if series == nil {
+			continue
+		}
+		window := def
+		if w, ok := windows[t.Name]; ok {
+			window = w
+		}
+		cutoff := hist.To.Add(-window)
+		t.Samples = tail(series.Usage, cutoff, func(x model.UsageSample) time.Time { return x.At })
+		t.Filesystem = tail(series.Filesystem, cutoff, func(x model.FilesystemSample) time.Time { return x.At })
+		if whole != nil && len(whole.Network) > 0 {
+			t.Network = tail(whole.Network, cutoff, func(x model.NetworkSample) time.Time { return x.At })
+			t.NetworkOfPod = t.Name != ""
+		}
+	}
+}
+
+// tail returns the points at or after cutoff; the points are shared and must not be modified.
+func tail[T any](pts []T, cutoff time.Time, at func(T) time.Time) []T {
+	i := slices.IndexFunc(pts, func(p T) bool { return !at(p).Before(cutoff) })
+	if i < 0 {
+		return nil
+	}
+	return pts[i:]
+}
+
+// maxChartWindow bounds a chart's time range: Prometheus's default retention is 15 days.
+const maxChartWindow = 30 * 24 * time.Hour
+
+// minChartWindow is the shortest range a chart can show.
+const minChartWindow = time.Minute
+
+// SetMetricsRange sets the time range of one chart of the open drawer: target is "" for the pod's
+// or node's chart, or a container's name. A provider with history (Prometheus) is then asked for
+// the longest range any chart shows, at the step of the shortest, in one query set per poll for
+// all of them, and the next poll comes at once. Window 0 puts the chart back to the default range
+// (one hour). The Metrics Server has no history: the range is remembered and changes nothing the
+// engine returns. The charts' ranges are the drawer's: they end when it closes or shows another
+// object.
+func (s *Session) SetMetricsRange(ref model.ObjectRef, target string, window time.Duration) error {
+	if window < 0 || window > 0 && window < minChartWindow || window > maxChartWindow {
+		return fmt.Errorf("a chart's time range is between %s and %s", minChartWindow, maxChartWindow)
+	}
+	st := s.state
+	st.mu.Lock()
+	d := st.drawer
+	if d == nil || !d.ref.Same(ref) {
+		st.mu.Unlock()
+		return ErrDrawerNotOpen
+	}
+	st.mu.Unlock()
+	d.wmu.Lock()
+	if d.windows == nil {
+		d.windows = map[string]time.Duration{}
+	}
+	if window == 0 {
+		delete(d.windows, target)
+	} else {
+		d.windows[target] = window
+	}
+	list := make([]time.Duration, 0, len(d.windows))
+	for _, w := range d.windows {
+		list = append(list, w)
+	}
+	d.wmu.Unlock()
+	d.usage.SetWindows(list...)
+	s.emit(Event{Type: EventMetrics, View: ref.Kind})
+	return nil
+}
+
+// ErrDrawerNotOpen refuses a drawer-scoped call for an object the drawer does not show.
+var ErrDrawerNotOpen = errors.New("the drawer does not show this object")
+
+// chartWindows returns the time ranges set for the charts of the open drawer if it shows ref.
+func (s *Session) chartWindows(ref model.ObjectRef) map[string]time.Duration {
+	st := s.state
+	st.mu.Lock()
+	d := st.drawer
+	if d == nil || !d.ref.Same(ref) {
+		st.mu.Unlock()
+		return nil
+	}
+	st.mu.Unlock()
+	d.wmu.Lock()
+	defer d.wmu.Unlock()
+	return maps.Clone(d.windows)
+}
+
+// promServices lists the cluster's Services for Prometheus detection, from the cache: the Services
+// kind's informer, shared with the Services view and kept warm for the warm period, so detection
+// sends no list of its own. A cluster that does not serve Services has no candidates; a user who
+// may not list them gets a state that says so, and detection relies on the override.
+func (b *Backend) promServices(ctx context.Context) ([]metrics.Service, error) {
+	p, ok := b.Profile("services")
+	if !ok {
+		return nil, nil
+	}
+	h := b.Acquire(p)
+	defer h.Release()
+	wctx, cancel := context.WithTimeout(ctx, servicesSyncTimeout)
+	defer cancel()
+	if !h.WaitForSync(wctx) {
+		if err := h.Err(); err != nil {
+			return nil, fmt.Errorf("the cluster's services cannot be read: %w", err)
+		}
+		return nil, errors.New("the cluster's services are not loaded yet")
+	}
+	return servicesOf(KindList(h, p)), nil
+}
+
+// servicesSyncTimeout is how long detection waits for the Services informer's first list.
+const servicesSyncTimeout = 8 * time.Second
+
+// servicesOf reads the names and ports of cached Services.
+func servicesOf(objs []*unstructured.Unstructured) []metrics.Service {
+	out := make([]metrics.Service, 0, len(objs))
+	for _, o := range objs {
+		svc := metrics.Service{Namespace: o.GetNamespace(), Name: o.GetName()}
+		ports, _, _ := unstructured.NestedSlice(o.Object, "spec", "ports")
+		for _, raw := range ports {
+			m, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			name, _ := m["name"].(string)
+			var num int32
+			switch v := m["port"].(type) {
+			case int64:
+				num = int32(v)
+			case float64:
+				num = int32(v)
+			case int32:
+				num = v
+			case int:
+				num = int32(v)
+			}
+			svc.Ports = append(svc.Ports, metrics.ServicePort{Name: name, Port: num})
+		}
+		out = append(out, svc)
+	}
+	return out
 }
 
 func podTargets(hub *metrics.Hub, ref model.ObjectRef, obj *unstructured.Unstructured, series map[string][]model.UsageSample) []MetricsTarget {

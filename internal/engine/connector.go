@@ -145,16 +145,9 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 		sourceFile = opts.KubeconfigPaths[0]
 	}
 	access := newAccessReviews(conn, conn.Namespace())
-	// Metrics: nothing is asked of the cluster until a Pods or Nodes view or a drawer is open.
-	var hub *metrics.Hub
-	if prov, err := metrics.ForConn(conn); err != nil {
-		c.logger().Warn("engine: no metrics client; CPU and memory stay empty", "context", name, "err", err)
-	} else {
-		hub = metrics.NewHub(prov, c.metricsOptions())
-	}
 	var once sync.Once
-	return &Backend{
-		Context: ctxName, Namespace: conn.Namespace(), Cache: ch, Conn: conn, Profiles: profiles, Metrics: hub,
+	be := &Backend{
+		Context: ctxName, Namespace: conn.Namespace(), Cache: ch, Conn: conn, Profiles: profiles,
 		CustomResources: customResources, Access: access, SourceFile: sourceFile,
 		Close: func() {
 			once.Do(func() {
@@ -163,7 +156,15 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 				conn.Close()
 			})
 		},
-	}, nil
+	}
+	// Metrics: nothing is asked of the cluster until a Pods or Nodes view or a drawer is open. The
+	// detector tries Prometheus (found among the cached Services) before the Metrics Server.
+	if det, prom, err := metrics.ChainForConn(conn, metrics.ServiceSourceFunc(be.promServices), metrics.PrometheusOptions{Logger: c.logger()}); err != nil {
+		c.logger().Warn("engine: no metrics client; CPU and memory stay empty", "context", name, "err", err)
+	} else {
+		be.Metrics, be.PrometheusDetector = metrics.NewHub(det, c.metricsOptions()), prom
+	}
+	return be, nil
 }
 
 // servedProfiles keeps the profiles whose group, version and resource the cluster serves. A

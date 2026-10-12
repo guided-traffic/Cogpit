@@ -83,7 +83,14 @@ var promNames = []struct {
 	{regexp.MustCompile(`^prometheus-server$`), 80},
 }
 
-var preferredNamespaces = []string{"monitoring", "prometheus", "lens-metrics"}
+const (
+	nsMonitoring = "monitoring"
+	nsPrometheus = "prometheus"
+	nsLens       = "lens-metrics"
+	promService  = "prometheus"
+)
+
+var preferredNamespaces = []string{nsMonitoring, nsPrometheus, nsLens}
 
 // MaxProbes bounds how many candidates one detection probes.
 const MaxProbes = 3
@@ -123,7 +130,7 @@ func scoreName(namespace, name string) int {
 			return n.score
 		}
 	}
-	if name == "prometheus" {
+	if name == promService {
 		if slices.Contains(preferredNamespaces, namespace) {
 			return 70
 		}
@@ -240,7 +247,7 @@ func (d *PrometheusDetector) Detect(ctx context.Context) (Provider, State) {
 			return prov, State{Status: StatusAvailable, Provider: PrometheusID, Label: prov.Label()}
 		}
 		if ctx.Err() != nil {
-			return nil, State{Status: StatusUnavailable, Message: "the request was cancelled"}
+			return nil, State{Status: StatusUnavailable, Message: msgCancelled}
 		}
 		if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) {
 			return nil, State{Status: StatusForbidden, Message: "the current user may not use the service proxy of " + c.Target.String() + " (get services/proxy), so Prometheus cannot be read: " + errorText(err)}

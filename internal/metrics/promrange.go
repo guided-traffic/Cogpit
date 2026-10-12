@@ -57,7 +57,7 @@ func (p *Prometheus) rangeFilesystem(plan rangePlan, run func(string) ([]promSer
 		}
 		if hasPoints(usage) {
 			p.fsMode.Store(fsUsage)
-			return fsData{source: "usage", usage: usage}, nil
+			return fsData{source: FilesystemUsage, usage: usage}, nil
 		}
 		if mode == fsUsage { // had usage before: this object has none
 			return fsData{}, nil
@@ -74,7 +74,7 @@ func (p *Prometheus) rangeFilesystem(plan rangePlan, run func(string) ([]promSer
 	}
 	if hasPoints(reads) || hasPoints(writes) {
 		p.fsMode.Store(fsIO)
-		return fsData{source: "io", reads: reads, writes: writes}, nil
+		return fsData{source: FilesystemIO, reads: reads, writes: writes}, nil
 	}
 	return fsData{}, nil
 }
@@ -158,7 +158,7 @@ func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeri
 	if fsErr == nil && fs.source != "" {
 		out.FilesystemSource = fs.source
 		var a, b map[string][]point // usage, or reads and writes
-		if fs.source == "usage" {
+		if fs.source == FilesystemUsage {
 			a = groupByContainer(fs.usage)
 		} else {
 			a, b = groupByContainer(fs.reads), groupByContainer(fs.writes)
@@ -286,7 +286,7 @@ func mergeNetwork(rx, tx []point) []model.NetworkSample {
 
 func mergeFilesystem(source string, a, b []point) []model.FilesystemSample {
 	var out []model.FilesystemSample
-	if source == "usage" {
+	if source == FilesystemUsage {
 		for _, p := range a {
 			out = append(out, model.FilesystemSample{At: time.UnixMilli(p.t), UsageBytes: p.v})
 		}
