@@ -214,6 +214,7 @@ func (s *sidebar) updateHeader() {
 	ui := s.sh.ui
 	s.head.update()
 	s.dot.SetColor(connectionColor(ui.Connection))
+	s.rootRow.showCluster(ui.Context != "")
 	if ui.Context == "" {
 		s.badge.set("–", true)
 		s.name.SetText("Not connected")

@@ -508,9 +508,21 @@ type navRootRow struct {
 	s         *sidebar
 	hovered   bool
 	back      *navIconButton
+	next      *widget.Icon // the ›
 	body      fyne.CanvasObject
 	bg, ring  *canvas.Rectangle
 	menuModel *fyne.Menu // the open menu, for tests
+}
+
+// showCluster shows or hides what only a cluster has: the dot, the › and the subtitle's line.
+func (r *navRootRow) showCluster(has bool) {
+	for _, o := range []fyne.CanvasObject{r.s.dot, r.next, r.s.subtitle} {
+		if has {
+			o.Show()
+		} else {
+			o.Hide()
+		}
+	}
 }
 
 var (
@@ -535,10 +547,10 @@ func newNavRootRow(s *sidebar) *navRootRow {
 	r := &navRootRow{s: s, bg: canvas.NewRectangle(color.Transparent), ring: canvas.NewRectangle(color.Transparent)}
 	// The picker is made after the sidebar (newShell): look it up when the ‹ is pressed.
 	r.back = newNavIconButton(s.sh, iconChevronLeft, "Back to Local Kubeconfigs", func() { s.sh.picker.show() })
-	next := widget.NewIcon(themedIcon(iconChevronRight, colorMuted))
+	r.next = widget.NewIcon(themedIcon(iconChevronRight, colorMuted))
 	r.body = inset(theme.SizeNamePadding, theme.SizeNamePadding, container.NewBorder(nil, nil,
 		container.NewHBox(container.NewCenter(r.back), container.NewCenter(s.badge)),
-		container.NewHBox(container.NewCenter(s.dot), container.NewCenter(next)),
+		container.NewHBox(container.NewCenter(s.dot), container.NewCenter(r.next)),
 		container.NewVBox(layout.NewSpacer(), s.name, s.subtitle, layout.NewSpacer())))
 	r.ExtendBaseWidget(r)
 	return r

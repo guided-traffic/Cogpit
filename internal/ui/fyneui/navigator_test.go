@@ -79,6 +79,17 @@ func TestNavigatorRootIsTheCluster(t *testing.T) {
 		s.head.scope.text.text != "No cluster" || s.rootRow.tipText() != "" {
 		t.Errorf("without a cluster: badge %q, %d rows, hint %q, scope %q", s.badge.text, len(s.tree.visible), s.emptyHint.text, s.head.scope.text.text)
 	}
+	if s.dot.Visible() || s.rootRow.next.Visible() || s.subtitle.Visible() || !s.rootRow.back.Visible() {
+		t.Error("without a cluster the root shows a dot, a › or a subtitle, or no ‹")
+	}
+	f.update(func(u *engine.UIState) {
+		u.Context, u.Connection = "kind-cogpit", engine.Connection{State: engine.Connecting}
+	})
+	q.until(t, "the connecting cluster", func() bool { return s.name.text == "kind-cogpit" })
+	if !s.dot.Visible() || !s.rootRow.next.Visible() || s.subtitle.text != "Connecting…" ||
+		s.dot.color != connectionColor(engine.Connection{State: engine.Connecting}) {
+		t.Errorf("connecting: dot %v %q, › %v, subtitle %q", s.dot.Visible(), s.dot.color, s.rootRow.next.Visible(), s.subtitle.text)
+	}
 }
 
 // The root's menu (right-click) has the hotbar's item for the cluster; without a hotbar it has none
