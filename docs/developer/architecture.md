@@ -37,7 +37,8 @@ CI runs on every push ([releasing › CI](releasing.md#ci)). The MVP doubled as 
 | [`internal/ui/fyneui`](../../internal/ui/fyneui/) and its [`yamlview`](../../internal/ui/fyneui/yamlview/) and [`termview`](../../internal/ui/fyneui/termview/) | Built: shell after Lens's layout, theme with status tokens, context picker, confirmation dialog, the YAML view, terminal and log widgets, a jank meter (`--perf`); row menus (⋮ and right-click) and the drawer's toolbar from the registry, schema-generated parameter dialogs, links and coloured parts in cells, Cogpit's own tooltips (Fyne 2.8 has none); third run: Cogpit's own title bar on macOS through a cgo bridge to the `NSWindow` ([`titlebar_darwin.go`](../../internal/ui/fyneui/titlebar_darwin.go); `COGPIT_SYSTEM_TITLEBAR=1` keeps the system one), the column menu, keyboard navigation, fit-to-content, CSV download, the Workloads Overview, item actions in the drawer (Forward…, Show), the port-forward dialog, the Helm banner, log tabs with their toolbar; fourth run (2026-10-12): the kubeconfig dialogs (paste, sources, the credential plugin's approval) and the picker's "Add Kubeconfigs" ([`kubeconfigs.go`](../../internal/ui/fyneui/kubeconfigs.go)); fifth run (2026-10-12): the Solarized Dark and Light colours as theme tokens, with the terminal's sixteen colours ([D-22](decisions.md#d-22-colour-theme), contrast held by `TestPaletteContrast`), and the C helm logo drawn by [`internal/ui/logo`](../../internal/ui/logo/logo.go) for the app icon and the header's mark ([D-24](decisions.md#d-24-logo)), copying values from the drawer (selectable lines, one copy icon moved to the value under the pointer, entries copied in YAML, a copied Secret value cleared from the clipboard after 60 seconds; [D-25](decisions.md#d-25-copying-values), [`selection.go`](../../internal/ui/fyneui/selection.go), [`copy.go`](../../internal/ui/fyneui/copy.go)), and the status bar's link to the owner, a GUI link outside the registry that gives way first when the bar is narrow ([D-23](decisions.md#d-23-a-link-to-the-owner-in-the-status-bar), `statusLayout` in [`bars.go`](../../internal/ui/fyneui/bars.go)) | The YAML view is editable in Edit and Create resource tabs, whose text lives in the engine (`editor.get`, `editor.setText`); edits are applied as updates (PUT), not patches; the terminal widget is a patched copy of fyne-io/terminal ([`third_party/fyne-terminal`](../../third_party/fyne-terminal/PATCHES.md)) behind an escape filter, because the pinned upstream froze or crashed on container output |
 | [`cmd/cogpit`](../../cmd/cogpit/) | Built: wires the packages, the drain journal (`<user config dir>/Cogpit/drains.json`) and the Helm journal (`helm.json`); the kubeconfig sources (`kubeconfigs.json`, `kubeconfigs/`, `exec-approvals.json`, fourth run) and their watcher; flags `--kubeconfig`, `--context`, `--demo`, `--mcp-addr`, `--no-mcp`, `--perf`, `--theme` | client-go goroutine panics are logged instead of ending the app |
 | [`internal/helm`](../../internal/helm/) (L2) | Built in the third run: release payloads decoded (bounded, fuzzed), the Releases profile as a virtual kind over the `owner=helm` Secrets with a bounded memo, rollback and uninstall through the Helm SDK on the connection's own client configuration; fourth run (2026-10-12): Lens's release drawer (Properties, values and notes as private items, resources by kind), the upgrade with the release's own chart, values read from the cached Secret (`ReleaseValues`), values scrubbed from errors and the SDK's log (`ScrubValues`, `RedactSDKLog`) | Install, repositories and charts not built, so an upgrade installs the release's own chart version only; no action can be cancelled: rollback and uninstall take no context, and the upgrade's context is not passed on (§8) |
-| `cmd/cogpit-cli`, `internal/metrics`, `internal/agent`, `internal/update` | Not built (`cogpit-cli` is a stub) | – |
+| [`internal/metrics`](../../internal/metrics/) (L2) | Built 2026-10-12 (G12, first slice): the Metrics Server provider and its detection, the hub that polls while subscribed, [§9](#9-metrics-internalmetrics) | Prometheus is the next provider; see §9 |
+| `cmd/cogpit-cli`, `internal/agent`, `internal/update` | Not built (`cogpit-cli` is a stub) | – |
 
 Layering is enforced by `depguard` in `make lint`, as planned in §3, with the demo package in L2.
 
@@ -1141,10 +1142,61 @@ Where it differs from the contract above, this paragraph wins.
 
 ## 9. Metrics (`internal/metrics`)
 
-Detect a provider per cluster (metrics-server, Prometheus through the API server's service proxy,
-the provider variants Lens lists), allow an override in cluster settings, poll only while a visible
-view shows metrics, cache results with a time-to-live. No provider is a state, not an error.
-Cogpit never installs anything into a cluster unless the user starts that action.
+Metrics cannot be watched, so they are the one documented exception to "never poll what can be
+watched" ([§5](#5-cache)): they are polled, and only while something visible shows them. No provider,
+a missing permission and a metrics-server that does not answer are **states** the UI shows, not
+errors. Cogpit never installs anything into a cluster unless the user starts that action.
+
+**Built 2026-10-12 (G12, first slice): the Kubernetes Metrics Server.** What exists:
+
+| Piece | File | Responsibility |
+|---|---|---|
+| `Provider`, `Detector`, `State`, `Capabilities` | [`provider.go`](../../internal/metrics/provider.go) | The seam. A `Provider` answers "what do these pods and nodes use now" (`ListPods`, `GetPod`, `ListNodes`, `GetNode`; model types `PodUsage`, `NodeUsage` in [`model/usage.go`](../../internal/model/usage.go)). A `Detector` finds a provider or says why none: `State{Status, Provider, Label, Message}` with the statuses `available`, `notServed`, `forbidden`, `unavailable`, `unknown`. `Capabilities` (`History`, `Network`, `Filesystem`) say which chart variants a provider can draw: the Metrics Server none of them |
+| `Server` | [`server.go`](../../internal/metrics/server.go), [`conn.go`](../../internal/metrics/conn.go) | The `metrics.k8s.io/v1beta1` provider on `k8s.io/metrics`' typed client, built on the connection's own HTTP client (`cluster.Conn.HTTPClient`), so the counting transport and the cluster's rate limit see it. Detection is one discovery `get` of the group version: not found is `notServed`, 401/403 `forbidden`, 503 (an `APIService` with no backend) `unavailable`. A pod or node with no measurement yet is `ErrNoData`, not a state |
+| `Hub` | [`hub.go`](../../internal/metrics/hub.go) | Polling while subscribed, the result cache and the series, below |
+
+**Subscription and polling.** A consumer calls `Hub.Subscribe(scope, onChange)` and `Release()`s
+when its view or drawer goes away. A `Scope` is a kind (`pods`, `nodes`), a namespace (`""` = all) and
+a name (`""` = a list). Everything that subscribes to the same scope shares one poll goroutine and
+hears every poll through `onChange`; the goroutine ends with the last release. With nothing
+subscribed the hub sends nothing, not even discovery (`TestNothingOpenNothingRequested`).
+
+| Scope | Interval | Why |
+|---|---|---|
+| a list (`{pods, "", ""}` for a Pods view, `{nodes}` for the Nodes view) | 60 s (`DefaultListInterval`; Lens's list refresh) | A list of thousands of pods is a large response, and a column of current values does not need every measurement |
+| one object (a pod or node drawer) | 15 s (`DefaultObjectInterval`) | The Metrics Server's own resolution (`--metric-resolution`, 15 s by default): every measurement reaches the chart, none is asked for twice; the response is one small object |
+
+*Results are cached with a TTL* (`DefaultTTL`, 15 s). A result is current for the TTL, and while its
+scope is polled for twice its interval, so a late poll does not blank a column. A subscription that
+starts on a result younger than the TTL waits until it goes stale before its first poll, so closing
+and reopening a view costs nothing (`TestSubscribeOnAFreshResultWaitsForItToGoStale`). `Hub.Fetch`
+is the one-off read for agents: it serves a fresh result, or a fresh list that covers the object,
+else sends one request and starts no poll (`TestFetchCachesForTheTTL`). *Detection* is kept for 10
+minutes when a provider was found and for 2 minutes when not, so a metrics-server installed
+meanwhile appears without a restart, and a missing API costs one discovery request per two minutes
+while a view is open, nothing otherwise.
+
+*A series per watched object.* While an object scope is subscribed, the hub keeps a bounded time
+series of the object (a pod's total and each of its containers, by the measurement's own
+timestamp): at most 240 points (an hour at 15 s) and none more than an hour older than the newest
+(`DefaultSeriesPoints`, `DefaultSeriesAge`; `TestSeriesBounds`). A new drawer starts with the point
+a fresh list already holds. The series ends with the last subscription: Cogpit holds no history
+across drawers; that is what Prometheus is for (below).
+
+*Failures.* A poll that fails keeps the previous result (it expires by the TTL rules above) and sets
+the scope's state; the next poll tries again at the interval. A `404` on a list means the API went
+away and makes detection run again. A panicking provider is recovered at the goroutine's boundary
+(`TestProviderPanicIsContained`).
+
+**Designed for Prometheus, not built.** The slice after this one adds a second `Provider` that
+reads Prometheus through the API server's service proxy (privilege footprint: `get` on
+`services/proxy`), and a `Detector` that tries Prometheus first and falls back to the Metrics Server,
+with the override in cluster settings. A provider with `Capabilities.History` answers range queries
+itself, so the hub keeps no series for it and the chart asks for the time range the user picked
+(1h by default, up to the provider's retention); `Network` and `Filesystem` enable the two buttons
+the drawer already shows disabled with the reason "needs Prometheus". The chart widget
+(`internal/ui/fyneui/chart.go`) takes plain series, request/limit lines and event markers, and does
+not know where they came from.
 
 ## 10. Terminal (`internal/terminal`)
 
