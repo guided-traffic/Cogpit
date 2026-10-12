@@ -15,7 +15,9 @@ import (
 
 // createButton is the round "+" at the bottom right of every list (Lens's, captured 2026-10-11):
 // it opens a Create resource tab in the dock, starting from the template of the view's kind when
-// Cogpit has one (Cogpit's choice; what Lens prefills is not captured), else the example Pod.
+// Cogpit has one (Cogpit's choice; what Lens prefills is not captured), else the example Pod. On
+// the views whose kind has a create dialog (Namespaces, Service Accounts, the four RBAC kinds,
+// Resource Quotas: createdialog.go) it opens that dialog instead, as Lens does (inferred).
 type createButton struct {
 	widget.BaseWidget
 	sh      *shell
@@ -60,7 +62,11 @@ func (sh *shell) cogpitKind(key string) bool {
 }
 
 // Tapped implements fyne.Tappable.
-func (b *createButton) Tapped(*fyne.PointEvent) { b.sh.openCreateTab() }
+func (b *createButton) Tapped(*fyne.PointEvent) {
+	if !b.sh.openCreateDialog(b.sh.ui.View) {
+		b.sh.openCreateTab()
+	}
+}
 
 // Cursor implements desktop.Cursorable.
 func (b *createButton) Cursor() desktop.Cursor { return desktop.PointerCursor }
