@@ -57,6 +57,7 @@ it. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
 - 📈 CPU and memory from the cluster's metrics-server: columns in the Pods and Nodes lists, a chart with requests and limits in the pod and node drawers (Prometheus graphs follow).
 - 🛡️ Never surprises a cluster: destructive actions confirm, nothing is installed or written implicitly.
 - 🤖 Fully controllable over MCP, the UI included: an agent sees what you see and navigates for you.
+- ⌨️ `cogpit-cli`: your contexts and any kind's objects on the command line, read-only, and an MCP stdio bridge you register once.
 - 💬 A built-in agent in a chat beside your views, on any OpenAI-compatible endpoint such as LiteLLM or Open WebUI.
 - 📦 Installs the Mac way: open the disk image, drag Cogpit into Applications; a Homebrew cask for shell users.
 - ⬆️ Updates with one click (Sparkle), verified against a signed update feed.
@@ -78,6 +79,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Environment variables | `COGPIT_<NAME>`; today only the test variables `COGPIT_KIND_KUBECONFIG`, `COGPIT_KIND_CONTEXT` and `COGPIT_PNG_DIR` | |
 | MCP endpoint | `http://127.0.0.1:<random port>/mcp`, new port on every start | `http://127.0.0.1:59449/mcp` # example |
 | MCP bearer token | `<user config dir>/Cogpit/mcp-token`, owner-only (0600, directory 0700), new on every start, removed on exit and when you switch the external MCP server off | |
+| MCP endpoint file | `<user config dir>/Cogpit/mcp-endpoint`, beside the token and with its rules: the endpoint's URL, for `cogpit-cli mcp` | `http://127.0.0.1:59449/mcp` # example |
 | Audit log | `<user config dir>/Cogpit/audit.log`, owner-only, one JSON line per agent-initiated command | |
 | Drain journal | `<user config dir>/Cogpit/drains.json`, owner-only (0600, directory 0700): the drains Cogpit started and has not finished, offered again on the next connect | |
 | Hotbar | `<user config dir>/Cogpit/hotbar.json`, owner-only (0600, directory 0700): the banks of pinned clusters by context id; an unreadable one is moved to `hotbar.json.unreadable` at the first change | |
@@ -144,7 +146,9 @@ claude mcp remove --scope user cogpit >/dev/null 2>&1; claude mcp add --scope us
 
 Run it, then ask Claude Code "show me the Service with ClusterIP 10.96.100.100": Cogpit opens
 Services, selects `web` and opens its drawer. Port and token change on every start, so repeat the
-command after a restart. Agents may read and navigate freely; Restart, Delete and the pod shell
+command after a restart, or register the stdio bridge once instead:
+`claude mcp add --scope user cogpit -- "$PWD/bin/cogpit-cli" mcp` # example (it reads the
+current port and token itself). Agents may read and navigate freely; Restart, Delete and the pod shell
 wait for your confirmation in Cogpit's window ([agents and MCP](docs/security/agents-and-mcp.md)).
 
 **Verify.** `make test-unit-race` runs every test without a cluster; with the kind cluster up,
@@ -198,6 +202,7 @@ codes: `0` done, `1` the command failed, `2` the command line is wrong. `cogpit-
 |---|---|---|
 | `cogpit-cli contexts` | `--kubeconfig <files>` (empty: the files `$KUBECONFIG` lists # default), `-o table` # default (`json`, `yaml`), `-v` (`false` # default) | lists every context as `<context> [<file>]`, with its namespace, server and whether its login (a credential plugin, or a token file outside its folder) is `approved`, `required` or `changed`; `json` and `yaml` are the `cluster_contexts` tool's result; reads the kubeconfig files only |
 | `cogpit-cli get <kind> [name]` | `--context <context>` (required; an id as `contexts` lists it, a context name only one file defines, or `demo`), `-n`/`--namespace <ns,...>` (empty: every namespace, for a named object the context's namespace # default), `-o table` # default (`json`, `yaml`), `--filter <text>` (empty # default), `--timeout 1m` # default, `--kubeconfig <files>`, `-v` | connects through a headless engine, waits for the cache's first list of the kind and prints it as Cogpit's view does (its columns, those empty in every row left out), then exits; `json` and `yaml` print the `resources_list` result for a list (at most 1,000 rows; stderr says when there are more) and the object's manifest for a named object (managed fields dropped, Secret values redacted). `<kind>` is a kind key (`pods`, `certificates.cert-manager.io`), or a Kubernetes kind or view title that names one kind (`Pod`) |
+| `cogpit-cli mcp` | `--headless` (`false` # default), `--kubeconfig <files>` (the headless engine only), `-v` | serves Cogpit's MCP tools over stdin and stdout for agents that speak only stdio: with Cogpit running, every call is forwarded to it (its confirmations and audit log apply; a restart of Cogpit is followed); without it, or with `--headless`, an engine of its own serves them, and what needs your confirmation is refused. stdout carries the protocol only; logs go to stderr |
 | `cogpit-cli version` | – | prints the version, the Go version and the platform (`--version` too) |
 
 ```sh
@@ -206,6 +211,11 @@ cogpit-cli get pods -n kube-system --kubeconfig .cache/kind/kubeconfig --context
 cogpit-cli get deployments web -n cogpit-demo -o yaml --kubeconfig .cache/kind/kubeconfig --context kind-cogpit   # example: one manifest
 cogpit-cli get services --context demo                      # the synthetic demo cluster
 ```
+
+Security note on `mcp`: the bridge sends the token from Cogpit's token file only to the loopback
+URL in `mcp-endpoint`, follows no redirect and uses no proxy. Switching the MCP server off in the
+status bar stops a bridge that forwards to the app, but not one that serves its own engine, which
+reads clusters and refuses every write ([H-28](docs/security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge)).
 
 Security note on `get`: it only reads (`resources_list` and `object_get` through the cache, origin
 CLI), prints a Secret's key names and sizes but never a value, and refuses a context whose

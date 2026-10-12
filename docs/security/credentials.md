@@ -26,7 +26,7 @@ Cogpit adds no cluster credential source of its own: no account, no login, no cl
 
 | Secret | Lives in | Rule |
 |---|---|---|
-| MCP bearer token | `<user config dir>/Cogpit/mcp-token` (macOS: `~/Library/Application Support/Cogpit/mcp-token`), file 0600 in a 0700 directory, written atomically, never through a symlink, removed on exit ([`internal/mcp/token.go`](../../internal/mcp/token.go), `TestTokenFileLifecycle`, `TestStartRefusesSymlinks`) | 32 random bytes, new on every start; printed to the terminal that started Cogpit inside the `claude mcp add` command, never logged (`TestTokenNeverLogged`) ([agents and MCP](agents-and-mcp.md)) |
+| MCP bearer token | `<user config dir>/Cogpit/mcp-token` (macOS: `~/Library/Application Support/Cogpit/mcp-token`), file 0600 in a 0700 directory, written atomically, never through a symlink, removed on exit ([`internal/mcp/token.go`](../../internal/mcp/token.go), `TestTokenFileLifecycle`, `TestStartRefusesSymlinks`) | 32 random bytes, new on every start; printed to the terminal that started Cogpit inside the `claude mcp add` command, never logged (`TestTokenNeverLogged`) ([agents and MCP](agents-and-mcp.md)). Since 2026-10-13 the endpoint's URL is written beside it, `mcp-endpoint`, with the same rules (not a secret: a loopback URL), for the stdio bridge `cogpit-cli mcp`, which reads both and sends the token to that loopback URL only (`TestEndpointFileLifecycle`, `TestReadEndpointTakesOnlyWhatCogpitWrites`) |
 | LLM API key (built-in agent) | the operating system's keychain (macOS Keychain first) | never written to a file, never logged, sent only to the configured endpoint |
 | Update public key | compiled into the app | not secret; its private counterpart never touches a user's machine ([updates](updates.md)) |
 

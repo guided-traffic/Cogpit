@@ -41,7 +41,8 @@ type Options struct {
 	// (a free port).
 	Addr string
 	// TokenFile is where the bearer token is written, owner-only (0600) in an owner-only (0700)
-	// directory. Empty means <user config dir>/Cogpit/mcp-token.
+	// directory. Empty means <user config dir>/Cogpit/mcp-token. The endpoint's URL is written
+	// beside it, in EndpointFileName, for the stdio bridge.
 	TokenFile string
 	// Version is reported to clients; empty means "dev".
 	Version string
@@ -110,10 +111,10 @@ func New(session *engine.Session, opts Options) (*Server, error) {
 	}, nil
 }
 
-// Start generates a fresh token, writes it to the token file, builds one MCP tool per registered
-// command and starts listening. It returns once the listener is bound; ctx bounds only that
-// start-up, and Close stops the server. Commands registered after Start are not tools until the
-// next start.
+// Start generates a fresh token, writes it to the token file and the URL to the endpoint file
+// beside it, builds one MCP tool per registered command and starts listening. It returns once the
+// listener is bound; ctx bounds only that start-up, and Close stops the server. Commands
+// registered after Start are not tools until the next start.
 func (s *Server) Start(ctx context.Context) error {
 	s.ctl.Lock()
 	defer s.ctl.Unlock()
@@ -157,6 +158,13 @@ func (s *Server) Start(ctx context.Context) error {
 		_ = ln.Close()
 		return err
 	}
+	// The endpoint file beside the token tells the stdio bridge (cogpit-cli mcp) where to forward.
+	url := "http://" + net.JoinHostPort(tcp.IP.String(), strconv.Itoa(tcp.Port)) + endpointPath
+	if err := writePrivateLine(endpointFile(tokenPath), url, "endpoint", ownDir); err != nil {
+		_ = ln.Close()
+		_ = removeTokenFile(tokenPath, token)
+		return err
+	}
 
 	life := s.lifetime
 	srv, tools := s.newMCPServer()
@@ -187,7 +195,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	s.token = token
 	s.tokenPath = tokenPath
-	s.url = "http://" + net.JoinHostPort(tcp.IP.String(), strconv.Itoa(tcp.Port)) + endpointPath
+	s.url = url
 	s.state = stateRunning
 	s.log.Info("MCP server listening", "url", s.url, "tokenFile", tokenPath, "tools", tools)
 	return nil
@@ -247,8 +255,9 @@ func (s *Server) TokenPath() string {
 //
 // It returns "" when the server is not running. The command contains the token: print it to the
 // user's terminal, never to a log. The port and the token change on every start, so the
-// registration must be repeated after Cogpit restarts; the stdio bridge (architecture §7) is the
-// later fix for that friction. The syntax is POSIX shell (macOS, Linux).
+// registration must be repeated after Cogpit restarts; a client that registers the stdio bridge
+// instead (`cogpit-cli mcp`, architecture §7) registers once, since the bridge reads the endpoint
+// and token files itself. The syntax is POSIX shell (macOS, Linux).
 func (s *Server) ClaudeAddCommand() string {
 	url, token := s.endpoint()
 	if url == "" {
@@ -326,7 +335,7 @@ func (s *Server) halt(final bool) error {
 		return nil
 	}
 	wasRunning := s.state == stateRunning
-	srv, served, path, token, stop := s.httpSrv, s.served, s.tokenPath, s.token, s.stop
+	srv, served, path, token, url, stop := s.httpSrv, s.served, s.tokenPath, s.token, s.url, s.stop
 	s.token, s.httpSrv, s.url = "", nil, ""
 	switch {
 	case final:
@@ -354,6 +363,9 @@ func (s *Server) halt(final bool) error {
 	}
 	<-served
 	if err := removeTokenFile(path, token); err != nil {
+		errs = append(errs, err)
+	}
+	if err := removeIfHolds(endpointFile(path), url, "endpoint"); err != nil {
 		errs = append(errs, err)
 	}
 	s.log.Info("MCP server stopped")

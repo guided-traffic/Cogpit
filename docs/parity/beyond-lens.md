@@ -1,13 +1,13 @@
 # Beyond Lens
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (command line: `cogpit-cli contexts` done, `get` partial) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (the `cogpit-cli mcp` stdio bridge done; command line: `cogpit-cli contexts` done, `get` partial) · **Target:** Lens Desktop 2026.10.51501
 
 What Cogpit does that Lens Desktop does not, or does only in part. These rows are Cogpit's own
 targets, decided by the owner; they do not count toward the parity numbers in
 [`target-app-parity.md`](target-app-parity.md), which measure Cogpit against Lens. Method:
 [`README.md`](README.md).
 
-**Summary (measured, 2026-10-13):** 21 of 38 rows exist: 12 done and 9 partial, in MCP control,
+**Summary (measured, 2026-10-13):** 22 of 38 rows exist: 13 done and 9 partial, in MCP control,
 cache transparency, crash recovery (the unfinished drain), everyday use (the status bar link
 done, copying from the drawer partial) and the command line (`cogpit-cli contexts` done, `get`
 partial). Remaining (estimated): 30–60 h for MCP control
@@ -40,7 +40,7 @@ read-only: `list-clusters`, `connect-cluster`, `disconnect-cluster`, `kubectl`, 
 | Destructive commands from agents always wait for the user's confirmation in the GUI | (engine) | done | `TestDispatchConfirmationPolicy`, `TestDeleteGoesThroughConfirmation`, MCP tests for declined and headless calls |
 | Audit log of every agent-initiated command, readable in the GUI | (engine) | partial: written to `<user config dir>/Cogpit/audit.log`; not readable in the GUI | [`engine/audit.go`](../../internal/engine/audit.go) |
 | Streamable HTTP on `127.0.0.1` with a bearer token; `Host` and `Origin` checks | (transport) | done | [`mcp/http.go`](../../internal/mcp/http.go), `TestHTTPGuard`, `TestHTTPEndToEnd` |
-| `cogpit-cli mcp` stdio bridge for stdio-only agents | (transport) | missing | – |
+| `cogpit-cli mcp` stdio bridge for stdio-only agents | (transport) | done (2026-10-13): registered once, it forwards every call to the running app (its endpoint and token read from Cogpit's directory, loopback only, origin external agent, the app's confirmations and audit log), follows a restart to the new port and token without repeating a call the app received, and without a running app serves a headless engine that refuses what needs a confirmation | [`mcp/bridge.go`](../../internal/mcp/bridge.go), [`cogpit-cli/mcp.go`](../../cmd/cogpit-cli/mcp.go); `TestBridgeForwardsToTheApp`, `TestBridgeFollowsARestart`, `TestMCPHeadlessServesTheRegistry`, `TestMCPOverRealStdio` |
 
 ## Built-in agent
 
@@ -114,6 +114,7 @@ Cogpit's targets.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | MCP control: the `cogpit-cli mcp` stdio bridge done; 22 of 38 rows, 13 done and 9 partial |
 | 2026-10-13 | minor | Command line, a new section: `cogpit-cli contexts` done, `cogpit-cli get` partial; 21 of 38 rows, 12 done and 9 partial |
 | 2026-10-12 | minor | Everyday use: the status bar link (D-23) done, copying values (D-25) partial; recounted by the lead: 19 of 36 rows, 11 done and 8 partial |
 | 2026-10-12 | minor | Everyday use: copying values (D-25) and the status bar link (D-23), both missing; 17 of 36 rows |

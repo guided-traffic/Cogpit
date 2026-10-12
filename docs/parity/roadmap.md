@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (M1 and 0.1: `cogpit-cli contexts` and `get` built; current focus after the fifth run and the owner's smoke test) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (M1 and 0.1: `cogpit-cli contexts` and `get` built; M9: the stdio bridge built; current focus after the fifth run and the owner's smoke test) · **Target:** Lens Desktop 2026.10.51501
 
 Forward-looking plan: the alpha gate, the milestones, the **current focus** and what's next with
 estimates. Where Cogpit stands is in [`target-app-parity.md`](target-app-parity.md); the ranked
@@ -51,7 +51,7 @@ a person on a real cluster, and no cloud credential plugin is verified (human).
 | **Alpha (macOS)** | ⬜ | M0–M6 and an unsigned macOS build | The alpha gate passes | ~135–370 left |
 | **M7** Metrics | ⬜ | Provider detection, cluster overview, charts (G12) | Metrics shown on `kind` with metrics-server and with Prometheus; no provider is a state, not an error; polling stops when nothing visible needs it | 40–80 |
 | **M8** Interface parity | ⬜ | Clusters, hotbar, palette, menus, shortcuts, preferences, cluster settings, themes, deep links (rest of G5 and G13) | Every free Lens Desktop row in [ui-parity](ui-parity.md) done | 85–210 |
-| **M9** MCP control | 🟡 (every command a tool, confirmation in the GUI, audit log file; no stdio bridge) | The rest of [beyond-lens › MCP](beyond-lens.md#mcp-control-of-ui-and-cluster): every command as a tool, dock tools, the GUI confirmation flow, the audit log, the stdio bridge (rest of G17) | An external agent completes the triage and change workflows through MCP, with every mutating step confirmed in the GUI | 20–40 |
+| **M9** MCP control | 🟡 (every command a tool, confirmation in the GUI, audit log file; the stdio bridge `cogpit-cli mcp` built 2026-10-13) | The rest of [beyond-lens › MCP](beyond-lens.md#mcp-control-of-ui-and-cluster): every command as a tool, dock tools, the GUI confirmation flow, the audit log, the stdio bridge (rest of G17) | An external agent completes the triage and change workflows through MCP, with every mutating step confirmed in the GUI | 20–40 |
 | **M10** macOS distribution | ⬜ | Signed universal app in a notarized disk image, Homebrew cask, Sparkle 2 with an EdDSA-signed appcast, update notice and one-click update (rest of G14; [D-4](../developer/decisions.md#d-4-packaging-and-updates)) | Installs from the disk image and updates itself on a clean Mac without warnings | 20–40 |
 | **GitOps** Flux CD and Argo CD | ⬜ | Kind profiles, dashboards, Argo CD Sync and Refresh (G23, [D-9](../developer/decisions.md#d-9-scope-against-lenss-paid-and-vendor-features)) | A Flux and an Argo CD installation on `kind` show their objects with status; Sync and Refresh work with confirmation | 55–115 |
 | **Beta (macOS)** | ⬜ | M7–M10, the GitOps views, ~75% of views and actions, budgets P1–P11 met (G15), the first user bug backlog (G16) | Ready for real work ≥ ~75% on macOS; no gap marked *blocks beta* | ~425–995 left |
@@ -99,6 +99,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | M9: the stdio bridge `cogpit-cli mcp` built (status only; estimate unchanged) |
 | 2026-10-13 | minor | M1 and 0.1: `cogpit-cli contexts` and `cogpit-cli get` built (status only; estimates unchanged) |
 | 2026-10-12 | minor | Current focus after the fifth run and the owner's smoke test: the hotbar and the metrics requirements first |
 | 2026-10-12 | major | Fourth implementation run: Helm upgrade and adding, pasting and syncing kubeconfigs built, every alpha-gate workflow exists; M1 and M6 re-assessed; alpha ~135–370 h; new current focus |

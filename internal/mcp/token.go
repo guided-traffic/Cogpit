@@ -26,13 +26,16 @@ func newToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+// TokenFileName is the token file's name in Cogpit's configuration directory.
+const TokenFileName = "mcp-token"
+
 // defaultTokenPath is <user config dir>/Cogpit/mcp-token.
 func defaultTokenPath() (string, error) {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("mcp: token file: %w", err)
 	}
-	return filepath.Join(dir, "Cogpit", "mcp-token"), nil
+	return filepath.Join(dir, "Cogpit", TokenFileName), nil
 }
 
 // writeTokenFile writes the token atomically, mode 0600, into an owner-only directory: a temporary
@@ -42,40 +45,46 @@ func defaultTokenPath() (string, error) {
 // otherwise, so that a caller-chosen path such as a home directory never changes mode behind the
 // caller's back. On Windows, where modes do not express access, the user's profile ACLs apply.
 func writeTokenFile(path, token string, ownDir bool) error {
+	return writePrivateLine(path, token, "token", ownDir)
+}
+
+// writePrivateLine writes one line to path as writeTokenFile describes; what names the file in
+// errors ("token", "endpoint").
+func writePrivateLine(path, line, what string, ownDir bool) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("mcp: token directory: %w", err)
+		return fmt.Errorf("mcp: %s directory: %w", what, err)
 	}
 	fi, err := os.Lstat(dir)
 	if err != nil {
-		return fmt.Errorf("mcp: token directory: %w", err)
+		return fmt.Errorf("mcp: %s directory: %w", what, err)
 	}
 	switch {
 	case fi.Mode()&fs.ModeSymlink != 0:
-		return fmt.Errorf("mcp: token directory %s is a symlink; refusing to write the token through it", dir)
+		return fmt.Errorf("mcp: %s directory %s is a symlink; refusing to write it through it", what, dir)
 	case !fi.IsDir():
-		return fmt.Errorf("mcp: token directory %s is not a directory", dir)
+		return fmt.Errorf("mcp: %s directory %s is not a directory", what, dir)
 	case runtime.GOOS != "windows" && fi.Mode().Perm()&0o077 != 0:
 		if !ownDir {
-			return fmt.Errorf("mcp: token directory %s is accessible by other users (mode %#o); it must be 0700", dir, fi.Mode().Perm())
+			return fmt.Errorf("mcp: %s directory %s is accessible by other users (mode %#o); it must be 0700", what, dir, fi.Mode().Perm())
 		}
 		if err := os.Chmod(dir, 0o700); err != nil {
-			return fmt.Errorf("mcp: token directory: %w", err)
+			return fmt.Errorf("mcp: %s directory: %w", what, err)
 		}
 	}
 	switch fi, err := os.Lstat(path); {
 	case errors.Is(err, fs.ErrNotExist):
 	case err != nil:
-		return fmt.Errorf("mcp: token file: %w", err)
+		return fmt.Errorf("mcp: %s file: %w", what, err)
 	case fi.Mode()&fs.ModeSymlink != 0:
-		return fmt.Errorf("mcp: token file %s is a symlink; refusing to write the token through it", path)
+		return fmt.Errorf("mcp: %s file %s is a symlink; refusing to write it through it", what, path)
 	case !fi.Mode().IsRegular():
-		return fmt.Errorf("mcp: token file %s is not a regular file", path)
+		return fmt.Errorf("mcp: %s file %s is not a regular file", what, path)
 	}
 
-	f, err := os.CreateTemp(dir, ".mcp-token-*")
+	f, err := os.CreateTemp(dir, ".mcp-"+what+"-*")
 	if err != nil {
-		return fmt.Errorf("mcp: token file: %w", err)
+		return fmt.Errorf("mcp: %s file: %w", what, err)
 	}
 	tmp := f.Name()
 	done := false
@@ -86,20 +95,20 @@ func writeTokenFile(path, token string, ownDir bool) error {
 		}
 	}()
 	if err := f.Chmod(0o600); err != nil && runtime.GOOS != "windows" {
-		return fmt.Errorf("mcp: token file: %w", err)
+		return fmt.Errorf("mcp: %s file: %w", what, err)
 	}
-	if _, err := f.WriteString(token + "\n"); err != nil {
-		return fmt.Errorf("mcp: token file: %w", err)
+	if _, err := f.WriteString(line + "\n"); err != nil {
+		return fmt.Errorf("mcp: %s file: %w", what, err)
 	}
 	if err := f.Sync(); err != nil {
-		return fmt.Errorf("mcp: token file: %w", err)
+		return fmt.Errorf("mcp: %s file: %w", what, err)
 	}
 	if err := f.Close(); err != nil {
-		return fmt.Errorf("mcp: token file: %w", err)
+		return fmt.Errorf("mcp: %s file: %w", what, err)
 	}
 	// rename replaces a symlink that appeared since the check instead of following it.
 	if err := os.Rename(tmp, path); err != nil {
-		return fmt.Errorf("mcp: token file: %w", err)
+		return fmt.Errorf("mcp: %s file: %w", what, err)
 	}
 	done = true
 	return nil
@@ -109,7 +118,13 @@ func writeTokenFile(path, token string, ownDir bool) error {
 // may have replaced it with its own token, which must survive this one's exit; a symlink is not
 // Cogpit's either.
 func removeTokenFile(path, token string) error {
-	if path == "" || token == "" {
+	return removeIfHolds(path, token, "token")
+}
+
+// removeIfHolds removes path if it is a regular file that holds line, as removeTokenFile
+// describes; what names the file in errors.
+func removeIfHolds(path, line, what string) error {
+	if path == "" || line == "" {
 		return nil
 	}
 	fi, err := os.Lstat(path)
@@ -117,20 +132,20 @@ func removeTokenFile(path, token string) error {
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("mcp: remove token file: %w", err)
+		return fmt.Errorf("mcp: remove %s file: %w", what, err)
 	}
 	if !fi.Mode().IsRegular() {
 		return nil
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("mcp: remove token file: %w", err)
+		return fmt.Errorf("mcp: remove %s file: %w", what, err)
 	}
-	if subtle.ConstantTimeCompare(bytes.TrimSpace(data), []byte(token)) != 1 {
+	if subtle.ConstantTimeCompare(bytes.TrimSpace(data), []byte(line)) != 1 {
 		return nil
 	}
 	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("mcp: remove token file: %w", err)
+		return fmt.Errorf("mcp: remove %s file: %w", what, err)
 	}
 	return nil
 }

@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"path/filepath"
 
+	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/guided-traffic/cogpit/internal/app"
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/demo"
@@ -36,6 +38,9 @@ type env struct {
 	// demo sizes the synthetic demo cluster (the context "demo"); the zero value is the app's
 	// default size.
 	demo demo.Options
+
+	// mcpTransport is what `mcp` serves on; nil means stdin and stdout.
+	mcpTransport sdk.Transport
 }
 
 // flags is a subcommand's flag set. Flags and arguments may be mixed (`get pods -n x`), as kubectl

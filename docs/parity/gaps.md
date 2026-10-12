@@ -705,12 +705,15 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   the stdio bridge, the GUI side of the confirmation flow, the audit log view
   ([D-2](../developer/decisions.md#d-2-agent-interface-scope)). `ui_state`, `resources_find` and
   `ui_navigate` come early (M2), because they also let agents test the UI.
-- **Evidence:** beyond-lens, 9 done and 6 partial of the 17 MCP rows: tools from the registry,
+- **Evidence:** beyond-lens, 10 done and 6 partial of the 17 MCP rows: tools from the registry,
   Streamable HTTP on loopback with a bearer token and `Host`/`Origin` checks, `ui_state`,
   `resources_find`, `ui_navigate` and the other UI tools, the GUI confirmation for agents, the audit
-  log file ([`internal/mcp`](../../internal/mcp/), `TestShowcaseServiceByClusterIP`). Still missing:
-  the stdio bridge (so a registration survives restarts), `view_rows`, reading dock tabs, the audit
-  log in the GUI, the per-context allowance in the GUI.
+  log file ([`internal/mcp`](../../internal/mcp/), `TestShowcaseServiceByClusterIP`); since
+  2026-10-13 the stdio bridge `cogpit-cli mcp`, so a registration survives restarts (it forwards to
+  the running app and follows its restarts, else serves a headless engine that refuses what needs a
+  confirmation; [`bridge.go`](../../internal/mcp/bridge.go), `TestBridgeFollowsARestart`,
+  `TestMCPHeadlessServesTheRegistry`). Still missing: `view_rows`, reading dock tabs, the audit log
+  in the GUI, the per-context allowance in the GUI.
 - **Estimate:** 12–30 h (was 30–60).
 
 ### G21. Built-in agent
@@ -754,6 +757,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | G17: the `cogpit-cli mcp` stdio bridge built, evidence added; estimate unchanged |
 | 2026-10-13 | minor | G2: `cogpit-cli contexts` and `cogpit-cli get` built (milestone 0.1), evidence added; estimate unchanged |
 | 2026-10-13 | minor | G5, G13: the navigator built (night run): header, the cluster as the tree's root, item tooltips, keyboard; what differs from Lens and what is inferred; estimates not moved (the lead recounts) |
 | 2026-10-12 | minor | G7: seven create dialogs partial (Namespace, Service Account, the four RBAC kinds, Resource Quota); 3 of 39 actions missing; estimate 12–45 h (was 20–70); totals not recounted |

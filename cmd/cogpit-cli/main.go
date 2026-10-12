@@ -76,6 +76,7 @@ func commandList() []command {
 	return []command{
 		{name: "contexts", summary: "List the contexts Cogpit offers, from its kubeconfig sources", run: runContexts},
 		{name: "get", summary: "Read objects of one kind from a cluster's cache, as Cogpit's views show them", run: runGet},
+		{name: "mcp", summary: "Serve Cogpit's MCP tools over stdio: forwarded to the running app, else a headless engine", run: runMCP},
 		{name: "version", summary: "Print the version", run: runVersion},
 	}
 }
@@ -110,7 +111,8 @@ func run(ctx context.Context, args []string, e *env) int {
 }
 
 func printUsage(w writer) {
-	fmt.Fprint(w, `cogpit-cli is Cogpit's headless command-line tool. It reads; it never changes a cluster.
+	fmt.Fprint(w, `cogpit-cli is Cogpit's headless command-line tool. contexts and get only read; mcp serves agents
+under Cogpit's rules, and what changes a cluster waits for the user's confirmation in Cogpit's window.
 
 Usage:
   cogpit-cli <command> [flags] [arguments]
