@@ -35,12 +35,14 @@ type logTab struct {
 	seq    int            // the newest open; an older one that arrives late is closed
 	failed bool           // the view shows why the stream did not open
 	older  olderState     // older lines (logtab_older.go)
+	jump   jumpState      // jumps to a time (logtab_jump.go)
 
 	timestamps, previous, names, wrap, filter *widget.Check
 	search                                    *widget.Entry
 	controller, download                      *tipButton
 	controls                                  []fyne.CanvasObject
 	podPick, containerPick                    *widget.Button // the source selectors (logtab_sources.go)
+	jumpField                                 *widget.Entry  // the time to jump to (logtab_jump.go)
 	header                                    []fyne.CanvasObject
 	syncing                                   bool // set while the widgets follow engine state
 	searchTimer                               *time.Timer
@@ -81,7 +83,8 @@ type logOptionsParams struct {
 
 func newLogTab(ctx context.Context, sh *shell, c *dockContent, t engine.DockTab) *logTab {
 	lt := &logTab{sh: sh, c: c, ctx: ctx, tab: t, key: streamKeyOf(t)}
-	lt.older.seen = t.Logs.LoadOlder // requests before the tab was shown are not carried out
+	// Requests before the tab was shown are not carried out.
+	lt.older.seen, lt.jump.seen = t.Logs.LoadOlder, t.Logs.Jump.Seq
 	lt.resetOlder()
 	check := func(label string, set func(p *logOptionsParams, on bool)) *widget.Check {
 		return widget.NewCheck(label, func(on bool) {
@@ -111,7 +114,8 @@ func newLogTab(ctx context.Context, sh *shell, c *dockContent, t engine.DockTab)
 		sized(sizeSearchWidth, "", lt.search), lt.filter, lt.download,
 	}
 	lt.podPick, lt.containerPick = lt.newPicker(true), lt.newPicker(false)
-	lt.header = []fyne.CanvasObject{lt.podPick, lt.containerPick}
+	lt.jumpField = lt.newJumpField()
+	lt.header = []fyne.CanvasObject{lt.podPick, lt.containerPick, sized(sizeSearchWidth, "", lt.jumpField)}
 	lt.follow(t)
 	return lt
 }
@@ -172,6 +176,7 @@ func (lt *logTab) update(t engine.DockTab) {
 		lt.updateHead()
 	}
 	lt.followOlder(t)
+	lt.followJump(t)
 }
 
 // selectionOf is what a tab's lines are narrowed to.
@@ -212,6 +217,10 @@ func (lt *logTab) open() {
 			if lt.older.pending {
 				lt.older.pending = false
 				lt.loadOlder(time.Time{}, nil)
+			}
+			if lt.jump.pending {
+				lt.jump.pending = false
+				lt.jumpTo(lt.jump.at)
 			}
 		})
 	}()

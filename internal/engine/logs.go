@@ -46,6 +46,9 @@ type LogOptions struct {
 	// LoadOlder counts the requests for older lines (logs.loadOlder): the GUI loads the lines
 	// before the oldest it holds once per request (logsolder.go).
 	LoadOlder int `json:"loadOlder,omitempty"`
+	// Jump is the latest jump to a time (logs.jumpTo, logsjump.go): the GUI scrolls to the first
+	// line written at or after it once per jump.
+	Jump LogJump `json:"jump,omitzero"`
 }
 
 // RequestOlderLogs asks an open logs tab for the lines before the oldest it holds: the GUI loads

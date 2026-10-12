@@ -220,3 +220,26 @@ func TestLogLoadOlderCommand(t *testing.T) {
 		t.Error("a tab that does not exist")
 	}
 }
+
+// TestLogJumpToCommand: logs.jumpTo reads the time by the session's clock and keeps the jump on
+// the tab for Cogpit's window to carry out; a time it cannot read says which forms it reads.
+func TestLogJumpToCommand(t *testing.T) {
+	now := time.Date(2026, 10, 13, 1, 30, 0, 0, time.UTC)
+	h := newWorkloadHarness(t, nil, nil, engine.Options{Now: func() time.Time { return now }})
+	var res commands.DockResult
+	h.must(t, engine.OriginGUI, "workload.logs", map[string]any{"ref": actionRef("deployments", "shop", "web")}, &res)
+	var tab engine.DockTab
+	h.must(t, engine.OriginExternalAgent, "logs.jumpTo", map[string]any{"id": res.Tab.ID, "time": "10m ago"}, &tab)
+	if !tab.Logs.Jump.Time.Equal(now.Add(-10*time.Minute)) || tab.Logs.Jump.Seq != 1 {
+		t.Errorf("jump %+v", tab.Logs.Jump)
+	}
+	var st commands.StateResult
+	h.must(t, engine.OriginExternalAgent, "ui.state", nil, &st)
+	if got, _ := st.DockTab(res.Tab.ID); got.Logs.Jump.Seq != 1 {
+		t.Errorf("ui_state's tab %+v", got.Logs)
+	}
+	err := h.run(t, engine.OriginGUI, "logs.jumpTo", map[string]any{"id": res.Tab.ID, "time": "teatime"}, nil)
+	if err == nil || !strings.Contains(err.Error(), `"2026-10-13 01:20"`) {
+		t.Errorf("an unreadable time: %v", err)
+	}
+}

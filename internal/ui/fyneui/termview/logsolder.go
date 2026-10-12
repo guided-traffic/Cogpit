@@ -130,13 +130,17 @@ func (v LogView) source(raw string) (string, time.Time, bool) {
 	return src, ts, true
 }
 
-// Held returns what the view holds of each source, in the order the sources first appear. Main
-// goroutine only.
+// Held returns what the view holds of each source it shows (its selection), in the order the
+// sources first appear. Main goroutine only.
 func (l *Logs) Held() []HeldSource {
 	idx := map[string]int{}
 	var out []HeldSource
 	for i := range l.lines.len() {
-		src, ts, ok := l.view.source(l.lines.at(i))
+		raw := l.lines.at(i)
+		if !l.view.selects(raw) {
+			continue
+		}
+		src, ts, ok := l.view.source(raw)
 		if !ok {
 			continue
 		}

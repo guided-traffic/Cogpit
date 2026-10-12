@@ -215,6 +215,24 @@ func withLogCommands(t testing.TB, f *fakeEngine, deployment model.ObjectRef) {
 		})
 		return nil, nil
 	}
+	f.handlers["logs.jumpTo"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p logJumpParams
+		if err := json.Unmarshal(inv.Params, &p); err != nil {
+			return nil, err
+		}
+		at, err := engine.ParseLogTime(p.Time, fixedNow) // the fake's clock, in UTC
+		if err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) {
+			for i := range u.Dock {
+				if u.Dock[i].ID == p.ID {
+					u.Dock[i].Logs.Jump = engine.LogJump{Time: at.UTC(), Seq: u.Dock[i].Logs.Jump.Seq + 1}
+				}
+			}
+		})
+		return nil, nil
+	}
 	f.handlers["logs.sources"] = func(_ context.Context, inv engine.Invocation) (any, error) {
 		var p dockParams
 		if err := json.Unmarshal(inv.Params, &p); err != nil {
@@ -572,6 +590,67 @@ func TestLogTabOlderLinesAfterReopening(t *testing.T) {
 	q.until(t, "the row again", func() bool { return !lt.failed && lt.view.Head() == headLoadOlder && len(lt.view.ShownLines()) == 3 })
 }
 
+// TestLogTabJumpsToATime: the time field asks the engine (logs.jumpTo) and the tab follows the
+// jump, whoever asked: a time it holds lines of scrolls to the first line at or after it without a
+// request; an older one loads the lines since then first; a time after every line says so; a
+// time the engine cannot read is an error and no jump.
+func TestLogTabJumpsToATime(t *testing.T) {
+	sh, w, q, f := logsScene(t, ThemeDark, true, engine.LogOptions{ResourceNames: true, Timestamps: true})
+	lt := logTabOf(sh)
+	q.until(t, "every line", func() bool { return len(lt.view.ShownLines()) == len(demoMerged) })
+	w.Canvas().Focus(lt.jumpField)
+	test.Type(lt.jumpField, "2026-10-11 14:28:12")
+	test.TypeOnCanvas(w.Canvas(), "\n")
+	lt.jumpField.TypedKey(&fyne.KeyEvent{Name: fyne.KeyReturn})
+	q.until(t, "the jump", func() bool { return strings.Contains(lt.view.JumpedLine(), "ERROR payment provider unreachable") })
+	if calls := f.callsOf("logs.jumpTo"); len(calls) == 0 || !strings.Contains(string(calls[0].Params), `"time":"2026-10-11 14:28:12"`) {
+		t.Errorf("jumpTo calls %v", calls)
+	}
+	if n := len(olderOf(sh).requests()); n != 0 {
+		t.Errorf("%d requests for a time the tab holds", n)
+	}
+	if lt.view.Following() {
+		t.Error("the tab follows after a jump")
+	}
+	if lt.jumpField.Text != "2026-10-11 14:28:12" && !strings.HasPrefix(lt.jumpField.Text, "2026-10-11") {
+		t.Errorf("the field shows %q", lt.jumpField.Text)
+	}
+
+	// An agent jumps before the oldest line: the lines since then come first.
+	jump := func(text string) {
+		go func() {
+			_, _ = f.Dispatch(context.Background(), engine.Invocation{ID: "logs.jumpTo", Origin: engine.OriginExternalAgent,
+				Params: mustJSON(t, map[string]any{"id": "logs-1", "time": text})})
+		}()
+	}
+	jump("2026-10-11T14:27:59Z")
+	q.until(t, "the older line", func() bool { return strings.Contains(lt.view.JumpedLine(), "connected to postgres") })
+	reqs := olderOf(sh).requests()
+	if len(reqs) != 1 || !reqs[0].Since.Equal(time.Date(2026, 10, 11, 14, 27, 59, 0, time.UTC)) {
+		t.Fatalf("requests %+v", reqs)
+	}
+	if n := len(lt.view.ShownLines()); n != len(demoMerged)+1 {
+		t.Errorf("%d lines: want the one since 14:27:59 added", n)
+	}
+
+	// After every line: no jump, a message.
+	toasts := len(sh.toasts.Objects)
+	jump("2026-10-11 14:29")
+	q.until(t, "the message", func() bool { return len(sh.toasts.Objects) > toasts && lt.view.JumpedLine() == "" })
+	if n := len(olderOf(sh).requests()); n != 1 {
+		t.Errorf("a time after every line asked again: %d requests", n)
+	}
+
+	// Unreadable: an error, and the tab's jump stays.
+	seq := lt.jump.seen
+	lt.jumpField.SetText("teatime")
+	lt.jumpField.OnSubmitted("teatime")
+	q.until(t, "the error", func() bool { return len(f.callsOf("logs.jumpTo")) >= 4 && len(sh.toasts.Objects) > toasts+1 })
+	if lt.jump.seen != seq {
+		t.Error("an unreadable time jumped")
+	}
+}
+
 // TestLogDownloadWritesTheShownLines: the download writes every line the tab holds as shown, to
 // the file the save dialog names, proposed after the tab.
 func TestLogDownloadWritesTheShownLines(t *testing.T) {
@@ -624,6 +703,22 @@ func TestRenderLogsWorkloadSources(t *testing.T) {
 			q.popUpMenu(t, w)
 			savePNG(t, w, "logs_workload_containers_dark.png")
 		}
+	}
+}
+
+// TestRenderLogsJump: a deployment's tab after a jump to 14:28:12, the line found selected at the
+// top, the field showing the time, dark and light.
+func TestRenderLogsJump(t *testing.T) {
+	for _, mode := range []ThemeMode{ThemeDark, ThemeLight} {
+		sh, w, q, f := logsScene(t, mode, true, engine.LogOptions{ResourceNames: true, Timestamps: true})
+		lt := logTabOf(sh)
+		q.until(t, "every line", func() bool { return len(lt.view.ShownLines()) == len(demoMerged) })
+		go func() {
+			_, _ = f.Dispatch(context.Background(), engine.Invocation{ID: "logs.jumpTo", Origin: engine.OriginGUI,
+				Params: mustJSON(t, map[string]any{"id": "logs-1", "time": "2026-10-11 14:28:12"})})
+		}()
+		q.until(t, "the jump", func() bool { return strings.Contains(lt.view.JumpedLine(), "ERROR payment") })
+		savePNG(t, w, "logs_jump_"+string(mode)+".png")
 	}
 }
 

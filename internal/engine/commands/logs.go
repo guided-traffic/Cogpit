@@ -160,7 +160,7 @@ func registerLogs(g *registrar) {
 	add(g, engine.Spec[dockParams]{
 		ID: "logs.loadOlder", Label: "Load Older Lines", Danger: engine.DangerRead, Verbs: workloadLogVerbs,
 		Description: "Loads the lines before the oldest a logs tab holds, as selecting the tab's \"Load older lines\" " +
-			"row does: Cogpit's window asks the API server for each container's tail again with 1,000 more lines " +
+			"row does. Cogpit's window asks the API server for each container's tail again with 1,000 more lines " +
 			"(shared by a controlling resource's containers, at least 100 each) and puts the older ones on top, " +
 			"without repeating a line; a tab holds at most 10,000 lines. The window carries it out; ui_state counts " +
 			"the requests among the tab's log options (loadOlder). Returns the tab.",
@@ -175,4 +175,31 @@ func registerLogs(g *registrar) {
 			return s.RequestOlderLogs(p.ID)
 		},
 	})
+
+	add(g, engine.Spec[logJumpParams]{
+		ID: "logs.jumpTo", Label: "Jump to Time", Danger: engine.DangerRead, Verbs: workloadLogVerbs,
+		Description: "Scrolls a logs tab to the first line written at or after a time, as the tab's time field does, " +
+			"and stops it following. The time reads, in UTC as the tab's timestamps: \"2026-10-13 01:20\" (seconds optional), a " +
+			"date alone, \"01:20\" (today, or yesterday if that is still to come), \"10m ago\", \"1h30m ago\", \"2d ago\", " +
+			"\"now\", or RFC 3339. The lines the tab holds are searched first; when it holds none that old, Cogpit's " +
+			"window asks the API server for each container's lines since then (bounded by the 10,000 lines a tab " +
+			"holds) and puts them on top. The window carries it out; ui_state shows the latest jump among the tab's " +
+			"log options (jump). Returns the tab.",
+		Enabled: func(s *engine.Session, p logJumpParams) error {
+			if _, err := s.LogsTab(p.ID); err != nil {
+				return err
+			}
+			_, err := streamable(s, "logs")
+			return err
+		},
+		Run: func(_ context.Context, s *engine.Session, p logJumpParams) (any, error) {
+			return s.JumpLogs(p.ID, p.Time)
+		},
+	})
+}
+
+// logJumpParams are logs.jumpTo's parameters.
+type logJumpParams struct {
+	ID   string `json:"id" jsonschema:"logs tab id as ui_state lists it, e.g. logs-1"`
+	Time string `json:"time" jsonschema:"the time to jump to, e.g. 2026-10-13 01:20, 01:20, 10m ago or 2026-10-13T01:20:00Z"`
 }

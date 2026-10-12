@@ -74,7 +74,9 @@ type Logs struct {
 	rowLines    int          // lines with at least one row
 	head        headRow      // the row above the lines (logsolder.go)
 	fences      map[string]*fence
-	prepended   int64    // lines Prepend added
+	prepended   int64 // lines Prepend added
+	jumped      int64 // the line the last jump found (logsjump.go), if hasJumped
+	hasJumped   bool
 	cols        int      // characters per row while wrapping; 0 until laid out
 	runs        []logRun // scratch for rendering a row
 	// The stream's state as the status shows it: lines received, and its end.
@@ -268,11 +270,10 @@ func (l *Logs) appendRows(dst []displayRow, abs int64) ([]displayRow, bool) {
 // trimRows drops the rows of lines the scrollback dropped and returns how many it dropped.
 func (l *Logs) trimRows() int {
 	first, n := l.lines.evicted, 0
-	var last int64 = -1
 	for n < len(l.rows) && l.rows[n].line < first {
-		if l.rows[n].line != last {
+		// A line's first row counts it; line numbers go below zero once lines are prepended.
+		if n == 0 || l.rows[n].line != l.rows[n-1].line {
 			l.rowLines--
-			last = l.rows[n].line
 		}
 		n++
 	}
