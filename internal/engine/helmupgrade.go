@@ -148,6 +148,7 @@ func helmMoved(base helmBase, obj *unstructured.Unstructured) bool {
 type HelmUpgradeTabInfo struct {
 	Tab          DockTab
 	Values       string
+	TextRevision uint64 // the editor's text revision Values is at
 	BaseRevision int
 	baseUID      string
 }
@@ -161,7 +162,7 @@ func (s *Session) HelmUpgradeTab(id string) (HelmUpgradeTabInfo, error) {
 	if e.tab.Type != DockHelmUpgrade || e.helm == nil || e.tab.Ref == nil {
 		return HelmUpgradeTabInfo{}, fmt.Errorf("dock tab %q is a %s tab, not a Helm Upgrade tab", id, e.tab.Type)
 	}
-	return HelmUpgradeTabInfo{Tab: e.tab, Values: e.text, BaseRevision: e.helm.revision, baseUID: e.helm.uid}, nil
+	return HelmUpgradeTabInfo{Tab: e.tab, Values: e.text, TextRevision: e.rev, BaseRevision: e.helm.revision, baseUID: e.helm.uid}, nil
 }
 
 // CheckReleaseBase fails with ErrTargetsChanged when a release object is no longer at the revision

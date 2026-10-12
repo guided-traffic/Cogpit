@@ -144,7 +144,7 @@ func (u *helmUpgradeTab) save() {
 			u.pane.pushed = tr.Revision
 		}
 		u.pane.dirty = u.pane.view.Text() != text
-		u.sh.dispatch("helm.release.upgrade", helmUpgradeParams{refParams: refParams{Ref: *u.tab.Ref}, Tab: u.tab.ID}, func(res any, err error) {
+		u.sh.dispatch("helm.release.upgrade", helmUpgradeParams{refParams: refParams{Ref: *u.tab.Ref}, Tab: u.tab.ID, TextRevision: tr.Revision}, func(res any, err error) {
 			if u.pane.closed {
 				return
 			}

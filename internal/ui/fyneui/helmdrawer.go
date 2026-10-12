@@ -56,9 +56,10 @@ type (
 	}
 	helmUpgradeParams struct {
 		refParams
-		Tab      string  `json:"tab,omitempty"`
-		Values   *string `json:"values,omitempty"`
-		Revision int     `json:"revision,omitempty"`
+		Tab          string  `json:"tab,omitempty"`
+		TextRevision uint64  `json:"textRevision,omitempty"`
+		Values       *string `json:"values,omitempty"`
+		Revision     int     `json:"revision,omitempty"`
 	}
 )
 

@@ -97,7 +97,7 @@ func TestKindHelmUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := k.s.Backend().Conn.Counter().Snapshot()
-	if _, err := k.dispatch(ctx, engine.OriginGUI, "helm.release.upgrade", map[string]any{"ref": ref, "tab": tab.Tab.ID}); err != nil {
+	if _, err := k.dispatch(ctx, engine.OriginGUI, "helm.release.upgrade", map[string]any{"ref": ref, "tab": tab.Tab.ID, "textRevision": kindTabRevision(ctx, t, k, tab.Tab.ID)}); err != nil {
 		t.Fatalf("upgrade from the tab: %v", err)
 	}
 	after := k.s.Backend().Conn.Counter().Snapshot()
@@ -142,7 +142,7 @@ func TestKindHelmUpgrade(t *testing.T) {
 	}
 
 	// The tab read revision 2; the release is at 3: refused.
-	if _, err := k.dispatch(ctx, engine.OriginGUI, "helm.release.upgrade", map[string]any{"ref": ref, "tab": tab.Tab.ID}); !errors.Is(err, engine.ErrTargetsChanged) {
+	if _, err := k.dispatch(ctx, engine.OriginGUI, "helm.release.upgrade", map[string]any{"ref": ref, "tab": tab.Tab.ID, "textRevision": kindTabRevision(ctx, t, k, tab.Tab.ID)}); !errors.Is(err, engine.ErrTargetsChanged) {
 		t.Errorf("an upgrade from a tab whose release moved: %v", err)
 	}
 
@@ -228,4 +228,14 @@ func greetingIn(ctx context.Context, t *testing.T, kc kubernetes.Interface, rele
 		t.Fatal(err)
 	}
 	return cm.Data["greeting"]
+}
+
+// kindTabRevision is a tab's text revision as editor.get reports it.
+func kindTabRevision(ctx context.Context, t *testing.T, k *kindSession, id string) uint64 {
+	t.Helper()
+	res, err := k.dispatch(ctx, engine.OriginGUI, "editor.get", map[string]any{"id": id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res.(engine.EditorState).Revision
 }

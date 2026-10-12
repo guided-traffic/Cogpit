@@ -55,7 +55,7 @@ func helmDispatches() []struct {
 	}{
 		{"helm.release.values", helmValuesParams{refParams: refParams{Ref: ref}, All: true}},
 		{"helm.release.history", refParams{Ref: ref}},
-		{"helm.release.upgrade", helmUpgradeParams{refParams: refParams{Ref: ref}, Tab: "helmUpgrade-1"}},
+		{"helm.release.upgrade", helmUpgradeParams{refParams: refParams{Ref: ref}, Tab: "helmUpgrade-1", TextRevision: 2}},
 		{"helm.release.upgrade", helmUpgradeParams{refParams: refParams{Ref: ref}, Values: &values, Revision: 3}},
 		{"helm.release.rollback", helmRollbackParams{refParams: refParams{Ref: ref}, Revision: 2}},
 		{helm.UpgradeTabCommand, refParams{Ref: ref}},
@@ -290,10 +290,14 @@ func TestHelmUpgradeTabSaves(t *testing.T) {
 		t.Errorf("order %v, upgrade %+v", order, up.recorded()[0])
 	}
 	ed.mu.Lock()
-	sent := ed.texts[tab.ID]
+	sent, rev := ed.texts[tab.ID], ed.revs[tab.ID]
 	ed.mu.Unlock()
 	if sent != "controller:\n  replicaCount: 3\n" || !strings.Contains(u.status.text, "Upgraded to revision 5") {
 		t.Errorf("sent %q, status %q", sent, u.status.text)
+	}
+	// The upgrade is bound to the text revision Save's own editor.setText made (R-2).
+	if got := up.recorded()[0].TextRevision; got == 0 || got != rev {
+		t.Errorf("upgrade at text revision %d, Save's setText made %d", got, rev)
 	}
 
 	u.toggleSearch()

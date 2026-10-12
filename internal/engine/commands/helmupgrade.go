@@ -32,7 +32,10 @@ type upgradeParams struct {
 	// Values is a pointer so that empty values (no user-supplied values) differ from none given.
 	Values   *string `json:"values,omitempty" jsonschema:"the release's new user-supplied values as YAML, replacing the old ones whole (empty: none); give tab or values"`
 	Revision int     `json:"revision,omitempty" jsonschema:"with values: the release's newest revision the values are based on (object_get or helm_release_history shows it); the upgrade is refused when the release moved past it"`
-	Version  string  `json:"version,omitempty" jsonschema:"the chart version to install; empty: the release's own, the only one without chart repositories"`
+	// TextRevision binds an upgrade from a tab to the text the user reviewed: a change of the
+	// tab's text after it (an agent's editor.setText while the confirmation is open) refuses it.
+	TextRevision uint64 `json:"textRevision,omitempty" jsonschema:"with tab: the tab's text revision the upgrade takes the values at (editor_get and editor_setText return it); the upgrade is refused when the text changed since"`
+	Version      string `json:"version,omitempty" jsonschema:"the chart version to install; empty: the release's own, the only one without chart repositories"`
 }
 
 type releaseValuesParams struct {
@@ -130,7 +133,7 @@ func registerHelmUpgrade(g *registrar) {
 			}
 			from := "the values"
 			if p.Tab != "" {
-				from = "the values in the tab " + p.Tab + " (review them there)"
+				from = fmt.Sprintf("the values in the tab %s at its text revision %d (review them there; a change refuses the upgrade)", p.Tab, p.TextRevision)
 			}
 			return fmt.Sprintf("The release is upgraded to chart %s %s with %s; its objects change to the new manifest.", chart, version, from)
 		},
@@ -211,6 +214,13 @@ func runUpgrade(ctx context.Context, s *engine.Session, p upgradeParams) (any, e
 	if p.Tab != "" {
 		if tab, err = upgradeTab(s, p); err != nil {
 			return nil, err
+		}
+		if p.TextRevision == 0 {
+			return nil, fmt.Errorf("give textRevision, the revision of the tab %s's text the upgrade takes (editor_get shows it); nothing was done", p.Tab)
+		}
+		if tab.TextRevision != p.TextRevision {
+			return nil, fmt.Errorf("%w: the values in the tab %s changed since text revision %d (now %d); nothing was done: review them and upgrade again",
+				engine.ErrTargetsChanged, p.Tab, p.TextRevision, tab.TextRevision)
 		}
 		if err := tab.CheckTabBase(obj); err != nil {
 			return nil, err

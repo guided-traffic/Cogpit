@@ -28,6 +28,16 @@ func openUpgradeTab(t *testing.T, h *helmHarness, origin engine.Origin) commands
 	return res.(commands.EditResult)
 }
 
+// tabRevision is a tab's text revision as editor.get reports it.
+func tabRevision(t *testing.T, h *helmHarness, id string) uint64 {
+	t.Helper()
+	res, err := h.dispatch(engine.OriginGUI, "editor.get", map[string]any{"id": id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res.(engine.EditorState).Revision
+}
+
 // The Upgrade tab, as Lens's (captured 2026-10-12): Upgrade sits between Rollback and Delete; the
 // tab holds the chart, the release's own version as the only choice, and the user-supplied values
 // from the cache, read again by editor.get; it is focused, not opened twice; Save (the tab id)
@@ -69,7 +79,7 @@ func TestHelmUpgradeTab(t *testing.T) {
 	if _, err := h.dispatch(engine.OriginGUI, "editor.setText", map[string]any{"id": tab.Tab.ID, "yaml": "adminPassword: hunter3\nreplicas: 5\n"}); err != nil {
 		t.Fatal(err)
 	}
-	res, err := h.dispatch(engine.OriginGUI, "helm.release.upgrade", map[string]any{"ref": webRef, "tab": tab.Tab.ID})
+	res, err := h.dispatch(engine.OriginGUI, "helm.release.upgrade", map[string]any{"ref": webRef, "tab": tab.Tab.ID, "textRevision": tabRevision(t, h, tab.Tab.ID)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +101,7 @@ func TestHelmUpgradeTab(t *testing.T) {
 		t.Errorf("after the upgrade the tab is based on %d (stale %v)", st.BaseRevision, st.Stale)
 	}
 	// A second upgrade from the same tab is based on the new revision.
-	if _, err := h.dispatch(engine.OriginGUI, "helm.release.upgrade", map[string]any{"ref": webRef, "tab": tab.Tab.ID}); err != nil {
+	if _, err := h.dispatch(engine.OriginGUI, "helm.release.upgrade", map[string]any{"ref": webRef, "tab": tab.Tab.ID, "textRevision": tabRevision(t, h, tab.Tab.ID)}); err != nil {
 		t.Fatal(err)
 	}
 	h.waitRelease(t, "apps", "web", 5)
@@ -117,7 +127,7 @@ func TestHelmUpgradeRefusedWhenTheReleaseMoved(t *testing.T) {
 	if st := res.(engine.EditorState); !st.Stale || st.BaseRevision != 3 || st.CachedRevision != 4 {
 		t.Errorf("editor state %+v", st)
 	}
-	_, err := h.dispatch(engine.OriginGUI, "helm.release.upgrade", map[string]any{"ref": webRef, "tab": tab.Tab.ID})
+	_, err := h.dispatch(engine.OriginGUI, "helm.release.upgrade", map[string]any{"ref": webRef, "tab": tab.Tab.ID, "textRevision": tabRevision(t, h, tab.Tab.ID)})
 	if !errors.Is(err, engine.ErrTargetsChanged) || !strings.Contains(err.Error(), "revision 4 now") {
 		t.Errorf("tab upgrade after the release moved: %v", err)
 	}
@@ -162,7 +172,7 @@ func TestHelmUpgradeAgents(t *testing.T) {
 	h.mu.Lock()
 	h.answer = false
 	h.mu.Unlock()
-	if _, err := h.dispatch(engine.OriginExternalAgent, "helm.release.upgrade", map[string]any{"ref": webRef, "tab": tab.Tab.ID}); !errors.Is(err, engine.ErrDeclined) {
+	if _, err := h.dispatch(engine.OriginExternalAgent, "helm.release.upgrade", map[string]any{"ref": webRef, "tab": tab.Tab.ID, "textRevision": tabRevision(t, h, tab.Tab.ID)}); !errors.Is(err, engine.ErrDeclined) {
 		t.Errorf("declined upgrade: %v", err)
 	}
 	h.mu.Lock()
@@ -205,6 +215,37 @@ func TestHelmUpgradeAgents(t *testing.T) {
 // are refused before anything runs; an upgrade the SDK refuses before it changed the release
 // (ErrUnchanged) leaves no journal entry; one that fails after it is kept as failed, with its
 // error scrubbed of the values.
+// An upgrade from a tab is bound to the text revision the user reviewed: an agent that changes
+// the tab's text while its upgrade's confirmation is open has the upgrade refused, and an
+// upgrade from a tab without a text revision is refused (review of the fourth run, R-2).
+func TestHelmUpgradeTabBoundToTheReviewedText(t *testing.T) {
+	h := newHelmHarness(t, engine.NewMemoryHelmJournal(), nil)
+	tab := openUpgradeTab(t, h, engine.OriginExternalAgent)
+	h.mu.Lock()
+	h.onAsk = func() {
+		if _, err := h.dispatch(engine.OriginExternalAgent, "editor.setText", map[string]any{"id": tab.Tab.ID, "yaml": "image: evil:latest\n"}); err != nil {
+			t.Error(err)
+		}
+	}
+	h.mu.Unlock()
+	_, err := h.dispatch(engine.OriginExternalAgent, "helm.release.upgrade", map[string]any{"ref": webRef, "tab": tab.Tab.ID, "textRevision": tab.Revision})
+	if err == nil || !strings.Contains(err.Error(), "changed") {
+		t.Errorf("upgrade with the text changed during its confirmation: %v", err)
+	}
+	h.mu.Lock()
+	h.onAsk = nil
+	h.mu.Unlock()
+	if _, err := h.dispatch(engine.OriginExternalAgent, "helm.release.upgrade", map[string]any{"ref": webRef, "tab": tab.Tab.ID}); err == nil {
+		t.Error("upgrade from a tab without a text revision ran")
+	}
+	h.server.mu.Lock()
+	n := len(h.server.upgrades)
+	h.server.mu.Unlock()
+	if n != 0 {
+		t.Errorf("%d upgrades ran, want none", n)
+	}
+}
+
 func TestHelmUpgradeFailures(t *testing.T) {
 	journal := engine.NewMemoryHelmJournal()
 	h := newHelmHarness(t, journal, nil)
