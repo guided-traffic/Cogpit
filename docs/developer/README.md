@@ -50,7 +50,7 @@ cogpit/
 ├─ cmd/cogpit-cli/            headless CLI and MCP stdio bridge (pure Go)
 ├─ internal/                  packages, layered L0–L4 (architecture.md §2–§3)
 ├─ hack/kind/                 kind cluster config and seed manifests (make kind-up)
-├─ hack/icon/                 generator of the app icon
+├─ hack/icon/                 generator of the app icon (make icon; internal/ui/logo draws it)
 ├─ hack/parity/               make parity: checks the parity checklists and counts what they report
 ├─ hack/readmecmds/           the README's table of commands, from the registry
 ├─ packaging/                 icon.png; per-OS packaging later
@@ -78,6 +78,7 @@ cogpit/
 | `internal/agent` | L4 | Built-in agent with an OpenAI-compatible endpoint (not built) |
 | `internal/update` | L4 | Update check, verification and install (not built) |
 | `internal/ui/fyneui` | L4 | The Fyne shell; `yamlview` the YAML viewer and editor, `termview` the terminal and log widgets |
+| `internal/ui/logo` | L4 | The C helm logo ([D-24](decisions.md#d-24-logo)) rasterised for the app icon (`hack/icon`) and the header's mark; imports no Fyne |
 | `internal/testkit` | – | In-memory source, fake API server, object builders; `integration/` holds cross-package and kind tests |
 
 ## Core flows, one fact each

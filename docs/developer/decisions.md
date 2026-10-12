@@ -564,8 +564,15 @@ and twelve variations of the C helm; the lab's settings were
 The exact geometry is the reference: [`assets/cogpit-icon.svg`](assets/cogpit-icon.svg) (the app
 icon) and [`assets/cogpit-mark-dark.svg`](assets/cogpit-mark-dark.svg),
 [`assets/cogpit-mark-light.svg`](assets/cogpit-mark-light.svg) (the mark on dark and light bars).
-The app icon (`hack/icon` → `packaging/icon.png`) and the header's logo (`bars.go`) are to be
-redrawn from it. Not built yet.
+**Built 2026-10-12:** both are drawn from the reference's geometry and settings by one rasteriser,
+[`internal/ui/logo`](../../internal/ui/logo/logo.go) (pure Go, no Fyne, so that the icon generator
+and the header share it; its test checks the stroke widths against the three SVGs). The app icon
+(`make icon` → `hack/icon` → `packaging/icon.png`) carries its own plate with transparent corners
+and the margin of macOS icons (100 of 1024 pixels, the radius `fyne package` would mask), so `make app`
+passes `--use-raw-icon`; without it `fyne package` shrinks and masks an icon a second time. The
+header's mark ([`bars.go`](../../internal/ui/fyneui/bars.go), `newLogo`) is drawn at the pixel size the
+canvas shows it at, 20 units (`sizeLogo`), in the heavy weights, with the theme's `logo` tokens
+(base1 and cyan on the dark theme, base01 and cyan on the light one, as the reference's two marks).
 
 ## D-25: Copying values
 

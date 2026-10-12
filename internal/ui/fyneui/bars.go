@@ -3,7 +3,9 @@ package fyneui
 import (
 	"encoding/json"
 	"fmt"
+	"image"
 	"image/color"
+	"math"
 	"net/url"
 	"strconv"
 
@@ -15,6 +17,7 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/model"
+	logoart "github.com/guided-traffic/cogpit/internal/ui/logo"
 )
 
 // connectionColor maps a connection state to a status colour token.
@@ -96,53 +99,66 @@ func (t *topBar) update() {
 	t.state.SetText(connectionText(ui.Connection))
 }
 
-// newLogo draws Cogpit's mark: a ring with a filled centre, like a gauge in a cockpit. Drawn from
-// canvas primitives in the accent colour; no image asset.
-func newLogo() fyne.CanvasObject { return &logo{} }
+// newLogo draws Cogpit's mark, the "C helm" of D-24: an open C around a ship's wheel, in the heavy
+// line weights for a bar (internal/ui/logo, the geometry of docs/developer/assets/cogpit-mark-*.svg).
+// The inks are theme tokens, so the mark follows the theme; the picture is drawn at the pixel size
+// the canvas shows it at.
+func newLogo() fyne.CanvasObject {
+	l := &logo{}
+	l.ExtendBaseWidget(l)
+	return l
+}
 
-type logo struct{ widget.BaseWidget }
+type logo struct {
+	widget.BaseWidget
+	px         int         // the size the picture was drawn at, in pixels
+	frame, acc color.Color // and with these inks
+}
 
 // CreateRenderer implements fyne.Widget.
 func (l *logo) CreateRenderer() fyne.WidgetRenderer {
-	l.ExtendBaseWidget(l)
-	r := &logoRenderer{l: l, ring: canvas.NewCircle(nil), hub: canvas.NewCircle(nil)}
+	img := canvas.NewImageFromImage(nil)
+	img.FillMode, img.ScaleMode = canvas.ImageFillContain, canvas.ImageScaleSmooth
+	r := &logoRenderer{l: l, img: img}
 	r.Refresh()
 	return r
 }
 
 type logoRenderer struct {
-	l         *logo
-	ring, hub *canvas.Circle
+	l   *logo
+	img *canvas.Image
 }
 
 func (r *logoRenderer) MinSize() fyne.Size {
-	s := r.l.Theme().Size(theme.SizeNameInlineIcon) + 2
+	s := r.l.Theme().Size(sizeLogo)
 	return fyne.NewSize(s, s)
 }
 
 func (r *logoRenderer) Layout(size fyne.Size) {
 	s := r.MinSize().Width
-	off := fyne.NewPos((size.Width-s)/2, (size.Height-s)/2)
-	r.ring.Move(off)
-	r.ring.Resize(fyne.NewSize(s, s))
-	h := s * 0.36
-	r.hub.Move(off.AddXY((s-h)/2, (s-h)/2))
-	r.hub.Resize(fyne.NewSize(h, h))
+	r.img.Move(fyne.NewPos((size.Width-s)/2, (size.Height-s)/2))
+	r.img.Resize(fyne.NewSize(s, s))
 }
 
 func (r *logoRenderer) Refresh() {
-	th := r.l.Theme()
-	accent := themeColor(th, colorAccent)
-	r.ring.FillColor = nil
-	r.ring.StrokeColor = accent
-	r.ring.StrokeWidth = r.MinSize().Width * 0.14 // proportional to the theme's icon size
-	r.hub.FillColor = accent
-	r.Layout(r.l.Size())
-	r.ring.Refresh()
-	r.hub.Refresh()
+	l, th := r.l, r.l.Theme()
+	frame, accent := themeColor(th, colorLogo), themeColor(th, colorLogoAccent)
+	scale := float32(1)
+	if c := fyne.CurrentApp().Driver().CanvasForObject(l); c != nil {
+		scale = c.Scale()
+	}
+	px := int(math.Ceil(float64(r.MinSize().Width * scale)))
+	if px != l.px || frame != l.frame || accent != l.acc || r.img.Image == nil {
+		img := image.NewNRGBA(image.Rect(0, 0, px, px))
+		logoart.Draw(img, logoart.Mark(), logoart.Colors{Frame: frame, Accent: accent}, float64(px)/logoart.Box, 0, 0)
+		r.img.Image = img
+		l.px, l.frame, l.acc = px, frame, accent
+	}
+	r.Layout(l.Size())
+	r.img.Refresh()
 }
 
-func (r *logoRenderer) Objects() []fyne.CanvasObject { return []fyne.CanvasObject{r.ring, r.hub} }
+func (r *logoRenderer) Objects() []fyne.CanvasObject { return []fyne.CanvasObject{r.img} }
 func (r *logoRenderer) Destroy()                     {}
 
 // diagView is what the status bar shows from engine.Diagnostics, prepared off the main

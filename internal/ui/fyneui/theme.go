@@ -38,8 +38,10 @@ const (
 	colorAccent          fyne.ThemeColorName = "cogpit.accent"
 	colorChip            fyne.ThemeColorName = "cogpit.chip"
 	colorToast           fyne.ThemeColorName = "cogpit.toast"
-	colorLink            fyne.ThemeColorName = "cogpit.link"    // a cell or drawer value that names an object
-	colorTooltip         fyne.ThemeColorName = "cogpit.tooltip" // a tooltip's background
+	colorLink            fyne.ThemeColorName = "cogpit.link"       // a cell or drawer value that names an object
+	colorTooltip         fyne.ThemeColorName = "cogpit.tooltip"    // a tooltip's background
+	colorLogo            fyne.ThemeColorName = "cogpit.logo"       // the logo's C, handles and outer ring
+	colorLogoAccent      fyne.ThemeColorName = "cogpit.logoAccent" // the logo's wheel, needle and hub
 )
 
 // Status colour tokens, one per model.Status.
@@ -78,6 +80,7 @@ const (
 	sizeTooltipOffset fyne.ThemeSizeName = "cogpit.tooltipOffset" // a tooltip's distance from the pointer
 	sizeDialogWidth   fyne.ThemeSizeName = "cogpit.dialogWidth"   // a command's parameter dialog
 	sizeHealthBar     fyne.ThemeSizeName = "cogpit.healthBar"     // a health bar's height (Workloads Overview)
+	sizeLogo          fyne.ThemeSizeName = "cogpit.logo"          // the header's mark (D-24: 20 pixels)
 )
 
 // palette is one variant's colours: Solarized Dark and Solarized Light as VS Code's built-in themes
@@ -148,6 +151,8 @@ var darkPalette = palette{
 		colorChip:            hex(0x004052),
 		colorToast:           hex(0x003847),
 		colorLink:            hex(solCyan),
+		colorLogo:            hex(0x93a1a1), // base1
+		colorLogoAccent:      hex(solCyan),
 		colorTooltip:         hex(0x003847), // editorHoverWidget.background #004052 is 3.6:1 under the text
 	},
 	status: map[model.Status]color.Color{
@@ -209,6 +214,8 @@ var lightPalette = palette{
 		colorChip:            hex(0xddd6c1),
 		colorToast:           hex(0xeee8d5),
 		colorLink:            hex(0x1b6761),
+		colorLogo:            hex(0x586e75), // base01, as the reference's mark for light bars
+		colorLogoAccent:      hex(solCyan),
 		colorTooltip:         hex(0xeee8d5), // editorHoverWidget.background #ccc4b0 is 3.1:1 under the text
 	},
 	status: map[model.Status]color.Color{
@@ -401,6 +408,8 @@ func (t *cogTheme) Size(n fyne.ThemeSizeName) float32 {
 		return 420
 	case sizeHealthBar:
 		return 6
+	case sizeLogo:
+		return 20
 	}
 	return t.base.Size(n)
 }

@@ -188,7 +188,7 @@ $(FYNE):
 app: build $(FYNE) ## Package Cogpit for this OS with fyne package (macOS: bin/Cogpit.app)
 	rm -rf $(BIN)/Cogpit.app
 	cd $(BIN) && $(FYNE) package --os $(APP_OS) --src $(CURDIR)/cmd/cogpit --executable $(BIN)/cogpit --release \
-		--name Cogpit --app-id $(APP_ID) --app-version $(VERSION) --icon $(CURDIR)/packaging/icon.png
+		--name Cogpit --app-id $(APP_ID) --app-version $(VERSION) --icon $(CURDIR)/packaging/icon.png --use-raw-icon
 	@# macOS: fyne package leaves the category empty (only fyne release sets one); the ad-hoc
 	@# signature seals the bundle so codesign --verify passes. Then check what Finder needs.
 	@if [ "$(APP_OS)" = darwin ]; then \
