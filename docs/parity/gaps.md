@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -208,8 +208,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## Feature gaps
 
 ### G6. Resource views
-- **Missing:** 4 of the 64 resource views ([resource-parity](resource-parity.md), 2026-10-13: the
-  cluster Overview, Applications, Helm Charts, Pod Security Policies; Vertical Pod Autoscalers and
+- **Missing:** 3 of the 64 resource views ([resource-parity](resource-parity.md), 2026-10-13: the
+  cluster Overview, Helm Charts, Pod Security Policies; Applications, Vertical Pod Autoscalers and
   the four Device Resources views partial since 2026-10-13), and the depth of the partial ones
   (metrics columns, texts and rules checked against a capture). Of the about 20 the alpha gate
   needs, still missing: the cluster overview.
@@ -285,7 +285,16 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   columns and the drawer inferred ([`verticalpodautoscalers.go`](../../internal/model/kinds/verticalpodautoscalers.go),
   `TestVerticalPodAutoscalersFollowTheirDefinition`; on kind with the definition only,
   `TestKindVerticalPodAutoscalers`). The demo cluster serves no definitions, so it shows none.
-- **Estimate:** 16–70 h (was 30–100; 2–6 h each for the 4 missing views, plus depth: captures, metrics columns).
+  Applications (2026-10-13): partial, a virtual kind made of several kinds: the cached workloads
+  grouped per namespace by `app.kubernetes.io/instance` ([`applications.go`](../../internal/model/kinds/applications.go)),
+  served from a cache of its own whose source holds the workloads' handles only while something
+  reads the applications ([`engine/applications.go`](../../internal/engine/applications.go);
+  one watch per workload kind and no other request, `TestBudgetApplicationsView`; the handles go
+  back after the view closes, `TestApplicationsReleaseTheWorkloads`); Logs as `application.logs`,
+  a `workload.logs` tab per workload (`TestApplicationLogsOpensATabPerWorkload`); the demo's
+  deployments carry the recommended labels. Inferred and marked: Status, Violations, which
+  workloads count, the drawer.
+- **Estimate:** 12–60 h (was 30–100; 2–6 h each for the 3 missing views, plus depth: captures, metrics columns).
 
 ### G7. Resource actions
 - **Missing:** the actions not listed under Evidence, of 39 (Share is not a target, owner 2026-10-11). The alpha gate needs about 20: logs, shell, attach, edit, delete,
@@ -858,6 +867,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | G6: Applications partial (a virtual kind over the cached workloads, Logs per workload); 3 views missing, estimate 12–60 h |
 | 2026-10-13 | minor | G6: Vertical Pod Autoscalers partial (a curated profile of the CRD kind); 4 views missing, estimate 16–70 h |
 | 2026-10-13 | minor | G6: Resource Claims, Resource Claim Templates, Device Classes and Resource Slices partial (Lens's documented columns), the pod drawer's Resource Claims section; 5 views missing, estimate 20–80 h |
 | 2026-10-13 | minor | G11: chart repositories in Cogpit's own folders, the Charts view, the Helm Install tab and the install as a crash-safe job (night run); what is left and what to capture |

@@ -1,13 +1,13 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (§4.5 curated profiles of CRD kinds, the Vertical Pod Autoscalers; Current state: the four Device Resources views, 45 built-in views; §8: Helm chart repositories kept in Cogpit's own folders, the Charts view and the install, G11; §8: Helm chart repositories kept in Cogpit's own folders and the Charts view, G11; the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7; `cogpit-cli` contexts and get, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (§5 a virtual kind made of several kinds, the Applications; §4.5 curated profiles of CRD kinds, the Vertical Pod Autoscalers; Current state: the four Device Resources views, 45 built-in views; §8: Helm chart repositories kept in Cogpit's own folders, the Charts view and the install, G11; §8: Helm chart repositories kept in Cogpit's own folders and the Charts view, G11; the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7; `cogpit-cli` contexts and get, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-12)
 
 The local MVP is built and was extended by a second and a third implementation run (2026-10-11),
 a fourth and a fifth (2026-10-12):
 a macOS desktop app that connects to a kubeconfig context or a synthetic demo cluster, shows 45
-built-in views (41 until the four Device Resources views of 2026-10-13), the Port Forwarding view (a local kind), the Helm Releases view (a virtual kind),
+built-in views (41 until the four Device Resources views of 2026-10-13), the Port Forwarding view (a local kind), the Helm Releases view (a virtual kind), the Applications view (a virtual kind made of several kinds, 2026-10-13),
 the Workloads Overview page and one view per custom resource kind from a watch-fed cache, greys
 what the user's access reviews deny, has a detail drawer and row menus from the command registry,
 a dock with logs (with their options and the logs of a workload's pods), a local terminal, pod
@@ -812,6 +812,21 @@ closes; opening the Secrets view again moves the releases back and closes theirs
   `Derive` runs on every snapshot and lookup and memoizes its own expensive work; the derived
   objects carry a UID and resourceVersion that change with them, which the row cache and the
   confirmation's UID binding use.
+- **A virtual kind made of several kinds** (built 2026-10-13): the Applications, the cached
+  Deployments, Stateful Sets, Daemon Sets, Cron Jobs and Jobs grouped by
+  `app.kubernetes.io/instance` ([`kinds.GroupApplications`](../../internal/model/kinds/applications.go)).
+  `Derive` sees one scope's objects only, so the kind gets a cache of its own, as the local kinds
+  do: `Backend.Acquire` routes its profile to an informer over a source
+  ([`engine/applications.go`](../../internal/engine/applications.go)) that serves the grouped
+  objects from a `cache.Memory`. The source holds handles on the workload kinds on the cluster's
+  cache from its informer's first list until its last watch stops (the view closed and the warm
+  period over) plus two seconds, regroups after their events (coalesced to 100 ms, an object
+  set again only when its content changed), and a list waits, bounded, until every workload kind
+  listed or failed; `Cached` and `Listable` follow it (listable when a workload kind is). The
+  profile's `Derive` passes the objects through, which marks the kind virtual: no Edit or Delete,
+  a flat drawer without events. Measured: one watch per workload kind, shared with their views,
+  and no other request (`TestBudgetApplicationsView`); the handles go back after the view closes
+  (`TestApplicationsReleaseTheWorkloads`).
 - `object.edit` and `object.delete` do not apply to local and virtual kinds
   (`KindProfile.APIObject`); such kinds bring their own commands. `kinds.list` marks them `local`
   and `virtual` (2026-10-12), and the GUI shows no "+" (Create resource) on their views.
@@ -1937,6 +1952,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | §5: a virtual kind made of several kinds (the Applications), served from its own cache whose source holds the workloads' handles while read; Current state |
 | 2026-10-13 | minor | §4.5: curated profiles of CRD kinds built (`kinds.ProfileFor`), the Vertical Pod Autoscalers the first |
 | 2026-10-13 | minor | Current state: the four Device Resources kinds (`resource.k8s.io/v1`), 45 built-in views |
 | 2026-10-13 | minor | §8 install (G11, night run): the Helm Install tab with the chart downloaded and checked against the index digest, the server-side dry run as the preview, the install as a crash-safe job offered as an uninstall, values scrubbed of what differs from the chart's defaults |

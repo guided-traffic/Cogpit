@@ -49,6 +49,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerHotbar(g)
 	registerCreateDialogs(g)
 	registerPalette(g)
+	registerApplications(g)
 	return g.err
 }
 

@@ -540,6 +540,9 @@ func (b *Backend) Listable(p *model.KindProfile, filter []string) (listable, kno
 	if p.Local {
 		return true, true
 	}
+	if isApplications(p) { // the workloads it is made of decide (applications.go)
+		return b.applicationsListable(filter)
+	}
 	switch a := b.Access.(type) {
 	case nil:
 		return true, true

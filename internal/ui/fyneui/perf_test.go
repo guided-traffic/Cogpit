@@ -64,7 +64,7 @@ func TestPerfGateRunsEveryPhase(t *testing.T) {
 		t.Fatalf("phases %v", names)
 	}
 	views := got.Phases[2]
-	if len(views.Switches) != 6 {
+	if len(views.Switches) != 7 { // the demo's views but Pods, Applications among them (2026-10-13), then Pods
 		t.Fatalf("switches %+v", views.Switches)
 	}
 	for _, sw := range views.Switches {

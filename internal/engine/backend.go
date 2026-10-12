@@ -62,6 +62,8 @@ type Backend struct {
 	custom *customKinds
 	// local holds the objects of the local kinds (kindscope.go), made on first use.
 	local localStore
+	// apps is the Applications view's cache (applications.go), made on first use.
+	apps appsStore
 	// forwards are the backend's running port forwards (portforward.go); they end with it.
 	forwards forwardSet
 }
@@ -100,6 +102,7 @@ func (b *Backend) close(log *slog.Logger) {
 		b.custom.stop()
 	}
 	b.forwards.stopAll()
+	b.apps.close() // before the cluster's cache: it releases its handles on the workloads
 	b.local.close()
 	if b.Metrics != nil {
 		b.Metrics.Close()

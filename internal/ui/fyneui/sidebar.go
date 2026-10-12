@@ -83,6 +83,7 @@ const (
 // Applications, the Flux CD dashboard, Port Forwarding, Helm) come with their views. Listener Sets
 // are listed under both groups Gateway API releases used for them.
 var navLayout = []navEntry{
+	{id: "applications"}, // a virtual kind, the workloads grouped by app.kubernetes.io/instance
 	{id: "nodes"},
 	navGroup("workloads", "Workloads", page(engine.WorkloadsOverview),
 		kindPods, "deployments", "daemonsets", "statefulsets", "replicasets", "replicationcontrollers", "jobs", "cronjobs"),
@@ -137,6 +138,7 @@ var (
 // app runs then, and each lookup logged "Attempt to access current Fyne app when none is started"
 // (ten lines at every start) and got the fallback theme's icon.
 var navIcons = map[string]func() fyne.Resource{
+	"applications":            theme.ViewRestoreIcon,
 	"nodes":                   theme.ComputerIcon,
 	groupPrefix + "workloads": theme.GridIcon,
 	groupPrefix + "config":    theme.SettingsIcon,

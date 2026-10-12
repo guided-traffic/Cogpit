@@ -135,6 +135,7 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 	if slices.ContainsFunc(profiles, isSecrets) {
 		profiles = append(slices.Clip(profiles), helm.NewReleaseProfile())
 	}
+	profiles = withApplications(profiles) // applications.go
 	// The local kinds (port forwards) are Cogpit's own objects: every real cluster offers them.
 	profiles = append(slices.Clip(profiles), kinds.Local()...)
 	ch := cache.New(cache.DynamicSource(conn.Dynamic(), conn.Metadata()), cache.Options{WarmPeriod: c.WarmPeriod, Logger: c.Logger})
@@ -203,7 +204,7 @@ func demoProfiles() []*model.KindProfile {
 	for _, gvr := range demo.Resources() {
 		served[gvr] = true
 	}
-	return servedProfiles(kinds.Builtin(), served)
+	return withApplications(servedProfiles(kinds.Builtin(), served))
 }
 
 // connectDemo builds the synthetic cluster and starts its churn.

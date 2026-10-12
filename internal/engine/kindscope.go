@@ -76,6 +76,9 @@ func (b *Backend) Scope(p *model.KindProfile) cache.Scope {
 // kind, on the cluster's cache otherwise. The caller releases it. For a virtual kind the handle
 // holds the objects Derive works on; read the kind's objects through KindList and KindGet.
 func (b *Backend) Acquire(p *model.KindProfile) *cache.Handle {
+	if isApplications(p) { // made of several kinds' objects: a cache of its own (applications.go)
+		return b.apps.get(b).Acquire(b.Scope(p))
+	}
 	if p.Local {
 		_, c := b.local.get(b.logger())
 		return c.Acquire(b.Scope(p))

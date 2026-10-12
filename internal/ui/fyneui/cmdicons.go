@@ -18,6 +18,7 @@ var commandIcons = map[string]fyne.ThemeIconName{
 	"pod.evict":           theme.IconNameContentRemove,
 	"pod.logs":            theme.IconNameList,
 	"workload.logs":       theme.IconNameList,
+	"application.logs":    theme.IconNameList,
 	"pod.portForward":     theme.IconNameMailForward,
 	"service.portForward": theme.IconNameMailForward,
 	"portforward.open":    theme.IconNameVisibility,

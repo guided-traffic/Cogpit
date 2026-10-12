@@ -230,8 +230,9 @@ func TestClusterConnectorContextsAndDemo(t *testing.T) {
 	if !b.Demo || b.Context != DemoContext || b.Conn != nil || b.CanWrite() || len(b.Profiles) == 0 || b.DemoStats == nil {
 		t.Errorf("demo backend %+v", b)
 	}
-	// Only the kinds the demo serves get a view, as discovery decides on a real cluster.
-	if len(b.Profiles) != len(demo.Resources()) {
-		t.Errorf("demo offers %d views for %d served kinds", len(b.Profiles), len(demo.Resources()))
+	// Only the kinds the demo serves get a view, as discovery decides on a real cluster, and the
+	// Applications made of its deployments (applications.go).
+	if len(b.Profiles) != len(demo.Resources())+1 {
+		t.Errorf("demo offers %d views for %d served kinds and Applications", len(b.Profiles), len(demo.Resources()))
 	}
 }
