@@ -417,6 +417,9 @@ type UIState struct {
 	Hotbar    *HotbarState      // the hotbar's banks and the shown one (2026-10-12)
 	Palette   bool              // the command palette is open (2026-10-13)
 	Overview  OverviewChoice    // the cluster Overview's chart range and node group (2026-10-13)
+	Preferences     *Preferences               // Cogpit's own settings (2026-10-13)
+	ClusterSettings map[string]ClusterSettings // display name, icon, terminal, per context (2026-10-13)
+	Settings        *SettingsPage              // the open Preferences or Cluster settings page (2026-10-13)
 }
 ```
 
@@ -471,6 +474,36 @@ or the contexts (`EventContexts`) change and changes the hotbar only through the
 no shortcut of an unmodified or shifted key, so F1–F12 and ⇧F1–⇧F12 reach the window's typed-key
 handler (Shift read from the desktop driver) and the table's `TypedKey` (which tracks Shift), both
 of which hand them to the hotbar; a focused text field or terminal keeps them.
+
+**Preferences and cluster settings are engine state** (built 2026-10-13, G13,
+[`engine/preferences.go`](../../internal/engine/preferences.go),
+[`engine/clustersettings.go`](../../internal/engine/clustersettings.go),
+[`commands/preferences.go`](../../internal/engine/commands/preferences.go),
+[`commands/clustersettings.go`](../../internal/engine/commands/clustersettings.go)). `UIState.Preferences`
+holds Cogpit's own settings (theme, time zone, the tables' row height, the editor's font size, line
+numbers and tab size, the terminal's font size, the local shell and its arguments), nil in a
+session that keeps none (`Options.Preferences` unset: `cogpit-cli`); `UIState.ClusterSettings` holds,
+per context id, what the user set for that cluster (display name, icon colour or uploaded image,
+the terminals' working directory and kubectl namespace), only contexts with settings; and
+`UIState.Settings` the open settings page (`preferences` or `cluster` with its context, and the
+section shown). The stores keep them as the hotbar's does: `<user config dir>/Cogpit/preferences.json`
+and `cluster-settings.json`, read once, written whole through `writePrivateFile` (0600 in a 0700
+directory), a file that does not load moved to `<file>.unreadable` before the first change, a field
+out of bounds dropped on load without costing the others; uploaded icons are kept in
+`cluster-icons/<sha256>.png|svg` and removed when no context uses them. `Session.ChangePreferences`
+and `Session.ChangeClusterSettings` check the result, write, and only then show it through
+`UpdateUI`. Commands: `preferences.get`, `preferences.set` (partial: the fields given),
+`preferences.open` (⌘,), `cluster.settings.get`, `cluster.settings.set`, `cluster.settings.uploadIcon`,
+`cluster.settings.resetIcon`, `cluster.settings.open` (⌘⇧,, the connected context unless one is named)
+and `settings.close`; all UI or read commands that agents run freely (D-2), except two refused for
+every origin but the GUI: the local terminal's shell and arguments in `preferences.set`
+(`ErrShellGUIOnly`: they name a program Cogpit runs, and an agent can open a terminal) and the icon
+upload (`ErrIconGUIOnly`: it reads a file on this computer). Where they take effect: the time zone
+in the engine's clock for the drawer (`displayNow`: Created is written in that zone) and in the
+GUI's charts; the shell, its arguments and the cluster's working directory and namespace when a
+local terminal starts (`Session.LocalTerminalOptions`: the cluster's namespace, when set, replaces
+the namespace filter's, Cogpit's default); the rest in the GUI. The Prometheus a cluster's metrics
+come from stays in `metrics.json` (§9), unchanged.
 
 **Panel widths are GUI-only** (decided 2026-10-12, [`panelwidths.go`](../../internal/ui/fyneui/panelwidths.go)):
 the width of the primary sidebar and of the detail drawer is a window-layout preference, not UI

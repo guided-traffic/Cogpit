@@ -76,7 +76,7 @@ func startLocal(opts LocalOptions) (Session, error) {
 	// shell, which reads the user's profile as a terminal app's shell does.
 	cmd := &exec.Cmd{
 		Path: shellPath,
-		Args: []string{"-" + filepath.Base(shellPath)},
+		Args: append([]string{"-" + filepath.Base(shellPath)}, opts.Args...),
 		Dir:  dir,
 		Env:  localEnv(opts.Env, binding.kubeconfigVar(cfgPath)),
 	}

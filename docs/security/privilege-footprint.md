@@ -19,6 +19,11 @@ repositories and listing their charts (2026-10-13) sends no request to a cluster
 downloads public indexes over https from the repositories the user added ([architecture §8](../developer/architecture.md#8-helm-internalhelm)). Adding and syncing kubeconfigs
 (2026-10-12) sends no request to a cluster; what they let run on the user's computer is in
 [credentials](credentials.md) and [trust boundaries](trust-boundaries.md#h-1-kubeconfig-files-added-by-sync-folders).
+The Preferences and Cluster settings (2026-10-13: `preferences.*`, `cluster.settings.*`) send no
+request either and write only Cogpit's own `preferences.json`, `cluster-settings.json` and
+`cluster-icons/`, never a kubeconfig (`TestClusterSettingsCommandsNeverTouchTheKubeconfig`); a
+cluster's terminal namespace is written into the terminal's own kubeconfig as the filter's
+namespace already was ([credentials](credentials.md#the-terminals-kubeconfig)).
 
 Verbs and subresources follow Kubernetes RBAC
 ([RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/),

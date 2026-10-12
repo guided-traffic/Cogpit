@@ -55,7 +55,7 @@ func run(previousCrash string) int {
 		perfMode    = flag.String("perf-mode", "", "with --perf (or alone for gate): scroll, or gate for start-up, scrolling, every view and typing into 5 MB of YAML in one run")
 		cpuProfile  = flag.String("cpuprofile", "", "write a CPU profile of the first --cpuprofile-for to this file")
 		cpuFor      = flag.Duration("cpuprofile-for", 5*time.Second, "how long --cpuprofile records")
-		themeName   = flag.String("theme", "dark", "colour theme: dark, light or system")
+		themeName   = flag.String("theme", "", "colour theme for this run: dark, light or system; default: the Preferences' theme (dark until set)")
 		verbose     = flag.Bool("v", false, "debug logging")
 	)
 	flag.Parse()
@@ -96,7 +96,8 @@ func run(previousCrash string) int {
 		MetricsSettings: openMetricsSettings(logger),
 	}
 	s := engine.New(engine.Options{Connector: connector, Audit: audit, Logger: logger, Drains: openDrainJournal(logger),
-		Helm: openHelmJournal(logger), Hotbar: openHotbar(logger), HelmRepos: openHelmRepos(logger)})
+		Helm: openHelmJournal(logger), Hotbar: openHotbar(logger), HelmRepos: openHelmRepos(logger),
+		Preferences: openPreferences(logger), ClusterSettings: openClusterSettings(logger)})
 	defer s.Close()
 	defer s.WatchKubeconfigs(0)() // sync folders: files that appear or leave are picked up
 	if err := commands.RegisterAll(s.Registry()); err != nil {
@@ -211,6 +212,30 @@ func openHotbar(logger *slog.Logger) *engine.Hotbar {
 		return engine.NewHotbar("")
 	}
 	return engine.NewHotbar(filepath.Join(dir, "Cogpit"))
+}
+
+// openPreferences keeps Cogpit's preferences (theme, time zone, editor, terminal, tables) in
+// <user config dir>/Cogpit/preferences.json, owner-only (G13). Without a configuration directory
+// they live in memory for the run.
+func openPreferences(logger *slog.Logger) *engine.PreferencesStore {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		logger.Warn("preferences are not kept after this run", "err", err)
+		return engine.NewPreferencesStore("")
+	}
+	return engine.NewPreferencesStore(filepath.Join(dir, "Cogpit"))
+}
+
+// openClusterSettings keeps each cluster's display name, icon and terminal settings in
+// <user config dir>/Cogpit/cluster-settings.json and its uploaded icons in cluster-icons/, owner-only,
+// never in the kubeconfig (G13). Without a configuration directory they live in memory for the run.
+func openClusterSettings(logger *slog.Logger) *engine.ClusterSettingsStore {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		logger.Warn("cluster settings are not kept after this run", "err", err)
+		return engine.NewClusterSettingsStore("")
+	}
+	return engine.NewClusterSettingsStore(filepath.Join(dir, "Cogpit"))
 }
 
 // openMetricsSettings keeps the Prometheus each cluster's metrics come from, as the user set it,

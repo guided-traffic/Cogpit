@@ -38,6 +38,9 @@ type Session interface {
 type LocalOptions struct {
 	// Shell is the shell to run; empty means $SHELL, else /bin/zsh. It runs as a login shell.
 	Shell string
+	// Args are the shell's arguments after its name (the Preferences' shell arguments); none
+	// by default.
+	Args []string
 	// Dir is the working directory; empty means the user's home directory.
 	Dir string
 	// KubeconfigPaths are the user's kubeconfig files in precedence order. The session's own

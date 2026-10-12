@@ -198,12 +198,14 @@ func ChipsItem(name string, chips []Chip) DetailItem {
 // PropertiesSection returns the generic part of the drawer's first section, the metadata every
 // kind shows: Created, Name, Namespace (a link), Labels (folded chips), Annotations (folded) and
 // Controlled By (a link for built-in owner kinds). Lens shows no UID (capture, 2026-10-11).
+// Created's time is written in now's zone (the engine passes the Locale timezone preference's,
+// 2026-10-13): RFC 3339 with that zone's offset, "Z" for UTC.
 func PropertiesSection(obj *unstructured.Unstructured, now time.Time) DetailSection {
 	s := DetailSection{Title: TitleProperties}
 	if ts := obj.GetCreationTimestamp(); !ts.IsZero() {
 		s.Items = append(s.Items, DetailItem{
 			Name:  "Created",
-			Value: FormatAge(now.Sub(ts.Time)) + " ago (" + ts.UTC().Format(time.RFC3339) + ")",
+			Value: FormatAge(now.Sub(ts.Time)) + " ago (" + ts.In(now.Location()).Format(time.RFC3339) + ")",
 		})
 	}
 	s.Items = append(s.Items, DetailItem{Name: "Name", Value: obj.GetName()})

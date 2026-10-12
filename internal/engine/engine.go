@@ -109,6 +109,12 @@ type Options struct {
 	// whose charts are the local kind helmcharts. Nil: the session has none, the repository
 	// commands are disabled and charts cannot be installed.
 	HelmRepos *HelmRepos
+	// Preferences keeps Cogpit's preferences (preferences.go), shown in UIState.Preferences. Nil:
+	// the session has none, the defaults apply and the preferences commands are disabled.
+	Preferences *PreferencesStore
+	// ClusterSettings keeps each context's settings (clustersettings.go), shown in
+	// UIState.ClusterSettings. Nil: the session has none and their commands are disabled.
+	ClusterSettings *ClusterSettingsStore
 }
 
 // Session is the engine for one desktop app or headless process. It is safe for concurrent use.
@@ -160,6 +166,8 @@ func New(opts Options) *Session {
 	opts.Helm.attach(s)   // nil-safe
 	opts.Hotbar.attach(s) // nil-safe
 	opts.HelmRepos.attach(s)
+	opts.Preferences.attach(s)
+	opts.ClusterSettings.attach(s)
 	return s
 }
 

@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"maps"
 	"slices"
 
 	"github.com/guided-traffic/cogpit/internal/model"
@@ -45,6 +46,14 @@ type UIState struct {
 	// Palette is set while the command palette is open (ui.palette.open, ⌘⇧P; palette.go). What
 	// the user types in it stays in the window, as the context picker's filter does.
 	Palette bool `json:"palette,omitempty"`
+	// Preferences are Cogpit's own settings (preferences.go); nil in a session that keeps none.
+	Preferences *Preferences `json:"preferences,omitempty"`
+	// ClusterSettings are the settings of every context that has some, by context id
+	// (clustersettings.go): display names and icons the hotbar, the picker and the navigator show.
+	ClusterSettings map[string]ClusterSettings `json:"clusterSettings,omitempty"`
+	// Settings is the open settings page, Preferences (⌘,) or a context's Cluster settings (⌘⇧,);
+	// nil while none is open.
+	Settings *SettingsPage `json:"settings,omitempty"`
 }
 
 // Connection is the state of the active cluster connection.
@@ -149,6 +158,15 @@ func (u UIState) Clone() UIState {
 	if u.Hotbar != nil {
 		h := u.Hotbar.Clone()
 		out.Hotbar = &h
+	}
+	if u.Preferences != nil {
+		p := u.Preferences.Clone()
+		out.Preferences = &p
+	}
+	out.ClusterSettings = maps.Clone(u.ClusterSettings)
+	if u.Settings != nil {
+		p := *u.Settings
+		out.Settings = &p
 	}
 	return out
 }

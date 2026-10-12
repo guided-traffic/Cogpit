@@ -1,0 +1,384 @@
+package engine
+
+import (
+	"errors"
+	"fmt"
+	"maps"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"sync"
+	"unicode"
+	"unicode/utf8"
+
+	"k8s.io/apimachinery/pkg/util/validation"
+)
+
+// Cluster settings (G13, docs/parity/ui-parity.md › Cluster settings): what the user sets for one
+// context in Cogpit, as Lens's cluster settings page holds it: the cluster's display name and
+// identity (an icon colour from the theme's accent palette, or an uploaded image), and the working
+// directory and default namespace of that cluster's terminals. They are kept per context id in
+// ClusterSettingsFile under Cogpit's configuration directory, the images in ClusterIconsDir beside
+// it, never in a kubeconfig and never in the cluster (D-2: no implicit kubeconfig writes). They
+// are engine state (UIState.ClusterSettings) so that the hotbar, the context picker and the
+// navigator show the same identity, and agents see and change it. The Prometheus a cluster's
+// metrics come from is a cluster setting too, kept apart in metrics.json (metricssettings.go).
+
+// ClusterSettingsFile is the cluster settings' file under Cogpit's configuration directory.
+const ClusterSettingsFile = "cluster-settings.json"
+
+// Bounds of the cluster settings.
+const (
+	maxClusterName         = 128
+	maxClusterSettings     = 1024 // contexts with settings; more are dropped on load and refused on change
+	maxTerminalDir         = 4096
+	clusterSettingsVersion = 1
+	homeVariable           = "$HOME" // what the page shows when no working directory is set (captured)
+)
+
+// IconColors are the colours a cluster's icon may take: Solarized's eight accents, the theme's
+// accent palette (D-22), drawn in each variant's legible shade (the GUI's theme tokens).
+var IconColors = []string{"cyan", "blue", "violet", "magenta", "red", "orange", "yellow", "green"}
+
+// ErrNoClusterSettings disables the cluster settings commands of a session that keeps none.
+var ErrNoClusterSettings = errors.New("this Cogpit keeps no cluster settings")
+
+// ClusterSettings are one context's settings. The zero value is a context's defaults: its own
+// name, the initials badge in the accent colour, terminals in $HOME and kubectl's own namespace.
+type ClusterSettings struct {
+	// Name is the display name; empty: the context's name.
+	Name string `json:"name,omitempty"`
+	// IconColor is one of IconColors; empty: the accent.
+	IconColor string `json:"iconColor,omitempty"`
+	// Icon is the uploaded image's file in ClusterIconsDir ("<sha256>.png" or "<sha256>.svg"),
+	// which takes the colour's place; empty: none.
+	Icon string `json:"icon,omitempty"`
+	// TerminalDir is the working directory of the cluster's local terminals: an absolute path,
+	// or one starting with $HOME or ~; empty: the home directory.
+	TerminalDir string `json:"terminalDir,omitempty"`
+	// TerminalNamespace is kubectl's namespace in the cluster's local terminals; empty: the
+	// namespace filter's single namespace, else the context's own.
+	TerminalNamespace string `json:"terminalNamespace,omitempty"`
+}
+
+// IsZero reports whether the settings are all defaults.
+func (c ClusterSettings) IsZero() bool { return c == ClusterSettings{} }
+
+// Check says why settings cannot be kept: the first field out of its bounds.
+func (c ClusterSettings) Check() error {
+	if err := checkClusterName(c.Name); err != nil {
+		return err
+	}
+	if c.IconColor != "" && !slices.Contains(IconColors, c.IconColor) {
+		return fmt.Errorf("icon colour %q: one of %s", c.IconColor, strings.Join(IconColors, ", "))
+	}
+	if c.Icon != "" && !validIconFile(c.Icon) {
+		return fmt.Errorf("icon %q is not an image Cogpit keeps", c.Icon)
+	}
+	if err := checkTerminalDir(c.TerminalDir); err != nil {
+		return err
+	}
+	if c.TerminalNamespace != "" {
+		if errs := validation.IsDNS1123Label(c.TerminalNamespace); len(errs) > 0 {
+			return fmt.Errorf("namespace %q: %s", c.TerminalNamespace, strings.Join(errs, "; "))
+		}
+	}
+	return nil
+}
+
+// normalize drops every field of settings read from a file that Check would refuse.
+func (c *ClusterSettings) normalize() {
+	if checkClusterName(c.Name) != nil {
+		c.Name = ""
+	}
+	c.Name = strings.TrimSpace(c.Name)
+	if c.IconColor != "" && !slices.Contains(IconColors, c.IconColor) {
+		c.IconColor = ""
+	}
+	if c.Icon != "" && !validIconFile(c.Icon) {
+		c.Icon = ""
+	}
+	if checkTerminalDir(c.TerminalDir) != nil {
+		c.TerminalDir = ""
+	}
+	if c.TerminalNamespace != "" && len(validation.IsDNS1123Label(c.TerminalNamespace)) > 0 {
+		c.TerminalNamespace = ""
+	}
+}
+
+func checkClusterName(name string) error {
+	switch {
+	case !utf8.ValidString(name):
+		return errors.New("a cluster's name must be text")
+	case utf8.RuneCountInString(name) > maxClusterName:
+		return fmt.Errorf("a cluster's name has at most %d characters", maxClusterName)
+	case strings.IndexFunc(name, unicode.IsControl) >= 0:
+		return errors.New("a cluster's name is one line without control characters")
+	}
+	return nil
+}
+
+// checkTerminalDir refuses a working directory that is not an absolute path, $HOME or ~ (alone or
+// followed by a path), on one line.
+func checkTerminalDir(dir string) error {
+	switch {
+	case dir == "":
+		return nil
+	case len(dir) > maxTerminalDir || !utf8.ValidString(dir) || strings.IndexFunc(dir, unicode.IsControl) >= 0:
+		return fmt.Errorf("the working directory is one line of at most %d bytes", maxTerminalDir)
+	case dir == homeVariable || dir == "~" || strings.HasPrefix(dir, homeVariable+"/") || strings.HasPrefix(dir, "~/"):
+		return nil
+	case !filepath.IsAbs(dir):
+		return fmt.Errorf("the working directory %q: an absolute path, or one starting with $HOME", dir)
+	}
+	return nil
+}
+
+// ExpandTerminalDir resolves a TerminalDir setting to a directory: $HOME and ~ become the user's
+// home directory; empty stays empty (the terminal's default, the home directory).
+func ExpandTerminalDir(dir string) (string, error) {
+	for _, home := range []string{homeVariable, "~"} {
+		if dir == home || strings.HasPrefix(dir, home+"/") {
+			h, err := os.UserHomeDir()
+			if err != nil {
+				return "", fmt.Errorf("the working directory %s: no home directory: %w", dir, err)
+			}
+			return filepath.Join(h, strings.TrimPrefix(dir, home)), nil
+		}
+	}
+	return dir, nil
+}
+
+// checkSettingsContext refuses a context id that cannot be a key of the settings file.
+func checkSettingsContext(id string) error {
+	if strings.TrimSpace(id) == "" || len(id) > maxHotbarContext || !utf8.ValidString(id) {
+		return errors.New("no context named")
+	}
+	return nil
+}
+
+// ClusterSettingsStore keeps every context's settings in ClusterSettingsFile and their images in
+// ClusterIconsDir, under one directory (the app's: <user config dir>/Cogpit). Safe for concurrent
+// use; two Cogpit processes keep one copy each and the last change wins.
+type ClusterSettingsStore struct {
+	dir string // empty: kept in memory only (and no images)
+
+	change     sync.Mutex // serialises ChangeClusterSettings from the write to the UI state
+	mu         sync.Mutex
+	by         map[string]ClusterSettings
+	loaded     bool
+	unreadable bool
+}
+
+// NewClusterSettingsStore returns the settings kept in dir; an empty dir keeps them in memory only.
+func NewClusterSettingsStore(dir string) *ClusterSettingsStore {
+	return &ClusterSettingsStore{dir: dir}
+}
+
+// Path returns the settings' file; empty when they are kept in memory only.
+func (c *ClusterSettingsStore) Path() string {
+	if c.dir == "" {
+		return ""
+	}
+	return filepath.Join(c.dir, ClusterSettingsFile)
+}
+
+type clusterSettingsDoc struct {
+	Version  int                        `json:"version"`
+	Clusters map[string]ClusterSettings `json:"clusters"`
+}
+
+// load reads the file once. c.mu is held.
+func (c *ClusterSettingsStore) load() error {
+	if c.loaded {
+		return nil
+	}
+	c.loaded = true
+	c.by = map[string]ClusterSettings{}
+	var doc clusterSettingsDoc
+	if err := readPrefsDoc(c.Path(), &doc); err != nil {
+		c.unreadable = true
+		return fmt.Errorf("the cluster settings file %s is unreadable (%v); Cogpit starts without and moves the file to %s.unreadable at the first change", c.Path(), err, ClusterSettingsFile)
+	}
+	if doc.Version != 0 && doc.Version != clusterSettingsVersion {
+		c.unreadable = true
+		return fmt.Errorf("the cluster settings file %s has format version %d, this Cogpit reads %d; it starts without and moves the file to %s.unreadable at the first change", c.Path(), doc.Version, clusterSettingsVersion, ClusterSettingsFile)
+	}
+	for _, id := range slices.Sorted(maps.Keys(doc.Clusters)) {
+		if len(c.by) == maxClusterSettings || checkSettingsContext(id) != nil {
+			continue
+		}
+		cs := doc.Clusters[id]
+		cs.normalize()
+		if !cs.IsZero() {
+			c.by[id] = cs
+		}
+	}
+	return nil
+}
+
+// attach loads the settings into the session's UI state; nil-safe.
+func (c *ClusterSettingsStore) attach(s *Session) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	err := c.load()
+	st := maps.Clone(c.by)
+	c.mu.Unlock()
+	if err != nil {
+		s.log.Warn("cluster settings", "err", err)
+	}
+	s.ui.ClusterSettings = st
+}
+
+// ClusterSettingsStore returns the session's cluster settings; nil when it keeps none.
+func (s *Session) ClusterSettingsStore() *ClusterSettingsStore { return s.opts.ClusterSettings }
+
+// ClusterSettingsOf returns a context's settings: its defaults when it has none.
+func (s *Session) ClusterSettingsOf(context string) (ClusterSettings, error) {
+	c := s.opts.ClusterSettings
+	if c == nil {
+		return ClusterSettings{}, ErrNoClusterSettings
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := c.load(); err != nil {
+		s.log.Warn("cluster settings", "err", err)
+	}
+	return c.by[context], nil
+}
+
+// ChangeClusterSettings applies fn to a copy of a context's settings, checks the result, writes
+// the file and shows it (UIState.ClusterSettings, EventUIState). If fn, the check or the write
+// fails, nothing changes. An image no context uses any more is removed afterwards.
+func (s *Session) ChangeClusterSettings(context string, fn func(*ClusterSettings) error) (ClusterSettings, error) {
+	c := s.opts.ClusterSettings
+	if c == nil {
+		return ClusterSettings{}, ErrNoClusterSettings
+	}
+	if err := checkSettingsContext(context); err != nil {
+		return ClusterSettings{}, err
+	}
+	c.change.Lock()
+	defer c.change.Unlock()
+	var dropped string
+	next, all, err := func() (ClusterSettings, map[string]ClusterSettings, error) {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		if err := c.load(); err != nil {
+			s.log.Warn("cluster settings", "err", err)
+		}
+		old := c.by[context]
+		cs := old
+		if err := fn(&cs); err != nil {
+			return ClusterSettings{}, nil, err
+		}
+		cs.Name = strings.TrimSpace(cs.Name)
+		if err := cs.Check(); err != nil {
+			return ClusterSettings{}, nil, err
+		}
+		all := maps.Clone(c.by)
+		if cs.IsZero() {
+			delete(all, context)
+		} else {
+			if _, ok := all[context]; !ok && len(all) >= maxClusterSettings {
+				return ClusterSettings{}, nil, fmt.Errorf("Cogpit keeps the settings of at most %d clusters", maxClusterSettings)
+			}
+			all[context] = cs
+		}
+		if err := writePrefsDoc(c.Path(), &c.unreadable, clusterSettingsDoc{Version: clusterSettingsVersion, Clusters: all}); err != nil {
+			return ClusterSettings{}, nil, fmt.Errorf("cluster settings: %w", err)
+		}
+		c.by = all
+		if old.Icon != "" && old.Icon != cs.Icon && !iconInUse(all, old.Icon) {
+			dropped = old.Icon
+		}
+		return cs, maps.Clone(all), nil
+	}()
+	if err != nil {
+		return ClusterSettings{}, err
+	}
+	if dropped != "" {
+		c.removeIcon(dropped)
+	}
+	s.UpdateUI(func(u *UIState) { u.ClusterSettings = all })
+	return next, nil
+}
+
+func iconInUse(all map[string]ClusterSettings, icon string) bool {
+	for _, cs := range all {
+		if cs.Icon == icon {
+			return true
+		}
+	}
+	return false
+}
+
+// ClusterName is the name a context shows: its display name, else its name without the file it
+// comes from (ContextLabel).
+func ClusterName(context string, cs ClusterSettings) string {
+	if cs.Name != "" {
+		return cs.Name
+	}
+	return ContextLabel(context)
+}
+
+// ClusterSettingsView is a context's settings as cluster.settings.get returns them: what is set,
+// what the defaults mean, and where the context comes from.
+type ClusterSettingsView struct {
+	// Context is the context id, as cluster_contexts lists it.
+	Context string `json:"context"`
+	// Name is the name the cluster shows: the display name set, else ContextName.
+	Name string `json:"name"`
+	// ContextName is the context's name in its kubeconfig file, the default display name.
+	ContextName string `json:"contextName"`
+	// NameSet says whether the user set a display name.
+	NameSet bool `json:"nameSet"`
+	// IconColor is the icon's colour (one of IconColors); empty: the accent.
+	IconColor string `json:"iconColor,omitempty"`
+	// IconImage is the uploaded image's format, "png" or "svg"; empty without one.
+	IconImage string `json:"iconImage,omitempty"`
+	// Kubeconfig is the kubeconfig file the context comes from; empty for the demo cluster.
+	Kubeconfig string `json:"kubeconfig,omitempty"`
+	// TerminalDir is the terminals' working directory as set; empty means $HOME.
+	TerminalDir string `json:"terminalDir,omitempty"`
+	// TerminalNamespace is kubectl's namespace in the terminals as set; empty: the namespace
+	// filter's single namespace, else the context's own.
+	TerminalNamespace string `json:"terminalNamespace,omitempty"`
+	// Connected says whether the context is the connected cluster (its metrics settings apply).
+	Connected bool `json:"connected"`
+	// Kept says whether the settings outlive this run (false without a configuration directory).
+	Kept bool `json:"kept"`
+}
+
+// ClusterSettingsView returns a context's settings with what they mean.
+func (s *Session) ClusterSettingsView(context string) (ClusterSettingsView, error) {
+	cs, err := s.ClusterSettingsOf(context)
+	if err != nil {
+		return ClusterSettingsView{}, err
+	}
+	v := ClusterSettingsView{Context: context, Name: ClusterName(context, cs), ContextName: ContextLabel(context),
+		NameSet: cs.Name != "", IconColor: cs.IconColor, TerminalDir: cs.TerminalDir,
+		TerminalNamespace: cs.TerminalNamespace, Kept: s.opts.ClusterSettings.Path() != ""}
+	if cs.Icon != "" {
+		v.IconImage = strings.TrimPrefix(filepath.Ext(cs.Icon), ".")
+	}
+	if ctxs, err := s.Contexts(); err == nil {
+		for _, c := range ctxs {
+			if c.Name == context {
+				v.Kubeconfig = c.File
+				if c.KubeContext != "" {
+					v.ContextName = c.KubeContext
+					if cs.Name == "" {
+						v.Name = c.KubeContext
+					}
+				}
+			}
+		}
+	}
+	u := s.UIState()
+	v.Connected = u.Context == context && u.Connection.State == Connected
+	return v, nil
+}

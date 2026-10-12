@@ -119,6 +119,14 @@ var wantCommands = map[string]engine.Danger{
 
 	// The command palette (G13): its open state (TestPaletteOpenState).
 	"ui.palette.open": engine.DangerUI, "ui.palette.close": engine.DangerUI,
+
+	// Preferences and cluster settings (G13): Cogpit's own files, never a cluster or a kubeconfig;
+	// the shell and the icon upload GUI-only (TestPreferencesCommands,
+	// TestClusterSettingsCommandsNeverTouchTheKubeconfig).
+	"preferences.get": engine.DangerRead, "preferences.set": engine.DangerUI, "preferences.open": engine.DangerUI,
+	"settings.close": engine.DangerUI, "cluster.settings.get": engine.DangerRead, "cluster.settings.set": engine.DangerUI,
+	"cluster.settings.uploadIcon": engine.DangerUI, "cluster.settings.resetIcon": engine.DangerUI,
+	"cluster.settings.open": engine.DangerUI,
 }
 
 func TestRegistryComplete(t *testing.T) {

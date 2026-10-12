@@ -200,7 +200,7 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 		events = evh.List()
 	}
 	rel, _ := rs.view()
-	m, perr := BuildDetailWith(p, ref, obj, events, s.Now(), rel)
+	m, perr := BuildDetailWith(p, ref, obj, events, s.displayNow(), rel) // absolute times in the preferred zone
 	if perr != nil {
 		s.log.Error("engine: kind profile detail panicked", "kind", p.Key, "panic", perr.Error())
 	}

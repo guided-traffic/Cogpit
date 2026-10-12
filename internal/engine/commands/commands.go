@@ -51,6 +51,8 @@ func RegisterAll(r *engine.Registry) error {
 	registerCreateDialogs(g)
 	registerPalette(g)
 	registerApplications(g)
+	registerPreferences(g)
+	registerClusterSettings(g)
 	return g.err
 }
 
