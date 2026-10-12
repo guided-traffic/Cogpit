@@ -210,7 +210,7 @@ func logsSession(t *testing.T) (*Session, *testkit.MemorySource) {
 }
 
 // openTabLogs opens the logs tab with the fake streamer, as OpenLogs does with the connection.
-func openTabLogs(t *testing.T, s *Session, id string, f *fakeLogs) io.ReadCloser {
+func openTabLogs(t *testing.T, s *Session, id string, f logStreamer) io.ReadCloser {
 	t.Helper()
 	tab, b, err := s.streamTab(id, DockLogs)
 	if err != nil {
@@ -250,7 +250,8 @@ func TestWorkloadLogsMergeEveryContainer(t *testing.T) {
 		t.Fatalf("requests %+v", reqs)
 	}
 	for _, r := range reqs {
-		if r.Namespace != "shop" || !r.Follow || r.Previous || r.Timestamps || r.TailLines != 333 {
+		// A follow stream asks for timestamps to resume from; the tab gets them stripped.
+		if r.Namespace != "shop" || !r.Follow || r.Previous || !r.Timestamps || r.TailLines != 333 || !r.SinceTime.IsZero() {
 			t.Errorf("request %+v: want follow, 1,000 lines shared by three containers", r)
 		}
 	}

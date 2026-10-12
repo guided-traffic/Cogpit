@@ -296,6 +296,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   tab's pod and container selectors, jumping to a time and loading older lines, and a terminal
   widget hardened beyond the patched copy Cogpit builds against
   ([H-19](../security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)).
+  Fourth run (2026-10-12): a workload's logs resume a follow stream the server ended while its
+  container runs, from the newest line's timestamp without repeating lines, and forget ended pods
+  and container instances (`TestWorkloadLogsResumeADroppedStream`,
+  `TestWorkloadLogsForgetEndedInstances`; [architecture §4.4](../developer/architecture.md#44-tables-details-editors-and-streams)).
 - **Impact:** triaging a failing pod (logs, then a shell) is the most common Lens workflow.
 - **Decided (owner, 2026-10-12, [D-14](../developer/decisions.md#d-14-terminal-widget)):** the
   patched terminal widget stays; its patches are offered upstream and it is fuzzed on its own,
@@ -552,7 +556,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); G4 evidence (Refresh Access Reviews in the menu, the View menu hides what the sidebar hides); G3 evidence (live related-objects indexes, measured); estimates not moved |
+| 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); G4 evidence (Refresh Access Reviews in the menu, the View menu hides what the sidebar hides); G3 evidence (live related-objects indexes, measured); G8 evidence (workload log streams resumed and pruned); estimates not moved |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); estimates not moved |
 | 2026-10-12 | minor | G2 (fourth run, agent D): kubeconfig files, sync folders and pasted kubeconfigs, the approval of their credential plugins; estimate 10–28 h |
 | 2026-10-12 | minor | G11 (fourth run): the Helm upgrade and its dock tab, Lens's release drawer and Rollback dialog built; estimate 12–30 h (the totals not recounted) |

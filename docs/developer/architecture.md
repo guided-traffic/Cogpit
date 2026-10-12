@@ -397,7 +397,18 @@ by "this pod".
   ([`workloadlogs.go`](../../internal/engine/workloadlogs.go)): the resource's pods from the cache
   by owner reference (a Deployment's through its replica sets), each container's log started when
   the cache shows it running, so pods and restarted containers join while it follows; each line
-  starts with `<pod>/<container>`; at most 40 containers at once.
+  starts with `<pod>/<container>`; at most 40 containers at once. Since 2026-10-12 (fourth run)
+  the set of started streams forgets the pods and container instances the cache no longer shows
+  (a pod's UID is never reused and a restart count only grows, so they never come back), and a
+  follow stream that the server ends while the cache still shows that container instance running
+  is opened again: after 0.5 s, doubling up to 8 s, at most five times in a row without a new line
+  (then a `[cogpit]` line says it stopped following), from `sinceTime`, the newest line's
+  timestamp. The API carries `sinceTime` in whole seconds, so the resumed stream repeats that
+  second, and Cogpit drops the lines before the newest timestamp and, at it, as many as it has.
+  For that a follow stream always asks for timestamps and strips them unless the tab shows them.
+  Not covered: a resumption names the container, not its instance, so if the cache shows a
+  restart only after the backoff, the new instance's first lines come twice (inferred, not
+  observed).
 - **Links and warnings in cells** (2026-10-11, [`row.go`](../../internal/model/row.go)): a cell
   that names another object carries a `Link` (an object reference with a kind key; an empty context
   means the row's), which the UI renders as a link. A Namespace link in a list narrows the view's
@@ -990,7 +1001,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5); the View menu and Refresh Access Reviews in the GUI (§4.2); live related-objects indexes shared with the drawer's fetches, the cluster-role rule on `Listed`, `ui.navigate`'s filter check with related cells (§4.4) |
+| 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5); the View menu and Refresh Access Reviews in the GUI (§4.2); live related-objects indexes shared with the drawer's fetches, the cluster-role rule on `Listed`, `ui.navigate`'s filter check with related cells (§4.4); workload logs resume dropped streams and forget ended instances (§4.4) |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5) |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere) |
 | 2026-10-12 | minor | Fourth run (agent D): kubeconfig sources (added files, pasted kubeconfigs, sync folders), each file read on its own, and credential plugins of sources run only after the user allowed them (§6; current state rows) |
