@@ -510,3 +510,32 @@ func checkView(t *testing.T, v *View) {
 		t.Fatalf("%d states for %d lines", len(d.states), len(d.lines))
 	}
 }
+
+// A find widget selects a match by rune columns and replaces it as typing does.
+func TestSelectRangeAndReplaceSelection(t *testing.T) {
+	v, _ := editable(t, "alpha: 1\nbéta: 22\ngamma: 3\n", 0, 0)
+	changed := 0
+	v.OnChanged = func() { changed++ }
+	v.SelectRange(1, 0, 1, 4)
+	if got := v.SelectedText(); got != "béta" {
+		t.Fatalf("selected %q", got)
+	}
+	if line, col := v.CursorPosition(); line != 1 || col != 4 {
+		t.Errorf("caret at %d:%d, want the end of the selection", line, col)
+	}
+	v.ReplaceSelection("delta")
+	wantText(t, v, "alpha: 1\ndelta: 22\ngamma: 3\n")
+	if changed != 1 {
+		t.Errorf("OnChanged called %d times", changed)
+	}
+	v.SelectRange(9, 9, 0, 0) // clamped, backwards
+	if got := v.SelectedText(); got == "" {
+		t.Error("a clamped range selected nothing")
+	}
+	v.SetReadOnly(true)
+	v.SelectRange(0, 0, 0, 5)
+	v.ReplaceSelection("x")
+	if v.Text() != "alpha: 1\ndelta: 22\ngamma: 3\n" {
+		t.Error("a read-only view was edited")
+	}
+}

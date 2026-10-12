@@ -160,6 +160,11 @@ func (v *View) CursorPosition() (line, column int) {
 // SetCursorPosition moves the caret to a 0-based line and rune column, clears the selection and
 // scrolls the caret into view. Out-of-range values are clamped.
 func (v *View) SetCursorPosition(line, column int) {
+	v.moveTo(v.posOf(line, column), false)
+}
+
+// posOf is the position of a 0-based line and rune column, clamped into the document.
+func (v *View) posOf(line, column int) pos {
 	line = min(max(line, 0), len(v.doc.lines)-1)
 	text := v.doc.lines[line]
 	off := 0
@@ -167,8 +172,19 @@ func (v *View) SetCursorPosition(line, column int) {
 		_, size := utf8.DecodeRuneInString(text[off:])
 		off += size
 	}
-	v.moveTo(pos{line, off}, false)
+	return pos{line, off}
 }
+
+// SelectRange selects from a 0-based line and rune column to another, the caret at the end, and
+// scrolls the end into view: what a find widget does with a match. Out-of-range values are clamped.
+func (v *View) SelectRange(fromLine, fromColumn, toLine, toColumn int) {
+	v.anchor = v.posOf(fromLine, fromColumn)
+	v.moveTo(v.posOf(toLine, toColumn), true)
+}
+
+// ReplaceSelection replaces the selection, or inserts at the caret when nothing is selected, as
+// typing does: OnChanged follows. A read-only view ignores it.
+func (v *View) ReplaceSelection(s string) { v.replaceSelection(normaliseNewlines(s)) }
 
 // ScrollToLine scrolls so that the 0-based line is at the top of the view, or as near as the end of
 // the document allows. The caret stays where it is.
