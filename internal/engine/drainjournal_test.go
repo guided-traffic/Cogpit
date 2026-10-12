@@ -64,8 +64,15 @@ func TestFileDrainJournalRoundTrip(t *testing.T) {
 		t.Errorf("directory mode %v, %v; want 0700", info.Mode(), err)
 	}
 	entries, _ := os.ReadDir(dir)
-	if len(entries) != 1 {
-		t.Errorf("temporary files left behind: %v", entries)
+	var names []string
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	if strings.Join(names, " ") != "drains.json journals.lock owners" { // the lock and owners: H-22
+		t.Errorf("temporary files left behind: %v", names)
+	}
+	if info, err := os.Stat(filepath.Join(dir, journalLockFile)); err != nil || info.Mode().Perm() != 0o600 {
+		t.Errorf("lock file mode %v, %v; want 0600", info.Mode(), err)
 	}
 	raw, _ := os.ReadFile(j.Path())
 	var doc map[string]any

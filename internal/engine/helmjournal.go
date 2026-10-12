@@ -61,9 +61,23 @@ type PendingHelmOp struct {
 	StartedBy    Origin      `json:"startedBy"`
 	State        HelmOpState `json:"state"`
 	Error        string      `json:"error,omitempty"`
+	// Owner is the Cogpit process that recorded the entry (H-22, journallock.go). Entries written
+	// before owners existed have none and count as recorded by a process that has ended.
+	Owner *JournalOwner `json:"owner,omitempty"`
+
+	// elsewhere: List found the action running in another live Cogpit process.
+	elsewhere bool
 }
 
 func (p PendingHelmOp) key() helmKey { return helmKey{p.Context, p.Namespace, p.Release} }
+
+// RunsElsewhere reports whether the journal found the action running in another live Cogpit
+// process of the user: not interrupted, and not this process's to finish or dismiss.
+func (p PendingHelmOp) RunsElsewhere() bool { return p.elsewhere }
+
+func (p PendingHelmOp) what() string {
+	return fmt.Sprintf("the %s of release %s/%s", p.Action, p.Namespace, p.Release)
+}
 
 // helmKey names a release in a context: at most one action per release is recorded.
 type helmKey struct{ context, namespace, release string }
@@ -74,9 +88,12 @@ type HelmJournal interface {
 	// List returns every entry. A journal that cannot be read returns an error, never a partial
 	// list.
 	List() ([]PendingHelmOp, error)
-	// Put adds an entry or replaces the one for the same context, namespace and release.
+	// Put adds an entry or replaces the one for the same context, namespace and release. A journal
+	// shared between processes refuses, with an ElsewhereError, to replace an entry whose action
+	// runs in another live process.
 	Put(PendingHelmOp) error
-	// Remove deletes the entry for a release; a missing entry is not an error.
+	// Remove deletes the entry for a release; a missing entry is not an error. A shared journal
+	// refuses, with an ElsewhereError, an entry whose action runs in another live process.
 	Remove(context, namespace, release string) error
 }
 
@@ -138,16 +155,21 @@ type helmJournalDoc struct {
 // so that a crash leaves the old or the new journal, never a torn one. A file that cannot be
 // parsed is reported, not overwritten: it may be the only record of a release left pending.
 //
-// The file is not locked: two Cogpit processes changing it at once may lose one of their entries.
+// Every Cogpit process of the user shares the file, under the same directory lock and owners as
+// the drain journal (H-22, journallock.go).
 type FileHelmJournal struct {
 	path string
-	mu   sync.Mutex
+	dir  *journalDir
 }
 
 // NewFileHelmJournal returns the journal at <dir>/helm.json. Nothing is read or written until it
 // is used.
 func NewFileHelmJournal(dir string) *FileHelmJournal {
-	return &FileHelmJournal{path: filepath.Join(dir, HelmJournalFile)}
+	return newFileHelmJournal(sharedJournalDir(dir))
+}
+
+func newFileHelmJournal(d *journalDir) *FileHelmJournal {
+	return &FileHelmJournal{path: filepath.Join(d.dir, HelmJournalFile), dir: d}
 }
 
 // Path returns the journal file's path.
@@ -167,36 +189,62 @@ func (e *HelmJournalError) Error() string {
 func (e *HelmJournalError) Unwrap() error { return e.Err }
 
 // List implements HelmJournal.
-func (j *FileHelmJournal) List() ([]PendingHelmOp, error) {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	return j.load()
+func (j *FileHelmJournal) List() (entries []PendingHelmOp, err error) {
+	err = j.dir.locked(false, func() error {
+		entries, err = j.load()
+		for i, e := range entries {
+			entries[i].elsewhere = e.State == HelmOpRunning && j.dir.aliveElsewhere(e.Owner)
+		}
+		return err
+	})
+	return entries, err
 }
 
 // Put implements HelmJournal.
 func (j *FileHelmJournal) Put(p PendingHelmOp) error {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	entries, err := j.load()
-	if err != nil {
-		return err
-	}
-	return j.save(putHelmEntry(entries, p))
+	return j.dir.locked(true, func() error {
+		entries, err := j.load()
+		if err != nil {
+			return err
+		}
+		if err := j.checkOwner(entries, p.key()); err != nil {
+			return err
+		}
+		self, err := j.dir.self()
+		if err != nil {
+			return fmt.Errorf("helm journal: %w", err)
+		}
+		p.Owner, p.elsewhere = self, false
+		return j.save(putHelmEntry(entries, p))
+	})
 }
 
 // Remove implements HelmJournal.
 func (j *FileHelmJournal) Remove(context, namespace, release string) error {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	entries, err := j.load()
-	if err != nil {
-		return err
+	return j.dir.locked(false, func() error {
+		entries, err := j.load()
+		if err != nil {
+			return err
+		}
+		k := helmKey{context, namespace, release}
+		if !slices.ContainsFunc(entries, func(e PendingHelmOp) bool { return e.key() == k }) {
+			return nil
+		}
+		if err := j.checkOwner(entries, k); err != nil {
+			return err
+		}
+		return j.save(removeHelmEntry(entries, k))
+	})
+}
+
+// checkOwner refuses to change the entry for k while its action runs in another live process.
+func (j *FileHelmJournal) checkOwner(entries []PendingHelmOp, k helmKey) error {
+	for _, e := range entries {
+		if e.key() == k && e.State == HelmOpRunning && j.dir.aliveElsewhere(e.Owner) {
+			return &ElsewhereError{What: e.what(), PID: e.Owner.PID}
+		}
 	}
-	k := helmKey{context, namespace, release}
-	if !slices.ContainsFunc(entries, func(e PendingHelmOp) bool { return e.key() == k }) {
-		return nil
-	}
-	return j.save(removeHelmEntry(entries, k))
+	return nil
 }
 
 func (j *FileHelmJournal) load() ([]PendingHelmOp, error) {
@@ -245,7 +293,7 @@ func (j *FileHelmJournal) save(entries []PendingHelmOp) error {
 
 // writeFileAtomic replaces path with data, owner-only, in an owner-only directory: a temporary
 // file in the same directory, synced, renamed over the old one, so that a crash leaves the old or
-// the new content. (The drain journal does the same in its own save.)
+// the new content. Both journals save through it.
 func writeFileAtomic(path string, data []byte) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -269,9 +317,11 @@ func writeFileAtomic(path string, data []byte) error {
 		_ = tmp.Close()
 		return err
 	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return err
+	if journalSync {
+		if err := tmp.Sync(); err != nil {
+			_ = tmp.Close()
+			return err
+		}
 	}
 	if err := tmp.Close(); err != nil {
 		return err
@@ -280,6 +330,13 @@ func writeFileAtomic(path string, data []byte) error {
 		return err
 	}
 	written = true
-	syncDir(dir)
+	if journalSync {
+		syncDir(dir)
+	}
 	return nil
 }
+
+// journalSync makes journal writes durable before they count (fsync; F_FULLFSYNC on macOS, about
+// 13 ms of a 13.4 ms write there). Only stress tests of the journals' lock turn it off: the lock,
+// not the sync, keeps processes from losing each other's entries.
+var journalSync = true

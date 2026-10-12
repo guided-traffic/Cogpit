@@ -805,7 +805,38 @@ The Helm SDK takes no context, so a running action cannot be cancelled; the SDK'
   `pending-upgrade`, its rollback does not.
 - **The journal files** (`drains.json`, `helm.json`) get a lock across Cogpit processes and an
   owning process per entry ([H-22](../security/privilege-footprint.md#h-22-two-cogpit-processes-share-the-journals)),
-  a change of the journals' storage that the upgrade's entries ride on.
+  a change of the journals' storage that the upgrade's entries ride on. Built 2026-10-12
+  ([`journallock.go`](../../internal/engine/journallock.go)), below.
+
+**Journals shared by processes** (built 2026-10-12, fourth run). Every Cogpit process of the user
+reads and writes the same `drains.json` and `helm.json`; two mechanisms keep them apart:
+
+- **One lock per directory.** Every read and every read-modify-write of either journal runs under
+  an exclusive lock on `<dir>/journals.lock` (0600): `flock(2)` on macOS and Linux, `LockFileEx` on
+  Windows (built and vetted by CI there, not run), no lock on other platforms. Both lock the open
+  file, not the process, so the kernel drops them when the process ends, however it ends: there is
+  no stale lock to clean up. A writer waits in the kernel for the lock, at most 10 seconds, then
+  fails with `ErrJournalBusy` (a drain or Helm action is then not started). The lock file is never
+  removed. Within a process the two journals take it one at a time.
+- **An owner per process.** A process that writes an entry registers once per directory: it
+  creates `<dir>/owners/<id>.lock` (a random 128-bit id, created and locked under the directory
+  lock) and holds an exclusive lock on it until it ends. Every entry it writes names it (`owner`:
+  `{id, pid}`). An owner lives while its file is locked; the PID is shown, never trusted, so a
+  reused PID cannot make an ended process look alive. Files are opened close-on-exec, so a shell or
+  `kubectl` that Cogpit starts does not inherit the lock.
+- **What follows.** An entry in state running whose owner is another live process belongs to it:
+  `node.pendingDrains` and `helm.pendingOperations` report it as running with `elsewhere` (no
+  progress), the connect's offer leaves it out, and the journal refuses to replace it (Begin of the
+  same drain or release action) or remove it (Dismiss) with `ErrRunsElsewhere`. A failed entry is
+  anyone's to finish or dismiss. Entries of an owner that ended, and entries without an owner
+  (written before owners existed; the file format stays version 1, `owner` is optional), are
+  interrupted as before; a process that registers removes the owner files of ended processes (at
+  most 256 per registration). An owner id read from the file is used only if it is 32 hex digits.
+- **Measured** (2026-10-12, Apple M1 Ultra): four processes writing both journals at once keep
+  every entry (`TestJournalsKeepEveryProcessesEntries`; with the lock taken out the same test kept
+  85 of 120); a killed process's running drain is interrupted at once (`TestJournalEntryOfAKilledProcess`).
+  A journal write (lock, read, write, sync, rename) costs 13.4 ms on macOS, of which the
+  `F_FULLFSYNC` that makes it durable is all but 0.35 ms (a 20-entry journal, 200 writes).
 
 **Upgrade as built (2026-10-12, the fourth run; [`helmupgrade.go`](../../internal/engine/helmupgrade.go),
 [`commands/helmupgrade.go`](../../internal/engine/commands/helmupgrade.go),
@@ -938,6 +969,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere) |
 | 2026-10-12 | minor | Fourth run (agent D): kubeconfig sources (added files, pasted kubeconfigs, sync folders), each file read on its own, and credential plugins of sources run only after the user allowed them (§6; current state rows) |
 | 2026-10-12 | minor | Fourth run, Helm: the upgrade as built (§8: what binds, the SDK's context, `ErrUnchanged`, values scrubbed, the Rollback dialog as the confirmation); Lens's release drawer; virtual kinds' drawers without metadata and events, `DetailTitle` (§4.4) |
 | 2026-10-12 | minor | Fourth run, agent A: covering scopes built (§5, how a handover stays exact, the measured budgets); the Secrets view on a full watch, its drawer from the cache without a GET; `resources.find` without a kind skips uncached kinds that hold Secret values; the last-applied annotation re-checked and kept dropped |

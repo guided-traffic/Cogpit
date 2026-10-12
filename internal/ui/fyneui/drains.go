@@ -137,6 +137,9 @@ func drainTitle(d engine.PendingDrainInfo) string {
 func drainDetail(d engine.PendingDrainInfo) string {
 	parts := []string{fmt.Sprintf("Context %s, started %s by %s", d.Context, d.Started.UTC().Format("2006-01-02 15:04 MST"), starterText(d.StartedBy))}
 	if d.Status == engine.DrainStatusRunning {
+		if d.Elsewhere && d.Owner != nil {
+			parts = append(parts, fmt.Sprintf("in another Cogpit window (process %d)", d.Owner.PID))
+		}
 		if p := d.Progress; p != nil {
 			s := fmt.Sprintf("%d of %d pods evicted", p.Done, p.Total)
 			if p.Step == "blocked" && p.Message != "" { // cluster.DrainBlocked; the UI does not import cluster

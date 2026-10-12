@@ -104,7 +104,8 @@ func (d *Drains) offer(s *Session, ctxName string) {
 	}
 	var pending []PendingDrain
 	for _, e := range entries {
-		if e.Context == ctxName && !d.Running(e.Context, e.Node) {
+		// A drain another live Cogpit process runs is not interrupted (H-22).
+		if e.Context == ctxName && !d.Running(e.Context, e.Node) && !e.RunsElsewhere() {
 			pending = append(pending, e)
 		}
 	}
@@ -214,6 +215,9 @@ func (d *Drains) begin(p PendingDrain) error {
 		d.mu.Lock()
 		delete(d.running, k)
 		d.mu.Unlock()
+		if errors.Is(err, ErrRunsElsewhere) {
+			return fmt.Errorf("the drain was not started: %w", err)
+		}
 		return fmt.Errorf("the drain was not started, because Cogpit could not record it first: %w", err)
 	}
 	return nil
@@ -337,7 +341,9 @@ func (d *Drains) progressOf(k drainKey) *cluster.DrainProgress {
 
 // Statuses of a pending drain, as PendingDrains reports them.
 const (
-	DrainStatusRunning     = "running"     // runs in this Cogpit; Progress has its latest step
+	// DrainStatusRunning: runs in this Cogpit, and Progress has its latest step; or, with
+	// Elsewhere, in another live Cogpit process of the user, whose progress this one cannot see.
+	DrainStatusRunning     = "running"
 	DrainStatusInterrupted = "interrupted" // an earlier run of Cogpit ended before the drain did
 	DrainStatusFailed      = "failed"      // ended with an error; the node stays cordoned
 )
@@ -356,6 +362,9 @@ type PendingDrainInfo struct {
 	Status    string                 `json:"status"`
 	NodeState string                 `json:"nodeState"`
 	Progress  *cluster.DrainProgress `json:"progress,omitempty"`
+	// Elsewhere: the drain runs in another live Cogpit process (Owner names its pid); this one
+	// neither offers to finish it nor dismisses it (H-22).
+	Elsewhere bool `json:"elsewhere,omitempty"`
 }
 
 // PendingDrains returns the pending drains of the connected context (all: of every context),
@@ -383,6 +392,8 @@ func (s *Session) PendingDrains(all bool) ([]PendingDrainInfo, error) {
 		switch {
 		case d.Running(e.Context, e.Node):
 			info.Status, info.Progress = DrainStatusRunning, d.progressOf(e.key())
+		case e.RunsElsewhere():
+			info.Status, info.Elsewhere = DrainStatusRunning, true
 		case e.State == DrainFailed:
 			info.Status = DrainStatusFailed
 		default:

@@ -80,9 +80,21 @@ type PendingDrain struct {
 	State     DrainState    `json:"state"`
 	Error     string        `json:"error,omitempty"`
 	Settings  DrainSettings `json:"settings"`
+	// Owner is the Cogpit process that recorded the entry (H-22, journallock.go). Entries written
+	// before owners existed have none and count as recorded by a process that has ended.
+	Owner *JournalOwner `json:"owner,omitempty"`
+
+	// elsewhere: List found the drain running in another live Cogpit process.
+	elsewhere bool
 }
 
 func (p PendingDrain) key() drainKey { return drainKey{p.Context, p.Node} }
+
+// RunsElsewhere reports whether the journal found the drain running in another live Cogpit
+// process of the user: not interrupted, and not this process's to finish or dismiss.
+func (p PendingDrain) RunsElsewhere() bool { return p.elsewhere }
+
+func (p PendingDrain) what() string { return "the drain of node " + p.Node }
 
 type drainKey struct{ context, node string }
 
@@ -92,9 +104,12 @@ type DrainJournal interface {
 	// List returns every entry. A journal that cannot be read returns an error, never a partial
 	// list.
 	List() ([]PendingDrain, error)
-	// Put adds an entry or replaces the one for the same context and node.
+	// Put adds an entry or replaces the one for the same context and node. A journal shared
+	// between processes refuses, with an ElsewhereError, to replace an entry whose drain runs in
+	// another live process.
 	Put(PendingDrain) error
-	// Remove deletes the entry for a context and node; a missing entry is not an error.
+	// Remove deletes the entry for a context and node; a missing entry is not an error. A shared
+	// journal refuses, with an ElsewhereError, an entry whose drain runs in another live process.
 	Remove(context, node string) error
 }
 
@@ -158,16 +173,22 @@ type drainJournalDoc struct {
 // new journal, never a torn one. A file that cannot be parsed is reported, not overwritten: it may
 // be the only record of a half-drained node.
 //
-// The file is not locked: two Cogpit processes changing it at once may lose one of their entries.
+// Every Cogpit process of the user shares the file (H-22): each operation runs under the
+// directory's lock, every entry names the process that wrote it, and an entry whose drain runs in
+// another live process is reported as such and kept from this one (journallock.go).
 type FileDrainJournal struct {
 	path string
-	mu   sync.Mutex
+	dir  *journalDir
 }
 
 // NewFileDrainJournal returns the journal at <dir>/drains.json. Nothing is read or written until
 // it is used.
 func NewFileDrainJournal(dir string) *FileDrainJournal {
-	return &FileDrainJournal{path: filepath.Join(dir, DrainJournalFile)}
+	return newFileDrainJournal(sharedJournalDir(dir))
+}
+
+func newFileDrainJournal(d *journalDir) *FileDrainJournal {
+	return &FileDrainJournal{path: filepath.Join(d.dir, DrainJournalFile), dir: d}
 }
 
 // Path returns the journal file's path.
@@ -187,36 +208,62 @@ func (e *JournalError) Error() string {
 func (e *JournalError) Unwrap() error { return e.Err }
 
 // List implements DrainJournal.
-func (j *FileDrainJournal) List() ([]PendingDrain, error) {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	return j.load()
+func (j *FileDrainJournal) List() (entries []PendingDrain, err error) {
+	err = j.dir.locked(false, func() error {
+		entries, err = j.load()
+		for i, e := range entries {
+			entries[i].elsewhere = e.State == DrainRunning && j.dir.aliveElsewhere(e.Owner)
+		}
+		return err
+	})
+	return entries, err
 }
 
 // Put implements DrainJournal.
 func (j *FileDrainJournal) Put(p PendingDrain) error {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	entries, err := j.load()
-	if err != nil {
-		return err
-	}
-	return j.save(putEntry(entries, p))
+	return j.dir.locked(true, func() error {
+		entries, err := j.load()
+		if err != nil {
+			return err
+		}
+		if err := j.checkOwner(entries, p.key()); err != nil {
+			return err
+		}
+		self, err := j.dir.self()
+		if err != nil {
+			return fmt.Errorf("drain journal: %w", err)
+		}
+		p.Owner, p.elsewhere = self, false
+		return j.save(putEntry(entries, p))
+	})
 }
 
 // Remove implements DrainJournal.
 func (j *FileDrainJournal) Remove(context, node string) error {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	entries, err := j.load()
-	if err != nil {
-		return err
+	return j.dir.locked(false, func() error {
+		entries, err := j.load()
+		if err != nil {
+			return err
+		}
+		k := drainKey{context, node}
+		if !slices.ContainsFunc(entries, func(e PendingDrain) bool { return e.key() == k }) {
+			return nil
+		}
+		if err := j.checkOwner(entries, k); err != nil {
+			return err
+		}
+		return j.save(removeEntry(entries, k))
+	})
+}
+
+// checkOwner refuses to change the entry for k while its drain runs in another live process.
+func (j *FileDrainJournal) checkOwner(entries []PendingDrain, k drainKey) error {
+	for _, e := range entries {
+		if e.key() == k && e.State == DrainRunning && j.dir.aliveElsewhere(e.Owner) {
+			return &ElsewhereError{What: e.what(), PID: e.Owner.PID}
+		}
 	}
-	k := drainKey{context, node}
-	if !slices.ContainsFunc(entries, func(e PendingDrain) bool { return e.key() == k }) {
-		return nil
-	}
-	return j.save(removeEntry(entries, k))
+	return nil
 }
 
 // maxJournalSize bounds what List reads: a journal holds a few entries, a large file is not one.
@@ -260,40 +307,9 @@ func (j *FileDrainJournal) save(entries []PendingDrain) error {
 	if err != nil {
 		return fmt.Errorf("drain journal: %w", err)
 	}
-	dir := filepath.Dir(j.path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err := writeFileAtomic(j.path, append(data, '\n')); err != nil {
 		return fmt.Errorf("drain journal: %w", err)
 	}
-	tmp, err := os.CreateTemp(dir, ".drains-*.tmp") // created 0600
-	if err != nil {
-		return fmt.Errorf("drain journal: %w", err)
-	}
-	written := false
-	defer func() {
-		if !written {
-			_ = os.Remove(tmp.Name())
-		}
-	}()
-	if _, err := tmp.Write(append(data, '\n')); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("drain journal: %w", err)
-	}
-	if err := tmp.Chmod(0o600); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("drain journal: %w", err)
-	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("drain journal: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("drain journal: %w", err)
-	}
-	if err := os.Rename(tmp.Name(), j.path); err != nil {
-		return fmt.Errorf("drain journal: %w", err)
-	}
-	written = true
-	syncDir(dir)
 	return nil
 }
 

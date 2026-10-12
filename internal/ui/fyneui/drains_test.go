@@ -191,6 +191,15 @@ func TestDrainBannerTexts(t *testing.T) {
 	if !strings.Contains(got, "by an external agent · the node is schedulable again · timed out after 5m0s") || strings.Contains(got, "drain node worker-3:") {
 		t.Errorf("failed detail %q: the node's state before the cause, the title's node not repeated", got)
 	}
+	// A drain another Cogpit process runs (H-22): running, without progress, naming the process.
+	other := ds[0]
+	other.Status, other.Elsewhere, other.Owner = engine.DrainStatusRunning, true, &engine.JournalOwner{ID: "0123456789abcdef0123456789abcdef", PID: 4242}
+	if got := drainTitle(other); got != "Draining node worker-2" {
+		t.Errorf("title %q", got)
+	}
+	if got := drainDetail(other); got != "Context kind-cogpit, started 2026-10-11 13:02 UTC by you · in another Cogpit window (process 4242)" {
+		t.Errorf("detail %q", got)
+	}
 }
 
 func renderDrainBanner(t *testing.T, mode ThemeMode, name string) {

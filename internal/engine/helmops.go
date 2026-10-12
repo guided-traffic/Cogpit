@@ -102,7 +102,7 @@ func (h *HelmOps) offer(s *Session, ctxName string) {
 	}
 	var pending []PendingHelmOp
 	for _, e := range entries {
-		if e.Context == ctxName && !h.Running(e.Context, e.Namespace, e.Release) {
+		if e.Context == ctxName && !h.Running(e.Context, e.Namespace, e.Release) && !e.RunsElsewhere() { // H-22
 			pending = append(pending, e)
 		}
 	}
@@ -330,6 +330,8 @@ type PendingHelmOpInfo struct {
 	// "uninstalling", "deployed", …), or HelmReleaseMissing or HelmReleaseUnknown.
 	ReleaseStatus   string `json:"releaseStatus"`
 	ReleaseRevision int    `json:"releaseRevision,omitempty"`
+	// Elsewhere: status running, in another live Cogpit process (Owner names its pid; H-22).
+	Elsewhere bool `json:"elsewhere,omitempty"`
 }
 
 // Ref returns the release the entry is about.
@@ -362,6 +364,8 @@ func (s *Session) PendingHelmOps(all bool) ([]PendingHelmOpInfo, error) {
 		switch {
 		case h.Running(e.Context, e.Namespace, e.Release):
 			info.Status = HelmOpStatusRunning
+		case e.RunsElsewhere():
+			info.Status, info.Elsewhere = HelmOpStatusRunning, true
 		case e.State == HelmOpFailed:
 			info.Status = HelmOpStatusFailed
 		default:

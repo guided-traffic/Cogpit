@@ -264,6 +264,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   (2026-10-11, `make test-kind-drain`, `TestKindDrainCrashFinishUncordon`: a drain blocked by a
   PodDisruptionBudget and a simulated crash leave the journal entry, the next session offers it,
   finishing and uncordoning clear it).
+  Fourth run (2026-10-12, [`journallock.go`](../../internal/engine/journallock.go)): the drain and
+  Helm journals are shared by every Cogpit process of the user under a file lock, and each entry
+  names its process, so a drain or Helm action running in another live Cogpit is reported running
+  there, not offered as interrupted, and cannot be finished or dismissed from here
+  (`TestJournalsKeepEveryProcessesEntries`, `TestJournalEntryOfAKilledProcess`; [architecture §8](../developer/architecture.md#8-helm-internalhelm)).
 - **Estimate:** 20–70 h (was 45–140; 11 of 39 actions missing, mostly create dialogs, 2–5 h each, plus depth).
 
 ### G8. Logs, terminal and shells
@@ -541,6 +546,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); estimates not moved |
 | 2026-10-12 | minor | G2 (fourth run, agent D): kubeconfig files, sync folders and pasted kubeconfigs, the approval of their credential plugins; estimate 10–28 h |
 | 2026-10-12 | minor | G11 (fourth run): the Helm upgrade and its dock tab, Lens's release drawer and Rollback dialog built; estimate 12–30 h (the totals not recounted) |
 | 2026-10-12 | minor | G3 evidence: covering scopes (fourth run); G6 evidence: Secrets on a full watch, Keys and Type filled, the drawer from the cache (D-13 revised, built) |
