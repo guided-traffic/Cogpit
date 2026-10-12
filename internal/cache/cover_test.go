@@ -374,13 +374,19 @@ func (g *selectiveGate) ListerWatcher(scope cache.Scope) toolscache.ListerWatche
 }
 
 // The cover stays only until the scope's own informer has synced, and never longer than the
-// handover timeout: an own informer that cannot list does not keep every Secret in memory.
+// handover timeout: an own informer that cannot list does not keep every Secret in memory. The
+// scope keeps what it showed, not synced, until its own informer lists, and its subscribers are
+// told nothing that did not happen: no deletion of an object that still exists, then its
+// addition again; an object deleted meanwhile is reported deleted once the list arrives (R-7 of
+// the fourth run's review).
 func TestCoverStopsAfterTheHandoverTimeout(t *testing.T) {
 	src := &selectiveGate{MemorySource: testkit.NewMemorySource(), open: make(chan struct{})}
 	src.Set(testkit.SecretsGVR, release("apps", "web", 1))
 	c := cache.New(src, cache.Options{WarmPeriod: 20 * time.Millisecond, HandoverTimeout: 300 * time.Millisecond})
+	var openOnce sync.Once
+	openGate := func() { openOnce.Do(func() { close(src.open) }) }
 	defer func() {
-		close(src.open)
+		openGate()
 		c.Close()
 	}()
 	full := c.Acquire(allSecrets)
@@ -388,6 +394,8 @@ func TestCoverStopsAfterTheHandoverTimeout(t *testing.T) {
 	helm := c.Acquire(helmSecrets)
 	defer helm.Release()
 	waitSync(t, helm)
+	rec, cancel := record(helm)
+	defer cancel()
 	full.Release()
 	waitUntil(t, "the own informer to start", func() bool {
 		return fmt.Sprint(cache.Runners(c)) == "[secrets secrets with owner=helm]"
@@ -403,8 +411,23 @@ func TestCoverStopsAfterTheHandoverTimeout(t *testing.T) {
 	if helm.HasSynced() {
 		t.Error("synced although its own informer never listed")
 	}
-	if len(helm.List()) != 0 {
-		t.Errorf("after the timeout the scope shows what its own informer holds (nothing yet): %v", names(helm.List()))
+	if len(helm.List()) != 1 || len(rec.state()) != 1 {
+		t.Errorf("after the timeout the scope keeps what it showed: list %v, told %v", names(helm.List()), rec.state())
+	}
+
+	// While the own informer waits for its list, a release goes and another comes: the list
+	// reports both, and nothing else.
+	src.Delete(testkit.SecretsGVR, "apps", "sh.helm.release.v1.web.v1")
+	src.Set(testkit.SecretsGVR, release("apps", "api", 1))
+	openGate()
+	waitSync(t, helm)
+	want := truth(t, src, helmSecrets)
+	waitUntil(t, "the list's changes", func() bool { return fmt.Sprint(rec.state()) == fmt.Sprint(want) && len(want) == 1 })
+	if fmt.Sprint(listed(helm)) != fmt.Sprint(want) {
+		t.Errorf("list %v, want %v", listed(helm), want)
+	}
+	if p := rec.problems(); len(p) > 0 {
+		t.Errorf("events: %v", p)
 	}
 }
 

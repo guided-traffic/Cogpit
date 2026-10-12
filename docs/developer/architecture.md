@@ -627,7 +627,13 @@ delete, with the state that left it), and no second watch starts; `Cache.Stats` 
 `coveredBy`, and `Cache.Running` reports a covered scope as running. A covered scope never keeps
 its cover alive: when the cover's warm period ends while covered handles are open, the selected
 scope starts its own informer, and the cover's informer keeps running until that one has caught up,
-at most `Options.HandoverTimeout` (one minute), then stops; a covered scope that is only warm ends
+at most `Options.HandoverTimeout` (one minute), then stops: an own informer that cannot list does
+not keep every Secret in memory. An own informer that has not finished its first list by then is
+moved onto anyway, and the scope keeps what it showed (its own objects only), `HasSynced` false,
+telling its subscribers nothing until that list arrives; then what the list does not hold is
+reported deleted (`view.settle`). Before 2026-10-12 the subscribers were told every object was
+deleted and got it added again in the same version (R-7 of the fourth run's review,
+`TestCoverStopsAfterTheHandoverTimeout`). A covered scope that is only warm ends
 with its cover instead of starting a watch to stay warm. A selected scope with its own informer moves
 onto a cover that starts later, once the cover has caught up, and its own informer stops.
 
@@ -1037,7 +1043,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | Review of the fourth run, fixed (§5 Secrets: a revealed value bound to the Secret's version, R-6; §8): an upgrade from a tab bound to the tab's text revision (R-2); upgrade and rollback checked against the server's newest revision, not only the cache's (R-1); values scrubbed in their quoted forms (R-4); the Rollback dialog's answer bound to the picked revision and dropped after its dispatch (R-3) |
+| 2026-10-12 | minor | Review of the fourth run, fixed (§5 Secrets: a revealed value bound to the Secret's version, R-6; §5 covering scopes: a handover that timed out before the own informer's first list keeps the view instead of reporting every object deleted, R-7; §8): an upgrade from a tab bound to the tab's text revision (R-2); upgrade and rollback checked against the server's newest revision, not only the cache's (R-1); values scrubbed in their quoted forms (R-4); the Rollback dialog's answer bound to the picked revision and dropped after its dispatch (R-3) |
 | 2026-10-12 | minor | §10: the patched terminal widget's two goroutines (parser on the reading one, screen and state on the main one) and its fuzz targets |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5); the View menu and Refresh Access Reviews in the GUI (§4.2); live related-objects indexes shared with the drawer's fetches, the cluster-role rule on `Listed`, `ui.navigate`'s filter check with related cells (§4.4); workload logs resume dropped streams and forget ended instances (§4.4); Restart's and Scale's patches carry the UID, mutating confirmations record cached UIDs (§4.2) |
 | 2026-10-12 | minor | §6: pasting a kubeconfig removed (D-21): the command, the dialog, the owner-only store; sources of kind `pasted` from earlier builds are no longer listed, their files stay; 75 commands |

@@ -352,10 +352,67 @@ wait:
 	if !ok {
 		return
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if !c.closed {
-		c.dropSource(old)
+	func() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		if !c.closed {
+			c.dropSource(old)
+		}
+	}()
+	// A source that took over before its first list (the wait timed out) left the view as it was;
+	// once it has listed, what it does not hold is gone.
+	for !src.v.listed(src) {
+		select {
+		case <-c.ctx.Done():
+			return
+		case <-src.quit:
+			return
+		case <-t.C:
+		}
+	}
+	src.v.settle(src)
+}
+
+// listed reports whether a source's handler has received its informer's initial list.
+func (v *view) listed(src *source) bool {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return src.reg != nil && src.reg.HasSynced()
+}
+
+// settle tells the subscribers which objects the view's source does not hold, once it has
+// listed: after a handover that timed out before the source's first list, the view kept what it
+// had told them instead of reporting every object deleted and adding it again (R-7 of the fourth
+// run's review). An object the source holds but its handler has not delivered yet stays; its
+// event follows. Idempotent: after an exact handover it finds nothing.
+func (v *view) settle(src *source) {
+	v.dmu.Lock()
+	defer v.dmu.Unlock()
+	var evs []Event
+	func() {
+		v.mu.Lock()
+		defer v.mu.Unlock()
+		if v.done || v.cur != src {
+			return
+		}
+		store := src.run.inf.GetStore()
+		keys := make([]string, 0, len(v.seen))
+		for k := range v.seen {
+			keys = append(keys, k)
+		}
+		slices.Sort(keys)
+		for _, k := range keys {
+			o, ok, err := store.GetByKey(k)
+			if u, _ := o.(*unstructured.Unstructured); err == nil && ok && u != nil && v.matches(u) {
+				continue
+			}
+			was := v.seen[k]
+			v.remove(k, "")
+			evs = append(evs, Event{Type: Deleted, Object: was})
+		}
+	}()
+	for _, ev := range evs {
+		v.e.deliver(ev)
 	}
 }
 
@@ -465,10 +522,12 @@ func (v *view) cutover(src *source, exact bool) (old *source, ok, retry bool) {
 // diff brings the view to what a pending source holds and returns the events that tell the
 // subscribers. When the source has caught up, an object it does not hold is gone, and the version
 // it has come to buries it. When its wait timed out instead, an object its informer holds but its
-// handler has not delivered yet is left as the view has it, and a removal buries nothing. Called
+// handler has not delivered yet is left as the view has it, and a removal buries nothing; before
+// the source's first list nothing is removed at all (settle does it once it has listed). Called
 // with v.mu held.
 func (v *view) diff(src *source, exact bool) []Event {
 	store := src.run.inf.GetStore()
+	listed := src.reg != nil && src.reg.HasSynced()
 	inStore := func(k string) bool {
 		o, ok, err := store.GetByKey(k)
 		u, _ := o.(*unstructured.Unstructured)
@@ -492,7 +551,7 @@ func (v *view) diff(src *source, exact bool) []Event {
 			v.remove(k, src.pos)
 			evs = append(evs, Event{Type: Deleted, Object: was})
 		case now == nil:
-			if !inStore(k) {
+			if listed && !inStore(k) {
 				v.remove(k, "")
 				evs = append(evs, Event{Type: Deleted, Object: was})
 			}

@@ -142,25 +142,60 @@ func TestViewHandoverRules(t *testing.T) {
 		t.Errorf("after the handover: %s", s)
 	}
 
-	// A handover that timed out keeps what the informer holds but its handler has not delivered.
-	v2, got2 := ruleView(t)
-	applyAll(v2, Added, obj("pending", "5", "p", true), false)
-	applyAll(v2, Added, obj("gone", "6", "g", true), false)
-	*got2 = nil
-	src2 := ruleSource(v2)
-	if err := src2.run.inf.GetStore().Add(obj("pending", "7", "p", true)); err != nil {
-		t.Fatal(err)
-	}
-	v2.mu.Lock()
-	evs = v2.diff(src2, false)
-	v2.mu.Unlock()
-	for _, ev := range evs {
-		v2.e.deliver(ev)
-	}
-	if s := strings.Join(*got2, ", "); s != "deleted gone@6" {
-		t.Errorf("timed-out handover: %s", s)
-	}
-	if _, ok := v2.get("a/pending"); !ok {
-		t.Error("an object the informer holds was dropped")
+	// A handover that timed out after the informer listed keeps what the informer holds but its
+	// handler has not delivered; one that timed out before the informer's first list removes
+	// nothing (settle does it once the list is there, R-7).
+	for _, listed := range []bool{true, false} {
+		v2, got2 := ruleView(t)
+		applyAll(v2, Added, obj("pending", "5", "p", true), false)
+		applyAll(v2, Added, obj("gone", "6", "g", true), false)
+		*got2 = nil
+		src2 := ruleSource(v2)
+		src2.reg = fakeRegistration(listed)
+		if err := src2.run.inf.GetStore().Add(obj("pending", "7", "p", true)); err != nil {
+			t.Fatal(err)
+		}
+		v2.mu.Lock()
+		evs = v2.diff(src2, false)
+		v2.mu.Unlock()
+		for _, ev := range evs {
+			v2.e.deliver(ev)
+		}
+		want := "deleted gone@6"
+		if !listed {
+			want = ""
+		}
+		if s := strings.Join(*got2, ", "); s != want {
+			t.Errorf("timed-out handover (listed %v): %q, want %q", listed, s, want)
+		}
+		if _, ok := v2.get("a/pending"); !ok {
+			t.Errorf("an object the informer holds was dropped (listed %v)", listed)
+		}
+
+		// Once the informer has listed, settle removes what it does not hold.
+		*got2 = nil
+		v2.mu.Lock()
+		v2.cur, v2.next = src2, nil
+		v2.mu.Unlock()
+		src2.reg = fakeRegistration(true)
+		v2.settle(src2)
+		settled := "deleted gone@6" // what the diff left for the list to settle
+		if listed {
+			settled = "" // the diff removed it already
+		}
+		if s := strings.Join(*got2, ", "); s != settled {
+			t.Errorf("settle (listed %v): %q, want %q", listed, s, settled)
+		}
+		if _, ok := v2.get("a/pending"); !ok {
+			t.Errorf("settle dropped an object the informer holds (listed %v)", listed)
+		}
 	}
 }
+
+// fakeRegistration is a handler registration that has, or has not, received its informer's
+// initial list.
+type fakeRegistration bool
+
+func (r fakeRegistration) HasSynced() bool { return bool(r) }
+
+func (r fakeRegistration) HasSyncedChecker() toolscache.DoneChecker { return nil }
