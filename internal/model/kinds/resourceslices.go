@@ -3,6 +3,7 @@ package kinds
 import (
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -48,10 +49,10 @@ var resourceSlices = &model.KindProfile{
 	Title:    "Resource Slices",
 	Columns: []model.Column{
 		nameColumn,
-		{ID: "driver", Title: titleDriver, Type: model.ColumnText, Width: 200},
+		{ID: fieldDriver, Title: titleDriver, Type: model.ColumnText, Width: 200},
 		{ID: "pool", Title: titlePool, Type: model.ColumnText, Width: 160},
-		{ID: "node", Title: "Node", Type: model.ColumnText, Width: 160},
-		{ID: "devices", Title: "Devices", Type: model.ColumnNumber},
+		{ID: idNode, Title: titleNode, Type: model.ColumnText, Width: 160},
+		{ID: "devices", Title: titleDevices, Type: model.ColumnNumber},
 		{ID: "allocated", Title: draClaimAllocated, Type: model.ColumnNumber},
 		ageColumn,
 	},
@@ -61,13 +62,13 @@ var resourceSlices = &model.KindProfile{
 		return resourceSliceCells(obj, model.NoRelated)
 	},
 	Fields: map[string]fieldFunc{
-		"driver": func(obj *unstructured.Unstructured) []string {
-			return nonEmpty(model.NestedString(obj, "spec", "driver"))
+		fieldDriver: func(obj *unstructured.Unstructured) []string {
+			return nonEmpty(model.NestedString(obj, "spec", fieldDriver))
 		},
 		"pool": func(obj *unstructured.Unstructured) []string {
 			return nonEmpty(model.NestedString(obj, "spec", "pool", fieldName))
 		},
-		"node": func(obj *unstructured.Unstructured) []string {
+		idNode: func(obj *unstructured.Unstructured) []string {
 			return nonEmpty(model.NestedString(obj, "spec", "nodeName"))
 		},
 		"device": func(obj *unstructured.Unstructured) []string {
@@ -88,7 +89,7 @@ func resourceSliceCells(obj *unstructured.Unstructured, rel model.Related) ([]mo
 	}
 	return []model.Cell{
 		nameCell(obj),
-		{Text: model.NestedString(obj, "spec", "driver")},
+		{Text: model.NestedString(obj, "spec", fieldDriver)},
 		{Text: model.NestedString(obj, "spec", "pool", fieldName)},
 		{Text: node, Link: link},
 		{Num: int64(len(model.NestedSlice(obj, "spec", "devices")))},
@@ -125,7 +126,7 @@ func sliceDeviceNames(obj any) []string {
 
 // sliceAllocations maps each of the slice's devices that a cached claim holds to that claim.
 func sliceAllocations(obj *unstructured.Unstructured, rel model.Related) map[string]*model.ObjectRef {
-	driver := model.NestedString(obj, "spec", "driver")
+	driver := model.NestedString(obj, "spec", fieldDriver)
 	pool := model.NestedString(obj, "spec", "pool", fieldName)
 	out := map[string]*model.ObjectRef{}
 	if driver == "" || pool == "" {
@@ -154,7 +155,7 @@ func sliceAllocations(obj *unstructured.Unstructured, rel model.Related) map[str
 
 func resourceSliceDetail(obj *unstructured.Unstructured, rel model.Related) []model.DetailSection {
 	var d detailItems
-	d.add(titleDriver, model.NestedString(obj, "spec", "driver"))
+	d.add(titleDriver, model.NestedString(obj, "spec", fieldDriver))
 	pool := model.NestedString(obj, "spec", "pool", fieldName)
 	if pool != "" {
 		gen, _ := model.NestedInt64(obj, "spec", "pool", "generation")
@@ -167,7 +168,7 @@ func resourceSliceDetail(obj *unstructured.Unstructured, rel model.Related) []mo
 	}
 	d.add(titlePool, pool)
 	node, link := sliceNode(obj)
-	d.put(linkedItem("Node", node, link))
+	d.put(linkedItem(titleNode, node, link))
 	if sel := nodeSelectorText(model.NestedMap(obj, "spec", "nodeSelector")); sel != "" {
 		d.add("Node Selector", sel)
 	}
@@ -182,9 +183,9 @@ func resourceSliceDetail(obj *unstructured.Unstructured, rel model.Related) []mo
 		held = sliceAllocations(obj, rel)
 	}
 	cols := []model.Column{
-		{Title: "Name", Type: model.ColumnText}, {Title: "Attributes", Type: model.ColumnText},
-		{Title: "Capacity", Type: model.ColumnText}, {Title: itemTaints, Type: model.ColumnText},
-		{Title: "Claim", Type: model.ColumnText},
+		{Title: titleName, Type: model.ColumnText}, {Title: "Attributes", Type: model.ColumnText},
+		{Title: titleCapacity, Type: model.ColumnText}, {Title: itemTaints, Type: model.ColumnText},
+		{Title: titleClaim, Type: model.ColumnText},
 	}
 	rows := make([][]model.Cell, 0, min(len(devices), maxSliceDevices))
 	for _, dev := range devices[:min(len(devices), maxSliceDevices)] {
@@ -201,7 +202,7 @@ func resourceSliceDetail(obj *unstructured.Unstructured, rel model.Related) []mo
 			claim,
 		})
 	}
-	return append(sections, model.DetailSection{Title: "Devices", Table: model.CellTable(cols, rows)})
+	return append(sections, model.DetailSection{Title: titleDevices, Table: model.CellTable(cols, rows)})
 }
 
 // deviceAttributes renders a device's attributes as "name: value", sorted by name. An attribute
@@ -219,7 +220,7 @@ func deviceAttributes(dev any) []string {
 			v = model.NestedString(a, "version")
 		case hasValue(model.NestedMap(a), "bool"):
 			b, _ := model.NestedBool(a, "bool")
-			v = boolText(b)
+			v = strconv.FormatBool(b)
 		default:
 			if n, ok := model.NestedInt64(a, "int"); ok {
 				v = itoa(n)
@@ -242,8 +243,9 @@ func deviceCapacity(dev any) []string {
 
 // deviceTaints renders a device's taints as kubectl writes node taints: "key=value:Effect".
 func deviceTaints(dev any) []string {
-	var out []string
-	for _, t := range model.NestedSlice(dev, "taints") {
+	taints := model.NestedSlice(dev, "taints")
+	out := make([]string, 0, len(taints))
+	for _, t := range taints {
 		s := model.NestedString(t, "key")
 		if v := model.NestedString(t, "value"); v != "" {
 			s += "=" + v
@@ -276,11 +278,4 @@ func nodeSelectorText(sel map[string]any) string {
 		}
 	}
 	return strings.Join(terms, " or ")
-}
-
-func boolText(b bool) string {
-	if b {
-		return textTrue
-	}
-	return "false"
 }

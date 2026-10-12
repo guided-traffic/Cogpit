@@ -77,13 +77,13 @@ var verticalPodAutoscalers = &model.KindProfile{
 		{ID: idMode, Title: "Mode", Type: model.ColumnText, Width: 140},
 		ageColumn,
 		statusColumn,
-		{ID: "target", Title: titleTarget, Type: model.ColumnText, Hidden: true},
+		{ID: idTarget, Title: titleTarget, Type: model.ColumnText, Hidden: true},
 		{ID: "cpuTarget", Title: "CPU", Type: model.ColumnNumber, Hidden: true},
 		{ID: "memoryTarget", Title: "Memory", Type: model.ColumnNumber, Hidden: true},
 	},
 	Cells: vpaCells,
 	Fields: map[string]fieldFunc{
-		"target": func(obj *unstructured.Unstructured) []string {
+		idTarget: func(obj *unstructured.Unstructured) []string {
 			text, _ := vpaTargetRef(obj)
 			return nonEmpty(text)
 		},

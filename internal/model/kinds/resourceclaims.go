@@ -26,6 +26,12 @@ const (
 	titleDriver                 = "Driver"
 	titlePool                   = "Pool"
 	itemRequests                = "Requests"
+	titleDevices                = "Devices"
+	titleClaim                  = "Claim"
+	titleCapacity               = "Capacity"
+	fieldDriver                 = "driver"
+	draCountAll                 = "all" // a request for every matching device
+	draConditionError           = "Error"
 	draAllocationAll            = "All" // a request's allocationMode that asks for every matching device
 	draClaimPending             = "Pending"
 	draClaimAllocated           = "Allocated"
@@ -66,7 +72,7 @@ func draRequestOf(name string, r any) draRequest {
 	req := draRequest{name: name, class: model.NestedString(r, "deviceClassName")}
 	switch {
 	case model.NestedString(r, "allocationMode") == draAllocationAll:
-		req.count = "all"
+		req.count = draCountAll
 	default:
 		n, ok := model.NestedInt64(r, "count")
 		if !ok || n < 1 {
@@ -128,7 +134,7 @@ var resourceClaims = &model.KindProfile{
 		namespaceColumn,
 		{ID: "state", Title: "State", Type: model.ColumnText, Width: 170},
 		{ID: idDeviceClasses, Title: titleDeviceClasses, Type: model.ColumnText, Width: 220},
-		{ID: "devices", Title: "Devices", Type: model.ColumnText, Hidden: true},
+		{ID: "devices", Title: titleDevices, Type: model.ColumnText, Hidden: true},
 		{ID: "reservedFor", Title: "Reserved For", Type: model.ColumnText, Hidden: true},
 		ageColumn,
 	},
@@ -141,7 +147,7 @@ var resourceClaims = &model.KindProfile{
 		"deviceClass": func(obj *unstructured.Unstructured) []string {
 			return draClasses(draRequests(model.NestedMap(obj, "spec")))
 		},
-		"driver": func(obj *unstructured.Unstructured) []string {
+		fieldDriver: func(obj *unstructured.Unstructured) []string {
 			var out []string
 			for _, r := range claimResults(obj) {
 				out = appendUnique(out, r.driver)
@@ -210,7 +216,7 @@ func claimResults(obj any) []draResult {
 	for _, r := range list {
 		res := draResult{
 			request: model.NestedString(r, "request"),
-			driver:  model.NestedString(r, "driver"),
+			driver:  model.NestedString(r, fieldDriver),
 			pool:    model.NestedString(r, "pool"),
 			device:  model.NestedString(r, "device"),
 		}
@@ -282,7 +288,7 @@ func draDeviceProblem(obj any) (string, model.Status) {
 			if !draUnhealthy(c) {
 				continue
 			}
-			p := "Device " + model.NestedString(d, "device") + " (" + model.NestedString(d, "driver") + ") reports " + c.Type + "=" + c.Status
+			p := "Device " + model.NestedString(d, "device") + " (" + model.NestedString(d, fieldDriver) + ") reports " + c.Type + "=" + c.Status
 			if c.Message != "" {
 				p += ": " + singleLine(c.Message)
 			}
@@ -295,6 +301,9 @@ func draDeviceProblem(obj any) (string, model.Status) {
 	return strings.Join(problems, "; "), model.StatusWarning
 }
 
+// draProblemWords mark a device condition whose True status is a problem.
+var draProblemWords = []string{"Unhealthy", "Degraded", "Failed", "Failure", draConditionError}
+
 func draUnhealthy(c condition) bool {
 	switch c.Type {
 	case draDeviceConditionReady, draDeviceConditionHealthy, draDeviceConditionAvailable:
@@ -303,7 +312,7 @@ func draUnhealthy(c condition) bool {
 	if c.Status != condTrue {
 		return false
 	}
-	for _, bad := range []string{"Unhealthy", "Degraded", "Failed", "Failure", "Error"} {
+	for _, bad := range draProblemWords {
 		if strings.Contains(c.Type, bad) {
 			return true
 		}
@@ -349,7 +358,7 @@ func resourceClaimDetail(obj *unstructured.Unstructured) []model.DetailSection {
 		sections = append(sections, model.DetailSection{Title: "Allocation", Table: t})
 	}
 	if cs := claimConsumers(obj); len(cs) > 0 {
-		cols := []model.Column{{Title: "Resource", Type: model.ColumnText}, {Title: "Name", Type: model.ColumnText}}
+		cols := []model.Column{{Title: "Resource", Type: model.ColumnText}, {Title: titleName, Type: model.ColumnText}}
 		rows := make([][]model.Cell, 0, len(cs))
 		for _, c := range cs {
 			rows = append(rows, []model.Cell{{Text: c.resource}, {Text: c.name, Link: c.link}})
@@ -384,7 +393,7 @@ func claimDeviceStatusTable(obj any) *model.DetailTable {
 			network = append(network, mac)
 		}
 		t.Rows = append(t.Rows, []string{
-			model.NestedString(d, "device"), model.NestedString(d, "driver"), model.NestedString(d, "pool"),
+			model.NestedString(d, "device"), model.NestedString(d, fieldDriver), model.NestedString(d, "pool"),
 			strings.Join(conds, "\n"), strings.Join(network, "\n"),
 		})
 	}

@@ -24,7 +24,7 @@ var deviceClasses = &model.KindProfile{
 	Title:    "Device Classes",
 	Columns: []model.Column{
 		nameColumn,
-		{ID: "driver", Title: titleDriver, Type: model.ColumnText, Width: 240},
+		{ID: fieldDriver, Title: titleDriver, Type: model.ColumnText, Width: 240},
 		ageColumn,
 	},
 	Cells: func(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
@@ -35,7 +35,7 @@ var deviceClasses = &model.KindProfile{
 		}, model.StatusNone
 	},
 	Fields: map[string]fieldFunc{
-		"driver": deviceClassDrivers,
+		fieldDriver: deviceClassDrivers,
 		"selector": func(obj *unstructured.Unstructured) []string {
 			return deviceClassSelectors(obj)
 		},
@@ -67,7 +67,7 @@ func deviceClassDrivers(obj *unstructured.Unstructured) []string {
 		return out
 	}
 	for _, c := range model.NestedSlice(obj, "spec", "config") {
-		out = appendUnique(out, model.NestedString(c, "opaque", "driver"))
+		out = appendUnique(out, model.NestedString(c, "opaque", fieldDriver))
 	}
 	return out
 }
@@ -107,7 +107,7 @@ func deviceClassDetail(obj *unstructured.Unstructured) []model.DetailSection {
 func opaqueConfigTable(configs []any) *model.DetailTable {
 	t := &model.DetailTable{Columns: []string{titleDriver, "Parameters"}}
 	for _, c := range configs {
-		driver := model.NestedString(c, "opaque", "driver")
+		driver := model.NestedString(c, "opaque", fieldDriver)
 		if driver == "" {
 			continue
 		}

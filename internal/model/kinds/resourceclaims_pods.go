@@ -6,6 +6,9 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
+// titleContainers heads the column of the containers that request a claim.
+const titleContainers = "Containers"
+
 // podResourceClaimsSection is the pod drawer's Resource Claims section, shown when the pod uses a
 // claim (Lens's documentation, read 2026-10-13: each claim, whether the pod references it directly
 // or through a template, its state, and the containers that request it). Built: each of the pod's
@@ -24,8 +27,8 @@ func podResourceClaimsSection(pod any, namespace string) (model.DetailSection, b
 		generated[model.NestedString(s, fieldName)] = model.NestedString(s, "resourceClaimName")
 	}
 	cols := []model.Column{
-		{Title: "Name", Type: model.ColumnText}, {Title: "Claim", Type: model.ColumnText},
-		{Title: "Template", Type: model.ColumnText}, {Title: "Containers", Type: model.ColumnText},
+		{Title: titleName, Type: model.ColumnText}, {Title: titleClaim, Type: model.ColumnText},
+		{Title: "Template", Type: model.ColumnText}, {Title: titleContainers, Type: model.ColumnText},
 	}
 	rows := make([][]model.Cell, 0, len(claims))
 	for _, c := range claims {
