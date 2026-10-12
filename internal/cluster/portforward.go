@@ -86,7 +86,7 @@ func dialPortForward(ctx context.Context, config *rest.Config, u *url.URL) (Port
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	dialer, err := portForwardDialer(config, u)
+	dialer, rec, err := portForwardDialer(config, u)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func dialPortForward(ctx context.Context, config *rest.Config, u *url.URL) (Port
 		return nil, ctx.Err()
 	}
 	if d.err != nil {
-		return nil, d.err
+		return nil, rec.refusal(d.err)
 	}
 	// select picks at random when the dial and the cancellation are both ready: the
 	// cancellation wins, so a cancelled caller never receives a tunnel.
@@ -136,19 +136,22 @@ func dialPortForward(ctx context.Context, config *rest.Config, u *url.URL) (Port
 
 // portForwardDialer builds the dialer kubectl port-forward builds (k8s.io/kubectl/pkg/cmd/
 // portforward, createDialer): WebSocket first, SPDY as the fallback.
-func portForwardDialer(config *rest.Config, u *url.URL) (httpstream.Dialer, error) {
+func portForwardDialer(config *rest.Config, u *url.URL) (httpstream.Dialer, *statusRecorder, error) {
 	transport, upgrader, err := spdy.RoundTripperFor(config)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	spdyDialer := spdy.NewDialerForStreaming(upgrader, &http.Client{Transport: transport}, http.MethodPost, u)
+	// The SPDY dialer's upgrade error is a plain error that keeps the server's message and loses
+	// its status code: the recorder keeps the code, so a refusal can be told from a hiccup (D-20).
+	rec := &statusRecorder{next: transport}
+	spdyDialer := spdy.NewDialerForStreaming(upgrader, &http.Client{Transport: rec}, http.MethodPost, u)
 	ws, err := portforward.NewSPDYOverWebsocketDialerForStreaming(u, config)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return portforward.NewFallbackDialerForStreaming(ws, spdyDialer, func(err error) bool {
 		return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
-	}), nil
+	}), rec, nil
 }
 
 // tunnel is a PortTunnel over one streaming connection.

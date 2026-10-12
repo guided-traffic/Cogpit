@@ -350,7 +350,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ### G10. Port forwarding
 - **Decided (owner, 2026-10-12, [D-20](../developer/decisions.md#d-20-a-port-forward-that-cannot-connect)):**
   a forward that cannot connect for a permanent reason (forbidden, unauthorized, the namespace
-  gone) turns Failed at once and frees its port; passing errors keep the backoff; not built, 1–2 h.
+  gone) turns Failed at once and frees its port; passing errors keep the backoff; **built 2026-10-12**
+  (404, 403 and 401 from the dial; `TestPortForwardFailsAtOncePermanentErrors`, `TestDialErrorsAreClassified`).
 - **Missing:** Lens's status texts in the Port Forwarding view and its Edit dialog (capture
   needed; Cogpit's are inferred), the access review of the pod behind a forward before Edit offers
   it, a check in a real window that the browser opens (offscreen tests stop at Fyne's `OpenURL`).

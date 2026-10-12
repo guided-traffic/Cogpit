@@ -476,7 +476,18 @@ releases its local port and names the cause; an error that can pass (the network
 starting, a server error) is retried with the backoff as today. Today a forward that first waited
 for a pod and then could not connect stays Reconnecting and retries for ever
 ([`portforward_run.go`](../../internal/engine/portforward_run.go)). Lens's behaviour is not
-captured. Not built yet; 1–2 h. The options weighed:
+captured. **Built 2026-10-12** ([`cluster/portforward_errors.go`](../../internal/cluster/portforward_errors.go),
+`TestPortForwardFailsAtOncePermanentErrors`, `TestDialErrorsAreClassified`). The permanent errors,
+as the API server answers the portforward request: **404 Not Found** (the pod does not exist, or
+its namespace is gone), **403 Forbidden** (no `create` on `pods/portforward`) and **401
+Unauthorized** (credentials rejected after client-go's refresh). client-go's SPDY dialer returns
+those as a plain error that keeps the message and loses the status, so Cogpit records the status of
+the dialer's last response (`DialRefusedError`). Retried as before: a network error, a dial
+timeout, 5xx, 429, and 400 (the answer while a pod is not running yet), and an error without a
+status (a proxy resetting the connection). A refused connection to the pod's port is not a dial
+error and stays a reconnect (the application may be starting); a pod or namespace that vanishes
+from the cache while the forward waits keeps it Waiting, since the cache cannot tell a deleted pod
+from one a controller recreates. The options weighed:
 
 | Option | For | Against |
 |---|---|---|
@@ -655,7 +666,7 @@ the upgrade is bound to its text revision (R-2). Built 2026-10-12 by the lead
 | 2026-10-12 | minor | D-17 built: a token file outside an added kubeconfig's folder is asked for in the plugin dialog; the approval binds the content of a program or CA file inside the folder (R-5, D-26) and the dialog shows proxy, insecure and own CA (R-11) |
 | 2026-10-12 | minor | Owner's decisions on look and use: D-22 Solarized colours, D-23 the status bar link, D-24 the C helm logo, D-25 copying values |
 | 2026-10-12 | minor | D-21 (owner): no adding of kubeconfigs from pasted text; the paste feature built the same day is removed (pasted sources of earlier builds are no longer listed, their files stay) |
-| 2026-10-12 | minor | D-20 (owner): a port forward fails at once on permanent errors (option a), not built |
+| 2026-10-12 | minor | D-20 (owner): a port forward fails at once on permanent errors (option a); built the same day |
 | 2026-10-12 | minor | D-14 (owner): the upstream pull requests grouped, opened by the lead after the owner's OK on the series |
 | 2026-10-12 | minor | D-19 (owner): Secrets editable and creatable from YAML in the GUI only (option a), not built |
 | 2026-10-12 | minor | D-18 (owner): Secret annotations stay visible to agents; H-23 documented and accepted (option d) |

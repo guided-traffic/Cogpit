@@ -101,7 +101,9 @@ type forwardTarget struct {
 
 // run is the forward's loop: resolve the pod from the cache, dial it, carry connections until the
 // connection is lost or the pod goes, and again, until ctx ends. A first connection that fails
-// ends the forward (Failed): the caller sees the error. Later losses are dialled again.
+// ends the forward (Failed): the caller sees the error. Later losses are dialled again, except
+// an error that waiting does not cure (cluster.IsPermanentForwardError): that fails the forward
+// at once and frees its port (D-20).
 func (r *forwardRun) run(ctx context.Context) {
 	defer close(r.done)
 	defer func() { _ = r.ln.Close() }()
@@ -143,6 +145,11 @@ func (r *forwardRun) run(ctx context.Context) {
 			}
 			if !r.firstSentYet() {
 				r.fail(ctx, err)
+				return
+			}
+			if cluster.IsPermanentForwardError(err) {
+				// Waiting does not cure it (D-20): Failed at once, the local port freed.
+				r.fail(ctx, fmt.Errorf("not retried, waiting would not help: %w", err))
 				return
 			}
 			r.set(ForwardReconnecting, err.Error(), t.pod, t.port)
