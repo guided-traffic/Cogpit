@@ -3,6 +3,7 @@ package helm
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"log/slog"
 	"strings"
 	"testing"
@@ -90,6 +91,28 @@ func TestScrubValues(t *testing.T) {
 	}
 	if long := ScrubValues(strings.Repeat("x", 3*maxErrorText), nil); len(long) > maxErrorText+20 {
 		t.Errorf("%d bytes not cut", len(long))
+	}
+}
+
+// A value with quotes, backslashes or other characters a quoting escapes is scrubbed in the forms
+// error texts quote it in: Go's %q, JSON (an admission webhook's message), ASCII-only quoting;
+// and a number in the form a template renders it (1e+06), not only the plain digits (review of
+// the fourth run, R-4).
+func TestScrubValuesEscapedForms(t *testing.T) {
+	pw := "p\"4ss\\w0rd\tnäme<x>"
+	vals := map[string]any{"pw": pw, "big": float64(1000000), "huge": float64(12345678901234567890)}
+	for _, text := range []string{
+		fmt.Sprintf("denied: %q", pw),
+		fmt.Sprintf("denied: %+q", pw),
+		`admission webhook denied: {"pw":"p\"4ss\\w0rd\tnäme<x>"}`,
+		"replicas 1e+06 too high, id 1.2345678901234567e+19",
+	} {
+		got := ScrubValues(text, vals)
+		for _, leak := range []string{"4ss", "w0rd", "1e+06", "1.2345678901234567e+19"} {
+			if strings.Contains(got, leak) {
+				t.Errorf("%q left in %q", leak, got)
+			}
+		}
 	}
 }
 

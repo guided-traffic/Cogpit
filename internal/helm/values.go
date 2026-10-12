@@ -1,9 +1,11 @@
 package helm
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -108,13 +110,19 @@ const withheldValue = "<value withheld>"
 
 // ScrubValues returns text with every string and number of values that is at least minScrubbed
 // characters long replaced by a placeholder, also in its base64 form (charts put values into
-// Secrets with b64enc, and the API server can quote those); longer values first, so that a value
-// containing another is replaced whole. Text is then cut to maxErrorText. Values a template
-// transformed otherwise (upper, sha256sum) are not found: a known limit.
+// Secrets with b64enc, and the API server can quote those) and in the escaped forms error texts
+// quote strings in (Go's %q and %+q, JSON with and without HTML escaping); longer values first, so
+// that a value containing another is replaced whole. Text is then cut to maxErrorText. Values a
+// template transformed otherwise (upper, sha256sum) are not found: a known limit.
 func ScrubValues(text string, values map[string]any) string {
 	secrets := scalars(values, nil)
 	for _, s := range slices.Clone(secrets) {
 		secrets = append(secrets, base64.StdEncoding.EncodeToString([]byte(s)))
+		for _, q := range quotedForms(s) {
+			if q != s && len(q) >= minScrubbed {
+				secrets = append(secrets, q)
+			}
+		}
 	}
 	slices.SortFunc(secrets, func(a, b string) int { return cmp.Compare(len(b), len(a)) })
 	for _, s := range slices.Compact(secrets) {
@@ -126,7 +134,25 @@ func ScrubValues(text string, values map[string]any) string {
 	return text
 }
 
-// scalars collects the string and number leaves of values that are at least minScrubbed long.
+// quotedForms are s as quoting escapes it, without the quotes: Go's %q and %+q (strconv), and
+// JSON, as Go's encoder writes it (<, > and & as \u003c…) and as other encoders do.
+func quotedForms(s string) []string {
+	unquote := func(q string) string { return q[1 : len(q)-1] }
+	out := []string{unquote(strconv.Quote(s)), unquote(strconv.QuoteToASCII(s))}
+	if b, err := json.Marshal(s); err == nil {
+		out = append(out, unquote(string(b)))
+	}
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if enc.Encode(s) == nil {
+		out = append(out, unquote(strings.TrimSuffix(buf.String(), "\n")))
+	}
+	return out
+}
+
+// scalars collects the string and number leaves of values that are at least minScrubbed long;
+// a float also as a template renders it (%v: 1e+06), not only as its digits.
 func scalars(v any, out []string) []string {
 	switch x := v.(type) {
 	case map[string]any:
@@ -151,8 +177,10 @@ func scalars(v any, out []string) []string {
 			out = append(out, x)
 		}
 	case float64:
-		if s := strconv.FormatFloat(x, 'f', -1, 64); len(s) >= minScrubbed {
-			out = append(out, s)
+		for _, s := range []string{strconv.FormatFloat(x, 'f', -1, 64), strconv.FormatFloat(x, 'g', -1, 64)} {
+			if len(s) >= minScrubbed {
+				out = append(out, s)
+			}
 		}
 	case int64:
 		if s := strconv.FormatInt(x, 10); len(s) >= minScrubbed {

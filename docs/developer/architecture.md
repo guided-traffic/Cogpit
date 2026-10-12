@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, §8) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, §8) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-11)
 
@@ -917,7 +917,9 @@ Where it differs from the contract above, this paragraph wins.
   journal entry is removed, since nothing is left to finish.
 - **Values never leave the user's window.** Errors, toasts, the journal's error text and the SDK's
   own log lines during an upgrade are scrubbed of every value of four or more characters, also in
-  base64 (`helm.ScrubValues`; values a template transformed otherwise are not found); the audit log
+  base64, in the escaped forms error texts quote strings in (Go's `%q` and `%+q`, JSON) and numbers
+  as a template renders them (`1e+06`) (`helm.ScrubValues`, R-4 of the fourth run's review; values
+  a template transformed otherwise are not found); the audit log
   records `values` and a Helm Upgrade tab's `editor.setText` text by size only; YAML parse errors
   name the line, never a value. A revision's description, which Helm writes from a failed
   upgrade's error (seen on a real cluster, 2026-10-12: the API server's message), reaches the
