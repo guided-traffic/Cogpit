@@ -215,29 +215,6 @@ func TestDisplayText(t *testing.T) {
 	}
 }
 
-func TestPasted(t *testing.T) {
-	if ctxs, err := Pasted([]byte(execConfig)); err != nil || len(ctxs) != 2 {
-		t.Fatalf("Pasted = %v, %v", ctxs, err)
-	}
-	for name, in := range map[string]string{
-		"empty":       "",
-		"blank":       " \n\t",
-		"no contexts": "apiVersion: v1\nkind: Config\nusers:\n- name: u\n  user:\n    token: " + secret + "\n",
-		"not yaml":    "\t" + secret + ": :",
-		"wrong kind":  "apiVersion: v1\nkind: Secret\ndata:\n  token: " + secret + "\n",
-		"too large":   strings.Repeat("#", MaxFileSize+1),
-	} {
-		_, err := Pasted([]byte(in))
-		if err == nil {
-			t.Errorf("%s: no error", name)
-			continue
-		}
-		if strings.Contains(err.Error(), secret[:7]) {
-			t.Errorf("%s: the error echoes the text: %v", name, err)
-		}
-	}
-}
-
 func TestSyncCandidate(t *testing.T) {
 	for name, want := range map[string]bool{
 		"config": true, "team.yaml": true, "kind.kubeconfig": true,
@@ -249,7 +226,7 @@ func TestSyncCandidate(t *testing.T) {
 	}
 }
 
-// FuzzExecPlugins feeds kubeconfig bytes through the paste check and the plugin description of
+// FuzzExecPlugins feeds kubeconfig bytes through the parser and the plugin description of
 // every context: nothing panics, the fingerprint is deterministic, the JSON never carries an
 // environment value, and DisplayText never lets a control or format character through.
 func FuzzExecPlugins(f *testing.F) {
@@ -262,7 +239,6 @@ func FuzzExecPlugins(f *testing.F) {
 		f.Add([]byte(seed))
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		_, _ = Pasted(data) // must not panic
 		cfg, err := Parse(data)
 		if err != nil {
 			return

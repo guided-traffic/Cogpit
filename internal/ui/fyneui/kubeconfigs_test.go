@@ -3,7 +3,6 @@ package fyneui
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"slices"
 	"strings"
 	"sync"
@@ -16,12 +15,12 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine"
 )
 
-// sourceContexts are the picker's contexts with kubeconfig sources: a pasted kubeconfig, a file
+// sourceContexts are the picker's contexts with kubeconfig sources: a file that needs no program, a file
 // whose login program is not allowed yet, and a synced one whose program changed since.
 func sourceContexts() []engine.ContextInfo {
 	return append(fixtureContexts()[1:3],
-		engine.ContextInfo{Name: "kind-cogpit [pasted 1]", KubeContext: "kind-cogpit", Source: "pasted 1", Cluster: "kind-cogpit",
-			Server: "https://127.0.0.1:52341", File: "/Users/me/Library/Application Support/Cogpit/kubeconfigs/pasted-1f.yaml"},
+		engine.ContextInfo{Name: "kind-cogpit [kind.yaml]", KubeContext: "kind-cogpit", Source: "kind.yaml", Cluster: "kind-cogpit",
+			Server: "https://127.0.0.1:52341", File: "/Users/me/kind.yaml"},
 		engine.ContextInfo{Name: "prod-eks [eks.yaml]", KubeContext: "prod-eks", Source: "eks.yaml", Cluster: "arn:aws:eks:eu-central-1:000000000000:cluster/prod",
 			Server: "https://ABCDEF.gr7.eu-central-1.eks.amazonaws.com", File: "/Users/me/Downloads/eks.yaml", Exec: engine.ExecRequired},
 		engine.ContextInfo{Name: "team [kubeconfigs/team.yaml]", KubeContext: "team", Source: "kubeconfigs/team.yaml", Cluster: "team",
@@ -89,17 +88,9 @@ func kubeconfigFake(t *testing.T, state string) (*fakeEngine, *recorder) {
 	}
 	handle("kubeconfig.execPlugin", func(engine.Invocation) (any, error) { return pluginView(state), nil })
 	handle("kubeconfig.approveExec", func(engine.Invocation) (any, error) { return pluginView(engine.ExecApproved), nil })
-	handle("kubeconfig.paste", func(inv engine.Invocation) (any, error) {
-		var p map[string]string
-		_ = json.Unmarshal(inv.Params, &p)
-		if !strings.Contains(p["kubeconfig"], "contexts:") {
-			return nil, errors.New("kubeconfig: the document defines no context")
-		}
-		return map[string]any{"source": map[string]any{"id": "pasted 2", "kind": "pasted"}, "contexts": []string{"x [pasted 2]"}}, nil
-	})
 	handle("kubeconfig.sources", func(engine.Invocation) (any, error) {
 		return map[string]any{"sources": []map[string]any{
-			{"id": "pasted 1", "kind": "pasted", "path": "/Users/me/Library/Application Support/Cogpit/kubeconfigs/pasted-1f.yaml", "files": []string{"pasted 1"}, "contexts": 1},
+			{"id": "kind.yaml", "kind": "file", "path": "/Users/me/kind.yaml", "files": []string{"kind.yaml"}, "contexts": 1},
 			{"id": "eks.yaml", "kind": "file", "path": "/Users/me/Downloads/eks.yaml", "files": []string{"eks.yaml"}, "contexts": 1},
 			{"id": "kubeconfigs/", "kind": "folder", "path": "/Users/me/kubeconfigs", "files": []string{"kubeconfigs/team.yaml"}, "contexts": 1, "skipped": 2},
 			{"id": "old.yaml", "kind": "file", "path": "/Users/me/old.yaml", "contexts": 0, "error": "kubeconfig file /Users/me/old.yaml does not exist"},
@@ -204,45 +195,15 @@ func TestPickerCancelledApprovalDoesNotConnect(t *testing.T) {
 	}
 }
 
-// TestPickerConnectsAllowedAndPastedContextsDirectly: no dialog for a context without a program to
+// TestPickerConnectsContextsWithoutAProgramDirectly: no dialog for a context without a program to
 // allow.
-func TestPickerConnectsAllowedAndPastedContextsDirectly(t *testing.T) {
+func TestPickerConnectsContextsWithoutAProgramDirectly(t *testing.T) {
 	f, rec := kubeconfigFake(t, engine.ExecRequired)
 	sh, _, q := newTestShell(t, f, Options{})
-	selectAndConnect(t, sh, q, "kind-cogpit [pasted 1]")
+	selectAndConnect(t, sh, q, "kind-cogpit [kind.yaml]")
 	q.until(t, "the connection", func() bool { return len(f.connects()) == 1 })
 	if sh.kc.approval != nil || slices.Contains(rec.ids(), "kubeconfig.execPlugin") {
 		t.Errorf("asked about a context without a program: %v", rec.ids())
-	}
-}
-
-// TestPasteDialog: the text goes to kubeconfig.paste; an error stays in the dialog; success closes
-// it and the widget keeps no copy of the text.
-func TestPasteDialog(t *testing.T) {
-	f, rec := kubeconfigFake(t, engine.ExecRequired)
-	sh, _, q := newTestShell(t, f, Options{})
-	q.until(t, "the picker", sh.picker.visible)
-	sh.kc.showPaste()
-	p := sh.kc.paste
-	test.Tap(p.add)
-	if !strings.Contains(p.status.text, "Paste a kubeconfig first") || slices.Contains(rec.ids(), "kubeconfig.paste") {
-		t.Fatalf("empty paste: %q %v", p.status.text, rec.ids())
-	}
-	p.entry.SetText("apiVersion: v1\nkind: Config\n")
-	test.Tap(p.add)
-	q.until(t, "the error", func() bool { return strings.Contains(p.status.text, "no context") })
-	if sh.kc.paste == nil {
-		t.Fatal("an error closed the dialog")
-	}
-	text := "apiVersion: v1\nkind: Config\ncontexts:\n- name: x\n  context: {cluster: c, user: u}\n"
-	p.entry.SetText(text)
-	test.Tap(p.add)
-	q.until(t, "the dialog to close", func() bool { return sh.kc.paste == nil })
-	if got := rec.params("kubeconfig.paste"); got["kubeconfig"] == "" {
-		t.Errorf("paste params %v", got)
-	}
-	if p.entry.Text != "" {
-		t.Error("the closed dialog keeps the pasted text")
 	}
 }
 
@@ -279,7 +240,7 @@ func TestAddFileFromTheMenuAndEventsReloadThePicker(t *testing.T) {
 	for _, it := range sh.mainMenu().Items[0].Items {
 		labels = append(labels, it.Label)
 	}
-	for _, want := range []string{"Add Kubeconfig File…", "Paste Kubeconfig…", "Add Sync Folder…", "Kubeconfig Sources…"} {
+	for _, want := range []string{"Add Kubeconfig File…", "Add Sync Folder…", "Kubeconfig Sources…"} {
 		if !slices.Contains(labels, want) {
 			t.Errorf("Cluster menu %v lacks %q", labels, want)
 		}
@@ -320,16 +281,6 @@ func TestRenderExecApprovalDark(t *testing.T) {
 
 func TestRenderExecApprovalLight(t *testing.T) {
 	renderApproval(t, ThemeLight, engine.ExecChanged, "exec_approval_changed_light.png")
-}
-
-func TestRenderPasteKubeconfig(t *testing.T) {
-	f, _ := kubeconfigFake(t, engine.ExecRequired)
-	sh, w, q := newTestShell(t, f, Options{})
-	q.until(t, "the picker", sh.picker.visible)
-	sh.kc.showPaste()
-	sh.kc.paste.entry.SetText("apiVersion: v1\nkind: Config\nclusters:\n- name: kind-cogpit\n  cluster:\n    server: https://127.0.0.1:52341\n" +
-		"contexts:\n- name: kind-cogpit\n  context: {cluster: kind-cogpit, user: kind-cogpit}\n")
-	savePNG(t, w, "paste_kubeconfig_dark.png")
 }
 
 func TestRenderKubeconfigSources(t *testing.T) {

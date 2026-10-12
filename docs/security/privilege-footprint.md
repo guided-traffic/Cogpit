@@ -13,7 +13,7 @@ the watch on custom resource definitions, access reviews), list views (Secrets i
 Port forward, Edit and apply, Create, Delete (every kind), Restart (Deployment, Daemon Set,
 Stateful Set), Scale (Deployment, Stateful Set, Replica Set), Cordon, Uncordon, Drain, Trigger,
 Suspend and Resume (Cron Job), Evict, a Secret's drawer, Helm rollback and uninstall, and Helm
-upgrade (2026-10-12). The rows below say which. Adding, pasting and syncing kubeconfigs
+upgrade (2026-10-12). The rows below say which. Adding and syncing kubeconfigs
 (2026-10-12) sends no request to a cluster; what they let run on the user's computer is in
 [credentials](credentials.md) and [trust boundaries](trust-boundaries.md#h-1-kubeconfig-files-added-by-sync-folders).
 

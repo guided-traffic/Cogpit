@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -18,8 +19,8 @@ import (
 	"github.com/guided-traffic/cogpit/internal/testkit"
 )
 
-// pastedSecret is a credential in the test kubeconfigs: no error, log or listing may contain it.
-const pastedSecret = "tok-PASTED-6c1e-must-not-leak"
+// sourceSecret is a credential in the test kubeconfigs: no error, log or listing may contain it.
+const sourceSecret = "tok-PASTED-6c1e-must-not-leak"
 
 // sourceKubeconfig is a kubeconfig with one context and a token user.
 func sourceKubeconfig(contextName string) string {
@@ -33,7 +34,7 @@ clusters:
 users:
 - name: u
   user:
-    token: ` + pastedSecret + `
+    token: ` + sourceSecret + `
 contexts:
 - name: ` + contextName + `
   context:
@@ -59,7 +60,7 @@ users:
       command: ` + command + `
       args: ["` + strings.Join(args, `", "`) + `"]
       env:
-      - {name: SECRET_ENV, value: ` + pastedSecret + `}
+      - {name: SECRET_ENV, value: ` + sourceSecret + `}
 contexts:
 - name: ` + contextName + `
   context: {cluster: c, user: u}
@@ -144,93 +145,79 @@ func checkMode(t *testing.T, path string, want fs.FileMode) {
 	}
 }
 
-// TestPasteStoresItOwnerOnly: a pasted kubeconfig is stored byte for byte as Cogpit's own file,
-// 0600 in a 0700 folder inside a 0700 configuration directory (one created too open is
-// tightened), the list of sources is 0600, and removing the source deletes the copy.
-func TestPasteStoresItOwnerOnly(t *testing.T) {
+// TestSourcesFileIsOwnerOnly: the list of sources is 0600 in a 0700 configuration directory (one
+// created too open is tightened), holds no credential, and the added file is only read.
+func TestSourcesFileIsOwnerOnly(t *testing.T) {
 	cfgDir := filepath.Join(t.TempDir(), "Cogpit")
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil { // as an older or careless writer left it
 		t.Fatal(err)
 	}
+	file := filepath.Join(t.TempDir(), "dev.yaml")
+	writeUserFile(t, file, sourceKubeconfig("dev-ctx"))
 	k := NewKubeconfigSources(cfgDir)
-	text := sourceKubeconfig("pasted-ctx")
-	src, ctxs, err := k.Paste([]byte(text))
+	src, ctxs, err := k.AddFile(file)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if src.ID != "pasted 1" || src.Kind != SourcePasted || len(ctxs) != 1 || ctxs[0].Name != "pasted-ctx" {
-		t.Fatalf("Paste = %+v %+v", src, ctxs)
-	}
-	if filepath.Dir(src.Path) != k.PastedDir() {
-		t.Errorf("stored at %s, not in %s", src.Path, k.PastedDir())
-	}
-	got, err := os.ReadFile(src.Path)
-	if err != nil || string(got) != text {
-		t.Fatalf("stored text differs: %v", err)
+	if src.ID != "dev.yaml" || src.Kind != SourceFile || len(ctxs) != 1 || ctxs[0].Name != "dev-ctx" {
+		t.Fatalf("AddFile = %+v %+v", src, ctxs)
 	}
 	checkMode(t, cfgDir, 0o700)
-	checkMode(t, k.PastedDir(), 0o700)
-	checkMode(t, src.Path, 0o600)
 	checkMode(t, filepath.Join(cfgDir, KubeconfigSourcesFile), 0o600)
 	sources, err := os.ReadFile(filepath.Join(cfgDir, KubeconfigSourcesFile))
-	if err != nil || strings.Contains(string(sources), pastedSecret) {
+	if err != nil || strings.Contains(string(sources), sourceSecret) {
 		t.Fatalf("the sources file: %v (or it holds the token)", err)
-	}
-
-	second, _, err := k.Paste([]byte(sourceKubeconfig("other")))
-	if err != nil || second.ID != "pasted 2" || second.Path == src.Path {
-		t.Fatalf("second paste: %+v %v", second, err)
 	}
 	infos, err := k.Contexts()
 	if err != nil {
 		t.Fatal(err)
 	}
-	var ids []string
-	for _, c := range infos {
-		ids = append(ids, c.Name)
-		if c.KubeContext == "" || c.Source == "" || c.File == "" || c.Exec != "" {
-			t.Errorf("context info %+v", c)
-		}
-	}
-	if strings.Join(ids, ",") != "other [pasted 2],pasted-ctx [pasted 1]" {
-		t.Errorf("contexts %v", ids)
-	}
-
-	if _, err := k.Remove("pasted 1"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(src.Path); !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("the pasted copy is still there: %v", err)
-	}
-	third, _, err := k.Paste([]byte(text))
-	if err != nil || third.ID != "pasted 1" {
-		t.Errorf("a freed number is reused: %+v %v", third, err)
+	if len(infos) != 1 || infos[0].Name != "dev-ctx [dev.yaml]" || infos[0].KubeContext == "" || infos[0].File != file || infos[0].Exec != "" {
+		t.Errorf("contexts %+v", infos)
 	}
 }
 
-// TestPasteRefusesWithoutWritingOrEchoing: text that is not a kubeconfig with a context writes
-// nothing, and the error never quotes it.
-func TestPasteRefusesWithoutWritingOrEchoing(t *testing.T) {
+// TestPastedSourcesOfEarlierBuildsAreNotOffered: pasting was removed (D-21). A "pasted" entry that
+// an earlier build wrote is not listed and offers no context, its file stays on disk untouched,
+// the other sources keep working, and the next save of the list drops the entry.
+func TestPastedSourcesOfEarlierBuildsAreNotOffered(t *testing.T) {
 	cfgDir := filepath.Join(t.TempDir(), "Cogpit")
-	k := NewKubeconfigSources(cfgDir)
-	for name, text := range map[string]string{
-		"empty":            "",
-		"not a kubeconfig": "\t" + pastedSecret + ": :",
-		"no context":       "users:\n- name: u\n  user:\n    token: " + pastedSecret + "\n",
-		"duplicate users":  "users:\n- name: u\n  user:\n    token: " + pastedSecret + "\n- name: u\n  user: {}\ncontexts:\n- name: c\n  context: {user: u}\n",
-		"too large":        strings.Repeat("#", 1<<20+1),
-	} {
-		_, _, err := k.Paste([]byte(text))
-		if err == nil {
-			t.Errorf("%s: pasted", name)
-			continue
-		}
-		if strings.Contains(err.Error(), pastedSecret[:9]) {
-			t.Errorf("%s: the error quotes the text: %v", name, err)
-		}
+	pastedDir := filepath.Join(cfgDir, "kubeconfigs")
+	pasted := filepath.Join(pastedDir, "pasted-1f2e3d4c5b6a7988.yaml")
+	writeUserFile(t, pasted, sourceKubeconfig("old-ctx"))
+	file := filepath.Join(t.TempDir(), "dev.yaml")
+	writeUserFile(t, file, sourceKubeconfig("dev-ctx"))
+	doc := `{"version":1,"sources":[` +
+		`{"id":"pasted 1","kind":"pasted","path":` + strconv.Quote(pasted) + `,"added":"2026-10-11T10:00:00Z"},` +
+		`{"id":"dev.yaml","kind":"file","path":` + strconv.Quote(file) + `,"added":"2026-10-11T10:01:00Z"}]}`
+	if err := os.MkdirAll(cfgDir, 0o700); err != nil {
+		t.Fatal(err)
 	}
-	if _, err := os.Stat(cfgDir); !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("a refused paste wrote to the configuration directory: %v", err)
+	if err := os.WriteFile(filepath.Join(cfgDir, KubeconfigSourcesFile), []byte(doc), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	k := NewKubeconfigSources(cfgDir)
+	list, err := k.List()
+	if err != nil || len(list) != 1 || list[0].ID != "dev.yaml" {
+		t.Fatalf("List = %+v, %v", list, err)
+	}
+	infos, err := k.Contexts()
+	if err != nil || len(infos) != 1 || infos[0].Name != "dev-ctx [dev.yaml]" {
+		t.Fatalf("Contexts = %+v, %v", infos, err)
+	}
+	if _, err := k.Remove("pasted 1"); err == nil {
+		t.Error("Remove found a pasted source")
+	}
+	before := treeState(t, pastedDir)
+	if _, err := k.AddFolder(t.TempDir()); err != nil {
+		t.Fatal(err) // the save drops the old entry
+	}
+	if list, err := k.List(); err != nil || len(list) != 2 || slices.ContainsFunc(list, func(s KubeconfigSource) bool { return s.ID == "pasted 1" }) {
+		t.Errorf("List after a save = %+v, %v", list, err)
+	}
+	sameTree(t, before, treeState(t, pastedDir))
+	if got, err := os.ReadFile(pasted); err != nil || string(got) != sourceKubeconfig("old-ctx") {
+		t.Errorf("the file of an old pasted source changed: %v", err)
 	}
 }
 
@@ -309,12 +296,7 @@ func TestAddRefusesDuplicatesAndNonKubeconfigs(t *testing.T) {
 			t.Errorf("AddFile(%q) succeeded", p)
 		}
 	}
-	for _, p := range []string{"", filepath.Join(user, "missing"), file, k.PastedDir()} {
-		if p == k.PastedDir() {
-			if err := os.MkdirAll(p, 0o700); err != nil {
-				t.Fatal(err)
-			}
-		}
+	for _, p := range []string{"", filepath.Join(user, "missing"), file} {
 		if _, err := k.AddFolder(p); err == nil {
 			t.Errorf("AddFolder(%q) succeeded", p)
 		}
@@ -364,7 +346,7 @@ func TestExecApprovalStates(t *testing.T) {
 	if p.State != ExecRequired || !errors.Is(k.Policy(p.Plugin), ErrExecNotApproved) {
 		t.Fatalf("before approval: %s %v", p.State, k.Policy(p.Plugin))
 	}
-	if msg := k.Policy(p.Plugin).Error(); !strings.Contains(msg, "aws") || !strings.Contains(msg, file) || strings.Contains(msg, pastedSecret) {
+	if msg := k.Policy(p.Plugin).Error(); !strings.Contains(msg, "aws") || !strings.Contains(msg, file) || strings.Contains(msg, sourceSecret) {
 		t.Errorf("refusal %q", msg)
 	}
 	if err := k.Approve(p.Plugin); err != nil {
@@ -372,7 +354,7 @@ func TestExecApprovalStates(t *testing.T) {
 	}
 	checkMode(t, filepath.Join(cfgDir, ExecApprovalsFile), 0o600)
 	stored, err := os.ReadFile(filepath.Join(cfgDir, ExecApprovalsFile))
-	if err != nil || strings.Contains(string(stored), pastedSecret) {
+	if err != nil || strings.Contains(string(stored), sourceSecret) {
 		t.Fatalf("the approvals file holds the environment's value, or: %v", err)
 	}
 	if p = plugin(); p.State != ExecApproved || k.Policy(p.Plugin) != nil {
@@ -400,27 +382,6 @@ func TestExecApprovalStates(t *testing.T) {
 	f, kctx, _, _ := k.Find("e [exec.yaml]")
 	if err := k.Policy(f.Exec[kctx]); err == nil || errors.Is(err, ErrExecNotApproved) && !strings.Contains(err.Error(), "unreadable") {
 		t.Errorf("an unreadable approvals file: %v", err)
-	}
-}
-
-// TestRemoveDeletesOnlyCogpitsOwnCopy: a sources file changed to point a pasted source at a user's
-// file (a tampered or hand-edited list) never makes Remove delete that file.
-func TestRemoveDeletesOnlyCogpitsOwnCopy(t *testing.T) {
-	user := t.TempDir()
-	victim := filepath.Join(user, "config")
-	writeUserFile(t, victim, sourceKubeconfig("mine"))
-	cfgDir := filepath.Join(t.TempDir(), "Cogpit")
-	k := NewKubeconfigSources(cfgDir)
-	if err := k.saveSources([]KubeconfigSource{{ID: "pasted 1", Kind: SourcePasted, Path: victim}}); err != nil {
-		t.Fatal(err)
-	}
-	before := treeState(t, user)
-	if _, err := k.Remove("pasted 1"); err == nil || !strings.Contains(err.Error(), "left as it is") {
-		t.Errorf("Remove: %v", err)
-	}
-	sameTree(t, before, treeState(t, user))
-	if list, _ := k.List(); len(list) != 0 {
-		t.Errorf("the source stays listed: %+v", list)
 	}
 }
 

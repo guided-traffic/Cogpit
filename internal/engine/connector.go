@@ -42,7 +42,7 @@ type ClusterConnector struct {
 	WarmPeriod time.Duration
 	// Logger receives connection warnings; nil means slog.Default().
 	Logger *slog.Logger
-	// Sources are the kubeconfig files, pasted kubeconfigs and sync folders the user added in
+	// Sources are the kubeconfig files and sync folders the user added in
 	// Cogpit (kubeconfigs.go); their contexts are offered as "<context> [<source>]". Nil: none.
 	Sources *KubeconfigSources
 }

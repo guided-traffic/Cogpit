@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -81,45 +80,47 @@ func contextIDs(t *testing.T, s *engine.Session) map[string]engine.ContextInfo {
 	return out
 }
 
-// TestPastedKubeconfigConnects pastes a fake API server's kubeconfig in the GUI and connects to it
-// as an agent would: the context is "<context> [pasted 1]", reads from its own file only, and the
+// TestAddedKubeconfigConnects adds a fake API server's kubeconfig file in the GUI and connects to it
+// as an agent would: the context is "<context> [<file>]", reads from its own file only, and the
 // connection's UI state names that id. Neither results nor the audit log carry the token.
-func TestPastedKubeconfigConnects(t *testing.T) {
+func TestAddedKubeconfigConnects(t *testing.T) {
 	srv := testkit.NewFakeAPIServer(testkit.FakeAPIOptions{Token: sourceToken})
 	defer srv.Close()
-	s, k, audit := sourcesSession(t)
+	s, _, audit := sourcesSession(t)
+	file := srv.WriteKubeconfig(t, "fake", "team-a")
+	id := "fake [" + filepath.Base(file) + "]"
 
 	var added commands.SourceAdded
-	if err := sourcesDispatch(t, s, engine.OriginGUI, "kubeconfig.paste", map[string]string{"kubeconfig": string(srv.Kubeconfig("fake", "team-a"))}, &added); err != nil {
+	if err := sourcesDispatch(t, s, engine.OriginGUI, "kubeconfig.addFile", map[string]string{"path": file}, &added); err != nil {
 		t.Fatal(err)
 	}
-	if added.Source.ID != "pasted 1" || !slices.Equal(added.Contexts, []string{"fake [pasted 1]"}) {
-		t.Fatalf("paste: %+v", added)
+	if added.Source.ID != filepath.Base(file) || !slices.Equal(added.Contexts, []string{id}) {
+		t.Fatalf("addFile: %+v", added)
 	}
 	ctxs := contextIDs(t, s)
-	c, ok := ctxs["fake [pasted 1]"]
-	if !ok || c.KubeContext != "fake" || c.Source != "pasted 1" || filepath.Dir(c.File) != k.PastedDir() || c.Exec != "" {
+	c, ok := ctxs[id]
+	if !ok || c.KubeContext != "fake" || c.Source != filepath.Base(file) || c.File != file || c.Exec != "" {
 		t.Fatalf("contexts: %+v", ctxs)
 	}
 	var res commands.ConnectResult
-	if err := sourcesDispatch(t, s, engine.OriginExternalAgent, "cluster.connect", map[string]string{"context": "fake [pasted 1]"}, &res); err != nil {
+	if err := sourcesDispatch(t, s, engine.OriginExternalAgent, "cluster.connect", map[string]string{"context": id}, &res); err != nil {
 		t.Fatal(err)
 	}
-	if res.State != engine.Connected || res.Context != "fake [pasted 1]" || s.UIState().Context != "fake [pasted 1]" {
+	if res.State != engine.Connected || res.Context != id || s.UIState().Context != id {
 		t.Fatalf("connect: %+v", res)
 	}
 	if b := s.Backend(); b == nil || b.Namespace != "team-a" || b.Conn.Context() != "fake" ||
 		!slices.Equal(b.Conn.KubeconfigPaths(), []string{c.File}) {
 		t.Fatalf("backend: %+v", b)
 	}
-	// A terminal binds kubectl to the context's name in the pasted file, not to the id.
+	// A terminal binds kubectl to the context's name in the file, not to the id.
 	var tab commands.DockResult
 	if err := sourcesDispatch(t, s, engine.OriginGUI, "terminal.open", nil, &tab); err != nil {
 		t.Fatal(err)
 	}
 	term, err := s.OpenTerminal(context.Background(), tab.Tab.ID)
 	if err != nil {
-		t.Fatalf("a terminal for a pasted kubeconfig's context: %v", err)
+		t.Fatalf("a terminal for a source context: %v", err)
 	}
 	_ = term.Close()
 
@@ -136,9 +137,8 @@ func TestPastedKubeconfigConnects(t *testing.T) {
 	}
 }
 
-// TestKubeconfigCommandsAreGUIOnly: adding, pasting, removing and allowing are refused for agents
-// and the CLI, whatever they send; nothing is written, and the audit line of an agent's paste
-// carries the size of what it sent, never the text.
+// TestKubeconfigCommandsAreGUIOnly: adding, removing and allowing are refused for agents and the CLI,
+// whatever they send; nothing is written, and the audit log never carries a token.
 func TestKubeconfigCommandsAreGUIOnly(t *testing.T) {
 	srv := testkit.NewFakeAPIServer(testkit.FakeAPIOptions{Token: sourceToken})
 	defer srv.Close()
@@ -150,8 +150,7 @@ func TestKubeconfigCommandsAreGUIOnly(t *testing.T) {
 	}{
 		{"kubeconfig.addFile", map[string]string{"path": file}},
 		{"kubeconfig.addFolder", map[string]string{"path": filepath.Dir(file)}},
-		{"kubeconfig.paste", map[string]string{"kubeconfig": string(srv.Kubeconfig("fake", ""))}},
-		{"kubeconfig.remove", map[string]string{"source": "pasted 1"}},
+		{"kubeconfig.remove", map[string]string{"source": "dev.yaml"}},
 		{"kubeconfig.approveExec", map[string]string{"context": "x [y]", "fingerprint": "sha256:00"}},
 	}
 	for _, origin := range []engine.Origin{engine.OriginExternalAgent, engine.OriginBuiltInAgent, engine.OriginCLI} {
@@ -161,18 +160,12 @@ func TestKubeconfigCommandsAreGUIOnly(t *testing.T) {
 			}
 		}
 	}
-	// An agent's paste in another shape (a bare string) is no more logged than a well-formed one.
-	// (The CLI's calls are not in the audit log, which is of agents: D-2.)
-	if _, err := s.Dispatch(context.Background(), engine.Invocation{ID: "kubeconfig.paste", Origin: engine.OriginExternalAgent,
-		Params: json.RawMessage(fmt.Sprintf("%q", "token: "+sourceToken))}); err == nil {
-		t.Error("a malformed paste succeeded")
-	}
 	if _, err := os.Stat(k.Dir()); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("a refused command wrote Cogpit's configuration directory: %v", err)
 	}
 	log := audit.String()
-	if strings.Contains(log, sourceToken) || strings.Contains(log, "BEGIN") || strings.Count(log, `bytes; not logged`) != 3 {
-		t.Errorf("the audit log of the pastes:\n%s", log)
+	if strings.Contains(log, sourceToken) || strings.Contains(log, "BEGIN") {
+		t.Errorf("the audit log:\n%s", log)
 	}
 	for _, c := range calls {
 		if !strings.Contains(log, `"command":"`+c.id+`"`) {

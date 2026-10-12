@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -418,7 +418,7 @@ once per run.
 
 ## D-17: Token files named by added kubeconfigs
 
-**Decided (owner, 2026-10-12):** a context of an added, pasted or synced kubeconfig whose user names
+**Decided (owner, 2026-10-12):** a context of an added or synced kubeconfig whose user names
 a `tokenFile` outside the kubeconfig's own folder connects only after the user allowed it, in the
 same GUI dialog and with the same approval store as a credential plugin
 ([H-24](../security/trust-boundaries.md#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token),
@@ -431,7 +431,7 @@ default kubeconfig keeps kubectl's behaviour. Not built yet. The options weighed
 | Option | For | Against |
 |---|---|---|
 | **(a) Ask, as for plugins (decided)** | Closes the gap without breaking a legitimate setup; one mechanism for everything a kubeconfig does on the user's computer; 2–4 h | One more dialog for setups that use token files |
-| (b) Refuse for synced files only | No dialog | A legitimate synced setup breaks without recourse; pasted and added kubeconfigs stay open |
+| (b) Refuse for synced files only | No dialog | A legitimate synced setup breaks without recourse; added kubeconfigs stay open |
 | (c) Refuse every file reference of an added kubeconfig | Strictest | Breaks the many kubeconfigs that name certificate files, which send nothing that matters (a client key is never sent; a client certificate only in the TLS handshake) |
 | (d) Document only | Nothing to do | The gap stays live from the moment a file lands in a synced folder |
 
@@ -486,13 +486,17 @@ captured. Not built yet; 1–2 h. The options weighed:
 
 ## D-21: Pasting a kubeconfig
 
-**Decided (owner, 2026-10-12):** Cogpit does not add kubeconfigs from pasted text. Lens's "Add
-Kubeconfigs" menu offers "Paste from clipboard" beside syncing files and folders (captured
-2026-10-12); Cogpit offers files and sync folders only. The paste dialog, the
-`kubeconfig.paste` command and the owner-only store of pasted kubeconfigs built on 2026-10-12 are
-to be removed, with their tests and the documentation that describes them. The options weighed:
-keeping Cogpit's paste dialog without copying Lens's, removing it (decided), or reading the
-clipboard directly as Lens's menu item does.
+**Decided (owner, 2026-10-12), built the same day:** Cogpit does not add kubeconfigs from pasted
+text. Lens's "Add Kubeconfigs" menu offers "Paste from clipboard" beside syncing files and
+folders (captured 2026-10-12); Cogpit offers files and sync folders only. The paste dialog, the
+`kubeconfig.paste` command and the owner-only store of pasted kubeconfigs built earlier on
+2026-10-12 are removed, with their tests and the documentation that described them. What happens
+to what an earlier build wrote: Cogpit no longer lists or reads a `pasted` source and leaves its
+file under `<user config dir>/Cogpit/kubeconfigs/` alone, because it is the user's file and
+deleting user files silently is not acceptable; the entry leaves `kubeconfigs.json` with its next
+change ([architecture §6](architecture.md#kubeconfig-sources-built-2026-10-12)). The options weighed: keeping
+Cogpit's paste dialog without copying Lens's, removing it (decided), or reading the clipboard
+directly as Lens's menu item does.
 
 ## D-22: Colour theme
 
@@ -560,7 +564,7 @@ approach; how Lens Desktop copies is not captured and not needed. Not built yet.
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-12 | minor | Owner's decisions on look and use: D-22 Solarized colours, D-23 the status bar link, D-24 the C helm logo, D-25 copying values |
-| 2026-10-12 | minor | D-21 (owner): no adding of kubeconfigs from pasted text; the paste feature built the same day is to be removed |
+| 2026-10-12 | minor | D-21 (owner): no adding of kubeconfigs from pasted text; the paste feature built the same day is removed (pasted sources of earlier builds are no longer listed, their files stay) |
 | 2026-10-12 | minor | D-20 (owner): a port forward fails at once on permanent errors (option a), not built |
 | 2026-10-12 | minor | D-14 (owner): the upstream pull requests grouped, opened by the lead after the owner's OK on the series |
 | 2026-10-12 | minor | D-19 (owner): Secrets editable and creatable from YAML in the GUI only (option a), not built |

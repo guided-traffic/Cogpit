@@ -30,7 +30,7 @@ type picker struct {
 	status     *textLine
 	connectB   *widget.Button
 	cancelB    *widget.Button
-	addB       *widget.Button // "Add Kubeconfigs": paste, add a file or a sync folder (kubeconfigs.go)
+	addB       *widget.Button // "Add Kubeconfigs": add a file or a sync folder (kubeconfigs.go)
 	contexts   []engine.ContextInfo
 	selected   string
 	connecting string

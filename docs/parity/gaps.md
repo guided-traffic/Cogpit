@@ -103,10 +103,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   folder; a connect's log ("Connection Updates") behind a warning icon. Owner requirement: removing
   a synced item asks, naming the path, that only the link is removed.
 - **Decided (owner, 2026-10-12, [D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs)):**
-  a `tokenFile` of an added, pasted or synced kubeconfig outside its folder is asked for in the
+  a `tokenFile` of an added or synced kubeconfig outside its folder is asked for in the
   plugin approval dialog (H-24); not built, 2–4 h.
 - **Decided (owner, 2026-10-12, [D-21](../developer/decisions.md#d-21-pasting-a-kubeconfig)):**
-  no pasted kubeconfigs; the paste feature built on 2026-10-12 is removed (1–2 h).
+  no pasted kubeconfigs; the paste feature built on 2026-10-12 is removed (done 2026-10-12;
+  sources of kind `pasted` from earlier builds are no longer listed, their files stay).
 - **Missing:** kubeconfig discovery, merging and validation;
   connections through client-go with every authentication form; the persister for the legacy
   `oidc` provider; the environment for exec plugins; access reviews; connection states and errors
@@ -124,14 +125,13 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   cached per connection until refreshed or reconnected; measured, connecting costs one rules review
   and settling the sidebar one more access review for a user limited to a namespace
   (`TestBudgetAccessReviews`; on kind with a ServiceAccount token, `TestKindAccessReviews`). Built
-  on 2026-10-12 (fourth run): kubeconfig files and sync folders added in Cogpit and pasted
-  kubeconfigs stored owner-only (0600 in a 0700 folder), each file read on its own and offered as
+  on 2026-10-12 (fourth run): kubeconfig files and sync folders added in Cogpit, each file read on its own and offered as
   `<context> [<source>]`, sync folders watched by polling; a source's exec credential plugin runs
   only after the user allowed it in the GUI, bound to a fingerprint of the command, arguments,
-  environment and server; adding, pasting, removing and allowing refused for agents and the CLI
+  environment and server; adding, removing and allowing refused for agents and the CLI
   ([`engine/kubeconfigs.go`](../../internal/engine/kubeconfigs.go); `TestExecPluginRunsOnlyOnceAllowed`,
-  `TestPasteStoresItOwnerOnly`, `TestAddedFilesAreNeverWritten`, `TestSyncFolderPicksUpAndDropsFiles`;
-  on kind `TestKindPastedKubeconfig`, `TestKindExecPluginAfterApproval`); exec plugins partial in
+  `TestSourcesFileIsOwnerOnly`, `TestAddedFilesAreNeverWritten`, `TestSyncFolderPicksUpAndDropsFiles`;
+  on kind `TestKindAddedKubeconfig`, `TestKindExecPluginAfterApproval`); exec plugins partial in
   [platform-parity](platform-parity.md#cluster-authentication-and-connectivity). Still missing from
   the list above: the exec-plugin environment (only a `PATH` stopgap); Lens's own dialogs for
   adding kubeconfigs are not captured (the built ones are inferred), and `~/.kube/` is not watched
@@ -467,7 +467,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 35–110 h (was 45–130; title bar, keyboard, columns, CSV and the Workloads Overview built, third run).
 
 ### G13. Clusters, hotbar, palette, menus, shortcuts and preferences
-- **Missing:** kubeconfig syncs and pasting (alpha needs these), the hotbar, the command palette,
+- **Missing:** kubeconfig syncs (alpha needs these; pasting is not a target, D-21), the hotbar, the command palette,
   the application menu, every keyboard shortcut, preferences, cluster settings, appearance and
   application integration.
 - **Evidence:** [ui-parity](ui-parity.md), 65 rows across those sections (6 more are marked not a

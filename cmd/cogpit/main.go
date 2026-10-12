@@ -196,7 +196,7 @@ func openHelmJournal(logger *slog.Logger) *engine.HelmOps {
 	return engine.NewHelmOps(engine.NewFileHelmJournal(filepath.Join(dir, "Cogpit")))
 }
 
-// openKubeconfigSources keeps the kubeconfig files, pasted kubeconfigs and sync folders the user
+// openKubeconfigSources keeps the kubeconfig files and sync folders the user
 // adds in <user config dir>/Cogpit (kubeconfigs.json, kubeconfigs/, exec-approvals.json), each
 // owner-only. Without a configuration directory there are none.
 func openKubeconfigSources(logger *slog.Logger) *engine.KubeconfigSources {

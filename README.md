@@ -44,7 +44,7 @@ confirmed; logs with follow, the cluster-bound terminal, the pod shell; and MCP 
 it. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
 
 - 🖥️ A native macOS app first, Windows and Linux (Ubuntu first) after the macOS beta.
-- 🗂️ Every cluster from your kubeconfig files, synced folders or pasted text, side by side.
+- 🗂️ Every cluster from your kubeconfig files and synced folders, side by side.
 - 🔐 Your credentials stay yours: kubectl's own authentication code (certificates, tokens, exec plugins for EKS, GKE, AKS); no local proxy, no login.
 - ⚡ Cache first: views read from a watch-fed cache; switching back to a view costs no API request.
 - 📋 Lens's resource views: workloads, config, network, storage, access control, custom resources.
@@ -84,7 +84,6 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Demo context | `demo` (the synthetic cluster) | |
 | Local kind cluster | cluster `cogpit`, context `kind-cogpit`, kubeconfig `.cache/kind/kubeconfig` | |
 | Release artifacts (planned) | `Cogpit-<version>-macos-universal.dmg`, `cogpit-cli-<version>-<os>-<arch>.tar.gz` | `Cogpit-0.1.0-macos-universal.dmg` # example |
-| Pasted kubeconfigs (planned) | `<app data dir>/kubeconfigs/<id>.yaml`, owner-only | |
 | Deep links (planned) | `cogpit://` | |
 
 | Identifier | Meaning | Where |
@@ -193,7 +192,7 @@ Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never a
 registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 76 commands</summary>
+<summary>All 75 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -224,9 +223,8 @@ registry with `go run ./hack/readmecmds`.
 | `kubeconfig.addFolder` | `kubeconfig_addFolder` | ui | `path` | Adds a sync folder: every kubeconfig file in it (not in its subfolders) becomes available as "<context> [<folder>/<file>]", and files that appear in it or leave it later are picked up or dropped |
 | `kubeconfig.approveExec` | `kubeconfig_approveExec` | ui | `context`, `fingerprint` | Records that the user allows a kubeconfig source context's credential plugin to run, exactly as shown (the fingerprint binds the command, its arguments, its environment and the server); a later change asks again |
 | `kubeconfig.execPlugin` | `kubeconfig_execPlugin` | read | `context` | Describes the credential plugin (users[].user.exec) a kubeconfig source's context runs to log in: the command, the kubeconfig file it comes from, the API server its credential goes to, the names of the environment variables it sets, and whether the user allowed it (state approved, required or changed) |
-| `kubeconfig.paste` | `kubeconfig_paste` | ui | `kubeconfig` | Stores kubeconfig text the user pasted as Cogpit's own file, readable by the owner only, and adds it as a source "pasted <n>" |
 | `kubeconfig.remove` | `kubeconfig_remove` | ui | `source` | Removes a kubeconfig source: its contexts are no longer offered and the credential plugins allowed for its files are forgotten |
-| `kubeconfig.sources` | `kubeconfig_sources` | read |  | Lists the kubeconfig sources the user added in Cogpit: kubeconfig files, pasted kubeconfigs (stored by Cogpit owner-only) and sync folders, each with its id, kind, path, the files read from it, how many contexts it offers and why it cannot be read |
+| `kubeconfig.sources` | `kubeconfig_sources` | read |  | Lists the kubeconfig sources the user added in Cogpit: kubeconfig files and sync folders, each with its id, kind, path, the files read from it, how many contexts it offers and why it cannot be read |
 | `logs.controller` | `logs_controller` | read | `id` | Turns a pod's logs tab into the logs of the resource that controls the pod (its Deployment, Daemon Set, Stateful Set, Replica Set or Job; a Deployment's pods through their replica set), as workload_logs shows them: every pod's containers, each line with its pod and container |
 | `logs.setOptions` | `logs_setOptions` | ui | `filter`?, `id`, `previous`?, `resourceNames`?, `search`?, `timestamps`?, `wrap`? | Changes a logs tab's options, as the tab's toolbar does: previous (the previous terminated container's log), timestamps, resourceNames, wrap, search and filter |
 | `node.cordon` | `node_cordon` | mutating | `ref` | Cordons a node as kubectl cordon does: sets spec.unschedulable, so that no new pods are scheduled on it; running pods stay |

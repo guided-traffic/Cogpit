@@ -8,7 +8,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine"
 )
 
-// The kubeconfig sources (G2): add a kubeconfig file, paste a kubeconfig, add a sync folder,
+// The kubeconfig sources (G2): add a kubeconfig file, add a sync folder,
 // remove a source, and allow a source context's credential plugin before its first run
 // (trust-boundaries H-1). Reading the sources and a plugin's description is open to every origin;
 // everything that adds what Cogpit may connect through, or lets a program run, is the user's own
@@ -37,10 +37,6 @@ type ExecPluginResult struct {
 
 type pathParams struct {
 	Path string `json:"path" jsonschema:"absolute path of the file or folder"`
-}
-
-type pasteParams struct {
-	Kubeconfig string `json:"kubeconfig" jsonschema:"the kubeconfig text the user pasted"`
 }
 
 type sourceParams struct {
@@ -95,8 +91,7 @@ func registerKubeconfigs(g *registrar) {
 
 	add(g, engine.Spec[struct{}]{
 		ID: "kubeconfig.sources", Label: "Kubeconfig Sources", MenuPath: "File/Kubeconfig Sources", Danger: engine.DangerRead,
-		Description: "Lists the kubeconfig sources the user added in Cogpit: kubeconfig files, pasted kubeconfigs (stored by " +
-			"Cogpit owner-only) and sync folders, each with its id, kind, path, the files read from it, how many contexts it " +
+		Description: "Lists the kubeconfig sources the user added in Cogpit: kubeconfig files and sync folders, each with its id, kind, path, the files read from it, how many contexts it " +
 			"offers and why it cannot be read. Their contexts appear in cluster_contexts as \"<context> [<source>]\". Reads " +
 			"only file names and counts; no credential is returned.",
 		Enabled: func(s *engine.Session, _ struct{}) error { return enabled(s) },
@@ -161,32 +156,10 @@ func registerKubeconfigs(g *registrar) {
 		},
 	})
 
-	add(g, engine.Spec[pasteParams]{
-		ID: engine.PasteKubeconfigCommand, Label: "Paste Kubeconfig", MenuPath: "File/Paste Kubeconfig", Danger: engine.DangerUI,
-		Description: "Stores kubeconfig text the user pasted as Cogpit's own file, readable by the owner only, and adds it " +
-			"as a source \"pasted <n>\". It is never written into the user's kubeconfig files. A credential plugin it names " +
-			"runs only after the user allowed it. The text is never logged." + guiOnly,
-		Enabled: func(s *engine.Session, _ pasteParams) error { return enabled(s) },
-		Run: func(ctx context.Context, s *engine.Session, p pasteParams) (any, error) {
-			if err := requireGUI(ctx); err != nil {
-				return nil, err
-			}
-			k, err := sourcesAvailable(s)
-			if err != nil {
-				return nil, err
-			}
-			src, _, err := k.Paste([]byte(p.Kubeconfig))
-			if err != nil {
-				return nil, err
-			}
-			return added(s, src), nil
-		},
-	})
-
 	add(g, engine.Spec[sourceParams]{
 		ID: "kubeconfig.remove", Label: "Remove Kubeconfig Source", MenuPath: "File/Remove Kubeconfig Source", Danger: engine.DangerUI,
 		Description: "Removes a kubeconfig source: its contexts are no longer offered and the credential plugins allowed for " +
-			"its files are forgotten. A pasted kubeconfig's stored file is deleted; a file or folder the user added stays " +
+			"its files are forgotten. The file or folder the user added stays " +
 			"as it is. A connection already open stays open." + guiOnly,
 		Enabled: func(s *engine.Session, _ sourceParams) error { return enabled(s) },
 		Run: func(ctx context.Context, s *engine.Session, p sourceParams) (any, error) {

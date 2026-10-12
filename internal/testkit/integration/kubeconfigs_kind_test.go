@@ -15,10 +15,10 @@ import (
 	"github.com/guided-traffic/cogpit/internal/kubeconfig"
 )
 
-// TestKindPastedKubeconfig pastes the kind cluster's kubeconfig the way a user pastes one, connects
-// through Cogpit's stored copy and removes it again. The kind kubeconfig is only read: it stays
-// byte-identical, with its time and mode. Nothing is written to the cluster.
-func TestKindPastedKubeconfig(t *testing.T) {
+// TestKindAddedKubeconfig adds the kind cluster's kubeconfig as a file source, connects through it
+// and removes the source again. The kind kubeconfig is only read: it stays byte-identical, with
+// its time and mode. Nothing is written to the cluster.
+func TestKindAddedKubeconfig(t *testing.T) {
 	kubeconfig, contextName := os.Getenv("COGPIT_KIND_KUBECONFIG"), os.Getenv("COGPIT_KIND_CONTEXT")
 	if kubeconfig == "" || contextName == "" {
 		t.Skip("COGPIT_KIND_KUBECONFIG and COGPIT_KIND_CONTEXT are not set; run make test-kind")
@@ -32,18 +32,18 @@ func TestKindPastedKubeconfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s, k, audit := sourcesSession(t)
+	s, _, audit := sourcesSession(t)
 	var added commands.SourceAdded
-	if err := sourcesDispatch(t, s, engine.OriginGUI, "kubeconfig.paste", map[string]string{"kubeconfig": string(before)}, &added); err != nil {
+	if err := sourcesDispatch(t, s, engine.OriginGUI, "kubeconfig.addFile", map[string]string{"path": kubeconfig}, &added); err != nil {
 		t.Fatal(err)
 	}
-	id := contextName + " [pasted 1]"
+	id := contextName + " [" + added.Source.ID + "]"
 	c, ok := contextIDs(t, s)[id]
 	if !ok || c.KubeContext != contextName {
 		t.Fatalf("no context %q: %+v", id, contextIDs(t, s))
 	}
-	if fi, err := os.Stat(c.File); err != nil || fi.Mode().Perm() != 0o600 || filepath.Dir(c.File) != k.PastedDir() {
-		t.Fatalf("the stored copy %s: %v %v", c.File, fi.Mode(), err)
+	if c.File != kubeconfig {
+		t.Fatalf("the context reads %s, not the added file %s", c.File, kubeconfig)
 	}
 
 	var res commands.ConnectResult
@@ -51,7 +51,7 @@ func TestKindPastedKubeconfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	if res.State != engine.Connected {
-		t.Fatalf("connect through the pasted copy: %+v", res)
+		t.Fatalf("connect through the added file: %+v", res)
 	}
 	b := s.Backend()
 	if b == nil || b.Context != id || b.Conn.Context() != contextName || b.Conn.ServerVersion() == "" {
@@ -59,11 +59,8 @@ func TestKindPastedKubeconfig(t *testing.T) {
 	}
 	t.Logf("connected to %s through %s: Kubernetes %s at %s", contextName, c.File, b.Conn.ServerVersion(), b.Conn.Server())
 
-	if err := sourcesDispatch(t, s, engine.OriginGUI, "kubeconfig.remove", map[string]string{"source": "pasted 1"}, nil); err != nil {
+	if err := sourcesDispatch(t, s, engine.OriginGUI, "kubeconfig.remove", map[string]string{"source": added.Source.ID}, nil); err != nil {
 		t.Fatal(err)
-	}
-	if _, err := os.Stat(c.File); !os.IsNotExist(err) {
-		t.Errorf("the stored copy is still there: %v", err)
 	}
 	after, err := os.ReadFile(kubeconfig)
 	if err != nil {

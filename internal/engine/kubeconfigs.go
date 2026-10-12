@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,15 +19,14 @@ import (
 )
 
 // Kubeconfig sources (G2, docs/developer/architecture.md §6): kubeconfig files the user adds,
-// kubeconfigs the user pastes, which Cogpit stores owner-only, and sync folders whose kubeconfig
-// files Cogpit picks up as they appear. Each file is read on its own, never merged with another, so
+// and sync folders whose kubeconfig files Cogpit picks up as they appear. Each file is read on its own, never merged with another, so
 // a context in one file can never borrow the user or cluster entry of another (a dropped file
 // naming the user's real user entry with its own server). An exec credential plugin of a source
 // runs only after the user allowed it in the GUI (trust-boundaries H-1; ExecApproval).
 //
 // Cogpit reads the files the user adds and the files in sync folders; it never writes them. It
-// writes only its own files under its configuration directory: the list of sources, the pasted
-// kubeconfigs and the approvals, each owner-only.
+// writes only its own files under its configuration directory: the list of sources and the
+// approvals, each owner-only.
 
 // Files and directories under Cogpit's configuration directory.
 const (
@@ -37,15 +34,12 @@ const (
 	KubeconfigSourcesFile = "kubeconfigs.json"
 	// ExecApprovalsFile holds the credential plugins the user allowed.
 	ExecApprovalsFile = "exec-approvals.json"
-	// PastedKubeconfigsDir holds the pasted kubeconfigs, one file each.
-	PastedKubeconfigsDir = "kubeconfigs"
 	// DefaultKubeconfigPoll is how often WatchKubeconfigs looks at the sources for changes.
 	DefaultKubeconfigPoll = 2 * time.Second
 )
 
-// PasteKubeconfigCommand is the id of the command that stores pasted kubeconfig text: the audit
-// log records the size of its parameters only, never the text.
-const PasteKubeconfigCommand = "kubeconfig.paste"
+// legacyPastedKind is the kind of the sources earlier builds wrote for pasted kubeconfigs.
+const legacyPastedKind SourceKind = "pasted"
 
 // SourceKind is what a kubeconfig source is.
 type SourceKind string
@@ -53,7 +47,6 @@ type SourceKind string
 // Source kinds.
 const (
 	SourceFile   SourceKind = "file"   // a kubeconfig file the user added; read, never written
-	SourcePasted SourceKind = "pasted" // a kubeconfig the user pasted, stored by Cogpit owner-only
 	SourceFolder SourceKind = "folder" // a sync folder: every kubeconfig file in it, as files come and go
 )
 
@@ -69,17 +62,17 @@ const (
 var ErrExecNotApproved = errors.New("the credential plugin is not allowed")
 
 // ErrGUIOnly refuses the kubeconfig commands that only the user's own action in Cogpit's window may
-// run: adding a source, pasting a kubeconfig, removing a source, allowing a credential plugin.
+// run: adding a source, removing a source, allowing a credential plugin.
 var ErrGUIOnly = errors.New("only the user, in Cogpit's own window, can do this; agents and the CLI are refused " +
 	"(a kubeconfig can name a program to run on this computer)")
 
 // KubeconfigSource is one source the user added.
 type KubeconfigSource struct {
 	// ID names the source in context ids, unique among the sources: a file's name ("dev.yaml"),
-	// "pasted <n>", or a folder's name with a slash ("kubeconfigs/").
+	// or a folder's name with a slash ("kubeconfigs/").
 	ID   string     `json:"id"`
 	Kind SourceKind `json:"kind"`
-	// Path is the file or folder, absolute; for a pasted kubeconfig, Cogpit's own copy.
+	// Path is the file or folder, absolute.
 	Path  string    `json:"path"`
 	Added time.Time `json:"added"`
 }
@@ -177,9 +170,6 @@ func NewKubeconfigSources(dir string) *KubeconfigSources {
 // Dir returns the directory the sources live in.
 func (k *KubeconfigSources) Dir() string { return k.dir }
 
-// PastedDir returns the directory of the pasted kubeconfigs.
-func (k *KubeconfigSources) PastedDir() string { return filepath.Join(k.dir, PastedKubeconfigsDir) }
-
 func (k *KubeconfigSources) sourcesPath() string   { return filepath.Join(k.dir, KubeconfigSourcesFile) }
 func (k *KubeconfigSources) approvalsPath() string { return filepath.Join(k.dir, ExecApprovalsFile) }
 
@@ -198,12 +188,20 @@ func (k *KubeconfigSources) loadSources() ([]KubeconfigSource, error) {
 	if doc.Version != 0 && doc.Version != sourcesVersion {
 		return nil, fmt.Errorf("the kubeconfig sources file %s has format version %d, this Cogpit reads %d", k.sourcesPath(), doc.Version, sourcesVersion)
 	}
+	list := make([]KubeconfigSource, 0, len(doc.Sources))
 	for _, s := range doc.Sources {
-		if s.ID == "" || !filepath.IsAbs(s.Path) || (s.Kind != SourceFile && s.Kind != SourcePasted && s.Kind != SourceFolder) {
+		if s.Kind == legacyPastedKind {
+			// Pasting was removed (D-21). An entry written by an earlier build is no longer offered; its
+			// file under kubeconfigs/ is the user's and stays on disk, and the next save of the list
+			// drops the entry.
+			continue
+		}
+		if s.ID == "" || !filepath.IsAbs(s.Path) || (s.Kind != SourceFile && s.Kind != SourceFolder) {
 			return nil, fmt.Errorf("the kubeconfig sources file %s has an entry without an id, an absolute path or a known kind", k.sourcesPath())
 		}
+		list = append(list, s)
 	}
-	return doc.Sources, nil
+	return list, nil
 }
 
 func (k *KubeconfigSources) saveSources(list []KubeconfigSource) error {
@@ -259,47 +257,7 @@ func (k *KubeconfigSources) AddFolder(path string) (KubeconfigSource, error) {
 	if !fi.IsDir() {
 		return KubeconfigSource{}, fmt.Errorf("%s is not a folder; add a single file with Add Kubeconfig File", abs)
 	}
-	if abs == filepath.Clean(k.PastedDir()) {
-		return KubeconfigSource{}, errors.New("this is the folder where Cogpit keeps pasted kubeconfigs; they are offered already")
-	}
 	return k.add(SourceFolder, abs, filepath.Base(abs)+"/")
-}
-
-// Paste stores a pasted kubeconfig as Cogpit's own owner-only file (0600 in the 0700 directory
-// PastedDir) and adds it as a source. The text must be a kubeconfig that defines a context; the
-// errors never echo it. Nothing is written into the user's kubeconfig files.
-func (k *KubeconfigSources) Paste(text []byte) (KubeconfigSource, []kubeconfig.Context, error) {
-	ctxs, err := kubeconfig.Pasted(text)
-	if err != nil {
-		return KubeconfigSource{}, nil, err
-	}
-	k.mu.Lock()
-	defer k.mu.Unlock()
-	list, err := k.loadSources()
-	if err != nil {
-		return KubeconfigSource{}, nil, err
-	}
-	if err := ensurePrivateDir(k.dir); err != nil {
-		return KubeconfigSource{}, nil, fmt.Errorf("pasted kubeconfig: %w", err)
-	}
-	var rnd [8]byte
-	if _, err := rand.Read(rnd[:]); err != nil {
-		return KubeconfigSource{}, nil, fmt.Errorf("pasted kubeconfig: %w", err)
-	}
-	path := filepath.Join(k.PastedDir(), "pasted-"+hex.EncodeToString(rnd[:])+".yaml")
-	if err := writePrivateFile(path, text); err != nil {
-		return KubeconfigSource{}, nil, fmt.Errorf("pasted kubeconfig: %w", err)
-	}
-	n := 1
-	for slices.ContainsFunc(list, func(s KubeconfigSource) bool { return s.ID == "pasted "+strconv.Itoa(n) }) {
-		n++
-	}
-	src := KubeconfigSource{ID: "pasted " + strconv.Itoa(n), Kind: SourcePasted, Path: path, Added: k.now().UTC()}
-	if err := k.saveSources(append(list, src)); err != nil {
-		_ = os.Remove(path)
-		return KubeconfigSource{}, nil, err
-	}
-	return src, ctxs, nil
 }
 
 // add appends a file or folder source, unless one of the same kind and path exists.
@@ -344,9 +302,7 @@ func uniqueID(list []KubeconfigSource, base string) string {
 	}
 }
 
-// Remove removes a source. A pasted kubeconfig's stored file is deleted (only if it is a regular
-// file in PastedDir: Cogpit never deletes a file it did not write); a file or folder the user
-// added stays as it is. The approvals of the source's files are forgotten.
+// Remove removes a source. The file or folder the user added stays as it is. The approvals of the source's files are forgotten.
 func (k *KubeconfigSources) Remove(id string) (KubeconfigSource, error) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
@@ -362,35 +318,10 @@ func (k *KubeconfigSources) Remove(id string) (KubeconfigSource, error) {
 	if err := k.saveSources(slices.Delete(list, i, i+1)); err != nil {
 		return KubeconfigSource{}, err
 	}
-	if src.Kind == SourcePasted {
-		if err := k.removePasted(src.Path); err != nil {
-			return src, err
-		}
-	}
 	if err := k.forget(func(a ExecApproval) bool { return sourceHas(src, a.File) }); err != nil {
 		return src, err
 	}
 	return src, nil
-}
-
-// removePasted deletes a pasted kubeconfig's file if it is Cogpit's own.
-func (k *KubeconfigSources) removePasted(path string) error {
-	if filepath.Dir(path) != filepath.Clean(k.PastedDir()) {
-		return fmt.Errorf("the pasted kubeconfig %s is not in Cogpit's folder %s; it was left as it is", path, k.PastedDir())
-	}
-	fi, err := os.Lstat(path)
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-		return nil
-	case err != nil:
-		return fmt.Errorf("pasted kubeconfig: %w", err)
-	case !fi.Mode().IsRegular():
-		return fmt.Errorf("the pasted kubeconfig %s is not a regular file; it was left as it is", path)
-	}
-	if err := os.Remove(path); err != nil {
-		return fmt.Errorf("pasted kubeconfig: %w", err)
-	}
-	return nil
 }
 
 // sourceHas reports whether file is the source's file or a file of its folder.
@@ -401,7 +332,7 @@ func sourceHas(src KubeconfigSource, file string) bool {
 	return file == src.Path
 }
 
-// Files reads every source: one KubeconfigFile per file source and pasted kubeconfig, one per
+// Files reads every source: one KubeconfigFile per file source, one per
 // kubeconfig file in a sync folder (files that are not kubeconfigs or define no context are left
 // out and counted in the statuses). The error reports a sources file that cannot be read.
 func (k *KubeconfigSources) Files() ([]KubeconfigFile, []SourceStatus, error) {

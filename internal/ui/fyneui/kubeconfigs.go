@@ -17,11 +17,11 @@ import (
 )
 
 // The kubeconfig sources in the GUI (G2): the Cluster menu's and the picker's "Add Kubeconfigs"
-// items, the paste dialog, the sources dialog, and the dialog that shows a credential plugin before
+// items, the sources dialog, and the dialog that shows a credential plugin before
 // its first run (trust-boundaries H-1). Every change goes through the engine's kubeconfig commands,
 // which only the GUI may run; the dialogs here are where the user does it. Lens's own dialogs are
 // not captured: the layout is Cogpit's, the labels follow Lens's documentation where it names them
-// ("Add Kubeconfigs", "Add kubeconfig by pasting", "Add Clusters").
+// ("Add Kubeconfigs").
 
 // Result types of the kubeconfig commands, mirroring the engine's JSON.
 type (
@@ -59,9 +59,6 @@ type (
 	pathParams struct {
 		Path string `json:"path"`
 	}
-	pasteParams struct {
-		Kubeconfig string `json:"kubeconfig"`
-	}
 	sourceParams struct {
 		Source string `json:"source"`
 	}
@@ -85,7 +82,6 @@ type kubeconfigUI struct {
 	// dialogs in the app, a recorder in tests.
 	pick func(folder bool, done func(path string))
 
-	paste    *pasteDialog    // the open paste dialog; main goroutine only
 	approval *approvalDialog // the open approval dialog; main goroutine only
 	sources  *sourcesDialog  // the open sources dialog; main goroutine only
 }
@@ -101,7 +97,6 @@ func (k *kubeconfigUI) menuItems() []*fyne.MenuItem {
 	return []*fyne.MenuItem{
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Add Kubeconfig File…", k.addFile),
-		fyne.NewMenuItem("Paste Kubeconfig…", k.showPaste),
 		fyne.NewMenuItem("Add Sync Folder…", k.addFolder),
 		fyne.NewMenuItem("Kubeconfig Sources…", k.showSources),
 	}
@@ -110,7 +105,6 @@ func (k *kubeconfigUI) menuItems() []*fyne.MenuItem {
 // addMenu is the picker's "Add Kubeconfigs" menu.
 func (k *kubeconfigUI) addMenu() *fyne.Menu {
 	return fyne.NewMenu("",
-		fyne.NewMenuItem("Add kubeconfig by pasting…", k.showPaste),
 		fyne.NewMenuItem("Add kubeconfig file…", k.addFile),
 		fyne.NewMenuItem("Add sync folder…", k.addFolder),
 		fyne.NewMenuItemSeparator(),
@@ -194,74 +188,6 @@ func nounFor(n int, one, many string) string {
 		return one
 	}
 	return many
-}
-
-// pasteDialog is the dialog that adds a kubeconfig by pasting it.
-type pasteDialog struct {
-	d      *dialog.CustomDialog
-	entry  *widget.Entry
-	status *textLine
-	add    *widget.Button
-	cancel *widget.Button
-}
-
-// showPaste opens the paste dialog.
-func (k *kubeconfigUI) showPaste() {
-	if k.paste != nil {
-		return
-	}
-	th := k.sh.app.Settings().Theme()
-	width := th.Size(sizePickerWidth)
-	p := &pasteDialog{}
-	intro := newParagraph("Paste the contents of a kubeconfig. Cogpit keeps it in its own folder, readable only by "+
-		"you, and never writes it into your kubeconfig files. A program the kubeconfig names to log in runs only "+
-		"after you allowed it.", colorMuted, width)
-	p.entry = widget.NewMultiLineEntry()
-	p.entry.TextStyle = fyne.TextStyle{Monospace: true}
-	p.entry.Wrapping = fyne.TextWrapOff
-	p.entry.SetPlaceHolder("apiVersion: v1\nkind: Config\nclusters:\n…")
-	p.entry.SetMinRowsVisible(14)
-	p.status = newTextLine("", colorStatusError, theme.SizeNameText, fyne.TextStyle{})
-	p.status.truncate = true
-	p.add = widget.NewButtonWithIcon("Add Clusters", theme.ContentAddIcon(), nil)
-	p.add.Importance = widget.HighImportance
-	p.cancel = widget.NewButton("Cancel", nil)
-	content := sized(sizePickerWidth, "", container.NewBorder(
-		container.NewVBox(intro, newSpace(theme.SizeNamePadding)), p.status, nil, nil, p.entry))
-	p.d = dialog.NewCustomWithoutButtons("Add kubeconfig by pasting", content, k.sh.win)
-	p.d.SetButtons([]fyne.CanvasObject{p.cancel, p.add})
-	p.d.SetOnClosed(func() {
-		p.entry.SetText("") // the text carries credentials: keep no copy in the widget
-		if k.paste == p {
-			k.paste = nil
-		}
-	})
-	p.cancel.OnTapped = p.d.Hide
-	p.add.OnTapped = func() { k.submitPaste(p) }
-	k.paste = p
-	p.d.Show()
-	k.sh.win.Canvas().Focus(p.entry)
-}
-
-func (k *kubeconfigUI) submitPaste(p *pasteDialog) {
-	text := p.entry.Text
-	if strings.TrimSpace(text) == "" {
-		p.status.SetText("Paste a kubeconfig first.")
-		return
-	}
-	p.add.Disable()
-	p.status.SetColor(colorMuted)
-	p.status.SetText("Adding…")
-	k.sh.dispatch(engine.PasteKubeconfigCommand, pasteParams{Kubeconfig: text}, func(res any, err error) {
-		p.add.Enable()
-		if err != nil {
-			p.status.SetColor(colorStatusError)
-			p.status.SetText(errorText(err)) // the engine's errors never echo the text
-			return
-		}
-		p.d.Hide()
-		k.announce(res)
-	})
 }
 
 // errorText is the user-facing text of a dispatch error.
@@ -433,8 +359,7 @@ func (k *kubeconfigUI) showSources() {
 	sd := &sourcesDialog{k: k, list: container.NewVBox(), removeB: map[string]*widget.Button{}}
 	sd.status = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	sd.status.truncate = true
-	intro := newParagraph("Kubeconfig files and sync folders Cogpit reads (and never writes), and the kubeconfigs you "+
-		"pasted, which Cogpit keeps readable only by you. Your default kubeconfig ($KUBECONFIG or ~/.kube/config) is "+
+	intro := newParagraph("Kubeconfig files and sync folders Cogpit reads (and never writes). Your default kubeconfig ($KUBECONFIG or ~/.kube/config) is "+
 		"read as well and is not listed here.", colorMuted, k.sh.app.Settings().Theme().Size(sizePickerWidth))
 	listBg := newSurface(theme.ColorNameInputBackground)
 	listBg.radius, listBg.stroke = theme.SizeNameInputRadius, theme.ColorNameInputBorder
@@ -445,7 +370,6 @@ func (k *kubeconfigUI) showSources() {
 	addB := widget.NewButtonWithIcon("Add", theme.ContentAddIcon(), nil)
 	addB.OnTapped = func() {
 		widget.ShowPopUpMenuAtRelativePosition(fyne.NewMenu("",
-			fyne.NewMenuItem("Add kubeconfig by pasting…", k.showPaste),
 			fyne.NewMenuItem("Add kubeconfig file…", k.addFile),
 			fyne.NewMenuItem("Add sync folder…", k.addFolder),
 		), k.sh.win.Canvas(), fyne.NewPos(0, addB.Size().Height), addB)
@@ -520,8 +444,6 @@ func (sd *sourcesDialog) render() {
 
 func sourceKindLabel(kind string) string {
 	switch kind {
-	case string(engine.SourcePasted):
-		return "pasted"
 	case string(engine.SourceFolder):
 		return "sync folder"
 	}
@@ -539,13 +461,11 @@ func sourceSummary(s sourceStatus) string {
 	return strings.Join(parts, " · ")
 }
 
-// confirmRemove asks before removing a source; a pasted kubeconfig's copy is deleted.
+// confirmRemove asks before removing a source.
 func (sd *sourcesDialog) confirmRemove(src sourceStatus) {
 	msg := "Its contexts are no longer offered, and the login programs you allowed for it are forgotten. The " +
 		"file stays as it is."
 	switch src.Kind {
-	case string(engine.SourcePasted):
-		msg = "Cogpit deletes its stored copy of this kubeconfig. Its contexts are no longer offered."
 	case string(engine.SourceFolder):
 		msg = "Its kubeconfigs are no longer offered, and the login programs you allowed for them are forgotten. " +
 			"The folder and its files stay as they are."

@@ -135,7 +135,7 @@ type ContextInfo struct {
 	Current   bool   `json:"current,omitempty"` // the kubeconfig's current-context
 	Demo      bool   `json:"demo,omitempty"`    // the synthetic demo cluster
 	// Source, KubeContext and File describe a context from a kubeconfig source the user added in
-	// Cogpit (kubeconfigs.go): the file's label ("dev.yaml", "pasted 1", "kubeconfigs/team.yaml"),
+	// Cogpit (kubeconfigs.go): the file's label ("dev.yaml", "kubeconfigs/team.yaml"),
 	// the context's name in that file (Name is then "<context> [<label>]") and the file's path.
 	// Empty for the default kubeconfig files.
 	Source      string `json:"source,omitempty"`

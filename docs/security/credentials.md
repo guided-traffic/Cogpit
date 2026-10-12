@@ -38,14 +38,15 @@ Cogpit adds no cluster credential source of its own: no account, no login, no cl
   The MVP switches off client-go's two implicit writes: the migration of a legacy
   `~/.kube/.kubeconfig` into `~/.kube/config`, and the persister that writes refreshed `oidc` tokens
   back into the file ([`cluster.go`](../../internal/cluster/cluster.go), `memoryPersister`).
-- **Pasted kubeconfigs** ("add cluster from text") are the one exception: built 2026-10-12, they
-  are written byte for byte to `<user config dir>/Cogpit/kubeconfigs/pasted-<16 hex>.yaml`, mode
-  `0600` in a `0700` directory (tightened when found wider), never through a symlink, and deleted
-  when the user removes the source, only if it is a regular file in that directory
-  (`TestPasteStoresItOwnerOnly`, `TestRemoveDeletesOnlyCogpitsOwnCopy`). Windows gets the file
-  modes only, not an owner-only ACL yet. The pasted text never reaches a log, an error, a toast or
-  the audit log (an agent's attempt is audited by the size of its parameters); agents cannot paste
-  ([trust boundaries › H-1](trust-boundaries.md#h-1-kubeconfig-files-added-by-sync-folders)).
+- **Cogpit does not store kubeconfig text.** Pasting a kubeconfig is not a target
+  ([D-21](../developer/decisions.md#d-21-pasting-a-kubeconfig), owner, 2026-10-12): a copy of a
+  kubeconfig is a second place for a credential to live, and the files the user adds already
+  stay where they are. A build from 2026-10-12 that still had the paste feature wrote the text to
+  `<user config dir>/Cogpit/kubeconfigs/pasted-<16 hex>.yaml` (0600 in a 0700 directory) and an
+  entry of kind `pasted` to `kubeconfigs.json`. Cogpit no longer lists, reads or deletes them
+  (`TestPastedSourcesOfEarlierBuildsAreNotOffered`); the files hold credentials in clear text and
+  are the user's to delete or to add as files again. The entry in `kubeconfigs.json` goes with
+  the next change of the list of sources.
 - **Exec plugin approvals** live in `<user config dir>/Cogpit/exec-approvals.json` (0600): the
   fingerprint of what each allowed plugin runs and where its credential goes, no credential.
 - **In memory:** credentials are held by the connection that uses them and dropped when it closes.

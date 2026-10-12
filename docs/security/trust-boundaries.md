@@ -38,7 +38,7 @@ UNTRUSTED                                   BOUNDARY                          TR
 
 | Boundary | Planned package | Required checks |
 |---|---|---|
-| Kubeconfig to connection | `internal/kubeconfig`, `internal/cluster` | Parse without executing; run an exec plugin only when the user connects to that context, with an argument vector; show the command before the first run of a plugin from a newly added file; never follow `exec` from a kubeconfig the user did not add. Built 2026-10-12 for added, pasted and synced kubeconfigs ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)): each source file is read on its own, never merged with another (a dropped file cannot point a context at the user's real credentials); a context whose user has an `exec` section connects only after the user allowed exactly that plugin in the GUI, checked by `cluster.Connect` before any client exists, from the very `rest.Config` the client would run ([`exec.go`](../../internal/kubeconfig/exec.go), `TestConnectAsksTheExecPolicyBeforeThePluginRuns`, `TestExecPluginRunsOnlyOnceAllowed`, `TestKindExecPluginAfterApproval`); the default kubeconfig (`--kubeconfig`, `$KUBECONFIG`, `~/.kube/config`) keeps kubectl's behaviour |
+| Kubeconfig to connection | `internal/kubeconfig`, `internal/cluster` | Parse without executing; run an exec plugin only when the user connects to that context, with an argument vector; show the command before the first run of a plugin from a newly added file; never follow `exec` from a kubeconfig the user did not add. Built 2026-10-12 for added and synced kubeconfigs ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)): each source file is read on its own, never merged with another (a dropped file cannot point a context at the user's real credentials); a context whose user has an `exec` section connects only after the user allowed exactly that plugin in the GUI, checked by `cluster.Connect` before any client exists, from the very `rest.Config` the client would run ([`exec.go`](../../internal/kubeconfig/exec.go), `TestConnectAsksTheExecPolicyBeforeThePluginRuns`, `TestExecPluginRunsOnlyOnceAllowed`, `TestKindExecPluginAfterApproval`); the default kubeconfig (`--kubeconfig`, `$KUBECONFIG`, `~/.kube/config`) keeps kubectl's behaviour |
 | API response to cache | `internal/cache`, `internal/model` | Tolerate unknown and missing fields; cap object and list sizes; bound owner-reference walks |
 | Cluster text to UI | `internal/model`, `internal/ui/fyneui` | Object names, labels, annotations and events are text, never markup; strip control characters before display |
 | Container output to terminal | `internal/terminal`, `internal/ui/fyneui/termview` | Drop or confirm OSC 52 (clipboard write), window-title and window-manipulation sequences ([xterm control sequences](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html)); cap scrollback; cap line length. The MVP drops every OSC, DCS, APC, PM and SOS string, media copy and window operations, clamps large counts, and strips escapes from log lines, which are capped at 64 KiB per line and 10,000 lines ([`termview/sanitize.go`](../../internal/ui/fyneui/termview/sanitize.go), fuzzed; [`termview/logs.go`](../../internal/ui/fyneui/termview/logs.go)); see [H-19](#h-19-the-terminal-widget-trusts-its-input) |
@@ -59,11 +59,11 @@ Kubeconfig Syncs, and adds every kubeconfig that appears there; captured 2026-10
 synced file's credential plugin on connect without asking
 ([add a local cluster](https://docs.lenshq.io/k8slens/getting-started/add-clusters/add-local-cluster/),
 [preferences](https://docs.lenshq.io/k8slens/using-lens/preferences/)). Cogpit adds kubeconfig
-files, pasted kubeconfigs and sync folders since 2026-10-12, and a file dropped into a synced
+files and sync folders since 2026-10-12, and a file dropped into a synced
 folder (a download, a shared drive) becomes a set of contexts. The check of the boundary table is
 built as follows:
 
-- **When.** For a context of an added, pasted or synced kubeconfig whose user has an `exec`
+- **When.** For a context of an added or synced kubeconfig whose user has an `exec`
   section, the picker shows the plugin before it connects, when there is no approval or the
   approval no longer matches. The engine refuses the connect for every origin on its own
   ("the kubeconfig X runs the program Y to log in, which you have not allowed yet"); a `--context`
@@ -83,9 +83,9 @@ built as follows:
   the server or its trust asks again. The approval names the fingerprint the dialog showed and is
   refused if the file changed meanwhile; an unreadable approvals file allows nothing; removing a
   source forgets its approvals.
-- **Who.** Adding a file or a folder, pasting, removing a source and allowing a plugin are GUI
+- **Who.** Adding a file or a folder, removing a source and allowing a plugin are GUI
   only: the engine refuses them for the CLI, external agents and the built-in agent, whose
-  confirmation dialog could not show the user an agent-chosen path or pasted text for review
+  confirmation dialog could not show the user an agent-chosen path for review
   (`TestKubeconfigCommandsAreGUIOnly`).
 
 What remains: `~/.kube/` is not watched without setup (Lens does; Cogpit reads only the default
@@ -151,7 +151,7 @@ when the user connects to that context, client-go reads the file and sends its c
 server as a bearer token. Kubernetes' documentation names this ("file exposure",
 [kubeconfig docs](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)).
 The plugin approval of [H-1](#h-1-kubeconfig-files-added-by-sync-folders) does not cover it: a
-context without an `exec` section connects without asking. Live since 2026-10-12 for added, pasted
+context without an `exec` section connects without asking. Live since 2026-10-12 for added
 and synced kubeconfigs, at the moment the user connects to such a context; dormant for the default
 kubeconfig, which kubectl reads the same way. How it is handled is decided
 ([D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs), owner 2026-10-12):

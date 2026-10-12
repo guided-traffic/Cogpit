@@ -143,7 +143,7 @@ func (s *Session) ApproveExec(id, fingerprint string) (*ExecPluginInfo, error) {
 
 // WatchKubeconfigs looks at the kubeconfig sources every interval (zero means
 // DefaultKubeconfigPoll) and emits EventContexts when a source's files changed: a file appeared in
-// or left a sync folder, or an added file or pasted kubeconfig changed. It compares the files' size
+// or left a sync folder, or an added file changed. It compares the files' size
 // and modification time and reads no content. It returns a function that stops watching; watching
 // also ends when the session closes. Without sources it does nothing.
 func (s *Session) WatchKubeconfigs(interval time.Duration) (stop func()) {
