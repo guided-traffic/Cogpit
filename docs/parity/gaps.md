@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed, a window that closed by itself open; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -654,12 +654,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   - **Every quit on macOS crashed** (window closed, Cmd+Q or SIGTERM): the shell stopped Cogpit's
     title bar after the app's run ended by asking GLFW for the window, which GLFW had terminated
     ("NotInitialized"). Fixed (f480186, `TestTitlebarStopAfterTheRunEnded`, which fails on the old
-    code); checked on a real launch ended by SIGTERM: exit 0, no crash report.
-  - **The window closed by itself** once (owner, 16:38; the log ends with "MCP server stopped", which
-    the main function's deferred shutdown writes). Cause unknown. Most likely a panic in a callback
-    on the main goroutine, which ends the process at once; the quit crash above follows only a
-    close. Crash reports are kept since 7ac22e0 ([D-11](../developer/decisions.md#d-11-crash-stance)),
-    so the next one names its place.
+    code); checked on a real launch ended by SIGTERM and by the owner closing the window: exit 0, no
+    crash report. Crash reports are kept since 7ac22e0
+    ([D-11](../developer/decisions.md#d-11-crash-stance)).
 - **Missing:** PhotoCraft's first public week produced hundreds of issues on features its tests
   counted as done; this entry reserves the time for the same after Cogpit's first release.
 - **Estimate:** 100–200 h to beta.
@@ -721,7 +718,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | G12: the owner's evening requirements (a status line per provider; history from Prometheus, then live values from the Metrics Server; one of the two alone only when the other fails or is missing) and the step of mixed ranges waiting for the owner; G16: the quit crash fixed, a window that closed by itself open |
+| 2026-10-12 | minor | G12: the owner's evening requirements (a status line per provider; history from Prometheus, then live values from the Metrics Server; one of the two alone only when the other fails or is missing) and the step of mixed ranges waiting for the owner; G16: the quit crash fixed |
 | 2026-10-12 | minor | G12: checked against a real Prometheus on kind (the `prometheus` chart); three faults it found fixed; only kube-prometheus-stack and the override left unchecked; estimate not moved |
 | 2026-10-12 | minor | G12: the window draws Prometheus (Network, Filesystem, ranges to 30 days held by the engine through `ui.setMetricsRange`); range values beyond 1h inferred; estimate not moved |
 | 2026-10-12 | minor | G12: Prometheus through the service proxy, backend (detection, range queries for CPU, Memory, Network and Filesystem, per-chart ranges, budget P13); the window's Network and Filesystem buttons left; estimate not moved |

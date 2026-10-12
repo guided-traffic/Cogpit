@@ -65,26 +65,22 @@ M11 and M12 do not depend on each other; their order is the owner's call.
 
 Ranked; each item links to its gap. Pick from the top unless an issue is assigned to you.
 
-1. **Stability** ([G16](gaps.md#g16-stability-and-the-user-bug-backlog)): the window closed by
-   itself in the owner's smoke test (2026-10-12; cause unknown, most likely a panic in a callback on
-   the main goroutine). Find it and the panics like it; crash reports are kept since 2026-10-12, and
-   every quit on macOS crashed until f480186.
-2. **The owner's open requirements:** the hotbar
+1. **The owner's open requirements:** the hotbar
    ([G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences), "do not forget");
    metrics ([G12](gaps.md#g12-metrics-and-cluster-overview)): a status line per provider under the
    charts, history from Prometheus when a drawer opens and live values from the Metrics Server after
    it, the override's settings page, kube-prometheus-stack checked, a missing value shown empty; the
    step of charts whose ranges lie far apart waits for the owner. The built-in chat comes later
    ([G21](gaps.md#g21-built-in-agent), [D-10](../developer/decisions.md#d-10-built-in-agent)).
-3. **Finish the fifth run:** the UI PNGs regenerated; follow the terminal widget's upstream pull
+2. **Finish the fifth run:** the UI PNGs regenerated; follow the terminal widget's upstream pull
    requests ([#155–#158](https://github.com/fyne-io/terminal/pull/158), G8); the owner's open
    questions (the light theme's accent, drag-selecting links and chips).
-4. **Walk the workflows in the GUI** on kind and a real cluster (owner): change a workload,
+3. **Walk the workflows in the GUI** on kind and a real cluster (owner): change a workload,
    maintain a node, reach a service, Helm upgrade, rollback and uninstall, adding and syncing
    kubeconfigs, Cogpit's own title bar; record what differs in the parity rows.
-5. **Helm install and charts** ([G11](gaps.md#g11-helm)), then the credential plugins verified on
+4. **Helm install and charts** ([G11](gaps.md#g11-helm)), then the credential plugins verified on
    EKS, GKE and AKS ([G2](gaps.md#g2-cluster-connection-and-authentication), human).
-6. **Breadth and depth of M2 and M4** ([G6](gaps.md#g6-resource-views),
+5. **Breadth and depth of M2 and M4** ([G6](gaps.md#g6-resource-views),
    [G7](gaps.md#g7-resource-actions)): the cluster overview (M7), the create dialogs, the node
    shell, captures of the rows marked inferred; the generated parity pages and the scorecard
    ([G1](gaps.md#g1-workspace-ci-and-progress-generators)).
@@ -103,7 +99,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | Current focus after the fifth run and the owner's smoke test: stability first, then the hotbar and the metrics requirements |
+| 2026-10-12 | minor | Current focus after the fifth run and the owner's smoke test: the hotbar and the metrics requirements first |
 | 2026-10-12 | major | Fourth implementation run: Helm upgrade and adding, pasting and syncing kubeconfigs built, every alpha-gate workflow exists; M1 and M6 re-assessed; alpha ~135–370 h; new current focus |
 | 2026-10-12 | minor | M0: `make parity` checks the checklists in CI (D-15); current focus item 1 notes it built |
 | 2026-10-12 | minor | The owner's decisions (D-13 revised, D-14, D-15, D-16) in the current focus |
