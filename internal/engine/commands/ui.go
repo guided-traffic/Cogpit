@@ -131,7 +131,7 @@ func registerUI(g *registrar) {
 	})
 
 	add(g, engine.Spec[filterParams]{
-		ID: "ui.setFilter", Label: "Search", MenuPath: "View/Search", Danger: engine.DangerUI,
+		ID: "ui.setFilter", Label: "Search", MenuPath: "View/Search", Shortcut: "Cmd+F", Danger: engine.DangerUI,
 		Description: "Sets the search text of the open view: a row is shown when every whitespace-separated term occurs, " +
 			"case-insensitively, in one of its cells. An empty text clears the search. Returns the new UI state.",
 		Run: func(_ context.Context, s *engine.Session, p filterParams) (any, error) {

@@ -238,7 +238,7 @@ Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never a
 registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 95 commands</summary>
+<summary>All 97 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -327,6 +327,8 @@ registry with `go run ./hack/readmecmds`.
 | `ui.closeDrawer` | `ui_closeDrawer` | ui |  | Closes the detail drawer |
 | `ui.navigate` | `ui_navigate` | ui | `ref` | Shows one object to the user: opens its kind's view, makes sure the namespace filter and the search text do not hide it (resetting them if they do), selects it and opens its detail drawer |
 | `ui.openView` | `ui_openView` | ui | `view` | Opens the list view of a kind (pods, services, ...) or a page (workloads/overview, the Workloads Overview), as clicking it in the sidebar does |
+| `ui.palette.close` | `ui_palette_close` | ui |  | Closes the command palette in Cogpit's window, as Escape or a click outside it does |
+| `ui.palette.open` | `ui_palette_open` | ui |  | Opens the command palette in Cogpit's window, as ⌘⇧P (Ctrl+Shift+P) does |
 | `ui.select` | `ui_select` | ui | `noDrawer`?, `refs`? | Selects objects of the open view and, unless noDrawer is true, opens the detail drawer on the first one |
 | `ui.setColumns` | `ui_setColumns` | ui | `hidden`?, `reset`?, `view`? | Shows and hides the columns of a view, as the ⋮ at the end of the table's header does: hidden lists the column ids to hide, every other column is shown |
 | `ui.setFilter` | `ui_setFilter` | ui | `filter`? | Sets the search text of the open view: a row is shown when every whitespace-separated term occurs, case-insensitively, in one of its cells |

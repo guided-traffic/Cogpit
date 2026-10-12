@@ -38,6 +38,9 @@ type UIState struct {
 	// Hotbar is the hotbar's banks and the shown one (hotbar.go); nil in a session without one.
 	// Its tiles carry their contexts only; ui.state adds what each tile shows (Session.HotbarView).
 	Hotbar *HotbarState `json:"hotbar,omitempty"`
+	// Palette is set while the command palette is open (ui.palette.open, ⌘⇧P; palette.go). What
+	// the user types in it stays in the window, as the context picker's filter does.
+	Palette bool `json:"palette,omitempty"`
 }
 
 // Connection is the state of the active cluster connection.

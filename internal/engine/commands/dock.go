@@ -97,7 +97,7 @@ func registerDock(g *registrar) {
 	})
 
 	add(g, engine.Spec[struct{}]{
-		ID: "terminal.open", Label: "New Terminal", MenuPath: "View/New Terminal", Danger: engine.DangerUI,
+		ID: "terminal.open", Label: "New Terminal", MenuPath: "View/New Terminal", Shortcut: "Cmd+Shift+T", Danger: engine.DangerUI,
 		Description: "Opens a dock tab with a local shell whose kubectl is bound to the connected context and to the " +
 			"namespace filter if it names exactly one namespace. Returns the tab.",
 		Enabled: func(s *engine.Session, _ struct{}) error { _, err := streamable(s, "terminals"); return err },
