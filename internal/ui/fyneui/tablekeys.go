@@ -38,6 +38,9 @@ func (t *resourceTable) KeyUp(ev *fyne.KeyEvent) {
 
 // TypedKey adds Escape (close the drawer), Tab, ⇧Tab and ↵ to Fyne's table keys (arrows, Space).
 func (t *resourceTable) TypedKey(ev *fyne.KeyEvent) {
+	if t.tv.sh.hot.key(ev.Name, t.shift) { // F1–F12 and ⇧F1–⇧F12 belong to the hotbar
+		return
+	}
 	switch ev.Name {
 	case fyne.KeyEscape:
 		t.tv.sh.closeDrawer()

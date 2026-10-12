@@ -82,6 +82,7 @@ type shell struct {
 	toasts    *fyne.Container
 	tip       *tooltip // the one tooltip: cut-off cells, warning icons, drawer actions
 	picker    *picker
+	hot       *hotbar       // the pinned clusters at the window's left edge (hotbar.go)
 	kc        *kubeconfigUI // the kubeconfig sources' dialogs (kubeconfigs.go)
 	confirmer *guiConfirmer
 	drains    *drainBanner // unfinished drains, below the top bar (drains.go)
@@ -153,6 +154,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.helm = newHelmBanner(sh)
 	sh.toasts = box(&toastLayout{})
 	sh.tip = newTooltip(sh)
+	sh.hot = newHotbar(sh)
 
 	sh.drawerLay = &panelLayout{want: func() float32 { return sh.drawerW }, lo: minDrawerWidth, hi: maxDrawerWidth, restMin: minTableRoom,
 		onGot: func(float32) { sh.do(sh.drawer.widthChanged) }}
@@ -176,7 +178,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	frame := container.NewBorder(
 		container.NewVBox(sh.top.root, newDivider(false), sh.drains.root, sh.helm.root),
 		container.NewVBox(newDivider(false), sh.status.root),
-		nil, nil, main)
+		sh.hot.root, nil, main)
 	sh.root = container.NewStack(frame, sh.tip.layer, sh.toasts)
 	return sh
 }
@@ -296,7 +298,10 @@ func (sh *shell) onEvent(ev engine.Event) {
 		id, rev := ev.View, ev.Revision
 		sh.do(func() { sh.dock.editorEvent(id, rev) })
 	case engine.EventContexts:
-		sh.do(sh.kc.contextsChanged)
+		sh.do(func() {
+			sh.kc.contextsChanged()
+			sh.hot.request() // a tile's context may have gone, or come back
+		})
 	}
 }
 
@@ -381,6 +386,9 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	if first || !dockEqual(st, old) {
 		sh.dock.sync(st.Dock, st.ActiveDock)
 		sh.layoutBody()
+	}
+	if first || !sameHotbar(st.Hotbar, old.Hotbar) || st.Context != old.Context || st.Connection != old.Connection {
+		sh.hot.stateChanged()
 	}
 }
 
@@ -700,6 +708,9 @@ func (toastLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
 // mainMenu builds the window menu: Cluster, View (one item per kind) and Help.
 func (sh *shell) mainMenu() *fyne.MainMenu {
 	cluster := fyne.NewMenu("Cluster", fyne.NewMenuItem("Switch Context…", sh.picker.show))
+	if item := sh.hot.contextItem(sh.ui.Context); item != nil { // Lens's cluster menu: "Add to Hotbar"
+		cluster.Items = append(cluster.Items, item)
+	}
 	cluster.Items = append(cluster.Items, sh.kc.menuItems()...)
 	cluster.Items = append(cluster.Items, sh.refreshAccessItem())
 	var items []*fyne.MenuItem
@@ -742,7 +753,8 @@ func (sh *shell) copyMCPCommand() {
 }
 
 // installShortcuts adds Lens's keyboard shortcuts that the MVP supports: ⌘F (search), ⌘⇧T
-// (terminal session), Escape (close the picker, else the drawer) and "/" (the logs tab's search).
+// (terminal session), Escape (close the picker, else the drawer), "/" (the logs tab's search), and
+// F1–F12 and ⇧F1–⇧F12 for the hotbar while no text field has the focus (the table passes them on).
 func (sh *shell) installShortcuts() {
 	c := sh.win.Canvas()
 	c.AddShortcut(&desktop.CustomShortcut{KeyName: fyne.KeyF, Modifier: fyne.KeyModifierShortcutDefault},
@@ -750,6 +762,9 @@ func (sh *shell) installShortcuts() {
 	c.AddShortcut(&desktop.CustomShortcut{KeyName: fyne.KeyT, Modifier: fyne.KeyModifierShortcutDefault | fyne.KeyModifierShift},
 		func(fyne.Shortcut) { sh.dispatch("terminal.open", struct{}{}, nil) })
 	c.SetOnTypedKey(func(ev *fyne.KeyEvent) {
+		if sh.hot.key(ev.Name, shiftHeld()) { // F1–F12, ⇧F1–⇧F12: the hotbar (Fyne has no shortcut for them)
+			return
+		}
 		if ev.Name == fyne.KeyEscape {
 			if sh.picker.visible() { // the picker first: it lies over the drawer
 				sh.picker.popup.dismiss()

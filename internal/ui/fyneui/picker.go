@@ -35,6 +35,7 @@ type picker struct {
 	selected   string
 	connecting string
 	content    fyne.CanvasObject
+	menuModel  *fyne.Menu // a row's open menu (right-click or ⋮), for tests
 }
 
 func newPicker(sh *shell) *picker {
@@ -164,10 +165,15 @@ func (p *picker) render() {
 			continue
 		}
 		name := c.Name
-		rows = append(rows, newPickerRow(c, title, sub, name == p.selected,
+		row := newPickerRow(c, title, sub, name == p.selected,
 			func() { p.selected = name; p.render() },
 			func() { p.selected = name; p.connect() },
-			func() { p.sh.kc.showConnectLog(name) }))
+			func() { p.sh.kc.showConnectLog(name) })
+		row.onMenu = func(pos fyne.Position) { p.menu(name, pos) }
+		if p.sh.ui.Hotbar != nil { // the ⋮ offers the hotbar's item; without a hotbar right-click is enough
+			row.addMenuButton()
+		}
+		rows = append(rows, row)
 	}
 	if len(rows) == 0 {
 		rows = append(rows, inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding,
@@ -207,6 +213,18 @@ func (p *picker) connect() {
 		return
 	}
 	p.dispatchConnect(name)
+}
+
+// menu is a context's menu in the picker (right-click or ⋮ on its row): Connect, and Add to
+// Hotbar or Remove from Hotbar for the shown bank (Lens's cluster menu has "Add to Hotbar").
+func (p *picker) menu(name string, pos fyne.Position) {
+	items := []*fyne.MenuItem{fyne.NewMenuItem("Connect", func() { p.selected = name; p.connect() })}
+	if item := p.sh.hot.contextItem(name); item != nil {
+		items = append(items, item)
+	}
+	p.sh.tip.hide()
+	p.menuModel = fyne.NewMenu("", items...)
+	widget.NewPopUpMenu(p.menuModel, p.sh.win.Canvas()).ShowAtPosition(pos)
 }
 
 // context returns the listed context with this id.
@@ -260,6 +278,8 @@ type pickerRow struct {
 	widget.BaseWidget
 	selected, hovered bool
 	onTap, onDouble   func()
+	onMenu            func(pos fyne.Position) // the context's menu at pos (window coordinates)
+	more              *widget.Button          // ⋮, which opens it too; nil without a hotbar
 
 	bg     *canvas.Rectangle
 	title  *textLine
@@ -302,8 +322,25 @@ func newPickerRow(c engine.ContextInfo, title, sub string, selected bool, onTap,
 	return r
 }
 
+// addMenuButton gives the row a ⋮ at its end that opens its menu.
+func (r *pickerRow) addMenuButton() {
+	r.more = widget.NewButtonWithIcon("", theme.MoreVerticalIcon(), nil)
+	r.more.Importance = widget.LowImportance
+	r.more.OnTapped = func() {
+		pos := fyne.CurrentApp().Driver().AbsolutePositionForObject(r.more)
+		r.onMenu(pos.AddXY(0, r.more.Size().Height))
+	}
+}
+
 // Tapped implements fyne.Tappable.
 func (r *pickerRow) Tapped(*fyne.PointEvent) { r.onTap() }
+
+// TappedSecondary implements fyne.SecondaryTappable: the context's menu.
+func (r *pickerRow) TappedSecondary(ev *fyne.PointEvent) {
+	if r.onMenu != nil {
+		r.onMenu(ev.AbsolutePosition)
+	}
+}
 
 // DoubleTapped implements fyne.DoubleTappable.
 func (r *pickerRow) DoubleTapped(*fyne.PointEvent) { r.onDouble() }
@@ -319,8 +356,11 @@ func (r *pickerRow) MouseOut() { r.hovered = false; r.Refresh() }
 
 // CreateRenderer implements fyne.Widget.
 func (r *pickerRow) CreateRenderer() fyne.WidgetRenderer {
-	content := inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding,
-		container.NewVBox(container.NewHBox(r.title, r.badges), r.sub))
+	var body fyne.CanvasObject = container.NewVBox(container.NewHBox(r.title, r.badges), r.sub)
+	if r.more != nil {
+		body = container.NewBorder(nil, nil, nil, container.NewCenter(r.more), body)
+	}
+	content := inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, body)
 	rr := &pickerRowRenderer{r: r, content: content}
 	rr.Refresh()
 	return rr
