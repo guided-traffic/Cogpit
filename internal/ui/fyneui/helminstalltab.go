@@ -109,7 +109,7 @@ func newHelmInstallTab(sh *shell, t engine.DockTab) *helmInstallTab {
 		return container.NewCenter(newTextLine(s, colorMuted, theme.SizeNameText, fyne.TextStyle{}))
 	}
 	chartLine := container.NewHBox(u.installBtn, u.searchBtn, newDivider(true),
-		container.NewCenter(newTextLine("/"+hi.Repository+"/"+hi.Chart, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})),
+		container.NewCenter(newTextLine(hi.Repository+"/"+hi.Chart, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})),
 		label("version:"), box(fitSelect{options: hi.Versions}, u.version), container.NewCenter(u.digest))
 	target := container.NewBorder(nil, nil, nil, u.createNS,
 		container.NewGridWithColumns(2,

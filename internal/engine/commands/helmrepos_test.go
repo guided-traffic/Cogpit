@@ -308,3 +308,23 @@ func TestHelmIndexRefreshedOnlyWhileShown(t *testing.T) {
 		t.Errorf("%d downloads after the Charts view closed", m-n)
 	}
 }
+
+// TestChartDrawerStartsNoEventsWatch: a chart is an object Cogpit makes itself, so no event
+// involves it; its drawer has no Events section and starts no cluster-wide events watch.
+func TestChartDrawerStartsNoEventsWatch(t *testing.T) {
+	h := newChartHarness(t, nil)
+	h.addRepo(t)
+	h.charts(t, 1)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	m, err := h.s.DetailWait(ctx, engine.HelmChartRef("test", "test", "web"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !m.NoEvents || len(m.Events) != 0 {
+		t.Errorf("chart drawer: no events %v, events %v", m.NoEvents, m.Events)
+	}
+	if evp, ok := h.s.Backend().Profile("events"); ok && h.s.Backend().Cached(evp) {
+		t.Error("the chart's drawer started the events watch")
+	}
+}

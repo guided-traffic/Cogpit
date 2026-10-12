@@ -57,7 +57,7 @@ func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.O
 			signal(d.wake)
 		}
 	}))
-	if ep, ok := b.Profile(eventsKind); ok && p.Derive == nil { // no event involves a virtual kind's object
+	if ep, ok := b.Profile(eventsKind); ok && p.APIObject() { // no event involves a virtual or local kind's object
 		d.events = b.Acquire(ep)
 		d.unsubs = append(d.unsubs, d.events.Subscribe(func(ev cache.Event) {
 			if d.involves(ev.Object) {
@@ -166,7 +166,7 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 	h := b.Acquire(p)
 	defer h.Release()
 	var evh *cache.Handle
-	if ep, ok := b.Profile(eventsKind); ok && p.Derive == nil {
+	if ep, ok := b.Profile(eventsKind); ok && p.APIObject() {
 		evh = b.Acquire(ep)
 		defer evh.Release()
 	}
@@ -187,7 +187,7 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 
 	obj, ok := KindGet(h, p, ref.Namespace, ref.Name)
 	if !ok {
-		m := &DetailModel{Ref: ref, Title: detailTitle(p, ref), Sections: []model.DetailSection{}, Events: []EventItem{}, NoEvents: p.Derive != nil, Plain: p.Derive != nil}
+		m := &DetailModel{Ref: ref, Title: detailTitle(p, ref), Sections: []model.DetailSection{}, Events: []EventItem{}, NoEvents: !p.APIObject(), Plain: p.Derive != nil}
 		if h.HasSynced() {
 			m.Missing = true
 		} else {
@@ -246,6 +246,7 @@ func BuildDetailWith(p *model.KindProfile, ref model.ObjectRef, obj *unstructure
 	}
 	m.Status = model.BuildRowWith(p, ref.Context, obj, rel).Status
 	m.Metrics = p.Usage != ""
+	m.NoEvents = p.Local // no event involves an object Cogpit makes itself (port forwards, Helm charts)
 	kind, err := profileSections(p, obj, rel)
 	if p.Derive != nil { // a virtual kind's drawer is the profile's alone (model.KindProfile.Detail)
 		m.NoEvents, m.Plain = true, true
