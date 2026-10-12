@@ -1,15 +1,12 @@
 package engine
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
 	"strconv"
-	"sync"
-	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -18,20 +15,12 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
-// The Secrets drawer (D-13, H-8 option b). The cache holds Secrets as metadata only, so the drawer
-// of a Secret fetches its data with one direct GET when it opens: the direct read architecture §5
-// allows for data the cache does not hold. The data lives in engine memory only while the drawer
-// shows that Secret, and goes when the drawer closes or moves to another object. The drawer model
-// lists every key with its value masked, for the GUI and agents alike; secret.reveal hands one
-// value to the user's own window and refuses every other origin. Values never reach the drawer
-// model, logs, errors, toasts or the audit log.
-
-// SecretReader reads one Secret, data included, with a direct GET. *cluster.Conn implements it;
-// tests put a fake in Backend.Actions. The engine reaches it with a type assertion on
-// Backend.Writer, as it reaches ObjectWriter.
-type SecretReader interface {
-	GetSecret(ctx context.Context, namespace, name string) (*unstructured.Unstructured, error)
-}
+// The Secrets drawer (D-13 revised 2026-10-12, H-8). The cache holds Secrets in full: the Secrets
+// view watches them with their values, so the drawer reads the Secret it shows from the cache like
+// any other object and makes no request of its own. The drawer model lists every key with its
+// value masked and its size, for the GUI and agents alike; secret.reveal hands one value of the
+// Secret the drawer shows to the user's own window and refuses every other origin. Values never
+// reach the drawer model, the YAML (model.Redact), logs, errors, toasts or the audit log.
 
 // RevealCommand is the command a masked Secret value's "Show" button runs: GUI-only.
 const RevealCommand = "secret.reveal"
@@ -39,17 +28,13 @@ const RevealCommand = "secret.reveal"
 // secretsKind is the kind key of core Secrets.
 const secretsKind = "secrets"
 
-// Caps on what the drawer keeps of an opened Secret. A Secret holds up to 1 MiB; the drawer lists
-// keys and shows one value at a time, so only the beginning of each value is kept.
+// Caps on what the drawer lists and a reveal shows. A Secret holds up to 1 MiB; the drawer lists
+// keys and shows one value at a time, so a reveal shows only the beginning of a value.
 const (
-	secretValueBytes   = 4 << 10 // bytes of one value a reveal shows
-	secretValueLines   = 40      // lines of one value a reveal shows
-	secretKeysShown    = 100     // keys the drawer lists
-	secretFetchTimeout = 15 * time.Second
+	secretValueBytes = 4 << 10 // bytes of one value a reveal shows
+	secretValueLines = 40      // lines of one value a reveal shows
+	secretKeysShown  = 100     // keys the drawer lists
 )
-
-// secretGet is the request the drawer makes: the verb the access reviews are asked for.
-var secretGet = Verb{Verb: "get", Resource: secretsKind}
 
 // isSecrets reports whether a profile is the core Secrets kind (not a virtual kind made from
 // Secrets, such as Helm's releases).
@@ -57,114 +42,65 @@ func isSecrets(p *model.KindProfile) bool {
 	return p != nil && p.Group == "" && p.Resource == secretsKind && p.APIObject()
 }
 
-// secretData is what the drawer holds of the Secret it shows.
-type secretData struct {
-	mu      sync.Mutex
-	done    bool   // the GET returned, or was not made
-	err     string // why there is no data; never a value
-	typ     string
-	rv      string // the resourceVersion the GET returned
-	keys    []secretKey
-	more    int // keys beyond secretKeysShown
-	dropped bool
-}
-
-// secretKey is one key of an opened Secret: its size, and the beginning of its value unless the
-// value is binary.
-type secretKey struct {
-	name   string
-	size   int
-	binary bool
-	value  []byte // at most secretValueBytes and secretValueLines; nil for a binary value
-}
-
-// fetchSecret starts the GET of the Secret a drawer opens on; wake tells the drawer it arrived.
-// It returns nil for every other kind. The GET is made once per open of the drawer on the Secret:
-// a watch event on the Secret's metadata does not repeat it.
-func (s *Session) fetchSecret(b *Backend, p *model.KindProfile, ref model.ObjectRef, wake func()) (*secretData, context.CancelFunc) {
-	if !isSecrets(p) {
-		return nil, func() {}
+// secretDataSection is a Secret's Data section in the drawer: each key, sorted (at most
+// secretKeysShown), its value masked with its size and a "Show" action beside a text value, a
+// binary value by its size only. It reads the values to measure them and to tell text from binary,
+// and keeps none of them.
+func secretDataSection(ref model.ObjectRef, obj *unstructured.Unstructured) model.DetailSection {
+	sec := model.DetailSection{Title: "Data"}
+	data := model.NestedMap(obj.Object, "data")
+	names := make([]string, 0, len(data))
+	for k := range data {
+		names = append(names, k)
 	}
-	sd := &secretData{}
-	r, ok := b.Writer().(SecretReader)
+	slices.Sort(names)
+	if len(names) == 0 {
+		sec.Items = []model.DetailItem{{Value: "No data"}}
+		return sec
+	}
+	for i, k := range names {
+		if i == secretKeysShown {
+			sec.Items = append(sec.Items, model.DetailItem{Value: strconv.Itoa(len(names)-i) + " more keys are not listed"})
+			break
+		}
+		size, text := measure(data[k])
+		it := model.DetailItem{Name: k}
+		if text {
+			it.Value = MaskedValue + " (" + byteSize(size) + ")"
+			params, _ := json.Marshal(RevealParams{Ref: ref, Key: k})
+			it.Actions = []model.ItemAction{{Label: "Show", Command: RevealCommand, Params: params}}
+		} else {
+			it.Value = "binary data, " + byteSize(size)
+		}
+		sec.Items = append(sec.Items, it)
+	}
+	return sec
+}
+
+// measure returns the size of one value of a Secret's data (the API sends base64) and whether it
+// can be shown as text. A value that is not base64 counts as binary. The decoded bytes are zeroed
+// before it returns.
+func measure(v any) (size int, text bool) {
+	raw, ok := decodeValue(v)
 	if !ok {
-		sd.fail("this cluster connection cannot read Secret values")
-		return sd, func() {}
+		s, _ := v.(string)
+		return base64.StdEncoding.DecodedLen(len(s)), false
 	}
-	if b.Access != nil {
-		if allowed, known := b.Access.Allowed(ref.Namespace, secretGet); known && !allowed {
-			sd.fail(fmt.Sprintf("%v: you may not %s", ErrNotPermitted, describeVerb(secretGet, ref.Namespace)))
-			return sd, func() {}
-		}
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), secretFetchTimeout)
-	s.goSafe("secret data", func() {
-		defer cancel()
-		obj, err := r.GetSecret(ctx, ref.Namespace, ref.Name)
-		sd.set(obj, err)
-		wake()
-	})
-	return sd, cancel
+	defer wipeBytes(raw)
+	return len(raw), isText(raw)
 }
 
-func (sd *secretData) fail(reason string) {
-	sd.mu.Lock()
-	sd.done, sd.err = true, reason
-	sd.mu.Unlock()
-}
-
-// set keeps what the drawer needs of a fetched Secret: its type and, per key, the size and the
-// beginning of the value. A drawer that closed meanwhile keeps nothing.
-func (sd *secretData) set(obj *unstructured.Unstructured, err error) {
-	var (
-		keys []secretKey
-		more int
-		typ  string
-		rv   string
-	)
-	if err == nil && obj != nil {
-		typ, rv = model.NestedString(obj.Object, "type"), obj.GetResourceVersion()
-		data := model.NestedMap(obj.Object, "data")
-		names := make([]string, 0, len(data))
-		for k := range data {
-			names = append(names, k)
-		}
-		slices.Sort(names)
-		for i, k := range names {
-			if i == secretKeysShown {
-				more = len(names) - i
-				break
-			}
-			keys = append(keys, newSecretKey(k, model.NestedString(data, k)))
-		}
+// decodeValue decodes one value of a Secret's data; the caller zeroes the bytes.
+func decodeValue(v any) ([]byte, bool) {
+	s, ok := v.(string)
+	if !ok {
+		return nil, false
 	}
-	sd.mu.Lock()
-	defer sd.mu.Unlock()
-	if sd.dropped {
-		wipe(keys)
-		return
-	}
-	sd.done = true
+	raw, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
-		sd.err = "the Secret could not be read: " + err.Error()
-		return
+		return nil, false
 	}
-	sd.typ, sd.rv, sd.keys, sd.more = typ, rv, keys, more
-}
-
-// newSecretKey decodes one value (the API sends base64) and keeps its size and, for text, its
-// beginning. A value that does not decode counts as binary.
-func newSecretKey(name, encoded string) secretKey {
-	raw, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		return secretKey{name: name, size: base64.StdEncoding.DecodedLen(len(encoded)), binary: true}
-	}
-	k := secretKey{name: name, size: len(raw), binary: !isText(raw)}
-	if !k.binary {
-		k.value = append([]byte(nil), clip(raw)...)
-	}
-	wipeBytes(raw)
-	return k
+	return raw, true
 }
 
 // isText reports whether a value can be shown as text: valid UTF-8 without control characters
@@ -201,92 +137,13 @@ func clip(b []byte) []byte {
 	return b
 }
 
-// drop forgets the data: the drawer closed or moved to another object. A GET still running keeps
-// nothing when it returns.
-func (sd *secretData) drop() {
-	if sd == nil {
-		return
-	}
-	sd.mu.Lock()
-	defer sd.mu.Unlock()
-	sd.dropped = true
-	wipe(sd.keys)
-	sd.keys, sd.typ = nil, ""
-}
-
-// wipe overwrites the kept values before they are dropped: they would otherwise stay in memory
-// until the collector reuses it.
-func wipe(keys []secretKey) {
-	for _, k := range keys {
-		wipeBytes(k.value)
-	}
-}
-
+// wipeBytes overwrites a decoded value before it is dropped: it would otherwise stay in memory
+// until the collector reuses it (best effort: the cached object's base64 text and a revealed
+// value's string are Go strings, which cannot be overwritten).
 func wipeBytes(b []byte) {
 	for i := range b {
 		b[i] = 0
 	}
-}
-
-// drawerSecret returns the data the drawer holds for ref, or nil when the drawer does not show it.
-func (s *Session) drawerSecret(ref model.ObjectRef) *secretData {
-	st := s.state
-	st.mu.Lock()
-	defer st.mu.Unlock()
-	if d := st.drawer; d != nil && d.secret != nil && d.ref.Same(ref) {
-		return d.secret
-	}
-	return nil
-}
-
-// addSecretData adds what the drawer fetched of a Secret to its model: the Type to Properties, and
-// a Data section with each key and its masked value, a "Show" action beside each text value. A
-// Secret the drawer does not show gets a note instead.
-func (s *Session) addSecretData(p *model.KindProfile, ref model.ObjectRef, obj *unstructured.Unstructured, m *DetailModel) {
-	if !isSecrets(p) {
-		return
-	}
-	sd := s.drawerSecret(ref)
-	if sd == nil {
-		m.Sections = append(m.Sections, model.DetailSection{Title: "Data", Items: []model.DetailItem{
-			{Value: "Cogpit reads a Secret's data only while its drawer is open in Cogpit's window."},
-		}})
-		return
-	}
-	sd.mu.Lock()
-	defer sd.mu.Unlock()
-	if sd.typ != "" && len(m.Sections) > 0 && m.Sections[0].Title == model.TitleProperties {
-		m.Sections[0].Items = append(m.Sections[0].Items, model.DetailItem{Name: "Type", Value: sd.typ})
-	}
-	sec := model.DetailSection{Title: "Data"}
-	switch {
-	case !sd.done:
-		sec.Items = []model.DetailItem{{Value: "Loading…"}}
-	case sd.err != "":
-		sec.Items = []model.DetailItem{{Value: sd.err, Status: model.StatusWarning}}
-	case len(sd.keys) == 0:
-		sec.Items = []model.DetailItem{{Value: "No data"}}
-	}
-	for _, k := range sd.keys {
-		it := model.DetailItem{Name: k.name}
-		if k.binary {
-			it.Value = "binary data, " + byteSize(k.size)
-		} else {
-			it.Value = MaskedValue + " (" + byteSize(k.size) + ")"
-			params, _ := json.Marshal(RevealParams{Ref: ref, Key: k.name})
-			it.Actions = []model.ItemAction{{Label: "Show", Command: RevealCommand, Params: params}}
-		}
-		sec.Items = append(sec.Items, it)
-	}
-	if sd.more > 0 {
-		sec.Items = append(sec.Items, model.DetailItem{Value: strconv.Itoa(sd.more) + " more keys are not listed"})
-	}
-	if sd.done && sd.err == "" && sd.rv != "" && obj.GetResourceVersion() != "" && obj.GetResourceVersion() != sd.rv {
-		sec.Items = append(sec.Items, model.DetailItem{
-			Value: "The Secret changed since its drawer opened; open it again to read its new data.", Status: model.StatusWarning,
-		})
-	}
-	m.Sections = append(m.Sections, sec)
 }
 
 // MaskedValue is what the drawer shows in place of a Secret's value.
@@ -306,50 +163,57 @@ type SecretValue struct {
 	Cut   bool   `json:"cut,omitempty"` // Value is the beginning only (4 KiB, 40 lines)
 }
 
-// ErrNoSecretData refuses a reveal for a Secret whose data the drawer does not hold.
-var ErrNoSecretData = errors.New("the Secret's data is held only while its drawer is open")
+// ErrNoSecretData refuses a reveal for a Secret the drawer does not show.
+var ErrNoSecretData = errors.New("a Secret's values are shown only for the Secret open in the drawer")
 
-// SecretKeyHeld reports, without a value, whether the drawer holds a text value for ref and key:
-// secret.reveal's Enabled check.
-func (s *Session) SecretKeyHeld(ref model.ObjectRef, key string) error {
-	sd := s.drawerSecret(ref)
-	if sd == nil {
-		return ErrNoSecretData
-	}
-	sd.mu.Lock()
-	defer sd.mu.Unlock()
-	for _, k := range sd.keys {
-		if k.name == key {
-			if k.binary {
-				return errors.New("binary values are shown by their size only")
-			}
-			return nil
-		}
-	}
-	if !sd.done {
-		return errors.New("the Secret's data is still loading")
-	}
-	return fmt.Errorf("the Secret has no key %q", key)
+// drawerShows reports whether the drawer is open on ref.
+func (s *Session) drawerShows(ref model.ObjectRef) bool {
+	st := s.state
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	return st.drawer != nil && st.drawer.ref.Same(ref)
 }
 
-// SecretValue returns one value of the Secret the drawer shows, as the drawer fetched it. The
-// caller (secret.reveal) hands it to the GUI only.
+// secretValueOf returns one value of the Secret the drawer shows, decoded, from the cache; the
+// caller zeroes it. It never puts a value into its error.
+func (s *Session) secretValueOf(ref model.ObjectRef, key string) ([]byte, error) {
+	if ref.Kind != secretsKind || !s.drawerShows(ref) {
+		return nil, ErrNoSecretData
+	}
+	obj, err := s.Lookup(ref)
+	if err != nil {
+		return nil, err
+	}
+	v, ok := model.NestedMap(obj.Object, "data")[key]
+	if !ok {
+		return nil, fmt.Errorf("the Secret has no key %q", key)
+	}
+	raw, ok := decodeValue(v)
+	if !ok || !isText(raw) {
+		wipeBytes(raw)
+		return nil, errors.New("binary values are shown by their size only")
+	}
+	return raw, nil
+}
+
+// SecretKeyShown reports, without a value, whether the drawer shows ref and the Secret has a text
+// value under key in the cache: secret.reveal's Enabled check.
+func (s *Session) SecretKeyShown(ref model.ObjectRef, key string) error {
+	raw, err := s.secretValueOf(ref, key)
+	wipeBytes(raw)
+	return err
+}
+
+// SecretValue returns one value of the Secret the drawer shows, from the cache, cut to 4 KiB and
+// 40 lines. The caller (secret.reveal) hands it to the GUI only.
 func (s *Session) SecretValue(ref model.ObjectRef, key string) (SecretValue, error) {
-	if err := s.SecretKeyHeld(ref, key); err != nil {
+	raw, err := s.secretValueOf(ref, key)
+	if err != nil {
 		return SecretValue{}, err
 	}
-	sd := s.drawerSecret(ref)
-	if sd == nil {
-		return SecretValue{}, ErrNoSecretData
-	}
-	sd.mu.Lock()
-	defer sd.mu.Unlock()
-	for _, k := range sd.keys {
-		if k.name == key && !k.binary {
-			return SecretValue{Key: key, Value: string(k.value), Size: k.size, Cut: len(k.value) < k.size}, nil
-		}
-	}
-	return SecretValue{}, ErrNoSecretData
+	defer wipeBytes(raw)
+	shown := clip(raw)
+	return SecretValue{Key: key, Value: string(shown), Size: len(raw), Cut: len(shown) < len(raw)}, nil
 }
 
 // byteSize renders a size: "1 byte", "24 bytes", "4.0 KiB", "1.5 MiB".

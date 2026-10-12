@@ -17,8 +17,9 @@ import (
 // through Backend.Acquire and the kind* helpers below, never through cache.Scope{GVR: …} by hand,
 // so that a kind's profile alone decides what the cache holds for it:
 //
-//   - its scope: the GVR with the profile's LabelSelector and MetadataOnly (Secrets watch metadata
-//     only; Helm's releases watch the Secrets labelled owner=helm), in all namespaces;
+//   - its scope: the GVR with the profile's LabelSelector and MetadataOnly (Secrets watch every
+//     Secret in full; Helm's releases the Secrets labelled owner=helm, which the full Secrets watch
+//     serves while it runs), in all namespaces;
 //   - where it lives: the cluster's cache, or the backend's local store for a local kind (port
 //     forwards), which never reaches an API server;
 //   - what its objects are: the cached objects, or what the profile's Derive makes of them for a
@@ -56,8 +57,17 @@ func (l *localStore) close() {
 	}
 }
 
+// HoldsSecretValues reports whether a kind's scope holds core Secrets with their values: the
+// Secrets view's kind, and Helm's releases. Reading such a kind starts (or keeps warm) a watch of
+// every value in its scope, so nothing reads it as a side effect, such as a search across kinds.
+func HoldsSecretValues(p *model.KindProfile) bool {
+	return p != nil && !p.Local && p.Group == "" && p.Resource == secretsKind && !p.MetadataOnly
+}
+
 // Scope returns the cache scope a kind's objects are watched in: its GVR in all namespaces, with
-// the profile's label selector and metadata-only flag.
+// the profile's label selector and metadata-only flag. A label-selected scope is served from the
+// unselected scope of the same resource while that runs (cache.Scope, "covering scopes"): Helm's
+// releases read from the Secrets view's watch while it is open.
 func (b *Backend) Scope(p *model.KindProfile) cache.Scope {
 	return cache.Scope{GVR: p.GVR(), LabelSelector: p.LabelSelector, MetadataOnly: p.MetadataOnly}
 }

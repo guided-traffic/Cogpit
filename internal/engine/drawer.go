@@ -31,8 +31,6 @@ type drawerWatch struct {
 	obj     *cache.Handle
 	events  *cache.Handle // nil when the cluster serves no events
 	related *relatedSet   // the indexes of the profile's Needs; nil without
-	secret  *secretData   // a Secret's data, fetched when the drawer opens on it (secretdata.go)
-	cancel  func()        // ends the Secret's fetch
 	unsubs  []func()
 	wake    chan struct{}
 	quit    chan struct{}
@@ -60,7 +58,6 @@ func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.O
 		}))
 	}
 	d.related = newRelatedSet(b, p.Needs, func() { signal(d.wake) })
-	d.secret, d.cancel = s.fetchSecret(b, p, ref, func() { signal(d.wake) })
 	objSynced, evSynced := d.synced()
 	poll := func() bool {
 		o, e := d.synced()
@@ -113,8 +110,6 @@ func (d *drawerWatch) stop() {
 		d.events.Release()
 	}
 	d.related.release()
-	d.cancel()
-	d.secret.drop()
 }
 
 // eventInvolves matches an event's involvedObject by UID when both are known, else by kind,
@@ -194,7 +189,6 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 	if perr != nil {
 		s.log.Error("engine: kind profile detail panicked", "kind", p.Key, "panic", perr.Error())
 	}
-	s.addSecretData(p, ref, obj, m)
 	if OriginOf(ctx).IsAgent() {
 		m.Sections = model.WithholdPrivate(m.Sections) // object_get: agents never read private values
 	}
@@ -223,7 +217,16 @@ func BuildDetailWith(p *model.KindProfile, ref model.ObjectRef, obj *unstructure
 	}
 	m.Status = model.BuildRowWith(p, ref.Context, obj, rel).Status
 	kind, err := profileSections(p, obj, rel)
-	m.Sections = model.MergeProperties(model.PropertiesSection(obj, now), kind)
+	meta := obj
+	if isSecrets(p) {
+		// The cache drops a Secret's last-applied annotation, which repeats its values; should
+		// one arrive another way, its Annotations show it redacted.
+		meta = model.Redact(obj)
+	}
+	m.Sections = model.MergeProperties(model.PropertiesSection(meta, now), kind)
+	if isSecrets(p) {
+		m.Sections = append(m.Sections, secretDataSection(ref, obj)) // keys and sizes, values masked
+	}
 	if len(events) > 0 {
 		m.Events = objectEvents(events, p.Kind, ref.Namespace, ref.Name, string(obj.GetUID()))
 	}

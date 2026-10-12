@@ -195,6 +195,18 @@ func (s *FakeAPIServer) OpenWatches() int {
 	return len(s.watchers)
 }
 
+// OpenWatchesBy returns the watch streams open right now by resource, named as in Requests
+// without the verb ("secrets", "secrets with owner=helm", "secrets (metadata)").
+func (s *FakeAPIServer) OpenWatchesBy() map[string]int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := map[string]int{}
+	for w := range s.watchers {
+		out[w.req.key]++
+	}
+	return out
+}
+
 // Kubeconfig returns a kubeconfig document whose one context, contextName, points at the server
 // (trusting its certificate) with the server's token and the given default namespace (empty:
 // none).
@@ -250,6 +262,7 @@ type fakeRequest struct {
 	sub       string
 	selector  labels.Selector // from ?labelSelector=; nil selects everything
 	metadata  bool            // the client asked for PartialObjectMetadata (Accept: ...;as=PartialObjectMetadata...)
+	key       string          // the resource as Requests names it: "secrets with owner=helm"
 }
 
 // matches reports whether an object is in the request's selection (namespace and labels).
@@ -458,6 +471,7 @@ func (s *FakeAPIServer) serveResource(w http.ResponseWriter, r *http.Request, pa
 		req.metadata = true
 		resource += " (metadata)"
 	}
+	req.key = resource
 	watching := q.Get("watch") == "true" || q.Get("watch") == "1"
 	initial := q.Get("sendInitialEvents") == "true"
 	switch {

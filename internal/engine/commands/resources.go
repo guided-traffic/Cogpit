@@ -138,7 +138,7 @@ func registerResources(g *registrar) {
 		ID: "resources.find", Label: "Find Resources", Danger: engine.DangerRead, Verbs: cacheReads,
 		Description: "Finds objects by a field value in Cogpit's cache, e.g. the Service with clusterIP 10.96.0.1 " +
 			"({kind: services, field: clusterIP, value: 10.96.0.1}) or the pods on a node. Without kind it searches every " +
-			"built-in kind that has the field, and the custom resource kinds and Helm releases already cached (a view or a " +
+			"built-in kind that has the field, and the custom resource kinds, Secrets and Helm releases only if already cached (a view or a " +
 			"lookup used them); name such a kind to search it. Returns {count, matches: [{ref, field, values}]}; pass a match's ref to " +
 			"ui_navigate to show it to the user.",
 		Enabled: func(s *engine.Session, _ findParams) error { _, err := connected(s); return err },
@@ -263,9 +263,10 @@ func findResources(ctx context.Context, s *engine.Session, p findParams) (any, e
 		profs = []*model.KindProfile{prof}
 	} else {
 		for _, prof := range b.Profiles {
-			// A virtual kind only when cached already: Helm's releases would start a cluster-wide
-			// watch of every release Secret, values included, for a search by name.
-			if hasField(prof, p.Field) && (prof.Derive == nil || b.Cached(prof)) {
+			// A virtual kind, and a kind that holds Secret values, only when cached already: Helm's
+			// releases and the Secrets would start a cluster-wide watch of every value in their
+			// scope for a search by name.
+			if hasField(prof, p.Field) && ((prof.Derive == nil && !engine.HoldsSecretValues(prof)) || b.Cached(prof)) {
 				profs = append(profs, prof)
 			}
 		}

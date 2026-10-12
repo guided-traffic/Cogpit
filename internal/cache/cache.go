@@ -3,6 +3,10 @@
 // a grace period after the last handle is released; it drops managedFields before an object
 // enters the store; views, commands and MCP tools read only from it (architecture §5, D-13).
 //
+// A label-selected scope is served from the running unselected scope of the same resource,
+// namespace and metadata flag when there is one (its cover), so that it costs no watch of its own
+// (cover.go).
+//
 // Layer L1.
 //
 // # Errors are states
@@ -20,10 +24,11 @@
 //
 //   - Code the cache runs on client-go's goroutines recovers on its own: the Source's List and
 //     Watch (a panic becomes a list or watch error), the managedFields transform (the object is
-//     kept unchanged), and the event dispatch to subscribers (a panicking subscriber is logged and
-//     skipped).
+//     kept unchanged), the event dispatch to subscribers (a panicking subscriber is logged and
+//     skipped), and a covered scope's event handling and handover (the event is skipped).
 //   - The goroutine that runs the informer recovers a panic and reports it through Handle.Err,
-//     which covers the queue processing and store updates on that goroutine.
+//     which covers the queue processing and store updates on that goroutine; so does the
+//     goroutine that waits for a handover between a covered scope's informers.
 //   - Not recovered: a panic inside client-go's own reflector or event-handler goroutines, or in
 //     a Source's watch.Interface producer goroutine. With ReallyCrash true they end the process.
 //     Whether the app sets utilruntime.ReallyCrash = false at start-up (then client-go logs and
@@ -55,6 +60,10 @@ import (
 // DefaultWarmPeriod is how long an informer keeps running after its last handle is released.
 const DefaultWarmPeriod = 5 * time.Minute
 
+// DefaultHandoverTimeout is how long an informer that is about to stop keeps serving the
+// label-selected scopes it covers while their own informers list (cover.go).
+const DefaultHandoverTimeout = time.Minute
+
 // closeTimeout bounds how long Close waits for the informers' goroutines to end.
 const closeTimeout = 5 * time.Second
 
@@ -67,16 +76,18 @@ const closeTimeout = 5 * time.Second
 //
 // A Source must honour the whole scope: the namespace, the label selector, and MetadataOnly. A
 // metadata-only scope must not transfer the objects' content at all (the real cluster's source asks
-// the API server for PartialObjectMetadata), because that is what keeps Secret values out of
-// Cogpit's memory (H-8). In-memory sources may apply FilterScope to what they hold.
+// the API server for PartialObjectMetadata), so that a kind that needs only metadata never holds
+// more. In-memory sources may apply FilterScope to what they hold.
 type Source interface {
 	ListerWatcher(scope Scope) toolscache.ListerWatcher
 }
 
 // Scope is what one informer watches: a resource, in one namespace or (empty) in all, optionally
 // narrowed by a label selector, and either the full objects or their metadata only. Each distinct
-// scope is one informer and one watch; Acquire normalises the label selector, so "a=1,b=2" and
-// "b=2,a=1" share one.
+// scope has its own handles; Acquire normalises the label selector, so "a=1,b=2" and "b=2,a=1"
+// share one. An unselected scope is one informer and one watch; a label-selected scope is one
+// too, unless the unselected scope of the same resource, namespace and metadata flag runs, which
+// then serves it (cover.go).
 type Scope struct {
 	GVR       schema.GroupVersionResource `json:"gvr"`
 	Namespace string                      `json:"namespace,omitempty"`
@@ -123,11 +134,16 @@ type Options struct {
 	// WarmPeriod is how long an informer stays running after its last handle is released.
 	// Zero means DefaultWarmPeriod.
 	WarmPeriod time.Duration
+	// HandoverTimeout bounds how long an informer whose warm period ended keeps serving the
+	// label-selected scopes it covers while their own informers list; after it they switch
+	// anyway. Zero means DefaultHandoverTimeout.
+	HandoverTimeout time.Duration
 	// Logger receives informer errors; nil means slog.Default().
 	Logger *slog.Logger
 }
 
-// InformerStats describe one informer for the diagnostics view.
+// InformerStats describe one scope for the diagnostics view: one per scope that a handle holds or
+// that is warm.
 type InformerStats struct {
 	Scope     Scope     `json:"scope"`
 	Objects   int       `json:"objects"`
@@ -136,6 +152,9 @@ type InformerStats struct {
 	Events    int64     `json:"events"`              // events delivered since start, initial list included
 	WarmUntil time.Time `json:"warmUntil,omitempty"` // set while no handle holds the informer
 	Error     string    `json:"error,omitempty"`
+	// CoveredBy names the unselected scope whose informer serves this label-selected scope; empty
+	// when the scope has its own informer (and watch).
+	CoveredBy string `json:"coveredBy,omitempty"`
 }
 
 // Cache holds the informers of one cluster. It is safe for concurrent use.
@@ -144,8 +163,12 @@ type Cache struct {
 	opts Options
 	log  *slog.Logger
 
+	ctx  context.Context // ends with Close: handovers stop waiting
+	stop context.CancelFunc
+
 	mu        sync.Mutex
-	informers map[Scope]*entry
+	informers map[Scope]*entry     // every scope a handle holds or that is warm
+	runners   map[*runner]struct{} // every informer running, those of entries and those still serving a handover
 	closed    bool
 }
 
@@ -154,20 +177,28 @@ func New(src Source, opts Options) *Cache {
 	if opts.WarmPeriod <= 0 {
 		opts.WarmPeriod = DefaultWarmPeriod
 	}
+	if opts.HandoverTimeout <= 0 {
+		opts.HandoverTimeout = DefaultHandoverTimeout
+	}
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()
 	}
-	return &Cache{src: src, opts: opts, log: opts.Logger, informers: map[Scope]*entry{}}
+	ctx, stop := context.WithCancel(context.Background())
+	return &Cache{
+		src: src, opts: opts, log: opts.Logger, ctx: ctx, stop: stop,
+		informers: map[Scope]*entry{}, runners: map[*runner]struct{}{},
+	}
 }
 
-// entry is one running informer and its bookkeeping.
+// entry is one scope that handles hold, or that is warm: its handles' bookkeeping and their
+// subscriptions. An unselected scope (or one whose selector does not parse) reads from its own
+// informer, run; a label-selected scope reads from its view, which an informer of its own or its
+// cover's feeds (cover.go).
 type entry struct {
-	scope  Scope
-	inf    toolscache.SharedIndexInformer
-	reg    toolscache.ResourceEventHandlerRegistration // the cache's handler; nil if it failed
-	cancel context.CancelFunc
-	done   chan struct{} // closed when the informer's goroutine has returned
-	log    *slog.Logger
+	scope Scope
+	log   *slog.Logger
+	run   *runner // the informer the handles read from; nil for a label-selected scope
+	view  *view   // a label-selected scope's objects; nil otherwise
 
 	refs      int         // guarded by Cache.mu
 	warmTimer *time.Timer // guarded by Cache.mu
@@ -176,10 +207,7 @@ type entry struct {
 
 	events atomic.Int64
 
-	errMu   sync.Mutex
-	lastErr error
-
-	// subs is replaced, never mutated (copy on write): dispatch reads it without a lock, so a
+	// subs is replaced, never mutated (copy on write): delivery reads it without a lock, so a
 	// subscriber may subscribe or cancel from inside its callback.
 	subMu sync.Mutex // serialises writers of subs
 	subs  atomic.Pointer[[]*subscription]
@@ -190,7 +218,25 @@ type subscription struct {
 	active atomic.Bool
 }
 
-// Acquire returns a handle on the informer for scope, starting it if it is not running. The
+// runner is one client-go informer and its list and watch: an unselected scope's, or a
+// label-selected scope's own while no cover serves it.
+type runner struct {
+	scope  Scope
+	inf    toolscache.SharedIndexInformer
+	reg    toolscache.ResourceEventHandlerRegistration // the entry's handler; nil without one, or if it failed
+	cancel context.CancelFunc
+	done   chan struct{} // closed when the informer's goroutine has returned
+	log    *slog.Logger
+
+	// users counts what keeps the informer running: the unselected scope's entry, and every view
+	// reading from it (or waiting to). Guarded by Cache.mu; the informer stops at zero.
+	users int
+
+	errMu   sync.Mutex
+	lastErr error
+}
+
+// Acquire returns a handle on the objects of scope, starting an informer if none serves it. The
 // caller must Release the handle when it stops showing or using the data. After Close, Acquire
 // returns a handle on an empty, never-syncing store.
 func (c *Cache) Acquire(scope Scope) *Handle {
@@ -202,8 +248,7 @@ func (c *Cache) Acquire(scope Scope) *Handle {
 	}
 	e := c.informers[scope]
 	if e == nil {
-		e = c.start(scope)
-		c.informers[scope] = e
+		e = c.newEntry(scope)
 	}
 	e.refs++
 	if e.warmTimer != nil {
@@ -215,62 +260,98 @@ func (c *Cache) Acquire(scope Scope) *Handle {
 	return &Handle{scope: scope, e: e, c: c}
 }
 
-// start creates and runs the informer for scope. Called with c.mu held.
-func (c *Cache) start(scope Scope) *entry {
-	e := &entry{scope: scope, done: make(chan struct{}), log: c.log.With("scope", scope.String())}
+// newEntry makes and registers the entry of a scope nobody holds: a label-selected scope reads
+// through its cover when that runs and through an informer of its own otherwise; an unselected
+// scope starts its informer, which then serves the label-selected scopes it covers. Called with
+// c.mu held.
+func (c *Cache) newEntry(scope Scope) *entry {
+	e := &entry{scope: scope, log: c.log.With("scope", scope.String())}
 	e.subs.Store(&[]*subscription{})
-	lw := &trackedLW{e: e, inner: c.listerWatcher(e, scope)}
+	c.informers[scope] = e
+	if sel, ok := selectorOf(scope); ok {
+		e.view = newView(e, sel)
+		if cover := c.informers[coverOf(scope)]; cover != nil && cover.run != nil {
+			c.attach(e, cover.run, false)
+		} else {
+			c.attachOwn(e, false)
+		}
+		return e
+	}
+	e.run = c.startRunner(scope, e.dispatch)
+	e.run.users++
+	c.coverStarted(e)
+	return e
+}
+
+// startRunner creates and runs an informer for scope; dispatch, when given, receives its events.
+// Called with c.mu held.
+func (c *Cache) startRunner(scope Scope, dispatch func(EventType, any)) *runner {
+	r := &runner{scope: scope, done: make(chan struct{}), log: c.log.With("scope", scope.String())}
+	lw := &trackedLW{r: r, inner: c.listerWatcher(r, scope)}
 	inf := toolscache.NewSharedIndexInformerWithOptions(lw, &unstructured.Unstructured{}, toolscache.SharedIndexInformerOptions{
 		ResyncPeriod:      0, // no periodic resyncs: only watch events after the initial list
 		Indexers:          toolscache.Indexers{toolscache.NamespaceIndex: toolscache.MetaNamespaceIndexFunc},
 		ObjectDescription: scope.String(),
 	})
-	e.inf = inf
-	if err := inf.SetTransform(e.stripManagedFields); err != nil {
-		e.log.Warn("cache: transform not installed", "err", err)
+	r.inf = inf
+	if err := inf.SetTransform(r.stripManagedFields); err != nil {
+		r.log.Warn("cache: transform not installed", "err", err)
 	}
 	if err := inf.SetWatchErrorHandlerWithContext(func(_ context.Context, _ *toolscache.Reflector, err error) {
-		e.watchError(err)
+		r.watchError(err)
 	}); err != nil {
-		e.log.Warn("cache: watch error handler not installed", "err", err)
+		r.log.Warn("cache: watch error handler not installed", "err", err)
 	}
-	reg, err := inf.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj any) { e.dispatch(Added, obj) },
-		UpdateFunc: func(_, obj any) { e.dispatch(Updated, obj) },
-		DeleteFunc: func(obj any) { e.dispatch(Deleted, obj) },
-	})
-	if err != nil {
-		e.log.Warn("cache: event handler not installed", "err", err)
+	if dispatch != nil {
+		reg, err := inf.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
+			AddFunc:    func(obj any) { dispatch(Added, obj) },
+			UpdateFunc: func(_, obj any) { dispatch(Updated, obj) },
+			DeleteFunc: func(obj any) { dispatch(Deleted, obj) },
+		})
+		if err != nil {
+			r.log.Warn("cache: event handler not installed", "err", err)
+		}
+		r.reg = reg
 	}
-	e.reg = reg
 	ctx, cancel := context.WithCancel(context.Background())
-	e.cancel = cancel
+	r.cancel = cancel
 	go func() {
-		defer close(e.done)
+		defer close(r.done)
 		defer func() {
-			if r := recover(); r != nil {
-				e.setErr(fmt.Errorf("the informer for %s stopped: internal error: %v", scope, r))
-				e.log.Error("cache: informer panicked", "panic", fmt.Sprint(r), "stack", string(debug.Stack()))
+			if rec := recover(); rec != nil {
+				r.setErr(fmt.Errorf("the informer for %s stopped: internal error: %v", scope, rec))
+				r.log.Error("cache: informer panicked", "panic", fmt.Sprint(rec), "stack", string(debug.Stack()))
 			}
 		}()
 		inf.RunWithContext(ctx)
 		if ctx.Err() == nil {
 			// Run returned on its own: client-go swallowed a panic (utilruntime.ReallyCrash is
 			// false) or refused to run twice. The store is frozen from here on.
-			e.setErr(fmt.Errorf("the informer for %s stopped unexpectedly", scope))
-			e.log.Error("cache: informer stopped unexpectedly")
+			r.setErr(fmt.Errorf("the informer for %s stopped unexpectedly", scope))
+			r.log.Error("cache: informer stopped unexpectedly")
 		}
 	}()
-	return e
+	c.runners[r] = struct{}{}
+	return r
+}
+
+// unuse drops one use of a runner; the last one stops its informer. Called with c.mu held.
+func (c *Cache) unuse(r *runner) {
+	r.users--
+	if r.users > 0 {
+		return
+	}
+	r.cancel()
+	delete(c.runners, r)
 }
 
 // listerWatcher asks the source for a list-watcher, turning a panic or a nil result into a
 // list-watcher that fails, so the error shows on the handle instead of ending the process.
-func (c *Cache) listerWatcher(e *entry, scope Scope) (lw toolscache.ListerWatcher) {
+func (c *Cache) listerWatcher(r *runner, scope Scope) (lw toolscache.ListerWatcher) {
 	defer func() {
-		if r := recover(); r != nil {
-			e.log.Error("cache: source panicked", "panic", fmt.Sprint(r), "stack", string(debug.Stack()))
-			lw = failingLW{err: fmt.Errorf("cannot watch %s: internal error: %v", scope, r)}
+		if rec := recover(); rec != nil {
+			r.log.Error("cache: source panicked", "panic", fmt.Sprint(rec), "stack", string(debug.Stack()))
+			lw = failingLW{err: fmt.Errorf("cannot watch %s: internal error: %v", scope, rec)}
 		}
 	}()
 	lw = c.src.ListerWatcher(scope)
@@ -294,19 +375,34 @@ func (c *Cache) release(e *entry) {
 	e.warmTimer = time.AfterFunc(c.opts.WarmPeriod, func() { c.expire(e, gen) })
 }
 
-// expire stops an informer whose warm period ended without a new handle.
+// expire ends a scope whose warm period ended without a new handle.
 func (c *Cache) expire(e *entry, gen uint64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if e.refs > 0 || e.warmGen != gen || c.informers[e.scope] != e {
 		return
 	}
-	delete(c.informers, e.scope)
-	e.warmTimer = nil
-	e.cancel()
+	c.retire(e)
 }
 
-// Stats returns one entry per running informer.
+// retire removes an entry: an unselected scope hands the scopes it covers over to informers of
+// their own and stops its informer once none needs it; a label-selected scope stops reading. Called
+// with c.mu held.
+func (c *Cache) retire(e *entry) {
+	delete(c.informers, e.scope)
+	if e.warmTimer != nil {
+		e.warmTimer.Stop()
+		e.warmTimer = nil
+	}
+	if e.view != nil {
+		c.stopView(e)
+		return
+	}
+	c.coverStopping(e)
+	c.unuse(e.run)
+}
+
+// Stats returns one entry per scope that a handle holds or that is warm.
 func (c *Cache) Stats() []InformerStats {
 	type row struct {
 		e         *entry
@@ -325,13 +421,17 @@ func (c *Cache) Stats() []InformerStats {
 	for _, r := range rows {
 		st := InformerStats{
 			Scope:     r.e.scope,
-			Objects:   len(r.e.inf.GetStore().ListKeys()),
 			Handles:   r.refs,
-			Synced:    r.e.synced(),
 			Events:    r.e.events.Load(),
 			WarmUntil: r.warmUntil,
 		}
-		if err := r.e.err(); err != nil {
+		var err error
+		if v := r.e.view; v != nil {
+			st.Objects, st.Synced, st.CoveredBy, err = v.stats()
+		} else {
+			st.Objects, st.Synced, err = len(r.e.run.inf.GetStore().ListKeys()), r.e.run.synced(), r.e.run.err()
+		}
+		if err != nil {
 			st.Error = err.Error()
 		}
 		out = append(out, st)
@@ -344,15 +444,22 @@ func (c *Cache) Stats() []InformerStats {
 func (c *Cache) Close() {
 	c.mu.Lock()
 	c.closed = true
-	stopped := make([]*entry, 0, len(c.informers))
+	c.stop()
 	for scope, e := range c.informers {
 		if e.warmTimer != nil {
 			e.warmTimer.Stop()
 			e.warmTimer = nil
 		}
-		e.cancel()
+		if e.view != nil {
+			e.view.close()
+		}
 		delete(c.informers, scope)
-		stopped = append(stopped, e)
+	}
+	stopped := make([]*runner, 0, len(c.runners))
+	for r := range c.runners {
+		r.cancel()
+		stopped = append(stopped, r)
+		delete(c.runners, r)
 	}
 	c.mu.Unlock()
 
@@ -360,9 +467,9 @@ func (c *Cache) Close() {
 	// cache.
 	deadline := time.NewTimer(closeTimeout)
 	defer deadline.Stop()
-	for _, e := range stopped {
+	for _, r := range stopped {
 		select {
-		case <-e.done:
+		case <-r.done:
 		case <-deadline.C:
 			c.log.Warn("cache: informers did not stop in time", "timeout", closeTimeout)
 			return
@@ -381,7 +488,8 @@ const (
 )
 
 // Event is one change seen by an informer. Object is the new state (for Deleted, the last known
-// state). Objects are shared with the store and must not be modified.
+// state; for an object whose labels left a label-selected scope, the state that left it). Objects
+// are shared with the store and must not be modified.
 type Event struct {
 	Type   EventType
 	Object *unstructured.Unstructured
@@ -395,15 +503,27 @@ func (e *entry) dispatch(typ EventType, obj any) {
 			e.log.Error("cache: event dispatch panicked", "panic", fmt.Sprint(r), "stack", string(debug.Stack()))
 		}
 	}()
-	e.events.Add(1)
+	u := asObject(obj)
+	if u == nil {
+		e.events.Add(1)
+		return
+	}
+	e.deliver(Event{Type: typ, Object: u})
+}
+
+// asObject returns the unstructured object an informer handed over, unwrapping the final state of
+// a delete the informer missed; nil for anything else.
+func asObject(obj any) *unstructured.Unstructured {
 	if d, ok := obj.(toolscache.DeletedFinalStateUnknown); ok {
 		obj = d.Obj
 	}
-	u, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		return
-	}
-	ev := Event{Type: typ, Object: u}
+	u, _ := obj.(*unstructured.Unstructured)
+	return u
+}
+
+// deliver hands one event to every active subscriber and counts it.
+func (e *entry) deliver(ev Event) {
+	e.events.Add(1)
 	for _, s := range *e.subs.Load() {
 		if s.active.Load() {
 			e.callSafely(s.fn, ev)
@@ -449,51 +569,56 @@ func (e *entry) subscribe(fn func(Event)) func() {
 	}
 }
 
-func (e *entry) setErr(err error) {
-	e.errMu.Lock()
-	e.lastErr = err
-	e.errMu.Unlock()
+func (r *runner) synced() bool {
+	return r.inf.HasSynced() && (r.reg == nil || r.reg.HasSynced())
 }
 
-func (e *entry) clearErr() {
-	e.errMu.Lock()
-	e.lastErr = nil
-	e.errMu.Unlock()
+func (r *runner) setErr(err error) {
+	r.errMu.Lock()
+	r.lastErr = err
+	r.errMu.Unlock()
 }
 
-func (e *entry) err() error {
-	e.errMu.Lock()
-	defer e.errMu.Unlock()
-	return e.lastErr
+func (r *runner) clearErr() {
+	r.errMu.Lock()
+	r.lastErr = nil
+	r.errMu.Unlock()
+}
+
+func (r *runner) err() error {
+	r.errMu.Lock()
+	defer r.errMu.Unlock()
+	return r.lastErr
 }
 
 // watchError receives the errors that end a list-and-watch cycle (client-go retries after it).
 // The routine ones (a watch that expired, a closed stream) are not errors to show.
-func (e *entry) watchError(err error) {
+func (r *runner) watchError(err error) {
 	if err == nil || apierrors.IsResourceExpired(err) || apierrors.IsGone(err) ||
 		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 		return
 	}
-	e.setErr(err)
-	e.log.Warn("cache: list or watch failed; retrying", "err", err)
+	r.setErr(err)
+	r.log.Warn("cache: list or watch failed; retrying", "err", err)
 }
 
 // stripManagedFields is the informer transform: managedFields are large and only the editor's
 // "managed fields" toggle needs them, which fetches them on demand. For core Secrets in every
 // scope it also drops the last-applied-configuration annotation, which kubectl apply fills with
-// the Secret's whole manifest, data included: a metadata-only scope must not hold values through
-// it (H-8), and no scope needs it (Cogpit never writes Secrets). It runs on the reflector's
-// goroutine; if it panicked, the object is kept unchanged rather than lost.
-func (e *entry) stripManagedFields(obj any) (out any, err error) {
+// the Secret's whole manifest, data included: it would repeat every value in memory a second time,
+// and in the drawer's annotations, where agents read it (H-8); no scope needs it (Cogpit never
+// writes Secrets). It runs on the reflector's goroutine; if it panicked, the object is kept
+// unchanged rather than lost.
+func (r *runner) stripManagedFields(obj any) (out any, err error) {
 	defer func() {
-		if r := recover(); r != nil {
-			e.log.Error("cache: transform panicked", "panic", fmt.Sprint(r))
+		if rec := recover(); rec != nil {
+			r.log.Error("cache: transform panicked", "panic", fmt.Sprint(rec))
 			out, err = obj, nil
 		}
 	}()
 	if u, ok := obj.(*unstructured.Unstructured); ok {
 		unstructured.RemoveNestedField(u.Object, "metadata", "managedFields")
-		if e.scope.GVR.Group == "" && e.scope.GVR.Resource == "secrets" {
+		if r.scope.GVR.Group == "" && r.scope.GVR.Resource == "secrets" {
 			unstructured.RemoveNestedField(u.Object, "metadata", "annotations", LastAppliedAnnotation)
 		}
 	}
@@ -504,11 +629,11 @@ func (e *entry) stripManagedFields(obj any) (out any, err error) {
 // the Secret's values, so the cache drops it from Secrets.
 const LastAppliedAnnotation = "kubectl.kubernetes.io/last-applied-configuration"
 
-// trackedLW wraps a Source's list-watcher: it records list and watch errors on the entry and
+// trackedLW wraps a Source's list-watcher: it records list and watch errors on the runner and
 // clears them when a list or a watch succeeds, turns a panic in the source into an error, and
 // passes the WatchList capability through to the reflector.
 type trackedLW struct {
-	e     *entry
+	r     *runner
 	inner toolscache.ListerWatcher
 }
 
@@ -552,17 +677,17 @@ func (t *trackedLW) observe(ctx context.Context, err error) {
 	switch {
 	case ctx.Err() != nil:
 	case err != nil:
-		t.e.setErr(err)
+		t.r.setErr(err)
 	default:
-		t.e.clearErr()
+		t.r.clearErr()
 	}
 }
 
 func (t *trackedLW) recoverInto(err *error, op string) {
 	if r := recover(); r != nil {
-		*err = fmt.Errorf("cannot %s %s: internal error: %v", op, t.e.scope, r)
-		t.e.setErr(*err)
-		t.e.log.Error("cache: source panicked", "op", op, "panic", fmt.Sprint(r), "stack", string(debug.Stack()))
+		*err = fmt.Errorf("cannot %s %s: internal error: %v", op, t.r.scope, r)
+		t.r.setErr(*err)
+		t.r.log.Error("cache: source panicked", "op", op, "panic", fmt.Sprint(r), "stack", string(debug.Stack()))
 	}
 }
 
@@ -573,8 +698,8 @@ func (f failingLW) List(metav1.ListOptions) (runtime.Object, error)   { return n
 func (f failingLW) Watch(metav1.ListOptions) (watch.Interface, error) { return nil, f.err }
 func (f failingLW) IsWatchListSemanticsUnSupported() bool             { return true }
 
-// Handle is one consumer's claim on an informer. Its reads stay valid after Release, but the data
-// stops changing once the informer has expired.
+// Handle is one consumer's claim on a scope. Its reads stay valid after Release, but the data
+// stops changing once the scope has expired.
 type Handle struct {
 	scope    Scope
 	e        *entry
@@ -589,10 +714,14 @@ func (h *Handle) Scope() Scope { return h.scope }
 // subscribers: a subscriber that subscribes after HasSynced sees changes only, never the initial
 // list's late additions. (The store is filled before client-go hands the initial list to event
 // handlers, so the store's own sync comes first.)
-func (h *Handle) HasSynced() bool { return h.e != nil && h.e.synced() }
-
-func (e *entry) synced() bool {
-	return e.inf.HasSynced() && (e.reg == nil || e.reg.HasSynced())
+func (h *Handle) HasSynced() bool {
+	switch {
+	case h.e == nil:
+		return false
+	case h.e.view != nil:
+		return h.e.view.synced()
+	}
+	return h.e.run.synced()
 }
 
 // WaitForSync blocks until the informer has synced (HasSynced) or ctx ends; it reports whether
@@ -602,7 +731,7 @@ func (h *Handle) WaitForSync(ctx context.Context) bool {
 		<-ctx.Done()
 		return false
 	}
-	if h.e.synced() {
+	if h.HasSynced() {
 		return true
 	}
 	t := time.NewTicker(10 * time.Millisecond)
@@ -610,31 +739,37 @@ func (h *Handle) WaitForSync(ctx context.Context) bool {
 	for {
 		select {
 		case <-ctx.Done():
-			return h.e.synced()
+			return h.HasSynced()
 		case <-t.C:
-			if h.e.synced() {
+			if h.HasSynced() {
 				return true
 			}
 		}
 	}
 }
 
-// List returns every object in the store. The objects are shared and must not be modified.
+// List returns every object of the scope. The objects are shared and must not be modified.
 func (h *Handle) List() []*unstructured.Unstructured {
-	if h.e == nil {
+	switch {
+	case h.e == nil:
 		return nil
+	case h.e.view != nil:
+		return h.e.view.list()
 	}
-	return toUnstructured(h.e.inf.GetStore().List())
+	return toUnstructured(h.e.run.inf.GetStore().List())
 }
 
 // ListNamespace returns the objects in one namespace, from the store's namespace index; for an
 // informer scoped to one namespace it equals List. The objects are shared and must not be
 // modified.
 func (h *Handle) ListNamespace(namespace string) []*unstructured.Unstructured {
-	if h.e == nil {
+	switch {
+	case h.e == nil:
 		return nil
+	case h.e.view != nil:
+		return h.e.view.listNamespace(namespace)
 	}
-	items, err := h.e.inf.GetIndexer().ByIndex(toolscache.NamespaceIndex, namespace)
+	items, err := h.e.run.inf.GetIndexer().ByIndex(toolscache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil
 	}
@@ -656,11 +791,11 @@ func (h *Handle) Get(namespace, name string) (*unstructured.Unstructured, bool) 
 	if h.e == nil {
 		return nil, false
 	}
-	key := name
-	if namespace != "" {
-		key = namespace + "/" + name
+	key := objectKey(namespace, name)
+	if h.e.view != nil {
+		return h.e.view.get(key)
 	}
-	it, ok, err := h.e.inf.GetStore().GetByKey(key)
+	it, ok, err := h.e.run.inf.GetStore().GetByKey(key)
 	if err != nil || !ok {
 		return nil, false
 	}
@@ -668,8 +803,16 @@ func (h *Handle) Get(namespace, name string) (*unstructured.Unstructured, bool) 
 	return u, ok
 }
 
+// objectKey is the store key of an object: "namespace/name", or the name of a cluster-scoped one.
+func objectKey(namespace, name string) string {
+	if namespace == "" {
+		return name
+	}
+	return namespace + "/" + name
+}
+
 // Subscribe calls fn for every change after it returns; subscribe before reading List to miss
-// nothing. fn runs on the informer's event goroutine, one event at a time in order, and must not
+// nothing. fn runs on an informer's event goroutine, one event at a time in order, and must not
 // block. The returned function removes the subscription; it is idempotent and may be called from
 // inside fn. A delivery already running on the event goroutine may finish after it returns.
 func (h *Handle) Subscribe(fn func(Event)) (cancel func()) {
@@ -683,13 +826,16 @@ func (h *Handle) Subscribe(fn func(Event)) (cancel func()) {
 // connection). It clears when the next list or watch succeeds. Errors are states the UI shows,
 // not failures.
 func (h *Handle) Err() error {
-	if h.e == nil {
+	switch {
+	case h.e == nil:
 		return nil
+	case h.e.view != nil:
+		return h.e.view.err()
 	}
-	return h.e.err()
+	return h.e.run.err()
 }
 
-// Release gives the handle back. It is idempotent. After the last release the informer stays warm
+// Release gives the handle back. It is idempotent. After the last release the scope stays warm
 // for the warm period, then stops.
 func (h *Handle) Release() {
 	if h.e == nil || !h.released.CompareAndSwap(false, true) {

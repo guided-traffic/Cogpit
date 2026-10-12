@@ -28,8 +28,9 @@ func waitSync(t *testing.T, h *cache.Handle) {
 	}
 }
 
-// Each distinct scope is one informer: the full Secrets, their metadata, and the ones labelled
-// owner=helm are three watches; the same selector written another way shares one.
+// Each distinct scope has its own handles: the full Secrets, their metadata, and the ones labelled
+// owner=helm are three scopes, but two watches, because the full Secrets cover the label-selected
+// ones (cover.go); the same selector written another way shares one scope.
 func TestScopesAreOneInformerEach(t *testing.T) {
 	src := testkit.NewMemorySource()
 	seedSecrets(src)
@@ -45,10 +46,10 @@ func TestScopesAreOneInformerEach(t *testing.T) {
 		waitSync(t, h)
 	}
 	if n := len(c.Stats()); n != 3 {
-		t.Fatalf("%d informers, want 3: %+v", n, c.Stats())
+		t.Fatalf("%d scopes, want 3: %+v", n, c.Stats())
 	}
-	if src.Lists() != 3 {
-		t.Errorf("%d lists, want 3", src.Lists())
+	if src.Lists() != 2 {
+		t.Errorf("%d lists, want 2 (the full Secrets and their metadata; owner=helm is covered)", src.Lists())
 	}
 	if helm.Scope() != again.Scope() {
 		t.Errorf("selectors not normalised: %v vs %v", helm.Scope(), again.Scope())

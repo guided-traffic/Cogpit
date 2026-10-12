@@ -15,9 +15,10 @@ import (
 )
 
 // TestBudgetFindWithoutKindStartsNoReleaseWatch: an agent's resources.find without a kind searches
-// the virtual kinds (Helm's releases) only when the cache holds them already: it must not start a
-// cluster-wide watch of the release Secrets, values and all, as a side effect of a search by name.
-// Once the releases are cached (their view was open), the same search finds them.
+// the kinds that hold Secret values (the Secrets, Helm's releases) only when the cache holds them
+// already: it must not start a cluster-wide watch of every Secret, values and all, as a side effect
+// of a search by name. Once the releases are cached (their view was open), the same search finds
+// them.
 func TestBudgetFindWithoutKindStartsNoReleaseWatch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -46,18 +47,19 @@ func TestBudgetFindWithoutKindStartsNoReleaseWatch(t *testing.T) {
 		}
 		return res.(commands.FindResult)
 	}
-	releaseRequests := func() int64 {
+	secretRequests := func() int64 {
 		req := srv.Requests()
-		return req["list secrets with owner=helm"] + req["watchlist secrets with owner=helm"]
+		return req["list secrets with owner=helm"] + req["watchlist secrets with owner=helm"] +
+			req["list secrets"] + req["watchlist secrets"] + req["watch secrets"]
 	}
 
 	for _, m := range find().Matches {
-		if m.Ref.Kind == helm.ReleaseKind {
-			t.Errorf("found a release that was not cached: %+v", m)
+		if m.Ref.Kind == helm.ReleaseKind || m.Ref.Kind == "secrets" {
+			t.Errorf("found an object of a kind that was not cached: %+v", m)
 		}
 	}
-	if n := releaseRequests(); n != 0 {
-		t.Fatalf("resources.find without a kind started the release Secrets' watch: %v", srv.Requests())
+	if n := secretRequests(); n != 0 {
+		t.Fatalf("resources.find without a kind started a Secrets watch: %v", srv.Requests())
 	}
 
 	if _, err := s.Objects(ctx, helm.ReleaseKind, nil); err != nil { // the Releases view opens
@@ -70,16 +72,19 @@ func TestBudgetFindWithoutKindStartsNoReleaseWatch(t *testing.T) {
 	if !found {
 		t.Error("a search without a kind misses the cached releases")
 	}
-	if n := releaseRequests(); n != 1 {
-		t.Errorf("want the one initial request of the Releases view: %v", srv.Requests())
+	req := srv.Requests()
+	if n := req["list secrets with owner=helm"] + req["watchlist secrets with owner=helm"]; n != 1 || secretRequests() != 1 {
+		t.Errorf("want the one initial request of the Releases view: %v", req)
 	}
 }
 
-// TestBudgetSecretScopes proves the Secrets contract of D-13 (H-8, option b) at the HTTP level:
-// the metadata-only scope asks the server for PartialObjectMetadata, so no Secret value crosses
-// the wire or reaches the cache; the label-selected scope for Helm's releases asks the server for
-// the owner=helm Secrets only; each scope is one informer with its own initial list and watch,
-// for a server that streams initial lists and for one that does not.
+// TestBudgetSecretScopes proves the covering scopes of architecture §5 at the HTTP level, for a
+// server that streams initial lists and for one that does not: the owner=helm scope alone is one
+// label-selected request; once the full Secrets scope runs and has synced, the owner=helm scope
+// reads from it and its own watch closes; when the full scope's warm period ends while an
+// owner=helm handle is open, the owner=helm scope gets a watch of its own again and the full watch
+// closes. A metadata-only scope is never covered by a full one: it asks for PartialObjectMetadata,
+// so no value crosses the wire for it.
 func TestBudgetSecretScopes(t *testing.T) {
 	for _, tt := range []struct {
 		name      string
@@ -101,64 +106,87 @@ func TestBudgetSecretScopes(t *testing.T) {
 				t.Fatalf("Connect: %v", err)
 			}
 			defer conn.Close()
-			c := cache.New(cache.DynamicSource(conn.Dynamic(), conn.Metadata()), cache.Options{WarmPeriod: time.Minute})
+			c := cache.New(cache.DynamicSource(conn.Dynamic(), conn.Metadata()), cache.Options{WarmPeriod: 200 * time.Millisecond})
 			defer c.Close()
-
-			meta := c.Acquire(cache.Scope{GVR: testkit.SecretsGVR, MetadataOnly: true})
-			defer meta.Release()
-			helm := c.Acquire(cache.Scope{GVR: testkit.SecretsGVR, LabelSelector: "owner=helm"})
-			defer helm.Release()
-			helm2 := c.Acquire(cache.Scope{GVR: testkit.SecretsGVR, LabelSelector: "owner = helm"})
-			defer helm2.Release()
-			for _, h := range []*cache.Handle{meta, helm, helm2} {
-				if !h.WaitForSync(ctx) {
-					t.Fatalf("%s did not sync: %v", h.Scope(), h.Err())
+			// initial counts the initial lists of a resource: streaming watches, or, from a server
+			// that refuses them (client-go asks once per informer, then lists), lists.
+			initial := func(resource string) int64 {
+				if tt.watchList {
+					return srv.Requests()["watchlist "+resource]
+				}
+				return srv.Requests()["list "+resource]
+			}
+			wait := func(what string, cond func() bool) {
+				t.Helper()
+				if !testkit.WaitFor(ctx, cond) {
+					t.Fatalf("%s: requests %v, open watches %v, scopes %+v", what, srv.Requests(), srv.OpenWatchesBy(), c.Stats())
 				}
 			}
 
-			if got := len(meta.List()); got != 2 {
-				t.Fatalf("metadata scope: %d objects", got)
+			// The owner=helm scope alone: one label-selected request, its own watch.
+			helmScope := cache.Scope{GVR: testkit.SecretsGVR, LabelSelector: "owner=helm"}
+			releases := c.Acquire(helmScope)
+			defer releases.Release()
+			if !releases.WaitForSync(ctx) {
+				t.Fatalf("owner=helm did not sync: %v", releases.Err())
+			}
+			if l := releases.List(); len(l) != 1 || l[0].GetName() != "sh.helm.release.v1.web.v1" || l[0].Object["data"] == nil {
+				t.Fatalf("owner=helm scope: %v", l)
+			}
+			wait("the owner=helm watch", func() bool { return srv.OpenWatchesBy()["secrets with owner=helm"] == 1 })
+			if initial("secrets with owner=helm") != 1 || initial("secrets") != 0 {
+				t.Fatalf("the owner=helm scope alone: %v", srv.Requests())
+			}
+
+			// The full scope starts: the owner=helm scope moves onto it and its watch closes.
+			all := c.Acquire(cache.Scope{GVR: testkit.SecretsGVR})
+			if !all.WaitForSync(ctx) {
+				t.Fatalf("the full scope did not sync: %v", all.Err())
+			}
+			wait("the move onto the full scope", func() bool {
+				open := srv.OpenWatchesBy()
+				return open["secrets with owner=helm"] == 0 && open["secrets"] == 1
+			})
+			if initial("secrets") != 1 || initial("secrets with owner=helm") != 1 {
+				t.Errorf("one request per scope expected: %v", srv.Requests())
+			}
+			if len(all.List()) != 2 || len(releases.List()) != 1 {
+				t.Errorf("full scope %d objects, owner=helm %d", len(all.List()), len(releases.List()))
+			}
+
+			// A watch event reaches both, each as its scope says.
+			srv.Set(testkit.SecretsGVR, testkit.Secret("apps", "sh.helm.release.v1.web.v2", map[string]string{"owner": "helm", "name": "web"}, map[string]string{"release": "p2"}))
+			srv.Set(testkit.SecretsGVR, testkit.Secret("apps", "tls", nil, map[string]string{"tls.key": "secret-key"}))
+			wait("the events", func() bool { return len(all.List()) == 4 && len(releases.List()) == 2 })
+
+			// A metadata-only scope is not covered by the full one: its own request, no data.
+			meta := c.Acquire(cache.Scope{GVR: testkit.SecretsGVR, MetadataOnly: true})
+			if !meta.WaitForSync(ctx) {
+				t.Fatalf("metadata scope did not sync: %v", meta.Err())
 			}
 			for _, o := range meta.List() {
 				if _, has := o.Object["data"]; has || !cache.IsMetadataObject(o) || o.GetUID() == "" {
 					t.Errorf("metadata scope holds %v", o.Object)
 				}
 			}
-			if l := helm.List(); len(l) != 1 || l[0].GetName() != "sh.helm.release.v1.web.v1" {
-				t.Fatalf("owner=helm scope: %d objects", len(l))
-			} else if _, has := l[0].Object["data"]; !has {
-				t.Error("owner=helm scope lost the release payload")
+			meta.Release()
+			if initial("secrets (metadata)") != 1 {
+				t.Errorf("the metadata scope: %v", srv.Requests())
 			}
 
-			// A watch event reaches each scope as its scope says.
-			srv.Set(testkit.SecretsGVR, testkit.Secret("apps", "tls", nil, map[string]string{"tls.key": "secret-key"}))
-			if !testkit.WaitFor(ctx, func() bool { return len(meta.List()) == 3 }) {
-				t.Fatal("the metadata scope missed a watch event")
+			// The full scope's warm period ends while the owner=helm handle is open: the owner=helm
+			// scope lists on its own again, and the full watch closes.
+			all.Release()
+			wait("the handover back", func() bool {
+				open := srv.OpenWatchesBy()
+				return open["secrets"] == 0 && open["secrets with owner=helm"] == 1 && releases.HasSynced()
+			})
+			if initial("secrets with owner=helm") != 2 || initial("secrets") != 1 {
+				t.Errorf("after the handover: %v", srv.Requests())
 			}
-			for _, o := range meta.List() {
-				if _, has := o.Object["data"]; has {
-					t.Errorf("%s arrived with its data", o.GetName())
-				}
-			}
-			if len(helm.List()) != 1 {
-				t.Errorf("an unlabelled Secret reached the owner=helm scope")
-			}
-
-			req := srv.Requests()
-			metaInitial := req["watchlist secrets (metadata)"] + req["list secrets (metadata)"]
-			helmInitial := req["watchlist secrets with owner=helm"] + req["list secrets with owner=helm"]
-			if metaInitial == 0 || helmInitial == 0 {
-				t.Fatalf("requests: %v", req)
-			}
-			if req["list secrets"]+req["watch secrets"]+req["watchlist secrets"] != 0 {
-				t.Errorf("a full, unselected Secrets request was sent: %v", req)
-			}
-			if !tt.watchList && (req["list secrets (metadata)"] != 1 || req["list secrets with owner=helm"] != 1) {
-				t.Errorf("one list per scope expected (the two owner=helm handles share one): %v", req)
-			}
-			if tt.watchList && (req["watchlist secrets (metadata)"] != 1 || req["watchlist secrets with owner=helm"] != 1) {
-				t.Errorf("one streaming watch per scope expected: %v", req)
-			}
+			srv.Set(testkit.SecretsGVR, testkit.Secret("apps", "sh.helm.release.v1.web.v3", map[string]string{"owner": "helm", "name": "web"}, map[string]string{"release": "p3"}))
+			wait("an event through the own watch", func() bool { return len(releases.List()) == 3 })
+			t.Logf("requests: %v", srv.Requests())
 		})
 	}
 }

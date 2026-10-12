@@ -75,13 +75,25 @@ func (m *MemorySource) Watching(scope cache.Scope) bool {
 // that, and a view or drawer that opened acquires its informers without waiting for either: a
 // request count read before Settled holds can still miss a list or a watch the scenario already
 // caused. Tests that assert request budgets on a MemorySource take their baseline once it holds.
+// A label-selected scope served by a cover (cache.InformerStats.CoveredBy) needs only to be synced.
 func Settled(c *cache.Cache, src *MemorySource) bool {
 	for _, st := range c.Stats() {
-		if !st.Synced || !src.Watching(st.Scope) {
+		if !st.Synced {
+			return false
+		}
+		// A covered scope has no watch of its own: its cover's watch serves it.
+		if st.CoveredBy == "" && !src.Watching(st.Scope) {
 			return false
 		}
 	}
 	return true
+}
+
+// OpenWatches returns the number of watches open right now on gvr.
+func (m *MemorySource) OpenWatches(gvr schema.GroupVersionResource) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.watchers[gvr])
 }
 
 // Set adds or replaces an object and sends Added or Modified to the watchers. It assigns the
@@ -130,9 +142,12 @@ func (m *MemorySource) publish(gvr schema.GroupVersionResource, ev memEvent) {
 }
 
 // ListerWatcher implements cache.Source. It honours the scope's namespace, label selector and
-// MetadataOnly (cache.FilterScope), as the API server does.
+// MetadataOnly as the API server does (cache.FilterListerWatcher): a watch with a label selector
+// turns an object whose labels leave the selection into a delete, and one whose labels enter it
+// into an add.
 func (m *MemorySource) ListerWatcher(scope cache.Scope) toolscache.ListerWatcher {
-	return &memLW{m: m, gvr: scope.GVR, namespace: scope.Namespace, scope: scope}
+	plain := cache.Scope{GVR: scope.GVR, Namespace: scope.Namespace}
+	return cache.FilterListerWatcher(scope, &memLW{m: m, gvr: scope.GVR, namespace: scope.Namespace, scope: plain})
 }
 
 func objKey(namespace, name string) string {

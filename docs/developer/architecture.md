@@ -18,13 +18,13 @@ CI runs on every push ([releasing › CI](releasing.md#ci)). The MVP doubled as 
 
 | Package | State | Differs from the plan |
 |---|---|---|
-| [`internal/model`](../../internal/model/), [`model/kinds`](../../internal/model/kinds/) | Built: refs, rows (links, coloured parts, warning and until columns), status tokens, panic-free accessors, Secret redaction, the drawer's Properties; 16 built-in profiles (Nodes, Pods, Deployments, Daemon Sets, Stateful Sets, Replica Sets, Jobs, Cron Jobs, Services, Ingresses, Ingress Classes, Config Maps, Persistent Volume Claims, Namespaces, Events, Custom Resource Definitions) and a generic profile built from a custom resource definition and its printer columns, with golden and fuzz tests; the third run added 25 built-in profiles (the Config, Access Control, Network and Storage views, Secrets from metadata only, Replication Controllers; 41 in all), the local kind Port Forwarding, the profile fields of §5 (scopes, `Derive`, `Local`, `FallbackVersions`) and the related-objects indexes of §4.4, drawer tables of cells, item actions and private items | No CPU and memory columns; no generic view for built-in kinds without a profile or for aggregated APIs; Cron Jobs' Next execution uses `time.LoadLocation` (the zone database is embedded in `cmd/cogpit` for Windows) |
+| [`internal/model`](../../internal/model/), [`model/kinds`](../../internal/model/kinds/) | Built: refs, rows (links, coloured parts, warning and until columns), status tokens, panic-free accessors, Secret redaction, the drawer's Properties; 16 built-in profiles (Nodes, Pods, Deployments, Daemon Sets, Stateful Sets, Replica Sets, Jobs, Cron Jobs, Services, Ingresses, Ingress Classes, Config Maps, Persistent Volume Claims, Namespaces, Events, Custom Resource Definitions) and a generic profile built from a custom resource definition and its printer columns, with golden and fuzz tests; the third run added 25 built-in profiles (the Config, Access Control, Network and Storage views, Secrets (in full since the fourth run, with Keys and Type), Replication Controllers; 41 in all), the local kind Port Forwarding, the profile fields of §5 (scopes, `Derive`, `Local`, `FallbackVersions`) and the related-objects indexes of §4.4, drawer tables of cells, item actions and private items | No CPU and memory columns; no generic view for built-in kinds without a profile or for aggregated APIs; Cron Jobs' Next execution uses `time.LoadLocation` (the zone database is embedded in `cmd/cogpit` for Windows) |
 | [`internal/kubeconfig`](../../internal/kubeconfig/) | Built: contexts from bytes, error text without credentials, the per-terminal kubeconfig | – |
-| [`internal/cluster`](../../internal/cluster/) | Built: connections through client-go's loading rules, the counting transport, discovery, log streams, restart and delete; for every kind, a REST mapper over in-memory cached discovery and update (with a resourceVersion precondition), create (both with dryRun=All) and delete (with a UID precondition) through the dynamic client ([`objects.go`](../../internal/cluster/objects.go)); an update sent without `managedFields` (the cache drops them) keeps every manager's entry on the server and records Cogpit's fields under the manager `cogpit` (verified on kind 1.36.1, `TestKindEditCreateConflictDelete`); access reviews (`ReviewRules`, `ReviewAccess`, [`access.go`](../../internal/cluster/access.go)); third run: the metadata client for metadata-only informers, port-forward tunnels on loopback listeners Cogpit owns across reconnects ([`portforward.go`](../../internal/cluster/portforward.go)), one Secret's GET, restarts of Daemon and Stateful Sets, Replica Set scale, the API server's warnings logged once per connection | Discovery is cached in memory for 10 minutes, not on disk; one rate limiter per cluster (QPS 5, burst 10) shared by every client, discovery with its own budget (50/300), access reviews with theirs (10/20, so that they never delay a view's list); implicit kubeconfig writes are switched off (the legacy `.kubeconfig` migration and the oidc persister, which keeps refreshed tokens in memory) |
-| [`internal/cache`](../../internal/cache/) | Built: one shared informer per scope, handles, warm period, `managedFields` transform, no resync, streaming initial lists where the server supports them, error state, stats; a handle reports synced only once the initial list reached its subscribers; third run: scopes with label selectors and metadata only (§5), `cache.Memory` for local kinds, the `last-applied-configuration` annotation dropped from Secrets before they enter the store | Views watch all namespaces and filter client-side; no polling sources yet |
+| [`internal/cluster`](../../internal/cluster/) | Built: connections through client-go's loading rules, the counting transport, discovery, log streams, restart and delete; for every kind, a REST mapper over in-memory cached discovery and update (with a resourceVersion precondition), create (both with dryRun=All) and delete (with a UID precondition) through the dynamic client ([`objects.go`](../../internal/cluster/objects.go)); an update sent without `managedFields` (the cache drops them) keeps every manager's entry on the server and records Cogpit's fields under the manager `cogpit` (verified on kind 1.36.1, `TestKindEditCreateConflictDelete`); access reviews (`ReviewRules`, `ReviewAccess`, [`access.go`](../../internal/cluster/access.go)); third run: the metadata client for metadata-only informers, port-forward tunnels on loopback listeners Cogpit owns across reconnects ([`portforward.go`](../../internal/cluster/portforward.go)), restarts of Daemon and Stateful Sets, Replica Set scale, the API server's warnings logged once per connection | Discovery is cached in memory for 10 minutes, not on disk; one rate limiter per cluster (QPS 5, burst 10) shared by every client, discovery with its own budget (50/300), access reviews with theirs (10/20, so that they never delay a view's list); implicit kubeconfig writes are switched off (the legacy `.kubeconfig` migration and the oidc persister, which keeps refreshed tokens in memory) |
+| [`internal/cache`](../../internal/cache/) | Built: one shared informer per scope, handles, warm period, `managedFields` transform, no resync, streaming initial lists where the server supports them, error state, stats; a handle reports synced only once the initial list reached its subscribers; third run: scopes with label selectors and metadata only (§5), `cache.Memory` for local kinds, the `last-applied-configuration` annotation dropped from Secrets before they enter the store; fourth run: covering scopes (a label-selected scope served from its running unselected scope, with handovers both ways, §5) | Views watch all namespaces and filter client-side; no polling sources yet |
 | [`internal/terminal`](../../internal/terminal/) | Built: local shell on Cogpit's own PTY with the per-terminal kubeconfig; pod shell over exec (WebSocket, SPDY fallback); attach to a container's main process (third run), with stdin and a TTY as the container has them | No node shell; Windows has no local shell yet |
 | [`internal/demo`](../../internal/demo/) (L2, new) | Built: the synthetic cluster for `--demo` behind a `cache.Source`: 10,000 pods, 300 services, 1,000 watch events per second, watch resume and 410 Gone | A package the plan did not list |
-| [`internal/engine`](../../internal/engine/), [`engine/commands`](../../internal/engine/commands/) | Built: Session, registry with JSON schemas, `Order`, `Escalate`, `Prefill`, `Detail` and `ErrNotApplicable` (§4.2), D-2 confirmation per origin bound to its context, objects and UIDs, audit log with Secrets redacted, UI state, coalesced snapshots (≤ 10 per second per view), the drawer model, streams, editor tabs, the custom kinds from a watch on the definitions, the drain journal, 41 commands; the access reviews of the connected user ([`accessreviews.go`](../../internal/engine/accessreviews.go), §4.2); third run: `Backend.Acquire`, `KindList` and `KindGet` for every read of a kind, the local store, the related-objects index, the port-forward manager ([`portforward.go`](../../internal/engine/portforward.go)), the Secrets drawer's GET and GUI-only reveal ([`secretdata.go`](../../internal/engine/secretdata.go)), Helm's actions and journal ([`helmops.go`](../../internal/engine/helmops.go)), log tabs with options and workload logs, attach, hidden columns and the group filter as UI state, the Workloads Overview page, CSV export, drawer-only commands; 65 commands | No jobs or cancellation UI (a drain runs in its dispatch call); a write command refuses to run if the user switched clusters while its confirmation was open; access reviews have no time-to-live (§5): they are kept until `cluster.refreshAccess` or the next connect |
+| [`internal/engine`](../../internal/engine/), [`engine/commands`](../../internal/engine/commands/) | Built: Session, registry with JSON schemas, `Order`, `Escalate`, `Prefill`, `Detail` and `ErrNotApplicable` (§4.2), D-2 confirmation per origin bound to its context, objects and UIDs, audit log with Secrets redacted, UI state, coalesced snapshots (≤ 10 per second per view), the drawer model, streams, editor tabs, the custom kinds from a watch on the definitions, the drain journal, 41 commands; the access reviews of the connected user ([`accessreviews.go`](../../internal/engine/accessreviews.go), §4.2); third run: `Backend.Acquire`, `KindList` and `KindGet` for every read of a kind, the local store, the related-objects index, the port-forward manager ([`portforward.go`](../../internal/engine/portforward.go)), the Secrets drawer and its GUI-only reveal ([`secretdata.go`](../../internal/engine/secretdata.go); from the cache since the fourth run, no GET), Helm's actions and journal ([`helmops.go`](../../internal/engine/helmops.go)), log tabs with options and workload logs, attach, hidden columns and the group filter as UI state, the Workloads Overview page, CSV export, drawer-only commands; 65 commands | No jobs or cancellation UI (a drain runs in its dispatch call); a write command refuses to run if the user switched clusters while its confirmation was open; access reviews have no time-to-live (§5): they are kept until `cluster.refreshAccess` or the next connect |
 | [`internal/mcp`](../../internal/mcp/) | Built: every command as a tool, Streamable HTTP on loopback, bearer token, Host and Origin checks | Stateless HTTP (one session per request); the token lives in `<user config dir>/Cogpit/mcp-token` and changes with the port on every start; no stdio bridge |
 | [`internal/ui/fyneui`](../../internal/ui/fyneui/) and its [`yamlview`](../../internal/ui/fyneui/yamlview/) and [`termview`](../../internal/ui/fyneui/termview/) | Built: shell after Lens's layout, theme with status tokens, context picker, confirmation dialog, the YAML view, terminal and log widgets, a jank meter (`--perf`); row menus (⋮ and right-click) and the drawer's toolbar from the registry, schema-generated parameter dialogs, links and coloured parts in cells, Cogpit's own tooltips (Fyne 2.8 has none); third run: Cogpit's own title bar on macOS through a cgo bridge to the `NSWindow` ([`titlebar_darwin.go`](../../internal/ui/fyneui/titlebar_darwin.go); `COGPIT_SYSTEM_TITLEBAR=1` keeps the system one), the column menu, keyboard navigation, fit-to-content, CSV download, the Workloads Overview, item actions in the drawer (Forward…, Show), the port-forward dialog, the Helm banner, log tabs with their toolbar | The YAML view is editable in Edit and Create resource tabs, whose text lives in the engine (`editor.get`, `editor.setText`); edits are applied as updates (PUT), not patches; the terminal widget is a patched copy of fyne-io/terminal ([`third_party/fyne-terminal`](../../third_party/fyne-terminal/PATCHES.md)) behind an escape filter, because the pinned upstream froze or crashed on container output |
 | [`cmd/cogpit`](../../cmd/cogpit/) | Built: wires the packages, the drain journal (`<user config dir>/Cogpit/drains.json`) and the Helm journal (`helm.json`); flags `--kubeconfig`, `--context`, `--demo`, `--mcp-addr`, `--no-mcp`, `--perf`, `--theme` | client-go goroutine panics are logged instead of ending the app |
@@ -48,7 +48,8 @@ client configuration).
 
 Decided on 2026-10-12 for the fourth implementation run (its Phase 0): `model.Related.Listed`
 ([§4.4](#44-tables-details-editors-and-streams), built); how the full Secrets scope and Helm's
-`owner=helm` scope share one watch ([§5 › Scopes](#scopes-local-and-virtual-kinds)); the Helm
+`owner=helm` scope share one watch ([§5 › Scopes](#scopes-local-and-virtual-kinds); built
+2026-10-12 as the covering scopes, with the Secrets view on a full watch); the Helm
 upgrade seam, its journal entry and the Helm Upgrade dock tab ([§8](#8-helm-internalhelm); the
 journal action `upgrade` and the tab's type `helmUpgrade` built, the rest by the run).
 
@@ -508,9 +509,13 @@ source, and cached with a time-to-live.
 (the editor's "managed fields" toggle fetches them on demand). Memory per cluster and object counts
 per kind are visible in a diagnostics view. From core Secrets, in every scope, the same transform
 also drops the `kubectl.kubernetes.io/last-applied-configuration` annotation (2026-10-11), which
-`kubectl apply` fills with the whole manifest, values included: without it a metadata-only scope
-would still hold the values of every applied Secret (`TestSecretsLoseTheLastAppliedAnnotation`).
-The annotation still crosses the wire with the metadata.
+`kubectl apply` fills with the whole manifest, values included (`TestSecretsLoseTheLastAppliedAnnotation`).
+Re-checked with the full Secrets watch (2026-10-12) and kept: the annotation would hold every
+applied Secret's values a second time, in plain text, and it would reach the drawer's Annotations,
+which agents read through `object_get` (the YAML redacts it, the Properties would not). The drawer
+builds a Secret's Properties from `model.Redact` as well, so an annotation that arrives another way
+reads `<redacted>` (`TestSecretDrawerRedactsTheLastAppliedAnnotation`). The annotation still
+crosses the wire with the object and is decoded before the transform drops it.
 
 **Measurable.** A counting HTTP round-tripper per cluster records requests by verb and resource;
 the diagnostics view shows them, and tests assert the budgets P9–P11 in
@@ -525,8 +530,9 @@ the cache's view of the world.
 
 Decided and built on 2026-10-11 ([`cache.Scope`](../../internal/cache/cache.go),
 [`engine/kindscope.go`](../../internal/engine/kindscope.go)). A scope is a resource, a namespace
-(empty: all), a **label selector** and a **metadata-only** flag; each distinct scope is one informer
-and one watch, and `Acquire` normalises the selector, so `a=1,b=2` and `b=2,a=1` share one. Every
+(empty: all), a **label selector** and a **metadata-only** flag; each distinct scope has its own
+handles and is one informer and one watch unless a cover serves it (below), and `Acquire`
+normalises the selector, so `a=1,b=2` and `b=2,a=1` share one. Every
 `Source` honours the whole scope: the real cluster's source (`DynamicSource` over the dynamic and
 the metadata client) sends the selector to the server and asks for `PartialObjectMetadata` for a
 metadata-only scope, so object content never crosses the wire; in-memory sources apply
@@ -537,36 +543,64 @@ and the object's `metadata`, nothing else (`cache.MetadataObject`, `cache.IsMeta
 A kind's profile decides its scope (`MetadataOnly`, `LabelSelector`), and every engine read of a
 kind goes through `Backend.Acquire(profile)` and `KindList`/`KindGet`, never through a scope built
 by hand, so the view, the drawer, `Lookup` and agents' reads of a kind share one informer.
-Measured at the HTTP level: the Secrets of D-13 as metadata (`secrets (metadata)`) and Helm's
-release Secrets (`secrets with owner=helm`) are one initial list or streaming watch each, and no
-full or unselected Secrets request is sent (`TestBudgetSecretScopes`; on kind, `TestKindSecretScopes`).
-`resources.find` without a kind searches a virtual kind only when the cache holds it already
-(`Backend.Cached`, in the profile's scope), so an agent's search by name never starts the release
-Secrets' watch (review 2026-10-11, `TestBudgetFindWithoutKindStartsNoReleaseWatch`).
-The Secrets view's drawer (built 2026-10-11, [`secretdata.go`](../../internal/engine/secretdata.go))
-makes the one direct read of Secret values: a `get secrets` of the Secret it opens on, once per
-open, through `SecretReader` on `Backend.Writer` (`cluster.Conn.GetSecret`), skipped when the access
-reviews deny it. The engine keeps the type and, per key, the size and the first 4 KiB of a text
-value while the drawer shows that Secret and drops them when it closes or moves, zeroing the bytes
-it kept (best effort: the GET's decoded response and the string a reveal returns are left to the
-garbage collector, since Go strings cannot be overwritten); the drawer model
-lists the keys masked, and `secret.reveal` hands one value to the GUI origin only
-(`TestBudgetSecretsViewAndDrawer`: one metadata watch and one GET).
+Measured at the HTTP level (revised 2026-10-12 for the full Secrets watch): the Secrets view is one
+initial list or streaming watch of every Secret in full, and opening a Secret's drawer or revealing
+a value costs no request (`TestBudgetSecretsViewAndDrawer`); the Releases view alone is one
+`secrets with owner=helm` request and nothing else (`TestBudgetHelmReleasesView`); both together are
+one watch, the full one (`TestBudgetSecretsAndReleasesShareOneWatch`, below); a metadata-only scope
+asks for `PartialObjectMetadata` and gets no value (`TestBudgetSecretScopes`; on kind,
+`TestKindSecretScopes`, `TestKindSecretsView`). `resources.find` without a kind searches a virtual
+kind, and a kind whose scope holds Secret values (`engine.HoldsSecretValues`: the Secrets and Helm's
+releases), only when the cache holds it already (`Backend.Cached`, in the profile's scope or its
+cover), so an agent's search by name never starts a watch of every Secret or release Secret
+(review 2026-10-11, extended 2026-10-12, `TestBudgetFindWithoutKindStartsNoReleaseWatch`).
+The Secrets view's drawer ([`secretdata.go`](../../internal/engine/secretdata.go); rebuilt
+2026-10-12, before it made one `get secrets` per open) reads the Secret it shows from the cache like
+any object and keeps nothing of its own: `BuildDetailWith` adds a Data section that lists each key
+(sorted, at most 100) with its value masked and its size, a "Show" action beside a text value and a
+binary value by its size only; it decodes each value to measure it and zeroes the bytes at once
+(best effort: the cached object's base64 text and a revealed value's string are Go strings, which
+cannot be overwritten). `secret.reveal` reads one value of the Secret the drawer shows from the
+cache, cut to 4 KiB and 40 lines, for the GUI origin only (`TestSecretDrawerReadsTheCacheAndMasks`,
+`TestRevealIsGUIOnly`); agents read the drawer, the YAML (`model.Redact`), the list's cells, the
+CSV export and every other result without a value (`TestAgentsReadSecretsRedacted`).
 
-**Covering scopes** (decided 2026-10-12 with [D-13](decisions.md#d-13-cache)'s revision, built by
-the fourth run). A label-selected scope is a subset of the unselected scope of the same resource,
-namespace and metadata flag. While that unselected scope runs (a handle holds it, or it is warm),
-the cache serves the selected scope from it: the selected scope's handles list and get the
-covering informer's objects that match the selector and see its events filtered by it (an object
-whose labels leave the selection arrives as a delete), and no second watch starts. A covered scope
-never keeps its cover alive: when the cover is about to stop while covered handles are open, the
-selected scope starts its own informer, the cover stays until that one has synced, and the
-handover sends the covered handles the difference as events; a selected scope with its own
-informer moves onto a cover that starts later, once the cover has synced. Helm's releases
+**Covering scopes** (decided 2026-10-12 with [D-13](decisions.md#d-13-cache)'s revision, built
+2026-10-12 by the fourth run, [`cache/cover.go`](../../internal/cache/cover.go)). A label-selected
+scope is a subset of the unselected scope of the same resource, namespace and metadata flag, its
+cover. While the cover runs (a handle holds it, or it is warm), the cache serves the selected scope
+from it: the selected scope's handles list and get the covering informer's objects that match the
+selector and see its events filtered by it (an object whose labels leave the selection arrives as a
+delete, with the state that left it), and no second watch starts; `Cache.Stats` names the cover in
+`coveredBy`, and `Cache.Running` reports a covered scope as running. A covered scope never keeps
+its cover alive: when the cover's warm period ends while covered handles are open, the selected
+scope starts its own informer, and the cover's informer keeps running until that one has caught up,
+at most `Options.HandoverTimeout` (one minute), then stops; a covered scope that is only warm ends
+with its cover instead of starting a watch to stay warm. A selected scope with its own informer moves
+onto a cover that starts later, once the cover has caught up, and its own informer stops.
+
+As built: a selected scope's handles read a view, the objects its subscribers have been told
+about, which an event handler on the serving informer keeps (client-go's `AddEventHandler`: a
+consistent snapshot of the store, then every change). A handover registers a handler on the new
+informer that fills a staging copy, and moves the view onto it once that handler has synced and has
+delivered a resourceVersion at least as new as every object the view holds; the subscribers then
+get the difference as events, and the old informer's events are ignored. With comparable
+resourceVersions (KEP-5504: well-formed integers, which every Kubernetes API server's built-in
+resources have; `k8s.io/apimachinery/pkg/util/resourceversion`) the events stay exact across a
+handover: never a version older than or equal to one already sent, never an object sent as deleted
+brought back in an older version (the view remembers the last 1,024 removals). Proven by
+`TestCoverHandoversUnderChurn` (15 handovers in each direction under churn, 150 runs with the race
+detector: no event twice, none missing, List equal to the events and to the server),
+`TestViewApplyRules`, `TestViewHandoverRules`, `TestConcurrentCoversAndCoveredScopes`,
+`TestCoverStopsAfterTheHandoverTimeout`. Where resourceVersions are not comparable, a version that
+differs counts as newer (inferred to be enough; no such resource is covered today). Helm's releases
 (`owner=helm`) are the case it is built for: with the Secrets view open (a full watch since the
 revision of D-13) they are derived from the full Secrets watch, and alone they cost the
-label-selected watch only, so that the Releases view alone never holds every Secret. Helm's
-profile and `Derive` do not change.
+label-selected watch only, so that the Releases view alone never holds every Secret
+(`TestBudgetSecretsAndReleasesShareOneWatch`: Secrets view then Releases view, no `owner=helm`
+request; after the Secrets scope's warm period, one `owner=helm` watch opens and the full one
+closes; opening the Secrets view again moves the releases back and closes theirs). Helm's profile and
+`Derive` did not change.
 
 - **Local kinds** (`KindProfile.Local`, group `cogpit.io`): objects Cogpit makes itself, the port
   forwards. They live in the backend's local store, a `cache.Memory` with a cache over it, made on
@@ -656,7 +690,8 @@ decided when M6 is designed.
 
 **Built (2026-10-11, the read side and two actions).** The releases are the virtual kind
 `helmreleases` ([`releases.go`](../../internal/helm/releases.go), §4.5): `Derive` groups the
-cached Secrets labelled `owner=helm` per namespace and release name, the newest revision wins,
+cached Secrets labelled `owner=helm` (served by the full Secrets watch while that runs, by their own
+label-selected watch otherwise: §5 › Covering scopes, 2026-10-12) per namespace and release name, the newest revision wins,
 and the object carries that revision's Secret UID and resourceVersion and a summary of the
 history, never values or the manifest (the YAML tab shows this summary). Decoded payloads are
 memoized per Secret UID and resourceVersion, values and manifests for the newest revision of each
@@ -789,6 +824,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Fourth run, agent A: covering scopes built (§5, how a handover stays exact, the measured budgets); the Secrets view on a full watch, its drawer from the cache without a GET; `resources.find` without a kind skips uncached kinds that hold Secret values; the last-applied annotation re-checked and kept dropped |
 | 2026-10-12 | minor | §4.4: the related objects' generation changes when the indexed kinds finish their initial list; §12: a stopped shell drops the work it queued for the main goroutine |
 | 2026-10-12 | minor | Phase 0 of the fourth run: `model.Related.Listed`; covering scopes for the full Secrets watch and Helm's releases; the Helm upgrade's commands, seam, journal entry and dock tab |
 | 2026-10-11 | minor | Access reviews built (§4.2): which review answers what, the namespaces the sidebar reviews, bounds and events, measured request counts; no TTL (§5); `ErrNotApplicable` before a denial |

@@ -18,15 +18,16 @@ var errRevealGUIOnly = errors.New("a Secret's values are shown only to the user,
 func registerSecrets(g *registrar) {
 	add(g, engine.Spec[engine.RevealParams]{
 		ID: engine.RevealCommand, Label: "Show Value", Kinds: []string{kindSecrets}, Danger: engine.DangerRead,
-		Verbs: []engine.Verb{{Verb: "get", Resource: kindSecrets}},
+		// The value comes from the cache, which lists and watches Secrets with their values.
+		Verbs: []engine.Verb{{Verb: "list", Resource: kindSecrets}},
 		Description: "Shows the user one value of the Secret open in the drawer, in Cogpit's own window (the drawer lists " +
 			"the keys with their values masked). Only the user's click in the GUI runs it: agents and the CLI are refused " +
-			"and never receive a Secret's value. Reads nothing from the cluster: the drawer fetched the Secret when it opened.",
+			"and never receive a Secret's value. Makes no request: the value comes from Cogpit's cache.",
 		Enabled: func(s *engine.Session, p engine.RevealParams) error {
 			if p.Ref.Kind != kindSecrets {
 				return fmt.Errorf("%w: this action applies to %s", engine.ErrNotApplicable, kindSecrets)
 			}
-			return s.SecretKeyHeld(p.Ref, p.Key)
+			return s.SecretKeyShown(p.Ref, p.Key)
 		},
 		Run: func(ctx context.Context, s *engine.Session, p engine.RevealParams) (any, error) {
 			if engine.OriginOf(ctx) != engine.OriginGUI {

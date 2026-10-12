@@ -140,7 +140,12 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   ([`customresources.go`](../../internal/model/kinds/customresources.go),
   [`customkinds.go`](../../internal/engine/customkinds.go), `TestBudgetCustomResourceView`); a
   handle reports synced only once the initial list reached its subscribers
-  (`TestSyncWaitsForTheInitialListToReachSubscribers`).
+  (`TestSyncWaitsForTheInitialListToReachSubscribers`). Built in the fourth run (2026-10-12):
+  covering scopes ([architecture §5](../developer/architecture.md#scopes-local-and-virtual-kinds),
+  [`cover.go`](../../internal/cache/cover.go)): a label-selected scope reads from the running
+  unselected scope of the same resource, namespace and metadata flag instead of a watch of its own,
+  with handovers both ways whose events stay exact under churn (`TestCoverHandoversUnderChurn`,
+  `TestBudgetSecretScopes`, `TestKindSecretScopes`).
 - **Impact:** every view, every MCP read and the agent depend on it; it decides budgets P1–P4 and
   P9–P11 and the load Cogpit puts on API servers.
 - **Estimate:** 16–38 h (was 22–50; scopes with label selectors and metadata only, local and virtual kinds and the related-objects index built, third run).
@@ -213,14 +218,17 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   classes, volumes, claims and pods; on kind 1.36.1, a claim provisioned by the default class and
   mounted by a pod fills the Pods column, its volume, the node's Pods table and the Service's
   endpoint slices (`TestKindStorageAndNetworkViews`).
-  Secrets and Helm (2026-10-11, third run): Secrets partial, from a metadata-only watch as decided for H-8 (Keys and Type empty: metadata
-  carries neither), the drawer's one GET per open, values masked and revealed in the GUI only
+  Secrets and Helm (2026-10-11, third run): Secrets partial, then from a metadata-only watch (Keys
+  and Type empty), the drawer's one GET per open, values masked and revealed in the GUI only;
+  Helm Releases partial, a virtual kind over the `owner=helm` Secrets
+  ([`releases.go`](../../internal/helm/releases.go), G11). Fourth run (2026-10-12), as the owner
+  revised [D-13](../developer/decisions.md#d-13-cache): the Secrets view on a full watch, Keys and
+  Type filled as in Lens, the drawer read from the cache without a GET, values still masked and
+  revealed in the GUI only, and redacted in every result an agent reads
   ([`secrets.go`](../../internal/model/kinds/secrets.go), [`secretdata.go`](../../internal/engine/secretdata.go),
-  `TestBudgetSecretsViewAndDrawer`); Helm Releases partial, a virtual kind over the `owner=helm`
-  Secrets ([`releases.go`](../../internal/helm/releases.go), G11).
-- **Decided (owner, 2026-10-12):** the Secrets view moves to a full watch on Secrets, so that
-  Keys and Type are filled as in Lens ([D-13](../developer/decisions.md#d-13-cache), revised; not
-  built, about 1–2 h with its tests and the docs of H-8).
+  `TestBudgetSecretsViewAndDrawer`, `TestAgentsReadSecretsRedacted`, `TestKindSecretsView`); Helm's
+  releases read from that watch while it runs and from their own `owner=helm` watch otherwise
+  (covering scopes, G3, `TestBudgetSecretsAndReleasesShareOneWatch`).
 - **Estimate:** 30–100 h (was 85–260; 2–6 h each for the 9 missing views, plus depth: captures, metrics columns).
 
 ### G7. Resource actions
@@ -512,6 +520,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | G3 evidence: covering scopes (fourth run); G6 evidence: Secrets on a full watch, Keys and Type filled, the drawer from the cache (D-13 revised, built) |
 | 2026-10-12 | minor | G1: `make parity` built (D-15); its first run's findings; estimate 3–8 h |
 | 2026-10-11 | minor | G5: evidence of the third run's tables and window work; G15: why the gate's offscreen test hung in CI, and the fix |
 | 2026-10-11 | minor | G6 and G11 evidence: Secrets and Helm Releases partial, Helm rollback and uninstall partial (third run) |

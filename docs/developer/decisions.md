@@ -21,7 +21,7 @@ projects' repositories; re-check them before relying on a version number.
 | [D-10](#d-10-built-in-agent) | Built-in agent and LLM interface | decided: chat beside the views, OpenAI-compatible endpoint; built after the alpha |
 | [D-11](#d-11-crash-stance) | Crash stance | decided: crash-tolerant UI, crash-safe cluster operations |
 | [D-12](#d-12-parity-sources) | Parity sources | decided: current Lens Desktop only; no OpenLens or Freelens |
-| [D-13](#d-13-cache) | Cache | decided: the UI reads only from a watch-fed cache, held in memory only; Secrets as metadata only, Helm's release Secrets in full |
+| [D-13](#d-13-cache) | Cache | decided: the UI reads only from a watch-fed cache, held in memory only; Secrets in full (revised 2026-10-12, built), Helm's releases from that watch or their own `owner=helm` watch |
 
 ## D-1: UI toolkit
 
@@ -331,6 +331,13 @@ values masked until the user reveals one, and agents keep getting them redacted
 ([H-8](../security/privilege-footprint.md#h-8-secret-data-arrives-with-the-list)). Whether Secrets
 can then be edited from YAML is a separate decision, not made.
 
+**Built (2026-10-12, fourth run)** as revised: the Secrets view lists and watches every Secret in
+full (Keys and Type filled), the drawer reads the opened Secret from the cache (the GET is gone),
+values stay masked and `secret.reveal` GUI-only, and Helm's releases read from the full watch while
+it runs and from their own `owner=helm` watch otherwise, through the covering scopes of
+[architecture §5](architecture.md#scopes-local-and-virtual-kinds). Edit and Create from YAML stay
+refused for Secrets.
+
 **Decided before (owner, 2026-10-11, revised above):** (b). The Secrets view lists through a metadata-only informer
 (`PartialObjectMetadata`); the drawer's GET of one Secret is the direct read architecture §5
 allows for data the cache does not hold, and its values stay masked until the user reveals a
@@ -393,6 +400,7 @@ once per run.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | D-13 as revised built (fourth run): the Secrets view on a full watch, the drawer from the cache, Helm's releases through covering scopes |
 | 2026-10-12 | minor | D-15 built (`make parity`); D-14: the copy is on upstream's head, whose code builds on Fyne 2.8.1 |
 | 2026-10-12 | minor | Owner's decisions after the third run: D-13 revised to a full watch on Secrets (option a); D-14 terminal widget (keep the fork, upstream, fuzz); D-15 the parity checker before the generators; D-16 dry runs until the alpha's release |
 | 2026-10-11 | minor | D-11: Helm rollback and uninstall are crash-safe through a journal and an offer on the next connect (third run); D-13: the Secrets view built, the Type column found empty too, the Table format open for the owner |

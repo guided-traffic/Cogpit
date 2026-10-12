@@ -6,11 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/guided-traffic/cogpit/internal/cache"
@@ -19,56 +17,18 @@ import (
 	"github.com/guided-traffic/cogpit/internal/testkit"
 )
 
-// secretReader is the API server's side of the drawer's GET: it serves the full Secrets of the
-// source the cache watches (as metadata), with the same resourceVersions, and counts the GETs.
-type secretReader struct {
-	Actions
-	src *testkit.MemorySource
-
-	mu   sync.Mutex
-	gets []string
-}
-
-func newSecretReader(src *testkit.MemorySource) *secretReader { return &secretReader{src: src} }
-
-func (r *secretReader) GetSecret(_ context.Context, namespace, name string) (*unstructured.Unstructured, error) {
-	r.mu.Lock()
-	r.gets = append(r.gets, namespace+"/"+name)
-	r.mu.Unlock()
-	// The source lists only through the plain List; the engine may not import client-go's
-	// tools/cache for the context adapter.
-	list, err := r.src.ListerWatcher(cache.Scope{GVR: testkit.SecretsGVR}).List(metav1.ListOptions{}) //nolint:staticcheck // see above
-	if err != nil {
-		return nil, err
-	}
-	for _, it := range list.(*unstructured.UnstructuredList).Items {
-		if it.GetNamespace() == namespace && it.GetName() == name {
-			return it.DeepCopy(), nil
-		}
-	}
-	return nil, errors.New(`secrets "` + name + `" not found`)
-}
-
-func (r *secretReader) count() int {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return len(r.gets)
-}
-
-// secretsSession connects a session whose Secrets are the real, metadata-only profile, with r as
-// the cluster's reader.
-func secretsSession(t *testing.T, src *testkit.MemorySource, r *secretReader) *Session {
+// secretsSession connects a session whose Secrets are the real profile, watched in full.
+func secretsSession(t *testing.T, src *testkit.MemorySource) *Session {
 	t.Helper()
 	p, _ := kinds.ByKey(secretsKind)
 	s, fc := newTestSession(t, src, 5*time.Millisecond)
 	fc.profiles = append([]*model.KindProfile{p}, testPods, testEvents, testNamespaces)
-	fc.actions = r
 	connectTest(t, s)
 	return s
 }
 
-// waitData waits until the drawer model of ref has its Data section filled.
-func waitData(t *testing.T, s *Session, ref model.ObjectRef) *DetailModel {
+// waitData waits until the drawer model of ref has a Data section that satisfies cond.
+func waitData(t *testing.T, s *Session, ref model.ObjectRef, cond func(*DetailModel) bool) *DetailModel {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -76,11 +36,7 @@ func waitData(t *testing.T, s *Session, ref model.ObjectRef) *DetailModel {
 	if !testkit.WaitFor(ctx, func() bool {
 		var err error
 		m, err = s.Detail(ref)
-		if err != nil || m.Loading {
-			return false
-		}
-		v := sectionValue(m, "Data")
-		return v != "" && v != "Loading…"
+		return err == nil && !m.Loading && !m.Missing && dataItems(m) != nil && cond(m)
 	}) {
 		t.Fatalf("no data for %s: %+v", ref, m)
 	}
@@ -96,33 +52,42 @@ func dataItems(m *DetailModel) []model.DetailItem {
 	return nil
 }
 
-// The Secrets drawer: one GET per open of a Secret, values masked in the model (for the GUI and
-// agents alike), a binary value by its size only, the Type from the GET, and the data dropped when
-// the drawer moves or closes; the list itself never fetches data.
-func TestSecretDrawerFetchesOncePerOpenAndMasks(t *testing.T) {
+// The Secrets view and drawer read the full Secrets from the cache: Keys and Type in the list, a
+// drawer whose Data section lists the keys with their values masked (for the GUI and agents
+// alike), a binary value by its size only, the Type once, and no request beyond the view's one
+// list and watch; secret.reveal's value comes from the cache and only for the Secret the drawer
+// shows, and follows the Secret when it changes.
+func TestSecretDrawerReadsTheCacheAndMasks(t *testing.T) {
 	src := testkit.NewMemorySource()
-	r := newSecretReader(src)
 	db := testkit.Secret("apps", "db", map[string]string{"app": "db"}, map[string]string{"password": "hunter2", "url": "postgres://db:5432"})
 	_ = unstructured.SetNestedField(db.Object, base64Of("\xff\xfe\x00\x01"), "data", "blob")
+	db.SetAnnotations(map[string]string{cache.LastAppliedAnnotation: `{"stringData":{"password":"hunter2"}}`, "team": "db"})
 	src.Set(testkit.SecretsGVR, db)
 	src.Set(testkit.SecretsGVR, testkit.Secret("apps", "tls", nil, map[string]string{"tls.key": "-----BEGIN KEY-----"}))
-	s := secretsSession(t, src, r)
+	s := secretsSession(t, src)
 
 	s.UpdateUI(func(u *UIState) { u.View = secretsKind })
 	snap := waitTable(t, s, secretsKind, func(ts *TableSnapshot) bool { return ts.Synced && len(ts.Rows) == 2 })
-	if r.count() != 0 {
-		t.Fatalf("the list fetched Secret data: %d GETs", r.count())
+	if got := snap.Rows[0].Cells[3].Text + " | " + snap.Rows[0].Cells[4].Text; got != "blob, password, url | Opaque" {
+		t.Errorf("Keys | Type of db: %q", got)
 	}
-	if b, _ := json.Marshal(snap); strings.Contains(string(b), "hunter2") || strings.Contains(string(b), base64Of("hunter2")) {
-		t.Fatal("a value reached the table")
+	values := []string{"hunter2", base64Of("hunter2"), "5432", "BEGIN KEY"}
+	carries := func(v any) string {
+		b, _ := json.Marshal(v)
+		for _, s := range values {
+			if strings.Contains(string(b), s) {
+				return s
+			}
+		}
+		return ""
+	}
+	if v := carries(snap); v != "" {
+		t.Fatalf("a value reached the table: %s", v)
 	}
 
 	db0 := model.ObjectRef{Context: "test", Kind: secretsKind, Namespace: "apps", Name: "db"}
 	s.UpdateUI(func(u *UIState) { u.Drawer = &db0 })
-	m := waitData(t, s, db0)
-	if r.count() != 1 {
-		t.Errorf("%d GETs for one open, want 1", r.count())
-	}
+	m := waitData(t, s, db0, func(*DetailModel) bool { return true })
 	items := dataItems(m)
 	if len(items) != 3 || items[0].Name != "blob" || items[1].Name != "password" || items[2].Name != "url" {
 		t.Fatalf("data items %+v", items)
@@ -137,17 +102,25 @@ func TestSecretDrawerFetchesOncePerOpenAndMasks(t *testing.T) {
 	if err := json.Unmarshal(items[1].Actions[0].Params, &rp); err != nil || rp.Key != "password" || !rp.Ref.Same(db0) {
 		t.Errorf("reveal params %s", items[1].Actions[0].Params)
 	}
-	if got := propertyValue(m, "Type"); got != "Opaque" {
-		t.Errorf("Type %q", got)
+	types := 0
+	for _, it := range m.Sections[0].Items {
+		if it.Name == "Type" {
+			types++
+		}
 	}
-	for _, origin := range []Origin{OriginGUI, OriginExternalAgent} {
+	if got := propertyValue(m, "Type"); got != "Opaque" || types != 1 {
+		t.Errorf("Type %q, %d times", got, types)
+	}
+	for _, origin := range []Origin{OriginGUI, OriginExternalAgent, OriginBuiltInAgent} {
 		mm, err := s.DetailWait(context.WithValue(context.Background(), originKey{}, origin), db0)
 		if err != nil {
 			t.Fatal(err)
 		}
-		b, _ := json.Marshal(mm)
-		if strings.Contains(string(b), "hunter2") || strings.Contains(string(b), base64Of("hunter2")) || strings.Contains(string(b), "5432") {
-			t.Errorf("%s: a value reached the drawer model", origin)
+		if v := carries(mm); v != "" {
+			t.Errorf("%s: a value reached the drawer model: %s", origin, v)
+		}
+		if !strings.Contains(mm.YAML, "password: "+model.Redacted) || !strings.Contains(mm.YAML, "type: Opaque") {
+			t.Errorf("%s: YAML %s", origin, mm.YAML)
 		}
 	}
 
@@ -158,94 +131,88 @@ func TestSecretDrawerFetchesOncePerOpenAndMasks(t *testing.T) {
 	if _, err := s.SecretValue(db0, "blob"); err == nil {
 		t.Error("a binary value was revealed")
 	}
+	if err := s.SecretKeyShown(db0, "nope"); err == nil || strings.Contains(err.Error(), "hunter2") {
+		t.Errorf("a missing key: %v", err)
+	}
 
-	// A change of the Secret's metadata refreshes the drawer, not the GET; the drawer says the data
-	// may be stale.
-	db.SetLabels(map[string]string{"app": "db", "rotated": "yes"})
+	// The drawer follows the Secret in the cache: a new value shows its new size, and a reveal
+	// reads the new value.
+	db = testkit.Secret("apps", "db", map[string]string{"app": "db"}, map[string]string{"password": "correct-horse", "url": "postgres://db:5432"})
 	src.Set(testkit.SecretsGVR, db)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if !testkit.WaitFor(ctx, func() bool {
-		m, _ := s.Detail(db0)
-		return strings.Contains(sectionText(m, "Data"), "changed since its drawer opened")
-	}) {
-		t.Error("no note that the Secret changed")
-	}
-	if r.count() != 1 {
-		t.Errorf("%d GETs after a watch event, want 1", r.count())
+	waitData(t, s, db0, func(m *DetailModel) bool {
+		its := dataItems(m)
+		return len(its) == 2 && its[0].Value == MaskedValue+" (13 bytes)"
+	})
+	if v, err := s.SecretValue(db0, "password"); err != nil || v.Value != "correct-horse" {
+		t.Errorf("after the change: %+v, %v", v, err)
 	}
 
-	// Moving the drawer drops the data and fetches the other Secret; closing drops that too.
+	// Moving the drawer: no reveal for the first Secret; closing it: none at all.
 	tls := model.ObjectRef{Context: "test", Kind: secretsKind, Namespace: "apps", Name: "tls"}
 	s.UpdateUI(func(u *UIState) { u.Drawer = &tls })
-	waitData(t, s, tls)
+	waitData(t, s, tls, func(*DetailModel) bool { return true })
 	if _, err := s.SecretValue(db0, "password"); !errors.Is(err, ErrNoSecretData) {
-		t.Errorf("the first Secret's data survived the move: %v", err)
+		t.Errorf("a Secret the drawer moved away from: %v", err)
 	}
 	s.UpdateUI(func(u *UIState) { u.Drawer = nil })
 	if _, err := s.SecretValue(tls, "tls.key"); !errors.Is(err, ErrNoSecretData) {
-		t.Errorf("the data survived closing the drawer: %v", err)
+		t.Errorf("after closing the drawer: %v", err)
 	}
-	if r.count() != 2 {
-		t.Errorf("%d GETs, want 2", r.count())
+	// A Secret the drawer does not show: object_get lists its keys masked, without a request.
+	mm, err := s.DetailWait(context.WithValue(context.Background(), originKey{}, OriginExternalAgent), db0)
+	if err != nil || len(dataItems(mm)) != 2 || carries(mm) != "" {
+		t.Errorf("object_get of a Secret the drawer does not show: %+v, %v", dataItems(mm), err)
 	}
-	// A Secret the drawer does not show: object_get says where its data is, and fetches nothing.
-	mm, err := s.DetailWait(context.Background(), db0)
-	if err != nil || !strings.Contains(sectionValue(mm, "Data"), "only while its drawer is open") || r.count() != 2 {
-		t.Errorf("object_get of a closed Secret: %q, %d GETs", sectionValue(mm, "Data"), r.count())
-	}
-	// Opening it again is a new open: one more GET.
-	s.UpdateUI(func(u *UIState) { u.Drawer = &db0 })
-	waitData(t, s, db0)
-	if r.count() != 3 {
-		t.Errorf("%d GETs after opening again, want 3", r.count())
+	for _, st := range s.Backend().Cache.Stats() {
+		if st.Scope.GVR == testkit.SecretsGVR && (st.Scope.MetadataOnly || st.Scope.LabelSelector != "") {
+			t.Errorf("another Secrets scope: %s", st.Scope)
+		}
 	}
 }
 
-// A GET that fails, a cluster connection that cannot read Secrets and a known denial show as the
-// Data section's state, never as a crash or a value.
-func TestSecretDrawerStates(t *testing.T) {
-	src := testkit.NewMemorySource()
-	src.Set(testkit.SecretsGVR, testkit.Secret("apps", "ghost", nil, map[string]string{"k": "v"}))
-	r := newSecretReader(testkit.NewMemorySource()) // the server no longer has it
-	s := secretsSession(t, src, r)
-	ghost := model.ObjectRef{Context: "test", Kind: secretsKind, Namespace: "apps", Name: "ghost"}
-	s.UpdateUI(func(u *UIState) { u.View, u.Drawer = secretsKind, &ghost })
-	m := waitData(t, s, ghost)
-	if got := sectionValue(m, "Data"); !strings.Contains(got, "could not be read") || !strings.Contains(got, "not found") {
-		t.Errorf("failed GET: %q", got)
+// The cache drops a Secret's last-applied annotation, which repeats its values; a Secret that
+// arrives with it anyway shows it redacted in the drawer's Annotations and YAML, never its value.
+func TestSecretDrawerRedactsTheLastAppliedAnnotation(t *testing.T) {
+	p, _ := kinds.ByKey(secretsKind)
+	obj := testkit.Secret("apps", "db", nil, map[string]string{"password": "hunter2"})
+	obj.SetAnnotations(map[string]string{cache.LastAppliedAnnotation: `{"stringData":{"password":"hunter2"}}`, "team": "db"})
+	m, err := BuildDetail(p, model.ObjectRef{Kind: secretsKind, Namespace: "apps", Name: "db"}, obj, nil, time.Now())
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	b := s.Backend()
-	b.Access = denyAll{}
-	s.UpdateUI(func(u *UIState) { u.Drawer = nil })
-	s.UpdateUI(func(u *UIState) { u.Drawer = &ghost })
-	m = waitData(t, s, ghost)
-	if got := sectionValue(m, "Data"); !strings.Contains(got, "not permitted: you may not get secrets in apps") {
-		t.Errorf("denied GET: %q", got)
+	b, _ := json.Marshal(m)
+	if strings.Contains(string(b), "hunter2") || strings.Contains(string(b), base64Of("hunter2")) {
+		t.Fatalf("a value reached the drawer: %s", b)
 	}
-	if r.count() != 1 {
-		t.Errorf("%d GETs, want 1 (the denied open asks nothing)", r.count())
+	if !strings.Contains(string(b), "team") {
+		t.Error("the other annotations went too")
+	}
+	if obj.GetAnnotations()[cache.LastAppliedAnnotation] == "" {
+		t.Error("BuildDetail changed the cached object")
 	}
 }
 
-type denyAll struct{}
-
-func (denyAll) Allowed(string, Verb) (bool, bool) { return false, true }
-
-// A long value is kept cut to the reveal caps, a multi-byte text cut at a character boundary.
+// A long value is revealed cut to the caps, a multi-byte text at a character boundary; a value
+// with control characters counts as binary.
 func TestSecretValueCaps(t *testing.T) {
 	long := strings.Repeat("ä", 3000) // 6000 bytes
-	k := newSecretKey("big", base64Of(long))
-	if k.binary || len(k.value) > secretValueBytes || k.size != 6000 || !strings.HasPrefix(long, string(k.value)) {
-		t.Errorf("long value: binary %v, kept %d of %d", k.binary, len(k.value), k.size)
+	if size, text := measure(base64Of(long)); size != 6000 || !text {
+		t.Errorf("long value: %d bytes, text %v", size, text)
 	}
-	lines := strings.Repeat("line\n", 100)
-	if k := newSecretKey("lines", base64Of(lines)); strings.Count(string(k.value), "\n") >= secretValueLines {
-		t.Errorf("kept %d lines", strings.Count(string(k.value), "\n"))
+	if shown := clip([]byte(long)); len(shown) > secretValueBytes || !strings.HasPrefix(long, string(shown)) {
+		t.Errorf("kept %d bytes", len(shown))
 	}
-	if k := newSecretKey("bell", base64Of("ring\a")); !k.binary || k.value != nil {
-		t.Errorf("control characters: %+v", k)
+	if shown := clip([]byte(strings.Repeat("line\n", 100))); strings.Count(string(shown), "\n") >= secretValueLines {
+		t.Errorf("kept %d lines", strings.Count(string(shown), "\n"))
+	}
+	if _, text := measure(base64Of("ring\a")); text {
+		t.Error("control characters count as text")
+	}
+	if size, text := measure("not base64!"); text || size == 0 {
+		t.Errorf("a value that is not base64: %d bytes, text %v", size, text)
+	}
+	if _, text := measure(42); text {
+		t.Error("a value that is not a string counts as text")
 	}
 }
 
@@ -262,20 +229,4 @@ func propertyValue(m *DetailModel, name string) string {
 		}
 	}
 	return ""
-}
-
-// sectionText joins every value of a section.
-func sectionText(m *DetailModel, title string) string {
-	if m == nil {
-		return ""
-	}
-	var out []string
-	for _, sec := range m.Sections {
-		if sec.Title == title {
-			for _, it := range sec.Items {
-				out = append(out, it.Value)
-			}
-		}
-	}
-	return strings.Join(out, "\n")
 }

@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
@@ -32,8 +31,8 @@ import (
 	"github.com/guided-traffic/cogpit/internal/testkit"
 )
 
-// helmNamespace is the namespace of the Secrets and Helm kind tests (agent H of the third run); the
-// tests delete it afterwards.
+// helmNamespace is the namespace of the Helm kind tests (agent H of the third run); the tests
+// delete it afterwards.
 const helmNamespace = "cogpit-h"
 
 // kindNamespace creates a fresh namespace on the kind cluster, waiting while an earlier one of the
@@ -135,72 +134,6 @@ func (k *kindSession) detail(ctx context.Context, t *testing.T, origin engine.Or
 		t.Fatal(err)
 	}
 	return &m
-}
-
-// TestKindSecretsView runs the Secrets view of D-13 on the kind cluster: a Secret applied the way
-// kubectl apply leaves it (its values in the last-applied annotation) is listed from metadata
-// without the annotation; opening its drawer is one GET; agents read the keys masked and cannot
-// reveal a value; the GUI can.
-func TestKindSecretsView(t *testing.T) {
-	kubeconfig, contextName := kindEnv(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	conn, err := cluster.Connect(ctx, cluster.Options{KubeconfigPaths: []string{kubeconfig}, Context: contextName})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Close()
-	kindNamespace(ctx, t, conn.Kube(), helmNamespace)
-	applied := `{"apiVersion":"v1","kind":"Secret","metadata":{"name":"applied","namespace":"` + helmNamespace + `"},"stringData":{"token":"kind-s3cr3t"}}`
-	if _, err := conn.Kube().CoreV1().Secrets(helmNamespace).Create(ctx, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "applied", Namespace: helmNamespace,
-			Annotations: map[string]string{cache.LastAppliedAnnotation: applied, "team": "h"}},
-		StringData: map[string]string{"token": "kind-s3cr3t"},
-	}, metav1.CreateOptions{}); err != nil {
-		t.Fatal(err)
-	}
-
-	k := newKindSession(ctx, t, kubeconfig, contextName, engine.NewMemoryHelmJournal())
-	defer k.s.Close()
-	if _, err := k.dispatch(ctx, engine.OriginGUI, "ui.openView", map[string]any{"view": "secrets"}); err != nil {
-		t.Fatal(err)
-	}
-	ref := model.ObjectRef{Context: contextName, Kind: "secrets", Namespace: helmNamespace, Name: "applied"}
-	obj, err := k.s.Object(ctx, ref)
-	if !testkit.WaitFor(ctx, func() bool { obj, err = k.s.Object(ctx, ref); return err == nil }) {
-		t.Fatalf("the Secret never reached the cache: %v", err)
-	}
-	if !cache.IsMetadataObject(obj) || obj.Object["data"] != nil || obj.GetAnnotations()[cache.LastAppliedAnnotation] != "" || obj.GetAnnotations()["team"] != "h" {
-		t.Fatalf("the cache holds %v", obj.Object)
-	}
-	before := k.s.Backend().Conn.Counter().Snapshot()
-	if _, err := k.dispatch(ctx, engine.OriginExternalAgent, "ui.navigate", map[string]any{"ref": ref}); err != nil {
-		t.Fatal(err)
-	}
-	if !testkit.WaitFor(ctx, func() bool {
-		return strings.Contains(sectionOf(k.detail(ctx, t, engine.OriginExternalAgent, ref), "Data"), engine.MaskedValue)
-	}) {
-		t.Fatal("the drawer never listed the keys")
-	}
-	m := k.detail(ctx, t, engine.OriginExternalAgent, ref)
-	if b, _ := json.Marshal(m); strings.Contains(string(b), "kind-s3cr3t") {
-		t.Fatalf("object.get for an agent: %s", b)
-	}
-	if _, err := k.dispatch(ctx, engine.OriginExternalAgent, "secret.reveal", engine.RevealParams{Ref: ref, Key: "token"}); err == nil {
-		t.Fatal("an agent revealed a value")
-	}
-	v, err := k.dispatch(ctx, engine.OriginGUI, "secret.reveal", engine.RevealParams{Ref: ref, Key: "token"})
-	if err != nil || v.(engine.SecretValue).Value != "kind-s3cr3t" {
-		t.Fatalf("GUI reveal %v, %v", v, err)
-	}
-	after := k.s.Backend().Conn.Counter().Snapshot()
-	if got := after.ByVerbResource["get secrets"] - before.ByVerbResource["get secrets"]; got != 1 {
-		t.Errorf("%d GETs of Secrets for one open drawer, want 1", got)
-	}
-	if strings.Contains(k.audit.String(), "kind-s3cr3t") {
-		t.Error("a value reached the audit log")
-	}
-	t.Logf("requests: %v", after.ByVerbResource)
 }
 
 // TestKindHelmReleases installs a local test chart with the Helm SDK and upgrades it, then drives
