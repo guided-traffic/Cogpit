@@ -17,6 +17,7 @@ import (
 	"fyne.io/fyne/v2/test"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/metrics"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/terminal"
 )
@@ -127,7 +128,11 @@ func (f *fakeEngine) Detail(ref model.ObjectRef) (*engine.DetailModel, error) {
 func (f *fakeEngine) ObjectMetrics(ref model.ObjectRef) (*engine.ObjectMetrics, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.metrics[ref.String()], nil
+	if m := f.metrics[ref.String()]; m != nil {
+		return m, nil
+	}
+	// As the engine answers for a cluster without a metrics provider, the common case.
+	return &engine.ObjectMetrics{Ref: ref, Status: metrics.StatusNotServed, Message: "this cluster has no metrics provider"}, nil
 }
 
 func (f *fakeEngine) Subscribe(fn func(engine.Event)) func() {

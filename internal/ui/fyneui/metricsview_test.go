@@ -279,7 +279,7 @@ func TestMetricsSectionStates(t *testing.T) {
 		msg    string
 		want   string
 	}{
-		{"not served", metrics.StatusNotServed, "the cluster serves no metrics.k8s.io API (no metrics-server installed)", "Metrics are not available: the cluster serves no metrics.k8s.io API (no metrics-server installed)"},
+		{"not served", metrics.StatusNotServed, "the cluster serves no metrics.k8s.io API (no metrics-server installed)", "No metrics: the cluster serves no metrics.k8s.io API (no metrics-server installed)"},
 		{"forbidden", metrics.StatusForbidden, "the current user may not read the Metrics API", "Metrics are not available: the current user may not read the Metrics API"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -292,6 +292,10 @@ func TestMetricsSectionStates(t *testing.T) {
 			}
 			if p.plot.Visible() || p.controls.Visible() {
 				t.Error("the chart and its controls show without metrics")
+			}
+			// No provider is a state, said quietly; a refusal is a problem, in the warning colour.
+			if quiet := tc.status == metrics.StatusNotServed; (p.caption.color == colorMuted) != quiet {
+				t.Errorf("caption colour %v for %s", p.caption.color, tc.status)
 			}
 			if len(p.perBox) != 0 {
 				t.Error("a container chart without metrics")

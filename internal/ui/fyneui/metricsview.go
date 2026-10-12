@@ -239,6 +239,10 @@ func (p *metricsPanel) render() {
 		p.setState(true, "Displaying metrics from "+m.Source)
 	case m.Status == metrics.StatusUnknown:
 		p.setState(true, "Waiting for the first measurement…")
+	case m.Status == metrics.StatusNotServed:
+		// A cluster without metrics-server or Prometheus is a state, not a problem: said quietly.
+		p.setState(false, "No metrics: "+m.Message)
+		p.caption.SetColor(colorMuted)
 	default:
 		p.setState(false, "Metrics are not available: "+m.Message)
 	}
