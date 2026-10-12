@@ -1,14 +1,15 @@
 # Beyond Lens
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** minor (editing through MCP; the unfinished drain offered on connect) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (everyday use: the status bar link done, copying from the drawer partial) · **Target:** Lens Desktop 2026.10.51501
 
 What Cogpit does that Lens Desktop does not, or does only in part. These rows are Cogpit's own
 targets, decided by the owner; they do not count toward the parity numbers in
 [`target-app-parity.md`](target-app-parity.md), which measure Cogpit against Lens. Method:
 [`README.md`](README.md).
 
-**Summary (measured, 2026-10-12):** 17 of 36 rows exist: 10 done and 7 partial, in MCP control,
-cache transparency and crash recovery (the unfinished drain). Remaining (estimated): 30–60 h for MCP control
+**Summary (measured, 2026-10-12):** 19 of 36 rows exist: 11 done and 8 partial, in MCP control,
+cache transparency, crash recovery (the unfinished drain) and everyday use (the status bar link
+done, copying from the drawer partial). Remaining (estimated): 30–60 h for MCP control
 ([G17](gaps.md#g17-mcp-control)), 40–80 h for the built-in agent
 ([G21](gaps.md#g21-built-in-agent)); updates, cache transparency and crash recovery are inside
 [G14](gaps.md#g14-packaging-signing-and-updates-macos), [G3](gaps.md#g3-cache-and-the-resource-model),
@@ -101,7 +102,7 @@ The owner's requirements of 2026-10-12 that Lens Desktop does not have.
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | Everyday use: the status bar link (D-23) done, copying values (D-25) partial; rows only, the Summary is the lead's to recount |
+| 2026-10-12 | minor | Everyday use: the status bar link (D-23) done, copying values (D-25) partial; recounted by the lead: 19 of 36 rows, 11 done and 8 partial |
 | 2026-10-12 | minor | Everyday use: copying values (D-25) and the status bar link (D-23), both missing; 17 of 36 rows |
 | 2026-10-11 | minor | `kinds_list` reports per kind whether the user may list it (access reviews); still partial |
 | 2026-10-11 | minor | Crash recovery: an unfinished drain is offered on the next connect (done); 17 of 34 rows |
