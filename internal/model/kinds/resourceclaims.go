@@ -15,23 +15,23 @@ import (
 
 // Kind keys and API group of the Device Resources views.
 const (
-	groupResource              = "resource.k8s.io"
-	keyResourceClaims          = "resourceclaims"
-	keyResourceClaimTemplates  = "resourceclaimtemplates"
-	keyDeviceClasses           = "deviceclasses"
-	keyResourceSlices          = "resourceslices"
-	idDeviceClasses            = "deviceClasses"
-	titleDeviceClasses         = "Device Classes"
-	titleDevice                = "Device"
-	titleDriver                = "Driver"
-	titlePool                  = "Pool"
-	itemRequests               = "Requests"
-	draAllocationAll           = "All" // a request's allocationMode that asks for every matching device
-	draClaimPending            = "Pending"
-	draClaimAllocated          = "Allocated"
-	draMaxDevicesShown         = 3 // the Devices cell lists this many devices, then "+ N more"
-	draDeviceConditionReady    = "Ready"
-	draDeviceConditionHealthy  = "Healthy"
+	groupResource               = "resource.k8s.io"
+	keyResourceClaims           = "resourceclaims"
+	keyResourceClaimTemplates   = "resourceclaimtemplates"
+	keyDeviceClasses            = "deviceclasses"
+	keyResourceSlices           = "resourceslices"
+	idDeviceClasses             = "deviceClasses"
+	titleDeviceClasses          = "Device Classes"
+	titleDevice                 = "Device"
+	titleDriver                 = "Driver"
+	titlePool                   = "Pool"
+	itemRequests                = "Requests"
+	draAllocationAll            = "All" // a request's allocationMode that asks for every matching device
+	draClaimPending             = "Pending"
+	draClaimAllocated           = "Allocated"
+	draMaxDevicesShown          = 3 // the Devices cell lists this many devices, then "+ N more"
+	draDeviceConditionReady     = "Ready"
+	draDeviceConditionHealthy   = "Healthy"
 	draDeviceConditionAvailable = "Available"
 )
 
