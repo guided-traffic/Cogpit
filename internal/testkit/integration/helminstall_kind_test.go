@@ -49,7 +49,9 @@ func TestKindHelmInstall(t *testing.T) {
 	}) {
 		t.Fatalf("namespace %s is still there", installNamespace)
 	}
-	t.Cleanup(func() { _ = kc.CoreV1().Namespaces().Delete(context.Background(), installNamespace, metav1.DeleteOptions{}) })
+	t.Cleanup(func() {
+		_ = kc.CoreV1().Namespaces().Delete(context.Background(), installNamespace, metav1.DeleteOptions{})
+	})
 
 	repo := testkit.NewHelmRepo(t, testkit.TestChart{
 		Name: "hi-web", Version: "0.1.0", AppVersion: "1.0", Description: "Cogpit's install test chart",

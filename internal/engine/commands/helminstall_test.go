@@ -58,12 +58,12 @@ func (f *fakeInstaller) InstallChart(_ context.Context, req helm.InstallRequest)
 	if err != nil {
 		return 0, err
 	}
-	f.helmServer.mu.Lock()
-	if f.helmServer.revs == nil {
-		f.helmServer.revs = map[string]int{}
+	f.mu.Lock()
+	if f.revs == nil {
+		f.revs = map[string]int{}
 	}
-	f.helmServer.revs[req.Namespace+"/"+req.Name] = 1
-	f.helmServer.mu.Unlock()
+	f.revs[req.Namespace+"/"+req.Name] = 1
+	f.mu.Unlock()
 	f.src.Set(testkit.SecretsGVR, releaseSecretWith(f.t, req.Namespace, req.Name, 1, common.StatusDeployed, req.Chart.Version, req.Values))
 	return 1, nil
 }

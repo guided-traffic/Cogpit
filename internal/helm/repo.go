@@ -51,6 +51,9 @@ const (
 	maxVersions = 1000
 )
 
+// schemeHTTPS is the only scheme Cogpit downloads charts and indexes over.
+const schemeHTTPS = "https"
+
 // ErrNotHTTPS refuses a repository or chart URL that is not https: Cogpit reads public chart
 // repositories over TLS only (no plain-HTTP override).
 var ErrNotHTTPS = errors.New("only https URLs are allowed")
@@ -88,7 +91,7 @@ func CheckRepository(name, rawURL string) (string, error) {
 		return "", errors.New("the repository URL does not parse")
 	case u.User != nil:
 		return "", errors.New("a repository URL with a user or password is not supported: Cogpit adds public repositories only")
-	case u.Scheme != "https":
+	case u.Scheme != schemeHTTPS:
 		return "", fmt.Errorf("the repository URL: %w", ErrNotHTTPS)
 	case u.Host == "" || u.Opaque != "":
 		return "", errors.New("the repository URL names no host")
@@ -120,7 +123,7 @@ func (f *Fetcher) client() *http.Client {
 	c := *base
 	next := base.CheckRedirect
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if req.URL.Scheme != "https" {
+		if req.URL.Scheme != schemeHTTPS {
 			return fmt.Errorf("a redirect: %w", ErrNotHTTPS)
 		}
 		if len(via) >= maxRedirects {
@@ -154,7 +157,7 @@ func (f *Fetcher) get(ctx context.Context, rawURL string, limit int64) ([]byte, 
 	if err != nil {
 		return nil, errors.New("the URL does not parse")
 	}
-	if u.Scheme != "https" {
+	if u.Scheme != schemeHTTPS {
 		return nil, ErrNotHTTPS
 	}
 	if u.User != nil {

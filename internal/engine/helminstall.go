@@ -215,7 +215,7 @@ func installNamespace(u UIState, b *Backend) string {
 	case b.Namespace != "":
 		return b.Namespace
 	}
-	return "default"
+	return defaultNamespace
 }
 
 // defaultReleaseName is a release name made from a chart's name and five random letters and

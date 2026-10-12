@@ -273,7 +273,7 @@ func (h *HelmRepos) Add(ctx context.Context, name, rawURL string) (HelmRepoInfo,
 	case slices.ContainsFunc(repos, func(r HelmRepo) bool { return r.Name == name }):
 		return HelmRepoInfo{}, fmt.Errorf("a Helm repository named %s exists already; remove it first to add it with another URL", name)
 	case len(repos) >= maxHelmRepos:
-		return HelmRepoInfo{}, fmt.Errorf("Cogpit keeps at most %d Helm repositories", maxHelmRepos)
+		return HelmRepoInfo{}, fmt.Errorf("at most %d Helm repositories can be added", maxHelmRepos)
 	}
 	idx, err := h.fetcher.DownloadIndex(ctx, u, h.indexPath(name))
 	if err != nil {

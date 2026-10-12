@@ -70,7 +70,7 @@ var helmCharts = &model.KindProfile{
 			return appendUnique(nil, model.NestedString(obj, "spec", fieldRepository))
 		},
 		"chart": func(obj *unstructured.Unstructured) []string {
-			return appendUnique(nil, model.NestedString(obj, "spec", "name"))
+			return appendUnique(nil, model.NestedString(obj, "spec", fieldName))
 		},
 		"keyword": func(obj *unstructured.Unstructured) []string {
 			var out []string
@@ -94,7 +94,7 @@ func helmChartCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status)
 		status = model.StatusWarning
 	}
 	return []model.Cell{
-		{Text: model.NestedString(obj, "spec", "name")},
+		{Text: model.NestedString(obj, "spec", fieldName)},
 		{Text: model.NestedString(obj, "spec", fieldDescription)},
 		{Text: model.NestedString(obj, "spec", fieldChartVer)},
 		{Text: model.NestedString(obj, "spec", fieldAppVersion)},
@@ -134,8 +134,9 @@ func helmChartDetail(obj *unstructured.Unstructured) []model.DetailSection {
 		{ID: fieldAppVersion, Title: titleAppVersion, Type: model.ColumnText},
 		{ID: fieldCreated, Title: "Created", Type: model.ColumnText},
 	}
-	var rows [][]model.Cell
-	for _, v := range model.NestedSlice(obj, "spec", fieldVersions) {
+	versions := model.NestedSlice(obj, "spec", fieldVersions)
+	rows := make([][]model.Cell, 0, len(versions))
+	for _, v := range versions {
 		created := ""
 		if t := model.NestedTime(v, fieldCreated); !t.IsZero() {
 			created = t.UTC().Format("2006-01-02")
@@ -189,7 +190,7 @@ func SplitHelmChartName(name string) (repository, chart string, ok bool) {
 // added; resourceVersion changes with the index the object is made from.
 func HelmChartObject(c HelmChart, uid, resourceVersion string) *unstructured.Unstructured {
 	spec := map[string]any{
-		fieldRepository: c.Repository, "name": c.Name, fieldChartVer: c.Version,
+		fieldRepository: c.Repository, fieldName: c.Name, fieldChartVer: c.Version,
 	}
 	for k, v := range map[string]string{fieldAppVersion: c.AppVersion, fieldDescription: c.Description, "home": c.Home,
 		"icon": c.Icon, "kubeVersion": c.KubeVersion, "digest": c.Digest} {
