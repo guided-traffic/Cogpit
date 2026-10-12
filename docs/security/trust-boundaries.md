@@ -59,8 +59,8 @@ Kubeconfig Syncs, and adds every kubeconfig that appears there; captured 2026-10
 synced file's credential plugin on connect without asking
 ([add a local cluster](https://docs.lenshq.io/k8slens/getting-started/add-clusters/add-local-cluster/),
 [preferences](https://docs.lenshq.io/k8slens/using-lens/preferences/)). Cogpit adds kubeconfig
-files and sync folders since 2026-10-12, and a file dropped into a synced
-folder (a download, a shared drive) becomes a set of contexts. The check of the boundary table is
+files and sync folders since 2026-10-12 (and `~/.kube` by default, below), and a file dropped into a synced
+folder (a download, a shared drive) becomes a set of contexts; hidden files too, as in Lens. The check of the boundary table is
 built as follows:
 
 - **When.** For a context of an added or synced kubeconfig whose user has an `exec`
@@ -102,13 +102,30 @@ built as follows:
   change still asks again. The approval names the fingerprint the dialog showed and is refused
   if the file changed meanwhile; an unreadable approvals file allows nothing; removing a source
   forgets its approvals.
+  The GUI asks before removing one, naming the path and saying that only Cogpit's link goes and
+  the files stay on disk, and a connection made from the source closes.
 - **Who.** Adding a file or a folder, removing a source and allowing a plugin are GUI
   only: the engine refuses them for the CLI, external agents and the built-in agent, whose
   confirmation dialog could not show the user an agent-chosen path for review
   (`TestKubeconfigCommandsAreGUIOnly`).
 
-What remains: `~/.kube/` is not watched without setup (Lens does; Cogpit reads only the default
-kubeconfig there); kubectl in a terminal of such a context reads the source file again, so a
+**`~/.kube` is synced by default** (2026-10-12; Lens does the same, captured). The folder is the
+user's own, with the trust of the default loading's `~/.kube/config`, and Cogpit neither writes
+nor runs anything in it unasked. It differs from that default in one way that matters here: the
+default loading reads one file of it, a synced `~/.kube` reads all of them, and a folder like
+that collects files nobody chose to add (a kubeconfig saved or generated into it by the user or
+a tool). They are therefore handled as the files of any sync folder: read each on its own, never
+merged; a credential plugin runs only after the user allowed it (the approval above, per file and
+context, forgotten when the folder is removed). The files the default loading reads (`$KUBECONFIG`,
+`~/.kube/config`) stay under kubectl's rules, without an approval, as before. Per case: a process
+that can write into `~/.kube` could already replace `config`, whose plugin runs without asking, so it
+gains nothing new (dormant); a kubeconfig that arrives in the folder by accident now becomes
+contexts, and its plugin waits for the user (the approval holds); its `tokenFile` is H-24 below, live
+for these files as for every synced file. The user can remove the folder (Kubeconfig Sources), and
+the engine takes the folder as an option, so tests never read the real one
+(`TestNoDefaultFolderWithoutTheOption`).
+
+What remains: kubectl in a terminal of such a context reads the source file again, so a
 plugin changed after it was allowed runs there without being asked (the user's own kubectl
 command); and a context without a plugin connects without asking only when it names no token file
 outside its folder ([H-24](#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token)).
@@ -192,7 +209,8 @@ server as a bearer token. Kubernetes' documentation names this ("file exposure",
 [kubeconfig docs](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)).
 
 **Built 2026-10-12** ([D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs),
-owner, option a): a context of an added or synced kubeconfig whose user names a `tokenFile`
+owner, option a): a context of an added or synced kubeconfig (since the default sync folder `~/.kube`, 2026-10-12,
+its files other than the default ones too) whose user names a `tokenFile`
 outside the kubeconfig's folder connects only after the user allowed it, in the dialog of the
 credential plugin ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)), with the same approval
 store and the same GUI-only rule. The dialog is titled "Allow this file as the login token?" and

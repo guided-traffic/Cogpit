@@ -40,7 +40,7 @@ type UIState struct {
 // Connection is the state of the active cluster connection.
 type Connection struct {
 	State ConnectionState `json:"state"`
-	Error string          `json:"error,omitempty"` // set in ConnectionError; never contains a credential
+	Error string          `json:"error,omitempty"` // set in ConnectError, and in Disconnected when Cogpit closed the connection (its kubeconfig file went away); never contains a credential
 	Demo  bool            `json:"demo,omitempty"`  // the synthetic demo cluster
 }
 

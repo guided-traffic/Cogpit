@@ -84,7 +84,7 @@ func run() int {
 		IncludeDemo:     true,
 		DemoOptions:     demo.Options{Pods: *demoPods, EventsPerSecond: *demoEvents},
 		Logger:          logger,
-		Sources:         openKubeconfigSources(logger),
+		Sources:         openKubeconfigSources(logger, filepath.SplitList(*kubeconfig)),
 	}
 	s := engine.New(engine.Options{Connector: connector, Audit: audit, Logger: logger, Drains: openDrainJournal(logger),
 		Helm: openHelmJournal(logger)})
@@ -197,15 +197,25 @@ func openHelmJournal(logger *slog.Logger) *engine.HelmOps {
 }
 
 // openKubeconfigSources keeps the kubeconfig files and sync folders the user
-// adds in <user config dir>/Cogpit (kubeconfigs.json, kubeconfigs/, exec-approvals.json), each
-// owner-only. Without a configuration directory there are none.
-func openKubeconfigSources(logger *slog.Logger) *engine.KubeconfigSources {
+// adds in <user config dir>/Cogpit (kubeconfigs.json, exec-approvals.json), each owner-only.
+// Without a configuration directory there are none.
+//
+// The user's own ~/.kube (%USERPROFILE%\.kube on Windows) is a sync folder from the start, as in
+// Lens, removable like any other. Cogpit reads it, never writes it, and a credential plugin of a
+// file in it still needs the user's approval (trust-boundaries H-1). The files the default loading
+// reads (kubeconfigPaths, else $KUBECONFIG, else ~/.kube/config) are offered by that loading, not
+// twice. Without a home directory there is no default folder.
+func openKubeconfigSources(logger *slog.Logger, kubeconfigPaths []string) *engine.KubeconfigSources {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		logger.Warn("kubeconfig sources disabled; only the default kubeconfig is read", "err", err)
 		return nil
 	}
-	return engine.NewKubeconfigSources(filepath.Join(dir, "Cogpit"))
+	var opts []engine.SourcesOption
+	if home, err := os.UserHomeDir(); err == nil {
+		opts = append(opts, engine.WithDefaultFolder(filepath.Join(home, ".kube"), cluster.DefaultKubeconfigFiles(kubeconfigPaths)))
+	}
+	return engine.NewKubeconfigSources(filepath.Join(dir, "Cogpit"), opts...)
 }
 
 // startCPUProfile records a CPU profile for d (or until stop is called) into path; for the gate

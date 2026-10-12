@@ -207,7 +207,8 @@ func TestListSyncFolder(t *testing.T) {
 		return p
 	}
 	a := write("a.yaml", "x")
-	write(".hidden", "x")
+	hidden := write(".hidden", "x") // Lens reads dot files, and so does Cogpit (2026-10-12)
+	write(".DS_Store", "x")
 	write("b.yaml~", "x")
 	write("huge", strings.Repeat("#", kubeconfig.MaxFileSize+1))
 	if err := os.Mkdir(filepath.Join(dir, "sub"), 0o700); err != nil {
@@ -232,7 +233,7 @@ func TestListSyncFolder(t *testing.T) {
 			t.Errorf("%s: no size or time", f.Path)
 		}
 	}
-	if strings.Join(names, ",") != "a.yaml,linked" || got[0].Path != a {
+	if strings.Join(names, ",") != ".hidden,a.yaml,linked" || got[0].Path != hidden || got[1].Path != a {
 		t.Errorf("ListSyncFolder = %v", names)
 	}
 	if _, err := ListSyncFolder(filepath.Join(dir, "missing")); err == nil {

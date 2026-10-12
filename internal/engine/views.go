@@ -44,6 +44,8 @@ type state struct {
 	rowCaches     map[string]*rowCache // rows per view of the current backend, reused across visits
 	dockSeq       map[DockType]int
 
+	logs connectLogs // the last connect attempt of each context (connectlog.go); has its own lock
+
 	snapshots atomic.Uint64 // table snapshots built since start; also the snapshots' revisions
 	wg        sync.WaitGroup
 }
@@ -186,6 +188,7 @@ func (s *Session) Contexts() ([]ContextInfo, error) {
 	if pErr := s.safeCall("cluster.contexts", func() error { out, err = s.opts.Connector.Contexts(); return nil }); pErr != nil {
 		return nil, pErr
 	}
+	s.markConnectProblems(out)
 	return out, err
 }
 
@@ -237,6 +240,7 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 		u.Filter = ""
 	})
 
+	st.logs.restart(name, "Connecting to "+name)
 	var b *Backend
 	err := s.safeCall("connect", func() (err error) { b, err = connector.Connect(cctx, name); return err })
 	if err == nil && b == nil {
@@ -244,6 +248,7 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 	}
 	if err != nil {
 		if st.current(seq) {
+			st.logs.add(name, LogError, err.Error())
 			msg := err.Error()
 			s.UpdateUI(func(u *UIState) { u.Connection = Connection{State: ConnectError, Error: msg} })
 		}
@@ -258,6 +263,7 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 	}
 	s.attachCustomKinds(b)
 	s.attachAccess(b)
+	st.logs.add(name, LogInfo, "Connected to "+name)
 	st.backend = b
 	st.diagStop = make(chan struct{})
 	diagStop := st.diagStop

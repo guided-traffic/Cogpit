@@ -25,6 +25,7 @@ var wantCommands = map[string]engine.Danger{
 	"ui.navigate":        engine.DangerUI,
 	"cluster.contexts":   engine.DangerRead,
 	"cluster.connect":    engine.DangerUI,
+	"cluster.connectLog": engine.DangerRead,
 	"kinds.list":         engine.DangerRead,
 	"resources.list":     engine.DangerRead,
 	"resources.find":     engine.DangerRead,

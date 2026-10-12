@@ -127,6 +127,20 @@ func TestListContextsDefaultRulesUseKUBECONFIG(t *testing.T) {
 	}
 }
 
+// TestDefaultKubeconfigFiles: explicit paths win, else $KUBECONFIG's entries; absolute and clean,
+// and nothing is read (the files need not exist).
+func TestDefaultKubeconfigFiles(t *testing.T) {
+	dir := t.TempDir()
+	a, b := filepath.Join(dir, "a"), filepath.Join(dir, "sub", "..", "b")
+	t.Setenv("KUBECONFIG", a+string(os.PathListSeparator)+b)
+	if got := DefaultKubeconfigFiles(nil); len(got) != 2 || got[0] != a || got[1] != filepath.Join(dir, "b") {
+		t.Errorf("from $KUBECONFIG: %v", got)
+	}
+	if got := DefaultKubeconfigFiles([]string{b}); len(got) != 1 || got[0] != filepath.Join(dir, "b") {
+		t.Errorf("explicit: %v", got)
+	}
+}
+
 func TestConnectAgainstFakeServer(t *testing.T) {
 	srv := testkit.NewFakeAPIServer(testkit.FakeAPIOptions{Token: secretToken})
 	defer srv.Close()

@@ -17,6 +17,16 @@ type connectParams struct {
 	Context string `json:"context" jsonschema:"context id as cluster_contexts lists it: a default kubeconfig context's name, <context> [<source>] for a kubeconfig source added in Cogpit, demo for the synthetic demo cluster"`
 }
 
+// ConnectLogResult is cluster.connectLog's result.
+type ConnectLogResult struct {
+	Context string                  `json:"context"`
+	Lines   []engine.ConnectLogLine `json:"lines"`
+}
+
+type connectLogParams struct {
+	Context string `json:"context" jsonschema:"context id as cluster_contexts lists it"`
+}
+
 func registerCluster(g *registrar) {
 	add(g, engine.Spec[struct{}]{
 		ID: "cluster.contexts", Label: "List Contexts", Danger: engine.DangerRead,
@@ -37,6 +47,17 @@ func registerCluster(g *registrar) {
 				list = []engine.ContextInfo{}
 			}
 			return list, nil
+		},
+	})
+
+	add(g, engine.Spec[connectLogParams]{
+		ID: "cluster.connectLog", Label: "Show Connection Updates", Danger: engine.DangerRead,
+		Description: "Returns the log of the last attempt to connect to a context this session (and of a connection Cogpit " +
+			"closed because its kubeconfig file went away): lines with a time, a level (INFO or ERROR) and a text. The " +
+			"contexts cluster_contexts lists with connectProblem set have an error in it. Lines never contain a credential. " +
+			"Empty when there was no attempt.",
+		Run: func(_ context.Context, s *engine.Session, p connectLogParams) (any, error) {
+			return ConnectLogResult{Context: p.Context, Lines: s.ConnectLog(p.Context)}, nil
 		},
 	})
 

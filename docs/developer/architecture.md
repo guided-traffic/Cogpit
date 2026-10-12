@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-11)
 
@@ -731,9 +731,29 @@ merged as kubectl merges them), the user adds sources in Cogpit
 [`commands/kubeconfigs.go`](../../internal/engine/commands/kubeconfigs.go)):
 
 - **A kubeconfig file** (`kubeconfig.addFile`): read, re-read when it changes, never written.
-- **A sync folder** (`kubeconfig.addFolder`): every file in it (not in subfolders; hidden files,
-  `~` backups, `.swp` and `.tmp` skipped; at most 500 files of at most 1 MiB) that parses and
-  defines a context. `Session.WatchKubeconfigs` compares the sources' file sizes and modification
+- **A sync folder** (`kubeconfig.addFolder`): every regular file in it (not in subfolders; dot
+  files are read since 2026-10-12, as Lens reads them; `~` backups, `.swp`, `.tmp`, `._*` and `.DS_Store`
+  skipped as noise; at most 500 files of at most 1 MiB) that parses and defines a context. What
+  makes a hidden file harmless is not its name: `cluster.ListSyncFolder` takes only regular files
+  (`os.Stat` follows a link, so a FIFO or device is never listed, let alone opened), of at most 1 MiB,
+  and `InspectFile` looks at the file before it opens it (opening a FIFO for reading blocks) and
+  again after (`TestSyncFolderNeverOpensAFIFO`).
+- **`~/.kube`, the default sync folder** (2026-10-12; Lens syncs it by default and lists it as an
+  ordinary, removable item, captured). `cmd/cogpit` passes `<home>/.kube` and the files the default
+  loading reads to `engine.WithDefaultFolder`; the engine never looks up the home directory itself, so
+  tests give it a temporary one (`TestNoDefaultFolderWithoutTheOption`). It is listed first, as a
+  sync folder with `Default` set, while the directory exists; it is not written to the list of
+  sources, and removing it is (`defaultFolderRemoved` in `kubeconfigs.json`), so that it does not
+  come back; adding `~/.kube` again by hand makes it an ordinary source. The files the default
+  loading reads (`--kubeconfig`, else `$KUBECONFIG`, else `~/.kube/config`:
+  `cluster.DefaultKubeconfigFiles`) are not offered a second time: they stay the default's, merged
+  as kubectl merges them, and cannot be removed (counted as `covered` in the dialog). The trust
+  model is below.
+- **One dialog for both** (`internal/ui/fyneui/syncpicker.go`): Lens opens the system's file dialog,
+  which takes files and folders together; Fyne's two file dialogs take one kind each, so Cogpit
+  has a small browser of its own, "Sync Files and Folders": select a file or a folder, or nothing for
+  the folder shown, and press Sync; the status line names the path that will be synced, hidden files
+  are listed, and only directory listings are read. `Session.WatchKubeconfigs` compares the sources' file sizes and modification
   times every 2 seconds (polling, no file-system notifications: `fsnotify` is not a direct
   dependency) and emits `EventContexts` when they change; the picker lists again.
 
@@ -771,6 +791,39 @@ again. `kubeconfig.execPlugin` returns how the server is reached and trusted (`t
 without user information, insecure, TLS server name, own CA) and the file facts, which the
 approval dialog shows (R-11). The plugins of the default kubeconfig files run as kubectl runs
 them, without an approval.
+
+**What `~/.kube` as a default folder means for the trust model** (2026-10-12; the same text is in
+[trust-boundaries H-1](../security/trust-boundaries.md#h-1-kubeconfig-files-added-by-sync-folders)):
+the folder is the user's own, with the same trust as the default loading's `~/.kube/config`, and
+nothing it holds is written or run by Cogpit unasked. But the default loading reads one file of it,
+and a synced `~/.kube` reads them all, so the files in it are treated as what they are, files of a
+folder that tools and people drop kubeconfigs into: each is read **on its own**, never merged, and
+a credential plugin of any of them (the default files excepted) runs only after the user allowed it,
+exactly as for any other sync folder. A process that can write to `~/.kube` could already replace
+`config`, whose plugin runs without asking, so the folder gives that attacker nothing new; what is
+new is a file that arrives there by accident (a kubeconfig saved or generated into the folder) becoming
+contexts, which is where H-24's token-file exposure now reaches too.
+
+**A connection ends with its file** (2026-10-12, `Session.CloseGoneSourceConnection`, called by
+`WatchKubeconfigs` after each change and by `kubeconfig.remove`): `Backend.SourceFile` is the file
+the connection was made from; when `KubeconfigSources.Fate` finds it gone, or no source covers it any
+more, the session closes the backend and leaves the UI `Disconnected` with the reason in
+`Connection.Error`, sends a warning toast and logs the reason. Only a plain fact closes a
+connection: a file that is being rewritten, does not parse for a moment, or lost the context
+stays connected (it was built from the file as it was), and an unreadable list of sources or a
+permission error counts as "still there" (`TestConnectionStaysWhileItsFileIsOnlyRewritten`). A
+connect that started in the meantime is never touched (`disconnectBackend` closes only the backend
+it was given). Removing a source (Cogpit's link only; the files stay on disk) ends a connection made
+from it the same way, and the GUI's confirmation says so.
+
+**The connect log** (2026-10-12, [`connectlog.go`](../../internal/engine/connectlog.go)): the session
+keeps the last attempt to connect to each context, in memory, as INFO and ERROR lines (at most 100
+lines of 600 bytes for 64 contexts; `cluster.connectLog`, a read command, returns them to every
+origin). It holds "Connecting to", the connect error (which never carries a credential,
+`kubeconfig.SafeError`), "Connected" and the reason a connection was closed; `Contexts()` marks
+a context whose last line is an error (`ContextInfo.ConnectProblem`), and the picker shows a warning
+icon that opens "Connection Updates: <context>". A credential plugin's standard error is not in it:
+client-go sends it to Cogpit's own.
 
 Adding a file or folder, removing a source and allowing a plugin are refused for every
 origin but the GUI (`engine.ErrGUIOnly`, checked in each command's `run`), as `secret.reveal` is:
@@ -1088,6 +1141,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | §6: sync folders read dot files (regular files only); `~/.kube` a default sync folder and what that means for the trust model; one dialog for files and folders; a connection closed when its file goes; the connect log |
 | 2026-10-12 | minor | Fifth run, look and use (D-22 to D-25): Solarized theme tokens and the terminal palette, the status bar link, the C helm logo (`internal/ui/logo`), copying values from the drawer (selectable lines, one copy icon, entries in YAML, a copied Secret value cleared from the clipboard); current state row |
 | 2026-10-12 | minor | Review of the fourth run, fixed (§4: an apply from a tab's text bound to its text revision, R-10; §5 Secrets: a revealed value bound to the Secret's version, R-6; §5 covering scopes: a handover that timed out before the own informer's first list keeps the view instead of reporting every object deleted, R-7, and an exact handover during a relist keeps what the new informer holds, R-8; §8): an upgrade from a tab bound to the tab's text revision (R-2); upgrade and rollback checked against the server's newest revision, not only the cache's (R-1); values scrubbed in their quoted forms (R-4); the Rollback dialog's answer bound to the picked revision and dropped after its dispatch (R-3) |
 | 2026-10-12 | minor | §10: the patched terminal widget's two goroutines (parser on the reading one, screen and state on the main one) and its fuzz targets |

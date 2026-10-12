@@ -282,8 +282,8 @@ func TestDisplayText(t *testing.T) {
 
 func TestSyncCandidate(t *testing.T) {
 	for name, want := range map[string]bool{
-		"config": true, "team.yaml": true, "kind.kubeconfig": true,
-		"": false, ".DS_Store": false, ".team.yaml.swp": false, "team.yaml~": false, "x.swp": false, "download.tmp": false,
+		"config": true, "team.yaml": true, "kind.kubeconfig": true, ".kubeconfig": true, ".team.yaml": true,
+		"": false, ".DS_Store": false, "._team.yaml": false, ".team.yaml.swp": false, "team.yaml~": false, "x.swp": false, "download.tmp": false,
 	} {
 		if SyncCandidate(name) != want {
 			t.Errorf("SyncCandidate(%q) = %v, want %v", name, !want, want)

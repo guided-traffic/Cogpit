@@ -80,6 +80,12 @@ func InspectFile(path string) (*InspectedFile, error) {
 
 // readBounded reads a regular file of at most kubeconfig.MaxFileSize bytes.
 func readBounded(path string) ([]byte, error) {
+	// Looked at before it is opened: opening a FIFO for reading blocks until something writes to
+	// it. The check after the open (below) still guards against a swap in between, which the
+	// folder listing and a user-chosen path make unlikely.
+	if pre, err := os.Stat(path); err == nil && !pre.Mode().IsRegular() {
+		return nil, fmt.Errorf("kubeconfig file %s is not a regular file", path)
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {

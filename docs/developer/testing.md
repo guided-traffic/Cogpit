@@ -29,7 +29,9 @@ The MVP (2026-10-11) brought the first tiers; the table says for each whether it
   synthetic values. Never commit objects from a real cluster unscrubbed: they carry internal
   hostnames, registries and sometimes credentials in annotations or environment variables.
 - **Clusters** are created by the tests (`kind`, envtest), never borrowed from a developer's
-  kubeconfig. Tests must not read `~/.kube/config`; `kind` writes its kubeconfig to a temporary
+  kubeconfig. Tests must not read `~/.kube/config` or any other file of `~/.kube` (the default synced
+  folder is injected: `engine.WithDefaultFolder` takes a temporary directory, the shell's sync picker
+  opens in one, `kubeconfigUI.startDir`); `kind` writes its kubeconfig to a temporary
   file (`--kubeconfig`), never into the user's.
 - **API request counting:** tests wrap the client's transport in a counting round-tripper and
   assert the requests a scenario may cost.

@@ -75,6 +75,10 @@ type KubeconfigSource struct {
 	// Path is the file or folder, absolute.
 	Path  string    `json:"path"`
 	Added time.Time `json:"added"`
+	// Default marks the user's own kubeconfig folder (~/.kube), which Cogpit syncs without being
+	// asked, as Lens does; the user can remove it like any other source. It is not stored in the
+	// list of sources; removing it is (sourcesDoc.DefaultFolderRemoved).
+	Default bool `json:"default,omitempty"`
 }
 
 // ExecApproval is the user's allowance of one credential plugin for one context of one file.
@@ -144,6 +148,9 @@ type SourceStatus struct {
 	Contexts int `json:"contexts"`
 	// Skipped counts a folder's files that are not kubeconfigs or define no context.
 	Skipped int `json:"skipped,omitempty"`
+	// Covered counts a folder's files that the default kubeconfig loading reads already
+	// ($KUBECONFIG, ~/.kube/config): their contexts are offered once, as the default's.
+	Covered int `json:"covered,omitempty"`
 	// Error says why the source (or its one file) cannot be read.
 	Error string `json:"error,omitempty"`
 }
@@ -156,6 +163,8 @@ const sourcesVersion, approvalsVersion = 1, 1
 type sourcesDoc struct {
 	Version int                `json:"version"`
 	Sources []KubeconfigSource `json:"sources"`
+	// DefaultFolderRemoved is set once the user removed the default synced folder (~/.kube).
+	DefaultFolderRemoved bool `json:"defaultFolderRemoved,omitempty"`
 }
 
 type approvalsDoc struct {
@@ -171,11 +180,47 @@ type KubeconfigSources struct {
 	dir string
 	now func() time.Time
 	mu  sync.Mutex // serialises the read-modify-write of the files
+
+	// defaultDir is the folder synced by default (~/.kube); empty: none. covered are the files the
+	// default kubeconfig loading reads, which no sync folder offers a second time.
+	defaultDir string
+	covered    map[string]bool
+}
+
+// SourcesOption configures NewKubeconfigSources.
+type SourcesOption func(*KubeconfigSources)
+
+// WithDefaultFolder syncs dir by default, as Lens syncs ~/.kube: the user's own kubeconfig folder
+// is a source from the first start on (shown as a sync folder, removable), while it exists and
+// until the user removes it. covered are the files the default kubeconfig loading reads
+// (cluster.DefaultKubeconfigFiles): no sync folder offers them again. The caller passes the home
+// directory's .kube; the engine never looks up the home directory itself, so that tests can
+// never read the developer's real one.
+func WithDefaultFolder(dir string, covered []string) SourcesOption {
+	return func(k *KubeconfigSources) {
+		if strings.TrimSpace(dir) == "" {
+			return
+		}
+		abs, err := absClean(dir)
+		if err != nil {
+			return
+		}
+		k.defaultDir, k.covered = abs, map[string]bool{}
+		for _, c := range covered {
+			if a, err := absClean(c); err == nil {
+				k.covered[a] = true
+			}
+		}
+	}
 }
 
 // NewKubeconfigSources returns the sources kept in dir. Nothing is read or written until used.
-func NewKubeconfigSources(dir string) *KubeconfigSources {
-	return &KubeconfigSources{dir: dir, now: time.Now}
+func NewKubeconfigSources(dir string, opts ...SourcesOption) *KubeconfigSources {
+	k := &KubeconfigSources{dir: dir, now: time.Now}
+	for _, o := range opts {
+		o(k)
+	}
+	return k
 }
 
 // Dir returns the directory the sources live in.
@@ -184,20 +229,44 @@ func (k *KubeconfigSources) Dir() string { return k.dir }
 func (k *KubeconfigSources) sourcesPath() string   { return filepath.Join(k.dir, KubeconfigSourcesFile) }
 func (k *KubeconfigSources) approvalsPath() string { return filepath.Join(k.dir, ExecApprovalsFile) }
 
-// List returns the sources in the order they were added.
+// List returns the sources: the default synced folder first (while it exists and was not
+// removed), then the others in the order they were added.
 func (k *KubeconfigSources) List() ([]KubeconfigSource, error) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	return k.loadSources()
+	doc, err := k.loadDoc()
+	if err != nil {
+		return nil, err
+	}
+	return k.effective(doc), nil
 }
 
-func (k *KubeconfigSources) loadSources() ([]KubeconfigSource, error) {
+// effective is the stored sources with the default folder in front, unless it is removed, absent
+// or already stored as a source of its own.
+func (k *KubeconfigSources) effective(doc sourcesDoc) []KubeconfigSource {
+	if k.defaultDir == "" || doc.DefaultFolderRemoved {
+		return doc.Sources
+	}
+	for _, s := range doc.Sources {
+		if s.Kind == SourceFolder && s.Path == k.defaultDir {
+			return doc.Sources
+		}
+	}
+	if fi, err := os.Stat(k.defaultDir); err != nil || !fi.IsDir() {
+		return doc.Sources
+	}
+	def := KubeconfigSource{ID: uniqueID(doc.Sources, filepath.Base(k.defaultDir)+"/"), Kind: SourceFolder, Path: k.defaultDir, Default: true}
+	return append([]KubeconfigSource{def}, doc.Sources...)
+}
+
+// loadDoc reads the stored sources file.
+func (k *KubeconfigSources) loadDoc() (sourcesDoc, error) {
 	var doc sourcesDoc
 	if err := readPrivateJSON(k.sourcesPath(), maxPrivateDoc, &doc); err != nil {
-		return nil, fmt.Errorf("the kubeconfig sources file %s is unreadable (%v); Cogpit leaves it as it is", k.sourcesPath(), err)
+		return doc, fmt.Errorf("the kubeconfig sources file %s is unreadable (%v); Cogpit leaves it as it is", k.sourcesPath(), err)
 	}
 	if doc.Version != 0 && doc.Version != sourcesVersion {
-		return nil, fmt.Errorf("the kubeconfig sources file %s has format version %d, this Cogpit reads %d", k.sourcesPath(), doc.Version, sourcesVersion)
+		return doc, fmt.Errorf("the kubeconfig sources file %s has format version %d, this Cogpit reads %d", k.sourcesPath(), doc.Version, sourcesVersion)
 	}
 	list := make([]KubeconfigSource, 0, len(doc.Sources))
 	for _, s := range doc.Sources {
@@ -208,18 +277,21 @@ func (k *KubeconfigSources) loadSources() ([]KubeconfigSource, error) {
 			continue
 		}
 		if s.ID == "" || !filepath.IsAbs(s.Path) || (s.Kind != SourceFile && s.Kind != SourceFolder) {
-			return nil, fmt.Errorf("the kubeconfig sources file %s has an entry without an id, an absolute path or a known kind", k.sourcesPath())
+			return doc, fmt.Errorf("the kubeconfig sources file %s has an entry without an id, an absolute path or a known kind", k.sourcesPath())
 		}
+		s.Default = false // never taken from the file: only WithDefaultFolder makes a default
 		list = append(list, s)
 	}
-	return list, nil
+	doc.Sources = list
+	return doc, nil
 }
 
-func (k *KubeconfigSources) saveSources(list []KubeconfigSource) error {
-	if list == nil {
-		list = []KubeconfigSource{}
+func (k *KubeconfigSources) saveDoc(doc sourcesDoc) error {
+	if doc.Sources == nil {
+		doc.Sources = []KubeconfigSource{}
 	}
-	data, err := json.MarshalIndent(sourcesDoc{Version: sourcesVersion, Sources: list}, "", "  ")
+	doc.Version = sourcesVersion
+	data, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -275,18 +347,20 @@ func (k *KubeconfigSources) AddFolder(path string) (KubeconfigSource, error) {
 func (k *KubeconfigSources) add(kind SourceKind, path, base string) (KubeconfigSource, error) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	list, err := k.loadSources()
+	doc, err := k.loadDoc()
 	if err != nil {
 		return KubeconfigSource{}, err
 	}
-	for _, s := range list {
+	all := k.effective(doc)
+	for _, s := range all {
 		if s.Kind == kind && s.Path == path {
 			return KubeconfigSource{}, fmt.Errorf("%s is added already (as %q)", path, s.ID)
 		}
 	}
-	id := uniqueID(list, base)
+	id := uniqueID(all, base)
 	src := KubeconfigSource{ID: id, Kind: kind, Path: path, Added: k.now().UTC()}
-	if err := k.saveSources(append(list, src)); err != nil {
+	doc.Sources = append(doc.Sources, src)
+	if err := k.saveDoc(doc); err != nil {
 		return KubeconfigSource{}, err
 	}
 	return src, nil
@@ -313,20 +387,28 @@ func uniqueID(list []KubeconfigSource, base string) string {
 	}
 }
 
-// Remove removes a source. The file or folder the user added stays as it is. The approvals of the source's files are forgotten.
+// Remove removes a source: Cogpit's link to the file or folder only. The file or folder, and the
+// files in it, stay as they are. The approvals of the source's files are forgotten. Removing the
+// default folder is remembered, so that it does not come back.
 func (k *KubeconfigSources) Remove(id string) (KubeconfigSource, error) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	list, err := k.loadSources()
+	doc, err := k.loadDoc()
 	if err != nil {
 		return KubeconfigSource{}, err
 	}
-	i := slices.IndexFunc(list, func(s KubeconfigSource) bool { return s.ID == id })
+	all := k.effective(doc)
+	i := slices.IndexFunc(all, func(s KubeconfigSource) bool { return s.ID == id })
 	if i < 0 {
 		return KubeconfigSource{}, fmt.Errorf("no kubeconfig source %q", id)
 	}
-	src := list[i]
-	if err := k.saveSources(slices.Delete(list, i, i+1)); err != nil {
+	src := all[i]
+	if src.Default {
+		doc.DefaultFolderRemoved = true
+	} else {
+		doc.Sources = slices.DeleteFunc(doc.Sources, func(s KubeconfigSource) bool { return s.ID == id })
+	}
+	if err := k.saveDoc(doc); err != nil {
 		return KubeconfigSource{}, err
 	}
 	if err := k.forget(func(a ExecApproval) bool { return sourceHas(src, a.File) }); err != nil {
@@ -363,6 +445,10 @@ func (k *KubeconfigSources) Files() ([]KubeconfigFile, []SourceStatus, error) {
 				break
 			}
 			for _, e := range entries {
+				if k.covered[e.Path] {
+					st.Covered++
+					continue
+				}
 				f := inspect(src, strings.TrimSuffix(src.ID, "/")+"/"+filepath.Base(e.Path), e.Path)
 				if f.Err != nil || len(f.Contexts) == 0 {
 					st.Skipped++
@@ -586,6 +672,40 @@ func (k *KubeconfigSources) signature() string {
 		}
 	}
 	return b.String()
+}
+
+// FileFate says whether a source file is still there for Cogpit to read.
+type FileFate int
+
+// File fates.
+const (
+	FileOffered  FileFate = iota // the file exists and a source still covers it, or this cannot be told
+	FileGone                     // the file does not exist any more
+	FileUnlisted                 // the file exists, but no source covers it any more (the source was removed)
+)
+
+// Fate looks at path, a file one of the sources offered: is it still on disk, and does a source
+// still cover it (the added file itself, or a regular file of a sync folder under the folder's
+// naming rules)? A failure that is neither "does not exist" nor a clear answer from the source list
+// (a permission error, an unreadable list of sources) counts as FileOffered: Cogpit closes a
+// connection only on a plain fact.
+func (k *KubeconfigSources) Fate(path string) FileFate {
+	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
+		return FileGone
+	}
+	list, err := k.List()
+	if err != nil {
+		return FileOffered
+	}
+	for _, s := range list {
+		switch {
+		case s.Kind == SourceFile && s.Path == path:
+			return FileOffered
+		case s.Kind == SourceFolder && filepath.Dir(path) == s.Path && kubeconfig.SyncCandidate(filepath.Base(path)):
+			return FileOffered
+		}
+	}
+	return FileUnlisted
 }
 
 // absClean returns path made absolute and clean; an empty path is an error.

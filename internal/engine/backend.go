@@ -37,6 +37,10 @@ type Backend struct {
 	DemoStats func() any
 	// Close stops the cache and closes the connection.
 	Close func()
+	// SourceFile is the kubeconfig file of a kubeconfig source the connection was made from
+	// (kubeconfigs.go); empty for the default kubeconfig and the demo cluster. When the file goes
+	// away, or its source is removed, the session closes the connection.
+	SourceFile string
 
 	// Access answers the access reviews of the connected user (access.go); nil allows everything,
 	// and the API server decides.
@@ -141,6 +145,9 @@ type ContextInfo struct {
 	Source      string `json:"source,omitempty"`
 	KubeContext string `json:"kubeContext,omitempty"`
 	File        string `json:"file,omitempty"`
+	// ConnectProblem is set when the last attempt to connect to this context failed, or its
+	// connection was closed because its kubeconfig file went away; cluster.connectLog has the log.
+	ConnectProblem bool `json:"connectProblem,omitempty"`
 	// Exec is ExecApproved, ExecRequired or ExecChanged for a source context whose user runs an
 	// exec credential plugin or names a token file outside its folder (D-17), which run or are read
 	// only once the user allowed it; empty otherwise. ExecKind says which: "program", "tokenFile"

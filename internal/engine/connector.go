@@ -118,14 +118,16 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 	if ctxName == "" {
 		ctxName = name
 	}
+	sourceFile := ""
 	if sourceID != "" { // a source's context is known by its id, not its name in the file
 		ctxName = sourceID
+		sourceFile = opts.KubeconfigPaths[0]
 	}
 	access := newAccessReviews(conn, conn.Namespace())
 	var once sync.Once
 	return &Backend{
 		Context: ctxName, Namespace: conn.Namespace(), Cache: ch, Conn: conn, Profiles: profiles,
-		CustomResources: customResources, Access: access,
+		CustomResources: customResources, Access: access, SourceFile: sourceFile,
 		Close: func() {
 			once.Do(func() {
 				access.stop()

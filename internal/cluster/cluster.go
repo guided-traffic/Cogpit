@@ -98,6 +98,22 @@ func loadingRules(paths []string) *clientcmd.ClientConfigLoadingRules {
 	return rules
 }
 
+// DefaultKubeconfigFiles returns the files the default loading reads for paths (see Options):
+// paths themselves, else the files $KUBECONFIG names, else ~/.kube/config, absolute and clean. It
+// reads no file; the engine uses it to offer a file of a synced ~/.kube once, not twice.
+func DefaultKubeconfigFiles(paths []string) []string {
+	var out []string
+	for _, p := range loadingRules(paths).GetLoadingPrecedence() {
+		if p == "" {
+			continue
+		}
+		if abs, err := filepath.Abs(p); err == nil {
+			out = append(out, filepath.Clean(abs))
+		}
+	}
+	return out
+}
+
 // checkFiles reads and validates the kubeconfig files of a loading precedence. It returns the
 // absolute paths of the files that exist and parse, and one safe error per file that does not
 // parse. A missing file is an error only when the caller named it (explicit); in the default
