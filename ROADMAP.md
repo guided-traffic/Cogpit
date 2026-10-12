@@ -60,7 +60,7 @@ no cloud credential plugin is verified.
 | Helm releases and metrics | 25% | 52–110 | [gaps](docs/parity/gaps.md#g11-helm) |
 | Platforms and distribution (macOS, then Windows and Linux) | 5% | 62–125 + human | [platform-parity](docs/parity/platform-parity.md#operating-systems-and-packages) |
 | Paid-plan integrations (Flux CD and Argo CD in the beta) | 0% | 165–335 + human | [resource-parity](docs/parity/resource-parity.md#paid-lens-desktop-views) |
-| Foundation: workspace, cache, engine, CI | built in part | 29–74 | [architecture](docs/developer/architecture.md#current-state-2026-10-11) |
+| Foundation: workspace, cache, engine, CI | built in part | 29–74 | [architecture](docs/developer/architecture.md#current-state-2026-10-12) |
 
 ## Upcoming
 

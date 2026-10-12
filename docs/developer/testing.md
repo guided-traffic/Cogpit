@@ -1,6 +1,6 @@
 # Testing
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (paste tests removed with the paste feature, D-21; asynchronous results: the rules the CI flakes of 2026-10-12 broke; budget baselines once the cache is settled; the fourth run's Helm upgrade: engine, SDK and kind tests; fourth run: kubeconfig sources in the engine, cluster and fuzz tiers; the exec plugin on kind; the terminal widget's own tests and fuzz targets: `make test-fork`, `FuzzHandleOutput`, `FuzzRawWidget`, a main-loop stand-in for the race detector; `select` and a cancelled context) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (paste tests removed with the paste feature, D-21; asynchronous results: the rules the CI flakes of 2026-10-12 broke; budget baselines once the cache is settled; the fourth run's Helm upgrade: engine, SDK and kind tests; fourth run: kubeconfig sources in the engine, cluster and fuzz tiers; the exec plugin on kind; the terminal widget's own tests and fuzz targets: `make test-fork`, `FuzzHandleOutput`, `FuzzRawWidget`, a main-loop stand-in for the race detector; `select` and a cancelled context; a simulated second process kept alive) · **Target:** Lens Desktop 2026.10.51501
 
 The MVP (2026-10-11) brought the first tiers; the table says for each whether it exists, the
 `make` target and where it lives. Tiers without code are the plan.
@@ -64,6 +64,11 @@ of 2026-10-12 broke:
   port-forward dial on CI, main 7e01d03, 2026-10-12).
   `TestDialPortForwardCancelledWhileDialling` forces that interleaving with a context that is
   cancelled from its second `Err` call on.
+- **A simulated second process stays alive until the test ends.** An object the test no longer
+  uses can be collected, and its finalizers run: a journal standing in for another Cogpit lost
+  its owner file's lock that way and looked ended (`TestDrainsOfAnotherProcess`, 2026-10-12). Keep
+  it with `runtime.KeepAlive`, and force the collection (`runtime.GC()`) to make such a failure
+  deterministic.
 - **Reproduce before fixing.** Run the test many times under load (`go test -race -count=50
   -cpu 1,2` while other packages' tests run), or make the suspected window wide on purpose: a
   short delay in a fake source's List and Watch, or in a fake's handler, turns a rare

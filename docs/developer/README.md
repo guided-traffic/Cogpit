@@ -9,7 +9,7 @@ this page.
    custom resource views from the cache, drawer and row menus, editing, node and workload actions,
    logs, terminal, pod shell, CI, MCP control (41 commands); it doubled as the
    [Fyne spike](spike-fyne.md#results). What exists and
-   where it differs from the plan: [architecture › Current state](architecture.md#current-state-2026-10-11).
+   where it differs from the plan: [architecture › Current state](architecture.md#current-state-2026-10-12).
 2. **Go and Fyne.** The engine is Go on client-go, the kubectl libraries and the Helm SDK. The UI
    is Fyne: the [spike](spike-fyne.md) passed and D-1 is decided; re-checks on Windows and Linux
    can still move one platform's UI to a Rust/egui process ([decisions](decisions.md#d-1-ui-toolkit)).

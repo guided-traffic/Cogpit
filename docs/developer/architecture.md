@@ -2,21 +2,25 @@
 
 > **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
-## Current state (2026-10-11)
+## Current state (2026-10-12)
 
-The local MVP is built and was extended by a second and a third implementation run (2026-10-11)
-and a fourth (2026-10-12):
+The local MVP is built and was extended by a second and a third implementation run (2026-10-11),
+a fourth and a fifth (2026-10-12):
 a macOS desktop app that connects to a kubeconfig context or a synthetic demo cluster, shows 41
 built-in views, the Port Forwarding view (a local kind), the Helm Releases view (a virtual kind),
 the Workloads Overview page and one view per custom resource kind from a watch-fed cache, greys
 what the user's access reviews deny, has a detail drawer and row menus from the command registry,
 a dock with logs (with their options and the logs of a workload's pods), a local terminal, pod
-shells, attach and Edit and Create resource tabs, writes through 75 commands (editing, delete,
-node and workload actions, a crash-safe drain, port forwards, Helm rollback, uninstall and
-upgrade with a crash journal locked between Cogpit processes), adds and syncs kubeconfigs
-whose credential plugins run only once the user allowed them, holds Secrets in a full watch that
-Helm's releases share, draws its own title bar on macOS, and an MCP server lets agents drive all
-of it.
+shells, attach and Edit and Create resource tabs, writes through 76 commands (editing, Secrets
+from YAML in the GUI only, delete, node and workload actions, a crash-safe drain, port forwards
+that fail at once on permanent errors, Helm rollback, uninstall and upgrade with a crash journal
+locked between Cogpit processes, each bound to the revision the server holds), adds and syncs
+kubeconfigs (`~/.kube` by default) whose credential plugins and outside token files run or are
+read only once the user allowed them, bound to the programs' content inside the folder, holds
+Secrets in a full watch that Helm's releases share, draws its own title bar on macOS with the C
+helm logo in Solarized colours, lets the user copy any value from the drawer (a Secret's marked
+concealed on the clipboard), and an MCP server lets agents drive all of it; what an agent asks the
+user to accept is bound to what runs (text revisions, inline values shown).
 CI runs on every push ([releasing › CI](releasing.md#ci)). The MVP doubled as the Fyne spike
 ([results](spike-fyne.md#results)). Where the code differs from the plan below, this section wins.
 
