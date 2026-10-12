@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -105,5 +107,32 @@ func TestForwardObjectRoundTrip(t *testing.T) {
 	if f.URL != "https://127.0.0.1:9080" || ForwardName(f.Spec.Target, 80) != "service-web-80" ||
 		ForwardName(model.ObjectRef{Kind: "pods", Name: "web-0"}, 8080) != "pod-web-0-8080" {
 		t.Errorf("url %s, names %s", f.URL, ForwardName(f.Spec.Target, 80))
+	}
+}
+
+// A forward whose first connection failed has reported the error before its run ended: when
+// StartForward looks after both happened, the error wins. A plain select picked the ended run
+// about half of the time, and the command answered a forward that failed to start as started
+// (TestPortForwardFailsToStart on a loaded machine).
+func TestFirstOutcomePrefersTheError(t *testing.T) {
+	ctx := context.Background()
+	failed := errors.New(`pods "web-0" is forbidden`)
+	for i := range 200 {
+		r := &forwardRun{first: make(chan error, 1), done: make(chan struct{})}
+		r.first <- failed
+		close(r.done)
+		if err := r.firstOutcome(ctx, time.Minute); !errors.Is(err, failed) {
+			t.Fatalf("round %d: %v, want the first connection's error", i, err)
+		}
+	}
+	stopped := &forwardRun{first: make(chan error, 1), done: make(chan struct{})}
+	close(stopped.done)
+	if err := stopped.firstOutcome(ctx, time.Minute); err != nil {
+		t.Errorf("a run stopped before its first connection: %v", err)
+	}
+	waiting := &forwardRun{first: make(chan error, 1), done: make(chan struct{})}
+	waiting.first <- nil
+	if err := waiting.firstOutcome(ctx, time.Minute); err != nil {
+		t.Errorf("a run waiting for a pod: %v", err)
 	}
 }

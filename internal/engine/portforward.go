@@ -220,15 +220,32 @@ func (s *Session) StartForward(ctx context.Context, spec ForwardSpec) (Forward, 
 	if err != nil {
 		return r.snapshot(), err
 	}
-	wait := time.NewTimer(forwardStartWait)
+	err = r.firstOutcome(ctx, forwardStartWait)
+	return r.snapshot(), err
+}
+
+// firstOutcome waits, bounded by ctx and timeout, for the outcome of the run's first connection:
+// its error, or nil once it connected or waits for a pod, or nil when the run was stopped
+// meanwhile. A run whose first connection failed reports that before it ends, so the error wins
+// when both are ready: select alone picks either, and the command answered a forward that failed
+// to start as started.
+func (r *forwardRun) firstOutcome(ctx context.Context, timeout time.Duration) error {
+	wait := time.NewTimer(timeout)
 	defer wait.Stop()
 	select {
-	case err = <-r.first:
-	case <-r.done: // stopped meanwhile
+	case err := <-r.first:
+		return err
+	case <-r.done: // stopped meanwhile, or failed: then its error is in first
+		select {
+		case err := <-r.first:
+			return err
+		default:
+			return nil
+		}
 	case <-ctx.Done():
 	case <-wait.C:
 	}
-	return r.snapshot(), err
+	return nil
 }
 
 // startRun stops the forward's current run, if any, binds the listener and starts the new run.
