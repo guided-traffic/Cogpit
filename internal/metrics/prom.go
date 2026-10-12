@@ -99,8 +99,20 @@ type Prometheus struct {
 	target Target
 	opts   PrometheusOptions
 
-	// fsMode is which filesystem metric this Prometheus has: fsUnknown until a query found one.
-	fsMode atomic.Int32
+	// fsMode is which filesystem metric this Prometheus has, for pods and for nodes (fsKind):
+	// fsUnknown until a query found one. The two differ in practice: the kubelet's cAdvisor on
+	// containerd reports container_fs_usage_bytes for the node's root cgroup but not for
+	// containers (kind with the prometheus chart, 2026-10-12), so a node's "usage" must not decide
+	// the pods'.
+	fsMode [2]atomic.Int32
+}
+
+// fsKind is the index of a kind's filesystem mode.
+func fsKind(k Kind) int {
+	if k == KindNodes {
+		return 1
+	}
+	return 0
 }
 
 // Filesystem metric modes.
@@ -143,10 +155,10 @@ func (p *Prometheus) Capabilities() Capabilities {
 	return Capabilities{History: true, Network: true, Filesystem: true}
 }
 
-// FilesystemSource says which filesystem metric this Prometheus turned out to have: "usage",
-// "io", or "" while unknown.
-func (p *Prometheus) FilesystemSource() string {
-	switch p.fsMode.Load() {
+// FilesystemSource says which filesystem metric this Prometheus turned out to have for a kind's
+// objects: "usage", "io", or "" while unknown.
+func (p *Prometheus) FilesystemSource(k Kind) string {
+	switch p.fsMode[fsKind(k)].Load() {
 	case fsUsage:
 		return FilesystemUsage
 	case fsIO:
@@ -322,7 +334,7 @@ func (p *Prometheus) ListPods(ctx context.Context, namespace string) ([]model.Po
 
 // GetPod implements Provider.
 func (p *Prometheus) GetPod(ctx context.Context, namespace, name string) (model.PodUsage, error) {
-	cpu, mem, err := p.instantPair(ctx, podRate(metricCPU, namespace, name), podGauge(metricMemory, namespace, name))
+	cpu, mem, err := p.instantPair(ctx, podRate(metricCPU, namespace, name, rateWindow), podGauge(metricMemory, namespace, name))
 	if err != nil {
 		return model.PodUsage{}, err
 	}
@@ -348,7 +360,7 @@ func (p *Prometheus) ListNodes(ctx context.Context) ([]model.NodeUsage, error) {
 
 // GetNode implements Provider.
 func (p *Prometheus) GetNode(ctx context.Context, name string) (model.NodeUsage, error) {
-	cpu, mem, err := p.instantPair(ctx, nodeSum(metricCPU, name, true), nodeSum(metricMemory, name, false))
+	cpu, mem, err := p.instantPair(ctx, nodeSum(metricCPU, name, rateWindow), nodeSum(metricMemory, name, 0))
 	if err != nil {
 		return model.NodeUsage{}, err
 	}

@@ -18,12 +18,13 @@ type rangePlan struct {
 	sumWhole bool
 }
 
-func podPlan(namespace, pod string) rangePlan {
+// podPlan is a pod's queries, the counters' rates over win (rangeRate).
+func podPlan(namespace, pod string, win time.Duration) rangePlan {
 	return rangePlan{
-		cpu: podRate(metricCPU, namespace, pod), mem: podGauge(metricMemory, namespace, pod),
-		rx: podNetwork(metricNetRx, namespace, pod), tx: podNetwork(metricNetTx, namespace, pod),
+		cpu: podRate(metricCPU, namespace, pod, win), mem: podGauge(metricMemory, namespace, pod),
+		rx: podNetwork(metricNetRx, namespace, pod, win), tx: podNetwork(metricNetTx, namespace, pod, win),
 		fsUsage: podGauge(metricFSUsage, namespace, pod),
-		fsReads: podRate(metricFSReads, namespace, pod), fsWrites: podRate(metricFSWrites, namespace, pod),
+		fsReads: podRate(metricFSReads, namespace, pod, win), fsWrites: podRate(metricFSWrites, namespace, pod, win),
 		sumWhole: true,
 	}
 }
@@ -31,12 +32,12 @@ func podPlan(namespace, pod string) rangePlan {
 // nodePlan reads a node's root cgroup. node-exporter's node_* metrics are not used: they are
 // labelled by the exporter's instance (an address), which has no reliable link to the node's
 // name, while cAdvisor's series carry the node label or the node's name as the instance.
-func nodePlan(node string) rangePlan {
+func nodePlan(node string, win time.Duration) rangePlan {
 	return rangePlan{
-		cpu: nodeSum(metricCPU, node, true), mem: nodeSum(metricMemory, node, false),
-		rx: nodeSum(metricNetRx, node, true), tx: nodeSum(metricNetTx, node, true),
-		fsUsage: nodeSum(metricFSUsage, node, false),
-		fsReads: nodeSum(metricFSReads, node, true), fsWrites: nodeSum(metricFSWrites, node, true),
+		cpu: nodeSum(metricCPU, node, win), mem: nodeSum(metricMemory, node, 0),
+		rx: nodeSum(metricNetRx, node, win), tx: nodeSum(metricNetTx, node, win),
+		fsUsage: nodeSumWhere(metricFSUsage, nodeDisks, node, 0),
+		fsReads: nodeSum(metricFSReads, node, win), fsWrites: nodeSum(metricFSWrites, node, win),
 	}
 }
 
@@ -45,18 +46,20 @@ type fsData struct {
 	usage, reads, writes []promSeries
 }
 
-// rangeFilesystem asks for the filesystem metric this Prometheus has. The first poll discovers it
-// by trying: the usage metric first, the read and write rates when there is no usage series; the
-// answer is remembered for the provider's life. While neither exists it tries both every time.
-func (p *Prometheus) rangeFilesystem(plan rangePlan, run func(string) ([]promSeries, error)) (fsData, error) {
-	mode := p.fsMode.Load()
+// rangeFilesystem asks for the filesystem metric this Prometheus has for the kind's objects. The
+// first poll of a kind discovers it by trying: the usage metric first, the read and write rates
+// when there is no usage series; the answer is remembered per kind (pods, nodes) for the
+// provider's life. While neither exists it tries both every time.
+func (p *Prometheus) rangeFilesystem(kind Kind, plan rangePlan, run func(string) ([]promSeries, error)) (fsData, error) {
+	known := &p.fsMode[fsKind(kind)]
+	mode := known.Load()
 	if mode == fsUnknown || mode == fsUsage {
 		usage, err := run(plan.fsUsage)
 		if err != nil {
 			return fsData{}, err
 		}
 		if hasPoints(usage) {
-			p.fsMode.Store(fsUsage)
+			known.Store(fsUsage)
 			return fsData{source: FilesystemUsage, usage: usage}, nil
 		}
 		if mode == fsUsage { // had usage before: this object has none
@@ -73,7 +76,7 @@ func (p *Prometheus) rangeFilesystem(plan rangePlan, run func(string) ([]promSer
 		return fsData{}, err
 	}
 	if hasPoints(reads) || hasPoints(writes) {
-		p.fsMode.Store(fsIO)
+		known.Store(fsIO)
 		return fsData{source: FilesystemIO, reads: reads, writes: writes}, nil
 	}
 	return fsData{}, nil
@@ -99,9 +102,9 @@ func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeri
 	var plan rangePlan
 	switch q.Kind {
 	case KindPods:
-		plan = podPlan(q.Namespace, q.Name)
+		plan = podPlan(q.Namespace, q.Name, rangeRate(q.Step))
 	case KindNodes:
-		plan = nodePlan(q.Name)
+		plan = nodePlan(q.Name, rangeRate(q.Step))
 	default:
 		return nil, fmt.Errorf("kind %q has no metrics", q.Kind)
 	}
@@ -118,7 +121,7 @@ func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeri
 		func() { mem, memErr = run(plan.mem) },
 		func() { rx, rxErr = run(plan.rx) },
 		func() { tx, txErr = run(plan.tx) },
-		func() { fs, fsErr = p.rangeFilesystem(plan, run) },
+		func() { fs, fsErr = p.rangeFilesystem(q.Kind, plan, run) },
 	)
 	if err := firstStateError(cpuErr, memErr); err != nil {
 		return nil, err

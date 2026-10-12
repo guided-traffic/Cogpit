@@ -42,15 +42,16 @@ func FuzzQuoteLabel(f *testing.F) {
 }
 
 func TestQueries(t *testing.T) {
-	pod := podPlan("web", "a")
+	pod := podPlan("web", "a", rangeRate(30*time.Second))
 	for name, tc := range map[string]struct{ got, want string }{
-		"cpu":    {pod.cpu, `sum by (container) (rate(container_cpu_usage_seconds_total{namespace="web",pod="a",container!="",container!="POD"}[2m]))`},
+		"cpu":    {pod.cpu, `sum by (container) (rate(container_cpu_usage_seconds_total{namespace="web",pod="a",container!="",container!="POD"}[4m]))`},
 		"mem":    {pod.mem, `sum by (container) (container_memory_working_set_bytes{namespace="web",pod="a",container!="",container!="POD"})`},
-		"rx":     {pod.rx, `sum(rate(container_network_receive_bytes_total{namespace="web",pod="a"}[2m]))`},
-		"tx":     {pod.tx, `sum(rate(container_network_transmit_bytes_total{namespace="web",pod="a"}[2m]))`},
+		"rx":     {pod.rx, `sum(rate(container_network_receive_bytes_total{namespace="web",pod="a"}[4m]))`},
+		"tx":     {pod.tx, `sum(rate(container_network_transmit_bytes_total{namespace="web",pod="a"}[4m]))`},
 		"fs":     {pod.fsUsage, `sum by (container) (container_fs_usage_bytes{namespace="web",pod="a",container!="",container!="POD"})`},
-		"fsr":    {pod.fsReads, `sum by (container) (rate(container_fs_reads_bytes_total{namespace="web",pod="a",container!="",container!="POD"}[2m]))`},
-		"list":   {podListRate(metricCPU, ""), `sum by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD"}[2m]))`},
+		"fsr":    {pod.fsReads, `sum by (container) (rate(container_fs_reads_bytes_total{namespace="web",pod="a",container!="",container!="POD"}[4m]))`},
+		"list":   {podListRate(metricCPU, ""), `sum by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD"}[4m]))`},
+		"week":   {podPlan("web", "a", rangeRate(605*time.Second)).rx, `sum(rate(container_network_receive_bytes_total{namespace="web",pod="a"}[665s]))`},
 		"listns": {podListGauge(metricMemory, "web"), `sum by (namespace, pod, container) (container_memory_working_set_bytes{namespace="web",container!="",container!="POD"})`},
 	} {
 		if tc.got != tc.want {
@@ -58,14 +59,14 @@ func TestQueries(t *testing.T) {
 		}
 	}
 
-	evil := podPlan(`ns"} or up{a="`, `p\"`)
+	evil := podPlan(`ns"} or up{a="`, `p\"`, rateWindow)
 	if !strings.Contains(evil.cpu, `namespace="ns\"} or up{a=\""`) || !strings.Contains(evil.cpu, `pod="p\\\""`) {
 		t.Errorf("names were not quoted: %s", evil.cpu)
 	}
 
-	node := nodePlan("n1.example")
-	want := `sum(rate(container_cpu_usage_seconds_total{id="/",node="n1.example"}[2m])) or ` +
-		`sum(rate(container_cpu_usage_seconds_total{id="/",instance=~"n1\\.example(:[0-9]+)?"}[2m]))`
+	node := nodePlan("n1.example", rangeRate(30*time.Second))
+	want := `sum(rate(container_cpu_usage_seconds_total{id="/",node="n1.example"}[4m])) or ` +
+		`sum(rate(container_cpu_usage_seconds_total{id="/",instance=~"n1\\.example(:[0-9]+)?"}[4m]))`
 	if node.cpu != want {
 		t.Errorf("node cpu:\n got %s\nwant %s", node.cpu, want)
 	}

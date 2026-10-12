@@ -1335,16 +1335,25 @@ the cluster settings page is not built. The chain (`metrics.ChainForConn`) retur
 found; if none, the most telling state (forbidden, then unavailable, then notServed), so a Prometheus
 the user may not read is reported instead of "no metrics-server".
 
-*Queries* (`rate` over `[2m]`; `C` = `container!="",container!="POD"`, which leaves out the pod's own
-cgroup and the pause container; `P` = `namespace="<ns>",pod="<pod>"`, each value quoted):
+*Queries* (`rate` over `[R]`; `C` = `container!="",container!="POD"`, which leaves out the pod's own
+cgroup and the pause container; `P` = `namespace="<ns>",pod="<pod>"`, each value quoted). **The rate
+window `R`** is 4 minutes for the instant queries (the lists, `metrics.get`) and `max(4m, step + 1m)` for
+a chart's range queries, so that every sample between two points counts (a week's chart, at a step of
+about ten minutes, rates over 665 s and shows a spike between two of its points). Four minutes is
+Prometheus's guidance of four scrape intervals for the `prometheus` chart's one-minute scrape, and
+measured (2026-10-12, kind with that chart): cAdvisor stamps each sample with its own collection time,
+up to a minute before the scrape, and with `[2m]` a half-hour chart lost 5 (CPU) to 7 (network) of
+its 52 points and its newest one or two minutes; with `[4m]` none (`rateWindow`, `rangeRate` in
+[`promql.go`](../../internal/metrics/promql.go)). The price is smoothing: a 5-minute chart shows
+4-minute averages.
 
 | Variant | Pod chart and container charts | Node chart |
 |---|---|---|
-| CPU | `sum by (container) (rate(container_cpu_usage_seconds_total{P,C}[2m]))`; the pod's line is the sum of its containers | `sum(rate(container_cpu_usage_seconds_total{id="/",node="<n>"}[2m])) or sum(rate(…{id="/",instance=~"<n>(:[0-9]+)?"}[2m]))` |
+| CPU | `sum by (container) (rate(container_cpu_usage_seconds_total{P,C}[R]))`; the pod's line is the sum of its containers | `sum(rate(container_cpu_usage_seconds_total{id="/",node="<n>"}[R])) or sum(rate(…{id="/",instance=~"<n>(:[0-9]+)?"}[R]))` |
 | Memory | `sum by (container) (container_memory_working_set_bytes{P,C})` | the same on the root cgroup |
-| Network | `sum(rate(container_network_receive_bytes_total{P}[2m]))` and `…transmit…`: per pod (the network belongs to the pod's network namespace); a container's target carries the pod's samples and `NetworkOfPod` | the same on the root cgroup (`id="/"`, summed over interfaces) |
-| Filesystem | `sum by (container) (container_fs_usage_bytes{P,C})`; the pod's line is the sum. **Discovered by trying:** if that has no series, `rate(container_fs_reads_bytes_total…)` and `…writes…` (`FilesystemSource` is `"usage"` or `"io"`; the provider remembers the answer for as long as the detection lives, 10 minutes) | the same on the root cgroup |
-| Lists | `sum by (namespace, pod, container) (rate(…cpu…{C}[2m]))` and the memory gauge, one instant query each, optionally `namespace="<ns>"` | `sum by (node, instance) (…{id="/"})` for CPU and memory; the name is the `node` label, else the `instance` without its port |
+| Network | `sum(rate(container_network_receive_bytes_total{P}[R]))` and `…transmit…`: per pod (the network belongs to the pod's network namespace); a container's target carries the pod's samples and `NetworkOfPod` | the same on the root cgroup (`id="/"`, summed over interfaces) |
+| Filesystem | `sum by (container) (container_fs_usage_bytes{P,C})`; the pod's line is the sum. **Discovered by trying, per kind:** if that has no series, `rate(container_fs_reads_bytes_total…)` and `…writes…` (`FilesystemSource` is `"usage"` or `"io"`; the provider remembers the answer for pods and for nodes apart, for as long as the detection lives, 10 minutes). The kinds differ in practice: on containerd the kubelet's cAdvisor reports the usage for the node's root cgroup but not for containers (kind, 2026-10-12), and one answer for both had left every pod's Filesystem chart empty after a node's drawer | the usage of the node's **block devices** only, `device=~"/dev/.+",device!="/dev/shm"` on the root cgroup: cAdvisor lists every mount there and the containers' overlays repeat the disk (kind: nine overlays of `/dev/vda1` summed to 503 GiB on a 56 GiB disk); the read and write rates on the root cgroup |
+| Lists | `sum by (namespace, pod, container) (rate(…cpu…{C}[4m]))` and the memory gauge, one instant query each, optionally `namespace="<ns>"` | `sum by (node, instance) (…{id="/"})` for CPU and memory; the name is the `node` label, else the `instance` without its port |
 
 Nodes use **cAdvisor's root cgroup, not node-exporter**: node-exporter series are labelled with the
 exporter's own address, which has no reliable link to the node's name, while cAdvisor's carry the
@@ -1359,7 +1368,8 @@ window is the longest any of the drawer's charts shows, and the default hour is 
 a chart nobody set has data (1 h alone: 30 s steps, 120 points). The grid is aligned to the epoch, so
 successive polls give the same points. The poll interval is the step, so there is one new point per
 poll. A pod costs **five queries per poll, issued at once**: CPU, memory, receive, transmit and the
-filesystem usage (seven while the filesystem metric is still being discovered or neither exists).
+filesystem usage, or six with the read and write rates instead (seven while the filesystem metric is
+still being discovered, once per kind, or neither exists).
 Only the CPU and memory queries must succeed; a failing network or filesystem query leaves its
 series out (debug log). One poll serves every chart and every consumer of the scope; the Pods and
 Nodes lists keep their 60 s and the instant queries (two per poll). The hub stores the latest

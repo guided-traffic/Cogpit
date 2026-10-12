@@ -176,6 +176,58 @@ func TestObjectRangeOfANode(t *testing.T) {
 	}
 }
 
+// The filesystem metric is found per kind: on containerd the kubelet's cAdvisor has
+// container_fs_usage_bytes for the node's root cgroup but not for containers, so a node's drawer
+// opened first must not leave the pods' Filesystem charts empty (seen on kind with the prometheus
+// chart, 2026-10-12). The node's usage counts its block devices only, not the overlays that
+// repeat them.
+func TestFilesystemModeIsPerKind(t *testing.T) {
+	c := newPromCluster(t, false)
+	podData(c.prom)
+	c.prom.on(`container_fs_usage_bytes{id="/",device=~"/dev/.+",device!="/dev/shm",node="n1"}`, s(nil, 1000, 60e9, 1030, 61e9))
+	c.prom.on("container_fs_reads_bytes_total{namespace", s(lc("app"), 1000, 10, 1030, 20))
+	c.prom.on("container_fs_writes_bytes_total{namespace", s(lc("app"), 1000, 1, 1030, 2))
+	prov := promProvider(t, c, metrics.PrometheusOptions{})
+	nodeQ := podQuery("", "n1")
+	nodeQ.Kind = metrics.KindNodes
+
+	node, err := prov.ObjectRange(context.Background(), nodeQ)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := node.Targets[""].Filesystem; node.FilesystemSource != "usage" || len(f) != 2 || f[1].UsageBytes != 61e9 {
+		t.Errorf("node filesystem %q: %+v", node.FilesystemSource, f)
+	}
+	pod, err := prov.ObjectRange(context.Background(), podQuery("web", "a"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := pod.Targets["app"].Filesystem; pod.FilesystemSource != "io" || len(f) != 2 || f[1].ReadBytesPerSec != 20 {
+		t.Errorf("after a node with usage, the pod's filesystem %q: %+v", pod.FilesystemSource, f)
+	}
+	p, ok := prov.(*metrics.Prometheus)
+	if !ok {
+		t.Fatalf("%T", prov)
+	}
+	if p.FilesystemSource(metrics.KindNodes) != "usage" || p.FilesystemSource(metrics.KindPods) != "io" {
+		t.Errorf("remembered: nodes %q, pods %q", p.FilesystemSource(metrics.KindNodes), p.FilesystemSource(metrics.KindPods))
+	}
+	// Once known, a pod's poll asks for its rates only: 6 queries, no usage.
+	usage := c.prom.queryCount("container_fs_usage_bytes{namespace")
+	before := c.proxyCount()
+	if _, err := prov.ObjectRange(context.Background(), podQuery("web", "a")); err != nil {
+		t.Fatal(err)
+	}
+	if n := c.proxyCount() - before; n != 6 || c.prom.queryCount("container_fs_usage_bytes{namespace") != usage {
+		t.Errorf("%d requests for the pod once its metric is known, want 6 without usage", n)
+	}
+	for _, r := range c.prom.requests() {
+		if strings.Contains(r.query, "container_fs_usage_bytes{id") && !strings.Contains(r.query, `device!="/dev/shm"`) {
+			t.Errorf("a node's usage counts every mount: %s", r.query)
+		}
+	}
+}
+
 func TestPodNamesAreQuotedInQueriesOnTheWire(t *testing.T) {
 	c := newPromCluster(t, false)
 	podData(c.prom)
