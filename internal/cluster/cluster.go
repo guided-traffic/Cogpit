@@ -98,17 +98,28 @@ func loadingRules(paths []string) *clientcmd.ClientConfigLoadingRules {
 	return rules
 }
 
-// DefaultKubeconfigFiles returns the files the default loading reads for paths (see Options):
-// paths themselves, else the files $KUBECONFIG names, else ~/.kube/config, absolute and clean. It
-// reads no file; the engine uses it to offer a file of a synced ~/.kube once, not twice.
-func DefaultKubeconfigFiles(paths []string) []string {
+// NamedKubeconfigFiles returns the kubeconfig files the user names for this run: paths themselves
+// (Cogpit's --kubeconfig), else the files $KUBECONFIG lists; absolute, clean, without duplicates.
+// Unlike client-go's default loading it does not fall back to ~/.kube/config (that file belongs to
+// the synced ~/.kube folder, D-28), it reads no file and does not check that a file exists.
+func NamedKubeconfigFiles(paths []string) []string {
+	if len(paths) == 0 {
+		paths = filepath.SplitList(os.Getenv(clientcmd.RecommendedConfigPathEnvVar))
+	}
 	var out []string
-	for _, p := range loadingRules(paths).GetLoadingPrecedence() {
-		if p == "" {
+	seen := map[string]bool{}
+	for _, p := range paths {
+		if strings.TrimSpace(p) == "" {
 			continue
 		}
-		if abs, err := filepath.Abs(p); err == nil {
-			out = append(out, filepath.Clean(abs))
+		abs, err := filepath.Abs(p)
+		if err != nil {
+			continue
+		}
+		abs = filepath.Clean(abs)
+		if !seen[abs] {
+			seen[abs] = true
+			out = append(out, abs)
 		}
 	}
 	return out

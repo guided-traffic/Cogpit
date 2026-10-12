@@ -36,7 +36,10 @@ Cogpit adds no cluster credential source of its own: no account, no login, no cl
   (built 2026-10-12: `<user config dir>/Cogpit/kubeconfigs.json`, 0600, lists the added files and
   sync folders; Cogpit never writes the files themselves, `TestAddedFilesAreNeverWritten`).
   Since 2026-10-12 Cogpit also reads every regular file of at most 1 MiB in `~/.kube` (a default
-  sync folder, dot files included), each on its own; the list holds only the folder's removal.
+  sync folder, dot files and `config` included), each on its own, and the files `$KUBECONFIG` and
+  `--kubeconfig` name (D-28: nothing is merged any more); the list holds only the folder's removal,
+  the files named for a run are not stored. A credential plugin or an outside token file of any of
+  them waits for the user's approval ([H-1](trust-boundaries.md#h-1-kubeconfig-files-added-by-sync-folders)).
   The MVP switches off client-go's two implicit writes: the migration of a legacy
   `~/.kube/.kubeconfig` into `~/.kube/config`, and the persister that writes refreshed `oidc` tokens
   back into the file ([`cluster.go`](../../internal/cluster/cluster.go), `memoryPersister`).

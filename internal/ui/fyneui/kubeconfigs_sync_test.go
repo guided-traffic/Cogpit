@@ -171,6 +171,8 @@ func TestRemoveConfirmationNamesThePathAndSaysOnlyTheLinkGoes(t *testing.T) {
 			[]string{"/Users/me/kubeconfigs", "Only Cogpit's link to the folder is removed", "The folder and its files stay on your disk"}},
 		{sourceStatus{ID: ".kube/", Kind: "folder", Path: "/Users/me/.kube", Default: true},
 			[]string{"/Users/me/.kube", "Only Cogpit's link", "adds it again"}},
+		{sourceStatus{ID: "kubeconfig", Kind: "file", Path: "/work/kubeconfig", Session: true},
+			[]string{"/work/kubeconfig", "Only for this run", "offered again at the next start", "remembered", "stays on your disk"}},
 	} {
 		title, msg := removeText(tt.src)
 		if !strings.Contains(title, tt.src.ID) {

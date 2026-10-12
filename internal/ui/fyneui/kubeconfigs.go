@@ -33,8 +33,8 @@ type (
 		Files    []string `json:"files"`
 		Contexts int      `json:"contexts"`
 		Skipped  int      `json:"skipped"`
-		Covered  int      `json:"covered"`
 		Default  bool     `json:"default"`
+		Session  bool     `json:"session"`
 		Error    string   `json:"error"`
 	}
 	sourceAdded struct {
@@ -347,8 +347,8 @@ func (k *kubeconfigUI) showSources() {
 	sd.status = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	sd.status.truncate = true
 	intro := newParagraph("Kubeconfig files and folders Cogpit syncs: it reads them, follows their changes and never "+
-		"writes them. Removing one removes only Cogpit's link to it. Your default kubeconfig ($KUBECONFIG or "+
-		"~/.kube/config) is read as well and is not listed here.", colorMuted, k.sh.app.Settings().Theme().Size(sizePickerWidth))
+		"writes them. Removing one removes only Cogpit's link to it. Your ~/.kube folder is synced like any other; "+
+		"the files $KUBECONFIG names are offered for this run and are removed for this run only.", colorMuted, k.sh.app.Settings().Theme().Size(sizePickerWidth))
 	listBg := newSurface(theme.ColorNameInputBackground)
 	listBg.radius, listBg.stroke = theme.SizeNameInputRadius, theme.ColorNameInputBorder
 	list := container.NewStack(listBg, inset(theme.SizeNamePadding, theme.SizeNamePadding, container.NewVScroll(sd.list)))
@@ -403,6 +403,9 @@ func (sd *sourcesDialog) render() {
 		if src.Default {
 			badges.Add(newPill("default", colorMuted, true))
 		}
+		if src.Session {
+			badges.Add(newPill("this run", colorMuted, true))
+		}
 		path := newTextLine(kubeconfig.DisplayText(src.Path, maxShownPath), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 		path.truncate = true
 		remove := widget.NewButtonWithIcon("Remove", theme.DeleteIcon(), func() { sd.confirmRemove(src) })
@@ -440,9 +443,6 @@ func sourceSummary(s sourceStatus) string {
 	parts := []string{fmt.Sprintf("%d %s", s.Contexts, nounFor(s.Contexts, "context", "contexts"))}
 	if s.Kind == string(engine.SourceFolder) {
 		parts = append([]string{fmt.Sprintf("%d %s", len(s.Files), nounFor(len(s.Files), "kubeconfig", "kubeconfigs"))}, parts...)
-		if s.Covered > 0 {
-			parts = append(parts, fmt.Sprintf("%d read as your default kubeconfig", s.Covered))
-		}
 		if s.Skipped > 0 {
 			parts = append(parts, fmt.Sprintf("%d other %s skipped", s.Skipped, nounFor(s.Skipped, "file", "files")))
 		}
@@ -466,6 +466,11 @@ func removeText(src sourceStatus) (title, msg string) {
 	}
 	if src.Default {
 		msg += " Sync Files and Folders adds it again."
+	}
+	if src.Session {
+		msg = "Cogpit stops offering the file\n\n" + path + "\n\nOnly for this run: the file is named by --kubeconfig or $KUBECONFIG " +
+			"and is offered again at the next start. The file stays on your disk, unchanged, and the login programs you allowed " +
+			"for it are remembered. Its contexts are no longer offered, and a connection made from it is closed."
 	}
 	return title, msg
 }

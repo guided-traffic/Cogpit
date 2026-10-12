@@ -23,17 +23,13 @@ import (
 const sourceToken = "tok-SOURCES-41a7-must-not-leak"
 
 // sourcesSession is an engine with kubeconfig sources in a temporary configuration directory and
-// an empty default kubeconfig (tests never read the user's).
+// no other source (tests never read the user's ~/.kube or $KUBECONFIG; with sources nothing is merged, D-28).
 func sourcesSession(t *testing.T) (*engine.Session, *engine.KubeconfigSources, *syncBuffer) {
 	t.Helper()
 	k := engine.NewKubeconfigSources(filepath.Join(t.TempDir(), "Cogpit"))
-	empty := filepath.Join(t.TempDir(), "empty-default")
-	if err := os.WriteFile(empty, nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
 	audit := &syncBuffer{}
 	s := engine.New(engine.Options{
-		Connector: &engine.ClusterConnector{KubeconfigPaths: []string{empty}, Sources: k},
+		Connector: &engine.ClusterConnector{Sources: k},
 		Audit:     audit,
 	})
 	if err := commands.RegisterAll(s.Registry()); err != nil {

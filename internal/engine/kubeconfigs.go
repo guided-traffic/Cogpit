@@ -79,6 +79,9 @@ type KubeconfigSource struct {
 	// asked, as Lens does; the user can remove it like any other source. It is not stored in the
 	// list of sources; removing it is (sourcesDoc.DefaultFolderRemoved).
 	Default bool `json:"default,omitempty"`
+	// Session marks a file named for this run ($KUBECONFIG, Cogpit's --kubeconfig; D-28): offered
+	// at start as a source of its own, read alone, removable for the session, never stored.
+	Session bool `json:"session,omitempty"`
 }
 
 // ExecApproval is the user's allowance of one credential plugin for one context of one file.
@@ -122,8 +125,9 @@ func (e *ExecApprovalError) Error() string {
 // Is makes errors.Is(err, ErrExecNotApproved) true.
 func (e *ExecApprovalError) Is(target error) bool { return target == ErrExecNotApproved }
 
-// SourceContextID is the id of a context from a source file: "<context> [<label>]". Context ids
-// of the default kubeconfig files are the bare context names.
+// SourceContextID is the id of a context from a source file: "<context> [<label>]". The label
+// names the file, so a context name that two files share gives two ids (D-28). Only a connector
+// without sources (tests) knows bare context names as ids.
 func SourceContextID(context, label string) string { return context + " [" + label + "]" }
 
 // KubeconfigFile is one kubeconfig file of a source, read on its own.
@@ -148,9 +152,6 @@ type SourceStatus struct {
 	Contexts int `json:"contexts"`
 	// Skipped counts a folder's files that are not kubeconfigs or define no context.
 	Skipped int `json:"skipped,omitempty"`
-	// Covered counts a folder's files that the default kubeconfig loading reads already
-	// ($KUBECONFIG, ~/.kube/config): their contexts are offered once, as the default's.
-	Covered int `json:"covered,omitempty"`
 	// Error says why the source (or its one file) cannot be read.
 	Error string `json:"error,omitempty"`
 }
@@ -181,10 +182,12 @@ type KubeconfigSources struct {
 	now func() time.Time
 	mu  sync.Mutex // serialises the read-modify-write of the files
 
-	// defaultDir is the folder synced by default (~/.kube); empty: none. covered are the files the
-	// default kubeconfig loading reads, which no sync folder offers a second time.
+	// defaultDir is the folder synced by default (~/.kube); empty: none.
 	defaultDir string
-	covered    map[string]bool
+	// sessionFiles are the files named for this run ($KUBECONFIG, --kubeconfig); removedSession are
+	// those the user removed since (kept in memory only: they are back at the next start).
+	sessionFiles   []string
+	removedSession map[string]bool
 }
 
 // SourcesOption configures NewKubeconfigSources.
@@ -192,23 +195,32 @@ type SourcesOption func(*KubeconfigSources)
 
 // WithDefaultFolder syncs dir by default, as Lens syncs ~/.kube: the user's own kubeconfig folder
 // is a source from the first start on (shown as a sync folder, removable), while it exists and
-// until the user removes it. covered are the files the default kubeconfig loading reads
-// (cluster.DefaultKubeconfigFiles): no sync folder offers them again. The caller passes the home
-// directory's .kube; the engine never looks up the home directory itself, so that tests can
-// never read the developer's real one.
-func WithDefaultFolder(dir string, covered []string) SourcesOption {
+// until the user removes it. Its files, config included, are read on their own like any other
+// source's (D-28). The caller passes the home directory's .kube; the engine never looks up the
+// home directory itself, so that tests can never read the developer's real one.
+func WithDefaultFolder(dir string) SourcesOption {
 	return func(k *KubeconfigSources) {
 		if strings.TrimSpace(dir) == "" {
 			return
 		}
-		abs, err := absClean(dir)
-		if err != nil {
-			return
+		if abs, err := absClean(dir); err == nil {
+			k.defaultDir = abs
 		}
-		k.defaultDir, k.covered = abs, map[string]bool{}
-		for _, c := range covered {
-			if a, err := absClean(c); err == nil {
-				k.covered[a] = true
+	}
+}
+
+// WithSessionFiles offers the files the user named for this run as sources of their own (D-28):
+// the files $KUBECONFIG lists and Cogpit's --kubeconfig paths (cluster.NamedKubeconfigFiles). Each
+// is read alone, never merged, and removable for the session; none is stored. A file that does not
+// exist or is not a regular file (/dev/null) is not offered, and neither is one a synced folder
+// owns already: a file directly in ~/.kube belongs to that folder, even after the user removed
+// it, so that removing the folder hides it. The caller reads the environment; the engine never
+// does.
+func WithSessionFiles(paths []string) SourcesOption {
+	return func(k *KubeconfigSources) {
+		for _, p := range paths {
+			if abs, err := absClean(p); err == nil && !slices.Contains(k.sessionFiles, abs) {
+				k.sessionFiles = append(k.sessionFiles, abs)
 			}
 		}
 	}
@@ -230,7 +242,7 @@ func (k *KubeconfigSources) sourcesPath() string   { return filepath.Join(k.dir,
 func (k *KubeconfigSources) approvalsPath() string { return filepath.Join(k.dir, ExecApprovalsFile) }
 
 // List returns the sources: the default synced folder first (while it exists and was not
-// removed), then the others in the order they were added.
+// removed), then the others in the order they were added, then this run's session files.
 func (k *KubeconfigSources) List() ([]KubeconfigSource, error) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
@@ -242,21 +254,43 @@ func (k *KubeconfigSources) List() ([]KubeconfigSource, error) {
 }
 
 // effective is the stored sources with the default folder in front, unless it is removed, absent
-// or already stored as a source of its own.
+// or already stored as a source of its own, and the session files behind them.
 func (k *KubeconfigSources) effective(doc sourcesDoc) []KubeconfigSource {
-	if k.defaultDir == "" || doc.DefaultFolderRemoved {
-		return doc.Sources
-	}
-	for _, s := range doc.Sources {
-		if s.Kind == SourceFolder && s.Path == k.defaultDir {
-			return doc.Sources
+	out := doc.Sources
+	if k.defaultDir != "" && !doc.DefaultFolderRemoved && !slices.ContainsFunc(out, func(s KubeconfigSource) bool {
+		return s.Kind == SourceFolder && s.Path == k.defaultDir
+	}) {
+		if fi, err := os.Stat(k.defaultDir); err == nil && fi.IsDir() {
+			def := KubeconfigSource{ID: uniqueID(doc.Sources, filepath.Base(k.defaultDir)+"/"), Kind: SourceFolder, Path: k.defaultDir, Default: true}
+			out = append([]KubeconfigSource{def}, out...)
 		}
 	}
-	if fi, err := os.Stat(k.defaultDir); err != nil || !fi.IsDir() {
-		return doc.Sources
+	return append(slices.Clone(out), k.sessionSources(out)...)
+}
+
+// sessionSources are the session files still offered after the sources in offered: not removed
+// this session, existing regular files, not added as a file source, and not owned by a sync
+// folder (offered, or the default folder even when the user removed it).
+func (k *KubeconfigSources) sessionSources(offered []KubeconfigSource) []KubeconfigSource {
+	var out []KubeconfigSource
+	for _, p := range k.sessionFiles {
+		if k.removedSession[p] {
+			continue
+		}
+		if fi, err := os.Stat(p); err != nil || !fi.Mode().IsRegular() {
+			continue
+		}
+		dir, candidate := filepath.Dir(p), kubeconfig.SyncCandidate(filepath.Base(p))
+		owned := candidate && k.defaultDir != "" && dir == k.defaultDir
+		for _, s := range offered {
+			owned = owned || (s.Kind == SourceFile && s.Path == p) || (candidate && s.Kind == SourceFolder && s.Path == dir)
+		}
+		if owned {
+			continue
+		}
+		out = append(out, KubeconfigSource{ID: uniqueID(append(slices.Clone(offered), out...), filepath.Base(p)), Kind: SourceFile, Path: p, Session: true})
 	}
-	def := KubeconfigSource{ID: uniqueID(doc.Sources, filepath.Base(k.defaultDir)+"/"), Kind: SourceFolder, Path: k.defaultDir, Default: true}
-	return append([]KubeconfigSource{def}, doc.Sources...)
+	return out
 }
 
 // loadDoc reads the stored sources file.
@@ -279,7 +313,7 @@ func (k *KubeconfigSources) loadDoc() (sourcesDoc, error) {
 		if s.ID == "" || !filepath.IsAbs(s.Path) || (s.Kind != SourceFile && s.Kind != SourceFolder) {
 			return doc, fmt.Errorf("the kubeconfig sources file %s has an entry without an id, an absolute path or a known kind", k.sourcesPath())
 		}
-		s.Default = false // never taken from the file: only WithDefaultFolder makes a default
+		s.Default, s.Session = false, false // never taken from the file: only the options make them
 		list = append(list, s)
 	}
 	doc.Sources = list
@@ -351,7 +385,8 @@ func (k *KubeconfigSources) add(kind SourceKind, path, base string) (KubeconfigS
 	if err != nil {
 		return KubeconfigSource{}, err
 	}
-	all := k.effective(doc)
+	// A session file is not "added": adding it makes it a stored source, which replaces it.
+	all := slices.DeleteFunc(k.effective(doc), func(s KubeconfigSource) bool { return s.Session })
 	for _, s := range all {
 		if s.Kind == kind && s.Path == path {
 			return KubeconfigSource{}, fmt.Errorf("%s is added already (as %q)", path, s.ID)
@@ -403,6 +438,15 @@ func (k *KubeconfigSources) Remove(id string) (KubeconfigSource, error) {
 		return KubeconfigSource{}, fmt.Errorf("no kubeconfig source %q", id)
 	}
 	src := all[i]
+	if src.Session {
+		// Only for this run: the file is named again by the next start's $KUBECONFIG, and the user's
+		// approvals of its plugins are kept for it.
+		if k.removedSession == nil {
+			k.removedSession = map[string]bool{}
+		}
+		k.removedSession[src.Path] = true
+		return src, nil
+	}
 	if src.Default {
 		doc.DefaultFolderRemoved = true
 	} else {
@@ -445,10 +489,6 @@ func (k *KubeconfigSources) Files() ([]KubeconfigFile, []SourceStatus, error) {
 				break
 			}
 			for _, e := range entries {
-				if k.covered[e.Path] {
-					st.Covered++
-					continue
-				}
 				f := inspect(src, strings.TrimSuffix(src.ID, "/")+"/"+filepath.Base(e.Path), e.Path)
 				if f.Err != nil || len(f.Contexts) == 0 {
 					st.Skipped++

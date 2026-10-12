@@ -14,7 +14,7 @@ type ConnectResult struct {
 }
 
 type connectParams struct {
-	Context string `json:"context" jsonschema:"context id as cluster_contexts lists it: a default kubeconfig context's name, <context> [<source>] for a kubeconfig source added in Cogpit, demo for the synthetic demo cluster"`
+	Context string `json:"context" jsonschema:"context id as cluster_contexts lists it: <context> [<file>] (a bare context name works when one file only defines it), demo for the synthetic demo cluster"`
 }
 
 // ConnectLogResult is cluster.connectLog's result.
@@ -31,8 +31,10 @@ func registerCluster(g *registrar) {
 	add(g, engine.Spec[struct{}]{
 		ID: "cluster.contexts", Label: "List Contexts", Danger: engine.DangerRead,
 		Description: "Lists the kubeconfig contexts Cogpit can connect to (name, cluster, user, default namespace, server, " +
-			"whether it is the kubeconfig's current context) and the synthetic demo cluster if offered. Contexts of the " +
-			"kubeconfig sources added in Cogpit (kubeconfig_sources) are named \"<context> [<source>]\" and carry source, " +
+			"whether it is the kubeconfig's current context) and the synthetic demo cluster if offered. Every context comes " +
+			"from a kubeconfig file read on its own, never merged with another (kubeconfig_sources lists the files: ~/.kube, " +
+			"the files $KUBECONFIG names, and those the user added). It is named \"<context> [<file>]\", so a name that two " +
+			"files share gives two contexts, and carries source, " +
 			"kubeContext, file and exec (approved, required or changed: whether their credential plugin may run; the user " +
 			"allows it in Cogpit's window). Reads only the kubeconfig files; no credential is returned.",
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {

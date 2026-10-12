@@ -38,7 +38,7 @@ type Backend struct {
 	// Close stops the cache and closes the connection.
 	Close func()
 	// SourceFile is the kubeconfig file of a kubeconfig source the connection was made from
-	// (kubeconfigs.go); empty for the default kubeconfig and the demo cluster. When the file goes
+	// (kubeconfigs.go); empty for the demo cluster and a connector without sources. When the file goes
 	// away, or its source is removed, the session closes the connection.
 	SourceFile string
 
@@ -141,7 +141,7 @@ type ContextInfo struct {
 	// Source, KubeContext and File describe a context from a kubeconfig source the user added in
 	// Cogpit (kubeconfigs.go): the file's label ("dev.yaml", "kubeconfigs/team.yaml"),
 	// the context's name in that file (Name is then "<context> [<label>]") and the file's path.
-	// Empty for the default kubeconfig files.
+	// Empty for the demo cluster and a connector without sources.
 	Source      string `json:"source,omitempty"`
 	KubeContext string `json:"kubeContext,omitempty"`
 	File        string `json:"file,omitempty"`

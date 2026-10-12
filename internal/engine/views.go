@@ -205,6 +205,14 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 	if connector == nil {
 		return errors.New("no connector configured")
 	}
+	if r, ok := connector.(contextResolver); ok {
+		// A bare context name (--context kind-dev) names the one source context that has it (D-28).
+		resolved, err := r.ResolveContext(name)
+		if err != nil {
+			return fmt.Errorf("connect %s: %w", name, err)
+		}
+		name = resolved
+	}
 	cctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 

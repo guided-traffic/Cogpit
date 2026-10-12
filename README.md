@@ -126,13 +126,13 @@ make run-demo                 # synthetic cluster: 10,000 pods, 1,000 watch even
 make kind-up                  # a kind cluster "cogpit" with its own kubeconfig (.cache/kind/kubeconfig)
 make run                      # Cogpit connected to it; make kind-down removes it
 
-make build && bin/cogpit      # your own clusters: picks contexts from $KUBECONFIG or ~/.kube/config
+make build && bin/cogpit      # your own clusters: syncs ~/.kube (config included) and offers the files $KUBECONFIG names, each file on its own
 make app                      # bin/Cogpit.app (ad-hoc signed), starts by double-click
 ```
 
 `make kind-up` seeds the namespace `cogpit-demo` ([hack/kind](hack/kind/README.md)): deployments
 `web` and `api`, a crash-looping pod, a completed job, a `toolbox` pod with a shell, and the Service
-`web` with the ClusterIP `10.96.100.100`. Nothing touches `~/.kube/config`.
+`web` with the ClusterIP `10.96.100.100`. Nothing writes `~/.kube/config`; `make run` lists your `~/.kube` contexts too (Kubeconfig Sources removes the folder from the list, never from disk).
 
 **Drive it with an agent.** At start, Cogpit prints a ready-to-paste command:
 
@@ -168,7 +168,7 @@ rm -rf ~/Library/Caches/Cogpit "~/Library/Application Support/Cogpit"   # logs, 
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--kubeconfig <files>` | empty: `$KUBECONFIG`, else `~/.kube/config` # default | kubeconfig files, separated by `:` |
+| `--kubeconfig <files>` | empty: the files `$KUBECONFIG` lists # default | kubeconfig files, separated by `:`, offered as sources of their own for this run, each read alone and removable until the next start; `~/.kube` is synced either way (a bare `--context` name resolves to the one file that defines it) |
 | `--context <name>` | empty: show the context picker # default | connect to this context at start |
 | `--demo` | `false` # default | connect to the synthetic demo cluster |
 | `--demo-pods <n>` | `10000` # default | pods in the demo cluster |
@@ -225,7 +225,7 @@ registry with `go run ./hack/readmecmds`.
 | `kubeconfig.approveExec` | `kubeconfig_approveExec` | ui | `context`, `fingerprint` | Records that the user allows a kubeconfig source context's credential plugin to run, exactly as shown (the fingerprint binds the command, its arguments, its environment and the server); a later change asks again |
 | `kubeconfig.execPlugin` | `kubeconfig_execPlugin` | read | `context` | Describes how a kubeconfig source's context logs in when that needs the user's approval: the credential plugin (users[].user.exec) it runs and a token file (users[].user.tokenFile) outside the kubeconfig's folder |
 | `kubeconfig.remove` | `kubeconfig_remove` | ui | `source` | Removes a kubeconfig source, which is Cogpit's link to a file or folder and nothing else: its contexts are no longer offered, the credential plugins allowed for its files are forgotten, and an open connection made from one of its files is closed |
-| `kubeconfig.sources` | `kubeconfig_sources` | read |  | Lists the kubeconfig sources the user added in Cogpit: kubeconfig files and sync folders, each with its id, kind, path, the files read from it, how many contexts it offers and why it cannot be read |
+| `kubeconfig.sources` | `kubeconfig_sources` | read |  | Lists the kubeconfig sources: the user's ~/.kube sync folder (default), the files named in $KUBECONFIG or --kubeconfig (session: removable for this run only), and the files and folders the user added, each with its id, kind, path, the files read from it, how many contexts it offers and why it cannot be read |
 | `logs.controller` | `logs_controller` | read | `id` | Turns a pod's logs tab into the logs of the resource that controls the pod (its Deployment, Daemon Set, Stateful Set, Replica Set or Job; a Deployment's pods through their replica set), as workload_logs shows them: every pod's containers, each line with its pod and container |
 | `logs.setOptions` | `logs_setOptions` | ui | `filter`?, `id`, `previous`?, `resourceNames`?, `search`?, `timestamps`?, `wrap`? | Changes a logs tab's options, as the tab's toolbar does: previous (the previous terminated container's log), timestamps, resourceNames, wrap, search and filter |
 | `node.cordon` | `node_cordon` | mutating | `ref` | Cordons a node as kubectl cordon does: sets spec.unschedulable, so that no new pods are scheduled on it; running pods stay |

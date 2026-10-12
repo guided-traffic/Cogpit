@@ -91,8 +91,8 @@ func registerKubeconfigs(g *registrar) {
 
 	add(g, engine.Spec[struct{}]{
 		ID: "kubeconfig.sources", Label: "Kubeconfig Sources", MenuPath: "File/Kubeconfig Sources", Danger: engine.DangerRead,
-		Description: "Lists the kubeconfig sources the user added in Cogpit: kubeconfig files and sync folders, each with its id, kind, path, the files read from it, how many contexts it " +
-			"offers and why it cannot be read. Their contexts appear in cluster_contexts as \"<context> [<source>]\". Reads " +
+		Description: "Lists the kubeconfig sources: the user's ~/.kube sync folder (default), the files named in $KUBECONFIG or --kubeconfig (session: removable for this run only), and the files and folders the user added, each with its id, kind, path, the files read from it, how many contexts it " +
+			"offers and why it cannot be read. Their contexts appear in cluster_contexts as \"<context> [<file>]\". Reads " +
 			"only file names and counts; no credential is returned.",
 		Enabled: func(s *engine.Session, _ struct{}) error { return enabled(s) },
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {

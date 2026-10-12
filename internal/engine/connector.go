@@ -16,6 +16,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/demo"
 	"github.com/guided-traffic/cogpit/internal/helm"
+	"github.com/guided-traffic/cogpit/internal/kubeconfig"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
@@ -30,7 +31,8 @@ var errDemoUnavailable = errors.New("the demo cluster is not available in this b
 // kubeconfig files through package cluster, and optionally the synthetic demo cluster.
 type ClusterConnector struct {
 	// KubeconfigPaths are the kubeconfig files, merged in order. Empty means client-go's default
-	// loading rules ($KUBECONFIG, else ~/.kube/config).
+	// loading rules ($KUBECONFIG, else ~/.kube/config). Used only without Sources: with them every
+	// context comes from a source file read on its own and nothing is merged (D-28).
 	KubeconfigPaths []string
 	// IncludeDemo offers the demo cluster as the context DemoContext. It shadows a kubeconfig
 	// context of the same name.
@@ -42,8 +44,10 @@ type ClusterConnector struct {
 	WarmPeriod time.Duration
 	// Logger receives connection warnings; nil means slog.Default().
 	Logger *slog.Logger
-	// Sources are the kubeconfig files and sync folders the user added in
-	// Cogpit (kubeconfigs.go); their contexts are offered as "<context> [<source>]". Nil: none.
+	// Sources are the kubeconfig files and sync folders (the user's ~/.kube, the files named in
+	// $KUBECONFIG, and those the user added in Cogpit; kubeconfigs.go): every context is offered as
+	// "<context> [<file>]". With Sources, KubeconfigPaths is not read. Nil: the merged
+	// KubeconfigPaths (tests, and a start without a configuration directory).
 	Sources *KubeconfigSources
 }
 
@@ -58,7 +62,11 @@ func (c *ClusterConnector) logger() *slog.Logger {
 // IncludeDemo is set. If the kubeconfig cannot be loaded, the demo entry is still returned,
 // together with the error.
 func (c *ClusterConnector) Contexts() ([]ContextInfo, error) {
-	ctxs, err := cluster.ListContexts(c.KubeconfigPaths)
+	var ctxs []kubeconfig.Context
+	var err error
+	if c.Sources == nil {
+		ctxs, err = cluster.ListContexts(c.KubeconfigPaths)
+	}
 	out := make([]ContextInfo, 0, len(ctxs)+1)
 	for _, k := range ctxs {
 		if c.IncludeDemo && k.Name == DemoContext {

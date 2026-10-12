@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,42 +15,79 @@ import (
 // KubeconfigSources returns the connector's kubeconfig sources; nil when it has none.
 func (c *ClusterConnector) KubeconfigSources() *KubeconfigSources { return c.Sources }
 
-// withSourceContexts appends the sources' contexts to the default kubeconfig's. A source context
-// id is resolved before the default files' names (connectOptions), so a default context that
-// happens to carry such an id is left out, with a problem that says so.
+// withSourceContexts adds the sources' contexts to out. With sources every context comes from a
+// source file read on its own (D-28): there is no merged default kubeconfig whose names a source
+// id could hide.
 func (c *ClusterConnector) withSourceContexts(out []ContextInfo, err error) ([]ContextInfo, error) {
 	if c.Sources == nil {
 		return out, err
 	}
 	extra, sErr := c.Sources.Contexts()
-	problems := []error{err, sErr}
-	ids := map[string]bool{}
-	for _, x := range extra {
-		ids[x.Name] = true
+	return append(out, extra...), errors.Join(err, sErr)
+}
+
+// ResolveContext turns what the user or an agent typed into a context id. An id of a source
+// context ("dev [config]") and the demo cluster are returned as they are. A bare context name
+// ("dev", as `--context` and kubectl know it) is resolved to the id of the one source file that
+// defines it; defined in several files, it is refused with the ids to choose from. Without
+// sources the name is returned unchanged.
+func (c *ClusterConnector) ResolveContext(name string) (string, error) {
+	if c.Sources == nil || (c.IncludeDemo && name == DemoContext) {
+		return name, nil
 	}
-	out = slices.DeleteFunc(out, func(ci ContextInfo) bool {
-		if ids[ci.Name] {
-			problems = append(problems, fmt.Errorf("the context %q of the default kubeconfig is hidden by the kubeconfig source context of the same id", ci.Name))
-			return true
+	if _, _, ok, err := c.Sources.Find(name); err != nil || ok {
+		return name, err
+	}
+	files, _, err := c.Sources.Files()
+	if err != nil {
+		return name, err
+	}
+	var ids []string
+	for _, f := range files {
+		for _, k := range f.Contexts {
+			if k.Name == name {
+				ids = append(ids, SourceContextID(k.Name, f.Label))
+			}
 		}
-		return false
-	})
-	return append(out, extra...), errors.Join(problems...)
+	}
+	switch len(ids) {
+	case 0:
+		return name, nil
+	case 1:
+		return ids[0], nil
+	}
+	slices.Sort(ids)
+	quoted := make([]string, len(ids))
+	for i, id := range ids {
+		quoted[i] = kubeconfig.DisplayText(id, 400)
+	}
+	return name, fmt.Errorf("the context %q is defined in several kubeconfig files; connect one of %s",
+		kubeconfig.DisplayText(name, 200), strings.Join(quoted, ", "))
+}
+
+// contextResolver is a Connector that resolves a typed context name to an id (*ClusterConnector).
+type contextResolver interface {
+	ResolveContext(name string) (string, error)
 }
 
 // connectOptions returns the cluster options for a context id: a source context's file alone,
-// with the sources' exec policy, and its id; or the default kubeconfig files and "" otherwise.
+// with the sources' exec policy, and its id. Without sources it is the merged KubeconfigPaths
+// and "".
 func (c *ClusterConnector) connectOptions(name string) (cluster.Options, string, error) {
 	opts := cluster.Options{KubeconfigPaths: c.KubeconfigPaths, Context: name}
 	if c.Sources == nil {
 		return opts, "", nil
+	}
+	name, err := c.ResolveContext(name)
+	if err != nil {
+		return opts, "", err
 	}
 	f, kctx, ok, err := c.Sources.Find(name)
 	if err != nil {
 		return opts, "", err
 	}
 	if !ok {
-		return opts, "", nil
+		return opts, "", &cluster.ConnectError{Context: name, Problem: "no such context in the kubeconfig sources (cluster_contexts lists them)"}
 	}
 	if f.Err != nil {
 		return opts, "", f.Err
@@ -93,7 +131,7 @@ type ExecPluginInfo struct {
 }
 
 // ExecPlugin returns the credential plugin of a source context and whether it may run. A context
-// of the default kubeconfig files, or one without a plugin, is an error: no approval applies.
+// that no source offers, or one without a plugin, is an error: no approval applies.
 func (s *Session) ExecPlugin(id string) (*ExecPluginInfo, error) {
 	k := s.KubeconfigSources()
 	if k == nil {
@@ -104,8 +142,7 @@ func (s *Session) ExecPlugin(id string) (*ExecPluginInfo, error) {
 		return nil, err
 	}
 	if !ok {
-		return nil, fmt.Errorf("%q is not a context of a kubeconfig source added in Cogpit (the default kubeconfig's "+
-			"credential plugins run as kubectl runs them)", id)
+		return nil, fmt.Errorf("%q is not a context of a kubeconfig source (cluster_contexts lists them)", id)
 	}
 	p := f.Exec[kctx]
 	if p == nil {

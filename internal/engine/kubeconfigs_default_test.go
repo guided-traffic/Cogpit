@@ -40,13 +40,12 @@ func contextNames(t *testing.T, k *KubeconfigSources) []string {
 }
 
 // TestDefaultFolderIsSyncedUntilRemoved: ~/.kube is a sync folder from the start, listed first, its
-// files read (dot files too) except the default kubeconfig, which the default loading reads; the
-// user removes it like any source, the choice is remembered, and no file of it is touched.
+// files read on their own (dot files and config too, D-28); the user removes it like any source, the choice is remembered, and no file of it is touched.
 func TestDefaultFolderIsSyncedUntilRemoved(t *testing.T) {
 	kube := fakeHome(t)
 	cfg := filepath.Join(t.TempDir(), "Cogpit")
 	open := func() *KubeconfigSources {
-		return NewKubeconfigSources(cfg, WithDefaultFolder(kube, []string{filepath.Join(kube, "config")}))
+		return NewKubeconfigSources(cfg, WithDefaultFolder(kube))
 	}
 	k := open()
 	before := treeState(t, filepath.Dir(kube))
@@ -55,11 +54,11 @@ func TestDefaultFolderIsSyncedUntilRemoved(t *testing.T) {
 	if err != nil || len(list) != 1 || !list[0].Default || list[0].ID != ".kube/" || list[0].Kind != SourceFolder || list[0].Path != kube {
 		t.Fatalf("sources %+v, %v", list, err)
 	}
-	if got, want := contextNames(t, k), []string{"hidden [.kube/.hidden.yaml]", "team [.kube/team.yaml]"}; !slices.Equal(got, want) {
+	if got, want := contextNames(t, k), []string{"hidden [.kube/.hidden.yaml]", "main [.kube/config]", "team [.kube/team.yaml]"}; !slices.Equal(got, want) {
 		t.Errorf("contexts %v, want %v", got, want)
 	}
 	_, statuses, err := k.Files()
-	if err != nil || len(statuses) != 1 || statuses[0].Contexts != 2 || statuses[0].Covered != 1 || statuses[0].Skipped != 1 {
+	if err != nil || len(statuses) != 1 || statuses[0].Contexts != 3 || statuses[0].Skipped != 1 {
 		t.Errorf("statuses %+v, %v", statuses, err)
 	}
 	if _, err := k.AddFolder(kube); err == nil || !strings.Contains(err.Error(), "added already") {
@@ -85,7 +84,7 @@ func TestDefaultFolderIsSyncedUntilRemoved(t *testing.T) {
 	if err != nil || again.Default || again.ID != ".kube/" {
 		t.Fatalf("re-added: %+v, %v", again, err)
 	}
-	if got := contextNames(t, open()); len(got) != 2 {
+	if got := contextNames(t, open()); len(got) != 3 {
 		t.Errorf("contexts after adding it again: %v", got)
 	}
 }
@@ -94,7 +93,7 @@ func TestDefaultFolderIsSyncedUntilRemoved(t *testing.T) {
 // the folder appear, and WatchKubeconfigs' signature changes with it.
 func TestDefaultFolderOnlyWhileItExists(t *testing.T) {
 	kube := filepath.Join(t.TempDir(), ".kube")
-	k := NewKubeconfigSources(filepath.Join(t.TempDir(), "Cogpit"), WithDefaultFolder(kube, nil))
+	k := NewKubeconfigSources(filepath.Join(t.TempDir(), "Cogpit"), WithDefaultFolder(kube))
 	if list, err := k.List(); err != nil || len(list) != 0 {
 		t.Fatalf("sources %+v, %v", list, err)
 	}
@@ -123,21 +122,21 @@ func TestNoDefaultFolderWithoutTheOption(t *testing.T) {
 	if got := contextNames(t, k); len(got) != 0 {
 		t.Errorf("contexts %v", got)
 	}
-	if WithDefaultFolder("", nil) == nil {
+	if WithDefaultFolder("") == nil {
 		t.Fatal("no option")
 	}
-	if list, _ := NewKubeconfigSources(t.TempDir(), WithDefaultFolder("  ", nil)).List(); len(list) != 0 {
+	if list, _ := NewKubeconfigSources(t.TempDir(), WithDefaultFolder("  ")).List(); len(list) != 0 {
 		t.Errorf("an empty folder made a source: %+v", list)
 	}
 }
 
 // TestDefaultFolderPluginsNeedApproval: a file of ~/.kube that names a credential plugin is a
-// source file like any other: its plugin runs only after the user allowed it (H-1), unlike the
-// default kubeconfig's, which kubectl's rules run.
+// source file like any other: its plugin runs only after the user allowed it (H-1). That holds for
+// config too (D-28), which kubectl alone would run unasked.
 func TestDefaultFolderPluginsNeedApproval(t *testing.T) {
 	kube := filepath.Join(t.TempDir(), ".kube")
 	writeUserFile(t, filepath.Join(kube, "eks.yaml"), execSourceKubeconfig("eks", "aws", "eks", "get-token"))
-	k := NewKubeconfigSources(filepath.Join(t.TempDir(), "Cogpit"), WithDefaultFolder(kube, nil))
+	k := NewKubeconfigSources(filepath.Join(t.TempDir(), "Cogpit"), WithDefaultFolder(kube))
 	infos, err := k.Contexts()
 	if err != nil || len(infos) != 1 || infos[0].Exec != ExecRequired {
 		t.Fatalf("contexts %+v, %v", infos, err)
@@ -175,7 +174,7 @@ func TestDefaultFolderIDDoesNotCollide(t *testing.T) {
 	if _, err := NewKubeconfigSources(cfg).AddFolder(other); err != nil {
 		t.Fatal(err)
 	}
-	k := NewKubeconfigSources(cfg, WithDefaultFolder(kube, nil))
+	k := NewKubeconfigSources(cfg, WithDefaultFolder(kube))
 	list, err := k.List()
 	if err != nil || len(list) != 2 || list[0].ID != ".kube (2)/" || !list[0].Default || list[1].ID != ".kube/" {
 		t.Fatalf("sources %+v, %v", list, err)

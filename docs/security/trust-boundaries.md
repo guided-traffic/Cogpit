@@ -109,21 +109,26 @@ built as follows:
   confirmation dialog could not show the user an agent-chosen path for review
   (`TestKubeconfigCommandsAreGUIOnly`).
 
-**`~/.kube` is synced by default** (2026-10-12; Lens does the same, captured). The folder is the
-user's own, with the trust of the default loading's `~/.kube/config`, and Cogpit neither writes
-nor runs anything in it unasked. It differs from that default in one way that matters here: the
-default loading reads one file of it, a synced `~/.kube` reads all of them, and a folder like
-that collects files nobody chose to add (a kubeconfig saved or generated into it by the user or
-a tool). They are therefore handled as the files of any sync folder: read each on its own, never
-merged; a credential plugin runs only after the user allowed it (the approval above, per file and
-context, forgotten when the folder is removed). The files the default loading reads (`$KUBECONFIG`,
-`~/.kube/config`) stay under kubectl's rules, without an approval, as before. Per case: a process
-that can write into `~/.kube` could already replace `config`, whose plugin runs without asking, so it
-gains nothing new (dormant); a kubeconfig that arrives in the folder by accident now becomes
-contexts, and its plugin waits for the user (the approval holds); its `tokenFile` is H-24 below, live
-for these files as for every synced file. The user can remove the folder (Kubeconfig Sources), and
-the engine takes the folder as an option, so tests never read the real one
-(`TestNoDefaultFolderWithoutTheOption`).
+**`~/.kube` is synced by default, and so is everything else** (2026-10-12; Lens does the same,
+captured; [D-28](../developer/decisions.md#d-28-the-default-kubeconfig-as-sources-as-lens-has-it), built
+the same day). The folder is the user's own and Cogpit neither writes nor runs anything in it
+unasked, but a folder like that collects files nobody chose to add (a kubeconfig saved or generated
+into it by the user or a tool). Every file of it is therefore handled as the file of any sync
+folder, **`config` included**: read on its own, never merged; a credential plugin runs only after the
+user allowed it (the approval above, per file and context, forgotten when the folder is removed).
+There is no longer a "default kubeconfig" under kubectl's rules: the files `$KUBECONFIG` lists and
+Cogpit's `--kubeconfig` paths are sources of their own for the run, under the same approval, and
+removable for the session only (their approvals are kept; a file that lies directly in `~/.kube` is
+the folder's, so removing the folder hides it). Per case: a process that can write into `~/.kube`
+could replace `config` and have kubectl run its plugin; in Cogpit it gets a dialog instead
+(dormant, and narrower than before, when `config`'s plugin ran unasked); a kubeconfig that arrives in
+the folder by accident becomes contexts, and its plugin waits for the user (the approval holds); its
+`tokenFile` is H-24 below, live for these files as for every file. The cost, accepted by the owner:
+a `config` with a plugin (EKS, GKE, AKS) asks once per context, as any other file does, and again
+when the plugin changes. The user can remove the folder (Kubeconfig Sources), and the engine takes
+the folder and the session files as options, so tests never read the real ones
+(`TestNoDefaultFolderWithoutTheOption`, `TestConfigWithAPluginAsksForApprovalOnce`,
+`TestDefaultKubeconfigIsOneFileOfTheSyncedFolder`).
 
 What remains: kubectl in a terminal of such a context reads the source file again, so a
 plugin changed after it was allowed runs there without being asked (the user's own kubectl
@@ -209,8 +214,8 @@ server as a bearer token. Kubernetes' documentation names this ("file exposure",
 [kubeconfig docs](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)).
 
 **Built 2026-10-12** ([D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs),
-owner, option a): a context of an added or synced kubeconfig (since the default sync folder `~/.kube`, 2026-10-12,
-its files other than the default ones too) whose user names a `tokenFile`
+owner, option a): a context of any kubeconfig file (since D-28, 2026-10-12, `config` and the
+files `$KUBECONFIG` names included: there is no unasked default kubeconfig left) whose user names a `tokenFile`
 outside the kubeconfig's folder connects only after the user allowed it, in the dialog of the
 credential plugin ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)), with the same approval
 store and the same GUI-only rule. The dialog is titled "Allow this file as the login token?" and
@@ -224,8 +229,8 @@ because that is what reads the token file: nothing is read from a file outside t
 the user allowed it. A token file resolved inside the kubeconfig's folder comes from the same
 source as the kubeconfig and needs no approval; a link in the folder that points outside counts as
 outside (`TestTokenFileLinkedOutOfTheFolderNeedsApproval`), and the engine's refusal names the
-file and the server, never the content. The default kubeconfig keeps kubectl's behaviour, so the
-gap is dormant there.
+file and the server, never the content. Since D-28 the gap no longer has a dormant corner: it
+holds for `~/.kube/config` and the `$KUBECONFIG` files as for every file.
 
 What remains, per case:
 

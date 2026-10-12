@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-12)
 
@@ -15,7 +15,7 @@ shells, attach and Edit and Create resource tabs, writes through 76 commands (ed
 from YAML in the GUI only, delete, node and workload actions, a crash-safe drain, port forwards
 that fail at once on permanent errors, Helm rollback, uninstall and upgrade with a crash journal
 locked between Cogpit processes, each bound to the revision the server holds), adds and syncs
-kubeconfigs (`~/.kube` by default) whose credential plugins and outside token files run or are
+kubeconfigs (`~/.kube` by default, `config` included, and the files `$KUBECONFIG` names) whose credential plugins and outside token files run or are
 read only once the user allowed them, bound to the programs' content inside the folder, holds
 Secrets in a full watch that Helm's releases share, draws its own title bar on macOS with the C
 helm logo in Solarized colours, lets the user copy any value from the drawer (a Secret's marked
@@ -759,13 +759,23 @@ data, Secrets included, at rest on the disk.
 
 ### Kubeconfig sources (built 2026-10-12)
 
-Besides the default kubeconfig files (`--kubeconfig`, else `$KUBECONFIG`, else `~/.kube/config`,
-merged as kubectl merges them), the user adds sources in Cogpit
+Every context comes from a source file read on its own; nothing is merged (D-28, built 2026-10-12;
+until then the default kubeconfig files were merged as kubectl merges them). The sources are
 ([`engine/kubeconfigs.go`](../../internal/engine/kubeconfigs.go), the commands in
 [`commands/kubeconfigs.go`](../../internal/engine/commands/kubeconfigs.go)):
 
-- **A kubeconfig file** (`kubeconfig.addFile`): read, re-read when it changes, never written.
-- **A sync folder** (`kubeconfig.addFolder`): every regular file in it (not in subfolders; dot
+- **`~/.kube`**, the default sync folder (below), `config` an ordinary file of it.
+- **The files named for this run**, `--kubeconfig` (what `make run` passes) or else `$KUBECONFIG`
+  (`cluster.NamedKubeconfigFiles`, passed to `engine.WithSessionFiles`; never `~/.kube/config` as a
+  fallback): each a file source with `Session` set, shown with a "this run" badge, removable, but
+  only for the session (kept in memory, back at the next start, never written to
+  `kubeconfigs.json`, its approvals kept). A missing file, a non-regular file (`/dev/null`) and a
+  file the sync folder owns already (directly in `~/.kube`, even after the folder was removed) are
+  not offered. Adding such a file by hand stores it.
+- **What the user adds:**
+
+  - **A kubeconfig file** (`kubeconfig.addFile`): read, re-read when it changes, never written.
+  - **A sync folder** (`kubeconfig.addFolder`): every regular file in it (not in subfolders; dot
   files are read since 2026-10-12, as Lens reads them; `~` backups, `.swp`, `.tmp`, `._*` and `.DS_Store`
   skipped as noise; at most 500 files of at most 1 MiB) that parses and defines a context. What
   makes a hidden file harmless is not its name: `cluster.ListSyncFolder` takes only regular files
@@ -773,16 +783,15 @@ merged as kubectl merges them), the user adds sources in Cogpit
   and `InspectFile` looks at the file before it opens it (opening a FIFO for reading blocks) and
   again after (`TestSyncFolderNeverOpensAFIFO`).
 - **`~/.kube`, the default sync folder** (2026-10-12; Lens syncs it by default and lists it as an
-  ordinary, removable item, captured). `cmd/cogpit` passes `<home>/.kube` and the files the default
-  loading reads to `engine.WithDefaultFolder`; the engine never looks up the home directory itself, so
-  tests give it a temporary one (`TestNoDefaultFolderWithoutTheOption`). It is listed first, as a
+  ordinary, removable item, captured). `cmd/cogpit` passes `<home>/.kube` to
+  `engine.WithDefaultFolder`; the engine never looks up the home directory or the environment itself, so
+  tests give it temporary ones (`TestNoDefaultFolderWithoutTheOption`, `kubeconfigs_session_test.go`). It is listed first, as a
   sync folder with `Default` set, while the directory exists; it is not written to the list of
   sources, and removing it is (`defaultFolderRemoved` in `kubeconfigs.json`), so that it does not
-  come back; adding `~/.kube` again by hand makes it an ordinary source. The files the default
-  loading reads (`--kubeconfig`, else `$KUBECONFIG`, else `~/.kube/config`:
-  `cluster.DefaultKubeconfigFiles`) are not offered a second time: they stay the default's, merged
-  as kubectl merges them, and cannot be removed (counted as `covered` in the dialog). The trust
-  model is below.
+  come back; adding `~/.kube` again by hand makes it an ordinary source. `config` is one of its
+  files, listed as `<context> [.kube/config]` like the others, so removing the folder hides it
+  (Lens does the same). A start without `~/.kube` lists no folder; it appears when the directory
+  does. The trust model is below.
 - **One dialog for both** (`internal/ui/fyneui/syncpicker.go`): Lens opens the system's file dialog,
   which takes files and folders together; Fyne's two file dialogs take one kind each, so Cogpit
   has a small browser of its own, "Sync Files and Folders": select a file or a folder, or nothing for
@@ -796,11 +805,24 @@ read **on its own**, never merged with another file: a context in a dropped file
 borrow the user entry of the user's own kubeconfig and send its credential to the dropped file's
 server. Its contexts are offered as `<context> [<label>]`: the label is the file's name
 (`dev.yaml`, `dev.yaml (2)` for a second file of that name), or the folder's name and
-the file's (`kubeconfigs/team.yaml`). That id is `UIState.Context` and the context of every
+the file's (`kubeconfigs/team.yaml`, `.kube/config`). A context name two files share therefore
+gives two contexts (`prod [a.yaml]`, `prod [b.yaml]`), both reachable
+(`TestSameNamedContextsInTwoFilesAreBothReachable`). That id is `UIState.Context` and the context of every
 confirmation, audit line and journal entry; the connection reads the one file
 (`cluster.Options.KubeconfigPaths`), and a terminal binds kubectl to the context's name in that
-file (`Conn.Context()`). A source id is resolved before the default files' names, so a default
-context that happens to be named like one is hidden, with a problem saying so.
+file (`Conn.Context()`). The terminal's `KUBECONFIG` is its own file first, then the context's own file
+alone (no other file of the user's), as it is for every source context.
+
+`cluster.contexts`, the CLI and MCP list exactly these ids, with `source`, `kubeContext`, `file`
+and `exec`; no context carries a bare name any more, and "current" is not set (the files'
+`current-context` fields are not merged, so the picker preselects the first). A bare name typed
+for `--context` or `cluster.connect` goes through `ClusterConnector.ResolveContext`
+(called by `Session.Connect`): an id or `demo` is kept, a name that exactly one file defines
+becomes that file's id (so `make run`'s `--kubeconfig <kind file> --context kind-cogpit` still
+reaches kind, `TestRunFlagConnectsABareContextName`), a name several files define is refused with
+their ids. The demo cluster stays the bare context `demo`; a file's own `demo` is `demo [file]`.
+Without `Sources` (tests, and a start without a configuration directory) the connector still merges
+`KubeconfigPaths` as before.
 
 **Credential plugins of sources run only after the user allowed them** (trust-boundaries H-1). The
 connector passes `KubeconfigSources.Policy` as `cluster.Options.ExecPolicy`; `cluster.Connect`
@@ -823,20 +845,21 @@ does none, so `cluster.BindPluginFiles` reads the files, bounded and regular fil
 file is described and again right before the policy decides at connect time); any change asks
 again. `kubeconfig.execPlugin` returns how the server is reached and trusted (`tls`: proxy URL
 without user information, insecure, TLS server name, own CA) and the file facts, which the
-approval dialog shows (R-11). The plugins of the default kubeconfig files run as kubectl runs
-them, without an approval.
+approval dialog shows (R-11). Every file is a source now, `~/.kube/config` and the `$KUBECONFIG`
+files included, so every plugin waits for the user: one dialog per context's plugin (the
+fingerprint binds the context, user and server), remembered across restarts in
+`exec-approvals.json`, asked again when the plugin changes
+(`TestConfigWithAPluginAsksForApprovalOnce`).
 
 **What `~/.kube` as a default folder means for the trust model** (2026-10-12; the same text is in
 [trust-boundaries H-1](../security/trust-boundaries.md#h-1-kubeconfig-files-added-by-sync-folders)):
-the folder is the user's own, with the same trust as the default loading's `~/.kube/config`, and
-nothing it holds is written or run by Cogpit unasked. But the default loading reads one file of it,
-and a synced `~/.kube` reads them all, so the files in it are treated as what they are, files of a
-folder that tools and people drop kubeconfigs into: each is read **on its own**, never merged, and
-a credential plugin of any of them (the default files excepted) runs only after the user allowed it,
-exactly as for any other sync folder. A process that can write to `~/.kube` could already replace
-`config`, whose plugin runs without asking, so the folder gives that attacker nothing new; what is
-new is a file that arrives there by accident (a kubeconfig saved or generated into the folder) becoming
-contexts, which is where H-24's token-file exposure now reaches too.
+the folder is the user's own, and nothing it holds is written or run by Cogpit unasked. Since D-28
+`config` is no exception: kubectl would run its plugin unasked, Cogpit asks, as for every file of a
+folder that tools and people drop kubeconfigs into. Each is read **on its own**, never merged, and a
+credential plugin of any of them runs only after the user allowed it. A process that can write to
+`~/.kube` could replace `config` and so get a plugin run by kubectl; in Cogpit it gets a dialog
+instead. A file that arrives there by accident (a kubeconfig saved or generated into the folder)
+becomes contexts, which is where H-24's token-file exposure reaches too.
 
 **A connection ends with its file** (2026-10-12, `Session.CloseGoneSourceConnection`, called by
 `WatchKubeconfigs` after each change and by `kubeconfig.remove`): `Backend.SourceFile` is the file
@@ -1176,6 +1199,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-12 | minor | §4.3: panel widths (sidebar, drawer) are user-dragged, stored in the preferences and GUI-only; why the drawer followed its content and the rule that ends it |
+| 2026-10-12 | minor | §6 (D-28 built, scope C3): the default kubeconfig no longer merged; `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, a bare context name resolved to the one file that defines it; plugins of `config` asked for like any file |
 | 2026-10-12 | minor | §6: sync folders read dot files (regular files only); `~/.kube` a default sync folder and what that means for the trust model; one dialog for files and folders; a connection closed when its file goes; the connect log |
 | 2026-10-12 | minor | Fifth run, look and use (D-22 to D-25): Solarized theme tokens and the terminal palette, the status bar link, the C helm logo (`internal/ui/logo`), copying values from the drawer (selectable lines, one copy icon, entries in YAML, a copied Secret value cleared from the clipboard); current state row |
 | 2026-10-12 | minor | Review of the fourth run, fixed (§4: an apply from a tab's text bound to its text revision, R-10; §5 Secrets: a revealed value bound to the Secret's version, R-6; §5 covering scopes: a handover that timed out before the own informer's first list keeps the view instead of reporting every object deleted, R-7, and an exact handover during a relist keeps what the new informer holds, R-8; §8): an upgrade from a tab bound to the tab's text revision (R-2); upgrade and rollback checked against the server's newest revision, not only the cache's (R-1); values scrubbed in their quoted forms (R-4); the Rollback dialog's answer bound to the picked revision and dropped after its dispatch (R-3) |

@@ -669,7 +669,15 @@ default sync folder `~/.kube`, so removing that folder hides its contexts too, a
 files named in `$KUBECONFIG` appear at start as additional default sources, each read alone and
 removable (for the session), so a developer's or `make run`'s `KUBECONFIG` keeps working.
 Consequence the owner accepted: a credential plugin in `config` asks for the user's approval once,
-like a plugin in any other file (H-1). Not built yet. The options weighed: `config` as kubectl
+like a plugin in any other file (H-1). **Built 2026-10-12** (scope C3,
+[architecture §6](architecture.md#kubeconfig-sources-built-2026-10-12)): `engine.WithDefaultFolder`,
+`engine.WithSessionFiles`, `cluster.NamedKubeconfigFiles`; a connector with sources merges nothing.
+Details the decision left open, decided in the build: a bare context name (`--context`, an agent's
+`cluster.connect`) resolves to the one file that defines it and is refused, naming the ids, when
+several do; a `$KUBECONFIG` file lying directly in `~/.kube` is the folder's, so removing the folder
+hides it too; a session file removed in the window returns at the next start with its approvals kept;
+an existing `kubeconfigs.json` is read as it is (no migration, nothing deleted or written), so a user
+who had removed `~/.kube` loses `config`'s contexts now. The options weighed: `config` as kubectl
 reads it, merged with `$KUBECONFIG` and not removable (as built by C2); as Lens (decided); and
 for `$KUBECONFIG` under it: its files as sources (decided) or ignored, as Lens does.
 
@@ -678,7 +686,8 @@ for `$KUBECONFIG` under it: its files as sources (decided) or ignored, as Lens d
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-12 | minor | D-14: the upstream pull requests opened (#155–#158, owner's OK) |
-| 2026-10-12 | minor | D-28 (owner): the default kubeconfig as sources, as Lens (config an ordinary synced file, `$KUBECONFIG`'s files sources of their own), not built; C1's Rollback on the current revision does what helm does (owner) |
+| 2026-10-12 | minor | D-28 built (scope C3): every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; the default kubeconfig no longer merged |
+| 2026-10-12 | minor | D-28 (owner): the default kubeconfig as sources, as Lens (config an ordinary synced file, `$KUBECONFIG`'s files sources of their own); C1's Rollback on the current revision does what helm does (owner) |
 | 2026-10-12 | minor | D-25 (owner, built): a copied Secret value marked concealed for clipboard managers and kept from Universal Clipboard on macOS (H-25) |
 | 2026-10-12 | minor | D-26 (owner): a credential plugin's approval binds the program's content when it lies in the kubeconfig's or sync folder; D-27 (owner, built): an agent's inline Helm values shown in the confirmation |
 | 2026-10-12 | minor | D-22 to D-25 built: Solarized theme tokens (contrast departures listed), the status bar link, the C helm logo (`internal/ui/logo`), copying values from the drawer |

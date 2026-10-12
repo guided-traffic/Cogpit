@@ -36,7 +36,7 @@ func main() { os.Exit(run()) }
 
 func run() int {
 	var (
-		kubeconfig  = flag.String("kubeconfig", "", "kubeconfig files, separated by '"+string(os.PathListSeparator)+"'; default: $KUBECONFIG, else ~/.kube/config")
+		kubeconfig  = flag.String("kubeconfig", "", "kubeconfig files, separated by '"+string(os.PathListSeparator)+"', offered as sources of their own for this run; default: the files $KUBECONFIG lists. ~/.kube is always a sync folder")
 		contextName = flag.String("context", "", "connect to this context at start instead of showing the context picker")
 		demoMode    = flag.Bool("demo", false, "connect to the synthetic demo cluster (10,000 pods, 1,000 watch events per second)")
 		demoPods    = flag.Int("demo-pods", 10000, "pods in the demo cluster")
@@ -84,7 +84,7 @@ func run() int {
 		IncludeDemo:     true,
 		DemoOptions:     demo.Options{Pods: *demoPods, EventsPerSecond: *demoEvents},
 		Logger:          logger,
-		Sources:         openKubeconfigSources(logger, filepath.SplitList(*kubeconfig)),
+		Sources:         openKubeconfigSources(logger, cluster.NamedKubeconfigFiles(filepath.SplitList(*kubeconfig))),
 	}
 	s := engine.New(engine.Options{Connector: connector, Audit: audit, Logger: logger, Drains: openDrainJournal(logger),
 		Helm: openHelmJournal(logger)})
@@ -198,22 +198,24 @@ func openHelmJournal(logger *slog.Logger) *engine.HelmOps {
 
 // openKubeconfigSources keeps the kubeconfig files and sync folders the user
 // adds in <user config dir>/Cogpit (kubeconfigs.json, exec-approvals.json), each owner-only.
-// Without a configuration directory there are none.
+// Without a configuration directory there are none, and the kubeconfig files are merged as kubectl
+// merges them.
 //
-// The user's own ~/.kube (%USERPROFILE%\.kube on Windows) is a sync folder from the start, as in
-// Lens, removable like any other. Cogpit reads it, never writes it, and a credential plugin of a
-// file in it still needs the user's approval (trust-boundaries H-1). The files the default loading
-// reads (kubeconfigPaths, else $KUBECONFIG, else ~/.kube/config) are offered by that loading, not
-// twice. Without a home directory there is no default folder.
-func openKubeconfigSources(logger *slog.Logger, kubeconfigPaths []string) *engine.KubeconfigSources {
+// Every context comes from a source file read on its own; nothing is merged (D-28). The user's own
+// ~/.kube (%USERPROFILE%\.kube on Windows), config included, is a sync folder from the start, as
+// in Lens, removable like any other. The files named for this run (named: --kubeconfig, else
+// $KUBECONFIG) are sources of their own, removable for the session. Cogpit reads these files,
+// never writes them, and a credential plugin of any of them needs the user's approval
+// (trust-boundaries H-1). Without a home directory there is no default folder.
+func openKubeconfigSources(logger *slog.Logger, named []string) *engine.KubeconfigSources {
 	dir, err := os.UserConfigDir()
 	if err != nil {
-		logger.Warn("kubeconfig sources disabled; only the default kubeconfig is read", "err", err)
+		logger.Warn("kubeconfig sources disabled; the kubeconfig files are merged as kubectl does", "err", err)
 		return nil
 	}
-	var opts []engine.SourcesOption
+	opts := []engine.SourcesOption{engine.WithSessionFiles(named)}
 	if home, err := os.UserHomeDir(); err == nil {
-		opts = append(opts, engine.WithDefaultFolder(filepath.Join(home, ".kube"), cluster.DefaultKubeconfigFiles(kubeconfigPaths)))
+		opts = append(opts, engine.WithDefaultFolder(filepath.Join(home, ".kube")))
 	}
 	return engine.NewKubeconfigSources(filepath.Join(dir, "Cogpit"), opts...)
 }

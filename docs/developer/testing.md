@@ -30,7 +30,8 @@ The MVP (2026-10-11) brought the first tiers; the table says for each whether it
   hostnames, registries and sometimes credentials in annotations or environment variables.
 - **Clusters** are created by the tests (`kind`, envtest), never borrowed from a developer's
   kubeconfig. Tests must not read `~/.kube/config` or any other file of `~/.kube` (the default synced
-  folder is injected: `engine.WithDefaultFolder` takes a temporary directory, the shell's sync picker
+  folder and the files `$KUBECONFIG` names are injected: `engine.WithDefaultFolder` and
+  `engine.WithSessionFiles` take temporary paths and the engine reads no environment variable, the shell's sync picker
   opens in one, `kubeconfigUI.startDir`); `kind` writes its kubeconfig to a temporary
   file (`--kubeconfig`), never into the user's.
 - **API request counting:** tests wrap the client's transport in a counting round-tripper and

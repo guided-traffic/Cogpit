@@ -155,9 +155,9 @@ func TestConnectionClosesWhenItsSourceIsRemoved(t *testing.T) {
 	if _, err := g.k.Remove(filepath.Base(g.folder) + "/"); err != nil {
 		t.Fatal(err)
 	}
-	if !g.s.CloseGoneSourceConnection() {
-		t.Fatal("not closed after the source was removed")
-	}
+	// The watcher (5 ms) may close it first; either way it is closed, exactly once.
+	g.s.CloseGoneSourceConnection()
+	waitFor(t, "the connection to close after the source was removed", func() bool { return g.s.Backend() == nil })
 	ui := g.s.UIState()
 	if ui.Connection.State != Disconnected || !strings.Contains(ui.Connection.Error, "source was removed") ||
 		!strings.Contains(ui.Connection.Error, "untouched") {

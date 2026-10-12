@@ -127,17 +127,21 @@ func TestListContextsDefaultRulesUseKUBECONFIG(t *testing.T) {
 	}
 }
 
-// TestDefaultKubeconfigFiles: explicit paths win, else $KUBECONFIG's entries; absolute and clean,
-// and nothing is read (the files need not exist).
-func TestDefaultKubeconfigFiles(t *testing.T) {
+// TestNamedKubeconfigFiles: explicit paths win, else $KUBECONFIG's entries (never ~/.kube/config);
+// absolute, clean, without duplicates, and nothing is read (the files need not exist).
+func TestNamedKubeconfigFiles(t *testing.T) {
 	dir := t.TempDir()
 	a, b := filepath.Join(dir, "a"), filepath.Join(dir, "sub", "..", "b")
-	t.Setenv("KUBECONFIG", a+string(os.PathListSeparator)+b)
-	if got := DefaultKubeconfigFiles(nil); len(got) != 2 || got[0] != a || got[1] != filepath.Join(dir, "b") {
+	t.Setenv("KUBECONFIG", a+string(os.PathListSeparator)+b+string(os.PathListSeparator)+a)
+	if got := NamedKubeconfigFiles(nil); len(got) != 2 || got[0] != a || got[1] != filepath.Join(dir, "b") {
 		t.Errorf("from $KUBECONFIG: %v", got)
 	}
-	if got := DefaultKubeconfigFiles([]string{b}); len(got) != 1 || got[0] != filepath.Join(dir, "b") {
+	if got := NamedKubeconfigFiles([]string{b}); len(got) != 1 || got[0] != filepath.Join(dir, "b") {
 		t.Errorf("explicit: %v", got)
+	}
+	t.Setenv("KUBECONFIG", "")
+	if got := NamedKubeconfigFiles(nil); len(got) != 0 {
+		t.Errorf("nothing named: %v", got)
 	}
 }
 
