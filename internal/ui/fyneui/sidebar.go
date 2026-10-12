@@ -1,15 +1,13 @@
 package fyneui
 
 import (
-	"image/color"
 	"slices"
 	"strings"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
-	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 )
@@ -161,67 +159,69 @@ func navIcon(id string) fyne.Resource {
 	return nil
 }
 
-// sidebar is the navigator: the connected cluster's identity on top, the tree of views below.
-// Selecting a view dispatches ui.openView; the selection follows UIState.View.
+// sidebar is the navigator (navigator.go): the header with the scope dropdown and the search, and
+// the tree whose root is the connected cluster with its views below. Opening a view dispatches
+// ui.openView; the open view's row follows UIState.View.
 type sidebar struct {
-	sh        *shell
-	tree      *widget.Tree
-	children  map[string][]string
-	titles    map[string]string
-	parents   map[string]string // node id → its branch's id
-	revealed  string            // the view whose branches selectView last opened
-	marked    string            // the selected node; Fyne's tree does not report it
-	selecting bool
+	sh       *shell
+	head     *navHeader
+	tree     *navTree
+	children map[string][]string
+	titles   map[string]string
+	parents  map[string]string // node id → its branch's id; "" for a top-level item
+	open     map[string]bool   // the groups the user opened (the window's, not engine state)
+	revealed string            // the view whose branches selectView last opened
+	marked   string            // the node of the open view
+	filter   string            // the search text; "" shows every item
+	shown    map[string]bool   // with a search: the nodes it keeps
 
-	badge     *pill
+	rootRow   *navRootRow
+	badge     *clusterBadge
 	name      *textLine
 	subtitle  *textLine
+	dot       *dot
 	emptyHint *textLine
+	hintRow   fyne.CanvasObject // the hint below the root while no item shows
 	root      fyne.CanvasObject
 }
 
 func newSidebar(sh *shell) *sidebar {
-	s := &sidebar{sh: sh, children: map[string][]string{}, titles: map[string]string{}, parents: map[string]string{}}
-	s.tree = widget.NewTree(
-		func(uid widget.TreeNodeID) []widget.TreeNodeID { return s.children[uid] },
-		// The root ("") is a branch too: Fyne's tree walks the root's children only if it is.
-		func(uid widget.TreeNodeID) bool { return uid == "" || strings.HasPrefix(uid, groupPrefix) },
-		func(bool) fyne.CanvasObject { return newNavItem() },
-		func(uid widget.TreeNodeID, branch bool, o fyne.CanvasObject) {
-			o.(*navItem).set(s.titles[uid], navIcon(uid), branch)
-		},
-	)
-	s.tree.OnSelected = s.selected
-	s.tree.HideSeparators = true
-
-	s.badge = newPill("", colorAccent, true)
-	s.badge.bold = true
+	s := &sidebar{sh: sh, children: map[string][]string{}, titles: map[string]string{}, parents: map[string]string{},
+		open: map[string]bool{}}
+	s.badge = newClusterBadge()
 	s.name = newTextLine("Not connected", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	s.subtitle = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	// The sidebar's width is the user's (panelwidths.go): a long context name is cut, not widened.
 	s.name.truncate, s.subtitle.truncate = true, true
-	s.emptyHint = newTextLine("Connect a cluster to browse it.", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+	s.dot = newDot(connectionColor(engine.Connection{}))
+	s.emptyHint = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+	s.emptyHint.truncate = true
+	s.hintRow = inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, s.emptyHint)
 
-	header := inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding,
-		container.NewBorder(nil, nil, container.NewCenter(s.badge), nil,
-			container.NewVBox(s.name, s.subtitle)))
-	s.root = container.NewBorder(
-		container.NewVBox(header, newDivider(false)), nil, nil, nil,
-		container.NewStack(s.tree, container.NewVBox(inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, s.emptyHint))))
+	s.tree = newNavTree(s)
+	s.head = newNavHeader(s)
+	s.rootRow = newNavRootRow(s)
+	// The header before the tree in the objects, so that Tab goes from the search field into the
+	// tree (container.NewBorder would put the tree first).
+	s.root = container.New(layout.NewBorderLayout(s.head.root, nil, nil, nil), s.head.root, s.tree)
+	s.tree.rebuild()
 	return s
 }
 
-// updateHeader shows the active context: an initials badge, its name and what it is.
+// updateHeader shows the active context at the tree's root and in the scope dropdown: an initials
+// badge, its name and what it is, and the connection's dot.
 func (s *sidebar) updateHeader() {
 	ui := s.sh.ui
+	s.head.update()
+	s.dot.SetColor(connectionColor(ui.Connection))
 	if ui.Context == "" {
-		s.badge.Set("–", colorMuted)
+		s.badge.set("–", true)
 		s.name.SetText("Not connected")
 		s.subtitle.SetText("")
 		return
 	}
 	name, file := splitContextID(ui.Context)
-	s.badge.Set(initials(name), colorAccent)
+	s.badge.set(initials(name), false)
 	s.name.SetText(name)
 	switch {
 	case ui.Connection.Demo:
@@ -242,12 +242,6 @@ func (s *sidebar) updateHeader() {
 // selection stays visible. A kind the user may not list is left out; one not known yet is shown.
 func (s *sidebar) setKinds(kinds []kindInfo) {
 	kinds = listableKinds(kinds) // the View menu offers the same (menuaccess.go)
-	wasOpen := map[string]bool{}
-	for id := range s.children {
-		if id != "" {
-			wasOpen[id] = s.tree.IsBranchOpen(id)
-		}
-	}
 	s.children = map[string][]string{}
 	s.titles = map[string]string{}
 	s.parents = map[string]string{}
@@ -277,23 +271,13 @@ func (s *sidebar) setKinds(kinds []kindInfo) {
 		}
 	}
 	s.children[""] = roots
-	if len(roots) == 0 {
-		s.emptyHint.Show()
-	} else {
-		s.emptyHint.Hide()
-	}
-	s.tree.Refresh()
-	for id := range s.children {
-		if id == "" {
-			continue
-		}
-		open := wasOpen[id] // a new branch starts closed
-		if open {
-			s.tree.OpenBranch(id)
-		} else {
-			s.tree.CloseBranch(id)
+	for id := range s.open { // a branch that went away starts closed if it comes back
+		if _, ok := s.children[id]; !ok {
+			delete(s.open, id)
 		}
 	}
+	s.refilter()
+	s.tree.rebuild()
 }
 
 // build adds a layout entry the cluster serves to the tree and returns its node id, or "" when
@@ -418,42 +402,176 @@ func customTitle(k kindInfo) string {
 
 // selectView marks the open view in the tree without dispatching anything: its node in a curated
 // section if it has one, else its node under Custom Resources. When the view changes, the
-// branches above it open, so that a view an agent opened inside a closed API group is visible.
+// branches above it open, so that a view an agent opened inside a closed API group is visible, and
+// the keyboard moves to it.
 func (s *sidebar) selectView(view string) {
-	s.selecting = true
-	defer func() { s.selecting = false }()
 	if view == "" || s.titles[view] == "" {
-		s.tree.UnselectAll()
 		s.revealed, s.marked = "", ""
+		s.tree.rebuild()
 		return
 	}
-	if view != s.revealed {
+	changed := view != s.revealed
+	if changed {
 		s.revealed = view
 		for p := s.parents[view]; p != ""; p = s.parents[p] {
-			s.tree.OpenBranch(p)
+			s.open[p] = true
 		}
 	}
-	s.tree.Select(view)
 	s.marked = view
+	s.tree.rebuild()
+	if changed {
+		s.tree.setFocus(view)
+	}
 }
 
-// selected opens a view, or toggles a group. An alias node opens its kind's view; the mark then
-// moves to the kind's primary node.
-func (s *sidebar) selected(uid widget.TreeNodeID) {
-	if s.selecting {
+// activate does what a click or ↵ on a node does: open its view, or open or close a group (not
+// while a search shows every group open); the root does nothing. An alias node opens its kind's
+// view; the mark then moves to the kind's primary node.
+func (s *sidebar) activate(id string) {
+	switch {
+	case id == "" || id == rootNode:
+		return
+	case s.isBranch(id):
+		if s.filter == "" {
+			s.setOpen(id, !s.open[id])
+		}
 		return
 	}
-	s.marked = uid
-	if strings.HasPrefix(uid, groupPrefix) {
-		s.tree.ToggleBranch(uid)
-		s.selectView(s.sh.ui.View)
-		return
-	}
-	key := strings.TrimPrefix(uid, aliasPrefix)
+	key := strings.TrimPrefix(id, aliasPrefix)
 	if key != s.sh.ui.View {
-		s.sh.dispatch("ui.openView", openViewParams{View: key}, nil)
-	} else if key != uid {
+		s.marked = id
+		s.tree.rebuild()
+		s.sh.dispatch("ui.openView", openViewParams{View: key}, func(_ any, err error) {
+			if err != nil { // the view stays: so does its mark
+				s.sh.showError(err)
+				s.selectView(s.sh.ui.View)
+			}
+		})
+	} else if key != id {
 		s.selectView(key)
+	}
+}
+
+// setOpen opens or closes a group.
+func (s *sidebar) setOpen(id string, open bool) {
+	if !s.isBranch(id) || s.open[id] == open {
+		return
+	}
+	if open {
+		s.open[id] = true
+	} else {
+		delete(s.open, id)
+	}
+	s.tree.rebuild()
+}
+
+// isBranch reports whether a node is a group.
+func (s *sidebar) isBranch(id string) bool { return strings.HasPrefix(id, groupPrefix) }
+
+// shownOpen reports whether a group shows its items: the user opened it, or a search is on.
+func (s *sidebar) shownOpen(id string) bool { return s.filter != "" || s.open[id] }
+
+// parentOf is the node above id in the tree: its group, or the root for a top-level item.
+func (s *sidebar) parentOf(id string) string {
+	if p := s.parents[id]; p != "" {
+		return p
+	}
+	return rootNode
+}
+
+// depth is how many groups hold a node.
+func (s *sidebar) depth(id string) int {
+	d := 0
+	for p := s.parents[id]; p != ""; p = s.parents[p] {
+		d++
+	}
+	return d
+}
+
+// shownNodes lists the items the tree shows, in order, below the root: those of open groups, and
+// with a search those it keeps.
+func (s *sidebar) shownNodes() []string {
+	var out []string
+	var walk func(parent string)
+	walk = func(parent string) {
+		for _, id := range s.children[parent] {
+			if s.shown != nil && !s.shown[id] {
+				continue
+			}
+			out = append(out, id)
+			if s.isBranch(id) && s.shownOpen(id) {
+				walk(id)
+			}
+		}
+	}
+	walk("")
+	return out
+}
+
+// setFilter applies the search text (the header's field).
+func (s *sidebar) setFilter(text string) {
+	text = strings.TrimSpace(text)
+	if text == s.filter {
+		return
+	}
+	s.filter = text
+	s.refilter()
+	s.tree.rebuild()
+	if text != "" {
+		s.tree.scroll.ScrollToTop() // the first matches
+	} else {
+		s.tree.reveal(s.tree.focus)
+	}
+}
+
+// refilter works out which nodes the search keeps: an item whose title holds the text (ignoring
+// case) with the groups above it, and a group whose title holds it with everything inside.
+func (s *sidebar) refilter() {
+	if s.filter == "" {
+		s.shown = nil
+		return
+	}
+	f := strings.ToLower(s.filter)
+	s.shown = map[string]bool{}
+	var visit func(id string, inMatch bool) bool
+	visit = func(id string, inMatch bool) bool {
+		match := inMatch || strings.Contains(strings.ToLower(s.titles[id]), f)
+		keep := match
+		for _, c := range s.children[id] {
+			if visit(c, match) {
+				keep = true
+			}
+		}
+		if keep {
+			s.shown[id] = true
+		}
+		return keep
+	}
+	for _, id := range s.children[""] {
+		visit(id, false)
+	}
+}
+
+// hint is the line below the root while no item shows: no cluster, or nothing matches the search.
+func (s *sidebar) hint() string {
+	switch {
+	case len(s.children[""]) == 0:
+		return "Connect a cluster to browse it."
+	case s.filter != "" && len(s.shown) == 0:
+		return "No items match “" + s.filter + "”."
+	}
+	return ""
+}
+
+// openFirstMatch opens the first view the search shows (↵ in the search field), and puts the
+// keyboard there.
+func (s *sidebar) openFirstMatch() {
+	for _, id := range s.tree.visible {
+		if id != rootNode && !s.isBranch(id) {
+			s.tree.setFocus(id)
+			s.activate(id)
+			return
+		}
 	}
 }
 
@@ -478,79 +596,3 @@ func initials(name string) string {
 	}
 	return strings.ToUpper(string(b))
 }
-
-// navItem is one row of the navigator: an icon for top-level entries and groups, and the title.
-type navItem struct {
-	widget.BaseWidget
-	title  string
-	icon   fyne.Resource
-	branch bool
-
-	img *iconImage
-	txt *canvas.Text
-}
-
-func newNavItem() *navItem {
-	n := &navItem{img: newIconImage(), txt: canvas.NewText("", color.Transparent)}
-	n.ExtendBaseWidget(n)
-	return n
-}
-
-func (n *navItem) set(title string, icon fyne.Resource, branch bool) {
-	if title == n.title && icon == n.icon && branch == n.branch {
-		return
-	}
-	n.title, n.icon, n.branch = title, icon, branch
-	n.Refresh()
-}
-
-// CreateRenderer implements fyne.Widget.
-func (n *navItem) CreateRenderer() fyne.WidgetRenderer {
-	r := &navItemRenderer{n: n}
-	r.Refresh()
-	return r
-}
-
-type navItemRenderer struct{ n *navItem }
-
-func (r *navItemRenderer) Layout(size fyne.Size) {
-	th := r.n.Theme()
-	is := th.Size(theme.SizeNameInlineIcon)
-	pad := th.Size(theme.SizeNamePadding)
-	x := float32(0)
-	if r.n.icon != nil {
-		r.n.img.img.Move(fyne.NewPos(0, (size.Height-is)/2))
-		r.n.img.img.Resize(fyne.NewSize(is, is))
-		x = is + pad*2
-	}
-	ts := r.n.txt.MinSize()
-	r.n.txt.Move(fyne.NewPos(x, (size.Height-ts.Height)/2))
-	r.n.txt.Resize(ts)
-}
-
-func (r *navItemRenderer) MinSize() fyne.Size {
-	th := r.n.Theme()
-	ts := r.n.txt.MinSize()
-	w := ts.Width
-	if r.n.icon != nil {
-		w += th.Size(theme.SizeNameInlineIcon) + th.Size(theme.SizeNamePadding)*2
-	}
-	return fyne.NewSize(w, ts.Height+2*th.Size(theme.SizeNameInnerPadding))
-}
-
-func (r *navItemRenderer) Refresh() {
-	n := r.n
-	th := n.Theme()
-	n.txt.Text = n.title
-	n.txt.TextSize = th.Size(theme.SizeNameText)
-	n.txt.Color = themeColor(th, theme.ColorNameForeground)
-	n.img.set(th, n.icon, colorMuted)
-	r.Layout(n.Size())
-	n.txt.Refresh()
-}
-
-func (r *navItemRenderer) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{r.n.img.img, r.n.txt}
-}
-
-func (r *navItemRenderer) Destroy() {}

@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-12)
 
@@ -26,6 +26,7 @@ it finds in the cluster (CPU, Memory, Network, Filesystem; ranges to 30 days hel
 hover panel with the exact values), keeps a crash report when it crashes, and lets the user switch
 the external MCP server off in the status bar.
 Since the night run (2026-10-12) a hotbar of pinned clusters in banks of twelve sits at the window's left edge (G13): engine state (`UIState.Hotbar`, nine `hotbar.*` commands, `<user config dir>/Cogpit/hotbar.json`), F1–F12 and ⇧F1–⇧F12 ([§4.3](#43-ui-state)).
+Since 2026-10-13 the navigator has Lens's header (a scope dropdown and a search), the cluster as the tree's root, "<item> - <context>" tooltips and its keyboard, in Cogpit's own tree rows ([`navigator.go`](../../internal/ui/fyneui/navigator.go); its search and keyboard are the window's, [§4.3](#43-ui-state)).
 CI runs on every push ([releasing › CI](releasing.md#ci)). The MVP doubled as the Fyne spike
 ([results](spike-fyne.md#results)). Where the code differs from the plan below, this section wins.
 
@@ -427,6 +428,14 @@ read again when the shell is built. Bounds: sidebar 160 to 480 (default 216), dr
 drawer) keeps 480 points, whichever comes first; a stored value outside the bounds, zero or not a
 number is clamped or replaced by the default, a drag is anchored to the pointer (the width is the one at the drag's start plus the pointer's total travel, clamped, so after overshooting a limit the edge stays until the pointer is back over it), and a window too narrow for the stored width shows
 the panel narrower without overwriting the stored value.
+
+**The navigator's search, keyboard row and open groups are GUI-only** (Cogpit's default,
+2026-10-13, not the owner's decision; [`navigator.go`](../../internal/ui/fyneui/navigator.go)). They
+change which views the navigator lists, not what a view shows, so, as with the panel widths, no
+command sets them and `ui_state` does not report them; an agent lists the views with `kinds_list`.
+What the navigator opens is engine state: a click, ↵ and the search's ↵ dispatch `ui.openView`. The
+tree is Cogpit's own rows (`navTree`), not Fyne's `widget.Tree`, whose rows keep their hover and
+keyboard highlight private: an item's tooltip needs the pointer, the focus ring the keyboard's row.
 
 **Why the content used to drive the drawer's width, and the rule now.** The drawer sat in a
 `container.Split` whose offset is a fraction, and a Split clamps it by the minimum sizes of its
@@ -1600,6 +1609,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | §4.3 the navigator (night run): its search, keyboard row and open groups GUI-only (Cogpit's default), its tree Cogpit's own rows; one line in Current state |
 | 2026-10-12 | minor | §4.3 the hotbar as engine state (G13, night run): `UIState.Hotbar`, the store in `hotbar.json`, `ChangeHotbar` and `HotbarView`, the GUI's bar and its F-keys; one line in Current state |
 | 2026-10-12 | minor | Current state after the fifth run's evening: crash reports, the MCP switch, the window's metrics and chart hover, the quit crash fixed |
 | 2026-10-12 | minor | §9 Prometheus in the window (G12, third slice): the variants per provider, Network and Filesystem drawn, the second series colour, byte axes in binary steps, ranges to 30 days held by the engine (`ui.setMetricsRange`, `MetricsTarget.Range`, `ui.state`'s `drawerCharts`); checked against a real Prometheus on kind, and the three faults it found fixed (the filesystem metric per kind, a node's disks only, the rate windows) |

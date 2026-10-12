@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -567,6 +567,16 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestSidebarWidthByDraggingItsEdge`, `TestPanelWidthsSurviveARestart`, `TestDrawerRebuildsToItsWidth`;
   render `TestRenderDrawerLongStatus`). Not verified: dragging with a real pointer in a window (the tests
   drive the handle's `Dragged` events), Fyne's preference file on disk across a real restart.
+- **Navigator (built 2026-10-13, night run):** the captured header (a scope dropdown and a search
+  button), the cluster as the tree's root (its initials badge, name, kubeconfig, a connection dot, ›
+  and ‹), "<item> - <context>" on every item, and the keyboard of Lens's documentation (↑↓, → and ←,
+  Tab and ⇧Tab, ↵ through `ui.openView`), the tree now Cogpit's own rows instead of Fyne's
+  ([`navigator.go`](../../internal/ui/fyneui/navigator.go), `TestNavigatorKeyboard`,
+  `TestNavigatorSearch`, [ui-parity › Layout](ui-parity.md#layout), [› Clusters](ui-parity.md#clusters)).
+  Differs from Lens: no section level, so the dropdown's "Local Kubeconfigs…" and the ‹ open the
+  context picker and the › does nothing; ⇧↵ does what ↵ does (no tabs); inferred, Cogpit's defaults:
+  the search's matching rules, ↵ on a group, Space, Home and End, a letter typed in the tree starting
+  a search. Not tried in a real window. Estimate not moved (the lead recounts).
 - **Missing:** the Fyne window layout, the cluster sidebar, the table, the detail drawer and the
   dock frame; Cogpit's Fyne theme. Needs the [spike](../developer/spike-fyne.md) to pass.
 - **Evidence:** [ui-parity](ui-parity.md), 18 of 40 rows partial across Layout, Cluster sidebar,
@@ -611,7 +621,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   the application menu, every keyboard shortcut, preferences, cluster settings, appearance and
   application integration.
 - **Evidence:** [ui-parity](ui-parity.md), 65 rows across those sections (6 more are marked not a
-  target); 7 of them partial since 2026-10-12 (the hotbar's six and the Cluster menu).
+  target); 7 of them partial since 2026-10-12 (the hotbar's six and the Cluster menu), and the
+  navigator keyboard since 2026-10-13 (⇧↵ without a fixed tab; [G5](#g5-app-shell-navigation-tables-and-drawer)'s navigator).
 - **Estimate:** 58–150 h (was 65–165; the hotbar's rows built, night run; 1–2.5 h per row, the registry makes shortcuts and menus cheap).
 
 ## Platform gaps
@@ -739,6 +750,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | G5, G13: the navigator built (night run): header, the cluster as the tree's root, item tooltips, keyboard; what differs from Lens and what is inferred; estimates not moved (the lead recounts) |
 | 2026-10-12 | minor | G7: seven create dialogs partial (Namespace, Service Account, the four RBAC kinds, Resource Quota); 3 of 39 actions missing; estimate 12–45 h (was 20–70); totals not recounted |
 | 2026-10-12 | minor | G13: the hotbar built (night run), what differs from Lens and what is inferred; estimate 58–150 h (the totals not recounted) |
 | 2026-10-12 | minor | G12: the owner's evening requirements (a status line per provider; history from Prometheus, then live values from the Metrics Server; one of the two alone only when the other fails or is missing) and the step of mixed ranges waiting for the owner; G16: the quit crash fixed |

@@ -66,6 +66,7 @@ const (
 	sizeSidebarWidth   fyne.ThemeSizeName = "cogpit.sidebarWidth"   // the navigator's width
 	sizeHotbarWidth    fyne.ThemeSizeName = "cogpit.hotbarWidth"    // the hotbar's width (hotbar.go)
 	sizeHotbarTile     fyne.ThemeSizeName = "cogpit.hotbarTile"     // a hotbar tile's square
+	sizeNavBadge       fyne.ThemeSizeName = "cogpit.navBadge"       // the cluster's badge at the navigator's root (navigator.go)
 	sizeBarHeight      fyne.ThemeSizeName = "cogpit.barHeight"      // the top bar's height
 	sizeStatusHeight   fyne.ThemeSizeName = "cogpit.statusHeight"   // the status bar's height
 	sizeStatusText     fyne.ThemeSizeName = "cogpit.statusText"     // the status bar's text
@@ -387,6 +388,8 @@ func (t *cogTheme) Size(n fyne.ThemeSizeName) float32 {
 		return 64
 	case sizeHotbarTile:
 		return 38
+	case sizeNavBadge:
+		return 28
 	case sizeBarHeight:
 		return 40
 	case sizeStatusHeight:
