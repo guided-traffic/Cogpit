@@ -107,6 +107,10 @@ malformed-input tests or fuzz targets.
 
 - Colours, sizes and paddings come from Cogpit's Fyne theme, never hard-coded in a widget.
 - Status colours come from the row's status token, not from the view.
+- The palettes are Solarized Dark and Solarized Light, copied once ([D-22](decisions.md#d-22-colour-theme),
+  [`theme.go`](../../internal/ui/fyneui/theme.go)): a new colour is a token there, in both
+  palettes, with the VS Code key it comes from or a note why it differs. Text on a surface must
+  pass the floors of `TestPaletteContrast`; add the new surface to that test.
 - Widget updates from other goroutines go through `fyne.Do`.
 - Nothing runs Fyne's theme or `fyne.CurrentApp()` at package initialisation (a package-level
   `var x = theme.SomeIcon()`): no app exists yet, Fyne logs "Attempt to access current Fyne app

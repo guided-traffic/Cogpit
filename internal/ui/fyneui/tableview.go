@@ -1105,6 +1105,9 @@ func (c *tableCell) apply() {
 	if c.content.link != nil {
 		fg = colorLink
 	}
+	if c.selected && (fg == colorLink || fg == theme.ColorNameForeground) {
+		fg = colorRowSelectedText // the plain and link colours are too faint on the selection
+	}
 	c.text.Color = themeColor(th, fg)
 	c.text.TextSize = size
 	if c.content.parts != nil && c.content.kind == cellText {

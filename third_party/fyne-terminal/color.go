@@ -203,3 +203,13 @@ func (t *Terminal) handleColorModeRGB(mode, rs, gs, bs string) {
 		t.currentBG = c
 	}
 }
+
+// SetANSIColors replaces the sixteen colours of SGR 30-37, 40-47, 90-97 and 100-107 (and of the
+// 256-colour palette's first sixteen): the eight normal colours, black to white, then the eight
+// bright ones. It is not safe to call while a Terminal exists; call it once at start-up.
+//
+// Cogpit patch: upstream's colours are fixed. Cogpit sets Solarized's (D-22).
+func SetANSIColors(c [16]color.Color) {
+	basicColors = append([]color.Color(nil), c[:8]...)
+	brightColors = append([]color.Color(nil), c[8:]...)
+}

@@ -22,21 +22,24 @@ const (
 // Cogpit's own colour tokens, beyond Fyne's. Widgets look them up through the theme so that no
 // widget decides a colour itself (docs/developer/conventions.md, UI).
 const (
-	colorTopBar       fyne.ThemeColorName = "cogpit.topBar"
-	colorStatusBar    fyne.ThemeColorName = "cogpit.statusBar"
-	colorSidebar      fyne.ThemeColorName = "cogpit.sidebar"
-	colorRowHover     fyne.ThemeColorName = "cogpit.rowHover"
-	colorRowSelected  fyne.ThemeColorName = "cogpit.rowSelected"
-	colorDrawer       fyne.ThemeColorName = "cogpit.drawer"
-	colorDrawerHeader fyne.ThemeColorName = "cogpit.drawerHeader"
-	colorDock         fyne.ThemeColorName = "cogpit.dock"
-	colorDockTab      fyne.ThemeColorName = "cogpit.dockTab"
-	colorMuted        fyne.ThemeColorName = "cogpit.muted"
-	colorAccent       fyne.ThemeColorName = "cogpit.accent"
-	colorChip         fyne.ThemeColorName = "cogpit.chip"
-	colorToast        fyne.ThemeColorName = "cogpit.toast"
-	colorLink         fyne.ThemeColorName = "cogpit.link"    // a cell or drawer value that names an object
-	colorTooltip      fyne.ThemeColorName = "cogpit.tooltip" // a tooltip's background
+	colorTopBar          fyne.ThemeColorName = "cogpit.topBar"
+	colorStatusBar       fyne.ThemeColorName = "cogpit.statusBar"
+	colorSidebar         fyne.ThemeColorName = "cogpit.sidebar"
+	colorRowHover        fyne.ThemeColorName = "cogpit.rowHover"
+	colorRowSelected     fyne.ThemeColorName = "cogpit.rowSelected"
+	colorRowSelectedText fyne.ThemeColorName = "cogpit.rowSelectedText" // text on a selected row
+	colorDrawer          fyne.ThemeColorName = "cogpit.drawer"
+	colorDrawerHeader    fyne.ThemeColorName = "cogpit.drawerHeader"
+	colorDock            fyne.ThemeColorName = "cogpit.dock"
+	colorDockTab         fyne.ThemeColorName = "cogpit.dockTab"
+	colorDockTabText     fyne.ThemeColorName = "cogpit.dockTabText" // the active tab's title
+	colorDockTabDim      fyne.ThemeColorName = "cogpit.dockTabDim"  // an inactive tab's title
+	colorMuted           fyne.ThemeColorName = "cogpit.muted"
+	colorAccent          fyne.ThemeColorName = "cogpit.accent"
+	colorChip            fyne.ThemeColorName = "cogpit.chip"
+	colorToast           fyne.ThemeColorName = "cogpit.toast"
+	colorLink            fyne.ThemeColorName = "cogpit.link"    // a cell or drawer value that names an object
+	colorTooltip         fyne.ThemeColorName = "cogpit.tooltip" // a tooltip's background
 )
 
 // Status colour tokens, one per model.Status.
@@ -77,8 +80,9 @@ const (
 	sizeHealthBar     fyne.ThemeSizeName = "cogpit.healthBar"     // a health bar's height (Workloads Overview)
 )
 
-// palette is one variant's colours. Cogpit's own choice: a blue-slate dark and a cool light, with
-// an indigo accent; status hues are spread so that no two tokens are confused at a glance.
+// palette is one variant's colours: Solarized Dark and Solarized Light as VS Code's built-in themes
+// colour them (D-22), copied here once; the comments name the VS Code key a value comes from. Status
+// hues are spread so that no two tokens are confused at a glance.
 type palette struct {
 	fyne   map[fyne.ThemeColorName]color.Color
 	status map[model.Status]color.Color
@@ -90,119 +94,131 @@ func hex(rgb uint32) color.NRGBA {
 
 func alpha(c color.NRGBA, a uint8) color.NRGBA { c.A = a; return c }
 
+// solCyan is Solarized's cyan, Cogpit's accent in the dark theme. Status tokens are Solarized's
+// accents too, lightened (dark) or darkened (light) just far enough to read as text, at 3:1 on the
+// view, sidebar, hover and header surfaces and 2.5:1 on a selected row (TestPaletteContrast).
+// Credited in ATTRIBUTION.md.
+const solCyan = 0x2aa198
+
 var darkPalette = palette{
 	fyne: map[fyne.ThemeColorName]color.Color{
-		theme.ColorNameBackground:          hex(0x15181e),
-		theme.ColorNameButton:              hex(0x242a35),
-		theme.ColorNameDisabledButton:      hex(0x1d2129),
-		theme.ColorNameDisabled:            hex(0x59616f),
-		theme.ColorNameError:               hex(0xf2555a),
-		theme.ColorNameFocus:               alpha(hex(0x7b86ff), 0x99),
-		theme.ColorNameForeground:          hex(0xd9dee7),
-		theme.ColorNameForegroundOnError:   hex(0xffffff),
-		theme.ColorNameForegroundOnPrimary: hex(0xffffff),
-		theme.ColorNameForegroundOnSuccess: hex(0x0b1f14),
-		theme.ColorNameForegroundOnWarning: hex(0x1f1405),
-		theme.ColorNameHeaderBackground:    hex(0x1b1f27),
+		theme.ColorNameBackground:          hex(0x002b36), // editor.background
+		theme.ColorNameButton:              hex(0x004052), // tab.inactiveBackground
+		theme.ColorNameDisabledButton:      hex(0x00212b),
+		theme.ColorNameDisabled:            hex(0x586e75), // base01
+		theme.ColorNameError:               hex(0xe66d6b),
+		theme.ColorNameFocus:               alpha(hex(solCyan), 0x99), // focusBorder
+		theme.ColorNameForeground:          hex(0x839496),             // editor.foreground
+		theme.ColorNameForegroundOnError:   hex(0x002b36),
+		theme.ColorNameForegroundOnPrimary: hex(0x002b36),
+		theme.ColorNameForegroundOnSuccess: hex(0x002b36),
+		theme.ColorNameForegroundOnWarning: hex(0x002b36),
+		theme.ColorNameHeaderBackground:    hex(0x003847), // activityBar.background
 		theme.ColorNameHover:               alpha(hex(0xffffff), 0x10),
-		theme.ColorNameHyperlink:           hex(0x9aa3ff),
-		theme.ColorNameInputBackground:     hex(0x0f1216),
-		theme.ColorNameInputBorder:         hex(0x2c323d),
-		theme.ColorNameMenuBackground:      hex(0x1e222b),
-		theme.ColorNameOverlayBackground:   hex(0x1a1e25),
-		theme.ColorNamePlaceHolder:         hex(0x6b7383),
+		theme.ColorNameHyperlink:           hex(solCyan),
+		theme.ColorNameInputBackground:     hex(0x003847), // input.background
+		theme.ColorNameInputBorder:         hex(0x005a6f),
+		theme.ColorNameMenuBackground:      hex(0x00212b), // dropdown.background
+		theme.ColorNameOverlayBackground:   hex(0x00212b), // editorWidget.background
+		theme.ColorNamePlaceHolder:         hex(0x718588),
 		theme.ColorNamePressed:             alpha(hex(0xffffff), 0x1c),
-		theme.ColorNamePrimary:             hex(0x6873f2),
+		theme.ColorNamePrimary:             hex(solCyan), // button.background
 		theme.ColorNameScrollBar:           alpha(hex(0xffffff), 0x40),
 		theme.ColorNameScrollBarBackground: alpha(hex(0x000000), 0x00),
-		theme.ColorNameSelection:           hex(0x29305a),
-		theme.ColorNameSeparator:           hex(0x262b34),
+		theme.ColorNameSelection:           hex(0x274642), // editor.selectionBackground
+		theme.ColorNameSeparator:           hex(0x004052),
 		theme.ColorNameShadow:              alpha(hex(0x000000), 0x66),
-		theme.ColorNameSuccess:             hex(0x3dd68c),
-		theme.ColorNameWarning:             hex(0xf5a524),
+		theme.ColorNameSuccess:             hex(0x899c08),
+		theme.ColorNameWarning:             hex(0xd97a53),
 
-		colorTopBar:       hex(0x0f1217),
-		colorStatusBar:    hex(0x0f1217),
-		colorSidebar:      hex(0x1a1e25),
-		colorRowHover:     hex(0x1e232d),
-		colorRowSelected:  hex(0x29305a),
-		colorDrawer:       hex(0x191d24),
-		colorDrawerHeader: hex(0x20252f),
-		colorDock:         hex(0x111419),
-		colorDockTab:      hex(0x1d222b),
-		colorMuted:        hex(0x8c95a6),
-		colorAccent:       hex(0x8a94ff),
-		colorChip:         hex(0x262c38),
-		colorToast:        hex(0x232834),
-		colorLink:         hex(0x9aa3ff),
-		colorTooltip:      hex(0x2b313d),
+		colorTopBar:          hex(0x002c39), // titleBar.activeBackground
+		colorStatusBar:       hex(0x00212b), // statusBar.background
+		colorSidebar:         hex(0x00212b), // sideBar.background
+		colorRowHover:        hex(0x003a4a), // list.hoverBackground #004454aa over the background
+		colorRowSelected:     hex(0x005a6f), // list.activeSelectionBackground
+		colorRowSelectedText: hex(0xeee8d5), // base2: the foreground is too faint on the selection
+		colorDrawer:          hex(0x00212b),
+		colorDrawerHeader:    hex(0x003847),
+		colorDock:            hex(0x004052), // tab.inactiveBackground, the strip behind the tabs
+		colorDockTab:         hex(0x002b37), // tab.activeBackground
+		colorDockTabText:     hex(0xd6dbdb), // tab.activeForeground
+		colorDockTabDim:      hex(0x93a1a1), // base1
+		colorMuted:           hex(0x718588),
+		colorAccent:          hex(solCyan),
+		colorChip:            hex(0x004052),
+		colorToast:           hex(0x003847),
+		colorLink:            hex(solCyan),
+		colorTooltip:         hex(0x003847), // editorHoverWidget.background #004052 is 3.6:1 under the text
 	},
 	status: map[model.Status]color.Color{
-		model.StatusOK:          hex(0x3dd68c),
-		model.StatusSucceeded:   hex(0x2bc4b4),
-		model.StatusPending:     hex(0xf2c14e),
-		model.StatusWarning:     hex(0xf28c38),
-		model.StatusError:       hex(0xf2555a),
-		model.StatusTerminating: hex(0xb67cf2),
-		model.StatusUnknown:     hex(0x8c95a6),
+		model.StatusOK:          hex(0x899c08), // green #859900
+		model.StatusSucceeded:   hex(0x4099d7), // blue #268bd2
+		model.StatusPending:     hex(0xb78d08), // yellow #b58900
+		model.StatusWarning:     hex(0xd97a53), // orange #cb4b16
+		model.StatusError:       hex(0xe66d6b), // red #dc322f
+		model.StatusTerminating: hex(0x898dd0), // violet #6c71c4
+		model.StatusUnknown:     hex(0x84959c), // base00 #657b83
 	},
 }
 
 var lightPalette = palette{
 	fyne: map[fyne.ThemeColorName]color.Color{
-		theme.ColorNameBackground:          hex(0xffffff),
-		theme.ColorNameButton:              hex(0xeceff4),
-		theme.ColorNameDisabledButton:      hex(0xf1f3f6),
-		theme.ColorNameDisabled:            hex(0xa3aab8),
-		theme.ColorNameError:               hex(0xd93a3f),
-		theme.ColorNameFocus:               alpha(hex(0x4f5bd5), 0x88),
-		theme.ColorNameForeground:          hex(0x1e2430),
-		theme.ColorNameForegroundOnError:   hex(0xffffff),
-		theme.ColorNameForegroundOnPrimary: hex(0xffffff),
-		theme.ColorNameForegroundOnSuccess: hex(0xffffff),
-		theme.ColorNameForegroundOnWarning: hex(0x1f1405),
-		theme.ColorNameHeaderBackground:    hex(0xf5f7fa),
+		theme.ColorNameBackground:          hex(0xfdf6e3), // editor.background
+		theme.ColorNameButton:              hex(0xddd6c1), // activityBar.background
+		theme.ColorNameDisabledButton:      hex(0xeee8d5),
+		theme.ColorNameDisabled:            hex(0x93a1a1), // base1
+		theme.ColorNameError:               hex(0xdc322f),
+		theme.ColorNameFocus:               alpha(hex(0x1f7f78), 0x99),
+		theme.ColorNameForeground:          hex(0x586e75), // sideBarTitle.foreground; editor.foreground #657b83 is 4.1:1 on the background
+		theme.ColorNameForegroundOnError:   hex(0xfdf6e3),
+		theme.ColorNameForegroundOnPrimary: hex(0xfdf6e3),
+		theme.ColorNameForegroundOnSuccess: hex(0xfdf6e3),
+		theme.ColorNameForegroundOnWarning: hex(0xfdf6e3),
+		theme.ColorNameHeaderBackground:    hex(0xddd6c1), // activityBar.background
 		theme.ColorNameHover:               alpha(hex(0x000000), 0x0c),
-		theme.ColorNameHyperlink:           hex(0x4f5bd5),
-		theme.ColorNameInputBackground:     hex(0xffffff),
-		theme.ColorNameInputBorder:         hex(0xcdd3dd),
-		theme.ColorNameMenuBackground:      hex(0xffffff),
-		theme.ColorNameOverlayBackground:   hex(0xffffff),
-		theme.ColorNamePlaceHolder:         hex(0x8a92a3),
+		theme.ColorNameHyperlink:           hex(0x1b6761),
+		theme.ColorNameInputBackground:     hex(0xddd6c1), // input.background
+		theme.ColorNameInputBorder:         hex(0xd3af86), // dropdown.border
+		theme.ColorNameMenuBackground:      hex(0xeee8d5), // dropdown.background
+		theme.ColorNameOverlayBackground:   hex(0xeee8d5), // editorWidget.background
+		theme.ColorNamePlaceHolder:         hex(0x657b83),
 		theme.ColorNamePressed:             alpha(hex(0x000000), 0x17),
-		theme.ColorNamePrimary:             hex(0x4f5bd5),
+		theme.ColorNamePrimary:             hex(0x1f7f78), // cyan, darkened to carry the base3 text
 		theme.ColorNameScrollBar:           alpha(hex(0x000000), 0x40),
 		theme.ColorNameScrollBarBackground: alpha(hex(0x000000), 0x00),
-		theme.ColorNameSelection:           hex(0xdfe3ff),
-		theme.ColorNameSeparator:           hex(0xe3e7ee),
+		theme.ColorNameSelection:           hex(0xdfca88), // list.activeSelectionBackground
+		theme.ColorNameSeparator:           hex(0xddd6c1),
 		theme.ColorNameShadow:              alpha(hex(0x000000), 0x2e),
-		theme.ColorNameSuccess:             hex(0x1f9d5c),
-		theme.ColorNameWarning:             hex(0xc77700),
+		theme.ColorNameSuccess:             hex(0x6e7f00),
+		theme.ColorNameWarning:             hex(0xcb4b16),
 
-		colorTopBar:       hex(0xeceff4),
-		colorStatusBar:    hex(0xeceff4),
-		colorSidebar:      hex(0xf4f6f9),
-		colorRowHover:     hex(0xf1f4f9),
-		colorRowSelected:  hex(0xe2e6ff),
-		colorDrawer:       hex(0xfbfcfd),
-		colorDrawerHeader: hex(0xf0f2f6),
-		colorDock:         hex(0xf6f7f9),
-		colorDockTab:      hex(0xffffff),
-		colorMuted:        hex(0x5c6578),
-		colorAccent:       hex(0x4f5bd5),
-		colorChip:         hex(0xeceff4),
-		colorToast:        hex(0xffffff),
-		colorLink:         hex(0x4f5bd5),
-		colorTooltip:      hex(0xfdfdfe),
+		colorTopBar:          hex(0xeee8d5), // titleBar.activeBackground
+		colorStatusBar:       hex(0xeee8d5), // statusBar.background
+		colorSidebar:         hex(0xeee8d5), // sideBar.background
+		colorRowHover:        hex(0xf5eacb), // list.hoverBackground #dfca8844 over the background
+		colorRowSelected:     hex(0xdfca88), // list.activeSelectionBackground
+		colorRowSelectedText: hex(0x073642), // base02
+		colorDrawer:          hex(0xeee8d5),
+		colorDrawerHeader:    hex(0xddd6c1),
+		colorDock:            hex(0xddd6c1), // the strip behind the tabs (tab.inactiveBackground #d3cbb7 is 3.3:1 under its text)
+		colorDockTab:         hex(0xfdf6e3), // tab.activeBackground
+		colorDockTabText:     hex(0x586e75),
+		colorDockTabDim:      hex(0x586e75), // tab.inactiveForeground
+		colorMuted:           hex(0x657b83),
+		colorAccent:          hex(0x1f7f78),
+		colorChip:            hex(0xddd6c1),
+		colorToast:           hex(0xeee8d5),
+		colorLink:            hex(0x1b6761),
+		colorTooltip:         hex(0xeee8d5), // editorHoverWidget.background #ccc4b0 is 3.1:1 under the text
 	},
 	status: map[model.Status]color.Color{
-		model.StatusOK:          hex(0x1f9d5c),
-		model.StatusSucceeded:   hex(0x0f8f86),
-		model.StatusPending:     hex(0xb88400),
-		model.StatusWarning:     hex(0xd2691e),
-		model.StatusError:       hex(0xd93a3f),
-		model.StatusTerminating: hex(0x8a4fd8),
-		model.StatusUnknown:     hex(0x6b7383),
+		model.StatusOK:          hex(0x6e7f00), // green #859900
+		model.StatusSucceeded:   hex(0x237ebf), // blue #268bd2
+		model.StatusPending:     hex(0x987300), // yellow #b58900
+		model.StatusWarning:     hex(0xcb4b16), // orange
+		model.StatusError:       hex(0xdc322f), // red
+		model.StatusTerminating: hex(0x6c71c4), // violet
+		model.StatusUnknown:     hex(0x657b83), // base00
 	},
 }
 

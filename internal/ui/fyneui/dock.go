@@ -406,10 +406,12 @@ func (r *tabButtonRenderer) Refresh() {
 	th := b.Theme()
 	if b.active {
 		b.bg.FillColor = themeColor(th, colorDockTab)
+		b.txt.SetColor(colorDockTabText)
 		b.under.FillColor = themeColor(th, colorAccent)
 		b.img.set(th, b.icon, colorAccent)
 	} else {
 		b.bg.FillColor = color.Transparent
+		b.txt.SetColor(colorDockTabDim)
 		b.under.FillColor = color.Transparent
 		b.img.set(th, b.icon, colorMuted)
 	}

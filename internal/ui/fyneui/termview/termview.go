@@ -11,6 +11,7 @@ package termview
 import (
 	"errors"
 	"fmt"
+	"image/color"
 	"io"
 	"log/slog"
 	"math"
@@ -25,8 +26,25 @@ import (
 	"github.com/guided-traffic/cogpit/internal/terminal"
 )
 
-// sessionEndedNotice is written into the terminal after the session's last output.
-const sessionEndedNotice = "\r\n\x1b[90m[session ended]\x1b[0m\r\n"
+func hexColor(rgb uint32) color.Color {
+	return color.NRGBA{R: uint8(rgb >> 16), G: uint8(rgb >> 8), B: uint8(rgb), A: 0xff}
+}
+
+// init gives the terminal Solarized's sixteen colours (D-22): VS Code's terminal.ansi* of
+// Solarized Dark and Light, which are the same sixteen in both. The terminal's default text and
+// background come from the theme.
+func init() {
+	fyneterm.SetANSIColors([16]color.Color{
+		hexColor(0x073642), hexColor(0xdc322f), hexColor(0x859900), hexColor(0xb58900),
+		hexColor(0x268bd2), hexColor(0xd33682), hexColor(0x2aa198), hexColor(0xeee8d5),
+		hexColor(0x002b36), hexColor(0xcb4b16), hexColor(0x586e75), hexColor(0x657b83),
+		hexColor(0x839496), hexColor(0x6c71c4), hexColor(0x93a1a1), hexColor(0xfdf6e3),
+	})
+}
+
+// sessionEndedNotice is written into the terminal after the session's last output, in bright
+// yellow, which is Solarized's base00 grey (bright black is the dark theme's background).
+const sessionEndedNotice = "\r\n\x1b[93m[session ended]\x1b[0m\r\n"
 
 // Terminal shows one terminal session.
 //

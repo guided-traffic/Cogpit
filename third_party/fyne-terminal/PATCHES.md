@@ -35,6 +35,12 @@ before the owner's OK); drop the fork once upstream has equivalent fixes ([D-14]
 |---|---|
 | `escape.go` | 2026-10-12: insert lines (`CSI L`) of more than one line blanks them; the copying loop stopped at `cursorRow-rows+1` instead of `cursorRow+rows-1` and copied the lines above the cursor into them (`CSI 2 L` on the second of lines 1 to 5 showed 1, blank, 1, 2, 3). Not a crash: found while bounding the count |
 
+## Additions
+
+| File | Patch |
+|---|---|
+| `color.go` | 2026-10-12: `SetANSIColors` replaces the sixteen ANSI colours; Cogpit sets Solarized's ([D-22](../../docs/developer/decisions.md#d-22-colour-theme)) from `termview`'s `init`, before any terminal exists. Upstream's colours stay the default |
+
 ## Data races (H-19)
 
 Fyne's desktop driver runs `fyne.Do` on its main goroutine; the widget parses output on the

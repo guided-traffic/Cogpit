@@ -1,7 +1,9 @@
 package fyneui
 
 import (
+	"fmt"
 	"image/color"
+	"math"
 	"testing"
 	"time"
 
@@ -136,5 +138,72 @@ func TestFormatCountAndEllipsize(t *testing.T) {
 	short := ellipsize(long, w/2, 13, fyne.TextStyle{})
 	if len(short) >= len(long) || short[len(short)-len("…"):] != "…" || fyne.MeasureText(short, 13, fyne.TextStyle{}).Width > w/2 {
 		t.Errorf("ellipsize to half width gave %q", short)
+	}
+}
+
+// lum and contrastRatio are WCAG 2's relative luminance and contrast ratio.
+func lum(c color.Color) float64 {
+	n := color.NRGBAModel.Convert(c).(color.NRGBA)
+	lin := func(b uint8) float64 {
+		v := float64(b) / 255
+		if v <= 0.03928 {
+			return v / 12.92
+		}
+		return math.Pow((v+0.055)/1.055, 2.4)
+	}
+	return 0.2126*lin(n.R) + 0.7152*lin(n.G) + 0.0722*lin(n.B)
+}
+
+func contrastRatio(a, b color.Color) float64 {
+	la, lb := lum(a), lum(b)
+	if la < lb {
+		la, lb = lb, la
+	}
+	return (la + 0.05) / (lb + 0.05)
+}
+
+// TestPaletteContrast: D-22 copies Solarized's colours, which are low in contrast by design; the
+// tokens that carry text stay readable on the surfaces they are drawn on (WCAG: 4.5:1 for body
+// text, 3:1 for de-emphasised text and for status colours, 2.5:1 for a status colour on a selected
+// row, which is transient).
+func TestPaletteContrast(t *testing.T) {
+	for name, p := range map[string]*palette{"dark": &darkPalette, "light": &lightPalette} {
+		c := func(n fyne.ThemeColorName) color.Color { return p.fyne[n] }
+		// Minimum contrast of the foreground per surface: Solarized's own floor is about 4.4:1 on its
+		// panels, so the large panels ask 4.3 and the small, transient ones 3.5.
+		surfaces := map[fyne.ThemeColorName]float64{
+			theme.ColorNameBackground: 4.5, colorSidebar: 4.3, colorDrawer: 4.3, colorStatusBar: 4.3,
+			colorTopBar: 4.3, theme.ColorNameMenuBackground: 4.3,
+			theme.ColorNameHeaderBackground: 3.5, colorRowHover: 3.5, theme.ColorNameInputBackground: 3.5,
+			colorToast: 3.5, colorTooltip: 3.5,
+		}
+		check := func(what string, fg color.Color, bg fyne.ThemeColorName, min float64) {
+			t.Helper()
+			if got := contrastRatio(fg, c(bg)); got < min {
+				t.Errorf("%s: %s on %s is %.2f:1, want %.1f:1", name, what, bg, got, min)
+			}
+		}
+		for bg, min := range surfaces {
+			check("foreground", c(theme.ColorNameForeground), bg, min)
+			check("muted", c(colorMuted), bg, 2.9)
+			check("link", c(colorLink), bg, 3.0)
+			for s := range p.status {
+				if s == model.StatusUnknown {
+					continue
+				}
+				check(fmt.Sprintf("status %s", s), p.status[s], bg, 3.0)
+			}
+		}
+		for s, col := range p.status {
+			check(fmt.Sprintf("status %s", s), col, colorRowSelected, 2.5)
+		}
+		check("selected row text", c(colorRowSelectedText), colorRowSelected, 4.5)
+		check("active tab", c(colorDockTabText), colorDockTab, 4.5)
+		check("inactive tab", c(colorDockTabDim), colorDock, 3.5)
+		check("text on primary", c(theme.ColorNameForegroundOnPrimary), theme.ColorNamePrimary, 4.4)
+		check("text on error", c(theme.ColorNameForegroundOnError), theme.ColorNameError, 3.5)
+		check("text on success", c(theme.ColorNameForegroundOnSuccess), theme.ColorNameSuccess, 3.5)
+		check("text on warning", c(theme.ColorNameForegroundOnWarning), theme.ColorNameWarning, 3.5)
+		check("placeholder", c(theme.ColorNamePlaceHolder), theme.ColorNameInputBackground, 3.0)
 	}
 }

@@ -505,8 +505,24 @@ directly as Lens's menu item does.
 from VS Code at run time (which would tie Cogpit to VS Code's files and to themes whose colours
 need not suit Cogpit's status tokens). Source: VS Code's `theme-solarized-dark` and
 `theme-solarized-light` (MIT; the palette is Ethan Schoonover's Solarized, MIT), credited in
-`ATTRIBUTION.md` when the colours land. Not built yet. The mapping read from Solarized Dark
-(2026-10-12; Solarized Light's file gives the light values the same way):
+`ATTRIBUTION.md`. **Built 2026-10-12** in [`theme.go`](../../internal/ui/fyneui/theme.go) (each
+value carries a comment naming its VS Code key) and, for the terminal's sixteen colours, in
+[`termview.go`](../../internal/ui/fyneui/termview/termview.go) through a patch to the terminal
+widget ([PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)). Where Solarized's own contrast
+is too low for text, the build departs from the table, always in the direction of legibility, and
+`TestPaletteContrast` holds the floors: the light foreground is `sideBarTitle.foreground`
+(#586E75) because `editor.foreground` (#657B83) is 4.1:1 on the light view; the light accent,
+buttons and focus are a darkened cyan (#1F7F78, links #1B6761) instead of the light file's tan
+`focusBorder` and olive `button.background`, to match the cyan of the logo and carry text; status
+tokens are the accents lightened (dark) or darkened (light) until they read at 3:1 on the views,
+the navigator, the hover row and the header, and at 2.5:1 on a selected row; the text of a selected
+row is base2 (dark) or base02 (light), a new token, because the foreground is 2.4:1 on
+#005A6F; the dark tooltip and toast are #003847 and the light ones #EEE8D5 where VS Code's hover
+widget colours (#004052, #CCC4B0) are 3.6:1 and 3.1:1 under the text; the light dock strip is
+#DDD6C1. The two dark terminal colours black and bright black (#073642, #002B36) are VS Code's,
+and bright black is invisible on the dark view (the session-ended notice therefore uses bright
+yellow, #657B83). The mapping read from Solarized Dark (2026-10-12; Solarized Light's file gives
+the light values the same way):
 
 | Cogpit surface | VS Code key | Solarized Dark |
 |---|---|---|
