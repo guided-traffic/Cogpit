@@ -220,15 +220,18 @@ func (s *sidebar) updateHeader() {
 		s.subtitle.SetText("")
 		return
 	}
-	s.badge.Set(initials(ui.Context), colorAccent)
-	s.name.SetText(ui.Context)
+	name, file := splitContextID(ui.Context)
+	s.badge.Set(initials(name), colorAccent)
+	s.name.SetText(name)
 	switch {
 	case ui.Connection.Demo:
 		s.subtitle.SetText("Synthetic demo cluster")
-	case ui.Connection.State == engine.Connected:
-		s.subtitle.SetText("Kubernetes cluster")
-	default:
+	case ui.Connection.State != engine.Connected:
 		s.subtitle.SetText(connectionText(ui.Connection))
+	case file != "":
+		s.subtitle.SetText(file) // the kubeconfig the context comes from (D-28: every context has one)
+	default:
+		s.subtitle.SetText("Kubernetes cluster")
 	}
 }
 

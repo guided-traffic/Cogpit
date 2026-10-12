@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -54,6 +55,7 @@ type topBar struct {
 	sh          *shell
 	dot         *dot
 	context     *textLine
+	file        *textLine // the kubeconfig the context comes from, muted
 	state       *textLine
 	switchB     *widget.Button
 	mcp         *widget.Button
@@ -67,6 +69,8 @@ func newTopBar(sh *shell) *topBar {
 	t := &topBar{sh: sh}
 	t.dot = newDot(statusColorName(model.StatusUnknown))
 	t.context = newTextLine("", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
+	t.file = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
+	t.file.Hide()
 	t.state = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	t.switchB = widget.NewButtonWithIcon("Switch context", theme.MenuDropDownIcon(), func() { sh.picker.show() })
 	t.switchB.IconPlacement = widget.ButtonIconTrailingText
@@ -76,7 +80,7 @@ func newTopBar(sh *shell) *topBar {
 	t.lead = canvas.NewRectangle(color.Transparent)
 	t.lead.Hide()
 	t.left = container.NewHBox(t.lead, newLogo(), wordmark, newHGap(theme.SizeNameInnerPadding), newDivider(true),
-		newHGap(theme.SizeNameInnerPadding), t.dot, t.context, t.state, t.switchB)
+		newHGap(theme.SizeNameInnerPadding), t.dot, t.context, t.file, t.state, t.switchB)
 	right := container.NewHBox()
 	if sh.opts.MCPCommand != "" {
 		t.mcp = widget.NewButtonWithIcon("MCP", theme.ContentCopyIcon(), sh.copyMCPCommand)
@@ -91,12 +95,28 @@ func newTopBar(sh *shell) *topBar {
 func (t *topBar) update() {
 	ui := t.sh.ui
 	t.dot.SetColor(connectionColor(ui.Connection))
-	if ui.Context == "" {
-		t.context.SetText("No cluster")
+	name, file := splitContextID(ui.Context)
+	if name == "" {
+		name = "No cluster"
+	}
+	t.context.SetText(name)
+	t.file.SetText(file)
+	if file == "" {
+		t.file.Hide()
 	} else {
-		t.context.SetText(ui.Context)
+		t.file.Show()
 	}
 	t.state.SetText(connectionText(ui.Connection))
+}
+
+// splitContextID splits a source context's id, "<context> [<file>]" (engine.SourceContextID), into
+// the context's name and the file it comes from, so that the bars show the name and the file apart;
+// an id without a file (demo) is a name alone.
+func splitContextID(id string) (name, file string) {
+	if i := strings.LastIndex(id, " ["); i > 0 && strings.HasSuffix(id, "]") {
+		return id[:i], id[i+2 : len(id)-1]
+	}
+	return id, ""
 }
 
 // newLogo draws Cogpit's mark, the "C helm" of D-24: an open C around a ship's wheel, in the heavy
