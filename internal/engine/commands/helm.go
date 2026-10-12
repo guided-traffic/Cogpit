@@ -77,10 +77,8 @@ func registerHelm(g *registrar) {
 			}
 			return p, nil
 		},
-		Detail: func(_ *engine.Session, p rollbackParams) string {
-			return fmt.Sprintf("The release's objects are changed to revision %d's manifest.", p.Revision)
-		},
-		Run: runRollback,
+		Detail: func(_ *engine.Session, p rollbackParams) string { return RollbackDetail(p.Revision) },
+		Run:    runRollback,
 	})
 
 	add(g, engine.Spec[refParams]{
@@ -182,6 +180,12 @@ func helmWritable(s *engine.Session, ref model.ObjectRef) error {
 		return fmt.Errorf("a Helm action on release %s is running", ref.Name)
 	}
 	return nil
+}
+
+// RollbackDetail is a rollback's confirmation detail, which names the revision it rolls back to:
+// the GUI's Rollback dialog binds its answer to it.
+func RollbackDetail(revision int) string {
+	return fmt.Sprintf("The release's objects are changed to revision %d's manifest.", revision)
 }
 
 // previousRevision is the revision a rollback dialog starts with: the newest one before the

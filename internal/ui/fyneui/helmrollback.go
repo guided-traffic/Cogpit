@@ -130,8 +130,10 @@ func (sh *shell) showRollbackDialog(h releaseHistory) *rollbackDialog {
 			return
 		}
 		rd.d.Hide()
-		sh.confirmer.confirmedByDialog(rollbackCommand, h.Ref, h.UID)
-		sh.dispatch(rollbackCommand, helmRollbackParams{refParams: refParams{Ref: h.Ref}, Revision: rev}, nil)
+		answer := sh.confirmer.confirmedByDialog(rollbackCommand, h.Ref, h.UID, rollbackDetail(rev))
+		sh.dispatch(rollbackCommand, helmRollbackParams{refParams: refParams{Ref: h.Ref}, Revision: rev}, func(any, error) {
+			sh.confirmer.dropDialogAnswer(answer) // unused when the dispatch failed before it was asked
+		})
 	}
 	if d := sh.confirmer.armDelay; d > 0 { // as the confirmation dialog: a stray click must not roll back
 		time.AfterFunc(d, func() { sh.do(func() { armed = true; enable() }) })
@@ -150,7 +152,15 @@ type dialogConfirmation struct {
 	command string
 	ref     model.ObjectRef
 	uid     string
+	detail  string // the confirmation's detail, which names what the dialog chose (the revision)
 	until   time.Time
+}
+
+// rollbackDetail is the engine's confirmation detail of a rollback to revision (the engine's
+// commands.RollbackDetail; TestRollbackDialogAnswerBinding keeps them equal). Were they to differ,
+// the dialog's answer would match no request and the user would be asked again: safe.
+func rollbackDetail(revision int) string {
+	return fmt.Sprintf("The release's objects are changed to revision %d's manifest.", revision)
 }
 
 // dialogAnswers holds the guiConfirmer's dialog answer; one at a time, the last one wins.
@@ -164,22 +174,34 @@ type dialogAnswers struct {
 var errMovedWhileOpen = errors.New("the release moved to another revision while the dialog was open; nothing was done")
 
 // confirmedByDialog records that the user confirmed command on ref, at the object's uid as the
-// dialog showed it.
-func (c *guiConfirmer) confirmedByDialog(command string, ref model.ObjectRef, uid string) {
+// dialog showed it, with the confirmation detail that names the choice; it returns the answer for
+// dropDialogAnswer.
+func (c *guiConfirmer) confirmedByDialog(command string, ref model.ObjectRef, uid, detail string) *dialogConfirmation {
 	c.answers.mu.Lock()
 	defer c.answers.mu.Unlock()
-	c.answers.c = &dialogConfirmation{command: command, ref: ref, uid: uid, until: time.Now().Add(dialogConfirmWindow)}
+	c.answers.c = &dialogConfirmation{command: command, ref: ref, uid: uid, detail: detail, until: time.Now().Add(dialogConfirmWindow)}
+	return c.answers.c
+}
+
+// dropDialogAnswer forgets answer if no confirmation took it: its dispatch ended, so it must not
+// confirm another one in its window.
+func (c *guiConfirmer) dropDialogAnswer(answer *dialogConfirmation) {
+	c.answers.mu.Lock()
+	defer c.answers.mu.Unlock()
+	if c.answers.c == answer {
+		c.answers.c = nil
+	}
 }
 
 // takeDialogAnswer answers a confirmation from a dialog the user already answered: handled is
-// false when no dialog answer matches the request (another command, origin, object or context, or
-// too late), and the confirmer asks as usual. A matching answer is used once.
+// false when no dialog answer matches the request (another command, origin, object, context or
+// choice, or too late), and the confirmer asks as usual. A matching answer is used once.
 func (c *guiConfirmer) takeDialogAnswer(req engine.ConfirmRequest) (ok, handled bool, err error) {
 	c.answers.mu.Lock()
 	defer c.answers.mu.Unlock()
 	a := c.answers.c
 	if a == nil || time.Now().After(a.until) || req.Command != a.command || req.Origin != engine.OriginGUI ||
-		req.Context != a.ref.Context || len(req.Objects) != 1 || !sameObject(req.Objects[0], a.ref) {
+		req.Context != a.ref.Context || len(req.Objects) != 1 || !sameObject(req.Objects[0], a.ref) || req.Detail != a.detail {
 		return false, false, nil
 	}
 	c.answers.c = nil

@@ -3,6 +3,7 @@ package fyneui
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -15,6 +16,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/engine/commands"
 	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
@@ -193,7 +195,8 @@ func TestRollbackDialogConfirms(t *testing.T) {
 		var p helmRollbackParams
 		_ = json.Unmarshal(normalize(inv.Params), &p)
 		req := engine.ConfirmRequest{Command: inv.ID, Label: "Rollback", Danger: engine.DangerDestructive, Origin: inv.Origin,
-			Context: "demo", Namespaces: []string{p.Ref.Namespace}, Objects: []model.ObjectRef{p.Ref}, UIDs: []string{"uid-ingress-nginx-sh.helm.release.v1.ingress-nginx.v4"}}
+			Context: "demo", Namespaces: []string{p.Ref.Namespace}, Objects: []model.ObjectRef{p.Ref}, UIDs: []string{"uid-ingress-nginx-sh.helm.release.v1.ingress-nginx.v4"},
+			Detail: commands.RollbackDetail(p.Revision)}
 		ok, err := sh.confirmer.Confirm(ctx, req)
 		mu.Lock()
 		asked = append(asked, req)
@@ -228,17 +231,19 @@ func TestRollbackDialogConfirms(t *testing.T) {
 
 	// The release moved while the dialog was open: refused, not asked again.
 	ref := *sh.drawer.shown
-	sh.confirmer.confirmedByDialog(rollbackCommand, ref, "uid-of-revision-3")
-	req := engine.ConfirmRequest{Command: rollbackCommand, Origin: engine.OriginGUI, Context: ref.Context, Objects: []model.ObjectRef{ref}, UIDs: []string{"uid-now"}}
+	sh.confirmer.confirmedByDialog(rollbackCommand, ref, "uid-of-revision-3", rollbackDetail(2))
+	req := engine.ConfirmRequest{Command: rollbackCommand, Origin: engine.OriginGUI, Context: ref.Context, Objects: []model.ObjectRef{ref}, UIDs: []string{"uid-now"},
+		Detail: rollbackDetail(2)}
 	if ok, handled, err := sh.confirmer.takeDialogAnswer(req); !handled || ok || err == nil {
 		t.Errorf("moved: ok %v handled %v err %v", ok, handled, err)
 	}
 	// An agent's request, or another command, is never answered by the dialog.
-	sh.confirmer.confirmedByDialog(rollbackCommand, ref, "uid-now")
+	sh.confirmer.confirmedByDialog(rollbackCommand, ref, "uid-now", rollbackDetail(2))
 	for _, other := range []engine.ConfirmRequest{
-		{Command: rollbackCommand, Origin: engine.OriginExternalAgent, Context: ref.Context, Objects: []model.ObjectRef{ref}, UIDs: []string{"uid-now"}},
-		{Command: "helm.release.uninstall", Origin: engine.OriginGUI, Context: ref.Context, Objects: []model.ObjectRef{ref}, UIDs: []string{"uid-now"}},
-		{Command: rollbackCommand, Origin: engine.OriginGUI, Context: "elsewhere", Objects: []model.ObjectRef{ref}, UIDs: []string{"uid-now"}},
+		{Command: rollbackCommand, Origin: engine.OriginExternalAgent, Context: ref.Context, Objects: []model.ObjectRef{ref}, UIDs: []string{"uid-now"}, Detail: rollbackDetail(2)},
+		{Command: "helm.release.uninstall", Origin: engine.OriginGUI, Context: ref.Context, Objects: []model.ObjectRef{ref}, UIDs: []string{"uid-now"}, Detail: rollbackDetail(2)},
+		{Command: rollbackCommand, Origin: engine.OriginGUI, Context: "elsewhere", Objects: []model.ObjectRef{ref}, UIDs: []string{"uid-now"}, Detail: rollbackDetail(2)},
+		{Command: rollbackCommand, Origin: engine.OriginGUI, Context: ref.Context, Objects: []model.ObjectRef{ref}, UIDs: []string{"uid-now"}, Detail: rollbackDetail(1)},
 	} {
 		if _, handled, _ := sh.confirmer.takeDialogAnswer(other); handled {
 			t.Errorf("answered %+v", other)
@@ -249,6 +254,46 @@ func TestRollbackDialogConfirms(t *testing.T) {
 	}
 	if _, handled, _ := sh.confirmer.takeDialogAnswer(req); handled {
 		t.Error("a dialog's answer was used twice")
+	}
+}
+
+// The Rollback dialog's answer names the revision the user picked, in the engine's own words, and
+// is dropped when its dispatch ends without taking it (refused before the confirmation), so it
+// confirms no other rollback in its window (review of the fourth run, R-3).
+func TestRollbackDialogAnswerBinding(t *testing.T) {
+	if got, want := rollbackDetail(7), commands.RollbackDetail(7); got != want {
+		t.Fatalf("the dialog's detail %q is not the engine's %q", got, want)
+	}
+	sh, _, q, f, _ := releaseDrawerShell(t, ThemeDark)
+	var mu sync.Mutex
+	done := false
+	f.handlers["helm.release.rollback"] = func(context.Context, engine.Invocation) (any, error) {
+		mu.Lock()
+		done = true
+		mu.Unlock()
+		return nil, errors.New("release ingress-nginx is pending-upgrade") // refused before any confirmation
+	}
+	var rd *rollbackDialog
+	sh.dispatch("helm.release.history", refParams{Ref: *sh.drawer.shown}, func(res any, err error) {
+		var h releaseHistory
+		if err == nil && decode(res, &h) == nil {
+			rd = sh.showRollbackDialog(h)
+		}
+	})
+	q.until(t, "the dialog", func() bool { return rd != nil })
+	rd.revision.SetSelectedIndex(2)
+	test.Tap(rd.confirm)
+	q.until(t, "the refused rollback", func() bool { mu.Lock(); defer mu.Unlock(); return done })
+	ref := *sh.drawer.shown
+	req := engine.ConfirmRequest{Command: rollbackCommand, Origin: engine.OriginGUI, Context: ref.Context, Objects: []model.ObjectRef{ref},
+		UIDs: []string{"uid-ingress-nginx-sh.helm.release.v1.ingress-nginx.v4"}, Detail: rollbackDetail(2)}
+	q.until(t, "the answer dropped", func() bool {
+		sh.confirmer.answers.mu.Lock()
+		defer sh.confirmer.answers.mu.Unlock()
+		return sh.confirmer.answers.c == nil
+	})
+	if _, handled, _ := sh.confirmer.takeDialogAnswer(req); handled {
+		t.Error("the refused rollback's answer confirmed another request")
 	}
 }
 

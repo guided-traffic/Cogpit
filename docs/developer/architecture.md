@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, §8) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-11)
 
@@ -941,8 +941,11 @@ Where it differs from the contract above, this paragraph wins.
   (a REVISION dropdown, newest first, the current one selected) names the release, its namespace and
   its context, and when the user picks Rollback hands the confirmer the newest release Secret's UID
   it showed; the engine's confirmation of exactly that command, from the GUI origin, on that release
-  and context, within ten seconds, takes that answer instead of a second dialog, and one whose UID
-  differs (the release moved while the dialog was open) is refused. Agents' requests carry their own
+  and context, for the revision the user picked (the confirmation's detail names it,
+  `commands.RollbackDetail`), within ten seconds, takes that answer instead of a second dialog, and
+  one whose UID differs (the release moved while the dialog was open) is refused. The answer is
+  dropped when its dispatch ends without taking it (refused before the confirmation), so it confirms
+  no other rollback in its window (R-3 of the fourth run's review). Agents' requests carry their own
   origin and never match. The banner's and the agents' rollbacks are confirmed as before.
 
 ## 9. Metrics (`internal/metrics`)
@@ -1030,6 +1033,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Review of the fourth run, fixed (§8): an upgrade from a tab bound to the tab's text revision (R-2); upgrade and rollback checked against the server's newest revision, not only the cache's (R-1); values scrubbed in their quoted forms (R-4); the Rollback dialog's answer bound to the picked revision and dropped after its dispatch (R-3) |
 | 2026-10-12 | minor | §10: the patched terminal widget's two goroutines (parser on the reading one, screen and state on the main one) and its fuzz targets |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5); the View menu and Refresh Access Reviews in the GUI (§4.2); live related-objects indexes shared with the drawer's fetches, the cluster-role rule on `Listed`, `ui.navigate`'s filter check with related cells (§4.4); workload logs resume dropped streams and forget ended instances (§4.4); Restart's and Scale's patches carry the UID, mutating confirmations record cached UIDs (§4.2) |
 | 2026-10-12 | minor | Fourth run (agent D): kubeconfig sources (added files, pasted kubeconfigs, sync folders), each file read on its own, and credential plugins of sources run only after the user allowed them (§6; current state rows) |
