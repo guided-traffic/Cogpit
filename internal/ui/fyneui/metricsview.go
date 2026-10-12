@@ -91,10 +91,14 @@ type chartCtl struct {
 	plot     *chart
 }
 
-// metricsVariants are the buttons of every chart; short is the label on a compact chart's small
-// buttons (the tooltip has the full name).
-var metricsVariants = []struct{ id, label, short string }{
-	{variantCPU, "CPU", "CPU"}, {variantMemory, "Memory", "Mem"}, {variantNetwork, "Network", "Net"}, {variantFilesystem, "Filesystem", "FS"},
+// metricsVariants are the buttons of every chart: icons, as Lens's are, with the name as the
+// tooltip (owner, 2026-10-12).
+var metricsVariants = []struct {
+	id, label string
+	icon      fyne.Resource
+}{
+	{variantCPU, "CPU", cpuIcon}, {variantMemory, "Memory", memoryIcon},
+	{variantNetwork, "Network", networkIcon}, {variantFilesystem, "Filesystem", filesystemIcon},
 }
 
 func newMetricsPanel(d *drawer, ref model.ObjectRef) *metricsPanel {
@@ -133,11 +137,7 @@ func newChartCtl(p *metricsPanel, name string, compact bool) *chartCtl {
 	}
 	for _, v := range metricsVariants {
 		id := v.id
-		b := newTipButton(sh, nil, v.label, func() { c.setVariant(id) })
-		b.Text = v.label
-		if compact {
-			b.Text = v.short
-		}
+		b := newTipButton(sh, v.icon, v.label, func() { c.setVariant(id) })
 		c.variants[id] = b
 		ctl = append(ctl, b)
 	}
@@ -145,8 +145,8 @@ func newChartCtl(p *metricsPanel, name string, compact bool) *chartCtl {
 	c.variants[variantFilesystem].tip = "Filesystem: " + needsPrometheus
 	c.variants[variantNetwork].Disable()
 	c.variants[variantFilesystem].Disable()
-	c.variants[variantCPU].tip = "CPU usage"
-	c.variants[variantMemory].tip = "Memory usage"
+	c.variants[variantCPU].tip = "CPU"
+	c.variants[variantMemory].tip = "Memory"
 
 	c.flag = newTipButton(sh, flagIcon, "Show events", func() {
 		c.showEvents = !c.showEvents
@@ -441,6 +441,27 @@ func (c *chartCtl) renderTarget() {
 // glyph, drawn in the theme's foreground like Fyne's own icons).
 var flagIcon = theme.NewThemedResource(fyne.NewStaticResource("flag.svg", []byte(
 	`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>`)))
+
+// The variant icons are Cogpit's own drawings (clean-room, D-12), filled shapes on a 24-unit grid
+// so that Fyne draws them in the theme's foreground like its own icons.
+var (
+	// cpuIcon is a chip with a pin on each side.
+	cpuIcon = metricIcon("cpu.svg", `<path fill-rule="evenodd" d="M7 7h10v10H7zm3 3v4h4v-4z"/>`+
+		`<path d="M9 4h2v3H9zm4 0h2v3h-2zM9 17h2v3H9zm4 0h2v3h-2zM4 9h3v2H4zm0 4h3v2H4zm13-4h3v2h-3zm0 4h3v2h-3z"/>`)
+	// memoryIcon is a memory module: a board with three chips and its contacts.
+	memoryIcon = metricIcon("memory.svg", `<path fill-rule="evenodd" d="M2 6h20v9H2zm2.5 2.5v4h4v-4zm5.5 0v4h4v-4zm5.5 0v4h4v-4z"/>`+
+		`<path d="M4 16h1.5v3H4zm3 0h1.5v3H7zm3 0h1.5v3H10zm3 0h1.5v3H13zm3 0h1.5v3H16zm3 0h1.5v3H19z"/>`)
+	// networkIcon is traffic both ways: an arrow up and an arrow down.
+	networkIcon = metricIcon("network.svg", `<path d="M8 3 3 8h3.5v12h3V8H13zm8 18 5-5h-3.5V4h-3v12H11z"/>`)
+	// filesystemIcon is a stack of three drives, each with its light.
+	filesystemIcon = metricIcon("filesystem.svg", `<path fill-rule="evenodd" d="M3 3h18v5H3zm13 2v1.5h2V5zM3 9.5h18v5H3zm13 2V13h2v-1.5zM3 16h18v5H3zm13 2v1.5h2V18z"/>`)
+)
+
+// metricIcon is a themed icon from SVG elements on a 24-unit grid.
+func metricIcon(name, elements string) fyne.Resource {
+	return theme.NewThemedResource(fyne.NewStaticResource(name,
+		[]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">`+elements+`</svg>`)))
+}
 
 // loc is the time zone of the chart's time axis: the clock's.
 func (sh *shell) loc() *time.Location { return sh.now().Location() }

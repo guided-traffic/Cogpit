@@ -1237,10 +1237,11 @@ nothing else (`TestMetricsEventUpdatesInPlace`). It shows the source line ("Disp
 Kubernetes Metrics Server") or, without metrics, the reason in place of the chart. **Every chart has
 its own row of controls** (`chartCtl`; there is no main button): the pod's or node's chart, and the
 compact chart under each container's section title. A row is a time range (5m, 15m, 30m, 1h; 1h at
-first), the variant buttons (CPU, Memory; Network and Filesystem disabled with the tooltip "needs
-Prometheus") and a flag button that marks the object's events from the drawer model. Range, variant
+first), the variant buttons as icons with their names as tooltips (CPU a chip, Memory a memory
+module, Network arrows both ways, Filesystem a stack of drives: Cogpit's own drawings; Network and
+Filesystem disabled with the tooltip "needs Prometheus") and a flag button that marks the object's events from the drawer model. Range, variant
 and flag are per chart, so changing one chart changes only that chart; the container's row is
-smaller (a "1h" button that opens a menu of the ranges, the labels CPU, Mem, Net, FS, no divider),
+smaller (a "1h" button that opens a menu of the ranges, no divider),
 so it stays on one line at the drawer's minimum width. The data stays one poll per drawer: the
 panel's `ObjectMetrics` feeds every chart, each reading its target by name and drawing it in its own
 variant, with that container's requests and limits (`TestEveryChartHasItsOwnControls`). The
