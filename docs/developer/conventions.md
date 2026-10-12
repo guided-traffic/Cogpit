@@ -85,6 +85,11 @@ cluster operation is worse than a crash.
 New user-visible behaviour is an engine command with tests; the UI and MCP call it. Checklist:
 [`extending.md`](extending.md#adding-a-command).
 
+The documented exceptions are GUI-only on purpose, so that no agent can reach them: the status
+bar's link to the owner's page ([D-23](decisions.md#d-23-a-link-to-the-owner-in-the-status-bar)) and
+copying values out of the drawer ([D-25](decisions.md#d-25-copying-values)). A new exception needs a
+decision of the owner.
+
 ## Tests
 
 Every change comes with tests ([`testing.md`](testing.md)). Kind profiles have golden tests;

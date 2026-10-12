@@ -544,7 +544,11 @@ and on the demo cluster too), "Need a Kubernetes Expert? Visit: hans-fischer.com
 https://hans-fischer.com in the user's default browser. Nothing is sent or tracked; only the
 click opens it. When the bar is too narrow, the link gives way first, so that the context and the
 connection state stay readable. It is a GUI link, not an engine command: a documented exception
-to "everything is a command", so that no agent can open the page. Not built yet.
+to "everything is a command", so that no agent can open the page. **Built 2026-10-12** in
+[`bars.go`](../../internal/ui/fyneui/bars.go) (`statusLayout`): the link is the status bar's first
+item, with a divider; the bar's minimum width is the status items' alone, and the link takes the
+room left, is shortened with an ellipsis and, below the width of "Need a…", hidden with its
+divider. It opens through `openBrowser`, the function the port-forward view uses.
 
 ## D-24: Logo
 

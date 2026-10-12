@@ -95,7 +95,7 @@ The owner's requirements of 2026-10-12 that Lens Desktop does not have.
 | Feature | Status | Evidence |
 |---|---|---|
 | Every value in the detail drawer can be selected, and has a copy icon on hover; an entry of a value with several entries is copied in YAML syntax; a Secret's value only once revealed, and the clipboard cleared after 60 seconds ([D-25](../developer/decisions.md#d-25-copying-values)) | missing | – |
-| A link to the owner at the status bar's left end, opening hans-fischer.com in the browser on a click, a GUI link and not a command ([D-23](../developer/decisions.md#d-23-a-link-to-the-owner-in-the-status-bar)) | missing | – |
+| A link to the owner at the status bar's left end, opening hans-fischer.com in the browser on a click, a GUI link and not a command ([D-23](../developer/decisions.md#d-23-a-link-to-the-owner-in-the-status-bar)) | done (2026-10-12): "Need a Kubernetes Expert? Visit: hans-fischer.com", shown before connecting and when connected; a click opens `https://hans-fischer.com` and nothing is sent before; when the bar is too narrow the link is shortened and then hidden with its divider, and the status items keep their room | [`bars.go`](../../internal/ui/fyneui/bars.go) (`statusLayout`, `openOwnerLink`); `TestStatusBarOwnerLink`, `TestStatusBarOwnerLinkIsNoCommand`, `TestStatusBarOwnerLinkGivesWayFirst`; [PNG](../../internal/ui/fyneui/testdata/shell_dark.png) (the status bar's left end) |
 
 ## Revision history
 

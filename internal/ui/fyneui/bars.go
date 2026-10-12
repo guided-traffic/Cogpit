@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"image/color"
+	"net/url"
 	"strconv"
 
 	"fyne.io/fyne/v2"
@@ -179,6 +180,8 @@ func newDiagView(d engine.Diagnostics) diagView {
 // the demo cluster's event rate and the MCP indicator.
 type statusBar struct {
 	sh        *shell
+	link      *linkText // the link to the owner (D-23), at the left end
+	layout    *statusLayout
 	dot       *dot
 	context   *textLine
 	requests  *textLine
@@ -203,9 +206,90 @@ func newStatusBar(sh *shell) *statusBar {
 	if sh.opts.MCPCommand != "" {
 		right.Add(newPill("MCP", colorAccent, true))
 	}
+	s.link = newLinkText(ownerLinkText, func() { sh.openOwnerLink() })
+	s.link.size = theme.SizeNameCaptionText
+	sep := newDivider(true)
+	s.layout = &statusLayout{link: s.link, sep: sep, left: left, right: right}
 	s.root = sized("", sizeStatusHeight, newSurface(colorStatusBar),
-		inset(theme.SizeNameInnerPadding, "", container.NewBorder(nil, nil, left, right)))
+		inset(theme.SizeNameInnerPadding, "", box(s.layout, s.link, sep, left, right)))
 	return s
+}
+
+// The status bar's link to the owner (D-23): shown always, a GUI link and not an engine command, so
+// that no agent can open the page. Only a click opens it; nothing is sent before.
+const (
+	ownerLinkText = "Need a Kubernetes Expert? Visit: hans-fischer.com"
+	ownerLinkURL  = "https://hans-fischer.com"
+)
+
+// openOwnerLink opens the owner's page in the user's browser.
+func (sh *shell) openOwnerLink() {
+	u, err := url.Parse(ownerLinkURL)
+	if err == nil {
+		err = openBrowser(sh.app, u)
+	}
+	if err != nil {
+		sh.toast("error", "cannot open "+ownerLinkURL+": "+err.Error())
+	}
+}
+
+// statusLayout lays the status bar out: the link to the owner and its divider at the left end, then
+// the status items, and the MCP pill at the right end. The items keep their minimum widths; the
+// link takes what is left, is shortened with an ellipsis when that is less than its text, and is
+// hidden, with its divider, when it is less than a few characters. The bar's minimum width is the
+// items' alone, so the link never costs them room (D-23).
+type statusLayout struct {
+	link, sep   fyne.CanvasObject
+	left, right fyne.CanvasObject
+}
+
+// linkMinChars is the shortest the link is shown: its first characters and an ellipsis.
+const linkMinChars = "Need a…"
+
+func (l *statusLayout) MinSize([]fyne.CanvasObject) fyne.Size {
+	lm, rm := l.left.MinSize(), l.right.MinSize()
+	return fyne.NewSize(lm.Width+rm.Width, max(lm.Height, rm.Height, l.link.MinSize().Height))
+}
+
+func (l *statusLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
+	th := fyne.CurrentApp().Settings().Theme()
+	lm, rm := l.left.MinSize(), l.right.MinSize()
+	gap := th.Size(theme.SizeNameInnerPadding)
+	textSize := th.Size(theme.SizeNameCaptionText)
+	if lt, ok := l.link.(*linkText); ok {
+		textSize = th.Size(lt.size)
+	}
+	full := fyne.MeasureText(ownerLinkText, textSize, fyne.TextStyle{}).Width
+	least := fyne.MeasureText(linkMinChars, textSize, fyne.TextStyle{}).Width
+	room := size.Width - lm.Width - rm.Width - 2*gap - 1 // for the link; the divider and its gaps come off
+	x := float32(0)
+	if room >= least {
+		w := fyne.Min(room, full+1)
+		l.show(true)
+		l.link.Move(fyne.NewPos(0, 0))
+		l.link.Resize(fyne.NewSize(w, size.Height))
+		l.sep.Move(fyne.NewPos(w+gap, 0))
+		l.sep.Resize(fyne.NewSize(1, size.Height))
+		x = w + 2*gap + 1
+	} else {
+		l.show(false)
+	}
+	l.left.Move(fyne.NewPos(x, 0))
+	l.left.Resize(fyne.NewSize(lm.Width, size.Height))
+	l.right.Resize(fyne.NewSize(rm.Width, size.Height))
+	l.right.Move(fyne.NewPos(size.Width-rm.Width, 0))
+}
+
+func (l *statusLayout) show(on bool) {
+	for _, o := range []fyne.CanvasObject{l.link, l.sep} {
+		if o.Visible() != on {
+			if on {
+				o.Show()
+			} else {
+				o.Hide()
+			}
+		}
+	}
 }
 
 func (s *statusBar) update() {
