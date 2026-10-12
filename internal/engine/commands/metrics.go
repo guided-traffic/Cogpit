@@ -33,6 +33,7 @@ var metricsReads = []engine.Verb{
 }
 
 func registerMetrics(g *registrar) {
+	registerPrometheusSetting(g)
 	add(g, engine.Spec[metricsGetParams]{
 		ID: "metrics.get", Label: "Get Metrics", Danger: engine.DangerRead, Verbs: metricsReads,
 		Description: "Reads the current CPU (millicores) and memory (bytes) usage of a pod, of the pods of a namespace or of all " +

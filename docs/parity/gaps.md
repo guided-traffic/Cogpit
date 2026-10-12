@@ -554,8 +554,16 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   range per drawer, gives up the per-chart ranges. Also open, no decision needed yet: the rate
   window of four minutes smooths charts of 5 to 15 minutes; revisit after kube-prometheus-stack (30 s
   scrape), possibly reading the scrape interval from Prometheus.
-- **Left of Prometheus:** the cluster settings page that sets the override
-  (`Backend.PrometheusDetector.SetOverride`, then `Hub.Forget`), a check against a real
+- **Built (2026-10-12): the cluster's Prometheus, set by the user:** `cluster.setPrometheus`
+  (`namespace/service:port`, a path prefix, or `auto`) and `cluster.prometheus`, kept per context in
+  Cogpit's own preferences (`metrics.json`, never the kubeconfig), applied at once (the open drawer
+  asks the named service) and at the next connection before anything is detected; a dialog
+  "Prometheus for <context>" from a button under the drawer's status line (Cogpit's placement:
+  Lens's cluster settings page is not built). **Cogpit's default, not the owner's:** agents may set
+  it (`DangerUI`; it writes no cluster object). Lens's "Metrics source", query format, empty
+  container filter and HTTPS are not built ([ui parity](ui-parity.md), the Metrics provider row).
+- **Left of Prometheus:** Lens's cluster settings page (the setting lives in a dialog under the
+  drawer's status line until then), a check against a real
   kube-prometheus-stack, the namespace and service as links (Lens:
   "Prometheus: <namespace>/<service>:<port>"; the port shows on the status line since the fourth
   slice), the Lens-provider variants that are not

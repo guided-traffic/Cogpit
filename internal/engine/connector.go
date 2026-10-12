@@ -46,6 +46,9 @@ type ClusterConnector struct {
 	// MetricsOptions tune the polling of every backend's metrics (intervals, TTL, series bounds);
 	// the zero value is the defaults of architecture §9. Tests shorten the intervals.
 	MetricsOptions metrics.Options
+	// MetricsSettings are the Prometheus overrides the user set, per context (metricssettings.go);
+	// a connection starts with its context's. Nil: none kept.
+	MetricsSettings *MetricsSettings
 	// Logger receives connection warnings; nil means slog.Default().
 	Logger *slog.Logger
 	// Sources are the kubeconfig files and sync folders (the user's ~/.kube, the files named in
@@ -163,7 +166,8 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 	if src, prom, err := metrics.SourcesForConn(conn, metrics.ServiceSourceFunc(be.promServices), metrics.PrometheusOptions{Logger: c.logger()}); err != nil {
 		c.logger().Warn("engine: no metrics client; CPU and memory stay empty", "context", name, "err", err)
 	} else {
-		be.Metrics, be.PrometheusDetector = metrics.NewHubFor(src, c.metricsOptions()), prom
+		be.Metrics, be.PrometheusDetector, be.MetricsSettings = metrics.NewHubFor(src, c.metricsOptions()), prom, c.MetricsSettings
+		prom.SetOverride(c.MetricsSettings.Override(ctxName)) // the user's Prometheus for this context, if set
 	}
 	return be, nil
 }

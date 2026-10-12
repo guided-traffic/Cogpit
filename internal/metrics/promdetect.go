@@ -43,10 +43,10 @@ func (f ServiceSourceFunc) Services(ctx context.Context) ([]Service, error) { re
 // Override names the Prometheus to use instead of detecting one: set in a cluster's settings. Port
 // may be a number or a port name; Prefix is the route prefix, if Prometheus runs under one.
 type Override struct {
-	Namespace string
-	Service   string
-	Port      string
-	Prefix    string
+	Namespace string `json:"namespace"`
+	Service   string `json:"service"`
+	Port      string `json:"port"`
+	Prefix    string `json:"prefix,omitempty"`
 }
 
 // Valid reports whether the override names a service and a port.

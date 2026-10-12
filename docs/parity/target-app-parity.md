@@ -1,6 +1,6 @@
 # Cogpit vs Lens Desktop: target-app parity
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** major (fourth measurement, by `make parity`: breadth ~56%, ready ~26%) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G12: the cluster's Prometheus setting, partial: interface 56 of 120, breadth ~57%; earlier: fourth measurement, by `make parity`: breadth ~56%, ready ~26%) · **Target:** Lens Desktop 2026.10.51501
 
 The authoritative answer to "how close is Cogpit to Lens, and how much work is left". The
 one-page summary is [`ROADMAP.md`](../../ROADMAP.md); the ranked work list is
@@ -76,7 +76,7 @@ Each tier is a subset of the one above.
 
 ## Feature breadth
 
-**~56% (weighted, measured 2026-10-12 by `make parity`, after the fourth implementation run; was ~54%).**
+**~57% (weighted, measured 2026-10-12 by `make parity`, after the fourth implementation run and the G12 Prometheus setting; was ~56%).**
 Denominators count Lens Desktop's free features; paid features have their own component. A row
 counts when it exists in some form; nine counted rows are done, the rest partial.
 
@@ -241,6 +241,7 @@ LiteLLM or Open WebUI endpoint for the built-in agent.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | G12 (fourth slice): the cluster's Prometheus setting partial (a dialog from the drawer's status line), the interface 56 of 120 free rows, weighted 56.7%, breadth ~57% |
 | 2026-10-12 | minor | Recount after the fifth run (lead): the interface 55 of 120 free rows (CPU and Memory columns from metrics-server), weighted 56.5% |
 | 2026-10-12 | major | Fourth measurement after the fourth implementation run, counted by `make parity`: breadth ~56% (55 of 64 views, 29 of 39 actions, 54 of 120 interface rows after D-21, 4 of 13 connectivity rows), ready ~26%, mainstream ~25%, essentials ~34% (estimated); alpha ~135–370 h, free parity ~420–1,040 h |
 | 2026-10-12 | minor | `make parity` reproduces the breadth table (55 / 64, 28 / 39, 52 / 121, 3 / 13, 1 / 13; 54.5% weighted) and guards it in CI; how to re-measure |

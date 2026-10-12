@@ -93,6 +93,7 @@ func run(previousCrash string) int {
 		DemoOptions:     demo.Options{Pods: *demoPods, EventsPerSecond: *demoEvents},
 		Logger:          logger,
 		Sources:         openKubeconfigSources(logger, cluster.NamedKubeconfigFiles(filepath.SplitList(*kubeconfig))),
+		MetricsSettings: openMetricsSettings(logger),
 	}
 	s := engine.New(engine.Options{Connector: connector, Audit: audit, Logger: logger, Drains: openDrainJournal(logger),
 		Helm: openHelmJournal(logger), Hotbar: openHotbar(logger)})
@@ -210,6 +211,22 @@ func openHotbar(logger *slog.Logger) *engine.Hotbar {
 		return engine.NewHotbar("")
 	}
 	return engine.NewHotbar(filepath.Join(dir, "Cogpit"))
+}
+
+// openMetricsSettings keeps the Prometheus each cluster's metrics come from, as the user set it,
+// in <user config dir>/Cogpit/metrics.json, owner-only (never in the kubeconfig). Without a
+// configuration directory a setting lasts for the connection.
+func openMetricsSettings(logger *slog.Logger) *engine.MetricsSettings {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		logger.Warn("metrics settings are not kept", "err", err)
+		return nil
+	}
+	m, err := engine.NewMetricsSettings(filepath.Join(dir, "Cogpit"))
+	if err != nil {
+		logger.Warn("metrics settings could not be read; starting without", "err", err)
+	}
+	return m
 }
 
 // openKubeconfigSources keeps the kubeconfig files and sync folders the user

@@ -13,6 +13,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/metrics"
@@ -277,5 +278,88 @@ func TestRenderMetricsStatusLine(t *testing.T) {
 				t.Log("rendered", f.Name())
 			})
 		}
+	}
+}
+
+// withPrometheusCommands answers cluster.prometheus with set and records cluster.setPrometheus.
+func withPrometheusCommands(f *fakeEngine, set engine.PrometheusSetting) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.handlers["cluster.prometheus"] = func(context.Context, engine.Invocation) (any, error) { return set, nil }
+	f.handlers["cluster.setPrometheus"] = func(context.Context, engine.Invocation) (any, error) { return set, nil }
+}
+
+// The button under the status line opens the Prometheus dialog with the engine's setting; saving
+// sends the address and prefix (or auto) to cluster.setPrometheus. The demo cluster, which has no
+// Prometheus to set, shows no button.
+func TestPrometheusSettingsDialog(t *testing.T) {
+	sh, f, q, p := promDrawer(t, ThemeDark, withProviders(bothAnswering()))
+	withPrometheusCommands(f, engine.PrometheusSetting{Context: "demo", Auto: true, Kept: true})
+	if !p.status.settings.Visible() {
+		t.Fatal("no Prometheus button under the status line")
+	}
+	p.status.settings.OnTapped()
+	q.until(t, "the dialog", func() bool { return findButton(sh.win, "Save") != nil })
+	overlay := sh.win.Canvas().Overlays().Top()
+	checks, entries := findAll[*widget.Check](overlay), findAll[*widget.Entry](overlay)
+	if len(checks) != 1 || len(entries) != 2 || !checks[0].Checked || !entries[0].Disabled() {
+		t.Fatalf("dialog: %d checks (auto %v), %d entries", len(checks), len(checks) > 0 && checks[0].Checked, len(entries))
+	}
+	if texts := overlayTexts(sh.win); !slices.Contains(texts, "Prometheus for demo") {
+		t.Errorf("dialog texts %q", texts)
+	}
+	checks[0].SetChecked(false)
+	entries[0].SetText("observability/thanos-query:9090")
+	entries[1].SetText("/prometheus")
+	settle(sh.win)
+	findButton(sh.win, "Save").OnTapped()
+	q.until(t, "cluster.setPrometheus", func() bool { return len(f.callsOf("cluster.setPrometheus")) == 1 })
+	var params struct{ Address, Prefix string }
+	if err := json.Unmarshal(normalize(f.callsOf("cluster.setPrometheus")[0].Params), &params); err != nil ||
+		params.Address != "observability/thanos-query:9090" || params.Prefix != "/prometheus" {
+		t.Errorf("params %+v (%v)", params, err)
+	}
+
+	// Auto again sends auto.
+	p.status.settings.OnTapped()
+	q.until(t, "the dialog again", func() bool { return findButton(sh.win, "Save") != nil })
+	findButton(sh.win, "Save").OnTapped()
+	q.until(t, "the second set", func() bool { return len(f.callsOf("cluster.setPrometheus")) == 2 })
+	if s := string(f.callsOf("cluster.setPrometheus")[1].Params); !strings.Contains(s, `"address":"auto"`) {
+		t.Errorf("auto sent %s", s)
+	}
+
+	// Without a Prometheus among the providers (the demo cluster): no button.
+	p.status.set([]metrics.ProviderStatus{{Provider: "demo", Label: metrics.ServerLabel, Status: metrics.StatusAvailable}}, fixedNow)
+	if p.status.settings.Visible() {
+		t.Error("a Prometheus button without Prometheus")
+	}
+}
+
+// TestRenderPrometheusSettings draws the dialog in both themes, to COGPIT_PNG_DIR or a temporary
+// directory, never to testdata.
+func TestRenderPrometheusSettings(t *testing.T) {
+	for _, mode := range []ThemeMode{ThemeDark, ThemeLight} {
+		name := "metrics_prometheus_settings_" + string(mode) + ".png"
+		t.Run(name, func(t *testing.T) {
+			sh, f, q, p := promDrawer(t, mode, withProviders(bothAnswering()))
+			withPrometheusCommands(f, engine.PrometheusSetting{Context: "kind-cogpit", Address: "observability/thanos-query:9090", Prefix: "/prometheus", Kept: true})
+			p.status.settings.OnTapped()
+			q.until(t, "the dialog", func() bool { return findButton(sh.win, "Save") != nil })
+			settle(sh.win)
+			dir := os.Getenv("COGPIT_PNG_DIR")
+			if dir == "" {
+				dir = t.TempDir()
+			}
+			out, err := os.Create(filepath.Join(dir, name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer out.Close()
+			if err := png.Encode(out, sh.win.Canvas().Capture()); err != nil {
+				t.Fatal(err)
+			}
+			t.Log("rendered", out.Name())
+		})
 	}
 }

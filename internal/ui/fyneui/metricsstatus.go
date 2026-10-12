@@ -23,15 +23,20 @@ import (
 // data is the engine's (ObjectMetrics.Providers), which agents read in metrics.get and ui.state.
 // Lens shows one source line; the wording and the icons here are Cogpit's (inferred).
 
-// providerStatusLine is the status line: a row per provider, updated in place.
+// providerStatusLine is the status line: a row per provider, updated in place, and the button that
+// sets the cluster's Prometheus (metricssettings.go).
 type providerStatusLine struct {
-	sh   *shell
-	root *fyne.Container
-	rows []*providerRow
+	sh       *shell
+	root     *fyne.Container
+	rowsBox  *fyne.Container
+	rows     []*providerRow
+	settings *tipButton
 }
 
 func newProviderStatusLine(sh *shell) *providerStatusLine {
-	return &providerStatusLine{sh: sh, root: container.NewVBox()}
+	l := &providerStatusLine{sh: sh, rowsBox: container.NewVBox(), settings: newPrometheusButton(sh)}
+	l.root = container.NewVBox(l.rowsBox, container.NewHBox(l.settings))
+	return l
 }
 
 // set shows the providers' states as of now; no providers hides the line.
@@ -45,7 +50,12 @@ func (l *providerStatusLine) set(providers []metrics.ProviderStatus, now time.Ti
 	for len(l.rows) < len(shown) {
 		r := newProviderRow(l.sh)
 		l.rows = append(l.rows, r)
-		l.root.Add(r)
+		l.rowsBox.Add(r)
+	}
+	if hasPrometheusSlot(shown) {
+		l.settings.Show()
+	} else {
+		l.settings.Hide()
 	}
 	for i, r := range l.rows {
 		if i >= len(shown) {

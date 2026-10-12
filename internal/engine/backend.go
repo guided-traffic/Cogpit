@@ -39,6 +39,9 @@ type Backend struct {
 	// settings can set the override (SetOverride, then Metrics.Forget); nil without a hub of a real
 	// cluster.
 	PrometheusDetector *metrics.PrometheusDetector
+	// MetricsSettings keeps the cluster's Prometheus override in Cogpit's preferences
+	// (metricssettings.go); nil keeps it for the connection only.
+	MetricsSettings *MetricsSettings
 	// Demo marks the synthetic demo cluster.
 	Demo bool
 	// DemoStats reports the demo cluster's counters; nil for real clusters.
