@@ -493,8 +493,12 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
     Prometheus is asked once for the chart's history; the chart then continues with the Metrics
     Server's measurements, to spare Prometheus. The Metrics Server has CPU and Memory only, so
     Network and Filesystem still come from Prometheus: proposed (lead, not decided) that they are
-    asked for only while their chart is shown. Without a Metrics Server, Prometheus is polled as now;
-    a range change asks Prometheus once for that range.
+    asked for only while their chart is shown. A range change asks Prometheus once for that range.
+  - **Falling back (owner, 2026-10-12):** both together is the normal case; Cogpit falls back to one
+    of the two only when the other fails, cannot be reached or is not found, also while a drawer is
+    open: a Metrics Server that stops answering hands the live values to Prometheus, a Prometheus
+    that is gone leaves the Metrics Server's live values without history. The status line says
+    which provider serves what.
 - **Waiting for the owner (2026-10-12):** charts of one drawer whose ranges lie far apart (a 7-day
   pod chart beside 1-hour container charts) share one query step, set by the longest range, so the
   short charts get about six points. Recommended: a query set of its own per range once the ranges
@@ -717,7 +721,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | G12: the owner's evening requirements (a status line per provider; history from Prometheus, then live values from the Metrics Server) and the step of mixed ranges waiting for the owner; G16: the quit crash fixed, a window that closed by itself open |
+| 2026-10-12 | minor | G12: the owner's evening requirements (a status line per provider; history from Prometheus, then live values from the Metrics Server; one of the two alone only when the other fails or is missing) and the step of mixed ranges waiting for the owner; G16: the quit crash fixed, a window that closed by itself open |
 | 2026-10-12 | minor | G12: checked against a real Prometheus on kind (the `prometheus` chart); three faults it found fixed; only kube-prometheus-stack and the override left unchecked; estimate not moved |
 | 2026-10-12 | minor | G12: the window draws Prometheus (Network, Filesystem, ranges to 30 days held by the engine through `ui.setMetricsRange`); range values beyond 1h inferred; estimate not moved |
 | 2026-10-12 | minor | G12: Prometheus through the service proxy, backend (detection, range queries for CPU, Memory, Network and Filesystem, per-chart ranges, budget P13); the window's Network and Filesystem buttons left; estimate not moved |
