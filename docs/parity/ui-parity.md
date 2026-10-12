@@ -24,8 +24,8 @@ an activated Lens Desktop ([D-12](../developer/decisions.md#d-12-parity-sources)
 Modifier names are macOS first (⌘ ⌥ ⇧ ⌃); Windows and Linux use Ctrl and Alt. **Status:** as
 marked per row; rows without evidence are missing.
 
-**Summary (measured, 2026-10-13, after the fourth implementation run, the hotbar, the navigator, the command palette, the cluster's Prometheus setting, Helm install, the cluster Overview and the Preferences and Cluster settings pages, counted by `make parity`):**
-93 of 133 rows exist (was 56): 85 of the 120 free-plan rows (77 partial, 8 done: the cell tooltip, right-click on a
+**Summary (measured, 2026-10-13, after the fourth implementation run, the hotbar, the navigator, the command palette, the cluster's Prometheus setting, Helm install, the cluster Overview, the Preferences and Cluster settings pages and the tab bar, counted by `make parity`):**
+100 of 133 rows exist (was 56): 92 of the 120 free-plan rows (84 partial, 8 done: the cell tooltip, right-click on a
 row, the dock's "New tab" menu, keyboard navigation in tables and its shortcut row, the container
 port's link, the forward dialog and the drawer's Forward…, each matching its captured row) and 8
 paid rows (the diff view and the hotbar's seven, partial); 7 more rows are not a target. The hotbar
@@ -195,7 +195,7 @@ Every list view is one table ([resource views](resource-parity.md)).
 |---|---|---|---|
 | Bottom dock with tabs: Terminal session, Create resource, Edit, logs, Helm Install, Helm Upgrade; tabs named after their object ("Pod <name>"), with a close button; on the right, maximize and collapse (capture, 2026-10-11) | free | partial: terminal, shell, logs, Edit ("ConfigMap demo"), Create resource, Helm Upgrade ("Helm Upgrade: <name>", 2026-10-12, as captured that day: save and search icons, "/<chart>" with "version:" and a picker of the release's own version, "(no repository)", the info line and the values in a YAML editor; a status line is Cogpit's) and Helm Install ("Helm Install: <chart>", 2026-10-13, not captured: modelled on the Upgrade tab, inferred; `TestHelmInstallTabInstalls`, PNGs [dark](../../internal/ui/fyneui/testdata/helm_install_tab_dark.png), [light](../../internal/ui/fyneui/testdata/helm_install_tab_light.png)); no maximize | `TestDockOpensAndClosesStreams`, `TestEditTabSaveReviewsThenApplies`, `TestCreateTabTemplatesAndCreate`, `TestHelmUpgradeTabSaves`, PNGs [dark](../../internal/ui/fyneui/testdata/helm_upgrade_tab_dark.png), [light](../../internal/ui/fyneui/testdata/helm_upgrade_tab_light.png) ([resource parity](resource-parity.md#helm)) |
 | "New tab" menu: Terminal session, Create resource | free | done | [`dock.go`](../../internal/ui/fyneui/dock.go) `addMenu`, `TestDockAddMenuOffersCreateResource`; an item the engine disables names its reason |
-| Tab icons take the cluster's colour | free | missing | – |
+| Tab icons take the cluster's colour | free | partial (2026-10-13): a tab's badge in the tab bar shows its cluster's identity, the display name's initials in the icon colour set in the cluster's settings (the accent by default), muted while the cluster is not the connected one, as the navigator's root and the hotbar's tiles; an uploaded image shows on those, not yet on a tab. Which tabs Lens means (the dock's, the tab bar's, or both) is not captured: inferred to be the tab bar's | [`tabbar.go`](../../internal/ui/fyneui/tabbar.go), [`clusteridentity.go`](../../internal/ui/fyneui/clusteridentity.go); `TestTabBadgeTakesTheClustersIdentity` |
 
 ## Editor and create resource
 

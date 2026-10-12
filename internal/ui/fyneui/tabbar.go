@@ -22,8 +22,9 @@ import (
 // italic (that italic means preview is inferred), hovering a tab shows its full title; a single
 // click in the navigator opens a preview tab, a double click or ⇧↵ a fixed tab. Cogpit's defaults
 // (inferred, not the owner's decision, 2026-10-13):
-//   - a tab's icon is the cluster's initials badge, drawn as the navigator's root and the hotbar's
-//     tiles draw it (an icon or colour of the user's is missing: cluster identity), muted while its
+//   - a tab's icon is the cluster's initials badge in its icon colour (cluster settings, the accent
+//     by default), drawn as the navigator's root and the hotbar's tiles draw it (an uploaded image
+//     shows there, not yet on a tab), muted while its
 //     cluster is not the connected one;
 //   - the bar takes the dock's tab colours; the active tab is raised and underlined in the accent
 //     colour, as the dock's active tab is;
@@ -99,7 +100,7 @@ func (b *tabBar) sync() {
 	var active *viewTab
 	for i, t := range ui.Tabs {
 		w := b.shown[i]
-		w.set(t, t.ID == ui.ActiveTab, live && t.Context == ui.Context)
+		w.set(t, t.ID == ui.ActiveTab, live && t.Context == ui.Context, b.sh.identity(t.Context))
 		if w.active {
 			active = w
 		}
@@ -263,7 +264,8 @@ type viewTab struct {
 	bar     *tabBar
 	tab     engine.ViewTab
 	active  bool
-	live    bool // its cluster is the connected one
+	live    bool            // its cluster is the connected one
+	id      clusterIdentity // its cluster's initials and icon colour (cluster settings)
 	hovered bool
 	close   *widget.Button
 }
@@ -285,13 +287,13 @@ func newViewTab(b *tabBar) *viewTab {
 }
 
 // set changes what the tab shows.
-func (t *viewTab) set(tab engine.ViewTab, active, live bool) {
+func (t *viewTab) set(tab engine.ViewTab, active, live bool, id clusterIdentity) {
 	if tab.ID == t.tab.ID && tab.Title == t.tab.Title && tab.Preview == t.tab.Preview && tab.Context == t.tab.Context &&
-		active == t.active && live == t.live {
+		active == t.active && live == t.live && id.initials == t.id.initials && id.ink == t.id.ink {
 		t.tab = tab
 		return
 	}
-	t.tab, t.active, t.live = tab, active, live
+	t.tab, t.active, t.live, t.id = tab, active, live, id
 	t.Refresh()
 }
 
@@ -383,12 +385,18 @@ func (r *viewTabRenderer) Refresh() {
 	th := t.Theme()
 	accent := themeColor(th, colorAccent)
 	ink := accent
+	if t.id.ink != "" {
+		ink = themeColor(th, t.id.ink) // the cluster's icon colour (cluster settings), the accent by default
+	}
 	if !t.live {
 		ink = themeColor(th, colorMuted)
 	}
 	r.badge.FillColor = withAlpha(ink, 0x2c) // the navigator badge's and the hotbar tile's tint
 	r.badge.CornerRadius = th.Size(theme.SizeNameInputRadius)
-	r.initials.Text = initials(engine.ContextLabel(t.tab.Context))
+	r.initials.Text = t.id.initials
+	if r.initials.Text == "" {
+		r.initials.Text = initials(engine.ContextLabel(t.tab.Context))
+	}
 	r.initials.Color = ink
 	r.initials.TextSize = th.Size(theme.SizeNameCaptionText)
 	r.title.TextStyle = fyne.TextStyle{Italic: t.tab.Preview}

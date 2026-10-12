@@ -95,6 +95,7 @@ func (sh *shell) identitiesChanged() {
 		sh.picker.render()
 	}
 	sh.settings.identityChanged()
+	sh.tabs.sync()
 }
 
 // clusterBadge is a cluster's icon: its initials on a tinted square in its icon colour (the

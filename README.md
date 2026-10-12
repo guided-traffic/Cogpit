@@ -243,12 +243,12 @@ Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never a
 registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 120 commands</summary>
+<summary>All 128 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
 | `application.logs` | `application_logs` | read | `ref` | Opens the logs of an application (applications view): a workload_logs dock tab for each of its Deployments, Stateful Sets, Daemon Sets and Jobs, at most 8, each following every container of the workload's pods |
-| `cluster.connect` | `cluster_connect` | ui | `context` | Connects to a kubeconfig context (or the demo cluster) and opens its Pods view, replacing the current connection |
+| `cluster.connect` | `cluster_connect` | ui | `context` | Connects to a kubeconfig context (or the demo cluster), replacing the current connection, and shows its most recently used tab, or else its Pods view in the preview tab; the other clusters' tabs stay |
 | `cluster.connectLog` | `cluster_connectLog` | read | `context` | Returns the log of the last attempt to connect to a context this session (and of a connection Cogpit closed because its kubeconfig file went away): lines with a time, a level (INFO or ERROR) and a text |
 | `cluster.contexts` | `cluster_contexts` | read |  | Lists the kubeconfig contexts Cogpit can connect to (name, cluster, user, default namespace, server, whether it is the kubeconfig's current context) and the synthetic demo cluster if offered |
 | `cluster.overview` | `cluster_overview` | read | `namespaces`?, `noIssues`?, `series`? | Reads the cluster Overview: the node groups (master: control-plane nodes; worker: the others), the group and time range the charts show (ui_setOverviewNodes, ui_setOverviewRange), the charts CPU (cores), Memory (bytes) and Pods for that group with their current usage, requests and limits (sums over the pods that have not finished on those nodes), allocatable capacity and capacity, the metrics providers' state, and the Issues: pods with a warning, nodes not Ready or under pressure, Deployments, Stateful Sets and Daemon Sets short of ready pods, and warning events of the last hour, each with its object (ref), kind, message and since when |
@@ -351,7 +351,7 @@ registry with `go run ./hack/readmecmds`.
 | `terminal.open` | `terminal_open` | ui |  | Opens a dock tab with a local shell whose kubectl is bound to the connected context and to the namespace filter if it names exactly one namespace |
 | `ui.closeDrawer` | `ui_closeDrawer` | ui |  | Closes the detail drawer |
 | `ui.navigate` | `ui_navigate` | ui | `ref` | Shows one object to the user: opens its kind's view, makes sure the namespace filter and the search text do not hide it (resetting them if they do), selects it and opens its detail drawer |
-| `ui.openView` | `ui_openView` | ui | `view` | Opens the list view of a kind (pods, services, ...) or a page (cluster/overview, the cluster Overview; workloads/overview, the Workloads Overview), as clicking it in the sidebar does |
+| `ui.openView` | `ui_openView` | ui | `view` | Opens the list view of a kind (pods, services, ...) or a page (cluster/overview, the cluster Overview; workloads/overview, the Workloads Overview), as clicking it in the sidebar does: in the preview tab of the tab bar, which the next view opened this way replaces, or by activating a fixed tab of the cluster that shows the view (ui_tab_open opens fixed tabs) |
 | `ui.palette.close` | `ui_palette_close` | ui |  | Closes the command palette in Cogpit's window, as Escape or a click outside it does |
 | `ui.palette.open` | `ui_palette_open` | ui |  | Opens the command palette in Cogpit's window, as ⌘⇧P (Ctrl+Shift+P) does |
 | `ui.select` | `ui_select` | ui | `noDrawer`?, `refs`? | Selects objects of the open view and, unless noDrawer is true, opens the detail drawer on the first one |

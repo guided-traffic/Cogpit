@@ -421,3 +421,19 @@ func renderTabBar(t *testing.T, mode ThemeMode, name string) {
 	settle(w)
 	savePNG(t, w, name)
 }
+
+// A tab's badge is its cluster's identity: the display name's initials in the icon colour set in
+// the cluster's settings, as the navigator and the hotbar show it (2026-10-13).
+func TestTabBadgeTakesTheClustersIdentity(t *testing.T) {
+	sh, _, q, f := tabsShell(t, ThemeDark)
+	services := sh.tabs.shown[0]
+	before := tabRenderer(services).initials.Color
+	f.update(func(u *engine.UIState) {
+		u.ClusterSettings = map[string]engine.ClusterSettings{"demo": {Name: "Shop prod", IconColor: "magenta"}}
+	})
+	q.until(t, "the tab's badge", func() bool { return tabRenderer(sh.tabs.shown[0]).initials.Text == "SP" })
+	r := tabRenderer(sh.tabs.shown[0])
+	if want := themeColor(sh.tabs.shown[0].Theme(), identityColorName("magenta")); r.initials.Color != want || r.initials.Color == before {
+		t.Errorf("badge colour %v, want the cluster's magenta %v", r.initials.Color, want)
+	}
+}
