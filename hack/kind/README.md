@@ -9,6 +9,7 @@ so Cogpit and kubectl never reach another cluster by accident.
 |---|---|
 | [`cluster.yaml`](cluster.yaml) | kind configuration: one control-plane node, the default service CIDR `10.96.0.0/16` |
 | [`seed/`](seed/) | the manifests `make kind-seed` applies, all in the namespace `cogpit-demo` |
+| [`prometheus-values.yaml`](prometheus-values.yaml) | the values `make kind-prometheus` installs the `prometheus` chart with; see [Prometheus](#prometheus) |
 | [`drain-cluster.yaml`](drain-cluster.yaml) | the second, multi-node cluster `cogpit-drain` (one control plane, two workers) for the tests that cordon and drain a node; see [The drain cluster](#the-drain-cluster) |
 
 ## Use
@@ -56,6 +57,33 @@ Namespace `cogpit-demo`. Every image tag is pinned.
 
 Except `web` (nginx binds port 80 as root), the seed's containers run as user 65534 without
 privilege escalation and with all capabilities dropped.
+
+## Prometheus
+
+`make kind-prometheus` installs a real Prometheus into the cluster for the drawer's charts: the
+prometheus-community `prometheus` chart (version pinned in the Makefile, fetched with `--repo`, so no
+helm repository is added to your helm configuration), release `prometheus` in the namespace
+`monitoring`, with [`prometheus-values.yaml`](prometheus-values.yaml): the server alone (no
+Alertmanager, Pushgateway, kube-state-metrics or node-exporter), a week of retention. Its Service
+`monitoring/prometheus-server` is a name Cogpit's detection looks for; the chart's
+`kubernetes-nodes-cadvisor` job scrapes the kubelet's cAdvisor every minute, the source of every
+query Cogpit sends. Charts fill two or three minutes after the install.
+
+```sh
+make kind-prometheus        # install or upgrade (helm, --wait)
+make test-kind              # TestKindPrometheus and TestKindPrometheusDrawer run instead of skipping
+make kind-prometheus-down   # uninstall and delete the namespace monitoring
+```
+
+Through the service proxy as Cogpit reads it:
+
+```sh
+KUBECONFIG=.cache/kind/kubeconfig kubectl --context kind-cogpit get --raw \
+  '/api/v1/namespaces/monitoring/services/prometheus-server:http/proxy/api/v1/status/buildinfo'
+```
+
+On this cluster's containerd, cAdvisor reports no `container_fs_usage_bytes` for containers, so a
+pod's Filesystem chart shows read and write rates; the node's shows the usage of its disk.
 
 ## The synthetic cluster
 

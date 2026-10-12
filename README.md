@@ -292,6 +292,7 @@ registry with `go run ./hack/readmecmds`.
 | `make bench` | the gate benchmarks (S1, S2) |
 | `make lint`, `make fmt` | golangci-lint v2.14.0 (installed into `bin/`) with the team's linters and the `depguard` layering |
 | `make kind-up`, `make kind-seed`, `make kind-down` | the local kind cluster and its seed |
+| `make kind-prometheus`, `make kind-prometheus-down` | a real Prometheus in the kind cluster (`monitoring/prometheus-server`, the `prometheus` chart) for the drawer's charts ([hack/kind](hack/kind/README.md#prometheus)) |
 | `make app` | `bin/Cogpit.app` via `fyne package` |
 
 ## 🛠 Development

@@ -151,6 +151,28 @@ kind-down: ## Delete the kind cluster and its kubeconfig file
 	kind delete cluster --name $(KIND_CLUSTER) --kubeconfig $(KIND_KUBECONFIG)
 	rm -f $(KIND_KUBECONFIG)
 
+# A real Prometheus in the kind cluster for the drawer's charts (architecture §9): the
+# prometheus-community `prometheus` chart, the server alone (hack/kind/prometheus-values.yaml),
+# release prometheus in the namespace monitoring, so its Service is monitoring/prometheus-server.
+# Fetched with --repo: no helm repository is added to the user's helm configuration.
+PROMETHEUS_CHART_REPO    ?= https://prometheus-community.github.io/helm-charts
+PROMETHEUS_CHART_VERSION ?= 29.36.1
+HELM_KIND                := helm --kubeconfig $(KIND_KUBECONFIG) --kube-context $(KIND_CONTEXT)
+
+.PHONY: kind-prometheus kind-prometheus-down
+
+kind-prometheus: ## Install or upgrade a real Prometheus in the kind cluster (namespace monitoring)
+	@test -s $(KIND_KUBECONFIG) || { echo "no kubeconfig at $(KIND_KUBECONFIG): run make kind-up first"; exit 1; }
+	@command -v helm >/dev/null || { echo "helm is not installed: https://helm.sh"; exit 1; }
+	$(HELM_KIND) upgrade --install prometheus prometheus --repo $(PROMETHEUS_CHART_REPO) \
+		--version $(PROMETHEUS_CHART_VERSION) --namespace monitoring --create-namespace \
+		--values hack/kind/prometheus-values.yaml --wait --timeout 5m
+	@echo "Prometheus: monitoring/prometheus-server (scrapes every minute; charts fill after 2-3 minutes)"
+
+kind-prometheus-down: ## Uninstall the kind cluster's Prometheus and its namespace
+	$(HELM_KIND) uninstall prometheus --namespace monitoring --ignore-not-found
+	$(KUBECTL) delete namespace monitoring --ignore-not-found
+
 # The drain cluster: one control plane and two workers, for the tests that cordon and drain a
 # node, which must never run against the shared single-node cluster above.
 KIND_DRAIN_CLUSTER    ?= cogpit-drain

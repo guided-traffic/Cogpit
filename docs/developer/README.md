@@ -42,14 +42,14 @@ Where Cogpit stands against Lens: [`../parity/`](../parity/README.md). Security 
 cogpit/
 ├─ AGENTS.md, CLAUDE.md, ATTRIBUTION.md, README.md, ROADMAP.md, SECURITY.md, LICENSE
 ├─ go.mod                     module github.com/guided-traffic/cogpit
-├─ Makefile                   build, run, run-demo, test, test-unit-race, test-kind, bench, lint, parity, kind-up, kind-down, app
+├─ Makefile                   build, run, run-demo, test, test-unit-race, test-kind, bench, lint, parity, kind-up, kind-down, kind-prometheus, app
 ├─ .golangci.yml              linters and the depguard layering rules
 ├─ .github/                   CI workflows (build, release, renovate), renovate.json, the coverage badge
 ├─ .releaserc.json            semantic-release config; package.json pins its npm tooling (CI only)
 ├─ cmd/cogpit/                desktop app (Fyne, cgo)
 ├─ cmd/cogpit-cli/            headless CLI and MCP stdio bridge (pure Go)
 ├─ internal/                  packages, layered L0–L4 (architecture.md §2–§3)
-├─ hack/kind/                 kind cluster config and seed manifests (make kind-up)
+├─ hack/kind/                 kind cluster config, seed manifests (make kind-up), Prometheus values (make kind-prometheus)
 ├─ hack/icon/                 generator of the app icon (make icon; internal/ui/logo draws it)
 ├─ hack/parity/               make parity: checks the parity checklists and counts what they report
 ├─ hack/readmecmds/           the README's table of commands, from the registry

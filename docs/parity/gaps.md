@@ -476,9 +476,19 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   ([architecture §9](../developer/architecture.md#9-metrics-internalmetrics)). **Captured:** the default
   range "1h", the four variant icons, the source line's wording up to the provider. **Inferred:** every
   range value but 1h, the Network and Filesystem series' names and units, the per-pod line.
+- **Checked against a real Prometheus (2026-10-12):** the `prometheus` chart on the kind cluster
+  (`make kind-prometheus`, Prometheus 3.15.0, one-minute scrape): detection, a node's and a pod's
+  CPU, memory, network and filesystem from range queries, the window's variants, ranges and hover,
+  `ui.setMetricsRange`, `metrics.get` and budget P13, with memory equal to the Metrics Server's to
+  the byte ([architecture §9](../developer/architecture.md#9-metrics-internalmetrics) has the numbers).
+  It found three faults the fake did not show, fixed: the filesystem metric per kind, a node's
+  usage over its disks only, rate windows that fit a one-minute scrape. **Only against the fake:**
+  kube-prometheus-stack, containers' filesystem usage, a refused service proxy, a route prefix,
+  history longer than an hour.
 - **Left of Prometheus:** the cluster settings page that sets the override
   (`Backend.PrometheusDetector.SetOverride`, then `Hub.Forget`), a check against a real
-  kube-prometheus-stack, the source line's port and its namespace and service as links (Lens:
+  kube-prometheus-stack, a check of the Nodes list's CPU right after connecting (seen once at 0% with
+  memory present, not reproduced), the source line's port and its namespace and service as links (Lens:
   "Prometheus: <namespace>/<service>:<port>"), the Lens-provider variants that are not
   Prometheus-compatible by name (Thanos, VictoriaMetrics under other service names: reachable through
   the override only).
@@ -681,6 +691,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | G12: checked against a real Prometheus on kind (the `prometheus` chart); three faults it found fixed; only kube-prometheus-stack and the override left unchecked; estimate not moved |
 | 2026-10-12 | minor | G12: the window draws Prometheus (Network, Filesystem, ranges to 30 days held by the engine through `ui.setMetricsRange`); range values beyond 1h inferred; estimate not moved |
 | 2026-10-12 | minor | G12: Prometheus through the service proxy, backend (detection, range queries for CPU, Memory, Network and Filesystem, per-chart ranges, budget P13); the window's Network and Filesystem buttons left; estimate not moved |
 | 2026-10-12 | minor | G12: the owner's hover requirement built (crosshair, dots and a panel with time, values, request and limit, events); estimate not moved |

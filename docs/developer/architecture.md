@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-12)
 
@@ -1463,6 +1463,35 @@ Tests on canned data: `TestPrometheusSourceAndVariants`, `TestPrometheusFilesyst
 week and the hover at the narrowest drawer (`TestRenderPrometheusMetrics`, to `COGPIT_PNG_DIR`).
 Against a real Prometheus: below.
 
+**Checked against a real Prometheus on 2026-10-12** (`make kind-prometheus`: the prometheus-community
+`prometheus` chart 29.36.1, Prometheus 3.15.0, the server alone, scraping the kubelet's cAdvisor every
+minute, on the kind cluster: Kubernetes 1.36.1, containerd 2.3.1, one node;
+[`prometheus_kind_test.go`](../../internal/testkit/integration/prometheus_kind_test.go),
+[`metricsview_kind_test.go`](../../internal/ui/fyneui/metricsview_kind_test.go), both skipped where the
+cluster has no Prometheus, so not in CI). What held, with the numbers seen:
+
+| Checked | Seen |
+|---|---|
+| Detection | `monitoring/prometheus-server` among the cached Services, port `http`, buildinfo 3.15.0; source line "Prometheus (monitoring/prometheus-server)" |
+| Node drawer (`cogpit-control-plane`) | CPU 219–225m against the Metrics Server's 206m at about the same time; memory 1,600,798,720 bytes, the Metrics Server's 1,563,280Ki to the byte; network 0.1 to 4 KiB/s; filesystem `usage` 55.9 GiB, the node's disk (after the fix below) |
+| Pod drawer (`cogpit-demo/web-…`, nginx) | memory 15.8MiB, the Metrics Server's 16,136Ki to the byte; CPU 0 at rest (0.1 millicores), 13–17m under a load of about 435 requests per second over the three web pods, network then 52–65 KiB/s received and 76–95 KiB/s sent; the container's chart carried the pod's network (`NetworkOfPod`); filesystem `io`, 0 bytes per second (nginx writes nothing) |
+| The window | the source line, Network and Filesystem enabled, the ranges to 30d offered, 54 to 56 points per series on the default hour, the hover "Receive: 41.8KiB/s, Transmit: 60.6KiB/s" over the network chart |
+| `ui.setMetricsRange`, `ui.state` | a pod chart at 6h, the container's at 1h, both listed in `drawerCharts` |
+| `metrics.get` | the six seed pods from Prometheus (memory 10.7 to 19.4MiB), the node at 222m and 1.5GiB |
+| Budget P13 | 16 proxy GETs in 90 s with the Pods list and a pod's drawer at 1h open: two query sets of six (the drawer polled about every 33 s: the 30 s step after the poll's own time) and two list polls of two; no write |
+
+It found three faults the fake did not show, fixed the same day: the filesystem metric discovered once
+for both kinds (a node's `usage` left every pod's chart empty, since containerd's cAdvisor reports
+usage for the root cgroup only), a node's usage summed over every mount (503 GiB for a 56 GiB disk),
+and `rate(…[2m])` leaving gaps at a one-minute scrape (the queries above).
+
+**Not checked against a real Prometheus**, only against the fake: kube-prometheus-stack (the `node`
+label, a 30 s scrape), `container_fs_usage_bytes` for containers (runtimes that report it), a user
+refused the service proxy, a route prefix, the override, Thanos and VictoriaMetrics, and history
+longer than the hour the kind Prometheus had (the 7d and 30d charts drew it at their right edge).
+Seen once and not again in four runs: right after connecting, a Nodes list poll whose instant
+query had memory but no CPU, which the list shows as 0%.
+
 ## 10. Terminal (`internal/terminal`)
 
 The terminal widget is `github.com/fyne-io/terminal`. Its `RunLocalShell` starts the shell with
@@ -1541,6 +1570,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | §9 Prometheus in the window (G12, third slice): the variants per provider, Network and Filesystem drawn, the second series colour, byte axes in binary steps, ranges to 30 days held by the engine (`ui.setMetricsRange`, `MetricsTarget.Range`, `ui.state`'s `drawerCharts`); checked against a real Prometheus on kind, and the three faults it found fixed (the filesystem metric per kind, a node's disks only, the rate windows) |
 | 2026-10-12 | minor | §9 Prometheus (G12, second slice, backend): detection among the cached Services and the override, the provider with range and instant queries, the detector chain, `RangeProvider`, per-chart ranges (`SetMetricsRange`), `ObjectMetrics` with network and filesystem series |
 | 2026-10-12 | minor | §9 as built (G12 first slice): `internal/metrics` (the Metrics Server provider, detection as states, a hub with per-scope polling at 60 s and 15 s, a TTL cache, a bounded series per watched object), `KindProfile.Usage` and the usage columns, `Session.ObjectMetrics`, `EventMetrics`, `metrics.get`, the drawer's Metrics section and chart widget, the demo's synthetic Metrics Server |
 | 2026-10-12 | minor | §4.3: panel widths (sidebar, drawer) are user-dragged, stored in the preferences and GUI-only; why the drawer followed its content and the rule that ends it |
