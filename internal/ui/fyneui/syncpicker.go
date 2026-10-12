@@ -78,6 +78,7 @@ func (k *kubeconfigUI) pickWithDialog(done func(path string, folder bool)) {
 	sp.pathEntry = widget.NewEntry()
 	sp.pathEntry.SetPlaceHolder("Folder or file path…")
 	sp.pathEntry.OnSubmitted = sp.goToTyped
+	sp.pathEntry.OnChanged = func(string) { sp.renderStatus() }
 	sp.upB = widget.NewButtonWithIcon("", theme.MoveUpIcon(), sp.up)
 	sp.list = container.NewVBox()
 	sp.status = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
@@ -172,19 +173,37 @@ func listSyncFolder(dir string) (entries []syncEntry, total int, err error) {
 	return entries, total, nil
 }
 
-// goToTyped follows the path typed in the entry: a folder is opened, a file opens its folder with
-// the file selected.
-func (sp *syncPicker) goToTyped(text string) {
+// expandPath is a typed path as the file system knows it: trimmed, "~" for the home directory,
+// cleaned; "" for nothing typed.
+func expandPath(text string) string {
 	p := strings.TrimSpace(text)
 	if p == "" {
-		return
+		return ""
 	}
 	if strings.HasPrefix(p, "~") && (len(p) == 1 || p[1] == '/' || p[1] == filepath.Separator) {
 		if home, err := os.UserHomeDir(); err == nil {
 			p = filepath.Join(home, p[1:])
 		}
 	}
-	p = filepath.Clean(p)
+	return filepath.Clean(p)
+}
+
+// typed returns the path typed into the entry when it is not the folder shown: one the user typed
+// or pasted and has not opened with Enter.
+func (sp *syncPicker) typed() string {
+	if p := expandPath(sp.pathEntry.Text); p != "" && p != sp.dir {
+		return p
+	}
+	return ""
+}
+
+// goToTyped follows the path typed in the entry: a folder is opened, a file opens its folder with
+// the file selected.
+func (sp *syncPicker) goToTyped(text string) {
+	p := expandPath(text)
+	if p == "" {
+		return
+	}
 	sh := sp.k.sh
 	go func() {
 		defer sh.recoverTo("following a typed path")
@@ -211,7 +230,8 @@ func (sp *syncPicker) up() {
 	}
 }
 
-// target is what Sync adds: the selected entry, else the folder shown.
+// target is what Sync adds: the selected entry, else the folder shown. A typed path wins over both
+// (sync looks it up first).
 func (sp *syncPicker) target() (path string, folder bool) {
 	for _, e := range sp.entries {
 		if e.path == sp.selected {
@@ -221,11 +241,34 @@ func (sp *syncPicker) target() (path string, folder bool) {
 	return sp.dir, true
 }
 
-// sync adds the target and closes the dialog.
+// sync adds the target and closes the dialog. A path typed or pasted into the entry and not opened
+// with Enter is what the user means: it wins over the folder shown (Sync used to add the folder
+// the dialog opened in, the home directory, owner 2026-10-12). One that does not exist is said in
+// the status line, and the dialog stays.
 func (sp *syncPicker) sync() {
-	path, folder := sp.target()
-	sp.d.Hide()
-	sp.done(path, folder)
+	typed := sp.typed()
+	if typed == "" {
+		path, folder := sp.target()
+		sp.d.Hide()
+		sp.done(path, folder)
+		return
+	}
+	sh := sp.k.sh
+	go func() {
+		defer sh.recoverTo("syncing a typed path")
+		fi, err := os.Stat(typed)
+		sh.do(func() {
+			switch {
+			case sp.k.syncing != sp:
+			case err != nil:
+				sp.status.SetColor(colorStatusError)
+				sp.status.SetText(errorText(err))
+			default:
+				sp.d.Hide()
+				sp.done(typed, fi.IsDir())
+			}
+		})
+	}()
 }
 
 func (sp *syncPicker) render() {
@@ -233,7 +276,11 @@ func (sp *syncPicker) render() {
 	sp.rows = map[string]*fsRow{}
 	for _, e := range sp.entries {
 		r := newFSRow(e, e.path == sp.selected,
-			func() { sp.selected = e.path; sp.render() },
+			func() {
+				sp.selected = e.path
+				sp.pathEntry.SetText(sp.dir) // a tap chooses from the list: a typed path no longer counts
+				sp.render()
+			},
 			func() {
 				if e.dir {
 					sp.goTo(e.path, "")
@@ -251,6 +298,19 @@ func (sp *syncPicker) render() {
 	}
 	sp.list.Objects = rows
 	sp.list.Refresh()
+	sp.renderStatus()
+}
+
+// renderStatus says what Sync adds: a typed path, else the selected entry or the folder shown.
+func (sp *syncPicker) renderStatus() {
+	if sp.status == nil {
+		return
+	}
+	if typed := sp.typed(); typed != "" {
+		sp.status.SetColor(colorMuted)
+		sp.status.SetText("Sync: " + kubeconfig.DisplayText(typed, maxShownPath) + " (Enter opens it)")
+		return
+	}
 	path, folder := sp.target()
 	what := "file"
 	if folder {

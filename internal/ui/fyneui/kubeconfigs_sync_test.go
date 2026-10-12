@@ -2,6 +2,7 @@ package fyneui
 
 import (
 	"context"
+	"fyne.io/fyne/v2"
 	"os"
 	"path/filepath"
 	"slices"
@@ -314,4 +315,87 @@ func TestRenderDisconnectedPlaceholder(t *testing.T) {
 	})
 	q.until(t, "the placeholder", func() bool { return sh.view.placeholderText.text == reason })
 	savePNG(t, w, "disconnected_file_gone_dark.png")
+}
+
+// A path typed or pasted into the entry and not opened with Enter is what Sync adds, not the folder
+// the dialog shows (owner, 2026-10-12: Sync added the home directory instead of the folder typed).
+// One that does not exist keeps the dialog open with the reason; a tap on an entry after typing
+// chooses from the list again.
+func TestSyncPickerSyncsATypedPath(t *testing.T) {
+	f, rec := kubeconfigFake(t, engine.ExecRequired)
+	f.handlers["kubeconfig.addFolder"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		rec.add(inv)
+		return map[string]any{"source": map[string]any{"id": "x/", "kind": "folder"}, "contexts": []string{"a"}}, nil
+	}
+	dir := syncTree(t)
+	other := t.TempDir()
+	sh, _, q := newTestShell(t, f, Options{})
+
+	sp := openSyncPicker(t, sh, q, dir)
+	sp.pathEntry.SetText(other + "/") // pasted, not opened with Enter
+	if !strings.HasPrefix(sp.status.text, "Sync: "+other) {
+		t.Errorf("status %q does not name the typed path", sp.status.text)
+	}
+	test.Tap(sp.syncB)
+	q.until(t, "kubeconfig.addFolder", func() bool { return len(f.callsOf("kubeconfig.addFolder")) == 1 })
+	if p := rec.params("kubeconfig.addFolder"); p["path"] != other {
+		t.Errorf("addFolder %v, want the typed %s", p, other)
+	}
+
+	sp = openSyncPicker(t, sh, q, dir)
+	sp.pathEntry.SetText(filepath.Join(dir, "missing"))
+	test.Tap(sp.syncB)
+	q.until(t, "the reason", func() bool { return sp.status.color == colorStatusError })
+	if sh.kc.syncing != sp || len(f.callsOf("kubeconfig.addFolder")) != 1 || len(f.callsOf("kubeconfig.addFile")) != 0 {
+		t.Error("a missing typed path was synced or closed the dialog")
+	}
+
+	sp.pathEntry.SetText(other)
+	test.Tap(sp.rows["team.yaml"]) // a tap chooses from the list
+	test.Tap(sp.syncB)
+	q.until(t, "kubeconfig.addFile", func() bool { return len(f.callsOf("kubeconfig.addFile")) == 1 })
+	if p := rec.params("kubeconfig.addFile"); p["path"] != filepath.Join(dir, "team.yaml") {
+		t.Errorf("addFile %v", p)
+	}
+}
+
+// A sync that finds no cluster says so in a dialog, with the files it skipped and why, and offers
+// to remove the source again; a toast saying "0 contexts" went unnoticed (owner, 2026-10-12).
+func TestSyncWithoutClustersSaysWhy(t *testing.T) {
+	f, rec := kubeconfigFake(t, engine.ExecRequired)
+	f.handlers["kubeconfig.addFolder"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		rec.add(inv)
+		return map[string]any{"source": map[string]any{"id": "configs/", "kind": "folder", "path": "/u/configs"}, "contexts": []string{},
+			"skipped": 3, "skippedFiles": []string{"main.png: not a kubeconfig, or unreadable", "notes.txt: not a kubeconfig, or unreadable"}}, nil
+	}
+	f.handlers["kubeconfig.remove"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		rec.add(inv)
+		return map[string]any{}, nil
+	}
+	sh, w, q := newTestShell(t, f, Options{})
+	sh.kc.addPath("kubeconfig.addFolder", "/u/configs")
+	q.until(t, "the dialog", func() bool { return sh.kc.noClustersDialog != nil })
+	texts := strings.Join(allTexts(w.Canvas().Overlays().Top()), "\n")
+	for _, want := range []string{"None of the 3 files in the folder /u/configs defines a cluster context", "main.png: not a kubeconfig", "and 1 more"} {
+		if !strings.Contains(texts, want) {
+			t.Errorf("the dialog lacks %q:\n%s", want, texts)
+		}
+	}
+	test.Tap(findButton(w, "Remove"))
+	q.until(t, "kubeconfig.remove", func() bool { return len(f.callsOf("kubeconfig.remove")) == 1 })
+	if p := rec.params("kubeconfig.remove"); p["source"] != "configs/" {
+		t.Errorf("remove %v", p)
+	}
+}
+
+// allTexts collects the text of every text line and paragraph under root.
+func allTexts(root fyne.CanvasObject) []string {
+	var out []string
+	for _, l := range findAll[*textLine](root) {
+		out = append(out, l.text)
+	}
+	for _, p := range findAll[*paragraph](root) {
+		out = append(out, p.text)
+	}
+	return out
 }

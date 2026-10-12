@@ -796,8 +796,13 @@ until then the default kubeconfig files were merged as kubectl merges them). The
 - **One dialog for both** (`internal/ui/fyneui/syncpicker.go`): Lens opens the system's file dialog,
   which takes files and folders together; Fyne's two file dialogs take one kind each, so Cogpit
   has a small browser of its own, "Sync Files and Folders": select a file or a folder, or nothing for
-  the folder shown, and press Sync; the status line names the path that will be synced, hidden files
-  are listed, and only directory listings are read. `Session.WatchKubeconfigs` compares the sources' file sizes and modification
+  the folder shown, and press Sync; a path typed or pasted into the path field and not opened
+  with Enter wins over both (since 2026-10-12: Sync added the folder shown, the home directory,
+  `TestSyncPickerSyncsATypedPath`); the status line names the path that will be synced, hidden
+  files are listed, and only directory listings are read. A sync that finds no context says so in a
+  dialog ("No clusters found") with the skipped files and a fixed reason each (`SourceStatus.SkippedFiles`:
+  "defines no context", "not a kubeconfig, or unreadable"; never a parser's message, which could quote
+  the file), and offers to remove the source again; a folder's subfolders are not read. `Session.WatchKubeconfigs` compares the sources' file sizes and modification
   times every 2 seconds (polling, no file-system notifications: `fsnotify` is not a direct
   dependency) and emits `EventContexts` when they change; the picker lists again.
 

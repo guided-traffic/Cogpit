@@ -462,3 +462,33 @@ func TestSyncFolderPicksUpAndDropsFiles(t *testing.T) {
 	stop()
 	stop() // twice is harmless
 }
+
+// A folder's files that offer no context are named with a fixed reason, never with their content
+// or a parser's message, so that a sync that finds no cluster can say why (owner, 2026-10-12).
+func TestSourceStatusNamesSkippedFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeUserFile(t, filepath.Join(dir, "a.yaml"), sourceKubeconfig("a"))
+	writeUserFile(t, filepath.Join(dir, "picture.png"), "\x89PNG\r\n\x1a\n s3cr3t-token-in-a-binary")
+	writeUserFile(t, filepath.Join(dir, "empty.yaml"), "apiVersion: v1\nkind: Config\nclusters: []\n")
+	k := NewKubeconfigSources(filepath.Join(t.TempDir(), "Cogpit"))
+	if _, err := k.AddFolder(dir); err != nil {
+		t.Fatal(err)
+	}
+	_, statuses, err := k.Files()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var st SourceStatus
+	for _, s := range statuses {
+		if s.Kind == SourceFolder {
+			st = s
+		}
+	}
+	want := []string{"empty.yaml: defines no context", "picture.png: not a kubeconfig, or unreadable"}
+	if st.Skipped != 2 || st.Contexts != 1 || !slices.Equal(st.SkippedFiles, want) {
+		t.Errorf("status %+v, want skipped %v", st, want)
+	}
+	if strings.Contains(strings.Join(st.SkippedFiles, " "), "s3cr3t") {
+		t.Error("a skipped file's content reached the status")
+	}
+}

@@ -37,8 +37,10 @@ type (
 		Error    string   `json:"error"`
 	}
 	sourceAdded struct {
-		Source   sourceStatus `json:"source"`
-		Contexts []string     `json:"contexts"`
+		Source       sourceStatus `json:"source"`
+		Contexts     []string     `json:"contexts"`
+		Skipped      int          `json:"skipped"`
+		SkippedFiles []string     `json:"skippedFiles"`
 	}
 	pathParams struct {
 		Path string `json:"path"`
@@ -69,6 +71,8 @@ type kubeconfigUI struct {
 	sources    *sourcesDialog  // the open sources dialog; main goroutine only
 	syncing    *syncPicker     // the open sync picker; main goroutine only
 	connectLog *connectLogDialog
+	// noClustersDialog says that a source just synced offers no cluster; main goroutine only.
+	noClustersDialog *dialog.ConfirmDialog
 }
 
 func newKubeconfigUI(sh *shell) *kubeconfigUI {
@@ -114,8 +118,59 @@ func (k *kubeconfigUI) announce(res any) {
 		return
 	}
 	n := len(a.Contexts)
+	if n == 0 {
+		k.noClusters(a)
+		k.contextsChanged()
+		return
+	}
 	k.sh.toast("info", fmt.Sprintf("Synced %s: %d %s", kubeconfig.DisplayText(a.Source.ID, maxShownPath), n, nounFor(n, "context", "contexts")))
 	k.contextsChanged()
+}
+
+// noClusters tells the user that a source they just synced offers no cluster, which files it
+// found and why each was skipped, and offers to remove it again: a toast saying "0 contexts" was
+// easy to miss (owner, 2026-10-12).
+func (k *kubeconfigUI) noClusters(a sourceAdded) {
+	width := k.sh.app.Settings().Theme().Size(sizePickerWidth)
+	path := kubeconfig.DisplayText(a.Source.Path, maxShownPath)
+	var msg string
+	switch {
+	case a.Source.Kind != "folder":
+		msg = path + " defines no cluster context. Cogpit keeps syncing it and offers its contexts once it has some."
+	case a.Skipped == 0:
+		msg = "The folder " + path + " holds no file Cogpit could read as a kubeconfig. Cogpit keeps syncing it and offers " +
+			"the contexts of kubeconfig files that appear in it (it does not look into its subfolders)."
+	default:
+		msg = fmt.Sprintf("None of the %d %s in the folder %s defines a cluster context, so no cluster was added. Cogpit keeps "+
+			"syncing it (not its subfolders) and offers the contexts of kubeconfig files that appear in it.",
+			a.Skipped, nounFor(a.Skipped, "file", "files"), path)
+	}
+	content := container.NewVBox(newParagraph(msg, theme.ColorNameForeground, width))
+	if len(a.SkippedFiles) > 0 {
+		lines := make([]string, 0, len(a.SkippedFiles)+1)
+		for _, f := range a.SkippedFiles {
+			lines = append(lines, kubeconfig.DisplayText(f, maxShownPath))
+		}
+		if more := a.Skipped - len(a.SkippedFiles); more > 0 {
+			lines = append(lines, fmt.Sprintf("and %d more", more))
+		}
+		content.Add(newSpace(theme.SizeNamePadding))
+		content.Add(newParagraph(strings.Join(lines, "\n"), colorMuted, width))
+	}
+	id := a.Source.ID
+	d := dialog.NewCustomConfirm("No clusters found", "Remove", "Keep Syncing", content, func(remove bool) {
+		if !remove {
+			return
+		}
+		k.sh.dispatch("kubeconfig.remove", sourceParams{Source: id}, func(_ any, err error) {
+			if err != nil {
+				k.sh.showError(err)
+			}
+			k.contextsChanged()
+		})
+	}, k.sh.win)
+	k.noClustersDialog = d
+	d.Show()
 }
 
 // contextsChanged refreshes the picker and the sources dialog if they are open.

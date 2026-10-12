@@ -152,8 +152,26 @@ type SourceStatus struct {
 	Contexts int `json:"contexts"`
 	// Skipped counts a folder's files that are not kubeconfigs or define no context.
 	Skipped int `json:"skipped,omitempty"`
+	// SkippedFiles name the first of them with why, as "<file>: <reason>", the reason one of a few
+	// fixed texts (never a file's content or its parser's message), so that a sync that finds no
+	// cluster can say why.
+	SkippedFiles []string `json:"skippedFiles,omitempty"`
 	// Error says why the source (or its one file) cannot be read.
 	Error string `json:"error,omitempty"`
+}
+
+// maxSkippedShown bounds the skipped files a source status names.
+const maxSkippedShown = 20
+
+// skipReason says why a folder's file offers no context, in a fixed text: a parser's message can
+// quote the file, and the file can hold credentials.
+func skipReason(err error) string {
+	switch {
+	case err == nil, errors.Is(err, kubeconfig.ErrNoContexts):
+		return "defines no context"
+	default:
+		return "not a kubeconfig, or unreadable"
+	}
 }
 
 // maxPrivateDoc bounds the sources and approvals files: they hold a few entries.
@@ -492,6 +510,9 @@ func (k *KubeconfigSources) Files() ([]KubeconfigFile, []SourceStatus, error) {
 				f := inspect(src, strings.TrimSuffix(src.ID, "/")+"/"+filepath.Base(e.Path), e.Path)
 				if f.Err != nil || len(f.Contexts) == 0 {
 					st.Skipped++
+					if len(st.SkippedFiles) < maxSkippedShown {
+						st.SkippedFiles = append(st.SkippedFiles, filepath.Base(e.Path)+": "+skipReason(f.Err))
+					}
 					continue
 				}
 				files = append(files, f)

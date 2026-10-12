@@ -25,6 +25,10 @@ type SourcesResult struct {
 type SourceAdded struct {
 	Source   engine.KubeconfigSource `json:"source"`
 	Contexts []string                `json:"contexts"`
+	// Skipped and SkippedFiles say, for a folder, which of its files offer no context and why
+	// (engine.SourceStatus): a sync that finds no cluster tells the user what it found instead.
+	Skipped      int      `json:"skipped,omitempty"`
+	SkippedFiles []string `json:"skippedFiles,omitempty"`
 }
 
 // ExecPluginResult is kubeconfig.execPlugin's result. Agents get the plugin without its arguments
@@ -97,6 +101,13 @@ func requireGUI(ctx context.Context) error {
 func added(s *engine.Session, src engine.KubeconfigSource) SourceAdded {
 	s.Emit(engine.Event{Type: engine.EventContexts})
 	out := SourceAdded{Source: src, Contexts: []string{}}
+	if _, statuses, err := s.KubeconfigSources().Files(); err == nil {
+		for _, st := range statuses {
+			if st.ID == src.ID {
+				out.Skipped, out.SkippedFiles = st.Skipped, st.SkippedFiles
+			}
+		}
+	}
 	ctxs, _ := s.KubeconfigSources().Contexts()
 	for _, c := range ctxs {
 		if c.Source == src.ID || (src.Kind == engine.SourceFolder && strings.HasPrefix(c.Source, src.ID)) {
