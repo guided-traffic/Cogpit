@@ -11,7 +11,7 @@ built-in views, the Port Forwarding view (a local kind), the Helm Releases view 
 the Workloads Overview page and one view per custom resource kind from a watch-fed cache, greys
 what the user's access reviews deny, has a detail drawer and row menus from the command registry,
 a dock with logs (with their options and the logs of a workload's pods), a local terminal, pod
-shells, attach and Edit and Create resource tabs, writes through 76 commands (editing, Secrets
+shells, attach and Edit and Create resource tabs, writes through 76 commands (77 with the metrics read) (editing, Secrets
 from YAML in the GUI only, delete, node and workload actions, a crash-safe drain, port forwards
 that fail at once on permanent errors, Helm rollback, uninstall and upgrade with a crash journal
 locked between Cogpit processes, each bound to the revision the server holds), adds and syncs
@@ -1187,6 +1187,41 @@ across drawers; that is what Prometheus is for (below).
 the scope's state; the next poll tries again at the interval. A `404` on a list means the API went
 away and makes detection run again. A panicking provider is recovered at the goroutine's boundary
 (`TestProviderPanicIsContained`).
+
+**In the engine** ([`engine/metrics.go`](../../internal/engine/metrics.go)). `Backend.Metrics` is the
+cluster's hub (a real cluster: the Metrics Server through `metrics.ForConn`; the demo cluster:
+`metrics.Fixed(demo.Metrics)`); `ClusterConnector.MetricsOptions` tunes it, and it closes with the
+backend. Three things subscribe, and each releases when it goes away:
+
+| Subscriber | Scope | Where |
+|---|---|---|
+| a view of a kind with `KindProfile.Usage` (Pods, Nodes) | the whole list, all namespaces (the namespace filter is applied to the rows, as for every view) | `viewWorker.usage`, a `usageFeed` that bumps a generation and wakes the worker after each poll |
+| the open drawer of a pod or node | that object | `drawerWatch.usage`; after each poll the engine emits `EventMetrics`, which the window answers by redrawing the chart only, not the drawer |
+| nobody (an agent's `metrics.get`) | a one-off `Hub.Fetch` | no subscription, no poll |
+
+*CPU and Memory columns.* The profiles of Pods and Nodes carry the columns (type
+`model.ColumnMetric`: `Text` the formatted value, `Num` the sort key, an empty `Text` is "no
+measurement" and sorts last in both directions) and a `UsageCells` function; `Cells` leaves them
+empty. The row cache keeps the profile's row as `base` and patches the two cells when the feed's
+generation moved (`rowCache.buildWith`), so a new measurement costs a copy of the cells of the
+rows that have one, never a rebuild of 10,000 rows from objects, and the sort sees the patched
+cells. Pods show cores with three decimals and memory in binary units ("0.012", "19.5MiB"); Nodes show
+the share of allocatable ("7.5%"), the text of Lens's usage bars. Without a provider (no
+metrics-server, forbidden, down) the columns stay empty; `Session.ObjectMetrics` and `metrics.get`
+carry the state.
+
+*The drawer's data.* `Session.ObjectMetrics(ref)` returns `ObjectMetrics`: the status, the source
+line's label, the capabilities, and one `MetricsTarget` per chart: the pod or node as a whole
+(a pod: the sum of its containers' usage, requests and limits), then each container from the pod
+spec in order (`model.PodResources`, `model.PodTotals`), or a node's allocatable and capacity;
+each with its latest measurement and the series the hub kept since the drawer opened. A pod's limit
+line exists only where every container sets that limit (a container without one makes the pod
+unbounded).
+
+*The agents' read.* `metrics.get {kind, namespace?, name?, limit?}` (`DangerRead`; verbs `get` and
+`list` on `pods.metrics.k8s.io` and `nodes.metrics.k8s.io`) returns the status, the source and the
+current usage, per container for pods, at most `limit` items (default 500, `truncated` says when
+more matched). A cluster without the Metrics API answers with the status `notServed` and no items.
 
 **Designed for Prometheus, not built.** The slice after this one adds a second `Provider` that
 reads Prometheus through the API server's service proxy (privilege footprint: `get` on

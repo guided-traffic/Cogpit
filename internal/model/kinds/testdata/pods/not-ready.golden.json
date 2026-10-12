@@ -26,6 +26,14 @@
       }
     },
     {
+      "column": "cpu",
+      "text": ""
+    },
+    {
+      "column": "memory",
+      "text": ""
+    },
+    {
       "column": "containers",
       "text": "1/2",
       "num": 1

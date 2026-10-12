@@ -12,6 +12,10 @@ const (
 	// EventDetail: the drawer object changed in the cache, or access reviews answered (its actions'
 	// Enabled may differ); re-read Session.Detail and the actions.
 	EventDetail EventType = "detail"
+	// EventMetrics: new metrics for the drawer's object arrived (Event.View is its kind); re-read
+	// Session.ObjectMetrics. Sent after every poll of the open drawer's pod or node, about every 15
+	// seconds, and only while the drawer is open.
+	EventMetrics EventType = "metrics"
 	// EventToast: a message for the user (Event.Level, Event.Message).
 	EventToast EventType = "toast"
 	// EventDiagnostics: request counters or cache stats changed; re-read Session.Diagnostics.

@@ -15,6 +15,14 @@
       "text": ""
     },
     {
+      "column": "cpu",
+      "text": ""
+    },
+    {
+      "column": "memory",
+      "text": ""
+    },
+    {
       "column": "taints",
       "text": "0"
     },

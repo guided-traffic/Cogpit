@@ -78,6 +78,9 @@ type Options struct {
 	// Events is the number of core v1 Event objects the cluster keeps (default 2,000); the churn
 	// adds new ones and removes the oldest.
 	Events int
+	// MetricsResolution is how often the demo's Metrics Server measures: the measurements'
+	// timestamps are multiples of it (default 15 seconds, the real one's). Tests shorten it.
+	MetricsResolution time.Duration
 	// History is the number of changes a watch can resume across (default 50,000, about 50
 	// seconds at the default rate); an older resourceVersion gets 410 Gone.
 	History int
@@ -119,6 +122,9 @@ func (o Options) withDefaults() Options {
 	if o.Now.IsZero() {
 		o.Now = time.Now()
 	}
+	if o.MetricsResolution <= 0 {
+		o.MetricsResolution = defaultResolution
+	}
 	return o
 }
 
@@ -132,6 +138,9 @@ type Stats struct {
 	Watches int64 `json:"watches"` // Watch calls served
 	Expired int64 `json:"expired"` // watches answered with 410 Gone
 	Dropped int64 `json:"dropped"` // watchers closed because they fell behind
+
+	// MetricsRequests counts the list and get calls the demo's Metrics Server has served.
+	MetricsRequests int64 `json:"metricsRequests"`
 }
 
 // Cluster is a running synthetic cluster. It is safe for concurrent use.
@@ -161,6 +170,8 @@ type Cluster struct {
 
 	runMu sync.Mutex
 	run   *runState // guarded by runMu
+
+	metrics *Metrics // the synthetic Metrics Server (metrics.go)
 }
 
 // runState is one run of the churn.
@@ -179,6 +190,7 @@ func New(opts Options) *Cluster {
 		history:    newHistory(opts.History),
 		queueLimit: defaultQueueLimit,
 	}
+	c.metrics = &Metrics{c: c, now: time.Now, resolution: opts.MetricsResolution}
 	for k := range numKinds {
 		c.store[k] = map[string]*unstructured.Unstructured{}
 		c.watchers[k] = map[*watcher]struct{}{}
@@ -257,6 +269,8 @@ func (c *Cluster) Stats() Stats {
 		Watches:      c.watches.Load(),
 		Expired:      c.expired.Load(),
 		Dropped:      c.dropped.Load(),
+
+		MetricsRequests: c.metrics.Requests(),
 	}
 }
 

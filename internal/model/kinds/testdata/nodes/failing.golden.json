@@ -17,6 +17,14 @@
       "status": "warning"
     },
     {
+      "column": "cpu",
+      "text": ""
+    },
+    {
+      "column": "memory",
+      "text": ""
+    },
+    {
       "column": "taints",
       "text": "3",
       "num": 3

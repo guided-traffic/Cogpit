@@ -216,9 +216,12 @@ func (h *Hub) Subscribe(scope Scope, onChange func()) *Subscription {
 	return sub
 }
 
-// Release ends the subscription; the last one of a scope stops its poll and drops its series. The
+// Release ends the subscription (a nil subscription is a no-op); the last one of a scope stops its poll and drops its series. The
 // result stays cached for the TTL. Releasing twice is harmless.
 func (s *Subscription) Release() {
+	if s == nil {
+		return
+	}
 	s.once.Do(func() {
 		h := s.h
 		h.mu.Lock()

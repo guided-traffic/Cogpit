@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/guided-traffic/cogpit/internal/cache"
+	"github.com/guided-traffic/cogpit/internal/metrics"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
@@ -29,8 +30,9 @@ type drawerWatch struct {
 	ref     model.ObjectRef
 	profile *model.KindProfile
 	obj     *cache.Handle
-	events  *cache.Handle // nil when the cluster serves no events
-	related *relatedSet   // the indexes of the profile's Needs; nil without
+	events  *cache.Handle         // nil when the cluster serves no events
+	related *relatedSet           // the indexes of the profile's Needs; nil without
+	usage   *metrics.Subscription // the pod's or node's metrics poll (metrics.go); nil without
 	unsubs  []func()
 	wake    chan struct{}
 	quit    chan struct{}
@@ -60,6 +62,7 @@ func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.O
 	// Woken only by changes to the keys the drawer's model looked up (a node's pods, not every
 	// pod); Detail reads through this set while the drawer shows ref (drawerRelated).
 	d.related = newRelatedSetTracking(b, p.Needs, func() { signal(d.wake) }, true)
+	d.usage = s.startDrawerUsage(b, p, ref)
 	objSynced, evSynced := d.synced()
 	poll := func() bool {
 		o, e := d.synced()
@@ -112,6 +115,7 @@ func (d *drawerWatch) stop() {
 		d.events.Release()
 	}
 	d.related.release()
+	d.usage.Release()
 }
 
 // eventInvolves matches an event's involvedObject by UID when both are known, else by kind,

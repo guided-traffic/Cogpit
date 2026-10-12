@@ -38,6 +38,8 @@ var pods = &model.KindProfile{
 		nameColumn,
 		warningColumn,
 		namespaceColumn,
+		cpuColumn,
+		memoryColumn,
 		{ID: fieldContainers, Title: "Containers", Type: model.ColumnNumber},
 		{ID: "restarts", Title: "Restarts", Type: model.ColumnNumber},
 		{ID: "controlledBy", Title: "Controlled By", Type: model.ColumnText},
@@ -48,7 +50,9 @@ var pods = &model.KindProfile{
 		statusColumn,
 		ageColumn,
 	},
-	Cells: podCells,
+	Cells:      podCells,
+	Usage:      model.UsagePods,
+	UsageCells: podUsageCells,
 	Fields: map[string]fieldFunc{
 		"podIP": func(obj *unstructured.Unstructured) []string {
 			return podIPs(obj, "podIP", "podIPs")
@@ -91,6 +95,8 @@ func podCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 		nameCell(obj),
 		podWarning(obj, s),
 		namespaceCell(obj),
+		{}, // CPU, filled from the Metrics API (podUsageCells)
+		{}, // Memory
 		ratio(s.ready, s.total),
 		{Num: s.restarts},
 		// Lens shows the owner's kind, a link to the owner (capture, 2026-10-11). An owner of a kind

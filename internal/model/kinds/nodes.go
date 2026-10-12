@@ -27,13 +27,17 @@ var nodes = &model.KindProfile{
 	Columns: []model.Column{
 		nameColumn,
 		warningColumn,
+		cpuColumn,
+		memoryColumn,
 		{ID: "taints", Title: itemTaints, Type: model.ColumnNumber},
 		{ID: "roles", Title: "Roles", Type: model.ColumnText},
 		{ID: "version", Title: "Version", Type: model.ColumnText},
 		ageColumn,
 		conditionsColumn,
 	},
-	Cells: nodeCells,
+	Cells:      nodeCells,
+	Usage:      model.UsageNodes,
+	UsageCells: nodeUsageCells,
 	Fields: map[string]fieldFunc{
 		"internalIP": func(obj *unstructured.Unstructured) []string {
 			return nodeAddresses(obj, "InternalIP")
@@ -65,6 +69,8 @@ func nodeCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 	return []model.Cell{
 		nameCell(obj),
 		s.warning(),
+		{}, // CPU, filled from the Metrics API (nodeUsageCells)
+		{}, // Memory
 		{Num: int64(len(model.NestedSlice(obj, "spec", "taints")))},
 		{Text: roles},
 		{Text: model.NestedString(obj, "status", "nodeInfo", "kubeletVersion")},
@@ -245,7 +251,7 @@ func nodeDetail(obj *unstructured.Unstructured) []model.DetailSection {
 // (capture, 2026-10-11: CPU, Memory, Ephemeral Storage, Hugepages, Pods); other resources (GPUs,
 // devices) follow, sorted, under their own names.
 var resourceTitles = []struct{ name, title string }{
-	{"cpu", "CPU"}, {"memory", "Memory"}, {"ephemeral-storage", "Ephemeral Storage"},
+	{"cpu", titleCPU}, {"memory", titleMemory}, {"ephemeral-storage", "Ephemeral Storage"},
 	{"hugepages-1Gi", "Hugepages 1Gi"}, {"hugepages-2Mi", "Hugepages 2Mi"}, {podsResource, podsTitle},
 }
 
@@ -305,8 +311,8 @@ var nodePodColumns = []model.Column{
 	{ID: idNode, Title: titleNode, Type: model.ColumnText},
 	namespaceColumn,
 	{ID: fieldReady, Title: nodeReady, Type: model.ColumnText},
-	{ID: "cpu", Title: "CPU", Type: model.ColumnText},
-	{ID: "memory", Title: "Memory", Type: model.ColumnText},
+	{ID: "cpu", Title: titleCPU, Type: model.ColumnText},
+	{ID: "memory", Title: titleMemory, Type: model.ColumnText},
 	statusColumn,
 }
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/cluster"
+	"github.com/guided-traffic/cogpit/internal/metrics"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
@@ -31,6 +32,9 @@ type Backend struct {
 	// they define. The real cluster connector sets it; the demo cluster and backends that leave it
 	// off have the built-in kinds only.
 	CustomResources bool
+	// Metrics polls the cluster's metrics while a view or the drawer that shows them is open
+	// (metrics.go, architecture §9). Nil means the backend has none; it is closed with the backend.
+	Metrics *metrics.Hub
 	// Demo marks the synthetic demo cluster.
 	Demo bool
 	// DemoStats reports the demo cluster's counters; nil for real clusters.
@@ -90,6 +94,9 @@ func (b *Backend) close(log *slog.Logger) {
 	}
 	b.forwards.stopAll()
 	b.local.close()
+	if b.Metrics != nil {
+		b.Metrics.Close()
+	}
 	if b.Close == nil {
 		return
 	}

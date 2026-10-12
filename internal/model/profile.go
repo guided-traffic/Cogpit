@@ -83,6 +83,15 @@ type KindProfile struct {
 	CellsWith func(obj *unstructured.Unstructured, rel Related) ([]Cell, Status)
 	// DetailWith replaces Detail when set: the same, with the related objects of Needs.
 	DetailWith func(obj *unstructured.Unstructured, rel Related) []DetailSection
+
+	// Usage, when set, says the kind has CPU and Memory columns (ids [ColumnCPU] and
+	// [ColumnMemory], type [ColumnMetric]) that show the object's usage from the Metrics API. Cells
+	// leaves them empty; while the view is open the engine polls the metrics (architecture §9) and
+	// fills them through UsageCells.
+	Usage UsageKind
+	// UsageCells returns the CPU and Memory cells of an object that has a measurement. It must
+	// tolerate any content without panicking.
+	UsageCells func(obj *unstructured.Unstructured, u Usage) (cpu, memory Cell)
 }
 
 // LocalGroup is the API group of the local kinds, the objects Cogpit makes itself (port forwards).

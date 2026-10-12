@@ -27,6 +27,7 @@ type viewWorker struct {
 	handle  *cache.Handle
 	unsub   func()
 	related *relatedSet // the indexes of the profile's Needs; nil without
+	usage   *usageFeed  // the metrics of a kind with CPU and Memory columns; nil without
 
 	mu     sync.Mutex
 	params viewParams
@@ -49,6 +50,7 @@ func (s *Session) startViewWorker(b *Backend, p *model.KindProfile, rc *rowCache
 	}
 	w.unsub = w.handle.Subscribe(func(cache.Event) { signal(w.wake) })
 	w.related = newRelatedSet(b, p.Needs, func() { signal(w.wake) })
+	w.usage = b.startUsageFeed(p, func() { signal(w.wake) })
 	signal(w.wake)
 	s.goSafe("table view "+p.Key, func() {
 		runCoalesced(w.quit, w.wake, s.opts.SnapshotInterval, w.unsettled, w.rebuild)
@@ -78,6 +80,7 @@ func (w *viewWorker) stop() {
 	w.unsub()
 	w.handle.Release()
 	w.related.release()
+	w.usage.release()
 }
 
 // unsettled reports whether the informer's sync state or error changed since the last snapshot:
@@ -112,7 +115,7 @@ func (w *viewWorker) rebuild() {
 	synced := w.synced() // before List: a snapshot never claims a partial list is complete
 	errMsg := errText(w.handle.Err())
 	rel, relGen := w.related.view()
-	snap := w.rows.build(w.profile, w.backend.Context, KindList(w.handle, w.profile), p, rel, relGen)
+	snap := w.rows.buildWith(w.profile, w.backend.Context, KindList(w.handle, w.profile), p, rel, relGen, w.usage)
 	snap.Synced = synced
 	snap.Error = errMsg
 	snap.Revision = w.s.state.snapshots.Add(1)
@@ -145,13 +148,25 @@ type rowCache struct {
 type rowEntry struct {
 	rv  string
 	gen uint32
-	row model.Row
+	// row is the row as shown: what the profile built, or with the CPU and Memory cells filled from
+	// the metrics (profiles with Usage). base is the profile's row while row is patched.
+	row     model.Row
+	base    model.Row
+	patched bool   // row is base with metrics in it
+	ugen    uint64 // the feed's generation + 1 that row was patched at; 0 for never
 }
 
 // build turns the objects into a snapshot: rows from the cache (rebuilt when the resourceVersion
 // changed, and all of them when the related objects of a profile with Needs changed), filtered by
 // namespaces and search text, sorted. Total counts the objects before filtering.
 func (rc *rowCache) build(p *model.KindProfile, context string, objs []*unstructured.Unstructured, params viewParams, rel model.Related, relGen uint64) *TableSnapshot {
+	return rc.buildWith(p, context, objs, params, rel, relGen, nil)
+}
+
+// buildWith is build with the metrics of a profile that has Usage: rows of objects that have a
+// measurement show it in their CPU and Memory cells. The base rows stay as the profile built them,
+// so a new measurement patches the cells without building the rows again.
+func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unstructured.Unstructured, params viewParams, rel model.Related, relGen uint64, usage *usageFeed) *TableSnapshot {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 	if rc.rows == nil || rc.profile != p || rc.context != context || (len(p.Needs) > 0 && rc.relGen != relGen) {
@@ -170,6 +185,15 @@ func (rc *rowCache) build(p *model.KindProfile, context string, objs []*unstruct
 	filter := strings.TrimSpace(params.filter)
 	groupCol, groupSet := groupFilter(p, params.groups)
 
+	cpuCol, memCol := -1, -1
+	var ugen uint64
+	if usage != nil && p.UsageCells != nil {
+		cpuCol, memCol = p.ColumnIndex(model.ColumnCPU), p.ColumnIndex(model.ColumnMemory)
+		ugen = usage.generation()
+	}
+	patching := cpuCol >= 0 || memCol >= 0
+	ugen++ // 0 means "never patched"
+
 	kept := make([]*rowEntry, 0, len(objs))
 	for _, obj := range objs {
 		key := string(obj.GetUID())
@@ -183,6 +207,21 @@ func (rc *rowCache) build(p *model.KindProfile, context string, objs []*unstruct
 			rc.rows[key] = e
 		}
 		e.gen = rc.gen
+		switch {
+		case patching && e.ugen != ugen:
+			e.ugen = ugen
+			base := e.row
+			if e.patched {
+				base = e.base
+			}
+			if u, ok := usage.lookup(obj.GetNamespace(), obj.GetName()); ok {
+				e.base, e.row, e.patched = base, withUsage(p, base, obj, u, cpuCol, memCol), true
+			} else {
+				e.row, e.patched = base, false
+			}
+		case !patching && e.patched: // the feed is gone: back to the profile's row
+			e.row, e.patched, e.ugen = e.base, false, 0
+		}
 		if nsSet != nil {
 			if _, ok := nsSet[e.row.Ref.Namespace]; !ok {
 				continue
@@ -263,7 +302,7 @@ func compareRows(a, b *model.Row, ci int, typ model.ColumnType, desc bool) int {
 	}
 	if !ea {
 		var c int
-		if typ == model.ColumnNumber || typ == model.ColumnAge || typ == model.ColumnUntil || typ == model.ColumnWarning {
+		if typ == model.ColumnNumber || typ == model.ColumnAge || typ == model.ColumnUntil || typ == model.ColumnWarning || typ == model.ColumnMetric {
 			c = cmp.Compare(ca.Num, cb.Num)
 		} else {
 			c = compareFold(ca.Text, cb.Text)
@@ -301,6 +340,8 @@ func emptyCell(typ model.ColumnType, c model.Cell) bool {
 		return false
 	case model.ColumnAge, model.ColumnUntil:
 		return c.Num == 0 && c.Text == ""
+	case model.ColumnMetric:
+		return c.Text == "" // no measurement
 	case model.ColumnWarning:
 		return c.Num == 0 && c.Status == model.StatusNone
 	}

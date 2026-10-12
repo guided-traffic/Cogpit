@@ -17,6 +17,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/demo"
 	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/kubeconfig"
+	"github.com/guided-traffic/cogpit/internal/metrics"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
@@ -42,6 +43,9 @@ type ClusterConnector struct {
 	// WarmPeriod is how long the cache keeps an unused informer; zero means
 	// cache.DefaultWarmPeriod.
 	WarmPeriod time.Duration
+	// MetricsOptions tune the polling of every backend's metrics (intervals, TTL, series bounds);
+	// the zero value is the defaults of architecture §9. Tests shorten the intervals.
+	MetricsOptions metrics.Options
 	// Logger receives connection warnings; nil means slog.Default().
 	Logger *slog.Logger
 	// Sources are the kubeconfig files and sync folders (the user's ~/.kube, the files named in
@@ -49,6 +53,15 @@ type ClusterConnector struct {
 	// "<context> [<file>]". With Sources, KubeconfigPaths is not read. Nil: the merged
 	// KubeconfigPaths (tests, and a start without a configuration directory).
 	Sources *KubeconfigSources
+}
+
+// metricsOptions are the options of a backend's metrics hub.
+func (c *ClusterConnector) metricsOptions() metrics.Options {
+	o := c.MetricsOptions
+	if o.Logger == nil {
+		o.Logger = c.logger()
+	}
+	return o
 }
 
 func (c *ClusterConnector) logger() *slog.Logger {
@@ -132,9 +145,16 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 		sourceFile = opts.KubeconfigPaths[0]
 	}
 	access := newAccessReviews(conn, conn.Namespace())
+	// Metrics: nothing is asked of the cluster until a Pods or Nodes view or a drawer is open.
+	var hub *metrics.Hub
+	if prov, err := metrics.ForConn(conn); err != nil {
+		c.logger().Warn("engine: no metrics client; CPU and memory stay empty", "context", name, "err", err)
+	} else {
+		hub = metrics.NewHub(prov, c.metricsOptions())
+	}
 	var once sync.Once
 	return &Backend{
-		Context: ctxName, Namespace: conn.Namespace(), Cache: ch, Conn: conn, Profiles: profiles,
+		Context: ctxName, Namespace: conn.Namespace(), Cache: ch, Conn: conn, Profiles: profiles, Metrics: hub,
 		CustomResources: customResources, Access: access, SourceFile: sourceFile,
 		Close: func() {
 			once.Do(func() {
@@ -201,6 +221,7 @@ func (c *ClusterConnector) connectDemo() (*Backend, error) {
 	var once sync.Once
 	return &Backend{
 		Context: DemoContext, Namespace: "default", Cache: ch, Profiles: demoProfiles(), Demo: true,
+		Metrics:   metrics.NewHub(metrics.Fixed(dc.Metrics()), c.metricsOptions()),
 		DemoStats: func() any { return dc.Stats() },
 		Close: func() {
 			once.Do(func() {
