@@ -108,6 +108,11 @@ malformed-input tests or fuzz targets.
 - Colours, sizes and paddings come from Cogpit's Fyne theme, never hard-coded in a widget.
 - Status colours come from the row's status token, not from the view.
 - Widget updates from other goroutines go through `fyne.Do`.
+- Nothing runs Fyne's theme or `fyne.CurrentApp()` at package initialisation (a package-level
+  `var x = theme.SomeIcon()`): no app exists yet, Fyne logs "Attempt to access current Fyne app
+  when none is started" and hands out the fallback theme's value. Store the function
+  (`theme.SomeIcon`) and call it when drawing; `TestStartUpLogsNoFyneError` in `cmd/cogpit` fails
+  on such a line (2026-10-12).
 - Verify every visual change with an offscreen render (Fyne's `test` package) or a screenshot, in
   dark and light themes, and attach before/after images to the pull request.
 

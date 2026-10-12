@@ -135,19 +135,30 @@ var (
 )
 
 // navIcons gives top-level items and groups an icon; kinds inside a group have none, as in Lens.
-var navIcons = map[string]fyne.Resource{
-	"nodes":                   theme.ComputerIcon(),
-	groupPrefix + "workloads": theme.GridIcon(),
-	groupPrefix + "config":    theme.SettingsIcon(),
-	groupPrefix + "network":   iconNetwork,
-	groupPrefix + "storage":   theme.StorageIcon(),
-	kindNamespaces:            iconLayers,
-	kindEvents:                theme.HistoryIcon(),
-	groupPrefix + "devices":   theme.ComputerIcon(),
-	groupPrefix + "helm":      theme.FileApplicationIcon(),
-	groupPrefix + "access":    theme.AccountIcon(),
-	groupPrefix + "custom":    theme.ListIcon(),
-	groupPrefix + "other":     theme.MoreHorizontalIcon(),
+// The theme's icons are looked up when an item is drawn, never at package initialisation: no Fyne
+// app runs then, and each lookup logged "Attempt to access current Fyne app when none is started"
+// (ten lines at every start) and got the fallback theme's icon.
+var navIcons = map[string]func() fyne.Resource{
+	"nodes":                   theme.ComputerIcon,
+	groupPrefix + "workloads": theme.GridIcon,
+	groupPrefix + "config":    theme.SettingsIcon,
+	groupPrefix + "network":   func() fyne.Resource { return iconNetwork },
+	groupPrefix + "storage":   theme.StorageIcon,
+	kindNamespaces:            func() fyne.Resource { return iconLayers },
+	kindEvents:                theme.HistoryIcon,
+	groupPrefix + "devices":   theme.ComputerIcon,
+	groupPrefix + "helm":      theme.FileApplicationIcon,
+	groupPrefix + "access":    theme.AccountIcon,
+	groupPrefix + "custom":    theme.ListIcon,
+	groupPrefix + "other":     theme.MoreHorizontalIcon,
+}
+
+// navIcon returns a navigator node's icon, or nil.
+func navIcon(id string) fyne.Resource {
+	if icon := navIcons[id]; icon != nil {
+		return icon()
+	}
+	return nil
 }
 
 // sidebar is the navigator: the connected cluster's identity on top, the tree of views below.
@@ -177,7 +188,7 @@ func newSidebar(sh *shell) *sidebar {
 		func(uid widget.TreeNodeID) bool { return uid == "" || strings.HasPrefix(uid, groupPrefix) },
 		func(bool) fyne.CanvasObject { return newNavItem() },
 		func(uid widget.TreeNodeID, branch bool, o fyne.CanvasObject) {
-			o.(*navItem).set(s.titles[uid], navIcons[uid], branch)
+			o.(*navItem).set(s.titles[uid], navIcon(uid), branch)
 		},
 	)
 	s.tree.OnSelected = s.selected
