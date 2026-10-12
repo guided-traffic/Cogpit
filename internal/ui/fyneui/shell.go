@@ -638,7 +638,7 @@ func (sh *shell) copyMCPCommand() {
 }
 
 // installShortcuts adds Lens's keyboard shortcuts that the MVP supports: ⌘F (search), ⌘⇧T
-// (terminal session), Escape (close the drawer) and "/" (the logs tab's search).
+// (terminal session), Escape (close the picker, else the drawer) and "/" (the logs tab's search).
 func (sh *shell) installShortcuts() {
 	c := sh.win.Canvas()
 	c.AddShortcut(&desktop.CustomShortcut{KeyName: fyne.KeyF, Modifier: fyne.KeyModifierShortcutDefault},
@@ -647,6 +647,10 @@ func (sh *shell) installShortcuts() {
 		func(fyne.Shortcut) { sh.dispatch("terminal.open", struct{}{}, nil) })
 	c.SetOnTypedKey(func(ev *fyne.KeyEvent) {
 		if ev.Name == fyne.KeyEscape {
+			if sh.picker.visible() { // the picker first: it lies over the drawer
+				sh.picker.popup.dismiss()
+				return
+			}
 			sh.closeDrawer()
 		}
 	})

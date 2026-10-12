@@ -24,7 +24,7 @@ const demoLabel = "Demo cluster (synthetic, 10,000 pods)"
 type picker struct {
 	sh *shell
 
-	popup      *widget.PopUp
+	popup      *dismissOverlay // a click outside or Escape closes it (owner, 2026-10-12)
 	filter     *widget.Entry
 	list       *fyne.Container
 	status     *textLine
@@ -71,7 +71,7 @@ func newPicker(sh *shell) *picker {
 // show opens the picker and loads the contexts off the main goroutine.
 func (p *picker) show() {
 	if p.popup == nil {
-		p.popup = widget.NewModalPopUp(p.content, p.sh.win.Canvas())
+		p.popup = newDismissOverlay(p.sh.win.Canvas(), p.content)
 	}
 	p.popup.Show()
 	p.sh.win.Canvas().Focus(p.filter)
