@@ -83,6 +83,9 @@ func (c *Conn) DialPortForward(ctx context.Context, namespace, pod string) (Port
 // dialers take no context, so a dial that outlives ctx is abandoned and its connection closed
 // when it arrives.
 func dialPortForward(ctx context.Context, config *rest.Config, u *url.URL) (PortTunnel, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	dialer, err := portForwardDialer(config, u)
 	if err != nil {
 		return nil, err
@@ -117,6 +120,12 @@ func dialPortForward(ctx context.Context, config *rest.Config, u *url.URL) (Port
 	}
 	if d.err != nil {
 		return nil, d.err
+	}
+	// select picks at random when the dial and the cancellation are both ready: the
+	// cancellation wins, so a cancelled caller never receives a tunnel.
+	if err := ctx.Err(); err != nil {
+		_ = d.conn.Close()
+		return nil, err
 	}
 	if d.protocol != portforward.PortForwardProtocolV1Name {
 		_ = d.conn.Close()

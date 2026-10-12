@@ -257,6 +257,33 @@ func TestDialPortForwardRespectsContextAndConnection(t *testing.T) {
 	}
 }
 
+// cancelledAfterFirstCheck is live at the first Err call and cancelled from then on, with a
+// Done channel that never closes: the dial finishes while the context is cancelled.
+type cancelledAfterFirstCheck struct {
+	context.Context
+	checks atomic.Int32
+}
+
+func (c *cancelledAfterFirstCheck) Done() <-chan struct{} { return nil }
+
+func (c *cancelledAfterFirstCheck) Err() error {
+	if c.checks.Add(1) == 1 {
+		return nil
+	}
+	return context.Canceled
+}
+
+// A dial that finishes after its caller was cancelled hands back no tunnel, whatever order
+// select sees the two in (CI flake on main 7e01d03, 2026-10-12).
+func TestDialPortForwardCancelledWhileDialling(t *testing.T) {
+	_, cfg, u := newFakeKubelet(t)
+	ctx := &cancelledAfterFirstCheck{Context: context.Background()}
+	tun, err := dialPortForward(ctx, cfg, u)
+	if !errors.Is(err, context.Canceled) || tun != nil {
+		t.Fatalf("dial finished after cancellation: tunnel %v, %v", tun, err)
+	}
+}
+
 func TestForwardMessageIsSafe(t *testing.T) {
 	got := forwardMessage([]byte("  boom\r\n\x1b]52;c;aGk=\x07" + strings.Repeat("x", 600)))
 	if strings.ContainsAny(got, "\r\n\x1b\x07") || !strings.HasPrefix(got, "boom") || !strings.HasSuffix(got, "…") {
