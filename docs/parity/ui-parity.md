@@ -51,7 +51,7 @@ hotbar, navigator, tab bar, workspace, dock, status bar.
 | Workspace showing the active view | free | partial | [`tableview.go`](../../internal/ui/fyneui/tableview.go); [PNG](../../internal/ui/fyneui/testdata/demo_pods.png) |
 | Detail drawer on the right ([Detail drawer](#detail-drawer)) | free | partial | [`drawer.go`](../../internal/ui/fyneui/drawer.go) |
 | Dock along the bottom ([Dock](#dock)) | free | partial | [`dock.go`](../../internal/ui/fyneui/dock.go) |
-| Status bar | free | partial | [`bars.go`](../../internal/ui/fyneui/bars.go): context, API requests, informers, snapshots, demo events/s |
+| Status bar | free | partial | [`bars.go`](../../internal/ui/fyneui/bars.go): context, API requests, informers, snapshots, demo events/s; owner requirement (2026-10-12, [D-23](../developer/decisions.md#d-23-a-link-to-the-owner-in-the-status-bar)): a link to the owner at its left end, not built |
 | Welcome page (Help › Welcome) | free | missing | – |
 
 ## Clusters
@@ -346,7 +346,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Behaviour | Plan | Status | Evidence |
 |---|---|---|---|
-| Dark and light themes following the system | free | partial: command-line flag | `--theme dark\|light\|system` ([`main.go`](../../cmd/cogpit/main.go), [`theme.go`](../../internal/ui/fyneui/theme.go), `TestThemeModeIgnoresSystemVariantUnlessSystem`); no preference UI |
+| Dark and light themes following the system | free | partial: command-line flag | `--theme dark\|light\|system` ([`main.go`](../../cmd/cogpit/main.go), [`theme.go`](../../internal/ui/fyneui/theme.go), `TestThemeModeIgnoresSystemVariantUnlessSystem`); no preference UI; owner requirement (2026-10-12, [D-22](../developer/decisions.md#d-22-colour-theme)): Solarized Dark and Light, not built |
 | Zoom in, out and reset; full screen (capture needed) | free | missing | – |
 | Several windows (Window menu) | free | missing | – |
 | Deep links open the right view (Lens: `lens://`; Cogpit: `cogpit://`) | free | missing | – |
@@ -358,6 +358,7 @@ order, and each page shows its settings under upper-case headings with a help li
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Owner requirements noted on the status bar (D-23) and the themes (D-22) |
 | 2026-10-12 | minor | Kubeconfig Syncs captured (owner): the file dialog for files and folders, no subfolders but dot files, new files within 1–2 s, a removed file's cluster closed, plugins run without asking, "Connection Updates"; the Preferences list; owner requirement: confirm removing a synced item |
 | 2026-10-12 | minor | Adding a kubeconfig by pasting: not a target (owner, D-21); 54 of 120 free rows |
 | 2026-10-12 | major | Recount after the fourth run (`make parity`): 56 of 134 rows, 55 of the 121 free rows (47 partial, 8 done) |

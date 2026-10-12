@@ -494,10 +494,72 @@ to be removed, with their tests and the documentation that describes them. The o
 keeping Cogpit's paste dialog without copying Lens's, removing it (decided), or reading the
 clipboard directly as Lens's menu item does.
 
+## D-22: Colour theme
+
+**Decided (owner, 2026-10-12):** Cogpit's dark theme takes the colours of VS Code's built-in
+**Solarized Dark**, the theme the owner works in, and its light theme those of **Solarized Light**;
+`--theme dark|light|system` stays. The colours are copied into Cogpit's theme tokens once, not read
+from VS Code at run time (which would tie Cogpit to VS Code's files and to themes whose colours
+need not suit Cogpit's status tokens). Source: VS Code's `theme-solarized-dark` and
+`theme-solarized-light` (MIT; the palette is Ethan Schoonover's Solarized, MIT), credited in
+`ATTRIBUTION.md` when the colours land. Not built yet. The mapping read from Solarized Dark
+(2026-10-12; Solarized Light's file gives the light values the same way):
+
+| Cogpit surface | VS Code key | Solarized Dark |
+|---|---|---|
+| Views and editors | `editor.background` | #002B36 |
+| Navigator, drawer, status bar | `sideBar.background`, `statusBar.background` | #00212B |
+| Header and title bar | `activityBar.background`, `titleBar.activeBackground` | #003847, #002C39 |
+| Tabs, inactive and active | `tab.inactiveBackground`, `tab.activeBackground`, `tab.activeForeground` | #004052, #002B37, #D6DBDB |
+| Text | `editor.foreground`, `sideBarTitle.foreground` | #839496, #93A1A1 |
+| Accent, focus, buttons | `focusBorder`, `button.background` | #2AA198 (cyan) |
+| Selected and hovered row | `list.activeSelectionBackground`, `list.hoverBackground` | #005A6F, #004454 |
+| Inputs | `input.background` | #003847 |
+| Status tokens | the Solarized accents | green #859900, yellow #B58900, orange #CB4B16, red #DC322F, blue #268BD2, magenta #D33682, violet #6C71C4 |
+| Terminal | `terminal.ansi*` | the theme's sixteen colours |
+
+## D-23: A link to the owner in the status bar
+
+**Decided (owner, 2026-10-12):** the status bar shows at its left end, always (before connecting
+and on the demo cluster too), "Need a Kubernetes Expert? Visit: hans-fischer.com"; a click opens
+https://hans-fischer.com in the user's default browser. Nothing is sent or tracked; only the
+click opens it. When the bar is too narrow, the link gives way first, so that the context and the
+connection state stay readable. It is a GUI link, not an engine command: a documented exception
+to "everything is a command", so that no agent can open the page. Not built yet.
+
+## D-24: Logo
+
+**Decided (owner, 2026-10-12):** Cogpit's logo is the "C helm": an open C (its opening to the right,
+75°, the C drawn heavy) around a ship's wheel with eight spokes, an inner ring and a hexagon hub; a
+needle fills the opening where the spokes stop; bar handles stand outside the C, and a thin outer
+ring closes the wheel. Cyan and Solarized base1 on Solarized Dark's base03, in a macOS squircle
+plate for the app icon, and without the plate as the 20-pixel mark in the header bar, drawn with
+heavier lines there. It replaces the ring with a dot, which the owner found too plain. Chosen in an
+interactive lab among four directions (an instrument dial, a cog with a visor, the C helm, a radar)
+and twelve variations of the C helm; the lab's settings were
+`{"concept":"helm","accent":"cyan","second":"cyan","plate":"base03","shape":"squircle","stroke":2,"spokes":8,"gap":75,"handles":1,"rotate":0,"weight":2.8,"ring":1,"outer":1,"pointer":1,"hexhub":1,"bars":1}`.
+The exact geometry is the reference: [`assets/cogpit-icon.svg`](assets/cogpit-icon.svg) (the app
+icon) and [`assets/cogpit-mark-dark.svg`](assets/cogpit-mark-dark.svg),
+[`assets/cogpit-mark-light.svg`](assets/cogpit-mark-light.svg) (the mark on dark and light bars).
+The app icon (`hack/icon` → `packaging/icon.png`) and the header's logo (`bars.go`) are to be
+redrawn from it. Not built yet.
+
+## D-25: Copying values
+
+**Decided (owner, 2026-10-12):** text in Cogpit can be selected and copied, above all in the detail
+drawer, where everything is selectable (values, labels, annotations, events, notes, table cells).
+Every value in the drawer gets a copy icon, shown on hover, that puts it on the clipboard and says
+so in a toast; a value made of several entries (labels, annotations, ports, images) copies the one
+entry, in YAML syntax (`app.kubernetes.io/name: grafana`). A Secret's value can be copied only once
+revealed, in the GUI, and the clipboard is cleared 60 seconds later if it still holds that value.
+Agents get no copy command (they read values through `object_get` already). This is Cogpit's own
+approach; how Lens Desktop copies is not captured and not needed. Not built yet.
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Owner's decisions on look and use: D-22 Solarized colours, D-23 the status bar link, D-24 the C helm logo, D-25 copying values |
 | 2026-10-12 | minor | D-21 (owner): no adding of kubeconfigs from pasted text; the paste feature built the same day is to be removed |
 | 2026-10-12 | minor | D-20 (owner): a port forward fails at once on permanent errors (option a), not built |
 | 2026-10-12 | minor | D-14 (owner): the upstream pull requests grouped, opened by the lead after the owner's OK on the series |

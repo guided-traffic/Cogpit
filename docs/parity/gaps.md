@@ -437,6 +437,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## UI gaps
 
 ### G5. App shell, navigation, tables and drawer
+- **Decided (owner, 2026-10-12):** the Solarized colours ([D-22](../developer/decisions.md#d-22-colour-theme), 3–6 h), the
+  status bar link ([D-23](../developer/decisions.md#d-23-a-link-to-the-owner-in-the-status-bar), 1–2 h), the C helm logo
+  ([D-24](../developer/decisions.md#d-24-logo), 2–4 h) and copying values from the drawer
+  ([D-25](../developer/decisions.md#d-25-copying-values), 4–8 h); not built.
 - **Missing:** the Fyne window layout, the cluster sidebar, the table, the detail drawer and the
   dock frame; Cogpit's Fyne theme. Needs the [spike](../developer/spike-fyne.md) to pass.
 - **Evidence:** [ui-parity](ui-parity.md), 18 of 40 rows partial across Layout, Cluster sidebar,

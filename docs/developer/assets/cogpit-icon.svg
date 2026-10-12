@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <title>Cogpit app icon (C helm, owner 2026-10-12)</title>
+  <rect x="2" y="2" width="96" height="96" rx="22" fill="#002b36"/>
+  <rect x="2" y="2" width="96" height="96" rx="22" fill="none" stroke="#ffffff" stroke-opacity=".06"/>
+  <g transform="rotate(0 50 50)">
+    <circle cx="50" cy="50" r="41" fill="none" stroke="#93a1a1" stroke-width="0.9" opacity=".6"/>
+    <path d="M72.21 67.05 A28 28 0 1 1 72.21 32.95" fill="none" stroke="#93a1a1" stroke-width="5.6" stroke-linecap="round"/>
+    <circle cx="50" cy="50" r="12" fill="none" stroke="#2aa198" stroke-width="2"/>
+    <line x1="38" y1="50" x2="23" y2="50" stroke="#2aa198" stroke-width="1.6" stroke-linecap="round"/>
+    <line x1="16" y1="50" x2="10" y2="50" stroke="#93a1a1" stroke-width="2.6" stroke-linecap="round"/>
+    <line x1="41.51" y1="41.51" x2="30.91" y2="30.91" stroke="#2aa198" stroke-width="1.6" stroke-linecap="round"/>
+    <line x1="25.96" y1="25.96" x2="21.72" y2="21.72" stroke="#93a1a1" stroke-width="2.6" stroke-linecap="round"/>
+    <line x1="50" y1="38" x2="50" y2="23" stroke="#2aa198" stroke-width="1.6" stroke-linecap="round"/>
+    <line x1="50" y1="16" x2="50" y2="10" stroke="#93a1a1" stroke-width="2.6" stroke-linecap="round"/>
+    <line x1="58.49" y1="41.51" x2="69.09" y2="30.91" stroke="#2aa198" stroke-width="1.6" stroke-linecap="round"/>
+    <line x1="74.04" y1="25.96" x2="78.28" y2="21.72" stroke="#93a1a1" stroke-width="2.6" stroke-linecap="round"/>
+    <line x1="58.49" y1="58.49" x2="69.09" y2="69.09" stroke="#2aa198" stroke-width="1.6" stroke-linecap="round"/>
+    <line x1="74.04" y1="74.04" x2="78.28" y2="78.28" stroke="#93a1a1" stroke-width="2.6" stroke-linecap="round"/>
+    <line x1="50" y1="62" x2="50" y2="77" stroke="#2aa198" stroke-width="1.6" stroke-linecap="round"/>
+    <line x1="50" y1="84" x2="50" y2="90" stroke="#93a1a1" stroke-width="2.6" stroke-linecap="round"/>
+    <line x1="41.51" y1="58.49" x2="30.91" y2="69.09" stroke="#2aa198" stroke-width="1.6" stroke-linecap="round"/>
+    <line x1="25.96" y1="74.04" x2="21.72" y2="78.28" stroke="#93a1a1" stroke-width="2.6" stroke-linecap="round"/>
+    <line x1="50" y1="50" x2="89" y2="50" stroke="#2aa198" stroke-width="2.2" stroke-linecap="round"/>
+    <polygon points="54.44,52.57 50,55.13 45.56,52.57 45.56,47.44 50,44.87 54.44,47.43" fill="#2aa198"/>
+  </g>
+</svg>

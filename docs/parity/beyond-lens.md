@@ -7,7 +7,7 @@ targets, decided by the owner; they do not count toward the parity numbers in
 [`target-app-parity.md`](target-app-parity.md), which measure Cogpit against Lens. Method:
 [`README.md`](README.md).
 
-**Summary (measured, 2026-10-11):** 17 of 34 rows exist: 10 done and 7 partial, in MCP control,
+**Summary (measured, 2026-10-12):** 17 of 36 rows exist: 10 done and 7 partial, in MCP control,
 cache transparency and crash recovery (the unfinished drain). Remaining (estimated): 30–60 h for MCP control
 ([G17](gaps.md#g17-mcp-control)), 40–80 h for the built-in agent
 ([G21](gaps.md#g21-built-in-agent)); updates, cache transparency and crash recovery are inside
@@ -88,10 +88,20 @@ AppImage builds in place; APT and RPM installs update by hand
 | On start, nodes Cogpit cordoned for a drain it did not finish are shown with "continue drain" and "uncordon" | done (2026-10-11): on connecting the context, a banner names the node and offers Finish drain, Uncordon and Dismiss; agents read the same list with `node_pendingDrains` | [`drains.go`](../../internal/engine/drains.go) (a journal written before the cordon), `TestKindDrainCrashFinishUncordon` (three-node kind cluster: a simulated crash, the offer on the next session, finish, uncordon), the banner's offscreen PNGs |
 | Unsaved editor content restored from its local draft | missing | – |
 
+## Everyday use
+
+The owner's requirements of 2026-10-12 that Lens Desktop does not have.
+
+| Feature | Status | Evidence |
+|---|---|---|
+| Every value in the detail drawer can be selected, and has a copy icon on hover; an entry of a value with several entries is copied in YAML syntax; a Secret's value only once revealed, and the clipboard cleared after 60 seconds ([D-25](../developer/decisions.md#d-25-copying-values)) | missing | – |
+| A link to the owner at the status bar's left end, opening hans-fischer.com in the browser on a click, a GUI link and not a command ([D-23](../developer/decisions.md#d-23-a-link-to-the-owner-in-the-status-bar)) | missing | – |
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Everyday use: copying values (D-25) and the status bar link (D-23), both missing; 17 of 36 rows |
 | 2026-10-11 | minor | `kinds_list` reports per kind whether the user may list it (access reviews); still partial |
 | 2026-10-11 | minor | Crash recovery: an unfinished drain is offered on the next connect (done); 17 of 34 rows |
 | 2026-10-11 | minor | G9: agents edit, check, apply, create and delete objects of every kind, and read and set editor tabs |

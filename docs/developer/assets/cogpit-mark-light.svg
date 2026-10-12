@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <title>Cogpit mark for light bars (Solarized Light)</title>
+  <g transform="rotate(0 50 50)">
+    <circle cx="50" cy="50" r="41" fill="none" stroke="#586e75" stroke-width="2.25" opacity=".6"/>
+    <path d="M72.21 67.05 A28 28 0 1 1 72.21 32.95" fill="none" stroke="#586e75" stroke-width="14" stroke-linecap="round"/>
+    <circle cx="50" cy="50" r="12" fill="none" stroke="#2aa198" stroke-width="5"/>
+    <line x1="38" y1="50" x2="23" y2="50" stroke="#2aa198" stroke-width="4" stroke-linecap="round"/>
+    <line x1="16" y1="50" x2="10" y2="50" stroke="#586e75" stroke-width="6.5" stroke-linecap="round"/>
+    <line x1="41.51" y1="41.51" x2="30.91" y2="30.91" stroke="#2aa198" stroke-width="4" stroke-linecap="round"/>
+    <line x1="25.96" y1="25.96" x2="21.72" y2="21.72" stroke="#586e75" stroke-width="6.5" stroke-linecap="round"/>
+    <line x1="50" y1="38" x2="50" y2="23" stroke="#2aa198" stroke-width="4" stroke-linecap="round"/>
+    <line x1="50" y1="16" x2="50" y2="10" stroke="#586e75" stroke-width="6.5" stroke-linecap="round"/>
+    <line x1="58.49" y1="41.51" x2="69.09" y2="30.91" stroke="#2aa198" stroke-width="4" stroke-linecap="round"/>
+    <line x1="74.04" y1="25.96" x2="78.28" y2="21.72" stroke="#586e75" stroke-width="6.5" stroke-linecap="round"/>
+    <line x1="58.49" y1="58.49" x2="69.09" y2="69.09" stroke="#2aa198" stroke-width="4" stroke-linecap="round"/>
+    <line x1="74.04" y1="74.04" x2="78.28" y2="78.28" stroke="#586e75" stroke-width="6.5" stroke-linecap="round"/>
+    <line x1="50" y1="62" x2="50" y2="77" stroke="#2aa198" stroke-width="4" stroke-linecap="round"/>
+    <line x1="50" y1="84" x2="50" y2="90" stroke="#586e75" stroke-width="6.5" stroke-linecap="round"/>
+    <line x1="41.51" y1="58.49" x2="30.91" y2="69.09" stroke="#2aa198" stroke-width="4" stroke-linecap="round"/>
+    <line x1="25.96" y1="74.04" x2="21.72" y2="78.28" stroke="#586e75" stroke-width="6.5" stroke-linecap="round"/>
+    <line x1="50" y1="50" x2="89" y2="50" stroke="#2aa198" stroke-width="5.5" stroke-linecap="round"/>
+    <polygon points="55.85,53.38 50,56.75 44.15,53.38 44.15,46.63 50,43.25 55.85,46.63" fill="#2aa198"/>
+  </g>
+</svg>
