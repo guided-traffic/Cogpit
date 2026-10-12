@@ -38,7 +38,7 @@ UNTRUSTED                                   BOUNDARY                          TR
 
 | Boundary | Planned package | Required checks |
 |---|---|---|
-| Kubeconfig to connection | `internal/kubeconfig`, `internal/cluster` | Parse without executing; run an exec plugin only when the user connects to that context, with an argument vector; show the command before the first run of a plugin from a newly added file; never follow `exec` from a kubeconfig the user did not add |
+| Kubeconfig to connection | `internal/kubeconfig`, `internal/cluster` | Parse without executing; run an exec plugin only when the user connects to that context, with an argument vector; show the command before the first run of a plugin from a newly added file; never follow `exec` from a kubeconfig the user did not add. Built 2026-10-12 for added, pasted and synced kubeconfigs ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)): each source file is read on its own, never merged with another (a dropped file cannot point a context at the user's real credentials); a context whose user has an `exec` section connects only after the user allowed exactly that plugin in the GUI, checked by `cluster.Connect` before any client exists, from the very `rest.Config` the client would run ([`exec.go`](../../internal/kubeconfig/exec.go), `TestConnectAsksTheExecPolicyBeforeThePluginRuns`, `TestExecPluginRunsOnlyOnceAllowed`, `TestKindExecPluginAfterApproval`); the default kubeconfig (`--kubeconfig`, `$KUBECONFIG`, `~/.kube/config`) keeps kubectl's behaviour |
 | API response to cache | `internal/cache`, `internal/model` | Tolerate unknown and missing fields; cap object and list sizes; bound owner-reference walks |
 | Cluster text to UI | `internal/model`, `internal/ui/fyneui` | Object names, labels, annotations and events are text, never markup; strip control characters before display |
 | Container output to terminal | `internal/terminal`, `internal/ui/fyneui/termview` | Drop or confirm OSC 52 (clipboard write), window-title and window-manipulation sequences ([xterm control sequences](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html)); cap scrollback; cap line length. The MVP drops every OSC, DCS, APC, PM and SOS string, media copy and window operations, clamps large counts, and strips escapes from log lines, which are capped at 64 KiB per line and 10,000 lines ([`termview/sanitize.go`](../../internal/ui/fyneui/termview/sanitize.go), fuzzed; [`termview/logs.go`](../../internal/ui/fyneui/termview/logs.go)); see [H-19](#h-19-the-terminal-widget-trusts-its-input) |
@@ -57,10 +57,40 @@ UNTRUSTED                                   BOUNDARY                          TR
 Lens watches `~/.kube/` and any files and folders listed under Preferences › Kubernetes ›
 Kubeconfig Syncs, and adds every kubeconfig that appears there
 ([add a local cluster](https://docs.lenshq.io/k8slens/getting-started/add-clusters/add-local-cluster/),
-[preferences](https://docs.lenshq.io/k8slens/using-lens/preferences/)). If Cogpit adopts that,
-a file dropped into a synced folder (a download, a shared drive) becomes a cluster entry whose
-exec plugin runs on the next connect. The required check (show the plugin command before its
-first run) is defined above but its user interaction is not designed yet.
+[preferences](https://docs.lenshq.io/k8slens/using-lens/preferences/)). Cogpit adds kubeconfig
+files, pasted kubeconfigs and sync folders since 2026-10-12, and a file dropped into a synced
+folder (a download, a shared drive) becomes a set of contexts. The check of the boundary table is
+built as follows:
+
+- **When.** For a context of an added, pasted or synced kubeconfig whose user has an `exec`
+  section, the picker shows the plugin before it connects, when there is no approval or the
+  approval no longer matches. The engine refuses the connect for every origin on its own
+  ("the kubeconfig X runs the program Y to log in, which you have not allowed yet"); a `--context`
+  at start-up lands on that refusal and opens the picker.
+- **What is shown.** The program as client-go will run it (a relative path resolved against the
+  kubeconfig's folder), where it is found on `PATH` now or that it is not found, each argument on
+  its own line, the environment variables by name only (a warning when they set `PATH`, `LD_*` or
+  `DYLD_*`), the server the credential goes to, the kubeconfig file, the context and its source,
+  and, for a changed plugin, that it changed since it was allowed. All of it is escaped for control
+  characters, bidirectional overrides and invalid UTF-8, and capped in length. "Allow and Connect"
+  arms after 750 ms; nothing has focus by default.
+- **What is remembered.** One approval per file and context in `<user config dir>/Cogpit/exec-approvals.json`
+  (0600, written atomically, never through a symlink), bound to a SHA-256 fingerprint of the
+  file, the context, the user, the server URL, its CA data and file, the insecure flag, the TLS
+  server name, the proxy URL, the plugin's API version, command, arguments and environment (names
+  and values, in order), its interactive mode and `provideClusterInfo`: any change of the plugin,
+  the server or its trust asks again. The approval names the fingerprint the dialog showed and is
+  refused if the file changed meanwhile; an unreadable approvals file allows nothing; removing a
+  source forgets its approvals.
+- **Who.** Adding a file or a folder, pasting, removing a source and allowing a plugin are GUI
+  only: the engine refuses them for the CLI, external agents and the built-in agent, whose
+  confirmation dialog could not show the user an agent-chosen path or pasted text for review
+  (`TestKubeconfigCommandsAreGUIOnly`).
+
+What remains: `~/.kube/` is not watched without setup (Lens does; Cogpit reads only the default
+kubeconfig there); kubectl in a terminal of such a context reads the source file again, so a
+plugin changed after it was allowed runs there without being asked (the user's own kubectl
+command); and a context without a plugin connects without asking, which is [H-24](#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token).
 
 ### H-2: Local processes and forwarded ports
 
@@ -77,23 +107,29 @@ verified; kubectl has the same exposure.
 
 ### H-19: The terminal widget trusts its input
 
-The terminal widget, `github.com/fyne-io/terminal` at commit `91063bb29d69` (Cogpit's copy has been
-on `46cd12724ff3` since 2026-10-12; upstream's commits in between touch none of this), froze or
-crashed the whole app on output a container can send (a tab at the right margin looped forever;
-delete and insert characters and some scroll regions indexed out of range, on the main goroutine
-where nothing recovers), and changed Cogpit's working directory on OSC 7. Cogpit builds against a
-patched copy ([`third_party/fyne-terminal`](../../third_party/fyne-terminal/PATCHES.md)) that fixes
-each of these, and keeps the escape filter in front of it; tests feed every known crashing input
-to the patched widget alone and behind the filter
-([`termview/terminal_test.go`](../../internal/ui/fyneui/termview/terminal_test.go)). What remains:
-inputs nobody has found yet can still crash the widget (it was not written for hostile input and
-has had no fuzzing of its own); it has data races of its own (a configuration write at start-up,
-parser state on the reader goroutine); its ANSI colours are fixed, not theme tokens; and the fork
-must be kept in step with upstream until upstream takes equivalent fixes. Two inputs still make the
-patched widget alone panic (a CSI whose final character is not ASCII, a set mode without `?`);
-only the escape filter catches them (`TestRawWidgetHazards`). How the risk is handled is decided
-([D-14](../developer/decisions.md#d-14-terminal-widget), owner 2026-10-12): the fork stays, its
-patches are offered upstream, and the widget is fuzzed on its own.
+The terminal widget, `github.com/fyne-io/terminal` (Cogpit's patched copy on upstream
+`46cd12724ff3` since 2026-10-12, [`third_party/fyne-terminal`](../../third_party/fyne-terminal/PATCHES.md)),
+froze or crashed the whole app on output a container can send, on the main goroutine where nothing
+recovers, and changed Cogpit's working directory on OSC 7; the escape filter stays in front of it.
+Fuzzed on its own as decided ([D-14](../developer/decisions.md#d-14-terminal-widget), 2026-10-12):
+`FuzzHandleOutput` in the copy and `FuzzRawWidget` through the public API in termview, each failing
+on a panic or on input not done within 30 s, seeded with every known hazard and recordings of vim,
+less, pico and screen. Found and fixed, each with a regression test (PATCHES.md lists them): a CSI
+whose final character is not ASCII and a set or reset mode without `?` (both panicked; ANSI mode
+20 is new-line mode again); a debug-mode panic on `ESC [ > c`; repeat, delete, insert and scroll
+counts that looped once per count (a hang at the largest count); insert lines copying instead of
+inserting; OSC, APC and DCS strings and long CSI parameters built quadratically (1 MiB took about
+60 s on the reading goroutine; now linear and capped at 1 MiB); an APC ended by ST that swallowed
+all later output; and five data races moved onto one goroutine (start-up configuration and the
+input writer, the selection, the character sets, media copy, the bell). The runs were short: about
+1.0 million executions in 12 minutes on the copy and 165,000 in 10 minutes through termview, with
+no finding left; longer runs with the corrected harness are open. What remains: inputs the short
+runs did not reach; known and unpatched (a DCS ended by ST swallows the next character, an ESC at
+byte 5000 of a read is not recognised, cursor movement overflows at the largest counts, media copy
+buffers without a bound, blink tickers outlive a closed terminal, `run()` reads `content` on the
+reading goroutine, races in `RunLocalShell`, which Cogpit does not call); its ANSI colours are
+fixed, not theme tokens; and the copy must be kept in step with upstream until upstream takes the
+patches, whose series is not prepared yet.
 
 ### H-21: Access reviews guide, they do not guard
 
@@ -104,3 +140,18 @@ is not seen; a rules review can over-report a cluster-scoped kind that only a Ro
 which is why Cogpit confirms such answers with an access review; and Kubernetes' documentation
 advises against rules reviews for authorization decisions. An unknown answer offers the command,
 and the API server stays the authority for every request.
+
+### H-24: A dropped kubeconfig can send a local file as its token
+
+A kubeconfig names files as well as programs: `tokenFile` (and a user's `client-certificate`,
+`client-key` and the cluster's `certificate-authority`). A kubeconfig dropped into a synced folder
+or added by the user can pair `tokenFile: <any file the user can read>` with a server of its own;
+when the user connects to that context, client-go reads the file and sends its content to that
+server as a bearer token. Kubernetes' documentation names this ("file exposure",
+[kubeconfig docs](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)).
+The plugin approval of [H-1](#h-1-kubeconfig-files-added-by-sync-folders) does not cover it: a
+context without an `exec` section connects without asking. Live since 2026-10-12 for added, pasted
+and synced kubeconfigs, at the moment the user connects to such a context; dormant for the default
+kubeconfig, which kubectl reads the same way. Not decided: extending the approval to file
+references outside the kubeconfig's folder, or refusing them for synced files.
+
