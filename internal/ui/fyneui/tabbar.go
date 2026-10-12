@@ -161,7 +161,11 @@ func (b *tabBar) menuItems() []*fyne.MenuItem {
 			}
 		}
 	}
-	add("ui.tab.close", whenTabs("ui.tab.close"))
+	add("ui.tab.close", func() {
+		if sh.ui.ActiveTab != "" { // the welcome page shows no tab (welcome.go): nothing to close
+			sh.dispatch("ui.tab.close", struct{}{}, nil)
+		}
+	})
 	add("ui.tab.pin", func() {
 		if t, ok := sh.ui.Tab(sh.ui.ActiveTab); ok && t.Preview {
 			sh.dispatch("ui.tab.pin", struct{}{}, nil)

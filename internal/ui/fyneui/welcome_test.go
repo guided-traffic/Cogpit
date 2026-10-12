@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/test"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
@@ -107,6 +108,13 @@ func TestWelcomePageOverTheEngine(t *testing.T) {
 	q.until(t, "the page over the cluster", func() bool { return w.shown && s.UIState().ActiveTab == "" })
 	if !strings.HasPrefix(w.status.text, "Connected to demo") || sh.ui.Connection.State != engine.Connected {
 		t.Errorf("status %q", w.status.text)
+	}
+	// ⌘W has no tab to close while the page shows: nothing happens, no error.
+	toasts := len(sh.toasts.Objects)
+	menuItemWithin(sh.mainMenu(), &desktop.CustomShortcut{KeyName: fyne.KeyW, Modifier: fyne.KeyModifierShortcutDefault}).Action()
+	q.drain()
+	if len(sh.toasts.Objects) != toasts || len(sh.ui.Tabs) != 1 {
+		t.Errorf("⌘W on the welcome page: %d toasts (was %d), tabs %v", len(sh.toasts.Objects), toasts, sh.ui.Tabs)
 	}
 	q.until(t, "the connected row", func() bool { return len(w.rows) == 1 && w.rows[0].badges.Objects != nil })
 	test.Tap(w.rows[0])
