@@ -41,7 +41,8 @@ func (w *fakeWriter) DrainNode(_ context.Context, name string, _ cluster.DrainOp
 	return nil
 }
 
-func (w *fakeWriter) ScaleWorkload(_ context.Context, resource, namespace, name string, replicas int32) error {
+func (w *fakeWriter) ScaleWorkload(_ context.Context, resource, namespace, name, uid string, replicas int32) error {
+	w.bound(uid)
 	w.record(fmt.Sprintf("scale %s %s/%s %d", resource, namespace, name, replicas))
 	return nil
 }

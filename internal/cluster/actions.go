@@ -22,9 +22,9 @@ var now = time.Now
 // RestartDeployment restarts a Deployment the way `kubectl rollout restart` does: it patches the
 // pod template's restartedAt annotation. Like kubectl, it does not wait for the rollout. A paused
 // Deployment takes the patch but rolls out only when resumed; the caller checks that from the
-// cache before offering the action.
-func (c *Conn) RestartDeployment(ctx context.Context, namespace, name string) error {
-	return c.RestartWorkload(ctx, resourceDeployments, namespace, name)
+// cache before offering the action. A non-empty uid binds the patch to that object (ErrReplaced).
+func (c *Conn) RestartDeployment(ctx context.Context, namespace, name, uid string) error {
+	return c.RestartWorkload(ctx, resourceDeployments, namespace, name, uid)
 }
 
 // DeletePod deletes one pod with the default grace period. A non-empty uid is a precondition: the

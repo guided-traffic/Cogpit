@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
@@ -71,10 +72,11 @@ func restartSpec(id, menuPath, kind, noun string) engine.Spec[refParams] {
 				if !ok {
 					return errConnectionCannotRestart
 				}
-				if err := sameAsConfirmed(ctx, s, ref); err != nil {
+				uid, err := sameAsConfirmed(ctx, s, ref)
+				if err != nil {
 					return err
 				}
-				return rw.RestartWorkload(ctx, kind, ref.Namespace, ref.Name)
+				return replaced(ref, rw.RestartWorkload(ctx, kind, ref.Namespace, ref.Name, uid))
 			})
 		},
 	}
@@ -95,11 +97,12 @@ func restartsOf(s *engine.Session) (*engine.Backend, engine.WorkloadRestarts, er
 	return b, rw, nil
 }
 
-// sameAsConfirmed refuses a destructive patch on an object the cache now holds under another UID
-// than the one the user confirmed: deleted and created again under the name while the dialog was
-// open. A patch, unlike a delete, carries no UID precondition in kubectl's form, so the check is
-// against the cache.
-func sameAsConfirmed(ctx context.Context, s *engine.Session, ref model.ObjectRef) error {
+// sameAsConfirmed returns the UID a patch on ref carries (Restart, Scale): the one the user
+// confirmed, else the cache's. It refuses when the cache holds the object under another UID by
+// now (deleted and created again under the name while the dialog was open); the patch's UID then
+// makes the API server refuse what the cache has not seen yet (cluster.ErrReplaced, mapped by
+// replaced). kubectl's patches carry no UID; Cogpit adds it.
+func sameAsConfirmed(ctx context.Context, s *engine.Session, ref model.ObjectRef) (string, error) {
 	cached := func() (string, bool) {
 		obj, err := s.Lookup(ref)
 		if err != nil {
@@ -109,12 +112,20 @@ func sameAsConfirmed(ctx context.Context, s *engine.Session, ref model.ObjectRef
 	}
 	uid, err := engine.ActUID(ctx, ref, cached)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if now, ok := cached(); !ok || now != uid {
-		return fmt.Errorf("%w: %s is no longer the object that was confirmed; nothing was done", engine.ErrTargetsChanged, ref.String())
+		return "", fmt.Errorf("%w: %s is no longer the object that was confirmed; nothing was done", engine.ErrTargetsChanged, ref.String())
 	}
-	return nil
+	return uid, nil
+}
+
+// replaced reports the API server's refusal of a UID-bound patch as ErrTargetsChanged.
+func replaced(ref model.ObjectRef, err error) error {
+	if errors.Is(err, cluster.ErrReplaced) {
+		return fmt.Errorf("%w: %s is no longer the object that was confirmed: %w", engine.ErrTargetsChanged, ref.String(), err)
+	}
+	return err
 }
 
 // deploymentOf returns the name of the Deployment that controls a cached replica set, or "".

@@ -245,9 +245,18 @@ objects (`CheckConfirmedTargets`: a create whose namespace came from the filter 
 filter moved while the dialog was open) and, for destructive commands, the objects' UIDs as the
 cache held them when the user was asked (`ConfirmRequest.UIDs`, `ActUID`): Delete and Evict send
 those as preconditions, never the UID of an object created again under the name; Restart (every
-workload kind) and Scale to zero, whose patches carry no UID, refuse when the cache holds the
-object under another UID by then (review 2026-10-11, `TestRestartRefusesARecreatedObject`,
-`TestScaleToZeroRefusesARecreatedObject`). A command can ask
+workload kind) and Scale to zero refuse when the cache holds the object under another UID by then
+(review 2026-10-11, `TestRestartRefusesARecreatedObject`, `TestScaleToZeroRefusesARecreatedObject`).
+Since 2026-10-12 (fourth run) their patches carry the UID too, which kubectl's do not: Restart's
+pod-template patch and every Scale add `metadata.uid`, the confirmed UID, else the one the cache
+holds when the command runs, and the API server refuses the patch on an object created again
+under the name (the template patch because `metadata.uid` is immutable, 422; the scale
+subresource by its UID precondition, 409; both verified on Kubernetes 1.36.1,
+`TestKindPatchesBoundToTheUID`), which the command reports as `ErrTargetsChanged`. That closes the
+gap between the cache check and the write, and covers a recreate the cache has not seen yet. A
+mutating command's confirmation records the UIDs of its targets the cache holds already (no
+watch started, no wait; a target it does not hold stays unbound and the command reads the cache),
+so an agent's Scale the user accepted is bound like Scale to zero (`TestRestartAndScaleCarryTheUID`). A command can ask
 who dispatched it (`OriginOf`); `editor.get` uses that to redact Secrets for agents.
 
 How menus use them ([`menu.go`](../../internal/engine/menu.go), 2026-10-11): `Registry.Actions(kind)`
@@ -1001,7 +1010,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5); the View menu and Refresh Access Reviews in the GUI (§4.2); live related-objects indexes shared with the drawer's fetches, the cluster-role rule on `Listed`, `ui.navigate`'s filter check with related cells (§4.4); workload logs resume dropped streams and forget ended instances (§4.4) |
+| 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5); the View menu and Refresh Access Reviews in the GUI (§4.2); live related-objects indexes shared with the drawer's fetches, the cluster-role rule on `Listed`, `ui.navigate`'s filter check with related cells (§4.4); workload logs resume dropped streams and forget ended instances (§4.4); Restart's and Scale's patches carry the UID, mutating confirmations record cached UIDs (§4.2) |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5) |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere) |
 | 2026-10-12 | minor | Fourth run (agent D): kubeconfig sources (added files, pasted kubeconfigs, sync folders), each file read on its own, and credential plugins of sources run only after the user allowed them (§6; current state rows) |

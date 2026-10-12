@@ -21,7 +21,8 @@ import (
 )
 
 // RestartWorkload is the fake writer's restart of a Daemon Set or Stateful Set.
-func (w *fakeWriter) RestartWorkload(_ context.Context, resource, namespace, name string) error {
+func (w *fakeWriter) RestartWorkload(_ context.Context, resource, namespace, name, uid string) error {
+	w.bound(uid)
 	w.record(fmt.Sprintf("restart %s %s/%s", resource, namespace, name))
 	return nil
 }
@@ -257,7 +258,7 @@ func TestScaleToZeroRefusesARecreatedObject(t *testing.T) {
 			if calls := h.writer.Calls(); len(calls) != 0 {
 				t.Errorf("writes %v", calls)
 			}
-			// A non-zero scale needs no confirmation from the GUI and binds to nothing.
+			// A non-zero scale needs no confirmation from the GUI: it acts on the object the cache holds.
 			h.must(t, engine.OriginGUI, tc.id, scaleTo(tc.ref, 3), nil)
 		})
 	}

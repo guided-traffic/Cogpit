@@ -159,12 +159,13 @@ func scaleSpec(id, menuPath, kind, noun string, order int) engine.Spec[scalePara
 				if err != nil {
 					return err
 				}
-				if n == 0 { // confirmed as destructive (Escalate): only the object the user saw
-					if err := sameAsConfirmed(ctx, s, ref); err != nil {
-						return err
-					}
+				// Only the object the user saw: confirmed (to zero, Escalate; an agent's accepted
+				// scale) or, unconfirmed, the cache's.
+				uid, err := sameAsConfirmed(ctx, s, ref)
+				if err != nil {
+					return err
 				}
-				return ww.ScaleWorkload(ctx, kind, ref.Namespace, ref.Name, int32(n))
+				return replaced(ref, ww.ScaleWorkload(ctx, kind, ref.Namespace, ref.Name, uid, int32(n)))
 			})
 		},
 	}

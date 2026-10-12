@@ -35,7 +35,7 @@ func TestRestartDeploymentPatchesRestartedAt(t *testing.T) {
 	}
 	c, cs := fakeConn(dep)
 	ctx := context.Background()
-	if err := c.RestartDeployment(ctx, "team-a", "web"); err != nil {
+	if err := c.RestartDeployment(ctx, "team-a", "web", ""); err != nil {
 		t.Fatalf("RestartDeployment: %v", err)
 	}
 
@@ -69,7 +69,7 @@ func TestRestartDeploymentPatchesRestartedAt(t *testing.T) {
 
 func TestRestartDeploymentErrorsNameTheObject(t *testing.T) {
 	c, _ := fakeConn()
-	err := c.RestartDeployment(context.Background(), "team-a", "missing")
+	err := c.RestartDeployment(context.Background(), "team-a", "missing", "")
 	if err == nil || !apierrors.IsNotFound(err) || !strings.Contains(err.Error(), "team-a/missing") {
 		t.Errorf("err = %v", err)
 	}

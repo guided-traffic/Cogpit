@@ -11,8 +11,9 @@ import (
 // Backend.Writer(), and tests substitute a fake as Backend.Actions.
 type WorkloadRestarts interface {
 	// RestartWorkload restarts a "deployments", "daemonsets" or "statefulsets" object as
-	// `kubectl rollout restart` does: patch of the pod template's restartedAt annotation.
-	RestartWorkload(ctx context.Context, resource, namespace, name string) error
+	// `kubectl rollout restart` does: patch of the pod template's restartedAt annotation. A
+	// non-empty uid must match the object's (cluster.ErrReplaced otherwise).
+	RestartWorkload(ctx context.Context, resource, namespace, name, uid string) error
 }
 
 var _ WorkloadRestarts = (*cluster.Conn)(nil)

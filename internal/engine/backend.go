@@ -53,8 +53,9 @@ type Backend struct {
 
 // Actions are the cluster writes of the MVP's action commands. *cluster.Conn implements them.
 type Actions interface {
-	// RestartDeployment restarts a Deployment as `kubectl rollout restart` does.
-	RestartDeployment(ctx context.Context, namespace, name string) error
+	// RestartDeployment restarts a Deployment as `kubectl rollout restart` does; a non-empty uid
+	// must match the Deployment's (cluster.ErrReplaced otherwise).
+	RestartDeployment(ctx context.Context, namespace, name, uid string) error
 	// DeletePod deletes one pod with the default grace period; a non-empty uid must match the
 	// pod's, so that a replacement with the same name is not deleted.
 	DeletePod(ctx context.Context, namespace, name, uid string) error

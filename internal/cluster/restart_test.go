@@ -83,7 +83,7 @@ func TestRestartWorkloadSendsKubectlsPatch(t *testing.T) {
 	} {
 		name := tc.obj.(metav1.Object).GetName()
 		c, cs := fakeConn(tc.obj)
-		if err := c.RestartWorkload(context.Background(), tc.resource, "team-a", name); err != nil {
+		if err := c.RestartWorkload(context.Background(), tc.resource, "team-a", name, ""); err != nil {
 			t.Fatalf("%s: %v", tc.resource, err)
 		}
 		var patch k8stesting.PatchAction
@@ -111,11 +111,11 @@ func TestRestartWorkloadSendsKubectlsPatch(t *testing.T) {
 
 func TestRestartWorkloadErrors(t *testing.T) {
 	c, cs := fakeConn()
-	err := c.RestartWorkload(context.Background(), "statefulsets", "team-a", "missing")
+	err := c.RestartWorkload(context.Background(), "statefulsets", "team-a", "missing", "")
 	if err == nil || !apierrors.IsNotFound(err) || !strings.Contains(err.Error(), "restart stateful set team-a/missing") {
 		t.Errorf("missing stateful set: %v", err)
 	}
-	if err := c.RestartWorkload(context.Background(), "replicasets", "team-a", "web-1"); err == nil ||
+	if err := c.RestartWorkload(context.Background(), "replicasets", "team-a", "web-1", ""); err == nil ||
 		!strings.Contains(err.Error(), "not a kind Cogpit restarts") {
 		t.Errorf("replica set: %v", err)
 	}

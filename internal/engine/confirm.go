@@ -112,19 +112,26 @@ func Confirmed(ctx context.Context) (ConfirmRequest, bool) {
 var ErrTargetsChanged = errors.New("the objects changed since they were confirmed")
 
 // ConfirmedUID returns the UID the confirmation recorded for ref and whether the running command
-// was confirmed at all. A confirmed command whose object was not in the cache when the user was
-// asked gets "" and true: it must refuse rather than act on whatever has the name now.
+// is bound to it. A destructive command whose object was not in the cache when the user was asked
+// gets "" and true: it must refuse rather than act on whatever has the name now. A mutating
+// command's confirmation records the UIDs the cache held already (2026-10-12); for an object it
+// did not hold, or without a confirmation, the result is "" and false, and the command reads the
+// cache.
 func ConfirmedUID(ctx context.Context, ref model.ObjectRef) (uid string, confirmed bool) {
 	req, ok := Confirmed(ctx)
+	destructive := ok && req.Danger == DangerDestructive
 	if !ok || len(req.UIDs) == 0 {
-		return "", ok && req.Danger == DangerDestructive
+		return "", destructive
 	}
 	for i, o := range req.Objects {
 		if i < len(req.UIDs) && o.Kind == ref.Kind && o.Namespace == ref.Namespace && o.Name == ref.Name {
+			if req.UIDs[i] == "" && !destructive {
+				return "", false
+			}
 			return req.UIDs[i], true
 		}
 	}
-	return "", true
+	return "", destructive
 }
 
 // CheckConfirmedTargets fails when the objects a command is about to act on are not the ones the

@@ -3,6 +3,7 @@ package cluster
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -20,14 +21,22 @@ import (
 
 // ScaleWorkload sets the replica count of a Deployment, StatefulSet or ReplicaSet (resource is
 // "deployments", "statefulsets" or "replicasets") with a merge patch on its scale subresource,
-// the request kubectl scale sends. Like kubectl, it does not wait for the pods.
-func (c *Conn) ScaleWorkload(ctx context.Context, resource, namespace, name string, replicas int32) error {
+// the request kubectl scale sends. Like kubectl, it does not wait for the pods. A non-empty uid
+// goes into the patch as metadata.uid, which the scale subresource checks as a precondition
+// (ErrReplaced on another object under the name).
+func (c *Conn) ScaleWorkload(ctx context.Context, resource, namespace, name, uid string, replicas int32) error {
 	if replicas < 0 {
 		return fmt.Errorf("scale %s %s/%s: replicas %d is negative", resource, namespace, name, replicas)
 	}
-	patch := fmt.Appendf(nil, `{"spec":{"replicas":%d}}`, replicas)
+	body := map[string]any{fieldSpec: map[string]any{"replicas": replicas}}
+	if m := uidMeta(uid); m != nil {
+		body["metadata"] = m
+	}
+	patch, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("scale %s %s/%s: %w", resource, namespace, name, err)
+	}
 	opts := metav1.PatchOptions{FieldManager: FieldManager}
-	var err error
 	switch resource {
 	case "deployments":
 		_, err = c.kube.AppsV1().Deployments(namespace).Patch(ctx, name, types.MergePatchType, patch, opts, "scale")
@@ -39,7 +48,7 @@ func (c *Conn) ScaleWorkload(ctx context.Context, resource, namespace, name stri
 		return fmt.Errorf("scale %s %s/%s: not a kind Cogpit scales", resource, namespace, name)
 	}
 	if err != nil {
-		return fmt.Errorf("scale %s %s/%s: %w", resource, namespace, name, err)
+		return fmt.Errorf("scale %s %s/%s: %w", resource, namespace, name, replacedError(err, uid))
 	}
 	return nil
 }

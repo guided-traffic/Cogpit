@@ -171,6 +171,26 @@ func (s *Session) targetUIDs(ctx context.Context, targets []model.ObjectRef) []s
 	return uids
 }
 
+// cachedTargetUIDs reads the targets' UIDs for a mutating command's confirmation from the kinds
+// the cache holds already: it starts no watch and waits for nothing (a create's targets need
+// neither). A target it does not hold gets "", which leaves that target unbound (ConfirmedUID).
+func (s *Session) cachedTargetUIDs(targets []model.ObjectRef) []string {
+	b := s.Backend()
+	if b == nil || len(targets) == 0 {
+		return nil
+	}
+	uids := make([]string, len(targets))
+	for i, ref := range targets {
+		if p, ok := b.Profile(ref.Kind); !ok || !b.Cached(p) {
+			continue
+		}
+		if obj, err := s.Lookup(ref); err == nil {
+			uids[i] = string(obj.GetUID())
+		}
+	}
+	return uids
+}
+
 // ActUID returns the UID a destructive write on ref must carry as its precondition: the one the
 // user confirmed, else, without a confirmation, the cache's. It fails when the object was not in
 // the cache when the user confirmed: whatever has the name now is not what they saw.

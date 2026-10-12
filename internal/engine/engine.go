@@ -248,6 +248,8 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 		}
 		if danger == DangerDestructive {
 			req.UIDs = s.targetUIDs(ctx, targets)
+		} else {
+			req.UIDs = s.cachedTargetUIDs(targets) // an agent's Scale the user accepts binds them too
 		}
 		ok, err := confirmer.Confirm(ctx, req)
 		if err != nil {

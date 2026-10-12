@@ -22,8 +22,8 @@ type NodeActions interface {
 // resume, evict. *cluster.Conn implements them.
 type WorkloadActions interface {
 	// ScaleWorkload patches the scale subresource of "deployments", "statefulsets" or
-	// "replicasets".
-	ScaleWorkload(ctx context.Context, resource, namespace, name string, replicas int32) error
+	// "replicasets"; a non-empty uid must match the object's (cluster.ErrReplaced otherwise).
+	ScaleWorkload(ctx context.Context, resource, namespace, name, uid string, replicas int32) error
 	// TriggerCronJob creates a Job from the cached CronJob, as kubectl create job --from does, and
 	// returns its name.
 	TriggerCronJob(ctx context.Context, cronJob *unstructured.Unstructured) (string, error)

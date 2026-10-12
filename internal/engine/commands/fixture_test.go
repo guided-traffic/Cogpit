@@ -96,11 +96,27 @@ func (f *fakeConnector) Connect(_ context.Context, name string) (*engine.Backend
 type fakeWriter struct {
 	mu    sync.Mutex
 	calls []string
+	uids  []string // the UID each UID-bound write (restart, scale) carried, in call order
 }
 
-func (w *fakeWriter) RestartDeployment(_ context.Context, namespace, name string) error {
+func (w *fakeWriter) RestartDeployment(_ context.Context, namespace, name, uid string) error {
+	w.bound(uid)
 	w.record("restart " + namespace + "/" + name)
 	return nil
+}
+
+// bound records the UID a write carried.
+func (w *fakeWriter) bound(uid string) {
+	w.mu.Lock()
+	w.uids = append(w.uids, uid)
+	w.mu.Unlock()
+}
+
+// UIDs returns the UIDs the UID-bound writes carried.
+func (w *fakeWriter) UIDs() []string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return append([]string(nil), w.uids...)
 }
 
 func (w *fakeWriter) DeletePod(_ context.Context, namespace, name, _ string) error {

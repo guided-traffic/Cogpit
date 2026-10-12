@@ -275,6 +275,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   names its process, so a drain or Helm action running in another live Cogpit is reported running
   there, not offered as interrupted, and cannot be finished or dismissed from here
   (`TestJournalsKeepEveryProcessesEntries`, `TestJournalEntryOfAKilledProcess`; [architecture §8](../developer/architecture.md#8-helm-internalhelm)).
+  Restart and Scale send the UID they act on in their patches (2026-10-12), which the API server
+  checks: a workload (Deployment, Daemon Set, Stateful Set, Replica Set) created again under the name is never restarted
+  or scaled, whatever the origin, also when Cogpit's cache has not seen it yet
+  (`TestKindPatchesBoundToTheUID` on Kubernetes 1.36.1, `TestRestartAndScaleCarryTheUID`;
+  [architecture §4.2](../developer/architecture.md#42-the-command-registry)).
 - **Estimate:** 20–70 h (was 45–140; 11 of 39 actions missing, mostly create dialogs, 2–5 h each, plus depth).
 
 ### G8. Logs, terminal and shells
@@ -556,7 +561,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); G4 evidence (Refresh Access Reviews in the menu, the View menu hides what the sidebar hides); G3 evidence (live related-objects indexes, measured); G8 evidence (workload log streams resumed and pruned); estimates not moved |
+| 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); G4 evidence (Refresh Access Reviews in the menu, the View menu hides what the sidebar hides); G3 evidence (live related-objects indexes, measured); G8 evidence (workload log streams resumed and pruned); G7 evidence (Restart and Scale bound to the UID in their patches); estimates not moved |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); estimates not moved |
 | 2026-10-12 | minor | G2 (fourth run, agent D): kubeconfig files, sync folders and pasted kubeconfigs, the approval of their credential plugins; estimate 10–28 h |
 | 2026-10-12 | minor | G11 (fourth run): the Helm upgrade and its dock tab, Lens's release drawer and Rollback dialog built; estimate 12–30 h (the totals not recounted) |

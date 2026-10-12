@@ -48,7 +48,7 @@ func TestScaleWorkloadPatchesTheScaleSubresource(t *testing.T) {
 		{"deployments", "web", 5, `{"spec":{"replicas":5}}`},
 		{"statefulsets", "db", 0, `{"spec":{"replicas":0}}`},
 	} {
-		if err := c.ScaleWorkload(ctx, tc.resource, "shop", tc.name, tc.replicas); err != nil {
+		if err := c.ScaleWorkload(ctx, tc.resource, "shop", tc.name, "", tc.replicas); err != nil {
 			t.Fatalf("scale %s: %v", tc.resource, err)
 		}
 		p := lastPatch(t, cs.Actions())
@@ -64,13 +64,13 @@ func TestScaleWorkloadPatchesTheScaleSubresource(t *testing.T) {
 		t.Errorf("replicas: deployment %d, statefulset %d", *d.Spec.Replicas, *s.Spec.Replicas)
 	}
 
-	if err := c.ScaleWorkload(ctx, "daemonsets", "shop", "x", 1); err == nil || !strings.Contains(err.Error(), "not a kind") {
+	if err := c.ScaleWorkload(ctx, "daemonsets", "shop", "x", "", 1); err == nil || !strings.Contains(err.Error(), "not a kind") {
 		t.Errorf("scale a daemonset: %v", err)
 	}
-	if err := c.ScaleWorkload(ctx, "deployments", "shop", "web", -1); err == nil {
+	if err := c.ScaleWorkload(ctx, "deployments", "shop", "web", "", -1); err == nil {
 		t.Error("negative replicas accepted")
 	}
-	if err := c.ScaleWorkload(ctx, "deployments", "shop", "gone", 1); !apierrors.IsNotFound(err) || !strings.Contains(err.Error(), "shop/gone") {
+	if err := c.ScaleWorkload(ctx, "deployments", "shop", "gone", "", 1); !apierrors.IsNotFound(err) || !strings.Contains(err.Error(), "shop/gone") {
 		t.Errorf("scale a missing deployment: %v", err)
 	}
 }

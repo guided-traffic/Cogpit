@@ -22,9 +22,10 @@ const (
 // that sets the pod template's restartedAt annotation to the current time, which changes the
 // template, so that the controller replaces every pod by its update strategy. Like kubectl, it
 // does not wait for the rollout. A StatefulSet or DaemonSet with the OnDelete strategy takes the
-// patch but replaces a pod only when it is deleted.
-func (c *Conn) RestartWorkload(ctx context.Context, resource, namespace, name string) error {
-	patch, err := restartPatch(now())
+// patch but replaces a pod only when it is deleted. A non-empty uid goes into the patch as
+// metadata.uid, which the API server refuses on another object under the name (ErrReplaced).
+func (c *Conn) RestartWorkload(ctx context.Context, resource, namespace, name, uid string) error {
+	patch, err := restartPatch(now(), uid)
 	if err != nil {
 		return fmt.Errorf("restart %s %s/%s: %w", resource, namespace, name, err)
 	}
@@ -44,21 +45,26 @@ func (c *Conn) RestartWorkload(ctx context.Context, resource, namespace, name st
 		return fmt.Errorf("restart %s %s/%s: not a kind Cogpit restarts", resource, namespace, name)
 	}
 	if err != nil {
-		return fmt.Errorf("restart %s %s/%s: %w", noun, namespace, name, err)
+		return fmt.Errorf("restart %s %s/%s: %w", noun, namespace, name, replacedError(err, uid))
 	}
 	return nil
 }
 
 // restartPatch is the patch kubectl rollout restart computes: the two-way merge of the object
-// before and after setting the template's restartedAt annotation, which is that annotation alone.
-func restartPatch(at time.Time) ([]byte, error) {
-	return json.Marshal(map[string]any{
-		"spec": map[string]any{
+// before and after setting the template's restartedAt annotation, which is that annotation alone;
+// with a uid, also metadata.uid, Cogpit's precondition.
+func restartPatch(at time.Time, uid string) ([]byte, error) {
+	patch := map[string]any{
+		fieldSpec: map[string]any{
 			"template": map[string]any{
 				"metadata": map[string]any{
 					"annotations": map[string]string{RestartedAtAnnotation: at.Format(time.RFC3339)},
 				},
 			},
 		},
-	})
+	}
+	if m := uidMeta(uid); m != nil {
+		patch["metadata"] = m
+	}
+	return json.Marshal(patch)
 }
