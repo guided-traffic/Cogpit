@@ -46,6 +46,7 @@ it. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
 - 🖥️ A native macOS app first, Windows and Linux (Ubuntu first) after the macOS beta.
 - 🗂️ Every cluster from your kubeconfig files and synced folders, side by side.
 - 📌 A hotbar of pinned clusters at the window's edge, in banks of twelve: F1–F12 to switch cluster, ⇧F1–⇧F12 to switch bank.
+- ⌨️ A command palette on ⌘⇧P (Ctrl+Shift+P): every action the menus offer, Switch to any view, the hotbar's clusters and banks; ⌘P to search a cluster by name.
 - 🔐 Your credentials stay yours: kubectl's own authentication code (certificates, tokens, exec plugins for EKS, GKE, AKS); no local proxy, no login.
 - ⚡ Cache first: views read from a watch-fed cache; switching back to a view costs no API request.
 - 📋 Lens's resource views: workloads, config, network, storage, access control, custom resources.
