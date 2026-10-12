@@ -271,10 +271,14 @@ func TestHelpAndWindowMenus(t *testing.T) {
 		}
 		probe[struct{}](t, f, c)
 	}
-	sh, _, q := newTestShell(t, f, Options{})
+	sh, win, q := newTestShell(t, f, Options{})
 	help := menuNamed(sh.mainMenu(), "Help")
 	if got := menuLabels(help); !slices.Equal(got, []string{"Welcome", "Documentation", "", "About Cogpit"}) {
 		t.Errorf("Help menu %q", got)
+	}
+	help.Items[3].Action() // About Cogpit: the version and the build, in a dialog
+	if texts := strings.Join(dialogTexts(win), " "); !strings.Contains(texts, "About Cogpit") || !strings.Contains(texts, "Licence: Apache License 2.0") {
+		t.Errorf("About: %s", texts)
 	}
 	help.Items[0].Action()
 	q.until(t, "ui.welcome.open", func() bool { return len(f.callsOf("ui.welcome.open")) == 1 })
@@ -334,4 +338,14 @@ func TestReadAboutInfo(t *testing.T) {
 	if info := readAboutInfo("", nil); info.Version != "development build" || len(info.lines()) != 1 {
 		t.Errorf("no build info: %+v", info)
 	}
+}
+
+// The About dialog's PNG, over the welcome page.
+func TestRenderAboutDark(t *testing.T) {
+	s := welcomeEngine(t)
+	sh, w, q := newEngineShell(t, s, Options{Theme: ThemeDark})
+	welcomeShown(t, sh, q)
+	sh.showAbout()
+	q.drain()
+	savePNG(t, w, "about_dark.png")
 }
