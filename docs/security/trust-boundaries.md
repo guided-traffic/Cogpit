@@ -44,7 +44,7 @@ UNTRUSTED                                   BOUNDARY                          TR
 | Container output to terminal | `internal/terminal`, `internal/ui/fyneui/termview` | Drop or confirm OSC 52 (clipboard write), window-title and window-manipulation sequences ([xterm control sequences](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html)); cap scrollback; cap line length. The MVP drops every OSC, DCS, APC, PM and SOS string, media copy and window operations, clamps large counts, and strips escapes from log lines, which are capped at 64 KiB per line and 10,000 lines ([`termview/sanitize.go`](../../internal/ui/fyneui/termview/sanitize.go), fuzzed; [`termview/logs.go`](../../internal/ui/fyneui/termview/logs.go)); see [H-19](#h-19-the-terminal-widget-trusts-its-input) |
 | Editor to cluster | `internal/engine` | Show a diff and a server-side dry-run before apply; reject documents whose kind, name or namespace changed without saying so |
 | Port-forward to local socket | `internal/cluster` | Bind `127.0.0.1` only; show which local port maps to which pod. Built 2026-10-11: `ListenLoopback` binds `tcp4` 127.0.0.1 and refuses any listener that ends up elsewhere ([`portforward.go`](../../internal/cluster/portforward.go), `TestListenLoopbackBindsIPv4LoopbackOnly`; the engine's tests try `::1` and every non-loopback interface address and expect refusal); the Port Forwarding view and a forward's drawer show the address, the pod and its port; a pod's error text is cut to one line of at most 512 bytes without control characters before it reaches the GUI or an agent; the forward's URL names `127.0.0.1`, not `localhost`, which macOS resolves to `::1` first, where another process may listen (`TestForwardURLReachesTheForward`), and the GUI opens only such URLs; a forward whose connection fails for a reason waiting does not cure (404, 403, 401) fails at once and closes its listener, so no port stays bound for a forward that cannot work (D-20, `TestPortForwardFailsAtOncePermanentErrors`) |
-| Chart to release | `internal/helm` | The Helm SDK renders in-process; Helm plugins and post-renderers (which run external programs) are not supported; chart provenance is verified where the repository provides it |
+| Chart to release | `internal/helm` | The Helm SDK renders in-process; Helm plugins and post-renderers (which run external programs) are not supported. Built 2026-10-13 ([architecture §8](../developer/architecture.md#8-helm-internalhelm)): repositories are public https only, redirects followed to https only; an index (32 MiB) and a chart archive (16 MiB) are bounded and parsed by the SDK (`FuzzLoadIndex`); an archive must match the SHA-256 digest its index lists, when it lists one, and hold the chart and version the index names (`TestRepositoryRefusesWhatDoesNotFit`); a library chart and a chart missing its dependencies are refused; DNS lookups in templates stay off; the install is previewed with the SDK's server-side dry run, which writes nothing (`TestKindHelmInstall`). Provenance files are not checked ([H-30](#h-30-chart-provenance-is-not-verified)) |
 | Request to command | `internal/engine` | Params validated against the schema; `enabled` and access review before `run`; confirmation by origin ([agents and MCP](agents-and-mcp.md)). Built: the schema check refuses unknown fields, then `Command.Enabled` asks the connected user's cached access reviews about every declared verb whenever the parameters name an object, and a known denial refuses the command for every origin ("not permitted: you may not …"), an unknown answer passes and the API server decides; then the confirmation ([`engine.go`](../../internal/engine/engine.go) `Dispatch`, [`access.go`](../../internal/engine/access.go)); see [H-21](#h-21-access-reviews-guide-they-do-not-guard) |
 | MCP request to engine | `internal/mcp` | Loopback only, bearer token, `Host` and `Origin` checks: [`internal/mcp/http.go`](../../internal/mcp/http.go), `TestHTTPGuard`, `TestNewRefusesNonLoopbackAddresses` |
 | Cluster data to the LLM endpoint | `internal/agent` | Secret values withheld by default; what is sent is shown |
@@ -182,6 +182,18 @@ Content binding is narrower than "everything the plugin runs", by decision (owne
 
 A link in the folder that points to a file outside is bound by its target path; a tool manager that
 repoints it (a Homebrew upgrade of a linked `aws`) asks once again.
+
+### H-30: Chart provenance is not verified
+
+The digest Cogpit checks a chart archive against comes from the repository's own `index.yaml`,
+served by the same host as the archive (2026-10-13). It catches a corrupted download or an index
+and archive that do not belong together, not a repository that serves a malicious chart with a
+matching digest. Helm's provenance files (`<chart>-<version>.tgz.prov`, an OpenPGP signature over
+the chart's digest, `helm install --verify`) are not downloaded or checked, and Cogpit keeps no
+keyring. A chart then runs as templates in Cogpit's process (no plugins, post-renderers or DNS
+lookups, but `lookup` reads what the user may read) and its objects are created with the user's
+identity after the preview and, for an agent, the user's acceptance. Which keys to trust and where
+they would live is not designed.
 
 ### H-2: Local processes and forwarded ports
 

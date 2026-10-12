@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -403,9 +403,24 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   version picker, its info line with links, and the editor's find widget (`findbar.go`). Cogpit
   keeps upgrading with the release's stored chart where Lens needs a repository (deliberate), so
   the picker offers that version only and the info line's spinner lasts only while the values load.
-- **Missing:** install as a crash-safe job; repositories, chart index and search (so an upgrade
-  can install the release's own chart version only); the Helm Install dock tab; the ConfigMaps
-  and SQL storage drivers. Views and actions count in G6 and G7.
+- **Missing:** the repositories' versions in the Upgrade tab (an upgrade still installs the
+  release's own chart version only); authenticated, plain-http and OCI repositories
+  ([H-29](../security/credentials.md#h-29-authenticated-helm-repositories)); a list of public
+  repositories to pick; chart icons and the README in the chart's drawer; the ConfigMaps and SQL
+  storage drivers; captures of Lens's Charts view, chart drawer and Helm Install tab (Cogpit's
+  are inferred). Views and actions count in G6 and G7.
+- **Evidence (2026-10-13, night run):** Charts partial and Install partial: public https chart
+  repositories the user adds (`helm.repo.add`, `remove`, `update`, `list`; Helm › Repositories…),
+  kept in Cogpit's own folders (`<user config dir>/Cogpit/helm/repositories.json`, the indexes in
+  `<user cache dir>/Cogpit/helm/`; the lead's default, the owner's question stays open), indexes
+  downloaded on add, on update and while the Charts view or an Install tab is open past a
+  10-minute TTL, bounded and parsed with the SDK; the charts as the local kind `helmcharts`
+  (Helm › Charts); the "Helm Install: <chart>" dock tab with the chart's values.yaml, its versions
+  and the digest check; `helm.chart.preview` (the SDK's server-side dry run) and
+  `helm.chart.install` (mutating, crash-safe, values withheld from agents and scrubbed from errors)
+  ([resource-parity](resource-parity.md#helm), [architecture §8](../developer/architecture.md#8-helm-internalhelm);
+  `TestHelmReposAddListRemove`, `TestHelmIndexRefreshedOnlyWhileShown`, `TestHelmInstallFromTab`,
+  `TestHelmInstallCrashJournal`, `TestHelmInstallTabInstalls`; on kind `TestKindHelmInstall`).
 - **Evidence (2026-10-12, fourth run):** Upgrade partial: Lens's "Helm Upgrade: <name>" dock tab
   and `helm.release.upgrade` through the Helm SDK (the release's own chart, values replacing the
   user-supplied ones, ten revisions kept), mutating, bound to the revision its values were read
@@ -433,7 +448,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   only" and Save; Notes; Resources by kind), its icons (Rollback, Upgrade, Delete), the Rollback
   dialog (every revision, newest first, the current one selected), the Delete dialog, the Helm
   Upgrade dock tab, and a rollback keeping 10 revisions ([resource-parity](resource-parity.md#helm)).
-- **Estimate:** 10–26 h (was 12–30; the upgrade, its dock tab and Lens's drawer built in the fourth run, the second capture followed 2026-10-12; left: install and its dock tab, repositories and charts, the other storage drivers).
+- **Estimate:** 5–14 h (was 10–26; repositories, charts and the install with its dock tab built in the night run, 2026-10-13; left: the repositories' versions in the Upgrade tab, authenticated and OCI repositories, captures of Lens's Charts view and Install tab, the other storage drivers).
+- **Still to capture in Lens** (night run, 2026-10-13): the Charts view (its icon column, search hint and order), a chart's drawer, the Helm Install tab (its fields, the default release name and namespace, what Install does first) and the Helm Charts preferences.
 - **Still to capture in Lens** (the staging cluster's release with five revisions, one failed): what the Rollback dialog's button does with the current revision selected, what Save does with the box cleared, where the checkbox sits relative to the editor, the texts of states other than Deployed and Failed, what the find widget's Replace does with a regular expression's groups.
 
 ### G12. Metrics and cluster overview
@@ -825,9 +841,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | G12: the evening's requirements built (fourth slice): both providers together (Prometheus's history once, the Metrics Server's live values, the network and the filesystem only while shown: the lead's proposal), the fallback, a status line per provider (also in `metrics.get` and `ui.state`), a chart's variant as engine state, a missing value as an empty cell; budget P13 measured on kind; no count moved |
+| 2026-10-13 | minor | G11: chart repositories in Cogpit's own folders, the Charts view, the Helm Install tab and the install as a crash-safe job (night run); what is left and what to capture |
 | 2026-10-13 | minor | G17: the `cogpit-cli mcp` stdio bridge built, evidence added; estimate unchanged |
 | 2026-10-13 | minor | G2: `cogpit-cli contexts` and `cogpit-cli get` built (milestone 0.1), evidence added; estimate unchanged |
+| 2026-10-12 | minor | G12: the evening's requirements built (fourth slice): both providers together (Prometheus's history once, the Metrics Server's live values, the network and the filesystem only while shown: the lead's proposal), the fallback, a status line per provider (also in `metrics.get` and `ui.state`), a chart's variant as engine state, a missing value as an empty cell; budget P13 measured on kind; no count moved |
 | 2026-10-13 | minor | G5, G13: the navigator built (night run): header, the cluster as the tree's root, item tooltips, keyboard; what differs from Lens and what is inferred; estimates not moved (the lead recounts) |
 | 2026-10-12 | minor | G7: seven create dialogs partial (Namespace, Service Account, the four RBAC kinds, Resource Quota); 3 of 39 actions missing; estimate 12–45 h (was 20–70); totals not recounted |
 | 2026-10-12 | minor | G13: the hotbar built (night run), what differs from Lens and what is inferred; estimate 58–150 h (the totals not recounted) |
