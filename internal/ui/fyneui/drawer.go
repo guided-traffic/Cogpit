@@ -286,6 +286,7 @@ func (d *drawer) run(ref model.ObjectRef, a actionState, from fyne.CanvasObject)
 // buildDetails renders the sections in their order, a group heading ("Containers") above the
 // first section of each group, then the events.
 func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
+	d.pruneRevealed(m)
 	out := make([]fyne.CanvasObject, 0, 4*len(m.Sections)+4)
 	group := ""
 	for i, sec := range m.Sections {

@@ -49,6 +49,28 @@ func toggleReveal(sh *shell, ref model.ObjectRef, a model.ItemAction) {
 	})
 }
 
+// pruneRevealed drops the revealed values no item of m offers any more: the reveal action names the
+// Secret's version, so a Secret changed or created again under its name shows its keys masked,
+// and the old value leaves the drawer's memory (R-6 of the fourth run's review).
+func (d *drawer) pruneRevealed(m *engine.DetailModel) {
+	if len(d.revealed) == 0 {
+		return
+	}
+	offered := map[string]bool{}
+	for _, sec := range m.Sections {
+		for _, it := range sec.Items {
+			for _, a := range it.Actions {
+				offered[revealKey(a)] = true
+			}
+		}
+	}
+	for k := range d.revealed {
+		if !offered[k] {
+			delete(d.revealed, k)
+		}
+	}
+}
+
 // revealedItem returns an item with its revealed value in place of the masked one, and whether
 // one of its actions revealed it.
 func (d *drawer) revealedItem(it model.DetailItem) (model.DetailItem, bool) {

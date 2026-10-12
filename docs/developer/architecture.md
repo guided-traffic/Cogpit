@@ -611,7 +611,10 @@ binary value by its size only; it decodes each value to measure it and zeroes th
 (best effort: the cached object's base64 text and a revealed value's string are Go strings, which
 cannot be overwritten). `secret.reveal` reads one value of the Secret the drawer shows from the
 cache, cut to 4 KiB and 40 lines, for the GUI origin only (`TestSecretDrawerReadsTheCacheAndMasks`,
-`TestRevealIsGUIOnly`); agents read the drawer, the YAML (`model.Redact`), the list's cells, the
+`TestRevealIsGUIOnly`). Its action names the Secret's `resourceVersion` the drawer listed the key
+at: a Secret changed or created again since is refused, and the drawer masks a value revealed at an
+older version and forgets it (`TestRevealedValueDroppedWhenSecretChanges`; R-6 of the fourth run's
+review). Agents read the drawer, the YAML (`model.Redact`), the list's cells, the
 CSV export and every other result without a value (`TestAgentsReadSecretsRedacted`).
 
 **Covering scopes** (decided 2026-10-12 with [D-13](decisions.md#d-13-cache)'s revision, built
@@ -1033,7 +1036,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | Review of the fourth run, fixed (§8): an upgrade from a tab bound to the tab's text revision (R-2); upgrade and rollback checked against the server's newest revision, not only the cache's (R-1); values scrubbed in their quoted forms (R-4); the Rollback dialog's answer bound to the picked revision and dropped after its dispatch (R-3) |
+| 2026-10-12 | minor | Review of the fourth run, fixed (§5 Secrets: a revealed value bound to the Secret's version, R-6; §8): an upgrade from a tab bound to the tab's text revision (R-2); upgrade and rollback checked against the server's newest revision, not only the cache's (R-1); values scrubbed in their quoted forms (R-4); the Rollback dialog's answer bound to the picked revision and dropped after its dispatch (R-3) |
 | 2026-10-12 | minor | §10: the patched terminal widget's two goroutines (parser on the reading one, screen and state on the main one) and its fuzz targets |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: the journals shared by Cogpit processes (§8: a directory lock, an owner per process, entries running elsewhere); `kinds.list` marks local and virtual kinds (§5); the View menu and Refresh Access Reviews in the GUI (§4.2); live related-objects indexes shared with the drawer's fetches, the cluster-role rule on `Listed`, `ui.navigate`'s filter check with related cells (§4.4); workload logs resume dropped streams and forget ended instances (§4.4); Restart's and Scale's patches carry the UID, mutating confirmations record cached UIDs (§4.2) |
 | 2026-10-12 | minor | Fourth run (agent D): kubeconfig sources (added files, pasted kubeconfigs, sync folders), each file read on its own, and credential plugins of sources run only after the user allowed them (§6; current state rows) |

@@ -124,14 +124,14 @@ func TestSecretDrawerReadsTheCacheAndMasks(t *testing.T) {
 		}
 	}
 
-	v, err := s.SecretValue(db0, "password")
+	v, err := s.SecretValue(RevealParams{Ref: db0, Key: "password"})
 	if err != nil || v.Value != "hunter2" || v.Size != 7 || v.Cut {
 		t.Errorf("SecretValue %+v, %v", v, err)
 	}
-	if _, err := s.SecretValue(db0, "blob"); err == nil {
+	if _, err := s.SecretValue(RevealParams{Ref: db0, Key: "blob"}); err == nil {
 		t.Error("a binary value was revealed")
 	}
-	if err := s.SecretKeyShown(db0, "nope"); err == nil || strings.Contains(err.Error(), "hunter2") {
+	if err := s.SecretKeyShown(RevealParams{Ref: db0, Key: "nope"}); err == nil || strings.Contains(err.Error(), "hunter2") {
 		t.Errorf("a missing key: %v", err)
 	}
 
@@ -143,19 +143,36 @@ func TestSecretDrawerReadsTheCacheAndMasks(t *testing.T) {
 		its := dataItems(m)
 		return len(its) == 2 && its[0].Value == MaskedValue+" (13 bytes)"
 	})
-	if v, err := s.SecretValue(db0, "password"); err != nil || v.Value != "correct-horse" {
+	if v, err := s.SecretValue(RevealParams{Ref: db0, Key: "password"}); err != nil || v.Value != "correct-horse" {
 		t.Errorf("after the change: %+v, %v", v, err)
+	}
+	// A reveal names the version the drawer listed the key at (its action's params): the current
+	// one reveals, an older one is refused without a value (R-6).
+	listed, err := s.DetailWait(context.WithValue(context.Background(), originKey{}, OriginGUI), db0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var shown RevealParams
+	if its := dataItems(listed); len(its) == 0 || len(its[0].Actions) != 1 || json.Unmarshal(its[0].Actions[0].Params, &shown) != nil {
+		t.Fatalf("the Data section's actions: %+v", its)
+	}
+	if v, err := s.SecretValue(shown); err != nil || v.Value != "correct-horse" {
+		t.Errorf("reveal at the drawer's version %q: %+v, %v", shown.ResourceVersion, v, err)
+	}
+	shown.ResourceVersion += "-old"
+	if _, err := s.SecretValue(shown); !errors.Is(err, ErrTargetsChanged) || strings.Contains(err.Error(), "correct-horse") {
+		t.Errorf("reveal at another version: %v", err)
 	}
 
 	// Moving the drawer: no reveal for the first Secret; closing it: none at all.
 	tls := model.ObjectRef{Context: "test", Kind: secretsKind, Namespace: "apps", Name: "tls"}
 	s.UpdateUI(func(u *UIState) { u.Drawer = &tls })
 	waitData(t, s, tls, func(*DetailModel) bool { return true })
-	if _, err := s.SecretValue(db0, "password"); !errors.Is(err, ErrNoSecretData) {
+	if _, err := s.SecretValue(RevealParams{Ref: db0, Key: "password"}); !errors.Is(err, ErrNoSecretData) {
 		t.Errorf("a Secret the drawer moved away from: %v", err)
 	}
 	s.UpdateUI(func(u *UIState) { u.Drawer = nil })
-	if _, err := s.SecretValue(tls, "tls.key"); !errors.Is(err, ErrNoSecretData) {
+	if _, err := s.SecretValue(RevealParams{Ref: tls, Key: "tls.key"}); !errors.Is(err, ErrNoSecretData) {
 		t.Errorf("after closing the drawer: %v", err)
 	}
 	// A Secret the drawer does not show: object_get lists its keys masked, without a request.

@@ -67,7 +67,7 @@ func secretDataSection(ref model.ObjectRef, obj *unstructured.Unstructured) mode
 		it := model.DetailItem{Name: k}
 		if text {
 			it.Value = MaskedValue + " (" + byteSize(size) + ")"
-			params, _ := json.Marshal(RevealParams{Ref: ref, Key: k})
+			params, _ := json.Marshal(RevealParams{Ref: ref, Key: k, ResourceVersion: obj.GetResourceVersion()})
 			it.Actions = []model.ItemAction{{Label: "Show", Command: RevealCommand, Params: params}}
 		} else {
 			it.Value = "binary data, " + byteSize(size)
@@ -153,6 +153,10 @@ const MaskedValue = "••••••••"
 type RevealParams struct {
 	Ref model.ObjectRef `json:"ref" jsonschema:"the Secret the drawer shows: kind secrets, its namespace and name"`
 	Key string          `json:"key" jsonschema:"the key whose value to show"`
+	// ResourceVersion is the Secret's version the drawer listed the key at: a Secret changed or
+	// created again since is refused, and the drawer's revealed value of an older version no
+	// longer matches the action (R-6 of the fourth run's review).
+	ResourceVersion string `json:"resourceVersion,omitempty" jsonschema:"the Secret's resourceVersion the drawer listed the key at; a Secret changed since is refused"`
 }
 
 // SecretValue is one revealed value, for the user's own window only.
@@ -175,14 +179,19 @@ func (s *Session) drawerShows(ref model.ObjectRef) bool {
 }
 
 // secretValueOf returns one value of the Secret the drawer shows, decoded, from the cache; the
-// caller zeroes it. It never puts a value into its error.
-func (s *Session) secretValueOf(ref model.ObjectRef, key string) ([]byte, error) {
+// caller zeroes it. With a version, a Secret the cache holds at another one is refused
+// (ErrTargetsChanged). It never puts a value into its error.
+func (s *Session) secretValueOf(p RevealParams) ([]byte, error) {
+	ref, key := p.Ref, p.Key
 	if ref.Kind != secretsKind || !s.drawerShows(ref) {
 		return nil, ErrNoSecretData
 	}
 	obj, err := s.Lookup(ref)
 	if err != nil {
 		return nil, err
+	}
+	if p.ResourceVersion != "" && obj.GetResourceVersion() != p.ResourceVersion {
+		return nil, fmt.Errorf("%w: the Secret changed since the drawer listed its keys; show the value again", ErrTargetsChanged)
 	}
 	v, ok := model.NestedMap(obj.Object, "data")[key]
 	if !ok {
@@ -198,22 +207,22 @@ func (s *Session) secretValueOf(ref model.ObjectRef, key string) ([]byte, error)
 
 // SecretKeyShown reports, without a value, whether the drawer shows ref and the Secret has a text
 // value under key in the cache: secret.reveal's Enabled check.
-func (s *Session) SecretKeyShown(ref model.ObjectRef, key string) error {
-	raw, err := s.secretValueOf(ref, key)
+func (s *Session) SecretKeyShown(p RevealParams) error {
+	raw, err := s.secretValueOf(p)
 	wipeBytes(raw)
 	return err
 }
 
 // SecretValue returns one value of the Secret the drawer shows, from the cache, cut to 4 KiB and
 // 40 lines. The caller (secret.reveal) hands it to the GUI only.
-func (s *Session) SecretValue(ref model.ObjectRef, key string) (SecretValue, error) {
-	raw, err := s.secretValueOf(ref, key)
+func (s *Session) SecretValue(p RevealParams) (SecretValue, error) {
+	raw, err := s.secretValueOf(p)
 	if err != nil {
 		return SecretValue{}, err
 	}
 	defer wipeBytes(raw)
 	shown := clip(raw)
-	return SecretValue{Key: key, Value: string(shown), Size: len(raw), Cut: len(shown) < len(raw)}, nil
+	return SecretValue{Key: p.Key, Value: string(shown), Size: len(raw), Cut: len(shown) < len(raw)}, nil
 }
 
 // byteSize renders a size: "1 byte", "24 bytes", "4.0 KiB", "1.5 MiB".

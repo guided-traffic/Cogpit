@@ -27,13 +27,13 @@ func registerSecrets(g *registrar) {
 			if p.Ref.Kind != kindSecrets {
 				return fmt.Errorf("%w: this action applies to %s", engine.ErrNotApplicable, kindSecrets)
 			}
-			return s.SecretKeyShown(p.Ref, p.Key)
+			return s.SecretKeyShown(p)
 		},
 		Run: func(ctx context.Context, s *engine.Session, p engine.RevealParams) (any, error) {
 			if engine.OriginOf(ctx) != engine.OriginGUI {
 				return nil, errRevealGUIOnly
 			}
-			return s.SecretValue(p.Ref, p.Key)
+			return s.SecretValue(p)
 		},
 	})
 }

@@ -163,6 +163,38 @@ func TestSecretRevealInDrawer(t *testing.T) {
 	}
 }
 
+// A revealed value belongs to the Secret's version it was revealed at: when the Secret changes (a
+// rotation) or is created again under its name, the drawer shows the key masked and forgets the
+// old value, so nobody copies a stale credential (review of the fourth run, R-6).
+func TestRevealedValueDroppedWhenSecretChanges(t *testing.T) {
+	f, ref := secretsFake(t)
+	sh, _, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	q.until(t, "the drawer", func() bool { return sh.drawer.last != nil && len(drawerButtons(sh.drawer)["Show"]) == 4 })
+	test.Tap(drawerButtons(sh.drawer)["Show"][2]) // DB_PASSWORD
+	q.until(t, "the value", func() bool { return drawerHasText(sh.drawer, "correct-horse-battery-staple") })
+	if calls := f.callsOf(engine.RevealCommand); len(calls) != 1 || !strings.Contains(string(calls[0].Params), `"resourceVersion":`) {
+		t.Fatalf("the reveal does not name the Secret's version: %+v", calls)
+	}
+
+	rotated := fixtureSecretObjects()[0].DeepCopy()
+	rotated.SetResourceVersion(rotated.GetResourceVersion() + "1")
+	p, _ := kinds.ByKey("secrets")
+	m, err := engine.BuildDetail(p, ref, rotated, nil, fixedNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.mu.Lock()
+	f.details[ref.String()] = m
+	f.mu.Unlock()
+	f.emit(engine.Event{Type: engine.EventDetail})
+	q.until(t, "the value masked again", func() bool {
+		return !drawerHasText(sh.drawer, "correct-horse") && len(drawerButtons(sh.drawer)["Show"]) == 4
+	})
+	if len(sh.drawer.revealed) != 0 {
+		t.Error("the old value stays in the drawer's memory")
+	}
+}
+
 // renderSecrets renders the Secrets list with the drawer open, one value revealed.
 func renderSecrets(t *testing.T, mode ThemeMode, name string) {
 	f, _ := secretsFake(t)
