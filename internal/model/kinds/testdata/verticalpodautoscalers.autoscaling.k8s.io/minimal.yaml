@@ -1,0 +1,12 @@
+# Synthetic: optional fields missing: no update policy (the default mode), no status, no uid.
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: bare
+  namespace: default
+  creationTimestamp: "2026-10-11T11:00:00Z"
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: db

@@ -1,0 +1,130 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "verticalpodautoscalers.autoscaling.k8s.io",
+    "namespace": "shop",
+    "name": "search"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "search"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "mode",
+      "text": "Auto"
+    },
+    {
+      "column": "age",
+      "text": "30m",
+      "num": 1791718200
+    },
+    {
+      "column": "status",
+      "text": "LowConfidence RecommendationProvided",
+      "status": "pending"
+    },
+    {
+      "column": "target",
+      "text": "Deployment/search",
+      "link": {
+        "kind": "deployments",
+        "namespace": "shop",
+        "name": "search"
+      }
+    },
+    {
+      "column": "cpuTarget",
+      "text": "0.250",
+      "num": 250
+    },
+    {
+      "column": "memoryTarget",
+      "text": "512.0MiB",
+      "num": 536870912
+    }
+  ],
+  "fields": {
+    "label": [],
+    "mode": [
+      "Auto"
+    ],
+    "name": [
+      "search"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "status": [
+      "LowConfidence RecommendationProvided"
+    ],
+    "target": [
+      "Deployment/search"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Target",
+          "value": "Deployment/search",
+          "link": {
+            "kind": "deployments",
+            "namespace": "shop",
+            "name": "search"
+          }
+        },
+        {
+          "name": "Mode",
+          "value": "Auto"
+        }
+      ]
+    },
+    {
+      "title": "Recommendations",
+      "table": {
+        "columns": [
+          "Container",
+          "Target",
+          "Lower Bound",
+          "Upper Bound",
+          "Uncapped Target"
+        ],
+        "rows": [
+          [
+            "search",
+            "cpu: 250m\nmemory: 512Mi",
+            "",
+            "",
+            ""
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "LowConfidence",
+          "value": "True",
+          "status": "pending"
+        },
+        {
+          "name": "RecommendationProvided",
+          "value": "True",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+# Synthetic: a new autoscaler whose first recommendation rests on little history.
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: search
+  namespace: shop
+  uid: b0516273-0001-4e9f-c0a1-000000000006
+  creationTimestamp: "2026-10-11T11:30:00Z"
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: search
+  updatePolicy:
+    updateMode: Auto
+status:
+  conditions:
+  - type: LowConfidence
+    status: "True"
+  - type: RecommendationProvided
+    status: "True"
+  recommendation:
+    containerRecommendations:
+    - containerName: search
+      target: {cpu: 250m, memory: 512Mi}

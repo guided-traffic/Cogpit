@@ -1,0 +1,107 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "verticalpodautoscalers.autoscaling.k8s.io",
+    "namespace": "shop",
+    "name": "worker"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "worker"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "mode",
+      "text": "InPlaceOrRecreate"
+    },
+    {
+      "column": "age",
+      "text": "6d",
+      "num": 1791158400
+    },
+    {
+      "column": "status",
+      "text": "NoPodsMatched RecommendationProvided",
+      "status": "warning"
+    },
+    {
+      "column": "target",
+      "text": "Deployment/worker",
+      "link": {
+        "kind": "deployments",
+        "namespace": "shop",
+        "name": "worker"
+      }
+    },
+    {
+      "column": "cpuTarget",
+      "text": "-"
+    },
+    {
+      "column": "memoryTarget",
+      "text": "-"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "mode": [
+      "InPlaceOrRecreate"
+    ],
+    "name": [
+      "worker"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "status": [
+      "NoPodsMatched RecommendationProvided"
+    ],
+    "target": [
+      "Deployment/worker"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Target",
+          "value": "Deployment/worker",
+          "link": {
+            "kind": "deployments",
+            "namespace": "shop",
+            "name": "worker"
+          }
+        },
+        {
+          "name": "Mode",
+          "value": "InPlaceOrRecreate"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "NoPodsMatched",
+          "value": "True: No pods match this VPA object",
+          "status": "warning"
+        },
+        {
+          "name": "RecommendationProvided",
+          "value": "True",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

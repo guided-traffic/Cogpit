@@ -1,0 +1,125 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "verticalpodautoscalers.autoscaling.k8s.io",
+    "namespace": "batch",
+    "name": "batch"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "batch"
+    },
+    {
+      "column": "namespace",
+      "text": "batch",
+      "link": {
+        "kind": "namespaces",
+        "name": "batch"
+      }
+    },
+    {
+      "column": "mode",
+      "text": "Off"
+    },
+    {
+      "column": "age",
+      "text": "40d",
+      "num": 1788220800
+    },
+    {
+      "column": "status",
+      "text": "RecommendationProvided",
+      "status": "ok"
+    },
+    {
+      "column": "target",
+      "text": "CronJob/nightly",
+      "link": {
+        "kind": "cronjobs",
+        "namespace": "batch",
+        "name": "nightly"
+      }
+    },
+    {
+      "column": "cpuTarget",
+      "text": "1.500",
+      "num": 1500
+    },
+    {
+      "column": "memoryTarget",
+      "text": "3.0GiB",
+      "num": 3221225472
+    }
+  ],
+  "fields": {
+    "label": [],
+    "mode": [
+      "Off"
+    ],
+    "name": [
+      "batch"
+    ],
+    "namespace": [
+      "batch"
+    ],
+    "status": [
+      "RecommendationProvided"
+    ],
+    "target": [
+      "CronJob/nightly"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Target",
+          "value": "CronJob/nightly",
+          "link": {
+            "kind": "cronjobs",
+            "namespace": "batch",
+            "name": "nightly"
+          }
+        },
+        {
+          "name": "Mode",
+          "value": "Off"
+        }
+      ]
+    },
+    {
+      "title": "Recommendations",
+      "table": {
+        "columns": [
+          "Container",
+          "Target",
+          "Lower Bound",
+          "Upper Bound",
+          "Uncapped Target"
+        ],
+        "rows": [
+          [
+            "job",
+            "cpu: 1500m\nmemory: 3Gi",
+            "",
+            "",
+            ""
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "RecommendationProvided",
+          "value": "True",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

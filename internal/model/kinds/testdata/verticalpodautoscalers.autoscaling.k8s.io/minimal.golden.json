@@ -1,0 +1,90 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "verticalpodautoscalers.autoscaling.k8s.io",
+    "namespace": "default",
+    "name": "bare"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "mode",
+      "text": "Auto"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    },
+    {
+      "column": "status",
+      "text": "",
+      "status": "pending"
+    },
+    {
+      "column": "target",
+      "text": "StatefulSet/db",
+      "link": {
+        "kind": "statefulsets",
+        "namespace": "default",
+        "name": "db"
+      }
+    },
+    {
+      "column": "cpuTarget",
+      "text": "-"
+    },
+    {
+      "column": "memoryTarget",
+      "text": "-"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "mode": [
+      "Auto"
+    ],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "status": [],
+    "target": [
+      "StatefulSet/db"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Target",
+          "value": "StatefulSet/db",
+          "link": {
+            "kind": "statefulsets",
+            "namespace": "default",
+            "name": "db"
+          }
+        },
+        {
+          "name": "Mode",
+          "value": "Auto"
+        }
+      ]
+    }
+  ]
+}

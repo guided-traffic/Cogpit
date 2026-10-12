@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (Current state: the four Device Resources views, 45 built-in views; §8: Helm chart repositories kept in Cogpit's own folders, the Charts view and the install, G11; §8: Helm chart repositories kept in Cogpit's own folders and the Charts view, G11; the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7; `cogpit-cli` contexts and get, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (§4.5 curated profiles of CRD kinds, the Vertical Pod Autoscalers; Current state: the four Device Resources views, 45 built-in views; §8: Helm chart repositories kept in Cogpit's own folders, the Charts view and the install, G11; §8: Helm chart repositories kept in Cogpit's own folders and the Charts view, G11; the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7; `cogpit-cli` contexts and get, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-12)
 
@@ -627,7 +627,12 @@ A kind key names a kind in views, object references, `ui.*` commands and MCP too
   can both exist), and a group is part of what a CRD is.
 - The two never collide: a CRD's group always contains a dot, and a built-in key never does.
 - A curated profile for a CRD kind (Gateway API, Flux CD, a Vertical Pod Autoscaler) keeps the
-  `<plural>.<group>` key, so a key never changes when Cogpit learns to show a kind better.
+  `<plural>.<group>` key, so a key never changes when Cogpit learns to show a kind better. Built
+  2026-10-13 for the Vertical Pod Autoscalers: `kinds.Curated()` lists such profiles, and the custom
+  kinds watch takes `kinds.ProfileFor(kind)`, the curated profile while the definition's scope and
+  Kind match and it serves the profile's version or one of its `FallbackVersions`, else the generic
+  one ([`verticalpodautoscalers.go`](../../internal/model/kinds/verticalpodautoscalers.go)). They are
+  not built-in kinds: they come and go with their definitions.
 - The key carries no version: the version is the profile's preferred one (for CRDs, the highest
   served version by Kubernetes version priority, as discovery orders them). A built-in kind that
   moved through API versions of the same shape lists the older ones as `FallbackVersions`
@@ -815,7 +820,8 @@ closes; opening the Secrets view again moves the releases back and closes theirs
 A real cluster's backend holds one cache handle on `customresourcedefinitions` while it is
 connected (`Backend.CustomResources`; the demo cluster has none). Its watch events, coalesced,
 rebuild the generic profiles of the established definitions
-([`kinds.ParseCRD`](../../internal/model/kinds/customresources.go)), published as one immutable set
+([`kinds.ParseCRD`](../../internal/model/kinds/customresources.go)), or a curated profile where
+Cogpit has one ([§4.5](#45-kind-keys), 2026-10-13), published as one immutable set
 behind an atomic pointer: `Backend.Profile` and `Backend.AllProfiles` read it without a lock, an
 update that changes nothing a view shows keeps the profile, and a change emits `EventKinds`, upon
 which the UI re-reads `kinds.list`. The open view and drawer follow their profile: a new served
@@ -1931,6 +1937,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | §4.5: curated profiles of CRD kinds built (`kinds.ProfileFor`), the Vertical Pod Autoscalers the first |
 | 2026-10-13 | minor | Current state: the four Device Resources kinds (`resource.k8s.io/v1`), 45 built-in views |
 | 2026-10-13 | minor | §8 install (G11, night run): the Helm Install tab with the chart downloaded and checked against the index digest, the server-side dry run as the preview, the install as a crash-safe job offered as an uninstall, values scrubbed of what differs from the chart's defaults |
 | 2026-10-13 | minor | §8 chart repositories (G11, night run): kept in Cogpit's own folders (the lead's default), public https only, indexes downloaded on add, on update and while the Charts view or a Helm Install tab is open past a 10-minute TTL, bounded and parsed with the SDK; the charts as the local kind `helmcharts` |

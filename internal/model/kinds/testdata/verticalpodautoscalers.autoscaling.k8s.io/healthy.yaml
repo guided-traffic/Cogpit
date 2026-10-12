@@ -1,0 +1,39 @@
+# Synthetic: an autoscaler that recreates a Deployment's pods with the recommendation for two
+# containers, one of them bounded by a policy.
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: web
+  namespace: shop
+  uid: b0516273-0001-4e9f-c0a1-000000000001
+  creationTimestamp: "2026-10-01T00:00:00Z"
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: web
+  updatePolicy:
+    updateMode: Recreate
+    minReplicas: 2
+  resourcePolicy:
+    containerPolicies:
+    - containerName: web
+      mode: Auto
+      minAllowed: {cpu: 100m, memory: 128Mi}
+      maxAllowed: {cpu: "2", memory: 2Gi}
+      controlledResources: [cpu, memory]
+      controlledValues: RequestsAndLimits
+status:
+  conditions:
+  - type: RecommendationProvided
+    status: "True"
+    lastTransitionTime: "2026-10-01T00:05:00Z"
+  recommendation:
+    containerRecommendations:
+    - containerName: web
+      target: {cpu: 587m, memory: 262144k}
+      lowerBound: {cpu: 300m, memory: 200Mi}
+      upperBound: {cpu: "1", memory: 512Mi}
+      uncappedTarget: {cpu: 587m, memory: 262144k}
+    - containerName: mesh-proxy
+      target: {cpu: 25m, memory: 64Mi}

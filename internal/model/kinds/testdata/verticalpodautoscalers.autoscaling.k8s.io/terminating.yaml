@@ -1,0 +1,26 @@
+# Synthetic: an autoscaler being deleted, held by a finalizer, recommending only.
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: batch
+  namespace: batch
+  uid: b0516273-0001-4e9f-c0a1-000000000003
+  creationTimestamp: "2026-09-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:59:00Z"
+  finalizers:
+  - vpa.example.com/audit
+spec:
+  targetRef:
+    apiVersion: batch/v1
+    kind: CronJob
+    name: nightly
+  updatePolicy:
+    updateMode: "Off"
+status:
+  conditions:
+  - type: RecommendationProvided
+    status: "True"
+  recommendation:
+    containerRecommendations:
+    - containerName: job
+      target: {cpu: "1500m", memory: 3Gi}

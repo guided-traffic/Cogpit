@@ -1,0 +1,23 @@
+# Synthetic: an autoscaler whose target has no pods: a recommendation from history, but nothing to
+# apply it to.
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: worker
+  namespace: shop
+  uid: b0516273-0001-4e9f-c0a1-000000000005
+  creationTimestamp: "2026-10-05T00:00:00Z"
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker
+  updatePolicy:
+    updateMode: InPlaceOrRecreate
+status:
+  conditions:
+  - type: NoPodsMatched
+    status: "True"
+    message: No pods match this VPA object
+  - type: RecommendationProvided
+    status: "True"

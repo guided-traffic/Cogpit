@@ -124,7 +124,7 @@ func (ck *customKinds) rebuild() {
 			next[key] = old
 			continue
 		}
-		next[key] = customEntry{kind: k, profile: k.Profile()}
+		next[key] = customEntry{kind: k, profile: kinds.ProfileFor(k)} // a curated profile, else the generic one
 	}
 	changed := len(next) != len(ck.entries)
 	for key, e := range next {

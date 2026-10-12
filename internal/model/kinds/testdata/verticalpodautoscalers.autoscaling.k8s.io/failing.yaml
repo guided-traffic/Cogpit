@@ -1,0 +1,23 @@
+# Synthetic: an autoscaler whose configuration the recommender does not support.
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: legacy
+  namespace: shop
+  uid: b0516273-0001-4e9f-c0a1-000000000002
+  creationTimestamp: "2026-10-11T10:00:00Z"
+spec:
+  targetRef:
+    apiVersion: example.com/v1
+    kind: Widget
+    name: legacy
+  updatePolicy:
+    updateMode: Initial
+status:
+  conditions:
+  - type: ConfigUnsupported
+    status: "True"
+    reason: InvalidTarget
+    message: Cannot read targetRef
+  - type: RecommendationProvided
+    status: "False"

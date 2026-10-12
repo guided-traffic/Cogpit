@@ -1,0 +1,97 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "verticalpodautoscalers.autoscaling.k8s.io",
+    "namespace": "shop",
+    "name": "legacy"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "mode",
+      "text": "Initial"
+    },
+    {
+      "column": "age",
+      "text": "2h",
+      "num": 1791712800
+    },
+    {
+      "column": "status",
+      "text": "ConfigUnsupported",
+      "status": "error"
+    },
+    {
+      "column": "target",
+      "text": "Widget/legacy"
+    },
+    {
+      "column": "cpuTarget",
+      "text": "-"
+    },
+    {
+      "column": "memoryTarget",
+      "text": "-"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "mode": [
+      "Initial"
+    ],
+    "name": [
+      "legacy"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "status": [
+      "ConfigUnsupported"
+    ],
+    "target": [
+      "Widget/legacy"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Target",
+          "value": "Widget/legacy"
+        },
+        {
+          "name": "Mode",
+          "value": "Initial"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "ConfigUnsupported",
+          "value": "True (InvalidTarget): Cannot read targetRef",
+          "status": "error"
+        },
+        {
+          "name": "RecommendationProvided",
+          "value": "False",
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}
