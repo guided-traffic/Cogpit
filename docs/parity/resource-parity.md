@@ -1,6 +1,6 @@
 # Resource parity: views, columns and actions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (`make parity`: the Gateway API rows say how many views they hold; evidence for the experimental channel row) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** major (fourth run recount: 29 of 39 actions; Secrets on a full watch; Helm upgrade, drawer and dialogs) · **Target:** Lens Desktop 2026.10.51501
 
 Every Kubernetes resource view Lens Desktop has, with the columns of its list and the actions it
 offers, against Cogpit. The layout around these views (sidebar, tables, detail drawer, dock) is in
@@ -17,12 +17,12 @@ All views and actions on this page are in Lens Desktop's free plan, except the s
 (2026-10-11) made the first rows partial. **Command ids** are Cogpit's, following [conventions](../developer/conventions.md#style);
 they become the registry ids and, with underscores, the MCP tool names.
 
-**Summary (measured, 2026-10-11, after the third implementation run):** 55 of 64 resource views
-exist (was 27): one done (the custom resource views) and 54 partial, ten of them the Gateway API
+**Summary (measured, 2026-10-12, after the fourth implementation run, counted by `make parity`):** 55 of 64 resource views
+exist (was 27 after the second run): one done (the custom resource views) and 54 partial, ten of them the Gateway API
 views, which show as generic custom resource views until their columns are captured. Missing: the
 cluster Overview, Applications, Vertical Pod Autoscalers, the four Device Resources views, Helm
-Charts and Pod Security Policies. 28 of 39 actions exist (was 14), all partial; missing: the node
-shell, Helm install and upgrade, and the create dialogs (Namespace, Secret, Resource Quota,
+Charts and Pod Security Policies. 29 of 39 actions exist (was 28 after the third run; Helm
+upgrade, 2026-10-12), all partial; missing: the node shell, Helm install, and the create dialogs (Namespace, Secret, Resource Quota,
 Service Account and the four RBAC kinds). Partial views lack the metrics columns, and most of
 their texts and rules are inferred, not checked against a running Lens; the actions are limited
 as noted. Counted from the rows below (the two Gateway API rows hold seven and three views; Share
@@ -192,6 +192,7 @@ the tables above. Everything else is created from YAML templates in the dock
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | major | Recount after the fourth run (`make parity`): 55 of 64 views, 29 of 39 actions (Helm upgrade) |
 | 2026-10-12 | minor | Secrets on a full watch (D-13 revised): Keys and Type filled, the drawer from the cache without a GET; Helm Releases read from the full Secrets watch while it runs (covering scopes) |
 | 2026-10-12 | minor | Helm Releases (fourth run): Upgrade partial (the Helm Upgrade tab, `helm.release.upgrade`, crash-safe); Lens's drawer, Rollback dialog and status texts built |
 | 2026-10-12 | trivial | `make parity`: the Gateway API rows carry "(7 views" and "(3 views", which the checker counts; the experimental channel row names its evidence |

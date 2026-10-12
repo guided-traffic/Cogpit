@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G2: kubeconfig sources and the approval of their credential plugins; G8: the terminal widget fuzzed and patched) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** major (fourth run: totals recounted from the table; G1, G2, G11 re-estimated) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -46,11 +46,12 @@ own. **Human** marks what an agent can't finish alone.
 | G22 | Windows and Linux | platforms | after the macOS beta | 40–80 h + human | [platform-parity](platform-parity.md#operating-systems-and-packages) |
 | G23 | Flux CD and Argo CD views | features | blocks beta ([D-9](../developer/decisions.md#d-9-scope-against-lenss-paid-and-vendor-features)) | 55–115 h | [resource-parity](resource-parity.md#paid-lens-desktop-views) |
 
-Totals (2026-10-11, after the third implementation run): Lens's free feature set on macOS
-(G1–G16) is **~430–1,060 h** (was ~570–1,400 after the second run); the beta adds the Flux CD and
-Argo CD views (G23); with Lens's other paid features, Windows and Linux (G18, G22, G23), the full
-Lens target is **~640–1,480 h** (was ~780–1,820). The third run re-estimated G2–G11 and G15 from
-what landed, with the same borrowed calibration. Cogpit's own targets beyond Lens (G17, G21) add **~50–110 h** (was ~70–140).
+Totals (2026-10-12, after the fourth implementation run, the sums of the table): Lens's free
+feature set on macOS (G1–G16) is **~420–1,040 h** (417–1,036; was ~430–1,060 after the third run);
+the beta adds the Flux CD and Argo CD views (G23); with Lens's other paid features, Windows and
+Linux (G18, G22, G23), the full Lens target is **~620–1,450 h** (was ~640–1,480). The fourth run
+re-estimated G1, G2 and G11 from what landed, with the same borrowed calibration. Cogpit's own
+targets beyond Lens (G17, G21) add **~50–110 h** (unchanged).
 G19 and G20 are not targets and not counted. The Fyne spike before M2 ran as part of the MVP and
 D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
@@ -565,6 +566,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | major | Totals after the fourth run: free parity ~420–1,040 h, full target ~620–1,450 h |
 | 2026-10-12 | minor | G8: the terminal widget fuzzed alone, its crashes, hangs and races patched, the upstream series prepared (D-14, fourth run); estimate of that part done |
 | 2026-10-12 | minor | Fourth run, the third run's leftovers: G7 evidence (the journals shared by Cogpit processes); G4 evidence (Refresh Access Reviews in the menu, the View menu hides what the sidebar hides); G3 evidence (live related-objects indexes, measured); G8 evidence (workload log streams resumed and pruned); G7 evidence (Restart and Scale bound to the UID in their patches); estimates not moved |
 | 2026-10-12 | minor | G2 (fourth run, agent D): kubeconfig files, sync folders and pasted kubeconfigs, the approval of their credential plugins; estimate 10–28 h |

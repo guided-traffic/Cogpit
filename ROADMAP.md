@@ -1,8 +1,8 @@
 # Cogpit roadmap
 
-**Stage: pre-alpha** · a local MVP runs on macOS; every alpha-gate workflow exists in part · next: alpha on macOS, ~150–400 agent-hours away (seven core workflows end to end)
+**Stage: pre-alpha** · a local MVP runs on macOS; every alpha-gate workflow exists in part · next: alpha on macOS, ~135–370 agent-hours away (seven core workflows end to end)
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (the owner's decisions of 2026-10-12 in Upcoming; third measurement unchanged) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** major (fourth measurement, counted by `make parity`, after the fourth implementation run) · **Target:** Lens Desktop 2026.10.51501
 
 Cogpit's one-page summary of how close it is to Lens Desktop 2026.10.51501, the Kubernetes IDE it
 reimplements as a native desktop client in Go, for macOS first and Windows and Linux after the
@@ -22,55 +22,55 @@ serial foundation, about 80% of the work parallelizes.
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **~54%** (was ~30%) | measured: 55 of 64 views (ten of them the Gateway API views, generic), 28 of 39 actions, 52 of 121 interface rows; 9 rows done, the rest partial |
-| **Ready for real work** | **~23%** (was ~14%) | estimated |
-| Mainstream practitioner | ~24% (was ~14%) | estimated |
-| Essentials user | ~32% (was ~28%) | estimated |
-| Remaining to **alpha** (macOS) | **~150–400 h** | estimated (was ~210–520) |
-| Remaining to **beta** (macOS, with the Flux CD and Argo CD views) | **~440–1,020 h** | estimated (was ~580–1,360) |
-| Remaining to **full parity** (free features, macOS) | **~430–1,060 h** | estimated (was ~570–1,400) |
-| Remaining to the **full Lens target** (paid features, Windows and Linux) | **~640–1,480 h** | estimated (was ~780–1,820) |
+| **Feature breadth** | **~56%** (was ~54%) | measured by `make parity`: 55 of 64 views (ten of them the Gateway API views, generic), 29 of 39 actions, 55 of 121 interface rows; 9 rows done, the rest partial |
+| **Ready for real work** | **~26%** (was ~23%) | estimated |
+| Mainstream practitioner | ~25% (was ~24%) | estimated |
+| Essentials user | ~34% (was ~32%) | estimated |
+| Remaining to **alpha** (macOS) | **~135–370 h** | estimated (was ~150–400) |
+| Remaining to **beta** (macOS, with the Flux CD and Argo CD views) | **~425–995 h** | estimated (was ~440–1,020) |
+| Remaining to **full parity** (free features, macOS) | **~420–1,040 h** | estimated (was ~430–1,060) |
+| Remaining to the **full Lens target** (paid features, Windows and Linux) | **~620–1,450 h** | estimated (was ~640–1,480) |
 | **Beyond Lens** (MCP control of UI and cluster, built-in agent) | **~50–110 h** | estimated, unchanged; not part of the parity numbers; 10 of 34 rows done, 7 partial |
 
 ### Readiness by audience
 
 | Audience | Ready % | Agent-hours to ~95% | Work that dominates |
 |---|---:|---:|---|
-| Full Lens target | ~16% | 640–1,480 | Everything below, plus paid-plan features, Windows and Linux |
-| Mainstream practitioner (macOS) | ~24% | 430–1,060 | The interface, stability, metrics, the depth of views and actions, Helm upgrade and charts |
-| Essentials user (macOS) | ~32% | 100–300 | Cloud credential plugins, adding and pasting kubeconfigs, end-to-end checks on real clusters |
+| Full Lens target | ~17% | 620–1,450 | Everything below, plus paid-plan features, Windows and Linux |
+| Mainstream practitioner (macOS) | ~25% | 420–1,040 | The interface, stability, metrics, the depth of views and actions, Helm install and charts |
+| Essentials user (macOS) | ~34% | 90–280 | Cloud credential plugins verified on EKS, GKE and AKS, end-to-end checks on real clusters |
 
 **Why pre-alpha.** The [alpha gate](docs/parity/roadmap.md#alpha-gate) needs seven core workflows end
 to end on macOS: connect, triage a failing pod, change a workload, reach a service, manage Helm
-releases in the cluster, maintain a node, use kubectl in a terminal. Since the third run every one
-works in part, on kind through the engine and offscreen in the GUI; none has been walked through
-by a person on a real cluster, and Helm upgrade, adding kubeconfigs and the cloud credential
-plugins are missing.
+releases in the cluster, maintain a node, use kubectl in a terminal. Since the fourth run every
+one exists, Helm upgrade and adding, pasting and syncing kubeconfigs included, on kind through the
+engine and offscreen in the GUI; none has been walked through by a person on a real cluster, and
+no cloud credential plugin is verified.
 
 ## By dimension
 
 | Dimension | % ready | Hours to full | Doc |
 |---|---:|---:|---|
-| Resource views and actions | 28% | 50–170 | [resource-parity](docs/parity/resource-parity.md) |
-| Interface fidelity and feel | 22% | 100–275 | [ui-parity](docs/parity/ui-parity.md) |
-| Cluster connectivity and authentication | 18% | 14–34 + human | [platform-parity](docs/parity/platform-parity.md#cluster-authentication-and-connectivity) |
-| Logs, terminal, shells, port forwarding | 45% | 18–46 | [ui-parity](docs/parity/ui-parity.md#logs) |
+| Resource views and actions | 29% | 50–170 | [resource-parity](docs/parity/resource-parity.md) |
+| Interface fidelity and feel | 23% | 100–275 | [ui-parity](docs/parity/ui-parity.md) |
+| Cluster connectivity and authentication | 28% | 10–28 + human | [platform-parity](docs/parity/platform-parity.md#cluster-authentication-and-connectivity) |
+| Logs, terminal, shells, port forwarding | 47% | 18–46 | [ui-parity](docs/parity/ui-parity.md#logs) |
 | Performance and API load | 25% (P2, P9–P11 measured) | 28–66 | [testing](docs/developer/testing.md#performance-budgets-proposed-not-measured) |
-| Stability | 9% | 100–200 | [gaps](docs/parity/gaps.md#g16-stability-and-the-user-bug-backlog) |
-| Helm releases and metrics | 15% | 60–125 | [gaps](docs/parity/gaps.md#g11-helm) |
+| Stability | 11% | 100–200 | [gaps](docs/parity/gaps.md#g16-stability-and-the-user-bug-backlog) |
+| Helm releases and metrics | 25% | 52–110 | [gaps](docs/parity/gaps.md#g11-helm) |
 | Platforms and distribution (macOS, then Windows and Linux) | 5% | 62–125 + human | [platform-parity](docs/parity/platform-parity.md#operating-systems-and-packages) |
 | Paid-plan integrations (Flux CD and Argo CD in the beta) | 0% | 165–335 + human | [resource-parity](docs/parity/resource-parity.md#paid-lens-desktop-views) |
-| Foundation: workspace, cache, engine, CI | built in part | 32–80 | [architecture](docs/developer/architecture.md#current-state-2026-10-11) |
+| Foundation: workspace, cache, engine, CI | built in part | 29–74 | [architecture](docs/developer/architecture.md#current-state-2026-10-11) |
 
 ## Upcoming
 
 | Rank | Milestone | Estimate |
 |---|---|---:|
-| 1 | The owner's decisions of 2026-10-12: the Secrets view as a full watch (D-13), the terminal widget fuzzed and upstreamed (D-14), `make parity` as a checker (D-15); releases stay dry runs until the alpha (D-16) | 6–16 h |
-| 2 | Walk the workflows in the GUI on kind and a real cluster: change a workload, maintain a node, reach a service, Helm rollback and uninstall, the title bar | human |
-| 3 | Helm upgrade, then install and charts (M6) | 20–45 h |
-| 4 | Connect: adding, pasting and syncing kubeconfigs; credential plugins (M1) | 14–34 h + human |
-| 5 | Finish M0 and M2: the generators, the cluster overview with metrics, the create dialogs, captures of inferred rows | 80–200 h + human |
+| 1 | Finish the fourth run: its review (the diff of 2026-10-12, verified with failing tests), the announced smoke launch, the terminal widget's upstream patch series (the owner decides on the pull requests), longer fuzz runs | 6–14 h |
+| 2 | Walk the workflows in the GUI on kind and a real cluster: change a workload, maintain a node, reach a service, Helm upgrade, rollback and uninstall, adding and pasting kubeconfigs, the title bar | human |
+| 3 | The owner's open decisions: a kubeconfig naming local files as tokens (H-24), Secret annotations to agents (H-23), editing Secrets from YAML, the captures of Lens's Helm and kubeconfig dialogs | owner |
+| 4 | Helm install and charts (M6); credential plugins verified on EKS, GKE and AKS (M1) | 25–55 h + human |
+| 5 | Finish M0 and M2: the generated pages and scorecard, the cluster overview with metrics, the create dialogs, captures of inferred rows | 80–200 h + human |
 
 Detail: [docs/parity/roadmap.md](docs/parity/roadmap.md).
 
@@ -78,6 +78,7 @@ Detail: [docs/parity/roadmap.md](docs/parity/roadmap.md).
 
 | Date | Entry |
 |---|---|
+| 2026-10-12 | Fourth implementation run (Phase 0 by the lead, five agents, merged one branch at a time; stopped once when the Mac ran out of memory, then at most two agents at a time with throttled builds). Before it: the dependencies brought up to date (44 Renovate pull requests, held back by flaky tests, closed; three updates that do not compile held back by rules) and ten flaky tests fixed, four of them product bugs. Built: `make parity` in CI (it reproduced every breadth number and found six partial rows without evidence and a wrong platform count); Helm upgrade with Lens's drawer, Rollback dialog and Helm Upgrade tab, crash-safe; adding, pasting and syncing kubeconfigs, each read on its own, credential plugins run only once allowed; the Secrets view on a full watch with Helm's releases served from it; the journals locked between Cogpit processes; the terminal widget fuzzed alone with twelve fixes; live related-objects indexes; Restart and Scale bound to the UID in the patch. Measured: breadth ~56% (55 of 64 views, 29 of 39 actions, 55 of 121 interface rows); 76 commands and MCP tools (was 65) |
 | 2026-10-11 | Third implementation run (Phase 0 contracts by the lead, eight agents in parallel, merged one branch at a time, a review). Built: port forwarding (pod and service, 127.0.0.1 only, the captured dialog, the view, reconnects) and Helm releases from the `owner=helm` Secrets (history, values, manifest; rollback and uninstall, crash-safe through a journal), the two alpha-gate workflows that did not exist; the Secrets view from metadata only with one GET per opened Secret, values masked and revealed in the GUI only (H-8); the Config, Access Control, Network and Storage views (28 views); access reviews that grey commands and hide kinds; attach, Restart of Daemon and Stateful Sets, Replica Set scale, logs of a workload's pods and the log options; Cogpit's own title bar on macOS, column choice, keyboard navigation, CSV export and the Workloads Overview. Measured: breadth ~54% (55 of 64 views, 28 of 39 actions, 52 of 121 interface rows); 65 commands and MCP tools (was 41) |
 | 2026-10-11 | Second implementation run (seven agents in parallel, then merge, CI, review). CI is green on GitHub on every push: macOS lint, race tests and build, Windows and Linux compile checks, kind on 1.37, govulncheck, a coverage badge (81.7%), semantic-release as a dry run (no tag, no release). Built: 10 more built-in views (workloads, Ingresses, Ingress Classes, Config Maps, PVCs, Definitions) and a view per custom resource kind from a watch on the definitions, with the sidebar's Custom Resources and Gateway API groups; editing with diff, dry run and a resourceVersion precondition, create from Cogpit's templates, Delete for every kind; Cordon, Uncordon, a crash-safe Drain (tested on a three-node kind cluster), Scale, Trigger, Suspend, Resume, Evict; row menus and the drawer from the registry, links, warning icons, tooltips, the drawer's Properties. Measured: breadth ~30% (27 of 64 views, 14 of 39 actions, 37 of 121 interface rows); 41 commands and MCP tools |
 | 2026-10-11 | Gate S1 and S4 measured again in a real window with view switches, typing and a CPU profile: start-up stall is Fyne's per-window GL set-up (0.31 s) plus the first table fill (151–193 ms); view switches ≤ 42 ms; typing into 5 MB fits the frame. Owner: S1 passes with a reservation; S4 passes; D-1 decided for Fyne, with re-checks of S7 (CI) and S5 (Windows, Linux) |
@@ -89,6 +90,7 @@ Detail: [docs/parity/roadmap.md](docs/parity/roadmap.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | major | Fourth measurement after the fourth implementation run, counted by `make parity` |
 | 2026-10-12 | minor | Upcoming: the owner's decisions D-13 (revised), D-14, D-15, D-16 |
 | 2026-10-11 | major | Third measurement after the third implementation run |
 | 2026-10-11 | major | Second measurement after the second implementation run |

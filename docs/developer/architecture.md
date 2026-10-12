@@ -4,15 +4,19 @@
 
 ## Current state (2026-10-11)
 
-The local MVP is built and was extended by a second and a third implementation run (2026-10-11):
+The local MVP is built and was extended by a second and a third implementation run (2026-10-11)
+and a fourth (2026-10-12):
 a macOS desktop app that connects to a kubeconfig context or a synthetic demo cluster, shows 41
 built-in views, the Port Forwarding view (a local kind), the Helm Releases view (a virtual kind),
 the Workloads Overview page and one view per custom resource kind from a watch-fed cache, greys
 what the user's access reviews deny, has a detail drawer and row menus from the command registry,
 a dock with logs (with their options and the logs of a workload's pods), a local terminal, pod
-shells, attach and Edit and Create resource tabs, writes through 65 commands (editing, delete,
-node and workload actions, a crash-safe drain, port forwards, Helm rollback and uninstall with a
-crash journal), draws its own title bar on macOS, and an MCP server lets agents drive all of it.
+shells, attach and Edit and Create resource tabs, writes through 76 commands (editing, delete,
+node and workload actions, a crash-safe drain, port forwards, Helm rollback, uninstall and
+upgrade with a crash journal locked between Cogpit processes), adds, pastes and syncs kubeconfigs
+whose credential plugins run only once the user allowed them, holds Secrets in a full watch that
+Helm's releases share, draws its own title bar on macOS, and an MCP server lets agents drive all
+of it.
 CI runs on every push ([releasing › CI](releasing.md#ci)). The MVP doubled as the Fyne spike
 ([results](spike-fyne.md#results)). Where the code differs from the plan below, this section wins.
 

@@ -267,8 +267,12 @@ priority does not carry over as is. Consequences:
   operation, is designed with the operation. Decided with the operations: drain (2026-10-11) and
   Helm rollback and uninstall (2026-10-11, third run) detect it: a journal in the user's config
   directory (`drains.json`, `helm.json`, mode 0600) records the operation before it starts, and the
-  next connect of that context offers to finish (run it again) or dismiss it. Helm install and
-  upgrade are open.
+  next connect of that context offers to finish (run it again) or dismiss it. Helm upgrade
+  (decided and built 2026-10-12, the same road): the journal records the upgrade (never its
+  values), and one interrupted with the release `pending-upgrade` is offered as a rollback to the
+  revision it started from, since the Helm SDK's upgrade refuses a pending release and its
+  rollback does not. The journals are locked between Cogpit processes, each entry naming its
+  owning process (H-22). Helm install is open.
 - **Unsaved editor content** is kept in a local draft so that a crash does not lose it.
 
 ## D-12: Parity sources
@@ -408,6 +412,7 @@ once per run.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | D-11: Helm upgrade decided and built (journal, offered as a rollback), journals locked between processes |
 | 2026-10-12 | minor | D-14 built: the two panics patched, the widget fuzzed alone, further crashes, hangs and races fixed; the upstream series prepared, not sent |
 | 2026-10-12 | minor | D-13 as revised built (fourth run): the Secrets view on a full watch, the drawer from the cache, Helm's releases through covering scopes |
 | 2026-10-12 | minor | D-15 built (`make parity`); D-14: the copy is on upstream's head, whose code builds on Fyne 2.8.1 |
