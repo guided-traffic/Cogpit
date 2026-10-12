@@ -346,3 +346,27 @@ func TestRenderHelmReposDialog(t *testing.T) {
 	q.until(t, "the repositories", func() bool { return sh.helmRepos != nil && len(sh.helmRepos.rows) == 3 })
 	savePNG(t, w, "helm_repos_dialog_dark.png")
 }
+
+// A version picked for the Install tab reaches the window when the engine has loaded its chart:
+// the picker and the digest line follow the tab's state (dockEqual compared neither, review
+// 2026-10-13).
+func TestHelmInstallTabFollowsItsVersion(t *testing.T) {
+	f := chartsFake(t)
+	tab := installTabFixture(t, f, true)
+	sh, _, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	u := installTabOf(t, sh, q, tab.ID)
+	f.update(func(ui *engine.UIState) {
+		for i := range ui.Dock {
+			if ui.Dock[i].ID == tab.ID {
+				hi := *ui.Dock[i].HelmInstall
+				hi.Version, hi.Digest, hi.Verified = hi.Versions[len(hi.Versions)-1], "", false
+				ui.Dock[i].HelmInstall = &hi
+			}
+		}
+	})
+	want := tab.HelmInstall.Versions[len(tab.HelmInstall.Versions)-1]
+	q.until(t, "the tab's version", func() bool { return u.version.Selected == want })
+	if u.digest.text == "digest verified" {
+		t.Errorf("digest line %q after a version without a verified digest", u.digest.text)
+	}
+}

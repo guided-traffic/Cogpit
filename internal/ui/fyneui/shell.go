@@ -1005,6 +1005,11 @@ func dockEqual(a, b engine.UIState) bool {
 		if x.ID != y.ID || x.Title != y.Title || x.Logs != y.Logs || x.Container != y.Container || !sameRef(x.Ref, y.Ref) {
 			return false
 		}
+		// A Helm tab's chart, version and digest change in place (a version picked, its chart
+		// loaded): the tab's editor updates from them (dock.sync).
+		if !reflect.DeepEqual(x.Helm, y.Helm) || !reflect.DeepEqual(x.HelmInstall, y.HelmInstall) {
+			return false
+		}
 	}
 	return true
 }
