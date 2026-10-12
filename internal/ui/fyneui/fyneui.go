@@ -31,6 +31,9 @@ type Options struct {
 	MCPCommand string
 	// AutoConnect connects this context at start instead of showing the picker first.
 	AutoConnect string
+	// StartWarning, when set, is shown as a warning once the window is up: a crash report the
+	// last run left (cmd/cogpit/crash.go).
+	StartWarning string
 	// PerfReport, when set, measures main-goroutine latency (a jank meter) and reports it.
 	PerfReport func(PerfStats)
 	// PerfDuration, with PerfReport, scrolls the table through its rows for this long, then
@@ -154,7 +157,12 @@ func Run(s *engine.Session, opts Options) error {
 	w.Resize(fyne.NewSize(1440, 900))
 	// Cogpit's own title bar on macOS needs the window, which exists once the app started: queued
 	// from OnStarted, the install runs after the window's creation (titlebar.go).
-	a.Lifecycle().SetOnStarted(func() { do(sh.titlebar.install) })
+	a.Lifecycle().SetOnStarted(func() {
+		do(sh.titlebar.install)
+		if opts.StartWarning != "" {
+			do(func() { sh.toast("warning", opts.StartWarning) })
+		}
+	})
 	sh.start()
 	if opts.PerfReport != nil {
 		sh.startPerf()

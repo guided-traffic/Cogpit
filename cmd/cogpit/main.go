@@ -32,9 +32,16 @@ import (
 // version is set by the build (-ldflags "-X main.version=…").
 var version = "0.0.1-mvp"
 
-func main() { os.Exit(run()) }
+func main() {
+	// Not deferred: on a panic of the main goroutine the defers run before the runtime writes the
+	// crash, and done would remove the report (crash.go).
+	previousCrash, done := captureCrashes(crashReportDir())
+	code := run(previousCrash)
+	done()
+	os.Exit(code)
+}
 
-func run() int {
+func run(previousCrash string) int {
 	var (
 		kubeconfig  = flag.String("kubeconfig", "", "kubeconfig files, separated by '"+string(os.PathListSeparator)+"', offered as sources of their own for this run; default: the files $KUBECONFIG lists. ~/.kube is always a sync folder")
 		contextName = flag.String("context", "", "connect to this context at start instead of showing the context picker")
@@ -99,6 +106,14 @@ func run() int {
 	defer cancel()
 
 	opts := fyneui.Options{AutoConnect: *contextName, Theme: fyneui.ThemeMode(*themeName)}
+	if previousCrash != "" {
+		at := time.Now()
+		if fi, err := os.Stat(previousCrash); err == nil {
+			at = fi.ModTime()
+		}
+		logger.Warn("the last run of Cogpit crashed", "report", previousCrash)
+		opts.StartWarning = crashNotice(previousCrash, at)
+	}
 	if *demoMode {
 		opts.AutoConnect = engine.DemoContext
 	}
