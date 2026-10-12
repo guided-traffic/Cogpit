@@ -183,9 +183,12 @@ func registerKubeconfigs(g *registrar) {
 
 	add(g, engine.Spec[execParams]{
 		ID: "kubeconfig.execPlugin", Label: "Show Credential Plugin", Danger: engine.DangerRead,
-		Description: "Describes the credential plugin (users[].user.exec) a kubeconfig source's context runs to log in: the " +
-			"command, the kubeconfig file it comes from, the API server its credential goes to, the names of the " +
-			"environment variables it sets, and whether the user allowed it (state approved, required or changed). " +
+		Description: "Describes how a kubeconfig source's context logs in when that needs the user's approval: the credential " +
+			"plugin (users[].user.exec) it runs and a token file (users[].user.tokenFile) outside the kubeconfig's folder. " +
+			"Shows the command, the kubeconfig file it comes from, the API server the credential goes to and how that " +
+			"server is reached and trusted (proxy URL, insecure-skip-tls-verify, TLS server name, own CA), the " +
+			"SHA-256 of a program or CA file inside the kubeconfig's folder, the names of the environment variables it " +
+			"sets, and whether the user allowed it (state approved, required or changed). " +
 			"Cogpit runs such a plugin only once the user allowed it in Cogpit's window; agents cannot allow it. Agents " +
 			"get the argument count, not the arguments. Runs nothing.",
 		Enabled: func(s *engine.Session, _ execParams) error { return enabled(s) },

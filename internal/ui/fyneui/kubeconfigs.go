@@ -42,6 +42,7 @@ type (
 		Context     string `json:"context"`
 		Source      string `json:"source"`
 		State       string `json:"state"`
+		Kind        string `json:"kind"`
 		Fingerprint string `json:"fingerprint"`
 		Plugin      struct {
 			File       string   `json:"file"`
@@ -51,6 +52,11 @@ type (
 			Command    string   `json:"command"`
 			Args       []string `json:"args"`
 			EnvNames   []string `json:"envNames"`
+			TokenFile  string   `json:"tokenFile"`
+			// TLS and Files mirror kubeconfig.TLSView and kubeconfig.FileFacts: how the credential
+			// travels, and the files whose content the approval binds (R-11, R-5).
+			TLS   kubeconfig.TLSView   `json:"tls"`
+			Files kubeconfig.FileFacts `json:"files"`
 		} `json:"plugin"`
 		Found        string   `json:"found"`
 		RiskyEnv     []string `json:"riskyEnv"`
@@ -251,48 +257,63 @@ func (k *kubeconfigUI) showApproval(info execPluginView, done func(bool)) {
 		l.truncate = true
 		return l
 	}
-	addRow("Program", mono(show(pl.Command)))
-	switch {
-	case info.Found == "":
-		addRow("Found", newParagraph("not found on Cogpit's PATH now: connecting would fail", colorStatusWarning, valueW))
-	case info.Found != pl.Command:
-		addRow("Found at", mono(show(info.Found)))
-	}
-	args := container.NewVBox()
-	for i, a := range pl.Args {
-		if i == maxShownArgs {
-			args.Add(newTextLine(fmt.Sprintf("… and %d more", len(pl.Args)-maxShownArgs), colorMuted, theme.SizeNameText, fyne.TextStyle{}))
-			break
+	hasProgram := info.Kind != kubeconfig.LoginTokenFile
+	if hasProgram {
+		addRow("Program", mono(show(pl.Command)))
+		if t := programFileText(info); t != "" {
+			addRow("", newParagraph(t, theme.ColorNameForeground, valueW))
 		}
-		args.Add(mono(kubeconfig.DisplayText(a, maxShownArg)))
-	}
-	if len(pl.Args) == 0 {
-		args.Add(newTextLine("none", colorMuted, theme.SizeNameText, fyne.TextStyle{}))
-	}
-	addRow("Arguments", args)
-	env := "none"
-	if len(pl.EnvNames) > 0 {
-		names := make([]string, len(pl.EnvNames))
-		for i, n := range pl.EnvNames {
-			names[i] = kubeconfig.DisplayText(n, 100)
+		switch {
+		case info.Found == "":
+			addRow("Found", newParagraph("not found on Cogpit's PATH now: connecting would fail", colorStatusWarning, valueW))
+		case info.Found != pl.Command:
+			addRow("Found at", mono(show(info.Found)))
 		}
-		env = strings.Join(names, ", ") + " (values not shown)"
+		args := container.NewVBox()
+		for i, a := range pl.Args {
+			if i == maxShownArgs {
+				args.Add(newTextLine(fmt.Sprintf("… and %d more", len(pl.Args)-maxShownArgs), colorMuted, theme.SizeNameText, fyne.TextStyle{}))
+				break
+			}
+			args.Add(mono(kubeconfig.DisplayText(a, maxShownArg)))
+		}
+		if len(pl.Args) == 0 {
+			args.Add(newTextLine("none", colorMuted, theme.SizeNameText, fyne.TextStyle{}))
+		}
+		addRow("Arguments", args)
+		env := "none"
+		if len(pl.EnvNames) > 0 {
+			env = joinNames(pl.EnvNames) + " (values not shown)"
+		}
+		addRow("Environment", newParagraph(env, theme.ColorNameForeground, valueW))
+		if len(info.RiskyEnv) > 0 {
+			addRow("", newParagraph("Sets "+strings.Join(info.RiskyEnv, ", ")+", which decides which programs run or what they load.",
+				colorStatusWarning, valueW))
+		}
 	}
-	addRow("Environment", newParagraph(env, theme.ColorNameForeground, valueW))
-	if len(info.RiskyEnv) > 0 {
-		addRow("", newParagraph("Sets "+strings.Join(info.RiskyEnv, ", ")+", which decides which programs run or what they load.",
-			colorStatusWarning, valueW))
+	if info.Kind == kubeconfig.LoginTokenFile || info.Kind == kubeconfig.LoginBoth {
+		addRow("Token file", mono(show(pl.TokenFile)))
+		if pl.Files.TokenFileResolved != "" {
+			addRow("", newParagraph("a link in the kubeconfig's folder, pointing to "+show(pl.Files.TokenFileResolved), colorMuted, valueW))
+		}
 	}
 	addRow("Credential for", mono(show(pl.Server)))
+	facts := connectionFacts(info)
+	for _, r := range facts.rows {
+		addRow(r[0], newParagraph(r[1], theme.ColorNameForeground, valueW))
+	}
 	addRow("Kubeconfig", newParagraph(show(pl.File), theme.ColorNameForeground, valueW))
 	addRow("Context", newParagraph(show(pl.Context)+" ("+show(info.Source)+")", theme.ColorNameForeground, valueW))
 
-	lead := "To log in to " + show(pl.Context) + ", this kubeconfig runs a program on this computer, with your " +
-		"permissions. Cogpit runs it only if you allow it. Allow it only if you trust where the kubeconfig came from."
-	content := container.NewVBox(newParagraph(lead, theme.ColorNameForeground, width), newSpace(theme.SizeNamePadding))
+	content := container.NewVBox(newParagraph(approvalLead(info), theme.ColorNameForeground, width), newSpace(theme.SizeNamePadding))
 	if info.State == engine.ExecChanged {
-		content.Add(newParagraph("You allowed an earlier form of this plugin. Its program, arguments, environment or "+
-			"server changed since.", colorStatusWarning, width))
+		content.Add(newParagraph(approvalChangedNote(info), colorStatusWarning, width))
+		content.Add(newSpace(theme.SizeNamePadding))
+	}
+	// An insecure, proxied or own-CA connection decides who can read the credential: said before
+	// the rows, in the warning colour, not as one more row (R-11).
+	for _, w := range facts.warnings {
+		content.Add(newParagraph(w, colorStatusWarning, width))
 		content.Add(newSpace(theme.SizeNamePadding))
 	}
 	content.Add(rows)
@@ -301,11 +322,7 @@ func (k *kubeconfigUI) showApproval(info execPluginView, done func(bool)) {
 	a.allow = widget.NewButtonWithIcon("Allow and Connect", theme.ConfirmIcon(), nil)
 	a.allow.Importance = widget.WarningImportance
 	a.cancel = widget.NewButton("Cancel", nil)
-	title := "Allow this program to log in?"
-	if info.State == engine.ExecChanged {
-		title = "The login program changed"
-	}
-	a.d = dialog.NewCustomWithoutButtons(title, content, k.sh.win)
+	a.d = dialog.NewCustomWithoutButtons(approvalTitle(info), content, k.sh.win)
 	a.d.SetButtons([]fyne.CanvasObject{a.cancel, a.allow})
 	answered := false
 	a.d.SetOnClosed(func() {

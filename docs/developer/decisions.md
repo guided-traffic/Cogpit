@@ -425,7 +425,9 @@ same GUI dialog and with the same approval store as a credential plugin
 names the file and the server its content goes to, the approval is bound to the path (and, as for
 plugins, to the server and its trust), and only the GUI can give it. A token file in the
 kubeconfig's own folder comes from the same source as the kubeconfig and needs no approval; the
-default kubeconfig keeps kubectl's behaviour. Not built yet. The options weighed:
+default kubeconfig keeps kubectl's behaviour. **Built 2026-10-12** (`cluster.BindPluginFiles`,
+`checkTokenFilePolicy`, [`kubeconfig/exec.go`](../../internal/kubeconfig/exec.go)); what remains is
+in H-24. The options weighed:
 
 | Option | For | Against |
 |---|---|---|
@@ -649,6 +651,7 @@ the upgrade is bound to its text revision (R-2). Built 2026-10-12 by the lead
 |---|---|---|
 | 2026-10-12 | minor | D-26 (owner): a credential plugin's approval binds the program's content when it lies in the kubeconfig's or sync folder; D-27 (owner, built): an agent's inline Helm values shown in the confirmation |
 | 2026-10-12 | minor | D-22 to D-25 built: Solarized theme tokens (contrast departures listed), the status bar link, the C helm logo (`internal/ui/logo`), copying values from the drawer |
+| 2026-10-12 | minor | D-17 built: a token file outside an added kubeconfig's folder is asked for in the plugin dialog; the approval binds the content of a program or CA file inside the folder (R-5, D-26) and the dialog shows proxy, insecure and own CA (R-11) |
 | 2026-10-12 | minor | Owner's decisions on look and use: D-22 Solarized colours, D-23 the status bar link, D-24 the C helm logo, D-25 copying values |
 | 2026-10-12 | minor | D-21 (owner): no adding of kubeconfigs from pasted text; the paste feature built the same day is removed (pasted sources of earlier builds are no longer listed, their files stay) |
 | 2026-10-12 | minor | D-20 (owner): a port forward fails at once on permanent errors (option a), not built |

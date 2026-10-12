@@ -71,7 +71,7 @@ func InspectFile(path string) (*InspectedFile, error) {
 	}
 	out := &InspectedFile{Path: abs, Contexts: kubeconfig.FromConfig(cfg), Exec: map[string]*kubeconfig.ExecPlugin{}}
 	for _, c := range out.Contexts {
-		if p := kubeconfig.ExecPluginOf(cfg, c.Name); p != nil {
+		if p := BindPluginFiles(kubeconfig.ExecPluginOf(cfg, c.Name)); p != nil {
 			out.Exec[c.Name] = p
 		}
 	}
@@ -158,11 +158,41 @@ func checkExecPolicy(policy func(*kubeconfig.ExecPlugin) error, raw clientcmdapi
 	if policy == nil || cfg == nil || cfg.ExecProvider == nil || kctx == nil {
 		return nil
 	}
+	if ai := raw.AuthInfos[kctx.AuthInfo]; ai != nil && ai.TokenFile != "" {
+		return nil // checkTokenFilePolicy decided, with the exec section, before the file was read
+	}
+	return askPolicy(policy, raw, name, kctx, cfg.ExecProvider, "")
+}
+
+// checkTokenFilePolicy asks policy about the token file the user entry of context name in raw
+// names, if it has one, together with its exec section. It runs before client-go builds the
+// rest.Config, which reads the token file: nothing is read from a file outside the kubeconfig's
+// folder before the user allowed it (D-17).
+func checkTokenFilePolicy(policy func(*kubeconfig.ExecPlugin) error, raw clientcmdapi.Config, name string, kctx *clientcmdapi.Context) error {
+	if policy == nil || kctx == nil {
+		return nil
+	}
+	ai := raw.AuthInfos[kctx.AuthInfo]
+	if ai == nil || ai.TokenFile == "" {
+		return nil
+	}
+	return askPolicy(policy, raw, name, kctx, ai.Exec, ai.TokenFile)
+}
+
+// askPolicy describes the login of context name, looks at the files it names right now, right
+// before the policy decides (a program or CA file swapped since the user allowed it is caught,
+// R-5, and so is a token file moved outside the folder), and asks policy unless nothing needs
+// approval.
+func askPolicy(policy func(*kubeconfig.ExecPlugin) error, raw clientcmdapi.Config, name string, kctx *clientcmdapi.Context, ec *clientcmdapi.ExecConfig, tokenFile string) error {
 	file := ""
 	if ai := raw.AuthInfos[kctx.AuthInfo]; ai != nil {
 		file = ai.LocationOfOrigin
 	}
-	return policy(kubeconfig.NewExecPlugin(file, name, kctx.AuthInfo, raw.Clusters[kctx.Cluster], cfg.ExecProvider))
+	p := BindPluginFiles(kubeconfig.NewLogin(file, name, kctx.AuthInfo, raw.Clusters[kctx.Cluster], ec, tokenFile))
+	if p == nil {
+		return nil
+	}
+	return policy(p)
 }
 
 // LookPathNow returns where an exec plugin's command would be found now: the command itself when

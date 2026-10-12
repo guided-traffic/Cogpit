@@ -228,6 +228,10 @@ func Connect(ctx context.Context, opts Options) (*Conn, error) {
 		return nil, &ConnectError{Context: name, Problem: "no such context in the kubeconfig files " + describePaths(usable)}
 	}
 
+	// A token file outside the kubeconfig's folder is read by ClientConfig below: ask first (D-17).
+	if err := checkTokenFilePolicy(opts.ExecPolicy, raw, name, kctx); err != nil {
+		return nil, &ConnectError{Context: name, Problem: err.Error(), Err: err}
+	}
 	cfg, err := cc.ClientConfig()
 	if err != nil {
 		return nil, &ConnectError{Context: name, Problem: "invalid kubeconfig: " + kubeconfig.SafeError(err).Error()}

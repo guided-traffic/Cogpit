@@ -104,7 +104,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   a synced item asks, naming the path, that only the link is removed.
 - **Decided (owner, 2026-10-12, [D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs)):**
   a `tokenFile` of an added or synced kubeconfig outside its folder is asked for in the
-  plugin approval dialog (H-24); not built, 2–4 h.
+  plugin approval dialog (H-24); **built 2026-10-12** (`TestTokenFileOutsideTheFolderIsAskedFor`;
+  what remains is in H-24). The same run bound a program or CA file inside the kubeconfig's folder
+  by content (review R-5) and made the dialog show the proxy, insecure and own-CA settings (R-11).
 - **Decided (owner, 2026-10-12, [D-21](../developer/decisions.md#d-21-pasting-a-kubeconfig)):**
   no pasted kubeconfigs; the paste feature built on 2026-10-12 is removed (done 2026-10-12;
   sources of kind `pasted` from earlier builds are no longer listed, their files stay).

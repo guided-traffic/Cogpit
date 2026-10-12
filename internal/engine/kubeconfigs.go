@@ -96,6 +96,17 @@ type ExecApprovalError struct {
 func (e *ExecApprovalError) Error() string {
 	cmd := kubeconfig.DisplayText(e.Plugin.Command, 200)
 	file := kubeconfig.DisplayText(e.Plugin.File, 400)
+	if e.Plugin.Kind() == kubeconfig.LoginTokenFile {
+		tok := kubeconfig.DisplayText(e.Plugin.TokenFile, 400)
+		server := kubeconfig.DisplayText(e.Plugin.Server, 200)
+		if e.State == ExecChanged {
+			return fmt.Sprintf("the token file %s that %s names (or the server %s it goes to) changed since you allowed it; Cogpit "+
+				"reads it only after you review and allow it again: connect from the context picker in Cogpit's window", tok, file, server)
+		}
+		return fmt.Sprintf("the kubeconfig %s names the file %s, outside its own folder, as the token it sends to %s, which you "+
+			"have not allowed yet; Cogpit reads it only after you review and allow it: connect from the context picker in "+
+			"Cogpit's window", file, tok, server)
+	}
 	if e.State == ExecChanged {
 		return fmt.Sprintf("the credential plugin %s of %s changed since you allowed it; Cogpit runs it only after "+
 			"you review and allow it again: connect from the context picker in Cogpit's window", cmd, file)
@@ -430,7 +441,7 @@ func (k *KubeconfigSources) Contexts() ([]ContextInfo, error) {
 				Server: c.Server, Source: f.Label, KubeContext: c.Name, File: f.Path,
 			}
 			if p := f.Exec[c.Name]; p != nil {
-				info.Exec = approvalState(approvals, p)
+				info.Exec, info.ExecKind = approvalState(approvals, p), p.Kind()
 			}
 			out = append(out, info)
 		}

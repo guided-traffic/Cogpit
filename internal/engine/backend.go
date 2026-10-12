@@ -142,8 +142,11 @@ type ContextInfo struct {
 	KubeContext string `json:"kubeContext,omitempty"`
 	File        string `json:"file,omitempty"`
 	// Exec is ExecApproved, ExecRequired or ExecChanged for a source context whose user runs an
-	// exec credential plugin, which runs only once the user allowed it; empty otherwise.
-	Exec string `json:"exec,omitempty"`
+	// exec credential plugin or names a token file outside its folder (D-17), which run or are read
+	// only once the user allowed it; empty otherwise. ExecKind says which: "program", "tokenFile"
+	// or "both".
+	Exec     string `json:"exec,omitempty"`
+	ExecKind string `json:"execKind,omitempty"`
 }
 
 // Connector lists the contexts a user can connect to and connects one.

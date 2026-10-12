@@ -48,7 +48,12 @@ Cogpit adds no cluster credential source of its own: no account, no login, no cl
   are the user's to delete or to add as files again. The entry in `kubeconfigs.json` goes with
   the next change of the list of sources.
 - **Exec plugin approvals** live in `<user config dir>/Cogpit/exec-approvals.json` (0600): the
-  fingerprint of what each allowed plugin runs and where its credential goes, no credential.
+  fingerprint of what each allowed plugin runs and where its credential goes (including the content
+  digest of a program or CA file inside the kubeconfig's folder, and the path of a token file
+  outside it), no credential.
+- **Token files** (`tokenFile`) of an added or synced kubeconfig are read by client-go when the
+  user connects, and only after the user allowed a file outside the kubeconfig's folder
+  (since 2026-10-12, D-17, [trust boundaries › H-24](trust-boundaries.md#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token)).
 - **In memory:** credentials are held by the connection that uses them and dropped when it closes.
   Rule for Cogpit's own credential types: they implement `slog.LogValuer` and `fmt.Stringer` as
   `"<redacted>"`, so a stray log statement cannot print them. The MVP has no such type yet: cluster

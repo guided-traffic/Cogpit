@@ -79,6 +79,8 @@ type ExecPluginInfo struct {
 	Source  string `json:"source"`
 	// State is ExecApproved, ExecRequired or ExecChanged.
 	State string `json:"state"`
+	// Kind is what needs the approval: kubeconfig.LoginProgram, LoginTokenFile or LoginBoth.
+	Kind string `json:"kind"`
 	// Fingerprint binds an approval to exactly this plugin (kubeconfig.approveExec takes it back).
 	Fingerprint string                 `json:"fingerprint"`
 	Plugin      *kubeconfig.ExecPlugin `json:"plugin"`
@@ -114,7 +116,7 @@ func (s *Session) ExecPlugin(id string) (*ExecPluginInfo, error) {
 		return nil, err
 	}
 	return &ExecPluginInfo{
-		Context: id, Source: f.Label, State: state, Fingerprint: p.Fingerprint(), Plugin: p,
+		Context: id, Source: f.Label, State: state, Kind: p.Kind(), Fingerprint: p.Fingerprint(), Plugin: p,
 		Found: cluster.LookPathNow(p.Command), RiskyEnv: p.RiskyEnv(),
 	}, nil
 }

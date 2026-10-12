@@ -190,7 +190,11 @@ func (p *picker) connect() {
 	p.connectB.Disable()
 	p.status.SetColor(colorMuted)
 	if c, ok := p.context(name); ok && (c.Exec == engine.ExecRequired || c.Exec == engine.ExecChanged) {
-		p.status.SetText("Review the program " + name + " runs to log in…")
+		if c.ExecKind == kubeconfig.LoginTokenFile {
+			p.status.SetText("Review the token file " + name + " reads to log in…")
+		} else {
+			p.status.SetText("Review the program " + name + " runs to log in…")
+		}
 		p.sh.kc.reviewPlugin(name, func(allowed bool) {
 			if !allowed {
 				p.connecting = ""
@@ -279,11 +283,15 @@ func newPickerRow(c engine.ContextInfo, title, sub string, selected bool, onTap,
 	if c.Source != "" {
 		r.badges.Add(newPill(kubeconfig.DisplayText(c.Source, maxShownArg), colorMuted, true))
 	}
+	what := "login program"
+	if c.ExecKind == kubeconfig.LoginTokenFile {
+		what = "token file"
+	}
 	switch c.Exec {
 	case engine.ExecRequired:
-		r.badges.Add(newPill("login program not allowed yet", colorStatusWarning, true))
+		r.badges.Add(newPill(what+" not allowed yet", colorStatusWarning, true))
 	case engine.ExecChanged:
-		r.badges.Add(newPill("login program changed", colorStatusWarning, true))
+		r.badges.Add(newPill(what+" changed", colorStatusWarning, true))
 	}
 	r.ExtendBaseWidget(r)
 	return r

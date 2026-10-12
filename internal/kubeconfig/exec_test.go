@@ -72,6 +72,7 @@ func TestExecPluginOf(t *testing.T) {
 		APIVersion: "client.authentication.k8s.io/v1beta1", Command: "aws",
 		Args:     []string{"eks", "get-token", "--cluster-name", "prod"},
 		EnvNames: []string{"AWS_PROFILE", "PATH"}, InteractiveMode: "IfAvailable", ProvideClusterInfo: true,
+		TLS: TLSView{CAEmbedded: true},
 	}
 	got := *p
 	got.env, got.serverRaw, got.trust = nil, "", serverTrust{}
@@ -184,6 +185,70 @@ func TestFingerprintBindsWhatRunsAndWhereItsCredentialGoes(t *testing.T) {
 	var none *ExecPlugin
 	if none.Fingerprint() != "" || none.RiskyEnv() != nil || none.String() == "" {
 		t.Error("a nil plugin")
+	}
+}
+
+// TestFingerprintBindsFileFactsAndTheTokenFile: the digests of files inside the folder, the
+// resolved link paths and the token file (when it needs approval) are part of the fingerprint
+// (version 2: R-5, D-17); a token file inside the folder is not.
+func TestFingerprintBindsFileFactsAndTheTokenFile(t *testing.T) {
+	cl := &clientcmdapi.Cluster{Server: "https://a.example"}
+	ec := &clientcmdapi.ExecConfig{APIVersion: "client.authentication.k8s.io/v1", Command: "/f/plug"}
+	mk := func(tokenFile string, facts FileFacts) string {
+		p := NewLogin("/f/kc.yaml", "ctx", "u", cl, ec, tokenFile)
+		p.SetFiles(facts)
+		return p.Fingerprint()
+	}
+	ref := mk("", FileFacts{ProgramSHA256: "aa"})
+	for name, other := range map[string]string{
+		"program digest":   mk("", FileFacts{ProgramSHA256: "bb"}),
+		"program note":     mk("", FileFacts{ProgramNote: "not a regular file"}),
+		"program link":     mk("", FileFacts{ProgramSHA256: "aa", ProgramResolved: "/x"}),
+		"CA digest":        mk("", FileFacts{ProgramSHA256: "aa", CAFileSHA256: "cc"}),
+		"CA link":          mk("", FileFacts{ProgramSHA256: "aa", CAFileResolved: "/x"}),
+		"token file":       mk("/t/token", FileFacts{ProgramSHA256: "aa"}),
+		"token file other": mk("/t/other", FileFacts{ProgramSHA256: "aa"}),
+	} {
+		if other == ref {
+			t.Errorf("%s must change the fingerprint", name)
+		}
+	}
+	withToken := mk("/t/token", FileFacts{ProgramSHA256: "aa"})
+	if again := mk("/t/token", FileFacts{ProgramSHA256: "aa"}); again != withToken {
+		t.Error("not deterministic")
+	}
+	if mk("/f/token", FileFacts{ProgramSHA256: "aa", TokenInFolder: true}) != ref {
+		t.Error("a token file inside the folder needs no approval and must not be bound")
+	}
+
+	tok := NewLogin("/f/kc.yaml", "ctx", "u", cl, nil, "/t/token")
+	if tok == nil || !tok.NeedsApproval() || tok.Kind() != LoginTokenFile || tok.Command != "" {
+		t.Fatalf("a token file outside the folder: %+v", tok)
+	}
+	tok.SetFiles(FileFacts{TokenInFolder: true})
+	if tok.NeedsApproval() || tok.Kind() != "" {
+		t.Error("a token file inside the folder needs no approval")
+	}
+	if NewLogin("/f", "c", "u", nil, nil, "") != nil {
+		t.Error("neither exec nor token file gives no login")
+	}
+	if p := NewLogin("/f/kc.yaml", "ctx", "u", cl, ec, "/t/token"); p.Kind() != LoginBoth {
+		t.Errorf("kind %q", p.Kind())
+	}
+}
+
+// TestTLSViewHidesProxyCredentials: what the dialog shows of the proxy has no user information.
+func TestTLSViewHidesProxyCredentials(t *testing.T) {
+	cl := &clientcmdapi.Cluster{
+		Server: "https://a.example", ProxyURL: "http://user:hunter2@proxy.example:3128", InsecureSkipTLSVerify: true,
+		TLSServerName: "sni.example", CertificateAuthority: "/ca.pem",
+	}
+	p := NewExecPlugin("/f", "c", "u", cl, &clientcmdapi.ExecConfig{Command: "aws"})
+	if p.TLS.ProxyURL != "http://proxy.example:3128" || !p.TLS.Insecure || p.TLS.ServerName != "sni.example" || p.TLS.CAFile != "/ca.pem" || p.TLS.CAEmbedded {
+		t.Errorf("TLS view %+v", p.TLS)
+	}
+	if out := mustJSON(t, p); strings.Contains(out, "hunter2") {
+		t.Errorf("the JSON shows the proxy password: %s", out)
 	}
 }
 

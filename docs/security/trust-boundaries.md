@@ -38,7 +38,7 @@ UNTRUSTED                                   BOUNDARY                          TR
 
 | Boundary | Planned package | Required checks |
 |---|---|---|
-| Kubeconfig to connection | `internal/kubeconfig`, `internal/cluster` | Parse without executing; run an exec plugin only when the user connects to that context, with an argument vector; show the command before the first run of a plugin from a newly added file; never follow `exec` from a kubeconfig the user did not add. Built 2026-10-12 for added and synced kubeconfigs ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)): each source file is read on its own, never merged with another (a dropped file cannot point a context at the user's real credentials); a context whose user has an `exec` section connects only after the user allowed exactly that plugin in the GUI, checked by `cluster.Connect` before any client exists, from the very `rest.Config` the client would run ([`exec.go`](../../internal/kubeconfig/exec.go), `TestConnectAsksTheExecPolicyBeforeThePluginRuns`, `TestExecPluginRunsOnlyOnceAllowed`, `TestKindExecPluginAfterApproval`); the default kubeconfig (`--kubeconfig`, `$KUBECONFIG`, `~/.kube/config`) keeps kubectl's behaviour |
+| Kubeconfig to connection | `internal/kubeconfig`, `internal/cluster` | Parse without executing; run an exec plugin only when the user connects to that context, with an argument vector; show the command before the first run of a plugin from a newly added file; never follow `exec` from a kubeconfig the user did not add. Built 2026-10-12 for added and synced kubeconfigs ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)): each source file is read on its own, never merged with another (a dropped file cannot point a context at the user's real credentials); a context whose user has an `exec` section, or names a `tokenFile` outside the kubeconfig's folder ([H-24](#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token)), connects only after the user allowed exactly that plugin or file in the GUI, checked by `cluster.Connect` before any client exists, from the very `rest.Config` the client would run ([`exec.go`](../../internal/kubeconfig/exec.go), `TestConnectAsksTheExecPolicyBeforeThePluginRuns`, `TestExecPluginRunsOnlyOnceAllowed`, `TestKindExecPluginAfterApproval`); the default kubeconfig (`--kubeconfig`, `$KUBECONFIG`, `~/.kube/config`) keeps kubectl's behaviour |
 | API response to cache | `internal/cache`, `internal/model` | Tolerate unknown and missing fields; cap object and list sizes; bound owner-reference walks |
 | Cluster text to UI | `internal/model`, `internal/ui/fyneui` | Object names, labels, annotations and events are text, never markup; strip control characters before display |
 | Container output to terminal | `internal/terminal`, `internal/ui/fyneui/termview` | Drop or confirm OSC 52 (clipboard write), window-title and window-manipulation sequences ([xterm control sequences](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html)); cap scrollback; cap line length. The MVP drops every OSC, DCS, APC, PM and SOS string, media copy and window operations, clamps large counts, and strips escapes from log lines, which are capped at 64 KiB per line and 10,000 lines ([`termview/sanitize.go`](../../internal/ui/fyneui/termview/sanitize.go), fuzzed; [`termview/logs.go`](../../internal/ui/fyneui/termview/logs.go)); see [H-19](#h-19-the-terminal-widget-trusts-its-input) |
@@ -64,25 +64,44 @@ folder (a download, a shared drive) becomes a set of contexts. The check of the 
 built as follows:
 
 - **When.** For a context of an added or synced kubeconfig whose user has an `exec`
-  section, the picker shows the plugin before it connects, when there is no approval or the
+  section (or a `tokenFile` outside the folder, H-24), the picker shows the plugin before it connects, when there is no approval or the
   approval no longer matches. The engine refuses the connect for every origin on its own
   ("the kubeconfig X runs the program Y to log in, which you have not allowed yet"); a `--context`
   at start-up lands on that refusal and opens the picker.
 - **What is shown.** The program as client-go will run it (a relative path resolved against the
   kubeconfig's folder), where it is found on `PATH` now or that it is not found, each argument on
   its own line, the environment variables by name only (a warning when they set `PATH`, `LD_*` or
-  `DYLD_*`), the server the credential goes to, the kubeconfig file, the context and its source,
-  and, for a changed plugin, that it changed since it was allowed. All of it is escaped for control
-  characters, bidirectional overrides and invalid UTF-8, and capped in length. "Allow and Connect"
-  arms after 750 ms; nothing has focus by default.
+  `DYLD_*`), the server the credential goes to, **how that server is reached and trusted** (since
+  2026-10-12, review of the fourth run, R-11: certificate checks off, a proxy URL without user
+  information, a certificate authority the kubeconfig brings, embedded or as a file, and a TLS
+  server name; each of the first three is a line in the warning colour above the rows, and a plain
+  connection with the system's trust adds nothing), whether the program or the CA file lies inside
+  the kubeconfig's folder with the content digest the approval binds, the kubeconfig file, the
+  context and its source, and, for a changed plugin, that it changed since it was allowed. All of
+  it is escaped for control characters, bidirectional overrides and invalid UTF-8, and capped in
+  length (`TestApprovalDialogShowsProxyAndInsecure`, `TestApprovalDialogEscapesUntrustedText`).
+  "Allow and Connect" arms after 750 ms; nothing has focus by default.
 - **What is remembered.** One approval per file and context in `<user config dir>/Cogpit/exec-approvals.json`
-  (0600, written atomically, never through a symlink), bound to a SHA-256 fingerprint of the
-  file, the context, the user, the server URL, its CA data and file, the insecure flag, the TLS
-  server name, the proxy URL, the plugin's API version, command, arguments and environment (names
-  and values, in order), its interactive mode and `provideClusterInfo`: any change of the plugin,
-  the server or its trust asks again. The approval names the fingerprint the dialog showed and is
-  refused if the file changed meanwhile; an unreadable approvals file allows nothing; removing a
-  source forgets its approvals.
+  (0600, written atomically, never through a symlink), bound to a SHA-256 fingerprint (version 2
+  since 2026-10-12; every approval of version 1 asks again once) of the file, the context, the
+  user, the server URL, its CA data and file, the insecure flag, the TLS server name, the proxy
+  URL, the plugin's API version, command, arguments and environment (names and values, in order),
+  its interactive mode and `provideClusterInfo`, the token file when it needs approval
+  ([H-24](#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token)), and, **for a program or
+  a CA file that resolves to a file inside the kubeconfig's own folder (the place a writer of a
+  synced folder can write), the SHA-256 of its content** (review of the fourth run, R-5, owner
+  decision 2026-10-12, "programs in the folder only"): replacing `./login.sh` or the CA file
+  after the approval asks again, at the next listing and at connect time, where the files are read
+  again right before the policy decides (`TestExecApprovalRefusedAfterPluginBinaryChanged`,
+  `TestCAFileSwapAsksAgain`). A link in the folder is bound by its resolved target as well, so
+  repointing it asks again; a program resolved elsewhere (`PATH`, `/usr/local/bin`, `/opt/homebrew`:
+  `kubelogin`, `aws`, `gke-gcloud-auth-plugin`) stays bound by its path, so a tool update does
+  not ask again (`TestProgramOutsideTheFolderIsBoundByPathOnly`). The hashing is bounded: regular
+  files only, at most 32 MiB for a program and 1 MiB for a CA file; a larger or unreadable file
+  inside the folder is bound by a note (its size and modification time for a large one), so a
+  change still asks again. The approval names the fingerprint the dialog showed and is refused
+  if the file changed meanwhile; an unreadable approvals file allows nothing; removing a source
+  forgets its approvals.
 - **Who.** Adding a file or a folder, removing a source and allowing a plugin are GUI
   only: the engine refuses them for the CLI, external agents and the built-in agent, whose
   confirmation dialog could not show the user an agent-chosen path for review
@@ -91,7 +110,28 @@ built as follows:
 What remains: `~/.kube/` is not watched without setup (Lens does; Cogpit reads only the default
 kubeconfig there); kubectl in a terminal of such a context reads the source file again, so a
 plugin changed after it was allowed runs there without being asked (the user's own kubectl
-command); and a context without a plugin connects without asking, which is [H-24](#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token).
+command); and a context without a plugin connects without asking only when it names no token file
+outside its folder ([H-24](#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token)).
+Content binding is narrower than "everything the plugin runs", by decision (owner, 2026-10-12):
+
+- a program found outside the kubeconfig's folder is bound by its path, not its content: whoever
+  can write to a `PATH` directory or to `/usr/local/bin` already controls the user's account, and
+  binding them would ask again after every tool update;
+- only the program file itself is hashed: a script in the folder that sources or imports a sibling
+  file, or an interpreter that loads libraries, is bound through the script only, and so is a
+  binary's own configuration;
+- "the folder" is the directory of the kubeconfig file, its subdirectories included; for a file
+  the user added from a broad directory (the home directory, Downloads) that is every file below
+  it, not only what a sync writer controls;
+- the files are read right before the policy decides and client-go starts the program a moment
+  later: a writer who swaps the program inside that window, and swaps it back, is not caught (a
+  file is not locked; the window is microseconds and needs write access to the folder at that
+  moment);
+- the client certificate and key files a kubeconfig names are bound by path only (the key is never
+  sent; the certificate only in the TLS handshake).
+
+A link in the folder that points to a file outside is bound by its target path; a tool manager that
+repoints it (a Homebrew upgrade of a linked `aws`) asks once again.
 
 ### H-2: Local processes and forwarded ports
 
@@ -150,11 +190,40 @@ or added by the user can pair `tokenFile: <any file the user can read>` with a s
 when the user connects to that context, client-go reads the file and sends its content to that
 server as a bearer token. Kubernetes' documentation names this ("file exposure",
 [kubeconfig docs](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)).
-The plugin approval of [H-1](#h-1-kubeconfig-files-added-by-sync-folders) does not cover it: a
-context without an `exec` section connects without asking. Live since 2026-10-12 for added
-and synced kubeconfigs, at the moment the user connects to such a context; dormant for the default
-kubeconfig, which kubectl reads the same way. How it is handled is decided
-([D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs), owner 2026-10-12):
-a token file outside the kubeconfig's folder is asked for in the same GUI dialog as a credential
-plugin, bound to its path and server; not built yet, so the gap is live until then.
 
+**Built 2026-10-12** ([D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs),
+owner, option a): a context of an added or synced kubeconfig whose user names a `tokenFile`
+outside the kubeconfig's folder connects only after the user allowed it, in the dialog of the
+credential plugin ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)), with the same approval
+store and the same GUI-only rule. The dialog is titled "Allow this file as the login token?" and
+names the file, the server its content goes to, how that server is reached and trusted, the
+kubeconfig and the context; a context that also runs a plugin shows both in one dialog and one
+approval. The approval's fingerprint binds the token file's path, the server and its trust (a
+changed path or a changed server asks again, `TestTokenFileOutsideTheFolderIsAskedFor`,
+`TestTokenFileOutsideTheFolderNeedsApproval`); the file's content is not bound, so a rotated token
+does not ask again. `cluster.Connect` asks the policy **before** client-go builds its configuration,
+because that is what reads the token file: nothing is read from a file outside the folder before
+the user allowed it. A token file resolved inside the kubeconfig's folder comes from the same
+source as the kubeconfig and needs no approval; a link in the folder that points outside counts as
+outside (`TestTokenFileLinkedOutOfTheFolderNeedsApproval`), and the engine's refusal names the
+file and the server, never the content. The default kubeconfig keeps kubectl's behaviour, so the
+gap is dormant there.
+
+What remains, per case:
+
+- **A broad folder.** "The kubeconfig's folder" is the directory of the file, subdirectories
+  included. For a file the user added from the home directory, Downloads or a shared drive's root,
+  a `tokenFile` anywhere below that directory (`~/.ssh/id_ed25519` for a kubeconfig in `~`) counts
+  as inside and is not asked for. Live for added files in such directories, and for a sync folder
+  only as far as its own writer can already write.
+- **A link repointed after the connect.** client-go re-reads a token file about once a minute for
+  the life of the connection. A link in the folder that resolved inside when the user connected and
+  is repointed outside afterwards is read at the next refresh without a new question; the next
+  connect asks. Live while a connection to such a context is open and the folder is writable by
+  someone else.
+- **The window between the check and the read.** The policy decides, then client-go opens the
+  path; a swap to a link outside in that window is not caught (microseconds, write access to the
+  folder at that moment).
+- **Other files.** A user's `client-certificate` and `client-key` and the cluster's
+  `certificate-authority` are bound by path only: the key is never sent, a certificate only in the
+  TLS handshake. A CA file inside the folder is bound by content ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)).

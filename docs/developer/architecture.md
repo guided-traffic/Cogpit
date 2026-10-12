@@ -750,13 +750,25 @@ context that happens to be named like one is hidden, with a problem saying so.
 connector passes `KubeconfigSources.Policy` as `cluster.Options.ExecPolicy`; `cluster.Connect`
 asks it with the plugin described from the very configuration the client is built from
 (`rest.Config.ExecProvider`), before any client exists, so nothing runs when it refuses and a file
-changed between listing and connecting cannot slip another command past it. An approval
+changed between listing and connecting cannot slip another command past it. A `tokenFile` outside
+the kubeconfig's folder goes through the same policy and the same dialog (D-17, H-24): it is asked
+**before** client-go builds the `rest.Config`, which is what reads the file (`checkTokenFilePolicy`
+in [`cluster/sources.go`](../../internal/cluster/sources.go)). An approval
 (`<user config dir>/Cogpit/exec-approvals.json`, 0600) is recorded per file and context with a
-SHA-256 fingerprint of the file, context, user, server URL (with any user information), CA data or
-file, `insecure-skip-tls-verify`, TLS server name, proxy URL, API version, command, arguments,
-environment names and values, interactive mode and `provideClusterInfo`
-([`kubeconfig/exec.go`](../../internal/kubeconfig/exec.go)); any change asks again. The plugins
-of the default kubeconfig files run as kubectl runs them, without an approval.
+SHA-256 fingerprint (version 2) of the file, context, user, server URL (with any user information),
+CA data or file, `insecure-skip-tls-verify`, TLS server name, proxy URL, API version, command,
+arguments, environment names and values, interactive mode, `provideClusterInfo`, the token file
+when it needs approval, and the SHA-256 of the program and of the CA file when they resolve to a
+file inside the kubeconfig's own folder (R-5; a program found elsewhere, on `PATH`, is bound by
+its path)
+([`kubeconfig/exec.go`](../../internal/kubeconfig/exec.go) for the document and what it hashes,
+[`cluster/pluginfiles.go`](../../internal/cluster/pluginfiles.go) for the file I/O: `kubeconfig`
+does none, so `cluster.BindPluginFiles` reads the files, bounded and regular files only, when a
+file is described and again right before the policy decides at connect time); any change asks
+again. `kubeconfig.execPlugin` returns how the server is reached and trusted (`tls`: proxy URL
+without user information, insecure, TLS server name, own CA) and the file facts, which the
+approval dialog shows (R-11). The plugins of the default kubeconfig files run as kubectl runs
+them, without an approval.
 
 Adding a file or folder, removing a source and allowing a plugin are refused for every
 origin but the GUI (`engine.ErrGUIOnly`, checked in each command's `run`), as `secret.reveal` is:

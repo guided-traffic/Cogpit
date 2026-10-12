@@ -39,10 +39,59 @@ type ExecPlugin struct {
 	// InteractiveMode and ProvideClusterInfo are the exec section's own fields.
 	InteractiveMode    string `json:"interactiveMode,omitempty"`
 	ProvideClusterInfo bool   `json:"provideClusterInfo,omitempty"`
+	// TokenFile is the token file the user entry names (users[].user.tokenFile), absolute, as the
+	// kubeconfig wrote it. It needs the user's approval only when it lies outside the kubeconfig's
+	// folder (Files.TokenInFolder false): the file's content is sent to Server as the login token
+	// (D-17, docs/security/trust-boundaries.md H-24). A plugin without Command is such a token file
+	// alone.
+	TokenFile string `json:"tokenFile,omitempty"`
+	// TLS is how the server is reached and trusted: what decides who can read the credential.
+	TLS TLSView `json:"tls"`
+	// Files holds what the cluster package found out about the files this plugin names; zero until
+	// SetFiles (the kubeconfig package does no file I/O).
+	Files FileFacts `json:"files"`
 
 	env       []clientcmdapi.ExecEnvVar // values are bound by the fingerprint, never serialized
 	serverRaw string                    // the server URL as written, bound by the fingerprint
 	trust     serverTrust               // where the credential goes, bound by the fingerprint
+}
+
+// TLSView is what the approval dialog shows about how the credential travels (R-11). The proxy URL
+// has its user information stripped. The fingerprint binds the full values.
+type TLSView struct {
+	ProxyURL string `json:"proxyURL,omitempty"`
+	// Insecure is insecure-skip-tls-verify: the server's certificate is not checked.
+	Insecure   bool   `json:"insecure,omitempty"`
+	ServerName string `json:"serverName,omitempty"`
+	// CAEmbedded is certificate-authority-data: the kubeconfig brings its own CA. CAFile is
+	// certificate-authority, a path.
+	CAEmbedded bool   `json:"caEmbedded,omitempty"`
+	CAFile     string `json:"caFile,omitempty"`
+}
+
+// FileFacts are the file-content facts an approval binds beyond paths, found by the cluster
+// package (R-5, D-17). A program or CA file that resolves to a file inside the kubeconfig's own
+// folder (the place a writer of a synced folder can write, H-1) is bound by the SHA-256 of its
+// content; one resolved elsewhere (PATH, /usr/local/bin) stays bound by its path, so a tool update
+// does not ask again. All fields are empty until SetFiles.
+type FileFacts struct {
+	// ProgramResolved is the program's path after resolving symlinks, when it differs from Command;
+	// bound, so repointing a link asks again.
+	ProgramResolved string `json:"programResolved,omitempty"`
+	// ProgramSHA256 is the hex SHA-256 of the program's content, when it lies inside the folder.
+	// ProgramNote says why a program inside the folder has no digest (too large, not a regular
+	// file, unreadable); it is bound as well.
+	ProgramSHA256 string `json:"programSHA256,omitempty"`
+	ProgramNote   string `json:"programNote,omitempty"`
+	// CAFileResolved, CAFileSHA256 and CAFileNote are the same for certificate-authority.
+	CAFileResolved string `json:"caFileResolved,omitempty"`
+	CAFileSHA256   string `json:"caFileSHA256,omitempty"`
+	CAFileNote     string `json:"caFileNote,omitempty"`
+	// TokenFileResolved is the token file's path after resolving symlinks, when it differs.
+	// TokenInFolder: it resolves to a file inside the folder, which comes from the same source as
+	// the kubeconfig and needs no approval.
+	TokenFileResolved string `json:"tokenFileResolved,omitempty"`
+	TokenInFolder     bool   `json:"tokenInFolder,omitempty"`
 }
 
 // serverTrust is what decides which server receives the plugin's credential, beyond its URL.
@@ -60,14 +109,24 @@ func NewExecPlugin(file, context, user string, cluster *clientcmdapi.Cluster, ec
 	if ec == nil {
 		return nil
 	}
-	p := &ExecPlugin{
-		File: file, Context: context, User: user,
-		APIVersion: ec.APIVersion, Command: ec.Command, Args: append([]string(nil), ec.Args...),
-		InteractiveMode: string(ec.InteractiveMode), ProvideClusterInfo: ec.ProvideClusterInfo,
-		env: append([]clientcmdapi.ExecEnvVar(nil), ec.Env...),
+	return NewLogin(file, context, user, cluster, ec, "")
+}
+
+// NewLogin describes how the user entry user of context in file logs in: the exec section ec
+// (which may be nil) and the token file tokenFile (which may be empty). It returns nil when there
+// is neither. A token file alone gives a plugin without a Command.
+func NewLogin(file, context, user string, cluster *clientcmdapi.Cluster, ec *clientcmdapi.ExecConfig, tokenFile string) *ExecPlugin {
+	if ec == nil && tokenFile == "" {
+		return nil
 	}
-	for _, e := range ec.Env {
-		p.EnvNames = append(p.EnvNames, e.Name)
+	p := &ExecPlugin{File: file, Context: context, User: user, TokenFile: tokenFile}
+	if ec != nil {
+		p.APIVersion, p.Command, p.Args = ec.APIVersion, ec.Command, append([]string(nil), ec.Args...)
+		p.InteractiveMode, p.ProvideClusterInfo = string(ec.InteractiveMode), ec.ProvideClusterInfo
+		p.env = append([]clientcmdapi.ExecEnvVar(nil), ec.Env...)
+		for _, e := range ec.Env {
+			p.EnvNames = append(p.EnvNames, e.Name)
+		}
 	}
 	if cluster != nil {
 		// The fingerprint binds the URL as written, user information included (a changed password
@@ -78,12 +137,17 @@ func NewExecPlugin(file, context, user string, cluster *clientcmdapi.Cluster, ec
 			CAData: append([]byte(nil), cluster.CertificateAuthorityData...), CAFile: cluster.CertificateAuthority,
 			Insecure: cluster.InsecureSkipTLSVerify, ServerName: cluster.TLSServerName, ProxyURL: cluster.ProxyURL,
 		}
+		p.TLS = TLSView{
+			ProxyURL: StripUserInfo(cluster.ProxyURL), Insecure: cluster.InsecureSkipTLSVerify,
+			ServerName: cluster.TLSServerName, CAEmbedded: len(cluster.CertificateAuthorityData) > 0,
+			CAFile: cluster.CertificateAuthority,
+		}
 	}
 	return p
 }
 
-// ExecPluginOf returns the exec plugin of the context named context in cfg, or nil when the
-// context, its user entry or the user's exec section is missing. cfg should come from client-go's
+// ExecPluginOf returns the login of the context named context in cfg (its exec plugin and its
+// token file), or nil when the context or its user entry is missing or the user has neither. cfg should come from client-go's
 // loader, which records each entry's file (LocationOfOrigin) and resolves relative paths, so that
 // the plugin is described as it will run.
 func ExecPluginOf(cfg *clientcmdapi.Config, context string) *ExecPlugin {
@@ -95,10 +159,10 @@ func ExecPluginOf(cfg *clientcmdapi.Config, context string) *ExecPlugin {
 		return nil
 	}
 	ai := cfg.AuthInfos[kc.AuthInfo]
-	if ai == nil || ai.Exec == nil {
+	if ai == nil {
 		return nil
 	}
-	return NewExecPlugin(ai.LocationOfOrigin, context, kc.AuthInfo, cfg.Clusters[kc.Cluster], ai.Exec)
+	return NewLogin(ai.LocationOfOrigin, context, kc.AuthInfo, cfg.Clusters[kc.Cluster], ai.Exec, ai.TokenFile)
 }
 
 // fingerprintDoc is the canonical form the fingerprint hashes; its field order is fixed.
@@ -115,23 +179,31 @@ type fingerprintDoc struct {
 	Env                [][2]string `json:"env"`
 	InteractiveMode    string      `json:"interactiveMode"`
 	ProvideClusterInfo bool        `json:"provideClusterInfo"`
+	// Version 2 (R-5, D-17): the content of files inside the kubeconfig's folder, and the token file.
+	Files     FileFacts `json:"files"`
+	TokenFile string    `json:"tokenFile"` // only when it needs approval (outside the folder)
 }
 
 // Fingerprint returns "sha256:<hex>" over everything that decides what runs and where its
 // credential goes: the file, context and user, the server (with any user information in its URL)
 // and how it is trusted (CA, insecure, TLS server name, proxy), the API version, the command, the
 // arguments in order, the environment's names and values in order, the interactive mode and
-// whether cluster information is passed. An approval is bound to it: any change asks the user
+// whether cluster information is passed; the token file when it lies outside the folder; and the
+// SHA-256 of the program and of the CA file when they lie inside the folder (FileFacts). An approval is bound to it: any change asks the user
 // again. The hash keeps the environment's values out of the approval store.
 func (p *ExecPlugin) Fingerprint() string {
 	if p == nil {
 		return ""
 	}
 	doc := fingerprintDoc{
-		Version: 1, File: p.File, Context: p.Context, User: p.User, Server: p.serverRaw, Trust: p.trust,
+		Version: 2, File: p.File, Context: p.Context, User: p.User, Server: p.serverRaw, Trust: p.trust,
 		APIVersion: p.APIVersion, Command: p.Command, Args: p.Args,
-		InteractiveMode: p.InteractiveMode, ProvideClusterInfo: p.ProvideClusterInfo,
+		InteractiveMode: p.InteractiveMode, ProvideClusterInfo: p.ProvideClusterInfo, Files: p.Files,
 	}
+	if p.AsksForTokenFile() {
+		doc.TokenFile = p.TokenFile
+	}
+	doc.Files.TokenInFolder = false // not bound itself: a moved token file changes TokenFile above
 	if doc.Args == nil {
 		doc.Args = []string{}
 	}
@@ -145,6 +217,56 @@ func (p *ExecPlugin) Fingerprint() string {
 	}
 	sum := sha256.Sum256(data)
 	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+// AsksForTokenFile reports whether the plugin names a token file that needs the user's approval:
+// one outside the kubeconfig's folder.
+func (p *ExecPlugin) AsksForTokenFile() bool {
+	return p != nil && p.TokenFile != "" && !p.Files.TokenInFolder
+}
+
+// NeedsApproval reports whether the login needs the user's approval at all: it runs a program, or
+// reads a token file outside the kubeconfig's folder.
+func (p *ExecPlugin) NeedsApproval() bool {
+	return p != nil && (p.Command != "" || p.AsksForTokenFile())
+}
+
+// Login kinds (ExecPlugin.Kind).
+const (
+	LoginProgram   = "program"   // an exec credential plugin
+	LoginTokenFile = "tokenFile" // a token file outside the kubeconfig's folder
+	LoginBoth      = "both"
+)
+
+// Kind says what needs the user's approval: LoginProgram, LoginTokenFile or LoginBoth; empty when
+// nothing does.
+func (p *ExecPlugin) Kind() string {
+	switch {
+	case p == nil:
+		return ""
+	case p.Command != "" && p.AsksForTokenFile():
+		return LoginBoth
+	case p.Command != "":
+		return LoginProgram
+	case p.AsksForTokenFile():
+		return LoginTokenFile
+	}
+	return ""
+}
+
+// CAFilePath returns the CA file the cluster names (certificate-authority), or "".
+func (p *ExecPlugin) CAFilePath() string {
+	if p == nil {
+		return ""
+	}
+	return p.trust.CAFile
+}
+
+// SetFiles records what the cluster package found out about the files the plugin names.
+func (p *ExecPlugin) SetFiles(f FileFacts) {
+	if p != nil {
+		p.Files = f
+	}
 }
 
 // String names the plugin without its arguments or environment: for logs and errors.
