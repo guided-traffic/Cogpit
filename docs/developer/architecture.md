@@ -1560,6 +1560,13 @@ above, this paragraph wins.
   to, never the values; an interrupted one is offered as before, as a rollback to `FromRevision`
   (`TestHelmUpgradeRepositoryCrashJournal`). The upgrade's success moves the tab's base and its
   `ReleaseVersion` to the new revision and version.
+- **On kind** (`TestKindHelmUpgradeFromRepository`, 2026-10-13): a chart served by an httptest
+  repository (the cluster never reaches it), 0.1.0 installed through the engine into its own
+  namespace, the tab starting on 0.2.0, the upgrade from the tab to 0.2.0 (the archive downloaded
+  once, the ConfigMap 0.2.0 adds created), an agent's upgrade back to 0.1.0 with inline values
+  confirmed naming both versions and "an older version" (the added ConfigMap deleted), the release
+  uninstalled and the namespace deleted; the requests are in the
+  [privilege footprint](../security/privilege-footprint.md#actions-that-write).
 
 ## 9. Metrics (`internal/metrics`)
 

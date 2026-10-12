@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (M7: the cluster Overview built; M1 and 0.1: `cogpit-cli contexts` and `get` built; M9: the stdio bridge built; current focus after the fifth run and the owner's smoke test) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (M6: a release upgraded to a version from the user's chart repositories; M7: the cluster Overview built; M1 and 0.1: `cogpit-cli contexts` and `get` built; M9: the stdio bridge built; current focus after the fifth run and the owner's smoke test) · **Target:** Lens Desktop 2026.10.51501
 
 Forward-looking plan: the alpha gate, the milestones, the **current focus** and what's next with
 estimates. Where Cogpit stands is in [`target-app-parity.md`](target-app-parity.md); the ranked
@@ -27,7 +27,7 @@ the hours below come on top.
 | **Triage a failing pod:** Pods list with status, the drawer with containers, conditions and events, logs (follow, previous container), a shell in the container | partial: all of it on kind, the previous container's logs, timestamps and the logs of a workload's pods included (`TestKindEngineWorkflows`, `TestKindWorkloadLogsAttachRestartScale`); not walked through by a person on a real cluster | M2, M3 | 55–150 |
 | **Change a workload:** edit YAML and apply it after a diff and a dry-run; scale and restart a Deployment; delete a pod after a confirmation | partial: every step exists and runs on kind through the engine (edit, diff, dry run, apply and a conflict: `TestKindEditCreateConflictDelete`; scale: `TestKindNodeAndWorkloadActions`; restart and delete confirmed); the GUI path (row menu, Edit tab, scale dialog) is tested offscreen only, not yet walked through by a person on a real cluster | M4 | 10–30 |
 | **Reach a service:** forward a pod or service port and open it in the browser | partial (2026-10-11): pod and service forwards on 127.0.0.1, the captured dialog, the Port Forwarding view, reconnects after a pod restart, on kind (`TestKindPortForward`: an HTTP GET through the forward reaches the service, also after its pod was replaced); the browser opening is tested up to Fyne's `OpenURL` call, not yet seen in a real window | M5 | 2–6 |
-| **Manage Helm releases in the cluster** (Lens's Helm view): list releases, read history and values, upgrade, roll back | partial (2026-10-12): releases from the cache with Lens's drawer (values, notes, resources), rollback with Lens's dialog, uninstall, and upgrade from the Helm Upgrade tab with the release's own chart, crash-safe through a journal, on kind (`TestKindHelmReleases`, `TestKindHelmUpgrade`); not walked through by a person on a real cluster; some of Lens's behaviour still to capture | M6 | 5–15 |
+| **Manage Helm releases in the cluster** (Lens's Helm view): list releases, read history and values, upgrade, roll back | partial (2026-10-12): releases from the cache with Lens's drawer (values, notes, resources), rollback with Lens's dialog, uninstall, and upgrade from the Helm Upgrade tab with the release's own chart or, since 2026-10-13, a version from the chart repositories the user added, crash-safe through a journal, on kind (`TestKindHelmReleases`, `TestKindHelmUpgrade`, `TestKindHelmUpgradeFromRepository`); not walked through by a person on a real cluster; some of Lens's behaviour still to capture | M6 | 5–15 |
 | **Maintain a node:** cordon, drain and uncordon with confirmations; node details | partial: cordon, a crash-safe drain and uncordon, confirmed, on a three-node kind cluster through the engine (`TestKindDrainCrashFinishUncordon`); the node drawer as captured with its Pods table, without metrics; the GUI path tested offscreen only | M4 | 2–8 |
 | **Use kubectl:** a terminal bound to the cluster's context and namespace | partial: works on kind (`TestKindEngineWorkflows`); a shell profile can override it ([H-20](../security/credentials.md#h-20-shell-profiles-can-override-the-terminals-kubeconfig)) | M3 | 5–20 |
 | A downloadable macOS build (unsigned is enough) | partial: `make app` builds an unsigned app bundle locally; nothing to download | G14 | 3–8 |
@@ -99,6 +99,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | M6: the Helm row names the upgrade to a version from the user's chart repositories (G11, night run; status and estimate unchanged) |
 | 2026-10-13 | minor | M7 in progress: the cluster Overview built (G12, night run); M2's note no longer lists it (status only; estimates unchanged) |
 | 2026-10-13 | minor | M9: the stdio bridge `cogpit-cli mcp` built (status only; estimate unchanged) |
 | 2026-10-13 | minor | M1 and 0.1: `cogpit-cli contexts` and `cogpit-cli get` built (status only; estimates unchanged) |

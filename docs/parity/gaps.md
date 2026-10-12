@@ -450,7 +450,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestHelmUpgradeTabOffersTheRepositorysVersions`, `TestHelmUpgradeFromARepository`,
   `TestHelmUpgradeFromARepositoryAgents`, `TestHelmUpgradeRepositoryRefusals`,
   `TestHelmUpgradeRepositoryCrashJournal`, `TestUpgradeToARepositoryChart`; GUI
-  `TestHelmUpgradeTabRepositoryVersions`, PNGs `helm_upgrade_picker_{dark,light}.png`).
+  `TestHelmUpgradeTabRepositoryVersions`, PNGs `helm_upgrade_picker_{dark,light}.png`; on kind
+  `TestKindHelmUpgradeFromRepository`: 0.1.0 installed, upgraded to 0.2.0 from the tab, an agent's
+  upgrade back to 0.1.0, uninstalled).
 - **Evidence (2026-10-13, night run):** Charts partial and Install partial: public https chart
   repositories the user adds (`helm.repo.add`, `remove`, `update`, `list`; Helm › Repositories…),
   kept in Cogpit's own folders (`<user config dir>/Cogpit/helm/repositories.json`, the indexes in
