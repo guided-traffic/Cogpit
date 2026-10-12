@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -620,13 +620,28 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   Prometheus-compatible by name (Thanos, VictoriaMetrics under other service names: reachable through
   the override only). A provider nothing asked since its last answer (Prometheus while only CPU and
   Memory are shown) is shown as of that answer, with its age: no probe keeps the status line current.
-- **Missing:** the overview page with its charts and Issues, the explicit Lens Metrics install, the
-  settings rows (metrics source, hide metrics), the Disk column, Lens's usage bars in the Nodes list, CPU and
-  Memory in a node drawer's Pods table, history that outlives a closed drawer.
-- **Evidence:** [ui-parity](ui-parity.md#cluster-overview-and-charts), 4 rows missing and the drawer
-  charts row partial, plus the metrics rows of cluster settings.
-- **Estimate:** 40–80 h before the first slice; the remainder, mostly Prometheus and the overview page, is
-  about 30–65 h (the lead's estimate to apply to the table above).
+- **Built (2026-10-13, night run, M7): the cluster Overview** (`cluster/overview`, the navigator's first
+  item; [ui parity](ui-parity.md#cluster-overview-and-charts)). The CPU, Memory and Pods charts of the
+  master or the worker nodes over the drawer's ranges, with requests, limits, allocatable capacity and
+  capacity as lines; CPU and Memory through a cluster scope of the hub (`metrics.ClusterScope`: the
+  same loop, roles and fallback as a drawer, Prometheus's history once as sums over the nodes' root
+  cgroups, then the Metrics Server's node list summed; [architecture §9](../developer/architecture.md#9-metrics-internalmetrics)),
+  the lines and the Pods chart from the cache (**Pods have no history from before the page opened:
+  Cogpit's default**); the status line per provider under the charts; the Issues from the cache:
+  pods and nodes with their views' warning, workloads short of ready pods, warning events of the last
+  hour (**the rule is Cogpit's: Lens documents "system messages and warnings" only**); `cluster.overview`,
+  `ui.setOverviewRange`, `ui.setOverviewNodes`; budget P14 ([testing](../developer/testing.md#performance-budgets-proposed-not-measured)).
+  Inferred: the page's layout, colours, wording ("No issues found."), the default group (the workers),
+  the newest-first order of the Issues. Differs: ranges stop at 30 days (Lens: 2 months).
+- **Missing:** the Overview's Pods history from Prometheus, its ranges beyond 30 days, the explicit Lens
+  Metrics install, the settings rows (metrics source, hide metrics), the Disk column, Lens's usage bars in
+  the Nodes list, CPU and Memory in a node drawer's Pods table, history that outlives a closed drawer.
+- **Evidence:** [ui-parity](ui-parity.md#cluster-overview-and-charts), its five rows partial (the four
+  Overview rows since 2026-10-13, the drawer charts), plus the metrics rows of cluster settings.
+- **Estimate:** 40–80 h before the first slice; after the Overview (2026-10-13) the remainder (the
+  settings rows, the Lens Metrics install, the Nodes list's bars and Disk, node history on
+  kube-prometheus-stack, the Overview's Pods history) is about 15–35 h (the lead's estimate to apply
+  to the table above).
 
 ### G23. Flux CD and Argo CD views
 - **Missing:** kind profiles with columns, status and searchable fields for Flux CD (GitRepository,
@@ -867,10 +882,12 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | G12: the cluster Overview built (night run, M7): charts of the master or worker nodes through a cluster scope of the hub, lines and Pods from the cache, the Issues from the cache, three commands, budget P14; the remainder re-estimated 15–35 h (the summary table not recounted) |
 | 2026-10-13 | minor | G6: Applications partial (a virtual kind over the cached workloads, Logs per workload); 3 views missing, estimate 12–60 h |
 | 2026-10-13 | minor | G6: Vertical Pod Autoscalers partial (a curated profile of the CRD kind); 4 views missing, estimate 16–70 h |
 | 2026-10-13 | minor | G6: Resource Claims, Resource Claim Templates, Device Classes and Resource Slices partial (Lens's documented columns), the pod drawer's Resource Claims section; 5 views missing, estimate 20–80 h |
 | 2026-10-13 | minor | G11: chart repositories in Cogpit's own folders, the Charts view, the Helm Install tab and the install as a crash-safe job (night run); what is left and what to capture |
+| 2026-10-12 | minor | G12: the evening's requirements built (fourth slice): both providers together (Prometheus's history once, the Metrics Server's live values, the network and the filesystem only while shown: the lead's proposal), the fallback, a status line per provider (also in `metrics.get` and `ui.state`), a chart's variant as engine state, a missing value as an empty cell; budget P13 measured on kind; no count moved |
 | 2026-10-13 | minor | G17: the `cogpit-cli mcp` stdio bridge built, evidence added; estimate unchanged |
 | 2026-10-13 | minor | G2: `cogpit-cli contexts` and `cogpit-cli get` built (milestone 0.1), evidence added; estimate unchanged |
 | 2026-10-12 | minor | G12: the evening's requirements built (fourth slice): both providers together (Prometheus's history once, the Metrics Server's live values, the network and the filesystem only while shown: the lead's proposal), the fallback, a status line per provider (also in `metrics.get` and `ui.state`), a chart's variant as engine state, a missing value as an empty cell; budget P13 measured on kind; no count moved |

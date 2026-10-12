@@ -35,7 +35,7 @@ func TestSidebarHidesKindsNotListable(t *testing.T) {
 	sh, _, q := newTestShell(t, f, Options{})
 	q.until(t, "kinds", func() bool { return len(sh.kinds) > 0 })
 	s := sh.side
-	if got := titlesOf(s, s.children[""]); !slices.Equal(got, []string{"Workloads", "Network", "Namespaces", "Events"}) {
+	if got := titlesOf(s, s.children[""]); !slices.Equal(got, []string{"Overview", "Workloads", "Network", "Namespaces", "Events"}) {
 		t.Errorf("top level %v, want Nodes left out", got)
 	}
 	if got := s.children[groupPrefix+"workloads"]; !slices.Equal(got, []string{"workloads/overview", "pods"}) {

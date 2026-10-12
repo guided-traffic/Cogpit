@@ -273,6 +273,14 @@ func (sh *shell) onEvent(ev engine.Event) {
 			})
 		}
 	case engine.EventMetrics:
+		if ev.View == engine.ClusterOverview { // the cluster Overview's charts, not a drawer's
+			sh.do(func() {
+				if sh.ui.View == engine.ClusterOverview {
+					sh.view.cluster.request()
+				}
+			})
+			return
+		}
 		if sh.metricsQueued.CompareAndSwap(false, true) {
 			sh.do(func() {
 				sh.metricsQueued.Store(false)
@@ -394,6 +402,10 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	if first || !sameHotbar(st.Hotbar, old.Hotbar) || st.Context != old.Context || st.Connection != old.Connection {
 		sh.hot.stateChanged()
 	}
+	if !first && st.Overview != old.Overview && st.View == engine.ClusterOverview {
+		sh.view.cluster.showControls() // the charts' range or node group, whoever set it
+		sh.view.cluster.request()
+	}
 	if first || st.Palette || old.Palette { // while open, what it lists follows the state
 		sh.palette.stateChanged()
 	}
@@ -407,7 +419,7 @@ func (sh *shell) refreshTable() {
 	}
 	sh.view.setSnapshot(sh.eng.Table(sh.ui.View))
 	if engine.IsPage(sh.ui.View) {
-		sh.view.overview.request() // the page's kinds changed with its table
+		sh.view.requestPage() // the page's kinds or totals changed with its table
 	}
 }
 

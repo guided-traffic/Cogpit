@@ -59,7 +59,7 @@ func TestNavigatorRootIsTheCluster(t *testing.T) {
 	if got := s.rootRow.tipText(); got != "kind-cogpit - Connected" {
 		t.Errorf("root tooltip %q", got)
 	}
-	if got := shownTitles(s); !slices.Equal(got, []string{"Nodes", "Workloads", "Overview", "Pods", "Deployments", "Config",
+	if got := shownTitles(s); !slices.Equal(got, []string{"Overview", "Nodes", "Workloads", "Overview", "Pods", "Deployments", "Config",
 		"Network", "Namespaces", "Events", "Custom Resources"}) {
 		t.Errorf("tree %v", got)
 	}
@@ -274,7 +274,7 @@ func TestNavigatorKeyboard(t *testing.T) {
 	key(fyne.KeyUp)
 	at(rootNode)
 	key(fyne.KeyRight) // from the root to the first item
-	at("nodes")
+	at(engine.ClusterOverview)
 	key(fyne.KeyEnd)
 	at(groupPrefix + "custom")
 	key(fyne.KeyReturn) // ↵ on a group opens it
@@ -288,6 +288,8 @@ func TestNavigatorKeyboard(t *testing.T) {
 
 	// ↵ opens the view of the keyboard's row; ⇧↵ does the same (no tabs); so does Space.
 	key(fyne.KeyHome)
+	key(fyne.KeyDown)
+	at(engine.ClusterOverview)
 	key(fyne.KeyDown)
 	at("nodes")
 	key(fyne.KeyReturn)

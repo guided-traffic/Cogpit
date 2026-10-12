@@ -90,7 +90,7 @@ func (c *overviewCharts) sampleLoop() {
 			return
 		case now := <-t.C:
 			c.mu.Lock()
-			if c.last != nil {
+			if c.last != nil && c.last.synced {
 				c.sampleLocked(c.last, now)
 			}
 			polled := c.sub != nil
@@ -105,7 +105,7 @@ func (c *overviewCharts) sampleLoop() {
 // polled follows a poll of the cluster's metrics: a pods point, and the window redraws.
 func (c *overviewCharts) polled() {
 	c.mu.Lock()
-	if c.last != nil && !c.closed {
+	if c.last != nil && c.last.synced && !c.closed {
 		c.sampleLocked(c.last, time.Now())
 	}
 	c.mu.Unlock()
@@ -142,14 +142,14 @@ func (c *overviewCharts) follow(ob *overviewBuild) {
 	if c.closed {
 		return
 	}
-	changed := c.last == nil
+	changed := c.last == nil || !c.last.synced
 	for _, g := range []string{NodesMaster, NodesWorker} {
 		if c.last != nil && c.last.groups[g].pods != ob.groups[g].pods {
 			changed = true
 		}
 	}
 	c.last = ob
-	if changed {
+	if changed && ob.synced { // a count of a partial list is not the cluster's
 		c.sampleLocked(ob, ob.at)
 	}
 	if c.b.Metrics == nil || !ob.synced && len(ob.masters) == 0 && ob.groups[NodesWorker].nodes == 0 {

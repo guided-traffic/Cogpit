@@ -46,13 +46,17 @@ type tableView struct {
 	searchBox             *fyne.Container
 	heading, tools        *fyne.Container // the header's left and right parts
 
-	// A page (the Workloads Overview) shows its own part between the header and the table: the
-	// kinds' tiles and the events' header, which then holds the count and the search.
+	// A page shows its own part between the header and the table: the Workloads Overview its kinds'
+	// tiles, the cluster Overview its charts (clusteroverview.go); then the table's header (the
+	// events', the issues'), which holds the count and the search.
 	overview                   *overviewPanel
+	cluster                    *clusterPanel
+	pageTop                    *fyne.Container // the open page's part
 	eventsTitle                *textLine
 	eventsHeading, eventsTools *fyne.Container
 	pageBox                    *fyne.Container
 	pageMode                   bool
+	pageView                   string // the page the layout is set up for
 	table                      *resourceTable
 	placeholder                *fyne.Container
 	placeholderText            *textLine
@@ -140,9 +144,11 @@ func newTableView(sh *shell) *tableView {
 			container.NewBorder(nil, nil, tv.heading, tv.tools)))
 
 	tv.overview = newOverviewPanel(sh)
+	tv.cluster = newClusterPanel(sh)
+	tv.pageTop = container.NewStack(tv.overview.root)
 	tv.eventsTitle = newTextLine("Events", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	tv.eventsHeading, tv.eventsTools = container.NewHBox(), container.NewHBox()
-	tv.pageBox = container.NewVBox(tv.overview.root, newDivider(false),
+	tv.pageBox = container.NewVBox(tv.pageTop, newDivider(false),
 		container.NewStack(newSurface(theme.ColorNameBackground),
 			inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
 				container.NewBorder(nil, nil, tv.eventsHeading, tv.eventsTools))))
@@ -157,10 +163,22 @@ func newTableView(sh *shell) *tableView {
 	return tv
 }
 
-// setPageLayout arranges the header for a page or a kind's view. On the Workloads Overview the
-// header holds the page's title and the namespace filter, which applies to the whole page; the
-// tiles follow, then the events' own header with their count, download button and search.
-func (tv *tableView) setPageLayout(page bool) {
+// setPageLayout arranges the header for a page or a kind's view. On a page the header holds the
+// page's title and the namespace filter, which applies to the whole page; the page's own part
+// follows (the Workloads Overview's tiles, the cluster Overview's charts), then the table's own
+// header (Events, Issues) with its count, download button and search.
+func (tv *tableView) setPageLayout(view string) {
+	page := engine.IsPage(view)
+	if page && view != tv.pageView {
+		tv.pageView = view
+		top, title := tv.overview.root, "Events"
+		if view == engine.ClusterOverview {
+			top, title = tv.cluster.root, "Issues"
+		}
+		tv.pageTop.Objects = []fyne.CanvasObject{top}
+		tv.pageTop.Refresh()
+		tv.eventsTitle.SetText(title)
+	}
 	if page == tv.pageMode {
 		return
 	}
@@ -188,17 +206,32 @@ func (tv *tableView) viewChanged() {
 	tv.hoverRow, tv.hoverCol, tv.hoverCell = -1, -1, nil
 	tv.sh.tip.hide()
 	page := engine.IsPage(tv.sh.ui.View)
-	tv.setPageLayout(page)
+	tv.setPageLayout(tv.sh.ui.View)
 	if page {
-		tv.overview.request()
+		tv.requestPage()
 	}
 	tv.updateTitle()
 	tv.updatePlaceholder()
 	tv.updateNamespaceButton()
 }
 
-// rowNoun names the open view's rows in hints: "pods"; a page's table lists events.
+// requestPage asks for the open page's own part: the Workloads Overview's kinds, the cluster
+// Overview's charts.
+func (tv *tableView) requestPage() {
+	switch view := tv.sh.ui.View; {
+	case view == engine.ClusterOverview:
+		tv.cluster.request()
+	case engine.IsPage(view):
+		tv.overview.request()
+	}
+}
+
+// rowNoun names the open view's rows in hints: "pods"; a page's table lists events, the cluster
+// Overview's issues ("No issues found.", inferred wording).
 func (tv *tableView) rowNoun() string {
+	if tv.sh.ui.View == engine.ClusterOverview {
+		return "issues"
+	}
 	if engine.IsPage(tv.sh.ui.View) {
 		return kindEvents // the kind key reads as the noun
 	}
@@ -587,6 +620,10 @@ func (tv *tableView) cellTapped(c *tableCell, e *fyne.PointEvent) {
 	switch {
 	case c.content.kind == cellMenu:
 		tv.openRowMenu(c.row, drv.AbsolutePositionForObject(c).AddXY(0, c.Size().Height))
+	case c.onLink(e.Position) && c.content.link.Same(tv.snap.Rows[c.row].Ref):
+		// A link to the row's own object (an issue's name on the cluster Overview) opens its
+		// details over the page, as a click on the row does.
+		tv.sh.dispatch("ui.select", selectParams{Refs: []model.ObjectRef{tv.snap.Rows[c.row].Ref}}, nil)
 	case c.onLink(e.Position):
 		nsColumn := c.col < len(tv.cols) && tv.snap.Columns[tv.cols[c.col]].ID == "namespace"
 		tv.sh.followLink(*c.content.link, tv.snap.Rows[c.row].Ref.Context, nsColumn)

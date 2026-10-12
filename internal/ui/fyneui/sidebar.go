@@ -79,10 +79,11 @@ const (
 // Custom Resources is built from the cluster's kinds: Definitions, then one collapsed group per
 // API group with its kinds by singular Kind name, the groups of curated sections included. Kinds
 // the layout does not know and that no CRD defines go under Other. Pages (page) show while a
-// cluster is connected: Workloads › Overview; the others that are not kinds (Overview,
-// Applications, the Flux CD dashboard, Port Forwarding, Helm) come with their views. Listener Sets
+// cluster is connected: the cluster Overview first (as captured), Workloads › Overview; the others
+// that are not kinds (Applications, the Flux CD dashboard) come with their views. Listener Sets
 // are listed under both groups Gateway API releases used for them.
 var navLayout = []navEntry{
+	page(engine.ClusterOverview),
 	{id: "applications"}, // a virtual kind, the workloads grouped by app.kubernetes.io/instance
 	{id: "nodes"},
 	navGroup("workloads", "Workloads", page(engine.WorkloadsOverview),
@@ -131,6 +132,10 @@ var (
 	iconLayers = fyne.NewStaticResource("cogpit-layers.svg", []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">`+
 		`<path d="M12 2 22 7 12 12 2 7Z"/><path d="M4.2 10.9 12 14.8 19.8 10.9 22 12 12 17 2 12Z"/>`+
 		`<path d="M4.2 15.9 12 19.8 19.8 15.9 22 17 12 22 2 17Z"/></svg>`))
+	// iconOverview is a gauge: an arc with a needle, for the cluster Overview.
+	iconOverview = fyne.NewStaticResource("cogpit-overview.svg", []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">`+
+		`<path d="M12 4a10 10 0 0 0-10 10v3h3v-3a7 7 0 0 1 14 0v3h3v-3A10 10 0 0 0 12 4Z"/>`+
+		`<path d="M11 15.5 16.5 9l1.4 1.4-5.6 6.4a1.5 1.5 0 1 1-1.3-1.3Z"/></svg>`))
 )
 
 // navIcons gives top-level items and groups an icon; kinds inside a group have none, as in Lens.
@@ -138,6 +143,7 @@ var (
 // app runs then, and each lookup logged "Attempt to access current Fyne app when none is started"
 // (ten lines at every start) and got the fallback theme's icon.
 var navIcons = map[string]func() fyne.Resource{
+	engine.ClusterOverview:    func() fyne.Resource { return iconOverview },
 	"applications":            theme.ViewRestoreIcon,
 	"nodes":                   theme.ComputerIcon,
 	groupPrefix + "workloads": theme.GridIcon,

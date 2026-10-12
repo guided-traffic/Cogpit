@@ -65,7 +65,7 @@ func TestSidebarCustomResources(t *testing.T) {
 	q.until(t, "kinds", func() bool { return len(sh.kinds) > 0 })
 	s := sh.side
 
-	if got := titlesOf(s, s.children[""]); !slices.Equal(got, []string{"Nodes", "Workloads", "Config", "Network", "Namespaces", "Events", "Custom Resources"}) {
+	if got := titlesOf(s, s.children[""]); !slices.Equal(got, []string{"Overview", "Nodes", "Workloads", "Config", "Network", "Namespaces", "Events", "Custom Resources"}) {
 		t.Errorf("top level %v", got)
 	}
 	if got := s.children[groupPrefix+"network"]; !slices.Equal(got, []string{"services", groupPrefix + "network/gatewayapi"}) {
