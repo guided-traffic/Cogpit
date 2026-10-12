@@ -28,6 +28,9 @@ import (
 // ui.setOverviewNodes), so the controls follow what the engine reports, whoever set it. Lens's
 // documentation names the charts and their values only: the look here is Cogpit's (inferred).
 
+// chartNoData is what an empty chart says.
+const chartNoData = "No data yet"
+
 // clusterPanel shows the cluster Overview's charts.
 type clusterPanel struct {
 	sh *shell
@@ -112,12 +115,12 @@ func (p *clusterPanel) show(m *engine.ClusterOverviewModel) {
 	p.data = m
 	p.showControls()
 	now := p.sh.now()
-	switch {
-	case m.Status == metrics.StatusAvailable:
+	switch m.Status {
+	case metrics.StatusAvailable:
 		p.setCaption("Displaying metrics from "+m.Source, colorMuted)
-	case m.Status == metrics.StatusUnknown || m.Status == "":
+	case metrics.StatusUnknown, "":
 		p.setCaption("Waiting for the first measurement…", colorMuted)
-	case m.Status == metrics.StatusNotServed:
+	case metrics.StatusNotServed:
 		p.setCaption("No metrics: "+m.Message, colorMuted) // a state, said quietly
 	default:
 		p.setCaption("Metrics are not available: "+m.Message, colorStatusWarning)
@@ -251,7 +254,7 @@ func newOverviewChartCard(title string) *overviewChartCard {
 // set draws a chart of the model: the usage over the range and its lines.
 func (c *overviewChartCard) set(ch engine.OverviewChart, window time.Duration, now time.Time, loc *time.Location) {
 	axis, detail, binary := overviewFormats(ch.Metric)
-	d := chartData{From: now.Add(-window), To: now, Loc: loc, Empty: "No data yet", Format: axis, Detail: detail, Binary: binary}
+	d := chartData{From: now.Add(-window), To: now, Loc: loc, Empty: chartNoData, Format: axis, Detail: detail, Binary: binary}
 	usage := chartSeries{Name: "Usage", Color: colorAccent}
 	for _, s := range ch.Samples {
 		usage.Points = append(usage.Points, chartPoint{At: s.At, Value: s.Value})

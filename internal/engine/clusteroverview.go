@@ -37,6 +37,13 @@ const (
 	kindNamespaces = "namespaces"
 )
 
+// The Issues' column ids besides the name.
+const (
+	columnKind      = "kind"
+	columnNamespace = "namespace"
+	columnAge       = "age"
+)
+
 // MixedKinds reports whether a view's rows are objects of several kinds: the cluster Overview's
 // Issues name pods, nodes, workloads and the objects of events. ui.select then takes a row of any
 // kind the cluster serves, where a kind's view takes its own kind only.
@@ -59,16 +66,16 @@ type OverviewChoice struct {
 var issuesProfile = &model.KindProfile{
 	Key: ClusterOverview, Title: "Issues", Namespaced: true,
 	Columns: []model.Column{
-		{ID: "name", Title: "Name", Type: model.ColumnText},
-		{ID: "kind", Title: "Kind", Type: model.ColumnText, Width: 120},
-		{ID: "namespace", Title: "Namespace", Type: model.ColumnText},
+		{ID: metadataName, Title: "Name", Type: model.ColumnText},
+		{ID: columnKind, Title: "Kind", Type: model.ColumnText, Width: 120},
+		{ID: columnNamespace, Title: "Namespace", Type: model.ColumnText},
 		{ID: "message", Title: "Message", Type: model.ColumnText},
-		{ID: "age", Title: "Age", Type: model.ColumnAge},
+		{ID: columnAge, Title: "Age", Type: model.ColumnAge},
 	},
 }
 
 // issuesSort is the Issues' order until the user sorts: the newest first (Cogpit's default).
-var issuesSort = SortSpec{Column: "age", Desc: true}
+var issuesSort = SortSpec{Column: columnAge, Desc: true}
 
 // ClusterOverviewModel is the cluster Overview: its node groups and charts, and its issues.
 type ClusterOverviewModel struct {

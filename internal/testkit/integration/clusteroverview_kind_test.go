@@ -114,7 +114,10 @@ func TestKindClusterOverview(t *testing.T) {
 	// A range change asks Prometheus once more.
 	before := count("get services/proxy")
 	dispatch("ui.setOverviewRange", map[string]any{"range": "3h"})
-	if !testkit.WaitFor(ctx, func() bool { m = read(true); return m.Range == "3h" && len(m.Charts[0].Samples) > 0 && m.Charts[0].Samples[0].At.Before(time.Now().Add(-90*time.Minute)) }) {
+	if !testkit.WaitFor(ctx, func() bool {
+		m = read(true)
+		return m.Range == "3h" && len(m.Charts[0].Samples) > 0 && m.Charts[0].Samples[0].At.Before(time.Now().Add(-90*time.Minute))
+	}) {
 		t.Logf("3h: the chart starts %s (Prometheus may hold less)", m.Charts[0].Samples[0].At.Format(time.TimeOnly))
 	}
 	time.Sleep(3 * time.Second)

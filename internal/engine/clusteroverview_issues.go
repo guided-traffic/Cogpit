@@ -28,6 +28,12 @@ import (
 // IssueWindow is how far back a warning event counts as an issue: the last hour.
 const IssueWindow = time.Hour
 
+// The condition type and status the rules read.
+const (
+	condReady = "Ready"
+	condTrue  = "True"
+)
+
 // overviewEntry is what one object adds to the page: its issue, and for a node or a pod its share
 // of the totals. Entries are rebuilt only when the object's resourceVersion changed.
 type overviewEntry struct {
@@ -328,8 +334,8 @@ func quantityOf(obj *unstructured.Unstructured, fields ...string) int64 {
 // nodeReady reports whether a node's Ready condition is True.
 func nodeReady(obj *unstructured.Unstructured) bool {
 	for _, c := range model.NestedSlice(obj.Object, "status", "conditions") {
-		if model.NestedString(c, "type") == "Ready" {
-			return model.NestedString(c, "status") == "True"
+		if model.NestedString(c, "type") == condReady {
+			return model.NestedString(c, "status") == condTrue
 		}
 	}
 	return false
@@ -344,7 +350,7 @@ func nodeProblemSince(obj *unstructured.Unstructured) time.Time {
 	var since time.Time
 	for _, c := range model.NestedSlice(obj.Object, "status", "conditions") {
 		typ, st := model.NestedString(c, "type"), model.NestedString(c, "status")
-		if typ == "Ready" && st != "True" || st == "True" && slices.Contains(nodeProblemConditions, typ) {
+		if typ == condReady && st != condTrue || st == condTrue && slices.Contains(nodeProblemConditions, typ) {
 			if t := model.NestedTime(c, "lastTransitionTime"); t.After(since) {
 				since = t
 			}
@@ -356,7 +362,7 @@ func nodeProblemSince(obj *unstructured.Unstructured) time.Time {
 // podProblemSince is when a pod's problem began: when it stopped being Ready, else when it could
 // not be scheduled, else when it was created.
 func podProblemSince(obj *unstructured.Unstructured) time.Time {
-	if t := conditionSince(obj, "Ready", "False"); !t.IsZero() {
+	if t := conditionSince(obj, condReady, "False"); !t.IsZero() {
 		return t
 	}
 	if t := conditionSince(obj, "PodScheduled", "False"); !t.IsZero() {

@@ -50,6 +50,16 @@ type OverviewSample struct {
 	Value float64   `json:"value"`
 }
 
+// The charts' units (OverviewChart.Unit).
+const (
+	unitCores = "cores"
+	unitBytes = "bytes"
+	unitPods  = OverviewPods
+)
+
+// msgNoMetrics is the state's message of a cluster without a metrics hub.
+const msgNoMetrics = "this cluster has no metrics provider"
+
 // overviewSampleEvery is how often the open page samples its pods count without a metrics poll
 // (the Metrics Server's resolution, as the drawer's polls); a test shortens it.
 var overviewSampleEvery = 15 * time.Second
@@ -205,7 +215,7 @@ func (c *overviewCharts) fill(m *ClusterOverviewModel, ob *overviewBuild, series
 	}
 	hub := c.b.Metrics
 	if hub == nil {
-		m.Status, m.Message = metrics.StatusNotServed, "this cluster has no metrics provider"
+		m.Status, m.Message = metrics.StatusNotServed, msgNoMetrics
 		return
 	}
 	m.Providers = hub.Providers()
@@ -263,7 +273,7 @@ func currentCharts(ctx context.Context, b *Backend, m *ClusterOverviewModel, ob 
 	v := float64(ob.groups[m.Nodes].pods)
 	m.Charts[2].Current, m.Charts[2].At = &v, ob.at
 	if b.Metrics == nil {
-		m.Status, m.Message = metrics.StatusNotServed, "this cluster has no metrics provider"
+		m.Status, m.Message = metrics.StatusNotServed, msgNoMetrics
 		return
 	}
 	r := b.Metrics.Fetch(ctx, metrics.Scope{Kind: metrics.KindNodes})
@@ -300,16 +310,16 @@ func chartLines(t groupTotals) []OverviewChart {
 	f := func(v float64) *float64 { return &v }
 	return []OverviewChart{
 		{
-			Metric: OverviewCPU, Title: "CPU", Unit: "cores",
+			Metric: OverviewCPU, Title: "CPU", Unit: unitCores,
 			Requests: f(cores(t.requests.CPUMilli)), Limits: f(cores(t.limits.CPUMilli)),
 			Allocatable: cores(t.allocatable.CPUMilli), Capacity: cores(t.capacity.CPUMilli),
 		},
 		{
-			Metric: OverviewMemory, Title: "Memory", Unit: "bytes",
+			Metric: OverviewMemory, Title: "Memory", Unit: unitBytes,
 			Requests: f(float64(t.requests.MemoryBytes)), Limits: f(float64(t.limits.MemoryBytes)),
 			Allocatable: float64(t.allocatable.MemoryBytes), Capacity: float64(t.capacity.MemoryBytes),
 		},
-		{Metric: OverviewPods, Title: "Pods", Unit: "pods", Allocatable: float64(t.allocPods), Capacity: float64(t.capaPods)},
+		{Metric: OverviewPods, Title: "Pods", Unit: unitPods, Allocatable: float64(t.allocPods), Capacity: float64(t.capaPods)},
 	}
 }
 
