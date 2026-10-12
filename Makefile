@@ -173,6 +173,28 @@ kind-prometheus-down: ## Uninstall the kind cluster's Prometheus and its namespa
 	$(HELM_KIND) uninstall prometheus --namespace monitoring --ignore-not-found
 	$(KUBECTL) delete namespace monitoring --ignore-not-found
 
+# A real kube-prometheus-stack for one check (TestKindKubePrometheusStack), release kps in its own
+# namespace cogpit-kps, the operator and one Prometheus only (hack/kind/kube-prometheus-stack-values.yaml).
+# Detection prefers it to the `prometheus` chart the other kind tests expect: uninstall it after.
+# It adds the operator's CRDs and a kubelet Service in kube-system, which kind-kps-down removes.
+KPS_CHART_VERSION ?= 92.3.0
+KPS_CRDS := alertmanagerconfigs alertmanagers podmonitors probes prometheusagents prometheuses \
+	prometheusrules scrapeconfigs servicemonitors thanosrulers
+
+.PHONY: kind-kps kind-kps-down
+
+kind-kps: ## Install a minimal kube-prometheus-stack into the kind cluster (namespace cogpit-kps)
+	@test -s $(KIND_KUBECONFIG) || { echo "no kubeconfig at $(KIND_KUBECONFIG): run make kind-up first"; exit 1; }
+	$(HELM_KIND) upgrade --install kps kube-prometheus-stack --repo $(PROMETHEUS_CHART_REPO) \
+		--version $(KPS_CHART_VERSION) --namespace cogpit-kps --create-namespace \
+		--values hack/kind/kube-prometheus-stack-values.yaml --wait --timeout 10m
+
+kind-kps-down: ## Uninstall it, its CRDs, its kubelet Service and its namespace
+	$(HELM_KIND) uninstall kps --namespace cogpit-kps --ignore-not-found --wait
+	$(KUBECTL) -n kube-system delete service kps-kube-prometheus-stack-kubelet --ignore-not-found
+	$(KUBECTL) delete crd --ignore-not-found $(addsuffix .monitoring.coreos.com,$(KPS_CRDS))
+	$(KUBECTL) delete namespace cogpit-kps --ignore-not-found
+
 # The drain cluster: one control plane and two workers, for the tests that cordon and drain a
 # node, which must never run against the shared single-node cluster above.
 KIND_DRAIN_CLUSTER    ?= cogpit-drain

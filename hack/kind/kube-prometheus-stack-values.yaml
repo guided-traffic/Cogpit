@@ -1,0 +1,45 @@
+# Values for the kube-prometheus-stack chart that `make kind-kps` installs into the kind cluster for
+# one check (TestKindKubePrometheusStack, architecture §9), and `make kind-kps-down` removes again:
+# the least that Cogpit's queries need, the operator, one Prometheus and the kubelet's cAdvisor
+# scrape every 30 s (the chart's default kubelet ServiceMonitor, relabelings included). Release
+# "kps" in its own namespace cogpit-kps, so the Services are kps-kube-prometheus-stack-prometheus
+# and prometheus-operated, both with the port http-web.
+crds:
+  enabled: true
+defaultRules:
+  create: false
+windowsMonitoring:
+  enabled: false
+alertmanager:
+  enabled: false
+grafana:
+  enabled: false
+kubeApiServer:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+coreDns:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeStateMetrics:
+  enabled: false
+nodeExporter:
+  enabled: false
+thanosRuler:
+  enabled: false
+kubelet:
+  enabled: true
+prometheusOperator:
+  admissionWebhooks:
+    enabled: false
+  tls:
+    enabled: false
+prometheus:
+  prometheusSpec:
+    retention: 2h
+    scrapeInterval: 30s

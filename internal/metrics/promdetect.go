@@ -62,6 +62,7 @@ type Candidate struct {
 // charts and of Lens's metrics providers (clean-room, D-12):
 //
 //	score 100  <release>-kube-prometheus-prometheus      kube-prometheus-stack
+//	            <release>-kube-prometheus-stack-prometheus
 //	            kube-prometheus-stack-prometheus
 //	score  95  prometheus-k8s                            kube-prometheus manifests
 //	score  90  prometheus-operated                       the Prometheus Operator's governing service
@@ -76,8 +77,11 @@ var promNames = []struct {
 	re    *regexp.Regexp
 	score int
 }{
-	{regexp.MustCompile(`^(.+-)?kube-prometheus-prometheus$`), 100},
-	{regexp.MustCompile(`^kube-prometheus-stack-prometheus$`), 100},
+	// The chart names its resources <release>-kube-prometheus-stack, cut to 26 characters (or the
+	// release alone when it contains the chart's name): "kube-prometheus-stack-prometheus",
+	// "monitoring-kube-prometheus-prometheus", and for a release of up to five characters
+	// "kps-kube-prometheus-stack-prometheus" (2026-10-12, found reading the chart for the kind check).
+	{regexp.MustCompile(`^(.+-)?kube-prometheus(-stack)?-prometheus$`), 100},
 	{regexp.MustCompile(`^prometheus-k8s$`), 95},
 	{regexp.MustCompile(`^prometheus-operated$`), 90},
 	{regexp.MustCompile(`^prometheus-server$`), 80},

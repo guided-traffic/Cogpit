@@ -562,9 +562,17 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   Lens's cluster settings page is not built). **Cogpit's default, not the owner's:** agents may set
   it (`DangerUI`; it writes no cluster object). Lens's "Metrics source", query format, empty
   container filter and HTTPS are not built ([ui parity](ui-parity.md), the Metrics provider row).
+- **Checked against a real kube-prometheus-stack (2026-10-12):** chart 92.3.0 in its own namespace
+  on kind (`make kind-kps`, `TestKindKubePrometheusStack`, then `make kind-kps-down`): detected as
+  `cogpit-kps/kps-kube-prometheus-stack-prometheus:http-web` (a short release keeps "-stack" in the
+  name: the name pattern missed it, fixed), a pod's history at the 30 s scrape with network and
+  filesystem. **A node has no history there:** the chart's kubelet ServiceMonitor drops cAdvisor's
+  series without a pod, the root cgroup the node charts read; the node's chart shows the Metrics
+  Server's live values only. Node history on kube-prometheus-stack needs node-exporter's series
+  (a decision: which series, and how a node-exporter target is tied to its node).
 - **Left of Prometheus:** Lens's cluster settings page (the setting lives in a dialog under the
-  drawer's status line until then), a check against a real
-  kube-prometheus-stack, the namespace and service as links (Lens:
+  drawer's status line until then), node history on kube-prometheus-stack (above), the namespace
+  and service as links (Lens:
   "Prometheus: <namespace>/<service>:<port>"; the port shows on the status line since the fourth
   slice), the Lens-provider variants that are not
   Prometheus-compatible by name (Thanos, VictoriaMetrics under other service names: reachable through

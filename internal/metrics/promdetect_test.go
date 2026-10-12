@@ -45,6 +45,18 @@ func TestCandidatesRankKnownServices(t *testing.T) {
 	if strings.Join(names, " ") != strings.Join(want, " ") {
 		t.Errorf("candidates:\n got %v\nwant %v", names, want)
 	}
+
+	// kube-prometheus-stack's names by release: the release alone when it contains the chart's
+	// name, else <release>-kube-prometheus-stack cut to 26 characters, so a short release keeps
+	// "-stack" (kps, 2026-10-12) and a longer one loses it.
+	for _, name := range []string{"kube-prometheus-stack-prometheus", "kps-kube-prometheus-stack-prometheus", "monitoring-kube-prometheus-prometheus"} {
+		if c := metrics.Candidates([]metrics.Service{svc("cogpit-kps", name, p("http-web", 9090))}); len(c) != 1 || c[0].Score != 100 {
+			t.Errorf("%s: candidates %+v, want it first", name, c)
+		}
+	}
+	if c := metrics.Candidates([]metrics.Service{svc("x", "kube-prometheus-stack-operator", p("https", 443))}); len(c) != 0 {
+		t.Errorf("the operator's service is a candidate: %+v", c)
+	}
 }
 
 func TestDetectFoundThroughTheServiceProxy(t *testing.T) {

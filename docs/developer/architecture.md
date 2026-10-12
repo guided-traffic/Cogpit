@@ -1408,7 +1408,7 @@ Service is probed (clean-room, from the charts' and Lens's documented defaults):
 
 | Score | Service name | From |
 |---|---|---|
-| 100 | `<release>-kube-prometheus-prometheus`, `kube-prometheus-stack-prometheus` | kube-prometheus-stack |
+| 100 | `<release>-kube-prometheus-prometheus`, `<release>-kube-prometheus-stack-prometheus` (a release of up to five characters), `kube-prometheus-stack-prometheus` | kube-prometheus-stack |
 | 95 | `prometheus-k8s` | kube-prometheus manifests |
 | 90 | `prometheus-operated` | Prometheus Operator's governing service |
 | 80 | `prometheus-server` | the `prometheus` Helm chart |
@@ -1594,6 +1594,9 @@ and `rate(…[2m])` leaving gaps at a one-minute scrape (the queries above).
 label, a 30 s scrape), `container_fs_usage_bytes` for containers (runtimes that report it), a user
 refused the service proxy, a route prefix, the override, Thanos and VictoriaMetrics, and history
 longer than the hour the kind Prometheus had (the 7d and 30d charts drew it at their right edge).
+(Fourth slice: kube-prometheus-stack, its 30 s scrape and the override with a route prefix (against
+the fake service proxy) are checked since, below; the `node` label is not, since the chart drops the
+node series.)
 Seen once and not again in four runs: right after connecting, a Nodes list poll whose instant
 query had memory but no CPU, which the list showed as 0%: fixed in the fourth slice (a part
 without a series is *missing*, below).
@@ -1730,6 +1733,17 @@ with `COGPIT_KIND_FALLBACK=1`):
 | The Metrics Server back | serving the live values again 9 s after its pod was ready (the test's `ProviderRetry` of 20 s; a minute by default) |
 | Prometheus scaled to zero | seen at the next request it got (a range change to 3 h): "unavailable (HTTP 503)"; the Metrics Server's live values went on |
 | Prometheus back | the 3 h history asked for again and served 28 s after its pod was ready; no step longer than 30 s in the chart's last 15 minutes (the kind Prometheus's own history has an 11-minute hole from a Docker restart) |
+
+**Checked against a real kube-prometheus-stack on 2026-10-12** (chart 92.3.0, operator v0.94.1, the
+operator and one Prometheus only, scraping the kubelet's cAdvisor every 30 s, release `kps` in its
+own namespace `cogpit-kps`: `make kind-kps`, `TestKindKubePrometheusStack`, then `make
+kind-kps-down`, which also removes the operator's CRDs and its kubelet Service in `kube-system`):
+
+| Checked | Seen |
+|---|---|
+| Detection | `cogpit-kps/kps-kube-prometheus-stack-prometheus:http-web`, preferred to the `prometheus` chart's `prometheus-server`. Reading the chart's naming for this check found a gap, fixed: the chart cuts `<release>-kube-prometheus-stack` to 26 characters, so a release of up to five characters keeps `-stack` in the Service's name, which the name pattern had missed (`prometheus-operated`, score 90, would have been found instead) |
+| A pod's drawer | history at the 30 s scrape from the Prometheus's start, CPU, memory, network (rx 101 B/s, tx 142 B/s for nginx at rest), filesystem as read and write rates (containerd), the Metrics Server's live values after it, no step longer than 30 s |
+| A node's drawer | **no history from Prometheus**: the chart's default kubelet ServiceMonitor drops cAdvisor's series without a pod ("Drop cgroup metrics with no pod", `[id, pod]` matching `.+;`), and the root cgroup the node queries read is such a series. The node's chart has the Metrics Server's live values only (a reason for both providers together); node history on kube-prometheus-stack would need node-exporter's series, which Cogpit does not query (node-exporter's labels name its own address, not the node) |
 
 ## 10. Terminal (`internal/terminal`)
 

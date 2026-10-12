@@ -465,6 +465,90 @@ func TestKindMetricsFallback(t *testing.T) {
 	checkSeam(t, "after Prometheus came back", m.Targets[0].Samples)
 }
 
+// TestKindKubePrometheusStack checks Cogpit against a real kube-prometheus-stack (G12, "left of
+// Prometheus"): installed by hand into the namespace cogpit-kps as the release kps (the operator,
+// one Prometheus, the kubelet's cAdvisor scrape every 30 s, nothing else; docs/developer/
+// testing.md has the values) and uninstalled afterwards, because detection prefers it to the
+// `prometheus` chart the other kind tests expect. Detection must find
+// kps-kube-prometheus-stack-prometheus (a short release keeps "-stack" in the name); a node's charts
+// come from series labelled by the node label (the chart's kubelet ServiceMonitor), a pod's as
+// before. It only reads; skipped without that service.
+func TestKindKubePrometheusStack(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
+	defer cancel()
+	s, dispatch := kindMetricsSession(ctx, t, metrics.Options{})
+	if _, err := s.Object(ctx, model.ObjectRef{Kind: "services", Namespace: "cogpit-kps", Name: "kps-kube-prometheus-stack-prometheus"}); errors.Is(err, engine.ErrNotFound) {
+		t.Skip("no kube-prometheus-stack in cogpit-kps (installed by hand for this check only)")
+	} else if err != nil {
+		t.Fatal(err)
+	}
+	const source = "Prometheus (cogpit-kps/kps-kube-prometheus-stack-prometheus)"
+	dispatch("ui.openView", map[string]any{"view": "nodes"})
+	var node model.ObjectRef
+	if !testkit.WaitFor(ctx, func() bool {
+		tbl := s.Table("nodes")
+		if tbl == nil || !tbl.Synced || len(tbl.Rows) == 0 {
+			return false
+		}
+		node = tbl.Rows[0].Ref
+		return true
+	}) {
+		t.Fatal("no node")
+	}
+	opened := time.Now()
+	dispatch("ui.navigate", map[string]any{"ref": node})
+	// The chart's default kubelet ServiceMonitor drops cAdvisor's series without a pod ("Drop
+	// cgroup metrics with no pod": sourceLabels [id, pod], regex ".+;"), the root cgroup the node
+	// charts read: a node has no history from it, and the Metrics Server's live values are all its
+	// chart gets (2026-10-12). Seen here, not asserted away: the day the chart keeps them, this logs it.
+	m := waitHistory(ctx, t, s, node, func(m *engine.ObjectMetrics) bool {
+		return strings.HasPrefix(m.Source, source) && len(m.Targets[0].Samples) >= 2
+	})
+	logProviders(t, "kube-prometheus-stack", m.Providers)
+	if p := m.Providers[0]; p.Service != "cogpit-kps/kps-kube-prometheus-stack-prometheus:http-web" || !slices.Contains(p.Serves, metrics.ServesHistory) {
+		t.Errorf("Prometheus's status = %+v", p)
+	}
+	history := 0
+	for _, u := range m.Targets[0].Samples {
+		if u.At.Before(opened.Add(-time.Minute)) {
+			history++
+		}
+	}
+	t.Logf("kube-prometheus-stack node %s: %d points, %d of them history older than the drawer (the root cgroup is dropped by the chart's relabelings)", node.Name, len(m.Targets[0].Samples), history)
+
+	dispatch("ui.openView", map[string]any{"view": "pods"})
+	var pod model.ObjectRef
+	if !testkit.WaitFor(ctx, func() bool {
+		tbl := s.Table("pods")
+		if tbl == nil || !tbl.Synced {
+			return false
+		}
+		for _, r := range tbl.Rows {
+			if r.Ref.Namespace == "cogpit-demo" && strings.HasPrefix(r.Ref.Name, "web-") && r.Status == model.StatusOK {
+				pod = r.Ref
+				return true
+			}
+		}
+		return false
+	}) {
+		t.Fatal("no running web pod in cogpit-demo")
+	}
+	dispatch("ui.navigate", map[string]any{"ref": pod})
+	m = waitHistory(ctx, t, s, pod, func(m *engine.ObjectMetrics) bool {
+		return strings.HasPrefix(m.Source, source) && len(m.Targets) >= 2 && len(m.Targets[1].Samples) > 0
+	})
+	ctr := m.Targets[1].Name
+	dispatch("ui.setMetricsVariant", map[string]any{"ref": pod, "variant": "network"})
+	dispatch("ui.setMetricsVariant", map[string]any{"ref": pod, "container": ctr, "variant": "filesystem"})
+	m = waitHistory(ctx, t, s, pod, func(m *engine.ObjectMetrics) bool {
+		return len(m.Targets[0].Network) > 0 && len(m.Targets[1].Filesystem) > 0
+	})
+	whole := m.Targets[0]
+	whole.Filesystem = m.Targets[1].Filesystem
+	logTarget(t, "kube-prometheus-stack pod "+pod.Name, m.FilesystemSource, whole)
+	checkSeam(t, "kube-prometheus-stack pod", whole.Samples)
+}
+
 // scaleTo sets a deployment's replicas and waits until that many are ready (and the old pods
 // gone when scaling to zero).
 func scaleTo(ctx context.Context, kube kubernetes.Interface, ns, name string, replicas int32) error {
