@@ -235,7 +235,7 @@ type statusBar struct {
 func newStatusBar(sh *shell) *statusBar {
 	s := &statusBar{sh: sh}
 	caption := func() *textLine {
-		return newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+		return newTextLine("", colorMuted, sizeStatusText, fyne.TextStyle{})
 	}
 	s.dot = newDot(statusColorName(model.StatusUnknown))
 	s.context, s.requests, s.informers, s.snapshots, s.demo = caption(), caption(), caption(), caption(), caption()
@@ -248,7 +248,7 @@ func newStatusBar(sh *shell) *statusBar {
 		right.Add(s.mcp)
 	}
 	s.link = newLinkText(ownerLinkText, func() { sh.openOwnerLink() })
-	s.link.size = theme.SizeNameCaptionText
+	s.link.size = sizeStatusText
 	sep := newDivider(true)
 	s.layout = &statusLayout{link: s.link, sep: sep, left: left, right: right}
 	s.root = sized("", sizeStatusHeight, newSurface(colorStatusBar),
@@ -296,7 +296,7 @@ func (l *statusLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 	th := fyne.CurrentApp().Settings().Theme()
 	lm, rm := l.left.MinSize(), l.right.MinSize()
 	gap := th.Size(theme.SizeNameInnerPadding)
-	textSize := th.Size(theme.SizeNameCaptionText)
+	textSize := th.Size(sizeStatusText)
 	if lt, ok := l.link.(*linkText); ok {
 		textSize = th.Size(lt.size)
 	}

@@ -87,7 +87,7 @@ func TestStatusBarOwnerLinkGivesWayFirst(t *testing.T) {
 	s := sh.status
 	th := fyne.CurrentApp().Settings().Theme()
 	items := s.layout.left.MinSize().Width + s.layout.right.MinSize().Width
-	full := fyne.MeasureText(ownerLinkText, th.Size(theme.SizeNameCaptionText), fyne.TextStyle{}).Width
+	full := fyne.MeasureText(ownerLinkText, th.Size(sizeStatusText), fyne.TextStyle{}).Width
 	gaps := 2*th.Size(theme.SizeNameInnerPadding) + 1
 	pad := 2 * th.Size(theme.SizeNameInnerPadding) // the bar's own inset
 
@@ -118,7 +118,7 @@ func TestStatusBarOwnerLinkGivesWayFirst(t *testing.T) {
 	if link.X+linkW > s.layout.sep.Position().X {
 		t.Errorf("narrow: the link ends at %v, past its divider at %v", link.X+linkW, s.layout.sep.Position().X)
 	}
-	if got := s.link.Size().Width; fyne.MeasureText(shortened(s), th.Size(theme.SizeNameCaptionText), fyne.TextStyle{}).Width > got {
+	if got := s.link.Size().Width; fyne.MeasureText(shortened(s), th.Size(sizeStatusText), fyne.TextStyle{}).Width > got {
 		t.Errorf("narrow: the link's text overflows its %v", got)
 	}
 
@@ -149,5 +149,5 @@ func TestStatusBarOwnerLinkGivesWayFirst(t *testing.T) {
 // shortened is the text the link shows now (the renderer's ellipsized text).
 func shortened(s *statusBar) string {
 	th := fyne.CurrentApp().Settings().Theme()
-	return ellipsize(s.link.text, s.link.Size().Width, th.Size(theme.SizeNameCaptionText), fyne.TextStyle{})
+	return ellipsize(s.link.text, s.link.Size().Width, th.Size(sizeStatusText), fyne.TextStyle{})
 }

@@ -98,13 +98,18 @@ func TestSidebarCustomResources(t *testing.T) {
 		t.Errorf("Other lists %v", s.children[otherGroup])
 	}
 
-	// API groups start closed, every other group open.
+	// Every group starts closed (owner, 2026-10-12), except the groups above the open view, which
+	// open so that the selection is visible.
+	above := map[string]bool{}
+	for p := s.parents[sh.ui.View]; p != ""; p = s.parents[p] {
+		above[p] = true
+	}
 	for id := range s.children {
 		if id == "" {
 			continue
 		}
-		if want := !strings.HasPrefix(id, customGroupPrefix); s.tree.IsBranchOpen(id) != want {
-			t.Errorf("%s open = %v, want %v", id, !want, want)
+		if want := above[id]; s.tree.IsBranchOpen(id) != want {
+			t.Errorf("%s open = %v, want %v (open view %q)", id, !want, want, sh.ui.View)
 		}
 	}
 

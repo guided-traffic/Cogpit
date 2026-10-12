@@ -237,8 +237,9 @@ func (s *sidebar) updateHeader() {
 
 // setKinds rebuilds the tree from kinds.list. It runs on connect and whenever the cluster's
 // custom resource kinds or the access reviews' answers change; branches keep the open or closed
-// state they had, new ones start open, except the API groups of Custom Resources, which start
-// closed (captured). A kind the user may not list is left out; one not known yet is shown.
+// state they had, and new ones start closed (owner, 2026-10-12; Lens opened them, and the API
+// groups of Custom Resources closed): the group of the open view is opened by selectView, so the
+// selection stays visible. A kind the user may not list is left out; one not known yet is shown.
 func (s *sidebar) setKinds(kinds []kindInfo) {
 	kinds = listableKinds(kinds) // the View menu offers the same (menuaccess.go)
 	wasOpen := map[string]bool{}
@@ -286,10 +287,7 @@ func (s *sidebar) setKinds(kinds []kindInfo) {
 		if id == "" {
 			continue
 		}
-		open, known := wasOpen[id]
-		if !known {
-			open = !strings.HasPrefix(id, customGroupPrefix)
-		}
+		open := wasOpen[id] // a new branch starts closed
 		if open {
 			s.tree.OpenBranch(id)
 		} else {

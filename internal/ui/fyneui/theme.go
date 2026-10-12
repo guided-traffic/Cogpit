@@ -65,6 +65,7 @@ const (
 	sizeSidebarWidth   fyne.ThemeSizeName = "cogpit.sidebarWidth"   // the navigator's width
 	sizeBarHeight      fyne.ThemeSizeName = "cogpit.barHeight"      // the top bar's height
 	sizeStatusHeight   fyne.ThemeSizeName = "cogpit.statusHeight"   // the status bar's height
+	sizeStatusText     fyne.ThemeSizeName = "cogpit.statusText"     // the status bar's text
 	sizeCellPadding    fyne.ThemeSizeName = "cogpit.cellPadding"    // horizontal padding inside a table cell
 	sizeRowPadding     fyne.ThemeSizeName = "cogpit.rowPadding"     // vertical padding inside a table row
 	sizeDrawerLabel    fyne.ThemeSizeName = "cogpit.drawerLabel"    // the name column of the drawer's details
@@ -380,7 +381,11 @@ func (t *cogTheme) Size(n fyne.ThemeSizeName) float32 {
 	case sizeBarHeight:
 		return 40
 	case sizeStatusHeight:
-		return 24
+		return 26
+	case sizeStatusText:
+		// The text size of the views, as VS Code's status bar reads (owner, 2026-10-12: the
+		// caption size, 11, was too small).
+		return 13
 	case sizeCellPadding:
 		return 10
 	case sizeRowPadding:
