@@ -23,7 +23,11 @@ The Preferences and Cluster settings (2026-10-13: `preferences.*`, `cluster.sett
 request either and write only Cogpit's own `preferences.json`, `cluster-settings.json` and
 `cluster-icons/`, never a kubeconfig (`TestClusterSettingsCommandsNeverTouchTheKubeconfig`); a
 cluster's terminal namespace is written into the terminal's own kubeconfig as the filter's
-namespace already was ([credentials](credentials.md#the-terminals-kubeconfig)).
+namespace already was ([credentials](credentials.md#the-terminals-kubeconfig)). Disconnect and
+Remove from Cogpit (2026-10-13: `cluster.disconnect`, `cluster.remove`) send no request either:
+Disconnect stops the connection's informers and port forwards as switching clusters does, and
+Remove takes out Cogpit's link to a kubeconfig file the user added, never editing or deleting the
+file (`TestDisconnectAndWelcomeCommands`, `TestClusterRemove`).
 
 Verbs and subresources follow Kubernetes RBAC
 ([RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/),

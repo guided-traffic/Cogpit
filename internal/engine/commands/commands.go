@@ -54,6 +54,8 @@ func RegisterAll(r *engine.Registry) error {
 	registerPreferences(g)
 	registerClusterSettings(g)
 	registerTabs(g)
+	registerWelcome(g)
+	registerClusterMenu(g)
 	return g.err
 }
 

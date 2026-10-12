@@ -46,6 +46,10 @@ type UIState struct {
 	// Palette is set while the command palette is open (ui.palette.open, ⌘⇧P; palette.go). What
 	// the user types in it stays in the window, as the context picker's filter does.
 	Palette bool `json:"palette,omitempty"`
+	// Welcome is set while the workspace shows the welcome page (welcome.go): no cluster is
+	// connected and none is connecting, or one is and no tab is active. The engine derives it
+	// after every change (syncWelcome); ui.welcome.open shows the page over a connected cluster.
+	Welcome bool `json:"welcome,omitempty"`
 	// Preferences are Cogpit's own settings (preferences.go); nil in a session that keeps none.
 	Preferences *Preferences `json:"preferences,omitempty"`
 	// ClusterSettings are the settings of every context that has some, by context id

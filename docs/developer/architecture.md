@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (§4.4 a logs tab's source, narrowed in the merged stream, timestamps on every stream, its older lines and a jump to a time; §4.4 a logs tab's source, narrowed in the merged stream, timestamps on every stream, and its older lines; §4.4 a logs tab's source, narrowed in the merged stream, and timestamps on every stream; §8: a release upgraded to a chart version from the user's repositories, the Upgrade tab's choice of repository and version, G11; the tab bar of cluster views, G5, §4.3: `UIState.Tabs` and `ActiveTab`, kept in step by `syncTabs`, the `ui.tab.*` commands, `ui.openView` in the preview tab, the window's bar (`tabbar.go`) and its View menu keys, §4.2; the tab bar of cluster views, G5, §4.3: `UIState.Tabs` and `ActiveTab`, kept in step by `syncTabs`, the `ui.tab.*` commands, `ui.openView` in the preview tab; Preferences and cluster settings, G13, §4.3: engine state, stores, commands, the GUI that applies them; the cluster Overview, G12: §4.3 the page and `UIState.Overview`, §9 the cluster scope of the metrics hub; §5 a virtual kind made of several kinds, the Applications; §4.5 curated profiles of CRD kinds, the Vertical Pod Autoscalers; Current state: the four Device Resources views, 45 built-in views; §8: Helm chart repositories kept in Cogpit's own folders, the Charts view and the install, G11; the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (the welcome page and Disconnect, G5 and G13, §4.3: `UIState.Welcome`, `ui.welcome.open`, `cluster.disconnect`; §4.4 a logs tab's source, narrowed in the merged stream, timestamps on every stream, its older lines and a jump to a time; §4.4 a logs tab's source, narrowed in the merged stream, timestamps on every stream, and its older lines; §4.4 a logs tab's source, narrowed in the merged stream, and timestamps on every stream; §8: a release upgraded to a chart version from the user's repositories, the Upgrade tab's choice of repository and version, G11; the tab bar of cluster views, G5, §4.3: `UIState.Tabs` and `ActiveTab`, kept in step by `syncTabs`, the `ui.tab.*` commands, `ui.openView` in the preview tab, the window's bar (`tabbar.go`) and its View menu keys, §4.2; the tab bar of cluster views, G5, §4.3: `UIState.Tabs` and `ActiveTab`, kept in step by `syncTabs`, the `ui.tab.*` commands, `ui.openView` in the preview tab; Preferences and cluster settings, G13, §4.3: engine state, stores, commands, the GUI that applies them; the cluster Overview, G12: §4.3 the page and `UIState.Overview`, §9 the cluster scope of the metrics hub; §5 a virtual kind made of several kinds, the Applications; §4.5 curated profiles of CRD kinds, the Vertical Pod Autoscalers; Current state: the four Device Resources views, 45 built-in views; §8: Helm chart repositories kept in Cogpit's own folders, the Charts view and the install, G11; the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-12)
 
@@ -427,6 +427,7 @@ type UIState struct {
 	Settings        *SettingsPage              // the open Preferences or Cluster settings page (2026-10-13)
 	Tabs      []ViewTab         // the tab bar: a view of one cluster each, with its own state (2026-10-13)
 	ActiveTab string            // the shown tab; View, Namespace, Filter, Selected, Drawer are its
+	Welcome   bool              // the workspace shows the welcome page; derived (2026-10-13)
 }
 ```
 
@@ -558,6 +559,30 @@ and changes the tabs only through the commands: a click selects, the × closes, 
 the preview tab pins; the keys are View menu items (§4.2). Each tab draws its cluster's initials
 badge as the navigator's root does, muted while that cluster is not connected; a cluster icon or
 colour (cluster identity) is to replace it in both places.
+
+**The welcome page is engine state** (built 2026-10-13, G5 and G13,
+[`engine/welcome.go`](../../internal/engine/welcome.go),
+[`commands/welcome.go`](../../internal/engine/commands/welcome.go)). `UIState.Welcome` says whether the
+workspace shows the welcome page. It is derived, never set by a command: `UIState.syncWelcome`,
+which `UpdateUI` runs after `syncTabs` (and `New` once), sets it while no cluster is connected and
+none is connecting (at start, after a disconnect, a failed connect or a connection Cogpit closed),
+and while a cluster is connected and no tab is active (`syncTabs` leaves no tab active only while
+no view is open: the last tab closed). While a connect runs it is off, so that switching to a tab of
+another cluster shows "Connecting to …" and not the page for a moment. `ui.welcome.open` (Help ›
+Welcome, `DangerUI`) shows it over a connected cluster by leaving the active tab: `ActiveTab`
+empty and the live view closed as closing the last tab closes it, the tab keeping the state
+`syncTabs` saved, so selecting it (`ui.tab.select`) brings its view, filter, selection and drawer
+back; opening a view ends the page as well. It also closes a settings page and the palette, and is
+refused while a connect runs. Agents read the flag with `ui_state` (`welcome`). Cogpit's defaults,
+inferred, not the owner's decision (Lens's welcome page is not captured).
+
+**Disconnect** (built 2026-10-13, G13, [`engine/disconnect.go`](../../internal/engine/disconnect.go),
+`cluster.disconnect`, `DangerUI`): `Session.Disconnect` cancels a connect under way, waits for the
+connect lock as a superseding connect does, detaches and closes the backend (the informers stop,
+the cluster's port forwards stop, as on switching clusters; no request is sent) and leaves the UI
+`Disconnected` without an error. `Context` keeps naming the cluster and its tabs stay, connecting
+again when selected; the workspace shows the welcome page; the cluster's connect log gets an INFO
+line. A connect started after the disconnect wins.
 
 **Panel widths are GUI-only** (decided 2026-10-12, [`panelwidths.go`](../../internal/ui/fyneui/panelwidths.go)):
 the width of the primary sidebar and of the detail drawer is a window-layout preference, not UI
@@ -1174,6 +1199,19 @@ origin but the GUI (`engine.ErrGUIOnly`, checked in each command's `run`), as `s
 a kubeconfig can name a program to run on the user's computer, so an agent must not be able to
 put one there or let one run. Agents may list the sources (`kubeconfig.sources`) and read a
 plugin's description (`kubeconfig.execPlugin`, `kubeconfig.pendingApprovals`, without its arguments).
+
+**A cluster's link, and removing it from Cogpit** (built 2026-10-13, G13,
+[`engine/contextlink.go`](../../internal/engine/contextlink.go), the commands in
+[`commands/clustermenu.go`](../../internal/engine/commands/clustermenu.go)). `cluster.links` (a read,
+every origin) tells for each context its source, its file, every context that file defines, and
+whether `cluster.remove` can unlink it; `cluster.remove` (GUI only, `ErrGUIOnly` in its `run`, as
+`kubeconfig.remove`) removes the source of a file the user added, as `kubeconfig.remove` does: every
+context of the file goes, its approvals are forgotten, a connection made from it closes, and the
+file stays on disk. Refused, with the reason in `Enabled`, for a context of a sync folder (the
+default `~/.kube` included: the link is the folder's, and unlinking it would take every cluster in
+it), of a file named for this run (it comes back at the next start) and for the demo cluster.
+Cogpit's rule, inferred, not the owner's decision (Lens's is not captured). The window asks first,
+naming the path and every context that leaves (`TestClusterRemove`).
 
 **Pasting is not a target** ([D-21](decisions.md#d-21-pasting-a-kubeconfig), owner, 2026-10-12): the
 paste command, dialog and owner-only store built earlier the same day were removed. A build that
@@ -2226,6 +2264,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | §4.3 the welcome page as engine state (`UIState.Welcome`, derived by `syncWelcome`, `ui.welcome.open`) and Disconnect (`cluster.disconnect`); §6 a cluster's link and Remove from Cogpit (`cluster.links`, `cluster.remove`, GUI only) (G5, G13, night run) |
 | 2026-10-13 | minor | §4.4: a jump to a time in a logs tab, read by the engine, searched in the held lines first; Current state |
 | 2026-10-13 | minor | §4.4: older lines of a logs tab, engine state carried out by the window, asked as a longer tail and put on top without repeating a line |
 | 2026-10-13 | minor | §4.4: a logs tab's source (pod and container selectors), narrowed in the merged stream without opening the streams that stay; every stream carries the server's timestamps; Current state |

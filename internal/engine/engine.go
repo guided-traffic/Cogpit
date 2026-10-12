@@ -162,6 +162,7 @@ func New(opts Options) *Session {
 			Sort:       SortSpec{Column: "name"},
 		},
 	}
+	s.ui.syncWelcome() // not connected: the welcome page (welcome.go)
 	s.state = newState(s)
 	opts.Drains.attach(s) // nil-safe
 	opts.Helm.attach(s)   // nil-safe
@@ -323,15 +324,16 @@ func (s *Session) UIState() UIState {
 	return s.ui.Clone()
 }
 
-// UpdateUI changes the UI state with fn, keeps the tabs in step with it (UIState.syncTabs), bumps
-// its revision, lets the views follow the change (acquire and release cache handles, rebuild
-// snapshots) and emits EventUIState. Commands call it; the GUI never does directly. It returns the
+// UpdateUI changes the UI state with fn, keeps the tabs and the welcome page in step with it
+// (UIState.syncTabs, syncWelcome), bumps its revision, lets the views follow the change (acquire
+// and release cache handles, rebuild snapshots) and emits EventUIState. Commands call it; the GUI never does directly. It returns the
 // new state.
 func (s *Session) UpdateUI(fn func(*UIState)) UIState {
 	s.mu.Lock()
 	old := s.ui.Clone()
 	fn(&s.ui)
 	s.ui.syncTabs(old, s.viewTitle) // the active tab follows the view, whoever changed it (tabs.go)
+	s.ui.syncWelcome()              // the welcome page shows while the workspace has nothing else (welcome.go)
 	s.ui.Revision = old.Revision + 1
 	now := s.ui.Clone()
 	s.mu.Unlock()
