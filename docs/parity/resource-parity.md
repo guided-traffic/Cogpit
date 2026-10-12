@@ -17,11 +17,11 @@ All views and actions on this page are in Lens Desktop's free plan, except the s
 (2026-10-11) made the first rows partial. **Command ids** are Cogpit's, following [conventions](../developer/conventions.md#style);
 they become the registry ids and, with underscores, the MCP tool names.
 
-**Summary (measured, 2026-10-13, after the fourth implementation run and the night run, counted by `make parity`):** 56 of 64 resource views
-exist (was 27 after the second run): one done (the custom resource views) and 54 partial, ten of them the Gateway API
+**Summary (measured, 2026-10-13, after the fourth implementation run and the night run, counted by `make parity`):** 62 of 64 resource views
+exist (was 27 after the second run): one done (the custom resource views) and 61 partial, ten of them the Gateway API
 views, which show as generic custom resource views until their columns are captured. Missing: the
-cluster Overview, Applications, Vertical Pod Autoscalers, the four Device Resources views and Pod
-Security Policies (Helm Charts partial since 2026-10-13). 37 of 39 actions exist (was 29; the seven create dialogs,
+cluster Overview and Pod Security Policies (Helm Charts, Applications, Vertical Pod Autoscalers and
+the four Device Resources views partial since 2026-10-13). 37 of 39 actions exist (was 29; the seven create dialogs,
 2026-10-12, and Helm install, 2026-10-13), all partial; missing: the node shell and the Secret create dialog. Partial views lack the metrics columns, and most of
 their texts and rules are inferred, not checked against a running Lens; the actions are limited
 as noted. Counted from the rows below (the two Gateway API rows hold seven and three views; Share

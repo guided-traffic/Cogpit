@@ -228,7 +228,7 @@ func HelmChartObject(c HelmChart, uid, resourceVersion string) *unstructured.Uns
 	obj := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": model.LocalGroup + "/v1",
 		"kind":       "HelmChart",
-		"spec":       spec,
+		fieldSpec:    spec,
 	}}
 	obj.SetName(HelmChartName(c.Repository, c.Name))
 	obj.SetUID(types.UID(uid))

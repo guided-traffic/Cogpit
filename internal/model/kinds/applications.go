@@ -50,7 +50,6 @@ const (
 	kindCronJob     = "CronJob"
 	kindJob         = "Job"
 	titleName       = "Name"
-	titleVersion    = "Version"
 	fieldLabels     = "labels"
 )
 
@@ -344,7 +343,7 @@ func (g *appGroup) object() *unstructured.Unstructured {
 		"apiVersion": model.LocalGroup + "/v1",
 		"kind":       "Application",
 		"metadata":   meta,
-		"spec": map[string]any{
+		fieldSpec: map[string]any{
 			"names": anyStrings(g.names), "partOf": anyStrings(g.partOf), "components": anyStrings(g.components),
 			idManagedBy: anyStrings(g.managedBy), "versions": anyStrings(g.versions), idWorkloads: workloads,
 		},

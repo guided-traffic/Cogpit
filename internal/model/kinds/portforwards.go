@@ -111,7 +111,7 @@ func portForwardCells(obj *unstructured.Unstructured) ([]model.Cell, model.Statu
 // forwardLocalPort is the port a forward listens on, else the one asked for, else "-": a free
 // port is picked when it starts.
 func forwardLocalPort(obj any) model.Cell {
-	for _, f := range [][]string{{"status", idLocalPort}, {"spec", idLocalPort}} {
+	for _, f := range [][]string{{"status", idLocalPort}, {fieldSpec, idLocalPort}} {
 		if n, ok := model.NestedInt64(obj, f...); ok && n > 0 {
 			return model.Cell{Text: itoa(n), Num: n}
 		}

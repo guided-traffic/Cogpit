@@ -36,6 +36,9 @@ const (
 // keyNamespaces is the kind key namespace cells link to.
 const keyNamespaces = "namespaces"
 
+// fieldSpec is the object's spec, where the local and virtual kinds keep their fields too.
+const fieldSpec = "spec"
+
 // Column ids, titles and searchable field names several kinds share.
 const (
 	idKind       = "kind"

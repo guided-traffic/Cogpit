@@ -242,10 +242,11 @@ Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never a
 registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 107 commands</summary>
+<summary>All 108 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
+| `application.logs` | `application_logs` | read | `ref` | Opens the logs of an application (applications view): a workload_logs dock tab for each of its Deployments, Stateful Sets, Daemon Sets and Jobs, at most 8, each following every container of the workload's pods |
 | `cluster.connect` | `cluster_connect` | ui | `context` | Connects to a kubeconfig context (or the demo cluster) and opens its Pods view, replacing the current connection |
 | `cluster.connectLog` | `cluster_connectLog` | read | `context` | Returns the log of the last attempt to connect to a context this session (and of a connection Cogpit closed because its kubeconfig file went away): lines with a time, a level (INFO or ERROR) and a text |
 | `cluster.contexts` | `cluster_contexts` | read |  | Lists the kubeconfig contexts Cogpit can connect to (name, cluster, user, default namespace, server, whether it is the kubeconfig's current context) and the synthetic demo cluster if offered |
