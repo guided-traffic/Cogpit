@@ -47,7 +47,7 @@ cogpit/
 ├─ .github/                   CI workflows (build, release, renovate), renovate.json, the coverage badge
 ├─ .releaserc.json            semantic-release config; package.json pins its npm tooling (CI only)
 ├─ cmd/cogpit/                desktop app (Fyne, cgo)
-├─ cmd/cogpit-cli/            headless CLI and MCP stdio bridge (pure Go)
+├─ cmd/cogpit-cli/            headless CLI: contexts, get, the MCP stdio bridge (pure Go)
 ├─ internal/                  packages, layered L0–L4 (architecture.md §2–§3)
 ├─ hack/kind/                 kind cluster config, seed manifests (make kind-up), Prometheus values (make kind-prometheus)
 ├─ hack/icon/                 generator of the app icon (make icon; internal/ui/logo draws it)
@@ -75,6 +75,7 @@ cogpit/
 | `internal/demo` | L2 | The synthetic demo cluster behind a `cache.Source`, and its synthetic Metrics Server (a `metrics.Provider`: demo and metrics are both L2, so the import is allowed) |
 | `internal/engine`, `internal/engine/commands` | L3 | Session, command registry, UI state, snapshots, drawer, streams, confirmation, audit log; the commands one file per area |
 | `internal/mcp` | L4 | MCP server over the registry |
+| `internal/app` | L4 | The wiring both binaries share (2026-10-13): Cogpit's directories, the kubeconfig sources (so the app and `cogpit-cli` offer the same contexts and honour the same plugin approvals), the audit log |
 | `internal/agent` | L4 | Built-in agent with an OpenAI-compatible endpoint (not built) |
 | `internal/update` | L4 | Update check, verification and install (not built) |
 | `internal/ui/fyneui` | L4 | The Fyne shell; `yamlview` the YAML viewer and editor, `termview` the terminal and log widgets |

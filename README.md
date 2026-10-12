@@ -69,7 +69,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | What | Pattern | Example |
 |---|---|---|
 | Go module | `github.com/guided-traffic/cogpit` | |
-| Binaries | `cogpit` (desktop app), `cogpit-cli` (headless CLI and MCP stdio bridge; a stub today) | |
+| Binaries | `cogpit` (desktop app), `cogpit-cli` (headless CLI and MCP stdio bridge) | |
 | App bundle | `Cogpit.app`, bundle id `io.guided-traffic.cogpit` | `bin/Cogpit.app` # example |
 | Packages | `internal/<area>` | `internal/cache` # example |
 | Command ids | `<kind-or-area>.<action>`, lowerCamelCase segments | `deployment.restart`, `ui.navigate` |
@@ -184,6 +184,26 @@ rm -rf ~/Library/Caches/Cogpit "~/Library/Application Support/Cogpit"   # logs, 
 Security note on `--mcp-addr`: the server checks `Host`, `Origin` and the bearer token, and binds
 loopback addresses only, because any reachable listener would let others drive Cogpit with your
 cluster identities.
+
+### `cogpit-cli`
+
+The headless command-line tool (pure Go, no window). It offers the same contexts as the app, from
+the same kubeconfig sources (`~/.kube`, the files `--kubeconfig` or `$KUBECONFIG` names, the files
+and sync folders added in Cogpit), and runs a context's credential plugin only once you allowed it
+in Cogpit's window; it never asks itself and never writes Cogpit's sources or approvals. Exit
+codes: `0` done, `1` the command failed, `2` the command line is wrong. `cogpit-cli <command>
+--help` prints a command's flags.
+
+| Command | Flags | What it does |
+|---|---|---|
+| `cogpit-cli contexts` | `--kubeconfig <files>` (empty: the files `$KUBECONFIG` lists # default), `-o table` # default (`json`, `yaml`), `-v` (`false` # default) | lists every context as `<context> [<file>]`, with its namespace, server and whether its login (a credential plugin, or a token file outside its folder) is `approved`, `required` or `changed`; `json` and `yaml` are the `cluster_contexts` tool's result; reads the kubeconfig files only |
+| `cogpit-cli version` | – | prints the version, the Go version and the platform (`--version` too) |
+
+Security note on `contexts`: context names, file names and every other text from a kubeconfig or a
+cluster are escaped before they reach your terminal (`\u001b` for an escape character), since
+anyone who can drop a file into a sync folder chooses them. Without a configuration directory
+(no `$HOME`) the CLI refuses to connect rather than merging the files as kubectl does, which
+would run their plugins unasked.
 
 ### Commands and MCP tools
 

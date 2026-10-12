@@ -20,6 +20,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 
+	"github.com/guided-traffic/cogpit/internal/app"
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/demo"
 	"github.com/guided-traffic/cogpit/internal/engine"
@@ -161,19 +162,14 @@ func newLogger(verbose bool) *slog.Logger {
 }
 
 // openAuditLog opens <user config dir>/Cogpit/audit.log, owner-only, for agent-initiated
-// commands (D-2).
+// commands (D-2; app.Dirs.OpenAuditLog, shared with cogpit-cli).
 func openAuditLog(logger *slog.Logger) (io.Writer, func()) {
-	dir, err := os.UserConfigDir()
+	dirs, err := app.UserDirs()
 	if err != nil {
 		logger.Warn("audit log disabled", "err", err)
 		return nil, func() {}
 	}
-	dir = filepath.Join(dir, "Cogpit")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		logger.Warn("audit log disabled", "err", err)
-		return nil, func() {}
-	}
-	f, err := os.OpenFile(filepath.Join(dir, "audit.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	f, err := dirs.OpenAuditLog()
 	if err != nil {
 		logger.Warn("audit log disabled", "err", err)
 		return nil, func() {}
@@ -226,18 +222,15 @@ func openHotbar(logger *slog.Logger) *engine.Hotbar {
 // in Lens, removable like any other. The files named for this run (named: --kubeconfig, else
 // $KUBECONFIG) are sources of their own, removable for the session. Cogpit reads these files,
 // never writes them, and a credential plugin of any of them needs the user's approval
-// (trust-boundaries H-1). Without a home directory there is no default folder.
+// (trust-boundaries H-1). Without a home directory there is no default folder. cogpit-cli builds
+// the same sources (app.Dirs.KubeconfigSources).
 func openKubeconfigSources(logger *slog.Logger, named []string) *engine.KubeconfigSources {
-	dir, err := os.UserConfigDir()
+	dirs, err := app.UserDirs()
 	if err != nil {
 		logger.Warn("kubeconfig sources disabled; the kubeconfig files are merged as kubectl does", "err", err)
 		return nil
 	}
-	opts := []engine.SourcesOption{engine.WithSessionFiles(named)}
-	if home, err := os.UserHomeDir(); err == nil {
-		opts = append(opts, engine.WithDefaultFolder(filepath.Join(home, ".kube")))
-	}
-	return engine.NewKubeconfigSources(filepath.Join(dir, "Cogpit"), opts...)
+	return dirs.KubeconfigSources(named)
 }
 
 // startCPUProfile records a CPU profile for d (or until stop is called) into path; for the gate

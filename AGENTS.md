@@ -39,10 +39,11 @@ this file, come from [PhotoCraft](https://github.com/storytold/photocraft)
 ## 2. Package map
 
 ```text
-cmd/cogpit, cmd/cogpit-cli    L5 desktop app (Fyne, cgo); headless CLI and MCP stdio bridge (pure Go)
+cmd/cogpit, cmd/cogpit-cli    L5 desktop app (Fyne, cgo); headless CLI (contexts, get) and MCP stdio bridge (pure Go)
 internal/ui/fyneui            L4 the Fyne shell; the only package that imports Fyne
 internal/ui/logo              L4 the logo, rasterised for the app icon and the header (pure Go)
 internal/mcp agent update     L4 MCP server; built-in agent; update check and install
+internal/app                  L4 the wiring both binaries share: Cogpit's directories, kubeconfig sources, audit log
 internal/engine               L3 Session, command registry, UI state, jobs, events, confirmation, audit log
 internal/helm metrics demo    L2 Helm SDK; metrics providers (not built yet); the synthetic demo cluster
 internal/cluster cache        L1 connections and auth; shared informers (the cache)

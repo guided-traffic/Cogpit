@@ -44,7 +44,9 @@ CI runs on every push ([releasing › CI](releasing.md#ci)). The MVP doubled as 
 | [`cmd/cogpit`](../../cmd/cogpit/) | Built: wires the packages, the drain journal (`<user config dir>/Cogpit/drains.json`) and the Helm journal (`helm.json`); the kubeconfig sources (`kubeconfigs.json`, `kubeconfigs/`, `exec-approvals.json`, fourth run) and their watcher; flags `--kubeconfig`, `--context`, `--demo`, `--mcp-addr`, `--no-mcp`, `--perf`, `--theme`; fifth run (2026-10-12): crash reports (`runtime/debug.SetCrashOutput` into `crash.log`, moved to `crashes/` at the next start and named in a toast, [`crash.go`](../../cmd/cogpit/crash.go), [D-11](decisions.md#d-11-crash-stance)), the external MCP server switched from the status bar and remembered (Fyne preference `mcp.enabled`, `--no-mcp` wins, [`mcpcontrol.go`](../../cmd/cogpit/mcpcontrol.go)) | client-go goroutine panics are logged instead of ending the app |
 | [`internal/helm`](../../internal/helm/) (L2) | Built in the third run: release payloads decoded (bounded, fuzzed), the Releases profile as a virtual kind over the `owner=helm` Secrets with a bounded memo, rollback and uninstall through the Helm SDK on the connection's own client configuration; fourth run (2026-10-12): Lens's release drawer (Properties, values and notes as private items, resources by kind), the upgrade with the release's own chart, values read from the cached Secret (`ReleaseValues`), values scrubbed from errors and the SDK's log (`ScrubValues`, `RedactSDKLog`) | Install, repositories and charts not built, so an upgrade installs the release's own chart version only; no action can be cancelled: rollback and uninstall take no context, and the upgrade's context is not passed on (§8) |
 | [`internal/metrics`](../../internal/metrics/) (L2) | Built 2026-10-12 (G12): the Metrics Server provider and its detection, the hub that polls while subscribed; Prometheus through the API server's service proxy, found among the cached Services by name, range queries per chart range, the chain Prometheus then Metrics Server; checked against a real Prometheus on kind ([§9](#9-metrics-internalmetrics)) | Prometheus is found by name only (H-26); its override (namespace, service, port, prefix) has no settings page yet; the owner's evening requirements (a status line per provider, history from Prometheus then live values from the Metrics Server) are not built |
-| `cmd/cogpit-cli`, `internal/agent`, `internal/update` | Not built (`cogpit-cli` is a stub) | – |
+| [`cmd/cogpit-cli`](../../cmd/cogpit-cli/) | Built 2026-10-13 (milestone 0.1, G2): a headless engine (no confirmer, no journals, no hotbar) over the same kubeconfig sources and credential plugin approvals as the app (`internal/app`), commands dispatched with origin CLI; `contexts` (`cluster.contexts`: table, JSON or YAML; context names and other untrusted text escaped for the terminal), `version`, `--help` per command, exit codes 0 (done), 1 (failed), 2 (usage) | Without a configuration directory it refuses to connect, where the app merges the kubeconfig files as kubectl does and so runs their plugins unasked (Cogpit's default, not the owner's decision) |
+| [`internal/app`](../../internal/app/) (L4, new) | Built 2026-10-13: the wiring both binaries share: `UserDirs`, `Dirs.KubeconfigSources`, `Dirs.OpenAuditLog`; `cmd/cogpit` calls it from `openKubeconfigSources` and `openAuditLog` | A package the plan did not list |
+| `internal/agent`, `internal/update` | Not built | – |
 
 Layering is enforced by `depguard` in `make lint`, as planned in §3, with the demo package in L2.
 
@@ -158,6 +160,7 @@ cogpit/
 │  ├─ mcp/            L4  MCP server over the registry (Streamable HTTP on loopback, stdio bridge)
 │  ├─ agent/          L4  built-in agent: OpenAI-compatible client, tool loop over the registry
 │  ├─ update/         L4  update check, download, verification, install
+│  ├─ app/            L4  wiring both binaries share: directories, kubeconfig sources, audit log (added 2026-10-13)
 │  ├─ ui/fyneui/      L4  the Fyne shell; the only package that imports Fyne
 │  ├─ ui/logo/        L4  the C helm logo, rasterised for the app icon and the header (no Fyne)
 │  └─ testkit/        –   fixtures, fake clients, kind and envtest helpers
@@ -176,7 +179,7 @@ MCP stdio bridge, so neither needs a display.
 
 ```text
  L5  cmd/*
- L4  ui/fyneui · mcp · agent · update
+ L4  ui/fyneui · mcp · agent · update · app
  L3  engine
  L2  helm · metrics
  L1  cluster · cache · terminal
@@ -192,6 +195,11 @@ Rules, enforced by golangci-lint's `depguard` in `make lint` (milestone M0):
 4. **Only `cluster`, `cache`, `terminal`, `helm` and `metrics` talk to the API server.** The engine
    and everything above it reach clusters only through them.
 5. A new package gets its layer and its `depguard` rule in the same change.
+
+`internal/app` (L4, added 2026-10-13) is the wiring `cmd/cogpit` and `cmd/cogpit-cli` share:
+Cogpit's directories (`app.UserDirs`), the kubeconfig sources a process offers
+(`Dirs.KubeconfigSources`: `~/.kube`, the files named for the run, the sources the user added) and
+the audit log. Its `depguard` rule (`l4-app`) keeps it off the other L4 packages and off client-go.
 
 ---
 

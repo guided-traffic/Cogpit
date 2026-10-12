@@ -44,7 +44,7 @@ linters:
     # Layering (docs/developer/architecture.md §3). A package imports only lower layers; only
     # internal/ui/... imports Fyne; model and kubeconfig do no I/O; only cluster, cache, terminal,
     # helm and metrics talk to the API server.
-    #   L5 cmd/*  ·  L4 ui/fyneui, mcp, agent, update  ·  L3 engine  ·  L2 helm, metrics, demo
+    #   L5 cmd/*  ·  L4 ui/fyneui, mcp, agent, update, app  ·  L3 engine  ·  L2 helm, metrics, demo
     #   L1 cluster, cache, terminal  ·  L0 model, kubeconfig
     depguard:
       rules:
@@ -229,6 +229,8 @@ linters:
               desc: "L4 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/update"
               desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/app"
+              desc: "L4 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
               desc: "the UI reads only engine state"
             - pkg: "github.com/guided-traffic/cogpit/internal/cache"
@@ -247,6 +249,8 @@ linters:
               desc: "L4 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/update"
               desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/app"
+              desc: "L4 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
               desc: "MCP tools dispatch engine commands only"
             - pkg: "github.com/guided-traffic/cogpit/internal/cache"
@@ -257,6 +261,20 @@ linters:
               desc: "MCP tools dispatch engine commands only"
             - pkg: "k8s.io/client-go"
               desc: "MCP tools never talk to the API server"
+        l4-app:
+          files:
+            - "**/internal/app/**"
+          deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/ui"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/mcp"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/agent"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/update"
+              desc: "L4 packages do not import each other"
+            - pkg: "k8s.io/client-go"
+              desc: "the shared wiring never talks to the API server"
         no-testkit-in-product:
           files:
             - "**/internal/**/*.go"
