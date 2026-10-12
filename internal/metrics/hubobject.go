@@ -315,6 +315,8 @@ func (h *Hub) addLiveLocked(ch *chart, sc Scope, ds *dataSet, gapAfter time.Dura
 		if nu, ok := ds.nodes[sc.Name]; ok {
 			return h.addNodeLocked(ch, nu, gapAfter)
 		}
+	case KindCluster:
+		return h.addClusterLocked(ch, sc, ds, gapAfter)
 	}
 	return false
 }
@@ -335,6 +337,9 @@ func (h *Hub) chartCurrentLocked(ch *chart, sc Scope, now time.Time) *dataSet {
 }
 
 func hasObject(ds *dataSet, sc Scope) bool {
+	if sc.Kind == KindCluster {
+		return len(ds.nodes) > 0
+	}
 	if sc.Kind == KindNodes {
 		_, ok := ds.nodes[sc.Name]
 		return ok

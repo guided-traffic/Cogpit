@@ -101,6 +101,35 @@ func TestClusterOverviewCommands(t *testing.T) {
 		t.Fatalf("csv of the Issues %+v", csv)
 	}
 
+	// The charts' range and node group: UI state, set by the page's controls and by agents.
+	h.must(t, agent, "ui.setOverviewRange", map[string]any{"range": "7d"}, nil)
+	h.must(t, agent, "ui.setOverviewNodes", map[string]any{"nodes": "master"}, nil)
+	for _, bad := range []struct {
+		id     string
+		params map[string]any
+	}{
+		{"ui.setOverviewRange", map[string]any{"range": "90d"}}, {"ui.setOverviewRange", map[string]any{"range": "soon"}},
+		{"ui.setOverviewNodes", map[string]any{"nodes": "gpu"}},
+	} {
+		if err := h.run(t, agent, bad.id, bad.params, nil); err == nil {
+			t.Errorf("%s %v was taken", bad.id, bad.params)
+		}
+	}
+	h.must(t, agent, "ui.state", nil, &st)
+	if st.Overview != (engine.OverviewChoice{Range: "7d", Nodes: engine.NodesMaster}) {
+		t.Fatalf("ui.state's overview %+v", st.Overview)
+	}
+	m = engine.ClusterOverviewModel{}
+	h.must(t, agent, "cluster.overview", map[string]any{"noIssues": true}, &m)
+	if m.Range != "7d" || m.Nodes != engine.NodesMaster || len(m.Issues) != 0 || len(m.Charts) != 3 {
+		t.Fatalf("cluster.overview after the choice: %+v", m)
+	}
+	h.must(t, agent, "ui.setOverviewRange", map[string]any{"range": "default"}, nil)
+	h.must(t, agent, "ui.setOverviewNodes", nil, nil)
+	if o := s.UIState().Overview; o != (engine.OverviewChoice{}) {
+		t.Fatalf("back to the defaults: %+v", o)
+	}
+
 	h.must(t, agent, "ui.openView", map[string]any{"view": "pods"}, nil)
 	if err := h.run(t, agent, "ui.select", map[string]any{"refs": []model.ObjectRef{node}}, nil); err == nil {
 		t.Fatal("the Pods view selected a node")

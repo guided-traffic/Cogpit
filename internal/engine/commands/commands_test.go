@@ -100,11 +100,12 @@ var wantCommands = map[string]engine.Danger{
 	"object.copyName":     engine.DangerUI,
 
 	// Tables and pages (G5).
-	"ui.setColumns":      engine.DangerUI,
-	"ui.setGroups":       engine.DangerUI,
-	"table.exportCsv":    engine.DangerRead,
-	"workloads.overview": engine.DangerRead,
-	"cluster.overview":   engine.DangerRead,
+	"ui.setColumns":       engine.DangerUI,
+	"ui.setGroups":        engine.DangerUI,
+	"table.exportCsv":     engine.DangerRead,
+	"workloads.overview":  engine.DangerRead,
+	"cluster.overview":    engine.DangerRead,
+	"ui.setOverviewRange": engine.DangerUI, "ui.setOverviewNodes": engine.DangerUI,
 
 	// Kubeconfig sources (G2); the UI ones are GUI-only (TestKubeconfigCommandsAreGUIOnly).
 	"kubeconfig.sources": engine.DangerRead, "kubeconfig.addFile": engine.DangerUI, "kubeconfig.addFolder": engine.DangerUI,

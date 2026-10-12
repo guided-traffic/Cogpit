@@ -101,6 +101,9 @@ func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeri
 	if q.Step <= 0 || !q.To.After(q.From) {
 		return nil, fmt.Errorf("invalid range %s..%s step %s", q.From, q.To, q.Step)
 	}
+	if q.Kind == KindCluster {
+		return p.clusterRange(ctx, q) // promcluster.go
+	}
 	var plan rangePlan
 	switch q.Kind {
 	case KindPods:

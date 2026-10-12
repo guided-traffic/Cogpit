@@ -30,14 +30,15 @@ const (
 //	{pods, "web", ""}   the pods of one namespace
 //	{pods, "web", "a"}  one pod (a drawer)
 //	{nodes, "", ""}     every node; {nodes, "", "n1"} one node
+//	{cluster, "", "m1"} the cluster's totals, m1 its control-plane node (ClusterScope, hubcluster.go)
 type Scope struct {
 	Kind      Kind
 	Namespace string
 	Name      string
 }
 
-// IsList reports whether the scope is a list.
-func (s Scope) IsList() bool { return s.Name == "" }
+// IsList reports whether the scope is a list. The cluster's totals are one object, with a chart.
+func (s Scope) IsList() bool { return s.Name == "" && s.Kind != KindCluster }
 
 // Defaults of Options.
 const (
@@ -666,6 +667,8 @@ func (h *Hub) seedLocked(st *scopeState) {
 				h.addNodeLocked(st.chart, n, 0)
 			}
 		}
+	case KindCluster:
+		h.seedClusterLocked(st)
 	}
 }
 
@@ -1036,6 +1039,8 @@ func (h *Hub) instant(ctx context.Context, prov Provider, sc Scope) (ds *dataSet
 				ds.nodes[n.Name] = n
 			}
 		}
+	case KindCluster:
+		err = clusterInstant(ctx, prov, ds)
 	default:
 		err = fmt.Errorf("unknown scope kind %q", sc.Kind)
 	}

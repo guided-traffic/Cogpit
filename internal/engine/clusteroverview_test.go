@@ -47,7 +47,6 @@ func clusterOverviewSession(t *testing.T, src *testkit.MemorySource, hub func() 
 	return s
 }
 
-
 func stamp(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 
 // ovNode is a node with 4 cores and 8 GiB (3.8 cores and 7 GiB allocatable) and room for 110 pods,
@@ -298,5 +297,84 @@ func TestClusterOverviewSelectsAnyKind(t *testing.T) {
 	})
 	if u := s.UIState(); u.View != ClusterOverview {
 		t.Fatalf("the drawer moved the view to %s", u.View)
+	}
+}
+
+// nodesProvider is a Metrics Server that measures the fixture's nodes now.
+type nodesProvider struct{}
+
+func (nodesProvider) ID() string                         { return metrics.ServerID }
+func (nodesProvider) Label() string                      { return metrics.ServerLabel }
+func (nodesProvider) Capabilities() metrics.Capabilities { return metrics.Capabilities{} }
+func (nodesProvider) ListPods(context.Context, string) ([]model.PodUsage, error) {
+	return nil, nil
+}
+func (nodesProvider) GetPod(context.Context, string, string) (model.PodUsage, error) {
+	return model.PodUsage{}, metrics.ErrNoData
+}
+func (nodesProvider) ListNodes(context.Context) ([]model.NodeUsage, error) {
+	now := time.Now()
+	return []model.NodeUsage{
+		{Name: "master-1", Timestamp: now, Usage: model.Usage{CPUMilli: 400, MemoryBytes: 1 << 30}},
+		{Name: "worker-1", Timestamp: now, Usage: model.Usage{CPUMilli: 1200, MemoryBytes: 3 << 30}},
+		{Name: "worker-2", Timestamp: now, Usage: model.Usage{CPUMilli: 300, MemoryBytes: 1 << 30}},
+	}, nil
+}
+func (nodesProvider) GetNode(context.Context, string) (model.NodeUsage, error) {
+	return model.NodeUsage{}, metrics.ErrNoData
+}
+
+// TestClusterOverviewCharts: while the page is open the charts' CPU and Memory come from the hub's
+// cluster scope (the nodes' measurements summed per group), the Pods from the cache; the group and
+// range are the UI state's; closed, the hub polls nothing for the page and a read takes the current
+// values from one read of the nodes' metrics.
+func TestClusterOverviewCharts(t *testing.T) {
+	src := overviewFixture(time.Now())
+	var hub *metrics.Hub
+	s := clusterOverviewSession(t, src, func() *metrics.Hub {
+		hub = metrics.NewHub(metrics.Fixed(nodesProvider{}), metrics.Options{ObjectInterval: 20 * time.Millisecond, ListInterval: time.Hour, TTL: 10 * time.Millisecond})
+		return hub
+	})
+	s.UpdateUI(func(u *UIState) { u.View = "nodes" }) // no Pods view polling the pods' metrics
+	s.UpdateUI(func(u *UIState) { u.View = ClusterOverview })
+	var m *ClusterOverviewModel
+	waitFor(t, "the workers' CPU from the hub", func() bool {
+		var err error
+		if m, err = s.ClusterOverview(context.Background(), nil, true); err != nil {
+			t.Fatal(err)
+		}
+		return m.Status == metrics.StatusAvailable && m.Charts[0].Current != nil && len(m.Charts[0].Samples) >= 2
+	})
+	if m.Nodes != NodesWorker || *m.Charts[0].Current != 1.5 || *m.Charts[1].Current != 4<<30 || m.Source != metrics.ServerLabel || m.History {
+		t.Fatalf("workers: nodes %s, cpu %v, memory %v, source %q", m.Nodes, *m.Charts[0].Current, *m.Charts[1].Current, m.Source)
+	}
+	if pods := m.Charts[2]; pods.Current == nil || *pods.Current != 2 || len(pods.Samples) == 0 || pods.Allocatable != 220 {
+		t.Fatalf("workers' pods chart %+v", pods)
+	}
+	if len(m.Providers) != 1 || m.Providers[0].Status != metrics.StatusAvailable {
+		t.Fatalf("providers %+v", m.Providers)
+	}
+	cluster := metrics.ClusterScope([]string{"master-1"})
+	if n := hub.Subscribed(); n != 1 || hub.History(cluster) == nil {
+		t.Fatalf("%d scopes polled with the page open, want the cluster's", n)
+	}
+
+	// The masters, over six hours: the UI state's choice.
+	s.UpdateUI(func(u *UIState) { u.Overview = OverviewChoice{Nodes: NodesMaster, Range: "6h"} })
+	m, _ = s.ClusterOverview(context.Background(), nil, false)
+	if m.Nodes != NodesMaster || m.Range != "6h" || m.Window != 6*time.Hour || *m.Charts[0].Current != 0.4 || m.Charts[0].Allocatable != 3.8 ||
+		*m.Charts[0].Requests != 0.1 || len(m.Charts[0].Samples) != 0 {
+		t.Fatalf("masters: %+v", m.Charts[0])
+	}
+
+	// Closed: nothing polled for it; a read asks the nodes' metrics once.
+	s.UpdateUI(func(u *UIState) { u.View, u.Overview = "nodes", OverviewChoice{} })
+	waitFor(t, "the cluster scope to be released", func() bool { return hub.History(cluster) == nil })
+	m, err := s.ClusterOverview(context.Background(), nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Status != metrics.StatusAvailable || m.Charts[0].Current == nil || *m.Charts[0].Current != 1.5 || len(m.Charts[0].Samples) != 0 || hub.History(cluster) != nil {
+		t.Fatalf("closed page: status %s, cpu %+v", m.Status, m.Charts[0])
 	}
 }

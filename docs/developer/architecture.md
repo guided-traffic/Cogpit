@@ -415,6 +415,7 @@ type UIState struct {
 	Dock      []DockTab         // terminal, logs, editor, chat tabs and the active one
 	Hotbar    *HotbarState      // the hotbar's banks and the shown one (2026-10-12)
 	Palette   bool              // the command palette is open (2026-10-13)
+	Overview  OverviewChoice    // the cluster Overview's chart range and node group (2026-10-13)
 }
 ```
 
@@ -427,14 +428,22 @@ snapshot applies both: its `Columns` carry `Hidden` as the view hides them, at t
 
 **Pages** (decided 2026-10-11, [`overview.go`](../../internal/engine/overview.go)): a view that is
 not one kind's list has a page key with a slash, `<sidebar group>/<page>`, which no kind key has.
-The first is `workloads/overview`, the Workloads Overview; the cluster's own Overview keeps the free
-key `overview`. `ui.openView` opens a page like a kind. While it is open the engine runs the page's
+The first is `workloads/overview`, the Workloads Overview; the cluster's own Overview is
+`cluster/overview` (built 2026-10-13: the plan's free key `overview` has no slash, so it would not be
+a page; "cluster" because the item sits at the top of the cluster's tree). `ui.openView` opens a page like a kind. While it is open the engine runs the page's
 worker in place of a view worker: it holds handles on the kinds the page reads (the seven workload
 kinds and the events), released when another view opens, and builds the page's model (each kind's
 count and status tokens, `workloads.overview`) and its table (the events, `Session.Table` under the
 page key). The table's rows keep their kind's key (`events`), so `ui.select`, row menus and the
 drawer work on them; `Session.ViewProfile` returns a page's table profile, so `ui.sort`,
 `ui.setColumns` and `table.exportCsv` work on a page as on a kind's view.
+The cluster Overview ([`clusteroverview.go`](../../internal/engine/clusteroverview.go), G12) runs a
+worker of its own (`state.cluster`) with handles on nodes, pods, events, Deployments, Stateful Sets
+and Daemon Sets (the kinds the user may list, as far as the access reviews know), and its table is
+the Issues: rows of several kinds (`engine.MixedKinds`), each row's `Ref` the object the issue is
+about, so `ui.select` there takes a row of any served kind and opens its drawer over the page, and
+row menus act on each row's own kind. Its charts' range and node group are `UIState.Overview`
+(`ui.setOverviewRange`, `ui.setOverviewNodes`), kept for the session whichever view is open.
 Agents read it with `ui_state`: this is how the built-in agent knows which object the user means
 by "this pod".
 
@@ -1873,6 +1882,38 @@ kind-kps-down`, which also removes the operator's CRDs and its kubelet Service i
 | Detection | `cogpit-kps/kps-kube-prometheus-stack-prometheus:http-web`, preferred to the `prometheus` chart's `prometheus-server`. Reading the chart's naming for this check found a gap, fixed: the chart cuts `<release>-kube-prometheus-stack` to 26 characters, so a release of up to five characters keeps `-stack` in the Service's name, which the name pattern had missed (`prometheus-operated`, score 90, would have been found instead) |
 | A pod's drawer | history at the 30 s scrape from the Prometheus's start, CPU, memory, network (rx 101 B/s, tx 142 B/s for nginx at rest), filesystem as read and write rates (containerd), the Metrics Server's live values after it, no step longer than 30 s |
 | A node's drawer | **no history from Prometheus**: the chart's default kubelet ServiceMonitor drops cAdvisor's series without a pod ("Drop cgroup metrics with no pod", `[id, pod]` matching `.+;`), and the root cgroup the node queries read is such a series. The node's chart has the Metrics Server's live values only (a reason for both providers together); node history on kube-prometheus-stack would need node-exporter's series, which Cogpit does not query (node-exporter's labels name its own address, not the node) |
+
+**Built 2026-10-13 (G12, M7): the cluster's totals for the cluster Overview**
+([`hubcluster.go`](../../internal/metrics/hubcluster.go), [`promcluster.go`](../../internal/metrics/promcluster.go),
+[`engine/clusteroverview_charts.go`](../../internal/engine/clusteroverview_charts.go)). A third scope
+kind, `KindCluster`, whose object is the cluster: the sum over its nodes. It is polled as a drawer's
+object is, through the same loop, roles and fallback (no second polling path): `IsList` is false for
+it, so `Subscribe` gives it a chart and `pollObject` plans its history and live values.
+
+| What | Where | How |
+|---|---|---|
+| The scope | `metrics.ClusterScope(masters)` | `Scope{Kind: cluster, Name: "m1,m2"}`: the control-plane nodes, sorted and joined (node names have no comma). Which nodes are masters is the cache's to know (the Nodes view's roles: `control-plane` or `master`), so the engine names them, and another control plane is another scope with a history of its own |
+| The chart's targets | `TargetMaster`, `TargetWorker` | `""` every node, `master` the named nodes, `worker` every other node |
+| Live values | `clusterInstant`, `addClusterLocked` | one `list nodes.metrics.k8s.io` per poll (15 s, the object interval), summed per target at the newest measurement's time; a part is missing from a sum only when every node lacks it; a target without a node (no masters) gets no point. A fresh Nodes-list result seeds the chart (`seedClusterLocked`) |
+| History | `Prometheus.clusterRange` | the sums over the nodes' root cgroups, the series the node charts read, so the history and the Metrics Server's node usage mean the same: `sum(rate(container_cpu_usage_seconds_total{id="/"}[R]))` and `sum(container_memory_working_set_bytes{id="/"})` for every node, the same with `node=~"(m1\|m2)"` or else `instance=~"(m1\|m2)(:[0-9]+)?"` for the masters (names through `regexp.QuoteMeta` and `quoteLabel`); the workers are every node less the masters at the times both have a point, so no query names the workers and a cluster of thousands of nodes sends a short query. Four range queries with masters, two without; the network and the filesystem do not exist for the cluster (asked for alone, nothing is sent) |
+| The fallback | `pollObject` | unchanged: a Metrics Server that fails hands the live values to Prometheus in the same poll (the range query carries the masters in its `Name`), Prometheus gone leaves the live sums |
+
+The engine subscribes the scope only while the page is open (`overviewCharts.follow`, once the nodes
+are listed), sets its window to the page's range (`SetWindows`), and reads `Hub.History` for the
+chosen group's target. CPU and Memory's requests and limits are the sums over the pods that have not
+finished on the group's nodes (a limit counts where a container sets one, as kubectl's "Allocated
+resources" does; Cogpit's, inferred), allocatable and capacity the nodes' sums, all from the cache.
+**The Pods chart comes from the cache**: the pods that have not finished on the group's nodes,
+against the nodes' `allocatable.pods` and `capacity.pods`, a point per poll or per 15 s and whenever
+the count changes, kept while the page is open (the longest range, at most a day of points): no
+history from before the page opened (Prometheus's pod counts are not asked: Cogpit's default).
+`cluster.overview` without the page reads the current values from one `Hub.Fetch` of the nodes (a
+result younger than 15 s is served without a request) and starts no poll.
+
+*On kube-prometheus-stack* the cluster has no history, as a node has none there (its kubelet
+ServiceMonitor drops the root cgroup's series): the charts show the Metrics Server's live sums from
+the page's opening. A Prometheus that scrapes cAdvisor twice (two jobs) would count every node
+twice in the "every node" sum: not seen, not guarded.
 
 ## 10. Terminal (`internal/terminal`)
 

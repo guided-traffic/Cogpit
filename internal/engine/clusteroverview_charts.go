@@ -2,17 +2,21 @@ package engine
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
+	"github.com/guided-traffic/cogpit/internal/metrics"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // The cluster Overview's charts: CPU, Memory and Pods for the chosen node group, each with the
 // lines Lens's documentation lists (CPU and Memory: usage, requests, limits, allocatable capacity,
-// capacity; Pods: usage, allocatable capacity, capacity). The lines come from the cache; the usage
-// series of CPU and Memory from the metrics hub (the cluster scope), the Pods' usage from the
-// cache, a point per sample while the page is open.
+// capacity; Pods: usage, allocatable capacity, capacity). The lines come from the cache. The usage
+// of CPU and Memory comes from the metrics hub's cluster scope (metrics.ClusterScope), subscribed
+// while the page is open: Prometheus's history once for the range, then the Metrics Server's node
+// list summed, the same roles and fallback as a drawer's charts (architecture §9). The Pods' usage
+// comes from the cache: a point per sample while the page is open, no history before it opened.
 
 // The charts' metrics (OverviewChart.Metric).
 const (
@@ -46,15 +50,15 @@ type OverviewSample struct {
 	Value float64   `json:"value"`
 }
 
-// overviewSampleEvery is how often the open page samples its pods count (the Metrics Server's
-// resolution, as the drawer's polls); a test shortens it.
+// overviewSampleEvery is how often the open page samples its pods count without a metrics poll
+// (the Metrics Server's resolution, as the drawer's polls); a test shortens it.
 var overviewSampleEvery = 15 * time.Second
 
 // overviewMaxPoints bounds a pods series: a day of samples.
 const overviewMaxPoints = 5760
 
-// overviewCharts is the open page's chart data: the pods series of each node group, sampled from
-// the cache while the page is open.
+// overviewCharts is the open page's chart data: its subscription to the cluster's metrics, and the
+// pods series of each node group, sampled from the cache while the page is open.
 type overviewCharts struct {
 	s *Session
 	b *Backend
@@ -63,8 +67,10 @@ type overviewCharts struct {
 	choice OverviewChoice
 	last   *overviewBuild
 	pods   map[string][]OverviewSample // by node group
+	sub    *metrics.Subscription       // nil without a metrics hub
+	scope  metrics.Scope
+	closed bool
 	quit   chan struct{}
-	once   sync.Once
 }
 
 func newOverviewCharts(s *Session, b *Backend, choice OverviewChoice) *overviewCharts {
@@ -73,7 +79,8 @@ func newOverviewCharts(s *Session, b *Backend, choice OverviewChoice) *overviewC
 	return c
 }
 
-// sampleLoop records the pods count every overviewSampleEvery and tells the window.
+// sampleLoop records the pods count every overviewSampleEvery; without a metrics poll to announce
+// it, it tells the window itself.
 func (c *overviewCharts) sampleLoop() {
 	t := time.NewTicker(overviewSampleEvery)
 	defer t.Stop()
@@ -86,27 +93,55 @@ func (c *overviewCharts) sampleLoop() {
 			if c.last != nil {
 				c.sampleLocked(c.last, now)
 			}
+			polled := c.sub != nil
 			c.mu.Unlock()
-			c.s.emit(Event{Type: EventMetrics, View: ClusterOverview})
+			if !polled {
+				c.s.emit(Event{Type: EventMetrics, View: ClusterOverview})
+			}
 		}
 	}
 }
 
-func (c *overviewCharts) setChoice(choice OverviewChoice) {
+// polled follows a poll of the cluster's metrics: a pods point, and the window redraws.
+func (c *overviewCharts) polled() {
 	c.mu.Lock()
-	c.choice = choice
+	if c.last != nil && !c.closed {
+		c.sampleLocked(c.last, time.Now())
+	}
 	c.mu.Unlock()
 	c.s.emit(Event{Type: EventMetrics, View: ClusterOverview})
 }
 
-func (c *overviewCharts) release() {
-	c.once.Do(func() { close(c.quit) })
+// setChoice takes the user's range and node group: the history is asked for the new range.
+func (c *overviewCharts) setChoice(choice OverviewChoice) {
+	c.mu.Lock()
+	c.choice = choice
+	sub := c.sub
+	c.mu.Unlock()
+	sub.SetWindows(chartWindowOf(choice))
+	c.s.emit(Event{Type: EventMetrics, View: ClusterOverview})
 }
 
-// follow takes a new build: the pods series gets a point when the count changed.
+func (c *overviewCharts) release() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed {
+		return
+	}
+	c.closed = true
+	close(c.quit)
+	c.sub.Release()
+	c.sub = nil
+}
+
+// follow takes a new build: the pods series gets a point when the count changed, and the metrics
+// subscription follows the control plane (another set of masters is another scope).
 func (c *overviewCharts) follow(ob *overviewBuild) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.closed {
+		return
+	}
 	changed := c.last == nil
 	for _, g := range []string{NodesMaster, NodesWorker} {
 		if c.last != nil && c.last.groups[g].pods != ob.groups[g].pods {
@@ -117,6 +152,18 @@ func (c *overviewCharts) follow(ob *overviewBuild) {
 	if changed {
 		c.sampleLocked(ob, ob.at)
 	}
+	if c.b.Metrics == nil || !ob.synced && len(ob.masters) == 0 && ob.groups[NodesWorker].nodes == 0 {
+		return // no nodes known yet: subscribe once they are, not to a scope about to change
+	}
+	sc := metrics.ClusterScope(ob.masters)
+	if c.sub != nil && c.scope == sc {
+		return
+	}
+	old := c.sub
+	c.scope = sc
+	c.sub = c.b.Metrics.Subscribe(sc, c.polled)
+	c.sub.SetWindows(chartWindowOf(c.choice))
+	old.Release()
 }
 
 // sampleLocked adds a pods point per group at, bounded to the longest range and a day of samples.
@@ -139,19 +186,65 @@ func (c *overviewCharts) sampleLocked(ob *overviewBuild, at time.Time) {
 	}
 }
 
-// fill adds the charts of the open page to m: the lines, the current values, and with series the
-// samples within the range.
+// fill adds the charts of the open page to m: the lines, the metrics' state and providers, the
+// current values, and with series the samples within the range.
 func (c *overviewCharts) fill(m *ClusterOverviewModel, ob *overviewBuild, series bool) {
 	m.Charts = chartLines(ob.groups[m.Nodes])
 	c.mu.Lock()
 	pods := c.pods[m.Nodes]
+	sc, subscribed := c.scope, c.sub != nil
 	c.mu.Unlock()
+	from := time.Now().Add(-m.Window)
 	if n := len(pods); n > 0 {
 		last := pods[n-1]
 		v := last.Value
 		m.Charts[2].Current, m.Charts[2].At = &v, last.At
 		if series {
-			m.Charts[2].Samples = samplesWithin(pods, ob.at.Add(-m.Window))
+			m.Charts[2].Samples = samplesWithin(pods, from)
+		}
+	}
+	hub := c.b.Metrics
+	if hub == nil {
+		m.Status, m.Message = metrics.StatusNotServed, "this cluster has no metrics provider"
+		return
+	}
+	m.Providers = hub.Providers()
+	if !subscribed {
+		m.Status, m.Message = metrics.StatusUnknown, "the cluster's nodes are not listed yet"
+		return
+	}
+	st := hub.State(sc)
+	m.Status, m.Source, m.Message = st.Status, st.Label, st.Message
+	if st.Usable() {
+		m.Message = ""
+		m.History = hub.Capabilities().History
+	}
+	hist := hub.History(sc)
+	if hist == nil {
+		return
+	}
+	if !hist.To.IsZero() {
+		from = hist.To.Add(-m.Window)
+	}
+	target := metrics.TargetWorker
+	if m.Nodes == NodesMaster {
+		target = metrics.TargetMaster
+	}
+	ts := hist.Targets[target]
+	if ts == nil {
+		return
+	}
+	for i, metric := range []string{OverviewCPU, OverviewMemory} {
+		ch := &m.Charts[i]
+		for _, sm := range ts.Usage {
+			v, ok := usageValue(metric, sm.Usage)
+			if !ok {
+				continue // a part the provider had no value for: left out, not 0
+			}
+			ch.Current, ch.At = &v, sm.At
+			if series && !sm.At.Before(from) {
+				ch.Samples = append(ch.Samples, OverviewSample{At: sm.At, Value: v})
+			}
 		}
 	}
 }
@@ -161,12 +254,44 @@ func samplesWithin(pts []OverviewSample, from time.Time) []OverviewSample {
 	return tail(pts, from, func(p OverviewSample) time.Time { return p.At })
 }
 
-// currentCharts fills the charts of a model built without the page: the lines and the current pods
-// count from the cache.
-func currentCharts(_ context.Context, _ *Backend, m *ClusterOverviewModel, ob *overviewBuild) {
+// currentCharts fills the charts of a model built without the page: the lines and the pods count
+// from the cache, CPU and Memory from one read of the nodes' current values (a fresh one is served
+// without a request; else one list of the Metrics Server, or Prometheus's instant queries while it
+// fails). Nothing keeps polling.
+func currentCharts(ctx context.Context, b *Backend, m *ClusterOverviewModel, ob *overviewBuild) {
 	m.Charts = chartLines(ob.groups[m.Nodes])
 	v := float64(ob.groups[m.Nodes].pods)
 	m.Charts[2].Current, m.Charts[2].At = &v, ob.at
+	if b.Metrics == nil {
+		m.Status, m.Message = metrics.StatusNotServed, "this cluster has no metrics provider"
+		return
+	}
+	r := b.Metrics.Fetch(ctx, metrics.Scope{Kind: metrics.KindNodes})
+	m.Status, m.Source, m.Message, m.Providers = r.State.Status, r.State.Label, r.State.Message, b.Metrics.Providers()
+	if !r.State.Usable() {
+		return
+	}
+	m.Message = ""
+	var sum model.Usage
+	first := true
+	for _, n := range r.Nodes {
+		if slices.Contains(ob.masters, n.Name) != (m.Nodes == NodesMaster) {
+			continue
+		}
+		if first {
+			sum, first = n.Usage, false
+		} else {
+			sum = sum.Add(n.Usage)
+		}
+	}
+	if first {
+		return
+	}
+	for i, metric := range []string{OverviewCPU, OverviewMemory} {
+		if v, ok := usageValue(metric, sum); ok {
+			m.Charts[i].Current, m.Charts[i].At = &v, r.At
+		}
+	}
 }
 
 // chartLines are a node group's three charts with their lines from the cache.
@@ -188,7 +313,7 @@ func chartLines(t groupTotals) []OverviewChart {
 	}
 }
 
-// usageValue is a chart's value of a usage: cores or bytes.
+// usageValue is a chart's value of a usage: cores or bytes, and whether the provider measured it.
 func usageValue(metric string, u model.Usage) (float64, bool) {
 	if metric == OverviewCPU {
 		return float64(u.CPUMilli) / 1000, u.HasCPU()

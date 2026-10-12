@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/guided-traffic/cogpit/internal/cache"
+	"github.com/guided-traffic/cogpit/internal/metrics"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
@@ -81,6 +82,18 @@ type ClusterOverviewModel struct {
 	Window time.Duration `json:"-"`
 	// Charts are CPU, Memory and Pods for the node group, in that order.
 	Charts []OverviewChart `json:"charts"`
+	// Status is the state of the cluster's metrics, as a drawer's: "available", "notServed",
+	// "forbidden", "unavailable", or "unknown" before the first poll answered. Source names the
+	// providers the CPU and Memory numbers come from ("Prometheus (monitoring/prometheus-server) and
+	// Kubernetes Metrics Server"); Message says why there are none. History is true when a provider
+	// with history serves the charts (ranges beyond an hour).
+	Status  metrics.Status `json:"status"`
+	Source  string         `json:"source,omitempty"`
+	Message string         `json:"message,omitempty"`
+	History bool           `json:"history,omitempty"`
+	// Providers is the status line under the charts: each of the cluster's metrics providers, whether
+	// it answers, what it serves (as metrics.get and a drawer's status line have it).
+	Providers []metrics.ProviderStatus `json:"providers,omitempty"`
 	// Issues are what is wrong in the cluster now, in the selected namespaces (a cluster-scoped
 	// object's issue, a node's, is always listed), as the page's table lists them.
 	Issues []ClusterIssue `json:"issues"`
