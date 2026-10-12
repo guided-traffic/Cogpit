@@ -267,7 +267,9 @@ agents run freely: `object.apply` without `yaml` and `helm.release.upgrade` with
 tab's text revision (`textRevision`, required) and are refused with `ErrTargetsChanged` when the
 text changed since, as while the user's confirmation was open (review of the fourth run, R-2 and
 R-10: `TestHelmUpgradeTabBoundToTheReviewedText`, `TestApplyFromTabBoundToTheReviewedText`). A
-command can ask who dispatched it (`OriginOf`); `editor.get` uses that to redact Secrets for agents.
+command can ask who dispatched it (`OriginOf`); `editor.get` uses that to redact Secrets for agents, and
+`Spec.Refuse` refuses an origin before any confirmation (an agent's apply or create of a Secret, D-19), so the user is never
+asked for what the command refuses anyway.
 
 How menus use them ([`menu.go`](../../internal/engine/menu.go), 2026-10-11): `Registry.Actions(kind)`
 is a kind's drawer toolbar and, without the drawer-only commands, its row menu: the commands whose

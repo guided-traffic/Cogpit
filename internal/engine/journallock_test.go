@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"runtime"
 	"bufio"
 	"errors"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"

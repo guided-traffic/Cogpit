@@ -289,3 +289,38 @@ func TestSecretEditIsRefusedToAgentsAndTheCLI(t *testing.T) {
 		t.Errorf("%q in the audit log, the events or the log", l)
 	}
 }
+
+// An agent's apply of a Secret tab the user opened, and an agent's create of a Secret, are refused
+// before the user is asked: a confirmation for something the command then refuses would ask the
+// user for nothing (D-19).
+func TestSecretWritesFromAgentsRefusedBeforeAsking(t *testing.T) {
+	h := newSecretsHarness(t)
+	ref := model.ObjectRef{Context: "test", Kind: "secrets", Namespace: "apps", Name: "db"}
+	if _, err := h.s.Objects(context.Background(), "secrets", nil); err != nil {
+		t.Fatal(err)
+	}
+	asked := 0
+	h.s.SetConfirmer(engine.ConfirmFunc(func(context.Context, engine.ConfirmRequest) (bool, error) {
+		asked++
+		return true, nil
+	}))
+	res, err := h.dispatch(engine.OriginGUI, "object.edit", map[string]any{"ref": ref})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tab := res.(commands.EditResult)
+	agent := engine.OriginExternalAgent
+	if _, err := h.dispatch(agent, "object.apply", map[string]any{"id": tab.Tab.ID, "textRevision": tab.Revision}); !errors.Is(err, engine.ErrSecretGUIOnly) {
+		t.Errorf("an agent's apply of a Secret tab: %v", err)
+	}
+	secret := "apiVersion: v1\nkind: Secret\nmetadata:\n  name: agent-made\n  namespace: apps\nstringData:\n  password: kubectl-applied-s3cr3t\n"
+	if _, err := h.dispatch(agent, "object.create", map[string]any{"yaml": secret}); !errors.Is(err, engine.ErrSecretGUIOnly) {
+		t.Errorf("an agent's create of a Secret: %v", err)
+	}
+	if asked != 0 {
+		t.Errorf("the user was asked %d times for writes that are refused anyway", asked)
+	}
+	if l := leak(h.trail()); l != "" {
+		t.Errorf("%q in the audit log, the events or the log", l)
+	}
+}

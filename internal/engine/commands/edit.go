@@ -168,7 +168,10 @@ func registerEdit(g *registrar) {
 			"success returns the stored version, which becomes the tab's text. An agent's request waits for the user's acceptance. " +
 			"An edit that scales the object to zero replicas is destructive and is always confirmed, as Scale to zero is.",
 		Escalate: func(s *engine.Session, p applyParams) bool { return s.EditScalesToZero(p.ID, p.YAML) },
-		Enabled:  func(s *engine.Session, _ applyParams) error { _, err := writable(s); return err },
+		Refuse: func(ctx context.Context, s *engine.Session, p applyParams) error {
+			return s.GuardSecretEditor(ctx, p.ID, p.YAML) // a Secret: the GUI only (D-19), before asking
+		},
+		Enabled: func(s *engine.Session, _ applyParams) error { _, err := writable(s); return err },
 		Targets: func(s *engine.Session, p applyParams) ([]model.ObjectRef, error) {
 			st, err := editTabRef(s, p.ID)
 			if err != nil {
@@ -189,6 +192,9 @@ func registerEdit(g *registrar) {
 			"land in namespace, else in the namespace filter's single namespace, else in the context's default. Secrets are " +
 			"created by the user in Cogpit's window only: for an agent or the CLI each Secret in the text is refused (D-19). Returns one item per object. An agent's request waits for the user's acceptance.",
 		Enabled: func(s *engine.Session, _ createParams) error { _, err := writable(s); return err },
+		Refuse: func(ctx context.Context, _ *engine.Session, p createParams) error {
+			return engine.GuardSecretText(ctx, p.YAML) // a Secret: the GUI only (D-19), before asking
+		},
 		Targets: func(s *engine.Session, p createParams) ([]model.ObjectRef, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), lookupTimeout)
 			defer cancel()

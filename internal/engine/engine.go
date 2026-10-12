@@ -220,6 +220,12 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 	if err := s.safeCall(cmd.ID, func() error { return cmd.enabled(s, p) }); err != nil {
 		return nil, &DisabledError{Command: cmd.ID, Reason: err.Error()}
 	}
+	if cmd.refuse != nil { // before any confirmation: never ask the user for what is refused anyway
+		octx := context.WithValue(ctx, originKey{}, inv.Origin)
+		if err := s.safeCall(cmd.ID, func() error { return cmd.refuse(octx, s, p) }); err != nil {
+			return nil, fmt.Errorf("command %s: %w", cmd.ID, err)
+		}
+	}
 
 	s.mu.Lock()
 	uiContext := s.ui.Context

@@ -86,6 +86,10 @@ type Spec[P any] struct {
 	// Detail adds a sentence to the confirmation for parameters the objects don't show: the drain
 	// options that lose data. Nil adds nothing.
 	Detail func(s *Session, p P) string
+	// Refuse refuses the command for the origin that dispatched it (ctx carries it: OriginOf)
+	// before anyone is asked: a command whose Run would refuse that origin anyway (an agent's
+	// apply or create of a Secret, D-19) must not ask the user first. Nil refuses nothing.
+	Refuse func(ctx context.Context, s *Session, p P) error
 	// Review returns a text of the parameters the user reads in the confirmation before
 	// answering (ConfirmRequest.Review): an agent's Helm values. Nil, or "", shows none.
 	Review func(s *Session, p P) string
@@ -117,6 +121,7 @@ type Command struct {
 	prefill  func(s *Session, p any) (any, error)
 	detail   func(s *Session, p any) string
 	review   func(s *Session, p any) string
+	refuse   func(ctx context.Context, s *Session, p any) error
 	run      func(ctx context.Context, s *Session, p any) (any, error)
 }
 
@@ -283,6 +288,9 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 	}
 	if spec.Review != nil {
 		c.review = func(s *Session, p any) string { return spec.Review(s, p.(P)) }
+	}
+	if spec.Refuse != nil {
+		c.refuse = func(ctx context.Context, s *Session, p any) error { return spec.Refuse(ctx, s, p.(P)) }
 	}
 	c.run = func(ctx context.Context, s *Session, p any) (any, error) {
 		return spec.Run(ctx, s, p.(P))
