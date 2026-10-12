@@ -34,7 +34,7 @@ own. **Human** marks what an agent can't finish alone.
 | G10 | Port forwarding | features | blocks alpha | 2–6 h | [ui-parity](ui-parity.md#port-forwarding) |
 | G11 | Helm | features | blocks alpha | 12–30 h | [resource-parity](resource-parity.md#helm) |
 | G12 | Metrics and cluster overview | features | blocks beta | 40–80 h | [ui-parity](ui-parity.md#cluster-overview-and-charts) |
-| G13 | Clusters, hotbar, palette, menus, shortcuts and preferences | UI | partly alpha, rest beta | 65–165 h | [ui-parity](ui-parity.md#clusters) |
+| G13 | Clusters, hotbar, palette, menus, shortcuts and preferences | UI | partly alpha, rest beta | 50–140 h | [ui-parity](ui-parity.md#clusters) |
 | G14 | Packaging, signing and updates (macOS) | platforms | an unsigned build blocks alpha; signing and updates block beta | 22–45 h + human | [platform-parity](platform-parity.md#operating-systems-and-packages) |
 | G15 | Performance and API load at scale | performance | blocks beta | 28–66 h | [testing](../developer/testing.md#performance-budgets-proposed-not-measured) |
 | G16 | Stability and the user bug backlog | stability | blocks beta | 100–200 h | this page |
