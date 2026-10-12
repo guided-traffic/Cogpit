@@ -104,8 +104,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   warning icon in the picker; owner requirement: removing a synced item asks, naming the path, that only the link is removed.
   **Still open:** the plugin's standard error in the connect log (client-go writes it to Cogpit's own standard error; capturing it
   means replacing the process-wide `os.Stderr`, not done); the ↻ beside the ⚠; Lens's system file dialog instead of Cogpit's own
-  browser (a native `NSOpenPanel` for files and folders needs cgo per platform); the default `config` stays the default loading's,
-  not a removable synced item; a deleted default kubeconfig does not close its connection. The estimate is not moved (the lead recounts).
+  browser (a native `NSOpenPanel` for files and folders needs cgo per platform). Since D-28 (built 2026-10-12, C3) `config` is an
+  ordinary file of `~/.kube` and every context comes from one file read alone, so a deleted `config` closes its connections as any
+  synced file does.
 - **Decided (owner, 2026-10-12, [D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs)):**
   a `tokenFile` of an added or synced kubeconfig outside its folder is asked for in the
   plugin approval dialog (H-24); **built 2026-10-12** (`TestTokenFileOutsideTheFolderIsAskedFor`;
