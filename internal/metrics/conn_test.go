@@ -94,6 +94,13 @@ func TestHubOverTheCountingTransport(t *testing.T) {
 	time.Sleep(60 * time.Millisecond)
 
 	snap := conn.Counter().Snapshot()
+	// The counting transport sees every request once: the server's own count of the Metrics API
+	// requests is the counter's, not twice it (the typed client is built on the connection's client).
+	for _, key := range []string{"list pods.metrics.k8s.io", "get pods.metrics.k8s.io", "list nodes.metrics.k8s.io"} {
+		if got, want := snap.ByVerbResource[key], srv.Requests()[key]; got != want || got == 0 {
+			t.Errorf("%s: the counter has %d, the server saw %d", key, got, want)
+		}
+	}
 	if snap.ByVerb["watch"] != 0 || snap.ByVerb["watchlist"] != 0 {
 		t.Errorf("metrics were watched: %v", snap.ByVerb)
 	}
