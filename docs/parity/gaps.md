@@ -922,7 +922,6 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 | 2026-10-13 | minor | G6: Vertical Pod Autoscalers partial (a curated profile of the CRD kind); 4 views missing, estimate 16–70 h |
 | 2026-10-13 | minor | G6: Resource Claims, Resource Claim Templates, Device Classes and Resource Slices partial (Lens's documented columns), the pod drawer's Resource Claims section; 5 views missing, estimate 20–80 h |
 | 2026-10-13 | minor | G11: chart repositories in Cogpit's own folders, the Charts view, the Helm Install tab and the install as a crash-safe job (night run); what is left and what to capture |
-| 2026-10-12 | minor | G12: the evening's requirements built (fourth slice): both providers together (Prometheus's history once, the Metrics Server's live values, the network and the filesystem only while shown: the lead's proposal), the fallback, a status line per provider (also in `metrics.get` and `ui.state`), a chart's variant as engine state, a missing value as an empty cell; budget P13 measured on kind; no count moved |
 | 2026-10-13 | minor | G17: the `cogpit-cli mcp` stdio bridge built, evidence added; estimate unchanged |
 | 2026-10-13 | minor | G2: `cogpit-cli contexts` and `cogpit-cli get` built (milestone 0.1), evidence added; estimate unchanged |
 | 2026-10-13 | minor | G5, G13: the navigator built (night run): header, the cluster as the tree's root, item tooltips, keyboard; what differs from Lens and what is inferred; estimates not moved (the lead recounts) |

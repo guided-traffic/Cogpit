@@ -24,8 +24,8 @@ an activated Lens Desktop ([D-12](../developer/decisions.md#d-12-parity-sources)
 Modifier names are macOS first (⌘ ⌥ ⇧ ⌃); Windows and Linux use Ctrl and Alt. **Status:** as
 marked per row; rows without evidence are missing.
 
-**Summary (measured, 2026-10-13, after the fourth implementation run, the hotbar, the navigator, the command palette, the cluster's Prometheus setting, Helm install and the cluster Overview, counted by `make parity`):**
-80 of 133 rows exist (was 56): 72 of the 120 free-plan rows (64 partial, 8 done: the cell tooltip, right-click on a
+**Summary (measured, 2026-10-13, after the fourth implementation run, the hotbar, the navigator, the command palette, the cluster's Prometheus setting, Helm install, the cluster Overview and the Preferences and Cluster settings pages, counted by `make parity`):**
+93 of 133 rows exist (was 56): 85 of the 120 free-plan rows (77 partial, 8 done: the cell tooltip, right-click on a
 row, the dock's "New tab" menu, keyboard navigation in tables and its shortcut row, the container
 port's link, the forward dialog and the drawer's Forward…, each matching its captured row) and 8
 paid rows (the diff view and the hotbar's seven, partial); 7 more rows are not a target. The hotbar
