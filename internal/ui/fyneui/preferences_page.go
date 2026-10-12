@@ -105,6 +105,7 @@ func (p *settingsPage) stateChanged() {
 	}
 	if !p.visible() {
 		sh.tip.hide()
+		sh.win.Canvas().Unfocus() // the keys must not go on to a field the page hides
 		sh.center.Objects = []fyne.CanvasObject{p.root}
 		sh.center.Refresh()
 	}
