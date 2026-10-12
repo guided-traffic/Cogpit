@@ -53,6 +53,7 @@ const (
 	colorStatusError       fyne.ThemeColorName = "cogpit.status.error"
 	colorStatusTerminating fyne.ThemeColorName = "cogpit.status.terminating"
 	colorStatusUnknown     fyne.ThemeColorName = "cogpit.status.unknown"
+	colorStatusStopped     fyne.ThemeColorName = "cogpit.status.stopped"
 )
 
 // Cogpit's own size tokens. Fyne's sizes (text, padding) are set for density in [cogTheme.Size].
@@ -164,6 +165,7 @@ var darkPalette = palette{
 		model.StatusError:       hex(0xe66d6b), // red #dc322f
 		model.StatusTerminating: hex(0x898dd0), // violet #6c71c4
 		model.StatusUnknown:     hex(0x84959c), // base00 #657b83
+		model.StatusStopped:     hex(0x93a1a1), // base1: a stopped container's square, legible on a selected row too
 	},
 }
 
@@ -227,6 +229,7 @@ var lightPalette = palette{
 		model.StatusError:       hex(0xdc322f), // red
 		model.StatusTerminating: hex(0x6c71c4), // violet
 		model.StatusUnknown:     hex(0x657b83), // base00
+		model.StatusStopped:     hex(0x586e75), // base01: a stopped container's square, legible on a selected row too
 	},
 }
 
@@ -247,6 +250,7 @@ var statusColorNames = map[model.Status]fyne.ThemeColorName{
 	model.StatusError:       colorStatusError,
 	model.StatusTerminating: colorStatusTerminating,
 	model.StatusUnknown:     colorStatusUnknown,
+	model.StatusStopped:     colorStatusStopped,
 }
 
 // statusColorName returns the theme colour name of a status token; StatusNone and unknown tokens

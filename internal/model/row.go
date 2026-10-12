@@ -60,6 +60,18 @@ type Cell struct {
 	Status Status      `json:"status,omitempty"`
 	Link   *ObjectRef  `json:"link,omitempty"`
 	Parts  *[]CellPart `json:"parts,omitempty"`
+	// Marks, when set, draws the cell as a row of small squares, one per mark in its status colour:
+	// a pod's Containers cell, one square per container, init containers first (Lens; owner
+	// 2026-10-12). Text stays the readable form ("1/2") for sorting, search, CSV and agents; each
+	// mark's Text says what it stands for, and the cell's tooltip lists them. A pointer, so that
+	// Cell stays comparable; shared and immutable like Parts.
+	Marks *[]CellMark `json:"marks,omitempty"`
+}
+
+// CellMark is one square of a cell drawn in marks.
+type CellMark struct {
+	Text   string `json:"text"`
+	Status Status `json:"status,omitempty"`
 }
 
 // CellPart is one run of a cell's text in its own status colour; StatusNone draws it in the

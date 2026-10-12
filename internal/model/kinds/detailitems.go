@@ -4,11 +4,12 @@ import "github.com/guided-traffic/cogpit/internal/model"
 
 // Names the drawer items of several kinds share, and field names the pod's drawer reads often.
 const (
-	itemConditions  = "Conditions"
-	itemTaints      = "Taints"
-	opExists        = "Exists" // a toleration's or selector's operator
-	fieldImage      = "image"
-	fieldContainers = "containers"
+	itemConditions      = "Conditions"
+	itemTaints          = "Taints"
+	opExists            = "Exists" // a toleration's or selector's operator
+	fieldImage          = "image"
+	fieldContainers     = "containers"
+	fieldInitContainers = "initContainers"
 )
 
 // put appends a prepared item (chips, a link, a fold), dropping it when its value is empty, as add

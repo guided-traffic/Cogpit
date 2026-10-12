@@ -14,4 +14,5 @@ const (
 	StatusError       Status = "error"       // CrashLoopBackOff, Failed, Error, NotReady
 	StatusTerminating Status = "terminating" // deletionTimestamp set
 	StatusUnknown     Status = "unknown"     // state could not be determined
+	StatusStopped     Status = "stopped"     // a container that ran and stopped (a finished init container)
 )

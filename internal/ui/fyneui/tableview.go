@@ -445,7 +445,7 @@ func (tv *tableView) updateCell(id widget.TableCellID, o fyne.CanvasObject) {
 		if status == model.StatusNone && col.ID == "status" {
 			status = tv.snap.Rows[id.Row].Status
 		}
-		content = cellContent{text: model.CellText(*col, cell, tv.now), status: status, link: cell.Link, parts: cell.Parts}
+		content = cellContent{text: model.CellText(*col, cell, tv.now), status: status, link: cell.Link, parts: cell.Parts, marks: cell.Marks}
 		if content.link != nil && !tv.serves(content.link.Kind) {
 			content.link = nil // nowhere to go: plain text
 		}
@@ -957,6 +957,7 @@ type cellContent struct {
 	status model.Status
 	link   *model.ObjectRef
 	parts  *[]model.CellPart
+	marks  *[]model.CellMark // squares in place of the text (a pod's containers)
 	kind   cellKind
 }
 
@@ -971,10 +972,12 @@ type tableCell struct {
 	widget.BaseWidget
 	tv    *tableView
 	bg    *canvas.Rectangle
-	text  *canvas.Text   // the text, or the first part
-	more  []*canvas.Text // the further parts of a cell in coloured parts; grown on demand
-	runX  []float32      // each part's x offset, set by fit
-	icon  *canvas.Image  // made when the cell first shows an icon
+	text  *canvas.Text        // the text, or the first part
+	more  []*canvas.Text      // the further parts of a cell in coloured parts; grown on demand
+	runX  []float32           // each part's x offset, set by fit
+	marks []*canvas.Rectangle // the squares of a cell in marks; grown on demand
+	shown int                 // the squares that fit, set by fit
+	icon  *canvas.Image       // made when the cell first shows an icon
 	line  *canvas.Rectangle
 	under *canvas.Rectangle // a hovered link's underline; made when the cell first shows a link
 	ring  *canvas.Rectangle // the keyboard's focus ring; made when the keyboard first reaches the cell
@@ -1086,6 +1089,12 @@ func (c *tableCell) tipText() string {
 	switch {
 	case c.content.kind == cellWarning:
 		return c.full
+	case c.content.kind == cellText && c.content.marks != nil:
+		lines := make([]string, 0, len(*c.content.marks))
+		for _, m := range *c.content.marks {
+			lines = append(lines, m.Text)
+		}
+		return strings.Join(lines, "\n") // a square stands for a container: say which, and how it is
 	case c.content.kind == cellText && c.truncated:
 		return c.full
 	}
@@ -1128,6 +1137,18 @@ func (c *tableCell) apply() {
 			}
 		}
 	}
+	if c.content.marks != nil && c.content.kind == cellText {
+		marks := *c.content.marks
+		for len(c.marks) < len(marks) {
+			c.marks = append(c.marks, canvas.NewRectangle(color.Transparent))
+			c.objs++
+		}
+		for i, r := range c.marks {
+			if i < len(marks) {
+				r.FillColor = themeColor(th, statusColorName(marks[i].Status))
+			}
+		}
+	}
 	if c.under == nil && c.content.link != nil {
 		c.under = canvas.NewRectangle(color.Transparent)
 		c.objs++
@@ -1160,6 +1181,9 @@ func (c *tableCell) apply() {
 	c.text.Refresh()
 	for _, t := range c.more {
 		t.Refresh()
+	}
+	for _, r := range c.marks {
+		r.Refresh()
 	}
 }
 
@@ -1198,12 +1222,23 @@ func (c *tableCell) fit(th fyne.Theme) bool {
 	}
 	c.fitWidth = avail
 	if c.content.kind != cellText {
-		c.truncated = false
+		c.truncated, c.shown = false, 0 // a reused cell drops the squares it drew before
 		changed := c.text.Text != ""
 		c.text.Text = ""
 		c.hideMore(0)
 		return changed
 	}
+	if c.content.marks != nil {
+		size, gap := markSize(th)
+		n := len(*c.content.marks)
+		c.shown = min(n, int((avail+gap)/(size+gap)))
+		c.truncated = c.shown < n
+		c.hideMore(0)
+		changed := c.text.Text != ""
+		c.text.Text = ""
+		return changed
+	}
+	c.shown = 0
 	if c.content.parts == nil || len(*c.content.parts) == 0 {
 		shown := ellipsize(c.full, avail, c.text.TextSize, c.text.TextStyle)
 		c.truncated = shown != c.full
@@ -1316,6 +1351,23 @@ func (r *tableCellRenderer) Layout(size fyne.Size) {
 		c.icon.Move(fyne.NewPos((size.Width-is)/2, (size.Height-is)/2))
 		c.icon.Resize(fyne.NewSize(is, is))
 	}
+	ms, mg := markSize(th)
+	for i, r := range c.marks {
+		if i >= c.shown {
+			r.Hide()
+			continue
+		}
+		r.Move(fyne.NewPos(pad+float32(i)*(ms+mg), (size.Height-ms)/2))
+		r.Resize(fyne.NewSize(ms, ms))
+		r.Show()
+	}
+}
+
+// markSize is the side of a cell's square and the gap between two, from the text size: a square
+// sits in a row like a small letter.
+func markSize(th fyne.Theme) (side, gap float32) {
+	side = float32(int(th.Size(theme.SizeNameText)*0.72 + 0.5))
+	return side, max(2, float32(int(side/3+0.5)))
 }
 
 func (r *tableCellRenderer) MinSize() fyne.Size {
@@ -1346,6 +1398,9 @@ func (r *tableCellRenderer) Objects() []fyne.CanvasObject {
 		}
 		for _, t := range c.more {
 			r.objs = append(r.objs, t)
+		}
+		for _, m := range c.marks {
+			r.objs = append(r.objs, m)
 		}
 		if c.ring != nil {
 			r.objs = append(r.objs, c.ring)

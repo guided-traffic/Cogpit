@@ -237,8 +237,10 @@ func TestReleasesViewAndDrawer(t *testing.T) {
 func renderReleases(t *testing.T, mode ThemeMode, name string) {
 	f, _ := releasesFake(t)
 	sh, w, q := newTestShell(t, f, Options{Theme: mode})
-	q.until(t, "the releases and drawer", func() bool {
-		return len(sh.kinds) > 0 && sh.view.snap != nil && sh.drawer.last != nil && len(sh.drawer.actions.Objects) > 0 && sh.diag.total > 0
+	q.until(t, "the releases, the drawer and its values", func() bool {
+		rv, _ := sh.drawer.kept[releaseValuesKey].(*releaseValues)
+		return len(sh.kinds) > 0 && sh.view.snap != nil && sh.drawer.last != nil && len(sh.drawer.actions.Objects) > 0 && sh.diag.total > 0 &&
+			rv != nil && rv.status.text != "Loading…" // the values arrive after the drawer: wait for them, not for time
 	})
 	settle(w)
 	savePNG(t, w, name)

@@ -16,7 +16,7 @@ import (
 
 var allStatuses = []model.Status{
 	model.StatusOK, model.StatusSucceeded, model.StatusPending, model.StatusWarning,
-	model.StatusError, model.StatusTerminating, model.StatusUnknown,
+	model.StatusError, model.StatusTerminating, model.StatusUnknown, model.StatusStopped,
 }
 
 func TestThemeDefinesEveryColour(t *testing.T) {
@@ -188,8 +188,8 @@ func TestPaletteContrast(t *testing.T) {
 			check("muted", c(colorMuted), bg, 2.9)
 			check("link", c(colorLink), bg, 3.0)
 			for s := range p.status {
-				if s == model.StatusUnknown {
-					continue
+				if s == model.StatusUnknown || s == model.StatusStopped {
+					continue // grey on purpose: a stopped container's square, an unknown state
 				}
 				check(fmt.Sprintf("status %s", s), p.status[s], bg, 3.0)
 			}

@@ -301,7 +301,7 @@ func labelSelector(root any, fields ...string) []string {
 // podSpecImages returns the images of every container of a pod spec (init containers first, then
 // app and ephemeral containers), without duplicates.
 func podSpecImages(spec any) []string {
-	out := appendImages(nil, model.NestedSlice(spec, "initContainers"))
+	out := appendImages(nil, model.NestedSlice(spec, fieldInitContainers))
 	out = appendImages(out, model.NestedSlice(spec, "containers"))
 	return appendImages(out, model.NestedSlice(spec, "ephemeralContainers"))
 }

@@ -97,7 +97,7 @@ func podCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 		namespaceCell(obj),
 		{}, // CPU, filled from the Metrics API (podUsageCells)
 		{}, // Memory
-		ratio(s.ready, s.total),
+		containersCell(obj, s),
 		{Num: s.restarts},
 		// Lens shows the owner's kind, a link to the owner (capture, 2026-10-11). An owner of a kind
 		// whose key is not known without discovery (a custom resource) stays unlinked.
@@ -107,6 +107,74 @@ func podCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 		{Text: s.text, Status: s.status},
 		model.AgeCell(created(obj)),
 	}, s.status
+}
+
+// containersCell is a pod's Containers cell: "ready/total" to sort, search and export by, drawn as
+// one square per container (containerMarks).
+func containersCell(obj any, s podSummary) model.Cell {
+	c := ratio(s.ready, s.total)
+	c.Marks = containerMarks(obj)
+	return c
+}
+
+// containerMarks are the squares of a pod's Containers cell, one per container in the order the
+// spec lists them, init containers first, as Lens draws them (owner, 2026-10-12): a running
+// container in the Running colour, a stopped one grey (a finished init container too), one that
+// waits in the pending colour, or red when it waits on an error (CrashLoopBackOff,
+// ImagePullBackOff). A container without a status yet waits. Each mark names its container and
+// state for the tooltip.
+func containerMarks(obj any) *[]model.CellMark {
+	var out []model.CellMark
+	for _, group := range [][2]string{{fieldInitContainers, "initContainerStatuses"}, {"containers", "containerStatuses"}} {
+		specs := model.NestedSlice(obj, "spec", group[0])
+		statuses := model.NestedSlice(obj, "status", group[1])
+		if len(specs) == 0 {
+			specs = statuses // no spec (a hand-made object): the statuses in their order
+		}
+		for _, spec := range specs {
+			name := model.NestedString(spec, "name")
+			out = append(out, containerMark(name, byName(statuses, name)))
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return &out
+}
+
+// containerMark is one container's square: its colour and what the tooltip says about it.
+func containerMark(name string, status any) model.CellMark {
+	switch {
+	case status == nil:
+		return model.CellMark{Text: name + ": waiting to start", Status: model.StatusPending}
+	case model.NestedMap(status, "state", "running") != nil:
+		text := name + ": running"
+		if ready, _ := model.NestedBool(status, "ready"); !ready {
+			text += ", not ready"
+		}
+		return model.CellMark{Text: text, Status: model.StatusOK}
+	}
+	if term := model.NestedMap(status, "state", "terminated"); term != nil {
+		reason := model.NestedString(term, "reason")
+		code, _ := model.NestedInt64(term, "exitCode")
+		text := name + ": terminated"
+		switch {
+		case reason != "":
+			text += " (" + reason + ", exit code " + itoa(code) + ")"
+		default:
+			text += " (exit code " + itoa(code) + ")"
+		}
+		return model.CellMark{Text: text, Status: model.StatusStopped}
+	}
+	reason := model.NestedString(status, "state", "waiting", "reason")
+	st := model.StatusPending
+	if isErrorReason(reason) {
+		st = model.StatusError
+	}
+	if reason == "" {
+		return model.CellMark{Text: name + ": waiting", Status: st}
+	}
+	return model.CellMark{Text: name + ": waiting (" + reason + ")", Status: st}
 }
 
 // keyNodes is the kind key node cells link to.
@@ -188,7 +256,7 @@ type podSummary struct {
 func summarisePod(obj any) podSummary {
 	var s podSummary
 	specContainers := model.NestedSlice(obj, "spec", "containers")
-	specInit := model.NestedSlice(obj, "spec", "initContainers")
+	specInit := model.NestedSlice(obj, "spec", fieldInitContainers)
 	statuses := model.NestedSlice(obj, "status", "containerStatuses")
 	initStatuses := model.NestedSlice(obj, "status", "initContainerStatuses")
 	phase := model.NestedString(obj, "status", "phase")
@@ -526,7 +594,7 @@ func podDetail(obj *unstructured.Unstructured) []model.DetailSection {
 		title, spec, status string
 		probed              bool
 	}{
-		{"Init Containers", "initContainers", "initContainerStatuses", false},
+		{"Init Containers", fieldInitContainers, "initContainerStatuses", false},
 		{"Containers", fieldContainers, "containerStatuses", true},
 		{"Ephemeral Containers", "ephemeralContainers", "ephemeralContainerStatuses", false},
 	}
@@ -583,7 +651,7 @@ func podSecrets(obj any) []string {
 	for _, s := range model.NestedSlice(obj, "spec", "imagePullSecrets") {
 		out = appendUnique(out, model.NestedString(s, "name"))
 	}
-	for _, group := range []string{"initContainers", fieldContainers, "ephemeralContainers"} {
+	for _, group := range []string{fieldInitContainers, fieldContainers, "ephemeralContainers"} {
 		for _, c := range model.NestedSlice(obj, "spec", group) {
 			for _, e := range model.NestedSlice(c, "envFrom") {
 				out = appendUnique(out, model.NestedString(e, "secretRef", "name"))
