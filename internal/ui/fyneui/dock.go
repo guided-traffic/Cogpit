@@ -104,6 +104,8 @@ func (d *dock) sync(tabs []engine.DockTab, active string) {
 			added = true
 		} else if c.logs != nil {
 			c.logs.update(t)
+		} else if u, ok := c.editor.(interface{ update(engine.DockTab) }); ok { // a Helm Install tab's version
+			u.update(t)
 		}
 	}
 	for id, c := range d.contents {
@@ -167,6 +169,10 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 		e := newHelmUpgradeTab(d.sh, t)
 		c.editor = e
 		c.set(e.root)
+	case engine.DockHelmInstall:
+		e := newHelmInstallTab(d.sh, t)
+		c.editor = e
+		c.set(e.root)
 	default:
 		c.set(dockMessage(fmt.Sprintf("Cogpit cannot show %q tabs yet.", t.Type), colorMuted))
 	}
@@ -225,6 +231,8 @@ func (d *dock) rebuildStrip() {
 			icon = theme.MailAttachmentIcon()
 		case engine.DockHelmUpgrade:
 			icon = theme.Icon(commandIcons[upgradeTabCommand])
+		case engine.DockHelmInstall:
+			icon = theme.Icon(commandIcons[installTabCommand])
 		}
 		objs = append(objs, newTabButton(t.Title, icon, id == d.active && d.open(),
 			func() {

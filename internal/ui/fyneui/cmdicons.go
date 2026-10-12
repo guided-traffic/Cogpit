@@ -43,10 +43,14 @@ var commandIcons = map[string]fyne.ThemeIconName{
 	"helm.release.rollback":  theme.IconNameHistory,
 	"helm.release.uninstall": theme.IconNameDelete,
 	upgradeTabCommand:        theme.IconNameViewRefresh, // Lens: a circular arrow (captured 2026-10-12)
+	installTabCommand:        theme.IconNameDownload,    // Cogpit's choice: Lens's chart drawer is not captured
 }
 
 // upgradeTabCommand opens a release's Helm Upgrade tab.
 const upgradeTabCommand = helm.UpgradeTabCommand
+
+// installTabCommand opens a chart's Helm Install tab.
+const installTabCommand = "helm.chart.installTab"
 
 // genericCommandIcon is the icon of a command without its own.
 const genericCommandIcon = theme.IconNameSettings

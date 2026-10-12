@@ -1,0 +1,348 @@
+package fyneui
+
+import (
+	"context"
+	"encoding/json"
+	"slices"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"fyne.io/fyne/v2/test"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/helm"
+	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
+)
+
+// helmInstallDispatches are the Helm install and repository commands and parameters the shell
+// dispatches, which TestDispatchedParamsMatchTheRegistry checks against the real registry.
+func helmInstallDispatches() []struct {
+	id     string
+	params any
+} {
+	chart := model.ObjectRef{Context: "demo", Kind: helmChartsKind, Name: "bitnami.nginx"}
+	return []struct {
+		id     string
+		params any
+	}{
+		{"helm.chart.installTab", installTabParams{refParams: refParams{Ref: chart}, Version: "18.1.4"}},
+		{"helm.chart.preview", helmChartInstallParams{Tab: "helmInstall-1", Namespace: "web", Name: "nginx-x2k4q"}},
+		{"helm.chart.install", helmChartInstallParams{Tab: "helmInstall-1", TextRevision: 2, Namespace: "web", Name: "nginx-x2k4q", CreateNamespace: true}},
+		{"helm.repo.list", struct{}{}},
+		{"helm.repo.add", helmRepoAddParams{Name: "bitnami", URL: "https://charts.example.com/bitnami"}},
+		{"helm.repo.remove", helmRepoNameParams{Name: "bitnami"}},
+		{"helm.repo.update", struct{}{}},
+		{"editor.setText", editorTextParams{ID: "helmInstall-1", YAML: "a: 1\n"}},
+	}
+}
+
+// fixtureCharts are the Charts view's rows: four repositories' charts, one deprecated.
+func fixtureCharts() []*unstructured.Unstructured {
+	at := func(d int) time.Time { return fixedNow.Add(-time.Duration(d) * 24 * time.Hour) }
+	charts := []kinds.HelmChart{
+		{Repository: "bitnami", Name: "nginx", Version: "18.2.0", AppVersion: "1.27.1", Description: "NGINX Open Source is a web server that can be also used as a reverse proxy, load balancer, and HTTP cache.",
+			Home: "https://example.com/charts/nginx", Keywords: []string{"nginx", "http", "web"}, Maintainers: []string{"Example Maintainers"}, Digest: strings.Repeat("ab", 32), Created: at(3),
+			Versions: []kinds.HelmChartVersion{{Version: "18.3.0-rc.1", AppVersion: "1.27.2", Created: at(1)}, {Version: "18.2.0", AppVersion: "1.27.1", Created: at(3)}, {Version: "18.1.4", AppVersion: "1.27.0", Created: at(30)}}},
+		{Repository: "bitnami", Name: "redis", Version: "20.1.3", AppVersion: "7.4.0", Description: "Redis is an open source, in-memory data structure store.", Digest: strings.Repeat("cd", 32), Created: at(5),
+			Versions: []kinds.HelmChartVersion{{Version: "20.1.3", AppVersion: "7.4.0", Created: at(5)}}},
+		{Repository: "jetstack", Name: "cert-manager", Version: "v1.16.1", AppVersion: "v1.16.1", Description: "A Helm chart for cert-manager", Digest: strings.Repeat("ef", 32), Created: at(9),
+			Versions: []kinds.HelmChartVersion{{Version: "v1.16.1", AppVersion: "v1.16.1", Created: at(9)}}},
+		{Repository: "prometheus-community", Name: "kube-prometheus-stack", Version: "65.1.0", AppVersion: "v0.77.1",
+			Description: "kube-prometheus-stack collects Kubernetes manifests, Grafana dashboards, and Prometheus rules.", Created: at(2),
+			Versions: []kinds.HelmChartVersion{{Version: "65.1.0", AppVersion: "v0.77.1", Created: at(2)}}},
+		{Repository: "stable", Name: "old-app", Version: "0.9.0", Description: "An application whose chart is deprecated", Deprecated: true,
+			Versions: []kinds.HelmChartVersion{{Version: "0.9.0"}}},
+	}
+	out := make([]*unstructured.Unstructured, 0, len(charts))
+	for i, c := range charts {
+		out = append(out, kinds.HelmChartObject(c, "uid-"+c.Name, string(rune('1'+i))))
+	}
+	return out
+}
+
+func chartsProfile(t testing.TB) *model.KindProfile {
+	t.Helper()
+	for _, p := range kinds.Local() {
+		if p.Key == helmChartsKind {
+			return p
+		}
+	}
+	t.Fatal("no helmcharts profile")
+	return nil
+}
+
+// chartsFake is the Releases fake with the Charts view open and its rows and drawers.
+func chartsFake(t testing.TB) *fakeEngine {
+	f, _ := releasesFake(t)
+	f.kinds = append(f.kinds, kindInfo{Kind: helmChartsKind, Title: "Charts", APIKind: "HelmChart", Group: model.LocalGroup, Version: "v1", Local: true})
+	p := chartsProfile(t)
+	objs := fixtureCharts()
+	rows := make([]model.Row, 0, len(objs))
+	for _, o := range objs {
+		rows = append(rows, model.BuildRow(p, "demo", o))
+		ref := model.ObjectRef{Context: "demo", Kind: helmChartsKind, Name: o.GetName()}
+		m, err := engine.BuildDetail(p, ref, o, nil, fixedNow)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.details[ref.String()] = m
+	}
+	slices.SortFunc(rows, func(a, b model.Row) int { return strings.Compare(a.Cells[0].Text, b.Cells[0].Text) })
+	f.tables[helmChartsKind] = &engine.TableSnapshot{View: helmChartsKind, Context: "demo", Title: p.Title, Columns: p.Columns, Rows: rows,
+		Sort: engine.SortSpec{Column: "name"}, Total: len(rows), Revision: 1, Synced: true}
+	f.ui.View = helmChartsKind
+	f.ui.Drawer, f.ui.Selected = nil, nil // the Releases fake opens a release's drawer
+	f.handlers["helm.repo.list"] = func(context.Context, engine.Invocation) (any, error) {
+		return []engine.HelmRepoInfo{
+			{HelmRepo: engine.HelmRepo{Name: "bitnami", URL: "https://charts.example.com/bitnami", Added: fixedNow.Add(-48 * time.Hour)}, Charts: 2, Updated: fixedNow.Add(-4 * time.Minute)},
+			{HelmRepo: engine.HelmRepo{Name: "jetstack", URL: "https://charts.example.com/jetstack", Added: fixedNow.Add(-48 * time.Hour)}, Charts: 1, Updated: fixedNow.Add(-4 * time.Minute)},
+			{HelmRepo: engine.HelmRepo{Name: "private", URL: "https://charts.internal.example/private", Added: fixedNow.Add(-time.Hour)},
+				Error: "downloading the index: https://charts.internal.example/private/index.yaml: 401 Unauthorized"},
+		}, nil
+	}
+	return f
+}
+
+// installTabFixture is an open Helm Install tab on bitnami's nginx in the charts fake.
+func installTabFixture(t testing.TB, f *fakeEngine, verified bool) engine.DockTab {
+	t.Helper()
+	ref := model.ObjectRef{Context: "demo", Kind: helmChartsKind, Name: "bitnami.nginx"}
+	tab := engine.DockTab{ID: "helmInstall-1", Type: engine.DockHelmInstall, Title: "Helm Install: nginx", Context: "demo", Ref: &ref,
+		HelmInstall: &engine.HelmInstallTab{Repository: "bitnami", Chart: "nginx", Version: "18.2.0", AppVersion: "1.27.1",
+			Versions: []string{"18.3.0-rc.1", "18.2.0", "18.1.4"}, Digest: strings.Repeat("ab", 32), Verified: verified, Namespace: "web", ReleaseName: "nginx-x2k4q"}}
+	ed := newEditorFake(f)
+	ed.texts[tab.ID] = "## @param replicaCount Number of NGINX replicas to deploy\nreplicaCount: 1\n\nimage:\n  registry: registry.example\n  repository: nginx\n  tag: 1.27.1\n\nservice:\n  ## @param service.type Service type\n  type: LoadBalancer\n  ports:\n    http: 80\n"
+	ed.revs[tab.ID] = 1
+	f.ui.Dock, f.ui.ActiveDock = []engine.DockTab{tab}, tab.ID
+	return tab
+}
+
+// installRecorder answers helm.chart.preview and helm.chart.install for a fake and records them.
+type installRecorder struct {
+	mu       sync.Mutex
+	previews []helmChartInstallParams
+	installs []helmChartInstallParams
+}
+
+func (r *installRecorder) install(f *fakeEngine) {
+	f.handlers["helm.chart.preview"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p helmChartInstallParams
+		if err := json.Unmarshal(normalize(inv.Params), &p); err != nil {
+			return nil, err
+		}
+		r.mu.Lock()
+		r.previews = append(r.previews, p)
+		r.mu.Unlock()
+		return installPreview{Release: model.ObjectRef{Context: "demo", Kind: helm.ReleaseKind, Namespace: p.Namespace, Name: p.Name},
+			Repository: "bitnami", Chart: "nginx", Version: "18.2.0", Verified: true,
+			Objects: []helm.RenderedObject{
+				{APIVersion: "v1", Kind: "ConfigMap", Namespace: p.Namespace, Name: p.Name + "-server-block"},
+				{APIVersion: "apps/v1", Kind: "Deployment", Namespace: p.Namespace, Name: p.Name},
+				{APIVersion: "v1", Kind: "Service", Namespace: p.Namespace, Name: p.Name},
+				{APIVersion: "v1", Kind: "ServiceAccount", Namespace: p.Namespace, Name: p.Name},
+			},
+			Hooks: []helm.RenderedObject{{APIVersion: "v1", Kind: "Pod", Namespace: p.Namespace, Name: p.Name + "-test"}}}, nil
+	}
+	f.handlers["helm.chart.install"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p helmChartInstallParams
+		if err := json.Unmarshal(normalize(inv.Params), &p); err != nil {
+			return nil, err
+		}
+		r.mu.Lock()
+		r.installs = append(r.installs, p)
+		r.mu.Unlock()
+		return map[string]any{"action": "installed", "revision": 1}, nil
+	}
+}
+
+func (r *installRecorder) recorded() ([]helmChartInstallParams, []helmChartInstallParams) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return slices.Clone(r.previews), slices.Clone(r.installs)
+}
+
+func installTabOf(t testing.TB, sh *shell, q *mainQueue, id string) *helmInstallTab {
+	t.Helper()
+	var u *helmInstallTab
+	q.until(t, "the install tab", func() bool {
+		if c := sh.dock.contents[id]; c != nil {
+			u, _ = c.editor.(*helmInstallTab)
+		}
+		return u != nil && !u.busy && strings.Contains(u.pane.view.Text(), "replicaCount")
+	})
+	return u
+}
+
+// The Helm group lists Charts before Releases; the Charts view shows Lens's columns.
+func TestChartsView(t *testing.T) {
+	f := chartsFake(t)
+	sh, _, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	q.until(t, "the charts", func() bool { return sh.view.snap != nil && len(sh.view.snap.Rows) == 5 })
+	if kids := sh.side.children[groupPrefix+"helm"]; !slices.Equal(kids, []string{helmChartsKind, helm.ReleaseKind}) {
+		t.Errorf("Helm group %v", kids)
+	}
+	var titles []string
+	for _, c := range sh.view.snap.Columns {
+		titles = append(titles, c.Title)
+	}
+	if strings.Join(titles, ",") != "Name,Description,Version,App Version,Repository" {
+		t.Errorf("columns %v", titles)
+	}
+	if menu := sh.helmMenu(); len(menu.Items) != 3 || menu.Items[0].Label != "Repositories…" {
+		t.Errorf("Helm menu %+v", menu.Items)
+	}
+}
+
+// Install sends the text, previews the install and shows what it creates; the dialog's Install
+// installs at the text revision the send made, with the namespace, name and checkbox of the tab.
+// Cancel installs nothing.
+func TestHelmInstallTabInstalls(t *testing.T) {
+	f := chartsFake(t)
+	tab := installTabFixture(t, f, true)
+	rec := &installRecorder{}
+	rec.install(f)
+	sh, _, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	u := installTabOf(t, sh, q, tab.ID)
+	if u.namespace.Text != "web" || u.release.Text != "nginx-x2k4q" || u.version.Selected != "18.2.0" || len(u.version.Options) != 3 ||
+		u.digest.text != "digest verified" || u.createNS.Checked {
+		t.Errorf("fields: %q %q %q %v %q", u.namespace.Text, u.release.Text, u.version.Selected, u.version.Options, u.digest.text)
+	}
+
+	u.pane.view.SetText("replicaCount: 2\n")
+	test.Tap(u.installBtn)
+	q.until(t, "the preview", func() bool { return u.preview != nil })
+	if previews, installs := rec.recorded(); len(previews) != 1 || len(installs) != 0 || previews[0].Tab != tab.ID || previews[0].Name != "nginx-x2k4q" {
+		t.Fatalf("previews %+v installs %+v", previews, installs)
+	}
+	if len(u.preview.lines) != 5 || u.preview.lines[0] != "ConfigMap web/nginx-x2k4q-server-block" || u.preview.lines[4] != "Hook: Pod web/nginx-x2k4q-test" {
+		t.Errorf("preview lines %q", u.preview.lines)
+	}
+	test.Tap(u.preview.cancel)
+	q.until(t, "the cancel", func() bool { return !u.busy })
+	if _, installs := rec.recorded(); len(installs) != 0 || u.status.text != "Not installed." {
+		t.Errorf("cancel installed %+v (%q)", installs, u.status.text)
+	}
+
+	u.release.SetText("my-nginx")
+	u.createNS.SetChecked(true)
+	test.Tap(u.installBtn)
+	q.until(t, "the preview", func() bool { return u.preview != nil })
+	test.Tap(u.preview.install)
+	q.until(t, "the install", func() bool { _, ins := rec.recorded(); return len(ins) == 1 && !u.busy })
+	_, installs := rec.recorded()
+	in := installs[0]
+	if in.Tab != tab.ID || in.Name != "my-nginx" || in.Namespace != "web" || !in.CreateNamespace || in.TextRevision == 0 {
+		t.Errorf("install %+v", in)
+	}
+	var order []string
+	for _, c := range f.calls {
+		if c.ID == "editor.setText" || strings.HasPrefix(c.ID, "helm.chart.") {
+			order = append(order, c.ID)
+		}
+	}
+	if strings.Join(order, ",") != "editor.setText,helm.chart.preview,editor.setText,helm.chart.preview,helm.chart.install" {
+		t.Errorf("order %v", order)
+	}
+	if !strings.Contains(u.status.text, "Installed release my-nginx in namespace web (revision 1)") {
+		t.Errorf("status %q", u.status.text)
+	}
+}
+
+// The repositories dialog lists them with their charts, the age of their index and an error; Add
+// sends the form; Remove asks first.
+func TestHelmReposDialog(t *testing.T) {
+	f := chartsFake(t)
+	var mu sync.Mutex
+	var calls []engine.Invocation
+	for _, id := range []string{"helm.repo.add", "helm.repo.remove"} {
+		f.handlers[id] = func(_ context.Context, inv engine.Invocation) (any, error) {
+			mu.Lock()
+			calls = append(calls, inv)
+			mu.Unlock()
+			return engine.HelmRepoInfo{HelmRepo: engine.HelmRepo{Name: "jetstack"}, Charts: 4}, nil
+		}
+	}
+	sh, w, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	sh.showHelmRepos()
+	rd := sh.helmRepos
+	q.until(t, "the repositories", func() bool { return len(rd.rows) == 3 })
+	if s := repoSummary(rd.rows[0], fixedNow); s != "2 charts · index downloaded 4m ago" {
+		t.Errorf("summary %q", s)
+	}
+	rd.name.SetText("jetstack")
+	rd.url.SetText("https://charts.example.com/jetstack")
+	test.Tap(rd.addB)
+	q.until(t, "the add", func() bool { mu.Lock(); defer mu.Unlock(); return len(calls) == 1 })
+	test.Tap(rd.removeB["private"])
+	if rd.removing == nil {
+		t.Fatal("no confirmation before removing")
+	}
+	confirm := findButton(w, "Yes")
+	if confirm == nil {
+		t.Fatal("no Yes button")
+	}
+	test.Tap(confirm)
+	q.until(t, "the remove", func() bool { mu.Lock(); defer mu.Unlock(); return len(calls) == 2 })
+	mu.Lock()
+	defer mu.Unlock()
+	var add helmRepoAddParams
+	_ = json.Unmarshal(normalize(calls[0].Params), &add)
+	var rm helmRepoNameParams
+	_ = json.Unmarshal(normalize(calls[1].Params), &rm)
+	if calls[0].ID != "helm.repo.add" || add.Name != "jetstack" || add.URL != "https://charts.example.com/jetstack" || calls[1].ID != "helm.repo.remove" || rm.Name != "private" {
+		t.Errorf("calls %+v", calls)
+	}
+}
+
+func renderCharts(t *testing.T, mode ThemeMode, name string) {
+	f := chartsFake(t)
+	ref := model.ObjectRef{Context: "demo", Kind: helmChartsKind, Name: "bitnami.nginx"}
+	f.ui.Selected = []model.ObjectRef{ref}
+	f.ui.Drawer = &ref
+	sh, w, q := newTestShell(t, f, Options{Theme: mode})
+	q.until(t, "the charts and the drawer", func() bool {
+		return sh.view.snap != nil && len(sh.view.snap.Rows) == 5 && sh.drawer.last != nil && sh.diag.total > 0
+	})
+	savePNG(t, w, name)
+}
+
+func TestRenderHelmChartsDark(t *testing.T)  { renderCharts(t, ThemeDark, "helm_charts_dark.png") }
+func TestRenderHelmChartsLight(t *testing.T) { renderCharts(t, ThemeLight, "helm_charts_light.png") }
+
+func renderInstallTab(t *testing.T, mode ThemeMode, name string, preview bool) {
+	f := chartsFake(t)
+	tab := installTabFixture(t, f, true)
+	rec := &installRecorder{}
+	rec.install(f)
+	sh, w, q := newTestShell(t, f, Options{Theme: mode})
+	u := installTabOf(t, sh, q, tab.ID)
+	q.until(t, "the view", func() bool { return sh.view.snap != nil && sh.diag.total > 0 })
+	if preview {
+		test.Tap(u.installBtn)
+		q.until(t, "the preview", func() bool { return u.preview != nil })
+	}
+	savePNG(t, w, name)
+}
+
+func TestRenderHelmInstallTabDark(t *testing.T) {
+	renderInstallTab(t, ThemeDark, "helm_install_tab_dark.png", false)
+}
+func TestRenderHelmInstallTabLight(t *testing.T) {
+	renderInstallTab(t, ThemeLight, "helm_install_tab_light.png", false)
+}
+func TestRenderHelmInstallPreviewDark(t *testing.T) {
+	renderInstallTab(t, ThemeDark, "helm_install_preview_dark.png", true)
+}
+
+func TestRenderHelmReposDialog(t *testing.T) {
+	f := chartsFake(t)
+	sh, w, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	q.until(t, "the charts", func() bool { return sh.view.snap != nil && sh.diag.total > 0 })
+	sh.showHelmRepos()
+	q.until(t, "the repositories", func() bool { return sh.helmRepos != nil && len(sh.helmRepos.rows) == 3 })
+	savePNG(t, w, "helm_repos_dialog_dark.png")
+}

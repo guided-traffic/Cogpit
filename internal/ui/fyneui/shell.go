@@ -121,6 +121,8 @@ type shell struct {
 
 	mcp     mcpState       // the MCP server as the window knows it (mcp.go)
 	mcpMenu *fyne.MenuItem // Help › Copy MCP command, disabled while the server is off
+
+	helmRepos *helmReposDialog // the open Helm repositories dialog (helmcharts.go)
 }
 
 // newShell builds every widget. Nothing talks to the engine until start.
@@ -736,7 +738,7 @@ func (sh *shell) mainMenu() *fyne.MainMenu {
 	if pal := sh.paletteMenuItem(); pal != nil { // ⌘⇧P, from any focus: menu shortcuts come first
 		view.Items = append([]*fyne.MenuItem{pal, fyne.NewMenuItemSeparator()}, view.Items...)
 	}
-	menus := []*fyne.Menu{cluster, view}
+	menus := []*fyne.Menu{cluster, view, sh.helmMenu()}
 	if sh.hasMCP() {
 		sh.mcpMenu = fyne.NewMenuItem("Copy MCP command", sh.copyMCPCommand)
 		sh.mcpMenu.Disabled = !sh.mcp.on

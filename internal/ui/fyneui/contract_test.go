@@ -44,6 +44,7 @@ func TestDispatchedParamsMatchTheRegistry(t *testing.T) {
 		{"object.delete", refParams{Ref: ref}},
 	}
 	cases = append(cases, helmDispatches()...)
+	cases = append(cases, helmInstallDispatches()...)
 	// The row menus and the drawer's toolbar send ObjectParams for every action of a kind.
 	for _, kind := range []string{kindPods, "deployments", "services", "nodes", "namespaces", "events"} {
 		for _, cmd := range s.Registry().Actions(kind) {
