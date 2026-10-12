@@ -414,8 +414,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestDeleteManyPartialFailure`, `TestDeleteManyNeedsTheAgentsAcceptance`). Inferred, Cogpit's
   defaults: the bound of 500, the wording, the other actions staying on one object. In the window
   the row checkboxes, the header's selection bar and the selection's row menu (G5,
-  `TestSelectionMenu`, [PNG](../../internal/ui/fyneui/testdata/delete_selection_dark.png)).
-  Estimate not moved (the lead recounts).
+  `TestSelectionMenu`, [PNG](../../internal/ui/fyneui/testdata/delete_selection_dark.png)); on
+  kind 1.36.1 `TestKindDeleteSelection` (the UID precondition refuses an object created again
+  while the dialog was open, the others are deleted). Estimate not moved (the lead recounts).
 - **Estimate:** 8–22 h (was 10–25; Edit and Delete follow the access reviews, third run).
 
 ### G10. Port forwarding
