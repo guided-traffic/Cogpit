@@ -24,6 +24,42 @@ func TestThemeDefinesEveryColour(t *testing.T) {
 	}
 }
 
+// TestForeignThemeWithoutCogpitColours: under a theme that lacks Cogpit's own colour names (Fyne's
+// test theme returns nil for them), themeColor answers with Cogpit's palette, and a tinted pill
+// renders instead of panicking in withAlpha. A test's cleanup crashed this way: a stopped shell's
+// queued UI state was applied after Fyne's NewTempApp cleanup had installed a fresh test app.
+func TestForeignThemeWithoutCogpitColours(t *testing.T) {
+	a := test.NewTempApp(t)
+	a.Settings().SetTheme(test.Theme())
+	th, v := a.Settings().Theme(), variant()
+	if th.Color(colorChip, v) != nil {
+		t.Fatalf("precondition: the test theme defines %s", colorChip)
+	}
+	for _, n := range []fyne.ThemeColorName{colorChip, colorStatusWarning, colorMuted} {
+		if got, want := themeColor(th, n), paletteFor(v).fyne[n]; got == nil || got != want {
+			t.Errorf("%s: %v, want Cogpit's %v", n, got, want)
+		}
+	}
+	if got, want := themeColor(th, "cogpit.no-such-colour"), th.Color(theme.ColorNameForeground, v); got != want {
+		t.Errorf("an unknown name: %v, want the theme's foreground %v", got, want)
+	}
+	if got := withAlpha(nil, 0x2c); got != color.Transparent {
+		t.Errorf("withAlpha(nil) = %v, want transparent", got)
+	}
+
+	p := newPill("Cluster role backup-operator not found", colorStatusWarning, true)
+	w := test.NewTempWindow(t, p)
+	w.Resize(fyne.NewSize(300, 40))
+	p.Refresh()
+	r, ok := test.WidgetRenderer(p).(*pillRenderer)
+	if !ok {
+		t.Fatalf("pill renderer %T", test.WidgetRenderer(p))
+	}
+	if want := withAlpha(paletteFor(v).fyne[colorStatusWarning], 0x2c); r.bg.FillColor != want {
+		t.Errorf("tinted pill background %v, want %v", r.bg.FillColor, want)
+	}
+}
+
 func TestStatusColoursAreDistinct(t *testing.T) {
 	for _, v := range []fyne.ThemeVariant{theme.VariantDark, theme.VariantLight} {
 		seen := map[color.Color]model.Status{}

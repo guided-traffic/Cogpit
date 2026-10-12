@@ -89,6 +89,24 @@ func TestHeaderTapDispatchesSort(t *testing.T) {
 	}
 }
 
+// TestStoppedShellDropsQueuedWork: what the shell queued for the main goroutine before it stopped
+// (here a UI state from the engine) is dropped, not applied to a window that is gone, possibly
+// under another app and theme by then (TestClusterRoleBindingDrawerLinks crashed in its cleanup
+// that way), as Run's fyne.Do drops it once the app stopped.
+func TestStoppedShellDropsQueuedWork(t *testing.T) {
+	f := connectedFake(t, 20)
+	sh, _, q := newTestShell(t, f, Options{})
+	q.until(t, "kinds", func() bool { return len(sh.kinds) > 0 })
+	applied := sh.ui.Revision
+
+	f.update(func(u *engine.UIState) { u.Filter = "web" })
+	sh.stop()
+	q.drain()
+	if sh.ui.Revision != applied || sh.ui.Filter != "" {
+		t.Errorf("a stopped shell applied revision %d (filter %q), had %d", sh.ui.Revision, sh.ui.Filter, applied)
+	}
+}
+
 func TestRowTapDispatchesSelect(t *testing.T) {
 	f := connectedFake(t, 200)
 	sh, w, q := newTestShell(t, f, Options{})

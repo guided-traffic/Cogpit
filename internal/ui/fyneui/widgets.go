@@ -17,11 +17,31 @@ import (
 // variant is the theme variant Fyne currently asks for; cogTheme resolves it against its mode.
 func variant() fyne.ThemeVariant { return fyne.CurrentApp().Settings().ThemeVariant() }
 
-// themeColor looks a colour up in th for the current variant.
-func themeColor(th fyne.Theme, n fyne.ThemeColorName) color.Color { return th.Color(n, variant()) }
+// themeColor looks a colour up in th for the current variant. A theme other than Cogpit's may not
+// define Cogpit's own names (Fyne's test theme returns nil for them, a third-party one may too):
+// such a name gets Cogpit's colour for the variant, and a name no palette knows the theme's
+// foreground, so that a widget never paints or converts a nil colour.
+func themeColor(th fyne.Theme, n fyne.ThemeColorName) color.Color {
+	v := variant()
+	if c := th.Color(n, v); c != nil {
+		return c
+	}
+	p := paletteFor(v)
+	if c, ok := p.fyne[n]; ok {
+		return c
+	}
+	if c := th.Color(theme.ColorNameForeground, v); c != nil {
+		return c
+	}
+	return p.fyne[theme.ColorNameForeground]
+}
 
-// withAlpha returns c with its alpha replaced, for tinted backgrounds of a status hue.
+// withAlpha returns c with its alpha replaced, for tinted backgrounds of a status hue; a nil
+// colour tints nothing (transparent).
 func withAlpha(c color.Color, a uint8) color.Color {
+	if c == nil {
+		return color.Transparent
+	}
 	n := color.NRGBAModel.Convert(c).(color.NRGBA)
 	n.A = a
 	return n

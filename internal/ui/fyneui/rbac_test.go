@@ -265,13 +265,20 @@ func TestClusterRoleBindingDrawerLinks(t *testing.T) {
 		t.Error("a group is not an object to link to")
 	}
 	test.Tap(links["metrics-collector"])
-	q.until(t, "ui.navigate", func() bool { return len(f.callsOf("ui.navigate")) == 1 })
-	if got := decodeParams[refParams](t, f.callsOf("ui.navigate")[0]).Ref; got != (model.ObjectRef{Context: "demo", Kind: "serviceaccounts", Namespace: "monitoring", Name: "metrics-collector"}) {
-		t.Errorf("subject link %+v", got)
+	// The link dispatches on the shell's goroutine: the call is recorded as Dispatch starts, the UI
+	// state changes after. Wait for the change, so that nothing of this shell touches the fake
+	// once the second one starts on it.
+	account := model.ObjectRef{Context: "demo", Kind: "serviceaccounts", Namespace: "monitoring", Name: "metrics-collector"}
+	q.until(t, "ui.navigate", func() bool { d := f.UIState().Drawer; return d != nil && *d == account })
+	if calls := f.callsOf("ui.navigate"); len(calls) != 1 || decodeParams[refParams](t, calls[0]).Ref != account {
+		t.Errorf("subject link: %d navigations, want one to %+v", len(calls), account)
 	}
+	sh.stop()
 
 	// The binding whose cluster role does not exist names it as text and says why it warns.
-	f.ui.Selected, f.ui.Drawer = []model.ObjectRef{missingRoleBindingRef}, &missingRoleBindingRef
+	f.update(func(u *engine.UIState) {
+		u.Selected, u.Drawer = []model.ObjectRef{missingRoleBindingRef}, &missingRoleBindingRef
+	})
 	sh2, _, q2 := newTestShell(t, f, Options{})
 	q2.until(t, "the drawer", func() bool { return sh2.drawer.last != nil && len(sh2.drawer.details.Objects) > 2 })
 	if drawerLinks(sh2)["ClusterRole backup-operator"] != nil {

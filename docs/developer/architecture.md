@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** major (current state after the third implementation run) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-11)
 
@@ -419,7 +419,9 @@ by "this pod".
   (which replace `Cells` and `Detail`) through `rel.Objects(index, key)`. While a view or drawer of
   the kind is open, the engine holds a cache handle on each index's kind (shared with every other
   consumer), rebuilds the view's rows when those objects change (the row cache keys on the related
-  objects' generation as well as the resourceVersion), and builds each index at most once per
+  objects' generation as well as the resourceVersion; the generation also changes when the
+  indexed kinds finish their initial list, which comes with no event of its own, so rows built
+  while they were listing are rebuilt, 2026-10-12), and builds each index at most once per
   snapshot. A lookup on a kind that is still listing or not served returns nothing. Rows built
   outside a view (`resources.list`) use `Session.BuildRows`. A rule that warns about an object
   that does not exist (a binding's cluster role) must tell that from a kind still listing: it asks
@@ -746,7 +748,8 @@ Security perspective: [updates](../security/updates.md).
 
 - The UI goroutine never waits on the network.
 - Fyne requires widget updates on its main goroutine; engine events reach the UI through
-  `fyne.Do` (Fyne 2.6 and later).
+  `fyne.Do` (Fyne 2.6 and later). Once the shell stopped, what it queued there is dropped
+  (2026-10-12): it would apply engine state to a window that is gone.
 - Every goroutine that does cluster I/O recovers from a panic at its boundary and reports it
   as an error ([D-11](decisions.md#d-11-crash-stance)).
 - Jobs take a `context.Context`; the UI can cancel any job with progress.
@@ -786,6 +789,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | §4.4: the related objects' generation changes when the indexed kinds finish their initial list; §12: a stopped shell drops the work it queued for the main goroutine |
 | 2026-10-12 | minor | Phase 0 of the fourth run: `model.Related.Listed`; covering scopes for the full Secrets watch and Helm's releases; the Helm upgrade's commands, seam, journal entry and dock tab |
 | 2026-10-11 | minor | Access reviews built (§4.2): which review answers what, the namespaces the sidebar reviews, bounds and events, measured request counts; no TTL (§5); `ErrNotApplicable` before a denial |
 | 2026-10-11 | minor | §4.4: drawer tables of cells (`model.CellTable`: links, status colours, the warning icon) and cells of several lines; telling a missing related object from a kind still listing |

@@ -45,8 +45,11 @@ type shell struct {
 	app  fyne.App
 	win  fyne.Window
 	opts Options
-	do   func(func()) // runs a function on the main goroutine: fyne.Do, a queue in tests
-	now  func() time.Time
+	// do runs a function on the main goroutine (fyne.Do, a queue in tests); once the shell stopped,
+	// what it queued before and what arrives after is dropped (stopped).
+	do      func(func())
+	stopped atomic.Bool
+	now     func() time.Time
 	// saveFile asks where to save a file and writes it (a file save dialog; tests record it).
 	saveFile func(name string, rows int, data []byte)
 
@@ -98,7 +101,16 @@ type shell struct {
 
 // newShell builds every widget. Nothing talks to the engine until start.
 func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func())) *shell {
-	sh := &shell{eng: eng, app: a, win: w, opts: opts, do: do, now: time.Now, stopTickers: make(chan struct{})}
+	sh := &shell{eng: eng, app: a, win: w, opts: opts, now: time.Now, stopTickers: make(chan struct{})}
+	// Work that reaches the main goroutine after stop would apply engine state to a window that
+	// is gone, possibly under another app and theme (tests run shells one after another).
+	sh.do = func(fn func()) {
+		do(func() {
+			if !sh.stopped.Load() {
+				fn()
+			}
+		})
+	}
 	sh.sess, _ = eng.(*engine.Session)
 	sh.ctx, sh.cancel = context.WithCancel(context.Background())
 	sh.saveFile = func(name string, rows int, data []byte) { sh.saveWithDialog(name, rows, data, nil) }
@@ -157,8 +169,10 @@ func (sh *shell) start() {
 	}
 }
 
-// stop ends everything start began: the subscription, tickers, dispatches and dock streams.
+// stop ends everything start began: the subscription, tickers, dispatches and dock streams, and
+// drops the main-goroutine work still queued.
 func (sh *shell) stop() {
+	sh.stopped.Store(true)
 	if sh.unsubscribe != nil {
 		sh.unsubscribe()
 	}
