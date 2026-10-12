@@ -106,7 +106,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   means replacing the process-wide `os.Stderr`, not done); the ↻ beside the ⚠; Lens's system file dialog instead of Cogpit's own
   browser (a native `NSOpenPanel` for files and folders needs cgo per platform). Since D-28 (built 2026-10-12, C3) `config` is an
   ordinary file of `~/.kube` and every context comes from one file read alone, so a deleted `config` closes its connections as any
-  synced file does.
+  synced file does. A plugin shared by several contexts of one file is approved in one dialog that lists
+  every context with its server (owner, 2026-10-12, built by C4), stored per context.
 - **Decided (owner, 2026-10-12, [D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs)):**
   a `tokenFile` of an added or synced kubeconfig outside its folder is asked for in the
   plugin approval dialog (H-24); **built 2026-10-12** (`TestTokenFileOutsideTheFolderIsAskedFor`;

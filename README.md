@@ -192,7 +192,7 @@ Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never a
 registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 76 commands</summary>
+<summary>All 77 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -222,8 +222,9 @@ registry with `go run ./hack/readmecmds`.
 | `kinds.list` | `kinds_list` | read |  | Lists the kinds the connected cluster serves, as Cogpit shows them: kind key (what other tools take as kind), title, Kubernetes kind, group, version, whether it is namespaced, its table columns, and the fields resources_find can search by |
 | `kubeconfig.addFile` | `kubeconfig_addFile` | ui | `path` | Adds a kubeconfig file the user picked as a source: its contexts become available as "<context> [<file name>]", read from that file alone, and follow its changes |
 | `kubeconfig.addFolder` | `kubeconfig_addFolder` | ui | `path` | Adds a sync folder: every kubeconfig file in it (not in its subfolders) becomes available as "<context> [<folder>/<file>]", and files that appear in it or leave it later are picked up or dropped |
-| `kubeconfig.approveExec` | `kubeconfig_approveExec` | ui | `context`, `fingerprint` | Records that the user allows a kubeconfig source context's credential plugin to run, exactly as shown (the fingerprint binds the command, its arguments, its environment and the server); a later change asks again |
+| `kubeconfig.approveExec` | `kubeconfig_approveExec` | ui | `approvals` | Records that the user allows the credential plugins of the listed kubeconfig source contexts to run, exactly as shown (each context's fingerprint binds the command, its arguments, its environment, the server and how it is trusted); a later change asks again |
 | `kubeconfig.execPlugin` | `kubeconfig_execPlugin` | read | `context` | Describes how a kubeconfig source's context logs in when that needs the user's approval: the credential plugin (users[].user.exec) it runs and a token file (users[].user.tokenFile) outside the kubeconfig's folder |
+| `kubeconfig.pendingApprovals` | `kubeconfig_pendingApprovals` | read | `context`? | Lists the logins of kubeconfig source contexts that wait for the user's approval, grouped by kubeconfig file and plugin: contexts of one file that run the same program the same way (command, arguments, environment, API version, interactive mode) or read the same token file are one group, asked about once |
 | `kubeconfig.remove` | `kubeconfig_remove` | ui | `source` | Removes a kubeconfig source, which is Cogpit's link to a file or folder and nothing else: its contexts are no longer offered, the credential plugins allowed for its files are forgotten, and an open connection made from one of its files is closed |
 | `kubeconfig.sources` | `kubeconfig_sources` | read |  | Lists the kubeconfig sources: the user's ~/.kube sync folder (default), the files named in $KUBECONFIG or --kubeconfig (session: removable for this run only), and the files and folders the user added, each with its id, kind, path, the files read from it, how many contexts it offers and why it cannot be read |
 | `logs.controller` | `logs_controller` | read | `id` | Turns a pod's logs tab into the logs of the resource that controls the pod (its Deployment, Daemon Set, Stateful Set, Replica Set or Job; a Deployment's pods through their replica set), as workload_logs shows them: every pod's containers, each line with its pod and container |
