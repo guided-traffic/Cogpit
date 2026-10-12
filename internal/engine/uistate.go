@@ -35,6 +35,9 @@ type UIState struct {
 	// Dock lists the dock's tabs; ActiveDock is the id of the shown one.
 	Dock       []DockTab `json:"dock"`
 	ActiveDock string    `json:"activeDock,omitempty"`
+	// Hotbar is the hotbar's banks and the shown one (hotbar.go); nil in a session without one.
+	// Its tiles carry their contexts only; ui.state adds what each tile shows (Session.HotbarView).
+	Hotbar *HotbarState `json:"hotbar,omitempty"`
 }
 
 // Connection is the state of the active cluster connection.
@@ -131,6 +134,10 @@ func (u UIState) Clone() UIState {
 			h.Versions = slices.Clone(t.Helm.Versions)
 			out.Dock[i].Helm = &h
 		}
+	}
+	if u.Hotbar != nil {
+		h := u.Hotbar.Clone()
+		out.Hotbar = &h
 	}
 	return out
 }

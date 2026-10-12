@@ -98,6 +98,11 @@ var wantCommands = map[string]engine.Danger{
 	"kubeconfig.sources": engine.DangerRead, "kubeconfig.addFile": engine.DangerUI, "kubeconfig.addFolder": engine.DangerUI,
 	"kubeconfig.remove": engine.DangerUI, "kubeconfig.execPlugin": engine.DangerRead,
 	"kubeconfig.approveExec": engine.DangerUI, "kubeconfig.pendingApprovals": engine.DangerRead,
+
+	// The hotbar (G13): Cogpit's own preferences, never a cluster (TestHotbarCommands).
+	"hotbar.list": engine.DangerRead, "hotbar.addCluster": engine.DangerUI, "hotbar.removeCluster": engine.DangerUI,
+	"hotbar.moveCluster": engine.DangerUI, "hotbar.openCluster": engine.DangerUI, "hotbar.switchBank": engine.DangerUI,
+	"hotbar.createBank": engine.DangerUI, "hotbar.renameBank": engine.DangerUI, "hotbar.removeBank": engine.DangerUI,
 }
 
 func TestRegistryComplete(t *testing.T) {

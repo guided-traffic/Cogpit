@@ -94,7 +94,7 @@ func run(previousCrash string) int {
 		Sources:         openKubeconfigSources(logger, cluster.NamedKubeconfigFiles(filepath.SplitList(*kubeconfig))),
 	}
 	s := engine.New(engine.Options{Connector: connector, Audit: audit, Logger: logger, Drains: openDrainJournal(logger),
-		Helm: openHelmJournal(logger)})
+		Helm: openHelmJournal(logger), Hotbar: openHotbar(logger)})
 	defer s.Close()
 	defer s.WatchKubeconfigs(0)() // sync folders: files that appear or leave are picked up
 	if err := commands.RegisterAll(s.Registry()); err != nil {
@@ -203,6 +203,17 @@ func openHelmJournal(logger *slog.Logger) *engine.HelmOps {
 		return nil
 	}
 	return engine.NewHelmOps(engine.NewFileHelmJournal(filepath.Join(dir, "Cogpit")))
+}
+
+// openHotbar keeps the hotbar's banks of pinned clusters in <user config dir>/Cogpit/hotbar.json,
+// owner-only (G13). Without a configuration directory the hotbar lives in memory for the run.
+func openHotbar(logger *slog.Logger) *engine.Hotbar {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		logger.Warn("the hotbar is not kept after this run", "err", err)
+		return engine.NewHotbar("")
+	}
+	return engine.NewHotbar(filepath.Join(dir, "Cogpit"))
 }
 
 // openKubeconfigSources keeps the kubeconfig files and sync folders the user

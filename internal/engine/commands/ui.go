@@ -65,11 +65,17 @@ func registerUI(g *registrar) {
 		ID: "ui.state", Label: "Show UI State", Danger: engine.DangerRead,
 		Description: "Returns what the user sees: the connected context and its connection state, the open view (kind key), " +
 			"the namespace filter, the search text, the sort order, the selected objects, the object in the detail drawer, " +
-			"the dock tabs, how many rows the view shows of how many objects, and for a pod's or node's drawer the time " +
-			"range of each metrics chart (drawerCharts). Use it to learn which object the user means.",
+			"the dock tabs, how many rows the view shows of how many objects, for a pod's or node's drawer the time " +
+			"range of each metrics chart (drawerCharts), and the hotbar of pinned clusters as hotbar_list returns it. Use it " +
+			"to learn which object the user means.",
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			u := s.UIState()
 			res := StateResult{UIState: u}
+			if u.Hotbar != nil { // what each tile shows: label, connection, missing (hotbar.go)
+				if v, err := s.HotbarView(); err == nil {
+					res.Hotbar = &v
+				}
+			}
 			if t := s.Table(u.View); t != nil {
 				res.ViewTitle, res.Rows, res.Total, res.Synced, res.ViewError = t.Title, len(t.Rows), t.Total, t.Synced, t.Error
 			} else if b := s.Backend(); b != nil {

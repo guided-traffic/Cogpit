@@ -102,6 +102,9 @@ type Options struct {
 	// interrupts is offered again when its context is connected (D-11; helmops.go). Nil: rollback
 	// and uninstall are refused.
 	Helm *HelmOps
+	// Hotbar keeps the hotbar (hotbar.go), shown in UIState.Hotbar. Nil: the session has none and
+	// the hotbar commands are disabled.
+	Hotbar *Hotbar
 }
 
 // Session is the engine for one desktop app or headless process. It is safe for concurrent use.
@@ -151,6 +154,7 @@ func New(opts Options) *Session {
 	s.state = newState(s)
 	opts.Drains.attach(s) // nil-safe
 	opts.Helm.attach(s)   // nil-safe
+	opts.Hotbar.attach(s) // nil-safe
 	return s
 }
 

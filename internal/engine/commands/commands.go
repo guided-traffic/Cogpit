@@ -44,6 +44,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerKubeconfigs(g)
 	registerMetrics(g)
 	registerMetricsRange(g)
+	registerHotbar(g)
 	return g.err
 }
 
