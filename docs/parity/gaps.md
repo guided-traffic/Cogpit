@@ -422,6 +422,17 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Still to capture in Lens** (the staging cluster's release with five revisions, one failed): what the Rollback dialog's button does with the current revision selected, what Save does with the box cleared, where the checkbox sits relative to the editor, the texts of states other than Deployed and Failed, what the find widget's Replace does with a regular expression's groups.
 
 ### G12. Metrics and cluster overview
+- **Required next (owner, 2026-10-12: "do not forget"):**
+  - **metrics-server** (Kubernetes Metrics API, `metrics.k8s.io`): the pods' and nodes' current
+    CPU and memory in the lists and the drawer, and as the source of the drawer's charts when no
+    Prometheus is found (Lens: "Displaying metrics from Kubernetes Metrics Server").
+  - **Prometheus** (through the API server's service proxy, detected per cluster): the drawer's
+    resource graphs as Lens shows them, with a time range (1h by default), one graph for the whole
+    pod and one per container, each in the variants **CPU, Memory, Network and Filesystem**; the
+    containers' **requests and limits drawn as lines** in the graphs; **events as yellow markers**
+    (vertical lines with a diamond, toggled by a flag button) at the time they happened.
+  - Captured from Lens with the owner (screenshot, 2026-10-12): the Metrics panel's range dropdown,
+    the four variant buttons and the event-marker toggle, the source line, the time axis, a legend.
 - **Missing:** provider detection (metrics-server, Prometheus through the service proxy, the
   provider variants Lens lists), polling while visible, charts, the overview page, the explicit
   Lens Metrics install.
@@ -446,10 +457,16 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## UI gaps
 
 ### G5. App shell, navigation, tables and drawer
-- **Decided (owner, 2026-10-12):** the Solarized colours ([D-22](../developer/decisions.md#d-22-colour-theme), 3–6 h), the
-  status bar link ([D-23](../developer/decisions.md#d-23-a-link-to-the-owner-in-the-status-bar), 1–2 h), the C helm logo
-  ([D-24](../developer/decisions.md#d-24-logo), 2–4 h) and copying values from the drawer
-  ([D-25](../developer/decisions.md#d-25-copying-values), 4–8 h); not built.
+- **Decided (owner, 2026-10-12):** the Solarized colours ([D-22](../developer/decisions.md#d-22-colour-theme)), the
+  status bar link ([D-23](../developer/decisions.md#d-23-a-link-to-the-owner-in-the-status-bar)), the C helm logo
+  ([D-24](../developer/decisions.md#d-24-logo)) and copying values from the drawer
+  ([D-25](../developer/decisions.md#d-25-copying-values)); built 2026-10-12 (fifth run).
+- **Required (owner, 2026-10-12, seen in the demo cluster):** the detail drawer's width never
+  follows its content: a long value (a container's `Waiting: CrashLoopBackOff (back-off …)` status,
+  which the demo changes every few seconds) widened the drawer and made the whole layout jump. The
+  user sets the width by dragging the drawer's edge, and it stays; long values wrap or are cut.
+  The user can also set the width of the primary sidebar (the navigator) by dragging its edge.
+  Both widths persist. In progress 2026-10-12.
 - **Missing:** the Fyne window layout, the cluster sidebar, the table, the detail drawer and the
   dock frame; Cogpit's Fyne theme. Needs the [spike](../developer/spike-fyne.md) to pass.
 - **Evidence:** [ui-parity](ui-parity.md), 18 of 40 rows partial across Layout, Cluster sidebar,
@@ -476,6 +493,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 35–110 h (was 45–130; title bar, keyboard, columns, CSV and the Workloads Overview built, third run).
 
 ### G13. Clusters, hotbar, palette, menus, shortcuts and preferences
+- **Required next (owner, 2026-10-12: "still missing, do not forget"):** the hotbar (Lens's
+  vertical bar at the window's left edge with the pinned clusters' icons).
 - **Missing:** kubeconfig syncs (alpha needs these; pasting is not a target, D-21), the hotbar, the command palette,
   the application menu, every keyboard shortcut, preferences, cluster settings, appearance and
   application integration.

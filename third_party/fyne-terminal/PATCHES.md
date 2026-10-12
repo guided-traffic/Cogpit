@@ -75,10 +75,12 @@ without the race detector.
 | `FuzzHandleOutput` | 11 min 42 s, 1,035,471 execs, 4 workers, after the first five patches above | one timeout, whose minimised input passed alone in 0.1 s: the harness then kept every input's widget (about 650 KB each) and slowed down; harness fixed, input discarded |
 | `FuzzHandleOutput` | four shorter runs, 1 to 4 min, up to 224,818 execs, on the main loop | no crash or hang in the widget; workers died or stalled from the harness's memory use (up to 20 GiB a worker: Fyne's test driver never expires renderers, and a bell redraws after the clean-up) and once from the machine running out of memory; harness fixed (`releaseRenderers`, `flush`), not rerun for long |
 | `FuzzRawWidget` (termview) | 9 min 48 s, 164,674 execs, 3 workers, before the main loop | no finding before the run was stopped |
+| `FuzzHandleOutput` | 2026-10-12, fifth run: 10 min, 443,665 execs, `-parallel 2`, with the fixed harness and the main loop, on an otherwise idle machine | no crash, no hang; 38 new interesting inputs |
+| `FuzzRawWidget` (termview) | 2026-10-12, fifth run: 10 min, 72,941 execs, `-parallel 2` | no crash, no hang; 24 new interesting inputs |
 
 Crashers and hangs fixed above came from the seeds, the fuzzer's first minutes and reading the
 code around them; the string, APC and line-count findings were measured with probes (1 MiB of
-unterminated OSC took about 60 s). A long run with the fixed harness is still to do.
+unterminated OSC took about 60 s). The ten-minute runs with the fixed harness (fifth run) found nothing; longer ones are welcome.
 
 ## Known and not patched
 

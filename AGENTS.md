@@ -125,22 +125,28 @@ Priorities: infrastructure first, then the alpha-gate workflows, then breadth, t
 
 ## 5. Before you finish a task
 
+Locally, keep it fast (owner, 2026-10-12): CI is the full gate, so check here only what the change
+touches.
+
 ```sh
-make lint             # golangci-lint, depguard layering included
-make test-unit-race   # go test -race ./...
-make test             # plus integration tiers you touched
-make test-kind        # cluster tests, after make kind-up (never against your own kubeconfig)
-make parity           # the checklists' rows and the numbers the progress pages report (D-15);
-                      # PARITY_FLAGS=-rows while the lead's recount is still due
-# make scorecard comes with its generator (gap G1)
+go build ./...                          # the tree builds
+go vet ./internal/<pkg>/...             # the packages you touched
+go test ./internal/<pkg>/...            # their tests, without -race
+go run ./hack/parity -rows              # only when a checklist or a progress page changed
+# -race on the one package only when the change is about concurrency (cache, journals, terminal)
 ```
+
+CI ([`build.yml`](.github/workflows/build.yml)) runs on every push what used to run here: `make
+lint` (depguard layering included), `make parity`, the race tests with coverage, the build, the
+compile matrix for macOS, Linux and Windows, and `make test-kind` on a kind cluster. Read its result
+when you next push (`gh run list`) and fix what is red first.
 
 Then commit and push. Agents may commit and push to `main` on their own (owner, 2026-10-11), in
 [Conventional Commits](docs/developer/conventions.md#commits-and-pull-requests) form and **without
 `Co-Authored-By` trailers or "Generated with" lines**, and **never with `!` or a `BREAKING CHANGE:`
 footer**: releases continue from the owner's anchor tag `v0.0.0`, and a breaking change would cut
 1.0.0 before Cogpit is usable. Don't wait for CI before the next step (owner, 2026-10-11): run the
-gates locally, push, and look at CI when you next push. Append a terse entry to `log/devlog.md`:
+quick local checks, push, and look at CI when you next push. Append a terse entry to `log/devlog.md`:
 what landed, numbers, what's still open. Keep the tree building at every step.
 
 ## 6. Parallel agents

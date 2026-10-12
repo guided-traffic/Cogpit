@@ -661,10 +661,23 @@ the upgrade is bound to its text revision (R-2). Built 2026-10-12 by the lead
 | (b) Refuse inline values for agents | Only the tab path, already bound | Agents need two calls; the user must open the tab to read |
 | (c) Leave it, document it | Nothing to build | The user accepts values they did not see |
 
+## D-28: The default kubeconfig as sources, as Lens has it
+
+**Decided (owner, 2026-10-12, from the fifth run's agent C2):** every context comes from a source
+file read on its own; nothing is merged any more. `~/.kube/config` is an ordinary file of the
+default sync folder `~/.kube`, so removing that folder hides its contexts too, as in Lens. The
+files named in `$KUBECONFIG` appear at start as additional default sources, each read alone and
+removable (for the session), so a developer's or `make run`'s `KUBECONFIG` keeps working.
+Consequence the owner accepted: a credential plugin in `config` asks for the user's approval once,
+like a plugin in any other file (H-1). Not built yet. The options weighed: `config` as kubectl
+reads it, merged with `$KUBECONFIG` and not removable (as built by C2); as Lens (decided); and
+for `$KUBECONFIG` under it: its files as sources (decided) or ignored, as Lens does.
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | D-28 (owner): the default kubeconfig as sources, as Lens (config an ordinary synced file, `$KUBECONFIG`'s files sources of their own), not built; C1's Rollback on the current revision does what helm does (owner) |
 | 2026-10-12 | minor | D-25 (owner, built): a copied Secret value marked concealed for clipboard managers and kept from Universal Clipboard on macOS (H-25) |
 | 2026-10-12 | minor | D-26 (owner): a credential plugin's approval binds the program's content when it lies in the kubeconfig's or sync folder; D-27 (owner, built): an agent's inline Helm values shown in the confirmation |
 | 2026-10-12 | minor | D-22 to D-25 built: Solarized theme tokens (contrast departures listed), the status bar link, the C helm logo (`internal/ui/logo`), copying values from the drawer |

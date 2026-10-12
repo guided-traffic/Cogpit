@@ -65,26 +65,26 @@ M11 and M12 do not depend on each other; their order is the owner's call.
 
 Ranked; each item links to its gap. Pick from the top unless an issue is assigned to you.
 
-1. **Finish the fourth run:** the review of its diff (Secret values with the full watch, the
-   upgrade's binding and crash path, the journals' lock, the kubeconfig sources and plugin
-   approval, races, cache-first, layering), each finding verified with a failing test; the
-   announced smoke launch; the terminal widget's upstream patch series and longer fuzz runs
-   ([G8](gaps.md#g8-logs-terminal-and-shells)).
-2. **Walk the workflows in the GUI** on kind and a real cluster (owner): change a workload,
+1. **The owner's next requirements (2026-10-12, "do not forget"):** pod and node metrics from
+   metrics-server, and the drawer's resource graphs from Prometheus (pod and per container; CPU,
+   memory, network, filesystem; requests and limits as lines; events as yellow markers)
+   ([G12](gaps.md#g12-metrics-and-cluster-overview)); the hotbar
+   ([G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)); the drawer's width
+   set by the user only, never by its content, and a resizable sidebar
+   ([G5](gaps.md#g5-app-shell-navigation-tables-and-drawer)).
+2. **Finish the fifth run:** the default kubeconfig as sources
+   ([D-28](../developer/decisions.md#d-28-the-default-kubeconfig-as-sources-as-lens-has-it)), the
+   UI PNGs regenerated, the announced smoke launch with the owner, the upstream pull requests of the
+   terminal widget ([G8](gaps.md#g8-logs-terminal-and-shells)).
+3. **Walk the workflows in the GUI** on kind and a real cluster (owner): change a workload,
    maintain a node, reach a service, Helm upgrade, rollback and uninstall, adding and syncing
    kubeconfigs, Cogpit's own title bar; record what differs in the parity rows.
-3. **The owner's decisions of 2026-10-12, built:** token files of added kubeconfigs asked for like
-   credential plugins ([D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs),
-   H-24), Secrets edited and created from YAML in the GUI only
-   ([D-19](../developer/decisions.md#d-19-editing-and-creating-secrets-from-yaml)), port forwards
-   failing at once on permanent errors ([D-20](../developer/decisions.md#d-20-a-port-forward-that-cannot-connect));
-   H-23 is accepted (D-18). The captures of Lens's Helm and kubeconfig dialogs (owner).
 4. **Helm install and charts** ([G11](gaps.md#g11-helm)), then the credential plugins verified on
    EKS, GKE and AKS ([G2](gaps.md#g2-cluster-connection-and-authentication), human).
 5. **Breadth and depth of M2 and M4** ([G6](gaps.md#g6-resource-views),
-   [G7](gaps.md#g7-resource-actions)): the cluster overview with metrics (M7), the create dialogs,
-   the node shell, captures of the rows marked inferred; the generated parity pages and the
-   scorecard ([G1](gaps.md#g1-workspace-ci-and-progress-generators)).
+   [G7](gaps.md#g7-resource-actions)): the cluster overview (M7), the create dialogs, the node
+   shell, captures of the rows marked inferred; the generated parity pages and the scorecard
+   ([G1](gaps.md#g1-workspace-ci-and-progress-generators)).
 
 ## What's next, with estimates
 
