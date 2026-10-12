@@ -370,6 +370,17 @@ func TestHelmBannerShowsAndActs(t *testing.T) {
 	if got := helmOpDetail(fixtureHelmOps()[0]); !strings.Contains(got, "the release is pending-rollback at revision 5 · Cogpit ended before the action did") {
 		t.Errorf("detail %q", got)
 	}
+	// An action another live Cogpit process runs says so, as a drain does (H-22; review of the
+	// fourth run, R-9); one this window runs does not.
+	elsewhere := fixtureHelmOps()[0]
+	elsewhere.Status, elsewhere.Elsewhere, elsewhere.Owner = engine.HelmOpStatusRunning, true, &engine.JournalOwner{ID: "abc", PID: 4242}
+	if got := helmOpDetail(elsewhere); !strings.Contains(got, "in another Cogpit window (process 4242)") {
+		t.Errorf("running elsewhere: %q", got)
+	}
+	elsewhere.Elsewhere = false
+	if got := helmOpDetail(elsewhere); strings.Contains(got, "another Cogpit window") {
+		t.Errorf("running here: %q", got)
+	}
 	running := fixtureHelmOps()[:1]
 	running[0].Status = engine.HelmOpStatusRunning
 	h.set(running)

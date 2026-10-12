@@ -150,6 +150,9 @@ func helmOpDetail(op engine.PendingHelmOpInfo) string {
 	parts := []string{fmt.Sprintf("Context %s, namespace %s, started %s by %s", op.Context, op.Namespace,
 		op.Started.UTC().Format("2006-01-02 15:04 MST"), starterText(op.StartedBy))}
 	if op.Status == engine.HelmOpStatusRunning {
+		if op.Elsewhere && op.Owner != nil { // as drains: this window will not finish it (H-22, R-9)
+			parts = append(parts, fmt.Sprintf("in another Cogpit window (process %d)", op.Owner.PID))
+		}
 		return strings.Join(parts, " · ")
 	}
 	switch op.ReleaseStatus {

@@ -168,8 +168,8 @@ func registerNodes(g *registrar) {
 		ID: "node.pendingDrains", Label: "Unfinished Drains", Danger: engine.DangerRead,
 		Verbs: []engine.Verb{{Verb: nwVerbList, Resource: nodeKindKey}, {Verb: nwVerbWatch, Resource: nodeKindKey}},
 		Description: "Lists the drains Cogpit started on the connected context (all: on every context) that did not " +
-			"finish: context, node, when and by whom started, the settings, status (running in this Cogpit, " +
-			"interrupted by an earlier run of Cogpit ending, or failed with its error) and the node's state from the " +
+			"finish: context, node, when and by whom started, the settings, status (running in this Cogpit or, " +
+			"with elsewhere and its owner's process, in another one, interrupted by an earlier run of Cogpit ending, or failed with its error) and the node's state from the " +
 			"cache (cordoned, schedulable, missing, unknown). Offer node_drain to finish one, node_uncordon to give up " +
 			"and make the node schedulable, or node_dismissDrain to forget it.",
 		Run: func(_ context.Context, s *engine.Session, p pendingDrainsParams) (any, error) {
