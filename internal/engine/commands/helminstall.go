@@ -51,6 +51,9 @@ type InstallPreview struct {
 	Version    string          `json:"version"`
 	Digest     string          `json:"digest"`
 	Verified   bool            `json:"verified"`
+	// Offline: rendered without the cluster (agents and the CLI): no lookup, the default
+	// capabilities, no check for objects that exist already.
+	Offline bool `json:"offline,omitempty"`
 	helm.InstallPreview
 }
 
@@ -104,11 +107,11 @@ func registerHelmInstall(g *registrar) {
 	add(g, engine.Spec[installParams]{
 		ID: "helm.chart.preview", Label: "Preview Helm Install", Danger: engine.DangerRead,
 		Verbs: []engine.Verb{{Verb: nwVerbGet, Resource: "*"}},
-		Description: "Renders a chart install against the connected cluster without changing it (helm install " +
-			"--dry-run=server): the chart's templates run with the values, and every object they render is read from the " +
-			"cluster to find one that exists already. Returns the objects, hooks and custom resource definitions the " +
-			"install would create, by kind, namespace and name, never their content. Takes the same parameters as " +
-			"helm_chart_install.",
+		Description: "Renders a chart install without changing anything and returns the objects, hooks and custom resource " +
+			"definitions it would create, by kind, namespace and name, never their content. For agents and the CLI it " +
+			"renders without the cluster (helm template: no lookup, default capabilities, offline in the result); in " +
+			"Cogpit's window against the cluster (--dry-run=server), which also finds objects that exist already. Takes " +
+			"the same parameters as helm_chart_install.",
 		Enabled: func(s *engine.Session, p installParams) error { return installEnabled(s, p) },
 		Run: func(ctx context.Context, s *engine.Session, p installParams) (any, error) {
 			b, err := writable(s)
@@ -127,12 +130,16 @@ func registerHelmInstall(g *registrar) {
 			if err != nil {
 				return nil, fmt.Errorf("release %s: %w; nothing was rendered", p.Name, err)
 			}
-			pre, err := installer.PreviewInstall(ctx, helm.InstallRequest{Namespace: p.Namespace, Name: p.Name, Chart: src.archive, Values: vals, CreateNamespace: p.CreateNamespace})
+			// Only the user's own window renders against the cluster: an agent's or the CLI's preview
+			// is offline, so that a chart's lookup cannot hand them what the cluster holds.
+			offline := engine.OriginOf(ctx) != engine.OriginGUI
+			pre, err := installer.PreviewInstall(ctx, helm.InstallRequest{Namespace: p.Namespace, Name: p.Name, Chart: src.archive, Values: vals,
+				CreateNamespace: p.CreateNamespace, Offline: offline})
 			if err != nil {
 				return nil, helm.Scrubbed(err, src.archive.UserValues(vals))
 			}
 			return InstallPreview{Release: engine.HelmReleaseRef(b.Context, p.Namespace, p.Name), Repository: src.repository, Chart: src.chart,
-				Version: src.version, Digest: src.archive.Digest, Verified: src.archive.Verified, InstallPreview: pre}, nil
+				Version: src.version, Digest: src.archive.Digest, Verified: src.archive.Verified, Offline: offline, InstallPreview: pre}, nil
 		},
 	})
 

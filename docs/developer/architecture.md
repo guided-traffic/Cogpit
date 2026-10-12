@@ -1323,7 +1323,13 @@ is inferred).
   templates render against the cluster's capabilities, every rendered object is read to find one
   that exists already and is not the release's, nothing is written. It returns the objects, the
   hooks and the custom resource definitions of the chart's `crds/` folder by kind, namespace and
-  name, never their content (a rendered manifest holds the values).
+  name, never their content (a rendered manifest holds the values). Only the window's preview
+  renders against the cluster: an agent's or the CLI's renders offline (`DryRunClient`, helm
+  template: default capabilities, no `lookup`, no check for existing objects, `offline` in the
+  result), because charts reach `lookup` from values through `tpl`, and the names or the error a
+  preview returns would otherwise carry what the cluster holds, Secrets included, to a caller that
+  reads Secrets redacted everywhere else (`TestKindHelmInstall`: a probe template named from a
+  `lookup`).
 - **Install.** `helm.chart.install` (mutating) takes a tab with its text revision (an install from
   a tab is bound to the text the user reviewed, as an upgrade is), or a repository, chart, version
   and values (agents); the namespace, the release name and `createNamespace` (off by default) are

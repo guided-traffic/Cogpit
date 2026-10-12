@@ -60,6 +60,9 @@ func TestKindHelmInstall(t *testing.T) {
 			"templates/cm.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Release.Name }}-config\ndata:\n  greeting: {{ .Values.greeting | quote }}\n",
 			"templates/secret.yaml": "apiVersion: v1\nkind: Secret\nmetadata:\n  name: {{ .Release.Name }}-secret\n" +
 				"stringData:\n  password: {{ .Values.password | quote }}\n",
+			// A name made from what lookup reads: kube-system's UID, or "none" without the cluster.
+			"templates/probe.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Release.Name }}-probe-" +
+				"{{ dig \"metadata\" \"uid\" \"none\" (lookup \"v1\" \"Namespace\" \"\" \"kube-system\") | trunc 8 }}\n",
 		},
 	})
 	journal := engine.NewMemoryHelmJournal()
@@ -115,13 +118,21 @@ func TestKindHelmInstall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("preview: %v", err)
 	}
-	pre := res.(commands.InstallPreview)
-	var objs []string
-	for _, o := range pre.Objects {
-		objs = append(objs, o.Kind+" "+o.Namespace+"/"+o.Name)
+	names := func(p commands.InstallPreview) string {
+		var objs []string
+		for _, o := range p.Objects {
+			objs = append(objs, o.Kind+" "+o.Namespace+"/"+o.Name)
+		}
+		return strings.Join(objs, ", ")
 	}
-	if strings.Join(objs, ", ") != "ConfigMap "+installNamespace+"/hi-web-config, Secret "+installNamespace+"/hi-web-secret" {
-		t.Errorf("preview %v", objs)
+	pre := res.(commands.InstallPreview)
+	kubeSystem, err := kc.CoreV1().Namespaces().Get(ctx, "kube-system", metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	probe := "hi-web-probe-" + string(kubeSystem.UID)[:8]
+	if want := "ConfigMap " + installNamespace + "/hi-web-config, ConfigMap " + installNamespace + "/" + probe + ", Secret " + installNamespace + "/hi-web-secret"; names(pre) != want || pre.Offline {
+		t.Errorf("preview %v, want %v", names(pre), want)
 	}
 	previewRequests := delta(before, counter.Snapshot())
 	for key := range previewRequests {
@@ -130,6 +141,14 @@ func TestKindHelmInstall(t *testing.T) {
 		}
 	}
 	t.Logf("requests of the preview: %v", previewRequests)
+	// An agent's preview renders without the cluster: the lookup finds nothing.
+	res, err = k.dispatch(ctx, engine.OriginExternalAgent, "helm.chart.preview", params)
+	if err != nil {
+		t.Fatalf("an agent's preview: %v", err)
+	}
+	if agentPre := res.(commands.InstallPreview); !agentPre.Offline || !strings.Contains(names(agentPre), "/hi-web-probe-none") {
+		t.Errorf("an agent's preview %v (offline %v)", names(agentPre), agentPre.Offline)
+	}
 
 	params["textRevision"] = kindTabRevision(ctx, t, k, tab.Tab.ID)
 	before = counter.Snapshot()

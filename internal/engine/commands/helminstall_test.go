@@ -30,6 +30,7 @@ type fakeInstaller struct {
 	imu      sync.Mutex
 	installs []helm.InstallRequest
 	previews int
+	offline  []bool // each preview's Offline
 	err      error
 }
 
@@ -42,6 +43,7 @@ func newFakeInstaller(t testing.TB, src *testkit.MemorySource) *fakeInstaller {
 func (f *fakeInstaller) PreviewInstall(_ context.Context, req helm.InstallRequest) (helm.InstallPreview, error) {
 	f.imu.Lock()
 	f.previews++
+	f.offline = append(f.offline, req.Offline)
 	err := f.err
 	f.imu.Unlock()
 	if err != nil {
@@ -171,9 +173,19 @@ func TestHelmInstallFromTab(t *testing.T) {
 	}
 	pre := res.(commands.InstallPreview)
 	if pre.Chart != "web" || pre.Version != "0.2.0" || !pre.Verified || len(pre.Objects) != 1 || pre.Objects[0].Kind != "ConfigMap" ||
-		pre.Release.Name != "web" || pre.Release.Kind != helm.ReleaseKind {
+		pre.Release.Name != "web" || pre.Release.Kind != helm.ReleaseKind || pre.Offline {
 		t.Errorf("preview %+v", pre)
 	}
+	// An agent's preview renders without the cluster: a chart's lookup cannot reach it.
+	res, err = h.dispatch(engine.OriginExternalAgent, "helm.chart.preview", params)
+	if err != nil || !res.(commands.InstallPreview).Offline {
+		t.Errorf("an agent's preview: %+v %v", res, err)
+	}
+	fi.imu.Lock()
+	if !slices.Equal(fi.offline, []bool{false, true}) {
+		t.Errorf("previews offline %v", fi.offline)
+	}
+	fi.imu.Unlock()
 	if _, err := h.dispatch(engine.OriginGUI, "helm.chart.install", params); err == nil || !strings.Contains(err.Error(), "textRevision") {
 		t.Errorf("an install without the text revision: %v", err)
 	}

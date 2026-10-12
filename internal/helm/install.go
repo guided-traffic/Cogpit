@@ -34,6 +34,11 @@ type InstallRequest struct {
 	Chart           *Chart
 	Values          map[string]any
 	CreateNamespace bool
+	// Offline renders a preview without the cluster (helm template: the default capabilities, no
+	// lookup, no check for existing objects). An agent's preview is offline: a chart's lookup,
+	// which charts reach from values through tpl, would otherwise hand the agent what the cluster
+	// holds, Secrets included, in the names or the error it returns. Install ignores it.
+	Offline bool
 }
 
 // RenderedObject is one object a chart renders, as a preview names it.
@@ -92,9 +97,9 @@ func (a *Actions) newInstall(cfg *action.Configuration, req InstallRequest) *act
 
 // PreviewInstall renders an install against the cluster without changing it (the SDK's dry run on
 // the server: discovery, the cluster's capabilities, a get of each rendered object to find one that
-// exists already and is not the release's, and whatever the chart's templates look up). It returns
-// the objects' kinds and names, never their content: a rendered manifest holds the values. Errors
-// are scrubbed of the values the user changed.
+// exists already and is not the release's, and whatever the chart's templates look up), or with
+// Offline without the cluster. It returns the objects' kinds and names, never their content: a
+// rendered manifest holds the values. Errors are scrubbed of the values the user changed.
 func (a *Actions) PreviewInstall(ctx context.Context, req InstallRequest) (p InstallPreview, err error) {
 	scrub := userValues(req)
 	defer func() { err = Scrubbed(err, scrub) }()
@@ -108,6 +113,9 @@ func (a *Actions) PreviewInstall(ctx context.Context, req InstallRequest) (p Ins
 	}
 	in := a.newInstall(cfg, req)
 	in.DryRunStrategy = action.DryRunServer
+	if req.Offline {
+		in.DryRunStrategy = action.DryRunClient
+	}
 	res, err := in.RunWithContext(ctx, req.Chart.chart, req.Values)
 	if err != nil {
 		return p, fmt.Errorf("helm install %s/%s (dry run): %w", req.Namespace, req.Name, err)

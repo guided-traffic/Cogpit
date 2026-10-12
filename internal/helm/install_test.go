@@ -95,6 +95,15 @@ func TestInstallThroughTheSDK(t *testing.T) {
 	if h, err := store.History("web"); err == nil && len(h) > 0 {
 		t.Fatalf("the dry run stored %d revisions", len(h))
 	}
+	offline, offlineStore := installFixture(t)
+	req.Offline = true
+	if p, err := offline.PreviewInstall(context.Background(), req); err != nil || len(p.Objects) != 2 {
+		t.Errorf("an offline preview: %+v %v", p, err)
+	}
+	req.Offline = false
+	if h, err := offlineStore.History("web"); err == nil && len(h) > 0 {
+		t.Fatalf("the offline dry run stored %d revisions", len(h))
+	}
 
 	rev, err := a.Install(context.Background(), req)
 	if err != nil || rev != 1 {
