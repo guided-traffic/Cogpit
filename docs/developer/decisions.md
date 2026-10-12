@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -558,10 +558,44 @@ revealed, in the GUI, and the clipboard is cleared 60 seconds later if it still 
 Agents get no copy command (they read values through `object_get` already). This is Cogpit's own
 approach; how Lens Desktop copies is not captured and not needed. Not built yet.
 
+## D-26: Binding a credential plugin's approval to its program
+
+**Decided (owner, 2026-10-12, from R-5 of the fourth run's review):** the approval of a kubeconfig's
+credential plugin (exec) also binds the content (SHA-256) of the program it runs when that program
+lies inside the kubeconfig's own folder or the sync folder it came from, where a writer of the
+synced folder (H-1's threat) can replace it; replacing it asks again. A program found elsewhere
+(on `PATH`, `/usr/local/bin`: kubelogin, aws, gke-gcloud-auth-plugin) stays bound by its path, so
+an update of the tool does not ask again; a writer of a `PATH` directory controls the user's
+account anyway. Built with D-17 by the fifth run's agent D. The options weighed:
+
+| Option | For | Against |
+|---|---|---|
+| **(a) Hash programs in the folder only (decided)** | Closes H-1's own threat; no prompt after a tool update | A program on `PATH` stays bound by path |
+| (b) Hash every program | Binds every program | Asks again after every update of a plugin (brew, gcloud components) |
+| (c) Document only | Nothing to build | The swap through the synced folder stays open |
+
+## D-27: An agent's Helm values in the confirmation
+
+**Decided (owner, 2026-10-12, from the remainder of R-2):** when an agent upgrades a release with
+values it passes inline (`helm_release_upgrade` with `values`), the confirmation dialog shows those
+values, monospace and selectable, in a box that scrolls, before the user answers. The upgrade runs
+with exactly that text (it is part of the request's parameters). The text is carried in
+`ConfirmRequest.Review`, which is never serialised: no audit line, log or MCP result holds it. An
+upgrade from a Helm Upgrade tab shows no values in the dialog: the tab is what the user reads, and
+the upgrade is bound to its text revision (R-2). Built 2026-10-12 by the lead
+(`TestConfirmationShowsTheReviewText`, `TestHelmUpgradeAgents`). The options weighed:
+
+| Option | For | Against |
+|---|---|---|
+| **(a) Show the values in the dialog (decided)** | One call for agents; the user reads exactly what is applied | A long text needs a scrolling box |
+| (b) Refuse inline values for agents | Only the tab path, already bound | Agents need two calls; the user must open the tab to read |
+| (c) Leave it, document it | Nothing to build | The user accepts values they did not see |
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | D-26 (owner): a credential plugin's approval binds the program's content when it lies in the kubeconfig's or sync folder; D-27 (owner, built): an agent's inline Helm values shown in the confirmation |
 | 2026-10-12 | minor | Owner's decisions on look and use: D-22 Solarized colours, D-23 the status bar link, D-24 the C helm logo, D-25 copying values |
 | 2026-10-12 | minor | D-21 (owner): no adding of kubeconfigs from pasted text; the paste feature built the same day is removed (pasted sources of earlier builds are no longer listed, their files stay) |
 | 2026-10-12 | minor | D-20 (owner): a port forward fails at once on permanent errors (option a), not built |

@@ -86,6 +86,9 @@ type Spec[P any] struct {
 	// Detail adds a sentence to the confirmation for parameters the objects don't show: the drain
 	// options that lose data. Nil adds nothing.
 	Detail func(s *Session, p P) string
+	// Review returns a text of the parameters the user reads in the confirmation before
+	// answering (ConfirmRequest.Review): an agent's Helm values. Nil, or "", shows none.
+	Review func(s *Session, p P) string
 	// Run executes the command and returns a JSON-serializable result. Reads come from the cache.
 	Run func(ctx context.Context, s *Session, p P) (any, error)
 }
@@ -113,6 +116,7 @@ type Command struct {
 	escalate func(s *Session, p any) bool
 	prefill  func(s *Session, p any) (any, error)
 	detail   func(s *Session, p any) string
+	review   func(s *Session, p any) string
 	run      func(ctx context.Context, s *Session, p any) (any, error)
 }
 
@@ -276,6 +280,9 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 	}
 	if spec.Detail != nil {
 		c.detail = func(s *Session, p any) string { return spec.Detail(s, p.(P)) }
+	}
+	if spec.Review != nil {
+		c.review = func(s *Session, p any) string { return spec.Review(s, p.(P)) }
 	}
 	c.run = func(ctx context.Context, s *Session, p any) (any, error) {
 		return spec.Run(ctx, s, p.(P))

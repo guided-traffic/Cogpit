@@ -461,6 +461,35 @@ func mustJSON(t *testing.T, v any) json.RawMessage {
 // TestConfirmationsOneAtATimeAndArmed checks the review finding that confirmations stacked: a
 // second request waits until the first is answered, and a fresh dialog's confirm button ignores
 // taps until it arms.
+// A confirmation that carries a review text (an agent's Helm values) shows it in the dialog,
+// monospace and selectable, in a box that scrolls instead of growing past the window (owner,
+// 2026-10-12).
+func TestConfirmationShowsTheReviewText(t *testing.T) {
+	f := connectedFake(t, 10)
+	sh, w, q := newTestShell(t, f, Options{})
+	values := "controller:\n  image: registry.example/evil:latest\n" + strings.Repeat("  extra: line\n", 60)
+	req := engine.ConfirmRequest{Command: "helm.release.upgrade", Label: "Upgrade", Danger: engine.DangerMutating,
+		Origin: engine.OriginExternalAgent, Context: "demo", Namespaces: []string{"apps"},
+		Objects: []model.ObjectRef{{Kind: "helmreleases", Namespace: "apps", Name: "web"}},
+		Detail:  "The release is upgraded to chart web 1.0.0 with the values below.", Review: values}
+	go func() { _, _ = sh.confirmer.Confirm(context.Background(), req) }()
+	q.until(t, "the dialog", func() bool { return sh.confirmer.current != nil })
+	var shown *widget.Label
+	for _, l := range findAll[*widget.Label](w.Canvas().Overlays().Top()) {
+		if l.Text == values {
+			shown = l
+		}
+	}
+	if shown == nil || !shown.Selectable || !shown.TextStyle.Monospace {
+		t.Fatalf("the values are not shown as selectable monospace text: %v", shown)
+	}
+	if h := w.Canvas().Overlays().Top().MinSize().Height; h > 900 {
+		t.Errorf("the dialog grows to %v with a long text", h)
+	}
+	savePNG(t, w, "confirm_review_dark.png")
+	test.Tap(sh.confirmer.current.cancel)
+}
+
 func TestConfirmationsOneAtATimeAndArmed(t *testing.T) {
 	f := connectedFake(t, 10)
 	sh, _, q := newTestShell(t, f, Options{})

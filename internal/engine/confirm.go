@@ -27,6 +27,11 @@ type ConfirmRequest struct {
 	UIDs []string `json:"uids,omitempty"`
 	// Detail adds what the objects alone don't say: the options that make a drain lose data.
 	Detail string `json:"detail,omitempty"`
+	// Review is a text the user reads before answering, which the request itself carries: an
+	// agent's Helm values for an upgrade. The command runs with exactly this text (it is part of
+	// its parameters). The GUI's dialog shows it in Cogpit's own window; it is never serialised,
+	// so no audit line, log or MCP result carries it, and Message leaves it out.
+	Review string `json:"-"`
 }
 
 // Message is the confirmation text: "Delete pod web-0 in namespace default (context kind-cogpit)?"

@@ -246,6 +246,11 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 				return nil, err
 			}
 		}
+		if cmd.review != nil {
+			if err := s.safeCall(cmd.ID, func() error { req.Review = cmd.review(s, p); return nil }); err != nil {
+				return nil, err
+			}
+		}
 		if danger == DangerDestructive {
 			req.UIDs = s.targetUIDs(ctx, targets)
 		} else {

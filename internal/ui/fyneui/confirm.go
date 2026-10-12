@@ -40,6 +40,20 @@ func newGUIConfirmer(sh *shell) *guiConfirmer {
 
 var _ engine.Confirmer = (*guiConfirmer)(nil)
 
+// confirmReviewHeight caps the height of a confirmation's review text; a longer one scrolls.
+const confirmReviewHeight = 240
+
+// reviewBlock shows a confirmation's review text (an agent's Helm values): monospace, selectable,
+// in a scrolling box no taller than confirmReviewHeight, so that a long text neither pushes the
+// buttons off the window nor is cut off unseen.
+func reviewBlock(text string, width float32) fyne.CanvasObject {
+	l := widget.NewLabelWithStyle(text, fyne.TextAlignLeading, fyne.TextStyle{Monospace: true})
+	l.Selectable = true
+	scroll := container.NewScroll(l)
+	scroll.SetMinSize(fyne.NewSize(width, min(float32(confirmReviewHeight), l.MinSize().Height)))
+	return container.NewStack(newSurface(theme.ColorNameInputBackground), scroll)
+}
+
 // confirmDialog is one shown confirmation.
 type confirmDialog struct {
 	d       *dialog.CustomDialog
@@ -100,6 +114,10 @@ func (c *guiConfirmer) show(req engine.ConfirmRequest, reply func(bool)) *confir
 	addRow("Requested by", originText(req.Origin))
 
 	content := container.NewVBox(newParagraph(req.Message(), theme.ColorNameForeground, width), newSpace(theme.SizeNamePadding), rows)
+	if req.Review != "" { // what the command will apply, as the request carries it: read before answering
+		content.Add(newSpace(theme.SizeNamePadding))
+		content.Add(reviewBlock(req.Review, width))
+	}
 	if destructive {
 		content.Add(newSpace(theme.SizeNamePadding))
 		content.Add(newParagraph("This cannot be undone.", colorStatusError, width))

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
@@ -131,11 +132,22 @@ func registerHelmUpgrade(g *registrar) {
 					version = own
 				}
 			}
-			from := "the values"
+			from := "the values below, which replace the release's user-supplied values whole"
 			if p.Tab != "" {
 				from = fmt.Sprintf("the values in the tab %s at its text revision %d (review them there; a change refuses the upgrade)", p.Tab, p.TextRevision)
 			}
 			return fmt.Sprintf("The release is upgraded to chart %s %s with %s; its objects change to the new manifest.", chart, version, from)
+		},
+		// The values an agent passes inline are shown to the user before they answer (owner,
+		// 2026-10-12: R-2's remainder); from a tab, the tab is what the user reviews.
+		Review: func(_ *engine.Session, p upgradeParams) string {
+			switch {
+			case p.Tab != "" || p.Values == nil:
+				return ""
+			case strings.TrimSpace(*p.Values) == "":
+				return "# no user-supplied values"
+			}
+			return *p.Values
 		},
 		Run: runUpgrade,
 	})

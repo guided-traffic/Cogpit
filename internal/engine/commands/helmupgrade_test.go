@@ -185,6 +185,14 @@ func TestHelmUpgradeAgents(t *testing.T) {
 	if len(asked) != 2 {
 		t.Fatalf("%d confirmations, want 2", len(asked))
 	}
+	// The values an agent passes inline are shown to the user before they answer, and never
+	// serialised with the request (owner, 2026-10-12); from a tab, the tab is what the user reads.
+	if asked[0].Review != "" || asked[1].Review != "adminPassword: agent-s3cr3t-2\n" {
+		t.Errorf("reviews %q, %q", asked[0].Review, asked[1].Review)
+	}
+	if b, _ := json.Marshal(asked[1]); strings.Contains(string(b), "s3cr3t") {
+		t.Errorf("the request serialises the values: %s", b)
+	}
 	for _, req := range asked {
 		if req.Danger != engine.DangerMutating || req.Context != "test" || len(req.Objects) != 1 || req.Objects[0].Name != "web" ||
 			len(req.Namespaces) != 1 || req.Namespaces[0] != "apps" || strings.Contains(req.Message(), "s3cr3t") {
