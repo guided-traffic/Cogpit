@@ -27,9 +27,11 @@ func validOutput(o string) bool { return o == outTable || o == outJSON || o == o
 // sync folder or write an object can choose them.
 func safeText(s string) string { return kubeconfig.DisplayText(s, 0) }
 
-// writeTable writes a header and rows, aligned, every cell made safe for a terminal.
+// writeTable writes a header and rows, aligned, every cell made safe for a terminal, without
+// trailing blanks.
 func writeTable(w io.Writer, header []string, rows [][]string) error {
-	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
+	var buf bytes.Buffer
+	tw := tabwriter.NewWriter(&buf, 0, 0, 3, ' ', 0)
 	line := func(cells []string) {
 		for i, c := range cells {
 			if i > 0 {
@@ -44,7 +46,18 @@ func writeTable(w io.Writer, header []string, rows [][]string) error {
 	for _, r := range rows {
 		line(r)
 	}
-	return tw.Flush()
+	if err := tw.Flush(); err != nil {
+		return err
+	}
+	var out bytes.Buffer
+	for _, l := range bytes.SplitAfter(buf.Bytes(), []byte("\n")) {
+		if len(l) > 0 {
+			out.Write(bytes.TrimRight(l, " \n"))
+			out.WriteByte('\n')
+		}
+	}
+	_, err := w.Write(out.Bytes())
+	return err
 }
 
 // writeJSON writes a command's JSON result indented, with a trailing newline.

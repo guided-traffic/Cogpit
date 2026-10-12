@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (current focus after the fifth run and the owner's smoke test) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (M1 and 0.1: `cogpit-cli contexts` and `get` built; current focus after the fifth run and the owner's smoke test) · **Target:** Lens Desktop 2026.10.51501
 
 Forward-looking plan: the alpha gate, the milestones, the **current focus** and what's next with
 estimates. Where Cogpit stands is in [`target-app-parity.md`](target-app-parity.md); the ranked
@@ -42,7 +42,7 @@ a person on a real cluster, and no cloud credential plugin is verified (human).
 |---|---|---|---|---:|
 | **M0** Skeleton | 🟡 (go.mod, Makefile, lint with layering done; CI green on GitHub since 2026-10-11 ([releasing › CI](../developer/releasing.md#ci)): lint, race tests and build on macOS, compile checks for Windows and Linux, kind on 1.37, govulncheck; semantic-release runs as a dry run; `make parity` checks the checklists in CI since 2026-10-12; the generated pages, the scorecard and the envtest job open) | `go.mod`, `Makefile`, golangci-lint with `depguard` layering, CI on macOS with compile checks for Windows and Linux, envtest and `kind` jobs, semantic-release, the parity and scorecard generators (G1) | `make lint test` green in CI; a forbidden import fails the lint; the generated parity pages match the hand-written checklists | 20–40 |
 | **Spike** Fyne gate | ✅ (ran as the local MVP; [results](../developer/spike-fyne.md#results); D-1 decided for Fyne, with re-checks of S7 and S5) | Table, YAML editor, terminal and MCP control on Fyne ([spike plan](../developer/spike-fyne.md)) | Gate criteria S1–S7 recorded; [D-1](../developer/decisions.md#d-1-ui-toolkit) confirmed or the fallback chosen | 16–24 |
-| **M1** Connect | 🟡 (contexts, connections, discovery, credential-safe errors; kubeconfig files and sync folders with credential plugins run only once allowed (2026-10-12); no CLI, no cloud plugin verified) | `kubeconfig` and `cluster`: discovery, merge; every authentication form; cached discovery; access reviews; `cogpit-cli contexts` and `cogpit-cli get <kind>` (G2) | Connects to `kind` and envtest in CI with certificate and token auth; exec plugins verified on EKS, GKE and AKS (human); fuzzed kubeconfig parsing never panics | 25–50 |
+| **M1** Connect | 🟡 (contexts, connections, discovery, credential-safe errors; kubeconfig files and sync folders with credential plugins run only once allowed (2026-10-12); `cogpit-cli contexts` and `cogpit-cli get` built 2026-10-13 on the app's sources and approvals, tested on the fake API server, the demo and kind (`TestKindCLIContextsAndGet`); no cloud plugin verified) | `kubeconfig` and `cluster`: discovery, merge; every authentication form; cached discovery; access reviews; `cogpit-cli contexts` and `cogpit-cli get <kind>` (G2) | Connects to `kind` and envtest in CI with certificate and token auth; exec plugins verified on EKS, GKE and AKS (human); fuzzed kubeconfig parsing never panics | 25–50 |
 | **M2** Browse | 🟡 (cache with scoped, metadata-only, local and virtual kinds, engine, shell, 41 built-in profiles, the Port Forwarding (local) and Helm Releases (virtual) views, the Workloads Overview page and the custom resource views, row menus from the registry, MCP navigation, access reviews; budgets P2 and P9–P11 met in tests; the Secrets view from metadata only (H-8); 9 views and the cluster overview missing) | The cache (G3), the engine and registry with UI state (G4), the Fyne shell: layout, sidebar from discovery, tables, drawer, namespace filter (part of G5); about 20 core views (part of G6); MCP `ui_state`, `resources_find`, `ui_navigate` (part of G17) | A 10,000-pod list meets budgets P2–P4; an idle view costs no list requests (P9); every built-in kind the cluster serves appears; an MCP client navigates the GUI to a Service by its cluster IP | 180–420 |
 | **M3** Inspect | 🟡 (logs with follow, previous container, timestamps, wrap, filter, download and the logs of a workload's pods; cluster-bound terminal, pod shell, attach; no node shell) | Logs, terminal sessions, pod shell, attach, node shell (G8) | Budget P5 met; a terminal's `kubectl` talks to its own cluster; the node shell meets the rules in [privilege footprint](../security/privilege-footprint.md#node-shell) | 45–90 |
 | **M4** Change | 🟡 (Edit with diff, dry run and a resourceVersion precondition; create from Cogpit's templates; Delete for every kind; Restart (Deployments, Daemon Sets, Stateful Sets), Scale (Deployments, Stateful Sets, Replica Sets), Cordon, Uncordon, Drain, Trigger, Suspend, Resume, Evict, Attach with confirmations; an interrupted drain is offered on the next connect; Edit and Delete follow the access reviews; missing: the create dialogs, drafts, node shell) | Editor with diff and server-side dry-run, create from templates, delete with confirmation, workload and node actions with the kubectl libraries (G9, part of G7) | Every Lens Desktop action on workloads and nodes; the command fuzz target green; confirmation enforced for the CLI and agents too; an interrupted drain is detected on the next start | 65–155 |
@@ -89,7 +89,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Next | Scope | Estimate |
 |---|---|---:|
-| 0.1 "connects" | the rest of M0 and M1: the generators, the CLI lists contexts and objects of any cluster | 24–54 h |
+| 0.1 "connects" | the rest of M0 and M1: the generators, the CLI lists contexts and objects of any cluster (the CLI part built 2026-10-13: `cogpit-cli contexts`, `cogpit-cli get`) | 24–54 h |
 | 0.2 "browses" | the rest of M2: the cluster overview, the remaining views, captures of the inferred rows | 40–120 h |
 | Alpha (macOS) | M3–M6 and an unsigned build: the seven core workflows | ~150–400 h total |
 | Beta (macOS) | M7–M10, the GitOps views, performance, stability | ~440–1,020 h total |
@@ -99,6 +99,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | M1 and 0.1: `cogpit-cli contexts` and `cogpit-cli get` built (status only; estimates unchanged) |
 | 2026-10-12 | minor | Current focus after the fifth run and the owner's smoke test: the hotbar and the metrics requirements first |
 | 2026-10-12 | major | Fourth implementation run: Helm upgrade and adding, pasting and syncing kubeconfigs built, every alpha-gate workflow exists; M1 and M6 re-assessed; alpha ~135–370 h; new current focus |
 | 2026-10-12 | minor | M0: `make parity` checks the checklists in CI (D-15); current focus item 1 notes it built |

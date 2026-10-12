@@ -128,6 +128,14 @@ built as follows:
   only: the engine refuses them for the CLI, external agents and the built-in agent, whose
   confirmation dialog could not show the user an agent-chosen path for review
   (`TestKubeconfigCommandsAreGUIOnly`).
+- **`cogpit-cli`** (built 2026-10-13) offers the same sources and honours the same approvals: both
+  binaries build them in [`internal/app`](../../internal/app/app.go), and the CLI connects through
+  the same `ExecPolicy`, so a plugin the user has not allowed in the window is refused before it
+  runs (`TestGetRunsNoPluginTheUserHasNotAllowed`). It writes neither the sources nor the
+  approvals, and without a configuration directory it refuses to connect, where the app falls back
+  to merging the files as kubectl does (`TestNoConfigDirNoConnection`; Cogpit's default, not an
+  owner decision). Context names and file names are escaped before they reach the terminal
+  (`TestContextsListsTheSourcesWithoutSecrets`).
 
 **`~/.kube` is synced by default, and so is everything else** (2026-10-12; Lens does the same,
 captured; [D-28](../developer/decisions.md#d-28-the-default-kubeconfig-as-sources-as-lens-has-it), built

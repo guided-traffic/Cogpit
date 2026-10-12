@@ -197,7 +197,21 @@ codes: `0` done, `1` the command failed, `2` the command line is wrong. `cogpit-
 | Command | Flags | What it does |
 |---|---|---|
 | `cogpit-cli contexts` | `--kubeconfig <files>` (empty: the files `$KUBECONFIG` lists # default), `-o table` # default (`json`, `yaml`), `-v` (`false` # default) | lists every context as `<context> [<file>]`, with its namespace, server and whether its login (a credential plugin, or a token file outside its folder) is `approved`, `required` or `changed`; `json` and `yaml` are the `cluster_contexts` tool's result; reads the kubeconfig files only |
+| `cogpit-cli get <kind> [name]` | `--context <context>` (required; an id as `contexts` lists it, a context name only one file defines, or `demo`), `-n`/`--namespace <ns,...>` (empty: every namespace, for a named object the context's namespace # default), `-o table` # default (`json`, `yaml`), `--filter <text>` (empty # default), `--timeout 1m` # default, `--kubeconfig <files>`, `-v` | connects through a headless engine, waits for the cache's first list of the kind and prints it as Cogpit's view does (its columns, those empty in every row left out), then exits; `json` and `yaml` print the `resources_list` result for a list (at most 1,000 rows; stderr says when there are more) and the object's manifest for a named object (managed fields dropped, Secret values redacted). `<kind>` is a kind key (`pods`, `certificates.cert-manager.io`), or a Kubernetes kind or view title that names one kind (`Pod`) |
 | `cogpit-cli version` | – | prints the version, the Go version and the platform (`--version` too) |
+
+```sh
+cogpit-cli contexts                                         # every context Cogpit offers
+cogpit-cli get pods -n kube-system --kubeconfig .cache/kind/kubeconfig --context kind-cogpit   # example: kind's system pods
+cogpit-cli get deployments web -n cogpit-demo -o yaml --kubeconfig .cache/kind/kubeconfig --context kind-cogpit   # example: one manifest
+cogpit-cli get services --context demo                      # the synthetic demo cluster
+```
+
+Security note on `get`: it only reads (`resources_list` and `object_get` through the cache, origin
+CLI), prints a Secret's key names and sizes but never a value, and refuses a context whose
+credential plugin you have not allowed in Cogpit's window before the plugin runs. Like the app's
+views it watches a kind in every namespace and filters by `-n` afterwards, so a user who may list
+a kind only in some namespaces gets the API server's refusal.
 
 Security note on `contexts`: context names, file names and every other text from a kubeconfig or a
 cluster are escaped before they reach your terminal (`\u001b` for an escape character), since

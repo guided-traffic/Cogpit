@@ -1,15 +1,16 @@
 # Beyond Lens
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (everyday use: the status bar link done, copying from the drawer partial) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (command line: `cogpit-cli contexts` done, `get` partial) · **Target:** Lens Desktop 2026.10.51501
 
 What Cogpit does that Lens Desktop does not, or does only in part. These rows are Cogpit's own
 targets, decided by the owner; they do not count toward the parity numbers in
 [`target-app-parity.md`](target-app-parity.md), which measure Cogpit against Lens. Method:
 [`README.md`](README.md).
 
-**Summary (measured, 2026-10-12):** 19 of 36 rows exist: 11 done and 8 partial, in MCP control,
-cache transparency, crash recovery (the unfinished drain) and everyday use (the status bar link
-done, copying from the drawer partial). Remaining (estimated): 30–60 h for MCP control
+**Summary (measured, 2026-10-13):** 21 of 38 rows exist: 12 done and 9 partial, in MCP control,
+cache transparency, crash recovery (the unfinished drain), everyday use (the status bar link
+done, copying from the drawer partial) and the command line (`cogpit-cli contexts` done, `get`
+partial). Remaining (estimated): 30–60 h for MCP control
 ([G17](gaps.md#g17-mcp-control)), 40–80 h for the built-in agent
 ([G21](gaps.md#g21-built-in-agent)); updates, cache transparency and crash recovery are inside
 [G14](gaps.md#g14-packaging-signing-and-updates-macos), [G3](gaps.md#g3-cache-and-the-resource-model),
@@ -98,10 +99,22 @@ The owner's requirements of 2026-10-12 that Lens Desktop does not have.
 | Every value in the detail drawer can be selected, and has a copy icon on hover; an entry of a value with several entries is copied in YAML syntax; a Secret's value only once revealed, and the clipboard cleared after 60 seconds ([D-25](../developer/decisions.md#d-25-copying-values)) | partial (2026-10-12): text lines (names, values, table cells, titles, events), event messages and revealed Secret values select by drag or double click and copy with ⌘C or Ctrl+C; every value, table cell and chip shows a copy icon on hover; entries of labels, annotations and other lists copy as `key: value` or a YAML scalar; every chip owns the room between itself and its icon, so the pointer reaches the icon of a label chip, the last chip of a row and a wrapped one; after a copy the icon is a checkmark for 1.5 s (2026-10-12); a masked Secret value has no icon, a revealed one copies and the clipboard is cleared after 60 seconds if it still holds it, a later copy cancels that, closing the window clears at once; no command. Not drag-selectable: links, chips and status pills (the icon copies them); a selection stays within one line | [`selection.go`](../../internal/ui/fyneui/selection.go), [`copy.go`](../../internal/ui/fyneui/copy.go); `TestDrawerCopyIconOnHover`, `TestDrawerCopiesEntriesInYAML`, `TestCopyIconReachableOnLabelChips`, `TestCopyIconReachableOnWrappedChips`, `TestCopyIconTurnsIntoACheckmark`, `TestYAMLEntry`, `TestDrawerTextIsSelectable`, `TestDrawerLongNamesSelectUnderTheEllipsis`, `TestSecretValueCopyOnlyOnceRevealed`, `TestSecretClipboardKeepsWhatReplacedIt`, `TestSecretTextSelectionCopiesAsASecret`, `TestCopyHasNoCommand` ([H-25](../security/credentials.md#h-25-a-copied-secret-value-reaches-the-clipboard)) |
 | A link to the owner at the status bar's left end, opening hans-fischer.com in the browser on a click, a GUI link and not a command ([D-23](../developer/decisions.md#d-23-a-link-to-the-owner-in-the-status-bar)) | done (2026-10-12): "Need a Kubernetes Expert? Visit: hans-fischer.com", shown before connecting and when connected; a click opens `https://hans-fischer.com` and nothing is sent before; when the bar is too narrow the link is shortened and then hidden with its divider, and the status items keep their room | [`bars.go`](../../internal/ui/fyneui/bars.go) (`statusLayout`, `openOwnerLink`); `TestStatusBarOwnerLink`, `TestStatusBarOwnerLinkIsNoCommand`, `TestStatusBarOwnerLinkGivesWayFirst`; [PNG](../../internal/ui/fyneui/testdata/shell_dark.png) (the status bar's left end) |
 
+## Command line
+
+`cogpit-cli`, the headless tool beside the app (milestone 0.1, [architecture › Current state](../developer/architecture.md#current-state-2026-10-12)).
+Lens Desktop's own command-line tool is a paid feature ([ui parity](ui-parity.md)); these rows are
+Cogpit's targets.
+
+| Feature | Status | Evidence |
+|---|---|---|
+| `cogpit-cli contexts` lists the contexts Cogpit offers, from the app's kubeconfig sources and with its credential plugin approvals, as a table, JSON or YAML, without a credential | done (2026-10-13): every context of `~/.kube`, the `--kubeconfig` or `$KUBECONFIG` files and the added sources as `<context> [<file>]`, the demo cluster, whether a login is `approved`, `required` or `changed`; JSON and YAML are `cluster_contexts`' result; reads the files only, runs no plugin, writes nothing of Cogpit's; untrusted names escaped for the terminal | [`contexts.go`](../../cmd/cogpit-cli/contexts.go), [`internal/app`](../../internal/app/app.go); `TestContextsListsTheSourcesWithoutSecrets`, `TestContextsJSONIsTheToolsResult`, `TestKubeconfigSourcesAreTheAppsSources`, on kind `TestKindCLIContextsAndGet` |
+| `cogpit-cli get <kind> [name]` reads objects from a headless engine's cache, as the views show them, read-only, Secret values never printed | partial (2026-10-13): the kind's columns as its view shows them, `resources_list`'s result or the object's manifest as JSON or YAML, custom kinds once their definitions are listed, a credential plugin the user has not allowed refused before it runs; differs: it watches a kind in every namespace as the views do, so a user who may list a kind only in some namespaces gets the API server's refusal (G3), and `-o json` of a list prints rows, not manifests | [`get.go`](../../cmd/cogpit-cli/get.go); `TestGetListsTheDemoClustersPods`, `TestGetOneObject`, `TestGetKeepsSecretsSecret`, `TestGetWaitsForCustomKinds`, `TestGetRunsNoPluginTheUserHasNotAllowed`, on kind `TestKindCLIContextsAndGet` |
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | Command line, a new section: `cogpit-cli contexts` done, `cogpit-cli get` partial; 21 of 38 rows, 12 done and 9 partial |
 | 2026-10-12 | minor | Everyday use: the status bar link (D-23) done, copying values (D-25) partial; recounted by the lead: 19 of 36 rows, 11 done and 8 partial |
 | 2026-10-12 | minor | Everyday use: copying values (D-25) and the status bar link (D-23), both missing; 17 of 36 rows |
 | 2026-10-11 | minor | `kinds_list` reports per kind whether the user may list it (access reviews); still partial |

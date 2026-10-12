@@ -75,6 +75,7 @@ type command struct {
 func commandList() []command {
 	return []command{
 		{name: "contexts", summary: "List the contexts Cogpit offers, from its kubeconfig sources", run: runContexts},
+		{name: "get", summary: "Read objects of one kind from a cluster's cache, as Cogpit's views show them", run: runGet},
 		{name: "version", summary: "Print the version", run: runVersion},
 	}
 }
