@@ -86,7 +86,10 @@ func TestConnectionClosesWhenItsFileLeavesASyncFolder(t *testing.T) {
 	if err := os.Remove(g.file); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "the connection to close", func() bool { return g.s.Backend() == nil })
+	// The backend goes first and the UI state follows: wait for what is asserted (testing.md).
+	waitFor(t, "the connection to close", func() bool {
+		return g.s.Backend() == nil && g.s.UIState().Connection.State == Disconnected
+	})
 	ui := g.s.UIState()
 	if ui.Connection.State != Disconnected || ui.Context != "a" || ui.View != "" ||
 		!strings.Contains(ui.Connection.Error, "Disconnected from a") || !strings.Contains(ui.Connection.Error, g.file) {
@@ -111,10 +114,9 @@ func TestConnectionClosesWhenAnAddedFileIsDeleted(t *testing.T) {
 	if err := os.Remove(g.file); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "the connection to close", func() bool { return g.s.Backend() == nil })
-	if got := g.s.UIState().Connection.State; got != Disconnected {
-		t.Errorf("state %s", got)
-	}
+	waitFor(t, "the connection to close", func() bool {
+		return g.s.Backend() == nil && g.s.UIState().Connection.State == Disconnected
+	})
 }
 
 // TestConnectionStaysWhileItsFileIsOnlyRewritten: truncating, rewriting with garbage and rewriting
