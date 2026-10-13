@@ -11,7 +11,7 @@ import (
 )
 
 // The Helm charts are a local kind (architecture §5, "Scopes, local and virtual kinds"; G11):
-// Cogpit makes one object per chart of the chart repositories the user added, from their
+// Cogpit makes one object per chart of the chart repositories Helm's repositories.yaml lists (D-29), from their
 // downloaded indexes (engine/helmrepos.go), and writes them into the connected backend's local
 // store. Nothing about them comes from a cluster. Their shape:
 //
