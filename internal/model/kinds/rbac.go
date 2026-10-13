@@ -124,7 +124,7 @@ func rulesTable(obj any) *model.DetailTable {
 			break
 		}
 	}
-	t := &model.DetailTable{Columns: []string{"API Groups", "Resources"}}
+	t := &model.DetailTable{Columns: []string{"API Groups", titleResources}}
 	if urls {
 		t.Columns = append(t.Columns, "Non-Resource URLs")
 	}

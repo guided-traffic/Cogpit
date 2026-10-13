@@ -209,7 +209,7 @@ var receiversSpec = &fluxSpec{
 	suspend: true, reconcile: true,
 	columns: []fluxColumn{
 		{Column: model.Column{ID: idType, Title: titleType, Type: model.ColumnText, Width: 110}, cell: fluxTextCell("", fieldSpec, idType), field: true},
-		{Column: model.Column{ID: "resources", Title: "Resources", Type: model.ColumnNumber, Width: 90}, cell: func(obj *unstructured.Unstructured) model.Cell {
+		{Column: model.Column{ID: "resources", Title: titleResources, Type: model.ColumnNumber, Width: 90}, cell: func(obj *unstructured.Unstructured) model.Cell {
 			n := int64(len(model.NestedSlice(obj, fieldSpec, "resources")))
 			return model.Cell{Text: strconv.FormatInt(n, 10), Num: n}
 		}},
@@ -217,7 +217,7 @@ var receiversSpec = &fluxSpec{
 	properties: func(obj *unstructured.Unstructured, d *detailItems) {
 		d.add(titleType, model.NestedString(obj, fieldSpec, idType))
 		d.add("Events", strings.Join(model.NestedStrings(obj, fieldSpec, "events"), ", "))
-		d.put(model.ChipsItem("Resources", eventSourceChips(obj, model.NestedSlice(obj, fieldSpec, "resources"))))
+		d.put(model.ChipsItem(titleResources, eventSourceChips(obj, model.NestedSlice(obj, fieldSpec, "resources"))))
 		d.put(fluxSecretItem(obj, titleSecret, fieldSpec, "secretRef"))
 	},
 }

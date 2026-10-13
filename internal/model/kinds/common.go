@@ -17,10 +17,11 @@ type fieldFunc = func(obj *unstructured.Unstructured) []string
 // Condition statuses as the API writes them, the text for a state nobody reported, and a boolean
 // as annotations and table cells spell it.
 const (
-	condTrue    = "True"
-	condFalse   = "False"
-	textUnknown = "Unknown"
-	textTrue    = "true"
+	condTrue       = "True"
+	condFalse      = "False"
+	textUnknown    = "Unknown"
+	textTrue       = "true"
+	titleResources = "Resources" // a section, column or table heading (RBAC rules, Flux, Argo CD)
 )
 
 // Ids that name a column or a searchable field of more than one kind. A column and a field that

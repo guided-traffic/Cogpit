@@ -609,7 +609,7 @@ func argoResourcesSection(obj any) (model.DetailSection, bool) {
 			{Text: health, Status: ArgoHealthToken(health)},
 		})
 	}
-	title := "Resources"
+	title := titleResources
 	if len(list) > len(shown) {
 		title += " (the first " + strconv.Itoa(len(shown)) + " of " + strconv.Itoa(len(list)) + ")"
 	}
