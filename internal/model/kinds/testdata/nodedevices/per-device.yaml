@@ -1,0 +1,29 @@
+# Synthetic: a slice that names each device's node (perDeviceNodeSelection): one device is
+# worker-a-01's, one worker-a-02's, one every node reaches.
+apiVersion: resource.k8s.io/v1
+kind: ResourceSlice
+metadata:
+  name: rack-7-accel.example.com-m2k8d
+  uid: af405162-0001-4d8e-bf90-000000000101
+  creationTimestamp: "2026-10-09T00:00:00Z"
+spec:
+  driver: accel.example.com
+  pool:
+    name: rack-7
+    generation: 2
+    resourceSliceCount: 1
+  perDeviceNodeSelection: true
+  devices:
+  - name: accel-0
+    nodeName: worker-a-01
+    attributes:
+      model: {string: X1}
+      firmware: {version: 4.0.1}
+    capacity:
+      memory: {value: 16Gi}
+  - name: accel-1
+    nodeName: worker-a-02
+    attributes:
+      model: {string: X1}
+  - name: accel-2
+    allNodes: true

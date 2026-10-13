@@ -1,0 +1,14 @@
+# Synthetic: a driver on worker-a-01 that publishes no device at the moment (an empty pool).
+apiVersion: resource.k8s.io/v1
+kind: ResourceSlice
+metadata:
+  name: worker-a-01-tpu.example.com-z9c3v
+  uid: af405162-0001-4d8e-bf90-000000000103
+  creationTimestamp: "2026-10-11T00:00:00Z"
+spec:
+  driver: tpu.example.com
+  pool:
+    name: worker-a-01
+    generation: 1
+    resourceSliceCount: 1
+  nodeName: worker-a-01

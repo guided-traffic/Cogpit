@@ -52,7 +52,7 @@ it. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
 - ⚙️ Preferences on ⌘, and a cluster's Settings on ⌘⇧,: the theme switched live, the time zone, the editor's and the terminal's settings, a cluster's name and icon (a colour or your image), its terminals' folder and namespace; never written to a kubeconfig.
 - 🔐 Your credentials stay yours: kubectl's own authentication code (certificates, tokens, exec plugins for EKS, GKE, AKS); no local proxy, no login.
 - ⚡ Cache first: views read from a watch-fed cache; switching back to a view costs no API request.
-- 📋 Lens's resource views: workloads, config, network, storage, access control, custom resources; each searchable by words, with match case or a regular expression.
+- 📋 Lens's resource views: workloads, config, network, storage, access control, device resources (with each node's devices in its drawer), custom resources; each searchable by words, with match case or a regular expression.
 - 📜 Logs with follow, filter, timestamps, the previous container, pod and container selectors, older lines and a jump to a time.
 - 💻 Pod shells, attach, node shells, and a terminal bound to the cluster's context; copy and paste by keys or, if you choose, the right mouse button.
 - ✏️ YAML editing with a diff and a server-side dry-run before every apply.

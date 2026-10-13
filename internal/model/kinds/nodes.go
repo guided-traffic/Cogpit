@@ -56,7 +56,7 @@ var nodes = &model.KindProfile{
 		},
 	},
 	Detail:     nodeDetail,
-	Needs:      []model.RelatedIndex{PodsByNode},
+	Needs:      []model.RelatedIndex{PodsByNode, SlicesByNode},
 	DetailWith: nodeDetailWith,
 }
 
@@ -320,9 +320,10 @@ var nodePodColumns = []model.Column{
 // related-objects index PodsByNode: one row per pod scheduled to the node, sorted by name, the
 // name and namespace as links, the warning icon and status as in the Pods view, Ready as the
 // ready containers of all ("1/2"). The node's own name is plain text: it links to the drawer's
-// object. A node without pods, or whose pods are still listing, has no Pods section.
+// object. A node without pods, or whose pods are still listing, has no Pods section. The node's
+// Devices, the resource slices that name it (SlicesByNode, nodedevices.go), come before the Pods.
 func nodeDetailWith(obj *unstructured.Unstructured, rel model.Related) []model.DetailSection {
-	sections := nodeDetail(obj)
+	sections := append(nodeDetail(obj), nodeDevices(obj, rel)...)
 	pods := append([]*unstructured.Unstructured(nil), rel.Objects(PodsByNode, obj.GetName())...)
 	if len(pods) == 0 {
 		return sections

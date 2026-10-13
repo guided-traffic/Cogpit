@@ -404,9 +404,8 @@ func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
 			out = append(out, render(d, m.Ref, sec))
 			continue
 		}
-		if sec.Table != nil {
-			out = append(out, d.table(m.Ref, sec.Table))
-		}
+		// A section with both (a node's Devices: a slice's pool and link, then its devices) shows
+		// its items first.
 		if len(sec.Items) > 0 {
 			grid := box(kvLayout{})
 			for _, it := range sec.Items {
@@ -414,6 +413,9 @@ func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
 				grid.Objects = append(grid.Objects, name, d.itemValue(m.Ref, sec, it))
 			}
 			out = append(out, grid)
+		}
+		if sec.Table != nil {
+			out = append(out, d.table(m.Ref, sec.Table))
 		}
 	}
 	if m.NoEvents { // a kind no event is about (Helm releases): Lens's drawer has no Events

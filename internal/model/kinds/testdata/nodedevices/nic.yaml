@@ -1,0 +1,26 @@
+# Synthetic: a network driver's virtual functions on worker-a-01, one tainted while its link is down.
+apiVersion: resource.k8s.io/v1
+kind: ResourceSlice
+metadata:
+  name: worker-a-01-nic.example.net-b7x4q
+  uid: af405162-0001-4d8e-bf90-000000000102
+  creationTimestamp: "2026-10-10T06:00:00Z"
+spec:
+  driver: nic.example.net
+  pool:
+    name: worker-a-01
+    generation: 5
+    resourceSliceCount: 1
+  nodeName: worker-a-01
+  devices:
+  - name: vf-0
+    attributes:
+      pciAddress: {string: "0000:3b:00.2"}
+      sriov: {bool: true}
+  - name: vf-1
+    attributes:
+      pciAddress: {string: "0000:3b:00.3"}
+      sriov: {bool: true}
+    taints:
+    - key: nic.example.net/link-down
+      effect: NoSchedule

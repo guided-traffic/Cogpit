@@ -1,0 +1,222 @@
+[
+  {
+    "title": "accel.example.com",
+    "group": "Devices",
+    "items": [
+      {
+        "name": "Pool",
+        "value": "rack-7"
+      },
+      {
+        "name": "Slice",
+        "value": "rack-7-accel.example.com-m2k8d",
+        "link": {
+          "kind": "resourceslices",
+          "name": "rack-7-accel.example.com-m2k8d"
+        }
+      },
+      {
+        "name": "Devices",
+        "value": "1"
+      }
+    ],
+    "table": {
+      "columns": [
+        "Name",
+        "Attributes",
+        "Capacity"
+      ],
+      "rows": [
+        [
+          "accel-0",
+          "firmware: 4.0.1\nmodel: X1",
+          "memory: 16Gi"
+        ]
+      ],
+      "types": [
+        "text",
+        "text",
+        "text"
+      ],
+      "cells": [
+        [
+          {
+            "text": "accel-0"
+          },
+          {
+            "text": "firmware: 4.0.1\nmodel: X1"
+          },
+          {
+            "text": "memory: 16Gi"
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "title": "gpu.example.com",
+    "group": "Devices",
+    "items": [
+      {
+        "name": "Pool",
+        "value": "worker-a-01"
+      },
+      {
+        "name": "Slice",
+        "value": "worker-a-01-gpu.example.com-x7k2p",
+        "link": {
+          "kind": "resourceslices",
+          "name": "worker-a-01-gpu.example.com-x7k2p"
+        }
+      },
+      {
+        "name": "Devices",
+        "value": "2"
+      }
+    ],
+    "table": {
+      "columns": [
+        "Name",
+        "Attributes",
+        "Capacity"
+      ],
+      "rows": [
+        [
+          "gpu-0",
+          "driverVersion: 1.2.3\nindex: 0\nmig: false\nmodel: A100",
+          "memory: 40Gi"
+        ],
+        [
+          "gpu-1",
+          "driverVersion: 1.2.3\nindex: 1\nmig: true\nmodel: A100",
+          "memory: 40Gi"
+        ]
+      ],
+      "types": [
+        "text",
+        "text",
+        "text"
+      ],
+      "cells": [
+        [
+          {
+            "text": "gpu-0"
+          },
+          {
+            "text": "driverVersion: 1.2.3\nindex: 0\nmig: false\nmodel: A100"
+          },
+          {
+            "text": "memory: 40Gi"
+          }
+        ],
+        [
+          {
+            "text": "gpu-1"
+          },
+          {
+            "text": "driverVersion: 1.2.3\nindex: 1\nmig: true\nmodel: A100"
+          },
+          {
+            "text": "memory: 40Gi"
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "title": "nic.example.net",
+    "group": "Devices",
+    "items": [
+      {
+        "name": "Pool",
+        "value": "worker-a-01"
+      },
+      {
+        "name": "Slice",
+        "value": "worker-a-01-nic.example.net-b7x4q",
+        "link": {
+          "kind": "resourceslices",
+          "name": "worker-a-01-nic.example.net-b7x4q"
+        }
+      },
+      {
+        "name": "Devices",
+        "value": "2"
+      }
+    ],
+    "table": {
+      "columns": [
+        "Name",
+        "Attributes",
+        "Capacity",
+        "Taints"
+      ],
+      "rows": [
+        [
+          "vf-0",
+          "pciAddress: 0000:3b:00.2\nsriov: true",
+          "",
+          ""
+        ],
+        [
+          "vf-1",
+          "pciAddress: 0000:3b:00.3\nsriov: true",
+          "",
+          "nic.example.net/link-down:NoSchedule"
+        ]
+      ],
+      "types": [
+        "text",
+        "text",
+        "text",
+        "text"
+      ],
+      "cells": [
+        [
+          {
+            "text": "vf-0"
+          },
+          {
+            "text": "pciAddress: 0000:3b:00.2\nsriov: true"
+          },
+          {},
+          {}
+        ],
+        [
+          {
+            "text": "vf-1"
+          },
+          {
+            "text": "pciAddress: 0000:3b:00.3\nsriov: true"
+          },
+          {},
+          {
+            "text": "nic.example.net/link-down:NoSchedule"
+          }
+        ]
+      ]
+    }
+  },
+  {
+    "title": "tpu.example.com",
+    "group": "Devices",
+    "items": [
+      {
+        "name": "Pool",
+        "value": "worker-a-01"
+      },
+      {
+        "name": "Slice",
+        "value": "worker-a-01-tpu.example.com-z9c3v",
+        "link": {
+          "kind": "resourceslices",
+          "name": "worker-a-01-tpu.example.com-z9c3v"
+        }
+      },
+      {
+        "name": "Devices",
+        "value": "0"
+      }
+    ]
+  }
+]

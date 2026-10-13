@@ -157,6 +157,7 @@ func TestServiceEndpointSlices(t *testing.T) {
 var relatedProfiles = []struct{ key, relatedKind, own string }{
 	{"persistentvolumeclaims", "pods", "healthy"},
 	{"nodes", "pods", "healthy"},
+	{"nodes", "resourceslices", "healthy"},
 	{"services", "endpointslices", "healthy"},
 }
 
