@@ -154,6 +154,8 @@ var wantCommands = map[string]engine.Danger{
 	"editor.revert": engine.DangerUI, "editor.undoRevert": engine.DangerUI,
 	// MCP control (G17): the rows the user sees (TestViewRowsMatchTheTable).
 	"view.rows": engine.DangerRead,
+	// The allowance of agent writes (D-2): GUI-only, Cogpit's own settings (TestAgentWritesAllowance).
+	"cluster.settings.setAgentWrites": engine.DangerUI,
 }
 
 func TestRegistryComplete(t *testing.T) {

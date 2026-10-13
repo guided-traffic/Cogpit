@@ -118,6 +118,8 @@ func (p *settingsPage) clusterSection(section string) fyne.CanvasObject {
 		return p.clusterNamespacesSection() // clustersettings_namespaces.go
 	case engine.SectionMetrics:
 		return p.clusterMetricsSection()
+	case engine.SectionAgents:
+		return p.clusterAgentsSection() // clustersettings_agents.go
 	}
 	return p.clusterGeneralSection()
 }

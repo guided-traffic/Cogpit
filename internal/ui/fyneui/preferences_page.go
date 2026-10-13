@@ -59,6 +59,8 @@ type settingsPage struct {
 	openFolder    func(path string)
 	promLine      *textLine  // the Metrics section's line about the Prometheus in use
 	iconMenuModel *fyne.Menu // the icon's open "…" menu, for tests
+
+	agentsDialog *agentsDialog // the open question before agents' changes are allowed (clustersettings_agents.go)
 }
 
 func newSettingsPage(sh *shell) *settingsPage {

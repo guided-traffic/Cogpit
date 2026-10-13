@@ -73,6 +73,10 @@ type ClusterSettings struct {
 	// namespace filter offers them, and a namespaced kind the user may not list in all namespaces is
 	// watched in each of them; none: the namespace filter's, else the context's own.
 	AccessibleNamespaces []string `json:"accessibleNamespaces,omitempty"`
+	// AgentWrites is the user's allowance of agents' mutating commands in this cluster without
+	// asking (D-2, allowance.go); only the user sets it, in Cogpit's window. Destructive commands
+	// always ask. False, the default: every mutating command of an agent waits for the user.
+	AgentWrites bool `json:"agentWrites,omitempty"`
 }
 
 // IsZero reports whether the settings are all defaults.
@@ -83,7 +87,7 @@ func (c ClusterSettings) IsZero() bool { return c.Equal(ClusterSettings{}) }
 func (c ClusterSettings) Equal(o ClusterSettings) bool {
 	return c.Name == o.Name && c.IconColor == o.IconColor && c.Icon == o.Icon && c.TerminalDir == o.TerminalDir &&
 		c.TerminalNamespace == o.TerminalNamespace && c.HiddenMetrics == o.HiddenMetrics && c.Proxy == o.Proxy &&
-		slices.Equal(c.AccessibleNamespaces, o.AccessibleNamespaces)
+		slices.Equal(c.AccessibleNamespaces, o.AccessibleNamespaces) && c.AgentWrites == o.AgentWrites
 }
 
 // Check says why settings cannot be kept: the first field out of its bounds.
@@ -396,6 +400,9 @@ type ClusterSettingsView struct {
 	// AccessibleNamespaces are the namespaces named for a user who may not list the cluster's
 	// namespaces, sorted; empty: none (the namespace filter's, else the context's namespace).
 	AccessibleNamespaces []string `json:"accessibleNamespaces"`
+	// AgentWrites says whether the user allowed agents' mutating commands in this cluster without
+	// asking (destructive commands always ask); only the user changes it, in Cogpit's window.
+	AgentWrites bool `json:"agentWrites"`
 	// Connected says whether the context is the connected cluster (its metrics settings apply).
 	Connected bool `json:"connected"`
 	// Kept says whether the settings outlive this run (false without a configuration directory).
@@ -412,7 +419,7 @@ func (s *Session) ClusterSettingsView(context string) (ClusterSettingsView, erro
 		NameSet: cs.Name != "", IconColor: cs.IconColor, TerminalDir: cs.TerminalDir,
 		TerminalNamespace: cs.TerminalNamespace, HiddenMetrics: MetricNames(cs.HiddenMetrics),
 		Proxy: RedactProxyURL(cs.Proxy), AccessibleNamespaces: append([]string{}, cs.AccessibleNamespaces...),
-		Kept: s.opts.ClusterSettings.Path() != ""}
+		AgentWrites: cs.AgentWrites, Kept: s.opts.ClusterSettings.Path() != ""}
 	if cs.Icon != "" {
 		v.IconImage = strings.TrimPrefix(filepath.Ext(cs.Icon), ".")
 	}

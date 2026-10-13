@@ -126,6 +126,10 @@ func (c *guiConfirmer) show(req engine.ConfirmRequest, reply func(bool)) *confir
 		content.Add(newSpace(theme.SizeNamePadding))
 		content.Add(newParagraph("This cannot be undone.", colorStatusError, width))
 	}
+	if hint := c.sh.allowanceHint(req); hint != "" { // Cluster Settings › Agents (clustersettings_agents.go)
+		content.Add(newSpace(theme.SizeNamePadding))
+		content.Add(newParagraph(hint, colorMuted, width))
+	}
 
 	label := req.Label
 	if label == "" {

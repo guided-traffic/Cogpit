@@ -258,7 +258,7 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 
 	s.mu.Lock()
 	uiContext := s.ui.Context
-	allowed := s.agentWrites[uiContext]
+	allowed := s.agentWritesLocked(uiContext) // the run's or the kept allowance (allowance.go)
 	confirmer := s.confirmer
 	s.mu.Unlock()
 	auditContext = uiContext

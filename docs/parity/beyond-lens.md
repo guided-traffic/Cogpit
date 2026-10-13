@@ -1,6 +1,6 @@
 # Beyond Lens
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (`object_get` with related objects done; `view_rows` done; crash recovery: unsaved editor content restored from its local draft done; the `cogpit-cli mcp` stdio bridge done; command line: `cogpit-cli contexts` done, `get` partial) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (the agent writes allowance in Cluster Settings › Agents done; `object_get` with related objects done; `view_rows` done; crash recovery: unsaved editor content restored from its local draft done; the `cogpit-cli mcp` stdio bridge done; command line: `cogpit-cli contexts` done, `get` partial) · **Target:** Lens Desktop 2026.10.51501
 
 What Cogpit does that Lens Desktop does not, or does only in part. These rows are Cogpit's own
 targets, decided by the owner; they do not count toward the parity numbers in
@@ -36,7 +36,7 @@ read-only: `list-clusters`, `connect-cluster`, `disconnect-cluster`, `kubectl`, 
 | Navigate to an object: open its view, select it, scroll to it, open the drawer | `ui_navigate` | done | `TestShowcaseServiceByClusterIP`; the GUI scrolls to the row (`TestNavigateScrollsOnceSnapshotHasRow`, `TestRenderDemoShowcase`, [PNG](../../internal/ui/fyneui/testdata/demo_showcase.png)) |
 | Open and read dock tabs (logs, terminal output, editor) | `dock_open`, `dock_read` | partial: agents open tabs with `pod_logs`, `pod_shell`, `terminal_open`, `object_edit`, `resource_createTab` and close them with `dock_close`; they read and set editor tabs' text with `editor_get` and `editor_setText`; logs and terminal output they cannot read | [`commands/dock.go`](../../internal/engine/commands/dock.go) |
 | Run cluster actions with the GUI's verbs and danger levels | every action command | partial: Restart (Deployment); Delete, Edit (`editor_diff`, `object_dryRun`, `object_apply`) and Create (`object_create`) for every kind | [`commands/actions.go`](../../internal/engine/commands/actions.go) |
-| Mutating commands from agents wait for the user's acceptance unless allowed for the context | (engine) | partial: the engine and the GUI dialog do; the allowance has no UI | `TestDispatchConfirmationPolicy`, [`fyneui/confirm.go`](../../internal/ui/fyneui/confirm.go) |
+| Mutating commands from agents wait for the user's acceptance unless allowed for the context | (engine) | done (2026-10-13): the engine and the GUI dialog do; the allowance is a cluster setting, Cluster Settings › Agents, off by default, kept per context in `cluster-settings.json`, shown to agents (`agentWrites` in `ui_state` and `cluster_settings_get`), changed only by the user in the window (`cluster_settings_setAgentWrites` refuses agents and the CLI), turning it on asks first; a headless engine honours no kept allowance; an agent's confirmation says how the allowance bears on it | `TestDispatchConfirmationPolicy`, `TestAgentWritesAllowance`, `TestClusterSettingsAgentsSection`, `TestConfirmationNamesTheAllowance`, [`fyneui/confirm.go`](../../internal/ui/fyneui/confirm.go), [`clustersettings_agents.go`](../../internal/ui/fyneui/clustersettings_agents.go), [`engine/allowance.go`](../../internal/engine/allowance.go); [PNG](../../internal/ui/fyneui/testdata/cluster_settings_agents_dark.png) |
 | Destructive commands from agents always wait for the user's confirmation in the GUI | (engine) | done | `TestDispatchConfirmationPolicy`, `TestDeleteGoesThroughConfirmation`, MCP tests for declined and headless calls |
 | Audit log of every agent-initiated command, readable in the GUI | (engine) | partial: written to `<user config dir>/Cogpit/audit.log`; not readable in the GUI | [`engine/audit.go`](../../internal/engine/audit.go) |
 | Streamable HTTP on `127.0.0.1` with a bearer token; `Host` and `Origin` checks | (transport) | done | [`mcp/http.go`](../../internal/mcp/http.go), `TestHTTPGuard`, `TestHTTPEndToEnd` |
@@ -114,6 +114,7 @@ Cogpit's targets.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | MCP control: the allowance of agent writes in Cluster Settings › Agents, done; 23 of 38 rows, 16 done and 7 partial |
 | 2026-10-13 | minor | MCP control: `object_get` with related objects done; 23 of 38 rows, 15 done and 8 partial |
 | 2026-10-13 | minor | MCP control: `view_rows` done; 23 of 38 rows, 14 done and 9 partial |
 | 2026-10-13 | minor | Crash recovery: unsaved editor content restored from its local draft done (G9, night run); 23 of 38 rows, 14 done and 9 partial |

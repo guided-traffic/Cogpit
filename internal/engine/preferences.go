@@ -516,6 +516,7 @@ const (
 	SectionMetrics    = "metrics"
 	SectionProxy      = "proxy"
 	SectionNamespaces = "namespaces"
+	SectionAgents     = "agents" // a cluster's agents: the allowance of their writes (allowance.go)
 )
 
 // PreferencesSections are the Preferences page's sections: App (theme, time zone), Proxy (the
@@ -524,8 +525,9 @@ const (
 var PreferencesSections = []string{SectionApp, SectionProxy, SectionKubernetes, SectionEditor, SectionTerminal, SectionTables}
 
 // ClusterSettingsSections are the Cluster settings page's built sections, in Lens's captured
-// order (General, Proxy, Terminal, Namespaces, Metrics, ..., Node Shell) without the missing ones.
-var ClusterSettingsSections = []string{SectionGeneral, SectionProxy, SectionTerminal, SectionNamespaces, SectionMetrics}
+// order (General, Proxy, Terminal, Namespaces, Metrics, ..., Node Shell) without the missing ones,
+// then Cogpit's own Agents (allowance.go; SectionNamespaces, its place inferred: last, Lens has no such section).
+var ClusterSettingsSections = []string{SectionGeneral, SectionProxy, SectionTerminal, SectionMetrics, SectionAgents}
 
 // SettingsPage is the open settings page: Preferences, or one context's Cluster settings, and the
 // section shown.
