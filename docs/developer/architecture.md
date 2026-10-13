@@ -164,6 +164,7 @@ cogpit/
 │  ├─ cluster/        L1  connections: client-go config, auth, cached discovery, access reviews
 │  ├─ cache/          L1  shared informers, reference counting, warm period, transforms, snapshots
 │  ├─ terminal/       L1  PTY sessions: local shell with a per-terminal kubeconfig, pod exec and attach
+│  ├─ kubectl/        L1  kubectl for terminals: client version, skew, verified download (added 2026-10-13)
 │  ├─ helm/           L2  Helm SDK: releases from the cache, crash-safe actions
 │  ├─ metrics/        L2  metrics provider detection, polling while visible, TTL cache
 │  ├─ engine/         L3  Session, command registry, UI state, jobs, events, confirmation, audit log
@@ -192,7 +193,7 @@ MCP stdio bridge, so neither needs a display.
  L4  ui/fyneui · mcp · agent · update · app
  L3  engine
  L2  helm · metrics
- L1  cluster · cache · terminal
+ L1  cluster · cache · terminal · kubectl
  L0  model · kubeconfig
 ```
 
@@ -205,6 +206,13 @@ Rules, enforced by golangci-lint's `depguard` in `make lint` (milestone M0):
 4. **Only `cluster`, `cache`, `terminal`, `helm` and `metrics` talk to the API server.** The engine
    and everything above it reach clusters only through them.
 5. A new package gets its layer and its `depguard` rule in the same change.
+
+`internal/kubectl` (L1, added 2026-10-13) holds what the terminals need to know about kubectl
+([D-3](decisions.md#d-3-helm-and-kubectl-binaries), [§10](#10-terminal-internalterminal)): a
+binary's client version, the version skew Kubernetes supports, the releases Cogpit downloaded, and
+the verified download from the release host. It talks to the release host only, never to an API
+server; its `depguard` rule (`l1-kubectl`) keeps it off the other L1 packages and off client-go,
+and the UI and MCP rules keep them off it.
 
 `internal/app` (L4, added 2026-10-13) is the wiring `cmd/cogpit` and `cmd/cogpit-cli` share:
 Cogpit's directories (`app.UserDirs`), the kubeconfig sources a process offers

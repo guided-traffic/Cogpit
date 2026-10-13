@@ -43,9 +43,9 @@ linters:
         - name: redefines-builtin-id
     # Layering (docs/developer/architecture.md §3). A package imports only lower layers; only
     # internal/ui/... imports Fyne; model and kubeconfig do no I/O; only cluster, cache, terminal,
-    # helm and metrics talk to the API server.
+    # helm and metrics talk to the API server (kubectl talks to the release host only).
     #   L5 cmd/*  ·  L4 ui/fyneui, mcp, agent, update, app  ·  L3 engine  ·  L2 helm, metrics, demo
-    #   L1 cluster, cache, terminal  ·  L0 model, kubeconfig
+    #   L1 cluster, cache, terminal, kubectl  ·  L0 model, kubeconfig
     depguard:
       rules:
         fyne-only-in-ui:
@@ -68,6 +68,8 @@ linters:
             - pkg: "github.com/guided-traffic/cogpit/internal/cache"
               desc: "L0 imports nothing above L0"
             - pkg: "github.com/guided-traffic/cogpit/internal/terminal"
+              desc: "L0 imports nothing above L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/kubectl"
               desc: "L0 imports nothing above L0"
             - pkg: "github.com/guided-traffic/cogpit/internal/demo"
               desc: "L0 imports nothing above L0"
@@ -119,6 +121,8 @@ linters:
               desc: "L1 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/terminal"
               desc: "L1 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/kubectl"
+              desc: "L1 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/demo"
               desc: "L1 imports only L0"
             - pkg: "github.com/guided-traffic/cogpit/internal/helm"
@@ -143,6 +147,8 @@ linters:
               desc: "L1 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/terminal"
               desc: "L1 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/kubectl"
+              desc: "L1 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/demo"
               desc: "L1 imports only L0"
             - pkg: "github.com/guided-traffic/cogpit/internal/helm"
@@ -163,6 +169,8 @@ linters:
           files:
             - "**/internal/terminal/**"
           deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/kubectl"
+              desc: "L1 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
               desc: "L1 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/cache"
@@ -183,6 +191,34 @@ linters:
               desc: "L1 imports only L0"
             - pkg: "github.com/guided-traffic/cogpit/internal/ui"
               desc: "L1 imports only L0"
+        l1-kubectl:
+          files:
+            - "**/internal/kubectl/**"
+          deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
+              desc: "L1 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/cache"
+              desc: "L1 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/terminal"
+              desc: "L1 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/demo"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/helm"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/metrics"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/engine"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/mcp"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/agent"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/update"
+              desc: "L1 imports only L0"
+            - pkg: "github.com/guided-traffic/cogpit/internal/ui"
+              desc: "L1 imports only L0"
+            - pkg: "k8s.io/client-go"
+              desc: "kubectl talks to the release host, never to an API server"
         l2-demo-helm-metrics:
           files:
             - "**/internal/demo/**"
@@ -237,6 +273,8 @@ linters:
               desc: "the UI reads only engine state"
             - pkg: "github.com/guided-traffic/cogpit/internal/demo"
               desc: "the UI reads only engine state"
+            - pkg: "github.com/guided-traffic/cogpit/internal/kubectl"
+              desc: "the UI reads only engine state"
             - pkg: "k8s.io/client-go"
               desc: "the UI never talks to the API server"
         l4-mcp:
@@ -256,6 +294,8 @@ linters:
             - pkg: "github.com/guided-traffic/cogpit/internal/cache"
               desc: "MCP tools dispatch engine commands only"
             - pkg: "github.com/guided-traffic/cogpit/internal/terminal"
+              desc: "MCP tools dispatch engine commands only"
+            - pkg: "github.com/guided-traffic/cogpit/internal/kubectl"
               desc: "MCP tools dispatch engine commands only"
             - pkg: "github.com/guided-traffic/cogpit/internal/demo"
               desc: "MCP tools dispatch engine commands only"
