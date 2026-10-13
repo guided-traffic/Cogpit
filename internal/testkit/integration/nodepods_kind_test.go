@@ -51,6 +51,12 @@ func TestKindNodeDrawerPods(t *testing.T) {
 			}
 		}
 	}
+	// Without a Metrics Server the table has no numbers to show; make kind-up installs one.
+	var served engine.MetricsResult
+	dispatch("metrics.get", map[string]any{"kind": "pods"}, &served)
+	if served.Status == metrics.StatusNotServed {
+		t.Skip("the kind cluster has no Metrics Server: run make kind-metrics-server")
+	}
 	nodes, err := s.Objects(ctx, "nodes", nil)
 	if err != nil || len(nodes) == 0 {
 		t.Fatalf("nodes: %d, %v", len(nodes), err)
