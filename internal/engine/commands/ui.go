@@ -28,6 +28,9 @@ type StateResult struct {
 	// ViewError is what keeps the view from showing objects: a list the cluster refuses, or a
 	// custom resource kind the cluster no longer serves.
 	ViewError string `json:"viewError,omitempty"`
+	// FilterError says why the search filters nothing out: its regular expression does not compile
+	// or is too long (engine.FilterError); the view then shows every row.
+	FilterError string `json:"filterError,omitempty"`
 	// DrawerCharts are the charts of the drawer's Metrics section (a pod's or a node's) with their
 	// time ranges and variants, which ui_setMetricsRange and ui_setMetricsVariant set.
 	DrawerCharts []ChartRange `json:"drawerCharts,omitempty"`
@@ -52,7 +55,9 @@ type namespaceParams struct {
 }
 
 type filterParams struct {
-	Filter string `json:"filter,omitempty" jsonschema:"search text; every whitespace-separated term must occur in a cell, case-insensitively; empty clears the search"`
+	Filter    string `json:"filter,omitempty" jsonschema:"search text; every whitespace-separated term must occur in a cell, case-insensitively unless matchCase; with regex, one regular expression (RE2 syntax, at most 1000 bytes) that must match in a cell; empty clears the search"`
+	MatchCase *bool  `json:"matchCase,omitempty" jsonschema:"the search field's Aa toggle: true keeps the search's case; omitted: unchanged"`
+	Regex     *bool  `json:"regex,omitempty" jsonschema:"the search field's .* toggle: true takes the search text as one regular expression; omitted: unchanged"`
 }
 
 type selectParams struct {
@@ -71,7 +76,8 @@ func registerUI(g *registrar) {
 	add(g, engine.Spec[struct{}]{
 		ID: "ui.state", Label: "Show UI State", Danger: engine.DangerRead,
 		Description: "Returns what the user sees: the connected context and its connection state, the open view (kind key), " +
-			"the namespace filter, the search text, the sort order, the selected objects, the object in the detail drawer, " +
+			"the namespace filter, the search text and its toggles (filterOptions: matchCase, regex; filterError when its " +
+			"regular expression is invalid), the sort order, the selected objects, the object in the detail drawer, " +
 			"the tab bar's tabs (tabs and activeTab: each tab's id, context, view, title, preview or fixed, its own " +
 			"filter and selection, and its history), the dock tabs, how many rows the view shows of how many objects, for a pod's or node's drawer the time " +
 			"range and variant of each metrics chart (drawerCharts) and the metrics providers' status line " +
@@ -79,7 +85,7 @@ func registerUI(g *registrar) {
 			"and the hotbar of pinned clusters as hotbar_list returns it. Use it to learn which object the user means.",
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			u := s.UIState()
-			res := StateResult{UIState: u}
+			res := StateResult{UIState: u, FilterError: engine.FilterError(u.Filter, u.FilterOptions)}
 			if u.Hotbar != nil { // what each tile shows: label, connection, missing (hotbar.go)
 				if v, err := s.HotbarView(); err == nil {
 					res.Hotbar = &v
@@ -135,10 +141,22 @@ func registerUI(g *registrar) {
 
 	add(g, engine.Spec[filterParams]{
 		ID: "ui.setFilter", Label: "Search", MenuPath: "View/Search", Shortcut: "Cmd+F", Danger: engine.DangerUI,
-		Description: "Sets the search text of the open view: a row is shown when every whitespace-separated term occurs, " +
-			"case-insensitively, in one of its cells. An empty text clears the search. Returns the new UI state.",
+		Description: "Sets the search text of the open view, and its toggles as the search field's Aa and .* do: a row is " +
+			"shown when every whitespace-separated term occurs in one of its cells, ignoring case unless matchCase; with " +
+			"regex the text is one regular expression (RE2 syntax, at most 1000 bytes) that must match in one of its cells. " +
+			"A toggle left out stays as it is; the toggles stay when the view changes. An empty text clears the search. A " +
+			"regular expression that does not compile filters nothing out and ui_state reports it as filterError. " +
+			"Returns the new UI state.",
 		Run: func(_ context.Context, s *engine.Session, p filterParams) (any, error) {
-			return s.UpdateUI(func(u *engine.UIState) { u.Filter = p.Filter }), nil
+			return s.UpdateUI(func(u *engine.UIState) {
+				u.Filter = p.Filter
+				if p.MatchCase != nil {
+					u.FilterOptions.MatchCase = *p.MatchCase
+				}
+				if p.Regex != nil {
+					u.FilterOptions.Regex = *p.Regex
+				}
+			}), nil
 		},
 	})
 
@@ -232,7 +250,7 @@ func navigate(ctx context.Context, s *engine.Session, p refParams) (any, error) 
 		if prof.Namespaced && len(u.Namespaces) > 0 && !slices.Contains(u.Namespaces, ref.Namespace) {
 			u.Namespaces = nil
 		}
-		if u.Filter != "" && (row == nil || !model.MatchesFilter(*row, u.Filter)) {
+		if u.Filter != "" && (row == nil || !engine.MatchesFilter(*row, u.Filter, u.FilterOptions)) {
 			u.Filter = ""
 		}
 		u.Selected = []model.ObjectRef{ref}

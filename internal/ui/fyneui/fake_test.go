@@ -313,7 +313,15 @@ func (f *fakeEngine) Dispatch(ctx context.Context, inv engine.Invocation) (any, 
 		if err := params(&p); err != nil {
 			return nil, err
 		}
-		f.update(func(u *engine.UIState) { u.Filter = p.Filter })
+		f.update(func(u *engine.UIState) {
+			u.Filter = p.Filter
+			if p.MatchCase != nil {
+				u.FilterOptions.MatchCase = *p.MatchCase
+			}
+			if p.Regex != nil {
+				u.FilterOptions.Regex = *p.Regex
+			}
+		})
 	case "ui.setNamespace":
 		var p namespacesParams
 		if err := params(&p); err != nil {

@@ -32,6 +32,7 @@ Since 2026-10-13 a command palette (⌘⇧P, G13) lists what the menus offer by 
 Since 2026-10-13 the cluster Overview (`cluster/overview`, the navigator's first item, G12) shows the cluster's CPU, Memory and Pods for its master or worker nodes over a range, through a cluster scope of the metrics hub, and the Issues from the cache; its range and node group are `UIState.Overview` ([§4.3](#43-ui-state), [§9](#9-metrics-internalmetrics)).
 Since 2026-10-13 Preferences (⌘,) and a cluster's Settings (⌘⇧,) are engine state and commands kept in Cogpit's own `preferences.json`, `cluster-settings.json` and `cluster-icons/` (G13): the theme switched live, the time zone, the tables' row height, the editor's and the terminal's settings, a cluster's display name and icon in the hotbar, the picker and the navigator, its terminals' directory and namespace ([§4.3](#43-ui-state)); since the night run a cluster's settings also hide metrics from the window (places and measures), and nothing is polled for what is hidden ([§9](#9-metrics-internalmetrics)), and name a proxy for the cluster's API traffic, applied at the next connect, its password redacted everywhere but the settings file ([§6](#6-cluster-connections-internalcluster)); the Preferences name one for the Helm repositories' downloads, else the environment's applies ([§8](#8-helm-internalhelm)).
 Since 2026-10-13 a welcome page fills the workspace while it has nothing else to show (no cluster connected, no tab active) and from Help › Welcome (`UIState.Welcome`, derived; `ui.welcome.open`); the Help menu (Welcome, Documentation, About Cogpit) and, on Windows and Linux, a Window menu are the window's, macOS keeping GLFW's own Window menu; a cluster's menus have Disconnect (`cluster.disconnect`) and Remove from Cogpit (`cluster.remove`, which unlinks a kubeconfig file the user added, never the file) (G5, G13; [§4.3](#43-ui-state), [§6](#kubeconfig-sources-built-2026-10-12)).
+Since 2026-10-13 the search field has Lens's "Aa" and ".*" toggles (G5): `UIState.FilterOptions`, per tab, set with `ui.setFilter`, applied by the engine's row matcher (terms, case kept or not, or one RE2 pattern; an invalid pattern filters nothing out and is reported) ([§4.3](#43-ui-state), [`filteroptions.go`](../../internal/engine/filteroptions.go)).
 Since 2026-10-13 every list has row checkboxes and a header checkbox (G5): the selection is `UIState.Selected`, set through `ui.select` with modes, and Delete of a selection (`object.deleteMany`, G9) asks once, naming every object ([§4.2](#42-the-command-registry), [§4.3](#43-ui-state), [`tablecheck.go`](../../internal/ui/fyneui/tablecheck.go)).
 Since 2026-10-13 a tab bar of cluster views sits above the workspace (G5): a click in the navigator opens a preview tab, a double click or ⇧↵ a fixed one, each tab keeps its own filter, selection and history, and the tabs are engine state (`UIState.Tabs`, the `ui.tab.*` commands; [§4.3](#43-ui-state)); a tab of another cluster connects to it when shown, since Cogpit holds one connection.
 Since 2026-10-13 the top bar has the active tab's history arrows (`ui.tab.back`, `ui.tab.forward`), a context menu with Preferences… on a right-click, and a notifications bell whose panel lists the session's toasts: a bounded log of every toast, the engine's and the window's own, that is engine state (`UIState.Notifications`, the `notifications.*` commands), which agents read with the window's own texts and a Helm action's error withheld ([§4.3](#43-ui-state), [`titlehistory.go`](../../internal/ui/fyneui/titlehistory.go), [`notifications.go`](../../internal/ui/fyneui/notifications.go)).
@@ -439,6 +440,7 @@ type UIState struct {
 	View      string            // kind key or page: "pods", "services", "overview"
 	Namespace []string          // empty: all namespaces
 	Filter    string
+	FilterOptions FilterOptions // the search's match case and regular expression toggles (2026-10-13)
 	Selected  []model.ObjectRef
 	Drawer    *model.ObjectRef  // object shown in the detail drawer
 	Dock      []DockTab         // terminal, logs, editor, chat tabs and the active one
@@ -482,6 +484,17 @@ snapshot carries it as `Order`, indexes into `Columns` (`engine.ColumnOrder`; ni
 order), so that `Columns` and the rows keep the kind's indexes; `DisplayOrder` gives the order
 the window's table, its column list and `WriteCSV` follow
 ([`columnorder.go`](../../internal/ui/fyneui/columnorder.go)).
+Added 2026-10-13: `FilterOptions`, the search field's "Aa" (`matchCase`) and ".*" (`regex`)
+toggles, per tab beside `Filter` (`ViewTab.FilterOptions`, loaded and saved with it), set with
+`ui.setFilter`, whose `matchCase` and `regex` leave a toggle out unchanged; they stay when a view
+change clears the text. One `RowMatcher` ([`filteroptions.go`](../../internal/engine/filteroptions.go))
+applies them in the view snapshots, the Workloads Overview's events and the cluster Overview's
+Issues, compiled once per snapshot: terms (lowered once per row unless the case is kept), or one
+RE2 pattern, at most `MaxFilterPattern` (1,000) bytes, matched per cell, so that a pattern never
+spans two cells. A pattern that does not compile filters nothing out; the snapshot carries
+`FilterOptions` and `FilterError`, `ui.state` reports `filterError`, and `ui.navigate` and
+`ui.select` with `all` decide with the same matcher (inferred rules, Cogpit's defaults: ui-parity ›
+Tables).
 
 **Pages** (decided 2026-10-11, [`overview.go`](../../internal/engine/overview.go)): a view that is
 not one kind's list has a page key with a slash, `<sidebar group>/<page>`, which no kind key has.
@@ -2440,6 +2453,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | §4.3: `FilterOptions`, the search field's match case and regular expression toggles per tab, and the engine's `RowMatcher`; Current state |
 | 2026-10-13 | minor | The proxy of the traffic that is no cluster's (G13, night run): §8 `helm.Fetcher.Proxy` and `Session.NonClusterProxy`, the preference or the environment's; §4.3 `Preferences.HTTPProxy`, redacted; the untrusted-CA preference not built (a question for the owner); Current state |
 | 2026-10-13 | minor | A cluster's proxy (G13, night run): §6 `cluster.Options.Proxy` through `rest.Config.Proxy`, the connector reading the context's settings, the connection log, the scrubbed errors; §4.3 `ClusterSettings.Proxy` kept as typed, redacted in the UI state and every result, set only from the GUI; Current state |
 | 2026-10-13 | minor | Hidden metrics (G12, G13, night run): §4.3 `ClusterSettings.HiddenMetrics` and `viewParams.metrics`; §9 the gate on the hub's subscribers (lists, drawers, the Overview), nothing polled for what is hidden; one line in Current state |

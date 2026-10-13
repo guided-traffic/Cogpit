@@ -25,7 +25,9 @@ type (
 		Context string `json:"context"`
 	}
 	probeFilter struct {
-		Filter string `json:"filter,omitempty"`
+		Filter    string `json:"filter,omitempty"`
+		MatchCase *bool  `json:"matchCase,omitempty"`
+		Regex     *bool  `json:"regex,omitempty"`
 	}
 	probeCreateTab struct {
 		YAML     string `json:"yaml,omitempty"`

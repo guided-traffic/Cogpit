@@ -43,6 +43,7 @@ type tableView struct {
 	nsButton              *widget.Button
 	nsBox                 *fyne.Container // the namespace filter's slot; hidden on cluster-scoped views
 	search                *widget.Entry
+	toggles               *searchToggles // the search's "Aa" and ".*" (searchtoggles.go)
 	searchBox             *fyne.Container
 	heading, tools        *fyne.Container // the header's left and right parts
 
@@ -123,6 +124,7 @@ func newTableView(sh *shell) *tableView {
 	tv.nsButton.IconPlacement = widget.ButtonIconTrailingText
 	tv.nsButton.Alignment = widget.ButtonAlignLeading
 	tv.search = widget.NewEntry()
+	tv.toggles = newSearchToggles(tv) // before anything draws the entry: its renderer takes the switches once
 	tv.search.SetPlaceHolder("Search…")
 	tv.search.SetIcon(theme.SearchIcon())
 	tv.search.OnChanged = tv.searchChanged
@@ -141,7 +143,7 @@ func newTableView(sh *shell) *tableView {
 	tv.check.bar = newSelectionBar(tv)
 	tv.heading = container.NewHBox(tv.title, tv.count, tv.csvButton, tv.syncing, tv.check.bar.root)
 	tv.nsBox = sized(sizeFilterWidth, "", tv.nsButton)
-	tv.searchBox = sized(sizeSearchWidth, "", tv.search)
+	tv.searchBox = sized(sizeSearchWidth, "", tv.toggles.field())
 	tv.tools = container.NewHBox(tv.nsBox, tv.searchBox)
 	header := container.NewStack(newSurface(theme.ColorNameBackground),
 		inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
@@ -372,6 +374,7 @@ func (tv *tableView) refreshAges() {
 // stateChanged follows namespace, filter and sort changes made anywhere (the user, an agent).
 func (tv *tableView) stateChanged() {
 	tv.syncSearch()
+	tv.toggles.sync()
 	tv.updateNamespaceButton()
 	tv.syncNamespaceChecks()
 }
@@ -762,6 +765,7 @@ func (l *stretchLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
 
 // searchChanged debounces typing: the filter goes to the engine once the user pauses.
 func (tv *tableView) searchChanged(text string) {
+	tv.toggles.sync() // the field's text may make the pattern valid or not
 	if tv.syncing2 {
 		return
 	}

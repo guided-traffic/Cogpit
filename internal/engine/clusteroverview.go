@@ -353,14 +353,14 @@ func issuesTable(context string, ob *overviewBuild, p viewParams) *TableSnapshot
 	if len(p.namespaces) > 0 {
 		nsSet = setOf(p.namespaces)
 	}
-	filter := strings.TrimSpace(p.filter)
+	match, filterErr := p.matcher()
 	rows := make([]model.Row, 0, len(ob.issues))
 	for _, is := range ob.issues {
 		if !inNamespaces(is, nsSet) {
 			continue
 		}
 		row := issueRow(context, is)
-		if filter != "" && !model.MatchesFilter(row, filter) {
+		if !match.All() && !match.Match(row) {
 			continue
 		}
 		rows = append(rows, row)
@@ -370,7 +370,7 @@ func issuesTable(context string, ob *overviewBuild, p viewParams) *TableSnapshot
 		View: ClusterOverview, Context: context, Title: pageTitles[ClusterOverview], Namespaced: true,
 		Columns: ColumnsShown(issuesProfile.Columns, p.hidden, p.hiddenSet), Order: ColumnOrder(issuesProfile.Columns, p.order),
 		Rows: rows, Sort: p.sort,
-		Namespaces: slices.Clone(p.namespaces), Filter: p.filter, Total: len(ob.issues),
+		Namespaces: slices.Clone(p.namespaces), Filter: p.filter, FilterOptions: p.filterOpts, FilterError: filterErr, Total: len(ob.issues),
 		Synced: ob.synced, Error: ob.errText,
 	}
 }

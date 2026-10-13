@@ -402,7 +402,7 @@ func (sh *shell) applyUIState(st engine.UIState) {
 		sh.refreshTable()
 	}
 	if first || !slices.Equal(st.Namespaces, old.Namespaces) || !slices.Equal(st.Groups, old.Groups) ||
-		st.Filter != old.Filter || st.Sort != old.Sort {
+		st.Filter != old.Filter || st.FilterOptions != old.FilterOptions || st.Sort != old.Sort {
 		sh.view.stateChanged()
 	}
 	if first || !slices.Equal(st.Selected, old.Selected) {
@@ -891,7 +891,9 @@ type (
 		Hidden []string `json:"hidden"`
 	}
 	filterParams struct {
-		Filter string `json:"filter"`
+		Filter    string `json:"filter"`
+		MatchCase *bool  `json:"matchCase,omitempty"` // the "Aa" toggle; nil: unchanged
+		Regex     *bool  `json:"regex,omitempty"`     // the ".*" toggle; nil: unchanged
 	}
 	sortParams struct {
 		Column string `json:"column"`

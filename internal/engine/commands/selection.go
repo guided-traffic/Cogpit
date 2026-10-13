@@ -236,7 +236,7 @@ func shownRows(ctx context.Context, s *engine.Session, view string) ([]model.Obj
 	defer cancel()
 	for {
 		t, u := s.Table(view), s.UIState()
-		if t != nil && t.Filter == u.Filter && slices.Equal(t.Namespaces, u.Namespaces) {
+		if t != nil && t.Filter == u.Filter && t.FilterOptions == u.FilterOptions && slices.Equal(t.Namespaces, u.Namespaces) {
 			refs := make([]model.ObjectRef, len(t.Rows))
 			for i := range t.Rows {
 				refs[i] = t.Rows[i].Ref

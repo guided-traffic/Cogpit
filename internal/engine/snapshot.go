@@ -191,7 +191,7 @@ func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unst
 			nsSet[ns] = struct{}{}
 		}
 	}
-	filter := strings.TrimSpace(params.filter)
+	match, filterErr := params.matcher()
 	groupCol, groupSet := groupFilter(p, params.groups)
 
 	cpuCol, memCol := -1, -1
@@ -241,7 +241,7 @@ func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unst
 				continue
 			}
 		}
-		if filter != "" && !model.MatchesFilter(e.row, filter) {
+		if !match.All() && !match.Match(e.row) {
 			continue
 		}
 		kept = append(kept, e)
@@ -265,6 +265,7 @@ func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unst
 		Order:   ColumnOrder(p.Columns, params.order),
 		Rows:    rows, Sort: params.sort,
 		Namespaces: slices.Clone(params.namespaces), Filter: params.filter,
+		FilterOptions: params.filterOpts, FilterError: filterErr,
 		Total: len(objs),
 	}
 }

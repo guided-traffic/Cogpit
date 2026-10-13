@@ -20,6 +20,10 @@ type TableSnapshot struct {
 	Sort       SortSpec    `json:"sort"`
 	Namespaces []string    `json:"namespaces,omitempty"`
 	Filter     string      `json:"filter,omitempty"`
+	// FilterOptions are the search's toggles the rows were filtered with; FilterError says why the
+	// search filtered nothing out (an invalid regular expression), "" when it applied.
+	FilterOptions FilterOptions `json:"filterOptions,omitzero"`
+	FilterError   string        `json:"filterError,omitempty"`
 	// Total is the number of objects before filtering.
 	Total int `json:"total"`
 	// Revision increases with every snapshot of the view.

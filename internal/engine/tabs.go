@@ -64,6 +64,8 @@ type ViewTab struct {
 	Sort       SortSpec          `json:"sort"`
 	Selected   []model.ObjectRef `json:"selected,omitempty"`
 	Drawer     *model.ObjectRef  `json:"drawer,omitempty"`
+	// FilterOptions are the tab's search toggles (filteroptions.go); they stay when its view changes.
+	FilterOptions FilterOptions `json:"filterOptions,omitzero"`
 	// Back and Forward are the tab's history: the views before and after the one it shows, the
 	// nearest last (ui.tab.back, ui.tab.forward).
 	Back    []string `json:"back,omitempty"`
@@ -179,7 +181,7 @@ func (u *UIState) activateTab(i int) {
 // loadTab makes a tab's state the live state.
 func (u *UIState) loadTab(i int) {
 	t := u.Tabs[i]
-	u.View, u.Filter, u.Sort = t.View, t.Filter, t.Sort
+	u.View, u.Filter, u.FilterOptions, u.Sort = t.View, t.Filter, t.FilterOptions, t.Sort
 	if u.Sort.Column == "" {
 		u.Sort = DefaultSort
 	}
@@ -195,7 +197,7 @@ func (u *UIState) loadTab(i int) {
 // saveTab makes the live state the tab's.
 func (u *UIState) saveTab(i int) {
 	t := &u.Tabs[i]
-	t.View, t.Filter, t.Sort = u.View, u.Filter, u.Sort
+	t.View, t.Filter, t.FilterOptions, t.Sort = u.View, u.Filter, u.FilterOptions, u.Sort
 	t.Namespaces, t.Groups = slices.Clone(u.Namespaces), slices.Clone(u.Groups)
 	t.Selected = slices.Clone(u.Selected)
 	t.Drawer = nil

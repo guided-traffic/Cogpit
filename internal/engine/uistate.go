@@ -31,6 +31,9 @@ type UIState struct {
 	ColumnOrder map[string][]string `json:"columnOrder,omitempty"`
 	// Filter is the view's search text.
 	Filter string `json:"filter"`
+	// FilterOptions are the search field's toggles, match case and regular expression
+	// (filteroptions.go).
+	FilterOptions FilterOptions `json:"filterOptions"`
 	// Sort is the open view's sort order.
 	Sort SortSpec `json:"sort"`
 	// Selected are the selected objects of the open view.
@@ -71,7 +74,7 @@ type UIState struct {
 	Notifications NotificationSummary `json:"notifications,omitzero"`
 	// Tabs are the tab bar's tabs in their order, each a view of one cluster with its own state
 	// (tabs.go); ActiveTab is the shown one's id, empty when none is shown. View, Namespaces,
-	// Groups, Filter, Sort, Selected and Drawer above are the active tab's.
+	// Groups, Filter, FilterOptions, Sort, Selected and Drawer above are the active tab's.
 	Tabs      []ViewTab `json:"tabs,omitempty"`
 	ActiveTab string    `json:"activeTab,omitempty"`
 	tabSeq    uint64    // the number of the last tab id handed out
