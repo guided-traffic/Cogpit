@@ -1,6 +1,8 @@
 package fyneui
 
 import (
+	"slices"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -32,6 +34,7 @@ type argoPanel struct {
 	strip    *fyne.Container
 	cards    *fyne.Container
 	activity *fyne.Container
+	filter   *widget.Entry // the activity's filter: the window's, as the navigator's search is
 	openUI   *widget.Button
 	sync     *widget.Button
 	refresh  *widget.Button
@@ -64,8 +67,12 @@ func newArgoPanel(sh *shell) *argoPanel {
 	actions := container.NewHBox(newTextLine("Applications", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{Bold: true}),
 		layout.NewSpacer(), p.openUI, p.sync, p.refresh)
 	title := newTextLine("Recent activity", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{Bold: true})
+	p.filter = widget.NewEntry()
+	p.filter.SetPlaceHolder("Filter activity…")
+	p.filter.OnChanged = func(string) { p.showActivity() }
+	head := container.NewBorder(nil, nil, title, sized(sizeSearchWidth, "", p.filter))
 	p.root = inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
-		container.NewVBox(p.strip, newSpace(theme.SizeNamePadding), actions, p.cards, newSpace(theme.SizeNamePadding), title, p.activity))
+		container.NewVBox(p.strip, newSpace(theme.SizeNamePadding), actions, p.cards, newSpace(theme.SizeNamePadding), head, p.activity))
 	return p
 }
 
@@ -114,12 +121,32 @@ func (p *argoPanel) show(m *engine.ArgoCDDashboardModel) {
 	p.cards.Refresh()
 	p.enable(p.sync, len(m.OutOfSync) > 0)
 	p.enable(p.refresh, len(m.All) > 0)
+	p.showActivity()
+}
+
+// showActivity lists the newest activities that match the filter (the Application's namespace and
+// name, what happened, the revision; every term, ignoring case), at most argoActivityLines.
+func (p *argoPanel) showActivity() {
+	if p.data == nil {
+		return
+	}
+	terms := strings.Fields(strings.ToLower(p.filter.Text))
 	lines := make([]fyne.CanvasObject, 0, argoActivityLines)
 	now := p.sh.now()
-	for _, a := range m.Activity[:min(len(m.Activity), argoActivityLines)] {
-		lines = append(lines, newArgoActivityLine(p.sh, a, now))
+	for _, a := range p.data.Activity {
+		if len(lines) == argoActivityLines {
+			break
+		}
+		text := strings.ToLower(a.Ref.Key() + " " + a.Text + " " + a.Revision)
+		if !slices.ContainsFunc(terms, func(t string) bool { return !strings.Contains(text, t) }) {
+			lines = append(lines, newArgoActivityLine(p.sh, a, now))
+		}
 	}
-	if len(lines) == 0 {
+	switch {
+	case len(lines) > 0:
+	case len(terms) > 0:
+		lines = append(lines, newTextLine("No activity matches the filter.", colorMuted, theme.SizeNameText, fyne.TextStyle{}))
+	default:
 		lines = append(lines, newTextLine("No operations yet.", colorMuted, theme.SizeNameText, fyne.TextStyle{}))
 	}
 	p.activity.Objects = lines

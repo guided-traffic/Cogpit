@@ -2,6 +2,7 @@ package fyneui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -91,24 +92,63 @@ func argoNames(refs []model.ObjectRef) string {
 	return s
 }
 
-// argoDialog shows a dialog of Argo CD's actions: a line naming the Applications and their
-// context, the options, and the action's button (Lens's "Sync app(s)" and "Refresh app(s)"
-// dialogs, documented, not captured: the layout and texts are Cogpit's).
-func (sh *shell) argoDialog(title, action string, refs []model.ObjectRef, options fyne.CanvasObject, run func()) {
-	width := sh.app.Settings().Theme().Size(sizeConfirmWidth)
+// argoDialog shows a dialog of Argo CD's actions (Lens's "Sync app(s)" and "Refresh app(s)"
+// dialogs, documented, not captured: the layout and texts are Cogpit's): the Applications and
+// their context, the options, and the action's button. Several Applications are a list of checks,
+// every one checked at first, as Lens preselects them; the user unchecks those to leave out, and
+// run gets the checked ones (none: nothing runs).
+func (sh *shell) argoDialog(title, action string, refs []model.ObjectRef, options fyne.CanvasObject, run func([]model.ObjectRef)) {
+	th := sh.app.Settings().Theme()
+	width := th.Size(sizeConfirmWidth)
 	context := ""
 	if len(refs) > 0 {
 		context = refs[0].Context
 	}
-	what := newParagraph(argoNames(refs)+" (context "+context+")", colorMuted, width)
+	picker := newArgoPicker(refs)
+	var what fyne.CanvasObject = newParagraph(argoNames(refs)+" (context "+context+")", colorMuted, width)
+	if len(refs) > 1 {
+		list := container.NewVScroll(picker.checks)
+		list.SetMinSize(fyne.NewSize(width, min(picker.checks.MinSize().Height, th.Size(sizePopupMaxList))))
+		what = container.NewVBox(newParagraph("Context "+context+":", colorMuted, width), list)
+	}
 	d := dialog.NewCustomConfirm(title, action, "Cancel", container.NewVBox(what, newSpace(theme.SizeNamePadding), options),
 		func(ok bool) {
-			if ok {
-				run()
+			if chosen := picker.chosen(); ok && len(chosen) > 0 {
+				run(chosen)
 			}
 		}, sh.win)
 	d.Resize(fyne.NewSize(width, d.MinSize().Height))
 	d.Show()
+}
+
+// argoPicker is a dialog's list of Applications, each a check.
+type argoPicker struct {
+	refs   []model.ObjectRef
+	checks *widget.CheckGroup
+}
+
+func newArgoPicker(refs []model.ObjectRef) *argoPicker {
+	keys := make([]string, len(refs))
+	for i, r := range refs {
+		keys[i] = r.Key()
+	}
+	p := &argoPicker{refs: refs, checks: widget.NewCheckGroup(keys, nil)}
+	p.checks.SetSelected(keys)
+	return p
+}
+
+// chosen returns the checked Applications, in the list's order; a single one is always chosen.
+func (p *argoPicker) chosen() []model.ObjectRef {
+	if len(p.refs) == 1 {
+		return p.refs
+	}
+	var out []model.ObjectRef
+	for _, r := range p.refs {
+		if slices.Contains(p.checks.Selected, r.Key()) {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // openArgoSyncDialog asks whether to prune, then syncs: one Application through
@@ -123,12 +163,12 @@ func (sh *shell) openArgoSyncDialog(refs []model.ObjectRef) {
 	prune := widget.NewCheck("Prune resources not in Git", nil)
 	width := sh.app.Settings().Theme().Size(sizeConfirmWidth)
 	hint := newParagraph("Pruning deletes the live resources the Application manages that are no longer in Git; Cogpit asks once more before it does.", colorMuted, width)
-	sh.argoDialog("Sync "+argoTitle(refs), "Sync", refs, container.NewVBox(prune, hint), func() {
-		if len(refs) == 1 {
-			sh.dispatch(argoSyncCommand, argoSyncParams{Ref: refs[0], Prune: prune.Checked}, nil)
+	sh.argoDialog("Sync "+argoTitle(refs), "Sync", refs, container.NewVBox(prune, hint), func(chosen []model.ObjectRef) {
+		if len(chosen) == 1 {
+			sh.dispatch(argoSyncCommand, argoSyncParams{Ref: chosen[0], Prune: prune.Checked}, nil)
 			return
 		}
-		sh.dispatch(argoSyncManyCommand, argoSyncManyParams{Refs: refs, Prune: prune.Checked}, nil)
+		sh.dispatch(argoSyncManyCommand, argoSyncManyParams{Refs: chosen, Prune: prune.Checked}, nil)
 	})
 }
 
@@ -141,13 +181,13 @@ func (sh *shell) openArgoRefreshDialog(refs []model.ObjectRef) {
 	mode := widget.NewRadioGroup([]string{normal, hard}, nil)
 	mode.Required = true
 	mode.SetSelected(normal)
-	sh.argoDialog("Refresh "+argoTitle(refs), "Refresh", refs, mode, func() {
+	sh.argoDialog("Refresh "+argoTitle(refs), "Refresh", refs, mode, func(chosen []model.ObjectRef) {
 		isHard := mode.Selected == hard
-		if len(refs) == 1 {
-			sh.dispatch(argoRefreshCommand, argoRefreshParams{Ref: refs[0], Hard: isHard}, nil)
+		if len(chosen) == 1 {
+			sh.dispatch(argoRefreshCommand, argoRefreshParams{Ref: chosen[0], Hard: isHard}, nil)
 			return
 		}
-		sh.dispatch(argoRefreshManyCommand, argoRefreshManyParams{Refs: refs, Hard: isHard}, nil)
+		sh.dispatch(argoRefreshManyCommand, argoRefreshManyParams{Refs: chosen, Hard: isHard}, nil)
 	})
 }
 

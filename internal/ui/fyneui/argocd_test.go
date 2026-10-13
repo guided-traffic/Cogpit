@@ -313,6 +313,31 @@ func TestArgoDashboardPanel(t *testing.T) {
 		}
 	}
 
+	// The dialog preselects every Application; one unchecked is left out.
+	test.Tap(sh.view.argo.sync)
+	q.until(t, "the sync dialog", func() bool { return w.Canvas().Overlays().Top() != nil })
+	groups := findAll[*widget.CheckGroup](w.Canvas().Overlays().Top())
+	if len(groups) != 1 || len(groups[0].Selected) != 2 {
+		t.Fatalf("the dialog's Applications %+v", groups)
+	}
+	groups[0].SetSelected([]string{"argocd/payments"})
+	argoTapButton(t, w, "Sync")
+	q.until(t, "the sync of the one left", func() bool { return len(writer.Writes()) == 11 })
+	if got := writer.Writes()[10]; got != "sync argocd/payments" {
+		t.Errorf("write %s", got)
+	}
+
+	// The activity's filter.
+	sh.view.argo.filter.SetText("PAYMENTS failed")
+	if n := len(sh.view.argo.activity.Objects); n != 1 {
+		t.Errorf("%d activities match", n)
+	}
+	sh.view.argo.filter.SetText("nothing like it")
+	if l, ok := sh.view.argo.activity.Objects[0].(*textLine); !ok || l.text != "No activity matches the filter." {
+		t.Errorf("no match shows %#v", sh.view.argo.activity.Objects[0])
+	}
+	sh.view.argo.filter.SetText("")
+
 	// A tile opens the Applications view searched for its state.
 	for _, l := range findAll[*linkText](sh.view.argo.strip) {
 		if l.text == "Out of sync" {
