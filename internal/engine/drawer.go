@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -276,6 +277,11 @@ func BuildDetailWith(p *model.KindProfile, ref model.ObjectRef, obj *unstructure
 		m.Sections = model.MergeProperties(model.PropertiesSection(meta, now), kind)
 		if isSecrets(p) {
 			m.Sections = append(m.Sections, secretDataSection(ref, obj)) // keys and sizes, values masked
+			// The certificates its values hold, decoded (D-30): never a value, PEM text or key.
+			certs, cerr := secretCertificates(obj, now)
+			m.Certificates = certs
+			m.Sections = append(m.Sections, certificateSections(certs, now)...)
+			err = errors.Join(err, cerr)
 		}
 	}
 	if len(events) > 0 && !m.NoEvents {

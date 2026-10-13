@@ -167,6 +167,8 @@ func registerResources(g *registrar) {
 			"(Properties first: the metadata and the kind's state; then the kind's own sections; values that name objects " +
 			"carry a link ref), its events (newest first, at most 50), its container names for pods, and its YAML " +
 			"(managed fields dropped, Secret values redacted) unless noYaml. missing is true when the object is not in the cache. " +
+			"For a Secret, certificates holds the decoded fields of every certificate its keys hold (subject, issuer, serial, " +
+			"validity in UTC with expiresInDays and expired, names, key, usages, fingerprint), never a value, the PEM text or a private key. " +
 			"With related, also the related objects as refs with their relation, from the cache: what the drawer links to " +
 			"(Controlled By, a pod's node, a node's pods and devices, a claim's pods, a Service's endpoint slices, ...) and the " +
 			"objects a workload controls (a Deployment's replica sets and pods, a Cron Job's jobs and pods, the pods of the " +

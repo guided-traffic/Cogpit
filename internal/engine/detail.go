@@ -58,6 +58,12 @@ type DetailModel struct {
 	// captured 2026-10-12): the title on one line, no Details and YAML tabs, no status pill in the
 	// title bar.
 	Plain bool `json:"plain,omitempty"`
+	// Certificates are the certificates a Secret's values hold, decoded (D-30, secretcerts.go):
+	// per key, each certificate's public fields with its times in UTC (RFC 3339), expiresInDays
+	// and expired at the moment the model was built. The same fields are the drawer's
+	// "Certificates · <key>" sections. Never a value, the PEM text or a private key; empty for
+	// other kinds.
+	Certificates []model.CertificateKey `json:"certificates,omitempty"`
 }
 
 // EventItem is one event in the drawer.

@@ -1,0 +1,287 @@
+package engine
+
+import (
+	"encoding/base64"
+	"errors"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/guided-traffic/cogpit/internal/model"
+)
+
+// The certificates a Secret holds, decoded for the drawer and for agents (D-30, owner
+// 2026-10-13): every key whose value holds PEM CERTIFICATE blocks, a TLS Secret's tls.crt and
+// ca.crt first, gets a group of sections in the drawer, one section per certificate in the value's
+// order, each field its own item (so each has the drawer's copy icon); DetailModel.Certificates
+// carries the same fields for agents with the times in UTC and the days left. A certificate is
+// public material; the PEM text, the value it came from and every private key stay out: a key
+// named like a private key (tls.key, *.key) is never looked into, and the parser decodes nothing
+// but CERTIFICATE blocks (model.ParseCertificates). Built from the cached object, no request; the
+// decoded values are zeroed after parsing, as the Data section's are.
+
+// Bounds (Cogpit's defaults, not the owner's): a value larger than certValueBytes is not decoded;
+// at most model.MaxCertificatesPerKey certificates per key and certsPerSecret per Secret.
+const (
+	certValueBytes = 1 << 20
+	certsPerSecret = 64
+	certTitleBytes = 80 // a section title taken from a certificate's name is cut here
+	certFoldNames  = 10 // a list of more names than this folds behind its count
+)
+
+// tlsSecretType is the type of a Secret that holds a TLS certificate and its key.
+const tlsSecretType = "kubernetes.io/tls"
+
+// The keys of a TLS Secret, by the Kubernetes documentation of the type.
+const (
+	tlsCertKey = "tls.crt"
+	tlsKeyKey  = "tls.key"
+	caCertKey  = "ca.crt"
+)
+
+// Texts of the drawer's certificate sections.
+const (
+	certGroupPrefix  = "Certificates · "
+	certNoPEM        = "no PEM certificate in this value"
+	certTooLarge     = "not decoded: the value is larger than 1 MiB"
+	certNotDecodedT  = "Not decoded"
+	certMoreTitle    = "More"
+	certSectionTitle = "Certificate"
+)
+
+// errCertPanic reports a panic while decoding a Secret's certificates; it names nothing of the
+// Secret's values.
+var errCertPanic = errors.New("decoding a Secret's certificates panicked")
+
+// secretCertificates decodes the certificates in a Secret's values at now: per key that holds a
+// PEM CERTIFICATE block, in the order tls.crt, ca.crt, then the other keys sorted. A TLS Secret's
+// tls.crt that holds none says so; a value over 1 MiB is not decoded, which a key named like a
+// certificate (*.crt, *.pem, *.cer) says. A panic in the decoder yields what was decoded before
+// and errCertPanic.
+func secretCertificates(obj *unstructured.Unstructured, now time.Time) (out []model.CertificateKey, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errCertPanic
+		}
+	}()
+	data := model.NestedMap(obj.Object, "data")
+	tlsType := model.NestedString(obj.Object, "type") == tlsSecretType
+	budget := certsPerSecret
+	for _, k := range certKeyOrder(data) {
+		if privateKeyName(k) {
+			continue
+		}
+		mustHold := tlsType && k == tlsCertKey
+		s, _ := data[k].(string)
+		if base64.StdEncoding.DecodedLen(len(s)) > certValueBytes {
+			if mustHold || certificateName(k) {
+				out = append(out, model.CertificateKey{Key: k, NotDecoded: certTooLarge})
+			}
+			continue
+		}
+		raw, ok := decodeValue(data[k])
+		if !ok || !model.HoldsCertificate(raw) {
+			wipeBytes(raw)
+			if mustHold {
+				out = append(out, model.CertificateKey{Key: k, NotDecoded: certNoPEM})
+			}
+			continue
+		}
+		ck := model.CertificateKey{Key: k}
+		if budget == 0 {
+			ck.Omitted = model.CountCertificates(raw)
+		} else {
+			ck.Certificates, ck.Omitted = model.ParseCertificates(raw, min(budget, model.MaxCertificatesPerKey))
+		}
+		wipeBytes(raw)
+		for i := range ck.Certificates {
+			ck.Certificates[i].Evaluate(now)
+		}
+		budget -= len(ck.Certificates)
+		out = append(out, ck)
+	}
+	return out, nil
+}
+
+// certKeyOrder returns a Secret's keys with tls.crt and ca.crt first, then the others sorted.
+func certKeyOrder(data map[string]any) []string {
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		if k != tlsCertKey && k != caCertKey {
+			keys = append(keys, k)
+		}
+	}
+	slices.Sort(keys)
+	for _, k := range []string{caCertKey, tlsCertKey} {
+		if _, ok := data[k]; ok {
+			keys = append([]string{k}, keys...)
+		}
+	}
+	return keys
+}
+
+// privateKeyName reports whether a key's name says it holds a private key: a TLS Secret's tls.key
+// or any name ending in .key. Such a value is never looked into.
+func privateKeyName(k string) bool {
+	return k == tlsKeyKey || strings.HasSuffix(strings.ToLower(k), ".key")
+}
+
+// certificateName reports whether a key's name says it holds a certificate.
+func certificateName(k string) bool {
+	k = strings.ToLower(k)
+	return strings.HasSuffix(k, ".crt") || strings.HasSuffix(k, ".pem") || strings.HasSuffix(k, ".cer")
+}
+
+// certificateSections are the drawer's sections of a Secret's certificates: per key a group
+// "Certificates · <key>", one section per certificate titled by its subject's common name (numbered
+// in a value with several), a "Not decoded" section for a value that was not, and a "More" section
+// that counts the certificates after the bound. Times are written in now's zone (the Preferences'
+// time zone), as Created is.
+func certificateSections(keys []model.CertificateKey, now time.Time) []model.DetailSection {
+	var out []model.DetailSection
+	for _, k := range keys {
+		group := certGroupPrefix + k.Key
+		if k.NotDecoded != "" {
+			out = append(out, model.DetailSection{Title: certNotDecodedT, Group: group, Items: []model.DetailItem{{Value: k.NotDecoded}}})
+			continue
+		}
+		total := len(k.Certificates) + k.Omitted
+		for i, c := range k.Certificates {
+			out = append(out, model.DetailSection{Title: certTitle(c, i, total), Group: group, Items: certItems(c, now)})
+		}
+		if k.Omitted > 0 {
+			text := strconv.Itoa(k.Omitted) + " more certificates are not decoded"
+			if k.Omitted == 1 {
+				text = "1 more certificate is not decoded"
+			}
+			out = append(out, model.DetailSection{Title: certMoreTitle, Group: group, Items: []model.DetailItem{{Value: text}}})
+		}
+	}
+	return out
+}
+
+// certTitle is a certificate's section title: its subject's common name, else its subject, cut at
+// 80 bytes; numbered when the value holds several.
+func certTitle(c model.Certificate, i, total int) string {
+	name := c.SubjectCN
+	if name == "" {
+		name = c.Subject
+	}
+	if c.Invalid || name == "" {
+		name = certSectionTitle
+	}
+	if len(name) > certTitleBytes {
+		cut := certTitleBytes
+		for cut > 0 && !utf8.RuneStart(name[cut]) {
+			cut--
+		}
+		name = name[:cut] + "…"
+	}
+	if total > 1 {
+		return strconv.Itoa(i+1) + " · " + name
+	}
+	return name
+}
+
+// certItems are one certificate's drawer items, each field its own, empty ones left out.
+func certItems(c model.Certificate, now time.Time) []model.DetailItem {
+	if c.Invalid {
+		return []model.DetailItem{{Value: model.NotACertificate, Status: model.StatusError}}
+	}
+	var items []model.DetailItem
+	add := func(name, value string) {
+		if value != "" {
+			items = append(items, model.DetailItem{Name: name, Value: value})
+		}
+	}
+	names := func(name string, list []string) {
+		if len(list) == 0 {
+			return
+		}
+		it := model.DetailItem{Name: name, Value: strings.Join(list, "\n")}
+		if len(list) > certFoldNames {
+			it.Fold = name
+		}
+		items = append(items, it)
+	}
+	pair := func(name, cn, dn string) {
+		if cn == "" {
+			add(name, dn)
+			return
+		}
+		add(name, cn)
+		add(name+" DN", dn)
+	}
+	pair("Subject", c.SubjectCN, c.Subject)
+	pair("Issuer", c.IssuerCN, c.Issuer)
+	add("Serial Number", c.SerialNumber)
+	notBefore := model.DetailItem{Name: "Not Before", Value: certTime(c.NotBefore, now)}
+	if c.NotYetValid {
+		notBefore.Value += " (not yet valid, in " + certSpan(c.NotBefore.Sub(now)) + ")"
+		notBefore.Status = model.StatusError
+	}
+	left := "in " + certSpan(c.NotAfter.Sub(now))
+	if c.Expired {
+		left = "expired " + certSpan(now.Sub(c.NotAfter)) + " ago"
+	}
+	items = append(items, notBefore,
+		model.DetailItem{Name: "Not After", Value: certTime(c.NotAfter, now) + " (" + left + ")", Status: c.Status})
+	names("DNS Names", c.DNSNames)
+	names("IP Addresses", c.IPAddresses)
+	names("URIs", c.URIs)
+	names("E-mail Addresses", c.EmailAddresses)
+	if c.NamesOmitted > 0 {
+		add("Names Not Shown", strconv.Itoa(c.NamesOmitted)+" more (at most 100 of each kind are shown)")
+	}
+	add("Public Key", c.PublicKey)
+	add("Signature Algorithm", c.SignatureAlgorithm)
+	ca := "No"
+	if c.IsCA {
+		ca = "Yes, no path length limit"
+		if c.MaxPathLen != nil {
+			ca = "Yes, path length " + strconv.Itoa(*c.MaxPathLen)
+		}
+	}
+	add("CA", ca)
+	add("Key Usage", strings.Join(c.KeyUsage, ", "))
+	add("Extended Key Usage", strings.Join(c.ExtKeyUsage, ", "))
+	add("Self-Signed", yesNo(c.SelfSigned))
+	add("SHA-256 Fingerprint", c.SHA256Fingerprint)
+	add("Subject Key ID", c.SubjectKeyID)
+	add("Authority Key ID", c.AuthorityKeyID)
+	return items
+}
+
+// certTime writes a certificate's time in now's zone as RFC 3339, as the drawer writes Created.
+func certTime(t, now time.Time) string {
+	return t.In(now.Location()).Format(time.RFC3339)
+}
+
+// certSpan writes a positive duration in whole days, else whole hours, else "less than an hour".
+func certSpan(d time.Duration) string {
+	switch {
+	case d >= 24*time.Hour:
+		return plural(int(d/(24*time.Hour)), "day")
+	case d >= time.Hour:
+		return plural(int(d/time.Hour), "hour")
+	}
+	return "less than an hour"
+}
+
+func plural(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return strconv.Itoa(n) + " " + noun + "s"
+}
+
+func yesNo(b bool) string {
+	if b {
+		return "Yes"
+	}
+	return "No"
+}

@@ -198,7 +198,14 @@ if it still holds the value (`shell.copyText`, `TestSecretValueCopyOnlyOnceRevea
 can put a Secret on the clipboard (`TestCopyHasNoCommand`). Since 2026-10-13 a list's cells copy
 with the same icon (D-25): the Secrets list shows Name, Namespace, Labels, the names of the keys,
 Type and Age, never a value (`TestSecretDetailShowsNoValue`), so a copy from it is a plain one and
-carries no value (`TestSecretsListCopiesNoValue`).
+carries no value (`TestSecretsListCopiesNoValue`). Since 2026-10-13 the drawer decodes the
+certificates a Secret's keys hold into separate fields, for the window and agents alike
+([D-30](../developer/decisions.md#d-30-certificates-in-secrets-decoded),
+[`secretcerts.go`](../../internal/engine/secretcerts.go)): a certificate is public material; only
+PEM `CERTIFICATE` blocks are decoded, a private key block beside one is never handed to the
+decoder, a key named `tls.key` or `*.key` is never looked into, and the decoded value is zeroed
+after parsing as the Data section's are (`TestParseCertificatesOnlyCertificateBlocks`,
+`TestObjectGetDecodesCertificatesForAgents`).
 
 ## What this does not cover
 
