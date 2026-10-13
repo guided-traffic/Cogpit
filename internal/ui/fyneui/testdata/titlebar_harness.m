@@ -19,7 +19,28 @@ static void report(NSWindow *w, const char *step) {
 	printf("%s %.1f %.1f %.1f %.1f\n", step, h - NSMidY(c), NSMinX(c), h - NSMidY(z), NSMinX(z));
 }
 
-static void turn(void) { [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]]; }
+// buttonsY is the three buttons' y in their title bar view.
+static NSString *buttonsY(NSWindow *w) {
+	NSMutableString *s = [NSMutableString string];
+	for (NSNumber *k in @[ @(NSWindowCloseButton), @(NSWindowMiniaturizeButton), @(NSWindowZoomButton) ]) {
+		[s appendFormat:@"%.1f ", [w standardWindowButton:k.intValue].frame.origin.y];
+	}
+	return s;
+}
+
+// settle runs the main run loop until the buttons stayed put for five slices in a row, at most two
+// seconds: AppKit's layout passes and the title bar's re-placement after them each take a turn of
+// the loop, and a slow machine (CI) needs more than one fixed slice (red on CI, 2026-10-13).
+static void settle(NSWindow *w) {
+	NSString *last = nil;
+	int still = 0;
+	for (int i = 0; i < 100 && still < 5; i++) {
+		[[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.02]];
+		NSString *now = buttonsY(w);
+		still = [now isEqualToString:last] ? still + 1 : 0;
+		last = now;
+	}
+}
 
 int main(void) {
 	@autoreleasepool {
@@ -36,19 +57,19 @@ int main(void) {
 		report(w, "appkit");
 		cogpitTitlebarInstall((uintptr_t)w, 1);
 		cogpitTitlebarCentreButtons((uintptr_t)w, 40);
-		turn();
+		settle(w);
 		report(w, "centred");
 		[w setFrame:NSMakeRect(0, 0, 900, 700) display:NO];
 		[w layoutIfNeeded];
-		turn();
+		settle(w);
 		report(w, "resized");
 		w.styleMask &= ~NSWindowStyleMaskResizable;
 		w.styleMask |= NSWindowStyleMaskResizable;
 		[w layoutIfNeeded];
-		turn();
+		settle(w);
 		report(w, "restyled");
 		[w close];
-		turn();
+		[[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
 		[w release];
 	}
 	return 0;
