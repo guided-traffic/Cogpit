@@ -1,0 +1,22 @@
+# Synthetic: a policy held by a finalizer while it is deleted.
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: legacy-baseline
+  uid: 5d1c0a77-eeee-4c4d-5e6f-000000000003
+  creationTimestamp: "2026-01-15T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:58:00Z"
+  finalizers:
+  - policies.example.com/audit
+spec:
+  volumes:
+  - configMap
+  - secret
+  runAsUser:
+    rule: RunAsAny
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  fsGroup:
+    rule: RunAsAny

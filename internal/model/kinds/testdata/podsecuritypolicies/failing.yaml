@@ -1,0 +1,31 @@
+# Synthetic: a "privileged" policy: everything allowed, host namespaces and every port and volume
+# type included. A policy has no state, so "failing" is the case that grants the most.
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: privileged
+  uid: 5d1c0a77-eeee-4c4d-5e6f-000000000002
+  creationTimestamp: "2026-04-01T00:00:00Z"
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: '*'
+spec:
+  privileged: true
+  allowPrivilegeEscalation: true
+  allowedCapabilities:
+  - '*'
+  volumes:
+  - '*'
+  hostNetwork: true
+  hostPorts:
+  - min: 0
+    max: 65535
+  hostIPC: true
+  hostPID: true
+  runAsUser:
+    rule: RunAsAny
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  fsGroup:
+    rule: RunAsAny

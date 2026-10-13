@@ -1,0 +1,103 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "podsecuritypolicies",
+    "name": "legacy-baseline"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy-baseline"
+    },
+    {
+      "column": "privileged",
+      "text": "false"
+    },
+    {
+      "column": "volumes",
+      "text": "configMap, secret"
+    },
+    {
+      "column": "age",
+      "text": "269d",
+      "num": 1768435200
+    }
+  ],
+  "fields": {
+    "allowedCapability": [],
+    "allowedHostPath": [],
+    "label": [],
+    "name": [
+      "legacy-baseline"
+    ],
+    "namespace": [
+      ""
+    ],
+    "privileged": [
+      "false"
+    ],
+    "volumes": [
+      "configMap",
+      "secret"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Privileged",
+          "value": "false"
+        },
+        {
+          "name": "Allow Privilege Escalation",
+          "value": "true (default)"
+        },
+        {
+          "name": "Read-only Root Filesystem",
+          "value": "false"
+        },
+        {
+          "name": "Host Namespaces",
+          "value": "none"
+        },
+        {
+          "name": "Volumes",
+          "value": "configMap, secret"
+        },
+        {
+          "name": "SELinux",
+          "value": "RunAsAny"
+        }
+      ]
+    },
+    {
+      "title": "Users and Groups",
+      "table": {
+        "columns": [
+          "Field",
+          "Rule",
+          "Ranges"
+        ],
+        "rows": [
+          [
+            "Run As User",
+            "RunAsAny",
+            ""
+          ],
+          [
+            "Supplemental Groups",
+            "RunAsAny",
+            ""
+          ],
+          [
+            "FS Group",
+            "RunAsAny",
+            ""
+          ]
+        ]
+      }
+    }
+  ]
+}

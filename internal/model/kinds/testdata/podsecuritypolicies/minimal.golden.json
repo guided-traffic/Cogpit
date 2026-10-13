@@ -1,0 +1,69 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "podsecuritypolicies",
+    "name": "bare"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bare"
+    },
+    {
+      "column": "privileged",
+      "text": "false"
+    },
+    {
+      "column": "volumes",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "allowedCapability": [],
+    "allowedHostPath": [],
+    "label": [],
+    "name": [
+      "bare"
+    ],
+    "namespace": [
+      ""
+    ],
+    "privileged": [
+      "false"
+    ],
+    "volumes": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Privileged",
+          "value": "false"
+        },
+        {
+          "name": "Allow Privilege Escalation",
+          "value": "true (default)"
+        },
+        {
+          "name": "Read-only Root Filesystem",
+          "value": "false"
+        },
+        {
+          "name": "Host Namespaces",
+          "value": "none"
+        },
+        {
+          "name": "Volumes",
+          "value": "none"
+        }
+      ]
+    }
+  ]
+}

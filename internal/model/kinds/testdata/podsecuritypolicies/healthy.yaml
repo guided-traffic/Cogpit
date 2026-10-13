@@ -1,0 +1,44 @@
+# Synthetic: a "restricted" policy as clusters before 1.25 ran it: no privilege, no host
+# namespaces, the safe volume types, non-root users.
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: restricted
+  uid: 5d1c0a77-eeee-4c4d-5e6f-000000000001
+  creationTimestamp: "2026-04-01T00:00:00Z"
+  labels:
+    app.kubernetes.io/managed-by: platform
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: docker/default,runtime/default
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+  - ALL
+  volumes:
+  - configMap
+  - emptyDir
+  - projected
+  - secret
+  - downwardAPI
+  - csi
+  - persistentVolumeClaim
+  - ephemeral
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: MustRunAsNonRoot
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: MustRunAs
+    ranges:
+    - min: 1
+      max: 65535
+  fsGroup:
+    rule: MustRunAs
+    ranges:
+    - min: 1
+      max: 65535
+  readOnlyRootFilesystem: false

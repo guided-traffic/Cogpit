@@ -12,13 +12,14 @@ it handles, and the external tools it depends on. Method: [`README.md`](README.m
 (`latest.yml`, `latest-mac.yml`, `latest-linux.yml` on `downloads.k8slens.dev`) and the
 2026.10.51501 release notes. Cogpit's ecosystem facts: [decisions](../developer/decisions.md).
 
-**Summary (measured, 2026-10-13, after the night run, counted by `make parity`):** 12 of 38 rows partial,
+**Summary (measured, 2026-10-13, after the night run, counted by `make parity`):** 13 of 38 rows partial,
 none done (four more are not targets or have nothing to build): the macOS app bundle (1 of 13
 package rows), client certificates, bearer tokens, exec credential plugins (run only after the user allowed
 them in the GUI, not yet verified against a cloud provider), users limited to some namespaces
 through the access reviews, the HTTP proxy per cluster, `proxy-url` and the kubeconfig's TLS
 settings (custom CA, `tls-server-name`, `insecure-skip-tls-verify`; against TLS test servers, not a
-cloud cluster) (7 of 13 authentication rows), Kubernetes 1.36 on kind locally and 1.37 in CI, kinds newer
+cloud cluster) (7 of 13 authentication rows), Kubernetes 1.36 on kind locally and 1.37 in CI, older
+clusters (views from discovery, Pod Security Policies where served), kinds newer
 than the client libraries (custom resources and edits), the sidebar following the served APIs
 version by version, and `kubectl` from `PATH`. Cogpit ships for macOS first; Windows and Linux follow after the macOS beta
 ([D-7](../developer/decisions.md#d-7-language-and-platforms)). Remaining (estimated): 25–50 h for
@@ -81,7 +82,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 | Row | Cogpit target | Status |
 |---|---|---|
 | Every minor version the Kubernetes project supports (1.35, 1.36 and 1.37 on 2026-10-11) | full support, tested against `kind` and envtest in CI; client-go 0.37.1 is the 1.37 release | partial: 1.37.0 on kind in CI (the Cluster Tests job of [`build.yml`](../../.github/workflows/build.yml)) and 1.36.1 locally (`make test-kind`); no 1.35, no envtest |
-| Older clusters | views from discovery; Pod Security Policies shown only before 1.25 | missing |
+| Older clusters | views from discovery; Pod Security Policies shown only before 1.25 | partial (2026-10-13): every built-in view is offered only where discovery finds its resource; Pod Security Policies (`policy/v1beta1`) appear on a cluster that serves them and not on one that does not, through client-go's discovery of a fake API server (`TestPodSecurityPoliciesOnlyWhereServed`); no test against a cluster before 1.25 (kind's node images for those versions are not used) |
 | Kinds and fields newer than the client libraries | discovery-driven views; objects handled as unstructured content, so edits keep unknown fields | partial: kinds from custom resource definitions get views from their definitions ([`customkinds.go`](../../internal/engine/customkinds.go)); edits replace the object with the edited unstructured text, so fields the client libraries don't know survive ([`editor.go`](../../internal/engine/editor.go)); built-in kinds without a profile and aggregated APIs get no view yet |
 | The sidebar follows the served APIs, version by version | Lens shows Mutating Admission Policies on a 1.36.2 cluster and not on a 1.35.x one (captures, 2026-10-11; `admissionregistration.k8s.io/v1` from 1.36); Cogpit's profiles are filtered by discovery, so a kind appears where it is served; to be tested against kind node images of each supported minor version | partial: discovery filtering ([`connector.go`](../../internal/engine/connector.go)); only 1.36.1 on kind |
 | Device resources (`resource.k8s.io/v1`, 1.34 and later) and Gateway API (CRDs) | shown only when served | missing |
@@ -107,6 +108,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | Night run (V2, G2): `proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, through the cluster layer against TLS test servers, a `proxy-url` password kept out of connect errors (fixed), insecure contexts marked; older clusters partial (Pod Security Policies from discovery, G6); 13 of 38 rows partial, 7 of 13 authentication rows; authentication's estimate 20–45 h (was 25–50) |
 | 2026-10-13 | minor | Night run (V2, G2): `proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, through the cluster layer against TLS test servers, a `proxy-url` password kept out of connect errors (fixed), insecure contexts marked; 12 of 38 rows partial, 7 of 13 authentication rows; authentication's estimate 20–45 h (was 25–50) |
 | 2026-10-13 | minor | `kubectl` for terminals (External tools, not counted): the version check when a terminal opens, the verified download on one click, the release first on the terminal's `PATH` (D-3 built, night run) |
 | 2026-10-13 | minor | The HTTP proxy set per cluster partial (night run, G13): Cogpit's cluster settings, applied through `rest.Config.Proxy`, tested against a test proxy; 10 of 38 rows partial (the lead recounts) |

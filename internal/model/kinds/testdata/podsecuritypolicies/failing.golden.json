@@ -1,0 +1,112 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "podsecuritypolicies",
+    "name": "privileged"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "privileged"
+    },
+    {
+      "column": "privileged",
+      "text": "true"
+    },
+    {
+      "column": "volumes",
+      "text": "*"
+    },
+    {
+      "column": "age",
+      "text": "193d",
+      "num": 1775001600
+    }
+  ],
+  "fields": {
+    "allowedCapability": [
+      "*"
+    ],
+    "allowedHostPath": [],
+    "label": [],
+    "name": [
+      "privileged"
+    ],
+    "namespace": [
+      ""
+    ],
+    "privileged": [
+      "true"
+    ],
+    "volumes": [
+      "*"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Privileged",
+          "value": "true"
+        },
+        {
+          "name": "Allow Privilege Escalation",
+          "value": "true"
+        },
+        {
+          "name": "Read-only Root Filesystem",
+          "value": "false"
+        },
+        {
+          "name": "Host Namespaces",
+          "value": "Network, PID, IPC"
+        },
+        {
+          "name": "Host Ports",
+          "value": "0-65535"
+        },
+        {
+          "name": "Volumes",
+          "value": "*"
+        },
+        {
+          "name": "Allowed Capabilities",
+          "value": "*"
+        },
+        {
+          "name": "SELinux",
+          "value": "RunAsAny"
+        }
+      ]
+    },
+    {
+      "title": "Users and Groups",
+      "table": {
+        "columns": [
+          "Field",
+          "Rule",
+          "Ranges"
+        ],
+        "rows": [
+          [
+            "Run As User",
+            "RunAsAny",
+            ""
+          ],
+          [
+            "Supplemental Groups",
+            "RunAsAny",
+            ""
+          ],
+          [
+            "FS Group",
+            "RunAsAny",
+            ""
+          ]
+        ]
+      }
+    }
+  ]
+}

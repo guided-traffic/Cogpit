@@ -1,0 +1,6 @@
+# Synthetic: optional fields missing, and the rules the API requires missing too: no spec, no uid.
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: bare
+  creationTimestamp: "2026-10-11T11:00:00Z"

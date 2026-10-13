@@ -27,7 +27,7 @@ own. **Human** marks what an agent can't finish alone.
 | G3 | Cache and the resource model | foundation | blocks alpha | 16–38 h | [architecture §5](../developer/architecture.md#5-cache) |
 | G4 | Engine and command registry | foundation | blocks alpha | 10–28 h | [architecture §4](../developer/architecture.md#4-the-ui-seam-the-most-important-interface) |
 | G5 | App shell, navigation, tables and drawer | UI | blocks alpha | 35–110 h | [ui-parity](ui-parity.md#layout) |
-| G6 | Resource views | features | blocks alpha (core kinds) | 30–100 h | [resource-parity](resource-parity.md) |
+| G6 | Resource views | features | blocks alpha (core kinds) | 10–56 h | [resource-parity](resource-parity.md) |
 | G7 | Resource actions | features | blocks alpha (core actions) | 12–45 h | [resource-parity](resource-parity.md) |
 | G8 | Logs, terminal and shells | features | blocks alpha | 16–40 h | [ui-parity](ui-parity.md#logs) |
 | G9 | YAML editor and create resource | features | blocks alpha | 8–22 h | [ui-parity](ui-parity.md#editor-and-create-resource) |
@@ -225,11 +225,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## Feature gaps
 
 ### G6. Resource views
-- **Missing:** 3 of the 64 resource views ([resource-parity](resource-parity.md), 2026-10-13: the
-  cluster Overview, Helm Charts, Pod Security Policies; Applications, Vertical Pod Autoscalers and
-  the four Device Resources views partial since 2026-10-13), and the depth of the partial ones
-  (metrics columns, texts and rules checked against a capture). Of the about 20 the alpha gate
-  needs, still missing: the cluster overview.
+- **Missing:** none of the 64 resource views ([resource-parity](resource-parity.md), 2026-10-13:
+  Pod Security Policies, the cluster Overview, Helm Charts, Applications, Vertical Pod Autoscalers
+  and the four Device Resources views partial since 2026-10-13); the depth of the partial ones
+  (metrics columns, texts and rules checked against a capture).
 - **Evidence:** resource-parity, 27 of 64 (2026-10-11): Nodes, Pods, Deployments, Services,
   Namespaces, Events (the MVP); Daemon Sets, Stateful Sets, Replica Sets, Jobs, Cron Jobs
   ([`kinds/`](../../internal/model/kinds/) `daemonsets.go` … `cronjobs.go`; Cron Jobs with the
@@ -262,7 +261,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   missing cluster role read through the related-objects index `ClusterRolesByName`) and the
   drawers (rules and subjects as tables, links to roles and service accounts) inferred; 24
   synthetic objects in the goldens, the views filled on kind (`TestKindAccessControlViews`);
-  Pod Security Policies (clusters before 1.25) and the Create dialogs still missing.
+  the Create dialogs still missing (Pod Security Policies built 2026-10-13, below).
   Network and storage (2026-10-11, third run): Endpoint Slices, Endpoints, Network Policies, Persistent
   Volumes, Storage Classes and Replication Controllers partial (the documented columns; cell
   formats, status rules and drawers inferred; [`kinds/`](../../internal/model/kinds/)
@@ -314,7 +313,14 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   a `workload.logs` tab per workload (`TestApplicationLogsOpensATabPerWorkload`); the demo's
   deployments carry the recommended labels. Inferred and marked: Status, Violations, which
   workloads count, the drawer.
-- **Estimate:** 12–60 h (was 30–100; 2–6 h each for the 3 missing views, plus depth: captures, metrics columns).
+  Pod Security Policies (2026-10-13, night run): partial, `policy/v1beta1` with the documented
+  columns (Name, Privileged, Volume, Age), offered only where discovery finds the resource, so on
+  clusters before 1.25 alone (`TestPodSecurityPoliciesOnlyWhereServed`, through client-go's
+  discovery of a fake API server); the Privileged and Volume texts, no status token and the drawer
+  inferred ([`podsecuritypolicies.go`](../../internal/model/kinds/podsecuritypolicies.go), five
+  synthetic objects in the goldens, `TestPodSecurityPolicyDetail`, `FuzzPodSecurityPolicies`). Not
+  on kind (1.36 serves none) and not checked against Lens on such a cluster.
+- **Estimate:** 10–56 h (was 12–60; Pod Security Policies built; the rest is depth: captures, metrics columns).
 
 ### G7. Resource actions
 - **Missing:** the actions not listed under Evidence, of 39 (Share is not a target, owner 2026-10-11). The alpha gate needs about 20: logs, shell, attach, edit, delete,

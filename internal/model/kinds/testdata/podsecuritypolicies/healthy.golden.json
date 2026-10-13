@@ -1,0 +1,115 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "podsecuritypolicies",
+    "name": "restricted"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "restricted"
+    },
+    {
+      "column": "privileged",
+      "text": "false"
+    },
+    {
+      "column": "volumes",
+      "text": "configMap, emptyDir, projected, secret, downwardAPI, csi, persistentVolumeClaim, ephemeral"
+    },
+    {
+      "column": "age",
+      "text": "193d",
+      "num": 1775001600
+    }
+  ],
+  "fields": {
+    "allowedCapability": [],
+    "allowedHostPath": [],
+    "label": [
+      "app.kubernetes.io/managed-by=platform"
+    ],
+    "name": [
+      "restricted"
+    ],
+    "namespace": [
+      ""
+    ],
+    "privileged": [
+      "false"
+    ],
+    "volumes": [
+      "configMap",
+      "emptyDir",
+      "projected",
+      "secret",
+      "downwardAPI",
+      "csi",
+      "persistentVolumeClaim",
+      "ephemeral"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Privileged",
+          "value": "false"
+        },
+        {
+          "name": "Allow Privilege Escalation",
+          "value": "false"
+        },
+        {
+          "name": "Read-only Root Filesystem",
+          "value": "false"
+        },
+        {
+          "name": "Host Namespaces",
+          "value": "none"
+        },
+        {
+          "name": "Volumes",
+          "value": "configMap, emptyDir, projected, secret, downwardAPI, csi, persistentVolumeClaim, ephemeral"
+        },
+        {
+          "name": "Required Drop Capabilities",
+          "value": "ALL"
+        },
+        {
+          "name": "SELinux",
+          "value": "RunAsAny"
+        }
+      ]
+    },
+    {
+      "title": "Users and Groups",
+      "table": {
+        "columns": [
+          "Field",
+          "Rule",
+          "Ranges"
+        ],
+        "rows": [
+          [
+            "Run As User",
+            "MustRunAsNonRoot",
+            ""
+          ],
+          [
+            "Supplemental Groups",
+            "MustRunAs",
+            "1-65535"
+          ],
+          [
+            "FS Group",
+            "MustRunAs",
+            "1-65535"
+          ]
+        ]
+      }
+    }
+  ]
+}

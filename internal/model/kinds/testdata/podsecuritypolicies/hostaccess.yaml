@@ -1,0 +1,74 @@
+# Synthetic: a policy for node agents: host networking and two host port ranges, read-only and
+# writable host paths, flex and CSI drivers, capabilities, sysctls, proc mount types, SELinux
+# options, user and group ranges, and runtime classes (one a link, "*" not).
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: node-agents
+  uid: 5d1c0a77-eeee-4c4d-5e6f-000000000004
+  creationTimestamp: "2026-09-01T00:00:00Z"
+spec:
+  privileged: false
+  defaultAllowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  hostNetwork: true
+  hostPorts:
+  - min: 9100
+    max: 9100
+  - min: 10250
+    max: 10255
+  volumes:
+  - hostPath
+  - flexVolume
+  - csi
+  - secret
+  allowedHostPaths:
+  - pathPrefix: /var/log
+    readOnly: true
+  - pathPrefix: /var/lib/node-agent
+  allowedFlexVolumes:
+  - driver: example.com/lvm
+  allowedCSIDrivers:
+  - name: secrets-store.csi.k8s.io
+  allowedCapabilities:
+  - NET_ADMIN
+  - SYS_TIME
+  defaultAddCapabilities:
+  - NET_BIND_SERVICE
+  requiredDropCapabilities:
+  - SYS_ADMIN
+  allowedUnsafeSysctls:
+  - net.core.somaxconn
+  forbiddenSysctls:
+  - kernel.*
+  allowedProcMountTypes:
+  - Default
+  seLinux:
+    rule: MustRunAs
+    seLinuxOptions:
+      type: spc_t
+      level: s0:c123,c456
+  runAsUser:
+    rule: MustRunAs
+    ranges:
+    - min: 1000
+      max: 1999
+    - min: 3000
+      max: 3000
+  runAsGroup:
+    rule: MayRunAs
+    ranges:
+    - min: 1000
+      max: 1999
+  supplementalGroups:
+    rule: RunAsAny
+  fsGroup:
+    rule: MayRunAs
+    ranges:
+    - min: 2000
+      max: 2000
+  runtimeClass:
+    allowedRuntimeClassNames:
+    - gvisor
+    - '*'
+    defaultRuntimeClassName: gvisor

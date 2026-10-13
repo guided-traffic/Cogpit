@@ -77,5 +77,6 @@ var builtin = []*model.KindProfile{
 	roles,
 	clusterRoleBindings,
 	roleBindings,
+	podSecurityPolicies, // policy/v1beta1: offered only by clusters before 1.25, which serve it
 	customResourceDefinitions,
 }
