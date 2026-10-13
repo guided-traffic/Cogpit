@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -182,6 +183,47 @@ func TestHelmReleasesOfANamespaceLimitedUser(t *testing.T) {
 		if wide > 2 || reads["watchlist "+res+" in team-a"] != 1 || len(reads) > 3 {
 			t.Errorf("%s: reads %v, want at most one refused read in all namespaces (and its list), then team-a's", res, reads)
 		}
+	}
+}
+
+// Prometheus in the namespace of a user whose one RoleBinding is there (team-a), on a cluster
+// without a Metrics Server: detection reads the cached Services, which are refused in all
+// namespaces and then read in team-a, and finds the Prometheus there at once. Before (2026-10-13)
+// the refused read waited its 8 seconds and failed, and detection was not tried again for two
+// minutes.
+func TestPrometheusDetectionFollowsARefusal(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	rule := testkit.FakeRule{Verbs: []string{"get", "list", "watch"}, APIGroups: []string{""}, Resources: []string{"pods", "services", "services/proxy"}}
+	access := &testkit.FakeAccess{Enforce: true, Rules: map[string][]testkit.FakeRule{"team-a": {rule}}}
+	srv := testkit.NewFakeAPIServer(testkit.FakeAPIOptions{Token: "limited-token", Access: access})
+	t.Cleanup(srv.Close)
+	srv.Set(testkit.PodsGVR, testkit.Pod("team-a", "a"))
+	srv.Set(testkit.ServicesGVR, testkit.Service("team-a", "prometheus-server", "10.0.0.5"))
+	srv.SetProxy("team-a", "prometheus-server:80", http.HandlerFunc(promHandler))
+	s := engine.New(engine.Options{
+		Connector:       &engine.ClusterConnector{KubeconfigPaths: []string{srv.WriteKubeconfig(t, "fake", "team-a")}},
+		ClusterSettings: engine.NewClusterSettingsStore(t.TempDir()),
+	})
+	t.Cleanup(s.Close)
+	if err := commands.RegisterAll(s.Registry()); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	if err := s.Connect(ctx, "fake"); err != nil {
+		t.Fatal(err)
+	}
+	// The Pods list asks Prometheus for its pods' usage once it has found it (the Metrics Server is
+	// not served): a probe, then the queries, through team-a's service proxy.
+	if !testkit.WaitFor(ctx, func() bool { return srv.Requests()["get services/proxy"] >= 2 }) {
+		t.Fatalf("Prometheus never asked; reads %v", srv.RequestsIn())
+	}
+	if d := time.Since(start); d > 6*time.Second {
+		t.Errorf("Prometheus found after %s", d)
+	}
+	reads := readsOf(srv, "services")
+	if wide := reads["watchlist services"] + reads["list services"]; wide > 2 || reads["watchlist services in team-a"] != 1 {
+		t.Errorf("service reads %v, want at most one refused read in all namespaces (and its list), then team-a's", reads)
 	}
 }
 

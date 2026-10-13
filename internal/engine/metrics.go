@@ -15,6 +15,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/metrics"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
@@ -531,17 +532,21 @@ func (b *Backend) promServices(ctx context.Context) ([]metrics.Service, error) {
 		case <-time.After(accessWaitStep):
 		}
 	}
-	h := b.Acquire(p)
-	defer h.Release()
+	// In all namespaces, or in each namespace the user named when they may not list Services
+	// everywhere, also after a refusal in all namespaces (accessiblens_follow.go); before
+	// (2026-10-13) a refused read in all namespaces waited the whole 8 seconds.
 	wctx, cancel := context.WithTimeout(ctx, servicesSyncTimeout)
 	defer cancel()
-	if !h.WaitForSync(wctx) {
-		if err := h.Err(); err != nil {
+	r := startRead(wctx, p, func(ctx context.Context) *cache.Handle { return b.acquireSettled(ctx, p) })
+	b.settleReads(wctx, r)
+	defer r.h.Release()
+	if !r.h.HasSynced() {
+		if err := r.h.Err(); err != nil {
 			return nil, fmt.Errorf("the cluster's services cannot be read: %w", err)
 		}
 		return nil, errors.New("the cluster's services are not loaded yet")
 	}
-	return servicesOf(KindList(h, p)), nil
+	return servicesOf(KindList(r.h, p)), nil
 }
 
 // accessWaitTries and accessWaitStep bound how long detection waits for the access reviews that
