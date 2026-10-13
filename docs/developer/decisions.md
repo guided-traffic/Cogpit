@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -735,10 +735,39 @@ Universal Clipboard); the 60 seconds and the clearing on close stay. Options wei
 
 **Added (owner, 2026-10-13):** names in the lists are copyable too (Pods, Deployments and every
 other view): a list's cells get the drawer's copy icon on hover, at least the Name column's, with
-the same checkmark after a copy. **Not built yet.** Proposals for the build (not decided): every
-text cell gets it, as every drawer value does; the icon sits at the cell's right end inside the
-cell, so it never covers the next column; a click on the icon copies and does not select the row;
-a Secret's cells hold no values, so nothing secret can be copied from a list.
+the same checkmark after a copy. **Built 2026-10-13** ([`tablecopy.go`](../../internal/ui/fyneui/tablecopy.go),
+the icon generalised in [`copy.go`](../../internal/ui/fyneui/copy.go)): one icon per list, the
+drawer's `copyButton`, in a layer above the table and moved to the cell under the pointer (a list
+of 10,000 rows gets no widget per cell); the table hands it the cell when its row band moves
+(`setHoverCell`), and a pointer move shows it only while the pointer is inside that cell, not in
+the gaps or over the header. A scroll or new column widths hide it until the pointer moves; a
+refresh keeps it on its cell, which copies the text it shows when clicked; a click checks first
+that the icon still lies on its cell. The copy goes through `shell.copyText` as a plain copy, with
+the drawer's checkmark for 1.5 s and its toast ("Copied to the clipboard"); no command, no audit
+line. Cogpit's defaults, the lead's proposals and not the owner's decision:
+
+- Every cell that shows text has the icon, not only the Name column's. None on a cell without
+  text: the checkbox, the ⋮, the warning triangle, a pod's container squares, an empty cell and the
+  placeholders `-`, `–`, `—` and `<none>`.
+- The icon sits at the cell's right end, inside the cell and centred on the row, so it never
+  covers the next column. A text that reaches it is shortened with "…" before it while it is there
+  (Cogpit's addition: running under the icon, a cut-off name looked whole), and the cell's tooltip
+  then shows the whole text.
+- A click on it copies the cell's full text, not the shortened one, and neither selects the row,
+  toggles its checkbox nor opens the drawer: the icon is a widget above the table, so the click
+  never reaches the cell.
+- A Secret's list holds no values: its columns are Name, Namespace, Labels, Keys (the keys' names),
+  Type and Age ([`kinds/secrets.go`](../../internal/model/kinds/secrets.go),
+  `TestSecretDetailShowsNoValue`), so every cell of it has the icon and none can put a value on the
+  clipboard (`TestSecretsListCopiesNoValue`).
+
+Tests: `TestListCopyIconOnHover`, `TestListCopyIconPlaceholders`,
+`TestListCopyIconCopiesTheFullText`, `TestListCopyIconFollowsTheCells`,
+`TestSecretsListCopiesNoValue`, `TestListCopyIconHasNoCommand`; renders `TestRenderListCopyIcon`
+(PNG [hover](../../internal/ui/fyneui/testdata/list_copy_hover_dark.png),
+[after the copy](../../internal/ui/fyneui/testdata/list_copy_done_light.png)). Not tried in a real
+window: the order in which the GLFW driver sends `MouseOut` to the table and `MouseIn` to the icon
+was read in Fyne 2.8.1's source and replayed with Fyne's test driver.
 
 ## D-26: Binding a credential plugin's approval to its program
 
@@ -849,6 +878,7 @@ What the decision leaves to the build, as the lead reads it (proposals, not deci
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-25: copy icons in the lists built (one icon per list on the text cell under the pointer, the drawer's checkmark and toast); every text cell, the icon inside the cell's right end with the text shortened before it, a click that never selects, and no values in a Secret's list are Cogpit's defaults |
 | 2026-10-13 | minor | D-29 (owner): repositories are added with the helm CLI, Cogpit only reads Helm's file and writes nothing into it |
 | 2026-10-13 | minor | D-29 (owner): Helm chart repositories read from Helm's repositories.yaml, changes within 5 seconds, credentials included; D-25 (owner): names in the lists copyable with the drawer's copy icon; neither built |
 | 2026-10-13 | minor | D-11: drafts of unsaved editor text built (night run; the delays, the offer on connect and closing as a discard are that run's defaults, not decided); D-19: no draft of a Secret's text |

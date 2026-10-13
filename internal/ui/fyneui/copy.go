@@ -221,38 +221,19 @@ func (d *drawer) copyHovered() {
 		d.sh.toast("info", fmt.Sprintf("Copied. The clipboard is cleared in %s.", ttlText(d.sh.secretClipTTL)))
 		return
 	}
-	d.sh.toast("info", "Copied to the clipboard")
+	d.sh.toast("info", copiedToast)
 }
+
+// copiedToast is the toast after a copy that is no Secret's value, from the drawer and the lists.
+const copiedToast = "Copied to the clipboard"
 
 // confirmCopy turns the copy icon into a checkmark for the shell's copyConfirm, then back to the
 // copy icon. If the pointer has left the value by then the icon is hidden already, and only the
 // state is reset.
-func (d *drawer) confirmCopy() {
-	if d.copyDone != nil {
-		d.copyDone.Stop()
-	}
-	d.copyBtn.setDone(true)
-	btn := d.copyBtn
-	var t *time.Timer
-	t = time.AfterFunc(d.sh.copyConfirm, func() {
-		d.sh.do(func() {
-			if d.copyDone == t {
-				d.copyDone = nil
-			}
-			btn.setDone(false)
-		})
-	})
-	d.copyDone = t
-}
+func (d *drawer) confirmCopy() { d.copyBtn.confirm(&d.copyDone) }
 
 // resetConfirm drops a checkmark shown for an earlier copy: the icon moved to another value.
-func (d *drawer) resetConfirm() {
-	if d.copyDone != nil {
-		d.copyDone.Stop()
-		d.copyDone = nil
-	}
-	d.copyBtn.setDone(false)
-}
+func (d *drawer) resetConfirm() { d.copyBtn.resetConfirm(&d.copyDone) }
 
 // ttlText renders a duration the toast names: "60 seconds".
 func ttlText(t time.Duration) string {
@@ -273,12 +254,15 @@ func ttlText(t time.Duration) string {
 }
 
 // copyButton is the copy icon: a small button on a chip-coloured plate, hidden until the pointer is
-// over a value. The drawer owns one and moves it from value to value (the table of a node has
-// hundreds of values; a button each would cost).
+// over a value. Its owner, the drawer or a list (tablecopy.go), has one and moves it from value to
+// value (the table of a node has hundreds of values, a list 10,000 rows; a button each would cost).
 type copyButton struct {
 	widget.BaseWidget
-	d    *drawer
-	done bool // a copy succeeded just now: a checkmark instead of the copy icon
+	sh   *shell
+	tap  func()                    // the copy
+	in   func(*desktop.MouseEvent) // the pointer came onto the icon; nil: the icon shows again, nothing more
+	out  func()                    // the pointer left the icon; nil: the icon hides, nothing more
+	done bool                      // a copy succeeded just now: a checkmark instead of the copy icon
 }
 
 var (
@@ -286,8 +270,13 @@ var (
 	_ desktop.Cursorable = (*copyButton)(nil)
 )
 
-func newCopyButton(d *drawer) *copyButton {
-	b := &copyButton{d: d}
+// newCopyButton returns the drawer's copy icon.
+func newCopyButton(d *drawer) *copyButton { return newCopyIcon(d.sh, d.copyHovered, nil, nil) }
+
+// newCopyIcon returns a hidden copy icon that runs tap when clicked; in and out, when set, follow
+// the pointer onto the icon and off it.
+func newCopyIcon(sh *shell, tap func(), in func(*desktop.MouseEvent), out func()) *copyButton {
+	b := &copyButton{sh: sh, tap: tap, in: in, out: out}
 	b.ExtendBaseWidget(b)
 	b.Hide()
 	return b
@@ -301,8 +290,37 @@ func (b *copyButton) setDone(done bool) {
 	}
 }
 
+// confirm turns the icon into a checkmark for the shell's copyConfirm, then back into the copy
+// icon. *timer is the owner's checkmark timer: a later copy restarts it, resetConfirm stops it.
+func (b *copyButton) confirm(timer **time.Timer) {
+	if *timer != nil {
+		(*timer).Stop()
+	}
+	b.setDone(true)
+	var t *time.Timer
+	t = time.AfterFunc(b.sh.copyConfirm, func() {
+		b.sh.do(func() {
+			if *timer != t {
+				return // a later copy restarted the checkmark, or the icon moved on
+			}
+			*timer = nil
+			b.setDone(false)
+		})
+	})
+	*timer = t
+}
+
+// resetConfirm drops a checkmark shown for an earlier copy: the icon moved to another value.
+func (b *copyButton) resetConfirm(timer **time.Timer) {
+	if *timer != nil {
+		(*timer).Stop()
+		*timer = nil
+	}
+	b.setDone(false)
+}
+
 // Tapped implements fyne.Tappable.
-func (b *copyButton) Tapped(*fyne.PointEvent) { b.d.copyHovered() }
+func (b *copyButton) Tapped(*fyne.PointEvent) { b.tap() }
 
 // Cursor implements desktop.Cursorable.
 func (b *copyButton) Cursor() desktop.Cursor { return desktop.PointerCursor }
@@ -310,17 +328,23 @@ func (b *copyButton) Cursor() desktop.Cursor { return desktop.PointerCursor }
 // MouseIn implements desktop.Hoverable: the pointer moved from the value onto the icon, which the
 // value's MouseOut has just hidden.
 func (b *copyButton) MouseIn(ev *desktop.MouseEvent) {
+	if b.in != nil {
+		b.in(ev)
+	}
 	b.Show()
-	b.d.sh.tip.hover(b, "Copy", ev.AbsolutePosition)
+	b.sh.tip.hover(b, "Copy", ev.AbsolutePosition)
 }
 
 // MouseMoved implements desktop.Hoverable.
-func (b *copyButton) MouseMoved(ev *desktop.MouseEvent) { b.d.sh.tip.moved(b, ev.AbsolutePosition) }
+func (b *copyButton) MouseMoved(ev *desktop.MouseEvent) { b.sh.tip.moved(b, ev.AbsolutePosition) }
 
 // MouseOut implements desktop.Hoverable.
 func (b *copyButton) MouseOut() {
 	b.Hide()
-	b.d.sh.tip.hideFor(b)
+	b.sh.tip.hideFor(b)
+	if b.out != nil {
+		b.out()
+	}
 }
 
 // CreateRenderer implements fyne.Widget.

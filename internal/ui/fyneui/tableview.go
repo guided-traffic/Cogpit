@@ -90,6 +90,7 @@ type tableView struct {
 	pending    *model.ObjectRef // a selected object to scroll to once a snapshot contains it
 	check      tableChecks      // the row checkboxes, the header's and the selection bar (tablecheck.go)
 	order      *columnDrag      // a header dragged to another place (columnorder.go)
+	copyIcon   *tableCopy       // the copy icon on the cell under the pointer (tablecopy.go)
 
 	userWidths map[string]float32 // widths the user dragged, by view and column id
 	setWidths  []float32          // the width the shell last gave each visible column
@@ -114,6 +115,7 @@ type tableView struct {
 func newTableView(sh *shell) *tableView {
 	tv := &tableView{sh: sh, hoverRow: -1, hoverCol: -1, userWidths: map[string]float32{}, icons: map[cellIconKey]fyne.Resource{}}
 	tv.order = newColumnDrag(tv) // before the table: its header cells take the drag's callbacks
+	tv.copyIcon = newTableCopy(tv)
 
 	tv.title = newTextLine("", theme.ColorNameForeground, theme.SizeNameSubHeadingText, fyne.TextStyle{Bold: true})
 	tv.count = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
@@ -165,7 +167,7 @@ func newTableView(sh *shell) *tableView {
 	tv.pageBox.Hide()
 	frame := box(&stretchLayout{tv: tv}, tv.table)
 	tv.create = newCreateButton(sh)
-	body := container.NewStack(newSurface(theme.ColorNameBackground), frame, tv.order.layer, tv.placeholder, tv.create.floating())
+	body := container.NewStack(newSurface(theme.ColorNameBackground), frame, tv.order.layer, tv.copyIcon.layer, tv.placeholder, tv.create.floating())
 	tv.root = container.NewBorder(
 		container.NewVBox(header, tv.pageBox, inset(theme.SizeNameInnerPadding, "", tv.errLine), inset(theme.SizeNameInnerPadding, "", tv.scopeLine)),
 		nil, nil, nil, body)
@@ -215,6 +217,7 @@ func (tv *tableView) viewChanged() {
 	tv.pending = nil
 	tv.hoverRow, tv.hoverCol, tv.hoverCell = -1, -1, nil
 	tv.sh.tip.hide()
+	tv.copyIcon.hide()
 	page := engine.IsPage(tv.sh.ui.View)
 	tv.setPageLayout(tv.sh.ui.View)
 	if page {
@@ -419,6 +422,7 @@ func (tv *tableView) resolvePending() {
 // scrollTo scrolls a row into view and refreshes the cells: ScrollTo alone moves the offset but
 // leaves the old cells in place until the next refresh.
 func (tv *tableView) scrollTo(row int) {
+	tv.copyIcon.moving()
 	tv.layoutTable()
 	tv.table.ScrollTo(widget.TableCellID{Row: row, Col: 0})
 	tv.table.Refresh()
@@ -472,6 +476,7 @@ func (tv *tableView) updateCell(id widget.TableCellID, o fyne.CanvasObject) {
 	}
 	if tv.snap == nil || id.Row < 0 || id.Row >= len(tv.snap.Rows) || id.Col < 0 || id.Col > tv.menuColumn() {
 		c.set(id.Row, id.Col, cellContent{}, false, false, false)
+		tv.copyIcon.updated(c)
 		return
 	}
 	var content cellContent
@@ -504,6 +509,7 @@ func (tv *tableView) updateCell(id widget.TableCellID, o fyne.CanvasObject) {
 	if c.set(id.Row, id.Col, content, tv.rowSelected(id.Row), hover, hover && id.Col == tv.hoverCol) && tv.sh.tip.owner == c {
 		tv.sh.tip.hide() // the cell under the tooltip shows something else now
 	}
+	tv.copyIcon.updated(c)
 	c.setFocused(tv.keyboardOn(id.Row, id.Col))
 }
 
@@ -603,6 +609,7 @@ func (tv *tableView) setHoverCell(row, col int) {
 		}
 	}
 	tv.hoverCell = tv.cellUnderPointer(row, col)
+	tv.copyIcon.follow(tv.hoverCell) // before the tooltip: the icon may shorten the cell's text
 	tv.requestTip()
 }
 
@@ -718,6 +725,7 @@ func (tv *tableView) fitColumns(width float32) {
 		return
 	}
 	tv.fitWidth = width
+	tv.copyIcon.moving() // the cells move under the pointer
 	th := tv.table.Theme()
 	gap := th.Size(theme.SizeNamePadding)
 	flex := tv.flexColumn()
@@ -1008,6 +1016,7 @@ func (t *resourceTable) CreateRenderer() fyne.WidgetRenderer {
 				inner(p)
 				t.offset = p
 				t.tv.sh.tip.hide()
+				t.tv.copyIcon.moving()
 			}
 		}
 	}
@@ -1025,6 +1034,7 @@ func (t *resourceTable) MouseMoved(ev *desktop.MouseEvent) {
 	t.tv.pointer, t.tv.pointerIn = ev.AbsolutePosition, true
 	t.Table.MouseMoved(ev)
 	t.tv.requestTip()
+	t.tv.copyIcon.moved()
 }
 
 // MouseOut clears the row highlight and the tooltip when the pointer leaves the table.
@@ -1089,6 +1099,8 @@ type tableCell struct {
 	focused   bool // the keyboard is on this cell (tablekeys.go)
 	tracked   bool // registered in tableView.cells
 	row, col  int
+
+	room float32 // kept free of text at the right end: the copy icon is on the cell (tablecopy.go)
 }
 
 var (
@@ -1311,7 +1323,7 @@ func (c *tableCell) setIcon(res fyne.Resource) {
 // Fyne per string; the shortening runs only when the text or the width changed. It reports
 // whether the shown text changed.
 func (c *tableCell) fit(th fyne.Theme) bool {
-	avail := c.Size().Width - 2*th.Size(sizeCellPadding)
+	avail := c.Size().Width - 2*th.Size(sizeCellPadding) - c.room
 	if avail == c.fitWidth {
 		return false
 	}

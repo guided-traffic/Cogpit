@@ -165,7 +165,10 @@ A revealed value can be copied from the drawer, by its copy icon or by selecting
 2026-10-12): a masked value has no icon, and the clipboard is emptied 60 seconds after such a copy
 if it still holds the value (`shell.copyText`, `TestSecretValueCopyOnlyOnceRevealed`,
 `TestSecretClipboardKeepsWhatReplacedIt`). Copying is a GUI behaviour with no command, so no agent
-can put a Secret on the clipboard (`TestCopyHasNoCommand`).
+can put a Secret on the clipboard (`TestCopyHasNoCommand`). Since 2026-10-13 a list's cells copy
+with the same icon (D-25): the Secrets list shows Name, Namespace, Labels, the names of the keys,
+Type and Age, never a value (`TestSecretDetailShowsNoValue`), so a copy from it is a plain one and
+carries no value (`TestSecretsListCopiesNoValue`).
 
 ## What this does not cover
 
