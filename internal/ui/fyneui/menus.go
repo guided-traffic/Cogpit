@@ -41,8 +41,10 @@ func (sh *shell) helpMenu() *fyne.Menu {
 	if c, ok := sh.eng.Registry().Get("ui.welcome.open"); ok {
 		items = append(items, fyne.NewMenuItem(c.Label, func() { sh.dispatch(c.ID, struct{}{}, nil) }))
 	}
-	if item := sh.auditMenuItem(); item != nil { // Help › Audit Log (auditlog.go)
-		items = append(items, item)
+	for _, item := range []*fyne.MenuItem{sh.auditMenuItem(), sh.diagnosticsMenuItem()} { // auditlog.go, diagnostics.go
+		if item != nil {
+			items = append(items, item)
+		}
 	}
 	items = append(items, fyne.NewMenuItem("Documentation", sh.openDocumentation))
 	if sh.hasMCP() {

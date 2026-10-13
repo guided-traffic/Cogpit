@@ -1,6 +1,6 @@
 # Beyond Lens
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (the audit log in the window done; the agent writes allowance in Cluster Settings › Agents done; `object_get` with related objects done; `view_rows` done; crash recovery: unsaved editor content restored from its local draft done; the `cogpit-cli mcp` stdio bridge done; command line: `cogpit-cli contexts` done, `get` partial) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (the Diagnostics tab, still partial; the audit log in the window done; the agent writes allowance in Cluster Settings › Agents done; `object_get` with related objects done; `view_rows` done; crash recovery: unsaved editor content restored from its local draft done; the `cogpit-cli mcp` stdio bridge done; command line: `cogpit-cli contexts` done, `get` partial) · **Target:** Lens Desktop 2026.10.51501
 
 What Cogpit does that Lens Desktop does not, or does only in part. These rows are Cogpit's own
 targets, decided by the owner; they do not count toward the parity numbers in
@@ -78,7 +78,7 @@ AppImage builds in place; APT and RPM installs update by hand
 
 | Feature | Status | Evidence |
 |---|---|---|
-| Diagnostics view: API requests per cluster by verb and resource, open and warm watches, objects and memory per kind | partial: totals in the status bar (requests, lists, watches, informers, snapshots); no view | [`fyneui/bars.go`](../../internal/ui/fyneui/bars.go), [`engine/diagnostics.go`](../../internal/engine/diagnostics.go) |
+| Diagnostics view: API requests per cluster by verb and resource, open and warm watches, objects and memory per kind | partial (2026-10-13): totals in the status bar (requests, lists, watches, informers, snapshots); a Diagnostics dock tab (Help › Diagnostics, `diagnostics_open`; agents read it with `diagnostics_get`) with the connected cluster's API requests since connecting by verb and by verb and resource, each watch open, warm (until when) or covered by another watch with its objects, events and error, the objects per kind and the snapshots, kept current with the counters (at most once a second) and sending no request; the clusters not connected have no counters (one connection at a time); memory per kind is not measured | [`fyneui/bars.go`](../../internal/ui/fyneui/bars.go), [`engine/diagnostics.go`](../../internal/engine/diagnostics.go), [`engine/diagnostics_view.go`](../../internal/engine/diagnostics_view.go), [`fyneui/diagnostics.go`](../../internal/ui/fyneui/diagnostics.go); `TestDiagnosticsReport`, `TestDiagnosticsCommands`, `TestDiagnosticsTab`; [PNG](../../internal/ui/fyneui/testdata/diagnostics_dark.png) |
 
 ## Crash recovery
 
@@ -114,6 +114,7 @@ Cogpit's targets.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | Cache transparency: the Diagnostics tab (requests by verb and resource, watches, objects per kind); still partial without memory per kind; 23 of 38 rows, 17 done and 6 partial |
 | 2026-10-13 | minor | MCP control: the audit log readable in the window (Help › Audit Log) and by agents (`audit_list`), done; 23 of 38 rows, 17 done and 6 partial |
 | 2026-10-13 | minor | MCP control: the allowance of agent writes in Cluster Settings › Agents, done; 23 of 38 rows, 16 done and 7 partial |
 | 2026-10-13 | minor | MCP control: `object_get` with related objects done; 23 of 38 rows, 15 done and 8 partial |

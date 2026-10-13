@@ -185,6 +185,10 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 		e := newAuditLogTab(d.sh, t)
 		c.editor = e
 		c.set(e.root)
+	case engine.DockDiagnostics: // the Diagnostics (diagnostics.go)
+		e := newDiagnosticsTab(d.sh)
+		c.editor = e
+		c.set(e.root)
 	default:
 		c.set(dockMessage(fmt.Sprintf("Cogpit cannot show %q tabs yet.", t.Type), colorMuted))
 	}
@@ -247,6 +251,8 @@ func (d *dock) rebuildStrip() {
 			icon = theme.Icon(commandIcons[installTabCommand])
 		case engine.DockAudit:
 			icon = theme.ListIcon()
+		case engine.DockDiagnostics:
+			icon = theme.InfoIcon()
 		}
 		objs = append(objs, newTabButton(t.Title, icon, id == d.active && d.open(),
 			func() {

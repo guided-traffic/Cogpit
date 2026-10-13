@@ -158,6 +158,8 @@ var wantCommands = map[string]engine.Danger{
 	"cluster.settings.setAgentWrites": engine.DangerUI,
 	// The audit log in the window and for agents (TestAuditListNewestFirstAndBounded).
 	"audit.list": engine.DangerRead, "audit.open": engine.DangerUI,
+	// The Diagnostics view (D-13): Cogpit's own counters, no request (TestDiagnosticsReport).
+	"diagnostics.get": engine.DangerRead, "diagnostics.open": engine.DangerUI,
 }
 
 func TestRegistryComplete(t *testing.T) {

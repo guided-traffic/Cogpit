@@ -378,6 +378,7 @@ func (sh *shell) requestDiagnostics() {
 		sh.do(func() {
 			sh.diag = dv
 			sh.status.update()
+			sh.dock.diagnosticsChanged() // an open Diagnostics tab (diagnostics.go)
 		})
 	}()
 }

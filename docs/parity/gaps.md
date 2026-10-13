@@ -213,6 +213,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   2.6 ms (p50), its fetches from 14–43 % to 2.3–2.5 % of a core
   ([architecture §4.4](../developer/architecture.md#44-tables-details-editors-and-streams),
   `TestNodeDrawerUnderDemoChurn`, `TestLiveIndexBuiltDuringChurn`).
+  Night run (2026-10-13): the diagnostics view, a Diagnostics dock tab (Help › Diagnostics,
+  `diagnostics_get` for agents) with the connected cluster's requests by verb and resource, its
+  watches open, warm or covered, and the objects per kind, from the counters, no request
+  ([`diagnostics_view.go`](../../internal/engine/diagnostics_view.go), `TestDiagnosticsCommands`,
+  `TestDiagnosticsTab`); memory per kind is not measured.
 - **Estimate:** 16–38 h (was 22–50; scopes with label selectors and metadata only, local and virtual kinds and the related-objects index built, third run).
 
 ### G4. Engine and command registry

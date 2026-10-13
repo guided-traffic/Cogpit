@@ -280,7 +280,7 @@ Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never a
 registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 147 commands</summary>
+<summary>All 149 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -310,6 +310,8 @@ registry with `go run ./hack/readmecmds`.
 | `daemonset.restart` | `daemonset_restart` | destructive | `ref` | Restarts a daemon set the way kubectl rollout restart does: it sets the pod template's kubectl.kubernetes.io/restartedAt annotation, and the controller replaces every pod by its update strategy (with OnDelete, only as pods are deleted) |
 | `deployment.restart` | `deployment_restart` | destructive | `ref` | Restarts a Deployment the way kubectl rollout restart does: it sets the pod template's restartedAt annotation and the controller replaces every pod |
 | `deployment.scale` | `deployment_scale` | mutating (destructive for some calls) | `ref`, `replicas`? | Sets a deployment's replica count, as kubectl scale does: a patch of spec.replicas on its scale subresource |
+| `diagnostics.get` | `diagnostics_get` | read |  | Returns what Cogpit asked of the connected cluster and holds of it, as the Diagnostics tab shows it: the API requests since connecting, by verb and by verb and resource (list, watch, get, ...; watches included), each watch (informer) with its scope, state (open: a view or lookup holds it; warm: kept a while after its last user; covered: served by another watch), objects, events and errors, the objects per kind, and the table snapshots built |
+| `diagnostics.open` | `diagnostics_open` | ui |  | Opens the Diagnostics dock tab, or activates it: the connected cluster's API requests by verb and resource, its watches and the objects per kind, kept current while it is open, as Help › Diagnostics does |
 | `dock.activate` | `dock_activate` | ui | `id` | Shows a dock tab |
 | `dock.close` | `dock_close` | ui | `id` | Closes a dock tab and ends its stream or shell |
 | `editor.diff` | `editor_diff` | read | `context`?, `id`, `yaml`? | Returns the line diff of an Edit tab's text (or of yaml) against the object as Cogpit's cache holds it now: lines with op "-" (removed), "+" (added) or "=" (context), with line numbers |
