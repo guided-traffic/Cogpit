@@ -606,7 +606,15 @@ redacts it for the UI state and the commands' results; §8 uses it). Since 2026-
 hold where a new Helm install keeps its release's records (`Preferences.HelmDriver`, Lens's
 `HELM_DRIVER`: empty for Secrets, or `configmap`; the Kubernetes section; `preferences.set`'s
 `helmDriver`, `configmap` refused for every origin but the GUI with `ErrHelmDriverGUIOnly`, `sql`
-refused for all; §8 › Storage drivers).
+refused for all; §8 › Storage drivers). Since the night run
+(2026-10-13, G3 and G13) a context's settings also hold its accessible namespaces
+(`ClusterSettings.AccessibleNamespaces`, Lens's setting for a user who may not list namespaces;
+[`engine/accessiblens.go`](../../internal/engine/accessiblens.go)): DNS-1123 labels, at most 100,
+kept trimmed, sorted and without duplicates (Cogpit's defaults, not the owner's decision), set with
+`cluster.settings.set`'s `accessibleNamespaces` (a list that replaces the last, `[]` for none) and
+reported by `cluster.settings.get`; a UI command, because it only narrows what Cogpit reads (§5,
+"Namespaced watches"). `ClusterSettings` holds a slice since, so it is compared with its `Equal`
+(`TestClusterSettingsEqualComparesEveryField` keeps it complete).
 
 The GUI ([`fyneui/preferences.go`](../../internal/ui/fyneui/preferences.go),
 [`preferences_page.go`](../../internal/ui/fyneui/preferences_page.go),

@@ -428,11 +428,11 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	if first || !reflect.DeepEqual(st.Preferences, old.Preferences) {
 		sh.preferencesChanged()
 	}
-	if !first && (!maps.Equal(st.ClusterSettings, old.ClusterSettings) || st.Context != old.Context) {
+	if !first && (!maps.EqualFunc(st.ClusterSettings, old.ClusterSettings, engine.ClusterSettings.Equal) || st.Context != old.Context) {
 		sh.identitiesChanged()
 	}
 	if first || !reflect.DeepEqual(st.Settings, old.Settings) || (st.Settings != nil && (!reflect.DeepEqual(st.Preferences, old.Preferences) ||
-		!maps.Equal(st.ClusterSettings, old.ClusterSettings) || st.Context != old.Context || st.Connection != old.Connection)) {
+		!maps.EqualFunc(st.ClusterSettings, old.ClusterSettings, engine.ClusterSettings.Equal) || st.Context != old.Context || st.Connection != old.Connection)) {
 		sh.settings.stateChanged()
 	}
 	if first || (st.Context == "") != (old.Context == "") {

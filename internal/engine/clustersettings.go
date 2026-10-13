@@ -68,10 +68,23 @@ type ClusterSettings struct {
 	// kubeconfig's, else the environment's. It may carry a password: the UI state and every
 	// result show it redacted (RedactProxyURL), only the settings file keeps it as typed.
 	Proxy string `json:"proxy,omitempty"`
+	// AccessibleNamespaces are the namespaces the user names for a cluster whose namespaces they
+	// may not list (Lens's Accessible namespaces; accessiblens.go): sorted, without duplicates. The
+	// namespace filter offers them, and a namespaced kind the user may not list in all namespaces is
+	// watched in each of them; none: the namespace filter's, else the context's own.
+	AccessibleNamespaces []string `json:"accessibleNamespaces,omitempty"`
 }
 
 // IsZero reports whether the settings are all defaults.
-func (c ClusterSettings) IsZero() bool { return c == ClusterSettings{} }
+func (c ClusterSettings) IsZero() bool { return c.Equal(ClusterSettings{}) }
+
+// Equal reports whether two settings are the same; an empty list of accessible namespaces equals
+// none.
+func (c ClusterSettings) Equal(o ClusterSettings) bool {
+	return c.Name == o.Name && c.IconColor == o.IconColor && c.Icon == o.Icon && c.TerminalDir == o.TerminalDir &&
+		c.TerminalNamespace == o.TerminalNamespace && c.HiddenMetrics == o.HiddenMetrics && c.Proxy == o.Proxy &&
+		slices.Equal(c.AccessibleNamespaces, o.AccessibleNamespaces)
+}
 
 // Check says why settings cannot be kept: the first field out of its bounds.
 func (c ClusterSettings) Check() error {
@@ -94,6 +107,9 @@ func (c ClusterSettings) Check() error {
 	}
 	if c.HiddenMetrics&^HideAll != 0 {
 		return errors.New("hidden metrics: a metric this Cogpit does not know")
+	}
+	if err := checkAccessibleNamespaces(c.AccessibleNamespaces); err != nil {
+		return err
 	}
 	return CheckProxyURL(c.Proxy)
 }
@@ -120,6 +136,7 @@ func (c *ClusterSettings) normalize() {
 	if c.Proxy = strings.TrimSpace(c.Proxy); CheckProxyURL(c.Proxy) != nil {
 		c.Proxy = ""
 	}
+	c.AccessibleNamespaces = keptAccessibleNamespaces(c.AccessibleNamespaces)
 }
 
 func checkClusterName(name string) error {
@@ -287,11 +304,13 @@ func (s *Session) ChangeClusterSettings(context string, fn func(*ClusterSettings
 		}
 		old := c.by[context]
 		cs := old
+		cs.AccessibleNamespaces = slices.Clone(old.AccessibleNamespaces) // fn may append to it
 		if err := fn(&cs); err != nil {
 			return ClusterSettings{}, nil, err
 		}
 		cs.Name = strings.TrimSpace(cs.Name)
 		cs.Proxy = strings.TrimSpace(cs.Proxy)
+		cs.AccessibleNamespaces = sortedAccessibleNamespaces(cs.AccessibleNamespaces)
 		if cs.Proxy == RedactProxyURL(old.Proxy) {
 			cs.Proxy = old.Proxy // the redacted form handed back as it was shown: unchanged
 		}
@@ -374,6 +393,9 @@ type ClusterSettingsView struct {
 	// Proxy is the proxy of the cluster's API traffic, its password shown as •••; empty: none set
 	// (the kubeconfig's proxy-url or the environment's apply).
 	Proxy string `json:"proxy,omitempty"`
+	// AccessibleNamespaces are the namespaces named for a user who may not list the cluster's
+	// namespaces, sorted; empty: none (the namespace filter's, else the context's namespace).
+	AccessibleNamespaces []string `json:"accessibleNamespaces"`
 	// Connected says whether the context is the connected cluster (its metrics settings apply).
 	Connected bool `json:"connected"`
 	// Kept says whether the settings outlive this run (false without a configuration directory).
@@ -389,7 +411,8 @@ func (s *Session) ClusterSettingsView(context string) (ClusterSettingsView, erro
 	v := ClusterSettingsView{Context: context, Name: ClusterName(context, cs), ContextName: ContextLabel(context),
 		NameSet: cs.Name != "", IconColor: cs.IconColor, TerminalDir: cs.TerminalDir,
 		TerminalNamespace: cs.TerminalNamespace, HiddenMetrics: MetricNames(cs.HiddenMetrics),
-		Proxy: RedactProxyURL(cs.Proxy), Kept: s.opts.ClusterSettings.Path() != ""}
+		Proxy: RedactProxyURL(cs.Proxy), AccessibleNamespaces: append([]string{}, cs.AccessibleNamespaces...),
+		Kept: s.opts.ClusterSettings.Path() != ""}
 	if cs.Icon != "" {
 		v.IconImage = strings.TrimPrefix(filepath.Ext(cs.Icon), ".")
 	}

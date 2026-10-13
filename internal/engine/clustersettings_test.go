@@ -56,7 +56,7 @@ func TestClusterSettingsPersistPrivately(t *testing.T) {
 	s2 := New(Options{ClusterSettings: NewClusterSettingsStore(dir)})
 	defer s2.Close()
 	cs, _ := s2.ClusterSettingsOf(devCtx)
-	if cs != (ClusterSettings{Name: "Dev", IconColor: "violet", TerminalDir: "$HOME/src", TerminalNamespace: "team-a"}) {
+	if !cs.Equal(ClusterSettings{Name: "Dev", IconColor: "violet", TerminalDir: "$HOME/src", TerminalNamespace: "team-a"}) {
 		t.Errorf("after a restart: %+v", cs)
 	}
 	if v, _ := s2.ClusterSettingsView("prod"); v.Name != "prod" || v.NameSet || !v.Kept {
@@ -91,7 +91,7 @@ func TestClusterSettingsCheckAndNormalize(t *testing.T) {
 	s := New(Options{ClusterSettings: NewClusterSettingsStore(dir)})
 	defer s.Close()
 	all := s.UIState().ClusterSettings
-	if len(all) != 2 || all["dev"] != (ClusterSettings{Name: "Dev"}) || all["ok"].IconColor != "green" {
+	if len(all) != 2 || !all["dev"].Equal(ClusterSettings{Name: "Dev"}) || all["ok"].IconColor != "green" {
 		t.Errorf("normalized %+v", all)
 	}
 	for name, fn := range map[string]func(*ClusterSettings){
@@ -273,7 +273,7 @@ func TestClusterIconUpload(t *testing.T) {
 	if _, err := s.SetClusterIcon("prod", txt); err == nil {
 		t.Error("a text file accepted as an icon")
 	}
-	if after, _ := s.ClusterSettingsOf("prod"); after != before {
+	if after, _ := s.ClusterSettingsOf("prod"); !after.Equal(before) {
 		t.Errorf("a refused upload changed the settings: %+v", after)
 	}
 	if _, err := s.SetClusterIcon("prod", filepath.Join(t.TempDir(), "missing.png")); err == nil || strings.Contains(err.Error(), t.TempDir()) {
