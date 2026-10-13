@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -249,7 +250,8 @@ func (w *Workspace) attach(s *Session) {
 	w.mu.Unlock()
 
 	if err != nil {
-		s.emit(Event{Type: EventToast, Level: LevelWarning, Message: err.Error()})
+		msg := err.Error()
+		s.emit(Event{Type: EventToast, Level: LevelWarning, Message: strings.ToUpper(msg[:1]) + msg[1:]})
 	}
 	if notice := notRestoredNotice(dropped); notice != "" {
 		s.emit(Event{Type: EventToast, Level: LevelInfo, Message: notice})

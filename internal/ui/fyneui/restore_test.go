@@ -1,0 +1,130 @@
+package fyneui
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"sync/atomic"
+	"testing"
+
+	"fyne.io/fyne/v2/test"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/engine/commands"
+)
+
+// restoredWorkspace is a workspace file of the last run: three tabs of the kubeconfig's
+// contexts, kind-dev's Pods shown last, and one of a context the kubeconfig no longer has.
+const restoredWorkspace = `{"version": 1, "active": 0, "tabs": [
+  {"context": "kind-dev", "view": "pods", "viewTitle": "Pods", "namespaces": ["team-a"], "used": 3},
+  {"context": "kind-dev", "view": "deployments", "viewTitle": "Deployments", "used": 1},
+  {"context": "staging", "view": "services", "viewTitle": "Services", "preview": true, "used": 2},
+  {"context": "old-cluster", "view": "pods", "viewTitle": "Pods"}
+], "columnOrder": {"pods": ["name", "namespace", "status"]}}`
+
+// restoredEngine is a real engine whose kubeconfig's contexts all point at server (empty: the
+// welcome page's renders' unreachable address, so that the PNGs do not change from run to run), and
+// whose Cogpit folder holds restoredWorkspace.
+func restoredEngine(t *testing.T, server string) *engine.Session {
+	t.Helper()
+	cfg := filepath.Join(t.TempDir(), "Cogpit")
+	if err := os.MkdirAll(cfg, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg, engine.WorkspaceFile), []byte(restoredWorkspace), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	kc := filepath.Join(t.TempDir(), "config")
+	config := settingsKubeconfig
+	if server != "" {
+		config = strings.ReplaceAll(config, "https://127.0.0.1:1", server)
+	}
+	if err := os.WriteFile(kc, []byte(config), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := engine.New(engine.Options{Connector: &engine.ClusterConnector{KubeconfigPaths: []string{kc}},
+		Hotbar: engine.NewHotbar(cfg), Preferences: engine.NewPreferencesStore(cfg),
+		ClusterSettings: engine.NewClusterSettingsStore(cfg), Workspace: engine.NewWorkspace(cfg)})
+	if err := commands.RegisterAll(s.Registry()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.Close)
+	return s
+}
+
+// countingServer is an API server that answers nothing and counts what it was asked.
+func countingServer(t *testing.T) (*httptest.Server, *atomic.Int64) {
+	t.Helper()
+	var n atomic.Int64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n.Add(1)
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &n
+}
+
+func tabTitles(sh *shell) []string {
+	out := make([]string, 0, len(sh.tabs.shown))
+	for _, t := range sh.tabs.shown {
+		out = append(out, t.tab.Title)
+	}
+	return out
+}
+
+// A start with the tabs of the last run (D-41) shows the tab bar at once, the tab shown last
+// marked, and the welcome page, without the context picker (D-42) and without a request to any
+// cluster; the tabs of a context that is gone are not restored and a toast says so once the window
+// is up. Showing a tab is what connects its cluster.
+func TestStartShowsRestoredTabsWithoutConnecting(t *testing.T) {
+	srv, requests := countingServer(t)
+	s := restoredEngine(t, srv.URL)
+	sh, _, q := newEngineShell(t, s, Options{})
+	welcomeShown(t, sh, q)
+	q.until(t, "the restored tabs", func() bool { return len(sh.tabs.shown) == 3 && sh.tabs.root.Visible() })
+	if got, want := tabTitles(sh), []string{"Pods - kind-dev", "Deployments - kind-dev", "Services - staging"}; !slices.Equal(got, want) {
+		t.Errorf("tabs %q, want %q", got, want)
+	}
+	if !sh.tabs.shown[0].active || sh.tabs.shown[1].active || sh.ui.Connection.State != engine.Disconnected {
+		t.Errorf("the tab shown last is not the marked one, or connected: %+v", sh.ui.Connection)
+	}
+	if sh.picker.visible() {
+		t.Error("the context picker opened by itself at start")
+	}
+
+	sh.showStartNotices() // what Run does once the window is up
+	cards := toastCards(sh)
+	if len(cards) != 1 {
+		t.Fatalf("%d toasts at start, want the notice", len(cards))
+	}
+	notice := "1 tab of the last run was not restored: no kubeconfig source offers old-cluster any more."
+	if texts := findAll[*paragraph](cards[0]); len(texts) != 1 || texts[0].text != notice {
+		t.Errorf("the toast says %+v", texts)
+	}
+	q.drain()
+	if n := requests.Load(); n != 0 || s.Backend() != nil {
+		t.Fatalf("%d requests to the cluster before a tab was shown", n)
+	}
+
+	test.Tap(sh.tabs.shown[0])
+	q.until(t, "the tab's connect to ask its cluster", func() bool { return requests.Load() > 0 })
+}
+
+// The start screen with the tabs of the last run: the tab bar over the welcome page.
+func TestRenderStartRestoredDark(t *testing.T)  { renderStartRestored(t, ThemeDark) }
+func TestRenderStartRestoredLight(t *testing.T) { renderStartRestored(t, ThemeLight) }
+
+func renderStartRestored(t *testing.T, mode ThemeMode) {
+	s := restoredEngine(t, "")
+	sh, w, q := newEngineShell(t, s, Options{Theme: mode})
+	welcomeShown(t, sh, q)
+	q.until(t, "the restored tabs", func() bool { return len(sh.tabs.shown) == 3 })
+	q.drain()
+	savePNG(t, w, "start_restored_"+string(mode)+".png")
+	if s.Backend() != nil || sh.picker.visible() {
+		t.Error("connected, or the picker opened, while rendering the start")
+	}
+}

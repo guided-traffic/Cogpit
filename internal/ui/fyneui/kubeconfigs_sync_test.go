@@ -189,6 +189,7 @@ func TestRemoveConfirmationNamesThePathAndSaysOnlyTheLinkGoes(t *testing.T) {
 
 	f, rec := kubeconfigFake(t, engine.ExecRequired)
 	sh, w, q := newTestShell(t, f, Options{})
+	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
 	q.until(t, "the picker", sh.picker.visible)
 	sh.kc.showSources()
 	sd := sh.kc.sources
@@ -219,6 +220,7 @@ func TestPickerMarksAFailedConnectAndOpensItsLog(t *testing.T) {
 		}}, nil
 	}
 	sh, _, q := newTestShell(t, f, Options{})
+	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
 	q.until(t, "the picker rows", func() bool { return sh.picker.visible() && len(sh.picker.list.Objects) == len(f.contexts) })
 	var warned []string
 	for _, o := range sh.picker.list.Objects {
@@ -252,6 +254,7 @@ func TestPickerMarksAFailedConnectAndOpensItsLog(t *testing.T) {
 func TestDisconnectedByAGoneFileSaysWhy(t *testing.T) {
 	f, _ := kubeconfigFake(t, engine.ExecRequired)
 	sh, _, q := newTestShell(t, f, Options{})
+	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
 	q.until(t, "the picker", sh.picker.visible)
 	reason := "Disconnected from kind-cogpit [kind.yaml]: its kubeconfig file /Users/me/kind.yaml is gone."
 	f.update(func(u *engine.UIState) {
@@ -278,6 +281,7 @@ func TestRenderSyncPicker(t *testing.T) {
 func TestRenderRemoveConfirmation(t *testing.T) {
 	f, _ := kubeconfigFake(t, engine.ExecRequired)
 	sh, w, q := newTestShell(t, f, Options{})
+	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
 	q.until(t, "the picker", sh.picker.visible)
 	sh.kc.showSources()
 	sd := sh.kc.sources
@@ -297,6 +301,7 @@ func TestRenderConnectionUpdates(t *testing.T) {
 		}}, nil
 	}
 	sh, w, q := newTestShell(t, f, Options{})
+	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
 	q.until(t, "the picker rows", func() bool { return sh.picker.visible() && len(sh.picker.list.Objects) == len(f.contexts) })
 	savePNG(t, w, "picker_connect_problem_dark.png")
 	sh.kc.showConnectLog("team [kubeconfigs/team.yaml]")
@@ -307,8 +312,6 @@ func TestRenderConnectionUpdates(t *testing.T) {
 func TestRenderDisconnectedPlaceholder(t *testing.T) {
 	f, _ := kubeconfigFake(t, engine.ExecRequired)
 	sh, w, q := newTestShell(t, f, Options{})
-	q.until(t, "the picker", sh.picker.visible)
-	sh.picker.hide()
 	reason := "Disconnected from kind-cogpit [kind.yaml]: its kubeconfig file /Users/me/kind.yaml is gone."
 	f.update(func(u *engine.UIState) {
 		u.Context = "kind-cogpit [kind.yaml]"

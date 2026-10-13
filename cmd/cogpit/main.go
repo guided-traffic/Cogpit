@@ -46,7 +46,7 @@ func main() {
 func run(previousCrash string) int {
 	var (
 		kubeconfig  = flag.String("kubeconfig", "", "kubeconfig files, separated by '"+string(os.PathListSeparator)+"', offered as sources of their own for this run; default: the files $KUBECONFIG lists. ~/.kube is always a sync folder")
-		contextName = flag.String("context", "", "connect to this context at start instead of showing the context picker")
+		contextName = flag.String("context", "", "connect to this context at start; without it Cogpit starts on the welcome page")
 		demoMode    = flag.Bool("demo", false, "connect to the synthetic demo cluster (10,000 pods, 1,000 watch events per second)")
 		demoPods    = flag.Int("demo-pods", 10000, "pods in the demo cluster")
 		demoEvents  = flag.Float64("demo-events", 1000, "watch events per second in the demo cluster")

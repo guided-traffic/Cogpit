@@ -48,6 +48,7 @@ func hasPill(r *pickerRow, text string) bool {
 func TestPickerMarksAnInsecureContext(t *testing.T) {
 	f := insecureFake(t)
 	sh, _, q := newTestShell(t, f, Options{})
+	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
 	q.until(t, "the picker rows", func() bool { return sh.picker.visible() && len(sh.picker.list.Objects) == len(f.contexts) })
 
 	row := pickerRowOf(t, sh, "dev-hfi")
@@ -74,6 +75,7 @@ func TestRenderPickerInsecureContext(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			f := insecureFake(t)
 			sh, w, q := newTestShell(t, f, Options{Theme: tc.mode})
+			sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
 			q.until(t, "the picker rows", func() bool { return sh.picker.visible() && len(sh.picker.list.Objects) == len(f.contexts) })
 			savePNG(t, w, tc.name)
 		})
@@ -94,6 +96,7 @@ func TestRenderConnectionUpdatesInsecure(t *testing.T) {
 		}}, nil
 	}
 	sh, w, q := newTestShell(t, f, Options{})
+	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
 	q.until(t, "the picker", sh.picker.visible)
 	sh.kc.showConnectLog("dev-hfi")
 	q.until(t, "the log dialog", func() bool { return sh.kc.connectLog != nil })

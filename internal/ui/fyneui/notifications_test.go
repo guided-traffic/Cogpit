@@ -45,8 +45,6 @@ func notesShell(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, 
 		q.drain()
 		s.SetConfirmer(nil)
 	})
-	q.until(t, "the picker", func() bool { return sh.picker.visible() })
-	sh.picker.hide()
 	return sh, w, q, s
 }
 

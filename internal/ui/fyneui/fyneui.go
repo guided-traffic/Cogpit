@@ -35,7 +35,8 @@ type Options struct {
 	// cannot switch: with it and without MCP the item only indicates, and the Help menu offers the
 	// command. Empty hides them. With MCP set the command comes from the control's Start.
 	MCPCommand string
-	// AutoConnect connects this context at start instead of showing the picker first.
+	// AutoConnect connects this context at start (--context, --demo); without it the window starts
+	// on the welcome page, the picker closed (D-42).
 	AutoConnect string
 	// StartWarning, when set, is shown as a warning once the window is up: a crash report the
 	// last run left (cmd/cogpit/crash.go).
@@ -174,9 +175,7 @@ func Run(s *engine.Session, opts Options) error {
 	// from OnStarted, the install runs after the window's creation (titlebar.go).
 	a.Lifecycle().SetOnStarted(func() {
 		do(sh.titlebar.install)
-		if opts.StartWarning != "" {
-			do(func() { sh.toast("warning", opts.StartWarning) })
-		}
+		do(sh.showStartNotices) // the crash notice, and what the engine said before the window was up
 	})
 	sh.start()
 	if opts.PerfReport != nil {

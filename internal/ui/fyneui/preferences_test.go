@@ -61,7 +61,7 @@ func settingsEngine(t *testing.T) (*engine.Session, string) {
 }
 
 // newEngineShell starts a shell on the real engine in a 1440×900 offscreen window, as newTestShell
-// does on the fake; the context picker that opens without a connection is closed.
+// does on the fake; without a connection it starts on the welcome page, the picker closed (D-42).
 func newEngineShell(t *testing.T, s *engine.Session, opts Options) (*shell, fyne.Window, *mainQueue) {
 	t.Helper()
 	a := test.NewTempApp(t)
@@ -84,8 +84,6 @@ func newEngineShell(t *testing.T, s *engine.Session, opts Options) (*shell, fyne
 		q.drain()
 		s.SetConfirmer(nil)
 	})
-	q.until(t, "the picker", func() bool { return sh.picker.visible() && len(sh.picker.contexts) > 0 })
-	sh.picker.hide()
 	return sh, w, q
 }
 

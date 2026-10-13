@@ -181,6 +181,9 @@ func findButton(w fyne.Window, label string) *widget.Button {
 
 func selectAndConnect(t *testing.T, sh *shell, q *mainQueue, name string) {
 	t.Helper()
+	if !sh.picker.visible() {
+		sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
+	}
 	q.until(t, "the picker's contexts", func() bool { return sh.picker.visible() && len(sh.picker.contexts) > 0 })
 	sh.picker.selected = name
 	sh.picker.render()
@@ -241,6 +244,7 @@ func TestPickerConnectsContextsWithoutAProgramDirectly(t *testing.T) {
 func TestSourcesDialogRemovesAfterConfirming(t *testing.T) {
 	f, rec := kubeconfigFake(t, engine.ExecRequired)
 	sh, w, q := newTestShell(t, f, Options{})
+	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
 	q.until(t, "the picker", sh.picker.visible)
 	sh.kc.showSources()
 	sd := sh.kc.sources
@@ -270,6 +274,7 @@ func TestSyncFromTheMenuAndEventsReloadThePicker(t *testing.T) {
 		return map[string]any{"source": map[string]any{"id": "team/", "kind": "folder"}, "contexts": []string{}}, nil
 	}
 	sh, _, q := newTestShell(t, f, Options{})
+	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
 	q.until(t, "the picker", func() bool { return sh.picker.visible() && len(sh.picker.contexts) == len(f.contexts) })
 	var labels []string
 	for _, it := range sh.mainMenu().Items[0].Items {
@@ -315,6 +320,7 @@ func TestSyncFromTheMenuAndEventsReloadThePicker(t *testing.T) {
 func TestRenderPickerWithSources(t *testing.T) {
 	f, _ := kubeconfigFake(t, engine.ExecRequired)
 	sh, w, q := newTestShell(t, f, Options{})
+	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
 	q.until(t, "the picker", func() bool { return sh.picker.visible() && len(sh.picker.list.Objects) == len(f.contexts) })
 	savePNG(t, w, "picker_sources_dark.png")
 }
@@ -338,6 +344,7 @@ func TestRenderExecApprovalLight(t *testing.T) {
 func TestRenderKubeconfigSources(t *testing.T) {
 	f, _ := kubeconfigFake(t, engine.ExecRequired)
 	sh, w, q := newTestShell(t, f, Options{})
+	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
 	q.until(t, "the picker", sh.picker.visible)
 	sh.kc.showSources()
 	q.until(t, "the sources", func() bool { return sh.kc.sources != nil && len(sh.kc.sources.rows) == 5 })

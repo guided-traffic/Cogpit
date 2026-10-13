@@ -326,6 +326,7 @@ func TestPickerConnects(t *testing.T) {
 	f.kinds = fixtureKinds()
 	f.tables["pods"] = fixturePods(50, 1)
 	sh, _, q := newTestShell(t, f, Options{})
+	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
 	q.until(t, "the picker", func() bool { return sh.picker.visible() && len(sh.picker.list.Objects) == len(f.contexts) })
 	if sh.picker.selected != "kind-cogpit" {
 		t.Fatalf("preselected %q, want the kubeconfig's current context", sh.picker.selected)

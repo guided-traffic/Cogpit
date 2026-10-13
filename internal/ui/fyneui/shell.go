@@ -126,6 +126,9 @@ type shell struct {
 	setConcealed func(string) bool
 
 	unsubscribe func()
+	// early are the notices the engine gave before the window subscribed (a restored tab bar's,
+	// D-41), shown as toasts with the start's warning once the window is up (showStartNotices).
+	early       []engine.Notification
 	stopTickers chan struct{}
 	perf        *perfMeter
 
@@ -210,26 +213,55 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	return sh
 }
 
-// start subscribes to the engine, shows the current state and connects or opens the picker.
+// start subscribes to the engine, shows the current state and connects the --context cluster, if
+// any. Without one the workspace shows the welcome page and the picker stays closed until the user
+// opens it (⌘P, All Clusters…; D-42): nothing connects by itself, a restored tab included (D-41).
 func (sh *shell) start() {
+	sh.early = sh.earlyNotices() // before subscribing: what comes after arrives as events
 	sh.unsubscribe = sh.eng.Subscribe(sh.onEvent)
 	sh.applyUIState(sh.eng.UIState())
 	sh.requestDiagnostics()
 	sh.installShortcuts()
 	go sh.tick()
 
-	switch {
-	case sh.opts.AutoConnect != "":
-		name := sh.opts.AutoConnect
+	if name := sh.opts.AutoConnect; name != "" {
+		// A --context that fails opens the picker with the error beside the context, where a login
+		// program not allowed yet can be allowed (Cogpit's default).
 		sh.dispatch("cluster.connect", contextParams{Context: name}, func(_ any, err error) {
 			if err != nil {
 				sh.picker.show()
 				sh.picker.setError(name, err)
 			}
 		})
-	case sh.ui.Connection.State != engine.Connected:
-		sh.picker.show()
 	}
+}
+
+// earlyNotices returns the unread notifications the engine logged before the window subscribed,
+// oldest first; none from an engine that keeps no log (the tests' fake).
+func (sh *shell) earlyNotices() []engine.Notification {
+	if sh.sess == nil {
+		return nil
+	}
+	var out []engine.Notification
+	for _, n := range sh.sess.Notifications(true).Notifications { // newest first
+		if !n.Read {
+			out = append([]engine.Notification{n}, out...)
+		}
+	}
+	return out
+}
+
+// showStartNotices shows, once the window is up, the warning the start brought (a crash report the
+// last run left) and the notices the engine gave before the window subscribed (the tabs of the last
+// run not restored, an unreadable tabs file), each closing marks its notification read.
+func (sh *shell) showStartNotices() {
+	if sh.opts.StartWarning != "" {
+		sh.toast("warning", sh.opts.StartWarning)
+	}
+	for _, n := range sh.early {
+		sh.showToast(n.Level, n.Message, n.ID)
+	}
+	sh.early = nil
 }
 
 // stop ends everything start began: the subscription, tickers, dispatches and dock streams, and

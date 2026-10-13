@@ -123,6 +123,7 @@ func TestRenderPicker(t *testing.T) {
 	f := newFakeEngine(t)
 	f.contexts = fixtureContexts()
 	sh, w, q := newTestShell(t, f, Options{})
+	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
 	q.until(t, "the picker to list contexts", func() bool { return sh.picker.visible() && len(sh.picker.list.Objects) == len(f.contexts) })
 	savePNG(t, w, "picker.png")
 }
