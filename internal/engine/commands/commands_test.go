@@ -161,6 +161,10 @@ var wantCommands = map[string]engine.Danger{
 	"audit.list": engine.DangerRead, "audit.open": engine.DangerUI,
 	// The Diagnostics view (D-13): Cogpit's own counters, no request (TestDiagnosticsReport).
 	"diagnostics.get": engine.DangerRead, "diagnostics.open": engine.DangerUI,
+	// Flux CD (G23, D-33): patches of Flux objects, mutating, so D-2 applies to agents
+	// (TestFluxActionsAgentsNeedAcceptance).
+	"flux.reconcile": engine.DangerMutating, "flux.suspend": engine.DangerMutating, "flux.resume": engine.DangerMutating,
+	"flux.reconcileMany": engine.DangerMutating, "flux.suspendMany": engine.DangerMutating, "flux.resumeMany": engine.DangerMutating,
 }
 
 func TestRegistryComplete(t *testing.T) {
