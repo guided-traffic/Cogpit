@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (Current focus after the day run: D-29 and the copy icons built; M6: a release upgraded to a version from the user's chart repositories; M7: the cluster Overview built; M1 and 0.1: `cogpit-cli contexts` and `get` built; M9: the stdio bridge built; current focus after the fifth run and the owner's smoke test) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (alpha gate: the downloadable macOS build exists since v0.1.0, for Apple silicon; Current focus after the day run: D-29 and the copy icons built; M6: a release upgraded to a version from the user's chart repositories; M7: the cluster Overview built; M1 and 0.1: `cogpit-cli contexts` and `get` built; M9: the stdio bridge built; current focus after the fifth run and the owner's smoke test) · **Target:** Lens Desktop 2026.10.51501
 
 Forward-looking plan: the alpha gate, the milestones, the **current focus** and what's next with
 estimates. Where Cogpit stands is in [`target-app-parity.md`](target-app-parity.md); the ranked
@@ -30,7 +30,7 @@ the hours below come on top.
 | **Manage Helm releases in the cluster** (Lens's Helm view): list releases, read history and values, upgrade, roll back | partial (2026-10-12): releases from the cache with Lens's drawer (values, notes, resources), rollback with Lens's dialog, uninstall, and upgrade from the Helm Upgrade tab with the release's own chart or, since 2026-10-13, a version from the chart repositories the user added, crash-safe through a journal, on kind (`TestKindHelmReleases`, `TestKindHelmUpgrade`, `TestKindHelmUpgradeFromRepository`); not walked through by a person on a real cluster; some of Lens's behaviour still to capture | M6 | 5–15 |
 | **Maintain a node:** cordon, drain and uncordon with confirmations; node details | partial: cordon, a crash-safe drain and uncordon, confirmed, on a three-node kind cluster through the engine (`TestKindDrainCrashFinishUncordon`); the node drawer as captured with its Pods table, without metrics; the GUI path tested offscreen only | M4 | 2–8 |
 | **Use kubectl:** a terminal bound to the cluster's context and namespace | partial: works on kind (`TestKindEngineWorkflows`); a shell profile can override it ([H-20](../security/credentials.md#h-20-shell-profiles-can-override-the-terminals-kubeconfig)) | M3 | 5–20 |
-| A downloadable macOS build (unsigned is enough) | partial: `make app` builds an unsigned app bundle locally; nothing to download | G14 | 3–8 |
+| A downloadable macOS build (unsigned is enough) | yes for Apple silicon (2026-10-13): every release since v0.1.0 carries `Cogpit_<version>_darwin_arm64.zip`, ad-hoc signed and not notarized, beside `SHA256SUMS` ([releasing › the release pipeline](../developer/releasing.md#the-release-pipeline)); v0.1.1's download checked (checksums, the app's version). Intel Macs get no app yet (G14) | G14 | 0 (Intel: G14) |
 
 **Result: fails.** Every workflow exists since the fourth run (2026-10-12): Helm upgrade and adding
 and syncing kubeconfigs were built. None has been walked through end to end in the GUI by
@@ -102,6 +102,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | Alpha gate: the downloadable macOS build is there for Apple silicon since v0.1.0 (was "nothing to download") |
 | 2026-10-13 | minor | Current focus after the day run: D-29 and the lists' copy icons built, item 2 folded into the owner's walk |
 | 2026-10-13 | minor | Current focus: the owner's requirements of 2026-10-13 (D-29 Helm repositories from repositories.yaml, D-25 copy icons in the lists) as item 2 |
 | 2026-10-13 | minor | Current focus after the night run: the owner walks its features in a real window first |
