@@ -91,7 +91,8 @@ func (sh *shell) applyEditorPrefs(v *yamlview.View) {
 	v.SetTabSize(p.EditorTabSize)
 }
 
-// editorViews are the YAML views of the open Edit, Create resource and Helm Upgrade tabs.
+// editorViews are the YAML views of the open Edit, Create resource, Helm Upgrade and Helm Install
+// tabs.
 func (sh *shell) editorViews() []*yamlview.View {
 	var out []*yamlview.View
 	for _, c := range sh.dock.contents {
@@ -101,6 +102,8 @@ func (sh *shell) editorViews() []*yamlview.View {
 		case *createTab:
 			out = append(out, e.pane.view)
 		case *helmUpgradeTab:
+			out = append(out, e.pane.view)
+		case *helmInstallTab:
 			out = append(out, e.pane.view)
 		}
 	}
@@ -248,7 +251,7 @@ func (p *settingsPage) editorSection() fyne.CanvasObject {
 		tab.SetSelected(strconv.Itoa(pr.EditorTabSize))
 	}
 	return container.NewVBox(
-		p.setting("editorFontSize", "Font size", "The YAML editor of the Edit, Create resource and Helm Upgrade tabs, in points.", font),
+		p.setting("editorFontSize", "Font size", "The YAML editor of the Edit, Create resource, Helm Upgrade and Helm Install tabs, in points.", font),
 		p.setting("editorLineNumbers", "Line numbers", "", numbers),
 		p.setting("editorTabSize", "Tab size", "Spaces Tab indents by; YAML indents with spaces only.", tab),
 	)

@@ -79,8 +79,8 @@ type Preferences struct {
 	// TableRowHeight is the height of a table row in points; 0: Cogpit's default.
 	TableRowHeight int `json:"tableRowHeight,omitempty"`
 	// EditorFontSize, EditorLineNumbers and EditorTabSize set the YAML editor of the Edit, Create
-	// resource and Helm Upgrade tabs: its text size in points, whether it shows line numbers, and
-	// how many spaces Tab indents by.
+	// resource, Helm Upgrade and Helm Install tabs: its text size in points, whether it shows line
+	// numbers, and how many spaces Tab indents by.
 	EditorFontSize    int  `json:"editorFontSize"`
 	EditorLineNumbers bool `json:"editorLineNumbers"`
 	EditorTabSize     int  `json:"editorTabSize"`

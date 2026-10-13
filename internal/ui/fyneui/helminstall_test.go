@@ -370,3 +370,27 @@ func TestHelmInstallTabFollowsItsVersion(t *testing.T) {
 		t.Errorf("digest line %q after a version without a verified digest", u.digest.text)
 	}
 }
+
+// An open Install tab's editor follows the Preferences' editor settings, as the Edit, Create
+// resource and Upgrade tabs' do (editorViews listed the three, not the Install tab, merged before
+// the Preferences page).
+func TestHelmInstallTabFollowsTheEditorPreferences(t *testing.T) {
+	f := chartsFake(t)
+	tab := installTabFixture(t, f, true)
+	prefs := engine.DefaultPreferences()
+	f.ui.Preferences = &prefs
+	sh, _, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	u := installTabOf(t, sh, q, tab.ID)
+	if v := u.pane.view; v.TextSize() != engine.DefaultFontSize || !v.LineNumbers() || v.TabSize() != engine.DefaultTabSize {
+		t.Fatalf("opened with size %v, numbers %v, tab %d", v.TextSize(), v.LineNumbers(), v.TabSize())
+	}
+	f.update(func(ui *engine.UIState) {
+		p := engine.DefaultPreferences()
+		p.EditorFontSize, p.EditorLineNumbers, p.EditorTabSize = 18, false, 4
+		ui.Preferences = &p
+	})
+	q.until(t, "the editor's preferences", func() bool {
+		v := u.pane.view
+		return v.TextSize() == 18 && !v.LineNumbers() && v.TabSize() == 4
+	})
+}
