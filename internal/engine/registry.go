@@ -93,6 +93,11 @@ type Spec[P any] struct {
 	// before anyone is asked: a command whose Run would refuse that origin anyway (an agent's
 	// apply or create of a Secret, D-19) must not ask the user first. Nil refuses nothing.
 	Refuse func(ctx context.Context, s *Session, p P) error
+	// GUIOnly marks a command that only the user's own action in Cogpit's window runs, whatever
+	// its parameters (guionly.go): Dispatch refuses every other origin with a GUIOnlyError that
+	// wraps this reason, once the parameters decode and before Enabled, Refuse, a confirmation or
+	// Run. Nil: the origins Refuse and Run allow.
+	GUIOnly error
 	// Review returns a text of the parameters the user reads in the confirmation before
 	// answering (ConfirmRequest.Review): an agent's Helm values. Nil, or "", shows none.
 	Review func(s *Session, p P) string
@@ -112,10 +117,13 @@ type Command struct {
 	DrawerOnly  bool     `json:"drawerOnly,omitempty"` // in the drawer's actions, not in the row menu
 	Danger      Danger   `json:"danger"`
 	// Escalates is true when some invocations are destructive although Danger is mutating.
-	Escalates bool               `json:"escalates,omitempty"`
-	Verbs     []Verb             `json:"verbs,omitempty"`
-	Schema    *jsonschema.Schema `json:"schema"`
+	Escalates bool `json:"escalates,omitempty"`
+	// GUIOnly is true for a command only the user's own action in the window runs (Spec.GUIOnly).
+	GUIOnly bool               `json:"guiOnly,omitempty"`
+	Verbs   []Verb             `json:"verbs,omitempty"`
+	Schema  *jsonschema.Schema `json:"schema"`
 
+	guiOnly  error // the reason a GUI-only command gives every other origin
 	resolved *jsonschema.Resolved
 	decode   func(raw json.RawMessage) (any, error)
 	enabled  func(s *Session, p any) error
@@ -241,7 +249,8 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 	c := &Command{
 		ID: spec.ID, Label: spec.Label, MenuPath: spec.MenuPath, Shortcut: spec.Shortcut,
 		Description: spec.Description, Kinds: spec.Kinds, Order: spec.Order, DrawerOnly: spec.DrawerOnly, Danger: spec.Danger,
-		Escalates: spec.Escalate != nil, Verbs: spec.Verbs, Schema: schema, resolved: resolved,
+		Escalates: spec.Escalate != nil, GUIOnly: spec.GUIOnly != nil, guiOnly: spec.GUIOnly, Verbs: spec.Verbs, Schema: schema,
+		resolved: resolved,
 	}
 	c.decode = func(raw json.RawMessage) (any, error) {
 		var p P

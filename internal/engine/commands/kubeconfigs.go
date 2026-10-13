@@ -144,6 +144,7 @@ func registerKubeconfigs(g *registrar) {
 
 	add(g, engine.Spec[pathParams]{
 		ID: "kubeconfig.addFile", Label: "Add Kubeconfig File", MenuPath: "File/Add Kubeconfig File", Danger: engine.DangerUI,
+		GUIOnly: engine.ErrGUIOnly,
 		Description: "Adds a kubeconfig file the user picked as a source: its contexts become available as " +
 			"\"<context> [<file name>]\", read from that file alone, and follow its changes. Cogpit reads the file and never " +
 			"writes it. A credential plugin the file names runs only after the user allowed it." + guiOnly,
@@ -166,6 +167,7 @@ func registerKubeconfigs(g *registrar) {
 
 	add(g, engine.Spec[pathParams]{
 		ID: "kubeconfig.addFolder", Label: "Add Sync Folder", MenuPath: "File/Add Sync Folder", Danger: engine.DangerUI,
+		GUIOnly: engine.ErrGUIOnly,
 		Description: "Adds a sync folder: every kubeconfig file in it (not in its subfolders) becomes available as " +
 			"\"<context> [<folder>/<file>]\", and files that appear in it or leave it later are picked up or dropped. " +
 			"Cogpit reads the files and never writes them. A credential plugin a file names runs only after the user " +
@@ -189,6 +191,7 @@ func registerKubeconfigs(g *registrar) {
 
 	add(g, engine.Spec[sourceParams]{
 		ID: "kubeconfig.remove", Label: "Remove Kubeconfig Source", MenuPath: "File/Remove Kubeconfig Source", Danger: engine.DangerUI,
+		GUIOnly: engine.ErrGUIOnly,
 		Description: "Removes a kubeconfig source, which is Cogpit's link to a file or folder and nothing else: its contexts " +
 			"are no longer offered and their tabs close, the credential plugins allowed for its files are forgotten, and an open " +
 			"connection made from one of its files is closed. The file or folder the user added, and the files in it, stay on " +
@@ -266,6 +269,7 @@ func registerKubeconfigs(g *registrar) {
 
 	add(g, engine.Spec[approveParams]{
 		ID: "kubeconfig.approveExec", Label: "Allow Credential Plugins", Danger: engine.DangerUI,
+		GUIOnly: engine.ErrGUIOnly,
 		Description: "Records that the user allows the credential plugins of the listed kubeconfig source contexts to run, " +
 			"exactly as shown (each context's fingerprint binds the command, its arguments, its environment, the server and " +
 			"how it is trusted); a later change asks again. One approval is stored per context. Every fingerprint is checked " +

@@ -52,9 +52,12 @@ func TestToolsMirrorRegistry(t *testing.T) {
 		if !strings.HasPrefix(tool.Description, cmd.Description) || !strings.Contains(tool.Description, "Danger level: "+string(cmd.Danger)+".") {
 			t.Errorf("%s: description %q lacks the command's description or danger level", tool.Name, tool.Description)
 		}
-		asks := cmd.Danger == engine.DangerMutating || cmd.Danger == engine.DangerDestructive
+		asks := (cmd.Danger == engine.DangerMutating || cmd.Danger == engine.DangerDestructive) && !cmd.GUIOnly
 		if asks != strings.Contains(tool.Description, "confirm it in Cogpit's window") {
 			t.Errorf("%s: description %q; confirmation note expected: %v", tool.Name, tool.Description, asks)
+		}
+		if cmd.GUIOnly != strings.Contains(tool.Description, "GUI only: ") {
+			t.Errorf("%s: description %q; GUI-only note expected: %v", tool.Name, tool.Description, cmd.GUIOnly)
 		}
 
 		a := tool.Annotations
@@ -189,6 +192,8 @@ func TestRefusedCallsAreToolErrors(t *testing.T) {
 		{"headless destructive", nil, "pods_delete", map[string]any{"ref": podRef}, codeConfirmationUnavailable, "no window"},
 		{"headless mutating", nil, "deployments_scale", map[string]any{"ref": podRef, "replicas": 0}, codeConfirmationUnavailable, "no window"},
 		{"disabled", nil, "probe_disabled", nil, codeDisabled, "not available right now: no cluster connected"},
+		{"gui only", engine.ConfirmFunc(func(context.Context, engine.ConfirmRequest) (bool, error) { return true, nil }),
+			"probe_guiOnly", nil, codeGUIOnly, "runs only on the user's own action in Cogpit's window"},
 		{"wrong type", nil, "resources_find", map[string]any{"kind": 5, "field": "clusterIP", "value": showcaseIP}, codeInvalidParams, "input schema"},
 		{"missing field", nil, "resources_find", map[string]any{"kind": "services"}, codeInvalidParams, "input schema"},
 		{"unknown field", nil, "resources_find", map[string]any{"kind": "services", "field": "clusterIP", "value": "x", "extra": true}, codeInvalidParams, "input schema"},
@@ -202,7 +207,7 @@ func TestRefusedCallsAreToolErrors(t *testing.T) {
 			if !res.IsError || errorCode(res) != c.code || !strings.Contains(text(res), c.says) {
 				t.Fatalf("isError %v, code %q, text %q; want code %q mentioning %q", res.IsError, errorCode(res), text(res), c.code, c.says)
 			}
-			if f.deleted.Load() != 0 || f.scaled.Load() != 0 {
+			if f.deleted.Load() != 0 || f.scaled.Load() != 0 || f.guiRan.Load() != 0 {
 				t.Error("a refused command ran")
 			}
 			entries := f.auditEntries(t)

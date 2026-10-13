@@ -25,6 +25,7 @@ type kubectlDownloadParams struct {
 func registerKubectl(g *registrar) {
 	add(g, engine.Spec[kubectlDownloadParams]{
 		ID: "kubectl.download", Label: "Download kubectl", Danger: engine.DangerUI,
+		GUIOnly: engine.ErrKubectlGUIOnly,
 		Description: "Downloads the kubectl release a terminal tab offers (the cluster's version, when the kubectl the " +
 			"terminal finds is more than one minor version away or missing) from dl.k8s.io or the mirror set in " +
 			"Preferences, verifies it against the published SHA-256 and the Kubernetes release's signature, and keeps it " +

@@ -18,6 +18,7 @@ var errRevealGUIOnly = errors.New("a Secret's values are shown only to the user,
 func registerSecrets(g *registrar) {
 	add(g, engine.Spec[engine.RevealParams]{
 		ID: engine.RevealCommand, Label: "Show Value", Kinds: []string{kindSecrets}, Danger: engine.DangerRead,
+		GUIOnly: errRevealGUIOnly,
 		// The value comes from the cache, which lists and watches Secrets with their values.
 		Verbs: []engine.Verb{{Verb: nwVerbList, Resource: kindSecrets}},
 		Description: "Shows the user one value of the Secret open in the drawer, in Cogpit's own window (the drawer lists " +

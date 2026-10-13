@@ -263,6 +263,11 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 	if err != nil {
 		return nil, err
 	}
+	// A GUI-only command is refused to every other origin before its Enabled runs, which may read
+	// what the refused origin must not learn (guionly.go).
+	if err := cmd.refuseOrigin(inv.Origin); err != nil {
+		return nil, err
+	}
 	if err := s.safeCall(cmd.ID, func() error { return cmd.enabled(s, p) }); err != nil {
 		return nil, &DisabledError{Command: cmd.ID, Reason: err.Error()}
 	}

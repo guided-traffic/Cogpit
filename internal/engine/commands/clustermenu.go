@@ -70,6 +70,7 @@ func registerClusterMenu(g *registrar) {
 
 	add(g, engine.Spec[clusterRemoveParams]{
 		ID: "cluster.remove", Label: "Remove from Cogpit", MenuPath: "File/Remove from Cogpit", Danger: engine.DangerUI,
+		GUIOnly: engine.ErrGUIOnly,
 		Description: "Removes a cluster from Cogpit by removing Cogpit's link to the kubeconfig file the user added for it: " +
 			"every context of that file is no longer offered and its tabs close, the login programs allowed for it are forgotten and a " +
 			"connection made from it is closed. The file stays on disk as it is; Cogpit never edits or deletes a " +

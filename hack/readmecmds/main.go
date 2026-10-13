@@ -31,6 +31,9 @@ func main() {
 		if c.Escalates {
 			danger += " (destructive for some calls)"
 		}
+		if c.GUIOnly {
+			danger += " (GUI only)"
+		}
 		fmt.Printf("| `%s` | `%s` | %s | %s | %s |\n", c.ID, c.ToolName(), danger, params(c), firstSentence(c.Description))
 	}
 }

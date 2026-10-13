@@ -22,6 +22,7 @@ import (
 const (
 	codeInvalidParams           = "invalidParams"
 	codeDisabled                = "disabled"
+	codeGUIOnly                 = "guiOnly"
 	codeDeclined                = "declined"
 	codeConfirmationUnavailable = "confirmationUnavailable"
 	codeCancelled               = "cancelled"
@@ -146,6 +147,11 @@ func describe(cmd *engine.Command) string {
 	if cmd.Escalates {
 		note += " Some calls are destructive (the description says which): those the user must always confirm."
 	}
+	if cmd.GUIOnly { // no confirmation to describe: an agent's call never gets that far
+		note = "Danger level: " + string(cmd.Danger) + ". GUI only: only the user's own action in Cogpit's window runs it, " +
+			"so every call from an agent is refused whatever its arguments, before anything is asked, read or written. " +
+			"Ask the user to do it in Cogpit's window."
+	}
 	return desc + "\n\n" + note
 }
 
@@ -229,10 +235,14 @@ func success(out any) *sdk.CallToolResult {
 func failure(cmd *engine.Command, schema json.RawMessage, err error) *sdk.CallToolResult {
 	var pe *engine.ParamsError
 	var de *engine.DisabledError
+	var ge *engine.GUIOnlyError
 	switch {
 	case errors.As(err, &pe):
 		return toolError(codeInvalidParams, fmt.Sprintf("Invalid arguments for %s: %v. Call it again with arguments that match its input schema: %s",
 			cmd.ToolName(), pe.Err, schema))
+	case errors.As(err, &ge):
+		return toolError(codeGUIOnly, fmt.Sprintf("%q runs only on the user's own action in Cogpit's window, so it did not run "+
+			"and nothing was asked, read or written: %v. Ask the user to do it in Cogpit's window if it is needed.", cmd.Label, ge.Reason))
 	case errors.As(err, &de):
 		return toolError(codeDisabled, fmt.Sprintf("%q is not available right now: %s.", cmd.Label, de.Reason))
 	case errors.Is(err, engine.ErrDeclined):

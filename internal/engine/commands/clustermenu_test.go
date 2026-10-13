@@ -123,12 +123,14 @@ func TestClusterRemove(t *testing.T) {
 	for id, reason := range map[string]string{
 		"main [.kube/config]": "in the synced folder", "from-env [env.yaml]": "$KUBECONFIG", engine.DemoContext: "demo cluster",
 	} {
-		for _, origin := range []engine.Origin{gui, agent} {
-			var dis *engine.DisabledError
-			err := dispatch(t, s, origin, "cluster.remove", map[string]string{"context": id}, nil)
-			if !errors.As(err, &dis) || !strings.Contains(dis.Reason, reason) {
-				t.Errorf("remove %s from %s: %v, want refused: %s", id, origin, err, reason)
-			}
+		var dis *engine.DisabledError
+		err := dispatch(t, s, gui, "cluster.remove", map[string]string{"context": id}, nil)
+		if !errors.As(err, &dis) || !strings.Contains(dis.Reason, reason) {
+			t.Errorf("remove %s from %s: %v, want refused: %s", id, gui, err, reason)
+		}
+		// An agent is refused as for every GUI-only command, before the reason (engine/guionly.go).
+		if err := dispatch(t, s, agent, "cluster.remove", map[string]string{"context": id}, nil); !errors.Is(err, engine.ErrGUIOnly) {
+			t.Errorf("remove %s from %s: %v, want ErrGUIOnly", id, agent, err)
 		}
 	}
 	for _, origin := range []engine.Origin{agent, engine.OriginBuiltInAgent, engine.OriginCLI} {

@@ -56,6 +56,7 @@ type fixture struct {
 	logs    *syncBuffer
 	deleted atomic.Int32
 	scaled  atomic.Int32
+	guiRan  atomic.Int32
 }
 
 // newFixture builds the fixture; confirmer nil means headless. Logs of the session and the
@@ -133,6 +134,15 @@ func (f *fixture) register(t testing.TB) {
 		Description: "Never enabled.",
 		Enabled:     func(*engine.Session, struct{}) error { return errors.New("no cluster connected") },
 		Run:         func(context.Context, *engine.Session, struct{}) (any, error) { return nil, nil },
+	}))
+	must(engine.Register(reg, engine.Spec[struct{}]{
+		ID: "probe.guiOnly", Label: "GUI-only Probe", Danger: engine.DangerUI,
+		Description: "Runs only on the user's own action in the window.",
+		GUIOnly:     errors.New("only the user, in Cogpit's own window, can do this"),
+		Run: func(context.Context, *engine.Session, struct{}) (any, error) {
+			f.guiRan.Add(1)
+			return nil, nil
+		},
 	}))
 	must(engine.Register(reg, engine.Spec[refParams]{
 		ID: "pods.delete", Label: "Delete Pod", Danger: engine.DangerDestructive,

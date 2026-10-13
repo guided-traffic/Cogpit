@@ -90,6 +90,7 @@ func registerSecretCreate(g *registrar) {
 		p.Namespace = ns
 		return p, err
 	}
+	spec.GUIOnly = engine.ErrSecretCreateGUIOnly // Dispatch refuses every other origin first
 	spec.Refuse = func(ctx context.Context, _ *engine.Session, _ secretCreateParams) error {
 		return refuseSecretCreate(ctx)
 	}

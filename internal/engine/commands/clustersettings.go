@@ -159,6 +159,7 @@ func registerClusterSettings(g *registrar) {
 
 	add(g, engine.Spec[clusterIconParams]{
 		ID: "cluster.settings.uploadIcon", Label: "Upload Icon", Danger: engine.DangerUI,
+		GUIOnly: engine.ErrIconGUIOnly,
 		Description: "Makes an image file the user picked a context's icon (it replaces the icon colour): a PNG or JPEG, kept " +
 			"as a PNG of at most 256 pixels a side, or an SVG without scripts or outside references, at most 1 MiB. Only the " +
 			"user, in Cogpit's window, can upload: refused for agents and the CLI, which can set an icon colour with " +

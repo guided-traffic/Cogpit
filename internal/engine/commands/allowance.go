@@ -27,6 +27,7 @@ func refuseAgentWrites(ctx context.Context) error {
 func registerAllowance(g *registrar) {
 	add(g, engine.Spec[agentWritesParams]{
 		ID: "cluster.settings.setAgentWrites", Label: "Allow Agent Writes", Danger: engine.DangerUI,
+		GUIOnly: engine.ErrAgentWritesGUIOnly,
 		Description: "Allows or forbids, for one context, agents' mutating commands without the user's acceptance, as the " +
 			"Agents section of its Settings page does; destructive commands always ask. Only the user, in Cogpit's window, " +
 			"can change it: refused for agents and the CLI, so that no agent allows itself. Agents read it as agentWrites " +
