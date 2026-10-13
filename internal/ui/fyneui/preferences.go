@@ -203,9 +203,12 @@ func (p *settingsPage) kubernetesSection() fyne.CanvasObject {
 	kc := p.sh.kc
 	sources := widget.NewButton("Kubeconfig Sources…", kc.showSources)
 	syncB := widget.NewButton("Sync Files and Folders…", kc.addKubeconfigs)
+	helmDriver, syncHelmDriver := p.helmDriverSetting() // preferences_helm.go
+	p.sync = syncHelmDriver // set before kubectlSettings, which chains p.sync
 	return container.NewVBox(append([]fyne.CanvasObject{
 		p.setting("kubeconfigSyncs", "Kubeconfig syncs", "The files and folders Cogpit reads kubeconfigs from; ~/.kube is synced by default.",
 			container.NewHBox(sources, syncB)),
+		helmDriver,
 	}, p.kubectlSettings()...)...) // kubectl for terminals (kubectloffer_prefs.go)
 }
 

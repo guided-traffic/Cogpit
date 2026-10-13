@@ -516,7 +516,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestDeriveFromConfigMaps`, `TestDeriveMixedDrivers`, `TestActionsUseTheReleasesDriver`,
   `TestHelmConfigMapReleaseActions`, `TestHelmVerbsFollowTheReleasesDriver`,
   `TestHelmDriverPreference`, `TestHelmConfigMapPayloadsKeptFromAgents`,
-  `TestBudgetHelmReleasesWithConfigMaps`; on kind
+  `TestBudgetHelmReleasesWithConfigMaps`, GUI `TestPreferencesHelmDriverSelect`; on kind
   `TestKindHelmConfigMapDriver`).
 - **Evidence (2026-10-13, night run, the upgrade from repositories):** a release whose chart a
   repository added to Cogpit lists (by name) is upgraded to a version of it: the Upgrade tab's

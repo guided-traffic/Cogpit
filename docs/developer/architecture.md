@@ -1938,7 +1938,8 @@ base64. Where it differs from the paragraphs above, this one wins.
   readable by whoever may read ConfigMaps in its namespace, which RBAC often grants more widely
   than Secrets (Cogpit's default, as for the proxies, not the owner's decision). An install's
   confirmation says so when the preference is `configmap` (`TestHelmDriverPreference`,
-  `TestHelmInstallUsesTheDriverPreference`).
+  `TestHelmInstallUsesTheDriverPreference`, GUI `TestPreferencesHelmDriverSelect`, PNGs
+  `preferences_helm_driver_{dark,light}.png`).
 - **Payloads stay from agents** (the same rules as release Secrets). A release ConfigMap's
   `data.release` holds the release's values; the Config Maps kind, which every agent can read,
   would otherwise hand it out. `model.Redact` redacts `data.release` (and the last-applied
