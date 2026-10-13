@@ -79,6 +79,9 @@ func (b *Backend) Acquire(p *model.KindProfile) *cache.Handle {
 	if isApplications(p) { // made of several kinds' objects: a cache of its own (applications.go)
 		return b.apps.get(b).Acquire(b.Scope(p))
 	}
+	if isHelmReleases(p) { // the release Secrets joined with the release ConfigMaps (helmdriver.go)
+		return b.acquireReleases(p)
+	}
 	if p.Local {
 		_, c := b.local.get(b.logger())
 		return c.Acquire(b.Scope(p))

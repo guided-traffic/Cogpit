@@ -27,10 +27,12 @@ import (
 // that reaches an error text through the Helm SDK (a schema check quoting it, a template's fail)
 // is replaced by ScrubValues.
 
-// ErrNoValuesPayload marks a release Secret whose payload could not be read.
+// ErrNoValuesPayload marks a release record (a Secret or a ConfigMap) whose payload could not be
+// read.
 var ErrNoValuesPayload = errors.New("the release record could not be read")
 
-// Values is a release's values as YAML, from its newest revision's Secret.
+// Values is a release's values as YAML, from its newest revision's record (a Secret or a
+// ConfigMap).
 type Values struct {
 	YAML string `json:"yaml"`
 	// All is true when YAML holds every value, the chart's defaults included; false for the
@@ -42,17 +44,17 @@ type Values struct {
 	ChartVersion string `json:"chartVersion"`
 }
 
-// ReleaseValues decodes a release Secret (from the cache) and returns its values as YAML: the
-// user-supplied values, or with all set every value, the chart's defaults coalesced as Helm
-// renders them. The payload is untrusted input: a decoder that fails or panics is an error that
-// carries no content of the Secret.
-func ReleaseValues(secret *unstructured.Unstructured, all bool) (v Values, err error) {
+// ReleaseValues decodes a release record (a Secret or a ConfigMap, from the cache) and returns its
+// values as YAML: the user-supplied values, or with all set every value, the chart's defaults
+// coalesced as Helm renders them. The payload is untrusted input: a decoder that fails or panics
+// is an error that carries no content of the record.
+func ReleaseValues(record *unstructured.Unstructured, all bool) (v Values, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			v, err = Values{}, ErrNoValuesPayload
 		}
 	}()
-	rls, err := DecodeSecret(secret)
+	rls, err := DecodeRecord(record)
 	if err != nil {
 		return Values{}, ErrNoValuesPayload
 	}

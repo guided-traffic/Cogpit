@@ -120,7 +120,9 @@ func auditParams(raw json.RawMessage) json.RawMessage {
 
 // RedactManifests returns manifest text with every Secret's values replaced by model.Redacted:
 // Secret documents, and the items of any List (SecretList, v1 List, another group's List) that
-// are Secrets or belong to a SecretList. Text that does not parse as manifests is replaced by a
+// are Secrets or belong to a SecretList; and with the payload of every Helm release record kept in
+// a ConfigMap (labelled owner=helm, HELM_DRIVER=configmap) replaced the same way, since it holds
+// the release's values. Text that does not parse as manifests is replaced by a
 // note with its size when strict is set (the audit log), or when it mentions a Secret kind;
 // otherwise (an agent reading a half-typed editor tab) it is returned as it is. It reports
 // whether it changed anything.
@@ -142,8 +144,10 @@ func RedactManifests(text string, strict bool) (string, bool) {
 		switch {
 		case kind == kindSecret:
 			o, changed = redactSecret(o), true
+		case helmRecordManifest(o.Object, ""): // a Helm release record in a ConfigMap (helmdriver.go)
+			o, changed = redactHelmRecord(o), true
 		case strings.HasSuffix(kind, "List"):
-			if redactListItems(o, kind == "SecretList") {
+			if redactListItems(o, kind) {
 				changed = true
 			}
 		}
@@ -163,8 +167,9 @@ func RedactManifests(text string, strict bool) (string, bool) {
 var mentionsSecret = regexp.MustCompile(`(?m)^\s*"?kind"?\s*:\s*["']?Secret(List)?["']?\s*,?\s*$`)
 
 // redactListItems redacts the Secret items of a list object in place (o is a fresh copy from
-// ParseManifests): all of them for a SecretList, whose items carry no kind.
-func redactListItems(o *unstructured.Unstructured, allSecrets bool) bool {
+// ParseManifests): all of them for a SecretList, whose items carry no kind; and the Helm release
+// records kept in ConfigMaps among its items.
+func redactListItems(o *unstructured.Unstructured, listKind string) bool {
 	items, ok := o.Object["items"].([]any)
 	if !ok {
 		return false
@@ -175,12 +180,53 @@ func redactListItems(o *unstructured.Unstructured, allSecrets bool) bool {
 		if !ok {
 			continue
 		}
-		if k, _ := m["kind"].(string); allSecrets || k == kindSecret {
+		switch k, _ := m["kind"].(string); {
+		case listKind == "SecretList" || k == kindSecret:
 			items[i] = redactSecret(&unstructured.Unstructured{Object: m}).Object
+			changed = true
+		case helmRecordManifest(m, listKind):
+			items[i] = redactHelmRecord(&unstructured.Unstructured{Object: m}).Object
 			changed = true
 		}
 	}
 	return changed
+}
+
+// helmRecordManifest reports whether a manifest (or an item of a list of listKind) is a Helm
+// release record kept in a ConfigMap: kind ConfigMap (an item of a ConfigMapList carries none),
+// labelled owner=helm, whatever its apiVersion says. Its data.release holds the release's values.
+func helmRecordManifest(m map[string]any, listKind string) bool {
+	k, _ := m["kind"].(string)
+	if k != "ConfigMap" && (k != "" || listKind != "ConfigMapList") {
+		return false
+	}
+	md, _ := m["metadata"].(map[string]any)
+	labels, _ := md["labels"].(map[string]any)
+	owner, _ := labels["owner"].(string)
+	return owner == "helm"
+}
+
+// redactHelmRecord replaces a Helm release record's payload (data.release, or the whole data
+// field if it is not a mapping) and the last-applied annotation, which repeats it.
+func redactHelmRecord(o *unstructured.Unstructured) *unstructured.Unstructured {
+	cp := o.DeepCopy()
+	switch d := cp.Object["data"].(type) {
+	case map[string]any:
+		if _, ok := d[model.HelmRecordKey]; ok {
+			d[model.HelmRecordKey] = model.Redacted
+		}
+	case nil:
+	default:
+		cp.Object["data"] = model.Redacted
+	}
+	if md, ok := cp.Object["metadata"].(map[string]any); ok {
+		if ann, ok := md["annotations"].(map[string]any); ok {
+			if _, found := ann["kubectl.kubernetes.io/last-applied-configuration"]; found {
+				ann["kubectl.kubernetes.io/last-applied-configuration"] = model.Redacted
+			}
+		}
+	}
+	return cp
 }
 
 // redactSecret replaces a Secret manifest's values, whatever its apiVersion says and whatever

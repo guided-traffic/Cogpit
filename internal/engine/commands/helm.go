@@ -36,16 +36,24 @@ type pendingHelmParams struct {
 	All bool `json:"all,omitempty" jsonschema:"list the pending Helm actions of every context, not only the connected one's"`
 }
 
-// releaseSecretVerbs are the requests the Helm SDK makes on a release's own Secrets in its
-// namespace; the release's objects need whatever verbs their kinds need, which no static list can
-// name.
+// releaseSecretVerbs are the requests the Helm SDK makes on a release's own records in its
+// namespace: its Secrets, or its ConfigMaps for a release Helm keeps in ConfigMaps
+// (HELM_DRIVER=configmap). Both are declared; the access check of a command on a release keeps
+// those of its own driver (engine.Session.releaseVerbs). The release's objects need whatever verbs
+// their kinds need, which no static list can name.
 func releaseSecretVerbs(verbs ...string) []engine.Verb {
-	out := make([]engine.Verb, 0, len(verbs))
-	for _, v := range verbs {
-		out = append(out, engine.Verb{Verb: v, Resource: kindSecrets})
+	out := make([]engine.Verb, 0, 2*len(verbs))
+	for _, res := range []string{kindSecrets, kindConfigMaps} {
+		for _, v := range verbs {
+			out = append(out, engine.Verb{Verb: v, Resource: res})
+		}
 	}
 	return out
 }
+
+// kindConfigMaps is the kind key of core ConfigMaps: where Helm keeps a release's records with
+// HELM_DRIVER=configmap.
+const kindConfigMaps = "configmaps"
 
 func registerHelm(g *registrar) {
 	add(g, engine.Spec[rollbackParams]{
@@ -56,7 +64,7 @@ func registerHelm(g *registrar) {
 			"defaults (hooks waited for, ten revisions kept): a new revision with that revision's chart, values and " +
 			"manifest, and the release's objects changed to it. The target may be the newest revision itself (Lens's dialog " +
 			"allows it): helm then writes a new revision equal to it and applies its manifest again. Offered after an upgrade (a release at revision 2 or later). " +
-			"Besides the release's Secrets it needs whatever verbs the release's objects need. Refused when the release " +
+			"Besides the release's records (its Secrets, or its ConfigMaps when Helm keeps it there) it needs whatever verbs the release's objects need. Refused when the release " +
 			"moved to another revision since the user confirmed. A rollback a crash of Cogpit interrupts stays in " +
 			"helm_pendingOperations; run it again to finish it. Always asks the user to confirm.",
 		Enabled: func(s *engine.Session, p rollbackParams) error {
@@ -87,7 +95,7 @@ func registerHelm(g *registrar) {
 		Order: engine.OrderDelete, Danger: engine.DangerDestructive,
 		Verbs: releaseSecretVerbs("list", "get", "update", "delete"),
 		Description: "Uninstalls a Helm release as helm uninstall does with its defaults: runs its hooks, deletes every object " +
-			"of the release and its history. Besides the release's Secrets it needs whatever verbs deleting the release's " +
+			"of the release and its history. Besides the release's records (its Secrets, or its ConfigMaps when Helm keeps it there) it needs whatever verbs deleting the release's " +
 			"objects needs. Refused when the release moved to another revision since the user confirmed. An uninstall a " +
 			"crash of Cogpit interrupts stays in helm_pendingOperations; run it again to finish it. Always asks the user to confirm.",
 		Enabled: func(s *engine.Session, p refParams) error {
@@ -264,7 +272,7 @@ func runRollback(ctx context.Context, s *engine.Session, p rollbackParams) (any,
 		Revision: p.Revision, FromRevision: cur, Started: s.Now().UTC(), StartedBy: startedBy(ctx),
 	}
 	err = runHelmOp(s, op, fmt.Sprintf("Rolling back release %s to revision %d…", ref.Name, p.Revision), func() error {
-		return w.RollbackRelease(ctx, ref.Namespace, ref.Name, p.Revision, cur)
+		return w.RollbackRelease(ctx, ref.Namespace, ref.Name, helm.ReleaseStorage(obj), p.Revision, cur)
 	})
 	if err != nil {
 		return nil, movedErr(err)
@@ -283,7 +291,7 @@ func runUninstall(ctx context.Context, s *engine.Session, p refParams) (any, err
 		FromRevision: helm.ReleaseRevision(obj), Started: s.Now().UTC(), StartedBy: startedBy(ctx),
 	}
 	err = runHelmOp(s, op, fmt.Sprintf("Uninstalling release %s…", ref.Name), func() error {
-		return w.UninstallRelease(ctx, ref.Namespace, ref.Name)
+		return w.UninstallRelease(ctx, ref.Namespace, ref.Name, helm.ReleaseStorage(obj))
 	})
 	if err != nil {
 		return nil, err

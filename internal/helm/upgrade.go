@@ -74,7 +74,7 @@ func (a *Actions) upgrade(ctx context.Context, namespace, name string, ch *Chart
 	unchanged := func(err error) error {
 		return fmt.Errorf("helm upgrade %s/%s: %w; %w", namespace, name, err, ErrUnchanged)
 	}
-	cfg, err := a.config(namespace, slog.New(scrubHandler{next: a.logger().Handler(), values: values}))
+	cfg, err := a.config(namespace, a.driver(), slog.New(scrubHandler{next: a.logger().Handler(), values: values}))
 	if err != nil {
 		return 0, unchanged(err)
 	}

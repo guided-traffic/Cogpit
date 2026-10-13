@@ -15,8 +15,8 @@ import (
 // The Helm Upgrade dock tab (architecture §8, G11): Lens's "Helm Upgrade: <name>" tab (captured
 // 2026-10-12) holds a release's user-supplied values in an editor whose text lives in the engine
 // (editor.get, editor.setText, as Edit tabs), with the chart and the version the upgrade installs
-// on the tab (DockTab.Helm). The values come from the cache: the newest revision's release Secret,
-// decoded. The tab remembers the revision its values are based on, as an Edit tab remembers its
+// on the tab (DockTab.Helm). The values come from the cache: the newest revision's release record
+// (a Secret, or a ConfigMap for a release kept in ConfigMaps), decoded. The tab remembers the revision its values are based on, as an Edit tab remembers its
 // object's resourceVersion: helm.release.upgrade refuses to upgrade a release that moved to
 // another revision since, so that an upgrade never overwrites a change the tab has not shown.
 
@@ -31,8 +31,9 @@ type helmBase struct {
 	uid      string
 }
 
-// cachedRelease returns a release object and the release Secret of its newest revision from the
-// cache, waiting (bounded by ctx and syncTimeout) for the release Secrets' initial list.
+// cachedRelease returns a release object and the record (the release Secret, or ConfigMap for a
+// release kept in ConfigMaps) of its newest revision from the cache, waiting (bounded by ctx and
+// syncTimeout) for the release records' initial lists.
 func (s *Session) cachedRelease(ctx context.Context, ref model.ObjectRef) (*Backend, model.ObjectRef, *unstructured.Unstructured, *unstructured.Unstructured, error) {
 	if ref.Kind != helm.ReleaseKind {
 		return nil, ref, nil, nil, fmt.Errorf("%w: %s is not a Helm release", ErrNotApplicable, ref.String())
@@ -50,11 +51,11 @@ func (s *Session) cachedRelease(ctx context.Context, ref model.ObjectRef) (*Back
 	if !ok {
 		return nil, ref, nil, nil, fmt.Errorf("%s: %w", ref.String(), ErrNotFound)
 	}
-	secret, ok := h.Get(ref.Namespace, helm.ReleaseSecret(obj))
+	record, ok := releaseRecord(h, obj) // the Secret or ConfigMap of its driver (helmdriver.go)
 	if !ok {
-		return nil, ref, nil, nil, fmt.Errorf("%s: the release Secret of revision %d: %w", ref.String(), helm.ReleaseRevision(obj), ErrNotFound)
+		return nil, ref, nil, nil, fmt.Errorf("%s: the release %s of revision %d: %w", ref.String(), helm.ReleaseStorage(obj).Kind(), helm.ReleaseRevision(obj), ErrNotFound)
 	}
-	return b, ref, obj, secret, nil
+	return b, ref, obj, record, nil
 }
 
 // ReleaseValues returns a release's values from the cache: the user-supplied ones, or with all

@@ -26,18 +26,22 @@ const (
 
 // Actions runs Helm release actions with the Helm SDK in Cogpit's process (D-3), on one
 // connection's own client configuration (NewActionConfig: its credentials, rate limiter and
-// request counter, no kubeconfig file). The SDK reads and writes the release's Secrets itself
-// (list, get, create, update, delete secrets in the release's namespace) and changes the release's
-// objects with whatever verbs their kinds need: those requests are part of the action, not reads
-// of the cache.
+// request counter, no kubeconfig file). The SDK reads and writes the release's records itself
+// (list, get, create, update, delete secrets, or configmaps for a release kept in ConfigMaps, in
+// the release's namespace) and changes the release's objects with whatever verbs their kinds need:
+// those requests are part of the action, not reads of the cache.
 type Actions struct {
-	// config returns the SDK's action configuration for a namespace, logging to log (nil: the
-	// connection's logger).
-	config func(namespace string, log *slog.Logger) (*action.Configuration, error)
+	// config returns the SDK's action configuration for a namespace and a storage driver, logging
+	// to log (nil: the connection's logger).
+	config func(namespace string, driver Driver, log *slog.Logger) (*action.Configuration, error)
 	// log is the logger the SDK logs to.
 	log *slog.Logger
 	// Timeout bounds hooks; zero means DefaultTimeout.
 	Timeout time.Duration
+	// Driver is the storage driver of the release a rollback, an uninstall or an upgrade acts on,
+	// the one its records are in (ReleaseStorage); zero means DriverSecret. An install takes its
+	// own (InstallRequest.Driver).
+	Driver Driver
 }
 
 // NewActions returns the release actions on a connection.
@@ -45,12 +49,20 @@ func NewActions(conn *cluster.Conn, log *slog.Logger) *Actions {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Actions{log: log, config: func(namespace string, l *slog.Logger) (*action.Configuration, error) {
+	return &Actions{log: log, config: func(namespace string, driver Driver, l *slog.Logger) (*action.Configuration, error) {
 		if conn == nil {
 			return nil, errors.New("no cluster connection")
 		}
-		return NewActionConfig(conn.RESTConfig(), namespace, l)
+		return NewActionConfigFor(conn.RESTConfig(), namespace, driver, l)
 	}}
+}
+
+// driver is the storage driver of the release acted on.
+func (a *Actions) driver() Driver {
+	if a.Driver == DriverConfigMap {
+		return DriverConfigMap
+	}
+	return DriverSecret
 }
 
 func (a *Actions) timeout() time.Duration {
@@ -80,7 +92,7 @@ func (a *Actions) logger() *slog.Logger {
 // checks nothing.
 func (a *Actions) Rollback(namespace, name string, revision, from int) (err error) {
 	defer recoverAction(&err, "rollback", namespace, name)
-	cfg, err := a.config(namespace, a.logger())
+	cfg, err := a.config(namespace, a.driver(), a.logger())
 	if err != nil {
 		return fmt.Errorf("helm rollback %s/%s: %w", namespace, name, err)
 	}
@@ -110,7 +122,7 @@ func (a *Actions) Rollback(namespace, name string, revision, from int) (err erro
 // context: the action runs to its end or its timeout.
 func (a *Actions) Uninstall(namespace, name string) (err error) {
 	defer recoverAction(&err, "uninstall", namespace, name)
-	cfg, err := a.config(namespace, a.logger())
+	cfg, err := a.config(namespace, a.driver(), a.logger())
 	if err != nil {
 		return fmt.Errorf("helm uninstall %s/%s: %w", namespace, name, err)
 	}

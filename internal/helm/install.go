@@ -39,6 +39,18 @@ type InstallRequest struct {
 	// which charts reach from values through tpl, would otherwise hand the agent what the cluster
 	// holds, Secrets included, in the names or the error it returns. Install ignores it.
 	Offline bool
+	// Driver is the storage driver the new release's records go to: the HELM_DRIVER preference
+	// (zero: DriverSecret, Helm's default). The check for a release of the same name reads that
+	// driver's records only; the engine checks the cache, which holds both drivers'.
+	Driver Driver
+}
+
+// driver is the request's storage driver.
+func (req InstallRequest) driver() Driver {
+	if req.Driver == DriverConfigMap {
+		return DriverConfigMap
+	}
+	return DriverSecret
 }
 
 // RenderedObject is one object a chart renders, as a preview names it.
@@ -107,7 +119,7 @@ func (a *Actions) PreviewInstall(ctx context.Context, req InstallRequest) (p Ins
 	if err := checkInstall(req); err != nil {
 		return p, err
 	}
-	cfg, err := a.config(req.Namespace, slog.New(scrubHandler{next: a.logger().Handler(), values: scrub}))
+	cfg, err := a.config(req.Namespace, req.driver(), slog.New(scrubHandler{next: a.logger().Handler(), values: scrub}))
 	if err != nil {
 		return p, fmt.Errorf("helm install %s/%s: %w", req.Namespace, req.Name, err)
 	}
@@ -162,7 +174,7 @@ func (a *Actions) Install(ctx context.Context, req InstallRequest) (revision int
 	if err := checkInstall(req); err != nil {
 		return 0, unchanged(err)
 	}
-	cfg, err := a.config(req.Namespace, slog.New(scrubHandler{next: a.logger().Handler(), values: scrub}))
+	cfg, err := a.config(req.Namespace, req.driver(), slog.New(scrubHandler{next: a.logger().Handler(), values: scrub}))
 	if err != nil {
 		return 0, unchanged(err)
 	}

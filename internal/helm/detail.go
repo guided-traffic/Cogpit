@@ -53,6 +53,7 @@ func (m *memo) detail(o *unstructured.Unstructured) []model.DetailSection {
 	add(model.DetailItem{Name: titleNamespace, Value: ns})
 	add(model.DetailItem{Name: "Version", Value: version})
 	add(model.DetailItem{Name: titleStatus, Value: StatusText(status), Pill: true})
+	add(storageItem(o))
 	add(model.DetailItem{Name: "Error", Value: model.NestedString(o, "error"), Status: model.StatusError})
 	sections := []model.DetailSection{{Title: model.TitleProperties, Items: props}}
 
@@ -72,6 +73,24 @@ func (m *memo) detail(o *unstructured.Unstructured) []model.DetailSection {
 		sections = append(sections, model.DetailSection{Title: TitleNotes, Items: []model.DetailItem{{Value: h.notes, Private: true}}})
 	}
 	return append(sections, resourceSections(h.resources)...)
+}
+
+// TitleStorage titles the drawer's Storage, Cogpit's addition (inferred: Lens's drawer, captured
+// 2026-10-12, does not say where a release is kept): the Helm storage driver whose records hold
+// the release, "Secrets" (Helm's default) or "ConfigMaps" (HELM_DRIVER=configmap).
+const TitleStorage = "Storage"
+
+// storageItem is the drawer's Storage: the driver, and a warning when the other driver holds a
+// release of the same name in the namespace, which the drawer does not show (groupReleases).
+func storageItem(o *unstructured.Unstructured) model.DetailItem {
+	text := map[Driver]string{DriverSecret: "Secrets", DriverConfigMap: "ConfigMaps"}
+	it := model.DetailItem{Name: TitleStorage, Value: text[ReleaseStorage(o)]}
+	if other := Driver(model.NestedString(o, fieldHidden)); other != "" {
+		n, _ := model.NestedInt64(o, fieldHiddenRevisions)
+		it.Value += fmt.Sprintf("; %s also hold a release of this name (%d revisions), not shown", text[other], n)
+		it.Status = model.StatusWarning
+	}
+	return it
 }
 
 // heavyOf returns the values, notes and resources the memo keeps for a release object's newest

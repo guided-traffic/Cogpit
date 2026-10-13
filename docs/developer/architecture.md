@@ -26,7 +26,7 @@ it finds in the cluster (CPU, Memory, Network, Filesystem; ranges to 30 days hel
 hover panel with the exact values), keeps a crash report when it crashes, and lets the user switch
 the external MCP server off in the status bar.
 Since the night run (2026-10-12) a hotbar of pinned clusters in banks of twelve sits at the window's left edge (G13): engine state (`UIState.Hotbar`, nine `hotbar.*` commands, `<user config dir>/Cogpit/hotbar.json`), F1–F12 and ⇧F1–⇧F12 ([§4.3](#43-ui-state)).
-Since 2026-10-13 Helm charts can be installed (G11, §8): public https repositories the user adds, kept in Cogpit's own folders (`helm.repo.*`, Helm › Repositories…), their charts as the local kind `helmcharts` (Helm › Charts), and a Helm Install dock tab whose install is previewed with the SDK's server-side dry run and runs crash-safe through the Helm journal; a release whose chart those repositories list is upgraded to a version of theirs, downloaded and checked against the index's digest (`helm.release.upgrade` with `version` and `repository`).
+Since 2026-10-13 Helm charts can be installed (G11, §8): public https repositories the user adds, kept in Cogpit's own folders (`helm.repo.*`, Helm › Repositories…), their charts as the local kind `helmcharts` (Helm › Charts), and a Helm Install dock tab whose install is previewed with the SDK's server-side dry run and runs crash-safe through the Helm journal; a release whose chart those repositories list is upgraded to a version of theirs, downloaded and checked against the index's digest (`helm.release.upgrade` with `version` and `repository`). Releases kept in ConfigMaps (`HELM_DRIVER=configmap`) are listed beside those kept in Secrets and acted on with their own driver, and new installs go where the Preferences' Helm storage driver says (§8 › Storage drivers).
 Since 2026-10-13 the navigator has Lens's header (a scope dropdown and a search), the cluster as the tree's root, "<item> - <context>" tooltips and its keyboard, in Cogpit's own tree rows ([`navigator.go`](../../internal/ui/fyneui/navigator.go); its search and keyboard are the window's, [§4.3](#43-ui-state)); since the night run (2026-10-13) the level above a cluster too, the Local Kubeconfigs section listing every cluster of the kubeconfig sources, its scope engine state that the tab bar follows (`UIState.NavigatorScope`, `ui.setNavigatorScope`; [`navigator_sections.go`](../../internal/ui/fyneui/navigator_sections.go)).
 Since 2026-10-13 a command palette (⌘⇧P, G13) lists what the menus offer by the registry's metadata and runs it as the menus do; its open state is `UIState.Palette`, and the registry's shortcuts ⌘⇧P and ⌘P sit on main-menu items ([§4.2](#42-the-command-registry)).
 Since 2026-10-13 the cluster Overview (`cluster/overview`, the navigator's first item, G12) shows the cluster's CPU, Memory and Pods for its master or worker nodes over a range, through a cluster scope of the metrics hub, and the Issues from the cache; its range and node group are `UIState.Overview` ([§4.3](#43-ui-state), [§9](#9-metrics-internalmetrics)).
@@ -602,7 +602,11 @@ settings also hold its proxy (`ClusterSettings.Proxy`, the Proxy section, [§6](
 before anything is asked; clearing is allowed), and the audit log redacts the `proxy` parameter.
 The Preferences hold the proxy of the traffic that is no cluster's the same way
 (`Preferences.HTTPProxy`, the Proxy section, `preferences.set`'s `httpProxy`; `Preferences.Shown`
-redacts it for the UI state and the commands' results; §8 uses it).
+redacts it for the UI state and the commands' results; §8 uses it). Since 2026-10-13 they also
+hold where a new Helm install keeps its release's records (`Preferences.HelmDriver`, Lens's
+`HELM_DRIVER`: empty for Secrets, or `configmap`; the Kubernetes section; `preferences.set`'s
+`helmDriver`, `configmap` refused for every origin but the GUI with `ErrHelmDriverGUIOnly`, `sql`
+refused for all; §8 › Storage drivers).
 
 The GUI ([`fyneui/preferences.go`](../../internal/ui/fyneui/preferences.go),
 [`preferences_page.go`](../../internal/ui/fyneui/preferences_page.go),
@@ -1058,13 +1062,15 @@ by hand, so the view, the drawer, `Lookup` and agents' reads of a kind share one
 Measured at the HTTP level (revised 2026-10-12 for the full Secrets watch): the Secrets view is one
 initial list or streaming watch of every Secret in full, and opening a Secret's drawer or revealing
 a value costs no request (`TestBudgetSecretsViewAndDrawer`); the Releases view alone is one
-`secrets with owner=helm` request and nothing else (`TestBudgetHelmReleasesView`); both together are
+`secrets with owner=helm` request and nothing else (`TestBudgetHelmReleasesView`), and on a cluster
+that serves ConfigMaps one `configmaps with owner=helm` request more, Helm's ConfigMaps driver
+(2026-10-13, `TestBudgetHelmReleasesWithConfigMaps`, below); both together are
 one watch, the full one (`TestBudgetSecretsAndReleasesShareOneWatch`, below); a metadata-only scope
 asks for `PartialObjectMetadata` and gets no value (`TestBudgetSecretScopes`; on kind,
 `TestKindSecretScopes`, `TestKindSecretsView`). `resources.find` without a kind searches a virtual
 kind, and a kind whose scope holds Secret values (`engine.HoldsSecretValues`: the Secrets and Helm's
 releases), only when the cache holds it already (`Backend.Cached`, in the profile's scope or its
-cover), so an agent's search by name never starts a watch of every Secret or release Secret
+cover; for the releases every scope they are joined from, 2026-10-13), so an agent's search by name never starts a watch of every Secret or release record
 (review 2026-10-11, extended 2026-10-12, `TestBudgetFindWithoutKindStartsNoReleaseWatch`).
 The Secrets view's drawer ([`secretdata.go`](../../internal/engine/secretdata.go); rebuilt
 2026-10-12, before it made one `get secrets` per open) reads the Secret it shows from the cache like
@@ -1133,7 +1139,8 @@ closes; opening the Secrets view again moves the releases back and closes theirs
   the drawer, row menus and agents read them like cluster objects, and no API server is asked.
   Every real cluster's backend offers the profiles in `kinds.Local()`.
 - **Virtual kinds** (`KindProfile.Derive`): a kind whose objects are made from the cached objects
-  of its scope, the Helm releases (one per release, from the release Secrets of each revision).
+  of its scope, the Helm releases (one per release, from the release records of each revision:
+  Secrets, and since 2026-10-13 ConfigMaps, through a joined handle, below).
   `Derive` runs on every snapshot and lookup and memoizes its own expensive work; the derived
   objects carry a UID and resourceVersion that change with them, which the row cache and the
   confirmation's UID binding use.
@@ -1146,6 +1153,20 @@ closes; opening the Secrets view again moves the releases back and closes theirs
   has synced (a part the user may not list does not hide the others), `Err` the first part's
   error, `Subscribe` every part's events one at a time (serialised; no order across parts), and
   `Release` releases every part (`TestJoinReadsSeveralScopesAsOne`, with the race detector).
+  Helm's releases use it (2026-10-13, [`engine/helmdriver.go`](../../internal/engine/helmdriver.go)):
+  `Backend.Acquire` of the `helmreleases` profile joins the profile's own scope, the Secrets
+  labelled `owner=helm`, with the ConfigMaps labelled `owner=helm` (Helm's ConfigMaps driver,
+  `HELM_DRIVER=configmap`) where the cluster serves ConfigMaps, and `Derive` sees both drivers'
+  records; each part is covered by its kind's full watch while the Secrets or the Config Maps view
+  runs, `Cached` asks for every part, `Listable` for either (a user who may list only one of the
+  two sees that one's releases, and the other's error with them). Measured: the Releases view is
+  one initial list of each label-selected scope and nothing else, the Config Maps view's full
+  watch then serves the release ConfigMaps and their own watch closes, for a server that streams
+  initial lists and for one that does not (`TestBudgetHelmReleasesWithConfigMaps`). Not the
+  Applications' road (a cache of its own over `cache.Held`, below): `Derive`'s memo is keyed by a
+  record's UID and resourceVersion and the release object carries its newest record's, which a
+  `cache.Memory` in between would replace, and a Memory would hold every payload a second time and
+  again in its event history; a joined handle copies nothing (the agent HD's choice, 2026-10-13).
 - **A virtual kind made of several kinds** (built 2026-10-13): the Applications, the cached
   Deployments, Stateful Sets, Daemon Sets, Cron Jobs and Jobs grouped by
   `app.kubernetes.io/instance` ([`kinds.GroupApplications`](../../internal/model/kinds/applications.go)).
@@ -1476,7 +1497,8 @@ Every agent-origin command lands in the audit log.
 ## 8. Helm (`internal/helm`)
 
 The Helm SDK (`helm.sh/helm/v4`) runs in-process: releases, history, values and manifests come from
-the release Secrets in the cache; install, upgrade, rollback and uninstall run as engine jobs.
+the release records in the cache (Secrets, and since 2026-10-13 ConfigMaps: storage drivers,
+below); install, upgrade, rollback and uninstall run as engine jobs.
 These are the operations that leave a release `pending-*` when the process dies halfway
 ([D-11](decisions.md#d-11-crash-stance)), so they run in a worker process (`cogpit-cli`), or the
 next start detects the pending release and offers to finish or roll it back. Which of the two is
@@ -1867,6 +1889,75 @@ above, this paragraph wins.
   confirmed naming both versions and "an older version" (the added ConfigMap deleted), the release
   uninstalled and the namespace deleted; the requests are in the
   [privilege footprint](../security/privilege-footprint.md#actions-that-write).
+
+**Storage drivers: Secrets and ConfigMaps (built 2026-10-13, night run, agent HD; G11;
+[`helm/configmaps.go`](../../internal/helm/configmaps.go), [`engine/helmdriver.go`](../../internal/engine/helmdriver.go)).**
+Helm keeps one record per release revision in the release's namespace: a Secret by default, a
+ConfigMap with `HELM_DRIVER=configmap`, both named `sh.helm.release.v1.<release>.v<revision>` and
+labelled `owner=helm`, `name`, `status`, `version` (read in the SDK's `storage/driver`, v4.3.0); a
+ConfigMap's `data.release` is Helm's encoding as text, a Secret's the same under the Kubernetes
+base64. Where it differs from the paragraphs above, this one wins.
+
+- **Read.** The `helmreleases` kind reads both drivers' records through a joined handle (§5 ›
+  Joined scopes); `helm.DecodeRecord` decodes each by its kind, the memo keeps them as it keeps
+  Secrets (by UID and resourceVersion, the values of the newest revision of a shown release only,
+  bounded, forgotten when idle; `TestDeriveMemoConfigMaps`, `TestDeriveFromConfigMaps`). A release
+  object names its driver (`storage`: `secret` or `configmap`) and its newest record (`secret` or
+  `configMap`); `helm.release.values`, the drawer and the Upgrade tab read the record from the
+  handle's part of that driver, so a Secret and a ConfigMap of one name are never taken for each
+  other.
+- **One name in both drivers** (Cogpit's choice, inferred: Lens reads one driver). Helm's drivers
+  do not see each other's records, so a namespace can hold a release of one name in Secrets and
+  another in ConfigMaps, whose revision numbers say nothing about each other. Cogpit shows one
+  object per namespace and name: the release whose newest revision was deployed last (then created
+  last, then the Secrets', Helm's default); the other's revisions are dropped from its history,
+  their values from the memo, and the drawer's Storage says the other driver holds one too, in the
+  warning colour (`TestDeriveMixedDrivers`).
+- **The drawer's Storage** (Cogpit's addition after Status, inferred: Lens's drawer, captured
+  2026-10-12, does not say): "Secrets" or "ConfigMaps".
+- **Actions run with the release's own driver.** `HelmWriter.RollbackRelease` and
+  `UninstallRelease` take the driver, `HelmUpgradeRequest.Driver` and `helm.InstallRequest.Driver`
+  carry it, `helm.Actions.Driver` and `helm.NewActionConfigFor` hand it to the SDK's
+  `action.Configuration.Init`, which then lists, gets, creates, updates and deletes that driver's
+  records only (`TestActionsUseTheReleasesDriver`, on the SDK's own drivers over a fake clientset:
+  an install, upgrade, rollback and uninstall in ConfigMaps write no Secret, and the Secrets driver
+  does not see the release). Rollback, uninstall and upgrade take the driver from the release in the
+  cache; an install from the preference below. The process's `HELM_DRIVER` is never read. The
+  journal and its offers are unchanged: finishing an interrupted action reads the release, its
+  driver included, from the cache.
+- **Verbs.** The release commands declare their verbs on `secrets` and on `configmaps`; the access
+  check of a command on a release (`Session.permitted`) keeps those of the release's own driver,
+  so a user who may not touch Secrets can still roll back a release kept in ConfigMaps, and not
+  one kept in Secrets (`TestHelmVerbsFollowTheReleasesDriver`; the [privilege footprint](../security/privilege-footprint.md#actions-that-write)).
+- **The preference.** `Preferences.HelmDriver` (Lens's `HELM_DRIVER`, Preferences › Kubernetes ›
+  Helm storage driver; Cogpit's place, inferred), kept in `preferences.json`: empty for Helm's
+  default (secret), or `configmap`; `sql` is refused (`helm.ErrSQLDriver`: Helm's SQL driver keeps
+  releases in a database outside the cluster, which Cogpit neither reads nor writes), as is
+  anything else. Only the user chooses `configmap`, in the window (`ErrHelmDriverGUIOnly`;
+  agents and the CLI may set it back to secret): a release kept in ConfigMaps has its values
+  readable by whoever may read ConfigMaps in its namespace, which RBAC often grants more widely
+  than Secrets (Cogpit's default, as for the proxies, not the owner's decision). An install's
+  confirmation says so when the preference is `configmap` (`TestHelmDriverPreference`,
+  `TestHelmInstallUsesTheDriverPreference`).
+- **Payloads stay from agents** (the same rules as release Secrets). A release ConfigMap's
+  `data.release` holds the release's values; the Config Maps kind, which every agent can read,
+  would otherwise hand it out. `model.Redact` redacts `data.release` (and the last-applied
+  annotation) of a v1 ConfigMap labelled `owner=helm` (`model.IsHelmRecord`), so `object_get`'s
+  YAML shows `<redacted>`, for the window too (the payload is base64 of gzip, nothing to read);
+  the Config Maps drawer shows the payload's size, not the payload; `RedactManifests` redacts it
+  in documents and lists, so the audit log never holds it and an agent can neither open an Edit
+  tab on such a ConfigMap, nor read the user's (`<withheld>`), nor set, apply or create one
+  (`ErrSecretGUIOnly`, whose text now names both); `resources_list` and the CSV show the key name
+  only (`TestHelmConfigMapPayloadsKeptFromAgents`, `TestConfigMapDrawerHidesHelmRecords`,
+  `TestRedactHelmRecord`). The user's own Edit tab of a release ConfigMap shows the record as it is.
+- **On kind** (`TestKindHelmConfigMapDriver`, 2026-10-13): the preference set in the window (an
+  agent refused), an agent's install from an httptest repository into `cogpit-hd-configmap`
+  confirmed with the ConfigMaps sentence, one ConfigMap record and no Secret, the release in the
+  Releases view with Storage ConfigMaps, its ConfigMap read by an agent with the payload redacted,
+  an upgrade and a rollback (three ConfigMap records, still no Secret), the uninstall leaving no
+  record, the namespace deleted. The existing Helm kind tests pass with the joined handle.
+- **Not built.** The SQL driver (missing, above). A release whose records a cluster keeps in both
+  drivers shows one of them only (above).
 
 ## 9. Metrics (`internal/metrics`)
 
@@ -2539,6 +2630,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | Helm's ConfigMaps storage driver (G11, night run, agent HD): §5 joined scopes (`cache.Join`) and the releases read from the release Secrets and ConfigMaps; §8 storage drivers (the read side, one name in both drivers, the drawer's Storage, actions with the release's driver, the verbs, the `HELM_DRIVER` preference, payloads kept from agents, on kind); Current state |
 | 2026-10-13 | minor | The kubeconfig's TLS and proxy fields (G2, night run, V2): §6 what clientcmd does with them, verified against TLS test servers, `certificateHint`, the `proxy-url` password scrubbed from connect errors (fixed), `Conn.Insecure`, the connect log's WARN line and `ContextInfo.Insecure`; Pod Security Policies (G6): Current state, 46 built-in views |
 | 2026-10-13 | minor | The kubeconfig's TLS and proxy fields (G2, night run, V2): §6 what clientcmd does with them, verified against TLS test servers, `certificateHint`, the `proxy-url` password scrubbed from connect errors (fixed), `Conn.Insecure`, the connect log's WARN line and `ContextInfo.Insecure` |
 | 2026-10-13 | minor | §10 kubectl in terminals (D-3 built, night run): the check when a terminal opens, the GUI-only download verified against the SHA-256 and the sigstore signature, the release first on the terminal's `PATH` (zsh after its profile); `internal/kubectl` (L1) in §2 and §3; §4.3 the kubectl preferences and `ErrKubectlGUIOnly`; Current state |

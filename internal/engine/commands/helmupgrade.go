@@ -67,9 +67,13 @@ type ReleaseHistory struct {
 	History []helm.HistoryEntry `json:"history"`
 }
 
-// releaseCacheReads are the reads of the commands that read releases from the cache: the watch
-// on the release Secrets.
-var releaseCacheReads = []engine.Verb{{Verb: nwVerbList, Resource: kindSecrets}, {Verb: nwVerbWatch, Resource: kindSecrets}}
+// releaseCacheReads are the reads of the commands that read releases from the cache: the watches
+// on the release Secrets and the release ConfigMaps (the access check keeps the release's own
+// driver's, engine.Session.releaseVerbs).
+var releaseCacheReads = []engine.Verb{
+	{Verb: nwVerbList, Resource: kindSecrets}, {Verb: nwVerbWatch, Resource: kindSecrets},
+	{Verb: nwVerbList, Resource: kindConfigMaps}, {Verb: nwVerbWatch, Resource: kindConfigMaps},
+}
 
 func registerHelmUpgrade(g *registrar) {
 	add(g, engine.Spec[upgradeTabParams]{
@@ -113,7 +117,7 @@ func registerHelmUpgrade(g *registrar) {
 			"given here with the revision they are based on. The chart is the release's own, or another version of it that a " +
 			"chart repository added to Cogpit lists (version, repository; from a tab, the tab's choice), downloaded first and " +
 			"checked against the index's digest when it lists one. Refused when the release moved to another revision since " +
-			"the values were read, and while another Helm action on it is pending. Besides the release's Secrets it needs " +
+			"the values were read, and while another Helm action on it is pending. Besides the release's records (its Secrets, or its ConfigMaps when Helm keeps it there) it needs " +
 			"whatever verbs the release's objects need, and create and delete for objects another chart version adds or drops. " +
 			"An agent's request waits for the user's acceptance, which names the chart version from and to. An upgrade a crash " +
 			"of Cogpit interrupts stays in helm_pendingOperations; helm_release_rollback to its fromRevision finishes it.",
@@ -405,7 +409,8 @@ func runUpgrade(ctx context.Context, s *engine.Session, p upgradeParams) (any, e
 				err = helm.Scrubbed(fmt.Errorf("internal error: %v", r), vals)
 			}
 		}()
-		revision, err = w.UpgradeRelease(ctx, ref.Namespace, ref.Name, engine.HelmUpgradeRequest{ChartVersion: target.to, Chart: downloaded, Values: vals, FromRevision: cur})
+		revision, err = w.UpgradeRelease(ctx, ref.Namespace, ref.Name, engine.HelmUpgradeRequest{ChartVersion: target.to, Chart: downloaded, Values: vals,
+			FromRevision: cur, Driver: helm.ReleaseStorage(obj)})
 		return helm.Scrubbed(err, vals)
 	})
 	if err != nil {

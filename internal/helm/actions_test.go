@@ -42,7 +42,7 @@ func sdkFixture(t *testing.T, revisions ...common.Status) (*Actions, *storage.St
 		KubeClient:   &kubefake.PrintingKubeClient{Out: io.Discard},
 		Capabilities: chartcommon.DefaultCapabilities,
 	}
-	return &Actions{config: func(string, *slog.Logger) (*action.Configuration, error) { return cfg, nil }}, store
+	return &Actions{config: func(string, Driver, *slog.Logger) (*action.Configuration, error) { return cfg, nil }}, store
 }
 
 func fixtureChart() *chart.Chart {
@@ -164,7 +164,7 @@ func TestUpgradeThroughTheSDK(t *testing.T) {
 
 	// A failure after the SDK made its revision leaves it failed, and is not ErrUnchanged.
 	failing, store3 := sdkFixture(t, common.StatusDeployed)
-	cfg, _ := failing.config("apps", nil)
+	cfg, _ := failing.config("apps", DriverSecret, nil)
 	cfg.KubeClient = &kubefake.FailingKubeClient{PrintingKubeClient: kubefake.PrintingKubeClient{Out: io.Discard}, UpdateError: errors.New("the server rejected it")}
 	if _, err := failing.Upgrade(context.Background(), "apps", "web", "", 0, map[string]any{"greeting": "x"}); err == nil || errors.Is(err, ErrUnchanged) ||
 		!strings.Contains(err.Error(), "rejected") {
@@ -206,8 +206,8 @@ func TestUpgradeRefusesAPendingRelease(t *testing.T) {
 func TestUpgradeScrubsValuesFromErrors(t *testing.T) {
 	a, store := sdkFixture(t, common.StatusDeployed)
 	var logged bytes.Buffer
-	cfg, _ := a.config("apps", nil)
-	a.config = func(_ string, l *slog.Logger) (*action.Configuration, error) {
+	cfg, _ := a.config("apps", DriverSecret, nil)
+	a.config = func(_ string, _ Driver, l *slog.Logger) (*action.Configuration, error) {
 		cfg.SetLogger(l.Handler())
 		return cfg, nil
 	}
@@ -223,7 +223,7 @@ func TestUpgradeScrubsValuesFromErrors(t *testing.T) {
 	if rls := last(t, store); rls.Version != 1 {
 		t.Errorf("a failed render made revision %d", rls.Version)
 	}
-	panicky := &Actions{config: func(string, *slog.Logger) (*action.Configuration, error) { panic("boom with s3cr3t-token") }}
+	panicky := &Actions{config: func(string, Driver, *slog.Logger) (*action.Configuration, error) { panic("boom with s3cr3t-token") }}
 	if _, err := panicky.Upgrade(context.Background(), "apps", "web", "", 0, map[string]any{"x": "s3cr3t-token"}); err == nil ||
 		strings.Contains(err.Error(), "s3cr3t-token") || !strings.Contains(err.Error(), "internal error") {
 		t.Errorf("panic: %v", err)
@@ -232,11 +232,11 @@ func TestUpgradeScrubsValuesFromErrors(t *testing.T) {
 
 // A configuration that cannot be made, or an SDK that panics, is the action's error.
 func TestActionsReportFailures(t *testing.T) {
-	broken := &Actions{config: func(string, *slog.Logger) (*action.Configuration, error) { return nil, errors.New("no client") }}
+	broken := &Actions{config: func(string, Driver, *slog.Logger) (*action.Configuration, error) { return nil, errors.New("no client") }}
 	if err := broken.Rollback("apps", "web", 1, 0); err == nil || !strings.Contains(err.Error(), "no client") {
 		t.Errorf("rollback: %v", err)
 	}
-	panicky := &Actions{config: func(string, *slog.Logger) (*action.Configuration, error) { return &action.Configuration{}, nil }}
+	panicky := &Actions{config: func(string, Driver, *slog.Logger) (*action.Configuration, error) { return &action.Configuration{}, nil }}
 	if err := panicky.Uninstall("apps", "web"); err == nil || !strings.Contains(err.Error(), "internal error") {
 		t.Errorf("uninstall with an empty configuration: %v", err)
 	}

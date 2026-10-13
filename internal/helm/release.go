@@ -13,9 +13,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// ReleaseSelector is the label selector of the Secrets Helm keeps its releases in, with the
-// default (Secrets) storage driver: one Secret per release revision, named
-// sh.helm.release.v1.<release>.v<revision>.
+// ReleaseSelector is the label selector of the records Helm keeps its releases in: one Secret
+// (the default storage driver) or ConfigMap (HELM_DRIVER=configmap, configmaps.go) per release
+// revision, named sh.helm.release.v1.<release>.v<revision>.
 const ReleaseSelector = "owner=helm"
 
 // maxPayload bounds a release payload after decompression: a release Secret is cluster data and
@@ -26,9 +26,9 @@ const maxPayload = 64 << 20
 // magicGzip starts a gzip stream; Helm compresses every payload it writes since Helm 2.
 var magicGzip = []byte{0x1f, 0x8b, 0x08}
 
-// ErrNoPayload marks a Secret without a release payload (data.release missing or empty): one
-// held as metadata only, or not Helm's.
-var ErrNoPayload = errors.New("the Secret holds no Helm release payload")
+// ErrNoPayload marks a release record (a Secret or a ConfigMap) without a release payload
+// (data.release missing or empty): one held as metadata only, or not Helm's.
+var ErrNoPayload = errors.New("the record holds no Helm release payload")
 
 // DecodeSecret decodes the release a Helm release Secret holds: data.release is the Kubernetes
 // base64 of Helm's own encoding (base64 of gzip of JSON, DecodePayload). The release's Labels

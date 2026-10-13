@@ -13,14 +13,16 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/kubectl"
 )
 
 // Preferences (G13, docs/parity/ui-parity.md › Preferences): Cogpit's own settings that are not a
 // cluster's, as Lens's Preferences page holds them: the theme, the time zone absolute times are
 // shown in, the tables' row height, the editor's font size, line numbers and tab size, and the
-// local terminal's font size, shell and shell arguments, and the proxy of the traffic that is no
-// cluster's (the Helm repositories' downloads). They are engine state (UIState.Preferences, the
+// local terminal's font size, shell and shell arguments, the proxy of the traffic that is no
+// cluster's (the Helm repositories' downloads), and Helm's storage driver for new installs
+// (HelmDriver, helmdriver.go). They are engine state (UIState.Preferences, the
 // proxy's password redacted: Shown) so that agents see and change what the user sees; the GUI
 // changes them only through preferences.set. They are kept in PreferencesFile under Cogpit's
 // configuration directory, never in a kubeconfig, and no preference talks to a cluster. Only the
@@ -88,6 +90,10 @@ type Preferences struct {
 	// TerminalShellArgs are its arguments, one per entry. Pod shells are not affected.
 	TerminalShell     string   `json:"terminalShell,omitempty"`
 	TerminalShellArgs []string `json:"terminalShellArgs,omitempty"`
+	// HelmDriver is Lens's HELM_DRIVER: where a new Helm install keeps its release's records,
+	// "secret" (empty: Helm's default) or "configmap" (helmdriver.go). Releases already installed
+	// keep the driver their records are in; "sql" is refused (helm.ErrSQLDriver).
+	HelmDriver string `json:"helmDriver,omitempty"`
 	// HTTPProxy is the proxy of the traffic that is no cluster's (Lens's "HTTP proxy for
 	// non-cluster traffic"): the Helm repositories' indexes and charts and the kubectl downloads
 	// (proxy.go, kubectl.go). Empty: the
@@ -152,6 +158,9 @@ func (p Preferences) Check() error {
 		return err
 	}
 	if err := checkShellArgs(p.TerminalShellArgs); err != nil {
+		return err
+	}
+	if _, err := helm.ParseDriver(p.HelmDriver); err != nil {
 		return err
 	}
 	if err := CheckProxyURL(p.HTTPProxy); err != nil {
@@ -227,6 +236,11 @@ func (p *Preferences) normalize() {
 	}
 	if len(p.TerminalShellArgs) == 0 {
 		p.TerminalShellArgs = nil
+	}
+	if d, err := helm.ParseDriver(p.HelmDriver); err != nil || d == helm.DriverSecret {
+		p.HelmDriver = "" // Helm's default
+	} else {
+		p.HelmDriver = string(d)
 	}
 	if p.HTTPProxy = strings.TrimSpace(p.HTTPProxy); CheckProxyURL(p.HTTPProxy) != nil {
 		p.HTTPProxy = ""

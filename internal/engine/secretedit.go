@@ -18,9 +18,10 @@ import (
 // entry point has it, and its text never carries a value.
 
 // ErrSecretGUIOnly refuses an agent or the CLI anything that opens, reads, changes, checks, applies
-// or creates a Secret from YAML.
-var ErrSecretGUIOnly = errors.New("a Secret is edited and created only by the user, in Cogpit's own window: " +
-	"agents and the CLI cannot open, read, change, check, apply or create a Secret from YAML")
+// or creates a Secret from YAML, and the same for a Helm release record kept in a ConfigMap
+// (HELM_DRIVER=configmap), whose payload holds the release's values (RedactManifests).
+var ErrSecretGUIOnly = errors.New("a Secret, or a Helm release record kept in a ConfigMap, is edited and created only by " +
+	"the user, in Cogpit's own window: agents and the CLI cannot open, read, change, check, apply or create one from YAML")
 
 // secretValueFields are the fields of a Secret manifest that hold values.
 var secretValueFields = []string{"data", "stringData"}

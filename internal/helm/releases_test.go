@@ -159,8 +159,11 @@ func TestReleaseDetail(t *testing.T) {
 		names = append(names, it.Name)
 		props[it.Name] = it
 	}
-	if strings.Join(names, ",") != "Chart,Updated,Namespace,Version,Status" {
+	if strings.Join(names, ",") != "Chart,Updated,Namespace,Version,Status,Storage" {
 		t.Errorf("properties %v", names)
+	}
+	if st := props[TitleStorage]; st.Value != "Secrets" || st.Status != model.StatusNone {
+		t.Errorf("storage %+v", st)
 	}
 	if c := props["Chart"]; c.Value != "web-1.3.0" || len(c.Actions) != 1 || c.Actions[0].Command != UpgradeTabCommand || c.Actions[0].Label != "Upgrade" ||
 		string(c.Actions[0].Params) != `{"ref":{"kind":"helmreleases","namespace":"apps","name":"web"}}` {

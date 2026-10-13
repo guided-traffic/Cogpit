@@ -37,6 +37,7 @@ type preferencesSetParams struct {
 	TerminalFontSize  *int     `json:"terminalFontSize,omitempty" jsonschema:"the dock terminals' text size in points, 8 to 32 (default 13), for terminals opened afterwards"`
 	TerminalShell     *string  `json:"terminalShell,omitempty" jsonschema:"the local terminal's shell, an absolute path; empty: $SHELL. Only the user in Cogpit's window may set it: refused for agents"`
 	TerminalShellArgs []string `json:"terminalShellArgs,omitempty" jsonschema:"the local terminal shell's arguments, one per entry. Only the user in Cogpit's window may set them: refused for agents"`
+	HelmDriver        *string  `json:"helmDriver,omitempty" jsonschema:"where a new Helm install keeps its release's records (Lens's HELM_DRIVER): secret (Helm's default; empty means it too) or configmap; sql is not supported. Releases already installed keep theirs. Agents and the CLI may only set secret: configmap, whose records whoever may read ConfigMaps can read, is the user's choice, in Cogpit's window"`
 	HTTPProxy         *string  `json:"httpProxy,omitempty" jsonschema:"the proxy of the traffic that is no cluster's (the Helm repositories' indexes and charts, the kubectl downloads): http://<address>:<port>, https:// or socks5://, optionally with user:password@; empty: the environment's HTTPS_PROXY. Agents and the CLI may only clear it (an empty string): setting one is the user's, in Cogpit's window"`
 	// TerminalRightClickCopyPaste is GUI-only too (engine/termpaste.go).
 	TerminalRightClickCopyPaste *bool `json:"terminalRightClickCopyPaste,omitempty" jsonschema:"whether a right click in the dock's terminals copies the selection, or pastes the clipboard when nothing is selected (default false). Only the user in Cogpit's window may set it: refused for agents"`
@@ -93,7 +94,8 @@ func registerPreferences(g *registrar) {
 			"terminal's shell and arguments (empty: $SHELL), whether a right click in a terminal copies and pastes, the " +
 			"HTTP proxy of the traffic that is no cluster's (empty: the environment's; its password shown as •••), and " +
 			"kubectl for terminals: downloads offered or not, the mirror, the directory for binaries (kubectlDir: the one " +
-			"in effect) and the path to kubectl; kept says whether they outlive this run. ui_state carries the same.",
+			"in effect), the path to kubectl, and where new Helm installs keep their records (helmDriver, empty: " +
+			"secret); kept says whether they outlive this run. ui_state carries the same.",
 		Enabled: func(s *engine.Session, _ struct{}) error { _, err := s.Preferences(); return err },
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			p, err := s.Preferences()
@@ -113,7 +115,8 @@ func registerPreferences(g *registrar) {
 			"runs on this computer; so are the path to kubectl, the directory for binaries and the kubectl download " +
 			"mirror, which decide what the terminals run as kubectl, the terminals' right mouse button, which decides " +
 			"whether a click pastes into a shell, and setting the HTTP proxy (it decides where Cogpit's downloads go), " +
-			"which they may only clear." + prefsWritesOnly + " Returns the preferences.",
+			"which they may only clear, and choosing the configmap Helm storage driver for new installs, which they may " +
+			"only set back to secret." + prefsWritesOnly + " Returns the preferences.",
 		Enabled: func(s *engine.Session, _ preferencesSetParams) error { _, err := s.Preferences(); return err },
 		Refuse: func(ctx context.Context, _ *engine.Session, p preferencesSetParams) error {
 			if err := p.refuse(ctx); err != nil {
@@ -121,6 +124,9 @@ func registerPreferences(g *registrar) {
 			}
 			if p.TerminalRightClickCopyPaste != nil && engine.OriginOf(ctx) != engine.OriginGUI {
 				return engine.ErrRightClickGUIOnly
+			}
+			if err := engine.RefuseHelmDriver(ctx, p.HelmDriver); err != nil {
+				return err
 			}
 			return refuseProxy(ctx, p.HTTPProxy)
 		},
@@ -131,8 +137,19 @@ func registerPreferences(g *registrar) {
 			if p.TerminalRightClickCopyPaste != nil && engine.OriginOf(ctx) != engine.OriginGUI {
 				return nil, engine.ErrRightClickGUIOnly
 			}
+			if err := engine.RefuseHelmDriver(ctx, p.HelmDriver); err != nil {
+				return nil, err
+			}
 			if err := refuseProxy(ctx, p.HTTPProxy); err != nil {
 				return nil, err
+			}
+			var helmDriver string
+			if p.HelmDriver != nil {
+				d, err := engine.HelmDriverPreference(*p.HelmDriver)
+				if err != nil {
+					return nil, err
+				}
+				helmDriver = d
 			}
 			if p.TerminalShell != nil {
 				if err := engine.CheckShell(strings.TrimSpace(*p.TerminalShell)); err != nil {
@@ -160,6 +177,9 @@ func registerPreferences(g *registrar) {
 				if p.TerminalShellArgs != nil {
 					pr.TerminalShellArgs = slices.Clone(p.TerminalShellArgs)
 				}
+				if p.HelmDriver != nil {
+					pr.HelmDriver = helmDriver
+				}
 				if p.HTTPProxy != nil {
 					next, err := engine.MergeProxyPassword(pr.HTTPProxy, *p.HTTPProxy) // "•••" keeps the password set before
 					if err != nil {
@@ -186,7 +206,7 @@ func registerPreferences(g *registrar) {
 	add(g, engine.Spec[preferencesOpenParams]{
 		ID: "preferences.open", Label: "Preferences", MenuPath: "Cogpit/Preferences", Shortcut: "Cmd+,", Danger: engine.DangerUI,
 		Description: "Opens Cogpit's Preferences page in the window, as ⌘, (Ctrl+,) does, at a section: app (theme, time zone), " +
-			"proxy (the HTTP proxy of the traffic that is no cluster's), kubernetes (kubeconfig syncs, kubectl for terminals), " +
+			"proxy (the HTTP proxy of the traffic that is no cluster's), kubernetes (kubeconfig syncs, kubectl for terminals, Helm's storage driver), " +
 			"editor, terminal or tables. It takes the place of the cluster's views until " +
 			"closed (settings_close, Escape); ui_state reports it as settings. Returns the new UI state.",
 		Enabled: func(s *engine.Session, p preferencesOpenParams) error {

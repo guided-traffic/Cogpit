@@ -145,6 +145,38 @@ func TestRedact(t *testing.T) {
 	}
 }
 
+// A Helm release record kept in a ConfigMap (HELM_DRIVER=configmap) loses its payload, which holds
+// the release's values, as a Secret loses its values; its other keys and every other ConfigMap stay.
+func TestRedactHelmRecord(t *testing.T) {
+	record := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1", "kind": "ConfigMap",
+		"metadata": map[string]any{"name": "sh.helm.release.v1.web.v1", "labels": map[string]any{"owner": "helm", "name": "web"},
+			"annotations": map[string]any{"kubectl.kubernetes.io/last-applied-configuration": "{}"}},
+		"data": map[string]any{"release": "H4sIAAAAAAAC/6pWSkosSlWyUkpKzVGqBQQAAP//", "note": "kept"},
+	}}
+	if !IsHelmRecord(record) {
+		t.Fatal("not a Helm record")
+	}
+	out := Redact(record)
+	if out == record || NestedString(out, "data", "release") != Redacted || NestedString(out, "data", "note") != "kept" ||
+		out.GetAnnotations()["kubectl.kubernetes.io/last-applied-configuration"] != Redacted {
+		t.Errorf("redacted %v", out.Object)
+	}
+	if NestedString(record, "data", "release") == Redacted {
+		t.Error("Redact modified its input")
+	}
+	plain := record.DeepCopy()
+	plain.SetLabels(map[string]string{"owner": "team-a"})
+	if IsHelmRecord(plain) || Redact(plain) != plain {
+		t.Error("a ConfigMap Helm did not write is redacted")
+	}
+	bare := &unstructured.Unstructured{Object: map[string]any{"apiVersion": "v1", "kind": "ConfigMap",
+		"metadata": map[string]any{"labels": map[string]any{"owner": "helm"}}, "data": "not a map"}}
+	if Redact(bare) == nil {
+		t.Error("a record with malformed data should still be returned")
+	}
+}
+
 func TestPropertiesSection(t *testing.T) {
 	obj := &unstructured.Unstructured{Object: map[string]any{
 		"metadata": map[string]any{

@@ -57,7 +57,11 @@ func (s *Session) permittedOn(b *Backend, c *Command, ref model.ObjectRef) error
 	if hasProf && prof.Local {
 		return nil
 	}
-	for _, v := range c.Verbs {
+	verbs := c.Verbs
+	if hasProf && isHelmReleases(prof) { // the verbs on the release's own driver's records (helmdriver.go)
+		verbs = s.releaseVerbs(ref, verbs)
+	}
+	for _, v := range verbs {
 		ns := ref.Namespace
 		if v.Resource == "*" {
 			if !hasProf || !prof.APIObject() {

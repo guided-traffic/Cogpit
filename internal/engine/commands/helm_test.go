@@ -19,6 +19,8 @@ import (
 	"helm.sh/helm/v4/pkg/release/common"
 	rspb "helm.sh/helm/v4/pkg/release/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/cluster"
@@ -31,12 +33,14 @@ import (
 
 var releaseT0 = time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 
-// releaseSecret encodes one revision the way Helm's Secrets driver stores it.
-func releaseSecret(t testing.TB, ns, name string, rev int, status common.Status) *unstructured.Unstructured {
-	return releaseSecretWith(t, ns, name, rev, status, fmt.Sprintf("0.%d.0", rev), map[string]any{"adminPassword": "hunter2", "replicas": rev})
+// releaseRecord encodes one revision the way Helm's driver stores it: a Secret, or for
+// helm.DriverConfigMap a ConfigMap (releaseRecordWith).
+func releaseRecord(t testing.TB, driver helm.Driver, ns, name string, rev int, status common.Status) *unstructured.Unstructured {
+	return releaseRecordWith(t, driver, ns, name, rev, status, fmt.Sprintf("0.%d.0", rev), map[string]any{"adminPassword": "hunter2", "replicas": rev})
 }
 
-// releaseSecretWith is releaseSecret with a chart version and user-supplied values.
+// releaseSecretWith encodes one revision the way Helm's Secrets driver stores it, with a chart
+// version and user-supplied values.
 func releaseSecretWith(t testing.TB, ns, name string, rev int, status common.Status, version string, config map[string]any) *unstructured.Unstructured {
 	t.Helper()
 	rls := &rspb.Release{
@@ -73,9 +77,40 @@ func releaseSecretWith(t testing.TB, ns, name string, rev int, status common.Sta
 	return secret
 }
 
-// helmServer is the cluster side of the release actions: it acts on the source's release Secrets
+// releaseRecordWith is releaseSecretWith for a storage driver: for helm.DriverConfigMap the
+// ConfigMap Helm's ConfigMaps driver writes, data.release Helm's own encoding as text.
+func releaseRecordWith(t testing.TB, driver helm.Driver, ns, name string, rev int, status common.Status, version string, config map[string]any) *unstructured.Unstructured {
+	t.Helper()
+	secret := releaseSecretWith(t, ns, name, rev, status, version, config)
+	if driver != helm.DriverConfigMap {
+		return secret
+	}
+	data, _, _ := unstructured.NestedString(secret.Object, "data", "release")
+	payload, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cm := secret.DeepCopy()
+	cm.SetKind("ConfigMap")
+	delete(cm.Object, "type")
+	cm.SetUID(types.UID("uid-cm-" + ns + "-" + cm.GetName()))
+	cm.Object["data"] = map[string]any{"release": string(payload)}
+	return cm
+}
+
+// gvrOf is where a driver keeps release records.
+func gvrOf(driver helm.Driver) schema.GroupVersionResource {
+	if driver == helm.DriverConfigMap {
+		return configMapsGVR
+	}
+	return testkit.SecretsGVR
+}
+
+// helmServer is the cluster side of the release actions: it acts on the source's release records
 // as the Helm SDK would (a rollback adds a deployed revision and supersedes the others, an
-// uninstall deletes them), records the calls, and can fail or block one.
+// uninstall deletes them), in the storage driver each release is kept with (Secrets unless put
+// with putIn), records the calls, and can fail or block one. An action that names another driver
+// than the release's finds no release, as the SDK would not.
 type helmServer struct {
 	*fakeWriter
 	src *testkit.MemorySource
@@ -83,7 +118,8 @@ type helmServer struct {
 
 	mu       sync.Mutex
 	calls    []string
-	revs     map[string]int // namespace/name → newest revision
+	revs     map[string]int         // namespace/name → newest revision
+	drivers  map[string]helm.Driver // namespace/name → the driver its records are in (absent: Secrets)
 	failErr  error
 	block    chan struct{} // closed to let a blocked action continue; nil: no block
 	started  chan struct{}
@@ -93,15 +129,46 @@ type helmServer struct {
 var _ engine.HelmWriter = (*helmServer)(nil)
 
 func (h *helmServer) put(ns, name string, rev int, status common.Status) {
+	h.putIn(helm.DriverSecret, ns, name, rev, status)
+}
+
+// putIn stores a revision of a release kept with driver.
+func (h *helmServer) putIn(driver helm.Driver, ns, name string, rev int, status common.Status) {
 	h.mu.Lock()
 	if h.revs == nil {
 		h.revs = map[string]int{}
 	}
+	if h.drivers == nil {
+		h.drivers = map[string]helm.Driver{}
+	}
 	if rev > h.revs[ns+"/"+name] {
 		h.revs[ns+"/"+name] = rev
 	}
+	h.drivers[ns+"/"+name] = driver
 	h.mu.Unlock()
-	h.src.Set(testkit.SecretsGVR, releaseSecret(h.t, ns, name, rev, status))
+	h.src.Set(gvrOf(driver), releaseRecord(h.t, driver, ns, name, rev, status))
+}
+
+// driverOf is the driver a release's records are in.
+func (h *helmServer) driverOf(ns, name string) helm.Driver {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if d := h.drivers[ns+"/"+name]; d != "" {
+		return d
+	}
+	return helm.DriverSecret
+}
+
+// wrongDriver is the SDK's answer to an action with another driver than the release's (the zero
+// driver is Secrets): the driver holds no record of it.
+func (h *helmServer) wrongDriver(ns, name string, driver helm.Driver) error {
+	if driver == "" {
+		driver = helm.DriverSecret
+	}
+	if h.driverOf(ns, name) != driver {
+		return fmt.Errorf("helm %s/%s: release: not found (the %s driver holds no record of it)", ns, name, driver)
+	}
+	return nil
 }
 
 func (h *helmServer) begin(call string) error {
@@ -118,7 +185,10 @@ func (h *helmServer) begin(call string) error {
 	return err
 }
 
-func (h *helmServer) RollbackRelease(_ context.Context, namespace, name string, revision, from int) error {
+func (h *helmServer) RollbackRelease(_ context.Context, namespace, name string, driver helm.Driver, revision, from int) error {
+	if err := h.wrongDriver(namespace, name, driver); err != nil {
+		return err
+	}
 	h.mu.Lock()
 	cur := h.revs[namespace+"/"+name]
 	h.mu.Unlock()
@@ -129,23 +199,28 @@ func (h *helmServer) RollbackRelease(_ context.Context, namespace, name string, 
 	if err := h.begin(fmt.Sprintf("rollback %s/%s to %d", namespace, name, revision)); err != nil {
 		return err
 	}
+	d := h.driverOf(namespace, name)
 	for r := 1; r <= cur; r++ {
-		h.src.Set(testkit.SecretsGVR, releaseSecret(h.t, namespace, name, r, common.StatusSuperseded))
+		h.src.Set(gvrOf(d), releaseRecord(h.t, d, namespace, name, r, common.StatusSuperseded))
 	}
-	h.put(namespace, name, cur+1, common.StatusDeployed)
+	h.putIn(d, namespace, name, cur+1, common.StatusDeployed)
 	return nil
 }
 
-func (h *helmServer) UninstallRelease(_ context.Context, namespace, name string) error {
+func (h *helmServer) UninstallRelease(_ context.Context, namespace, name string, driver helm.Driver) error {
+	if err := h.wrongDriver(namespace, name, driver); err != nil {
+		return err
+	}
 	if err := h.begin("uninstall " + namespace + "/" + name); err != nil {
 		return err
 	}
+	d := h.driverOf(namespace, name)
 	h.mu.Lock()
 	cur := h.revs[namespace+"/"+name]
 	delete(h.revs, namespace+"/"+name)
 	h.mu.Unlock()
 	for r := 1; r <= cur; r++ {
-		h.src.Delete(testkit.SecretsGVR, namespace, fmt.Sprintf("sh.helm.release.v1.%s.v%d", name, r))
+		h.src.Delete(gvrOf(d), namespace, fmt.Sprintf("sh.helm.release.v1.%s.v%d", name, r))
 	}
 	return nil
 }
@@ -153,6 +228,9 @@ func (h *helmServer) UninstallRelease(_ context.Context, namespace, name string)
 // UpgradeRelease supersedes every revision and adds a deployed one with the release's chart
 // version and the given values, as the Helm SDK's upgrade would; failErr fails it before that.
 func (h *helmServer) UpgradeRelease(_ context.Context, namespace, name string, up engine.HelmUpgradeRequest) (int, error) {
+	if err := h.wrongDriver(namespace, name, up.Driver); err != nil {
+		return 0, err
+	}
 	h.mu.Lock()
 	cur := h.revs[namespace+"/"+name]
 	h.mu.Unlock()
@@ -166,8 +244,9 @@ func (h *helmServer) UpgradeRelease(_ context.Context, namespace, name string, u
 	if err := h.begin(fmt.Sprintf("upgrade %s/%s from %d", namespace, name, cur)); err != nil {
 		return 0, err
 	}
+	d := h.driverOf(namespace, name)
 	for r := 1; r <= cur; r++ {
-		h.src.Set(testkit.SecretsGVR, releaseSecret(h.t, namespace, name, r, common.StatusSuperseded))
+		h.src.Set(gvrOf(d), releaseRecord(h.t, d, namespace, name, r, common.StatusSuperseded))
 	}
 	h.mu.Lock()
 	h.revs[namespace+"/"+name] = cur + 1
@@ -176,7 +255,7 @@ func (h *helmServer) UpgradeRelease(_ context.Context, namespace, name string, u
 	if up.Chart != nil { // a chart downloaded from a repository (helmupgrade_repo_test.go)
 		version = up.Chart.Version
 	}
-	h.src.Set(testkit.SecretsGVR, releaseSecretWith(h.t, namespace, name, cur+1, common.StatusDeployed, version, up.Values))
+	h.src.Set(gvrOf(d), releaseRecordWith(h.t, d, namespace, name, cur+1, common.StatusDeployed, version, up.Values))
 	return cur + 1, nil
 }
 
@@ -208,7 +287,8 @@ func (c *helmConnector) Connect(_ context.Context, name string) (*engine.Backend
 	ch := cache.New(c.src, cache.Options{WarmPeriod: time.Minute})
 	return &engine.Backend{
 		Context: name, Namespace: "default", Cache: ch, Close: ch.Close,
-		Profiles: append(testProfiles(), helm.NewReleaseProfile()),
+		// Config Maps served: the releases read the release ConfigMaps too (helmdriver.go).
+		Profiles: append(testProfiles(), configMapsProfile(), helm.NewReleaseProfile()),
 		Conn:     &cluster.Conn{}, Actions: c.server,
 	}, nil
 }
@@ -366,7 +446,7 @@ func TestHelmReleasesViewAndDrawer(t *testing.T) {
 	for _, it := range m.Sections[0].Items {
 		names = append(names, it.Name)
 	}
-	if strings.Join(names, ",") != "Chart,Updated,Namespace,Version,Status" || !strings.Contains(sectionText(m, model.TitleProperties), "Deployed") {
+	if strings.Join(names, ",") != "Chart,Updated,Namespace,Version,Status,Storage" || !strings.Contains(sectionText(m, model.TitleProperties), "Deployed") {
 		t.Errorf("properties %v: %q", names, sectionText(m, model.TitleProperties))
 	}
 	if !strings.Contains(m.YAML, "kind: HelmRelease") || strings.Contains(m.YAML, "adminPassword") {

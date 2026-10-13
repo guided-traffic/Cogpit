@@ -62,7 +62,7 @@ func installFixture(t *testing.T) (*Actions, *storage.Storage) {
 	store := storage.Init(driver.NewMemory())
 	cfg := &action.Configuration{Releases: store, KubeClient: &kubefake.PrintingKubeClient{Out: io.Discard},
 		Capabilities: chartcommon.DefaultCapabilities}
-	return &Actions{config: func(string, *slog.Logger) (*action.Configuration, error) { return cfg, nil }}, store
+	return &Actions{config: func(string, Driver, *slog.Logger) (*action.Configuration, error) { return cfg, nil }}, store
 }
 
 func values(t *testing.T, text string) map[string]any {

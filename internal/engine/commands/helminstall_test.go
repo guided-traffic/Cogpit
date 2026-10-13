@@ -64,9 +64,17 @@ func (f *fakeInstaller) InstallChart(_ context.Context, req helm.InstallRequest)
 	if f.revs == nil {
 		f.revs = map[string]int{}
 	}
+	if f.drivers == nil {
+		f.drivers = map[string]helm.Driver{}
+	}
 	f.revs[req.Namespace+"/"+req.Name] = 1
+	driver := req.Driver
+	if driver == "" {
+		driver = helm.DriverSecret
+	}
+	f.drivers[req.Namespace+"/"+req.Name] = driver // the storage driver the request names (helmdriver_test.go)
 	f.mu.Unlock()
-	f.src.Set(testkit.SecretsGVR, releaseSecretWith(f.t, req.Namespace, req.Name, 1, common.StatusDeployed, req.Chart.Version, req.Values))
+	f.src.Set(gvrOf(driver), releaseRecordWith(f.t, driver, req.Namespace, req.Name, 1, common.StatusDeployed, req.Chart.Version, req.Values))
 	return 1, nil
 }
 

@@ -134,7 +134,7 @@ func registerHelmInstall(g *registrar) {
 			// is offline, so that a chart's lookup cannot hand them what the cluster holds.
 			offline := engine.OriginOf(ctx) != engine.OriginGUI
 			pre, err := installer.PreviewInstall(ctx, helm.InstallRequest{Namespace: p.Namespace, Name: p.Name, Chart: src.archive, Values: vals,
-				CreateNamespace: p.CreateNamespace, Offline: offline})
+				CreateNamespace: p.CreateNamespace, Offline: offline, Driver: s.HelmDriver()})
 			if err != nil {
 				return nil, helm.Scrubbed(err, src.archive.UserValues(vals))
 			}
@@ -149,7 +149,8 @@ func registerHelmInstall(g *registrar) {
 			"defaults (hooks waited for, 5 minutes; no --create-namespace unless createNamespace): the chart and version of a " +
 			"Helm Install tab with its values (tab), or a chart, version and values given here. The archive is checked " +
 			"against its index's digest when the index lists one. Refused when a release of that name exists in the " +
-			"namespace. Besides the release's Secrets it needs whatever verbs creating the chart's objects needs (server-side " +
+			"namespace. The release's records go to Secrets, or to ConfigMaps when the HELM_DRIVER preference says configmap " +
+			"(preferences_get). Besides the release's records it needs whatever verbs creating the chart's objects needs (server-side " +
 			"apply: patch, and create), create on namespaces with createNamespace and on customresourcedefinitions for a " +
 			"chart's crds/ folder; helm_chart_preview names the objects first. An agent's request waits for the user's " +
 			"acceptance, which shows values given here. An install a crash of Cogpit interrupts stays in " +
@@ -311,6 +312,10 @@ func installDetail(s *engine.Session, p installParams) string {
 		b.WriteString(", with the values below.")
 	}
 	b.WriteString(" Its objects are created with your identity; helm_chart_preview names them.")
+	if s.HelmDriver() == helm.DriverConfigMap {
+		b.WriteString(" Helm keeps the release's records, values included, in ConfigMaps (the HELM_DRIVER preference): " +
+			"whoever may read ConfigMaps in the namespace can read them.")
+	}
 	return b.String()
 }
 
@@ -350,7 +355,8 @@ func runInstall(ctx context.Context, s *engine.Session, p installParams) (any, e
 				err = helm.Scrubbed(fmt.Errorf("internal error: %v", r), scrub)
 			}
 		}()
-		revision, err = installer.InstallChart(ctx, helm.InstallRequest{Namespace: p.Namespace, Name: p.Name, Chart: src.archive, Values: vals, CreateNamespace: p.CreateNamespace})
+		revision, err = installer.InstallChart(ctx, helm.InstallRequest{Namespace: p.Namespace, Name: p.Name, Chart: src.archive, Values: vals,
+			CreateNamespace: p.CreateNamespace, Driver: s.HelmDriver()}) // the HELM_DRIVER preference (helmdriver.go)
 		return helm.Scrubbed(err, scrub)
 	})
 	if err != nil {

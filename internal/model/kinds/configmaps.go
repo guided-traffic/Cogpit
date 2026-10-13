@@ -83,11 +83,18 @@ func configMapDetail(obj *unstructured.Unstructured) []model.DetailSection {
 
 	data := model.NestedMap(obj, "data")
 	budget := valueBudget{bytes: configMapTotalBytes, lines: configMapTotalLines}
+	helmRecord := model.IsHelmRecord(obj)
 	var items detailItems
 	for i, k := range sortedKeys(data) {
 		if i == configMapItems {
 			items = append(items, moreKeys(len(data)-i))
 			break
+		}
+		if helmRecord && k == model.HelmRecordKey {
+			// A Helm release record's payload holds the release's values, which can be credentials:
+			// its size only, as a Secret's value is masked (the YAML redacts it, model.Redact).
+			items = append(items, model.DetailItem{Name: k, Value: helmRecordText(len(model.NestedString(data, k)))})
+			continue
 		}
 		// Appended directly: an empty value is a value, and the drawer shows its key.
 		items = append(items, model.DetailItem{Name: k, Value: budget.take(model.NestedString(data, k))})
@@ -105,6 +112,12 @@ func configMapDetail(obj *unstructured.Unstructured) []model.DetailSection {
 		bin = append(bin, model.DetailItem{Name: k, Value: formatBytes(base64Size(model.NestedString(binary, k)))})
 	}
 	return withSection(sections, "Binary Data", bin)
+}
+
+// helmRecordText stands for a Helm release record's payload in a ConfigMap's drawer (Cogpit's
+// text, inferred: what Lens shows is not captured).
+func helmRecordText(n int) string {
+	return "[Helm release record, " + formatBytes(int64(n)) + " encoded, values included: not shown; Helm › Releases shows the release]"
 }
 
 // moreKeys is the last item of a section that lists only the first configMapItems keys.

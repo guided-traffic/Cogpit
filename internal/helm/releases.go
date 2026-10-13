@@ -82,7 +82,7 @@ const (
 	maxResources = 500
 )
 
-// The memo's bounds: entries for Secrets that are gone leave it after two generations of this
+// The memo's bounds: entries for records that are gone leave it after two generations of this
 // many Derive calls without being seen; it never holds more than memoEntries entries.
 const (
 	memoGeneration = 64
@@ -91,20 +91,22 @@ const (
 
 // memoIdle is how long the memo keeps what it decoded after the last Derive: Derive runs while a
 // view, a drawer or an agent reads the releases, and stops when nobody does and the release
-// Secrets' watch ends (the cache's warm period, five minutes by default). The decoded values then
-// leave memory with the Secrets they came from (H-8). A var for tests.
+// records' watches end (the cache's warm period, five minutes by default). The decoded values then
+// leave memory with the records they came from (H-8). A var for tests.
 var memoIdle = 5 * time.Minute
 
 // NewReleaseProfile returns the profile of the Helm releases of one cluster connection: a virtual
-// kind over the Secrets labelled owner=helm (D-13), one object per release, its newest revision
-// winning. Each call returns a profile with its own memo of decoded payloads; the connector makes
+// kind over the records labelled owner=helm, one object per release, its newest revision winning.
+// The profile's scope is the release Secrets (D-13); the engine joins the release ConfigMaps
+// (HELM_DRIVER=configmap) to it (Backend.Acquire, cache.Join), so Derive sees the records of both
+// drivers. Each call returns a profile with its own memo of decoded payloads; the connector makes
 // one per backend.
 func NewReleaseProfile() *model.KindProfile {
 	m := &memo{cur: map[types.UID]*revision{}, prev: map[types.UID]*revision{}}
 	return &model.KindProfile{
 		Key:           ReleaseKind,
 		Version:       "v1",
-		Resource:      "secrets",
+		Resource:      resourceSecrets,
 		Kind:          releaseObjectKind,
 		Title:         "Releases",
 		DetailTitle:   "Release",
@@ -199,8 +201,37 @@ func ReleaseChart(o *unstructured.Unstructured) (name, version string) {
 }
 
 // ReleaseSecret returns the name of the release Secret that holds a release object's newest
-// revision, in the release's namespace.
-func ReleaseSecret(o *unstructured.Unstructured) string { return model.NestedString(o, "secret") }
+// revision, in the release's namespace; empty for a release kept in ConfigMaps (ReleaseRecord).
+func ReleaseSecret(o *unstructured.Unstructured) string { return model.NestedString(o, fieldSecret) }
+
+// ReleaseStorage returns the storage driver whose records hold a release object's revisions:
+// DriverConfigMap for a release Helm keeps in ConfigMaps, else DriverSecret.
+func ReleaseStorage(o *unstructured.Unstructured) Driver {
+	if Driver(model.NestedString(o, fieldStorage)) == DriverConfigMap {
+		return DriverConfigMap
+	}
+	return DriverSecret
+}
+
+// ReleaseRecord returns the driver and the name of the record (a Secret or a ConfigMap in the
+// release's namespace) that holds a release object's newest revision.
+func ReleaseRecord(o *unstructured.Unstructured) (Driver, string) {
+	if d := ReleaseStorage(o); d == DriverConfigMap {
+		return d, model.NestedString(o, fieldConfigMap)
+	}
+	return DriverSecret, model.NestedString(o, fieldSecret)
+}
+
+// Fields of a release object that name where its records are.
+const (
+	fieldStorage   = "storage"   // the driver: "secret" or "configmap"
+	fieldSecret    = "secret"    // the newest revision's Secret
+	fieldConfigMap = "configMap" // the newest revision's ConfigMap
+	// fieldHidden names the other driver when it holds a release of the same namespace and name,
+	// which the object does not show; fieldHiddenRevisions counts that release's records.
+	fieldHidden          = "hiddenStorage"
+	fieldHiddenRevisions = "hiddenRevisions"
+)
 
 // HistoryEntry is one revision of a release, as the release object's history holds it.
 type HistoryEntry struct {
@@ -251,13 +282,15 @@ func releaseCells(o *unstructured.Unstructured) ([]model.Cell, model.Status) {
 	}, token
 }
 
-// revision is what the memo keeps of one release Secret: one revision of one release.
+// revision is what the memo keeps of one release record (a Secret or a ConfigMap): one revision
+// of one release.
 type revision struct {
 	uid       types.UID
 	rv        string
-	secret    string // the Secret's name
+	storage   Driver // the record's driver: its kind
+	record    string // the record's name
 	namespace string
-	created   time.Time // the Secret's creation
+	created   time.Time // the record's creation
 
 	name, status                    string
 	number                          int
@@ -277,10 +310,11 @@ type heavy struct {
 	resources []resource // the objects of the manifest, at most maxResources
 }
 
-// memo keeps the revisions Derive decoded, by the Secret's UID, valid for one resourceVersion, so
-// that a snapshot decodes only the Secrets that changed. Entries move from prev to cur when they
+// memo keeps the revisions Derive decoded, by the record's UID (unique across Secrets and
+// ConfigMaps), valid for one resourceVersion, so that a snapshot decodes only the records that
+// changed. Entries move from prev to cur when they
 // are used; every memoGeneration calls (or when cur grows past memoEntries) cur becomes prev and
-// the old prev, entries no Derive asked for since, is dropped: that is how entries for Secrets
+// the old prev, entries no Derive asked for since, is dropped: that is how entries for records
 // that are gone leave it, whichever namespaces a call asked for.
 type memo struct {
 	mu    sync.Mutex
@@ -300,14 +334,14 @@ func (m *memo) touch() {
 }
 
 // purge forgets every decoded revision, values and manifests included. A Derive after it decodes
-// the Secrets it is given again.
+// the records it is given again.
 func (m *memo) purge() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.cur, m.prev = map[types.UID]*revision{}, map[types.UID]*revision{}
 }
 
-// get returns the memo's revision for a Secret, or nil. Called with m.mu held.
+// get returns the memo's revision for a record, or nil. Called with m.mu held.
 func (m *memo) get(uid types.UID, rv string) *revision {
 	if r, ok := m.cur[uid]; ok && r.rv == rv {
 		return r
@@ -339,9 +373,10 @@ func (m *memo) size() int {
 	return len(m.cur) + len(m.prev)
 }
 
-// derive is the profile's Derive: one object per release in the given release Secrets (one or all
-// namespaces), from its newest revision, with the history of the revisions present. It decodes
-// only Secrets the memo does not hold in their current version, outside the memo's lock.
+// derive is the profile's Derive: one object per release in the given release records, Secrets
+// and ConfigMaps (one or all namespaces), from its newest revision, with the history of the
+// revisions present. It decodes only records the memo does not hold in their current version,
+// outside the memo's lock.
 func (m *memo) derive(objs []*unstructured.Unstructured) []*unstructured.Unstructured {
 	byUID := make(map[types.UID]*unstructured.Unstructured, len(objs))
 	revs := make([]*revision, 0, len(objs))
@@ -378,10 +413,13 @@ func (m *memo) derive(objs []*unstructured.Unstructured) []*unstructured.Unstruc
 	groups := groupReleases(revs)
 	var refill []*revision
 	for _, g := range groups {
-		for _, r := range g[1:] {
+		for _, r := range g.revs[1:] {
 			r.heavy = nil // only the newest revision's values and manifest are kept
 		}
-		if newest := g[0]; newest.heavy == nil && newest.err == "" {
+		for _, r := range g.hidden {
+			r.heavy = nil // nor those of a release the object does not show
+		}
+		if newest := g.revs[0]; newest.heavy == nil && newest.err == "" {
 			refill = append(refill, newest)
 		}
 	}
@@ -418,13 +456,25 @@ func (m *memo) derive(objs []*unstructured.Unstructured) []*unstructured.Unstruc
 	return out
 }
 
-// groupReleases groups revisions by namespace and release name, newest revision first in each
-// group, the groups in order of namespace and name. Called with m.mu held: it reads revisions.
-func groupReleases(revs []*revision) [][]*revision {
+// releaseGroup is one release's revisions, newest first, and the revisions of a release of the
+// same namespace and name that the other driver holds, which the release object does not show.
+type releaseGroup struct {
+	revs   []*revision
+	hidden []*revision
+}
+
+// groupReleases groups revisions by namespace, release name and driver, newest revision first in
+// each group, the groups in order of namespace and name. Helm's drivers do not see each other's
+// records: a release of one name kept in both Secrets and ConfigMaps of a namespace is two
+// releases to Helm, whose revision numbers say nothing about each other. Cogpit shows one object
+// per namespace and name (Cogpit's choice, inferred: Lens reads one driver), the release whose
+// newest revision was deployed last (then created last, then the Secrets', Helm's default), and
+// keeps the other's revisions as hidden. Called with m.mu held: it reads revisions.
+func groupReleases(revs []*revision) []releaseGroup {
 	idx := map[string]int{}
 	var groups [][]*revision
 	for _, r := range revs {
-		key := r.namespace + "/" + r.name
+		key := r.namespace + "/" + r.name + "/" + string(r.storage)
 		i, ok := idx[key]
 		if !ok {
 			i = len(groups)
@@ -438,20 +488,51 @@ func groupReleases(revs []*revision) [][]*revision {
 			if c := cmp.Compare(b.number, a.number); c != 0 {
 				return c
 			}
-			return cmp.Compare(b.secret, a.secret) // two Secrets claiming one revision: a stable choice
+			return cmp.Compare(b.record, a.record) // two records claiming one revision: a stable choice
 		})
 	}
-	slices.SortFunc(groups, func(a, b []*revision) int {
-		return cmp.Or(cmp.Compare(a[0].namespace, b[0].namespace), cmp.Compare(a[0].name, b[0].name))
+	byName := map[string]int{}
+	out := make([]releaseGroup, 0, len(groups))
+	for _, g := range groups {
+		key := g[0].namespace + "/" + g[0].name
+		i, ok := byName[key]
+		if !ok {
+			byName[key] = len(out)
+			out = append(out, releaseGroup{revs: g})
+			continue
+		}
+		if shownBefore(g[0], out[i].revs[0]) {
+			out[i].revs, out[i].hidden = g, out[i].revs
+		} else {
+			out[i].hidden = g
+		}
+	}
+	slices.SortFunc(out, func(a, b releaseGroup) int {
+		return cmp.Or(cmp.Compare(a.revs[0].namespace, b.revs[0].namespace), cmp.Compare(a.revs[0].name, b.revs[0].name))
 	})
-	return groups
+	return out
+}
+
+// shownBefore reports whether the release whose newest revision is a is shown rather than the one
+// of the other driver whose newest revision is b: deployed later, else created later, else kept in
+// Secrets.
+func shownBefore(a, b *revision) bool {
+	if c := a.updated.Compare(b.updated); c != 0 {
+		return c > 0
+	}
+	if c := a.created.Compare(b.created); c != 0 {
+		return c > 0
+	}
+	return a.storage == DriverSecret
 }
 
 // releaseObject builds a release's object from its revisions, newest first: the newest revision's
-// summary, its Secret's UID and resourceVersion (a confirmation binds to the revision the user
-// saw), and the history. It holds no values, notes or manifest: the YAML tab shows this object,
-// and the drawer's Values, Notes and Resources come from the memo (detail). Called with m.mu held.
-func releaseObject(g []*revision) *unstructured.Unstructured {
+// summary, its record's UID and resourceVersion (a confirmation binds to the revision the user
+// saw), the driver and the record that holds it, and the history. It holds no values, notes or
+// manifest: the YAML tab shows this object, and the drawer's Values, Notes and Resources come from
+// the memo (detail). Called with m.mu held.
+func releaseObject(rg releaseGroup) *unstructured.Unstructured {
+	g := rg.revs
 	r := g[0]
 	created := r.firstDeployed
 	if created.IsZero() {
@@ -475,7 +556,15 @@ func releaseObject(g []*revision) *unstructured.Unstructured {
 		"apiVersion": releaseAPIVersion, "kind": releaseObjectKind, "metadata": meta,
 		fieldChart: r.chart, fieldChartVersion: r.chartVersion, fieldAppVersion: r.appVersion,
 		fieldRevision: int64(r.number), fieldStatus: r.status, fieldUpdated: timeText(r.updated),
-		fieldDescription: r.description, "secret": r.secret, fieldHistory: history,
+		fieldDescription: r.description, fieldStorage: string(r.storage), fieldHistory: history,
+	}
+	if r.storage == DriverConfigMap {
+		obj[fieldConfigMap] = r.record
+	} else {
+		obj[fieldSecret] = r.record
+	}
+	if len(rg.hidden) > 0 {
+		obj[fieldHidden], obj[fieldHiddenRevisions] = string(rg.hidden[0].storage), int64(len(rg.hidden))
 	}
 	if r.err != "" {
 		obj["error"] = r.err
@@ -498,14 +587,14 @@ func chartText(name, version string) string {
 	return name + "-" + version
 }
 
-// decodeRevision reads one release Secret without its values and manifest (heavyOf reads those,
-// for the newest revision of a release only), and returns the decoded release for that, nil when
-// it does not decode. The payload is untrusted input: a Secret that does not decode yields a
-// revision from its labels and name, with the error, never a panic.
+// decodeRevision reads one release record (a Secret or a ConfigMap) without its values and
+// manifest (heavyOf reads those, for the newest revision of a release only), and returns the
+// decoded release for that, nil when it does not decode. The payload is untrusted input: a record
+// that does not decode yields a revision from its labels and name, with the error, never a panic.
 func decodeRevision(o *unstructured.Unstructured) (*revision, *rspb.Release) {
 	labels := o.GetLabels()
 	r := &revision{
-		uid: o.GetUID(), rv: o.GetResourceVersion(), secret: o.GetName(), namespace: o.GetNamespace(),
+		uid: o.GetUID(), rv: o.GetResourceVersion(), storage: RecordDriver(o), record: o.GetName(), namespace: o.GetNamespace(),
 		created: o.GetCreationTimestamp().Time,
 		name:    labels["name"], status: labels["status"],
 	}
@@ -518,7 +607,7 @@ func decodeRevision(o *unstructured.Unstructured) (*revision, *rspb.Release) {
 	rls, err := decodeSafely(o)
 	if err != nil {
 		r.err = err.Error()
-		r.name = cmp.Or(r.name, o.GetName()) // a release needs a name: the Secret's, when nothing else says one
+		r.name = cmp.Or(r.name, o.GetName()) // a release needs a name: the record's, when nothing else says one
 		return r, nil
 	}
 	r.name = cmp.Or(rls.Name, r.name)
@@ -560,18 +649,18 @@ func heavyOf(rls *rspb.Release, namespace string) *heavy {
 // errUnreadable stands for a decoder that panicked on a payload.
 var errUnreadable = errors.New("the release payload could not be read")
 
-// decodeSafely decodes a release Secret, turning a panic in a decoder into an error.
+// decodeSafely decodes a release record, turning a panic in a decoder into an error.
 func decodeSafely(o *unstructured.Unstructured) (rls *rspb.Release, err error) {
 	defer func() {
 		if p := recover(); p != nil {
 			rls, err = nil, errUnreadable
 		}
 	}()
-	return DecodeSecret(o)
+	return DecodeRecord(o)
 }
 
-// parseSecretName reads the release name and revision from a Secret named the way Helm's Secrets
-// driver names them, sh.helm.release.v1.<name>.v<revision>.
+// parseSecretName reads the release name and revision from a record named the way Helm's drivers
+// name them (Secrets and ConfigMaps alike), sh.helm.release.v1.<name>.v<revision>.
 func parseSecretName(s string) (string, int) {
 	rest, ok := strings.CutPrefix(s, "sh.helm.release.v1.")
 	if !ok {

@@ -246,6 +246,9 @@ func (s *Session) OpenEditTab(ctx context.Context, ref model.ObjectRef) (EditorS
 	if err != nil {
 		return EditorState{}, false, err
 	}
+	if err := GuardSecretText(ctx, text); err != nil { // a Helm release record in a ConfigMap: the GUI only
+		return EditorState{}, false, err
+	}
 	r := t.Ref
 	e := &editor{
 		tab: DockTab{

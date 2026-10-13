@@ -20,6 +20,14 @@ import (
 // counter: pass cluster.Conn.RESTConfig()) and Helm's default Secrets storage driver. It never
 // reads or writes a kubeconfig file: the SDK sees only cfg.
 func NewActionConfig(cfg *rest.Config, namespace string, log *slog.Logger) (*action.Configuration, error) {
+	return NewActionConfigFor(cfg, namespace, DriverSecret, log)
+}
+
+// NewActionConfigFor is NewActionConfig with a storage driver: the SDK then reads and writes the
+// release records of that driver only, Secrets or ConfigMaps (configmaps.go). The driver is never
+// read from the process's HELM_DRIVER: the release's own records, or the preference for a new
+// install, decide.
+func NewActionConfigFor(cfg *rest.Config, namespace string, driver Driver, log *slog.Logger) (*action.Configuration, error) {
 	if cfg == nil {
 		return nil, errors.New("no client configuration")
 	}
@@ -28,7 +36,7 @@ func NewActionConfig(cfg *rest.Config, namespace string, log *slog.Logger) (*act
 	}
 	ac := action.NewConfiguration()
 	ac.SetLogger(log.Handler())
-	if err := ac.Init(newRESTGetter(cfg, namespace), namespace, "secret"); err != nil {
+	if err := ac.Init(newRESTGetter(cfg, namespace), namespace, driver.sdkName()); err != nil {
 		return nil, fmt.Errorf("helm: %w", err)
 	}
 	return ac, nil
