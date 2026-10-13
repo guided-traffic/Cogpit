@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -257,4 +258,30 @@ func TestStartLocalErrors(t *testing.T) {
 			t.Errorf("failed start left %s behind", f)
 		}
 	}
+}
+
+// Without a shell in the options or in $SHELL, the local terminal starts the first of zsh, bash
+// and sh that exists, not a zsh the system may lack (CI's runner pods export no SHELL and have no
+// zsh, 2026-10-13).
+func TestDefaultShellIsOneThatExists(t *testing.T) {
+	for _, tc := range []struct {
+		exist []string
+		want  string
+	}{
+		{[]string{"/bin/zsh", "/bin/bash", "/bin/sh"}, "/bin/zsh"},
+		{[]string{"/bin/bash", "/bin/sh"}, "/bin/bash"},
+		{[]string{"/bin/sh"}, "/bin/sh"},
+		{nil, "/bin/sh"},
+	} {
+		exists := func(p string) bool { return slices.Contains(tc.exist, p) }
+		if got := defaultShell(exists); got != tc.want {
+			t.Errorf("with %v: defaultShell = %q, want %q", tc.exist, got, tc.want)
+		}
+	}
+	t.Setenv("SHELL", "")
+	sess, err := StartLocal(LocalOptions{KubeconfigPaths: []string{writeUserKubeconfig(t)}, Dir: t.TempDir()})
+	if err != nil {
+		t.Fatalf("StartLocal without SHELL: %v", err)
+	}
+	_ = sess.Close()
 }

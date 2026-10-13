@@ -43,6 +43,27 @@ type localSession struct {
 	removeOnce sync.Once
 }
 
+// fallbackShells are tried in order when neither the options nor $SHELL name a shell: macOS's
+// default first, then the shells every Unix has.
+var fallbackShells = []string{"/bin/zsh", "/bin/bash", "/bin/sh"}
+
+// defaultShell is the first fallback shell that exists, or /bin/sh when none does (the start then
+// reports it missing).
+func defaultShell(exists func(string) bool) string {
+	for _, s := range fallbackShells {
+		if exists(s) {
+			return s
+		}
+	}
+	return "/bin/sh"
+}
+
+// isExecutable reports whether path is a regular file someone may execute.
+func isExecutable(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && fi.Mode().IsRegular() && fi.Mode().Perm()&0o111 != 0
+}
+
 func startLocal(opts LocalOptions) (Session, error) {
 	binding, err := resolveLocal(opts)
 	if err != nil {
@@ -54,7 +75,7 @@ func startLocal(opts LocalOptions) (Session, error) {
 		shell = os.Getenv("SHELL")
 	}
 	if shell == "" {
-		shell = "/bin/zsh"
+		shell = defaultShell(isExecutable)
 	}
 	shellPath, err := exec.LookPath(shell)
 	if err != nil {
