@@ -304,7 +304,7 @@ user's own action in Cogpit's window runs: agents and the CLI are refused, whate
 The table is generated from the registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 169 commands</summary>
+<summary>All 171 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -345,7 +345,9 @@ The table is generated from the registry with `go run ./hack/readmecmds`.
 | `diagnostics.get` | `diagnostics_get` | read |  | Returns what Cogpit asked of the connected cluster and holds of it, as the Diagnostics tab shows it: the API requests since connecting, by verb and by verb and resource (list, watch, get, ...; watches included), each watch (informer) with its scope, state (open: a view or lookup holds it; warm: kept a while after its last user; covered: served by another watch), objects, events and errors, the objects per kind, and the table snapshots built |
 | `diagnostics.open` | `diagnostics_open` | ui |  | Opens the Diagnostics dock tab, or activates it: the connected cluster's API requests by verb and resource, its watches and the objects per kind, kept current while it is open, as Help › Diagnostics does |
 | `dock.activate` | `dock_activate` | ui | `id` | Shows a dock tab |
+| `dock.allowAgentRead` | `dock_allowAgentRead` | ui (GUI only) | `allowed`, `id` | Lets agents read a terminal, shell, attach or node shell tab's output with dock_read, or stops them, as the tab's "Agents may read" switch does; off when a tab opens |
 | `dock.close` | `dock_close` | ui | `id` | Closes a dock tab and ends its stream or shell |
+| `dock.read` | `dock_read` | read | `after`?, `before`?, `id`, `limit`? | Returns what a dock tab shows, as the user sees it, a page of its lines: a logs tab's lines its view shows (the pod and container it narrows to and its filter applied, resource names and timestamps as shown), or a terminal, shell, attach or node shell tab's screen (its rows top to bottom, no colours or escape sequences; the terminal keeps no scrollback) |
 | `editor.diff` | `editor_diff` | read | `context`?, `id`, `yaml`? | Returns the line diff of an Edit tab's text (or of yaml) against the object as Cogpit's cache holds it now: lines with op "-" (removed), "+" (added) or "=" (context), with line numbers |
 | `editor.discardDraft` | `editor_discardDraft` | ui | `id` | Deletes a draft from editor_drafts: its unsaved text is gone for good |
 | `editor.drafts` | `editor_drafts` | read | `all`? | Lists the drafts of unsaved editor text Cogpit kept from Edit and Create resource tabs that a crash or a quit ended (the connected context's; all: every context's), oldest first: the tab's type, title, object and the version its text is based on, when it was kept, its size; never the text. editor_restoreDraft opens the tab with the text again (editor_get then reads it), editor_discardDraft deletes it |

@@ -146,7 +146,8 @@ type Session struct {
 	ui          UIState
 	notes       notificationLog // the toasts the user was shown (notifications.go)
 	confirmer   Confirmer
-	agentWrites map[string]bool // contexts where the user allowed agent writes (D-2)
+	agentWrites map[string]bool  // contexts where the user allowed agent writes (D-2)
+	dockReader  DockOutputReader // the window's, for dock.read (dockoutput.go)
 
 	subMu   sync.Mutex
 	subs    map[int]func(Event)

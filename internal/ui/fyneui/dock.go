@@ -38,6 +38,9 @@ type dock struct {
 	body         *fyne.Container
 	panel        fyne.CanvasObject
 	toggle       *widget.Button
+	// agentRead is the strip's "Agents may read" switch of the active terminal tab (dockoutput.go).
+	agentRead        *widget.Check
+	syncingAgentRead bool
 }
 
 // dockContent is one tab's content and the stream behind it.
@@ -50,7 +53,10 @@ type dockContent struct {
 	logs   *logTab    // logs tabs (logtab.go)
 	// kubectl is a terminal tab's kubectl line (kubectloffer.go).
 	kubectl *kubectlOffer
-	closed  bool
+	// term is a terminal, shell, attach or node shell tab's terminal once its session started,
+	// which dock.read reads (dockoutput.go).
+	term   *termview.Terminal
+	closed bool
 }
 
 // dockEditor is an editor tab's content: it follows EventEditor and stops its timers on close.
@@ -67,8 +73,9 @@ func newDock(sh *shell) *dock {
 	add.OnTapped = func() { d.showAddMenu(add) }
 	d.toggle = widget.NewButtonWithIcon("", theme.MenuDropDownIcon(), d.toggleExpanded)
 	d.toggle.Importance = widget.LowImportance
+	d.agentRead = d.newAgentReadSwitch()
 	d.strip = container.NewStack(newSurface(colorDock),
-		container.NewBorder(nil, nil, container.NewHBox(d.tabRow, add), d.toggle))
+		container.NewBorder(nil, nil, container.NewHBox(d.tabRow, add), container.NewHBox(d.agentRead, d.toggle)))
 	d.stripHolder = container.NewStack()
 	d.collapsedBar = container.NewVBox()
 	d.body = container.NewStack()
@@ -161,7 +168,7 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 				}
 				w := termview.NewTerminal(sess)
 				w.SetRightClickCopyPaste(d.sh.rightClickCopyPaste()) // the Preferences' right mouse button (termpaste.go)
-				c.closer = w
+				c.closer, c.term = w, w
 				c.set(c.withKubectlOffer(d.sh.terminalScope(w))) // the Preferences' terminal font size (preferences.go)
 			})
 		}()
@@ -268,6 +275,7 @@ func (d *dock) rebuildStrip() {
 	d.tabRow.Objects = objs
 	d.tabRow.Refresh()
 	d.updateToggle()
+	d.updateAgentRead()
 }
 
 func (d *dock) showActive() {

@@ -134,6 +134,10 @@ type DockTab struct {
 	Audit AuditTab `json:"audit,omitzero"`
 	// NodeShell is a node shell tab's node and pod (nodeshell.go).
 	NodeShell *NodeShellTab `json:"nodeShell,omitempty"`
+	// AgentRead is set on a terminal tab (terminal, shell, attach, node shell) whose output the
+	// user lets agents read (dock.allowAgentRead, the tab's switch; D-44); off when it opens.
+	// Agents read logs tabs without it (dockoutput.go).
+	AgentRead bool `json:"agentRead,omitempty"`
 }
 
 // HelmUpgradeTab is what a Helm Upgrade tab shows beside its values editor (Lens's "Helm Upgrade:

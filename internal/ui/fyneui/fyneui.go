@@ -167,6 +167,7 @@ func Run(s *engine.Session, opts Options) error {
 	sh.setConcealed = setConcealedClipboard // the real app's system clipboard (H-25)
 	sh.startMCP()                           // before the menu, which offers the command only while the server runs
 	s.SetConfirmer(sh.confirmer)
+	s.SetDockOutputReader(dockOutputReader{sh}) // what the dock's tabs show, for dock.read (dockoutput.go)
 	w.SetContent(sh.root)
 	w.SetOnClosed(sh.clearSecretClipboard) // a copied Secret value does not outlive the window on the clipboard
 	w.SetMainMenu(sh.mainMenu())
@@ -202,5 +203,6 @@ func Run(s *engine.Session, opts Options) error {
 	}
 	sh.stop()
 	s.SetConfirmer(nil)
+	s.SetDockOutputReader(nil)
 	return nil
 }
