@@ -515,7 +515,8 @@ const (
 // servicesSyncTimeout is how long detection waits for the Services informer's first list.
 const servicesSyncTimeout = 8 * time.Second
 
-// servicesOf reads the names and ports of cached Services.
+// servicesOf reads the names and ports of cached Services. A port outside 1–65535, which an API
+// server does not accept, is skipped rather than wrapped into another port's number.
 func servicesOf(objs []*unstructured.Unstructured) []metrics.Service {
 	out := make([]metrics.Service, 0, len(objs))
 	for _, o := range objs {
@@ -527,18 +528,21 @@ func servicesOf(objs []*unstructured.Unstructured) []metrics.Service {
 				continue
 			}
 			name, _ := m["name"].(string)
-			var num int32
+			var num int64
 			switch v := m["port"].(type) {
 			case int64:
-				num = int32(v)
-			case float64:
-				num = int32(v)
-			case int32:
 				num = v
+			case float64:
+				num = int64(v)
+			case int32:
+				num = int64(v)
 			case int:
-				num = int32(v)
+				num = int64(v)
 			}
-			svc.Ports = append(svc.Ports, metrics.ServicePort{Name: name, Port: num})
+			if num < 1 || num > 65535 {
+				continue
+			}
+			svc.Ports = append(svc.Ports, metrics.ServicePort{Name: name, Port: int32(num)})
 		}
 		out = append(out, svc)
 	}

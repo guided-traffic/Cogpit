@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -128,5 +129,30 @@ func TestWithUsageSurvivesAPanickingProfile(t *testing.T) {
 	got := withUsage(p, row, podObject("a", "b"), model.Usage{CPUMilli: 1}, 6, 7)
 	if len(got.Cells) != len(row.Cells) {
 		t.Error("the row changed shape")
+	}
+}
+
+// servicesOf reads the numeric forms a cached Service's port arrives in (JSON decodes to int64 or
+// float64) and skips a port outside 1–65535, which would otherwise wrap into another port's number
+// (1<<32 + 9090 read as 9090).
+func TestServicesOfPorts(t *testing.T) {
+	svc := &unstructured.Unstructured{Object: map[string]any{
+		"metadata": map[string]any{"namespace": "monitoring", "name": "prometheus-server"},
+		"spec": map[string]any{"ports": []any{
+			map[string]any{"name": "a", "port": int64(80)},
+			map[string]any{"name": "b", "port": float64(9090)},
+			map[string]any{"name": "c", "port": int64(65535)},
+			map[string]any{"name": "wrapped", "port": int64(1<<32 + 9090)},
+			map[string]any{"name": "large", "port": int64(65536)},
+			map[string]any{"name": "zero", "port": int64(0)},
+			map[string]any{"name": "negative", "port": float64(-1)},
+			map[string]any{"name": "missing"},
+			"not a port",
+		}},
+	}}
+	got := servicesOf([]*unstructured.Unstructured{svc})
+	want := []metrics.ServicePort{{Name: "a", Port: 80}, {Name: "b", Port: 9090}, {Name: "c", Port: 65535}}
+	if len(got) != 1 || got[0].Namespace != "monitoring" || got[0].Name != "prometheus-server" || !slices.Equal(got[0].Ports, want) {
+		t.Fatalf("servicesOf = %+v, want monitoring/prometheus-server with %+v", got, want)
 	}
 }
