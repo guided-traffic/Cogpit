@@ -106,13 +106,10 @@ func (p *editorPane) push() {
 	})
 }
 
-// replace shows a text the engine now holds (an applied object as stored, a template).
-func (p *editorPane) replace(text string, rev uint64, top bool) {
-	if top {
-		p.view.SetText(text)
-	} else {
-		p.view.UpdateText(text)
-	}
+// replace shows a text the engine now holds (an applied object as stored, a reverted one), keeping
+// the scroll position and the caret.
+func (p *editorPane) replace(text string, rev uint64) {
+	p.view.UpdateText(text)
 	if rev > p.pushed {
 		p.pushed = rev
 	}
@@ -130,7 +127,7 @@ func (p *editorPane) remote(rev uint64) {
 		if p.closed || p.dirty || err != nil || decode(res, &st) != nil || st.Revision <= p.pushed {
 			return
 		}
-		p.replace(st.Text, st.Revision, false)
+		p.replace(st.Text, st.Revision)
 	})
 }
 
@@ -372,7 +369,7 @@ func (e *editorTab) apply() {
 		}
 		var ar engine.ApplyResult
 		if decode(res, &ar) == nil && ar.Text != "" && !e.pane.dirty {
-			e.pane.replace(ar.Text, ar.Revision, false)
+			e.pane.replace(ar.Text, ar.Revision)
 		}
 		if e.closeAfter {
 			e.sh.dispatch("dock.close", dockParams{ID: e.tab.ID}, nil)

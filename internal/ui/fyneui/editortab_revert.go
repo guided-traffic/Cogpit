@@ -53,7 +53,7 @@ func (e *editorTab) revert() {
 				e.setStatus("Not reverted: "+errText(err), colorStatusError)
 				return
 			}
-			e.pane.replace(rr.Text, rr.Revision, false)
+			e.pane.replace(rr.Text, rr.Revision)
 			if e.reviewing {
 				e.backToEditor()
 			}
@@ -84,7 +84,7 @@ func (e *editorTab) undoRevert() {
 			e.setStatus("Not undone: "+errText(err), colorStatusError)
 			return
 		}
-		e.pane.replace(rr.Text, rr.Revision, false)
+		e.pane.replace(rr.Text, rr.Revision)
 		e.setStatus(fmt.Sprintf("Your text is back, based on version %s.", rr.BaseResourceVersion), colorMuted)
 	})
 }
