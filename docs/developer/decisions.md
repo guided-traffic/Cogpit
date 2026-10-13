@@ -24,6 +24,8 @@ projects' repositories; re-check them before relying on a version number.
 | [D-13](#d-13-cache) | Cache | decided: the UI reads only from a watch-fed cache, held in memory only; Secrets in full (revised 2026-10-12, built), Helm's releases from that watch or their own `owner=helm` watch |
 | [D-33](#d-33-the-flux-actions) | The Flux actions | night decision, for the owner to confirm: Reconcile, Suspend and Resume as the flux CLI patches them, mutating, on objects and selections; built 2026-10-13 |
 | [D-34](#d-34-the-flux-dashboard) | The Flux dashboard | night decision, for the owner to confirm: five states after kstatus, counts per kind and the objects that are not ready; built 2026-10-13 |
+| [D-35](#d-35-what-argo-cds-repository-and-cluster-secrets-show) | What Argo CD's repository and cluster Secrets show | night decision, for the owner to confirm: an allowlist of non-credential keys for the window and agents (option b), built 2026-10-13 |
+| [D-36](#d-36-how-argo-cds-sync-writes-the-operation) | How Argo CD's Sync writes the operation | night decision, for the owner to confirm: what `argocd app sync` writes, bound to the UID and resourceVersion (option b), built 2026-10-13 |
 | [D-37](#d-37-the-node-shell) | The node shell | night decision, for the owner to confirm: Lens's privileged pod with nsenter (option b), built 2026-10-13 |
 | [D-38](#d-38-who-sets-the-node-shells-image) | Who sets the node shell's image | night decision, for the owner to confirm: the user only, agents may reset it (option b), built 2026-10-13 |
 
