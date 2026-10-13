@@ -23,8 +23,9 @@ import (
 //     cluster is connected or connecting (after a disconnect, a failed connect, a connection Cogpit
 //     closed), the section;
 //   - every connect drills into its cluster as it starts, whoever started it (the picker, the
-//     hotbar, the welcome page, a tab of another cluster, an agent): the navigator's tree is the
-//     connected cluster's, since Cogpit holds one connection (architecture §6);
+//     hotbar, the welcome page, a tab of another cluster, an agent), a connect again to the
+//     connected cluster too: the navigator's tree is the connected cluster's, since Cogpit holds
+//     one connection (architecture §6);
 //   - ui.setNavigatorScope goes up to the section and back into the connected cluster without
 //     touching the connection; into another cluster it connects, as cluster.connect does;
 //   - the tab bar shows the tabs of the scope: every tab at the section, the cluster's at a
@@ -92,13 +93,15 @@ func (u UIState) TabsInScope() []ViewTab {
 // syncNavScope keeps the scope in step with a change of the UI state from old to u, whichever
 // command made it. UpdateUI runs it after every change:
 //   - without a connected or connecting cluster, the scope is the section;
-//   - a new connection (a connect starting, to another cluster or after none) shows its cluster;
+//   - a connect starting (to another cluster, after none, or again to the same one) shows its
+//     cluster, and so does a connection that appears without one (another cluster's, after none);
 //   - a cluster scope always names the connected cluster.
 func (u *UIState) syncNavScope(old UIState) {
+	starting := u.Connection.State == Connecting && (old.Connection.State != Connecting || old.Context != u.Context)
 	switch {
 	case u.Context == "" || !activeConnection(u.Connection.State):
 		u.NavigatorScope = NavScopeLocal
-	case !activeConnection(old.Connection.State) || old.Context != u.Context:
+	case starting || !activeConnection(old.Connection.State) || old.Context != u.Context:
 		u.NavigatorScope = NavScopeCluster(u.Context)
 	case u.NavigatorScope != NavScopeLocal:
 		u.NavigatorScope = NavScopeCluster(u.Context)

@@ -646,9 +646,9 @@ sections come after the beta (G18, [D-9](decisions.md#d-9-scope-against-lenss-pa
 Teamwork is out of scope (D-9) and Extensions are not a target
 ([D-5](decisions.md#d-5-extensions)), so the section has no level above it. `UIState.syncNavScope`,
 which `UpdateUI` runs after `syncWelcome` (and `New` starts at the section), keeps it in step with
-the connection: without a connected or connecting cluster it is the section; a new connection
-(a connect starting, to another cluster or after none, whoever started it: the picker, the hotbar,
-the welcome page, a tab of another cluster, an agent) drills into its cluster; a cluster scope
+the connection: without a connected or connecting cluster it is the section; a connect starting
+(to another cluster, after none, or again to the connected one, whoever started it: the picker, the
+hotbar, the welcome page, a tab of another cluster, an agent) drills into its cluster; a cluster scope
 always names the connected cluster, since Cogpit holds one connection and the tree is that
 connection's. `ui.setNavigatorScope` (`Session.SetNavigatorScope`, `DangerUI`) goes up to the
 section and back into the connected cluster without touching the connection, and into another

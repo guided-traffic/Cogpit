@@ -66,7 +66,15 @@ func TestNavScopeFollowsTheConnection(t *testing.T) {
 		t.Errorf("into the connected cluster: %d connects (was %d), view %q", fc.connectCount(), n, u.View)
 	}
 
-	// From the section, a connect from anywhere (the picker, the hotbar, an agent) drills in.
+	// From the section, a connect from anywhere (the picker, the hotbar, an agent) drills in, to the
+	// connected cluster again too.
+	if _, err := s.SetNavigatorScope(ctx, NavScopeLocal); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Connect(ctx, "test"); err != nil {
+		t.Fatal(err)
+	}
+	wantScope(t, s.UIState(), NavScopeCluster("test"))
 	if _, err := s.SetNavigatorScope(ctx, NavScopeLocal); err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +93,7 @@ func TestNavScopeFollowsTheConnection(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantScope(t, u, NavScopeCluster("test"))
-	if u.Context != "test" || u.Connection.State != Connected || fc.connectCount() != n+2 {
+	if u.Context != "test" || u.Connection.State != Connected || fc.connectCount() != n+3 {
 		t.Errorf("drilled into test: %s %q, %d connects", u.Connection.State, u.Context, fc.connectCount())
 	}
 
