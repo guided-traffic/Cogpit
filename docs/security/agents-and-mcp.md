@@ -125,6 +125,21 @@ nothing more is dropped or withheld; the risk is accepted. It is live for every 
 deployed with a copy of its manifest in an annotation, whenever an agent reads that Secret with
 `object_get`.
 
+### H-63: Credentials in Flux objects reach agents through their YAML
+
+Cogpit's Flux views (2026-10-13) keep out of their cells, search fields and drawers what can hold
+a credential: a Helm release's inline `spec.values`, a notification Provider's `spec.address` (a
+webhook URL with its token in it) and `spec.proxy`, a Receiver's `status.webhookPath` (for a
+generic receiver the only secret a caller needs to trigger reconciliations), and the user
+information in a source's URL (`https://<redacted>@host/…`, `TestFluxKeepsSecretsOut`). The
+object's YAML still carries them as stored: `object_get`, `editor_get` and the Edit tab give an
+agent the whole object, as they do for every custom resource. Live for every Flux object that
+holds such a value inline, whenever an agent reads it that way; what bounds it is Flux's own
+guidance to keep them in Secrets (`secretRef`, `valuesFrom`), whose values never reach an agent,
+and the audit log, which records the read. Not built: withholding these fields from agents as a
+Cogpit Helm release's values are withheld (`model.WithholdPrivate`), a field-level redaction of a
+custom resource's YAML for agents; whether to build it is open for the owner.
+
 ### H-32: An agent can clear the user's notifications
 
 Live today for external agents, over MCP or the stdio bridge (2026-10-13): `notifications_markRead` and

@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -22,6 +22,8 @@ projects' repositories; re-check them before relying on a version number.
 | [D-11](#d-11-crash-stance) | Crash stance | decided: crash-tolerant UI, crash-safe cluster operations |
 | [D-12](#d-12-parity-sources) | Parity sources | decided: current Lens Desktop only; no OpenLens or Freelens |
 | [D-13](#d-13-cache) | Cache | decided: the UI reads only from a watch-fed cache, held in memory only; Secrets in full (revised 2026-10-12, built), Helm's releases from that watch or their own `owner=helm` watch |
+| [D-33](#d-33-the-flux-actions) | The Flux actions | night decision, for the owner to confirm: Reconcile, Suspend and Resume as the flux CLI patches them, mutating, on objects and selections; built 2026-10-13 |
+| [D-34](#d-34-the-flux-dashboard) | The Flux dashboard | night decision, for the owner to confirm: five states after kstatus, counts per kind and the objects that are not ready; built 2026-10-13 |
 | [D-37](#d-37-the-node-shell) | The node shell | night decision, for the owner to confirm: Lens's privileged pod with nsenter (option b), built 2026-10-13 |
 | [D-38](#d-38-who-sets-the-node-shells-image) | Who sets the node shell's image | night decision, for the owner to confirm: the user only, agents may reset it (option b), built 2026-10-13 |
 
@@ -1369,6 +1371,94 @@ whole bytes below 1 KiB, so a rate of 0.25 B/s reads "0 B/s" (it read "0.3B/s");
 of a size (with or without a space, "Mi" or "MiB") is not captured, so Cogpit's lists may differ
 from Lens's there.
 
+## D-33: The Flux actions
+
+**Context.** D-9 puts Flux CD in the beta; the owner's team works with Flux daily
+(`k8s-flux-base`). Lens's Flux section is captured as a sidebar structure only
+([ui-parity › Cluster sidebar](../parity/ui-parity.md#cluster-sidebar)); its actions are neither
+documented nor captured ([resource-parity › Paid Lens Desktop views](../parity/resource-parity.md#paid-lens-desktop-views)).
+Flux's own CLI does three things to an object every day: `flux reconcile`, `flux suspend`,
+`flux resume`. **Built 2026-10-13** ([`commands/flux.go`](../../internal/engine/commands/flux.go),
+[`cluster/flux.go`](../../internal/cluster/flux.go); `TestFluxActionsPatch`,
+`TestFluxActionsApply`, `TestFluxActionsAgentsNeedAcceptance`, `TestFluxActionsOnASelection`,
+`TestKindFlux`).
+
+- **Night decision (the lead's, 2026-10-13, for the owner to confirm): which actions.** Options
+  (a) Reconcile only, (b) Reconcile, Suspend and Resume, as the flux CLI's everyday commands, (c)
+  (b) plus Reconcile with Source, Reset and Force as separate menu entries; chosen (b), because
+  they are what a Flux user does from Lens-like tools every day and each is one patch; the rest
+  waits for a capture of Lens's menu. Force is a parameter of `flux.reconcile` for Helm releases
+  (for agents; no menu entry yet), Reconcile with Source and Reset are
+  not built.
+- **Night decision (the lead's, 2026-10-13, for the owner to confirm): what each writes.**
+  Options (a) the flux CLI's patches: Reconcile the annotation `reconcile.fluxcd.io/requestedAt`
+  set to the time (RFC 3339 with nanoseconds), Force also `reconcile.fluxcd.io/forceAt`, Suspend
+  `spec.suspend: true`, Resume `spec.suspend: false` with a reconcile request; (b) server-side
+  apply of the same fields; chosen (a), one JSON merge patch per object, because it is exactly
+  what the controllers and the CLI agree on, touches no other field, and needs nothing but `patch`.
+  Each patch carries `metadata.uid`, as Restart's and Scale's do, so that an object deleted and
+  created again under its name is refused (422 "metadata.uid: field is immutable" on Kubernetes
+  1.36.1, `TestKindFlux`).
+- **Night decision (the lead's, 2026-10-13, for the owner to confirm): their danger.** Options (a)
+  mutating, (b) destructive (confirmed for every origin), (c) mutating, Force destructive;
+  chosen (a) for all three, Force included, because none deletes or replaces anything the
+  controller would not do on its next interval anyway; Suspend stops reconciliation, which Resume
+  undoes. So the GUI's user is not asked, agents need the user's acceptance unless agent writes are
+  allowed for the context (D-2), and every agent's call is in the audit log.
+- **Night decision (the lead's, 2026-10-13, for the owner to confirm): where they apply.** Options
+  (a) every Flux kind, (b) the kinds whose controller reconciles on request, Suspend and Resume
+  where the kind has `spec.suspend`; chosen (b): Reconcile on every kind but External Artifacts
+  (another controller makes them), and not on an Alert or Provider that reports no status
+  (notification v1beta3's static objects, which no controller reconciles); Suspend and Resume on
+  every kind but Image Policies and External Artifacts. Reconcile on a suspended object is greyed
+  with the reason (the controller would ignore it, as the flux CLI refuses it); Suspend and Resume
+  each show where the other does not, as Cron Jobs' do.
+- **Night decision (the lead's, 2026-10-13, for the owner to confirm): selections.** Options (a)
+  one object at a time, (b) on a selection too, acting on the selected objects the action applies
+  to and skipping the others; chosen (b), as Delete of a selection works (`object.deleteMany`),
+  because "reconcile everything that failed" from the Flux dashboard's table is the case the
+  dashboard exists for. Ids `flux.reconcileMany`, `flux.suspendMany`, `flux.resumeMany`.
+
+Cogpit's defaults, not the owner's decision: the labels Reconcile, Suspend and Resume; their place
+in the row menu and the drawer's toolbar before Edit and Delete, Reconcile first; their toolbar
+icons (Restart's, Suspend's and Resume's of the built-in kinds); the toast "kustomizations…
+reconcile requested", which does not wait for the controller (the object's Status column follows
+its conditions).
+
+## D-34: The Flux dashboard
+
+**Context.** Lens's Flux section starts with a Dashboard (captured as a sidebar entry only); its
+contents are not captured or documented. **Built 2026-10-13**
+([`engine/fluxdashboard.go`](../../internal/engine/fluxdashboard.go),
+[`fyneui/fluxdashboard.go`](../../internal/ui/fyneui/fluxdashboard.go),
+[`model/kinds/flux.go`](../../internal/model/kinds/flux.go); `TestFluxDashboardPage`,
+`TestFluxDashboardInTheWindow`, `TestFluxStatusTexts`; PNG
+[dark](../../internal/ui/fyneui/testdata/flux_dashboard_dark.png)).
+
+- **Night decision (the lead's, 2026-10-13, for the owner to confirm): what a Flux object's state
+  is.** Options (a) the Ready condition alone (True, False, Unknown), (b) kstatus's reading, as
+  Flux documents it: suspended first, then a failure (Ready False or Stalled True), then a
+  reconciliation in progress (Reconciling True, Ready Unknown, or a generation the controller has
+  not observed), then Ready True, else Unknown; chosen (b), five states Ready (green), Not Ready
+  (red), Reconciling (amber), Suspended (grey, the stopped token) and Unknown (grey), because (a)
+  shows a suspended or freshly changed object as ready. Notification v1beta3's Alerts and Providers
+  report no status at all: they count as Ready unless suspended (Flux treats them as active once
+  admitted).
+- **Night decision (the lead's, 2026-10-13, for the owner to confirm): what the page shows.**
+  Options (a) counts per kind by state only, (b) the counts and a table of every Flux object, (c)
+  the counts and a table of the objects that are not ready; chosen (c): a tile per Flux kind the
+  cluster serves (a served kind without objects too), and the table Not Ready of every kind, the
+  latest change of the Ready condition first, whose selection takes the Flux actions (D-33).
+- **Night decision (the lead's, 2026-10-13, for the owner to confirm): a click on a state.**
+  Options (a) the kind's view filtered to that state, through a status filter the views do not
+  have yet, (b) the view with the search set to the state's word, (c) the kind's view unfiltered;
+  chosen (c), because (b) would also match messages and "Ready" matches "Not Ready", and (a) is a
+  feature of every view, not of this page.
+
+Cogpit's defaults, not the owner's decision: the page's title Flux Dashboard in its header and tab
+(the navigator reads Dashboard, as captured), three tiles a row under the navigator's sub-groups'
+headings, the table's title Not Ready, and "Every Flux object is ready." when it is empty.
+
 ## D-37: The node shell
 
 **Night decision (the lead's, 2026-10-14, for the owner to confirm):** options (a) no node shell
@@ -1441,6 +1531,7 @@ default from every origin but the GUI with `ErrNodeShellGUIOnly`, before anythin
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-33 and D-34 (night decisions, for the owner to confirm): the Flux actions (Reconcile, Suspend, Resume, as the flux CLI patches them, mutating, on selections too) and the Flux dashboard (the states after kstatus, counts per kind, the objects that are not ready); built (G23) |
 | 2026-10-13 | minor | D-37 and D-38 (night decisions, for the owner to confirm): the node shell as Lens's privileged pod in kube-system with nsenter, its 2-hour deadline, the pinned Alpine 3.19 default and the other defaults of the build; its image and pull secret set by the user only; both built |
 | 2026-10-13 | minor | D-19: Create Secret built (night build, G9): `secret.create` refuses agents and the CLI before anything is asked or sent; its values go base64-encoded in `data` (Cogpit's default) |
 | 2026-10-13 | minor | D-4 (owner): the environment `release` for the Apple credentials created; Sparkle's EdDSA key in an environment with the owner as required reviewer |

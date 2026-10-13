@@ -13,7 +13,9 @@ the watch on custom resource definitions, access reviews), list views (Secrets i
 Port forward, Edit and apply, Create, Delete (every kind; a selection since 2026-10-13), Restart (Deployment, Daemon Set,
 Stateful Set), Scale (Deployment, Stateful Set, Replica Set), Cordon, Uncordon, Drain, Trigger,
 Suspend and Resume (Cron Job), Evict, a Secret's drawer, Helm rollback and uninstall, Helm
-upgrade (2026-10-12), Helm install (2026-10-13), and the create dialogs of Namespaces, Service Accounts, the four RBAC kinds
+upgrade (2026-10-12), Helm install (2026-10-13), the Flux actions and the Flux dashboard's reads
+(2026-10-13: `list` and `watch` on each Flux kind the cluster serves while the dashboard is open,
+as a view of the kind would), and the create dialogs of Namespaces, Service Accounts, the four RBAC kinds
 and Resource Quotas (2026-10-12) and Secrets (2026-10-13, the user's only), and the node shell
 (2026-10-13, [below](#node-shell)). The rows below say which. Reading Helm's chart repositories,
 updating their indexes and listing their charts (2026-10-13) sends no request to a cluster either:
@@ -70,6 +72,7 @@ namespace and the context ([conventions](../developer/conventions.md#never-surpr
 | Scale (`deployment.scale`, `statefulset.scale`, `replicaset.scale`) | `patch` on `deployments/scale`, `statefulsets/scale` or `replicasets/scale`, with `metadata.uid` in the patch | Mutating; `Destructive` when scaling to zero (the engine escalates that call) | Replica count; a Replica Set a Deployment controls is set back by its controller, which the GUI says after scaling it. Since 2026-10-12 every scale patch carries the UID the user confirmed (else the cache's), and the API server refuses an object created again under its name (409, "Precondition failed: UID"; verified on Kubernetes 1.36.1, `TestKindPatchesBoundToTheUID`), so no gap remains between a check and the write; a mutating confirmation records the UIDs of the targets the cache holds, so an agent's scale to a non-zero count is bound too (`TestRestartAndScaleCarryTheUID`) |
 | Restart (`deployment.restart`, `daemonset.restart`, `statefulset.restart`) | `patch` on the workload, with `metadata.uid` in the patch | Destructive (owner, 2026-10-11: confirmed for every origin, because it replaces every pod) | A rolling restart of every pod: kubectl's `rollout restart` sets a pod-template annotation, which the controller rolls out (the patch body equals kubectl's plus the UID, `TestRestartWorkloadSendsKubectlsPatch`, `TestPatchesCarryTheUID`); with the OnDelete strategy pods are replaced only as they are deleted, which the confirmation says. Since 2026-10-12 the patch carries the confirmed UID and the API server refuses an object created again under its name (422, "field is immutable"; verified on Kubernetes 1.36.1, `TestKindPatchesBoundToTheUID`), which closes the gap between the cache check and the write |
 | Suspend / resume (Job, CronJob) | `patch` | Mutating | `spec.suspend` |
+| Flux actions (`flux.reconcile`, `flux.suspend`, `flux.resume`; on a selection `flux.reconcileMany`, `flux.suspendMany`, `flux.resumeMany`; 2026-10-13, [D-33](../developer/decisions.md#d-33-the-flux-actions)) | `patch` on the object's Flux kind (`kustomizations.kustomize.toolkit.fluxcd.io`, `helmreleases.helm.toolkit.fluxcd.io`, `gitrepositories.source.toolkit.fluxcd.io`, …, at the version the cluster serves): one JSON merge patch per object, with `metadata.uid` in it (refused on another object under the name: 422, verified on Kubernetes 1.36.1, `TestKindFlux`); the object is read from the cache; for a selection one patch per object, one after the other | Mutating (D-33) | Reconcile: the annotation `reconcile.fluxcd.io/requestedAt` (with `force`, a Helm release's `reconcile.fluxcd.io/forceAt` too), so the controller reconciles the object now rather than at its next interval: a Kustomization applies its source's current revision, a Helm release installs or upgrades as its spec says (forced, even without a change, hooks included). Suspend: `spec.suspend: true`, the controller leaves the object alone (drift is not corrected) until Resume: `spec.suspend: false` and a reconcile request. Cogpit writes nothing else; what the controller then does, it does with its own identity ([H-64](#h-64-a-flux-action-is-carried-out-with-the-controllers-identity)) |
 | Trigger CronJob (`cronjob.trigger`) | `create jobs`; the CronJob is read from the cache | Mutating | A new Job from the CronJob's template, as `kubectl create job --from=cronjob/<name>`: the template's labels and annotations, the CronJob as controller, `cronjob.kubernetes.io/instantiate: manual`, a generated name `<cronjob>-manual-<suffix>` (inferred) |
 | Cordon / uncordon (`node.cordon`, `node.uncordon`) | `patch nodes` (a patch of its own, never the `update` kubectl's helper can fall back to) | Mutating | `spec.unschedulable` |
 | Evict a pod (`pod.evict`) | `create pods/eviction`, with the UID Cogpit's cache held when the user confirmed as precondition | Destructive | Pod deleted, honouring PodDisruptionBudgets ([API-initiated eviction](https://kubernetes.io/docs/concepts/scheduling-eviction/api-eviction/)); a budget's refusal is an error naming the budget, without retries |
@@ -134,6 +137,22 @@ behaviour), each rule as follows:
   server's message is the node shell's error.
 
 ## What this does not cover
+
+### H-64: A Flux action is carried out with the controller's identity
+
+Live since 2026-10-13 on every context where the user may `patch` a Flux kind: Cogpit's patch is
+the user's, but the reconciliation it asks for is the Flux controller's, with the controller's
+service account (often cluster-wide, unless the object names a `serviceAccountName` or the
+controller enforces impersonation). Reconcile and Resume apply whatever the source holds now, and
+a forced Helm release runs its hooks again. Cogpit adds no power here: who may patch a
+Kustomization or Helm release may already change what it applies. What makes it real is an
+agent: the actions are mutating ([D-33](../developer/decisions.md#d-33-the-flux-actions)), so an
+agent's call needs the user's acceptance, unless agent writes are allowed for the context
+([H-14](agents-and-mcp.md#h-14-allowing-agent-writes-for-a-context)); then a steered agent
+([H-11](agents-and-mcp.md#h-11-instructions-hidden-in-cluster-data)) can reconcile or resume, and
+force a Helm release, without a dialog. Not built: naming the identity the controller will use in
+the confirmation, or confirming a forced reconcile as destructive; both are open for the owner
+(D-33 chose mutating for all three).
 
 ### H-7: Node shell is root on the node
 

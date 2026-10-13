@@ -66,8 +66,26 @@ Ordered checklists for the common additions. The packages they name are in
 
 Integrations are built into Cogpit's code ([D-5](decisions.md#d-5-extensions)); there is no
 mechanism for external extensions. An integration such as Flux CD or Argo CD is a set of kind
-profiles (below), its commands (above) and, where Lens has one, a dashboard view, in its own
-package under `internal/`, with its own layer and `depguard` rule.
+profiles (below), its commands (above) and, where Lens has one, a dashboard view. The plan was a
+package of its own under `internal/`; Flux CD, the first built (2026-10-13, G23), showed that the
+existing layers hold it without one, each part in its own files of the package whose layer it
+belongs to:
+
+1. **Curated profiles** of the integration's CRD kinds in `internal/model/kinds/<integration>*.go`,
+   appended to `curated` by the file's `init` (as [`flux.go`](../../internal/model/kinds/flux.go)
+   does), keyed `<plural>.<group>`, at the version the integration serves with older ones as
+   `FallbackVersions`; `kinds.ProfileFor` gives a definition at another version the generic
+   profile. Goldens per kind in `testdata/<key>/`, run by `TestCuratedGolden` and
+   `TestCuratedTypeConfusion`.
+2. **Commands** in `internal/engine/commands/<integration>.go` with `Kinds` set to the curated
+   keys, writes through an interface of the engine that `*cluster.Conn` implements
+   ([`engine/flux.go`](../../internal/engine/flux.go), [`cluster/flux.go`](../../internal/cluster/flux.go)),
+   bound to the object's UID; a `refs` variant for selections.
+3. **A dashboard** as a page: a key `<group>/<page>` with its title in `pageTitles`, a worker in
+   `internal/engine/<integration>dashboard.go` hooked into `state` (views.go) as the Overviews are,
+   its read command, and its panel in `internal/ui/fyneui` (`tableview.go`'s page layout).
+4. **The navigator group** in `internal/ui/fyneui/<integration>nav.go`, one line in `navLayout`;
+   a group of pages alone is left out, so the section goes with the integration's CRDs.
 
 ## Adding a built-in kind profile
 
