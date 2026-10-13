@@ -2,7 +2,7 @@
 
 **Stage: pre-alpha** · a local MVP runs on macOS; every alpha-gate workflow exists in part · next: alpha on macOS, ~110–320 agent-hours away (seven core workflows end to end, walked by a person)
 
-> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-13 · **Change:** minor (the CI rework of 2026-10-13 in the progress log: parallel jobs, sharded race tests, semantic-release live; the day run of 2026-10-13 in the progress log: D-29, the lists' copy icons, the decoded certificates (D-30) and local times (D-31) built, Upcoming 2 done, breadth unchanged at ~79%, beyond Lens 20 of 40 done; earlier the same day, major: the night run in the progress log; breadth counted by `make parity`, ~56% → ~79%; the hours re-estimated roughly by the lead from the gap estimates the run lowered, not re-assessed one by one; the upcoming work after it) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-13 · **Change:** minor (night build of 2026-10-13/14 in progress: Create Secret and the node shell built, 39 of 39 actions, breadth ~81%; the CI rework of 2026-10-13 in the progress log: parallel jobs, sharded race tests, semantic-release live; the day run of 2026-10-13 in the progress log: D-29, the lists' copy icons, the decoded certificates (D-30) and local times (D-31) built, Upcoming 2 done, breadth unchanged at ~79%, beyond Lens 20 of 40 done; earlier the same day, major: the night run in the progress log; breadth counted by `make parity`, ~56% → ~79%; the hours re-estimated roughly by the lead from the gap estimates the run lowered, not re-assessed one by one; the upcoming work after it) · **Target:** Lens Desktop 2026.10.51501
 
 Cogpit's one-page summary of how close it is to Lens Desktop 2026.10.51501, the Kubernetes IDE it
 reimplements as a native desktop client in Go, for macOS first and Windows and Linux after the
@@ -22,7 +22,7 @@ serial foundation, about 80% of the work parallelizes.
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **~79%** (was ~56%) | measured by `make parity`: 64 of 64 views (ten of them the Gateway API views, generic), 37 of 39 actions, 112 of 120 interface rows (pasting kubeconfigs is not a target, D-21); 9 rows done, the rest partial |
+| **Feature breadth** | **~81%** (was ~79%) | measured by `make parity`: 64 of 64 views (ten of them the Gateway API views, generic), 39 of 39 actions, 113 of 120 interface rows (pasting kubeconfigs is not a target, D-21); 9 rows done, the rest partial |
 | **Ready for real work** | **~30%** (was ~26%) | estimated (lead, 2026-10-13: breadth jumped, nothing walked by a person yet) |
 | Mainstream practitioner | ~29% (was ~25%) | estimated |
 | Essentials user | ~36% (was ~34%) | estimated |
