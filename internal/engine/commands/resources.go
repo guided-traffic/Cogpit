@@ -45,6 +45,17 @@ type KindInfo struct {
 	// object_edit or object_delete can write; their own commands change them.
 	Local   bool `json:"local,omitempty"`
 	Virtual bool `json:"virtual,omitempty"`
+	// Actions are the tools of an object's row menu and drawer, in Lens's order (an object's state
+	// can hide or grey one: Uncordon on a node that is not cordoned); SelectionActions those of a
+	// selection's menu; Commands the kind's other tools (its create dialog). kindslist.go.
+	Actions          []string `json:"actions,omitempty"`
+	SelectionActions []string `json:"selectionActions,omitempty"`
+	Commands         []string `json:"commands,omitempty"`
+	// Cached is set while Cogpit's cache holds the kind: reading it costs no request, and
+	// resources_find without a kind searches it.
+	Cached bool `json:"cached,omitempty"`
+	// NotServed marks a built-in kind the cluster does not serve (kinds_list with all).
+	NotServed bool `json:"notServed,omitempty"`
 }
 
 // ListResult is resources.list's result.
@@ -106,7 +117,7 @@ type objectWithRelated struct {
 }
 
 func registerResources(g *registrar) {
-	add(g, engine.Spec[struct{}]{
+	add(g, engine.Spec[kindsListParams]{
 		ID: "kinds.list", Label: "List Kinds", Danger: engine.DangerRead,
 		Description: "Lists the kinds the connected cluster serves, as Cogpit shows them: kind key (what other tools take as " +
 			"kind), title, Kubernetes kind, group, version, whether it is namespaced, its table columns, and the fields " +
@@ -116,28 +127,18 @@ func registerResources(g *registrar) {
 			"appear shortly after connecting and change when a definition does. listable says whether the user may list " +
 			"the kind (in every namespace or one they can see), from Cogpit's access reviews; it is absent until they answer. " +
 			"local marks Cogpit's own kinds (port forwards), virtual the kinds made from other objects (Helm releases): " +
-			"no API resource to create, edit or delete; their own commands change them.",
-		Enabled: func(s *engine.Session, _ struct{}) error { _, err := connected(s); return err },
-		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
+			"no API resource to create, edit or delete; their own commands change them. actions are the tools of an object's " +
+			"row menu and drawer in Lens's order (an object's state can hide or grey one), selectionActions those of a " +
+			"selection's menu, commands the kind's other tools (its create dialog); cached says whether Cogpit's cache holds " +
+			"the kind now (no request to read it; resources_find without kind searches it). With all, the built-in kinds the " +
+			"cluster does not serve follow, marked notServed.",
+		Enabled: func(s *engine.Session, _ kindsListParams) error { _, err := connected(s); return err },
+		Run: func(_ context.Context, s *engine.Session, p kindsListParams) (any, error) {
 			b, err := connected(s)
 			if err != nil {
 				return nil, err
 			}
-			all := b.AllProfiles()
-			filter := s.UIState().Namespaces
-			out := make([]KindInfo, 0, len(all))
-			for _, p := range all {
-				info := KindInfo{
-					Kind: p.Key, Title: p.Title, APIKind: p.Kind, Group: p.Group, Version: p.Version,
-					Namespaced: p.Namespaced, Columns: p.Columns, Fields: fieldNames(p),
-					Local: p.Local, Virtual: p.Derive != nil,
-				}
-				if listable, known := b.Listable(p, filter); known {
-					info.Listable = &listable
-				}
-				out = append(out, info)
-			}
-			return out, nil
+			return listKinds(s, b, p), nil // kindslist.go
 		},
 	})
 
