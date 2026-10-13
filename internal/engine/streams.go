@@ -56,17 +56,21 @@ func (s *Session) OpenLogs(ctx context.Context, tabID string) (io.ReadCloser, er
 	return s.openLogs(ctx, tab, b, b.Conn)
 }
 
-// OpenTerminal starts the session of a terminal, shell or attach dock tab. A terminal tab is a
-// local shell bound to the connected context and to the namespace filter if it names exactly one
-// namespace (else the context's namespace); a shell tab is a shell in the tab's container; an
-// attach tab is attached to the container's main process. The caller closes it.
+// OpenTerminal starts the session of a terminal, shell, attach or node shell dock tab. A terminal
+// tab is a local shell bound to the connected context and to the namespace filter if it names
+// exactly one namespace (else the context's namespace); a shell tab is a shell in the tab's
+// container; an attach tab is attached to the container's main process; a node shell tab waits for
+// its pod, then enters the node (nodeshell.go). The caller closes it.
 func (s *Session) OpenTerminal(ctx context.Context, tabID string) (terminal.Session, error) {
-	tab, b, err := s.streamTab(tabID, DockTerminal, DockShell, DockAttach)
+	tab, b, err := s.streamTab(tabID, DockTerminal, DockShell, DockAttach, DockNodeShell)
 	if err != nil {
 		return nil, err
 	}
-	if tab.Type == DockAttach {
+	switch tab.Type {
+	case DockAttach:
 		return s.openAttach(ctx, tab, b)
+	case DockNodeShell:
+		return s.openNodeShell(ctx, tab, b) // nodeshell.go
 	}
 	if tab.Type == DockTerminal {
 		ns := b.Namespace

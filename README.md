@@ -57,6 +57,8 @@ it. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
 - 🔏 The certificates in your Secrets decoded in the drawer, PEM or DER, a section per certificate of a chain: subject, issuer, serial, validity (a warning 30 days before it ends), names, key, usages, fingerprint, each field copyable; whether `tls.key` belongs to `tls.crt` and the chain is in order; agents read the same fields, never the PEM text or the private key.
 - 📜 Logs with follow, filter, timestamps, the previous container, pod and container selectors, older lines and a jump to a time.
 - 💻 Pod shells, attach and a terminal bound to the cluster's context; copy and paste by keys or, if you choose, the right mouse button.
+- 🖥️ A node shell, as Lens opens it: a privileged pod in `kube-system` from an image pinned by digest, confirmed every time, deleted when the shell closes.
+- 🔐 Create Secret from a dialog, values masked as you type, for you alone: agents can neither create a Secret nor read its values.
 - 🧰 The terminal's `kubectl` checked against the cluster: more than one minor version off, or none, and one click downloads the matching release from `dl.k8s.io`, verified against its SHA-256 and the Kubernetes release's signature, for Cogpit's terminals only.
 - ✏️ YAML editing with a diff and a server-side dry-run before every apply.
 - 🔌 Port forwarding, one click to the browser.
@@ -98,6 +100,8 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Terminal kubeconfig | a temporary file per terminal holding only a context, owner-only, deleted on close ([why](docs/security/credentials.md#the-terminals-kubeconfig)) | |
 | Downloaded `kubectl` | `<user config dir>/Cogpit/kubectl/<version>/kubectl` (0755, directories 0700), or the directory for binaries set in Preferences › Kubernetes ([why](docs/developer/decisions.md#d-3-helm-and-kubectl-binaries)) | `~/Library/Application Support/Cogpit/kubectl/1.36.1/kubectl` # example |
 | A terminal's own directory | `<temp dir>/cogpit-terminal-<random>/`, owner-only, removed on close, only when Cogpit puts a `kubectl` first: `bin/kubectl` (a link), `zsh/.zshenv` (zsh only) | |
+| Node shell pod | `kube-system/cogpit-node-shell-<8 random characters>`, labels `app.kubernetes.io/name=cogpit-node-shell` and `app.kubernetes.io/managed-by=cogpit`, deleted when the shell closes, else ended by its 2-hour deadline ([why](docs/security/privilege-footprint.md#node-shell)) | `kube-system/cogpit-node-shell-k3v9q2mx` # example |
+| Node shell dock tab | id `nodeShell-<n>`, title `Node shell: <node>` | `Node shell: worker-1` # example |
 | Demo context | `demo` (the synthetic cluster) | |
 | Local kind cluster | cluster `cogpit`, context `kind-cogpit`, kubeconfig `.cache/kind/kubeconfig` | |
 | Release artifacts (planned) | `Cogpit-<version>-macos-universal.dmg`, `cogpit-cli-<version>-<os>-<arch>.tar.gz` | `Cogpit-0.1.0-macos-universal.dmg` # example |
@@ -180,8 +184,7 @@ wait for your confirmation in Cogpit's window ([agents and MCP](docs/security/ag
 **Verify.** `make test-unit-race` runs every test without a cluster; with the kind cluster up,
 `make test-kind` also runs the cluster tests (views, logs, pod shell, `kubectl` in the terminal).
 
-**Not built yet (2026-10-13):** node shells ([H-7](docs/security/privilege-footprint.md#h-7-node-shell-is-root-on-the-node)),
-Windows and Linux packages, signed releases (the releases are unsigned) and updates, the built-in agent chat; what exists and
+**Not built yet (2026-10-13):** Windows and Linux packages, signed releases (the releases are unsigned) and updates, the built-in agent chat; what exists and
 what is missing, row by row: [docs/parity](docs/parity/README.md).
 
 <details>
@@ -296,7 +299,7 @@ Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never a
 registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 154 commands</summary>
+<summary>All 156 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -313,11 +316,12 @@ registry with `go run ./hack/readmecmds`.
 | `cluster.refreshAccess` | `cluster_refreshAccess` | read |  | Asks the API server again what the connected user may do (SelfSubjectRulesReview per namespace, SelfSubjectAccessReview where rules cannot answer) and drops the answers Cogpit kept since connecting: use it after the user's roles changed |
 | `cluster.remove` | `cluster_remove` | ui | `context` | Removes a cluster from Cogpit by removing Cogpit's link to the kubeconfig file the user added for it: every context of that file is no longer offered and its tabs close, the login programs allowed for it are forgotten and a connection made from it is closed |
 | `cluster.setPrometheus` | `cluster_setPrometheus` | ui | `address`?, `prefix`? | Sets which Prometheus the connected cluster's metrics come from, as Lens's cluster settings do: a service address namespace/service:port and an optional path prefix, read through the API server's service proxy, or auto to find it by its well-known service names again |
-| `cluster.settings.get` | `cluster_settings_get` | read | `context`? | Returns a context's settings in Cogpit, as its Settings page shows them: the name it shows (the display name set, else the context's name), its icon colour or uploaded image's format, the kubeconfig file it comes from, its terminals' working directory and kubectl namespace (empty: $HOME and the filter's or the context's namespace), the metrics the window hides (hiddenMetrics; empty: all visible), the accessible namespaces named for a user who may not list namespaces (accessibleNamespaces), whether it is the connected cluster, whether the user allowed agents' changes without asking (agentWrites), and whether the settings are kept |
-| `cluster.settings.open` | `cluster_settings_open` | ui | `context`?, `section`? | Opens a context's Settings page in Cogpit's window, as ⌘⇧, (Ctrl+Shift+,) does for the connected cluster, at a section: general (name, icon, kubeconfig), proxy, terminal, namespaces (the accessible namespaces), metrics (the Prometheus, hidden metrics) or agents |
+| `cluster.settings.get` | `cluster_settings_get` | read | `context`? | Returns a context's settings in Cogpit, as its Settings page shows them: the name it shows (the display name set, else the context's name), its icon colour or uploaded image's format, the kubeconfig file it comes from, its terminals' working directory and kubectl namespace (empty: $HOME and the filter's or the context's namespace), the metrics the window hides (hiddenMetrics; empty: all visible), the accessible namespaces named for a user who may not list namespaces (accessibleNamespaces), the node shells' image and pull secret (nodeShellImage, empty: nodeShellDefaultImage; nodeShellPullSecret), whether it is the connected cluster, whether the user allowed agents' changes without asking (agentWrites), and whether the settings are kept |
+| `cluster.settings.open` | `cluster_settings_open` | ui | `context`?, `section`? | Opens a context's Settings page in Cogpit's window, as ⌘⇧, (Ctrl+Shift+,) does for the connected cluster, at a section: general (name, icon, kubeconfig), proxy, terminal, namespaces (the accessible namespaces), metrics (the Prometheus, hidden metrics), nodeShell or agents |
 | `cluster.settings.resetIcon` | `cluster_settings_resetIcon` | ui | `context`? | Gives a context its default icon back: its initials in the accent colour, without an uploaded image or an icon colour |
 | `cluster.settings.set` | `cluster_settings_set` | ui | `accessibleNamespaces`?, `context`?, `hiddenMetrics`?, `iconColor`?, `name`?, `proxy`?, `terminalDir`?, `terminalNamespace`? | Changes some of a context's settings in Cogpit, as its Settings page does; the fields left out stay as they are, an empty value restores the default |
 | `cluster.settings.setAgentWrites` | `cluster_settings_setAgentWrites` | ui | `allowed`, `context`? | Allows or forbids, for one context, agents' mutating commands without the user's acceptance, as the Agents section of its Settings page does; destructive commands always ask |
+| `cluster.settings.setNodeShell` | `cluster_settings_setNodeShell` | ui | `context`?, `image`?, `imagePullSecret`? | Sets a context's node shell image and image pull secret (in kube-system), as Cluster Settings › Node Shell does; a field left out stays, an empty value restores the default (Cogpit's image pinned by digest, no pull secret) |
 | `cluster.settings.uploadIcon` | `cluster_settings_uploadIcon` | ui | `context`?, `path` | Makes an image file the user picked a context's icon (it replaces the icon colour): a PNG or JPEG, kept as a PNG of at most 256 pixels a side, or an SVG without scripts or outside references, at most 1 MiB |
 | `clusterRole.create` | `clusterRole_create` | mutating | `name`, `rules`? | Creates a ClusterRole with the given rules (API groups and resources, or non-resource URLs) after a server-side dry run; the API server refuses rules that grant more than the user holds unless the user may escalate roles |
 | `clusterRoleBinding.create` | `clusterRoleBinding_create` | destructive | `clusterRole`, `name`, `subjects` | Creates a ClusterRoleBinding that grants a ClusterRole in every namespace and on cluster-scoped resources to users, groups and service accounts, after a server-side dry run; the API server refuses it unless the user holds the role's permissions or may bind it |
@@ -382,6 +386,7 @@ registry with `go run ./hack/readmecmds`.
 | `node.dismissDrain` | `node_dismissDrain` | ui | `ref` | Forgets an unfinished drain from node_pendingDrains without changing the cluster: the node stays as it is (cordoned and partly drained, unless someone changed it) |
 | `node.drain` | `node_drain` | destructive | `deleteEmptyDirData`?, `force`?, `gracePeriodSeconds`?, `ignoreDaemonSets`?, `ref`, `timeoutSeconds`? | Drains a node as kubectl drain does: cordons it, then evicts every pod on it through the eviction API, which honours PodDisruptionBudgets, and waits until they are gone |
 | `node.pendingDrains` | `node_pendingDrains` | read | `all`? | Lists the drains Cogpit started on the connected context (all: on every context) that did not finish: context, node, when and by whom started, the settings, status (running in this Cogpit or, with elsewhere and its owner's process, in another one, interrupted by an earlier run of Cogpit ending, or failed with its error) and the node's state from the cache (cordoned, schedulable, missing, unknown) |
+| `node.shell` | `node_shell` | destructive | `ref` | Opens a root shell on a node, as Lens's node shell does: creates a privileged pod in kube-system on the node that shares the node's processes (hostPID), from the image Cluster Settings › Node Shell names (default: Alpine 3.19 pinned by digest), and enters the node's namespaces with nsenter in a dock tab "Node shell: <node>" |
 | `node.uncordon` | `node_uncordon` | mutating | `ref` | Uncordons a cordoned node as kubectl uncordon does: removes spec.unschedulable, so that pods are scheduled on it again |
 | `notifications.clear` | `notifications_clear` | ui |  | Empties the notification list, as its "Clear all" does in Cogpit's window |
 | `notifications.list` | `notifications_list` | read |  | Lists the notifications the user was shown as toasts in this session, newest first, at most 100: each with its id, level (info, warning, error), message, time, and whether the user has read it (seen it in the title bar's notification list or closed its toast), with the totals the bell's badge shows |

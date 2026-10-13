@@ -63,6 +63,9 @@ func (s *Session) permittedOn(b *Backend, c *Command, ref model.ObjectRef) error
 	}
 	for _, v := range verbs {
 		ns := ref.Namespace
+		if v.Namespace != "" { // a verb used in one namespace whatever the object (the node shell's kube-system)
+			ns = v.Namespace
+		}
 		if v.Resource == "*" {
 			if !hasProf || !prof.APIObject() {
 				// A kind without a profile: discovery would be needed, so the server decides. A

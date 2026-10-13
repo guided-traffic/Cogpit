@@ -132,6 +132,8 @@ type DockTab struct {
 	Kubectl *KubectlCheck `json:"kubectl,omitempty"`
 	// Audit is the Audit Log tab's filter (auditlist.go).
 	Audit AuditTab `json:"audit,omitzero"`
+	// NodeShell is a node shell tab's node and pod (nodeshell.go).
+	NodeShell *NodeShellTab `json:"nodeShell,omitempty"`
 }
 
 // HelmUpgradeTab is what a Helm Upgrade tab shows beside its values editor (Lens's "Helm Upgrade:

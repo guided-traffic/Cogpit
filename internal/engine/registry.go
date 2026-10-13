@@ -47,6 +47,9 @@ type Verb struct {
 	Group       string `json:"group,omitempty"`
 	Resource    string `json:"resource"`
 	Subresource string `json:"subresource,omitempty"`
+	// Namespace is the one namespace the command uses the verb in, when that is fixed whatever
+	// object it acts on (the node shell's kube-system); empty: the object's namespace.
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // Spec describes a command with typed parameters P. P must be a struct with json tags; its JSON

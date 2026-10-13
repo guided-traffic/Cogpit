@@ -27,7 +27,7 @@ func TestRegistryMenusAsLens(t *testing.T) {
 		want    []string
 		missing string
 	}{
-		{"nodes", []string{"node.cordon", "node.uncordon", "node.drain", "object.edit", "object.delete"}, "node.shell (100)"},
+		{"nodes", []string{"node.shell", "node.cordon", "node.uncordon", "node.drain", "object.edit", "object.delete"}, ""},
 		{"cronjobs", []string{"cronjob.trigger", "cronjob.resume", "cronjob.suspend", "object.edit", "object.delete"}, ""},
 		{"pods", []string{"pod.attach", "pod.shell", "pod.evict", "pod.logs", "object.edit", "object.delete"}, "pod.share is not a target"},
 		{"deployments", []string{"deployment.scale", "deployment.restart", "workload.logs", "object.edit", "object.delete"}, ""},

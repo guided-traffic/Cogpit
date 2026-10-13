@@ -77,6 +77,12 @@ type ClusterSettings struct {
 	// asking (D-2, allowance.go); only the user sets it, in Cogpit's window. Destructive commands
 	// always ask. False, the default: every mutating command of an agent waits for the user.
 	AgentWrites bool `json:"agentWrites,omitempty"`
+	// NodeShellImage is the image of this cluster's node shells (nodeshell.go); empty:
+	// DefaultNodeShellImage. Only the user sets one; agents may reset it.
+	NodeShellImage string `json:"nodeShellImage,omitempty"`
+	// NodeShellPullSecret names an image pull secret in kube-system for the node shells' image;
+	// empty: none.
+	NodeShellPullSecret string `json:"nodeShellPullSecret,omitempty"`
 }
 
 // IsZero reports whether the settings are all defaults.
@@ -87,7 +93,8 @@ func (c ClusterSettings) IsZero() bool { return c.Equal(ClusterSettings{}) }
 func (c ClusterSettings) Equal(o ClusterSettings) bool {
 	return c.Name == o.Name && c.IconColor == o.IconColor && c.Icon == o.Icon && c.TerminalDir == o.TerminalDir &&
 		c.TerminalNamespace == o.TerminalNamespace && c.HiddenMetrics == o.HiddenMetrics && c.Proxy == o.Proxy &&
-		slices.Equal(c.AccessibleNamespaces, o.AccessibleNamespaces) && c.AgentWrites == o.AgentWrites
+		slices.Equal(c.AccessibleNamespaces, o.AccessibleNamespaces) && c.AgentWrites == o.AgentWrites &&
+		c.NodeShellImage == o.NodeShellImage && c.NodeShellPullSecret == o.NodeShellPullSecret
 }
 
 // Check says why settings cannot be kept: the first field out of its bounds.
@@ -113,6 +120,12 @@ func (c ClusterSettings) Check() error {
 		return errors.New("hidden metrics: a metric this Cogpit does not know")
 	}
 	if err := checkAccessibleNamespaces(c.AccessibleNamespaces); err != nil {
+		return err
+	}
+	if err := CheckNodeShellImage(c.NodeShellImage); err != nil { // nodeshell.go
+		return err
+	}
+	if err := CheckNodeShellPullSecret(c.NodeShellPullSecret); err != nil {
 		return err
 	}
 	return CheckProxyURL(c.Proxy)
@@ -141,6 +154,12 @@ func (c *ClusterSettings) normalize() {
 		c.Proxy = ""
 	}
 	c.AccessibleNamespaces = keptAccessibleNamespaces(c.AccessibleNamespaces)
+	if CheckNodeShellImage(c.NodeShellImage) != nil {
+		c.NodeShellImage = ""
+	}
+	if CheckNodeShellPullSecret(c.NodeShellPullSecret) != nil {
+		c.NodeShellPullSecret = ""
+	}
 }
 
 func checkClusterName(name string) error {
@@ -403,6 +422,12 @@ type ClusterSettingsView struct {
 	// AgentWrites says whether the user allowed agents' mutating commands in this cluster without
 	// asking (destructive commands always ask); only the user changes it, in Cogpit's window.
 	AgentWrites bool `json:"agentWrites"`
+	// NodeShellImage is the node shells' image as set; empty: NodeShellDefaultImage.
+	NodeShellImage string `json:"nodeShellImage,omitempty"`
+	// NodeShellDefaultImage is Cogpit's default image of a node shell, pinned by digest.
+	NodeShellDefaultImage string `json:"nodeShellDefaultImage"`
+	// NodeShellPullSecret is the image pull secret in kube-system as set; empty: none.
+	NodeShellPullSecret string `json:"nodeShellPullSecret,omitempty"`
 	// Connected says whether the context is the connected cluster (its metrics settings apply).
 	Connected bool `json:"connected"`
 	// Kept says whether the settings outlive this run (false without a configuration directory).
@@ -419,7 +444,8 @@ func (s *Session) ClusterSettingsView(context string) (ClusterSettingsView, erro
 		NameSet: cs.Name != "", IconColor: cs.IconColor, TerminalDir: cs.TerminalDir,
 		TerminalNamespace: cs.TerminalNamespace, HiddenMetrics: MetricNames(cs.HiddenMetrics),
 		Proxy: RedactProxyURL(cs.Proxy), AccessibleNamespaces: append([]string{}, cs.AccessibleNamespaces...),
-		AgentWrites: cs.AgentWrites, Kept: s.opts.ClusterSettings.Path() != ""}
+		AgentWrites: cs.AgentWrites, Kept: s.opts.ClusterSettings.Path() != "",
+		NodeShellImage: cs.NodeShellImage, NodeShellDefaultImage: DefaultNodeShellImage, NodeShellPullSecret: cs.NodeShellPullSecret}
 	if cs.Icon != "" {
 		v.IconImage = strings.TrimPrefix(filepath.Ext(cs.Icon), ".")
 	}

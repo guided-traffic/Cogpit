@@ -150,9 +150,10 @@ type Session struct {
 
 	auditMu sync.Mutex
 
-	state  *state    // views, backend and streams: views.go
-	edits  editStore // the editor tabs' texts and base versions: editor.go
-	titles sync.Map  // view key → the view's title, for the tabs' titles (tabs.go)
+	state  *state       // views, backend and streams: views.go
+	edits  editStore    // the editor tabs' texts and base versions: editor.go
+	titles sync.Map     // view key → the view's title, for the tabs' titles (tabs.go)
+	shells nodeShellSet // the node shells' pods by dock tab: nodeshell.go
 }
 
 // New returns a Session with an empty registry. Register commands (package commands) before use.
@@ -361,6 +362,7 @@ func (s *Session) UpdateUI(fn func(*UIState)) UIState {
 	s.mu.Unlock()
 
 	s.state.uiChanged(old, now)
+	s.endClosedNodeShells(old.Dock, now.Dock) // a closed node shell tab's pod goes (nodeshell.go)
 	s.emit(Event{Type: EventUIState, UIState: &now})
 	return now
 }
@@ -410,5 +412,6 @@ func (s *Session) Emit(ev Event) { s.emit(ev) }
 // Close disconnects and stops every view. The session must not be used afterwards.
 func (s *Session) Close() {
 	s.opts.Drafts.close() // the drafts still waiting for their timer are written first (nil-safe)
+	s.endNodeShells()     // the node shells' pods are deleted before the connection goes (nodeshell.go)
 	s.state.close()
 }

@@ -56,7 +56,17 @@ func StartPodExec(ctx context.Context, config *rest.Config, client kubernetes.In
 	if len(command) == 0 {
 		command = DefaultExecCommand
 	}
-	req := client.CoreV1().RESTClient().Post().
+	exec, err := newExecutor(config, execRequest(client, opts, command))
+	if err != nil {
+		return nil, fmt.Errorf("pod shell %s/%s: %w", opts.Namespace, opts.Pod, err)
+	}
+	return startStream(ctx, exec), nil
+}
+
+// execRequest is the exec subresource's request for an interactive TTY in opts' container that
+// runs command.
+func execRequest(client kubernetes.Interface, opts ExecOptions, command []string) *rest.Request {
+	return client.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Namespace(opts.Namespace).
 		Name(opts.Pod).
@@ -69,12 +79,6 @@ func StartPodExec(ctx context.Context, config *rest.Config, client kubernetes.In
 			Stderr:    false, // with a TTY, stderr arrives on stdout
 			TTY:       true,
 		}, scheme.ParameterCodec)
-
-	exec, err := newExecutor(config, req)
-	if err != nil {
-		return nil, fmt.Errorf("pod shell %s/%s: %w", opts.Namespace, opts.Pod, err)
-	}
-	return startStream(ctx, exec), nil
 }
 
 // newExecutor builds the executor kubectl exec builds (k8s.io/kubectl/pkg/cmd/exec,

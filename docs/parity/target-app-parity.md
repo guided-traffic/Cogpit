@@ -1,6 +1,6 @@
 # Cogpit vs Lens Desktop: target-app parity
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (Create Secret partial: actions 38 of 39, weighted 79.9%, breadth ~80%; G12: the cluster's Prometheus setting, partial: interface 56 of 120, breadth ~57%; earlier: fourth measurement, by `make parity`: breadth ~56%, ready ~26%) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (the node shell and Cluster Settings › Node Shell partial: actions 39 of 39, interface 113 of 120, weighted 80.6%, breadth ~81%; Create Secret partial: actions 38 of 39; G12: the cluster's Prometheus setting, partial: interface 56 of 120, breadth ~57%; earlier: fourth measurement, by `make parity`: breadth ~56%, ready ~26%) · **Target:** Lens Desktop 2026.10.51501
 
 The authoritative answer to "how close is Cogpit to Lens, and how much work is left". The
 one-page summary is [`ROADMAP.md`](../../ROADMAP.md); the ranked work list is
@@ -13,7 +13,7 @@ Cogpit adds beyond Lens is in [`beyond-lens.md`](beyond-lens.md). Method and voc
 
 | Number | Value | Kind |
 |---|---|---|
-| **Feature breadth** (does each Lens feature exist?) | **~80%** (was ~56%) | measured by `make parity`: [breadth](#feature-breadth); 9 rows done, the rest partial |
+| **Feature breadth** (does each Lens feature exist?) | **~81%** (was ~56%) | measured by `make parity`: [breadth](#feature-breadth); 9 rows done, the rest partial |
 | **Ready for real work** (could a daily Lens user on macOS switch?) | **~26%** (was ~23%) | estimated: [weights](#ready-for-real-work) |
 | **Mainstream practitioner** (daily user of Lens's free features) | **~25%** (was ~24%) | estimated |
 | **Essentials user** (connect, pods, logs, shell, edit) | **~34%** (was ~32%) | estimated |
@@ -83,12 +83,12 @@ counts when it exists in some form; nine counted rows are done, the rest partial
 | Component | Weight | Ours / Lens | % | Kind |
 |---|---:|---|---:|---|
 | Resource views | 30% | 64 / 64 | 100.0% | measured ([resource-parity](resource-parity.md)); ten of them the Gateway API views, generic until captured |
-| Resource actions | 20% | 38 / 39 | 97.4% | measured ([resource-parity](resource-parity.md)) |
-| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 112 / 120 | 93.3% | measured ([ui-parity](ui-parity.md), free rows) |
+| Resource actions | 20% | 39 / 39 | 100.0% | measured ([resource-parity](resource-parity.md)) |
+| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 113 / 120 | 94.2% | measured ([ui-parity](ui-parity.md), free rows) |
 | Cluster authentication and connectivity | 10% | 7 / 13 | 53.8% | measured ([platform-parity](platform-parity.md#cluster-authentication-and-connectivity)) |
 | Platforms and packages | 5% | 2 / 13 | 15.4% | measured ([platform-parity](platform-parity.md#operating-systems-and-packages)) |
 | Paid Lens Desktop features | 10% | 1 / 11 | 9.1% | measured ([premium list](https://docs.lenshq.io/k8slens/premium-features/) without extensions, D-5): the editor's diff, partial |
-| **Weighted** | 100% | | **79.9%** | |
+| **Weighted** | 100% | | **80.6%** | |
 
 ## Ready for real work
 
@@ -101,7 +101,7 @@ else.
 | Resource views and actions in depth | 28% | 29% | 50–170 | 55 of 64 views (one done) and 29 of 39 actions, the rest partial; Secrets' Keys and Type filled from a full watch; most texts and rules inferred, not checked against a capture | [resource-parity](resource-parity.md), G6, G7 |
 | Interface fidelity and feel | 15% | 23% | 100–275 | 54 of 120 rows (8 done); adding and syncing kubeconfigs, the Helm Upgrade tab, the View menu following the sidebar; Cogpit's own title bar on macOS not yet seen in a real window | [ui-parity](ui-parity.md), G5, G9, G13 |
 | Cluster connectivity and authentication | 15% | 28% | 10–28 + human | 4 of 13 rows partial; kubeconfig files, pasted kubeconfigs and sync folders, each read on its own; credential plugins run only once the user allowed them; no cloud plugin verified | [platform-parity](platform-parity.md#cluster-authentication-and-connectivity), G2 |
-| Logs, terminal, shells, port forwarding | 10% | 47% | 18–46 | log options, logs of a workload's pods that resume a dropped stream, attach, port forwarding with reconnects (on kind); the terminal widget fuzzed on its own, twelve crashes, hangs and races fixed; no node shell | [ui-parity](ui-parity.md#logs), G8, G10 |
+| Logs, terminal, shells, port forwarding | 10% | 47% | 18–46 | log options, logs of a workload's pods that resume a dropped stream, attach, port forwarding with reconnects (on kind); the terminal widget fuzzed on its own, twelve crashes, hangs and races fixed; the node shell since 2026-10-13 (D-37) | [ui-parity](ui-parity.md#logs), G8, G10 |
 | Performance and API load | 10% | 25% | 28–66 | P2, P9–P11 measured; frames on the GPU only once; the perf gate no longer hangs on a slow runner | [testing](../developer/testing.md#performance-budgets-proposed-not-measured), G15 |
 | Stability | 10% | 11% | 100–200 | race-clean tests and CI on every push; ten flaky tests fixed, four of them product bugs (a UI state overwritten, rows missing related objects, a failed forward reported as started, a nil colour); journals safe between Cogpit processes; no use on real clusters yet | [gaps](gaps.md#g16-stability-and-the-user-bug-backlog), G16 |
 | Helm releases and metrics | 5% | 25% | 52–110 | releases from the cache with Lens's drawer, rollback with Lens's dialog, uninstall and upgrade from the Helm Upgrade tab, crash-safe on kind; no install, charts or metrics | G11, G12 |
@@ -156,7 +156,7 @@ each), contained in G6 and G7 above, plus the named subsystem where one exists.
 
 | Area | Views | Actions | % | Hours |
 |---|---:|---:|---:|---:|
-| Cluster: overview, applications, nodes, namespaces, events | 5 | 5 | ~25% (Nodes with its Pods table, Namespaces, Events; Cordon, Uncordon, Drain partial; no node shell; Create Namespace partial, 2026-10-12) | 12–35, plus metrics (G12) |
+| Cluster: overview, applications, nodes, namespaces, events | 5 | 5 | ~25% (Nodes with its Pods table, Namespaces, Events; Cordon, Uncordon, Drain partial; the node shell partial, 2026-10-13; Create Namespace partial, 2026-10-12) | 12–35, plus metrics (G12) |
 | Workloads | 9 | 16 | ~55% (every view, the Overview page included; all 15 actions that are targets exist, partial; Share is not a target) | 8–30 |
 | Config | 16 | 2 | ~42% (15 of 16 views partial, Secrets on a full watch with Keys and Type; the Resource Quota create dialog partial, 2026-10-12; the Secret's, 2026-10-13) | 10–35 |
 | Network, Gateway API included | 17 | 5 | ~45% (every view; port forwarding and its four actions; the Gateway API views generic) | 6–25 |
@@ -241,6 +241,7 @@ LiteLLM or Open WebUI endpoint for the built-in agent.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | The node shell (D-37) and Cluster Settings › Node Shell partial (night build, G7, G8, G13): resource actions 39 of 39, interface 113 of 120 free rows, weighted 80.6%, breadth ~81% |
 | 2026-10-13 | minor | Create Secret partial (night build, G9): resource actions 38 of 39, weighted 79.9%, breadth ~80% |
 | 2026-10-12 | minor | G12 (fourth slice): the cluster's Prometheus setting partial (a dialog from the drawer's status line), the interface 56 of 120 free rows, weighted 56.7%, breadth ~57% |
 | 2026-10-12 | minor | Recount after the fifth run (lead): the interface 55 of 120 free rows (CPU and Memory columns from metrics-server), weighted 56.5% |

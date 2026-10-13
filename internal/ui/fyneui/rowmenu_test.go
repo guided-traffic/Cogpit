@@ -66,6 +66,7 @@ func registerProbes(t testing.TB, f *fakeEngine) {
 		return func(*engine.Session, probeRef) error { return f.reason(id) }
 	}
 	for _, spec := range []engine.Spec[probeRef]{
+		{ID: "node.shell", Label: "Shell", Kinds: []string{"nodes"}, Order: 100, Danger: engine.DangerDestructive, Targets: targets, Run: run},
 		{ID: "node.cordon", Label: "Cordon", Kinds: []string{"nodes"}, Order: 200, Danger: engine.DangerMutating, Targets: targets, Run: run,
 			Enabled: notApplicableUnless(func(r model.ObjectRef) bool { return !isCordoned(r) }, "already cordoned")},
 		{ID: "node.uncordon", Label: "Uncordon", Kinds: []string{"nodes"}, Order: 200, Danger: engine.DangerMutating, Targets: targets, Run: run,
@@ -172,7 +173,7 @@ func TestRowMenuNodes(t *testing.T) {
 	sh, _, q := settledShell(t, f, "nodes")
 
 	m := openMenu(t, sh, q, rowOf(t, f, "nodes", "worker-a-01"))
-	want := []string{"Show Details", "Cordon", "Drain — the demo cluster cannot be changed", "Edit", "Delete"}
+	want := []string{"Show Details", "Shell", "Cordon", "Drain — the demo cluster cannot be changed", "Edit", "Delete"}
 	if got := labels(m); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("menu %q, want %q", got, want)
 	}
@@ -181,7 +182,7 @@ func TestRowMenuNodes(t *testing.T) {
 	}
 
 	m = openMenu(t, sh, q, rowOf(t, f, "nodes", cordonedNode))
-	want[1] = "Uncordon"
+	want[2] = "Uncordon"
 	if got := labels(m); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("cordoned node menu %q, want %q", got, want)
 	}
@@ -461,12 +462,12 @@ func TestDrawerToolbarFromRegistry(t *testing.T) {
 	ref := model.ObjectRef{Context: "demo", Kind: "nodes", Name: cordonedNode}
 	f.ui.Selected, f.ui.Drawer = []model.ObjectRef{ref}, &ref
 	sh, _, q := newTestShell(t, f, Options{})
-	q.until(t, "the toolbar", func() bool { return len(sh.drawer.actions.Objects) == 4 })
+	q.until(t, "the toolbar", func() bool { return len(sh.drawer.actions.Objects) == 5 })
 	var tips []string
 	for _, o := range sh.drawer.actions.Objects {
 		tips = append(tips, o.(*tipButton).tip)
 	}
-	want := []string{"Uncordon", "Drain: the demo cluster cannot be changed", "Edit", "Delete"}
+	want := []string{"Shell", "Uncordon", "Drain: the demo cluster cannot be changed", "Edit", "Delete"}
 	if strings.Join(tips, "|") != strings.Join(want, "|") {
 		t.Fatalf("toolbar %q, want %q", tips, want)
 	}

@@ -141,7 +141,7 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 	case engine.DockLogs:
 		c.logs = newLogTab(ctx, d.sh, c, t)
 		c.logs.open()
-	case engine.DockTerminal, engine.DockShell, engine.DockAttach:
+	case engine.DockTerminal, engine.DockShell, engine.DockAttach, engine.DockNodeShell:
 		if t.Type == engine.DockTerminal {
 			c.kubectl = newKubectlOffer(d.sh, t)
 		}

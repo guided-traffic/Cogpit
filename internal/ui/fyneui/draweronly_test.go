@@ -21,16 +21,16 @@ func TestDrawerOnlyActionsStayOutOfRowMenus(t *testing.T) {
 	ref := model.ObjectRef{Context: "demo", Kind: "nodes", Name: cordonedNode}
 	f.ui.Selected, f.ui.Drawer = []model.ObjectRef{ref}, &ref
 	sh, _, q := newTestShell(t, f, Options{})
-	q.until(t, "the toolbar", func() bool { return len(sh.drawer.actions.Objects) == 5 })
+	q.until(t, "the toolbar", func() bool { return len(sh.drawer.actions.Objects) == 6 })
 	var tips []string
 	for _, o := range sh.drawer.actions.Objects {
 		tips = append(tips, o.(*tipButton).tip)
 	}
-	if want := "Copy|Uncordon|Drain|Edit|Delete"; strings.Join(tips, "|") != want {
+	if want := "Copy|Shell|Uncordon|Drain|Edit|Delete"; strings.Join(tips, "|") != want {
 		t.Errorf("toolbar %q, want %q", tips, want)
 	}
 	got := labels(sh.rowMenu(ref, sh.evaluateActions(ref, nil)))
-	if want := "Show Details|Uncordon|Drain|Edit|Delete"; strings.Join(got, "|") != want {
+	if want := "Show Details|Shell|Uncordon|Drain|Edit|Delete"; strings.Join(got, "|") != want {
 		t.Errorf("row menu %q, want %q", got, want)
 	}
 }
