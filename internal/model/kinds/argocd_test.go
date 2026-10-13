@@ -106,7 +106,7 @@ func TestArgoCDStatusTexts(t *testing.T) {
 		{app, "out-of-sync", "sync", "OutOfSync", warning, warning}, // Healthy, then sync: a warning
 		{app, "out-of-sync", "destination", "prod-eu/ingress", none, warning},
 		{app, "out-of-sync", "path", "ingress-nginx", none, warning}, // a chart in place of a path
-		{app, "out-of-sync", "revision", "4.11.2", none, warning},     // a chart version stays whole
+		{app, "out-of-sync", "revision", "4.11.2", none, warning},    // a chart version stays whole
 		{app, "failing", "health", "Degraded", bad, bad},
 		{app, "failing", "message", "Failed to load target state: failed to generate manifest for source 1 of 1: rpc error: kustomize build failed", none, bad},
 		{app, "failing", "destination", "https://10.0.0.1:6443/payments", none, bad},
@@ -279,7 +279,7 @@ func TestArgoSettingsNeverShowCredentials(t *testing.T) {
 	if u := model.NestedString(byName["repo-pay-deploy"], "spec", "url"); u != "git@git.example.com:pay/deploy.git" {
 		t.Errorf("SSH URL %q", u)
 	}
-	if keys := model.NestedStrings(byName["repo-k8s-base-argo"], "spec", "keys"); strings.Join(keys, ",") != "insecure,password,username" {
+	if keys := model.NestedStrings(byName["repo-k8s-base-argo"], "spec", "hiddenKeys"); strings.Join(keys, ",") != "insecure,password,username" {
 		t.Errorf("hidden keys %v", keys)
 	}
 }

@@ -46,8 +46,8 @@ const (
 // ArgoRepositoryKeys and ArgoClusterKeys are the allowlists of D-35: the only keys of Argo CD's
 // repository and cluster Secrets whose values Cogpit reads.
 var (
-	ArgoRepositoryKeys = []string{"name", "url", "type", "project"}
-	ArgoClusterKeys    = []string{"name", "server", "namespaces", "clusterResources", "project"}
+	ArgoRepositoryKeys = []string{fieldName, "url", "type", "project"}
+	ArgoClusterKeys    = []string{fieldName, "server", keyNamespaces, "clusterResources", "project"}
 )
 
 // argoValueBytes bounds a value Cogpit shows: configuration, not documents.
@@ -64,9 +64,11 @@ const (
 	idArgoDisplayName = "displayName"
 	idArgoSecretType  = "secretType"
 	idArgoAuth        = "authentication"
-	idArgoNamespaces  = "namespaces"
 	idArgoClusterRes  = "clusterResources"
-	fieldArgoKeys     = "keys"
+	fieldArgoKeys     = "hiddenKeys"
+	kindArgoSecret    = "Secret"
+	fieldAPIVersion   = "apiVersion"
+	fieldNamespace    = "namespace"
 )
 
 // ArgoSettings returns the profiles of the settings views, Repositories then Clusters.
@@ -79,7 +81,7 @@ var argoRepositories = &model.KindProfile{
 	Version:       "v1",
 	Resource:      keySecrets,
 	Kind:          "ArgoCDRepository",
-	DetailTitle:   "Repository",
+	DetailTitle:   titleArgoRepo,
 	Title:         "Repositories",
 	Namespaced:    true,
 	LabelSelector: ArgoSecretTypeLabel + " in (" + argoTypeRepository + "," + argoTypeRepoCreds + ")",
@@ -96,9 +98,15 @@ var argoRepositories = &model.KindProfile{
 	},
 	Cells: argoRepoCells,
 	Fields: map[string]fieldFunc{
-		idArgoURL:     func(obj *unstructured.Unstructured) []string { return nonEmpty(model.NestedString(obj, fieldSpec, idArgoURL)) },
-		idType:        func(obj *unstructured.Unstructured) []string { return nonEmpty(model.NestedString(obj, fieldSpec, idType)) },
-		idArgoProject: func(obj *unstructured.Unstructured) []string { return nonEmpty(model.NestedString(obj, fieldSpec, idArgoProject)) },
+		idArgoURL: func(obj *unstructured.Unstructured) []string {
+			return nonEmpty(model.NestedString(obj, fieldSpec, idArgoURL))
+		},
+		idType: func(obj *unstructured.Unstructured) []string {
+			return nonEmpty(model.NestedString(obj, fieldSpec, idType))
+		},
+		idArgoProject: func(obj *unstructured.Unstructured) []string {
+			return nonEmpty(model.NestedString(obj, fieldSpec, idArgoProject))
+		},
 	},
 	Derive: func(objs []*unstructured.Unstructured) []*unstructured.Unstructured {
 		return argoDerive(objs, "ArgoCDRepository", ArgoRepositoryKeys, argoTypeRepository, argoTypeRepoCreds)
@@ -121,7 +129,7 @@ var argoClusters = &model.KindProfile{
 		ageColumn,
 		argoHiddenNamespace,
 		{ID: idArgoDisplayName, Title: "Display Name", Type: model.ColumnText, Hidden: true},
-		{ID: idArgoNamespaces, Title: "Namespaces", Type: model.ColumnText, Hidden: true},
+		{ID: keyNamespaces, Title: titleArgoNamespaces, Type: model.ColumnText, Hidden: true},
 		{ID: idArgoClusterRes, Title: "Cluster Resources", Type: model.ColumnText, Hidden: true},
 		{ID: idArgoProject, Title: titleArgoProject, Type: model.ColumnText, Hidden: true},
 	},
@@ -130,7 +138,9 @@ var argoClusters = &model.KindProfile{
 		idArgoServerCol: func(obj *unstructured.Unstructured) []string {
 			return nonEmpty(model.NestedString(obj, fieldSpec, idArgoServerCol))
 		},
-		idArgoProject: func(obj *unstructured.Unstructured) []string { return nonEmpty(model.NestedString(obj, fieldSpec, idArgoProject)) },
+		idArgoProject: func(obj *unstructured.Unstructured) []string {
+			return nonEmpty(model.NestedString(obj, fieldSpec, idArgoProject))
+		},
 	},
 	Derive: func(objs []*unstructured.Unstructured) []*unstructured.Unstructured {
 		return argoDerive(objs, "ArgoCDCluster", ArgoClusterKeys, argoTypeCluster)
@@ -146,7 +156,7 @@ func argoDerive(objs []*unstructured.Unstructured, kind string, allowed []string
 	out := make([]*unstructured.Unstructured, 0, len(objs))
 	for _, sec := range objs {
 		typ := sec.GetLabels()[ArgoSecretTypeLabel]
-		if sec.GetKind() != "Secret" || !slices.Contains(types, typ) {
+		if sec.GetKind() != kindArgoSecret || !slices.Contains(types, typ) {
 			continue
 		}
 		spec := map[string]any{idArgoSecretType: typ}
@@ -169,7 +179,7 @@ func argoDerive(objs []*unstructured.Unstructured, kind string, allowed []string
 			spec[fieldArgoKeys] = keys
 		}
 		meta := map[string]any{
-			"name": sec.GetName(), "namespace": sec.GetNamespace(),
+			fieldName: sec.GetName(), fieldNamespace: sec.GetNamespace(),
 			"uid": string(sec.GetUID()), "resourceVersion": sec.GetResourceVersion(),
 		}
 		if ts, ok := model.NestedValue(sec, "metadata", "creationTimestamp"); ok {
@@ -183,7 +193,7 @@ func argoDerive(objs []*unstructured.Unstructured, kind string, allowed []string
 			meta["labels"] = labels
 		}
 		out = append(out, &unstructured.Unstructured{Object: map[string]any{
-			"apiVersion": model.LocalGroup + "/v1", "kind": kind, "metadata": meta, fieldSpec: spec,
+			fieldAPIVersion: model.LocalGroup + "/v1", idKind: kind, "metadata": meta, fieldSpec: spec,
 		}})
 	}
 	return out
@@ -250,7 +260,7 @@ func RedactURLUserinfo(s string) string {
 func argoSecretTypeText(typ string) string {
 	switch typ {
 	case argoTypeRepository:
-		return "Repository"
+		return titleArgoRepo
 	case argoTypeRepoCreds:
 		return "Credential Template"
 	case argoTypeCluster:
@@ -319,7 +329,7 @@ func argoClusterCells(obj *unstructured.Unstructured) ([]model.Cell, model.Statu
 		model.AgeCell(created(obj)),
 		namespaceCell(obj),
 		{Text: model.NestedString(spec, "name")},
-		{Text: model.NestedString(spec, idArgoNamespaces)},
+		{Text: model.NestedString(spec, keyNamespaces)},
 		{Text: model.NestedString(spec, idArgoClusterRes)},
 		{Text: model.NestedString(spec, idArgoProject), Link: linkTo(ArgoProjectsKey, obj.GetNamespace(), model.NestedString(spec, idArgoProject))},
 	}, model.StatusNone
@@ -339,7 +349,7 @@ func argoSettingsHead(obj *unstructured.Unstructured) detailItems {
 // argoHiddenKeys names the Secret's other keys, whose values Cogpit never reads (D-35).
 func argoHiddenKeys(obj any) model.DetailItem {
 	keys := model.NestedStrings(obj, fieldSpec, fieldArgoKeys)
-	return model.DetailItem{Name: "Values Not Shown", Value: strings.Join(keys, "\n"), Fold: "keys"}
+	return model.DetailItem{Name: "Values Not Shown", Value: strings.Join(keys, "\n"), Fold: "hidden keys"}
 }
 
 func argoRepoDetail(obj *unstructured.Unstructured) []model.DetailSection {
@@ -359,7 +369,7 @@ func argoClusterDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	spec := model.NestedMap(obj, fieldSpec)
 	d.add("Name", model.NestedString(spec, "name"))
 	d.add(titleArgoServer, model.NestedString(spec, idArgoServerCol))
-	d.add("Namespaces", strings.Join(strings.Split(model.NestedString(spec, idArgoNamespaces), ","), "\n"))
+	d.add(titleArgoNamespaces, strings.Join(strings.Split(model.NestedString(spec, keyNamespaces), ","), "\n"))
 	d.add("Cluster Resources", model.NestedString(spec, idArgoClusterRes))
 	d.put(linkedItem(titleArgoProject, model.NestedString(spec, idArgoProject), linkTo(ArgoProjectsKey, obj.GetNamespace(), model.NestedString(spec, idArgoProject))))
 	d.put(argoHiddenKeys(obj))

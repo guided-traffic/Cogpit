@@ -75,6 +75,10 @@ const (
 	titleArgoRepo     = "Repository"
 	titleArgoMessage  = "Message"
 	titleArgoServer   = "Server"
+	titleApplications = "Applications"
+	titleArgoSync     = "Sync"
+	titleArgoHealth   = "Health"
+	textYes           = "Yes"
 	fieldArgoSource   = "source"
 	fieldArgoSources  = "sources"
 	fieldArgoRepoURL  = "repoURL"
@@ -110,13 +114,13 @@ var argoApplications = &model.KindProfile{
 	Version:    argoVersion,
 	Resource:   "applications",
 	Kind:       kindArgoApplication,
-	Title:      "Applications",
+	Title:      titleApplications,
 	Namespaced: true,
 	Columns: []model.Column{
 		nameColumn,
 		namespaceColumn,
-		{ID: idArgoSync, Title: "Sync", Type: model.ColumnText, Width: 100},
-		{ID: idArgoHealth, Title: "Health", Type: model.ColumnText, Width: 100},
+		{ID: idArgoSync, Title: titleArgoSync, Type: model.ColumnText, Width: 100},
+		{ID: idArgoHealth, Title: titleArgoHealth, Type: model.ColumnText, Width: 100},
 		{ID: idArgoProject, Title: titleArgoProject, Type: model.ColumnText, Width: 110},
 		{ID: idArgoDest, Title: "Destination", Type: model.ColumnText},
 		{ID: idArgoRevision, Title: titleArgoRevision, Type: model.ColumnText, Width: 90},
@@ -128,7 +132,9 @@ var argoApplications = &model.KindProfile{
 	},
 	Cells: argoAppCells,
 	Fields: map[string]fieldFunc{
-		idArgoProject:    func(obj *unstructured.Unstructured) []string { return nonEmpty(model.NestedString(obj, fieldSpec, idArgoProject)) },
+		idArgoProject: func(obj *unstructured.Unstructured) []string {
+			return nonEmpty(model.NestedString(obj, fieldSpec, idArgoProject))
+		},
 		idArgoSync:       func(obj *unstructured.Unstructured) []string { return nonEmpty(ArgoSyncStatus(obj)) },
 		idArgoHealth:     func(obj *unstructured.Unstructured) []string { return nonEmpty(ArgoHealthStatus(obj)) },
 		idArgoRepository: func(obj *unstructured.Unstructured) []string { return argoSourceValues(obj, fieldArgoRepoURL) },
@@ -142,7 +148,9 @@ var argoApplications = &model.KindProfile{
 
 // ArgoSyncStatus is an Application's status.sync.status: Synced, OutOfSync or Unknown; "" before
 // the controller has compared it.
-func ArgoSyncStatus(obj any) string { return model.NestedString(obj, fieldArgoStatus, "sync", fieldArgoStatus) }
+func ArgoSyncStatus(obj any) string {
+	return model.NestedString(obj, fieldArgoStatus, "sync", fieldArgoStatus)
+}
 
 // ArgoHealthStatus is an Application's status.health.status: Healthy, Progressing, Degraded,
 // Suspended, Missing or Unknown; "" before the controller has assessed it.
@@ -477,7 +485,7 @@ func argoSyncPolicyItems(obj any) detailItems {
 	if !enabled {
 		d.add("Automated", "No (manual sync)")
 	} else {
-		d.add("Automated", "Yes")
+		d.add("Automated", textYes)
 		d.add("Prune", yesNo(pol, "automated", "prune"))
 		d.add("Self Heal", yesNo(pol, "automated", "selfHeal"))
 		d.add("Allow Empty", yesNo(pol, "automated", "allowEmpty"))
@@ -492,7 +500,7 @@ func argoSyncPolicyItems(obj any) detailItems {
 // yesNo renders a boolean field: "Yes", or "No" when false or unset.
 func yesNo(root any, fields ...string) string {
 	if v, _ := model.NestedBool(root, fields...); v {
-		return "Yes"
+		return textYes
 	}
 	return "No"
 }
@@ -554,7 +562,7 @@ func argoOperationItems(obj any) detailItems {
 	}
 	d.add(titleArgoRevision, model.NestedString(st, "syncResult", fieldArgoRevision))
 	if prune, _ := model.NestedBool(st, "operation", "sync", "prune"); prune {
-		d.add("Prune", "Yes")
+		d.add("Prune", textYes)
 	}
 	d.add("Started", timestamp(model.NestedTime(st, "startedAt")))
 	d.add("Finished", timestamp(model.NestedTime(st, "finishedAt")))
@@ -584,8 +592,8 @@ func argoResourcesSection(obj any) (model.DetailSection, bool) {
 		return model.DetailSection{}, false
 	}
 	cols := []model.Column{
-		{Title: titleKind, Type: model.ColumnText}, {Title: "Namespace", Type: model.ColumnText},
-		{Title: "Name", Type: model.ColumnText}, {Title: "Sync", Type: model.ColumnText}, {Title: "Health", Type: model.ColumnText},
+		{Title: titleKind, Type: model.ColumnText}, {Title: namespaceColumn.Title, Type: model.ColumnText},
+		{Title: titleName, Type: model.ColumnText}, {Title: titleArgoSync, Type: model.ColumnText}, {Title: titleArgoHealth, Type: model.ColumnText},
 	}
 	shown := list[:min(len(list), argoResourcesShown)]
 	rows := make([][]model.Cell, 0, len(shown))

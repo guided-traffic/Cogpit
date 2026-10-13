@@ -128,7 +128,7 @@
             {
               "name": "Values Not Shown",
               "value": "config",
-              "fold": "keys"
+              "fold": "hidden keys"
             }
           ]
         }
@@ -152,7 +152,7 @@
       },
       "spec": {
         "clusterResources": "false",
-        "keys": [
+        "hiddenKeys": [
           "config"
         ],
         "name": "prod-eu",

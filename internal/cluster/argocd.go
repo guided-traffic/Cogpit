@@ -26,6 +26,9 @@ import (
 // Application: "normal" compares it with Git again, "hard" also discards the cached manifests.
 const ArgoRefreshAnnotation = "argocd.argoproj.io/refresh"
 
+// argoFieldMetadata is the patches' metadata field, which carries their preconditions.
+const argoFieldMetadata = "metadata"
+
 // ArgoRefreshNormal and ArgoRefreshHard are the annotation's values.
 const (
 	ArgoRefreshNormal = "normal"
@@ -53,7 +56,7 @@ func ArgoRefreshPatch(uid string, hard bool) ([]byte, error) {
 	if uid != "" {
 		meta["uid"] = uid
 	}
-	return json.Marshal(map[string]any{"metadata": meta})
+	return json.Marshal(map[string]any{argoFieldMetadata: meta})
 }
 
 // ArgoSyncPatch is the merge patch of a Sync: the operation, the UID and the resourceVersion the
@@ -67,8 +70,8 @@ func ArgoSyncPatch(uid, resourceVersion string, operation map[string]any) ([]byt
 		return nil, errors.New("no operation")
 	}
 	return json.Marshal(map[string]any{
-		"metadata":  map[string]any{"uid": uid, "resourceVersion": resourceVersion},
-		"operation": operation,
+		argoFieldMetadata: map[string]any{"uid": uid, "resourceVersion": resourceVersion},
+		"operation":       operation,
 	})
 }
 

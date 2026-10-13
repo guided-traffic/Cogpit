@@ -135,7 +135,7 @@ func TestArgoCDKindsFollowTheirDefinitions(t *testing.T) {
 	// The Dashboard: the strip, the cards, Needs attention with the out-of-sync Application.
 	openView(s, ArgoCDDashboard)
 	snap := waitTable(t, s, ArgoCDDashboard, func(t *TableSnapshot) bool { return t.Synced && len(t.Rows) == 1 })
-	if snap.Title != "Needs Attention" || snap.Rows[0].Ref.Kind != kinds.ArgoApplicationsKey || snap.Rows[0].Ref.Name != "shop" {
+	if snap.Title != "Dashboard" || snap.Rows[0].Ref.Kind != kinds.ArgoApplicationsKey || snap.Rows[0].Ref.Name != "shop" {
 		t.Errorf("needs attention %+v", snap)
 	}
 

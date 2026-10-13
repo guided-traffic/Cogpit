@@ -23,6 +23,13 @@ func argoAppSetKeys(app *unstructured.Unstructured) []string {
 	return nil
 }
 
+// Titles of the Projects' drawer.
+const (
+	titleArgoDescription = "Description"
+	titleArgoRoles       = "Roles"
+	titleArgoNamespaces  = "Namespaces"
+)
+
 // ApplicationSet condition types (argoproj.io/v1alpha1).
 const (
 	argoSetErrorOccurred      = "ErrorOccurred"
@@ -45,11 +52,13 @@ var argoApplicationSets = &model.KindProfile{
 		{ID: idArgoGenerators, Title: "Generators", Type: model.ColumnText},
 		ageColumn,
 		{ID: idArgoProject, Title: titleArgoProject, Type: model.ColumnText, Hidden: true},
-		{ID: idArgoApps, Title: "Applications", Type: model.ColumnNumber, Hidden: true},
+		{ID: idArgoApps, Title: titleApplications, Type: model.ColumnNumber, Hidden: true},
 		{ID: idStatus, Title: titleStatus, Type: model.ColumnText, Hidden: true},
 	},
-	Needs:     []model.RelatedIndex{ArgoAppsByAppSet},
-	Cells:     func(obj *unstructured.Unstructured) ([]model.Cell, model.Status) { return argoSetCells(obj, model.NoRelated) },
+	Needs: []model.RelatedIndex{ArgoAppsByAppSet},
+	Cells: func(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
+		return argoSetCells(obj, model.NoRelated)
+	},
 	CellsWith: argoSetCells,
 	Fields: map[string]fieldFunc{
 		idArgoGenerators: func(obj *unstructured.Unstructured) []string { return argoGenerators(obj) },
@@ -191,7 +200,7 @@ func goTemplate(obj any) string {
 
 func boolText(v bool) string {
 	if v {
-		return "Yes"
+		return textYes
 	}
 	return "No"
 }
@@ -205,7 +214,7 @@ func argoSetAppsSection(obj *unstructured.Unstructured, rel model.Related) (mode
 	}
 	apps = slices.Clone(apps)
 	slices.SortFunc(apps, func(a, b *unstructured.Unstructured) int { return strings.Compare(a.GetName(), b.GetName()) })
-	cols := []model.Column{{Title: "Name", Type: model.ColumnText}, {Title: "Sync", Type: model.ColumnText}, {Title: "Health", Type: model.ColumnText}}
+	cols := []model.Column{{Title: titleName, Type: model.ColumnText}, {Title: titleArgoSync, Type: model.ColumnText}, {Title: titleArgoHealth, Type: model.ColumnText}}
 	rows := make([][]model.Cell, 0, len(apps))
 	for _, a := range apps {
 		sync, health := ArgoSyncStatus(a), ArgoHealthStatus(a)
@@ -215,7 +224,7 @@ func argoSetAppsSection(obj *unstructured.Unstructured, rel model.Related) (mode
 			{Text: health, Status: ArgoHealthToken(health)},
 		})
 	}
-	return model.DetailSection{Title: "Applications", Table: model.CellTable(cols, rows)}, true
+	return model.DetailSection{Title: titleApplications, Table: model.CellTable(cols, rows)}, true
 }
 
 var argoProjects = &model.KindProfile{
@@ -229,14 +238,16 @@ var argoProjects = &model.KindProfile{
 	Columns: []model.Column{
 		nameColumn,
 		namespaceColumn,
-		{ID: "description", Title: "Description", Type: model.ColumnText},
+		{ID: "description", Title: titleArgoDescription, Type: model.ColumnText},
 		{ID: "sourceRepos", Title: "Source Repos", Type: model.ColumnText},
 		ageColumn,
 		{ID: "destinations", Title: "Destinations", Type: model.ColumnText, Hidden: true},
 	},
 	Cells: argoProjectCells,
 	Fields: map[string]fieldFunc{
-		"sourceRepos":  func(obj *unstructured.Unstructured) []string { return model.NestedStrings(obj, fieldSpec, "sourceRepos") },
+		"sourceRepos": func(obj *unstructured.Unstructured) []string {
+			return model.NestedStrings(obj, fieldSpec, "sourceRepos")
+		},
 		"destinations": func(obj *unstructured.Unstructured) []string { return argoProjectDestinations(obj) },
 	},
 	Detail: argoProjectDetail,
@@ -266,7 +277,7 @@ func argoProjectDestinations(obj any) []string {
 
 func argoProjectDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	var d detailItems
-	d.add("Description", model.NestedString(obj, fieldSpec, "description"))
+	d.add(titleArgoDescription, model.NestedString(obj, fieldSpec, "description"))
 	d.add("Source Repos", strings.Join(model.NestedStrings(obj, fieldSpec, "sourceRepos"), "\n"))
 	d.add("Source Namespaces", strings.Join(model.NestedStrings(obj, fieldSpec, "sourceNamespaces"), "\n"))
 	if v, ok := model.NestedBool(obj, fieldSpec, "orphanedResources", "warn"); ok {
@@ -274,7 +285,7 @@ func argoProjectDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	}
 	sections := withSection(nil, model.TitleProperties, d)
 	if dests := model.NestedSlice(obj, fieldSpec, "destinations"); len(dests) > 0 {
-		t := &model.DetailTable{Columns: []string{titleArgoServer, "Name", "Namespace"}}
+		t := &model.DetailTable{Columns: []string{titleArgoServer, titleName, namespaceColumn.Title}}
 		for _, x := range dests {
 			t.Rows = append(t.Rows, []string{model.NestedString(x, fieldArgoServer), model.NestedString(x, "name"), model.NestedString(x, "namespace")})
 		}
@@ -285,17 +296,17 @@ func argoProjectDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	sections = appendGroupKinds(sections, obj, "Namespace Resources Allowed", "namespaceResourceWhitelist")
 	sections = appendGroupKinds(sections, obj, "Namespace Resources Denied", "namespaceResourceBlacklist")
 	if roles := model.NestedSlice(obj, fieldSpec, "roles"); len(roles) > 0 {
-		t := &model.DetailTable{Columns: []string{"Name", "Description", "Policies", "Groups"}}
+		t := &model.DetailTable{Columns: []string{titleName, titleArgoDescription, "Policies", "Groups"}}
 		for _, r := range roles {
 			t.Rows = append(t.Rows, []string{
 				model.NestedString(r, "name"), model.NestedString(r, "description"),
 				strings.Join(model.NestedStrings(r, "policies"), "\n"), strings.Join(model.NestedStrings(r, "groups"), "\n"),
 			})
 		}
-		sections = append(sections, model.DetailSection{Title: "Roles", Table: t})
+		sections = append(sections, model.DetailSection{Title: titleArgoRoles, Table: t})
 	}
 	if wins := model.NestedSlice(obj, fieldSpec, "syncWindows"); len(wins) > 0 {
-		t := &model.DetailTable{Columns: []string{titleKind, "Schedule", "Duration", "Applications", "Namespaces", "Clusters", "Manual Sync"}}
+		t := &model.DetailTable{Columns: []string{titleKind, "Schedule", "Duration", titleApplications, titleArgoNamespaces, "Clusters", "Manual Sync"}}
 		for _, w := range wins {
 			manual, _ := model.NestedBool(w, "manualSync")
 			t.Rows = append(t.Rows, []string{

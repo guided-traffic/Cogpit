@@ -113,7 +113,7 @@
             {
               "name": "Values Not Shown",
               "value": "githubAppID\ngithubAppInstallationID\ngithubAppPrivateKey",
-              "fold": "keys"
+              "fold": "hidden keys"
             }
           ]
         }
@@ -136,7 +136,7 @@
         "uid": "a2a2a2a2-0003-4e9f-c0a1-000000000003"
       },
       "spec": {
-        "keys": [
+        "hiddenKeys": [
           "githubAppID",
           "githubAppInstallationID",
           "githubAppPrivateKey"

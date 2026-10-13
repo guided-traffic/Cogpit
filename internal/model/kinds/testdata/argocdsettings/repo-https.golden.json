@@ -133,7 +133,7 @@
             {
               "name": "Values Not Shown",
               "value": "insecure\npassword\nusername",
-              "fold": "keys"
+              "fold": "hidden keys"
             }
           ]
         }
@@ -156,7 +156,7 @@
         "uid": "a2a2a2a2-0001-4e9f-c0a1-000000000001"
       },
       "spec": {
-        "keys": [
+        "hiddenKeys": [
           "insecure",
           "password",
           "username"

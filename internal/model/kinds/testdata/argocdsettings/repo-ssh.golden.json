@@ -107,7 +107,7 @@
             {
               "name": "Values Not Shown",
               "value": "sshPrivateKey",
-              "fold": "keys"
+              "fold": "hidden keys"
             }
           ]
         }
@@ -130,7 +130,7 @@
         "uid": "a2a2a2a2-0002-4e9f-c0a1-000000000002"
       },
       "spec": {
-        "keys": [
+        "hiddenKeys": [
           "sshPrivateKey"
         ],
         "secretType": "repository",

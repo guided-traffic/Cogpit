@@ -39,6 +39,9 @@ var argoDashKinds = []string{
 // argoActivityShown bounds the Dashboard's recent activity.
 const argoActivityShown = 20
 
+// argoMessageColumn is the Applications' Message column, shown in Needs attention.
+const argoMessageColumn = "message"
+
 // ArgoCDDashboardModel is the Dashboard's upper part; Needs attention is the page's table
 // (Session.Table, or argocd.dashboard with attention).
 type ArgoCDDashboardModel struct {
@@ -106,7 +109,7 @@ func argoAttentionProfile(b *Backend) *model.KindProfile {
 	p.Columns = slices.Clone(src.Columns)
 	for i, c := range p.Columns {
 		switch c.ID {
-		case "name", "namespace", "sync", "health", "message", "age":
+		case metadataName, columnNamespace, "sync", "health", argoMessageColumn, "age":
 			p.Columns[i].Hidden = false
 		default:
 			p.Columns[i].Hidden = true
@@ -304,7 +307,7 @@ func (w *argoDashWorker) build(p viewParams) (*ArgoCDDashboardModel, *TableSnaps
 	} else {
 		snap = &TableSnapshot{Rows: []model.Row{}, Synced: true, Namespaced: true, Error: "The cluster serves no Argo CD Applications."}
 	}
-	snap.View, snap.Title = ArgoCDDashboard, "Needs Attention"
+	snap.View, snap.Title = ArgoCDDashboard, pageTitles[ArgoCDDashboard] // the table's own heading is the window's
 	snap.Revision = w.s.state.snapshots.Add(1)
 	return m, snap
 }
