@@ -288,6 +288,50 @@ func TestNodeDrawerPodsHiddenMetrics(t *testing.T) {
 	}
 }
 
+// Reads of the drawer's model racing with the drawer moving between nodes and closing leave no
+// subscription behind: a model built for a drawer that stops meanwhile subscribes nothing, and
+// stop releases what a build subscribed before it.
+func TestNodeDrawerPodsNoLeakUnderConcurrentReads(t *testing.T) {
+	s, _, ref := drawerPodsSession(t)
+	hub := s.Backend().Metrics
+	other := model.ObjectRef{Context: "test", Kind: "nodes", Name: "node-2"}
+	waitPodsUsage(t, s, ref)
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+	for range 4 {
+		wg.Go(func() {
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				for _, r := range []model.ObjectRef{ref, other} {
+					if _, err := s.Detail(r); err != nil {
+						t.Error(err)
+						return
+					}
+				}
+			}
+		})
+	}
+	for i := range 40 {
+		r := ref
+		if i%2 == 1 {
+			r = other
+		}
+		s.UpdateUI(func(u *UIState) { u.Drawer = &r })
+		time.Sleep(2 * time.Millisecond)
+		if i%10 == 9 {
+			s.UpdateUI(func(u *UIState) { u.Drawer = nil })
+		}
+	}
+	s.UpdateUI(func(u *UIState) { u.Drawer = nil })
+	close(stop)
+	wg.Wait()
+	waitFor(t, "every poll released", func() bool { return hub.Subscribed() == 0 })
+}
+
 // A namespaced object's pod table polls its namespace's pods only; the scope follows the drawer's
 // object.
 func TestPodTableScope(t *testing.T) {
