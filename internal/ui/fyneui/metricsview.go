@@ -263,8 +263,13 @@ func (c *chartCtl) follow() {
 	if t := p.target(c.name); t != nil && t.Variant != "" && !c.variantPending {
 		c.variant = t.Variant // the engine's, whoever set it (ui.setMetricsVariant)
 	}
-	if !c.enableVariants(caps) && available {
+	visible := p.variantsShown() // the cluster's settings may hide some (clustersettings_metrics.go)
+	c.showVariants(visible)
+	if (!c.enableVariants(caps) || visible != nil && !slices.Contains(visible, c.variant)) && available {
 		c.variant = variantCPU
+		if len(visible) > 0 && !slices.Contains(visible, variantCPU) {
+			c.variant = visible[0]
+		}
 	}
 	if c.rangeSel != nil {
 		if labels := rangeLabels(caps.History); !slices.Equal(labels, c.rangeSel.Options) {
@@ -416,6 +421,9 @@ func (p *metricsPanel) render() {
 	case m.Status == metrics.StatusNotServed:
 		// A cluster without metrics-server or Prometheus is a state, not a problem: said quietly.
 		p.setState(false, "No metrics: "+m.Message)
+		p.caption.SetColor(colorMuted)
+	case m.Status == engine.StatusHidden: // the cluster's settings hide them: the user's choice, said quietly
+		p.setState(false, "Metrics are "+m.Message)
 		p.caption.SetColor(colorMuted)
 	default:
 		p.setState(false, "Metrics are not available: "+m.Message)

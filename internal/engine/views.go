@@ -114,7 +114,9 @@ func (st *state) reconcileLocked(now UIState) {
 		st.drawer = nil
 	}
 	if st.drawer == nil && drawerProf != nil {
-		st.drawer = st.s.startDrawerWatch(b, drawerProf, *now.Drawer)
+		st.drawer = st.s.startDrawerWatch(b, drawerProf, *now.Drawer, hiddenMetricsOf(&now, b.Context))
+	} else if st.drawer != nil {
+		st.drawer.followHidden(st.s, hiddenMetricsOf(&now, b.Context)) // the cluster's settings changed what shows
 	}
 }
 
@@ -387,6 +389,7 @@ type viewParams struct {
 	order      []string // the view's column ids in the user's order; nil: the kind's
 	filter     string
 	sort       SortSpec
+	metrics    MetricSet // the metrics the cluster's settings hide (hidemetrics.go)
 }
 
 func paramsOf(u UIState) viewParams {
@@ -396,6 +399,7 @@ func paramsOf(u UIState) viewParams {
 		hidden: slices.Clone(hidden), hiddenSet: set,
 		order:  slices.Clone(u.ColumnOrder[u.View]),
 		filter: u.Filter, sort: u.Sort,
+		metrics: hiddenMetricsOf(&u, u.Context),
 	}
 }
 
@@ -403,4 +407,5 @@ func (p viewParams) equal(o viewParams) bool {
 	return p.filter == o.filter && p.sort == o.sort && slices.Equal(p.namespaces, o.namespaces) &&
 		slices.Equal(p.groups, o.groups) && p.hiddenSet == o.hiddenSet && slices.Equal(p.hidden, o.hidden) &&
 		slices.Equal(p.order, o.order)
+	p.metrics == o.metrics
 }

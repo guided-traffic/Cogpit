@@ -270,7 +270,8 @@ func (d *drawer) show(ref model.ObjectRef, m *engine.DetailModel, err error, act
 
 	prev := d.last
 	d.last = m
-	if prev == nil || !reflect.DeepEqual(prev.Sections, m.Sections) || !reflect.DeepEqual(prev.Events, m.Events) {
+	if prev == nil || !reflect.DeepEqual(prev.Sections, m.Sections) || !reflect.DeepEqual(prev.Events, m.Events) ||
+		prev.Metrics != m.Metrics { // the cluster's settings hid or showed the Metrics section
 		d.rebuild()
 	}
 	// The same object changed in the cache: keep the reader's place in the YAML. Another object:

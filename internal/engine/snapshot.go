@@ -27,7 +27,7 @@ type viewWorker struct {
 	handle  *cache.Handle
 	unsub   func()
 	related *relatedSet // the indexes of the profile's Needs; nil without
-	usage   *usageFeed  // the metrics of a kind with CPU and Memory columns; nil without
+	usage   *usageFeed  // the metrics of a kind with CPU and Memory columns; nil without or while they are hidden (guarded by mu)
 
 	mu     sync.Mutex
 	params viewParams
@@ -50,7 +50,7 @@ func (s *Session) startViewWorker(b *Backend, p *model.KindProfile, rc *rowCache
 	}
 	w.unsub = w.handle.Subscribe(func(cache.Event) { signal(w.wake) })
 	w.related = newRelatedSet(b, p.Needs, func() { signal(w.wake) })
-	w.usage = b.startUsageFeed(p, func() { signal(w.wake) })
+	w.followHidden(params.metrics) // the metrics feed, unless the cluster's settings hide both columns
 	signal(w.wake)
 	s.goSafe("table view "+p.Key, func() {
 		runCoalesced(w.quit, w.wake, s.opts.SnapshotInterval, w.unsettled, w.rebuild)
@@ -63,8 +63,12 @@ func (s *Session) startViewWorker(b *Backend, p *model.KindProfile, rc *rowCache
 func (w *viewWorker) setParams(p viewParams) {
 	w.mu.Lock()
 	changed := !w.params.equal(p)
+	metricsChanged := w.params.metrics != p.metrics
 	w.params = p
 	w.mu.Unlock()
+	if metricsChanged {
+		w.followHidden(p.metrics)
+	}
 	if changed {
 		signal(w.wake)
 	}
@@ -80,7 +84,11 @@ func (w *viewWorker) stop() {
 	w.unsub()
 	w.handle.Release()
 	w.related.release()
-	w.usage.release()
+	w.mu.Lock()
+	usage := w.usage
+	w.usage = nil
+	w.mu.Unlock()
+	usage.release()
 }
 
 // unsettled reports whether the informer's sync state or error changed since the last snapshot:
@@ -110,12 +118,13 @@ func (w *viewWorker) rebuild() {
 	}()
 	w.mu.Lock()
 	p := w.params
+	usage := w.usage
 	w.mu.Unlock()
 
 	synced := w.synced() // before List: a snapshot never claims a partial list is complete
 	errMsg := errText(w.handle.Err())
 	rel, relGen := w.related.view()
-	snap := w.rows.buildWith(w.profile, w.backend.Context, KindList(w.handle, w.profile), p, rel, relGen, w.usage)
+	snap := w.rows.buildWith(w.profile, w.backend.Context, KindList(w.handle, w.profile), p, rel, relGen, usage)
 	snap.Synced = synced
 	snap.Error = errMsg
 	snap.Revision = w.s.state.snapshots.Add(1)
@@ -252,8 +261,9 @@ func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unst
 	}
 	return &TableSnapshot{
 		View: p.Key, Context: context, Title: p.Title, Namespaced: p.Namespaced,
-		Columns: ColumnsShown(p.Columns, params.hidden, params.hiddenSet), Order: ColumnOrder(p.Columns, params.order),
-		Rows: rows, Sort: params.sort,
+		Columns: hideMetricColumns(p, ColumnsShown(p.Columns, params.hidden, params.hiddenSet), params.metrics),
+		Order:   ColumnOrder(p.Columns, params.order),
+		Rows:    rows, Sort: params.sort,
 		Namespaces: slices.Clone(params.namespaces), Filter: params.filter,
 		Total: len(objs),
 	}

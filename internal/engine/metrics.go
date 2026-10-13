@@ -180,6 +180,10 @@ type ObjectMetrics struct {
 	// Capabilities say which variants the provider can draw (network and filesystem need
 	// Prometheus).
 	Capabilities metrics.Capabilities `json:"capabilities"`
+	// Variants are the variants the charts offer, in the buttons' order: those the cluster's
+	// settings do not hide (hidemetrics.go). With all of them hidden, Status is "hidden" and there
+	// are no targets.
+	Variants []string `json:"variants,omitempty"`
 	// FilesystemSource says which filesystem metric the Filesystem series are: "usage" (bytes in
 	// use) or "io" (read and write rates); empty when there are none.
 	FilesystemSource string `json:"filesystemSource,omitempty"`
@@ -203,6 +207,13 @@ func (s *Session) ObjectMetrics(ref model.ObjectRef) (*ObjectMetrics, error) {
 		return nil, nil
 	}
 	out := &ObjectMetrics{Ref: ref, Status: metrics.StatusNotServed, Message: "this cluster has no metrics provider", Targets: []MetricsTarget{}}
+	hidden := s.hiddenMetrics(b.Context)
+	visible := hidden.drawerVariants(p.Usage)
+	if len(visible) == 0 {
+		out.Status, out.Message = StatusHidden, msgHidden
+		return out, nil
+	}
+	out.Variants = visible
 	if b.Metrics == nil {
 		return out, nil
 	}
@@ -221,11 +232,14 @@ func (s *Session) ObjectMetrics(ref model.ObjectRef) (*ObjectMetrics, error) {
 	switch p.Usage {
 	case model.UsagePods:
 		out.Targets = podTargets(b.Metrics, ref, obj)
+		if hidden&HideContainers != 0 {
+			out.Targets = out.Targets[:1] // the containers' charts are hidden: the pod's alone
+		}
 	case model.UsageNodes:
 		out.Targets = nodeTargets(b.Metrics, ref, obj)
 	}
 	setWindows(out.Targets, s.chartWindows(ref), b.Metrics.DefaultWindow())
-	setVariants(out.Targets, s.chartVariants(ref), caps)
+	setVariants(out.Targets, s.chartVariants(ref), caps, visible)
 	if hist := b.Metrics.History(scope); hist != nil && st.Usable() {
 		out.FilesystemSource = hist.FilesystemSource
 		applyHistory(out.Targets, hist)
@@ -233,23 +247,16 @@ func (s *Session) ObjectMetrics(ref model.ObjectRef) (*ObjectMetrics, error) {
 	return out, nil
 }
 
-// setVariants gives each target its chart's variant: the one set for it if the providers have
-// it, else CPU.
-func setVariants(targets []MetricsTarget, variants map[string]string, caps metrics.Capabilities) {
+// setVariants gives each target its chart's variant: the one set for it if it is visible and the
+// providers have it, else the default (CPU, or the first visible variant while CPU is hidden).
+func setVariants(targets []MetricsTarget, variants map[string]string, caps metrics.Capabilities, visible []string) {
+	shown := shownVariants(visible, caps)
+	def := defaultVariant(visible, caps)
 	for i := range targets {
 		t := &targets[i]
-		t.Variant = VariantCPU
-		switch v := variants[t.Name]; v {
-		case VariantMemory:
+		t.Variant = def
+		if v := variants[t.Name]; v != "" && slices.Contains(shown, v) {
 			t.Variant = v
-		case VariantNetwork:
-			if caps.Network {
-				t.Variant = v
-			}
-		case VariantFilesystem:
-			if caps.Filesystem {
-				t.Variant = v
-			}
 		}
 	}
 }
@@ -369,12 +376,10 @@ func (s *Session) SetMetricsRange(ref model.ObjectRef, target string, window tim
 	} else {
 		d.windows[target] = window
 	}
-	list := make([]time.Duration, 0, len(d.windows))
-	for _, w := range d.windows {
-		list = append(list, w)
-	}
+	list := d.windowListLocked()
+	sub := d.usage
 	d.wmu.Unlock()
-	d.usage.SetWindows(list...)
+	sub.SetWindows(list...)
 	s.emit(Event{Type: EventMetrics, View: ref.Kind})
 	return nil
 }
@@ -403,7 +408,8 @@ func (s *Session) chartWindows(ref model.ObjectRef) map[string]time.Duration {
 // a chart shows them (once over the chart's range, then at its step), so this is what starts and
 // stops those requests. A variant the cluster's providers do not have is refused.
 func (s *Session) SetMetricsVariant(ref model.ObjectRef, target, variant string) error {
-	if variant == "" {
+	reset := variant == "" // the chart's default: CPU, or the first visible variant while CPU is hidden
+	if reset {
 		variant = VariantCPU
 	}
 	if !slices.Contains(MetricsVariants, variant) {
@@ -417,6 +423,9 @@ func (s *Session) SetMetricsVariant(ref model.ObjectRef, target, variant string)
 		return ErrDrawerNotOpen
 	}
 	st.mu.Unlock()
+	if !reset && !slices.Contains(s.hiddenMetrics(d.backend.Context).drawerVariants(d.profile.Usage), variant) {
+		return fmt.Errorf("%w: the %s chart is %s", ErrNotApplicable, variant, msgHidden)
+	}
 	if b := d.backend; variant == VariantNetwork || variant == VariantFilesystem {
 		caps := metrics.Capabilities{}
 		if b.Metrics != nil {
@@ -435,17 +444,10 @@ func (s *Session) SetMetricsVariant(ref model.ObjectRef, target, variant string)
 	} else {
 		d.variants[target] = variant
 	}
-	var want metrics.Want
-	for _, v := range d.variants {
-		switch v {
-		case VariantNetwork:
-			want |= metrics.WantNetwork
-		case VariantFilesystem:
-			want |= metrics.WantFilesystem
-		}
-	}
+	want := d.wantsLocked()
+	sub := d.usage
 	d.wmu.Unlock()
-	d.usage.SetWants(want)
+	sub.SetWants(want)
 	s.emit(Event{Type: EventMetrics, View: ref.Kind})
 	return nil
 }

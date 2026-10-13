@@ -33,8 +33,8 @@ type drawerWatch struct {
 	obj     *cache.Handle
 	events  *cache.Handle            // nil when the cluster serves no events
 	related *relatedSet              // the indexes of the profile's Needs; nil without
-	usage   *metrics.Subscription    // the pod's or node's metrics poll (metrics.go); nil without
-	wmu     sync.Mutex               // guards windows
+	usage   *metrics.Subscription    // the pod's or node's metrics poll (metrics.go); nil without or while its metrics are hidden. Guarded by wmu
+	wmu     sync.Mutex               // guards windows, variants, usage and hidden
 	windows map[string]time.Duration // the time range of each chart, by target name (metrics.go)
 	unsubs  []func()
 	wake    chan struct{}
@@ -43,14 +43,20 @@ type drawerWatch struct {
 
 	// variants is what each chart shows, by target name; absent: CPU (metrics.go). Guarded by wmu.
 	variants map[string]string
+	// hidden are the metrics the cluster's settings hide (hidemetrics.go); hiddenSet once known.
+	// Guarded by wmu.
+	hidden    MetricSet
+	hiddenSet bool
 }
 
-func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.ObjectRef) *drawerWatch {
+func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.ObjectRef, hidden MetricSet) *drawerWatch {
 	d := &drawerWatch{
 		backend: b, ref: ref, profile: p,
 		obj:  b.Acquire(p),
 		wake: make(chan struct{}, 1),
 		quit: make(chan struct{}),
+		// The hidden metrics as the drawer opens: its poll starts only for what shows.
+		hidden: hidden, hiddenSet: true,
 	}
 	d.unsubs = append(d.unsubs, d.obj.Subscribe(func(ev cache.Event) {
 		if ev.Object.GetName() == ref.Name && ev.Object.GetNamespace() == d.namespace() {
@@ -68,7 +74,7 @@ func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.O
 	// Woken only by changes to the keys the drawer's model looked up (a node's pods, not every
 	// pod); Detail reads through this set while the drawer shows ref (drawerRelated).
 	d.related = newRelatedSetTracking(b, p.Needs, func() { signal(d.wake) }, true)
-	d.usage = s.startDrawerUsage(b, p, ref)
+	d.followHidden(s, hidden)
 	objSynced, evSynced := d.synced()
 	poll := func() bool {
 		o, e := d.synced()
@@ -121,7 +127,7 @@ func (d *drawerWatch) stop() {
 		d.events.Release()
 	}
 	d.related.release()
-	d.usage.Release()
+	d.usageSub().Release()
 }
 
 // eventInvolves matches an event's involvedObject by UID when both are known, else by kind,
@@ -203,6 +209,9 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 	m, perr := BuildDetailWith(p, ref, obj, events, s.displayNow(), rel) // absolute times in the preferred zone
 	if perr != nil {
 		s.log.Error("engine: kind profile detail panicked", "kind", p.Key, "panic", perr.Error())
+	}
+	if m.Metrics && len(s.hiddenMetrics(b.Context).drawerVariants(p.Usage)) == 0 {
+		m.Metrics = false // the cluster's settings hide every chart of the kind (hidemetrics.go)
 	}
 	if OriginOf(ctx).IsAgent() {
 		m.Sections = model.WithholdPrivate(m.Sections) // object_get: agents never read private values

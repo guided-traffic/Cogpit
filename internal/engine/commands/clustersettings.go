@@ -20,11 +20,12 @@ type clusterSettingsParams struct {
 }
 
 type clusterSettingsSetParams struct {
-	Context           string  `json:"context,omitempty" jsonschema:"context id as cluster_contexts lists it (a bare context name works when one file only defines it); empty or omitted: the connected context"`
-	Name              *string `json:"name,omitempty" jsonschema:"the cluster's display name in the hotbar, the context picker and the navigator, one line of at most 128 characters; empty: the context's name"`
-	IconColor         *string `json:"iconColor,omitempty" jsonschema:"the icon's colour, one of cyan, blue, violet, magenta, red, orange, yellow, green (the theme's accents); it replaces an uploaded image; empty: the accent"`
-	TerminalDir       *string `json:"terminalDir,omitempty" jsonschema:"the working directory of the cluster's local terminals: an absolute path, or one starting with $HOME or ~; empty: $HOME"`
-	TerminalNamespace *string `json:"terminalNamespace,omitempty" jsonschema:"kubectl's namespace in the cluster's local terminals; empty: the namespace filter's single namespace, else the context's own"`
+	Context           string   `json:"context,omitempty" jsonschema:"context id as cluster_contexts lists it (a bare context name works when one file only defines it); empty or omitted: the connected context"`
+	Name              *string  `json:"name,omitempty" jsonschema:"the cluster's display name in the hotbar, the context picker and the navigator, one line of at most 128 characters; empty: the context's name"`
+	IconColor         *string  `json:"iconColor,omitempty" jsonschema:"the icon's colour, one of cyan, blue, violet, magenta, red, orange, yellow, green (the theme's accents); it replaces an uploaded image; empty: the accent"`
+	TerminalDir       *string  `json:"terminalDir,omitempty" jsonschema:"the working directory of the cluster's local terminals: an absolute path, or one starting with $HOME or ~; empty: $HOME"`
+	TerminalNamespace *string  `json:"terminalNamespace,omitempty" jsonschema:"kubectl's namespace in the cluster's local terminals; empty: the namespace filter's single namespace, else the context's own"`
+	HiddenMetrics     []string `json:"hiddenMetrics,omitempty" jsonschema:"the metrics the window hides for this cluster, and does not ask the cluster for: places (cluster: the Overview's charts; nodes, pods: their lists' CPU and Memory columns and their drawers' charts; containers: a pod's containers' charts) and measures (cpu, memory, network, filesystem), or all; it replaces the list set before, and an empty list shows every metric again. metrics_get still answers"`
 }
 
 type clusterIconParams struct {
@@ -74,8 +75,8 @@ func registerClusterSettings(g *registrar) {
 		Description: "Returns a context's settings in Cogpit, as its Settings page shows them: the name it shows (the display " +
 			"name set, else the context's name), its icon colour or uploaded image's format, the kubeconfig file it comes " +
 			"from, its terminals' working directory and kubectl namespace (empty: $HOME and the filter's or the " +
-			"context's namespace), whether it is the connected cluster, and whether the settings are kept. The " +
-			"Prometheus setting is cluster_prometheus.",
+			"context's namespace), the metrics the window hides (hiddenMetrics; empty: all visible), whether it is " +
+			"the connected cluster, and whether the settings are kept. The Prometheus setting is cluster_prometheus.",
 		Enabled: func(s *engine.Session, p clusterSettingsParams) error {
 			_, err := settingsContext(s, p.Context)
 			return err
@@ -94,13 +95,24 @@ func registerClusterSettings(g *registrar) {
 		Description: "Changes some of a context's settings in Cogpit, as its Settings page does; the fields left out stay as " +
 			"they are, an empty value restores the default. The display name and the icon colour show at once in the " +
 			"hotbar, the context picker and the navigator; the terminal's working directory and namespace apply to the " +
-			"cluster's local terminals opened afterwards." + clusterSettingsOnly + " Returns the settings.",
+			"cluster's local terminals opened afterwards; hidden metrics leave the lists' columns, the drawers' charts " +
+			"and the Overview at once, and nothing is polled for them." + clusterSettingsOnly + " Returns the settings.",
 		Enabled: func(s *engine.Session, p clusterSettingsSetParams) error {
 			_, err := settingsContext(s, p.Context)
 			return err
 		},
 		Run: func(_ context.Context, s *engine.Session, p clusterSettingsSetParams) (any, error) {
+			var hidden engine.MetricSet
+			if p.HiddenMetrics != nil {
+				var err error
+				if hidden, err = engine.ParseMetricSet(p.HiddenMetrics); err != nil {
+					return nil, err
+				}
+			}
 			return changeSettings(s, p.Context, func(cs *engine.ClusterSettings) error {
+				if p.HiddenMetrics != nil {
+					cs.HiddenMetrics = hidden
+				}
 				setIf(&cs.Name, p.Name)
 				if p.IconColor != nil {
 					cs.IconColor = strings.ToLower(strings.TrimSpace(*p.IconColor))

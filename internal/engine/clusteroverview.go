@@ -172,6 +172,7 @@ func (s *Session) startClusterOverview(b *Backend, params viewParams, choice Ove
 	wake := w.wake
 	w.src = newOverviewSource(b, func() { signal(wake) })
 	w.charts = newOverviewCharts(s, b, choice)
+	w.charts.hidden = params.metrics // the charts the cluster's settings hide are not polled for
 	signal(w.wake)
 	s.goSafe("cluster overview", func() {
 		runCoalesced(w.quit, w.wake, s.opts.SnapshotInterval, w.unsettled, w.rebuild)
@@ -182,10 +183,14 @@ func (s *Session) startClusterOverview(b *Backend, params viewParams, choice Ove
 func (w *clusterOverviewWorker) setParams(p viewParams, choice OverviewChoice) {
 	w.mu.Lock()
 	changed := !w.params.equal(p)
+	metricsChanged := w.params.metrics != p.metrics
 	w.params = p
 	choiceChanged := w.choice != choice
 	w.choice = choice
 	w.mu.Unlock()
+	if metricsChanged {
+		w.charts.setHidden(p.metrics)
+	}
 	if choiceChanged {
 		w.charts.setChoice(choice)
 	}
@@ -438,7 +443,7 @@ func (s *Session) ClusterOverview(ctx context.Context, namespaces []string, seri
 	src.waitSynced(wctx)
 	ob := src.build(time.Now())
 	m := overviewModel(ob, params, u.Overview)
-	currentCharts(ctx, b, m, ob)
+	currentCharts(ctx, b, m, ob, s.hiddenMetrics(b.Context))
 	return m, nil
 }
 

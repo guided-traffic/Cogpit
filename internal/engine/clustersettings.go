@@ -60,6 +60,9 @@ type ClusterSettings struct {
 	// TerminalNamespace is kubectl's namespace in the cluster's local terminals; empty: the
 	// namespace filter's single namespace, else the context's own.
 	TerminalNamespace string `json:"terminalNamespace,omitempty"`
+	// HiddenMetrics are the metrics the window does not show for this cluster, and does not ask
+	// the cluster for (hidemetrics.go); none: every metric shows.
+	HiddenMetrics MetricSet `json:"hiddenMetrics,omitempty"`
 }
 
 // IsZero reports whether the settings are all defaults.
@@ -84,6 +87,9 @@ func (c ClusterSettings) Check() error {
 			return fmt.Errorf("namespace %q: %s", c.TerminalNamespace, strings.Join(errs, "; "))
 		}
 	}
+	if c.HiddenMetrics&^HideAll != 0 {
+		return errors.New("hidden metrics: a metric this Cogpit does not know")
+	}
 	return nil
 }
 
@@ -105,6 +111,7 @@ func (c *ClusterSettings) normalize() {
 	if c.TerminalNamespace != "" && len(validation.IsDNS1123Label(c.TerminalNamespace)) > 0 {
 		c.TerminalNamespace = ""
 	}
+	c.HiddenMetrics &= HideAll
 }
 
 func checkClusterName(name string) error {
@@ -347,6 +354,10 @@ type ClusterSettingsView struct {
 	// TerminalNamespace is kubectl's namespace in the terminals as set; empty: the namespace
 	// filter's single namespace, else the context's own.
 	TerminalNamespace string `json:"terminalNamespace,omitempty"`
+	// HiddenMetrics are the metrics the window hides for this cluster and does not ask it for,
+	// by name (cluster, nodes, pods, containers, cpu, memory, network, filesystem); empty: all
+	// metrics are visible.
+	HiddenMetrics []string `json:"hiddenMetrics"`
 	// Connected says whether the context is the connected cluster (its metrics settings apply).
 	Connected bool `json:"connected"`
 	// Kept says whether the settings outlive this run (false without a configuration directory).
@@ -361,7 +372,8 @@ func (s *Session) ClusterSettingsView(context string) (ClusterSettingsView, erro
 	}
 	v := ClusterSettingsView{Context: context, Name: ClusterName(context, cs), ContextName: ContextLabel(context),
 		NameSet: cs.Name != "", IconColor: cs.IconColor, TerminalDir: cs.TerminalDir,
-		TerminalNamespace: cs.TerminalNamespace, Kept: s.opts.ClusterSettings.Path() != ""}
+		TerminalNamespace: cs.TerminalNamespace, HiddenMetrics: MetricNames(cs.HiddenMetrics),
+		Kept: s.opts.ClusterSettings.Path() != ""}
 	if cs.Icon != "" {
 		v.IconImage = strings.TrimPrefix(filepath.Ext(cs.Icon), ".")
 	}

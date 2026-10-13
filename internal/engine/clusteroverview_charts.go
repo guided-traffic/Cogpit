@@ -42,6 +42,9 @@ type OverviewChart struct {
 	Capacity    float64  `json:"capacity"`
 	// Samples is the usage over the chart's range, oldest first; only with series.
 	Samples []OverviewSample `json:"samples,omitempty"`
+	// Hidden says the cluster's settings hide this chart (hidemetrics.go): it carries no values
+	// and the window leaves it out.
+	Hidden bool `json:"hidden,omitempty"`
 }
 
 // OverviewSample is one point of a chart.
@@ -77,8 +80,9 @@ type overviewCharts struct {
 	choice OverviewChoice
 	last   *overviewBuild
 	pods   map[string][]OverviewSample // by node group
-	sub    *metrics.Subscription       // nil without a metrics hub
+	sub    *metrics.Subscription       // nil without a metrics hub, or while the CPU and Memory charts are hidden
 	scope  metrics.Scope
+	hidden MetricSet // the metrics the cluster's settings hide (hidemetrics.go)
 	closed bool
 	quit   chan struct{}
 }
@@ -165,6 +169,15 @@ func (c *overviewCharts) follow(ob *overviewBuild) {
 	if c.b.Metrics == nil || !ob.nodesSynced {
 		return // the nodes are still listing: subscribe once the control plane is known, not to a scope about to change
 	}
+	c.subscribeLocked(ob)
+}
+
+// subscribeLocked subscribes to the cluster scope of a build's control plane, unless the cluster's
+// settings hide the CPU and the Memory chart: then nothing is polled for the page. c.mu is held.
+func (c *overviewCharts) subscribeLocked(ob *overviewBuild) {
+	if cpu, memory, _ := c.hidden.overviewShown(); !cpu && !memory {
+		return
+	}
 	sc := metrics.ClusterScope(ob.masters)
 	if c.sub != nil && c.scope == sc {
 		return
@@ -203,7 +216,11 @@ func (c *overviewCharts) fill(m *ClusterOverviewModel, ob *overviewBuild, series
 	c.mu.Lock()
 	pods := c.pods[m.Nodes]
 	sc, subscribed := c.scope, c.sub != nil
+	hidden := c.hidden
 	c.mu.Unlock()
+	if markHiddenCharts(m, hidden) {
+		return // nothing of the charts shows: no metrics are read for them
+	}
 	from := time.Now().Add(-m.Window)
 	if n := len(pods); n > 0 {
 		last := pods[n-1]
@@ -219,6 +236,10 @@ func (c *overviewCharts) fill(m *ClusterOverviewModel, ob *overviewBuild, series
 		return
 	}
 	m.Providers = hub.Providers()
+	if cpu, memory, _ := hidden.overviewShown(); !cpu && !memory {
+		m.Status, m.Message = StatusHidden, msgHidden // the Pods chart alone: from the cache
+		return
+	}
 	if !subscribed {
 		m.Status, m.Message = metrics.StatusUnknown, "the cluster's nodes are not listed yet"
 		return
@@ -246,6 +267,9 @@ func (c *overviewCharts) fill(m *ClusterOverviewModel, ob *overviewBuild, series
 	}
 	for i, metric := range []string{OverviewCPU, OverviewMemory} {
 		ch := &m.Charts[i]
+		if ch.Hidden {
+			continue
+		}
 		for _, sm := range ts.Usage {
 			v, ok := usageValue(metric, sm.Usage)
 			if !ok {
@@ -268,12 +292,19 @@ func samplesWithin(pts []OverviewSample, from time.Time) []OverviewSample {
 // from the cache, CPU and Memory from one read of the nodes' current values (a fresh one is served
 // without a request; else one list of the Metrics Server, or Prometheus's instant queries while it
 // fails). Nothing keeps polling.
-func currentCharts(ctx context.Context, b *Backend, m *ClusterOverviewModel, ob *overviewBuild) {
+func currentCharts(ctx context.Context, b *Backend, m *ClusterOverviewModel, ob *overviewBuild, hidden MetricSet) {
 	m.Charts = chartLines(ob.groups[m.Nodes])
+	if markHiddenCharts(m, hidden) {
+		return
+	}
 	v := float64(ob.groups[m.Nodes].pods)
 	m.Charts[2].Current, m.Charts[2].At = &v, ob.at
 	if b.Metrics == nil {
 		m.Status, m.Message = metrics.StatusNotServed, msgNoMetrics
+		return
+	}
+	if cpu, memory, _ := hidden.overviewShown(); !cpu && !memory {
+		m.Status, m.Message = StatusHidden, msgHidden // no read of the nodes' metrics for hidden charts
 		return
 	}
 	r := b.Metrics.Fetch(ctx, metrics.Scope{Kind: metrics.KindNodes})
@@ -298,7 +329,7 @@ func currentCharts(ctx context.Context, b *Backend, m *ClusterOverviewModel, ob 
 		return
 	}
 	for i, metric := range []string{OverviewCPU, OverviewMemory} {
-		if v, ok := usageValue(metric, sum); ok {
+		if v, ok := usageValue(metric, sum); ok && !m.Charts[i].Hidden {
 			m.Charts[i].Current, m.Charts[i].At = &v, r.At
 		}
 	}

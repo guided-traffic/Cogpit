@@ -44,6 +44,7 @@ type clusterPanel struct {
 	note     *textLine
 	status   *providerStatusLine
 	cards    [3]*overviewChartCard
+	controls *fyne.Container // the node group and the range; hidden with every chart
 	root     fyne.CanvasObject
 
 	// Requests of the model are coalesced, as the Workloads Overview's are (overview.go).
@@ -67,10 +68,10 @@ func newClusterPanel(sh *shell) *clusterPanel {
 	for i, title := range []string{"CPU", "Memory", "Pods"} {
 		p.cards[i] = newOverviewChartCard(title)
 	}
-	controls := container.NewHBox(p.master, p.worker, layout.NewSpacer(), p.rangeSel)
+	p.controls = container.NewHBox(p.master, p.worker, layout.NewSpacer(), p.rangeSel)
 	charts := container.NewGridWithColumns(3, p.cards[0].root, p.cards[1].root, p.cards[2].root)
 	p.root = inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
-		container.NewVBox(controls, charts, p.caption, p.note, p.status.root))
+		container.NewVBox(p.controls, charts, p.caption, p.note, p.status.root))
 	p.showControls()
 	return p
 }
@@ -122,6 +123,8 @@ func (p *clusterPanel) show(m *engine.ClusterOverviewModel) {
 		p.setCaption("Waiting for the first measurement…", colorMuted)
 	case metrics.StatusNotServed:
 		p.setCaption("No metrics: "+m.Message, colorMuted) // a state, said quietly
+	case engine.StatusHidden:
+		p.setCaption("Metrics are "+m.Message, colorMuted) // the user's choice, said quietly
 	default:
 		p.setCaption("Metrics are not available: "+m.Message, colorStatusWarning)
 	}
@@ -132,14 +135,30 @@ func (p *clusterPanel) show(m *engine.ClusterOverviewModel) {
 	p.note.SetText(note)
 	p.note.Show()
 	p.status.set(m.Providers, now)
+	if m.Status == engine.StatusHidden {
+		p.status.root.Hide() // nothing is asked of the providers for hidden charts
+	}
 	window := engine.DefaultOverviewWindow // the model's Range: its Window does not travel in JSON
 	if d, err := engine.ParseChartRange(m.Range); err == nil && d > 0 {
 		window = d
 	}
+	shown := 0
 	for i, c := range p.cards {
 		if i < len(m.Charts) {
+			if m.Charts[i].Hidden { // the cluster's settings hide it (clustersettings_metrics.go)
+				c.root.Hide()
+				continue
+			}
+			shown++
+			c.root.Show()
 			c.set(m.Charts[i], window, now, p.sh.loc())
 		}
+	}
+	if shown == 0 {
+		p.controls.Hide()
+		p.note.Hide() // the note is about the charts
+	} else {
+		p.controls.Show()
 	}
 }
 
