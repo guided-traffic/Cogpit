@@ -108,12 +108,19 @@ func writeTerminalConfig(ctx kubeconfig.Context) (string, error) {
 	return path, nil
 }
 
-// localEnv is the shell's environment: Cogpit's own, the terminal type, opts.Env, and KUBECONFIG
-// last. os/exec keeps the last value of a duplicated key, so opts.Env can override TERM but not
-// KUBECONFIG.
-func localEnv(extra []string, kubeconfigVar string) []string {
+// localEnv is the shell's environment: Cogpit's own, the terminal type, opts.Env, the entries that
+// put the chosen kubectl first (kubectl.go), and KUBECONFIG last. os/exec keeps the last value of
+// a duplicated key, so opts.Env can override TERM but not KUBECONFIG.
+func localEnv(extra []string, kubeconfigVar string, kubectl ...string) []string {
+	env := baseEnv(extra)
+	env = append(env, kubectl...)
+	return append(env, "KUBECONFIG="+kubeconfigVar)
+}
+
+// baseEnv is the shell's environment before Cogpit's own entries: Cogpit's, the terminal type and
+// opts.Env.
+func baseEnv(extra []string) []string {
 	env := os.Environ()
 	env = append(env, "TERM=xterm-256color", "COLORTERM=truecolor")
-	env = append(env, extra...)
-	return append(env, "KUBECONFIG="+kubeconfigVar)
+	return append(env, extra...)
 }

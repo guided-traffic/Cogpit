@@ -1,6 +1,6 @@
 # Platform parity: systems, packages, authentication and tools
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (the HTTP proxy per cluster partial; fourth run recount: 9 of 38 rows partial; exec credential plugins partial) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (`kubectl` for terminals: the version check and the verified download, D-3; the HTTP proxy per cluster partial; fourth run recount: 9 of 38 rows partial; exec credential plugins partial) · **Target:** Lens Desktop 2026.10.51501
 
 Where and how Cogpit runs compared with Lens Desktop 2026.10.51501: operating systems and
 architectures, packages and updates, how it authenticates to clusters, which Kubernetes versions
@@ -88,7 +88,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Tool | Lens Desktop | Cogpit | Status |
 |---|---|---|---|
-| `kubectl` for terminals | downloads the version matching the cluster (mirror: Google or Azure; directory and path settings) | `PATH` first; when missing or more than one minor version away, a verified download of the matching version on one click ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries)) | partial: `PATH` only, with the usual tool directories added for apps started from Finder ([`cluster.go`](../../internal/cluster/cluster.go) `EnsureToolPath`, `TestEnsureToolPath`); no download, no version check |
+| `kubectl` for terminals | downloads the version matching the cluster (mirror: Google or Azure; directory and path settings) | `PATH` first; when missing or more than one minor version away, a verified download of the matching version on one click ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries)) | partial (2026-10-13, D-3 built): `PATH` first, with the usual tool directories added for apps started from Finder ([`cluster.go`](../../internal/cluster/cluster.go) `EnsureToolPath`, `TestEnsureToolPath`); when a terminal opens, its `kubectl` (the Preferences' path, else the first on Cogpit's `PATH`, `version --client` read once per file) is compared with the API server's version from connect: within one minor version nothing changes; otherwise a release Cogpit downloaded earlier that suits the cluster goes first, else the tab offers the server's release with a Download button (GUI-only, `kubectl.download`), fetched from `dl.k8s.io` or an https mirror and verified against the published SHA-256 and the Kubernetes release's sigstore signature before it goes into `<user config dir>/Cogpit/kubectl/<version>/kubectl`; the terminals opened afterwards find it first on `PATH` (zsh even after its profile; other shells as their profile orders `PATH`, [H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first)). Differs from Lens (inferred from its documentation: it downloads on its own): asks first and leaves a working setup alone; the line and its wording are Cogpit's; the mirror is `dl.k8s.io` or a custom https base, not a Google or Azure choice; the transparency log is not checked ([H-35](../security/trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log)). Not tried in a real window; checked against the real `dl.k8s.io` by hand (1.36.1, darwin/arm64); `TestCheckKubectl`, `TestDownloadKubectl`, `TestDownloadVerifiesAndInstalls`, `TestRealReleaseSignature`, `TestZshKubectlFirstAfterTheProfile`, `TestKubectlOfferDownloadsThroughTheEngine`; [`engine/kubectl.go`](../../internal/engine/kubectl.go), [`internal/kubectl`](../../internal/kubectl/kubectl.go), PNG [dark](../../internal/ui/fyneui/testdata/terminal_kubectl_offer_dark.png), [light](../../internal/ui/fyneui/testdata/terminal_kubectl_offer_light.png) |
 | `helm` | bundled binary, Helm 3 ("latest 3.x" per 2026.3.130712) | none needed: the Helm SDK runs in-process | missing |
 
 ## Display, input and language
@@ -105,6 +105,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | `kubectl` for terminals (External tools, not counted): the version check when a terminal opens, the verified download on one click, the release first on the terminal's `PATH` (D-3 built, night run) |
 | 2026-10-13 | minor | The HTTP proxy set per cluster partial (night run, G13): Cogpit's cluster settings, applied through `rest.Config.Proxy`, tested against a test proxy; 10 of 38 rows partial (the lead recounts) |
 | 2026-10-12 | major | Recount after the fourth run (`make parity`): 9 of 38 rows partial, 4 of 13 authentication rows |
 | 2026-10-12 | minor | Fourth run (agent D): exec credential plugins partial, on kind and a fake API server, with the approval of a kubeconfig source's plugin |

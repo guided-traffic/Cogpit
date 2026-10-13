@@ -1,9 +1,13 @@
 # Updates
 
-The update channel: how Cogpit learns about a new version and replaces itself, which is the one
-place where Cogpit downloads code and runs it. No code exists yet (2026-10-11); the design is
+The update channel: how Cogpit learns about a new version and replaces itself, one of the two
+places where Cogpit downloads code that then runs. No code exists yet (2026-10-11); the design is
 [D-4](../developer/decisions.md#d-4-packaging-and-updates) and
-[releasing › updates](../developer/releasing.md#updates).
+[releasing › updates](../developer/releasing.md#updates). The other place, built 2026-10-13, is the
+`kubectl` a terminal offers for its cluster: downloaded only on the user's click and verified against
+the Kubernetes release's own sigstore signature, not Cogpit's update key
+([trust boundaries](trust-boundaries.md#boundaries-and-required-checks),
+[H-35](trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log)).
 
 ## Chain of trust
 

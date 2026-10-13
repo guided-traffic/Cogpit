@@ -53,6 +53,9 @@ type LocalOptions struct {
 	Namespace string
 	// Env is added to the environment. It cannot override KUBECONFIG.
 	Env []string
+	// Kubectl is the kubectl the shell should find first, an absolute path: a link named kubectl
+	// in the session's own directory, which leads PATH (kubectl.go). Empty: PATH as it is.
+	Kubectl string
 }
 
 // StartLocal starts a local shell on a new PTY with KUBECONFIG=<own file>:<the user's files>,

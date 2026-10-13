@@ -146,6 +146,8 @@ var wantCommands = map[string]engine.Danger{
 	// The navigator's scope (G5, G13): what the navigator and the tab bar show
 	// (TestNavigatorScopeCommand).
 	"ui.setNavigatorScope": engine.DangerUI,
+	// kubectl for terminals (D-3): GUI-only, Cogpit's own folder, never a cluster (TestKubectlDownloadCommand).
+	"kubectl.download": engine.DangerUI,
 }
 
 func TestRegistryComplete(t *testing.T) {

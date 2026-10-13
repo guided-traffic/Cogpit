@@ -59,6 +59,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerClusterMenu(g)
 	registerNotifications(g)
 	registerNavScope(g)
+	registerKubectl(g)
 	return g.err
 }
 

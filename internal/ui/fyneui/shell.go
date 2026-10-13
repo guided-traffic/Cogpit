@@ -1028,6 +1028,10 @@ func dockEqual(a, b engine.UIState) bool {
 		if !reflect.DeepEqual(x.Helm, y.Helm) || !reflect.DeepEqual(x.HelmInstall, y.HelmInstall) {
 			return false
 		}
+		// A terminal's kubectl check and its download change in place (kubectloffer.go).
+		if !reflect.DeepEqual(x.Kubectl, y.Kubectl) {
+			return false
+		}
 	}
 	return true
 }

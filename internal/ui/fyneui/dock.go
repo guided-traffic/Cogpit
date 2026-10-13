@@ -48,7 +48,9 @@ type dockContent struct {
 	closer io.Closer
 	editor dockEditor // Edit and Create resource tabs
 	logs   *logTab    // logs tabs (logtab.go)
-	closed bool
+	// kubectl is a terminal tab's kubectl line (kubectloffer.go).
+	kubectl *kubectlOffer
+	closed  bool
 }
 
 // dockEditor is an editor tab's content: it follows EventEditor and stops its timers on close.
@@ -104,6 +106,8 @@ func (d *dock) sync(tabs []engine.DockTab, active string) {
 			added = true
 		} else if c.logs != nil {
 			c.logs.update(t)
+		} else if c.kubectl != nil {
+			c.kubectl.update(t)
 		} else if u, ok := c.editor.(interface{ update(engine.DockTab) }); ok { // a Helm Install tab's version
 			u.update(t)
 		}
@@ -138,6 +142,9 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 		c.logs = newLogTab(ctx, d.sh, c, t)
 		c.logs.open()
 	case engine.DockTerminal, engine.DockShell, engine.DockAttach:
+		if t.Type == engine.DockTerminal {
+			c.kubectl = newKubectlOffer(d.sh, t)
+		}
 		go func() {
 			defer d.sh.recoverTo("terminal")
 			sess, err := d.sh.eng.OpenTerminal(ctx, id)
@@ -155,7 +162,7 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 				w := termview.NewTerminal(sess)
 				w.SetRightClickCopyPaste(d.sh.rightClickCopyPaste()) // the Preferences' right mouse button (termpaste.go)
 				c.closer = w
-				c.set(d.sh.terminalScope(w)) // the Preferences' terminal font size (preferences.go)
+				c.set(c.withKubectlOffer(d.sh.terminalScope(w))) // the Preferences' terminal font size (preferences.go)
 			})
 		}()
 	case engine.DockEdit:

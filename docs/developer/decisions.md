@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -102,6 +102,30 @@ within one minor version, older or newer, of the API server
 Options weighed: `PATH` only (fails without `kubectl` or across version skew), always downloading
 like Lens (about 60 MB per minor version, overrides deliberate setups), bundling one (60 MB larger
 app, still skewed for other clusters, every `kubectl` fix forces a Cogpit release).
+
+**Built 2026-10-13** ([`internal/kubectl`](../../internal/kubectl/), [`engine/kubectl.go`](../../internal/engine/kubectl.go),
+[architecture §10](architecture.md#10-terminal-internalterminal)). Where it differs from the text
+above, or fills what it leaves open (Cogpit's defaults, not the owner's decisions):
+
+- The version compared is the API server's at connect against the Preferences' path to `kubectl`,
+  else the first `kubectl` on Cogpit's own `PATH` (its `version --client`, read once per file); a
+  login shell may compute another `PATH`.
+- A release downloaded earlier that suits the cluster is put first without asking again; the
+  terminal's line says so. The offer is the server's own major.minor.patch (an EKS
+  `v1.36.1-eks-…` gets 1.36.1).
+- The download is GUI-only (`kubectl.download` refuses agents and the CLI), from
+  `https://dl.k8s.io/release` or an https mirror base; the files go into
+  `<user config dir>/Cogpit/kubectl/<version>/kubectl` unless the Preferences name another
+  directory. A running terminal keeps its `PATH`; the terminals opened afterwards use the release.
+- The `.sig` check is sigstore's keyless signature verified with the standard library: the
+  `.cert` must chain to the Fulcio certificate authority Cogpit embeds, name the Kubernetes
+  release's identity and issuer, and its key must have signed the published SHA-256. sigstore's
+  transparency log is not consulted ([H-35](../security/trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log)); no new
+  dependency.
+- "First on `PATH`" is a link in the terminal's own directory, first in its environment; for zsh
+  also after the login profile ran (a `ZDOTDIR` of Cogpit's that hands over to the user's), since
+  macOS's `path_helper` moves inherited entries behind `/etc/paths`. Other shells keep only the
+  environment's order ([H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first)).
 
 ## D-4: Packaging and updates
 
@@ -775,6 +799,7 @@ click, but an approval that no longer binds the server: a changed server in `con
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-3 built (night run): the version check when a terminal opens, the GUI-only verified download (SHA-256 and sigstore signature, no transparency log: H-35), the release first on the terminal's PATH (zsh after its profile; H-36), the Preferences; the differences listed under D-3 |
 | 2026-10-13 | minor | D-14: the right mouse button's action and ⌃Ins and ⇧Ins on the clipboard, patches of the fork and upstream candidates (night run), not offered |
 | 2026-10-13 | minor | D-22 amended (Cogpit's default): the theme is a preference too, `--theme` overrides it for a run; the clusters' icon colours are Solarized's accents |
 | 2026-10-13 | minor | D-11: Helm install built on the journal's road as the lead's default (an interrupted install offered as an uninstall); the decision stays the owner's |

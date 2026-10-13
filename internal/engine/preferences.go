@@ -12,6 +12,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/guided-traffic/cogpit/internal/kubectl"
 )
 
 // Preferences (G13, docs/parity/ui-parity.md › Preferences): Cogpit's own settings that are not a
@@ -95,14 +97,25 @@ type Preferences struct {
 	// pastes the clipboard when nothing is selected; off: it does neither (termpaste.go). Only the
 	// user may set it (ErrRightClickGUIOnly).
 	TerminalRightClickCopyPaste bool `json:"terminalRightClickCopyPaste,omitempty"`
+	// KubectlDownload: a terminal whose kubectl does not suit its cluster offers to download the
+	// matching release (D-3, kubectl.go); on by default, as Lens downloads by default.
+	KubectlDownload bool `json:"kubectlDownload"`
+	// KubectlMirror is the https base URL kubectl is downloaded from; empty: dl.k8s.io
+	// (kubectl.DefaultMirror). KubectlDir is the directory for binaries, an absolute path; empty:
+	// <user config dir>/Cogpit/kubectl. KubectlPath is the kubectl terminals run, an absolute
+	// path; empty: the first on PATH. Only the user, in Cogpit's window, sets these three
+	// (ErrKubectlGUIOnly).
+	KubectlMirror string `json:"kubectlMirror,omitempty"`
+	KubectlDir    string `json:"kubectlDir,omitempty"`
+	KubectlPath   string `json:"kubectlPath,omitempty"`
 }
 
 // DefaultPreferences are the preferences of a first start: dark (Cogpit starts dark, as it did
 // before the preference existed), the computer's time zone, the default row height, 13-point text,
-// line numbers on, two-space tabs, the user's own shell.
+// line numbers on, two-space tabs, the user's own shell, kubectl downloads offered.
 func DefaultPreferences() Preferences {
 	return Preferences{Theme: ThemeDark, EditorFontSize: DefaultFontSize, EditorLineNumbers: true,
-		EditorTabSize: DefaultTabSize, TerminalFontSize: DefaultFontSize}
+		EditorTabSize: DefaultTabSize, TerminalFontSize: DefaultFontSize, KubectlDownload: true}
 }
 
 // Clone returns a deep copy.
@@ -140,7 +153,47 @@ func (p Preferences) Check() error {
 	if err := checkShellArgs(p.TerminalShellArgs); err != nil {
 		return err
 	}
-	return CheckProxyURL(p.HTTPProxy)
+	if err := CheckProxyURL(p.HTTPProxy); err != nil {
+		return err
+	}
+	return p.checkKubectl()
+}
+
+// checkKubectl refuses a download mirror that is not an https URL, and a directory for binaries
+// or a path to kubectl that is not an absolute path of one line. The files are not checked here
+// (CheckKubectlPath).
+func (p Preferences) checkKubectl() error {
+	if _, err := kubectl.CheckMirror(p.KubectlMirror); err != nil {
+		return err
+	}
+	for _, f := range []struct{ what, path string }{{"the directory for binaries", p.KubectlDir}, {"the path to kubectl", p.KubectlPath}} {
+		switch {
+		case f.path == "":
+		case len(f.path) > maxShellPath || !utf8.ValidString(f.path) || strings.IndexFunc(f.path, unicode.IsControl) >= 0:
+			return fmt.Errorf("%s is one line of at most %d bytes", f.what, maxShellPath)
+		case !filepath.IsAbs(f.path):
+			return fmt.Errorf("%s %q: give an absolute path", f.what, f.path)
+		}
+	}
+	return nil
+}
+
+// CheckKubectlPath says why a file cannot be the terminals' kubectl: not an absolute path, or no
+// executable file there. Empty means the first kubectl on PATH.
+func CheckKubectlPath(path string) error {
+	if err := (Preferences{KubectlPath: path}).checkKubectl(); err != nil || path == "" {
+		return err
+	}
+	fi, err := os.Stat(path)
+	switch {
+	case err != nil:
+		return fmt.Errorf("the path to kubectl %s: no such file", path)
+	case !fi.Mode().IsRegular():
+		return fmt.Errorf("the path to kubectl %s is not a file", path)
+	case runtime.GOOS != goosWindows && fi.Mode().Perm()&0o111 == 0:
+		return fmt.Errorf("the path to kubectl %s is not executable", path)
+	}
+	return nil
 }
 
 // normalize replaces every field of preferences read from a file that Check would refuse by its
@@ -176,6 +229,15 @@ func (p *Preferences) normalize() {
 	}
 	if p.HTTPProxy = strings.TrimSpace(p.HTTPProxy); CheckProxyURL(p.HTTPProxy) != nil {
 		p.HTTPProxy = ""
+	}
+	if (Preferences{KubectlMirror: p.KubectlMirror}).checkKubectl() != nil {
+		p.KubectlMirror = ""
+	}
+	if (Preferences{KubectlDir: p.KubectlDir}).checkKubectl() != nil {
+		p.KubectlDir = ""
+	}
+	if (Preferences{KubectlPath: p.KubectlPath}).checkKubectl() != nil {
+		p.KubectlPath = ""
 	}
 }
 

@@ -117,6 +117,9 @@ type DockTab struct {
 	Helm      *HelmUpgradeTab  `json:"helm,omitempty"`      // a Helm Upgrade tab's chart and version
 	// HelmInstall is a Helm Install tab's chart, version and defaults (helminstall.go).
 	HelmInstall *HelmInstallTab `json:"helmInstall,omitempty"`
+	// Kubectl is a terminal tab's kubectl: the check made when it opened, the offer of a matching
+	// release and its download (kubectl.go).
+	Kubectl *KubectlCheck `json:"kubectl,omitempty"`
 }
 
 // HelmUpgradeTab is what a Helm Upgrade tab shows beside its values editor (Lens's "Helm Upgrade:
@@ -195,6 +198,10 @@ func (u UIState) Clone() UIState {
 			h.Versions = slices.Clone(t.Helm.Versions)
 			h.Repositories = slices.Clone(t.Helm.Repositories)
 			out.Dock[i].Helm = &h
+		}
+		if t.Kubectl != nil {
+			k := t.Kubectl.clone()
+			out.Dock[i].Kubectl = &k
 		}
 	}
 	if u.Hotbar != nil {

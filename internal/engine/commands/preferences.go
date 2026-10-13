@@ -22,6 +22,9 @@ type PreferencesResult struct {
 	Timezone string `json:"timezone"`
 	// Kept says whether the preferences outlive this run (false without a configuration folder).
 	Kept bool `json:"kept"`
+	// KubectlDir is the directory for binaries in effect: the preference's, else Cogpit's own
+	// folder; empty when there is none.
+	KubectlDir string `json:"kubectlDir,omitempty"`
 }
 
 type preferencesSetParams struct {
@@ -37,11 +40,36 @@ type preferencesSetParams struct {
 	HTTPProxy         *string  `json:"httpProxy,omitempty" jsonschema:"the proxy of the traffic that is no cluster's (the Helm repositories' indexes and charts): http://<address>:<port>, https:// or socks5://, optionally with user:password@; empty: the environment's HTTPS_PROXY. Agents and the CLI may only clear it (an empty string): setting one is the user's, in Cogpit's window"`
 	// TerminalRightClickCopyPaste is GUI-only too (engine/termpaste.go).
 	TerminalRightClickCopyPaste *bool `json:"terminalRightClickCopyPaste,omitempty" jsonschema:"whether a right click in the dock's terminals copies the selection, or pastes the clipboard when nothing is selected (default false). Only the user in Cogpit's window may set it: refused for agents"`
+	// The kubectl preferences (engine/kubectl.go): the mirror, the directory and the path GUI-only.
+	KubectlDownload *bool   `json:"kubectlDownload,omitempty" jsonschema:"whether a terminal whose kubectl is more than one minor version away from its cluster, or missing, offers the matching release for download (default true); the download itself is the user's click"`
+	KubectlMirror   *string `json:"kubectlMirror,omitempty" jsonschema:"the https base URL kubectl is downloaded from; empty: https://dl.k8s.io/release. Only the user in Cogpit's window may set it: refused for agents"`
+	KubectlDir      *string `json:"kubectlDir,omitempty" jsonschema:"the directory for downloaded kubectl releases, an absolute path; empty: Cogpit's own folder. Only the user in Cogpit's window may set it: refused for agents"`
+	KubectlPath     *string `json:"kubectlPath,omitempty" jsonschema:"the kubectl the terminals run, an absolute path; empty: the first on PATH. Only the user in Cogpit's window may set it: refused for agents"`
 }
 
 // shellChange reports whether the parameters change the local terminal's shell or arguments.
 func (p preferencesSetParams) shellChange() bool {
 	return p.TerminalShell != nil || p.TerminalShellArgs != nil
+}
+
+// kubectlChange reports whether the parameters change which kubectl the terminals run: its path,
+// the directory for binaries or the mirror.
+func (p preferencesSetParams) kubectlChange() bool {
+	return p.KubectlMirror != nil || p.KubectlDir != nil || p.KubectlPath != nil
+}
+
+// refuse refuses what only the user may set, for every origin but the GUI.
+func (p preferencesSetParams) refuse(ctx context.Context) error {
+	if engine.OriginOf(ctx) == engine.OriginGUI {
+		return nil
+	}
+	if p.shellChange() {
+		return engine.ErrShellGUIOnly
+	}
+	if p.kubectlChange() {
+		return engine.ErrKubectlGUIOnly
+	}
+	return nil
 }
 
 type preferencesOpenParams struct {
@@ -50,7 +78,8 @@ type preferencesOpenParams struct {
 
 // prefsResult is what the preferences commands return: the proxy's password as ••• (Shown).
 func prefsResult(s *engine.Session, p engine.Preferences) PreferencesResult {
-	return PreferencesResult{Preferences: p.Shown(), Timezone: s.Location().String(), Kept: s.PreferencesStore().Path() != ""}
+	return PreferencesResult{Preferences: p.Shown(), Timezone: s.Location().String(), Kept: s.PreferencesStore().Path() != "",
+		KubectlDir: s.KubectlBinDir()}
 }
 
 const prefsWritesOnly = " Changes only Cogpit's own preferences (a file in Cogpit's configuration directory), never a cluster or a kubeconfig."
@@ -62,8 +91,9 @@ func registerPreferences(g *registrar) {
 			"the time zone absolute times are shown in (empty: the computer's) and the zone in effect, the tables' row " +
 			"height, the YAML editor's font size, line numbers and tab size, the terminal's font size, the local " +
 			"terminal's shell and arguments (empty: $SHELL), whether a right click in a terminal copies and pastes, the " +
-			"HTTP proxy of the traffic that is no cluster's (empty: the environment's; its password shown as •••); kept " +
-			"says whether they outlive this run. ui_state carries the same.",
+			"HTTP proxy of the traffic that is no cluster's (empty: the environment's; its password shown as •••), and " +
+			"kubectl for terminals: downloads offered or not, the mirror, the directory for binaries (kubectlDir: the one " +
+			"in effect) and the path to kubectl; kept says whether they outlive this run. ui_state carries the same.",
 		Enabled: func(s *engine.Session, _ struct{}) error { _, err := s.Preferences(); return err },
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			p, err := s.Preferences()
@@ -78,15 +108,16 @@ func registerPreferences(g *registrar) {
 		ID: "preferences.set", Label: "Set Preferences", Danger: engine.DangerUI,
 		Description: "Changes some of Cogpit's preferences, as the Preferences page does; the fields left out stay as they are. " +
 			"The window follows at once: the theme, the time zone of the drawer's Created and the charts, the tables' row " +
-			"height, the open editors; the HTTP proxy at the next download from a Helm repository. The local terminal's " +
-			"shell and its arguments are refused for agents and the CLI: they name a program Cogpit runs on this " +
-			"computer; so is the terminals' right mouse button, which decides whether a click pastes into a shell, and " +
-			"setting the HTTP proxy (it decides where Cogpit's downloads go), which they may only clear." +
-			prefsWritesOnly + " Returns the preferences.",
+			"height, the open editors; the HTTP proxy at the next download from a Helm repository or of kubectl. The " +
+			"local terminal's shell and its arguments are refused for agents and the CLI: they name a program Cogpit " +
+			"runs on this computer; so are the path to kubectl, the directory for binaries and the kubectl download " +
+			"mirror, which decide what the terminals run as kubectl, the terminals' right mouse button, which decides " +
+			"whether a click pastes into a shell, and setting the HTTP proxy (it decides where Cogpit's downloads go), " +
+			"which they may only clear." + prefsWritesOnly + " Returns the preferences.",
 		Enabled: func(s *engine.Session, _ preferencesSetParams) error { _, err := s.Preferences(); return err },
 		Refuse: func(ctx context.Context, _ *engine.Session, p preferencesSetParams) error {
-			if p.shellChange() && engine.OriginOf(ctx) != engine.OriginGUI {
-				return engine.ErrShellGUIOnly
+			if err := p.refuse(ctx); err != nil {
+				return err
 			}
 			if p.TerminalRightClickCopyPaste != nil && engine.OriginOf(ctx) != engine.OriginGUI {
 				return engine.ErrRightClickGUIOnly
@@ -94,8 +125,8 @@ func registerPreferences(g *registrar) {
 			return refuseProxy(ctx, p.HTTPProxy)
 		},
 		Run: func(ctx context.Context, s *engine.Session, p preferencesSetParams) (any, error) {
-			if p.shellChange() && engine.OriginOf(ctx) != engine.OriginGUI {
-				return nil, engine.ErrShellGUIOnly
+			if err := p.refuse(ctx); err != nil {
+				return nil, err
 			}
 			if p.TerminalRightClickCopyPaste != nil && engine.OriginOf(ctx) != engine.OriginGUI {
 				return nil, engine.ErrRightClickGUIOnly
@@ -105,6 +136,11 @@ func registerPreferences(g *registrar) {
 			}
 			if p.TerminalShell != nil {
 				if err := engine.CheckShell(strings.TrimSpace(*p.TerminalShell)); err != nil {
+					return nil, err
+				}
+			}
+			if p.KubectlPath != nil {
+				if err := engine.CheckKubectlPath(strings.TrimSpace(*p.KubectlPath)); err != nil {
 					return nil, err
 				}
 			}
@@ -132,6 +168,12 @@ func registerPreferences(g *registrar) {
 					pr.HTTPProxy = next
 				}
 				setIf(&pr.TerminalRightClickCopyPaste, p.TerminalRightClickCopyPaste)
+				setIf(&pr.KubectlDownload, p.KubectlDownload)
+				for _, f := range []struct{ dst, v *string }{{&pr.KubectlMirror, p.KubectlMirror}, {&pr.KubectlDir, p.KubectlDir}, {&pr.KubectlPath, p.KubectlPath}} {
+					if f.v != nil {
+						*f.dst = strings.TrimSpace(*f.v)
+					}
+				}
 				return nil
 			})
 			if err != nil {

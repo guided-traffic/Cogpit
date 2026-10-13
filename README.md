@@ -55,6 +55,7 @@ it. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
 - 📋 Lens's resource views: workloads, config, network, storage, access control, device resources (with each node's devices in its drawer), custom resources; each searchable by words, with match case or a regular expression.
 - 📜 Logs with follow, filter, timestamps, the previous container, pod and container selectors, older lines and a jump to a time.
 - 💻 Pod shells, attach and a terminal bound to the cluster's context; copy and paste by keys or, if you choose, the right mouse button.
+- 🧰 The terminal's `kubectl` checked against the cluster: more than one minor version off, or none, and one click downloads the matching release from `dl.k8s.io`, verified against its SHA-256 and the Kubernetes release's signature, for Cogpit's terminals only.
 - ✏️ YAML editing with a diff and a server-side dry-run before every apply.
 - 🔌 Port forwarding, one click to the browser.
 - ⎈ The Helm releases in your clusters (Lens's Helm view): history, values, upgrade, rollback, through the Helm SDK, no `helm` binary needed.
@@ -92,6 +93,8 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Helm chart objects | kind `helmcharts`, named `<repository>.<chart>` (a repository's name has no dot) | `bitnami.nginx` # example |
 | App log | `<user cache dir>/Cogpit/cogpit.log`, and stderr | |
 | Terminal kubeconfig | a temporary file per terminal holding only a context, owner-only, deleted on close ([why](docs/security/credentials.md#the-terminals-kubeconfig)) | |
+| Downloaded `kubectl` | `<user config dir>/Cogpit/kubectl/<version>/kubectl` (0755, directories 0700), or the directory for binaries set in Preferences › Kubernetes ([why](docs/developer/decisions.md#d-3-helm-and-kubectl-binaries)) | `~/Library/Application Support/Cogpit/kubectl/1.36.1/kubectl` # example |
+| A terminal's own directory | `<temp dir>/cogpit-terminal-<random>/`, owner-only, removed on close, only when Cogpit puts a `kubectl` first: `bin/kubectl` (a link), `zsh/.zshenv` (zsh only) | |
 | Demo context | `demo` (the synthetic cluster) | |
 | Local kind cluster | cluster `cogpit`, context `kind-cogpit`, kubeconfig `.cache/kind/kubeconfig` | |
 | Release artifacts (planned) | `Cogpit-<version>-macos-universal.dmg`, `cogpit-cli-<version>-<os>-<arch>.tar.gz` | `Cogpit-0.1.0-macos-universal.dmg` # example |
@@ -237,6 +240,36 @@ anyone who can drop a file into a sync folder chooses them. Without a configurat
 (no `$HOME`) the CLI refuses to connect rather than merging the files as kubectl does, which
 would run their plugins unasked.
 
+### Preferences › Kubernetes: `kubectl` for terminals
+
+Kept in `<user config dir>/Cogpit/preferences.json` (owner-only), set on the Preferences page (⌘,)
+or with `preferences_set`. When a terminal opens, its `kubectl` is compared with the cluster's
+version; more than one minor version off, or none, and the terminal offers the matching release
+([D-3](docs/developer/decisions.md#d-3-helm-and-kubectl-binaries)).
+
+```json
+{
+  "kubectlDownload": true,
+  "kubectlMirror": "",
+  "kubectlDir": "",
+  "kubectlPath": ""
+}
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `kubectlDownload` | `true` # default | offer the matching release in a terminal whose `kubectl` does not suit the cluster; off, the terminal only says so. The download itself always waits for your click |
+| `kubectlMirror` | `""`: `https://dl.k8s.io/release` # default | the https base URL under which `v<version>/bin/<os>/<arch>/kubectl` and its `.sha256`, `.sig` and `.cert` lie, such as `https://mirror.example.com/kubernetes/kubectl` # example |
+| `kubectlDir` | `""`: `<user config dir>/Cogpit/kubectl` # default | the directory for binaries, an absolute path; releases go into `<dir>/<version>/kubectl` |
+| `kubectlPath` | `""`: the first `kubectl` on `PATH` # default | the `kubectl` your terminals run, an absolute path; Cogpit checks it against the cluster as it would check `PATH`'s and puts it first on the terminal's `PATH` |
+
+Security note: the last three decide which program your terminals run as `kubectl`, so only you, in
+Cogpit's window, can set them, and only you can start a download; agents and `cogpit-cli` are
+refused. A mirror needs no trust of its own: every download is checked against the Kubernetes
+release's sigstore signature (its certificate chained to sigstore's authority, which Cogpit embeds,
+for the release's identity), and refused when the mirror serves no `.sig` or `.cert`. sigstore's
+transparency log is not consulted ([H-35](docs/security/trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log)).
+
 ### Commands and MCP tools
 
 Every command is an MCP tool (dots become underscores). `?` marks optional parameters; `ref` is
@@ -246,7 +279,7 @@ Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never a
 registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 142 commands</summary>
+<summary>All 143 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -311,6 +344,7 @@ registry with `go run ./hack/readmecmds`.
 | `kubeconfig.pendingApprovals` | `kubeconfig_pendingApprovals` | read | `context`? | Lists the logins of kubeconfig source contexts that wait for the user's approval, grouped by kubeconfig file and plugin: contexts of one file that run the same program the same way (command, arguments, environment, API version, interactive mode) or read the same token file are one group, asked about once |
 | `kubeconfig.remove` | `kubeconfig_remove` | ui | `source` | Removes a kubeconfig source, which is Cogpit's link to a file or folder and nothing else: its contexts are no longer offered, the credential plugins allowed for its files are forgotten, and an open connection made from one of its files is closed |
 | `kubeconfig.sources` | `kubeconfig_sources` | read |  | Lists the kubeconfig sources: the user's ~/.kube sync folder (default), the files named in $KUBECONFIG or --kubeconfig (session: removable for this run only), and the files and folders the user added, each with its id, kind, path, the files read from it, how many contexts it offers and why it cannot be read |
+| `kubectl.download` | `kubectl_download` | ui | `tab` | Downloads the kubectl release a terminal tab offers (the cluster's version, when the kubectl the terminal finds is more than one minor version away or missing) from dl.k8s.io or the mirror set in Preferences, verifies it against the published SHA-256 and the Kubernetes release's signature, and keeps it in the directory for binaries; terminals opened afterwards find it first on PATH |
 | `logs.controller` | `logs_controller` | read | `id` | Turns a pod's logs tab into the logs of the resource that controls the pod (its Deployment, Daemon Set, Stateful Set, Replica Set or Job; a Deployment's pods through their replica set), as workload_logs shows them: every pod's containers, each line with its pod and container |
 | `logs.jumpTo` | `logs_jumpTo` | read | `id`, `time` | Scrolls a logs tab to the first line written at or after a time, as the tab's time field does, and stops it following |
 | `logs.loadOlder` | `logs_loadOlder` | read | `id` | Loads the lines before the oldest a logs tab holds, as selecting the tab's "Load older lines" row does |
@@ -344,9 +378,9 @@ registry with `go run ./hack/readmecmds`.
 | `portforward.open` | `portforward_open` | ui | `ref` | Returns a port forward's URL, http(s)://127.0.0.1:<port>; the GUI opens it in the browser |
 | `portforward.remove` | `portforward_remove` | ui | `ref` | Stops a port forward and removes it from the list |
 | `portforward.stop` | `portforward_stop` | ui | `ref` | Stops a port forward: its local port closes and its connection to the pod ends |
-| `preferences.get` | `preferences_get` | read |  | Returns Cogpit's preferences as the Preferences page (⌘,) shows them: the theme (system, dark, light), the time zone absolute times are shown in (empty: the computer's) and the zone in effect, the tables' row height, the YAML editor's font size, line numbers and tab size, the terminal's font size, the local terminal's shell and arguments (empty: $SHELL), whether a right click in a terminal copies and pastes, the HTTP proxy of the traffic that is no cluster's (empty: the environment's; its password shown as •••); kept says whether they outlive this run. ui_state carries the same |
+| `preferences.get` | `preferences_get` | read |  | Returns Cogpit's preferences as the Preferences page (⌘,) shows them: the theme (system, dark, light), the time zone absolute times are shown in (empty: the computer's) and the zone in effect, the tables' row height, the YAML editor's font size, line numbers and tab size, the terminal's font size, the local terminal's shell and arguments (empty: $SHELL), whether a right click in a terminal copies and pastes, the HTTP proxy of the traffic that is no cluster's (empty: the environment's; its password shown as •••), and kubectl for terminals: downloads offered or not, the mirror, the directory for binaries (kubectlDir: the one in effect) and the path to kubectl; kept says whether they outlive this run. ui_state carries the same |
 | `preferences.open` | `preferences_open` | ui | `section`? | Opens Cogpit's Preferences page in the window, as ⌘, (Ctrl+,) does, at a section: app (theme, time zone), proxy (the HTTP proxy of the traffic that is no cluster's), kubernetes (kubeconfig syncs), editor, terminal or tables |
-| `preferences.set` | `preferences_set` | ui | `editorFontSize`?, `editorLineNumbers`?, `editorTabSize`?, `httpProxy`?, `tableRowHeight`?, `terminalFontSize`?, `terminalRightClickCopyPaste`?, `terminalShell`?, `terminalShellArgs`?, `theme`?, `timezone`? | Changes some of Cogpit's preferences, as the Preferences page does; the fields left out stay as they are |
+| `preferences.set` | `preferences_set` | ui | `editorFontSize`?, `editorLineNumbers`?, `editorTabSize`?, `httpProxy`?, `kubectlDir`?, `kubectlDownload`?, `kubectlMirror`?, `kubectlPath`?, `tableRowHeight`?, `terminalFontSize`?, `terminalRightClickCopyPaste`?, `terminalShell`?, `terminalShellArgs`?, `theme`?, `timezone`? | Changes some of Cogpit's preferences, as the Preferences page does; the fields left out stay as they are |
 | `replicaset.scale` | `replicaset_scale` | mutating (destructive for some calls) | `ref`, `replicas`? | Sets a replica set's replica count, as kubectl scale does: a patch of spec.replicas on its scale subresource |
 | `resource.createTab` | `resource_createTab` | ui | `template`?, `yaml`? | Opens a Create resource dock tab with yaml, with a template (resource_templates lists them), or with an example Pod |
 | `resource.templates` | `resource_templates` | read |  | Lists Cogpit's templates for new objects, one per kind in alphabetical order, each with its apiVersion, whether the kind is namespaced, and its YAML (without a namespace) |

@@ -115,6 +115,9 @@ type Options struct {
 	// ClusterSettings keeps each context's settings (clustersettings.go), shown in
 	// UIState.ClusterSettings. Nil: the session has none and their commands are disabled.
 	ClusterSettings *ClusterSettingsStore
+	// Kubectl checks the kubectl of the terminals and downloads the release that matches a cluster
+	// (kubectl.go, D-3). Nil: terminals run the kubectl on PATH unchecked.
+	Kubectl *Kubectl
 }
 
 // Session is the engine for one desktop app or headless process. It is safe for concurrent use.

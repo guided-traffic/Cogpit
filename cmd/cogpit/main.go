@@ -99,7 +99,7 @@ func run(previousCrash string) int {
 	}
 	s := engine.New(engine.Options{Connector: connector, Audit: audit, Logger: logger, Drains: openDrainJournal(logger),
 		Helm: openHelmJournal(logger), Hotbar: openHotbar(logger), HelmRepos: openHelmRepos(logger),
-		Preferences: openPreferences(logger), ClusterSettings: clusterSettings})
+		Preferences: openPreferences(logger), ClusterSettings: clusterSettings, Kubectl: openKubectl(logger)})
 	defer s.Close()
 	defer s.WatchKubeconfigs(0)() // sync folders: files that appear or leave are picked up
 	if err := commands.RegisterAll(s.Registry()); err != nil {
@@ -226,6 +226,19 @@ func openPreferences(logger *slog.Logger) *engine.PreferencesStore {
 		return engine.NewPreferencesStore("")
 	}
 	return engine.NewPreferencesStore(filepath.Join(dir, "Cogpit"))
+}
+
+// openKubectl checks the kubectl of the terminals against their clusters and keeps the releases the
+// user downloads in <user config dir>/Cogpit/kubectl/<version>/kubectl, owner-only, unless the
+// Preferences name another directory (D-3). Without a configuration directory only the
+// Preferences' directory can hold downloads.
+func openKubectl(logger *slog.Logger) *engine.Kubectl {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		logger.Warn("kubectl downloads need a directory for binaries in the Preferences", "err", err)
+		return engine.NewKubectl("", engine.KubectlHooks{})
+	}
+	return engine.NewKubectl(filepath.Join(dir, "Cogpit", engine.KubectlDirName), engine.KubectlHooks{})
 }
 
 // openClusterSettings keeps each cluster's display name, icon and terminal settings in

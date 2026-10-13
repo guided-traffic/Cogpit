@@ -31,6 +31,7 @@ type localSession struct {
 	cmd     *exec.Cmd
 	pid     int // the shell's pid, which is also its process group id (it runs in its own session)
 	cfgPath string
+	ownDir  string // the session's own directory (the kubectl link, zsh's .zshenv); "" without
 	input   *inputQueue
 	done    chan struct{}
 	// exited is set as soon as the shell is reaped. From then on its pid may belong to another
@@ -70,7 +71,20 @@ func startLocal(opts LocalOptions) (Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	removeConfig := func() { _ = os.Remove(cfgPath) }
+	var ownDir string // the session's own directory for opts.Kubectl (kubectl.go)
+	var kubectlEnv []string
+	if opts.Kubectl != "" {
+		if ownDir, kubectlEnv, err = kubectlFirst(opts.Kubectl, shellPath, baseEnv(opts.Env)); err != nil {
+			_ = os.Remove(cfgPath)
+			return nil, err
+		}
+	}
+	removeConfig := func() {
+		_ = os.Remove(cfgPath)
+		if ownDir != "" {
+			_ = os.RemoveAll(ownDir)
+		}
+	}
 
 	// A leading "-" in argv[0] makes every common shell (sh, bash, zsh, fish, dash) a login
 	// shell, which reads the user's profile as a terminal app's shell does.
@@ -78,7 +92,7 @@ func startLocal(opts LocalOptions) (Session, error) {
 		Path: shellPath,
 		Args: append([]string{"-" + filepath.Base(shellPath)}, opts.Args...),
 		Dir:  dir,
-		Env:  localEnv(opts.Env, binding.kubeconfigVar(cfgPath)),
+		Env:  localEnv(opts.Env, binding.kubeconfigVar(cfgPath), kubectlEnv...),
 	}
 	// pty.Start runs the shell in a new session (Setsid) with the PTY as its controlling
 	// terminal, so the shell leads its own process group and Close can signal the group.
@@ -101,6 +115,7 @@ func startLocal(opts LocalOptions) (Session, error) {
 		cmd:     cmd,
 		pid:     cmd.Process.Pid,
 		cfgPath: cfgPath,
+		ownDir:  ownDir,
 		input:   newInputQueue(),
 		done:    make(chan struct{}),
 	}
@@ -208,5 +223,10 @@ func (s *localSession) killAfterGrace() {
 }
 
 func (s *localSession) removeConfig() {
-	s.removeOnce.Do(func() { _ = os.Remove(s.cfgPath) })
+	s.removeOnce.Do(func() {
+		_ = os.Remove(s.cfgPath)
+		if s.ownDir != "" {
+			_ = os.RemoveAll(s.ownDir)
+		}
+	})
 }

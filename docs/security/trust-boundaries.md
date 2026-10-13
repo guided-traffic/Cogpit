@@ -18,6 +18,7 @@ have and the package that owns it, with a link where the MVP (2026-10-11) implem
 | External agents over MCP | as trusted as the local user who connected them; decisions are a model's | [agents and MCP](agents-and-mcp.md) |
 | Built-in agent and its LLM endpoint | the endpoint's output is untrusted | [agents and MCP](agents-and-mcp.md) |
 | Release host and update manifest | trusted after signature verification | [updates](updates.md) |
+| kubectl release host (`dl.k8s.io`) or the mirror set in Preferences | untrusted; a binary is trusted after the Kubernetes release's signature on it verified | A downloaded `kubectl` runs whenever the user types `kubectl` in a terminal of Cogpit's, with the user's privileges and credentials ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries)) |
 
 ```text
 UNTRUSTED                                   BOUNDARY                          TRUSTED STATE
@@ -37,6 +38,8 @@ UNTRUSTED                                   BOUNDARY                          TR
                                              access review, confirmation
   update manifest and artifact           ─► signature, checksum, ───────────► installed app
                                              OS code signature
+  kubectl release (dl.k8s.io or mirror)  ─► GUI click, https, size bound, ──► first on PATH in
+                                             SHA-256, sigstore signature        Cogpit's terminals
 ```
 
 ## Boundaries and required checks
@@ -56,6 +59,7 @@ UNTRUSTED                                   BOUNDARY                          TR
 | MCP request to engine | `internal/mcp` | Loopback only, bearer token, `Host` and `Origin` checks: [`internal/mcp/http.go`](../../internal/mcp/http.go), `TestHTTPGuard`, `TestNewRefusesNonLoopbackAddresses` |
 | Cluster data to the LLM endpoint | `internal/agent` | Secret values withheld by default; what is sent is shown |
 | Download to installed app | `internal/update` | Signed manifest, checksum, OS code signature, no downgrade ([updates](updates.md)) |
+| kubectl download to a terminal's `PATH` | `internal/kubectl`, `internal/engine`, `internal/terminal` | Built 2026-10-13 ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries)): only the user's click in the window downloads (`kubectl.download` refuses agents and the CLI before anything is fetched, `TestKubectlDownloadCommand`), and only the user sets the path to kubectl, the directory for binaries and the mirror (`ErrKubectlGUIOnly`); the mirror is an https URL without user information, query or fragment, and redirects are followed to https only (`TestCheckMirror`, `TestDownloadHTTPSOnly`); the `.sha256`, `.sig` and `.cert` files are read first (16 KiB each at most) and the signature is checked over the published digest before the binary is asked for: the signing certificate must chain to the sigstore certificate authority Cogpit embeds ([`sigstore_fulcio.pem`](../../internal/kubectl/sigstore_fulcio.pem)) at the time it was issued, be for code signing, and name `krel-staging@k8s-releng-prod.iam.gserviceaccount.com` with the OIDC issuer `https://accounts.google.com`, and its key must have signed the digest ([`verify.go`](../../internal/kubectl/verify.go); `TestRealReleaseSignature` verifies kubectl 1.36.1's published signature offline, `TestVerifierRefuses`, `TestDownloadRefusesBadSignatures`); the binary (at most 128 MiB, `TestDownloadSizeBound`) goes into a temporary file beside its place, must have the published digest (`TestDownloadRefusesTamperedBinary`), and is made 0755 and renamed into `<directory for binaries>/<version>/kubectl` (directories 0700); nothing is left on failure. It goes first on `PATH` in Cogpit's terminals only, as a link in the terminal's own temporary directory, never in a shell profile or a global location (`TestStartLocalKubectlFirst`, `TestZshKubectlFirstAfterTheProfile`). Not checked: sigstore's transparency log ([H-35](#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log)); a profile can still reorder `PATH` ([H-36](#h-36-a-shells-profile-can-put-another-kubectl-first)) |
 
 ## What this does not cover
 
@@ -217,6 +221,47 @@ identity after the preview and, for an agent, the user's acceptance; an upgrade 
 version (2026-10-13) changes a release's objects to such a chart the same way, without a preview.
 Which keys to trust and where
 they would live is not designed.
+
+### H-35: kubectl's signature is checked without sigstore's transparency log
+
+The Kubernetes release signs kubectl with sigstore's keyless signing: a key made for one signing,
+certified by sigstore's certificate authority (Fulcio) for ten minutes for the release's identity,
+and the signature recorded in sigstore's public transparency log (Rekor). Cogpit checks the
+certificate's chain to the authority it embeds, the identity, the issuer and the signature over the
+published SHA-256 (built 2026-10-13, the standard library only), but not the log: the `.sig` and
+`.cert` files `dl.k8s.io` publishes carry no log entry, and finding one needs a request to
+`rekor.sigstore.dev` (a host no decision covers yet, [credentials](credentials.md#where-credentials-must-never-end-up))
+and a check of its proof, which sigstore-go does (a large dependency Cogpit does not have). Per case:
+
+- **A compromised mirror or CDN** (the `dl.k8s.io` redirect, or a mirror set in Preferences) cannot
+  forge the signature: covered, since every file it serves is checked against the release identity.
+- **A leaked signing key.** The key is made for one signing and discarded; without the log, Cogpit
+  cannot tell that a signature was made while its certificate was valid, so whoever held such a key
+  could sign another binary later and Cogpit would accept it. Dormant: no such leak is known, and it
+  needs the Kubernetes release's infrastructure.
+- **A misissued certificate.** A certificate Fulcio issued for the release's identity to someone
+  else would verify; the certificate transparency timestamps it carries are not checked either.
+  Dormant, and it needs a compromise of Fulcio or of the Google service account.
+- **The embedded authority.** The root and the intermediate are valid until 2031-10-05; when
+  sigstore rotates the intermediate, new releases stop verifying until Cogpit ships the new one
+  (fails closed: the download is refused, nothing runs).
+
+### H-36: A shell's profile can put another kubectl first
+
+Cogpit puts the downloaded kubectl first on the terminal's `PATH` in the environment it starts the
+login shell with, and the profile runs after that. Verified 2026-10-13 on macOS 26.6:
+`/usr/libexec/path_helper`, which `/etc/zprofile` and `/etc/profile` run, moves an inherited entry
+behind `/etc/paths` and `/etc/paths.d` (a directory put first came out last). Per shell:
+
+- **zsh** (macOS's default): Cogpit starts it with a `ZDOTDIR` of its own whose `.zshenv` gives zsh
+  the user's `ZDOTDIR` back, reads the user's `.zshenv` and puts the directory first again before the
+  first prompt, after every profile ran (`TestZshKubectlFirstAfterTheProfile`, with a `.zprofile` that
+  prepends another kubectl). What remains: a `.zshrc` that empties `precmd_functions`, and a tool that
+  changes `PATH` at a later prompt (direnv, asdf, a typed `export`).
+- **bash, sh and other shells**: only the environment's order. Live on macOS whenever `/etc/paths`
+  or a profile's directory holds a kubectl (Docker Desktop's `/usr/local/bin/kubectl`, Homebrew's),
+  and on Linux distributions whose `/etc/profile` sets `PATH` anew. The terminal's line names the
+  version Cogpit put first; `kubectl version --client` in the terminal shows which one runs.
 
 ### H-2: Local processes and forwarded ports
 

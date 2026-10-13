@@ -114,6 +114,12 @@ token and is gone after close, and that `kubectl config use-context` in the term
 user's file byte-identical. A shell profile can still override `KUBECONFIG`
 ([H-20](#h-20-shell-profiles-can-override-the-terminals-kubeconfig)).
 
+When Cogpit puts a `kubectl` first for the terminal (since 2026-10-13, [D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries)),
+the terminal also gets a temporary directory of its own (0700, removed with the terminal) holding a
+link named `kubectl` and, for zsh, a `.zshenv` that hands over to the user's own: names and a
+script of Cogpit's, no credential ([`terminal/kubectl.go`](../../internal/terminal/kubectl.go)).
+That `kubectl` reads the same `KUBECONFIG` as any other.
+
 ## Where credentials must never end up
 
 | Place | Rule |
@@ -122,7 +128,7 @@ user's file byte-identical. A shell profile can still override `KUBECONFIG`
 | Audit log | An agent's parameters are logged (D-2), with Secret values, Helm values and a proxy's password redacted ([`audit.go`](../../internal/engine/audit.go) `auditParams`) |
 | Error messages and toasts | Same rule; errors name the context, never the credential. client-go's own errors can echo a kubeconfig's `users` entries; `kubeconfig.SafeError` ([`kubeconfig.go`](../../internal/kubeconfig/kubeconfig.go)) strips them, and connect errors are tested not to contain a known token |
 | Crash reports | Cogpit has no crash upload. Since 2026-10-12 the Go runtime writes an unhandled panic or fatal error into `<user config dir>/Cogpit/crash.log` (0600) as well as to standard error ([`crash.go`](../../cmd/cogpit/crash.go)); the next start moves it to `crashes/crash-<time>.log`, keeps the newest ten and names it in the window. Its text is the runtime's: the panic's message and the goroutines' stacks (function names, file lines, argument words, no strings' contents); a panic message the code formats from a value could carry it, so the file follows the log rule: local, owner-only, never sent anywhere |
-| Telemetry | Cogpit sends none. Any network call to something other than a cluster, a Helm repository, the configured LLM endpoint or the release channel needs a decision entry in [`decisions.md`](../developer/decisions.md) |
+| Telemetry | Cogpit sends none. Any network call to something other than a cluster, a Helm repository, the configured LLM endpoint, the release channel or the kubectl release host or mirror ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries), a download the user clicked; it sends the version and platform in the URL, no credential) needs a decision entry in [`decisions.md`](../developer/decisions.md) |
 | The LLM endpoint | Secret values only when the user allows it for that request ([H-13](agents-and-mcp.md#h-13-cluster-data-leaves-for-the-llm-endpoint)) |
 | Screenshots taken by automation | Secret values stay masked unless the user revealed them in the GUI |
 | Clipboard | Only on an explicit copy action; a copied Secret value is cleared after 60 seconds if the clipboard still holds it ([H-25](#h-25-a-copied-secret-value-reaches-the-clipboard)) |
