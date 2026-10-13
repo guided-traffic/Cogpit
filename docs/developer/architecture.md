@@ -2842,7 +2842,12 @@ open drawer's poll (or an open Pods list) holds, no request of its own; `metrics
 explicit read. Tests: `TestNodeDrawerPodsShowMetrics` (the cells against the Pods profile's, a pod
 without a measurement empty, two scopes with the drawer open, the pods' list in every namespace,
 nothing asked after it closes), `TestNodeDrawerPodsPollWakesTheDrawer`,
-`TestNodeDrawerPodsHiddenMetrics`, `TestIsPodTable`, `TestPodTableScope`. Which drawers have a pod
+`TestNodeDrawerPodsHiddenMetrics`, `TestIsPodTable`, `TestPodTableScope`,
+`TestNodeDrawerPodsNoLeakUnderConcurrentReads` (reads racing with the drawer moving and closing
+leave no subscription: `showPods` subscribes nothing once the drawer stopped, and `stop` releases
+what it subscribed before), and on kind `TestKindNodeDrawerPods` (2026-10-13: 19 pods on the
+control-plane node, 17 measured as `metrics.get` reads them, none listed after the drawer closed).
+Which drawers have a pod
 table: a node's only; the workloads' drawers list no pods yet (whether Lens's do is not captured;
 [G6](../parity/gaps.md#g6-resource-views)), and a pod table any drawer gets later is filled and
 polled the same way, by its object's namespace.

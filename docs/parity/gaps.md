@@ -868,8 +868,12 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestNodeDrawerPodsPollWakesTheDrawer`, `TestSortDetailTable`, `TestDrawerSortIsEngineState`,
   `TestSortDrawerTable`, `TestNodeDrawerPodsSortByHeader`; PNGs sorted by Memory
   ([dark](../../internal/ui/fyneui/testdata/node_pods_metrics_dark.png),
-  [light](../../internal/ui/fyneui/testdata/node_pods_metrics_light.png)). **Not checked against a
-  real cluster or in a real window** (offscreen and against fakes only).
+  [light](../../internal/ui/fyneui/testdata/node_pods_metrics_light.png)). **Checked on kind**
+  (2026-10-13, `TestKindNodeDrawerPods`, the cluster's metrics-server, the list polled every 5 s
+  for the test): the control-plane node's 19 pods, 17 with CPU and Memory equal to `metrics.get`'s,
+  the two without a measurement (a crash-looping pod, a finished Job's pod) last when sorted by
+  memory, two pod-metrics lists while the drawer was open and none in the 12 s after it closed.
+  **Not tried in a real window** (offscreen only).
 - **Missing:** the Overview's Pods history from Prometheus, its ranges beyond 30 days, the explicit Lens
   Metrics install, the settings row metrics source, the Disk column, Lens's usage bars in
   the Nodes list, history that outlives a closed drawer.
