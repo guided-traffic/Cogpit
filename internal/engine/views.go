@@ -409,6 +409,5 @@ func paramsOf(u UIState) viewParams {
 func (p viewParams) equal(o viewParams) bool {
 	return p.filter == o.filter && p.sort == o.sort && slices.Equal(p.namespaces, o.namespaces) &&
 		slices.Equal(p.groups, o.groups) && p.hiddenSet == o.hiddenSet && slices.Equal(p.hidden, o.hidden) &&
-		slices.Equal(p.order, o.order)
-	p.metrics == o.metrics
+		slices.Equal(p.order, o.order) && p.metrics == o.metrics
 }

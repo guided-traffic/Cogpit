@@ -937,7 +937,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   user sets a proxy (agents and the CLI clear it and read it redacted; the lead proposed letting agents
   set it), and it replaces the kubeconfig's `proxy-url` for Cogpit only. Left: the local terminal's
   kubectl does not use it, the plugin approval dialog shows the kubeconfig's proxy
-  ([H-32](../security/trust-boundaries.md#h-32-the-plugin-approval-shows-the-kubeconfigs-proxy-not-cogpits)).
+  ([H-34](../security/trust-boundaries.md#h-34-the-plugin-approval-shows-the-kubeconfigs-proxy-not-cogpits)).
 - **Built 2026-10-13 (night run): the HTTP proxy for non-cluster traffic** (Preferences › Proxy,
   [architecture §8](../developer/architecture.md#8-helm-internalhelm)): the Helm repositories'
   downloads, the only traffic to anything but a cluster or this machine today, go through it, else
