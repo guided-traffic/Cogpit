@@ -229,10 +229,19 @@ func TestCreateButtonOpensTheKindsDialog(t *testing.T) {
 	if n := len(f.callsOf("resource.createTab")); n != 0 {
 		t.Errorf("a dialog view opened %d Create resource tabs", n)
 	}
+	// The engine opens the tab; without an answer the button would try again without a template,
+	// and a second call can land before the first is seen.
+	f.mu.Lock()
+	f.handlers["resource.createTab"] = func(context.Context, engine.Invocation) (any, error) { return nil, nil }
+	f.mu.Unlock()
 	sh.dispatch("ui.openView", openViewParams{View: "pods"}, nil)
 	q.until(t, "the pods view", func() bool { return sh.ui.View == "pods" })
 	sh.view.create.Tapped(nil)
-	q.until(t, "a Create resource tab", func() bool { return len(f.callsOf("resource.createTab")) == 1 })
+	q.until(t, "a Create resource tab", func() bool { return len(f.callsOf("resource.createTab")) > 0 })
+	q.drain()
+	if calls := f.callsOf("resource.createTab"); len(calls) != 1 || decodeParams[createTabParams](t, calls[0]).Template != "Pod" {
+		t.Errorf("Create resource tabs %+v, want one from the Pod template", calls)
+	}
 }
 
 // TestNamespaceDialogCreates: the name typed is sent; the dialog closes once the command succeeded.
