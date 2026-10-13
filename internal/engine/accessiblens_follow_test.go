@@ -8,14 +8,9 @@ import (
 	"testing"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/watch"
-	toolscache "k8s.io/client-go/tools/cache"
 
-	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
@@ -263,7 +258,7 @@ func TestViewIndexFollowsARefusal(t *testing.T) {
 	}
 	// The slices' answers come later than the Services': the view has followed its own refusal
 	// before the slices' refusal arrives.
-	slow := slowLists{inner: src, gvr: sliceGVR, delay: 300 * time.Millisecond}
+	slow := testkit.SlowLists{Inner: src, GVR: sliceGVR, Delay: 300 * time.Millisecond}
 	s := New(Options{Connector: dockConnector{src: slow, rev: rev, profiles: profiles, namespace: "team-a"}, SnapshotInterval: 5 * time.Millisecond})
 	t.Cleanup(s.Close)
 	connectTest(t, s)
@@ -415,33 +410,3 @@ func TestDetailWaitFollowsARefusal(t *testing.T) {
 		t.Errorf("deployment calls %v: want one refused list in all namespaces, then team-a's", calls)
 	}
 }
-
-// slowLists delays every list of one resource in all namespaces.
-type slowLists struct {
-	inner cache.Source
-	gvr   schema.GroupVersionResource
-	delay time.Duration
-}
-
-func (s slowLists) ListerWatcher(scope cache.Scope) toolscache.ListerWatcher {
-	lw := s.inner.ListerWatcher(scope)
-	if scope.GVR != s.gvr || scope.Namespace != "" {
-		return lw
-	}
-	return slowLW{inner: lw, delay: s.delay}
-}
-
-type slowLW struct {
-	inner toolscache.ListerWatcher
-	delay time.Duration
-}
-
-func (l slowLW) List(opts metav1.ListOptions) (runtime.Object, error) {
-	time.Sleep(l.delay)
-	return l.inner.List(opts)
-}
-
-func (l slowLW) Watch(opts metav1.ListOptions) (watch.Interface, error) { return l.inner.Watch(opts) }
-
-// IsWatchListSemanticsUnSupported tells client-go's reflector to list, then watch.
-func (slowLW) IsWatchListSemanticsUnSupported() bool { return true }

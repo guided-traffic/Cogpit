@@ -446,8 +446,9 @@ func (s *Session) ClusterOverview(ctx context.Context, namespaces []string, seri
 	// Once the kinds' plans are decided, following a refusal in all namespaces (accessiblens_follow.go).
 	src := openFollowing(wctx, b, clusterOverviewKinds, func() (*overviewSource, []kindHandle) {
 		src := newOverviewSource(b, func() {})
-		var reads []kindHandle
-		for _, k := range src.kinds() {
+		open := src.kinds()
+		reads := make([]kindHandle, 0, len(open))
+		for _, k := range open {
 			reads = append(reads, kindHandle{k.profile, k.handle})
 		}
 		return src, reads
