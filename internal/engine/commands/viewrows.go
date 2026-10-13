@@ -17,7 +17,7 @@ type viewRowsParams struct {
 	Limit  int `json:"limit,omitempty" jsonschema:"rows to return; default 100, at most 500"`
 }
 
-// viewRowsWait bounds how long view.rows waits for the view's snapshot to follow its filters.
+// viewRowsWait bounds how long view.rows waits for the view's snapshot to follow its filters and columns.
 const viewRowsWait = 2 * time.Second
 
 func registerViewRows(g *registrar) {
@@ -50,7 +50,7 @@ func registerViewRows(g *registrar) {
 }
 
 // caughtUpTable returns the open view's snapshot once it shows what the UI state asks (its
-// namespace filter, search and sort), waiting at most viewRowsWait; then the snapshot it has, which
+// namespace filter, search, sort and columns), waiting at most viewRowsWait; then the snapshot it has, which
 // says what it was filtered with.
 func caughtUpTable(ctx context.Context, s *engine.Session, view string) (*engine.TableSnapshot, engine.UIState, error) {
 	wctx, cancel := context.WithTimeout(ctx, viewRowsWait)

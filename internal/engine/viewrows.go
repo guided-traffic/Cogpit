@@ -114,9 +114,27 @@ func RowsOf(t *TableSnapshot, selected []model.ObjectRef, offset, limit int, now
 }
 
 // CaughtUp reports whether a view's snapshot shows what the UI state asks of the open view: its
-// namespace filter, search, toggles and sort. Snapshots follow the UI state within a tenth of a
-// second, so a caller that just changed one waits for it.
+// namespace filter, search, toggles and sort, and its columns in the arranged order with the
+// hidden ones hidden. Snapshots follow the UI state within a tenth of a second, so a caller that
+// just changed one waits for it.
 func (t *TableSnapshot) CaughtUp(u UIState) bool {
 	return t != nil && t.Filter == u.Filter && t.FilterOptions == u.FilterOptions &&
-		slices.Equal(t.Namespaces, u.Namespaces) && (u.Sort.Column == "" || t.Sort == u.Sort)
+		slices.Equal(t.Namespaces, u.Namespaces) && (u.Sort.Column == "" || t.Sort == u.Sort) &&
+		slices.Equal(t.Order, ColumnOrder(t.Columns, u.ColumnOrder[u.View])) && t.hidesAsAsked(u)
+}
+
+// hidesAsAsked reports whether the snapshot hides the columns the view's entry in
+// UIState.HiddenColumns lists, and those the cluster's settings hide (MetricsHidden), and no
+// other; a view without an entry shows its kind's defaults, which the snapshot always has.
+func (t *TableSnapshot) hidesAsAsked(u UIState) bool {
+	hidden, set := u.HiddenColumns[u.View]
+	if !set {
+		return true
+	}
+	for _, c := range t.Columns {
+		if c.Hidden != (slices.Contains(hidden, c.ID) || slices.Contains(t.MetricsHidden, c.ID)) {
+			return false
+		}
+	}
+	return true
 }
