@@ -1,10 +1,12 @@
 package engine
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -294,6 +296,42 @@ func (b *Backend) acquirePlanned(p *model.KindProfile, plan nsPlan) *cache.Handl
 		return b.Cache.AcquireNamespaces(b.Scope(p), plan.watch)
 	}
 	return b.Cache.Acquire(b.Scope(p))
+}
+
+// planWait bounds how long a read that waits anyway waits for a kind's plan.
+const planWait = 10 * time.Second
+
+// acquireSettled is Acquire for a read that waits for the cache anyway (an agent's, the CLI's, a
+// drawer's for an agent): it first waits, bounded by ctx and planWait, for the access reviews to
+// say whether the kind can be listed in all namespaces, so that a user who may not is not sent a
+// cluster-wide list the server refuses. Without an answer by then it reads in all namespaces.
+func (b *Backend) acquireSettled(ctx context.Context, p *model.KindProfile) *cache.Handle {
+	plan := b.namespacePlan(p)
+	if plan.pending {
+		wctx, cancel := context.WithTimeout(ctx, planWait)
+		defer cancel()
+		t := time.NewTicker(10 * time.Millisecond)
+		defer t.Stop()
+		for plan.pending && wctx.Err() == nil {
+			select {
+			case <-wctx.Done():
+			case <-t.C:
+				plan = b.namespacePlan(p)
+			}
+		}
+	}
+	if plan.pending || p.Local || isApplications(p) {
+		return b.Acquire(p)
+	}
+	return b.acquirePlanned(p, plan)
+}
+
+// acquireFor is acquireSettled for a read that waits, Acquire for one that does not.
+func (b *Backend) acquireFor(ctx context.Context, p *model.KindProfile, wait bool) *cache.Handle {
+	if wait {
+		return b.acquireSettled(ctx, p)
+	}
+	return b.Acquire(p)
 }
 
 // acquireForView is the open view's handle on its kind: as plan says, and nothing while the plan

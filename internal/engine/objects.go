@@ -97,7 +97,7 @@ func (s *Session) Objects(ctx context.Context, kind string, namespaces []string)
 	if err != nil {
 		return nil, err
 	}
-	h := b.Acquire(p)
+	h := b.acquireSettled(ctx, p) // in all namespaces, or in each the user named (accessiblens_plan.go)
 	defer h.Release()
 	if err := waitSynced(ctx, h, kind); err != nil {
 		return nil, err
@@ -122,7 +122,7 @@ func (s *Session) Object(ctx context.Context, ref model.ObjectRef) (*unstructure
 	if err != nil {
 		return nil, err
 	}
-	h := b.Acquire(p)
+	h := b.acquireSettled(ctx, p)
 	defer h.Release()
 	if err := waitSynced(ctx, h, p.Key); err != nil {
 		return nil, err

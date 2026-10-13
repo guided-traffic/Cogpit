@@ -144,6 +144,40 @@ func TestNamespacedWatchesWhenClusterWideListIsDenied(t *testing.T) {
 	}
 }
 
+// An agent's read right after connecting (cogpit-cli get) waits for the access reviews as the
+// view does, then reads the named namespaces: no cluster-wide list for a user who may not.
+func TestAgentReadWaitsForThePlan(t *testing.T) {
+	_, src, rev := namespacedOnly(t)
+	rev.set(func(f *fakeReviewer) { f.gate = make(chan struct{}) })
+	s := nsSession(t, src, rev, "team-a", "team-a", "team-b", "team-c")
+	connectTest(t, s)
+	type result struct {
+		n   int
+		err error
+	}
+	done := make(chan result, 1)
+	go func() {
+		objs, err := s.Objects(context.Background(), "pods", nil)
+		done <- result{len(objs), err}
+	}()
+	time.Sleep(50 * time.Millisecond)
+	if calls := podCalls(src); len(calls) != 0 {
+		t.Fatalf("pods read before the access reviews answered: %v", calls)
+	}
+	rev.set(func(f *fakeReviewer) { close(f.gate); f.gate = nil })
+	select {
+	case r := <-done:
+		if r.err != nil || r.n != 2 {
+			t.Errorf("Objects: %d, %v", r.n, r.err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the read never finished")
+	}
+	if calls := podCalls(src); calls["list pods"] != 0 || calls["list pods in team-a"] != 1 || calls["list pods in team-b"] != 1 {
+		t.Errorf("calls %v", calls)
+	}
+}
+
 // The plan follows the settings and the filter: an accessible namespace added is read at once,
 // the list cleared falls back to the namespace filter's namespaces, and without either to the
 // context's own namespace.

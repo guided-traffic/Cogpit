@@ -173,11 +173,11 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 	if err != nil {
 		return nil, err
 	}
-	h := b.Acquire(p)
+	h := b.acquireFor(ctx, p, wait) // an agent's read waits for the kind's plan (accessiblens_plan.go)
 	defer h.Release()
 	var evh *cache.Handle
 	if ep, ok := b.Profile(eventsKind); ok && p.APIObject() {
-		evh = b.Acquire(ep)
+		evh = b.acquireFor(ctx, ep, wait)
 		defer evh.Release()
 	}
 	rs := s.drawerRelated(b, p, ref)

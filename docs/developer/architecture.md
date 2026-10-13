@@ -1244,8 +1244,10 @@ connecting answers, and the view reads in all namespaces at once. The accessible
 are prefetched with the context's (`accessReviews.seenLocked`, which the sidebar's `Listable` reads
 too). Until the context's rules review answers, the open view holds `cache.Pending` and lists
 nothing, so a user who may not list cluster-wide never sends a cluster-wide list once the reviews
-said no; other reads (an agent's, the drawer's) read in all namespaces while it is pending, as
-before. The plan is the view's and the drawer's state (`viewWorker.plan`, `drawerWatch.planKey`):
+said no; the reads that wait for the cache anyway (`Session.Objects`, `Object` and `DetailWait`:
+`resources_list`, `object_get`, `cogpit-cli get`) wait for the plan too, at most 10 seconds
+(`acquireSettled`, `TestAgentReadWaitsForThePlan`), and reads that do not wait (the GUI's drawer,
+`Lookup`) read in all namespaces while it is pending, as before. The plan is the view's and the drawer's state (`viewWorker.plan`, `drawerWatch.planKey`):
 `reconcileLocked` hands the backend the accessible namespaces and the filter
 (`nsState.setInputs`) and starts the view or drawer again when the plan changes; new answers of the
 access reviews (`accessChanged`, and `finishRules`/`finishAccess` for a view still waiting) and a
