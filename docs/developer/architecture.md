@@ -172,6 +172,7 @@ cogpit/
 │  ├─ cache/          L1  shared informers, reference counting, warm period, transforms, snapshots
 │  ├─ terminal/       L1  PTY sessions: local shell with a per-terminal kubeconfig, pod exec and attach
 │  ├─ kubectl/        L1  kubectl for terminals: client version, skew, verified download (added 2026-10-13)
+│  ├─ locale/         L1  the computer's date and time format: macOS's region, else $LC_TIME's (added 2026-10-13, D-31)
 │  ├─ helm/           L2  Helm SDK: releases from the cache, crash-safe actions
 │  ├─ metrics/        L2  metrics provider detection, polling while visible, TTL cache
 │  ├─ engine/         L3  Session, command registry, UI state, jobs, events, confirmation, audit log
@@ -200,7 +201,7 @@ MCP stdio bridge, so neither needs a display.
  L4  ui/fyneui · mcp · agent · update · app
  L3  engine
  L2  helm · metrics
- L1  cluster · cache · terminal · kubectl
+ L1  cluster · cache · terminal · kubectl · locale
  L0  model · kubeconfig
 ```
 
@@ -220,6 +221,16 @@ binary's client version, the version skew Kubernetes supports, the releases Cogp
 the verified download from the release host. It talks to the release host only, never to an API
 server; its `depguard` rule (`l1-kubectl`) keeps it off the other L1 packages and off client-go,
 and the UI and MCP rules keep them off it.
+
+`internal/locale` (L1, added 2026-10-13) finds how this computer writes dates and times
+([D-31](decisions.md#d-31-every-timestamp-in-the-local-time-zone-and-format)): on macOS the region
+in System Settings through CoreFoundation (`system_darwin.go`, cgo behind `darwin && cgo`; a
+user's own formats and the 24-hour switch included), elsewhere and in the pure-Go `cogpit-cli` the
+POSIX locale of `LC_ALL`, `LC_TIME` or `LANG` through a table of common locales' CLDR patterns;
+it converts the patterns (Unicode's, UTS #35) to Go layouts (`GoLayout`, bounded, a refused
+pattern falls back to ISO 8601). It reads the system's settings and the environment, never a
+cluster; its `depguard` rule (`l1-locale`) lets it import `model` alone, and the L0 and L1 rules
+keep the others off it. The format itself (`model.TimeLayout`, `model.TimeFormat`) is L0, pure.
 
 `internal/app` (L4, added 2026-10-13) is the wiring `cmd/cogpit` and `cmd/cogpit-cli` share:
 Cogpit's directories (`app.UserDirs`), the kubeconfig sources a process offers

@@ -45,7 +45,7 @@ linters:
     # internal/ui/... imports Fyne; model and kubeconfig do no I/O; only cluster, cache, terminal,
     # helm and metrics talk to the API server (kubectl talks to the release host only).
     #   L5 cmd/*  ·  L4 ui/fyneui, mcp, agent, update, app  ·  L3 engine  ·  L2 helm, metrics, demo
-    #   L1 cluster, cache, terminal, kubectl  ·  L0 model, kubeconfig
+    #   L1 cluster, cache, terminal, kubectl, locale  ·  L0 model, kubeconfig
     depguard:
       rules:
         fyne-only-in-ui:
@@ -63,6 +63,8 @@ linters:
             - "**/internal/kubeconfig/**"
             - "!$test"
           deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/locale"
+              desc: "L0 imports nothing above L0"
             - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
               desc: "L0 imports nothing above L0"
             - pkg: "github.com/guided-traffic/cogpit/internal/cache"
@@ -117,6 +119,8 @@ linters:
           files:
             - "**/internal/cluster/**"
           deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/locale"
+              desc: "L1 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/cache"
               desc: "L1 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/terminal"
@@ -143,6 +147,8 @@ linters:
           files:
             - "**/internal/cache/**"
           deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/locale"
+              desc: "L1 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
               desc: "L1 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/terminal"
@@ -169,6 +175,8 @@ linters:
           files:
             - "**/internal/terminal/**"
           deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/locale"
+              desc: "L1 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/kubectl"
               desc: "L1 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
@@ -195,6 +203,8 @@ linters:
           files:
             - "**/internal/kubectl/**"
           deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/locale"
+              desc: "L1 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
               desc: "L1 packages do not import each other"
             - pkg: "github.com/guided-traffic/cogpit/internal/cache"
@@ -219,6 +229,38 @@ linters:
               desc: "L1 imports only L0"
             - pkg: "k8s.io/client-go"
               desc: "kubectl talks to the release host, never to an API server"
+        l1-locale:
+          files:
+            - "**/internal/locale/**"
+          deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
+              desc: "locale reads the computer's format and imports only model (D-31)"
+            - pkg: "github.com/guided-traffic/cogpit/internal/cache"
+              desc: "locale reads the computer's format and imports only model (D-31)"
+            - pkg: "github.com/guided-traffic/cogpit/internal/terminal"
+              desc: "locale reads the computer's format and imports only model (D-31)"
+            - pkg: "github.com/guided-traffic/cogpit/internal/kubectl"
+              desc: "locale reads the computer's format and imports only model (D-31)"
+            - pkg: "github.com/guided-traffic/cogpit/internal/demo"
+              desc: "locale reads the computer's format and imports only model (D-31)"
+            - pkg: "github.com/guided-traffic/cogpit/internal/helm"
+              desc: "locale reads the computer's format and imports only model (D-31)"
+            - pkg: "github.com/guided-traffic/cogpit/internal/metrics"
+              desc: "locale reads the computer's format and imports only model (D-31)"
+            - pkg: "github.com/guided-traffic/cogpit/internal/engine"
+              desc: "locale reads the computer's format and imports only model (D-31)"
+            - pkg: "github.com/guided-traffic/cogpit/internal/mcp"
+              desc: "locale reads the computer's format and imports only model (D-31)"
+            - pkg: "github.com/guided-traffic/cogpit/internal/agent"
+              desc: "locale reads the computer's format and imports only model (D-31)"
+            - pkg: "github.com/guided-traffic/cogpit/internal/update"
+              desc: "locale reads the computer's format and imports only model (D-31)"
+            - pkg: "github.com/guided-traffic/cogpit/internal/ui"
+              desc: "locale reads the computer's format and imports only model (D-31)"
+            - pkg: "github.com/guided-traffic/cogpit/internal/app"
+              desc: "locale reads the computer's format and imports only model (D-31)"
+            - pkg: "k8s.io/client-go"
+              desc: "locale never talks to a cluster"
         l2-demo-helm-metrics:
           files:
             - "**/internal/demo/**"

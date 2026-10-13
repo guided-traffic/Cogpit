@@ -26,6 +26,11 @@ const (
 	// ColumnUntil is a time in the future: Cell.Num is a Unix timestamp in seconds, rendered as the
 	// time left from now ([FormatUntil]): a Cron Job's Next execution.
 	ColumnUntil ColumnType = "until"
+	// ColumnTime is an absolute time: Cell.Num is a Unix timestamp in seconds, written as a date
+	// and a time of day in the user's zone and format when the cell is drawn
+	// ([TimeFormat.CellText], D-31): an event's Last Seen. Without a format it is written in ISO
+	// 8601 in now's zone ([CellText]).
+	ColumnTime ColumnType = "time"
 )
 
 // Column describes one table column of a kind.
@@ -122,7 +127,8 @@ type Row struct {
 }
 
 // CellText returns the text a cell shows. Age cells are formatted relative to now, so a row built
-// minutes ago still shows the right age.
+// minutes ago still shows the right age; absolute times in ISO 8601 in now's zone (what the
+// window shows is [TimeFormat.CellText]'s, in the user's format).
 func CellText(col Column, cell Cell, now time.Time) string {
 	switch col.Type {
 	case ColumnAge:
@@ -135,6 +141,11 @@ func CellText(col Column, cell Cell, now time.Time) string {
 			return cell.Text
 		}
 		return FormatUntil(time.Unix(cell.Num, 0).Sub(now))
+	case ColumnTime:
+		if cell.Num == 0 {
+			return cell.Text
+		}
+		return TimeFormat{Zone: now.Location()}.Format(time.Unix(cell.Num, 0))
 	case ColumnNumber:
 		if cell.Text == "" {
 			return strconv.FormatInt(cell.Num, 10)
