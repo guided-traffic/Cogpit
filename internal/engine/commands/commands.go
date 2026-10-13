@@ -58,6 +58,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerWelcome(g)
 	registerClusterMenu(g)
 	registerNotifications(g)
+	registerNavScope(g)
 	return g.err
 }
 

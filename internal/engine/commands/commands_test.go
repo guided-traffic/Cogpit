@@ -143,6 +143,9 @@ var wantCommands = map[string]engine.Danger{
 	"cluster.remove": engine.DangerUI,
 	// The notification log (G5): Cogpit's own state, never a cluster (TestNotificationCommands).
 	"notifications.list": engine.DangerRead, "notifications.markRead": engine.DangerUI, "notifications.clear": engine.DangerUI,
+	// The navigator's scope (G5, G13): what the navigator and the tab bar show
+	// (TestNavigatorScopeCommand).
+	"ui.setNavigatorScope": engine.DangerUI,
 }
 
 func TestRegistryComplete(t *testing.T) {

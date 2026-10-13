@@ -499,36 +499,40 @@ func (s *Session) SelectTab(ctx context.Context, id string) (UIState, error) {
 	return st, nil
 }
 
-// SelectTabAt activates the n-th tab (from 1), or the last one.
+// SelectTabAt activates the n-th tab (from 1) the tab bar shows, or the last one: the tabs of the
+// navigator's scope (navscope.go).
 func (s *Session) SelectTabAt(ctx context.Context, n int, last bool) (UIState, error) {
 	u := s.UIState()
-	if len(u.Tabs) == 0 {
+	tabs := u.TabsInScope()
+	if len(tabs) == 0 {
 		return u, ErrNoTab
 	}
 	switch {
 	case last:
-		n = len(u.Tabs)
-	case n < 1 || n > len(u.Tabs):
-		return u, fmt.Errorf("%w: tab %d of %d", ErrUnknownTab, n, len(u.Tabs))
+		n = len(tabs)
+	case n < 1 || n > len(tabs):
+		return u, fmt.Errorf("%w: tab %d of %d", ErrUnknownTab, n, len(tabs))
 	}
-	return s.SelectTab(ctx, u.Tabs[n-1].ID)
+	return s.SelectTab(ctx, tabs[n-1].ID)
 }
 
-// CycleTab activates the tab d places right of the active one (left for a negative d), wrapping
-// around; without an active tab, the first (d > 0) or the last.
+// CycleTab activates the tab d places right of the active one (left for a negative d) among the
+// tabs the tab bar shows (the navigator's scope's), wrapping around; without an active tab there,
+// the first (d > 0) or the last.
 func (s *Session) CycleTab(ctx context.Context, d int) (UIState, error) {
 	u := s.UIState()
-	n := len(u.Tabs)
+	tabs := u.TabsInScope()
+	n := len(tabs)
 	if n == 0 {
 		return u, ErrNoTab
 	}
 	j := n - 1
-	if i := u.activeIndex(); i >= 0 {
+	if i := slices.IndexFunc(tabs, func(t ViewTab) bool { return t.ID == u.ActiveTab }); i >= 0 {
 		j = ((i+d)%n + n) % n
 	} else if d > 0 {
 		j = 0
 	}
-	return s.SelectTab(ctx, u.Tabs[j].ID)
+	return s.SelectTab(ctx, tabs[j].ID)
 }
 
 // CloseTab closes a tab ("" is the active one) and returns the new state (UIState.closeTab).

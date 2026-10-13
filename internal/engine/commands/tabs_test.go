@@ -135,8 +135,9 @@ func TestTabsFollowNavigateAndConnect(t *testing.T) {
 		t.Errorf("navigate in a tab: %+v", u.Tabs[0])
 	}
 	h.must(t, gui, "cluster.connect", map[string]any{"context": "other"}, nil)
-	h.tabs(t, "Services - test", "Pods - other (preview) *")
-	h.must(t, gui, "ui.tab.select", map[string]any{"index": 1}, nil)
+	u = h.tabs(t, "Services - test", "Pods - other (preview) *")
+	// By id: at other's scope the tab bar shows, and ⌘1 counts, other's tabs only (navscope.go).
+	h.must(t, gui, "ui.tab.select", map[string]any{"id": u.Tabs[0].ID}, nil)
 	u = h.tabs(t, "Services - test *", "Pods - other (preview)")
 	if u.Context != "test" || u.Connection.State != engine.Connected || u.View != "services" || u.Drawer == nil {
 		t.Errorf("back on test: %+v", u)

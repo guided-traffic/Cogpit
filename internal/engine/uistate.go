@@ -49,6 +49,11 @@ type UIState struct {
 	// Palette is set while the command palette is open (ui.palette.open, ⌘⇧P; palette.go). What
 	// the user types in it stays in the window, as the context picker's filter does.
 	Palette bool `json:"palette,omitempty"`
+	// NavigatorScope is what the navigator shows (navscope.go): "section:local", the Local
+	// Kubeconfigs section with every cluster Cogpit offers, or "cluster:<context id>", the
+	// connected cluster's tree. The tab bar shows the tabs of the scope. The engine keeps it in step
+	// with the connection; ui.setNavigatorScope sets it.
+	NavigatorScope string `json:"navigatorScope"`
 	// Welcome is set while the workspace shows the welcome page (welcome.go): no cluster is
 	// connected and none is connecting, or one is and no tab is active. The engine derives it
 	// after every change (syncWelcome); ui.welcome.open shows the page over a connected cluster.
