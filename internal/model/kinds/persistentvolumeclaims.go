@@ -211,7 +211,9 @@ func pvcDetailWith(obj *unstructured.Unstructured, rel model.Related) []model.De
 	d.put(model.ChipsItem(titlePods, chips))
 	d.add("Access Modes", strings.Join(model.NestedStrings(obj, "spec", "accessModes"), ", "))
 	d.add("Volume Mode", model.NestedString(obj, "spec", "volumeMode"))
-	size := func(fields ...string) string { return model.FormatByteQuantity(model.NestedIntOrString(obj, fields...)) }
+	size := func(fields ...string) string {
+		return model.FormatByteQuantity(model.NestedIntOrString(obj, fields...))
+	}
 	d.add("Requested", size("spec", "resources", "requests", resourceStorage))
 	d.add("Limit", size("spec", "resources", "limits", resourceStorage))
 	d.add("Capacity", size("status", "capacity", resourceStorage))

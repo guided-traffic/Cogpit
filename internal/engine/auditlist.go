@@ -204,7 +204,7 @@ func (s *Session) auditItem(e AuditEntry) AuditItem {
 	if len(e.Params) > 0 && json.Valid(e.Params) {
 		p := auditParams(e.Params)
 		if len(p) > maxAuditParams {
-			p, _ = json.Marshal(fmt.Sprintf("<%d bytes of parameters; not shown>", len(p)))
+			p, _ = json.Marshal("<" + model.FormatBytes(int64(len(p))) + " of parameters; not shown>")
 		}
 		it.Params = p
 		it.Objects, it.ObjectCount = auditObjects(e.Params)

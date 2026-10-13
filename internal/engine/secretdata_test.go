@@ -92,10 +92,10 @@ func TestSecretDrawerReadsTheCacheAndMasks(t *testing.T) {
 	if len(items) != 3 || items[0].Name != "blob" || items[1].Name != "password" || items[2].Name != "url" {
 		t.Fatalf("data items %+v", items)
 	}
-	if items[0].Value != "binary data, 4 bytes" || len(items[0].Actions) != 0 {
+	if items[0].Value != "binary data, 4 B" || len(items[0].Actions) != 0 {
 		t.Errorf("binary item %+v", items[0])
 	}
-	if items[1].Value != MaskedValue+" (7 bytes)" || len(items[1].Actions) != 1 || items[1].Actions[0].Command != RevealCommand {
+	if items[1].Value != MaskedValue+" (7 B)" || len(items[1].Actions) != 1 || items[1].Actions[0].Command != RevealCommand {
 		t.Errorf("masked item %+v", items[1])
 	}
 	var rp RevealParams
@@ -141,7 +141,7 @@ func TestSecretDrawerReadsTheCacheAndMasks(t *testing.T) {
 	src.Set(testkit.SecretsGVR, db)
 	waitData(t, s, db0, func(m *DetailModel) bool {
 		its := dataItems(m)
-		return len(its) == 2 && its[0].Value == MaskedValue+" (13 bytes)"
+		return len(its) == 2 && its[0].Value == MaskedValue+" (13 B)"
 	})
 	if v, err := s.SecretValue(RevealParams{Ref: db0, Key: "password"}); err != nil || v.Value != "correct-horse" {
 		t.Errorf("after the change: %+v, %v", v, err)

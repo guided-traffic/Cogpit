@@ -572,7 +572,7 @@ func (d *Drafts) read(id string) (Draft, error) {
 	case dr.Type == DockEdit && (dr.Ref == nil || dr.Ref.Name == "" || dr.Ref.Kind == ""):
 		return dr, fmt.Errorf("the draft %s names no object", id)
 	case len(dr.Text) > MaxManifestBytes:
-		return dr, fmt.Errorf("the draft %s holds more than %d bytes", id, MaxManifestBytes)
+		return dr, fmt.Errorf("the draft %s is larger than %s", id, model.FormatBytes(MaxManifestBytes))
 	}
 	if dr.Ref != nil {
 		dr.Ref.Context = dr.Context

@@ -109,7 +109,7 @@ func TestKubectlOfferDownloadsThroughTheEngine(t *testing.T) {
 				u.Dock[0].Kubectl = &c
 			})
 		}
-		set(engine.KubectlDownload{State: engine.KubectlRunning, Done: 23_100_000, Total: 57_000_000}, "Downloading kubectl 1.36.1… 23.1 MB of 57.0 MB")
+		set(engine.KubectlDownload{State: engine.KubectlRunning, Done: 23_100_000, Total: 57_000_000}, "Downloading kubectl 1.36.1… 22.0 MiB of 54.4 MiB")
 		<-release
 		set(engine.KubectlDownload{State: engine.KubectlDone, Path: "/cfg/Cogpit/kubectl/1.36.1/kubectl"},
 			"kubectl 1.36.1 is downloaded and verified: terminals opened from now on find it first.")

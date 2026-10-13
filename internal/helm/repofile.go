@@ -18,6 +18,8 @@ import (
 	"helm.sh/helm/v4/pkg/cli"
 	repo "helm.sh/helm/v4/pkg/repo/v1"
 	"sigs.k8s.io/yaml"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // Helm's own repositories.yaml (D-29, architecture §8): the chart repositories the helm CLI keeps
@@ -382,14 +384,14 @@ func readBounded(path string) ([]byte, error) {
 		return nil, fmt.Errorf("%s is not a regular file", path)
 	}
 	if fi.Size() > limit {
-		return nil, fmt.Errorf("%s has %d bytes, more than the %d Cogpit reads", path, fi.Size(), limit)
+		return nil, fmt.Errorf("%s is larger than the %s Cogpit reads", path, model.FormatBytes(limit))
 	}
 	data, err := io.ReadAll(io.LimitReader(f, limit+1))
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	if int64(len(data)) > limit {
-		return nil, fmt.Errorf("%s has more than the %d bytes Cogpit reads", path, limit)
+		return nil, fmt.Errorf("%s is larger than the %s Cogpit reads", path, model.FormatBytes(limit))
 	}
 	return data, nil
 }

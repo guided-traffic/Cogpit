@@ -25,6 +25,8 @@ import (
 	"helm.sh/helm/v4/pkg/chart/v2/loader"
 	repo "helm.sh/helm/v4/pkg/repo/v1"
 	"sigs.k8s.io/yaml"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // Chart repositories (G11, D-29, architecture §8): the repositories Helm's own repositories.yaml
@@ -311,14 +313,14 @@ func (f *Fetcher) fetch(ctx context.Context, r *Repository, rawURL string, limit
 		return nil, fmt.Errorf("%s: %s", shown, resp.Status)
 	}
 	if resp.ContentLength > limit {
-		return nil, fmt.Errorf("%s: %d bytes is more than the %d Cogpit downloads", shown, resp.ContentLength, limit)
+		return nil, fmt.Errorf("%s: larger than the %s Cogpit downloads", shown, model.FormatBytes(limit))
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 	if err != nil {
 		return nil, err
 	}
 	if int64(len(data)) > limit {
-		return nil, fmt.Errorf("%s: more than the %d bytes Cogpit downloads", shown, limit)
+		return nil, fmt.Errorf("%s: larger than the %s Cogpit downloads", shown, model.FormatBytes(limit))
 	}
 	return data, nil
 }
@@ -460,7 +462,7 @@ func loadIndex(path string, limit int64) (idx *Index, err error) {
 		return nil, errors.New("the index is not a regular file")
 	}
 	if fi.Size() > limit {
-		return nil, fmt.Errorf("the index has %d bytes, more than the %d Cogpit reads", fi.Size(), limit)
+		return nil, fmt.Errorf("the index is larger than the %s Cogpit reads", model.FormatBytes(limit))
 	}
 	f, err := repo.LoadIndexFile(path)
 	if err != nil {

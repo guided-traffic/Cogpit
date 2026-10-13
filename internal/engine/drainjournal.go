@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/guided-traffic/cogpit/internal/cluster"
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // DrainSettings are a drain's options as node.drain takes them. Every zero value is the safe
@@ -278,7 +279,7 @@ func (j *FileDrainJournal) load() ([]PendingDrain, error) {
 		return nil, &JournalError{Path: j.path, Err: err}
 	}
 	if info.Size() > maxJournalSize {
-		return nil, &JournalError{Path: j.path, Err: fmt.Errorf("%d bytes is not a drain journal", info.Size())}
+		return nil, &JournalError{Path: j.path, Err: fmt.Errorf("%s is not a drain journal", model.FormatBytes(info.Size()))}
 	}
 	data, err := os.ReadFile(j.path)
 	if err != nil {

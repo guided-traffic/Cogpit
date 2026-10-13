@@ -225,15 +225,5 @@ func (s *Session) SecretValue(p RevealParams) (SecretValue, error) {
 	return SecretValue{Key: p.Key, Value: string(shown), Size: len(raw), Cut: len(shown) < len(raw)}, nil
 }
 
-// byteSize renders a size: "1 byte", "24 bytes", "4.0 KiB", "1.5 MiB".
-func byteSize(n int) string {
-	switch {
-	case n == 1:
-		return "1 byte"
-	case n < 1<<10:
-		return strconv.Itoa(n) + " bytes"
-	case n < 1<<20:
-		return strconv.FormatFloat(float64(n)/(1<<10), 'f', 1, 64) + " KiB"
-	}
-	return strconv.FormatFloat(float64(n)/(1<<20), 'f', 1, 64) + " MiB"
-}
+// byteSize renders a value's size as every byte amount is (D-32): "7 B", "4.0 KiB", "1.5 MiB".
+func byteSize(n int) string { return model.FormatBytes(int64(n)) }

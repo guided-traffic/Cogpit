@@ -117,7 +117,7 @@ func (s *Session) OpenHelmInstallTab(ctx context.Context, repository, chart, ver
 	}
 	defaults := ch.DefaultValues()
 	if len(defaults) > MaxManifestBytes {
-		return EditorState{}, false, fmt.Errorf("chart %s/%s: %d bytes of values is more than the %d an editor takes", repository, chart, len(defaults), MaxManifestBytes)
+		return EditorState{}, false, fmt.Errorf("chart %s/%s: the values are larger than the %s an editor takes", repository, chart, model.FormatBytes(MaxManifestBytes))
 	}
 	ref := HelmChartRef(b.Context, repository, chart)
 	ui := s.UIState()
@@ -170,7 +170,7 @@ func (s *Session) ReloadHelmInstallTab(ctx context.Context, id, version string) 
 	}
 	defaults := ch.DefaultValues()
 	if len(defaults) > MaxManifestBytes {
-		return EditorState{}, fmt.Errorf("chart %s/%s: %d bytes of values is more than the %d an editor takes", old.Repository, old.Chart, len(defaults), MaxManifestBytes)
+		return EditorState{}, fmt.Errorf("chart %s/%s: the values are larger than the %s an editor takes", old.Repository, old.Chart, model.FormatBytes(MaxManifestBytes))
 	}
 	info := installTabOf(ch, ic, old.Namespace, old.ReleaseName)
 	if _, err := s.updateEditor(id, func(e *editor) {

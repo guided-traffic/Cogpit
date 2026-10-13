@@ -199,7 +199,7 @@ func TestProberRunsTheBinary(t *testing.T) {
 	}
 	chatty := filepath.Join(dir, "chatty")
 	writeExecutable(t, chatty, "#!/bin/sh\nhead -c 200000 /dev/zero\n", 0o755)
-	if _, err := NewProber().ClientVersion(context.Background(), chatty); err == nil || !strings.Contains(err.Error(), "bytes of output") {
+	if _, err := NewProber().ClientVersion(context.Background(), chatty); err == nil || !strings.Contains(err.Error(), "64.0 KiB of output") {
 		t.Errorf("a binary that prints 200,000 bytes: %v", err)
 	}
 	slow := filepath.Join(dir, "slow")

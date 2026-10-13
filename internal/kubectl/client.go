@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // Bounds of a version probe (Cogpit's defaults): kubectl answers "version --client" in well under
@@ -106,7 +108,7 @@ func runVersion(ctx context.Context, path string) ([]byte, error) {
 	err := cmd.Run()
 	switch {
 	case out.over: // whatever Run says: os/exec may drain the rest after a failed write
-		return nil, fmt.Errorf("more than %d bytes of output", maxProbeOutput)
+		return nil, fmt.Errorf("more than %s of output", model.FormatBytes(maxProbeOutput))
 	case err != nil && ctx.Err() != nil:
 		return nil, fmt.Errorf("no answer within %s", probeTimeout)
 	case err != nil:

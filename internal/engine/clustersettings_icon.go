@@ -16,6 +16,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // A cluster's uploaded icon (Lens's General › Upload Icon: .jpeg, .png, .svg). The image the user
@@ -101,7 +103,7 @@ func ReadIconFile(path string) (data []byte, format string, err error) {
 		return nil, "", fmt.Errorf("the icon %s cannot be read", filepath.Base(path))
 	}
 	if len(raw) > maxIconUpload {
-		return nil, "", fmt.Errorf("the icon %s is larger than %d KiB", filepath.Base(path), maxIconUpload>>10)
+		return nil, "", fmt.Errorf("the icon %s is larger than %s", filepath.Base(path), model.FormatBytes(maxIconUpload))
 	}
 	return CheckIcon(raw)
 }
@@ -199,7 +201,7 @@ var svgForbidden = map[string]bool{"script": true, "foreignobject": true, "ifram
 // to anything but a fragment of itself (href="#…"; url(#…) in styles).
 func checkSVG(raw []byte) error {
 	if len(raw) > maxIconSVG {
-		return fmt.Errorf("an SVG icon has at most %d KiB", maxIconSVG>>10)
+		return fmt.Errorf("an SVG icon has at most %s", model.FormatBytes(maxIconSVG))
 	}
 	dec := xml.NewDecoder(bytes.NewReader(raw))
 	dec.Strict = true

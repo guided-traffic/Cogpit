@@ -275,7 +275,7 @@ func TestResponseIsBounded(t *testing.T) {
 	// buildinfo is ~70 bytes against a probe limit of its own; the queries answer more than 64.
 	_, err := prov.ObjectRange(context.Background(), podQuery("web", "a"))
 	var se *metrics.StateError
-	if !errors.As(err, &se) || se.State.Status != metrics.StatusUnavailable || !strings.Contains(err.Error(), "larger than 64 bytes") {
+	if !errors.As(err, &se) || se.State.Status != metrics.StatusUnavailable || !strings.Contains(err.Error(), "larger than 64 B") {
 		t.Errorf("err = %v", err)
 	}
 }

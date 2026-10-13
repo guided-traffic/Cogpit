@@ -110,7 +110,7 @@ func (s *Session) OpenHelmUpgradeTab(ctx context.Context, ref model.ObjectRef, p
 		return EditorState{}, false, fmt.Errorf("release %s: %w", ref.Name, err)
 	}
 	if len(vals.YAML) > MaxManifestBytes {
-		return EditorState{}, false, fmt.Errorf("release %s: %d bytes of values is more than the %d an editor takes", ref.Name, len(vals.YAML), MaxManifestBytes)
+		return EditorState{}, false, fmt.Errorf("release %s: the values are larger than the %s an editor takes", ref.Name, model.FormatBytes(MaxManifestBytes))
 	}
 	r := ref
 	e := &editor{

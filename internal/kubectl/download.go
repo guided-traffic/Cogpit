@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // DefaultMirror is where kubectl is downloaded from: the Kubernetes project's release host. A
@@ -203,8 +205,10 @@ func (d *Downloader) fetchBinary(ctx context.Context, client *http.Client, u str
 		return nil, err
 	}
 	defer resp.Body.Close()
+	// A size beside its limit is not named: one decimal can make a size just over the limit read
+	// like it (D-32).
 	if resp.ContentLength > limit {
-		return nil, fmt.Errorf("the binary is %d bytes, more than the %d Cogpit accepts", resp.ContentLength, limit)
+		return nil, fmt.Errorf("the binary is larger than the %s Cogpit accepts", model.FormatBytes(limit))
 	}
 	h := sha256.New()
 	pr := &progressReader{r: io.LimitReader(resp.Body, limit+1), total: resp.ContentLength, report: progress}
@@ -213,10 +217,14 @@ func (d *Downloader) fetchBinary(ctx context.Context, client *http.Client, u str
 		return nil, fmt.Errorf("downloading: %w", err)
 	}
 	if n > limit {
-		return nil, fmt.Errorf("the binary is more than the %d bytes Cogpit accepts", limit)
+		return nil, fmt.Errorf("the binary is larger than the %s Cogpit accepts", model.FormatBytes(limit))
 	}
-	if resp.ContentLength >= 0 && n != resp.ContentLength {
-		return nil, fmt.Errorf("received %d of %d bytes", n, resp.ContentLength)
+	if cl := resp.ContentLength; cl >= 0 && n != cl {
+		// The difference, not the two sizes, which one decimal can make read alike (D-32).
+		if n < cl {
+			return nil, fmt.Errorf("received %s less than the %s announced", model.FormatBytes(cl-n), model.FormatBytes(cl))
+		}
+		return nil, fmt.Errorf("received %s more than the %s announced", model.FormatBytes(n-cl), model.FormatBytes(cl))
 	}
 	pr.flush()
 	return h.Sum(nil), nil
@@ -281,7 +289,7 @@ func fetchSmall(ctx context.Context, client *http.Client, u string) ([]byte, err
 		return nil, err
 	}
 	if len(data) > maxSmallFile {
-		return nil, fmt.Errorf("%s is larger than %d bytes", path.Base(u), maxSmallFile)
+		return nil, fmt.Errorf("%s is larger than %s", path.Base(u), model.FormatBytes(maxSmallFile))
 	}
 	return data, nil
 }

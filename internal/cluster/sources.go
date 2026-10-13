@@ -15,6 +15,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/guided-traffic/cogpit/internal/kubeconfig"
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // MaxSyncFolderFiles bounds how many files of one sync folder are read: a folder with more is
@@ -102,14 +103,14 @@ func readBounded(path string) ([]byte, error) {
 		return nil, fmt.Errorf("kubeconfig file %s is not a regular file", path)
 	}
 	if fi.Size() > kubeconfig.MaxFileSize {
-		return nil, fmt.Errorf("kubeconfig file %s has %d bytes, more than a kubeconfig (at most %d)", path, fi.Size(), kubeconfig.MaxFileSize)
+		return nil, fmt.Errorf("kubeconfig file %s is larger than a kubeconfig (at most %s)", path, model.FormatBytes(kubeconfig.MaxFileSize))
 	}
 	data, err := io.ReadAll(io.LimitReader(f, kubeconfig.MaxFileSize+1))
 	if err != nil {
 		return nil, fmt.Errorf("kubeconfig file %s cannot be read: %w", path, err)
 	}
 	if len(data) > kubeconfig.MaxFileSize {
-		return nil, fmt.Errorf("kubeconfig file %s grew past %d bytes while being read", path, kubeconfig.MaxFileSize)
+		return nil, fmt.Errorf("kubeconfig file %s grew past %s while being read", path, model.FormatBytes(kubeconfig.MaxFileSize))
 	}
 	return data, nil
 }

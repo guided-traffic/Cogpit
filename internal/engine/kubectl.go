@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/guided-traffic/cogpit/internal/kubectl"
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // kubectl in terminals (D-3, decided by the owner; architecture §10). A terminal bound to a
@@ -243,7 +244,7 @@ func (c *KubectlCheck) message() string {
 			", comes first on this terminal's PATH; " + c.found() + "."
 	case c.Download != nil && c.Download.State == KubectlRunning:
 		if c.Download.Total > 0 {
-			return fmt.Sprintf("Downloading kubectl %s… %s of %s", c.Offer, megabytes(c.Download.Done), megabytes(c.Download.Total))
+			return fmt.Sprintf("Downloading kubectl %s… %s of %s", c.Offer, model.FormatBytes(c.Download.Done), model.FormatBytes(c.Download.Total)) // D-32
 		}
 		return "Downloading kubectl " + c.Offer + "…"
 	case c.Download != nil && c.Download.State == KubectlDone:
@@ -255,8 +256,6 @@ func (c *KubectlCheck) message() string {
 	}
 	return "kubectl " + c.Offer + " matches this cluster; " + c.found() + "."
 }
-
-func megabytes(n int64) string { return fmt.Sprintf("%.1f MB", float64(n)/1e6) }
 
 // safeLine makes text from a program, a file or a server one line of at most 300 bytes without
 // control characters, for a tab's line.

@@ -39,7 +39,7 @@ func ParseManifests(text string) (objs []*unstructured.Unstructured, err error) 
 		}
 	}()
 	if len(text) > MaxManifestBytes {
-		return nil, fmt.Errorf("%w: %d bytes is more than the %d an editor takes", ErrManifest, len(text), MaxManifestBytes)
+		return nil, fmt.Errorf("%w: larger than the %s an editor takes", ErrManifest, model.FormatBytes(MaxManifestBytes))
 	}
 	r := utilyaml.NewYAMLReader(bufio.NewReader(strings.NewReader(text)))
 	for n := 1; ; n++ {

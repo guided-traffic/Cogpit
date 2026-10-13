@@ -11,6 +11,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // The Audit Log dock tab (G17; D-2: "an audit log the user can read"; engine/auditlist.go): the
@@ -166,7 +167,7 @@ func auditSummary(l engine.AuditList) string {
 		s += fmt.Sprintf(", the newest %d shown", l.Returned)
 	}
 	if l.Partial {
-		s += "; older entries are beyond the log's last 4 MiB"
+		s += "; older entries are beyond the log's last " + model.FormatBytes(engine.MaxAuditRead)
 	}
 	return s
 }

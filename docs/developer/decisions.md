@@ -1248,17 +1248,87 @@ What the build chose, Cogpit's defaults (the lead's and the build's, not the own
   `TestDrawerChartsHoverPerChartAndVariant`; PNG
   [dark](../../internal/ui/fyneui/testdata/chart_hover_memory_dark.png),
   [light](../../internal/ui/fyneui/testdata/chart_hover_memory_light.png)).
+  Sizes of data: a Secret's masked values and binary values in the drawer ("•••••••• (38 B)",
+  "binary data, 1.2 KiB"; "38 bytes" before), a revealed value's cut note (which wrote 1.5 MiB as
+  "1536.0 KiB"), a certificate value too large to decode ("larger than 1.0 MiB"), the kubectl
+  download's progress ("22.0 MiB of 54.4 MiB"; decimal "23.1 MB of 57.0 MB" before), the Audit
+  Log tab's note on a partial read ("the log's last 4.0 MiB") and on parameters too large to list.
+  The messages that state a size: files and downloads against Cogpit's bounds (kubeconfig files,
+  Helm's `repositories.yaml`, indexes, chart archives, the kubectl binary and its signature files,
+  Prometheus responses, a Helm release payload, private files, the cluster icon "larger than
+  1.0 MiB" where it read "1024 KiB"), the editor's "larger than the 4.0 MiB an editor takes", a
+  journal that is too large.
+- **A size beside its limit is not named** (Cogpit's default): one decimal can make a size just
+  over its limit read like the limit ("the binary has 4.0 KiB, more than the 4.0 KiB Cogpit
+  accepts" for 4,096 bytes against 4,095), so those messages name the limit only ("the binary is
+  larger than the 4.0 KiB Cogpit accepts"), and a download that ended short names the difference
+  ("received 10 B less than the 54.4 MiB announced").
 - **Sorting.** The sort keys stay bytes (`Cell.Num`), so sorting by size still works; only the text
   changed (`TestPersistentVolumeClaimSizeSorts`).
 - **Agents.** What an agent reads as drawn follows the formatter: `view_rows` and
   `resources_list` cells, `object_get`'s sections. Structured numbers stay raw: `metrics_get`'s
-  `memoryBytes`, the Overview's chart values, an object's YAML.
+  `memoryBytes`, the Overview's chart values, a revealed value's `size`, an object's YAML.
+- **Nothing to convert yet:** an `emptyDir`'s `sizeLimit` (the pod drawer lists volumes by type
+  and name only), a Helm chart archive's size (shown nowhere; its download bound is converted),
+  the logs and the status bar (they show no byte amount).
+
+**Not converted: the places to talk about** (the owner's "name me the place"; each kept as it is
+until the owner decides):
+
+1. **The YAML view and the editors** ([`yamlview`](../../internal/ui/fyneui/yamlview/), the Edit,
+   Create and Helm tabs): they show the object as it is, `memory: 128Mi` included.
+2. **Decimal suffixes are converted**, the lead's point: `memory: 1G` in a spec reads "953.7 MiB"
+   in the drawer and "1G" in the YAML, so the drawer never shows what the user wrote; "500M" reads
+   "476.8 MiB", "262144k" "250.0 MiB". Built as the rule says.
+3. **Huge pages' names keep their page size**: the node drawer's titles "Hugepages 1Gi" and
+   "Hugepages 2Mi" ([`nodes.go`](../../internal/model/kinds/nodes.go) `resourceTitles`), and
+   `hugepages-2Mi` wherever a resource is named (a quota's Resource column, a container's
+   requests): the resource's name, not an amount. Their amounts are converted ("0 B").
+4. **A device's capacity under another name than a byte resource**
+   ([`resourceslices.go`](../../internal/model/kinds/resourceslices.go) `deviceCapacity`): a DRA
+   driver names its capacities and Kubernetes declares no unit for them; "memory: 40Gi" reads
+   "40.0 GiB", "size: 3840Gi" stays as the driver wrote it.
+5. **The audit log's records** ([`audit.go`](../../internal/engine/audit.go): "<1234 bytes of
+   manifests; not shown>", "<N bytes that are not manifests; not shown>", "<N bytes of Helm
+   values; not logged>"): what the file records, with exact counts and in the form older lines
+   have; the same note stands for a half-typed Secret in an editor tab an agent reads. The Audit
+   Log tab's own note on parameters too large to list is converted.
+6. **A credential plugin file's fingerprint note**
+   ([`pluginfiles.go`](../../internal/cluster/pluginfiles.go) `hashRegular`: "larger than N bytes
+   (N bytes, modified …)"): the approval binds the note in place of the content; another text
+   would ask again for every such approval, and the exact size is part of the binding (as D-31
+   keeps its RFC 3339 time).
+7. **Limits on typed text**, lengths rather than amounts: a shell path and its arguments and the
+   terminal's working directory ("one line of at most N bytes",
+   [`preferences.go`](../../internal/engine/preferences.go),
+   [`clustersettings.go`](../../internal/engine/clustersettings.go)), the proxy URL
+   ([`proxy.go`](../../internal/engine/proxy.go)), a list's regular expression
+   ([`filteroptions.go`](../../internal/engine/filteroptions.go), 1000 bytes), the find bar
+   ([`findbar.go`](../../internal/ui/fyneui/findbar.go)), a logs search
+   ([`commands/logs.go`](../../internal/engine/commands/logs.go)), the kubectl mirror
+   ([`kubectl/download.go`](../../internal/kubectl/download.go)), a terminal kubeconfig's names
+   ([`kubeconfig/terminal.go`](../../internal/kubeconfig/terminal.go)), a date pattern
+   ([`locale/icu.go`](../../internal/locale/icu.go)). Bytes stand for characters there; "at most
+   4.0 KiB" for a shell path would read as a file size.
+8. **Command descriptions and parameter schemas** ([`engine/commands`](../../internal/engine/commands/):
+   "at most 1 MiB", "the last 4 MiB", "at most 1000 bytes"), and the README's command table made
+   from them: prose for agents, where a limit reads as a person writes it.
+9. **The performance harness** ([`perf.go`](../../internal/ui/fyneui/perf.go) "YAML editor,
+   5 MB", `cogpit --perf-mode`'s help): a developer's tool, not the product.
+10. **Measurements recorded in the docs** ("15.8MiB" on kind in
+    [architecture §9](architecture.md#9-metrics-internalmetrics)): records of what was seen, kept
+    as written.
+
+Other details of the build, for the owner to know: an amount that need not be whole is rounded to
+whole bytes below 1 KiB, so a rate of 0.25 B/s reads "0 B/s" (it read "0.3B/s"); Lens's own form
+of a size (with or without a space, "Mi" or "MiB") is not captured, so Cogpit's lists may differ
+from Lens's there.
 
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-13 | minor | D-32 (owner): every byte amount in binary units with one decimal ("15.6 GiB"); built 2026-10-13 with one formatter in `model` (`FormatBytes`, `FormatByteQuantity`, `FormatResource`); the space before the unit, the decimal point whatever the region, milli-bytes as written and the places listed Cogpit's defaults |
+| 2026-10-13 | minor | D-32 (owner): every byte amount in binary units with one decimal ("15.6 GiB"); built 2026-10-13 with one formatter in `model` (`FormatBytes`, `FormatByteQuantity`, `FormatResource`): lists, drawers, charts, data sizes, the kubectl download and the messages that state a size; the space before the unit, the decimal point whatever the region, milli-bytes as written, a size beside its limit not named and the places listed Cogpit's defaults; ten places not converted named for the owner |
 | 2026-10-13 | minor | D-31 (owner): every timestamp in the local time zone and the region's format ("10.09.2026 17:41:01"); built 2026-10-13 from macOS's region (CoreFoundation), else the environment's locale and a CLDR table, one formatter in the engine; the format as a setting not built; the conversion, Windows reading the environment, logs with milliseconds and the list of places Cogpit's defaults |
 | 2026-10-13 | minor | D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a status pill's included (it sat at the drawer's right edge), a long line shortened before it, a value with action buttons owning the room for it; built |
 | 2026-10-13 | minor | D-30, the owner's answers: agents and the built-in agent's LLM endpoint read the decoded certificates, never a key (H-45 closed by the decision, removed from agents-and-mcp.md); `tls.crt` checked against `tls.key` (the key parsed in memory, the outcome yes, no or a reason) and DER certificates decoded, both built; the pairing rule, the chain check, the 64 KiB key bound and the names that count as private keys Cogpit's defaults |

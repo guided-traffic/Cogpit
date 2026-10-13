@@ -89,7 +89,7 @@ func (k kubeProxy) get(ctx context.Context, t Target, path string, params map[st
 		return nil, err
 	}
 	if int64(len(b)) > limit {
-		return nil, fmt.Errorf("%w: larger than %d bytes", errTooLarge, limit)
+		return nil, fmt.Errorf("%w: larger than %s", errTooLarge, model.FormatBytes(limit))
 	}
 	return b, nil
 }

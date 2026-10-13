@@ -49,7 +49,7 @@ const (
 const (
 	certGroupPrefix  = "Certificates · "
 	certNone         = "no certificate in this value"
-	certTooLarge     = "not decoded: the value is larger than 1 MiB"
+	certTooLarge     = "not decoded: the value is larger than 1.0 MiB" // certValueBytes, written as D-32 writes bytes
 	certNotDecodedT  = "Not decoded"
 	certMoreTitle    = "More"
 	certSectionTitle = "Certificate"

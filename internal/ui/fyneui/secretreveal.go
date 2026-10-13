@@ -1,8 +1,6 @@
 package fyneui
 
 import (
-	"strconv"
-
 	"fyne.io/fyne/v2"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
@@ -117,13 +115,5 @@ func revealable(it model.DetailItem) bool {
 	return false
 }
 
-// byteText renders a size: "1 byte", "24 bytes", "4.0 KiB".
-func byteText(n int) string {
-	switch {
-	case n == 1:
-		return "1 byte"
-	case n < 1<<10:
-		return strconv.Itoa(n) + " bytes"
-	}
-	return strconv.FormatFloat(float64(n)/(1<<10), 'f', 1, 64) + " KiB"
-}
+// byteText renders a size as every byte amount is (D-32): "24 B", "4.0 KiB", "1.5 MiB".
+func byteText(n int) string { return model.FormatBytes(int64(n)) }

@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // ensurePrivateDir creates dir (and its parents) owner-only and checks it: a symlink or a
@@ -109,7 +111,7 @@ func readPrivateJSON(path string, maxSize int64, v any) error {
 		return err
 	}
 	if int64(len(data)) > maxSize {
-		return fmt.Errorf("%s has more than %d bytes", path, maxSize)
+		return fmt.Errorf("%s is larger than %s", path, model.FormatBytes(maxSize))
 	}
 	return json.Unmarshal(data, v)
 }

@@ -190,7 +190,7 @@ func TestReadRepositoryFileRefusals(t *testing.T) {
 	}
 	big := filepath.Join(dir, "big.yaml")
 	writeFile(t, big, "repositories: []\n#"+strings.Repeat("x", int(MaxRepositoryFileBytes)))
-	if _, err := ReadRepositoryFile(big); err == nil || !strings.Contains(err.Error(), "more than") {
+	if _, err := ReadRepositoryFile(big); err == nil || !strings.Contains(err.Error(), "larger than the 1.0 MiB Cogpit reads") {
 		t.Errorf("a file over the bound: %v", err)
 	}
 	if _, err := ReadRepositoryFile(dir); err == nil || !strings.Contains(err.Error(), "not a regular file") {

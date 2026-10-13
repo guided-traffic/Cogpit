@@ -117,10 +117,10 @@ func TestRepositoryRefusesWhatDoesNotFit(t *testing.T) {
 	}
 
 	small := &Fetcher{Client: r.Client(), MaxIndex: 64, MaxChart: 64}
-	if _, err := small.DownloadIndex(context.Background(), PublicRepository("test", r.URL), dest); err == nil || !strings.Contains(err.Error(), "bytes") {
+	if _, err := small.DownloadIndex(context.Background(), PublicRepository("test", r.URL), dest); err == nil || !strings.Contains(err.Error(), "larger than the 64 B Cogpit downloads") {
 		t.Errorf("an index over the bound: %v", err)
 	}
-	if _, err := small.FetchChart(context.Background(), PublicRepository("test", r.URL), "web", v); err == nil || !strings.Contains(err.Error(), "bytes") {
+	if _, err := small.FetchChart(context.Background(), PublicRepository("test", r.URL), "web", v); err == nil || !strings.Contains(err.Error(), "larger than the 64 B Cogpit downloads") {
 		t.Errorf("a chart over the bound: %v", err)
 	}
 	r.Serve("/index.yaml", []byte("<html>not an index</html>"))

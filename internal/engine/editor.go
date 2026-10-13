@@ -292,7 +292,7 @@ func (s *Session) OpenCreateTab(text string) (EditorState, error) {
 		return EditorState{}, ErrNotConnected
 	}
 	if len(text) > MaxManifestBytes {
-		return EditorState{}, fmt.Errorf("%w: %d bytes is more than the %d an editor takes", ErrManifest, len(text), MaxManifestBytes)
+		return EditorState{}, fmt.Errorf("%w: larger than the %s an editor takes", ErrManifest, model.FormatBytes(MaxManifestBytes))
 	}
 	e := &editor{
 		tab:  DockTab{ID: s.NewDockID(DockCreate), Type: DockCreate, Title: createTabTitle, Context: b.Context},
@@ -344,7 +344,7 @@ func (s *Session) SetEditorText(id, text string) (uint64, error) {
 		return 0, err
 	}
 	if len(text) > MaxManifestBytes {
-		return 0, fmt.Errorf("%w: %d bytes is more than the %d an editor takes", ErrManifest, len(text), MaxManifestBytes)
+		return 0, fmt.Errorf("%w: larger than the %s an editor takes", ErrManifest, model.FormatBytes(MaxManifestBytes))
 	}
 	e, err := s.updateEditor(id, func(e *editor) {
 		if e.text != text {

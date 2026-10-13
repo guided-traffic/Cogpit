@@ -10,6 +10,8 @@ import (
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // HelmAction names a release action the journal records.
@@ -264,7 +266,7 @@ func (j *FileHelmJournal) load() ([]PendingHelmOp, error) {
 		return nil, &HelmJournalError{Path: j.path, Err: err}
 	}
 	if info.Size() > maxJournalSize {
-		return nil, &HelmJournalError{Path: j.path, Err: fmt.Errorf("%d bytes is not a Helm journal", info.Size())}
+		return nil, &HelmJournalError{Path: j.path, Err: fmt.Errorf("%s is not a Helm journal", model.FormatBytes(info.Size()))}
 	}
 	data, err := os.ReadFile(j.path)
 	if err != nil {

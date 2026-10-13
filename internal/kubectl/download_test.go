@@ -235,7 +235,7 @@ func TestDownloadSizeBound(t *testing.T) {
 		d := rs.downloader(t)
 		d.MaxSize = 4095
 		dir := t.TempDir()
-		if _, err := d.Download(context.Background(), Version{1, 36, 1}, dir, nil); err == nil || !strings.Contains(err.Error(), "4095") {
+		if _, err := d.Download(context.Background(), Version{1, 36, 1}, dir, nil); err == nil || !strings.Contains(err.Error(), "larger than the 4.0 KiB Cogpit accepts") {
 			t.Errorf("chunked %v: %v, want the bound refused", chunked, err)
 		}
 		if l := leftovers(t, dir); len(l) != 0 {

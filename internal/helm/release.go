@@ -11,6 +11,8 @@ import (
 
 	rspb "helm.sh/helm/v4/pkg/release/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // ReleaseSelector is the label selector of the records Helm keeps its releases in: one Secret
@@ -70,7 +72,7 @@ func DecodePayload(payload []byte) (*rspb.Release, error) {
 			return nil, fmt.Errorf("decompress the release payload: %w", err)
 		}
 		if len(plain) > maxPayload {
-			return nil, fmt.Errorf("the release payload is larger than %d bytes", maxPayload)
+			return nil, fmt.Errorf("the release payload is larger than %s", model.FormatBytes(maxPayload))
 		}
 		b = plain
 	}
