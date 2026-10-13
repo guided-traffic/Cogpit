@@ -73,8 +73,15 @@ func titlebarLayout(g titlebarGeometry, scale, innerPad, pad float32) (lead, hei
 }
 
 // setTitlebar makes room in the top bar for the window buttons (lead) and grows it to the title
-// bar's height; zeros give the room back (full screen, other systems).
-func (t *topBar) setTitlebar(lead, height float32) {
+// bar's height; zeros give the room back (full screen, other systems). It reports whether anything
+// changed: AppKit reports every step of a live resize, and refreshing the window's whole content
+// for each of them, the room unchanged, re-rendered every text while the window was dragged (the
+// owner saw the text flicker, 2026-10-13).
+func (t *topBar) setTitlebar(lead, height float32) bool {
+	if t.titleSet && lead == t.titleLead && height == t.titleHeight {
+		return false
+	}
+	t.titleSet, t.titleLead = true, lead
 	if lead > 0 {
 		t.lead.SetMinSize(fyne.NewSize(lead, 1))
 		t.lead.Show()
@@ -84,6 +91,7 @@ func (t *topBar) setTitlebar(lead, height float32) {
 	t.titleHeight = height
 	t.left.Refresh()
 	t.sh.root.Refresh()
+	return true
 }
 
 // topBarLayout stacks the bar's layers at its full size; its height is the theme's bar height or

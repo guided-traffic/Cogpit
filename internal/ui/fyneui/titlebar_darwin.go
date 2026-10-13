@@ -52,11 +52,15 @@ func (tb *titlebar) nsWindow() uintptr {
 // install takes over the title bar's area. Call it on the main goroutine once the window exists:
 // the app's OnStarted queues it behind the window's creation.
 func (tb *titlebar) install() {
-	if os.Getenv(systemTitlebarEnv) != "" || tb.window != 0 {
+	if tb.window != 0 {
 		return
 	}
 	win := tb.nsWindow()
 	if win == 0 {
+		return
+	}
+	C.cogpitWindowKeepContentPlaced(C.uintptr_t(win)) // with the system's title bar too
+	if os.Getenv(systemTitlebarEnv) != "" {
 		return
 	}
 	tb.window = win

@@ -94,6 +94,29 @@ func TestTopBarMakesRoomForWindowButtons(t *testing.T) {
 	}
 }
 
+// AppKit reports every step of a live resize; the top bar refreshes the window's content only
+// when the buttons' room or the title bar's height changed, not for each step (the text flickered
+// while the window was dragged, 2026-10-13).
+func TestTopBarRefreshesOnlyOnChange(t *testing.T) {
+	f := connectedFake(t, 1)
+	sh, _, q := newTestShell(t, f, Options{})
+	q.until(t, "kinds", func() bool { return len(sh.kinds) > 0 })
+	if !sh.top.setTitlebar(62, 28) {
+		t.Fatal("the first room was not applied")
+	}
+	for i := range 3 {
+		if sh.top.setTitlebar(62, 28) {
+			t.Fatalf("step %d of a resize with the same room refreshed the window", i)
+		}
+	}
+	if !sh.top.setTitlebar(62, 52) || !sh.top.setTitlebar(0, 0) {
+		t.Fatal("a changed height or the room given back was not applied")
+	}
+	if sh.top.setTitlebar(0, 0) {
+		t.Fatal("full screen, reported again, refreshed the window")
+	}
+}
+
 // TestBarDragArea: the top bar has a drag area under its contents, as large as the bar; a
 // primary mouse-down on it is the title bar's, other buttons are not.
 func TestBarDragArea(t *testing.T) {

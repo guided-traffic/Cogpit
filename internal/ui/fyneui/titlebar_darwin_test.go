@@ -63,6 +63,14 @@ func TestTitlebarButtonsCentred(t *testing.T) {
 	}
 	steps := map[string][4]float64{}
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		var got, topLeft int
+		if _, err := fmt.Sscanf(line, "placement %d %d", &got, &topLeft); err == nil {
+			// A resize keeps the last frame where it was drawn, not scaled (the text flickered).
+			if got != topLeft {
+				t.Errorf("the content view's layer contents placement is %d, want top left (%d)", got, topLeft)
+			}
+			continue
+		}
 		var name string
 		var v [4]float64
 		if _, err := fmt.Sscan(line, &name, &v[0], &v[1], &v[2], &v[3]); err != nil {

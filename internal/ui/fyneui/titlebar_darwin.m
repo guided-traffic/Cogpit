@@ -103,6 +103,16 @@ static void placeButtons(NSWindow *w, CGFloat barHeight) {
 	}
 }
 
+void cogpitWindowKeepContentPlaced(uintptr_t window) {
+	// While a resize is dragged AppKit sizes the content view's layer at once and shows its last
+	// frame scaled to the new size until the next one is drawn (the layer's default contents
+	// gravity); the text looked as if it scaled with the window, then jumped back (owner,
+	// 2026-10-13). Anchored at the top left, the last frame stays as it was drawn, and only the
+	// strip the window grew by waits for the next frame.
+	NSView *v = windowOf(window).contentView;
+	v.layerContentsPlacement = NSViewLayerContentsPlacementTopLeft;
+}
+
 void cogpitTitlebarInstall(uintptr_t window, uintptr_t id) {
 	NSWindow *w = windowOf(window);
 	w.styleMask |= NSWindowStyleMaskFullSizeContentView;

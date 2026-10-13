@@ -65,6 +65,8 @@ type topBar struct {
 	notes       *notificationsUI  // the bell and its panel (notifications.go)
 	left        *fyne.Container
 	titleHeight float32 // the title bar's height the bar covers, in Fyne units; 0 without
+	titleLead   float32 // the window buttons' room last made (lead's width); 0 without
+	titleSet    bool    // setTitlebar ran: titleLead and titleHeight are what it applied
 	root        fyne.CanvasObject
 }
 

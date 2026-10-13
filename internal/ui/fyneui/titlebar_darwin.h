@@ -12,6 +12,9 @@ typedef struct {
 	int ok; // 0: the window has no standard buttons
 } cogpitTitlebarGeom;
 
+// cogpitWindowKeepContentPlaced keeps the window's last frame anchored at the top left while a
+// resize is dragged, instead of scaled to the new size until the next frame is drawn.
+void cogpitWindowKeepContentPlaced(uintptr_t window);
 // cogpitTitlebarInstall lets the window's content fill the title bar's area under a transparent
 // title bar without a title, and reports layout changes (full screen, resizes, a new screen) to the
 // Go function cogpitTitlebarChanged with id.
