@@ -32,10 +32,11 @@ const FluxDashboardTitle = "Flux Dashboard"
 
 func init() { pageTitles[FluxDashboard] = FluxDashboardTitle }
 
-// The Flux dashboard table's column ids besides the name.
+// The Flux dashboard table's column ids besides the name, and its Namespace column's title.
 const (
-	fluxColumnStatus  = "status"
-	fluxColumnMessage = "message"
+	fluxColumnStatus   = "status"
+	fluxColumnMessage  = "message"
+	fluxTitleNamespace = "Namespace"
 )
 
 // fluxIssuesProfile is the profile of the dashboard's table: one row per Flux object that is not
@@ -46,7 +47,7 @@ var fluxIssuesProfile = &model.KindProfile{
 	Columns: []model.Column{
 		{ID: metadataName, Title: "Name", Type: model.ColumnText},
 		{ID: columnKind, Title: "Kind", Type: model.ColumnText, Width: 150},
-		{ID: columnNamespace, Title: "Namespace", Type: model.ColumnText},
+		{ID: columnNamespace, Title: fluxTitleNamespace, Type: model.ColumnText},
 		{ID: fluxColumnStatus, Title: "Status", Type: model.ColumnText, Width: 110},
 		{ID: fluxColumnMessage, Title: "Message", Type: model.ColumnText},
 		{ID: columnAge, Title: "Age", Type: model.ColumnAge},

@@ -17,17 +17,17 @@ import (
 // last applied one. v1 since Flux 2.0; v1beta2 reads the same fields.
 var kustomizationsSpec = &fluxSpec{
 	group: fluxKustomize, resource: "kustomizations", kind: "Kustomization", title: "Kustomizations",
-	version: "v1", fallback: []string{"v1beta2"},
+	version: "v1", fallback: []string{fluxV1beta2},
 	suspend: true, reconcile: true,
 	columns: []fluxColumn{
-		{Column: model.Column{ID: idSource, Title: "Source", Type: model.ColumnText}, cell: fluxRefCell("", fieldSpec, "sourceRef"), field: true},
+		{Column: model.Column{ID: idSource, Title: titleSource, Type: model.ColumnText}, cell: fluxRefCell("", fieldSpec, "sourceRef"), field: true},
 		{Column: model.Column{ID: "path", Title: "Path", Type: model.ColumnText}, cell: fluxTextCell("", fieldSpec, "path"), field: true},
 	},
 	revision: func(obj *unstructured.Unstructured) string {
 		return model.NestedString(obj, "status", "lastAppliedRevision")
 	},
 	properties: func(obj *unstructured.Unstructured, d *detailItems) {
-		d.put(fluxRefItem(obj, "Source", "", fieldSpec, "sourceRef"))
+		d.put(fluxRefItem(obj, titleSource, "", fieldSpec, "sourceRef"))
 		d.add("Path", model.NestedString(obj, fieldSpec, "path"))
 		d.add("Target Namespace", model.NestedString(obj, fieldSpec, "targetNamespace"))
 		d.add("Service Account", model.NestedString(obj, fieldSpec, "serviceAccountName"))
@@ -54,8 +54,8 @@ var helmReleasesSpec = &fluxSpec{
 	version: "v2", fallback: []string{"v2beta2", "v2beta1"},
 	suspend: true, reconcile: true,
 	columns: []fluxColumn{
-		{Column: model.Column{ID: "chart", Title: "Chart", Type: model.ColumnText}, cell: helmReleaseChartCell, field: true},
-		{Column: model.Column{ID: "version", Title: "Version", Type: model.ColumnText, Width: 100}, cell: func(obj *unstructured.Unstructured) model.Cell {
+		{Column: model.Column{ID: "chart", Title: titleChart, Type: model.ColumnText}, cell: helmReleaseChartCell, field: true},
+		{Column: model.Column{ID: idVersion, Title: titleVersion, Type: model.ColumnText, Width: 100}, cell: func(obj *unstructured.Unstructured) model.Cell {
 			return model.Cell{Text: helmReleaseVersion(obj)}
 		}},
 	},
@@ -102,8 +102,8 @@ func helmReleaseRevision(obj *unstructured.Unstructured) string {
 }
 
 func helmReleaseProperties(obj *unstructured.Unstructured, d *detailItems) {
-	d.add("Chart", model.NestedString(obj, fieldSpec, "chart", fieldSpec, "chart"))
-	d.add("Version", helmReleaseVersion(obj))
+	d.add(titleChart, model.NestedString(obj, fieldSpec, "chart", fieldSpec, "chart"))
+	d.add(titleVersion, helmReleaseVersion(obj))
 	d.put(fluxRefItem(obj, "Chart Source", "", fieldSpec, "chart", fieldSpec, "sourceRef"))
 	d.put(fluxRefItem(obj, "Chart Ref", "", fieldSpec, "chartRef"))
 	d.add("Release Name", model.NestedString(obj, fieldSpec, "releaseName"))
@@ -124,7 +124,7 @@ func helmReleaseProperties(obj *unstructured.Unstructured, d *detailItems) {
 			text += " (" + key + ")"
 		}
 		var link *model.ObjectRef
-		if k := fluxRefKey(kind); k == "configmaps" || k == keySecrets {
+		if k := fluxRefKey(kind); k == keyConfigMaps || k == keySecrets {
 			link = linkTo(k, obj.GetNamespace(), name)
 		}
 		from = append(from, model.Chip{Text: text, Link: link})
@@ -143,7 +143,7 @@ func helmReleaseProperties(obj *unstructured.Unstructured, d *detailItems) {
 		if !ok {
 			ns, name = obj.GetNamespace(), hc
 		}
-		d.put(linkedItem("Helm Chart", hc, linkTo(fluxRefKey("HelmChart"), ns, name)))
+		d.put(linkedItem("Helm Chart", hc, linkTo(fluxRefKey(kindHelmChart), ns, name)))
 	}
 }
 
@@ -153,7 +153,7 @@ func helmReleaseHistory(obj *unstructured.Unstructured) []model.DetailSection {
 	if len(h) == 0 {
 		return nil
 	}
-	t := &model.DetailTable{Columns: []string{"Revision", "Chart", "App Version", "Status", "Deployed"}}
+	t := &model.DetailTable{Columns: []string{"Revision", titleChart, "App Version", "Status", "Deployed"}}
 	for _, s := range h {
 		rev := ""
 		if n, ok := model.NestedInt64(s, "version"); ok {

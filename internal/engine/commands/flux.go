@@ -47,16 +47,23 @@ const (
 	orderFluxSuspend   = 200
 )
 
-type fluxReconcileParams struct {
-	Ref   model.ObjectRef `json:"ref" jsonschema:"the Flux object"`
-	Force bool            `json:"force,omitempty" jsonschema:"Helm releases only: also force a one-off install or upgrade even without changes (reconcile.fluxcd.io/forceAt), as flux reconcile helmrelease --force does"`
-}
-
-type fluxManyParams struct {
-	Refs []model.ObjectRef `json:"refs" jsonschema:"the Flux objects, as ui_state's selected lists them, at most 500"`
-	// Force: see fluxReconcileParams.
-	Force bool `json:"force,omitempty" jsonschema:"Helm releases only: also force a one-off install or upgrade (reconcile.fluxcd.io/forceAt); refused when a selected object is not a Helm release"`
-}
+// The parameters of the Flux actions: Reconcile's take force, Suspend's and Resume's do not.
+type (
+	fluxReconcileParams struct {
+		Ref   model.ObjectRef `json:"ref" jsonschema:"the Flux object"`
+		Force bool            `json:"force,omitempty" jsonschema:"Helm releases only: also force a one-off install or upgrade even without changes (reconcile.fluxcd.io/forceAt), as flux reconcile helmrelease --force does"`
+	}
+	fluxReconcileManyParams struct {
+		Refs  []model.ObjectRef `json:"refs" jsonschema:"the Flux objects, as ui_state's selected lists them, at most 500"`
+		Force bool              `json:"force,omitempty" jsonschema:"Helm releases only: also force a one-off install or upgrade (reconcile.fluxcd.io/forceAt); refused when a selected object is not a Helm release"`
+	}
+	fluxRefParams struct {
+		Ref model.ObjectRef `json:"ref" jsonschema:"the Flux object"`
+	}
+	fluxRefsParams struct {
+		Refs []model.ObjectRef `json:"refs" jsonschema:"the Flux objects, as ui_state's selected lists them, at most 500"`
+	}
+)
 
 // fluxKindKeys returns the Flux kind keys that take Reconcile (suspend false) or Suspend and Resume.
 func fluxKindKeys(suspend bool) []string {
@@ -142,9 +149,11 @@ var fluxDescriptions = map[string]string{
 }
 
 func registerFlux(g *registrar) {
-	for _, a := range []fluxAction{fluxReconcile, fluxSuspend, fluxResume} {
-		add(g, fluxOneSpec(a))
-		add(g, fluxManySpec(a))
+	add(g, fluxOneSpec(fluxReconcile, func(p fluxReconcileParams) (model.ObjectRef, bool) { return p.Ref, p.Force }))
+	add(g, fluxManySpec(fluxReconcile, func(p fluxReconcileManyParams) ([]model.ObjectRef, bool) { return p.Refs, p.Force }))
+	for _, a := range []fluxAction{fluxSuspend, fluxResume} {
+		add(g, fluxOneSpec(a, func(p fluxRefParams) (model.ObjectRef, bool) { return p.Ref, false }))
+		add(g, fluxManySpec(a, func(p fluxRefsParams) ([]model.ObjectRef, bool) { return p.Refs, false }))
 	}
 	registerFluxDashboard(g)
 }
@@ -185,24 +194,27 @@ func registerFluxDashboard(g *registrar) {
 	})
 }
 
-// fluxOneSpec is an action on one object: the row menu's, the drawer's and the palette's.
-func fluxOneSpec(a fluxAction) engine.Spec[fluxReconcileParams] {
-	return engine.Spec[fluxReconcileParams]{
+// fluxOneSpec is an action on one object: the row menu's, the drawer's and the palette's. get
+// reads the object and force from its parameters.
+func fluxOneSpec[P any](a fluxAction, get func(P) (model.ObjectRef, bool)) engine.Spec[P] {
+	return engine.Spec[P]{
 		ID: a.id, Label: a.label, MenuPath: "Flux/" + a.label, Kinds: fluxKindKeys(a.suspend),
 		Order: a.order, Danger: engine.DangerMutating,
 		Verbs:       []engine.Verb{{Verb: nwVerbPatch, Resource: "*"}},
 		Description: fluxDescriptions[a.id],
-		Enabled: func(s *engine.Session, p fluxReconcileParams) error {
-			if err := fluxApplies(s, a, p.Ref, p.Force); err != nil {
+		Enabled: func(s *engine.Session, p P) error {
+			ref, force := get(p)
+			if err := fluxApplies(s, a, ref, force); err != nil {
 				return err
 			}
 			_, _, err := fluxActionsOf(s)
 			return err
 		},
-		Targets: func(s *engine.Session, p fluxReconcileParams) ([]model.ObjectRef, error) { return targetOf(s, p.Ref) },
-		Run: func(ctx context.Context, s *engine.Session, p fluxReconcileParams) (any, error) {
-			return act(ctx, s, p.Ref, a.done, func(_ engine.Actions, ref model.ObjectRef) error {
-				return fluxWrite(ctx, s, a, ref, p.Force)
+		Targets: func(s *engine.Session, p P) ([]model.ObjectRef, error) { ref, _ := get(p); return targetOf(s, ref) },
+		Run: func(ctx context.Context, s *engine.Session, p P) (any, error) {
+			ref, force := get(p)
+			return act(ctx, s, ref, a.done, func(_ engine.Actions, ref model.ObjectRef) error {
+				return fluxWrite(ctx, s, a, ref, force)
 			})
 		},
 	}
@@ -211,27 +223,31 @@ func fluxOneSpec(a fluxAction) engine.Spec[fluxReconcileParams] {
 // fluxManySpec is an action on a selection: the selection's menu's. It acts on the selected
 // objects it applies to (Reconcile skips the suspended ones, Suspend the suspended, Resume the
 // others), one after the other, as Delete of a selection does.
-func fluxManySpec(a fluxAction) engine.Spec[fluxManyParams] {
+func fluxManySpec[P any](a fluxAction, get func(P) ([]model.ObjectRef, bool)) engine.Spec[P] {
 	desc := "Does what " + strings.ReplaceAll(a.id, ".", "_") + " does for several Flux objects at once, as the table's " +
 		"selection menu does: it acts on the selected objects it applies to, one after the other, each bound to its UID, " +
 		"and skips the others. When an object fails the others still go on, and the error names which were done and which " +
 		"were not, each with its reason; nothing is retried. At most 500 objects."
-	return engine.Spec[fluxManyParams]{
+	return engine.Spec[P]{
 		ID: a.manyID, Label: a.label, MenuPath: "Flux/" + a.label + " Selected", Kinds: fluxKindKeys(a.suspend),
 		Order: a.order, Danger: engine.DangerMutating,
 		Verbs:       []engine.Verb{{Verb: nwVerbPatch, Resource: "*"}},
 		Description: desc,
-		Enabled: func(s *engine.Session, p fluxManyParams) error {
-			_, err := fluxManyTargets(s, a, p)
-			if err != nil {
+		Enabled: func(s *engine.Session, p P) error {
+			refs, force := get(p)
+			if _, err := fluxManyTargets(s, a, refs, force); err != nil {
 				return err
 			}
-			_, _, err = fluxActionsOf(s)
+			_, _, err := fluxActionsOf(s)
 			return err
 		},
-		Targets: func(s *engine.Session, p fluxManyParams) ([]model.ObjectRef, error) { return fluxManyTargets(s, a, p) },
-		Run: func(ctx context.Context, s *engine.Session, p fluxManyParams) (any, error) {
-			return fluxRunMany(ctx, s, a, p)
+		Targets: func(s *engine.Session, p P) ([]model.ObjectRef, error) {
+			refs, force := get(p)
+			return fluxManyTargets(s, a, refs, force)
+		},
+		Run: func(ctx context.Context, s *engine.Session, p P) (any, error) {
+			refs, force := get(p)
+			return fluxRunMany(ctx, s, a, refs, force)
 		},
 	}
 }
@@ -255,18 +271,18 @@ func fluxApplies(s *engine.Session, a fluxAction, ref model.ObjectRef, force boo
 // fluxManyTargets returns the selected objects the action applies to, each once, in order; an
 // error when there are none, or a selected object is not a Flux object of the action's kinds or
 // not in the cache.
-func fluxManyTargets(s *engine.Session, a fluxAction, p fluxManyParams) ([]model.ObjectRef, error) {
-	if len(p.Refs) == 0 {
+func fluxManyTargets(s *engine.Session, a fluxAction, refs []model.ObjectRef, force bool) ([]model.ObjectRef, error) {
+	if len(refs) == 0 {
 		return nil, errors.New("no objects are selected")
 	}
-	if len(p.Refs) > engine.MaxSelection {
-		return nil, fmt.Errorf("at most %d objects at once, %d are selected", engine.MaxSelection, len(p.Refs))
+	if len(refs) > engine.MaxSelection {
+		return nil, fmt.Errorf("at most %d objects at once, %d are selected", engine.MaxSelection, len(refs))
 	}
 	var out []model.ObjectRef
 	var reason error
-	for _, r := range p.Refs {
+	for _, r := range refs {
 		var skip fluxSkip
-		err := fluxApplies(s, a, r, p.Force)
+		err := fluxApplies(s, a, r, force)
 		switch {
 		case errors.As(err, &skip):
 			reason = err
@@ -323,7 +339,7 @@ func (e *FluxManyError) Error() string {
 
 // fluxRunMany runs an action on the selection's objects it applies to, one after the other, each
 // bound to its UID; every failure is kept for the report.
-func fluxRunMany(ctx context.Context, s *engine.Session, a fluxAction, p fluxManyParams) (any, error) {
+func fluxRunMany(ctx context.Context, s *engine.Session, a fluxAction, refs []model.ObjectRef, force bool) (any, error) {
 	b, err := writable(s)
 	if err != nil {
 		return nil, err
@@ -331,7 +347,7 @@ func fluxRunMany(ctx context.Context, s *engine.Session, a fluxAction, p fluxMan
 	if err := engine.CheckConfirmedContext(ctx, b.Context); err != nil {
 		return nil, err
 	}
-	targets, err := fluxManyTargets(s, a, p)
+	targets, err := fluxManyTargets(s, a, refs, force)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +370,7 @@ func fluxRunMany(ctx context.Context, s *engine.Session, a fluxAction, p fluxMan
 			failed = append(failed, DeleteFailure{Ref: ref, Error: stop.Error()})
 			continue
 		}
-		if err := fluxWrite(ctx, s, a, ref, p.Force); err != nil {
+		if err := fluxWrite(ctx, s, a, ref, force); err != nil {
 			failed = append(failed, DeleteFailure{Ref: ref, Error: err.Error()})
 			continue
 		}

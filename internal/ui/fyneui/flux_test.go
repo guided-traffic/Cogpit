@@ -1,10 +1,8 @@
 package fyneui
 
 import (
-	"context"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -12,13 +10,12 @@ import (
 	"fyne.io/fyne/v2/test"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/guided-traffic/cogpit/internal/cache"
-	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 	"github.com/guided-traffic/cogpit/internal/testkit"
+	"github.com/guided-traffic/cogpit/internal/testkit/enginekit"
 )
 
 // The Flux section (G23): the navigator's Flux group, the Dashboard page, a Flux kind's view, row
@@ -85,48 +82,6 @@ func TestSidebarFluxSection(t *testing.T) {
 	if s.titles[engine.FluxDashboard] != "" || slices.Contains(titlesOf(s, s.children[""]), "Flux") {
 		t.Errorf("the Dashboard stayed: %q, top level %v", s.titles[engine.FluxDashboard], titlesOf(s, s.children[""]))
 	}
-}
-
-// fluxRecorder records the Flux patches the window's actions send.
-type fluxRecorder struct {
-	mu      sync.Mutex
-	patches []string
-}
-
-func (r *fluxRecorder) RestartDeployment(context.Context, string, string, string) error { return nil }
-func (r *fluxRecorder) DeletePod(context.Context, string, string, string) error         { return nil }
-func (r *fluxRecorder) PatchFlux(_ context.Context, gvr schema.GroupVersionResource, ns, name, uid string, req cluster.FluxRequest) error {
-	body, err := cluster.FluxPatch(fixedNow, uid, req)
-	if err != nil {
-		return err
-	}
-	r.mu.Lock()
-	r.patches = append(r.patches, gvr.Resource+" "+ns+"/"+name+" "+string(body))
-	r.mu.Unlock()
-	return nil
-}
-
-func (r *fluxRecorder) all() []string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return slices.Clone(r.patches)
-}
-
-// fluxConnector serves "kind-flux": the built-in kinds and the custom kinds watch over a memory
-// source with the Flux definitions and objects.
-type fluxConnector struct {
-	src    *testkit.MemorySource
-	writer *fluxRecorder
-}
-
-func (c fluxConnector) Contexts() ([]engine.ContextInfo, error) {
-	return []engine.ContextInfo{{Name: "kind-flux", Current: true}}, nil
-}
-
-func (c fluxConnector) Connect(context.Context, string) (*engine.Backend, error) {
-	ch := cache.New(c.src, cache.Options{WarmPeriod: time.Minute})
-	return &engine.Backend{Context: "kind-flux", Namespace: "flux-system", Cache: ch, Profiles: kinds.Builtin(),
-		CustomResources: true, Close: ch.Close, Conn: &cluster.Conn{}, Actions: c.writer}, nil
 }
 
 // fluxFixture is a cluster running Flux: every toolkit definition at the version Flux serves, and
@@ -226,10 +181,11 @@ func fluxFixture() *testkit.MemorySource {
 }
 
 // fluxEngineShell runs the shell over the real engine and commands, connected to fluxFixture.
-func fluxEngineShell(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, *engine.Session, *fluxRecorder) {
+func fluxEngineShell(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, *engine.Session, *enginekit.FluxRecorder) {
 	t.Helper()
-	rec := &fluxRecorder{}
-	s := engine.New(engine.Options{Connector: fluxConnector{src: fluxFixture(), writer: rec}, SnapshotInterval: 5 * time.Millisecond})
+	rec := &enginekit.FluxRecorder{At: fixedNow}
+	conn := enginekit.MemoryConnector{Context: "kind-flux", Src: fluxFixture(), Profiles: kinds.Builtin(), CustomResources: true, Writer: rec}
+	s := engine.New(engine.Options{Connector: conn, SnapshotInterval: 5 * time.Millisecond})
 	t.Cleanup(s.Close)
 	if err := commands.RegisterAll(s.Registry()); err != nil {
 		t.Fatal(err)
@@ -305,8 +261,8 @@ func TestFluxDashboardInTheWindow(t *testing.T) {
 		t.Errorf("selection menu %q", got)
 	}
 	item(t, m, "Resume").Action()
-	q.until(t, "the resumes", func() bool { return len(rec.all()) == 2 })
-	for _, p := range rec.all() {
+	q.until(t, "the resumes", func() bool { return len(rec.Patches()) == 2 })
+	for _, p := range rec.Patches() {
 		if !strings.Contains(p, `"suspend":false`) || !strings.Contains(p, "reconcile.fluxcd.io/requestedAt") {
 			t.Errorf("resume patch %s", p)
 		}
@@ -352,8 +308,8 @@ func TestFluxKustomizationsInTheWindow(t *testing.T) {
 		t.Errorf("menu %s", got)
 	}
 	item(t, m, "Reconcile").Action()
-	q.until(t, "the reconcile", func() bool { return len(rec.all()) == 1 })
-	if p := rec.all()[0]; !strings.HasPrefix(p, "kustomizations flux-system/apps ") || !strings.Contains(p, `"uid":"uid-flux-system-apps"`) {
+	q.until(t, "the reconcile", func() bool { return len(rec.Patches()) == 1 })
+	if p := rec.Patches()[0]; !strings.HasPrefix(p, "kustomizations flux-system/apps ") || !strings.Contains(p, `"uid":"uid-flux-system-apps"`) {
 		t.Errorf("patch %s", p)
 	}
 	m = openMenu(t, sh, q, row("monitoring"))

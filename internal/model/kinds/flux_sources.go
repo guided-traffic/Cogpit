@@ -15,20 +15,20 @@ import (
 // since Flux 2.0; v1beta2 reads the same fields.
 var gitRepositoriesSpec = &fluxSpec{
 	group: fluxSource, resource: "gitrepositories", kind: "GitRepository", title: "Git Repositories",
-	version: "v1", fallback: []string{"v1beta2"}, section: FluxSectionSources,
+	version: "v1", fallback: []string{fluxV1beta2}, section: FluxSectionSources,
 	suspend: true, reconcile: true,
 	columns: []fluxColumn{
-		{Column: model.Column{ID: idURL, Title: "URL", Type: model.ColumnText}, cell: fluxURLCell(fieldSpec, idURL), field: true},
+		{Column: model.Column{ID: idURL, Title: titleURL, Type: model.ColumnText}, cell: fluxURLCell(fieldSpec, idURL), field: true},
 		{Column: model.Column{ID: idRef, Title: "Ref", Type: model.ColumnText}, cell: func(obj *unstructured.Unstructured) model.Cell {
 			return model.Cell{Text: gitRef(obj)}
 		}, field: true},
 	},
 	revision: fluxArtifactRevision,
 	properties: func(obj *unstructured.Unstructured, d *detailItems) {
-		d.add("URL", fluxURL(model.NestedString(obj, fieldSpec, idURL)))
+		d.add(titleURL, fluxURL(model.NestedString(obj, fieldSpec, idURL)))
 		d.add("Ref", gitRef(obj))
 		d.add("Provider", model.NestedString(obj, fieldSpec, "provider"))
-		d.put(fluxSecretItem(obj, "Secret", fieldSpec, "secretRef"))
+		d.put(fluxSecretItem(obj, titleSecret, fieldSpec, "secretRef"))
 		d.add("Recurse Submodules", fluxBool(obj, fieldSpec, "recurseSubmodules"))
 		d.add("Verify", model.NestedString(obj, fieldSpec, "verify", "mode"))
 		fluxArtifactItems(obj, d)
@@ -51,21 +51,21 @@ func gitRef(obj any) string {
 // v1beta2 reads the same fields.
 var ociRepositoriesSpec = &fluxSpec{
 	group: fluxSource, resource: "ocirepositories", kind: "OCIRepository", title: "OCI Repositories",
-	version: "v1", fallback: []string{"v1beta2"}, section: FluxSectionSources,
+	version: "v1", fallback: []string{fluxV1beta2}, section: FluxSectionSources,
 	suspend: true, reconcile: true,
 	columns: []fluxColumn{
-		{Column: model.Column{ID: idURL, Title: "URL", Type: model.ColumnText}, cell: fluxURLCell(fieldSpec, idURL), field: true},
+		{Column: model.Column{ID: idURL, Title: titleURL, Type: model.ColumnText}, cell: fluxURLCell(fieldSpec, idURL), field: true},
 		{Column: model.Column{ID: idRef, Title: "Ref", Type: model.ColumnText}, cell: func(obj *unstructured.Unstructured) model.Cell {
 			return model.Cell{Text: ociRef(obj)}
 		}, field: true},
 	},
 	revision: fluxArtifactRevision,
 	properties: func(obj *unstructured.Unstructured, d *detailItems) {
-		d.add("URL", fluxURL(model.NestedString(obj, fieldSpec, idURL)))
+		d.add(titleURL, fluxURL(model.NestedString(obj, fieldSpec, idURL)))
 		d.add("Ref", ociRef(obj))
 		d.add("Provider", model.NestedString(obj, fieldSpec, "provider"))
 		d.add("Insecure", fluxBool(obj, fieldSpec, "insecure"))
-		d.put(fluxSecretItem(obj, "Secret", fieldSpec, "secretRef"))
+		d.put(fluxSecretItem(obj, titleSecret, fieldSpec, "secretRef"))
 		d.put(fluxSecretItem(obj, "Cert Secret", fieldSpec, "certSecretRef"))
 		d.add("Service Account", model.NestedString(obj, fieldSpec, "serviceAccountName"))
 		d.add("Verify", model.NestedString(obj, fieldSpec, "verify", "provider"))
@@ -89,20 +89,20 @@ func ociRef(obj any) string {
 // no artifact, so no revision. v1 since Flux 2.2; v1beta2 reads the same fields.
 var helmRepositoriesSpec = &fluxSpec{
 	group: fluxSource, resource: "helmrepositories", kind: "HelmRepository", title: "Helm Repositories",
-	version: "v1", fallback: []string{"v1beta2"}, section: FluxSectionSources,
+	version: "v1", fallback: []string{fluxV1beta2}, section: FluxSectionSources,
 	suspend: true, reconcile: true,
 	columns: []fluxColumn{
-		{Column: model.Column{ID: idURL, Title: "URL", Type: model.ColumnText}, cell: fluxURLCell(fieldSpec, idURL), field: true},
-		{Column: model.Column{ID: idType, Title: "Type", Type: model.ColumnText, Width: 90}, cell: fluxTextCell("default", fieldSpec, idType), field: true},
+		{Column: model.Column{ID: idURL, Title: titleURL, Type: model.ColumnText}, cell: fluxURLCell(fieldSpec, idURL), field: true},
+		{Column: model.Column{ID: idType, Title: titleType, Type: model.ColumnText, Width: 90}, cell: fluxTextCell("default", fieldSpec, idType), field: true},
 	},
 	revision: fluxArtifactRevision,
 	properties: func(obj *unstructured.Unstructured, d *detailItems) {
-		d.add("URL", fluxURL(model.NestedString(obj, fieldSpec, idURL)))
-		d.add("Type", fluxTextCell("default", fieldSpec, idType)(obj).Text)
+		d.add(titleURL, fluxURL(model.NestedString(obj, fieldSpec, idURL)))
+		d.add(titleType, fluxTextCell("default", fieldSpec, idType)(obj).Text)
 		d.add("Provider", model.NestedString(obj, fieldSpec, "provider"))
 		d.add("Insecure", fluxBool(obj, fieldSpec, "insecure"))
 		d.add("Pass Credentials", fluxBool(obj, fieldSpec, "passCredentials"))
-		d.put(fluxSecretItem(obj, "Secret", fieldSpec, "secretRef"))
+		d.put(fluxSecretItem(obj, titleSecret, fieldSpec, "secretRef"))
 		d.put(fluxSecretItem(obj, "Cert Secret", fieldSpec, "certSecretRef"))
 		fluxArtifactItems(obj, d)
 	},
@@ -112,7 +112,7 @@ var helmRepositoriesSpec = &fluxSpec{
 // fields.
 var bucketsSpec = &fluxSpec{
 	group: fluxSource, resource: "buckets", kind: "Bucket", title: "Buckets",
-	version: "v1", fallback: []string{"v1beta2"}, section: FluxSectionSources,
+	version: "v1", fallback: []string{fluxV1beta2}, section: FluxSectionSources,
 	suspend: true, reconcile: true,
 	columns: []fluxColumn{
 		{Column: model.Column{ID: "endpoint", Title: "Endpoint", Type: model.ColumnText}, cell: func(obj *unstructured.Unstructured) model.Cell {
@@ -128,7 +128,7 @@ var bucketsSpec = &fluxSpec{
 		d.add("Region", model.NestedString(obj, fieldSpec, "region"))
 		d.add("Prefix", model.NestedString(obj, fieldSpec, "prefix"))
 		d.add("Insecure", fluxBool(obj, fieldSpec, "insecure"))
-		d.put(fluxSecretItem(obj, "Secret", fieldSpec, "secretRef"))
+		d.put(fluxSecretItem(obj, titleSecret, fieldSpec, "secretRef"))
 		fluxArtifactItems(obj, d)
 	},
 }
@@ -140,11 +140,11 @@ var externalArtifactsSpec = &fluxSpec{
 	group: fluxSource, resource: "externalartifacts", kind: "ExternalArtifact", title: "External Artifacts",
 	version: "v1", section: FluxSectionSources,
 	columns: []fluxColumn{
-		{Column: model.Column{ID: idSource, Title: "Source", Type: model.ColumnText}, cell: fluxRefCell("", fieldSpec, "sourceRef"), field: true},
+		{Column: model.Column{ID: idSource, Title: titleSource, Type: model.ColumnText}, cell: fluxRefCell("", fieldSpec, "sourceRef"), field: true},
 	},
 	revision: fluxArtifactRevision,
 	properties: func(obj *unstructured.Unstructured, d *detailItems) {
-		d.put(fluxRefItem(obj, "Source", "", fieldSpec, "sourceRef"))
+		d.put(fluxRefItem(obj, titleSource, "", fieldSpec, "sourceRef"))
 		fluxArtifactItems(obj, d)
 	},
 }

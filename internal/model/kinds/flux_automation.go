@@ -20,7 +20,7 @@ const maxLatestTags = 10
 // since Flux 2.7; v1beta2 reads the same fields.
 var imageRepositoriesSpec = &fluxSpec{
 	group: fluxImage, resource: "imagerepositories", kind: "ImageRepository", title: "Image Repositories",
-	version: "v1", fallback: []string{"v1beta2"}, section: FluxSectionImages,
+	version: "v1", fallback: []string{fluxV1beta2}, section: FluxSectionImages,
 	suspend: true, reconcile: true,
 	columns: []fluxColumn{
 		{Column: model.Column{ID: "image", Title: "Image", Type: model.ColumnText}, cell: fluxTextCell("", fieldSpec, "image"), field: true},
@@ -39,7 +39,7 @@ var imageRepositoriesSpec = &fluxSpec{
 		d.add("Image", model.NestedString(obj, fieldSpec, "image"))
 		d.add("Provider", model.NestedString(obj, fieldSpec, "provider"))
 		d.add("Insecure", fluxBool(obj, fieldSpec, "insecure"))
-		d.put(fluxSecretItem(obj, "Secret", fieldSpec, "secretRef"))
+		d.put(fluxSecretItem(obj, titleSecret, fieldSpec, "secretRef"))
 		d.put(fluxSecretItem(obj, "Cert Secret", fieldSpec, "certSecretRef"))
 		d.add("Service Account", model.NestedString(obj, fieldSpec, "serviceAccountName"))
 		d.add("Exclusion List", strings.Join(model.NestedStrings(obj, fieldSpec, "exclusionList"), "\n"))
@@ -58,7 +58,7 @@ var imageRepositoriesSpec = &fluxSpec{
 // same fields.
 var imagePoliciesSpec = &fluxSpec{
 	group: fluxImage, resource: "imagepolicies", kind: "ImagePolicy", title: "Image Policies",
-	version: "v1", fallback: []string{"v1beta2"}, section: FluxSectionImages,
+	version: "v1", fallback: []string{fluxV1beta2}, section: FluxSectionImages,
 	reconcile: true,
 	columns: []fluxColumn{
 		{Column: model.Column{ID: "imageRepository", Title: "Image Repository", Type: model.ColumnText}, cell: fluxRefCell("ImageRepository", fieldSpec, "imageRepositoryRef"), field: true},
@@ -112,16 +112,16 @@ func imagePolicyRule(obj any) string {
 // age). v1 since Flux 2.7; v1beta2 reads the same fields.
 var imageUpdateAutomationsSpec = &fluxSpec{
 	group: fluxImage, resource: "imageupdateautomations", kind: "ImageUpdateAutomation", title: "Image Update Automations",
-	version: "v1", fallback: []string{"v1beta2"}, section: FluxSectionImages,
+	version: "v1", fallback: []string{fluxV1beta2}, section: FluxSectionImages,
 	suspend: true, reconcile: true,
 	columns: []fluxColumn{
-		{Column: model.Column{ID: idSource, Title: "Source", Type: model.ColumnText}, cell: fluxRefCell("GitRepository", fieldSpec, "sourceRef"), field: true},
+		{Column: model.Column{ID: idSource, Title: titleSource, Type: model.ColumnText}, cell: fluxRefCell("GitRepository", fieldSpec, "sourceRef"), field: true},
 		{Column: model.Column{ID: "lastRun", Title: "Last Run", Type: model.ColumnAge, Width: 90}, cell: func(obj *unstructured.Unstructured) model.Cell {
 			return model.AgeCell(model.NestedTime(obj, "status", "lastAutomationRunTime"))
 		}},
 	},
 	properties: func(obj *unstructured.Unstructured, d *detailItems) {
-		d.put(fluxRefItem(obj, "Source", "GitRepository", fieldSpec, "sourceRef"))
+		d.put(fluxRefItem(obj, titleSource, "GitRepository", fieldSpec, "sourceRef"))
 		d.add("Checkout Branch", model.NestedString(obj, fieldSpec, "git", "checkout", idRef, "branch"))
 		d.add("Push Branch", model.NestedString(obj, fieldSpec, "git", "push", "branch"))
 		d.add("Update Path", model.NestedString(obj, fieldSpec, "update", "path"))
@@ -138,7 +138,7 @@ var imageUpdateAutomationsSpec = &fluxSpec{
 // condition (v1beta2's). v1beta3 since Flux 2.1; v1beta2 reads the same fields.
 var alertsSpec = &fluxSpec{
 	group: fluxNotification, resource: "alerts", kind: "Alert", title: "Alerts",
-	version: "v1beta3", fallback: []string{"v1beta2"}, section: FluxSectionNotifications,
+	version: "v1beta3", fallback: []string{fluxV1beta2}, section: FluxSectionNotifications,
 	suspend: true, reconcile: true, static: true,
 	columns: []fluxColumn{
 		{Column: model.Column{ID: "provider", Title: "Provider", Type: model.ColumnText}, cell: fluxRefCell("Provider", fieldSpec, "providerRef"), field: true},
@@ -184,17 +184,17 @@ func eventSourceChips(obj *unstructured.Unstructured, list []any) []model.Chip {
 // in the object's YAML, H-63). Static in notification v1beta3, as Alerts are.
 var providersSpec = &fluxSpec{
 	group: fluxNotification, resource: "providers", kind: "Provider", title: "Providers",
-	version: "v1beta3", fallback: []string{"v1beta2"}, section: FluxSectionNotifications,
+	version: "v1beta3", fallback: []string{fluxV1beta2}, section: FluxSectionNotifications,
 	suspend: true, reconcile: true, static: true,
 	columns: []fluxColumn{
-		{Column: model.Column{ID: idType, Title: "Type", Type: model.ColumnText, Width: 110}, cell: fluxTextCell("", fieldSpec, idType), field: true},
+		{Column: model.Column{ID: idType, Title: titleType, Type: model.ColumnText, Width: 110}, cell: fluxTextCell("", fieldSpec, idType), field: true},
 		{Column: model.Column{ID: "channel", Title: "Channel", Type: model.ColumnText}, cell: fluxTextCell("", fieldSpec, "channel"), field: true},
 	},
 	properties: func(obj *unstructured.Unstructured, d *detailItems) {
-		d.add("Type", model.NestedString(obj, fieldSpec, idType))
+		d.add(titleType, model.NestedString(obj, fieldSpec, idType))
 		d.add("Channel", model.NestedString(obj, fieldSpec, "channel"))
 		d.add("Username", model.NestedString(obj, fieldSpec, "username"))
-		d.put(fluxSecretItem(obj, "Secret", fieldSpec, "secretRef"))
+		d.put(fluxSecretItem(obj, titleSecret, fieldSpec, "secretRef"))
 		d.put(fluxSecretItem(obj, "Cert Secret", fieldSpec, "certSecretRef"))
 	},
 }
@@ -205,19 +205,19 @@ var providersSpec = &fluxSpec{
 // the same fields.
 var receiversSpec = &fluxSpec{
 	group: fluxNotification, resource: "receivers", kind: "Receiver", title: "Receivers",
-	version: "v1", fallback: []string{"v1beta2"}, section: FluxSectionNotifications,
+	version: "v1", fallback: []string{fluxV1beta2}, section: FluxSectionNotifications,
 	suspend: true, reconcile: true,
 	columns: []fluxColumn{
-		{Column: model.Column{ID: idType, Title: "Type", Type: model.ColumnText, Width: 110}, cell: fluxTextCell("", fieldSpec, idType), field: true},
+		{Column: model.Column{ID: idType, Title: titleType, Type: model.ColumnText, Width: 110}, cell: fluxTextCell("", fieldSpec, idType), field: true},
 		{Column: model.Column{ID: "resources", Title: "Resources", Type: model.ColumnNumber, Width: 90}, cell: func(obj *unstructured.Unstructured) model.Cell {
 			n := int64(len(model.NestedSlice(obj, fieldSpec, "resources")))
 			return model.Cell{Text: strconv.FormatInt(n, 10), Num: n}
 		}},
 	},
 	properties: func(obj *unstructured.Unstructured, d *detailItems) {
-		d.add("Type", model.NestedString(obj, fieldSpec, idType))
+		d.add(titleType, model.NestedString(obj, fieldSpec, idType))
 		d.add("Events", strings.Join(model.NestedStrings(obj, fieldSpec, "events"), ", "))
 		d.put(model.ChipsItem("Resources", eventSourceChips(obj, model.NestedSlice(obj, fieldSpec, "resources"))))
-		d.put(fluxSecretItem(obj, "Secret", fieldSpec, "secretRef"))
+		d.put(fluxSecretItem(obj, titleSecret, fieldSpec, "secretRef"))
 	},
 }

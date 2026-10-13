@@ -26,6 +26,22 @@ const (
 	fluxNotification = "notification.toolkit.fluxcd.io"
 )
 
+// fluxV1beta2 is the version most Flux kinds served before their v1 (and still read the same).
+const fluxV1beta2 = "v1beta2"
+
+// Titles, Kinds and texts the Flux profiles share.
+const (
+	titleURL      = "URL"
+	titleSource   = "Source"
+	titleSecret   = "Secret"
+	titleChart    = "Chart"
+	kindHelmChart = "HelmChart"
+	kindConfigMap = "ConfigMap"
+	kindSecret    = "Secret"
+	keyConfigMaps = "configmaps"
+	textFalse     = "false"
+)
+
 // The Flux section's sub-groups in the navigator, as captured (2026-10-11).
 const (
 	FluxSectionImages        = "Image Automation"
@@ -57,7 +73,7 @@ var FluxStates = []FluxState{FluxReady, FluxNotReady, FluxReconciling, FluxSuspe
 
 // fluxStateTexts are the states as the Status column writes them.
 var fluxStateTexts = map[FluxState]string{
-	FluxReady: "Ready", FluxNotReady: "Not Ready", FluxReconciling: "Reconciling", FluxSuspended: "Suspended", FluxUnknown: textUnknown,
+	FluxReady: "Ready", FluxNotReady: "Not Ready", FluxReconciling: fluxCondReconciling, FluxSuspended: "Suspended", FluxUnknown: textUnknown,
 }
 
 // fluxStateTokens colour the states: a suspended object is grey, as a stopped container is.
@@ -168,11 +184,11 @@ func fluxRefKey(kind string) string {
 		}
 	}
 	switch kind {
-	case "HelmChart":
+	case kindHelmChart:
 		return "helmcharts." + fluxSource
-	case "ConfigMap":
-		return "configmaps"
-	case "Secret":
+	case kindConfigMap:
+		return keyConfigMaps
+	case kindSecret:
 		return keySecrets
 	}
 	return ""
@@ -406,7 +422,7 @@ func fluxSuspendedText(obj any) string {
 	if IsFluxSuspended(obj) {
 		return textTrue
 	}
-	return "false"
+	return textFalse
 }
 
 // fluxRef reads a Flux object reference (a sourceRef, a chartRef, a providerRef) at the path:
@@ -500,7 +516,7 @@ func fluxBool(obj any, fields ...string) string {
 	case v:
 		return textTrue
 	}
-	return "false"
+	return textFalse
 }
 
 // fluxURL is a URL with any user information in it masked: a source's URL may carry a token

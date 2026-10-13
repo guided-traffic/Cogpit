@@ -237,6 +237,13 @@ func TestFluxActionsApply(t *testing.T) {
 	if want := []string{"flux.reconcile", "flux.resume", "flux.suspend", "object.edit", "object.delete"}; !slices.Equal(ids, want) {
 		t.Errorf("row menu %v, want %v", ids, want)
 	}
+	// Only Reconcile takes force (Helm releases).
+	for id, want := range map[string]bool{"flux.reconcile": true, "flux.reconcileMany": true, "flux.suspend": false, "flux.resume": false, "flux.suspendMany": false, "flux.resumeMany": false} {
+		cmd, _ := reg.Get(id)
+		if got := cmd.Schema.Properties["force"] != nil; got != want {
+			t.Errorf("%s takes force: %v", id, got)
+		}
+	}
 	h.s.Backend().Access = denyAccess{"patch kustomizations flux-system": true}
 	if got := state("flux.reconcile", ksRef("apps")); !strings.Contains(got, "not permitted") || !strings.Contains(got, "patch") {
 		t.Errorf("denied: %s", got)
