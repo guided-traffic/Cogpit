@@ -1207,6 +1207,23 @@ version moves them, a deleted definition leaves a view whose snapshot says the c
 serves the kind. A custom kind costs one watch when opened, like any kind
 (`TestBudgetCustomResourceView`); the cache holds the definitions in full, schemas included.
 
+**Namespaced watches** (built 2026-10-13, night run, G3; [`cache/nsscope.go`](../../internal/cache/nsscope.go)).
+`Cache.AcquireNamespaces(scope, namespaces)` reads one scope in several namespaces: one scope per
+namespace (`Scope.Namespace` set), each acquired as any scope is (an informer and a watch of its
+own, shared and reference-counted with every other consumer of that namespace's scope, warm on its
+own), merged into one `Handle`: `List` concatenates, `ListNamespace` and `Get` read the
+namespace's scope, `Subscribe` delivers every namespace's events one at a time (exact per
+namespace, whose objects are disjoint), `Err` names each namespace's error ("in team-c: …"), and
+`HasSynced` holds once every namespace has listed or been refused, so that a refused namespace
+does not hold the others back (`TestNamespacedScopesSharedAndReleased`,
+`TestMergedHandleWithARefusedNamespace`, `TestConcurrentNamespacedHandles` with the race
+detector). `cache.Pending(scope)` is a handle that holds nothing and never syncs, for a consumer
+whose scope is not decided yet. **A refused scope is not kept warm**: a scope whose last list or
+watch the API server answered 403 Forbidden stops when its last handle is released, and a warm one
+stops when the refusal arrives, instead of retrying with client-go's backoff for the warm period
+(`TestRefusedScopeIsNotKeptWarm`; a scope a handle holds keeps retrying and shows the error, as
+before). Which namespaces the engine reads a kind in is §5's next paragraph.
+
 **Not across restarts** (decided, [D-13](decisions.md#d-13-cache)). The cache lives in memory
 only. Persisting it to disk would make start-up faster but would show stale state and put cluster
 data, Secrets included, at rest on the disk.

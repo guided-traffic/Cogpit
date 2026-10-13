@@ -227,6 +227,11 @@ type runner struct {
 	cancel context.CancelFunc
 	done   chan struct{} // closed when the informer's goroutine has returned
 	log    *slog.Logger
+	c      *Cache
+
+	// owner is the unselected scope's entry the runner serves; nil for a label-selected scope's own
+	// informer. A refused list or watch ends it while it is only warm (nsscope.go).
+	owner atomic.Pointer[entry]
 
 	// users counts what keeps the informer running: the unselected scope's entry, and every view
 	// reading from it (or waiting to). Guarded by Cache.mu; the informer stops at zero.
@@ -278,6 +283,7 @@ func (c *Cache) newEntry(scope Scope) *entry {
 		return e
 	}
 	e.run = c.startRunner(scope, e.dispatch)
+	e.run.owner.Store(e)
 	e.run.users++
 	c.coverStarted(e)
 	return e
@@ -286,7 +292,7 @@ func (c *Cache) newEntry(scope Scope) *entry {
 // startRunner creates and runs an informer for scope; dispatch, when given, receives its events.
 // Called with c.mu held.
 func (c *Cache) startRunner(scope Scope, dispatch func(EventType, any)) *runner {
-	r := &runner{scope: scope, done: make(chan struct{}), log: c.log.With("scope", scope.String())}
+	r := &runner{scope: scope, done: make(chan struct{}), log: c.log.With("scope", scope.String()), c: c}
 	lw := &trackedLW{r: r, inner: c.listerWatcher(r, scope)}
 	inf := toolscache.NewSharedIndexInformerWithOptions(lw, &unstructured.Unstructured{}, toolscache.SharedIndexInformerOptions{
 		ResyncPeriod:      0, // no periodic resyncs: only watch events after the initial list
@@ -367,6 +373,10 @@ func (c *Cache) release(e *entry) {
 	defer c.mu.Unlock()
 	e.refs--
 	if e.refs > 0 || c.closed {
+		return
+	}
+	if e.run != nil && isRefused(e.run.err()) { // a refused scope is not kept warm (nsscope.go)
+		c.retire(e)
 		return
 	}
 	e.warmGen++
@@ -600,6 +610,7 @@ func (r *runner) watchError(err error) {
 	}
 	r.setErr(err)
 	r.log.Warn("cache: list or watch failed; retrying", "err", err)
+	r.refusedIf(err)
 }
 
 // stripManagedFields is the informer transform: managedFields are large and only the editor's
@@ -678,6 +689,7 @@ func (t *trackedLW) observe(ctx context.Context, err error) {
 	case ctx.Err() != nil:
 	case err != nil:
 		t.r.setErr(err)
+		t.r.refusedIf(err)
 	default:
 		t.r.clearErr()
 	}
@@ -706,6 +718,7 @@ type Handle struct {
 	c        *Cache
 	parts    []*Handle // a joined handle's parts (join.go); nil for a handle on one scope
 	released atomic.Bool
+	set      *nsSet // a scope read in several namespaces, one informer each (nsscope.go); nil otherwise
 }
 
 // Scope returns the handle's scope.
@@ -719,6 +732,8 @@ func (h *Handle) HasSynced() bool {
 	switch {
 	case h.parts != nil:
 		return h.joinedSynced()
+	case h.set != nil:
+		return h.set.synced()
 	case h.e == nil:
 		return false
 	case h.e.view != nil:
@@ -730,7 +745,7 @@ func (h *Handle) HasSynced() bool {
 // WaitForSync blocks until the informer has synced (HasSynced) or ctx ends; it reports whether
 // it synced.
 func (h *Handle) WaitForSync(ctx context.Context) bool {
-	if h.e == nil && h.parts == nil {
+	if h.e == nil && h.parts == nil && h.set == nil {
 		<-ctx.Done()
 		return false
 	}
@@ -756,6 +771,8 @@ func (h *Handle) List() []*unstructured.Unstructured {
 	switch {
 	case h.parts != nil:
 		return h.joinedList("", true)
+	case h.set != nil:
+		return h.set.list()
 	case h.e == nil:
 		return nil
 	case h.e.view != nil:
@@ -771,6 +788,8 @@ func (h *Handle) ListNamespace(namespace string) []*unstructured.Unstructured {
 	switch {
 	case h.parts != nil:
 		return h.joinedList(namespace, false)
+	case h.set != nil:
+		return h.set.listNamespace(namespace)
 	case h.e == nil:
 		return nil
 	case h.e.view != nil:
@@ -797,6 +816,8 @@ func toUnstructured(items []any) []*unstructured.Unstructured {
 func (h *Handle) Get(namespace, name string) (*unstructured.Unstructured, bool) {
 	if h.parts != nil {
 		return h.joinedGet(namespace, name)
+	if h.set != nil {
+		return h.set.get(namespace, name)
 	}
 	if h.e == nil {
 		return nil, false
@@ -828,6 +849,8 @@ func objectKey(namespace, name string) string {
 func (h *Handle) Subscribe(fn func(Event)) (cancel func()) {
 	if h.parts != nil && fn != nil {
 		return h.joinedSubscribe(fn)
+	if h.set != nil && fn != nil {
+		return h.set.subscribe(fn)
 	}
 	if h.e == nil || fn == nil {
 		return func() {}
@@ -842,6 +865,8 @@ func (h *Handle) Err() error {
 	switch {
 	case h.parts != nil:
 		return h.joinedErr()
+	case h.set != nil:
+		return h.set.err()
 	case h.e == nil:
 		return nil
 	case h.e.view != nil:
@@ -857,7 +882,11 @@ func (h *Handle) Release() {
 		h.joinedRelease()
 		return
 	}
-	if h.e == nil || !h.released.CompareAndSwap(false, true) {
+	if (h.e == nil && h.set == nil) || !h.released.CompareAndSwap(false, true) {
+		return
+	}
+	if h.set != nil {
+		h.set.release()
 		return
 	}
 	h.c.release(h.e)
