@@ -276,7 +276,8 @@ type dataSet struct {
 }
 
 type flight struct {
-	done chan struct{}
+	done      chan struct{}
+	cancelled atomic.Bool // its loop was cancelled before it answered (fetch)
 }
 
 func podKey(namespace, name string) string { return namespace + "/" + name }
@@ -894,15 +895,24 @@ func (h *Hub) worstLocked() State {
 func (h *Hub) fetch(ctx context.Context, sc Scope, object bool) State {
 	h.mu.Lock()
 	st := h.scopeLocked(sc)
-	if f := st.inflight; f != nil {
+	for st.inflight != nil {
+		f := st.inflight
 		h.mu.Unlock()
 		select {
 		case <-f.done:
 		case <-ctx.Done():
 		}
 		h.mu.Lock()
-		defer h.mu.Unlock()
-		return st.state
+		// A fetch of a loop that was cancelled meanwhile (its last subscriber left and a new one
+		// came at once: a view started again with its namespace plan) answered nothing: fetch
+		// again rather than wait a whole interval with no values (review 2026-10-13).
+		if ctx.Err() != nil || !f.cancelled.Load() {
+			defer h.mu.Unlock()
+			return st.state
+		}
+		if st.inflight == f {
+			st.inflight = nil
+		}
 	}
 	f := &flight{done: make(chan struct{})}
 	st.inflight = f
@@ -927,6 +937,7 @@ func (h *Hub) fetch(ctx context.Context, sc Scope, object bool) State {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	st.inflight = nil
+	f.cancelled.Store(ctx.Err() != nil)
 	close(f.done)
 	h.gen.Add(1)
 	h.pruneLocked()
