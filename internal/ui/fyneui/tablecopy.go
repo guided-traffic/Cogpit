@@ -8,20 +8,27 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/theme"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // Copying the text of a list's cells (D-25, the owner's addition of 2026-10-13): names in Pods,
 // Deployments and every other view are copyable with the drawer's copy icon on hover, with the same
 // checkmark after a copy. As in the drawer it is a GUI behaviour and no command (TestCopyHasNoCommand).
 //
+// The owner's feedback after seeing it (2026-10-13): not every cell ("a name, an IP, a node name,
+// a message in the Events is great; but no Age, no CPU, no Memory, no Restarts"), by a blacklist,
+// so that a custom resource's columns need no marking and keep the icon unless blacklisted
+// (copyColumn); and the icon right after the text, not at the column's end.
+//
 // Cogpit's defaults (the lead's proposals, not the owner's decision, 2026-10-13):
-//   - every cell that shows text has the icon, not only the Name column's; a cell that shows no
-//     text has none: the checkbox, the ⋮, the warning triangle, a pod's container squares, an
-//     empty cell and the placeholders "-", "–", "—" and "<none>";
-//   - the icon sits at the right end of the cell, inside it and centred on the row, so that it
-//     never covers the next column; a text that reaches the icon is shortened with "…" before it
-//     while the icon is there, rather than running under it and looking whole (the tooltip of a
-//     cut-off cell shows the whole text);
+//   - a cell that shows no text has none: the checkbox, the ⋮, the warning triangle, a pod's
+//     container squares, an empty cell and the placeholders "-", "–", "—" and "<none>";
+//   - the icon sits a padding after the text, centred on the row, and at the cell's right end
+//     when the text reaches it, always inside the cell, so that it never covers the next column;
+//     a text that reaches the icon is shortened with "…" before it while the icon is there,
+//     rather than running under it and looking whole (the tooltip of a cut-off cell shows the
+//     whole text);
 //   - a click on it copies the cell's full text, not the text shortened with "…", shows the
 //     checkmark and the drawer's toast, and neither selects the row, toggles its checkbox nor
 //     opens the drawer: the icon is a widget above the table, so the click never reaches the cell;
@@ -35,6 +42,68 @@ import (
 // a pointer move inside the table shows it while the pointer is inside that cell and hides it in
 // the gaps and over the header, where Fyne reports no cell.
 
+// The columns without the copy icon: a blacklist (the owner, 2026-10-13), so that every other
+// column, a custom resource's printer columns included, keeps it. The owner's principle, with his
+// four examples Age, CPU, Memory and Restarts: identifiers and free text keep the icon (names,
+// namespaces, IPs, hosts, ports, images, node names, labels, selectors, messages, reasons, URLs,
+// versions, types); numbers, times, durations, counts, ratios, booleans and short state words do
+// not. The lists below are Cogpit's reading of it for the built-in kinds (D-25 names every id),
+// one place to edit.
+
+// noCopyTypes are the column types without the icon, whatever the column. A custom resource's
+// printer columns map to them by their type: integer and number to ColumnNumber, date to
+// ColumnAge; string and boolean are text (kinds/customresources.go, compilePrinterColumn).
+var noCopyTypes = map[model.ColumnType]bool{
+	model.ColumnNumber:  true, // Restarts, Count, Replicas, a workload's Pods "3/3", Size, Revision
+	model.ColumnAge:     true, // Age, Last Schedule, Updated
+	model.ColumnUntil:   true, // a Cron Job's Next Execution
+	model.ColumnMetric:  true, // CPU, Memory
+	model.ColumnWarning: true, // the warning triangle
+}
+
+// noCopyColumns are the text columns without the icon, by column id, in every view (a custom
+// resource's printer column of the same id too: its id is its name in lowerCamelCase).
+var noCopyColumns = map[string]bool{
+	// Short state words.
+	columnStatus: true, // Pods, Services, PVCs, PVs, Namespaces, HPAs, Port Forwards, Helm releases, VPAs, Applications
+	"conditions": true, // Nodes, Deployments, Jobs
+	"state":      true, // Resource Claims
+	"phase":      true, // custom resources
+	"qos":        true, // Pods
+	"mode":       true, // VPAs: the update mode
+	// Booleans.
+	"suspend":       true, // Cron Jobs
+	"default":       true, // Ingress Classes
+	"globalDefault": true, // Priority Classes
+	"privileged":    true, // Pod Security Policies
+	// Counts, ratios and durations in text form.
+	"ready":          true, // "1/1"
+	"desired":        true,
+	"current":        true,
+	"upToDate":       true,
+	"available":      true,
+	"completions":    true,
+	"duration":       true,
+	"minAvailable":   true, // Pod Disruption Budgets: a count or a percentage
+	"maxUnavailable": true, // Pod Disruption Budgets
+	"metrics":        true, // HPAs: current against target, "cpu 12% / 80%"
+	// Policy and mode words of a fixed vocabulary.
+	"failurePolicy":      true, // admission policies: Fail, Ignore
+	"reinvocationPolicy": true, // mutating admission policies: Never, IfNeeded
+	"reclaimPolicy":      true, // Storage Classes: Delete, Retain
+	"volumeBindingMode":  true, // Storage Classes: Immediate, WaitForFirstConsumer
+	"validationActions":  true, // validating admission policy bindings: Deny, Warn, Audit
+	"policyTypes":        true, // Network Policies: Ingress, Egress
+	"scope":              true, // Definitions, Ingress Classes: Namespaced, Cluster
+	"protocol":           true, // Port Forwards: TCP
+}
+
+// columnStatus is the id of the Status column of many kinds.
+const columnStatus = "status"
+
+// copyColumn reports whether a column's cells have the copy icon.
+func copyColumn(c model.Column) bool { return !noCopyTypes[c.Type] && !noCopyColumns[c.ID] }
+
 // tableCopy is a list's copy icon and the cell it is for.
 type tableCopy struct {
 	tv    *tableView
@@ -45,6 +114,7 @@ type tableCopy struct {
 	row, col int           // the cell's row and column when it got the icon
 	on       bool          // the icon is placed for cell: the pointer inside lo–hi shows it
 	lo, hi   fyne.Position // the cell's visible part, in window coordinates
+	text     string        // the cell's text when the icon was placed after it
 	stale    bool          // the cells moved under a pointer that did not: the next move looks again
 	done     *time.Timer   // the checkmark's
 }
@@ -65,8 +135,18 @@ func (tc *tableCopy) rowMenu(e *fyne.PointEvent) {
 	}
 }
 
-// copyText is what the copy icon copies from a cell: its full text, or "" for a cell that shows
-// no text.
+// textOf is what the copy icon copies from a cell: its full text, or "" for a cell without the
+// icon (a blacklisted column, no text).
+func (tc *tableCopy) textOf(c *tableCell) string {
+	tv := tc.tv
+	vis, ok := tv.dataColumn(c.col)
+	if !ok || tv.snap == nil || !copyColumn(tv.snap.Columns[tv.cols[vis]]) {
+		return ""
+	}
+	return c.copyText()
+}
+
+// copyText is a cell's full text, or "" for a cell that shows no text.
 func (c *tableCell) copyText() string {
 	if c.content.kind != cellText || c.content.marks != nil {
 		return ""
@@ -122,12 +202,12 @@ func (tc *tableCopy) show(on bool) {
 	}
 }
 
-// place puts the icon at the right end of its cell's visible part, centred on the row, and shows
-// it while the pointer is inside that part; a cell without text, or with too little of it in
-// view, hides it.
+// place puts the icon a padding after its cell's text, centred on the row, or at the right end of
+// the cell's visible part when the text reaches it, and shows it while the pointer is inside that
+// part; a cell without the icon, or with too little of it in view, hides it.
 func (tc *tableCopy) place() {
 	c, tv := tc.cell, tc.tv
-	if c == nil || !tv.pointerIn || !c.Visible() || c.copyText() == "" {
+	if c == nil || !tv.pointerIn || !c.Visible() || tc.textOf(c) == "" {
 		tc.hide()
 		return
 	}
@@ -143,12 +223,21 @@ func (tc *tableCopy) place() {
 		tc.hide()
 		return
 	}
-	tc.lo, tc.hi, tc.on, tc.stale = lo, hi, true, false
-	// The text ends a padding before the icon; it has the cell padding at its right end already.
+	tc.lo, tc.hi, tc.on, tc.stale, tc.text = lo, hi, true, false, c.full
+	// Right after the whole text, a padding away. A text that leaves no room for the icon puts it
+	// at the cell's end, and is shortened to end a padding before it: the text has the cell
+	// padding at its right end already, so the room it gives up is the rest.
 	th := c.Theme()
-	tc.room(c, max(0, at.X+sz.Width-(hi.X-side)+th.Size(theme.SizeNamePadding)-th.Size(sizeCellPadding)))
+	pad, gap := th.Size(sizeCellPadding), th.Size(theme.SizeNamePadding)
+	x := max(at.X+pad+fyne.MeasureText(c.full, c.text.TextSize, c.text.TextStyle).Width+gap, lo.X)
+	room := float32(0)
+	if x+side > hi.X {
+		x = hi.X - side
+		room = max(0, at.X+sz.Width-x+gap-pad)
+	}
+	tc.room(c, room)
 	y := min(max(at.Y+(sz.Height-side)/2, lo.Y), hi.Y-side)
-	tc.btn.Move(fyne.NewPos(hi.X-side, y).Subtract(drv.AbsolutePositionForObject(tc.layer)))
+	tc.btn.Move(fyne.NewPos(x, y).Subtract(drv.AbsolutePositionForObject(tc.layer)))
 	tc.btn.Resize(fyne.NewSquareSize(side))
 	tc.show(tc.inside(tv.pointer))
 }
@@ -198,20 +287,22 @@ func (tc *tableCopy) moving() {
 }
 
 // updated follows a cell the table filled (updateCell). The icon's cell keeps it with new text (a
-// watch event, an age that advanced: the icon copies the text the cell shows when clicked) and
-// loses it without text; a cell the table gave to another row or column moved away from the
-// pointer. O(1): nothing but a comparison for every other cell.
+// watch event: the icon moves to the new text's end and copies the text the cell shows when
+// clicked) and loses it without text; a cell the table gave to another row or column moved away
+// from the pointer. O(1) for every other cell: a comparison.
 func (tc *tableCopy) updated(c *tableCell) {
 	if c != tc.cell {
 		return
 	}
 	switch {
-	case c.row != tc.row || c.col != tc.col, c.copyText() == "":
+	case c.row != tc.row || c.col != tc.col:
 		if tc.on || tc.btn.Visible() {
 			tc.hide()
 			tc.stale = tc.tv.pointerIn
 		}
-	case !tc.on && tc.tv.pointerIn && tc.tv.hoverRow == c.row && tc.tv.hoverCol == c.col:
+	case tc.on && c.full != tc.text:
+		tc.place() // another text, or none: after its end, or hidden
+	case !tc.on && tc.tv.pointerIn && tc.tv.hoverRow == c.row && tc.tv.hoverCol == c.col && tc.textOf(c) != "":
 		tc.stale = true // the cell under the pointer got text: the next move shows the icon
 	}
 }
@@ -242,7 +333,7 @@ func (tc *tableCopy) copyCell() {
 		tc.hide() // the cells moved under the icon (Fyne's own scroll, as its keys do): not its cell
 		return
 	}
-	text := c.copyText()
+	text := tc.textOf(c)
 	if text == "" {
 		return
 	}

@@ -9,15 +9,18 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
 // Copying the text of a list's cells with the drawer's copy icon (D-25, owner 2026-10-13): one
-// icon per table, at the right end of the text cell under the pointer, copying the full text with
-// the drawer's checkmark, never selecting the row.
+// icon per table, right after the text of the cell under the pointer, in every column but the
+// blacklisted ones, copying the full text with the drawer's checkmark, never selecting the row.
 
 // listScene is a settled list of the kinds fixture.
 func listScene(t *testing.T, view string, mode ThemeMode) (*shell, fyne.Window, *mainQueue, *fakeEngine) {
@@ -49,9 +52,10 @@ func hoverOver(w fyne.Window, q *mainQueue, p fyne.Position) {
 	q.drain()
 }
 
-// checkIconInCell fails unless the list's copy icon shows inside the cell, at its right end and
-// centred on the row.
-func checkIconInCell(t *testing.T, sh *shell, c *tableCell) {
+// checkIconInCell fails unless the list's copy icon shows inside the cell, centred on the row, a
+// padding after the cell's whole text, or at the cell's right end when the text leaves no room
+// (atEnd), with the text then shortened before it.
+func checkIconInCell(t *testing.T, sh *shell, c *tableCell) (atEnd bool) {
 	t.Helper()
 	btn := sh.view.copyIcon.btn
 	if !btn.Visible() {
@@ -62,25 +66,51 @@ func checkIconInCell(t *testing.T, sh *shell, c *tableCell) {
 	if b0.X < c0.X-0.5 || b1.X > c1.X+0.5 || b0.Y < c0.Y-0.5 || b1.Y > c1.Y+0.5 {
 		t.Errorf("the icon %v–%v lies outside its cell %v–%v", b0, b1, c0, c1)
 	}
-	if d := c1.X - b1.X; d < -0.5 || d > 0.5 {
-		t.Errorf("the icon ends %v before the cell's right end", d)
-	}
 	if d := (b0.Y + b1.Y - c0.Y - c1.Y) / 2; d < -0.5 || d > 0.5 {
 		t.Errorf("the icon is %v off the row's middle", d)
 	}
-	if b1.X-b0.X < 12 {
-		t.Errorf("the icon is %v wide", b1.X-b0.X)
+	side := b1.X - b0.X
+	if side < 12 {
+		t.Errorf("the icon is %v wide", side)
 	}
-	// The text stops before the icon: shortened with "…" if it reached it.
+	th := c.Theme()
+	want := c0.X + th.Size(sizeCellPadding) + fyne.MeasureText(c.full, c.text.TextSize, c.text.TextStyle).Width + th.Size(theme.SizeNamePadding)
+	if want+side > c1.X {
+		want, atEnd = c1.X-side, true
+	}
+	if d := b0.X - want; d < -0.5 || d > 0.5 {
+		t.Errorf("the icon of %q starts at %v, want %v (at the cell's end: %v)", c.full, b0.X, want, atEnd)
+	}
+	// The text stops before the icon: whole when the icon follows it, else shortened with "…".
 	if c.content.parts == nil && c.text.Text != "" {
-		if end := c0.X + c.text.Position().X + c.text.Size().Width; end > b0.X+0.5 {
+		// Measured, not the text object's size, which follows a new text only at the next layout.
+		if end := c0.X + c.text.Position().X + fyne.MeasureText(c.text.Text, c.text.TextSize, c.text.TextStyle).Width; end > b0.X+0.5 {
 			t.Errorf("the text %q runs under the icon: it ends at %v, the icon starts at %v", c.text.Text, end, b0.X)
 		}
+		if !atEnd && c.text.Text != c.full {
+			t.Errorf("the icon follows the text but the text is shortened to %q", c.text.Text)
+		}
 	}
+	return atEnd
 }
 
-// TestListCopyIconOnHover: the pointer over a Name cell shows the icon at the cell's right end;
-// over the checkbox, the warning triangle, the container squares, the ⋮ and the header none.
+// textCellOf returns a visible cell of the open view's column id that shows text worth copying
+// (no placeholder): the column decides whether it has the icon.
+func textCellOf(t *testing.T, sh *shell, id string) *tableCell {
+	t.Helper()
+	col := columnOf(t, sh, id)
+	for _, c := range findAll[*tableCell](sh.view.table) {
+		if c.Visible() && c.col == col && c.row >= 0 && c.copyText() != "" {
+			return c
+		}
+	}
+	t.Fatalf("no cell with text in the %s column", id)
+	return nil
+}
+
+// TestListCopyIconOnHover: the pointer over a cut-off Name cell shows the icon at the cell's right
+// end, the name shortened before it; over the checkbox, the warning triangle, the container
+// squares, the ⋮, the gaps and the header none.
 func TestListCopyIconOnHover(t *testing.T) {
 	sh, w, q, f := listScene(t, "pods", ThemeDark)
 	btn := sh.view.copyIcon.btn
@@ -90,16 +120,21 @@ func TestListCopyIconOnHover(t *testing.T) {
 	crash := rowOf(t, f, "pods", podNamed(t, podCrashLoop).name)
 	name := cellAt(t, sh, crash, columnOf(t, sh, "name"))
 	hoverOver(w, q, middleOf(name))
-	checkIconInCell(t, sh, name)
+	if !checkIconInCell(t, sh, name) {
+		t.Errorf("the cut-off name %q has its icon before the cell's end", name.full)
+	}
 	if sh.view.hoverRow != crash {
 		t.Errorf("the row band is on row %d, want %d", sh.view.hoverRow, crash)
 	}
 
-	// Every other text column has it too; the next column is never covered.
-	for _, id := range []string{"namespace", "node", "status", "age"} {
+	// The other identifier columns have it too: after a short text, at the end of a narrow column
+	// (Node, 104 points) when the text leaves no room.
+	for _, id := range []string{"namespace", "node", "controlledBy"} {
 		c := cellAt(t, sh, crash, columnOf(t, sh, id))
 		hoverOver(w, q, middleOf(c))
-		checkIconInCell(t, sh, c)
+		if checkIconInCell(t, sh, c) && id == "namespace" {
+			t.Errorf("the icon of the namespace %q is at the cell's end, not after the text", c.full)
+		}
 	}
 
 	// No text, no icon.
@@ -140,6 +175,191 @@ func TestListCopyIconOnHover(t *testing.T) {
 	// Without the icon the name has its whole cell again.
 	if name.room != 0 || len(name.text.Text) <= len(shown) {
 		t.Errorf("the name shows %q without the icon, %q with it (room %v)", name.text.Text, shown, name.room)
+	}
+}
+
+// TestListCopyIconAfterTheText: the owner's feedback (2026-10-13): in a wide Name column the icon
+// sits right after the name, not at the column's far end; the name stays whole.
+func TestListCopyIconAfterTheText(t *testing.T) {
+	sh, w, q, _ := listScene(t, "nodes", ThemeDark)
+	name := textCellOf(t, sh, "name")
+	hoverOver(w, q, middleOf(name))
+	if checkIconInCell(t, sh, name) {
+		t.Fatalf("the icon of the node %q is at the cell's end", name.full)
+	}
+	b0, b1 := absRect(sh.view.copyIcon.btn)
+	_, c1 := absRect(name)
+	if c1.X-b1.X < 100 {
+		t.Errorf("the icon ends %v before the column's end, want it right after the name in a wide column", c1.X-b1.X)
+	}
+	c0, _ := absRect(name)
+	if text := fyne.MeasureText(name.full, name.text.TextSize, name.text.TextStyle).Width; b0.X-(c0.X+name.text.Position().X+text) > 8 {
+		t.Errorf("the icon starts %v after the name's end", b0.X-(c0.X+name.text.Position().X+text))
+	}
+}
+
+// withUsage gives every pod of the fixture a CPU and a Memory value, so that the columns' rule,
+// not an empty cell, decides about their icon.
+func withUsage(t *testing.T, f *fakeEngine) {
+	t.Helper()
+	snap := f.tables["pods"]
+	cpu, mem := -1, -1
+	for i, c := range snap.Columns {
+		switch c.ID {
+		case model.ColumnCPU:
+			cpu = i
+		case model.ColumnMemory:
+			mem = i
+		}
+	}
+	if cpu < 0 || mem < 0 {
+		t.Fatal("the pods have no CPU or Memory column")
+	}
+	for i := range snap.Rows {
+		cells := append([]model.Cell(nil), snap.Rows[i].Cells...)
+		for len(cells) <= max(cpu, mem) {
+			cells = append(cells, model.Cell{})
+		}
+		cells[cpu], cells[mem] = model.Cell{Text: "0.012", Num: 12}, model.Cell{Text: "19.5MiB", Num: 20447232}
+		snap.Rows[i].Cells = cells
+	}
+}
+
+// fixtureServiceObjects are three Services with cluster IPs.
+func fixtureServiceObjects() []*unstructured.Unstructured {
+	var out []*unstructured.Unstructured
+	for i, s := range []struct{ ns, name, ip string }{
+		{"checkout", "checkout-api", "10.96.12.34"}, {"payments", "payments-worker", "10.96.40.7"}, {"storefront", "web-frontend", "10.96.200.11"},
+	} {
+		out = append(out, &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "v1", "kind": "Service",
+			"metadata": map[string]any{"name": s.name, "namespace": s.ns, "uid": "uid-svc-" + s.name, "creationTimestamp": ts(time.Duration(2+i) * 24 * time.Hour)},
+			"spec": map[string]any{"type": "ClusterIP", "clusterIP": s.ip, "selector": map[string]any{"app": s.name},
+				"ports": []any{map[string]any{"name": "http", "port": int64(80), "targetPort": int64(8080), "protocol": "TCP"}}},
+		}})
+	}
+	return out
+}
+
+// backupKind is a custom resource kind with an integer, a string and a date printer column.
+var backupKind = kinds.CustomKind{
+	Group: "example.com", Version: "v1", Plural: "backups", Kind: "Backup", Namespaced: true,
+	Columns: []kinds.PrinterColumn{
+		{Name: "Replicas", Type: "integer", JSONPath: ".spec.replicas"},
+		{Name: "Host", Type: "string", JSONPath: ".spec.host"},
+		{Name: "Ready", Type: "string", JSONPath: ".status.ready"},
+		{Name: "Last Backup", Type: "date", JSONPath: ".status.lastBackup"},
+	},
+}
+
+// backupsFake is the kinds fixture with the Backups view open: three Backups.
+func backupsFake(t *testing.T) *fakeEngine {
+	t.Helper()
+	f := kindsFake(t, backupKind.Key())
+	p := backupKind.Profile()
+	f.kinds = append(f.kinds, kindInfo{Kind: p.Key, Title: p.Title, APIKind: p.Kind, Group: backupKind.Group, Version: backupKind.Version, Namespaced: true})
+	var rows []model.Row
+	for i, host := range []string{"db-0.backups.example.com", "db-1.backups.example.com", "db-2.backups.example.com"} {
+		o := &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "example.com/v1", "kind": "Backup",
+			"metadata": map[string]any{"name": "nightly-" + string(rune('a'+i)), "namespace": "data-pipeline", "uid": "uid-backup-" + host, "creationTimestamp": ts(72 * time.Hour)},
+			"spec":     map[string]any{"replicas": int64(3 + i), "host": host},
+			"status":   map[string]any{"ready": "True", "lastBackup": ts(time.Duration(1+i) * time.Hour)},
+		}}
+		rows = append(rows, model.BuildRowWith(p, "demo", o, nil))
+	}
+	f.tables[p.Key] = &engine.TableSnapshot{
+		View: p.Key, Context: "demo", Title: p.Title, Namespaced: true, Columns: p.Columns, Rows: rows,
+		Sort: engine.SortSpec{Column: "name"}, Total: len(rows), Revision: 1, Synced: true,
+	}
+	return f
+}
+
+// TestListCopyIconByColumn: the owner's feedback (2026-10-13): a name, an IP, a node name, an
+// Event's message have the icon; Age, CPU, Memory, Restarts and the other blacklisted columns do
+// not, though their cells show text. A custom resource's integer and date printer columns have
+// none, its string column has one.
+func TestListCopyIconByColumn(t *testing.T) {
+	for _, sc := range []struct {
+		view      string
+		fake      func(*testing.T) *fakeEngine
+		with, not []string
+	}{
+		{"pods", func(t *testing.T) *fakeEngine { f := kindsFake(t, "pods"); withUsage(t, f); return f },
+			[]string{"name", "namespace", "node", "controlledBy"}, []string{"age", "cpu", "memory", "restarts", "status", "qos"}},
+		{"services", func(t *testing.T) *fakeEngine {
+			f := kindsFake(t, "services")
+			f.tables["services"] = kindSnapshot(t, "services", fixtureServiceObjects())
+			return f
+		}, []string{"name", "clusterIP", "ports", "selector", "type"}, []string{"age"}},
+		{"events", func(t *testing.T) *fakeEngine { return kindsFake(t, "events") },
+			[]string{"message", "involvedObject", "source", "type"}, []string{"count", "lastSeen"}},
+		{"nodes", func(t *testing.T) *fakeEngine { return kindsFake(t, "nodes") },
+			[]string{"name", "roles", "version"}, []string{"age", "conditions", "taints"}},
+		{backupKind.Key(), backupsFake, []string{"name", "namespace", "host"}, []string{"replicas", "ready", "lastBackup"}},
+	} {
+		t.Run(sc.view, func(t *testing.T) {
+			f := sc.fake(t)
+			sh, w, q := newTestShell(t, f, Options{})
+			q.until(t, "the "+sc.view+" view", func() bool {
+				return sh.view.snap != nil && sh.view.snap.View == sc.view && sh.diag.total > 0
+			})
+			settle(w)
+			btn := sh.view.copyIcon.btn
+			for _, id := range sc.with {
+				c := textCellOf(t, sh, id)
+				hoverOver(w, q, middleOf(c))
+				checkIconInCell(t, sh, c)
+				sh.app.Clipboard().SetContent("")
+				test.Tap(btn)
+				if got := sh.app.Clipboard().Content(); got != c.full {
+					t.Errorf("the %s cell copied %q, want %q", id, got, c.full)
+				}
+			}
+			for _, id := range sc.not {
+				c := textCellOf(t, sh, id)
+				hoverOver(w, q, fyne.NewPos(20, 600))
+				hoverOver(w, q, middleOf(c))
+				if btn.Visible() {
+					t.Errorf("the %s cell %q has the copy icon", id, c.full)
+				}
+			}
+		})
+	}
+}
+
+// TestCopyColumns: the blacklist by type and by id, and a custom resource's printer columns by
+// their type (integer and number, date) and name.
+func TestCopyColumns(t *testing.T) {
+	for _, tt := range []struct {
+		col  model.Column
+		want bool
+	}{
+		{model.Column{ID: "name", Type: model.ColumnText}, true},
+		{model.Column{ID: "clusterIP", Type: model.ColumnText}, true},
+		{model.Column{ID: "message", Type: model.ColumnText}, true},
+		{model.Column{ID: "type", Type: model.ColumnText}, true},
+		{model.Column{ID: "pods", Type: model.ColumnText}, true},    // a claim's pods: their names
+		{model.Column{ID: "pods", Type: model.ColumnNumber}, false}, // a workload's "3/3"
+		{model.Column{ID: "age", Type: model.ColumnAge}, false},
+		{model.Column{ID: "restarts", Type: model.ColumnNumber}, false},
+		{model.Column{ID: model.ColumnCPU, Type: model.ColumnMetric}, false},
+		{model.Column{ID: model.ColumnMemory, Type: model.ColumnMetric}, false},
+		{model.Column{ID: "nextExecution", Type: model.ColumnUntil}, false},
+		{model.Column{ID: "warning", Type: model.ColumnWarning}, false},
+		{model.Column{ID: "status", Type: model.ColumnText}, false},
+		{model.Column{ID: "qos", Type: model.ColumnText}, false},
+		{model.Column{ID: "suspend", Type: model.ColumnText}, false},
+	} {
+		if got := copyColumn(tt.col); got != tt.want {
+			t.Errorf("copyColumn(%s, %s) = %v, want %v", tt.col.ID, tt.col.Type, got, tt.want)
+		}
+	}
+	want := map[string]bool{"name": true, "namespace": true, "replicas": false, "host": true, "ready": false, "lastBackup": false, "age": false}
+	for _, c := range backupKind.Profile().Columns {
+		if w, ok := want[c.ID]; !ok || copyColumn(c) != w {
+			t.Errorf("the Backup column %s (%s): copy %v, want %v (known %v)", c.ID, c.Type, copyColumn(c), w, ok)
+		}
 	}
 }
 
@@ -280,6 +500,7 @@ func TestListCopyIconFollowsTheCells(t *testing.T) {
 	if !btn.Visible() {
 		t.Fatal("the icon went with a watch event")
 	}
+	checkIconInCell(t, sh, name) // after the new name's end
 	sh.app.Clipboard().SetContent("")
 	test.Tap(btn)
 	if got := sh.app.Clipboard().Content(); got != "renamed-by-a-watch-event" {
@@ -344,8 +565,8 @@ func TestListCopyIconFollowsTheCells(t *testing.T) {
 }
 
 // TestSecretsListCopiesNoValue: the Secrets list holds no values. Every cell with text of every
-// column copies with the icon, a plain copy, and no copy contains a value of the fixture's
-// Secrets, decoded or base64.
+// column but Age copies with the icon, a plain copy, and no copy contains a value of the
+// fixture's Secrets, decoded or base64.
 func TestSecretsListCopiesNoValue(t *testing.T) {
 	f, _ := secretsFake(t)
 	f.ui.Selected, f.ui.Drawer = nil, nil
@@ -373,7 +594,7 @@ func TestSecretsListCopiesNoValue(t *testing.T) {
 	copied := map[string]int{}
 	for _, c := range findAll[*tableCell](sh.view.table) {
 		vis, data := sh.view.dataColumn(c.col)
-		if !c.Visible() || !data || c.row < 0 || c.copyText() == "" {
+		if !c.Visible() || !data || c.row < 0 || sh.view.copyIcon.textOf(c) == "" {
 			continue
 		}
 		hoverOver(w, q, middleOf(c))
@@ -400,10 +621,13 @@ func TestSecretsListCopiesNoValue(t *testing.T) {
 		copied[sh.view.snap.Columns[sh.view.cols[vis]].ID]++
 		q.until(t, "the toast to go", func() bool { return len(sh.toasts.Objects) == 0 })
 	}
-	for _, id := range []string{"name", "namespace", "labels", "keys", "type", "age"} {
+	for _, id := range []string{"name", "namespace", "labels", "keys", "type"} {
 		if copied[id] == 0 {
 			t.Errorf("no cell of the %s column copied (copied %v)", id, copied)
 		}
+	}
+	if copied["age"] != 0 {
+		t.Error("an Age cell has the copy icon")
 	}
 }
 
@@ -429,13 +653,15 @@ func TestListCopyIconHasNoCommand(t *testing.T) {
 	}
 }
 
-// renderListCopy shows the Pods list with the pointer on a Name cell and the copy icon at the
-// cell's right end; after the copy, the checkmark and the toast.
+// renderListCopy shows the Nodes list with the pointer on a node's name and the copy icon right
+// after it, far from the wide column's end; after the copy, the checkmark and the toast.
 func renderListCopy(t *testing.T, mode ThemeMode, confirm bool, name string) {
-	sh, w, q, f := listScene(t, "pods", mode)
-	cell := cellAt(t, sh, rowOf(t, f, "pods", podNamed(t, podCrashLoop).name), columnOf(t, sh, "name"))
+	sh, w, q, f := listScene(t, "nodes", mode)
+	cell := cellAt(t, sh, rowOf(t, f, "nodes", cordonedNode), columnOf(t, sh, "name"))
 	hoverOver(w, q, middleOf(cell))
-	checkIconInCell(t, sh, cell)
+	if checkIconInCell(t, sh, cell) {
+		t.Fatalf("the icon of %q is at the cell's end", cell.full)
+	}
 	if confirm {
 		hoverOver(w, q, middleOf(sh.view.copyIcon.btn))
 		test.TapCanvas(w.Canvas(), middleOf(sh.view.copyIcon.btn))

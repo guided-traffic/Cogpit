@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -744,28 +744,67 @@ the gaps or over the header. A scroll or new column widths hide it until the poi
 refresh keeps it on its cell, which copies the text it shows when clicked; a click checks first
 that the icon still lies on its cell. The copy goes through `shell.copyText` as a plain copy, with
 the drawer's checkmark for 1.5 s and its toast ("Copied to the clipboard"); no command, no audit
-line. Cogpit's defaults, the lead's proposals and not the owner's decision:
+line.
 
-- Every cell that shows text has the icon, not only the Name column's. None on a cell without
-  text: the checkbox, the ⋮, the warning triangle, a pod's container squares, an empty cell and the
-  placeholders `-`, `–`, `—` and `<none>`.
-- The icon sits at the cell's right end, inside the cell and centred on the row, so it never
-  covers the next column. A text that reaches it is shortened with "…" before it while it is there
-  (Cogpit's addition: running under the icon, a cut-off name looked whole), and the cell's tooltip
-  then shows the whole text.
+**Changed (owner, 2026-10-13, after seeing it):** not every cell: "a name, an IP, a node name, a
+message in the Events is great. But no Age, no CPU, no Memory, no Restarts." It works by a
+blacklist of the columns where copying makes no sense, so that a custom resource's columns need no
+marking: every column not on it keeps the icon, custom resource columns included. And the icon
+belongs right after the text, not at the end of a wide column. **Built 2026-10-13**: the blacklist
+is one place, `noCopyTypes` and `noCopyColumns` with `copyColumn` in
+[`tablecopy.go`](../../internal/ui/fyneui/tablecopy.go) (the UI's alone: no command or tool
+copies). The owner set the principle and the four examples; the lists below are Cogpit's reading
+of it for every built-in kind (the lead's proposal, not the owner's decision): identifiers and free
+text keep the icon; numbers, times, durations, counts, ratios, booleans and short state words do not.
+
+| No icon | Columns |
+|---|---|
+| By type: `number` | Restarts, Count, Replicas, a workload's Pods (`3/3`), Ready, Desired, Current, Completions, Active, Size, Capacity, Taints, Value, Webhooks, Revision, Local Port, Pod Port and the other counts; a custom resource's `integer` and `number` printer columns |
+| By type: `age`, `until` | Age, Last Seen, Last Schedule, Updated (Helm releases), Next Execution; a custom resource's `date` printer columns |
+| By type: `metric`, `warning` | CPU, Memory; the warning triangle |
+| By id, short state words | `status` (Pods, Services, PVCs, PVs, Namespaces, HPAs, Port Forwards, Helm releases, VPAs, Applications), `conditions` (Nodes, Deployments, Jobs), `state` (Resource Claims), `qos` (Pods), `mode` (VPAs), `phase` |
+| By id, booleans | `suspend` (Cron Jobs), `default` (Ingress Classes), `globalDefault` (Priority Classes), `privileged` (Pod Security Policies) |
+| By id, counts, ratios and durations in text | `minAvailable`, `maxUnavailable` (Pod Disruption Budgets), `metrics` (HPAs: current against target), and `ready`, `desired`, `current`, `upToDate`, `available`, `completions`, `duration` |
+| By id, policy and mode words | `failurePolicy`, `reinvocationPolicy` (admission policies), `reclaimPolicy`, `volumeBindingMode` (Storage Classes), `validationActions` (validating admission policy bindings), `policyTypes` (Network Policies), `scope` (Definitions, Ingress Classes), `protocol` (Port Forwards) |
+
+The ids apply in every view, so a custom resource's printer column whose name reads as one of them
+in lowerCamelCase ("Ready", "Status", "Phase") has none either; `phase` and the text ids in the
+counts row are there for those, since the built-in kinds hold such columns as numbers. A custom
+resource's printer columns map to the types by their declared type
+([`kinds/customresources.go`](../../internal/model/kinds/customresources.go), `compilePrinterColumn`):
+`integer` and `number` to `number`, `date` to `age`, `string` and `boolean` to text, so a
+`boolean` column keeps the icon unless its name is on the list (the table cannot tell it from a
+string column). Every other column keeps the icon: Name, Namespace, Node, Controlled By, the IPs
+(Cluster IP, External IP, Endpoints, Load Balancers), Ports, Labels, Selector, Node Selector, Keys,
+Type and Address Type, Kind, API Group, Group, Resource, Version, Roles, Rules, Message, Involved
+Object, Source, Schedule, Time Zone, Storage Class, Claim, Provisioner, Handler, Holder, Controller,
+Driver, Pool, Devices and Device Classes of a claim, Reserved For, Bindings, Policy, Volumes, a
+claim's Pods (their names), Chart, App Version, Repository, Description, Target, Managed By, App
+Name. Placeholder cells (empty, `-`, `–`, `—`, `<none>`) still have none.
+
+Cogpit's defaults besides, the lead's proposals and not the owner's decision:
+
+- The icon sits a padding (4 points) after the cell's whole text, measured with the table's text
+  style, centred on the row. When the text leaves no room for it, it sits at the cell's right end
+  and the text is shortened with "…" before it while it is there (running under the icon, a
+  cut-off name looked whole); the cell's tooltip then shows the whole text. Always inside the cell,
+  never over the next column. A watch event that changes the text moves the icon to the new end.
 - A click on it copies the cell's full text, not the shortened one, and neither selects the row,
   toggles its checkbox nor opens the drawer: the icon is a widget above the table, so the click
   never reaches the cell. A right-click on it opens the row's actions menu, as anywhere else on
   the row.
 - A Secret's list holds no values: its columns are Name, Namespace, Labels, Keys (the keys' names),
   Type and Age ([`kinds/secrets.go`](../../internal/model/kinds/secrets.go),
-  `TestSecretDetailShowsNoValue`), so every cell of it has the icon and none can put a value on the
-  clipboard (`TestSecretsListCopiesNoValue`).
+  `TestSecretDetailShowsNoValue`), so no cell of it can put a value on the clipboard; Age has no
+  icon (`TestSecretsListCopiesNoValue`).
 
-Tests: `TestListCopyIconOnHover`, `TestListCopyIconPlaceholders`,
-`TestListCopyIconCopiesTheFullText`, `TestListCopyIconFollowsTheCells`,
-`TestSecretsListCopiesNoValue`, `TestListCopyIconHasNoCommand`; renders `TestRenderListCopyIcon`
-(PNG [hover](../../internal/ui/fyneui/testdata/list_copy_hover_dark.png),
+Tests: `TestListCopyIconByColumn` (Pods with CPU and Memory values, Services, Events, Nodes and a
+custom resource with an integer, a string, a "Ready" string and a date printer column),
+`TestCopyColumns`, `TestListCopyIconAfterTheText`, `TestListCopyIconOnHover`,
+`TestListCopyIconPlaceholders`, `TestListCopyIconCopiesTheFullText`,
+`TestListCopyIconFollowsTheCells`, `TestSecretsListCopiesNoValue`, `TestListCopyIconHasNoCommand`;
+renders `TestRenderListCopyIcon` (the Nodes list: PNG
+[hover](../../internal/ui/fyneui/testdata/list_copy_hover_dark.png),
 [after the copy](../../internal/ui/fyneui/testdata/list_copy_done_light.png)). Not tried in a real
 window: the order in which the GLFW driver sends `MouseOut` to the table and `MouseIn` to the icon
 was read in Fyne 2.8.1's source and replayed with Fyne's test driver.
@@ -946,6 +985,7 @@ Verified in this repository by tests; on the owner's Mac only the path was resol
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-25 (owner, after seeing it): the lists' copy icon not on every cell but outside a blacklist of columns (by type: numbers, ages, times, metrics, warnings; by id: state words, booleans, counts and ratios in text, policy words: Cogpit's reading of the owner's principle), and right after the text instead of at the column's end; built |
 | 2026-10-13 | minor | D-29 built: Helm's repositories.yaml read every 2 s (the helm CLI's resolution, one place), credentials in memory only and to the repository's own host, indexes in Cogpit's own cache keyed by name and URL (decided at the build), `helm.repo.add` and `helm.repo.remove` removed; Cogpit's defaults listed |
 | 2026-10-13 | minor | D-25: copy icons in the lists built (one icon per list on the text cell under the pointer, the drawer's checkmark and toast); every text cell, the icon inside the cell's right end with the text shortened before it, a click that never selects, and no values in a Secret's list are Cogpit's defaults |
 | 2026-10-13 | minor | D-29 (owner): repositories are added with the helm CLI, Cogpit only reads Helm's file and writes nothing into it |
