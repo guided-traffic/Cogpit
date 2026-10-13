@@ -50,8 +50,9 @@ func registerViewRows(g *registrar) {
 }
 
 // caughtUpTable returns the open view's snapshot once it shows what the UI state asks (its
-// namespace filter, search, sort and columns), waiting at most viewRowsWait; then the snapshot it has, which
-// says what it was filtered with.
+// namespace filter, search, sort and columns) and its kind's first list is in, waiting at most
+// viewRowsWait; then the snapshot it has, which says what it was filtered with and whether it is
+// synced.
 func caughtUpTable(ctx context.Context, s *engine.Session, view string) (*engine.TableSnapshot, engine.UIState, error) {
 	wctx, cancel := context.WithTimeout(ctx, viewRowsWait)
 	defer cancel()
@@ -60,7 +61,7 @@ func caughtUpTable(ctx context.Context, s *engine.Session, view string) (*engine
 		if u.View != view {
 			return nil, u, fmt.Errorf("the open view changed to %s; read again", u.View)
 		}
-		if t.CaughtUp(u) {
+		if t.CaughtUp(u) && t.Synced { // a view just opened has no rows before its first list
 			return t, u, nil
 		}
 		select {
