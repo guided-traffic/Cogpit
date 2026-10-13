@@ -297,7 +297,7 @@ func (c *overviewChartCard) set(ch engine.OverviewChart, window time.Duration, n
 }
 
 // overviewHeadline is a chart's usage against its allocatable capacity: "1.5 of 7.6 cores (20%)",
-// "4Gi of 14Gi (29%)", "2 of 220 pods (1%)"; "–" for a usage not measured yet.
+// "4.0 GiB of 14.0 GiB (29%)", "2 of 220 pods (1%)"; "–" for a usage not measured yet.
 func overviewHeadline(ch engine.OverviewChart, format func(float64) string) string {
 	used := "–"
 	if ch.Current != nil {
@@ -323,7 +323,7 @@ func overviewFormats(metric string) (axis, detail func(float64) string, binary b
 	case engine.OverviewCPU:
 		return formatClusterCores, formatClusterCoresExact, false
 	case engine.OverviewMemory:
-		return formatBytesShort, formatBytesExact, true
+		return model.FormatByteAmount, model.FormatByteAmount, true // binary units, one decimal (D-32)
 	}
 	count := func(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
 	return count, func(v float64) string { return fmt.Sprintf("%.0f", v) }, false

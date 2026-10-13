@@ -1240,7 +1240,14 @@ What the build chose, Cogpit's defaults (the lead's and the build's, not the own
   Max, Default Request and Default Limit (not its Max Limit/Request Ratio, a ratio), a runtime
   class's Pod Overhead, a vertical pod autoscaler's policies and recommendations, a device's
   capacity named `memory` (resource slices and a node's Devices), a Config Map's binary data
-  sizes and its cut notes ("[cut: 4.0 KiB of 8.8 KiB shown; …]", the Helm record note).
+  sizes and its cut notes ("[cut: 4.0 KiB of 8.8 KiB shown; …]", the Helm record note). The
+  charts: the drawers' Memory and Filesystem axes and hover panels, the Network and Filesystem
+  rates ("48.0 KiB/s"), the cluster Overview's Memory chart and its headline ("41.9 GiB of
+  118.0 GiB (35%)"); the axis writes what the hover panel writes, and a byte axis steps by at
+  least one byte, since its labels are whole bytes (`TestRateFormatsAndLongRanges`,
+  `TestDrawerChartsHoverPerChartAndVariant`; PNG
+  [dark](../../internal/ui/fyneui/testdata/chart_hover_memory_dark.png),
+  [light](../../internal/ui/fyneui/testdata/chart_hover_memory_light.png)).
 - **Sorting.** The sort keys stay bytes (`Cell.Num`), so sorting by size still works; only the text
   changed (`TestPersistentVolumeClaimSizeSorts`).
 - **Agents.** What an agent reads as drawn follows the formatter: `view_rows` and

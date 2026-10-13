@@ -269,7 +269,7 @@ func TestMetricsVariantsRangeAndEvents(t *testing.T) {
 	if d.Series[0].Name != "Memory usage" || d.Lines[0].Value != float64(192<<20) || d.Lines[1].Value != float64(384<<20) {
 		t.Errorf("memory chart: %+v", d)
 	}
-	if got := d.Format(float64(192 << 20)); got != "192Mi" {
+	if got := d.Format(float64(192 << 20)); got != "192.0 MiB" {
 		t.Errorf("memory axis label = %q", got)
 	}
 	if p.variants[variantMemory].Importance != widget.HighImportance || p.variants[variantCPU].Importance == widget.HighImportance {
@@ -420,12 +420,13 @@ func TestChartAxisAndNiceSteps(t *testing.T) {
 			t.Errorf("niceStep(%v, 3) = %v, want %v", tc.top, got, tc.want)
 		}
 	}
+	axis, _ := variantFormats(variantMemory, "")
 	for _, tc := range []struct {
 		v    float64
 		want string
-	}{{0, "0"}, {512, "512"}, {1024, "1Ki"}, {192 << 20, "192Mi"}, {1.5 * (1 << 30), "1.5Gi"}} {
-		if got := formatBytesShort(tc.v); got != tc.want {
-			t.Errorf("formatBytesShort(%v) = %q, want %q", tc.v, got, tc.want)
+	}{{0, "0 B"}, {512, "512 B"}, {1024, "1.0 KiB"}, {192 << 20, "192.0 MiB"}, {1.5 * (1 << 30), "1.5 GiB"}} {
+		if got := axis(tc.v); got != tc.want {
+			t.Errorf("memory axis(%v) = %q, want %q", tc.v, got, tc.want)
 		}
 	}
 	if got := formatCores(0.30000000000000004); got != "0.3" {

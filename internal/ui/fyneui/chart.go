@@ -52,7 +52,7 @@ type chartData struct {
 	// Detail formats a value for the hover panel, more exactly than the axis; nil uses Format.
 	Detail func(float64) string
 	// Binary says the values are bytes (or bytes per second): the value axis steps at round
-	// amounts of KiB, MiB or GiB (25KiB, 50KiB), not of decimal bytes (24.4KiB, 48.8KiB).
+	// amounts of KiB, MiB or GiB (25.0 KiB, 50.0 KiB), not of decimal bytes (24.4 KiB, 48.8 KiB).
 	Binary bool
 	// Empty is the text shown in place of the plot while there is no point to draw.
 	Empty string
@@ -221,13 +221,14 @@ func niceStep(top float64, n int) float64 {
 }
 
 // binaryStep is niceStep in the binary unit (B, KiB, MiB, ...) the top of the axis is counted in, so
-// that the steps of a byte axis are round in the unit its labels show.
+// that the steps of a byte axis are round in the unit its labels show. A step is at least one
+// byte: labels write whole bytes (D-32), and half a byte would label two lines alike.
 func binaryStep(top float64, n int) float64 {
 	unit := 1.0
 	for top/unit >= 1024 {
 		unit *= 1024
 	}
-	return niceStep(top/unit, n) * unit
+	return math.Max(niceStep(top/unit, n)*unit, 1)
 }
 
 func (d chartData) format(v float64) string {

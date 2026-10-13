@@ -220,7 +220,7 @@ func withUsage(t *testing.T, f *fakeEngine) {
 		for len(cells) <= max(cpu, mem) {
 			cells = append(cells, model.Cell{})
 		}
-		cells[cpu], cells[mem] = model.Cell{Text: "0.012", Num: 12}, model.Cell{Text: "19.5MiB", Num: 20447232}
+		cells[cpu], cells[mem] = model.Cell{Text: "0.012", Num: 12}, model.Cell{Text: model.FormatBytes(20447232), Num: 20447232}
 		snap.Rows[i].Cells = cells
 	}
 }

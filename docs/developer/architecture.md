@@ -2520,8 +2520,8 @@ it per variant.
 | Variant | Series (hover names) | Lines | Units: axis, hover |
 |---|---|---|---|
 | CPU | "CPU usage" | requests and limits (a node: allocatable capacity and capacity) | cores: `0.25`; `250m`, `1.25` |
-| Memory | "Memory usage" | the same | binary bytes: `192Mi`; `192.4Mi` |
-| Network | "Receive" (accent), "Transmit" (`colorChartSecond`) | none | bytes per second: `48KiB/s`; `30.6KiB/s` |
+| Memory | "Memory usage" | the same | binary bytes with one decimal, the same on both (D-32): `192.0 MiB`; `192.4 MiB` |
+| Network | "Receive" (accent), "Transmit" (`colorChartSecond`) | none | bytes per second, as Memory: `48.0 KiB/s`; `30.6 KiB/s` |
 | Filesystem, source `usage` | "Usage" | none | binary bytes, as Memory |
 | Filesystem, source `io` | "Read" (accent), "Write" (`colorChartSecond`) | none | bytes per second, as Network |
 
@@ -2534,8 +2534,9 @@ it per variant.
   "Network is per pod: its containers share it." Lens has no network tab on a container (capture);
   Cogpit shows the pod's because the owner asked for every variant on every chart. A compact chart
   draws its legend when it has two series, which only the legend tells apart.
-- **Byte axes step in their unit** (`chartData.Binary`, `binaryStep`): 25KiB/s, 50KiB/s, not 24.4KiB/s;
-  the Memory axis follows too. **Time axes** carry the date from a range of a day ("Oct 11 14:30") and
+- **Byte axes step in their unit** (`chartData.Binary`, `binaryStep`): 25.0 KiB/s, 50.0 KiB/s, not
+  24.4 KiB/s; the Memory axis follows too, and a step is at least one byte, since the labels write
+  whole bytes (D-32: "0 B", "512 B"). **Time axes** carry the date from a range of a day ("Oct 11 14:30") and
   the date alone from a week ("Oct 4"); the hover's "ago" counts days ("2 d 2 h ago").
 - **Colours from tokens only**: the second series is the new `colorChartSecond` (Solarized violet,
   lightened to 4:1 on the plot in the dark theme, darkened to 3.9:1 in the light one); both series
@@ -2922,7 +2923,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-13 | minor | Current state and §9: D-32, every byte amount in binary units with one decimal through `model/bytes.go`, the Pods list's memory in that form |
+| 2026-10-13 | minor | Current state and §9: D-32, every byte amount in binary units with one decimal through `model/bytes.go`, the Pods list's memory in that form; the charts' byte axes, hover panels and the Overview's Memory headline in it, the same text on axis and hover, byte steps at least one byte |
 | 2026-10-13 | minor | §2, §3, §4.3, §4.4 and Current state: D-31, every timestamp in the local time zone and the region's format; `internal/locale` (L1) reads the computer's format, one `model.TimeFormat` in the engine and the window, marks in a kind's drawer, the `time` column type, which texts are drawn and which stay RFC 3339 |
 | 2026-10-13 | minor | §5 and Current state: D-30, the owner's answers: DER certificates decoded, `tls.key` compared with `tls.crt` inside `model.DecodedValue.MatchPrivateKey` (`model/keymatch.go`, nothing kept), the chain's order checked (`engine/secretcerts_checks.go`), a Checks section per key group |
 | 2026-10-13 | minor | §5 and Current state: D-30, the certificates in a Secret's keys decoded (`model/certs.go` in L0, `engine/secretcerts.go`), a group of drawer sections per key and `DetailModel.Certificates` for agents |

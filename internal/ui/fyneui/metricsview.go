@@ -576,15 +576,16 @@ func (c *chartCtl) setHint(text string) {
 }
 
 // variantFormats are a variant's axis and hover formats: cores, bytes, or bytes per second (the
-// network, and the filesystem's read and write rates).
+// network, and the filesystem's read and write rates). Bytes read the same on the axis and in the
+// hover panel: binary units with one decimal (D-32).
 func variantFormats(variant, fsSource string) (axis, detail func(float64) string) {
 	switch {
 	case variant == variantCPU:
 		return formatCores, formatCoresExact
 	case variant == variantNetwork, variant == variantFilesystem && fsSource == filesystemIO:
-		return formatRateShort, formatRateExact
+		return model.FormatByteRate, model.FormatByteRate
 	}
-	return formatBytesShort, formatBytesExact
+	return model.FormatByteAmount, model.FormatByteAmount
 }
 
 // filesystemIO is ObjectMetrics.FilesystemSource for read and write rates instead of bytes in use.
@@ -697,63 +698,6 @@ func formatCoresExact(v float64) string {
 		return fmt.Sprintf("%dm", int(math.Round(v*1000)))
 	}
 	return strconv.FormatFloat(math.Round(v*1000)/1000, 'f', -1, 64)
-}
-
-// formatBytesExact formats bytes for the hover panel in binary units with one decimal where it
-// matters: "192.4Mi", "1.5Gi"; below 1Ki the plain count with "B".
-func formatBytesExact(v float64) string {
-	if v < 1024 {
-		return fmt.Sprintf("%.0fB", v)
-	}
-	units := []string{"Ki", "Mi", "Gi", "Ti", "Pi"}
-	i := -1
-	for v >= 1024 && i < len(units)-1 {
-		v /= 1024
-		i++
-	}
-	return strconv.FormatFloat(math.Round(v*10)/10, 'f', -1, 64) + units[i]
-}
-
-// formatRateShort formats bytes per second for the value axis: "512B/s", "1.5KiB/s", "12MiB/s".
-func formatRateShort(v float64) string {
-	if v == 0 {
-		return "0"
-	}
-	n, unit := binaryUnit(v)
-	return fmt.Sprintf("%.3g%s/s", n, unit)
-}
-
-// formatRateExact formats bytes per second for the hover panel, with one decimal where it matters:
-// "512B/s", "1.5KiB/s", "190.7MiB/s".
-func formatRateExact(v float64) string {
-	n, unit := binaryUnit(v)
-	return strconv.FormatFloat(math.Round(n*10)/10, 'f', -1, 64) + unit + "/s"
-}
-
-// binaryUnit scales bytes to the largest binary unit that keeps the number at 1 or more: B, KiB,
-// MiB, GiB, TiB, PiB.
-func binaryUnit(v float64) (float64, string) {
-	units := []string{"B", "KiB", "MiB", "GiB", "TiB", "PiB"}
-	i := 0
-	for math.Abs(v) >= 1024 && i < len(units)-1 {
-		v /= 1024
-		i++
-	}
-	return v, units[i]
-}
-
-// formatBytesShort formats bytes for the value axis in binary units without the "B": "64Mi", "1.5Gi".
-func formatBytesShort(v float64) string {
-	if v < 1024 {
-		return fmt.Sprintf("%.3g", v)
-	}
-	units := []string{"Ki", "Mi", "Gi", "Ti", "Pi"}
-	i := -1
-	for v >= 1024 && i < len(units)-1 {
-		v /= 1024
-		i++
-	}
-	return fmt.Sprintf("%.3g%s", v, units[i])
 }
 
 // metricsPanel returns the drawer's Metrics panel for the shown object, made on first use; nil for

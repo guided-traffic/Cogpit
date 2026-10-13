@@ -146,7 +146,7 @@ func TestPrometheusSourceAndVariants(t *testing.T) {
 	if d.Series[0].Color != colorAccent || d.Series[1].Color != colorChartSecond || len(d.Series[0].Points) != 240 {
 		t.Errorf("network series colours %s, %s, %d points", d.Series[0].Color, d.Series[1].Color, len(d.Series[0].Points))
 	}
-	if got := d.Format(48 << 10); got != "48KiB/s" {
+	if got := d.Format(48 << 10); got != "48.0 KiB/s" {
 		t.Errorf("network axis label = %q", got)
 	}
 	if p.variants[variantNetwork].Importance != widget.HighImportance || p.variants[variantCPU].Importance == widget.HighImportance {
@@ -173,7 +173,7 @@ func TestPrometheusSourceAndVariants(t *testing.T) {
 	// Filesystem: the bytes in use.
 	p.variants[variantFilesystem].OnTapped()
 	d = p.plot.data
-	if len(d.Series) != 1 || d.Series[0].Name != "Usage" || len(d.Lines) != 0 || d.Format(12<<20) != "12Mi" {
+	if len(d.Series) != 1 || d.Series[0].Name != "Usage" || len(d.Lines) != 0 || d.Format(12<<20) != "12.0 MiB" {
 		t.Errorf("filesystem chart: %+v", d.Series)
 	}
 }
@@ -185,7 +185,7 @@ func TestPrometheusFilesystemIO(t *testing.T) {
 	if len(d.Series) != 2 || d.Series[0].Name != "Read" || d.Series[1].Name != "Write" || d.Series[1].Color != colorChartSecond {
 		t.Fatalf("filesystem io chart: %+v", d.Series)
 	}
-	if got := d.Detail(150 << 10); got != "150KiB/s" {
+	if got := d.Detail(150 << 10); got != "150.0 KiB/s" {
 		t.Errorf("filesystem io hover value = %q", got)
 	}
 }
@@ -326,22 +326,24 @@ func TestHoverNetworkAndFilesystem(t *testing.T) {
 }
 
 func TestRateFormatsAndLongRanges(t *testing.T) {
+	// Rates read the same on the axis and in the hover panel: binary units with one decimal, whole
+	// bytes below 1 KiB (D-32).
+	axis, exact := variantFormats(variantNetwork, "")
 	for _, tc := range []struct {
-		v           float64
-		axis, exact string
+		v    float64
+		want string
 	}{
-		{0, "0", "0B/s"}, {512, "512B/s", "512B/s"}, {1536, "1.5KiB/s", "1.5KiB/s"},
-		{200_000_000, "191MiB/s", "190.7MiB/s"}, {0.25, "0.25B/s", "0.3B/s"},
+		{0, "0 B/s"}, {512, "512 B/s"}, {1536, "1.5 KiB/s"}, {200_000_000, "190.7 MiB/s"}, {0.25, "0 B/s"},
 	} {
-		if got := formatRateShort(tc.v); got != tc.axis {
-			t.Errorf("formatRateShort(%v) = %q, want %q", tc.v, got, tc.axis)
+		if got := axis(tc.v); got != tc.want {
+			t.Errorf("rate axis(%v) = %q, want %q", tc.v, got, tc.want)
 		}
-		if got := formatRateExact(tc.v); got != tc.exact {
-			t.Errorf("formatRateExact(%v) = %q, want %q", tc.v, got, tc.exact)
+		if got := exact(tc.v); got != tc.want {
+			t.Errorf("rate hover(%v) = %q, want %q", tc.v, got, tc.want)
 		}
 	}
-	// A byte axis steps at round amounts of its unit.
-	for _, tc := range []struct{ top, want float64 }{{75_000, 25 << 10}, {700, 250}, {1.5 * (1 << 30), 1 << 29}, {200 << 20, 100 << 20}} {
+	// A byte axis steps at round amounts of its unit, and at least at one byte.
+	for _, tc := range []struct{ top, want float64 }{{75_000, 25 << 10}, {700, 250}, {1.5 * (1 << 30), 1 << 29}, {200 << 20, 100 << 20}, {1, 1}, {1.2, 1}} {
 		if got := binaryStep(tc.top, 3); got != tc.want {
 			t.Errorf("binaryStep(%v) = %v, want %v", tc.top, got, tc.want)
 		}

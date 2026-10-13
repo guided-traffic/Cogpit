@@ -211,12 +211,14 @@ func TestAgoText(t *testing.T) {
 			t.Errorf("formatCoresExact(%v) = %q, want %q", tc.v, got, tc.want)
 		}
 	}
+	// Bytes in the hover panel: binary units with one decimal (D-32).
+	_, detail := variantFormats(variantMemory, "")
 	for _, tc := range []struct {
 		v    float64
 		want string
-	}{{512, "512B"}, {192 << 20, "192Mi"}, {200_000_000, "190.7Mi"}, {1.5 * (1 << 30), "1.5Gi"}} {
-		if got := formatBytesExact(tc.v); got != tc.want {
-			t.Errorf("formatBytesExact(%v) = %q, want %q", tc.v, got, tc.want)
+	}{{512, "512 B"}, {192 << 20, "192.0 MiB"}, {200_000_000, "190.7 MiB"}, {1.5 * (1 << 30), "1.5 GiB"}} {
+		if got := detail(tc.v); got != tc.want {
+			t.Errorf("memory hover(%v) = %q, want %q", tc.v, got, tc.want)
 		}
 	}
 }
@@ -242,7 +244,7 @@ func TestDrawerChartsHoverPerChartAndVariant(t *testing.T) {
 		}
 	}
 	p.variants[variantMemory].OnTapped()
-	if h := middle(p.plot); h == nil || !strings.Contains(h.Text(), "Memory usage: ") || !strings.Contains(h.Text(), "Requests: 192Mi") || !strings.Contains(h.Text(), "Limits: 384Mi") {
+	if h := middle(p.plot); h == nil || !strings.Contains(h.Text(), "Memory usage: ") || !strings.Contains(h.Text(), "Requests: 192.0 MiB") || !strings.Contains(h.Text(), "Limits: 384.0 MiB") {
 		t.Errorf("memory panel: %v", h.Text())
 	}
 	app := p.perBox["app"]
@@ -266,14 +268,16 @@ func TestDrawerChartsHoverPerChartAndVariant(t *testing.T) {
 // never to testdata.
 func TestRenderChartHover(t *testing.T) {
 	for _, c := range []struct {
-		mode  ThemeMode
-		name  string
-		width float32
-		event bool
+		mode   ThemeMode
+		name   string
+		width  float32
+		event  bool
+		memory bool // the Memory variant: bytes on the axis and in the panel (D-32)
 	}{
-		{ThemeDark, "chart_hover_dark.png", 0, false}, {ThemeLight, "chart_hover_light.png", 0, false},
-		{ThemeDark, "chart_hover_event_dark.png", 0, true}, {ThemeLight, "chart_hover_event_light.png", 0, true},
-		{ThemeDark, "chart_hover_narrow_dark.png", minDrawerWidth, false}, {ThemeLight, "chart_hover_narrow_event_light.png", minDrawerWidth, true},
+		{ThemeDark, "chart_hover_dark.png", 0, false, false}, {ThemeLight, "chart_hover_light.png", 0, false, false},
+		{ThemeDark, "chart_hover_event_dark.png", 0, true, false}, {ThemeLight, "chart_hover_event_light.png", 0, true, false},
+		{ThemeDark, "chart_hover_narrow_dark.png", minDrawerWidth, false, false}, {ThemeLight, "chart_hover_narrow_event_light.png", minDrawerWidth, true, false},
+		{ThemeDark, "chart_hover_memory_dark.png", 0, false, true}, {ThemeLight, "chart_hover_memory_light.png", 0, false, true},
 	} {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
@@ -285,6 +289,9 @@ func TestRenderChartHover(t *testing.T) {
 			}
 			p := sh.drawer.kept[metricsKey].(*metricsPanel)
 			p.flag.OnTapped()
+			if c.memory {
+				p.variants[variantMemory].OnTapped()
+			}
 			settle(sh.win)
 			g := p.plot.geom
 			pos := fyne.NewPos(g.left+g.w*0.62, g.top+g.h*0.5)
@@ -297,6 +304,9 @@ func TestRenderChartHover(t *testing.T) {
 			p.plot.MouseMoved(&desktop.MouseEvent{PointEvent: fyne.PointEvent{Position: pos}})
 			if p.plot.Hover() == nil || (c.event && len(p.plot.Hover().Events) == 0) {
 				t.Fatalf("hover = %v", p.plot.Hover())
+			}
+			if c.memory && !strings.Contains(p.plot.Hover().Text(), "Requests: 192.0 MiB") {
+				t.Errorf("memory hover: %s", p.plot.Hover().Text())
 			}
 			settle(sh.win)
 			dir := os.Getenv("COGPIT_PNG_DIR")
