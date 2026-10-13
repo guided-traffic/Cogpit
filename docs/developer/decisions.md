@@ -1041,7 +1041,9 @@ Tests: `TestParseCertificatesChain`, `TestParseCertificatesOnlyCertificateBlocks
 `TestParseCertificatesBounded`, `TestCertificateEvaluate`, `TestCertificateJSON`,
 `TestCertificateTextsAreSafe`, `TestSecretCertificateSections`,
 `TestSecretCertificateStatusesAndBounds`, `TestSecretCertificateEdges`,
-`TestObjectGetDecodesCertificatesForAgents`, `TestSecretDrawerShowsCertificates`; renders
+`TestObjectGetDecodesCertificatesForAgents`, `TestSecretDrawerShowsCertificates`; on kind
+`TestKindSecretCertificates` (a `kubernetes.io/tls` Secret created through the API, read by an
+agent's `object_get`); renders
 `TestRenderSecretCertificatesDark` and `TestRenderSecretCertificatesLight` (PNG
 [dark](../../internal/ui/fyneui/testdata/secret_certs_dark.png),
 [light](../../internal/ui/fyneui/testdata/secret_certs_light.png)). The agents' exposure that is
