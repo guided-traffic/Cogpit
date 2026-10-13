@@ -249,13 +249,11 @@ func (a *auditLogTab) timeText(t time.Time) string {
 	return t.Format("Jan 2, 15:04:05")
 }
 
-// auditOriginText names an origin in the list.
+// auditOriginText names an origin in the list (the CLI's commands are not audited).
 func auditOriginText(o engine.Origin) string {
 	switch o {
 	case engine.OriginGUI:
 		return "You (window)"
-	case engine.OriginCLI:
-		return "cogpit-cli"
 	case engine.OriginExternalAgent:
 		return "External agent"
 	case engine.OriginBuiltInAgent:

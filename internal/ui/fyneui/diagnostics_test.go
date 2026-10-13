@@ -2,13 +2,10 @@ package fyneui
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
-	"time"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/engine"
 )
 
@@ -17,22 +14,22 @@ import (
 func diagnosticsFake(t *testing.T) *fakeEngine {
 	f := connectedFake(t, 20)
 	f.ui.Context, f.ui.Connection = "kind-dev", engine.Connection{State: engine.Connected}
-	gvr := func(group, resource string) schema.GroupVersionResource {
-		return schema.GroupVersionResource{Group: group, Version: "v1", Resource: resource}
-	}
-	f.diag = engine.Diagnostics{Context: "kind-dev", Snapshots: 318}
-	f.diag.Requests.Total = 41
-	f.diag.Requests.ByVerb = map[string]int64{"list": 6, "watch": 7, "get": 22, "discovery": 4, "create": 2}
-	f.diag.Requests.ByVerbResource = map[string]int64{"get pods/log": 14, "get nodes": 8, "list pods": 2, "watch pods": 3,
-		"list services": 1, "watch services": 1, "list deployments.apps": 1, "watch deployments.apps": 1, "list secrets": 1,
-		"watch secrets": 1, "list nodes": 1, "watch nodes": 1, "discovery": 4, "create selfsubjectrulesreviews.authorization.k8s.io": 2}
-	f.diag.Informers = []cache.InformerStats{
-		{Scope: cache.Scope{GVR: gvr("", "pods")}, Objects: 214, Handles: 2, Synced: true, Events: 1840},
-		{Scope: cache.Scope{GVR: gvr("", "nodes")}, Objects: 6, Handles: 1, Synced: true, Events: 412},
-		{Scope: cache.Scope{GVR: gvr("", "secrets")}, Objects: 57, Handles: 1, Synced: true, Events: 57},
-		{Scope: cache.Scope{GVR: gvr("", "secrets"), LabelSelector: "owner=helm"}, Objects: 9, Handles: 1, Synced: true, CoveredBy: "secrets"},
-		{Scope: cache.Scope{GVR: gvr("apps", "deployments")}, Objects: 31, Synced: true, Events: 31, WarmUntil: fixedNow.Add(4 * time.Minute)},
-		{Scope: cache.Scope{GVR: gvr("", "services")}, Objects: 44, Synced: true, Events: 44, WarmUntil: fixedNow.Add(2 * time.Minute)},
+	// The counters cross the seam as JSON: the UI may not import package cache to name its types.
+	diag := `{"context": "kind-dev", "snapshots": 318, "requests": {"total": 41,
+	  "byVerb": {"list": 6, "watch": 7, "get": 22, "discovery": 4, "create": 2},
+	  "byVerbResource": {"get pods/log": 14, "get nodes": 8, "list pods": 2, "watch pods": 3, "list services": 1,
+	    "watch services": 1, "list deployments.apps": 1, "watch deployments.apps": 1, "list secrets": 1, "watch secrets": 1,
+	    "list nodes": 1, "watch nodes": 1, "discovery": 4, "create selfsubjectrulesreviews.authorization.k8s.io": 2}},
+	  "informers": [
+	    {"scope": {"gvr": {"Version": "v1", "Resource": "pods"}}, "objects": 214, "handles": 2, "synced": true, "events": 1840},
+	    {"scope": {"gvr": {"Version": "v1", "Resource": "nodes"}}, "objects": 6, "handles": 1, "synced": true, "events": 412},
+	    {"scope": {"gvr": {"Version": "v1", "Resource": "secrets"}}, "objects": 57, "handles": 1, "synced": true, "events": 57},
+	    {"scope": {"gvr": {"Version": "v1", "Resource": "secrets"}, "labelSelector": "owner=helm"}, "objects": 9, "handles": 1, "synced": true, "coveredBy": "secrets"},
+	    {"scope": {"gvr": {"Group": "apps", "Version": "v1", "Resource": "deployments"}}, "objects": 31, "synced": true, "events": 31, "warmUntil": "2026-10-11T14:34:00Z"},
+	    {"scope": {"gvr": {"Version": "v1", "Resource": "services"}}, "objects": 44, "synced": true, "events": 44, "warmUntil": "2026-10-11T14:32:00Z"}]}`
+	f.diag = engine.Diagnostics{} // not the demo cluster's
+	if err := json.Unmarshal([]byte(diag), &f.diag); err != nil {
+		t.Fatal(err)
 	}
 	f.handlers["diagnostics.get"] = func(context.Context, engine.Invocation) (any, error) {
 		return engine.ReportOf(f.Diagnostics(), true), nil

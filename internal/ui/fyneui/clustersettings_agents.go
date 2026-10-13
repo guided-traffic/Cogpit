@@ -38,8 +38,7 @@ func (p *settingsPage) clusterAgentsSection() fyne.CanvasObject {
 	note := newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	note.truncate = true
 	p.controls["agentWritesNote"] = note
-	var check *widget.Check
-	check = widget.NewCheck(agentWritesCheck, func(on bool) {
+	check := widget.NewCheck(agentWritesCheck, func(on bool) {
 		if p.syncing {
 			return
 		}
