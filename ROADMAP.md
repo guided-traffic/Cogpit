@@ -22,7 +22,7 @@ serial foundation, about 80% of the work parallelizes.
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **~76%** (was ~56%) | measured by `make parity`: 63 of 64 views (ten of them the Gateway API views, generic), 37 of 39 actions, 108 of 120 interface rows (pasting kubeconfigs is not a target, D-21); 9 rows done, the rest partial |
+| **Feature breadth** | **~76%** (was ~56%) | measured by `make parity`: 63 of 64 views (ten of them the Gateway API views, generic), 37 of 39 actions, 109 of 120 interface rows (pasting kubeconfigs is not a target, D-21); 9 rows done, the rest partial |
 | **Ready for real work** | **~26%** (was ~23%) | estimated |
 | Mainstream practitioner | ~25% (was ~24%) | estimated |
 | Essentials user | ~34% (was ~32%) | estimated |

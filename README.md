@@ -54,7 +54,7 @@ it. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
 - ⚡ Cache first: views read from a watch-fed cache; switching back to a view costs no API request.
 - 📋 Lens's resource views: workloads, config, network, storage, access control, device resources (with each node's devices in its drawer), custom resources; each searchable by words, with match case or a regular expression.
 - 📜 Logs with follow, filter, timestamps, the previous container, pod and container selectors, older lines and a jump to a time.
-- 💻 Pod shells, attach, node shells, and a terminal bound to the cluster's context; copy and paste by keys or, if you choose, the right mouse button.
+- 💻 Pod shells, attach and a terminal bound to the cluster's context; copy and paste by keys or, if you choose, the right mouse button.
 - ✏️ YAML editing with a diff and a server-side dry-run before every apply.
 - 🔌 Port forwarding, one click to the browser.
 - ⎈ The Helm releases in your clusters (Lens's Helm view): history, values, upgrade, rollback, through the Helm SDK, no `helm` binary needed.
@@ -161,8 +161,9 @@ wait for your confirmation in Cogpit's window ([agents and MCP](docs/security/ag
 **Verify.** `make test-unit-race` runs every test without a cluster; with the kind cluster up,
 `make test-kind` also runs the cluster tests (views, logs, pod shell, `kubectl` in the terminal).
 
-**Not in the MVP:** editing and applying YAML, scale, port forwarding, Helm, metrics, attach and
-node shells, the command palette, preferences, Windows and Linux, signed releases.
+**Not built yet (2026-10-13):** node shells ([H-7](docs/security/privilege-footprint.md#h-7-node-shell-is-root-on-the-node)),
+Windows and Linux packages, signed releases and updates, the built-in agent chat; what exists and
+what is missing, row by row: [docs/parity](docs/parity/README.md).
 
 <details>
 <summary>Clean up</summary>
@@ -343,9 +344,9 @@ registry with `go run ./hack/readmecmds`.
 | `portforward.open` | `portforward_open` | ui | `ref` | Returns a port forward's URL, http(s)://127.0.0.1:<port>; the GUI opens it in the browser |
 | `portforward.remove` | `portforward_remove` | ui | `ref` | Stops a port forward and removes it from the list |
 | `portforward.stop` | `portforward_stop` | ui | `ref` | Stops a port forward: its local port closes and its connection to the pod ends |
-| `preferences.get` | `preferences_get` | read |  | Returns Cogpit's preferences as the Preferences page (⌘,) shows them: the theme (system, dark, light), the time zone absolute times are shown in (empty: the computer's) and the zone in effect, the tables' row height, the YAML editor's font size, line numbers and tab size, the terminal's font size, and the local terminal's shell and arguments (empty: $SHELL), the HTTP proxy of the traffic that is no cluster's (empty: the environment's; its password shown as •••); kept says whether they outlive this run. ui_state carries the same |
+| `preferences.get` | `preferences_get` | read |  | Returns Cogpit's preferences as the Preferences page (⌘,) shows them: the theme (system, dark, light), the time zone absolute times are shown in (empty: the computer's) and the zone in effect, the tables' row height, the YAML editor's font size, line numbers and tab size, the terminal's font size, the local terminal's shell and arguments (empty: $SHELL), whether a right click in a terminal copies and pastes, the HTTP proxy of the traffic that is no cluster's (empty: the environment's; its password shown as •••); kept says whether they outlive this run. ui_state carries the same |
 | `preferences.open` | `preferences_open` | ui | `section`? | Opens Cogpit's Preferences page in the window, as ⌘, (Ctrl+,) does, at a section: app (theme, time zone), proxy (the HTTP proxy of the traffic that is no cluster's), kubernetes (kubeconfig syncs), editor, terminal or tables |
-| `preferences.set` | `preferences_set` | ui | `editorFontSize`?, `editorLineNumbers`?, `editorTabSize`?, `httpProxy`?, `tableRowHeight`?, `terminalFontSize`?, `terminalShell`?, `terminalShellArgs`?, `theme`?, `timezone`? | Changes some of Cogpit's preferences, as the Preferences page does; the fields left out stay as they are |
+| `preferences.set` | `preferences_set` | ui | `editorFontSize`?, `editorLineNumbers`?, `editorTabSize`?, `httpProxy`?, `tableRowHeight`?, `terminalFontSize`?, `terminalRightClickCopyPaste`?, `terminalShell`?, `terminalShellArgs`?, `theme`?, `timezone`? | Changes some of Cogpit's preferences, as the Preferences page does; the fields left out stay as they are |
 | `replicaset.scale` | `replicaset_scale` | mutating (destructive for some calls) | `ref`, `replicas`? | Sets a replica set's replica count, as kubectl scale does: a patch of spec.replicas on its scale subresource |
 | `resource.createTab` | `resource_createTab` | ui | `template`?, `yaml`? | Opens a Create resource dock tab with yaml, with a template (resource_templates lists them), or with an example Pod |
 | `resource.templates` | `resource_templates` | read |  | Lists Cogpit's templates for new objects, one per kind in alphabetical order, each with its apiVersion, whether the kind is namespaced, and its YAML (without a namespace) |
