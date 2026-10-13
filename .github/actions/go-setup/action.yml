@@ -28,10 +28,12 @@ runs:
         go-version-file: go.mod
         cache: false
 
+    # The CPUs and the load of the machine the job landed on (the self-hosted runners share theirs).
     - name: Locate the caches
       id: paths
       shell: bash
       run: |
+        echo "$(nproc 2>/dev/null || sysctl -n hw.ncpu) CPUs; $(uptime)"
         echo "gocache=$(go env GOCACHE)" >> "${GITHUB_OUTPUT}"
         echo "gomodcache=$(go env GOMODCACHE)" >> "${GITHUB_OUTPUT}"
 
@@ -59,6 +61,13 @@ runs:
       if: runner.os == 'Linux' && inputs.fyne-deps != 'true'
       shell: bash
       run: command -v make >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq make >/dev/null; }
+
+    # The self-hosted runner pods set no SHELL, and Cogpit's local terminal falls back to zsh,
+    # which their image lacks; a login session on Linux would have one.
+    - name: A login shell
+      if: runner.os == 'Linux'
+      shell: bash
+      run: test -n "${SHELL:-}" || echo "SHELL=/bin/bash" >> "${GITHUB_ENV}"
 
     - name: Download the modules
       shell: bash

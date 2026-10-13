@@ -6,7 +6,9 @@
 # Go: go.mod declares go 1.27.2; GOTOOLCHAIN=auto fetches it when the local Go is older.
 # Kubeconfig safety: every target that talks to a cluster uses KIND_KUBECONFIG, a separate file;
 # nothing here reads or writes ~/.kube/config. Tests run with KUBECONFIG=/dev/null so that code
-# falling back to the default loading rules finds no cluster.
+# falling back to the default loading rules finds no cluster, and without KUBERNETES_SERVICE_HOST
+# and KUBERNETES_SERVICE_PORT, so that inside a pod (CI's self-hosted runners are pods) client-go
+# neither reaches the pod's own cluster nor takes the pod's namespace as a context's default.
 
 export GOTOOLCHAIN := auto
 
@@ -23,10 +25,14 @@ FYNE            := $(BIN)/fyne
 # renovate: datasource=go depName=github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 GOLANGCI_LINT_VERSION ?= v2.14.0
 GOLANGCI_LINT   := $(BIN)/golangci-lint
+# The version fyne package writes into the app; the release pipeline sets it to the release's
+# (dist-cli, dist-app), and then the binaries print it too.
 VERSION         ?= 0.0.1
+# Linker flags for build; the dist targets set the version (-X main.version).
+GO_LDFLAGS      ?=
 APP_ID          := io.guided-traffic.cogpit
 APP_OS          ?= $(shell $(GO) env GOOS)
-TEST_ENV        := KUBECONFIG=/dev/null
+TEST_ENV        := env -u KUBERNETES_SERVICE_HOST -u KUBERNETES_SERVICE_PORT KUBECONFIG=/dev/null
 
 .PHONY: all build run run-demo test test-unit test-unit-race test-kind test-kind-compile bench lint parity fmt tidy \
         kind-up kind-down kind-seed app icon clean help
@@ -37,8 +43,8 @@ help: ## Show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-16s %s\n", $$1, $$2}'
 
 build: ## Build bin/cogpit (cgo, Fyne) and bin/cogpit-cli (pure Go)
-	$(GO) build -o $(BIN)/cogpit ./cmd/cogpit
-	CGO_ENABLED=0 $(GO) build -o $(BIN)/cogpit-cli ./cmd/cogpit-cli
+	$(GO) build -ldflags '$(GO_LDFLAGS)' -o $(BIN)/cogpit ./cmd/cogpit
+	CGO_ENABLED=0 $(GO) build -ldflags '$(GO_LDFLAGS)' -o $(BIN)/cogpit-cli ./cmd/cogpit-cli
 
 run: build ## Run Cogpit against the kind cluster (make kind-up first)
 	@test -s $(KIND_KUBECONFIG) || { echo "no kubeconfig at $(KIND_KUBECONFIG): run make kind-up first"; exit 1; }
@@ -344,6 +350,41 @@ app: build $(FYNE) ## Package Cogpit for this OS with fyne package (macOS: bin/C
 
 icon: ## Redraw packaging/icon.png from hack/icon
 	$(GO) run ./hack/icon -o packaging/icon.png
+
+# What a release holds (docs/developer/releasing.md#the-release-pipeline): the release pipeline
+# (.github/workflows/build.yml) runs these with VERSION set to the release's, and they run the same
+# here. cogpit-cli is pure Go and cross-compiles to every platform; the app needs macOS (cgo with
+# AppKit). Both unsigned: no Developer ID, not notarized (docs/security/updates.md).
+DIST            := $(CURDIR)/dist
+CLI_PLATFORMS   := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
+DIST_LDFLAGS     = -s -w -X main.version=$(VERSION)
+
+.PHONY: dist-cli dist-app dist-checksums
+
+dist-cli: ## cogpit-cli for every platform as archives in dist/ (tar.gz, zip for Windows); VERSION=x.y.z
+	@rm -rf $(DIST)/cli && mkdir -p $(DIST)/cli
+	@for p in $(CLI_PLATFORMS); do \
+		os=$${p%/*}; arch=$${p#*/}; name=cogpit-cli_$(VERSION)_$${os}_$${arch}; exe=cogpit-cli; \
+		if [ "$$os" = windows ]; then exe=cogpit-cli.exe; fi; \
+		mkdir -p $(DIST)/cli/$$name && \
+		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch $(GO) build -trimpath -ldflags '$(DIST_LDFLAGS)' \
+			-o $(DIST)/cli/$$name/$$exe ./cmd/cogpit-cli && \
+		cp LICENSE README.md $(DIST)/cli/$$name/ && \
+		if [ "$$os" = windows ]; then (cd $(DIST)/cli && zip -qr $(DIST)/$$name.zip $$name); \
+		else tar -C $(DIST)/cli -czf $(DIST)/$$name.tar.gz $$name; fi || exit 1; \
+		echo "dist/$$name"; \
+	done
+
+dist-app: ## The macOS app, zipped, in dist/ (macOS only); VERSION=x.y.z
+	@test "$$($(GO) env GOOS)" = darwin || { echo "dist-app runs on macOS only"; exit 1; }
+	$(MAKE) app GO_LDFLAGS='$(DIST_LDFLAGS)'
+	@mkdir -p $(DIST)
+	ditto -c -k --keepParent $(BIN)/Cogpit.app $(DIST)/Cogpit_$(VERSION)_darwin_$$($(GO) env GOARCH).zip
+	@echo "dist/Cogpit_$(VERSION)_darwin_$$($(GO) env GOARCH).zip"
+
+dist-checksums: ## SHA256SUMS of the archives in dist/
+	cd $(DIST) && if command -v sha256sum >/dev/null; then sha256sum *.tar.gz *.zip; else shasum -a 256 *.tar.gz *.zip; fi > SHA256SUMS
+	@cat $(DIST)/SHA256SUMS
 
 clean: ## Remove build output
 	rm -rf $(BIN) dist
