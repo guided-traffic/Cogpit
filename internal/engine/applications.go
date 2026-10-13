@@ -76,6 +76,23 @@ func (a *appsStore) running(scope cache.Scope) bool {
 	return a.cache != nil && a.cache.Running(scope)
 }
 
+// wake has the running grouping look again at how its workload kinds are read (the session's
+// replan: the access reviews answered, a read was refused).
+func (a *appsStore) wake() {
+	a.mu.Lock()
+	src := a.src
+	a.mu.Unlock()
+	if src == nil {
+		return
+	}
+	src.mu.Lock()
+	r := src.run
+	src.mu.Unlock()
+	if r != nil {
+		signal(r.wake)
+	}
+}
+
 func (a *appsStore) close() {
 	a.mu.Lock()
 	c, src := a.cache, a.src
@@ -214,8 +231,7 @@ func (s *appsSource) shutdown() {
 // the Memory after every change, coalesced.
 type appsRun struct {
 	s       *appsSource
-	kinds   []appsKind
-	unsubs  []func()
+	kinds   []appsKind // replaced only on the run's loop (followPlans)
 	wake    chan struct{}
 	quit    chan struct{}
 	done    chan struct{}
@@ -230,6 +246,8 @@ type appsRun struct {
 type appsKind struct {
 	profile *model.KindProfile
 	handle  *cache.Handle
+	key     string // how the handle reads the kind (Backend.readKey): taken again when that changes
+	unsub   func()
 }
 
 type appsStatus struct {
@@ -243,19 +261,40 @@ func startAppsRun(s *appsSource) *appsRun {
 		s: s, wake: make(chan struct{}, 1), quit: make(chan struct{}), done: make(chan struct{}),
 		ready: make(chan struct{}), started: time.Now(), statuses: map[string]appsStatus{},
 	}
-	wake := r.wake
 	for _, key := range kinds.ApplicationWorkloadKinds {
 		p, ok := s.b.Profile(key)
 		if !ok {
 			continue
 		}
-		h := s.b.Acquire(p)
-		r.kinds = append(r.kinds, appsKind{profile: p, handle: h})
-		r.unsubs = append(r.unsubs, h.Subscribe(func(cache.Event) { signal(wake) }))
+		r.kinds = append(r.kinds, r.acquireKind(p))
 	}
 	signal(r.wake)
 	go r.loop()
 	return r
+}
+
+// acquireKind takes a workload kind as the backend reads it now (in all namespaces, or in each
+// namespace the user named when they may not list it everywhere), subscribed to its changes.
+func (r *appsRun) acquireKind(p *model.KindProfile) appsKind {
+	wake := r.wake
+	k := appsKind{profile: p, key: r.s.b.readKey(p), handle: r.s.b.Acquire(p)}
+	k.unsub = k.handle.Subscribe(func(cache.Event) { signal(wake) })
+	return k
+}
+
+// followPlans takes a workload kind again when how the backend reads it changed: the access
+// reviews answered, or the API server refused it in all namespaces (accessiblens_follow.go; the
+// session's replan wakes the run, appsStore.wake). Before (2026-10-13) the run kept a refused read
+// until the applications' informer gave up and started a new run. It runs on the run's loop.
+func (r *appsRun) followPlans() {
+	for i, k := range r.kinds {
+		if r.s.b.readKey(k.profile) == k.key {
+			continue
+		}
+		r.kinds[i] = r.acquireKind(k.profile)
+		k.unsub()
+		k.handle.Release()
+	}
 }
 
 func (r *appsRun) loop() {
@@ -274,10 +313,8 @@ func (r *appsRun) stop() {
 	r.stopped.Do(func() {
 		close(r.quit)
 		<-r.done
-		for _, u := range r.unsubs {
-			u()
-		}
 		for _, k := range r.kinds {
+			k.unsub()
 			k.handle.Release()
 		}
 	})
@@ -337,6 +374,7 @@ func (r *appsRun) waitReady(timeout time.Duration) error {
 // rebuild groups the cached workloads and brings the Memory in line: an application whose content
 // changed is set again (a new resourceVersion), one that is gone is deleted.
 func (r *appsRun) rebuild() {
+	r.followPlans()
 	settled, _ := r.settled()
 	if !settled && time.Since(r.started) < syncTimeout {
 		return

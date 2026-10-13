@@ -145,7 +145,7 @@ func (s *Session) openWorkloadLogs(ctx context.Context, tab DockTab, b *Backend,
 		if read.p == nil {
 			continue
 		}
-		h, err := s.readFollowing(ctx, b, read.p, b.Scope(read.p).String(), b.inNamespace(read.p, ref.Namespace))
+		h, err := b.readFollowing(ctx, read.p, b.Scope(read.p).String(), b.inNamespace(read.p, ref.Namespace))
 		if err == nil {
 			if err = refusedIn(h, h.Scope().String()); err != nil {
 				h.Release()

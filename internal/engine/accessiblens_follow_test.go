@@ -8,9 +8,14 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
+	toolscache "k8s.io/client-go/tools/cache"
 
+	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
@@ -235,6 +240,128 @@ func TestDrawerReadsTheObjectsNamespace(t *testing.T) {
 	}
 }
 
+// A view's related-objects index follows a refusal too: the Services view reads the endpoint
+// slices for its Service drawers' sections, and a user whose RoleBinding is in the context's
+// namespace alone is refused both kinds in all namespaces. The view, which waits for its indexes
+// before it says it has synced, read the slices again only when the Services' own plan changed:
+// a slice read refused afterwards kept the view loading for as long as it was open.
+func TestViewIndexFollowsARefusal(t *testing.T) {
+	sliceGVR := schema.GroupVersionResource{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"}
+	mem := testkit.NewMemorySource()
+	mem.Set(testkit.ServicesGVR, testkit.Object("v1", "Service", "team-a", "web", nil))
+	mem.Set(sliceGVR, testkit.Object("discovery.k8s.io/v1", "EndpointSlice", "team-a", "web-abc", map[string]any{
+		"metadata":    map[string]any{"labels": map[string]any{"kubernetes.io/service-name": "web"}},
+		"addressType": "IPv4",
+	}))
+	src := &testkit.NamespacedOnlySource{Inner: mem, GVRs: []schema.GroupVersionResource{testkit.ServicesGVR, sliceGVR}}
+	rev := newFakeReviewer(map[string][]cluster.AccessRule{"team-a": {
+		rule("get,list,watch", "", "services"), rule("get,list,watch", "discovery.k8s.io", "endpointslices"),
+	}})
+	var profiles []*model.KindProfile
+	for _, key := range []string{"services", "endpointslices"} {
+		profiles = append(profiles, builtinProfile(t, key))
+	}
+	// The slices' answers come later than the Services': the view has followed its own refusal
+	// before the slices' refusal arrives.
+	slow := slowLists{inner: src, gvr: sliceGVR, delay: 300 * time.Millisecond}
+	s := New(Options{Connector: dockConnector{src: slow, rev: rev, profiles: profiles, namespace: "team-a"}, SnapshotInterval: 5 * time.Millisecond})
+	t.Cleanup(s.Close)
+	connectTest(t, s)
+	s.UpdateUI(func(u *UIState) { u.View = "services" })
+	ts := waitTable(t, s, "services", func(ts *TableSnapshot) bool { return ts.Synced && len(ts.Rows) == 1 })
+	if !slices.Equal(ts.Watched, []string{"team-a"}) || ts.Error != "" {
+		t.Errorf("watched %q, error %q", ts.Watched, ts.Error)
+	}
+	waitCond(t, "the refused scopes stopped", func() bool {
+		for _, st := range s.Backend().Cache.Stats() {
+			if st.Scope.Namespace == "" {
+				return false
+			}
+		}
+		return true
+	})
+	if calls := callsOf(src, "endpointslices"); calls["list endpointslices.discovery.k8s.io in team-a"] != 1 {
+		t.Errorf("slice calls %v: want team-a's after the refusal", calls)
+	}
+}
+
+// The reads behind the menus' checks (Lookup) and behind Edit, Revert and Delete (the write's
+// target, cachedObject) read the target's namespace too: the user may read pods and deployments in
+// shop alone, and the plan names default. Before, both said the object did not exist. For a user
+// whose RoleBinding is in the context's namespace alone, the write's target follows the refusal in
+// all namespaces at once instead of waiting 15 seconds.
+func TestLookupsAndWriteTargetsReadTheTargetsNamespace(t *testing.T) {
+	src, rev := shopOnly(t)
+	s := shopSession(t, src, rev, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	waitCond(t, "Lookup of the pod in shop", func() bool {
+		obj, err := s.Lookup(model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-1-a"})
+		return err == nil && obj.GetName() == "web-1-a"
+	})
+	tg, b, err := s.ResolveTarget(ctx, model.ObjectRef{Kind: "deployments", Namespace: "shop", Name: "web"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if obj, err := cachedObject(ctx, b, tg); err != nil || obj.GetName() != "web" {
+		t.Fatalf("the write's target: %v, %v", obj, err)
+	}
+	for _, res := range []string{"pods", "deployments"} {
+		for k, n := range callsOf(src, res) {
+			if n > 0 && !strings.HasSuffix(k, " in shop") {
+				t.Errorf("%s read outside shop: %v", res, callsOf(src, res))
+			}
+		}
+	}
+
+	src2, rev2 := contextOnly(t)
+	s2 := contextOnlySession(t, src2, rev2, nil)
+	tg, b, err = s2.ResolveTarget(ctx, model.ObjectRef{Kind: "replicasets", Namespace: "team-a", Name: "web-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if obj, err := cachedObject(ctx, b, tg); err != nil || obj.GetName() != "web-1" {
+		t.Fatalf("the write's target after a refusal: %v, %v (calls %v)", obj, err, callsOf(src2, "replicasets"))
+	}
+	if calls := callsOf(src2, "replicasets"); calls["list replicasets.apps"] != 1 || calls["list replicasets.apps in team-a"] != 1 {
+		t.Errorf("replica set calls %v: want one refused list in all namespaces, then team-a's", calls)
+	}
+}
+
+// The Applications view reads its workloads through a cache of its own; for a user whose
+// RoleBinding is in the context's namespace (shop) alone, its reads of the workloads in all
+// namespaces are refused, and before (2026-10-13) it kept them for as long as it ran and listed no
+// application. Its run now takes a workload kind again when how the kind is read changes, so the
+// view lists shop's application.
+func TestApplicationsFollowARefusal(t *testing.T) {
+	mem := testkit.NewMemorySource()
+	mem.Set(testkit.DeploymentsGVR, appDeployment("shop", "web", "storefront", "1.4", 1))
+	mem.Set(appsStatefulSetsGVR, appStatefulSet(2))
+	mem.Set(testkit.DeploymentsGVR, appDeployment("payments", "api", "storefront", "2.0", 1))
+	gvrs := []schema.GroupVersionResource{testkit.PodsGVR, testkit.DeploymentsGVR, appsStatefulSetsGVR, appsJobsGVR, appsCronJobsGVR}
+	src := &testkit.NamespacedOnlySource{Inner: mem, GVRs: gvrs, Denied: []string{"payments"}}
+	rev := newFakeReviewer(map[string][]cluster.AccessRule{"shop": {
+		rule("get,list,watch", "", "pods"), rule("get,list,watch", "apps", "deployments,statefulsets"), rule("get,list,watch", "batch", "jobs,cronjobs"),
+	}})
+	var profiles []*model.KindProfile
+	for _, key := range []string{"pods", "deployments", "statefulsets", "jobs", "cronjobs"} {
+		profiles = append(profiles, builtinProfile(t, key))
+	}
+	s := New(Options{Connector: dockConnector{src: src, rev: rev, profiles: withApplications(profiles), namespace: "shop"}, SnapshotInterval: 5 * time.Millisecond})
+	t.Cleanup(s.Close)
+	connectTest(t, s)
+	s.UpdateUI(func(u *UIState) { u.View = kinds.ApplicationsKey })
+	ts := waitTable(t, s, kinds.ApplicationsKey, func(ts *TableSnapshot) bool { return ts.Synced && len(ts.Rows) == 1 && ts.Error == "" })
+	if r := ts.Rows[0].Ref; r.Namespace != "shop" {
+		t.Errorf("row %v", r)
+	}
+	for _, res := range []string{"deployments", "statefulsets"} {
+		if calls := callsOf(src, res); calls["list "+res+".apps in shop"] != 1 || calls["list "+res+".apps"] > 2 {
+			t.Errorf("%s calls %v: want the refused read in all namespaces, then shop's", res, calls)
+		}
+	}
+}
+
 // The same read for a user whose RoleBinding is in the context's namespace alone: the read in all
 // namespaces that the plan tries is refused once, and the read takes the object's namespace at
 // once instead of waiting 15 seconds and saying the kind is still loading.
@@ -255,3 +382,33 @@ func TestDetailWaitFollowsARefusal(t *testing.T) {
 		t.Errorf("deployment calls %v: want one refused list in all namespaces, then team-a's", calls)
 	}
 }
+
+// slowLists delays every list of one resource in all namespaces.
+type slowLists struct {
+	inner cache.Source
+	gvr   schema.GroupVersionResource
+	delay time.Duration
+}
+
+func (s slowLists) ListerWatcher(scope cache.Scope) toolscache.ListerWatcher {
+	lw := s.inner.ListerWatcher(scope)
+	if scope.GVR != s.gvr || scope.Namespace != "" {
+		return lw
+	}
+	return slowLW{inner: lw, delay: s.delay}
+}
+
+type slowLW struct {
+	inner toolscache.ListerWatcher
+	delay time.Duration
+}
+
+func (l slowLW) List(opts metav1.ListOptions) (runtime.Object, error) {
+	time.Sleep(l.delay)
+	return l.inner.List(opts)
+}
+
+func (l slowLW) Watch(opts metav1.ListOptions) (watch.Interface, error) { return l.inner.Watch(opts) }
+
+// IsWatchListSemanticsUnSupported tells client-go's reflector to list, then watch.
+func (slowLW) IsWatchListSemanticsUnSupported() bool { return true }

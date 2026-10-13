@@ -54,14 +54,33 @@ func (b *Backend) releaseScopes(p *model.KindProfile) []cache.Scope {
 
 // acquireReleases returns a handle on both drivers' release records: one handle per scope on the
 // cluster's cache, joined (cache.Join). Each scope is one watch, or none while its kind's full
-// watch covers it.
+// watch covers it. Each is read as its kind is (accessiblens_plan.go): in all namespaces, or, for
+// a user who may not list Secrets (ConfigMaps) there, in each namespace the plan reads, covered
+// by that namespace's full watch while it runs (2026-10-13; before, the releases were read in all
+// namespaces whatever the user's access, and a namespace-limited user saw no release).
 func (b *Backend) acquireReleases(p *model.KindProfile) *cache.Handle {
 	scopes := b.releaseScopes(p)
 	parts := make([]*cache.Handle, len(scopes))
 	for i, sc := range scopes {
-		parts[i] = b.Cache.Acquire(sc)
+		if plan := b.releasePartPlan(p, i); plan.perNamespace {
+			parts[i] = b.Cache.AcquireNamespaces(sc, plan.watch)
+		} else {
+			parts[i] = b.Cache.Acquire(sc)
+		}
 	}
 	return cache.Join(parts...)
+}
+
+// releasePartPlan is how the i-th of releaseScopes is read: the release Secrets as the Secrets
+// (the releases' own plan asks about listing secrets), the release ConfigMaps as the ConfigMaps.
+func (b *Backend) releasePartPlan(p *model.KindProfile, i int) nsPlan {
+	if i == 0 {
+		return b.namespacePlan(p)
+	}
+	if cp, ok := b.Profile(configMapsKind); ok {
+		return b.namespacePlan(cp)
+	}
+	return nsPlan{}
 }
 
 // releasesCached reports whether every scope the releases are read from is watched already, so

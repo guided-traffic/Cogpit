@@ -255,6 +255,18 @@ func (s *Session) newOverviewWorker(b *Backend, params viewParams, notify, event
 	return w
 }
 
+// kindHandles are the worker's handles with their kinds: the workloads' and the events'.
+func (w *overviewWorker) kindHandles() []kindHandle {
+	out := make([]kindHandle, 0, len(w.kinds)+1)
+	for _, k := range w.kinds {
+		out = append(out, kindHandle{k.profile, k.handle})
+	}
+	if w.evts != nil {
+		out = append(out, kindHandle{w.events, w.evts})
+	}
+	return out
+}
+
 // startOverview starts the page's worker; the first build runs at once.
 func (s *Session) startOverview(b *Backend, params viewParams) *overviewWorker {
 	w := s.newOverviewWorker(b, params, true, true)
@@ -453,10 +465,14 @@ func (s *Session) WorkloadsOverview(ctx context.Context, namespaces []string, ev
 			return m, page.snap.Load(), nil
 		}
 	}
-	w := s.newOverviewWorker(b, viewParams{}, false, events)
-	defer w.release()
 	wctx, cancel := context.WithTimeout(ctx, syncTimeout)
 	defer cancel()
+	// Once the kinds' plans are decided, following a refusal in all namespaces (accessiblens_follow.go).
+	w := openFollowing(wctx, b, overviewPageKinds, func() (*overviewWorker, []kindHandle) {
+		w := s.newOverviewWorker(b, viewParams{}, false, events)
+		return w, w.kindHandles()
+	}, (*overviewWorker).release)
+	defer w.release()
 	for _, k := range w.kinds {
 		k.handle.WaitForSync(wctx)
 		k.related.waitSynced(wctx)

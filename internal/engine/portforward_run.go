@@ -347,7 +347,7 @@ func (r *forwardRun) watchTargets(ctx context.Context) (*forwardWatch, error) {
 		if read.p == nil {
 			continue
 		}
-		h, err := r.s.readFollowing(ctx, r.b, read.p, r.b.Scope(read.p).String(), r.b.inNamespace(read.p, ns))
+		h, err := r.b.readFollowing(ctx, read.p, r.b.Scope(read.p).String(), r.b.inNamespace(read.p, ns))
 		if err == nil {
 			if err = refusedIn(h, h.Scope().String()); err != nil {
 				h.Release()

@@ -209,26 +209,42 @@ func ActUID(ctx context.Context, ref model.ObjectRef, cached func() (string, boo
 }
 
 // cachedObject returns a target's object as the cache holds it, acquiring a handle on its kind for
-// the call and waiting for the initial list like Session.Object. The object is shared and must not
-// be modified.
+// the call and waiting for the initial list like Session.Object: for a user who may not list the
+// kind in all namespaces, the target's namespace alone, also after a refusal there
+// (accessiblens_follow.go readFollowing). The object is shared and must not be modified.
 func cachedObject(ctx context.Context, b *Backend, t ObjectTarget) (*unstructured.Unstructured, error) {
-	h, p := t.acquire(b)
-	defer h.Release()
-	if err := waitSynced(ctx, h, t.Ref.Kind); err != nil {
-		return nil, err
+	var h *cache.Handle
+	p := t.profile
+	if p != nil {
+		var err error
+		if h, err = b.readFollowing(ctx, p, t.Ref.Kind, b.inNamespace(p, t.Ref.Namespace)); err != nil {
+			return nil, err
+		}
+	} else {
+		h, p = t.acquire(b)
+		if err := waitSynced(ctx, h, t.Ref.Kind); err != nil {
+			h.Release()
+			return nil, err
+		}
 	}
+	defer h.Release()
 	obj, ok := KindGet(h, p, t.Ref.Namespace, t.Ref.Name)
 	if !ok {
+		if err := refusedIn(h, t.Ref.Kind); err != nil {
+			return nil, err
+		}
 		return nil, fmt.Errorf("%s: %w", t.Ref.String(), ErrNotFound)
 	}
 	return obj, nil
 }
 
-// acquire returns a handle on the target's kind through its profile's scope, or on its GVR for a
-// kind without a profile, and the profile to read it with (a plain one for the latter).
+// acquire returns a handle on the target's kind through its profile's scope (the target's
+// namespace alone for a user who may not list the kind everywhere, as cachedObject reads it), or
+// on its GVR for a kind without a profile, and the profile to read it with (a plain one for the
+// latter).
 func (t ObjectTarget) acquire(b *Backend) (*cache.Handle, *model.KindProfile) {
 	if t.profile != nil {
-		return b.Acquire(t.profile), t.profile
+		return b.acquireNow(t.profile, t.Ref.Namespace), t.profile
 	}
 	return b.Cache.Acquire(cache.Scope{GVR: t.GVR}), &model.KindProfile{Key: t.Ref.Kind, Namespaced: t.Namespaced}
 }

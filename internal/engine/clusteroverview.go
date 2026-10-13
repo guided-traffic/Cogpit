@@ -441,10 +441,18 @@ func (s *Session) ClusterOverview(ctx context.Context, namespaces []string, seri
 			return m, nil
 		}
 	}
-	src := newOverviewSource(b, func() {})
-	defer src.release()
 	wctx, cancel := context.WithTimeout(ctx, syncTimeout)
 	defer cancel()
+	// Once the kinds' plans are decided, following a refusal in all namespaces (accessiblens_follow.go).
+	src := openFollowing(wctx, b, clusterOverviewKinds, func() (*overviewSource, []kindHandle) {
+		src := newOverviewSource(b, func() {})
+		var reads []kindHandle
+		for _, k := range src.kinds() {
+			reads = append(reads, kindHandle{k.profile, k.handle})
+		}
+		return src, reads
+	}, (*overviewSource).release)
+	defer src.release()
 	src.waitSynced(wctx)
 	ob := src.build(time.Now())
 	m := overviewModel(ob, params, u.Overview)

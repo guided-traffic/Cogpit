@@ -85,13 +85,17 @@ func (st *state) reconcileLocked(now UIState) {
 	// each namespace the user named (accessiblens_plan.go); a new plan reads the kind again.
 	var prof *model.KindProfile
 	var plan nsPlan
+	var relKey string // how its related-objects indexes read their kinds (accessiblens_plan.go)
 	if b != nil {
 		prof, _ = b.Profile(now.View)
 		b.ns.setInputs(now.ClusterSettings[b.Context].AccessibleNamespaces, now.Namespaces)
 		plan = b.namespacePlan(prof)
+		if prof != nil {
+			relKey = b.relatedKey(prof, "")
+		}
 	}
 	st.noteVanishedLocked(b, prof, now.View)
-	if st.view != nil && (st.view.backend != b || st.view.profile != prof || st.view.plan.key() != plan.key()) {
+	if st.view != nil && (st.view.backend != b || st.view.profile != prof || st.view.plan.key() != plan.key() || st.view.relKey != relKey) {
 		st.view.stop()
 		st.view = nil
 	}
@@ -102,6 +106,7 @@ func (st *state) reconcileLocked(now UIState) {
 			st.rowCaches[prof.Key] = rc
 		}
 		st.view = st.s.startViewWorker(b, prof, rc, paramsOf(now), plan)
+		st.view.relKey = relKey
 	} else if st.view != nil {
 		st.view.setParams(paramsOf(now))
 	}

@@ -14,6 +14,7 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
+	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/testkit"
 )
@@ -94,8 +95,8 @@ func agentDispatch(ctx context.Context, t *testing.T, s *engine.Session, id stri
 	return res
 }
 
-// steps runs the user's steps and returns the pods' CPU column as the view shows it once it has
-// a measurement for every row.
+// limitedSteps runs the user's steps: the Pods view until every row shows its CPU, an agent's
+// object_get of the Deployment, resources_list of the Deployments, metrics.get of every pod.
 func limitedSteps(ctx context.Context, t *testing.T, s *engine.Session, rows int) {
 	t.Helper()
 	if !testkit.WaitFor(ctx, func() bool {
@@ -134,6 +135,53 @@ func limitedSteps(ctx context.Context, t *testing.T, s *engine.Session, rows int
 	res, ok := agentDispatch(ctx, t, s, "metrics.get", map[string]any{"kind": "pods"}).(*engine.MetricsResult)
 	if !ok || res.Status != "available" || res.Total != rows {
 		t.Fatalf("metrics.get: %+v", res)
+	}
+}
+
+// The Releases view of a user who may read Secrets and ConfigMaps in team-a alone (a RoleBinding
+// there): the release records are read in all namespaces first, refused, then in team-a, and the
+// view lists team-a's release without an error. Before (2026-10-13) the releases were left out of
+// the namespace plans: the view kept the refused watches of both drivers and showed no release.
+func TestHelmReleasesOfANamespaceLimitedUser(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	rule := testkit.FakeRule{Verbs: []string{"get", "list", "watch"}, APIGroups: []string{""}, Resources: []string{"secrets", "configmaps", "pods"}}
+	access := &testkit.FakeAccess{Enforce: true, Rules: map[string][]testkit.FakeRule{"team-a": {rule}}}
+	resources := append(append([]testkit.FakeResource(nil), testkit.DefaultFakeResources...),
+		testkit.FakeResource{GVR: testkit.SecretsGVR, Kind: "Secret", Namespaced: true},
+		testkit.FakeResource{GVR: configMapsGVR, Kind: "ConfigMap", Namespaced: true})
+	srv := testkit.NewFakeAPIServer(testkit.FakeAPIOptions{Token: "limited-token", Access: access, Resources: resources})
+	t.Cleanup(srv.Close)
+	srv.Set(testkit.SecretsGVR, helmSecret(t, "team-a", "web", 1, "deployed"))
+	srv.Set(testkit.SecretsGVR, helmSecret(t, "team-b", "db", 1, "deployed"))
+	s := engine.New(engine.Options{
+		Connector:       &engine.ClusterConnector{KubeconfigPaths: []string{srv.WriteKubeconfig(t, "fake", "team-a")}},
+		ClusterSettings: engine.NewClusterSettingsStore(t.TempDir()),
+	})
+	t.Cleanup(s.Close)
+	if err := commands.RegisterAll(s.Registry()); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Connect(ctx, "fake"); err != nil {
+		t.Fatal(err)
+	}
+	s.UpdateUI(func(u *engine.UIState) { u.View = helm.ReleaseKind })
+	var ts *engine.TableSnapshot
+	if !testkit.WaitFor(ctx, func() bool {
+		ts = s.Table(helm.ReleaseKind)
+		return ts != nil && ts.Synced && len(ts.Rows) == 1 && ts.Error == ""
+	}) {
+		t.Fatalf("the Releases view never listed team-a's release: %+v (reads %v)", ts, srv.RequestsIn())
+	}
+	if r := ts.Rows[0].Ref; r.Namespace != "team-a" || r.Name != "web" {
+		t.Errorf("row %v", r)
+	}
+	for _, res := range []string{"secrets with owner=helm", "configmaps with owner=helm"} {
+		reads := readsOf(srv, res)
+		wide := reads["watchlist "+res] + reads["list "+res]
+		if wide > 2 || reads["watchlist "+res+" in team-a"] != 1 || len(reads) > 3 {
+			t.Errorf("%s: reads %v, want at most one refused read in all namespaces (and its list), then team-a's", res, reads)
+		}
 	}
 }
 

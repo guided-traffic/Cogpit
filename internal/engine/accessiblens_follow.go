@@ -35,7 +35,7 @@ func startRead(ctx context.Context, p *model.KindProfile, acquire func(context.C
 // settleReads waits, bounded by ctx, until every read's handle has synced, the reads side by side.
 // A read in all namespaces that the API server refuses is followed: the refusal is kept (the kind is
 // read namespace by namespace from then on, by every reader) and the read is taken again, once.
-func (s *Session) settleReads(ctx context.Context, b *Backend, reads ...*followedRead) {
+func (b *Backend) settleReads(ctx context.Context, reads ...*followedRead) {
 	t := time.NewTicker(10 * time.Millisecond)
 	defer t.Stop()
 	for {
@@ -47,7 +47,7 @@ func (s *Session) settleReads(ctx context.Context, b *Backend, reads ...*followe
 			if !r.followed && readsAllNamespaces(r.p, r.h) && cache.IsRefused(r.h.Err()) {
 				r.followed = true
 				r.h.Release()
-				s.followRefused(b, r.p)
+				b.followRefused(r.p)
 				if r.h = r.acquire(ctx); r.h.HasSynced() {
 					continue
 				}
@@ -70,17 +70,75 @@ func (s *Session) settleReads(ctx context.Context, b *Backend, reads ...*followe
 // for their initial list, following a refusal in all namespaces (settleReads). Before
 // (2026-10-13) such a read waited 15 seconds for a list that never came and failed. label names
 // the kind in the error of a list that never finished; the handle goes back with an error.
-func (s *Session) readFollowing(ctx context.Context, b *Backend, p *model.KindProfile, label string, acquire func(context.Context) *cache.Handle) (*cache.Handle, error) {
+func (b *Backend) readFollowing(ctx context.Context, p *model.KindProfile, label string, acquire func(context.Context) *cache.Handle) (*cache.Handle, error) {
 	r := startRead(ctx, p, acquire)
 	wctx, cancel := context.WithTimeout(ctx, syncTimeout)
 	defer cancel()
-	s.settleReads(wctx, b, r)
+	b.settleReads(wctx, r)
 	if r.h.HasSynced() {
 		return r.h, nil
 	}
 	err := notSynced(ctx, r.h, label)
 	r.h.Release()
 	return nil, err
+}
+
+// kindHandle is one kind's handle of a reader of several kinds.
+type kindHandle struct {
+	p *model.KindProfile
+	h *cache.Handle
+}
+
+// openFollowing opens a one-off reader of several kinds (an agent's Overview: open acquires its
+// handles) once the kinds' plans are decided, so that it does not take them in all namespaces
+// while the access reviews are out, and waits, bounded by ctx, for its handles; when the API server
+// refuses a read in all namespaces, the reader is opened again, once, now namespace by namespace
+// for those kinds. Before (2026-10-13) such a reader read in all namespaces while the reviews were
+// out and waited 15 seconds on a refused read. The caller releases what it returns.
+func openFollowing[T any](ctx context.Context, b *Backend, keys []string, open func() (T, []kindHandle), release func(T)) T {
+	for _, key := range keys {
+		if p, ok := b.Profile(key); ok {
+			b.settledPlan(ctx, p)
+		}
+	}
+	r, reads := open()
+	if refused := refusedWide(ctx, reads); len(refused) > 0 {
+		release(r)
+		for _, p := range refused {
+			b.followRefused(p)
+		}
+		r, _ = open()
+	}
+	return r
+}
+
+// refusedWide waits, bounded by ctx, until every handle has synced or been refused, and returns
+// the kinds whose read in all namespaces the API server refused (all of them, so that one reopen
+// covers every refusal).
+func refusedWide(ctx context.Context, reads []kindHandle) []*model.KindProfile {
+	t := time.NewTicker(10 * time.Millisecond)
+	defer t.Stop()
+	for {
+		var refused []*model.KindProfile
+		waiting := false
+		for _, r := range reads {
+			switch {
+			case r.h.HasSynced():
+			case readsAllNamespaces(r.p, r.h) && cache.IsRefused(r.h.Err()):
+				refused = append(refused, r.p)
+			default:
+				waiting = true
+			}
+		}
+		if !waiting {
+			return refused
+		}
+		select {
+		case <-ctx.Done():
+			return refused
+		case <-t.C:
+		}
+	}
 }
 
 // notSynced is waitSynced's error for a handle that did not sync in time: its list's error, the
@@ -109,7 +167,7 @@ func readsAllNamespaces(p *model.KindProfile, h *cache.Handle) bool {
 
 // followRefused keeps that the API server refused to list a kind in all namespaces and, when that
 // is news, has what is open (views, pages, the drawer) read it again namespace by namespace.
-func (s *Session) followRefused(b *Backend, p *model.KindProfile) {
+func (b *Backend) followRefused(p *model.KindProfile) {
 	if b.noteRefused(p) {
 		b.ns.wakeReplan()
 	}
@@ -147,7 +205,7 @@ func (s *Session) attachRefusals(b *Backend) {
 		}
 		for _, p := range b.AllProfiles() {
 			if p.GVR() == sc.GVR && p.Namespaced && !p.Local {
-				s.followRefused(b, p)
+				b.followRefused(p)
 				return
 			}
 		}
@@ -161,10 +219,22 @@ func (s *Session) attachRefusals(b *Backend) {
 // with caches of their own read as Acquire does. Before (2026-10-13) the drawer read the plan's
 // namespaces, and an object in another one the user may read showed as missing.
 func (b *Backend) acquireNow(p *model.KindProfile, namespace string) *cache.Handle {
-	if b.narrowsTo(p, namespace) {
+	switch {
+	case b.narrowsTo(p, namespace):
 		return b.Cache.AcquireNamespaces(b.Scope(p), []string{namespace})
+	case b.waitsForPlan(p):
+		// Nothing while the access reviews have not said whether the kind may be listed in all
+		// namespaces, as the view holds nothing then: a read in all namespaces would be refused a
+		// user who may not. The drawer starts again once they answer (drawerPlanKey); a menu's
+		// check says the kind is still loading.
+		return cache.Pending(b.Scope(p))
 	}
 	return b.Acquire(p)
+}
+
+// waitsForPlan reports whether a namespaced kind of the cluster has a pending plan.
+func (b *Backend) waitsForPlan(p *model.KindProfile) bool {
+	return p.Namespaced && !p.Local && !isApplications(p) && !isHelmReleases(p) && b.namespacePlan(p).pending
 }
 
 // narrowsTo reports whether acquireNow reads a kind in namespace alone: namespace is an object's,
@@ -216,7 +286,7 @@ func (s *Session) detailReads(ctx context.Context, b *Backend, p *model.KindProf
 	}
 	wctx, cancel := context.WithTimeout(ctx, syncTimeout)
 	defer cancel()
-	s.settleReads(wctx, b, reads...)
+	b.settleReads(wctx, reads...)
 	h = reads[0].h
 	if events {
 		evh = reads[1].h
@@ -224,7 +294,7 @@ func (s *Session) detailReads(ctx context.Context, b *Backend, p *model.KindProf
 	if rs = s.drawerRelated(b, p, ref); rs == nil {
 		rs = newRelatedSetWith(b, p.Needs, nil, false, func(rp *model.KindProfile) *cache.Handle {
 			r := startRead(wctx, rp, b.inNamespace(rp, ns))
-			s.settleReads(wctx, b, r)
+			b.settleReads(wctx, r)
 			return r.h
 		})
 	}

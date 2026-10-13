@@ -26,6 +26,7 @@ type viewWorker struct {
 	rows    *rowCache
 	handle  *cache.Handle
 	plan    nsPlan // how the kind is read: in all namespaces, one by one, or not yet (accessiblens_plan.go)
+	relKey  string // how the related-objects indexes read their kinds (Backend.relatedKey); set under state.mu
 	unsub   func()
 	related *relatedSet // the indexes of the profile's Needs; nil without
 	usage   *usageFeed  // the metrics of a kind with CPU and Memory columns; nil without or while they are hidden (guarded by mu)

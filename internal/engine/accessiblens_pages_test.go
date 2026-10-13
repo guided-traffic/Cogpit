@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/guided-traffic/cogpit/internal/testkit"
 )
@@ -20,6 +21,60 @@ func podsHandles(s *Session) (clusterWide, namespaced int) {
 		}
 	}
 	return clusterWide, namespaced
+}
+
+// For a user whose RoleBinding is in the context's namespace alone, the Overviews read their kinds
+// in all namespaces first and are refused; no view has met the refusals of the Deployments and
+// Replica Sets. An agent's read of either Overview (no page open) waits for the plans, follows the
+// refusals and answers from team-a at once, instead of waiting 15 seconds on refused reads; the
+// open page reads them in team-a too (the refusals count whoever met them, cache.OnRefused), where
+// before (2026-10-13) it kept the refused watches, retried for as long as it was open.
+func TestPagesFollowARefusal(t *testing.T) {
+	src, rev := contextOnly(t)
+	s := contextOnlySession(t, src, rev, nil)
+	s.UpdateUI(func(u *UIState) { u.View = "services" }) // no view of pods, deployments or replica sets
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	counted := func(m *WorkloadsOverviewModel) bool {
+		n := 0
+		for _, k := range m.Kinds {
+			if k.Error != "" {
+				return false
+			}
+			if (k.Kind == "deployments" || k.Kind == "replicasets") && k.Count == 1 {
+				n++
+			}
+		}
+		return m.Synced && n == 2
+	}
+	m, _, err := s.WorkloadsOverview(ctx, nil, false)
+	if err != nil || !counted(m) {
+		t.Fatalf("an agent's Workloads Overview: %+v, %v", m, err)
+	}
+	cm, err := s.ClusterOverview(ctx, nil, false)
+	if err != nil || !cm.Synced || cm.Error != "" {
+		t.Fatalf("an agent's cluster Overview: %+v, %v", cm, err)
+	}
+
+	s.UpdateUI(func(u *UIState) { u.View, u.Sort = WorkloadsOverview, s.ViewSort(WorkloadsOverview) })
+	waitFor(t, "the page's kinds read in team-a, counted without an error", func() bool {
+		m, _, err := s.WorkloadsOverview(ctx, nil, false)
+		return err == nil && counted(m)
+	})
+	waitFor(t, "no read in all namespaces left", func() bool {
+		for _, st := range s.Backend().Cache.Stats() {
+			// Events and namespaces are not refused in all namespaces here (the source serves them).
+			if st.Scope.Namespace == "" && st.Scope.GVR.Resource != "namespaces" && st.Scope.GVR.Resource != "events" {
+				return false
+			}
+		}
+		return true
+	})
+	for _, res := range []string{"deployments", "replicasets"} {
+		if calls := callsOf(src, res); calls["list "+res+".apps"] > 2 {
+			t.Errorf("%s calls %v: the refused read in all namespaces was tried again", res, calls)
+		}
+	}
 }
 
 // A page opened while the access reviews are still out takes its kinds' handles as a pending plan

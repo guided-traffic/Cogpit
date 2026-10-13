@@ -98,8 +98,8 @@ func (s *Session) Objects(ctx context.Context, kind string, namespaces []string)
 		return nil, err
 	}
 	// In all namespaces, or in each the user named; a refusal in all namespaces is followed
-	// (accessiblens_plan.go readFollowing).
-	h, err := s.readFollowing(ctx, b, p, kind, func(ctx context.Context) *cache.Handle { return b.acquireSettled(ctx, p) })
+	// (accessiblens_follow.go readFollowing).
+	h, err := b.readFollowing(ctx, p, kind, func(ctx context.Context) *cache.Handle { return b.acquireSettled(ctx, p) })
 	if err != nil {
 		return nil, err
 	}
@@ -125,8 +125,8 @@ func (s *Session) Object(ctx context.Context, ref model.ObjectRef) (*unstructure
 		return nil, err
 	}
 	// The object's namespace alone for a user who may not list everywhere, also after a refusal
-	// in all namespaces (accessiblens_plan.go readFollowing).
-	h, err := s.readFollowing(ctx, b, p, p.Key, b.inNamespace(p, ref.Namespace))
+	// in all namespaces (accessiblens_follow.go readFollowing).
+	h, err := b.readFollowing(ctx, p, p.Key, b.inNamespace(p, ref.Namespace))
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func (s *Session) Lookup(ref model.ObjectRef) (*unstructured.Unstructured, error
 	if err != nil {
 		return nil, err
 	}
-	h := b.Acquire(p)
+	h := b.acquireNow(p, ref.Namespace) // the object's namespace alone for a user who may not list everywhere, as the drawer reads it
 	defer h.Release()
 	if !h.HasSynced() {
 		return nil, fmt.Errorf("%w %s yet", ErrNotSynced, p.Key)

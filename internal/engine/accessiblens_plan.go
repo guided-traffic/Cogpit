@@ -143,7 +143,9 @@ const (
 // namespacePlan returns how the backend reads a kind now. It asks the API server nothing itself;
 // a rules review it needs is started in the background, deduplicated, as Allowed does.
 func (b *Backend) namespacePlan(p *model.KindProfile) nsPlan {
-	if b == nil || p == nil || !p.Namespaced || p.Local || isApplications(p) || isHelmReleases(p) {
+	// Helm's releases are planned as the Secrets they are read from (the profile's resource), and
+	// their ConfigMaps part as the ConfigMaps (acquireReleases).
+	if b == nil || p == nil || !p.Namespaced || p.Local || isApplications(p) {
 		return nsPlan{}
 	}
 	denied, settled := b.clusterWideDenied(p)
@@ -446,6 +448,9 @@ func (b *Backend) relatedKey(p *model.KindProfile, namespace string) string {
 		seen[ix.Kind] = true
 		sb.WriteString("|" + ix.Kind + "=" + b.readKeyIn(rp, namespace))
 	}
+	if isHelmReleases(p) && b.servesConfigMaps() { // the release ConfigMaps (acquireReleases)
+		sb.WriteString("|" + configMapsKind + "=" + b.releasePartPlan(p, 1).key())
+	}
 	return sb.String()
 }
 
@@ -492,7 +497,7 @@ func (w *viewWorker) followRefusal(err error) {
 	if w.plan.pending || w.plan.perNamespace || !cache.IsRefused(err) {
 		return
 	}
-	w.s.followRefused(w.backend, w.profile)
+	w.backend.followRefused(w.profile)
 }
 
 // noteRefused records that the API server refused to list a kind in all namespaces (a view's
@@ -509,8 +514,8 @@ func (b *Backend) noteRefused(p *model.KindProfile) bool {
 // on changed outside it: answers of the access reviews, a refusal of the API server.
 func (st *state) replan(b *Backend) {
 	st.mu.Lock()
-	defer st.mu.Unlock()
 	if st.closed || b == nil || st.backend != b {
+		st.mu.Unlock()
 		return
 	}
 	now := st.s.UIState()
@@ -518,6 +523,8 @@ func (st *state) replan(b *Backend) {
 		st.appliedRev = now.Revision
 	}
 	st.reconcileLocked(now)
+	st.mu.Unlock()
+	b.apps.wake() // the Applications' own reads of the workloads (applications.go followPlans)
 }
 
 // replanPending is replan for a view still waiting for its plan: a rules review answered.
