@@ -67,6 +67,7 @@ func (sh *shell) preferencesChanged() {
 	for _, v := range sh.editorViews() {
 		sh.applyEditorPrefs(v)
 	}
+	sh.applyTerminalPrefs() // the right mouse button in the open terminals (termpaste.go)
 }
 
 // loc is the time zone of the charts' time axes and hover panels: the Preferences' time zone,
@@ -268,16 +269,19 @@ func (p *settingsPage) terminalSection() fyne.CanvasObject {
 		p.typed("terminalShellArgs", func() { p.setPreference("terminalShellArgs", shellArgs(args.Text)) })
 	}
 	font := p.intSelect("terminalFontSize", sizeChoices(pr.TerminalFontSize, fontSizes...))
+	rightClick, syncRightClick := p.rightClickSetting() // termpaste.go
 	p.sync = func() {
 		pr := p.prefs()
 		p.setEntry(shell, shell, "terminalShell", pr.TerminalShell)
 		p.setEntry(args, args, "terminalShellArgs", strings.Join(pr.TerminalShellArgs, "\n"))
 		font.SetSelected(strconv.Itoa(pr.TerminalFontSize))
+		syncRightClick()
 	}
 	return container.NewVBox(
 		p.setting("terminalShell", "Shell path", "The local terminal's shell, an absolute path; pod shells are not affected.", shell),
 		p.setting("terminalShellArgs", "Shell arguments", "Passed to the shell after its name, one per line.", args),
 		p.setting("terminalFontSize", "Font size", "The dock's terminals opened from now on, in points.", font),
+		p.setting("terminalRightClickCopyPaste", rightClickTitle, rightClickHelp, rightClick),
 	)
 }
 

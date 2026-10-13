@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -404,6 +404,15 @@ weighed: the lead opens them after the owner's OK (decided), the owner opens the
 reproducing inputs instead of pull requests, or keeping the fork for good (which would reverse
 the decision above).
 
+**Added (2026-10-13, night run; candidates, not offered):** two patches for terminal input, each
+with a test in the copy, marked `Cogpit patch:`: what the right mouse button does is the
+application's choice (`SetRightClickAction`: paste the last selection, upstream's behaviour and
+the default; nothing; or copy the selection, else paste the clipboard), which Cogpit's terminal
+preference needs; and ⌃Ins and ⇧Ins copy to and paste from the clipboard off macOS instead of the
+widget's own selection buffer. A variable `goos` lets the tests on one system cover the keys of
+the others ([PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)). They are offered upstream
+like the others once the owner looks at them.
+
 ## D-15: Progress generators
 
 **Decided (owner, 2026-10-12):** `make parity` is built first, as a counter and checker of the
@@ -766,6 +775,7 @@ click, but an approval that no longer binds the server: a changed server in `con
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-14: the right mouse button's action and ⌃Ins and ⇧Ins on the clipboard, patches of the fork and upstream candidates (night run), not offered |
 | 2026-10-13 | minor | D-22 amended (Cogpit's default): the theme is a preference too, `--theme` overrides it for a run; the clusters' icon colours are Solarized's accents |
 | 2026-10-13 | minor | D-11: Helm install built on the journal's road as the lead's default (an interrupted install offered as an uninstall); the decision stays the owner's |
 | 2026-10-12 | minor | D-11: crash reports kept locally (built), and what they found first |

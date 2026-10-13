@@ -211,7 +211,8 @@ func TestTerminalShowsOutputAndForwardsInputAndSize(t *testing.T) {
 
 // TestTerminalCopyAndPaste records what the widget offers: a double-click selects a word, the
 // platform's copy shortcut puts the selection on the clipboard, the paste shortcut types the
-// clipboard (bracketed when the program asks), and a right click pastes the last selection.
+// clipboard (bracketed when the program asks). A right click does nothing until
+// SetRightClickCopyPaste turns it on; then it copies a selection, else pastes the clipboard.
 func TestTerminalCopyAndPaste(t *testing.T) {
 	sess := newFakeSession()
 	term, _ := showTerminal(t, sess, fyne.NewSize(640, 320))
@@ -250,11 +251,31 @@ func TestTerminalCopyAndPaste(t *testing.T) {
 		t.Errorf("bracketed paste: input = %q", in)
 	}
 
-	// The right button pastes the last selection (an in-process "primary selection").
-	term.term.DoubleTapped(&fyne.PointEvent{Position: fyne.NewPos(cellW*2.5, cellH*1.5)})
-	term.term.MouseDown(&desktop.MouseEvent{Button: desktop.MouseButtonSecondary})
-	if in, _, _ := sess.state(); !strings.HasSuffix(in, "\x1b[200~hello\x1b[201~") {
-		t.Errorf("right-click paste: input = %q", in)
+	// The right button: nothing by default (the widget's own default pasted its last selection).
+	right := func() { term.term.MouseDown(&desktop.MouseEvent{Button: desktop.MouseButtonSecondary}) }
+	word := func() { term.term.DoubleTapped(&fyne.PointEvent{Position: fyne.NewPos(cellW*2.5, cellH*1.5)}) }
+	before, _, _ := sess.state()
+	word()
+	right()
+	right()
+	if in, _, _ := sess.state(); in != before || clip.Content() != "kubectl get pods" {
+		t.Errorf("right click without the preference: input %q, clipboard %q", in, clip.Content())
+	}
+	// With the preference: a selection is copied, nothing typed; then, nothing selected, a paste.
+	term.SetRightClickCopyPaste(true)
+	word()
+	right()
+	if in, _, _ := sess.state(); in != before || clip.Content() != "hello" {
+		t.Errorf("right click on a selection: input %q, clipboard %q", in, clip.Content())
+	}
+	right()
+	if in, _, _ := sess.state(); in != before+"\x1b[200~hello\x1b[201~" {
+		t.Errorf("right click without a selection: input = %q", in)
+	}
+	term.SetRightClickCopyPaste(false)
+	right()
+	if in, _, _ := sess.state(); in != before+"\x1b[200~hello\x1b[201~" {
+		t.Errorf("right click after the preference went off: input = %q", in)
 	}
 
 	// Ctrl+C is the interrupt, not copy (macOS: copy is ⌘C).

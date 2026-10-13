@@ -44,6 +44,8 @@ other three); drop the fork once upstream has equivalent fixes ([D-14](../../doc
 | File | Patch |
 |---|---|
 | `color.go` | 2026-10-12: `SetANSIColors` replaces the sixteen ANSI colours; Cogpit sets Solarized's ([D-22](../../docs/developer/decisions.md#d-22-colour-theme)) from `termview`'s `init`, before any terminal exists. Upstream's colours stay the default |
+| `rightclick.go`, `term.go` | 2026-10-13: `SetRightClickAction` chooses what the secondary mouse button does: `RightClickPasteSelection` (the default, upstream's behaviour: paste the text last selected in the terminal), `RightClickNone`, or `RightClickCopyPaste` (copy the selection to the clipboard, else paste the clipboard); `MouseDown` reads the selection before it clears it. A program that asked for mouse events still gets the click. Cogpit sets none or copy and paste from its terminal preference (`TestRightClickAction`) |
+| `input.go`, `term.go` | 2026-10-13: off macOS, Ctrl+Insert copies the selection to the clipboard and Shift+Insert pastes the clipboard (the shortcut's, else the app's); both used the terminal's own selection buffer, which nothing outside the terminal reads, so a copy could not be pasted elsewhere. The system is read from a variable, `goos`, so that the tests on macOS cover the keys of Windows and Linux (`TestCopyPasteKeys_WindowsAndLinux`) |
 
 ## Data races (H-19)
 

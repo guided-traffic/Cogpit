@@ -35,6 +35,8 @@ type preferencesSetParams struct {
 	TerminalShell     *string  `json:"terminalShell,omitempty" jsonschema:"the local terminal's shell, an absolute path; empty: $SHELL. Only the user in Cogpit's window may set it: refused for agents"`
 	TerminalShellArgs []string `json:"terminalShellArgs,omitempty" jsonschema:"the local terminal shell's arguments, one per entry. Only the user in Cogpit's window may set them: refused for agents"`
 	HTTPProxy         *string  `json:"httpProxy,omitempty" jsonschema:"the proxy of the traffic that is no cluster's (the Helm repositories' indexes and charts): http://<address>:<port>, https:// or socks5://, optionally with user:password@; empty: the environment's HTTPS_PROXY. Agents and the CLI may only clear it (an empty string): setting one is the user's, in Cogpit's window"`
+	// TerminalRightClickCopyPaste is GUI-only too (engine/termpaste.go).
+	TerminalRightClickCopyPaste *bool `json:"terminalRightClickCopyPaste,omitempty" jsonschema:"whether a right click in the dock's terminals copies the selection, or pastes the clipboard when nothing is selected (default false). Only the user in Cogpit's window may set it: refused for agents"`
 }
 
 // shellChange reports whether the parameters change the local terminal's shell or arguments.
@@ -58,9 +60,10 @@ func registerPreferences(g *registrar) {
 		ID: "preferences.get", Label: "Show Preferences", Danger: engine.DangerRead,
 		Description: "Returns Cogpit's preferences as the Preferences page (⌘,) shows them: the theme (system, dark, light), " +
 			"the time zone absolute times are shown in (empty: the computer's) and the zone in effect, the tables' row " +
-			"height, the YAML editor's font size, line numbers and tab size, the terminal's font size, and the local " +
-			"terminal's shell and arguments (empty: $SHELL), the HTTP proxy of the traffic that is no cluster's (empty: the " +
-			"environment's; its password shown as •••); kept says whether they outlive this run. ui_state carries the same.",
+			"height, the YAML editor's font size, line numbers and tab size, the terminal's font size, the local " +
+			"terminal's shell and arguments (empty: $SHELL), whether a right click in a terminal copies and pastes, the " +
+			"HTTP proxy of the traffic that is no cluster's (empty: the environment's; its password shown as •••); kept " +
+			"says whether they outlive this run. ui_state carries the same.",
 		Enabled: func(s *engine.Session, _ struct{}) error { _, err := s.Preferences(); return err },
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			p, err := s.Preferences()
@@ -77,18 +80,25 @@ func registerPreferences(g *registrar) {
 			"The window follows at once: the theme, the time zone of the drawer's Created and the charts, the tables' row " +
 			"height, the open editors; the HTTP proxy at the next download from a Helm repository. The local terminal's " +
 			"shell and its arguments are refused for agents and the CLI: they name a program Cogpit runs on this " +
-			"computer; so is setting the HTTP proxy (it decides where Cogpit's downloads go), which they may only clear." +
+			"computer; so is the terminals' right mouse button, which decides whether a click pastes into a shell, and " +
+			"setting the HTTP proxy (it decides where Cogpit's downloads go), which they may only clear." +
 			prefsWritesOnly + " Returns the preferences.",
 		Enabled: func(s *engine.Session, _ preferencesSetParams) error { _, err := s.Preferences(); return err },
 		Refuse: func(ctx context.Context, _ *engine.Session, p preferencesSetParams) error {
 			if p.shellChange() && engine.OriginOf(ctx) != engine.OriginGUI {
 				return engine.ErrShellGUIOnly
 			}
+			if p.TerminalRightClickCopyPaste != nil && engine.OriginOf(ctx) != engine.OriginGUI {
+				return engine.ErrRightClickGUIOnly
+			}
 			return refuseProxy(ctx, p.HTTPProxy)
 		},
 		Run: func(ctx context.Context, s *engine.Session, p preferencesSetParams) (any, error) {
 			if p.shellChange() && engine.OriginOf(ctx) != engine.OriginGUI {
 				return nil, engine.ErrShellGUIOnly
+			}
+			if p.TerminalRightClickCopyPaste != nil && engine.OriginOf(ctx) != engine.OriginGUI {
+				return nil, engine.ErrRightClickGUIOnly
 			}
 			if err := refuseProxy(ctx, p.HTTPProxy); err != nil {
 				return nil, err
@@ -121,6 +131,7 @@ func registerPreferences(g *registrar) {
 					}
 					pr.HTTPProxy = next
 				}
+				setIf(&pr.TerminalRightClickCopyPaste, p.TerminalRightClickCopyPaste)
 				return nil
 			})
 			if err != nil {

@@ -91,6 +91,10 @@ type Preferences struct {
 	// environment's HTTPS_PROXY, as before. It may carry a password: the UI state and the
 	// commands' results show it redacted, only the preferences file keeps it as typed.
 	HTTPProxy string `json:"httpProxy,omitempty"`
+	// TerminalRightClickCopyPaste: a right click in the dock's terminals copies the selection, or
+	// pastes the clipboard when nothing is selected; off: it does neither (termpaste.go). Only the
+	// user may set it (ErrRightClickGUIOnly).
+	TerminalRightClickCopyPaste bool `json:"terminalRightClickCopyPaste,omitempty"`
 }
 
 // DefaultPreferences are the preferences of a first start: dark (Cogpit starts dark, as it did

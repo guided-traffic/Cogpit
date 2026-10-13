@@ -11,6 +11,10 @@ import (
 
 var lastKeyTime = time.Now()
 
+// goos is runtime.GOOS, which picks the copy and paste keys. Cogpit patch: a variable, so that tests
+// on one system cover the keys of the others.
+var goos = runtime.GOOS
+
 // TypedRune is called when the user types a visible character
 func (t *Terminal) TypedRune(r rune) {
 	lastKeyTime = time.Now()
@@ -187,7 +191,7 @@ func (t *Terminal) TypedShortcut(s fyne.Shortcut) {
 		return
 	}
 
-	if runtime.GOOS == "darwin" {
+	if goos == "darwin" {
 		// do the default thing for macOS as they separate ctrl/cmd
 		t.ShortcutHandler.TypedShortcut(s)
 	} else {
@@ -201,13 +205,15 @@ func (t *Terminal) TypedShortcut(s fyne.Shortcut) {
 			}
 		case *fyne.ShortcutCopy:
 			if sh.Secondary {
-				t.copySelectedText(t.selectClipboard()) // ctrl+ins
+				// Cogpit patch: ctrl+ins copies to the clipboard, as Windows and Linux terminals do;
+				// it copied to this terminal's own selection, which nothing outside it reads.
+				t.copySelectedText(clipboardOf(sh.Clipboard)) // ctrl+ins
 			} else {
 				_, _ = t.in.Write([]byte{0x3})
 			}
 		case *fyne.ShortcutPaste:
 			if sh.Secondary {
-				t.pasteText(t.selectClipboard()) // shift+ins
+				t.pasteText(clipboardOf(sh.Clipboard)) // shift+ins; Cogpit patch: the clipboard, as ctrl+ins
 			} else {
 				_, _ = t.in.Write([]byte{0x16})
 			}
@@ -262,4 +268,12 @@ func (d discardWriter) Write(p []byte) (n int, err error) {
 
 func (d discardWriter) Close() error {
 	return nil
+}
+
+// clipboardOf is the clipboard a shortcut carries, else the app's. Cogpit patch.
+func clipboardOf(c fyne.Clipboard) fyne.Clipboard {
+	if c != nil {
+		return c
+	}
+	return fyne.CurrentApp().Clipboard()
 }

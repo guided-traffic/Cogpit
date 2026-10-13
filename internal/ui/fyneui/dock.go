@@ -153,6 +153,7 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 					return
 				}
 				w := termview.NewTerminal(sess)
+				w.SetRightClickCopyPaste(d.sh.rightClickCopyPaste()) // the Preferences' right mouse button (termpaste.go)
 				c.closer = w
 				c.set(d.sh.terminalScope(w)) // the Preferences' terminal font size (preferences.go)
 			})

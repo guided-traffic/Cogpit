@@ -6,7 +6,6 @@ import (
 	"math"
 	"os"
 	"os/exec"
-	"runtime"
 	"sync"
 	"time"
 	"unicode"
@@ -84,6 +83,7 @@ type Terminal struct {
 	blockMode        bool
 	selecting        bool
 	mouseCursor      desktop.Cursor
+	rightClick       RightClickAction // Cogpit patch: SetRightClickAction (rightclick.go)
 
 	keyboardState struct {
 		shiftPressed bool
@@ -152,11 +152,17 @@ func (t *Terminal) MouseDown(ev *desktop.MouseEvent) {
 		c.Focus(t)
 	}
 
+	// Cogpit patch: the right button does what SetRightClickAction chose; the selection it may
+	// copy is read before the click clears it.
+	selected := ""
+	if ev.Button == desktop.MouseButtonSecondary && t.hasSelectedText() {
+		selected = t.SelectedText()
+	}
 	if t.hasSelectedText() {
 		t.clearSelectedText()
 	}
 	if ev.Button == desktop.MouseButtonSecondary {
-		t.pasteText(t.selectClipboard())
+		t.rightClicked(selected)
 	}
 
 	if t.onMouseDown == nil {
@@ -555,7 +561,7 @@ func (t *Terminal) Write(b []byte) (int, error) {
 func (t *Terminal) setupShortcuts() {
 	var paste fyne.Shortcut
 	paste = &desktop.CustomShortcut{KeyName: fyne.KeyV, Modifier: fyne.KeyModifierShift | fyne.KeyModifierShortcutDefault}
-	if runtime.GOOS == "darwin" {
+	if goos == "darwin" { // Cogpit patch: goos, which tests set
 		paste = &fyne.ShortcutPaste{} // we look up clipboard later
 	}
 	t.AddShortcut(paste,
@@ -568,7 +574,7 @@ func (t *Terminal) setupShortcuts() {
 		})
 	var shortcutCopy fyne.Shortcut
 	shortcutCopy = &desktop.CustomShortcut{KeyName: fyne.KeyC, Modifier: fyne.KeyModifierShift | fyne.KeyModifierShortcutDefault}
-	if runtime.GOOS == "darwin" {
+	if goos == "darwin" {
 		shortcutCopy = &fyne.ShortcutCopy{} // we look up clipboard later
 	}
 

@@ -50,14 +50,19 @@ const sessionEndedNotice = "\r\n\x1b[93m[session ended]\x1b[0m\r\n"
 //
 // Copy and paste are the widget's (fyne-io/terminal): dragging selects (with Alt: a block),
 // double-click selects a word; on macOS ⌘C copies the selection and ⌘V pastes, elsewhere
-// Ctrl+Shift+C and Ctrl+Shift+V; a right click pastes the last selection. Bracketed paste is
-// honoured when the program asks for it.
+// Ctrl+Shift+C or Ctrl+Insert and Ctrl+Shift+V or Shift+Insert (the clipboard, a patch of the
+// fork). The right mouse button neither copies nor pastes unless SetRightClickCopyPaste turned it
+// on (the Preferences' setting): then it copies the selection, or pastes when nothing is
+// selected. Bracketed paste is honoured when the program asks for it. A paste is the user's own
+// input, as typing is; no command pastes, so no agent can.
 type Terminal struct {
 	widget.BaseWidget
 	sess  terminal.Session
 	term  *fyneterm.Terminal
 	sizes chan fyneterm.Config
 	ended chan struct{}
+
+	rightClick bool // SetRightClickCopyPaste; main goroutine
 
 	mu        sync.Mutex
 	started   bool
@@ -75,6 +80,7 @@ func NewTerminal(sess terminal.Session) *Terminal {
 		ended: make(chan struct{}),
 	}
 	t.ExtendBaseWidget(t)
+	t.term.SetRightClickAction(fyneterm.RightClickNone) // the widget's default pastes its last selection
 	// The widget reports its size in cells here whenever a resize changes it; it drops a report
 	// when the channel is full, so the forwarder drains to the latest.
 	t.term.AddListener(t.sizes)
@@ -87,6 +93,21 @@ func (t *Terminal) Done() <-chan struct{} { return t.ended }
 
 // Text returns the terminal's screen as text. Call it on the main goroutine.
 func (t *Terminal) Text() string { return t.term.Text() }
+
+// RightClickCopyPaste reports what SetRightClickCopyPaste last chose. Call it on the main goroutine.
+func (t *Terminal) RightClickCopyPaste() bool { return t.rightClick }
+
+// SetRightClickCopyPaste chooses what the right mouse button does: with on, it copies the
+// selection to the clipboard, or pastes the clipboard when nothing is selected; without, nothing.
+// Call it on the main goroutine.
+func (t *Terminal) SetRightClickCopyPaste(on bool) {
+	t.rightClick = on
+	if on {
+		t.term.SetRightClickAction(fyneterm.RightClickCopyPaste)
+	} else {
+		t.term.SetRightClickAction(fyneterm.RightClickNone)
+	}
+}
 
 // Close ends the session. It is idempotent and does not block on the session.
 func (t *Terminal) Close() error {
