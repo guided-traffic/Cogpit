@@ -257,8 +257,8 @@ func TestFluxDrawers(t *testing.T) {
 	}
 	hr := curatedProfile(t, fluxHelmReleases)
 	d := hr.Detail(recordedPath(t, fluxHelmReleases+"/ready"))
-	if it := item(d, model.TitleProperties, "Last Handled Reconcile"); !model.HasMarks(it.Value) {
-		t.Errorf("Last Handled Reconcile %q: want a time mark", it.Value)
+	if it := item(d, model.TitleProperties, "Reconcile Handled"); !model.HasMarks(it.Value) {
+		t.Errorf("Reconcile Handled %q: want a time mark", it.Value)
 	}
 	if len(d) < 2 || d[1].Title != "History" || len(d[1].Table.Rows) != 2 || d[1].Table.Rows[0][0] != "4" {
 		t.Errorf("history %+v", d)

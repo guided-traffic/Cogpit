@@ -146,6 +146,9 @@ type healthBar struct {
 	sh       *shell
 	statuses []engine.StatusCount
 	total    int
+	// names name the tokens in the tooltip where the page has its own words for them (the Flux
+	// dashboard's states, fluxdashboard.go); nil: the tokens' own names.
+	names map[model.Status]string
 }
 
 var _ desktop.Hoverable = (*healthBar)(nil)
@@ -169,7 +172,10 @@ func (b *healthBar) tipText() string {
 	parts := make([]string, 0, len(b.statuses))
 	for _, s := range b.statuses {
 		name := string(s.Status)
-		if s.Status == model.StatusNone {
+		switch {
+		case b.names[s.Status] != "":
+			name = b.names[s.Status]
+		case s.Status == model.StatusNone:
 			name = "no status"
 		}
 		parts = append(parts, fmt.Sprintf("%s %s", formatCount(int64(s.Count)), name))

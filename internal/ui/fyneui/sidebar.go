@@ -79,12 +79,14 @@ const (
 // Custom Resources is built from the cluster's kinds: Definitions, then one collapsed group per
 // API group with its kinds by singular Kind name, the groups of curated sections included. Kinds
 // the layout does not know and that no CRD defines go under Other. Pages (page) show while a
-// cluster is connected: the cluster Overview first (as captured), Workloads › Overview; the others
-// that are not kinds (Applications, the Flux CD dashboard) come with their views. Listener Sets
-// are listed under both groups Gateway API releases used for them.
+// cluster is connected: the cluster Overview first (as captured), Workloads › Overview, Flux ›
+// Dashboard; a group whose kinds the cluster serves none of is left out with its pages (the Flux
+// section without Flux). Listener Sets are listed under both groups Gateway API releases used for
+// them.
 var navLayout = []navEntry{
 	page(engine.ClusterOverview),
 	{id: "applications"}, // a virtual kind, the workloads grouped by app.kubernetes.io/instance
+	fluxNav,              // Flux CD between Applications and Nodes, as captured (fluxnav.go)
 	{id: "nodes"},
 	navGroup("workloads", "Workloads", page(engine.WorkloadsOverview),
 		kindPods, "deployments", "daemonsets", "statefulsets", "replicasets", "replicationcontrollers", "jobs", "cronjobs"),
@@ -364,10 +366,21 @@ func (s *sidebar) build(n navEntry, parent string, have map[string]kindInfo, pla
 			}
 		}
 	case strings.HasPrefix(n.id, groupPrefix):
+		served := 0 // kinds and sub-groups: a group of pages alone is left out
 		for _, c := range n.items {
 			if id := s.build(c, n.id, have, placed, kinds); id != "" {
 				kids = append(kids, id)
+				if !c.page {
+					served++
+				}
 			}
+		}
+		if served == 0 {
+			for _, id := range kids { // its pages: no node is left for them
+				delete(s.titles, id)
+				delete(s.parents, id)
+			}
+			return ""
 		}
 	case n.page:
 		if len(have) == 0 {

@@ -36,7 +36,7 @@ var kustomizationsSpec = &fluxSpec{
 		d.add("Force", fluxBool(obj, fieldSpec, "force"))
 		d.add("Retry Interval", model.NestedString(obj, fieldSpec, "retryInterval"))
 		d.put(fluxDependsOn(obj, "kustomizations."+fluxKustomize))
-		d.add("Last Attempted Revision", model.NestedString(obj, "status", "lastAttemptedRevision"))
+		d.add("Attempted Revision", model.NestedString(obj, "status", "lastAttemptedRevision"))
 		if entries := model.NestedSlice(obj, "status", "inventory", "entries"); len(entries) > 0 {
 			d.add("Applied Objects", strconv.Itoa(len(entries)))
 		}
@@ -131,8 +131,8 @@ func helmReleaseProperties(obj *unstructured.Unstructured, d *detailItems) {
 	}
 	d.put(model.ChipsItem("Values From", from))
 	d.put(fluxDependsOn(obj, "helmreleases."+fluxHelm))
-	d.add("Last Attempted Revision", model.NestedString(obj, "status", "lastAttemptedRevision"))
-	d.add("Last Attempted Action", model.NestedString(obj, "status", "lastAttemptedReleaseAction"))
+	d.add("Attempted Revision", model.NestedString(obj, "status", "lastAttemptedRevision"))
+	d.add("Attempted Action", model.NestedString(obj, "status", "lastAttemptedReleaseAction"))
 	for _, f := range []struct{ name, field string }{{"Failures", "failures"}, {"Install Failures", "installFailures"}, {"Upgrade Failures", "upgradeFailures"}} {
 		if n, ok := model.NestedInt64(obj, "status", f.field); ok && n > 0 {
 			d.add(f.name, itoa(n))

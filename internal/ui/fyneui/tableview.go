@@ -53,6 +53,7 @@ type tableView struct {
 	// events', the issues'), which holds the count and the search.
 	overview                   *overviewPanel
 	cluster                    *clusterPanel
+	flux                       *fluxPanel      // the Flux dashboard's tiles (fluxdashboard.go)
 	pageTop                    *fyne.Container // the open page's part
 	eventsTitle                *textLine
 	eventsHeading, eventsTools *fyne.Container
@@ -158,6 +159,7 @@ func newTableView(sh *shell) *tableView {
 
 	tv.overview = newOverviewPanel(sh)
 	tv.cluster = newClusterPanel(sh)
+	tv.flux = newFluxPanel(sh)
 	tv.pageTop = container.NewStack(tv.overview.root)
 	tv.eventsTitle = newTextLine("Events", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	tv.eventsHeading, tv.eventsTools = container.NewHBox(), container.NewHBox()
@@ -185,8 +187,11 @@ func (tv *tableView) setPageLayout(view string) {
 	if page && view != tv.pageView {
 		tv.pageView = view
 		top, title := tv.overview.root, "Events"
-		if view == engine.ClusterOverview {
+		switch view {
+		case engine.ClusterOverview:
 			top, title = tv.cluster.root, "Issues"
+		case engine.FluxDashboard:
+			top, title = tv.flux.root, fluxTableTitle
 		}
 		tv.pageTop.Objects = []fyne.CanvasObject{top}
 		tv.pageTop.Refresh()
@@ -235,6 +240,8 @@ func (tv *tableView) requestPage() {
 	switch view := tv.sh.ui.View; {
 	case view == engine.ClusterOverview:
 		tv.cluster.request()
+	case view == engine.FluxDashboard:
+		tv.flux.request()
 	case engine.IsPage(view):
 		tv.overview.request()
 	}
@@ -245,6 +252,9 @@ func (tv *tableView) requestPage() {
 func (tv *tableView) rowNoun() string {
 	if tv.sh.ui.View == engine.ClusterOverview {
 		return "issues"
+	}
+	if tv.sh.ui.View == engine.FluxDashboard {
+		return "Flux objects"
 	}
 	if engine.IsPage(tv.sh.ui.View) {
 		return kindEvents // the kind key reads as the noun
@@ -298,6 +308,8 @@ func (tv *tableView) updatePlaceholder() {
 		msg = "Loading " + tv.rowNoun() + "…"
 	case len(tv.snap.Rows) == 0 && (tv.snap.Filter != "" || len(tv.snap.Namespaces) > 0 || (tv.groupMode() && len(ui.Groups) > 0)):
 		msg = "No " + tv.rowNoun() + " match the filter."
+	case len(tv.snap.Rows) == 0 && ui.View == engine.FluxDashboard && tv.snap.Error == "":
+		msg = "Every Flux object is ready." // its table lists those that are not (fluxdashboard.go)
 	case len(tv.snap.Rows) == 0:
 		msg = "No " + tv.rowNoun() + " found."
 	}

@@ -369,7 +369,7 @@ func (s *fluxSpec) detail(obj *unstructured.Unstructured) []model.DetailSection 
 	if s.suspend || IsFluxSuspended(obj) {
 		d.add("Suspended", fluxSuspendedText(obj))
 	}
-	d.add("Last Handled Reconcile", fluxRequestTime(model.NestedString(obj, "status", "lastHandledReconcileAt")))
+	d.add("Reconcile Handled", fluxRequestTime(model.NestedString(obj, "status", "lastHandledReconcileAt")))
 	sections := withSection(nil, model.TitleProperties, d)
 	if s.sections != nil {
 		sections = append(sections, s.sections(obj)...)

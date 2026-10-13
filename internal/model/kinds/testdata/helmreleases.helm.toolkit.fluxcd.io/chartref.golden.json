@@ -99,11 +99,11 @@
           }
         },
         {
-          "name": "Last Attempted Revision",
+          "name": "Attempted Revision",
           "value": "1.2.0"
         },
         {
-          "name": "Last Attempted Action",
+          "name": "Attempted Action",
           "value": "upgrade"
         },
         {

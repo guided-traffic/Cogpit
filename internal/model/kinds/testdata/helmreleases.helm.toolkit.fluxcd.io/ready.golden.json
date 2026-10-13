@@ -163,11 +163,11 @@
           ]
         },
         {
-          "name": "Last Attempted Revision",
+          "name": "Attempted Revision",
           "value": "6.7.1"
         },
         {
-          "name": "Last Attempted Action",
+          "name": "Attempted Action",
           "value": "upgrade"
         },
         {
@@ -196,7 +196,7 @@
           "value": "false"
         },
         {
-          "name": "Last Handled Reconcile",
+          "name": "Reconcile Handled",
           "value": "2026-10-11 10:00:00"
         }
       ]

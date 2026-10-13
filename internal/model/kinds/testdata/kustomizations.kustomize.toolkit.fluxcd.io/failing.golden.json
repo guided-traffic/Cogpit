@@ -110,7 +110,7 @@
           "value": "false"
         },
         {
-          "name": "Last Attempted Revision",
+          "name": "Attempted Revision",
           "value": "v1.5.0@sha256:9f8e7d"
         },
         {
