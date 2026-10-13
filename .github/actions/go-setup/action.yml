@@ -1,11 +1,12 @@
-# The Go setup every Go job of release.yml shares: Go from go.mod, the module and build caches under
-# a key per kind of build, Fyne's Linux build dependencies when asked, and the modules downloaded.
+# The Go setup every Go job of release.yml shares: Go from go.mod, the build cache under a key per
+# kind of build, Fyne's Linux build dependencies when asked, and the modules downloaded.
 #
-# Why a key per kind: a job saves its caches only when its key is new, and builds of one kind (race,
+# Why a key per kind: a job saves its cache only when its key is new, and builds of one kind (race,
 # coverage, lint) share most of their objects while different kinds share few. One key per kind and
 # go.sum keeps every kind's dependencies compiled; our own packages compile again, which is the
 # cheap part. A key is saved once per go.sum, so the save (two minutes on the self-hosted runners)
-# is rare.
+# is rare. The modules are not cached: the self-hosted runners restore a cache at 6 to 9 MB/s, and
+# go mod download from the module proxy is faster (measured 2026-10-13).
 name: Set up Go
 description: Go from go.mod, its caches per kind of build, and Fyne's build dependencies on Linux.
 
@@ -29,24 +30,22 @@ runs:
         cache: false
 
     # The CPUs and the load of the machine the job landed on (the self-hosted runners share theirs).
-    - name: Locate the caches
+    - name: Locate the build cache
       id: paths
       shell: bash
       run: |
         echo "$(nproc 2>/dev/null || sysctl -n hw.ncpu) CPUs; $(uptime)"
         echo "gocache=$(go env GOCACHE)" >> "${GITHUB_OUTPUT}"
-        echo "gomodcache=$(go env GOMODCACHE)" >> "${GITHUB_OUTPUT}"
 
-    - name: Restore the module and build caches
+    - name: Restore the build cache
       uses: actions/cache@v6
       with:
         path: |
-          ${{ steps.paths.outputs.gomodcache }}
           ${{ steps.paths.outputs.gocache }}
           ~/.cache/golangci-lint
           ~/Library/Caches/golangci-lint
-        key: go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache }}-${{ hashFiles('go.sum', 'third_party/fyne-terminal/go.sum') }}
-        restore-keys: go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache }}-
+        key: gobuild-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache }}-${{ hashFiles('go.sum', 'third_party/fyne-terminal/go.sum') }}
+        restore-keys: gobuild-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache }}-
 
     # The packages Fyne documents for Debian and Ubuntu: a C compiler, OpenGL, X11, xkbcommon,
     # Wayland. The self-hosted runner image has no make either; build-essential brings it.

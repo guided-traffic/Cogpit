@@ -36,6 +36,9 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # Every test runs on every run: the restored build cache also holds Go's cached test results,
+  # which would turn a gate into "nothing changed since a run that passed" and hide a flaky test.
+  GOFLAGS: -count=1
 
 jobs:
   # The old jobs (macOS race tests, compile, kind, vulnerability check) until their successors
