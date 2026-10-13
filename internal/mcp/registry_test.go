@@ -137,3 +137,47 @@ func TestEveryCommandIsATool(t *testing.T) {
 		t.Errorf("%d refusals in the audit log, want %d", refused, guiOnly)
 	}
 }
+
+// screenWindow is a window that shows the same lines in every tab.
+type screenWindow []string
+
+func (w screenWindow) Len() int           { return len(w) }
+func (w screenWindow) Number(i int) int64 { return int64(i + 1) }
+func (w screenWindow) Text(i int) string  { return w[i] }
+
+func (w screenWindow) ReadDockOutput(_ context.Context, _ engine.DockTab, q engine.DockOutputQuery) (engine.DockOutput, error) {
+	return engine.DockOutput{DockPage: engine.PageDockLines(w, q), Shown: len(w)}, nil
+}
+
+// TestDockReadOverMCP (D-44): over the server, an agent reads a logs tab's lines, and a terminal
+// tab is refused with the reason that names the user's switch, without a line of it; the switch
+// itself is refused as GUI-only.
+func TestDockReadOverMCP(t *testing.T) {
+	f := realFixture(t, nil)
+	f.session.SetDockOutputReader(screenWindow{"$ export TOKEN=s3cr3t", "GET /healthz 200"})
+	f.session.UpdateUI(func(u *engine.UIState) {
+		u.Dock = append(u.Dock,
+			engine.DockTab{ID: "logs-1", Type: engine.DockLogs, Title: "Logs: web-0/app"},
+			engine.DockTab{ID: "terminal-1", Type: engine.DockTerminal, Title: "Terminal 1"})
+	})
+	cs := f.connect(t)
+
+	res := call(t, cs, "dock_read", map[string]any{"id": "logs-1", "limit": 1})
+	var out engine.DockOutput
+	decode(t, res.StructuredContent, &out)
+	if res.IsError || len(out.Lines) != 1 || out.Lines[0] != "GET /healthz 200" || !out.More || out.Tab.ID != "logs-1" {
+		t.Fatalf("logs tab: isError %v, %+v", res.IsError, out)
+	}
+
+	res = call(t, cs, "dock_read", map[string]any{"id": "terminal-1"})
+	if !res.IsError || !strings.Contains(text(res), "Agents may read") || strings.Contains(text(res), "s3cr3t") {
+		t.Errorf("terminal tab: isError %v, %q", res.IsError, text(res))
+	}
+	res = call(t, cs, "dock_allowAgentRead", map[string]any{"id": "terminal-1", "allowed": true})
+	if !res.IsError || errorCode(res) != codeGUIOnly {
+		t.Errorf("the switch from an agent: isError %v, code %q, %q", res.IsError, errorCode(res), text(res))
+	}
+	if tab, _ := f.session.UIState().DockTab("terminal-1"); tab.AgentRead {
+		t.Error("an agent turned the switch on")
+	}
+}
