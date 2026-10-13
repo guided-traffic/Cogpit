@@ -377,6 +377,42 @@ func (b *Backend) drawerPlanKey(p *model.KindProfile) string {
 	return key
 }
 
+// readKey is how a handle Acquire takes on a kind reads it now: in all namespaces (a pending plan
+// too, which Acquire reads in all namespaces) or namespace by namespace in the plan's namespaces.
+func (b *Backend) readKey(p *model.KindProfile) string {
+	if plan := b.namespacePlan(p); plan.perNamespace {
+		return plan.key()
+	}
+	return "all"
+}
+
+// pagePlanKey is how a page reads its kinds (Acquire's handles); a page whose key changes starts
+// again, as the drawer does (drawerPlanKey), so that the handles it took before the access reviews
+// answered, in all namespaces, do not stay once the reviews say the user may not list a kind
+// there (a watch the API server refuses, retried for as long as the page is open). With
+// skipUnlistable the key also says which kinds the page leaves out as ones the user may not list
+// (the cluster Overview's newOverviewSource). Kinds the cluster does not serve are left out.
+func (b *Backend) pagePlanKey(keys []string, skipUnlistable bool) string {
+	var sb strings.Builder
+	for _, key := range keys {
+		p, ok := b.Profile(key)
+		if !ok {
+			continue
+		}
+		sb.WriteString(key)
+		sb.WriteByte('=')
+		read := b.readKey(p)
+		if skipUnlistable {
+			if listable, known := b.Listable(p, nil); known && !listable {
+				read = "unlistable"
+			}
+		}
+		sb.WriteString(read)
+		sb.WriteByte('|')
+	}
+	return sb.String()
+}
+
 // followRefusal reads the view's kind namespace by namespace once the API server refused its
 // cluster-wide watch (403 Forbidden), though the access reviews allowed it or could not tell (a
 // RoleBinding in the context's own namespace, an authorizer that cannot list its rules).

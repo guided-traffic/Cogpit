@@ -151,6 +151,7 @@ type clusterOverviewWorker struct {
 	s       *Session
 	backend *Backend
 	src     *overviewSource
+	planKey string // which kinds the open page reads and how (Backend.pagePlanKey); the state's lock
 
 	mu     sync.Mutex
 	params viewParams
@@ -272,6 +273,9 @@ type overviewKind struct {
 // overviewWorkloads are the workload kinds whose shortfall of ready pods is an issue. Replica Sets
 // are left out: a Deployment's would repeat it (Cogpit's choice).
 var overviewWorkloads = []string{logKindDeployments, logKindStatefulSets, logKindDaemonSets}
+
+// clusterOverviewKinds are every kind newOverviewSource opens, for the open page's plan key.
+var clusterOverviewKinds = append([]string{kindNodes, kindPods, eventsKind}, overviewWorkloads...)
 
 // newOverviewSource acquires the page's handles on the kinds the cluster serves and the user may
 // list (as far as the access reviews know); onChange runs after every change of one of them.
@@ -505,16 +509,22 @@ const DefaultOverviewWindow = time.Hour
 
 // reconcileClusterPageLocked runs the cluster Overview's worker: started when the page opens, given
 // the UI's namespaces, search, sort, columns and the charts' choice, stopped when another view opens
-// or the backend changes. The page's sort is remembered as a view's is.
+// or the backend changes, and started again when the access reviews change which kinds it reads or
+// how (pagePlanKey). The page's sort is remembered as a view's is.
 func (st *state) reconcileClusterPageLocked(b *Backend, now UIState) {
 	want := b != nil && now.View == ClusterOverview
-	if st.cluster != nil && (!want || st.cluster.backend != b) {
+	var key string
+	if want {
+		key = b.pagePlanKey(clusterOverviewKinds, true)
+	}
+	if st.cluster != nil && (!want || st.cluster.backend != b || st.cluster.planKey != key) {
 		st.cluster.stop()
 		st.cluster = nil
 	}
 	switch {
 	case want && st.cluster == nil:
 		st.cluster = st.s.startClusterOverview(b, paramsOf(now), now.Overview)
+		st.cluster.planKey = key
 	case st.cluster != nil:
 		st.cluster.setParams(paramsOf(now), now.Overview)
 	}

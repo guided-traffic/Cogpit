@@ -43,6 +43,9 @@ var overviewKinds = [2][]string{
 	{logKindReplicaSets, logKindJobs, "cronjobs"},
 }
 
+// overviewPageKinds are every kind the open page reads, its events included, for its plan key.
+var overviewPageKinds = append(append(append([]string{}, overviewKinds[0]...), overviewKinds[1]...), eventsKind)
+
 // overviewEventColumns are the columns of the overview's events table after the events' own first
 // column (their hidden name: the first column is the name), as captured: Type, Source, Namespace,
 // Involved Object, Message, Count, Age, Last Seen (relative here, where the Events view shows a
@@ -182,6 +185,7 @@ type overviewWorker struct {
 	rows    *rowCache
 	kinds   []*overviewKindState
 	unsubs  []func()
+	planKey string // how the open page reads its kinds (Backend.pagePlanKey); the state's lock
 
 	mu     sync.Mutex
 	params viewParams
@@ -465,17 +469,23 @@ func (s *Session) WorkloadsOverview(ctx context.Context, namespaces []string, ev
 }
 
 // reconcilePageLocked runs the open page's worker: started when the page opens, given the UI's
-// namespaces, search, sort and columns, stopped when another view opens or the backend changes.
-// The page's sort is remembered as a view's is.
+// namespaces, search, sort and columns, stopped when another view opens or the backend changes,
+// and started again when the access reviews change how its kinds are read (pagePlanKey). The
+// page's sort is remembered as a view's is.
 func (st *state) reconcilePageLocked(b *Backend, now UIState) {
 	want := b != nil && now.View == WorkloadsOverview
-	if st.page != nil && (!want || st.page.backend != b) {
+	var key string
+	if want {
+		key = b.pagePlanKey(overviewPageKinds, false)
+	}
+	if st.page != nil && (!want || st.page.backend != b || st.page.planKey != key) {
 		st.page.stop()
 		st.page = nil
 	}
 	switch {
 	case want && st.page == nil:
 		st.page = st.s.startOverview(b, paramsOf(now))
+		st.page.planKey = key
 	case st.page != nil:
 		st.page.setParams(paramsOf(now))
 	}
