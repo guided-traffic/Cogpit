@@ -152,6 +152,8 @@ var wantCommands = map[string]engine.Danger{
 	// never a cluster (TestDraftRestoredAfterARestart, TestRevertToOriginal).
 	"editor.drafts": engine.DangerRead, "editor.restoreDraft": engine.DangerUI, "editor.discardDraft": engine.DangerUI,
 	"editor.revert": engine.DangerUI, "editor.undoRevert": engine.DangerUI,
+	// MCP control (G17): the rows the user sees (TestViewRowsMatchTheTable).
+	"view.rows": engine.DangerRead,
 }
 
 func TestRegistryComplete(t *testing.T) {

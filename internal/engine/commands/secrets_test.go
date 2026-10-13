@@ -234,6 +234,7 @@ func TestAgentsReadSecretsRedacted(t *testing.T) {
 		{"ui.navigate", map[string]any{"ref": ref}, `"found":true`},
 		{"ui.state", struct{}{}, `"view":"secrets"`},
 		{"table.exportCsv", struct{}{}, "dsn, password"},
+		{"view.rows", struct{}{}, "dsn, password"}, // the rows the user sees: key names, never a value
 		{"workloads.overview", struct{}{}, ""},
 	}
 	for _, c := range calls {

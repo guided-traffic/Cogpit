@@ -280,7 +280,7 @@ Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never a
 registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 143 commands</summary>
+<summary>All 144 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -430,6 +430,7 @@ registry with `go run ./hack/readmecmds`.
 | `ui.tab.previous` | `ui_tab_previous` | ui |  | Activates the tab left of the active one, the last before the first, as ui_tab_select does |
 | `ui.tab.select` | `ui_tab_select` | ui | `id`?, `index`?, `last`? | Activates a tab, named by id, by its place (index, from 1) or as the last one: its view comes back with its own namespace filter, search, sort, selection and drawer |
 | `ui.welcome.open` | `ui_welcome_open` | ui |  | Shows Cogpit's welcome page in the workspace, as Help › Welcome does: the clusters to connect with one click, Add Kubeconfigs and the documentation |
+| `view.rows` | `view_rows` | read | `limit`?, `offset`? | Returns the rows the user sees in the active tab's view, as the table shows them: the namespace filter, the search (with its match case and regular expression toggles) and the sort applied, the visible columns in the order the user arranged them, each cell's text as drawn (ages relative to now), each row's ref and status, and selected for the rows of the selection; a page of them (offset, limit: default 100, at most 500). shown counts every row the view shows, total the objects before filtering |
 | `workload.logs` | `workload_logs` | read | `ref` | Opens a dock tab with the logs of every container of every pod a Deployment, Daemon Set, Stateful Set, Replica Set or Job controls (a Deployment's through its replica sets), each line starting with <pod>/<container>, and follows them: pods and restarted containers join as they start |
 | `workloads.overview` | `workloads_overview` | read | `events`?, `namespaces`? | Reads the Workloads Overview: for each workload kind the cluster serves (pods, deployments, daemon sets, stateful sets, replica sets, jobs, cron jobs) the number of objects in the selected namespaces and their health, as counts per status token (ok, succeeded, pending, warning, error, terminating, unknown, and none); with events, also the events of those namespaces |
 

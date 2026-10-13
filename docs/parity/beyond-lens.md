@@ -1,6 +1,6 @@
 # Beyond Lens
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (crash recovery: unsaved editor content restored from its local draft done; the `cogpit-cli mcp` stdio bridge done; command line: `cogpit-cli contexts` done, `get` partial) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (`view_rows` done; crash recovery: unsaved editor content restored from its local draft done; the `cogpit-cli mcp` stdio bridge done; command line: `cogpit-cli contexts` done, `get` partial) · **Target:** Lens Desktop 2026.10.51501
 
 What Cogpit does that Lens Desktop does not, or does only in part. These rows are Cogpit's own
 targets, decided by the owner; they do not count toward the parity numbers in
@@ -26,7 +26,7 @@ read-only: `list-clusters`, `connect-cluster`, `disconnect-cluster`, `kubectl`, 
 |---|---|---|---|
 | Every registry command is an MCP tool, with its schema and annotations | (generated) | done | [`mcp/tools.go`](../../internal/mcp/tools.go), `TestToolsMirrorRegistry` in [`tools_test.go`](../../internal/mcp/tools_test.go); 41 tools (2026-10-11, was 21) |
 | Read the UI state: context, view, namespaces, filter, selection, drawer object, dock tabs | `ui_state` | done | [`commands/ui.go`](../../internal/engine/commands/ui.go), `TestShowcaseServiceByClusterIP` |
-| Read the rows the user sees in the current view | `view_rows` | missing | – |
+| Read the rows the user sees in the current view | `view_rows` | done (2026-10-13): the active tab's view as its table shows it, from the view's snapshot (no API request): the namespace filter, the search with its toggles and the sort applied, the visible columns in the user's order, each cell's text as drawn, each row's ref and status, the selection marked; a page of at most 500 rows (offset, limit), `shown` and `total` counted; it waits up to 2 s for the snapshot to follow a filter just set; Secrets show their key names, never a value | [`commands/viewrows.go`](../../internal/engine/commands/viewrows.go), [`engine/viewrows.go`](../../internal/engine/viewrows.go); `TestViewRowsMatchTheTable` (the rows and the CSV export agree), `TestViewRowsAreTheTablesRows` (the window's table over the demo cluster, cell by cell), `TestAgentsReadSecretsRedacted` |
 | List the kinds the cluster serves and the user may list | `kinds_list` | partial: served kinds, each with `listable` from the access reviews (2026-10-11); absent while the reviews have not answered, and for a namespaced kind no reviewed namespace allows when the user may list more than 32 namespaces | [`commands/resources.go`](../../internal/engine/commands/resources.go), [`accessreviews.go`](../../internal/engine/accessreviews.go); `TestKindsListListable`, `TestBudgetAccessReviews`, `TestKindAccessReviews` |
 | Find objects by a searchable field (`clusterIP`, `podIP`, `node`, `image`, `label`) | `resources_find` | done | [`commands/resources.go`](../../internal/engine/commands/resources.go), `TestShowcaseServiceByClusterIP`, `TestDemoClusterThroughTheEngine` |
 | List objects of a kind, bounded | `resources_list` | done | [`commands/resources.go`](../../internal/engine/commands/resources.go), `TestKindEngineWorkflows` |
@@ -114,6 +114,7 @@ Cogpit's targets.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | MCP control: `view_rows` done; 23 of 38 rows, 14 done and 9 partial |
 | 2026-10-13 | minor | Crash recovery: unsaved editor content restored from its local draft done (G9, night run); 23 of 38 rows, 14 done and 9 partial |
 | 2026-10-13 | minor | MCP control: the `cogpit-cli mcp` stdio bridge done; 22 of 38 rows, 13 done and 9 partial |
 | 2026-10-13 | minor | Command line, a new section: `cogpit-cli contexts` done, `cogpit-cli get` partial; 21 of 38 rows, 12 done and 9 partial |
