@@ -54,8 +54,11 @@ func TestClusterNamespacesField(t *testing.T) {
 	q.until(t, "team-b kept", func() bool { return slices.Equal(kept(), []string{"team-b"}) && entry.Text == "" })
 	test.Type(entry, "team-a")
 	test.Tap(sh.settings.controls["accessibleAdd"].(*widget.Button))
+	// The field is cleared in the dispatch's callback, which may come after the list followed
+	// the engine: wait for both, or the next name is typed into a field about to be cleared.
 	q.until(t, "team-a kept, sorted", func() bool {
-		return slices.Equal(kept(), []string{"team-a", "team-b"}) && slices.Equal(accessibleRows(sh), []string{"team-a", "team-b"})
+		return slices.Equal(kept(), []string{"team-a", "team-b"}) && slices.Equal(accessibleRows(sh), []string{"team-a", "team-b"}) &&
+			entry.Text == ""
 	})
 
 	test.Type(entry, "Team_C")
