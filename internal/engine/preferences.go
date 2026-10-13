@@ -503,8 +503,8 @@ const (
 )
 
 // PreferencesSections are the Preferences page's sections: App (theme, time zone), Proxy (the
-// proxy of the traffic that is no cluster's), Kubernetes (kubeconfig syncs), Editor, Terminal,
-// Tables. Cogpit's grouping, inferred from Lens's page.
+// proxy of the traffic that is no cluster's), Kubernetes (kubeconfig syncs, kubectl for
+// terminals), Editor, Terminal, Tables. Cogpit's grouping, inferred from Lens's page.
 var PreferencesSections = []string{SectionApp, SectionProxy, SectionKubernetes, SectionEditor, SectionTerminal, SectionTables}
 
 // ClusterSettingsSections are the Cluster settings page's built sections, in Lens's captured

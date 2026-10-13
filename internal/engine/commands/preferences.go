@@ -73,7 +73,7 @@ func (p preferencesSetParams) refuse(ctx context.Context) error {
 }
 
 type preferencesOpenParams struct {
-	Section string `json:"section,omitempty" jsonschema:"the section to show: app (theme, time zone), proxy, kubernetes, editor, terminal or tables; omitted: app"`
+	Section string `json:"section,omitempty" jsonschema:"the section to show: app (theme, time zone), proxy, kubernetes (kubeconfig syncs, kubectl), editor, terminal or tables; omitted: app"`
 }
 
 // prefsResult is what the preferences commands return: the proxy's password as ••• (Shown).
@@ -186,8 +186,8 @@ func registerPreferences(g *registrar) {
 	add(g, engine.Spec[preferencesOpenParams]{
 		ID: "preferences.open", Label: "Preferences", MenuPath: "Cogpit/Preferences", Shortcut: "Cmd+,", Danger: engine.DangerUI,
 		Description: "Opens Cogpit's Preferences page in the window, as ⌘, (Ctrl+,) does, at a section: app (theme, time zone), " +
-			"proxy (the HTTP proxy of the traffic that is no cluster's), kubernetes (kubeconfig syncs), editor, terminal or " +
-			"tables. It takes the place of the cluster's views until " +
+			"proxy (the HTTP proxy of the traffic that is no cluster's), kubernetes (kubeconfig syncs, kubectl for terminals), " +
+			"editor, terminal or tables. It takes the place of the cluster's views until " +
 			"closed (settings_close, Escape); ui_state reports it as settings. Returns the new UI state.",
 		Enabled: func(s *engine.Session, p preferencesOpenParams) error {
 			if _, err := s.Preferences(); err != nil {

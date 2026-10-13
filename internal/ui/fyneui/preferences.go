@@ -24,7 +24,7 @@ import (
 // every open editor tab, the terminal's font size in the terminals opened afterwards (a running
 // terminal keeps the size its grid was laid out in). The page's sections: App (theme, time zone),
 // Proxy (the proxy of the traffic that is no cluster's, clustersettings_proxy.go), Kubernetes (the
-// kubeconfig syncs, Cogpit's existing dialogs), Editor, Terminal, Tables.
+// kubeconfig syncs, Cogpit's existing dialogs; kubectl for terminals), Editor, Terminal, Tables.
 
 // preferencesSectionLabels are the Preferences page's section titles (Cogpit's grouping, inferred).
 var preferencesSectionLabels = map[string]string{
@@ -203,10 +203,10 @@ func (p *settingsPage) kubernetesSection() fyne.CanvasObject {
 	kc := p.sh.kc
 	sources := widget.NewButton("Kubeconfig Sources…", kc.showSources)
 	syncB := widget.NewButton("Sync Files and Folders…", kc.addKubeconfigs)
-	return container.NewVBox(
+	return container.NewVBox(append([]fyne.CanvasObject{
 		p.setting("kubeconfigSyncs", "Kubeconfig syncs", "The files and folders Cogpit reads kubeconfigs from; ~/.kube is synced by default.",
 			container.NewHBox(sources, syncB)),
-	)
+	}, p.kubectlSettings()...)...) // kubectl for terminals (kubectloffer_prefs.go)
 }
 
 // sizeChoices are the font sizes offered, with the current one if it is another.
