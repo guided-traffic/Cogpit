@@ -483,7 +483,10 @@ owner can judge whether the pipeline runs end to end; a breaking change makes a 
 1.0.0, until the owner decides on 1.0 (`releaseRules` in [`.releaserc.json`](../../.releaserc.json),
 needed at once: commit `f3ad000` has a body line starting with `BREAKING CHANGE:`, which made the
 dry run's next version 1.0.0). Signing and notarization follow once the Apple credentials exist
-([D-4](#d-4-packaging-and-updates)).
+([D-4](#d-4-packaging-and-updates)). **Dependency updates (owner, 2026-10-13):** Renovate commits
+them as `build(deps):`, so they make no release of their own and ship with the next `feat:` or
+`fix:`; the options weighed: `fix:` and a patch release per update (the team's convention), or
+`fix:` only for security updates.
 
 **Superseded (owner, 2026-10-12):** semantic-release stays a dry run until the alpha. The alpha's
 release is the first real one, cut together with the job that builds the unsigned macOS app as a
@@ -1356,6 +1359,7 @@ from Lens's there.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-16 (owner): dependency updates committed as `build(deps)`, no release of their own |
 | 2026-10-13 | minor | D-16 revised (owner): releases live: semantic-release tags and releases after every gate on `main` with the GitHub App's token, the release pipeline attaches `cogpit-cli` and the unsigned app; a breaking change makes a minor release under v0. D-4: what is built of it (the unsigned app zip and the CLI archives; no signature, notarization, disk image, cask or Sparkle yet) |
 | 2026-10-13 | minor | D-32 (owner): every byte amount in binary units with one decimal ("15.6 GiB"); built 2026-10-13 with one formatter in `model` (`FormatBytes`, `FormatByteQuantity`, `FormatResource`): lists, drawers, charts, data sizes, the kubectl download and the messages that state a size; the space before the unit, the decimal point whatever the region, milli-bytes as written, a size beside its limit not named and the places listed Cogpit's defaults; ten places not converted named for the owner |
 | 2026-10-13 | minor | D-31 (owner): every timestamp in the local time zone and the region's format ("10.09.2026 17:41:01"); built 2026-10-13 from macOS's region (CoreFoundation), else the environment's locale and a CLDR table, one formatter in the engine; the format as a setting not built; the conversion, Windows reading the environment, logs with milliseconds and the list of places Cogpit's defaults |

@@ -236,8 +236,8 @@
       "automerge": false
     },
     {
-      "description": "Use 'fix' instead of 'chore' for dependency updates",
-      "semanticCommitType": "fix",
+      "description": "Dependency updates are 'build(deps)', which semantic-release does not release: they ship with the next feat or fix (owner, 2026-10-13, docs/developer/releasing.md#renovate)",
+      "semanticCommitType": "build",
       "matchUpdateTypes": [
         "minor",
         "patch",

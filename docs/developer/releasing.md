@@ -160,9 +160,13 @@ out (container images, Helm charts, Valkey images) and one group added (Fyne):
   `GOCYCLO_VERSION`, `METRICS_SERVER_VERSION`) carry a
   `# renovate:` comment the custom manager reads; the `go` line of `go.mod` has its own manager,
   and the workflows follow it through `go-version-file`.
-- Dependency updates are committed as `fix:`, so since 2026-10-13 every automerged update becomes
-  a patch release ([H-62](../security/updates.md#h-62-every-push-to-main-that-passes-the-gates-is-released));
-  Actions updates as `chore:`, which release nothing.
+- Dependency updates (Go modules, the Go version, the Makefile's tool pins) are committed as
+  `build(deps):`, which semantic-release does not release (owner, 2026-10-13: releases come from
+  Cogpit's own `feat:` and `fix:`; an update ships with the next of them, and govulncheck checks
+  every push); Actions updates as `chore:`. The team's other repositories commit updates as `fix:`
+  and release each one. Not verified: whether Renovate rewrites the commits of the pull requests
+  already open on 2026-10-13 (#5, #24, #46); one merged with its old `fix(deps):` message would still
+  make a patch release.
 - `third_party/**` is not scanned (2026-10-12): the patched terminal widget keeps upstream's
   `go.mod` and workflows, which Cogpit's build does not use (the root `go.mod` decides every version
   through MVS, and GitHub runs only the root's workflows). The widget itself is tracked through

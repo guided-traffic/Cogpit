@@ -79,8 +79,9 @@ artifacts for Linux and Windows is not designed.
 Live since 2026-10-13. `main` has no branch protection and no required review (checked
 2026-10-13), agents and maintainers push to it directly, and semantic-release releases every
 `fix:` and `feat:` commit once CI is green, so the checks are the only gate between a commit and a
-published release. Renovate's automerged dependency updates are `fix:` commits and become patch
-releases the same way.
+published release. Renovate's automerged dependency updates are `build(deps):` commits and release
+nothing of their own (owner, 2026-10-13); they ship with the next `feat:` or `fix:`, unreviewed like
+every automerged update.
 
 ### H-15: Update key compromise and rotation
 
