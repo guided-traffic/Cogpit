@@ -49,6 +49,9 @@ type ClusterConnector struct {
 	// MetricsSettings are the Prometheus overrides the user set, per context (metricssettings.go);
 	// a connection starts with its context's. Nil: none kept.
 	MetricsSettings *MetricsSettings
+	// ClusterSettings are the user's settings per context (clustersettings.go), the session's own
+	// store: a connection goes through its context's proxy (proxy.go). Nil: no proxy of Cogpit's.
+	ClusterSettings *ClusterSettingsStore
 	// Logger receives connection warnings; nil means slog.Default().
 	Logger *slog.Logger
 	// Sources are the kubeconfig files and sync folders (the user's ~/.kube, the files named in
@@ -116,6 +119,13 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 	opts, sourceID, err := c.connectOptions(name)
 	if err != nil {
 		return nil, err
+	}
+	settingsID := name // the context id the settings are kept under, as the UI state names it
+	if sourceID != "" {
+		settingsID = sourceID
+	}
+	if opts.Proxy, err = c.ClusterSettings.clusterProxy(settingsID); err != nil {
+		return nil, &cluster.ConnectError{Context: settingsID, Problem: err.Error(), Err: err}
 	}
 	conn, err := cluster.Connect(ctx, opts)
 	if err != nil {

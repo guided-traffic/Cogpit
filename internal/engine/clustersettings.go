@@ -63,6 +63,11 @@ type ClusterSettings struct {
 	// HiddenMetrics are the metrics the window does not show for this cluster, and does not ask
 	// the cluster for (hidemetrics.go); none: every metric shows.
 	HiddenMetrics MetricSet `json:"hiddenMetrics,omitempty"`
+	// Proxy is the HTTP(S) or SOCKS5 proxy of this cluster's API traffic, as the user typed it
+	// (proxy.go), applied at the next connect in place of the kubeconfig's proxy-url; empty: the
+	// kubeconfig's, else the environment's. It may carry a password: the UI state and every
+	// result show it redacted (RedactProxyURL), only the settings file keeps it as typed.
+	Proxy string `json:"proxy,omitempty"`
 }
 
 // IsZero reports whether the settings are all defaults.
@@ -90,7 +95,7 @@ func (c ClusterSettings) Check() error {
 	if c.HiddenMetrics&^HideAll != 0 {
 		return errors.New("hidden metrics: a metric this Cogpit does not know")
 	}
-	return nil
+	return CheckProxyURL(c.Proxy)
 }
 
 // normalize drops every field of settings read from a file that Check would refuse.
@@ -112,6 +117,9 @@ func (c *ClusterSettings) normalize() {
 		c.TerminalNamespace = ""
 	}
 	c.HiddenMetrics &= HideAll
+	if c.Proxy = strings.TrimSpace(c.Proxy); CheckProxyURL(c.Proxy) != nil {
+		c.Proxy = ""
+	}
 }
 
 func checkClusterName(name string) error {
@@ -237,7 +245,7 @@ func (c *ClusterSettingsStore) attach(s *Session) {
 	if err != nil {
 		s.log.Warn("cluster settings", "err", err)
 	}
-	s.ui.ClusterSettings = st
+	s.ui.ClusterSettings = shownClusterSettings(st) // proxies without their passwords (proxy.go)
 }
 
 // ClusterSettingsStore returns the session's cluster settings; nil when it keeps none.
@@ -283,6 +291,10 @@ func (s *Session) ChangeClusterSettings(context string, fn func(*ClusterSettings
 			return ClusterSettings{}, nil, err
 		}
 		cs.Name = strings.TrimSpace(cs.Name)
+		cs.Proxy = strings.TrimSpace(cs.Proxy)
+		if cs.Proxy == RedactProxyURL(old.Proxy) {
+			cs.Proxy = old.Proxy // the redacted form handed back as it was shown: unchanged
+		}
 		if err := cs.Check(); err != nil {
 			return ClusterSettings{}, nil, err
 		}
@@ -310,7 +322,8 @@ func (s *Session) ChangeClusterSettings(context string, fn func(*ClusterSettings
 	if dropped != "" {
 		c.removeIcon(dropped)
 	}
-	s.UpdateUI(func(u *UIState) { u.ClusterSettings = all })
+	shown := shownClusterSettings(all) // proxies without their passwords (proxy.go)
+	s.UpdateUI(func(u *UIState) { u.ClusterSettings = shown })
 	return next, nil
 }
 
@@ -358,6 +371,9 @@ type ClusterSettingsView struct {
 	// by name (cluster, nodes, pods, containers, cpu, memory, network, filesystem); empty: all
 	// metrics are visible.
 	HiddenMetrics []string `json:"hiddenMetrics"`
+	// Proxy is the proxy of the cluster's API traffic, its password shown as •••; empty: none set
+	// (the kubeconfig's proxy-url or the environment's apply).
+	Proxy string `json:"proxy,omitempty"`
 	// Connected says whether the context is the connected cluster (its metrics settings apply).
 	Connected bool `json:"connected"`
 	// Kept says whether the settings outlive this run (false without a configuration directory).
@@ -373,7 +389,7 @@ func (s *Session) ClusterSettingsView(context string) (ClusterSettingsView, erro
 	v := ClusterSettingsView{Context: context, Name: ClusterName(context, cs), ContextName: ContextLabel(context),
 		NameSet: cs.Name != "", IconColor: cs.IconColor, TerminalDir: cs.TerminalDir,
 		TerminalNamespace: cs.TerminalNamespace, HiddenMetrics: MetricNames(cs.HiddenMetrics),
-		Kept: s.opts.ClusterSettings.Path() != ""}
+		Proxy: RedactProxyURL(cs.Proxy), Kept: s.opts.ClusterSettings.Path() != ""}
 	if cs.Icon != "" {
 		v.IconImage = strings.TrimPrefix(filepath.Ext(cs.Icon), ".")
 	}

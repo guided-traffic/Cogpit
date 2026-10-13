@@ -84,7 +84,7 @@ func (s *Session) AuditUser(action string, params any, err error) {
 // RedactManifests returns it; a "yaml" parameter that is not a string is logged by its type only.
 // Helm values, which can hold credentials, are never logged: helm.release.upgrade's "values", and
 // the "yaml" an agent sets in a Helm Upgrade or Install tab (editor.setText with a helmUpgrade-… or
-// helmInstall-… id).
+// helmInstall-… id). A proxy URL ("proxy", "httpProxy") is logged with its password as •••.
 func auditParams(raw json.RawMessage) json.RawMessage {
 	var params map[string]any
 	if json.Unmarshal(raw, &params) != nil {
@@ -92,6 +92,9 @@ func auditParams(raw json.RawMessage) json.RawMessage {
 	}
 	if v, ok := params["values"]; ok {
 		params["values"] = withheldParam(v)
+		raw = marshalParams(params, raw)
+	}
+	if redactProxyParams(params) { // a proxy's password (proxy.go)
 		raw = marshalParams(params, raw)
 	}
 	v, ok := params["yaml"]

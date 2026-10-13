@@ -78,6 +78,10 @@ type Options struct {
 	// command past it); an error refuses the connection before the plugin runs. Nil runs plugins
 	// as kubectl does.
 	ExecPolicy func(*kubeconfig.ExecPlugin) error
+	// Proxy, when set, is the proxy every request of the connection goes through (proxy.go): the
+	// one the user named for this context in Cogpit, in place of the kubeconfig's proxy-url. Nil
+	// leaves client-go's choice. Its password never appears in an error.
+	Proxy *url.URL
 }
 
 // loadingRules returns client-go's loading rules for paths: exactly these files in this order,
@@ -230,7 +234,8 @@ type Conn struct {
 // Connect builds a connection for opts.Context. It verifies the server is reachable with one
 // discovery request (GET /version, bounded by opts.ConnectTimeout) and returns a *ConnectError a
 // user can act on otherwise. Credentials never appear in the error.
-func Connect(ctx context.Context, opts Options) (*Conn, error) {
+func Connect(ctx context.Context, opts Options) (_ *Conn, err error) {
+	defer func() { err = scrubProxySecret(err, opts.Proxy) }()
 	name := opts.Context
 	rules := loadingRules(opts.KubeconfigPaths)
 	usable, problems := checkFiles(rules.GetLoadingPrecedence(), len(opts.KubeconfigPaths) > 0)
@@ -270,6 +275,7 @@ func Connect(ctx context.Context, opts Options) (*Conn, error) {
 	// user's kubeconfig file. Cogpit makes no implicit kubeconfig writes: refreshed tokens stay in
 	// memory (gap H-4, docs/security/credentials.md).
 	cfg.AuthConfigPersister = memoryPersister{}
+	applyProxy(cfg, opts.Proxy) // the cluster's proxy in Cogpit's settings, over the kubeconfig's
 	namespace, _, err := cc.Namespace()
 	if err != nil || namespace == "" {
 		namespace = "default"

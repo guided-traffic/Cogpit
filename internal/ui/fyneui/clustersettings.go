@@ -22,16 +22,17 @@ import (
 
 // A cluster's Settings page (G13, ⌘⇧,; engine/clustersettings.go), as Lens's (captured
 // 2026-10-11): General (the cluster's name, the icon with its "…" menu of Upload Icon, Pick Icon
-// Color and Reset Icon, the kubeconfig's path as a link to its folder), Terminal (the working
-// directory, "$HOME" when unset, and kubectl's namespace, "default" when unset), Metrics (the
-// Prometheus setting, the existing dialog of cluster.setPrometheus). Lens's Proxy, Namespaces,
-// Lens Metrics, Cost and Node Shell pages are not built and not listed. Cogpit's own: the row of
+// Color and Reset Icon, the kubeconfig's path as a link to its folder), Proxy (the proxy of the
+// cluster's API traffic, clustersettings_proxy.go), Terminal (the working directory, "$HOME" when
+// unset, and kubectl's namespace, "default" when unset), Metrics (the Prometheus setting, the
+// existing dialog of cluster.setPrometheus, and the hidden metrics, clustersettings_metrics.go).
+// Lens's Namespaces, Lens Metrics, Cost and Node Shell pages are not built and not listed. Cogpit's own: the row of
 // colour swatches under the icon, which picks a colour in one click (the menu's Pick Icon Color
 // does the same).
 
 // clusterSectionLabels are the page's section titles, Lens's (captured).
-var clusterSectionLabels = map[string]string{engine.SectionGeneral: "General", engine.SectionTerminal: "Terminal",
-	engine.SectionMetrics: "Metrics"}
+var clusterSectionLabels = map[string]string{engine.SectionGeneral: "General", engine.SectionProxy: "Proxy",
+	engine.SectionTerminal: "Terminal", engine.SectionMetrics: "Metrics"}
 
 // contextParam is the context parameter of the cluster settings commands.
 const contextParam = "context"
@@ -108,6 +109,8 @@ func (p *settingsPage) setCluster(name string, value any) {
 // clusterSection builds one section of a cluster's Settings page.
 func (p *settingsPage) clusterSection(section string) fyne.CanvasObject {
 	switch section {
+	case engine.SectionProxy:
+		return p.clusterProxySection() // clustersettings_proxy.go
 	case engine.SectionTerminal:
 		return p.clusterTerminalSection()
 	case engine.SectionMetrics:

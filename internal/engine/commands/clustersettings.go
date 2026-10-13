@@ -25,6 +25,7 @@ type clusterSettingsSetParams struct {
 	IconColor         *string  `json:"iconColor,omitempty" jsonschema:"the icon's colour, one of cyan, blue, violet, magenta, red, orange, yellow, green (the theme's accents); it replaces an uploaded image; empty: the accent"`
 	TerminalDir       *string  `json:"terminalDir,omitempty" jsonschema:"the working directory of the cluster's local terminals: an absolute path, or one starting with $HOME or ~; empty: $HOME"`
 	TerminalNamespace *string  `json:"terminalNamespace,omitempty" jsonschema:"kubectl's namespace in the cluster's local terminals; empty: the namespace filter's single namespace, else the context's own"`
+	Proxy             *string  `json:"proxy,omitempty" jsonschema:"the HTTP(S) or SOCKS5 proxy of this cluster's API traffic (http://<address>:<port>, https:// or socks5://, optionally with user:password@), applied at the next connect in place of the kubeconfig's proxy-url; empty: none. Agents and the CLI may only clear it (an empty string): setting one is the user's, in Cogpit's window"`
 	HiddenMetrics     []string `json:"hiddenMetrics,omitempty" jsonschema:"the metrics the window hides for this cluster, and does not ask the cluster for: places (cluster: the Overview's charts; nodes, pods: their lists' CPU and Memory columns and their drawers' charts; containers: a pod's containers' charts) and measures (cpu, memory, network, filesystem), or all; it replaces the list set before, and an empty list shows every metric again. metrics_get still answers"`
 }
 
@@ -35,7 +36,7 @@ type clusterIconParams struct {
 
 type clusterSettingsOpenParams struct {
 	Context string `json:"context,omitempty" jsonschema:"context id as cluster_contexts lists it; empty or omitted: the connected context"`
-	Section string `json:"section,omitempty" jsonschema:"the section to show: general (name, icon, kubeconfig), terminal or metrics; omitted: general"`
+	Section string `json:"section,omitempty" jsonschema:"the section to show: general (name, icon, kubeconfig), proxy, terminal or metrics (the Prometheus, hidden metrics); omitted: general"`
 }
 
 const clusterSettingsOnly = " Changes only Cogpit's own cluster settings (a file in Cogpit's configuration directory), never the cluster or its kubeconfig."
@@ -96,12 +97,20 @@ func registerClusterSettings(g *registrar) {
 			"they are, an empty value restores the default. The display name and the icon colour show at once in the " +
 			"hotbar, the context picker and the navigator; the terminal's working directory and namespace apply to the " +
 			"cluster's local terminals opened afterwards; hidden metrics leave the lists' columns, the drawers' charts " +
-			"and the Overview at once, and nothing is polled for them." + clusterSettingsOnly + " Returns the settings.",
+			"and the Overview at once, and nothing is polled for them; a proxy applies at the next connect. Agents and " +
+			"the CLI may clear the proxy but not set one; the proxy they read back has its password shown as •••." +
+			clusterSettingsOnly + " Returns the settings.",
 		Enabled: func(s *engine.Session, p clusterSettingsSetParams) error {
 			_, err := settingsContext(s, p.Context)
 			return err
 		},
-		Run: func(_ context.Context, s *engine.Session, p clusterSettingsSetParams) (any, error) {
+		Refuse: func(ctx context.Context, _ *engine.Session, p clusterSettingsSetParams) error {
+			return refuseProxy(ctx, p.Proxy)
+		},
+		Run: func(ctx context.Context, s *engine.Session, p clusterSettingsSetParams) (any, error) {
+			if err := refuseProxy(ctx, p.Proxy); err != nil {
+				return nil, err
+			}
 			var hidden engine.MetricSet
 			if p.HiddenMetrics != nil {
 				var err error
@@ -125,6 +134,13 @@ func registerClusterSettings(g *registrar) {
 				}
 				if p.TerminalNamespace != nil {
 					cs.TerminalNamespace = strings.TrimSpace(*p.TerminalNamespace)
+				}
+				if p.Proxy != nil {
+					next, err := engine.MergeProxyPassword(cs.Proxy, *p.Proxy) // "•••" keeps the password set before
+					if err != nil {
+						return err
+					}
+					cs.Proxy = next
 				}
 				return nil
 			})
@@ -184,7 +200,7 @@ func registerClusterSettings(g *registrar) {
 	add(g, engine.Spec[clusterSettingsOpenParams]{
 		ID: "cluster.settings.open", Label: "Cluster Settings", MenuPath: "Cluster/Settings", Shortcut: "Cmd+Shift+,", Danger: engine.DangerUI,
 		Description: "Opens a context's Settings page in Cogpit's window, as ⌘⇧, (Ctrl+Shift+,) does for the connected cluster, " +
-			"at a section: general (name, icon, kubeconfig), terminal or metrics. It takes the place of the cluster's views " +
+			"at a section: general (name, icon, kubeconfig), proxy, terminal or metrics (the Prometheus, hidden metrics). It takes the place of the cluster's views " +
 			"until closed (settings_close, Escape); ui_state reports it as settings. Returns the new UI state.",
 		Enabled: func(s *engine.Session, p clusterSettingsOpenParams) error {
 			if _, err := settingsContext(s, p.Context); err != nil {

@@ -145,6 +145,8 @@ func (e *env) newSession(opts sessionOptions) (*engine.Session, func(), error) {
 		DemoOptions: e.demo,
 		Logger:      e.logger,
 		Sources:     e.dirs.KubeconfigSources(named),
+		// The app's cluster settings, read only: a context's proxy applies to the CLI's connection too.
+		ClusterSettings: engine.NewClusterSettingsStore(e.dirs.Config),
 	}
 	so := engine.Options{Connector: connector, Logger: e.logger}
 	closers := []func(){}

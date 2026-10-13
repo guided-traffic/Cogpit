@@ -408,6 +408,7 @@ const (
 	SectionTables     = "tables"
 	SectionGeneral    = "general"
 	SectionMetrics    = "metrics"
+	SectionProxy      = "proxy"
 )
 
 // PreferencesSections are the Preferences page's sections: App (theme, time zone), Kubernetes
@@ -416,7 +417,7 @@ var PreferencesSections = []string{SectionApp, SectionKubernetes, SectionEditor,
 
 // ClusterSettingsSections are the Cluster settings page's built sections, in Lens's captured
 // order (General, Proxy, Terminal, Namespaces, Metrics, ..., Node Shell) without the missing ones.
-var ClusterSettingsSections = []string{SectionGeneral, SectionTerminal, SectionMetrics}
+var ClusterSettingsSections = []string{SectionGeneral, SectionProxy, SectionTerminal, SectionMetrics}
 
 // SettingsPage is the open settings page: Preferences, or one context's Cluster settings, and the
 // section shown.

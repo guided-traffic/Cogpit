@@ -13,6 +13,7 @@ have and the package that owns it, with a link where the MVP (2026-10-11) implem
 | Credential plugin | runs with the user's privileges | It is whatever program the kubeconfig names ([client-go credential plugins](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#client-go-credential-plugins)) |
 | Kubernetes API server | authenticated, data untrusted | TLS proves which server answers; it does not make object names, annotations, events or logs safe to render, execute or hand to a model |
 | Workload output | untrusted | Logs, exec and attach streams are written by containers, which anyone who can deploy to the cluster controls |
+| A proxy the user names (a cluster's, 2026-10-13) | trusted to forward, not to read | The user picks it in the window. Where the server's TLS is verified it sees the server's name and the traffic's timing and size; where it is not (`insecure-skip-tls-verify`, plain http) it reads everything, credentials included ([H-32](#h-32-the-plugin-approval-shows-the-kubeconfigs-proxy-not-cogpits)) |
 | Helm repositories and charts | untrusted | Remote content; rendering a chart runs its templates in Cogpit's process through the Helm SDK |
 | External agents over MCP | as trusted as the local user who connected them; decisions are a model's | [agents and MCP](agents-and-mcp.md) |
 | Built-in agent and its LLM endpoint | the endpoint's output is untrusted | [agents and MCP](agents-and-mcp.md) |
@@ -21,6 +22,8 @@ have and the package that owns it, with a link where the MVP (2026-10-11) implem
 ```text
 UNTRUSTED                                   BOUNDARY                          TRUSTED STATE
   kubeconfig files (exec, auth-provider) ─► parse + exec policy ────────────► connection settings
+  proxy URL the user types (window only) ─► URL check, password ────────────► the connection's proxy
+                                             redacted outside the file
   API responses, watch events            ─► schema-tolerant decoding, ───────► cache, view-models
                                              size limits, bounded walks
   log lines, exec/attach output          ─► terminal emulator with ─────────► terminal and log views
@@ -41,6 +44,7 @@ UNTRUSTED                                   BOUNDARY                          TR
 | Boundary | Planned package | Required checks |
 |---|---|---|
 | Kubeconfig to connection | `internal/kubeconfig`, `internal/cluster` | Parse without executing; run an exec plugin only when the user connects to that context, with an argument vector; show the command before the first run of a plugin from a newly added file; never follow `exec` from a kubeconfig the user did not add. Built 2026-10-12 for added and synced kubeconfigs ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)): each source file is read on its own, never merged with another (a dropped file cannot point a context at the user's real credentials); a context whose user has an `exec` section, or names a `tokenFile` outside the kubeconfig's folder ([H-24](#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token)), connects only after the user allowed exactly that plugin or file in the GUI, checked by `cluster.Connect` before any client exists, from the very `rest.Config` the client would run ([`exec.go`](../../internal/kubeconfig/exec.go), `TestConnectAsksTheExecPolicyBeforeThePluginRuns`, `TestExecPluginRunsOnlyOnceAllowed`, `TestKindExecPluginAfterApproval`); the default kubeconfig (`--kubeconfig`, `$KUBECONFIG`, `~/.kube/config`) keeps kubectl's behaviour |
+| Proxy setting to connection | `internal/engine`, `internal/cluster` | Built 2026-10-13 ([`engine/proxy.go`](../../internal/engine/proxy.go), [`cluster/proxy.go`](../../internal/cluster/proxy.go)): a proxy is set only by the user in the window (`ErrProxyGUIOnly` for agents and the CLI, who may clear it); it must be an `http`, `https` or `socks5` URL with a host and nothing but an optional port and `user:password@`; it applies to its own context's connection only, at the next connect, through `rest.Config.Proxy`; its password stays in the settings file and is `•••` everywhere else ([credentials](credentials.md#where-they-live-inside-cogpit)); the credential plugin's approval does not know it ([H-32](#h-32-the-plugin-approval-shows-the-kubeconfigs-proxy-not-cogpits)) |
 | API response to cache | `internal/cache`, `internal/model` | Tolerate unknown and missing fields; cap object and list sizes; bound owner-reference walks |
 | Cluster text to UI | `internal/model`, `internal/ui/fyneui` | Object names, labels, annotations and events are text, never markup; strip control characters before display |
 | Container output to terminal | `internal/terminal`, `internal/ui/fyneui/termview` | Drop or confirm OSC 52 (clipboard write), window-title and window-manipulation sequences ([xterm control sequences](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html)); cap scrollback; cap line length. The MVP drops every OSC, DCS, APC, PM and SOS string, media copy and window operations, clamps large counts, and strips escapes from log lines, which are capped at 64 KiB per line and 10,000 lines ([`termview/sanitize.go`](../../internal/ui/fyneui/termview/sanitize.go), fuzzed; [`termview/logs.go`](../../internal/ui/fyneui/termview/logs.go)); see [H-19](#h-19-the-terminal-widget-trusts-its-input) |
@@ -185,6 +189,20 @@ Content binding is narrower than "everything the plugin runs", by decision (owne
 
 A link in the folder that points to a file outside is bound by its target path; a tool manager that
 repoints it (a Homebrew upgrade of a linked `aws`) asks once again.
+
+### H-32: The plugin approval shows the kubeconfig's proxy, not Cogpit's
+
+The approval of a credential plugin binds, and its dialog shows, the kubeconfig's own `proxy-url`
+(R-11). Since 2026-10-13 a cluster's settings in Cogpit can name a proxy of their own, which replaces
+the kubeconfig's for Cogpit's connections ([credentials](credentials.md#where-they-live-inside-cogpit)):
+the credential the approved plugin returns then travels through a proxy the dialog did not name, and
+changing that proxy does not ask for the approval again. What keeps it narrow today: only the user
+sets a proxy, in the window (agents and the CLI are refused, [agents and MCP](agents-and-mcp.md));
+with the server's TLS verified a proxy sees the server's name and the traffic's timing and size, not
+the token. It is live for a context with a plugin whose user also set a proxy, and real where the
+server's certificate is not verified (`insecure-skip-tls-verify`, a plain-http server): there the
+proxy reads the bearer token. Not designed: whether the dialog shows Cogpit's proxy beside the
+kubeconfig's, and whether the approval's fingerprint binds it.
 
 ### H-30: Chart provenance is not verified
 

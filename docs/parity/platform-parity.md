@@ -1,6 +1,6 @@
 # Platform parity: systems, packages, authentication and tools
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** major (fourth run recount: 9 of 38 rows partial; exec credential plugins partial) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (the HTTP proxy per cluster partial; fourth run recount: 9 of 38 rows partial; exec credential plugins partial) · **Target:** Lens Desktop 2026.10.51501
 
 Where and how Cogpit runs compared with Lens Desktop 2026.10.51501: operating systems and
 architectures, packages and updates, how it authenticates to clusters, which Kubernetes versions
@@ -66,7 +66,7 @@ client-go from the process that holds the credentials, so that requirement does 
 | Legacy `oidc` auth provider | not documented | yes; refreshed tokens through a persister Cogpit supplies ([H-4](../security/credentials.md#h-4-auth-provider-token-refresh)) | missing |
 | Legacy `azure` auth provider | not documented | rejected by client-go, which points to kubelogin | – (nothing to build) |
 | `proxy-url` in the kubeconfig | not documented | yes | missing |
-| HTTP proxy set per cluster in cluster settings | yes | yes | missing |
+| HTTP proxy set per cluster in cluster settings | yes | yes | partial (2026-10-13): Settings › Proxy ([ui parity](ui-parity.md#cluster-settings)), an http, https or socks5 URL kept in Cogpit's `cluster-settings.json`, applied at the next connect through `rest.Config.Proxy` in place of the kubeconfig's `proxy-url` (inferred precedence), its password redacted everywhere but that file; against a fake API server behind a test proxy that tunnels CONNECT and checks the Basic credentials (`TestConnectGoesThroughTheProxy`, `TestConnectThroughTheClusterProxy`); not against a real proxy; the local terminal's kubectl does not use it |
 | Custom CA, `tls-server-name`, `insecure-skip-tls-verify` | not documented | yes | missing |
 | Users who may list only some namespaces (accessible namespaces) | yes | yes | partial (2026-10-11): access reviews per namespace (`SelfSubjectRulesReview`) of the context's default namespace and the namespace filter's: the sidebar shows the kinds such a user may list there and hides the others, menus grey what they may not do ([`accessreviews.go`](../../internal/engine/accessreviews.go); `TestKindAccessReviews` with a ServiceAccount limited to pods in one namespace, `TestBudgetAccessReviews`). Missing: views still list every namespace (no namespace-scoped informers), so such a user's Pods view shows the API server's refusal; no setting for accessible namespaces when the kubeconfig names none |
 | Cluster Connect: reach clusters through Lens's relay (paid) | yes | not a target ([D-9](../developer/decisions.md#d-9-scope-against-lenss-paid-and-vendor-features)) | – |
@@ -105,6 +105,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | The HTTP proxy set per cluster partial (night run, G13): Cogpit's cluster settings, applied through `rest.Config.Proxy`, tested against a test proxy; 10 of 38 rows partial (the lead recounts) |
 | 2026-10-12 | major | Recount after the fourth run (`make parity`): 9 of 38 rows partial, 4 of 13 authentication rows |
 | 2026-10-12 | minor | Fourth run (agent D): exec credential plugins partial, on kind and a fake API server, with the approval of a kubeconfig source's plugin |
 | 2026-10-12 | minor | Recount by `make parity`: 8 of 38 rows partial (the summary left out the sidebar following the served APIs); evidence named for the macOS app bundle and `kubectl` from `PATH` |

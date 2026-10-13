@@ -257,6 +257,9 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 	})
 
 	st.logs.restart(name, "Connecting to "+name)
+	if line := s.proxyLogLine(name); line != "" {
+		st.logs.add(name, LogInfo, line) // the proxy of the cluster's settings, its password as ••• (proxy.go)
+	}
 	var b *Backend
 	err := s.safeCall("connect", func() (err error) { b, err = connector.Connect(cctx, name); return err })
 	if err == nil && b == nil {

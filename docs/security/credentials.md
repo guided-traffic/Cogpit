@@ -66,6 +66,22 @@ Cogpit adds no cluster credential source of its own: no account, no login, no cl
   whose entries can hold a password in plain text. The indexes it downloads are public data in
   `<user cache dir>/Cogpit/helm/` (0600). A repository that needs a login is
   [H-29](#h-29-authenticated-helm-repositories).
+- **A proxy's user and password** (built 2026-10-13, G13): a cluster's proxy (Cluster Settings ›
+  Proxy) may be `http://user:password@host:port`, as Lens's field allows. Cogpit keeps it as typed in
+  one place only, `<user config dir>/Cogpit/cluster-settings.json` (0600 in a 0700 directory,
+  replaced atomically), and hands it to client-go for the connection (`rest.Config.Proxy`), which
+  sends it to the proxy alone: as Basic `Proxy-Authorization` on the CONNECT for an http or https
+  proxy (in clear on the network for an `http://` proxy, over TLS for an `https://` one), as SOCKS5's
+  user and password for a socks5 proxy; never to the API server. Everywhere else the password is
+  `•••` (`engine.RedactProxyURL`): the UI state (so `ui_state` and the window), `cluster.settings.get`
+  and `cluster.settings.set`'s results, the audit log's parameters (`auditParams`), the connection
+  log ("Through the proxy http://alice:•••@proxy:3128"); a value typed in the window with `•••` keeps
+  the stored password (`MergeProxyPassword`). No error quotes a proxy value: the checks name the
+  problem only, and `cluster.Connect` scrubs the password from any connect error as a guard
+  (`TestCheckProxyURL`, `TestClusterProxyKeptPrivately`, `TestClusterProxyCommands`,
+  `TestProxyRefusalNeverQuotesThePassword`, `TestConnectThroughTheClusterProxy`). Only the user sets
+  a proxy ([agents and MCP](agents-and-mcp.md)). The file is plaintext
+  ([H-33](#h-33-proxy-passwords-are-plaintext-in-cogpits-settings)).
 - **In memory:** credentials are held by the connection that uses them and dropped when it closes.
   Rule for Cogpit's own credential types: they implement `slog.LogValuer` and `fmt.Stringer` as
   `"<redacted>"`, so a stray log statement cannot print them. The MVP has no such type yet: cluster
@@ -100,6 +116,7 @@ user's file byte-identical. A shell profile can still override `KUBECONFIG`
 | Place | Rule |
 |---|---|
 | Application log | No tokens, keys, certificates, exec-plugin output or Secret data, at any log level |
+| Audit log | An agent's parameters are logged (D-2), with Secret values, Helm values and a proxy's password redacted ([`audit.go`](../../internal/engine/audit.go) `auditParams`) |
 | Error messages and toasts | Same rule; errors name the context, never the credential. client-go's own errors can echo a kubeconfig's `users` entries; `kubeconfig.SafeError` ([`kubeconfig.go`](../../internal/kubeconfig/kubeconfig.go)) strips them, and connect errors are tested not to contain a known token |
 | Crash reports | Cogpit has no crash upload. Since 2026-10-12 the Go runtime writes an unhandled panic or fatal error into `<user config dir>/Cogpit/crash.log` (0600) as well as to standard error ([`crash.go`](../../cmd/cogpit/crash.go)); the next start moves it to `crashes/crash-<time>.log`, keeps the newest ten and names it in the window. Its text is the runtime's: the panic's message and the goroutines' stacks (function names, file lines, argument words, no strings' contents); a panic message the code formats from a value could carry it, so the file follows the log rule: local, owner-only, never sent anywhere |
 | Telemetry | Cogpit sends none. Any network call to something other than a cluster, a Helm repository, the configured LLM endpoint or the release channel needs a decision entry in [`decisions.md`](../developer/decisions.md) |
@@ -176,6 +193,17 @@ all of these. A repository behind a login cannot be added, and a chart it serves
 installed from Cogpit. Where such a credential would live (the operating system's keychain, as for
 the LLM key, or a file next to `repositories.json`) and how it is kept out of logs, errors and the
 redirects a download follows to other hosts (Helm's `pass_credentials_all`) is not designed.
+
+### H-33: Proxy passwords are plaintext in Cogpit's settings
+
+A proxy's password (a cluster's in `cluster-settings.json`) is kept as the user typed it, in a file
+protected by its permissions only (0600 in a 0700 directory), as kubeconfig files keep their tokens
+([H-5](#h-5-kubeconfig-files-are-plaintext)). Cogpit does not move it into the operating system's
+keychain, where the LLM key is planned to live, and a backup of the configuration folder carries it.
+The password reaches the proxy in clear when the proxy's URL is `http://` (Basic authentication on
+the CONNECT, as every HTTP client sends it); Cogpit does not warn about that. Whether proxy
+credentials move into the keychain, and whether an `http://` proxy with a password is refused or
+warned about, is not decided.
 
 ### H-20: Shell profiles can override the terminal's kubeconfig
 

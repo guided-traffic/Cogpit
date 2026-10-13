@@ -87,6 +87,7 @@ func run(previousCrash string) int {
 	audit, closeAudit := openAuditLog(logger)
 	defer closeAudit()
 
+	clusterSettings := openClusterSettings(logger) // the session's, and the connector's proxies
 	connector := &engine.ClusterConnector{
 		KubeconfigPaths: filepath.SplitList(*kubeconfig),
 		IncludeDemo:     true,
@@ -94,10 +95,11 @@ func run(previousCrash string) int {
 		Logger:          logger,
 		Sources:         openKubeconfigSources(logger, cluster.NamedKubeconfigFiles(filepath.SplitList(*kubeconfig))),
 		MetricsSettings: openMetricsSettings(logger),
+		ClusterSettings: clusterSettings,
 	}
 	s := engine.New(engine.Options{Connector: connector, Audit: audit, Logger: logger, Drains: openDrainJournal(logger),
 		Helm: openHelmJournal(logger), Hotbar: openHotbar(logger), HelmRepos: openHelmRepos(logger),
-		Preferences: openPreferences(logger), ClusterSettings: openClusterSettings(logger)})
+		Preferences: openPreferences(logger), ClusterSettings: clusterSettings})
 	defer s.Close()
 	defer s.WatchKubeconfigs(0)() // sync folders: files that appear or leave are picked up
 	if err := commands.RegisterAll(s.Registry()); err != nil {
