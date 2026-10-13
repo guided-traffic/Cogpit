@@ -65,8 +65,8 @@ type HideableMetric struct {
 // HideableMetrics are the entries in the order the page lists them: the places, then the measures.
 var HideableMetrics = []HideableMetric{
 	{HideCluster, "cluster", "Cluster", true},
-	{HideNodes, "nodes", "Nodes", true},
-	{HidePods, "pods", "Pods", true},
+	{HideNodes, string(model.UsageNodes), "Nodes", true},
+	{HidePods, string(model.UsagePods), "Pods", true},
 	{HideContainers, "containers", "Containers", true},
 	{HideCPU, "cpu", "CPU", false},
 	{HideMemory, "memory", "Memory", false},

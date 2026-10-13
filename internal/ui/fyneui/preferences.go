@@ -28,7 +28,7 @@ import (
 
 // preferencesSectionLabels are the Preferences page's section titles (Cogpit's grouping, inferred).
 var preferencesSectionLabels = map[string]string{
-	engine.SectionApp: "App", engine.SectionProxy: "Proxy", engine.SectionKubernetes: "Kubernetes", engine.SectionEditor: "Editor",
+	engine.SectionApp: "App", engine.SectionProxy: proxySectionLabel, engine.SectionKubernetes: "Kubernetes", engine.SectionEditor: "Editor",
 	engine.SectionTerminal: "Terminal", engine.SectionTables: "Tables",
 }
 

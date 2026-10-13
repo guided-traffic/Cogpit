@@ -174,7 +174,7 @@ func (p *ForwardProxy) tunnel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if n := buf.Reader.Buffered(); n > 0 {
-		pending, _ := buf.Reader.Peek(n)
+		pending, _ := buf.Peek(n)
 		_, _ = target.Write(pending)
 	}
 	var once sync.Once

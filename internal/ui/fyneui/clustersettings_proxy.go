@@ -23,6 +23,9 @@ import (
 // proxySetting is the setting's name on both pages (its control and its refusal line).
 const proxySetting = "proxy"
 
+// proxySectionLabel is the Proxy section's title on both pages (Lens's, captured on the cluster's).
+const proxySectionLabel = "Proxy"
+
 // clusterProxySection builds a cluster's Settings › Proxy.
 func (p *settingsPage) clusterProxySection() fyne.CanvasObject {
 	entry := widget.NewEntry()

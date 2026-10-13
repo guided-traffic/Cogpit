@@ -31,7 +31,7 @@ import (
 // does the same).
 
 // clusterSectionLabels are the page's section titles, Lens's (captured).
-var clusterSectionLabels = map[string]string{engine.SectionGeneral: "General", engine.SectionProxy: "Proxy",
+var clusterSectionLabels = map[string]string{engine.SectionGeneral: "General", engine.SectionProxy: proxySectionLabel,
 	engine.SectionTerminal: "Terminal", engine.SectionMetrics: "Metrics"}
 
 // contextParam is the context parameter of the cluster settings commands.
