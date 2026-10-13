@@ -1403,6 +1403,7 @@ serves the kind. A custom kind costs one watch when opened, like any kind
 who may not list the definitions (a namespace-limited user) is refused once: the refused list ends
 the watch (`customKinds.drop`), the custom kinds keep the refusal as their error (so
 `CustomKindsSettled` holds), and `cluster.refreshAccess` or the next connect asks again (`retake`;
+Cogpit's default, not the owner's decision, the rule of a kind refused in all namespaces;
 2026-10-13, night: before, it was retried on every backoff step for as long as the cluster was
 connected, measured on kind at 10 refused requests in 20 s; `TestCustomKindsStopAfterARefusal`).
 
@@ -1445,8 +1446,9 @@ nothing, so a user who may not list cluster-wide never sends a cluster-wide list
 said no; the reads that wait for the cache anyway (`Session.Objects`, `Object` and `DetailWait`:
 `resources_list`, `object_get`, `cogpit-cli get`) wait for the plan too, at most 10 seconds
 (`acquireSettled`, `TestAgentReadWaitsForThePlan`), and reads that do not wait (the GUI's drawer,
-`Lookup`) hold nothing while it is pending, as the view does (`acquireNow`; since 2026-10-13, night:
-before, they read in all namespaces then). The plan is the view's and the drawer's state (`viewWorker.plan`, `drawerWatch.planKey`):
+`Lookup`) hold nothing while it is pending, as the view does (`acquireNow`; since 2026-10-13, night,
+Cogpit's default, not the owner's decision: before, they read in all namespaces then, which a user
+who may not is refused; the drawer shows its object as loading for the moment the reviews take). The plan is the view's and the drawer's state (`viewWorker.plan`, `drawerWatch.planKey`):
 `reconcileLocked` hands the backend the accessible namespaces and the filter
 (`nsState.setInputs`) and starts the view or drawer again when the plan changes; new answers of the
 access reviews (`accessChanged`, and `finishRules`/`finishAccess` for a view still waiting) and a
