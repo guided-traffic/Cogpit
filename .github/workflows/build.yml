@@ -24,7 +24,7 @@ jobs:
   macos:
     name: "macOS: lint, race tests, build"
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -161,7 +161,7 @@ jobs:
   kind:
     name: Cluster Tests (kind)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       KUBECONFIG: ${{ github.workspace }}/.cache/kind/kubeconfig
     steps:

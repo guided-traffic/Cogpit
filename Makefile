@@ -51,9 +51,9 @@ test: test-unit-race ## All tests that need no cluster (race detector on); test-
 test-unit: ## Unit tests without the race detector
 	$(TEST_ENV) $(GO) test ./...
 
-# The race detector makes the UI's tests (internal/ui/fyneui) take about 6 minutes here and more
-# than go test's default 10 on CI's macOS runner; RACE_TIMEOUT bounds a package instead.
-RACE_TIMEOUT ?= 25m
+# The race detector makes the UI's tests (internal/ui/fyneui) take about 18 minutes here (night run
+# 2026-10-13) and more than 25 on CI's macOS runner; RACE_TIMEOUT bounds a package instead.
+RACE_TIMEOUT ?= 40m
 
 test-unit-race: test-fork ## Unit tests with the race detector, the terminal widget's included
 	$(TEST_ENV) $(GO) test -race -timeout $(RACE_TIMEOUT) ./...
