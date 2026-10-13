@@ -259,7 +259,9 @@ func listFeedWanted(p *model.KindProfile, hidden MetricSet) bool {
 }
 
 // followHidden starts or stops the view's metrics feed as the hidden metrics say: a list whose CPU
-// and Memory columns are both hidden polls nothing.
+// and Memory columns are both hidden polls nothing. The feed starts once the view's kind has listed
+// (rebuild calls again), in the namespaces the view reads it in (D-39): a read the API server
+// refuses, in all namespaces before the plan follows the refusal, polls no metrics there either.
 func (w *viewWorker) followHidden(hidden MetricSet) {
 	if w.profile.Usage == "" || w.stopped.Load() {
 		return
@@ -268,8 +270,8 @@ func (w *viewWorker) followHidden(hidden MetricSet) {
 	w.mu.Lock()
 	cur := w.usage
 	switch {
-	case want && cur == nil:
-		w.usage = w.backend.startUsageFeed(w.profile, func() { signal(w.wake) })
+	case want && cur == nil && w.handle.HasSynced():
+		w.usage = w.backend.startUsageFeed(w.profile, w.plan, func() { signal(w.wake) })
 	case !want && cur != nil:
 		w.usage = nil
 	}

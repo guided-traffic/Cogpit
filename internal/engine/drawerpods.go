@@ -16,17 +16,27 @@ import (
 // profile's UsageCells, so the texts and sort keys are the list's. Nothing here sends a request.
 //
 // The open drawer polls those pods' metrics while it shows such a table: the first model built
-// for it with one subscribes the drawer to the pods' list scope, every namespace for a
-// cluster-scoped object (a node: the scope the Pods list polls, so with both open there is one
-// poll) or the object's namespace; a model without one releases it, and so does the drawer when it
-// closes or shows another object. Each poll wakes the drawer (EventDetail). The cluster's settings
-// apply as they do to the Pods list: a hidden CPU or Memory column (Cluster Settings › Metrics:
-// Pods, CPU, Memory) is left out of the table, and with both hidden nothing is polled.
+// for it with one subscribes the drawer to the pods' list scopes, the object's namespace for a
+// namespaced object, else (a node) the namespaces the Pods view reads pods in: every namespace at
+// once, or one list per namespace for a user who may not list pods everywhere (D-39); the Pods
+// list polls the same scopes, so with both open there is one poll of each. A model without such a
+// table releases them, and so does the drawer when it closes or shows another object. Each poll
+// wakes the drawer (EventDetail). The cluster's settings apply as they do to the Pods list: a
+// hidden CPU or Memory column (Cluster Settings › Metrics: Pods, CPU, Memory) is left out of the
+// table, and with both hidden nothing is polled.
 
-// podTableScope is the metrics scope that covers the pods a drawer's table lists: the drawer
-// object's namespace, or every namespace for a cluster-scoped object.
-func (d *drawerWatch) podTableScope() metrics.Scope {
-	return metrics.Scope{Kind: metrics.KindPods, Namespace: d.namespace()}
+// podTableScopes are the metrics scopes that cover the pods a drawer's table lists: the drawer
+// object's namespace, or for a cluster-scoped object the namespaces the pods are read in (none
+// while that is undecided: the drawer starts again once it is, drawerPlanKey).
+func (d *drawerWatch) podTableScopes() []metrics.Scope {
+	if ns := d.namespace(); ns != "" {
+		return []metrics.Scope{{Kind: metrics.KindPods, Namespace: ns}}
+	}
+	pp, ok := d.backend.Profile(logKindPods)
+	if !ok {
+		return []metrics.Scope{{Kind: metrics.KindPods}}
+	}
+	return usageListScopes(model.UsagePods, d.backend.namespacePlan(pp))
 }
 
 // isPodTable reports whether a drawer table lists pods with the Pods list's metric columns.
@@ -213,18 +223,18 @@ func (d *drawerWatch) showPods(shows bool) {
 	cur := d.pods
 	switch {
 	case shows && cur == nil:
-		d.pods = hub.Subscribe(d.podTableScope(), func() { signal(d.wake) })
+		d.pods = subscribeAll(hub, d.podTableScopes(), func() { signal(d.wake) })
 	case !shows && cur != nil:
 		d.pods = nil
 	}
 	d.wmu.Unlock()
 	if !shows && cur != nil {
-		cur.Release()
+		releaseAll(cur)
 	}
 }
 
-// podsSub returns the drawer's poll of its pod table's metrics; nil while none runs.
-func (d *drawerWatch) podsSub() *metrics.Subscription {
+// podsSubs returns the drawer's polls of its pod table's metrics; nil while none runs.
+func (d *drawerWatch) podsSubs() []*metrics.Subscription {
 	d.wmu.Lock()
 	defer d.wmu.Unlock()
 	return d.pods

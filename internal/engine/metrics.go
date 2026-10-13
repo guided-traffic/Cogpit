@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -22,28 +24,65 @@ import (
 // section reads, and the read command for agents. The polling itself, the TTL cache and the series
 // are package metrics'.
 
-// usageFeed is a view's subscription to the metrics of its kind (a Pods list polls every pod's
+// usageFeed is a view's subscription to the metrics of its kind (a Pods list polls its pods'
 // usage, the Nodes list every node's) for as long as the view is open. It tells the view worker
 // when new numbers came, and answers the lookups of the row cache.
 type usageFeed struct {
 	hub  *metrics.Hub
 	kind model.UsageKind
-	sub  *metrics.Subscription
+	subs []*metrics.Subscription
 	gen  atomic.Uint64
 }
 
-// startUsageFeed subscribes to the metrics a profile's CPU and Memory columns show; nil for a kind
-// without such columns or a backend without metrics. onChange runs after each poll.
-func (b *Backend) startUsageFeed(p *model.KindProfile, onChange func()) *usageFeed {
-	if p.Usage == "" || b.Metrics == nil {
+// startUsageFeed subscribes to the metrics a profile's CPU and Memory columns show, in the
+// namespaces the view reads its kind in (plan, D-39); nil for a kind without such columns, a
+// backend without metrics, or a view whose plan is still pending. onChange runs after each poll.
+func (b *Backend) startUsageFeed(p *model.KindProfile, plan nsPlan, onChange func()) *usageFeed {
+	if p.Usage == "" || b.Metrics == nil || plan.pending && p.Usage == model.UsagePods {
 		return nil
 	}
 	f := &usageFeed{hub: b.Metrics, kind: p.Usage}
-	f.sub = b.Metrics.Subscribe(usageScope(p.Usage, "", ""), func() {
+	f.subs = subscribeAll(b.Metrics, usageListScopes(p.Usage, plan), func() {
 		f.gen.Add(1)
 		onChange()
 	})
 	return f
+}
+
+// usageListScopes are the metrics scopes of a list of a usage kind read as plan says (D-39): the
+// nodes' list; for pods, the list of every pod when the kind is read in all namespaces, else one
+// list per namespace the plan reads (none while it is pending), as a namespace-limited user's
+// Metrics API answers them. A cluster-admin's Pods list keeps its one list (budget P12).
+func usageListScopes(k model.UsageKind, plan nsPlan) []metrics.Scope {
+	switch {
+	case k == model.UsageNodes:
+		return []metrics.Scope{{Kind: metrics.KindNodes}}
+	case plan.pending:
+		return nil
+	case plan.perNamespace:
+		out := make([]metrics.Scope, 0, len(plan.watch))
+		for _, ns := range plan.watch {
+			out = append(out, metrics.Scope{Kind: metrics.KindPods, Namespace: ns})
+		}
+		return out
+	}
+	return []metrics.Scope{{Kind: metrics.KindPods}}
+}
+
+// subscribeAll subscribes onChange to every scope.
+func subscribeAll(hub *metrics.Hub, scopes []metrics.Scope, onChange func()) []*metrics.Subscription {
+	subs := make([]*metrics.Subscription, 0, len(scopes))
+	for _, sc := range scopes {
+		subs = append(subs, hub.Subscribe(sc, onChange))
+	}
+	return subs
+}
+
+// releaseAll releases every subscription.
+func releaseAll(subs []*metrics.Subscription) {
+	for _, s := range subs {
+		s.Release()
+	}
 }
 
 // usageScope is the metrics scope of a usage kind: a list, or with a name one object.
@@ -77,7 +116,7 @@ func (f *usageFeed) lookup(namespace, name string) (model.Usage, bool) {
 
 func (f *usageFeed) release() {
 	if f != nil {
-		f.sub.Release()
+		releaseAll(f.subs)
 	}
 }
 
@@ -588,6 +627,63 @@ func nodeTargets(hub *metrics.Hub, ref model.ObjectRef, obj *unstructured.Unstru
 	return []MetricsTarget{t}
 }
 
+// fetchPodLists reads every pod's metrics the way the Pods view reads the pods (D-39): one list in
+// all namespaces for a user who may list pods there, else one list per namespace the plan reads,
+// side by side (at most four at once), merged. The plan is waited for as an agent's read of pods
+// waits (settledPlan); without an answer the one list in all namespaces is asked, as before.
+func (b *Backend) fetchPodLists(ctx context.Context) metrics.Result {
+	scopes := []metrics.Scope{{Kind: metrics.KindPods}}
+	if pp, ok := b.Profile(logKindPods); ok {
+		if plan := b.settledPlan(ctx, pp); !plan.pending {
+			scopes = usageListScopes(model.UsagePods, plan)
+		}
+	}
+	if len(scopes) == 0 {
+		return metrics.Result{State: metrics.State{Status: metrics.StatusForbidden,
+			Message: "the current user may not list pods in all namespaces, and the namespaces Cogpit reads allow none"}}
+	}
+	results := make([]metrics.Result, len(scopes))
+	sem := make(chan struct{}, 4)
+	var wg sync.WaitGroup
+	for i, sc := range scopes {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func() {
+			defer func() { <-sem; wg.Done() }()
+			results[i] = b.Metrics.Fetch(ctx, sc)
+		}()
+	}
+	wg.Wait()
+	return mergeResults(results)
+}
+
+// mergeResults joins the results of several lists: their pods sorted by namespace and name, the
+// first usable state (else the first one's), and the oldest time among the usable ones.
+func mergeResults(results []metrics.Result) metrics.Result {
+	if len(results) == 1 {
+		return results[0]
+	}
+	out := metrics.Result{State: results[0].State}
+	usable := false
+	for _, r := range results {
+		if !r.State.Usable() {
+			continue
+		}
+		if !usable {
+			out.State = r.State
+		}
+		if !r.At.IsZero() && (out.At.IsZero() || r.At.Before(out.At)) {
+			out.At = r.At
+		}
+		usable = true
+		out.Pods = append(out.Pods, r.Pods...)
+	}
+	slices.SortFunc(out.Pods, func(a, b model.PodUsage) int {
+		return cmp.Or(cmp.Compare(a.Namespace, b.Namespace), cmp.Compare(a.Name, b.Name))
+	})
+	return out
+}
+
 // PodUsageItem is one pod in MetricsResult.
 type PodUsageItem struct {
 	Namespace string    `json:"namespace"`
@@ -647,7 +743,12 @@ func (s *Session) MetricsGet(ctx context.Context, kind, namespace, name string, 
 	if b.Metrics == nil {
 		return &MetricsResult{Status: metrics.StatusNotServed, Message: "this cluster has no metrics provider"}, nil
 	}
-	r := b.Metrics.Fetch(ctx, scope)
+	var r metrics.Result
+	if scope.Kind == metrics.KindPods && namespace == "" {
+		r = b.fetchPodLists(ctx) // every pod the user may list: one list, or one per namespace (D-39)
+	} else {
+		r = b.Metrics.Fetch(ctx, scope)
+	}
 	out := &MetricsResult{Status: r.State.Status, Source: r.State.Label, Message: r.State.Message, At: r.At, Providers: b.Metrics.Providers()}
 	if r.State.Usable() {
 		out.Message = ""

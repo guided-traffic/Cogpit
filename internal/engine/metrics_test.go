@@ -66,7 +66,7 @@ func TestRowCachePatchesUsageAndFallsBack(t *testing.T) {
 	defer hub.Close()
 	b := &Backend{Metrics: hub}
 	signalled := make(chan struct{}, 4)
-	feed := b.startUsageFeed(p, func() { signalled <- struct{}{} })
+	feed := b.startUsageFeed(p, nsPlan{}, func() { signalled <- struct{}{} })
 	if feed == nil {
 		t.Fatal("no feed for a kind with Usage")
 	}
@@ -109,7 +109,7 @@ func TestRowCachePatchesUsageAndFallsBack(t *testing.T) {
 		t.Errorf("without the feed a shows %+v, want the profile's empty cell", c)
 	}
 	// A kind without usage columns gets no feed.
-	if f := b.startUsageFeed(testServices, func() {}); f != nil {
+	if f := b.startUsageFeed(testServices, nsPlan{}, func() {}); f != nil {
 		t.Error("a feed for a kind without Usage")
 	}
 	feed.release()

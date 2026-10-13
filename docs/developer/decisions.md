@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -1536,6 +1536,47 @@ Tests: `TestArgoSyncOperation` (model), `TestArgoSyncPatch`, `TestArgoSyncConfli
 `TestArgoSyncChecksAgainAfterAChange`, `TestArgoActionsBoundToTheConfirmedUID` (commands); on kind
 `TestKindArgoCD`.
 
+## D-39: Pod metrics for a user who may list pods in some namespaces only
+
+**Night decision (the lead's, 2026-10-13, for the owner to confirm; the owner's open question,
+built the same night):** options (a) as before: the Pods list, a node's Pods table and
+`metrics.get` ask the Metrics API for every pod in all namespaces, which RBAC refuses such a user as
+it refuses the pods, so CPU and Memory stay empty and the state reads "forbidden"; (b) one `list` of
+`pods.metrics.k8s.io` per namespace the Pods view reads pods in (the accessible namespaces, the
+namespace filter's, else the context's own; those whose rules deny pods left out), one per poll,
+shared by the Pods list, a node's Pods table and the drawers, only while they show, and the one list
+in all namespaces for a user who may list pods there; (c) a `get` of each visible pod's metrics per
+poll; chosen (b), because it costs one request per namespace and poll where (c) costs one per pod
+(a list of 300 pods: 300 requests a minute instead of one per namespace), it reads what the Pods
+view reads, so the columns fill for every row the user sees, and it changes nothing for a user who
+may list pods everywhere (budget P12: one list per 60 s).
+
+**Built 2026-10-13** ([`engine/metrics.go`](../../internal/engine/metrics.go) `usageListScopes`,
+[`engine/drawerpods.go`](../../internal/engine/drawerpods.go); [architecture §9](architecture.md#9-metrics-internalmetrics)):
+the Pods list subscribes the metrics hub to `{pods, <namespace>}` for each namespace its plan reads
+(`nsPlan.watch`), to `{pods}` when it reads all namespaces, and to nothing while the plan is
+pending; the feed starts once the view's kind has listed, so a read refused in all namespaces (a
+RoleBinding in the context's namespace alone, before the plan follows the refusal) polls no metrics
+there either. A node's Pods table polls the same scopes (the pods' plan), a namespaced object's its
+namespace, as before; `metrics.get` of every pod fetches the same scopes, at most four at once, and
+merges them. The hub needed no change: its scopes by namespace existed, and `Hub.Pod` reads a pod
+from its namespace's list. Measured at the HTTP level (`TestBudgetNamespaceLimitedUser`, a fake API
+server that enforces RBAC): a user whose one RoleBinding is in `team-a` lists `pods.metrics.k8s.io in
+team-a` once and nothing in all namespaces; a cluster-admin lists `pods.metrics.k8s.io` once, as
+before (`TestPodMetricsPerNamespaceOfThePlan`, `TestPodMetricsClusterWideForAUserWhoMayList`).
+
+What it leaves as it was, for the owner to know:
+
+- **The Metrics API's RBAC is not the pods'.** A namespace where the user may list pods but not
+  their metrics answers 403 for that namespace's list: its rows stay empty, and the hub counts the
+  Metrics Server as failing for a minute (`ProviderRetry`), asking Prometheus where it found one
+  (G12's fallback) for its other scopes too, until the Metrics Server answers again.
+- **Prometheus is not limited by namespace.** Its queries go through the API server's service
+  proxy; RBAC decides whether the user may use that proxy at all, not which namespaces' series come
+  back. Cogpit asks Prometheus, while it stands in for the Metrics Server, for the same namespaces
+  (the namespace is part of the query), but nothing on the server narrows it
+  ([privilege footprint](../security/privilege-footprint.md)).
+
 ## D-37: The node shell
 
 **Night decision (the lead's, 2026-10-14, for the owner to confirm):** options (a) no node shell
@@ -1608,6 +1649,7 @@ default from every origin but the GUI with `ErrNodeShellGUIOnly`, before anythin
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-39 (night decision, for the owner to confirm): pod metrics listed per namespace of the Pods view's plan for a user who may not list pods everywhere, built |
 | 2026-10-13 | minor | D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes without flags, bound to the Application's UID and resourceVersion, refused while an operation is requested or running |
 | 2026-10-13 | minor | D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys to the window and agents, user information in URLs redacted, the other keys by name only |
 | 2026-10-13 | minor | D-33 and D-34 (night decisions, for the owner to confirm): the Flux actions (Reconcile, Suspend, Resume, as the flux CLI patches them, mutating, on selections too) and the Flux dashboard (the states after kstatus, counts per kind, the objects that are not ready); built (G23) |

@@ -332,16 +332,23 @@ func TestNodeDrawerPodsNoLeakUnderConcurrentReads(t *testing.T) {
 	waitFor(t, "every poll released", func() bool { return hub.Subscribed() == 0 })
 }
 
-// A namespaced object's pod table polls its namespace's pods only; the scope follows the drawer's
-// object.
+// A namespaced object's pod table polls its namespace's pods only; a node's polls the pods as the
+// Pods view reads them: every namespace at once, or each namespace of the plan (D-39).
 func TestPodTableScope(t *testing.T) {
-	ns := &drawerWatch{profile: &model.KindProfile{Namespaced: true}, ref: model.ObjectRef{Kind: "deployments", Namespace: "shop", Name: "web"}}
-	if got := ns.podTableScope(); got != (metrics.Scope{Kind: metrics.KindPods, Namespace: "shop"}) {
-		t.Errorf("a namespaced object's scope %+v", got)
+	b := &Backend{Namespace: "team-a", Profiles: []*model.KindProfile{testPods}}
+	ns := &drawerWatch{backend: b, profile: &model.KindProfile{Namespaced: true}, ref: model.ObjectRef{Kind: "deployments", Namespace: "shop", Name: "web"}}
+	if got := ns.podTableScopes(); !slices.Equal(got, []metrics.Scope{{Kind: metrics.KindPods, Namespace: "shop"}}) {
+		t.Errorf("a namespaced object's scopes %+v", got)
 	}
-	node := &drawerWatch{profile: &model.KindProfile{}, ref: model.ObjectRef{Kind: "nodes", Name: "n1"}}
-	if got := node.podTableScope(); got != (metrics.Scope{Kind: metrics.KindPods}) {
-		t.Errorf("a node's scope %+v", got)
+	node := &drawerWatch{backend: b, profile: &model.KindProfile{}, ref: model.ObjectRef{Kind: "nodes", Name: "n1"}}
+	if got := node.podTableScopes(); !slices.Equal(got, []metrics.Scope{{Kind: metrics.KindPods}}) {
+		t.Errorf("a node's scopes %+v", got)
+	}
+	b.Access = denyAll{except: map[string]bool{"team-a": true, "team-b": true}}
+	b.ns.setInputs([]string{"team-a", "team-b", "team-c"}, nil)
+	want := []metrics.Scope{{Kind: metrics.KindPods, Namespace: "team-a"}, {Kind: metrics.KindPods, Namespace: "team-b"}}
+	if got := node.podTableScopes(); !slices.Equal(got, want) {
+		t.Errorf("a node's scopes for a user limited to team-a and team-b: %+v", got)
 	}
 }
 

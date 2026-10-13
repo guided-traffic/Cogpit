@@ -118,12 +118,20 @@ func (w *viewWorker) rebuild() {
 			}
 		}
 	}()
+	synced := w.synced() // before List: a snapshot never claims a partial list is complete
+	if synced && w.profile.Usage != "" {
+		w.mu.Lock()
+		hidden, none := w.params.metrics, w.usage == nil
+		w.mu.Unlock()
+		if none {
+			w.followHidden(hidden) // the metrics feed starts once the kind has listed (hidemetrics.go)
+		}
+	}
 	w.mu.Lock()
 	p := w.params
 	usage := w.usage
 	w.mu.Unlock()
 
-	synced := w.synced() // before List: a snapshot never claims a partial list is complete
 	herr := w.handle.Err()
 	errMsg := errText(herr)
 	w.followRefusal(herr) // a cluster-wide watch refused: read namespace by namespace (accessiblens_plan.go)

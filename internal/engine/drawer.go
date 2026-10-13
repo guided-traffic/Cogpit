@@ -35,7 +35,7 @@ type drawerWatch struct {
 	events  *cache.Handle            // nil when the cluster serves no events
 	related *relatedSet              // the indexes of the profile's Needs; nil without
 	usage   *metrics.Subscription    // the pod's or node's metrics poll (metrics.go); nil without or while its metrics are hidden. Guarded by wmu
-	pods    *metrics.Subscription    // the poll of the metrics of the pods its table lists (drawerpods.go); nil while it shows none. Guarded by wmu
+	pods    []*metrics.Subscription  // the polls of the metrics of the pods its table lists (drawerpods.go); nil while it shows none. Guarded by wmu
 	wmu     sync.Mutex               // guards windows, variants, usage, pods and hidden
 	windows map[string]time.Duration // the time range of each chart, by target name (metrics.go)
 	unsubs  []func()
@@ -138,7 +138,7 @@ func (d *drawerWatch) stop() {
 	}
 	d.related.release()
 	d.usageSub().Release()
-	d.podsSub().Release()
+	releaseAll(d.podsSubs())
 }
 
 // eventInvolves matches an event's involvedObject by UID when both are known, else by kind,
