@@ -30,7 +30,7 @@ serial foundation, about 80% of the work parallelizes.
 | Remaining to **beta** (macOS, with the Flux CD and Argo CD views) | **~380–900 h** | estimated (was ~425–995) |
 | Remaining to **full parity** (free features, macOS) | **~360–920 h** | estimated (was ~420–1,040) |
 | Remaining to the **full Lens target** (paid features, Windows and Linux) | **~560–1,330 h** | estimated (was ~620–1,450) |
-| **Beyond Lens** (MCP control of UI and cluster, built-in agent) | **~50–110 h** | estimated, unchanged; not part of the parity numbers; 18 of 38 rows done, 6 partial (the CLI and its stdio bridge, view_rows, related objects, the agents allowance, the audit log and diagnostics in the window, editor drafts, 2026-10-13) |
+| **Beyond Lens** (MCP control of UI and cluster, built-in agent) | **~50–110 h** | estimated, unchanged; not part of the parity numbers; 18 of 39 rows done, 6 partial (the CLI and its stdio bridge, view_rows, related objects, the agents allowance, the audit log and diagnostics in the window, editor drafts, 2026-10-13) |
 
 ### Readiness by audience
 
@@ -67,9 +67,10 @@ no cloud credential plugin is verified.
 | Rank | Milestone | Estimate |
 |---|---|---:|
 | 1 | The owner walks the night run's features in a real window (none was seen outside offscreen renders): hotbar, navigator sections, tab bar, palette, Preferences and Cluster settings, welcome page, create dialogs, Helm install and upgrade from repositories, the cluster Overview, the metrics status line, kubectl download, selection and Delete; then the owner's open questions of the night (devlog and the docs' "Cogpit's default" notes) | human |
-| 2 | Walk the alpha-gate workflows in the GUI on kind and a real cluster: change a workload, maintain a node, reach a service, Helm releases, adding and syncing kubeconfigs | human |
-| 3 | Credential plugins verified on EKS, GKE and AKS (M1); the node shell (H-7) once the owner decides | 15–40 h + human |
-| 4 | Finish M0 and M2: the generated pages and scorecard, captures of inferred rows; packaging and updates for macOS (M10); the built-in chat after the alpha (G21, D-10) | 80–200 h + human |
+| 2 | The owner's requirements of 2026-10-13: Helm's `repositories.yaml` as the repositories' source, changes within 5 seconds, credentials included (D-29); names in the lists copyable with the drawer's copy icon (D-25) | 6–14 h |
+| 3 | Walk the alpha-gate workflows in the GUI on kind and a real cluster: change a workload, maintain a node, reach a service, Helm releases, adding and syncing kubeconfigs | human |
+| 4 | Credential plugins verified on EKS, GKE and AKS (M1); the node shell (H-7) once the owner decides | 15–40 h + human |
+| 5 | Finish M0 and M2: the generated pages and scorecard, captures of inferred rows; packaging and updates for macOS (M10); the built-in chat after the alpha (G21, D-10) | 80–200 h + human |
 
 Detail: [docs/parity/roadmap.md](docs/parity/roadmap.md).
 
@@ -91,6 +92,7 @@ Detail: [docs/parity/roadmap.md](docs/parity/roadmap.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | Upcoming: the owner's requirements of 2026-10-13 (D-29, D-25) |
 | 2026-10-13 | major | The night run in the progress log; breadth ~79%; hours re-estimated roughly; upcoming after it |
 | 2026-10-12 | minor | The fifth run in the progress log; upcoming after it; Helm releases and metrics re-estimated; breadth unchanged |
 | 2026-10-12 | major | Fourth measurement after the fourth implementation run, counted by `make parity` |

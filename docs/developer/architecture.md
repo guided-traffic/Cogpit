@@ -1856,6 +1856,10 @@ Where it differs from the contract above, this paragraph wins.
 [`commands/helmrepos.go`](../../internal/engine/commands/helmrepos.go),
 [`kinds/helmcharts.go`](../../internal/model/kinds/helmcharts.go)).**
 
+- **Decided since (owner, 2026-10-13, [D-29](decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml)), not built yet:**
+  Cogpit reads Helm's own `repositories.yaml` regularly and takes over its changes within 5
+  seconds, repositories with credentials included; what follows describes the night run's build,
+  which D-29 replaces.
 - **Where they are kept: the lead's default (2026-10-13), not the owner's decision** (the owner's
   open question "where Helm chart repositories are kept"). The list is Cogpit's own:
   `<user config dir>/Cogpit/helm/repositories.json` (0600 in a 0700 directory, replaced atomically

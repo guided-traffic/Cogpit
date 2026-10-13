@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -733,6 +733,13 @@ Universal Clipboard); the 60 seconds and the clearing on close stay. Options wei
 - It is no command and no tool: `TestCopyHasNoCommand`. The one copy command, `object.copyName`
   (the drawer's first icon), is older and stays.
 
+**Added (owner, 2026-10-13):** names in the lists are copyable too (Pods, Deployments and every
+other view): a list's cells get the drawer's copy icon on hover, at least the Name column's, with
+the same checkmark after a copy. **Not built yet.** Proposals for the build (not decided): every
+text cell gets it, as every drawer value does; the icon sits at the cell's right end inside the
+cell, so it never covers the next column; a click on the icon copies and does not select the row;
+a Secret's cells hold no values, so nothing secret can be copied from a list.
+
 ## D-26: Binding a credential plugin's approval to its program
 
 **Decided (owner, 2026-10-12, from R-5 of the fourth run's review):** the approval of a kubeconfig's
@@ -806,10 +813,40 @@ invites approving without reading); one approval for the file's plugin whatever 
 click, but an approval that no longer binds the server: a changed server in `config` would not ask);
 **one dialog, per-context approvals (decided)**.
 
+## D-29: Helm chart repositories from Helm's repositories.yaml
+
+**Decided (owner, 2026-10-13):** Cogpit reads Helm's own `repositories.yaml` regularly and takes
+over its changes by itself: a repository added, changed or removed there (by `helm repo add`, by
+hand, by another tool) is in Cogpit within 5 seconds. Repositories with credentials are included
+when their credentials are available (Helm's file keeps a username and password, a client
+certificate and key, a CA file). This replaces the lead's default of the night run (2026-10-13:
+a list of Cogpit's own, public https repositories only, Helm's file never read). **Not built yet.**
+
+What the decision leaves to the build, as the lead reads it (proposals, not decided):
+
+- **Which file.** The one the helm CLI uses: `$HELM_REPOSITORY_CONFIG`, else
+  `repositories.yaml` in `$HELM_CONFIG_HOME`, else in Helm's default configuration folder
+  (`~/Library/Preferences/helm` on macOS, `$XDG_CONFIG_HOME/helm` or `~/.config/helm` on Linux,
+  `%APPDATA%\helm` on Windows; Helm's `helmpath` rules, not verified on this machine).
+- **How often.** A local file, not the API server: its size and modification time checked every
+  2 seconds, as the kubeconfig sync folders are, and read again when they change; a file that does
+  not parse keeps the last good list and says why. The 5 seconds are the owner's bound.
+- **Reading, not writing.** The decision says reading. Whether Cogpit's own "Add repository" writes
+  into Helm's file, or keeps Cogpit's list beside it, is open (the night run's list stays until
+  then, each repository marked with where it comes from).
+- **Credentials.** Read from Helm's file into memory only: never written to Cogpit's files, never
+  in logs, errors, toasts, the audit log or an MCP result (agents see a repository's name and URL,
+  and whether it has credentials); sent only to the repository's own host, unless Helm's
+  `pass_credentials_all` says otherwise for that repository
+  ([H-29](../security/credentials.md#h-29-authenticated-helm-repositories)).
+- **Indexes.** Downloaded into Cogpit's own cache as today (no writes into Helm's cache), or read
+  from Helm's cache when it is current: to decide at the build.
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-29 (owner): Helm chart repositories read from Helm's repositories.yaml, changes within 5 seconds, credentials included; D-25 (owner): names in the lists copyable with the drawer's copy icon; neither built |
 | 2026-10-13 | minor | D-11: drafts of unsaved editor text built (night run; the delays, the offer on connect and closing as a discard are that run's defaults, not decided); D-19: no draft of a Secret's text |
 | 2026-10-13 | minor | D-3 built (night run): the version check when a terminal opens, the GUI-only verified download (SHA-256 and sigstore signature, no transparency log: H-35), the release first on the terminal's PATH (zsh after its profile; H-36), the Preferences; the differences listed under D-3 |
 | 2026-10-13 | minor | D-14: the right mouse button's action and ⌃Ins and ⇧Ins on the clipboard, patches of the fork and upstream candidates (night run), not offered |

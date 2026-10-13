@@ -7,7 +7,7 @@ targets, decided by the owner; they do not count toward the parity numbers in
 [`target-app-parity.md`](target-app-parity.md), which measure Cogpit against Lens. Method:
 [`README.md`](README.md).
 
-**Summary (measured, 2026-10-13):** 24 of 38 rows exist: 18 done and 6 partial, in MCP control,
+**Summary (measured, 2026-10-13):** 24 of 39 rows exist: 18 done and 6 partial, in MCP control,
 cache transparency, crash recovery (the unfinished drain, unsaved editor text), everyday use (the status bar link
 done, copying from the drawer partial) and the command line (`cogpit-cli contexts` done, `get`
 partial). Remaining (estimated): 4–12 h for MCP control
@@ -92,11 +92,12 @@ AppImage builds in place; APT and RPM installs update by hand
 
 ## Everyday use
 
-The owner's requirements of 2026-10-12 that Lens Desktop does not have.
+The owner's requirements of 2026-10-12 and 2026-10-13 that Lens Desktop does not have.
 
 | Feature | Status | Evidence |
 |---|---|---|
 | Every value in the detail drawer can be selected, and has a copy icon on hover; an entry of a value with several entries is copied in YAML syntax; a Secret's value only once revealed, and the clipboard cleared after 60 seconds ([D-25](../developer/decisions.md#d-25-copying-values)) | partial (2026-10-12): text lines (names, values, table cells, titles, events), event messages and revealed Secret values select by drag or double click and copy with ⌘C or Ctrl+C; every value, table cell and chip shows a copy icon on hover; entries of labels, annotations and other lists copy as `key: value` or a YAML scalar; every chip owns the room between itself and its icon, so the pointer reaches the icon of a label chip, the last chip of a row and a wrapped one; after a copy the icon is a checkmark for 1.5 s (2026-10-12); a masked Secret value has no icon, a revealed one copies and the clipboard is cleared after 60 seconds if it still holds it, a later copy cancels that, closing the window clears at once; no command. Not drag-selectable: links, chips and status pills (the icon copies them); a selection stays within one line | [`selection.go`](../../internal/ui/fyneui/selection.go), [`copy.go`](../../internal/ui/fyneui/copy.go); `TestDrawerCopyIconOnHover`, `TestDrawerCopiesEntriesInYAML`, `TestCopyIconReachableOnLabelChips`, `TestCopyIconReachableOnWrappedChips`, `TestCopyIconTurnsIntoACheckmark`, `TestYAMLEntry`, `TestDrawerTextIsSelectable`, `TestDrawerLongNamesSelectUnderTheEllipsis`, `TestSecretValueCopyOnlyOnceRevealed`, `TestSecretClipboardKeepsWhatReplacedIt`, `TestSecretTextSelectionCopiesAsASecret`, `TestCopyHasNoCommand` ([H-25](../security/credentials.md#h-25-a-copied-secret-value-reaches-the-clipboard)) |
+| Names in the lists (Pods, Deployments and every other view) are copyable: a list's cells get the drawer's copy icon on hover, at least the Name column's, with the same checkmark after a copy (owner, 2026-10-13, [D-25](../developer/decisions.md#d-25-copying-values)) | missing | – |
 | A link to the owner at the status bar's left end, opening hans-fischer.com in the browser on a click, a GUI link and not a command ([D-23](../developer/decisions.md#d-23-a-link-to-the-owner-in-the-status-bar)) | done (2026-10-12): "Need a Kubernetes Expert? Visit: hans-fischer.com", shown before connecting and when connected; a click opens `https://hans-fischer.com` and nothing is sent before; when the bar is too narrow the link is shortened and then hidden with its divider, and the status items keep their room | [`bars.go`](../../internal/ui/fyneui/bars.go) (`statusLayout`, `openOwnerLink`); `TestStatusBarOwnerLink`, `TestStatusBarOwnerLinkIsNoCommand`, `TestStatusBarOwnerLinkGivesWayFirst`; [PNG](../../internal/ui/fyneui/testdata/shell_dark.png) (the status bar's left end) |
 
 ## Command line
@@ -114,6 +115,7 @@ Cogpit's targets.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | The owner's requirement: names in the lists copyable with the drawer's copy icon (D-25), missing; 24 of 39 rows exist |
 | 2026-10-13 | minor | Cache transparency: the Diagnostics tab (requests by verb and resource, watches, objects per kind); still partial without memory per kind; 23 of 38 rows, 17 done and 6 partial |
 | 2026-10-13 | minor | MCP control: the audit log readable in the window (Help › Audit Log) and by agents (`audit_list`), done; 23 of 38 rows, 17 done and 6 partial |
 | 2026-10-13 | minor | MCP control: the allowance of agent writes in Cluster Settings › Agents, done; 23 of 38 rows, 16 done and 7 partial |

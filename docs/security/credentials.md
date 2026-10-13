@@ -217,9 +217,13 @@ affected; an agent has no way to copy.
 Cogpit adds public https chart repositories only (2026-10-13): no username and password, no
 client certificate and key, no CA file, no plain http, no OCI registry. Lens's preferences offer
 all of these. A repository behind a login cannot be added, and a chart it serves cannot be
-installed from Cogpit. Where such a credential would live (the operating system's keychain, as for
-the LLM key, or a file next to `repositories.json`) and how it is kept out of logs, errors and the
-redirects a download follows to other hosts (Helm's `pass_credentials_all`) is not designed.
+installed from Cogpit. The owner decided since ([D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml),
+2026-10-13, not built) that Cogpit reads Helm's own `repositories.yaml`, credentials included
+when they are available. That file keeps a password in plain text, readable to the user's own
+processes; Cogpit would then hold it in memory. Not designed yet, and live once built: how the
+credentials stay out of logs, errors, toasts, the audit log and MCP results; that they go only to
+the repository's own host on a redirect unless Helm's `pass_credentials_all` says otherwise; and
+whether Cogpit's own additions write into Helm's file.
 
 ### H-33: Proxy passwords are plaintext in Cogpit's settings
 

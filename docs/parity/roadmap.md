@@ -72,15 +72,21 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
    kubectl for terminals, row selection and Delete of a selection; record what differs in the
    parity rows, then answer the night's open questions (each marked "Cogpit's default, not the
    owner's decision" in its row or gap; the first is in the night's devlog entry).
-2. **Walk the alpha-gate workflows in the GUI** on kind and a real cluster (owner): change a
+2. **The owner's requirements of 2026-10-13:** Helm's own `repositories.yaml` as the repositories'
+   source, read regularly, changes within 5 seconds, credentials included
+   ([D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml),
+   [G11](gaps.md#g11-helm), [H-29](../security/credentials.md#h-29-authenticated-helm-repositories));
+   names in the lists copyable with the drawer's copy icon
+   ([D-25](../developer/decisions.md#d-25-copying-values), [G5](gaps.md#g5-app-shell-navigation-tables-and-drawer)).
+3. **Walk the alpha-gate workflows in the GUI** on kind and a real cluster (owner): change a
    workload, maintain a node, reach a service, Helm releases, adding and syncing kubeconfigs,
    Cogpit's own title bar.
-3. **The terminal widget's upstream pull requests** ([#155–#158](https://github.com/fyne-io/terminal/pull/158),
+4. **The terminal widget's upstream pull requests** ([#155–#158](https://github.com/fyne-io/terminal/pull/158),
    G8; #157 approved 2026-10-12) and the two new widget patches of the night run (right-click
    copy and paste, Ctrl/Shift+Insert: upstream candidates, not offered).
-4. **Credential plugins verified on EKS, GKE and AKS** ([G2](gaps.md#g2-cluster-connection-and-authentication), human);
+5. **Credential plugins verified on EKS, GKE and AKS** ([G2](gaps.md#g2-cluster-connection-and-authentication), human);
    the node shell once the owner decides ([H-7](../security/privilege-footprint.md#h-7-node-shell-is-root-on-the-node)).
-5. **M0 and M10:** the generated parity pages and the scorecard ([G1](gaps.md#g1-workspace-ci-and-progress-generators)),
+6. **M0 and M10:** the generated parity pages and the scorecard ([G1](gaps.md#g1-workspace-ci-and-progress-generators)),
    captures of the rows marked inferred, packaging and updates for macOS ([G14](gaps.md#g14-packaging-signing-and-updates-macos)).
    The built-in chat comes after the alpha ([G21](gaps.md#g21-built-in-agent), [D-10](../developer/decisions.md#d-10-built-in-agent)).
 
@@ -98,6 +104,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | Current focus: the owner's requirements of 2026-10-13 (D-29 Helm repositories from repositories.yaml, D-25 copy icons in the lists) as item 2 |
 | 2026-10-13 | minor | Current focus after the night run: the owner walks its features in a real window first |
 | 2026-10-13 | minor | M6: the Helm row names the upgrade to a version from the user's chart repositories (G11, night run; status and estimate unchanged) |
 | 2026-10-13 | minor | M7 in progress: the cluster Overview built (G12, night run); M2's note no longer lists it (status only; estimates unchanged) |
