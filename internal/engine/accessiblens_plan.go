@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -306,24 +307,60 @@ const planWait = 10 * time.Second
 // say whether the kind can be listed in all namespaces, so that a user who may not is not sent a
 // cluster-wide list the server refuses. Without an answer by then it reads in all namespaces.
 func (b *Backend) acquireSettled(ctx context.Context, p *model.KindProfile) *cache.Handle {
-	plan := b.namespacePlan(p)
-	if plan.pending {
-		wctx, cancel := context.WithTimeout(ctx, planWait)
-		defer cancel()
-		t := time.NewTicker(10 * time.Millisecond)
-		defer t.Stop()
-		for plan.pending && wctx.Err() == nil {
-			select {
-			case <-wctx.Done():
-			case <-t.C:
-				plan = b.namespacePlan(p)
-			}
-		}
-	}
+	plan := b.settledPlan(ctx, p)
 	if plan.pending || p.Local || isApplications(p) || isHelmReleases(p) { // their own caches (Acquire)
 		return b.Acquire(p)
 	}
 	return b.acquirePlanned(p, plan)
+}
+
+// settledPlan is the kind's plan once the access reviews decided it, waiting for them bounded by
+// ctx and planWait; still pending without an answer by then.
+func (b *Backend) settledPlan(ctx context.Context, p *model.KindProfile) nsPlan {
+	plan := b.namespacePlan(p)
+	if !plan.pending {
+		return plan
+	}
+	wctx, cancel := context.WithTimeout(ctx, planWait)
+	defer cancel()
+	t := time.NewTicker(10 * time.Millisecond)
+	defer t.Stop()
+	for plan.pending && wctx.Err() == nil {
+		select {
+		case <-wctx.Done():
+		case <-t.C:
+			plan = b.namespacePlan(p)
+		}
+	}
+	return plan
+}
+
+// acquireIn is acquireSettled for a read of one namespace's objects (one object, a workload's
+// logs, a port forward's pods and service): once the plan is decided, a user who may not list the
+// kind in all namespaces gets that namespace alone, shared with every other reader of it, whether
+// the namespaces the plan names include it or not. Cogpit's default (2026-10-13, not the owner's
+// decision): the target is what the read is about, and the named namespaces (the accessible ones,
+// the filter's, else the context's own) can miss it. A user who may list the kind everywhere, a
+// cluster-scoped kind (namespace "") and a plan still undecided read as acquireSettled does.
+func (b *Backend) acquireIn(ctx context.Context, p *model.KindProfile, namespace string) *cache.Handle {
+	plan := b.settledPlan(ctx, p)
+	switch {
+	case plan.pending || p.Local || isApplications(p) || isHelmReleases(p): // their own caches (Acquire)
+		return b.Acquire(p)
+	case plan.perNamespace && namespace != "":
+		return b.Cache.AcquireNamespaces(b.Scope(p), []string{namespace})
+	}
+	return b.acquirePlanned(p, plan)
+}
+
+// refusedIn is the API server's refusal of a handle's namespace that acquireIn read (403
+// Forbidden: the user may not list the kind there either), or nil. A merged handle counts as
+// synced once its namespace was refused, so a reader would see no objects instead of the reason.
+func refusedIn(h *cache.Handle, kind string) error {
+	if err := h.Err(); cache.IsRefused(err) {
+		return fmt.Errorf("%s: %w", kind, err)
+	}
+	return nil
 }
 
 // acquireFor is acquireSettled for a read that waits, Acquire for one that does not.

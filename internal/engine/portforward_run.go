@@ -331,7 +331,10 @@ func (r *forwardRun) watchTargets(ctx context.Context) (*forwardWatch, error) {
 		return nil, errors.New("this cluster serves no pods")
 	}
 	wake := func() { signal(r.wake) }
-	w.pods = r.b.Acquire(w.podsProf)
+	// The target's namespace, once the access reviews said how (accessiblens_plan.go acquireIn): a
+	// forward starts at connect too (a permanent one), when a handle taken at once would read in
+	// all namespaces, which a user who may not list pods there is refused, and never sync.
+	w.pods = r.b.acquireIn(ctx, w.podsProf, ns)
 	w.cancelPods = w.pods.Subscribe(func(ev cache.Event) {
 		if ev.Object.GetNamespace() == ns && (r.spec.Target.Kind != kindPods || ev.Object.GetName() == name) {
 			wake()
@@ -342,7 +345,7 @@ func (r *forwardRun) watchTargets(ctx context.Context) (*forwardWatch, error) {
 			w.release()
 			return nil, errors.New("this cluster serves no services")
 		}
-		w.services = r.b.Acquire(w.servicesProf)
+		w.services = r.b.acquireIn(ctx, w.servicesProf, ns)
 		w.cancelServices = w.services.Subscribe(func(ev cache.Event) {
 			if ev.Object.GetNamespace() == ns && ev.Object.GetName() == name {
 				wake()
@@ -353,7 +356,11 @@ func (r *forwardRun) watchTargets(ctx context.Context) (*forwardWatch, error) {
 		if h == nil {
 			continue
 		}
-		if err := waitSynced(ctx, h, h.Scope().String()); err != nil {
+		err := waitSynced(ctx, h, h.Scope().String())
+		if err == nil {
+			err = refusedIn(h, h.Scope().String())
+		}
+		if err != nil {
 			w.release()
 			return nil, err
 		}

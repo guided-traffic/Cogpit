@@ -122,13 +122,16 @@ func (s *Session) Object(ctx context.Context, ref model.ObjectRef) (*unstructure
 	if err != nil {
 		return nil, err
 	}
-	h := b.acquireSettled(ctx, p)
+	h := b.acquireIn(ctx, p, ref.Namespace) // the object's namespace alone for a user who may not list everywhere
 	defer h.Release()
 	if err := waitSynced(ctx, h, p.Key); err != nil {
 		return nil, err
 	}
 	obj, ok := KindGet(h, p, ref.Namespace, ref.Name)
 	if !ok {
+		if err := refusedIn(h, p.Key); err != nil {
+			return nil, err
+		}
 		return nil, fmt.Errorf("%s: %w", ref.String(), ErrNotFound)
 	}
 	return obj, nil

@@ -127,14 +127,17 @@ func (s *Session) openWorkloadLogs(ctx context.Context, tab DockTab, b *Backend,
 		wake: make(chan struct{}, 1), stop: make(chan struct{}), started: map[string]bool{},
 		streaming: map[string]streamEntry{}, cursors: map[string]logCursor{}, sel: selectionOf(tab),
 	}
-	wl.pods = b.Acquire(podsP)
+	// The workload's namespace, once the access reviews said how (accessiblens_plan.go acquireIn):
+	// a handle taken before they answered would read in all namespaces, which a user who may not
+	// list pods there is refused, and it would never sync.
+	wl.pods = b.acquireIn(ctx, podsP, ref.Namespace)
 	if ref.Kind == logKindDeployments {
 		rsP, ok := b.Profile(logKindReplicaSets)
 		if !ok {
 			wl.pods.Release()
 			return nil, fmt.Errorf("%w: replicasets", ErrUnknownKind)
 		}
-		wl.rs = b.Acquire(rsP)
+		wl.rs = b.acquireIn(ctx, rsP, ref.Namespace)
 	}
 	if !wl.opts.Previous {
 		// Subscribed before the first scan, so that no pod is missed between the two.
@@ -160,7 +163,11 @@ func (s *Session) openWorkloadLogs(ctx context.Context, tab DockTab, b *Backend,
 		if h == nil {
 			continue
 		}
-		if err := waitSynced(ctx, h, h.Scope().String()); err != nil {
+		err := waitSynced(ctx, h, h.Scope().String())
+		if err == nil {
+			err = refusedIn(h, h.Scope().String())
+		}
+		if err != nil {
 			wl.release()
 			return nil, err
 		}
