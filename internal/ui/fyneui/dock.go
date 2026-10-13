@@ -181,6 +181,10 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 		e := newHelmInstallTab(d.sh, t)
 		c.editor = e
 		c.set(e.root)
+	case engine.DockAudit: // the Audit Log (auditlog.go)
+		e := newAuditLogTab(d.sh, t)
+		c.editor = e
+		c.set(e.root)
 	default:
 		c.set(dockMessage(fmt.Sprintf("Cogpit cannot show %q tabs yet.", t.Type), colorMuted))
 	}
@@ -241,6 +245,8 @@ func (d *dock) rebuildStrip() {
 			icon = theme.Icon(commandIcons[upgradeTabCommand])
 		case engine.DockHelmInstall:
 			icon = theme.Icon(commandIcons[installTabCommand])
+		case engine.DockAudit:
+			icon = theme.ListIcon()
 		}
 		objs = append(objs, newTabButton(t.Title, icon, id == d.active && d.open(),
 			func() {

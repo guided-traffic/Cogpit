@@ -109,6 +109,8 @@ type shell struct {
 	body      *fyne.Container  // the workspace, with the dock below it
 	root      fyne.CanvasObject
 
+	workArea fyne.CanvasObject // the workspace with the welcome page over it, not over the dock (auditlog.go)
+
 	// A Secret's value copied from the drawer is cleared from the clipboard after secretClipTTL
 	// (copy.go); main goroutine only.
 	clipTimer     *time.Timer
@@ -186,12 +188,15 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.vsplit = container.NewVSplit(widget.NewLabel(""), widget.NewLabel(""))
 	sh.vsplit.SetOffset(dockOffset)
 	sh.workspace = container.NewStack(sh.view.root)
+	// The welcome page lies over the workspace, not the dock: a dock tab of no cluster (the Audit
+	// Log) shows while no cluster is connected.
+	sh.workArea = sh.tabs.workspace(sh.workspace)
 	sh.body = container.NewStack()
 	sh.layoutBody()
 
 	sidebar := box(lockedWidth{}, newSurface(colorSidebar), sh.side.root)
 	sh.sideLay = &panelLayout{first: true, want: func() float32 { return sh.sidebarW }, lo: minSidebarWidth, hi: maxSidebarWidth, restMin: minTableRoom}
-	main := newPanel(sh.sideLay, sidebar, container.NewBorder(sh.tabs.root, nil, nil, nil, sh.tabs.workspace(sh.body)), newResizeHandle(1,
+	main := newPanel(sh.sideLay, sidebar, container.NewBorder(sh.tabs.root, nil, nil, nil, sh.body), newResizeHandle(1,
 		func() float32 { return sh.sideLay.got },
 		func(w float32) float32 { return sh.setSidebarWidth(w) },
 		sh.saveWidths))
@@ -335,6 +340,8 @@ func (sh *shell) onEvent(ev engine.Event) {
 			sh.kc.contextsChanged()
 			sh.hot.request() // a tile's context may have gone, or come back
 		})
+	case engine.EventAudit: // a line in the audit log: the Audit Log tab reads it (auditlog.go)
+		sh.do(sh.dock.auditChanged)
 	}
 }
 
@@ -481,13 +488,13 @@ func (sh *shell) drawerChanged() {
 // its tab strip while it is collapsed.
 func (sh *shell) layoutBody() {
 	if sh.dock.open() {
-		sh.vsplit.Leading, sh.vsplit.Trailing = sh.workspace, sh.dock.panel
+		sh.vsplit.Leading, sh.vsplit.Trailing = sh.workArea, sh.dock.panel
 		sh.dock.attachStrip(true)
 		sh.body.Objects = []fyne.CanvasObject{sh.vsplit}
 		sh.vsplit.Refresh()
 	} else {
 		sh.dock.attachStrip(false)
-		sh.body.Objects = []fyne.CanvasObject{container.NewBorder(nil, sh.dock.collapsedBar, nil, nil, sh.workspace)}
+		sh.body.Objects = []fyne.CanvasObject{container.NewBorder(nil, sh.dock.collapsedBar, nil, nil, sh.workArea)}
 	}
 	sh.body.Refresh()
 }
@@ -1025,7 +1032,8 @@ func dockEqual(a, b engine.UIState) bool {
 	}
 	for i := range a.Dock {
 		x, y := a.Dock[i], b.Dock[i]
-		if x.ID != y.ID || x.Title != y.Title || x.Logs != y.Logs || x.Container != y.Container || !sameRef(x.Ref, y.Ref) {
+		if x.ID != y.ID || x.Title != y.Title || x.Logs != y.Logs || x.Container != y.Container || !sameRef(x.Ref, y.Ref) ||
+			x.Audit != y.Audit { // the Audit Log's filter (auditlog.go)
 			return false
 		}
 		// A Helm tab's chart, version and digest change in place (a version picked, its chart

@@ -58,6 +58,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerPreferences(g)
 	registerClusterSettings(g)
 	registerAllowance(g)
+	registerAudit(g)
 	registerTabs(g)
 	registerWelcome(g)
 	registerClusterMenu(g)

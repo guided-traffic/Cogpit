@@ -120,6 +120,8 @@ type DockTab struct {
 	// Kubectl is a terminal tab's kubectl: the check made when it opened, the offer of a matching
 	// release and its download (kubectl.go).
 	Kubectl *KubectlCheck `json:"kubectl,omitempty"`
+	// Audit is the Audit Log tab's filter (auditlist.go).
+	Audit AuditTab `json:"audit,omitzero"`
 }
 
 // HelmUpgradeTab is what a Helm Upgrade tab shows beside its values editor (Lens's "Helm Upgrade:

@@ -155,7 +155,7 @@ func (e *env) newSession(opts sessionOptions) (*engine.Session, func(), error) {
 		if err != nil {
 			e.logger.Warn("audit log disabled", "err", err)
 		} else {
-			so.Audit = f
+			so.Audit, so.AuditPath = f, e.dirs.AuditLogPath() // audit_list reads the app's log too
 			closers = append(closers, func() { _ = f.Close() })
 		}
 	}

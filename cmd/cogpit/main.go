@@ -84,7 +84,7 @@ func run(previousCrash string) int {
 	// live there (gap H-6).
 	cluster.EnsureToolPath()
 
-	audit, closeAudit := openAuditLog(logger)
+	audit, auditPath, closeAudit := openAuditLog(logger)
 	defer closeAudit()
 
 	clusterSettings := openClusterSettings(logger) // the session's, and the connector's proxies
@@ -97,7 +97,7 @@ func run(previousCrash string) int {
 		MetricsSettings: openMetricsSettings(logger),
 		ClusterSettings: clusterSettings,
 	}
-	s := engine.New(engine.Options{Connector: connector, Audit: audit, Logger: logger, Drains: openDrainJournal(logger),
+	s := engine.New(engine.Options{Connector: connector, Audit: audit, AuditPath: auditPath, Logger: logger, Drains: openDrainJournal(logger),
 		Helm: openHelmJournal(logger), Hotbar: openHotbar(logger), HelmRepos: openHelmRepos(logger),
 		Preferences: openPreferences(logger), ClusterSettings: clusterSettings, Kubectl: openKubectl(logger),
 		Drafts: openDrafts(logger)})
@@ -167,19 +167,20 @@ func newLogger(verbose bool) *slog.Logger {
 }
 
 // openAuditLog opens <user config dir>/Cogpit/audit.log, owner-only, for agent-initiated
-// commands (D-2; app.Dirs.OpenAuditLog, shared with cogpit-cli).
-func openAuditLog(logger *slog.Logger) (io.Writer, func()) {
+// commands (D-2; app.Dirs.OpenAuditLog, shared with cogpit-cli), and returns its path, which the
+// Audit Log reads back.
+func openAuditLog(logger *slog.Logger) (io.Writer, string, func()) {
 	dirs, err := app.UserDirs()
 	if err != nil {
 		logger.Warn("audit log disabled", "err", err)
-		return nil, func() {}
+		return nil, "", func() {}
 	}
 	f, err := dirs.OpenAuditLog()
 	if err != nil {
 		logger.Warn("audit log disabled", "err", err)
-		return nil, func() {}
+		return nil, "", func() {}
 	}
-	return f, func() { _ = f.Close() }
+	return f, dirs.AuditLogPath(), func() { _ = f.Close() }
 }
 
 // openDrainJournal keeps the drains Cogpit starts in <user config dir>/Cogpit/drains.json,

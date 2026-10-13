@@ -88,6 +88,9 @@ type Options struct {
 	Confirmer Confirmer
 	// Audit receives one JSON line per agent-initiated command. Nil discards.
 	Audit io.Writer
+	// AuditPath is the file Audit appends to, which the Audit Log and audit.list read back
+	// (auditlist.go). Empty: the session cannot read its audit log.
+	AuditPath string
 	// SnapshotInterval is the minimum time between two table snapshots of a view; zero means
 	// 100 ms, at most ten snapshots per second (architecture §5).
 	SnapshotInterval time.Duration
@@ -172,6 +175,8 @@ func New(opts Options) *Session {
 		},
 	}
 	s.ui.syncWelcome() // not connected: the welcome page (welcome.go)
+	// Each line written to the audit log tells the Audit Log tab (auditlist.go).
+	s.opts.Audit = s.notifyingAudit(opts.Audit)
 	s.state = newState(s)
 	opts.Drains.attach(s) // nil-safe
 	opts.Helm.attach(s)   // nil-safe

@@ -66,6 +66,14 @@ func (d Dirs) KubeconfigSources(named []string) *engine.KubeconfigSources {
 	return engine.NewKubeconfigSources(d.Config, opts...)
 }
 
+// AuditLogPath is the audit log's file, d.Config/audit.log, which the Audit Log reads back.
+func (d Dirs) AuditLogPath() string {
+	if d.Config == "" {
+		return ""
+	}
+	return filepath.Join(d.Config, AuditLogFile)
+}
+
 // OpenAuditLog opens d.Config/audit.log for appending, owner-only (0600 in a 0700 directory), for
 // the commands agents dispatch (D-2). The caller closes it.
 func (d Dirs) OpenAuditLog() (io.WriteCloser, error) {

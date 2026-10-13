@@ -85,7 +85,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | MCP endpoint | `http://127.0.0.1:<random port>/mcp`, new port on every start | `http://127.0.0.1:59449/mcp` # example |
 | MCP bearer token | `<user config dir>/Cogpit/mcp-token`, owner-only (0600, directory 0700), new on every start, removed on exit and when you switch the external MCP server off | |
 | MCP endpoint file | `<user config dir>/Cogpit/mcp-endpoint`, beside the token and with its rules: the endpoint's URL, for `cogpit-cli mcp` | `http://127.0.0.1:59449/mcp` # example |
-| Audit log | `<user config dir>/Cogpit/audit.log`, owner-only, one JSON line per agent-initiated command | |
+| Audit log | `<user config dir>/Cogpit/audit.log`, owner-only, one JSON line per agent-initiated command; read back newest first in Help › Audit Log and by `audit_list` (its last 4 MiB) | |
 | Drain journal | `<user config dir>/Cogpit/drains.json`, owner-only (0600, directory 0700): the drains Cogpit started and has not finished, offered again on the next connect | |
 | Hotbar | `<user config dir>/Cogpit/hotbar.json`, owner-only (0600, directory 0700): the banks of pinned clusters by context id; an unreadable one is moved to `hotbar.json.unreadable` at the first change | |
 | Helm chart repositories | `<user config dir>/Cogpit/helm/repositories.json`, owner-only (0600, directory 0700): the public https repositories you added, by name and URL, no credentials; never Helm's own `repositories.yaml` | |
@@ -280,11 +280,13 @@ Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never a
 registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 145 commands</summary>
+<summary>All 147 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
 | `application.logs` | `application_logs` | read | `ref` | Opens the logs of an application (applications view): a workload_logs dock tab for each of its Deployments, Stateful Sets, Daemon Sets and Jobs, at most 8, each following every container of the workload's pods |
+| `audit.list` | `audit_list` | read | `limit`?, `offset`?, `origin`? | Reads Cogpit's audit log, newest first: one entry per command an agent dispatched (external agents, the built-in agent; and the few switches the user made in the window that are no command), with its time, origin, command, the context it ran in, its phase (requested before a write runs, done with its outcome), ok or the error, the objects its parameters name and the parameters as logged (Secret values, Helm values and proxy passwords never are) |
+| `audit.open` | `audit_open` | ui | `origin`? | Opens the Audit Log dock tab, or activates it: the audit log's entries newest first (time, origin, command, objects, outcome), read-only, filtered by origin (origin; empty: all), as Help › Audit Log does |
 | `cluster.connect` | `cluster_connect` | ui | `context` | Connects to a kubeconfig context (or the demo cluster), replacing the current connection, and shows its most recently used tab, or else its Pods view in the preview tab; the other clusters' tabs stay |
 | `cluster.connectLog` | `cluster_connectLog` | read | `context` | Returns the log of the last attempt to connect to a context this session (and of a connection Cogpit closed because its kubeconfig file went away): lines with a time, a level (INFO or ERROR) and a text |
 | `cluster.contexts` | `cluster_contexts` | read |  | Lists the kubeconfig contexts Cogpit can connect to (name, cluster, user, default namespace, server, whether it is the kubeconfig's current context) and the synthetic demo cluster if offered |
