@@ -787,6 +787,15 @@ func (tv *tableView) searchChanged(text string) {
 	})
 }
 
+// dropSearch drops a search typed but not sent yet and shows the engine's: the active tab or the
+// view changed, and ui.setFilter, which applies to the active tab, would put it into another one.
+func (tv *tableView) dropSearch() {
+	if tv.searchTimer != nil && tv.searchTimer.Stop() {
+		tv.filterBusy--
+		tv.syncSearch()
+	}
+}
+
 // syncSearch shows the engine's filter in the search entry, unless the user is still typing.
 func (tv *tableView) syncSearch() {
 	if tv.filterBusy > 0 || tv.search.Text == tv.sh.ui.Filter {

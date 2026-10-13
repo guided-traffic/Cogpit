@@ -409,6 +409,9 @@ func (sh *shell) applyUIState(st engine.UIState) {
 			sh.win.SetMainMenu(sh.mainMenu())
 		}
 	}
+	if !first && (st.ActiveTab != old.ActiveTab || st.View != old.View) {
+		sh.view.dropSearch() // a search typed for one tab or view stays out of the next (tableview.go)
+	}
 	if first || st.View != old.View {
 		sh.side.selectView(st.View)
 		sh.view.viewChanged()
