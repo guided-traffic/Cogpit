@@ -156,7 +156,7 @@ func argoDerive(objs []*unstructured.Unstructured, kind string, allowed []string
 	out := make([]*unstructured.Unstructured, 0, len(objs))
 	for _, sec := range objs {
 		typ := sec.GetLabels()[ArgoSecretTypeLabel]
-		if sec.GetKind() != kindArgoSecret || !slices.Contains(types, typ) {
+		if k := sec.GetKind(); (k != "" && k != kindArgoSecret) || !slices.Contains(types, typ) { // a list item may come without its kind
 			continue
 		}
 		spec := map[string]any{idArgoSecretType: typ}
