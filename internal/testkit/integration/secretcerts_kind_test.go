@@ -73,6 +73,11 @@ func TestKindSecretCertificates(t *testing.T) {
 	if r := m.Certificates[0].Certificates[1]; !r.SelfSigned || !r.IsCA {
 		t.Errorf("the root %+v", r)
 	}
+	// The owner's answers of 2026-10-13: tls.key compared with the leaf, the chain checked.
+	if ck := m.Certificates[0]; ck.PairedKey != "tls.key" || ck.KeyMatches == nil || !ck.KeyMatches.Matches ||
+		ck.ChainInOrder == nil || !*ck.ChainInOrder {
+		t.Errorf("the checks %+v", ck)
+	}
 
 	b, _ := json.Marshal(m)
 	forbidden := []string{"PRIVATE KEY", "BEGIN CERTIFICATE"}
