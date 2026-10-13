@@ -86,6 +86,9 @@ func draftFiles(t *testing.T, dir string) []Draft {
 			continue
 		}
 		data, err := os.ReadFile(filepath.Join(dir, DraftsDir, e.Name()))
+		if errors.Is(err, os.ErrNotExist) { // removed since the listing
+			continue
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -131,12 +134,15 @@ func TestDraftWrittenAfterTypingStops(t *testing.T) {
 	}
 
 	var last string
-	for i := range 5 { // typing: a change every 40 ms, less than the delay
+	var gap time.Duration // the longest pause between two changes; a loaded machine may stretch it
+	prev := time.Now()
+	for i := range 5 { // typing: a change every 37 ms, less than the delay
 		last = "apiVersion: v1\nkind: Pod\nmetadata:\n  name: web-" + strings.Repeat("x", i) + "\n"
 		setText(t, s, id, last)
+		gap, prev = max(gap, time.Since(prev)), time.Now()
 		time.Sleep(draftDelay / 4)
 	}
-	if got := draftFiles(t, dir); len(got) != 0 {
+	if got := draftFiles(t, dir); len(got) != 0 && max(gap, time.Since(prev)) < draftDelay {
 		t.Fatalf("a draft was written while the text kept changing: %+v", got)
 	}
 	got := waitDrafts(t, dir, "the draft after typing stopped", func(l []Draft) bool { return len(l) == 1 })
