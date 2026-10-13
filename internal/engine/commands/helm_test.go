@@ -798,3 +798,24 @@ func writeFile(t *testing.T, path, content string) {
 		t.Fatal(err)
 	}
 }
+
+// An open release drawer follows a new revision: its cache holds the release's Secrets, whose
+// names are not the release's, so a wake filtered by the release's name never came (review
+// 2026-10-13).
+func TestHelmReleaseDrawerFollowsANewRevision(t *testing.T) {
+	h := newHelmHarness(t, engine.NewMemoryHelmJournal(), nil)
+	if _, err := h.dispatch(engine.OriginGUI, "ui.navigate", map[string]any{"ref": webRef}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.s.Detail(webRef); err != nil {
+		t.Fatal(err)
+	}
+	before := len(h.eventsOf(engine.EventDetail))
+	h.server.put("apps", "web", 4, common.StatusDeployed)
+	h.waitRelease(t, "apps", "web", 4)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if !testkit.WaitFor(ctx, func() bool { return len(h.eventsOf(engine.EventDetail)) > before }) {
+		t.Fatal("the open release drawer was not told about revision 4")
+	}
+}

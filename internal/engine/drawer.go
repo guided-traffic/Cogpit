@@ -59,7 +59,10 @@ func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.O
 		hidden: hidden, hiddenSet: true,
 	}
 	d.unsubs = append(d.unsubs, d.obj.Subscribe(func(ev cache.Event) {
-		if ev.Object.GetName() == ref.Name && ev.Object.GetNamespace() == d.namespace() {
+		// A virtual kind's cache holds what it derives from, not its objects (a Helm release's
+		// revisions are Secrets named sh.helm.release.v1.<name>.v<n>): any change in the namespace
+		// may change the object, and the drawer derives it again (coalesced like every wake).
+		if ev.Object.GetNamespace() == d.namespace() && (p.Derive != nil || ev.Object.GetName() == ref.Name) {
 			signal(d.wake)
 		}
 	}))
