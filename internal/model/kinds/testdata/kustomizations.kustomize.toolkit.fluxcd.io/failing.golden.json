@@ -1,0 +1,146 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "kustomizations.kustomize.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "infra"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "infra"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "source",
+      "text": "OCIRepository/platform/platform",
+      "link": {
+        "kind": "ocirepositories.source.toolkit.fluxcd.io",
+        "namespace": "platform",
+        "name": "platform"
+      }
+    },
+    {
+      "column": "path",
+      "text": "./infrastructure"
+    },
+    {
+      "column": "revision",
+      "text": "v1.4.0@sha256:0a1b2c"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Not Ready",
+      "status": "error"
+    },
+    {
+      "column": "message",
+      "text": "kustomize build failed: accumulating resources: missing Resource metadata"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "infra"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "path": [
+      "./infrastructure"
+    ],
+    "revision": [
+      "v1.4.0@sha256:0a1b2c"
+    ],
+    "source": [
+      "OCIRepository/platform/platform"
+    ],
+    "status": [
+      "Not Ready"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Not Ready",
+          "status": "error"
+        },
+        {
+          "name": "Message",
+          "value": "kustomize build failed: accumulating resources:\nmissing Resource metadata"
+        },
+        {
+          "name": "Source",
+          "value": "OCIRepository/platform/platform",
+          "link": {
+            "kind": "ocirepositories.source.toolkit.fluxcd.io",
+            "namespace": "platform",
+            "name": "platform"
+          }
+        },
+        {
+          "name": "Path",
+          "value": "./infrastructure"
+        },
+        {
+          "name": "Prune",
+          "value": "false"
+        },
+        {
+          "name": "Last Attempted Revision",
+          "value": "v1.5.0@sha256:9f8e7d"
+        },
+        {
+          "name": "Revision",
+          "value": "v1.4.0@sha256:0a1b2c"
+        },
+        {
+          "name": "Interval",
+          "value": "1h"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Reconciling",
+          "value": "True (ProgressingWithRetry): Detecting drift for revision v1.5.0@sha256:9f8e7d with a timeout of 50s",
+          "status": "pending"
+        },
+        {
+          "name": "Ready",
+          "value": "False (BuildFailed): kustomize build failed: accumulating resources:\nmissing Resource metadata",
+          "status": "error"
+        }
+      ]
+    }
+  ]
+}

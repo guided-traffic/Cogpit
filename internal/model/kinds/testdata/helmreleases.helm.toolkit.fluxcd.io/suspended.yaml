@@ -1,0 +1,29 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: redis
+  namespace: data
+  uid: uid-redis
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  interval: 1h
+  suspend: true
+  chart:
+    spec:
+      chart: redis
+      sourceRef:
+        kind: HelmRepository
+        name: bitnami
+status:
+  observedGeneration: 1
+  history:
+  - chartName: redis
+    chartVersion: 19.0.1
+    version: 1
+    status: deployed
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: InstallSucceeded
+    message: Helm install succeeded

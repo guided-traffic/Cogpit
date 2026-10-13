@@ -1,0 +1,32 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infra
+  namespace: flux-system
+  uid: uid-infra
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 4
+spec:
+  interval: 1h
+  path: ./infrastructure
+  prune: false
+  sourceRef:
+    kind: OCIRepository
+    name: platform
+    namespace: platform
+status:
+  observedGeneration: 4
+  lastAppliedRevision: v1.4.0@sha256:0a1b2c
+  lastAttemptedRevision: v1.5.0@sha256:9f8e7d
+  conditions:
+  - type: Reconciling
+    status: "True"
+    reason: ProgressingWithRetry
+    message: Detecting drift for revision v1.5.0@sha256:9f8e7d with a timeout of 50s
+  - type: Ready
+    status: "False"
+    reason: BuildFailed
+    message: |-
+      kustomize build failed: accumulating resources:
+      missing Resource metadata
+    lastTransitionTime: "2026-10-11T11:00:00Z"

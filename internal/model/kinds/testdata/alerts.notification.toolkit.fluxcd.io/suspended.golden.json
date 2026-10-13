@@ -1,0 +1,104 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "alerts.notification.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "muted"
+  },
+  "status": "stopped",
+  "cells": [
+    {
+      "column": "name",
+      "text": "muted"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "provider",
+      "text": "slack",
+      "link": {
+        "kind": "providers.notification.toolkit.fluxcd.io",
+        "namespace": "flux-system",
+        "name": "slack"
+      }
+    },
+    {
+      "column": "severity",
+      "text": "info"
+    },
+    {
+      "column": "suspended",
+      "text": "true"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Suspended",
+      "status": "stopped"
+    },
+    {
+      "column": "message",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "muted"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "provider": [
+      "slack"
+    ],
+    "severity": [
+      "info"
+    ],
+    "status": [
+      "Suspended"
+    ],
+    "suspended": [
+      "true"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Suspended",
+          "status": "stopped"
+        },
+        {
+          "name": "Provider",
+          "value": "slack",
+          "link": {
+            "kind": "providers.notification.toolkit.fluxcd.io",
+            "namespace": "flux-system",
+            "name": "slack"
+          }
+        },
+        {
+          "name": "Severity",
+          "value": "info"
+        },
+        {
+          "name": "Suspended",
+          "value": "true"
+        }
+      ]
+    }
+  ]
+}

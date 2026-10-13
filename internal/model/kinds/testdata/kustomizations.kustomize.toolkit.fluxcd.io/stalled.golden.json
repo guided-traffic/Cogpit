@@ -1,0 +1,132 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "kustomizations.kustomize.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "broken"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "broken"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "source",
+      "text": "GitRepository/missing",
+      "link": {
+        "kind": "gitrepositories.source.toolkit.fluxcd.io",
+        "namespace": "flux-system",
+        "name": "missing"
+      }
+    },
+    {
+      "column": "path",
+      "text": "./broken"
+    },
+    {
+      "column": "revision",
+      "text": ""
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Not Ready",
+      "status": "error"
+    },
+    {
+      "column": "message",
+      "text": "path ./broken not found"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "broken"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "path": [
+      "./broken"
+    ],
+    "revision": [],
+    "source": [
+      "GitRepository/missing"
+    ],
+    "status": [
+      "Not Ready"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Not Ready",
+          "status": "error"
+        },
+        {
+          "name": "Message",
+          "value": "path ./broken not found"
+        },
+        {
+          "name": "Source",
+          "value": "GitRepository/missing",
+          "link": {
+            "kind": "gitrepositories.source.toolkit.fluxcd.io",
+            "namespace": "flux-system",
+            "name": "missing"
+          }
+        },
+        {
+          "name": "Path",
+          "value": "./broken"
+        },
+        {
+          "name": "Interval",
+          "value": "5m"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Stalled",
+          "value": "True (InvalidPath): path ./broken not found",
+          "status": "error"
+        },
+        {
+          "name": "Ready",
+          "value": "Unknown (InvalidPath): path ./broken not found",
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}

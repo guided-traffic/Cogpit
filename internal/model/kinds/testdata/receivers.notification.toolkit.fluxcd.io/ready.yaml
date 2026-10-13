@@ -1,0 +1,29 @@
+apiVersion: notification.toolkit.fluxcd.io/v1
+kind: Receiver
+metadata:
+  name: github
+  namespace: flux-system
+  uid: uid-github
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  type: github
+  interval: 10m
+  events:
+  - ping
+  - push
+  secretRef:
+    name: webhook-token
+  resources:
+  - kind: GitRepository
+    name: flux-system
+  - kind: Kustomization
+    name: "*"
+status:
+  observedGeneration: 1
+  webhookPath: /hook/must-never-show-0123456789abcdef
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: Succeeded
+    message: "Receiver initialized"

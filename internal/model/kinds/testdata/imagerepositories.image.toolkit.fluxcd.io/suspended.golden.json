@@ -1,0 +1,91 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "imagerepositories.image.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "frozen"
+  },
+  "status": "stopped",
+  "cells": [
+    {
+      "column": "name",
+      "text": "frozen"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "image",
+      "text": "docker.io/library/nginx"
+    },
+    {
+      "column": "lastScan",
+      "text": ""
+    },
+    {
+      "column": "tags",
+      "text": "-"
+    },
+    {
+      "column": "suspended",
+      "text": "true"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Suspended",
+      "status": "stopped"
+    },
+    {
+      "column": "message",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "image": [
+      "docker.io/library/nginx"
+    ],
+    "label": [],
+    "name": [
+      "frozen"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "status": [
+      "Suspended"
+    ],
+    "suspended": [
+      "true"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Suspended",
+          "status": "stopped"
+        },
+        {
+          "name": "Image",
+          "value": "docker.io/library/nginx"
+        },
+        {
+          "name": "Suspended",
+          "value": "true"
+        }
+      ]
+    }
+  ]
+}

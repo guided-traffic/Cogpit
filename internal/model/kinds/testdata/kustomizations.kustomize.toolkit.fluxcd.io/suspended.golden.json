@@ -1,0 +1,137 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "kustomizations.kustomize.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "monitoring"
+  },
+  "status": "stopped",
+  "cells": [
+    {
+      "column": "name",
+      "text": "monitoring"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "source",
+      "text": "GitRepository/flux-system",
+      "link": {
+        "kind": "gitrepositories.source.toolkit.fluxcd.io",
+        "namespace": "flux-system",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "path",
+      "text": "./monitoring"
+    },
+    {
+      "column": "revision",
+      "text": "main@sha1:1234abcd"
+    },
+    {
+      "column": "suspended",
+      "text": "true"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Suspended",
+      "status": "stopped"
+    },
+    {
+      "column": "message",
+      "text": "Applied revision: main@sha1:1234abcd"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "monitoring"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "path": [
+      "./monitoring"
+    ],
+    "revision": [
+      "main@sha1:1234abcd"
+    ],
+    "source": [
+      "GitRepository/flux-system"
+    ],
+    "status": [
+      "Suspended"
+    ],
+    "suspended": [
+      "true"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Suspended",
+          "status": "stopped"
+        },
+        {
+          "name": "Message",
+          "value": "Applied revision: main@sha1:1234abcd"
+        },
+        {
+          "name": "Source",
+          "value": "GitRepository/flux-system",
+          "link": {
+            "kind": "gitrepositories.source.toolkit.fluxcd.io",
+            "namespace": "flux-system",
+            "name": "flux-system"
+          }
+        },
+        {
+          "name": "Path",
+          "value": "./monitoring"
+        },
+        {
+          "name": "Prune",
+          "value": "true"
+        },
+        {
+          "name": "Revision",
+          "value": "main@sha1:1234abcd"
+        },
+        {
+          "name": "Interval",
+          "value": "10m"
+        },
+        {
+          "name": "Suspended",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (ReconciliationSucceeded): Applied revision: main@sha1:1234abcd",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

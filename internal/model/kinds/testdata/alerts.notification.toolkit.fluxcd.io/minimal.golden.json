@@ -1,0 +1,88 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "alerts.notification.toolkit.fluxcd.io",
+    "namespace": "default",
+    "name": "minimal"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "minimal"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "provider",
+      "text": ""
+    },
+    {
+      "column": "severity",
+      "text": "info"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "minimal"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "provider": [],
+    "severity": [
+      "info"
+    ],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "Severity",
+          "value": "info"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    }
+  ]
+}

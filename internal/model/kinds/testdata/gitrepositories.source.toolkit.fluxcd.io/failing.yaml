@@ -1,0 +1,25 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: missing
+  namespace: flux-system
+  uid: uid-missing
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  interval: 5m
+  url: https://ghp_onlytoken@github.com/acme/missing
+  ref:
+    semver: ">=1.0.0"
+status:
+  observedGeneration: 1
+  conditions:
+  - type: FetchFailed
+    status: "True"
+    reason: GitOperationFailed
+    message: "failed to checkout and determine revision: repository not found"
+  - type: Ready
+    status: "False"
+    reason: GitOperationFailed
+    message: "failed to checkout and determine revision: repository not found"
+    lastTransitionTime: "2026-10-11T10:00:00Z"

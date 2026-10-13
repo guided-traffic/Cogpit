@@ -1,0 +1,36 @@
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageUpdateAutomation
+metadata:
+  name: apps
+  namespace: flux-system
+  uid: uid-apps
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  interval: 30m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        name: fluxcdbot
+        email: fluxcdbot@users.noreply.github.com
+    push:
+      branch: image-updates
+  update:
+    path: ./clusters/prod
+    strategy: Setters
+status:
+  observedGeneration: 1
+  lastAutomationRunTime: "2026-10-11T11:30:00Z"
+  lastPushCommit: 9f8e7d6c
+  lastPushTime: "2026-10-11T11:30:02Z"
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: Succeeded
+    message: "repository up-to-date"

@@ -1,0 +1,161 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "gitrepositories.source.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "flux-system"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "flux-system"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "url",
+      "text": "https://<redacted>@github.com/acme/k8s-flux-base.git"
+    },
+    {
+      "column": "ref",
+      "text": "branch main"
+    },
+    {
+      "column": "revision",
+      "text": "main@sha1:6f2c1b9e"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "stored artifact for revision 'main@sha1:6f2c1b9e'"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "flux-system"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "ref": [
+      "branch main"
+    ],
+    "revision": [
+      "main@sha1:6f2c1b9e"
+    ],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ],
+    "url": [
+      "https://<redacted>@github.com/acme/k8s-flux-base.git"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "Message",
+          "value": "stored artifact for revision 'main@sha1:6f2c1b9e'"
+        },
+        {
+          "name": "URL",
+          "value": "https://<redacted>@github.com/acme/k8s-flux-base.git"
+        },
+        {
+          "name": "Ref",
+          "value": "branch main"
+        },
+        {
+          "name": "Provider",
+          "value": "generic"
+        },
+        {
+          "name": "Secret",
+          "value": "flux-system",
+          "link": {
+            "kind": "secrets",
+            "namespace": "flux-system",
+            "name": "flux-system"
+          }
+        },
+        {
+          "name": "Recurse Submodules",
+          "value": "false"
+        },
+        {
+          "name": "Verify",
+          "value": "HEAD"
+        },
+        {
+          "name": "Artifact Digest",
+          "value": "sha256:0123456789abcdef"
+        },
+        {
+          "name": "Artifact Updated",
+          "value": "2026-10-11 11:59:00"
+        },
+        {
+          "name": "Revision",
+          "value": "main@sha1:6f2c1b9e"
+        },
+        {
+          "name": "Interval",
+          "value": "1m0s"
+        },
+        {
+          "name": "Timeout",
+          "value": "60s"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (Succeeded): stored artifact for revision 'main@sha1:6f2c1b9e'",
+          "status": "ok"
+        },
+        {
+          "name": "ArtifactInStorage",
+          "value": "True (Succeeded): stored artifact for revision 'main@sha1:6f2c1b9e'",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

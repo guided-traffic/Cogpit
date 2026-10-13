@@ -1,0 +1,118 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "alerts.notification.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "legacy"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "provider",
+      "text": "missing",
+      "link": {
+        "kind": "providers.notification.toolkit.fluxcd.io",
+        "namespace": "flux-system",
+        "name": "missing"
+      }
+    },
+    {
+      "column": "severity",
+      "text": "info"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Not Ready",
+      "status": "error"
+    },
+    {
+      "column": "message",
+      "text": "provider 'missing' not found"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "legacy"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "provider": [
+      "missing"
+    ],
+    "severity": [
+      "info"
+    ],
+    "status": [
+      "Not Ready"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Not Ready",
+          "status": "error"
+        },
+        {
+          "name": "Message",
+          "value": "provider 'missing' not found"
+        },
+        {
+          "name": "Provider",
+          "value": "missing",
+          "link": {
+            "kind": "providers.notification.toolkit.fluxcd.io",
+            "namespace": "flux-system",
+            "name": "missing"
+          }
+        },
+        {
+          "name": "Severity",
+          "value": "info"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "False (ProviderNotFound): provider 'missing' not found",
+          "status": "error"
+        }
+      ]
+    }
+  ]
+}

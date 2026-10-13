@@ -1,0 +1,140 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "imagerepositories.image.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "podinfo"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "podinfo"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "image",
+      "text": "ghcr.io/stefanprodan/podinfo"
+    },
+    {
+      "column": "lastScan",
+      "text": "5m",
+      "num": 1791719700
+    },
+    {
+      "column": "tags",
+      "text": "42",
+      "num": 42
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "successful scan: found 42 tags"
+    }
+  ],
+  "fields": {
+    "image": [
+      "ghcr.io/stefanprodan/podinfo"
+    ],
+    "label": [],
+    "name": [
+      "podinfo"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "Message",
+          "value": "successful scan: found 42 tags"
+        },
+        {
+          "name": "Image",
+          "value": "ghcr.io/stefanprodan/podinfo"
+        },
+        {
+          "name": "Provider",
+          "value": "generic"
+        },
+        {
+          "name": "Secret",
+          "value": "ghcr-auth",
+          "link": {
+            "kind": "secrets",
+            "namespace": "flux-system",
+            "name": "ghcr-auth"
+          }
+        },
+        {
+          "name": "Exclusion List",
+          "value": "^.*\\.sig$"
+        },
+        {
+          "name": "Tags Found",
+          "value": "42"
+        },
+        {
+          "name": "Last Scan",
+          "value": "2026-10-11 11:55:00"
+        },
+        {
+          "name": "Latest Tags",
+          "value": "1.12.0\n1.11.0\n1.10.0\n1.9.0\n1.8.0\n1.7.0\n1.6.0\n1.5.0\n1.4.0\n1.3.0"
+        },
+        {
+          "name": "Interval",
+          "value": "5m"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (Succeeded): successful scan: found 42 tags",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

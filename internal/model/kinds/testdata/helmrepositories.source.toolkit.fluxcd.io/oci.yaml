@@ -1,0 +1,20 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: bitnami
+  namespace: flux-system
+  uid: uid-bitnami
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  interval: 1h
+  type: oci
+  url: oci://registry-1.docker.io/bitnamicharts
+  provider: generic
+status:
+  observedGeneration: 1
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: Succeeded
+    message: Helm repository is Ready

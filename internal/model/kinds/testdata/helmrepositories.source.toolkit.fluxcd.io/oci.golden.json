@@ -1,0 +1,121 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "helmrepositories.source.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "bitnami"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "bitnami"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "url",
+      "text": "oci://registry-1.docker.io/bitnamicharts"
+    },
+    {
+      "column": "type",
+      "text": "oci"
+    },
+    {
+      "column": "revision",
+      "text": ""
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "Helm repository is Ready"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "bitnami"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "revision": [],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ],
+    "type": [
+      "oci"
+    ],
+    "url": [
+      "oci://registry-1.docker.io/bitnamicharts"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "Message",
+          "value": "Helm repository is Ready"
+        },
+        {
+          "name": "URL",
+          "value": "oci://registry-1.docker.io/bitnamicharts"
+        },
+        {
+          "name": "Type",
+          "value": "oci"
+        },
+        {
+          "name": "Provider",
+          "value": "generic"
+        },
+        {
+          "name": "Interval",
+          "value": "1h"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (Succeeded): Helm repository is Ready",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "ocirepositories.source.toolkit.fluxcd.io",
+    "namespace": "default",
+    "name": "minimal"
+  },
+  "status": "unknown",
+  "cells": [
+    {
+      "column": "name",
+      "text": "minimal"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "url",
+      "text": ""
+    },
+    {
+      "column": "ref",
+      "text": ""
+    },
+    {
+      "column": "revision",
+      "text": ""
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Unknown",
+      "status": "unknown"
+    },
+    {
+      "column": "message",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "minimal"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "ref": [],
+    "revision": [],
+    "status": [
+      "Unknown"
+    ],
+    "suspended": [
+      "false"
+    ],
+    "url": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Unknown",
+          "status": "unknown"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    }
+  ]
+}

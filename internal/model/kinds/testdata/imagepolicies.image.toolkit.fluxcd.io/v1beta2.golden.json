@@ -1,0 +1,118 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "imagepolicies.image.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "nginx"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "nginx"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "imageRepository",
+      "text": "images/nginx",
+      "link": {
+        "kind": "imagerepositories.image.toolkit.fluxcd.io",
+        "namespace": "images",
+        "name": "nginx"
+      }
+    },
+    {
+      "column": "latestImage",
+      "text": "docker.io/library/nginx:1.27"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Not Ready",
+      "status": "error"
+    },
+    {
+      "column": "message",
+      "text": "referenced ImageRepository is not ready"
+    }
+  ],
+  "fields": {
+    "imageRepository": [
+      "images/nginx"
+    ],
+    "label": [],
+    "latestImage": [
+      "docker.io/library/nginx:1.27"
+    ],
+    "name": [
+      "nginx"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "status": [
+      "Not Ready"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Not Ready",
+          "status": "error"
+        },
+        {
+          "name": "Message",
+          "value": "referenced ImageRepository is not ready"
+        },
+        {
+          "name": "Image Repository",
+          "value": "images/nginx",
+          "link": {
+            "kind": "imagerepositories.image.toolkit.fluxcd.io",
+            "namespace": "images",
+            "name": "nginx"
+          }
+        },
+        {
+          "name": "Policy",
+          "value": "alphabetical desc"
+        },
+        {
+          "name": "Latest Image",
+          "value": "docker.io/library/nginx:1.27"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "False (DependencyNotReady): referenced ImageRepository is not ready",
+          "status": "error"
+        }
+      ]
+    }
+  ]
+}

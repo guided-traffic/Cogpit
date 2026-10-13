@@ -1,0 +1,153 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "ocirepositories.source.toolkit.fluxcd.io",
+    "namespace": "platform",
+    "name": "platform"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "platform"
+    },
+    {
+      "column": "namespace",
+      "text": "platform",
+      "link": {
+        "kind": "namespaces",
+        "name": "platform"
+      }
+    },
+    {
+      "column": "url",
+      "text": "oci://ghcr.io/acme/platform-manifests"
+    },
+    {
+      "column": "ref",
+      "text": "semver 1.x"
+    },
+    {
+      "column": "revision",
+      "text": "1.5.0@sha256:9f8e7d"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "stored artifact for digest '1.5.0@sha256:9f8e7d'"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "platform"
+    ],
+    "namespace": [
+      "platform"
+    ],
+    "ref": [
+      "semver 1.x"
+    ],
+    "revision": [
+      "1.5.0@sha256:9f8e7d"
+    ],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ],
+    "url": [
+      "oci://ghcr.io/acme/platform-manifests"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "Message",
+          "value": "stored artifact for digest '1.5.0@sha256:9f8e7d'"
+        },
+        {
+          "name": "URL",
+          "value": "oci://ghcr.io/acme/platform-manifests"
+        },
+        {
+          "name": "Ref",
+          "value": "semver 1.x"
+        },
+        {
+          "name": "Provider",
+          "value": "generic"
+        },
+        {
+          "name": "Insecure",
+          "value": "false"
+        },
+        {
+          "name": "Secret",
+          "value": "ghcr-auth",
+          "link": {
+            "kind": "secrets",
+            "namespace": "platform",
+            "name": "ghcr-auth"
+          }
+        },
+        {
+          "name": "Verify",
+          "value": "cosign"
+        },
+        {
+          "name": "Artifact Digest",
+          "value": "sha256:9f8e7d"
+        },
+        {
+          "name": "Revision",
+          "value": "1.5.0@sha256:9f8e7d"
+        },
+        {
+          "name": "Interval",
+          "value": "5m"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (Succeeded): stored artifact for digest '1.5.0@sha256:9f8e7d'",
+          "status": "ok"
+        },
+        {
+          "name": "SourceVerified",
+          "value": "True (Succeeded): verified signature of revision 1.5.0",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

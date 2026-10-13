@@ -1,0 +1,12 @@
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: muted
+  namespace: flux-system
+  uid: uid-muted
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  suspend: true
+  providerRef:
+    name: slack

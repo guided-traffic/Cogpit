@@ -1,0 +1,155 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "helmreleases.helm.toolkit.fluxcd.io",
+    "namespace": "data",
+    "name": "redis"
+  },
+  "status": "stopped",
+  "cells": [
+    {
+      "column": "name",
+      "text": "redis"
+    },
+    {
+      "column": "namespace",
+      "text": "data",
+      "link": {
+        "kind": "namespaces",
+        "name": "data"
+      }
+    },
+    {
+      "column": "chart",
+      "text": "redis",
+      "link": {
+        "kind": "helmrepositories.source.toolkit.fluxcd.io",
+        "namespace": "data",
+        "name": "bitnami"
+      }
+    },
+    {
+      "column": "version",
+      "text": "*"
+    },
+    {
+      "column": "revision",
+      "text": "19.0.1"
+    },
+    {
+      "column": "suspended",
+      "text": "true"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Suspended",
+      "status": "stopped"
+    },
+    {
+      "column": "message",
+      "text": "Helm install succeeded"
+    }
+  ],
+  "fields": {
+    "chart": [
+      "redis"
+    ],
+    "label": [],
+    "name": [
+      "redis"
+    ],
+    "namespace": [
+      "data"
+    ],
+    "revision": [
+      "19.0.1"
+    ],
+    "status": [
+      "Suspended"
+    ],
+    "suspended": [
+      "true"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Suspended",
+          "status": "stopped"
+        },
+        {
+          "name": "Message",
+          "value": "Helm install succeeded"
+        },
+        {
+          "name": "Chart",
+          "value": "redis"
+        },
+        {
+          "name": "Version",
+          "value": "*"
+        },
+        {
+          "name": "Chart Source",
+          "value": "HelmRepository/bitnami",
+          "link": {
+            "kind": "helmrepositories.source.toolkit.fluxcd.io",
+            "namespace": "data",
+            "name": "bitnami"
+          }
+        },
+        {
+          "name": "Revision",
+          "value": "19.0.1"
+        },
+        {
+          "name": "Interval",
+          "value": "1h"
+        },
+        {
+          "name": "Suspended",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "title": "History",
+      "table": {
+        "columns": [
+          "Revision",
+          "Chart",
+          "App Version",
+          "Status",
+          "Deployed"
+        ],
+        "rows": [
+          [
+            "1",
+            "redis-19.0.1",
+            "",
+            "deployed",
+            ""
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (InstallSucceeded): Helm install succeeded",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

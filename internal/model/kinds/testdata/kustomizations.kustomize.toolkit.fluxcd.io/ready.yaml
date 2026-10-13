@@ -1,0 +1,50 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps
+  namespace: flux-system
+  uid: uid-apps
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 2
+  labels:
+    kustomize.toolkit.fluxcd.io/name: flux-system
+spec:
+  interval: 10m0s
+  retryInterval: 2m0s
+  timeout: 5m0s
+  path: ./clusters/prod/apps
+  prune: true
+  wait: true
+  targetNamespace: shop
+  serviceAccountName: kustomize-controller
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+  - name: infra
+  - name: crds
+    namespace: platform
+status:
+  observedGeneration: 2
+  lastAppliedRevision: main@sha1:6f2c1b9e
+  lastAttemptedRevision: main@sha1:6f2c1b9e
+  lastHandledReconcileAt: "2026-10-11T11:58:00Z"
+  inventory:
+    entries:
+    - id: shop_web_apps_Deployment
+      v: v1
+    - id: shop_web__Service
+      v: v1
+    - id: _shop__Namespace
+      v: v1
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: ReconciliationSucceeded
+    message: "Applied revision: main@sha1:6f2c1b9e"
+    lastTransitionTime: "2026-10-11T11:58:30Z"
+  - type: Healthy
+    status: "True"
+    reason: Succeeded
+    message: Health check passed in 3.2s
+    lastTransitionTime: "2026-10-11T11:58:30Z"

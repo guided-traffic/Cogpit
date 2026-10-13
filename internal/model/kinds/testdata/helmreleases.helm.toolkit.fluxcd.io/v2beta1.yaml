@@ -1,0 +1,25 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: nginx
+  namespace: legacy
+  uid: uid-nginx
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: ./charts/nginx
+      sourceRef:
+        kind: GitRepository
+        name: charts
+status:
+  observedGeneration: 1
+  lastAppliedRevision: 1.0.0
+  helmChart: other
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: ReconciliationSucceeded
+    message: Release reconciliation succeeded

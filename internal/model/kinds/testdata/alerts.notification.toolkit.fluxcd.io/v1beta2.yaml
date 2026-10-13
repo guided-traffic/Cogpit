@@ -1,0 +1,18 @@
+apiVersion: notification.toolkit.fluxcd.io/v1beta2
+kind: Alert
+metadata:
+  name: legacy
+  namespace: flux-system
+  uid: uid-legacy
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  providerRef:
+    name: missing
+status:
+  observedGeneration: 1
+  conditions:
+  - type: Ready
+    status: "False"
+    reason: ProviderNotFound
+    message: provider 'missing' not found

@@ -1,0 +1,23 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: charts
+  namespace: flux-system
+  uid: uid-charts
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  interval: 5m
+  url: ssh://git@github.com/acme/charts
+  ref:
+    tag: v2.1.0
+    branch: ignored-when-tag-set
+status:
+  observedGeneration: 1
+  artifact:
+    revision: v2.1.0@sha1:aa11bb22
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: Succeeded
+    message: stored artifact

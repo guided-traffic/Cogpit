@@ -1,0 +1,16 @@
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: slack
+  namespace: flux-system
+  uid: uid-slack
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  type: slack
+  channel: ops-alerts
+  username: flux
+  address: https://hooks.slack.com/services/T000/B000/must-never-show
+  proxy: http://user:pass@proxy:3128
+  secretRef:
+    name: slack-webhook

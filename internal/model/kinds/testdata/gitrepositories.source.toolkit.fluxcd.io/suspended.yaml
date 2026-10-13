@@ -1,0 +1,14 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: paused
+  namespace: flux-system
+  uid: uid-paused
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  suspend: true
+  interval: 5m
+  url: https://github.com/acme/paused
+  ref:
+    commit: 0a1b2c3d

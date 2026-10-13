@@ -1,0 +1,22 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: podinfo
+  namespace: flux-system
+  uid: uid-podinfo
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  interval: 1h
+  url: https://stefanprodan.github.io/podinfo
+  passCredentials: false
+status:
+  observedGeneration: 1
+  artifact:
+    revision: sha256:4f2b
+    lastUpdateTime: "2026-10-11T11:00:00Z"
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: Succeeded
+    message: "stored artifact: revision 'sha256:4f2b'"

@@ -1,0 +1,33 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: platform
+  namespace: platform
+  uid: uid-platform
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  interval: 5m
+  url: oci://ghcr.io/acme/platform-manifests
+  ref:
+    semver: 1.x
+  provider: generic
+  insecure: false
+  secretRef:
+    name: ghcr-auth
+  verify:
+    provider: cosign
+status:
+  observedGeneration: 1
+  artifact:
+    revision: 1.5.0@sha256:9f8e7d
+    digest: sha256:9f8e7d
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: Succeeded
+    message: "stored artifact for digest '1.5.0@sha256:9f8e7d'"
+  - type: SourceVerified
+    status: "True"
+    reason: Succeeded
+    message: verified signature of revision 1.5.0

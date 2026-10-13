@@ -1,0 +1,107 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "providers.notification.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "slack"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "slack"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "type",
+      "text": "slack"
+    },
+    {
+      "column": "channel",
+      "text": "ops-alerts"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "channel": [
+      "ops-alerts"
+    ],
+    "label": [],
+    "name": [
+      "slack"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ],
+    "type": [
+      "slack"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "Type",
+          "value": "slack"
+        },
+        {
+          "name": "Channel",
+          "value": "ops-alerts"
+        },
+        {
+          "name": "Username",
+          "value": "flux"
+        },
+        {
+          "name": "Secret",
+          "value": "slack-webhook",
+          "link": {
+            "kind": "secrets",
+            "namespace": "flux-system",
+            "name": "slack-webhook"
+          }
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    }
+  ]
+}

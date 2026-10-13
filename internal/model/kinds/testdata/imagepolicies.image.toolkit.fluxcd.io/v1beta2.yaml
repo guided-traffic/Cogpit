@@ -1,0 +1,22 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: nginx
+  namespace: flux-system
+  uid: uid-nginx
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  imageRepositoryRef:
+    name: nginx
+    namespace: images
+  policy:
+    alphabetical:
+      order: desc
+status:
+  latestImage: docker.io/library/nginx:1.27
+  conditions:
+  - type: Ready
+    status: "False"
+    reason: DependencyNotReady
+    message: referenced ImageRepository is not ready

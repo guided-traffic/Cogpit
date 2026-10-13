@@ -1,0 +1,11 @@
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageRepository
+metadata:
+  name: frozen
+  namespace: flux-system
+  uid: uid-frozen
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  image: docker.io/library/nginx
+  suspend: true

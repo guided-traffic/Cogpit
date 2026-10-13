@@ -1,0 +1,26 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: Bucket
+metadata:
+  name: tenants
+  namespace: flux-system
+  uid: uid-tenants
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  interval: 5m
+  provider: aws
+  bucketName: acme-tenants
+  endpoint: s3.amazonaws.com
+  region: eu-central-1
+  prefix: prod/
+  secretRef:
+    name: s3-credentials
+status:
+  observedGeneration: 1
+  artifact:
+    revision: sha256:77aa
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: Succeeded
+    message: stored artifact for revision 'sha256:77aa'

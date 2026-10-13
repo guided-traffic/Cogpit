@@ -1,0 +1,127 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "kustomizations.kustomize.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "old"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "old"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "source",
+      "text": "GitRepository/flux-system",
+      "link": {
+        "kind": "gitrepositories.source.toolkit.fluxcd.io",
+        "namespace": "flux-system",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "path",
+      "text": "./old"
+    },
+    {
+      "column": "revision",
+      "text": ""
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "Applied"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "old"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "path": [
+      "./old"
+    ],
+    "revision": [],
+    "source": [
+      "GitRepository/flux-system"
+    ],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "Message",
+          "value": "Applied"
+        },
+        {
+          "name": "Source",
+          "value": "GitRepository/flux-system",
+          "link": {
+            "kind": "gitrepositories.source.toolkit.fluxcd.io",
+            "namespace": "flux-system",
+            "name": "flux-system"
+          }
+        },
+        {
+          "name": "Path",
+          "value": "./old"
+        },
+        {
+          "name": "Interval",
+          "value": "5m"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (ReconciliationSucceeded): Applied",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

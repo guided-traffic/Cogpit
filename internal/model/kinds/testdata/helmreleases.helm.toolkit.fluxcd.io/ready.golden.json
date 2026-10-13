@@ -1,0 +1,248 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "helmreleases.helm.toolkit.fluxcd.io",
+    "namespace": "shop",
+    "name": "podinfo"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "podinfo"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "chart",
+      "text": "podinfo",
+      "link": {
+        "kind": "helmrepositories.source.toolkit.fluxcd.io",
+        "namespace": "flux-system",
+        "name": "podinfo"
+      }
+    },
+    {
+      "column": "version",
+      "text": "6.x"
+    },
+    {
+      "column": "revision",
+      "text": "6.7.1"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "Helm upgrade succeeded for release shop/shop-podinfo.v4 with chart podinfo@6.7.1"
+    }
+  ],
+  "fields": {
+    "chart": [
+      "podinfo"
+    ],
+    "label": [],
+    "name": [
+      "podinfo"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "revision": [
+      "6.7.1"
+    ],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "Message",
+          "value": "Helm upgrade succeeded for release shop/shop-podinfo.v4 with chart podinfo@6.7.1"
+        },
+        {
+          "name": "Chart",
+          "value": "podinfo"
+        },
+        {
+          "name": "Version",
+          "value": "6.x"
+        },
+        {
+          "name": "Chart Source",
+          "value": "HelmRepository/flux-system/podinfo",
+          "link": {
+            "kind": "helmrepositories.source.toolkit.fluxcd.io",
+            "namespace": "flux-system",
+            "name": "podinfo"
+          }
+        },
+        {
+          "name": "Release Name",
+          "value": "shop-podinfo"
+        },
+        {
+          "name": "Target Namespace",
+          "value": "shop"
+        },
+        {
+          "name": "Storage Namespace",
+          "value": "shop"
+        },
+        {
+          "name": "Service Account",
+          "value": "helm"
+        },
+        {
+          "name": "Max History",
+          "value": "5"
+        },
+        {
+          "name": "Values From",
+          "value": "ConfigMap/podinfo-values\nSecret/podinfo-secret (values.yaml)",
+          "chips": [
+            {
+              "text": "ConfigMap/podinfo-values",
+              "link": {
+                "kind": "configmaps",
+                "namespace": "shop",
+                "name": "podinfo-values"
+              }
+            },
+            {
+              "text": "Secret/podinfo-secret (values.yaml)",
+              "link": {
+                "kind": "secrets",
+                "namespace": "shop",
+                "name": "podinfo-secret"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Depends On",
+          "value": "redis",
+          "chips": [
+            {
+              "text": "redis",
+              "link": {
+                "kind": "helmreleases.helm.toolkit.fluxcd.io",
+                "namespace": "shop",
+                "name": "redis"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Last Attempted Revision",
+          "value": "6.7.1"
+        },
+        {
+          "name": "Last Attempted Action",
+          "value": "upgrade"
+        },
+        {
+          "name": "Helm Chart",
+          "value": "flux-system/shop-podinfo",
+          "link": {
+            "kind": "helmcharts.source.toolkit.fluxcd.io",
+            "namespace": "flux-system",
+            "name": "shop-podinfo"
+          }
+        },
+        {
+          "name": "Revision",
+          "value": "6.7.1"
+        },
+        {
+          "name": "Interval",
+          "value": "30m"
+        },
+        {
+          "name": "Timeout",
+          "value": "5m"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        },
+        {
+          "name": "Last Handled Reconcile",
+          "value": "2026-10-11 10:00:00"
+        }
+      ]
+    },
+    {
+      "title": "History",
+      "table": {
+        "columns": [
+          "Revision",
+          "Chart",
+          "App Version",
+          "Status",
+          "Deployed"
+        ],
+        "rows": [
+          [
+            "4",
+            "podinfo-6.7.1",
+            "6.7.1",
+            "deployed",
+            "2026-10-11 10:00:05"
+          ],
+          [
+            "3",
+            "podinfo-6.7.0",
+            "6.7.0",
+            "superseded",
+            "2026-10-05 09:00:00"
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (UpgradeSucceeded): Helm upgrade succeeded for release shop/shop-podinfo.v4 with chart podinfo@6.7.1",
+          "status": "ok"
+        },
+        {
+          "name": "Released",
+          "value": "True (UpgradeSucceeded): Helm upgrade succeeded",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

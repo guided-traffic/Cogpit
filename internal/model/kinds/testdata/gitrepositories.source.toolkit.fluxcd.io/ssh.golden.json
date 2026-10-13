@@ -1,0 +1,123 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "gitrepositories.source.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "charts"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "charts"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "url",
+      "text": "ssh://git@github.com/acme/charts"
+    },
+    {
+      "column": "ref",
+      "text": "tag v2.1.0"
+    },
+    {
+      "column": "revision",
+      "text": "v2.1.0@sha1:aa11bb22"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "stored artifact"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "charts"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "ref": [
+      "tag v2.1.0"
+    ],
+    "revision": [
+      "v2.1.0@sha1:aa11bb22"
+    ],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ],
+    "url": [
+      "ssh://git@github.com/acme/charts"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "Message",
+          "value": "stored artifact"
+        },
+        {
+          "name": "URL",
+          "value": "ssh://git@github.com/acme/charts"
+        },
+        {
+          "name": "Ref",
+          "value": "tag v2.1.0"
+        },
+        {
+          "name": "Revision",
+          "value": "v2.1.0@sha1:aa11bb22"
+        },
+        {
+          "name": "Interval",
+          "value": "5m"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (Succeeded): stored artifact",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImagePolicy
+metadata:
+  name: podinfo
+  namespace: flux-system
+  uid: uid-podinfo
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  imageRepositoryRef:
+    name: podinfo
+  filterTags:
+    pattern: '^v(?P<version>.*)$'
+    extract: '$version'
+  policy:
+    semver:
+      range: 6.x
+status:
+  observedGeneration: 1
+  latestRef:
+    name: ghcr.io/stefanprodan/podinfo
+    tag: 6.7.1
+    digest: sha256:abcd
+  observedPreviousRef:
+    name: ghcr.io/stefanprodan/podinfo
+    tag: 6.7.0
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: Succeeded
+    message: "Latest image tag for ghcr.io/stefanprodan/podinfo resolved to 6.7.1"

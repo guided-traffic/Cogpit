@@ -1,0 +1,144 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "buckets.source.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "tenants"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "tenants"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "endpoint",
+      "text": "s3.amazonaws.com"
+    },
+    {
+      "column": "bucket",
+      "text": "acme-tenants"
+    },
+    {
+      "column": "revision",
+      "text": "sha256:77aa"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "stored artifact for revision 'sha256:77aa'"
+    }
+  ],
+  "fields": {
+    "bucket": [
+      "acme-tenants"
+    ],
+    "endpoint": [
+      "s3.amazonaws.com"
+    ],
+    "label": [],
+    "name": [
+      "tenants"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "revision": [
+      "sha256:77aa"
+    ],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "Message",
+          "value": "stored artifact for revision 'sha256:77aa'"
+        },
+        {
+          "name": "Endpoint",
+          "value": "s3.amazonaws.com"
+        },
+        {
+          "name": "Bucket",
+          "value": "acme-tenants"
+        },
+        {
+          "name": "Provider",
+          "value": "aws"
+        },
+        {
+          "name": "Region",
+          "value": "eu-central-1"
+        },
+        {
+          "name": "Prefix",
+          "value": "prod/"
+        },
+        {
+          "name": "Secret",
+          "value": "s3-credentials",
+          "link": {
+            "kind": "secrets",
+            "namespace": "flux-system",
+            "name": "s3-credentials"
+          }
+        },
+        {
+          "name": "Revision",
+          "value": "sha256:77aa"
+        },
+        {
+          "name": "Interval",
+          "value": "5m"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (Succeeded): stored artifact for revision 'sha256:77aa'",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

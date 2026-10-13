@@ -1,0 +1,91 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "buckets.source.toolkit.fluxcd.io",
+    "namespace": "default",
+    "name": "minimal"
+  },
+  "status": "unknown",
+  "cells": [
+    {
+      "column": "name",
+      "text": "minimal"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "endpoint",
+      "text": ""
+    },
+    {
+      "column": "bucket",
+      "text": ""
+    },
+    {
+      "column": "revision",
+      "text": ""
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Unknown",
+      "status": "unknown"
+    },
+    {
+      "column": "message",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "bucket": [],
+    "endpoint": [],
+    "label": [],
+    "name": [
+      "minimal"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "revision": [],
+    "status": [
+      "Unknown"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Unknown",
+          "status": "unknown"
+        },
+        {
+          "name": "Provider",
+          "value": "generic"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,198 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "kustomizations.kustomize.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "apps"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "apps"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "source",
+      "text": "GitRepository/flux-system",
+      "link": {
+        "kind": "gitrepositories.source.toolkit.fluxcd.io",
+        "namespace": "flux-system",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "path",
+      "text": "./clusters/prod/apps"
+    },
+    {
+      "column": "revision",
+      "text": "main@sha1:6f2c1b9e"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "Applied revision: main@sha1:6f2c1b9e"
+    }
+  ],
+  "fields": {
+    "label": [
+      "kustomize.toolkit.fluxcd.io/name=flux-system"
+    ],
+    "name": [
+      "apps"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "path": [
+      "./clusters/prod/apps"
+    ],
+    "revision": [
+      "main@sha1:6f2c1b9e"
+    ],
+    "source": [
+      "GitRepository/flux-system"
+    ],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "Message",
+          "value": "Applied revision: main@sha1:6f2c1b9e"
+        },
+        {
+          "name": "Source",
+          "value": "GitRepository/flux-system",
+          "link": {
+            "kind": "gitrepositories.source.toolkit.fluxcd.io",
+            "namespace": "flux-system",
+            "name": "flux-system"
+          }
+        },
+        {
+          "name": "Path",
+          "value": "./clusters/prod/apps"
+        },
+        {
+          "name": "Target Namespace",
+          "value": "shop"
+        },
+        {
+          "name": "Service Account",
+          "value": "kustomize-controller"
+        },
+        {
+          "name": "Prune",
+          "value": "true"
+        },
+        {
+          "name": "Wait",
+          "value": "true"
+        },
+        {
+          "name": "Retry Interval",
+          "value": "2m0s"
+        },
+        {
+          "name": "Depends On",
+          "value": "infra\nplatform/crds",
+          "chips": [
+            {
+              "text": "infra",
+              "link": {
+                "kind": "kustomizations.kustomize.toolkit.fluxcd.io",
+                "namespace": "flux-system",
+                "name": "infra"
+              }
+            },
+            {
+              "text": "platform/crds",
+              "link": {
+                "kind": "kustomizations.kustomize.toolkit.fluxcd.io",
+                "namespace": "platform",
+                "name": "crds"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Last Attempted Revision",
+          "value": "main@sha1:6f2c1b9e"
+        },
+        {
+          "name": "Applied Objects",
+          "value": "3"
+        },
+        {
+          "name": "Revision",
+          "value": "main@sha1:6f2c1b9e"
+        },
+        {
+          "name": "Interval",
+          "value": "10m0s"
+        },
+        {
+          "name": "Timeout",
+          "value": "5m0s"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        },
+        {
+          "name": "Last Handled Reconcile",
+          "value": "2026-10-11 11:58:00"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (ReconciliationSucceeded): Applied revision: main@sha1:6f2c1b9e",
+          "status": "ok"
+        },
+        {
+          "name": "Healthy",
+          "value": "True (Succeeded): Health check passed in 3.2s",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

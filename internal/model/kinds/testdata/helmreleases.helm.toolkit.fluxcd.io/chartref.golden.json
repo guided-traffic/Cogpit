@@ -1,0 +1,152 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "helmreleases.helm.toolkit.fluxcd.io",
+    "namespace": "shop",
+    "name": "frontend"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "frontend"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "chart",
+      "text": "OCIRepository/frontend-chart",
+      "link": {
+        "kind": "ocirepositories.source.toolkit.fluxcd.io",
+        "namespace": "shop",
+        "name": "frontend-chart"
+      }
+    },
+    {
+      "column": "version",
+      "text": ""
+    },
+    {
+      "column": "revision",
+      "text": "1.2.0"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Not Ready",
+      "status": "error"
+    },
+    {
+      "column": "message",
+      "text": "Helm upgrade failed for release shop/frontend with chart frontend@1.2.0: context deadline exceeded"
+    }
+  ],
+  "fields": {
+    "chart": [
+      "OCIRepository/frontend-chart"
+    ],
+    "label": [],
+    "name": [
+      "frontend"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "revision": [
+      "1.2.0"
+    ],
+    "status": [
+      "Not Ready"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Not Ready",
+          "status": "error"
+        },
+        {
+          "name": "Message",
+          "value": "Helm upgrade failed for release shop/frontend with chart frontend@1.2.0: context deadline exceeded"
+        },
+        {
+          "name": "Chart Ref",
+          "value": "OCIRepository/frontend-chart",
+          "link": {
+            "kind": "ocirepositories.source.toolkit.fluxcd.io",
+            "namespace": "shop",
+            "name": "frontend-chart"
+          }
+        },
+        {
+          "name": "Last Attempted Revision",
+          "value": "1.2.0"
+        },
+        {
+          "name": "Last Attempted Action",
+          "value": "upgrade"
+        },
+        {
+          "name": "Failures",
+          "value": "3"
+        },
+        {
+          "name": "Upgrade Failures",
+          "value": "3"
+        },
+        {
+          "name": "Revision",
+          "value": "1.2.0"
+        },
+        {
+          "name": "Interval",
+          "value": "10m"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "False (UpgradeFailed): Helm upgrade failed for release shop/frontend with chart frontend@1.2.0: context deadline exceeded",
+          "status": "error"
+        },
+        {
+          "name": "Remediated",
+          "value": "True (RollbackSucceeded): Helm rollback to previous release shop/frontend.v2 succeeded",
+          "status": "warning"
+        },
+        {
+          "name": "Stalled",
+          "value": "True (RetriesExceeded): Failed to upgrade after 3 attempt(s)",
+          "status": "error"
+        }
+      ]
+    }
+  ]
+}

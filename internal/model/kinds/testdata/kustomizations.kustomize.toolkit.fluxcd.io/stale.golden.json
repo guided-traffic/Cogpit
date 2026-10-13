@@ -1,0 +1,133 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "kustomizations.kustomize.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "edge"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "edge"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "source",
+      "text": "ExternalArtifact/edge-bundle",
+      "link": {
+        "kind": "externalartifacts.source.toolkit.fluxcd.io",
+        "namespace": "flux-system",
+        "name": "edge-bundle"
+      }
+    },
+    {
+      "column": "path",
+      "text": "./edge"
+    },
+    {
+      "column": "revision",
+      "text": "latest@sha256:aa11"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Reconciling",
+      "status": "pending"
+    },
+    {
+      "column": "message",
+      "text": "Applied revision: latest@sha256:aa11"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "edge"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "path": [
+      "./edge"
+    ],
+    "revision": [
+      "latest@sha256:aa11"
+    ],
+    "source": [
+      "ExternalArtifact/edge-bundle"
+    ],
+    "status": [
+      "Reconciling"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Reconciling",
+          "status": "pending"
+        },
+        {
+          "name": "Message",
+          "value": "Applied revision: latest@sha256:aa11"
+        },
+        {
+          "name": "Source",
+          "value": "ExternalArtifact/edge-bundle",
+          "link": {
+            "kind": "externalartifacts.source.toolkit.fluxcd.io",
+            "namespace": "flux-system",
+            "name": "edge-bundle"
+          }
+        },
+        {
+          "name": "Path",
+          "value": "./edge"
+        },
+        {
+          "name": "Revision",
+          "value": "latest@sha256:aa11"
+        },
+        {
+          "name": "Interval",
+          "value": "5m"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (ReconciliationSucceeded): Applied revision: latest@sha256:aa11",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: flux-system
+  namespace: flux-system
+  uid: uid-flux-system
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  interval: 1m0s
+  timeout: 60s
+  url: https://deploy:ghp_secret-token@github.com/acme/k8s-flux-base.git
+  ref:
+    branch: main
+  secretRef:
+    name: flux-system
+  provider: generic
+  recurseSubmodules: false
+  verify:
+    mode: HEAD
+status:
+  observedGeneration: 1
+  artifact:
+    revision: main@sha1:6f2c1b9e
+    digest: sha256:0123456789abcdef
+    lastUpdateTime: "2026-10-11T11:59:00Z"
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: Succeeded
+    message: "stored artifact for revision 'main@sha1:6f2c1b9e'"
+    lastTransitionTime: "2026-10-11T11:59:00Z"
+  - type: ArtifactInStorage
+    status: "True"
+    reason: Succeeded
+    message: "stored artifact for revision 'main@sha1:6f2c1b9e'"

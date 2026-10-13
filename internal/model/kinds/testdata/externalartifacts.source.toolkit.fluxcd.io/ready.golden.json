@@ -1,0 +1,112 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "externalartifacts.source.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "edge-bundle"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "edge-bundle"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "source",
+      "text": "ArtifactGenerator/edge"
+    },
+    {
+      "column": "revision",
+      "text": "latest@sha256:aa11"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "Artifact is ready"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "edge-bundle"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "revision": [
+      "latest@sha256:aa11"
+    ],
+    "source": [
+      "ArtifactGenerator/edge"
+    ],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "Message",
+          "value": "Artifact is ready"
+        },
+        {
+          "name": "Source",
+          "value": "ArtifactGenerator/edge"
+        },
+        {
+          "name": "Artifact Digest",
+          "value": "sha256:aa11"
+        },
+        {
+          "name": "Artifact Updated",
+          "value": "2026-10-11 11:50:00"
+        },
+        {
+          "name": "Revision",
+          "value": "latest@sha256:aa11"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (Succeeded): Artifact is ready",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

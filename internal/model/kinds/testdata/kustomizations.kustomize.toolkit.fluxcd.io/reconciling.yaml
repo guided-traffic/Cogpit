@@ -1,0 +1,26 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: tenants
+  namespace: flux-system
+  uid: uid-tenants
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 7
+spec:
+  interval: 5m
+  path: ./tenants
+  sourceRef:
+    kind: Bucket
+    name: tenants
+status:
+  observedGeneration: 7
+  conditions:
+  - type: Reconciling
+    status: "True"
+    reason: Progressing
+    message: Reconciliation in progress
+  - type: Ready
+    status: Unknown
+    reason: Progressing
+    message: Reconciliation in progress
+    lastTransitionTime: "2026-10-11T11:59:50Z"

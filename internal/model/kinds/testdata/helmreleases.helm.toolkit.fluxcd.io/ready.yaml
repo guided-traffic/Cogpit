@@ -1,0 +1,65 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: podinfo
+  namespace: shop
+  uid: uid-podinfo
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 3
+spec:
+  interval: 30m
+  timeout: 5m
+  releaseName: shop-podinfo
+  targetNamespace: shop
+  storageNamespace: shop
+  maxHistory: 5
+  serviceAccountName: helm
+  chart:
+    spec:
+      chart: podinfo
+      version: 6.x
+      sourceRef:
+        kind: HelmRepository
+        name: podinfo
+        namespace: flux-system
+  values:
+    replicaCount: 2
+    password: hunter2-must-never-show
+  valuesFrom:
+  - kind: ConfigMap
+    name: podinfo-values
+  - kind: Secret
+    name: podinfo-secret
+    valuesKey: values.yaml
+  dependsOn:
+  - name: redis
+status:
+  observedGeneration: 3
+  lastAttemptedRevision: 6.7.1
+  lastAttemptedReleaseAction: upgrade
+  helmChart: flux-system/shop-podinfo
+  lastHandledReconcileAt: "2026-10-11T10:00:00Z"
+  history:
+  - chartName: podinfo
+    chartVersion: 6.7.1
+    appVersion: 6.7.1
+    version: 4
+    status: deployed
+    firstDeployed: "2026-10-01T09:00:00Z"
+    lastDeployed: "2026-10-11T10:00:05Z"
+  - chartName: podinfo
+    chartVersion: 6.7.0
+    appVersion: 6.7.0
+    version: 3
+    status: superseded
+    lastDeployed: "2026-10-05T09:00:00Z"
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: UpgradeSucceeded
+    message: Helm upgrade succeeded for release shop/shop-podinfo.v4 with chart podinfo@6.7.1
+    lastTransitionTime: "2026-10-11T10:00:06Z"
+  - type: Released
+    status: "True"
+    reason: UpgradeSucceeded
+    message: Helm upgrade succeeded

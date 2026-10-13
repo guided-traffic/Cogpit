@@ -1,0 +1,132 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "kustomizations.kustomize.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "tenants"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "tenants"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "source",
+      "text": "Bucket/tenants",
+      "link": {
+        "kind": "buckets.source.toolkit.fluxcd.io",
+        "namespace": "flux-system",
+        "name": "tenants"
+      }
+    },
+    {
+      "column": "path",
+      "text": "./tenants"
+    },
+    {
+      "column": "revision",
+      "text": ""
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Reconciling",
+      "status": "pending"
+    },
+    {
+      "column": "message",
+      "text": "Reconciliation in progress"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "tenants"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "path": [
+      "./tenants"
+    ],
+    "revision": [],
+    "source": [
+      "Bucket/tenants"
+    ],
+    "status": [
+      "Reconciling"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Reconciling",
+          "status": "pending"
+        },
+        {
+          "name": "Message",
+          "value": "Reconciliation in progress"
+        },
+        {
+          "name": "Source",
+          "value": "Bucket/tenants",
+          "link": {
+            "kind": "buckets.source.toolkit.fluxcd.io",
+            "namespace": "flux-system",
+            "name": "tenants"
+          }
+        },
+        {
+          "name": "Path",
+          "value": "./tenants"
+        },
+        {
+          "name": "Interval",
+          "value": "5m"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Reconciling",
+          "value": "True (Progressing): Reconciliation in progress",
+          "status": "pending"
+        },
+        {
+          "name": "Ready",
+          "value": "Unknown (Progressing): Reconciliation in progress",
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}

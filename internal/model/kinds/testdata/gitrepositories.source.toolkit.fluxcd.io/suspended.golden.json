@@ -1,0 +1,103 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "gitrepositories.source.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "paused"
+  },
+  "status": "stopped",
+  "cells": [
+    {
+      "column": "name",
+      "text": "paused"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "url",
+      "text": "https://github.com/acme/paused"
+    },
+    {
+      "column": "ref",
+      "text": "commit 0a1b2c3d"
+    },
+    {
+      "column": "revision",
+      "text": ""
+    },
+    {
+      "column": "suspended",
+      "text": "true"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Suspended",
+      "status": "stopped"
+    },
+    {
+      "column": "message",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "paused"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "ref": [
+      "commit 0a1b2c3d"
+    ],
+    "revision": [],
+    "status": [
+      "Suspended"
+    ],
+    "suspended": [
+      "true"
+    ],
+    "url": [
+      "https://github.com/acme/paused"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Suspended",
+          "status": "stopped"
+        },
+        {
+          "name": "URL",
+          "value": "https://github.com/acme/paused"
+        },
+        {
+          "name": "Ref",
+          "value": "commit 0a1b2c3d"
+        },
+        {
+          "name": "Interval",
+          "value": "5m"
+        },
+        {
+          "name": "Suspended",
+          "value": "true"
+        }
+      ]
+    }
+  ]
+}

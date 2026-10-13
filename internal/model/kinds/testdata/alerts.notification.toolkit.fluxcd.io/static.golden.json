@@ -1,0 +1,129 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "alerts.notification.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "on-call"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "on-call"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "provider",
+      "text": "slack",
+      "link": {
+        "kind": "providers.notification.toolkit.fluxcd.io",
+        "namespace": "flux-system",
+        "name": "slack"
+      }
+    },
+    {
+      "column": "severity",
+      "text": "error"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "on-call"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "provider": [
+      "slack"
+    ],
+    "severity": [
+      "error"
+    ],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "Provider",
+          "value": "slack",
+          "link": {
+            "kind": "providers.notification.toolkit.fluxcd.io",
+            "namespace": "flux-system",
+            "name": "slack"
+          }
+        },
+        {
+          "name": "Severity",
+          "value": "error"
+        },
+        {
+          "name": "Event Sources",
+          "value": "Kustomization/*\nHelmRelease/shop/podinfo",
+          "chips": [
+            {
+              "text": "Kustomization/*"
+            },
+            {
+              "text": "HelmRelease/shop/podinfo",
+              "link": {
+                "kind": "helmreleases.helm.toolkit.fluxcd.io",
+                "namespace": "shop",
+                "name": "podinfo"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Exclusion List",
+          "value": ".*upgrade.*has.*started"
+        },
+        {
+          "name": "Summary",
+          "value": "Production cluster"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    }
+  ]
+}

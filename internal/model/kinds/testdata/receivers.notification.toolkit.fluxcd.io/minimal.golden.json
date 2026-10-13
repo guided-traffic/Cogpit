@@ -1,0 +1,81 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "receivers.notification.toolkit.fluxcd.io",
+    "namespace": "default",
+    "name": "minimal"
+  },
+  "status": "unknown",
+  "cells": [
+    {
+      "column": "name",
+      "text": "minimal"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "type",
+      "text": ""
+    },
+    {
+      "column": "resources",
+      "text": "0"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Unknown",
+      "status": "unknown"
+    },
+    {
+      "column": "message",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "minimal"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "status": [
+      "Unknown"
+    ],
+    "suspended": [
+      "false"
+    ],
+    "type": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Unknown",
+          "status": "unknown"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: ExternalArtifact
+metadata:
+  name: edge-bundle
+  namespace: flux-system
+  uid: uid-edge-bundle
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  sourceRef:
+    apiVersion: source.extensions.fluxcd.io/v1beta1
+    kind: ArtifactGenerator
+    name: edge
+status:
+  artifact:
+    revision: latest@sha256:aa11
+    digest: sha256:aa11
+    lastUpdateTime: "2026-10-11T11:50:00Z"
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: Succeeded
+    message: Artifact is ready

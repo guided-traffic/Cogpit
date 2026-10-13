@@ -1,0 +1,143 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "helmreleases.helm.toolkit.fluxcd.io",
+    "namespace": "legacy",
+    "name": "nginx"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "nginx"
+    },
+    {
+      "column": "namespace",
+      "text": "legacy",
+      "link": {
+        "kind": "namespaces",
+        "name": "legacy"
+      }
+    },
+    {
+      "column": "chart",
+      "text": "./charts/nginx",
+      "link": {
+        "kind": "gitrepositories.source.toolkit.fluxcd.io",
+        "namespace": "legacy",
+        "name": "charts"
+      }
+    },
+    {
+      "column": "version",
+      "text": "*"
+    },
+    {
+      "column": "revision",
+      "text": "1.0.0"
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "Release reconciliation succeeded"
+    }
+  ],
+  "fields": {
+    "chart": [
+      "./charts/nginx"
+    ],
+    "label": [],
+    "name": [
+      "nginx"
+    ],
+    "namespace": [
+      "legacy"
+    ],
+    "revision": [
+      "1.0.0"
+    ],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "Message",
+          "value": "Release reconciliation succeeded"
+        },
+        {
+          "name": "Chart",
+          "value": "./charts/nginx"
+        },
+        {
+          "name": "Version",
+          "value": "*"
+        },
+        {
+          "name": "Chart Source",
+          "value": "GitRepository/charts",
+          "link": {
+            "kind": "gitrepositories.source.toolkit.fluxcd.io",
+            "namespace": "legacy",
+            "name": "charts"
+          }
+        },
+        {
+          "name": "Helm Chart",
+          "value": "other",
+          "link": {
+            "kind": "helmcharts.source.toolkit.fluxcd.io",
+            "namespace": "legacy",
+            "name": "other"
+          }
+        },
+        {
+          "name": "Revision",
+          "value": "1.0.0"
+        },
+        {
+          "name": "Interval",
+          "value": "5m"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (ReconciliationSucceeded): Release reconciliation succeeded",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

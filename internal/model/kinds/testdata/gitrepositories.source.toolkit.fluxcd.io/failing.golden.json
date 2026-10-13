@@ -1,0 +1,122 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "gitrepositories.source.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "missing"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "missing"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "url",
+      "text": "https://<redacted>@github.com/acme/missing"
+    },
+    {
+      "column": "ref",
+      "text": "semver >=1.0.0"
+    },
+    {
+      "column": "revision",
+      "text": ""
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Not Ready",
+      "status": "error"
+    },
+    {
+      "column": "message",
+      "text": "failed to checkout and determine revision: repository not found"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "missing"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "ref": [
+      "semver >=1.0.0"
+    ],
+    "revision": [],
+    "status": [
+      "Not Ready"
+    ],
+    "suspended": [
+      "false"
+    ],
+    "url": [
+      "https://<redacted>@github.com/acme/missing"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Not Ready",
+          "status": "error"
+        },
+        {
+          "name": "Message",
+          "value": "failed to checkout and determine revision: repository not found"
+        },
+        {
+          "name": "URL",
+          "value": "https://<redacted>@github.com/acme/missing"
+        },
+        {
+          "name": "Ref",
+          "value": "semver >=1.0.0"
+        },
+        {
+          "name": "Interval",
+          "value": "5m"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "FetchFailed",
+          "value": "True (GitOperationFailed): failed to checkout and determine revision: repository not found",
+          "status": "error"
+        },
+        {
+          "name": "Ready",
+          "value": "False (GitOperationFailed): failed to checkout and determine revision: repository not found",
+          "status": "error"
+        }
+      ]
+    }
+  ]
+}

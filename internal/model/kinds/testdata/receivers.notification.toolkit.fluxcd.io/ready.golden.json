@@ -1,0 +1,136 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "receivers.notification.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "github"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "github"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "type",
+      "text": "github"
+    },
+    {
+      "column": "resources",
+      "text": "2",
+      "num": 2
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": "Receiver initialized"
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "github"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ],
+    "type": [
+      "github"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "Message",
+          "value": "Receiver initialized"
+        },
+        {
+          "name": "Type",
+          "value": "github"
+        },
+        {
+          "name": "Events",
+          "value": "ping, push"
+        },
+        {
+          "name": "Resources",
+          "value": "GitRepository/flux-system\nKustomization/*",
+          "chips": [
+            {
+              "text": "GitRepository/flux-system",
+              "link": {
+                "kind": "gitrepositories.source.toolkit.fluxcd.io",
+                "namespace": "flux-system",
+                "name": "flux-system"
+              }
+            },
+            {
+              "text": "Kustomization/*"
+            }
+          ]
+        },
+        {
+          "name": "Secret",
+          "value": "webhook-token",
+          "link": {
+            "kind": "secrets",
+            "namespace": "flux-system",
+            "name": "webhook-token"
+          }
+        },
+        {
+          "name": "Interval",
+          "value": "10m"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "Ready",
+          "value": "True (Succeeded): Receiver initialized",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}
