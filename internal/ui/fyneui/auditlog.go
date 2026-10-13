@@ -50,6 +50,7 @@ type auditLogTab struct {
 	entries []engine.AuditItem
 	loaded  string // the origin the entries were read for
 	seq     int    // the newest read asked for; older answers are dropped
+	stale   bool   // lines were written while another dock tab was shown: read again when shown
 	syncing bool
 	closed  bool
 }
@@ -98,10 +99,13 @@ func (a *auditLogTab) update(t engine.DockTab) {
 		}
 	}
 	a.syncing = false
-	if t.Audit.Origin != a.loaded || a.seq == 0 {
+	if t.Audit.Origin != a.loaded || a.seq == 0 || (a.stale && a.shown()) {
 		a.reload()
 	}
 }
+
+// shown reports whether the tab is the dock's active one.
+func (a *auditLogTab) shown() bool { return a.sh.ui.ActiveDock == a.tab.ID }
 
 // remote implements dockEditor; the tab has no text.
 func (a *auditLogTab) remote(uint64) {}
@@ -112,6 +116,7 @@ func (a *auditLogTab) close() { a.closed = true }
 // reload reads the log again through audit.list.
 func (a *auditLogTab) reload() {
 	a.seq++
+	a.stale = false
 	seq, origin := a.seq, a.tab.Audit.Origin
 	a.sh.dispatch("audit.list", map[string]any{"origin": origin, "limit": engine.MaxAuditEntries}, func(res any, err error) {
 		if a.closed || seq != a.seq {
@@ -301,11 +306,16 @@ func (l auditRowLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
 	}
 }
 
-// auditChanged reads the Audit Log again after the engine announced a new line (EventAudit).
+// auditChanged reads the Audit Log again after the engine announced a new line (EventAudit), or,
+// while another dock tab is shown, when it is shown again: the file is not read for a hidden tab.
 func (d *dock) auditChanged() {
 	for _, c := range d.contents {
 		if a, ok := c.editor.(*auditLogTab); ok && !c.closed {
-			a.reload()
+			if a.shown() {
+				a.reload()
+			} else {
+				a.stale = true
+			}
 		}
 	}
 }

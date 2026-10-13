@@ -133,6 +133,20 @@ func TestAuditLogTab(t *testing.T) {
 	}
 	q.until(t, "the new entry on top", func() bool { return len(a.entries) == 5 && a.entries[0].Command == "cluster.settings.get" })
 
+	// Behind another dock tab the log is not read; shown again, it is.
+	mustDispatch(t, s, "diagnostics.open", struct{}{})
+	q.until(t, "the Diagnostics tab in front", func() bool { return diagnosticsTabOf(sh) != nil && !a.shown() })
+	seq := a.seq
+	if _, err := s.Dispatch(context.Background(), engine.Invocation{ID: "cluster.settings.get", Params: raw, Origin: engine.OriginExternalAgent}); err != nil {
+		t.Fatal(err)
+	}
+	q.until(t, "the log marked stale", func() bool { return a.stale })
+	if a.seq != seq {
+		t.Error("the hidden Audit Log read the file")
+	}
+	mustDispatch(t, s, "dock.activate", map[string]any{"id": a.tab.ID})
+	q.until(t, "the log read when shown", func() bool { return a.shown() && !a.stale && len(a.entries) == 6 })
+
 	// The palette offers it, from the registry.
 	entries := s.Registry().Palette(s, engine.PaletteInput{State: s.UIState()})
 	if !slices.ContainsFunc(entries, func(e engine.PaletteEntry) bool { return e.Command == "audit.open" && e.Category == "Help" }) {

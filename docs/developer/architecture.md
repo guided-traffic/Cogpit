@@ -1655,7 +1655,7 @@ returns it to agents and the window; `audit.open` (`DangerUI`, Help › Audit Lo
 its `MenuPath`) opens one dock tab of type `audit` (`DockAudit`) or activates it, its origin filter
 the tab's engine state (`DockTab.Audit`). The session wraps its audit writer so that each line
 written schedules one `EventAudit`, at most every 250 ms and never under the audit lock; the tab
-reads again on it. The CLI's own commands are not audited, so the CLI origin has no entries.
+reads again on it while it is the dock's active tab, else once it is shown again. The CLI's own commands are not audited, so the CLI origin has no entries.
 
 ## 8. Helm (`internal/helm`)
 
