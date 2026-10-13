@@ -99,7 +99,8 @@ func run(previousCrash string) int {
 	}
 	s := engine.New(engine.Options{Connector: connector, Audit: audit, Logger: logger, Drains: openDrainJournal(logger),
 		Helm: openHelmJournal(logger), Hotbar: openHotbar(logger), HelmRepos: openHelmRepos(logger),
-		Preferences: openPreferences(logger), ClusterSettings: clusterSettings, Kubectl: openKubectl(logger)})
+		Preferences: openPreferences(logger), ClusterSettings: clusterSettings, Kubectl: openKubectl(logger),
+		Drafts: openDrafts(logger)})
 	defer s.Close()
 	defer s.WatchKubeconfigs(0)() // sync folders: files that appear or leave are picked up
 	if err := commands.RegisterAll(s.Registry()); err != nil {
@@ -203,6 +204,18 @@ func openHelmJournal(logger *slog.Logger) *engine.HelmOps {
 		return nil
 	}
 	return engine.NewHelmOps(engine.NewFileHelmJournal(filepath.Join(dir, "Cogpit")))
+}
+
+// openDrafts keeps the unsaved text of Edit and Create resource tabs in
+// <user config dir>/Cogpit/drafts/, owner-only, so that a crash or a quit does not lose it (D-11);
+// never a Secret's text or Helm values. Without a configuration directory there are no drafts.
+func openDrafts(logger *slog.Logger) *engine.Drafts {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		logger.Warn("drafts of unsaved editor text disabled", "err", err)
+		return nil
+	}
+	return engine.NewDrafts(filepath.Join(dir, "Cogpit"))
 }
 
 // openHotbar keeps the hotbar's banks of pinned clusters in <user config dir>/Cogpit/hotbar.json,

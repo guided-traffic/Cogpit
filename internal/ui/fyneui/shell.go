@@ -95,6 +95,8 @@ type shell struct {
 	helm      *helmBanner  // unfinished Helm release actions, below the drains (helmbanner.go)
 	titlebar  *titlebar    // Cogpit's own title bar on macOS (titlebar.go)
 
+	drafts *draftsBanner // unsaved editor text kept from an earlier run, below the Helm banner (drafts.go)
+
 	hsplit    *fyne.Container // table | drawer, the drawer's width set by the user (panelwidths.go)
 	mainRow   *fyne.Container // sidebar | body, the sidebar's width set by the user
 	center    *fyne.Container // mainRow, or the open settings page in its place
@@ -169,6 +171,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.confirmer = newGUIConfirmer(sh)
 	sh.drains = newDrainBanner(sh)
 	sh.helm = newHelmBanner(sh)
+	sh.drafts = newDraftsBanner(sh)
 	sh.toasts = box(&toastLayout{})
 	sh.tip = newTooltip(sh)
 	sh.hot = newHotbar(sh)
@@ -195,7 +198,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.mainRow = main
 	sh.center = container.NewStack(main)
 	frame := container.NewBorder(
-		container.NewVBox(sh.top.root, newDivider(false), sh.drains.root, sh.helm.root),
+		container.NewVBox(sh.top.root, newDivider(false), sh.drains.root, sh.helm.root, sh.drafts.root),
 		container.NewVBox(newDivider(false), sh.status.root),
 		sh.hot.root, nil, sh.center)
 	sh.root = container.NewStack(frame, sh.tip.layer, sh.toasts)
@@ -322,6 +325,8 @@ func (sh *shell) onEvent(ev engine.Event) {
 		sh.drains.request()
 	case engine.EventHelm:
 		sh.helm.request()
+	case engine.EventDrafts:
+		sh.drafts.request()
 	case engine.EventEditor:
 		id, rev := ev.View, ev.Revision
 		sh.do(func() { sh.dock.editorEvent(id, rev) })

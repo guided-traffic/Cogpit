@@ -148,6 +148,8 @@ var wantCommands = map[string]engine.Danger{
 	"ui.setNavigatorScope": engine.DangerUI,
 	// kubectl for terminals (D-3): GUI-only, Cogpit's own folder, never a cluster (TestKubectlDownloadCommand).
 	"kubectl.download": engine.DangerUI,
+	// The editor's drafts (G9): Cogpit's own files, never a cluster (TestDraftRestoredAfterARestart).
+	"editor.drafts": engine.DangerRead, "editor.restoreDraft": engine.DangerUI, "editor.discardDraft": engine.DangerUI,
 }
 
 func TestRegistryComplete(t *testing.T) {

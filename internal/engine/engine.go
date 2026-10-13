@@ -118,6 +118,10 @@ type Options struct {
 	// Kubectl checks the kubectl of the terminals and downloads the release that matches a cluster
 	// (kubectl.go, D-3). Nil: terminals run the kubectl on PATH unchecked.
 	Kubectl *Kubectl
+	// Drafts keeps the unsaved text of Edit and Create resource tabs on disk, so that one a crash
+	// interrupts is offered again when its context is connected (D-11; drafts.go). Nil: no drafts,
+	// and the draft commands are disabled.
+	Drafts *Drafts
 }
 
 // Session is the engine for one desktop app or headless process. It is safe for concurrent use.
@@ -175,6 +179,7 @@ func New(opts Options) *Session {
 	opts.HelmRepos.attach(s)
 	opts.Preferences.attach(s)
 	opts.ClusterSettings.attach(s)
+	opts.Drafts.attach(s) // nil-safe
 	return s
 }
 
@@ -392,4 +397,7 @@ func (s *Session) emit(ev Event) {
 func (s *Session) Emit(ev Event) { s.emit(ev) }
 
 // Close disconnects and stops every view. The session must not be used afterwards.
-func (s *Session) Close() { s.state.close() }
+func (s *Session) Close() {
+	s.opts.Drafts.close() // the drafts still waiting for their timer are written first (nil-safe)
+	s.state.close()
+}

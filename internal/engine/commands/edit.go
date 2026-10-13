@@ -201,7 +201,11 @@ func registerEdit(g *registrar) {
 			return s.CreateTargets(ctx, p.YAML, p.Namespace)
 		},
 		Run: func(ctx context.Context, s *engine.Session, p createParams) (any, error) {
-			return s.CreateObjects(ctx, p.YAML, p.Namespace)
+			res, err := s.CreateObjects(ctx, p.YAML, p.Namespace)
+			if err == nil && res.Failed == 0 && res.Created > 0 {
+				s.CreatedText(p.YAML) // a Create tab holding this text has nothing unsaved: its draft goes (drafts.go)
+			}
+			return res, err
 		},
 	})
 

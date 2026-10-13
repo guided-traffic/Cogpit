@@ -44,6 +44,10 @@ type editor struct {
 	baseUID  string
 	baseText string
 
+	// Create resource tabs only: the text the tab opened with, or the one it created in full,
+	// which is not unsaved work: a draft keeps only a text that differs (drafts.go).
+	startText string
+
 	// Helm Upgrade tabs only: the revision the values are based on (helmupgrade.go). Never
 	// changed in place: a rebase sets a new one.
 	helm *helmBase
@@ -288,7 +292,7 @@ func (s *Session) OpenCreateTab(text string) (EditorState, error) {
 	}
 	e := &editor{
 		tab:  DockTab{ID: s.NewDockID(DockCreate), Type: DockCreate, Title: createTabTitle, Context: b.Context},
-		text: text, rev: 1,
+		text: text, rev: 1, startText: text,
 	}
 	s.putEditor(e)
 	ui := s.UpdateUI(func(u *UIState) {

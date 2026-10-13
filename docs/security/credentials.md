@@ -86,6 +86,20 @@ Cogpit adds no cluster credential source of its own: no account, no login, no cl
   `TestProxyRefusalNeverQuotesThePassword`, `TestConnectThroughTheClusterProxy`). Only the user sets
   a proxy ([agents and MCP](agents-and-mcp.md)). The file is plaintext
   ([H-33](#h-33-proxy-passwords-are-plaintext-in-cogpits-settings)).
+- **Drafts of unsaved editor text** (built 2026-10-13, G9, [D-11](../developer/decisions.md#d-11-crash-stance)):
+  the unsaved text of an Edit or Create resource tab is written to
+  `<user config dir>/Cogpit/drafts/<32 hex>.json`, 0600 in a 0700 folder, replaced atomically,
+  never through a symlink (`writePrivateFile`); with it the tab's context, object, the version the
+  text is based on, the time and the writing Cogpit process. It is removed when the text is saved
+  again or the tab is closed. **Never a Secret's values** ([D-19](../developer/decisions.md#d-19-editing-and-creating-secrets-from-yaml)):
+  a Secret's Edit tab has no draft, nor has a tab whose text holds a Secret's manifest (a list's
+  items and text that does not parse included) or may become one while it is typed (a `kind:` that
+  is a beginning of `Secret` or `SecretList`, in any case); a draft whose text turns into one is
+  removed, and a draft file found holding one is deleted unread. **Never Helm values**: the Helm
+  Upgrade and Install tabs have no drafts ([`drafts.go`](../../internal/engine/drafts.go),
+  `TestNoDraftsForSecretsOrHelmValues`, `TestNoDraftsOfSecretTabs`, `TestDraftFilesReadBack`).
+  Agents list drafts without their text; a restored tab's text follows `editor.get`'s rules. What
+  other kinds' text a user types is kept as typed ([H-35](#h-35-drafts-keep-typed-text-in-plain-text)).
 - **In memory:** credentials are held by the connection that uses them and dropped when it closes.
   Rule for Cogpit's own credential types: they implement `slog.LogValuer` and `fmt.Stringer` as
   `"<redacted>"`, so a stray log statement cannot print them. The MVP has no such type yet: cluster
@@ -128,6 +142,7 @@ That `kubectl` reads the same `KUBECONFIG` as any other.
 | Application log | No tokens, keys, certificates, exec-plugin output or Secret data, at any log level |
 | Audit log | An agent's parameters are logged (D-2), with Secret values, Helm values and a proxy's password redacted ([`audit.go`](../../internal/engine/audit.go) `auditParams`) |
 | Error messages and toasts | Same rule; errors name the context, never the credential. client-go's own errors can echo a kubeconfig's `users` entries; `kubeconfig.SafeError` ([`kubeconfig.go`](../../internal/kubeconfig/kubeconfig.go)) strips them, and connect errors are tested not to contain a known token. client-go's validation also quotes a `proxy-url` it cannot use whole (`invalid 'proxy-url' "http://user:password@…"`, "could not parse: …"): fixed 2026-10-13, `cluster.Connect` replaces the user information of every `proxy-url` of the kubeconfig, as written, as `%q` writes it, and the password alone, with `•••` (`TestKubeconfigProxyPasswordNeverInErrors`, `TestKubeconfigProxySecrets`). A certificate the server presents is checked, not a secret: a failed check names the kubeconfig field to look at (`TestConnectTrustsTheKubeconfigCA`) |
+| Drafts of unsaved editor text | Never a Secret's values, never Helm values (2026-10-13, see [above](#where-they-live-inside-cogpit)); the drafts' listing for agents carries no text |
 | Crash reports | Cogpit has no crash upload. Since 2026-10-12 the Go runtime writes an unhandled panic or fatal error into `<user config dir>/Cogpit/crash.log` (0600) as well as to standard error ([`crash.go`](../../cmd/cogpit/crash.go)); the next start moves it to `crashes/crash-<time>.log`, keeps the newest ten and names it in the window. Its text is the runtime's: the panic's message and the goroutines' stacks (function names, file lines, argument words, no strings' contents); a panic message the code formats from a value could carry it, so the file follows the log rule: local, owner-only, never sent anywhere |
 | Telemetry | Cogpit sends none. Any network call to something other than a cluster, a Helm repository, the configured LLM endpoint, the release channel or the kubectl release host or mirror ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries), a download the user clicked; it sends the version and platform in the URL, no credential) needs a decision entry in [`decisions.md`](../developer/decisions.md) |
 | The LLM endpoint | Secret values only when the user allows it for that request ([H-13](agents-and-mcp.md#h-13-cluster-data-leaves-for-the-llm-endpoint)) |
@@ -140,7 +155,8 @@ Kubernetes Secrets are data the user's identity may read, not Cogpit's own crede
 are handled with the same care: the list holds metadata only, an opened Secret's values are
 masked until the user reveals one field, decoded values are never logged, and a Secret is edited or
 created from YAML in the GUI only (since 2026-10-12, D-19: the editor shows its values to the user;
-agents and the CLI are refused, and no value reaches the audit log, an error or a toast). As built (2026-10-11): when the
+agents and the CLI are refused, and no value reaches the audit log, an error or a toast; since
+2026-10-13 nor a draft on disk). As built (2026-10-11): when the
 drawer closes or moves, the engine zeroes the bytes it kept of the opened Secret; the GET's
 response and a revealed value's string wait for the garbage collector, so the wipe is best effort
 ([privilege footprint › H-8](privilege-footprint.md#h-8-secret-data-arrives-with-the-list)).
@@ -215,6 +231,18 @@ The password reaches the proxy in clear when the proxy's URL is `http://` (Basic
 the CONNECT, as every HTTP client sends it); Cogpit does not warn about that. Whether proxy
 credentials move into the keychain, and whether an `http://` proxy with a password is refused or
 warned about, is not decided.
+
+### H-35: Drafts keep typed text in plain text
+
+A draft of unsaved editor text (2026-10-13) holds what the user typed into an Edit or Create
+resource tab of any kind but a Secret, as typed: a password pasted into a ConfigMap, a token in a
+Deployment's `env`, a manifest that names a Secret's values under another kind's fields. It sits
+in `<user config dir>/Cogpit/drafts/` protected by its permissions only (0600 in a 0700
+directory) until the text is saved, the tab closed or the draft discarded, and a crash leaves it
+there until the next connect of its context offers it; a backup of the configuration folder
+carries it. Before drafts that text lived in memory only. A draft is not encrypted, and the
+Secret check reads kinds, not values. Whether drafts are encrypted (a key in the operating
+system's keychain), expire, or can be switched off in the Preferences is not decided.
 
 ### H-20: Shell profiles can override the terminal's kubeconfig
 

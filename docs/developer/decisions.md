@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -310,7 +310,15 @@ priority does not carry over as is. Consequences:
   owning process (H-22). Helm install is open; built 2026-10-13 on the same road as the lead's
   default until the owner decides: the journal records the install, never its values, and one
   interrupted with the release `pending-install` or failed is offered as an uninstall.
-- **Unsaved editor content** is kept in a local draft so that a crash does not lose it.
+- **Unsaved editor content** is kept in a local draft so that a crash does not lose it. **Built
+  2026-10-13 (night run)**, with defaults of that run that the owner has not decided: an Edit or
+  Create resource tab's unsaved text is written 2 seconds after it stops changing (at least every
+  10 seconds while it changes) to `<user config dir>/Cogpit/drafts/<id>.json` (0600, atomic,
+  naming its process as the journals do, H-22), removed when the text is saved again or the tab
+  is closed (closing discards it, without asking), and written on a quit; the next connect of its
+  context offers it (Restore, Discard; `editor.drafts`). Never a Secret's text and never Helm
+  values (D-19). [Architecture §4.4](architecture.md#44-tables-details-editors-and-streams),
+  [credentials](../security/credentials.md#where-they-live-inside-cogpit).
 - **Crash reports (built 2026-10-12, after a crash in the owner's smoke test left nothing to read):**
   the Go runtime writes a crash's text into `<user config dir>/Cogpit/crash.log` as well (mode 0600,
   `runtime/debug.SetCrashOutput`), which a clean exit removes; the next start moves a report left
@@ -511,7 +519,10 @@ in `stringData`) and works like any other editor tab (diff, server-side dry run,
 resourceVersion precondition); agents and the CLI can neither open such a tab, nor read its text
 (`<withheld>`), nor apply or create a Secret; values never reach the audit log, an error or a
 toast. The same pattern as `secret.reveal` and the Helm Upgrade tab. Lens's Secret editor is not
-captured (inferred). **Built 2026-10-12** ([`secretedit.go`](../../internal/engine/secretedit.go)). The options weighed:
+captured (inferred). **Built 2026-10-12** ([`secretedit.go`](../../internal/engine/secretedit.go)).
+Since 2026-10-13 (the drafts of D-11, a default of the night run that follows from this decision):
+a Secret's tab, and any tab whose text holds a Secret's manifest or may be one being typed, has no
+draft on disk ([`drafts.go`](../../internal/engine/drafts.go), `TestNoDraftsForSecretsOrHelmValues`). The options weighed:
 
 | Option | For | Against |
 |---|---|---|
@@ -799,6 +810,7 @@ click, but an approval that no longer binds the server: a changed server in `con
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-11: drafts of unsaved editor text built (night run; the delays, the offer on connect and closing as a discard are that run's defaults, not decided); D-19: no draft of a Secret's text |
 | 2026-10-13 | minor | D-3 built (night run): the version check when a terminal opens, the GUI-only verified download (SHA-256 and sigstore signature, no transparency log: H-35), the release first on the terminal's PATH (zsh after its profile; H-36), the Preferences; the differences listed under D-3 |
 | 2026-10-13 | minor | D-14: the right mouse button's action and ⌃Ins and ⇧Ins on the clipboard, patches of the fork and upstream candidates (night run), not offered |
 | 2026-10-13 | minor | D-22 amended (Cogpit's default): the theme is a preference too, `--theme` overrides it for a run; the clusters' icon colours are Solarized's accents |

@@ -40,6 +40,10 @@ const (
 	// EventContexts: the contexts Cogpit can connect to changed (a kubeconfig source was added or
 	// removed, a sync folder's files changed, a credential plugin was allowed); re-read them.
 	EventContexts EventType = "contexts"
+	// EventDrafts: the drafts of unsaved editor text Cogpit offers changed (offered on connect,
+	// one restored or discarded); re-read them with editor.drafts. Event.Message, if set, says
+	// what to offer.
+	EventDrafts EventType = "drafts"
 )
 
 // Toast levels (Event.Level).

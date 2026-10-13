@@ -1,14 +1,14 @@
 # Beyond Lens
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (the `cogpit-cli mcp` stdio bridge done; command line: `cogpit-cli contexts` done, `get` partial) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (crash recovery: unsaved editor content restored from its local draft done; the `cogpit-cli mcp` stdio bridge done; command line: `cogpit-cli contexts` done, `get` partial) · **Target:** Lens Desktop 2026.10.51501
 
 What Cogpit does that Lens Desktop does not, or does only in part. These rows are Cogpit's own
 targets, decided by the owner; they do not count toward the parity numbers in
 [`target-app-parity.md`](target-app-parity.md), which measure Cogpit against Lens. Method:
 [`README.md`](README.md).
 
-**Summary (measured, 2026-10-13):** 22 of 38 rows exist: 13 done and 9 partial, in MCP control,
-cache transparency, crash recovery (the unfinished drain), everyday use (the status bar link
+**Summary (measured, 2026-10-13):** 23 of 38 rows exist: 14 done and 9 partial, in MCP control,
+cache transparency, crash recovery (the unfinished drain, unsaved editor text), everyday use (the status bar link
 done, copying from the drawer partial) and the command line (`cogpit-cli contexts` done, `get`
 partial). Remaining (estimated): 30–60 h for MCP control
 ([G17](gaps.md#g17-mcp-control)), 40–80 h for the built-in agent
@@ -88,7 +88,7 @@ AppImage builds in place; APT and RPM installs update by hand
 |---|---|---|
 | On start, Helm releases left `pending-install`, `pending-upgrade` or `pending-rollback` by Cogpit are shown with "finish" and "roll back" | missing | – |
 | On start, nodes Cogpit cordoned for a drain it did not finish are shown with "continue drain" and "uncordon" | done (2026-10-11): on connecting the context, a banner names the node and offers Finish drain, Uncordon and Dismiss; agents read the same list with `node_pendingDrains` | [`drains.go`](../../internal/engine/drains.go) (a journal written before the cordon), `TestKindDrainCrashFinishUncordon` (three-node kind cluster: a simulated crash, the offer on the next session, finish, uncordon), the banner's offscreen PNGs |
-| Unsaved editor content restored from its local draft | missing | – |
+| Unsaved editor content restored from its local draft | done (2026-10-13): an Edit or Create resource tab's unsaved text is kept 2 seconds after it stops changing (at least every 10 seconds while it changes) in `<user config dir>/Cogpit/drafts/`, owner-only, removed when the text is saved again or the tab is closed, and written on a quit; on the next connect of its context a banner offers each draft with Restore (the tab opens with the text; an Edit tab based on the version the draft was based on, so a change made meanwhile comes back as a conflict) and Discard; agents list the drafts without their text (`editor.drafts`) and restore or discard them. A draft of a tab open in another live Cogpit window is not offered. Never a Secret's text or Helm values ([D-19](../developer/decisions.md#d-19-editing-and-creating-secrets-from-yaml), [credentials](../security/credentials.md#where-they-live-inside-cogpit)). Defaults of the night run, not the owner's decision: the delays, the offer on connect, closing a tab discarding its draft, Discard without a confirmation | [`engine/drafts.go`](../../internal/engine/drafts.go), [`fyneui/drafts.go`](../../internal/ui/fyneui/drafts.go); `editor.drafts`, `editor.restoreDraft`, `editor.discardDraft`; `TestDraftWrittenAfterTypingStops`, `TestDraftRemovedWhenSavedOrClosed`, `TestNoDraftsForSecretsOrHelmValues`, `TestDraftsFlushedOnClose`, `TestDraftsOfAnotherProcess`, `TestDraftFilesReadBack`, `TestDraftRestoredAfterARestart`, `TestRestoreIntoTheOpenEditTab`, `TestCreateTabDraft`, `TestNoDraftsOfSecretTabs`, `TestDraftsBannerOffersAndActs`; PNGs [dark](../../internal/ui/fyneui/testdata/drafts_banner_dark.png), [light](../../internal/ui/fyneui/testdata/drafts_banner_light.png) |
 
 ## Everyday use
 
@@ -114,6 +114,7 @@ Cogpit's targets.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | Crash recovery: unsaved editor content restored from its local draft done (G9, night run); 23 of 38 rows, 14 done and 9 partial |
 | 2026-10-13 | minor | MCP control: the `cogpit-cli mcp` stdio bridge done; 22 of 38 rows, 13 done and 9 partial |
 | 2026-10-13 | minor | Command line, a new section: `cogpit-cli contexts` done, `cogpit-cli get` partial; 21 of 38 rows, 12 done and 9 partial |
 | 2026-10-12 | minor | Everyday use: the status bar link (D-23) done, copying values (D-25) partial; recounted by the lead: 19 of 36 rows, 11 done and 8 partial |
