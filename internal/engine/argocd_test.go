@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 	"github.com/guided-traffic/cogpit/internal/testkit"
 )
@@ -131,6 +133,21 @@ func TestArgoCDKindsFollowTheirDefinitions(t *testing.T) {
 	if !strings.Contains(m.YAML, "server: https://prod.example.com:6443") || !strings.Contains(m.YAML, "- config") {
 		t.Errorf("the cluster's YAML:\n%s", m.YAML)
 	}
+
+	// An Application Set counts the Applications it owns, from the cache.
+	set := testkit.Object("argoproj.io/v1alpha1", "ApplicationSet", "argocd", "shops", map[string]any{
+		"spec": map[string]any{"generators": []any{map[string]any{"list": map[string]any{}}}},
+	})
+	src.Set(testkit.ArgoAppSetsGVR, set)
+	owned := testkit.ArgoApplication("argocd", "shop-eu", "Synced", "Healthy")
+	owned.SetOwnerReferences([]metav1.OwnerReference{{APIVersion: "argoproj.io/v1alpha1", Kind: "ApplicationSet", Name: "shops", UID: set.GetUID()}})
+	src.Set(testkit.ArgoApplicationsGVR, owned)
+	openView(s, kinds.ArgoApplicationSetKey)
+	sp, _ := b.Profile(kinds.ArgoApplicationSetKey)
+	waitTable(t, s, kinds.ArgoApplicationSetKey, func(t *TableSnapshot) bool {
+		return t.Synced && len(t.Rows) == 1 && t.Rows[0].Cells[sp.ColumnIndex("applications")].Text == "1"
+	})
+	src.Delete(testkit.ArgoApplicationsGVR, "argocd", "shop-eu")
 
 	// The Dashboard: the strip, the cards, Needs attention with the out-of-sync Application.
 	openView(s, ArgoCDDashboard)
