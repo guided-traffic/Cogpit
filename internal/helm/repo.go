@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -104,13 +105,22 @@ func CheckRepository(name, rawURL string) (string, error) {
 }
 
 // Fetcher downloads repository indexes and chart archives over https, bounded. Its zero value is
-// ready to use.
+// ready to use; it must not be copied once used.
 type Fetcher struct {
 	// Client makes the requests; nil: a client with Cogpit's timeout and the environment's proxy
 	// settings. Its redirects are followed to https URLs only, whatever the client allows.
 	Client *http.Client
 	// MaxIndex and MaxChart bound a download; zero means MaxIndexBytes and MaxChartBytes.
 	MaxIndex, MaxChart int64
+	// Proxy, when set, picks the proxy of each request, as http.Transport.Proxy does (the engine
+	// sets Cogpit's preference for the traffic that is no cluster's, else the environment's); it
+	// is asked per request, so a changed preference applies to the next download. Nil: the
+	// client's transport decides (the default client: the environment's HTTPS_PROXY). It applies
+	// to a client whose transport is an *http.Transport (or nil); another transport keeps its own.
+	Proxy func(*http.Request) (*url.URL, error)
+
+	proxied     sync.Once
+	proxiedBase http.RoundTripper // the transport with Proxy, made once
 }
 
 var defaultClient = &http.Client{Timeout: fetchTimeout}
@@ -121,6 +131,9 @@ func (f *Fetcher) client() *http.Client {
 		base = f.Client
 	}
 	c := *base
+	if f != nil && f.Proxy != nil {
+		c.Transport = f.proxiedTransport(base.Transport)
+	}
 	next := base.CheckRedirect
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		if req.URL.Scheme != schemeHTTPS {
@@ -135,6 +148,27 @@ func (f *Fetcher) client() *http.Client {
 		return nil
 	}
 	return &c
+}
+
+// proxiedTransport returns the client's transport with the fetcher's Proxy, made once and kept,
+// so that downloads reuse its connections: a clone of base (http.DefaultTransport for nil) whose
+// Proxy asks f.Proxy for every request. A transport that is no *http.Transport is returned as it
+// is.
+func (f *Fetcher) proxiedTransport(base http.RoundTripper) http.RoundTripper {
+	f.proxied.Do(func() {
+		if base == nil {
+			base = http.DefaultTransport
+		}
+		t, ok := base.(*http.Transport)
+		if !ok {
+			f.proxiedBase = base
+			return
+		}
+		t = t.Clone()
+		t.Proxy = func(req *http.Request) (*url.URL, error) { return f.Proxy(req) }
+		f.proxiedBase = t
+	})
+	return f.proxiedBase
 }
 
 func (f *Fetcher) maxIndex() int64 {

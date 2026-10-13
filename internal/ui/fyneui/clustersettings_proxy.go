@@ -54,3 +54,25 @@ func (p *settingsPage) clusterProxySection() fyne.CanvasObject {
 			container.NewVBox(entry, note)),
 	)
 }
+
+// httpProxySetting is the Preferences' proxy setting's name (preferences.set's parameter).
+const httpProxySetting = "httpProxy"
+
+// preferencesProxySection builds Preferences › Proxy: the proxy of the traffic that is no
+// cluster's, the Helm repositories' downloads. Lens's "Allow untrusted certificate authorities"
+// beside it is not built (a question for the owner: it weakens TLS for those downloads).
+func (p *settingsPage) preferencesProxySection() fyne.CanvasObject {
+	entry := widget.NewEntry()
+	entry.SetPlaceHolder("The environment's (HTTPS_PROXY)")
+	entry.OnChanged = func(string) {
+		p.typed(httpProxySetting, func() { p.setPreference(httpProxySetting, strings.TrimSpace(entry.Text)) })
+	}
+	p.sync = func() {
+		p.setEntry(entry, entry, httpProxySetting, p.prefs().HTTPProxy) // the UI state's: its password as •••
+	}
+	return container.NewVBox(
+		p.setting(httpProxySetting, "HTTP proxy for non-cluster traffic",
+			"Downloads from Helm repositories go through it: http://<address>:<port>, https:// or socks5://; clusters use their own.",
+			entry),
+	)
+}

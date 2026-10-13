@@ -67,15 +67,18 @@ Cogpit adds no cluster credential source of its own: no account, no login, no cl
   `<user cache dir>/Cogpit/helm/` (0600). A repository that needs a login is
   [H-29](#h-29-authenticated-helm-repositories).
 - **A proxy's user and password** (built 2026-10-13, G13): a cluster's proxy (Cluster Settings ›
-  Proxy) may be `http://user:password@host:port`, as Lens's field allows. Cogpit keeps it as typed in
-  one place only, `<user config dir>/Cogpit/cluster-settings.json` (0600 in a 0700 directory,
-  replaced atomically), and hands it to client-go for the connection (`rest.Config.Proxy`), which
-  sends it to the proxy alone: as Basic `Proxy-Authorization` on the CONNECT for an http or https
+  Proxy) and the proxy of the Helm repositories' downloads (Preferences › Proxy) may each be
+  `http://user:password@host:port`, as Lens's fields allow. Cogpit keeps each as typed in one place
+  only, `<user config dir>/Cogpit/cluster-settings.json` and `preferences.json` (0600 in a 0700
+  directory, replaced atomically), and hands it to the HTTP client that uses it (client-go's
+  `rest.Config.Proxy` for the connection, the Helm fetcher's transport for a download), which sends
+  it to the proxy alone: as Basic `Proxy-Authorization` on the CONNECT for an http or https
   proxy (in clear on the network for an `http://` proxy, over TLS for an `https://` one), as SOCKS5's
-  user and password for a socks5 proxy; never to the API server. Everywhere else the password is
-  `•••` (`engine.RedactProxyURL`): the UI state (so `ui_state` and the window), `cluster.settings.get`
-  and `cluster.settings.set`'s results, the audit log's parameters (`auditParams`), the connection
-  log ("Through the proxy http://alice:•••@proxy:3128"); a value typed in the window with `•••` keeps
+  user and password for a socks5 proxy; never to the API server or the repository. Everywhere else
+  the password is `•••` (`engine.RedactProxyURL`): the UI state (so `ui_state` and the window),
+  `cluster.settings.get`, `preferences.get` and their setters' results, the audit log's parameters
+  (`auditParams`), the connection log ("Through the proxy http://alice:•••@proxy:3128"); a value
+  typed in the window with `•••` keeps
   the stored password (`MergeProxyPassword`). No error quotes a proxy value: the checks name the
   problem only, and `cluster.Connect` scrubs the password from any connect error as a guard
   (`TestCheckProxyURL`, `TestClusterProxyKeptPrivately`, `TestClusterProxyCommands`,
@@ -196,7 +199,8 @@ redirects a download follows to other hosts (Helm's `pass_credentials_all`) is n
 
 ### H-33: Proxy passwords are plaintext in Cogpit's settings
 
-A proxy's password (a cluster's in `cluster-settings.json`) is kept as the user typed it, in a file
+A proxy's password (a cluster's in `cluster-settings.json`, the Helm downloads' in
+`preferences.json`) is kept as the user typed it, in a file
 protected by its permissions only (0600 in a 0700 directory), as kubeconfig files keep their tokens
 ([H-5](#h-5-kubeconfig-files-are-plaintext)). Cogpit does not move it into the operating system's
 keychain, where the LLM key is planned to live, and a backup of the configuration folder carries it.

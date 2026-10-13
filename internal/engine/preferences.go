@@ -17,10 +17,12 @@ import (
 // Preferences (G13, docs/parity/ui-parity.md › Preferences): Cogpit's own settings that are not a
 // cluster's, as Lens's Preferences page holds them: the theme, the time zone absolute times are
 // shown in, the tables' row height, the editor's font size, line numbers and tab size, and the
-// local terminal's font size, shell and shell arguments. They are engine state
-// (UIState.Preferences) so that agents see and change what the user sees; the GUI changes them
-// only through preferences.set. They are kept in PreferencesFile under Cogpit's configuration
-// directory, never in a kubeconfig, and no preference talks to a cluster.
+// local terminal's font size, shell and shell arguments, and the proxy of the traffic that is no
+// cluster's (the Helm repositories' downloads). They are engine state (UIState.Preferences, the
+// proxy's password redacted: Shown) so that agents see and change what the user sees; the GUI
+// changes them only through preferences.set. They are kept in PreferencesFile under Cogpit's
+// configuration directory, never in a kubeconfig, and no preference talks to a cluster. Only the
+// user sets the proxy (ErrProxyGUIOnly, proxy.go).
 //
 // The local terminal's shell and its arguments name a program Cogpit runs on this computer when a
 // terminal opens, so only the user may set them, in Cogpit's window (ErrShellGUIOnly): an agent
@@ -84,6 +86,11 @@ type Preferences struct {
 	// TerminalShellArgs are its arguments, one per entry. Pod shells are not affected.
 	TerminalShell     string   `json:"terminalShell,omitempty"`
 	TerminalShellArgs []string `json:"terminalShellArgs,omitempty"`
+	// HTTPProxy is the proxy of the traffic that is no cluster's (Lens's "HTTP proxy for
+	// non-cluster traffic"): the Helm repositories' indexes and charts (proxy.go). Empty: the
+	// environment's HTTPS_PROXY, as before. It may carry a password: the UI state and the
+	// commands' results show it redacted, only the preferences file keeps it as typed.
+	HTTPProxy string `json:"httpProxy,omitempty"`
 }
 
 // DefaultPreferences are the preferences of a first start: dark (Cogpit starts dark, as it did
@@ -126,7 +133,10 @@ func (p Preferences) Check() error {
 	if err := checkShellPath(p.TerminalShell); err != nil {
 		return err
 	}
-	return checkShellArgs(p.TerminalShellArgs)
+	if err := checkShellArgs(p.TerminalShellArgs); err != nil {
+		return err
+	}
+	return CheckProxyURL(p.HTTPProxy)
 }
 
 // normalize replaces every field of preferences read from a file that Check would refuse by its
@@ -159,6 +169,9 @@ func (p *Preferences) normalize() {
 	}
 	if len(p.TerminalShellArgs) == 0 {
 		p.TerminalShellArgs = nil
+	}
+	if p.HTTPProxy = strings.TrimSpace(p.HTTPProxy); CheckProxyURL(p.HTTPProxy) != nil {
+		p.HTTPProxy = ""
 	}
 }
 
@@ -310,7 +323,16 @@ func (p *PreferencesStore) attach(s *Session) {
 	if err != nil {
 		s.log.Warn("preferences", "err", err)
 	}
+	st = st.Shown()
 	s.ui.Preferences = &st
+}
+
+// Shown returns the preferences as they may be shown: the UI state, the commands' results. The
+// proxy's password is redacted (proxy.go).
+func (p Preferences) Shown() Preferences {
+	p = p.Clone()
+	p.HTTPProxy = RedactProxyURL(p.HTTPProxy)
+	return p
 }
 
 // PreferencesStore returns the session's preferences; nil when it keeps none.
@@ -353,6 +375,9 @@ func (s *Session) ChangePreferences(fn func(*Preferences) error) (Preferences, e
 		if len(next.TerminalShellArgs) == 0 {
 			next.TerminalShellArgs = nil
 		}
+		if next.HTTPProxy = strings.TrimSpace(next.HTTPProxy); next.HTTPProxy == RedactProxyURL(p.prefs.HTTPProxy) {
+			next.HTTPProxy = p.prefs.HTTPProxy // the redacted form handed back as it was shown: unchanged
+		}
 		if err := next.Check(); err != nil {
 			return Preferences{}, err
 		}
@@ -366,7 +391,7 @@ func (s *Session) ChangePreferences(fn func(*Preferences) error) (Preferences, e
 	if err != nil {
 		return Preferences{}, err
 	}
-	shown := next.Clone()
+	shown := next.Shown() // the proxy without its password
 	s.UpdateUI(func(u *UIState) { u.Preferences = &shown })
 	return next, nil
 }
@@ -411,9 +436,10 @@ const (
 	SectionProxy      = "proxy"
 )
 
-// PreferencesSections are the Preferences page's sections: App (theme, time zone), Kubernetes
-// (kubeconfig syncs), Editor, Terminal, Tables. Cogpit's grouping, inferred from Lens's page.
-var PreferencesSections = []string{SectionApp, SectionKubernetes, SectionEditor, SectionTerminal, SectionTables}
+// PreferencesSections are the Preferences page's sections: App (theme, time zone), Proxy (the
+// proxy of the traffic that is no cluster's), Kubernetes (kubeconfig syncs), Editor, Terminal,
+// Tables. Cogpit's grouping, inferred from Lens's page.
+var PreferencesSections = []string{SectionApp, SectionProxy, SectionKubernetes, SectionEditor, SectionTerminal, SectionTables}
 
 // ClusterSettingsSections are the Cluster settings page's built sections, in Lens's captured
 // order (General, Proxy, Terminal, Namespaces, Metrics, ..., Node Shell) without the missing ones.

@@ -34,6 +34,7 @@ type preferencesSetParams struct {
 	TerminalFontSize  *int     `json:"terminalFontSize,omitempty" jsonschema:"the dock terminals' text size in points, 8 to 32 (default 13), for terminals opened afterwards"`
 	TerminalShell     *string  `json:"terminalShell,omitempty" jsonschema:"the local terminal's shell, an absolute path; empty: $SHELL. Only the user in Cogpit's window may set it: refused for agents"`
 	TerminalShellArgs []string `json:"terminalShellArgs,omitempty" jsonschema:"the local terminal shell's arguments, one per entry. Only the user in Cogpit's window may set them: refused for agents"`
+	HTTPProxy         *string  `json:"httpProxy,omitempty" jsonschema:"the proxy of the traffic that is no cluster's (the Helm repositories' indexes and charts): http://<address>:<port>, https:// or socks5://, optionally with user:password@; empty: the environment's HTTPS_PROXY. Agents and the CLI may only clear it (an empty string): setting one is the user's, in Cogpit's window"`
 }
 
 // shellChange reports whether the parameters change the local terminal's shell or arguments.
@@ -42,12 +43,12 @@ func (p preferencesSetParams) shellChange() bool {
 }
 
 type preferencesOpenParams struct {
-	Section string `json:"section,omitempty" jsonschema:"the section to show: app (theme, time zone), kubernetes, editor, terminal or tables; omitted: app"`
+	Section string `json:"section,omitempty" jsonschema:"the section to show: app (theme, time zone), proxy, kubernetes, editor, terminal or tables; omitted: app"`
 }
 
-// prefsResult is what the preferences commands return.
+// prefsResult is what the preferences commands return: the proxy's password as ••• (Shown).
 func prefsResult(s *engine.Session, p engine.Preferences) PreferencesResult {
-	return PreferencesResult{Preferences: p, Timezone: s.Location().String(), Kept: s.PreferencesStore().Path() != ""}
+	return PreferencesResult{Preferences: p.Shown(), Timezone: s.Location().String(), Kept: s.PreferencesStore().Path() != ""}
 }
 
 const prefsWritesOnly = " Changes only Cogpit's own preferences (a file in Cogpit's configuration directory), never a cluster or a kubeconfig."
@@ -58,7 +59,8 @@ func registerPreferences(g *registrar) {
 		Description: "Returns Cogpit's preferences as the Preferences page (⌘,) shows them: the theme (system, dark, light), " +
 			"the time zone absolute times are shown in (empty: the computer's) and the zone in effect, the tables' row " +
 			"height, the YAML editor's font size, line numbers and tab size, the terminal's font size, and the local " +
-			"terminal's shell and arguments (empty: $SHELL); kept says whether they outlive this run. ui_state carries the same.",
+			"terminal's shell and arguments (empty: $SHELL), the HTTP proxy of the traffic that is no cluster's (empty: the " +
+			"environment's; its password shown as •••); kept says whether they outlive this run. ui_state carries the same.",
 		Enabled: func(s *engine.Session, _ struct{}) error { _, err := s.Preferences(); return err },
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			p, err := s.Preferences()
@@ -73,18 +75,23 @@ func registerPreferences(g *registrar) {
 		ID: "preferences.set", Label: "Set Preferences", Danger: engine.DangerUI,
 		Description: "Changes some of Cogpit's preferences, as the Preferences page does; the fields left out stay as they are. " +
 			"The window follows at once: the theme, the time zone of the drawer's Created and the charts, the tables' row " +
-			"height, the open editors. The local terminal's shell and its arguments are refused for agents and the CLI: " +
-			"they name a program Cogpit runs on this computer." + prefsWritesOnly + " Returns the preferences.",
+			"height, the open editors; the HTTP proxy at the next download from a Helm repository. The local terminal's " +
+			"shell and its arguments are refused for agents and the CLI: they name a program Cogpit runs on this " +
+			"computer; so is setting the HTTP proxy (it decides where Cogpit's downloads go), which they may only clear." +
+			prefsWritesOnly + " Returns the preferences.",
 		Enabled: func(s *engine.Session, _ preferencesSetParams) error { _, err := s.Preferences(); return err },
 		Refuse: func(ctx context.Context, _ *engine.Session, p preferencesSetParams) error {
 			if p.shellChange() && engine.OriginOf(ctx) != engine.OriginGUI {
 				return engine.ErrShellGUIOnly
 			}
-			return nil
+			return refuseProxy(ctx, p.HTTPProxy)
 		},
 		Run: func(ctx context.Context, s *engine.Session, p preferencesSetParams) (any, error) {
 			if p.shellChange() && engine.OriginOf(ctx) != engine.OriginGUI {
 				return nil, engine.ErrShellGUIOnly
+			}
+			if err := refuseProxy(ctx, p.HTTPProxy); err != nil {
+				return nil, err
 			}
 			if p.TerminalShell != nil {
 				if err := engine.CheckShell(strings.TrimSpace(*p.TerminalShell)); err != nil {
@@ -107,6 +114,13 @@ func registerPreferences(g *registrar) {
 				if p.TerminalShellArgs != nil {
 					pr.TerminalShellArgs = slices.Clone(p.TerminalShellArgs)
 				}
+				if p.HTTPProxy != nil {
+					next, err := engine.MergeProxyPassword(pr.HTTPProxy, *p.HTTPProxy) // "•••" keeps the password set before
+					if err != nil {
+						return err
+					}
+					pr.HTTPProxy = next
+				}
 				return nil
 			})
 			if err != nil {
@@ -119,7 +133,8 @@ func registerPreferences(g *registrar) {
 	add(g, engine.Spec[preferencesOpenParams]{
 		ID: "preferences.open", Label: "Preferences", MenuPath: "Cogpit/Preferences", Shortcut: "Cmd+,", Danger: engine.DangerUI,
 		Description: "Opens Cogpit's Preferences page in the window, as ⌘, (Ctrl+,) does, at a section: app (theme, time zone), " +
-			"kubernetes (kubeconfig syncs), editor, terminal or tables. It takes the place of the cluster's views until " +
+			"proxy (the HTTP proxy of the traffic that is no cluster's), kubernetes (kubeconfig syncs), editor, terminal or " +
+			"tables. It takes the place of the cluster's views until " +
 			"closed (settings_close, Escape); ui_state reports it as settings. Returns the new UI state.",
 		Enabled: func(s *engine.Session, p preferencesOpenParams) error {
 			if _, err := s.Preferences(); err != nil {

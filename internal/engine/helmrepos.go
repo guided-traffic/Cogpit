@@ -483,6 +483,9 @@ func (h *HelmRepos) attach(s *Session) {
 	h.mu.Lock()
 	h.s = s
 	h.mu.Unlock()
+	if h.fetcher != nil && h.fetcher.Proxy == nil {
+		h.fetcher.Proxy = s.NonClusterProxy // the Preferences' proxy, else the environment's (proxy.go)
+	}
 	s.Subscribe(h.onEvent)
 }
 

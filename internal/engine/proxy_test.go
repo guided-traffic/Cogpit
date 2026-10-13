@@ -3,6 +3,8 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -10,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/testkit"
 )
 
@@ -114,6 +117,67 @@ func TestClusterProxyKeptPrivately(t *testing.T) {
 	again := New(Options{ClusterSettings: NewClusterSettingsStore(dir)})
 	if got := again.UIState().ClusterSettings[devCtx].Proxy; got != "http://alice:•••@proxy:3128" {
 		t.Errorf("read back into the UI state as %q", got)
+	}
+}
+
+// The Preferences' HTTP proxy carries the Helm repositories' downloads: kept as typed in the
+// owner-only preferences file, shown redacted in the UI state; without it the environment's proxy
+// decides (stubbed here: tests never read the real environment's proxy variables).
+func TestNonClusterProxyCarriesHelmDownloads(t *testing.T) {
+	envCalls := 0
+	defer func(old func(*http.Request) (*url.URL, error)) { envProxy = old }(envProxy)
+	envProxy = func(*http.Request) (*url.URL, error) { envCalls++; return nil, nil }
+
+	repo := testkit.NewHelmRepo(t, testkit.TestChart{Name: "web", Version: "0.1.0",
+		Templates: map[string]string{"templates/cm.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: x\n"}})
+	proxy := testkit.NewForwardProxy(t, "bob", proxySecret)
+	cfg := filepath.Join(t.TempDir(), "Cogpit")
+	repos := NewHelmRepos(cfg, t.TempDir(), WithChartFetcher(&helm.Fetcher{Client: repo.Client()}))
+	s := New(Options{Preferences: NewPreferencesStore(cfg), HelmRepos: repos})
+	t.Cleanup(s.Close)
+
+	// No preference: the environment's proxy is asked, and nothing goes through the test proxy.
+	if _, err := repos.Add(context.Background(), "plain", repo.URL); err != nil {
+		t.Fatal(err)
+	}
+	if envCalls == 0 || proxy.Total() != 0 {
+		t.Fatalf("without the preference: %d environment lookups, %d proxy requests", envCalls, proxy.Total())
+	}
+
+	withUser := proxy.URLWithUser("bob", proxySecret).String()
+	if _, err := s.ChangePreferences(func(p *Preferences) error { p.HTTPProxy = withUser; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.UIState().Preferences.HTTPProxy; got != "http://bob:•••@"+proxy.URL.Host {
+		t.Errorf("ui state shows %q", got)
+	}
+	raw, _ := os.ReadFile(filepath.Join(cfg, PreferencesFile))
+	if !strings.Contains(string(raw), proxySecret) {
+		t.Errorf("the preferences file does not keep the proxy: %s", raw)
+	}
+	if b, _ := json.Marshal(s.UIState()); strings.Contains(string(b), proxySecret) {
+		t.Error("the UI state carries the password")
+	}
+	before := envCalls
+	if _, err := repos.Add(context.Background(), "proxied", repo.URL); err != nil {
+		t.Fatalf("add through the proxy: %v", err)
+	}
+	if proxy.Total() == 0 || !slices.Contains(proxy.Users(), "bob") || envCalls != before {
+		t.Errorf("with the preference: %d proxy requests from %q, %d more environment lookups", proxy.Total(), proxy.Users(), envCalls-before)
+	}
+	if _, _, err := repos.FetchChart(context.Background(), "proxied", "web", "0.1.0"); err != nil {
+		t.Errorf("chart through the proxy: %v", err)
+	}
+
+	// Handing back the redacted form keeps it; a bad one is refused without quoting it.
+	if _, err := s.ChangePreferences(func(p *Preferences) error { p.HTTPProxy = s.UIState().Preferences.HTTPProxy; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := s.Preferences(); p.HTTPProxy != withUser {
+		t.Errorf("after the redacted form came back: %q", p.HTTPProxy)
+	}
+	if _, err := s.ChangePreferences(func(p *Preferences) error { p.HTTPProxy = "gopher://bob:" + proxySecret + "@x"; return nil }); err == nil || strings.Contains(err.Error(), proxySecret) {
+		t.Errorf("a bad proxy: %v", err)
 	}
 }
 

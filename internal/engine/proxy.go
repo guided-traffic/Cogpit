@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
@@ -207,3 +208,27 @@ func (s *Session) proxyLogLine(context string) string {
 	}
 	return "Through the proxy " + RedactProxyURL(raw) + " (Cluster Settings › Proxy)"
 }
+
+// NonClusterProxy picks the proxy of a request that goes to no cluster (a Helm repository's index
+// or chart): the Preferences' HTTP proxy, else the environment's (HTTPS_PROXY, NO_PROXY), as
+// before the preference existed. Its signature is http.Transport.Proxy's; the preference is read
+// for every request, so a change applies to the next download.
+func (s *Session) NonClusterProxy(req *http.Request) (*url.URL, error) {
+	if p := s.opts.Preferences; p != nil {
+		p.mu.Lock()
+		_ = p.load() // an unreadable file is reported where it loads: the defaults then
+		raw := p.prefs.HTTPProxy
+		p.mu.Unlock()
+		if raw != "" {
+			u, err := ParseProxyURL(raw)
+			if err != nil {
+				return nil, fmt.Errorf("the HTTP proxy in the Preferences is not valid (%w); fix it in Preferences › Proxy", err)
+			}
+			return u, nil
+		}
+	}
+	return envProxy(req)
+}
+
+// envProxy is the environment's proxy for traffic that is no cluster's; tests replace it.
+var envProxy = http.ProxyFromEnvironment

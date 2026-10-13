@@ -23,11 +23,12 @@ import (
 // engine writes the drawer's Created in it), the editor's font size, line numbers and tab size in
 // every open editor tab, the terminal's font size in the terminals opened afterwards (a running
 // terminal keeps the size its grid was laid out in). The page's sections: App (theme, time zone),
-// Kubernetes (the kubeconfig syncs, Cogpit's existing dialogs), Editor, Terminal, Tables.
+// Proxy (the proxy of the traffic that is no cluster's, clustersettings_proxy.go), Kubernetes (the
+// kubeconfig syncs, Cogpit's existing dialogs), Editor, Terminal, Tables.
 
 // preferencesSectionLabels are the Preferences page's section titles (Cogpit's grouping, inferred).
 var preferencesSectionLabels = map[string]string{
-	engine.SectionApp: "App", engine.SectionKubernetes: "Kubernetes", engine.SectionEditor: "Editor",
+	engine.SectionApp: "App", engine.SectionProxy: "Proxy", engine.SectionKubernetes: "Kubernetes", engine.SectionEditor: "Editor",
 	engine.SectionTerminal: "Terminal", engine.SectionTables: "Tables",
 }
 
@@ -146,6 +147,8 @@ func (p *settingsPage) setPreference(name string, value any) {
 // preferencesSection builds one section of the Preferences page.
 func (p *settingsPage) preferencesSection(section string) fyne.CanvasObject {
 	switch section {
+	case engine.SectionProxy:
+		return p.preferencesProxySection() // clustersettings_proxy.go
 	case engine.SectionKubernetes:
 		return p.kubernetesSection()
 	case engine.SectionEditor:

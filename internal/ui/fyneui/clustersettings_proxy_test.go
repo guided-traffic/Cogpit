@@ -58,6 +58,7 @@ func TestClusterProxyField(t *testing.T) {
 
 	// Shown again: redacted.
 	test.Tap(sh.settings.navItems[engine.SectionGeneral])
+	q.until(t, "the General section", func() bool { return sh.settings.controls["name"] != nil })
 	test.Tap(sh.settings.navItems[engine.SectionProxy])
 	q.until(t, "the redacted proxy", func() bool {
 		e = proxyEntry(sh)
@@ -103,6 +104,58 @@ func renderClusterSettingsProxy(t *testing.T, mode ThemeMode, name string) {
 	q.until(t, "the Proxy section", func() bool {
 		e := proxyEntry(sh)
 		return sh.settings.visible() && sh.settings.view != nil && e != nil && e.Text == "http://alice:•••@proxy.example.com:3128"
+	})
+	q.drain()
+	savePNG(t, w, name)
+}
+
+// Preferences › Proxy, second in the list: the proxy of the traffic that is no cluster's, typed,
+// kept, and shown again with its password as •••.
+func TestPreferencesProxyField(t *testing.T) {
+	s, _ := settingsEngine(t)
+	sh, w, q := newEngineShell(t, s, Options{})
+	mustDispatch(t, s, "preferences.open", map[string]any{"section": "proxy"})
+	q.until(t, "the Proxy section", func() bool { return sh.settings.controls[httpProxySetting] != nil })
+	var labels []string
+	for _, o := range sh.settings.nav.Objects {
+		labels = append(labels, o.(*widget.Button).Text)
+	}
+	if !slices.Equal(labels, []string{"App", "Proxy", "Kubernetes", "Editor", "Terminal", "Tables"}) {
+		t.Fatalf("sections %q", labels)
+	}
+	e := sh.settings.controls[httpProxySetting].(*widget.Entry)
+	w.Canvas().Focus(e)
+	test.Type(e, "http://bob:"+proxyPassword+"@proxy.example.com:3128")
+	q.until(t, "the proxy kept", func() bool {
+		p, _ := s.Preferences()
+		return p.HTTPProxy == "http://bob:"+proxyPassword+"@proxy.example.com:3128"
+	})
+	test.Tap(sh.settings.navItems[engine.SectionApp])
+	q.until(t, "the App section", func() bool { return sh.settings.controls["theme"] != nil })
+	test.Tap(sh.settings.navItems[engine.SectionProxy])
+	q.until(t, "the redacted proxy", func() bool {
+		e, ok := sh.settings.controls[httpProxySetting].(*widget.Entry)
+		return ok && e.Text == "http://bob:•••@proxy.example.com:3128"
+	})
+}
+
+// Preferences › Proxy, dark and light: the PNGs of the pull request (AGENTS.md rule 7).
+func TestRenderPreferencesProxyDark(t *testing.T) {
+	renderPreferencesProxy(t, ThemeDark, "preferences_proxy_dark.png")
+}
+
+func TestRenderPreferencesProxyLight(t *testing.T) {
+	renderPreferencesProxy(t, ThemeLight, "preferences_proxy_light.png")
+}
+
+func renderPreferencesProxy(t *testing.T, mode ThemeMode, name string) {
+	s, _ := settingsEngine(t)
+	mustDispatch(t, s, "preferences.set", map[string]any{"theme": string(mode), "httpProxy": "http://bob:" + proxyPassword + "@proxy.example.com:3128"})
+	sh, w, q := newEngineShell(t, s, Options{})
+	mustDispatch(t, s, "preferences.open", map[string]any{"section": "proxy"})
+	q.until(t, "the Proxy section", func() bool {
+		e, ok := sh.settings.controls[httpProxySetting].(*widget.Entry)
+		return sh.settings.visible() && ok && e.Text == "http://bob:•••@proxy.example.com:3128"
 	})
 	q.drain()
 	savePNG(t, w, name)

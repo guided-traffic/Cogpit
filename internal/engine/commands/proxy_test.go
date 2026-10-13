@@ -104,3 +104,42 @@ func TestClusterProxyCommands(t *testing.T) {
 		t.Errorf("the file keeps the redaction mark: %s", data)
 	}
 }
+
+// The Preferences' HTTP proxy follows the same rules: only the GUI sets it, agents clear it and
+// read it as •••, the audit log redacts it.
+func TestNonClusterProxyCommands(t *testing.T) {
+	s, audit, _ := proxySession(t)
+	withPassword := "https://bob:" + proxyPassword + "@proxy.example.com:8443"
+	for _, origin := range []engine.Origin{engine.OriginExternalAgent, engine.OriginBuiltInAgent, engine.OriginCLI} {
+		if err := dispatch(t, s, origin, "preferences.set", map[string]any{"httpProxy": withPassword}, nil); !errors.Is(err, engine.ErrProxyGUIOnly) {
+			t.Errorf("%s set the HTTP proxy: %v", origin, err)
+		}
+	}
+	var res commands.PreferencesResult
+	if err := dispatch(t, s, engine.OriginGUI, "preferences.set", map[string]any{"httpProxy": withPassword}, &res); err != nil {
+		t.Fatal(err)
+	}
+	if res.Preferences.HTTPProxy != "https://bob:•••@proxy.example.com:8443" {
+		t.Errorf("the user's set returns %q", res.Preferences.HTTPProxy)
+	}
+	if err := dispatch(t, s, engine.OriginExternalAgent, "preferences.get", struct{}{}, &res); err != nil {
+		t.Fatal(err)
+	}
+	if res.Preferences.HTTPProxy != "https://bob:•••@proxy.example.com:8443" {
+		t.Errorf("an agent reads %q", res.Preferences.HTTPProxy)
+	}
+	if err := dispatch(t, s, engine.OriginExternalAgent, "preferences.set", map[string]any{"httpProxy": "", "theme": "light"}, &res); err != nil {
+		t.Fatalf("an agent's clear: %v", err)
+	}
+	if p, _ := s.Preferences(); p.HTTPProxy != "" || p.Theme != "light" {
+		t.Errorf("after the agent's clear: %+v", p)
+	}
+	for _, line := range audit.Lines() {
+		if raw, _ := json.Marshal(line); strings.Contains(string(raw), proxyPassword) {
+			t.Errorf("the audit log carries the password: %s", raw)
+		}
+	}
+	if err := dispatch(t, s, engine.OriginExternalAgent, "preferences.open", map[string]any{"section": "proxy"}, nil); err != nil {
+		t.Errorf("the Proxy section: %v", err)
+	}
+}
