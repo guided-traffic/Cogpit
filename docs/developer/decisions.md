@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -1081,7 +1081,8 @@ What the build chose, Cogpit's defaults (the lead's, not the owner's decision):
   Signature Algorithm, CA (`No`, `Yes, path length 0`, `Yes, no path length limit`), Key Usage,
   Extended Key Usage, Self-Signed (the issuer is the subject and the certificate's own key verifies
   its signature), SHA-256 Fingerprint, Subject Key ID, Authority Key ID.
-- **Validity.** Times in the Preferences' time zone as RFC 3339, as Created is; Not After adds the
+- **Validity.** Times in the Preferences' time zone and the user's format, as Created is (RFC 3339
+  until [D-31](#d-31-every-timestamp-in-the-local-time-zone-and-format)); Not After adds the
   time left ("in 90 days", "in 5 hours") or "expired 3 days ago" and is a status pill: OK with
   more than 30 days left, warning at 30 days or fewer, error when expired or not yet valid; Not
   Before is an error pill with "(not yet valid, in 5 days)" while it is.
@@ -1123,10 +1124,87 @@ agent's `object_get`, its key matching and its chain in order); renders
 [dark](../../internal/ui/fyneui/testdata/secret_certs_dark.png),
 [light](../../internal/ui/fyneui/testdata/secret_certs_light.png)).
 
+## D-31: Every timestamp in the local time zone and format
+
+**Decided (owner, 2026-10-13):** "Timestamps always in the local time zone, summer and winter time
+respected, in the format that fits the location. Later it may be configurable in the Settings, but
+the default is the local time zone and the local format. For me that would be 10.09.2026 17:41:01.
+This applies to every timestamp shown." (Seen in the drawer: a certificate's Not Before read
+`2026-09-10T17:41:01+02:00`.) **Built 2026-10-13** ([`internal/locale`](../../internal/locale/),
+[`model/timefmt.go`](../../internal/model/timefmt.go); [architecture §3](architecture.md#3-dependency-layering-enforced),
+[§4.4](architecture.md#44-tables-details-editors-and-streams)). **Not built:** the format as a
+setting (the owner's "later"); the code takes a layout everywhere, so that a preference can replace
+the computer's.
+
+What the build chose, Cogpit's defaults (the lead's and the build's, not the owner's decision):
+
+- **The format is the operating system's region, not `$LANG`.** On macOS Cogpit asks
+  CoreFoundation for the current locale's short date style and medium time style
+  (`CFLocaleCopyCurrent`, `CFDateFormatterCreate`): the region in System Settings, a user's own
+  formats and the 24-hour switch included, and a Finder-started app has no `$LANG` anyway. A
+  two-digit year is written with four digits; date and time are joined by one space. On the
+  owner's Mac (region `en_DE`, the shell's `LANG=en_US.UTF-8`) macOS answers `dd.MM.yy` and
+  `HH:mm:ss`, written `10.09.2026 17:41:01` (verified 2026-10-13, `TestSystemFormatOnMacOS` logs
+  it). Linux reads the POSIX locale (`LC_ALL`, else `LC_TIME`, else `LANG`) against a table of
+  common locales' CLDR patterns (42 territories and 23 languages, taken from macOS's ICU on
+  2026-10-13), by territory, else by language; C, POSIX, an unknown locale or none: ISO 8601,
+  `2026-09-10 17:41:01`. **Windows reads the environment too, for now**: its region settings are
+  not read, so a Windows session without `LANG` gets ISO 8601. `cogpit-cli` reads the environment
+  on every platform, as command-line tools do.
+- **Conversion** ([`locale.GoLayout`](../../internal/locale/icu.go)). Unicode's patterns (UTS #35)
+  become Go layouts: day, month (number, short or full name), year, weekday, 12- and 24-hour
+  hours, minutes, seconds, fractions, AM/PM, zones, quoted literals; narrow and non-breaking
+  spaces become spaces. Approximations: Go writes 24-hour hours with two digits (Spain's `H:mm:ss`
+  reads `07:41:01`, not `7:41:01`) and names and AM/PM in English. A pattern with a field Go cannot
+  write (an era, a quarter, a week, the day period `B`), literal text Go would read as a field, or
+  more than 128 bytes falls back to ISO 8601 for its part; so do a date without day, month and
+  year and a time without hours and minutes.
+- **One formatter.** The binaries look the layout up once at start and hand it to the engine
+  (`engine.Options.TimeLayout`); the engine writes every time the user reads in it and in the
+  Preferences' time zone (`Session.TimeFormat`), and the window writes with the same layout
+  (`UIState.TimeFormat`) and zone (`shell.timeFormat`). Summer and winter time come from the zone
+  database: Berlin is UTC+2 in September and UTC+1 in December
+  (`TestTimeFormatZoneAndSummerTime`). Derived forms: the time without seconds and the day
+  without the year (charts' axes), and with milliseconds (log lines, several of which share a
+  second).
+- **Where.** The drawer: Created and every absolute time a kind shows (a container's start and end,
+  a job's start and completion, a cron job's schedules, leases, autoscalers, volumes, events' first
+  and last seen, resource claims, custom resources' date columns, a Helm chart's Created and its
+  versions' dates, a Helm release's Updated, a certificate's Not Before and Not After). A kind's
+  drawer writes a time as a mark that the engine replaces when it builds the drawer
+  (`model.MarkTime`, `TimeFormat.WriteSections`). An event's Last Seen in the Events list (a
+  column type `time`, written when the cell is drawn, sorted by time). The logs' timestamps, their
+  download, and the logs' time field, which reads the same format (and ISO 8601, RFC 3339 and the
+  other forms) in the Preferences' zone, where it read UTC before. The notifications and the audit
+  log (the time of day today, the date before it otherwise), the drain, Helm and drafts banners,
+  the Rollback dialog, the Connection Updates log, the metrics providers' tooltip, the charts'
+  axes and hover panels, the crash notice, the CSV export.
+- **Kept as they are.** Ages and countdowns ("5m", "160d", "In about 1 hour 57 min"), and what
+  Cogpit writes for machines: its files (journals, settings, the crash report's file name), an
+  object's YAML, and the structured times of MCP results (certificates' `notBefore` and
+  `notAfter`, notifications, audit entries, a logs tab's jump), which stay RFC 3339. A credential
+  plugin file's fingerprint note keeps its RFC 3339 time, because the approval compares it.
+- **Agents.** What an agent reads as drawn, `view_rows` and `resources_list` cells and
+  `object_get`'s sections, is in the user's format; `ui_state` names it (`timeFormat`, Go layouts),
+  so that an agent can tell `09.10.` from `10/9` (`TestAgentsReadTimesAsDrawn`).
+- **Search.** The list's search reads cells' text, and an event's Last Seen has none now (as an
+  age has none): searching for a time no longer finds an event.
+
+Tests: `TestGoLayout`, `TestFromPatterns`, `TestEnvironment`, `TestTableConverts`,
+`TestSystemFormatOnMacOS` (macOS with cgo only; no assertion on the developer's region),
+`TestTimeFormatZoneAndSummerTime`, `TestDerivedLayouts`, `TestMarksWrittenInTheFormat`,
+`TestColumnTime`, `TestCreatedFollowsTheTimezone`, `TestParseLogTimeInTheUsersFormat`,
+`TestJumpLogsInTheUsersZone`, `TestAgentsReadTimesAsDrawn`,
+`TestTheWindowWritesTimesInTheUsersFormat`, `TestLogTimestampsInTheUsersFormat`; renders
+`TestRenderTimesInTheUsersFormat` (PNG [dark](../../internal/ui/fyneui/testdata/logs_times_de_dark.png),
+[light](../../internal/ui/fyneui/testdata/logs_times_de_light.png): Germany's format, Berlin's time).
+The test fixtures carry no layout, so the other images show the ISO 8601 fallback.
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-31 (owner): every timestamp in the local time zone and the region's format ("10.09.2026 17:41:01"); built 2026-10-13 from macOS's region (CoreFoundation), else the environment's locale and a CLDR table, one formatter in the engine; the format as a setting not built; the conversion, Windows reading the environment, logs with milliseconds and the list of places Cogpit's defaults |
 | 2026-10-13 | minor | D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a status pill's included (it sat at the drawer's right edge), a long line shortened before it, a value with action buttons owning the room for it; built |
 | 2026-10-13 | minor | D-30, the owner's answers: agents and the built-in agent's LLM endpoint read the decoded certificates, never a key (H-45 closed by the decision, removed from agents-and-mcp.md); `tls.crt` checked against `tls.key` (the key parsed in memory, the outcome yes, no or a reason) and DER certificates decoded, both built; the pairing rule, the chain check, the 64 KiB key bound and the names that count as private keys Cogpit's defaults |
 | 2026-10-13 | minor | D-30 (owner): certificates in Secrets decoded into separate fields in the drawer and for agents (`object_get`'s `certificates`), an exception to "Secret values never reach an agent"; built 2026-10-13, which keys, the bounds, the fields, the thresholds and the layout Cogpit's defaults; no chain or key-pair check |

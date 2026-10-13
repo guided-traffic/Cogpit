@@ -176,7 +176,7 @@
         },
         {
           "name": "Last Status",
-          "value": "Terminated: Error (exit code 1), started 2026-10-11T11:52:10Z, finished 2026-10-11T11:52:12Z"
+          "value": "Terminated: Error (exit code 1), started 2026-10-11 11:52:10, finished 2026-10-11 11:52:12"
         },
         {
           "name": "Image",

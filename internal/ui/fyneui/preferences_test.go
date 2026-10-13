@@ -72,7 +72,6 @@ func newEngineShell(t *testing.T, s *engine.Session, opts Options) (*shell, fyne
 	sh := newShell(s, a, w, opts, q.do)
 	sh.now = func() time.Time { return fixedNow }
 	sh.kc.startDir = t.TempDir
-	logTimeZone = time.UTC
 	sh.confirmer.armDelay = 0
 	sh.settings.typing = time.Millisecond
 	sh.settings.openFolder = func(string) {}

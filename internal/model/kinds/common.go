@@ -165,13 +165,9 @@ func firstTime(times ...time.Time) time.Time {
 }
 
 // timestamp renders an absolute time for the detail drawer, which has no "now" to render ages
-// against.
-func timestamp(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-	return t.UTC().Format(time.RFC3339)
-}
+// against: a mark the engine writes in the user's zone and format (model.MarkTime, D-31); "" for
+// the zero time.
+func timestamp(t time.Time) string { return model.MarkTime(t) }
 
 // byName returns the element of a list of named objects (containers, statuses) with the given
 // name, or nil.

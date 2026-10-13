@@ -529,8 +529,7 @@ func newTestShell(t testing.TB, f *fakeEngine, opts Options) (*shell, fyne.Windo
 	sh := newShell(f, a, w, opts, q.do)
 	sh.now = func() time.Time { return fixedNow }
 	sh.kc.startDir = t.TempDir // no test lists the developer's home directory or ~/.kube
-	logTimeZone = time.UTC
-	sh.confirmer.armDelay = 0 // tests tap at once; TestConfirmationsOneAtATimeAndArmed covers the delay
+	sh.confirmer.armDelay = 0  // tests tap at once; TestConfirmationsOneAtATimeAndArmed covers the delay
 	f.SetConfirmer(sh.confirmer)
 	w.SetContent(sh.root)
 	w.Resize(fyne.NewSize(1440, 900))
@@ -670,7 +669,7 @@ func fixturePodDetail(row model.Row) *engine.DetailModel {
 		// links; the containers under their group.
 		Sections: []model.DetailSection{
 			{Title: model.TitleProperties, Items: []model.DetailItem{
-				{Name: "Created", Value: model.FormatAge(fixedNow.Sub(created)) + " ago (" + created.Format(time.RFC3339) + ")"},
+				{Name: "Created", Value: model.FormatAge(fixedNow.Sub(created)) + " ago (" + model.TimeFormat{}.Format(created) + ")"}, // as the engine writes it without a layout (D-31)
 				{Name: "Name", Value: ref.Name},
 				{Name: "Namespace", Value: ref.Namespace, Link: &model.ObjectRef{Kind: "namespaces", Name: ref.Namespace}},
 				{Name: "Labels", Fold: "Labels",

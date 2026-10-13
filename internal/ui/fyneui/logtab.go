@@ -144,16 +144,17 @@ func (lt *logTab) follow(t engine.DockTab) {
 		lt.checkController()
 	}
 	if lt.view != nil {
-		lt.view.SetView(viewOf(t))
+		lt.view.SetView(viewOf(t, lt.sh.timeFormat()))
 	}
 }
 
-// viewOf is how a tab's lines show: every stream carries the server's timestamps, shown or not;
-// a controlling resource's tab shows the lines of the pods and containers it selects.
-func viewOf(t engine.DockTab) termview.LogView {
+// viewOf is how a tab's lines show: every stream carries the server's timestamps, shown or not,
+// and shown in the user's zone and format (tf, D-31); a controlling resource's tab shows the lines
+// of the pods and containers it selects.
+func viewOf(t engine.DockTab, tf model.TimeFormat) termview.LogView {
 	v := termview.LogView{
 		Prefixed: t.Ref != nil && t.Ref.Kind != kindPods, Names: t.Logs.ResourceNames, Stamped: true, Timestamps: t.Logs.Timestamps,
-		Wrap: t.Logs.Wrap, Search: t.Logs.Search, Filter: t.Logs.Filter,
+		Wrap: t.Logs.Wrap, Search: t.Logs.Search, Filter: t.Logs.Filter, Time: tf,
 	}
 	if v.Prefixed {
 		v.Pod, v.Container = t.Logs.Pod, t.Container
@@ -209,7 +210,7 @@ func (lt *logTab) open() {
 			w.SetHeader(lt.header...)
 			w.SetControls(lt.controls...)
 			w.SetOnSlash(lt.focusSearch)
-			w.SetView(viewOf(lt.tab))
+			w.SetView(viewOf(lt.tab, sh.timeFormat()))
 			lt.view, lt.c.closer, lt.failed = w, w, err != nil
 			lt.resetOlder()
 			lt.updateHead()

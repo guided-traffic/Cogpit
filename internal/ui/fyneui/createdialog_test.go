@@ -61,7 +61,6 @@ func newCreateShell(t testing.TB, f *fakeEngine, mode ThemeMode) (*shell, fyne.W
 	sh := newShell(listingFake{f}, a, w, Options{Theme: mode}, q.do)
 	sh.now = func() time.Time { return fixedNow }
 	sh.kc.startDir = t.TempDir
-	logTimeZone = time.UTC
 	sh.confirmer.armDelay = 0
 	f.SetConfirmer(sh.confirmer)
 	w.SetContent(sh.root)

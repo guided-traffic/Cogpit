@@ -124,7 +124,7 @@
       "items": [
         {
           "name": "Status",
-          "value": "Terminated: OOMKilled (exit code 137), started 2026-10-11T09:00:05Z, finished 2026-10-11T09:14:59Z",
+          "value": "Terminated: OOMKilled (exit code 137), started 2026-10-11 09:00:05, finished 2026-10-11 09:14:59",
           "status": "error"
         },
         {

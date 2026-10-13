@@ -98,15 +98,15 @@
         },
         {
           "name": "Last Schedule",
-          "value": "2026-10-11T01:30:00Z"
+          "value": "2026-10-11 01:30:00"
         },
         {
           "name": "Last Successful",
-          "value": "2026-10-11T01:41:09Z"
+          "value": "2026-10-11 01:41:09"
         },
         {
           "name": "Next Execution",
-          "value": "2026-10-12T01:30:00Z"
+          "value": "2026-10-12 01:30:00"
         },
         {
           "name": "Images",

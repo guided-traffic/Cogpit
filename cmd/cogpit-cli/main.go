@@ -24,6 +24,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/demo"
 	"github.com/guided-traffic/cogpit/internal/helm"
+	"github.com/guided-traffic/cogpit/internal/locale"
 )
 
 // version is set by the build (-ldflags "-X main.version=…").
@@ -60,6 +61,9 @@ func main() {
 		logger: logger, level: level,
 		dirs: dirs, dirsErr: dirsErr,
 		demo: demo.Options{},
+		// Times as the shell's locale writes them (LC_ALL, LC_TIME, LANG), as command-line tools
+		// do; the desktop app reads the computer's region instead (D-31).
+		timeLayout: locale.Environment(os.Getenv).Layout,
 	})
 	stop()
 	os.Exit(code)

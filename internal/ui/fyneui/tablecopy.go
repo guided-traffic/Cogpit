@@ -57,6 +57,7 @@ var noCopyTypes = map[model.ColumnType]bool{
 	model.ColumnNumber:  true, // Restarts, Count, Replicas, a workload's Pods "3/3", Size, Revision
 	model.ColumnAge:     true, // Age, Last Schedule, Updated
 	model.ColumnUntil:   true, // a Cron Job's Next Execution
+	model.ColumnTime:    true, // an event's Last Seen (D-31)
 	model.ColumnMetric:  true, // CPU, Memory
 	model.ColumnWarning: true, // the warning triangle
 }

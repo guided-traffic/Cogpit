@@ -26,6 +26,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
 	"github.com/guided-traffic/cogpit/internal/helm"
+	"github.com/guided-traffic/cogpit/internal/locale"
 	"github.com/guided-traffic/cogpit/internal/mcp"
 	"github.com/guided-traffic/cogpit/internal/ui/fyneui"
 )
@@ -97,10 +98,13 @@ func run(previousCrash string) int {
 		MetricsSettings: openMetricsSettings(logger),
 		ClusterSettings: clusterSettings,
 	}
+	// Every time the window writes is in the computer's region format (D-31), read once here.
+	timeFormat := locale.System()
+	logger.Debug("time format", "source", timeFormat.Source, "date", timeFormat.Layout.Date, "time", timeFormat.Layout.Time)
 	s := engine.New(engine.Options{Connector: connector, Audit: audit, AuditPath: auditPath, Logger: logger, Drains: openDrainJournal(logger),
 		Helm: openHelmJournal(logger), Hotbar: openHotbar(logger), HelmRepos: openHelmRepos(logger),
 		Preferences: openPreferences(logger), ClusterSettings: clusterSettings, Kubectl: openKubectl(logger),
-		Drafts: openDrafts(logger)})
+		Drafts: openDrafts(logger), TimeLayout: timeFormat.Layout})
 	defer s.Close()
 	defer s.WatchKubeconfigs(0)() // sync folders: files that appear or leave are picked up
 	if err := commands.RegisterAll(s.Registry()); err != nil {
@@ -115,7 +119,7 @@ func run(previousCrash string) int {
 			at = fi.ModTime()
 		}
 		logger.Warn("the last run of Cogpit crashed", "report", previousCrash)
-		opts.StartWarning = crashNotice(previousCrash, at)
+		opts.StartWarning = crashNotice(previousCrash, at, s.TimeFormat())
 	}
 	if *demoMode {
 		opts.AutoConnect = engine.DemoContext

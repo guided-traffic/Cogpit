@@ -157,7 +157,7 @@ func registerTables(g *registrar) {
 				return nil, fmt.Errorf("the %s view has no rows yet", u.View)
 			}
 			var b strings.Builder
-			if err := engine.WriteCSV(&b, t, s.Now()); err != nil {
+			if err := engine.WriteCSVIn(&b, t, s.Now(), s.TimeFormat()); err != nil {
 				return nil, err
 			}
 			return CSVResult{View: t.View, Filename: csvFilename(t.View, t.Context), Rows: len(t.Rows), CSV: b.String()}, nil

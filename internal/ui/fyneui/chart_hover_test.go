@@ -12,6 +12,8 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/test"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // The chart's hover (G12, "Interactive charts"): crosshair on the nearest point, a dot per series, a
@@ -38,7 +40,7 @@ func hoverData(to time.Time, shift float64) chartData {
 		pts[i] = chartPoint{At: from.Add(time.Duration(i) * 20 * time.Second), Value: 0.1*float64(i+1) + shift}
 	}
 	return chartData{
-		From: from, To: to, Loc: time.UTC, Format: formatCores, Detail: formatCoresExact,
+		From: from, To: to, Time: model.TimeFormat{Zone: time.UTC}, Format: formatCores, Detail: formatCoresExact,
 		Series: []chartSeries{{Name: "CPU usage", Color: colorAccent, Points: pts}},
 		Lines: []chartLine{
 			{Name: "Requests", Color: colorStatusWarning, Value: 0.25},

@@ -15,6 +15,7 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/kubectl"
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // Preferences (G13, docs/parity/ui-parity.md › Preferences): Cogpit's own settings that are not a
@@ -73,8 +74,9 @@ type Preferences struct {
 	// Theme is ThemeSystem (Lens's "Sync with computer"), ThemeDark or ThemeLight. The app's
 	// --theme flag overrides it for one run.
 	Theme string `json:"theme"`
-	// Timezone is the IANA time zone absolute times are shown in (the drawer's Created, the charts'
-	// time axes and hover panels); empty: the computer's own.
+	// Timezone is the IANA time zone every absolute time Cogpit shows is written in (D-31: the
+	// drawer, the lists' times, logs, notifications, the audit log, the charts); empty: the
+	// computer's own.
 	Timezone string `json:"timezone,omitempty"`
 	// TableRowHeight is the height of a table row in points; 0: Cogpit's default.
 	TableRowHeight int `json:"tableRowHeight,omitempty"`
@@ -492,9 +494,13 @@ func (s *Session) Location() *time.Location {
 	return p.loc
 }
 
-// displayNow is the clock in the preferred time zone: the drawer's ages count from it and its
-// absolute times are written in its zone (model.PropertiesSection).
+// displayNow is the clock in the preferred time zone: the drawer's ages count from it.
 func (s *Session) displayNow() time.Time { return s.Now().In(s.Location()) }
+
+// TimeFormat writes absolute times as the window shows them (D-31): the computer's region format
+// (Options.TimeLayout) in the Preferences' time zone. Every time the engine writes for the user
+// goes through it; times for machines stay RFC 3339.
+func (s *Session) TimeFormat() model.TimeFormat { return s.opts.TimeLayout.In(s.Location()) }
 
 // The settings pages (Preferences, ⌘,; Cluster settings, ⌘⇧,) are UI state too, so that an agent
 // sees which one the user has open and can open one for them.

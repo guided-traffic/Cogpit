@@ -178,7 +178,7 @@ func TestProviderLineStates(t *testing.T) {
 		{metrics.ProviderStatus{Label: "Prometheus", Service: "monitoring/prometheus-server:http", Status: metrics.StatusAvailable}, "Prometheus monitoring/prometheus-server:http: answering, not needed now", colorStatusOK},
 		{metrics.ProviderStatus{Label: "Kubernetes Metrics Server", Status: metrics.StatusUnavailable, LastError: "timeout"}, "Kubernetes Metrics Server: not answering, timeout", colorStatusWarning},
 	} {
-		l := providerLine(tc.ps, fixedNow)
+		l := providerLine(tc.ps, fixedNow, germanTime)
 		if l.text != tc.text || l.color != tc.color || l.icon == nil || !strings.HasPrefix(l.tip, tc.ps.Label) {
 			t.Errorf("%s %s: %q in %q (tip %q), want %q in %q", tc.ps.Label, tc.ps.Status, l.text, l.color, l.tip, tc.text, tc.color)
 		}

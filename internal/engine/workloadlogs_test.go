@@ -186,6 +186,13 @@ func logPod(namespace, name string, containers ...string) *unstructured.Unstruct
 // and two pods), a stateful set db with one pod, and a pod nobody controls.
 func logsSession(t *testing.T) (*Session, *testkit.MemorySource) {
 	t.Helper()
+	return logsSessionWith(t, Options{})
+}
+
+// logsSessionWith is logsSession with options of the test's own (a time layout, preferences); the
+// connector and the snapshot interval are the helper's.
+func logsSessionWith(t *testing.T, opts Options) (*Session, *testkit.MemorySource) {
+	t.Helper()
 	src := testkit.NewMemorySource()
 	src.Set(testkit.DeploymentsGVR, testkit.Object("apps/v1", "Deployment", "shop", "web", nil))
 	src.Set(replicaSetsGVR, owned(testkit.Object("apps/v1", "ReplicaSet", "shop", "web-1", nil), "apps/v1", "Deployment", "web", "uid-shop-web"))
@@ -203,7 +210,8 @@ func logsSession(t *testing.T) (*Session, *testkit.MemorySource) {
 		profiles = append(profiles, p)
 	}
 	fc := &fakeConnector{src: src, profiles: profiles, conn: &cluster.Conn{}}
-	s := New(Options{Connector: fc, SnapshotInterval: 10 * time.Millisecond})
+	opts.Connector, opts.SnapshotInterval = fc, 10*time.Millisecond
+	s := New(opts)
 	t.Cleanup(s.Close)
 	connectTest(t, s)
 	return s, src

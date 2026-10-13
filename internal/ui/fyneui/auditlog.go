@@ -240,18 +240,10 @@ func (a *auditLogTab) rowTexts(e engine.AuditItem) []string {
 	return []string{a.timeText(e.Time), auditOriginText(e.Origin), e.Command, e.Context, obj, outcome}
 }
 
-// timeText is when an entry was written, in the preferred time zone: the time of day today, with
-// the date before.
+// timeText is when an entry was written, in the user's zone and format (D-31): the time of day
+// today, the date and the time of day before.
 func (a *auditLogTab) timeText(t time.Time) string {
-	zone := a.sh.zone
-	if zone == nil {
-		zone = time.Local
-	}
-	t, now := t.In(zone), a.sh.now().In(zone)
-	if y, m, d := t.Date(); y == now.Year() && m == now.Month() && d == now.Day() {
-		return t.Format("15:04:05")
-	}
-	return t.Format("Jan 2, 15:04:05")
+	return sameDayTime(a.sh.timeFormat(), t, a.sh.now())
 }
 
 // auditOriginText names an origin in the list (the CLI's commands are not audited).

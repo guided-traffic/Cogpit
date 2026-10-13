@@ -3,12 +3,15 @@ package termview
 import (
 	"io"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // LogView is how a log view shows the lines it holds: the options of a logs tab that need no new
@@ -22,8 +25,12 @@ type LogView struct {
 	// Stamped says every line from the cluster starts (after the prefix) with the API server's
 	// RFC 3339 timestamp: shown with Timestamps, hidden without.
 	Stamped bool
-	// Timestamps shows the line's timestamp (after the prefix), muted.
+	// Timestamps shows the line's timestamp (after the prefix), muted, written by Time.
 	Timestamps bool
+	// Time writes a shown timestamp: the user's zone and format with milliseconds (D-31,
+	// model.TimeFormat.FormatPrecise); the zero value writes ISO 8601 in UTC. A timestamp that
+	// does not parse shows as it came.
+	Time model.TimeFormat
 	// Wrap wraps long lines at the view's width, at a space where one is near.
 	Wrap bool
 	// Search is looked for in the lines, case-insensitively: matches are highlighted.
@@ -81,6 +88,11 @@ func (v LogView) shown(raw string) (string, shownSpans) {
 		switch {
 		case !looksLikeTimestamp(rest[:end]):
 		case v.Timestamps:
+			if t, err := time.Parse(time.RFC3339Nano, rest[:end]); err == nil {
+				local := v.Time.FormatPrecise(t)
+				text = text[:start] + local + rest[end:]
+				end = len(local)
+			}
 			sp.tsStart, sp.tsEnd = start, start+end
 		case start == 0:
 			text = text[min(end+1, len(text)):]

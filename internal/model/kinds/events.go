@@ -34,9 +34,10 @@ var events = &model.KindProfile{
 		{ID: "source", Title: "Source", Type: model.ColumnText},
 		{ID: "count", Title: "Count", Type: model.ColumnNumber},
 		ageColumn,
-		// Lens shows Last Seen as a UTC timestamp ("2026-10-11T16:04:00Z"), not an age (capture,
-		// 2026-10-11); a number column sorts it by time and shows the text.
-		{ID: "lastSeen", Title: "Last Seen", Type: model.ColumnNumber},
+		// Lens shows Last Seen as a timestamp ("2026-10-11T16:04:00Z", in UTC), not an age
+		// (capture, 2026-10-11); Cogpit writes it in the user's zone and format when it is drawn
+		// (D-31) and sorts it by time.
+		{ID: "lastSeen", Title: "Last Seen", Type: model.ColumnTime},
 	},
 	Cells: eventCells,
 	Fields: map[string]fieldFunc{
@@ -73,7 +74,7 @@ func eventCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 	}
 	lastSeen := model.Cell{}
 	if t := eventLastSeen(obj); !t.IsZero() {
-		lastSeen = model.Cell{Text: timestamp(t), Num: t.Unix()}
+		lastSeen = model.Cell{Num: t.Unix()}
 	}
 	return []model.Cell{
 		nameCell(obj),

@@ -180,8 +180,8 @@ func TestSecretCertificateSections(t *testing.T) {
 		"Issuer":              "Example Intermediate CA",
 		"Issuer DN":           "CN=Example Intermediate CA,O=Example",
 		"Serial Number":       "0A:1B:2C",
-		"Not Before":          "2026-08-13T12:00:00+02:00",
-		"Not After":           "2027-01-11T12:00:00+02:00 (in 90 days)",
+		"Not Before":          "2026-08-13 12:00:00", // in now's zone, +02:00 (D-31)
+		"Not After":           "2027-01-11 12:00:00 (in 90 days)",
 		"DNS Names":           "storefront.example.com\n*.storefront.example.com",
 		"IP Addresses":        "10.0.0.7",
 		"URIs":                "spiffe://example.com/ns/shop/sa/storefront",

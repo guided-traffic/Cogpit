@@ -80,8 +80,14 @@ func CheckViewPage(offset, limit int) (int, error) {
 }
 
 // RowsOf returns rows offset to offset+limit of a snapshot as the table shows them at now, the rows
-// of selected marked. limit must be positive (CheckViewPage).
+// of selected marked, absolute times in ISO 8601 in now's zone. limit must be positive
+// (CheckViewPage).
 func RowsOf(t *TableSnapshot, selected []model.ObjectRef, offset, limit int, now time.Time) ViewRows {
+	return RowsIn(t, selected, offset, limit, now, model.TimeLayout{}.In(now.Location()))
+}
+
+// RowsIn is RowsOf with absolute times written in f, as the window writes them (D-31).
+func RowsIn(t *TableSnapshot, selected []model.ObjectRef, offset, limit int, now time.Time, f model.TimeFormat) ViewRows {
 	out := ViewRows{
 		View: t.View, Title: t.Title, Context: t.Context, Shown: len(t.Rows), Total: t.Total, Offset: offset,
 		Namespaces: slices.Clone(t.Namespaces), Filter: t.Filter, FilterOptions: t.FilterOptions,
@@ -104,7 +110,7 @@ func RowsOf(t *TableSnapshot, selected []model.ObjectRef, offset, limit int, now
 		row := &t.Rows[ri]
 		cells := make([]string, len(visible))
 		for i, ci := range visible {
-			cells[i] = model.CellText(t.Columns[ci], cellAt(row, ci), now)
+			cells[i] = f.CellText(t.Columns[ci], cellAt(row, ci), now)
 		}
 		out.Rows = append(out.Rows, ViewRow{Ref: row.Ref, Status: row.Status, Cells: cells,
 			Selected: slices.ContainsFunc(selected, row.Ref.Same)})

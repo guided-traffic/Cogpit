@@ -17,6 +17,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/demo"
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 type writer = io.Writer
@@ -41,6 +42,10 @@ type env struct {
 
 	// mcpTransport is what `mcp` serves on; nil means stdin and stdout.
 	mcpTransport sdk.Transport
+
+	// timeLayout is how the output writes absolute times (D-31): the environment's locale
+	// (locale.Environment, as command-line tools read it); the zero value is ISO 8601.
+	timeLayout model.TimeLayout
 }
 
 // flags is a subcommand's flag set. Flags and arguments may be mixed (`get pods -n x`), as kubectl
@@ -148,7 +153,7 @@ func (e *env) newSession(opts sessionOptions) (*engine.Session, func(), error) {
 		// The app's cluster settings, read only: a context's proxy applies to the CLI's connection too.
 		ClusterSettings: engine.NewClusterSettingsStore(e.dirs.Config),
 	}
-	so := engine.Options{Connector: connector, Logger: e.logger}
+	so := engine.Options{Connector: connector, Logger: e.logger, TimeLayout: e.timeLayout}
 	closers := []func(){}
 	if opts.audit {
 		f, err := e.dirs.OpenAuditLog()

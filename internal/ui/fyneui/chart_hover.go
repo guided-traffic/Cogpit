@@ -261,17 +261,13 @@ func agoText(d time.Duration) string {
 	return fmt.Sprintf("%d d %d h ago", s/86400, s%86400/3600)
 }
 
-// hoverTime formats a moment for the panel: local time with seconds, with the date on a range of a
-// day or more.
+// hoverTime formats a moment for the panel in the user's format: the time of day with seconds,
+// with the date before it on a range of a day or more.
 func (d chartData) hoverTime(t time.Time) string {
-	loc := d.Loc
-	if loc == nil {
-		loc = time.Local
-	}
 	if d.To.Sub(d.From) >= 24*time.Hour {
-		return t.In(loc).Format("Jan 2 15:04:05")
+		return d.Time.Format(t)
 	}
-	return t.In(loc).Format("15:04:05")
+	return d.Time.FormatTime(t)
 }
 
 // detail formats a value for the panel: more exact than the axis where the chart says so.

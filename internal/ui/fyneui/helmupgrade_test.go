@@ -243,9 +243,6 @@ func TestReleaseDrawerValuesSave(t *testing.T) {
 // confirmation of it without a second dialog; a confirmation whose release moved meanwhile, an
 // agent's, or another command's is not answered by the dialog.
 func TestRollbackDialogConfirms(t *testing.T) {
-	old := rollbackZone
-	rollbackZone = time.UTC
-	t.Cleanup(func() { rollbackZone = old })
 	sh, _, q, f, _ := releaseDrawerShell(t, ThemeDark)
 	var asked []engine.ConfirmRequest
 	var answers []bool
@@ -274,7 +271,7 @@ func TestRollbackDialogConfirms(t *testing.T) {
 	})
 	q.until(t, "the dialog", func() bool { return rd != nil })
 	if len(rd.revision.Options) != 4 || rd.revision.Selected != rd.revision.Options[0] ||
-		rd.revision.Options[0] != "4 - ingress-nginx-4.12.1 - 1.12.1, updated: 10/10/2026, 12:30:00" || rd.confirm.Disabled() {
+		rd.revision.Options[0] != "4 - ingress-nginx-4.12.1 - 1.12.1, updated: 2026-10-10 12:30:00" || rd.confirm.Disabled() {
 		t.Fatalf("options %q selected %q, Rollback disabled %v", rd.revision.Options, rd.revision.Selected, rd.confirm.Disabled())
 	}
 	rd.revision.SetSelectedIndex(2)
@@ -546,9 +543,6 @@ func TestRenderReleaseDrawerEnd(t *testing.T) {
 }
 
 func TestRenderRollbackDialog(t *testing.T) {
-	old := rollbackZone
-	rollbackZone = time.UTC
-	t.Cleanup(func() { rollbackZone = old })
 	sh, w, q, _, _ := releaseDrawerShell(t, ThemeDark)
 	var rd *rollbackDialog
 	sh.dispatch("helm.release.history", refParams{Ref: *sh.drawer.shown}, func(res any, err error) {

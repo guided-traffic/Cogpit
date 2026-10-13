@@ -3,8 +3,11 @@ package engine
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // TestParseLogTime: the forms a jump reads, in the clock's time zone; a time of day still to
@@ -39,6 +42,57 @@ func TestParseLogTime(t *testing.T) {
 		if _, err := ParseLogTime(in, now); !errors.Is(err, errLogTime) {
 			t.Errorf("%q: %v, want the forms explained", in, err)
 		}
+	}
+}
+
+// TestParseLogTimeInTheUsersFormat: a jump reads the format the tab's timestamps show (D-31), with
+// or without seconds, a date alone and a time of day, besides ISO 8601; "pm" in any case where the
+// format writes PM; an error names examples in the user's format.
+func TestParseLogTimeInTheUsersFormat(t *testing.T) {
+	berlin := time.FixedZone("CEST", 2*60*60)
+	now := time.Date(2026, 10, 13, 13, 30, 0, 0, berlin)
+	de := model.TimeLayout{Date: "02.01.2006", Time: "15:04:05"}
+	us := model.TimeLayout{Date: "1/2/2006", Time: "3:04:05 PM"}
+	for _, tc := range []struct {
+		layout model.TimeLayout
+		in     string
+		want   time.Time
+	}{
+		{de, "13.10.2026 01:20:15", time.Date(2026, 10, 13, 1, 20, 15, 0, berlin)},
+		{de, "13.10.2026 01:20", time.Date(2026, 10, 13, 1, 20, 0, 0, berlin)},
+		{de, "12.10.2026", time.Date(2026, 10, 12, 0, 0, 0, 0, berlin)},
+		{de, "13.10.2026 01:20:15.250", time.Date(2026, 10, 13, 1, 20, 15, 25e7, berlin)}, // as a log line shows it
+		{de, "2026-10-13 01:20", time.Date(2026, 10, 13, 1, 20, 0, 0, berlin)},            // ISO still
+		{de, "13:00", time.Date(2026, 10, 13, 13, 0, 0, 0, berlin)},
+		{us, "10/13/2026 1:20:15 PM", time.Date(2026, 10, 13, 13, 20, 15, 0, berlin)},
+		{us, "10/13/2026 1:20 pm", time.Date(2026, 10, 13, 13, 20, 0, 0, berlin)},
+		{us, "10/13/2026\u202f1:20\u202fAM", time.Date(2026, 10, 13, 1, 20, 0, 0, berlin)},
+		{us, "2:00 PM", time.Date(2026, 10, 12, 14, 0, 0, 0, berlin)}, // still to come today: yesterday
+		{us, "10m ago", now.Add(-10 * time.Minute)},
+	} {
+		got, err := ParseLogTimeIn(tc.in, now, tc.layout)
+		if err != nil || !got.Equal(tc.want) {
+			t.Errorf("%q in %s: %v, %v; want %v", tc.in, tc.layout.Date, got, err, tc.want)
+		}
+	}
+	_, err := ParseLogTimeIn("soon", now, de)
+	if !errors.Is(err, errLogTime) || !strings.Contains(err.Error(), `"13.10.2026 13:30"`) || !strings.Contains(err.Error(), `"13:30" (today)`) {
+		t.Errorf("the error: %v", err)
+	}
+}
+
+// TestJumpLogsInTheUsersZone: logs.jumpTo reads a time in the session's format and the
+// Preferences' zone, as the tab shows its timestamps, and keeps it in UTC.
+func TestJumpLogsInTheUsersZone(t *testing.T) {
+	s, _ := logsSessionWith(t, Options{Preferences: NewPreferencesStore(""),
+		TimeLayout: model.TimeLayout{Date: "02.01.2006", Time: "15:04:05"}})
+	if _, err := s.ChangePreferences(func(p *Preferences) error { p.Timezone = "Europe/Berlin"; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	tab := openPodLogsTab(s, "web-1-a", "app")
+	got, err := s.JumpLogs(tab.ID, "13.10.2026 01:20")
+	if err != nil || !got.Logs.Jump.Time.Equal(time.Date(2026, 10, 12, 23, 20, 0, 0, time.UTC)) {
+		t.Fatalf("jump %+v, %v", got.Logs.Jump, err)
 	}
 }
 

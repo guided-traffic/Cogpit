@@ -529,7 +529,7 @@ func (c *chartCtl) renderTarget() {
 	p := c.p
 	to := p.d.sh.now()
 	d := chartData{
-		From: to.Add(-c.window), To: to, Compact: c.compact, Loc: p.d.sh.loc(), Empty: "No data yet",
+		From: to.Add(-c.window), To: to, Compact: c.compact, Time: p.d.sh.timeFormat(), Empty: "No data yet",
 		Binary: c.variant != variantCPU, // bytes, or bytes per second
 	}
 	t := p.target(c.name)

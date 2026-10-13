@@ -13,7 +13,7 @@ import (
 type logOptionsParams struct {
 	ID            string  `json:"id" jsonschema:"logs tab id as ui_state lists it, e.g. logs-1"`
 	Previous      *bool   `json:"previous,omitempty" jsonschema:"show the log of the container's previous, terminated instance (the stream opens again)"`
-	Timestamps    *bool   `json:"timestamps,omitempty" jsonschema:"show each line's RFC 3339 timestamp from the API server (the stream carries it either way)"`
+	Timestamps    *bool   `json:"timestamps,omitempty" jsonschema:"show each line's timestamp from the API server, written in the user's zone and format with milliseconds (the stream carries it either way)"`
 	ResourceNames *bool   `json:"resourceNames,omitempty" jsonschema:"show each line's pod and container, in tabs of a controlling resource"`
 	Wrap          *bool   `json:"wrap,omitempty" jsonschema:"wrap long lines instead of cutting them at the tab's edge"`
 	Search        *string `json:"search,omitempty" jsonschema:"text to find in the lines, case-insensitively, at most 1024 bytes; empty clears it"`
@@ -179,9 +179,10 @@ func registerLogs(g *registrar) {
 	add(g, engine.Spec[logJumpParams]{
 		ID: "logs.jumpTo", Label: "Jump to Time", Danger: engine.DangerRead, Verbs: workloadLogVerbs,
 		Description: "Scrolls a logs tab to the first line written at or after a time, as the tab's time field does, " +
-			"and stops it following. The time reads, in UTC as the tab's timestamps: \"2026-10-13 01:20\" (seconds optional), a " +
-			"date alone, \"01:20\" (today, or yesterday if that is still to come), \"10m ago\", \"1h30m ago\", \"2d ago\", " +
-			"\"now\", or RFC 3339. The lines the tab holds are searched first; when it holds none that old, Cogpit's " +
+			"and stops it following. The time reads in the zone and format the tab's timestamps show (ui_state's " +
+			"timeFormat, the Preferences' time zone) or in ISO 8601: a date with a time of day (\"2026-10-13 01:20\", seconds " +
+			"optional), a date alone, \"01:20\" (today, or yesterday if that is still to come), \"10m ago\", \"1h30m ago\", " +
+			"\"2d ago\", \"now\", or RFC 3339. The lines the tab holds are searched first; when it holds none that old, Cogpit's " +
 			"window asks the API server for each container's lines since then (bounded by the 10,000 lines a tab " +
 			"holds) and puts them on top. The window carries it out; ui_state shows the latest jump among the tab's " +
 			"log options (jump). Returns the tab.",

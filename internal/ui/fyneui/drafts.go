@@ -11,6 +11,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // draftsBanner shows the drafts of unsaved editor text that Cogpit kept for the connected context
@@ -80,7 +81,7 @@ func (b *draftsBanner) show(res any, err error) {
 func (b *draftsBanner) row(d engine.DraftInfo) fyne.CanvasObject {
 	title := newTextLine(draftTitle(d), theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	title.truncate = true
-	detail := newTextLine(draftDetail(d), colorMuted, theme.SizeNameText, fyne.TextStyle{})
+	detail := newTextLine(draftDetail(d, b.sh.timeFormat()), colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	detail.truncate = true
 	id := d.ID
 	discard := widget.NewButton("Discard", func() { b.sh.dispatch("editor.discardDraft", draftParams{ID: id}, nil) })
@@ -105,13 +106,14 @@ func draftTitle(d engine.DraftInfo) string {
 }
 
 // draftDetail is a row's second line: where the text belongs, when Cogpit kept it, its size, and
-// for an Edit tab the version the changes are based on.
-func draftDetail(d engine.DraftInfo) string {
+// for an Edit tab the version the changes are based on. The time is written in tf, the user's
+// zone and format (D-31).
+func draftDetail(d engine.DraftInfo, tf model.TimeFormat) string {
 	where := "Context " + d.Context
 	if d.Ref != nil && d.Ref.Namespace != "" {
 		where += ", namespace " + d.Ref.Namespace
 	}
-	parts := []string{where + ", kept " + d.Saved.UTC().Format("2006-01-02 15:04 MST"),
+	parts := []string{where + ", kept " + tf.Format(d.Saved),
 		fmt.Sprintf("%d line%s", d.Lines, plural(d.Lines))}
 	if d.BaseResourceVersion != "" {
 		parts = append(parts, "based on version "+d.BaseResourceVersion)

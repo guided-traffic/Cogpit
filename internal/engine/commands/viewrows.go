@@ -44,7 +44,7 @@ func registerViewRows(g *registrar) {
 			if err != nil {
 				return nil, err
 			}
-			return engine.RowsOf(t, u.Selected, p.Offset, limit, s.Now()), nil
+			return engine.RowsIn(t, u.Selected, p.Offset, limit, s.Now(), s.TimeFormat()), nil
 		},
 	})
 }

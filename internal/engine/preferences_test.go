@@ -166,16 +166,22 @@ func TestNoPreferencesStore(t *testing.T) {
 	}
 }
 
-// The time zone preference reaches the drawer: Created is written in that zone.
+// The time zone preference reaches the drawer: Created is written in that zone, in the
+// computer's format the session was given (D-31).
 func TestCreatedFollowsTheTimezone(t *testing.T) {
 	s := New(Options{Preferences: NewPreferencesStore(t.TempDir()), Now: func() time.Time {
 		return time.Date(2026, 10, 11, 14, 30, 0, 0, time.UTC)
-	}})
+	}, TimeLayout: model.TimeLayout{Date: "02.01.2006", Time: "15:04:05"}})
 	defer s.Close()
 	obj := &unstructured.Unstructured{Object: map[string]any{"metadata": map[string]any{
 		"name": "web-0", "creationTimestamp": "2026-10-01T12:00:00Z"}}}
 	created := func() string {
-		for _, it := range model.PropertiesSection(obj, s.displayNow()).Items {
+		m, err := BuildDetailIn(&model.KindProfile{Key: "pods", Kind: "Pod"}, model.ObjectRef{Kind: "pods", Name: "web-0"},
+			obj, nil, s.displayNow(), nil, s.TimeFormat())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, it := range m.Sections[0].Items {
 			if it.Name == "Created" {
 				return it.Value
 			}
@@ -185,14 +191,17 @@ func TestCreatedFollowsTheTimezone(t *testing.T) {
 	if _, err := s.ChangePreferences(func(p *Preferences) error { p.Timezone = "UTC"; return nil }); err != nil {
 		t.Fatal(err)
 	}
-	if got := created(); got != "10d ago (2026-10-01T12:00:00Z)" {
+	if got := created(); got != "10d ago (01.10.2026 12:00:00)" {
 		t.Errorf("UTC: %q", got)
 	}
 	if _, err := s.ChangePreferences(func(p *Preferences) error { p.Timezone = "Europe/Berlin"; return nil }); err != nil {
 		t.Fatal(err)
 	}
-	if got := created(); got != "10d ago (2026-10-01T14:00:00+02:00)" {
+	if got := created(); got != "10d ago (01.10.2026 14:00:00)" {
 		t.Errorf("Europe/Berlin: %q", got)
+	}
+	if got := s.UIState().TimeFormat; got != (model.TimeLayout{Date: "02.01.2006", Time: "15:04:05"}) {
+		t.Errorf("ui_state's time format %+v", got)
 	}
 }
 

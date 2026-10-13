@@ -75,7 +75,7 @@ func (tv *tableView) fitToContent(col int) {
 			if ci < len(rows[i].Cells) {
 				cell = rows[i].Cells[ci]
 			}
-			return model.CellText(c, cell, tv.now)
+			return tv.tf.CellText(c, cell, tv.now)
 		}, size))
 	}
 	tv.userWidths[tv.snap.View+"/"+c.ID] = w + 2*pad + 1 // a point of slack against rounding

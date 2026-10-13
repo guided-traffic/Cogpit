@@ -344,7 +344,7 @@ func TestLogsStampedAndSelection(t *testing.T) {
 		t.Errorf("without names and timestamps %q", got)
 	}
 	l.SetView(LogView{Prefixed: true, Names: true, Stamped: true, Timestamps: true})
-	if got := rowTexts(l)[0]; got != mergedLogs[0] {
+	if got := rowTexts(l)[0]; got != localStamps(mergedLogs[0]) {
 		t.Errorf("with names and timestamps %q", got)
 	}
 

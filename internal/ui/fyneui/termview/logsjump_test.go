@@ -25,7 +25,7 @@ func TestLogsJumpTo(t *testing.T) {
 	if !l.JumpTo(at("12:00:12")) || !strings.Contains(l.JumpedLine(), "ERROR payment provider unreachable") || l.Following() {
 		t.Errorf("jumped to %q, following %v", l.JumpedLine(), l.Following())
 	}
-	if !l.JumpTo(at("12:00:00")) || !strings.Contains(l.JumpedLine(), "12:00:01.204118340Z starting") {
+	if !l.JumpTo(at("12:00:00")) || !strings.Contains(l.JumpedLine(), "12:00:01.204 starting") {
 		t.Errorf("before every line: %q", l.JumpedLine())
 	}
 	if l.JumpTo(at("12:01:00")) || l.JumpedLine() != "" {

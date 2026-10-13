@@ -11,6 +11,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // helmBanner shows the connected context's unfinished Helm release actions below the top bar, one
@@ -86,7 +87,7 @@ func (b *helmBanner) row(op engine.PendingHelmOpInfo) fyne.CanvasObject {
 	}
 	title := newTextLine(helmOpTitle(op), theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	title.truncate = true
-	detail := newTextLine(helmOpDetail(op), colorMuted, theme.SizeNameText, fyne.TextStyle{})
+	detail := newTextLine(helmOpDetail(op, b.sh.timeFormat()), colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	detail.truncate = true
 
 	buttons := container.NewHBox()
@@ -153,10 +154,11 @@ func helmOpTitle(op engine.PendingHelmOpInfo) string {
 
 // helmOpDetail is a row's second line: where and when the action was started and by whom, the
 // state the release is in, and why the action did not finish, the cause last because it can be
-// long and is cut off first; the full text is in helm.pendingOperations.
-func helmOpDetail(op engine.PendingHelmOpInfo) string {
+// long and is cut off first; the full text is in helm.pendingOperations. The time is written in
+// tf, the user's zone and format (D-31).
+func helmOpDetail(op engine.PendingHelmOpInfo, tf model.TimeFormat) string {
 	parts := []string{fmt.Sprintf("Context %s, namespace %s, started %s by %s", op.Context, op.Namespace,
-		op.Started.UTC().Format("2006-01-02 15:04 MST"), starterText(op.StartedBy))}
+		tf.Format(op.Started), starterText(op.StartedBy))}
 	if op.Status == engine.HelmOpStatusRunning {
 		if op.Elsewhere && op.Owner != nil { // as drains: this window will not finish it (H-22, R-9)
 			parts = append(parts, fmt.Sprintf("in another Cogpit window (process %d)", op.Owner.PID))

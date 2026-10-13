@@ -285,7 +285,17 @@ func withLogCommands(t testing.TB, f *fakeEngine, deployment model.ObjectRef) {
 // logsScene is the pods view with a logs tab in the dock: on a pod, or on its deployment.
 func logsScene(t *testing.T, mode ThemeMode, workload bool, opts engine.LogOptions) (*shell, fyne.Window, *mainQueue, *fakeEngine) {
 	t.Helper()
+	return logsSceneWith(t, mode, workload, opts, nil)
+}
+
+// logsSceneWith is logsScene with the fixture changed by setup before the window starts (a time
+// format, preferences); setup may be nil.
+func logsSceneWith(t *testing.T, mode ThemeMode, workload bool, opts engine.LogOptions, setup func(*fakeEngine)) (*shell, fyne.Window, *mainQueue, *fakeEngine) {
+	t.Helper()
 	f := connectedFake(t, 200)
+	if setup != nil {
+		setup(f)
+	}
 	pod := model.ObjectRef{Context: "demo", Kind: kindPods, Namespace: "checkout", Name: "checkout-api-7d9f8b6c4-x2k9p"}
 	dep := model.ObjectRef{Context: "demo", Kind: "deployments", Namespace: "checkout", Name: "checkout-api"}
 	withLogCommands(t, f, dep)
@@ -334,7 +344,7 @@ func TestLogTabOptionsAreEngineState(t *testing.T) {
 	})
 	q.until(t, "the timestamped lines", func() bool {
 		lines := lt.view.ShownLines()
-		return len(lines) > 0 && strings.HasPrefix(lines[0], "2026-10-11T14:28:01.204118340Z ")
+		return len(lines) > 0 && strings.HasPrefix(lines[0], "2026-10-11 14:28:01.204 ") // in the window's format (D-31)
 	})
 	if n := len(f.callsOf("logs.setOptions")); n != 2 { // the agent's; following it dispatched nothing
 		t.Errorf("%d setOptions calls", n)
@@ -554,7 +564,7 @@ func TestLogTabLoadsOlderLines(t *testing.T) {
 		t.Fatalf("requests %+v", reqs)
 	}
 	lines := lt.view.ShownLines()
-	if lines[0] != demoOlder[0].source+" "+demoOlder[0].ts+" "+demoOlder[0].msg || lines[3] != demoMerged[0].source+" "+demoMerged[0].ts+" "+demoMerged[0].msg {
+	if lines[0] != demoOlder[0].source+" "+shownStamp(demoOlder[0].ts)+" "+demoOlder[0].msg || lines[3] != demoMerged[0].source+" "+shownStamp(demoMerged[0].ts)+" "+demoMerged[0].msg {
 		t.Errorf("lines %q", lines[:4])
 	}
 	q.until(t, "the beginning", func() bool { return lt.view.Head() == headBeginning })
@@ -670,7 +680,7 @@ func TestLogDownloadWritesTheShownLines(t *testing.T) {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
-	if len(lines) != len(demoMerged) || lines[4] != demoMerged[4].source+" "+demoMerged[4].ts+" "+demoMerged[4].msg {
+	if len(lines) != len(demoMerged) || lines[4] != demoMerged[4].source+" "+shownStamp(demoMerged[4].ts)+" "+demoMerged[4].msg {
 		t.Errorf("saved %q", lines)
 	}
 	for title, want := range map[string]string{

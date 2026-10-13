@@ -139,9 +139,10 @@ func cellsOf(p *model.KindProfile, obj *unstructured.Unstructured) ([]model.Cell
 	return p.Cells(obj)
 }
 
-// detailOf calls the profile's drawer sections directly, without related objects.
+// detailOf calls the profile's drawer sections directly, without related objects, and writes
+// their absolute times (marks) as the engine does, in ISO 8601 in UTC (D-31).
 func detailOf(p *model.KindProfile, obj *unstructured.Unstructured) []model.DetailSection {
-	return p.DetailSections(obj, model.NoRelated)
+	return model.TimeLayout{}.In(time.UTC).WriteSections(p.DetailSections(obj, model.NoRelated))
 }
 
 // sameCell compares cells by value, links and parts included.
@@ -375,13 +376,13 @@ func TestStatusTexts(t *testing.T) {
 		{"events", "healthy", "message", `Container image "registry.example.com/shop/web:1.4.2" already present on machine`, model.StatusNone, model.StatusNone},
 		{"events", "failing", "count", "42", model.StatusNone, model.StatusWarning},
 		{"events", "warning-series", "count", "17", model.StatusNone, model.StatusWarning},
-		// Last Seen is a UTC timestamp, as captured from Lens.
-		{"events", "warning-series", "lastSeen", "2026-10-11T11:58:30Z", model.StatusNone, model.StatusWarning},
+		// Last Seen is a timestamp, as captured from Lens; written in the user's format when drawn (D-31), ISO 8601 here.
+		{"events", "warning-series", "lastSeen", "2026-10-11 11:58:30", model.StatusNone, model.StatusWarning},
 		{"events", "warning-series", "age", "3h", model.StatusNone, model.StatusWarning}, // eventTime, whole seconds
 		{"events", "new-style", "source", "default-scheduler, default-scheduler-cp-1", model.StatusNone, model.StatusNone},
 		{"events", "new-style", "count", "1", model.StatusNone, model.StatusNone},
 		{"events", "events-api-shape", "involvedObject", "Deployment: search", model.StatusNone, model.StatusNone},
-		{"events", "minimal", "lastSeen", "2026-10-11T11:55:00Z", model.StatusNone, model.StatusNone},
+		{"events", "minimal", "lastSeen", "2026-10-11 11:55:00", model.StatusNone, model.StatusNone},
 	}
 	checkStatusTexts(t, tests)
 }

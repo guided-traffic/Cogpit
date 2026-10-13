@@ -96,7 +96,7 @@ func (b *drainBanner) row(d engine.PendingDrainInfo) fyne.CanvasObject {
 	}
 	title := newTextLine(drainTitle(d), theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	title.truncate = true
-	detail := newTextLine(drainDetail(d), colorMuted, theme.SizeNameText, fyne.TextStyle{})
+	detail := newTextLine(drainDetail(d, b.sh.timeFormat()), colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	detail.truncate = true
 
 	buttons := container.NewHBox()
@@ -133,9 +133,10 @@ func drainTitle(d engine.PendingDrainInfo) string {
 
 // drainDetail is a row's second line: when and by whom the drain was started, in which context,
 // the state the node is in, and why the drain did not finish. The cause comes last because it can
-// be long and is cut off first; the full text is in node.pendingDrains.
-func drainDetail(d engine.PendingDrainInfo) string {
-	parts := []string{fmt.Sprintf("Context %s, started %s by %s", d.Context, d.Started.UTC().Format("2006-01-02 15:04 MST"), starterText(d.StartedBy))}
+// be long and is cut off first; the full text is in node.pendingDrains. The time is written in
+// tf, the user's zone and format (D-31).
+func drainDetail(d engine.PendingDrainInfo, tf model.TimeFormat) string {
+	parts := []string{fmt.Sprintf("Context %s, started %s by %s", d.Context, tf.Format(d.Started), starterText(d.StartedBy))}
 	if d.Status == engine.DrainStatusRunning {
 		if d.Elsewhere && d.Owner != nil {
 			parts = append(parts, fmt.Sprintf("in another Cogpit window (process %d)", d.Owner.PID))

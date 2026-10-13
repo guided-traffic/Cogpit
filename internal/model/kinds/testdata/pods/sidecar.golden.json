@@ -161,7 +161,7 @@
       "items": [
         {
           "name": "Status",
-          "value": "Running, ready, started 2026-10-11T00:00:03Z",
+          "value": "Running, ready, started 2026-10-11 00:00:03",
           "status": "ok"
         },
         {
@@ -180,7 +180,7 @@
       "items": [
         {
           "name": "Status",
-          "value": "Running, ready, started 2026-10-11T00:00:05Z",
+          "value": "Running, ready, started 2026-10-11 00:00:05",
           "status": "ok"
         },
         {

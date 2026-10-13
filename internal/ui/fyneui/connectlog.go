@@ -17,10 +17,8 @@ import (
 // connection Cogpit closed because its kubeconfig file went away, with a warning icon; the icon
 // opens "Connection Updates: <context>", INFO and ERROR lines as Lens shows them (captured
 // 2026-10-12). The engine keeps the lines (cluster.connectLog); what a credential plugin writes to
-// its standard error is not among them (gap G2).
-
-// logTimeZone is the zone the log's times are shown in; tests fix it for stable images.
-var logTimeZone = time.Local
+// its standard error is not among them (gap G2). A line's time is its time of day in the user's
+// zone and format (D-31).
 
 type connectLogView struct {
 	Context string `json:"context"`
@@ -62,6 +60,7 @@ func (k *kubeconfigUI) openConnectLog(contextID string, v connectLogView) {
 	width := th.Size(sizePickerWidth)
 	pad := th.Size(theme.SizeNamePadding)
 	rows := container.NewVBox()
+	tf := k.sh.timeFormat()
 	for _, l := range v.Lines {
 		fg := colorMuted
 		switch l.Level {
@@ -70,7 +69,7 @@ func (k *kubeconfigUI) openConnectLog(contextID string, v connectLogView) {
 		case engine.LogWarn:
 			fg = colorStatusWarning
 		}
-		prefix := newTextLine(l.Time.In(logTimeZone).Format("15:04:05")+"  "+padRight(l.Level, 5)+"  ", fg,
+		prefix := newTextLine(tf.FormatTime(l.Time)+"  "+padRight(l.Level, 5)+"  ", fg,
 			theme.SizeNameText, fyne.TextStyle{Monospace: true})
 		textW := width - prefix.MinSize().Width - 8*pad
 		rows.Add(container.NewBorder(nil, nil, container.NewVBox(prefix), nil,

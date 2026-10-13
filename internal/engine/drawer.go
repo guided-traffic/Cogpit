@@ -211,7 +211,7 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 		events = evh.List()
 	}
 	rel, _ := rs.view()
-	m, perr := BuildDetailWith(p, ref, obj, events, s.displayNow(), rel) // absolute times in the preferred zone
+	m, perr := BuildDetailIn(p, ref, obj, events, s.displayNow(), rel, s.TimeFormat()) // absolute times in the user's zone and format (D-31)
 	if perr != nil {
 		s.log.Error("engine: kind profile detail panicked", "kind", p.Key, "panic", perr.Error())
 	}
@@ -247,13 +247,26 @@ func (s *Session) drawerRelated(b *Backend, p *model.KindProfile, ref model.Obje
 //
 // The sections are Properties (the generic metadata, then the items of the kind's own Properties
 // section) and the kind's other sections; the events follow, newest first. A profile whose Detail
-// panics yields only the generic sections, and the panic as the error.
+// panics yields only the generic sections, and the panic as the error. Absolute times are written
+// in ISO 8601 in now's zone; the session writes them in the user's format (BuildDetailIn).
 func BuildDetail(p *model.KindProfile, ref model.ObjectRef, obj *unstructured.Unstructured, events []*unstructured.Unstructured, now time.Time) (*DetailModel, error) {
 	return BuildDetailWith(p, ref, obj, events, now, nil)
 }
 
 // BuildDetailWith is BuildDetail with the related objects of the profile's Needs; nil means none.
 func BuildDetailWith(p *model.KindProfile, ref model.ObjectRef, obj *unstructured.Unstructured, events []*unstructured.Unstructured, now time.Time, rel model.Related) (*DetailModel, error) {
+	return BuildDetailIn(p, ref, obj, events, now, rel, model.TimeLayout{}.In(now.Location()))
+}
+
+// BuildDetailIn is BuildDetailWith with the absolute times written in f (D-31): the kinds' and
+// the certificates' times are marks (model.MarkTime) until then.
+func BuildDetailIn(p *model.KindProfile, ref model.ObjectRef, obj *unstructured.Unstructured, events []*unstructured.Unstructured, now time.Time, rel model.Related, f model.TimeFormat) (*DetailModel, error) {
+	m, err := buildDetail(p, ref, obj, events, now, rel)
+	m.Sections = f.WriteSections(m.Sections)
+	return m, err
+}
+
+func buildDetail(p *model.KindProfile, ref model.ObjectRef, obj *unstructured.Unstructured, events []*unstructured.Unstructured, now time.Time, rel model.Related) (*DetailModel, error) {
 	m := &DetailModel{
 		Ref: ref, Title: detailTitle(p, ref),
 		Sections: []model.DetailSection{}, Events: []EventItem{},

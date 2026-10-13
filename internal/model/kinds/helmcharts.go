@@ -114,9 +114,7 @@ func helmChartDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	d.add("Keywords", strings.Join(stringsOf(model.NestedSlice(obj, "spec", fieldKeywords)), ", "))
 	d.add("Sources", strings.Join(stringsOf(model.NestedSlice(obj, "spec", "sources")), "\n"))
 	d.add("Kubernetes Version", model.NestedString(obj, "spec", "kubeVersion"))
-	if t := model.NestedTime(obj, "spec", fieldCreated); !t.IsZero() {
-		d.add("Created", t.UTC().Format("2006-01-02 15:04 MST"))
-	}
+	d.add("Created", timestamp(model.NestedTime(obj, "spec", fieldCreated)))
 	if deprecated, _ := model.NestedBool(obj, "spec", "deprecated"); deprecated {
 		d.addStatus("Deprecated", "yes", model.StatusWarning)
 	}
@@ -137,10 +135,7 @@ func helmChartDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	versions := model.NestedSlice(obj, "spec", fieldVersions)
 	rows := make([][]model.Cell, 0, len(versions))
 	for _, v := range versions {
-		created := ""
-		if t := model.NestedTime(v, fieldCreated); !t.IsZero() {
-			created = t.UTC().Format("2006-01-02")
-		}
+		created := model.MarkDate(model.NestedTime(v, fieldCreated)) // the date in the user's format (D-31)
 		rows = append(rows, []model.Cell{{Text: model.NestedString(v, fieldChartVer)}, {Text: model.NestedString(v, fieldAppVersion)}, {Text: created}})
 	}
 	if len(rows) > 0 {

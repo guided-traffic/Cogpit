@@ -280,10 +280,9 @@ func certItems(c model.Certificate, now time.Time) []model.DetailItem {
 	return items
 }
 
-// certTime writes a certificate's time in now's zone as RFC 3339, as the drawer writes Created.
-func certTime(t, now time.Time) string {
-	return t.In(now.Location()).Format(time.RFC3339)
-}
+// certTime writes a certificate's time as a mark, which the drawer writes in the user's zone and
+// format as it writes Created (D-31, BuildDetailIn).
+func certTime(t, _ time.Time) string { return model.MarkTime(t) }
 
 // certSpan writes a positive duration in whole days, else whole hours, else "less than an hour".
 func certSpan(d time.Duration) string {

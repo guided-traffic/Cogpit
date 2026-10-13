@@ -170,7 +170,7 @@ func TestDrainBannerShowsAndActs(t *testing.T) {
 	if b := bannerButtons(sh.drains); len(b) != 0 {
 		t.Errorf("buttons on a running drain: %v", b)
 	}
-	if detail := drainDetail(sh.drains.drains[0]); !strings.Contains(detail, "3 of 5 pods evicted") || !strings.Contains(detail, "waiting for shop/db-0") {
+	if detail := drainDetail(sh.drains.drains[0], sh.timeFormat()); !strings.Contains(detail, "3 of 5 pods evicted") || !strings.Contains(detail, "waiting for shop/db-0") {
 		t.Errorf("running detail %q", detail)
 	}
 
@@ -184,10 +184,10 @@ func TestDrainBannerTexts(t *testing.T) {
 	if got := drainTitle(ds[0]); got != "The drain of node worker-2 did not finish" {
 		t.Errorf("title %q", got)
 	}
-	if got := drainDetail(ds[0]); got != "Context kind-cogpit, started 2026-10-11 13:02 UTC by you · the node is cordoned and partly drained · Cogpit ended before the drain did" {
+	if got := drainDetail(ds[0], germanTime); got != "Context kind-cogpit, started 11.10.2026 13:02:00 by you · the node is cordoned and partly drained · Cogpit ended before the drain did" {
 		t.Errorf("detail %q", got)
 	}
-	got := drainDetail(ds[1])
+	got := drainDetail(ds[1], germanTime)
 	if !strings.Contains(got, "by an external agent · the node is schedulable again · timed out after 5m0s") || strings.Contains(got, "drain node worker-3:") {
 		t.Errorf("failed detail %q: the node's state before the cause, the title's node not repeated", got)
 	}
@@ -197,7 +197,7 @@ func TestDrainBannerTexts(t *testing.T) {
 	if got := drainTitle(other); got != "Draining node worker-2" {
 		t.Errorf("title %q", got)
 	}
-	if got := drainDetail(other); got != "Context kind-cogpit, started 2026-10-11 13:02 UTC by you · in another Cogpit window (process 4242)" {
+	if got := drainDetail(other, germanTime); got != "Context kind-cogpit, started 11.10.2026 13:02:00 by you · in another Cogpit window (process 4242)" {
 		t.Errorf("detail %q", got)
 	}
 }

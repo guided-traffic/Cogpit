@@ -14,13 +14,14 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/ui/fyneui/yamlview"
 )
 
 // Preferences (G13, ⌘,; engine/preferences.go). The window applies UIState.Preferences whenever
 // it changes, whoever changed it: the theme (unless --theme set one for the run) and the tables'
-// row height through Cogpit's theme, the time zone in the charts' axes and hover panels (the
-// engine writes the drawer's Created in it), the editor's font size, line numbers and tab size in
+// row height through Cogpit's theme, the time zone in every absolute time the window writes
+// (timeFormat; the engine writes the drawer's in it), the editor's font size, line numbers and tab size in
 // every open editor tab, the terminal's font size in the terminals opened afterwards (a running
 // terminal keeps the size its grid was laid out in). The page's sections: App (theme, time zone),
 // Proxy (the proxy of the traffic that is no cluster's, clustersettings_proxy.go), Kubernetes (the
@@ -61,8 +62,16 @@ func (sh *shell) preferencesChanged() {
 	}
 	if zone.String() != sh.zone.String() || (zone == nil) != (sh.zone == nil) {
 		sh.zone = zone
-		sh.drawer.request()        // Created, which the engine writes in the zone
+		sh.drawer.request()        // the drawer's times, which the engine writes in the zone
 		sh.drawer.metricsChanged() // the charts' time axes
+		if sh.view != nil {
+			sh.view.refreshAges() // an event's Last Seen
+		}
+		for _, c := range sh.dock.contents {
+			if lt := c.logs; lt != nil && lt.view != nil {
+				lt.view.SetView(viewOf(lt.tab, sh.timeFormat())) // the shown timestamps
+			}
+		}
 	}
 	for _, v := range sh.editorViews() {
 		sh.applyEditorPrefs(v)
@@ -70,14 +79,19 @@ func (sh *shell) preferencesChanged() {
 	sh.applyTerminalPrefs() // the right mouse button in the open terminals (termpaste.go)
 }
 
-// loc is the time zone of the charts' time axes and hover panels: the Preferences' time zone,
-// else the clock's (the computer's).
+// loc is the time zone the window writes absolute times in: the Preferences' time zone, else the
+// clock's (the computer's).
 func (sh *shell) loc() *time.Location {
 	if sh.zone != nil {
 		return sh.zone
 	}
 	return sh.now().Location()
 }
+
+// timeFormat writes absolute times as the window shows them (D-31): the engine's layout, the
+// computer's region format (UIState.TimeFormat), in the Preferences' time zone. Every time the
+// window writes goes through it: tables, charts, notifications, the audit log, logs, banners.
+func (sh *shell) timeFormat() model.TimeFormat { return sh.ui.TimeFormat.In(sh.loc()) }
 
 // applyEditorPrefs gives an editor tab's YAML view the Preferences' font size, line numbers and
 // tab size.

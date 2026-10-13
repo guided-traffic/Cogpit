@@ -320,7 +320,7 @@ func compareRows(a, b *model.Row, ci int, typ model.ColumnType, desc bool) int {
 	}
 	if !ea {
 		var c int
-		if typ == model.ColumnNumber || typ == model.ColumnAge || typ == model.ColumnUntil || typ == model.ColumnWarning || typ == model.ColumnMetric {
+		if typ == model.ColumnNumber || typ == model.ColumnAge || typ == model.ColumnUntil || typ == model.ColumnTime || typ == model.ColumnWarning || typ == model.ColumnMetric {
 			c = cmp.Compare(ca.Num, cb.Num)
 		} else {
 			c = compareFold(ca.Text, cb.Text)
@@ -356,7 +356,7 @@ func emptyCell(typ model.ColumnType, c model.Cell) bool {
 	switch typ {
 	case model.ColumnNumber:
 		return false
-	case model.ColumnAge, model.ColumnUntil:
+	case model.ColumnAge, model.ColumnUntil, model.ColumnTime:
 		return c.Num == 0 && c.Text == ""
 	case model.ColumnMetric:
 		return c.Text == "" // no measurement

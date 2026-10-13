@@ -155,7 +155,7 @@
       "items": [
         {
           "name": "Status",
-          "value": "Terminated: Completed (exit code 0), started 2026-10-11T11:58:05Z, finished 2026-10-11T11:58:20Z",
+          "value": "Terminated: Completed (exit code 0), started 2026-10-11 11:58:05, finished 2026-10-11 11:58:20",
           "status": "succeeded"
         },
         {
@@ -170,7 +170,7 @@
       "items": [
         {
           "name": "Status",
-          "value": "Running, started 2026-10-11T11:58:21Z",
+          "value": "Running, started 2026-10-11 11:58:21",
           "status": "ok"
         },
         {

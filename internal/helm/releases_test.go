@@ -130,9 +130,9 @@ func TestDeriveGroupsReleasesNewestWins(t *testing.T) {
 // Updated, Namespace, Version and Status as Lens writes it; the newest revision's values and the
 // chart's notes (both private); the resources, one table per kind with links.
 func TestReleaseDetail(t *testing.T) {
-	oldClock, oldZone := clock, zone
-	clock, zone = func() time.Time { return t0.Add(3*time.Hour + 68*time.Second) }, time.FixedZone("CEST", 2*60*60)
-	t.Cleanup(func() { clock, zone = oldClock, oldZone })
+	oldClock := clock
+	clock = func() time.Time { return t0.Add(3*time.Hour + 68*time.Second) }
+	t.Cleanup(func() { clock = oldClock })
 	p := NewReleaseProfile()
 	manifest := "---\n# Source: web/templates/cm.yaml\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: web\n" +
 		"--- {apiVersion: apps/v1, kind: Deployment, metadata: {name: web, namespace: elsewhere}}\n" +
@@ -170,7 +170,10 @@ func TestReleaseDetail(t *testing.T) {
 		t.Errorf("chart %+v", c)
 	}
 	// Chart reads "<chart>-<version>", Namespace is plain text and Status a neutral pill (captured 2026-10-12).
-	if got := props["Updated"].Value; got != "68s ago (1 Oct 2026, 17:00:00 CEST)" {
+	// Updated is Lens's age and time, the time a mark the engine writes in the user's zone and
+	// format (D-31): "68s ago (01.10.2026 17:00:00)" in Germany.
+	de := model.TimeLayout{Date: "02.01.2006", Time: "15:04:05"}.In(time.FixedZone("CEST", 2*60*60))
+	if got := de.WriteMarks(props["Updated"].Value); got != "68s ago (01.10.2026 17:00:00)" {
 		t.Errorf("updated %q", got)
 	}
 	if props["Status"].Value != "Deployed" || !props["Status"].Pill || props["Status"].Status != model.StatusNone ||
@@ -241,7 +244,9 @@ func TestReleaseHistoryAndRevisionText(t *testing.T) {
 		h[0].Status != "deployed" || !h[0].Updated.Equal(t0.Add(3*time.Hour)) || h[2].Revision != 1 {
 		t.Fatalf("history %+v", h)
 	}
-	if got := RevisionText(h[0], time.FixedZone("CEST", 2*60*60)); got != "3 - web-1.3.0 - 2.0, updated: 01/10/2026, 17:00:00" {
+	// Lens's text, its time in the user's zone and format (D-31).
+	en := model.TimeLayout{Date: "1/2/2006", Time: "3:04:05 PM"}.In(time.FixedZone("CEST", 2*60*60))
+	if got := RevisionText(h[0], en); got != "3 - web-1.3.0 - 2.0, updated: 10/1/2026 5:00:00 PM" {
 		t.Errorf("revision text %q", got)
 	}
 	if name, version := ReleaseChart(web); name != "web" || version != "1.3.0" || ReleaseSecret(web) != "sh.helm.release.v1.web.v3" {

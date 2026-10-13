@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // Crash reports (credentials.md: "a local crash report follows the log rule"; no upload). The Go
@@ -113,8 +115,9 @@ func crashReportDir() string {
 	return filepath.Join(dir, "Cogpit")
 }
 
-// crashNotice is what the window says about a crash report the last run left.
-func crashNotice(path string, at time.Time) string {
-	return "Cogpit ended unexpectedly on " + at.Format("2006-01-02 15:04") + ". The crash report is in " + path +
+// crashNotice is what the window says about a crash report the last run left, the time in the
+// user's zone and format (D-31). The report's file name keeps its machine-readable time.
+func crashNotice(path string, at time.Time, tf model.TimeFormat) string {
+	return "Cogpit ended unexpectedly on " + tf.Format(at) + ". The crash report is in " + path +
 		"; please attach it when you report the problem."
 }

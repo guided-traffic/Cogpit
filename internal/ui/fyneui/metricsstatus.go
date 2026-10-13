@@ -12,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/metrics"
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // The status line under the drawer's charts (G12, owner 2026-10-12, evening): one line per metrics
@@ -62,7 +63,7 @@ func (l *providerStatusLine) set(providers []metrics.ProviderStatus, now time.Ti
 			r.Hide()
 			continue
 		}
-		r.set(providerLine(shown[i], now))
+		r.set(providerLine(shown[i], now, l.sh.timeFormat()))
 		r.Show()
 	}
 	if len(shown) == 0 {
@@ -93,8 +94,9 @@ func servesText(serves []string) string {
 	return strings.Join(words, ", ")
 }
 
-// providerLine is the text, icon and tooltip of one provider's row.
-func providerLine(ps metrics.ProviderStatus, now time.Time) providerLineText {
+// providerLine is the text, icon and tooltip of one provider's row; the tooltip's times of day are
+// written in tf, the user's zone and format (D-31).
+func providerLine(ps metrics.ProviderStatus, now time.Time, tf model.TimeFormat) providerLineText {
 	name := ps.Label
 	if ps.Service != "" {
 		name += " " + ps.Service
@@ -145,12 +147,12 @@ func providerLine(ps metrics.ProviderStatus, now time.Time) providerLineText {
 		tip = append(tip, "Serves: "+what+".")
 	}
 	if !ps.LastOK.IsZero() {
-		tip = append(tip, "Last good answer: "+ps.LastOK.In(now.Location()).Format("15:04:05")+" ("+since(ps.LastOK)+")")
+		tip = append(tip, "Last good answer: "+tf.FormatTime(ps.LastOK)+" ("+since(ps.LastOK)+")")
 	}
 	if ps.LastError != "" {
 		line := "Last error: " + ps.LastError
 		if !ps.LastErrorAt.IsZero() {
-			line += " at " + ps.LastErrorAt.In(now.Location()).Format("15:04:05") + " (" + since(ps.LastErrorAt) + ")"
+			line += " at " + tf.FormatTime(ps.LastErrorAt) + " (" + since(ps.LastErrorAt) + ")"
 		}
 		tip = append(tip, line)
 	}

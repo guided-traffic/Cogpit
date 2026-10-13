@@ -13,6 +13,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // The title bar's notifications (ui-parity › Appearance, "Notifications in the title bar"; a bell
@@ -230,17 +231,19 @@ func (n *notificationsUI) row(it engine.Notification, width float32) fyne.Canvas
 	return container.NewStack(bg, line)
 }
 
-// timeText is when a notification was shown: the time of day today, with the date before.
+// timeText is when a notification was shown, in the user's zone and format (D-31): the time of day
+// today, the date and the time of day before.
 func (n *notificationsUI) timeText(t time.Time) string {
-	zone := n.sh.zone
-	if zone == nil {
-		zone = time.Local
+	return sameDayTime(n.sh.timeFormat(), t, n.sh.now())
+}
+
+// sameDayTime writes t as its time of day when it falls on now's day in f's zone, else with its
+// date before (the notifications, the audit log).
+func sameDayTime(f model.TimeFormat, t, now time.Time) string {
+	if f.FormatDate(t) == f.FormatDate(now) {
+		return f.FormatTime(t)
 	}
-	t, now := t.In(zone), n.sh.now().In(zone)
-	if y, m, d := t.Date(); y == now.Year() && m == now.Month() && d == now.Day() {
-		return t.Format("15:04:05")
-	}
-	return t.Format("Jan 2, 15:04")
+	return f.Format(t)
 }
 
 // toastStyle is a level's colour, title and icon, as its toast shows them.

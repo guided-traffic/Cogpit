@@ -131,7 +131,7 @@ func releasesFake(t testing.TB) (*fakeEngine, model.ObjectRef) {
 		}
 		for i, it := range m.Sections[0].Items {
 			if it.Name == "Updated" { // the drawer's age against the tests' clock, in UTC
-				m.Sections[0].Items[i].Value = helm.UpdatedText(model.NestedTime(o, "updated"), fixedNow, time.UTC)
+				m.Sections[0].Items[i].Value = model.TimeFormat{Zone: time.UTC}.WriteMarks(helm.UpdatedText(model.NestedTime(o, "updated"), fixedNow))
 			}
 		}
 		f.details[ref.String()] = m
@@ -217,7 +217,7 @@ func TestReleasesViewAndDrawer(t *testing.T) {
 		t.Errorf("icons %v", tips)
 	}
 	texts := releaseDrawerText(sh.drawer)
-	for _, s := range []string{"4.12.1", "Deployed", "26h ago (10 Oct 2026, 12:30:00 UTC)", "ingress-nginx-controller", "has been installed", "Resources", "ClusterRole"} {
+	for _, s := range []string{"4.12.1", "Deployed", "26h ago (2026-10-10 12:30:00)", "ingress-nginx-controller", "has been installed", "Resources", "ClusterRole"} {
 		if !strings.Contains(texts, s) {
 			t.Errorf("the drawer lacks %q", s)
 		}
@@ -369,18 +369,18 @@ func TestHelmBannerShowsAndActs(t *testing.T) {
 			t.Errorf("action %d: %s %s, want %s %s", i, got.ID, got.Params, w.id, w.params)
 		}
 	}
-	if got := helmOpDetail(fixtureHelmOps()[0]); !strings.Contains(got, "the release is pending-rollback at revision 5 · Cogpit ended before the action did") {
+	if got := helmOpDetail(fixtureHelmOps()[0], germanTime); !strings.Contains(got, "the release is pending-rollback at revision 5 · Cogpit ended before the action did") {
 		t.Errorf("detail %q", got)
 	}
 	// An action another live Cogpit process runs says so, as a drain does (H-22; review of the
 	// fourth run, R-9); one this window runs does not.
 	elsewhere := fixtureHelmOps()[0]
 	elsewhere.Status, elsewhere.Elsewhere, elsewhere.Owner = engine.HelmOpStatusRunning, true, &engine.JournalOwner{ID: "abc", PID: 4242}
-	if got := helmOpDetail(elsewhere); !strings.Contains(got, "in another Cogpit window (process 4242)") {
+	if got := helmOpDetail(elsewhere, germanTime); !strings.Contains(got, "in another Cogpit window (process 4242)") {
 		t.Errorf("running elsewhere: %q", got)
 	}
 	elsewhere.Elsewhere = false
-	if got := helmOpDetail(elsewhere); strings.Contains(got, "another Cogpit window") {
+	if got := helmOpDetail(elsewhere, germanTime); strings.Contains(got, "another Cogpit window") {
 		t.Errorf("running here: %q", got)
 	}
 	running := fixtureHelmOps()[:1]

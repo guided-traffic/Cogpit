@@ -104,7 +104,13 @@ func groupFilter(p *model.KindProfile, groups []string) (int, map[string]struct{
 // Cluster data is not trusted: a cell that a spreadsheet would read as a formula (one starting
 // with =, +, -, @, a tab or a carriage return, unless it is a plain number) is written with a
 // leading apostrophe, so that opening the file does not run an event message as a formula.
+// Absolute times are written in ISO 8601 in now's zone.
 func WriteCSV(w io.Writer, t *TableSnapshot, now time.Time) error {
+	return WriteCSVIn(w, t, now, model.TimeLayout{}.In(now.Location()))
+}
+
+// WriteCSVIn is WriteCSV with absolute times written in f, as the table shows them (D-31).
+func WriteCSVIn(w io.Writer, t *TableSnapshot, now time.Time, f model.TimeFormat) error {
 	cw := csv.NewWriter(w)
 	var visible []int
 	header := make([]string, 0, len(t.Columns))
@@ -121,7 +127,7 @@ func WriteCSV(w io.Writer, t *TableSnapshot, now time.Time) error {
 	for ri := range t.Rows {
 		row := &t.Rows[ri]
 		for i, ci := range visible {
-			record[i] = csvSafe(model.CellText(t.Columns[ci], cellAt(row, ci), now))
+			record[i] = csvSafe(f.CellText(t.Columns[ci], cellAt(row, ci), now))
 		}
 		if err := cw.Write(record); err != nil {
 			return err

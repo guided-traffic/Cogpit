@@ -29,7 +29,7 @@ var defaultColumnWidths = map[string]float32{
 }
 
 var defaultWidthByType = map[model.ColumnType]float32{
-	model.ColumnText: 140, model.ColumnNumber: 84, model.ColumnAge: 64,
+	model.ColumnText: 140, model.ColumnNumber: 84, model.ColumnAge: 64, model.ColumnTime: 172,
 }
 
 // tableView is the centre of the window: the view header (title and count, namespace filter,
@@ -70,6 +70,7 @@ type tableView struct {
 	cols    []int  // visible column → index in snap.Columns
 	colsKey string // the view and column ids, to notice a column change
 	now     time.Time
+	tf      model.TimeFormat // absolute times (an event's Last Seen) in the user's zone and format (D-31)
 
 	cells      []*tableCell // every cell the table has shown, pooled ones included
 	hoverRow   int
@@ -357,7 +358,7 @@ func (tv *tableView) setSnapshot(snap *engine.TableSnapshot) {
 		tv.errLine.Hide()
 	}
 	tv.showScope(snap) // clustersettings_namespaces_filter.go
-	tv.now = tv.sh.now()
+	tv.now, tv.tf = tv.sh.now(), tv.sh.timeFormat()
 	tv.updateTitle()
 	tv.updatePlaceholder()
 	tv.updateNamespaceButton() // cluster-scoped views hide the namespace filter
@@ -370,12 +371,13 @@ func (tv *tableView) setSnapshot(snap *engine.TableSnapshot) {
 	tv.resolvePending()
 }
 
-// refreshAges re-renders the visible cells so that age columns advance.
+// refreshAges re-renders the visible cells so that age columns advance and absolute times follow
+// the Preferences' time zone.
 func (tv *tableView) refreshAges() {
 	if tv.snap == nil {
 		return
 	}
-	tv.now = tv.sh.now()
+	tv.now, tv.tf = tv.sh.now(), tv.sh.timeFormat()
 	tv.table.Refresh()
 }
 
@@ -497,7 +499,7 @@ func (tv *tableView) updateCell(id widget.TableCellID, o fyne.CanvasObject) {
 		if status == model.StatusNone && col.ID == "status" {
 			status = tv.snap.Rows[id.Row].Status
 		}
-		content = cellContent{text: model.CellText(*col, cell, tv.now), status: status, link: cell.Link, parts: cell.Parts, marks: cell.Marks}
+		content = cellContent{text: tv.tf.CellText(*col, cell, tv.now), status: status, link: cell.Link, parts: cell.Parts, marks: cell.Marks}
 		if content.link != nil && !tv.serves(content.link.Kind) {
 			content.link = nil // nowhere to go: plain text
 		}

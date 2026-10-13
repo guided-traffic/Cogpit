@@ -16,12 +16,8 @@ import (
 // 2026-10-12).
 const UpgradeTabCommand = "helm.release.upgradeTab"
 
-// The drawer's clock and zone: Updated reads "68s ago (12 Oct 2026, 8:30:16 CEST)", in the local
-// zone, as Lens writes it (captured 2026-10-12). Vars for tests.
-var (
-	clock = time.Now
-	zone  = time.Local
-)
+// clock is the drawer's clock, which Updated's age counts from; a var for tests.
+var clock = time.Now
 
 // detail is the profile's Detail: Lens's release drawer (captured 2026-10-12). Properties holds
 // Chart ("<chart>-<version>", with an Upgrade button), Updated, Namespace (plain text), Version
@@ -48,7 +44,7 @@ func (m *memo) detail(o *unstructured.Unstructured) []model.DetailSection {
 	}
 	add(chartItem)
 	if t := model.NestedTime(o, fieldUpdated); !t.IsZero() {
-		add(model.DetailItem{Name: titleUpdated, Value: UpdatedText(t, clock(), zone)})
+		add(model.DetailItem{Name: titleUpdated, Value: UpdatedText(t, clock())})
 	}
 	add(model.DetailItem{Name: titleNamespace, Value: ns})
 	add(model.DetailItem{Name: "Version", Value: version})
@@ -105,21 +101,18 @@ func (m *memo) heavyOf(o *unstructured.Unstructured) *heavy {
 	return nil
 }
 
-// UpdatedText is a release's Updated as Lens's drawer writes it: the age, then the time in loc,
-// "68s ago (12 Oct 2026, 8:30:16 CEST)" (captured 2026-10-12). The age is kubectl's human
-// duration, which writes 68 seconds as "68s" as Lens does (the other lengths inferred).
-func UpdatedText(t, now time.Time, loc *time.Location) string {
-	l := t.In(loc)
-	return fmt.Sprintf("%s ago (%d %s %d, %d:%02d:%02d %s)", duration.HumanDuration(now.Sub(t)),
-		l.Day(), l.Month().String()[:3], l.Year(), l.Hour(), l.Minute(), l.Second(), l.Format("MST"))
+// UpdatedText is a release's Updated as Lens's drawer writes it, the age and then the time in
+// parentheses, "68s ago (12 Oct 2026, 8:30:16 CEST)" (captured 2026-10-12), with the time as a
+// mark that the engine writes in the user's zone and format (D-31): "68s ago (12.10.2026
+// 08:30:16)". The age is kubectl's human duration, which writes 68 seconds as "68s" as Lens does
+// (the other lengths inferred).
+func UpdatedText(t, now time.Time) string {
+	return fmt.Sprintf("%s ago (%s)", duration.HumanDuration(now.Sub(t)), model.MarkTime(t))
 }
 
-// RevisionText is a revision as Lens's Rollback dialog lists it (captured 2026-10-12):
-// "12 - lens-history-test-0.1.0 - 1.0, updated: 12/10/2026, 08:30:16", the time in loc.
-func RevisionText(e HistoryEntry, loc *time.Location) string {
-	updated := ""
-	if !e.Updated.IsZero() {
-		updated = e.Updated.In(loc).Format("02/01/2006, 15:04:05")
-	}
-	return fmt.Sprintf("%d - %s - %s, updated: %s", e.Revision, chartText(e.Chart, e.ChartVersion), e.AppVersion, updated)
+// RevisionText is a revision as Lens's Rollback dialog lists it (captured 2026-10-12), "12 -
+// lens-history-test-0.1.0 - 1.0, updated: 12/10/2026, 08:30:16", with the time written in f, the
+// user's zone and format (D-31).
+func RevisionText(e HistoryEntry, f model.TimeFormat) string {
+	return fmt.Sprintf("%d - %s - %s, updated: %s", e.Revision, chartText(e.Chart, e.ChartVersion), e.AppVersion, f.Format(e.Updated))
 }

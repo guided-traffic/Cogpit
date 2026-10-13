@@ -153,7 +153,7 @@
       "items": [
         {
           "name": "Status",
-          "value": "Terminated: Completed (exit code 0), started 2026-10-11T06:00:04Z, finished 2026-10-11T06:03:41Z",
+          "value": "Terminated: Completed (exit code 0), started 2026-10-11 06:00:04, finished 2026-10-11 06:03:41",
           "status": "succeeded"
         },
         {

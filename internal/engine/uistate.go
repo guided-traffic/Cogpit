@@ -63,6 +63,11 @@ type UIState struct {
 	Welcome bool `json:"welcome,omitempty"`
 	// Preferences are Cogpit's own settings (preferences.go); nil in a session that keeps none.
 	Preferences *Preferences `json:"preferences,omitempty"`
+	// TimeFormat is how the window writes absolute times (D-31): Go layouts of a date and a time
+	// of day, from the computer's region settings ("02.01.2006", "15:04:05"), in the Preferences'
+	// time zone. Agents read the drawn texts (view rows, drawer items) in it; structured times of
+	// results are RFC 3339.
+	TimeFormat model.TimeLayout `json:"timeFormat"`
 	// ClusterSettings are the settings of every context that has some, by context id
 	// (clustersettings.go): display names and icons the hotbar, the picker and the navigator show.
 	ClusterSettings map[string]ClusterSettings `json:"clusterSettings,omitempty"`

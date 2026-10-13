@@ -76,7 +76,7 @@ func renderClusterOverviewDemo(t *testing.T, mode ThemeMode, name string) {
 	sh.now = func() time.Time { return last.Add(span / 20) }
 	p.show(&m)
 	for i, c := range p.cards {
-		c.set(m.Charts[i], span*5/4, sh.now(), sh.loc())
+		c.set(m.Charts[i], span*5/4, sh.now(), sh.timeFormat())
 	}
 	sh.view.refreshAges()
 	t.Logf("%s: %d CPU points, %d pods points, %d issues, nodes %s, source %q", m.Nodes, len(cpu), len(m.Charts[2].Samples),

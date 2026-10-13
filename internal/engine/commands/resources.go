@@ -231,12 +231,12 @@ func listResources(ctx context.Context, s *engine.Session, p listParams) (any, e
 	}
 	engine.SortRows(rows, prof.Columns, engine.DefaultSort)
 	res := ListResult{Kind: prof.Key, Total: len(rows), Rows: make([]ListRow, 0, min(limit, len(rows)))}
-	now := s.Now()
+	now, tf := s.Now(), s.TimeFormat() // times as the window writes them (D-31)
 	for _, r := range rows[:min(limit, len(rows))] {
 		cells := make(map[string]string, len(prof.Columns))
 		for i, c := range prof.Columns {
 			if i < len(r.Cells) {
-				cells[c.Title] = model.CellText(c, r.Cells[i], now)
+				cells[c.Title] = tf.CellText(c, r.Cells[i], now)
 			}
 		}
 		res.Rows = append(res.Rows, ListRow{Ref: r.Ref, Status: r.Status, Cells: cells})

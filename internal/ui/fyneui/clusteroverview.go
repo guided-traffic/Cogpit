@@ -16,6 +16,7 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/metrics"
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // The cluster Overview's upper part (ui-parity › Cluster overview and charts, G12): the node group
@@ -151,7 +152,7 @@ func (p *clusterPanel) show(m *engine.ClusterOverviewModel) {
 			}
 			shown++
 			c.root.Show()
-			c.set(m.Charts[i], window, now, p.sh.loc())
+			c.set(m.Charts[i], window, now, p.sh.timeFormat())
 		}
 	}
 	if shown == 0 {
@@ -271,9 +272,9 @@ func newOverviewChartCard(title string) *overviewChartCard {
 }
 
 // set draws a chart of the model: the usage over the range and its lines.
-func (c *overviewChartCard) set(ch engine.OverviewChart, window time.Duration, now time.Time, loc *time.Location) {
+func (c *overviewChartCard) set(ch engine.OverviewChart, window time.Duration, now time.Time, tf model.TimeFormat) {
 	axis, detail, binary := overviewFormats(ch.Metric)
-	d := chartData{From: now.Add(-window), To: now, Loc: loc, Empty: chartNoData, Format: axis, Detail: detail, Binary: binary}
+	d := chartData{From: now.Add(-window), To: now, Time: tf, Empty: chartNoData, Format: axis, Detail: detail, Binary: binary}
 	usage := chartSeries{Name: "Usage", Color: colorAccent}
 	for _, s := range ch.Samples {
 		usage.Points = append(usage.Points, chartPoint{At: s.At, Value: s.Value})

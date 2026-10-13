@@ -212,7 +212,9 @@ func TestPropertiesSection(t *testing.T) {
 	if strings.Join(order, ",") != strings.Join(want, ",") {
 		t.Fatalf("order = %v, want %v", order, want)
 	}
-	if it := byName["Created"]; it.Value != "10d ago (2026-10-01T12:00:00Z)" {
+	// The time is a mark that the engine writes in the user's zone and format (D-31).
+	if it := byName["Created"]; it.Value != "10d ago ("+MarkTime(time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC))+")" ||
+		(TimeLayout{}).In(time.UTC).WriteMarks(it.Value) != "10d ago (2026-10-01 12:00:00)" {
 		t.Errorf("created = %q", it.Value)
 	}
 	if it := byName["Namespace"]; it.Value != "shop" || it.Link == nil || *it.Link != (ObjectRef{Kind: "namespaces", Name: "shop"}) {

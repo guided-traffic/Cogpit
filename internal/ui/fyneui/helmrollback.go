@@ -50,9 +50,6 @@ type releaseHistory struct {
 	History  []helm.HistoryEntry `json:"history"`
 }
 
-// rollbackZone is the zone the dialog writes times in; a var for tests.
-var rollbackZone = time.Local
-
 // openRollbackDialog reads the release's history from the cache and shows the dialog.
 func openRollbackDialog(sh *shell, ref model.ObjectRef, _ model.ItemAction) {
 	sh.dispatch("helm.release.history", refParams{Ref: ref}, func(res any, err error) {
@@ -85,7 +82,7 @@ func (sh *shell) showRollbackDialog(h releaseHistory) *rollbackDialog {
 	options := make([]string, 0, len(h.History))
 	selected := ""
 	for _, e := range h.History {
-		text := helm.RevisionText(e, rollbackZone)
+		text := helm.RevisionText(e, sh.timeFormat()) // in the user's zone and format (D-31)
 		options = append(options, text)
 		rd.choices = append(rd.choices, e.Revision)
 		if e.Revision == h.Revision {

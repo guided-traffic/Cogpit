@@ -101,7 +101,7 @@ func TestDraftsBannerOffersAndActs(t *testing.T) {
 	if got := draftTitle(fixtureDrafts()[0]); got != "Unsaved changes to Service checkout" {
 		t.Errorf("title %q", got)
 	}
-	if got := draftDetail(fixtureDrafts()[0]); got != "Context demo, namespace storefront, kept 2026-10-11 14:02 UTC · 21 lines · based on version 41" {
+	if got := draftDetail(fixtureDrafts()[0], germanTime); got != "Context demo, namespace storefront, kept 11.10.2026 14:02:00 · 21 lines · based on version 41" {
 		t.Errorf("detail %q", got)
 	}
 	if got := draftTitle(fixtureDrafts()[1]); got != "Unsaved text of a Create resource tab" {

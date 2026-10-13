@@ -60,7 +60,7 @@ func (t *DetailTable) Link(row, col int) *ObjectRef {
 // CellTable returns a drawer table of cells under columns: the titles and types of the columns,
 // the cells, and Rows with each cell's text ([CellText]). A row with fewer cells than columns is
 // padded with empty cells. Age and until columns need a clock, which a kind's Detail does not
-// have: render times as text.
+// have: render times as text, absolute ones as marks ([MarkTime], [MarkDate]).
 func CellTable(columns []Column, rows [][]Cell) *DetailTable {
 	t := &DetailTable{
 		Columns: make([]string, len(columns)), Types: make([]ColumnType, len(columns)),
@@ -198,14 +198,14 @@ func ChipsItem(name string, chips []Chip) DetailItem {
 // PropertiesSection returns the generic part of the drawer's first section, the metadata every
 // kind shows: Created, Name, Namespace (a link), Labels (folded chips), Annotations (folded) and
 // Controlled By (a link for built-in owner kinds). Lens shows no UID (capture, 2026-10-11).
-// Created's time is written in now's zone (the engine passes the Locale timezone preference's,
-// 2026-10-13): RFC 3339 with that zone's offset, "Z" for UTC.
+// Created is the age against now, then the time as a mark ([MarkTime]) that the engine writes in
+// the user's zone and format (D-31): "5m ago (10.09.2026 17:41:01)".
 func PropertiesSection(obj *unstructured.Unstructured, now time.Time) DetailSection {
 	s := DetailSection{Title: TitleProperties}
 	if ts := obj.GetCreationTimestamp(); !ts.IsZero() {
 		s.Items = append(s.Items, DetailItem{
 			Name:  "Created",
-			Value: FormatAge(now.Sub(ts.Time)) + " ago (" + ts.In(now.Location()).Format(time.RFC3339) + ")",
+			Value: FormatAge(now.Sub(ts.Time)) + " ago (" + MarkTime(ts.Time) + ")",
 		})
 	}
 	s.Items = append(s.Items, DetailItem{Name: "Name", Value: obj.GetName()})

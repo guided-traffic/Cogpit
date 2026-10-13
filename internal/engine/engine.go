@@ -125,6 +125,11 @@ type Options struct {
 	// interrupts is offered again when its context is connected (D-11; drafts.go). Nil: no drafts,
 	// and the draft commands are disabled.
 	Drafts *Drafts
+	// TimeLayout is how absolute times are written for the user (D-31): the computer's region
+	// format, which the binaries look up once at start (internal/locale), shown in
+	// UIState.TimeFormat and written in the Preferences' time zone (Session.TimeFormat). Empty
+	// fields: ISO 8601.
+	TimeLayout model.TimeLayout
 }
 
 // Session is the engine for one desktop app or headless process. It is safe for concurrent use.
@@ -172,6 +177,7 @@ func New(opts Options) *Session {
 			Connection:     Connection{State: Disconnected},
 			Sort:           SortSpec{Column: "name"},
 			NavigatorScope: NavScopeLocal, // no cluster yet: the navigator lists them (navscope.go)
+			TimeFormat:     opts.TimeLayout.OrDefault(),
 		},
 	}
 	s.ui.syncWelcome() // not connected: the welcome page (welcome.go)

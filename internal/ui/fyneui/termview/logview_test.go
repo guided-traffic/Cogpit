@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -12,7 +13,24 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/theme"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
+
+// stampRE finds a line's RFC 3339 timestamp.
+var stampRE = regexp.MustCompile(`\d{4}-\d\d-\d\dT[0-9:.]+Z`)
+
+// localStamps is a line as a view with timestamps shows it: its timestamp written in the view's
+// format with milliseconds, ISO 8601 in UTC without one (D-31).
+func localStamps(line string) string {
+	return stampRE.ReplaceAllStringFunc(line, func(s string) string {
+		t, err := time.Parse(time.RFC3339Nano, s)
+		if err != nil {
+			return s
+		}
+		return model.TimeFormat{}.FormatPrecise(t)
+	})
+}
 
 // mergedLogs are lines of a controlling resource's logs with timestamps, as the engine streams
 // them: "<pod>/<container> <timestamp> <message>", and one of Cogpit's own.
@@ -66,13 +84,21 @@ func TestLogViewShownSpans(t *testing.T) {
 		{LogView{}, line, shownSpans{}, ""},
 		{LogView{Prefixed: true, Names: true}, line, shownSpans{nameEnd: 9}, "web-1/app"},
 		{LogView{Prefixed: true}, "2026-10-11T12:00:01.204Z hello world", shownSpans{}, ""},
-		{LogView{Prefixed: true, Timestamps: true}, "2026-10-11T12:00:01.204Z hello world", shownSpans{tsStart: 0, tsEnd: 24}, ""},
-		{LogView{Prefixed: true, Names: true, Timestamps: true}, line, shownSpans{nameEnd: 9, tsStart: 10, tsEnd: 34}, "web-1/app"},
+		// A shown timestamp is written in the view's format with milliseconds (D-31): ISO 8601 in
+		// UTC without one, the user's zone and format with one.
+		{LogView{Prefixed: true, Timestamps: true}, "2026-10-11 12:00:01.204 hello world", shownSpans{tsStart: 0, tsEnd: 23}, ""},
+		{LogView{Prefixed: true, Names: true, Timestamps: true}, "web-1/app 2026-10-11 12:00:01.204 hello world", shownSpans{nameEnd: 9, tsStart: 10, tsEnd: 33}, "web-1/app"},
+		{LogView{Prefixed: true, Names: true, Timestamps: true, Time: model.TimeLayout{Date: "1/2/2006", Time: "3:04:05 PM"}.In(time.FixedZone("EDT", -4*60*60))},
+			"web-1/app 10/11/2026 8:00:01.204 AM hello world", shownSpans{nameEnd: 9, tsStart: 10, tsEnd: 35}, "web-1/app"},
 	} {
 		text, sp := tc.v.shown(line)
 		if text != tc.text || sp != tc.spans {
 			t.Errorf("%+v: %q %+v, want %q %+v", tc.v, text, sp, tc.text, tc.spans)
 		}
+	}
+	// A token shaped like a timestamp that is none shows as it came.
+	if text, sp := (LogView{Timestamps: true}).shown("2026-10-11T99:00:01.204Z odd"); text != "2026-10-11T99:00:01.204Z odd" || sp.tsEnd != 24 {
+		t.Errorf("an odd stamp: %q %+v", text, sp)
 	}
 	// A line of Cogpit's own has no timestamp; a prefix alone is a whole line.
 	if _, sp := (LogView{Prefixed: true, Names: true, Timestamps: true}).shown("[cogpit] no pods yet"); sp.tsEnd != 0 || sp.nameEnd != 8 {
@@ -133,7 +159,7 @@ func TestRunsColourNamesTimestampsAndMatches(t *testing.T) {
 	}
 	want := []r{
 		{"web-1/app", theme.ColorNamePrimary, false}, {" ", theme.ColorNameForeground, false},
-		{"2026-10-11T12:00:01.204Z", theme.ColorNamePlaceHolder, false}, {" ", theme.ColorNameForeground, false},
+		{"2026-10-11 12:00:01.204", theme.ColorNamePlaceHolder, false}, {" ", theme.ColorNameForeground, false},
 		{"error", theme.ColorNameForeground, true}, {": an ", theme.ColorNameForeground, false},
 		{"Error", theme.ColorNameForeground, true},
 	}
@@ -151,11 +177,11 @@ func TestRunsColourNamesTimestampsAndMatches(t *testing.T) {
 // matching lines (and says how many), and the lines a download saves.
 func TestLogsViewOptions(t *testing.T) {
 	l, _ := showMerged(t, mergedLogs, LogView{Prefixed: true, Names: true, Timestamps: true}, fyne.NewSize(600, 300))
-	if got := rowTexts(l); len(got) != len(mergedLogs) || got[0] != mergedLogs[0] {
+	if got := rowTexts(l); len(got) != len(mergedLogs) || got[0] != localStamps(mergedLogs[0]) {
 		t.Fatalf("rows %q", got)
 	}
 	l.SetView(LogView{Prefixed: true, Timestamps: true})
-	if got := rowTexts(l)[0]; got != "2026-10-11T12:00:01.204118340Z starting order-service version=1.42.0" {
+	if got := rowTexts(l)[0]; got != "2026-10-11 12:00:01.204 starting order-service version=1.42.0" {
 		t.Errorf("names hidden: %q", got)
 	}
 
@@ -180,14 +206,14 @@ func TestLogsViewOptions(t *testing.T) {
 			t.Errorf("a row of %d characters at %d columns: %q", n, l.cols, r)
 		}
 	}
-	if strings.Join(got, "") != strings.Join(mergedLogs, "") {
+	if strings.Join(got, "") != localStamps(strings.Join(mergedLogs, "")) {
 		t.Error("the wrapped rows lose text")
 	}
 
 	// A download holds every line as shown: without names when they are hidden, unfiltered.
 	l.SetView(LogView{Prefixed: true, Timestamps: true, Search: "nothing matches", Filter: true})
 	lines := l.ShownLines()
-	if len(lines) != len(mergedLogs) || lines[0] != "2026-10-11T12:00:01.204118340Z starting order-service version=1.42.0" {
+	if len(lines) != len(mergedLogs) || lines[0] != "2026-10-11 12:00:01.204 starting order-service version=1.42.0" {
 		t.Errorf("shown lines %q", lines)
 	}
 	var buf bytes.Buffer

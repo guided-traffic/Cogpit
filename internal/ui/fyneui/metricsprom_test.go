@@ -238,7 +238,7 @@ func TestMetricsRangeIsEngineState(t *testing.T) {
 	if p.window != 7*24*time.Hour || p.rangeSel.Selected != "7d" || p.perBox["app"].window != time.Hour {
 		t.Errorf("pod %v (%q), app %v", p.window, p.rangeSel.Selected, p.perBox["app"].window)
 	}
-	if got := p.plot.data.timeLabel(p.plot.data.From); got != "Oct 4" {
+	if got := p.plot.data.timeLabel(p.plot.data.From); got != "10-04" { // the day without the year, ISO 8601 by default (D-31)
 		t.Errorf("a week's axis starts with %q, want the date", got)
 	}
 
@@ -346,13 +346,25 @@ func TestRateFormatsAndLongRanges(t *testing.T) {
 			t.Errorf("binaryStep(%v) = %v, want %v", tc.top, got, tc.want)
 		}
 	}
+	// The axis labels in the user's format (D-31): a German and a US one.
 	at := time.Date(2026, 10, 11, 14, 30, 0, 0, time.UTC)
-	for span, want := range map[time.Duration]string{
-		5 * time.Minute: "14:30:00", time.Hour: "14:30", 24 * time.Hour: "Oct 11 14:30", 7 * 24 * time.Hour: "Oct 11",
+	de := model.TimeLayout{Date: "02.01.2006", Time: "15:04:05"}.In(time.UTC)
+	us := model.TimeLayout{Date: "1/2/2006", Time: "3:04:05 PM"}.In(time.UTC)
+	for _, tc := range []struct {
+		span   time.Duration
+		de, us string
+	}{
+		{5 * time.Minute, "14:30:00", "2:30:00 PM"}, {time.Hour, "14:30", "2:30 PM"},
+		{24 * time.Hour, "11.10. 14:30", "10/11 2:30 PM"}, {7 * 24 * time.Hour, "11.10.", "10/11"},
 	} {
-		d := chartData{From: at.Add(-span), To: at, Loc: time.UTC}
-		if got := d.timeLabel(at); got != want {
-			t.Errorf("a %v axis labels %q, want %q", span, got, want)
+		for _, f := range []struct {
+			tf   model.TimeFormat
+			want string
+		}{{de, tc.de}, {us, tc.us}} {
+			d := chartData{From: at.Add(-tc.span), To: at, Time: f.tf}
+			if got := d.timeLabel(at); got != f.want {
+				t.Errorf("a %v axis labels %q, want %q", tc.span, got, f.want)
+			}
 		}
 	}
 	if got := agoText(50*time.Hour + 20*time.Minute); got != "2 d 2 h ago" {

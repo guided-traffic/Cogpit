@@ -10,6 +10,8 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // chart is a small line chart for the drawer's Metrics section (architecture §9): time on the
@@ -37,8 +39,9 @@ type chart struct {
 type chartData struct {
 	// From and To are the time axis. A series' points outside it are not drawn.
 	From, To time.Time
-	// Loc is the time zone of the axis labels; nil means local time.
-	Loc *time.Location
+	// Time writes the axis labels' and the hover panel's times: the user's zone and format (D-31,
+	// shell.timeFormat); the zero value writes ISO 8601 in UTC.
+	Time model.TimeFormat
 	// Series are the lines of measured values over time.
 	Series []chartSeries
 	// Lines are horizontal lines at a fixed value; Markers are vertical lines at a moment.
@@ -234,22 +237,18 @@ func (d chartData) format(v float64) string {
 	return fmt.Sprintf("%g", v)
 }
 
-// timeLabel formats an axis time: with seconds on a short range, with the date on a range of a day
-// or more, the date alone from a week on.
+// timeLabel formats an axis time in the user's format: with seconds on a short range, with the day
+// (no year) on a range of a day or more, the day alone from a week on.
 func (d chartData) timeLabel(t time.Time) string {
-	loc := d.Loc
-	if loc == nil {
-		loc = time.Local
-	}
 	switch span := d.To.Sub(d.From); {
 	case span < 10*time.Minute:
-		return t.In(loc).Format("15:04:05")
+		return d.Time.FormatTime(t)
 	case span < 24*time.Hour:
-		return t.In(loc).Format("15:04")
+		return d.Time.FormatClock(t)
 	case span < 7*24*time.Hour:
-		return t.In(loc).Format("Jan 2 15:04")
+		return d.Time.FormatDay(t) + " " + d.Time.FormatClock(t)
 	}
-	return t.In(loc).Format("Jan 2")
+	return d.Time.FormatDay(t)
 }
 
 func (r *chartRenderer) Layout(size fyne.Size) {

@@ -27,8 +27,9 @@ import (
 type LogOptions struct {
 	// Previous shows the log of the container's previous, terminated instance (kubectl logs -p).
 	Previous bool `json:"previous,omitempty"`
-	// Timestamps shows each line's RFC 3339 timestamp from the API server (kubectl logs
-	// --timestamps). The stream carries them either way.
+	// Timestamps shows each line's timestamp from the API server (kubectl logs --timestamps),
+	// which the window writes in the user's zone and format with milliseconds (D-31). The stream
+	// carries them either way, as RFC 3339.
 	Timestamps bool `json:"timestamps,omitempty"`
 	// ResourceNames shows each line's pod and container in a controlling resource's tab, whose
 	// stream starts every line with "<pod>/<container> ".
