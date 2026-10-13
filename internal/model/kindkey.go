@@ -37,6 +37,7 @@ var builtinKinds = map[string]builtinKind{
 	"batch/CronJob":                                 {"cronjobs", true},
 	"autoscaling/HorizontalPodAutoscaler":           {"horizontalpodautoscalers", true},
 	"policy/PodDisruptionBudget":                    {"poddisruptionbudgets", true},
+	"policy/PodSecurityPolicy":                      {"podsecuritypolicies", false}, // policy/v1beta1, clusters before 1.25
 	"networking.k8s.io/Ingress":                     {"ingresses", true},
 	"networking.k8s.io/IngressClass":                {"ingressclasses", false},
 	"networking.k8s.io/NetworkPolicy":               {"networkpolicies", true},
@@ -50,8 +51,16 @@ var builtinKinds = map[string]builtinKind{
 	"rbac.authorization.k8s.io/ClusterRole":         {"clusterroles", false},
 	"rbac.authorization.k8s.io/ClusterRoleBinding":  {"clusterrolebindings", false},
 	"apiextensions.k8s.io/CustomResourceDefinition": {"customresourcedefinitions", false},
-	"admissionregistration.k8s.io/MutatingWebhookConfiguration":   {"mutatingwebhookconfigurations", false},
-	"admissionregistration.k8s.io/ValidatingWebhookConfiguration": {"validatingwebhookconfigurations", false},
+	"admissionregistration.k8s.io/MutatingWebhookConfiguration":     {"mutatingwebhookconfigurations", false},
+	"admissionregistration.k8s.io/ValidatingWebhookConfiguration":   {"validatingwebhookconfigurations", false},
+	"admissionregistration.k8s.io/MutatingAdmissionPolicy":          {"mutatingadmissionpolicies", false},
+	"admissionregistration.k8s.io/MutatingAdmissionPolicyBinding":   {"mutatingadmissionpolicybindings", false},
+	"admissionregistration.k8s.io/ValidatingAdmissionPolicy":        {"validatingadmissionpolicies", false},
+	"admissionregistration.k8s.io/ValidatingAdmissionPolicyBinding": {"validatingadmissionpolicybindings", false},
+	"resource.k8s.io/ResourceClaim":                                 {"resourceclaims", true},
+	"resource.k8s.io/ResourceClaimTemplate":                         {"resourceclaimtemplates", true},
+	"resource.k8s.io/DeviceClass":                                   {"deviceclasses", false},
+	"resource.k8s.io/ResourceSlice":                                 {"resourceslices", false},
 }
 
 // BuiltinKindKey returns the kind key of a built-in Kubernetes kind, given an API version as
