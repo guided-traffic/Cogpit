@@ -1,0 +1,439 @@
+package commands
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/guided-traffic/cogpit/internal/cluster"
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
+)
+
+// Argo CD's Sync and Refresh (resource-parity › Paid Lens Desktop views › Argo CD, G23): on one
+// Application (the row menu, the drawer, the palette) and on a selection of them (the selection's
+// menu, the dashboard), through the Kubernetes API only (cluster/argocd.go). Lens's documentation
+// (read 2026-10-13): Sync opens a "Sync app(s)" dialog with a "Prune resources not in Git" toggle,
+// Refresh a "Refresh app(s)" dialog with Normal or Hard, both work on several Applications with one
+// notification for the batch. Danger (the brief's, the lead's): Refresh and Sync are mutating,
+// Sync with prune destructive (it deletes resources), so its confirmation names every Application,
+// its namespace and the context and says what prune deletes, for every origin.
+
+// argoPatchVerbs are the verbs of Sync and Refresh: a merge patch on the Application.
+var argoPatchVerbs = []engine.Verb{{Verb: "patch", Group: kinds.ArgoCDGroup, Resource: "applications"}}
+
+// argoSyncAttempts bounds how often a Sync checks the Application again after it changed between
+// the check and the write (a status update of the controller, usually).
+const argoSyncAttempts = 3
+
+// argoCatchUp bounds how long a Sync waits for the cache to see the version that refused its
+// write before it checks again.
+const argoCatchUp = 3 * time.Second
+
+// Danger texts of the confirmations.
+const (
+	argoPruneDetail = "Prune is on: the resources the Application manages that are no longer in Git are deleted from the cluster."
+	argoSyncLabel   = "Sync"
+	argoRefreshText = "Refresh"
+)
+
+type argoSyncParams struct {
+	Ref   model.ObjectRef `json:"ref" jsonschema:"the Application, kind applications.argoproj.io"`
+	Prune bool            `json:"prune,omitempty" jsonschema:"true: delete the resources the Application manages that are no longer in Git; the user always confirms a sync with prune"`
+}
+
+type argoSyncManyParams struct {
+	Refs  []model.ObjectRef `json:"refs" jsonschema:"the Applications (kind applications.argoproj.io) of the connected cluster, at most 500"`
+	Prune bool              `json:"prune,omitempty" jsonschema:"true: delete the resources each Application manages that are no longer in Git; the user always confirms a sync with prune"`
+}
+
+type argoRefreshParams struct {
+	Ref  model.ObjectRef `json:"ref" jsonschema:"the Application, kind applications.argoproj.io"`
+	Hard bool            `json:"hard,omitempty" jsonschema:"true: a hard refresh, which also discards Argo CD's cached manifests; false or omitted: a normal refresh"`
+}
+
+type argoRefreshManyParams struct {
+	Refs []model.ObjectRef `json:"refs" jsonschema:"the Applications (kind applications.argoproj.io) of the connected cluster, at most 500"`
+	Hard bool              `json:"hard,omitempty" jsonschema:"true: a hard refresh, which also discards Argo CD's cached manifests; false or omitted: a normal refresh"`
+}
+
+// ArgoManyResult is the result of Sync or Refresh on several Applications when every one was done.
+type ArgoManyResult struct {
+	Action string            `json:"action"` // "sync started", "refreshed"
+	Done   []model.ObjectRef `json:"done"`
+}
+
+// ArgoManyError is the error of Sync or Refresh on several Applications when not every one was
+// done: which were and which were not, each with its reason. Nothing is retried.
+type ArgoManyError struct {
+	Action string
+	Done   []model.ObjectRef
+	Failed []DeleteFailure
+}
+
+func (e *ArgoManyError) Error() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s for %d of %d applications", e.Action, len(e.Done), len(e.Done)+len(e.Failed))
+	if len(e.Done) > 0 {
+		b.WriteString(" (" + refList(e.Done) + ")")
+	}
+	b.WriteString("; not done: ")
+	for i, f := range e.Failed {
+		if i > 0 {
+			b.WriteString("; ")
+		}
+		b.WriteString(f.Ref.String() + ": " + f.Error)
+	}
+	b.WriteString(". Nothing was retried.")
+	return b.String()
+}
+
+func registerArgoCD(g *registrar) {
+	appKinds := []string{kinds.ArgoApplicationsKey}
+	add(g, engine.Spec[argoSyncParams]{
+		ID: "argocd.application.sync", Label: argoSyncLabel, MenuPath: "Argo CD/Sync", Kinds: appKinds, Order: 100,
+		Danger: engine.DangerMutating, Verbs: argoPatchVerbs,
+		Description: "Syncs an Argo CD Application through the Kubernetes API, as argocd app sync does: it writes the " +
+			"Application's operation (the revisions its sources target, its own sync options and retry, initiated by " +
+			"cogpit), which Argo CD's controller then runs. Refused while an operation is requested or running. With " +
+			"prune, resources the Application manages that are no longer in Git are deleted: the user always confirms " +
+			"that. The write is bound to the Application's UID and the version Cogpit checked. Returns at once; the " +
+			"Application's operation state shows the progress.",
+		Enabled: func(s *engine.Session, p argoSyncParams) error {
+			obj, err := argoEnabled(s, p.Ref)
+			if err != nil {
+				return err
+			}
+			if busy := kinds.ArgoOperationBusy(obj); busy != "" {
+				return errors.New(busy)
+			}
+			return nil
+		},
+		Escalate: func(_ *engine.Session, p argoSyncParams) bool { return p.Prune },
+		Targets:  func(s *engine.Session, p argoSyncParams) ([]model.ObjectRef, error) { return targetOf(s, p.Ref) },
+		Detail: func(s *engine.Session, p argoSyncParams) string {
+			return argoSyncDetail(s, []model.ObjectRef{p.Ref}, p.Prune)
+		},
+		Run: func(ctx context.Context, s *engine.Session, p argoSyncParams) (any, error) {
+			ref, err := argoOne(ctx, s, p.Ref, func(w engine.ArgoCDActions, version string, ref model.ObjectRef) error {
+				return argoSync(ctx, s, w, version, ref, p.Prune)
+			})
+			if err != nil {
+				return nil, err
+			}
+			userToast(s, engine.LevelInfo, "Application "+ref.Key()+": "+argoSyncDone(p.Prune))
+			return ActionResult{Ref: ref, Action: argoSyncDone(p.Prune)}, nil
+		},
+	})
+	add(g, engine.Spec[argoRefreshParams]{
+		ID: "argocd.application.refresh", Label: argoRefreshText, MenuPath: "Argo CD/Refresh", Kinds: appKinds, Order: 110,
+		Danger: engine.DangerMutating, Verbs: argoPatchVerbs,
+		Description: "Refreshes an Argo CD Application through the Kubernetes API: it sets the annotation " +
+			"argocd.argoproj.io/refresh to normal (compare the live state with Git again) or, with hard, to hard (also " +
+			"discard Argo CD's cached manifests); Argo CD's controller refreshes and removes the annotation. Changes " +
+			"nothing in the cluster but the annotation.",
+		Enabled: func(s *engine.Session, p argoRefreshParams) error { _, err := argoEnabled(s, p.Ref); return err },
+		Targets: func(s *engine.Session, p argoRefreshParams) ([]model.ObjectRef, error) { return targetOf(s, p.Ref) },
+		Detail:  func(_ *engine.Session, p argoRefreshParams) string { return argoRefreshDetail(p.Hard) },
+		Run: func(ctx context.Context, s *engine.Session, p argoRefreshParams) (any, error) {
+			ref, err := argoOne(ctx, s, p.Ref, func(w engine.ArgoCDActions, version string, ref model.ObjectRef) error {
+				return argoRefresh(ctx, s, w, version, ref, p.Hard)
+			})
+			if err != nil {
+				return nil, err
+			}
+			userToast(s, engine.LevelInfo, "Application "+ref.Key()+": "+argoRefreshDone(p.Hard))
+			return ActionResult{Ref: ref, Action: argoRefreshDone(p.Hard)}, nil
+		},
+	})
+	add(g, engine.Spec[argoSyncManyParams]{
+		ID: "argocd.application.syncMany", Label: argoSyncLabel, MenuPath: "Argo CD/Sync Selected", Kinds: appKinds, Order: 100,
+		Danger: engine.DangerMutating, Verbs: argoPatchVerbs,
+		Description: "Syncs several Argo CD Applications at once, as argocd.application.sync does for one: one " +
+			"acceptance names them all (with prune, a confirmation for every origin), then each is synced in turn, bound " +
+			"to its UID; one that has an operation requested or running is skipped and reported. The error names which " +
+			"were synced and which not, each with its reason. At most 500.",
+		Enabled:  func(s *engine.Session, p argoSyncManyParams) error { return argoManyEnabled(s, p.Refs) },
+		Escalate: func(_ *engine.Session, p argoSyncManyParams) bool { return p.Prune },
+		Targets:  func(s *engine.Session, p argoSyncManyParams) ([]model.ObjectRef, error) { return selectionTargets(s, p.Refs) },
+		Detail:   func(s *engine.Session, p argoSyncManyParams) string { return argoSyncDetail(s, p.Refs, p.Prune) },
+		Run: func(ctx context.Context, s *engine.Session, p argoSyncManyParams) (any, error) {
+			return argoMany(ctx, s, p.Refs, argoSyncDone(p.Prune), func(w engine.ArgoCDActions, version string, ref model.ObjectRef) error {
+				return argoSync(ctx, s, w, version, ref, p.Prune)
+			})
+		},
+	})
+	add(g, engine.Spec[argoRefreshManyParams]{
+		ID: "argocd.application.refreshMany", Label: argoRefreshText, MenuPath: "Argo CD/Refresh Selected", Kinds: appKinds, Order: 110,
+		Danger: engine.DangerMutating, Verbs: argoPatchVerbs,
+		Description: "Refreshes several Argo CD Applications at once, normal or hard, as argocd.application.refresh does " +
+			"for one: one acceptance names them all, then each is refreshed in turn, bound to its UID. The error names " +
+			"which were refreshed and which not. At most 500.",
+		Enabled: func(s *engine.Session, p argoRefreshManyParams) error { return argoManyEnabled(s, p.Refs) },
+		Targets: func(s *engine.Session, p argoRefreshManyParams) ([]model.ObjectRef, error) { return selectionTargets(s, p.Refs) },
+		Detail:  func(_ *engine.Session, p argoRefreshManyParams) string { return argoRefreshDetail(p.Hard) },
+		Run: func(ctx context.Context, s *engine.Session, p argoRefreshManyParams) (any, error) {
+			return argoMany(ctx, s, p.Refs, argoRefreshDone(p.Hard), func(w engine.ArgoCDActions, version string, ref model.ObjectRef) error {
+				return argoRefresh(ctx, s, w, version, ref, p.Hard)
+			})
+		},
+	})
+}
+
+func argoSyncDone(prune bool) string {
+	if prune {
+		return "sync with prune started"
+	}
+	return "sync started"
+}
+
+func argoRefreshDone(hard bool) string {
+	if hard {
+		return "hard refresh requested"
+	}
+	return "refresh requested"
+}
+
+func argoRefreshDetail(hard bool) string {
+	if hard {
+		return "A hard refresh: Argo CD discards its cached manifests and generates them again."
+	}
+	return "A normal refresh: Argo CD compares the live state with Git again."
+}
+
+// argoPrunedNamed is how many resources a Sync's confirmation names that prune deletes.
+const argoPrunedNamed = 10
+
+// argoSyncDetail says what a Sync syncs to and, with prune, what prune deletes: the resources the
+// Applications' status marks requiresPruning, as the controller last compared them.
+func argoSyncDetail(s *engine.Session, refs []model.ObjectRef, prune bool) string {
+	var parts []string
+	var pruned []string
+	for _, ref := range refs {
+		obj, err := s.Lookup(ref)
+		if err != nil {
+			continue
+		}
+		if len(refs) == 1 {
+			if revs := argoTargets(obj); revs != "" {
+				parts = append(parts, "It syncs to "+revs+".")
+			}
+		}
+		pruned = append(pruned, kinds.ArgoPrunable(obj)...)
+	}
+	if !prune {
+		return strings.Join(parts, " ")
+	}
+	parts = append(parts, argoPruneDetail)
+	switch n := len(pruned); {
+	case n == 0:
+		parts = append(parts, "Argo CD's last comparison marks none to prune.")
+	case n <= argoPrunedNamed:
+		parts = append(parts, "Argo CD's last comparison marks for pruning: "+strings.Join(pruned, ", ")+".")
+	default:
+		parts = append(parts, fmt.Sprintf("Argo CD's last comparison marks for pruning: %s and %d more.",
+			strings.Join(pruned[:argoPrunedNamed], ", "), n-argoPrunedNamed))
+	}
+	return strings.Join(parts, " ")
+}
+
+// argoTargets names the revisions a Sync of obj targets: "main", "65.1.0 and main".
+func argoTargets(obj *unstructured.Unstructured) string {
+	op := kinds.ArgoSyncOperation(obj, false)
+	sync, _ := op["sync"].(map[string]any)
+	if r, _ := sync["revision"].(string); r != "" {
+		return r
+	}
+	var revs []string
+	if list, ok := sync["revisions"].([]any); ok {
+		for _, r := range list {
+			if s, _ := r.(string); s != "" {
+				revs = append(revs, s)
+			}
+		}
+	}
+	return strings.Join(revs, " and ")
+}
+
+// argoEnabled is the Enabled check of an action on one Application: of Argo CD's Application kind
+// (else not applicable), in the cache, on a connection that can write Argo CD's Applications.
+func argoEnabled(s *engine.Session, ref model.ObjectRef) (*unstructured.Unstructured, error) {
+	obj, err := cachedOfKind(s, ref, kinds.ArgoApplicationsKey)
+	if err != nil {
+		return nil, err
+	}
+	if _, _, err := argoActionsOf(s); err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// argoManyEnabled is the Enabled check of an action on several Applications.
+func argoManyEnabled(s *engine.Session, refs []model.ObjectRef) error {
+	if len(refs) == 0 {
+		return errors.New("no applications are selected")
+	}
+	if len(refs) > engine.MaxSelection {
+		return fmt.Errorf("at most %d applications at once, %d are selected", engine.MaxSelection, len(refs))
+	}
+	for _, r := range refs {
+		if r.Kind != kinds.ArgoApplicationsKey {
+			return fmt.Errorf("%w: %s is no Argo CD Application", engine.ErrNotApplicable, r.String())
+		}
+	}
+	for _, r := range refs {
+		if _, err := argoEnabled(s, r); err != nil {
+			return fmt.Errorf("%s: %w", r.String(), err)
+		}
+	}
+	return nil
+}
+
+var errConnectionCannotArgo = errors.New("this connection cannot change Argo CD applications")
+
+// argoActionsOf is the writable check of Argo CD's actions.
+func argoActionsOf(s *engine.Session) (*engine.Backend, engine.ArgoCDActions, error) {
+	b, err := writable(s)
+	if err != nil {
+		return nil, nil, err
+	}
+	w, ok := b.Writer().(engine.ArgoCDActions)
+	if !ok {
+		return nil, nil, errConnectionCannotArgo
+	}
+	return b, w, nil
+}
+
+// argoOne runs an action on one Application of the connected cluster after checking that the user
+// confirmed it for this cluster, with the version the cluster serves Applications at.
+func argoOne(ctx context.Context, s *engine.Session, ref model.ObjectRef, do func(engine.ArgoCDActions, string, model.ObjectRef) error) (model.ObjectRef, error) {
+	b, w, err := argoActionsOf(s)
+	if err != nil {
+		return ref, err
+	}
+	ref, _, err = s.ResolveRef(ref)
+	if err != nil {
+		return ref, err
+	}
+	if ref.Context != b.Context {
+		return ref, fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
+	}
+	if err := engine.CheckConfirmedContext(ctx, b.Context); err != nil {
+		return ref, err
+	}
+	p, ok := b.Profile(kinds.ArgoApplicationsKey)
+	if !ok {
+		return ref, errors.New("the cluster no longer serves Argo CD's Applications")
+	}
+	if err := do(w, p.Version, ref); err != nil {
+		return ref, fmt.Errorf("%s: %w", ref.String(), err)
+	}
+	return ref, nil
+}
+
+// argoMany runs an action on the Applications the user confirmed, one after the other, and
+// reports them in one notification (as Lens does) and the result.
+func argoMany(ctx context.Context, s *engine.Session, refs []model.ObjectRef, action string, do func(engine.ArgoCDActions, string, model.ObjectRef) error) (any, error) {
+	b, w, err := argoActionsOf(s)
+	if err != nil {
+		return nil, err
+	}
+	if err := engine.CheckConfirmedContext(ctx, b.Context); err != nil {
+		return nil, err
+	}
+	targets, err := selectionTargets(s, refs)
+	if err != nil {
+		return nil, err
+	}
+	if err := engine.CheckConfirmedTargets(ctx, targets); err != nil {
+		return nil, err
+	}
+	p, ok := b.Profile(kinds.ArgoApplicationsKey)
+	if !ok {
+		return nil, errors.New("the cluster no longer serves Argo CD's Applications")
+	}
+	var done []model.ObjectRef
+	var failed []DeleteFailure
+	var stop error
+	for _, ref := range targets {
+		if stop == nil {
+			stop = ctx.Err()
+		}
+		if stop != nil {
+			failed = append(failed, DeleteFailure{Ref: ref, Error: fmt.Sprintf("%v: %v", errNotAttempted, stop)})
+			continue
+		}
+		if err := do(w, p.Version, ref); err != nil {
+			failed = append(failed, DeleteFailure{Ref: ref, Error: err.Error()})
+			continue
+		}
+		done = append(done, ref)
+	}
+	if len(failed) > 0 {
+		return nil, &ArgoManyError{Action: action, Done: done, Failed: failed}
+	}
+	userToast(s, engine.LevelInfo, fmt.Sprintf("%d applications: %s", len(done), action))
+	return ArgoManyResult{Action: action, Done: done}, nil
+}
+
+// argoRefresh refreshes one Application, bound to the UID the user confirmed.
+func argoRefresh(ctx context.Context, s *engine.Session, w engine.ArgoCDActions, version string, ref model.ObjectRef, hard bool) error {
+	uid, err := sameAsConfirmed(ctx, s, ref)
+	if err != nil {
+		return err
+	}
+	return replaced(ref, w.RefreshArgoApplication(ctx, version, ref.Namespace, ref.Name, uid, hard))
+}
+
+// argoSync syncs one Application: the operation built from the cached object, written bound to
+// its UID and resourceVersion. When the Application changed in between (cluster.ErrArgoChanged),
+// it waits for the cache to see the newer version, checks again that no operation runs, and tries
+// once more, at most argoSyncAttempts times in all.
+func argoSync(ctx context.Context, s *engine.Session, w engine.ArgoCDActions, version string, ref model.ObjectRef, prune bool) error {
+	uid, err := sameAsConfirmed(ctx, s, ref)
+	if err != nil {
+		return err
+	}
+	for attempt := 1; ; attempt++ {
+		obj, err := s.Lookup(ref)
+		if err != nil {
+			return err
+		}
+		if string(obj.GetUID()) != uid {
+			return fmt.Errorf("%w: %s is no longer the object that was confirmed; nothing was done", engine.ErrTargetsChanged, ref.String())
+		}
+		if busy := kinds.ArgoOperationBusy(obj); busy != "" {
+			return errors.New("not synced: " + busy)
+		}
+		rv := obj.GetResourceVersion()
+		err = w.SyncArgoApplication(ctx, version, ref.Namespace, ref.Name, uid, rv, kinds.ArgoSyncOperation(obj, prune))
+		if !errors.Is(err, cluster.ErrArgoChanged) || attempt == argoSyncAttempts {
+			return replaced(ref, err)
+		}
+		argoCatchUpWith(ctx, s, ref, rv)
+	}
+}
+
+// argoCatchUpWith waits until the cache holds a version of the object other than rv, or
+// argoCatchUp passed: the cache is in memory, so reading it again costs no request.
+func argoCatchUpWith(ctx context.Context, s *engine.Session, ref model.ObjectRef, rv string) {
+	wctx, cancel := context.WithTimeout(ctx, argoCatchUp)
+	defer cancel()
+	tick := time.NewTicker(20 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		if obj, err := s.Lookup(ref); err != nil || obj.GetResourceVersion() != rv {
+			return
+		}
+		select {
+		case <-wctx.Done():
+			return
+		case <-tick.C:
+		}
+	}
+}

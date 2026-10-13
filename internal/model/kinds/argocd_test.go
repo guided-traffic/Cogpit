@@ -284,6 +284,27 @@ func TestArgoSettingsNeverShowCredentials(t *testing.T) {
 	}
 }
 
+// TestArgoSyncOperation: the operation argocd app sync writes without options: each source's
+// target revision, prune as asked, the Application's own sync options and retry (a copy), Cogpit
+// as the initiator.
+func TestArgoSyncOperation(t *testing.T) {
+	healthy := recordedPath(t, filepath.Join(kinds.ArgoApplicationsKey, "healthy"))
+	op := kinds.ArgoSyncOperation(healthy, true)
+	b, _ := json.Marshal(op)
+	want := `{"initiatedBy":{"username":"cogpit"},"retry":{"limit":5},"sync":{"prune":true,"revision":"main","syncOptions":["CreateNamespace=true","ServerSideApply=true"]}}`
+	if string(b) != want {
+		t.Errorf("operation %s, want %s", b, want)
+	}
+	op["retry"].(map[string]any)["limit"] = int64(9)
+	if n, _ := model.NestedInt64(healthy, "spec", "syncPolicy", "retry", "limit"); n != 5 {
+		t.Error("the operation aliases the cached object's retry")
+	}
+	multi := kinds.ArgoSyncOperation(recordedPath(t, filepath.Join(kinds.ArgoApplicationsKey, "multi-source")), false)
+	if b, _ := json.Marshal(multi); string(b) != `{"initiatedBy":{"username":"cogpit"},"sync":{"prune":false,"revisions":["65.1.0","main"]}}` {
+		t.Errorf("multi-source operation %s", b)
+	}
+}
+
 func TestRedactURLUserinfo(t *testing.T) {
 	for in, want := range map[string]string{
 		"https://git.example.com/a.git":            "https://git.example.com/a.git",

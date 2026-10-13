@@ -1,8 +1,21 @@
 package engine
 
 import (
+	"context"
+
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
+
+// ArgoCDActions are the cluster writes of Argo CD's Sync and Refresh (commands/argocd.go), through
+// the Kubernetes API only. *cluster.Conn implements them.
+type ArgoCDActions interface {
+	// RefreshArgoApplication sets an Application's refresh annotation, "hard" or "normal"; a
+	// non-empty uid must match the Application's (cluster.ErrReplaced otherwise).
+	RefreshArgoApplication(ctx context.Context, version, namespace, name, uid string, hard bool) error
+	// SyncArgoApplication writes an Application's operation, bound to its uid and resourceVersion
+	// (cluster.ErrReplaced, cluster.ErrArgoChanged).
+	SyncArgoApplication(ctx context.Context, version, namespace, name, uid, resourceVersion string, operation map[string]any) error
+}
 
 // Argo CD (G23): the curated profiles of its three kinds come through the custom kinds watch like
 // any curated profile (kinds.ProfileFor). Its settings, Repositories and Clusters, are virtual

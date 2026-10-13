@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -1504,6 +1504,36 @@ Tests: `TestArgoSettingsNeverShowCredentials`, `TestArgoSettingsGolden`, `TestRe
 (commands: `object_get`, `resources_list`, `resources_find`, `view_rows`, the audit log, the
 events and the log searched for every credential in every form); on kind `TestKindArgoCD`.
 
+## D-36: How Argo CD's Sync writes the operation
+
+**Night decision (the lead's, 2026-10-14, for the owner to confirm).** Cogpit talks to the
+Kubernetes API only, never to Argo CD's own API server (the brief), so Sync
+(`argocd.application.sync`, `argocd.application.syncMany`) starts a sync the way Argo CD's API
+server does for `argocd app sync`: it writes the Application's `operation`, and Argo CD's
+controller runs it. Options for what the write carries and how it guards against a sync someone
+else started:
+
+| Option | For | Against |
+|---|---|---|
+| (a) The minimal operation (`initiatedBy`, `sync.revision`, `sync.prune`), bound to the UID only, refused while the cache shows an operation | Simple | Drops the Application's own sync options (`CreateNamespace=true`, `ServerSideApply=true`) and retry, which `argocd app sync` keeps; an operation started between the cache's last event and the patch is replaced |
+| **(b) What `argocd app sync` writes without flags, bound to the UID and the resourceVersion Cogpit checked (chosen)** | The same sync the CLI and Argo CD's UI start: each source's target revision (`revision`, or `revisions` for a multi-source Application), the spec's `syncPolicy.syncOptions` and `retry`, `initiatedBy: cogpit`; a write over a newer version of the Application is refused by the API server (409), so an operation Cogpit has not seen is never replaced | A status update of the controller between check and write refuses the patch: Cogpit then waits for its cache to show the newer version (at most 3 s), checks again that no operation runs and sends the patch again, at most three times in all |
+| (c) Argo CD's API server (`/api/v1/applications/<name>/sync`) | Argo CD's own checks (sync windows, its RBAC) | A second credential and endpoint per cluster; against the brief |
+
+**Chosen (b).** Built ([`model/kinds/argocd_ops.go`](../../internal/model/kinds/argocd_ops.go)
+`ArgoSyncOperation`, [`cluster/argocd.go`](../../internal/cluster/argocd.go),
+[`commands/argocd.go`](../../internal/engine/commands/argocd.go)). Refused, with the reason in the
+greyed menu item and the error, while the Application has an operation requested (its `operation`
+field set) or running or terminating (`status.operationState.phase`). Not carried over from Argo
+CD's API server, and so not checked by Cogpit: sync windows (the controller still honours them:
+a denied sync waits or fails in the operation state) and Argo CD's own RBAC (the user's identity
+needs `patch` on the Application; what the sync does is Argo CD's,
+[H-67](../security/privilege-footprint.md#h-67-a-sync-acts-with-argo-cds-rights-not-the-users)).
+Refresh needs no such guard: it sets an annotation the controller removes, bound to the UID only.
+Tests: `TestArgoSyncOperation` (model), `TestArgoSyncPatch`, `TestArgoSyncConflicts` (cluster),
+`TestArgoSyncWritesTheOperation`, `TestArgoSyncRefusedWhileAnOperationRuns`,
+`TestArgoSyncChecksAgainAfterAChange`, `TestArgoActionsBoundToTheConfirmedUID` (commands); on kind
+`TestKindArgoCD`.
+
 ## D-37: The node shell
 
 **Night decision (the lead's, 2026-10-14, for the owner to confirm):** options (a) no node shell
@@ -1576,6 +1606,7 @@ default from every origin but the GUI with `ErrNodeShellGUIOnly`, before anythin
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes without flags, bound to the Application's UID and resourceVersion, refused while an operation is requested or running |
 | 2026-10-13 | minor | D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys to the window and agents, user information in URLs redacted, the other keys by name only |
 | 2026-10-13 | minor | D-33 and D-34 (night decisions, for the owner to confirm): the Flux actions (Reconcile, Suspend, Resume, as the flux CLI patches them, mutating, on selections too) and the Flux dashboard (the states after kstatus, counts per kind, the objects that are not ready); built (G23) |
 | 2026-10-13 | minor | D-37 and D-38 (night decisions, for the owner to confirm): the node shell as Lens's privileged pod in kube-system with nsenter, its 2-hour deadline, the pinned Alpine 3.19 default and the other defaults of the build; its image and pull secret set by the user only; both built |

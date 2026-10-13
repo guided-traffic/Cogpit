@@ -1,0 +1,86 @@
+package kinds
+
+import (
+	"github.com/guided-traffic/cogpit/internal/model"
+)
+
+// ArgoSyncInitiator is the user name an operation Cogpit starts carries in initiatedBy: Argo CD's
+// history and UI then say who synced (Cogpit does not know the Kubernetes user's name).
+const ArgoSyncInitiator = "cogpit"
+
+// ArgoSyncOperation builds the operation a Sync writes into an Application, as Argo CD's API
+// server builds it for argocd app sync without options (D-36): the revision of each source as the
+// spec targets it (revision for one source, revisions for several), prune as asked, the sync
+// options and the retry strategy of the Application's own syncPolicy, and Cogpit as the initiator.
+// No dry run, no strategy (the controller's default, apply), every resource.
+func ArgoSyncOperation(app any, prune bool) map[string]any {
+	sync := map[string]any{"prune": prune}
+	if list := model.NestedSlice(app, fieldSpec, fieldArgoSources); len(list) > 0 {
+		revs := make([]any, len(list))
+		for i, s := range list {
+			revs[i] = model.NestedString(s, fieldArgoTarget)
+		}
+		sync["revisions"] = revs
+	} else {
+		sync[fieldArgoRevision] = model.NestedString(app, fieldSpec, fieldArgoSource, fieldArgoTarget)
+	}
+	if opts := model.NestedStrings(app, fieldSpec, fieldArgoSyncPol, "syncOptions"); len(opts) > 0 {
+		list := make([]any, len(opts))
+		for i, o := range opts {
+			list[i] = o
+		}
+		sync["syncOptions"] = list
+	}
+	op := map[string]any{
+		"initiatedBy": map[string]any{"username": ArgoSyncInitiator},
+		"sync":        sync,
+	}
+	if retry := model.NestedMap(app, fieldSpec, fieldArgoSyncPol, "retry"); retry != nil {
+		op["retry"] = deepCopyJSON(retry)
+	}
+	return op
+}
+
+// ArgoPrunable names the resources an Application's status marks requiresPruning: what a sync
+// with prune deletes, as the controller last compared the Application with Git ("Deployment
+// shop/old-worker").
+func ArgoPrunable(app any) []string {
+	var out []string
+	for _, r := range model.NestedSlice(app, fieldArgoStatus, "resources") {
+		if p, _ := model.NestedBool(r, "requiresPruning"); !p {
+			continue
+		}
+		name := model.NestedString(r, "name")
+		if ns := model.NestedString(r, "namespace"); ns != "" {
+			name = ns + "/" + name
+		}
+		out = append(out, model.NestedString(r, idKind)+" "+name)
+	}
+	return out
+}
+
+// deepCopyJSON copies JSON-shaped data (maps, slices, scalars), so that an operation never
+// aliases the cached object it was built from. Anything else is left out.
+func deepCopyJSON(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, e := range t {
+			if c := deepCopyJSON(e); c != nil {
+				out[k] = c
+			}
+		}
+		return out
+	case []any:
+		out := make([]any, 0, len(t))
+		for _, e := range t {
+			if c := deepCopyJSON(e); c != nil {
+				out = append(out, c)
+			}
+		}
+		return out
+	case string, bool, int64, float64, int, int32:
+		return t
+	}
+	return nil
+}
