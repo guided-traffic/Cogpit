@@ -101,6 +101,7 @@ func (b *Backend) close(log *slog.Logger) {
 	if b == nil {
 		return
 	}
+	b.ns.stop() // the session's replan loop (accessiblens_plan.go)
 	if b.custom != nil {
 		b.custom.stop()
 	}

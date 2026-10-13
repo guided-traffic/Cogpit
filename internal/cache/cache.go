@@ -170,6 +170,8 @@ type Cache struct {
 	informers map[Scope]*entry     // every scope a handle holds or that is warm
 	runners   map[*runner]struct{} // every informer running, those of entries and those still serving a handover
 	closed    bool
+
+	refused atomic.Pointer[func(Scope)] // told of every refused list or watch (OnRefused, nsscope.go)
 }
 
 // New returns a cache over src. No informer runs until the first Acquire.

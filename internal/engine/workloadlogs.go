@@ -129,15 +129,35 @@ func (s *Session) openWorkloadLogs(ctx context.Context, tab DockTab, b *Backend,
 	}
 	// The workload's namespace, once the access reviews said how (accessiblens_plan.go acquireIn):
 	// a handle taken before they answered would read in all namespaces, which a user who may not
-	// list pods there is refused, and it would never sync.
-	wl.pods = b.acquireIn(ctx, podsP, ref.Namespace)
+	// list pods there is refused, and it would never sync. A read in all namespaces that the server
+	// refuses all the same (a RoleBinding in the context's namespace alone) is taken again in the
+	// workload's namespace (readFollowing).
+	var rsP *model.KindProfile
 	if ref.Kind == logKindDeployments {
-		rsP, ok := b.Profile(logKindReplicaSets)
-		if !ok {
-			wl.pods.Release()
+		if rsP, ok = b.Profile(logKindReplicaSets); !ok {
 			return nil, fmt.Errorf("%w: replicasets", ErrUnknownKind)
 		}
-		wl.rs = b.acquireIn(ctx, rsP, ref.Namespace)
+	}
+	for _, read := range []struct {
+		p  *model.KindProfile
+		to **cache.Handle
+	}{{podsP, &wl.pods}, {rsP, &wl.rs}} {
+		if read.p == nil {
+			continue
+		}
+		h, err := s.readFollowing(ctx, b, read.p, b.Scope(read.p).String(), b.inNamespace(read.p, ref.Namespace))
+		if err == nil {
+			if err = refusedIn(h, h.Scope().String()); err != nil {
+				h.Release()
+			}
+		}
+		if err != nil {
+			if wl.pods != nil {
+				wl.pods.Release()
+			}
+			return nil, err
+		}
+		*read.to = h
 	}
 	if !wl.opts.Previous {
 		// Subscribed before the first scan, so that no pod is missed between the two.
@@ -157,19 +177,6 @@ func (s *Session) openWorkloadLogs(ctx context.Context, tab DockTab, b *Backend,
 		}))
 		if t, ok := s.UIState().DockTab(wl.tabID); ok {
 			wl.sel = selectionOf(t)
-		}
-	}
-	for _, h := range []*cache.Handle{wl.pods, wl.rs} {
-		if h == nil {
-			continue
-		}
-		err := waitSynced(ctx, h, h.Scope().String())
-		if err == nil {
-			err = refusedIn(h, h.Scope().String())
-		}
-		if err != nil {
-			wl.release()
-			return nil, err
 		}
 	}
 	wl.ctx, wl.cancel = context.WithCancel(ctx)

@@ -330,40 +330,47 @@ func (r *forwardRun) watchTargets(ctx context.Context) (*forwardWatch, error) {
 	if w.podsProf, ok = r.b.Profile(kindPods); !ok {
 		return nil, errors.New("this cluster serves no pods")
 	}
-	wake := func() { signal(r.wake) }
-	// The target's namespace, once the access reviews said how (accessiblens_plan.go acquireIn): a
-	// forward starts at connect too (a permanent one), when a handle taken at once would read in
-	// all namespaces, which a user who may not list pods there is refused, and never sync.
-	w.pods = r.b.acquireIn(ctx, w.podsProf, ns)
-	w.cancelPods = w.pods.Subscribe(func(ev cache.Event) {
-		if ev.Object.GetNamespace() == ns && (r.spec.Target.Kind != kindPods || ev.Object.GetName() == name) {
-			wake()
-		}
-	})
 	if r.spec.Target.Kind == kindServices {
 		if w.servicesProf, ok = r.b.Profile(kindServices); !ok {
-			w.release()
 			return nil, errors.New("this cluster serves no services")
 		}
-		w.services = r.b.acquireIn(ctx, w.servicesProf, ns)
-		w.cancelServices = w.services.Subscribe(func(ev cache.Event) {
-			if ev.Object.GetNamespace() == ns && ev.Object.GetName() == name {
-				wake()
-			}
-		})
 	}
-	for _, h := range []*cache.Handle{w.pods, w.services} {
-		if h == nil {
+	// The target's namespace, once the access reviews said how (accessiblens_plan.go acquireIn): a
+	// forward starts at connect too (a permanent one), when a handle taken at once would read in
+	// all namespaces, which a user who may not list pods there is refused, and never sync. A read
+	// in all namespaces that the server refuses all the same (a RoleBinding in the context's
+	// namespace alone) is taken again in the target's namespace (readFollowing).
+	for _, read := range []struct {
+		p  *model.KindProfile
+		to **cache.Handle
+	}{{w.podsProf, &w.pods}, {w.servicesProf, &w.services}} {
+		if read.p == nil {
 			continue
 		}
-		err := waitSynced(ctx, h, h.Scope().String())
+		h, err := r.s.readFollowing(ctx, r.b, read.p, r.b.Scope(read.p).String(), r.b.inNamespace(read.p, ns))
 		if err == nil {
-			err = refusedIn(h, h.Scope().String())
+			if err = refusedIn(h, h.Scope().String()); err != nil {
+				h.Release()
+			}
 		}
 		if err != nil {
 			w.release()
 			return nil, err
 		}
+		*read.to = h
+	}
+	wake := func() { signal(r.wake) }
+	w.cancelPods = w.pods.Subscribe(func(ev cache.Event) {
+		if ev.Object.GetNamespace() == ns && (r.spec.Target.Kind != kindPods || ev.Object.GetName() == name) {
+			wake()
+		}
+	})
+	if w.services != nil {
+		w.cancelServices = w.services.Subscribe(func(ev cache.Event) {
+			if ev.Object.GetNamespace() == ns && ev.Object.GetName() == name {
+				wake()
+			}
+		})
 	}
 	return w, nil
 }

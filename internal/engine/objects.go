@@ -97,11 +97,13 @@ func (s *Session) Objects(ctx context.Context, kind string, namespaces []string)
 	if err != nil {
 		return nil, err
 	}
-	h := b.acquireSettled(ctx, p) // in all namespaces, or in each the user named (accessiblens_plan.go)
-	defer h.Release()
-	if err := waitSynced(ctx, h, kind); err != nil {
+	// In all namespaces, or in each the user named; a refusal in all namespaces is followed
+	// (accessiblens_plan.go readFollowing).
+	h, err := s.readFollowing(ctx, b, p, kind, func(ctx context.Context) *cache.Handle { return b.acquireSettled(ctx, p) })
+	if err != nil {
 		return nil, err
 	}
+	defer h.Release()
 	objs := KindList(h, p)
 	if !p.Namespaced || len(namespaces) == 0 {
 		return objs, nil
@@ -122,11 +124,13 @@ func (s *Session) Object(ctx context.Context, ref model.ObjectRef) (*unstructure
 	if err != nil {
 		return nil, err
 	}
-	h := b.acquireIn(ctx, p, ref.Namespace) // the object's namespace alone for a user who may not list everywhere
-	defer h.Release()
-	if err := waitSynced(ctx, h, p.Key); err != nil {
+	// The object's namespace alone for a user who may not list everywhere, also after a refusal
+	// in all namespaces (accessiblens_plan.go readFollowing).
+	h, err := s.readFollowing(ctx, b, p, p.Key, b.inNamespace(p, ref.Namespace))
+	if err != nil {
 		return nil, err
 	}
+	defer h.Release()
 	obj, ok := KindGet(h, p, ref.Namespace, ref.Name)
 	if !ok {
 		if err := refusedIn(h, p.Key); err != nil {

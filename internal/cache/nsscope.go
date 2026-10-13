@@ -167,12 +167,26 @@ func isRefused(err error) bool { return err != nil && apierrors.IsForbidden(err)
 // (403 Forbidden), in its scope or, for a merged handle, in one of its namespaces.
 func IsRefused(err error) bool { return isRefused(err) }
 
+// OnRefused registers fn to be told of every list or watch of a scope that the API server refused
+// (403 Forbidden), whether a handle holds the scope or it is only warm; nil unregisters. fn runs on
+// the informer's goroutine, once per refused request (client-go retries a held scope with its
+// backoff), and must not block. The engine reads a namespaced kind namespace by namespace once a
+// read of it in all namespaces was refused, whichever consumer's read it was (G3).
+func (c *Cache) OnRefused(fn func(Scope)) {
+	if fn == nil {
+		c.refused.Store(nil)
+		return
+	}
+	c.refused.Store(&fn)
+}
+
 // refusedIf ends a warm scope whose list or watch the API server refused; a scope a handle holds
-// keeps retrying, and its error shows.
+// keeps retrying, and its error shows. Either way the cache's OnRefused hears of it.
 func (r *runner) refusedIf(err error) {
 	if !isRefused(err) || r.c == nil {
 		return
 	}
+	r.tellRefused()
 	e := r.owner.Load()
 	if e == nil {
 		return
@@ -184,4 +198,19 @@ func (r *runner) refusedIf(err error) {
 		return
 	}
 	c.retire(e)
+}
+
+// tellRefused hands the cache's OnRefused hook the runner's scope; a panic in it is logged, never
+// carried into client-go's goroutine.
+func (r *runner) tellRefused() {
+	fn := r.c.refused.Load()
+	if fn == nil {
+		return
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			r.log.Error("cache: the refusal hook panicked", "scope", r.scope.String(), "panic", fmt.Sprint(p))
+		}
+	}()
+	(*fn)(r.scope)
 }

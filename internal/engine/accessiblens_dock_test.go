@@ -19,13 +19,15 @@ import (
 )
 
 // dockConnector connects "test" over any source, with access reviews over a fake reviewer for the
-// context's namespace "default", the given profiles (the local kinds added, as the cluster
-// connector adds them) and actions; its connection is a stand-in that is never dialled.
+// context's namespace ("default" unless namespace names another), the given profiles (the local
+// kinds added, as the cluster connector adds them) and actions; its connection is a stand-in that
+// is never dialled.
 type dockConnector struct {
-	src      cache.Source
-	rev      *fakeReviewer
-	profiles []*model.KindProfile
-	actions  Actions
+	src       cache.Source
+	rev       *fakeReviewer
+	profiles  []*model.KindProfile
+	actions   Actions
+	namespace string
 }
 
 func (c dockConnector) Contexts() ([]ContextInfo, error) {
@@ -34,9 +36,13 @@ func (c dockConnector) Contexts() ([]ContextInfo, error) {
 
 func (c dockConnector) Connect(context.Context, string) (*Backend, error) {
 	ch := cache.New(c.src, cache.Options{WarmPeriod: time.Minute})
-	a := newAccessReviews(c.rev, "default")
+	ns := c.namespace
+	if ns == "" {
+		ns = "default"
+	}
+	a := newAccessReviews(c.rev, ns)
 	return &Backend{
-		Context: "test", Namespace: "default", Cache: ch, Profiles: append(slices.Clone(c.profiles), kinds.Local()...),
+		Context: "test", Namespace: ns, Cache: ch, Profiles: append(slices.Clone(c.profiles), kinds.Local()...),
 		Actions: c.actions, Conn: &cluster.Conn{}, Access: a, Close: func() { a.stop(); ch.Close() },
 	}, nil
 }

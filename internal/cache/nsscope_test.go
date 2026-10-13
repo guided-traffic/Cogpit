@@ -253,3 +253,76 @@ func TestConcurrentNamespacedHandles(t *testing.T) {
 		t.Errorf("informers after every release and the warm period: %q", cache.Runners(c))
 	}
 }
+
+// OnRefused hears of every refused list or watch, of a scope a handle holds and of one that is
+// only warm, with the refused scope; an allowed scope is not reported, and a hook that panics
+// does not take the informer down.
+func TestOnRefusedHearsEveryRefusal(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	mem := testkit.NewMemorySource()
+	podsIn(mem, "team-a")
+	src := &testkit.NamespacedOnlySource{Inner: mem, GVRs: []schema.GroupVersionResource{testkit.PodsGVR}}
+	c := cache.New(src, cache.Options{WarmPeriod: time.Minute})
+	defer c.Close()
+	var mu sync.Mutex
+	var heard []cache.Scope
+	c.OnRefused(func(sc cache.Scope) {
+		mu.Lock()
+		heard = append(heard, sc)
+		mu.Unlock()
+		panic("a hook bug")
+	})
+	got := func() []cache.Scope {
+		mu.Lock()
+		defer mu.Unlock()
+		return slices.Clone(heard)
+	}
+
+	all := cache.Scope{GVR: testkit.PodsGVR}
+	h := c.Acquire(all)
+	if !testkit.WaitFor(ctx, func() bool { return len(got()) > 0 }) {
+		t.Fatalf("a held refused scope was not reported: %v", h.Err())
+	}
+	if g := got(); g[0] != all {
+		t.Errorf("reported %v, want %v", g, all)
+	}
+	if !cache.IsRefused(h.Err()) {
+		t.Errorf("the handle's error: %v", h.Err())
+	}
+	h.Release()
+
+	ok := c.Acquire(cache.Scope{GVR: testkit.PodsGVR, Namespace: "team-a"})
+	if !ok.WaitForSync(ctx) {
+		t.Fatal(ok.Err())
+	}
+	ok.Release()
+	for _, sc := range got() {
+		if sc.Namespace != "" {
+			t.Errorf("an allowed scope was reported: %v", sc)
+		}
+	}
+
+	// Warm only, then refused: reported too.
+	gated := &gatedAny{inner: src, gate: make(chan struct{})}
+	c2 := cache.New(gated, cache.Options{WarmPeriod: time.Minute})
+	defer c2.Close()
+	warm := make(chan cache.Scope, 4)
+	c2.OnRefused(func(sc cache.Scope) {
+		select {
+		case warm <- sc:
+		default:
+		}
+	})
+	c2.Acquire(all).Release()
+	close(gated.gate)
+	select {
+	case sc := <-warm:
+		if sc != all {
+			t.Errorf("reported %v", sc)
+		}
+	case <-ctx.Done():
+		t.Fatal("a warm refused scope was not reported")
+	}
+	c2.OnRefused(nil)
+}

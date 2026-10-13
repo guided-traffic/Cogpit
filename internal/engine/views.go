@@ -309,6 +309,7 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 	}
 	s.attachCustomKinds(b)
 	s.attachAccess(b)
+	s.attachRefusals(b) // a refused read in all namespaces is followed, whoever sent it (accessiblens_plan.go)
 	if line := insecureLogLine(b); line != "" {
 		st.logs.add(name, LogWarn, line) // insecure-skip-tls-verify (tlswarning.go)
 	}

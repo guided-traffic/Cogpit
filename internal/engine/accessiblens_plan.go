@@ -45,6 +45,28 @@ type nsState struct {
 
 	mu      sync.Mutex
 	refused map[schema.GroupVersionResource]bool // listing in all namespaces refused by the server (403)
+	replan  chan struct{}                        // wakes the session's replan loop (attachRefusals); nil before
+	quit    chan struct{}                        // ends that loop; closed by stop
+}
+
+// wakeReplan has the session read what is open again, once its replan loop runs.
+func (n *nsState) wakeReplan() {
+	n.mu.Lock()
+	ch := n.replan
+	n.mu.Unlock()
+	if ch != nil {
+		signal(ch)
+	}
+}
+
+// stop ends the replan loop; the backend's close calls it. Stopping twice is harmless.
+func (n *nsState) stop() {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.quit != nil {
+		close(n.quit)
+		n.quit, n.replan = nil, nil
+	}
 }
 
 // nsInputs are the namespaces the user named: the cluster's accessible namespaces and the
@@ -353,6 +375,109 @@ func (b *Backend) acquireIn(ctx context.Context, p *model.KindProfile, namespace
 	return b.acquirePlanned(p, plan)
 }
 
+// readFollowing acquires a kind's objects for a read that waits for them (acquire: acquireIn for
+// one namespace's objects, acquireSettled for a list) and waits, bounded by ctx and syncTimeout,
+// for their initial list. A read in all namespaces that the API server refuses (the plan's, when
+// the reviews allowed the kind there or could not tell: a RoleBinding in the context's own
+// namespace alone) is followed as a view follows it (followRefusal): the refusal is kept and the
+// read is taken again, now namespace by namespace (the target's namespace alone for acquireIn), at
+// once instead of after the wait. Before (2026-10-13) such a read waited 15 seconds for a list
+// that never came and failed. label names the kind in the error of a list that never finished.
+func (s *Session) readFollowing(ctx context.Context, b *Backend, p *model.KindProfile, label string, acquire func(context.Context) *cache.Handle) (*cache.Handle, error) {
+	h := acquire(ctx)
+	wctx, cancel := context.WithTimeout(ctx, syncTimeout)
+	defer cancel()
+	if readsAllNamespaces(p, h) && waitRefused(wctx, h) {
+		h.Release()
+		s.followRefused(b, p)
+		h = acquire(wctx)
+	}
+	if err := waitSynced(wctx, h, label); err != nil {
+		h.Release()
+		return nil, err
+	}
+	return h, nil
+}
+
+// inNamespace is acquireIn for readFollowing: a kind's objects in one namespace.
+func (b *Backend) inNamespace(p *model.KindProfile, namespace string) func(context.Context) *cache.Handle {
+	return func(ctx context.Context) *cache.Handle { return b.acquireIn(ctx, p, namespace) }
+}
+
+// readsAllNamespaces reports whether a handle on a namespaced kind of the cluster reads it in all
+// namespaces: one that a refusal there would leave without objects.
+func readsAllNamespaces(p *model.KindProfile, h *cache.Handle) bool {
+	return p.Namespaced && !p.Local && !isApplications(p) && !isHelmReleases(p) &&
+		h.Namespaces() == nil && h.Scope().Namespace == ""
+}
+
+// waitRefused waits, bounded by ctx, until a handle has synced (false) or the API server refused
+// its list or watch (true).
+func waitRefused(ctx context.Context, h *cache.Handle) bool {
+	t := time.NewTicker(10 * time.Millisecond)
+	defer t.Stop()
+	for {
+		switch {
+		case h.HasSynced():
+			return false
+		case cache.IsRefused(h.Err()):
+			return true
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-t.C:
+		}
+	}
+}
+
+// followRefused keeps that the API server refused to list a kind in all namespaces and, when that
+// is news, has what is open (views, pages, the drawer) read it again namespace by namespace.
+func (s *Session) followRefused(b *Backend, p *model.KindProfile) {
+	if b.noteRefused(p) {
+		b.ns.wakeReplan()
+	}
+}
+
+// attachRefusals makes every refused read of a namespaced kind in all namespaces count, whoever
+// sent it: a view, a page, the drawer, a related-objects index, an agent's read, the lookup of
+// Prometheus's Services. Before (2026-10-13) only a view's own refusal counted, and a page or an
+// index whose kind no view had opened kept a cluster-wide watch the server refused, retried for as
+// long as it was open. The cache tells of each refused list or watch (cache.OnRefused) on an
+// informer's goroutine; the replan runs on a loop of the session's, which the backend's close
+// ends. A scope in one namespace and a cluster-scoped or local kind are left alone. Connect calls
+// it before the backend is published.
+func (s *Session) attachRefusals(b *Backend) {
+	if b == nil || b.Cache == nil {
+		return
+	}
+	wake, quit := make(chan struct{}, 1), make(chan struct{})
+	b.ns.mu.Lock()
+	b.ns.replan, b.ns.quit = wake, quit
+	b.ns.mu.Unlock()
+	s.goSafe("namespace plan", func() {
+		for {
+			select {
+			case <-quit:
+				return
+			case <-wake:
+				s.state.replan(b)
+			}
+		}
+	})
+	b.Cache.OnRefused(func(sc cache.Scope) {
+		if sc.Namespace != "" {
+			return
+		}
+		for _, p := range b.AllProfiles() {
+			if p.GVR() == sc.GVR && p.Namespaced && !p.Local {
+				s.followRefused(b, p)
+				return
+			}
+		}
+	})
+}
+
 // refusedIn is the API server's refusal of a handle's namespace that acquireIn read (403
 // Forbidden: the user may not list the kind there either), or nil. A merged handle counts as
 // synced once its namespace was refused, so a reader would see no objects instead of the reason.
@@ -454,11 +579,10 @@ func (b *Backend) pagePlanKey(keys []string, skipUnlistable bool) string {
 // cluster-wide watch (403 Forbidden), though the access reviews allowed it or could not tell (a
 // RoleBinding in the context's own namespace, an authorizer that cannot list its rules).
 func (w *viewWorker) followRefusal(err error) {
-	if w.plan.pending || w.plan.perNamespace || !cache.IsRefused(err) || !w.backend.noteRefused(w.profile) {
+	if w.plan.pending || w.plan.perNamespace || !cache.IsRefused(err) {
 		return
 	}
-	s, b := w.s, w.backend
-	s.goSafe("namespace plan", func() { s.state.replan(b) })
+	w.s.followRefused(w.backend, w.profile)
 }
 
 // noteRefused records that the API server refused to list a kind in all namespaces (a view's
