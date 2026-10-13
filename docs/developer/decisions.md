@@ -1271,6 +1271,15 @@ What the build chose, Cogpit's defaults (the lead's and the build's, not the own
 - **Nothing to convert yet:** an `emptyDir`'s `sizeLimit` (the pod drawer lists volumes by type
   and name only), a Helm chart archive's size (shown nowhere; its download bound is converted),
   the logs and the status bar (they show no byte amount).
+- **Renders** (offscreen, re-rendered 2026-10-13): the node drawer
+  ([dark](../../internal/ui/fyneui/testdata/node_drawer_dark.png), [light](../../internal/ui/fyneui/testdata/node_drawer_light.png)) and with its
+  Pods ([dark](../../internal/ui/fyneui/testdata/node_pods_drawer_dark.png), [light](../../internal/ui/fyneui/testdata/node_pods_drawer_light.png)),
+  a node's Devices ([dark](../../internal/ui/fyneui/testdata/node_devices_drawer_dark.png), [light](../../internal/ui/fyneui/testdata/node_devices_drawer_light.png)),
+  a pod's containers ([dark](../../internal/ui/fyneui/testdata/pod_drawer_ports_dark.png), [light](../../internal/ui/fyneui/testdata/pod_drawer_ports_light.png)),
+  the claims list ([dark](../../internal/ui/fyneui/testdata/pvc_list_dark.png), [light](../../internal/ui/fyneui/testdata/pvc_list_light.png)),
+  a Secret ([dark](../../internal/ui/fyneui/testdata/secrets_dark.png), [light](../../internal/ui/fyneui/testdata/secrets_light.png)),
+  the demo's Pods list ([PNG](../../internal/ui/fyneui/testdata/demo_pods.png)), the cluster Overview
+  ([dark](../../internal/ui/fyneui/testdata/cluster_overview_dark.png), [light](../../internal/ui/fyneui/testdata/cluster_overview_light.png)).
 
 **Not converted: the places to talk about** (the owner's "name me the place"; each kept as it is
 until the owner decides):
