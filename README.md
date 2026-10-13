@@ -174,7 +174,7 @@ what is missing, row by row: [docs/parity](docs/parity/README.md).
 ```sh
 make kind-down     # deletes the kind cluster and its kubeconfig file
 make clean         # removes bin/ and dist/
-rm -rf ~/Library/Caches/Cogpit "~/Library/Application Support/Cogpit"   # logs, audit log, token
+rm -rf ~/Library/Caches/Cogpit "~/Library/Application Support/Cogpit"   # logs, audit log, token, downloaded kubectl releases
 ```
 
 </details>
