@@ -38,7 +38,7 @@ type clusterIconParams struct {
 
 type clusterSettingsOpenParams struct {
 	Context string `json:"context,omitempty" jsonschema:"context id as cluster_contexts lists it; empty or omitted: the connected context"`
-	Section string `json:"section,omitempty" jsonschema:"the section to show: general (name, icon, kubeconfig), proxy, terminal or metrics (the Prometheus, hidden metrics); omitted: general"`
+	Section string `json:"section,omitempty" jsonschema:"the section to show: general (name, icon, kubeconfig), proxy, terminal, namespaces (the accessible namespaces) or metrics (the Prometheus, hidden metrics); omitted: general"`
 }
 
 const clusterSettingsOnly = " Changes only Cogpit's own cluster settings (a file in Cogpit's configuration directory), never the cluster or its kubeconfig."
@@ -208,7 +208,7 @@ func registerClusterSettings(g *registrar) {
 	add(g, engine.Spec[clusterSettingsOpenParams]{
 		ID: "cluster.settings.open", Label: "Cluster Settings", MenuPath: "Cluster/Settings", Shortcut: "Cmd+Shift+,", Danger: engine.DangerUI,
 		Description: "Opens a context's Settings page in Cogpit's window, as ⌘⇧, (Ctrl+Shift+,) does for the connected cluster, " +
-			"at a section: general (name, icon, kubeconfig), proxy, terminal or metrics (the Prometheus, hidden metrics). It takes the place of the cluster's views " +
+			"at a section: general (name, icon, kubeconfig), proxy, terminal, namespaces (the accessible namespaces) or metrics (the Prometheus, hidden metrics). It takes the place of the cluster's views " +
 			"until closed (settings_close, Escape); ui_state reports it as settings. Returns the new UI state.",
 		Enabled: func(s *engine.Session, p clusterSettingsOpenParams) error {
 			if _, err := settingsContext(s, p.Context); err != nil {

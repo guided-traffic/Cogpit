@@ -816,6 +816,7 @@ func toUnstructured(items []any) []*unstructured.Unstructured {
 func (h *Handle) Get(namespace, name string) (*unstructured.Unstructured, bool) {
 	if h.parts != nil {
 		return h.joinedGet(namespace, name)
+	}
 	if h.set != nil {
 		return h.set.get(namespace, name)
 	}
@@ -849,6 +850,7 @@ func objectKey(namespace, name string) string {
 func (h *Handle) Subscribe(fn func(Event)) (cancel func()) {
 	if h.parts != nil && fn != nil {
 		return h.joinedSubscribe(fn)
+	}
 	if h.set != nil && fn != nil {
 		return h.set.subscribe(fn)
 	}

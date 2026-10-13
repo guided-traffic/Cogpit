@@ -40,6 +40,7 @@ type tableView struct {
 	title, count, syncing *textLine
 	csvButton             *widget.Button // beside the count: download the view as CSV (tableheader.go)
 	errLine               *textLine
+	scopeLine             *textLine // the namespaces a kind is read in one by one, and those denied (clustersettings_namespaces_filter.go)
 	nsButton              *widget.Button
 	nsBox                 *fyne.Container // the namespace filter's slot; hidden on cluster-scoped views
 	search                *widget.Entry
@@ -119,6 +120,9 @@ func newTableView(sh *shell) *tableView {
 	tv.syncing = newTextLine("", colorAccent, theme.SizeNameCaptionText, fyne.TextStyle{})
 	tv.errLine = newTextLine("", colorStatusError, theme.SizeNameCaptionText, fyne.TextStyle{})
 	tv.errLine.Hide()
+	tv.scopeLine = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+	tv.scopeLine.truncate = true
+	tv.scopeLine.Hide()
 
 	tv.nsButton = widget.NewButtonWithIcon("All namespaces", theme.MenuDropDownIcon(), tv.openNamespaces)
 	tv.nsButton.IconPlacement = widget.ButtonIconTrailingText
@@ -163,7 +167,7 @@ func newTableView(sh *shell) *tableView {
 	tv.create = newCreateButton(sh)
 	body := container.NewStack(newSurface(theme.ColorNameBackground), frame, tv.order.layer, tv.placeholder, tv.create.floating())
 	tv.root = container.NewBorder(
-		container.NewVBox(header, tv.pageBox, inset(theme.SizeNameInnerPadding, "", tv.errLine)),
+		container.NewVBox(header, tv.pageBox, inset(theme.SizeNameInnerPadding, "", tv.errLine), inset(theme.SizeNameInnerPadding, "", tv.scopeLine)),
 		nil, nil, nil, body)
 	tv.updatePlaceholder()
 	return tv
@@ -349,6 +353,7 @@ func (tv *tableView) setSnapshot(snap *engine.TableSnapshot) {
 	} else {
 		tv.errLine.Hide()
 	}
+	tv.showScope(snap) // clustersettings_namespaces_filter.go
 	tv.now = tv.sh.now()
 	tv.updateTitle()
 	tv.updatePlaceholder()
@@ -827,7 +832,7 @@ func (tv *tableView) groupMode() bool { return engine.FiltersByGroup(tv.sh.ui.Vi
 // custom resource kinds (kinds.list), plus any group the selection holds.
 func (tv *tableView) filterChoices() (all string, names, selected []string) {
 	if !tv.groupMode() {
-		return "All namespaces", tv.sh.namespaces, tv.sh.ui.Namespaces
+		return "All namespaces", tv.sh.namespaceChoices(tv.snap), tv.sh.ui.Namespaces // the accessible ones while Namespaces cannot be listed
 	}
 	set := map[string]bool{}
 	for _, k := range tv.sh.kinds {
@@ -899,7 +904,7 @@ func (tv *tableView) openNamespaces() {
 	}
 	tv.nsPopup = widget.NewPopUp(scroll, c)
 	tv.nsPopup.ShowAtRelativePosition(fyne.NewPos(0, tv.nsButton.Size().Height), tv.nsButton)
-	if len(tv.sh.namespaces) == 0 && !tv.groupMode() {
+	if len(tv.sh.namespaces) == 0 && !tv.groupMode() && tv.sh.namespacesListable() {
 		tv.sh.loadNamespaces()
 	}
 }

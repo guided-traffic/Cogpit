@@ -36,7 +36,7 @@ func TestClusterProxyField(t *testing.T) {
 	for _, o := range sh.settings.nav.Objects {
 		labels = append(labels, o.(*widget.Button).Text)
 	}
-	if !slices.Equal(labels, []string{"General", "Proxy", "Terminal", "Metrics"}) {
+	if !slices.Equal(labels, []string{"General", "Proxy", "Terminal", "Namespaces", "Metrics"}) {
 		t.Fatalf("sections %q", labels)
 	}
 	test.Tap(sh.settings.navItems[engine.SectionProxy])

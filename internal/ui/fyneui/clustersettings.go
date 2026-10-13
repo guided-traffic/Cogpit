@@ -24,15 +24,16 @@ import (
 // 2026-10-11): General (the cluster's name, the icon with its "…" menu of Upload Icon, Pick Icon
 // Color and Reset Icon, the kubeconfig's path as a link to its folder), Proxy (the proxy of the
 // cluster's API traffic, clustersettings_proxy.go), Terminal (the working directory, "$HOME" when
-// unset, and kubectl's namespace, "default" when unset), Metrics (the Prometheus setting, the
+// unset, and kubectl's namespace, "default" when unset), Namespaces (the accessible namespaces,
+// clustersettings_namespaces.go), Metrics (the Prometheus setting, the
 // existing dialog of cluster.setPrometheus, and the hidden metrics, clustersettings_metrics.go).
-// Lens's Namespaces, Lens Metrics, Cost and Node Shell pages are not built and not listed. Cogpit's own: the row of
+// Lens's Lens Metrics, Cost and Node Shell pages are not built and not listed. Cogpit's own: the row of
 // colour swatches under the icon, which picks a colour in one click (the menu's Pick Icon Color
 // does the same).
 
 // clusterSectionLabels are the page's section titles, Lens's (captured).
 var clusterSectionLabels = map[string]string{engine.SectionGeneral: "General", engine.SectionProxy: proxySectionLabel,
-	engine.SectionTerminal: "Terminal", engine.SectionMetrics: "Metrics"}
+	engine.SectionTerminal: "Terminal", engine.SectionNamespaces: namespacesSectionLabel, engine.SectionMetrics: "Metrics"}
 
 // contextParam is the context parameter of the cluster settings commands.
 const contextParam = "context"
@@ -113,6 +114,8 @@ func (p *settingsPage) clusterSection(section string) fyne.CanvasObject {
 		return p.clusterProxySection() // clustersettings_proxy.go
 	case engine.SectionTerminal:
 		return p.clusterTerminalSection()
+	case engine.SectionNamespaces:
+		return p.clusterNamespacesSection() // clustersettings_namespaces.go
 	case engine.SectionMetrics:
 		return p.clusterMetricsSection()
 	}

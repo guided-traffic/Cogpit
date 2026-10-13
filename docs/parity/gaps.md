@@ -1026,12 +1026,20 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestKubectlPreferencesFields`, `TestKubectlPreferencesAreTheUsers`); the Preferences row partial
   (a free row from missing: the lead recounts). The terminal's check and download are G8's; the
   download goes through the HTTP proxy for non-cluster traffic too.
+- **Built 2026-10-13 (night run): a cluster's accessible namespaces** (Settings › Namespaces,
+  [ui parity](ui-parity.md#cluster-settings), [`engine/accessiblens.go`](../../internal/engine/accessiblens.go)):
+  a field that adds one namespace at a time and a list that removes them, kept per context in
+  `cluster-settings.json`, set by agents with `cluster.settings.set` (a UI command); the namespace
+  filter offers them while Namespaces cannot be listed, and a kind the user may not list in all
+  namespaces is read in each of them ([G3](#g3-cache-and-the-resource-model)). Cogpit's defaults,
+  not the owner's decisions: sorted, at most 100, and without any, the filter's namespaces, else the
+  context's, are read (`TestClusterNamespacesField`, `TestNamespaceFilterOffersAccessibleNamespaces`).
 - **Missing:** kubeconfig syncs (alpha needs these; pasting is not a target, D-21), dragging on the
   hotbar, the shortcuts of features that do not exist yet (Ask AI; the tabs' five built 2026-10-13), the
   Preferences that are not built (untrusted certificate authorities, held back as a question for the owner,
   Helm repositories and `HELM_DRIVER`, update channel, start at login, the editor's minimap and
   font family, the terminal's copy and paste behaviour, theme and font family), the cluster
-  settings' Namespaces, Node Shell and Lens Metrics pages, and the rest of appearance and
+  settings' Node Shell and Lens Metrics pages, and the rest of appearance and
   application integration (zoom, Minimize on Windows and Linux, several windows, deep links).
 - **Evidence:** [ui-parity](ui-parity.md), 65 rows across those sections (6 more are marked not a
   target); 7 of them partial since 2026-10-12 (the hotbar's six and the Cluster menu), the
