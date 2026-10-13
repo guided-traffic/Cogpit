@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -850,7 +850,8 @@ over its changes by itself: a repository added, changed or removed there (by `he
 hand, by another tool) is in Cogpit within 5 seconds. Repositories with credentials are included
 when their credentials are available (Helm's file keeps a username and password, a client
 certificate and key, a CA file). This replaces the lead's default of the night run (2026-10-13:
-a list of Cogpit's own, public https repositories only, Helm's file never read). **Not built yet.**
+a list of Cogpit's own, public https repositories only, Helm's file never read). **Built
+2026-10-13** (below).
 
 What the decision leaves to the build, as the lead reads it (proposals, not decided):
 
@@ -875,10 +876,77 @@ What the decision leaves to the build, as the lead reads it (proposals, not deci
 - **Indexes.** Downloaded into Cogpit's own cache as today (no writes into Helm's cache), or read
   from Helm's cache when it is current: to decide at the build.
 
+**Built (2026-10-13)** ([`helm/repofile.go`](../../internal/helm/repofile.go),
+[`helm/repo.go`](../../internal/helm/repo.go), [`engine/helmrepos.go`](../../internal/engine/helmrepos.go),
+[`commands/helmrepos.go`](../../internal/engine/commands/helmrepos.go),
+[`fyneui/helmcharts.go`](../../internal/ui/fyneui/helmcharts.go); [architecture §8](architecture.md#8-helm-internalhelm)).
+Verified in this repository by tests; on the owner's Mac only the path was resolved, never read:
+
+- **Which file (as proposed).** The helm CLI's own resolution through the Helm SDK
+  (`cli.New().RepositoryConfig`: `$HELM_REPOSITORY_CONFIG`, else `$HELM_CONFIG_HOME`, else
+  `helmpath`, which also honours `$XDG_CONFIG_HOME`), in one place, `helm.RepositoryConfigPath`,
+  called from `cmd/cogpit` only and handed to `engine.NewHelmRepos`, so no test can resolve the
+  developer's file (`TestRepositoryConfigPath`, on a temporary `HOME`). On this Mac, without any
+  `HELM_*` or `XDG_*` variable set, it resolves to `~/Library/Preferences/helm/repositories.yaml`
+  (the path printed on 2026-10-13; the file itself was not opened).
+- **How often (as proposed).** Size, modification time and mode looked at every 2 seconds, as the
+  kubeconfig sync folders are; a change is read (at most 1 MiB, parsed with the SDK's `repo.File`)
+  once the file stayed unchanged for 250 ms and taken only if it is still unchanged after reading,
+  because `helm repo add` rewrites the file in place (Cogpit's default). Measured in
+  `TestHelmRepoFileChangesWithinFiveSeconds` at the default poll: added and its index downloaded
+  after 2.2 s, a changed URL after 2.0 s, removed after 2.0 s. A file that does not parse keeps the
+  last good list, and `helm.repo.list` and the dialog say why, naming the line, never the content;
+  a missing file is an empty list with the hint "add repositories with helm repo add".
+- **Indexes: Cogpit's own cache (the lead's recommendation, decided at the build).**
+  `<user cache dir>/Cogpit/helm/indexes/<key>-index.yaml`, owner-only, the key a hash of the
+  repository's name and URL: nothing is written into Helm's folders, freshness stays under
+  Cogpit's rules (an explicit update, or while the Charts view or a Helm Install tab is open), and
+  a URL changed in Helm's file never shows an index fetched for the old one, which Helm's cache,
+  named by the repository alone, would until the next `helm repo update`. The cost: a repository
+  is downloaded once by helm and once by Cogpit. A repository that appears in the file, or whose
+  URL, credentials or TLS settings change, counts as never downloaded and is fetched at once while
+  the view or a tab is open (the file's change wakes the poller); its running download is stopped
+  when it leaves the file or changes. At start an index an earlier run downloaded for the same
+  name and URL is shown until its time-to-live passes.
+- **Credentials.** Memory only (`helm.Repository`, whose credentials are unexported and print as
+  its name and redacted URL through `%v`, `%#v`, slog and JSON); agents and the dialog see name,
+  URL without user, password or query values, `hasCredentials`, `clientCertificate`, `caFile`,
+  `insecureSkipTLSVerify`, `passCredentialsAll`, `plainHTTP`. Basic auth goes only to the
+  repository's own scheme, host and port, decided per request on every redirect hop and for chart
+  URLs the index points elsewhere (Go's own rule would keep it for a subdomain), unless the entry
+  says `pass_credentials_all` (`TestCredentialsStayOnTheRepositoryHost`,
+  `TestCredentialsNotSentToAChartElsewhere`). A CA file replaces the trust roots for that
+  repository, as helm uses it; a client certificate is used when both `certFile` and `keyFile` are
+  set, as helm does; the files are read at every download, at most 1 MiB, so a rotated file
+  applies, and an error names the path only (`TestClientCertificateRepository`). Errors are
+  scrubbed of the password and the user name as a guard (`TestScrubbedErrors`), and the proof
+  that nothing leaks runs across the list, the install tab, events, notifications, the audit log
+  and the log (`TestHelmRepoCredentialsNeverShown`; on kind `TestKindHelmInstall`).
+- **Cogpit's defaults, not the owner's decisions:**
+  - plain `http://` repositories are listed and used as helm uses them, credentials included, and
+    marked "http" in the dialog; a redirect never goes from https to http, and an https
+    repository's index never sends a download to http ([H-40](../security/credentials.md#h-40-credentials-over-plain-http),
+    [H-41](../security/trust-boundaries.md#h-41-repositories-whose-content-nothing-authenticates));
+  - `insecure_skip_tls_verify` is honoured for that repository only and marked "insecure";
+  - a user and password in the URL are that repository's basic auth (Go's HTTP client, and so the
+    helm CLI, sends them), and are shown nowhere; the query's values are shown as `•••`;
+  - a repository whose name Cogpit's chart naming (`<repository>.<chart>`) cannot hold, a dot for
+    one, and an OCI URL are listed with a clear reason and not used; a second entry of a name
+    likewise (helm uses the first); a relative CA, certificate or key path likewise (Cogpit does
+    not run in the folder helm ran in); at most 256 repositories are used;
+  - the night run's `<user config dir>/Cogpit/helm/repositories.json` and its indexes in
+    `<user cache dir>/Cogpit/helm/` are left on disk, unread (no implicit deletes);
+  - the Repositories dialog follows the engine's new `EventHelmRepos` while it is open.
+- **Commands.** `helm.repo.add` and `helm.repo.remove` are gone (registry, MCP, README, the
+  dialog, tests: `TestNoCommandWritesHelmsFile`); `helm.repo.list` returns the file's path, its
+  status (`ok`, `missing`, `error`), the reason, a hint and the repositories in the file's order;
+  `helm.repo.update` reads the file first, then downloads.
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-29 built: Helm's repositories.yaml read every 2 s (the helm CLI's resolution, one place), credentials in memory only and to the repository's own host, indexes in Cogpit's own cache keyed by name and URL (decided at the build), `helm.repo.add` and `helm.repo.remove` removed; Cogpit's defaults listed |
 | 2026-10-13 | minor | D-25: copy icons in the lists built (one icon per list on the text cell under the pointer, the drawer's checkmark and toast); every text cell, the icon inside the cell's right end with the text shortened before it, a click that never selects, and no values in a Secret's list are Cogpit's defaults |
 | 2026-10-13 | minor | D-29 (owner): repositories are added with the helm CLI, Cogpit only reads Helm's file and writes nothing into it |
 | 2026-10-13 | minor | D-29 (owner): Helm chart repositories read from Helm's repositories.yaml, changes within 5 seconds, credentials included; D-25 (owner): names in the lists copyable with the drawer's copy icon; neither built |

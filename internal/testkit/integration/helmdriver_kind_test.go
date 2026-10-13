@@ -60,6 +60,8 @@ func TestKindHelmConfigMapDriver(t *testing.T) {
 			"templates/cm.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Release.Name }}-config\ndata:\n  greeting: {{ .Values.greeting | quote }}\n",
 		},
 	})
+	helmFile := testkit.NewHelmRepoFile(t) // Helm's repositories.yaml, temporary (D-29)
+	helmFile.Write(repo.Entry("hd"))
 	journal := engine.NewMemoryHelmJournal()
 	k := &kindSession{audit: &auditBuffer{}, journal: journal}
 	var mu sync.Mutex
@@ -69,7 +71,7 @@ func TestKindHelmConfigMapDriver(t *testing.T) {
 		Audit:            k.audit,
 		Helm:             engine.NewHelmOps(journal),
 		Preferences:      engine.NewPreferencesStore(t.TempDir()),
-		HelmRepos:        engine.NewHelmRepos(t.TempDir(), t.TempDir(), engine.WithChartFetcher(&helm.Fetcher{Client: repo.Client()})),
+		HelmRepos:        engine.NewHelmRepos(helmFile.Path, t.TempDir(), engine.WithChartFetcher(&helm.Fetcher{Client: repo.Client()})),
 		Confirmer: engine.ConfirmFunc(func(_ context.Context, req engine.ConfirmRequest) (bool, error) {
 			mu.Lock()
 			defer mu.Unlock()
@@ -90,7 +92,7 @@ func TestKindHelmConfigMapDriver(t *testing.T) {
 	if _, err := k.dispatch(ctx, engine.OriginGUI, "preferences.set", map[string]any{"helmDriver": "configmap"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := k.dispatch(ctx, engine.OriginGUI, "helm.repo.add", map[string]any{"name": "hd", "url": repo.URL}); err != nil {
+	if _, err := k.dispatch(ctx, engine.OriginGUI, "helm.repo.update", map[string]any{"names": []string{"hd"}}); err != nil {
 		t.Fatal(err)
 	}
 	if !testkit.WaitFor(ctx, func() bool { _, err := k.s.Lookup(engine.HelmChartRef(contextName, "hd", "hd-web")); return err == nil }) {

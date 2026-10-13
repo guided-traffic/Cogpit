@@ -33,8 +33,6 @@ func helmInstallDispatches() []struct {
 		{"helm.chart.preview", helmChartInstallParams{Tab: "helmInstall-1", Namespace: "web", Name: "nginx-x2k4q"}},
 		{"helm.chart.install", helmChartInstallParams{Tab: "helmInstall-1", TextRevision: 2, Namespace: "web", Name: "nginx-x2k4q", CreateNamespace: true}},
 		{"helm.repo.list", struct{}{}},
-		{"helm.repo.add", helmRepoAddParams{Name: "bitnami", URL: "https://charts.example.com/bitnami"}},
-		{"helm.repo.remove", helmRepoNameParams{Name: "bitnami"}},
 		{"helm.repo.update", struct{}{}},
 		{"editor.setText", editorTextParams{ID: "helmInstall-1", YAML: "a: 1\n"}},
 	}
@@ -97,14 +95,26 @@ func chartsFake(t testing.TB) *fakeEngine {
 	f.ui.View = helmChartsKind
 	f.ui.Drawer, f.ui.Selected = nil, nil // the Releases fake opens a release's drawer
 	f.handlers["helm.repo.list"] = func(context.Context, engine.Invocation) (any, error) {
-		return []engine.HelmRepoInfo{
-			{HelmRepo: engine.HelmRepo{Name: "bitnami", URL: "https://charts.example.com/bitnami", Added: fixedNow.Add(-48 * time.Hour)}, Charts: 2, Updated: fixedNow.Add(-4 * time.Minute)},
-			{HelmRepo: engine.HelmRepo{Name: "jetstack", URL: "https://charts.example.com/jetstack", Added: fixedNow.Add(-48 * time.Hour)}, Charts: 1, Updated: fixedNow.Add(-4 * time.Minute)},
-			{HelmRepo: engine.HelmRepo{Name: "private", URL: "https://charts.internal.example/private", Added: fixedNow.Add(-time.Hour)},
-				Error: "downloading the index: https://charts.internal.example/private/index.yaml: 401 Unauthorized"},
-		}, nil
+		return fixtureHelmRepos(), nil
 	}
 	return f
+}
+
+// fixtureHelmRepos is Helm's repositories file as helm.repo.list reports it: public repositories,
+// one behind a login whose download failed, one over plain http, one with an unchecked
+// certificate and a client certificate, one Cogpit does not use.
+func fixtureHelmRepos() engine.HelmReposList {
+	return engine.HelmReposList{File: "/Users/me/Library/Preferences/helm/repositories.yaml", Status: engine.HelmFileOK,
+		Repositories: []engine.HelmRepoInfo{
+			{Name: "bitnami", URL: "https://charts.example.com/bitnami", Charts: 2, Updated: fixedNow.Add(-4 * time.Minute)},
+			{Name: "jetstack", URL: "https://charts.example.com/jetstack", Charts: 1, Updated: fixedNow.Add(-4 * time.Minute)},
+			{Name: "private", URL: "https://charts.internal.example/private", HasCredentials: true,
+				Error: "downloading the index: https://charts.internal.example/private/index.yaml: 401 Unauthorized"},
+			{Name: "lab", URL: "http://charts.lab.example:8080/stable", HasCredentials: true, PlainHTTP: true, Charts: 7, Updated: fixedNow.Add(-2 * time.Hour)},
+			{Name: "edge", URL: "https://charts.edge.example", HasCredentials: true, ClientCertificate: true, CAFile: true, InsecureSkipTLSVerify: true, Charts: 3, Updating: true},
+			{Name: "my.repo", URL: "https://charts.example.com/dotted", Unused: true,
+				Error: "a chart is listed as <repository>.<chart>, so Cogpit uses a repository whose name is 1 to 63 letters, digits, '-' or '_' (no dot); remove it with helm repo remove and add it again under such a name"},
+		}}
 }
 
 // installTabFixture is an open Helm Install tab on bitnami's nginx in the charts fake.
@@ -252,49 +262,76 @@ func TestHelmInstallTabInstalls(t *testing.T) {
 	}
 }
 
-// The repositories dialog lists them with their charts, the age of their index and an error; Add
-// sends the form; Remove asks first.
+// The repositories dialog lists Helm's file's repositories read-only: each with its marks, its
+// charts and the age of its index or its error, the file above; Update All sends helm.repo.update;
+// EventHelmRepos reloads the open dialog; a missing file shows the hint. No Add, no Remove.
 func TestHelmReposDialog(t *testing.T) {
 	f := chartsFake(t)
 	var mu sync.Mutex
-	var calls []engine.Invocation
-	for _, id := range []string{"helm.repo.add", "helm.repo.remove"} {
-		f.handlers[id] = func(_ context.Context, inv engine.Invocation) (any, error) {
-			mu.Lock()
-			calls = append(calls, inv)
-			mu.Unlock()
-			return engine.HelmRepoInfo{HelmRepo: engine.HelmRepo{Name: "jetstack"}, Charts: 4}, nil
-		}
+	lists, updates := 0, 0
+	list := fixtureHelmRepos()
+	f.handlers["helm.repo.list"] = func(context.Context, engine.Invocation) (any, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		lists++
+		return list, nil
+	}
+	f.handlers["helm.repo.update"] = func(context.Context, engine.Invocation) (any, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		updates++
+		return []engine.HelmRepoInfo{list.Repositories[0], list.Repositories[2]}, nil
 	}
 	sh, w, q := newTestShell(t, f, Options{Theme: ThemeDark})
 	sh.showHelmRepos()
 	rd := sh.helmRepos
-	q.until(t, "the repositories", func() bool { return len(rd.rows) == 3 })
+	q.until(t, "the repositories", func() bool { return len(rd.rows) == 6 })
 	if s := repoSummary(rd.rows[0], fixedNow); s != "2 charts · index downloaded 4m ago" {
 		t.Errorf("summary %q", s)
 	}
-	rd.name.SetText("jetstack")
-	rd.url.SetText("https://charts.example.com/jetstack")
-	test.Tap(rd.addB)
-	q.until(t, "the add", func() bool { mu.Lock(); defer mu.Unlock(); return len(calls) == 1 })
-	test.Tap(rd.removeB["private"])
-	if rd.removing == nil {
-		t.Fatal("no confirmation before removing")
+	if s := repoSummary(rd.rows[4], fixedNow); s != "3 charts · updating…" {
+		t.Errorf("summary %q", s)
 	}
-	confirm := findButton(w, "Yes")
-	if confirm == nil {
-		t.Fatal("no Yes button")
+	marks := func(i int) string {
+		var out []string
+		for _, m := range repoMarks(rd.rows[i]) {
+			out = append(out, m.text)
+		}
+		return strings.Join(out, ",")
 	}
-	test.Tap(confirm)
-	q.until(t, "the remove", func() bool { mu.Lock(); defer mu.Unlock(); return len(calls) == 2 })
+	for i, want := range map[int]string{0: "", 2: "credentials", 3: "credentials,http", 4: "client certificate,insecure", 5: "not used"} {
+		if got := marks(i); got != want {
+			t.Errorf("%s: marks %q, want %q", rd.rows[i].Name, got, want)
+		}
+	}
+	if !strings.Contains(rd.file.text, "repositories.yaml") {
+		t.Errorf("file line %q", rd.file.text)
+	}
+	for _, label := range []string{"Add", "Remove"} {
+		if findButton(w, label) != nil {
+			t.Errorf("a %s button", label)
+		}
+	}
+	test.Tap(rd.updateB)
+	q.until(t, "the update", func() bool { mu.Lock(); defer mu.Unlock(); return updates == 1 })
+	q.until(t, "the update's status", func() bool { return strings.Contains(rd.status.text, "1 of 2 repositories failed") })
+
 	mu.Lock()
-	defer mu.Unlock()
-	var add helmRepoAddParams
-	_ = json.Unmarshal(normalize(calls[0].Params), &add)
-	var rm helmRepoNameParams
-	_ = json.Unmarshal(normalize(calls[1].Params), &rm)
-	if calls[0].ID != "helm.repo.add" || add.Name != "jetstack" || add.URL != "https://charts.example.com/jetstack" || calls[1].ID != "helm.repo.remove" || rm.Name != "private" {
-		t.Errorf("calls %+v", calls)
+	before := lists
+	list = engine.HelmReposList{File: list.File, Status: engine.HelmFileMissing, Hint: "Add repositories with helm repo add <name> <url>; Cogpit lists them within seconds."}
+	mu.Unlock()
+	f.emit(engine.Event{Type: engine.EventHelmRepos})
+	q.until(t, "the reload", func() bool { return len(rd.rows) == 0 })
+	mu.Lock()
+	if lists <= before {
+		t.Errorf("EventHelmRepos did not reload (%d lists)", lists)
+	}
+	mu.Unlock()
+	if rd.updateB.Disabled() == false {
+		t.Error("Update All is enabled without repositories")
+	}
+	if len(rd.fileMsg.Objects) != 1 {
+		t.Errorf("the missing file's message: %d objects", len(rd.fileMsg.Objects))
 	}
 }
 
@@ -338,13 +375,20 @@ func TestRenderHelmInstallPreviewDark(t *testing.T) {
 	renderInstallTab(t, ThemeDark, "helm_install_preview_dark.png", true)
 }
 
-func TestRenderHelmReposDialog(t *testing.T) {
+func renderHelmReposDialog(t *testing.T, mode ThemeMode, name string) {
 	f := chartsFake(t)
-	sh, w, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	sh, w, q := newTestShell(t, f, Options{Theme: mode})
 	q.until(t, "the charts", func() bool { return sh.view.snap != nil && sh.diag.total > 0 })
 	sh.showHelmRepos()
-	q.until(t, "the repositories", func() bool { return sh.helmRepos != nil && len(sh.helmRepos.rows) == 3 })
-	savePNG(t, w, "helm_repos_dialog_dark.png")
+	q.until(t, "the repositories", func() bool { return sh.helmRepos != nil && len(sh.helmRepos.rows) == 6 })
+	savePNG(t, w, name)
+}
+
+func TestRenderHelmReposDialog(t *testing.T) {
+	renderHelmReposDialog(t, ThemeDark, "helm_repos_dialog_dark.png")
+}
+func TestRenderHelmReposDialogLight(t *testing.T) {
+	renderHelmReposDialog(t, ThemeLight, "helm_repos_dialog_light.png")
 }
 
 // A version picked for the Install tab reaches the window when the engine has loaded its chart:

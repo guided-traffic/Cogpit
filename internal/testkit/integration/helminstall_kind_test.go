@@ -4,12 +4,18 @@ package integration_test
 
 import (
 	"context"
+	"encoding/json"
+	"log/slog"
 	"maps"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	helmrepo "helm.sh/helm/v4/pkg/repo/v1"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,10 +34,13 @@ const installNamespace = "cogpit-hi-install"
 
 // TestKindHelmInstall installs a chart from a chart repository served by httptest (the SDK runs
 // in Cogpit's process, so the cluster never reaches the repository) through Cogpit's engine on the
-// kind cluster: the repository added in temporary folders, the Install tab with the chart's
-// values, the preview (which writes nothing), the install from the tab creating its namespace,
-// with the requests counted; an agent's install with inline values, confirmed; a release name in
-// use refused; then both releases uninstalled and the namespace deleted.
+// kind cluster. The repository is behind a login and trusted through a CA file, both as Helm's own
+// repositories.yaml names them (a temporary file, as helm repo add writes it; D-29), and Cogpit's
+// default downloader, which trusts nothing else: the index and the chart are downloaded with the
+// credentials, which reach no result, toast, audit line or log. Then the Install tab with the
+// chart's values, the preview (which writes nothing), the install from the tab creating its
+// namespace, with the requests counted; an agent's install with inline values, confirmed; a release
+// name in use refused; then both releases uninstalled and the namespace deleted.
 func TestKindHelmInstall(t *testing.T) {
 	kubeconfig, contextName := kindEnv(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
@@ -65,6 +74,15 @@ func TestKindHelmInstall(t *testing.T) {
 				"{{ dig \"metadata\" \"uid\" \"none\" (lookup \"v1\" \"Namespace\" \"\" \"kube-system\") | trunc 8 }}\n",
 		},
 	})
+	const repoUser, repoPass = "hi-chart-user", "hi-repo-pw-77"
+	repo.RequireBasicAuth(repoUser, repoPass)
+	caFile := filepath.Join(t.TempDir(), "repo-ca.pem")
+	if err := os.WriteFile(caFile, repo.CertificatePEM(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	helmFile := testkit.NewHelmRepoFile(t)
+	helmFile.Write(&helmrepo.Entry{Name: "hi", URL: repo.URL, Username: repoUser, Password: repoPass, CAFile: caFile})
+	logs := &auditBuffer{}
 	journal := engine.NewMemoryHelmJournal()
 	k := &kindSession{audit: &auditBuffer{}, journal: journal}
 	var mu sync.Mutex
@@ -72,8 +90,9 @@ func TestKindHelmInstall(t *testing.T) {
 		Connector:        &engine.ClusterConnector{KubeconfigPaths: []string{kubeconfig}},
 		SnapshotInterval: 20 * time.Millisecond,
 		Audit:            k.audit,
+		Logger:           slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		Helm:             engine.NewHelmOps(journal),
-		HelmRepos:        engine.NewHelmRepos(t.TempDir(), t.TempDir(), engine.WithChartFetcher(&helm.Fetcher{Client: repo.Client()})),
+		HelmRepos:        engine.NewHelmRepos(helmFile.Path, t.TempDir()), // Cogpit's default downloader
 		Confirmer: engine.ConfirmFunc(func(_ context.Context, req engine.ConfirmRequest) (bool, error) {
 			mu.Lock()
 			defer mu.Unlock()
@@ -88,8 +107,15 @@ func TestKindHelmInstall(t *testing.T) {
 	if err := k.s.Connect(ctx, contextName); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := k.dispatch(ctx, engine.OriginGUI, "helm.repo.add", map[string]any{"name": "hi", "url": repo.URL}); err != nil {
+	res, err := k.dispatch(ctx, engine.OriginExternalAgent, "helm.repo.update", map[string]any{"names": []string{"hi"}})
+	if err != nil {
 		t.Fatal(err)
+	}
+	if infos := res.([]engine.HelmRepoInfo); len(infos) != 1 || infos[0].Error != "" || infos[0].Charts != 1 || !infos[0].HasCredentials {
+		t.Fatalf("the authenticated repository: %+v", infos)
+	}
+	if repo.Authorized("/index.yaml") != 1 {
+		t.Errorf("%d index downloads with credentials", repo.Authorized("/index.yaml"))
 	}
 	chart := engine.HelmChartRef(contextName, "hi", "hi-web")
 	if !testkit.WaitFor(ctx, func() bool { _, err := k.s.Lookup(chart); return err == nil }) {
@@ -100,7 +126,7 @@ func TestKindHelmInstall(t *testing.T) {
 	}
 
 	// The GUI's path: the tab, the values edited, the preview, the install.
-	res, err := k.dispatch(ctx, engine.OriginGUI, "helm.chart.installTab", map[string]any{"ref": chart})
+	res, err = k.dispatch(ctx, engine.OriginGUI, "helm.chart.installTab", map[string]any{"ref": chart})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,10 +217,21 @@ func TestKindHelmInstall(t *testing.T) {
 	if len(asked) != 1 || asked[0].Command != "helm.chart.install" || asked[0].Review == "" || !strings.Contains(asked[0].Detail, "hi/hi-web 0.1.0") {
 		t.Errorf("confirmations %+v", asked)
 	}
-	for _, leak := range []string{"kind-s3cr3t", "agent-s3cr3t"} {
+	for _, leak := range []string{"kind-s3cr3t", "agent-s3cr3t", repoPass} {
 		if strings.Contains(k.audit.String(), leak) {
 			t.Errorf("%q in the audit log", leak)
 		}
+	}
+	if strings.Contains(logs.String(), repoPass) {
+		t.Error("the repository's password is in the log")
+	}
+	if list, err := k.dispatch(ctx, engine.OriginExternalAgent, "helm.repo.list", struct{}{}); err != nil {
+		t.Error(err)
+	} else if b, _ := json.Marshal(list); strings.Contains(string(b), repoPass) || strings.Contains(string(b), repoUser) {
+		t.Errorf("helm.repo.list shows a credential: %s", b)
+	}
+	if n := repo.Authorized("/hi-web-0.1.0.tgz"); n < 2 {
+		t.Errorf("%d chart downloads with credentials, want the tab's and the agent's", n)
 	}
 
 	for _, name := range []string{"hi-web", "hi-api"} {

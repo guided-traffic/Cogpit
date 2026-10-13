@@ -61,6 +61,8 @@ func TestKindHelmUpgradeFromRepository(t *testing.T) {
 	kindNamespace(ctx, t, kc, repoUpgradeNamespace)
 
 	repo := testkit.NewHelmRepo(t, uChart("0.1.0"), uChart("0.2.0"))
+	helmFile := testkit.NewHelmRepoFile(t) // Helm's repositories.yaml, temporary (D-29)
+	helmFile.Write(repo.Entry("u"))
 	journal := engine.NewMemoryHelmJournal()
 	k := &kindSession{audit: &auditBuffer{}, journal: journal}
 	var mu sync.Mutex
@@ -69,7 +71,7 @@ func TestKindHelmUpgradeFromRepository(t *testing.T) {
 		SnapshotInterval: 20 * time.Millisecond,
 		Audit:            k.audit,
 		Helm:             engine.NewHelmOps(journal),
-		HelmRepos:        engine.NewHelmRepos(t.TempDir(), t.TempDir(), engine.WithChartFetcher(&helm.Fetcher{Client: repo.Client()})),
+		HelmRepos:        engine.NewHelmRepos(helmFile.Path, t.TempDir(), engine.WithChartFetcher(&helm.Fetcher{Client: repo.Client()})),
 		Confirmer: engine.ConfirmFunc(func(_ context.Context, req engine.ConfirmRequest) (bool, error) {
 			mu.Lock()
 			defer mu.Unlock()
@@ -84,7 +86,7 @@ func TestKindHelmUpgradeFromRepository(t *testing.T) {
 	if err := k.s.Connect(ctx, contextName); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := k.dispatch(ctx, engine.OriginGUI, "helm.repo.add", map[string]any{"name": "u", "url": repo.URL}); err != nil {
+	if _, err := k.dispatch(ctx, engine.OriginGUI, "helm.repo.update", map[string]any{"names": []string{"u"}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := k.s.Objects(ctx, helm.ReleaseKind, nil); err != nil {

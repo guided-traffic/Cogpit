@@ -2,7 +2,7 @@ package fyneui
 
 import (
 	"fmt"
-	"strings"
+	"sync/atomic"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -15,39 +15,29 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
-// The Helm chart repositories in the GUI (G11): the Helm menu's "Repositories…" opens a dialog
-// that lists the repositories added to Cogpit with their charts' count, when each index was
-// downloaded and its last error, removes one (after asking), updates them all, and adds one by
-// name and https URL. Lens keeps them in its preferences (Kubernetes › Helm Charts, with public
-// repositories to pick and custom ones with credentials); Cogpit has no preferences page, adds
-// public repositories only (H-29) and offers no list to pick from. The Charts view
-// (helmcharts, a kind view) lists their charts; the dialog only manages where they come from.
-
-// helmRepoParams mirror helm.repo.add's and helm.repo.remove's parameters.
-type (
-	helmRepoAddParams struct {
-		Name string `json:"name"`
-		URL  string `json:"url"`
-	}
-	helmRepoNameParams struct {
-		Name string `json:"name"`
-	}
-)
+// The Helm chart repositories in the GUI (G11, D-29): the Helm menu's "Repositories…" opens a
+// dialog that lists the repositories of Helm's own repositories.yaml, read-only: each with its URL
+// (never a user or password), marks for credentials, plain http, an unchecked certificate and an
+// entry Cogpit does not use, its charts' count and the age of its index or its last error; above
+// them Helm's file and its status; and Update All, which downloads the indexes again. Repositories
+// are added and removed with the helm CLI (owner, D-29): Cogpit differs from Lens's Preferences ›
+// Kubernetes › Helm Charts on purpose and has no Add or Remove. While open the dialog follows the
+// engine's EventHelmRepos, so a repository helm adds appears without reopening it. The Charts view
+// (helmcharts, a kind view) lists their charts.
 
 // helmReposDialog is the open repositories dialog.
 type helmReposDialog struct {
 	sh      *shell
 	d       *dialog.CustomDialog
 	list    *fyne.Container
-	name    *widget.Entry
-	url     *widget.Entry
-	addB    *widget.Button
+	file    *textLine
+	fileMsg *fyne.Container // the file's status when it is not ok
 	updateB *widget.Button
 	status  *textLine
+	src     engine.HelmReposList
 	rows    []engine.HelmRepoInfo
-	removeB map[string]*widget.Button // by repository name, for tests
-	// removing is the open Remove confirmation, for tests.
-	removing *dialog.ConfirmDialog
+	queued  atomic.Bool // a reload after EventHelmRepos is pending
+	cancel  func()      // stops following EventHelmRepos
 }
 
 // helmMenu is the window menu's Helm menu.
@@ -62,39 +52,47 @@ func (sh *shell) helmMenu() *fyne.Menu {
 // helmChartsKind is the Charts view's kind key.
 const helmChartsKind = "helmcharts"
 
+// helmReposIntro says where the repositories come from and how they are added.
+const helmReposIntro = "The chart repositories of Helm's own repositories file. Add and remove them with the helm CLI " +
+	"(helm repo add, helm repo remove): Cogpit takes a change over within seconds and writes nothing into Helm's files. " +
+	"Credentials stay in Helm's file; Cogpit shows only whether a repository has them."
+
 // showHelmRepos opens the repositories dialog, or reloads the open one.
 func (sh *shell) showHelmRepos() {
 	if sh.helmRepos != nil {
 		sh.helmRepos.load()
 		return
 	}
-	rd := &helmReposDialog{sh: sh, list: container.NewVBox(), removeB: map[string]*widget.Button{}}
+	rd := &helmReposDialog{sh: sh, list: container.NewVBox(), fileMsg: container.NewVBox()}
 	th := sh.app.Settings().Theme()
 	rd.status = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	rd.status.truncate = true
-	intro := newParagraph("Public Helm chart repositories Cogpit lists charts from. Cogpit keeps them in its own "+
-		"configuration, not in Helm's, and downloads each index over https when you add or update it, and while the "+
-		"Charts view is open once it is older than 10 minutes. Removing one leaves the releases installed from it.",
-		colorMuted, th.Size(sizePickerWidth))
-	rd.name = widget.NewEntry()
-	rd.name.SetPlaceHolder("Name, e.g. bitnami")
-	rd.url = widget.NewEntry()
-	rd.url.SetPlaceHolder("https://charts.example.com/stable")
-	rd.addB = widget.NewButtonWithIcon("Add", theme.ContentAddIcon(), rd.add)
-	rd.addB.Importance = widget.HighImportance
-	form := container.NewBorder(nil, nil, nil, rd.addB,
-		container.NewBorder(nil, nil, box(fixedWidth(180), rd.name), nil, rd.url))
+	intro := newParagraph(helmReposIntro, colorMuted, th.Size(sizePickerWidth))
+	rd.file = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+	rd.file.truncate = true
 	listBg := newSurface(theme.ColorNameInputBackground)
 	listBg.radius, listBg.stroke = theme.SizeNameInputRadius, theme.ColorNameInputBorder
 	list := container.NewStack(listBg, inset(theme.SizeNamePadding, theme.SizeNamePadding, container.NewVScroll(rd.list)))
-	content := sized(sizePickerWidth, sizePickerHeight, container.NewBorder(
-		container.NewVBox(intro, newSpace(theme.SizeNamePadding), form, newSpace(theme.SizeNamePadding)), rd.status, nil, nil, list))
+	top := container.NewVBox(intro, newSpace(theme.SizeNamePadding), rd.file, rd.fileMsg, newSpace(theme.SizeNamePadding))
+	content := sized(sizePickerWidth, sizePickerHeight, container.NewBorder(top, rd.status, nil, nil, list))
 	rd.d = dialog.NewCustomWithoutButtons("Helm Repositories", content, sh.win)
 	rd.updateB = widget.NewButtonWithIcon("Update All", theme.ViewRefreshIcon(), rd.update)
+	rd.updateB.Importance = widget.HighImportance
 	closeB := widget.NewButton("Close", nil)
 	rd.d.SetButtons([]fyne.CanvasObject{rd.updateB, closeB})
 	closeB.OnTapped = rd.d.Hide
+	rd.cancel = sh.eng.Subscribe(func(ev engine.Event) {
+		if ev.Type == engine.EventHelmRepos && rd.queued.CompareAndSwap(false, true) {
+			sh.do(func() {
+				rd.queued.Store(false)
+				if sh.helmRepos == rd {
+					rd.load()
+				}
+			})
+		}
+	})
 	rd.d.SetOnClosed(func() {
+		rd.cancel()
 		if sh.helmRepos == rd {
 			sh.helmRepos = nil
 		}
@@ -102,24 +100,6 @@ func (sh *shell) showHelmRepos() {
 	sh.helmRepos = rd
 	rd.d.Show()
 	rd.load()
-}
-
-// fixedWidth lays its objects out at a fixed width and their own height: the name field.
-type fixedWidth float32
-
-func (w fixedWidth) MinSize(objs []fyne.CanvasObject) fyne.Size {
-	var h float32
-	for _, o := range objs {
-		h = fyne.Max(h, o.MinSize().Height)
-	}
-	return fyne.NewSize(float32(w), h)
-}
-
-func (w fixedWidth) Layout(objs []fyne.CanvasObject, size fyne.Size) {
-	for _, o := range objs {
-		o.Move(fyne.NewPos(0, 0))
-		o.Resize(size)
-	}
 }
 
 func (rd *helmReposDialog) setStatus(text string, c fyne.ThemeColorName) {
@@ -130,15 +110,15 @@ func (rd *helmReposDialog) setStatus(text string, c fyne.ThemeColorName) {
 // load reads the repositories and shows them.
 func (rd *helmReposDialog) load() {
 	rd.sh.dispatch("helm.repo.list", struct{}{}, func(res any, err error) {
-		var rows []engine.HelmRepoInfo
+		var l engine.HelmReposList
 		if err == nil {
-			err = decode(res, &rows)
+			err = decode(res, &l)
 		}
 		if err != nil {
 			rd.setStatus(errText(err), colorStatusError)
 			return
 		}
-		rd.rows = rows
+		rd.src, rd.rows = l, l.Repositories
 		rd.render()
 	})
 }
@@ -146,34 +126,82 @@ func (rd *helmReposDialog) load() {
 func (rd *helmReposDialog) render() {
 	th := rd.sh.app.Settings().Theme()
 	width := th.Size(sizePickerWidth) - 8*th.Size(theme.SizeNamePadding)
-	rd.removeB = map[string]*widget.Button{}
+	rd.file.SetText("Helm's file: " + rd.src.File)
+	var msg []fyne.CanvasObject
+	switch rd.src.Status {
+	case engine.HelmFileMissing:
+		msg = append(msg, newTextLine("The file does not exist yet.", colorStatusWarning, theme.SizeNameCaptionText, fyne.TextStyle{}))
+	case engine.HelmFileError:
+		msg = append(msg, newParagraph("Not read: "+rd.src.Error+". The list below is from the last time it was read.", colorStatusError, width))
+	}
+	rd.fileMsg.Objects = msg
+	rd.fileMsg.Refresh()
+
 	objs := make([]fyne.CanvasObject, 0, len(rd.rows))
 	for _, r := range rd.rows {
-		repo := r
-		title := newTextLine(repo.Name, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
-		u := newTextLine(repo.URL, colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
-		u.truncate = true
-		remove := widget.NewButtonWithIcon("Remove", theme.DeleteIcon(), func() { rd.confirmRemove(repo.Name) })
-		remove.Importance = widget.LowImportance
-		rd.removeB[repo.Name] = remove
-		var info fyne.CanvasObject
-		if repo.Error != "" {
-			info = newParagraph(repo.Error, colorStatusError, width-remove.MinSize().Width-2*th.Size(theme.SizeNamePadding))
-		} else {
-			info = newTextLine(repoSummary(repo, rd.sh.now()), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+		title := newTextLine(r.Name, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
+		head := []fyne.CanvasObject{title}
+		for _, m := range repoMarks(r) {
+			head = append(head, newPill(m.text, m.color, m.tinted))
 		}
-		objs = append(objs, inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, container.NewBorder(nil, nil, nil,
-			container.NewCenter(remove), container.NewVBox(title, u, info))))
+		u := newTextLine(r.URL, colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+		u.truncate = true
+		var info fyne.CanvasObject
+		if r.Error != "" {
+			info = newParagraph(r.Error, colorStatusError, width)
+		} else {
+			info = newTextLine(repoSummary(r, rd.sh.now()), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+		}
+		objs = append(objs, inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding,
+			container.NewVBox(container.NewHBox(head...), u, info)))
 	}
 	if len(objs) == 0 {
-		objs = append(objs, inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding,
-			newTextLine("No repositories added yet: add one by its name and https URL above.", colorMuted, theme.SizeNameText, fyne.TextStyle{})))
+		text := rd.src.Hint
+		if text == "" {
+			text = "No repositories."
+		}
+		objs = append(objs, inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, newParagraph(text, colorMuted, width)))
 	}
 	rd.list.Objects = objs
 	rd.list.Refresh()
+	if len(rd.rows) == 0 {
+		rd.updateB.Disable()
+	} else {
+		rd.updateB.Enable()
+	}
 }
 
-// repoSummary is a repository's second line: its charts and the age of its index.
+// repoMark is a mark beside a repository's name.
+type repoMark struct {
+	text   string
+	color  fyne.ThemeColorName
+	tinted bool
+}
+
+// repoMarks are a repository's marks: whether it sends credentials (never which), plain http and
+// an unchecked certificate (both warned about), and an entry Cogpit does not use.
+func repoMarks(r engine.HelmRepoInfo) []repoMark {
+	var out []repoMark
+	if r.Unused {
+		out = append(out, repoMark{"not used", colorStatusError, true})
+	}
+	if r.HasCredentials {
+		text := "credentials"
+		if r.ClientCertificate {
+			text = "client certificate"
+		}
+		out = append(out, repoMark{text, colorMuted, false})
+	}
+	if r.PlainHTTP {
+		out = append(out, repoMark{"http", colorStatusWarning, true})
+	}
+	if r.InsecureSkipTLSVerify {
+		out = append(out, repoMark{"insecure", colorStatusWarning, true})
+	}
+	return out
+}
+
+// repoSummary is a repository's last line: its charts and the age of its index.
 func repoSummary(r engine.HelmRepoInfo, now time.Time) string {
 	charts := fmt.Sprintf("%d charts", r.Charts)
 	if r.Charts == 1 {
@@ -188,63 +216,30 @@ func repoSummary(r engine.HelmRepoInfo, now time.Time) string {
 	return charts + " · index downloaded " + model.FormatAge(now.Sub(r.Updated)) + " ago"
 }
 
-// add adds the repository the form names.
-func (rd *helmReposDialog) add() {
-	p := helmRepoAddParams{Name: strings.TrimSpace(rd.name.Text), URL: strings.TrimSpace(rd.url.Text)}
-	if p.Name == "" || p.URL == "" {
-		rd.setStatus("Give the repository's name and its https URL.", colorStatusWarning)
-		return
-	}
-	rd.addB.Disable()
-	rd.setStatus("Downloading the index of "+p.Name+"…", colorMuted)
-	rd.sh.dispatch("helm.repo.add", p, func(res any, err error) {
-		rd.addB.Enable()
-		if err != nil {
-			rd.setStatus("Not added: "+errText(err), colorStatusError)
-			return
-		}
-		var info engine.HelmRepoInfo
-		_ = decode(res, &info)
-		rd.name.SetText("")
-		rd.url.SetText("")
-		rd.setStatus(fmt.Sprintf("Added %s: %d charts.", info.Name, info.Charts), colorStatusOK)
-		rd.load()
-	})
-}
-
 // update downloads every index again.
 func (rd *helmReposDialog) update() {
 	rd.updateB.Disable()
 	rd.setStatus("Updating the repositories…", colorMuted)
-	rd.sh.dispatch("helm.repo.update", struct{}{}, func(_ any, err error) {
+	rd.sh.dispatch("helm.repo.update", struct{}{}, func(res any, err error) {
 		rd.updateB.Enable()
-		if err != nil {
+		var infos []engine.HelmRepoInfo
+		if err == nil {
+			_ = decode(res, &infos)
+		}
+		failed := 0
+		for _, r := range infos {
+			if r.Error != "" {
+				failed++
+			}
+		}
+		switch {
+		case err != nil:
 			rd.setStatus("Not updated: "+errText(err), colorStatusError)
-		} else {
+		case failed > 0:
+			rd.setStatus(fmt.Sprintf("Updated; %d of %d repositories failed (below).", failed, len(infos)), colorStatusWarning)
+		default:
 			rd.setStatus("Updated.", colorStatusOK)
 		}
 		rd.load()
 	})
-}
-
-// confirmRemove asks before removing a repository, naming what goes and what stays.
-func (rd *helmReposDialog) confirmRemove(name string) {
-	rd.removing = dialog.NewConfirm("Remove "+name+"?",
-		"Cogpit forgets the repository "+name+" and its downloaded index; its charts leave the Charts view. "+
-			"Releases installed from it are not touched.",
-		func(ok bool) {
-			rd.removing = nil
-			if !ok {
-				return
-			}
-			rd.sh.dispatch("helm.repo.remove", helmRepoNameParams{Name: name}, func(_ any, err error) {
-				if err != nil {
-					rd.setStatus("Not removed: "+errText(err), colorStatusError)
-					return
-				}
-				rd.setStatus("Removed "+name+".", colorMuted)
-				rd.load()
-			})
-		}, rd.sh.win)
-	rd.removing.Show()
 }

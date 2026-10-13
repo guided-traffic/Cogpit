@@ -32,7 +32,7 @@ func fetchUp(t *testing.T, r *testkit.HelmRepo, version string) *Chart {
 	t.Helper()
 	f := &Fetcher{Client: r.Client()}
 	dir := t.TempDir()
-	idx, err := f.DownloadIndex(context.Background(), r.URL, dir+"/index.yaml")
+	idx, err := f.DownloadIndex(context.Background(), PublicRepository("test", r.URL), dir+"/index.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func fetchUp(t *testing.T, r *testkit.HelmRepo, version string) *Chart {
 	if !ok {
 		t.Fatalf("no version %s", version)
 	}
-	ch, err := f.FetchChart(context.Background(), "test", r.URL, "web", v)
+	ch, err := f.FetchChart(context.Background(), PublicRepository("test", r.URL), "web", v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestUpgradeToARepositoryChart(t *testing.T) {
 func fetchOther(t *testing.T, r *testkit.HelmRepo, name, version string) *Chart {
 	t.Helper()
 	f := &Fetcher{Client: r.Client()}
-	idx, err := f.DownloadIndex(context.Background(), r.URL, t.TempDir()+"/index.yaml")
+	idx, err := f.DownloadIndex(context.Background(), PublicRepository("test", r.URL), t.TempDir()+"/index.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func fetchOther(t *testing.T, r *testkit.HelmRepo, name, version string) *Chart 
 	if !ok {
 		t.Fatalf("no %s %s", name, version)
 	}
-	ch, err := f.FetchChart(context.Background(), "test", r.URL, name, v)
+	ch, err := f.FetchChart(context.Background(), PublicRepository("test", r.URL), name, v)
 	if err != nil {
 		t.Fatal(err)
 	}

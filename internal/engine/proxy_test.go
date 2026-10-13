@@ -132,12 +132,14 @@ func TestNonClusterProxyCarriesHelmDownloads(t *testing.T) {
 		Templates: map[string]string{"templates/cm.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: x\n"}})
 	proxy := testkit.NewForwardProxy(t, "bob", proxySecret)
 	cfg := filepath.Join(t.TempDir(), "Cogpit")
-	repos := NewHelmRepos(cfg, t.TempDir(), WithChartFetcher(&helm.Fetcher{Client: repo.Client()}))
+	helmFile := testkit.NewHelmRepoFile(t)
+	helmFile.Write(repo.Entry("plain"), repo.Entry("proxied"))
+	repos := NewHelmRepos(helmFile.Path, t.TempDir(), WithChartFetcher(&helm.Fetcher{Client: repo.Client()}))
 	s := New(Options{Preferences: NewPreferencesStore(cfg), HelmRepos: repos})
 	t.Cleanup(s.Close)
 
 	// No preference: the environment's proxy is asked, and nothing goes through the test proxy.
-	if _, err := repos.Add(context.Background(), "plain", repo.URL); err != nil {
+	if _, err := repos.Update(context.Background(), []string{"plain"}); err != nil {
 		t.Fatal(err)
 	}
 	if envCalls == 0 || proxy.Total() != 0 {
@@ -159,8 +161,8 @@ func TestNonClusterProxyCarriesHelmDownloads(t *testing.T) {
 		t.Error("the UI state carries the password")
 	}
 	before := envCalls
-	if _, err := repos.Add(context.Background(), "proxied", repo.URL); err != nil {
-		t.Fatalf("add through the proxy: %v", err)
+	if _, err := repos.Update(context.Background(), []string{"proxied"}); err != nil {
+		t.Fatalf("index through the proxy: %v", err)
 	}
 	if proxy.Total() == 0 || !slices.Contains(proxy.Users(), "bob") || envCalls != before {
 		t.Errorf("with the preference: %d proxy requests from %q, %d more environment lookups", proxy.Total(), proxy.Users(), envCalls-before)

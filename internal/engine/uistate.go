@@ -137,8 +137,8 @@ type HelmUpgradeTab struct {
 	// ReleaseVersion is the release's own chart version, which the picker marks as the current one.
 	ReleaseVersion string `json:"releaseVersion,omitempty"`
 	// Repository is the chart repository whose versions the picker offers, "" when no repository
-	// added to Cogpit lists the chart; Repositories are every one that does, in the order they were
-	// added.
+	// of Helm's repositories file lists the chart; Repositories are every one that does, in the file's
+	// order.
 	Repository   string   `json:"repository,omitempty"`
 	Repositories []string `json:"repositories,omitempty"`
 	// Versions are the picker's choices: the release's own chart version, and Repository's versions

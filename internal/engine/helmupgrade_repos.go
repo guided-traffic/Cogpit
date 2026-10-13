@@ -7,14 +7,14 @@ import (
 	"github.com/guided-traffic/cogpit/internal/helm"
 )
 
-// A Helm Upgrade tab's chart versions from the user's chart repositories (G11, architecture §8):
-// the release's chart is looked up by name in the index of every repository added to Cogpit, as
-// Cogpit holds it (a download that runs is not waited for). Without one the tab offers the
+// A Helm Upgrade tab's chart versions from the user's chart repositories (G11, D-29, architecture
+// §8): the release's chart is looked up by name in the index of every repository of Helm's
+// repositories file, as Cogpit holds it (a download that runs is not waited for). Without one the tab offers the
 // release's own version only, as before; with one its picker offers that repository's versions and
 // the upgrade downloads the chosen one (commands/helmupgrade.go). Cogpit's defaults, inferred, not
 // the owner's decisions (Lens's choice is not captured):
 //
-//   - several repositories list the chart: the first, in the order they were added, whose index
+//   - several repositories list the chart: the first, in the order of Helm's file, whose index
 //     lists the release's own version (likely the one it was installed from), else the first;
 //   - the version a new tab starts with: the repository's newest version that is not a
 //     prerelease, when it is newer than the release's own; else the release's own;
@@ -37,46 +37,32 @@ type repoChart struct {
 	chart helm.IndexChart
 }
 
-// loadedNow reads the repositories and their indexes once. It does not wait for a download that
-// runs (fetchMu): every download loads the repositories first, so one that runs has loaded them.
-func (h *HelmRepos) loadedNow() error {
-	h.mu.Lock()
-	loaded := h.loaded
-	h.mu.Unlock()
-	if loaded {
-		return nil
-	}
-	h.fetchMu.Lock()
-	defer h.fetchMu.Unlock()
-	return h.ensureLoaded()
-}
-
-// chartIn returns the repositories whose index lists a chart, in the order they were added. The
-// charts' versions are shared with the indexes: read-only.
+// chartIn returns the repositories whose index lists a chart, in the order of Helm's file. It does
+// not wait for a download that runs. The charts' versions are shared with the indexes: read-only.
 func (h *HelmRepos) chartIn(name string) ([]repoChart, error) {
 	if h == nil {
 		return nil, nil
 	}
-	if err := h.loadedNow(); err != nil {
+	if err := h.ensureLoaded(); err != nil {
 		return nil, err
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	var out []repoChart
-	for _, r := range h.repos {
-		st := h.state[r.Name]
-		if st == nil || st.index == nil {
+	for _, e := range h.entries {
+		st := h.state[e.info.Name]
+		if e.repo == nil || st == nil || st.index == nil {
 			continue
 		}
 		if c, ok := st.index.Chart(name); ok {
-			out = append(out, repoChart{repo: r.Name, chart: c})
+			out = append(out, repoChart{repo: e.info.Name, chart: c})
 		}
 	}
 	return out, nil
 }
 
 // ChartRepositories returns the names of the repositories whose index lists a chart, at a version
-// when version is not empty, in the order they were added. It reads the indexes Cogpit holds and
+// when version is not empty, in the order of Helm's file. It reads the indexes Cogpit holds and
 // does not wait for a download that runs.
 func (h *HelmRepos) ChartRepositories(chart, version string) ([]string, error) {
 	found, err := h.chartIn(chart)
@@ -102,8 +88,8 @@ func (h *HelmRepos) IndexedVersion(repository, chart, version string) (helm.Char
 	}
 	i := slices.IndexFunc(found, func(f repoChart) bool { return f.repo == repository })
 	if i < 0 {
-		if _, ok := h.repo(repository); !ok {
-			return helm.ChartVersion{}, fmt.Errorf("no Helm repository named %s", repository)
+		if _, err := h.repo(repository); err != nil {
+			return helm.ChartVersion{}, err
 		}
 		return helm.ChartVersion{}, fmt.Errorf("repository %s has no chart %s (helm_repo_update downloads its index again)", repository, chart)
 	}

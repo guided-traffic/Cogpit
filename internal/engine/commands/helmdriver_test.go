@@ -265,9 +265,9 @@ func (c *configMapsChartConnector) Connect(ctx context.Context, name string) (*e
 func TestHelmInstallUsesTheDriverPreference(t *testing.T) {
 	src := testkit.NewMemorySource()
 	fi := newFakeInstaller(t, src)
-	h := &chartHarness{src: src, cfg: t.TempDir(), cacheDir: t.TempDir(), audit: &syncBuffer{}, journal: engine.NewMemoryHelmJournal(), answer: true}
+	h := &chartHarness{src: src, helmFile: testkit.NewHelmRepoFile(t), cacheDir: t.TempDir(), audit: &syncBuffer{}, journal: engine.NewMemoryHelmJournal(), answer: true}
 	h.repo = testkit.NewHelmRepo(t, webChartV("0.1.0"), webChartV("0.2.0"))
-	h.repos = engine.NewHelmRepos(h.cfg, h.cacheDir, engine.WithChartFetcher(&helm.Fetcher{Client: h.repo.Client()}))
+	h.repos = engine.NewHelmRepos(h.helmFile.Path, h.cacheDir, engine.WithChartFetcher(&helm.Fetcher{Client: h.repo.Client()}))
 	h.s = engine.New(engine.Options{
 		Connector:        &configMapsChartConnector{&chartConnector{src: src, actions: fi}},
 		SnapshotInterval: 10 * time.Millisecond, Audit: h.audit, Helm: engine.NewHelmOps(h.journal), HelmRepos: h.repos,

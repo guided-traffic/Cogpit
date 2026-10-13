@@ -31,39 +31,13 @@ func testRepo(t *testing.T) (*testkit.HelmRepo, *Fetcher) {
 	return r, &Fetcher{Client: r.Client()}
 }
 
-// A repository's name and URL as Cogpit keeps them: https only, no credentials, no query.
-func TestCheckRepository(t *testing.T) {
-	for _, c := range []struct{ name, url, want, err string }{
-		{"bitnami", "https://charts.example.com/bitnami/", "https://charts.example.com/bitnami", ""},
-		{"my_repo-2", " https://example.com ", "https://example.com", ""},
-		{"x", "http://example.com", "", "only https"},
-		{"x", "https://user:s3cr3t@example.com", "", "user or password"},
-		{"x", "https://example.com/?token=abc", "", "no query"},
-		{"x", "oci://registry.example.com/charts", "", "only https"},
-		{"x", "https:///path", "", "no host"},
-		{"with.dot", "https://example.com", "", "name"},
-		{"", "https://example.com", "", "name"},
-		{strings.Repeat("a", 64), "https://example.com", "", "name"},
-	} {
-		got, err := CheckRepository(c.name, c.url)
-		switch {
-		case c.err == "" && (err != nil || got != c.want):
-			t.Errorf("%q %q: %q, %v", c.name, c.url, got, err)
-		case c.err != "" && (err == nil || !strings.Contains(err.Error(), c.err)):
-			t.Errorf("%q %q: %v, want %q", c.name, c.url, err, c.err)
-		case err != nil && strings.Contains(err.Error(), "s3cr3t"):
-			t.Errorf("the error quotes the credential: %v", err)
-		}
-	}
-}
-
 // The index is downloaded, parsed with the Helm SDK and kept as charts by name, versions newest
 // first; the listed version is the newest that is not a prerelease. A chart is fetched from the
 // index's URL, checked against its digest and loaded with its values.yaml, comments included.
 func TestDownloadIndexAndFetchChart(t *testing.T) {
 	r, f := testRepo(t)
 	dest := filepath.Join(t.TempDir(), "cache", "web-index.yaml")
-	idx, err := f.DownloadIndex(context.Background(), r.URL, dest)
+	idx, err := f.DownloadIndex(context.Background(), PublicRepository("test", r.URL), dest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +63,7 @@ func TestDownloadIndexAndFetchChart(t *testing.T) {
 		t.Errorf("reloaded %+v %v", again, err)
 	}
 
-	c, err := f.FetchChart(context.Background(), "test", r.URL, "web", latest)
+	c, err := f.FetchChart(context.Background(), PublicRepository("test", r.URL), "web", latest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +78,7 @@ func TestDownloadIndexAndFetchChart(t *testing.T) {
 	}
 	libv, _ := idx.Chart("lib")
 	lv, _ := libv.Latest()
-	lib, err := f.FetchChart(context.Background(), "test", r.URL, "lib", lv)
+	lib, err := f.FetchChart(context.Background(), PublicRepository("test", r.URL), "lib", lv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,11 +89,13 @@ func TestDownloadIndexAndFetchChart(t *testing.T) {
 
 // What a repository serves is untrusted: an archive that differs from the index's digest, a chart
 // other than the one the index names, an index or archive over the bounds, something that is not
-// an index, and a redirect to plain http are refused; a failed download keeps the index there was.
+// an index, and a redirect from https to plain http are refused; a failed download keeps the index
+// there was. A repository served over plain http is downloaded from, as helm does (Cogpit's
+// default, D-29), and may redirect to https.
 func TestRepositoryRefusesWhatDoesNotFit(t *testing.T) {
 	r, f := testRepo(t)
 	dest := filepath.Join(t.TempDir(), "index.yaml")
-	idx, err := f.DownloadIndex(context.Background(), r.URL, dest)
+	idx, err := f.DownloadIndex(context.Background(), PublicRepository("test", r.URL), dest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,35 +103,35 @@ func TestRepositoryRefusesWhatDoesNotFit(t *testing.T) {
 	v, _ := web.Latest()
 
 	r.Serve("/web-0.2.0.tgz", r.Archive("web-0.1.0.tgz"))
-	if _, err := f.FetchChart(context.Background(), "test", r.URL, "web", v); !errors.Is(err, ErrDigestMismatch) {
+	if _, err := f.FetchChart(context.Background(), PublicRepository("test", r.URL), "web", v); !errors.Is(err, ErrDigestMismatch) {
 		t.Errorf("another archive: %v", err)
 	}
 	unverified := v
 	unverified.Digest = ""
-	if _, err := f.FetchChart(context.Background(), "test", r.URL, "web", unverified); err == nil || !strings.Contains(err.Error(), "holds chart web 0.1.0") {
+	if _, err := f.FetchChart(context.Background(), PublicRepository("test", r.URL), "web", unverified); err == nil || !strings.Contains(err.Error(), "holds chart web 0.1.0") {
 		t.Errorf("another version without a digest: %v", err)
 	}
 	r.Serve("/web-0.2.0.tgz", r.Archive("web-0.2.0.tgz"))
-	if c, err := f.FetchChart(context.Background(), "test", r.URL, "web", unverified); err != nil || c.Verified {
+	if c, err := f.FetchChart(context.Background(), PublicRepository("test", r.URL), "web", unverified); err != nil || c.Verified {
 		t.Errorf("without a digest: %+v %v", c, err)
 	}
 
 	small := &Fetcher{Client: r.Client(), MaxIndex: 64, MaxChart: 64}
-	if _, err := small.DownloadIndex(context.Background(), r.URL, dest); err == nil || !strings.Contains(err.Error(), "bytes") {
+	if _, err := small.DownloadIndex(context.Background(), PublicRepository("test", r.URL), dest); err == nil || !strings.Contains(err.Error(), "bytes") {
 		t.Errorf("an index over the bound: %v", err)
 	}
-	if _, err := small.FetchChart(context.Background(), "test", r.URL, "web", v); err == nil || !strings.Contains(err.Error(), "bytes") {
+	if _, err := small.FetchChart(context.Background(), PublicRepository("test", r.URL), "web", v); err == nil || !strings.Contains(err.Error(), "bytes") {
 		t.Errorf("a chart over the bound: %v", err)
 	}
 	r.Serve("/index.yaml", []byte("<html>not an index</html>"))
-	if _, err := f.DownloadIndex(context.Background(), r.URL, dest); err == nil {
+	if _, err := f.DownloadIndex(context.Background(), PublicRepository("test", r.URL), dest); err == nil {
 		t.Error("an HTML page parsed as an index")
 	}
 	if kept, err := LoadIndex(dest); err != nil || len(kept.Charts) != 2 {
 		t.Errorf("the index there was: %+v %v", kept, err)
 	}
 	r.Fail(true)
-	if _, err := f.DownloadIndex(context.Background(), r.URL, dest); err == nil || !strings.Contains(err.Error(), "503") {
+	if _, err := f.DownloadIndex(context.Background(), PublicRepository("test", r.URL), dest); err == nil || !strings.Contains(err.Error(), "503") {
 		t.Errorf("a failing repository: %v", err)
 	}
 
@@ -164,15 +140,22 @@ func TestRepositoryRefusesWhatDoesNotFit(t *testing.T) {
 	redirect := httptest.NewTLSServer(http.RedirectHandler(plain.URL+"/index.yaml", http.StatusFound))
 	defer redirect.Close()
 	rf := &Fetcher{Client: redirect.Client()}
-	if _, err := rf.DownloadIndex(context.Background(), redirect.URL, dest); !errors.Is(err, ErrNotHTTPS) {
+	if _, err := rf.DownloadIndex(context.Background(), PublicRepository("r", redirect.URL), dest); !errors.Is(err, ErrNotHTTPS) {
 		t.Errorf("a redirect to http: %v", err)
 	}
-	if _, err := rf.DownloadIndex(context.Background(), plain.URL, dest); !errors.Is(err, ErrNotHTTPS) {
-		t.Errorf("an http repository: %v", err)
+	if idx, err := rf.DownloadIndex(context.Background(), PublicRepository("plain", plain.URL), dest); err != nil || len(idx.Charts) != 0 {
+		t.Errorf("an http repository: %+v %v", idx, err)
+	}
+	r.Fail(false)
+	r.Serve("/index.yaml", nil)
+	up := httptest.NewServer(http.RedirectHandler(r.URL+"/index.yaml", http.StatusFound))
+	defer up.Close()
+	if idx, err := f.DownloadIndex(context.Background(), PublicRepository("up", up.URL), dest); err != nil || len(idx.Charts) != 2 {
+		t.Errorf("an http repository redirected to https: %+v %v", idx, err)
 	}
 	relative := v
 	relative.URLs = []string{"http://elsewhere.example/web-0.2.0.tgz"}
-	if _, err := f.FetchChart(context.Background(), "test", r.URL, "web", relative); !errors.Is(err, ErrNotHTTPS) {
+	if _, err := f.FetchChart(context.Background(), PublicRepository("test", r.URL), "web", relative); !errors.Is(err, ErrNotHTTPS) {
 		t.Errorf("a chart URL over http: %v", err)
 	}
 }

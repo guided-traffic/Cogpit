@@ -1,6 +1,7 @@
 package testkit
 
 import (
+	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -39,10 +40,12 @@ type HelmRepo struct {
 	dir string
 	t   testing.TB
 
-	mu       sync.Mutex
-	requests map[string]int
-	override map[string][]byte // path → served bytes, in place of the file
-	failing  bool
+	mu         sync.Mutex
+	requests   map[string]int
+	authorized map[string]int    // path → requests that carried an Authorization header
+	override   map[string][]byte // path → served bytes, in place of the file
+	failing    bool
+	user, pass string // RequireBasicAuth's; empty: no login
 }
 
 // chartModTime is every packaged file's time, so that an archive and its digest are the same in
@@ -53,7 +56,7 @@ var chartModTime = time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 // serves the directory over TLS until the test ends.
 func NewHelmRepo(t testing.TB, charts ...TestChart) *HelmRepo {
 	t.Helper()
-	r := &HelmRepo{dir: t.TempDir(), t: t, requests: map[string]int{}, override: map[string][]byte{}}
+	r := &HelmRepo{dir: t.TempDir(), t: t, requests: map[string]int{}, authorized: map[string]int{}, override: map[string][]byte{}}
 	r.Server = httptest.NewTLSServer(http.HandlerFunc(r.serve))
 	t.Cleanup(r.Server.Close)
 	r.URL = r.Server.URL
@@ -114,11 +117,35 @@ func (r *HelmRepo) Requests(path string) int {
 	return r.requests[path]
 }
 
-// Serve makes the repository answer path with data instead of its file.
+// Serve makes the repository answer path with data instead of its file; nil serves the file again.
 func (r *HelmRepo) Serve(path string, data []byte) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if data == nil {
+		delete(r.override, path)
+		return
+	}
 	r.override[path] = data
+}
+
+// RequireBasicAuth makes the repository answer 401 to a request without this user and password,
+// as a repository behind a login does.
+func (r *HelmRepo) RequireBasicAuth(user, pass string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.user, r.pass = user, pass
+}
+
+// Authorized returns how often a path was asked for with an Authorization header, right or wrong.
+func (r *HelmRepo) Authorized(path string) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.authorized[path]
+}
+
+// CertificatePEM returns the repository server's certificate as PEM: a CA file that trusts it.
+func (r *HelmRepo) CertificatePEM() []byte {
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: r.Server.Certificate().Raw})
 }
 
 // Fail makes every request fail with 503 (true) or answer again (false).
@@ -141,10 +168,18 @@ func (r *HelmRepo) Archive(name string) []byte {
 func (r *HelmRepo) serve(w http.ResponseWriter, req *http.Request) {
 	r.mu.Lock()
 	r.requests[req.URL.Path]++
+	if req.Header.Get("Authorization") != "" {
+		r.authorized[req.URL.Path]++
+	}
 	data, overridden := r.override[req.URL.Path]
 	failing := r.failing
+	wantUser, wantPass := r.user, r.pass
 	r.mu.Unlock()
+	user, pass, ok := req.BasicAuth()
 	switch {
+	case wantUser != "" && (!ok || user != wantUser || pass != wantPass):
+		w.Header().Set("WWW-Authenticate", `Basic realm="charts"`)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 	case failing:
 		http.Error(w, "unavailable", http.StatusServiceUnavailable)
 	case overridden:

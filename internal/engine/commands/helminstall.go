@@ -69,7 +69,7 @@ func registerHelmInstall(g *registrar) {
 	add(g, engine.Spec[installTabParams]{
 		ID: "helm.chart.installTab", Label: "Install", MenuPath: "Helm/Install", Kinds: []string{kinds.HelmChartsKey},
 		Order: orderInstall, Danger: engine.DangerUI,
-		Description: "Opens a Helm Install dock tab on a chart of a repository added to Cogpit, or activates the one already " +
+		Description: "Opens a Helm Install dock tab on a chart of a repository of Helm's repositories file, or activates the one already " +
 			"open on it (at another version: loads that version): Cogpit downloads the chart's archive (checked against the " +
 			"index's digest when it lists one) and shows its values.yaml in an editor, with the versions the repository " +
 			"lists. Writes nothing to a cluster. Agents read the tab's values withheld (editor_get) but may replace them " +
@@ -145,7 +145,7 @@ func registerHelmInstall(g *registrar) {
 
 	add(g, engine.Spec[installParams]{
 		ID: "helm.chart.install", Label: "Install", Danger: engine.DangerMutating, Verbs: releaseSecretVerbs("list", "get", "create", "update"),
-		Description: "Installs a chart from a repository added to Cogpit as a new release, as helm install does with its " +
+		Description: "Installs a chart from a repository of Helm's repositories file as a new release, as helm install does with its " +
 			"defaults (hooks waited for, 5 minutes; no --create-namespace unless createNamespace): the chart and version of a " +
 			"Helm Install tab with its values (tab), or a chart, version and values given here. The archive is checked " +
 			"against its index's digest when the index lists one. Refused when a release of that name exists in the " +

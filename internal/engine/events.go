@@ -44,6 +44,9 @@ const (
 	// one restored or discarded); re-read them with editor.drafts. Event.Message, if set, says
 	// what to offer.
 	EventDrafts EventType = "drafts"
+	// EventHelmRepos: the Helm chart repositories changed (Helm's repositories file was read
+	// again, an index download started or ended); re-read them with helm.repo.list.
+	EventHelmRepos EventType = "helmRepos"
 )
 
 // Toast levels (Event.Level).

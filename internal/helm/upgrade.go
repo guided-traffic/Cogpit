@@ -21,7 +21,7 @@ import (
 // ErrNoRepository refuses a chart version other than the release's own when no chart was
 // downloaded for it: without a repository that lists the version, the release's own chart, taken
 // from its newest revision, is the only one Cogpit has.
-var ErrNoRepository = errors.New("no chart repository added to Cogpit lists this chart version; without one only the release's own chart version can be installed")
+var ErrNoRepository = errors.New("no chart repository of Helm's repositories file lists this chart version; without one only the release's own chart version can be installed")
 
 // ErrOtherChart refuses a downloaded chart whose name is not the release's chart's: Cogpit offers a
 // repository's versions of the release's own chart, matched by name, and upgrades to nothing else.

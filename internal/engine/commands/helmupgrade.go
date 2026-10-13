@@ -19,7 +19,7 @@ import (
 // with the release's values (captured 2026-10-12); helm.release.upgrade upgrades the release with
 // the tab's values, or with values a caller passes (the drawer's Save), through the Helm SDK in
 // Cogpit's process, mutating (privilege-footprint.md), recorded in the Helm journal first (D-11).
-// The chart is the release's own, or a version of it a repository added to Cogpit lists, which is
+// The chart is the release's own, or a version of it a repository of Helm's repositories file lists, which is
 // downloaded (bounded, checked against the index's digest) before anything is recorded or changed.
 // The values are the user's: agents read them withheld, and no log, error, toast, audit line or
 // journal entry carries them.
@@ -30,7 +30,7 @@ const orderUpgrade = 300
 
 type upgradeTabParams struct {
 	Ref        model.ObjectRef `json:"ref" jsonschema:"the release: kind helmreleases, its namespace and name"`
-	Repository string          `json:"repository,omitempty" jsonschema:"a chart repository added to Cogpit that lists the release's chart, whose versions the tab offers (the tab's repositories list them); empty: the tab's, or the default"`
+	Repository string          `json:"repository,omitempty" jsonschema:"a chart repository of Helm's repositories file that lists the release's chart, whose versions the tab offers (the tab's repositories list them); empty: the tab's, or the default"`
 	Version    string          `json:"version,omitempty" jsonschema:"the chart version the upgrade installs, one of the tab's versions: the release's own (its stored chart) or one of the repository's; empty: the tab's, or for a new tab the repository's newest when it is newer than the release's"`
 }
 
@@ -48,7 +48,7 @@ type upgradeParams struct {
 	// tab's text after it (an agent's editor.setText while the confirmation is open) refuses it.
 	TextRevision uint64 `json:"textRevision,omitempty" jsonschema:"with tab: the tab's text revision the upgrade takes the values at (editor_get and editor_setText return it); the upgrade is refused when the text changed since"`
 	Version      string `json:"version,omitempty" jsonschema:"the chart version to install: empty or the release's own upgrades with the release's stored chart (unless repository is given); another one is downloaded from the repository that lists it (helmcharts objects list the versions)"`
-	Repository   string `json:"repository,omitempty" jsonschema:"the chart repository added to Cogpit to download the chart from (helm_repo_list); empty: the tab's, else the one repository that lists the version; with an empty version its newest version that is not a prerelease"`
+	Repository   string `json:"repository,omitempty" jsonschema:"the chart repository of Helm's repositories file to download the chart from (helm_repo_list); empty: the tab's, else the one repository that lists the version; with an empty version its newest version that is not a prerelease"`
 }
 
 type releaseValuesParams struct {
@@ -81,7 +81,7 @@ func registerHelmUpgrade(g *registrar) {
 		Order: orderUpgrade, Danger: engine.DangerUI, Verbs: releaseCacheReads,
 		Description: "Opens a release's Helm Upgrade dock tab, or activates the one already open on it: the release's chart, " +
 			"the version the upgrade installs and the versions to choose from, and its user-supplied values in an editor, read " +
-			"from Cogpit's cache. When a chart repository added to Cogpit lists the release's chart (by name), the versions are " +
+			"from Cogpit's cache. When a chart repository of Helm's repositories file lists the release's chart (by name), the versions are " +
 			"that repository's (repositories: every one that lists it) and a new tab starts with the newest that is not a " +
 			"prerelease when it is newer than the release's; otherwise the release's own version only. repository and version " +
 			"change the tab's choice. Writes nothing. Agents read the tab's values withheld (editor_get) but may replace them " +
@@ -115,7 +115,7 @@ func registerHelmUpgrade(g *registrar) {
 		Description: "Upgrades a Helm release as helm upgrade does with its defaults (hooks waited for, ten revisions kept), " +
 			"with new user-supplied values, which replace the old ones whole: the values of a Helm Upgrade tab (tab), or values " +
 			"given here with the revision they are based on. The chart is the release's own, or another version of it that a " +
-			"chart repository added to Cogpit lists (version, repository; from a tab, the tab's choice), downloaded first and " +
+			"chart repository of Helm's repositories file lists (version, repository; from a tab, the tab's choice), downloaded first and " +
 			"checked against the index's digest when it lists one. Refused when the release moved to another revision since " +
 			"the values were read, and while another Helm action on it is pending. Besides the release's records (its Secrets, or its ConfigMaps when Helm keeps it there) it needs " +
 			"whatever verbs the release's objects need, and create and delete for objects another chart version adds or drops. " +

@@ -23,6 +23,18 @@ them in these forms ([kubeconfig](https://kubernetes.io/docs/concepts/configurat
 
 Cogpit adds no cluster credential source of its own: no account, no login, no cloud service.
 
+Since 2026-10-13 ([D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml))
+Cogpit also reads the credentials of Helm chart repositories, from the file the helm CLI keeps
+them in:
+
+| Form | Lives in | Cogpit's handling |
+|---|---|---|
+| A repository's `username` and `password`, or a user and password in its `url` | Helm's `repositories.yaml` (plain text, written by `helm repo add`), resolved as the helm CLI resolves it | Read with the file (every 2 seconds when it changed, at most 1 MiB) into memory only, unexported in `helm.Repository`; sent as basic auth to the repository's own scheme, host and port only, unless the entry says `pass_credentials_all` (below) |
+| A client certificate and key (`certFile`, `keyFile`), a CA file (`caFile`) | files the entry names by absolute path | Read at every download, at most 1 MiB each, into that download's TLS configuration; an error names the path, never the content |
+
+Cogpit never writes Helm's file or anything in Helm's folders, and never copies a repository's
+credential into its own files.
+
 ## Cogpit's own secrets
 
 | Secret | Lives in | Rule |
@@ -60,13 +72,27 @@ Cogpit adds no cluster credential source of its own: no account, no login, no cl
 - **Token files** (`tokenFile`) of an added or synced kubeconfig are read by client-go when the
   user connects, and only after the user allowed a file outside the kubeconfig's folder
   (since 2026-10-12, D-17, [trust boundaries › H-24](trust-boundaries.md#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token)).
-- **Helm chart repositories hold no credential** (built 2026-10-13, G11): Cogpit adds public
-  https repositories only, by name and URL, refuses a URL with a user or password (without
-  echoing it in the error, `TestCheckRepository`), and keeps the list in its own
-  `<user config dir>/Cogpit/helm/repositories.json` (0600), never in Helm's `repositories.yaml`,
-  whose entries can hold a password in plain text. The indexes it downloads are public data in
-  `<user cache dir>/Cogpit/helm/` (0600). A repository that needs a login is
-  [H-29](#h-29-authenticated-helm-repositories).
+- **Helm chart repositories' credentials stay in Helm's file and Cogpit's memory** (built
+  2026-10-13, [D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml)):
+  Cogpit reads the repositories of Helm's own `repositories.yaml` and keeps an entry's user and
+  password in a `helm.Repository` whose credentials are unexported; `%v`, `%+v`, `%#v`, slog and
+  JSON print its name and redacted URL (`TestReadRepositoryFile`). Agents, the dialog and
+  `helm.repo.list` see the name, the URL without user, password or query values, and whether
+  credentials, a client certificate, a CA file, `insecure_skip_tls_verify`,
+  `pass_credentials_all` or plain http are present, never a credential. Basic auth is added per
+  request by a transport that compares the request's scheme, host and port with the repository's,
+  so a redirect to another host or port, a subdomain included, and a chart URL the index points
+  elsewhere get none, unless the entry says `pass_credentials_all` (helm's own option)
+  (`TestCredentialsStayOnTheRepositoryHost`, `TestCredentialsNotSentToAChartElsewhere`). Download
+  errors show URLs redacted and are scrubbed of the password and user name as a guard
+  (`TestScrubbedErrors`); the list, the install tab, events, toasts and notifications, the audit log
+  and the log are checked for them (`TestHelmRepoCredentialsNeverShown`; on kind
+  `TestKindHelmInstall`). The indexes Cogpit downloads are written to its own
+  `<user cache dir>/Cogpit/helm/indexes/` (0600 in a 0700 folder): an index of a repository behind a
+  login is what that login protects, readable to the user's own processes as Helm's cache is. The
+  night run's `<user config dir>/Cogpit/helm/repositories.json` (public repositories, no
+  credential) is left on disk, unread. What remains is
+  [H-29](#h-29-authenticated-helm-repositories) and [H-40](#h-40-credentials-over-plain-http).
 - **A proxy's user and password** (built 2026-10-13, G13): a cluster's proxy (Cluster Settings ›
   Proxy) and the proxy of the Helm repositories' and kubectl's downloads (Preferences › Proxy) may each be
   `http://user:password@host:port`, as Lens's fields allow. Cogpit keeps each as typed in one place
@@ -102,9 +128,12 @@ Cogpit adds no cluster credential source of its own: no account, no login, no cl
   other kinds' text a user types is kept as typed ([H-38](#h-38-drafts-keep-typed-text-in-plain-text)).
 - **In memory:** credentials are held by the connection that uses them and dropped when it closes.
   Rule for Cogpit's own credential types: they implement `slog.LogValuer` and `fmt.Stringer` as
-  `"<redacted>"`, so a stray log statement cannot print them. The MVP has no such type yet: cluster
-  credentials stay inside client-go's `rest.Config`, which Cogpit never logs, and the MCP token is
-  a plain string that only `cmd/cogpit` prints, inside the `claude mcp add` command.
+  `"<redacted>"`, so a stray log statement cannot print them. The first such type is
+  `helm.Repository` (2026-10-13), which also implements `fmt.GoStringer` and `json.Marshaler`
+  (its name and redacted URL; its user and password in an unexported value that prints as
+  `<redacted>`). Cluster credentials stay inside client-go's `rest.Config`, which Cogpit never
+  logs, and the MCP token is a plain string that only `cmd/cogpit` prints, inside the
+  `claude mcp add` command.
 
 ## The terminal's kubeconfig
 
@@ -145,6 +174,7 @@ That `kubectl` reads the same `KUBECONFIG` as any other.
 | Drafts of unsaved editor text | Never a Secret's values, never Helm values (2026-10-13, see [above](#where-they-live-inside-cogpit)); the drafts' listing for agents carries no text |
 | Files saved from the window | The Create resource tab's save (2026-10-13) writes the tab's text only to the file the user picks in the system's save dialog, a GUI action no agent can start, and refuses a text that holds a Secret's manifest ([`createtab_save.go`](../../internal/ui/fyneui/createtab_save.go), `TestCreateTabKeepsSecretsOffDisk`) |
 | Crash reports | Cogpit has no crash upload. Since 2026-10-12 the Go runtime writes an unhandled panic or fatal error into `<user config dir>/Cogpit/crash.log` (0600) as well as to standard error ([`crash.go`](../../cmd/cogpit/crash.go)); the next start moves it to `crashes/crash-<time>.log`, keeps the newest ten and names it in the window. Its text is the runtime's: the panic's message and the goroutines' stacks (function names, file lines, argument words, no strings' contents); a panic message the code formats from a value could carry it, so the file follows the log rule: local, owner-only, never sent anywhere |
+| Helm repositories' credentials | In memory only, sent to the repository's own scheme, host and port unless its entry says `pass_credentials_all` (2026-10-13, [above](#where-they-live-inside-cogpit)); never in a result, error, toast, the audit log or the log |
 | Telemetry | Cogpit sends none. Any network call to something other than a cluster, a Helm repository, the configured LLM endpoint, the release channel or the kubectl release host or mirror ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries), a download the user clicked; it sends the version and platform in the URL, no credential) needs a decision entry in [`decisions.md`](../developer/decisions.md) |
 | The LLM endpoint | Secret values only when the user allows it for that request ([H-13](agents-and-mcp.md#h-13-cluster-data-leaves-for-the-llm-endpoint)) |
 | Screenshots taken by automation | Secret values stay masked unless the user revealed them in the GUI |
@@ -217,17 +247,38 @@ affected; an agent has no way to copy.
 
 ### H-29: Authenticated Helm repositories
 
-Cogpit adds public https chart repositories only (2026-10-13): no username and password, no
-client certificate and key, no CA file, no plain http, no OCI registry. Lens's preferences offer
-all of these. A repository behind a login cannot be added, and a chart it serves cannot be
-installed from Cogpit. The owner decided since ([D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml),
-2026-10-13, not built) that Cogpit reads Helm's own `repositories.yaml`, credentials included
-when they are available. That file keeps a password in plain text, readable to the user's own
-processes; Cogpit would then hold it in memory. Not designed yet, and live once built: how the
-credentials stay out of logs, errors, toasts, the audit log and MCP results; that they go only to
-the repository's own host on a redirect unless Helm's `pass_credentials_all` says otherwise.
+Built 2026-10-13 ([D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml)):
+Cogpit reads Helm's own `repositories.yaml`, credentials included, keeps them in memory, sends
+basic auth only to the repository's own scheme, host and port (unless `pass_credentials_all`),
+reads a CA file, client certificate and key at every download, and keeps every credential out of
+results, errors, toasts, the audit log and the log ([above](#where-they-live-inside-cogpit)).
 Cogpit never writes Helm's file: repositories and their credentials are added with the helm CLI
-(owner, 2026-10-13).
+(owner, 2026-10-13). What remains, per case:
+
+- **Helm's file is plain text.** The password sits in `repositories.yaml` as `helm repo add` wrote
+  it, readable to the user's own processes and carried by a backup, as kubeconfig files keep
+  their tokens ([H-5](#h-5-kubeconfig-files-are-plaintext)); Cogpit adds no copy but does not
+  improve it. Live for every repository added with `--username`/`--password`.
+- **In memory for the session.** The user and password are Go strings in `helm.Repository` for as
+  long as the entry is in the file, and a client key's bytes for the length of a download (cleared
+  after use, best effort: the TLS stack keeps its parsed key until the download's transport is
+  dropped). Nothing writes them out; a core dump of the process would hold them.
+- **OCI registries.** Credentials of `helm registry login` (Helm's `registry/config.json`) are not
+  read; an `oci://` entry is listed as not used (G11).
+- **Plain http** sends the credentials readable on the network:
+  [H-40](#h-40-credentials-over-plain-http).
+
+### H-40: Credentials over plain http
+
+A repository in Helm's file whose URL is `http://` is used as helm uses it (2026-10-13, Cogpit's
+default, not the owner's decision): its basic auth goes over the network unencrypted, to the
+repository and to anyone on the path, a proxy included; its index and charts can be read and
+changed on the way ([trust boundaries › H-41](trust-boundaries.md#h-41-repositories-whose-content-nothing-authenticates)).
+The dialog marks it "http" and `helm.repo.list` says `plainHTTP`, but Cogpit neither refuses nor
+asks before it sends the credentials; an https repository's downloads never go to http, so this
+is live only for entries the user wrote with an `http://` URL (`TestPlainHTTPRepository`). Whether
+Cogpit refuses to send credentials over plain http, warns once, or asks per repository is not
+decided.
 
 ### H-33: Proxy passwords are plaintext in Cogpit's settings
 

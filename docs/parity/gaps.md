@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G3: workload logs, port forwards and one object's read follow the access reviews' answers, fixed; G5: copy icons in the lists built (D-25), estimate not moved; G3: the Overviews follow the access reviews' answers, fixed; G6: references to Pod Security Policies, admission policies and Device Resources link, fixed; G2: `cogpit-cli contexts` marks an insecure context; G5, G13: a removed cluster's tabs close, fixed; G13: Cluster › Disconnect follows a reconnect, fixed; G11, G5: the owner's requirements of the morning after the night run (D-29, D-25); G17: `view_rows`, `object_get`'s related objects, the agent writes allowance and the audit log in the GUI built; G17: `view_rows`, `object_get`'s related objects and the agent writes allowance in the GUI built; G17: `view_rows` and `object_get`'s related objects built; G17: `view_rows` built; G9: the Create resource tab's save and search buttons built, Revert to original built, drafts of unsaved editor text built, estimate not moved; G9: Revert to original built, drafts of unsaved editor text built, estimate not moved; G9: drafts of unsaved editor text built, estimate not moved; G3: namespace-scoped informers for users who may not list a kind in all namespaces built, estimate not moved; G11: the ConfigMaps storage driver built, the SQL one left missing with its reason, estimate not moved; G2: the kubeconfig's `proxy-url`, CA, `tls-server-name` and `insecure-skip-tls-verify` verified against TLS test servers, a `proxy-url` password kept out of connect errors, insecure contexts marked, estimate 8–25 h; G13: the kubectl Preferences built; G8: kubectl for terminals built, D-3; G6: the node drawer's Devices section built, estimate not moved; G8: copy and paste with the right mouse button partial, the Windows and Linux copy and paste keys, estimate not moved; G5: the search field's "Aa" and ".*" toggles built, estimate not moved; G13: the non-cluster proxy built, untrusted CAs held back; G13: a cluster's proxy built; G12: hidden metrics built; G5, G13: the navigator's section level, Local Kubeconfigs, and its scope as engine state built, the tab bar showing the scope's tabs, two rows from missing to partial, estimates not moved; G5: the title bar's history arrows, notifications and context menu built; G5: column reorder by dragging built; G5: row checkboxes and the selection's menu built; G9, G7: Delete of a selection built in the engine (`object.deleteMany`), estimates not moved; G5, G13: the welcome page, the Help and Window menus, Disconnect and Remove from Cogpit built, four rows partial, estimates not moved; G8: the log tab's pod and container selectors, older lines and jump to a time partial; G8: the log tab's pod and container selectors and older lines partial; G8: the log tab's pod and container selectors partial; G11: a release upgraded to a version from the user's repositories; G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G11: D-29 built, authenticated repositories from Helm's file, estimate 3–10 h; G3: workload logs, port forwards and one object's read follow the access reviews' answers, fixed; G5: copy icons in the lists built (D-25), estimate not moved; G3: the Overviews follow the access reviews' answers, fixed; G6: references to Pod Security Policies, admission policies and Device Resources link, fixed; G2: `cogpit-cli contexts` marks an insecure context; G5, G13: a removed cluster's tabs close, fixed; G13: Cluster › Disconnect follows a reconnect, fixed; G11, G5: the owner's requirements of the morning after the night run (D-29, D-25); G17: `view_rows`, `object_get`'s related objects, the agent writes allowance and the audit log in the GUI built; G17: `view_rows`, `object_get`'s related objects and the agent writes allowance in the GUI built; G17: `view_rows` and `object_get`'s related objects built; G17: `view_rows` built; G9: the Create resource tab's save and search buttons built, Revert to original built, drafts of unsaved editor text built, estimate not moved; G9: Revert to original built, drafts of unsaved editor text built, estimate not moved; G9: drafts of unsaved editor text built, estimate not moved; G3: namespace-scoped informers for users who may not list a kind in all namespaces built, estimate not moved; G11: the ConfigMaps storage driver built, the SQL one left missing with its reason, estimate not moved; G2: the kubeconfig's `proxy-url`, CA, `tls-server-name` and `insecure-skip-tls-verify` verified against TLS test servers, a `proxy-url` password kept out of connect errors, insecure contexts marked, estimate 8–25 h; G13: the kubectl Preferences built; G8: kubectl for terminals built, D-3; G6: the node drawer's Devices section built, estimate not moved; G8: copy and paste with the right mouse button partial, the Windows and Linux copy and paste keys, estimate not moved; G5: the search field's "Aa" and ".*" toggles built, estimate not moved; G13: the non-cluster proxy built, untrusted CAs held back; G13: a cluster's proxy built; G12: hidden metrics built; G5, G13: the navigator's section level, Local Kubeconfigs, and its scope as engine state built, the tab bar showing the scope's tabs, two rows from missing to partial, estimates not moved; G5: the title bar's history arrows, notifications and context menu built; G5: column reorder by dragging built; G5: row checkboxes and the selection's menu built; G9, G7: Delete of a selection built in the engine (`object.deleteMany`), estimates not moved; G5, G13: the welcome page, the Help and Window menus, Disconnect and Remove from Cogpit built, four rows partial, estimates not moved; G8: the log tab's pod and container selectors, older lines and jump to a time partial; G8: the log tab's pod and container selectors and older lines partial; G8: the log tab's pod and container selectors partial; G11: a release upgraded to a version from the user's repositories; G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -32,7 +32,7 @@ own. **Human** marks what an agent can't finish alone.
 | G8 | Logs, terminal and shells | features | blocks alpha | 16–40 h | [ui-parity](ui-parity.md#logs) |
 | G9 | YAML editor and create resource | features | blocks alpha | 8–22 h | [ui-parity](ui-parity.md#editor-and-create-resource) |
 | G10 | Port forwarding | features | blocks alpha | 2–6 h | [ui-parity](ui-parity.md#port-forwarding) |
-| G11 | Helm | features | blocks alpha | 4–12 h | [resource-parity](resource-parity.md#helm) |
+| G11 | Helm | features | blocks alpha | 3–10 h | [resource-parity](resource-parity.md#helm) |
 | G12 | Metrics and cluster overview | features | blocks beta | 40–80 h | [ui-parity](ui-parity.md#cluster-overview-and-charts) |
 | G13 | Clusters, hotbar, palette, menus, shortcuts and preferences | UI | partly alpha, rest beta | 50–140 h | [ui-parity](ui-parity.md#clusters) |
 | G14 | Packaging, signing and updates (macOS) | platforms | an unsigned build blocks alpha; signing and updates block beta | 22–45 h + human | [platform-parity](platform-parity.md#operating-systems-and-packages) |
@@ -562,7 +562,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   5 seconds, repositories with credentials included when their credentials are available.
   Repositories are added with the helm CLI, not in Cogpit, which writes nothing into Helm's file.
   Replaces the night run's list of Cogpit's own (public https only, Helm's file never read, added
-  and removed in Cogpit). Not built.
+  and removed in Cogpit). **Built 2026-10-13** (evidence below).
 - **Followed from Lens's captures of 2026-10-12** ([resource parity › Helm](resource-parity.md#helm),
   built 2026-10-12, was 2–5 h): the drawer's title on one line without Details and YAML tabs, Chart
   as "<chart>-<version>", Namespace as text, a grey status pill, "User-supplied values only"
@@ -571,13 +571,35 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   version picker, its info line with links, and the editor's find widget (`findbar.go`). Cogpit
   keeps upgrading with the release's stored chart where Lens needs a repository (deliberate), so
   the picker offers that version only and the info line's spinner lasts only while the values load.
-- **Missing:** authenticated, plain-http and OCI repositories
-  ([H-29](../security/credentials.md#h-29-authenticated-helm-repositories)); a list of public
-  repositories to pick; chart icons and the README in the chart's drawer; the SQL storage driver
+- **Missing:** OCI registries (`oci://`, `helm registry login`; an OCI entry in Helm's file is
+  listed as not used); a list of public repositories to pick (Cogpit adds none by design, D-29); chart icons and the README in the chart's drawer; the SQL storage driver
   (Helm keeps such releases in a database outside the cluster, which Cogpit neither reads nor
   writes; the preference refuses it with that reason); captures of Lens's Charts view, chart drawer
   and Helm Install tab (Cogpit's are inferred), and of where Lens's Preferences show `HELM_DRIVER`.
   Views and actions count in G6 and G7.
+- **Evidence (2026-10-13, D-29 built):** the repositories are Helm's own `repositories.yaml`,
+  resolved as the helm CLI does in one place (`helm.RepositoryConfigPath`, on this Mac
+  `~/Library/Preferences/helm/repositories.yaml`, the path printed, the file not opened), watched
+  every 2 seconds by size, modification time and mode, read bounded and parsed with the SDK's
+  `repo.File` once settled; a change reaches the Charts view in about 2 seconds, a broken file keeps
+  the last good list with its reason, a missing one is an empty list with a hint. Credentials (user
+  and password, also from the URL; client certificate and key; CA file; `insecure_skip_tls_verify`;
+  `pass_credentials_all`) stay in memory and go only to the repository's own scheme, host and port,
+  on redirects and for chart URLs elsewhere too, unless `pass_credentials_all`; plain http
+  repositories used as helm uses them and marked (Cogpit's default, H-40); indexes in Cogpit's own
+  cache keyed by name and URL (decided at the build); `helm.repo.add` and `helm.repo.remove` removed,
+  `helm.repo.list` with the file and its status, the Repositories dialog read-only. Install and
+  upgrade use these repositories unchanged, authenticated ones included
+  ([architecture §8](../developer/architecture.md#8-helm-internalhelm), [D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml);
+  `TestRepositoryConfigPath`, `TestReadRepositoryFile`, `TestReadRepositoryFileRefusals`,
+  `TestAuthenticatedTLSRepository`, `TestCredentialsStayOnTheRepositoryHost`,
+  `TestCredentialsNotSentToAChartElsewhere`, `TestPlainHTTPRepository`, `TestClientCertificateRepository`,
+  `TestInsecureSkipTLSVerify`, `TestScrubbedErrors`, `TestHelmRepoChangesTakenOver`,
+  `TestHelmRepoFileReadWhenSettled`, `TestHelmRepoRemovedWhileDownloading`, `TestHelmReposFromHelmsFile`,
+  `TestHelmRepoFileChangesWithinFiveSeconds`, `TestHelmRepoFileErrors`, `TestHelmRepoCredentialsNeverShown`,
+  `TestNoCommandWritesHelmsFile`; GUI `TestHelmReposDialog`, PNGs `helm_repos_dialog_{dark,light}.png`;
+  on kind `TestKindHelmInstall`: an install from a repository behind a login, trusted through a CA
+  file, both named in a temporary Helm file).
 - **Evidence (2026-10-13, night run, the ConfigMaps storage driver):** releases Helm keeps in
   ConfigMaps (`HELM_DRIVER=configmap`) are read beside those kept in Secrets, a second
   label-selected watch joined to the first (`cache.Join`, covered by the Config Maps view's full
@@ -606,17 +628,18 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestHelmUpgradeTabRepositoryVersions`, PNGs `helm_upgrade_picker_{dark,light}.png`; on kind
   `TestKindHelmUpgradeFromRepository`: 0.1.0 installed, upgraded to 0.2.0 from the tab, an agent's
   upgrade back to 0.1.0, uninstalled).
-- **Evidence (2026-10-13, night run):** Charts partial and Install partial: public https chart
-  repositories the user adds (`helm.repo.add`, `remove`, `update`, `list`; Helm › Repositories…),
-  kept in Cogpit's own folders (`<user config dir>/Cogpit/helm/repositories.json`, the indexes in
-  `<user cache dir>/Cogpit/helm/`; the lead's default, the owner's question stays open), indexes
+- **Evidence (2026-10-13, night run; its repositories replaced by Helm's file the same day, D-29):**
+  Charts partial and Install partial: public https chart repositories the user adds (`helm.repo.add`,
+  `remove`, `update`, `list`; Helm › Repositories…), kept in Cogpit's own folders
+  (`<user config dir>/Cogpit/helm/repositories.json`, the indexes in `<user cache dir>/Cogpit/helm/`;
+  the lead's default, answered by the owner with D-29), indexes
   downloaded on add, on update and while the Charts view or an Install tab is open past a
   10-minute TTL, bounded and parsed with the SDK; the charts as the local kind `helmcharts`
   (Helm › Charts); the "Helm Install: <chart>" dock tab with the chart's values.yaml, its versions
   and the digest check; `helm.chart.preview` (the SDK's server-side dry run) and
   `helm.chart.install` (mutating, crash-safe, values withheld from agents and scrubbed from errors)
   ([resource-parity](resource-parity.md#helm), [architecture §8](../developer/architecture.md#8-helm-internalhelm);
-  `TestHelmReposAddListRemove`, `TestHelmIndexRefreshedOnlyWhileShown`, `TestHelmInstallFromTab`,
+  `TestHelmReposAddListRemove` (replaced by `TestHelmReposFromHelmsFile` with D-29), `TestHelmIndexRefreshedOnlyWhileShown`, `TestHelmInstallFromTab`,
   `TestHelmInstallCrashJournal`, `TestHelmInstallTabInstalls`; on kind `TestKindHelmInstall`).
 - **Evidence (2026-10-12, fourth run):** Upgrade partial: Lens's "Helm Upgrade: <name>" dock tab
   and `helm.release.upgrade` through the Helm SDK (the release's own chart, values replacing the
@@ -645,7 +668,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   only" and Save; Notes; Resources by kind), its icons (Rollback, Upgrade, Delete), the Rollback
   dialog (every revision, newest first, the current one selected), the Delete dialog, the Helm
   Upgrade dock tab, and a rollback keeping 10 revisions ([resource-parity](resource-parity.md#helm)).
-- **Estimate:** 4–12 h (was 5–14; the repositories' versions in the Upgrade tab built in the night run, 2026-10-13; left: authenticated and OCI repositories, captures of Lens's Charts view, Install tab and Upgrade tab with a repository, the SQL storage driver; the ConfigMaps driver built in the night run, 2026-10-13, estimate not moved).
+- **Estimate:** 3–10 h (was 4–12; authenticated repositories from Helm's file built, D-29, 2026-10-13; left: OCI repositories, captures of Lens's Charts view, Install tab and Upgrade tab with a repository, the SQL storage driver; the ConfigMaps driver built in the night run, 2026-10-13, estimate not moved).
 - **Still to capture in Lens** (night run, 2026-10-13): the Charts view (its icon column, search hint and order), a chart's drawer, the Helm Install tab (its fields, the default release name and namespace, what Install does first), the Helm Charts preferences, and the Upgrade tab of a release whose chart a repository holds (what "/<chart>" and "(no repository)" become, the picker's order, which version it starts on, prereleases, several repositories).
 - **Still to capture in Lens** (the staging cluster's release with five revisions, one failed): what the Rollback dialog's button does with the current revision selected, what Save does with the box cleared, where the checkbox sits relative to the editor, the texts of states other than Deployed and Failed, what the find widget's Replace does with a regular expression's groups.
 
@@ -1274,6 +1297,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | G11: D-29 built: Helm's repositories.yaml read every 2 s, authenticated and plain-http repositories included, credentials in memory only and to the repository's own host, indexes in Cogpit's own cache, add and remove removed; removed from Missing: authenticated and plain-http repositories; estimate 3–10 h (was 4–12), totals not recounted (the lead recounts) |
 | 2026-10-13 | minor | G3: workload logs, port forwards and the read of one object wait for the access reviews, then a namespace-limited user reads the target's namespace (fixed); estimate not moved |
 | 2026-10-13 | minor | G5: copy icons in the lists built (D-25; every text cell and the placement Cogpit's defaults); estimate not moved |
 | 2026-10-13 | minor | G3: the Workloads and cluster Overviews follow the access reviews' answers (fixed); workload logs and port forwards opened before them still fail for a namespace-limited user; estimate not moved |

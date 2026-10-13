@@ -4,15 +4,17 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -25,13 +27,19 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// Chart repositories (G11, architecture §8): the HTTPS chart repositories the user adds by name
-// and URL, their index (index.yaml) downloaded on add, on an explicit update and, while the Charts
-// view or a Helm Install tab is open, when its time-to-live has passed (engine/helmrepos.go), and
-// the chart archives an install takes from them. Everything here is bounded and parsed with the
-// Helm SDK; nothing reads or writes Helm's own repositories.yaml or cache: the engine hands every
-// path in, all of them under Cogpit's own folders. Public repositories only: no credentials, no
-// client certificates, no plain HTTP (an authenticated repository is gap H-29).
+// Chart repositories (G11, D-29, architecture §8): the repositories Helm's own repositories.yaml
+// lists (repofile.go), their index (index.yaml) downloaded on an explicit update and, while the
+// Charts view or a Helm Install tab is open, when its time-to-live has passed or the repository
+// is new to Cogpit (engine/helmrepos.go), and the chart archives an install takes from them.
+// Everything here is bounded and parsed with the Helm SDK; nothing writes into Helm's file or
+// Helm's cache: the engine hands every path in, the indexes under Cogpit's own cache folder.
+//
+// A repository's credentials go only to its own scheme, host and port, on every hop of a
+// redirect and for a chart URL its index points elsewhere, unless its entry says
+// pass_credentials_all; an https repository's downloads never follow a URL or a redirect to plain
+// http; each repository with a CA file, a client certificate or insecure_skip_tls_verify gets a
+// transport of its own, made for the download from the files as they are then, with the
+// Preferences' proxy kept.
 
 // Bounds on what Cogpit downloads from a repository (Cogpit's defaults, not Helm's: Helm reads an
 // index whole and bounds only a chart's decompressed size, 100 MiB).
@@ -42,7 +50,7 @@ const (
 	MaxChartBytes int64 = 16 << 20
 	// fetchTimeout bounds one download, connection and body.
 	fetchTimeout = 2 * time.Minute
-	// maxRedirects bounds the redirects one download follows, each to https only.
+	// maxRedirects bounds the redirects one download follows.
 	maxRedirects = 10
 	// maxText bounds a chart's description and the other texts Cogpit keeps of an index entry.
 	maxText = 512
@@ -52,63 +60,20 @@ const (
 	maxVersions = 1000
 )
 
-// schemeHTTPS is the only scheme Cogpit downloads charts and indexes over.
-const schemeHTTPS = "https"
-
-// ErrNotHTTPS refuses a repository or chart URL that is not https: Cogpit reads public chart
-// repositories over TLS only (no plain-HTTP override).
-var ErrNotHTTPS = errors.New("only https URLs are allowed")
+// ErrNotHTTPS refuses a URL or a redirect that would take an https repository's download to plain
+// http, or a URL that is neither http nor https.
+var ErrNotHTTPS = errors.New("an https repository's downloads stay on https")
 
 // ErrDigestMismatch refuses a chart archive whose SHA-256 differs from the digest its repository's
 // index lists: the archive is not the one the index describes.
 var ErrDigestMismatch = errors.New("the chart archive does not match the digest its repository's index lists")
 
-// repoNamePattern is a repository's name as Cogpit keeps it: letters, digits, '-' and '_', no dot,
-// so that "<repository>.<chart>" names a chart unambiguously, and safe as a file name.
-var repoNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$`)
-
-// chartNamePattern is a chart's name in an index that Cogpit lists: Helm's chart names, without a
-// path separator.
-var chartNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,200}$`)
-
-// CheckRepositoryName checks a repository's name.
-func CheckRepositoryName(name string) error {
-	if !repoNamePattern.MatchString(name) {
-		return errors.New("a repository's name is 1 to 63 letters, digits, '-' or '_', starting with a letter or digit")
-	}
-	return nil
-}
-
-// CheckRepository checks a repository's name and URL as Cogpit keeps them and returns the URL
-// normalised (no trailing slash). The URL is https, with a host, without credentials, a query or
-// a fragment. An error never quotes the URL: a URL with credentials is refused, not echoed.
-func CheckRepository(name, rawURL string) (string, error) {
-	if err := CheckRepositoryName(name); err != nil {
-		return "", err
-	}
-	u, err := url.Parse(strings.TrimSpace(rawURL))
-	switch {
-	case err != nil:
-		return "", errors.New("the repository URL does not parse")
-	case u.User != nil:
-		return "", errors.New("a repository URL with a user or password is not supported: Cogpit adds public repositories only")
-	case u.Scheme != schemeHTTPS:
-		return "", fmt.Errorf("the repository URL: %w", ErrNotHTTPS)
-	case u.Host == "" || u.Opaque != "":
-		return "", errors.New("the repository URL names no host")
-	case u.RawQuery != "" || u.Fragment != "" || u.ForceQuery:
-		return "", errors.New("a repository URL has no query or fragment")
-	}
-	u.Path = strings.TrimRight(u.Path, "/")
-	u.RawPath = ""
-	return u.String(), nil
-}
-
-// Fetcher downloads repository indexes and chart archives over https, bounded. Its zero value is
-// ready to use; it must not be copied once used.
+// Fetcher downloads repository indexes and chart archives, bounded. Its zero value is ready to use;
+// it must not be copied once used.
 type Fetcher struct {
 	// Client makes the requests; nil: a client with Cogpit's timeout and the environment's proxy
-	// settings. Its redirects are followed to https URLs only, whatever the client allows.
+	// settings. Its redirects are followed by Cogpit's rules (no https to http, at most 10),
+	// whatever the client allows.
 	Client *http.Client
 	// MaxIndex and MaxChart bound a download; zero means MaxIndexBytes and MaxChartBytes.
 	MaxIndex, MaxChart int64
@@ -125,19 +90,55 @@ type Fetcher struct {
 
 var defaultClient = &http.Client{Timeout: fetchTimeout}
 
-func (f *Fetcher) client() *http.Client {
+// clientFor returns the client of one download from r: the fetcher's client, its transport with
+// the fetcher's Proxy, r's TLS settings (a transport of its own, read from r's files now) and r's
+// basic auth for r's own scheme, host and port (or every host with PassCredentialsAll), with
+// Cogpit's redirect rules. done releases a transport made for the download.
+func (f *Fetcher) clientFor(r *Repository) (c *http.Client, done func(), err error) {
 	base := defaultClient
 	if f != nil && f.Client != nil {
 		base = f.Client
 	}
-	c := *base
+	cc := *base
+	rt := base.Transport
 	if f != nil && f.Proxy != nil {
-		c.Transport = f.proxiedTransport(base.Transport)
+		rt = f.proxiedTransport(base.Transport)
 	}
+	done = func() {}
+	if r.needsTLSConfig() {
+		if rt == nil {
+			rt = http.DefaultTransport
+		}
+		t, ok := rt.(*http.Transport)
+		if !ok {
+			return nil, nil, errors.New("the repository's TLS settings need an HTTP transport Cogpit can configure")
+		}
+		t = t.Clone()
+		cfg, err := r.tlsConfig(t.TLSClientConfig)
+		if err != nil {
+			return nil, nil, err
+		}
+		t.TLSClientConfig = cfg
+		rt, done = t, t.CloseIdleConnections
+	}
+	if r.auth != nil {
+		if rt == nil {
+			rt = http.DefaultTransport
+		}
+		rt = &authTransport{base: rt, auth: *r.auth, origin: origin(r.URL), all: r.PassCredentialsAll}
+	}
+	cc.Transport = rt
 	next := base.CheckRedirect
-	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if req.URL.Scheme != schemeHTTPS {
+	https := r.https()
+	cc.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if req.URL.Scheme != schemeHTTPS && req.URL.Scheme != schemeHTTP {
 			return fmt.Errorf("a redirect: %w", ErrNotHTTPS)
+		}
+		if req.URL.Scheme == schemeHTTP && (https || slices.ContainsFunc(via, func(v *http.Request) bool { return v.URL.Scheme == schemeHTTPS })) {
+			return fmt.Errorf("a redirect from https to http: %w", ErrNotHTTPS)
+		}
+		if req.URL.User != nil {
+			return errors.New("a redirect to a URL with a user or password is not followed")
 		}
 		if len(via) >= maxRedirects {
 			return errors.New("too many redirects")
@@ -147,7 +148,86 @@ func (f *Fetcher) client() *http.Client {
 		}
 		return nil
 	}
-	return &c
+	return &cc, done, nil
+}
+
+// tlsConfig is base (a clone; nil: Go's defaults) with r's CA file as the only roots (as helm
+// uses it), r's client certificate and key, and insecure_skip_tls_verify. The files are read now,
+// bounded; an error names a file's path, never its content.
+func (r *Repository) tlsConfig(base *tls.Config) (*tls.Config, error) {
+	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	if base != nil {
+		cfg = base.Clone()
+	}
+	if r.CAFile != "" {
+		pem, err := readBounded(r.CAFile)
+		if err != nil {
+			return nil, fmt.Errorf("the repository's CA file: %w", err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(pem) {
+			return nil, fmt.Errorf("the repository's CA file %q holds no PEM certificate", r.CAFile)
+		}
+		cfg.RootCAs = pool
+	}
+	if r.ClientCertificate() {
+		cert, err := readBounded(r.CertFile)
+		if err != nil {
+			return nil, fmt.Errorf("the repository's client certificate: %w", err)
+		}
+		key, err := readBounded(r.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("the repository's client key: %w", err)
+		}
+		pair, err := tls.X509KeyPair(cert, key)
+		clear(key)
+		if err != nil {
+			return nil, fmt.Errorf("the repository's client certificate %q and key %q do not form a PEM key pair", r.CertFile, r.KeyFile)
+		}
+		cfg.Certificates = []tls.Certificate{pair}
+	}
+	if r.InsecureSkipTLSVerify {
+		cfg.InsecureSkipVerify = true // #nosec G402 -- the user's Helm entry says insecure_skip_tls_verify; marked in the window
+	}
+	return cfg, nil
+}
+
+// authTransport adds a repository's basic auth to the requests for its own scheme, host and port
+// (every request with all): each hop of a redirect is decided on its own, so Go's rule that keeps
+// Authorization for a subdomain never applies.
+type authTransport struct {
+	base   http.RoundTripper
+	auth   basicAuth
+	origin string
+	all    bool
+}
+
+func (a *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if a.all || origin(req.URL.String()) == a.origin {
+		req = req.Clone(req.Context())
+		req.SetBasicAuth(a.auth.user, a.auth.pass)
+	}
+	return a.base.RoundTrip(req)
+}
+
+// CloseIdleConnections closes the base transport's idle connections.
+func (a *authTransport) CloseIdleConnections() {
+	if c, ok := a.base.(interface{ CloseIdleConnections() }); ok {
+		c.CloseIdleConnections()
+	}
+}
+
+// origin is a URL's scheme, host (lower case) and port (the scheme's when the URL names none).
+func origin(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	port := u.Port()
+	if port == "" {
+		port = map[string]string{schemeHTTPS: "443", schemeHTTP: "80"}[u.Scheme]
+	}
+	return u.Scheme + "://" + net.JoinHostPort(strings.ToLower(u.Hostname()), port)
 }
 
 // proxiedTransport returns the client's transport with the fetcher's Proxy, made once and kept,
@@ -185,42 +265,60 @@ func (f *Fetcher) maxChart() int64 {
 	return MaxChartBytes
 }
 
-// get downloads an https URL, at most limit bytes.
-func (f *Fetcher) get(ctx context.Context, rawURL string, limit int64) ([]byte, error) {
+// get downloads a URL of repository r, at most limit bytes: https, or http for a repository served
+// over http. An error never quotes r's credentials, and shows URLs redacted.
+func (f *Fetcher) get(ctx context.Context, r *Repository, rawURL string, limit int64) ([]byte, error) {
+	data, err := f.fetch(ctx, r, rawURL, limit)
+	return data, r.scrubError(err)
+}
+
+func (f *Fetcher) fetch(ctx context.Context, r *Repository, rawURL string, limit int64) ([]byte, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, errors.New("the URL does not parse")
 	}
-	if u.Scheme != schemeHTTPS {
+	switch {
+	case u.Scheme != schemeHTTPS && u.Scheme != schemeHTTP:
 		return nil, ErrNotHTTPS
-	}
-	if u.User != nil {
+	case u.Scheme == schemeHTTP && r.https():
+		return nil, ErrNotHTTPS
+	case u.User != nil:
 		return nil, errors.New("a URL with a user or password is not followed")
 	}
+	shown := RedactURL(u.String())
+	c, done, err := f.clientFor(r)
+	if err != nil {
+		return nil, err
+	}
+	defer done()
 	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("the URL does not make a request")
 	}
 	req.Header.Set("User-Agent", "Cogpit")
-	resp, err := f.client().Do(req)
+	resp, err := c.Do(req)
 	if err != nil {
+		var ue *url.Error
+		if errors.As(err, &ue) {
+			return nil, &url.Error{Op: ue.Op, URL: RedactURL(ue.URL), Err: ue.Err}
+		}
 		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%s: %s", u.Redacted(), resp.Status)
+		return nil, fmt.Errorf("%s: %s", shown, resp.Status)
 	}
 	if resp.ContentLength > limit {
-		return nil, fmt.Errorf("%s: %d bytes is more than the %d Cogpit downloads", u.Redacted(), resp.ContentLength, limit)
+		return nil, fmt.Errorf("%s: %d bytes is more than the %d Cogpit downloads", shown, resp.ContentLength, limit)
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 	if err != nil {
 		return nil, err
 	}
 	if int64(len(data)) > limit {
-		return nil, fmt.Errorf("%s: more than the %d bytes Cogpit downloads", u.Redacted(), limit)
+		return nil, fmt.Errorf("%s: more than the %d bytes Cogpit downloads", shown, limit)
 	}
 	return data, nil
 }
@@ -303,12 +401,12 @@ func (x *Index) Chart(name string) (IndexChart, bool) {
 // DownloadIndex downloads a repository's index.yaml (bounded), parses it with the Helm SDK and,
 // only when it parses, replaces dest with it (0600, in a 0700 directory, atomically): a download
 // that fails or does not parse leaves the previous index. It returns what Cogpit keeps of it.
-func (f *Fetcher) DownloadIndex(ctx context.Context, repoURL, dest string) (*Index, error) {
-	indexURL, err := repo.ResolveReferenceURL(repoURL, "index.yaml")
+func (f *Fetcher) DownloadIndex(ctx context.Context, r *Repository, dest string) (*Index, error) {
+	indexURL, err := repo.ResolveReferenceURL(r.URL, "index.yaml")
 	if err != nil {
 		return nil, errors.New("the repository URL does not parse")
 	}
-	data, err := f.get(ctx, indexURL, f.maxIndex())
+	data, err := f.get(ctx, r, indexURL, f.maxIndex())
 	if err != nil {
 		return nil, fmt.Errorf("downloading the index: %w", err)
 	}
@@ -444,18 +542,19 @@ type Chart struct {
 }
 
 // FetchChart downloads a chart version's archive from its repository (the index's first URL,
-// resolved against the repository's URL; https only, bounded), checks it against the index's
-// digest when the index lists one, and loads it with the Helm SDK. The archive must hold the
-// chart and version the index names.
-func (f *Fetcher) FetchChart(ctx context.Context, repository, repoURL, name string, v ChartVersion) (*Chart, error) {
+// resolved against the repository's URL; bounded; the repository's credentials only for its own
+// scheme, host and port unless pass_credentials_all; never plain http for an https repository),
+// checks it against the index's digest when the index lists one, and loads it with the Helm SDK.
+// The archive must hold the chart and version the index names.
+func (f *Fetcher) FetchChart(ctx context.Context, r *Repository, name string, v ChartVersion) (*Chart, error) {
 	if len(v.URLs) == 0 {
 		return nil, fmt.Errorf("chart %s %s: the index lists no URL", name, v.Version)
 	}
-	u, err := repo.ResolveReferenceURL(repoURL, v.URLs[0])
+	u, err := repo.ResolveReferenceURL(r.URL, v.URLs[0])
 	if err != nil {
 		return nil, fmt.Errorf("chart %s %s: the URL does not parse", name, v.Version)
 	}
-	data, err := f.get(ctx, u, f.maxChart())
+	data, err := f.get(ctx, r, u, f.maxChart())
 	if err != nil {
 		return nil, fmt.Errorf("chart %s %s: %w", name, v.Version, err)
 	}
@@ -475,7 +574,7 @@ func (f *Fetcher) FetchChart(ctx context.Context, repository, repoURL, name stri
 	if c.Name != name || c.Version != v.Version {
 		return nil, fmt.Errorf("chart %s %s: the archive holds chart %s %s", name, v.Version, c.Name, c.Version)
 	}
-	c.Repository, c.Digest, c.Verified = repository, digest, verified
+	c.Repository, c.Digest, c.Verified = r.Name, digest, verified
 	return c, nil
 }
 

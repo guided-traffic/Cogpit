@@ -27,13 +27,13 @@ func TestDownloadsGoThroughTheProxy(t *testing.T) {
 	}
 
 	use = proxy.URLWithUser("alice", "pw-for-the-proxy")
-	idx, err := f.DownloadIndex(context.Background(), r.URL, filepath.Join(t.TempDir(), "web-index.yaml"))
+	idx, err := f.DownloadIndex(context.Background(), PublicRepository("test", r.URL), filepath.Join(t.TempDir(), "web-index.yaml"))
 	if err != nil {
 		t.Fatalf("index through the proxy: %v", err)
 	}
 	web, _ := idx.Chart("web")
 	latest, _ := web.Latest()
-	if _, err := f.FetchChart(context.Background(), "test", r.URL, "web", latest); err != nil {
+	if _, err := f.FetchChart(context.Background(), PublicRepository("test", r.URL), "web", latest); err != nil {
 		t.Fatalf("chart through the proxy: %v", err)
 	}
 	if proxy.Connects()[repo.Host] < 1 || !slices.Contains(proxy.Users(), "alice") {
@@ -50,7 +50,7 @@ func TestDownloadsGoThroughTheProxy(t *testing.T) {
 		tr.CloseIdleConnections() // the tunnel stays open otherwise and carries the next request
 	}
 	before := proxy.Total()
-	if _, err := f.DownloadIndex(context.Background(), r.URL, filepath.Join(t.TempDir(), "again.yaml")); err != nil {
+	if _, err := f.DownloadIndex(context.Background(), PublicRepository("test", r.URL), filepath.Join(t.TempDir(), "again.yaml")); err != nil {
 		t.Fatal(err)
 	}
 	if proxy.Total() != before {
@@ -61,7 +61,7 @@ func TestDownloadsGoThroughTheProxy(t *testing.T) {
 	tr, _ := f.proxiedBase.(*http.Transport)
 	tr.CloseIdleConnections()
 	use = proxy.URLWithUser("alice", "wrong-secret-77")
-	_, err = f.DownloadIndex(context.Background(), r.URL, filepath.Join(t.TempDir(), "refused.yaml"))
+	_, err = f.DownloadIndex(context.Background(), PublicRepository("test", r.URL), filepath.Join(t.TempDir(), "refused.yaml"))
 	if err == nil || strings.Contains(err.Error(), "wrong-secret-77") {
 		t.Errorf("refused download: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestDownloadsGoThroughTheProxy(t *testing.T) {
 	// A Proxy that fails stops the download with its error.
 	tr.CloseIdleConnections()
 	f.Proxy = func(*http.Request) (*url.URL, error) { return nil, errors.New("no proxy today") }
-	if _, err := f.DownloadIndex(context.Background(), r.URL, filepath.Join(t.TempDir(), "x.yaml")); err == nil || !strings.Contains(err.Error(), "no proxy today") {
+	if _, err := f.DownloadIndex(context.Background(), PublicRepository("test", r.URL), filepath.Join(t.TempDir(), "x.yaml")); err == nil || !strings.Contains(err.Error(), "no proxy today") {
 		t.Errorf("a failing Proxy: %v", err)
 	}
 }

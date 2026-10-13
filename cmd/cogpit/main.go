@@ -283,24 +283,27 @@ func openMetricsSettings(logger *slog.Logger) *engine.MetricsSettings {
 	return m
 }
 
-// openHelmRepos keeps the Helm chart repositories the user adds in
-// <user config dir>/Cogpit/helm/repositories.json and their indexes in <user cache dir>/Cogpit/helm,
-// each owner-only: Cogpit's own folders, never Helm's repositories.yaml or cache (G11). Without a
-// cache directory the indexes go under the configuration directory; without a configuration
-// directory there are no repositories.
+// openHelmRepos reads the Helm chart repositories of Helm's own repositories.yaml, resolved here
+// and only here as the helm CLI resolves it ($HELM_REPOSITORY_CONFIG, else $HELM_CONFIG_HOME, else
+// Helm's configuration folder; helm.RepositoryConfigPath), and keeps their indexes in
+// <user cache dir>/Cogpit/helm/indexes, owner-only (D-29, G11). Cogpit writes nothing into Helm's
+// file or folders. Without a cache directory the indexes go under the configuration directory;
+// without either there are no repositories.
 func openHelmRepos(logger *slog.Logger) *engine.HelmRepos {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		logger.Warn("Helm repositories disabled; charts cannot be installed", "err", err)
-		return nil
-	}
 	cache, err := os.UserCacheDir()
 	if err != nil {
+		dir, cerr := os.UserConfigDir()
+		if cerr != nil {
+			logger.Warn("Helm repositories disabled; charts cannot be installed", "err", err)
+			return nil
+		}
 		cache = filepath.Join(dir, "Cogpit", "cache")
 	} else {
 		cache = filepath.Join(cache, "Cogpit")
 	}
-	return engine.NewHelmRepos(filepath.Join(dir, "Cogpit"), cache)
+	file := helm.RepositoryConfigPath()
+	logger.Info("Helm repositories are read from Helm's repositories file", "file", file)
+	return engine.NewHelmRepos(file, cache)
 }
 
 // openKubeconfigSources keeps the kubeconfig files and sync folders the user

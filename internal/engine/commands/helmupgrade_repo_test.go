@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"helm.sh/helm/v4/pkg/release/common"
+	repo "helm.sh/helm/v4/pkg/repo/v1"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
@@ -32,6 +33,9 @@ type repoUpgradeHarness struct {
 	repo    *testkit.HelmRepo
 	journal *engine.MemoryHelmJournal
 	audit   *syncBuffer
+	// helmFile is Helm's repositories file of the test; entries what addRepo wrote into it.
+	helmFile *testkit.HelmRepoFile
+	entries  []*repo.Entry
 
 	mu     sync.Mutex
 	asked  []engine.ConfirmRequest
@@ -55,7 +59,8 @@ func newRepoUpgradeHarness(t *testing.T, journal *engine.MemoryHelmJournal, seed
 	seed(h.server.helmServer)
 	h.repo = testkit.NewHelmRepo(t, webChartV("0.1.0"), webChartV("0.2.0"))
 	// httptest's TLS servers share one certificate: the first repository's client trusts them all.
-	repos := engine.NewHelmRepos(t.TempDir(), t.TempDir(), engine.WithChartFetcher(&helm.Fetcher{Client: h.repo.Client()}))
+	h.helmFile = testkit.NewHelmRepoFile(t)
+	repos := engine.NewHelmRepos(h.helmFile.Path, t.TempDir(), engine.WithChartFetcher(&helm.Fetcher{Client: h.repo.Client()}))
 	h.s = engine.New(engine.Options{
 		Connector: &chartConnector{src: src, actions: h.server}, SnapshotInterval: 10 * time.Millisecond,
 		Audit: h.audit, Helm: engine.NewHelmOps(journal), HelmRepos: repos,
@@ -92,9 +97,13 @@ func newRepoUpgradeHarness(t *testing.T, journal *engine.MemoryHelmJournal, seed
 	return h
 }
 
+// addRepo adds a repository to Helm's repositories file, as helm repo add does, and downloads its
+// index.
 func (h *repoUpgradeHarness) addRepo(t *testing.T, name, url string) {
 	t.Helper()
-	if _, err := h.dispatch(engine.OriginGUI, "helm.repo.add", map[string]any{"name": name, "url": url}); err != nil {
+	h.entries = append(h.entries, &repo.Entry{Name: name, URL: url})
+	h.helmFile.Write(h.entries...)
+	if _, err := h.dispatch(engine.OriginGUI, "helm.repo.update", map[string]any{"names": []string{name}}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -358,7 +367,7 @@ func TestHelmUpgradeRepositoryRefusals(t *testing.T) {
 		params map[string]any
 		want   string
 	}{
-		{base(map[string]any{"version": "9.9.9"}), "no chart repository added to Cogpit lists this chart version"},
+		{base(map[string]any{"version": "9.9.9"}), "no chart repository of Helm's repositories file lists this chart version"},
 		{base(map[string]any{"repository": "nope"}), "no Helm repository named nope"},
 		{base(map[string]any{"version": "0.2.0"}), "give repository"},
 	} {

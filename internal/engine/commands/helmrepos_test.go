@@ -3,8 +3,8 @@ package commands_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -12,6 +12,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	repo "helm.sh/helm/v4/pkg/repo/v1"
 
 	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/cluster"
@@ -32,16 +34,17 @@ func webChartV(version string) testkit.TestChart {
 	}
 }
 
-// chartHarness is a session with the Helm repositories on temporary folders, a local repository
-// served over TLS, the Helm releases, the local kinds and a recording confirmer.
+// chartHarness is a session with the Helm repositories of a temporary Helm repositories file, a
+// local repository served over TLS, the Helm releases, the local kinds and a recording confirmer.
 type chartHarness struct {
 	s        *engine.Session
 	src      *testkit.MemorySource
 	repo     *testkit.HelmRepo
 	repos    *engine.HelmRepos
-	cfg      string
+	helmFile *testkit.HelmRepoFile
 	cacheDir string
 	audit    *syncBuffer
+	logs     *syncBuffer
 	journal  *engine.MemoryHelmJournal
 
 	mu     sync.Mutex
@@ -76,17 +79,19 @@ func newChartHarness(t *testing.T, actions engine.Actions, opts ...engine.HelmRe
 // newChartHarnessWith is newChartHarness on a journal and a source of the test's own.
 func newChartHarnessWith(t *testing.T, journal *engine.MemoryHelmJournal, src *testkit.MemorySource, actions engine.Actions, opts ...engine.HelmReposOption) *chartHarness {
 	t.Helper()
-	h := &chartHarness{src: src, cfg: t.TempDir(), cacheDir: t.TempDir(), audit: &syncBuffer{},
+	h := &chartHarness{src: src, helmFile: testkit.NewHelmRepoFile(t), cacheDir: t.TempDir(), audit: &syncBuffer{}, logs: &syncBuffer{},
 		journal: journal, answer: true}
 	h.repo = testkit.NewHelmRepo(t, webChartV("0.1.0"), webChartV("0.2.0"))
 	if actions == nil {
 		actions = &fakeWriter{}
 	}
-	opts = append([]engine.HelmReposOption{engine.WithChartFetcher(&helm.Fetcher{Client: h.repo.Client()})}, opts...)
-	h.repos = engine.NewHelmRepos(h.cfg, h.cacheDir, opts...)
+	opts = append([]engine.HelmReposOption{engine.WithChartFetcher(&helm.Fetcher{Client: h.repo.Client()}),
+		engine.WithRepositoryFilePoll(20 * time.Millisecond)}, opts...)
+	h.repos = engine.NewHelmRepos(h.helmFile.Path, h.cacheDir, opts...)
 	h.s = engine.New(engine.Options{
 		Connector: &chartConnector{src: h.src, actions: actions}, SnapshotInterval: 10 * time.Millisecond,
 		Audit: h.audit, Helm: engine.NewHelmOps(h.journal), HelmRepos: h.repos,
+		Logger: slog.New(slog.NewTextHandler(h.logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		Confirmer: engine.ConfirmFunc(func(_ context.Context, req engine.ConfirmRequest) (bool, error) {
 			h.mu.Lock()
 			defer h.mu.Unlock()
@@ -123,7 +128,12 @@ func (h *chartHarness) confirmations() []engine.ConfirmRequest {
 // charts waits until the helmcharts kind holds want objects and returns their names.
 func (h *chartHarness) charts(t *testing.T, want int) []string {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	return h.chartsWithin(t, want, 5*time.Second)
+}
+
+func (h *chartHarness) chartsWithin(t *testing.T, want int, d time.Duration) []string {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), d)
 	defer cancel()
 	var names []string
 	if !testkit.WaitFor(ctx, func() bool {
@@ -137,30 +147,72 @@ func (h *chartHarness) charts(t *testing.T, want int) []string {
 		}
 		return len(names) == want
 	}) {
-		t.Fatalf("charts %v, want %d", names, want)
+		t.Fatalf("charts %v, want %d within %s", names, want, d)
 	}
 	slices.Sort(names)
 	return names
 }
 
-func (h *chartHarness) addRepo(t *testing.T) engine.HelmRepoInfo {
+// list dispatches helm.repo.list.
+func (h *chartHarness) list(t *testing.T, origin engine.Origin) engine.HelmReposList {
 	t.Helper()
-	res, err := h.dispatch(engine.OriginGUI, "helm.repo.add", map[string]any{"name": "test", "url": h.repo.URL})
+	res, err := h.dispatch(origin, "helm.repo.list", struct{}{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return res.(engine.HelmRepoInfo)
+	return res.(engine.HelmReposList)
 }
 
-// Adding a repository downloads its index and keeps the repository in Cogpit's own configuration
-// folder, its index in Cogpit's own cache folder, both owner-only; its charts become the
-// helmcharts kind. A second Cogpit reads both without a download. Removing it deletes its index
-// and its charts. Nothing is written anywhere else.
-func TestHelmReposAddListRemove(t *testing.T) {
+// addRepo writes the test repository into Helm's file as "test", as helm repo add does, and
+// downloads its index (helm.repo.update).
+func (h *chartHarness) addRepo(t *testing.T) engine.HelmRepoInfo {
+	t.Helper()
+	h.helmFile.Write(h.repo.Entry("test"))
+	res, err := h.dispatch(engine.OriginGUI, "helm.repo.update", map[string]any{"names": []string{"test"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	infos := res.([]engine.HelmRepoInfo)
+	if len(infos) != 1 {
+		t.Fatalf("updated %+v", infos)
+	}
+	return infos[0]
+}
+
+// files lists the regular files under root, relative to it.
+func files(root string) []string {
+	var out []string
+	_ = filepath.WalkDir(root, func(p string, d fs.DirEntry, _ error) error {
+		if d != nil && !d.IsDir() {
+			out = append(out, strings.TrimPrefix(p, root))
+		}
+		return nil
+	})
+	return out
+}
+
+// The repositories are Helm's file's: helm.repo.list names the file, its status and its
+// repositories; an update downloads an index into Cogpit's own cache (owner-only), keyed by the
+// repository's name and URL, and its charts become the helmcharts kind. A second Cogpit reads the
+// cached index without a download. Nothing is written into Helm's folder; the night run's own
+// list and indexes are left where they are, unread.
+func TestHelmReposFromHelmsFile(t *testing.T) {
 	h := newChartHarness(t, nil)
+	if l := h.list(t, engine.OriginGUI); l.File != h.helmFile.Path || l.Status != engine.HelmFileMissing || len(l.Repositories) != 0 ||
+		!strings.Contains(l.Hint, "helm repo add") {
+		t.Errorf("without Helm's file: %+v", l)
+	}
+	oldIndex := filepath.Join(h.cacheDir, "helm", "test-index.yaml") // the night run's index
+	if err := os.MkdirAll(filepath.Dir(oldIndex), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(oldIndex, []byte("apiVersion: v1\nentries: {}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
 	info := h.addRepo(t)
-	if info.Name != "test" || info.URL != h.repo.URL || info.Charts != 1 || info.Updated.IsZero() || info.Error != "" {
-		t.Errorf("added %+v", info)
+	if info.Name != "test" || info.URL != h.repo.URL || info.Charts != 1 || info.Updated.IsZero() || info.Error != "" || info.HasCredentials {
+		t.Errorf("updated %+v", info)
 	}
 	if names := h.charts(t, 1); names[0] != "test.web" {
 		t.Errorf("charts %v", names)
@@ -173,42 +225,36 @@ func TestHelmReposAddListRemove(t *testing.T) {
 	if spec["version"] != "0.2.0" || spec["repository"] != "test" || len(spec["versions"].([]any)) != 2 || spec["digest"] == "" {
 		t.Errorf("chart object %v", spec)
 	}
-	listFile := filepath.Join(h.cfg, "helm", engine.HelmReposFile)
-	indexFile := filepath.Join(h.cacheDir, "helm", "test-index.yaml")
-	for _, p := range []string{listFile, indexFile} {
-		if fi, err := os.Stat(p); err != nil || fi.Mode().Perm() != 0o600 {
-			t.Errorf("%s: %v %v", p, fi, err)
-		}
+	l := h.list(t, engine.OriginExternalAgent)
+	if l.Status != engine.HelmFileOK || len(l.Repositories) != 1 || l.Repositories[0].Charts != 1 || l.Hint != "" {
+		t.Errorf("list %+v", l)
 	}
-	if data, _ := os.ReadFile(listFile); !strings.Contains(string(data), h.repo.URL) {
-		t.Errorf("repositories.json: %s", data)
+	cached := files(filepath.Join(h.cacheDir, "helm", "indexes"))
+	if len(cached) != 1 || !strings.HasSuffix(cached[0], "-index.yaml") {
+		t.Fatalf("Cogpit's cache: %v", cached)
+	}
+	if fi, err := os.Stat(filepath.Join(h.cacheDir, "helm", "indexes", cached[0])); err != nil || fi.Mode().Perm() != 0o600 {
+		t.Errorf("the cached index: %v %v", fi, err)
+	}
+	if got := files(filepath.Dir(h.helmFile.Path)); len(got) != 1 || got[0] != "/repositories.yaml" {
+		t.Errorf("Helm's folder holds %v: Cogpit wrote into it", got)
+	}
+	if data, err := os.ReadFile(oldIndex); err != nil || string(data) != "apiVersion: v1\nentries: {}\n" {
+		t.Errorf("the night run's index: %q %v", data, err)
 	}
 
-	if _, err := h.dispatch(engine.OriginGUI, "helm.repo.add", map[string]any{"name": "test", "url": h.repo.URL}); err == nil {
-		t.Error("a second repository named test was added")
-	}
-	if _, err := h.dispatch(engine.OriginGUI, "helm.repo.add", map[string]any{"name": "plain", "url": "http://charts.example.com"}); !errors.Is(err, helm.ErrNotHTTPS) {
-		t.Errorf("a plain http repository: %v", err)
-	}
-	h.repo.Fail(true)
-	if _, err := h.dispatch(engine.OriginGUI, "helm.repo.add", map[string]any{"name": "down", "url": h.repo.URL + "/down"}); err == nil {
-		t.Error("a repository whose index does not download was added")
-	}
-	h.repo.Fail(false)
-
-	// A second Cogpit on the same folders reads the list and the index from disk.
+	// A second Cogpit on the same file and cache reads the cached index without a download.
 	before := h.repo.Requests("/index.yaml")
-	again := engine.NewHelmRepos(h.cfg, h.cacheDir, engine.WithChartFetcher(&helm.Fetcher{Client: h.repo.Client()}))
+	again := engine.NewHelmRepos(h.helmFile.Path, h.cacheDir, engine.WithChartFetcher(&helm.Fetcher{Client: h.repo.Client()}))
 	list, err := again.List()
-	if err != nil || len(list) != 1 || list[0].Charts != 1 || h.repo.Requests("/index.yaml") != before {
+	if err != nil || len(list.Repositories) != 1 || list.Repositories[0].Charts != 1 || h.repo.Requests("/index.yaml") != before {
 		t.Errorf("reloaded %+v %v (%d downloads)", list, err, h.repo.Requests("/index.yaml")-before)
 	}
 
-	// An update downloads the index again and lists a new version.
+	// An update downloads the index again and lists a new version; nobody is asked.
 	h.repo.Add(webChartV("0.3.0"))
-	res, err := h.dispatch(engine.OriginExternalAgent, "helm.repo.update", struct{}{})
-	if err != nil || h.repo.Requests("/index.yaml") != before+1 {
-		t.Fatalf("update: %v, %v (%d downloads)", res, err, h.repo.Requests("/index.yaml")-before)
+	if _, err := h.dispatch(engine.OriginExternalAgent, "helm.repo.update", struct{}{}); err != nil || h.repo.Requests("/index.yaml") != before+1 {
+		t.Fatalf("update: %v (%d downloads)", err, h.repo.Requests("/index.yaml")-before)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -221,60 +267,177 @@ func TestHelmReposAddListRemove(t *testing.T) {
 	if len(h.confirmations()) != 0 {
 		t.Errorf("an update asked: %+v", h.confirmations())
 	}
-
-	if _, err := h.dispatch(engine.OriginGUI, "helm.repo.remove", map[string]any{"name": "test"}); err != nil {
-		t.Fatal(err)
-	}
-	h.charts(t, 0)
-	if _, err := os.Stat(indexFile); !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("the index stayed: %v", err)
-	}
-	var files []string
-	for _, root := range []string{h.cfg, h.cacheDir} {
-		_ = filepath.WalkDir(root, func(p string, d fs.DirEntry, _ error) error {
-			if !d.IsDir() {
-				files = append(files, strings.TrimPrefix(p, root))
-			}
-			return nil
-		})
-	}
-	if len(files) != 1 || files[0] != "/helm/"+engine.HelmReposFile {
-		t.Errorf("files left: %v", files)
+	if _, err := h.dispatch(engine.OriginGUI, "helm.repo.update", map[string]any{"names": []string{"nope"}}); err == nil ||
+		!strings.Contains(err.Error(), "no Helm repository named nope") {
+		t.Errorf("an update of an unknown repository: %v", err)
 	}
 }
 
-// An agent's add and remove are refused before anyone is asked, and download nothing; the list and
-// an update run for agents, and nobody is asked.
-func TestHelmReposAreTheUsers(t *testing.T) {
+// Helm's file is taken over as it changes: a repository added, given another URL or removed there
+// is in Cogpit within 5 seconds at the default poll (2 s), with the Charts view open: a new
+// repository's index downloads at once, a changed URL never shows the old URL's charts, a removed
+// repository's charts leave the helmcharts kind.
+func TestHelmRepoFileChangesWithinFiveSeconds(t *testing.T) {
+	h := newChartHarness(t, nil, engine.WithRepositoryFilePoll(engine.DefaultHelmRepositoryFilePoll))
+	other := testkit.NewHelmRepo(t, testkit.TestChart{Name: "api", Version: "1.0.0",
+		Templates: map[string]string{"templates/cm.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: x\n"}})
+	if _, err := h.dispatch(engine.OriginGUI, "ui.openView", map[string]any{"view": kinds.HelmChartsKey}); err != nil {
+		t.Fatal(err)
+	}
+	h.list(t, engine.OriginGUI)
+
+	start := time.Now()
+	h.helmFile.Write(h.repo.Entry("test"))
+	if names := h.chartsWithin(t, 1, 5*time.Second); names[0] != "test.web" {
+		t.Errorf("added: %v", names)
+	}
+	t.Logf("added and its index downloaded after %s", time.Since(start).Round(time.Millisecond))
+
+	start = time.Now()
+	h.helmFile.Write(&repo.Entry{Name: "test", URL: other.URL})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if !testkit.WaitFor(ctx, func() bool {
+		objs, err := h.s.Objects(ctx, kinds.HelmChartsKey, nil)
+		return err == nil && len(objs) == 1 && objs[0].GetName() == "test.api"
+	}) {
+		t.Errorf("the changed URL's charts are not listed within 5 s: %v", h.chartsWithin(t, 1, time.Second))
+	}
+	t.Logf("its URL changed after %s", time.Since(start).Round(time.Millisecond))
+	if other.Requests("/index.yaml") != 1 {
+		t.Errorf("the new URL's index was downloaded %d times", other.Requests("/index.yaml"))
+	}
+
+	start = time.Now()
+	h.helmFile.Write()
+	h.chartsWithin(t, 0, 5*time.Second)
+	t.Logf("removed after %s", time.Since(start).Round(time.Millisecond))
+	if l := h.list(t, engine.OriginGUI); len(l.Repositories) != 0 || l.Status != engine.HelmFileOK || l.Hint == "" {
+		t.Errorf("after the removal: %+v", l)
+	}
+}
+
+// A file that does not parse keeps the last good list and says why, without quoting the file; a
+// removed file is an empty list with the hint; an entry Cogpit cannot use is listed with its reason
+// and gets no download.
+func TestHelmRepoFileErrors(t *testing.T) {
 	h := newChartHarness(t, nil)
-	if _, err := h.dispatch(engine.OriginExternalAgent, "helm.repo.add", map[string]any{"name": "test", "url": h.repo.URL}); err == nil ||
-		!strings.Contains(err.Error(), "the user's to add") {
-		t.Fatalf("an agent's add: %v", err)
-	}
-	if list, _ := h.repos.List(); len(list) != 0 || h.repo.Requests("/index.yaml") != 0 {
-		t.Errorf("refused, yet %+v (%d downloads)", list, h.repo.Requests("/index.yaml"))
-	}
 	h.addRepo(t)
-	if _, err := h.dispatch(engine.OriginExternalAgent, "helm.repo.remove", map[string]any{"name": "test"}); err == nil {
-		t.Error("an agent removed a repository")
+	h.charts(t, 1)
+
+	h.helmFile.WriteText("repositories:\n- name: test\n  password: pw-broken-71\n  url: [unclosed\n")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var l engine.HelmReposList
+	if !testkit.WaitFor(ctx, func() bool { l = h.list(t, engine.OriginExternalAgent); return l.Status == engine.HelmFileError }) {
+		t.Fatalf("a broken file: %+v", l)
 	}
-	if _, err := h.dispatch(engine.OriginCLI, "helm.repo.update", map[string]any{"names": []string{"test"}}); err != nil {
+	if len(l.Repositories) != 1 || l.Repositories[0].Charts != 1 || !strings.Contains(l.Error, "does not parse") ||
+		strings.Contains(l.Error, "pw-broken-71") || strings.Contains(l.Error, "unclosed") {
+		t.Errorf("a broken file: %+v", l)
+	}
+	h.charts(t, 1)
+
+	h.helmFile.Write(h.repo.Entry("test"), &repo.Entry{Name: "with.dot", URL: h.repo.URL}, &repo.Entry{Name: "oci", URL: "oci://registry.example.com/charts"})
+	if !testkit.WaitFor(ctx, func() bool {
+		l = h.list(t, engine.OriginGUI)
+		return l.Status == engine.HelmFileOK && len(l.Repositories) == 3
+	}) {
+		t.Fatalf("fixed: %+v", l)
+	}
+	before := h.repo.Requests("/index.yaml")
+	infos, err := h.dispatch(engine.OriginGUI, "helm.repo.update", struct{}{})
+	if err != nil || len(infos.([]engine.HelmRepoInfo)) != 1 || h.repo.Requests("/index.yaml") != before+1 {
+		t.Errorf("update with unused entries: %+v %v (%d downloads)", infos, err, h.repo.Requests("/index.yaml")-before)
+	}
+	for _, r := range h.list(t, engine.OriginGUI).Repositories[1:] {
+		if !r.Unused || r.Error == "" || r.Charts != 0 {
+			t.Errorf("unused entry %+v", r)
+		}
+	}
+	if _, err := h.dispatch(engine.OriginGUI, "helm.repo.update", map[string]any{"names": []string{"with.dot"}}); err == nil || !strings.Contains(err.Error(), "no dot") {
+		t.Errorf("an update of an unused entry: %v", err)
+	}
+
+	if err := os.Remove(h.helmFile.Path); err != nil {
 		t.Fatal(err)
 	}
-	var list []engine.HelmRepoInfo
-	res, err := h.dispatch(engine.OriginExternalAgent, "helm.repo.list", struct{}{})
+	if !testkit.WaitFor(ctx, func() bool { l = h.list(t, engine.OriginGUI); return l.Status == engine.HelmFileMissing }) {
+		t.Fatalf("a removed file: %+v", l)
+	}
+	if len(l.Repositories) != 0 || !strings.Contains(l.Hint, "helm repo add") {
+		t.Errorf("a removed file: %+v", l)
+	}
+	h.charts(t, 0)
+}
+
+// A repository behind a login is used with the credentials Helm's file holds; they never reach
+// helm.repo.list's result, an error, a toast, the audit log or the log, for agents or the window,
+// also when a download fails.
+func TestHelmRepoCredentialsNeverShown(t *testing.T) {
+	const user, pass, wrong = "chart-user-81", "pw-chart-82", "pw-wrong-83"
+	h := newChartHarness(t, nil)
+	h.repo.RequireBasicAuth(user, pass)
+	withUser := strings.Replace(h.repo.URL, "https://", "https://"+user+":"+wrong+"@", 1)
+	h.helmFile.Write(&repo.Entry{Name: "test", URL: h.repo.URL, Username: user, Password: pass},
+		&repo.Entry{Name: "denied", URL: withUser + "/denied"})
+	// A partial failure is the result's error and a warning toast, not the command's error.
+	for _, origin := range []engine.Origin{engine.OriginExternalAgent, engine.OriginGUI} {
+		res, err := h.dispatch(origin, "helm.repo.update", struct{}{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		infos := res.([]engine.HelmRepoInfo)
+		if len(infos) != 2 || infos[0].Error != "" || !strings.Contains(infos[1].Error, "401") {
+			t.Errorf("%s: %+v", origin, infos)
+		}
+	}
+	h.charts(t, 1)
+	if h.repo.Authorized("/index.yaml") != 2 || h.repo.Authorized("/denied/index.yaml") != 2 {
+		t.Errorf("downloads with credentials: %d, denied %d", h.repo.Authorized("/index.yaml"), h.repo.Authorized("/denied/index.yaml"))
+	}
+	l := h.list(t, engine.OriginExternalAgent)
+	if len(l.Repositories) != 2 || !l.Repositories[0].HasCredentials || !l.Repositories[1].HasCredentials || l.Repositories[1].Error == "" {
+		t.Errorf("list %+v", l)
+	}
+	res, err := h.dispatch(engine.OriginExternalAgent, "helm.chart.installTab", map[string]any{"ref": engine.HelmChartRef("test", "test", "web")})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("the chart behind the login: %v", err)
 	}
-	list = res.([]engine.HelmRepoInfo)
-	if len(list) != 1 || list[0].Charts != 1 || h.repo.Requests("/index.yaml") != 2 {
-		t.Errorf("list %+v (%d downloads)", list, h.repo.Requests("/index.yaml"))
+	listJSON, _ := json.Marshal(l)
+	resJSON, _ := json.Marshal(res)
+	h.mu.Lock()
+	evJSON, _ := json.Marshal(h.events)
+	h.mu.Unlock()
+	notes, _ := h.dispatch(engine.OriginExternalAgent, "notifications.list", struct{}{})
+	notesJSON, _ := json.Marshal(notes)
+	for what, text := range map[string]string{"list": string(listJSON), "install tab": string(resJSON), "events and toasts": string(evJSON),
+		"notifications": string(notesJSON), "audit log": bufText(h.audit), "log": bufText(h.logs)} {
+		for _, secret := range []string{pass, wrong, user} {
+			if strings.Contains(text, secret) {
+				t.Errorf("the %s holds %q:\n%s", what, secret, text)
+			}
+		}
 	}
-	if n := len(h.confirmations()); n != 0 {
-		t.Errorf("%d confirmations", n)
+	if !strings.Contains(bufText(h.audit), "helm.repo.update") {
+		t.Errorf("the agent's update is not in the audit log: %s", bufText(h.audit))
 	}
-	if _, err := h.dispatch(engine.OriginCLI, "helm.repo.remove", map[string]any{"name": "test"}); err != nil {
-		t.Errorf("the CLI's remove: %v", err)
+}
+
+// The repositories are added and removed with the helm CLI only (owner, D-29): no command adds or
+// removes one, so nothing an agent, the CLI or the window sends writes Helm's file.
+func TestNoCommandWritesHelmsFile(t *testing.T) {
+	h := newChartHarness(t, nil)
+	for _, id := range []string{"helm.repo.add", "helm.repo.remove"} {
+		if _, ok := h.s.Registry().Get(id); ok {
+			t.Errorf("%s is registered", id)
+		}
+		if _, err := h.dispatch(engine.OriginGUI, id, map[string]any{"name": "x", "url": h.repo.URL}); err == nil {
+			t.Errorf("%s ran", id)
+		}
+	}
+	if _, err := os.Stat(h.helmFile.Path); !os.IsNotExist(err) {
+		t.Errorf("Helm's file was written: %v", err)
 	}
 }
 
@@ -288,7 +451,7 @@ func TestHelmIndexRefreshedOnlyWhileShown(t *testing.T) {
 	}
 	time.Sleep(200 * time.Millisecond)
 	if n := h.repo.Requests("/index.yaml"); n != 1 {
-		t.Fatalf("%d downloads with the Charts view closed, want the add's 1", n)
+		t.Fatalf("%d downloads with the Charts view closed, want the update's 1", n)
 	}
 	if _, err := h.dispatch(engine.OriginGUI, "ui.openView", map[string]any{"view": kinds.HelmChartsKey}); err != nil {
 		t.Fatal(err)
@@ -306,6 +469,17 @@ func TestHelmIndexRefreshedOnlyWhileShown(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	if m := h.repo.Requests("/index.yaml"); m != n {
 		t.Errorf("%d downloads after the Charts view closed", m-n)
+	}
+
+	// A repository new in Helm's file is not downloaded while nothing shows charts.
+	other := testkit.NewHelmRepo(t, webChartV("0.9.0"))
+	h.helmFile.Write(h.repo.Entry("test"), other.Entry("other"))
+	if !testkit.WaitFor(ctx, func() bool { return len(h.list(t, engine.OriginGUI).Repositories) == 2 }) {
+		t.Fatal("the new repository is not listed")
+	}
+	time.Sleep(100 * time.Millisecond)
+	if n := other.Requests("/index.yaml"); n != 0 {
+		t.Errorf("%d downloads of a new repository with the Charts view closed", n)
 	}
 }
 
@@ -327,4 +501,11 @@ func TestChartDrawerStartsNoEventsWatch(t *testing.T) {
 	if evp, ok := h.s.Backend().Profile("events"); ok && h.s.Backend().Cached(evp) {
 		t.Error("the chart's drawer started the events watch")
 	}
+}
+
+// bufText is what a syncBuffer holds.
+func bufText(b *syncBuffer) string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return string(b.buf)
 }

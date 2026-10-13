@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -23,14 +22,22 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
-// Helm chart repositories (G11, architecture §8): the HTTPS repositories the user adds by name and
-// URL (helm.repo.add), kept in Cogpit's own configuration folder (<config>/helm/repositories.json,
-// owner-only, replaced atomically), never in Helm's repositories.yaml; their indexes downloaded
-// into Cogpit's own cache folder (<cache>/helm/<name>-index.yaml) on add, on an explicit update
-// (helm.repo.update) and, as architecture §5 has it for data that cannot be watched, while the
-// Charts view or a Helm Install tab is open and an index is older than its time-to-live. Their
-// charts are the local kind helmcharts in the connected backend's local store (one object per
-// chart), which the Charts view, the drawer and agents read like any kind.
+// Helm chart repositories (G11, D-29, architecture §8): the repositories Helm's own
+// repositories.yaml lists. The helm CLI adds and removes them (helm repo add, helm repo remove);
+// Cogpit reads the file, never writes it or anything in Helm's folders. The file's size and
+// modification time are looked at every 2 seconds (as the kubeconfig sync folders are) and the file
+// read again when they changed, so a repository added, changed or removed there is in Cogpit within
+// 5 seconds (the owner's bound); a file that does not parse keeps the last good list and says why,
+// a missing file is an empty list. The credentials of an entry stay in memory (helm.Repository).
+//
+// The indexes are downloaded into Cogpit's own cache folder (<cache>/helm/indexes/<key>-index.yaml,
+// the key made of the repository's name and URL, so a changed URL never reuses the old index; the
+// lead's default, D-29's Built note): on an explicit update (helm.repo.update) and, as architecture
+// §5 has it for data that cannot be watched, while the Charts view or a Helm Install tab is open,
+// for an index older than its time-to-live, never downloaded, or of a repository that appeared or
+// whose URL, credentials or TLS settings changed (at once: a change of the file wakes the poller).
+// Their charts are the local kind helmcharts in the connected backend's local store (one object
+// per chart), which the Charts view, the drawer and agents read like any kind.
 
 // Defaults of the repositories (Cogpit's, not the owner's decision: an interval of the order of
 // ten minutes keeps a repository's new versions visible without polling a server often).
@@ -40,73 +47,116 @@ const (
 	DefaultIndexTTL = 10 * time.Minute
 	// indexPollEvery is how often the open view checks the indexes' age.
 	indexPollEvery = time.Minute
-	// HelmReposFile is the repositories' file under <config>/helm.
-	HelmReposFile = "repositories.json"
-	helmDir       = "helm"
-	// maxHelmRepos bounds the repositories a user adds.
-	maxHelmRepos     = 64
-	helmReposVersion = 1
-	maxHelmReposFile = 64 << 10
+	// DefaultHelmRepositoryFilePoll is how often Helm's repositories.yaml is looked at (its size and
+	// modification time), as the kubeconfig sync folders are (DefaultKubeconfigPoll).
+	DefaultHelmRepositoryFilePoll = 2 * time.Second
+	// helmIndexDir holds the indexes under Cogpit's cache folder. The night run's indexes
+	// (<cache>/helm/<name>-index.yaml) and its own list (<config>/helm/repositories.json) are left
+	// where they are, unread (no implicit deletes).
+	helmIndexDir = "helm/indexes"
 )
 
-// ErrNoHelmRepos disables the repository commands of a session that keeps none.
-var ErrNoHelmRepos = errors.New("this Cogpit keeps no Helm chart repositories")
+// Status of Helm's repositories file (HelmReposList.Status).
+const (
+	// HelmFileOK: the file was read and parsed.
+	HelmFileOK = "ok"
+	// HelmFileMissing: there is no file: no repositories (helm repo add makes it).
+	HelmFileMissing = "missing"
+	// HelmFileError: the file could not be read or does not parse; the last good list stays.
+	HelmFileError = "error"
+)
 
-// HelmRepo is a chart repository as the user added it.
-type HelmRepo struct {
-	Name  string    `json:"name"`
-	URL   string    `json:"url"`
-	Added time.Time `json:"added"`
-}
+// helmFileHint is what the list says when Helm's file is missing or lists no repository.
+const helmFileHint = "Add repositories with helm repo add <name> <url>; Cogpit lists them within seconds."
 
-// HelmRepoInfo is a repository as helm.repo.list reports it: when its index was downloaded, how
-// many charts it lists, and the error of its last download or read.
+// ErrNoHelmRepos disables the repository commands of a session that reads none.
+var ErrNoHelmRepos = errors.New("this Cogpit reads no Helm chart repositories")
+
+// HelmRepoInfo is a repository of Helm's file as helm.repo.list reports it: its name, its URL
+// without a user or password, what its entry says about the connection (never a credential), when
+// its index was downloaded, how many charts it lists, and the error of its last download or why
+// Cogpit does not use the entry.
 type HelmRepoInfo struct {
-	HelmRepo
-	Updated  time.Time `json:"updated,omitzero"`
-	Charts   int       `json:"charts"`
-	Error    string    `json:"error,omitempty"`
-	Updating bool      `json:"updating,omitempty"`
+	Name string `json:"name"`
+	// URL is redacted: no user or password, the query's values hidden.
+	URL string `json:"url"`
+	// HasCredentials: the entry sends a user and password or a client certificate.
+	HasCredentials bool `json:"hasCredentials"`
+	// ClientCertificate: the entry names a client certificate and key; CAFile: a CA file.
+	ClientCertificate bool `json:"clientCertificate,omitempty"`
+	CAFile            bool `json:"caFile,omitempty"`
+	// InsecureSkipTLSVerify: the server's certificate is not checked (insecure_skip_tls_verify).
+	InsecureSkipTLSVerify bool `json:"insecureSkipTLSVerify,omitempty"`
+	// PassCredentialsAll: the credentials go to every host the downloads reach.
+	PassCredentialsAll bool `json:"passCredentialsAll,omitempty"`
+	// PlainHTTP: the repository is served over http, unencrypted.
+	PlainHTTP bool      `json:"plainHTTP,omitempty"`
+	Updated   time.Time `json:"updated,omitzero"`
+	Charts    int       `json:"charts"`
+	Error     string    `json:"error,omitempty"`
+	Updating  bool      `json:"updating,omitempty"`
+	// Unused: Cogpit does not use the entry (Error says why): nothing is downloaded, no charts.
+	Unused bool `json:"unused,omitempty"`
 }
 
-type helmReposDoc struct {
-	Version      int        `json:"version"`
-	Repositories []HelmRepo `json:"repositories"`
+// HelmReposList is helm.repo.list's result: Helm's repositories file, its status and the
+// repositories it lists, in its order.
+type HelmReposList struct {
+	// File is Helm's repositories.yaml as the helm CLI resolves it.
+	File string `json:"file"`
+	// Status is HelmFileOK, HelmFileMissing or HelmFileError.
+	Status string `json:"status"`
+	// Error says why the file was not read (HelmFileError): the repositories are those of the
+	// last time it was.
+	Error string `json:"error,omitempty"`
+	// Hint says how repositories are added, when there are none.
+	Hint         string         `json:"hint,omitempty"`
+	Repositories []HelmRepoInfo `json:"repositories"`
+}
+
+// repoEntry is one entry of Helm's file as Cogpit holds it.
+type repoEntry struct {
+	info HelmRepoInfo     // what is shown (Updated, Charts, Updating and a download's Error come from state)
+	repo *helm.Repository // nil: not used
 }
 
 // repoState is what Cogpit holds of one repository's index.
 type repoState struct {
+	repo     *helm.Repository
+	key, fp  string // helm.Repository.CacheKey and Fingerprint
 	index    *helm.Index
 	updated  time.Time
 	err      string
 	gen      uint64 // the generation of the index: the chart objects' resourceVersion
+	since    uint64 // the generation it appeared at: part of its charts' UIDs
 	updating bool
+	fetchNow bool               // it appeared or changed while Cogpit ran: downloaded at once while shown
+	cancel   context.CancelFunc // stops its running download
 }
 
 // HelmRepos keeps a session's chart repositories. Create it with NewHelmRepos and pass it as
 // Options.HelmRepos; it belongs to one session.
 type HelmRepos struct {
-	configDir, cacheDir string
-	fetcher             *helm.Fetcher
-	ttl, pollEvery      time.Duration
-	now                 func() time.Time
-
-	// fetchMu serialises loading and the changes of the list with the downloads: one download
-	// at a time, and never an add or a remove while one runs.
-	fetchMu sync.Mutex
-
-	mu      sync.Mutex
-	loaded  bool
-	repos   []HelmRepo
-	state   map[string]*repoState
-	gen     uint64
-	s       *Session
-	lastRev uint64
-	poll    chan struct{} // closed to stop the poller; nil while none runs
-
-	pubMu     sync.Mutex
-	pubTarget *Backend
-	published map[string]string // chart object name → resourceVersion in pubTarget's local store
+	file, cacheDir            string
+	fetcher                   *helm.Fetcher
+	ttl, pollEvery, fileEvery time.Duration
+	now                       func() time.Time
+	syncMu                    sync.Mutex // one read of Helm's file at a time
+	fetchMu                   sync.Mutex // one download at a time
+	kick                      chan struct{}
+	mu                        sync.Mutex
+	loaded, parsed            bool   // Helm's file was looked at; a list was taken from it
+	sig                       string // Helm's file's size and modification time at the last read
+	fileStatus, fileErr       string
+	entries                   []repoEntry
+	state                     map[string]*repoState // the repositories used, by name
+	gen                       uint64
+	s                         *Session
+	lastRev                   uint64
+	poll                      chan struct{} // closed to stop the index poller; nil while none runs
+	pubMu                     sync.Mutex
+	pubTarget                 *Backend
+	published                 map[string]string // chart object name → resourceVersion in pubTarget's local store
 }
 
 // HelmReposOption configures NewHelmRepos.
@@ -122,13 +172,19 @@ func WithIndexTTL(ttl, every time.Duration) HelmReposOption {
 	return func(h *HelmRepos) { h.ttl, h.pollEvery = ttl, every }
 }
 
-// NewHelmRepos returns the repositories kept under configDir/helm (the list) and cacheDir/helm
-// (their indexes): Cogpit's own folders, never Helm's. Nothing is read or written until used.
-func NewHelmRepos(configDir, cacheDir string, opts ...HelmReposOption) *HelmRepos {
+// WithRepositoryFilePoll sets how often Helm's repositories file is looked at (tests).
+func WithRepositoryFilePoll(every time.Duration) HelmReposOption {
+	return func(h *HelmRepos) { h.fileEvery = every }
+}
+
+// NewHelmRepos returns the repositories of Helm's repositories file repoFile (the caller resolves
+// it, helm.RepositoryConfigPath, so that no test can reach the user's own) with their indexes
+// under cacheDir/helm/indexes, Cogpit's own cache folder. Nothing is read or written until used.
+func NewHelmRepos(repoFile, cacheDir string, opts ...HelmReposOption) *HelmRepos {
 	h := &HelmRepos{
-		configDir: filepath.Join(configDir, helmDir), cacheDir: filepath.Join(cacheDir, helmDir),
-		fetcher: &helm.Fetcher{}, ttl: DefaultIndexTTL, pollEvery: indexPollEvery, now: time.Now,
-		state: map[string]*repoState{},
+		file: repoFile, cacheDir: filepath.Join(cacheDir, filepath.FromSlash(helmIndexDir)),
+		fetcher: &helm.Fetcher{}, ttl: DefaultIndexTTL, pollEvery: indexPollEvery, fileEvery: DefaultHelmRepositoryFilePoll,
+		now: time.Now, state: map[string]*repoState{}, kick: make(chan struct{}, 1),
 	}
 	for _, o := range opts {
 		o(h)
@@ -136,17 +192,203 @@ func NewHelmRepos(configDir, cacheDir string, opts ...HelmReposOption) *HelmRepo
 	return h
 }
 
-// HelmRepos returns the session's chart repositories, or nil when it keeps none.
+// HelmRepos returns the session's chart repositories, or nil when it reads none.
 func (s *Session) HelmRepos() *HelmRepos { return s.opts.HelmRepos }
 
-// Path returns the repositories' file.
-func (h *HelmRepos) Path() string { return filepath.Join(h.configDir, HelmReposFile) }
+// File returns Helm's repositories file.
+func (h *HelmRepos) File() string { return h.file }
 
-func (h *HelmRepos) indexPath(name string) string {
-	return filepath.Join(h.cacheDir, name+"-index.yaml")
+func (h *HelmRepos) indexPath(key string) string {
+	return filepath.Join(h.cacheDir, key+"-index.yaml")
 }
 
-// ensureLoaded reads the list and the downloaded indexes once. The caller holds fetchMu.
+// settle is how long Helm's file must stay unchanged before it is read: a quarter of the poll, at
+// most 250 ms (Cogpit's default).
+func (h *HelmRepos) settle() time.Duration {
+	return min(h.fileEvery/4, 250*time.Millisecond)
+}
+
+// fileSignature describes Helm's file as stat sees it (size, modification time), without reading
+// it; "missing" when it does not exist.
+func (h *HelmRepos) fileSignature() string {
+	fi, err := os.Stat(h.file)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return "missing"
+	case err != nil:
+		return "unreadable " + err.Error()
+	}
+	return fmt.Sprintf("%d %d %s", fi.Size(), fi.ModTime().UnixNano(), fi.Mode())
+}
+
+// Sync reads Helm's repositories file again when its size or modification time changed since the
+// last read (or it was never read) and takes over what changed. It reports whether the
+// repositories changed. A file that does not parse keeps the last good list; a missing file is an
+// empty list.
+//
+// helm repo add rewrites the file in place (truncated, then written), so a file seen changing is
+// read only once its size and modification time stayed the same for a moment, and its list is
+// taken only when they are still the same after reading: a half-written file is read on the next
+// look (except on the first read, which takes what there is).
+func (h *HelmRepos) Sync() (bool, error) {
+	h.syncMu.Lock()
+	defer h.syncMu.Unlock()
+	sig := h.fileSignature()
+	h.mu.Lock()
+	if h.loaded && sig == h.sig {
+		h.mu.Unlock()
+		return false, nil
+	}
+	first := !h.loaded
+	initial := !h.parsed // the first list read: the indexes of an earlier run count
+	h.mu.Unlock()
+	if !first {
+		time.Sleep(h.settle())
+		if h.fileSignature() != sig {
+			return false, nil // still being written
+		}
+	}
+
+	entries, err := helm.ReadRepositoryFile(h.file)
+	if !first && h.fileSignature() != sig {
+		return false, nil // written while it was read
+	}
+	status, fileErr := HelmFileOK, ""
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		status, entries, err = HelmFileMissing, nil, nil
+	case err != nil:
+		status, fileErr = HelmFileError, err.Error()
+	}
+	var disk map[string]diskIndex
+	if initial && err == nil {
+		disk = h.readCachedIndexes(entries)
+	}
+
+	h.mu.Lock()
+	h.sig, h.loaded = sig, true
+	changed := h.fileStatus != status || h.fileErr != fileErr
+	h.fileStatus, h.fileErr = status, fileErr
+	if err == nil {
+		if h.apply(entries, disk) {
+			changed = true
+		}
+		h.parsed = true
+	}
+	h.mu.Unlock()
+	if err != nil && changed {
+		h.logger().Warn("helm: Helm's repositories file was not read; the repositories stay as they were", "err", err)
+	}
+	return changed, nil
+}
+
+// diskIndex is an index Cogpit downloaded in an earlier run, read from its cache.
+type diskIndex struct {
+	index   *helm.Index
+	updated time.Time
+	err     string
+}
+
+// readCachedIndexes reads the indexes an earlier run downloaded for the repositories of the first
+// read of Helm's file, by their cache key.
+func (h *HelmRepos) readCachedIndexes(entries []helm.RepositoryEntry) map[string]diskIndex {
+	out := map[string]diskIndex{}
+	for _, e := range entries {
+		if e.Repository == nil {
+			continue
+		}
+		path := h.indexPath(e.Repository.CacheKey())
+		fi, err := os.Stat(path)
+		if err != nil {
+			if !errors.Is(err, fs.ErrNotExist) {
+				out[e.Name] = diskIndex{err: err.Error()}
+			}
+			continue
+		}
+		idx, err := helm.LoadIndex(path)
+		if err != nil {
+			out[e.Name] = diskIndex{err: err.Error()}
+			continue
+		}
+		out[e.Name] = diskIndex{index: idx, updated: fi.ModTime()}
+	}
+	return out
+}
+
+// apply takes over the entries of Helm's file. disk holds the cached indexes of the first read
+// (nil afterwards: a repository that appears later counts as never downloaded). The caller holds
+// mu. It reports whether anything shown changed.
+func (h *HelmRepos) apply(entries []helm.RepositoryEntry, disk map[string]diskIndex) bool {
+	next := make([]repoEntry, 0, len(entries))
+	state := map[string]*repoState{}
+	for _, e := range entries {
+		info := HelmRepoInfo{
+			Name: e.Name, URL: e.URL, HasCredentials: e.HasCredentials, ClientCertificate: e.ClientCertificate,
+			CAFile: e.CAFile, InsecureSkipTLSVerify: e.InsecureSkipTLSVerify, PassCredentialsAll: e.PassCredentialsAll,
+			PlainHTTP: e.PlainHTTP,
+		}
+		if e.Repository == nil {
+			info.Unused = true
+			if e.Err != nil {
+				info.Error = e.Err.Error()
+			}
+			next = append(next, repoEntry{info: info})
+			continue
+		}
+		next = append(next, repoEntry{info: info, repo: e.Repository})
+		r := e.Repository
+		key, fp := r.CacheKey(), r.Fingerprint()
+		old := h.state[e.Name]
+		switch {
+		case old != nil && old.fp == fp:
+			old.repo = r
+			state[e.Name] = old
+		case old != nil && old.key == key: // the credentials or TLS settings changed: download again
+			if old.cancel != nil {
+				old.cancel()
+			}
+			st := *old
+			st.repo, st.fp, st.fetchNow, st.err, st.cancel, st.updating = r, fp, true, "", nil, false
+			state[e.Name] = &st
+		default: // new, or its URL changed
+			if old != nil && old.cancel != nil {
+				old.cancel()
+			}
+			h.gen++
+			st := &repoState{repo: r, key: key, fp: fp, since: h.gen, gen: h.gen, fetchNow: disk == nil}
+			if d, ok := disk[e.Name]; ok {
+				st.index, st.updated, st.err = d.index, d.updated, d.err
+			}
+			state[e.Name] = st
+		}
+	}
+	for name, old := range h.state {
+		if _, ok := state[name]; !ok && old.cancel != nil {
+			old.cancel() // removed from Helm's file: its download stops
+		}
+	}
+	changed := len(next) != len(h.entries) || len(state) != len(h.state)
+	if !changed {
+		for i := range next {
+			if next[i].info != h.entries[i].info {
+				changed = true
+				break
+			}
+		}
+	}
+	if !changed {
+		for name, st := range state {
+			if h.state[name] != st {
+				changed = true
+				break
+			}
+		}
+	}
+	h.entries, h.state = next, state
+	return changed
+}
+
+// ensureLoaded reads Helm's file once.
 func (h *HelmRepos) ensureLoaded() error {
 	h.mu.Lock()
 	loaded := h.loaded
@@ -154,85 +396,36 @@ func (h *HelmRepos) ensureLoaded() error {
 	if loaded {
 		return nil
 	}
-	var doc helmReposDoc
-	if err := readPrivateJSON(h.Path(), maxHelmReposFile, &doc); err != nil {
-		return fmt.Errorf("the Helm repositories %s are unreadable (%w); Cogpit leaves the file as it is", h.Path(), err)
-	}
-	if doc.Version != 0 && doc.Version != helmReposVersion {
-		return fmt.Errorf("the Helm repositories %s have format version %d, this Cogpit reads %d", h.Path(), doc.Version, helmReposVersion)
-	}
-	var repos []HelmRepo
-	state := map[string]*repoState{}
-	for _, r := range doc.Repositories {
-		u, err := helm.CheckRepository(r.Name, r.URL)
-		if err != nil || slices.ContainsFunc(repos, func(o HelmRepo) bool { return o.Name == r.Name }) || len(repos) >= maxHelmRepos {
-			continue // a hand-edited entry Cogpit would not have added
-		}
-		r.URL = u
-		repos = append(repos, r)
-		st := &repoState{}
-		path := h.indexPath(r.Name)
-		if fi, err := os.Stat(path); err == nil && fi.ModTime().After(r.Added.Add(-time.Second)) {
-			if idx, err := helm.LoadIndex(path); err == nil {
-				st.index, st.updated = idx, fi.ModTime()
-			} else {
-				st.err = err.Error()
-			}
-		} else if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			st.err = err.Error()
-		}
-		state[r.Name] = st
+	_, err := h.Sync()
+	return err
+}
+
+// List returns Helm's repositories file, its status and its repositories in its order.
+func (h *HelmRepos) List() (HelmReposList, error) {
+	if err := h.ensureLoaded(); err != nil {
+		return HelmReposList{}, err
 	}
 	h.mu.Lock()
-	defer h.mu.Unlock()
-	if !h.loaded {
-		h.repos, h.loaded = repos, true
-		for name, st := range state {
-			h.gen++
-			st.gen = h.gen
-			h.state[name] = st
-		}
+	out := HelmReposList{File: h.file, Status: h.fileStatus, Error: h.fileErr}
+	h.mu.Unlock()
+	out.Repositories = h.infos(nil)
+	if len(out.Repositories) == 0 && out.Status != HelmFileError {
+		out.Hint = helmFileHint
 	}
-	return nil
-}
-
-// save writes the list. The caller holds fetchMu.
-func (h *HelmRepos) save(repos []HelmRepo) error {
-	if repos == nil {
-		repos = []HelmRepo{}
-	}
-	data, err := json.MarshalIndent(helmReposDoc{Version: helmReposVersion, Repositories: repos}, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err := writePrivateFile(h.Path(), append(data, '\n')); err != nil {
-		return fmt.Errorf("the Helm repositories could not be saved: %w", err)
-	}
-	return nil
-}
-
-// List returns the repositories in the order they were added.
-func (h *HelmRepos) List() ([]HelmRepoInfo, error) {
-	h.fetchMu.Lock()
-	err := h.ensureLoaded()
-	h.fetchMu.Unlock()
-	if err != nil {
-		return nil, err
-	}
-	return h.infos(nil), nil
+	return out, nil
 }
 
 // infos returns the repositories (only those named, if names is not nil).
 func (h *HelmRepos) infos(names []string) []HelmRepoInfo {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	out := make([]HelmRepoInfo, 0, len(h.repos))
-	for _, r := range h.repos {
-		if names != nil && !slices.Contains(names, r.Name) {
+	out := make([]HelmRepoInfo, 0, len(h.entries))
+	for _, e := range h.entries {
+		if names != nil && !slices.Contains(names, e.info.Name) {
 			continue
 		}
-		info := HelmRepoInfo{HelmRepo: r}
-		if st := h.state[r.Name]; st != nil {
+		info := e.info
+		if st := h.state[info.Name]; st != nil && e.repo != nil {
 			info.Updated, info.Error, info.Updating = st.updated, st.err, st.updating
 			if st.index != nil {
 				info.Charts = len(st.index.Charts)
@@ -243,173 +436,126 @@ func (h *HelmRepos) infos(names []string) []HelmRepoInfo {
 	return out
 }
 
-// repo returns a repository by name.
-func (h *HelmRepos) repo(name string) (HelmRepo, bool) {
+// repo returns a repository Cogpit uses, by name, or why it does not use it.
+func (h *HelmRepos) repo(name string) (*helm.Repository, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	i := slices.IndexFunc(h.repos, func(r HelmRepo) bool { return r.Name == name })
-	if i < 0 {
-		return HelmRepo{}, false
+	for _, e := range h.entries {
+		if e.info.Name != name {
+			continue
+		}
+		if e.repo == nil {
+			return nil, fmt.Errorf("the Helm repository %s: %s", name, e.info.Error)
+		}
+		return e.repo, nil
 	}
-	return h.repos[i], true
+	return nil, fmt.Errorf("no Helm repository named %s in Helm's repositories file", name)
 }
 
-// Add adds a public https repository: its index is downloaded first, and only a repository whose
-// index downloads and parses is kept. The name must be new.
-func (h *HelmRepos) Add(ctx context.Context, name, rawURL string) (HelmRepoInfo, error) {
-	u, err := helm.CheckRepository(name, rawURL)
-	if err != nil {
-		return HelmRepoInfo{}, err
-	}
-	h.fetchMu.Lock()
-	defer h.fetchMu.Unlock()
-	if err := h.ensureLoaded(); err != nil {
-		return HelmRepoInfo{}, err
-	}
-	h.mu.Lock()
-	repos := slices.Clone(h.repos)
-	h.mu.Unlock()
-	switch {
-	case slices.ContainsFunc(repos, func(r HelmRepo) bool { return r.Name == name }):
-		return HelmRepoInfo{}, fmt.Errorf("a Helm repository named %s exists already; remove it first to add it with another URL", name)
-	case len(repos) >= maxHelmRepos:
-		return HelmRepoInfo{}, fmt.Errorf("at most %d Helm repositories can be added", maxHelmRepos)
-	}
-	idx, err := h.fetcher.DownloadIndex(ctx, u, h.indexPath(name))
-	if err != nil {
-		return HelmRepoInfo{}, fmt.Errorf("repository %s was not added: %w", name, err)
-	}
-	r := HelmRepo{Name: name, URL: u, Added: h.now().UTC()}
-	if err := h.save(append(repos, r)); err != nil {
-		_ = os.Remove(h.indexPath(name))
-		return HelmRepoInfo{}, err
-	}
-	h.mu.Lock()
-	h.repos = append(h.repos, r)
-	h.gen++
-	h.state[name] = &repoState{index: idx, updated: h.now(), gen: h.gen}
-	h.mu.Unlock()
-	h.publish()
-	return h.infos([]string{name})[0], nil
-}
-
-// Remove forgets a repository and deletes its downloaded index. Releases installed from it are
-// not touched.
-func (h *HelmRepos) Remove(name string) error {
-	h.fetchMu.Lock()
-	defer h.fetchMu.Unlock()
-	if err := h.ensureLoaded(); err != nil {
-		return err
-	}
-	h.mu.Lock()
-	repos := slices.DeleteFunc(slices.Clone(h.repos), func(r HelmRepo) bool { return r.Name == name })
-	found := len(repos) != len(h.repos)
-	h.mu.Unlock()
-	if !found {
-		return fmt.Errorf("no Helm repository named %s", name)
-	}
-	if err := h.save(repos); err != nil {
-		return err
-	}
-	h.mu.Lock()
-	h.repos = repos
-	delete(h.state, name)
-	h.mu.Unlock()
-	if err := os.Remove(h.indexPath(name)); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		h.logger().Warn("helm: the removed repository's index stays", "repository", name, "err", err)
-	}
-	h.publish()
-	return nil
-}
-
-// Update downloads the indexes of the named repositories (all when names is empty), one after
-// the other. A repository whose download fails keeps the index it had, and its error is in the
-// result; the returned error joins the failures.
+// Update reads Helm's file when it changed and downloads the indexes of the named repositories
+// (all it uses when names is empty), one after the other. A repository whose download fails keeps
+// the index it had, and its error is in the result; the returned error joins the failures.
 func (h *HelmRepos) Update(ctx context.Context, names []string) ([]HelmRepoInfo, error) {
-	h.fetchMu.Lock()
-	defer h.fetchMu.Unlock()
-	if err := h.ensureLoaded(); err != nil {
+	if changed, err := h.Sync(); err != nil {
 		return nil, err
+	} else if changed {
+		h.changed()
 	}
 	h.mu.Lock()
-	var targets []HelmRepo
-	for _, r := range h.repos {
-		if len(names) == 0 || slices.Contains(names, r.Name) {
-			targets = append(targets, r)
+	var targets []string
+	for _, e := range h.entries {
+		if e.repo != nil && (len(names) == 0 || slices.Contains(names, e.info.Name)) {
+			targets = append(targets, e.info.Name)
 		}
 	}
 	h.mu.Unlock()
 	for _, n := range names {
-		if !slices.ContainsFunc(targets, func(r HelmRepo) bool { return r.Name == n }) {
-			return nil, fmt.Errorf("no Helm repository named %s", n)
+		if !slices.Contains(targets, n) {
+			if _, err := h.repo(n); err != nil {
+				return nil, err
+			}
 		}
 	}
-	var errs []error
-	for _, r := range targets {
-		if err := h.download(ctx, r); err != nil {
-			errs = append(errs, fmt.Errorf("repository %s: %w", r.Name, err))
-		}
-	}
-	h.publish()
-	out := make([]string, len(targets))
-	for i, r := range targets {
-		out[i] = r.Name
-	}
-	return h.infos(out), errors.Join(errs...)
-}
-
-// download downloads one repository's index. The caller holds fetchMu.
-func (h *HelmRepos) download(ctx context.Context, r HelmRepo) error {
-	h.setUpdating(r.Name, true)
-	idx, err := h.fetcher.DownloadIndex(ctx, r.URL, h.indexPath(r.Name))
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	st := h.state[r.Name]
-	if st == nil { // removed meanwhile: cannot happen under fetchMu, but stay safe
-		return err
-	}
-	st.updating = false
-	if err != nil {
-		st.err = err.Error()
-		return err
-	}
-	h.gen++
-	st.index, st.updated, st.err, st.gen = idx, h.now(), "", h.gen
-	return nil
-}
-
-func (h *HelmRepos) setUpdating(name string, on bool) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if st := h.state[name]; st != nil {
-		st.updating = on
-	}
-}
-
-// refreshStale downloads the indexes older than their time-to-live (or never downloaded), while
-// the Charts view or a Helm Install tab is open (architecture §5).
-func (h *HelmRepos) refreshStale(ctx context.Context) {
 	h.fetchMu.Lock()
-	defer h.fetchMu.Unlock()
+	var errs []error
+	for _, name := range targets {
+		if err := h.download(ctx, name); err != nil {
+			errs = append(errs, fmt.Errorf("repository %s: %w", name, err))
+		}
+	}
+	h.fetchMu.Unlock()
+	h.publish()
+	return h.infos(targets), errors.Join(errs...)
+}
+
+// errRepoChanged ends a download whose repository left Helm's file or changed meanwhile.
+var errRepoChanged = errors.New("the repository changed in Helm's repositories file while its index downloaded; it is downloaded again")
+
+// download downloads one repository's index into Cogpit's cache. The caller holds fetchMu. An
+// index whose repository changed or left Helm's file while it downloaded is dropped.
+func (h *HelmRepos) download(ctx context.Context, name string) error {
+	h.mu.Lock()
+	st := h.state[name]
+	if st == nil {
+		h.mu.Unlock()
+		return fmt.Errorf("no Helm repository named %s in Helm's repositories file", name)
+	}
+	r, key, fp := st.repo, st.key, st.fp
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	st.updating, st.cancel = true, cancel
+	h.mu.Unlock()
+	h.changed()
+
+	idx, err := h.fetcher.DownloadIndex(ctx, r, h.indexPath(key))
+
+	h.mu.Lock()
+	cur := h.state[name]
+	if cur != nil && cur.fp == fp {
+		cur.updating, cur.cancel = false, nil
+		if err != nil {
+			cur.err = err.Error()
+		} else {
+			h.gen++
+			cur.index, cur.updated, cur.err, cur.gen, cur.fetchNow = idx, h.now(), "", h.gen, false
+		}
+	}
+	h.mu.Unlock()
+	h.changed()
+	if cur == nil || cur.fp != fp {
+		return errRepoChanged
+	}
+	return err
+}
+
+// refreshStale downloads, while the Charts view or a Helm Install tab is open (architecture §5),
+// the indexes older than their time-to-live, never downloaded, or of a repository that appeared or
+// changed since Cogpit started.
+func (h *HelmRepos) refreshStale(ctx context.Context) {
 	if err := h.ensureLoaded(); err != nil {
 		h.logger().Warn("helm: repositories", "err", err)
 		return
 	}
+	h.fetchMu.Lock()
+	defer h.fetchMu.Unlock()
 	h.mu.Lock()
-	var stale []HelmRepo
-	for _, r := range h.repos {
-		if st := h.state[r.Name]; st == nil || st.updated.IsZero() || h.now().Sub(st.updated) >= h.ttl {
-			stale = append(stale, r)
+	var stale []string
+	for _, e := range h.entries {
+		st := h.state[e.info.Name]
+		if e.repo != nil && st != nil && (st.fetchNow || st.updated.IsZero() || h.now().Sub(st.updated) >= h.ttl) {
+			stale = append(stale, e.info.Name)
 		}
 	}
 	h.mu.Unlock()
 	changed := false
-	for _, r := range stale {
+	for _, name := range stale {
 		if ctx.Err() != nil {
 			break
 		}
-		if err := h.download(ctx, r); err != nil {
-			h.logger().Warn("helm: the repository's index was not refreshed", "repository", r.Name, "err", err)
+		if err := h.download(ctx, name); err != nil {
+			if !errors.Is(err, errRepoChanged) {
+				h.logger().Warn("helm: the repository's index was not refreshed", "repository", name, "err", err)
+			}
 			continue
 		}
 		changed = true
@@ -419,26 +565,27 @@ func (h *HelmRepos) refreshStale(ctx context.Context) {
 	}
 }
 
+// indexOf returns the index Cogpit holds of a repository it uses.
+func (h *HelmRepos) indexOf(name string) *helm.Index {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if st := h.state[name]; st != nil {
+		return st.index
+	}
+	return nil
+}
+
 // ChartVersion finds a chart's version in a repository's index: version "" is the version the
 // chart is listed with (the newest that is not a prerelease). It returns the repository too.
-func (h *HelmRepos) ChartVersion(repository, chart, version string) (HelmRepo, helm.IndexChart, helm.ChartVersion, error) {
-	h.fetchMu.Lock()
-	err := h.ensureLoaded()
-	h.fetchMu.Unlock()
+func (h *HelmRepos) ChartVersion(repository, chart, version string) (*helm.Repository, helm.IndexChart, helm.ChartVersion, error) {
+	if err := h.ensureLoaded(); err != nil {
+		return nil, helm.IndexChart{}, helm.ChartVersion{}, err
+	}
+	r, err := h.repo(repository)
 	if err != nil {
-		return HelmRepo{}, helm.IndexChart{}, helm.ChartVersion{}, err
+		return nil, helm.IndexChart{}, helm.ChartVersion{}, err
 	}
-	r, ok := h.repo(repository)
-	if !ok {
-		return HelmRepo{}, helm.IndexChart{}, helm.ChartVersion{}, fmt.Errorf("no Helm repository named %s", repository)
-	}
-	h.mu.Lock()
-	var idx *helm.Index
-	if st := h.state[repository]; st != nil {
-		idx = st.index
-	}
-	h.mu.Unlock()
-	c, ok := idx.Chart(chart)
+	c, ok := h.indexOf(repository).Chart(chart)
 	if !ok {
 		return r, helm.IndexChart{}, helm.ChartVersion{}, fmt.Errorf("repository %s has no chart %s (helm_repo_update downloads its index again)", repository, chart)
 	}
@@ -454,13 +601,14 @@ func (h *HelmRepos) ChartVersion(repository, chart, version string) (HelmRepo, h
 	return r, c, v, nil
 }
 
-// FetchChart downloads a chart version from its repository, checked against the index's digest.
+// FetchChart downloads a chart version from its repository, checked against the index's digest,
+// with the repository's credentials as Helm's file holds them now.
 func (h *HelmRepos) FetchChart(ctx context.Context, repository, chart, version string) (*helm.Chart, helm.IndexChart, error) {
 	r, c, v, err := h.ChartVersion(repository, chart, version)
 	if err != nil {
 		return nil, c, err
 	}
-	ch, err := h.fetcher.FetchChart(ctx, r.Name, r.URL, chart, v)
+	ch, err := h.fetcher.FetchChart(ctx, r, chart, v)
 	return ch, c, err
 }
 
@@ -474,8 +622,20 @@ func (h *HelmRepos) logger() *slog.Logger {
 	return slog.Default()
 }
 
-// attach binds the repositories to their session: the connected backend gets the charts, and
-// the indexes are refreshed while the Charts view or a Helm Install tab is open. Nil-safe.
+// changed tells the window that the repositories' list or a download's state changed
+// (EventHelmRepos); the Repositories dialog reads helm.repo.list again.
+func (h *HelmRepos) changed() {
+	h.mu.Lock()
+	s := h.s
+	h.mu.Unlock()
+	if s != nil {
+		s.emit(Event{Type: EventHelmRepos})
+	}
+}
+
+// attach binds the repositories to their session: Helm's file is watched for as long as the
+// session runs, the connected backend gets the charts, and the indexes are refreshed while the
+// Charts view or a Helm Install tab is open. Nil-safe.
 func (h *HelmRepos) attach(s *Session) {
 	if h == nil {
 		return
@@ -487,6 +647,29 @@ func (h *HelmRepos) attach(s *Session) {
 		h.fetcher.Proxy = s.NonClusterProxy // the Preferences' proxy, else the environment's (proxy.go)
 	}
 	s.Subscribe(h.onEvent)
+	go h.watchFile(s)
+}
+
+// watchFile looks at Helm's repositories file every fileEvery (local file I/O only, no API server)
+// until the session closes: a change is listed, published to the connected backend's charts and
+// wakes the index poller, so that a new repository's index downloads at once while shown.
+func (h *HelmRepos) watchFile(s *Session) {
+	defer s.recoverTo("watching Helm's repositories file")
+	t := time.NewTicker(h.fileEvery)
+	defer t.Stop()
+	for {
+		if s.closed() {
+			return
+		}
+		if changed, err := h.Sync(); err != nil {
+			s.log.Warn("helm: Helm's repositories file", "err", err)
+		} else if changed {
+			h.publish()
+			signal(h.kick)
+			h.changed()
+		}
+		<-t.C
+	}
 }
 
 // onEvent runs on the goroutine that changed the UI state: it must not block.
@@ -519,10 +702,7 @@ func (h *HelmRepos) onEvent(ev Event) {
 	}
 	if b := s.Backend(); b != nil && u.Connection.State == Connected && h.needsPublish(b) {
 		s.goSafe("Helm charts", func() {
-			h.fetchMu.Lock()
-			err := h.ensureLoaded()
-			h.fetchMu.Unlock()
-			if err != nil {
+			if err := h.ensureLoaded(); err != nil {
 				s.log.Warn("helm: repositories", "err", err)
 			}
 			h.publish()
@@ -533,9 +713,9 @@ func (h *HelmRepos) onEvent(ev Event) {
 	}
 }
 
-// pollLoop refreshes stale indexes at once and then every pollEvery, until stop is closed or the
-// session ends. It is not one of the session's goroutines that Close waits for: a download it
-// started ends with its own timeout.
+// pollLoop refreshes stale indexes at once, then every pollEvery and whenever Helm's file
+// changed, until stop is closed or the session ends. It is not one of the session's goroutines
+// that Close waits for: a download it started ends with its own timeout.
 func (h *HelmRepos) pollLoop(s *Session, stop chan struct{}) {
 	defer s.recoverTo("Helm repository indexes")
 	ctx, cancel := context.WithCancel(context.Background())
@@ -558,6 +738,7 @@ func (h *HelmRepos) pollLoop(s *Session, stop chan struct{}) {
 		case <-stop:
 			return
 		case <-t.C:
+		case <-h.kick:
 		}
 	}
 }
@@ -618,9 +799,9 @@ func (h *HelmRepos) chartObjects() map[string]*unstructured.Unstructured {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	out := map[string]*unstructured.Unstructured{}
-	for _, r := range h.repos {
-		st := h.state[r.Name]
-		if st == nil || st.index == nil {
+	for _, e := range h.entries {
+		st := h.state[e.info.Name]
+		if e.repo == nil || st == nil || st.index == nil {
 			continue
 		}
 		rv := strconv.FormatUint(st.gen, 10)
@@ -630,7 +811,7 @@ func (h *HelmRepos) chartObjects() map[string]*unstructured.Unstructured {
 				continue
 			}
 			kc := kinds.HelmChart{
-				Repository: r.Name, Name: c.Name, Version: latest.Version, AppVersion: latest.AppVersion,
+				Repository: e.info.Name, Name: c.Name, Version: latest.Version, AppVersion: latest.AppVersion,
 				Description: latest.Description, Home: latest.Home, Icon: latest.Icon, KubeVersion: latest.KubeVersion,
 				Digest: latest.Digest, Keywords: latest.Keywords, Maintainers: latest.Maintainers, Sources: latest.Sources,
 				Deprecated: latest.Deprecated, Created: latest.Created,
@@ -638,17 +819,17 @@ func (h *HelmRepos) chartObjects() map[string]*unstructured.Unstructured {
 			for _, v := range c.Versions {
 				kc.Versions = append(kc.Versions, kinds.HelmChartVersion{Version: v.Version, AppVersion: v.AppVersion, Created: v.Created})
 			}
-			obj := kinds.HelmChartObject(kc, chartUID(r, c.Name), rv)
+			obj := kinds.HelmChartObject(kc, chartUID(e.info.Name, st, c.Name), rv)
 			out[obj.GetName()] = obj
 		}
 	}
 	return out
 }
 
-// chartUID names a chart for as long as its repository is added: a repository removed and added
-// again gives its charts new UIDs.
-func chartUID(r HelmRepo, chart string) string {
-	sum := sha256.Sum256([]byte(r.Name + "\x00" + r.Added.UTC().Format(time.RFC3339Nano) + "\x00" + chart))
+// chartUID names a chart for as long as its repository is in Helm's file with the same name and
+// URL: a repository removed and added again, or given another URL, gives its charts new UIDs.
+func chartUID(repository string, st *repoState, chart string) string {
+	sum := sha256.Sum256([]byte(repository + "\x00" + st.key + "\x00" + strconv.FormatUint(st.since, 10) + "\x00" + chart))
 	return hex.EncodeToString(sum[:16])
 }
 

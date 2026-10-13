@@ -83,10 +83,9 @@ var wantCommands = map[string]engine.Danger{
 	"helm.dismissOperation":   engine.DangerUI,
 	"helm.release.upgradeTab": engine.DangerUI, "helm.release.upgrade": engine.DangerMutating,
 	"helm.release.values": engine.DangerRead, "helm.release.history": engine.DangerRead,
-	// Helm chart repositories (G11): Cogpit's own configuration; an agent's add or remove is
-	// refused (TestHelmReposAreTheUsers).
-	"helm.repo.list": engine.DangerRead, "helm.repo.add": engine.DangerUI, "helm.repo.remove": engine.DangerUI,
-	"helm.repo.update": engine.DangerUI,
+	// Helm chart repositories (G11, D-29): read from Helm's repositories.yaml, added and removed
+	// with the helm CLI only, so there is no add or remove (TestNoCommandWritesHelmsFile).
+	"helm.repo.list": engine.DangerRead, "helm.repo.update": engine.DangerUI,
 	// Installing a chart (G11): the tab is UI, the preview a read, the install mutating (D-2).
 	"helm.chart.installTab": engine.DangerUI, "helm.chart.preview": engine.DangerRead, "helm.chart.install": engine.DangerMutating,
 

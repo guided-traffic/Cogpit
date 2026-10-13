@@ -108,9 +108,9 @@ type Options struct {
 	// Hotbar keeps the hotbar (hotbar.go), shown in UIState.Hotbar. Nil: the session has none and
 	// the hotbar commands are disabled.
 	Hotbar *Hotbar
-	// HelmRepos keeps the Helm chart repositories the user added and their indexes (helmrepos.go),
-	// whose charts are the local kind helmcharts. Nil: the session has none, the repository
-	// commands are disabled and charts cannot be installed.
+	// HelmRepos reads the Helm chart repositories of Helm's repositories file and keeps their
+	// indexes (helmrepos.go), whose charts are the local kind helmcharts. Nil: the session has
+	// none, the repository commands are disabled and charts cannot be installed.
 	HelmRepos *HelmRepos
 	// Preferences keeps Cogpit's preferences (preferences.go), shown in UIState.Preferences. Nil:
 	// the session has none, the defaults apply and the preferences commands are disabled.
