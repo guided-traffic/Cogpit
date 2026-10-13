@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G5: the title bar's history arrows, notifications and context menu built; G5: column reorder by dragging built; G5: row checkboxes and the selection's menu built; G9, G7: Delete of a selection built in the engine (`object.deleteMany`), estimates not moved; G5, G13: the welcome page, the Help and Window menus, Disconnect and Remove from Cogpit built, four rows partial, estimates not moved; G8: the log tab's pod and container selectors, older lines and jump to a time partial; G8: the log tab's pod and container selectors and older lines partial; G8: the log tab's pod and container selectors partial; G11: a release upgraded to a version from the user's repositories; G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (G5, G13: the navigator's section level, Local Kubeconfigs, and its scope as engine state built, the tab bar showing the scope's tabs, two rows from missing to partial, estimates not moved; G5: the title bar's history arrows, notifications and context menu built; G5: column reorder by dragging built; G5: row checkboxes and the selection's menu built; G9, G7: Delete of a selection built in the engine (`object.deleteMany`), estimates not moved; G5, G13: the welcome page, the Help and Window menus, Disconnect and Remove from Cogpit built, four rows partial, estimates not moved; G8: the log tab's pod and container selectors, older lines and jump to a time partial; G8: the log tab's pod and container selectors and older lines partial; G8: the log tab's pod and container selectors partial; G11: a release upgraded to a version from the user's repositories; G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -733,11 +733,29 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   Tab and ⇧Tab, ↵ through `ui.openView`), the tree now Cogpit's own rows instead of Fyne's
   ([`navigator.go`](../../internal/ui/fyneui/navigator.go), `TestNavigatorKeyboard`,
   `TestNavigatorSearch`, [ui-parity › Layout](ui-parity.md#layout), [› Clusters](ui-parity.md#clusters)).
-  Differs from Lens: no section level, so the dropdown's "Local Kubeconfigs…" and the ‹ open the
-  context picker and the › does nothing; inferred, Cogpit's defaults:
+  Differs from Lens: the › on the root does nothing (the tree is drilled into its cluster
+  already); inferred, Cogpit's defaults:
   the search's matching rules, ↵ on a group, Space, Home and End, a letter typed in the tree starting
   a search. Not tried in a real window. Estimate not moved (the lead recounts). Since the tab bar
-  (below) ↵ and a click open the preview tab, ⇧↵ and a double click a fixed tab.
+  (below) ↵ and a click open the preview tab, ⇧↵ and a double click a fixed tab; since the section
+  level (below) the dropdown and the ‹ reach it instead of the context picker.
+- **Navigator section level and scope (built 2026-10-13, night run):** the level above a cluster,
+  Kubernetes Clusters › Local Kubeconfigs: every context the kubeconfig sources offer, grouped by
+  the folder or file they come from, each with its identity's badge, display name, connection dot
+  and ›, the source as the tooltip; the › (a click, → or ↵) drills into the cluster, connecting it
+  through the engine's connect after the login program's approval, the root's ‹ (or ←) goes back up.
+  The scope is engine state (`UIState.NavigatorScope`, `ui.setNavigatorScope` and its MCP tool),
+  kept in step with the connection (every connect drills in, no connection is the section), and the
+  tab bar shows the scope's tabs, ⌘n, ⌘⌥→ and ⌘⌥← counting those
+  ([`fyneui/navigator_sections.go`](../../internal/ui/fyneui/navigator_sections.go),
+  [`engine/navscope.go`](../../internal/engine/navscope.go), `TestNavigatorSectionDrillsInAndBack`,
+  `TestNavigatorSectionOverTheEngine`, `TestTabsInScope`,
+  [PNG](../../internal/ui/fyneui/testdata/navigator_section_dark.png),
+  [ui-parity › Clusters](ui-parity.md#clusters)). Not built: the cloud sections (paid, after the beta,
+  G18), Teamwork (D-9) and Extensions (D-5), so nothing is above the section. Inferred, Cogpit's
+  defaults: the grouping, the dot's colours, the dropdown listing the clusters too, every connect
+  drilling in (one connection), the search filtering the clusters at the section, the keyboard
+  following the level. Not tried in a real window. Estimate not moved (the lead recounts).
 - **Tab bar (built 2026-10-13, night run):** the tabs of cluster views above the workspace as
   captured: "<view> - <context>" with the cluster's badge, the preview tab italic, a close button,
   the full title as tooltip; the navigator's click opens the preview tab, its double click and ⇧↵
@@ -753,8 +771,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   cluster connects to it; Windows and Linux get the Ctrl forms of the macOS keys, not Lens's
   Ctrl+PageUp/PageDown and Alt+←/→ (G22). Inferred, Cogpit's defaults: one preview tab in all, the
   neighbour shown on close, the history's contents and bound, ⌘9 the last tab, wrapping next and
-  previous. Still missing: "Tab icons take the cluster's colour"
-  (needs cluster identity), filtering the tabs to a section's scope. Not tried in a real window.
+  previous. The tab's badge takes the cluster's identity (2026-10-13); since 2026-10-13 (night run)
+  the bar shows the navigator's scope's tabs (the section's: every tab; a cluster's: its own). Not
+  tried in a real window.
   Estimate not moved (the lead recounts). The title bar's history arrows came the same night (below).
 - **Title bar (built 2026-10-13, night run):** the captured back and forward arrows, after Cogpit's
   logo (Lens has them after the window buttons, where the owner wants Cogpit's logo), enabled from
@@ -914,7 +933,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   syncs, Metrics provider and Appearance's theme row updated); and 5 more since 2026-10-13 (the tab
   bar's shortcut rows: close the tab, back and forward, next, previous, tab *n*; G5's tab bar); and
   3 more since 2026-10-13 (the Window menu, Help › Welcome, zoom and full screen; the Cluster menu
-  updated; G5's welcome page is the fourth).
+  updated; G5's welcome page is the fourth); and 2 more since 2026-10-13 (night run: Navigator
+  sections and Drill into a section or cluster, partial; Search clusters by name and the navigator's
+  keyboard updated; G5's navigator section level and scope).
 - **Estimate:** 50–140 h (was 58–150; the palette and five shortcut rows built, night run; 1–2.5 h per row, the registry makes shortcuts and menus cheap); not moved for Preferences and Cluster settings (2026-10-13): the lead recounts.
 
 ## Platform gaps
@@ -1045,6 +1066,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | G5, G13: the navigator's section level, Local Kubeconfigs, built (night run): the clusters of the kubeconfig sources grouped by source, the › drilling in through `ui.setNavigatorScope` (`UIState.NavigatorScope`, kept in step with the connection), the ‹ going up, the tab bar showing the scope's tabs; Navigator sections and Drill into a section or cluster partial (the cloud sections, Teamwork and Extensions not built: D-9, D-5); estimates not moved (the lead recounts) |
 | 2026-10-13 | minor | G5 (night run): the title bar's history arrows, the notifications' bell and panel (a log of every toast as engine state, three `notifications.*` commands) and its context menu built; Notifications in the title bar partial; what is inferred; estimate not moved (the lead recounts) |
 | 2026-10-13 | minor | G5, G13: the welcome page (`UIState.Welcome`, `ui.welcome.open`), the Help and Window menus (macOS keeps GLFW's Window menu, verified in source), Disconnect and Remove from Cogpit (`cluster.disconnect`, `cluster.links`, `cluster.remove`) built (night run); four free rows partial; zoom missing with its reasons; estimates not moved (the lead recounts) |
 | 2026-10-13 | minor | G8 evidence (night run): jumping to a time partial, every Logs row exists; estimate not moved |

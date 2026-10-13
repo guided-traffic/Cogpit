@@ -438,6 +438,9 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	if first || (st.Context == "") != (old.Context == "") {
 		sh.win.SetMainMenu(sh.mainMenu()) // Cluster Settings… is enabled while a cluster is chosen
 	}
+	if first || st.Scope() != old.Scope() {
+		sh.side.scopeChanged() // the section's clusters or the cluster's tree (navigator_sections.go)
+	}
 	if first || tabsChanged(st, old) {
 		sh.tabs.sync()
 	}

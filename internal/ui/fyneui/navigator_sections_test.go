@@ -1,0 +1,505 @@
+package fyneui
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/test"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/engine/commands"
+	"github.com/guided-traffic/cogpit/internal/model"
+)
+
+// The section's clusters: the connected one from ~/.kube's config, one of another file of ~/.kube
+// with a display name and a failed connect, one of a file the user added whose login program is not
+// allowed yet, and the demo cluster.
+const (
+	secKind = "kind-cogpit [.kube/config]"
+	secProd = "prod-eu-central [.kube/prod.yaml]"
+	secEKS  = "eks-payments [eks.yaml]"
+)
+
+// fakeNavScope gives the fake engine ui.setNavigatorScope: the real command's metadata in its
+// registry and a handler that changes its UI state as the engine does in the cases the tests use
+// (engine/navscope_test.go tests the engine's own): into another cluster it connects at once.
+func fakeNavScope(t testing.TB, f *fakeEngine) {
+	t.Helper()
+	c, ok := realCommands(t).Get("ui.setNavigatorScope")
+	if !ok {
+		t.Fatal("the registry has no ui.setNavigatorScope")
+	}
+	probe[navScopeParams](t, f, c)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.handlers["ui.setNavigatorScope"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p navScopeParams
+		if err := json.Unmarshal(normalize(inv.Params), &p); err != nil {
+			return nil, err
+		}
+		id, err := engine.ParseNavScope(p.Scope)
+		if err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) {
+			if id != "" && id != u.Context { // another cluster: connected, as the engine connects it
+				u.Context, u.Connection, u.View = id, engine.Connection{State: engine.Connected}, kindPods
+			}
+			u.NavigatorScope = p.Scope
+		})
+		return nil, nil
+	}
+}
+
+// setHandler replaces a command's handler while the shell runs.
+func setHandler(f *fakeEngine, id string, h func(context.Context, engine.Invocation) (any, error)) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.handlers[id] = h
+}
+
+// sectionFake is kind-cogpit connected with the navigator at the section level, and three tabs: two
+// of kind-cogpit, one of prod.
+func sectionFake(t testing.TB) *fakeEngine {
+	f := connectedFake(t, 200)
+	f.contexts = []engine.ContextInfo{ // sorted by id, as the engine lists them
+		{Name: "demo", Namespace: "default", Demo: true},
+		{Name: secEKS, Cluster: "eks-payments", Server: "https://ABCD.gr7.eu-central-1.eks.amazonaws.com", Source: "eks.yaml",
+			KubeContext: "eks-payments", File: "/Users/dev/eks.yaml", Exec: engine.ExecRequired, ExecKind: "program"},
+		{Name: secKind, Cluster: "kind-cogpit", Server: "https://127.0.0.1:52341", Source: ".kube/config",
+			KubeContext: "kind-cogpit", File: "/Users/dev/.kube/config", Current: true},
+		{Name: secProd, Cluster: "prod-eu-central", Server: "https://api.prod-eu-central.example.com:6443", Source: ".kube/prod.yaml",
+			KubeContext: "prod-eu-central", File: "/Users/dev/.kube/prod.yaml", ConnectProblem: true},
+	}
+	f.ui.Context = secKind
+	f.ui.Connection = engine.Connection{State: engine.Connected}
+	f.ui.NavigatorScope = engine.NavScopeLocal
+	f.ui.ClusterSettings = map[string]engine.ClusterSettings{secProd: {Name: "Payments prod", IconColor: "magenta"}}
+	f.ui.Tabs = []engine.ViewTab{
+		{ID: "tab-1", Context: secKind, View: kindPods, Title: "Pods - kind-cogpit", Preview: true, Sort: engine.DefaultSort},
+		{ID: "tab-2", Context: secKind, View: "services", Title: "Services - kind-cogpit", Sort: engine.DefaultSort},
+		{ID: "tab-3", Context: secProd, View: "deployments", Title: "Deployments - prod-eu-central", Sort: engine.DefaultSort},
+	}
+	f.ui.ActiveTab = "tab-1"
+	fakeNavScope(t, f)
+	return f
+}
+
+func sectionScene(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, *fakeEngine) {
+	t.Helper()
+	f := sectionFake(t)
+	sh, w, q := newTestShell(t, f, Options{Theme: mode})
+	q.until(t, "the section's clusters", func() bool {
+		return sh.side.sec.loaded && len(sh.side.sec.visible) == 5 && len(sh.kinds) > 0
+	})
+	return sh, w, q, f
+}
+
+// scopeCalls are the scopes ui.setNavigatorScope was asked for, in order.
+func scopeCalls(t *testing.T, f *fakeEngine) []string {
+	t.Helper()
+	var out []string
+	for _, c := range f.callsOf("ui.setNavigatorScope") {
+		out = append(out, decodeParams[navScopeParams](t, c).Scope)
+	}
+	return out
+}
+
+// The section level lists every cluster under Local Kubeconfigs (Kubernetes Clusters), grouped by
+// the folder or file it comes from, the demo cluster first: each with its identity's badge, its
+// display name, a connection dot and a ›, the source as the tooltip; the connected one marked. The
+// header names the section, and the tab bar shows every tab.
+func TestNavigatorSectionLevel(t *testing.T) {
+	sh, w, q, _ := sectionScene(t, ThemeDark)
+	s, n := sh.side, sh.side.sec
+	if !n.Visible() || s.tree.Visible() {
+		t.Fatalf("section shown %v, tree shown %v", n.Visible(), s.tree.Visible())
+	}
+	if s.head.scope.text.text != "Local Kubeconfigs" || n.root.title.text != "Local Kubeconfigs" ||
+		n.root.sub.text != "Kubernetes Clusters · 4 clusters" {
+		t.Errorf("header %q, root %q / %q", s.head.scope.text.text, n.root.title.text, n.root.sub.text)
+	}
+	if got := n.visible[1:]; !slices.Equal(got, []string{"demo", secKind, secProd, secEKS}) {
+		t.Errorf("rows %q", got)
+	}
+	var titles []string
+	for _, id := range n.visible[1:] {
+		titles = append(titles, n.rows[id].title.text)
+	}
+	if !slices.Equal(titles, []string{"Demo cluster", "kind-cogpit", "Payments prod", "eks-payments"}) {
+		t.Errorf("titles %q", titles)
+	}
+	if len(n.heads) != 2 || n.heads[".kube/"] == nil || n.heads["eks.yaml"] == nil {
+		t.Errorf("group headings %v", n.heads)
+	}
+	kind, prod, eks := n.rows[secKind], n.rows[secProd], n.rows[secEKS]
+	if !n.marked(secKind) || !kind.title.style.Bold || prod.title.style.Bold {
+		t.Error("the connected cluster is not the one marked")
+	}
+	if kind.dot.color != connectionColor(engine.Connection{State: engine.Connected}) ||
+		prod.dot.color != statusColorName(model.StatusError) || eks.dot.color != connectionColor(engine.Connection{}) {
+		t.Errorf("dots %q %q %q", kind.dot.color, prod.dot.color, eks.dot.color)
+	}
+	if prod.badge.text != "PP" || prod.badge.ink != identityColorName("magenta") || kind.badge.text != "KC" {
+		t.Errorf("badges %q (%q), %q", prod.badge.text, prod.badge.ink, kind.badge.text)
+	}
+	if got := prod.tipText(); got != "Payments prod - .kube/prod.yaml" {
+		t.Errorf("tooltip %q", got)
+	}
+	if got := n.rows["demo"].tipText(); got != demoLabel {
+		t.Errorf("the demo's tooltip %q", got)
+	}
+	if len(sh.tabs.shown) != 3 {
+		t.Errorf("the tab bar shows %d tabs at the section, want every one", len(sh.tabs.shown))
+	}
+
+	sh.tip.delay = time.Millisecond
+	settle(w)
+	test.MoveMouse(w.Canvas(), fyne.CurrentApp().Driver().AbsolutePositionForObject(eks).AddXY(60, eks.Size().Height/2))
+	q.until(t, "the tooltip", func() bool { return sh.tip.visibleText() == "eks-payments - eks.yaml" })
+}
+
+// A cluster's › (or a click on its row) drills into it: ui.setNavigatorScope, which connects a
+// cluster that is not connected; the tree shows its root and the tab bar its tabs only. The root's ‹
+// goes back up to the section, where every tab shows again; a click on the connected cluster's row
+// drills in without a connect.
+func TestNavigatorSectionDrillsInAndBack(t *testing.T) {
+	sh, _, q, f := sectionScene(t, ThemeDark)
+	s, n := sh.side, sh.side.sec
+	test.Tap(n.rows[secProd].next)
+	q.until(t, "prod's tree", func() bool { return sh.ui.Context == secProd && s.tree.Visible() && !n.Visible() })
+	if s.head.scope.text.text != "prod-eu-central" || s.name.text != "Payments prod" {
+		t.Errorf("header %q, root %q", s.head.scope.text.text, s.name.text)
+	}
+	if len(sh.tabs.shown) != 1 || sh.tabs.shown[0].tab.ID != "tab-3" {
+		t.Errorf("the tab bar at prod: %d tabs", len(sh.tabs.shown))
+	}
+
+	test.Tap(s.rootRow.back)
+	q.until(t, "the section", func() bool { return n.Visible() && !s.tree.Visible() && len(sh.tabs.shown) == 3 })
+	if sh.ui.Context != secProd {
+		t.Errorf("going up changed the connection: %q", sh.ui.Context)
+	}
+	test.Tap(n.rows[secProd])
+	q.until(t, "prod's tree again", func() bool { return s.tree.Visible() })
+	want := []string{"cluster:" + secProd, engine.NavScopeLocal, "cluster:" + secProd}
+	if got := scopeCalls(t, f); !slices.Equal(got, want) {
+		t.Errorf("scopes %q, want %q", got, want)
+	}
+	if n := len(f.callsOf("cluster.connect")); n != 0 {
+		t.Errorf("cluster.connect dispatched %d times: drilling in connects through ui.setNavigatorScope", n)
+	}
+}
+
+// A cluster whose login program the user has not allowed shows it first, as the picker does: nothing
+// connects, and the scope stays, before the user allowed it.
+func TestNavigatorSectionAsksForTheLoginProgramFirst(t *testing.T) {
+	sh, _, q, f := sectionScene(t, ThemeDark)
+	n := sh.side.sec
+	setHandler(f, "kubeconfig.pendingApprovals", func(context.Context, engine.Invocation) (any, error) {
+		return nil, errors.New("no plugin in this fake")
+	})
+	test.Tap(n.rows[secEKS])
+	q.until(t, "the approval asked", func() bool { return len(f.callsOf("kubeconfig.pendingApprovals")) == 1 })
+	q.drain()
+	if got := scopeCalls(t, f); len(got) != 0 {
+		t.Errorf("drilled in before the approval: %q", got)
+	}
+	if p := decodeParams[map[string]string](t, f.callsOf("kubeconfig.pendingApprovals")[0]); p["context"] != secEKS {
+		t.Errorf("the approval asked for %q", p["context"])
+	}
+	setHandler(f, "kubeconfig.pendingApprovals", func(context.Context, engine.Invocation) (any, error) {
+		return map[string]any{"groups": []any{}}, nil // allowed meanwhile
+	})
+	test.Tap(n.rows[secEKS].next)
+	q.until(t, "eks's tree", func() bool { return sh.ui.Context == secEKS && sh.side.tree.Visible() })
+	if got := scopeCalls(t, f); !slices.Equal(got, []string{"cluster:" + secEKS}) {
+		t.Errorf("scopes %q", got)
+	}
+}
+
+// The section's keyboard: the list starts on the connected cluster; ↑↓, Home and End move, ←
+// goes to the root, → from the root to the first cluster; ↵ (and →) drill in, and the keyboard
+// follows into the tree's root; ← on the tree's root goes up, back to the cluster's row; a letter
+// starts the search.
+func TestNavigatorSectionKeyboard(t *testing.T) {
+	sh, w, q, f := sectionScene(t, ThemeDark)
+	s, n, c := sh.side, sh.side.sec, w.Canvas()
+	c.Focus(n)
+	if !n.focused || n.focus != secKind {
+		t.Fatalf("focused %v on %q", n.focused, n.focus)
+	}
+	keys := func(names ...fyne.KeyName) {
+		for _, k := range names {
+			n.TypedKey(&fyne.KeyEvent{Name: k})
+		}
+	}
+	keys(fyne.KeyDown)
+	if n.focus != secProd {
+		t.Errorf("↓: %q", n.focus)
+	}
+	keys(fyne.KeyLeft)
+	if n.focus != navSectionRoot {
+		t.Errorf("←: %q", n.focus)
+	}
+	keys(fyne.KeyRight)
+	if n.focus != "demo" {
+		t.Errorf("→ on the root: %q", n.focus)
+	}
+	keys(fyne.KeyEnd)
+	if n.focus != secEKS {
+		t.Errorf("End: %q", n.focus)
+	}
+	keys(fyne.KeyHome, fyne.KeyDown, fyne.KeyDown)
+	if n.focus != secKind {
+		t.Errorf("Home ↓↓: %q", n.focus)
+	}
+	if got := scopeCalls(t, f); len(got) != 0 {
+		t.Fatalf("moving drilled in: %q", got)
+	}
+	keys(fyne.KeyReturn)
+	q.until(t, "the tree", func() bool { return s.tree.Visible() && c.Focused() == s.tree })
+	if s.tree.focus != rootNode || !s.tree.keyboardOn(rootNode) {
+		t.Errorf("the tree's keyboard on %q", s.tree.focus)
+	}
+	s.tree.TypedKey(&fyne.KeyEvent{Name: fyne.KeyLeft})
+	q.until(t, "the section", func() bool { return n.Visible() && c.Focused() == n })
+	if n.focus != secKind {
+		t.Errorf("back up: keyboard on %q, want the cluster it came from", n.focus)
+	}
+	if got := scopeCalls(t, f); !slices.Equal(got, []string{"cluster:" + secKind, engine.NavScopeLocal}) {
+		t.Errorf("scopes %q", got)
+	}
+	n.TypedRune('p')
+	if !s.head.searching() || s.head.entry.Text != "p" {
+		t.Errorf("a letter: search %v %q", s.head.searching(), s.head.entry.Text)
+	}
+}
+
+// The scope dropdown lists the section and every cluster it holds, the scope shown checked;
+// choosing one sets the scope.
+func TestNavigatorSectionDropdown(t *testing.T) {
+	sh, _, q, f := sectionScene(t, ThemeDark)
+	h := sh.side.head
+	labels := func() []string {
+		var out []string
+		for _, it := range h.menuModel.Items {
+			l := it.Label
+			if it.Checked {
+				l += " ✓"
+			}
+			out = append(out, l)
+		}
+		return out
+	}
+	test.Tap(h.scope)
+	want := []string{"Local Kubeconfigs ✓", "", "Demo cluster", "kind-cogpit", "Payments prod", "eks-payments"}
+	if got := labels(); !slices.Equal(got, want) {
+		t.Fatalf("at the section: %q, want %q", got, want)
+	}
+	h.menuModel.Items[3].Action() // kind-cogpit, the connected one
+	q.until(t, "kind-cogpit's tree", func() bool { return sh.side.tree.Visible() })
+	test.Tap(h.scope)
+	want = []string{"Local Kubeconfigs", "", "Demo cluster", "kind-cogpit ✓", "Payments prod", "eks-payments"}
+	if got := labels(); !slices.Equal(got, want) {
+		t.Fatalf("at kind-cogpit: %q, want %q", got, want)
+	}
+	h.menuModel.Items[0].Action()
+	q.until(t, "the section", func() bool { return sh.side.sec.Visible() })
+	if got := scopeCalls(t, f); !slices.Equal(got, []string{"cluster:" + secKind, engine.NavScopeLocal}) {
+		t.Errorf("scopes %q", got)
+	}
+}
+
+// The header's search filters the section's clusters by name, display name and source; ↵ drills
+// into the first match; nothing matching says so.
+func TestNavigatorSectionSearch(t *testing.T) {
+	sh, _, q, f := sectionScene(t, ThemeDark)
+	h, n := sh.side.head, sh.side.sec
+	for text, want := range map[string][]string{
+		"Payments P": {secProd}, // the display name, ignoring case
+		"eks.yaml":   {secEKS},  // the source
+		"KIND":       {secKind}, // the context's name
+		"o":          {"demo", secKind, secProd},
+	} {
+		h.openSearch(text)
+		if got := n.visible[1:]; !slices.Equal(got, want) {
+			t.Errorf("%q: %q, want %q", text, got, want)
+		}
+	}
+	h.openSearch("zzz")
+	if len(n.visible) != 1 || n.hint.text != "No clusters match “zzz”." {
+		t.Errorf("no match: %d rows, hint %q", len(n.visible), n.hint.text)
+	}
+	h.openSearch("prod")
+	h.entry.OnSubmitted(h.entry.Text)
+	q.until(t, "prod's tree", func() bool { return sh.side.tree.Visible() })
+	if got := scopeCalls(t, f); !slices.Equal(got, []string{"cluster:" + secProd}) {
+		t.Errorf("scopes %q", got)
+	}
+	if h.searching() {
+		t.Error("the search stays open in the cluster's tree")
+	}
+}
+
+// A cluster's row has the cluster's menu: Connect while it is not the active one, Settings… and the
+// hotbar's item where they exist; the connected one's has Disconnect and no Connect.
+func TestNavigatorSectionRowMenu(t *testing.T) {
+	f := sectionFake(t)
+	withHotbar(f, 1, engine.HotbarBank{Name: engine.DefaultHotbarBank})
+	sh, _, q := newTestShell(t, f, Options{})
+	q.until(t, "the clusters", func() bool { return sh.side.sec.loaded && len(sh.side.sec.visible) == 5 })
+	n := sh.side.sec
+	labels := func() []string {
+		var out []string
+		for _, it := range n.menuModel.Items {
+			out = append(out, it.Label)
+		}
+		return out
+	}
+	n.rows[secProd].TappedSecondary(&fyne.PointEvent{})
+	if got := labels(); len(got) < 2 || got[0] != "Connect" || !slices.Contains(got, "Add to Hotbar") {
+		t.Fatalf("prod's menu %q", got)
+	}
+	n.menuModel.Items[0].Action()
+	q.until(t, "prod's tree", func() bool { return sh.side.tree.Visible() && sh.ui.Context == secProd })
+	sh.side.goUp()
+	q.until(t, "the section", func() bool { return n.Visible() })
+	n.rows[secProd].TappedSecondary(&fyne.PointEvent{})
+	if got := labels(); slices.Contains(got, "Connect") || !slices.Contains(got, "Add to Hotbar") {
+		t.Errorf("the connected cluster's menu %q", got)
+	}
+	n.root.TappedSecondary(&fyne.PointEvent{})
+	if got := labels(); !slices.Equal(got, []string{"Add Kubeconfigs…"}) {
+		t.Errorf("the root's menu %q", got)
+	}
+}
+
+// The window's parameters match the engine's schema.
+func TestNavScopeParamsMatchTheRegistry(t *testing.T) {
+	f := newFakeEngine(t)
+	fakeNavScope(t, f)
+	p, _ := f.reg.Get("ui.setNavigatorScope")
+	r, _ := realCommands(t).Get("ui.setNavigatorScope")
+	if !slices.Equal(p.Schema.Required, r.Schema.Required) || len(p.Schema.Properties) != len(r.Schema.Properties) ||
+		!slices.Equal(r.Schema.Required, []string{"scope"}) {
+		t.Errorf("the window requires %v of %d, the command %v of %d", p.Schema.Required, len(p.Schema.Properties),
+			r.Schema.Required, len(r.Schema.Properties))
+	}
+}
+
+// Over the real engine and a small demo cluster, not connected at start: the navigator shows the
+// section with the demo cluster; its › connects through the engine and drills in, the tree and the
+// preview tab showing; the root's ‹ goes back up and keeps the connection and the tab.
+func TestNavigatorSectionOverTheEngine(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds a demo cluster")
+	}
+	empty := filepath.Join(t.TempDir(), "config") // a kubeconfig without contexts: never the developer's
+	if err := os.WriteFile(empty, []byte("apiVersion: v1\nkind: Config\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	conn := &engine.ClusterConnector{IncludeDemo: true, KubeconfigPaths: []string{empty}}
+	conn.DemoOptions.Pods, conn.DemoOptions.NoChurn, conn.DemoOptions.Seed = 300, true, 3
+	s := engine.New(engine.Options{Connector: conn})
+	defer s.Close()
+	if err := commands.RegisterAll(s.Registry()); err != nil {
+		t.Fatal(err)
+	}
+	a := test.NewTempApp(t)
+	a.Settings().SetTheme(newTheme(ThemeDark))
+	w := test.NewTempWindow(t, nil)
+	w.SetPadded(false)
+	q := &mainQueue{}
+	sh := newShell(s, a, w, Options{}, q.do)
+	s.SetConfirmer(sh.confirmer)
+	w.SetContent(sh.root)
+	w.Resize(fyne.NewSize(1440, 900))
+	sh.start()
+	defer func() {
+		sh.stop()
+		q.drain()
+	}()
+	until := func(what string, cond func() bool) {
+		t.Helper()
+		deadline := time.Now().Add(30 * time.Second)
+		for !cond() {
+			if time.Now().After(deadline) {
+				t.Fatalf("timed out waiting for %s: scope %q, %s %q", what, sh.ui.NavigatorScope, sh.ui.Connection.State, sh.ui.Context)
+			}
+			q.drain()
+			time.Sleep(5 * time.Millisecond)
+		}
+		q.drain()
+	}
+	n := sh.side.sec
+	until("the section", func() bool { return n.Visible() && n.rows[engine.DemoContext] != nil })
+	sh.picker.hide()
+	if sh.ui.NavigatorScope != engine.NavScopeLocal || len(sh.tabs.shown) != 0 {
+		t.Errorf("at start: scope %q, %d tabs", sh.ui.NavigatorScope, len(sh.tabs.shown))
+	}
+	test.Tap(n.rows[engine.DemoContext].next)
+	until("the demo's tree", func() bool {
+		return sh.ui.Connection.State == engine.Connected && sh.side.tree.Visible() && sh.side.tree.rows["deployments"] != nil &&
+			len(sh.tabs.shown) == 1 && sh.tabs.shown[0].tab.Title == "Pods - demo"
+	})
+	if got := s.UIState().NavigatorScope; got != engine.NavScopeCluster(engine.DemoContext) {
+		t.Errorf("scope %q", got)
+	}
+	test.Tap(sh.side.rootRow.back)
+	until("the section again", func() bool { return n.Visible() && sh.ui.NavigatorScope == engine.NavScopeLocal })
+	if sh.ui.Connection.State != engine.Connected || len(sh.tabs.shown) != 1 || !n.marked(engine.DemoContext) {
+		t.Errorf("up: %s, %d tabs, demo marked %v", sh.ui.Connection.State, len(sh.tabs.shown), n.marked(engine.DemoContext))
+	}
+	if !strings.HasPrefix(n.root.sub.text, "Kubernetes Clusters · 1 cluster") {
+		t.Errorf("root %q", n.root.sub.text)
+	}
+}
+
+func TestRenderNavigatorSectionDark(t *testing.T) {
+	renderNavigatorSection(t, ThemeDark, "navigator_section_dark.png")
+}
+func TestRenderNavigatorSectionLight(t *testing.T) {
+	renderNavigatorSection(t, ThemeLight, "navigator_section_light.png")
+}
+
+// renderNavigatorSection: the section level with its groups, the keyboard on the connected cluster,
+// the pointer on the cluster whose login program waits, showing its source; every tab in the bar.
+func renderNavigatorSection(t *testing.T, mode ThemeMode, name string) {
+	sh, w, q, _ := sectionScene(t, mode)
+	q.until(t, "diagnostics", func() bool { return sh.diag.total > 0 })
+	w.Canvas().Focus(sh.side.sec)
+	settle(w)
+	sh.tip.delay = time.Millisecond
+	eks := sh.side.sec.rows[secEKS]
+	test.MoveMouse(w.Canvas(), fyne.CurrentApp().Driver().AbsolutePositionForObject(eks).AddXY(60, eks.Size().Height/2))
+	q.until(t, "the tooltip", func() bool { return sh.tip.visibleText() != "" })
+	savePNG(t, w, name)
+}
+
+func TestRenderNavigatorScopeMenuDark(t *testing.T) {
+	renderNavigatorScopeMenu(t, ThemeDark, "navigator_section_menu_dark.png")
+}
+func TestRenderNavigatorScopeMenuLight(t *testing.T) {
+	renderNavigatorScopeMenu(t, ThemeLight, "navigator_section_menu_light.png")
+}
+
+// renderNavigatorScopeMenu: drilled into kind-cogpit (its tabs only in the bar), the scope dropdown
+// open on the section and its clusters.
+func renderNavigatorScopeMenu(t *testing.T, mode ThemeMode, name string) {
+	sh, w, q, _ := sectionScene(t, mode)
+	q.until(t, "diagnostics", func() bool { return sh.diag.total > 0 })
+	test.Tap(sh.side.sec.rows[secKind])
+	q.until(t, "the tree", func() bool { return sh.side.tree.Visible() && sh.side.tree.rows["deployments"] != nil })
+	settle(w)
+	test.Tap(sh.side.head.scope)
+	savePNG(t, w, name)
+}

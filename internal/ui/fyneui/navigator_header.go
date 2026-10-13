@@ -11,6 +11,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/kubeconfig"
 )
 
 // navHeader is the navigator's header (navigator.go): the scope dropdown and the search button,
@@ -39,31 +40,61 @@ func newNavHeader(s *sidebar) *navHeader {
 	return h
 }
 
-// update follows the connected context: the dropdown names the scope the tree shows.
+// update follows the navigator's scope: the dropdown names the section, or the cluster the tree
+// shows.
 func (h *navHeader) update() {
-	name, _ := splitContextID(h.s.sh.ui.Context)
-	if name == "" {
-		name = "No cluster"
+	ui := h.s.sh.ui
+	if ui.ScopeCluster() == "" {
+		h.scope.setText(navSectionTitle)
+		h.setPlaceHolder("Search clusters…")
+		return
 	}
+	name, _ := splitContextID(ui.Context)
 	h.scope.setText(name)
+	h.setPlaceHolder("Search items…")
 }
 
-// showScopeMenu opens the scope dropdown below its button: the connected cluster, the scope the
-// tree shows, and "Local Kubeconfigs…", which opens the context picker (inferred: Cogpit's
-// navigator has no section level).
+// setPlaceHolder names what the search filters at the level shown.
+func (h *navHeader) setPlaceHolder(text string) {
+	if h.entry.PlaceHolder != text {
+		h.entry.SetPlaceHolder(text)
+	}
+}
+
+// showScopeMenu opens the scope dropdown below its button: the section, Local Kubeconfigs, and
+// below it every cluster the section lists (the connected one when they are not read yet), the
+// scope shown checked; choosing one sets the scope (ui.setNavigatorScope), a cluster not connected
+// through the section's drill, which shows its login program for approval first. Listing the
+// clusters here as well is Cogpit's default (inferred; Lens's dropdown is captured naming one
+// scope).
 func (h *navHeader) showScopeMenu() {
 	sh := h.s.sh
-	var items []*fyne.MenuItem
-	if id := sh.ui.Context; id != "" {
-		cur := fyne.NewMenuItem(engine.ContextLabel(id), func() { h.s.tree.scroll.ScrollToTop() })
-		cur.Checked = true
-		items = append(items, cur)
-	} else {
-		none := fyne.NewMenuItem("No cluster connected", nil)
+	cluster := sh.ui.ScopeCluster()
+	local := fyne.NewMenuItem(navSectionTitle, h.s.goUp)
+	local.Checked = cluster == ""
+	items := []*fyne.MenuItem{local, fyne.NewMenuItemSeparator()}
+	ctxs := h.s.sec.ordered()
+	if !h.s.sec.loaded && sh.ui.Context != "" {
+		ctxs = []engine.ContextInfo{{Name: sh.ui.Context}}
+	}
+	titles := map[string]int{}
+	for _, c := range ctxs {
+		titles[h.s.sec.rowTitle(c)]++
+	}
+	for _, c := range ctxs {
+		id, label := c.Name, h.s.sec.rowTitle(c)
+		if titles[label] > 1 && c.Source != "" { // a name two files share: say which file
+			label += " (" + kubeconfig.DisplayText(c.Source, maxShownArg) + ")"
+		}
+		item := fyne.NewMenuItem(label, func() { h.s.sec.drill(id) })
+		item.Checked = id == cluster
+		items = append(items, item)
+	}
+	if len(ctxs) == 0 {
+		none := fyne.NewMenuItem("No clusters", nil)
 		none.Disabled = true
 		items = append(items, none)
 	}
-	items = append(items, fyne.NewMenuItemSeparator(), fyne.NewMenuItem("Local Kubeconfigs…", sh.picker.show))
 	h.menuModel = fyne.NewMenu("", items...)
 	sh.tip.hide()
 	pos := fyne.CurrentApp().Driver().AbsolutePositionForObject(h.scope).AddXY(0, h.scope.Size().Height)
@@ -104,7 +135,7 @@ func (h *navHeader) closeSearch() {
 	h.field.Hide()
 	h.s.root.Refresh()
 	if hadFocus {
-		c.Focus(h.s.tree)
+		c.Focus(h.s.list())
 	}
 }
 
@@ -131,7 +162,11 @@ func (e *navSearchEntry) TypedKey(ev *fyne.KeyEvent) {
 		e.h.closeSearch()
 		return
 	case fyne.KeyDown:
-		e.h.s.tree.enter()
+		if e.h.s.section {
+			e.h.s.sec.enter()
+		} else {
+			e.h.s.tree.enter()
+		}
 		return
 	}
 	e.Entry.TypedKey(ev)

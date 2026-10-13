@@ -45,6 +45,7 @@ it. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
 
 - 🖥️ A native macOS app first, Windows and Linux (Ubuntu first) after the macOS beta.
 - 🗂️ Every cluster from your kubeconfig files and synced folders, side by side.
+- 🧭 Lens's navigator levels: Local Kubeconfigs lists every cluster and the tabs of all of them; › drills into one cluster's resources and its tabs, ‹ goes back up.
 - 📌 A hotbar of pinned clusters at the window's edge, in banks of twelve: F1–F12 to switch cluster, ⇧F1–⇧F12 to switch bank.
 - ⌨️ A command palette on ⌘⇧P (Ctrl+Shift+P): every action the menus offer, Switch to any view, the hotbar's clusters and banks; ⌘P to search a cluster by name.
 - 👋 A welcome page whenever no cluster is open (and from Help › Welcome): your clusters one click away, Add Kubeconfigs, the documentation. Disconnect a cluster, or remove it from Cogpit, which unlinks the kubeconfig file you added and never touches the file.

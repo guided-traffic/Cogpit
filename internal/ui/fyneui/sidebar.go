@@ -168,12 +168,15 @@ func navIcon(id string) fyne.Resource {
 }
 
 // sidebar is the navigator (navigator.go): the header with the scope dropdown and the search, and
-// the tree whose root is the connected cluster with its views below. Opening a view dispatches
-// ui.openView; the open view's row follows UIState.View.
+// below it the scope it shows (UIState.NavigatorScope): the tree whose root is the connected
+// cluster with its views below, or the section level listing the clusters (navigator_sections.go).
+// Opening a view dispatches ui.openView; the open view's row follows UIState.View.
 type sidebar struct {
 	sh       *shell
 	head     *navHeader
 	tree     *navTree
+	sec      *navSections // the section level, shown in the tree's place at the section scope
+	section  bool         // the section level shows (the scope applied last)
 	children map[string][]string
 	titles   map[string]string
 	parents  map[string]string // node id → its branch's id; "" for a top-level item
@@ -207,13 +210,67 @@ func newSidebar(sh *shell) *sidebar {
 	s.hintRow = inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, s.emptyHint)
 
 	s.tree = newNavTree(s)
+	s.sec = newNavSections(s)
+	s.sec.Hide() // until the first UI state says which scope shows (scopeChanged)
 	s.head = newNavHeader(s)
 	s.rootRow = newNavRootRow(s)
 	// The header before the tree in the objects, so that Tab goes from the search field into the
 	// tree (container.NewBorder would put the tree first).
-	s.root = container.New(layout.NewBorderLayout(s.head.root, nil, nil, nil), s.head.root, s.tree)
+	s.root = container.New(layout.NewBorderLayout(s.head.root, nil, nil, nil), s.head.root, container.NewStack(s.tree, s.sec))
 	s.tree.rebuild()
 	return s
+}
+
+// setScope dispatches ui.setNavigatorScope: the ‹ and ← go up to the section, a cluster's row or the
+// scope dropdown drill into a cluster.
+func (s *sidebar) setScope(scope string) {
+	s.sh.dispatch("ui.setNavigatorScope", navScopeParams{Scope: scope}, nil)
+}
+
+// goUp shows the section level (the root's ‹, ← on the root, the dropdown's Local Kubeconfigs).
+func (s *sidebar) goUp() { s.setScope(engine.NavScopeLocal) }
+
+// scopeChanged shows the level the navigator's scope names: the section's clusters, or the
+// connected cluster's tree. The search closes when the level changes (it filtered the other one;
+// inferred), and a keyboard in the navigator follows to the level shown: from a cluster to its row
+// in the section, from a row into the cluster's root.
+func (s *sidebar) scopeChanged() {
+	s.head.update()
+	if s.sec.loadSeq == 0 {
+		s.sec.load() // the scope dropdown lists the section's clusters at either level
+	}
+	section := s.sh.ui.ScopeCluster() == ""
+	if section == s.section && s.sec.Visible() == section {
+		return
+	}
+	from := s.sh.ui.Context
+	s.section = section
+	c := s.sh.win.Canvas()
+	hadKeys := c.Focused() == s.tree || c.Focused() == s.sec
+	if s.head.searching() {
+		s.head.closeSearch()
+	}
+	if section {
+		s.tree.Hide()
+		s.sec.Show()
+		s.sec.shownFrom(from)
+	} else {
+		s.sec.Hide()
+		s.tree.Show()
+		s.tree.focus = rootNode
+		s.tree.rebuild()
+	}
+	if hadKeys {
+		c.Focus(s.list())
+	}
+}
+
+// list is the level shown, which takes the keyboard: the section's clusters or the cluster's tree.
+func (s *sidebar) list() fyne.Focusable {
+	if s.section {
+		return s.sec
+	}
+	return s.tree
 }
 
 // updateHeader shows the active context at the tree's root and in the scope dropdown: an initials
@@ -221,6 +278,9 @@ func newSidebar(sh *shell) *sidebar {
 func (s *sidebar) updateHeader() {
 	ui := s.sh.ui
 	s.head.update()
+	if s.section {
+		s.sec.render() // the clusters' dots, marks and identities
+	}
 	s.dot.SetColor(connectionColor(ui.Connection))
 	s.rootRow.showCluster(ui.Context != "")
 	if ui.Context == "" {
@@ -527,6 +587,9 @@ func (s *sidebar) setFilter(text string) {
 	s.filter = text
 	s.refilter()
 	s.tree.rebuild()
+	if s.section {
+		s.sec.render()
+	}
 	if text != "" {
 		s.tree.scroll.ScrollToTop() // the first matches
 	} else {
@@ -576,6 +639,10 @@ func (s *sidebar) hint() string {
 // openFirstMatch opens the first view the search shows (↵ in the search field), and puts the
 // keyboard there.
 func (s *sidebar) openFirstMatch() {
+	if s.section {
+		s.sec.openFirstMatch() // the section's first cluster
+		return
+	}
 	for _, id := range s.tree.visible {
 		if id != rootNode && !s.isBranch(id) {
 			s.tree.setFocus(id)

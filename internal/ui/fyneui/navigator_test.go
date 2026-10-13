@@ -44,11 +44,12 @@ func openViews(t *testing.T, f *fakeEngine) []string {
 }
 
 // The tree's root is the cluster (captured): its badge as the hotbar draws it, its name and
-// kubeconfig, a connection dot and a ›, and a ‹ that goes back to the clusters (the context
-// picker: Cogpit's navigator has no section level, inferred). Without a cluster the root says so
-// and the hint below it says what to do.
+// kubeconfig, a connection dot and a ›, and a ‹ that goes up to the section level, Local
+// Kubeconfigs (ui.setNavigatorScope; navigator_sections.go). Without a cluster the navigator shows
+// the section; a connecting cluster's root says so.
 func TestNavigatorRootIsTheCluster(t *testing.T) {
 	sh, _, q, f := navScene(t, ThemeDark)
+	fakeNavScope(t, f)
 	s := sh.side
 	if s.tree.visible[0] != rootNode || s.name.text != "kind-cogpit" || s.subtitle.text != "Kubernetes cluster" {
 		t.Errorf("root %q %q / %q", s.tree.visible[0], s.name.text, s.subtitle.text)
@@ -68,16 +69,19 @@ func TestNavigatorRootIsTheCluster(t *testing.T) {
 	}
 
 	test.Tap(s.rootRow.back)
-	q.until(t, "the picker", func() bool { return sh.picker.visible() })
-	sh.picker.hide()
+	q.until(t, "the section", func() bool { return s.sec.Visible() && !s.tree.Visible() })
+	if got := scopeCalls(t, f); !slices.Equal(got, []string{engine.NavScopeLocal}) || sh.picker.visible() {
+		t.Errorf("the ‹: scopes %q, picker %v", got, sh.picker.visible())
+	}
 
 	f.update(func(u *engine.UIState) {
-		u.Context, u.Connection, u.View = "", engine.Connection{State: engine.Disconnected}, ""
+		u.Context, u.Connection, u.View, u.NavigatorScope = "", engine.Connection{State: engine.Disconnected}, "", ""
 	})
 	q.until(t, "the disconnect", func() bool { return s.name.text == "Not connected" })
 	if s.badge.text != "–" || !s.badge.muted || len(s.tree.visible) != 1 || s.emptyHint.text != "Connect a cluster to browse it." ||
-		s.head.scope.text.text != "No cluster" || s.rootRow.tipText() != "" {
-		t.Errorf("without a cluster: badge %q, %d rows, hint %q, scope %q", s.badge.text, len(s.tree.visible), s.emptyHint.text, s.head.scope.text.text)
+		s.head.scope.text.text != "Local Kubeconfigs" || s.rootRow.tipText() != "" || !s.sec.Visible() || s.tree.Visible() {
+		t.Errorf("without a cluster: badge %q, %d rows, hint %q, scope %q, section %v", s.badge.text, len(s.tree.visible),
+			s.emptyHint.text, s.head.scope.text.text, s.sec.Visible())
 	}
 	if s.dot.Visible() || s.rootRow.next.Visible() || s.subtitle.Visible() || !s.rootRow.back.Visible() {
 		t.Error("without a cluster the root shows a dot, a › or a subtitle, or no ‹")
@@ -85,7 +89,7 @@ func TestNavigatorRootIsTheCluster(t *testing.T) {
 	f.update(func(u *engine.UIState) {
 		u.Context, u.Connection = "kind-cogpit", engine.Connection{State: engine.Connecting}
 	})
-	q.until(t, "the connecting cluster", func() bool { return s.name.text == "kind-cogpit" })
+	q.until(t, "the connecting cluster", func() bool { return s.name.text == "kind-cogpit" && s.tree.Visible() })
 	if !s.dot.Visible() || !s.rootRow.next.Visible() || s.subtitle.text != "Connecting…" ||
 		s.dot.color != connectionColor(engine.Connection{State: engine.Connecting}) {
 		t.Errorf("connecting: dot %v %q, › %v, subtitle %q", s.dot.Visible(), s.dot.color, s.rootRow.next.Visible(), s.subtitle.text)
@@ -117,21 +121,24 @@ func TestNavigatorRootMenu(t *testing.T) {
 	}
 }
 
-// The scope dropdown offers the cluster the tree shows and Local Kubeconfigs, which opens the
-// context picker (inferred).
+// The scope dropdown offers the section, Local Kubeconfigs, and below it the clusters it holds, the
+// cluster the tree shows checked (navigator_sections_test.go tests choosing them).
 func TestNavigatorScopeDropdown(t *testing.T) {
-	sh, _, q, _ := navScene(t, ThemeDark)
+	sh, _, q, f := navScene(t, ThemeDark)
+	fakeNavScope(t, f)
+	q.until(t, "the clusters", func() bool { return sh.side.sec.loaded })
 	h := sh.side.head
 	test.Tap(h.scope)
 	var labels []string
 	for _, it := range h.menuModel.Items {
 		labels = append(labels, it.Label)
 	}
-	if strings.Join(labels, ",") != "kind-cogpit,,Local Kubeconfigs…" || !h.menuModel.Items[0].Checked {
+	if strings.Join(labels, ",") != "Local Kubeconfigs,,Demo cluster,kind-cogpit,prod-eu-central,staging-us-east,dev-hfi" ||
+		h.menuModel.Items[0].Checked || !h.menuModel.Items[3].Checked {
 		t.Fatalf("scope menu %v", labels)
 	}
-	h.menuModel.Items[2].Action()
-	q.until(t, "the picker", func() bool { return sh.picker.visible() })
+	h.menuModel.Items[0].Action()
+	q.until(t, "the section", func() bool { return sh.side.sec.Visible() })
 }
 
 // Hovering an item shows "<item> - <context>" (captured), the context by its name without its

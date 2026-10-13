@@ -22,10 +22,12 @@ import (
 // a connection dot and a ›, and a ‹ to go back; hovering an item shows "<item> - <context>". From
 // Lens's documentation: ↑↓ move, → opens, ← closes, Tab and ⇧Tab, ↵ a preview tab, ⇧↵ a fixed tab.
 //
-// Cogpit's navigator always shows the one connected cluster, so the rest is Cogpit's (inferred):
-//   - the dropdown offers that cluster and "Local Kubeconfigs…", which opens the context picker (no
-//     section level exists), and the ‹ opens the picker too; the › is drawn as captured and does
-//     nothing, the tree being always drilled into its cluster;
+// The level above the tree is the section, Local Kubeconfigs (navigator_sections.go); which one
+// shows is the navigator's scope, engine state (UIState.NavigatorScope). The rest is Cogpit's
+// (inferred):
+//   - the dropdown offers the section and its clusters (navigator_header.go); the root's ‹ and ← on
+//     the root go up to the section (ui.setNavigatorScope), the context picker stays on ⌘P; the ›
+//     is drawn as captured and does nothing, the tree being drilled into its cluster already;
 //   - the search filters the items by name, case-insensitively: a matching item shows with the
 //     groups above it, a matching group with everything in it, and groups show open while a search
 //     is on (their own open state comes back after it); Escape clears and closes the field, ↓ moves
@@ -249,11 +251,14 @@ func (t *navTree) right() {
 }
 
 // left closes an open group, else moves to the row above in the tree: an item's group, a top-level
-// item's root. While a search is on, groups stay open and ← only moves.
+// item's root, and from the root up to the section level. While a search is on, groups stay open
+// and ← only moves.
 func (t *navTree) left() {
 	s, id := t.s, t.focus
 	switch {
-	case id == rootNode || id == "":
+	case id == rootNode:
+		s.goUp()
+	case id == "":
 	case s.isBranch(id) && s.open[id] && s.filter == "":
 		s.setOpen(id, false)
 	default:
@@ -508,7 +513,7 @@ func paintRow(th fyne.Theme, bg, ring *canvas.Rectangle, selected, hovered, focu
 	}
 }
 
-// navRootRow is the tree's root: the connected cluster with a ‹ back to the clusters, its badge,
+// navRootRow is the tree's root: the connected cluster with a ‹ up to the section, its badge,
 // name and kubeconfig, a connection dot and a ›. Its menu (right-click) has the hotbar's item for
 // the cluster, Add to Hotbar or Remove from Hotbar, as the picker's rows have (inferred: Lens's
 // cluster menu has "Add to Hotbar", its other items are not captured).
@@ -561,8 +566,7 @@ func (r *navRootRow) TappedSecondary(ev *fyne.PointEvent) {
 
 func newNavRootRow(s *sidebar) *navRootRow {
 	r := &navRootRow{s: s, bg: canvas.NewRectangle(color.Transparent), ring: canvas.NewRectangle(color.Transparent)}
-	// The picker is made after the sidebar (newShell): look it up when the ‹ is pressed.
-	r.back = newNavIconButton(s.sh, iconChevronLeft, "Back to Local Kubeconfigs", func() { s.sh.picker.show() })
+	r.back = newNavIconButton(s.sh, iconChevronLeft, "Back to "+navSectionTitle, s.goUp)
 	r.next = widget.NewIcon(themedIcon(iconChevronRight, colorMuted))
 	r.body = inset(theme.SizeNamePadding, theme.SizeNamePadding, container.NewBorder(nil, nil,
 		container.NewHBox(container.NewCenter(r.back), container.NewCenter(s.badge)),

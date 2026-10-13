@@ -85,24 +85,27 @@ func (b *tabBar) double(last *click, id string) bool {
 	return false
 }
 
-// sync shows UIState.Tabs: one widget per tab, the active one raised and scrolled into view.
+// sync shows the tabs of the navigator's scope (UIState.TabsInScope: every tab at the section, the
+// cluster's at a cluster; engine/navscope.go): one widget per tab, the active one raised and
+// scrolled into view.
 func (b *tabBar) sync() {
 	defer b.welcome.sync() // the welcome page while the workspace has nothing else (welcome.go)
 	ui := b.sh.ui
-	if len(ui.Tabs) == 0 {
+	tabs := ui.TabsInScope()
+	if len(tabs) == 0 {
 		b.shown, b.row.Objects = nil, nil
 		b.root.Hide()
 		b.row.Refresh()
 		return
 	}
 	live := ui.Connection.State == engine.Connected
-	for len(b.shown) < len(ui.Tabs) {
+	for len(b.shown) < len(tabs) {
 		b.shown = append(b.shown, newViewTab(b))
 	}
-	b.shown = b.shown[:len(ui.Tabs)]
-	objs := make([]fyne.CanvasObject, len(ui.Tabs))
+	b.shown = b.shown[:len(tabs)]
+	objs := make([]fyne.CanvasObject, len(tabs))
 	var active *viewTab
-	for i, t := range ui.Tabs {
+	for i, t := range tabs {
 		w := b.shown[i]
 		w.set(t, t.ID == ui.ActiveTab, live && t.Context == ui.Context, b.sh.identity(t.Context))
 		if w.active {
@@ -156,7 +159,7 @@ func (b *tabBar) menuItems() []*fyne.MenuItem {
 	}
 	whenTabs := func(id string) func() {
 		return func() {
-			if len(sh.ui.Tabs) > 0 {
+			if len(sh.ui.TabsInScope()) > 0 {
 				sh.dispatch(id, struct{}{}, nil)
 			}
 		}
@@ -183,7 +186,7 @@ func (b *tabBar) menuItems() []*fyne.MenuItem {
 				label, params = "Last Tab", tabSelectParams{Last: true}
 			}
 			item := fyne.NewMenuItem(label, func() {
-				if len(sh.ui.Tabs) >= params.Index && len(sh.ui.Tabs) > 0 {
+				if n := len(sh.ui.TabsInScope()); n >= params.Index && n > 0 { // the tabs the bar shows
 					sh.dispatch(c.ID, params, nil)
 				}
 			})
@@ -217,6 +220,7 @@ func (b *tabBar) history(back bool) func() {
 // tabsChanged reports whether the tab bar shows something else in st than in old.
 func tabsChanged(st, old engine.UIState) bool {
 	return st.ActiveTab != old.ActiveTab || st.Context != old.Context || st.Connection.State != old.Connection.State ||
+		st.Scope() != old.Scope() ||
 		!slices.EqualFunc(st.Tabs, old.Tabs, func(a, b engine.ViewTab) bool {
 			return a.ID == b.ID && a.Title == b.Title && a.Preview == b.Preview && a.Context == b.Context
 		})
