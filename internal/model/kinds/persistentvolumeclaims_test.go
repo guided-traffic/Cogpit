@@ -15,16 +15,16 @@ func FuzzPersistentVolumeClaims(f *testing.F) { fuzzProfile(f, "persistentvolume
 func TestPersistentVolumeClaimTexts(t *testing.T) {
 	checkStatusTexts(t, []statusText{
 		{"persistentvolumeclaims", "healthy", "status", "Bound", model.StatusOK, model.StatusOK},
-		{"persistentvolumeclaims", "healthy", "size", "10Gi", model.StatusNone, model.StatusOK},
+		{"persistentvolumeclaims", "healthy", "size", "10.0 GiB", model.StatusNone, model.StatusOK},
 		{"persistentvolumeclaims", "healthy", "storageClass", "fast-ssd", model.StatusNone, model.StatusOK},
 		{"persistentvolumeclaims", "failing", "status", "Lost", model.StatusError, model.StatusError},
 		{"persistentvolumeclaims", "pending", "status", "Pending", model.StatusPending, model.StatusPending},
-		{"persistentvolumeclaims", "pending", "size", "1Gi", model.StatusNone, model.StatusPending}, // the request: no capacity yet
+		{"persistentvolumeclaims", "pending", "size", "1.0 GiB", model.StatusNone, model.StatusPending}, // the request: no capacity yet
 		{"persistentvolumeclaims", "terminating", "status", "Terminating", model.StatusTerminating, model.StatusTerminating},
 		{"persistentvolumeclaims", "minimal", "status", "Unknown", model.StatusUnknown, model.StatusUnknown},
 		{"persistentvolumeclaims", "minimal", "size", "-", model.StatusNone, model.StatusUnknown},
 		// A resize shows the capacity until it is done; the drawer has the requested size.
-		{"persistentvolumeclaims", "resize-pending", "size", "10Gi", model.StatusNone, model.StatusOK},
+		{"persistentvolumeclaims", "resize-pending", "size", "10.0 GiB", model.StatusNone, model.StatusOK},
 		{"persistentvolumeclaims", "resize-failed", "status", "Bound", model.StatusOK, model.StatusOK},
 		{"persistentvolumeclaims", "static-binding", "storageClass", "", model.StatusNone, model.StatusOK},
 		{"persistentvolumeclaims", "legacy-class", "storageClass", "slow", model.StatusNone, model.StatusPending},
@@ -59,24 +59,25 @@ func TestPersistentVolumeClaimSizeSorts(t *testing.T) {
 		}
 		return cells[col]
 	}
+	// The text in binary units (D-32), what does not parse as written; the sort key in bytes.
 	tests := []struct {
-		q    string
-		want int64
+		q, text string
+		want    int64
 	}{
-		{"500Mi", 500 << 20},
-		{"1Gi", 1 << 30},
-		{"10Gi", 10 << 30},
-		{"1Ti", 1 << 40},
-		{"2E", 2e18},
-		{"1Ei", 1 << 60},
-		{"1e9", 1e9},
-		{"1e-2000000000", 0},
-		{"1e2000000000", 0},
-		{"garbage", 0},
+		{"500Mi", "500.0 MiB", 500 << 20},
+		{"1Gi", "1.0 GiB", 1 << 30},
+		{"10Gi", "10.0 GiB", 10 << 30},
+		{"1Ti", "1.0 TiB", 1 << 40},
+		{"2E", "1.7 EiB", 2e18},
+		{"1Ei", "1.0 EiB", 1 << 60},
+		{"1e9", "953.7 MiB", 1e9},
+		{"1e-2000000000", "1e-2000000000", 0},
+		{"1e2000000000", "1e2000000000", 0},
+		{"garbage", "garbage", 0},
 	}
 	for _, tt := range tests {
-		if c := size(tt.q); c.Num != tt.want || c.Text != tt.q {
-			t.Errorf("size %q = %+v, want num %d", tt.q, c, tt.want)
+		if c := size(tt.q); c.Num != tt.want || c.Text != tt.text {
+			t.Errorf("size %q = %+v, want %q, num %d", tt.q, c, tt.text, tt.want)
 		}
 	}
 }

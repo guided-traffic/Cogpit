@@ -67,10 +67,10 @@
           [
             "Container",
             "memory",
-            "16Mi",
-            "2Gi",
-            "128Mi",
-            "512Mi",
+            "16.0 MiB",
+            "2.0 GiB",
+            "128.0 MiB",
+            "512.0 MiB",
             ""
           ],
           [
@@ -86,7 +86,7 @@
             "Pod",
             "memory",
             "",
-            "4Gi",
+            "4.0 GiB",
             "",
             "",
             ""
@@ -94,8 +94,8 @@
           [
             "PersistentVolumeClaim",
             "storage",
-            "1Gi",
-            "100Gi",
+            "1.0 GiB",
+            "100.0 GiB",
             "",
             "",
             ""

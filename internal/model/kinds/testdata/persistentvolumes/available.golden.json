@@ -16,7 +16,7 @@
     },
     {
       "column": "capacity",
-      "text": "1Ti",
+      "text": "1.0 TiB",
       "num": 1099511627776
     },
     {
@@ -72,7 +72,7 @@
         },
         {
           "name": "Capacity",
-          "value": "1Ti"
+          "value": "1.0 TiB"
         },
         {
           "name": "Access Modes",

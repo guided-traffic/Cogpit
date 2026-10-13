@@ -80,7 +80,7 @@ func pvCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 	ns, name := pvClaim(obj)
 	capacity := model.Cell{Text: "-"}
 	if c := model.NestedIntOrString(obj, "spec", "capacity", resourceStorage); c != "" {
-		capacity = model.Cell{Text: c, Num: quantityValue(c)}
+		capacity = model.Cell{Text: model.FormatByteQuantity(c), Num: quantityValue(c)}
 	}
 	return []model.Cell{
 		nameCell(obj),
@@ -231,7 +231,7 @@ func pvDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	d.add("Message", model.NestedString(obj, "status", "message"))
 	class := pvcStorageClass(obj)
 	d.put(linkedItem(titleStorageClass, class, linkTo(keyStorageClasses, "", class)))
-	d.add("Capacity", model.NestedIntOrString(obj, "spec", "capacity", resourceStorage))
+	d.add("Capacity", model.FormatByteQuantity(model.NestedIntOrString(obj, "spec", "capacity", resourceStorage)))
 	d.add(titleAccessModes, strings.Join(model.NestedStrings(obj, "spec", "accessModes"), ", "))
 	d.add(titleReclaim, model.NestedString(obj, "spec", "persistentVolumeReclaimPolicy"))
 	d.add("Volume Mode", model.NestedString(obj, "spec", "volumeMode"))

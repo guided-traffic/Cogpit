@@ -12,7 +12,7 @@ func FuzzPersistentVolumes(f *testing.F) { fuzzProfile(f, "persistentvolumes") }
 func TestPersistentVolumeTexts(t *testing.T) {
 	checkStatusTexts(t, []statusText{
 		{"persistentvolumes", "healthy", "status", "Bound", model.StatusOK, model.StatusOK},
-		{"persistentvolumes", "healthy", "capacity", "10Gi", model.StatusNone, model.StatusOK},
+		{"persistentvolumes", "healthy", "capacity", "10.0 GiB", model.StatusNone, model.StatusOK},
 		{"persistentvolumes", "healthy", "claim", "payments/data-postgres-0", model.StatusNone, model.StatusOK},
 		{"persistentvolumes", "healthy", "storageClass", "fast-ssd", model.StatusNone, model.StatusOK},
 		{"persistentvolumes", "available", "status", "Available", model.StatusOK, model.StatusOK},

@@ -15,7 +15,7 @@ const (
 	ColumnNumber ColumnType = "number" // sorts by Cell.Num
 	ColumnAge    ColumnType = "age"    // Cell.Num is a Unix timestamp in seconds; rendered as an age relative to now
 	// ColumnMetric is a CPU or Memory usage column (KindProfile.Usage): Cell.Text is the formatted
-	// usage ("0.012", "19.5MiB", "7.5%"), Cell.Num its sort key. A cell without a Text has no
+	// usage ("0.012", "19.5 MiB", "7.5%"), Cell.Num its sort key. A cell without a Text has no
 	// measurement (no metrics-server, or none for this object yet) and shows nothing, not "0".
 	ColumnMetric ColumnType = "metric"
 	// ColumnWarning is Lens's warning-icon column right after Name. A cell with a Status shows an

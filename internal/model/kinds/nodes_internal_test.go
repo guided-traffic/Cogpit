@@ -3,6 +3,8 @@ package kinds
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
@@ -61,7 +63,7 @@ func TestNodeDetailTables(t *testing.T) {
 		t.Fatal("no table")
 	}
 	wantCols := []string{"CPU", "Memory", "Hugepages 2Mi", "Pods", "nvidia.com/gpu"}
-	wantRow := []string{"8", "32Gi", "0", "110", "2"}
+	wantRow := []string{"8", "32.0 GiB", "0 B", "110", "2"} // bytes in binary units (D-32), the rest as written
 	if len(tbl.Columns) != len(wantCols) || len(tbl.Rows) != 1 {
 		t.Fatalf("table = %+v", tbl)
 	}
@@ -72,5 +74,45 @@ func TestNodeDetailTables(t *testing.T) {
 	}
 	if resourceTable(map[string]any{}, "allocatable") != nil {
 		t.Error("a node without allocatable resources should have no table")
+	}
+}
+
+// TestNodeDrawerBytesInBinaryUnits is the owner's Node drawer of 2026-10-13 (D-32): Capacity's
+// memory and ephemeral storage in Ki, Allocatable's in plain bytes, all shown in binary units with
+// one decimal; CPU and pods as the API writes them.
+func TestNodeDrawerBytesInBinaryUnits(t *testing.T) {
+	node := &unstructured.Unstructured{Object: map[string]any{"status": map[string]any{
+		"capacity": map[string]any{
+			"cpu": "8", "memory": "16360780Ki", "ephemeral-storage": "119842348Ki",
+			"hugepages-1Gi": "0", "hugepages-2Mi": "0", "pods": "110",
+		},
+		"allocatable": map[string]any{
+			"cpu": "7800m", "memory": "13856852378", "ephemeral-storage": "119400000000",
+			"hugepages-1Gi": "0", "hugepages-2Mi": "0", "pods": "110",
+		},
+	}}}
+	want := map[string][]string{
+		"Capacity":    {"8", "15.6 GiB", "114.3 GiB", "0 B", "0 B", "110"},
+		"Allocatable": {"7800m", "12.9 GiB", "111.2 GiB", "0 B", "0 B", "110"},
+	}
+	cols := []string{"CPU", "Memory", "Ephemeral Storage", "Hugepages 1Gi", "Hugepages 2Mi", "Pods"}
+	seen := 0
+	for _, s := range nodeDetail(node) {
+		row, ok := want[s.Title]
+		if !ok {
+			continue
+		}
+		seen++
+		if s.Table == nil || len(s.Table.Rows) != 1 || len(s.Table.Columns) != len(cols) {
+			t.Fatalf("%s: %+v", s.Title, s.Table)
+		}
+		for i := range cols {
+			if s.Table.Columns[i] != cols[i] || s.Table.Rows[0][i] != row[i] {
+				t.Errorf("%s column %d = %s %q, want %s %q", s.Title, i, s.Table.Columns[i], s.Table.Rows[0][i], cols[i], row[i])
+			}
+		}
+	}
+	if seen != 2 {
+		t.Errorf("Capacity and Allocatable: %d of 2 sections", seen)
 	}
 }

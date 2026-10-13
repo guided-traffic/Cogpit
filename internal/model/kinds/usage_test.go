@@ -40,7 +40,7 @@ func TestPodsListLensOrder(t *testing.T) {
 func TestUsageCells(t *testing.T) {
 	pods := profile(t, "pods")
 	cpu, mem := pods.UsageCells(&unstructured.Unstructured{}, model.Usage{CPUMilli: 12, MemoryBytes: 20_447_232})
-	if cpu.Text != "0.012" || cpu.Num != 12 || mem.Text != "19.5MiB" || mem.Num != 20_447_232 {
+	if cpu.Text != "0.012" || cpu.Num != 12 || mem.Text != "19.5 MiB" || mem.Num != 20_447_232 {
 		t.Errorf("pod cells = %+v, %+v", cpu, mem)
 	}
 

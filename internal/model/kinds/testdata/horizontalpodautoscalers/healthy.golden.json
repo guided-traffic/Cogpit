@@ -21,7 +21,7 @@
     },
     {
       "column": "metrics",
-      "text": "cpu: 45%/80%, memory: 301989888/512Mi"
+      "text": "cpu: 45%/80%, memory: 288.0 MiB/512.0 MiB"
     },
     {
       "column": "minPods",
@@ -128,8 +128,8 @@
           [
             "memory",
             "Resource",
-            "301989888",
-            "512Mi"
+            "288.0 MiB",
+            "512.0 MiB"
           ]
         ]
       }

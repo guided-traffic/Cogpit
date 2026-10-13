@@ -44,7 +44,7 @@
         },
         {
           "name": "Pod Overhead",
-          "value": "cpu=250m, memory=120Mi"
+          "value": "cpu=250m, memory=120.0 MiB"
         },
         {
           "name": "Node Selector",

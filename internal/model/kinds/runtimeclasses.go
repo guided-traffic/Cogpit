@@ -47,7 +47,7 @@ func runtimeClassDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	podFixed := model.NestedMap(obj, "overhead", "podFixed")
 	for _, k := range sortedKeys(podFixed) {
 		if v := model.NestedIntOrString(podFixed, k); v != "" {
-			overhead = append(overhead, k+"="+v)
+			overhead = append(overhead, k+"="+model.FormatResource(k, v)) // bytes in binary units (D-32)
 		}
 	}
 	d.add("Pod Overhead", strings.Join(overhead, ", "))

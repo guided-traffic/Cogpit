@@ -20,7 +20,7 @@
     },
     {
       "column": "capacity",
-      "text": "500Gi",
+      "text": "500.0 GiB",
       "num": 536870912000
     },
     {
@@ -101,7 +101,7 @@
         },
         {
           "name": "Capacity",
-          "value": "500Gi"
+          "value": "500.0 GiB"
         },
         {
           "name": "Access Modes",

@@ -29,7 +29,7 @@
     },
     {
       "column": "size",
-      "text": "10Gi",
+      "text": "10.0 GiB",
       "num": 10737418240
     },
     {
@@ -106,15 +106,15 @@
         },
         {
           "name": "Requested",
-          "value": "20Gi"
+          "value": "20.0 GiB"
         },
         {
           "name": "Capacity",
-          "value": "10Gi"
+          "value": "10.0 GiB"
         },
         {
           "name": "Allocated",
-          "value": "20Gi"
+          "value": "20.0 GiB"
         },
         {
           "name": "Resize Status",

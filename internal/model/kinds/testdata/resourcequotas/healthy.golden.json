@@ -56,8 +56,8 @@
         "rows": [
           [
             "limits.memory",
-            "12Gi",
-            "32Gi"
+            "12.0 GiB",
+            "32.0 GiB"
           ],
           [
             "pods",
@@ -71,8 +71,8 @@
           ],
           [
             "requests.memory",
-            "6Gi",
-            "16Gi"
+            "6.0 GiB",
+            "16.0 GiB"
           ]
         ]
       }

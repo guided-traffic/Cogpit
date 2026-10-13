@@ -19,7 +19,7 @@ func TestHorizontalPodAutoscalersStatusTexts(t *testing.T) {
 	// The columns are Lens's documented ones; the forms of Metrics (kubectl's TARGETS with each
 	// metric named) and Status (the True conditions) and the status rule are inferred.
 	checkStatusTexts(t, []statusText{
-		{"horizontalpodautoscalers", "healthy", "metrics", "cpu: 45%/80%, memory: 301989888/512Mi", none, ok},
+		{"horizontalpodautoscalers", "healthy", "metrics", "cpu: 45%/80%, memory: 288.0 MiB/512.0 MiB", none, ok},
 		{"horizontalpodautoscalers", "healthy", "minPods", "2", none, ok},
 		{"horizontalpodautoscalers", "healthy", "maxPods", "10", none, ok},
 		{"horizontalpodautoscalers", "healthy", "replicas", "4", none, ok},

@@ -780,13 +780,14 @@ func containerSection(pod model.ObjectRef, name string, spec, status any, probed
 	return model.DetailSection{Title: name, Items: d}
 }
 
-// resourceAmounts renders a container's resource requests or limits: "cpu: 100m, memory: 128Mi".
+// resourceAmounts renders a container's resource requests or limits: "cpu: 100m, memory: 128.0
+// MiB", bytes in binary units (D-32).
 func resourceAmounts(spec any, field string) string {
 	m := model.NestedMap(spec, "resources", field)
 	parts := make([]string, 0, len(m))
 	for _, k := range sortedKeys(m) {
 		if v := model.NestedIntOrString(m, k); v != "" {
-			parts = append(parts, k+": "+v)
+			parts = append(parts, k+": "+model.FormatResource(k, v))
 		}
 	}
 	return strings.Join(parts, ", ")

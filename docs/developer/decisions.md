@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -1200,10 +1200,58 @@ Tests: `TestGoLayout`, `TestFromPatterns`, `TestEnvironment`, `TestTableConverts
 [light](../../internal/ui/fyneui/testdata/logs_times_de_light.png): Germany's format, Berlin's time).
 The test fixtures carry no layout, so the other images show the ISO 8601 fallback.
 
+## D-32: Every byte amount in binary units with one decimal
+
+**Decided (owner, 2026-10-13):** "Unacceptable. Bytes only up to 1023; from 1024 bytes KiB, from
+1024 KiB MiB, and so on, each with one decimal. This applies to every presentation of bytes,
+unless you see it differently: then name me the place where we should not do it and we talk about
+it." (Seen in a Node's drawer: Capacity Memory `16360780Ki`, Ephemeral Storage `119842348Ki`,
+Allocatable Memory `13856852378`, plain bytes.) **Built 2026-10-13**
+([`model/bytes.go`](../../internal/model/bytes.go); [architecture › Current state](architecture.md#current-state-2026-10-13)):
+that drawer now reads 15.6 GiB, 114.3 GiB and 12.9 GiB (`TestNodeDrawerBytesInBinaryUnits`).
+
+What the build chose, Cogpit's defaults (the lead's and the build's, not the owner's decision):
+
+- **The form.** A space between number and unit, as IEC 80000-13 writes it ("512 B", "15.6 GiB");
+  the units B, KiB, MiB, GiB, TiB, PiB and EiB; whole bytes below 1024 without a decimal. A
+  decimal point whatever the region: the UI is English, and unlike D-31's dates the separator does
+  not follow the computer's region. The unit is chosen by the number as written, so that rounding
+  never shows 1024.0 of a unit: 1 MiB less one byte reads "1.0 MiB", not "1024.0 KiB". An amount
+  that need not be whole (a chart's value, a rate averaged over a window) is rounded to whole
+  bytes below 1 KiB ("0 B" for 0.25).
+- **One formatter** in L0, for the engine, the window and the CLI alike: `model.FormatBytes` (a
+  count), `FormatByteAmount` (a float), `FormatByteRate` (bytes per second, ".../s"),
+  `FormatByteQuantity` (a Kubernetes quantity of bytes as an object writes it: "16360780Ki",
+  "13856852378", "10Gi", "1G", "500M") and `FormatResource` (one entry of a resource list: bytes
+  for `memory`, `storage`, `ephemeral-storage` and `hugepages-*`, also as a resource quota names
+  them, `requests.memory`, `limits.ephemeral-storage`,
+  `<class>.storageclass.storage.k8s.io/requests.storage`; CPU, counts and extended resources as
+  written). A quantity in milli-units ("500m", "2000m": almost always a mistake the user should see
+  as written), a fraction of a byte ("1.5"), text that is no quantity, and a quantity beyond what
+  Kubernetes holds (it clamps "10Ei" to 8 EiB) are shown as written (`TestFormatBytes`,
+  `TestFormatByteAmount`, `TestFormatByteQuantity`, `TestByteResource`).
+- **Where.** The lists: Persistent Volumes' Capacity, Persistent Volume Claims' Size, the Pods
+  list's Memory (and so the node drawer's Pods table, which reuses its cells), the Vertical Pod
+  Autoscalers' Memory, Horizontal Pod Autoscalers' Metrics for a memory or ephemeral-storage
+  resource metric ("memory: 288.0 MiB/512.0 MiB"). The drawers: a node's Capacity and Allocatable
+  (memory, ephemeral storage, huge pages; CPU, pods and devices as written), a container's
+  Requests and Limits, a volume's Capacity, a claim's Requested, Limit, Capacity and Allocated, a
+  stateful set's volume claim templates, a resource quota's Used and Hard, a limit range's Min,
+  Max, Default Request and Default Limit (not its Max Limit/Request Ratio, a ratio), a runtime
+  class's Pod Overhead, a vertical pod autoscaler's policies and recommendations, a device's
+  capacity named `memory` (resource slices and a node's Devices), a Config Map's binary data
+  sizes and its cut notes ("[cut: 4.0 KiB of 8.8 KiB shown; …]", the Helm record note).
+- **Sorting.** The sort keys stay bytes (`Cell.Num`), so sorting by size still works; only the text
+  changed (`TestPersistentVolumeClaimSizeSorts`).
+- **Agents.** What an agent reads as drawn follows the formatter: `view_rows` and
+  `resources_list` cells, `object_get`'s sections. Structured numbers stay raw: `metrics_get`'s
+  `memoryBytes`, the Overview's chart values, an object's YAML.
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-32 (owner): every byte amount in binary units with one decimal ("15.6 GiB"); built 2026-10-13 with one formatter in `model` (`FormatBytes`, `FormatByteQuantity`, `FormatResource`); the space before the unit, the decimal point whatever the region, milli-bytes as written and the places listed Cogpit's defaults |
 | 2026-10-13 | minor | D-31 (owner): every timestamp in the local time zone and the region's format ("10.09.2026 17:41:01"); built 2026-10-13 from macOS's region (CoreFoundation), else the environment's locale and a CLDR table, one formatter in the engine; the format as a setting not built; the conversion, Windows reading the environment, logs with milliseconds and the list of places Cogpit's defaults |
 | 2026-10-13 | minor | D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a status pill's included (it sat at the drawer's right edge), a long line shortened before it, a value with action buttons owning the room for it; built |
 | 2026-10-13 | minor | D-30, the owner's answers: agents and the built-in agent's LLM endpoint read the decoded certificates, never a key (H-45 closed by the decision, removed from agents-and-mcp.md); `tls.crt` checked against `tls.key` (the key parsed in memory, the outcome yes, no or a reason) and DER certificates decoded, both built; the pairing rule, the chain check, the 64 KiB key bound and the names that count as private keys Cogpit's defaults |

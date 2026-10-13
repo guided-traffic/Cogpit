@@ -239,11 +239,12 @@ func vpaDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	return sections
 }
 
-// resourceListText renders a resource list as "name: quantity" lines, sorted by name.
+// resourceListText renders a resource list as "name: quantity" lines, sorted by name, bytes in
+// binary units (D-32).
 func resourceListText(list map[string]any) string {
 	lines := make([]string, 0, len(list))
 	for _, k := range sortedKeys(list) {
-		lines = append(lines, k+": "+model.NestedIntOrString(list, k))
+		lines = append(lines, k+": "+model.FormatResource(k, model.NestedIntOrString(list, k)))
 	}
 	return strings.Join(lines, "\n")
 }

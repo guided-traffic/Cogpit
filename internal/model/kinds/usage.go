@@ -20,8 +20,9 @@ var (
 )
 
 // podUsageCells shows a pod's usage as Lens's Pods list does: CPU in cores with three decimals
-// ("0.012"), memory in binary units ("19.5MiB"). Num is the sort key: millicores and bytes. A part
-// the provider did not measure (Usage.Missing) is an empty cell, never "0".
+// ("0.012"), memory in binary units with one decimal (D-32: "19.5 MiB").
+// Num is the sort key: millicores and bytes. A part the provider did not measure (Usage.Missing)
+// is an empty cell, never "0".
 func podUsageCells(_ *unstructured.Unstructured, u model.Usage) (cpu, memory model.Cell) {
 	if u.HasCPU() {
 		cpu = model.Cell{Text: model.FormatCPU(u.CPUMilli), Num: u.CPUMilli}

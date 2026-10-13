@@ -99,14 +99,14 @@
           [
             "gpu-0",
             "driverVersion: 1.2.3\nindex: 0\nmig: false\nmodel: A100",
-            "memory: 40Gi",
+            "memory: 40.0 GiB",
             "",
             ""
           ],
           [
             "gpu-1",
             "driverVersion: 1.2.3\nindex: 1\nmig: true\nmodel: A100",
-            "memory: 40Gi",
+            "memory: 40.0 GiB",
             "",
             ""
           ]
@@ -127,7 +127,7 @@
               "text": "driverVersion: 1.2.3\nindex: 0\nmig: false\nmodel: A100"
             },
             {
-              "text": "memory: 40Gi"
+              "text": "memory: 40.0 GiB"
             },
             {},
             {}
@@ -140,7 +140,7 @@
               "text": "driverVersion: 1.2.3\nindex: 1\nmig: true\nmodel: A100"
             },
             {
-              "text": "memory: 40Gi"
+              "text": "memory: 40.0 GiB"
             },
             {},
             {}

@@ -29,7 +29,7 @@
     },
     {
       "column": "size",
-      "text": "500Gi",
+      "text": "500.0 GiB",
       "num": 536870912000
     },
     {
@@ -106,15 +106,15 @@
         },
         {
           "name": "Requested",
-          "value": "2Ti"
+          "value": "2.0 TiB"
         },
         {
           "name": "Capacity",
-          "value": "500Gi"
+          "value": "500.0 GiB"
         },
         {
           "name": "Allocated",
-          "value": "2Ti"
+          "value": "2.0 TiB"
         },
         {
           "name": "Resize Status",

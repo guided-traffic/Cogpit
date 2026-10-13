@@ -77,8 +77,8 @@
           ],
           [
             "requests.memory",
-            "9Gi",
-            "8Gi"
+            "9.0 GiB",
+            "8.0 GiB"
           ],
           [
             "services.loadbalancers",

@@ -150,7 +150,7 @@ func TestResourceSliceAllocated(t *testing.T) {
 	if l := devices.Link(0, 4); l == nil || l.Kind != "resourceclaims" || l.Namespace != "ml" || l.Name != "shared-accel" {
 		t.Errorf("gpu-0's claim link %+v", l)
 	}
-	if devices.Rows[0][1] != "driverVersion: 1.2.3\nindex: 0\nmig: false\nmodel: A100" || devices.Rows[0][2] != "memory: 40Gi" {
+	if devices.Rows[0][1] != "driverVersion: 1.2.3\nindex: 0\nmig: false\nmodel: A100" || devices.Rows[0][2] != "memory: 40.0 GiB" {
 		t.Errorf("gpu-0's attributes and capacity %q", devices.Rows[0])
 	}
 }

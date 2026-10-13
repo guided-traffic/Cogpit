@@ -67,11 +67,11 @@
       "items": [
         {
           "name": "favicon.ico",
-          "value": "62 bytes"
+          "value": "62 B"
         },
         {
           "name": "tiny.bin",
-          "value": "1 byte"
+          "value": "1 B"
         }
       ]
     }

@@ -55,8 +55,8 @@
             "Container",
             "memory",
             "",
-            "1Gi",
-            "4Gi",
+            "1.0 GiB",
+            "4.0 GiB",
             "",
             ""
           ],

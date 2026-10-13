@@ -55,7 +55,7 @@
             "PersistentVolumeClaim",
             "storage",
             "",
-            "50Gi",
+            "50.0 GiB",
             "",
             "",
             ""

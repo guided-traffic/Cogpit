@@ -256,8 +256,10 @@ var resourceTitles = []struct{ name, title string }{
 }
 
 // resourceTable renders status.capacity or status.allocatable as a one-row table, or nil when the
-// node reports none. Quantities are shown as the API reports them; a Go-built object may hold
-// numbers, which render too.
+// node reports none. Quantities of bytes (memory, ephemeral storage, huge pages) are shown in
+// binary units with one decimal (D-32: "16360780Ki" is "15.6 GiB"), the others as the API reports
+// them; a Go-built object may hold numbers, which render too. The huge pages' titles keep the page
+// size as the resource names it ("Hugepages 2Mi").
 func resourceTable(obj any, field string) *model.DetailTable {
 	m := model.NestedMap(obj, "status", field)
 	if len(m) == 0 {
@@ -269,7 +271,7 @@ func resourceTable(obj any, field string) *model.DetailTable {
 		known[r.name] = true
 		if v := model.NestedIntOrString(m, r.name); v != "" {
 			t.Columns = append(t.Columns, r.title)
-			t.Rows[0] = append(t.Rows[0], v)
+			t.Rows[0] = append(t.Rows[0], model.FormatResource(r.name, v))
 		}
 	}
 	for _, k := range sortedKeys(m) {
@@ -278,7 +280,7 @@ func resourceTable(obj any, field string) *model.DetailTable {
 		}
 		if v := model.NestedIntOrString(m, k); v != "" {
 			t.Columns = append(t.Columns, k)
-			t.Rows[0] = append(t.Rows[0], v)
+			t.Rows[0] = append(t.Rows[0], model.FormatResource(k, v))
 		}
 	}
 	if len(t.Columns) == 0 {

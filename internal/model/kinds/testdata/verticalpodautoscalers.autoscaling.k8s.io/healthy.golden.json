@@ -49,7 +49,7 @@
     },
     {
       "column": "memoryTarget",
-      "text": "314.0MiB",
+      "text": "314.0 MiB",
       "num": 329252864
     }
   ],
@@ -109,8 +109,8 @@
           [
             "web",
             "Auto",
-            "cpu: 100m\nmemory: 128Mi",
-            "cpu: 2\nmemory: 2Gi",
+            "cpu: 100m\nmemory: 128.0 MiB",
+            "cpu: 2\nmemory: 2.0 GiB",
             "cpu, memory",
             "RequestsAndLimits"
           ]
@@ -130,14 +130,14 @@
         "rows": [
           [
             "web",
-            "cpu: 587m\nmemory: 262144k",
-            "cpu: 300m\nmemory: 200Mi",
-            "cpu: 1\nmemory: 512Mi",
-            "cpu: 587m\nmemory: 262144k"
+            "cpu: 587m\nmemory: 250.0 MiB",
+            "cpu: 300m\nmemory: 200.0 MiB",
+            "cpu: 1\nmemory: 512.0 MiB",
+            "cpu: 587m\nmemory: 250.0 MiB"
           ],
           [
             "mesh-proxy",
-            "cpu: 25m\nmemory: 64Mi",
+            "cpu: 25m\nmemory: 64.0 MiB",
             "",
             "",
             ""

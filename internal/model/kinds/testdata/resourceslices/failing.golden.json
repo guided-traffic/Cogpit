@@ -98,7 +98,7 @@
           [
             "gpu-3",
             "model: H100",
-            "memory: 80Gi",
+            "memory: 80.0 GiB",
             "gpu.example.com/unhealthy=xid-79:NoSchedule\ngpu.example.com/maintenance:NoExecute",
             ""
           ]
@@ -119,7 +119,7 @@
               "text": "model: H100"
             },
             {
-              "text": "memory: 80Gi"
+              "text": "memory: 80.0 GiB"
             },
             {
               "text": "gpu.example.com/unhealthy=xid-79:NoSchedule\ngpu.example.com/maintenance:NoExecute"

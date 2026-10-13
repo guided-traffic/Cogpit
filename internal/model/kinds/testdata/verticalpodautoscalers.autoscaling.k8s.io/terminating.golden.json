@@ -49,7 +49,7 @@
     },
     {
       "column": "memoryTarget",
-      "text": "3.0GiB",
+      "text": "3.0 GiB",
       "num": 3221225472
     }
   ],
@@ -103,7 +103,7 @@
         "rows": [
           [
             "job",
-            "cpu: 1500m\nmemory: 3Gi",
+            "cpu: 1500m\nmemory: 3.0 GiB",
             "",
             "",
             ""

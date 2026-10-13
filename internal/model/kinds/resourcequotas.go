@@ -129,11 +129,11 @@ func resourceQuotaDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	used := model.NestedMap(obj, "status", "used")
 	t := &model.DetailTable{Columns: []string{titleResource, "Used", "Hard"}}
 	for _, name := range sortedKeys(hard) {
-		u := model.NestedIntOrString(used, name)
+		u := model.FormatResource(name, model.NestedIntOrString(used, name)) // bytes in binary units (D-32)
 		if u == "" {
 			u = "-"
 		}
-		t.Rows = append(t.Rows, []string{name, u, model.NestedIntOrString(hard, name)})
+		t.Rows = append(t.Rows, []string{name, u, model.FormatResource(name, model.NestedIntOrString(hard, name))})
 	}
 	return append(sections, model.DetailSection{Title: "Quotas", Table: t})
 }

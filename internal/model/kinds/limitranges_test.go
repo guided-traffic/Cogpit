@@ -33,12 +33,13 @@ func TestLimitRangeTable(t *testing.T) {
 			t.Fatalf("sections: %+v", sections)
 		}
 		tbl := sections[0].Table
+		// Bytes in binary units (D-32); CPU and the ratio as written.
 		want := [][]string{
 			{"Container", "cpu", "10m", "2", "100m", "500m", "10"},
-			{"Container", "memory", "16Mi", "2Gi", "128Mi", "512Mi", ""},
+			{"Container", "memory", "16.0 MiB", "2.0 GiB", "128.0 MiB", "512.0 MiB", ""},
 			{"Pod", "cpu", "", "4", "", "", ""},
-			{"Pod", "memory", "", "4Gi", "", "", ""},
-			{"PersistentVolumeClaim", "storage", "1Gi", "100Gi", "", "", ""},
+			{"Pod", "memory", "", "4.0 GiB", "", "", ""},
+			{"PersistentVolumeClaim", "storage", "1.0 GiB", "100.0 GiB", "", "", ""},
 		}
 		if len(tbl.Rows) != len(want) {
 			t.Fatalf("rows: %q", tbl.Rows)

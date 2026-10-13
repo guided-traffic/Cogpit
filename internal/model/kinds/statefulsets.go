@@ -116,7 +116,8 @@ func statefulSetDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	return sections
 }
 
-// volumeClaimTemplates renders "data: 1Gi, ReadWriteOnce, class standard" lines, one per template.
+// volumeClaimTemplates renders "data: 1.0 GiB, ReadWriteOnce, class standard" lines, one per
+// template, the size in binary units (D-32).
 func volumeClaimTemplates(obj any) string {
 	var lines []string
 	for _, t := range model.NestedSlice(obj, "spec", "volumeClaimTemplates") {
@@ -126,7 +127,7 @@ func volumeClaimTemplates(obj any) string {
 		}
 		var parts []string
 		if size := model.NestedIntOrString(t, "spec", "resources", "requests", "storage"); size != "" {
-			parts = append(parts, size)
+			parts = append(parts, model.FormatByteQuantity(size))
 		}
 		if modes := model.NestedStrings(t, "spec", "accessModes"); len(modes) > 0 {
 			parts = append(parts, strings.Join(modes, ", "))

@@ -231,12 +231,14 @@ func deviceAttributes(dev any) []string {
 	return out
 }
 
-// deviceCapacity renders a device's capacity as "name: quantity", sorted by name.
+// deviceCapacity renders a device's capacity as "name: quantity", sorted by name. The driver
+// names its capacities and Kubernetes declares no unit for them: one named as a byte resource
+// ("memory") is shown in binary units (D-32), any other ("size", "cores") as the driver writes it.
 func deviceCapacity(dev any) []string {
 	capacity := model.NestedMap(dev, "capacity")
 	out := make([]string, 0, len(capacity))
 	for _, k := range sortedKeys(capacity) {
-		out = append(out, k+": "+model.NestedIntOrString(capacity[k], "value"))
+		out = append(out, k+": "+model.FormatResource(k, model.NestedIntOrString(capacity[k], "value")))
 	}
 	return out
 }

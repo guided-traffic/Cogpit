@@ -165,7 +165,9 @@ type hpaMetric struct {
 
 // hpaMetrics reads spec.metrics and finds each metric's current value in status.currentMetrics by
 // its type and name, not by position as kubectl does, so a status written in another order still
-// lines up.
+// lines up. The value of a resource of bytes (memory, ephemeral storage) is shown in binary units
+// (D-32: "50Mi" is "50.0 MiB"); a pods, object or external metric has no declared unit and is
+// shown as written.
 func hpaMetrics(obj any) []hpaMetric {
 	specs := model.NestedSlice(obj, "spec", "metrics")
 	statuses := model.NestedSlice(obj, "status", "currentMetrics")
@@ -180,14 +182,18 @@ func hpaMetrics(obj any) []hpaMetric {
 		src := model.NestedMap(s, field)
 		m := hpaMetric{typ: typ, name: hpaMetricName(src), current: hpaUnknownValue}
 		targetType, target := hpaMetricTarget(src)
-		m.target = target
+		resource := "" // the resource of a Resource or ContainerResource metric, whose unit is known
+		if field == idResource || field == "containerResource" {
+			resource = model.NestedString(src, "name")
+		}
+		m.target = model.FormatResource(resource, target)
 		for _, st := range statuses {
 			cur := model.NestedMap(st, field)
 			if model.NestedString(st, "type") != typ || hpaMetricName(cur) != m.name {
 				continue
 			}
 			if v := hpaCurrent(model.NestedMap(cur, "current"), targetType); v != "" {
-				m.current = v
+				m.current = model.FormatResource(resource, v)
 			}
 			break
 		}

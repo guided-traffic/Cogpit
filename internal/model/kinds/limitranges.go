@@ -15,13 +15,17 @@ const (
 	titleResource = "Resource"
 )
 
-// limitRangeBounds are the bounds of a limit range entry, in the drawer's column order.
-var limitRangeBounds = []struct{ field, title string }{
-	{"min", "Min"},
-	{"max", "Max"},
-	{"defaultRequest", "Default Request"},
-	{"default", "Default Limit"},
-	{"maxLimitRequestRatio", "Max Limit/Request Ratio"},
+// limitRangeBounds are the bounds of a limit range entry, in the drawer's column order. A ratio
+// is a plain number, never bytes.
+var limitRangeBounds = []struct {
+	field, title string
+	ratio        bool
+}{
+	{"min", "Min", false},
+	{"max", "Max", false},
+	{"defaultRequest", "Default Request", false},
+	{"default", "Default Limit", false},
+	{"maxLimitRequestRatio", "Max Limit/Request Ratio", true},
 }
 
 // limitRanges has the columns of Lens's documentation (not captured): Name, Namespace, Age. A limit
@@ -58,7 +62,8 @@ func limitRangeCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status
 }
 
 // limitRangeDetail renders spec.limits as one table: a row per limit type and resource, the
-// resources of each type sorted, a bound the entry does not set left empty.
+// resources of each type sorted, a bound the entry does not set left empty, a bound of bytes in
+// binary units (D-32).
 func limitRangeDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	t := &model.DetailTable{Columns: []string{titleType, titleResource}}
 	for _, b := range limitRangeBounds {
@@ -75,7 +80,11 @@ func limitRangeDetail(obj *unstructured.Unstructured) []model.DetailSection {
 			row := make([]string, 0, 2+len(limitRangeBounds))
 			row = append(row, typ, r)
 			for _, b := range limitRangeBounds {
-				row = append(row, model.NestedIntOrString(l, b.field, r))
+				v := model.NestedIntOrString(l, b.field, r)
+				if !b.ratio {
+					v = model.FormatResource(r, v)
+				}
+				row = append(row, v)
 			}
 			t.Rows = append(t.Rows, row)
 		}

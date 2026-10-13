@@ -148,8 +148,8 @@ func pvcStorageClass(obj any) string {
 	return model.NestedString(obj, "metadata", "annotations", storageClassAnnotation)
 }
 
-// pvcSize is the claim's capacity once bound (status.capacity), else what it requests. Num is the
-// size in bytes, so the column sorts by size.
+// pvcSize is the claim's capacity once bound (status.capacity), else what it requests, in binary
+// units (D-32). Num is the size in bytes, so the column sorts by size.
 func pvcSize(obj any) model.Cell {
 	text := model.NestedIntOrString(obj, "status", "capacity", resourceStorage)
 	if text == "" {
@@ -158,7 +158,7 @@ func pvcSize(obj any) model.Cell {
 	if text == "" {
 		return model.Cell{Text: "-"}
 	}
-	return model.Cell{Text: text, Num: quantityValue(text)}
+	return model.Cell{Text: model.FormatByteQuantity(text), Num: quantityValue(text)}
 }
 
 // quantityValue returns a quantity's value as a sort key, or 0 when it does not parse. It skips
@@ -211,10 +211,11 @@ func pvcDetailWith(obj *unstructured.Unstructured, rel model.Related) []model.De
 	d.put(model.ChipsItem(titlePods, chips))
 	d.add("Access Modes", strings.Join(model.NestedStrings(obj, "spec", "accessModes"), ", "))
 	d.add("Volume Mode", model.NestedString(obj, "spec", "volumeMode"))
-	d.add("Requested", model.NestedIntOrString(obj, "spec", "resources", "requests", resourceStorage))
-	d.add("Limit", model.NestedIntOrString(obj, "spec", "resources", "limits", resourceStorage))
-	d.add("Capacity", model.NestedIntOrString(obj, "status", "capacity", resourceStorage))
-	d.add("Allocated", model.NestedIntOrString(obj, "status", "allocatedResources", resourceStorage))
+	size := func(fields ...string) string { return model.FormatByteQuantity(model.NestedIntOrString(obj, fields...)) }
+	d.add("Requested", size("spec", "resources", "requests", resourceStorage))
+	d.add("Limit", size("spec", "resources", "limits", resourceStorage))
+	d.add("Capacity", size("status", "capacity", resourceStorage))
+	d.add("Allocated", size("status", "allocatedResources", resourceStorage))
 	resize := model.NestedString(obj, "status", "allocatedResourceStatuses", resourceStorage)
 	d.addStatus("Resize Status", resize, resizeToken(resize))
 	d.add("Volume Attributes Class", model.NestedString(obj, "spec", "volumeAttributesClassName"))

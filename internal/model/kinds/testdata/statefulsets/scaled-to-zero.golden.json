@@ -77,7 +77,7 @@
         },
         {
           "name": "Volume Claim Templates",
-          "value": "data: 50Gi, ReadWriteOnce\nwal"
+          "value": "data: 50.0 GiB, ReadWriteOnce\nwal"
         },
         {
           "name": "Images",

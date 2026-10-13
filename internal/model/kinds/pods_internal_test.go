@@ -112,7 +112,7 @@ func TestPodDetailSections(t *testing.T) {
 	for _, it := range sections[3].Items {
 		app[it.Name] = it.Value
 	}
-	if app["Status"] != "Running, ready" || app["Requests"] != "cpu: 50m, memory: 64Mi" || app["Environment"] != "TOKEN: from secret api-token/t" {
+	if app["Status"] != "Running, ready" || app["Requests"] != "cpu: 50m, memory: 64.0 MiB" || app["Environment"] != "TOKEN: from secret api-token/t" {
 		t.Errorf("container items %v", app)
 	}
 }

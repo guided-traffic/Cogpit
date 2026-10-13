@@ -64,7 +64,7 @@ func TestConfigMapDrawerCaps(t *testing.T) {
 	if len(dataItems) != 101 || dataItems[100].Value != "51 more keys: see the YAML" {
 		t.Fatalf("data: %d items, last %+v; want 100 keys and a note on 51 more", len(dataItems), dataItems[len(dataItems)-1])
 	}
-	if len(binItems) != 101 || binItems[0].Value != "3 bytes" || binItems[100].Value != "20 more keys: see the YAML" {
+	if len(binItems) != 101 || binItems[0].Value != "3 B" || binItems[100].Value != "20 more keys: see the YAML" {
 		t.Fatalf("binary data: %d items, first %+v, last %+v", len(binItems), binItems[0], binItems[len(binItems)-1])
 	}
 

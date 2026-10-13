@@ -2,7 +2,6 @@ package model
 
 import (
 	"encoding/json"
-	"fmt"
 	"strconv"
 	"time"
 )
@@ -115,21 +114,6 @@ type UsageSample struct {
 // 1500 → "1.500".
 func FormatCPU(milli int64) string {
 	return strconv.FormatFloat(float64(milli)/1000, 'f', 3, 64)
-}
-
-// FormatBytes formats a byte count in binary units with one decimal: "19.5MiB", "1.2GiB"; below
-// one KiB in bytes ("512B").
-func FormatBytes(b int64) string {
-	const unit = 1024
-	if b < unit {
-		return fmt.Sprintf("%dB", b)
-	}
-	div, exp := int64(unit), 0
-	for n := b / unit; n >= unit && exp < 4; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f%ciB", float64(b)/float64(div), "KMGTP"[exp])
 }
 
 // FormatPercent formats a share of a whole with one decimal below 10 percent and none above:

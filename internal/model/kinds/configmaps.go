@@ -109,7 +109,7 @@ func configMapDetail(obj *unstructured.Unstructured) []model.DetailSection {
 			bin = append(bin, moreKeys(len(binary)-i))
 			break
 		}
-		bin = append(bin, model.DetailItem{Name: k, Value: formatBytes(base64Size(model.NestedString(binary, k)))})
+		bin = append(bin, model.DetailItem{Name: k, Value: model.FormatBytes(base64Size(model.NestedString(binary, k)))})
 	}
 	return withSection(sections, "Binary Data", bin)
 }
@@ -117,7 +117,7 @@ func configMapDetail(obj *unstructured.Unstructured) []model.DetailSection {
 // helmRecordText stands for a Helm release record's payload in a ConfigMap's drawer (Cogpit's
 // text, inferred: what Lens shows is not captured).
 func helmRecordText(n int) string {
-	return "[Helm release record, " + formatBytes(int64(n)) + " encoded, values included: not shown; Helm › Releases shows the release]"
+	return "[Helm release record, " + model.FormatBytes(int64(n)) + " encoded, values included: not shown; Helm › Releases shows the release]"
 }
 
 // moreKeys is the last item of a section that lists only the first configMapItems keys.
@@ -140,7 +140,7 @@ func (b *valueBudget) take(v string) string {
 	v = strings.TrimSuffix(v, "\n")
 	lines := strings.Count(v, "\n") + 1
 	if (len(v) > b.bytes && b.bytes < configMapValueBytes/4) || (lines > b.lines && b.lines < configMapValueLines/4) {
-		return "[not shown: " + formatBytes(int64(len(v))) + "; the full value is in the YAML]"
+		return "[not shown: " + model.FormatBytes(int64(len(v))) + "; the full value is in the YAML]"
 	}
 	maxBytes, maxLines := min(configMapValueBytes, b.bytes), min(configMapValueLines, b.lines)
 	shown := v
@@ -159,7 +159,7 @@ func (b *valueBudget) take(v string) string {
 	if len(shown) == len(v) {
 		return v
 	}
-	return shown + "\n[cut: " + formatBytes(int64(len(shown))) + " of " + formatBytes(int64(len(v))) +
+	return shown + "\n[cut: " + model.FormatBytes(int64(len(shown))) + " of " + model.FormatBytes(int64(len(v))) +
 		" shown; the full value is in the YAML]"
 }
 
@@ -184,18 +184,4 @@ func base64Size(s string) int64 {
 		pad++
 	}
 	return int64((n - pad) * 3 / 4)
-}
-
-// formatBytes renders a size: "512 bytes", "1 byte", "4.0 KiB", "1.5 MiB".
-func formatBytes(n int64) string {
-	switch {
-	case n == 1:
-		return "1 byte"
-	case n < 1<<10:
-		return strconv.FormatInt(n, 10) + " bytes"
-	case n < 1<<20:
-		return strconv.FormatFloat(float64(n)/(1<<10), 'f', 1, 64) + " KiB"
-	default:
-		return strconv.FormatFloat(float64(n)/(1<<20), 'f', 1, 64) + " MiB"
-	}
 }

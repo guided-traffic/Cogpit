@@ -49,7 +49,7 @@
     },
     {
       "column": "memoryTarget",
-      "text": "512.0MiB",
+      "text": "512.0 MiB",
       "num": 536870912
     }
   ],
@@ -103,7 +103,7 @@
         "rows": [
           [
             "search",
-            "cpu: 250m\nmemory: 512Mi",
+            "cpu: 250m\nmemory: 512.0 MiB",
             "",
             "",
             ""
