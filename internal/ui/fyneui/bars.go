@@ -47,8 +47,9 @@ func connectionText(c engine.Connection) string {
 	return "Not connected"
 }
 
-// topBar is the window's top bar: the Cogpit wordmark, the active context with its connection
-// state, the context picker button and, when an MCP command is configured, an MCP button. On macOS
+// topBar is the window's top bar: the Cogpit wordmark, the history arrows, the active context with
+// its connection state, the context picker button, when an MCP command is configured an MCP button,
+// and the notifications' bell. On macOS
 // it is also the window's title bar (titlebar.go): room for the window buttons before the logo,
 // and a drag area under its contents.
 type topBar struct {
@@ -60,6 +61,8 @@ type topBar struct {
 	switchB     *widget.Button
 	mcp         *widget.Button
 	lead        *canvas.Rectangle // the window buttons' room; hidden unless Cogpit draws the title bar
+	history     *titleHistory     // the history arrows and the bar's context menu (titlehistory.go)
+	notes       *notificationsUI  // the bell and its panel (notifications.go)
 	left        *fyne.Container
 	titleHeight float32 // the title bar's height the bar covers, in Fyne units; 0 without
 	root        fyne.CanvasObject
@@ -79,7 +82,9 @@ func newTopBar(sh *shell) *topBar {
 	wordmark := newTextLine("Cogpit", theme.ColorNameForeground, theme.SizeNameSubHeadingText, fyne.TextStyle{Bold: true})
 	t.lead = canvas.NewRectangle(color.Transparent)
 	t.lead.Hide()
-	t.left = container.NewHBox(t.lead, newLogo(), wordmark, newHGap(theme.SizeNameInnerPadding), newDivider(true),
+	t.history = newTitleHistory(sh)
+	t.notes = newNotificationsUI(sh)
+	t.left = container.NewHBox(t.lead, newLogo(), wordmark, t.history.root, newHGap(theme.SizeNameInnerPadding), newDivider(true),
 		newHGap(theme.SizeNameInnerPadding), t.dot, t.context, t.file, t.state, t.switchB)
 	right := container.NewHBox()
 	if sh.hasMCP() {
@@ -90,7 +95,10 @@ func newTopBar(sh *shell) *topBar {
 		}
 		right.Add(t.mcp)
 	}
-	t.root = box(&topBarLayout{t: t}, newSurface(colorTopBar), newBarDragArea(func() { sh.titlebar.mouseDown() }),
+	right.Add(t.notes.bell)
+	drag := newBarDragArea(func() { sh.titlebar.mouseDown() })
+	drag.secondary = t.history.showMenu
+	t.root = box(&topBarLayout{t: t}, newSurface(colorTopBar), drag,
 		inset(theme.SizeNameInnerPadding, "", container.NewBorder(nil, nil, t.left, right)))
 	return t
 }

@@ -316,8 +316,8 @@ func (sh *shell) onEvent(ev engine.Event) {
 			})
 		}
 	case engine.EventToast:
-		level, msg := ev.Level, ev.Message
-		sh.do(func() { sh.toast(level, msg) })
+		level, msg, id := ev.Level, ev.Message, ev.Notification
+		sh.do(func() { sh.showToast(level, msg, id) }) // the engine keeps it in its notification log
 	case engine.EventDrains:
 		sh.drains.request()
 	case engine.EventHelm:
@@ -441,6 +441,7 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	if first || tabsChanged(st, old) {
 		sh.tabs.sync()
 	}
+	sh.top.stateChanged() // the history arrows and the bell (titlehistory.go)
 }
 
 // refreshTable shows the newest snapshot of the open view.
@@ -615,19 +616,23 @@ var errUnavailable = errors.New("not available in this build")
 // a reaction. The pointer over a toast pauses its time.
 var toastLifetimes = map[string]time.Duration{"info": 6 * time.Second, "warning": 9 * time.Second, "error": 14 * time.Second}
 
-// toast shows a message in the bottom-right corner: a card on a strong surface with a bar, border
-// and icon in the level's colour, a bold title, the text and a close button.
+// toast shows a message the window raised itself and keeps it in the engine's notification log
+// (notifications.go), for the window's eyes only.
 func (sh *shell) toast(level, msg string) {
 	if msg == "" {
 		return
 	}
-	c, title, icon := colorAccent, "Info", theme.InfoIcon()
-	switch level {
-	case "error":
-		c, title, icon = colorStatusError, "Error", theme.ErrorIcon()
-	case "warning":
-		c, title, icon = colorStatusWarning, "Warning", theme.WarningIcon()
+	sh.showToast(level, msg, sh.recordToast(level, msg))
+}
+
+// showToast shows a message in the bottom-right corner: a card on a strong surface with a bar,
+// border and icon in the level's colour, a bold title, the text and a close button, which marks
+// its notification (id, 0 for none) read.
+func (sh *shell) showToast(level, msg string, id uint64) {
+	if msg == "" {
+		return
 	}
+	c, title, icon := toastStyle(level)
 	life := toastLifetimes[level]
 	if life == 0 {
 		life = toastLifetimes["info"]
@@ -646,7 +651,10 @@ func (sh *shell) toast(level, msg string) {
 	bar.min = fyne.NewSize(toastBar, 0)
 	card := &toastCard{}
 	card.ExtendBaseWidget(card)
-	closeBtn := newToastClose(func() { sh.dismissToast(card) })
+	closeBtn := newToastClose(func() {
+		sh.dismissToast(card)
+		sh.markToastRead(id)
+	})
 	card.life = life
 	card.expire = func() { sh.do(func() { sh.dismissToast(card) }) }
 	card.content = container.NewStack(
@@ -832,6 +840,10 @@ func (sh *shell) installShortcuts() {
 		if ev.Name == fyne.KeyEscape {
 			if sh.palette.visible() { // the palette lies over everything
 				sh.palette.dismissThen(nil)
+				return
+			}
+			if sh.top.notes.visible() { // the notifications' panel (notifications.go)
+				sh.top.notes.close()
 				return
 			}
 			if sh.picker.visible() { // the picker first: it lies over the drawer

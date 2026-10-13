@@ -108,13 +108,20 @@ func (l *topBarLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
 
 // barDragArea lies under the top bar's contents: a mouse-down on the bar where no button is
 // reaches it, and on macOS drags the window or, as the second click of a double click, zooms or
-// minimises it (titlebar_darwin.go). It draws nothing.
+// minimises it (titlebar_darwin.go); a right-click there opens the bar's context menu
+// (titlehistory.go). It draws nothing. A widget on the bar that takes clicks (a button, the bell)
+// is what Fyne hands a click on it to, so a click on one never drags the window
+// (TestBarClicksReachTheButtons).
 type barDragArea struct {
 	widget.BaseWidget
-	down func() // the title bar's mouse-down
+	down      func()              // the title bar's mouse-down
+	secondary func(fyne.Position) // a right-click, at the pointer in window coordinates
 }
 
-var _ desktop.Mouseable = (*barDragArea)(nil)
+var (
+	_ desktop.Mouseable      = (*barDragArea)(nil)
+	_ fyne.SecondaryTappable = (*barDragArea)(nil)
+)
 
 func newBarDragArea(down func()) *barDragArea {
 	a := &barDragArea{down: down}
@@ -131,6 +138,13 @@ func (a *barDragArea) MouseDown(ev *desktop.MouseEvent) {
 
 // MouseUp implements desktop.Mouseable.
 func (a *barDragArea) MouseUp(*desktop.MouseEvent) {}
+
+// TappedSecondary implements fyne.SecondaryTappable: the bar's context menu.
+func (a *barDragArea) TappedSecondary(ev *fyne.PointEvent) {
+	if a.secondary != nil {
+		a.secondary(ev.AbsolutePosition)
+	}
+}
 
 // CreateRenderer implements fyne.Widget.
 func (a *barDragArea) CreateRenderer() fyne.WidgetRenderer {
