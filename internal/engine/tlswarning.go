@@ -1,7 +1,7 @@
 package engine
 
 // What Cogpit shows for a context whose kubeconfig switches the check of the API server's
-// certificate off (insecure-skip-tls-verify, H-35 in docs/security/trust-boundaries.md): client-go
+// certificate off (insecure-skip-tls-verify, H-37 in docs/security/trust-boundaries.md): client-go
 // connects without asking, as kubectl does, and sends the context's credential to whoever answers
 // at the server's address. Lens's documentation says nothing about such contexts; Cogpit's
 // default (2026-10-13, not the owner's decision) is to connect, as kubectl does, and to say so in

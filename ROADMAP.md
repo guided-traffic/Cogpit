@@ -30,7 +30,7 @@ serial foundation, about 80% of the work parallelizes.
 | Remaining to **beta** (macOS, with the Flux CD and Argo CD views) | **~425–995 h** | estimated (was ~440–1,020) |
 | Remaining to **full parity** (free features, macOS) | **~420–1,040 h** | estimated (was ~430–1,060) |
 | Remaining to the **full Lens target** (paid features, Windows and Linux) | **~620–1,450 h** | estimated (was ~640–1,480) |
-| **Beyond Lens** (MCP control of UI and cluster, built-in agent) | **~50–110 h** | estimated, unchanged; not part of the parity numbers; 13 of 38 rows done, 9 partial (the CLI and its stdio bridge, 2026-10-13) |
+| **Beyond Lens** (MCP control of UI and cluster, built-in agent) | **~50–110 h** | estimated, unchanged; not part of the parity numbers; 18 of 38 rows done, 6 partial (the CLI and its stdio bridge, view_rows, related objects, the agents allowance, the audit log and diagnostics in the window, editor drafts, 2026-10-13) |
 
 ### Readiness by audience
 

@@ -82,7 +82,7 @@ host is configured to start `cogpit-cli mcp`; what makes it real is the user exp
 to cut agents off from cluster data altogether. A switch that also covers headless bridges (a
 setting in Cogpit's configuration directory the bridge honours) is not designed.
 
-### H-37: Every agent reads what agents did before
+### H-39: Every agent reads what agents did before
 
 Live since 2026-10-13 for every agent over MCP or the stdio bridge (and the built-in agent once it
 exists): `audit_list` returns the audit log's entries of every origin, from this run and earlier

@@ -7,7 +7,7 @@ targets, decided by the owner; they do not count toward the parity numbers in
 [`target-app-parity.md`](target-app-parity.md), which measure Cogpit against Lens. Method:
 [`README.md`](README.md).
 
-**Summary (measured, 2026-10-13):** 23 of 38 rows exist: 14 done and 9 partial, in MCP control,
+**Summary (measured, 2026-10-13):** 24 of 38 rows exist: 18 done and 6 partial, in MCP control,
 cache transparency, crash recovery (the unfinished drain, unsaved editor text), everyday use (the status bar link
 done, copying from the drawer partial) and the command line (`cogpit-cli contexts` done, `get`
 partial). Remaining (estimated): 4–12 h for MCP control

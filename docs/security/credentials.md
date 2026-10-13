@@ -99,7 +99,7 @@ Cogpit adds no cluster credential source of its own: no account, no login, no cl
   Upgrade and Install tabs have no drafts ([`drafts.go`](../../internal/engine/drafts.go),
   `TestNoDraftsForSecretsOrHelmValues`, `TestNoDraftsOfSecretTabs`, `TestDraftFilesReadBack`).
   Agents list drafts without their text; a restored tab's text follows `editor.get`'s rules. What
-  other kinds' text a user types is kept as typed ([H-35](#h-35-drafts-keep-typed-text-in-plain-text)).
+  other kinds' text a user types is kept as typed ([H-38](#h-38-drafts-keep-typed-text-in-plain-text)).
 - **In memory:** credentials are held by the connection that uses them and dropped when it closes.
   Rule for Cogpit's own credential types: they implement `slog.LogValuer` and `fmt.Stringer` as
   `"<redacted>"`, so a stray log statement cannot print them. The MVP has no such type yet: cluster
@@ -233,7 +233,7 @@ the CONNECT, as every HTTP client sends it); Cogpit does not warn about that. Wh
 credentials move into the keychain, and whether an `http://` proxy with a password is refused or
 warned about, is not decided.
 
-### H-35: Drafts keep typed text in plain text
+### H-38: Drafts keep typed text in plain text
 
 A draft of unsaved editor text (2026-10-13) holds what the user typed into an Edit or Create
 resource tab of any kind but a Secret, as typed: a password pasted into a ConfigMap, a token in a
