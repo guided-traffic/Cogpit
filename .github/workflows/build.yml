@@ -1,17 +1,14 @@
-# Build: the checks every push to main and every pull request must pass.
-#
-# release.yml ("Test and Release") owns the triggers and calls this workflow, so each push runs
-# these jobs once and the README's build badge (release.yml) reflects them. workflow_dispatch runs
-# the checks alone. What each job proves: docs/developer/releasing.md#ci.
-#
-# Go comes from go.mod (go-version-file). setup-go installs that version, caches the module and
-# build caches, and exports GOTOOLCHAIN=local; the Makefile exports GOTOOLCHAIN=auto, which finds
-# the same version and downloads nothing.
-name: Build
+# Release Build: what a release holds. Semantic Release (release.yml) creates the tag and the GitHub
+# release with the GitHub App's token once every gate on main is green; the release's "published"
+# event starts this workflow, which builds the artifacts from the tag and attaches them to the
+# release with SHA256SUMS. A release made with GITHUB_TOKEN would start no workflow, hence the App.
+# What a release holds and what it does not (no signature, no notarization yet):
+# docs/developer/releasing.md#the-release-pipeline, docs/security/updates.md.
+name: Release Build
 
 on:
-  workflow_call:
-  workflow_dispatch:
+  release:
+    types: [published]
 
 permissions:
   contents: read
@@ -20,186 +17,116 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # The platform Cogpit ships first: the full gate, the same make targets as on a laptop.
-  macos:
-    name: "macOS: lint, race tests, build"
+  # cogpit-cli is pure Go: every platform from one Linux runner (make dist-cli).
+  cli:
+    name: cogpit-cli (linux, darwin, windows)
+    runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
+    timeout-minutes: 15
+    steps:
+      - name: Checkout the release's tag
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
+        with:
+          cache: release
+          fyne-deps: "false"
+
+      - name: Install zip
+        run: command -v zip >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq zip >/dev/null; }
+
+      - name: Build the archives
+        run: make dist-cli VERSION="${GITHUB_REF_NAME#v}"
+
+      # The binary for this runner says the release's version.
+      - name: Check the version
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          out="$(dist/cli/cogpit-cli_${version}_linux_amd64/cogpit-cli --version)"
+          echo "${out}"
+          case "${out}" in "cogpit-cli ${version} "*) ;; *) echo "::error::cogpit-cli --version: ${out}"; exit 1 ;; esac
+
+      - name: Upload the archives
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-cli
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+          retention-days: 7
+
+  # The desktop app needs macOS: cgo with AppKit does not cross-compile from Linux (make dist-app).
+  # Unsigned: ad-hoc signed by make app, no Developer ID, not notarized.
+  macos-app:
+    name: Cogpit.app (macOS arm64)
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 15
     steps:
-      - name: Checkout
+      - name: Checkout the release's tag
         uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: ./.github/actions/go-setup
         with:
-          go-version-file: go.mod
+          cache: macos
 
-      - name: Install dependencies
-        run: go mod download
+      - name: Build and zip Cogpit.app
+        run: make dist-app VERSION="${GITHUB_REF_NAME#v}"
 
-      - name: Lint (golangci-lint with the depguard layering)
-        run: make lint
-
-      - name: Parity checklists and the numbers they report (make parity, D-15)
-        run: make parity
-
-      # TRANSITION: every package under the race detector, as before; coverage and the badge come
-      # from release.yml's jobs now.
-      - name: Race tests
-        run: make test-unit-race
-
-      - name: Build cogpit (cgo, Fyne) and cogpit-cli (pure Go)
-        run: make build
-
-  # Windows and Linux come after the macOS beta (D-7); until then CI proves that every package and
-  # every test still compiles and links there with cgo and Fyne's native dependencies.
-  compile:
-    name: Compile (${{ matrix.os }})
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: linux
-            runner: ubuntu-latest
-          - os: windows
-            runner: windows-latest
-    defaults:
-      run:
-        shell: bash
-    env:
-      # Fail loudly when no C compiler is found instead of building without cgo.
-      CGO_ENABLED: "1"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Set up Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-
-      # The packages Fyne 2.8 documents for Debian and Ubuntu: a C compiler, OpenGL, X11, xkbcommon.
-      - name: Install Fyne's build dependencies (Linux)
-        if: matrix.os == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev libwayland-dev wayland-protocols
-
-      # Fyne on Windows needs a MinGW-w64 gcc for cgo; MSYS2 is the toolchain Fyne documents.
-      - name: Install MinGW-w64 gcc (Windows)
-        id: msys2
-        if: matrix.os == 'windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          install: mingw-w64-x86_64-gcc
-
-      - name: Put MinGW-w64 gcc on PATH (Windows)
-        if: matrix.os == 'windows'
-        shell: pwsh
-        run: Add-Content -Path $env:GITHUB_PATH -Value "${{ steps.msys2.outputs.msys2-location }}\mingw64\bin"
-
-      - name: Toolchain
+      - name: Check the bundle
         run: |
-          go version
-          go env GOOS GOARCH CGO_ENABLED CC
-          gcc --version | head -n 1
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          plutil -extract CFBundleShortVersionString raw bin/Cogpit.app/Contents/Info.plist | grep -qx "${version}"
+          codesign --verify bin/Cogpit.app
+          lipo -archs bin/Cogpit.app/Contents/MacOS/cogpit
+          unzip -l "dist/Cogpit_${version}_darwin_arm64.zip" | tail -n 1
 
-      - name: Install dependencies
-        run: go mod download
+      - name: Upload the app
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-macos
+          path: dist/*.zip
+          retention-days: 7
 
-      # Compiles every package and links the main packages (cmd/cogpit with Fyne's GL driver).
-      - name: Build every package
-        run: go build ./...
-
-      - name: Vet every package and its tests
-        run: go vet ./...
-
-      # Builds and links every test binary (cgo link errors show here) and runs no test.
-      - name: Compile and link the tests
-        run: go test -count=1 -run '^$' ./...
-
-  # Cluster tests against a real API server and kubelet: views, logs, exec, kubectl in the terminal.
-  # make kind-up writes the cluster's kubeconfig to .cache/kind/kubeconfig; the job's KUBECONFIG
-  # points there too, so nothing in this job reads or writes ~/.kube.
-  kind:
-    name: Cluster Tests (kind)
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    env:
-      KUBECONFIG: ${{ github.workspace }}/.cache/kind/kubeconfig
+  publish:
+    name: Attach to the release
+    needs: [cli, macos-app]
+    runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
+    timeout-minutes: 15
+    permissions:
+      contents: write  # upload the assets, append the note to the release's text
     steps:
-      - name: Checkout
+      - name: Checkout the release's tag
         uses: actions/checkout@v7
 
-      - name: Set up Go
-        uses: actions/setup-go@v7
+      - name: Install make
+        run: command -v make >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq make >/dev/null; }
+
+      - name: Download the artifacts
+        uses: actions/download-artifact@v8
         with:
-          go-version-file: go.mod
+          pattern: release-*
+          merge-multiple: true
+          path: dist
 
-      # make test-kind compiles every package, the Fyne UI included.
-      - name: Install Fyne's build dependencies
-        run: sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev libwayland-dev wayland-protocols
+      - name: Checksums
+        run: make dist-checksums
 
-      - name: Install dependencies
-        run: go mod download
-
-      # install_only: the cluster comes from make kind-up (hack/kind/cluster.yaml). kind v0.33.0
-      # defaults to Kubernetes 1.37.0; kubectl matches client-go v0.37.1.
-      - name: Install kind and kubectl
-        uses: helm/kind-action@v1.15.1
+      - name: Attach the artifacts and the note
+        uses: softprops/action-gh-release@v3
         with:
-          version: v0.33.0
-          kubectl_version: v1.37.1
-          install_only: true
-          ignore_failed_clean: true
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/SHA256SUMS
+          fail_on_unmatched_files: true
+          append_body: true
+          body: |
 
-      - name: Create the kind cluster and seed it
-        run: make kind-up
+            ---
 
-      # kind-seed waits for web and api but does not fail on slow image pulls; the pod shell test
-      # needs the toolbox pod running.
-      - name: Wait for the seed
-        run: |
-          kubectl --context kind-cogpit -n cogpit-demo rollout status deployment/web --timeout=300s
-          kubectl --context kind-cogpit -n cogpit-demo rollout status deployment/api --timeout=300s
-          kubectl --context kind-cogpit -n cogpit-demo wait --for=condition=Ready pod/toolbox --timeout=300s
+            **Downloads.** `cogpit-cli` for Linux, macOS and Windows (amd64 and arm64) and `Cogpit.app` for macOS on Apple silicon; check them against `SHA256SUMS` (`sha256sum -c SHA256SUMS --ignore-missing`).
 
-      - name: Cluster tests (race detector on)
-        run: make test-kind
-
-      - name: Collect diagnostics on failure
-        if: failure()
-        run: |
-          kubectl --context kind-cogpit get nodes -o wide || true
-          kubectl --context kind-cogpit get pods -A -o wide || true
-          kubectl --context kind-cogpit -n cogpit-demo describe pods || true
-          kubectl --context kind-cogpit -n cogpit-demo get events --sort-by=.lastTimestamp || true
-
-      - name: Delete the kind cluster
-        if: always()
-        run: make kind-down || true
-
-  # govulncheck reports known vulnerabilities only where Cogpit's code reaches the affected
-  # symbol. Loading the packages runs cgo, hence Fyne's build dependencies.
-  govulncheck:
-    name: Vulnerability Check
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Set up Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-
-      - name: Install Fyne's build dependencies
-        run: sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev libwayland-dev wayland-protocols
-
-      - name: Install dependencies
-        run: go mod download
-
-      - name: Run vulnerability check
-        run: make vuln
+            **Unsigned.** Neither the app nor the macOS `cogpit-cli` is signed with a Developer ID or notarized yet. macOS blocks the first start of a downloaded copy: allow it once in System Settings → Privacy & Security → Open Anyway. Signing and notarization come once the project's Apple credentials exist ([docs/security/updates.md](https://github.com/guided-traffic/cogpit/blob/main/docs/security/updates.md)). Desktop packages for Linux and Windows come with milestone M11; `cogpit-cli` runs there today.

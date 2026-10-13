@@ -10,10 +10,8 @@
 # GitHub's hosted ones, which take the load off the shared self-hosted machine). The macOS job and
 # the Windows compile run on GitHub's hosted runners, free for a public repository.
 #
-# ---------------------------------------------------------------------------------------------
-# TRANSITION (2026-10-13): build.yml's old jobs still run beside their successors, and Semantic
-# Release is a dry run with the GitHub App's token, until the new jobs have run green.
-# ---------------------------------------------------------------------------------------------
+# Semantic Release creates the tag and the GitHub release with the organisation's GitHub App token,
+# so the release's "published" event starts the release pipeline (build.yml).
 name: Test and Release
 
 on:
@@ -41,14 +39,6 @@ env:
   GOFLAGS: -count=1
 
 jobs:
-  # The old jobs (macOS race tests, compile, kind, vulnerability check) until their successors
-  # below have run green.
-  build:
-    name: Build
-    uses: ./.github/workflows/build.yml
-    permissions:
-      contents: read
-
   # golangci-lint with the team's linters and depguard's layering (the import rules of
   # docs/developer/architecture.md §3).
   lint:
@@ -477,12 +467,12 @@ jobs:
           path: dist/coverage
           retention-days: 7
 
-  # TRANSITION: a dry run with the GitHub App's token (it proves the App is installed and its
-  # token may push), until the new jobs have run green.
+  # The version from the commits since the last tag, the release notes, the release commit with the
+  # badge ([skip ci]), the tag and the GitHub release (.releaserc.json; docs/developer/releasing.md#release-flow).
   semantic-release:
     name: Semantic Release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [build, lint, parity, gosec, govulncheck, cyclomatic-complexity, unit-tests, race-ui, race-rest, kind, kind-drain, macos, compile-windows, coverage]
+    needs: [lint, parity, gosec, govulncheck, cyclomatic-complexity, unit-tests, race-ui, race-rest, kind, kind-drain, macos, compile-windows, coverage]
     runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
     timeout-minutes: 15
     steps:
@@ -525,7 +515,7 @@ jobs:
       - name: Verify the integrity of provenance attestations and registry signatures for installed dependencies
         run: npm audit signatures
 
-      - name: Release (dry run)
+      - name: Release
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: npx semantic-release --dry-run
+        run: npx semantic-release
