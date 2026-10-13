@@ -111,11 +111,13 @@ func (d *drawer) line(text string, fg fyne.ThemeColorName, size fyne.ThemeSizeNa
 	return newSelLine(l, d.copyFor(copyText, false), func(sel string) { d.sh.copyText(sel, false) })
 }
 
-// showCopy puts the copy icon by the value w, which the pointer entered. natural is the width of
-// the value's text. For a text value the icon sits right after the text, or at the value's right
-// end when the text is wider. For a chip or a pill it sits right after the chip, outside it, so
-// that it covers no chip text of its own; at the right end of the details when the chip reaches
-// it. Either way it is centred on a single-line value and at the top of a wrapped one.
+// showCopy puts the copy icon by the value w, which the pointer entered. natural is the width the
+// value draws (its text, its pill). For a text value the icon sits a padding after the text, or
+// at the value's right end when the text leaves no room, and the text is then shortened with "…"
+// before it (iconRoom) rather than running under it. For a chip or a pill it sits right after
+// the chip, outside it, so that it covers no chip text of its own; at the right end of the details
+// when the chip reaches it. Either way it is centred on a single-line value and at the top of a
+// wrapped one.
 func (d *drawer) showCopy(w fyne.CanvasObject, h *copyHook, natural float32) {
 	drv := fyne.CurrentApp().Driver()
 	host := drv.AbsolutePositionForObject(d.host)
@@ -125,7 +127,14 @@ func (d *drawer) showCopy(w fyne.CanvasObject, h *copyHook, natural float32) {
 	if h.chip {
 		room = d.host.Size().Width - ms.Width - at.X
 	}
-	x := fyne.Min(natural+d.sh.app.Settings().Theme().Size(theme.SizeNamePadding), room)
+	pad := d.sh.app.Settings().Theme().Size(theme.SizeNamePadding)
+	x := fyne.Min(natural+pad, room)
+	keep := float32(0)
+	if !h.chip && natural+pad > room {
+		keep = w.Size().Width - x + pad // the text ends a padding before the icon
+	}
+	d.copyBtn.keep = keep
+	d.copyBtn.keepRoom(w, keep)
 	y := float32(0)
 	if lineH := fyne.MeasureText("Mg", d.sh.app.Settings().Theme().Size(theme.SizeNameText), fyne.TextStyle{}).Height; w.Size().Height <= 1.6*lineH {
 		y = (w.Size().Height - ms.Height) / 2
@@ -144,6 +153,7 @@ func (d *drawer) showCopy(w fyne.CanvasObject, h *copyHook, natural float32) {
 func (d *drawer) hideCopy(w fyne.CanvasObject) {
 	if (d.copyOwner == w || d.copyStale == w) && d.copyBtn.Visible() {
 		d.copyBtn.Hide()
+		d.copyBtn.keepRoom(nil, 0) // the icon's MouseIn takes it back if the pointer went there
 	}
 	if d.copyStale == w {
 		d.copyStale = nil
@@ -158,6 +168,9 @@ func (d *drawer) resetCopy() {
 	}
 	if d.copyBtn != nil && d.copyBtn.Visible() {
 		d.copyBtn.Hide()
+	}
+	if d.copyBtn != nil {
+		d.copyBtn.keepRoom(nil, 0)
 	}
 }
 
@@ -264,6 +277,36 @@ type copyButton struct {
 	out  func()                    // the pointer left the icon; nil: the icon hides, nothing more
 	alt  func(*fyne.PointEvent)    // a right-click on the icon; nil: none
 	done bool                      // a copy succeeded just now: a checkmark instead of the copy icon
+
+	// The drawer's: the value that keeps room for the icon at its right end, and how much.
+	roomed fyne.CanvasObject
+	keep   float32
+}
+
+// iconRoom is a drawer value whose text can stop short of the copy icon: a line or a link
+// shortens its text with "…" before the icon, rather than running under it and looking whole.
+type iconRoom interface{ setIconRoom(w float32) }
+
+// lessRoom is the width a text is shortened to in width when room is kept for the icon: never
+// zero while room is kept, which ellipsize reads as "do not shorten".
+func lessRoom(width, room float32) float32 {
+	if room <= 0 {
+		return width
+	}
+	return max(width-room, 1)
+}
+
+// keepRoom gives the value v the room w at its right end for the icon (nil or 0: none), and takes
+// it back from the value that had it.
+func (b *copyButton) keepRoom(v fyne.CanvasObject, w float32) {
+	if b.roomed != nil && (b.roomed != v || w == 0) {
+		b.roomed.(iconRoom).setIconRoom(0)
+		b.roomed = nil
+	}
+	if r, ok := v.(iconRoom); ok && w > 0 {
+		r.setIconRoom(w)
+		b.roomed = v
+	}
 }
 
 var (
@@ -272,8 +315,17 @@ var (
 	_ fyne.SecondaryTappable = (*copyButton)(nil)
 )
 
-// newCopyButton returns the drawer's copy icon.
-func newCopyButton(d *drawer) *copyButton { return newCopyIcon(d.sh, d.copyHovered, nil, nil) }
+// newCopyButton returns the drawer's copy icon. The value it is on keeps its room for the icon
+// while the pointer is on the icon, which the value's MouseOut has just taken back.
+func newCopyButton(d *drawer) *copyButton {
+	var b *copyButton
+	b = newCopyIcon(d.sh, d.copyHovered, func(*desktop.MouseEvent) {
+		if d.copyOwner != nil {
+			b.keepRoom(d.copyOwner, b.keep)
+		}
+	}, func() { b.keepRoom(nil, 0) })
+	return b
+}
 
 // newCopyIcon returns a hidden copy icon that runs tap when clicked; in and out, when set, follow
 // the pointer onto the icon and off it.
@@ -439,8 +491,32 @@ func wrapCopy(content fyne.CanvasObject, hook *copyHook) fyne.CanvasObject {
 	return w
 }
 
-// MouseIn implements desktop.Hoverable.
-func (w *hoverWrap) MouseIn(*desktop.MouseEvent) { w.hook.enter(w, w.Size().Width-w.gutter) }
+// MouseIn implements desktop.Hoverable: the icon follows what the content draws, not the wrapper,
+// which its row may stretch to the whole value's width (a status pill, an event's message): the
+// owner saw the icon of a certificate's Not After pill at the drawer's far right (2026-10-13).
+func (w *hoverWrap) MouseIn(*desktop.MouseEvent) {
+	w.hook.enter(w, min(drawnWidth(w.content), w.Size().Width-w.gutter))
+}
+
+// drawnWidth is how wide a wrapped value draws from its left edge: a pill or a row of pills as
+// wide as they ask to be, a wrapping label to the end of its longest line (a label that wraps is
+// capped by its width at the caller).
+func drawnWidth(o fyne.CanvasObject) float32 {
+	l, ok := o.(*widget.Label)
+	if !ok {
+		return o.MinSize().Width
+	}
+	th := l.Theme()
+	size := theme.SizeNameText
+	if l.SizeName != "" {
+		size = l.SizeName
+	}
+	var w float32
+	for _, line := range strings.Split(l.Text, "\n") {
+		w = max(w, fyne.MeasureText(line, th.Size(size), l.TextStyle).Width)
+	}
+	return th.Size(theme.SizeNameInnerPadding) + w
+}
 
 // MouseMoved implements desktop.Hoverable.
 func (w *hoverWrap) MouseMoved(*desktop.MouseEvent) {}

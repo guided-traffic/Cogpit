@@ -66,6 +66,15 @@ type linkText struct {
 	onTap   func()
 	hovered bool
 	hook    *copyHook // the copy icon's target (drawer values); nil: none
+	room    float32   // kept free of text at the right end: the copy icon is there (copy.go)
+}
+
+// setIconRoom implements iconRoom: a cut-off link shortens its text before the copy icon.
+func (l *linkText) setIconRoom(w float32) {
+	if l.room != w {
+		l.room = w
+		l.Refresh()
+	}
 }
 
 func newLinkText(text string, onTap func()) *linkText {
@@ -119,7 +128,7 @@ type linkTextRenderer struct {
 }
 
 func (r *linkTextRenderer) Layout(size fyne.Size) {
-	shown := ellipsize(r.l.text, size.Width, r.text.TextSize, r.text.TextStyle)
+	shown := ellipsize(r.l.text, lessRoom(size.Width, r.l.room), r.text.TextSize, r.text.TextStyle)
 	if shown != r.text.Text {
 		r.text.Text = shown
 		r.text.Refresh()

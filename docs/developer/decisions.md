@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -724,6 +724,28 @@ Universal Clipboard); the 60 seconds and the clearing on close stay. Options wei
   (`copyConfirmTime`, the shell's `copyConfirm`), then the copy icon again while the pointer is on
   the value; a Secret's value confirms the same way. `TestCopyIconReachableOnLabelChips`,
   `TestCopyIconReachableOnWrappedChips`, `TestCopyIconTurnsIntoACheckmark`.
+- **Right after the value (owner, 2026-10-13, in a real window):** "The copy button at Not After
+  has wandered to the far right again": a TLS Secret's Not After is a status pill, and the icon of
+  a pill sat at the drawer's right edge. A pill's wrapper (`hoverWrap`) spans the whole value cell,
+  and the icon was placed after the wrapper instead of after what it draws; an event's message did
+  the same. **Built 2026-10-13:** the icon follows what a value draws (`drawnWidth`: a pill or a
+  chip as wide as it asks, a message to the end of its longest line), a padding after it, for
+  every kind of value: a line, a link, a revealed Secret value, a pill, a chip (labels,
+  annotations, a list's entries), an event's message, a line of a value of several lines (one icon
+  per line, as before), a cell of a drawer table. Clamped to the value, never over another one:
+  a line or a link whose text leaves no room sits at the value's end and its text is shortened
+  with "…" before the icon while it is there (`iconRoom`, as in the lists; the text comes back
+  when the icon goes, and stays short while the pointer is on the icon); a pill or a chip that
+  reaches the details' right edge keeps the icon at that edge; a message that wraps keeps it at
+  its top right. A value with action buttons (a container port with Forward…) owns the room for
+  its icon after its text, so the icon sits before the buttons, which move right by the icon's
+  width, as a chip owns its gutter (Cogpit's default, not the owner's decision).
+  `TestDrawerCopyIconAfterThePill`, `TestDrawerCopyIconAfterTheText`,
+  `TestDrawerCopyIconAfterTheMessage`, `TestDrawerCopyIconInAnActionRow`; renders
+  `TestRenderDrawerCopyIconAfterTheValue` (PNG [Not After](../../internal/ui/fyneui/testdata/drawer_copy_notafter_dark.png),
+  [a long fingerprint](../../internal/ui/fyneui/testdata/drawer_copy_long_light.png)), and the pod's
+  status pill in [`drawer_copy_pill_dark.png`](../../internal/ui/fyneui/testdata/drawer_copy_pill_dark.png).
+  Not tried in a real window again.
 - A masked Secret value has no icon; a revealed one has, and copies the value alone (not the note
   that a long value was cut). A copy of a Secret value, by the icon or by ⌘C on its selection, goes
   through `shell.copyText(…, secret=true)`: 60 seconds later (`secretClipboardTTL`; the shell's
@@ -1105,6 +1127,7 @@ agent's `object_get`, its key matching and its chain in order); renders
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a status pill's included (it sat at the drawer's right edge), a long line shortened before it, a value with action buttons owning the room for it; built |
 | 2026-10-13 | minor | D-30, the owner's answers: agents and the built-in agent's LLM endpoint read the decoded certificates, never a key (H-45 closed by the decision, removed from agents-and-mcp.md); `tls.crt` checked against `tls.key` (the key parsed in memory, the outcome yes, no or a reason) and DER certificates decoded, both built; the pairing rule, the chain check, the 64 KiB key bound and the names that count as private keys Cogpit's defaults |
 | 2026-10-13 | minor | D-30 (owner): certificates in Secrets decoded into separate fields in the drawer and for agents (`object_get`'s `certificates`), an exception to "Secret values never reach an agent"; built 2026-10-13, which keys, the bounds, the fields, the thresholds and the layout Cogpit's defaults; no chain or key-pair check |
 | 2026-10-13 | minor | D-25 (owner, after seeing it): the lists' copy icon not on every cell but outside a blacklist of columns (by type: numbers, ages, times, metrics, warnings; by id: state words, booleans, counts and ratios in text, policy words: Cogpit's reading of the owner's principle), and right after the text instead of at the column's end; built |

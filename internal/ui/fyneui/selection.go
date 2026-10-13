@@ -182,7 +182,19 @@ type selLine struct {
 	textSelection
 	line *textLine
 	hook *copyHook // the copy icon's target; nil: the text has no icon
+	room float32   // kept free of text at the right end: the copy icon is there (copy.go)
 }
+
+// setIconRoom implements iconRoom: a cut-off line shortens its text before the copy icon.
+func (s *selLine) setIconRoom(w float32) {
+	if s.room != w {
+		s.room = w
+		s.Refresh()
+	}
+}
+
+// textWidth is the width the line's text is shortened to: the line's, less the icon's room.
+func (s *selLine) textWidth() float32 { return lessRoom(s.Size().Width, s.room) }
 
 var _ desktop.Hoverable = (*selLine)(nil)
 
@@ -203,7 +215,7 @@ func (s *selLine) shown() (string, bool) {
 	l := s.line
 	if l.truncate {
 		size := s.Theme().Size(l.size)
-		if cut := ellipsize(l.text, s.Size().Width, size, l.style); cut != l.text {
+		if cut := ellipsize(l.text, s.textWidth(), size, l.style); cut != l.text {
 			return cut, true
 		}
 	}
@@ -249,7 +261,7 @@ func (r *selLineRenderer) MinSize() fyne.Size { return r.s.line.MinSize() }
 
 func (r *selLineRenderer) Layout(size fyne.Size) {
 	r.s.line.Move(fyne.Position{})
-	r.s.line.Resize(size)
+	r.s.line.Resize(fyne.NewSize(lessRoom(size.Width, r.s.room), size.Height))
 	r.placeHighlight(size)
 }
 

@@ -501,20 +501,26 @@ func (d *drawer) itemValue(ref model.ObjectRef, sec model.DetailSection, it mode
 	if revealable(it) { // a revealed value takes the width the buttons leave and wraps in it
 		return container.NewBorder(nil, nil, nil, container.NewHBox(objs[1:]...), v)
 	}
-	natural := float32(0)
+	natural, icon := float32(0), float32(0)
 	if it.Fold == "" {
 		size := d.sh.app.Settings().Theme().Size(theme.SizeNameText)
 		for _, line := range strings.Split(it.Value, "\n") {
 			natural = fyne.Max(natural, fyne.MeasureText(line, size, fyne.TextStyle{}).Width)
 		}
 	}
-	return box(actionRowLayout{natural: natural}, objs...)
+	if copyable && it.Value != "" {
+		// The value owns the room for its copy icon right after its text, as a chip does: the
+		// buttons follow the icon, which covers neither the text nor a button (copy.go).
+		icon = d.copyBtn.MinSize().Width + d.sh.app.Settings().Theme().Size(theme.SizeNamePadding)
+	}
+	return box(actionRowLayout{natural: natural, icon: icon}, objs...)
 }
 
 // actionRowLayout puts a drawer value and its action buttons on one line: the value as wide as
-// its text (natural; 0 takes what the buttons leave), shortened when the drawer is narrower, the
-// buttons right after it. The value's own widgets ask for no width, since they shorten to fit.
-type actionRowLayout struct{ natural float32 }
+// its text (natural; 0 takes what the buttons leave) and the room for its copy icon (icon),
+// shortened when the drawer is narrower, the buttons right after it. The value's own widgets ask
+// for no width, since they shorten to fit.
+type actionRowLayout struct{ natural, icon float32 }
 
 func (actionRowLayout) gap() float32 {
 	return fyne.CurrentApp().Settings().Theme().Size(theme.SizeNamePadding)
@@ -540,7 +546,7 @@ func (l actionRowLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
 	}
 	vw := fyne.Max(size.Width-buttons, 0)
 	if l.natural > 0 {
-		vw = fyne.Min(vw, l.natural+l.gap())
+		vw = fyne.Min(vw, l.natural+l.gap()+l.icon)
 	}
 	vh := objs[0].MinSize().Height
 	objs[0].Move(fyne.NewPos(0, (size.Height-vh)/2))
