@@ -48,7 +48,7 @@ func TestSearchToggles(t *testing.T) {
 	if p := decodeParams[filterParams](t, f.callsOf("ui.setFilter")[1]); p.Regex == nil || !*p.Regex || p.MatchCase != nil {
 		t.Fatalf(".* sent %+v", p)
 	}
-	q.until(t, ".* on", func() bool { return tg.regex.Importance == widget.HighImportance && f.ui.FilterOptions.Regex })
+	q.until(t, ".* on", func() bool { return tg.regex.Importance == widget.HighImportance && f.UIState().FilterOptions.Regex })
 
 	// A pattern half typed: the error shows at once, before the engine has the text.
 	test.Type(sh.view.search, "(")
@@ -59,7 +59,7 @@ func TestSearchToggles(t *testing.T) {
 	if tg.ring.Visible() || tg.regex.Importance != widget.HighImportance || tg.regex.tip != tipRegex {
 		t.Fatalf("valid again: ring %v, .* %v, tip %q", tg.ring.Visible(), tg.regex.Importance, tg.regex.tip)
 	}
-	q.until(t, "the text sent", func() bool { return f.ui.Filter == "web()" })
+	q.until(t, "the text sent", func() bool { return f.UIState().Filter == "web()" })
 
 	// An agent switches regex off: the switches and the field follow.
 	go f.update(func(u *engine.UIState) {

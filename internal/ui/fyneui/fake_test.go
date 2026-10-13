@@ -44,7 +44,9 @@ type fakeEngine struct {
 	namespaces []string
 	disabled   map[string]string // command id → the reason Enabled returns
 	opened     map[string]int    // dock tab id → times its stream was opened
-	closed     map[string]int    // dock tab id → times its stream was closed
+	// quietTerminals: OpenTerminal's sessions print nothing (quietReader).
+	quietTerminals bool
+	closed         map[string]int // dock tab id → times its stream was closed
 	// handlers answer further commands by id, so that an area's tests add its commands in its
 	// own file (editor_test.go).
 	handlers map[string]func(context.Context, engine.Invocation) (any, error)
@@ -174,6 +176,9 @@ func (s *fakeStream) Write(p []byte) (int, error) { return len(p), nil }
 func (s *fakeStream) Resize(uint16, uint16) error { return nil }
 func (s *fakeStream) Done() <-chan struct{}       { return s.done }
 func (s *fakeStream) Close() error {
+	if q, ok := s.Reader.(*quietReader); ok {
+		q.close()
+	}
 	s.f.mu.Lock()
 	s.f.closed[s.id]++
 	s.f.mu.Unlock()
@@ -190,9 +195,27 @@ func (f *fakeEngine) OpenLogs(_ context.Context, tabID string) (io.ReadCloser, e
 func (f *fakeEngine) OpenTerminal(_ context.Context, tabID string) (terminal.Session, error) {
 	f.mu.Lock()
 	f.opened[tabID]++
+	quiet := f.quietTerminals
 	f.mu.Unlock()
-	return &fakeStream{Reader: strings.NewReader("$ "), f: f, id: tabID, done: make(chan struct{})}, nil
+	var r io.Reader = strings.NewReader("$ ")
+	if quiet {
+		r = &quietReader{stop: make(chan struct{})}
+	}
+	return &fakeStream{Reader: r, f: f, id: tabID, done: make(chan struct{})}, nil
 }
+
+// quietReader is a terminal session that prints nothing until it is closed. Fyne's test driver
+// runs fyne.Do on the calling goroutine, so a session's output is written into the terminal's grid
+// on its reader goroutine while the test refreshes the widget on another: a data race of the test
+// driver only (the desktop driver runs fyne.Do on the main goroutine). Tests that refresh open
+// terminals set fakeEngine.quietTerminals.
+type quietReader struct {
+	stop chan struct{}
+	once sync.Once
+}
+
+func (r *quietReader) Read([]byte) (int, error) { <-r.stop; return 0, io.EOF }
+func (r *quietReader) close()                   { r.once.Do(func() { close(r.stop) }) }
 
 func (f *fakeEngine) SetConfirmer(c engine.Confirmer) {
 	f.mu.Lock()

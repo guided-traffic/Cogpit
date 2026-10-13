@@ -32,6 +32,7 @@ func dockTerminal(t *testing.T, sh *shell, q *mainQueue, id string) *termview.Te
 // shells alike, and terminals opened afterwards start with it.
 func TestTerminalRightClickFollowsThePreference(t *testing.T) {
 	f := connectedFake(t, 20)
+	f.quietTerminals = true // the terminals are refreshed while open (quietReader)
 	prefs := engine.DefaultPreferences()
 	f.ui.Preferences = &prefs
 	f.ui.Dock = []engine.DockTab{{ID: "terminal-1", Type: engine.DockTerminal, Title: "Terminal: demo", Context: "demo"}}
