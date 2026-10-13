@@ -39,6 +39,7 @@ type navEntry struct {
 	title string     // a group's title; for a kind, a title in place of its own (a CRD kind's plural title)
 	items []navEntry // a group's entries, in Lens's order
 	page  bool       // a page (engine.IsPage), shown while a cluster is connected
+	needs string     // a page shown only while the cluster serves this kind (the Argo CD Dashboard)
 }
 
 // page is a page of the navigator, titled as the engine titles it.
@@ -87,6 +88,7 @@ var navLayout = []navEntry{
 	page(engine.ClusterOverview),
 	{id: "applications"}, // a virtual kind, the workloads grouped by app.kubernetes.io/instance
 	fluxNav,              // Flux CD between Applications and Nodes, as captured (fluxnav.go)
+	argoNavGroup,         // Argo CD after Flux CD, while the cluster serves its Applications (argocd.go)
 	{id: "nodes"},
 	navGroup("workloads", "Workloads", page(engine.WorkloadsOverview),
 		kindPods, "deployments", "daemonsets", "statefulsets", "replicasets", "replicationcontrollers", "jobs", "cronjobs"),
@@ -156,6 +158,7 @@ var navIcons = map[string]func() fyne.Resource{
 	kindEvents:                theme.HistoryIcon,
 	groupPrefix + "devices":   theme.ComputerIcon,
 	groupPrefix + "helm":      theme.FileApplicationIcon,
+	groupPrefix + argoGroup:   theme.ViewRefreshIcon, // Argo CD: a sync's circular arrows
 	groupPrefix + "access":    theme.AccountIcon,
 	groupPrefix + "custom":    theme.ListIcon,
 	groupPrefix + "other":     theme.MoreHorizontalIcon,
@@ -385,6 +388,9 @@ func (s *sidebar) build(n navEntry, parent string, have map[string]kindInfo, pla
 	case n.page:
 		if len(have) == 0 {
 			return "" // not connected
+		}
+		if _, served := have[n.needs]; n.needs != "" && !served {
+			return "" // a section's page without its kinds (argocd.go)
 		}
 		return s.leaf(n.id, n.title, parent)
 	default:

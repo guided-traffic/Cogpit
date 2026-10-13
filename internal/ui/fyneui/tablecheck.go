@@ -294,6 +294,10 @@ func (tv *tableView) openSelectionMenu(pos fyne.Position) {
 // runOnSelection runs an action on the selection's objects; the engine asks the user to confirm
 // a destructive one, naming every object.
 func (tv *tableView) runOnSelection(id string, refs []model.ObjectRef) {
+	if open, ok := selectionDialogs[id]; ok { // an action that asks first (Argo CD's Sync and Refresh)
+		open(tv.sh, refs)
+		return
+	}
 	tv.sh.dispatch(id, engine.SelectionParams(refs), tv.sh.actionDone(id))
 }
 

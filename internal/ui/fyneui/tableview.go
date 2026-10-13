@@ -54,6 +54,7 @@ type tableView struct {
 	overview                   *overviewPanel
 	cluster                    *clusterPanel
 	flux                       *fluxPanel      // the Flux dashboard's tiles (fluxdashboard.go)
+	argo                       *argoPanel      // the Argo CD Dashboard's strip, cards and activity (argocd_dashboard.go)
 	pageTop                    *fyne.Container // the open page's part
 	eventsTitle                *textLine
 	eventsHeading, eventsTools *fyne.Container
@@ -160,6 +161,7 @@ func newTableView(sh *shell) *tableView {
 	tv.overview = newOverviewPanel(sh)
 	tv.cluster = newClusterPanel(sh)
 	tv.flux = newFluxPanel(sh)
+	tv.argo = newArgoPanel(sh)
 	tv.pageTop = container.NewStack(tv.overview.root)
 	tv.eventsTitle = newTextLine("Events", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	tv.eventsHeading, tv.eventsTools = container.NewHBox(), container.NewHBox()
@@ -192,6 +194,9 @@ func (tv *tableView) setPageLayout(view string) {
 			top, title = tv.cluster.root, "Issues"
 		case engine.FluxDashboard:
 			top, title = tv.flux.root, fluxTableTitle
+		}
+		if view == engine.ArgoCDDashboard {
+			top, title = tv.argo.root, "Needs Attention"
 		}
 		tv.pageTop.Objects = []fyne.CanvasObject{top}
 		tv.pageTop.Refresh()
@@ -242,6 +247,8 @@ func (tv *tableView) requestPage() {
 		tv.cluster.request()
 	case view == engine.FluxDashboard:
 		tv.flux.request()
+	case view == engine.ArgoCDDashboard:
+		tv.argo.request()
 	case engine.IsPage(view):
 		tv.overview.request()
 	}
@@ -255,6 +262,9 @@ func (tv *tableView) rowNoun() string {
 	}
 	if tv.sh.ui.View == engine.FluxDashboard {
 		return "Flux objects"
+	}
+	if tv.sh.ui.View == engine.ArgoCDDashboard {
+		return argoRowNoun(tv.sh) // argocd.go
 	}
 	if engine.IsPage(tv.sh.ui.View) {
 		return kindEvents // the kind key reads as the noun
