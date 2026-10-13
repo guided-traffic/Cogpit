@@ -3,7 +3,9 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
+	"strings"
 
 	"github.com/guided-traffic/cogpit/internal/kubeconfig"
 )
@@ -125,9 +127,10 @@ func (s *Session) CheckRemoveContext(id string) error {
 }
 
 // RemoveContext unlinks a context's kubeconfig file from Cogpit (cluster.remove): the file's
-// source is removed as kubeconfig.remove removes it, so every context of the file leaves Cogpit,
-// the credential plugins allowed for it are forgotten, and a connection made from it is closed.
-// The file stays on disk as it is. It returns the link that was removed.
+// source is removed as kubeconfig.remove removes it (RemoveKubeconfigSource), so every context of
+// the file leaves Cogpit with its tabs, the credential plugins allowed for it are forgotten, and a
+// connection made from it is closed. The file stays on disk as it is. It returns the link that was
+// removed.
 func (s *Session) RemoveContext(id string) (ContextLink, error) {
 	l, err := s.ContextLink(id)
 	if err != nil {
@@ -136,13 +139,78 @@ func (s *Session) RemoveContext(id string) (ContextLink, error) {
 	if !l.Removable {
 		return l, errors.New(l.Reason)
 	}
-	src, err := s.KubeconfigSources().Remove(l.Source.ID)
-	if src.ID != "" {
-		s.CloseGoneSourceConnection() // a connection made from the file ends with the link
-		s.emit(Event{Type: EventContexts})
-	}
-	if err != nil {
+	if _, err := s.RemoveKubeconfigSource(l.Source.ID); err != nil {
 		return l, err
 	}
 	return l, nil
+}
+
+// RemoveKubeconfigSource removes a kubeconfig source (kubeconfig.remove, and cluster.remove through
+// RemoveContext): Cogpit's link to a file or folder, never the file or folder itself. A connection
+// made from one of its files is closed, and the tabs of the contexts that leave Cogpit with it are
+// closed, the active one too (UI state is engine state: the tab bar and an agent's ui_state lose
+// them alike). A context the sources still offer afterwards keeps its tabs. Cogpit's default
+// (2026-10-13, not the owner's decision; Lens's behaviour is not captured): a cluster Cogpit no
+// longer offers keeps no tab, which could only fail to connect.
+func (s *Session) RemoveKubeconfigSource(id string) (KubeconfigSource, error) {
+	k := s.KubeconfigSources()
+	if k == nil {
+		return KubeconfigSource{}, errNoSources
+	}
+	src, err := k.Remove(id)
+	if src.ID != "" {
+		s.CloseGoneSourceConnection() // a connection made from the source's files ends with the link
+		s.closeTabsOfSource(k, src)
+		s.emit(Event{Type: EventContexts})
+	}
+	return src, err
+}
+
+// closeTabsOfSource closes the tabs of the removed source's contexts that no source offers any
+// more. When the sources cannot be read, no tab is closed on a guess. Closing the active tab leaves
+// no tab active, as closing a cluster's last tab does (UIState.closeTab).
+func (s *Session) closeTabsOfSource(k *KubeconfigSources, src KubeconfigSource) {
+	files, _, err := k.Files()
+	if err != nil {
+		return
+	}
+	offered := map[string]bool{}
+	for _, f := range files {
+		for _, c := range f.Contexts {
+			offered[SourceContextID(c.Name, f.Label)] = true
+		}
+	}
+	gone := func(t ViewTab) bool { return ofSource(src, t.Context) && !offered[t.Context] }
+	if !slices.ContainsFunc(s.UIState().Tabs, gone) {
+		return
+	}
+	s.UpdateUI(func(u *UIState) {
+		if i := u.activeIndex(); i >= 0 && gone(u.Tabs[i]) {
+			u.ActiveTab = ""
+			if u.Tabs[i].Context == u.Context {
+				u.View, u.Filter = "", ""
+				u.Selected, u.Drawer = nil, nil
+			}
+		}
+		u.Tabs = slices.DeleteFunc(u.Tabs, gone)
+	})
+}
+
+// ofSource reports whether a context id ("<context> [<label>]", SourceContextID) names a context of
+// the source's files: the label is the source's id (a file), or the source's id followed by the
+// name of a file in it (a folder, whose id ends in a slash).
+func ofSource(src KubeconfigSource, id string) bool {
+	rest, ok := strings.CutSuffix(id, "]")
+	if !ok || src.ID == "" {
+		return false
+	}
+	if src.Kind != SourceFolder {
+		return strings.HasSuffix(rest, " ["+src.ID)
+	}
+	i := strings.LastIndex(rest, " ["+src.ID)
+	if i < 0 {
+		return false
+	}
+	name := rest[i+len(" [")+len(src.ID):]
+	return name != "" && !strings.ContainsAny(name, `/\`)
 }

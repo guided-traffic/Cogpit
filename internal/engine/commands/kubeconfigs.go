@@ -190,23 +190,18 @@ func registerKubeconfigs(g *registrar) {
 	add(g, engine.Spec[sourceParams]{
 		ID: "kubeconfig.remove", Label: "Remove Kubeconfig Source", MenuPath: "File/Remove Kubeconfig Source", Danger: engine.DangerUI,
 		Description: "Removes a kubeconfig source, which is Cogpit's link to a file or folder and nothing else: its contexts " +
-			"are no longer offered, the credential plugins allowed for its files are forgotten, and an open connection made " +
-			"from one of its files is closed. The file or folder the user added, and the files in it, stay on disk as they are. " +
-			"The GUI asks the user first, naming the path." + guiOnly,
+			"are no longer offered and their tabs close, the credential plugins allowed for its files are forgotten, and an open " +
+			"connection made from one of its files is closed. The file or folder the user added, and the files in it, stay on " +
+			"disk as they are. The GUI asks the user first, naming the path." + guiOnly,
 		Enabled: func(s *engine.Session, _ sourceParams) error { return enabled(s) },
 		Run: func(ctx context.Context, s *engine.Session, p sourceParams) (any, error) {
 			if err := requireGUI(ctx); err != nil {
 				return nil, err
 			}
-			k, err := sourcesAvailable(s)
-			if err != nil {
+			if _, err := sourcesAvailable(s); err != nil {
 				return nil, err
 			}
-			src, err := k.Remove(p.Source)
-			if src.ID != "" {
-				s.CloseGoneSourceConnection() // a connection made from the source's files ends with the link
-				s.Emit(engine.Event{Type: engine.EventContexts})
-			}
+			src, err := s.RemoveKubeconfigSource(p.Source) // the connection and the tabs of its contexts end with the link
 			if err != nil {
 				return nil, err
 			}

@@ -2,6 +2,8 @@ package fyneui
 
 import (
 	"context"
+	"encoding/json"
+	"slices"
 	"testing"
 
 	"fyne.io/fyne/v2"
@@ -55,4 +57,31 @@ func TestClusterMenuDisconnectFollowsAReconnect(t *testing.T) {
 			t.Errorf("%s: Disconnect disabled %v, want %v", step.state, got, step.disabled)
 		}
 	}
+}
+
+// TestRemovedClusterLeavesTheTabBar: Remove from Cogpit takes the removed file's clusters' tabs out
+// of the tab bar (the engine closes them: cluster.remove); another cluster's tab stays.
+func TestRemovedClusterLeavesTheTabBar(t *testing.T) {
+	s, _ := sourcesWelcomeEngine(t)
+	s.UpdateUI(func(u *engine.UIState) {
+		u.Tabs = []engine.ViewTab{
+			{ID: "tab-1", Context: "kind-dev [.kube/config]", View: "pods"},
+			{ID: "tab-2", Context: "team-a [team.yaml]", View: "pods"},
+			{ID: "tab-3", Context: "team-b [team.yaml]", View: "services"},
+		}
+	})
+	sh, _, q := newEngineShell(t, s, Options{})
+	shown := func() []string {
+		var out []string
+		for _, tab := range sh.tabs.shown {
+			out = append(out, tab.tab.Context)
+		}
+		return out
+	}
+	q.until(t, "the three tabs", func() bool { return len(shown()) == 3 })
+	raw, _ := json.Marshal(clusterRemoveParams{Context: "team-a [team.yaml]"})
+	if _, err := s.Dispatch(context.Background(), engine.Invocation{ID: "cluster.remove", Params: raw, Origin: engine.OriginGUI}); err != nil {
+		t.Fatal(err)
+	}
+	q.until(t, "the removed file's tabs gone", func() bool { return slices.Equal(shown(), []string{"kind-dev [.kube/config]"}) })
 }

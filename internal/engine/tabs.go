@@ -35,7 +35,9 @@ import (
 //     preview tab;
 //   - a tab's history holds view keys, at most maxTabHistory each way; back and forward open the
 //     view as ui.openView does (selection, drawer and search cleared, the namespace filter kept);
-//   - ⌘9 is the last tab, as browsers have it; next and previous wrap around.
+//   - ⌘9 is the last tab, as browsers have it; next and previous wrap around;
+//   - the tabs of a cluster removed from Cogpit (cluster.remove, kubeconfig.remove) close with it
+//     (Session.RemoveKubeconfigSource, contextlink.go).
 //
 // The engine keeps the tabs in step with the rest of the UI state in one place, UIState.syncTabs,
 // which UpdateUI runs after every change: the active tab's fields follow the live ones, a view
