@@ -42,8 +42,8 @@ Since 2026-10-13 the top bar has the active tab's history arrows (`ui.tab.back`,
 Since 2026-10-13 a terminal checks its `kubectl` against the cluster's version when it opens (D-3): one more than a minor version away, or none, and its tab offers the matching release, which the user's click downloads from `dl.k8s.io` (or a mirror), verified against the published SHA-256 and the Kubernetes release's sigstore signature, into Cogpit's directory for binaries; the terminals opened afterwards find it first on `PATH` (`DockTab.Kubectl`, `kubectl.download` GUI-only, `internal/kubectl`; [§10](#kubectl-in-terminals-built-2026-10-13)).
 Since 2026-10-13 an Edit or Create resource tab's unsaved text is kept as a draft in Cogpit's own `drafts/` folder and offered again on the next connect of its context after a crash or a quit (G9, D-11; `editor.drafts`, `editor.restoreDraft`, `editor.discardDraft`, a banner below the Helm banner), never a Secret's text or Helm values ([§4.4](#44-tables-details-editors-and-streams)).
 =======
-Since 2026-10-13 an Edit or Create resource tab's unsaved text is kept as a draft in Cogpit's own `drafts/` folder and offered again on the next connect of its context after a crash or a quit (G9, D-11; `editor.drafts`, `editor.restoreDraft`, `editor.discardDraft`, a banner below the Helm banner), never a Secret's text or Helm values; an Edit tab reverts to the object as the cluster holds it, with an undo (`editor.revert`, `editor.undoRevert`) ([§4.4](#44-tables-details-editors-and-streams)).
->>>>>>> 4678eee (feat(editor): Revert to Original in an Edit tab and its review, with an undo, to the object as the cluster holds it (G9))
+Since 2026-10-13 an Edit or Create resource tab's unsaved text is kept as a draft in Cogpit's own `drafts/` folder and offered again on the next connect of its context after a crash or a quit (G9, D-11; `editor.drafts`, `editor.restoreDraft`, `editor.discardDraft`, a banner below the Helm banner), never a Secret's text or Helm values; an Edit tab reverts to the object as the cluster holds it, with an undo (`editor.revert`, `editor.undoRevert`), and a Create resource tab saves its text to a file the user picks and searches it with the editor's find widget (GUI only) ([§4.4](#44-tables-details-editors-and-streams)).
+>>>>>>> 906c36a (feat(editor): the Create resource tab's save and search buttons: the text to a YAML file the user picks, the editor's find widget (G9))
 CI runs on every push ([releasing › CI](releasing.md#ci)). The MVP doubled as the Fyne spike
 ([results](spike-fyne.md#results)). Where the code differs from the plan below, this section wins.
 
@@ -2736,6 +2736,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | Current state: the Create resource tab's save and search buttons (G9) |
 | 2026-10-13 | minor | §4.4: an Edit tab's Revert to original with its undo (G9); Current state |
 | 2026-10-13 | minor | §4.4: drafts of unsaved editor text, offered on connect, never a Secret's or Helm values (G9, D-11); Current state |
 | 2026-10-13 | minor | Helm's ConfigMaps storage driver (G11, night run, agent HD): §5 joined scopes (`cache.Join`) and the releases read from the release Secrets and ConfigMaps; §8 storage drivers (the read side, one name in both drivers, the drawer's Storage, actions with the release's driver, the verbs, the `HELM_DRIVER` preference, payloads kept from agents, on kind); Current state |

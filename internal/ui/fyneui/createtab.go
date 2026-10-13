@@ -15,9 +15,10 @@ import (
 // maxCreateLines is how many per-object results a Create resource tab lists before it sums up.
 const maxCreateLines = 6
 
-// createTab is a Create resource dock tab: a template picker ("Select Template …", Cogpit's own
-// templates under a "Cogpit" heading), the YAML editor, and Create and Create & Close, which
-// create every object of the text (object.create) and list what happened to each.
+// createTab is a Create resource dock tab: save and search buttons (createtab_save.go), a template
+// picker ("Select Template …", Cogpit's own templates under a "Cogpit" heading), the YAML editor,
+// and Create and Create & Close, which create every object of the text (object.create) and list
+// what happened to each.
 type createTab struct {
 	sh   *shell
 	tab  engine.DockTab
@@ -32,6 +33,12 @@ type createTab struct {
 	closeBtn  *widget.Button
 	root      fyne.CanvasObject
 	busy      bool
+
+	// The save and search buttons before the picker (captured), the find widget below the editor,
+	// and the file save dialog (createtab_save.go; a test replaces it).
+	saveBtn, searchBtn *tipButton
+	find               *findBar
+	saveDialog         func(name string, data []byte)
 }
 
 func newCreateTab(sh *shell, t engine.DockTab) *createTab {
@@ -44,15 +51,17 @@ func newCreateTab(sh *shell, t engine.DockTab) *createTab {
 	c.createBtn = widget.NewButtonWithIcon("Create", theme.ContentAddIcon(), func() { c.create(false) })
 	c.createBtn.Importance = widget.HighImportance
 	c.closeBtn = widget.NewButton("Create & Close", func() { c.create(true) })
+	c.newTools()
 
 	toolbar := container.NewStack(newSurface(colorDock), inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
-		container.NewBorder(nil, nil, c.picker, nil)))
+		container.NewBorder(nil, nil, container.NewHBox(c.saveBtn, c.searchBtn, newDivider(true), c.picker), nil)))
 	footer := container.NewStack(newSurface(colorDock), inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
 		container.NewBorder(c.results, nil, nil, container.NewHBox(c.closeBtn, c.createBtn), c.status)))
 	c.root = container.NewBorder(
 		container.NewVBox(toolbar, newDivider(false)),
 		container.NewVBox(newDivider(false), footer), nil, nil,
-		container.NewStack(newSurface(theme.ColorNameInputBackground), c.pane.view))
+		container.NewBorder(nil, c.find.root, nil, nil,
+			container.NewStack(newSurface(theme.ColorNameInputBackground), c.pane.view)))
 	c.pane.load(func(_ engine.EditorState, err error) {
 		if err != nil {
 			c.setStatus("Could not open the editor: "+err.Error(), colorStatusError)
