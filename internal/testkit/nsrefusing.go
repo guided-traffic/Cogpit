@@ -1,6 +1,7 @@
 package testkit
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -141,10 +142,10 @@ func (lw *countedLW) IsWatchListSemanticsUnSupported() bool { return true }
 
 func (lw *countedLW) List(opts metav1.ListOptions) (runtime.Object, error) {
 	lw.s.count("list " + lw.scope)
-	return lw.inner.List(opts)
+	return toolscache.ToListerWithContext(lw.inner).ListWithContext(context.Background(), opts)
 }
 
 func (lw *countedLW) Watch(opts metav1.ListOptions) (watch.Interface, error) {
 	lw.s.count("watch " + lw.scope)
-	return lw.inner.Watch(opts)
+	return toolscache.ToWatcherWithContext(lw.inner).WatchWithContext(context.Background(), opts)
 }
