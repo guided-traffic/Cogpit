@@ -165,6 +165,8 @@ var wantCommands = map[string]engine.Danger{
 	// (TestFluxActionsAgentsNeedAcceptance).
 	"flux.reconcile": engine.DangerMutating, "flux.suspend": engine.DangerMutating, "flux.resume": engine.DangerMutating,
 	"flux.reconcileMany": engine.DangerMutating, "flux.suspendMany": engine.DangerMutating, "flux.resumeMany": engine.DangerMutating,
+	// The Flux dashboard (D-34), read from the cache (TestFluxDashboardCommand).
+	"flux.dashboard": engine.DangerRead,
 }
 
 func TestRegistryComplete(t *testing.T) {

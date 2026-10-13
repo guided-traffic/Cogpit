@@ -162,6 +162,8 @@ func (b *Backend) viewProfile(view string) *model.KindProfile {
 		return overviewEvents(b)
 	case ClusterOverview:
 		return issuesProfile // clusteroverview.go
+	case FluxDashboard:
+		return fluxIssuesProfile // fluxdashboard.go
 	}
 	return nil
 }

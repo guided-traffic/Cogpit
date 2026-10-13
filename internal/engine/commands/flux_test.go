@@ -351,3 +351,48 @@ func TestFluxActionsOnASelection(t *testing.T) {
 		t.Errorf("failures: %v", err)
 	}
 }
+
+// TestFluxDashboardCommand: agents read the dashboard (counts by state, the table of objects that
+// are not ready); the user opens it with ui.openView, selects every row of it (objects of several
+// Flux kinds) and reconciles them from the selection.
+func TestFluxDashboardCommand(t *testing.T) {
+	h, w := newFluxHarness(t, engine.Options{})
+	agent := engine.OriginExternalAgent
+	var res commands.FluxDashboardResult
+	h.must(t, agent, "flux.dashboard", map[string]any{"table": true}, &res)
+	counts := map[string]string{}
+	for _, k := range res.Kinds {
+		var states []string
+		for _, st := range k.States {
+			states = append(states, fmt.Sprintf("%s=%d", st.State, st.Count))
+		}
+		counts[k.Title] = strings.Join(states, " ")
+	}
+	if counts["Kustomizations"] != "ready=1 notReady=1 suspended=1" || counts["Helm Releases"] != "ready=1" ||
+		counts["Alerts"] != "ready=1" || counts["External Artifacts"] != "ready=1" || len(res.Kinds) != 4 {
+		t.Errorf("counts %v", counts)
+	}
+	if res.NotReady == nil || len(res.NotReady.Rows) != 2 {
+		t.Fatalf("not ready %+v", res.NotReady)
+	}
+
+	h.must(t, engine.OriginGUI, "ui.openView", map[string]any{"view": engine.FluxDashboard}, nil)
+	waitTable(t, h.s, engine.FluxDashboard, func(t *engine.TableSnapshot) bool { return t.Synced && len(t.Rows) == 2 })
+	h.must(t, engine.OriginGUI, "ui.select", map[string]any{"all": true, "noDrawer": true}, nil)
+	sel := h.s.UIState().Selected
+	if len(sel) != 2 {
+		t.Fatalf("selected %v", sel)
+	}
+	var ids []string
+	for _, c := range h.s.Registry().SelectionActions(engine.SelectionKinds(sel)) {
+		ids = append(ids, c.ID)
+	}
+	if !slices.Contains(ids, "flux.reconcileMany") || !slices.Contains(ids, "flux.resumeMany") {
+		t.Errorf("selection actions %v", ids)
+	}
+	var done commands.FluxManyResult
+	h.must(t, engine.OriginGUI, "flux.reconcileMany", map[string]any{"refs": sel}, &done)
+	if len(done.Done) != 1 || done.Done[0].Name != "infra" || len(w.Patches()) != 1 {
+		t.Errorf("reconciled %+v, patches %v", done.Done, w.Patches())
+	}
+}

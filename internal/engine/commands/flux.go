@@ -146,6 +146,43 @@ func registerFlux(g *registrar) {
 		add(g, fluxOneSpec(a))
 		add(g, fluxManySpec(a))
 	}
+	registerFluxDashboard(g)
+}
+
+type fluxDashboardParams struct {
+	Namespaces []string `json:"namespaces,omitempty" jsonschema:"namespaces to count; omitted: the namespace filter the user has set"`
+	Table      bool     `json:"table,omitempty" jsonschema:"true: include the page's table, the Flux objects of those namespaces that are not ready (most recent change first)"`
+}
+
+// FluxDashboardResult is flux.dashboard's result.
+type FluxDashboardResult struct {
+	engine.FluxDashboardModel
+	// NotReady is the page's table: Name, Kind, Namespace, Status, Message, Age. Only with table:
+	// true.
+	NotReady *engine.TableSnapshot `json:"notReady,omitempty"`
+}
+
+// registerFluxDashboard registers the Flux dashboard's read (D-34): agents read what the page
+// shows; ui.openView "flux/dashboard" shows it to the user.
+func registerFluxDashboard(g *registrar) {
+	add(g, engine.Spec[fluxDashboardParams]{
+		ID: "flux.dashboard", Label: engine.FluxDashboardTitle, MenuPath: "View/" + engine.FluxDashboardTitle, Danger: engine.DangerRead,
+		Verbs: cacheReads,
+		Description: "Reads the Flux dashboard: for each Flux kind the cluster serves (Helm releases, Kustomizations, image " +
+			"repositories, policies and update automations, alerts, providers, receivers, Git, OCI and Helm repositories, " +
+			"buckets, external artifacts) the number of objects in the selected namespaces by state: ready, notReady (Ready " +
+			"False or Stalled), reconciling, suspended, unknown (no Ready condition yet); with table, also every object that " +
+			"is not ready, with its message. Read from the cache. ui_openView with view flux/dashboard shows the page to the " +
+			"user; flux_reconcile, flux_suspend and flux_resume act on the objects.",
+		Enabled: func(s *engine.Session, _ fluxDashboardParams) error { _, err := connected(s); return err },
+		Run: func(ctx context.Context, s *engine.Session, p fluxDashboardParams) (any, error) {
+			m, table, err := s.FluxDashboard(ctx, p.Namespaces, p.Table)
+			if err != nil {
+				return nil, err
+			}
+			return FluxDashboardResult{FluxDashboardModel: *m, NotReady: table}, nil
+		},
+	})
 }
 
 // fluxOneSpec is an action on one object: the row menu's, the drawer's and the palette's.
