@@ -32,7 +32,8 @@ func TestKindEngineWorkflows(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	s := engine.New(engine.Options{Connector: &engine.ClusterConnector{KubeconfigPaths: []string{kubeconfig}}})
+	s := engine.New(engine.Options{Connector: &engine.ClusterConnector{KubeconfigPaths: []string{kubeconfig}},
+		Kubectl: engine.NewKubectl(t.TempDir(), engine.KubectlHooks{})}) // an empty directory for binaries: nothing is downloaded
 	defer s.Close()
 	if err := commands.RegisterAll(s.Registry()); err != nil {
 		t.Fatal(err)
@@ -120,6 +121,13 @@ func TestKindEngineWorkflows(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = term.Close() }()
+	// D-3: the terminal's kubectl was checked against kind's version from connect; nothing was
+	// downloaded, so nothing goes first, and a skewed kubectl is only offered a release.
+	if tab, _ := s.UIState().DockTab(termTab.Tab.ID); tab.Kubectl == nil || tab.Kubectl.Server == "" ||
+		!strings.HasPrefix(s.Backend().Conn.ServerVersion(), "v"+tab.Kubectl.Server) || tab.Kubectl.Found == "" ||
+		tab.Kubectl.First != "" || tab.Kubectl.Supported == (tab.Kubectl.Offer != "") {
+		t.Errorf("the terminal's kubectl check against %s: %+v", s.Backend().Conn.ServerVersion(), tab.Kubectl)
+	}
 	if _, err := io.WriteString(term, "kubectl get pods -n cogpit-demo --no-headers -o name; echo END-OF-PODS\n"); err != nil {
 		t.Fatal(err)
 	}
