@@ -741,3 +741,15 @@ func connectedFake(t testing.TB, pods int) *fakeEngine {
 	f.tables["pods"] = fixturePods(pods, 7)
 	return f
 }
+
+// skipTerminalUnderRace skips a test whose terminals render while the test changes the window:
+// Fyne's test driver runs fyne.Do on the calling goroutine, so a terminal's reader goroutine
+// shapes text through Fyne's shared font cache while the test (or the next one) does too, a data
+// race of the test driver only (the desktop driver runs fyne.Do on the main goroutine). These
+// tests run without the race detector (make test-unit).
+func skipTerminalUnderRace(t *testing.T) {
+	t.Helper()
+	if raceEnabled {
+		t.Skip("terminal rendering races Fyne's test driver under -race (fake_test.go skipTerminalUnderRace)")
+	}
+}

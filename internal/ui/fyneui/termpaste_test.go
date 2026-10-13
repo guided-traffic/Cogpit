@@ -31,6 +31,7 @@ func dockTerminal(t *testing.T, sh *shell, q *mainQueue, id string) *termview.Te
 // right mouse button (off by default) and follow a change of it at once, local terminals and pod
 // shells alike, and terminals opened afterwards start with it.
 func TestTerminalRightClickFollowsThePreference(t *testing.T) {
+	skipTerminalUnderRace(t)
 	f := connectedFake(t, 20)
 	f.quietTerminals = true // the terminals are refreshed while open (quietReader)
 	prefs := engine.DefaultPreferences()

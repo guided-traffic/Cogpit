@@ -48,6 +48,7 @@ func offerCheck() *engine.KubectlCheck {
 func kubectlScene(t *testing.T, mode ThemeMode, check *engine.KubectlCheck) (*shell, fyne.Window, *mainQueue, *fakeEngine) {
 	t.Helper()
 	f := connectedFake(t, 200)
+	f.quietTerminals = true // their output would race the next test under the test driver (quietReader)
 	f.ui.Context, f.ui.Connection = "kind-cogpit", engine.Connection{State: engine.Connected}
 	f.ui.Dock = []engine.DockTab{{ID: "terminal-1", Type: engine.DockTerminal, Title: "Terminal 1", Context: "kind-cogpit", Kubectl: check}}
 	f.ui.ActiveDock = "terminal-1"
@@ -88,6 +89,7 @@ func kubectlScene(t *testing.T, mode ThemeMode, check *engine.KubectlCheck) (*sh
 // click dispatches kubectl.download for the tab from the GUI, the line follows the download's
 // state, and New Terminal opens a terminal once it is in place.
 func TestKubectlOfferDownloadsThroughTheEngine(t *testing.T) {
+	skipTerminalUnderRace(t)
 	sh, _, q, f := kubectlScene(t, ThemeDark, offerCheck())
 	offer := sh.dock.contents["terminal-1"].kubectl
 	if offer == nil || !offer.root.Visible() || offer.text.text != offerCheck().Message {
@@ -140,7 +142,9 @@ func TestKubectlOfferDownloadsThroughTheEngine(t *testing.T) {
 // TestKubectlOfferStates: no line without a message, a note without a button when downloading is
 // off, and the line of a release Cogpit put first.
 func TestKubectlOfferStates(t *testing.T) {
+	skipTerminalUnderRace(t)
 	f := connectedFake(t, 3)
+	f.quietTerminals = true // their output would race the next test under the test driver (quietReader)
 	sh, _, q := newTestShell(t, f, Options{Theme: ThemeDark})
 	f.update(func(u *engine.UIState) {
 		u.Dock = []engine.DockTab{{ID: "terminal-1", Type: engine.DockTerminal, Title: "Terminal 1"}}
