@@ -98,17 +98,15 @@ func TestHelmRepoChangesTakenOver(t *testing.T) {
 // while Cogpit waited is left for the next look, which takes it.
 func TestHelmRepoFileReadWhenSettled(t *testing.T) {
 	r := webRepo(t)
-	h, f, _ := helmReposOn(t, r, WithRepositoryFilePoll(800*time.Millisecond)) // settle 200 ms
+	h, f, _ := helmReposOn(t, r, WithRepositoryFilePoll(400*time.Millisecond)) // settle 100 ms
 	f.Write(r.Entry("a"))
 	mustSync(t, h)
 	f.Write(r.Entry("a"), r.Entry("b"))
-	done := make(chan bool, 1)
-	go func() { changed, _ := h.Sync(); done <- changed }()
-	time.Sleep(50 * time.Millisecond)
-	f.Write(r.Entry("a"), r.Entry("b"), r.Entry("c"))
-	if <-done {
+	h.settling = func() { f.Write(r.Entry("a"), r.Entry("b"), r.Entry("c")) } // written while Cogpit waits
+	if mustSync(t, h) {
 		t.Error("a file written during the settle time was taken")
 	}
+	h.settling = nil
 	if l, _ := h.List(); len(l.Repositories) != 1 {
 		t.Errorf("listed %+v", l.Repositories)
 	}

@@ -144,6 +144,7 @@ type HelmRepos struct {
 	syncMu                    sync.Mutex // one read of Helm's file at a time
 	fetchMu                   sync.Mutex // one download at a time
 	kick                      chan struct{}
+	settling                  func() // tests: called when a changed file starts to settle
 	mu                        sync.Mutex
 	loaded, parsed            bool   // Helm's file was looked at; a list was taken from it
 	sig                       string // Helm's file's size and modification time at the last read
@@ -243,6 +244,9 @@ func (h *HelmRepos) Sync() (bool, error) {
 	initial := !h.parsed // the first list read: the indexes of an earlier run count
 	h.mu.Unlock()
 	if !first {
+		if h.settling != nil {
+			h.settling() // tests: the file changes while Cogpit waits
+		}
 		time.Sleep(h.settle())
 		if h.fileSignature() != sig {
 			return false, nil // still being written
