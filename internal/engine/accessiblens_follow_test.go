@@ -362,6 +362,39 @@ func TestApplicationsFollowARefusal(t *testing.T) {
 	}
 }
 
+// A user who may not list the custom resource definitions (a namespace-limited user, measured on
+// kind: five refused lists and five refused streaming watches in 20 seconds) is not asked again
+// for them on every backoff step for as long as the cluster is connected: the refused list ends
+// the watch, the custom kinds say why, and a refresh of the access reviews asks once more.
+func TestCustomKindsStopAfterARefusal(t *testing.T) {
+	src := &testkit.NamespacedOnlySource{Inner: testkit.NewMemorySource(), GVRs: []schema.GroupVersionResource{crdsGVR}}
+	rev := newFakeReviewer(map[string][]cluster.AccessRule{"team-a": {rule("get,list,watch", "", "pods")}})
+	s := New(Options{Connector: dockConnector{src: src, rev: rev, profiles: testProfiles(), namespace: "team-a", custom: true},
+		SnapshotInterval: 5 * time.Millisecond})
+	t.Cleanup(s.Close)
+	connectTest(t, s)
+	b := s.Backend()
+	refused := func() bool {
+		set := b.customSet()
+		return b.CustomKindsSettled() && set != nil && strings.Contains(set.err, "forbidden")
+	}
+	waitCond(t, "the custom kinds' refusal", refused)
+	time.Sleep(2500 * time.Millisecond) // longer than client-go's first two backoff steps (0.8 s, 1.6 s)
+	if calls := callsOf(src, "customresourcedefinitions"); calls["list customresourcedefinitions.apiextensions.k8s.io"] != 1 {
+		t.Errorf("definition calls %v: want the refused list once", calls)
+	}
+	if !refused() {
+		t.Errorf("the custom kinds forgot why there are none: %+v", b.customSet())
+	}
+	if _, ok := b.RefreshAccess(); !ok {
+		t.Fatal("no access reviews")
+	}
+	waitCond(t, "the definitions asked again after a refresh", func() bool {
+		return callsOf(src, "customresourcedefinitions")["list customresourcedefinitions.apiextensions.k8s.io"] == 2
+	})
+	waitCond(t, "the refusal again", refused)
+}
+
 // The same read for a user whose RoleBinding is in the context's namespace alone: the read in all
 // namespaces that the plan tries is refused once, and the read takes the object's namespace at
 // once instead of waiting 15 seconds and saying the kind is still loading.

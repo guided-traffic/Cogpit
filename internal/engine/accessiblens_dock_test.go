@@ -28,6 +28,7 @@ type dockConnector struct {
 	profiles  []*model.KindProfile
 	actions   Actions
 	namespace string
+	custom    bool // the backend watches the custom resource definitions
 }
 
 func (c dockConnector) Contexts() ([]ContextInfo, error) {
@@ -42,7 +43,7 @@ func (c dockConnector) Connect(context.Context, string) (*Backend, error) {
 	}
 	a := newAccessReviews(c.rev, ns)
 	return &Backend{
-		Context: "test", Namespace: ns, Cache: ch, Profiles: append(slices.Clone(c.profiles), kinds.Local()...),
+		Context: "test", Namespace: ns, Cache: ch, Profiles: append(slices.Clone(c.profiles), kinds.Local()...), CustomResources: c.custom,
 		Actions: c.actions, Conn: &cluster.Conn{}, Access: a, Close: func() { a.stop(); ch.Close() },
 	}, nil
 }

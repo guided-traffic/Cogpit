@@ -581,6 +581,9 @@ func (b *Backend) Listable(p *model.KindProfile, filter []string) (listable, kno
 // (the demo cluster).
 func (b *Backend) RefreshAccess() (namespaces []string, ok bool) {
 	b.ns.clearRefused() // the server's refusals are asked again too (accessiblens_plan.go)
+	if b.custom != nil {
+		b.custom.retake() // the custom resource definitions, after a refused list (customkinds.go)
+	}
 	a, ok := b.Access.(*accessReviews)
 	if !ok {
 		return nil, false

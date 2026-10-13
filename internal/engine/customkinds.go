@@ -5,6 +5,7 @@ import (
 	"runtime/debug"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,10 +28,16 @@ const customKindsCoalesce = 5
 // backend closes), rebuilds the kinds' profiles after changes, coalesced, and publishes them as
 // one immutable customSet that views, commands, agents and the UI read concurrently.
 type customKinds struct {
-	s       *Session
-	b       *Backend
+	s *Session
+	b *Backend
+
+	// hmu guards handle, unsub and dropped: a refused list ends the watch (drop), and a refresh of
+	// the access reviews takes it again (retake).
+	hmu     sync.Mutex
 	handle  *cache.Handle
 	unsub   func()
+	dropped string // the refusal that ended the watch; handle holds nothing meanwhile
+
 	wake    chan struct{}
 	quit    chan struct{}
 	stopped atomic.Bool
@@ -84,15 +91,59 @@ func (ck *customKinds) stop() {
 		return
 	}
 	close(ck.quit)
+	ck.hmu.Lock()
+	defer ck.hmu.Unlock()
 	ck.unsub()
 	ck.handle.Release()
+}
+
+// current returns the definitions' handle and the error the custom kinds show: the watch's own,
+// or the refusal that ended it.
+func (ck *customKinds) current() (*cache.Handle, string) {
+	ck.hmu.Lock()
+	defer ck.hmu.Unlock()
+	if ck.dropped != "" {
+		return ck.handle, ck.dropped
+	}
+	return ck.handle, errText(ck.handle.Err())
+}
+
+// drop ends a watch of the definitions that the API server refused (403 Forbidden): retried, it
+// would cost a refused list on every backoff step for as long as the cluster is connected (a
+// namespace-limited user, measured on kind 2026-10-13: ten refused requests in 20 seconds). The
+// custom kinds keep the refusal as their error; a refresh of the access reviews or the next
+// connect asks again (retake), as for a kind refused in all namespaces (accessiblens_plan.go).
+func (ck *customKinds) drop(h *cache.Handle, reason string) {
+	ck.hmu.Lock()
+	defer ck.hmu.Unlock()
+	if ck.stopped.Load() || ck.handle != h || ck.dropped != "" {
+		return
+	}
+	ck.unsub()
+	ck.handle.Release()
+	ck.handle, ck.unsub, ck.dropped = cache.Pending(cache.Scope{GVR: crdsGVR}), func() {}, reason
+}
+
+// retake watches the definitions again after drop.
+func (ck *customKinds) retake() {
+	ck.hmu.Lock()
+	if ck.stopped.Load() || ck.dropped == "" {
+		ck.hmu.Unlock()
+		return
+	}
+	ck.handle = ck.b.Cache.Acquire(cache.Scope{GVR: crdsGVR})
+	ck.unsub = ck.handle.Subscribe(func(cache.Event) { signal(ck.wake) })
+	ck.dropped = ""
+	ck.hmu.Unlock()
+	signal(ck.wake)
 }
 
 // unsettled reports whether the watch's sync state or error changed since the last build: neither
 // comes with a watch event.
 func (ck *customKinds) unsettled() bool {
 	last := ck.set.Load()
-	return last.synced != ck.handle.HasSynced() || last.err != errText(ck.handle.Err())
+	h, errMsg := ck.current()
+	return last.synced != h.HasSynced() || last.err != errMsg
 }
 
 // rebuild turns the cached definitions into profiles and publishes them. Established definitions
@@ -105,9 +156,12 @@ func (ck *customKinds) rebuild() {
 				"panic", fmt.Sprint(r), "stack", string(debug.Stack()))
 		}
 	}()
-	synced := ck.handle.HasSynced() // before List: a set never claims a partial list is complete
-	errMsg := errText(ck.handle.Err())
-	crds := ck.handle.List()
+	h, errMsg := ck.current()
+	synced := h.HasSynced() // before List: a set never claims a partial list is complete
+	if cache.IsRefused(h.Err()) {
+		ck.drop(h, errMsg) // not retried on every backoff step; the set below says why
+	}
+	crds := h.List()
 	slices.SortFunc(crds, func(x, y *unstructured.Unstructured) int { return strings.Compare(x.GetName(), y.GetName()) })
 
 	next := make(map[string]customEntry, len(crds))
