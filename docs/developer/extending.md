@@ -2,7 +2,7 @@
 
 Ordered checklists for the common additions. The packages they name are in
 [`architecture.md`](architecture.md#2-repository-layout-planned); which of them exist is in its
-[Current state](architecture.md#current-state-2026-10-12). Worked examples: the commands in
+[Current state](architecture.md#current-state-2026-10-13). Worked examples: the commands in
 [`internal/engine/commands`](../../internal/engine/commands/) and the kind profiles in
 [`internal/model/kinds`](../../internal/model/kinds/).
 

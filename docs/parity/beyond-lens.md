@@ -101,7 +101,7 @@ The owner's requirements of 2026-10-12 that Lens Desktop does not have.
 
 ## Command line
 
-`cogpit-cli`, the headless tool beside the app (milestone 0.1, [architecture › Current state](../developer/architecture.md#current-state-2026-10-12)).
+`cogpit-cli`, the headless tool beside the app (milestone 0.1, [architecture › Current state](../developer/architecture.md#current-state-2026-10-13)).
 Lens Desktop's own command-line tool is a paid feature ([ui parity](ui-parity.md)); these rows are
 Cogpit's targets.
 

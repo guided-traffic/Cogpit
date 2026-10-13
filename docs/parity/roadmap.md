@@ -65,25 +65,24 @@ M11 and M12 do not depend on each other; their order is the owner's call.
 
 Ranked; each item links to its gap. Pick from the top unless an issue is assigned to you.
 
-1. **The owner's open requirements:** the hotbar
-   ([G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences), "do not forget");
-   metrics ([G12](gaps.md#g12-metrics-and-cluster-overview)): a status line per provider under the
-   charts, history from Prometheus when a drawer opens and live values from the Metrics Server after
-   it, the override's settings page, kube-prometheus-stack checked, a missing value shown empty; the
-   step of charts whose ranges lie far apart waits for the owner. The built-in chat comes later
-   ([G21](gaps.md#g21-built-in-agent), [D-10](../developer/decisions.md#d-10-built-in-agent)).
-2. **Finish the fifth run:** the UI PNGs regenerated; follow the terminal widget's upstream pull
-   requests ([#155–#158](https://github.com/fyne-io/terminal/pull/158), G8); the owner's open
-   questions (the light theme's accent, drag-selecting links and chips).
-3. **Walk the workflows in the GUI** on kind and a real cluster (owner): change a workload,
-   maintain a node, reach a service, Helm upgrade, rollback and uninstall, adding and syncing
-   kubeconfigs, Cogpit's own title bar; record what differs in the parity rows.
-4. **Helm install and charts** ([G11](gaps.md#g11-helm)), then the credential plugins verified on
-   EKS, GKE and AKS ([G2](gaps.md#g2-cluster-connection-and-authentication), human).
-5. **Breadth and depth of M2 and M4** ([G6](gaps.md#g6-resource-views),
-   [G7](gaps.md#g7-resource-actions)): the cluster overview (M7), the create dialogs, the node
-   shell, captures of the rows marked inferred; the generated parity pages and the scorecard
-   ([G1](gaps.md#g1-workspace-ci-and-progress-generators)).
+1. **The owner walks the night run's features in a real window** (2026-10-13; every one was
+   verified offscreen and in tests only): the hotbar, the navigator's sections, the tab bar, the
+   command palette, Preferences and Cluster settings, the welcome page, the create dialogs, Helm
+   install and upgrade from repositories, the cluster Overview and the metrics status line,
+   kubectl for terminals, row selection and Delete of a selection; record what differs in the
+   parity rows, then answer the night's open questions (each marked "Cogpit's default, not the
+   owner's decision" in its row or gap; the first is in the night's devlog entry).
+2. **Walk the alpha-gate workflows in the GUI** on kind and a real cluster (owner): change a
+   workload, maintain a node, reach a service, Helm releases, adding and syncing kubeconfigs,
+   Cogpit's own title bar.
+3. **The terminal widget's upstream pull requests** ([#155–#158](https://github.com/fyne-io/terminal/pull/158),
+   G8; #157 approved 2026-10-12) and the two new widget patches of the night run (right-click
+   copy and paste, Ctrl/Shift+Insert: upstream candidates, not offered).
+4. **Credential plugins verified on EKS, GKE and AKS** ([G2](gaps.md#g2-cluster-connection-and-authentication), human);
+   the node shell once the owner decides ([H-7](../security/privilege-footprint.md#h-7-node-shell-is-root-on-the-node)).
+5. **M0 and M10:** the generated parity pages and the scorecard ([G1](gaps.md#g1-workspace-ci-and-progress-generators)),
+   captures of the rows marked inferred, packaging and updates for macOS ([G14](gaps.md#g14-packaging-signing-and-updates-macos)).
+   The built-in chat comes after the alpha ([G21](gaps.md#g21-built-in-agent), [D-10](../developer/decisions.md#d-10-built-in-agent)).
 
 ## What's next, with estimates
 
@@ -99,6 +98,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | Current focus after the night run: the owner walks its features in a real window first |
 | 2026-10-13 | minor | M6: the Helm row names the upgrade to a version from the user's chart repositories (G11, night run; status and estimate unchanged) |
 | 2026-10-13 | minor | M7 in progress: the cluster Overview built (G12, night run); M2's note no longer lists it (status only; estimates unchanged) |
 | 2026-10-13 | minor | M9: the stdio bridge `cogpit-cli mcp` built (status only; estimate unchanged) |

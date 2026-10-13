@@ -8,14 +8,18 @@ The product name is always written **Cogpit** in user-facing text; machine names
 (module `github.com/guided-traffic/cogpit`, binaries `cogpit` and `cogpit-cli`). Read this file
 first, then `docs/`.
 
-**State on 2026-10-12:** implementation has started (owner's go-ahead, 2026-10-11). A local MVP
-runs on macOS, extended by four further implementation runs (2026-10-11 and 2026-10-12): 41
-built-in views and the custom resource views from the cache, the detail drawer and row menus,
-YAML editing, node and workload actions with a crash-safe drain, Helm rollback, uninstall and
-upgrade, kubeconfig sources with approved credential plugins, metrics from the Metrics Server and
-Prometheus, logs, a terminal, pod shells, CI on every push, and MCP control of all of it; it
-doubled as the Fyne spike ([results](docs/developer/spike-fyne.md#results)).
-What is built and where it differs from the plan: [architecture › Current state](docs/developer/architecture.md#current-state-2026-10-12). The documentation method, and parts of
+**State on 2026-10-13:** implementation has started (owner's go-ahead, 2026-10-11). A local MVP
+runs on macOS, extended by five further implementation runs (2026-10-11 to 2026-10-13, the last a
+night run): 46 built-in views and the custom resource views from the cache, the cluster Overview,
+the detail drawer and row menus, the hotbar, the navigator with its sections, a tab bar, the
+command palette, Preferences and Cluster settings, a welcome page, YAML editing with drafts, the
+create dialogs, row selection and Delete of a selection, node and workload actions with a
+crash-safe drain, Helm install from repositories, upgrade, rollback and uninstall (Secrets and
+ConfigMaps drivers), kubeconfig sources with approved credential plugins, metrics from the Metrics
+Server and Prometheus together, logs, a terminal with a verified kubectl download, pod shells,
+`cogpit-cli` with an MCP stdio bridge, CI on every push, and MCP control of all of it; it doubled
+as the Fyne spike ([results](docs/developer/spike-fyne.md#results)).
+What is built and where it differs from the plan: [architecture › Current state](docs/developer/architecture.md#current-state-2026-10-13). The documentation method, and parts of
 this file, come from [PhotoCraft](https://github.com/storytold/photocraft)
 ([attribution](ATTRIBUTION.md)).
 
