@@ -164,6 +164,8 @@ func (b *Backend) viewProfile(view string) *model.KindProfile {
 		return issuesProfile // clusteroverview.go
 	case FluxDashboard:
 		return fluxIssuesProfile // fluxdashboard.go
+	case ArgoCDDashboard:
+		return argoAttentionProfile(b) // argocd_dashboard.go
 	}
 	return nil
 }

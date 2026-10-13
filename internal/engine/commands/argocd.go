@@ -93,7 +93,38 @@ func (e *ArgoManyError) Error() string {
 	return b.String()
 }
 
+type argoDashboardParams struct {
+	Namespaces []string `json:"namespaces,omitempty" jsonschema:"namespaces to count; omitted: the namespace filter the user has set"`
+	Attention  bool     `json:"attention,omitempty" jsonschema:"true: include the page's Needs attention table, the Applications not Healthy or not Synced with their message"`
+}
+
+// ArgoDashboardResult is argocd.dashboard's result.
+type ArgoDashboardResult struct {
+	engine.ArgoCDDashboardModel
+	// Attention is the Needs attention table: Name, Namespace, Sync, Health, Message, Age (the
+	// other Application columns hidden). Only with attention: true.
+	Attention *engine.TableSnapshot `json:"attention,omitempty"`
+}
+
 func registerArgoCD(g *registrar) {
+	add(g, engine.Spec[argoDashboardParams]{
+		ID: "argocd.dashboard", Label: "Argo CD Dashboard", MenuPath: "View/Argo CD Dashboard", Danger: engine.DangerRead,
+		Verbs: cacheReads,
+		Description: "Reads the Argo CD Dashboard: the health strip (Applications, Synced, Healthy, Out of sync, Degraded, " +
+			"Missing, Progressing), the Applications counted by health and by sync status, a card per Argo CD kind the " +
+			"cluster serves (Applications, Application Sets, Projects, Repositories, Clusters) with counts per status " +
+			"token, the out-of-sync Applications and all of them (what the Applications card's Sync and Refresh take), " +
+			"and the recent activity (operations and syncs, newest first); with attention, the Applications not Healthy " +
+			"or not Synced with their message. Read from the cache. ui_openView with view argocd/dashboard shows the page.",
+		Enabled: func(s *engine.Session, _ argoDashboardParams) error { _, err := connected(s); return err },
+		Run: func(ctx context.Context, s *engine.Session, p argoDashboardParams) (any, error) {
+			m, attention, err := s.ArgoCDDashboard(ctx, p.Namespaces, p.Attention)
+			if err != nil {
+				return nil, err
+			}
+			return ArgoDashboardResult{ArgoCDDashboardModel: *m, Attention: attention}, nil
+		},
+	})
 	appKinds := []string{kinds.ArgoApplicationsKey}
 	add(g, engine.Spec[argoSyncParams]{
 		ID: "argocd.application.sync", Label: argoSyncLabel, MenuPath: "Argo CD/Sync", Kinds: appKinds, Order: 100,
@@ -160,8 +191,10 @@ func registerArgoCD(g *registrar) {
 			"were synced and which not, each with its reason. At most 500.",
 		Enabled:  func(s *engine.Session, p argoSyncManyParams) error { return argoManyEnabled(s, p.Refs) },
 		Escalate: func(_ *engine.Session, p argoSyncManyParams) bool { return p.Prune },
-		Targets:  func(s *engine.Session, p argoSyncManyParams) ([]model.ObjectRef, error) { return selectionTargets(s, p.Refs) },
-		Detail:   func(s *engine.Session, p argoSyncManyParams) string { return argoSyncDetail(s, p.Refs, p.Prune) },
+		Targets: func(s *engine.Session, p argoSyncManyParams) ([]model.ObjectRef, error) {
+			return selectionTargets(s, p.Refs)
+		},
+		Detail: func(s *engine.Session, p argoSyncManyParams) string { return argoSyncDetail(s, p.Refs, p.Prune) },
 		Run: func(ctx context.Context, s *engine.Session, p argoSyncManyParams) (any, error) {
 			return argoMany(ctx, s, p.Refs, argoSyncDone(p.Prune), func(w engine.ArgoCDActions, version string, ref model.ObjectRef) error {
 				return argoSync(ctx, s, w, version, ref, p.Prune)
@@ -175,8 +208,10 @@ func registerArgoCD(g *registrar) {
 			"for one: one acceptance names them all, then each is refreshed in turn, bound to its UID. The error names " +
 			"which were refreshed and which not. At most 500.",
 		Enabled: func(s *engine.Session, p argoRefreshManyParams) error { return argoManyEnabled(s, p.Refs) },
-		Targets: func(s *engine.Session, p argoRefreshManyParams) ([]model.ObjectRef, error) { return selectionTargets(s, p.Refs) },
-		Detail:  func(_ *engine.Session, p argoRefreshManyParams) string { return argoRefreshDetail(p.Hard) },
+		Targets: func(s *engine.Session, p argoRefreshManyParams) ([]model.ObjectRef, error) {
+			return selectionTargets(s, p.Refs)
+		},
+		Detail: func(_ *engine.Session, p argoRefreshManyParams) string { return argoRefreshDetail(p.Hard) },
 		Run: func(ctx context.Context, s *engine.Session, p argoRefreshManyParams) (any, error) {
 			return argoMany(ctx, s, p.Refs, argoRefreshDone(p.Hard), func(w engine.ArgoCDActions, version string, ref model.ObjectRef) error {
 				return argoRefresh(ctx, s, w, version, ref, p.Hard)

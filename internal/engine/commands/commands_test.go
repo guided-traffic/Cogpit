@@ -170,6 +170,7 @@ var wantCommands = map[string]engine.Danger{
 	// Argo CD (G23, D-36): Sync is destructive with prune (Escalate) (TestArgoSyncWritesTheOperation).
 	"argocd.application.sync": engine.DangerMutating, "argocd.application.syncMany": engine.DangerMutating,
 	"argocd.application.refresh": engine.DangerMutating, "argocd.application.refreshMany": engine.DangerMutating,
+	"argocd.dashboard": engine.DangerRead, // the Dashboard for agents (TestArgoDashboard)
 }
 
 func TestRegistryComplete(t *testing.T) {

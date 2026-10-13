@@ -444,6 +444,7 @@ func TestArgoSettingsNeverReachAgents(t *testing.T) {
 		{"resources.list", map[string]any{"kind": kinds.ArgoRepositoriesKey}},
 		{"resources.list", map[string]any{"kind": kinds.ArgoClustersKey, "filter": "prod"}},
 		{"resources.find", map[string]any{"kind": kinds.ArgoRepositoriesKey, "field": "url", "value": "git.example.com", "match": "contains"}},
+		{"argocd.dashboard", map[string]any{"attention": true}},
 		{"ui.openView", map[string]any{"view": kinds.ArgoRepositoriesKey}},
 		{"view.rows", map[string]any{}},
 		{"table.exportCsv", map[string]any{}},

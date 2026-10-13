@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -8,6 +9,69 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 	"github.com/guided-traffic/cogpit/internal/testkit"
 )
+
+// TestArgoDashboard: the Dashboard counts the Applications by health and sync for the namespace
+// filter, lists those that need attention as its table, and follows a change; agents read it
+// built once from the cache while the page is closed.
+func TestArgoDashboard(t *testing.T) {
+	src := testkit.NewMemorySource()
+	for _, crd := range testkit.ArgoCRDs() {
+		src.Set(crdsGVR, crd)
+	}
+	src.Set(testkit.ArgoApplicationsGVR, testkit.ArgoApplication("argocd", "good", "Synced", "Healthy"))
+	src.Set(testkit.ArgoApplicationsGVR, testkit.ArgoApplication("argocd", "drift", "OutOfSync", "Healthy"))
+	src.Set(testkit.ArgoApplicationsGVR, testkit.ArgoApplication("argocd", "broken", "Synced", "Degraded"))
+	src.Set(testkit.ArgoApplicationsGVR, testkit.ArgoApplication("team", "fresh", "", ""))
+	src.Set(testkit.ArgoProjectsGVR, testkit.Object("argoproj.io/v1alpha1", "AppProject", "argocd", "default", nil))
+	src.Set(testkit.SecretsGVR, testkit.ArgoRepoSecret("argocd", "repo", "https://git.example.com/apps.git", "fake-pw"))
+	s := newCRDSession(t, src)
+	waitFor(t, "Argo CD's kinds", func() bool { return hasKind(s, kinds.ArgoClustersKey) })
+
+	// Closed page: built once from the cache.
+	m, attention, err := s.ArgoCDDashboard(context.Background(), nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	strip := map[string]int{}
+	for _, tile := range m.Strip {
+		strip[tile.Label] = tile.Count
+	}
+	if !m.Served || !m.Synced || strip["Applications"] != 4 || strip["Synced"] != 2 || strip["Healthy"] != 2 || strip["Out of sync"] != 1 ||
+		strip["Degraded"] != 1 || strip["Missing"] != 0 {
+		t.Fatalf("model %+v", m)
+	}
+	if len(m.OutOfSync) != 1 || m.OutOfSync[0].Name != "drift" || len(m.All) != 4 {
+		t.Errorf("sync and refresh sets %+v %+v", m.OutOfSync, m.All)
+	}
+	cards := map[string]int{}
+	for _, k := range m.Kinds {
+		cards[k.Kind] = k.Count
+	}
+	if cards[kinds.ArgoApplicationsKey] != 4 || cards[kinds.ArgoProjectsKey] != 1 || cards[kinds.ArgoRepositoriesKey] != 1 || cards[kinds.ArgoClustersKey] != 0 {
+		t.Errorf("cards %+v", m.Kinds)
+	}
+	var names []string
+	for _, r := range attention.Rows {
+		names = append(names, r.Ref.Name)
+	}
+	if strings.Join(names, ",") != "broken,drift,fresh" {
+		t.Errorf("needs attention %v", names)
+	}
+
+	// The open page follows the namespace filter and a change.
+	s.UpdateUI(func(u *UIState) { u.View, u.Namespaces = ArgoCDDashboard, []string{"argocd"} })
+	waitTable(t, s, ArgoCDDashboard, func(t *TableSnapshot) bool { return t.Synced && len(t.Rows) == 2 })
+	src.Set(testkit.ArgoApplicationsGVR, testkit.ArgoApplication("argocd", "drift", "Synced", "Healthy"))
+	waitTable(t, s, ArgoCDDashboard, func(t *TableSnapshot) bool { return len(t.Rows) == 1 && t.Rows[0].Ref.Name == "broken" })
+	m, _, err = s.ArgoCDDashboard(context.Background(), nil, false)
+	if err != nil || len(m.OutOfSync) != 0 || len(m.All) != 3 {
+		t.Errorf("the open page's model %+v %v", m, err)
+	}
+	p, ok := s.ViewProfile(ArgoCDDashboard)
+	if !ok || p.Columns[p.ColumnIndex("message")].Hidden || !p.Columns[p.ColumnIndex("project")].Hidden {
+		t.Errorf("needs attention columns %+v", p)
+	}
+}
 
 // TestArgoCDKindsFollowTheirDefinitions: Argo CD's kinds appear with their definitions, with
 // Cogpit's curated profiles; the settings views come with the Application definition, list only
@@ -66,6 +130,13 @@ func TestArgoCDKindsFollowTheirDefinitions(t *testing.T) {
 	}
 	if !strings.Contains(m.YAML, "server: https://prod.example.com:6443") || !strings.Contains(m.YAML, "- config") {
 		t.Errorf("the cluster's YAML:\n%s", m.YAML)
+	}
+
+	// The Dashboard: the strip, the cards, Needs attention with the out-of-sync Application.
+	openView(s, ArgoCDDashboard)
+	snap := waitTable(t, s, ArgoCDDashboard, func(t *TableSnapshot) bool { return t.Synced && len(t.Rows) == 1 })
+	if snap.Title != "Needs Attention" || snap.Rows[0].Ref.Kind != kinds.ArgoApplicationsKey || snap.Rows[0].Ref.Name != "shop" {
+		t.Errorf("needs attention %+v", snap)
 	}
 
 	src.Delete(crdsGVR, "", kinds.ArgoApplicationsKey)
