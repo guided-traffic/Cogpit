@@ -38,6 +38,9 @@ var replicaSets = &model.KindProfile{
 		idControlledBy: controlledByField,
 	},
 	Detail: replicaSetDetail,
+	// The Pods table in the drawer (workloadpods.go, D-40).
+	DetailNeeds: directPodsNeeds,
+	DetailWith:  withPods(replicaSetDetail, nil),
 }
 
 func replicaSetCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {

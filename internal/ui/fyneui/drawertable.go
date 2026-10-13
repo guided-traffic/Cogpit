@@ -1,8 +1,12 @@
 package fyneui
 
 import (
+	"fmt"
+	"strings"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -52,7 +56,13 @@ func (d *drawer) table(ref model.ObjectRef, section string, t *model.DetailTable
 			objs = append(objs, d.tableCell(ref, colType(i), cell, text))
 		}
 	}
-	return box(&detailTableLayout{cols: len(t.Columns)}, objs...)
+	grid := box(&detailTableLayout{cols: len(t.Columns)}, objs...)
+	if t.Omitted <= 0 {
+		return grid
+	}
+	// A long table's rest (engine.MaxDrawerTableRows, D-40): counted under its first rows.
+	more := fmt.Sprintf("%d more %s not shown", t.Omitted, strings.ToLower(section))
+	return container.NewVBox(grid, d.line(more, colorMuted, theme.SizeNameText, fyne.TextStyle{Italic: true}, false, ""))
 }
 
 // tableCell draws one cell of a table of cells.

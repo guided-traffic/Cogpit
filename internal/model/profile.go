@@ -78,6 +78,11 @@ type KindProfile struct {
 	// (a PVC's pods, a node's pods). While a view or the drawer of this kind is open, the engine
 	// holds a cache handle on each index's kind and rebuilds the rows when those objects change.
 	Needs []RelatedIndex
+	// DetailNeeds are indexes that only DetailWith reads, not the rows (a workload's pods, D-40).
+	// While the drawer of this kind is open the engine holds a handle on their kinds and wakes the
+	// drawer when the objects it looked up change; a view of the kind holds none, so its rows are
+	// not rebuilt when those objects change. DetailWith reads Needs and DetailNeeds alike.
+	DetailNeeds []RelatedIndex
 	// CellsWith replaces Cells when set: the same, with the related objects of Needs. rel is never
 	// nil; its lookups return nothing while an index's kind is still listing or not served.
 	CellsWith func(obj *unstructured.Unstructured, rel Related) ([]Cell, Status)

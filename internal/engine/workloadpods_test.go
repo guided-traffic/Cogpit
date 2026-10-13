@@ -1,0 +1,394 @@
+package engine
+
+import (
+	"context"
+	"fmt"
+	"path/filepath"
+	"slices"
+	"testing"
+	"time"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/testkit"
+)
+
+// A workload's Pods table in its drawer (D-40, G6): the pods it controls, from the cache through
+// the drawer's own related-objects indexes (DetailNeeds), which live only while the drawer is open,
+// so that the workload lists do not rebuild on every pod change; CPU and Memory from the metrics
+// hub as in a node's drawer, sorted by the same engine state, the rest of a long table counted.
+
+var (
+	wpDaemonSetsGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}
+	wpDeployments   = testkit.DeploymentsGVR
+)
+
+// wpOwned is a testkit object controlled by the testkit object of kind and name in its namespace
+// (testkit's UIDs are "uid-<namespace>-<name>").
+func wpOwned(obj *unstructured.Unstructured, apiVersion, kind, name string) *unstructured.Unstructured {
+	return owned(obj, apiVersion, kind, name, "uid-"+obj.GetNamespace()+"-"+name)
+}
+
+func wpPod(ns, name, ownerKind, owner string) *unstructured.Unstructured {
+	apiVersion := map[string]string{"ReplicaSet": "apps/v1", "StatefulSet": "apps/v1", "DaemonSet": "apps/v1", "Job": "batch/v1"}[ownerKind]
+	return wpOwned(testkit.Pod(ns, name), apiVersion, ownerKind, owner)
+}
+
+// wpUsage is what the fake Metrics Server measures: some of the Deployment web's pods and the
+// stateful set's first pod.
+var wpUsage = map[string]model.Usage{
+	"shop/web-new-a": {CPUMilli: 40, MemoryBytes: 300 << 20},
+	"shop/web-new-b": {CPUMilli: 900, MemoryBytes: 20 << 20},
+	"shop/web-old-a": {CPUMilli: 5, MemoryBytes: 700 << 20},
+	"shop/db-0":      {CPUMilli: 120, MemoryBytes: 1 << 30},
+	"shop/db-1":      {CPUMilli: 500, MemoryBytes: 1 << 30},
+}
+
+// workloadPodsSession is a session over every workload kind with pods: in shop, the Deployment web
+// in a rollout (replica sets web-old and web-new) and api (api-1), the stateful set db, the daemon
+// set agent, the Cron Job report with its job report-1, and a pod without an owner; the Events view
+// open (it polls no metrics), a metrics hub over a fake Metrics Server.
+func workloadPodsSession(t *testing.T) (*Session, *testkit.MemorySource, *podTableProvider) {
+	t.Helper()
+	src := testkit.NewMemorySource()
+	src.Set(wpDeployments, testkit.Object("apps/v1", "Deployment", "shop", "web", nil))
+	src.Set(wpDeployments, testkit.Object("apps/v1", "Deployment", "shop", "api", nil))
+	src.Set(replicaSetsGVR, wpOwned(testkit.Object("apps/v1", "ReplicaSet", "shop", "web-old", nil), "apps/v1", "Deployment", "web"))
+	src.Set(replicaSetsGVR, wpOwned(testkit.Object("apps/v1", "ReplicaSet", "shop", "web-new", nil), "apps/v1", "Deployment", "web"))
+	src.Set(replicaSetsGVR, wpOwned(testkit.Object("apps/v1", "ReplicaSet", "shop", "api-1", nil), "apps/v1", "Deployment", "api"))
+	src.Set(statefulSetsGVR, testkit.Object("apps/v1", "StatefulSet", "shop", "db", nil))
+	src.Set(wpDaemonSetsGVR, testkit.Object("apps/v1", "DaemonSet", "shop", "agent", nil))
+	src.Set(appsCronJobsGVR, testkit.Object("batch/v1", "CronJob", "shop", "report", nil))
+	src.Set(appsJobsGVR, wpOwned(testkit.Object("batch/v1", "Job", "shop", "report-1", nil), "batch/v1", "CronJob", "report"))
+	for _, p := range []*unstructured.Unstructured{
+		wpPod("shop", "web-old-a", "ReplicaSet", "web-old"),
+		wpPod("shop", "web-new-b", "ReplicaSet", "web-new"),
+		wpPod("shop", "web-new-a", "ReplicaSet", "web-new"),
+		wpPod("shop", "api-1-a", "ReplicaSet", "api-1"),
+		wpPod("shop", "db-0", "StatefulSet", "db"),
+		wpPod("shop", "db-1", "StatefulSet", "db"),
+		wpPod("shop", "agent-x", "DaemonSet", "agent"),
+		wpPod("shop", "report-1-x", "Job", "report-1"),
+		testkit.Pod("shop", "lonely"),
+	} {
+		src.Set(testkit.PodsGVR, p)
+	}
+	prov := &podTableProvider{usage: wpUsage}
+	var profiles []*model.KindProfile
+	for _, k := range []string{"pods", "deployments", "replicasets", "statefulsets", "daemonsets", "jobs", "cronjobs"} {
+		profiles = append(profiles, builtinProfile(t, k))
+	}
+	fc := &fakeConnector{src: src, profiles: append(profiles, testEvents)}
+	s := New(Options{
+		Connector:        &metricsConnector{fakeConnector: fc, prov: prov},
+		ClusterSettings:  NewClusterSettingsStore(filepath.Join(t.TempDir(), "Cogpit")),
+		SnapshotInterval: 5 * time.Millisecond,
+	})
+	t.Cleanup(s.Close)
+	connectTest(t, s)
+	openView(s, testEvents.Key)
+	return s, src, prov
+}
+
+func wpRef(kind, name string) model.ObjectRef {
+	return model.ObjectRef{Context: "test", Kind: kind, Namespace: "shop", Name: name}
+}
+
+// openDrawer opens the drawer on ref over the open view.
+func openDrawer(s *Session, ref model.ObjectRef) {
+	s.UpdateUI(func(u *UIState) { u.Drawer = &ref })
+}
+
+// waitDrawerPods waits until the drawer model of ref lists exactly want in its Pods table (nil: no
+// table).
+func waitDrawerPods(t *testing.T, s *Session, ref model.ObjectRef, want ...string) {
+	t.Helper()
+	var got []string
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if !testkit.WaitFor(ctx, func() bool {
+		m, err := s.Detail(ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = nodePods(m)
+		return slices.Equal(got, want)
+	}) {
+		t.Fatalf("%s's Pods %q, want %q", ref.Name, got, want)
+	}
+}
+
+// scopeHandles returns how many handles the cache holds on a kind's scope.
+func scopeHandles(s *Session, kind string) int {
+	b := s.Backend()
+	p, _ := b.Profile(kind)
+	for _, st := range b.Cache.Stats() {
+		if st.Scope == b.Scope(p) {
+			return st.Handles
+		}
+	}
+	return 0
+}
+
+// Each workload kind's drawer lists the pods it controls, an agent's read (DetailWait, object_get)
+// as well, without the drawer open: a Deployment both replica sets' pods during a rollout, not
+// api's; a Cron Job its job's; never the pod without an owner.
+func TestWorkloadDrawerPodsPerKind(t *testing.T) {
+	s, _, _ := workloadPodsSession(t)
+	for _, c := range []struct {
+		kind, name string
+		want       []string
+	}{
+		{"deployments", "web", []string{"web-new-a", "web-new-b", "web-old-a"}},
+		{"deployments", "api", []string{"api-1-a"}},
+		{"replicasets", "web-new", []string{"web-new-a", "web-new-b"}},
+		{"statefulsets", "db", []string{"db-0", "db-1"}},
+		{"daemonsets", "agent", []string{"agent-x"}},
+		{"jobs", "report-1", []string{"report-1-x"}},
+		{"cronjobs", "report", []string{"report-1-x"}},
+	} {
+		m, err := s.DetailWait(context.Background(), wpRef(c.kind, c.name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := nodePods(m); !slices.Equal(got, c.want) {
+			t.Errorf("%s %s: Pods %q, want %q", c.kind, c.name, got, c.want)
+		}
+	}
+}
+
+// The open drawer of a Deployment follows its pods: a pod of the new replica set arrives, the old
+// replica set's last pod goes (the rollout ends), a pod that loses its controller reference or
+// moves to another owner leaves, and a replica set created by the next rollout brings its pods,
+// each announced by EventDetail.
+func TestWorkloadDrawerPodsFollowPods(t *testing.T) {
+	s, src, _ := workloadPodsSession(t)
+	ref := wpRef("deployments", "web")
+	openDrawer(s, ref)
+	rec := record(s)
+	waitDrawerPods(t, s, ref, "web-new-a", "web-new-b", "web-old-a")
+
+	before := rec.count(EventDetail, "deployments")
+	src.Set(testkit.PodsGVR, wpPod("shop", "web-new-c", "ReplicaSet", "web-new"))
+	waitFor(t, "a detail event for the new pod", func() bool { return rec.count(EventDetail, "deployments") > before })
+	waitDrawerPods(t, s, ref, "web-new-a", "web-new-b", "web-new-c", "web-old-a")
+
+	src.Delete(testkit.PodsGVR, "shop", "web-old-a")
+	waitDrawerPods(t, s, ref, "web-new-a", "web-new-b", "web-new-c")
+
+	orphan := testkit.Pod("shop", "web-new-b") // its controller reference removed
+	src.Set(testkit.PodsGVR, orphan)
+	waitDrawerPods(t, s, ref, "web-new-a", "web-new-c")
+	src.Set(testkit.PodsGVR, wpPod("shop", "web-new-a", "ReplicaSet", "api-1")) // adopted by api's replica set
+	waitDrawerPods(t, s, ref, "web-new-c")
+
+	src.Set(replicaSetsGVR, wpOwned(testkit.Object("apps/v1", "ReplicaSet", "shop", "web-next", nil), "apps/v1", "Deployment", "web"))
+	src.Set(testkit.PodsGVR, wpPod("shop", "web-next-a", "ReplicaSet", "web-next"))
+	waitDrawerPods(t, s, ref, "web-new-c", "web-next-a")
+
+	// The api Deployment's drawer took web-new-a over.
+	m, err := s.DetailWait(context.Background(), wpRef("deployments", "api"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := nodePods(m); !slices.Equal(got, []string{"api-1-a", "web-new-a"}) {
+		t.Errorf("api's Pods %q", got)
+	}
+}
+
+// The pods' indexes are the drawer's alone: the Deployments list holds no handle on the pods or the
+// replica sets and is not rebuilt when a pod changes; the drawer holds both while it is open and
+// gives them back when it closes.
+func TestWorkloadPodsIndexOnlyWithTheDrawer(t *testing.T) {
+	s, src, _ := workloadPodsSession(t)
+	openView(s, "deployments")
+	waitTable(t, s, "deployments", func(ts *TableSnapshot) bool { return ts.Synced && len(ts.Rows) == 2 })
+	if n, m := scopeHandles(s, "pods"), scopeHandles(s, "replicasets"); n != 0 || m != 0 {
+		t.Fatalf("the Deployments list holds %d handles on the pods and %d on the replica sets, want none", n, m)
+	}
+
+	// Someone else watches the pods (another agent's read, a page): their events flow.
+	pp, _ := s.Backend().Profile("pods")
+	pods := s.Backend().Acquire(pp)
+	defer pods.Release()
+	waitFor(t, "the pods", pods.HasSynced)
+	rec := record(s)
+	tables := func() int { return rec.count(EventTable, "deployments") }
+
+	// changePods changes a pod of web n times, each seen by the pods' informer before the next.
+	changePods := func(round string, n int) {
+		t.Helper()
+		for i := range n {
+			p := wpPod("shop", "web-new-a", "ReplicaSet", "web-new")
+			p.SetLabels(map[string]string{"round": fmt.Sprintf("%s-%d", round, i)})
+			src.Set(testkit.PodsGVR, p)
+			want := p.GetLabels()["round"]
+			waitFor(t, "the pod's change in the cache", func() bool {
+				o, ok := KindGet(pods, pp, "shop", "web-new-a")
+				return ok && o.GetLabels()["round"] == want
+			})
+		}
+	}
+	// sentinel changes web itself and waits for the list to show it: every wake before it has been
+	// built by then.
+	sentinel := func(n int) {
+		t.Helper()
+		d := testkit.Object("apps/v1", "Deployment", "shop", "web", map[string]any{"spec": map[string]any{"replicas": int64(n)}})
+		src.Set(wpDeployments, d)
+		col := builtinProfile(t, "deployments").ColumnIndex("replicas")
+		waitTable(t, s, "deployments", func(ts *TableSnapshot) bool {
+			return slices.ContainsFunc(ts.Rows, func(r model.Row) bool { return r.Ref.Name == "web" && r.Cells[col].Num == int64(n) })
+		})
+	}
+
+	before := tables()
+	changePods("closed", 10)
+	sentinel(7)
+	if got := tables() - before; got != 1 {
+		t.Errorf("%d Deployments snapshots for ten pod changes and one change of web, want 1 (web's)", got)
+	}
+
+	// The drawer open: it holds the pods and the replica sets and wakes for web's pods; the list
+	// still does not rebuild.
+	ref := wpRef("deployments", "web")
+	openDrawer(s, ref)
+	waitDrawerPods(t, s, ref, "web-new-a", "web-new-b", "web-old-a")
+	if n, m := scopeHandles(s, "pods"), scopeHandles(s, "replicasets"); n != 2 || m != 1 {
+		t.Errorf("with the drawer open: %d handles on the pods (want 2: the drawer's and the test's), %d on the replica sets (want 1)", n, m)
+	}
+	before, details := tables(), rec.count(EventDetail, "deployments")
+	changePods("open", 5)
+	waitFor(t, "the drawer to wake for its pod", func() bool { return rec.count(EventDetail, "deployments") > details })
+	sentinel(8)
+	if got := tables() - before; got != 1 {
+		t.Errorf("%d Deployments snapshots with the drawer open, want 1 (web's)", got)
+	}
+
+	s.UpdateUI(func(u *UIState) { u.Drawer = nil })
+	waitFor(t, "the drawer's handles to go back", func() bool {
+		return scopeHandles(s, "pods") == 1 && scopeHandles(s, "replicasets") == 0
+	})
+}
+
+// The table's CPU and Memory come from the hub as in a node's drawer, polled for the workload's
+// namespace while the drawer shows the table, and not after it closes; the cluster's settings hide
+// them and their poll.
+func TestWorkloadDrawerPodsMetrics(t *testing.T) {
+	s, _, _ := workloadPodsSession(t)
+	hub := s.Backend().Metrics
+	ref := wpRef("deployments", "web")
+	openDrawer(s, ref)
+	pods := builtinProfile(t, "pods")
+	var tbl *model.DetailTable
+	waitFor(t, "the Pods table's CPU", func() bool {
+		tbl = podsTable(t, s, ref)
+		if tbl == nil || len(tbl.Rows) != 3 {
+			return false
+		}
+		cells, _ := rowOfPod(t, tbl, "web-new-b")
+		return cells[tbl.ColumnIndex(model.ColumnCPU)].Text != ""
+	})
+	for _, name := range []string{"web-new-a", "web-new-b", "web-old-a"} {
+		wantCPU, wantMem := pods.UsageCells(nil, wpUsage["shop/"+name])
+		cells, _ := rowOfPod(t, tbl, name)
+		if cells[tbl.ColumnIndex(model.ColumnCPU)] != wantCPU || cells[tbl.ColumnIndex(model.ColumnMemory)] != wantMem {
+			t.Errorf("%s: %+v, want %+v and %+v", name, cells, wantCPU, wantMem)
+		}
+	}
+	// A Deployment has no chart of its own: the one poll is its pods'.
+	if n := hub.Subscribed(); n != 1 {
+		t.Errorf("%d scopes polled with a Deployment's drawer open, want 1 (its pods)", n)
+	}
+
+	if _, err := s.ChangeClusterSettings("test", func(cs *ClusterSettings) error { cs.HiddenMetrics = HidePods; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the table's poll released", func() bool { return hub.Subscribed() == 0 })
+	if tbl = podsTable(t, s, ref); tbl.ColumnIndex(model.ColumnCPU) >= 0 || tbl.ColumnIndex(model.ColumnMemory) >= 0 {
+		t.Errorf("hidden metrics: columns %q", tbl.Columns)
+	}
+	if _, err := s.ChangeClusterSettings("test", func(cs *ClusterSettings) error { cs.HiddenMetrics = 0; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the poll back", func() bool { podsTable(t, s, ref); return hub.Subscribed() == 1 })
+
+	s.UpdateUI(func(u *UIState) { u.Drawer = nil })
+	waitFor(t, "the drawer's poll released", func() bool { return hub.Subscribed() == 0 })
+}
+
+// The table sorts by the drawer's order (UIState.DrawerSort, by the section's title: the same as a
+// node's Pods), metrics by value; the order stays when the drawer shows another workload.
+func TestWorkloadDrawerPodsSort(t *testing.T) {
+	s, _, _ := workloadPodsSession(t)
+	ref := wpRef("deployments", "web")
+	openDrawer(s, ref)
+	s.UpdateUI(func(u *UIState) { u.DrawerSort = map[string]SortSpec{"Pods": {Column: model.ColumnMemory, Desc: true}} })
+	waitFor(t, "the table sorted by Memory", func() bool {
+		tbl := podsTable(t, s, ref)
+		return tbl != nil && tbl.Sort != nil && tbl.Sort.Column == model.ColumnMemory &&
+			slices.Equal(nodePods(&DetailModel{Sections: []model.DetailSection{{Title: "Pods", Table: tbl}}}), []string{"web-old-a", "web-new-a", "web-new-b"})
+	})
+	s.UpdateUI(func(u *UIState) { u.DrawerSort = map[string]SortSpec{"Pods": {Column: model.ColumnCPU, Desc: true}} })
+	ref = wpRef("statefulsets", "db") // db-1 uses more CPU than db-0
+	openDrawer(s, ref)
+	waitFor(t, "the stateful set's table sorted by CPU, descending", func() bool {
+		tbl := podsTable(t, s, ref)
+		return tbl != nil && tbl.Sort != nil && tbl.Sort.Column == model.ColumnCPU && tbl.Sort.Desc && len(tbl.Rows) == 2 &&
+			tbl.Rows[0][0] == "db-1" && tbl.Rows[1][0] == "db-0"
+	})
+}
+
+// A workload with more pods than the bound shows the first MaxDrawerTableRows in the table's
+// order and counts the rest; agents read the same model.
+func TestWorkloadDrawerPodsBounded(t *testing.T) {
+	src := testkit.NewMemorySource()
+	src.Set(statefulSetsGVR, testkit.Object("apps/v1", "StatefulSet", "big", "web", nil))
+	extra := 3
+	for i := range MaxDrawerTableRows + extra {
+		src.Set(testkit.PodsGVR, wpPod("big", fmt.Sprintf("web-%04d", i), "StatefulSet", "web"))
+	}
+	s, fc := newTestSession(t, src, 5*time.Millisecond)
+	fc.profiles = append(testProfiles(), builtinProfile(t, "statefulsets"))
+	connectTest(t, s)
+	m, err := s.DetailWait(context.Background(), model.ObjectRef{Kind: "statefulsets", Namespace: "big", Name: "web"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tbl *model.DetailTable
+	for _, sec := range m.Sections {
+		if sec.Title == "Pods" {
+			tbl = sec.Table
+		}
+	}
+	if tbl == nil || len(tbl.Cells) != MaxDrawerTableRows || len(tbl.Rows) != MaxDrawerTableRows || tbl.Omitted != extra {
+		t.Fatalf("table of %d rows, %d omitted; want %d and %d", len(tbl.Cells), tbl.Omitted, MaxDrawerTableRows, extra)
+	}
+	if tbl.Rows[0][0] != "web-0000" || tbl.Rows[MaxDrawerTableRows-1][0] != fmt.Sprintf("web-%04d", MaxDrawerTableRows-1) {
+		t.Errorf("not the first rows by name: %s … %s", tbl.Rows[0][0], tbl.Rows[MaxDrawerTableRows-1][0])
+	}
+}
+
+func TestLimitDrawerTables(t *testing.T) {
+	cols := []model.Column{{ID: "name", Title: "Name"}}
+	rows := func(n int) [][]model.Cell {
+		out := make([][]model.Cell, n)
+		for i := range out {
+			out[i] = []model.Cell{{Text: fmt.Sprint(i)}}
+		}
+		return out
+	}
+	long, short, plain := model.SortableCellTable(cols, rows(7)), model.SortableCellTable(cols, rows(3)), model.CellTable(cols, rows(7))
+	m := &DetailModel{Sections: []model.DetailSection{{Title: "A", Table: long}, {Title: "B", Table: short}, {Title: "C", Table: plain}, {Title: "D"}}}
+	LimitDrawerTables(m, 3)
+	if got := m.Sections[0].Table; len(got.Cells) != 3 || len(got.Rows) != 3 || got.Omitted != 4 || got.Rows[2][0] != "2" {
+		t.Errorf("the long table: %d cells, %d rows, %d omitted", len(got.Cells), len(got.Rows), got.Omitted)
+	}
+	if len(long.Cells) != 7 || long.Omitted != 0 {
+		t.Error("the table given was changed")
+	}
+	if m.Sections[1].Table != short || m.Sections[2].Table != plain {
+		t.Error("a table within the bound, or not sortable, was replaced")
+	}
+}

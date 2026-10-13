@@ -329,18 +329,33 @@ var nodePodColumns = []model.Column{
 // nodedevices.go), come before the Pods.
 func nodeDetailWith(obj *unstructured.Unstructured, rel model.Related) []model.DetailSection {
 	sections := append(nodeDetail(obj), nodeDevices(obj, rel)...)
-	pods := append([]*unstructured.Unstructured(nil), rel.Objects(PodsByNode, obj.GetName())...)
-	if len(pods) == 0 {
-		return sections
+	if s, ok := podsSection(rel.Objects(PodsByNode, obj.GetName()), false); ok {
+		sections = append(sections, s)
 	}
+	return sections
+}
+
+// podsSection is the drawer's Pods table of pods (a node's, a workload's: workloadpods.go), or
+// false for none: one row per pod, sorted by name, the name and namespace as links, the warning
+// icon and Status as in the Pods view, Ready as ready/all containers, CPU and Memory left to the
+// engine. The Node cell links to the node with nodeLinks; a node's own drawer has it plain.
+func podsSection(objs []*unstructured.Unstructured, nodeLinks bool) (model.DetailSection, bool) {
+	if len(objs) == 0 {
+		return model.DetailSection{}, false
+	}
+	pods := append([]*unstructured.Unstructured(nil), objs...)
 	sortByName(pods)
 	rows := make([][]model.Cell, 0, len(pods))
 	for _, p := range pods {
 		s := summarisePod(p)
+		node := model.Cell{Text: model.NestedString(p, "spec", "nodeName")}
+		if nodeLinks {
+			node.Link = linkTo(keyNodes, "", node.Text)
+		}
 		rows = append(rows, []model.Cell{
 			{Text: p.GetName(), Link: linkTo(podsResource, p.GetNamespace(), p.GetName())},
 			podWarning(p, s),
-			{Text: model.NestedString(p, "spec", "nodeName")},
+			node,
 			namespaceCell(p),
 			ratio(s.ready, s.total),
 			{}, // CPU: the engine's, from the metrics (engine/drawerpods.go)
@@ -349,5 +364,5 @@ func nodeDetailWith(obj *unstructured.Unstructured, rel model.Related) []model.D
 		})
 	}
 	// Sortable: a click on a column's title sorts the rows (ui.sortDrawerTable).
-	return append(sections, model.DetailSection{Title: podsTitle, Table: model.SortableCellTable(nodePodColumns, rows)})
+	return model.DetailSection{Title: podsTitle, Table: model.SortableCellTable(nodePodColumns, rows)}, true
 }

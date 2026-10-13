@@ -46,6 +46,9 @@ var daemonSets = &model.KindProfile{
 		},
 	},
 	Detail: daemonSetDetail,
+	// The Pods table in the drawer (workloadpods.go, D-40).
+	DetailNeeds: directPodsNeeds,
+	DetailWith:  withPods(daemonSetDetail, nil),
 }
 
 func daemonSetCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {

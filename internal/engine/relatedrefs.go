@@ -14,10 +14,13 @@ import (
 // The related objects of object.get (G17, related: true): the objects the drawer shows for an
 // object, as references, from the cache. They are what the drawer's model links to (its owner in
 // Controlled By, a pod's node and volumes' claims, a node's pods and devices, a claim's pods, a
-// Service's endpoint slices: whatever the related-objects indexes and the profiles' links give),
-// and, for a workload, the objects it controls: a Deployment's replica sets and their pods, a Cron
-// Job's jobs and their pods, the pods of a Stateful Set, Daemon Set, Replica Set or Job (by the
-// controller owner reference, as the workload's logs find them). Nothing is asked of the API
+// Service's endpoint slices, a workload's Pods table and their nodes (D-40): whatever the
+// related-objects indexes and the profiles' links give), and, for a workload, the objects it
+// controls: a Deployment's replica sets and their pods, a Cron Job's jobs and their pods, the pods
+// of a Stateful Set, Daemon Set, Replica Set or Job (by the controller owner reference in the
+// workload's namespace, as the workload's logs and its drawer's Pods table find them). The pods its
+// Pods table lists come first, in the table's order, and are not repeated; the rest of a table cut
+// at MaxDrawerTableRows follows from here. Nothing is asked of the API
 // server: a kind the cache does not hold yet starts its informer, as resources.list does, and is
 // waited for at most relatedWait.
 

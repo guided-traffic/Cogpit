@@ -82,8 +82,9 @@ func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.O
 		}))
 	}
 	// Woken only by changes to the keys the drawer's model looked up (a node's pods, not every
-	// pod); Detail reads through this set while the drawer shows ref (drawerRelated).
-	d.related = newRelatedSetWith(b, p.Needs, func() { signal(d.wake) }, true, func(rp *model.KindProfile) *cache.Handle { return b.acquireNow(rp, ns) })
+	// pod); Detail reads through this set while the drawer shows ref (drawerRelated). The drawer's
+	// own indexes (DetailNeeds: a workload's pods) live only as long as it does.
+	d.related = newRelatedSetWith(b, p.DrawerNeeds(), func() { signal(d.wake) }, true, func(rp *model.KindProfile) *cache.Handle { return b.acquireNow(rp, ns) })
 	d.followHidden(s, hidden)
 	objSynced, evSynced := d.synced()
 	poll := func() bool {
@@ -211,8 +212,9 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 	if m.Metrics && len(s.hiddenMetrics(b.Context).drawerVariants(p.Usage)) == 0 {
 		m.Metrics = false // the cluster's settings hide every chart of the kind (hidemetrics.go)
 	}
-	s.drawerPods(b, ref, m)              // the CPU and Memory of the pods a table lists, and their poll (drawerpods.go)
-	SortDrawerTables(m, s.drawerSorts()) // the sortable tables in the drawer's order (drawersort.go)
+	s.drawerPods(b, ref, m)                  // the CPU and Memory of the pods a table lists, and their poll (drawerpods.go)
+	SortDrawerTables(m, s.drawerSorts())     // the sortable tables in the drawer's order (drawersort.go)
+	LimitDrawerTables(m, MaxDrawerTableRows) // the first rows of a long one, the rest counted (drawerlimit.go)
 	if OriginOf(ctx).IsAgent() {
 		m.Sections = model.WithholdPrivate(m.Sections) // object_get: agents never read private values
 	}

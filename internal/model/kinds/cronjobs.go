@@ -62,6 +62,9 @@ var cronJobs = &model.KindProfile{
 		},
 	},
 	Detail: cronJobDetail,
+	// The Pods table in the drawer, through the jobs (workloadpods.go, D-40).
+	DetailNeeds: cronJobPodsNeeds,
+	DetailWith:  withPods(cronJobDetail, &JobsByOwner),
 }
 
 func cronJobCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {

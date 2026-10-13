@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -28,6 +28,7 @@ projects' repositories; re-check them before relying on a version number.
 | [D-36](#d-36-how-argo-cds-sync-writes-the-operation) | How Argo CD's Sync writes the operation | night decision, for the owner to confirm: what `argocd app sync` writes, bound to the UID and resourceVersion (option b), built 2026-10-13 |
 | [D-37](#d-37-the-node-shell) | The node shell | night decision, for the owner to confirm: Lens's privileged pod with nsenter (option b), built 2026-10-13 |
 | [D-38](#d-38-who-sets-the-node-shells-image) | Who sets the node shell's image | night decision, for the owner to confirm: the user only, agents may reset it (option b), built 2026-10-13 |
+| [D-40](#d-40-a-pods-table-in-the-workloads-drawers) | A Pods table in the workloads' drawers | night decision, for the owner to confirm: the node drawer's table in the drawers of the six workload kinds (option b), built 2026-10-13 |
 
 ## D-1: UI toolkit
 
@@ -1645,10 +1646,77 @@ lose parity. **Built 2026-10-13** (`cluster.settings.setNodeShell` refuses a val
 default from every origin but the GUI with `ErrNodeShellGUIOnly`, before anything is written;
 `TestNodeShellSettings`).
 
+## D-40: A Pods table in the workloads' drawers
+
+**Night decision (the lead's, 2026-10-14, for the owner to confirm):** options (a) no Pods table in
+the workloads' drawers, as before; (b) the node drawer's Pods table (Name, warning icon, Node,
+Namespace, Ready, CPU, Memory, Status; sortable; CPU and Memory from the metrics hub, polled only
+while the table shows) in the drawers of Deployments, Replica Sets, Stateful Sets, Daemon Sets and
+Jobs; (c) a "Pods" link that opens the Pods view filtered to the workload; chosen (b), because it is
+what a Lens user expects from a workload's details (inferred: Lens's workload drawers are not
+captured), and the node drawer's table, its metrics and its sorting already exist, so the cost is
+the index of pods by their owner, which only an open drawer holds. **Built 2026-10-13** (night
+build; [`kinds/workloadpods.go`](../../internal/model/kinds/workloadpods.go),
+[`engine/drawerlimit.go`](../../internal/engine/drawerlimit.go), `KindProfile.DetailNeeds`;
+`TestWorkloadDrawerPodsPerKind`, `TestWorkloadDrawerPodsFollowPods`,
+`TestWorkloadPodsIndexOnlyWithTheDrawer`, `TestWorkloadDrawerPodsMetrics`,
+`TestWorkloadDrawerPodsSort`, `TestDeploymentDrawerPodsTable`; on kind 1.36.1
+`TestKindWorkloadDrawerPods`: a Deployment of two replicas lists its two pods over the engine, and a
+deleted pod's replacement).
+
+What the build chose, Cogpit's defaults (not the owner's decision):
+
+- **Cron Jobs too, through their jobs.** Options: (a) the five kinds the decision names, (b) Cron
+  Jobs as well, the pods of the jobs they control; chosen (b): `object_get`'s `related: true` lists
+  a Cron Job's jobs and their pods already, the cost is one more index (jobs by owner) that only the
+  drawer holds, and the pods of the last runs (the jobs' history limits keep three succeeded and one
+  failed by default) are what a user checks after a run. Replication Controllers are left out, as
+  `related: true` leaves them out.
+- **The node drawer's eight columns, Node included.** Options: (a) the seven of the lead's brief,
+  without Node; (b) the node drawer's eight; (c) seven without Namespace, which a workload's pods
+  share; chosen (b): Lens's node drawer shows a Node column that is redundant there (capture,
+  2026-10-11), which suggests one shared table whatever the drawer (inferred); Node is what tells a
+  Daemon Set's pods apart; and one builder, one set of column ids and one sort state ("Pods") serve
+  both drawers. The Node cell links to the node (a node's own drawer keeps it plain). The cost: in
+  the default drawer width a workload's pod names, which share their prefix, are cut with "…"
+  ([PNG](../../internal/ui/fyneui/testdata/deployment_pods_drawer_dark.png)).
+- **A Deployment's pods are those of every replica set it controls**, old ones during a rollout
+  included. Options: (a) the newest replica set's only, (b) every one it controls; chosen (b): the
+  old pods still serve and terminate during a rollout, which is what a user watches; old replica
+  sets kept at zero replicas have no pods and add no row.
+- **Owned means the controller reference's UID, in the workload's namespace.** Options: (a) the
+  owner's kind and name, (b) the controller reference's UID, counted only in the object's own
+  namespace; chosen (b): a workload created again under its name owns none of the old one's pods,
+  and Kubernetes's garbage collector treats an owner reference across namespaces as absent; the
+  workload logs and `related: true` use the same rule (`controllerUID`).
+- **The index lives with the drawer** (`DetailNeeds`). Options: (a) in the profiles' `Needs`, which
+  makes every workload list rebuild its rows on every pod change (measured: eleven Deployments
+  snapshots for ten pod changes and one change of a Deployment, against one without); (b) the
+  drawer's own indexes, held while it is open; (c) no index, every drawer build scanning the pods;
+  chosen (b), which also wakes the drawer only for its own pods and replica sets
+  (`TestWorkloadPodsIndexOnlyWithTheDrawer`). Its cost: an open workload drawer holds a watch on the
+  pods (and the replica sets or jobs) as `Backend.Acquire` reads them, all namespaces or the
+  namespaces the access reviews allow, shared with every other reader and warm for the grace period
+  after the drawer closes; opened alone it is one list and watch more.
+- **At most 500 rows, the rest counted** (`engine.MaxDrawerTableRows`), for every sortable drawer
+  table, a node's Pods included. Options: (a) no bound, as the node drawer had; (b) 200, the bound
+  of `related: true`; (c) 500; chosen (c): a node runs 110 pods by default and at most a few
+  hundred, so only a large workload's table is cut; the cut follows the sort (sorted by CPU, the
+  busiest pods), and the window says "N more pods not shown" under the rows.
+- **The place:** after the kind's own sections (Conditions included), before the Events; a workload
+  without pods, or whose pods or owners are still listing, has no Pods section (inferred).
+- **`related: true` reads the table like every section**: the pods first, in the table's order,
+  each pod's node with the relation "Pods" as a node drawer's namespaces have it, then the replica
+  sets or jobs and any pods the table cut. Options: (a) so; (b) leave the workload's own Pods out of
+  the section scan, keeping the replica sets before the pods; chosen (a): the documented rule
+  ("every object the drawer links to, in its order, then what a workload controls") holds without
+  an exception.
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-40 (night decision, for the owner to confirm): the node drawer's Pods table in the drawers of Deployments, Replica Sets, Stateful Sets, Daemon Sets, Jobs and Cron Jobs, from indexes only the open drawer holds; Cron Jobs, the eight columns, every replica set's pods, the owner's UID in its namespace, the 500-row bound and the order of `related: true` Cogpit's defaults; built |
 | 2026-10-13 | minor | D-39 (night decision, for the owner to confirm): pod metrics listed per namespace of the Pods view's plan for a user who may not list pods everywhere, built |
 | 2026-10-13 | minor | D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes without flags, bound to the Application's UID and resourceVersion, refused while an operation is requested or running |
 | 2026-10-13 | minor | D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys to the window and agents, user information in URLs redacted, the other keys by name only |

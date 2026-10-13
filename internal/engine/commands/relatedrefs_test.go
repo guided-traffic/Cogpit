@@ -81,9 +81,10 @@ func relatedNames(rs []engine.RelatedRef) []string {
 }
 
 // object.get with related lists what the drawer links to and what a workload controls, as refs from
-// the cache: a Deployment its replica set and that one's pods (not another Deployment's, not a pod
-// without an owner), a pod its controller and its node, a node its pods; each object once, never
-// the object itself; without related the result is the drawer model alone.
+// the cache: a Deployment its pods (its drawer's Pods table, D-40: not another Deployment's, not a
+// pod without an owner), their node and its replica set, a pod its controller and its node, a node
+// its pods; each object once, never the object itself; without related the result is the drawer
+// model alone.
 func TestObjectGetRelated(t *testing.T) {
 	src := testkit.NewMemorySource()
 	src.Set(testkit.NodesGVR, testkit.Object("v1", "Node", "", "node-1", nil))
@@ -101,12 +102,14 @@ func TestObjectGetRelated(t *testing.T) {
 	deploy := model.ObjectRef{Kind: "deployments", Namespace: "shop", Name: "web"}
 	var got objectResult
 	h.must(t, agent, "object.get", map[string]any{"ref": deploy, "related": true, "noYaml": true}, &got)
-	want := []string{"Namespace: namespaces shop", "Replica Sets: replicasets web-abc", "Pods: pods web-abc-1", "Pods: pods web-abc-2"} // the drawer's link first
-	if names := relatedNames(got.Related); !slices.Equal(names, want) || got.RelatedTotal != 4 || got.RelatedTruncated {
+	// The drawer's links first: its Namespace, then its Pods table (D-40: each pod and its node, in
+	// the table's order), then the replica sets it controls; the pods again are not repeated.
+	want := []string{"Namespace: namespaces shop", "Pods: pods web-abc-1", "Pods: nodes node-1", "Pods: pods web-abc-2", "Replica Sets: replicasets web-abc"}
+	if names := relatedNames(got.Related); !slices.Equal(names, want) || got.RelatedTotal != 5 || got.RelatedTruncated {
 		t.Errorf("the Deployment's related objects: %v (total %d, truncated %v), want %v", names, got.RelatedTotal, got.RelatedTruncated, want)
 	}
 	for _, r := range got.Related {
-		if r.Ref.Context != "test" || (r.Ref.Kind != "namespaces" && r.Ref.Namespace != "shop") {
+		if r.Ref.Context != "test" || (r.Ref.Kind != "namespaces" && r.Ref.Kind != "nodes" && r.Ref.Namespace != "shop") {
 			t.Errorf("related ref %+v: want context test and namespace shop", r.Ref)
 		}
 	}

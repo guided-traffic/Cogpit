@@ -276,7 +276,7 @@ func (s *Session) detailReads(ctx context.Context, b *Backend, p *model.KindProf
 			evh = b.acquireNow(ep, ns)
 		}
 		if rs = s.drawerRelated(b, p, ref); rs == nil {
-			rs = newRelatedSetWith(b, p.Needs, nil, false, func(rp *model.KindProfile) *cache.Handle { return b.acquireNow(rp, ns) })
+			rs = newRelatedSetWith(b, p.DrawerNeeds(), nil, false, func(rp *model.KindProfile) *cache.Handle { return b.acquireNow(rp, ns) })
 		}
 		return h, evh, rs
 	}
@@ -292,7 +292,7 @@ func (s *Session) detailReads(ctx context.Context, b *Backend, p *model.KindProf
 		evh = reads[1].h
 	}
 	if rs = s.drawerRelated(b, p, ref); rs == nil {
-		rs = newRelatedSetWith(b, p.Needs, nil, false, func(rp *model.KindProfile) *cache.Handle {
+		rs = newRelatedSetWith(b, p.DrawerNeeds(), nil, false, func(rp *model.KindProfile) *cache.Handle {
 			r := startRead(wctx, rp, b.inNamespace(rp, ns))
 			b.settleReads(wctx, r)
 			return r.h

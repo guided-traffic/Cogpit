@@ -49,6 +49,9 @@ var jobs = &model.KindProfile{
 		},
 	},
 	Detail: jobDetail,
+	// The Pods table in the drawer (workloadpods.go, D-40).
+	DetailNeeds: directPodsNeeds,
+	DetailWith:  withPods(jobDetail, nil),
 }
 
 func jobCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {

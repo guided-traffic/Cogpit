@@ -51,6 +51,28 @@ func relatedOrNone(rel Related) Related {
 	return rel
 }
 
+// DrawerNeeds returns the indexes the kind's drawer reads: Needs, then each of DetailNeeds that
+// Needs does not name.
+func (p *KindProfile) DrawerNeeds() []RelatedIndex {
+	if len(p.DetailNeeds) == 0 {
+		return p.Needs
+	}
+	out := append([]RelatedIndex(nil), p.Needs...)
+	for _, ix := range p.DetailNeeds {
+		dup := false
+		for _, n := range out {
+			if n.ID() == ix.ID() {
+				dup = true
+				break
+			}
+		}
+		if !dup {
+			out = append(out, ix)
+		}
+	}
+	return out
+}
+
 // DetailSections returns a profile's own drawer sections for obj: DetailWith with rel, else
 // Detail. It may panic if the profile does; callers recover.
 func (p *KindProfile) DetailSections(obj *unstructured.Unstructured, rel Related) []DetailSection {

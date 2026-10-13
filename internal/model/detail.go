@@ -58,6 +58,9 @@ type DetailTable struct {
 	// Sort is the order the rows are in, set by the engine on a sortable table; nil: the order
 	// the kind's profile gave them.
 	Sort *TableSort `json:"sort,omitempty"`
+	// Omitted counts the rows the engine left out of a long sortable table: it shows the first rows
+	// in Sort's order and counts the rest here (a workload's Pods, D-40).
+	Omitted int `json:"omitted,omitempty"`
 }
 
 // TableSort is the order of a sortable drawer table's rows: by the column with the id Column,

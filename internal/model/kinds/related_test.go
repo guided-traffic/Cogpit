@@ -159,6 +159,16 @@ var relatedProfiles = []struct{ key, relatedKind, own string }{
 	{"nodes", "pods", "healthy"},
 	{"nodes", "resourceslices", "healthy"},
 	{"services", "endpointslices", "healthy"},
+	// The workloads' drawers (DetailNeeds, D-40): their pods, a Deployment's replica sets, a Cron
+	// Job's jobs.
+	{"deployments", "replicasets", "healthy"},
+	{"deployments", "pods", "healthy"},
+	{"replicasets", "pods", "healthy"},
+	{"statefulsets", "pods", "healthy"},
+	{"daemonsets", "pods", "healthy"},
+	{"jobs", "pods", "healthy"},
+	{"cronjobs", "jobs", "healthy"},
+	{"cronjobs", "pods", "healthy"},
 }
 
 // exerciseRelated runs a profile's CellsWith and DetailWith with obj as its only related object,
@@ -172,7 +182,7 @@ func exerciseRelated(t *testing.T, key, relatedKind string, own, obj *unstructur
 			t.Fatalf("%s with related %s %v: panic: %v", key, relatedKind, obj.Object, r)
 		}
 	}()
-	for _, ix := range p.Needs {
+	for _, ix := range p.DrawerNeeds() {
 		_ = ix.Keys(obj)
 	}
 	// Whatever its keys say, the related object reaches the cells and sections.

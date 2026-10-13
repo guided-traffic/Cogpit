@@ -36,6 +36,9 @@ var statefulSets = &model.KindProfile{
 		},
 	},
 	Detail: statefulSetDetail,
+	// The Pods table in the drawer (workloadpods.go, D-40).
+	DetailNeeds: directPodsNeeds,
+	DetailWith:  withPods(statefulSetDetail, nil),
 }
 
 func statefulSetCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {

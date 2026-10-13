@@ -12,26 +12,29 @@ import (
 )
 
 // ui.sortDrawerTable: the order of a sortable table in the detail drawer (owner, 2026-10-13: a
-// node's Pods sort by Name, Namespace, CPU, Memory and Status; engine/drawersort.go). The order is
+// node's Pods sort by Name, Namespace, CPU, Memory and Status; a workload's Pods since D-40, under
+// the same title and so the same order; engine/drawersort.go). The order is
 // UI state the engine holds (UIState.DrawerSort), so a click on a column's title in the window and
 // an agent set the same thing, and ui_state shows it.
 
 type drawerSortParams struct {
-	Section string `json:"section,omitempty" jsonschema:"the title of the drawer's table to sort, as object_get's sections name it: Pods (a node's pods); omitted: the drawer's only sortable table"`
-	Column  string `json:"column" jsonschema:"the column to sort by: its id as the table's ids name it (name, namespace, ready, cpu, memory, status, ...) or its title"`
+	Section string `json:"section,omitempty" jsonschema:"the title of the drawer's table to sort, as object_get's sections name it: Pods (a node's or a workload's pods); omitted: the drawer's only sortable table"`
+	Column  string `json:"column" jsonschema:"the column to sort by: its id as the table's ids name it (name, node, namespace, ready, cpu, memory, status, ...) or its title"`
 	Desc    bool   `json:"desc,omitempty" jsonschema:"descending order"`
 }
 
 func registerDrawerTables(g *registrar) {
 	add(g, engine.Spec[drawerSortParams]{
 		ID: "ui.sortDrawerTable", Label: "Sort Drawer Table", Danger: engine.DangerUI, Verbs: cacheReads,
-		Description: "Sorts a table in the detail drawer by a column, as a click on the column's title does: a node's " +
-			"Pods by name, namespace, ready, cpu, memory, status or any other of its columns, ascending unless desc is " +
-			"true. Numbers and metrics sort by value, a pod without a measurement last in both directions. The drawer " +
-			"must show the table (ui_navigate opens an object's drawer). The order is kept by the table's title for the " +
-			"session, so the next object's table of the same title comes sorted the same way; a table nobody sorted is " +
-			"sorted by name. ui_state shows the orders (drawerSort), object_get the rows in that order and the table's " +
-			"sort. Returns the new UI state.",
+		Description: "Sorts a table in the detail drawer by a column, as a click on the column's title does: the Pods " +
+			"of a node, Deployment, Replica Set, Stateful Set, Daemon Set, Job or Cron Job by name, node, namespace, " +
+			"ready, cpu, memory, status or any other of its columns, ascending unless desc is true. Numbers and metrics " +
+			"sort by value, a pod without a measurement last in both directions. The drawer must show the table " +
+			"(ui_navigate opens an object's drawer). The order is kept by the table's title for the session, so the next " +
+			"object's table of the same title comes sorted the same way; a table nobody sorted is sorted by name. " +
+			fmt.Sprintf("A table of more than %[1]d rows shows the first %[1]d in that order and counts the rest (omitted). ", engine.MaxDrawerTableRows) +
+			"ui_state shows the orders (drawerSort), object_get the rows in that order and the table's sort. Returns " +
+			"the new UI state.",
 		Enabled: func(s *engine.Session, _ drawerSortParams) error {
 			if _, err := connected(s); err != nil {
 				return err

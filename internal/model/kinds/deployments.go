@@ -42,6 +42,9 @@ var deployments = &model.KindProfile{
 		},
 	},
 	Detail: deploymentDetail,
+	// The Pods table in the drawer, through the replica sets (workloadpods.go, D-40).
+	DetailNeeds: deploymentPodsNeeds,
+	DetailWith:  withPods(deploymentDetail, &ReplicaSetsByOwner),
 }
 
 func deploymentCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
