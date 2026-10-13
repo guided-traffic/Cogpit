@@ -318,22 +318,27 @@ func (n *nodeShellSet) get(tab string) (*nodeShellPod, bool) {
 	return p, ok
 }
 
-// take removes and returns a tab's pod; nil when it has none (any more).
+// take removes and returns a tab's pod, counting its delete as in flight (wg) under the same lock,
+// so that a quit's wait sees every delete a pod was taken for; nil when it has none (any more).
 func (n *nodeShellSet) take(tab string) *nodeShellPod {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	p := n.pods[tab]
-	delete(n.pods, tab)
+	if p != nil {
+		delete(n.pods, tab)
+		n.wg.Add(1)
+	}
 	return p
 }
 
-// takeAll removes and returns every pod.
+// takeAll removes and returns every pod, each delete counted as in flight as take does.
 func (n *nodeShellSet) takeAll() []*nodeShellPod {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	out := make([]*nodeShellPod, 0, len(n.pods))
 	for _, p := range n.pods {
 		out = append(out, p)
+		n.wg.Add(1)
 	}
 	n.pods = nil
 	return out
@@ -353,11 +358,10 @@ func (s *Session) NodeShellPods() map[string]string {
 
 // endNodeShell deletes a node shell tab's pod in the background, once.
 func (s *Session) endNodeShell(tab string) {
-	p := s.shells.take(tab)
+	p := s.shells.take(tab) // counted in s.shells.wg
 	if p == nil {
 		return
 	}
-	s.shells.wg.Add(1)
 	go func() {
 		defer s.shells.wg.Done()
 		defer s.recoverGoroutine("node shell delete")
@@ -391,8 +395,7 @@ func (s *Session) endClosedNodeShells(old, now []DockTab) {
 // endNodeShells deletes every node shell's pod and waits for the deletes, at most
 // nodeShellQuitWait: Cogpit quits.
 func (s *Session) endNodeShells() {
-	for _, p := range s.shells.takeAll() {
-		s.shells.wg.Add(1)
+	for _, p := range s.shells.takeAll() { // each counted in s.shells.wg
 		go func() {
 			defer s.shells.wg.Done()
 			defer s.recoverGoroutine("node shell delete")
