@@ -405,8 +405,7 @@ func (sh *shell) applyUIState(st engine.UIState) {
 		}
 		if st.Connection.State != engine.Connected && old.Connection.State == engine.Connected {
 			sh.kinds, sh.kindsFor, sh.namespaces = nil, "", nil
-			sh.side.setKinds(nil)
-			sh.win.SetMainMenu(sh.mainMenu())
+			sh.side.setKinds(nil) // the View menu follows below, with the connection's other items
 		}
 	}
 	if !first && (st.ActiveTab != old.ActiveTab || st.View != old.View) {
@@ -451,8 +450,11 @@ func (sh *shell) applyUIState(st engine.UIState) {
 		!maps.EqualFunc(st.ClusterSettings, old.ClusterSettings, engine.ClusterSettings.Equal) || st.Context != old.Context || st.Connection != old.Connection)) {
 		sh.settings.stateChanged()
 	}
-	if first || (st.Context == "") != (old.Context == "") {
-		sh.win.SetMainMenu(sh.mainMenu()) // Cluster Settings… is enabled while a cluster is chosen
+	if first || (st.Context == "") != (old.Context == "") || st.Connection != old.Connection {
+		// Cluster Settings… is enabled while a cluster is chosen, Disconnect while one is connected or
+		// connecting (a reconnect too: menus_cluster.go), Refresh Access Reviews while one is connected
+		// (menuaccess.go), the View menu's kinds while connected (loadKinds rebuilds it once they come).
+		sh.win.SetMainMenu(sh.mainMenu())
 	}
 	if first || st.Scope() != old.Scope() {
 		sh.side.scopeChanged() // the section's clusters or the cluster's tree (navigator_sections.go)
