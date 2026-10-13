@@ -554,6 +554,8 @@ func TestPortForwardConfirmationPerOrigin(t *testing.T) {
 	var opened engine.Forward
 	h.must(t, agent, "portforward.open", map[string]any{"ref": f.Ref}, &opened)
 	h.must(t, agent, "portforward.stop", map[string]any{"ref": f.Ref}, nil)
+	// A stopped forward is found in the cache only, which shows the stop a moment later.
+	waitForward(t, h.s, f.Ref, "the cache shows it stopped", func(f engine.Forward) bool { return f.Phase == engine.ForwardStopped })
 	h.must(t, agent, "portforward.remove", map[string]any{"ref": f.Ref}, nil)
 	if n := len(conf.all()); n != 3 {
 		t.Errorf("open, stop and delete asked for confirmation: %d", n)
