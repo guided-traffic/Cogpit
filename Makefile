@@ -1,6 +1,7 @@
-# Cogpit — developer targets. CI (.github/workflows/build.yml) runs the same ones: lint,
-# parity, test-unit-coverage and build on macOS; vuln, kind-up and test-kind on Linux
-# (docs/developer/releasing.md#ci).
+# Cogpit — developer targets. CI (.github/workflows/release.yml) runs the same ones, one job each:
+# lint, parity, gosec, vuln, cyclo, test-unit-coverage, test-race-ui (sharded), test-race-rest,
+# kind-up with test-kind, kind-drain-up with test-kind-drain, coverage-report, and test-darwin with
+# app on macOS (docs/developer/releasing.md#ci).
 #
 # Go: go.mod declares go 1.27.2; GOTOOLCHAIN=auto fetches it when the local Go is older.
 # Kubeconfig safety: every target that talks to a cluster uses KIND_KUBECONFIG, a separate file;
@@ -27,7 +28,7 @@ APP_ID          := io.guided-traffic.cogpit
 APP_OS          ?= $(shell $(GO) env GOOS)
 TEST_ENV        := KUBECONFIG=/dev/null
 
-.PHONY: all build run run-demo test test-unit test-unit-race test-kind bench lint parity fmt tidy \
+.PHONY: all build run run-demo test test-unit test-unit-race test-kind test-kind-compile bench lint parity fmt tidy \
         kind-up kind-down kind-seed app icon clean help
 
 all: lint test-unit-race build ## Lint, race tests, build
@@ -52,7 +53,8 @@ test-unit: ## Unit tests without the race detector
 	$(TEST_ENV) $(GO) test ./...
 
 # The race detector makes the UI's tests (internal/ui/fyneui) take about 18 minutes here (night run
-# 2026-10-13) and more than 25 on CI's macOS runner; RACE_TIMEOUT bounds a package instead.
+# 2026-10-13) and more than 25 on CI's macOS runner; RACE_TIMEOUT bounds a package instead. CI
+# splits them into shards (test-race-ui) and runs the rest in one job (test-race-rest).
 RACE_TIMEOUT ?= 40m
 
 test-unit-race: test-fork ## Unit tests with the race detector, the terminal widget's included
@@ -70,40 +72,93 @@ test-fork: ## Tests and fuzz seeds of the patched terminal widget, a module of i
 	cd $(FORK_DIR) && $(TEST_ENV) $(GO) test -race -skip '$(FORK_SHELL_TESTS)' ./...
 	cd $(FORK_DIR) && $(TEST_ENV) $(GO) test -run '$(FORK_SHELL_TESTS)' ./...
 
-test-kind: ## Cluster tests against the kind cluster (make kind-up first)
+# The cluster tests: the TestKind* functions of the packages with files tagged kind, race detector on,
+# with the coverage of every package they reach (-coverpkg). The drain tests have their own cluster
+# and target (test-kind-drain). KIND_RUN narrows the run, e.g. KIND_RUN='^TestKindHelm'.
+KIND_PKGS        = $(sort $(addprefix ./,$(dir $(shell grep -rl --include='*_test.go' '^//go:build kind' cmd internal))))
+KIND_RUN        ?= ^TestKind
+
+test-kind-compile: ## Compile the cluster tests without a cluster or a run (CI does it while the cluster starts)
+	$(GO) test -race -tags kind -covermode=atomic -coverpkg=./... -run '^$$' $(KIND_PKGS)
+
+test-kind: ## Cluster tests against the kind cluster (make kind-up first), with coverage (.cache/coverage/integration.out)
 	@test -s $(KIND_KUBECONFIG) || { echo "no kubeconfig at $(KIND_KUBECONFIG): run make kind-up first"; exit 1; }
+	@mkdir -p $(COVERAGE_DIR)
 	$(TEST_ENV) COGPIT_KIND_KUBECONFIG=$(KIND_KUBECONFIG) COGPIT_KIND_CONTEXT=$(KIND_CONTEXT) \
-		$(GO) test -race -timeout $(RACE_TIMEOUT) -tags kind ./...
+		$(GO) test -race -timeout $(RACE_TIMEOUT) -tags kind -run '$(KIND_RUN)' -skip '^TestKindDrain' \
+		-covermode=atomic -coverpkg=./... -coverprofile=$(COVERAGE_DIR)/integration.out $(KIND_PKGS)
 
 bench: ## Benchmarks: demo churn and build, and the gate criteria S1 (snapshots under churn) and S2 (sort)
 	$(TEST_ENV) $(GO) test -run '^$$' -bench . -benchmem ./internal/engine/... ./internal/demo/... ./internal/ui/...
 
-# Coverage and vulnerability targets that CI runs (docs/developer/releasing.md#ci).
-# test-unit-coverage is test-unit-race with a profile: the same packages, the same race detector.
-# The badge is the profile's total ("go tool cover -func"), coloured as in the team's other
-# repositories: >= 90 brightgreen, >= 80 green, >= 70 yellow, >= 60 orange, else red.
+# The test targets CI runs, one job each (docs/developer/releasing.md#ci). Every one writes a
+# coverage profile to .cache/coverage; coverage-report merges what is there into the README's badge.
 COVERAGE_DIR    := $(CACHE)/coverage
 COVERAGE_BADGE  := .github/badges/coverage.json
+UNIT_TIMEOUT    ?= 20m
+
+.PHONY: test-unit-coverage test-race-ui test-race-rest test-darwin coverage-report
+
+test-unit-coverage: ## Unit tests without the race detector, with a coverage profile (.cache/coverage/unit.out)
+	@mkdir -p $(COVERAGE_DIR)
+	$(TEST_ENV) $(GO) test -timeout $(UNIT_TIMEOUT) -covermode=atomic -coverprofile=$(COVERAGE_DIR)/unit.out ./...
+	@$(GO) tool cover -func=$(COVERAGE_DIR)/unit.out | tail -n 1
+
+# The UI's race tests in RACE_SHARDS shards: hack/shard assigns each test of internal/ui/fyneui to a
+# shard by a hash of its name, so a new test lands in one without a change here or in CI. The
+# number of shards is CI's (release.yml's matrix); locally any shard runs alone.
+UI_PKG          := ./internal/ui/fyneui
+RACE_SHARDS     ?= 6
+RACE_SHARD      ?= 1
+
+test-race-ui: ## Race tests of internal/ui/fyneui, shard RACE_SHARD of RACE_SHARDS, with coverage (.cache/coverage/race-ui-<n>.out)
+	@mkdir -p $(COVERAGE_DIR)
+	@run="$$($(GO) run ./hack/shard -pkg $(UI_PKG) -tags race -shard $(RACE_SHARD) -of $(RACE_SHARDS))" && test -n "$$run" && \
+		echo "$(GO) test -race $(UI_PKG) -run <shard $(RACE_SHARD) of $(RACE_SHARDS)>" && \
+		$(TEST_ENV) $(GO) test -race -timeout $(RACE_TIMEOUT) -covermode=atomic \
+			-coverprofile=$(COVERAGE_DIR)/race-ui-$(RACE_SHARD).out -run "$$run" $(UI_PKG)
+
+test-race-rest: test-fork ## Race tests of every package but internal/ui/fyneui, and the terminal widget's, with coverage (.cache/coverage/race-rest.out)
+	@mkdir -p $(COVERAGE_DIR)
+	$(TEST_ENV) $(GO) test -race -timeout $(RACE_TIMEOUT) -covermode=atomic -coverprofile=$(COVERAGE_DIR)/race-rest.out \
+		$$($(GO) list ./... | grep -v -x 'github.com/guided-traffic/cogpit/internal/ui/fyneui')
+
+# What only macOS can test, for CI's macOS job: every test of a *_darwin_test.go file (the title
+# bar's AppKit harness, the locale's CoreFoundation read), and the tests whose expectations branch
+# on runtime.GOOS for the macOS shortcut glyphs (the terminal view's package, the title history).
+empty           :=
+space           := $(empty) $(empty)
+DARWIN_TEST_FILES = $(shell find cmd internal -name '*_darwin_test.go')
+DARWIN_TESTS      = $(shell sed -n -E 's/^func (Test[A-Za-z0-9_]*).*/\1/p' $(DARWIN_TEST_FILES)) TestTitleHistoryArrows
+
+test-darwin: ## The macOS-only tests, race detector on (macOS only)
+	@test "$$($(GO) env GOOS)" = darwin || { echo "test-darwin runs on macOS only"; exit 1; }
+	$(TEST_ENV) $(GO) test -race -run '^($(subst $(space),|,$(strip $(DARWIN_TESTS))))$$' \
+		$(sort $(addprefix ./,$(dir $(DARWIN_TEST_FILES))) $(UI_PKG)/)
+	$(TEST_ENV) $(GO) test -race ./internal/ui/fyneui/termview/
+
+coverage-report: ## Merge the profiles in .cache/coverage into combined.out, the badge (.github/badges/coverage.json) and summary.md
+	@ls $(COVERAGE_DIR)/*.out >/dev/null 2>&1 || { echo "no profiles in $(COVERAGE_DIR): run a test target with coverage first"; exit 1; }
+	$(GO) run ./hack/coverage -o $(COVERAGE_DIR)/combined/combined.out -badge $(COVERAGE_BADGE) \
+		-summary $(COVERAGE_DIR)/combined/summary.md $(COVERAGE_DIR)/*.out
+	@cat $(COVERAGE_BADGE)
+
+# The static checks CI runs, one job each, besides lint.
 # renovate: datasource=go depName=golang.org/x/vuln/cmd/govulncheck
 GOVULNCHECK_VERSION ?= v1.9.0
 GOVULNCHECK     := $(BIN)/govulncheck
+# renovate: datasource=go depName=github.com/fzipp/gocyclo/cmd/gocyclo
+GOCYCLO_VERSION ?= v0.6.0
+GOCYCLO         := $(BIN)/gocyclo
+# The highest cyclomatic complexity main had when the check came (2026-10-13: 56, the shell's
+# applyUIState), so that no function grows past it; the team's other repositories use 15, and 121
+# functions are above that. Lowering it is the owner's call (docs/developer/releasing.md#ci).
+CYCLO_THRESHOLD ?= 56
+# Our code: cmd, internal, hack and the patched terminal widget; tests and generated code ignored.
+CYCLO_DIRS      := cmd internal hack third_party
+CYCLO_IGNORE    := _test\.go|zz_generated
 
-.PHONY: test-unit-coverage coverage-badge vuln
-
-test-unit-coverage: test-fork ## Unit tests with the race detector and a coverage profile (.cache/coverage/unit.out)
-	@mkdir -p $(COVERAGE_DIR)
-	$(TEST_ENV) $(GO) test -race -timeout $(RACE_TIMEOUT) -covermode=atomic -coverprofile=$(COVERAGE_DIR)/unit.out ./...
-	@$(GO) tool cover -func=$(COVERAGE_DIR)/unit.out | tail -n 1
-
-coverage-badge: ## Write .github/badges/coverage.json from the profile of test-unit-coverage
-	@test -s $(COVERAGE_DIR)/unit.out || { echo "no profile at $(COVERAGE_DIR)/unit.out: run make test-unit-coverage first"; exit 1; }
-	@mkdir -p $(dir $(COVERAGE_BADGE))
-	@$(GO) tool cover -func=$(COVERAGE_DIR)/unit.out | awk '$$1 == "total:" { \
-		pct = $$NF; sub(/%$$/, "", pct); p = pct + 0; \
-		color = p >= 90 ? "brightgreen" : p >= 80 ? "green" : p >= 70 ? "yellow" : p >= 60 ? "orange" : "red"; \
-		printf "{\n  \"schemaVersion\": 1,\n  \"label\": \"coverage\",\n  \"message\": \"%s%%\",\n  \"color\": \"%s\"\n}\n", pct, color }' \
-		> $(COVERAGE_BADGE)
-	@cat $(COVERAGE_BADGE)
+.PHONY: vuln gosec cyclo cyclo-report
 
 $(GOVULNCHECK):
 	GOBIN=$(BIN) $(GO) install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
@@ -111,12 +166,33 @@ $(GOVULNCHECK):
 vuln: $(GOVULNCHECK) ## govulncheck: known vulnerabilities in the code paths Cogpit calls
 	$(GOVULNCHECK) ./...
 
+# gosec through golangci-lint (the same build of it as lint), the shipped code only; an accepted
+# finding is excluded in .golangci.yml with its reason, a real one is fixed or an H-gap in
+# docs/security.
+gosec: $(GOLANGCI_LINT) ## gosec: security findings in the code Cogpit ships (tests excluded)
+	$(GOLANGCI_LINT) run --enable-only gosec --tests=false ./...
+
+$(GOCYCLO):
+	GOBIN=$(BIN) $(GO) install github.com/fzipp/gocyclo/cmd/gocyclo@$(GOCYCLO_VERSION)
+
+cyclo: $(GOCYCLO) ## Cyclomatic complexity: no function above CYCLO_THRESHOLD
+	@echo "Functions above complexity $(CYCLO_THRESHOLD):"
+	@out="$$($(GOCYCLO) -over $(CYCLO_THRESHOLD) -ignore '$(CYCLO_IGNORE)' $(CYCLO_DIRS))"; \
+		if [ -n "$$out" ]; then echo "$$out"; exit 1; fi; echo "none"
+
+cyclo-report: $(GOCYCLO) ## The 20 most complex functions
+	@$(GOCYCLO) -top 20 -ignore '$(CYCLO_IGNORE)' $(CYCLO_DIRS)
+
 # golangci-lint built with the project's Go: v2.13.x cannot read Go 1.27.2 export data.
 $(GOLANGCI_LINT):
 	GOBIN=$(BIN) $(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
+# LINT_PKGS narrows the packages: CI's macOS job lints the ones with darwin-only files, which the
+# Linux lint job does not see.
+LINT_PKGS       ?= ./...
+
 lint: $(GOLANGCI_LINT) ## golangci-lint: the team's linters plus depguard layering
-	$(GOLANGCI_LINT) run ./...
+	$(GOLANGCI_LINT) run $(LINT_PKGS)
 
 parity: ## Check the parity checklists and the numbers the progress pages report (D-15); PARITY_FLAGS=-rows skips the numbers
 	$(GO) run ./hack/parity $(PARITY_FLAGS)
@@ -128,7 +204,7 @@ tidy: ## go mod tidy
 	$(GO) mod tidy
 
 # The kind targets need docker and kind; kubectl talks only to KIND_KUBECONFIG.
-kind-up: ## Create the kind cluster (own kubeconfig file), or reuse it, and seed it from hack/kind
+kind-up: ## Create the kind cluster (own kubeconfig file), or reuse it, seed it from hack/kind, add the Metrics Server
 	@command -v kind >/dev/null || { echo "kind is not installed: https://kind.sigs.k8s.io"; exit 1; }
 	@mkdir -p $(dir $(KIND_KUBECONFIG))
 	@if kind get clusters 2>/dev/null | grep -qx '$(KIND_CLUSTER)'; then \
@@ -138,7 +214,7 @@ kind-up: ## Create the kind cluster (own kubeconfig file), or reuse it, and seed
 		kind create cluster --name $(KIND_CLUSTER) --kubeconfig $(KIND_KUBECONFIG) \
 			--config hack/kind/cluster.yaml --wait 120s; \
 	fi
-	$(MAKE) kind-seed
+	$(MAKE) kind-seed kind-metrics-server
 	@echo "kubeconfig: $(KIND_KUBECONFIG) (context $(KIND_CONTEXT))"
 
 kind-seed: ## Apply the seed manifests (namespace cogpit-demo) and wait for web and api
@@ -146,6 +222,19 @@ kind-seed: ## Apply the seed manifests (namespace cogpit-demo) and wait for web 
 	@$(KUBECTL) -n cogpit-demo rollout status deployment/web --timeout=180s && \
 		$(KUBECTL) -n cogpit-demo rollout status deployment/api --timeout=180s || \
 		echo "the seed is still starting (image pulls); check: $(KUBECTL) get all -n cogpit-demo"
+
+# The Kubernetes Metrics Server, as the clusters Cogpit users have it: the release's manifest, with
+# --kubelet-insecure-tls because kind's kubelets serve self-signed certificates.
+# renovate: datasource=github-releases depName=kubernetes-sigs/metrics-server
+METRICS_SERVER_VERSION ?= v0.9.0
+
+.PHONY: kind-metrics-server
+kind-metrics-server: ## Install the Metrics Server into the kind cluster and wait for its API
+	$(KUBECTL) apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/$(METRICS_SERVER_VERSION)/components.yaml
+	$(KUBECTL) -n kube-system patch deployment metrics-server --type=json \
+		-p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+	$(KUBECTL) -n kube-system rollout status deployment/metrics-server --timeout=180s
+	$(KUBECTL) wait --for=condition=Available apiservice/v1beta1.metrics.k8s.io --timeout=180s
 
 kind-down: ## Delete the kind cluster and its kubeconfig file
 	kind delete cluster --name $(KIND_CLUSTER) --kubeconfig $(KIND_KUBECONFIG)
@@ -201,7 +290,7 @@ KIND_DRAIN_CLUSTER    ?= cogpit-drain
 KIND_DRAIN_KUBECONFIG ?= $(CACHE)/kind-drain/kubeconfig
 KIND_DRAIN_CONTEXT    := kind-$(KIND_DRAIN_CLUSTER)
 
-.PHONY: kind-drain-up test-kind-drain kind-drain-down
+.PHONY: kind-drain-up test-kind-drain test-kind-drain-compile kind-drain-down
 
 kind-drain-up: ## Create the multi-node drain cluster (own kubeconfig file), or reuse it
 	@command -v kind >/dev/null || { echo "kind is not installed: https://kind.sigs.k8s.io"; exit 1; }
@@ -215,10 +304,15 @@ kind-drain-up: ## Create the multi-node drain cluster (own kubeconfig file), or 
 	fi
 	@echo "kubeconfig: $(KIND_DRAIN_KUBECONFIG) (context $(KIND_DRAIN_CONTEXT))"
 
-test-kind-drain: ## Cordon, uncordon and drain tests against the drain cluster (make kind-drain-up first)
+test-kind-drain: ## Cordon, uncordon and drain tests against the drain cluster (make kind-drain-up first), with coverage
 	@test -s $(KIND_DRAIN_KUBECONFIG) || { echo "no kubeconfig at $(KIND_DRAIN_KUBECONFIG): run make kind-drain-up first"; exit 1; }
+	@mkdir -p $(COVERAGE_DIR)
 	$(TEST_ENV) COGPIT_KIND_DRAIN_KUBECONFIG=$(KIND_DRAIN_KUBECONFIG) COGPIT_KIND_DRAIN_CONTEXT=$(KIND_DRAIN_CONTEXT) \
-		$(GO) test -race -tags kind -count=1 -v -timeout 15m -run 'TestKindDrain' ./internal/testkit/integration/
+		$(GO) test -race -tags kind -count=1 -v -timeout 15m -run 'TestKindDrain' \
+		-covermode=atomic -coverpkg=./... -coverprofile=$(COVERAGE_DIR)/integration-drain.out ./internal/testkit/integration/
+
+test-kind-drain-compile: ## Compile the drain tests without a cluster or a run
+	$(GO) test -race -tags kind -covermode=atomic -coverpkg=./... -run '^$$' ./internal/testkit/integration/
 
 kind-drain-down: ## Delete the drain cluster and its kubeconfig file
 	kind delete cluster --name $(KIND_DRAIN_CLUSTER) --kubeconfig $(KIND_DRAIN_KUBECONFIG)

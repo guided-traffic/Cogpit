@@ -378,6 +378,134 @@ linters:
           - prealloc
           - unparam
 
+      # gosec runs only in the GoSec job (`make gosec`: --enable-only gosec --tests=false), never
+      # in `make lint`, and not on tests. Every exclusion below carries its reason. A real finding
+      # is fixed in the code, or, when too large for that, recorded as an H-gap in the docs/security
+      # page of its mechanism, and its exclusion names that H-number.
+
+      # gosec judges the code that ships, so two folders are left out whole, as --tests=false
+      # leaves out the tests. internal/testkit is test-only code: depguard's no-testkit-in-product
+      # keeps it out of both binaries (today: its Helm repository serves its own temporary folder,
+      # its proxy forwards the test's requests, on loopback; G304, G703, G704).
+      - path: ^internal/testkit/
+        linters: [gosec]
+      # hack/ is developer and CI tooling, never shipped: it reads and writes the files and runs the
+      # commands its developer or the workflow names (today: G304, G122, G301, G104, G115, G204).
+      - path: ^hack/
+        linters: [gosec]
+
+      # G304: Cogpit's own files, at paths built from the user's config or cache directory and fixed
+      # names (crash.log, audit.log, the journals, their lock and owner files, the private JSON
+      # files, mcp-token, mcp-endpoint), never from cluster data or an agent's parameter; an owner
+      # id read back is checked (validOwnerID) before it becomes part of a path. Their modes are the
+      # ones docs/security/credentials.md documents: 0600 files in 0700 directories.
+      - path: ^(cmd/cogpit/crash|internal/engine/(auditlist|drainjournal|journallock|privatefile)|internal/mcp/(endpoint|token))\.go$
+        text: G304
+        linters: [gosec]
+      # G304: cogpit.log, Cogpit's own log in <user cache dir>/Cogpit (0600 in 0700).
+      - path: ^cmd/cogpit/main\.go$
+        text: G304
+        source: '"cogpit\.log"'
+        linters: [gosec]
+      # G304: a kept cluster icon, Cogpit's own file in <user config dir>/Cogpit/cluster-icons,
+      # named by a hash that validIconFile checks; it is Lstat-checked and checked again before
+      # the GUI decodes it.
+      - path: ^internal/engine/clustersettings_icon\.go$
+        text: G304
+        source: os\.ReadFile\(path\)
+        linters: [gosec]
+
+      # G304: the kubeconfig files the user configured (--kubeconfig, $KUBECONFIG, ~/.kube and the
+      # folders and files added in Preferences) and the files their credential plugins name, which
+      # are hashed for the plugin's approval only; choosing which kubeconfig to read is the user's
+      # right (docs/security/trust-boundaries.md, docs/security/credentials.md).
+      - path: ^internal/cluster/(cluster|sources|pluginfiles)\.go$
+        text: G304
+        linters: [gosec]
+      # G304: the image the user picked in the window's file dialog; cluster.settings.uploadIcon
+      # refuses agents and the CLI (ErrIconGUIOnly) and reads at most 1 MiB of a regular file
+      # (docs/security/trust-boundaries.md, "Image file to cluster icon").
+      - path: ^internal/engine/clustersettings_icon\.go$
+        text: G304
+        source: os\.Open\(path\)
+        linters: [gosec]
+      # G304: --cpuprofile names the file, on the user's own command line.
+      - path: ^cmd/cogpit/main\.go$
+        text: G304
+        source: os\.Create\(path\)
+        linters: [gosec]
+
+      # G302: the mode is a directory's: Cogpit tightens its own directory to 0700, which a
+      # directory needs (the x bit) and docs/security/credentials.md documents (0600 in 0700).
+      - path: ^internal/(engine/privatefile|mcp/token)\.go$
+        text: G302
+        source: os\.Chmod\(dir, 0o700\)
+        linters: [gosec]
+
+      # G101: names, not credentials: the Secret type "kubernetes.io/tls", and a theme size whose
+      # name ("TooltipWidth") contains "pW".
+      - path: ^internal/(engine/secretcerts|ui/fyneui/theme)\.go$
+        text: G101
+        source: (tlsSecretType|sizeTooltipWidth)\s
+        linters: [gosec]
+
+      # G404: the demo cluster is synthetic and seeded on purpose (the same seed builds the same
+      # cluster); nothing it draws is a secret. G115 on the same line: uint64(opts.Seed) keeps the
+      # seed's bits, and every 64-bit value is a valid PCG seed.
+      - path: ^internal/demo/demo\.go$
+        text: G404|G115
+        source: rand\.NewPCG
+        linters: [gosec]
+
+      # G115: a byte of a wider word on purpose: a random byte of a demo UID, and the red, green and
+      # blue bytes of a 0xRRGGBB colour constant.
+      - path: ^internal/(demo/world|ui/fyneui/theme|ui/fyneui/termview/termview)\.go$
+        text: G115
+        source: (byte\(c\.rng\.Uint32\(\)\)|uint8\(rgb >> 16\))
+        linters: [gosec]
+      # G115: len(managers) is the demo's fixed table of four values.
+      - path: ^internal/demo/applications\.go$
+        text: G115
+        source: uint32\(len\(managers\)\)
+        linters: [gosec]
+      # G115: the average of n 16-bit channel values is at most 0xffff, so >> 8 fits a byte.
+      - path: ^internal/engine/clustersettings_icon\.go$
+        text: G115
+        source: uint8\(r / n >> 8\)
+        linters: [gosec]
+      # G115: the port of a bound TCP listener is at most 65535.
+      - path: ^internal/engine/portforward\.go$
+        text: G115
+        source: uint16\(ln\.Addr\(\)\.\(\*net\.TCPAddr\)\.Port\)
+        linters: [gosec]
+      # G115: the case above holds r < 0x80.
+      - path: ^internal/model/certs\.go$
+        text: G115
+        source: hex2\(byte\(r\)\)
+        linters: [gosec]
+      # G115: the table snapshots built since start, counted one by one: 2^63 is out of reach.
+      - path: ^internal/ui/fyneui/(bars|diagnostics)\.go$
+        text: G115
+        source: int64\((d\.snapshots|r\.Snapshots)\)
+        linters: [gosec]
+      # G115: offsets into one shown log line: a line is cut at logMaxLineBytes (64 KiB) when read,
+      # and cleaning it expands it at most eightfold (tabs).
+      - path: ^internal/ui/fyneui/termview/logs\.go$
+        text: G115
+        source: int32\(from\)
+        linters: [gosec]
+      # G115: the case holds r in 0x20–0x3f.
+      - path: ^internal/ui/fyneui/termview/sanitize\.go$
+        text: G115
+        source: f\.seq = append\(f\.seq, byte\(r\)\)
+        linters: [gosec]
+      # G115: a block scalar's parent indentation is a column of a highlighted line, which is at
+      # most maxHighlightLen (4096) bytes long, and max(…, 0) keeps it from going negative.
+      - path: ^internal/ui/fyneui/yamlview/tokenizer\.go$
+        text: G115
+        source: lineState\(max\(parentIndent\+1, 0\)\)
+        linters: [gosec]
+
 formatters:
   enable:
     - gofmt
