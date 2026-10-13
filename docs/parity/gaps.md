@@ -253,7 +253,14 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Missing:** none of the 64 resource views ([resource-parity](resource-parity.md), 2026-10-13:
   Pod Security Policies, the cluster Overview, Helm Charts, Applications, Vertical Pod Autoscalers
   and the four Device Resources views partial since 2026-10-13); the depth of the partial ones
-  (metrics columns, texts and rules checked against a capture).
+  (metrics columns, texts and rules checked against a capture); a Pods table in the workloads'
+  drawers (Deployments, Replica Sets, Stateful Sets, Daemon Sets, Jobs: the lead's brief of
+  2026-10-13 assumed one; whether and how Lens's drawers list a workload's pods is not captured).
+  Should one come, its CPU and Memory and its sorting come with it: any drawer table built with
+  `model.SortableCellTable` whose rows link to pods and that has the metric columns is filled and
+  polled by the engine ([architecture §9](../developer/architecture.md#9-metrics-internalmetrics)).
+  Its cost to decide first: the related-objects index it needs (pods by controlling owner) would,
+  through the profile's `Needs`, make the workload lists rebuild their rows on every pod change.
 - **Evidence:** resource-parity, 27 of 64 (2026-10-11): Nodes, Pods, Deployments, Services,
   Namespaces, Events (the MVP); Daemon Sets, Stateful Sets, Replica Sets, Jobs, Cron Jobs
   ([`kinds/`](../../internal/model/kinds/) `daemonsets.go` … `cronjobs.go`; Cron Jobs with the
