@@ -1,6 +1,6 @@
 # Beyond Lens
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (`view_rows` done; crash recovery: unsaved editor content restored from its local draft done; the `cogpit-cli mcp` stdio bridge done; command line: `cogpit-cli contexts` done, `get` partial) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-13 · **Change:** minor (`object_get` with related objects done; `view_rows` done; crash recovery: unsaved editor content restored from its local draft done; the `cogpit-cli mcp` stdio bridge done; command line: `cogpit-cli contexts` done, `get` partial) · **Target:** Lens Desktop 2026.10.51501
 
 What Cogpit does that Lens Desktop does not, or does only in part. These rows are Cogpit's own
 targets, decided by the owner; they do not count toward the parity numbers in
@@ -30,7 +30,7 @@ read-only: `list-clusters`, `connect-cluster`, `disconnect-cluster`, `kubectl`, 
 | List the kinds the cluster serves and the user may list | `kinds_list` | partial: served kinds, each with `listable` from the access reviews (2026-10-11); absent while the reviews have not answered, and for a namespaced kind no reviewed namespace allows when the user may list more than 32 namespaces | [`commands/resources.go`](../../internal/engine/commands/resources.go), [`accessreviews.go`](../../internal/engine/accessreviews.go); `TestKindsListListable`, `TestBudgetAccessReviews`, `TestKindAccessReviews` |
 | Find objects by a searchable field (`clusterIP`, `podIP`, `node`, `image`, `label`) | `resources_find` | done | [`commands/resources.go`](../../internal/engine/commands/resources.go), `TestShowcaseServiceByClusterIP`, `TestDemoClusterThroughTheEngine` |
 | List objects of a kind, bounded | `resources_list` | done | [`commands/resources.go`](../../internal/engine/commands/resources.go), `TestKindEngineWorkflows` |
-| Read one object (YAML, events, related objects) from the cache | `object_get` | partial: YAML (redacted) and events; no related objects | [`commands/resources.go`](../../internal/engine/commands/resources.go) |
+| Read one object (YAML, events, related objects) from the cache | `object_get` | done (2026-10-13): the drawer's model, YAML (redacted) and events; with `related: true` the related objects as refs with their relation, from the cache: every object the drawer links to (Controlled By, the namespace, a pod's node, a node's pods and devices, a claim's pods, a Service's endpoint slices: the related-objects indexes) and the objects a workload controls by its controller owner reference (a Deployment's replica sets and their pods, a Cron Job's jobs and their pods, the pods of the other workloads); each once, at most 200, `relatedTotal` counting them all | [`commands/resources.go`](../../internal/engine/commands/resources.go), [`engine/relatedrefs.go`](../../internal/engine/relatedrefs.go); `TestObjectGetRelated`, `TestObjectGetRelatedIsBounded`, `TestAgentsReadSecretsRedacted` |
 | Open a view, set namespaces and filter | `ui_openView`, `ui_setNamespace`, `ui_setFilter` | done | [`commands/ui.go`](../../internal/engine/commands/ui.go) and its tests |
 | Select objects and open the drawer | `ui_select` | done | [`commands/ui.go`](../../internal/engine/commands/ui.go) |
 | Navigate to an object: open its view, select it, scroll to it, open the drawer | `ui_navigate` | done | `TestShowcaseServiceByClusterIP`; the GUI scrolls to the row (`TestNavigateScrollsOnceSnapshotHasRow`, `TestRenderDemoShowcase`, [PNG](../../internal/ui/fyneui/testdata/demo_showcase.png)) |
@@ -114,6 +114,7 @@ Cogpit's targets.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | MCP control: `object_get` with related objects done; 23 of 38 rows, 15 done and 8 partial |
 | 2026-10-13 | minor | MCP control: `view_rows` done; 23 of 38 rows, 14 done and 9 partial |
 | 2026-10-13 | minor | Crash recovery: unsaved editor content restored from its local draft done (G9, night run); 23 of 38 rows, 14 done and 9 partial |
 | 2026-10-13 | minor | MCP control: the `cogpit-cli mcp` stdio bridge done; 22 of 38 rows, 13 done and 9 partial |

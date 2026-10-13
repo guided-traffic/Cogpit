@@ -93,8 +93,16 @@ type findParams struct {
 }
 
 type objectParams struct {
-	Ref    model.ObjectRef `json:"ref" jsonschema:"the object"`
-	NoYAML bool            `json:"noYaml,omitempty" jsonschema:"leave out the YAML"`
+	Ref     model.ObjectRef `json:"ref" jsonschema:"the object"`
+	NoYAML  bool            `json:"noYaml,omitempty" jsonschema:"leave out the YAML"`
+	Related bool            `json:"related,omitempty" jsonschema:"also list the related objects as refs (related, relatedTotal): what the drawer links to (owner, node, a node's pods, a claim's pods, a Service's endpoint slices, ...) and the objects a workload controls (replica sets, jobs, pods); at most 200"`
+}
+
+// objectWithRelated is object.get's result with related: the drawer model and its related objects
+// (engine.Related, relatedrefs.go).
+type objectWithRelated struct {
+	*engine.DetailModel
+	engine.RelatedRefs
 }
 
 func registerResources(g *registrar) {
@@ -158,7 +166,11 @@ func registerResources(g *registrar) {
 		Description: "Returns what the detail drawer shows for one object, from Cogpit's cache: title, status, the sections " +
 			"(Properties first: the metadata and the kind's state; then the kind's own sections; values that name objects " +
 			"carry a link ref), its events (newest first, at most 50), its container names for pods, and its YAML " +
-			"(managed fields dropped, Secret values redacted) unless noYaml. missing is true when the object is not in the cache.",
+			"(managed fields dropped, Secret values redacted) unless noYaml. missing is true when the object is not in the cache. " +
+			"With related, also the related objects as refs with their relation, from the cache: what the drawer links to " +
+			"(Controlled By, a pod's node, a node's pods and devices, a claim's pods, a Service's endpoint slices, ...) and the " +
+			"objects a workload controls (a Deployment's replica sets and pods, a Cron Job's jobs and pods, the pods of the " +
+			"other workloads); at most 200, relatedTotal counts them all.",
 		Enabled: func(s *engine.Session, _ objectParams) error { _, err := connected(s); return err },
 		Run: func(ctx context.Context, s *engine.Session, p objectParams) (any, error) {
 			m, err := s.DetailWait(ctx, p.Ref)
@@ -167,6 +179,9 @@ func registerResources(g *registrar) {
 			}
 			if p.NoYAML {
 				m.YAML = ""
+			}
+			if p.Related {
+				return objectWithRelated{DetailModel: m, RelatedRefs: s.Related(ctx, m)}, nil
 			}
 			return m, nil
 		},

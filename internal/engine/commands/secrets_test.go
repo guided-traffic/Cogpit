@@ -230,6 +230,7 @@ func TestAgentsReadSecretsRedacted(t *testing.T) {
 		{"resources.find", map[string]any{"kind": "secrets", "field": "label", "value": "app=db"}, `"name":"db"`},
 		{"resources.find", map[string]any{"field": "name", "value": "db"}, `"count"`},
 		{"object.get", map[string]any{"ref": ref}, engine.MaskedValue},
+		{"object.get", map[string]any{"ref": ref, "related": true}, `"relatedTotal"`},
 		{"ui.openView", map[string]any{"view": "secrets"}, `"view":"secrets"`},
 		{"ui.navigate", map[string]any{"ref": ref}, `"found":true`},
 		{"ui.state", struct{}{}, `"view":"secrets"`},
