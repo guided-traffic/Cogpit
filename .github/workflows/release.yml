@@ -6,8 +6,9 @@
 #
 # Linux jobs run on the organisation's self-hosted runners (ephemeral pods, Ubuntu 24.04, 16 CPUs,
 # Docker; no make or C compiler until .github/actions/go-setup installs them), as the team's other
-# repositories do; the macOS job and the Windows compile run on GitHub's hosted runners, free for
-# a public repository.
+# repositories do, unless the repository variable LINUX_RUNNER names other runners (ubuntu-latest:
+# GitHub's hosted ones, which take the load off the shared self-hosted machine). The macOS job and
+# the Windows compile run on GitHub's hosted runners, free for a public repository.
 #
 # ---------------------------------------------------------------------------------------------
 # TRANSITION (2026-10-13): build.yml's old jobs still run beside their successors, and Semantic
@@ -49,7 +50,7 @@ jobs:
   # docs/developer/architecture.md §3).
   lint:
     name: Code Linting
-    runs-on: self-hosted
+    runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -66,7 +67,7 @@ jobs:
   # The parity checklists and the numbers the progress pages report (D-15).
   parity:
     name: Parity
-    runs-on: self-hosted
+    runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -85,7 +86,7 @@ jobs:
   # .golangci.yml with their reason.
   gosec:
     name: GoSec Security Scan
-    runs-on: self-hosted
+    runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -103,7 +104,7 @@ jobs:
   # symbol. Loading the packages runs cgo, hence Fyne's build dependencies.
   govulncheck:
     name: Vulnerability Check
-    runs-on: self-hosted
+    runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -119,7 +120,7 @@ jobs:
 
   cyclomatic-complexity:
     name: Cyclomatic Complexity
-    runs-on: self-hosted
+    runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -150,7 +151,7 @@ jobs:
   # Every package without the race detector, with coverage: what a change breaks, fast.
   unit-tests:
     name: Unit Tests
-    runs-on: self-hosted
+    runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -177,7 +178,7 @@ jobs:
   # shard without a change here. The number of shards is the matrix's length (RACE_SHARDS).
   race-ui:
     name: Race Tests (UI ${{ matrix.shard }}/8)
-    runs-on: self-hosted
+    runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -206,7 +207,7 @@ jobs:
   # Every other package under the race detector, and the patched terminal widget's tests.
   race-rest:
     name: Race Tests (other packages)
-    runs-on: self-hosted
+    runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -234,7 +235,7 @@ jobs:
   # runs on one Docker host cannot meet.
   kind:
     name: Integration Tests (kind)
-    runs-on: self-hosted
+    runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
     timeout-minutes: 15
     env:
       KIND_CLUSTER: cogpit-${{ github.run_id }}
@@ -303,7 +304,7 @@ jobs:
   # Cordon, uncordon and drain need a cluster with workers of their own (hack/kind/drain-cluster.yaml).
   kind-drain:
     name: Integration Tests (kind drain)
-    runs-on: self-hosted
+    runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
     timeout-minutes: 15
     env:
       KIND_DRAIN_CLUSTER: cogpit-drain-${{ github.run_id }}
@@ -438,7 +439,7 @@ jobs:
     name: Combined Coverage Report
     needs: [unit-tests, race-ui, race-rest, kind, kind-drain]
     if: always() && needs.unit-tests.result == 'success'
-    runs-on: self-hosted
+    runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -479,7 +480,7 @@ jobs:
     name: Semantic Release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [build, lint, parity, gosec, govulncheck, cyclomatic-complexity, unit-tests, race-ui, race-rest, kind, kind-drain, macos, compile-windows, coverage]
-    runs-on: self-hosted
+    runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
     timeout-minutes: 15
     steps:
       # The organisation's GitHub App, scoped to this repository; the token expires after an hour
