@@ -1,0 +1,16 @@
+# Synthetic: an Argo CD repository Secret for a Git repository over SSH (SCP form) with a private
+# key.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-pay-deploy
+  namespace: argocd
+  uid: a2a2a2a2-0002-4e9f-c0a1-000000000002
+  resourceVersion: "102"
+  creationTimestamp: "2026-09-02T00:00:00Z"
+  labels:
+    argocd.argoproj.io/secret-type: repository
+type: Opaque
+data:
+  url: Z2l0QGdpdC5leGFtcGxlLmNvbTpwYXkvZGVwbG95LmdpdA==
+  sshPrivateKey: LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KZmFrZXNzaGtleW1hdGVyaWFsQUFBQUIzTnphQzF5YzJFQUFBQURBUUFCQUFBQkFRQwotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K

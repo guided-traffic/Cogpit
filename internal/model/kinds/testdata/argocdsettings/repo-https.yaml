@@ -1,0 +1,24 @@
+# Synthetic: an Argo CD repository Secret for a Git repository over HTTPS with a username and a
+# password, in a project.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-k8s-base-argo
+  namespace: argocd
+  uid: a2a2a2a2-0001-4e9f-c0a1-000000000001
+  resourceVersion: "101"
+  creationTimestamp: "2026-09-01T00:00:00Z"
+  labels:
+    argocd.argoproj.io/secret-type: repository
+  annotations:
+    managed-by: 'argocd.argoproj.io'
+    kubectl.kubernetes.io/last-applied-configuration: '{"stringData":{"password":"fake-last-applied-password"}}'
+type: Opaque
+data:
+  name: azhzLWJhc2UtYXJnbw==
+  url: aHR0cHM6Ly9naXQuZXhhbXBsZS5jb20vcGxhdGZvcm0vazhzLWJhc2UtYXJnby5naXQ=
+  type: Z2l0
+  project: dGVhbS1zaG9w
+  username: ZGVwbG95LWJvdA==
+  password: ZmFrZS1yZXBvLXBhc3N3b3JkLWh1bnRlcjI=
+  insecure: ZmFsc2U=

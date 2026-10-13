@@ -1,0 +1,84 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "applicationsets.argoproj.io",
+    "namespace": "argocd",
+    "name": "empty"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "empty"
+    },
+    {
+      "column": "namespace",
+      "text": "argocd",
+      "link": {
+        "kind": "namespaces",
+        "name": "argocd"
+      }
+    },
+    {
+      "column": "generators",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    },
+    {
+      "column": "project",
+      "text": "default",
+      "link": {
+        "kind": "appprojects.argoproj.io",
+        "namespace": "argocd",
+        "name": "default"
+      }
+    },
+    {
+      "column": "applications",
+      "text": "-"
+    },
+    {
+      "column": "status",
+      "text": "",
+      "status": "pending"
+    }
+  ],
+  "fields": {
+    "generators": [],
+    "label": [],
+    "name": [
+      "empty"
+    ],
+    "namespace": [
+      "argocd"
+    ],
+    "project": [
+      "default"
+    ],
+    "status": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Project",
+          "value": "default",
+          "link": {
+            "kind": "appprojects.argoproj.io",
+            "namespace": "argocd",
+            "name": "default"
+          }
+        },
+        {
+          "name": "Application Name",
+          "value": "x"
+        }
+      ]
+    }
+  ]
+}

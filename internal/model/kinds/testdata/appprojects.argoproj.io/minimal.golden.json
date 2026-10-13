@@ -1,0 +1,52 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "appprojects.argoproj.io",
+    "namespace": "argocd",
+    "name": "default"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "default"
+    },
+    {
+      "column": "namespace",
+      "text": "argocd",
+      "link": {
+        "kind": "namespaces",
+        "name": "argocd"
+      }
+    },
+    {
+      "column": "description",
+      "text": ""
+    },
+    {
+      "column": "sourceRepos",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "132d",
+      "num": 1780272000
+    },
+    {
+      "column": "destinations",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "destinations": [],
+    "label": [],
+    "name": [
+      "default"
+    ],
+    "namespace": [
+      "argocd"
+    ],
+    "sourceRepos": []
+  },
+  "detail": null
+}

@@ -126,6 +126,7 @@ func (ck *customKinds) rebuild() {
 		}
 		next[key] = customEntry{kind: k, profile: kinds.ProfileFor(k)} // a curated profile, else the generic one
 	}
+	addArgoCompanions(ck.b, next) // argocd.go: Argo CD's settings views come with its Application kind
 	changed := len(next) != len(ck.entries)
 	for key, e := range next {
 		if old, ok := ck.entries[key]; !ok || old.profile != e.profile {

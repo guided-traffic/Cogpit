@@ -1,0 +1,150 @@
+{
+  "repositories": [
+    {
+      "ref": {
+        "context": "test",
+        "kind": "argocdrepositories",
+        "namespace": "argocd",
+        "name": "creds-github"
+      },
+      "status": "",
+      "cells": [
+        {
+          "column": "name",
+          "text": "creds-github"
+        },
+        {
+          "column": "type",
+          "text": "helm"
+        },
+        {
+          "column": "url",
+          "text": "https://<redacted>@github.com/example"
+        },
+        {
+          "column": "project",
+          "text": ""
+        },
+        {
+          "column": "age",
+          "text": "38d",
+          "num": 1788393600
+        },
+        {
+          "column": "namespace",
+          "text": "argocd",
+          "link": {
+            "kind": "namespaces",
+            "name": "argocd"
+          }
+        },
+        {
+          "column": "displayName",
+          "text": ""
+        },
+        {
+          "column": "secretType",
+          "text": "Credential Template"
+        },
+        {
+          "column": "authentication",
+          "text": "GitHub App"
+        }
+      ],
+      "fields": {
+        "label": [
+          "argocd.argoproj.io/secret-type=repo-creds"
+        ],
+        "name": [
+          "creds-github"
+        ],
+        "namespace": [
+          "argocd"
+        ],
+        "project": [],
+        "type": [
+          "helm"
+        ],
+        "url": [
+          "https://<redacted>@github.com/example"
+        ]
+      },
+      "detail": [
+        {
+          "title": "Properties",
+          "items": [
+            {
+              "name": "Created",
+              "value": "2026-09-03 00:00:00"
+            },
+            {
+              "name": "Secret",
+              "value": "creds-github",
+              "link": {
+                "kind": "secrets",
+                "namespace": "argocd",
+                "name": "creds-github"
+              }
+            },
+            {
+              "name": "Namespace",
+              "value": "argocd",
+              "link": {
+                "kind": "namespaces",
+                "name": "argocd"
+              }
+            },
+            {
+              "name": "Kind",
+              "value": "Credential Template"
+            },
+            {
+              "name": "URL",
+              "value": "https://<redacted>@github.com/example"
+            },
+            {
+              "name": "Type",
+              "value": "helm"
+            },
+            {
+              "name": "Authentication",
+              "value": "GitHub App"
+            },
+            {
+              "name": "Values Not Shown",
+              "value": "githubAppID\ngithubAppInstallationID\ngithubAppPrivateKey",
+              "fold": "keys"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "clusters": [],
+  "objects": [
+    {
+      "apiVersion": "cogpit.io/v1",
+      "kind": "ArgoCDRepository",
+      "metadata": {
+        "creationTimestamp": "2026-09-03T00:00:00Z",
+        "labels": {
+          "argocd.argoproj.io/secret-type": "repo-creds"
+        },
+        "name": "creds-github",
+        "namespace": "argocd",
+        "resourceVersion": "103",
+        "uid": "a2a2a2a2-0003-4e9f-c0a1-000000000003"
+      },
+      "spec": {
+        "keys": [
+          "githubAppID",
+          "githubAppInstallationID",
+          "githubAppPrivateKey"
+        ],
+        "secretType": "repo-creds",
+        "type": "helm",
+        "url": "https://<redacted>@github.com/example"
+      }
+    }
+  ]
+}

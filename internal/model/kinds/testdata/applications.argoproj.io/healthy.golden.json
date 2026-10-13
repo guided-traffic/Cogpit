@@ -1,0 +1,400 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "applications.argoproj.io",
+    "namespace": "argocd",
+    "name": "shop"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "shop"
+    },
+    {
+      "column": "namespace",
+      "text": "argocd",
+      "link": {
+        "kind": "namespaces",
+        "name": "argocd"
+      }
+    },
+    {
+      "column": "sync",
+      "text": "Synced",
+      "status": "ok"
+    },
+    {
+      "column": "health",
+      "text": "Healthy",
+      "status": "ok"
+    },
+    {
+      "column": "project",
+      "text": "team-shop",
+      "link": {
+        "kind": "appprojects.argoproj.io",
+        "namespace": "argocd",
+        "name": "team-shop"
+      }
+    },
+    {
+      "column": "destination",
+      "text": "in-cluster/shop"
+    },
+    {
+      "column": "revision",
+      "text": "4f2c9e1"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790812800
+    },
+    {
+      "column": "repository",
+      "text": "https://git.example.com/platform/k8s-base-argo.git"
+    },
+    {
+      "column": "targetRevision",
+      "text": "main"
+    },
+    {
+      "column": "path",
+      "text": "apps/shop"
+    },
+    {
+      "column": "message",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "destination": [
+      "in-cluster/shop"
+    ],
+    "health": [
+      "Healthy"
+    ],
+    "label": [],
+    "name": [
+      "shop"
+    ],
+    "namespace": [
+      "argocd"
+    ],
+    "path": [
+      "apps/shop"
+    ],
+    "project": [
+      "team-shop"
+    ],
+    "repository": [
+      "https://git.example.com/platform/k8s-base-argo.git"
+    ],
+    "revision": [
+      "4f2c9e1b7a6d5c3b2a1f0e9d8c7b6a5f4e3d2c1b"
+    ],
+    "sync": [
+      "Synced"
+    ],
+    "targetRevision": [
+      "main"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Project",
+          "value": "team-shop",
+          "link": {
+            "kind": "appprojects.argoproj.io",
+            "namespace": "argocd",
+            "name": "team-shop"
+          }
+        },
+        {
+          "name": "Sync Status",
+          "value": "Synced",
+          "status": "ok"
+        },
+        {
+          "name": "Health",
+          "value": "Healthy",
+          "status": "ok"
+        },
+        {
+          "name": "Revision",
+          "value": "4f2c9e1b7a6d5c3b2a1f0e9d8c7b6a5f4e3d2c1b"
+        },
+        {
+          "name": "Application Set",
+          "value": "shops",
+          "link": {
+            "kind": "applicationsets.argoproj.io",
+            "namespace": "argocd",
+            "name": "shops"
+          }
+        },
+        {
+          "name": "Source Type",
+          "value": "Kustomize"
+        },
+        {
+          "name": "Reconciled",
+          "value": "2026-10-11 11:58:00"
+        },
+        {
+          "name": "Images",
+          "value": "registry.example.com/shop/web:1.4.2"
+        },
+        {
+          "name": "External URLs",
+          "value": "https://shop.example.com"
+        }
+      ]
+    },
+    {
+      "title": "Source",
+      "items": [
+        {
+          "name": "Repository",
+          "value": "https://git.example.com/platform/k8s-base-argo.git"
+        },
+        {
+          "name": "Target Revision",
+          "value": "main"
+        },
+        {
+          "name": "Path",
+          "value": "apps/shop"
+        }
+      ]
+    },
+    {
+      "title": "Destination",
+      "items": [
+        {
+          "name": "Server",
+          "value": "https://kubernetes.default.svc"
+        },
+        {
+          "name": "Namespace",
+          "value": "shop"
+        }
+      ]
+    },
+    {
+      "title": "Sync Policy",
+      "items": [
+        {
+          "name": "Automated",
+          "value": "Yes"
+        },
+        {
+          "name": "Prune",
+          "value": "Yes"
+        },
+        {
+          "name": "Self Heal",
+          "value": "Yes"
+        },
+        {
+          "name": "Allow Empty",
+          "value": "No"
+        },
+        {
+          "name": "Sync Options",
+          "value": "CreateNamespace=true\nServerSideApply=true"
+        },
+        {
+          "name": "Retry Limit",
+          "value": "5"
+        }
+      ]
+    },
+    {
+      "title": "Operation",
+      "items": [
+        {
+          "name": "Phase",
+          "value": "Succeeded",
+          "status": "ok"
+        },
+        {
+          "name": "Message",
+          "value": "successfully synced (all tasks run)"
+        },
+        {
+          "name": "Initiated By",
+          "value": "the controller (automated)"
+        },
+        {
+          "name": "Revision",
+          "value": "4f2c9e1b7a6d5c3b2a1f0e9d8c7b6a5f4e3d2c1b"
+        },
+        {
+          "name": "Prune",
+          "value": "Yes"
+        },
+        {
+          "name": "Started",
+          "value": "2026-10-11 11:40:00"
+        },
+        {
+          "name": "Finished",
+          "value": "2026-10-11 11:40:12"
+        }
+      ]
+    },
+    {
+      "title": "Resources",
+      "table": {
+        "columns": [
+          "Kind",
+          "Namespace",
+          "Name",
+          "Sync",
+          "Health"
+        ],
+        "rows": [
+          [
+            "Deployment",
+            "shop",
+            "web",
+            "Synced",
+            "Healthy"
+          ],
+          [
+            "Service",
+            "shop",
+            "web",
+            "Synced",
+            "Healthy"
+          ],
+          [
+            "ServiceMonitor",
+            "shop",
+            "web",
+            "Synced",
+            ""
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "Deployment"
+            },
+            {
+              "text": "shop",
+              "link": {
+                "kind": "namespaces",
+                "name": "shop"
+              }
+            },
+            {
+              "text": "web",
+              "link": {
+                "kind": "deployments",
+                "namespace": "shop",
+                "name": "web"
+              }
+            },
+            {
+              "text": "Synced",
+              "status": "ok"
+            },
+            {
+              "text": "Healthy",
+              "status": "ok"
+            }
+          ],
+          [
+            {
+              "text": "Service"
+            },
+            {
+              "text": "shop",
+              "link": {
+                "kind": "namespaces",
+                "name": "shop"
+              }
+            },
+            {
+              "text": "web",
+              "link": {
+                "kind": "services",
+                "namespace": "shop",
+                "name": "web"
+              }
+            },
+            {
+              "text": "Synced",
+              "status": "ok"
+            },
+            {
+              "text": "Healthy",
+              "status": "ok"
+            }
+          ],
+          [
+            {
+              "text": "ServiceMonitor"
+            },
+            {
+              "text": "shop",
+              "link": {
+                "kind": "namespaces",
+                "name": "shop"
+              }
+            },
+            {
+              "text": "web"
+            },
+            {
+              "text": "Synced",
+              "status": "ok"
+            },
+            {}
+          ]
+        ]
+      }
+    },
+    {
+      "title": "History",
+      "table": {
+        "columns": [
+          "ID",
+          "Revision",
+          "Deployed",
+          "Initiated By",
+          "Repository"
+        ],
+        "rows": [
+          [
+            "7",
+            "4f2c9e1b7a6d5c3b2a1f0e9d8c7b6a5f4e3d2c1b",
+            "2026-10-11 11:40:12",
+            "the controller (automated)",
+            "https://git.example.com/platform/k8s-base-argo.git"
+          ],
+          [
+            "6",
+            "0a1b2c3d4e5f60718293a4b5c6d7e8f901234567",
+            "2026-10-10 09:00:00",
+            "alice",
+            "https://git.example.com/platform/k8s-base-argo.git"
+          ]
+        ]
+      }
+    }
+  ]
+}

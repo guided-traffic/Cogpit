@@ -1,0 +1,35 @@
+# Synthetic: an Application being deleted with its resources (Argo CD's finalizer), Suspended, a
+# sync requested and not yet taken by the controller.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: legacy
+  namespace: argocd
+  uid: a1a1a1a1-0007-4e9f-c0a1-000000000007
+  creationTimestamp: "2026-08-01T00:00:00Z"
+  deletionTimestamp: "2026-10-11T11:59:30Z"
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://git.example.com/apps.git
+    path: legacy
+    targetRevision: HEAD
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: legacy
+operation:
+  initiatedBy:
+    username: carol
+  sync:
+    revision: HEAD
+    prune: true
+status:
+  sync:
+    status: Synced
+    revision: 1111111111111111111111111111111111111111
+  health:
+    status: Suspended

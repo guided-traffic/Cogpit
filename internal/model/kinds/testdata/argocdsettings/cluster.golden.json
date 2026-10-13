@@ -1,0 +1,166 @@
+{
+  "repositories": [],
+  "clusters": [
+    {
+      "ref": {
+        "context": "test",
+        "kind": "argocdclusters",
+        "namespace": "argocd",
+        "name": "cluster-prod-eu"
+      },
+      "status": "",
+      "cells": [
+        {
+          "column": "name",
+          "text": "cluster-prod-eu"
+        },
+        {
+          "column": "server",
+          "text": "https://prod-eu.k8s.example.com:6443"
+        },
+        {
+          "column": "age",
+          "text": "37d",
+          "num": 1788480000
+        },
+        {
+          "column": "namespace",
+          "text": "argocd",
+          "link": {
+            "kind": "namespaces",
+            "name": "argocd"
+          }
+        },
+        {
+          "column": "displayName",
+          "text": "prod-eu"
+        },
+        {
+          "column": "namespaces",
+          "text": "shop,payments"
+        },
+        {
+          "column": "clusterResources",
+          "text": "false"
+        },
+        {
+          "column": "project",
+          "text": "team-shop",
+          "link": {
+            "kind": "appprojects.argoproj.io",
+            "namespace": "argocd",
+            "name": "team-shop"
+          }
+        }
+      ],
+      "fields": {
+        "label": [
+          "argocd.argoproj.io/secret-type=cluster",
+          "env=prod"
+        ],
+        "name": [
+          "cluster-prod-eu"
+        ],
+        "namespace": [
+          "argocd"
+        ],
+        "project": [
+          "team-shop"
+        ],
+        "server": [
+          "https://prod-eu.k8s.example.com:6443"
+        ]
+      },
+      "detail": [
+        {
+          "title": "Properties",
+          "items": [
+            {
+              "name": "Created",
+              "value": "2026-09-04 00:00:00"
+            },
+            {
+              "name": "Secret",
+              "value": "cluster-prod-eu",
+              "link": {
+                "kind": "secrets",
+                "namespace": "argocd",
+                "name": "cluster-prod-eu"
+              }
+            },
+            {
+              "name": "Namespace",
+              "value": "argocd",
+              "link": {
+                "kind": "namespaces",
+                "name": "argocd"
+              }
+            },
+            {
+              "name": "Kind",
+              "value": "Cluster"
+            },
+            {
+              "name": "Name",
+              "value": "prod-eu"
+            },
+            {
+              "name": "Server",
+              "value": "https://prod-eu.k8s.example.com:6443"
+            },
+            {
+              "name": "Namespaces",
+              "value": "shop\npayments"
+            },
+            {
+              "name": "Cluster Resources",
+              "value": "false"
+            },
+            {
+              "name": "Project",
+              "value": "team-shop",
+              "link": {
+                "kind": "appprojects.argoproj.io",
+                "namespace": "argocd",
+                "name": "team-shop"
+              }
+            },
+            {
+              "name": "Values Not Shown",
+              "value": "config",
+              "fold": "keys"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "apiVersion": "cogpit.io/v1",
+      "kind": "ArgoCDCluster",
+      "metadata": {
+        "creationTimestamp": "2026-09-04T00:00:00Z",
+        "labels": {
+          "argocd.argoproj.io/secret-type": "cluster",
+          "env": "prod"
+        },
+        "name": "cluster-prod-eu",
+        "namespace": "argocd",
+        "resourceVersion": "104",
+        "uid": "a2a2a2a2-0004-4e9f-c0a1-000000000004"
+      },
+      "spec": {
+        "clusterResources": "false",
+        "keys": [
+          "config"
+        ],
+        "name": "prod-eu",
+        "namespaces": "shop,payments",
+        "project": "team-shop",
+        "secretType": "cluster",
+        "server": "https://prod-eu.k8s.example.com:6443"
+      }
+    }
+  ]
+}

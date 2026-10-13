@@ -1,0 +1,137 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "applicationsets.argoproj.io",
+    "namespace": "argocd",
+    "name": "shops"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "shops"
+    },
+    {
+      "column": "namespace",
+      "text": "argocd",
+      "link": {
+        "kind": "namespaces",
+        "name": "argocd"
+      }
+    },
+    {
+      "column": "generators",
+      "text": "matrix, list"
+    },
+    {
+      "column": "age",
+      "text": "21d",
+      "num": 1789862400
+    },
+    {
+      "column": "project",
+      "text": "team-shop",
+      "link": {
+        "kind": "appprojects.argoproj.io",
+        "namespace": "argocd",
+        "name": "team-shop"
+      }
+    },
+    {
+      "column": "applications",
+      "text": "-"
+    },
+    {
+      "column": "status",
+      "text": "ParametersGenerated ResourcesUpToDate",
+      "status": "ok"
+    }
+  ],
+  "fields": {
+    "generators": [
+      "matrix",
+      "list"
+    ],
+    "label": [],
+    "name": [
+      "shops"
+    ],
+    "namespace": [
+      "argocd"
+    ],
+    "project": [
+      "team-shop"
+    ],
+    "status": [
+      "ParametersGenerated ResourcesUpToDate"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "ParametersGenerated ResourcesUpToDate",
+          "status": "ok"
+        },
+        {
+          "name": "Project",
+          "value": "team-shop",
+          "link": {
+            "kind": "appprojects.argoproj.io",
+            "namespace": "argocd",
+            "name": "team-shop"
+          }
+        },
+        {
+          "name": "Generators",
+          "value": "matrix\nlist"
+        },
+        {
+          "name": "Application Name",
+          "value": "{{.path.basename}}-{{.name}}"
+        },
+        {
+          "name": "Repository",
+          "value": "https://git.example.com/platform/k8s-base-argo.git"
+        },
+        {
+          "name": "Destination",
+          "value": "{{.server}}/{{.path.basename}}"
+        },
+        {
+          "name": "Preserve Resources on Deletion",
+          "value": "Yes"
+        },
+        {
+          "name": "Applications Sync",
+          "value": "create-update"
+        },
+        {
+          "name": "Go Template",
+          "value": "Yes"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "ErrorOccurred",
+          "value": "False (ApplicationSetUpToDate): All applications have been generated successfully"
+        },
+        {
+          "name": "ParametersGenerated",
+          "value": "True (ParametersGenerated): Successfully generated parameters for all Applications",
+          "status": "ok"
+        },
+        {
+          "name": "ResourcesUpToDate",
+          "value": "True (ApplicationSetUpToDate): All applications have been generated successfully",
+          "status": "ok"
+        }
+      ]
+    }
+  ]
+}

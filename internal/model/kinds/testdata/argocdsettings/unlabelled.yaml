@@ -1,0 +1,14 @@
+# Synthetic: a Secret in Argo CD's namespace that is no repository or cluster (no secret-type
+# label): the settings views leave it out.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-secret
+  namespace: argocd
+  uid: a2a2a2a2-0005-4e9f-c0a1-000000000005
+  resourceVersion: "105"
+  creationTimestamp: "2026-06-01T00:00:00Z"
+type: Opaque
+data:
+  admin.password: ZmFrZS1hZG1pbi1wYXNzd29yZA==
+  server.secretkey: ZmFrZS1zZXJ2ZXItc2VjcmV0LWtleQ==

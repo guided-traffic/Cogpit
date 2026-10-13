@@ -1,0 +1,172 @@
+{
+  "repositories": [
+    {
+      "ref": {
+        "context": "test",
+        "kind": "argocdrepositories",
+        "namespace": "argocd",
+        "name": "repo-k8s-base-argo"
+      },
+      "status": "",
+      "cells": [
+        {
+          "column": "name",
+          "text": "repo-k8s-base-argo"
+        },
+        {
+          "column": "type",
+          "text": "git"
+        },
+        {
+          "column": "url",
+          "text": "https://git.example.com/platform/k8s-base-argo.git"
+        },
+        {
+          "column": "project",
+          "text": "team-shop",
+          "link": {
+            "kind": "appprojects.argoproj.io",
+            "namespace": "argocd",
+            "name": "team-shop"
+          }
+        },
+        {
+          "column": "age",
+          "text": "40d",
+          "num": 1788220800
+        },
+        {
+          "column": "namespace",
+          "text": "argocd",
+          "link": {
+            "kind": "namespaces",
+            "name": "argocd"
+          }
+        },
+        {
+          "column": "displayName",
+          "text": "k8s-base-argo"
+        },
+        {
+          "column": "secretType",
+          "text": "Repository"
+        },
+        {
+          "column": "authentication",
+          "text": "Username and password"
+        }
+      ],
+      "fields": {
+        "label": [
+          "argocd.argoproj.io/secret-type=repository"
+        ],
+        "name": [
+          "repo-k8s-base-argo"
+        ],
+        "namespace": [
+          "argocd"
+        ],
+        "project": [
+          "team-shop"
+        ],
+        "type": [
+          "git"
+        ],
+        "url": [
+          "https://git.example.com/platform/k8s-base-argo.git"
+        ]
+      },
+      "detail": [
+        {
+          "title": "Properties",
+          "items": [
+            {
+              "name": "Created",
+              "value": "2026-09-01 00:00:00"
+            },
+            {
+              "name": "Secret",
+              "value": "repo-k8s-base-argo",
+              "link": {
+                "kind": "secrets",
+                "namespace": "argocd",
+                "name": "repo-k8s-base-argo"
+              }
+            },
+            {
+              "name": "Namespace",
+              "value": "argocd",
+              "link": {
+                "kind": "namespaces",
+                "name": "argocd"
+              }
+            },
+            {
+              "name": "Kind",
+              "value": "Repository"
+            },
+            {
+              "name": "Name",
+              "value": "k8s-base-argo"
+            },
+            {
+              "name": "URL",
+              "value": "https://git.example.com/platform/k8s-base-argo.git"
+            },
+            {
+              "name": "Type",
+              "value": "git"
+            },
+            {
+              "name": "Project",
+              "value": "team-shop",
+              "link": {
+                "kind": "appprojects.argoproj.io",
+                "namespace": "argocd",
+                "name": "team-shop"
+              }
+            },
+            {
+              "name": "Authentication",
+              "value": "Username and password"
+            },
+            {
+              "name": "Values Not Shown",
+              "value": "insecure\npassword\nusername",
+              "fold": "keys"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "clusters": [],
+  "objects": [
+    {
+      "apiVersion": "cogpit.io/v1",
+      "kind": "ArgoCDRepository",
+      "metadata": {
+        "creationTimestamp": "2026-09-01T00:00:00Z",
+        "labels": {
+          "argocd.argoproj.io/secret-type": "repository"
+        },
+        "name": "repo-k8s-base-argo",
+        "namespace": "argocd",
+        "resourceVersion": "101",
+        "uid": "a2a2a2a2-0001-4e9f-c0a1-000000000001"
+      },
+      "spec": {
+        "keys": [
+          "insecure",
+          "password",
+          "username"
+        ],
+        "name": "k8s-base-argo",
+        "project": "team-shop",
+        "secretType": "repository",
+        "type": "git",
+        "url": "https://git.example.com/platform/k8s-base-argo.git"
+      }
+    }
+  ]
+}

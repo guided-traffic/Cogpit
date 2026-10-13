@@ -1,0 +1,55 @@
+# Synthetic: an ApplicationSet with a matrix of a Git directory generator and a clusters
+# generator, its applications up to date.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: shops
+  namespace: argocd
+  uid: a1a1a1a1-0002-4e9f-c0a1-000000000002
+  creationTimestamp: "2026-09-20T00:00:00Z"
+spec:
+  goTemplate: true
+  generators:
+  - matrix:
+      generators:
+      - git:
+          repoURL: https://git.example.com/platform/k8s-base-argo.git
+          revision: main
+          directories:
+          - path: apps/*
+      - clusters:
+          selector:
+            matchLabels:
+              env: prod
+  - list:
+      elements:
+      - cluster: in-cluster
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+    applicationsSync: create-update
+  template:
+    metadata:
+      name: '{{.path.basename}}-{{.name}}'
+    spec:
+      project: team-shop
+      source:
+        repoURL: https://git.example.com/platform/k8s-base-argo.git
+        targetRevision: main
+        path: '{{.path.path}}'
+      destination:
+        server: '{{.server}}'
+        namespace: '{{.path.basename}}'
+status:
+  conditions:
+  - type: ErrorOccurred
+    status: "False"
+    reason: ApplicationSetUpToDate
+    message: All applications have been generated successfully
+  - type: ParametersGenerated
+    status: "True"
+    reason: ParametersGenerated
+    message: Successfully generated parameters for all Applications
+  - type: ResourcesUpToDate
+    status: "True"
+    reason: ApplicationSetUpToDate
+    message: All applications have been generated successfully

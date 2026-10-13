@@ -953,6 +953,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   make (`helmcharts.source.toolkit.fluxcd.io`, only under Custom Resources, generic).
 - **Evidence:** [resource-parity](resource-parity.md#paid-lens-desktop-views), Flux CD and Argo CD
   rows.
+- **Argo CD (night build, 2026-10-13):** the five lists partial with the columns of Lens's
+  documentation (read 2026-10-13): curated profiles of Applications, Application Sets and Projects,
+  and Repositories and Clusters as virtual kinds over Argo CD's labelled Secrets that show an
+  allowlist of non-credential keys ([D-35](../developer/decisions.md#d-35-what-argo-cds-repository-and-cluster-secrets-show)).
+  Left for Argo CD: the Dashboard, Sync and Refresh, the navigator group.
 - **Impact:** GitOps is daily work for the owner's team; in Lens it needs a paid plan.
 - **Estimate:** 55–115 h (2–4 h per kind profile, the dashboards, two actions), built into the
   code like every integration ([D-5](../developer/decisions.md#d-5-extensions)). After the Flux

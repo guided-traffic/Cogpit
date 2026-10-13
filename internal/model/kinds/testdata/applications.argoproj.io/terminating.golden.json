@@ -1,0 +1,181 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "applications.argoproj.io",
+    "namespace": "argocd",
+    "name": "legacy"
+  },
+  "status": "terminating",
+  "cells": [
+    {
+      "column": "name",
+      "text": "legacy"
+    },
+    {
+      "column": "namespace",
+      "text": "argocd",
+      "link": {
+        "kind": "namespaces",
+        "name": "argocd"
+      }
+    },
+    {
+      "column": "sync",
+      "text": "Synced",
+      "status": "ok"
+    },
+    {
+      "column": "health",
+      "text": "Suspended",
+      "status": "stopped"
+    },
+    {
+      "column": "project",
+      "text": "default",
+      "link": {
+        "kind": "appprojects.argoproj.io",
+        "namespace": "argocd",
+        "name": "default"
+      }
+    },
+    {
+      "column": "destination",
+      "text": "in-cluster/legacy"
+    },
+    {
+      "column": "revision",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "71d",
+      "num": 1785542400
+    },
+    {
+      "column": "repository",
+      "text": "https://git.example.com/apps.git"
+    },
+    {
+      "column": "targetRevision",
+      "text": "HEAD"
+    },
+    {
+      "column": "path",
+      "text": "legacy"
+    },
+    {
+      "column": "message",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "destination": [
+      "in-cluster/legacy"
+    ],
+    "health": [
+      "Suspended"
+    ],
+    "label": [],
+    "name": [
+      "legacy"
+    ],
+    "namespace": [
+      "argocd"
+    ],
+    "path": [
+      "legacy"
+    ],
+    "project": [
+      "default"
+    ],
+    "repository": [
+      "https://git.example.com/apps.git"
+    ],
+    "revision": [],
+    "sync": [
+      "Synced"
+    ],
+    "targetRevision": [
+      "HEAD"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Project",
+          "value": "default",
+          "link": {
+            "kind": "appprojects.argoproj.io",
+            "namespace": "argocd",
+            "name": "default"
+          }
+        },
+        {
+          "name": "Sync Status",
+          "value": "Synced",
+          "status": "ok"
+        },
+        {
+          "name": "Health",
+          "value": "Suspended",
+          "status": "stopped"
+        }
+      ]
+    },
+    {
+      "title": "Source",
+      "items": [
+        {
+          "name": "Repository",
+          "value": "https://git.example.com/apps.git"
+        },
+        {
+          "name": "Target Revision",
+          "value": "HEAD"
+        },
+        {
+          "name": "Path",
+          "value": "legacy"
+        },
+        {
+          "name": "Directory",
+          "value": "recursive"
+        }
+      ]
+    },
+    {
+      "title": "Destination",
+      "items": [
+        {
+          "name": "Server",
+          "value": "https://kubernetes.default.svc"
+        },
+        {
+          "name": "Namespace",
+          "value": "legacy"
+        }
+      ]
+    },
+    {
+      "title": "Sync Policy",
+      "items": [
+        {
+          "name": "Automated",
+          "value": "No (manual sync)"
+        }
+      ]
+    },
+    {
+      "title": "Operation",
+      "items": [
+        {
+          "name": "Requested",
+          "value": "Sync by carol",
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}

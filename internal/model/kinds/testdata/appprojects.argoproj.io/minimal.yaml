@@ -1,0 +1,9 @@
+# Synthetic: an AppProject with nothing set, as Argo CD's default project starts.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: default
+  namespace: argocd
+  uid: a1a1a1a1-0011-4e9f-c0a1-000000000011
+  creationTimestamp: "2026-06-01T00:00:00Z"
+spec: {}

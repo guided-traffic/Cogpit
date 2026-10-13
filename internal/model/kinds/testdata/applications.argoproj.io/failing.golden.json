@@ -1,0 +1,310 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "applications.argoproj.io",
+    "namespace": "argocd",
+    "name": "payments"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "payments"
+    },
+    {
+      "column": "namespace",
+      "text": "argocd",
+      "link": {
+        "kind": "namespaces",
+        "name": "argocd"
+      }
+    },
+    {
+      "column": "sync",
+      "text": "OutOfSync",
+      "status": "warning"
+    },
+    {
+      "column": "health",
+      "text": "Degraded",
+      "status": "error"
+    },
+    {
+      "column": "project",
+      "text": "team-pay",
+      "link": {
+        "kind": "appprojects.argoproj.io",
+        "namespace": "argocd",
+        "name": "team-pay"
+      }
+    },
+    {
+      "column": "destination",
+      "text": "https://10.0.0.1:6443/payments"
+    },
+    {
+      "column": "revision",
+      "text": "9e8d7c6"
+    },
+    {
+      "column": "age",
+      "text": "6d",
+      "num": 1791158400
+    },
+    {
+      "column": "repository",
+      "text": "git@git.example.com:pay/deploy.git"
+    },
+    {
+      "column": "targetRevision",
+      "text": "v2.3.0"
+    },
+    {
+      "column": "path",
+      "text": "overlays/prod"
+    },
+    {
+      "column": "message",
+      "text": "Failed to load target state: failed to generate manifest for source 1 of 1: rpc error: kustomize build failed"
+    }
+  ],
+  "fields": {
+    "destination": [
+      "https://10.0.0.1:6443/payments"
+    ],
+    "health": [
+      "Degraded"
+    ],
+    "label": [],
+    "name": [
+      "payments"
+    ],
+    "namespace": [
+      "argocd"
+    ],
+    "path": [
+      "overlays/prod"
+    ],
+    "project": [
+      "team-pay"
+    ],
+    "repository": [
+      "git@git.example.com:pay/deploy.git"
+    ],
+    "revision": [
+      "9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d"
+    ],
+    "sync": [
+      "OutOfSync"
+    ],
+    "targetRevision": [
+      "v2.3.0"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Project",
+          "value": "team-pay",
+          "link": {
+            "kind": "appprojects.argoproj.io",
+            "namespace": "argocd",
+            "name": "team-pay"
+          }
+        },
+        {
+          "name": "Sync Status",
+          "value": "OutOfSync",
+          "status": "warning"
+        },
+        {
+          "name": "Health",
+          "value": "Degraded",
+          "status": "error"
+        },
+        {
+          "name": "Health Message",
+          "value": "Deployment \"worker\" exceeded its progress deadline"
+        },
+        {
+          "name": "Revision",
+          "value": "9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d"
+        }
+      ]
+    },
+    {
+      "title": "Source",
+      "items": [
+        {
+          "name": "Repository",
+          "value": "git@git.example.com:pay/deploy.git"
+        },
+        {
+          "name": "Target Revision",
+          "value": "v2.3.0"
+        },
+        {
+          "name": "Path",
+          "value": "overlays/prod"
+        }
+      ]
+    },
+    {
+      "title": "Destination",
+      "items": [
+        {
+          "name": "Server",
+          "value": "https://10.0.0.1:6443"
+        },
+        {
+          "name": "Namespace",
+          "value": "payments"
+        }
+      ]
+    },
+    {
+      "title": "Sync Policy",
+      "items": [
+        {
+          "name": "Automated",
+          "value": "No (manual sync)"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "ComparisonError",
+          "value": "True: Failed to load target state: failed to generate manifest\nfor source 1 of 1: rpc error: kustomize build failed",
+          "status": "error"
+        }
+      ]
+    },
+    {
+      "title": "Operation",
+      "items": [
+        {
+          "name": "Phase",
+          "value": "Failed",
+          "status": "error"
+        },
+        {
+          "name": "Message",
+          "value": "one or more objects failed to apply, reason: admission webhook denied the request"
+        },
+        {
+          "name": "Initiated By",
+          "value": "bob"
+        },
+        {
+          "name": "Started",
+          "value": "2026-10-11 10:59:00"
+        },
+        {
+          "name": "Finished",
+          "value": "2026-10-11 10:59:30"
+        },
+        {
+          "name": "Retries",
+          "value": "2"
+        }
+      ]
+    },
+    {
+      "title": "Resources",
+      "table": {
+        "columns": [
+          "Kind",
+          "Namespace",
+          "Name",
+          "Sync",
+          "Health"
+        ],
+        "rows": [
+          [
+            "Deployment",
+            "payments",
+            "worker",
+            "Synced",
+            "Degraded"
+          ],
+          [
+            "ConfigMap",
+            "payments",
+            "worker-config",
+            "OutOfSync",
+            "Missing"
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "Deployment"
+            },
+            {
+              "text": "payments",
+              "link": {
+                "kind": "namespaces",
+                "name": "payments"
+              }
+            },
+            {
+              "text": "worker",
+              "link": {
+                "kind": "deployments",
+                "namespace": "payments",
+                "name": "worker"
+              }
+            },
+            {
+              "text": "Synced",
+              "status": "ok"
+            },
+            {
+              "text": "Degraded",
+              "status": "error"
+            }
+          ],
+          [
+            {
+              "text": "ConfigMap"
+            },
+            {
+              "text": "payments",
+              "link": {
+                "kind": "namespaces",
+                "name": "payments"
+              }
+            },
+            {
+              "text": "worker-config",
+              "link": {
+                "kind": "configmaps",
+                "namespace": "payments",
+                "name": "worker-config"
+              }
+            },
+            {
+              "text": "OutOfSync",
+              "status": "warning"
+            },
+            {
+              "text": "Missing",
+              "status": "warning"
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

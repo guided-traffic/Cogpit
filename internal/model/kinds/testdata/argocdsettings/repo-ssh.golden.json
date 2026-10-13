@@ -1,0 +1,141 @@
+{
+  "repositories": [
+    {
+      "ref": {
+        "context": "test",
+        "kind": "argocdrepositories",
+        "namespace": "argocd",
+        "name": "repo-pay-deploy"
+      },
+      "status": "",
+      "cells": [
+        {
+          "column": "name",
+          "text": "repo-pay-deploy"
+        },
+        {
+          "column": "type",
+          "text": ""
+        },
+        {
+          "column": "url",
+          "text": "git@git.example.com:pay/deploy.git"
+        },
+        {
+          "column": "project",
+          "text": ""
+        },
+        {
+          "column": "age",
+          "text": "39d",
+          "num": 1788307200
+        },
+        {
+          "column": "namespace",
+          "text": "argocd",
+          "link": {
+            "kind": "namespaces",
+            "name": "argocd"
+          }
+        },
+        {
+          "column": "displayName",
+          "text": ""
+        },
+        {
+          "column": "secretType",
+          "text": "Repository"
+        },
+        {
+          "column": "authentication",
+          "text": "SSH key"
+        }
+      ],
+      "fields": {
+        "label": [
+          "argocd.argoproj.io/secret-type=repository"
+        ],
+        "name": [
+          "repo-pay-deploy"
+        ],
+        "namespace": [
+          "argocd"
+        ],
+        "project": [],
+        "type": [],
+        "url": [
+          "git@git.example.com:pay/deploy.git"
+        ]
+      },
+      "detail": [
+        {
+          "title": "Properties",
+          "items": [
+            {
+              "name": "Created",
+              "value": "2026-09-02 00:00:00"
+            },
+            {
+              "name": "Secret",
+              "value": "repo-pay-deploy",
+              "link": {
+                "kind": "secrets",
+                "namespace": "argocd",
+                "name": "repo-pay-deploy"
+              }
+            },
+            {
+              "name": "Namespace",
+              "value": "argocd",
+              "link": {
+                "kind": "namespaces",
+                "name": "argocd"
+              }
+            },
+            {
+              "name": "Kind",
+              "value": "Repository"
+            },
+            {
+              "name": "URL",
+              "value": "git@git.example.com:pay/deploy.git"
+            },
+            {
+              "name": "Authentication",
+              "value": "SSH key"
+            },
+            {
+              "name": "Values Not Shown",
+              "value": "sshPrivateKey",
+              "fold": "keys"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "clusters": [],
+  "objects": [
+    {
+      "apiVersion": "cogpit.io/v1",
+      "kind": "ArgoCDRepository",
+      "metadata": {
+        "creationTimestamp": "2026-09-02T00:00:00Z",
+        "labels": {
+          "argocd.argoproj.io/secret-type": "repository"
+        },
+        "name": "repo-pay-deploy",
+        "namespace": "argocd",
+        "resourceVersion": "102",
+        "uid": "a2a2a2a2-0002-4e9f-c0a1-000000000002"
+      },
+      "spec": {
+        "keys": [
+          "sshPrivateKey"
+        ],
+        "secretType": "repository",
+        "url": "git@git.example.com:pay/deploy.git"
+      }
+    }
+  ]
+}

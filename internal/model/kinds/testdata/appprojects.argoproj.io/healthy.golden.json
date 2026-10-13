@@ -1,0 +1,176 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "appprojects.argoproj.io",
+    "namespace": "argocd",
+    "name": "team-shop"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "team-shop"
+    },
+    {
+      "column": "namespace",
+      "text": "argocd",
+      "link": {
+        "kind": "namespaces",
+        "name": "argocd"
+      }
+    },
+    {
+      "column": "description",
+      "text": "The shop team's applications: storefront, checkout and their jobs"
+    },
+    {
+      "column": "sourceRepos",
+      "text": "https://git.example.com/platform/k8s-base-argo.git, https://charts.example.com/stable"
+    },
+    {
+      "column": "age",
+      "text": "132d",
+      "num": 1780272000
+    },
+    {
+      "column": "destinations",
+      "text": "in-cluster/shop, prod-eu/shop-*"
+    }
+  ],
+  "fields": {
+    "destinations": [
+      "in-cluster/shop",
+      "prod-eu/shop-*"
+    ],
+    "label": [],
+    "name": [
+      "team-shop"
+    ],
+    "namespace": [
+      "argocd"
+    ],
+    "sourceRepos": [
+      "https://git.example.com/platform/k8s-base-argo.git",
+      "https://charts.example.com/stable"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Description",
+          "value": "The shop team's applications:\nstorefront, checkout and their jobs"
+        },
+        {
+          "name": "Source Repos",
+          "value": "https://git.example.com/platform/k8s-base-argo.git\nhttps://charts.example.com/stable"
+        },
+        {
+          "name": "Source Namespaces",
+          "value": "shop-apps"
+        },
+        {
+          "name": "Warn on Orphaned Resources",
+          "value": "Yes"
+        }
+      ]
+    },
+    {
+      "title": "Destinations",
+      "table": {
+        "columns": [
+          "Server",
+          "Name",
+          "Namespace"
+        ],
+        "rows": [
+          [
+            "https://kubernetes.default.svc",
+            "",
+            "shop"
+          ],
+          [
+            "",
+            "prod-eu",
+            "shop-*"
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Cluster Resources Allowed",
+      "table": {
+        "columns": [
+          "Group",
+          "Kind"
+        ],
+        "rows": [
+          [
+            "\"\" (core)",
+            "Namespace"
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Namespace Resources Denied",
+      "table": {
+        "columns": [
+          "Group",
+          "Kind"
+        ],
+        "rows": [
+          [
+            "\"\" (core)",
+            "ResourceQuota"
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Roles",
+      "table": {
+        "columns": [
+          "Name",
+          "Description",
+          "Policies",
+          "Groups"
+        ],
+        "rows": [
+          [
+            "ci",
+            "CI pipelines sync",
+            "p, proj:team-shop:ci, applications, sync, team-shop/*, allow",
+            "shop-ci"
+          ]
+        ]
+      }
+    },
+    {
+      "title": "Sync Windows",
+      "table": {
+        "columns": [
+          "Kind",
+          "Schedule",
+          "Duration",
+          "Applications",
+          "Namespaces",
+          "Clusters",
+          "Manual Sync"
+        ],
+        "rows": [
+          [
+            "deny",
+            "0 22 * * *",
+            "8h",
+            "*",
+            "",
+            "",
+            "Yes"
+          ]
+        ]
+      }
+    }
+  ]
+}

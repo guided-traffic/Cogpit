@@ -252,8 +252,32 @@ as built:
   (`TestSecretCreateChecksBeforeSending`, `TestSecretCreateErrorsNeverQuoteValues`).
 - **Nowhere else.** No draft (a dialog keeps none, and it opens no dock tab whose text would), no
   toast beyond "Created secrets/<namespace>/<name>", no log line.
+**Argo CD's repository and cluster Secrets (since 2026-10-13, [D-35](../developer/decisions.md#d-35-what-argo-cds-repository-and-cluster-secrets-show),
+a night decision for the owner to confirm).** Settings › Repositories and Settings › Clusters of
+the Argo CD section read the Secrets Argo CD labels `argocd.argoproj.io/secret-type`, which hold
+repository passwords, SSH and TLS keys, GitHub App keys, bearer tokens and whole cluster client
+configurations. Of each, Cogpit reads only an allowlist of configuration keys (a repository's
+`name`, `url`, `type`, `project`; a cluster's `name`, `server`, `namespaces`, `clusterResources`,
+`project`) into objects of its own kind and names the other keys without reading them; user
+information in a URL is replaced with `<redacted>`. The window and agents see the same allowlist;
+the Secret itself stays a Secret, masked in its own drawer
+([`kinds/argocd_settings.go`](../../internal/model/kinds/argocd_settings.go),
+`TestArgoSettingsNeverShowCredentials`, `TestArgoSettingsNeverReachAgents`). Where those values
+live meanwhile: [H-66](#h-66-argo-cds-credentials-are-in-cogpits-memory-while-its-settings-are-read).
 
 ## What this does not cover
+
+### H-66: Argo CD's credentials are in Cogpit's memory while its settings are read
+
+The settings views of the Argo CD section read Argo CD's labelled Secrets through a watch that
+holds them in full (D-13's covering scopes: from the Secrets view's watch while that runs, else a
+watch of their own with the label selector), so their passwords, private keys, tokens and cluster
+configurations are in Cogpit's memory while a settings view, its drawer or an agent's read uses
+them and for the cache's warm period after (five minutes), though nothing shows them. RBAC cannot
+narrow `list secrets` by label, so the verbs are the Secrets view's. Dropping the other keys'
+values in the informer's transform for these scopes would keep them out of memory; it is not built,
+because a covering scope serves the same objects to the Secrets view, whose drawer needs the
+values.
 
 ### H-4: Auth-provider token refresh
 

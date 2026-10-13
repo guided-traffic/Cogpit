@@ -1,0 +1,40 @@
+# Synthetic: an ApplicationSet whose pull request generator fails.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: previews
+  namespace: argocd
+  uid: a1a1a1a1-0008-4e9f-c0a1-000000000008
+  creationTimestamp: "2026-10-10T00:00:00Z"
+spec:
+  generators:
+  - pullRequest:
+      github:
+        owner: example
+        repo: shop
+  template:
+    metadata:
+      name: 'preview-{{number}}'
+    spec:
+      project: previews
+      sources:
+      - repoURL: https://git.example.com/shop.git
+        targetRevision: '{{head_sha}}'
+        path: deploy
+      destination:
+        name: staging
+        namespace: 'preview-{{number}}'
+status:
+  conditions:
+  - type: ErrorOccurred
+    status: "True"
+    reason: ApplicationGenerationFromParamsError
+    message: 'error listing repos: API rate limit exceeded'
+  - type: ParametersGenerated
+    status: "False"
+    reason: ErrorOccurred
+    message: 'error listing repos: API rate limit exceeded'
+  - type: ResourcesUpToDate
+    status: "False"
+    reason: ErrorOccurred
+    message: 'error listing repos: API rate limit exceeded'

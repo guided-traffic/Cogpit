@@ -1,0 +1,239 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "applications.argoproj.io",
+    "namespace": "argocd",
+    "name": "ingress"
+  },
+  "status": "warning",
+  "cells": [
+    {
+      "column": "name",
+      "text": "ingress"
+    },
+    {
+      "column": "namespace",
+      "text": "argocd",
+      "link": {
+        "kind": "namespaces",
+        "name": "argocd"
+      }
+    },
+    {
+      "column": "sync",
+      "text": "OutOfSync",
+      "status": "warning"
+    },
+    {
+      "column": "health",
+      "text": "Healthy",
+      "status": "ok"
+    },
+    {
+      "column": "project",
+      "text": "default",
+      "link": {
+        "kind": "appprojects.argoproj.io",
+        "namespace": "argocd",
+        "name": "default"
+      }
+    },
+    {
+      "column": "destination",
+      "text": "prod-eu/ingress"
+    },
+    {
+      "column": "revision",
+      "text": "4.11.2"
+    },
+    {
+      "column": "age",
+      "text": "40d",
+      "num": 1788220800
+    },
+    {
+      "column": "repository",
+      "text": "https://charts.example.com/stable"
+    },
+    {
+      "column": "targetRevision",
+      "text": "4.11.3"
+    },
+    {
+      "column": "path",
+      "text": "ingress-nginx"
+    },
+    {
+      "column": "message",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "destination": [
+      "prod-eu/ingress"
+    ],
+    "health": [
+      "Healthy"
+    ],
+    "label": [],
+    "name": [
+      "ingress"
+    ],
+    "namespace": [
+      "argocd"
+    ],
+    "path": [
+      "ingress-nginx"
+    ],
+    "project": [
+      "default"
+    ],
+    "repository": [
+      "https://charts.example.com/stable"
+    ],
+    "revision": [
+      "4.11.2"
+    ],
+    "sync": [
+      "OutOfSync"
+    ],
+    "targetRevision": [
+      "4.11.3"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Project",
+          "value": "default",
+          "link": {
+            "kind": "appprojects.argoproj.io",
+            "namespace": "argocd",
+            "name": "default"
+          }
+        },
+        {
+          "name": "Sync Status",
+          "value": "OutOfSync",
+          "status": "warning"
+        },
+        {
+          "name": "Health",
+          "value": "Healthy",
+          "status": "ok"
+        },
+        {
+          "name": "Revision",
+          "value": "4.11.2"
+        }
+      ]
+    },
+    {
+      "title": "Source",
+      "items": [
+        {
+          "name": "Repository",
+          "value": "https://charts.example.com/stable"
+        },
+        {
+          "name": "Target Revision",
+          "value": "4.11.3"
+        },
+        {
+          "name": "Chart",
+          "value": "ingress-nginx"
+        },
+        {
+          "name": "Helm Release Name",
+          "value": "ingress"
+        },
+        {
+          "name": "Helm Value Files",
+          "value": "values-prod.yaml"
+        }
+      ]
+    },
+    {
+      "title": "Destination",
+      "items": [
+        {
+          "name": "Cluster",
+          "value": "prod-eu"
+        },
+        {
+          "name": "Namespace",
+          "value": "ingress"
+        }
+      ]
+    },
+    {
+      "title": "Sync Policy",
+      "items": [
+        {
+          "name": "Automated",
+          "value": "No (manual sync)"
+        }
+      ]
+    },
+    {
+      "title": "Resources",
+      "table": {
+        "columns": [
+          "Kind",
+          "Namespace",
+          "Name",
+          "Sync",
+          "Health"
+        ],
+        "rows": [
+          [
+            "Deployment",
+            "ingress",
+            "ingress-controller",
+            "OutOfSync",
+            "Healthy"
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "Deployment"
+            },
+            {
+              "text": "ingress",
+              "link": {
+                "kind": "namespaces",
+                "name": "ingress"
+              }
+            },
+            {
+              "text": "ingress-controller",
+              "link": {
+                "kind": "deployments",
+                "namespace": "ingress",
+                "name": "ingress-controller"
+              }
+            },
+            {
+              "text": "OutOfSync",
+              "status": "warning"
+            },
+            {
+              "text": "Healthy",
+              "status": "ok"
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

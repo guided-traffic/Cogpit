@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -1459,6 +1459,51 @@ Cogpit's defaults, not the owner's decision: the page's title Flux Dashboard in 
 (the navigator reads Dashboard, as captured), three tiles a row under the navigator's sub-groups'
 headings, the table's title Not Ready, and "Every Flux object is ready." when it is empty.
 
+## D-35: What Argo CD's repository and cluster Secrets show
+
+**Night decision (the lead's, 2026-10-14, for the owner to confirm).** Argo CD keeps its
+registered repositories, credential templates and clusters as Secrets labelled
+`argocd.argoproj.io/secret-type` (`repository`, `repo-creds`, `cluster`), and Lens's Argo CD
+section shows them as Settings › Repositories (Name, Type, URL, Project, Age) and Settings ›
+Clusters (Name, Server, Age) (Lens's documentation, "Using Argo CD", read 2026-10-13; not
+captured). Those Secrets hold credentials: a repository's `password`, `username`,
+`sshPrivateKey`, `tlsClientCertData` and `tlsClientCertKey`, `githubApp*`,
+`gcpServiceAccountKey`, `bearerToken`; a cluster's `config`, its whole client configuration
+(bearer token, client key, AWS or exec settings). Options:
+
+| Option | For | Against |
+|---|---|---|
+| (a) Names only: the Secret's name, namespace and age, no value | Nothing of a Secret's data shown anywhere | Not Lens's views: no URL, type, project or server, which is what a user opens the views for |
+| **(b) An allowlist of non-credential keys, for the window and agents (chosen)** | Lens's columns; an agent can answer "which repository does this Application pull from, is it registered, in which project"; a repository URL or a cluster's API server is configuration that Applications and kubeconfigs carry in the clear anyway | A URL can carry a token as user information (`https://user:token@host`), handled below; a list to keep in step with Argo CD's keys |
+| (c) The allowlist for the window, nothing for agents | Agents see nothing of these Secrets | Agents lose what the Applications' own specs already tell them (their `repoURL`, their destination's server), for no gain in secrecy |
+
+**Chosen (b)**, because the allowed values are configuration, not credentials, and every other
+value stays where the Secrets view already keeps it (masked, revealed in the window only). The
+allowlist: repositories `name`, `url`, `type`, `project`; clusters `name`, `server`,
+`namespaces`, `clusterResources`, `project` (`kinds.ArgoRepositoryKeys`, `kinds.ArgoClusterKeys`).
+**How it is held to:** the views are virtual kinds whose objects Cogpit builds itself
+([`kinds/argocd_settings.go`](../../internal/model/kinds/argocd_settings.go), `argoDerive`): from
+each labelled Secret only the name, namespace, UID, resourceVersion, creation time, labels, the
+Secret type, the allowed keys' values (decoded, at most 2 KiB, control characters dropped) and the
+other keys' names. No annotation is copied (kubectl's last-applied annotation repeats the values),
+no other value is read, so no row, drawer, YAML, `object_get` result, search, CSV, audit line or
+log line can carry one. User information in a URL (`url`, `server`) is replaced with
+`<redacted>` (`https://<redacted>@github.com/org`), except an SSH user without a password
+(`ssh://git@host`, `git@host:org/repo`), which names no secret (`RedactURLUserinfo`). The other
+keys are listed by name ("Values Not Shown"), as the Secrets view lists key names, and a
+repository's Authentication column says which method its key names imply (SSH key, username and
+password, GitHub App, …) without reading a value. The drawer links to the Secret itself, whose
+drawer masks its values as every Secret's does. Not chosen as part of (b): parsing a cluster's
+`config` to show its authentication method or `insecure` flag (it would read the credentials to
+find the method); Cogpit shows "config" as a key name only.
+
+What stays: the cache holds these Secrets in full while a settings view, its drawer or an agent's
+read uses them, as it holds every Secret the Secrets view watches (D-13, [H-66](../security/credentials.md#h-66-argo-cds-credentials-are-in-cogpits-memory-while-its-settings-are-read)).
+Tests: `TestArgoSettingsNeverShowCredentials`, `TestArgoSettingsGolden`, `TestRedactURLUserinfo`
+(model); `TestArgoCDKindsFollowTheirDefinitions` (engine); `TestArgoSettingsNeverReachAgents`
+(commands: `object_get`, `resources_list`, `resources_find`, `view_rows`, the audit log, the
+events and the log searched for every credential in every form); on kind `TestKindArgoCD`.
+
 ## D-37: The node shell
 
 **Night decision (the lead's, 2026-10-14, for the owner to confirm):** options (a) no node shell
@@ -1531,6 +1576,7 @@ default from every origin but the GUI with `ErrNodeShellGUIOnly`, before anythin
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys to the window and agents, user information in URLs redacted, the other keys by name only |
 | 2026-10-13 | minor | D-33 and D-34 (night decisions, for the owner to confirm): the Flux actions (Reconcile, Suspend, Resume, as the flux CLI patches them, mutating, on selections too) and the Flux dashboard (the states after kstatus, counts per kind, the objects that are not ready); built (G23) |
 | 2026-10-13 | minor | D-37 and D-38 (night decisions, for the owner to confirm): the node shell as Lens's privileged pod in kube-system with nsenter, its 2-hour deadline, the pinned Alpine 3.19 default and the other defaults of the build; its image and pull secret set by the user only; both built |
 | 2026-10-13 | minor | D-19: Create Secret built (night build, G9): `secret.create` refuses agents and the CLI before anything is asked or sent; its values go base64-encoded in `data` (Cogpit's default) |

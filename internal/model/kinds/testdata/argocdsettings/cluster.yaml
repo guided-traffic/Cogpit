@@ -1,0 +1,21 @@
+# Synthetic: an Argo CD cluster Secret with a bearer token and a client certificate in its config,
+# limited to two namespaces.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster-prod-eu
+  namespace: argocd
+  uid: a2a2a2a2-0004-4e9f-c0a1-000000000004
+  resourceVersion: "104"
+  creationTimestamp: "2026-09-04T00:00:00Z"
+  labels:
+    argocd.argoproj.io/secret-type: cluster
+    env: prod
+type: Opaque
+data:
+  name: cHJvZC1ldQ==
+  server: aHR0cHM6Ly9wcm9kLWV1Lms4cy5leGFtcGxlLmNvbTo2NDQz
+  namespaces: c2hvcCxwYXltZW50cw==
+  clusterResources: ZmFsc2U=
+  project: dGVhbS1zaG9w
+  config: eyJiZWFyZXJUb2tlbiI6ImZha2UtY2x1c3Rlci1iZWFyZXItdG9rZW4iLCJ0bHNDbGllbnRDb25maWciOnsiaW5zZWN1cmUiOmZhbHNlLCJjYURhdGEiOiJabUZyWldOaCIsImNlcnREYXRhIjoiWm1GclpXTmxjblE9Iiwia2V5RGF0YSI6IlptRnJaV3RsZVE9PSJ9fQ==

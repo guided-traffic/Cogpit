@@ -1,0 +1,14 @@
+# Synthetic: an ApplicationSet the controller has not seen yet: no generators, no status.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: empty
+  namespace: argocd
+  uid: a1a1a1a1-0009-4e9f-c0a1-000000000009
+  creationTimestamp: "2026-10-11T11:00:00Z"
+spec:
+  template:
+    metadata:
+      name: x
+    spec:
+      project: default

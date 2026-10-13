@@ -1,0 +1,19 @@
+# Synthetic: an Argo CD credential template (repo-creds) for every repository under a URL prefix,
+# authenticated as a GitHub App, its URL carrying a token as user information.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: creds-github
+  namespace: argocd
+  uid: a2a2a2a2-0003-4e9f-c0a1-000000000003
+  resourceVersion: "103"
+  creationTimestamp: "2026-09-03T00:00:00Z"
+  labels:
+    argocd.argoproj.io/secret-type: repo-creds
+type: Opaque
+data:
+  url: aHR0cHM6Ly94LWFjY2Vzcy10b2tlbjpnaHNfZmFrZXRva2VuMTIzQGdpdGh1Yi5jb20vZXhhbXBsZQ==
+  type: aGVsbQ==
+  githubAppID: MTIzNDU2
+  githubAppInstallationID: NjU0MzIx
+  githubAppPrivateKey: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpmYWtlZ2l0aHViYXBwa2V5Ci0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==

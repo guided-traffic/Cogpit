@@ -1,0 +1,67 @@
+# Synthetic: a multi-source Application (a chart with values from a second Git repository), a
+# sync running, Progressing, and an application of applications among its resources.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  uid: a1a1a1a1-0005-4e9f-c0a1-000000000005
+  creationTimestamp: "2026-10-09T00:00:00Z"
+spec:
+  project: platform
+  sources:
+  - repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 65.1.0
+    helm:
+      valueFiles:
+      - $values/monitoring/values.yaml
+  - repoURL: https://git.example.com/platform/k8s-base-argo.git
+    targetRevision: main
+    ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      enabled: false
+      prune: true
+status:
+  sync:
+    status: OutOfSync
+    revisions:
+    - 65.1.0
+    - 1234567890abcdef1234567890abcdef12345678
+  health:
+    status: Progressing
+  sourceTypes:
+  - Helm
+  - Directory
+  operationState:
+    phase: Running
+    message: waiting for healthy state of apps/Deployment/grafana
+    startedAt: "2026-10-11T11:59:00Z"
+    operation:
+      initiatedBy:
+        username: cogpit
+      sync:
+        revisions:
+        - 65.1.0
+        - main
+  resources:
+  - group: argoproj.io
+    version: v1alpha1
+    kind: Application
+    namespace: argocd
+    name: grafana-dashboards
+    status: Synced
+    health:
+      status: Healthy
+  - group: apps
+    version: v1
+    kind: Deployment
+    namespace: monitoring
+    name: grafana
+    status: Synced
+    health:
+      status: Progressing

@@ -1,0 +1,15 @@
+# Synthetic: an Application the controller has not looked at yet: no status at all.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fresh
+  namespace: argocd
+  uid: a1a1a1a1-0006-4e9f-c0a1-000000000006
+  creationTimestamp: "2026-10-11T11:59:00Z"
+spec:
+  project: default
+  source:
+    repoURL: https://git.example.com/apps.git
+    path: fresh
+  destination:
+    server: https://kubernetes.default.svc

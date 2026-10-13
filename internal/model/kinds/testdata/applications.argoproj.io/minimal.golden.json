@@ -1,0 +1,141 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "applications.argoproj.io",
+    "namespace": "argocd",
+    "name": "fresh"
+  },
+  "status": "unknown",
+  "cells": [
+    {
+      "column": "name",
+      "text": "fresh"
+    },
+    {
+      "column": "namespace",
+      "text": "argocd",
+      "link": {
+        "kind": "namespaces",
+        "name": "argocd"
+      }
+    },
+    {
+      "column": "sync",
+      "text": ""
+    },
+    {
+      "column": "health",
+      "text": ""
+    },
+    {
+      "column": "project",
+      "text": "default",
+      "link": {
+        "kind": "appprojects.argoproj.io",
+        "namespace": "argocd",
+        "name": "default"
+      }
+    },
+    {
+      "column": "destination",
+      "text": "in-cluster"
+    },
+    {
+      "column": "revision",
+      "text": ""
+    },
+    {
+      "column": "age",
+      "text": "1m",
+      "num": 1791719940
+    },
+    {
+      "column": "repository",
+      "text": "https://git.example.com/apps.git"
+    },
+    {
+      "column": "targetRevision",
+      "text": ""
+    },
+    {
+      "column": "path",
+      "text": "fresh"
+    },
+    {
+      "column": "message",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "destination": [
+      "in-cluster"
+    ],
+    "health": [],
+    "label": [],
+    "name": [
+      "fresh"
+    ],
+    "namespace": [
+      "argocd"
+    ],
+    "path": [
+      "fresh"
+    ],
+    "project": [
+      "default"
+    ],
+    "repository": [
+      "https://git.example.com/apps.git"
+    ],
+    "revision": [],
+    "sync": [],
+    "targetRevision": []
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Project",
+          "value": "default",
+          "link": {
+            "kind": "appprojects.argoproj.io",
+            "namespace": "argocd",
+            "name": "default"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Source",
+      "items": [
+        {
+          "name": "Repository",
+          "value": "https://git.example.com/apps.git"
+        },
+        {
+          "name": "Path",
+          "value": "fresh"
+        }
+      ]
+    },
+    {
+      "title": "Destination",
+      "items": [
+        {
+          "name": "Server",
+          "value": "https://kubernetes.default.svc"
+        }
+      ]
+    },
+    {
+      "title": "Sync Policy",
+      "items": [
+        {
+          "name": "Automated",
+          "value": "No (manual sync)"
+        }
+      ]
+    }
+  ]
+}

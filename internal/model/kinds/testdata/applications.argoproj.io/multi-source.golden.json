@@ -1,0 +1,316 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "applications.argoproj.io",
+    "namespace": "argocd",
+    "name": "monitoring"
+  },
+  "status": "pending",
+  "cells": [
+    {
+      "column": "name",
+      "text": "monitoring"
+    },
+    {
+      "column": "namespace",
+      "text": "argocd",
+      "link": {
+        "kind": "namespaces",
+        "name": "argocd"
+      }
+    },
+    {
+      "column": "sync",
+      "text": "OutOfSync",
+      "status": "warning"
+    },
+    {
+      "column": "health",
+      "text": "Progressing",
+      "status": "pending"
+    },
+    {
+      "column": "project",
+      "text": "platform",
+      "link": {
+        "kind": "appprojects.argoproj.io",
+        "namespace": "argocd",
+        "name": "platform"
+      }
+    },
+    {
+      "column": "destination",
+      "text": "in-cluster/monitoring"
+    },
+    {
+      "column": "revision",
+      "text": "65.1.0, 1234567"
+    },
+    {
+      "column": "age",
+      "text": "2d",
+      "num": 1791504000
+    },
+    {
+      "column": "repository",
+      "text": "https://prometheus-community.github.io/helm-charts, https://git.example.com/platform/k8s-base-argo.git"
+    },
+    {
+      "column": "targetRevision",
+      "text": "65.1.0, main"
+    },
+    {
+      "column": "path",
+      "text": "kube-prometheus-stack"
+    },
+    {
+      "column": "message",
+      "text": "waiting for healthy state of apps/Deployment/grafana"
+    }
+  ],
+  "fields": {
+    "destination": [
+      "in-cluster/monitoring"
+    ],
+    "health": [
+      "Progressing"
+    ],
+    "label": [],
+    "name": [
+      "monitoring"
+    ],
+    "namespace": [
+      "argocd"
+    ],
+    "path": [
+      "kube-prometheus-stack"
+    ],
+    "project": [
+      "platform"
+    ],
+    "repository": [
+      "https://prometheus-community.github.io/helm-charts",
+      "https://git.example.com/platform/k8s-base-argo.git"
+    ],
+    "revision": [
+      "65.1.0",
+      "1234567890abcdef1234567890abcdef12345678"
+    ],
+    "sync": [
+      "OutOfSync"
+    ],
+    "targetRevision": [
+      "65.1.0",
+      "main"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Project",
+          "value": "platform",
+          "link": {
+            "kind": "appprojects.argoproj.io",
+            "namespace": "argocd",
+            "name": "platform"
+          }
+        },
+        {
+          "name": "Sync Status",
+          "value": "OutOfSync",
+          "status": "warning"
+        },
+        {
+          "name": "Health",
+          "value": "Progressing",
+          "status": "pending"
+        },
+        {
+          "name": "Revision",
+          "value": "65.1.0\n1234567890abcdef1234567890abcdef12345678"
+        },
+        {
+          "name": "Source Type",
+          "value": "Helm, Directory"
+        }
+      ]
+    },
+    {
+      "title": "Source 1",
+      "items": [
+        {
+          "name": "Repository",
+          "value": "https://prometheus-community.github.io/helm-charts"
+        },
+        {
+          "name": "Target Revision",
+          "value": "65.1.0"
+        },
+        {
+          "name": "Chart",
+          "value": "kube-prometheus-stack"
+        },
+        {
+          "name": "Helm Value Files",
+          "value": "$values/monitoring/values.yaml"
+        }
+      ]
+    },
+    {
+      "title": "Source 2",
+      "items": [
+        {
+          "name": "Repository",
+          "value": "https://git.example.com/platform/k8s-base-argo.git"
+        },
+        {
+          "name": "Target Revision",
+          "value": "main"
+        },
+        {
+          "name": "Ref",
+          "value": "values"
+        }
+      ]
+    },
+    {
+      "title": "Destination",
+      "items": [
+        {
+          "name": "Server",
+          "value": "https://kubernetes.default.svc"
+        },
+        {
+          "name": "Namespace",
+          "value": "monitoring"
+        }
+      ]
+    },
+    {
+      "title": "Sync Policy",
+      "items": [
+        {
+          "name": "Automated",
+          "value": "No (manual sync)"
+        }
+      ]
+    },
+    {
+      "title": "Operation",
+      "items": [
+        {
+          "name": "Phase",
+          "value": "Running",
+          "status": "pending"
+        },
+        {
+          "name": "Message",
+          "value": "waiting for healthy state of apps/Deployment/grafana"
+        },
+        {
+          "name": "Initiated By",
+          "value": "cogpit"
+        },
+        {
+          "name": "Started",
+          "value": "2026-10-11 11:59:00"
+        }
+      ]
+    },
+    {
+      "title": "Resources",
+      "table": {
+        "columns": [
+          "Kind",
+          "Namespace",
+          "Name",
+          "Sync",
+          "Health"
+        ],
+        "rows": [
+          [
+            "Application",
+            "argocd",
+            "grafana-dashboards",
+            "Synced",
+            "Healthy"
+          ],
+          [
+            "Deployment",
+            "monitoring",
+            "grafana",
+            "Synced",
+            "Progressing"
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "Application"
+            },
+            {
+              "text": "argocd",
+              "link": {
+                "kind": "namespaces",
+                "name": "argocd"
+              }
+            },
+            {
+              "text": "grafana-dashboards",
+              "link": {
+                "kind": "applications.argoproj.io",
+                "namespace": "argocd",
+                "name": "grafana-dashboards"
+              }
+            },
+            {
+              "text": "Synced",
+              "status": "ok"
+            },
+            {
+              "text": "Healthy",
+              "status": "ok"
+            }
+          ],
+          [
+            {
+              "text": "Deployment"
+            },
+            {
+              "text": "monitoring",
+              "link": {
+                "kind": "namespaces",
+                "name": "monitoring"
+              }
+            },
+            {
+              "text": "grafana",
+              "link": {
+                "kind": "deployments",
+                "namespace": "monitoring",
+                "name": "grafana"
+              }
+            },
+            {
+              "text": "Synced",
+              "status": "ok"
+            },
+            {
+              "text": "Progressing",
+              "status": "pending"
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

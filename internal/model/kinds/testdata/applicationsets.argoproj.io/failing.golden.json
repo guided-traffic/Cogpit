@@ -1,0 +1,125 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "applicationsets.argoproj.io",
+    "namespace": "argocd",
+    "name": "previews"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "previews"
+    },
+    {
+      "column": "namespace",
+      "text": "argocd",
+      "link": {
+        "kind": "namespaces",
+        "name": "argocd"
+      }
+    },
+    {
+      "column": "generators",
+      "text": "pullRequest"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791590400
+    },
+    {
+      "column": "project",
+      "text": "previews",
+      "link": {
+        "kind": "appprojects.argoproj.io",
+        "namespace": "argocd",
+        "name": "previews"
+      }
+    },
+    {
+      "column": "applications",
+      "text": "-"
+    },
+    {
+      "column": "status",
+      "text": "ErrorOccurred",
+      "status": "error"
+    }
+  ],
+  "fields": {
+    "generators": [
+      "pullRequest"
+    ],
+    "label": [],
+    "name": [
+      "previews"
+    ],
+    "namespace": [
+      "argocd"
+    ],
+    "project": [
+      "previews"
+    ],
+    "status": [
+      "ErrorOccurred"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "ErrorOccurred",
+          "status": "error"
+        },
+        {
+          "name": "Project",
+          "value": "previews",
+          "link": {
+            "kind": "appprojects.argoproj.io",
+            "namespace": "argocd",
+            "name": "previews"
+          }
+        },
+        {
+          "name": "Generators",
+          "value": "pullRequest"
+        },
+        {
+          "name": "Application Name",
+          "value": "preview-{{number}}"
+        },
+        {
+          "name": "Repository",
+          "value": "https://git.example.com/shop.git"
+        },
+        {
+          "name": "Destination",
+          "value": "staging/preview-{{number}}"
+        }
+      ]
+    },
+    {
+      "title": "Conditions",
+      "items": [
+        {
+          "name": "ErrorOccurred",
+          "value": "True (ApplicationGenerationFromParamsError): error listing repos: API rate limit exceeded",
+          "status": "error"
+        },
+        {
+          "name": "ParametersGenerated",
+          "value": "False (ErrorOccurred): error listing repos: API rate limit exceeded",
+          "status": "error"
+        },
+        {
+          "name": "ResourcesUpToDate",
+          "value": "False (ErrorOccurred): error listing repos: API rate limit exceeded",
+          "status": "warning"
+        }
+      ]
+    }
+  ]
+}

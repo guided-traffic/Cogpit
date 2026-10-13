@@ -1,0 +1,54 @@
+# Synthetic: an AppProject with its repositories, destinations, allow and deny lists, a role and
+# a sync window.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: team-shop
+  namespace: argocd
+  uid: a1a1a1a1-0010-4e9f-c0a1-000000000010
+  creationTimestamp: "2026-06-01T00:00:00Z"
+spec:
+  description: |-
+    The shop team's applications:
+    storefront, checkout and their jobs
+  sourceRepos:
+  - https://git.example.com/platform/k8s-base-argo.git
+  - https://charts.example.com/stable
+  sourceNamespaces:
+  - shop-apps
+  destinations:
+  - server: https://kubernetes.default.svc
+    namespace: shop
+  - name: prod-eu
+    namespace: shop-*
+  clusterResourceWhitelist:
+  - group: ""
+    kind: Namespace
+  namespaceResourceBlacklist:
+  - group: ""
+    kind: ResourceQuota
+  orphanedResources:
+    warn: true
+  roles:
+  - name: ci
+    description: CI pipelines sync
+    policies:
+    - p, proj:team-shop:ci, applications, sync, team-shop/*, allow
+    groups:
+    - shop-ci
+    jwtTokens:
+    - iat: 1700000000
+      id: 0f1e2d3c
+  syncWindows:
+  - kind: deny
+    schedule: 0 22 * * *
+    duration: 8h
+    applications:
+    - '*'
+    manualSync: true
+status:
+  jwtTokensByRole:
+    ci:
+      items:
+      - iat: 1700000000
+        id: 0f1e2d3c
