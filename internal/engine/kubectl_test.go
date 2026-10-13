@@ -280,3 +280,27 @@ func TestKubectlPreferences(t *testing.T) {
 		t.Errorf("an older file: %+v", p)
 	}
 }
+
+// TestDownloadKubectlThroughTheProxy: the download goes through the Preferences' HTTP proxy for
+// non-cluster traffic, as the Helm repositories' downloads do.
+func TestDownloadKubectlThroughTheProxy(t *testing.T) {
+	rel := testkit.NewKubectlReleases(t)
+	rel.Publish(t, "1.36.1", runtime.GOOS, runtime.GOARCH, []byte(testkit.FakeKubectl("v1.36.1")))
+	proxy := testkit.NewForwardProxy(t, "bob", "pw-of-the-proxy")
+	s, _ := kubectlSession(t, writeFakeKubectl(t, t.TempDir(), "v1.30.2"), rel)
+	if _, err := s.ChangePreferences(func(p *Preferences) error {
+		p.HTTPProxy = proxy.URLWithUser("bob", "pw-of-the-proxy").String()
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	openTerminalTab(t, s, "terminal-1")
+	if _, err := s.DownloadKubectl(context.Background(), "terminal-1"); err != nil {
+		t.Fatalf("through the proxy: %v", err)
+	}
+	host := strings.TrimPrefix(rel.Mirror(), "https://")
+	host = host[:strings.Index(host, "/")]
+	if n := proxy.Connects()[host]; n == 0 {
+		t.Errorf("tunnels %v, none to %s", proxy.Connects(), host)
+	}
+}

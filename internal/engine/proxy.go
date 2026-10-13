@@ -16,7 +16,7 @@ import (
 // Proxies (G13; ui-parity › Cluster settings › Proxy and Preferences › HTTP proxy for non-cluster
 // traffic): an HTTP(S) or SOCKS5 proxy for one cluster's API traffic (ClusterSettings.Proxy, applied
 // through rest.Config.Proxy at the next connect, connector.go and internal/cluster), and one for
-// the traffic that is no cluster's (Preferences.HTTPProxy: the Helm repositories' downloads). Both
+// the traffic that is no cluster's (Preferences.HTTPProxy: the Helm repositories' downloads and kubectl's). Both
 // are kept in Cogpit's own files, never in a kubeconfig; a cluster's replaces its kubeconfig's
 // proxy-url for Cogpit only (Cogpit's reading, inferred: Lens's precedence is not captured).
 //
@@ -210,7 +210,7 @@ func (s *Session) proxyLogLine(context string) string {
 }
 
 // NonClusterProxy picks the proxy of a request that goes to no cluster (a Helm repository's index
-// or chart): the Preferences' HTTP proxy, else the environment's (HTTPS_PROXY, NO_PROXY), as
+// or chart, a kubectl download, kubectl.go): the Preferences' HTTP proxy, else the environment's (HTTPS_PROXY, NO_PROXY), as
 // before the preference existed. Its signature is http.Transport.Proxy's; the preference is read
 // for every request, so a change applies to the next download.
 func (s *Session) NonClusterProxy(req *http.Request) (*url.URL, error) {

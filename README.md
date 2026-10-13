@@ -267,7 +267,8 @@ Security note: the last three decide which program your terminals run as `kubect
 Cogpit's window, can set them, and only you can start a download; agents and `cogpit-cli` are
 refused. A mirror needs no trust of its own: every download is checked against the Kubernetes
 release's sigstore signature (its certificate chained to sigstore's authority, which Cogpit embeds,
-for the release's identity), and refused when the mirror serves no `.sig` or `.cert`. sigstore's
+for the release's identity), and refused when the mirror serves no `.sig` or `.cert`. The download
+goes through the HTTP proxy for non-cluster traffic (`httpProxy`, Preferences › Proxy) when one is set. sigstore's
 transparency log is not consulted ([H-35](docs/security/trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log)).
 
 ### Commands and MCP tools

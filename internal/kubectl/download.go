@@ -43,6 +43,10 @@ type Downloader struct {
 	// Client makes the requests; nil: one that takes the proxy from the environment
 	// (HTTPS_PROXY). Redirects are followed to https URLs only, whatever the client says.
 	Client *http.Client
+	// Proxy, when set, picks the proxy of each request in place of the client's transport's, as
+	// http.Transport.Proxy does (the engine passes the Preferences' HTTP proxy for non-cluster
+	// traffic, else the environment's).
+	Proxy func(*http.Request) (*url.URL, error)
 	// Verifier checks the signature; nil: DefaultVerifier.
 	Verifier *Verifier
 	// GOOS and GOARCH name the release's platform; empty: this process's.
@@ -226,6 +230,15 @@ func (d *Downloader) client() *http.Client {
 	} else {
 		tr := http.DefaultTransport.(*http.Transport).Clone() // the proxy from the environment
 		tr.ResponseHeaderTimeout = 30 * time.Second
+		c.Transport = tr
+	}
+	if d.Proxy != nil {
+		tr, ok := c.Transport.(*http.Transport)
+		if !ok || tr == nil {
+			tr = http.DefaultTransport.(*http.Transport)
+		}
+		tr = tr.Clone()
+		tr.Proxy = d.Proxy
 		c.Transport = tr
 	}
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {

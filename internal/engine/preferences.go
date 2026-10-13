@@ -89,7 +89,8 @@ type Preferences struct {
 	TerminalShell     string   `json:"terminalShell,omitempty"`
 	TerminalShellArgs []string `json:"terminalShellArgs,omitempty"`
 	// HTTPProxy is the proxy of the traffic that is no cluster's (Lens's "HTTP proxy for
-	// non-cluster traffic"): the Helm repositories' indexes and charts (proxy.go). Empty: the
+	// non-cluster traffic"): the Helm repositories' indexes and charts and the kubectl downloads
+	// (proxy.go, kubectl.go). Empty: the
 	// environment's HTTPS_PROXY, as before. It may carry a password: the UI state and the
 	// commands' results show it redacted, only the preferences file keeps it as typed.
 	HTTPProxy string `json:"httpProxy,omitempty"`

@@ -353,7 +353,11 @@ func (s *Session) DownloadKubectl(ctx context.Context, tabID string) (string, er
 			s.setKubectlDownload(version, KubectlDownload{State: KubectlRunning, Done: done, Total: total})
 		}
 	}
-	run.path, run.err = k.downloader(p.KubectlMirror).Download(dctx, v, dir, progress)
+	d := k.downloader(p.KubectlMirror)
+	if d.Proxy == nil {
+		d.Proxy = s.NonClusterProxy // the Preferences' HTTP proxy, else the environment's (proxy.go)
+	}
+	run.path, run.err = d.Download(dctx, v, dir, progress)
 	if run.err != nil {
 		s.log.Warn("kubectl download failed", "version", version, "err", run.err)
 		s.setKubectlDownload(version, KubectlDownload{State: KubectlFailed, Error: safeLine(run.err.Error())})

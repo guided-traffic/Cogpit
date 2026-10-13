@@ -967,7 +967,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   ([H-34](../security/trust-boundaries.md#h-34-the-plugin-approval-shows-the-kubeconfigs-proxy-not-cogpits)).
 - **Built 2026-10-13 (night run): the HTTP proxy for non-cluster traffic** (Preferences › Proxy,
   [architecture §8](../developer/architecture.md#8-helm-internalhelm)): the Helm repositories'
-  downloads, the only traffic to anything but a cluster or this machine today, go through it, else
+  downloads, and since the kubectl download of the same night (D-3) that one too, go through it, else
   through the environment's `HTTPS_PROXY` as before; same redaction and the same rule that only the
   user sets it (`TestDownloadsGoThroughTheProxy`, `TestNonClusterProxyCarriesHelmDownloads`). **Held
   back (the lead's default, a question for the owner):** "Allow untrusted certificate authorities for
@@ -977,7 +977,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   Lens offers Google or Azure), the directory for binaries and the path to kubectl, the last three
   GUI-only ([`kubectloffer_prefs.go`](../../internal/ui/fyneui/kubectloffer_prefs.go);
   `TestKubectlPreferencesFields`, `TestKubectlPreferencesAreTheUsers`); the Preferences row partial
-  (a free row from missing: the lead recounts). The terminal's check and download are G8's.
+  (a free row from missing: the lead recounts). The terminal's check and download are G8's; the
+  download goes through the HTTP proxy for non-cluster traffic too.
 - **Missing:** kubeconfig syncs (alpha needs these; pasting is not a target, D-21), dragging on the
   hotbar, the shortcuts of features that do not exist yet (Ask AI; the tabs' five built 2026-10-13), the
   Preferences that are not built (untrusted certificate authorities, held back as a question for the owner,

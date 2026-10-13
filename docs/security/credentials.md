@@ -67,7 +67,7 @@ Cogpit adds no cluster credential source of its own: no account, no login, no cl
   `<user cache dir>/Cogpit/helm/` (0600). A repository that needs a login is
   [H-29](#h-29-authenticated-helm-repositories).
 - **A proxy's user and password** (built 2026-10-13, G13): a cluster's proxy (Cluster Settings ›
-  Proxy) and the proxy of the Helm repositories' downloads (Preferences › Proxy) may each be
+  Proxy) and the proxy of the Helm repositories' and kubectl's downloads (Preferences › Proxy) may each be
   `http://user:password@host:port`, as Lens's fields allow. Cogpit keeps each as typed in one place
   only, `<user config dir>/Cogpit/cluster-settings.json` and `preferences.json` (0600 in a 0700
   directory, replaced atomically), and hands it to the HTTP client that uses it (client-go's

@@ -2430,8 +2430,9 @@ offers the matching release, verified, on one click. As built:
    first, the signature over the published digest checked before the binary is fetched, the binary's
    digest compared, 0755, atomic rename; [trust boundaries](../security/trust-boundaries.md#boundaries-and-required-checks)).
    One download per release and directory at a time; every tab that offers the release shows its
-   progress (at most five updates a second) and its outcome. The client takes the proxy from the
-   environment (`HTTPS_PROXY`).
+   progress (at most five updates a second) and its outcome. The download goes
+   through the Preferences' HTTP proxy for non-cluster traffic, else the environment's
+   (`Session.NonClusterProxy`, `kubectl.Downloader.Proxy`; `TestDownloadKubectlThroughTheProxy`).
 3. **`PATH`** (`terminal.LocalOptions.Kubectl`, [`terminal/kubectl.go`](../../internal/terminal/kubectl.go)):
    the terminal gets a temporary directory of its own with a link named `kubectl` to the chosen
    binary, first on `PATH` in the shell's environment; for zsh also a `ZDOTDIR` of Cogpit's whose
