@@ -163,3 +163,95 @@ func TestTargetReadsFollowARefusedClusterWideList(t *testing.T) {
 		t.Errorf("deployment calls %v: the view tried all namespaces again", calls)
 	}
 }
+
+// An agent's read of one object (object_get, cogpit-cli get: DetailWait) reads the object's own
+// namespace, and its events there, as Session.Object does. The user may read pods, deployments and
+// events in shop alone, and the namespaces the plan names (the context's own, default) miss it:
+// before, the read took the plan's namespaces and said the object was missing. Nothing is read in
+// all namespaces, and no other namespace.
+func TestDetailWaitReadsTheObjectsNamespace(t *testing.T) {
+	src, rev := shopOnly(t)
+	src.GVRs = append(src.GVRs, testkit.EventsGVR)
+	src.Inner.Set(testkit.EventsGVR, event("shop", "e1", "Pod", "web-1-a", "", "Started", "Normal", time.Now()))
+	rev.set(func(f *fakeReviewer) { f.rules["shop"] = append(f.rules["shop"], rule("get,list,watch", "", "events")) })
+	s := shopSession(t, src, rev, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	m, err := s.DetailWait(ctx, model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-1-a"})
+	if err != nil || m.Missing || m.Loading {
+		t.Fatalf("DetailWait: %+v, %v (pod calls %v)", m, err, podCalls(src))
+	}
+	if len(m.Events) != 1 || m.Events[0].Reason != "Started" {
+		t.Errorf("events %+v", m.Events)
+	}
+	m, err = s.DetailWait(ctx, model.ObjectRef{Kind: "deployments", Namespace: "shop", Name: "web"})
+	if err != nil || m.Missing || m.Loading {
+		t.Fatalf("DetailWait of the Deployment: %+v, %v", m, err)
+	}
+	for _, res := range []string{"pods", "deployments", "events"} {
+		for k, n := range callsOf(src, res) {
+			if n > 0 && !strings.HasSuffix(k, " in shop") {
+				t.Errorf("%s read outside shop: %v", res, callsOf(src, res))
+			}
+		}
+	}
+	if calls := callsOf(src, "events"); calls["list events in shop"] != 1 {
+		t.Errorf("event calls %v: want shop's list once", calls)
+	}
+}
+
+// The GUI's drawer reads its object's namespace too: the user may read pods in shop alone and the
+// plan names default, so the drawer, which read the plan's namespaces, showed the pod as missing.
+// A change of the namespace filter that leaves shop read as it was does not start it again.
+func TestDrawerReadsTheObjectsNamespace(t *testing.T) {
+	src, rev := shopOnly(t)
+	s := shopSession(t, src, rev, nil)
+	ref := model.ObjectRef{Context: "test", Kind: "pods", Namespace: "shop", Name: "web-1-a"}
+	waitTable(t, s, "pods", func(ts *TableSnapshot) bool { return ts.Synced && slices.Equal(ts.Denied, []string{"default"}) })
+	s.UpdateUI(func(u *UIState) { u.Drawer = &ref })
+	var m *DetailModel
+	waitCond(t, "the drawer's pod", func() bool {
+		var err error
+		m, err = s.Detail(ref)
+		return err == nil && !m.Loading && !m.Missing
+	})
+	if m.Title != "Pod: web-1-a" {
+		t.Errorf("title %q", m.Title)
+	}
+	d := s.state.drawer
+	s.UpdateUI(func(u *UIState) { u.Namespaces = []string{"shop"} })
+	waitTable(t, s, "pods", func(ts *TableSnapshot) bool { return ts.Synced && slices.Equal(ts.Watched, []string{"shop"}) })
+	s.state.mu.Lock()
+	same := s.state.drawer == d
+	s.state.mu.Unlock()
+	if !same {
+		t.Error("a filter change started the drawer again")
+	}
+	for k, n := range podCalls(src) {
+		if n > 0 && !strings.HasSuffix(k, " in shop") {
+			t.Errorf("pods read outside shop: %v", podCalls(src))
+		}
+	}
+}
+
+// The same read for a user whose RoleBinding is in the context's namespace alone: the read in all
+// namespaces that the plan tries is refused once, and the read takes the object's namespace at
+// once instead of waiting 15 seconds and saying the kind is still loading.
+func TestDetailWaitFollowsARefusal(t *testing.T) {
+	src, rev := contextOnly(t)
+	s := contextOnlySession(t, src, rev, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	start := time.Now()
+	m, err := s.DetailWait(ctx, model.ObjectRef{Kind: "deployments", Namespace: "team-a", Name: "web"})
+	if err != nil || m.Missing || m.Loading {
+		t.Fatalf("DetailWait: %+v, %v (calls %v)", m, err, callsOf(src, "deployments"))
+	}
+	if d := time.Since(start); d > 8*time.Second {
+		t.Errorf("DetailWait took %s", d)
+	}
+	if calls := callsOf(src, "deployments"); calls["list deployments.apps"] != 1 || calls["list deployments.apps in team-a"] != 1 {
+		t.Errorf("deployment calls %v: want one refused list in all namespaces, then team-a's", calls)
+	}
+}

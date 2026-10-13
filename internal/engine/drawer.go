@@ -53,9 +53,13 @@ type drawerWatch struct {
 }
 
 func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.ObjectRef, hidden MetricSet) *drawerWatch {
+	ns := ref.Namespace
+	if !p.Namespaced {
+		ns = ""
+	}
 	d := &drawerWatch{
 		backend: b, ref: ref, profile: p,
-		obj:  b.Acquire(p),
+		obj:  b.acquireNow(p, ns), // in all namespaces, or the object's alone (accessiblens_follow.go)
 		wake: make(chan struct{}, 1),
 		quit: make(chan struct{}),
 		// The hidden metrics as the drawer opens: its poll starts only for what shows.
@@ -70,7 +74,7 @@ func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.O
 		}
 	}))
 	if ep, ok := b.Profile(eventsKind); ok && p.APIObject() { // no event involves a virtual or local kind's object
-		d.events = b.Acquire(ep)
+		d.events = b.acquireNow(ep, ns)
 		d.unsubs = append(d.unsubs, d.events.Subscribe(func(ev cache.Event) {
 			if d.involves(ev.Object) {
 				signal(d.wake)
@@ -79,7 +83,7 @@ func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.O
 	}
 	// Woken only by changes to the keys the drawer's model looked up (a node's pods, not every
 	// pod); Detail reads through this set while the drawer shows ref (drawerRelated).
-	d.related = newRelatedSetTracking(b, p.Needs, func() { signal(d.wake) }, true)
+	d.related = newRelatedSetWith(b, p.Needs, func() { signal(d.wake) }, true, func(rp *model.KindProfile) *cache.Handle { return b.acquireNow(rp, ns) })
 	d.followHidden(s, hidden)
 	objSynced, evSynced := d.synced()
 	poll := func() bool {
@@ -176,27 +180,14 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 	if err != nil {
 		return nil, err
 	}
-	h := b.acquireFor(ctx, p, wait) // an agent's read waits for the kind's plan (accessiblens_plan.go)
+	// The object's namespace for an agent's read, once the kind's plan is decided, following a
+	// refusal in all namespaces; the GUI's as its drawer reads (accessiblens_follow.go).
+	h, evh, rs := s.detailReads(ctx, b, p, ref, wait)
 	defer h.Release()
-	var evh *cache.Handle
-	if ep, ok := b.Profile(eventsKind); ok && p.APIObject() {
-		evh = b.acquireFor(ctx, ep, wait)
+	if evh != nil {
 		defer evh.Release()
 	}
-	rs := s.drawerRelated(b, p, ref)
-	if rs == nil {
-		rs = newRelatedSet(b, p.Needs, nil)
-	}
 	defer rs.release()
-	if wait {
-		wctx, cancel := context.WithTimeout(ctx, syncTimeout)
-		defer cancel()
-		h.WaitForSync(wctx)
-		if evh != nil {
-			evh.WaitForSync(wctx)
-		}
-		rs.waitSynced(wctx)
-	}
 
 	obj, ok := KindGet(h, p, ref.Namespace, ref.Name)
 	if !ok {

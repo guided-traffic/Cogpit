@@ -83,8 +83,18 @@ func newRelatedSet(b *Backend, needs []model.RelatedIndex, onChange func()) *rel
 // newRelatedSetTracking is newRelatedSet whose onChange runs, with track, only for the changes of
 // the keys looked up through the set.
 func newRelatedSetTracking(b *Backend, needs []model.RelatedIndex, onChange func(), track bool) *relatedSet {
+	return newRelatedSetWith(b, needs, onChange, track, nil)
+}
+
+// newRelatedSetWith is newRelatedSetTracking whose handles come from acquire (nil: Backend.Acquire):
+// a drawer reads a namespaced object's related objects in its namespace for a user who may not
+// list them everywhere (accessiblens_follow.go).
+func newRelatedSetWith(b *Backend, needs []model.RelatedIndex, onChange func(), track bool, acquire func(*model.KindProfile) *cache.Handle) *relatedSet {
 	if len(needs) == 0 {
 		return nil
+	}
+	if acquire == nil {
+		acquire = b.Acquire
 	}
 	r := &relatedSet{
 		needs: needs, profiles: map[string]*model.KindProfile{}, handles: map[string]*cache.Handle{},
@@ -99,7 +109,7 @@ func newRelatedSetTracking(b *Backend, needs []model.RelatedIndex, onChange func
 		if !ok {
 			continue
 		}
-		h := b.Acquire(p)
+		h := acquire(p)
 		kind, derived := ix.Kind, p.Derive != nil // the callback reads no map this loop still fills
 		r.profiles[kind], r.handles[kind] = p, h
 		r.unsubs = append(r.unsubs, h.Subscribe(func(ev cache.Event) {

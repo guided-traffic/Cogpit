@@ -119,7 +119,7 @@ func (st *state) reconcileLocked(now UIState) {
 	var drawerPlan string
 	if b != nil && now.Drawer != nil {
 		drawerProf, _ = b.Profile(now.Drawer.Kind)
-		drawerPlan = b.drawerPlanKey(drawerProf)
+		drawerPlan = b.drawerPlanKey(drawerProf, now.Drawer.Namespace)
 	}
 	if st.drawer != nil && (now.Drawer == nil || st.drawer.backend != b || st.drawer.ref != *now.Drawer || st.drawer.profile != drawerProf ||
 		st.drawer.planKey != drawerPlan) {

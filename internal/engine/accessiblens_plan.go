@@ -375,109 +375,6 @@ func (b *Backend) acquireIn(ctx context.Context, p *model.KindProfile, namespace
 	return b.acquirePlanned(p, plan)
 }
 
-// readFollowing acquires a kind's objects for a read that waits for them (acquire: acquireIn for
-// one namespace's objects, acquireSettled for a list) and waits, bounded by ctx and syncTimeout,
-// for their initial list. A read in all namespaces that the API server refuses (the plan's, when
-// the reviews allowed the kind there or could not tell: a RoleBinding in the context's own
-// namespace alone) is followed as a view follows it (followRefusal): the refusal is kept and the
-// read is taken again, now namespace by namespace (the target's namespace alone for acquireIn), at
-// once instead of after the wait. Before (2026-10-13) such a read waited 15 seconds for a list
-// that never came and failed. label names the kind in the error of a list that never finished.
-func (s *Session) readFollowing(ctx context.Context, b *Backend, p *model.KindProfile, label string, acquire func(context.Context) *cache.Handle) (*cache.Handle, error) {
-	h := acquire(ctx)
-	wctx, cancel := context.WithTimeout(ctx, syncTimeout)
-	defer cancel()
-	if readsAllNamespaces(p, h) && waitRefused(wctx, h) {
-		h.Release()
-		s.followRefused(b, p)
-		h = acquire(wctx)
-	}
-	if err := waitSynced(wctx, h, label); err != nil {
-		h.Release()
-		return nil, err
-	}
-	return h, nil
-}
-
-// inNamespace is acquireIn for readFollowing: a kind's objects in one namespace.
-func (b *Backend) inNamespace(p *model.KindProfile, namespace string) func(context.Context) *cache.Handle {
-	return func(ctx context.Context) *cache.Handle { return b.acquireIn(ctx, p, namespace) }
-}
-
-// readsAllNamespaces reports whether a handle on a namespaced kind of the cluster reads it in all
-// namespaces: one that a refusal there would leave without objects.
-func readsAllNamespaces(p *model.KindProfile, h *cache.Handle) bool {
-	return p.Namespaced && !p.Local && !isApplications(p) && !isHelmReleases(p) &&
-		h.Namespaces() == nil && h.Scope().Namespace == ""
-}
-
-// waitRefused waits, bounded by ctx, until a handle has synced (false) or the API server refused
-// its list or watch (true).
-func waitRefused(ctx context.Context, h *cache.Handle) bool {
-	t := time.NewTicker(10 * time.Millisecond)
-	defer t.Stop()
-	for {
-		switch {
-		case h.HasSynced():
-			return false
-		case cache.IsRefused(h.Err()):
-			return true
-		}
-		select {
-		case <-ctx.Done():
-			return false
-		case <-t.C:
-		}
-	}
-}
-
-// followRefused keeps that the API server refused to list a kind in all namespaces and, when that
-// is news, has what is open (views, pages, the drawer) read it again namespace by namespace.
-func (s *Session) followRefused(b *Backend, p *model.KindProfile) {
-	if b.noteRefused(p) {
-		b.ns.wakeReplan()
-	}
-}
-
-// attachRefusals makes every refused read of a namespaced kind in all namespaces count, whoever
-// sent it: a view, a page, the drawer, a related-objects index, an agent's read, the lookup of
-// Prometheus's Services. Before (2026-10-13) only a view's own refusal counted, and a page or an
-// index whose kind no view had opened kept a cluster-wide watch the server refused, retried for as
-// long as it was open. The cache tells of each refused list or watch (cache.OnRefused) on an
-// informer's goroutine; the replan runs on a loop of the session's, which the backend's close
-// ends. A scope in one namespace and a cluster-scoped or local kind are left alone. Connect calls
-// it before the backend is published.
-func (s *Session) attachRefusals(b *Backend) {
-	if b == nil || b.Cache == nil {
-		return
-	}
-	wake, quit := make(chan struct{}, 1), make(chan struct{})
-	b.ns.mu.Lock()
-	b.ns.replan, b.ns.quit = wake, quit
-	b.ns.mu.Unlock()
-	s.goSafe("namespace plan", func() {
-		for {
-			select {
-			case <-quit:
-				return
-			case <-wake:
-				s.state.replan(b)
-			}
-		}
-	})
-	b.Cache.OnRefused(func(sc cache.Scope) {
-		if sc.Namespace != "" {
-			return
-		}
-		for _, p := range b.AllProfiles() {
-			if p.GVR() == sc.GVR && p.Namespaced && !p.Local {
-				s.followRefused(b, p)
-				return
-			}
-		}
-	})
-}
-
 // refusedIn is the API server's refusal of a handle's namespace that acquireIn read (403
 // Forbidden: the user may not list the kind there either), or nil. A merged handle counts as
 // synced once its namespace was refused, so a reader would see no objects instead of the reason.
@@ -486,14 +383,6 @@ func refusedIn(h *cache.Handle, kind string) error {
 		return fmt.Errorf("%s: %w", kind, err)
 	}
 	return nil
-}
-
-// acquireFor is acquireSettled for a read that waits, Acquire for one that does not.
-func (b *Backend) acquireFor(ctx context.Context, p *model.KindProfile, wait bool) *cache.Handle {
-	if wait {
-		return b.acquireSettled(ctx, p)
-	}
-	return b.Acquire(p)
 }
 
 // acquireForView is the open view's handle on its kind: as plan says, and nothing while the plan
@@ -526,17 +415,38 @@ func (b *Backend) namespacesRunning(p *model.KindProfile) bool {
 	return true
 }
 
-// drawerPlanKey is how the drawer of an object of kind p reads its kind and the events; a drawer
-// whose key changes starts again.
-func (b *Backend) drawerPlanKey(p *model.KindProfile) string {
+// drawerPlanKey is how the drawer of an object of kind p in namespace reads its kind, the events
+// and its related objects (acquireNow); a drawer whose key changes starts again. A change of the
+// plan's namespaces that leaves the object's namespace read as it was (a filter) changes nothing.
+func (b *Backend) drawerPlanKey(p *model.KindProfile, namespace string) string {
 	if p == nil {
 		return ""
 	}
-	key := b.namespacePlan(p).key()
-	if ep, ok := b.Profile(eventsKind); ok && p.APIObject() {
-		key += "|" + b.namespacePlan(ep).key()
+	if !p.Namespaced {
+		namespace = ""
 	}
-	return key
+	key := b.readKeyIn(p, namespace)
+	if ep, ok := b.Profile(eventsKind); ok && p.APIObject() {
+		key += "|" + b.readKeyIn(ep, namespace)
+	}
+	return key + b.relatedKey(p, namespace)
+}
+
+// relatedKey is how the related-objects indexes of a kind's view (namespace "") or of a drawer
+// read their kinds; a view or drawer whose key changes starts again, so that an index's read the
+// API server refused is taken again namespace by namespace.
+func (b *Backend) relatedKey(p *model.KindProfile, namespace string) string {
+	var sb strings.Builder
+	seen := map[string]bool{}
+	for _, ix := range p.Needs {
+		rp, ok := b.Profile(ix.Kind)
+		if !ok || seen[ix.Kind] {
+			continue
+		}
+		seen[ix.Kind] = true
+		sb.WriteString("|" + ix.Kind + "=" + b.readKeyIn(rp, namespace))
+	}
+	return sb.String()
 }
 
 // readKey is how a handle Acquire takes on a kind reads it now: in all namespaces (a pending plan
