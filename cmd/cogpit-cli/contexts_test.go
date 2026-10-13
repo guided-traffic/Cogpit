@@ -155,3 +155,53 @@ func TestContextsWithoutKubeconfigsListsTheDemo(t *testing.T) {
 		t.Errorf("want the header and the demo cluster:\n%s", te.out)
 	}
 }
+
+// An insecure context (its cluster sets insecure-skip-tls-verify) is marked in the table as the
+// app's picker marks it, "certificate not checked" (H-37): the CERTIFICATE column says "not
+// checked"; a context whose server's certificate is checked leaves it empty.
+func TestContextsMarksAnInsecureContext(t *testing.T) {
+	te := newTestEnv(t)
+	te.writeKube(t, "config", `apiVersion: v1
+kind: Config
+clusters:
+- name: lab
+  cluster:
+    server: https://10.0.0.7:6443
+    insecure-skip-tls-verify: true
+- name: prod
+  cluster:
+    server: https://prod.example.com:6443
+contexts:
+- name: lab
+  context: {cluster: lab, user: u}
+- name: prod
+  context: {cluster: prod, user: u}
+users:
+- name: u
+  user: {token: tok-SECRET}
+`)
+	if code := te.run(t, "contexts"); code != exitOK {
+		t.Fatalf("exit code %d; stderr: %s", code, te.errOut)
+	}
+	rows := map[string]string{}
+	var header string
+	for _, l := range strings.Split(strings.TrimSpace(te.out.String()), "\n") {
+		switch {
+		case strings.HasPrefix(l, "CONTEXT"):
+			header = l
+		case strings.HasPrefix(l, "lab ["), strings.HasPrefix(l, "prod ["), strings.HasPrefix(l, "demo"):
+			rows[strings.Fields(l)[0]] = l
+		}
+	}
+	if !strings.Contains(header, "CERTIFICATE") {
+		t.Errorf("header %q lacks CERTIFICATE:\n%s", header, te.out)
+	}
+	if l := rows["lab"]; !strings.HasSuffix(l, "not checked") {
+		t.Errorf("the insecure context's row %q is not marked:\n%s", l, te.out)
+	}
+	for _, name := range []string{"prod", "demo"} {
+		if l := rows[name]; l == "" || strings.Contains(l, "not checked") {
+			t.Errorf("%s's row %q:\n%s", name, l, te.out)
+		}
+	}
+}

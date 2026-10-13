@@ -229,7 +229,9 @@ marks the context with "certificate not checked" and a line naming the server th
 to (`ContextInfo.Insecure`, from the kubeconfig; [`picker.go`](../../internal/ui/fyneui/picker.go),
 `TestPickerMarksAnInsecureContext`); the connect log gets a WARN line once the connection stands,
 from the connection's own configuration (`Conn.Insecure`; [`engine/tlswarning.go`](../../internal/engine/tlswarning.go),
-`TestInsecureContextIsMarkedAndLogged`). Agents see `insecure: true` in `cluster.contexts`. The
+`TestInsecureContextIsMarkedAndLogged`). Agents see `insecure: true` in `cluster.contexts`, and
+`cogpit-cli contexts` says `not checked` in its table's CERTIFICATE column (2026-10-13,
+`TestContextsMarksAnInsecureContext`). The
 plugin approval dialog of a kubeconfig source already showed the flag (R-11). Live today for every
 context whose cluster sets the flag, common for test clusters and for servers reached by an address
 their certificate does not name (`tls-server-name` is the fix there, and the connect error now
@@ -238,8 +240,7 @@ points at it).
 Not done: no confirmation before the first connect and no refusal, even for a file a sync folder
 picked up ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)); nothing marks the connection once
 it is open (status bar, navigator), so a user who connected from the hotbar or the palette sees the
-warning only in the connect log; `cogpit-cli contexts` shows the flag in its JSON and YAML output,
-not in its table, and `cogpit-cli get` connects without a word. Whether Cogpit asks once per context,
+warning only in the connect log; `cogpit-cli get` connects without a word. Whether Cogpit asks once per context,
 as it does for credential plugins, is a question for the owner.
 
 ### H-30: Chart provenance is not verified

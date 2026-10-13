@@ -13,8 +13,9 @@ list them: every context of ~/.kube, of the files --kubeconfig (else $KUBECONFIG
 files and sync folders added in Cogpit, each file read on its own and named "<context> [<file>]",
 and the synthetic demo cluster "demo". LOGIN says whether a context logs in through a credential
 plugin or a token file outside its folder, and whether the user allowed it in Cogpit's window:
-approved, required or changed. Listing reads the kubeconfig files only; it runs no plugin and
-prints no credential.`
+approved, required or changed. CERTIFICATE says "not checked" for a context whose cluster sets
+insecure-skip-tls-verify: whoever answers at its server's address gets its credential. Listing reads
+the kubeconfig files only; it runs no plugin and prints no credential.`
 
 func runContexts(ctx context.Context, args []string, e *env) int {
 	fs := newFlags("contexts", "[flags]", contextsAbout)
@@ -55,9 +56,9 @@ func runContexts(ctx context.Context, args []string, e *env) int {
 		if c.Demo {
 			server = "(synthetic demo cluster)"
 		}
-		rows = append(rows, []string{c.Name, c.Namespace, server, login(c)})
+		rows = append(rows, []string{c.Name, c.Namespace, server, login(c), certificate(c)})
 	}
-	if err := writeTable(e.stdout, []string{"CONTEXT", "NAMESPACE", "SERVER", "LOGIN"}, rows); err != nil {
+	if err := writeTable(e.stdout, []string{"CONTEXT", "NAMESPACE", "SERVER", "LOGIN", "CERTIFICATE"}, rows); err != nil {
 		return fail(e, err)
 	}
 	return exitOK
@@ -77,4 +78,15 @@ func login(c engine.ContextInfo) string {
 		what = "plugin and token file"
 	}
 	return what + " " + c.Exec
+}
+
+// certificate is "not checked" for a context whose cluster skips the check of the server's
+// certificate (insecure-skip-tls-verify), as the app's picker marks it ("certificate not checked",
+// H-37); empty otherwise. The last column, so that the columns before keep their places (Cogpit's
+// default, 2026-10-13, not the owner's decision).
+func certificate(c engine.ContextInfo) string {
+	if c.Insecure {
+		return "not checked"
+	}
+	return ""
 }
