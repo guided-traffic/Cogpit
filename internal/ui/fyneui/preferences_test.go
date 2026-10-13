@@ -336,7 +336,12 @@ func TestClusterSettingsFromThePickerSetIdentityAndTerminal(t *testing.T) {
 	test.Tap(sh.settings.navItems["terminal"])
 	q.until(t, "the Terminal section", func() bool { return sh.settings.controls["terminalDir"] != nil })
 	work := t.TempDir()
-	test.Type(sh.settings.controls["terminalDir"].(*fyne.Container).Objects[0].(*widget.Entry), work)
+	// Typed with the field focused, as a user types: the page leaves a focused field alone when the
+	// engine's state changes, and an unfocused one could take a part of the path saved meanwhile
+	// back (red on CI under -race, 2026-10-13).
+	dirEntry := sh.settings.controls["terminalDir"].(*fyne.Container).Objects[0].(*widget.Entry)
+	sh.win.Canvas().Focus(dirEntry)
+	test.Type(dirEntry, work)
 	q.until(t, "the working directory kept", func() bool {
 		cs, _ := s.ClusterSettingsOf("kind-dev")
 		return cs.TerminalDir == work
