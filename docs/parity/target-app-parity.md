@@ -84,11 +84,11 @@ counts when it exists in some form; nine counted rows are done, the rest partial
 |---|---:|---|---:|---|
 | Resource views | 30% | 63 / 64 | 98.4% | measured ([resource-parity](resource-parity.md)); ten of them the Gateway API views, generic until captured |
 | Resource actions | 20% | 37 / 39 | 94.9% | measured ([resource-parity](resource-parity.md)) |
-| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 107 / 120 | 89.2% | measured ([ui-parity](ui-parity.md), free rows) |
+| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 108 / 120 | 90.0% | measured ([ui-parity](ui-parity.md), free rows) |
 | Cluster authentication and connectivity | 10% | 5 / 13 | 38.5% | measured ([platform-parity](platform-parity.md#cluster-authentication-and-connectivity)) |
 | Platforms and packages | 5% | 1 / 13 | 7.7% | measured ([platform-parity](platform-parity.md#operating-systems-and-packages)) |
 | Paid Lens Desktop features | 10% | 1 / 11 | 9.1% | measured ([premium list](https://docs.lenshq.io/k8slens/premium-features/) without extensions, D-5): the editor's diff, partial |
-| **Weighted** | 100% | | **75.9%** | |
+| **Weighted** | 100% | | **76.1%** | |
 
 ## Ready for real work
 
