@@ -131,18 +131,25 @@ func TestNodeDrawerSharesItsIndex(t *testing.T) {
 		}
 	})
 	defer cancelSub()
+	// Events of the drawer's opening may still arrive (coalesced every 5 ms): let them, then count
+	// only what the other node's pods cause. Counting both together failed on a slow CI runner
+	// (2026-10-13: 3 events where the burst spread over more coalescing windows).
+	settled := func() int {
+		time.Sleep(200 * time.Millisecond)
+		mu.Lock()
+		defer mu.Unlock()
+		return wakes
+	}
+	before := settled()
 	for i := range 30 {
 		src.Set(testkit.PodsGVR, podOnNode("apps", fmt.Sprintf("api-%d", i), "node-2"))
 		others++
 	}
+	if n := settled() - before; n != 0 {
+		t.Errorf("%d detail events for %d pods of another node", n, others)
+	}
 	src.Set(testkit.PodsGVR, podOnNode("jobs", "batch-0", "node-1"))
 	waitPods("batch-0", "web-0")
-	mu.Lock()
-	n := wakes
-	mu.Unlock()
-	if n > 2 {
-		t.Errorf("%d detail events for %d pods of another node and one of the drawer's", n, others)
-	}
 
 	// A pod that moves off the node (its key changes) leaves the table.
 	src.Set(testkit.PodsGVR, podOnNode("apps", "web-0", "node-2"))
