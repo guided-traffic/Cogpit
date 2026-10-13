@@ -32,6 +32,12 @@ type TableSnapshot struct {
 	Synced bool `json:"synced"`
 	// Error is the informer's last error, if any (a forbidden kind, a lost connection).
 	Error string `json:"error,omitempty"`
+	// Watched are the namespaces the kind is read in one by one, because the user may not list it
+	// in all namespaces (accessiblens_plan.go); empty: in all namespaces.
+	Watched []string `json:"watchedNamespaces,omitempty"`
+	// Denied are the namespaces named for the kind whose access reviews deny listing it there: not
+	// read, a state the view shows.
+	Denied []string `json:"deniedNamespaces,omitempty"`
 }
 
 // DisplayOrder returns the indexes of Columns in the order the table shows them: Order, or

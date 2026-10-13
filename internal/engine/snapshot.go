@@ -25,6 +25,7 @@ type viewWorker struct {
 	profile *model.KindProfile
 	rows    *rowCache
 	handle  *cache.Handle
+	plan    nsPlan // how the kind is read: in all namespaces, one by one, or not yet (accessiblens_plan.go)
 	unsub   func()
 	related *relatedSet // the indexes of the profile's Needs; nil without
 	usage   *usageFeed  // the metrics of a kind with CPU and Memory columns; nil without or while they are hidden (guarded by mu)
@@ -40,11 +41,12 @@ type viewWorker struct {
 }
 
 // startViewWorker acquires the view's handle and starts its loop. The first snapshot is built at
-// once; an informer that is warm already serves it without a list request.
-func (s *Session) startViewWorker(b *Backend, p *model.KindProfile, rc *rowCache, params viewParams) *viewWorker {
+// once; an informer that is warm already serves it without a list request. The kind is read as
+// plan says; a pending plan reads nothing until the session starts the view again with its plan.
+func (s *Session) startViewWorker(b *Backend, p *model.KindProfile, rc *rowCache, params viewParams, plan nsPlan) *viewWorker {
 	w := &viewWorker{
-		s: s, backend: b, profile: p, rows: rc, params: params,
-		handle: b.Acquire(p),
+		s: s, backend: b, profile: p, rows: rc, params: params, plan: plan,
+		handle: b.acquireForView(p, plan),
 		wake:   make(chan struct{}, 1),
 		quit:   make(chan struct{}),
 	}
@@ -122,11 +124,14 @@ func (w *viewWorker) rebuild() {
 	w.mu.Unlock()
 
 	synced := w.synced() // before List: a snapshot never claims a partial list is complete
-	errMsg := errText(w.handle.Err())
+	herr := w.handle.Err()
+	errMsg := errText(herr)
+	w.followRefusal(herr) // a cluster-wide watch refused: read namespace by namespace (accessiblens_plan.go)
 	rel, relGen := w.related.view()
 	snap := w.rows.buildWith(w.profile, w.backend.Context, KindList(w.handle, w.profile), p, rel, relGen, usage)
 	snap.Synced = synced
 	snap.Error = errMsg
+	snap.Watched, snap.Denied = w.plan.watch, w.plan.denied
 	snap.Revision = w.s.state.snapshots.Add(1)
 	if w.stopped.Load() {
 		return

@@ -92,6 +92,7 @@ type accessReviews struct {
 	rules    map[string]*rulesReview
 	checks   map[cluster.AccessAttributes]*accessCheck
 	filter   []string      // the namespace filter last seen
+	named    []string      // the cluster's accessible namespaces last seen (accessiblens_plan.go)
 	failing  bool          // an access review failed: ask no more until refreshed (checkLocked)
 	nsHandle *cache.Handle // the namespaces, held once the sidebar needs them (visibleLocked)
 	nsUnsub  func()
@@ -138,14 +139,17 @@ func (s *Session) attachAccess(b *Backend) {
 
 // attach binds the reviews to the session and prefetches what connecting needs: the default
 // namespace's rules, which answer the sidebar for most users and the commands in that namespace.
-// The namespace filter's namespaces follow with the UI state.
+// The namespace filter's namespaces follow with the UI state; the cluster's accessible namespaces
+// are prefetched too (accessiblens_plan.go reads them).
 func (a *accessReviews) attach(s *Session, b *Backend) {
+	named := s.UIState().ClusterSettings[b.Context].AccessibleNamespaces // before a.mu: emit takes no lock, UIState s.mu
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.stopped || a.s != nil {
 		return
 	}
 	a.s, a.b = s, b
+	a.named = slices.Clone(named)
 	interval := s.opts.SnapshotInterval * accessCoalesce
 	s.goSafe("access reviews", func() { runCoalesced(a.quit, a.wake, interval, nil, a.changed) })
 	a.uiUnsub = s.Subscribe(a.onEvent)
@@ -210,11 +214,11 @@ func (a *accessReviews) prefetchLocked() []string {
 	return namespaces
 }
 
-// seenLocked returns the namespaces Cogpit was told about: the context's default namespace and
-// the namespace filter's.
+// seenLocked returns the namespaces Cogpit was told about: the context's default namespace, the
+// cluster's accessible namespaces and the namespace filter's.
 func (a *accessReviews) seenLocked(filter []string) []string {
 	out := []string{a.namespace}
-	for _, ns := range filter {
+	for _, ns := range slices.Concat(a.named, filter) {
 		if ns != "" && !slices.Contains(out, ns) {
 			out = append(out, ns)
 		}
@@ -222,17 +226,22 @@ func (a *accessReviews) seenLocked(filter []string) []string {
 	return out
 }
 
-// onEvent follows the namespace filter: its namespaces' rules are reviewed when it changes.
+// onEvent follows the namespace filter and the cluster's accessible namespaces: their rules are
+// reviewed when they change.
 func (a *accessReviews) onEvent(ev Event) {
 	if ev.Type != EventUIState || ev.UIState == nil {
 		return
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.stopped || a.b == nil || ev.UIState.Context != a.b.Context || slices.Equal(ev.UIState.Namespaces, a.filter) {
+	if a.stopped || a.b == nil || ev.UIState.Context != a.b.Context {
 		return
 	}
-	a.filter = slices.Clone(ev.UIState.Namespaces)
+	named := ev.UIState.ClusterSettings[a.b.Context].AccessibleNamespaces
+	if slices.Equal(ev.UIState.Namespaces, a.filter) && slices.Equal(named, a.named) {
+		return
+	}
+	a.filter, a.named = slices.Clone(ev.UIState.Namespaces), slices.Clone(named)
 	a.prefetchLocked()
 }
 
@@ -248,11 +257,13 @@ func (a *accessReviews) changed() {
 
 // accessChanged follows new answers of the connected backend's access reviews: the sidebar reads
 // kinds.list again (EventKinds) and the drawer's toolbar asks its commands' Enabled again
-// (EventDetail). Row menus ask Enabled whenever they open.
+// (EventDetail). Row menus ask Enabled whenever they open. The open view and drawer read their kind
+// again when the answers change how (accessiblens_plan.go).
 func (s *Session) accessChanged(b *Backend) {
 	if s.Backend() != b {
 		return
 	}
+	s.state.replan(b)
 	s.emit(Event{Type: EventKinds})
 	s.emit(Event{Type: EventDetail})
 }
@@ -488,6 +499,7 @@ func (a *accessReviews) finishRules(ns string, r *rulesReview, rules cluster.Acc
 		s.log.Warn("engine: rules review failed; access reviews ask per verb instead", "context", b.Context, "namespace", ns, "err", err)
 	}
 	signal(a.wake)
+	s.state.replanPending(b) // a view waiting for these rules reads its kind at once (accessiblens_plan.go)
 }
 
 // reviewAccess runs one access review, recording an answer even when the reviewer panics.
@@ -529,6 +541,7 @@ func (a *accessReviews) finishAccess(q cluster.AccessAttributes, c *accessCheck,
 		s.log.Warn("engine: access review failed; no more until refreshed, the API server decides", "context", b.Context, "review", q.String(), "err", err)
 	}
 	signal(a.wake)
+	s.state.replanPending(b) // a view waiting for this answer reads its kind at once (accessiblens_plan.go)
 }
 
 // Listable reports whether the connected user may list a kind, for the sidebar and kinds.list
@@ -567,6 +580,7 @@ func (b *Backend) Listable(p *model.KindProfile, filter []string) (listable, kno
 // namespaces whose rules are reviewed at once, and false for a backend without access reviews
 // (the demo cluster).
 func (b *Backend) RefreshAccess() (namespaces []string, ok bool) {
+	b.ns.clearRefused() // the server's refusals are asked again too (accessiblens_plan.go)
 	a, ok := b.Access.(*accessReviews)
 	if !ok {
 		return nil, false

@@ -19,6 +19,9 @@ type FakeAccess struct {
 	// Incomplete marks every rules review incomplete, as an authorizer that cannot list its
 	// rules (a webhook) does.
 	Incomplete bool
+	// Enforce makes the server refuse, with 403 Forbidden, the reads (get, list, watch) the rules
+	// do not allow, as RBAC does; without it every read is served (nsrefusing.go).
+	Enforce bool
 }
 
 // FakeRule is one policy rule; "*" in a list means all.

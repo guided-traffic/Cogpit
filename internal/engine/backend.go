@@ -66,6 +66,9 @@ type Backend struct {
 	apps appsStore
 	// forwards are the backend's running port forwards (portforward.go); they end with it.
 	forwards forwardSet
+	// ns is what decides whether a namespaced kind is read namespace by namespace
+	// (accessiblens_plan.go).
+	ns nsState
 }
 
 // Actions are the cluster writes of the MVP's action commands. *cluster.Conn implements them.

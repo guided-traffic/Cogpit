@@ -76,6 +76,7 @@ type FakeAPIServer struct {
 	watchers  map[*apiWatcher]struct{}
 	requests  map[string]int64
 	proxies   map[string]http.Handler // "namespace/name:port" -> the service behind the proxy
+	scoped    map[string]int64        // resource reads by "verb resource" and namespace (nsrefusing.go)
 }
 
 type apiWatcher struct {
@@ -480,6 +481,9 @@ func (s *FakeAPIServer) serveResource(w http.ResponseWriter, r *http.Request, pa
 	}
 	watching := q.Get("watch") == "true" || q.Get("watch") == "1"
 	initial := q.Get("sendInitialEvents") == "true"
+	if s.refuseRead(w, r, req, resource, watching, initial) { // FakeAccess.Enforce (nsrefusing.go)
+		return
+	}
 	switch {
 	case r.Method != http.MethodGet:
 		s.count("other", resource)

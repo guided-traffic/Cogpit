@@ -19,7 +19,8 @@ import (
 //
 //   - its scope: the GVR with the profile's LabelSelector and MetadataOnly (Secrets watch every
 //     Secret in full; Helm's releases the Secrets labelled owner=helm, which the full Secrets watch
-//     serves while it runs), in all namespaces;
+//     serves while it runs), in all namespaces, or in each namespace the user named when they may
+//     not list the kind in all of them (accessiblens_plan.go);
 //   - where it lives: the cluster's cache, or the backend's local store for a local kind (port
 //     forwards), which never reaches an API server;
 //   - what its objects are: the cached objects, or what the profile's Derive makes of them for a
@@ -86,7 +87,9 @@ func (b *Backend) Acquire(p *model.KindProfile) *cache.Handle {
 		_, c := b.local.get(b.logger())
 		return c.Acquire(b.Scope(p))
 	}
-	return b.Cache.Acquire(b.Scope(p))
+	// In all namespaces, or in each namespace the user named when they may not list the kind in
+	// all of them (accessiblens_plan.go).
+	return b.acquirePlanned(p, b.namespacePlan(p))
 }
 
 func (b *Backend) logger() *slog.Logger { return slog.Default() }

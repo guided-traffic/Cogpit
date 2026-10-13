@@ -40,6 +40,7 @@ type drawerWatch struct {
 	wake    chan struct{}
 	quit    chan struct{}
 	stopped atomic.Bool
+	planKey string // how its kind and the events were read when it started (accessiblens_plan.go); set under state.mu
 
 	// variants is what each chart shows, by target name; absent: CPU (metrics.go). Guarded by wmu.
 	variants map[string]string

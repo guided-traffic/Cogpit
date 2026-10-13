@@ -77,13 +77,17 @@ func (st *state) uiChanged(_, now UIState) {
 func (st *state) reconcileLocked(now UIState) {
 	b := st.backend
 
-	// The view: one worker for the open kind of the current backend.
+	// The view: one worker for the open kind of the current backend, read in all namespaces or in
+	// each namespace the user named (accessiblens_plan.go); a new plan reads the kind again.
 	var prof *model.KindProfile
+	var plan nsPlan
 	if b != nil {
 		prof, _ = b.Profile(now.View)
+		b.ns.setInputs(now.ClusterSettings[b.Context].AccessibleNamespaces, now.Namespaces)
+		plan = b.namespacePlan(prof)
 	}
 	st.noteVanishedLocked(b, prof, now.View)
-	if st.view != nil && (st.view.backend != b || st.view.profile != prof) {
+	if st.view != nil && (st.view.backend != b || st.view.profile != prof || st.view.plan.key() != plan.key()) {
 		st.view.stop()
 		st.view = nil
 	}
@@ -93,7 +97,7 @@ func (st *state) reconcileLocked(now UIState) {
 			rc = &rowCache{}
 			st.rowCaches[prof.Key] = rc
 		}
-		st.view = st.s.startViewWorker(b, prof, rc, paramsOf(now))
+		st.view = st.s.startViewWorker(b, prof, rc, paramsOf(now), plan)
 	} else if st.view != nil {
 		st.view.setParams(paramsOf(now))
 	}
@@ -106,15 +110,19 @@ func (st *state) reconcileLocked(now UIState) {
 	// The drawer: a watch on its object and on the events. A custom kind's profile changes with its
 	// definition (another version, or gone), and the drawer follows it.
 	var drawerProf *model.KindProfile
+	var drawerPlan string
 	if b != nil && now.Drawer != nil {
 		drawerProf, _ = b.Profile(now.Drawer.Kind)
+		drawerPlan = b.drawerPlanKey(drawerProf)
 	}
-	if st.drawer != nil && (now.Drawer == nil || st.drawer.backend != b || st.drawer.ref != *now.Drawer || st.drawer.profile != drawerProf) {
+	if st.drawer != nil && (now.Drawer == nil || st.drawer.backend != b || st.drawer.ref != *now.Drawer || st.drawer.profile != drawerProf ||
+		st.drawer.planKey != drawerPlan) {
 		st.drawer.stop()
 		st.drawer = nil
 	}
 	if st.drawer == nil && drawerProf != nil {
 		st.drawer = st.s.startDrawerWatch(b, drawerProf, *now.Drawer, hiddenMetricsOf(&now, b.Context))
+		st.drawer.planKey = drawerPlan
 	} else if st.drawer != nil {
 		st.drawer.followHidden(st.s, hiddenMetricsOf(&now, b.Context)) // the cluster's settings changed what shows
 	}
