@@ -222,8 +222,9 @@ installed from Cogpit. The owner decided since ([D-29](../developer/decisions.md
 when they are available. That file keeps a password in plain text, readable to the user's own
 processes; Cogpit would then hold it in memory. Not designed yet, and live once built: how the
 credentials stay out of logs, errors, toasts, the audit log and MCP results; that they go only to
-the repository's own host on a redirect unless Helm's `pass_credentials_all` says otherwise; and
-whether Cogpit's own additions write into Helm's file.
+the repository's own host on a redirect unless Helm's `pass_credentials_all` says otherwise.
+Cogpit never writes Helm's file: repositories and their credentials are added with the helm CLI
+(owner, 2026-10-13).
 
 ### H-33: Proxy passwords are plaintext in Cogpit's settings
 

@@ -73,7 +73,8 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
    parity rows, then answer the night's open questions (each marked "Cogpit's default, not the
    owner's decision" in its row or gap; the first is in the night's devlog entry).
 2. **The owner's requirements of 2026-10-13:** Helm's own `repositories.yaml` as the repositories'
-   source, read regularly, changes within 5 seconds, credentials included
+   source, read regularly, changes within 5 seconds, credentials included, repositories added
+   with the helm CLI only
    ([D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml),
    [G11](gaps.md#g11-helm), [H-29](../security/credentials.md#h-29-authenticated-helm-repositories));
    names in the lists copyable with the drawer's copy icon

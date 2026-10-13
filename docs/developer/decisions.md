@@ -831,9 +831,12 @@ What the decision leaves to the build, as the lead reads it (proposals, not deci
 - **How often.** A local file, not the API server: its size and modification time checked every
   2 seconds, as the kubeconfig sync folders are, and read again when they change; a file that does
   not parse keeps the last good list and says why. The 5 seconds are the owner's bound.
-- **Reading, not writing.** The decision says reading. Whether Cogpit's own "Add repository" writes
-  into Helm's file, or keeps Cogpit's list beside it, is open (the night run's list stays until
-  then, each repository marked with where it comes from).
+- **Reading, never writing (owner, 2026-10-13):** repositories are added with the helm CLI
+  (`helm repo add`), not in Cogpit. Cogpit writes nothing into Helm's file; it neither adds nor
+  removes a repository (removing would write the file too: the lead's reading of the decision).
+  The night run's own list and its `helm.repo.add` and `helm.repo.remove` go when D-29 is built;
+  the Repositories dialog then lists Helm's repositories read-only (charts, index age, the last
+  error) and can refresh their indexes, which writes nothing into Helm's folders.
 - **Credentials.** Read from Helm's file into memory only: never written to Cogpit's files, never
   in logs, errors, toasts, the audit log or an MCP result (agents see a repository's name and URL,
   and whether it has credentials); sent only to the repository's own host, unless Helm's
@@ -846,6 +849,7 @@ What the decision leaves to the build, as the lead reads it (proposals, not deci
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-29 (owner): repositories are added with the helm CLI, Cogpit only reads Helm's file and writes nothing into it |
 | 2026-10-13 | minor | D-29 (owner): Helm chart repositories read from Helm's repositories.yaml, changes within 5 seconds, credentials included; D-25 (owner): names in the lists copyable with the drawer's copy icon; neither built |
 | 2026-10-13 | minor | D-11: drafts of unsaved editor text built (night run; the delays, the offer on connect and closing as a discard are that run's defaults, not decided); D-19: no draft of a Secret's text |
 | 2026-10-13 | minor | D-3 built (night run): the version check when a terminal opens, the GUI-only verified download (SHA-256 and sigstore signature, no transparency log: H-35), the release first on the terminal's PATH (zsh after its profile; H-36), the Preferences; the differences listed under D-3 |

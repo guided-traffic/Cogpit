@@ -545,8 +545,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ### G11. Helm
 - **Required (owner, 2026-10-13, [D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml)):**
   Cogpit reads Helm's own `repositories.yaml` regularly and takes over its changes by itself, within
-  5 seconds, repositories with credentials included when their credentials are available. Replaces
-  the night run's list of Cogpit's own (public https only, Helm's file never read). Not built.
+  5 seconds, repositories with credentials included when their credentials are available.
+  Repositories are added with the helm CLI, not in Cogpit, which writes nothing into Helm's file.
+  Replaces the night run's list of Cogpit's own (public https only, Helm's file never read, added
+  and removed in Cogpit). Not built.
 - **Followed from Lens's captures of 2026-10-12** ([resource parity › Helm](resource-parity.md#helm),
   built 2026-10-12, was 2–5 h): the drawer's title on one line without Details and YAML tabs, Chart
   as "<chart>-<version>", Namespace as text, a grey status pill, "User-supplied values only"
