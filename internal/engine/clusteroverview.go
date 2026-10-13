@@ -172,7 +172,7 @@ func (s *Session) startClusterOverview(b *Backend, params viewParams, choice Ove
 	wake := w.wake
 	w.src = newOverviewSource(b, func() { signal(wake) })
 	w.charts = newOverviewCharts(s, b, choice)
-	w.charts.hidden = params.metrics // the charts the cluster's settings hide are not polled for
+	w.charts.setHidden(params.metrics) // the charts the cluster's settings hide are not polled for
 	signal(w.wake)
 	s.goSafe("cluster overview", func() {
 		runCoalesced(w.quit, w.wake, s.opts.SnapshotInterval, w.unsettled, w.rebuild)
