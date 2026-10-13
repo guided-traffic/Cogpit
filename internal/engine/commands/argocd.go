@@ -125,6 +125,33 @@ func registerArgoCD(g *registrar) {
 			return ArgoDashboardResult{ArgoCDDashboardModel: *m, Attention: attention}, nil
 		},
 	})
+	add(g, engine.Spec[struct{}]{
+		ID: "argocd.openUI", Label: "Open Argo CD UI", MenuPath: "Argo CD/Open Argo CD UI", Danger: engine.DangerMutating,
+		Verbs: serviceForwardVerbs,
+		Description: "Opens Argo CD's own web UI: finds the argocd-server Service by its label " +
+			"app.kubernetes.io/name=argocd-server in Cogpit's cache, and forwards its https port (443, else its http " +
+			"port 80) to 127.0.0.1, or reuses that forward while it runs, as service.portForward does. Returns the " +
+			"forward with its URL; the GUI opens it in the browser, an agent gets the URL. The user must accept an " +
+			"agent's request.",
+		Enabled: func(s *engine.Session, _ struct{}) error {
+			b, err := connected(s)
+			if err != nil {
+				return err
+			}
+			if _, ok := b.Profile(kinds.ArgoApplicationsKey); !ok {
+				return errors.New("the cluster serves no Argo CD Applications")
+			}
+			return s.CanForward()
+		},
+		Targets: func(s *engine.Session, _ struct{}) ([]model.ObjectRef, error) {
+			ref, _, _, err := argoServer(s)
+			if err != nil {
+				return nil, err
+			}
+			return targetOf(s, ref)
+		},
+		Run: runArgoOpenUI,
+	})
 	appKinds := []string{kinds.ArgoApplicationsKey}
 	add(g, engine.Spec[argoSyncParams]{
 		ID: "argocd.application.sync", Label: argoSyncLabel, MenuPath: "Argo CD/Sync", Kinds: appKinds, Order: 100,
@@ -218,6 +245,58 @@ func registerArgoCD(g *registrar) {
 			})
 		},
 	})
+}
+
+// argoServerLabel finds Argo CD's API server and UI among the cached Services, as Lens's
+// documentation says Lens finds it ("the argocd-server Service by label").
+const argoServerLabel = "app.kubernetes.io/name=argocd-server"
+
+// argoServer finds the argocd-server Service in the cache and the port to forward: 443 (https),
+// else 80 (http). It reads the Services through the cache, waiting for their first list (bounded).
+func argoServer(s *engine.Session) (model.ObjectRef, uint16, bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), lookupTimeout)
+	defer cancel()
+	svcs, err := s.Objects(ctx, kindServices, nil)
+	if err != nil {
+		return model.ObjectRef{}, 0, false, err
+	}
+	name, value, _ := strings.Cut(argoServerLabel, "=")
+	for _, svc := range svcs {
+		if svc.GetLabels()[name] != value {
+			continue
+		}
+		ref := model.ObjectRef{Kind: kindServices, Namespace: svc.GetNamespace(), Name: svc.GetName()}
+		var http uint16
+		for _, p := range model.NestedSlice(svc.Object, "spec", "ports") {
+			n, _ := model.NestedInt64(p, "port")
+			switch n {
+			case 443:
+				return ref, 443, true, nil
+			case 80:
+				http = 80
+			}
+		}
+		if http != 0 {
+			return ref, http, false, nil
+		}
+		return model.ObjectRef{}, 0, false, fmt.Errorf("service %s/%s has neither port 443 nor port 80", ref.Namespace, ref.Name)
+	}
+	return model.ObjectRef{}, 0, false, errors.New("no Service labelled " + argoServerLabel + " in Cogpit's cache: Argo CD's UI is not installed, or you may not list its Service")
+}
+
+// runArgoOpenUI reuses the forward of argocd-server while it listens, else starts it.
+func runArgoOpenUI(ctx context.Context, s *engine.Session, _ struct{}) (any, error) {
+	ref, port, https, err := argoServer(s)
+	if err != nil {
+		return nil, err
+	}
+	if b := s.Backend(); b != nil {
+		fref := model.ObjectRef{Context: b.Context, Kind: engine.PortForwardKind, Namespace: ref.Namespace, Name: engine.ForwardName(ref, port)}
+		if f, err := s.LookupForward(fref); err == nil && f.Listening() {
+			return f, nil
+		}
+	}
+	return startForward(ctx, s, engine.ForwardSpec{Target: ref, Port: port, HTTPS: https, OpenInBrowser: true})
 }
 
 func argoSyncDone(prune bool) string {

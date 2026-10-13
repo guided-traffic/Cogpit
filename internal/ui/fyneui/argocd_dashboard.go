@@ -32,6 +32,7 @@ type argoPanel struct {
 	strip    *fyne.Container
 	cards    *fyne.Container
 	activity *fyne.Container
+	openUI   *widget.Button
 	sync     *widget.Button
 	refresh  *widget.Button
 	root     fyne.CanvasObject
@@ -54,10 +55,14 @@ func newArgoPanel(sh *shell) *argoPanel {
 			sh.openArgoRefreshDialog(p.data.All)
 		}
 	})
+	// Lens's "Open Argo UI": a port forward to argocd-server, opened in the browser.
+	p.openUI = widget.NewButtonWithIcon("Open Argo CD UI", theme.ComputerIcon(), func() {
+		sh.dispatch("argocd.openUI", struct{}{}, func(res any, err error) { sh.forwardDone(res, err, true) })
+	})
 	p.sync.Disable()
 	p.refresh.Disable()
 	actions := container.NewHBox(newTextLine("Applications", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{Bold: true}),
-		layout.NewSpacer(), p.sync, p.refresh)
+		layout.NewSpacer(), p.openUI, p.sync, p.refresh)
 	title := newTextLine("Recent activity", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{Bold: true})
 	p.root = inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
 		container.NewVBox(p.strip, newSpace(theme.SizeNamePadding), actions, p.cards, newSpace(theme.SizeNamePadding), title, p.activity))

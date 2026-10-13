@@ -87,9 +87,43 @@ func (c *argoConnector) Connect(_ context.Context, name string) (*engine.Backend
 	p, _ := kinds.ByKey("secrets")
 	return &engine.Backend{
 		Context: name, Namespace: "default", Cache: ch, Close: ch.Close, CustomResources: true,
-		Profiles: append([]*model.KindProfile{p}, testProfiles()...),
+		Profiles: append(append([]*model.KindProfile{p}, testProfiles()...), kinds.Local()...),
 		Conn:     &cluster.Conn{}, Actions: c.writer,
 	}, nil
+}
+
+// DialPortForward makes the writer a port forwarder that never reaches a pod.
+func (w *argoWriter) DialPortForward(context.Context, string, string) (cluster.PortTunnel, error) {
+	return nil, errors.New("no pods in this test")
+}
+
+// TestArgoOpenUIFindsTheServer: Open Argo CD UI forwards the https port of the Service labelled
+// app.kubernetes.io/name=argocd-server, found in the cache; an agent's request names it in the
+// confirmation; without such a Service it says so.
+func TestArgoOpenUIFindsTheServer(t *testing.T) {
+	h := newArgoHarness(t)
+	h.answer = false
+	if _, err := h.dispatch(engine.OriginExternalAgent, "argocd.openUI", map[string]any{}); err == nil ||
+		!strings.Contains(err.Error(), "app.kubernetes.io/name=argocd-server") {
+		t.Fatalf("without the Service: %v", err)
+	}
+	h.src.Set(testkit.ServicesGVR, testkit.Object("v1", "Service", "argocd", "argocd-server", map[string]any{
+		"metadata": map[string]any{"labels": map[string]any{"app.kubernetes.io/name": "argocd-server"}},
+		"spec": map[string]any{"selector": map[string]any{"app": "argocd-server"}, "ports": []any{
+			map[string]any{"name": "http", "port": int64(80)}, map[string]any{"name": "https", "port": int64(443)},
+		}},
+	}))
+	waitUntil(t, "the Service in the cache", func() bool {
+		_, err := h.s.Lookup(model.ObjectRef{Context: "test", Kind: "services", Namespace: "argocd", Name: "argocd-server"})
+		return err == nil
+	})
+	if _, err := h.dispatch(engine.OriginExternalAgent, "argocd.openUI", map[string]any{}); !errors.Is(err, engine.ErrDeclined) {
+		t.Fatalf("an agent's request: %v", err)
+	}
+	asked := h.confirmations()
+	if len(asked) == 0 || asked[len(asked)-1].Objects[0].Name != "argocd-server" || asked[len(asked)-1].Danger != engine.DangerMutating {
+		t.Fatalf("confirmations %+v", asked)
+	}
 }
 
 // argoHarness is a session on the Argo CD connector with an audit log, a log, every event and

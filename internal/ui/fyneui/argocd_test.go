@@ -435,6 +435,22 @@ func TestRenderArgoApplicationDrawerLight(t *testing.T) {
 	renderArgoApplications(t, ThemeLight, "argocd_application_drawer_light.png", true)
 }
 
+// TestArgoOpenUIOpensTheForward: the Dashboard's Open Argo CD UI runs argocd.openUI and opens the
+// forward's URL in the browser.
+func TestArgoOpenUIOpensTheForward(t *testing.T) {
+	f := connectedFake(t, 10)
+	browser := recordBrowser(t)
+	f.handlers["argocd.openUI"] = func(context.Context, engine.Invocation) (any, error) {
+		return map[string]any{"url": "https://127.0.0.1:43123", "spec": map[string]any{"openInBrowser": true}}, nil
+	}
+	sh, _, q := newTestShell(t, f, Options{})
+	test.Tap(sh.view.argo.openUI)
+	q.until(t, "the browser", func() bool { return len(browser.opened()) == 1 })
+	if got := browser.opened()[0]; got != "https://127.0.0.1:43123" {
+		t.Errorf("opened %s", got)
+	}
+}
+
 // TestRenderArgoSyncDialogDark shows the Sync dialog of the Dashboard's out-of-sync Applications.
 func TestRenderArgoSyncDialogDark(t *testing.T) {
 	sh, w, q, _, _, _ := newArgoShell(t, ThemeDark, true)

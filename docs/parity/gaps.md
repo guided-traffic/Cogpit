@@ -962,8 +962,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `argocd.dashboard` for agents); Sync with Prune and Refresh Normal or Hard on one Application or a
   selection, through the Kubernetes API ([D-36](../developer/decisions.md#d-36-how-argo-cds-sync-writes-the-operation)).
   Evidence: [resource-parity](resource-parity.md#paid-lens-desktop-views), the Argo CD row; on kind
-  `TestKindArgoCD`. Left for Argo CD: "Open Argo UI" (a port forward to `argocd-server`), the
-  activity's text filter, deselecting Applications in the card's Sync and Refresh, a check against
+  `TestKindArgoCD`; "Open Argo UI" as `argocd.openUI`, a port forward to `argocd-server`. Left for
+  Argo CD: the activity's text filter, deselecting Applications in the card's Sync and Refresh, a check against
   a running Argo CD and against Lens's views (not captured), a single dialog for a sync with prune
   (Cogpit asks twice); about 4–10 h of the estimate below.
 - **Impact:** GitOps is daily work for the owner's team; in Lens it needs a paid plan.
