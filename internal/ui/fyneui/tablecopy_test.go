@@ -217,6 +217,12 @@ func TestListCopyIconCopiesTheFullText(t *testing.T) {
 		t.Error("a list's copy is cleared from the clipboard like a Secret's value")
 	}
 
+	// A right-click on the icon opens the row's actions menu, as anywhere else on the row.
+	tv.menu, tv.menuModel = nil, nil
+	test.TapSecondary(btn)
+	q.until(t, "the row menu", func() bool { return tv.menu != nil && tv.menuModel != nil })
+	tv.menu.Hide()
+
 	// Back on the cell the icon shows again, still the checkmark; then the copy icon.
 	hoverOver(w, q, middleOf(cut))
 	if !btn.Visible() || !btn.done {

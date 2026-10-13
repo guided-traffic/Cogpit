@@ -755,7 +755,8 @@ line. Cogpit's defaults, the lead's proposals and not the owner's decision:
   then shows the whole text.
 - A click on it copies the cell's full text, not the shortened one, and neither selects the row,
   toggles its checkbox nor opens the drawer: the icon is a widget above the table, so the click
-  never reaches the cell.
+  never reaches the cell. A right-click on it opens the row's actions menu, as anywhere else on
+  the row.
 - A Secret's list holds no values: its columns are Name, Namespace, Labels, Keys (the keys' names),
   Type and Age ([`kinds/secrets.go`](../../internal/model/kinds/secrets.go),
   `TestSecretDetailShowsNoValue`), so every cell of it has the icon and none can put a value on the

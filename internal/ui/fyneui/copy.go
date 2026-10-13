@@ -262,12 +262,14 @@ type copyButton struct {
 	tap  func()                    // the copy
 	in   func(*desktop.MouseEvent) // the pointer came onto the icon; nil: the icon shows again, nothing more
 	out  func()                    // the pointer left the icon; nil: the icon hides, nothing more
+	alt  func(*fyne.PointEvent)    // a right-click on the icon; nil: none
 	done bool                      // a copy succeeded just now: a checkmark instead of the copy icon
 }
 
 var (
-	_ desktop.Hoverable  = (*copyButton)(nil)
-	_ desktop.Cursorable = (*copyButton)(nil)
+	_ desktop.Hoverable      = (*copyButton)(nil)
+	_ desktop.Cursorable     = (*copyButton)(nil)
+	_ fyne.SecondaryTappable = (*copyButton)(nil)
 )
 
 // newCopyButton returns the drawer's copy icon.
@@ -321,6 +323,14 @@ func (b *copyButton) resetConfirm(timer **time.Timer) {
 
 // Tapped implements fyne.Tappable.
 func (b *copyButton) Tapped(*fyne.PointEvent) { b.tap() }
+
+// TappedSecondary implements fyne.SecondaryTappable: what a right-click does where the icon lies
+// (a list's row opens its actions menu); in the drawer nothing.
+func (b *copyButton) TappedSecondary(e *fyne.PointEvent) {
+	if b.alt != nil {
+		b.alt(e)
+	}
+}
 
 // Cursor implements desktop.Cursorable.
 func (b *copyButton) Cursor() desktop.Cursor { return desktop.PointerCursor }

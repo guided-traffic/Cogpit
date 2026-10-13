@@ -52,8 +52,17 @@ type tableCopy struct {
 func newTableCopy(tv *tableView) *tableCopy {
 	tc := &tableCopy{tv: tv}
 	tc.btn = newCopyIcon(tv.sh, tc.copyCell, tc.entered, tc.left)
+	tc.btn.alt = tc.rowMenu
 	tc.layer = container.NewWithoutLayout(tc.btn)
 	return tc
+}
+
+// rowMenu opens the actions menu of the icon's row on a right-click, as a right-click anywhere
+// else on the row does (ui-parity › Tables).
+func (tc *tableCopy) rowMenu(e *fyne.PointEvent) {
+	if c := tc.cell; c != nil && c.row == tc.row && tc.over(c) {
+		tc.tv.openRowMenu(c.row, e.AbsolutePosition)
+	}
 }
 
 // copyText is what the copy icon copies from a cell: its full text, or "" for a cell that shows
