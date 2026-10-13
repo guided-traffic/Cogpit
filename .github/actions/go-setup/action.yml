@@ -1,0 +1,65 @@
+# The Go setup every Go job of release.yml shares: Go from go.mod, the module and build caches under
+# a key per kind of build, Fyne's Linux build dependencies when asked, and the modules downloaded.
+#
+# Why a key per kind: a job saves its caches only when its key is new, and builds of one kind (race,
+# coverage, lint) share most of their objects while different kinds share few. One key per kind and
+# go.sum keeps every kind's dependencies compiled; our own packages compile again, which is the
+# cheap part. A key is saved once per go.sum, so the save (two minutes on the self-hosted runners)
+# is rare.
+name: Set up Go
+description: Go from go.mod, its caches per kind of build, and Fyne's build dependencies on Linux.
+
+inputs:
+  cache:
+    description: The kind of build whose caches to restore and save (lint, unit, race-ui, race-rest, kind, macos, ...).
+    required: true
+  fyne-deps:
+    description: Install Fyne's Linux build dependencies (cgo with OpenGL, X11, xkbcommon and Wayland headers); make too.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    # setup-go's own cache keys on go.sum alone, which every job would share.
+    - name: Set up Go
+      uses: actions/setup-go@v7
+      with:
+        go-version-file: go.mod
+        cache: false
+
+    - name: Locate the caches
+      id: paths
+      shell: bash
+      run: |
+        echo "gocache=$(go env GOCACHE)" >> "${GITHUB_OUTPUT}"
+        echo "gomodcache=$(go env GOMODCACHE)" >> "${GITHUB_OUTPUT}"
+
+    - name: Restore the module and build caches
+      uses: actions/cache@v6
+      with:
+        path: |
+          ${{ steps.paths.outputs.gomodcache }}
+          ${{ steps.paths.outputs.gocache }}
+          ~/.cache/golangci-lint
+          ~/Library/Caches/golangci-lint
+        key: go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache }}-${{ hashFiles('go.sum', 'third_party/fyne-terminal/go.sum') }}
+        restore-keys: go-${{ runner.os }}-${{ runner.arch }}-${{ inputs.cache }}-
+
+    # The packages Fyne documents for Debian and Ubuntu: a C compiler, OpenGL, X11, xkbcommon,
+    # Wayland. The self-hosted runner image has no make either; build-essential brings it.
+    - name: Install Fyne's build dependencies
+      if: runner.os == 'Linux' && inputs.fyne-deps == 'true'
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq build-essential libgl1-mesa-dev xorg-dev libxkbcommon-dev libwayland-dev wayland-protocols >/dev/null
+
+    - name: Install make
+      if: runner.os == 'Linux' && inputs.fyne-deps != 'true'
+      shell: bash
+      run: command -v make >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq make >/dev/null; }
+
+    - name: Download the modules
+      shell: bash
+      run: go mod download

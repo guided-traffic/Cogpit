@@ -43,49 +43,13 @@ jobs:
       - name: Parity checklists and the numbers they report (make parity, D-15)
         run: make parity
 
-      # test-unit-race plus a coverage profile: the same packages and the same race detector.
-      - name: Race tests with coverage
-        run: make test-unit-coverage
+      # TRANSITION: every package under the race detector, as before; coverage and the badge come
+      # from release.yml's jobs now.
+      - name: Race tests
+        run: make test-unit-race
 
       - name: Build cogpit (cgo, Fyne) and cogpit-cli (pure Go)
         run: make build
-
-      - name: Coverage badge and summary
-        run: |
-          set -euo pipefail
-          make coverage-badge
-          profile=.cache/coverage/unit.out
-          {
-            echo "## Coverage: $(jq -r .message .github/badges/coverage.json)"
-            echo
-            echo "Each package counts the statements its own tests cover (no -coverpkg)."
-            echo
-            echo "| Package | Coverage | Statements |"
-            echo "|---|---:|---:|"
-            awk 'NR > 1 {
-                   file = $1; sub(/:.*/, "", file); pkg = file; sub(/\/[^\/]*$/, "", pkg)
-                   total[pkg] += $2; if ($3 > 0) covered[pkg] += $2
-                 }
-                 END {
-                   for (p in total)
-                     printf "| `%s` | %.1f%% | %d/%d |\n", p, total[p] ? 100 * covered[p] / total[p] : 0, covered[p], total[p]
-                 }' "${profile}" | sort
-          } >> "${GITHUB_STEP_SUMMARY}"
-
-      - name: Upload coverage profile
-        uses: actions/upload-artifact@v7
-        with:
-          name: unit-coverage
-          path: .cache/coverage/unit.out
-          retention-days: 7
-
-      # release.yml commits this file to main when it changed (job "Coverage Badge").
-      - name: Upload coverage badge
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-badge
-          path: .github/badges/coverage.json
-          retention-days: 7
 
   # Windows and Linux come after the macOS beta (D-7); until then CI proves that every package and
   # every test still compiles and links there with cgo and Fyne's native dependencies.

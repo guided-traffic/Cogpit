@@ -1,21 +1,17 @@
 # Test and Release: the pipeline of every push to main and every pull request, and the workflow
-# behind the README's build badge. It calls build.yml for the checks, keeps the coverage badge on
-# main current, and runs semantic-release as a DRY RUN.
+# behind the README's build badge. Every check is a job of its own with its own make target, so it
+# runs the same on a laptop, and no job needs more than ten minutes (owner, 2026-10-13): the UI's
+# race tests run in shards. Semantic Release needs every job. What each job runs and how long it
+# takes: docs/developer/releasing.md#ci.
+#
+# Linux jobs run on the organisation's self-hosted runners (ephemeral pods, Ubuntu 24.04, 16 CPUs,
+# Docker; no make or C compiler until .github/actions/go-setup installs them), as the team's other
+# repositories do; the macOS job and the Windows compile run on GitHub's hosted runners, free for
+# a public repository.
 #
 # ---------------------------------------------------------------------------------------------
-# DRY RUN ONLY: THIS WORKFLOW DOES NOT RELEASE.
-# Cogpit is pre-alpha. semantic-release derives the version from the commits since the last tag;
-# without a tag it would cut 1.0.0: a 1.0 promise for a pre-alpha. The owner's anchor tag v0.0.0
-# (2026-10-11) makes the next release 0.x; a breaking-change commit (! or BREAKING CHANGE:) would
-# still make it 1.0.0, so none is written until 1.0 is wanted. The first real release is the
-# owner's call. Until the
-# owner flips it, three independent guards keep the job "Semantic Release (dry run)" from
-# releasing:
-#   1. --dry-run on the semantic-release step: no tag, no GitHub release, no release commit;
-#   2. the job's token is read-only (contents: read): GitHub refuses a tag, a push or a release;
-#   3. every git push from that job goes to a throwaway bare repository (url.pushInsteadOf), which
-#      is also what lets semantic-release's push-permission check pass with a read-only token.
-# How the owner flips it: docs/developer/releasing.md#the-first-real-release
+# TRANSITION (2026-10-13): build.yml's old jobs still run beside their successors, and Semantic
+# Release is a dry run with the GitHub App's token, until the new jobs have run green.
 # ---------------------------------------------------------------------------------------------
 name: Test and Release
 
@@ -30,9 +26,9 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  # Superseded pull request runs are cancelled. Runs on main queue instead, so that every push is
-  # checked and the coverage badge is committed in order.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # A newer push supersedes a run, on main too: semantic-release releases every commit since the
+  # last tag, so a cancelled run loses nothing.
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -41,85 +37,478 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # The old jobs (macOS race tests, compile, kind, vulnerability check) until their successors
+  # below have run green.
   build:
     name: Build
     uses: ./.github/workflows/build.yml
     permissions:
       contents: read
 
-  # The team's other repositories commit the badge with the release commit (@semantic-release/git).
-  # While releases are dry runs, this job does it: one commit to main that changes
-  # .github/badges/coverage.json and nothing else, only when the number changed. It runs no release
-  # tooling and creates no tag. Pushes made with GITHUB_TOKEN start no workflow, so it cannot loop.
-  coverage-badge:
-    name: Coverage Badge
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [build]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write  # the badge commit on main; see above
+  # golangci-lint with the team's linters and depguard's layering (the import rules of
+  # docs/developer/architecture.md §3).
+  lint:
+    name: Code Linting
+    runs-on: self-hosted
+    timeout-minutes: 15
     steps:
-      - name: Checkout main
+      - name: Checkout
         uses: actions/checkout@v7
-        with:
-          ref: main
 
-      - name: Download coverage badge
-        uses: actions/download-artifact@v8
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
         with:
-          name: coverage-badge
-          path: ${{ runner.temp }}/coverage-badge
+          cache: lint
 
-      - name: Commit the badge to main if it changed
-        env:
-          BADGE: .github/badges/coverage.json
+      - name: Lint
+        run: make lint
+
+  # The parity checklists and the numbers the progress pages report (D-15).
+  parity:
+    name: Parity
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
+        with:
+          cache: parity
+          fyne-deps: "false"
+
+      - name: Parity checklists
+        run: make parity
+
+  # gosec through golangci-lint, the shipped code only; accepted findings are excluded in
+  # .golangci.yml with their reason.
+  gosec:
+    name: GoSec Security Scan
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
+        with:
+          cache: lint
+
+      - name: GoSec
+        run: make gosec
+
+  # govulncheck reports known vulnerabilities only where Cogpit's code reaches the affected
+  # symbol. Loading the packages runs cgo, hence Fyne's build dependencies.
+  govulncheck:
+    name: Vulnerability Check
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
+        with:
+          cache: vuln
+
+      - name: Vulnerability check
+        run: make vuln
+
+  cyclomatic-complexity:
+    name: Cyclomatic Complexity
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
+        with:
+          cache: cyclo
+          fyne-deps: "false"
+
+      - name: Cyclomatic complexity
+        run: make cyclo
+
+      - name: Complexity report
+        if: always()
+        run: |
+          {
+            echo "## Cyclomatic complexity"
+            echo
+            echo "Threshold: $(sed -n -E 's/^CYCLO_THRESHOLD *\?= *([0-9]+).*/\1/p' Makefile) (no function above it). The 20 most complex functions:"
+            echo
+            echo '```'
+            make -s cyclo-report
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  # Every package without the race detector, with coverage: what a change breaks, fast.
+  unit-tests:
+    name: Unit Tests
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
+        with:
+          cache: unit
+
+      - name: Unit tests with coverage
+        run: make test-unit-coverage
+
+      - name: Upload the coverage profile
+        uses: actions/upload-artifact@v7
+        with:
+          name: profile-unit
+          path: .cache/coverage/unit.out
+          include-hidden-files: true
+          retention-days: 7
+
+  # The UI's tests under the race detector take 18 minutes on a Linux runner, so they run in
+  # shards: hack/shard assigns each test to one by a hash of its name, so a new test lands in a
+  # shard without a change here. The number of shards is the matrix's length (RACE_SHARDS).
+  race-ui:
+    name: Race Tests (UI ${{ matrix.shard }}/8)
+    runs-on: self-hosted
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
+        with:
+          cache: race-ui
+
+      - name: Race tests of internal/ui/fyneui, shard ${{ matrix.shard }} of 8
+        run: make test-race-ui RACE_SHARD=${{ matrix.shard }} RACE_SHARDS=8
+
+      - name: Upload the coverage profile
+        uses: actions/upload-artifact@v7
+        with:
+          name: profile-race-ui-${{ matrix.shard }}
+          path: .cache/coverage/race-ui-${{ matrix.shard }}.out
+          include-hidden-files: true
+          retention-days: 7
+
+  # Every other package under the race detector, and the patched terminal widget's tests.
+  race-rest:
+    name: Race Tests (other packages)
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
+        with:
+          cache: race-rest
+
+      - name: Race tests
+        run: make test-race-rest
+
+      - name: Upload the coverage profile
+        uses: actions/upload-artifact@v7
+        with:
+          name: profile-race-rest
+          path: .cache/coverage/race-rest.out
+          include-hidden-files: true
+          retention-days: 7
+
+  # The cluster tests against a real API server and kubelet: views, logs, exec, kubectl in the
+  # terminal, Helm, metrics. make kind-up writes the cluster's kubeconfig to .cache/kind/kubeconfig;
+  # nothing in this job reads or writes ~/.kube. The cluster's name carries the run's id, so two
+  # runs on one Docker host cannot meet.
+  kind:
+    name: Integration Tests (kind)
+    runs-on: self-hosted
+    timeout-minutes: 15
+    env:
+      KIND_CLUSTER: cogpit-${{ github.run_id }}
+      KUBECONFIG: ${{ github.workspace }}/.cache/kind/kubeconfig
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
+        with:
+          cache: kind
+
+      # install_only: the cluster comes from make kind-up (hack/kind/cluster.yaml). kind v0.33.0
+      # defaults to Kubernetes 1.37.0; kubectl matches client-go v0.37.1.
+      - name: Install kind and kubectl
+        uses: helm/kind-action@v1.15.1
+        with:
+          version: v0.33.0
+          kubectl_version: v1.37.1
+          install_only: true
+          ignore_failed_clean: true
+
+      # The cluster starts (a minute or two, image pulls included) while the tests compile.
+      - name: Create the kind cluster while the cluster tests compile
         run: |
           set -euo pipefail
-          cp "${RUNNER_TEMP}/coverage-badge/coverage.json" "${BADGE}"
-          coverage="$(jq -r .message "${BADGE}")"
-          if git diff --quiet -- "${BADGE}"; then
-            echo "Coverage badge unchanged: ${coverage}"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit --quiet -m "chore(ci): coverage badge ${coverage} [skip ci]" -- "${BADGE}"
-          # The commit must touch the badge and nothing else.
-          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "${BADGE}"
-          for attempt in 1 2 3; do
-            if git push origin HEAD:refs/heads/main; then
-              exit 0
-            fi
-            echo "main moved; rebasing the badge commit (attempt ${attempt})"
-            git pull --rebase --quiet origin main
-          done
-          exit 1
+          mkdir -p .cache
+          ( make kind-up > .cache/kind-up.log 2>&1; echo $? > .cache/kind-up.status ) &
+          make test-kind-compile
+          wait
+          cat .cache/kind-up.log
+          test "$(cat .cache/kind-up.status)" = 0
 
-  # DRY RUN ONLY; see the header. Shows the version and the release notes semantic-release would
-  # produce, and proves the release tooling still works.
-  semantic-release:
-    name: Semantic Release (dry run)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [build]
-    runs-on: ubuntu-latest
+      # kind-seed waits for web and api but does not fail on slow image pulls; the pod shell test
+      # needs the toolbox pod running.
+      - name: Wait for the seed
+        run: |
+          kubectl --context "kind-${KIND_CLUSTER}" -n cogpit-demo rollout status deployment/web --timeout=300s
+          kubectl --context "kind-${KIND_CLUSTER}" -n cogpit-demo rollout status deployment/api --timeout=300s
+          kubectl --context "kind-${KIND_CLUSTER}" -n cogpit-demo wait --for=condition=Ready pod/toolbox --timeout=300s
+
+      - name: Cluster tests (race detector on)
+        run: make test-kind
+
+      - name: Upload the coverage profile
+        uses: actions/upload-artifact@v7
+        with:
+          name: profile-integration
+          path: .cache/coverage/integration.out
+          include-hidden-files: true
+          retention-days: 7
+
+      - name: Collect diagnostics on failure
+        if: failure()
+        run: |
+          kubectl --context "kind-${KIND_CLUSTER}" get nodes -o wide || true
+          kubectl --context "kind-${KIND_CLUSTER}" get pods -A -o wide || true
+          kubectl --context "kind-${KIND_CLUSTER}" -n cogpit-demo describe pods || true
+          kubectl --context "kind-${KIND_CLUSTER}" -n cogpit-demo get events --sort-by=.lastTimestamp || true
+
+      - name: Delete the kind cluster
+        if: always()
+        run: make kind-down || true
+
+  # Cordon, uncordon and drain need a cluster with workers of their own (hack/kind/drain-cluster.yaml).
+  kind-drain:
+    name: Integration Tests (kind drain)
+    runs-on: self-hosted
     timeout-minutes: 15
-    permissions:
-      contents: read  # guard 2: read-only on purpose until the owner cuts the first release
+    env:
+      KIND_DRAIN_CLUSTER: cogpit-drain-${{ github.run_id }}
+      KUBECONFIG: ${{ github.workspace }}/.cache/kind-drain/kubeconfig
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
+        with:
+          cache: kind
+
+      - name: Install kind and kubectl
+        uses: helm/kind-action@v1.15.1
+        with:
+          version: v0.33.0
+          kubectl_version: v1.37.1
+          install_only: true
+          ignore_failed_clean: true
+
+      - name: Create the drain cluster while the drain tests compile
+        run: |
+          set -euo pipefail
+          mkdir -p .cache
+          ( make kind-drain-up > .cache/kind-drain-up.log 2>&1; echo $? > .cache/kind-drain-up.status ) &
+          make test-kind-drain-compile
+          wait
+          cat .cache/kind-drain-up.log
+          test "$(cat .cache/kind-drain-up.status)" = 0
+
+      - name: Drain tests (race detector on)
+        run: make test-kind-drain
+
+      - name: Upload the coverage profile
+        uses: actions/upload-artifact@v7
+        with:
+          name: profile-integration-drain
+          path: .cache/coverage/integration-drain.out
+          include-hidden-files: true
+          retention-days: 7
+
+      - name: Collect diagnostics on failure
+        if: failure()
+        run: |
+          kubectl --context "kind-${KIND_DRAIN_CLUSTER}" get nodes -o wide || true
+          kubectl --context "kind-${KIND_DRAIN_CLUSTER}" get pods -A -o wide || true
+
+      - name: Delete the drain cluster
+        if: always()
+        run: make kind-drain-down || true
+
+  # What only macOS can test or build: the darwin-only tests (the title bar's AppKit harness, the
+  # locale's CoreFoundation read), the lint of the packages with darwin-only files, and the app
+  # bundle. A Fyne app with cgo and AppKit does not cross-compile from Linux.
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
+        with:
+          cache: macos
+
+      - name: The macOS-only tests (race detector on)
+        run: make test-darwin
+
+      - name: Lint the packages with darwin-only files
+        run: make lint LINT_PKGS="./internal/locale/... ./internal/ui/fyneui/..."
+
+      - name: Build and package Cogpit.app
+        run: make app
+
+  # Windows comes after the macOS beta (D-7); until then CI proves that every package and every test
+  # still compiles and links there with cgo and Fyne's native dependencies. (Linux needs no compile
+  # job: the unit and race jobs build and link every package and test there.)
+  compile-windows:
+    name: Compile (windows)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    env:
+      # Fail loudly when no C compiler is found instead of building without cgo.
+      CGO_ENABLED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
+        with:
+          cache: windows
+
+      # Fyne on Windows needs a MinGW-w64 gcc for cgo; MSYS2 is the toolchain Fyne documents.
+      - name: Install MinGW-w64 gcc
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc
+
+      - name: Put MinGW-w64 gcc on PATH
+        shell: pwsh
+        run: Add-Content -Path $env:GITHUB_PATH -Value "${{ steps.msys2.outputs.msys2-location }}\mingw64\bin"
+
+      - name: Toolchain
+        run: |
+          go version
+          go env GOOS GOARCH CGO_ENABLED CC
+          gcc --version | head -n 1
+
+      # Compiles every package and links the main packages (cmd/cogpit with Fyne's GL driver).
+      - name: Build every package
+        run: go build ./...
+
+      - name: Vet every package and its tests
+        run: go vet ./...
+
+      # Builds and links every test binary (cgo link errors show here) and runs no test.
+      - name: Compile and link the tests
+        run: go test -count=1 -run '^$' ./...
+
+  # The unit, race and cluster profiles merged: the job summary, and the README's badge, which
+  # Semantic Release commits with the release.
+  coverage:
+    name: Combined Coverage Report
+    needs: [unit-tests, race-ui, race-rest, kind, kind-drain]
+    if: always() && needs.unit-tests.result == 'success'
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
+        with:
+          cache: coverage
+          fyne-deps: "false"
+
+      - name: Download the coverage profiles
+        uses: actions/download-artifact@v8
+        with:
+          pattern: profile-*
+          merge-multiple: true
+          path: .cache/coverage
+
+      - name: Merge the profiles
+        run: |
+          set -euo pipefail
+          ls -l .cache/coverage
+          make coverage-report
+          cat .cache/coverage/combined/summary.md >> "${GITHUB_STEP_SUMMARY}"
+          mkdir -p dist/coverage
+          cp .github/badges/coverage.json .cache/coverage/combined/* dist/coverage/
+
+      - name: Upload the combined report and badge
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-combined
+          path: dist/coverage
+          retention-days: 7
+
+  # TRANSITION: a dry run with the GitHub App's token (it proves the App is installed and its
+  # token may push), until the new jobs have run green.
+  semantic-release:
+    name: Semantic Release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build, lint, parity, gosec, govulncheck, cyclomatic-complexity, unit-tests, race-ui, race-rest, kind, kind-drain, macos, compile-windows, coverage]
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      # The organisation's GitHub App, scoped to this repository; the token expires after an hour
+      # and is revoked at the end of the job. Not GITHUB_TOKEN: a release created with it would not
+      # start the release pipeline (build.yml).
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write  # tag, release, @semantic-release/git commit
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
 
-      # Kept for the flip: @semantic-release/git commits this file with the release, as in the
-      # team's other repositories. A dry run skips that step.
-      - name: Download coverage badge
+      - name: Download the combined coverage badge
         uses: actions/download-artifact@v8
         with:
-          name: coverage-badge
-          path: .github/badges/
-        continue-on-error: true
+          name: coverage-combined
+          path: ${{ runner.temp }}/coverage
+
+      - name: Put the badge in place
+        run: |
+          cp "${RUNNER_TEMP}/coverage/coverage.json" .github/badges/coverage.json
+          cat .github/badges/coverage.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -132,18 +521,7 @@ jobs:
       - name: Verify the integrity of provenance attestations and registry signatures for installed dependencies
         run: npm audit signatures
 
-      # Guard 3. semantic-release first checks that it may push (git push --dry-run to the
-      # repository URL from package.json); a read-only token fails that check even in a dry run.
-      # Pushes to github.com from this checkout go to an empty bare repository in the runner's temp
-      # directory instead, so the check passes and nothing can reach GitHub. Fetches are unchanged.
-      - name: Redirect git pushes into a throwaway repository
-        run: |
-          set -euo pipefail
-          sink="${RUNNER_TEMP}/push-sink"
-          git init --quiet --bare "${sink}/guided-traffic/cogpit.git"
-          git config --local "url.${sink}/.pushInsteadOf" "https://github.com/"
-
       - name: Release (dry run)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release --dry-run  # guard 1
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: npx semantic-release --dry-run
