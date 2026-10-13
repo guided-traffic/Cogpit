@@ -704,6 +704,7 @@ type Handle struct {
 	scope    Scope
 	e        *entry
 	c        *Cache
+	parts    []*Handle // a joined handle's parts (join.go); nil for a handle on one scope
 	released atomic.Bool
 }
 
@@ -716,6 +717,8 @@ func (h *Handle) Scope() Scope { return h.scope }
 // handlers, so the store's own sync comes first.)
 func (h *Handle) HasSynced() bool {
 	switch {
+	case h.parts != nil:
+		return h.joinedSynced()
 	case h.e == nil:
 		return false
 	case h.e.view != nil:
@@ -727,7 +730,7 @@ func (h *Handle) HasSynced() bool {
 // WaitForSync blocks until the informer has synced (HasSynced) or ctx ends; it reports whether
 // it synced.
 func (h *Handle) WaitForSync(ctx context.Context) bool {
-	if h.e == nil {
+	if h.e == nil && h.parts == nil {
 		<-ctx.Done()
 		return false
 	}
@@ -751,6 +754,8 @@ func (h *Handle) WaitForSync(ctx context.Context) bool {
 // List returns every object of the scope. The objects are shared and must not be modified.
 func (h *Handle) List() []*unstructured.Unstructured {
 	switch {
+	case h.parts != nil:
+		return h.joinedList("", true)
 	case h.e == nil:
 		return nil
 	case h.e.view != nil:
@@ -764,6 +769,8 @@ func (h *Handle) List() []*unstructured.Unstructured {
 // modified.
 func (h *Handle) ListNamespace(namespace string) []*unstructured.Unstructured {
 	switch {
+	case h.parts != nil:
+		return h.joinedList(namespace, false)
 	case h.e == nil:
 		return nil
 	case h.e.view != nil:
@@ -788,6 +795,9 @@ func toUnstructured(items []any) []*unstructured.Unstructured {
 
 // Get returns one object by namespace and name.
 func (h *Handle) Get(namespace, name string) (*unstructured.Unstructured, bool) {
+	if h.parts != nil {
+		return h.joinedGet(namespace, name)
+	}
 	if h.e == nil {
 		return nil, false
 	}
@@ -816,6 +826,9 @@ func objectKey(namespace, name string) string {
 // block. The returned function removes the subscription; it is idempotent and may be called from
 // inside fn. A delivery already running on the event goroutine may finish after it returns.
 func (h *Handle) Subscribe(fn func(Event)) (cancel func()) {
+	if h.parts != nil && fn != nil {
+		return h.joinedSubscribe(fn)
+	}
 	if h.e == nil || fn == nil {
 		return func() {}
 	}
@@ -827,6 +840,8 @@ func (h *Handle) Subscribe(fn func(Event)) (cancel func()) {
 // not failures.
 func (h *Handle) Err() error {
 	switch {
+	case h.parts != nil:
+		return h.joinedErr()
 	case h.e == nil:
 		return nil
 	case h.e.view != nil:
@@ -838,6 +853,10 @@ func (h *Handle) Err() error {
 // Release gives the handle back. It is idempotent. After the last release the scope stays warm
 // for the warm period, then stops.
 func (h *Handle) Release() {
+	if h.parts != nil {
+		h.joinedRelease()
+		return
+	}
 	if h.e == nil || !h.released.CompareAndSwap(false, true) {
 		return
 	}

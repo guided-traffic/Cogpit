@@ -1137,6 +1137,15 @@ closes; opening the Secrets view again moves the releases back and closes theirs
   `Derive` runs on every snapshot and lookup and memoizes its own expensive work; the derived
   objects carry a UID and resourceVersion that change with them, which the row cache and the
   confirmation's UID binding use.
+- **Joined scopes** (built 2026-10-13, night run; [`cache/join.go`](../../internal/cache/join.go)):
+  `cache.Join` reads several handles as one, each an ordinary handle on its own scope with its own
+  informer (or its cover) and warm period, so a joined read costs exactly what its parts cost.
+  `List` and `ListNamespace` return every part's objects (shared, not copied); `Get` the first
+  part's object of a name, and `Parts` tells parts apart where two hold an object of the same
+  namespace and name; `HasSynced` is true once every part has synced or failed and at least one
+  has synced (a part the user may not list does not hide the others), `Err` the first part's
+  error, `Subscribe` every part's events one at a time (serialised; no order across parts), and
+  `Release` releases every part (`TestJoinReadsSeveralScopesAsOne`, with the race detector).
 - **A virtual kind made of several kinds** (built 2026-10-13): the Applications, the cached
   Deployments, Stateful Sets, Daemon Sets, Cron Jobs and Jobs grouped by
   `app.kubernetes.io/instance` ([`kinds.GroupApplications`](../../internal/model/kinds/applications.go)).
