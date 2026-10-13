@@ -11,7 +11,7 @@ built-in views (41 until the four Device Resources views of 2026-10-13), the Por
 the Workloads Overview page and one view per custom resource kind from a watch-fed cache, greys
 what the user's access reviews deny, has a detail drawer and row menus from the command registry,
 a dock with logs (with their options, pod and container selectors, older lines, a jump to a time, and the logs of a workload's pods), a local terminal, pod
-shells, attach and Edit and Create resource tabs, writes through 142 commands (reads included) (editing, Secrets
+shells, attach and Edit and Create resource tabs, writes through 143 commands (reads included) (editing, Secrets
 from YAML in the GUI only, delete, node and workload actions, a crash-safe drain, port forwards
 that fail at once on permanent errors, Helm rollback, uninstall and upgrade with a crash journal
 locked between Cogpit processes, each bound to the revision the server holds), adds and syncs
