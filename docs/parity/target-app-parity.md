@@ -13,7 +13,7 @@ Cogpit adds beyond Lens is in [`beyond-lens.md`](beyond-lens.md). Method and voc
 
 | Number | Value | Kind |
 |---|---|---|
-| **Feature breadth** (does each Lens feature exist?) | **~77%** (was ~56%) | measured by `make parity`: [breadth](#feature-breadth); 9 rows done, the rest partial |
+| **Feature breadth** (does each Lens feature exist?) | **~79%** (was ~56%) | measured by `make parity`: [breadth](#feature-breadth); 9 rows done, the rest partial |
 | **Ready for real work** (could a daily Lens user on macOS switch?) | **~26%** (was ~23%) | estimated: [weights](#ready-for-real-work) |
 | **Mainstream practitioner** (daily user of Lens's free features) | **~25%** (was ~24%) | estimated |
 | **Essentials user** (connect, pods, logs, shell, edit) | **~34%** (was ~32%) | estimated |
@@ -82,13 +82,13 @@ counts when it exists in some form; nine counted rows are done, the rest partial
 
 | Component | Weight | Ours / Lens | % | Kind |
 |---|---:|---|---:|---|
-| Resource views | 30% | 63 / 64 | 98.4% | measured ([resource-parity](resource-parity.md)); ten of them the Gateway API views, generic until captured |
+| Resource views | 30% | 64 / 64 | 100.0% | measured ([resource-parity](resource-parity.md)); ten of them the Gateway API views, generic until captured |
 | Resource actions | 20% | 37 / 39 | 94.9% | measured ([resource-parity](resource-parity.md)) |
 | Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 110 / 120 | 91.7% | measured ([ui-parity](ui-parity.md), free rows) |
-| Cluster authentication and connectivity | 10% | 5 / 13 | 38.5% | measured ([platform-parity](platform-parity.md#cluster-authentication-and-connectivity)) |
+| Cluster authentication and connectivity | 10% | 7 / 13 | 53.8% | measured ([platform-parity](platform-parity.md#cluster-authentication-and-connectivity)) |
 | Platforms and packages | 5% | 1 / 13 | 7.7% | measured ([platform-parity](platform-parity.md#operating-systems-and-packages)) |
 | Paid Lens Desktop features | 10% | 1 / 11 | 9.1% | measured ([premium list](https://docs.lenshq.io/k8slens/premium-features/) without extensions, D-5): the editor's diff, partial |
-| **Weighted** | 100% | | **76.6%** | |
+| **Weighted** | 100% | | **78.6%** | |
 
 ## Ready for real work
 

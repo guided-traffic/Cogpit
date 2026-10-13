@@ -1205,7 +1205,7 @@ data, Secrets included, at rest on the disk.
   certificate check; the engine writes a WARN line into the connect log for it
   ([`engine/tlswarning.go`](../../internal/engine/tlswarning.go)) and `ContextInfo.Insecure`, from
   `kubeconfig.Context.Insecure`, lets the picker mark such a context
-  ([H-35](../security/trust-boundaries.md#h-35-a-context-that-skips-the-certificate-check)).
+  ([H-37](../security/trust-boundaries.md#h-37-a-context-that-skips-the-certificate-check)).
 - **A cluster's proxy in Cogpit** (built 2026-10-13, G13, [`proxy.go`](../../internal/cluster/proxy.go)):
   `Options.Proxy` (a `*url.URL`) sets `rest.Config.Proxy` after client-go built the configuration, so
   it replaces the kubeconfig's `proxy-url` and the environment's `HTTPS_PROXY` for this connection

@@ -161,7 +161,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   information of every `proxy-url` of the kubeconfig in its errors
   ([`cluster/proxyurl.go`](../../internal/cluster/proxyurl.go), `TestKubeconfigProxyPasswordNeverInErrors`).
   A context with `insecure-skip-tls-verify` is marked in the picker and warned about in its
-  connect log (Cogpit's default, [H-35](../security/trust-boundaries.md#h-35-a-context-that-skips-the-certificate-check);
+  connect log (Cogpit's default, [H-37](../security/trust-boundaries.md#h-37-a-context-that-skips-the-certificate-check);
   `TestInsecureContextIsMarkedAndLogged`, `TestPickerMarksAnInsecureContext`). Two rows partial
   in [platform-parity](platform-parity.md#cluster-authentication-and-connectivity); not verified
   against a real proxy or a cloud cluster's own CA.
