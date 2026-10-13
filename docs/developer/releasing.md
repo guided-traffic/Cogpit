@@ -21,17 +21,25 @@ other repositories (`valkey-operator`):
 | [`build.yml`](../../.github/workflows/build.yml) "Release Build" | a release published (`release: types: [published]`) | builds the artifacts from the release's tag and attaches them ([the release pipeline](#the-release-pipeline)) |
 | [`renovate.yml`](../../.github/workflows/renovate.yml) | daily at 02:00 Berlin time, manual | dependency updates ([Renovate](#renovate)) |
 
-**Budget: no job needs more than ten minutes** (owner, 2026-10-13). The UI's race tests take about
+**Budget: no job needs more than ten minutes** (owner, 2026-10-13). Measured on the first live run
+(38445382032, 2026-10-13, the table's last column): the longest job took 9.6 minutes, with all
+Linux jobs on one shared self-hosted machine; the whole run about 25 minutes, most of it jobs
+waiting for a free runner (the owner finds 20 minutes and more acceptable). The UI's race tests take about
 18 minutes in one process on a Linux runner, so they run in eight shards. Every job's timeout is
-15 minutes: a run after a `go.sum` change starts without caches and saves them, which takes longer
-once; the budget is for the runs in between.
+15 minutes: a run after a `go.sum` change starts without caches and saves them (two minutes more,
+measured up to 13.8 minutes for the kind job in run 38439307913); the budget is for the runs in
+between.
 
 **Concurrency:** a newer push cancels the running run of the same branch, on `main` too:
 semantic-release releases every commit since the last tag, so a cancelled run loses nothing.
 
 **Runners:** the Linux jobs run on the organisation's self-hosted runners (`runs-on: self-hosted`),
-as the team's other repositories do: ephemeral pods on Ubuntu 24.04 with 16 CPUs of a shared
-machine and Docker, but without `make`, a C compiler or `SHELL`. The macOS job and the Windows
+as the team's other repositories do: ephemeral pods on Ubuntu 24.04 and Docker, but without
+`make`, a C compiler or `SHELL`. They all share **one machine with 16 CPUs** (every job reports
+the same boot time; the load stood at 13 to 20 during a run), so the jobs' setup and builds compete
+for its CPUs and network. The repository variable `LINUX_RUNNER` moves them elsewhere without a
+commit (`ubuntu-latest`: GitHub's hosted runners); unset, they stay self-hosted (owner,
+2026-10-13). The macOS job and the Windows
 compile run on GitHub's hosted runners (`macos-latest`, Apple silicon; `windows-latest`), which cost
 nothing for a public repository; a Fyne app with cgo and AppKit does not cross-compile from Linux.
 
@@ -50,22 +58,22 @@ pipeline's last job (`contents: write`, to attach the artifacts). Semantic Relea
 with an installation token of the organisation's GitHub App (`APP_CLIENT_ID`, `APP_PRIVATE_KEY`,
 organisation secrets visible to this repository; [keys](../security/updates.md#keys-and-who-holds-them)).
 
-| Job | Runner | Make target | What it proves | Minutes, run 38439307913 (caches new) |
+| Job | Runner | Make target | What it proves | Minutes, run 38445382032 |
 |---|---|---|---|---:|
-| Code Linting | self-hosted | `make lint` | golangci-lint with the team's linters and `depguard`'s layering ([architecture §3](architecture.md#3-dependency-layering-enforced)) | 2.4 |
-| Parity | self-hosted | `make parity` | the parity checklists' rows and the numbers the progress pages report ([`make parity`](../parity/README.md#make-parity)) | 3.6 |
-| GoSec Security Scan | self-hosted | `make gosec` | golangci-lint's gosec on the shipped code (tests, `internal/testkit` and `hack` left out); every accepted finding is excluded in [`.golangci.yml`](../../.golangci.yml) with its reason, a real one is fixed or an H-gap in [`docs/security`](../security/README.md) | 8.3 |
-| Vulnerability Check | self-hosted | `make vuln` | govulncheck: no known vulnerability in a function Cogpit's code reaches | 7.0 |
-| Cyclomatic Complexity | self-hosted | `make cyclo` | gocyclo: no function above `CYCLO_THRESHOLD`; the 20 most complex in the job summary ([below](#cyclomatic-complexity)) | 1.1 |
-| Unit Tests | self-hosted | `make test-unit-coverage` | every package's tests without the race detector, with a coverage profile | 9.2 |
-| Race Tests (UI n/8) | self-hosted, eight jobs | `make test-race-ui RACE_SHARD=n RACE_SHARDS=8` | one shard of `internal/ui/fyneui`'s tests under the race detector ([sharding](#the-uis-race-tests-in-shards)) | 5.2–12.2 |
-| Race Tests (other packages) | self-hosted | `make test-race-rest` | every other package under the race detector, and the patched terminal widget's tests (`make test-fork`) | 7.5 |
-| Integration Tests (kind) | self-hosted | `make kind-up`, `make test-kind` | the `TestKind*` tests against a real API server and kubelet (kind v0.33.0, Kubernetes 1.37.0, the seed of [`hack/kind`](../../hack/kind/README.md) and the Metrics Server); the tests compile while the cluster starts | 13.8 |
-| Integration Tests (kind drain) | self-hosted | `make kind-drain-up`, `make test-kind-drain` | cordon, a blocked drain, a simulated crash and the finish on a three-node cluster of its own | 5.7 |
+| Code Linting | self-hosted | `make lint` | golangci-lint with the team's linters and `depguard`'s layering ([architecture §3](architecture.md#3-dependency-layering-enforced)) | 3.2 |
+| Parity | self-hosted | `make parity` | the parity checklists' rows and the numbers the progress pages report ([`make parity`](../parity/README.md#make-parity)) | 1.6 |
+| GoSec Security Scan | self-hosted | `make gosec` | golangci-lint's gosec on the shipped code (tests, `internal/testkit` and `hack` left out); every accepted finding is excluded in [`.golangci.yml`](../../.golangci.yml) with its reason, a real one is fixed or an H-gap in [`docs/security`](../security/README.md) | 2.6 |
+| Vulnerability Check | self-hosted | `make vuln` | govulncheck: no known vulnerability in a function Cogpit's code reaches | 1.6 |
+| Cyclomatic Complexity | self-hosted | `make cyclo` | gocyclo: no function above `CYCLO_THRESHOLD`; the 20 most complex in the job summary ([below](#cyclomatic-complexity)) | 0.8 |
+| Unit Tests | self-hosted | `make test-unit-coverage` | every package's tests without the race detector, with a coverage profile | 5.7 |
+| Race Tests (UI n/8) | self-hosted, eight jobs | `make test-race-ui RACE_SHARD=n RACE_SHARDS=8` | one shard of `internal/ui/fyneui`'s tests under the race detector ([sharding](#the-uis-race-tests-in-shards)) | 5.2–9.3 |
+| Race Tests (other packages) | self-hosted | `make test-race-rest` | every other package under the race detector, and the patched terminal widget's tests (`make test-fork`) | 6.6 |
+| Integration Tests (kind) | self-hosted | `make kind-up`, `make test-kind` | the `TestKind*` tests against a real API server and kubelet (kind v0.33.0, Kubernetes 1.37.0, the seed of [`hack/kind`](../../hack/kind/README.md) and the Metrics Server); the tests compile while the cluster starts | 9.6 |
+| Integration Tests (kind drain) | self-hosted | `make kind-drain-up`, `make test-kind-drain` | cordon, a blocked drain, a simulated crash and the finish on a three-node cluster of its own | 4.0 |
 | macOS | `macos-latest` | `make test-darwin`, `make lint LINT_PKGS=…`, `make app` | the tests only macOS can run (the title bar's AppKit harness, the locale's CoreFoundation read, the tests that expect macOS's shortcut glyphs), the lint of the packages with darwin-only files, and the app bundle | 5.0 |
-| Compile (windows) | `windows-latest` | `go build`, `go vet`, `go test -run '^$'` | every package and test compiles and links on Windows with cgo (MinGW-w64 from MSYS2) and Fyne; it runs no test | 11.6 |
-| Combined Coverage Report | self-hosted, after the test jobs | `make coverage-report` | the unit, race and cluster profiles merged: the job summary, and the badge Semantic Release commits ([coverage](#coverage)) | 1.2 |
-| Semantic Release | self-hosted, `main` only, after every job | `npx semantic-release` | the tag, the GitHub release with its notes, and the release commit with the badge ([release flow](#release-flow)) | 0.8 (the dry run) |
+| Compile (windows) | `windows-latest` | `go build`, `go vet`, `go test -run '^$'` | every package and test compiles and links on Windows with cgo (MinGW-w64 from MSYS2) and Fyne; it runs no test | 2.9 |
+| Combined Coverage Report | self-hosted, after the test jobs | `make coverage-report` | the unit, race and cluster profiles merged: the job summary, and the badge Semantic Release commits ([coverage](#coverage)) | 1.0 |
+| Semantic Release | self-hosted, `main` only, after every job | `npx semantic-release` | the tag, the GitHub release with its notes, and the release commit with the badge ([release flow](#release-flow)) | 0.9 |
 
 Linux needs no compile job: the unit and race jobs build and link every package and test there with
 cgo. The cluster jobs name their kind cluster after the run (`cogpit-<run id>`), so two runs on one
@@ -206,6 +214,13 @@ CHANGE:` footer ([conventions](conventions.md#commits-and-pull-requests)).
 **After a release, `main` has moved:** the release commit is on `main`, so the next local push
 needs `git pull --rebase` first.
 
+**The first release:** [v0.1.0](https://github.com/guided-traffic/cogpit/releases/tag/v0.1.0)
+(2026-10-13, 457 commits since `v0.0.0`), with the badge at 83.6 % in its release commit `53b96c9`.
+Checked by download: `SHA256SUMS` matches the archives, `cogpit-cli --version` says `cogpit-cli
+0.1.0 (go1.27.2, darwin/arm64)`, the app's bundle version is 0.1.0, its signature ad-hoc, and
+`spctl --assess` rejects it, as an unsigned app is rejected. Its notes carry a "BREAKING CHANGES"
+section quoting `f3ad000`'s body line; the version stayed minor by the v0 rule.
+
 
 ## The release pipeline
 
@@ -217,6 +232,11 @@ checks out the release's tag and builds with `VERSION` set to the tag without it
 | cogpit-cli (linux, darwin, windows) | self-hosted | `make dist-cli` | `cogpit-cli_<v>_<os>_<arch>.tar.gz` for linux and darwin, `.zip` for windows, each on amd64 and arm64: pure Go (`CGO_ENABLED=0`), `-trimpath`, `-s -w`, the version set with `-X main.version`, with `LICENSE` and `README.md`. The job checks that the Linux binary's `--version` says the release's version. |
 | Cogpit.app (macOS arm64) | `macos-latest` | `make dist-app` | `Cogpit_<v>_darwin_arm64.zip`: `make app` (`fyne package`, the version in `Info.plist` and the binary, an ad-hoc signature) zipped with `ditto`. The job checks the bundle's version, its signature seal and its architecture. |
 | Attach to the release | self-hosted, after both | `make dist-checksums` | `SHA256SUMS` over the archives; attaches everything to the release (`softprops/action-gh-release@v3`) and appends a note to the release text: what the downloads are, that they are unsigned, how macOS lets the user start the app anyway, and that desktop packages for Linux and Windows come with M11 |
+
+The release jobs build without a build cache (`cache: none`): an artifact never comes from objects
+another run wrote, and for v0.1.0 saving the six platforms' cache took 5:18 minutes, longer than
+the build (5:30). Measured for v0.1.0 (run 38447771669): cogpit-cli 11.7 minutes with that save,
+the app 2.0, attaching 0.8.
 
 `make dist-cli`, `make dist-app VERSION=0.0.99` and `make dist-checksums` run the same locally into
 `dist/` (gitignored). To check a download: `sha256sum -c SHA256SUMS --ignore-missing` (on macOS
