@@ -12,7 +12,7 @@ description: Go from go.mod, its caches per kind of build, and Fyne's build depe
 
 inputs:
   cache:
-    description: The kind of build whose caches to restore and save (lint, unit, race-ui, race-rest, kind, macos, ...).
+    description: The kind of build whose cache to restore and save (lint, unit, race-ui, race-rest, kind, macos, ...); none builds without one.
     required: true
   fyne-deps:
     description: Install Fyne's Linux build dependencies (cgo with OpenGL, X11, xkbcommon and Wayland headers); make too.
@@ -31,6 +31,7 @@ runs:
 
     # The CPUs and the load of the machine the job landed on (the self-hosted runners share theirs).
     - name: Locate the build cache
+      if: inputs.cache != 'none'
       id: paths
       shell: bash
       run: |
@@ -38,6 +39,7 @@ runs:
         echo "gocache=$(go env GOCACHE)" >> "${GITHUB_OUTPUT}"
 
     - name: Restore the build cache
+      if: inputs.cache != 'none'
       uses: actions/cache@v6
       with:
         path: |

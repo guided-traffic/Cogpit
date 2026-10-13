@@ -16,6 +16,10 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+# The release builds start without a build cache: an artifact never comes from objects another run
+# wrote, and saving the six platforms' cache took 5:18 minutes from the self-hosted runner (v0.1.0),
+# longer than building them.
+
 jobs:
   # cogpit-cli is pure Go: every platform from one Linux runner (make dist-cli).
   cli:
@@ -29,7 +33,7 @@ jobs:
       - name: Set up Go
         uses: ./.github/actions/go-setup
         with:
-          cache: release
+          cache: none
           fyne-deps: "false"
 
       - name: Install zip
@@ -69,7 +73,7 @@ jobs:
       - name: Set up Go
         uses: ./.github/actions/go-setup
         with:
-          cache: macos
+          cache: none
 
       - name: Build and zip Cogpit.app
         run: make dist-app VERSION="${GITHUB_REF_NAME#v}"
