@@ -139,6 +139,9 @@ func TestNamespacedWatchesWhenClusterWideListIsDenied(t *testing.T) {
 			t.Errorf("a cluster-wide pods scope: %+v", st)
 		}
 	}
+	if !s.Backend().Cached(testPods) {
+		t.Error("pods read namespace by namespace are not cached for a search across kinds")
+	}
 }
 
 // The plan follows the settings and the filter: an accessible namespace added is read at once,

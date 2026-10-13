@@ -263,7 +263,7 @@ func (b *Backend) Cached(p *model.KindProfile) bool {
 	if isHelmReleases(p) { // both drivers' records (helmdriver.go)
 		return b.releasesCached(p)
 	}
-	return b.Cache != nil && b.Cache.Running(b.Scope(p))
+	return b.Cache != nil && (b.Cache.Running(b.Scope(p)) || b.namespacesRunning(p))
 }
 
 // customKindsNote explains why a custom resource kind key is unknown: the definitions are still

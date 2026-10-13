@@ -308,6 +308,24 @@ func (b *Backend) acquireForView(p *model.KindProfile, plan nsPlan) *cache.Handl
 	return b.acquirePlanned(p, plan)
 }
 
+// namespacesRunning reports whether a kind read namespace by namespace is cached in every one of
+// its namespaces, without starting a watch (Backend.Cached: a search across kinds reads only what
+// runs).
+func (b *Backend) namespacesRunning(p *model.KindProfile) bool {
+	plan := b.namespacePlan(p)
+	if !plan.perNamespace || len(plan.watch) == 0 {
+		return false
+	}
+	for _, ns := range plan.watch {
+		sc := b.Scope(p)
+		sc.Namespace = ns
+		if !b.Cache.Running(sc) {
+			return false
+		}
+	}
+	return true
+}
+
 // drawerPlanKey is how the drawer of an object of kind p reads its kind and the events; a drawer
 // whose key changes starts again.
 func (b *Backend) drawerPlanKey(p *model.KindProfile) string {
