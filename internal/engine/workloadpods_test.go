@@ -272,6 +272,54 @@ func TestWorkloadPodsIndexOnlyWithTheDrawer(t *testing.T) {
 	})
 }
 
+// A Deployment's drawer wakes for its own pods and replica sets only: the pods of another
+// Deployment change ten times without an EventDetail, and one pod of its own makes one. (No
+// metrics hub: its polls would announce the drawer too.)
+func TestWorkloadDrawerWakesOnlyForItsPods(t *testing.T) {
+	src := testkit.NewMemorySource()
+	src.Set(wpDeployments, testkit.Object("apps/v1", "Deployment", "shop", "web", nil))
+	src.Set(wpDeployments, testkit.Object("apps/v1", "Deployment", "shop", "api", nil))
+	src.Set(replicaSetsGVR, wpOwned(testkit.Object("apps/v1", "ReplicaSet", "shop", "web-new", nil), "apps/v1", "Deployment", "web"))
+	src.Set(replicaSetsGVR, wpOwned(testkit.Object("apps/v1", "ReplicaSet", "shop", "api-1", nil), "apps/v1", "Deployment", "api"))
+	src.Set(testkit.PodsGVR, wpPod("shop", "web-new-a", "ReplicaSet", "web-new"))
+	src.Set(testkit.PodsGVR, wpPod("shop", "api-1-a", "ReplicaSet", "api-1"))
+	s, fc := newTestSession(t, src, 5*time.Millisecond)
+	fc.profiles = append(testProfiles(), builtinProfile(t, "replicasets"))
+	for i, p := range fc.profiles {
+		if p.Key == "deployments" {
+			fc.profiles[i] = builtinProfile(t, "deployments")
+		}
+	}
+	connectTest(t, s)
+	openView(s, testEvents.Key)
+	ref := wpRef("deployments", "web")
+	openDrawer(s, ref)
+	waitDrawerPods(t, s, ref, "web-new-a")
+	pp, _ := s.Backend().Profile("pods")
+	pods := s.Backend().Acquire(pp)
+	defer pods.Release()
+	waitFor(t, "the pods", pods.HasSynced)
+	rec := record(s)
+	before := rec.count(EventDetail, "deployments")
+
+	for i := range 10 {
+		p := wpPod("shop", "api-1-a", "ReplicaSet", "api-1")
+		p.SetLabels(map[string]string{"round": fmt.Sprint(i)})
+		src.Set(testkit.PodsGVR, p)
+		want := fmt.Sprint(i)
+		waitFor(t, "the other Deployment's pod in the cache", func() bool {
+			o, ok := KindGet(pods, pp, "shop", "api-1-a")
+			return ok && o.GetLabels()["round"] == want
+		})
+	}
+	src.Set(testkit.PodsGVR, wpPod("shop", "web-new-b", "ReplicaSet", "web-new"))
+	waitFor(t, "a detail event for its own pod", func() bool { return rec.count(EventDetail, "deployments") > before })
+	waitDrawerPods(t, s, ref, "web-new-a", "web-new-b")
+	if got := rec.count(EventDetail, "deployments") - before; got != 1 {
+		t.Errorf("%d detail events for ten changes of another Deployment's pod and one pod of its own, want 1", got)
+	}
+}
+
 // The table's CPU and Memory come from the hub as in a node's drawer, polled for the workload's
 // namespace while the drawer shows the table, and not after it closes; the cluster's settings hide
 // them and their poll.

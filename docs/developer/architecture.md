@@ -1086,7 +1086,8 @@ the panel is open is the window's, as the context picker's is.
   Kubernetes's garbage collector), and a Deployment's drawer looks up its replica sets, then each
   one's pods, a Cron Job's its jobs, then theirs, the others their own pods. The drawer wakes for
   those keys alone: a new replica set of the Deployment files under the Deployment's key, which the
-  drawer looked up. Measured (`TestWorkloadPodsIndexOnlyWithTheDrawer`): with pods in the Deployments'
+  drawer looked up, and ten changes of another Deployment's pod wake it not once
+  (`TestWorkloadDrawerWakesOnlyForItsPods`). Measured (`TestWorkloadPodsIndexOnlyWithTheDrawer`): with pods in the Deployments'
   `Needs`, ten pod changes and one Deployment change made eleven Deployments snapshots; with
   `DetailNeeds`, one, the drawer open or not; the drawer's handles on the pods and the replica sets
   go back when it closes. The rows a drawer table holds are bounded after sorting
