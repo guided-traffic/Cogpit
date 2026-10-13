@@ -120,7 +120,7 @@ const (
 // namespacePlan returns how the backend reads a kind now. It asks the API server nothing itself;
 // a rules review it needs is started in the background, deduplicated, as Allowed does.
 func (b *Backend) namespacePlan(p *model.KindProfile) nsPlan {
-	if b == nil || p == nil || !p.Namespaced || p.Local || isApplications(p) {
+	if b == nil || p == nil || !p.Namespaced || p.Local || isApplications(p) || isHelmReleases(p) {
 		return nsPlan{}
 	}
 	denied, settled := b.clusterWideDenied(p)
@@ -320,7 +320,7 @@ func (b *Backend) acquireSettled(ctx context.Context, p *model.KindProfile) *cac
 			}
 		}
 	}
-	if plan.pending || p.Local || isApplications(p) {
+	if plan.pending || p.Local || isApplications(p) || isHelmReleases(p) { // their own caches (Acquire)
 		return b.Acquire(p)
 	}
 	return b.acquirePlanned(p, plan)
@@ -340,7 +340,7 @@ func (b *Backend) acquireForView(p *model.KindProfile, plan nsPlan) *cache.Handl
 	switch {
 	case plan.pending:
 		return cache.Pending(b.Scope(p))
-	case p.Local || isApplications(p):
+	case p.Local || isApplications(p) || isHelmReleases(p): // the release Secrets and ConfigMaps joined (helmdriver.go)
 		return b.Acquire(p)
 	}
 	return b.acquirePlanned(p, plan)
