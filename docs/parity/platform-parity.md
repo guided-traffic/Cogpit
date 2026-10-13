@@ -12,9 +12,9 @@ it handles, and the external tools it depends on. Method: [`README.md`](README.m
 (`latest.yml`, `latest-mac.yml`, `latest-linux.yml` on `downloads.k8slens.dev`) and the
 2026.10.51501 release notes. Cogpit's ecosystem facts: [decisions](../developer/decisions.md).
 
-**Summary (measured, 2026-10-13, after the night run, counted by `make parity`):** 13 of 38 rows partial,
-none done (four more are not targets or have nothing to build): the macOS app bundle (1 of 13
-package rows), client certificates, bearer tokens, exec credential plugins (run only after the user allowed
+**Summary (measured, 2026-10-13, after the night run, counted by `make parity`):** 14 of 38 rows partial,
+none done (four more are not targets or have nothing to build): the macOS app bundle and the
+releases' checksums (2 of 13 package rows), client certificates, bearer tokens, exec credential plugins (run only after the user allowed
 them in the GUI, not yet verified against a cloud provider), users limited to some namespaces
 through the access reviews, the HTTP proxy per cluster, `proxy-url` and the kubeconfig's TLS
 settings (custom CA, `tls-server-name`, `insecure-skip-tls-verify`; against TLS test servers, not a
@@ -32,7 +32,7 @@ material, and real cloud accounts to test credential plugins against.
 
 | Platform | Lens Desktop | Cogpit target | Status |
 |---|---|---|---|
-| macOS | dmg for x64 and arm64, macOS 13 or later | the universal app bundle `Cogpit.app` (arm64 + x86_64) in a signed, notarized disk image to drag into Applications; macOS 13 or later ([D-4](../developer/decisions.md#d-4-packaging-and-updates)) | partial: `make app` ([`Makefile`](../../Makefile)) builds an ad-hoc signed `Cogpit.app` for arm64 locally; not universal, no disk image, not notarized |
+| macOS | dmg for x64 and arm64, macOS 13 or later | the universal app bundle `Cogpit.app` (arm64 + x86_64) in a signed, notarized disk image to drag into Applications; macOS 13 or later ([D-4](../developer/decisions.md#d-4-packaging-and-updates)) | partial: `make app` ([`Makefile`](../../Makefile)) builds an ad-hoc signed `Cogpit.app` for arm64; since 2026-10-13 every release carries it zipped (`Cogpit_<v>_darwin_arm64.zip`, `make dist-app`, [the release pipeline](../developer/releasing.md#the-release-pipeline)); not universal, no disk image, no Developer ID signature, not notarized |
 | Windows | setup exe (architecture not stated); silent install with `/S`, `/allusers`, `/D=`; Windows 10 22H2 or Server 2022 | after the macOS beta: MSI and portable zip for x64 and arm64, code-signed | missing |
 | Linux | AppImage, deb, rpm for x86_64; APT and RPM repositories; Snap | after the macOS beta, Ubuntu first: AppImage, deb, rpm, tar.xz and Flatpak for x86_64 and aarch64 | missing |
 | Homebrew cask (macOS) | mentioned, name not verified | yes, from the same disk image, with `auto_updates true` | missing |
@@ -44,7 +44,7 @@ material, and real cloud accounts to test credential plugins against.
 | One-click update | Windows exe, macOS dmg and AppImage, with staged rollouts; APT and RPM manual | macOS through Sparkle 2; Windows and Linux formats with M11; package-manager installs hand over to the manager ([D-4](../developer/decisions.md#d-4-packaging-and-updates)) | missing |
 | Update channels | Stable, Beta, Alpha | Stable and Beta | missing |
 | Signed update manifest, verified before install | not documented | yes ([security › updates](../security/updates.md)) | missing |
-| Checksums and SBOM per release | not documented | `SHA256SUMS.txt`, SPDX SBOM | missing |
+| Checksums and SBOM per release | not documented | `SHA256SUMS`, SPDX SBOM | partial (2026-10-13): `SHA256SUMS` over every archive of each release (`make dist-checksums` in [`build.yml`](../../.github/workflows/build.yml), [the release pipeline](../developer/releasing.md#the-release-pipeline)), not signed; no SBOM |
 | Activation or login before first use | Lens ID required (offline activation: Enterprise) | none ([D-9](../developer/decisions.md#d-9-scope-against-lenss-paid-and-vendor-features)) | – (nothing to build) |
 | Network endpoints the app needs besides clusters | `api.k8slens.dev`, `downloads.k8slens.dev`, `*.bored.k8slens.dev`, npm registry | none; Helm repositories, the LLM endpoint and the update check only when used | missing |
 
@@ -81,7 +81,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Row | Cogpit target | Status |
 |---|---|---|
-| Every minor version the Kubernetes project supports (1.35, 1.36 and 1.37 on 2026-10-11) | full support, tested against `kind` and envtest in CI; client-go 0.37.1 is the 1.37 release | partial: 1.37.0 on kind in CI (the Cluster Tests job of [`build.yml`](../../.github/workflows/build.yml)) and 1.36.1 locally (`make test-kind`); no 1.35, no envtest |
+| Every minor version the Kubernetes project supports (1.35, 1.36 and 1.37 on 2026-10-11) | full support, tested against `kind` and envtest in CI; client-go 0.37.1 is the 1.37 release | partial: 1.37.0 on kind in CI (the Integration Tests (kind) job of [`release.yml`](../../.github/workflows/release.yml)) and 1.36.1 locally (`make test-kind`); no 1.35, no envtest |
 | Older clusters | views from discovery; Pod Security Policies shown only before 1.25 | partial (2026-10-13): every built-in view is offered only where discovery finds its resource; Pod Security Policies (`policy/v1beta1`) appear on a cluster that serves them and not on one that does not, through client-go's discovery of a fake API server (`TestPodSecurityPoliciesOnlyWhereServed`); no test against a cluster before 1.25 (kind's node images for those versions are not used) |
 | Kinds and fields newer than the client libraries | discovery-driven views; objects handled as unstructured content, so edits keep unknown fields | partial: kinds from custom resource definitions get views from their definitions ([`customkinds.go`](../../internal/engine/customkinds.go)); edits replace the object with the edited unstructured text, so fields the client libraries don't know survive ([`editor.go`](../../internal/engine/editor.go)); built-in kinds without a profile and aggregated APIs get no view yet |
 | The sidebar follows the served APIs, version by version | Lens shows Mutating Admission Policies on a 1.36.2 cluster and not on a 1.35.x one (captures, 2026-10-11; `admissionregistration.k8s.io/v1` from 1.36); Cogpit's profiles are filtered by discovery, so a kind appears where it is served; to be tested against kind node images of each supported minor version | partial: discovery filtering ([`connector.go`](../../internal/engine/connector.go)); only 1.36.1 on kind |

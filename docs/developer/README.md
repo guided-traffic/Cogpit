@@ -29,7 +29,7 @@ this page.
 | [`conventions.md`](conventions.md) | Clean-room, never surprise a cluster, cache first, crash stance, secrets, style, commits |
 | [`extending.md`](extending.md) | Checklists: a command, a kind profile, a cache consumer, a package |
 | [`testing.md`](testing.md) | Test tiers, fixtures, performance and API-load budgets |
-| [`releasing.md`](releasing.md) | CI jobs, coverage badge, Renovate, the semantic-release dry run, release flow, artifacts per platform, signed updates |
+| [`releasing.md`](releasing.md) | CI jobs and their make targets, the race shards, coverage, Renovate, the release flow with semantic-release, the release pipeline and its artifacts, signed updates |
 | [`decisions.md`](decisions.md) | Decisions taken and open |
 | [`spike-fyne.md`](spike-fyne.md) | The UI toolkit gate before M2 |
 
@@ -42,9 +42,9 @@ Where Cogpit stands against Lens: [`../parity/`](../parity/README.md). Security 
 cogpit/
 ├─ AGENTS.md, CLAUDE.md, ATTRIBUTION.md, README.md, ROADMAP.md, SECURITY.md, LICENSE
 ├─ go.mod                     module github.com/guided-traffic/cogpit
-├─ Makefile                   build, run, run-demo, test, test-unit-race, test-kind, bench, lint, parity, kind-up, kind-down, kind-prometheus, app
+├─ Makefile                   build, run, test targets (one per CI job), lint, parity, gosec, vuln, cyclo, kind-up, kind-down, app, dist-* (releasing.md)
 ├─ .golangci.yml              linters and the depguard layering rules
-├─ .github/                   CI workflows (build, release, renovate), renovate.json, the coverage badge
+├─ .github/                   workflows: release (the checks, semantic-release), build (the release pipeline), renovate; actions/go-setup; renovate.json; the coverage badge
 ├─ .releaserc.json            semantic-release config; package.json pins its npm tooling (CI only)
 ├─ cmd/cogpit/                desktop app (Fyne, cgo)
 ├─ cmd/cogpit-cli/            headless CLI: contexts, get, the MCP stdio bridge (pure Go)
@@ -52,6 +52,8 @@ cogpit/
 ├─ hack/kind/                 kind cluster config, seed manifests (make kind-up), Prometheus values (make kind-prometheus)
 ├─ hack/icon/                 generator of the app icon (make icon; internal/ui/logo draws it)
 ├─ hack/parity/               make parity: checks the parity checklists and counts what they report
+├─ hack/shard/                the UI's race tests split into CI shards (make test-race-ui)
+├─ hack/coverage/             merges coverage profiles into the badge and the summary (make coverage-report)
 ├─ hack/readmecmds/           the README's table of commands, from the registry
 ├─ packaging/                 icon.png; per-OS packaging later
 ├─ tools/                     (planned) generators of the parity checklist page and the scorecard

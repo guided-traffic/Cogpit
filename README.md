@@ -128,6 +128,19 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 
 ## 🚀 TL;DR fast start
 
+### Download a release
+
+Every [release](https://github.com/guided-traffic/cogpit/releases) since v0.1.0 (2026-10-13)
+carries `Cogpit_<version>_darwin_arm64.zip` (the app for Apple silicon), `cogpit-cli` for Linux,
+macOS and Windows on amd64 and arm64, and `SHA256SUMS`. **They are unsigned:** no Developer ID,
+not notarized, so macOS blocks the app's first start until you allow it under System Settings ›
+Privacy & Security › Open Anyway ([updates](docs/security/updates.md#what-a-release-holds-today)).
+
+```sh
+shasum -a 256 -c SHA256SUMS --ignore-missing      # sha256sum on Linux
+tar -xzf cogpit-cli_<version>_darwin_arm64.tar.gz && ./cogpit-cli_<version>_darwin_arm64/cogpit-cli --version
+```
+
 ### Run the MVP
 
 The MVP is a local build for macOS (tested on Apple silicon, macOS 26). It needs Go (1.26 or
@@ -168,7 +181,7 @@ wait for your confirmation in Cogpit's window ([agents and MCP](docs/security/ag
 `make test-kind` also runs the cluster tests (views, logs, pod shell, `kubectl` in the terminal).
 
 **Not built yet (2026-10-13):** node shells ([H-7](docs/security/privilege-footprint.md#h-7-node-shell-is-root-on-the-node)),
-Windows and Linux packages, signed releases and updates, the built-in agent chat; what exists and
+Windows and Linux packages, signed releases (the releases are unsigned) and updates, the built-in agent chat; what exists and
 what is missing, row by row: [docs/parity](docs/parity/README.md).
 
 <details>
@@ -471,7 +484,10 @@ make test-unit-race
 make test-kind      # needs make kind-up
 ```
 
-Everything else: [docs/developer/](docs/developer/README.md).
+CI runs each check as a job of its own with its own make target (`make gosec`, `make cyclo`,
+`make test-race-ui RACE_SHARD=n`, …), and semantic-release publishes every `feat:` and `fix:` on
+`main` once CI is green ([releasing](docs/developer/releasing.md)). Everything else:
+[docs/developer/](docs/developer/README.md).
 
 ## License
 

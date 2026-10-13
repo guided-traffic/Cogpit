@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -12,7 +12,7 @@ projects' repositories; re-check them before relying on a version number.
 | [D-1](#d-1-ui-toolkit) | UI toolkit | decided: Fyne, after the spike gate; re-checks of S7 (CI, M0) and S5 (Windows and Linux, M11) can reopen it per platform |
 | [D-2](#d-2-agent-interface-scope) | What agents may do over MCP | decided: everything, the UI included; destructive actions confirmed by the user |
 | [D-3](#d-3-helm-and-kubectl-binaries) | Where `helm` and `kubectl` come from | decided: Helm in-process; `kubectl` from `PATH`, a verified matching download on one click |
-| [D-4](#d-4-packaging-and-updates) | Packaging, signing and updates | decided for macOS: the app in a DMG, Homebrew cask, Sparkle updates; Windows and Linux with M11 |
+| [D-4](#d-4-packaging-and-updates) | Packaging, signing and updates | decided for macOS: the app in a DMG, Homebrew cask, Sparkle updates; Windows and Linux with M11. Built: the unsigned app zip and `cogpit-cli` per release |
 | [D-5](#d-5-extensions) | Extensions | decided: built into Cogpit's own code; no external extensions for now |
 | [D-6](#d-6-kubernetes-libraries) | Kubernetes libraries | decided: client-go, kubectl libraries, Helm SDK |
 | [D-7](#d-7-language-and-platforms) | Language and platforms | decided: Go; a macOS app first, Windows and Linux later |
@@ -162,6 +162,14 @@ one-click update for users who installed from the disk image). Windows and Linux
 v1.7.3 (`fyne package`) builds the app bundle. Updates are signed with a key held outside CI's reach and verified before
 anything is replaced. **Status:** decided for macOS (artifact, cask, Sparkle); Windows and Linux
 are open until M11.
+**Built (2026-10-13), the first step:** every release carries `Cogpit_<v>_darwin_arm64.zip` (the app
+bundle from `make dist-app`: `fyne package`, ad-hoc signed, Apple silicon only) and `cogpit-cli`
+archives for Linux, macOS and Windows, with `SHA256SUMS`, built by the release pipeline
+([releasing](releasing.md#the-release-pipeline)). Not built yet: the Developer ID signature, the
+notarization, the disk image, the universal binary, the Homebrew cask and Sparkle; the release
+page says the app is unsigned ([updates](../security/updates.md)). The signing steps come once the
+owner has the Apple credentials (a `release` environment that only the tag pipeline may use); the
+cask and Sparkle's EdDSA key are the next question to the owner.
 **Human:** Apple Developer ID and Windows code-signing material.
 
 ## D-5: Extensions
@@ -466,10 +474,21 @@ counted the two paid keyboard shortcuts, whose table had no Plan column
 
 ## D-16: The first real release
 
-**Decided (owner, 2026-10-12):** semantic-release stays a dry run until the alpha. The alpha's
+**Revised (owner, 2026-10-13): releases are live now.** After every gate on `main` is green,
+semantic-release creates the tag and the GitHub release with the organisation's GitHub App token,
+and the release pipeline (`build.yml`, `on: release: published`) builds and attaches the artifacts:
+`cogpit-cli` for six platforms, the unsigned `Cogpit.app` for Apple silicon, `SHA256SUMS`
+([releasing](releasing.md#release-flow)). The first releases are minor releases under v0, so the
+owner can judge whether the pipeline runs end to end; a breaking change makes a minor release, not
+1.0.0, until the owner decides on 1.0 (`releaseRules` in [`.releaserc.json`](../../.releaserc.json),
+needed at once: commit `f3ad000` has a body line starting with `BREAKING CHANGE:`, which made the
+dry run's next version 1.0.0). Signing and notarization follow once the Apple credentials exist
+([D-4](#d-4-packaging-and-updates)).
+
+**Superseded (owner, 2026-10-12):** semantic-release stays a dry run until the alpha. The alpha's
 release is the first real one, cut together with the job that builds the unsigned macOS app as a
 download, so that the first version (0.1.0) has something to install; that job is part of the
-alpha's work ([releasing](releasing.md#the-first-real-release),
+alpha's work ([releasing](releasing.md#release-flow),
 [G14](../parity/gaps.md#g14-packaging-signing-and-updates-macos)). The options weighed: the dry run
 until the alpha (decided), releasing now as the team's other repositories do (a release on every
 push to `main`, without downloads), releasing with a minimal artifact job now, or releasing by hand
@@ -1337,6 +1356,7 @@ from Lens's there.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-16 revised (owner): releases live: semantic-release tags and releases after every gate on `main` with the GitHub App's token, the release pipeline attaches `cogpit-cli` and the unsigned app; a breaking change makes a minor release under v0. D-4: what is built of it (the unsigned app zip and the CLI archives; no signature, notarization, disk image, cask or Sparkle yet) |
 | 2026-10-13 | minor | D-32 (owner): every byte amount in binary units with one decimal ("15.6 GiB"); built 2026-10-13 with one formatter in `model` (`FormatBytes`, `FormatByteQuantity`, `FormatResource`): lists, drawers, charts, data sizes, the kubectl download and the messages that state a size; the space before the unit, the decimal point whatever the region, milli-bytes as written, a size beside its limit not named and the places listed Cogpit's defaults; ten places not converted named for the owner |
 | 2026-10-13 | minor | D-31 (owner): every timestamp in the local time zone and the region's format ("10.09.2026 17:41:01"); built 2026-10-13 from macOS's region (CoreFoundation), else the environment's locale and a CLDR table, one formatter in the engine; the format as a setting not built; the conversion, Windows reading the environment, logs with milliseconds and the list of places Cogpit's defaults |
 | 2026-10-13 | minor | D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a status pill's included (it sat at the drawer's right edge), a long line shortened before it, a value with action buttons owning the room for it; built |

@@ -1,97 +1,145 @@
 # Releasing
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (the first real release decided: dry runs until the alpha, D-16) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-13 · **Change:** major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app) · **Target:** Lens Desktop 2026.10.51501
 
-CI exists as workflow files since 2026-10-11; they have not run on GitHub yet, so no job is known
-to be green there. Releases do not exist: semantic-release runs as a **dry run** until the owner
-cuts the first release ([below](#the-first-real-release)). Artifacts, signing and updates further
-down are the plan. Platform targets and how they compare with Lens Desktop:
+Every push to `main` and every pull request runs the checks, each a job of its own with a make
+target that runs the same on a laptop. Since 2026-10-13 ([D-16](decisions.md#d-16-the-first-real-release))
+semantic-release is live: once every check on `main` is green it creates the tag and the GitHub
+release, and the release pipeline builds the artifacts from that tag and attaches them
+([release flow](#release-flow)). The artifacts are **unsigned** ([updates](../security/updates.md#what-a-release-holds-today)).
+Platform targets and how they compare with Lens Desktop:
 [platform parity](../parity/platform-parity.md#operating-systems-and-packages).
 
 ## CI
 
 Three workflows in [`.github/workflows/`](../../.github/workflows/), laid out as in the team's
-other repositories (`valkey-operator`: `release.yml` is the pipeline of every push and pull
-request and ends in semantic-release; Renovate runs from `renovate.yml`):
+other repositories (`valkey-operator`):
 
 | Workflow | Triggers | What it does |
 |---|---|---|
-| [`release.yml`](../../.github/workflows/release.yml) "Test and Release" | push to `main`, pull request to `main`, manual | calls `build.yml`; on `main` it also commits the coverage badge and runs the semantic-release dry run. The README's build badge shows this workflow. |
-| [`build.yml`](../../.github/workflows/build.yml) "Build" | called by `release.yml` (`workflow_call`), manual | the checks below |
+| [`release.yml`](../../.github/workflows/release.yml) "Test and Release" | push to `main`, pull request to `main`, manual | the checks below, each a job; on `main`, Semantic Release once all of them passed. The README's build badge shows this workflow. |
+| [`build.yml`](../../.github/workflows/build.yml) "Release Build" | a release published (`release: types: [published]`) | builds the artifacts from the release's tag and attaches them ([the release pipeline](#the-release-pipeline)) |
 | [`renovate.yml`](../../.github/workflows/renovate.yml) | daily at 02:00 Berlin time, manual | dependency updates ([Renovate](#renovate)) |
 
-`build.yml` has no push or pull request trigger of its own, so each push runs the checks once. A
-pull request run that a newer push supersedes is cancelled; runs on `main` queue, so every push
-to `main` is checked. Go comes from `go.mod` (`actions/setup-go` with `go-version-file`, which
-caches the module and build caches). Every job's `GITHUB_TOKEN` is read-only (`contents: read`)
-except the Coverage Badge job's; Renovate works with the team's GitHub App token. Every job has a
-timeout. Actions are pinned to the tags the team's other repositories use
-(`actions/checkout@v7`, `actions/setup-go@v7`, `actions/upload-artifact@v7`,
-`actions/download-artifact@v8`, `actions/setup-node@v7`, `msys2/setup-msys2@v2`,
-`helm/kind-action@v1.15.1`, `renovatebot/github-action@v46.3.8`,
-`actions/create-github-app-token@v3`); Renovate moves them.
+**Budget: no job needs more than ten minutes** (owner, 2026-10-13). The UI's race tests take about
+18 minutes in one process on a Linux runner, so they run in eight shards. Every job's timeout is
+15 minutes: a run after a `go.sum` change starts without caches and saves them, which takes longer
+once; the budget is for the runs in between.
 
-| Job | Runner | Runs | What it proves |
-|---|---|---|---|
-| macOS: lint, race tests, build | `macos-latest` | `make lint`, `make parity`, `make test-unit-coverage`, `make build`, `make coverage-badge` | the lint with the `depguard` layering; the parity checklists' rows and the numbers the progress pages report ([`make parity`](../parity/README.md#make-parity)); every test that needs no cluster (unit, engine, MCP, UI offscreen, integration against the fake API server) passes under the race detector; `cogpit` builds with cgo and Fyne, `cogpit-cli` without cgo. The platform Cogpit ships first. |
-| Compile (linux) | `ubuntu-latest` | apt: `gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev libwayland-dev wayland-protocols` (Fyne's documented packages plus the Wayland headers GLFW 3.4 compiles against); `go build ./...`, `go vet ./...`, `go test -run '^$' ./...` | every package and every test compiles and links on Linux with cgo and Fyne's native dependencies. It runs no test. |
-| Compile (windows) | `windows-latest` | MinGW-w64 gcc from MSYS2 on `PATH`, `CGO_ENABLED=1`; the same three commands | the same on Windows, the terminal's Windows stub ([`localpty_windows.go`](../../internal/terminal/localpty_windows.go)) included. It runs no test. |
-| Cluster Tests (kind) | `ubuntu-latest` | kind v0.33.0 and kubectl v1.37.1 (`helm/kind-action`, install only); `make kind-up`, a wait for the seed's `web`, `api` and `toolbox`, `make test-kind`, `make kind-down` | views, logs, exec and the terminal's `kubectl` against a real API server and kubelet (Kubernetes 1.37.0, kind v0.33.0's default node image). `make test-kind` runs every package's tests with tag `kind` and the race detector, so the other tests also run on Linux here. The job's `KUBECONFIG` is `.cache/kind/kubeconfig`, the file `make kind-up` writes; nothing in it touches `~/.kube`. |
-| Vulnerability Check | `ubuntu-latest` | `make vuln` (govulncheck v1.9.0) | no known vulnerability in a function Cogpit's code reaches |
-| Coverage Badge | `ubuntu-latest`, `main` only | commits `.github/badges/coverage.json` when it changed | the README's coverage badge follows `main` ([Coverage](#coverage)) |
-| Semantic Release (dry run) | `ubuntu-latest`, `main` only | `npm ci`, `npm audit signatures`, `npx semantic-release --dry-run` | the next version and its release notes, in the job log; the release tooling installs from [`package-lock.json`](../../package-lock.json) with verified registry signatures ([the dry run](#the-dry-run)) |
+**Concurrency:** a newer push cancels the running run of the same branch, on `main` too:
+semantic-release releases every commit since the last tag, so a cancelled run loses nothing.
 
-The Makefile targets the macOS job runs are the ones a contributor runs before a pull request
-([testing](testing.md#before-a-pull-request)); `make test-unit-coverage` is `make test-unit-race`
-with a coverage profile, the same packages and the same race detector.
+**Runners:** the Linux jobs run on the organisation's self-hosted runners (`runs-on: self-hosted`),
+as the team's other repositories do: ephemeral pods on Ubuntu 24.04 with 16 CPUs of a shared
+machine and Docker, but without `make`, a C compiler or `SHELL`. The macOS job and the Windows
+compile run on GitHub's hosted runners (`macos-latest`, Apple silicon; `windows-latest`), which cost
+nothing for a public repository; a Fyne app with cgo and AppKit does not cross-compile from Linux.
 
-**Verified locally on 2026-10-11** (macOS 26.6.2, Apple M1 Ultra): `make lint`, `make
-test-unit-race`, `make test-unit-coverage` and `make build` pass; actionlint 1.7.12 with
-shellcheck finds nothing in `build.yml` and `release.yml` (in `renovate.yml` it flags
-`client-id`, which `actions/create-github-app-token@v3` accepts and its bundled metadata predates);
-Renovate 44.151.2's config validator accepts [`.github/renovate.json`](../../.github/renovate.json) with `--strict` (2026-10-12);
-the dry run passes with the committed configuration against a stand-in for the GitHub API.
-**Not verified, because it only runs on GitHub:** the Windows and Linux cgo builds, the kind job,
-the dry run with the real `GITHUB_TOKEN`, the badge commit. `make vuln` fails today: govulncheck
-v1.9.0 reports vulnerabilities that Cogpit's code reaches in `golang.org/x/net` v0.57.0 (fixed in
-v0.60.0) and `golang.org/x/image` v0.24.0 (fixed in v0.43.0), both indirect; the fix is a
-`go.mod` change.
+**Setup:** every Go job starts with [`.github/actions/go-setup`](../../.github/actions/go-setup/action.yml):
+Go from `go.mod`, the build cache under a key per kind of build (`lint`, `unit`, `race-ui`,
+`race-rest`, `kind`, `macos`, …) and `go.sum`, Fyne's Linux build dependencies with
+`build-essential`, `SHELL=/bin/bash` where the pod exports none, and the modules from the module
+proxy. A key is saved once per `go.sum` (about two minutes from the self-hosted runners, 11 to
+14 MB/s up), so the next runs start with the dependencies compiled. The modules are not cached:
+the self-hosted runners restore a cache at 6 to 9 MB/s, slower than `go mod download`.
+**Every test runs on every run** (`GOFLAGS=-count=1`): the restored build cache also holds Go's
+cached test results, and a race shard once "passed" in four seconds without running a test.
+
+**Tokens:** every job's `GITHUB_TOKEN` is read-only (`contents: read`) except the release
+pipeline's last job (`contents: write`, to attach the artifacts). Semantic Release and Renovate work
+with an installation token of the organisation's GitHub App (`APP_CLIENT_ID`, `APP_PRIVATE_KEY`,
+organisation secrets visible to this repository; [keys](../security/updates.md#keys-and-who-holds-them)).
+
+| Job | Runner | Make target | What it proves | Minutes, run 38439307913 (caches new) |
+|---|---|---|---|---:|
+| Code Linting | self-hosted | `make lint` | golangci-lint with the team's linters and `depguard`'s layering ([architecture §3](architecture.md#3-dependency-layering-enforced)) | 2.4 |
+| Parity | self-hosted | `make parity` | the parity checklists' rows and the numbers the progress pages report ([`make parity`](../parity/README.md#make-parity)) | 3.6 |
+| GoSec Security Scan | self-hosted | `make gosec` | golangci-lint's gosec on the shipped code (tests, `internal/testkit` and `hack` left out); every accepted finding is excluded in [`.golangci.yml`](../../.golangci.yml) with its reason, a real one is fixed or an H-gap in [`docs/security`](../security/README.md) | 8.3 |
+| Vulnerability Check | self-hosted | `make vuln` | govulncheck: no known vulnerability in a function Cogpit's code reaches | 7.0 |
+| Cyclomatic Complexity | self-hosted | `make cyclo` | gocyclo: no function above `CYCLO_THRESHOLD`; the 20 most complex in the job summary ([below](#cyclomatic-complexity)) | 1.1 |
+| Unit Tests | self-hosted | `make test-unit-coverage` | every package's tests without the race detector, with a coverage profile | 9.2 |
+| Race Tests (UI n/8) | self-hosted, eight jobs | `make test-race-ui RACE_SHARD=n RACE_SHARDS=8` | one shard of `internal/ui/fyneui`'s tests under the race detector ([sharding](#the-uis-race-tests-in-shards)) | 5.2–12.2 |
+| Race Tests (other packages) | self-hosted | `make test-race-rest` | every other package under the race detector, and the patched terminal widget's tests (`make test-fork`) | 7.5 |
+| Integration Tests (kind) | self-hosted | `make kind-up`, `make test-kind` | the `TestKind*` tests against a real API server and kubelet (kind v0.33.0, Kubernetes 1.37.0, the seed of [`hack/kind`](../../hack/kind/README.md) and the Metrics Server); the tests compile while the cluster starts | 13.8 |
+| Integration Tests (kind drain) | self-hosted | `make kind-drain-up`, `make test-kind-drain` | cordon, a blocked drain, a simulated crash and the finish on a three-node cluster of its own | 5.7 |
+| macOS | `macos-latest` | `make test-darwin`, `make lint LINT_PKGS=…`, `make app` | the tests only macOS can run (the title bar's AppKit harness, the locale's CoreFoundation read, the tests that expect macOS's shortcut glyphs), the lint of the packages with darwin-only files, and the app bundle | 5.0 |
+| Compile (windows) | `windows-latest` | `go build`, `go vet`, `go test -run '^$'` | every package and test compiles and links on Windows with cgo (MinGW-w64 from MSYS2) and Fyne; it runs no test | 11.6 |
+| Combined Coverage Report | self-hosted, after the test jobs | `make coverage-report` | the unit, race and cluster profiles merged: the job summary, and the badge Semantic Release commits ([coverage](#coverage)) | 1.2 |
+| Semantic Release | self-hosted, `main` only, after every job | `npx semantic-release` | the tag, the GitHub release with its notes, and the release commit with the badge ([release flow](#release-flow)) | 0.8 (the dry run) |
+
+Linux needs no compile job: the unit and race jobs build and link every package and test there with
+cgo. The cluster jobs name their kind cluster after the run (`cogpit-<run id>`), so two runs on one
+Docker host cannot meet; `KUBECONFIG` points at the file `make kind-up` writes, and nothing touches
+`~/.kube`.
+
+**Reading a run:** `gh run list --limit 5`, then `gh run view <id>` for the jobs, `gh run view <id>
+--log-failed` for what failed, and `gh run view <id> --json jobs` for each job's start and end. The
+job summaries hold the coverage per package and the complexity report.
+
+### The UI's race tests in shards
+
+[`hack/shard`](../../hack/shard/main.go) lists the top-level tests, examples and fuzz targets of
+`internal/ui/fyneui` from the test files `go list -tags race` reports, assigns each name to a shard
+by an FNV-1a hash of the name, and prints one shard's `-run` pattern; `make test-race-ui` runs it.
+A test added later lands in a shard without a change to the workflow, and a name keeps its shard as
+long as the number of shards stays. Eight shards from measurements (2026-10-13, the package's 548
+tests under the race detector, 1,236 s locally on an M1 Ultra, 1,077 s on a 4-CPU Linux runner):
+the hash puts 111 to 179 s of tests into a shard, the longest single test is
+`TestRenderPrometheusMetrics` at 46 s. To see the split: `go run ./hack/shard -pkg
+./internal/ui/fyneui -tags race -of 8 -summary`, with `-durations <go test -json output>` for each
+shard's time. To change the number of shards, change the matrix and `RACE_SHARDS` in
+`release.yml`'s `race-ui` job together.
 
 ### Coverage
 
-`make test-unit-coverage` runs `KUBECONFIG=/dev/null go test -race -covermode=atomic
--coverprofile=.cache/coverage/unit.out ./...`. The badge's number is the `total:` line of `go
-tool cover -func` over that profile: the statements each package's own tests cover, over the
-statements of every package in the module. Packages without tests count at 0 %
-(`cmd/cogpit`, `cmd/cogpit-cli`, `hack/icon`, `internal/testkit`); there is no `-coverpkg`, so the
-tests in `internal/testkit/integration` add nothing to the packages they exercise; the `kind`
-tests do not count. **Measured: 84.5 %** on 2026-10-11 (macOS, commit `59b42f2`; the CI change adds
-no Go code). CI computes it on macOS too, in the macOS job.
+Every test job writes a profile to `.cache/coverage` and uploads it (`profile-*`): `unit.out`
+(every package without the race detector, each package counting its own tests), `race-ui-<n>.out`
+and `race-rest.out` (the same under the race detector), `integration.out` and
+`integration-drain.out` (the cluster tests with `-coverpkg=./...`, so they count for every package
+they reach). The Combined Coverage Report job merges them with [`hack/coverage`](../../hack/coverage/main.go)
+(`make coverage-report`): a block counts once, as covered when any profile covered it. It writes the
+total and a table per package to the job summary and
+[`.github/badges/coverage.json`](../../.github/badges/coverage.json), the [shields.io endpoint
+badge](https://shields.io/badges/endpoint-badge), coloured as in the team's other repositories
+(≥ 90 % brightgreen, ≥ 80 % green, ≥ 70 % yellow, ≥ 60 % orange, else red). Semantic Release
+commits the badge with the release (`@semantic-release/git`), so the README's number moves with
+releases. **Measured:** 83.6 % on 2026-10-13 (run 38439307913: 37,635 of 45,002 statements; the unit profile alone gave 82.9 %).
 
-`make coverage-badge` turns the profile into the [shields.io endpoint
-JSON](https://shields.io/badges/endpoint-badge) in
-[`.github/badges/coverage.json`](../../.github/badges/coverage.json), coloured as in the team's other
-repositories: ≥ 90 % brightgreen, ≥ 80 % green, ≥ 70 % yellow, ≥ 60 % orange, else red. The macOS
-job uploads it as the artifact `coverage-badge` (the profile as `unit-coverage`) and writes
-coverage per package to its job summary.
+### Cyclomatic complexity
 
-In the team's other repositories the release commit carries the badge (`@semantic-release/git`
-with the badge as its asset). While Cogpit's releases are dry runs, the **Coverage Badge** job in
-`release.yml` does that on `main`: when the number changed, it commits the file alone as
-`chore(ci): coverage badge <n>% [skip ci]` and pushes it to `main`, rebasing up to three times if
-`main` moved. It is the one job with a writing token (`contents: write`); it runs no release
-tooling, checks that its commit touches nothing but the badge, and pushes only `main`. A push made
-with `GITHUB_TOKEN` starts no workflow, so it cannot loop. The token's scope would allow a tag; a
-tag ruleset (a repository setting) would make that impossible. Side effect: after a push that moves
-the number, `main` gains a bot commit, and the next local push to `main` needs a `git pull
---rebase` first.
+`make cyclo` runs gocyclo v0.6.0 over `cmd`, `internal`, `hack` and `third_party`, tests and
+generated code left out, and fails above `CYCLO_THRESHOLD`. The threshold is **56**, the highest
+complexity `main` had when the check came (2026-10-13: `(*shell).applyUIState` in
+[`shell.go`](../../internal/ui/fyneui/shell.go)), so no function grows past it. The team's other
+repositories use 15; 121 functions are above that today. Lowering the threshold is the owner's
+call.
+
+### Running a job locally
+
+Each job's make target runs the same here (fast local checks first: [AGENTS.md §5](../../AGENTS.md#5-before-you-finish-a-task)):
+
+```sh
+make lint parity gosec vuln cyclo
+make test-unit-coverage
+make test-race-ui RACE_SHARD=3 RACE_SHARDS=8   # one shard; make test-unit-race runs everything
+make test-race-rest
+make kind-up && make test-kind                 # the cluster tests; make kind-down after
+make test-darwin                               # macOS only
+make coverage-report                           # merges what is in .cache/coverage
+```
+
+Tests run with `KUBECONFIG=/dev/null` and without `KUBERNETES_SERVICE_HOST` and
+`KUBERNETES_SERVICE_PORT` (`TEST_ENV` in the [Makefile](../../Makefile)): inside a pod, as on CI's
+self-hosted runners, client-go would otherwise take the pod's namespace as a context's default and
+could reach the pod's own cluster.
 
 ### Renovate
 
 [`renovate.yml`](../../.github/workflows/renovate.yml) runs self-hosted Renovate with an
 installation token of the team's GitHub App (`guided-traffic-automation`), from the organization
-secrets `APP_CLIENT_ID` and `APP_PRIVATE_KEY`; both are visible to this repository (2026-10-11).
-Whether the app is installed on this repository is not verified. The configuration is
+secrets `APP_CLIENT_ID` and `APP_PRIVATE_KEY`; both are visible to this repository (2026-10-11), and
+the Semantic Release job's token from the same App proves it is installed here (the dry run of
+run 38439307913, 2026-10-13: "Allowed to push to the Git repository", next version 0.1.0). The configuration is
 [`.github/renovate.json`](../../.github/renovate.json), the team's with what Cogpit lacks taken
 out (container images, Helm charts, Valkey images) and one group added (Fyne):
 
@@ -100,11 +148,13 @@ out (container images, Helm charts, Valkey images) and one group added (Fyne):
   the team's repositories).
 - Groups: the Go version with `golang.org/x/*`; `k8s.io/*` and `sigs.k8s.io/*`; Fyne
   (`fyne.io/*`, `github.com/fyne-io/*`).
-- The Makefile's tool pins (`FYNE_TOOLS`, `GOLANGCI_LINT_VERSION`, `GOVULNCHECK_VERSION`) carry a
+- The Makefile's tool pins (`FYNE_TOOLS`, `GOLANGCI_LINT_VERSION`, `GOVULNCHECK_VERSION`,
+  `GOCYCLO_VERSION`, `METRICS_SERVER_VERSION`) carry a
   `# renovate:` comment the custom manager reads; the `go` line of `go.mod` has its own manager,
   and the workflows follow it through `go-version-file`.
-- Dependency updates are committed as `fix:` (a patch release once releases are real), Actions
-  updates as `chore:`.
+- Dependency updates are committed as `fix:`, so since 2026-10-13 every automerged update becomes
+  a patch release ([H-62](../security/updates.md#h-62-every-push-to-main-that-passes-the-gates-is-released));
+  Actions updates as `chore:`, which release nothing.
 - `third_party/**` is not scanned (2026-10-12): the patched terminal widget keeps upstream's
   `go.mod` and workflows, which Cogpit's build does not use (the root `go.mod` decides every version
   through MVS, and GitHub runs only the root's workflows). The widget itself is tracked through
@@ -124,111 +174,104 @@ Renovate's pull requests change `go.mod` and `go.sum` on their own branches; age
 parallel rebase onto them like onto any other commit on `main`. Renovate runs `go mod tidy` after
 each Go update, which drops a requirement that no package imports yet.
 
+
 ## Release flow
 
-The team's Go repositories release with semantic-release on `main`: `.releaserc.json` with the
-`conventionalcommits` preset, and `@semantic-release/git` committing the coverage badge with the
-release. Cogpit has the same [`.releaserc.json`](../../.releaserc.json) and the same pinned tooling
+The team's Go repositories release with semantic-release on `main`; Cogpit has the same
+[`.releaserc.json`](../../.releaserc.json) (the `conventionalcommits` preset, `@semantic-release/git`
+committing the coverage badge with the release) and the same pinned tooling
 ([`package.json`](../../package.json), [`package-lock.json`](../../package-lock.json)):
 
-1. Commits on `main` follow [Conventional Commits](conventions.md#commits-and-pull-requests).
-2. After the checks pass on `main`, `release.yml` runs semantic-release, which derives the next
-   version from the commits since the last tag and writes the release notes. **Today this step is
-   a dry run**: it logs the version and the notes and stops ([the dry run](#the-dry-run)).
-3. *Planned:* a workflow on `release: published` (as the team's other repositories build their
-   images) builds every artifact for the tag, code-signs what it has signing material for, writes
-   `SHA256SUMS.txt`, an SPDX SBOM and the update manifest, and attaches them to the GitHub
-   release. In `valkey-operator` that workflow is called `build.yml`; in Cogpit `build.yml` is the
-   checks, so the artifact workflow gets a name of its own.
-4. *Planned:* the update manifest is signed in a separate step with the update key, which CI
-   cannot reach on its own: offline by the owner, or in a protected environment that needs the
-   owner's approval. Until it is signed, the release is published but not offered as an update.
-5. *Planned:* a `::warning::` in a job summary means a code-signing secret was missing and that
-   artifact is unsigned; such an artifact is not offered as an update.
+1. Commits on `main` follow [Conventional Commits](conventions.md#commits-and-pull-requests):
+   `feat:` makes a minor release, `fix:` and `perf:` a patch release, every other type none.
+2. Once every job of a push to `main` is green, the Semantic Release job creates a token of the
+   organisation's GitHub App (`actions/create-github-app-token@v3`, `permission-contents: write`),
+   installs the tooling from `package-lock.json` with verified registry signatures (`npm audit
+   signatures`), puts the combined coverage badge in place and runs `npx semantic-release`: it
+   derives the version from the commits since the last tag, writes the release notes, commits the
+   badge as `chore(release): <version> [skip ci]` to `main`, tags that commit `v<version>` and
+   publishes the GitHub release. `[skip ci]` keeps the release commit from starting another run.
+3. The release's `published` event starts [the release pipeline](#the-release-pipeline), which
+   builds the artifacts from the tag. It starts because the App's token created the release: a
+   release made with `GITHUB_TOKEN` starts no workflow.
 
-*Planned:* every binary reports its version, commit and build date (`cogpit --version`,
-`cogpit-cli --version`, Help › About), set at build time with `-ldflags -X`.
+**v0 until the owner decides on 1.0.** Releases continue from the owner's anchor tag `v0.0.0`
+(2026-10-11). A breaking change makes a **minor** release, not 1.0.0 (`releaseRules: [{"breaking":
+true, "release": "minor"}]` in the commit analyzer; the other rules are its defaults). The rule is
+needed already: commit `f3ad000` has a body line starting with `BREAKING CHANGE:`, which the
+analyzer reads as a breaking change, and without the rule the first release would have been 1.0.0
+(the dry run of 2026-10-13 said so; with it, 0.1.0). Commits still carry no `!` and no `BREAKING
+CHANGE:` footer ([conventions](conventions.md#commits-and-pull-requests)).
 
-### The dry run
+**After a release, `main` has moved:** the release commit is on `main`, so the next local push
+needs `git pull --rebase` first.
 
-semantic-release on a repository without tags cuts **1.0.0**: run locally on a clone of `main`
-(commit `59b42f2`) with the committed configuration on 2026-10-11, it reported "There is no previous release, the next release
-version is 1.0.0". A 1.0 tag and GitHub release for a pre-alpha is a promise nobody can take back
-quietly. The owner therefore created the tag and GitHub release **v0.0.0** (2026-10-11) as the
-anchor: semantic-release now continues from it (`feat:` → 0.1.0, `fix:` → 0.0.1), and 1.0.0 comes
-only from a breaking change, which is cut when Cogpit is usable (owner). Until then **no commit
-carries `!` or a `BREAKING CHANGE:` footer** ([conventions](conventions.md#commits-and-pull-requests)).
-The job "Semantic Release (dry run)" keeps three guards, each enough on its own:
 
-1. `npx semantic-release --dry-run`: no tag, no GitHub release, no release commit.
-2. The job's token is read-only (`contents: read`): GitHub refuses a pushed tag and a created
-   release.
-3. Every `git push` from the job's checkout goes to an empty bare repository in the runner's temp
-   directory (`url.<sink>.pushInsteadOf https://github.com/`).
+## The release pipeline
 
-The third guard is also what lets the dry run work with a read-only token: semantic-release checks
-that it may push (`git push --dry-run` to the repository URL from `package.json`) before it does
-anything else, in a dry run too, and a read-only token fails that check. Fetching tags and history
-still goes to GitHub.
+[`build.yml`](../../.github/workflows/build.yml) "Release Build" runs on `release: published`,
+checks out the release's tag and builds with `VERSION` set to the tag without its `v`:
 
-### The first real release
-
-Decided (owner, 2026-10-12, [D-16](decisions.md#d-16-the-first-real-release)): releases stay dry
-runs until the alpha; the alpha's release is the first real one, together with the job that builds
-the unsigned macOS app as a download (part of the alpha's work). To cut it:
-
-1. **The first version** continues from the owner's anchor tag `v0.0.0` (2026-10-11): the next
-   `feat:` makes 0.1.0, a `fix:` 0.0.1; a breaking change makes 1.0.0, which waits until Cogpit is
-   usable (owner).
-2. **Flip the job** in [`release.yml`](../../.github/workflows/release.yml), as the team's other
-   repositories run it: remove `--dry-run`; remove the step "Redirect git pushes into a throwaway
-   repository"; create a GitHub App token (`actions/create-github-app-token@v3` with
-   `permission-contents: write`) and use it for the checkout and as `GITHUB_TOKEN`, with the job's
-   `permissions` raised to `contents: write`. A release created with the default `GITHUB_TOKEN`
-   would start no `release: published` workflow.
-3. **Remove the Coverage Badge job.** The release commit carries the badge from then on, as
-   `@semantic-release/git` is already configured to do.
-4. The artifact workflow (step 3 of the [release flow](#release-flow)) is
-   [G14](../parity/gaps.md#g14-packaging-signing-and-updates-macos); without it a release has
-   notes and a tag but no downloads.
-
-## What gets built (planned)
-
-| Platform | Artifacts | Built on | Signing |
+| Job | Runner | Make target | Builds |
 |---|---|---|---|
-| macOS 13+, universal (Apple silicon + Intel) | `Cogpit-<v>-macos-universal.dmg` with the app bundle `Cogpit.app` ([D-4](decisions.md#d-4-packaging-and-updates)); `cogpit-cli-<v>-darwin-universal.tar.gz` | macOS runner: the Fyne app built per architecture with cgo, joined with `lipo`, bundled with `fyne package`, imaged with `hdiutil` | app and disk image signed with Developer ID; disk image notarized, ticket stapled |
-| Windows 10+ x64 and arm64 | `Cogpit-<v>-windows-<arch>.msi`, `Cogpit-<v>-windows-<arch>-portable.zip`; `cogpit-cli` zip | native x64 and arm64 runners (cgo) | Authenticode |
-| Linux x86_64 and aarch64 | `Cogpit-<v>-linux-<arch>.{AppImage,deb,rpm,tar.xz}`, Flatpak; `cogpit-cli` tar.gz | native runners (cgo, OpenGL and X11/Wayland headers) | checksums, SBOM, signed update manifest |
+| cogpit-cli (linux, darwin, windows) | self-hosted | `make dist-cli` | `cogpit-cli_<v>_<os>_<arch>.tar.gz` for linux and darwin, `.zip` for windows, each on amd64 and arm64: pure Go (`CGO_ENABLED=0`), `-trimpath`, `-s -w`, the version set with `-X main.version`, with `LICENSE` and `README.md`. The job checks that the Linux binary's `--version` says the release's version. |
+| Cogpit.app (macOS arm64) | `macos-latest` | `make dist-app` | `Cogpit_<v>_darwin_arm64.zip`: `make app` (`fyne package`, the version in `Info.plist` and the binary, an ad-hoc signature) zipped with `ditto`. The job checks the bundle's version, its signature seal and its architecture. |
+| Attach to the release | self-hosted, after both | `make dist-checksums` | `SHA256SUMS` over the archives; attaches everything to the release (`softprops/action-gh-release@v3`) and appends a note to the release text: what the downloads are, that they are unsigned, how macOS lets the user start the app anyway, and that desktop packages for Linux and Windows come with M11 |
 
-**The macOS artifact is the app bundle `Cogpit.app` in a disk image**: the standard way to install
-a Mac app outside the App Store, without a terminal. Opening the image shows the app next to a
-link to Applications; the user drags it across. The disk image is notarized and its ticket stapled,
-so it also opens offline without a Gatekeeper prompt. The Homebrew cask (`auto_updates true`) and
-Sparkle's updates use the same disk image.
+`make dist-cli`, `make dist-app VERSION=0.0.99` and `make dist-checksums` run the same locally into
+`dist/` (gitignored). To check a download: `sha256sum -c SHA256SUMS --ignore-missing` (on macOS
+`shasum -a 256 -c`), then `cogpit-cli --version`.
 
-`cogpit-cli` is pure Go (`CGO_ENABLED=0`) and cross-compiles from one runner. The desktop app
-needs cgo for Fyne's OpenGL driver, so each platform builds on its own runner. Whether `fyne
-package` alone covers MSI, AppImage, deb, rpm and Flatpak, or `packaging/` needs extra tools, is
-criterion S7 of the [spike](spike-fyne.md).
+**Not built yet:** the Developer ID signature and notarization (they need the owner's Apple
+credentials, as secrets of a GitHub environment `release` that only tag workflows may use; until
+then the app is unsigned and the release page says so, never a failed release), the disk image, the
+universal (Intel) app, the Homebrew cask and Sparkle's update feed
+([D-4](decisions.md#d-4-packaging-and-updates)); desktop packages for Linux and Windows (M11); an
+SBOM.
+
+## What gets built
+
+| Platform | Today (2026-10-13) | Planned | Signing |
+|---|---|---|---|
+| macOS 13+ | `Cogpit_<v>_darwin_arm64.zip` (the app bundle, Apple silicon); `cogpit-cli` for amd64 and arm64 | `Cogpit-<v>-macos-universal.dmg` with `Cogpit.app` ([D-4](decisions.md#d-4-packaging-and-updates)), built per architecture with cgo and joined with `lipo`, imaged with `hdiutil` | today none (ad-hoc only); planned: app and disk image signed with Developer ID, the disk image notarized, its ticket stapled |
+| Windows 10+ x64 and arm64 | `cogpit-cli` zip | `Cogpit-<v>-windows-<arch>.msi`, a portable zip (M11), on native runners (cgo) | planned: Authenticode |
+| Linux x86_64 and aarch64 | `cogpit-cli` tar.gz | AppImage, deb, rpm, tar.xz, Flatpak (M11), on native runners (cgo, OpenGL and X11/Wayland headers) | planned: checksums, SBOM, signed update manifest |
+
+**The macOS artifact is to become the app bundle `Cogpit.app` in a disk image**: the standard way to
+install a Mac app outside the App Store, without a terminal. Opening the image shows the app next to
+a link to Applications; the user drags it across. The disk image is notarized and its ticket
+stapled, so it also opens offline without a Gatekeeper prompt. The Homebrew cask (`auto_updates
+true`) and Sparkle's updates use the same disk image.
+
+`cogpit-cli` is pure Go (`CGO_ENABLED=0`) and cross-compiles from one runner. The desktop app needs
+cgo for Fyne's OpenGL driver, so each platform builds on its own runner. Whether `fyne package`
+alone covers MSI, AppImage, deb, rpm and Flatpak, or `packaging/` needs extra tools, is criterion S7
+of the [spike](spike-fyne.md).
 
 ## Updates
 
 Cogpit shows available updates and installs them with one click
 ([D-4](decisions.md#d-4-packaging-and-updates)); on macOS through Sparkle 2. Each release carries
 an update manifest, on macOS Sparkle's appcast (version, disk image, its EdDSA signature), signed
-with an update key that is kept outside CI's reach (step 4 above); the app verifies the manifest signature with the public key built into it, then the
+with an update key that is kept outside CI's reach (offline by the owner, or in a protected
+environment that needs the owner's approval; until it is signed, a release is not offered as an
+update); the app verifies the manifest signature with the public key built into it, then the
 checksum, then the operating system's code signature, before it replaces anything. Installs owned
 by a package manager (Homebrew, winget, Flathub, deb or rpm repositories) hand over to the
 manager. Security perspective: [updates](../security/updates.md).
 
-## Secrets (planned)
+## Secrets
 
-| Secret | For | Without it |
-|---|---|---|
-| Apple Developer ID certificate and password | signing the app bundle | unsigned app, Gatekeeper warns; not offered as an update |
-| App Store Connect API key | notarization | not notarized |
-| Windows code-signing certificate or signing service credentials | Authenticode | SmartScreen warns; not offered as an update |
-| Update signing key | the update manifest | no update offered for that release |
+| Secret | For | Where | Without it |
+|---|---|---|---|
+| `APP_CLIENT_ID`, `APP_PRIVATE_KEY` (the organisation's GitHub App) | Semantic Release's tag, release and release commit; Renovate | organisation secrets, exist | no release (the job fails) |
+| `MACOS_SIGN_P12` (the Developer ID Application certificate with its key, base64), `MACOS_SIGN_P12_PASSWORD` | signing the app bundle and the disk image | planned: GitHub environment `release` (deployment rule: tags `v*`) | unsigned app, and the release page says so |
+| `APPLE_TEAM_ID` (a variable) | the signing identity | planned: environment `release` | as above |
+| `APPLE_API_KEY_P8` (an App Store Connect team API key, role Developer, base64), `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID` | notarization with `notarytool` | planned: environment `release` | not notarized |
+| Windows code-signing certificate or signing service credentials | Authenticode | planned (M11) | SmartScreen warns |
+| Update signing key | the update manifest | not decided | no update offered for that release |
 
-**Human:** none of this material exists yet; the owner provides it before beta
+Who holds which key and what follows if one leaks:
+[updates › keys](../security/updates.md#keys-and-who-holds-them).
+**Human:** the Apple and Windows material does not exist yet; the owner provides it
 ([G14](../parity/gaps.md#g14-packaging-signing-and-updates-macos)).

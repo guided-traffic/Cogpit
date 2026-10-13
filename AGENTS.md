@@ -143,16 +143,21 @@ go run ./hack/parity -rows              # only when a checklist or a progress pa
 # -race on the one package only when the change is about concurrency (cache, journals, terminal)
 ```
 
-CI ([`build.yml`](.github/workflows/build.yml)) runs on every push what used to run here: `make
-lint` (depguard layering included), `make parity`, the race tests with coverage, the build, the
-compile matrix for macOS, Linux and Windows, and `make test-kind` on a kind cluster. Read its result
-when you next push (`gh run list`) and fix what is red first.
+CI ([`release.yml`](.github/workflows/release.yml), one job per check, none longer than ten
+minutes: [releasing › CI](docs/developer/releasing.md#ci)) runs on every push what used to run
+here, each with its own make target: lint (depguard layering included), parity, GoSec,
+govulncheck, cyclomatic complexity, the unit tests, the UI's race tests in eight shards and the
+other packages' race tests, the kind and drain cluster tests, the macOS-only tests and the app, the
+Windows compile, and the combined coverage. Read its result when you next push (`gh run list`, then
+`gh run view <id> --log-failed`) and fix what is red first. Once every job on `main` is green,
+semantic-release publishes a release for the `feat:` and `fix:` commits since the last one and
+pushes a release commit to `main`, so `git pull --rebase` before your next push.
 
 Then commit and push. Agents may commit and push to `main` on their own (owner, 2026-10-11), in
 [Conventional Commits](docs/developer/conventions.md#commits-and-pull-requests) form and **without
 `Co-Authored-By` trailers or "Generated with" lines**, and **never with `!` or a `BREAKING CHANGE:`
-footer**: releases continue from the owner's anchor tag `v0.0.0`, and a breaking change would cut
-1.0.0 before Cogpit is usable. Don't wait for CI before the next step (owner, 2026-10-11): run the
+footer**: releases continue from the owner's anchor tag `v0.0.0`, and 1.0.0 is the owner's call
+(until then `.releaserc.json` turns a breaking change into a minor release). Don't wait for CI before the next step (owner, 2026-10-11): run the
 quick local checks, push, and look at CI when you next push. Append a terse entry to `log/devlog.md`:
 what landed, numbers, what's still open. Keep the tree building at every step.
 
