@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (M6: a release upgraded to a version from the user's chart repositories; M7: the cluster Overview built; M1 and 0.1: `cogpit-cli contexts` and `get` built; M9: the stdio bridge built; current focus after the fifth run and the owner's smoke test) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (Current focus after the day run: D-29 and the copy icons built; M6: a release upgraded to a version from the user's chart repositories; M7: the cluster Overview built; M1 and 0.1: `cogpit-cli contexts` and `get` built; M9: the stdio bridge built; current focus after the fifth run and the owner's smoke test) · **Target:** Lens Desktop 2026.10.51501
 
 Forward-looking plan: the alpha gate, the milestones, the **current focus** and what's next with
 estimates. Where Cogpit stands is in [`target-app-parity.md`](target-app-parity.md); the ranked
@@ -65,29 +65,26 @@ M11 and M12 do not depend on each other; their order is the owner's call.
 
 Ranked; each item links to its gap. Pick from the top unless an issue is assigned to you.
 
-1. **The owner walks the night run's features in a real window** (2026-10-13; every one was
-   verified offscreen and in tests only): the hotbar, the navigator's sections, the tab bar, the
-   command palette, Preferences and Cluster settings, the welcome page, the create dialogs, Helm
-   install and upgrade from repositories, the cluster Overview and the metrics status line,
-   kubectl for terminals, row selection and Delete of a selection; record what differs in the
-   parity rows, then answer the night's open questions (each marked "Cogpit's default, not the
-   owner's decision" in its row or gap; the first is in the night's devlog entry).
-2. **The owner's requirements of 2026-10-13:** Helm's own `repositories.yaml` as the repositories'
-   source, read regularly, changes within 5 seconds, credentials included, repositories added
-   with the helm CLI only
-   ([D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml),
-   [G11](gaps.md#g11-helm), [H-29](../security/credentials.md#h-29-authenticated-helm-repositories));
-   names in the lists copyable with the drawer's copy icon
-   ([D-25](../developer/decisions.md#d-25-copying-values), [G5](gaps.md#g5-app-shell-navigation-tables-and-drawer)).
-3. **Walk the alpha-gate workflows in the GUI** on kind and a real cluster (owner): change a
+1. **The owner walks the night run's and the day run's features in a real window** (2026-10-13;
+   every one was verified offscreen and in tests only): the hotbar, the navigator's sections, the
+   tab bar, the command palette, Preferences and Cluster settings, the welcome page, the create
+   dialogs, Helm install and upgrade from the repositories of Helm's own `repositories.yaml`
+   (built the same day, [D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml):
+   a `helm repo add` while Cogpit runs, an authenticated repository), the copy icons in the lists
+   ([D-25](../developer/decisions.md#d-25-copying-values)), the cluster Overview and the metrics
+   status line, kubectl for terminals, row selection and Delete of a selection; record what
+   differs in the parity rows, then answer the open questions (each marked "Cogpit's default, not
+   the owner's decision" in its row or gap; D-29's in its notes and
+   [H-40](../security/credentials.md#h-40-credentials-over-plain-http), H-41 and H-42 in [trust boundaries](../security/trust-boundaries.md)).
+2. **Walk the alpha-gate workflows in the GUI** on kind and a real cluster (owner): change a
    workload, maintain a node, reach a service, Helm releases, adding and syncing kubeconfigs,
    Cogpit's own title bar.
-4. **The terminal widget's upstream pull requests** ([#155–#158](https://github.com/fyne-io/terminal/pull/158),
+3. **The terminal widget's upstream pull requests** ([#155–#158](https://github.com/fyne-io/terminal/pull/158),
    G8; #157 approved 2026-10-12) and the two new widget patches of the night run (right-click
    copy and paste, Ctrl/Shift+Insert: upstream candidates, not offered).
-5. **Credential plugins verified on EKS, GKE and AKS** ([G2](gaps.md#g2-cluster-connection-and-authentication), human);
+4. **Credential plugins verified on EKS, GKE and AKS** ([G2](gaps.md#g2-cluster-connection-and-authentication), human);
    the node shell once the owner decides ([H-7](../security/privilege-footprint.md#h-7-node-shell-is-root-on-the-node)).
-6. **M0 and M10:** the generated parity pages and the scorecard ([G1](gaps.md#g1-workspace-ci-and-progress-generators)),
+5. **M0 and M10:** the generated parity pages and the scorecard ([G1](gaps.md#g1-workspace-ci-and-progress-generators)),
    captures of the rows marked inferred, packaging and updates for macOS ([G14](gaps.md#g14-packaging-signing-and-updates-macos)).
    The built-in chat comes after the alpha ([G21](gaps.md#g21-built-in-agent), [D-10](../developer/decisions.md#d-10-built-in-agent)).
 
@@ -105,6 +102,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | Current focus after the day run: D-29 and the lists' copy icons built, item 2 folded into the owner's walk |
 | 2026-10-13 | minor | Current focus: the owner's requirements of 2026-10-13 (D-29 Helm repositories from repositories.yaml, D-25 copy icons in the lists) as item 2 |
 | 2026-10-13 | minor | Current focus after the night run: the owner walks its features in a real window first |
 | 2026-10-13 | minor | M6: the Helm row names the upgrade to a version from the user's chart repositories (G11, night run; status and estimate unchanged) |

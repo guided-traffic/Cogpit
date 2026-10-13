@@ -9,12 +9,12 @@ The product name is always written **Cogpit** in user-facing text; machine names
 first, then `docs/`.
 
 **State on 2026-10-13:** implementation has started (owner's go-ahead, 2026-10-11). A local MVP
-runs on macOS, extended by five further implementation runs (2026-10-11 to 2026-10-13, the last a
-night run): 46 built-in views and the custom resource views from the cache, the cluster Overview,
+runs on macOS, extended by six further implementation runs (2026-10-11 to 2026-10-13, a night run
+and the day run after it): 46 built-in views and the custom resource views from the cache, the cluster Overview,
 the detail drawer and row menus, the hotbar, the navigator with its sections, a tab bar, the
 command palette, Preferences and Cluster settings, a welcome page, YAML editing with drafts, the
-create dialogs, row selection and Delete of a selection, node and workload actions with a
-crash-safe drain, Helm install from repositories, upgrade, rollback and uninstall (Secrets and
+create dialogs, row selection, Delete of a selection and copy icons in the lists, node and workload actions with a
+crash-safe drain, Helm install from the repositories of Helm's own `repositories.yaml` (credentials included), upgrade, rollback and uninstall (Secrets and
 ConfigMaps drivers), kubeconfig sources with approved credential plugins, metrics from the Metrics
 Server and Prometheus together, logs, a terminal with a verified kubectl download, pod shells,
 `cogpit-cli` with an MCP stdio bridge, CI on every push, and MCP control of all of it; it doubled
