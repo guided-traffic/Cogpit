@@ -65,11 +65,22 @@ func (tb *titlebar) install() {
 	tb.update()
 }
 
+// barHeightPoints is the top bar's height in points, which the window buttons are centred in: the
+// theme's bar height in Fyne units, times the canvas scale (titlebarLayout divides by it).
+func (tb *titlebar) barHeightPoints() float64 {
+	scale := float32(1)
+	if c := tb.sh.win.Canvas(); c != nil && c.Scale() > 0 {
+		scale = c.Scale()
+	}
+	return float64(tb.sh.app.Settings().Theme().Size(sizeBarHeight) * scale)
+}
+
 // update gives the top bar the room the window buttons take now.
 func (tb *titlebar) update() {
 	if tb.window == 0 || tb.nsWindow() != tb.window {
 		return
 	}
+	C.cogpitTitlebarCentreButtons(C.uintptr_t(tb.window), C.double(tb.barHeightPoints()))
 	var g C.cogpitTitlebarGeom
 	C.cogpitTitlebarGeometry(C.uintptr_t(tb.window), &g)
 	if g.ok == 0 {

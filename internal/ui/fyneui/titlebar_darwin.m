@@ -9,14 +9,55 @@
 
 extern void cogpitTitlebarChanged(uintptr_t id);
 
-// CogpitTitlebarObserver forwards a window's layout notifications to Go.
+static void placeButtons(NSWindow *w, CGFloat barHeight);
+
+// CogpitTitlebarObserver forwards a window's layout notifications to Go, and keeps the window
+// buttons centred in Cogpit's top bar: AppKit puts them back where its own title bar has them on
+// its layout passes (a resize, a style or key change, full screen left), button by button, and the
+// observer, told of the buttons' frame changes, moves them again at once and once more after the
+// pass (measured on macOS 26: at once alone leaves the zoom button where AppKit put it, after the
+// pass alone shows AppKit's place for a frame).
 @interface CogpitTitlebarObserver : NSObject
 @property(nonatomic) uintptr_t titlebarID;
+@property(nonatomic, assign) NSWindow *window; // not retained: the window holds the observer; nil once it closes
+@property(nonatomic) CGFloat barHeight;        // the top bar's height in points; 0: AppKit's place
+@property(nonatomic) BOOL placing;
+@property(nonatomic) BOOL queued;
 @end
 
 @implementation CogpitTitlebarObserver
+- (void)place {
+	if (self.placing || self.barHeight <= 0 || self.window == nil) {
+		return;
+	}
+	self.placing = YES;
+	placeButtons(self.window, self.barHeight);
+	self.placing = NO;
+}
+- (void)placeNowAndAfterThePass {
+	[self place];
+	if (self.queued || self.window == nil) {
+		return;
+	}
+	self.queued = YES;
+	// The block retains the observer, whose window is nil by then if the window closed meanwhile.
+	dispatch_async(dispatch_get_main_queue(), ^{
+		self.queued = NO;
+		[self place];
+	});
+}
 - (void)changed:(NSNotification *)note {
+	[self placeNowAndAfterThePass];
 	cogpitTitlebarChanged(self.titlebarID);
+}
+- (void)buttonMoved:(NSNotification *)note {
+	if (!self.placing) {
+		[self placeNowAndAfterThePass];
+	}
+}
+- (void)closing:(NSNotification *)note {
+	[[NSNotificationCenter defaultCenter] removeObserver:self];
+	self.window = nil;
 }
 @end
 
@@ -24,6 +65,43 @@ extern void cogpitTitlebarChanged(uintptr_t id);
 static char observerKey;
 
 static NSWindow *windowOf(uintptr_t window) { return (NSWindow *)(void *)window; }
+
+static NSArray<NSButton *> *windowButtons(NSWindow *w) {
+	NSButton *close = [w standardWindowButton:NSWindowCloseButton];
+	NSButton *mini = [w standardWindowButton:NSWindowMiniaturizeButton];
+	NSButton *zoom = [w standardWindowButton:NSWindowZoomButton];
+	if (close == nil || mini == nil || zoom == nil) {
+		return nil;
+	}
+	return @[ close, mini, zoom ];
+}
+
+// placeButtons centres the window buttons vertically in a top bar barHeight points high, as apps
+// with a taller title bar have them (VS Code, apps with a toolbar), instead of in the upper part
+// AppKit's own title bar takes (owner, 2026-10-13: "too high"; measured on macOS 26: a 32-point
+// title bar, 14-point buttons centred 16 points from the top, 20 in Cogpit's 40-point bar). Their x
+// stays AppKit's. They stay inside AppKit's title bar view, which AppKit sizes: in a taller bar
+// than it has room for they sit at its bottom edge. Nothing happens in full screen, where AppKit
+// shows the buttons in its own bar.
+static void placeButtons(NSWindow *w, CGFloat barHeight) {
+	if ((w.styleMask & NSWindowStyleMaskFullScreen) != 0) {
+		return;
+	}
+	NSArray<NSButton *> *buttons = windowButtons(w);
+	NSView *titlebar = buttons.firstObject.superview; // AppKit's title bar view
+	if (buttons == nil || titlebar == nil) {
+		return;
+	}
+	CGFloat buttonHeight = NSHeight(buttons.firstObject.frame);
+	CGFloat room = NSHeight(titlebar.bounds) - buttonHeight; // the most the buttons can move down
+	CGFloat fromTop = MAX(MIN(round((barHeight - buttonHeight) / 2), room), 0);
+	CGFloat y = titlebar.isFlipped ? fromTop : room - fromTop;
+	for (NSButton *b in buttons) {
+		if (NSMinY(b.frame) != y) {
+			[b setFrameOrigin:NSMakePoint(NSMinX(b.frame), y)];
+		}
+	}
+}
 
 void cogpitTitlebarInstall(uintptr_t window, uintptr_t id) {
 	NSWindow *w = windowOf(window);
@@ -33,14 +111,25 @@ void cogpitTitlebarInstall(uintptr_t window, uintptr_t id) {
 
 	CogpitTitlebarObserver *o = [[CogpitTitlebarObserver alloc] init];
 	o.titlebarID = id;
+	o.window = w;
 	NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
 	NSArray<NSNotificationName> *names = @[
 		NSWindowDidEnterFullScreenNotification, NSWindowDidExitFullScreenNotification,
-		NSWindowDidResizeNotification, NSWindowDidChangeBackingPropertiesNotification,
-		NSWindowDidChangeScreenNotification,
+		NSWindowDidResizeNotification, NSWindowDidEndLiveResizeNotification,
+		NSWindowDidChangeBackingPropertiesNotification, NSWindowDidChangeScreenNotification,
+		NSWindowDidBecomeKeyNotification, NSWindowDidResignKeyNotification,
 	];
 	for (NSNotificationName name in names) {
 		[nc addObserver:o selector:@selector(changed:) name:name object:w];
+	}
+	[nc addObserver:o selector:@selector(closing:) name:NSWindowWillCloseNotification object:w];
+	NSMutableArray<NSView *> *watched = [NSMutableArray arrayWithArray:windowButtons(w) ?: @[]];
+	if (watched.firstObject.superview != nil) {
+		[watched addObject:watched.firstObject.superview];
+	}
+	for (NSView *v in watched) {
+		v.postsFrameChangedNotifications = YES; // a button moved back, or the title bar view resized
+		[nc addObserver:o selector:@selector(buttonMoved:) name:NSViewFrameDidChangeNotification object:v];
 	}
 	objc_setAssociatedObject(w, &observerKey, o, OBJC_ASSOCIATION_RETAIN);
 	[o release];
@@ -49,6 +138,16 @@ void cogpitTitlebarInstall(uintptr_t window, uintptr_t id) {
 	// so that GLFW's window delegate (which observes the window's notifications) reads the larger
 	// content size and Fyne lays the canvas out to it, and the observer above reads the geometry.
 	[nc postNotificationName:NSWindowDidResizeNotification object:w];
+}
+
+void cogpitTitlebarCentreButtons(uintptr_t window, double barHeight) {
+	NSWindow *w = windowOf(window);
+	CogpitTitlebarObserver *o = objc_getAssociatedObject(w, &observerKey);
+	if (o == nil) {
+		return;
+	}
+	o.barHeight = barHeight;
+	[o place];
 }
 
 void cogpitTitlebarGeometry(uintptr_t window, cogpitTitlebarGeom *geom) {

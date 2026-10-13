@@ -16,6 +16,10 @@ typedef struct {
 // title bar without a title, and reports layout changes (full screen, resizes, a new screen) to the
 // Go function cogpitTitlebarChanged with id.
 void cogpitTitlebarInstall(uintptr_t window, uintptr_t id);
+// cogpitTitlebarCentreButtons centres the window buttons vertically in Cogpit's top bar, barHeight
+// points high, and keeps them there through AppKit's layout passes; 0 leaves them where AppKit puts
+// them.
+void cogpitTitlebarCentreButtons(uintptr_t window, double barHeight);
 // cogpitTitlebarGeometry reads the title bar's layout.
 void cogpitTitlebarGeometry(uintptr_t window, cogpitTitlebarGeom *geom);
 // cogpitTitlebarClickCount returns the click count of the event AppKit is dispatching when it is a
