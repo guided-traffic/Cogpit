@@ -3,6 +3,7 @@ package fyneui
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"fyne.io/fyne/v2/widget"
 
@@ -64,9 +65,16 @@ func (d *dock) output(tab engine.DockTab, q engine.DockOutputQuery) engine.DockO
 }
 
 // newAgentReadSwitch makes the strip's switch; it shows while the active tab is a terminal tab.
+// Turning it on is refused for the confirmations' arm delay after the switch began to show another
+// tab: an agent can make another terminal tab the active one (dock_activate, a UI command) just
+// before the user's click lands, which would let agents read a tab the user did not mean.
 func (d *dock) newAgentReadSwitch() *widget.Check {
 	c := widget.NewCheck(agentReadLabel, func(on bool) {
 		if d.syncingAgentRead {
+			return
+		}
+		if on && time.Since(d.agentReadSince) < d.sh.confirmer.armDelay {
+			d.updateAgentRead() // the click was meant for the tab shown before
 			return
 		}
 		id := d.active
@@ -99,6 +107,9 @@ func (d *dock) updateAgentRead() {
 	if active == nil || !engine.IsTerminalTab(active.Type) || !d.open() {
 		d.agentRead.Hide()
 		return
+	}
+	if active.ID != d.agentReadTab {
+		d.agentReadTab, d.agentReadSince = active.ID, time.Now()
 	}
 	d.syncingAgentRead = true
 	d.agentRead.SetChecked(active.AgentRead)

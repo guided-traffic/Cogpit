@@ -1837,7 +1837,10 @@ What the build chose, Cogpit's defaults (not the owner's decision):
 - **No dialog to turn it on** (options: (a) a plain switch, (b) a dialog whose Allow button arms
   after the confirmations' 750 ms, as the allowance of agent writes has; chosen (a)): the switch sits
   in the strip of the tab the user is looking at, no command opens a dialog or moves the pointer
-  there, and turning it on exposes one tab, not every write in a cluster.
+  there, and turning it on exposes one tab, not every write in a cluster. But an agent can make
+  another terminal tab the active one (`dock_activate`, a UI command) just before the user's click
+  lands, so turning the switch on is ignored for the confirmations' 750 ms after it began to show
+  another tab (turning it off never is; `TestAgentReadSwitchArmsAfterATabChange`).
 - **What agents read:** a logs tab's lines its view shows (the pod and container it narrows to, its
   filter applied, resource names and timestamps as the tab shows them, without escape sequences);
   a terminal's screen as text (its rows, no colours or escape sequences). The terminal widget keeps

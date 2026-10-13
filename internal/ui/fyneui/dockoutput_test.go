@@ -161,3 +161,33 @@ func TestRenderDockAgentReadLight(t *testing.T) {
 	q.until(t, "the switch", func() bool { return sh.dock.agentRead.Checked })
 	savePNG(t, w, "dock_agent_read_light.png")
 }
+
+// TestAgentReadSwitchArmsAfterATabChange: right after the switch began to show a tab (an agent can
+// make another terminal tab the active one just before a click lands), turning it on does nothing
+// for the confirmations' arm delay; turning it off always works.
+func TestAgentReadSwitchArmsAfterATabChange(t *testing.T) {
+	skipTerminalUnderRace(t)
+	sh, _, q, f := kubectlScene(t, ThemeDark, nil)
+	withAgentReadCommand(f)
+	sh.confirmer.armDelay = time.Hour
+	sw := sh.dock.agentRead
+	test.Tap(sw)
+	q.drain()
+	if sw.Checked || len(f.callsOf("dock.allowAgentRead")) != 0 {
+		t.Fatalf("turned on within the arm delay: checked %v, calls %d", sw.Checked, len(f.callsOf("dock.allowAgentRead")))
+	}
+	sh.dock.agentReadSince = time.Now().Add(-2 * time.Hour) // the delay has passed
+	test.Tap(sw)
+	q.until(t, "the engine's answer", func() bool {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		return f.ui.Dock[0].AgentRead
+	})
+	sh.dock.agentReadSince = time.Now() // turning off is never held back
+	test.Tap(sw)
+	q.until(t, "the switch off", func() bool {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		return !f.ui.Dock[0].AgentRead
+	})
+}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image/color"
 	"io"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -38,9 +39,12 @@ type dock struct {
 	body         *fyne.Container
 	panel        fyne.CanvasObject
 	toggle       *widget.Button
-	// agentRead is the strip's "Agents may read" switch of the active terminal tab (dockoutput.go).
+	// agentRead is the strip's "Agents may read" switch of the active terminal tab (dockoutput.go):
+	// the tab it shows and since when.
 	agentRead        *widget.Check
 	syncingAgentRead bool
+	agentReadTab     string
+	agentReadSince   time.Time
 }
 
 // dockContent is one tab's content and the stream behind it.
