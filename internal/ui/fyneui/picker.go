@@ -306,6 +306,10 @@ type pickerRow struct {
 	sub    *textLine
 	badges *fyne.Container
 	warn   *widget.Button // opens the connect log; present when the last connect failed
+	// note is a warning line under the subtitle: a context whose kubeconfig skips the server's
+	// certificate check (insecureNote); nil otherwise. A line, not a tooltip: the window's tooltips
+	// are drawn below dialogs, and the picker is one.
+	note *textLine
 }
 
 func newPickerRow(c engine.ContextInfo, title, sub string, selected bool, onTap, onDouble, onWarn func()) *pickerRow {
@@ -334,6 +338,11 @@ func newPickerRow(c engine.ContextInfo, title, sub string, selected bool, onTap,
 	case engine.ExecChanged:
 		r.badges.Add(newPill(what+" changed", colorStatusWarning, true))
 	}
+	if c.Insecure { // the kubeconfig skips the server's certificate check (engine/tlswarning.go)
+		r.badges.Add(newPill("certificate not checked", colorStatusWarning, true))
+		r.note = newTextLine(insecureNote(c), colorStatusWarning, theme.SizeNameCaptionText, fyne.TextStyle{})
+		r.note.truncate = true
+	}
 	if c.ConnectProblem { // Lens: a warning icon beside the context opens the log of the connect
 		r.warn = widget.NewButtonWithIcon("", theme.NewColoredResource(theme.WarningIcon(), colorStatusWarning), onWarn)
 		r.warn.Importance = widget.LowImportance
@@ -341,6 +350,17 @@ func newPickerRow(c engine.ContextInfo, title, sub string, selected bool, onTap,
 	}
 	r.ExtendBaseWidget(r)
 	return r
+}
+
+// insecureNote is the warning line of a context whose kubeconfig switches the check of the
+// server's certificate off (Cogpit's own text and default, 2026-10-13; Lens documents nothing for
+// it). The connect log says the same at length (engine/tlswarning.go).
+func insecureNote(c engine.ContextInfo) string {
+	server := "its server"
+	if c.Server != "" {
+		server = kubeconfig.DisplayText(c.Server, maxShownPath)
+	}
+	return "insecure-skip-tls-verify: the credential goes to whoever answers at " + server
 }
 
 // addMenuButton gives the row a ⋮ at its end that opens its menu.
@@ -377,7 +397,11 @@ func (r *pickerRow) MouseOut() { r.hovered = false; r.Refresh() }
 
 // CreateRenderer implements fyne.Widget.
 func (r *pickerRow) CreateRenderer() fyne.WidgetRenderer {
-	var body fyne.CanvasObject = container.NewVBox(container.NewHBox(r.title, r.badges), r.sub)
+	lines := container.NewVBox(container.NewHBox(r.title, r.badges), r.sub)
+	if r.note != nil {
+		lines.Add(r.note)
+	}
+	var body fyne.CanvasObject = lines
 	var more fyne.CanvasObject
 	if r.more != nil {
 		more = container.NewCenter(r.more)

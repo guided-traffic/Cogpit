@@ -27,6 +27,9 @@ type Context struct {
 	Namespace string `json:"namespace,omitempty"`
 	Server    string `json:"server,omitempty"`
 	Current   bool   `json:"current,omitempty"`
+	// Insecure is the cluster's insecure-skip-tls-verify: the server's certificate is not checked,
+	// so the credential goes to whoever answers at Server.
+	Insecure bool `json:"insecure,omitempty"`
 }
 
 // ErrNotImplemented marks a Phase 0 stub.
@@ -83,7 +86,7 @@ func FromConfig(cfg *clientcmdapi.Config) []Context {
 		if kc != nil {
 			c.Cluster, c.User, c.Namespace = kc.Cluster, kc.AuthInfo, kc.Namespace
 			if cl := cfg.Clusters[kc.Cluster]; cl != nil {
-				c.Server = StripUserInfo(cl.Server)
+				c.Server, c.Insecure = StripUserInfo(cl.Server), cl.InsecureSkipTLSVerify
 			}
 		}
 		out = append(out, c)

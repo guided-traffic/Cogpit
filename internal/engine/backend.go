@@ -171,6 +171,10 @@ type ContextInfo struct {
 	// or "both".
 	Exec     string `json:"exec,omitempty"`
 	ExecKind string `json:"execKind,omitempty"`
+	// Insecure is set when the context's cluster skips the check of the server's certificate
+	// (insecure-skip-tls-verify): the picker warns, and connecting writes a warning into the
+	// connect log (tlswarning.go).
+	Insecure bool `json:"insecure,omitempty"`
 }
 
 // Connector lists the contexts a user can connect to and connects one.

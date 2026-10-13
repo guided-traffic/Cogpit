@@ -1,6 +1,6 @@
 # Platform parity: systems, packages, authentication and tools
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (`kubectl` for terminals: the version check and the verified download, D-3; the HTTP proxy per cluster partial; fourth run recount: 9 of 38 rows partial; exec credential plugins partial) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (`proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, against TLS test servers; `kubectl` for terminals: the version check and the verified download, D-3; the HTTP proxy per cluster partial; fourth run recount: 9 of 38 rows partial; exec credential plugins partial) · **Target:** Lens Desktop 2026.10.51501
 
 Where and how Cogpit runs compared with Lens Desktop 2026.10.51501: operating systems and
 architectures, packages and updates, how it authenticates to clusters, which Kubernetes versions
@@ -12,16 +12,18 @@ it handles, and the external tools it depends on. Method: [`README.md`](README.m
 (`latest.yml`, `latest-mac.yml`, `latest-linux.yml` on `downloads.k8slens.dev`) and the
 2026.10.51501 release notes. Cogpit's ecosystem facts: [decisions](../developer/decisions.md).
 
-**Summary (measured, 2026-10-12, after the fourth implementation run, counted by `make parity`):** 10 of 38 rows partial,
+**Summary (measured, 2026-10-13, after the night run, counted by `make parity`):** 12 of 38 rows partial,
 none done (four more are not targets or have nothing to build): the macOS app bundle (1 of 13
 package rows), client certificates, bearer tokens, exec credential plugins (run only after the user allowed
-them in the GUI, not yet verified against a cloud provider) and users limited to some namespaces
-through the access reviews (5 of 13 authentication rows), Kubernetes 1.36 on kind locally and 1.37 in CI, kinds newer
+them in the GUI, not yet verified against a cloud provider), users limited to some namespaces
+through the access reviews, the HTTP proxy per cluster, `proxy-url` and the kubeconfig's TLS
+settings (custom CA, `tls-server-name`, `insecure-skip-tls-verify`; against TLS test servers, not a
+cloud cluster) (7 of 13 authentication rows), Kubernetes 1.36 on kind locally and 1.37 in CI, kinds newer
 than the client libraries (custom resources and edits), the sidebar following the served APIs
 version by version, and `kubectl` from `PATH`. Cogpit ships for macOS first; Windows and Linux follow after the macOS beta
 ([D-7](../developer/decisions.md#d-7-language-and-platforms)). Remaining (estimated): 25–50 h for
 the macOS app, signing and one-click updates ([G14](gaps.md#g14-packaging-signing-and-updates-macos)),
-40–80 h for Windows and Linux ([G22](gaps.md#g22-windows-and-linux)) and 25–50 h for authentication
+40–80 h for Windows and Linux ([G22](gaps.md#g22-windows-and-linux)) and 20–45 h for authentication
 ([G2](gaps.md#g2-cluster-connection-and-authentication)), both with work a human must do: signing
 material, and real cloud accounts to test credential plugins against.
 
@@ -65,9 +67,9 @@ client-go from the process that holds the credentials, so that requirement does 
 | Exec plugins that open a browser or prompt (interactive mode) | not documented | to design ([H-6](../security/credentials.md#h-6-exec-plugins-inherit-the-environment)) | missing |
 | Legacy `oidc` auth provider | not documented | yes; refreshed tokens through a persister Cogpit supplies ([H-4](../security/credentials.md#h-4-auth-provider-token-refresh)) | missing |
 | Legacy `azure` auth provider | not documented | rejected by client-go, which points to kubelogin | – (nothing to build) |
-| `proxy-url` in the kubeconfig | not documented | yes | missing |
+| `proxy-url` in the kubeconfig | not documented | yes | partial (2026-10-13): client-go's `clientcmd` turns it into `rest.Config.Proxy` (code read, client-go 0.37.1); verified through the cluster layer: every request of the connection goes through the test forward proxy, the URL's user and password to the proxy alone, and the proxy of Cogpit's cluster settings replaces it, the kubeconfig's proxy then seeing no request (`TestKubeconfigProxyURLIsHonoured`); fixed the same day: client-go quotes a `proxy-url` it cannot use whole in its error (`invalid 'proxy-url' "http://user:password@…"`), which reached the connect log, the window and agents; `cluster.Connect` now replaces its user information with `•••` (`TestKubeconfigProxyPasswordNeverInErrors`, `TestKubeconfigProxySecrets`). Not against a real proxy; the picker does not show it (the plugin approval dialog does, without its user information) |
 | HTTP proxy set per cluster in cluster settings | yes | yes | partial (2026-10-13): Settings › Proxy ([ui parity](ui-parity.md#cluster-settings)), an http, https or socks5 URL kept in Cogpit's `cluster-settings.json`, applied at the next connect through `rest.Config.Proxy` in place of the kubeconfig's `proxy-url` (inferred precedence), its password redacted everywhere but that file; against a fake API server behind a test proxy that tunnels CONNECT and checks the Basic credentials (`TestConnectGoesThroughTheProxy`, `TestConnectThroughTheClusterProxy`); not against a real proxy; the local terminal's kubectl does not use it |
-| Custom CA, `tls-server-name`, `insecure-skip-tls-verify` | not documented | yes | missing |
+| Custom CA, `tls-server-name`, `insecure-skip-tls-verify` | not documented | yes | partial (2026-10-13): honoured by client-go's `clientcmd`, which copies them into `rest.Config`'s TLS settings (code read); verified through the cluster layer against the fake API server presenting a test CA's certificate ([`testkit/tlsca.go`](../../internal/testkit/tlsca.go)): `certificate-authority-data` and `certificate-authority` connect, without them or with another CA the connect fails with a sentence that names the certificate problem and the kubeconfig fields to check, never the token (`TestConnectTrustsTheKubeconfigCA`); a certificate for another host connects only with `tls-server-name` naming it (`TestConnectWithTLSServerName`); `insecure-skip-tls-verify` connects to a certificate nobody trusts and sends the token there, and together with the kubeconfig's own CA is refused with client-go's sentence (`TestInsecureSkipTLSVerifyConnectsToAnUntrustedServer`). Such a context is marked in the picker ("certificate not checked" and a warning line) and its connect log gets a WARN line (Cogpit's default, Lens documents nothing; `TestInsecureContextIsMarkedAndLogged`, `TestPickerMarksAnInsecureContext`, [PNG](../../internal/ui/fyneui/testdata/picker_insecure_dark.png); the risk: [H-35](../security/trust-boundaries.md#h-35-a-context-that-skips-the-certificate-check)). A plain-http server gets no credential (`TestPlainHTTPServerGetsNoCredential`). Not against a cloud cluster's own CA |
 | Users who may list only some namespaces (accessible namespaces) | yes | yes | partial (2026-10-11): access reviews per namespace (`SelfSubjectRulesReview`) of the context's default namespace and the namespace filter's: the sidebar shows the kinds such a user may list there and hides the others, menus grey what they may not do ([`accessreviews.go`](../../internal/engine/accessreviews.go); `TestKindAccessReviews` with a ServiceAccount limited to pods in one namespace, `TestBudgetAccessReviews`). Missing: views still list every namespace (no namespace-scoped informers), so such a user's Pods view shows the API server's refusal; no setting for accessible namespaces when the kubeconfig names none |
 | Cluster Connect: reach clusters through Lens's relay (paid) | yes | not a target ([D-9](../developer/decisions.md#d-9-scope-against-lenss-paid-and-vendor-features)) | – |
 | Cloud account integrations: list and add EKS, AKS, GKE clusters (paid) | yes | gap [G18](gaps.md#g18-paid-lens-desktop-features) | missing |
@@ -105,6 +107,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | Night run (V2, G2): `proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, through the cluster layer against TLS test servers, a `proxy-url` password kept out of connect errors (fixed), insecure contexts marked; 12 of 38 rows partial, 7 of 13 authentication rows; authentication's estimate 20–45 h (was 25–50) |
 | 2026-10-13 | minor | `kubectl` for terminals (External tools, not counted): the version check when a terminal opens, the verified download on one click, the release first on the terminal's `PATH` (D-3 built, night run) |
 | 2026-10-13 | minor | The HTTP proxy set per cluster partial (night run, G13): Cogpit's cluster settings, applied through `rest.Config.Proxy`, tested against a test proxy; 10 of 38 rows partial (the lead recounts) |
 | 2026-10-12 | major | Recount after the fourth run (`make parity`): 9 of 38 rows partial, 4 of 13 authentication rows |

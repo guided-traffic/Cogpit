@@ -19,9 +19,11 @@ import (
 // What a credential plugin writes to its standard error is not in the log: client-go sends it to
 // Cogpit's own standard error (gap G2).
 
-// Levels of a connect log line, as Lens writes them.
+// Levels of a connect log line: INFO and ERROR as Lens writes them; WARN is Cogpit's own, for a
+// connection that works but is not safe (tlswarning.go), and does not mark a connect problem.
 const (
 	LogInfo  = "INFO"
+	LogWarn  = "WARN"
 	LogError = "ERROR"
 )
 
@@ -34,7 +36,7 @@ const (
 // ConnectLogLine is one line of a context's connect log.
 type ConnectLogLine struct {
 	Time  time.Time `json:"time"`
-	Level string    `json:"level"` // LogInfo or LogError
+	Level string    `json:"level"` // LogInfo, LogWarn or LogError
 	Text  string    `json:"text"`
 }
 

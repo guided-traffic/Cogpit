@@ -282,6 +282,9 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 	}
 	s.attachCustomKinds(b)
 	s.attachAccess(b)
+	if line := insecureLogLine(b); line != "" {
+		st.logs.add(name, LogWarn, line) // insecure-skip-tls-verify (tlswarning.go)
+	}
 	st.logs.add(name, LogInfo, "Connected to "+name)
 	st.backend = b
 	st.diagStop = make(chan struct{})

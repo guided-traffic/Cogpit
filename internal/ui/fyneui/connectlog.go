@@ -64,8 +64,11 @@ func (k *kubeconfigUI) openConnectLog(contextID string, v connectLogView) {
 	rows := container.NewVBox()
 	for _, l := range v.Lines {
 		fg := colorMuted
-		if l.Level == engine.LogError {
+		switch l.Level {
+		case engine.LogError:
 			fg = colorStatusError
+		case engine.LogWarn:
+			fg = colorStatusWarning
 		}
 		prefix := newTextLine(l.Time.In(logTimeZone).Format("15:04:05")+"  "+padRight(l.Level, 5)+"  ", fg,
 			theme.SizeNameText, fyne.TextStyle{Monospace: true})

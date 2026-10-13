@@ -249,6 +249,9 @@ func Connect(ctx context.Context, opts Options) (_ *Conn, err error) {
 	if err != nil {
 		return nil, &ConnectError{Context: name, Problem: "cannot load kubeconfig: " + kubeconfig.SafeError(err).Error()}
 	}
+	// client-go quotes a proxy-url it cannot use whole, its password included (proxyurl.go).
+	kubeProxySecrets := kubeconfigProxySecrets(raw)
+	defer func() { err = scrubSecrets(err, kubeProxySecrets) }()
 	if name == "" {
 		name = raw.CurrentContext
 	}
@@ -392,8 +395,13 @@ func (c *Conn) describeConnectFailure(ctx, tctx context.Context, timeout time.Du
 		return fmt.Sprintf("the API server %s denied access (403 Forbidden)", c.server)
 	case errors.As(err, &ue):
 		// The URL adds nothing but noise; the inner error says what went wrong (connection
-		// refused, TLS, DNS, an exec credential plugin that is not on PATH).
-		return fmt.Sprintf("cannot reach the API server %s: %s", c.server, kubeconfig.SafeError(ue.Err).Error())
+		// refused, TLS, DNS, an exec credential plugin that is not on PATH). A certificate that
+		// failed the check gets a hint at the kubeconfig field to look at (tls.go).
+		msg := fmt.Sprintf("cannot reach the API server %s: %s", c.server, kubeconfig.SafeError(ue.Err).Error())
+		if hint := certificateHint(ue.Err); hint != "" {
+			msg += "; " + hint
+		}
+		return msg
 	default:
 		return fmt.Sprintf("the API server %s did not answer as expected: %s", c.server, kubeconfig.SafeError(err).Error())
 	}
