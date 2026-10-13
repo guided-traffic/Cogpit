@@ -11,7 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
 	"github.com/guided-traffic/cogpit/internal/testkit"
 )
 
@@ -318,6 +320,51 @@ func TestWorkloadDrawerWakesOnlyForItsPods(t *testing.T) {
 	if got := rec.count(EventDetail, "deployments") - before; got != 1 {
 		t.Errorf("%d detail events for ten changes of another Deployment's pod and one pod of its own, want 1", got)
 	}
+}
+
+// wpNSConnector is nsConnector with the built-in Stateful Sets.
+type wpNSConnector struct{ nsConnector }
+
+func (c wpNSConnector) Connect(ctx context.Context, name string) (*Backend, error) {
+	b, err := c.nsConnector.Connect(ctx, name)
+	if err == nil {
+		p, _ := kinds.ByKey("statefulsets")
+		b.Profiles = append(b.Profiles, p)
+	}
+	return b, err
+}
+
+// A user who may list pods and stateful sets only in team-a and team-b opens a stateful set's
+// drawer while the access reviews are still out: its pods are first read as a pending plan reads
+// them, in all namespaces, which the API server refuses; once the reviews answer, the drawer reads
+// them namespace by namespace, no cluster-wide pods handle is left, and the table lists the pod.
+func TestWorkloadDrawerPodsForANamespaceLimitedUser(t *testing.T) {
+	mem := testkit.NewMemorySource()
+	mem.Set(statefulSetsGVR, testkit.Object("apps/v1", "StatefulSet", "team-a", "db", nil))
+	mem.Set(testkit.PodsGVR, wpPod("team-a", "db-0", "StatefulSet", "db"))
+	mem.Set(testkit.PodsGVR, testkit.Pod("team-b", "web-team-b"))
+	src := &testkit.NamespacedOnlySource{Inner: mem, GVRs: []schema.GroupVersionResource{testkit.PodsGVR, statefulSetsGVR}, Denied: []string{"team-c", "default"}}
+	allowed := []cluster.AccessRule{rule("get,list,watch", "", "pods"), rule("get,list,watch", "apps", "statefulsets")}
+	rev := newFakeReviewer(map[string][]cluster.AccessRule{"team-a": allowed, "team-b": allowed})
+	rev.set(func(f *fakeReviewer) { f.gate = make(chan struct{}) })
+	s := New(Options{Connector: wpNSConnector{nsConnector{src: src, rev: rev, namespace: "team-a"}}, SnapshotInterval: 5 * time.Millisecond,
+		ClusterSettings: NewClusterSettingsStore(t.TempDir())})
+	t.Cleanup(s.Close)
+	if _, err := s.ChangeClusterSettings("test", func(c *ClusterSettings) error { c.AccessibleNamespaces = []string{"team-a", "team-b"}; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	connectTest(t, s)
+	openView(s, testEvents.Key)
+	ref := model.ObjectRef{Context: "test", Kind: "statefulsets", Namespace: "team-a", Name: "db"}
+	openDrawer(s, ref)
+	waitFor(t, "the drawer's pods read in all namespaces while the reviews are out", func() bool { all, _ := podsHandles(s); return all > 0 })
+
+	rev.set(func(f *fakeReviewer) { close(f.gate); f.gate = nil })
+	waitFor(t, "the drawer reading pods namespace by namespace", func() bool {
+		all, ns := podsHandles(s)
+		return all == 0 && ns > 0
+	})
+	waitDrawerPods(t, s, ref, "db-0")
 }
 
 // The table's CPU and Memory come from the hub as in a node's drawer, polled for the workload's

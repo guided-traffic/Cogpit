@@ -1087,7 +1087,13 @@ the panel is open is the window's, as the context picker's is.
   one's pods, a Cron Job's its jobs, then theirs, the others their own pods. The drawer wakes for
   those keys alone: a new replica set of the Deployment files under the Deployment's key, which the
   drawer looked up, and ten changes of another Deployment's pod wake it not once
-  (`TestWorkloadDrawerWakesOnlyForItsPods`). Measured (`TestWorkloadPodsIndexOnlyWithTheDrawer`): with pods in the Deployments'
+  (`TestWorkloadDrawerWakesOnlyForItsPods`). The indexed kinds are read as `Backend.Acquire` reads
+  them (§5): a user who may list pods only in some namespaces gets them namespace by namespace, and
+  a drawer opened while the access reviews are out starts again with the drawer kind's plan, its
+  cluster-wide pods handle gone (`TestWorkloadDrawerPodsForANamespaceLimitedUser`). Not covered:
+  `drawerPlanKey` names the drawer's kind and the events, not the indexed kinds, so a drawer whose
+  own kind the user may list everywhere keeps the pods' namespaces from when it opened until it
+  opens again (read from the code, not tested; the same for a node's and a claim's drawer). Measured (`TestWorkloadPodsIndexOnlyWithTheDrawer`): with pods in the Deployments'
   `Needs`, ten pod changes and one Deployment change made eleven Deployments snapshots; with
   `DetailNeeds`, one, the drawer open or not; the drawer's handles on the pods and the replica sets
   go back when it closes. The rows a drawer table holds are bounded after sorting
