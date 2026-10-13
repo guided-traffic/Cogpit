@@ -67,7 +67,9 @@ func TestNavScopeFollowsTheConnection(t *testing.T) {
 	}
 
 	// From the section, a connect from anywhere (the picker, the hotbar, an agent) drills in.
-	s.SetNavigatorScope(ctx, NavScopeLocal)
+	if _, err := s.SetNavigatorScope(ctx, NavScopeLocal); err != nil {
+		t.Fatal(err)
+	}
 	if err := s.Connect(ctx, "prod"); err != nil {
 		t.Fatal(err)
 	}
