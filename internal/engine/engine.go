@@ -125,6 +125,10 @@ type Options struct {
 	// interrupts is offered again when its context is connected (D-11; drafts.go). Nil: no drafts,
 	// and the draft commands are disabled.
 	Drafts *Drafts
+	// Workspace keeps the tab bar's tabs and the tables' column layout across a restart (D-41;
+	// persist.go): restored in New without connecting anything, written when they change. Nil:
+	// they last for the session.
+	Workspace *Workspace
 	// TimeLayout is how absolute times are written for the user (D-31): the computer's region
 	// format, which the binaries look up once at start (internal/locale), shown in
 	// UIState.TimeFormat and written in the Preferences' time zone (Session.TimeFormat). Empty
@@ -191,7 +195,8 @@ func New(opts Options) *Session {
 	opts.HelmRepos.attach(s)
 	opts.Preferences.attach(s)
 	opts.ClusterSettings.attach(s)
-	opts.Drafts.attach(s) // nil-safe
+	opts.Drafts.attach(s)    // nil-safe
+	opts.Workspace.attach(s) // nil-safe; reads the kubeconfig sources' files, never a cluster
 	return s
 }
 
@@ -411,7 +416,8 @@ func (s *Session) Emit(ev Event) { s.emit(ev) }
 
 // Close disconnects and stops every view. The session must not be used afterwards.
 func (s *Session) Close() {
-	s.opts.Drafts.close() // the drafts still waiting for their timer are written first (nil-safe)
-	s.endNodeShells()     // the node shells' pods are deleted before the connection goes (nodeshell.go)
+	s.opts.Drafts.close()    // the drafts still waiting for their timer are written first (nil-safe)
+	s.opts.Workspace.close() // the tabs as the user left them, before the connection closes (nil-safe)
+	s.endNodeShells()        // the node shells' pods are deleted before the connection goes (nodeshell.go)
 	s.state.close()
 }

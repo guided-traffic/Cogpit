@@ -192,6 +192,7 @@ func (s *Session) WatchKubeconfigs(interval time.Duration) (stop func()) {
 			if sig := k.signature(); sig != last {
 				last = sig
 				s.CloseGoneSourceConnection()
+				s.closeTabsOfGoneFiles() // and the tabs of a context whose file went (persist_restore.go)
 				s.emit(Event{Type: EventContexts})
 			}
 		}

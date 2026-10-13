@@ -126,6 +126,16 @@ credential into its own files.
   `TestNoDraftsForSecretsOrHelmValues`, `TestNoDraftsOfSecretTabs`, `TestDraftFilesReadBack`).
   Agents list drafts without their text; a restored tab's text follows `editor.get`'s rules. What
   other kinds' text a user types is kept as typed ([H-38](#h-38-drafts-keep-typed-text-in-plain-text)).
+- **The tabs and the tables' layout** (built 2026-10-13, night build,
+  [D-41](../developer/decisions.md#d-41-what-survives-a-restart)): `<user config dir>/Cogpit/workspace.json`,
+  0600 in a 0700 directory, replaced atomically through `writePrivateFile`, holds per tab a context
+  id, view keys and titles, namespace and API group names, the search text as typed and the sort,
+  and column ids per view: names of contexts, kubeconfig files and namespaces, no credential, no
+  object's value, no selection and no drawer object
+  ([`persist.go`](../../internal/engine/persist.go), `TestWorkspaceRoundTrip`). A context read back
+  from it connects only when the user shows its tab, through the same path as the picker (its
+  credential plugin still needs the approval), and only a context a kubeconfig source still offers
+  keeps its tab.
 - **In memory:** credentials are held by the connection that uses them and dropped when it closes.
   Rule for Cogpit's own credential types: they implement `slog.LogValuer` and `fmt.Stringer` as
   `"<redacted>"`, so a stray log statement cannot print them. The first such type is

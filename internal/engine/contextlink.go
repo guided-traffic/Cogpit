@@ -167,8 +167,11 @@ func (s *Session) RemoveKubeconfigSource(id string) (KubeconfigSource, error) {
 }
 
 // closeTabsOfSource closes the tabs of the removed source's contexts that no source offers any
-// more. When the sources cannot be read, no tab is closed on a guess. Closing the active tab leaves
-// no tab active, as closing a cluster's last tab does (UIState.closeTab).
+// more, and forgets UIState.Context when it names one of them and no connection holds it (the
+// connection made from the source is closed already), so that nothing points at a context that is
+// gone (UIState.dropContexts). When the sources cannot be read, nothing changes on a guess. Closing
+// the active tab leaves no tab active, as closing a cluster's last tab does (UIState.closeTab). No
+// notice: the user removed the source, after a confirmation naming its contexts.
 func (s *Session) closeTabsOfSource(k *KubeconfigSources, src KubeconfigSource) {
 	files, _, err := k.Files()
 	if err != nil {
@@ -180,20 +183,13 @@ func (s *Session) closeTabsOfSource(k *KubeconfigSources, src KubeconfigSource) 
 			offered[SourceContextID(c.Name, f.Label)] = true
 		}
 	}
-	gone := func(t ViewTab) bool { return ofSource(src, t.Context) && !offered[t.Context] }
-	if !slices.ContainsFunc(s.UIState().Tabs, gone) {
+	gone := func(id string) bool { return ofSource(src, id) && !offered[id] }
+	u := s.UIState()
+	if !slices.ContainsFunc(u.Tabs, func(t ViewTab) bool { return gone(t.Context) }) &&
+		(!gone(u.Context) || activeConnection(u.Connection.State)) {
 		return
 	}
-	s.UpdateUI(func(u *UIState) {
-		if i := u.activeIndex(); i >= 0 && gone(u.Tabs[i]) {
-			u.ActiveTab = ""
-			if u.Tabs[i].Context == u.Context {
-				u.View, u.Filter = "", ""
-				u.Selected, u.Drawer = nil, nil
-			}
-		}
-		u.Tabs = slices.DeleteFunc(u.Tabs, gone)
-	})
+	s.UpdateUI(func(u *UIState) { u.dropContexts(gone) })
 }
 
 // ofSource reports whether a context id ("<context> [<label>]", SourceContextID) names a context of

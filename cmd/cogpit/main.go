@@ -104,7 +104,7 @@ func run(previousCrash string) int {
 	s := engine.New(engine.Options{Connector: connector, Audit: audit, AuditPath: auditPath, Logger: logger, Drains: openDrainJournal(logger),
 		Helm: openHelmJournal(logger), Hotbar: openHotbar(logger), HelmRepos: openHelmRepos(logger),
 		Preferences: openPreferences(logger), ClusterSettings: clusterSettings, Kubectl: openKubectl(logger),
-		Drafts: openDrafts(logger), TimeLayout: timeFormat.Layout})
+		Drafts: openDrafts(logger), Workspace: openWorkspace(logger), TimeLayout: timeFormat.Layout})
 	defer s.Close()
 	defer s.WatchKubeconfigs(0)() // sync folders: files that appear or leave are picked up
 	if err := commands.RegisterAll(s.Registry()); err != nil {
@@ -221,6 +221,18 @@ func openDrafts(logger *slog.Logger) *engine.Drafts {
 		return nil
 	}
 	return engine.NewDrafts(filepath.Join(dir, "Cogpit"))
+}
+
+// openWorkspace keeps the tab bar's tabs and the tables' column layout in
+// <user config dir>/Cogpit/workspace.json, owner-only, restored at the next start without
+// connecting anything (D-41). Without a configuration directory they last for the run.
+func openWorkspace(logger *slog.Logger) *engine.Workspace {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		logger.Warn("the tabs and the column layout are not kept after this run", "err", err)
+		return nil
+	}
+	return engine.NewWorkspace(filepath.Join(dir, "Cogpit"))
 }
 
 // openHotbar keeps the hotbar's banks of pinned clusters in <user config dir>/Cogpit/hotbar.json,

@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-41, a night decision for the owner to confirm: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, built; D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -29,6 +29,7 @@ projects' repositories; re-check them before relying on a version number.
 | [D-37](#d-37-the-node-shell) | The node shell | night decision, for the owner to confirm: Lens's privileged pod with nsenter (option b), built 2026-10-13 |
 | [D-38](#d-38-who-sets-the-node-shells-image) | Who sets the node shell's image | night decision, for the owner to confirm: the user only, agents may reset it (option b), built 2026-10-13 |
 | [D-40](#d-40-a-pods-table-in-the-workloads-drawers) | A Pods table in the workloads' drawers | night decision, for the owner to confirm: the node drawer's table in the drawers of the six workload kinds (option b), built 2026-10-13 |
+| [D-41](#d-41-what-survives-a-restart) | What survives a restart: the tabs and the tables' layout | night decision, for the owner to confirm: Cogpit's own `workspace.json`, restored without connecting anything; built 2026-10-13 |
 
 ## D-1: UI toolkit
 
@@ -1712,10 +1713,74 @@ What the build chose, Cogpit's defaults (not the owner's decision):
   ("every object the drawer links to, in its order, then what a workload controls") holds without
   an exception.
 
+## D-41: What survives a restart
+
+**Context.** Until 2026-10-13 everything the user arranged in the window but the hotbar, the
+preferences, the cluster settings and the panel widths ended with the run: the tab bar's tabs and the
+tables' hidden columns and column order ([ui-parity › Layout](../parity/ui-parity.md#layout),
+[› Tables](../parity/ui-parity.md#tables), G5, G13). Whether Lens restores its tabs is not captured
+(inferred: it does). **Built 2026-10-13** ([`engine/persist.go`](../../internal/engine/persist.go),
+[`engine/persist_restore.go`](../../internal/engine/persist_restore.go); `TestWorkspaceRoundTrip`,
+`TestWorkspaceNoRequestAtStart`, `TestWorkspaceDropsOnlyWhatIsCertainlyGone`,
+`TestWorkspaceUnreadableFileIsKeptAside`, `TestWorkspaceWritesAfterTheChangesStop`).
+
+- **Night decision (the lead's, 2026-10-13, for the owner to confirm): whether and how the tabs come
+  back.** Options (a) not kept, as before; (b) kept in Cogpit's own owner-only file and restored at
+  start without connecting anything, a tab connecting its cluster when the user shows it; (c) as (b),
+  and the cluster of the tab shown last connected at start, as a browser reloads its tabs; chosen (b),
+  because (c) would send requests to a cluster, possibly a production one, that the user has not
+  asked for in this run (Never surprise a cluster), and (a) loses what the user arranged. The file is
+  `<user config dir>/Cogpit/workspace.json` (0600 in a 0700 directory, replaced atomically,
+  `writePrivateFile`), written 1 second after the tabs or the layout stop changing (at least every
+  5 seconds while they keep changing) and when Cogpit quits; read once at start.
+- **Night decision (the lead's, 2026-10-13, for the owner to confirm): what each tab keeps.** Options
+  (a) its cluster and view only; (b) its cluster, view and the view's title, preview or fixed, its
+  place in the bar, when it was last shown, its namespace and API group filters, its search text with
+  the match case and regular expression toggles, its sort and its history; (c) (b) plus its selection
+  and the drawer's object; chosen (b), because it is the tab's own state that the bar keeps per tab
+  today, while a selection and a drawer name objects that may be gone at the next start, and a
+  drawer restored at connect would read an object the user did not ask for in this run.
+- **Night decision (the lead's, 2026-10-13, for the owner to confirm): the tab shown last.** Options
+  (a) no tab marked at start; (b) the tab shown last marked and its cluster named as
+  `UIState.Context`, disconnected, the state `cluster.disconnect` leaves (the welcome page shows, the
+  tab is marked, showing it connects); (c) marked and connected; chosen (b), because it shows where
+  the user left without a request ((c) is (c) above), and it is a state the engine and the window
+  handle already. A cluster connected from the picker, the hotbar or the welcome page shows its most
+  recently used tab, as within a run.
+- **Night decision (the lead's, 2026-10-13, for the owner to confirm): tabs of contexts that are
+  gone.** Options (a) restored, failing when shown; (b) dropped with a notice; chosen (b), and only on
+  a plain fact, as a connection closes only on one (`CloseGoneSourceConnection`): the context's file
+  does not exist any more, its source was removed, its file parses and no longer defines it, or the
+  connector's list, read without an error, does not have it (the demo cluster, a run without a
+  configuration directory). A file that does not parse for a moment keeps its tabs. The notice ("2
+  tabs of the last run were not restored: no kubeconfig source offers dev [dev.yaml] any more.") is
+  in the notification log (the title bar's bell).
+- **Night decision (the lead's, 2026-10-13, for the owner to confirm): the tables' layout.** Options
+  (a) the hidden columns and the column order per view key, the same on every cluster, as
+  `UIState` holds them; (b) per cluster and view; chosen (a), because a view's columns are its kind's,
+  the same on every cluster, and a user who hides a column on one cluster's Pods wants it hidden on
+  the next. **Column widths:** options (a) not kept (the window's, not engine state, as now); (b)
+  kept in Fyne's preferences as the panels' widths; (c) engine state in this file; chosen (a) for
+  now, because the table records a width whenever a header's laid-out width differs from the one it
+  set, which does not yet tell a user's drag from a relayout, and keeping a relayout's width across
+  a restart would make it stick; (b) once the drag's end is its own event. A question for the owner.
+- **Not restored:** the dock's tabs (logs, terminals, shells, editors, Helm tabs, the Audit Log):
+  a stream or a terminal would open at start, and an editor's unsaved text has its own draft,
+  offered when its cluster connects ([D-11](#d-11-crash-stance)); a selection and the drawer (above);
+  the connection itself.
+
+Cogpit's defaults, not the owner's decisions: the delays; the bounds of a file read back (200 tabs,
+1,000 namespaces, groups or column ids each, 1,000 views, keys of 512 bytes, a search of 1,000 bytes,
+titles of 256 bytes; what is beyond them is dropped without costing the rest); a file that does not
+load (not JSON, a newer format) is ignored with a warning notice and moved to
+`workspace.json.unreadable` before the first write, never overwritten; two Cogpit processes keep a
+copy each and the last write wins, as with the hotbar.
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-41 (night decision, for the owner to confirm): the tab bar's tabs and the tables' hidden columns and column order kept in `workspace.json` and restored at start without connecting anything, the tab shown last marked, the tabs of contexts that are gone dropped with a notice; column widths not kept (a question for the owner); built |
 | 2026-10-13 | minor | D-40 (night decision, for the owner to confirm): the node drawer's Pods table in the drawers of Deployments, Replica Sets, Stateful Sets, Daemon Sets, Jobs and Cron Jobs, from indexes only the open drawer holds; Cron Jobs, the eight columns, every replica set's pods, the owner's UID in its namespace, the 500-row bound and the order of `related: true` Cogpit's defaults; built |
 | 2026-10-13 | minor | D-39 (night decision, for the owner to confirm): pod metrics listed per namespace of the Pods view's plan for a user who may not list pods everywhere, built |
 | 2026-10-13 | minor | D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes without flags, bound to the Application's UID and resourceVersion, refused while an operation is requested or running |
