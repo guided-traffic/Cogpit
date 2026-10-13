@@ -27,9 +27,10 @@ func (s *Session) drawerSorts() map[string]SortSpec {
 	return maps.Clone(s.ui.DrawerSort)
 }
 
-// sortDrawerTables sorts the model's sortable tables by sorts, by section title; a table without an
-// order there (or with one naming a column it does not have) is sorted by name.
-func sortDrawerTables(m *DetailModel, sorts map[string]SortSpec) {
+// SortDrawerTables sorts the model's sortable tables by sorts, by section title; a table without an
+// order there (or with one naming a column it does not have) is sorted by name. Every drawer model
+// of the session goes through it; the window's tests use it for their own models.
+func SortDrawerTables(m *DetailModel, sorts map[string]SortSpec) {
 	for i := range m.Sections {
 		t := m.Sections[i].Table
 		if t == nil || !t.Sortable {

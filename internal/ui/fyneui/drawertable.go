@@ -13,8 +13,10 @@ import (
 // table renders a section's table. A table of cells (model.CellTable: a node's pods, an endpoint
 // slice's endpoints) draws its cells as the lists do: a link in the link colour that goes to its
 // object, a status in its colour, and a warning column as the warning icon with the reason as its
-// tooltip, under no title. Other tables are plain text (detailTable).
-func (d *drawer) table(ref model.ObjectRef, t *model.DetailTable) fyne.CanvasObject {
+// tooltip, under no title. A sortable one (a node's Pods) has the lists' column titles, which sort
+// it (drawertable_sort.go). Other tables are plain text (detailTable). section is the section's
+// title, which names the table to the engine.
+func (d *drawer) table(ref model.ObjectRef, section string, t *model.DetailTable) fyne.CanvasObject {
 	if len(t.Cells) == 0 || len(t.Columns) == 0 {
 		return d.detailTable(t)
 	}
@@ -30,6 +32,10 @@ func (d *drawer) table(ref model.ObjectRef, t *model.DetailTable) fyne.CanvasObj
 	for i, c := range t.Columns {
 		if colType(i) == model.ColumnWarning {
 			c = ""
+		}
+		if t.Sortable && i < len(t.IDs) {
+			objs = append(objs, d.sortHeader(section, t, i, c))
+			continue
 		}
 		objs = append(objs, d.line(c, colorMuted, theme.SizeNameText, fyne.TextStyle{}, true, ""))
 	}

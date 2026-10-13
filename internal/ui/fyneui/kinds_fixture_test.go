@@ -400,6 +400,7 @@ func kindsFake(t testing.TB, view string) *fakeEngine {
 			if err != nil {
 				t.Fatal(err)
 			}
+			engine.SortDrawerTables(m, nil) // as the session's models come: a node's Pods by name
 			f.details[ref.String()] = m
 		}
 	}

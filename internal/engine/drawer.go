@@ -221,7 +221,7 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 		m.Metrics = false // the cluster's settings hide every chart of the kind (hidemetrics.go)
 	}
 	s.drawerPods(b, ref, m)              // the CPU and Memory of the pods a table lists, and their poll (drawerpods.go)
-	sortDrawerTables(m, s.drawerSorts()) // the sortable tables in the drawer's order (drawersort.go)
+	SortDrawerTables(m, s.drawerSorts()) // the sortable tables in the drawer's order (drawersort.go)
 	if OriginOf(ctx).IsAgent() {
 		m.Sections = model.WithholdPrivate(m.Sections) // object_get: agents never read private values
 	}

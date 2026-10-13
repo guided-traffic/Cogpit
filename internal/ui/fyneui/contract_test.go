@@ -33,6 +33,7 @@ func TestDispatchedParamsMatchTheRegistry(t *testing.T) {
 		{"ui.setFilter", filterParams{Filter: "web"}},
 		{"ui.setFilter", filterParams{Filter: "^web-", MatchCase: new(bool), Regex: &[]bool{true}[0]}},
 		{"ui.sort", sortParams{Column: "name", Desc: true}},
+		{"ui.sortDrawerTable", drawerSortParams{Section: "Pods", Column: "memory", Desc: true}},
 		{"ui.select", selectParams{Refs: []model.ObjectRef{ref}}},
 		{"ui.closeDrawer", struct{}{}},
 		{"ui.navigate", refParams{Ref: ref}},

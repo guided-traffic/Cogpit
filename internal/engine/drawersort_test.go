@@ -109,7 +109,7 @@ func TestSortDrawerTables(t *testing.T) {
 		{Title: "Pods", Table: sortFixture()},
 		{Title: "Plain", Table: model.CellTable([]model.Column{{ID: "name", Title: "Name"}}, [][]model.Cell{{{Text: "b"}}, {{Text: "a"}}})},
 	}}
-	sortDrawerTables(m, nil)
+	SortDrawerTables(m, nil)
 	if got := m.Sections[1].Table; got.Sort == nil || *got.Sort != (model.TableSort{Column: "name"}) || namesOf(got)[0] != "argo/api-0" {
 		t.Errorf("unsorted: sort %+v, rows %q", got.Sort, namesOf(got))
 	}
@@ -118,13 +118,13 @@ func TestSortDrawerTables(t *testing.T) {
 	}
 
 	m.Sections[1].Table = sortFixture()
-	sortDrawerTables(m, map[string]SortSpec{"Pods": {Column: model.ColumnMemory, Desc: true}})
+	SortDrawerTables(m, map[string]SortSpec{"Pods": {Column: model.ColumnMemory, Desc: true}})
 	if got := m.Sections[1].Table; namesOf(got)[0] != "jobs/Batch-0" || !got.Sort.Desc || got.Sort.Column != model.ColumnMemory {
 		t.Errorf("by memory: %q, %+v", namesOf(got), got.Sort)
 	}
 
 	m.Sections[1].Table = sortFixture()
-	sortDrawerTables(m, map[string]SortSpec{"Pods": {Column: "nope", Desc: true}})
+	SortDrawerTables(m, map[string]SortSpec{"Pods": {Column: "nope", Desc: true}})
 	if got := m.Sections[1].Table; got.Sort.Column != "name" || got.Sort.Desc {
 		t.Errorf("an unknown column: %+v", got.Sort)
 	}

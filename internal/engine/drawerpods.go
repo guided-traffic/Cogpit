@@ -127,12 +127,27 @@ func pick[T any](s []T, keep func(int) bool) []T {
 // fresh measurement through the Pods profile's UsageCells, the Pods list's texts and sort keys. A
 // pod without a measurement keeps empty cells, as in the list.
 func fillPodUsage(b *Backend, t *model.DetailTable) {
-	cpuCol, memCol := t.ColumnIndex(model.ColumnCPU), t.ColumnIndex(model.ColumnMemory)
-	if b.Metrics == nil || cpuCol < 0 && memCol < 0 {
+	if b.Metrics == nil {
 		return
 	}
 	pp, ok := b.Profile(logKindPods)
 	if !ok || pp.UsageCells == nil {
+		return
+	}
+	FillPodTable(t, func(namespace, name string) (model.Usage, bool) {
+		pu, ok := b.Metrics.Pod(namespace, name)
+		return pu.Total(), ok
+	}, func(u model.Usage) (model.Cell, model.Cell) { return usageCellsOf(pp, u) })
+}
+
+// FillPodTable writes the CPU and Memory of each pod a pod table lists into its cells and texts:
+// usage says what a pod uses (false: no measurement, the cells stay empty), cells turns it into the
+// two cells (a profile's UsageCells). The table's rows are changed in place: give it a copy. The
+// engine fills the drawer's tables with it from the metrics hub; the window's tests with their own
+// numbers.
+func FillPodTable(t *model.DetailTable, usage func(namespace, name string) (model.Usage, bool), cells func(model.Usage) (cpu, memory model.Cell)) {
+	cpuCol, memCol := t.ColumnIndex(model.ColumnCPU), t.ColumnIndex(model.ColumnMemory)
+	if cpuCol < 0 && memCol < 0 {
 		return
 	}
 	for r := range t.Cells {
@@ -140,11 +155,11 @@ func fillPodUsage(b *Backend, t *model.DetailTable) {
 		if pod == nil {
 			continue
 		}
-		pu, ok := b.Metrics.Pod(pod.Namespace, pod.Name)
+		u, ok := usage(pod.Namespace, pod.Name)
 		if !ok {
 			continue
 		}
-		cpuCell, memCell := usageCellsOf(pp, pu.Total())
+		cpuCell, memCell := cells(u)
 		set := func(col int, c model.Cell) {
 			if col >= 0 && col < len(t.Cells[r]) {
 				t.Cells[r][col] = c

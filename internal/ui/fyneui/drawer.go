@@ -415,7 +415,7 @@ func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
 			out = append(out, grid)
 		}
 		if sec.Table != nil {
-			out = append(out, d.table(m.Ref, sec.Table))
+			out = append(out, d.table(m.Ref, sec.Title, sec.Table))
 		}
 	}
 	if m.NoEvents { // a kind no event is about (Helm releases): Lens's drawer has no Events

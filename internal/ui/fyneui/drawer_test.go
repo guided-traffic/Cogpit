@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
 
 	"github.com/guided-traffic/cogpit/internal/model"
@@ -25,8 +26,13 @@ func richPod(t testing.TB) podSpec {
 
 func drawerTexts(sh *shell) []string {
 	var out []string
-	for _, l := range findAll[*textLine](sh.drawer.details) {
-		out = append(out, l.text)
+	for _, o := range findAll[fyne.CanvasObject](sh.drawer.details) {
+		switch x := o.(type) {
+		case *textLine:
+			out = append(out, x.text)
+		case *tableSortHeader: // a sortable table's column title (drawertable_sort.go)
+			out = append(out, x.title)
+		}
 	}
 	return out
 }
