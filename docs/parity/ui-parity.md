@@ -25,7 +25,7 @@ Modifier names are macOS first (⌘ ⌥ ⇧ ⌃); Windows and Linux use Ctrl and
 marked per row; rows without evidence are missing.
 
 **Summary (measured, 2026-10-13, after the fourth implementation run, the hotbar, the navigator, the command palette, the cluster's Prometheus setting, Helm install, the cluster Overview, the Preferences and Cluster settings pages, the tab bar and the log tab's selectors, jump and older lines, counted by `make parity`):**
-110 of 133 rows exist (was 56): 102 of the 120 free-plan rows (94 partial, 8 done: the cell tooltip, right-click on a
+112 of 133 rows exist (was 56): 104 of the 120 free-plan rows (96 partial, 8 done: the cell tooltip, right-click on a
 row, the dock's "New tab" menu, keyboard navigation in tables and its shortcut row, the container
 port's link, the forward dialog and the drawer's Forward…, each matching its captured row) and 8
 paid rows (the diff view and the hotbar's seven, partial); 7 more rows are not a target. The hotbar
