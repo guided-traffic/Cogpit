@@ -296,7 +296,7 @@ Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never a
 registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 153 commands</summary>
+<summary>All 154 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -414,6 +414,7 @@ registry with `go run ./hack/readmecmds`.
 | `resources.list` | `resources_list` | read | `filter`?, `kind`, `limit`?, `namespaces`? | Lists objects of one kind from Cogpit's cache, as table rows: reference, status and the cells by column title |
 | `role.create` | `role_create` | mutating | `name`, `namespace`?, `rules`? | Creates a Role in a namespace with the given rules (API groups, resources, verbs, optional resource names) after a server-side dry run; the API server refuses rules that grant more than the user holds unless the user may escalate roles |
 | `roleBinding.create` | `roleBinding_create` | mutating (destructive for some calls) | `name`, `namespace`?, `roleRef`, `subjects` | Creates a RoleBinding that grants a Role of its namespace, or a ClusterRole within its namespace, to users, groups and service accounts, after a server-side dry run; the API server refuses it unless the user holds the role's permissions or may bind it |
+| `secret.create` | `secret_create` | mutating | `annotations`?, `data`?, `labels`?, `name`, `namespace`?, `type`? | Creates a Secret (name, namespace, type, data entries, labels, annotations) after a server-side dry run, for the user in Cogpit's window only (D-19): an agent or the CLI is refused before anything is asked or sent, whatever the parameters, and no value is ever logged |
 | `secret.reveal` | `secret_reveal` | read | `key`, `ref`, `resourceVersion`? | Shows the user one value of the Secret open in the drawer, in Cogpit's own window (the drawer lists the keys with their values masked) |
 | `service.portForward` | `service_portForward` | mutating | `https`?, `localPort`?, `openInBrowser`?, `port`, `ref` | Forwards a service's port to a local port on 127.0.0.1 (only loopback; every local process can connect while it runs) through a ready pod of the service's selector, at the port the service targets, as kubectl port-forward svc/<name> does |
 | `serviceAccount.create` | `serviceAccount_create` | mutating | `name`, `namespace`? | Creates a ServiceAccount in a namespace after a server-side dry run |

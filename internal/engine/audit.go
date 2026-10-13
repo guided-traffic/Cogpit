@@ -47,7 +47,11 @@ func (s *Session) audit(inv Invocation, context, phase string, err error) {
 	if !json.Valid(e.Params) {
 		e.Params = nil
 	}
-	e.Params = auditParams(e.Params)
+	if inv.ID == SecretCreateCommand {
+		e.Params = auditSecretCreateParams(e.Params) // its keys, never a value (secretcreate.go)
+	} else {
+		e.Params = auditParams(e.Params)
+	}
 	if err != nil {
 		e.Error = err.Error()
 		var pe *ParamsError

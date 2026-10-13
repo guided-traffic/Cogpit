@@ -54,6 +54,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerDrawerTables(g)
 	registerHotbar(g)
 	registerCreateDialogs(g)
+	registerSecretCreate(g)
 	registerPalette(g)
 	registerApplications(g)
 	registerPreferences(g)

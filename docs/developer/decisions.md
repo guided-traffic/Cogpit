@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -548,7 +548,15 @@ toast. The same pattern as `secret.reveal` and the Helm Upgrade tab. Lens's Secr
 captured (inferred). **Built 2026-10-12** ([`secretedit.go`](../../internal/engine/secretedit.go)).
 Since 2026-10-13 (the drafts of D-11, a default of the night run that follows from this decision):
 a Secret's tab, and any tab whose text holds a Secret's manifest or may be one being typed, has no
-draft on disk ([`drafts.go`](../../internal/engine/drafts.go), `TestNoDraftsForSecretsOrHelmValues`). The options weighed:
+draft on disk ([`drafts.go`](../../internal/engine/drafts.go), `TestNoDraftsForSecretsOrHelmValues`).
+Since 2026-10-13 (night build, G9) the same holds for Lens's Create Secret dialog: `secret.create`
+is an MCP tool like every command but refuses every origin but the GUI before anything is asked or
+sent, and the audit line of a refused call names the Secret, its type and its keys, never a value
+([`secretcreate.go`](../../internal/engine/secretcreate.go), `TestSecretCreateIsGUIOnly`). Cogpit's
+default, not the owner's decision: the dialog sends the values base64-encoded in `data`, not in
+`stringData` (options: (a) `data`, (b) `stringData`; (a) because what is sent is what the API server
+stores and returns, as `kubectl create secret` sends it, and the scrubbing of an API message knows
+each value in both forms). The options weighed:
 
 | Option | For | Against |
 |---|---|---|
@@ -1363,6 +1371,7 @@ from Lens's there.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-19: Create Secret built (night build, G9): `secret.create` refuses agents and the CLI before anything is asked or sent; its values go base64-encoded in `data` (Cogpit's default) |
 | 2026-10-13 | minor | D-4 (owner): the environment `release` for the Apple credentials created; Sparkle's EdDSA key in an environment with the owner as required reviewer |
 | 2026-10-13 | minor | D-16 (owner): dependency updates committed as `build(deps)`, no release of their own |
 | 2026-10-13 | minor | D-16 revised (owner): releases live: semantic-release tags and releases after every gate on `main` with the GitHub App's token, the release pipeline attaches `cogpit-cli` and the unsigned app; a breaking change makes a minor release under v0. D-4: what is built of it (the unsigned app zip and the CLI archives; no signature, notarization, disk image, cask or Sparkle yet) |

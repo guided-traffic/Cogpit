@@ -82,6 +82,10 @@ type createProbeParams struct {
 	ClusterRole string            `json:"clusterRole,omitempty"`
 	Subjects    []map[string]any  `json:"subjects,omitempty"`
 	Hard        map[string]string `json:"hard,omitempty"`
+	Type        string            `json:"type,omitempty"`        // Create Secret's
+	Data        []map[string]any  `json:"data,omitempty"`        // Create Secret's
+	Labels      []map[string]any  `json:"labels,omitempty"`      // Create Secret's
+	Annotations []map[string]any  `json:"annotations,omitempty"` // Create Secret's
 }
 
 // registerCreateProbes registers a probe of each create command, labelled as the real one, enabled
@@ -109,7 +113,8 @@ func registerCreateProbes(t testing.TB, f *fakeEngine) {
 // createKinds are the kinds with a create dialog as kinds.list reports them (Namespaces are in the
 // base fixture).
 var createKinds = append(slices.Clone(rbacKinds),
-	kindInfo{Kind: "resourcequotas", Title: "Resource Quotas", APIKind: "ResourceQuota", Version: "v1", Namespaced: true})
+	kindInfo{Kind: "resourcequotas", Title: "Resource Quotas", APIKind: "ResourceQuota", Version: "v1", Namespaced: true},
+	kindInfo{Kind: kindSecrets, Title: "Secrets", APIKind: "Secret", Version: "v1", Namespaced: true})
 
 // createFake is the RBAC fake with every create dialog's kind, their probes, the namespaces and
 // the roles and role bindings of namespace ci in the cache, showing view.
@@ -157,6 +162,9 @@ func createFake(t testing.TB, view string) *fakeEngine {
 	f.tables["resourcequotas"] = kindSnapshot(t, "resourcequotas", []*unstructured.Unstructured{
 		obj("ResourceQuota", "payments", "compute", 9*day, map[string]any{"spec": map[string]any{"hard": map[string]any{"pods": "20"}},
 			"status": map[string]any{"hard": map[string]any{"pods": "20"}, "used": map[string]any{"pods": "7"}}}),
+	})
+	f.tables[kindSecrets] = kindSnapshot(t, kindSecrets, []*unstructured.Unstructured{
+		obj("Secret", "ci", "registry-pull", 3*day, map[string]any{"type": "kubernetes.io/dockerconfigjson", "data": map[string]any{".dockerconfigjson": "e30="}}),
 	})
 	f.ui.Namespaces = []string{"ci"}
 	return f

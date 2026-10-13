@@ -226,6 +226,33 @@ decrypted (`TestSecretKeyMatchesCertificate`, `TestMatchPrivateKeyReasons`,
 `TestObjectGetDecodesCertificatesForAgents`, which searches the result, the audit log, the events
 and the log for the key's PEM, base64 and DER).
 
+### Secret values in the Create Secret dialog
+
+Since 2026-10-13 (G9, [D-19](../developer/decisions.md#d-19-editing-and-creating-secrets-from-yaml))
+the Secrets view's "+" opens Create Secret: name, namespace, type, the data as rows of a key and a
+value, labels and annotations ([`createdialog_secret.go`](../../internal/ui/fyneui/createdialog_secret.go),
+[`commands/secretcreate.go`](../../internal/engine/commands/secretcreate.go)). Where a value goes,
+as built:
+
+- **Typed into a masked field.** Each value is a Fyne entry in password mode (one dot per
+  character, a line per line), whose eye shows that value only. A masked entry neither copies nor
+  cuts; a shown one does ([H-70](#h-70-a-value-shown-in-create-secret-copies-unmarked)). The widgets,
+  and the entry's undo history, hold the text until the dialog is gone and the garbage collector
+  takes it, as a revealed value in the drawer does.
+- **To the engine, in the GUI's own process.** The dialog dispatches `secret.create` with origin
+  `gui`; the user's own commands are not audited, and the command refuses every other origin
+  before anything is asked or sent (`engine.ErrSecretCreateGUIOnly`). An agent's refused call is
+  audited with the Secret's name, namespace, type, its keys and the annotations' keys, each value
+  replaced by `<redacted>`, and only the names of parameters the command does not have
+  (`engine.auditSecretCreateParams`, `TestSecretCreateIsGUIOnly`).
+- **To the API server, base64-encoded in `data`** (Cogpit's default, not `stringData`: what is sent
+  is what the server keeps and returns, as `kubectl create secret` sends it), first in a server-side
+  dry run, then the create. The checks before it name keys and positions, never values; an API
+  message that quotes a value comes back with it removed, raw, base64 and decoded alike
+  (`TestSecretCreateChecksBeforeSending`, `TestSecretCreateErrorsNeverQuoteValues`).
+- **Nowhere else.** No draft (a dialog keeps none, and it opens no dock tab whose text would), no
+  toast beyond "Created secrets/<namespace>/<name>", no log line.
+
 ## What this does not cover
 
 ### H-4: Auth-provider token refresh
@@ -270,6 +297,17 @@ history of the value; any process of the user can read it while it is there; Cog
 ending within the 60 seconds (a crash, `kill -9`) leaves it on the clipboard; on Linux and Windows
 the copy goes through Fyne's clipboard unmarked. Only values the user revealed and copied are
 affected; an agent has no way to copy.
+
+### H-70: A value shown in Create Secret copies unmarked
+
+In the Create Secret dialog, a value the user showed with its eye can be selected and copied
+(⌘C, or the entry's context menu) like any text: Fyne's entry puts it on the system clipboard
+itself, so it is neither marked concealed and kept from Universal Clipboard nor cleared after 60
+seconds, as a copy from the drawer is ([H-25](#h-25-a-copied-secret-value-reaches-the-clipboard)).
+Live since 2026-10-13, for the user's own typing only: a masked value does not copy, and no
+agent can reach the dialog or the clipboard. Routing the entry's copy through the concealed
+clipboard needs a wrapper around Fyne's entry whose context menu calls the entry's own copy, not
+the wrapper's; not built.
 
 ### H-29: Authenticated Helm repositories
 

@@ -114,6 +114,7 @@ type createForm struct {
 	roleKind *widget.Select
 	roleName *widget.SelectEntry
 	editors  []*rowEditor
+	secret   *secretForm                      // the Create Secret dialog's own fields (createdialog_secret.go)
 	offered  map[*widget.SelectEntry][]string // what each field offers from the cache (offer)
 	// writers add the dialog's other fields to the parameters, or say what is wrong with them.
 	writers []func(map[string]any) error

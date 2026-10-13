@@ -23,8 +23,11 @@ import (
 var ErrSecretGUIOnly = errors.New("a Secret, or a Helm release record kept in a ConfigMap, is edited and created only by " +
 	"the user, in Cogpit's own window: agents and the CLI cannot open, read, change, check, apply or create one from YAML")
 
+// secretDataField is a Secret manifest's field of base64-encoded values.
+const secretDataField = "data"
+
 // secretValueFields are the fields of a Secret manifest that hold values.
-var secretValueFields = []string{"data", "stringData"}
+var secretValueFields = []string{secretDataField, "stringData"}
 
 // requireGUIForKind refuses every origin but the GUI for a kind whose YAML holds values.
 func requireGUIForKind(ctx context.Context, apiVersion, kind string) error {
@@ -90,7 +93,7 @@ func secretValues(obj *unstructured.Unstructured) map[string]any {
 				continue
 			}
 			out[field+"/"+k] = str
-			if field == "data" {
+			if field == secretDataField {
 				if dec, err := base64.StdEncoding.DecodeString(str); err == nil {
 					out["decoded/"+k] = string(dec)
 				}
