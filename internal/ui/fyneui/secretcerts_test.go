@@ -97,14 +97,20 @@ func TestSecretDrawerShowsCertificates(t *testing.T) {
 	if serial == nil || serial.hook == nil || serial.hook.text != "4F:2A:9C:11:E0" {
 		t.Errorf("the serial number has no copy icon that copies it: %+v", serial)
 	}
-	notAfter := false
+	notAfter, keyMatches, chain := false, false, false
 	for _, p := range findAll[*pill](sh.drawer.details) {
-		if strings.HasSuffix(p.text, "(in 20 days)") && p.fg == colorStatusWarning {
+		ok := p.fg == statusColorName(model.StatusOK)
+		switch {
+		case strings.HasSuffix(p.text, "(in 20 days)") && p.fg == colorStatusWarning:
 			notAfter = true
+		case p.text == "Yes (tls.key)" && ok: // the owner's answer of 2026-10-13: tls.key checked
+			keyMatches = true
+		case p.text == "Yes, each certificate is signed by the next" && ok:
+			chain = true
 		}
 	}
-	if !notAfter {
-		t.Error("the leaf's Not After is no warning pill")
+	if !notAfter || !keyMatches || !chain {
+		t.Errorf("pills: the leaf's Not After a warning %v, the key matching %v, the chain in order %v", notAfter, keyMatches, chain)
 	}
 	for _, s := range never {
 		if drawerHasText(sh.drawer, s) {

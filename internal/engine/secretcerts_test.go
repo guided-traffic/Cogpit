@@ -117,12 +117,24 @@ func certDetail(t *testing.T, obj *unstructured.Unstructured) *DetailModel {
 	return m
 }
 
-// certSections returns the drawer's certificate sections by group.
+// certSections returns the drawer's certificate sections by group, without the Checks sections
+// (checkSections).
 func certSections(m *DetailModel) map[string][]model.DetailSection {
 	out := map[string][]model.DetailSection{}
 	for _, s := range m.Sections {
-		if strings.HasPrefix(s.Group, certGroupPrefix) {
+		if strings.HasPrefix(s.Group, certGroupPrefix) && s.Title != certChecksTitle {
 			out[strings.TrimPrefix(s.Group, certGroupPrefix)] = append(out[strings.TrimPrefix(s.Group, certGroupPrefix)], s)
+		}
+	}
+	return out
+}
+
+// checkSections returns the Checks section of each certificate group that has one.
+func checkSections(m *DetailModel) map[string]model.DetailSection {
+	out := map[string]model.DetailSection{}
+	for _, s := range m.Sections {
+		if strings.HasPrefix(s.Group, certGroupPrefix) && s.Title == certChecksTitle {
+			out[strings.TrimPrefix(s.Group, certGroupPrefix)] = s
 		}
 	}
 	return out
@@ -269,7 +281,7 @@ func TestSecretCertificateEdges(t *testing.T) {
 	notPEM := testkit.Secret("shop", "broken-tls", nil, map[string]string{"tls.crt": "not-a-cert", "tls.key": "not-a-key"})
 	notPEM.Object["type"] = tlsSecretType
 	m := certDetail(t, notPEM)
-	if secs := certSections(m)["tls.crt"]; len(secs) != 1 || secs[0].Items[0].Value != certNoPEM {
+	if secs := certSections(m)["tls.crt"]; len(secs) != 1 || secs[0].Items[0].Value != certNone {
 		t.Errorf("a tls.crt without PEM: %+v", certSections(m))
 	}
 	if b, _ := json.Marshal(m); strings.Contains(string(b), "not-a-cert") || strings.Contains(string(b), "not-a-key") {

@@ -29,9 +29,14 @@ func TestObjectGetDecodesCertificatesForAgents(t *testing.T) {
 	sec := testkit.Secret("apps", "shop-tls", nil, data)
 	sec.Object["type"] = "kubernetes.io/tls"
 	h.src.Set(testkit.SecretsGVR, sec)
+	// A Secret whose tls.key belongs to another certificate (D-30's key check).
+	wrongKey := testkit.NewCert(t, testkit.CertSpec{CommonName: "other"}).KeyPEM(t)
+	wrong := testkit.Secret("apps", "shop-wrong-key", nil, map[string]string{"tls.crt": string(leaf.PEM()), "tls.key": string(wrongKey)})
+	wrong.Object["type"] = "kubernetes.io/tls"
+	h.src.Set(testkit.SecretsGVR, wrong)
 
 	var forbidden []string
-	for _, v := range data {
+	for _, v := range []string{data["tls.crt"], data["tls.key"], data["ca.crt"], string(wrongKey)} {
 		forbidden = append(forbidden, v, base64.StdEncoding.EncodeToString([]byte(v)))
 		for _, line := range strings.Split(v, "\n") {
 			if len(line) >= 16 && !strings.HasPrefix(line, "-----") {
@@ -72,11 +77,24 @@ func TestObjectGetDecodesCertificatesForAgents(t *testing.T) {
 			c.Status != model.StatusWarning || c.NotAfter.Location() != time.UTC || strings.Join(c.IPAddresses, ",") != "10.1.2.3" {
 			t.Errorf("the leaf for agents %+v", c)
 		}
-		for _, s := range []string{`"expiresInDays":10`, `"expired":false`, `"notAfter":"` + c.NotAfter.Format(time.RFC3339) + `"`, `"Certificates · tls.crt"`} {
+		for _, s := range []string{`"expiresInDays":10`, `"expired":false`, `"notAfter":"` + c.NotAfter.Format(time.RFC3339) + `"`, `"Certificates · tls.crt"`,
+			`"pairedKey":"tls.key"`, `"keyMatches":true`, `"chainInOrder":true`, `"Yes (tls.key)"`} {
 			if !strings.Contains(string(b), s) {
 				t.Errorf("object.get %v has no %s", params, s)
 			}
 		}
+	}
+	wrongRef := model.ObjectRef{Context: "test", Kind: "secrets", Namespace: "apps", Name: "shop-wrong-key"}
+	res, err := h.dispatch(engine.OriginExternalAgent, "object.get", map[string]any{"ref": wrongRef})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := json.Marshal(res)
+	if l := carries(b); l != "" {
+		t.Errorf("object.get of the Secret with another key carries %q", l)
+	}
+	if !strings.Contains(string(b), `"keyMatches":false`) || !strings.Contains(string(b), `"No (tls.key holds another key)"`) {
+		t.Errorf("object.get does not say the key belongs to another certificate: %s", b)
 	}
 	if l := carries([]byte(h.trail())); l != "" {
 		t.Errorf("%q in the audit log, the events or the log", l)

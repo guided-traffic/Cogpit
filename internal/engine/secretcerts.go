@@ -15,13 +15,15 @@ import (
 )
 
 // The certificates a Secret holds, decoded for the drawer and for agents (D-30, owner
-// 2026-10-13): every key whose value holds PEM CERTIFICATE blocks, a TLS Secret's tls.crt and
-// ca.crt first, gets a group of sections in the drawer, one section per certificate in the value's
-// order, each field its own item (so each has the drawer's copy icon); DetailModel.Certificates
-// carries the same fields for agents with the times in UTC and the days left. A certificate is
-// public material; the PEM text, the value it came from and every private key stay out: a key
-// named like a private key (tls.key, *.key) is never looked into, and the parser decodes nothing
-// but CERTIFICATE blocks (model.ParseCertificates). Built from the cached object, no request; the
+// 2026-10-13): every key whose value holds PEM CERTIFICATE blocks or DER certificates, a TLS
+// Secret's tls.crt and ca.crt first, gets a group of sections in the drawer, one section per
+// certificate in the value's order, each field its own item (so each has the drawer's copy icon);
+// DetailModel.Certificates carries the same fields for agents with the times in UTC and the days
+// left. A certificate is public material; the PEM text, the value it came from and every private
+// key stay out: a key named like a private key (privateKeyName) is never searched for
+// certificates, and the parser decodes nothing but certificates (model.DecodeCertificates). The
+// one use of a private key is the check whether it belongs to its certificate
+// (secretcerts_checks.go), which keeps nothing of it. Built from the cached object, no request; the
 // decoded values are zeroed after parsing, as the Data section's are.
 
 // Bounds (Cogpit's defaults, not the owner's): a value larger than certValueBytes is not decoded;
@@ -46,7 +48,7 @@ const (
 // Texts of the drawer's certificate sections.
 const (
 	certGroupPrefix  = "Certificates · "
-	certNoPEM        = "no PEM certificate in this value"
+	certNone         = "no certificate in this value"
 	certTooLarge     = "not decoded: the value is larger than 1 MiB"
 	certNotDecodedT  = "Not decoded"
 	certMoreTitle    = "More"
@@ -58,10 +60,11 @@ const (
 var errCertPanic = errors.New("decoding a Secret's certificates panicked")
 
 // secretCertificates decodes the certificates in a Secret's values at now: per key that holds a
-// PEM CERTIFICATE block, in the order tls.crt, ca.crt, then the other keys sorted. A TLS Secret's
-// tls.crt that holds none says so; a value over 1 MiB is not decoded, which a key named like a
-// certificate (*.crt, *.pem, *.cer) says. A panic in the decoder yields what was decoded before
-// and errCertPanic.
+// PEM CERTIFICATE block or DER certificates, in the order tls.crt, ca.crt, then the other keys
+// sorted; then the checks (certificateChecks: the paired private key, the chain's order). A TLS
+// Secret's tls.crt that holds none says so; a value over 1 MiB is not decoded, which a key named
+// like a certificate (*.crt, *.pem, *.cer, *.der) says. A panic in the decoder yields what was
+// decoded before and errCertPanic.
 func secretCertificates(obj *unstructured.Unstructured, now time.Time) (out []model.CertificateKey, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -71,6 +74,7 @@ func secretCertificates(obj *unstructured.Unstructured, now time.Time) (out []mo
 	data := model.NestedMap(obj.Object, "data")
 	tlsType := model.NestedString(obj.Object, "type") == tlsSecretType
 	budget := certsPerSecret
+	decoded := map[string]model.DecodedValue{} // for the checks; dropped when this returns
 	for _, k := range certKeyOrder(data) {
 		if privateKeyName(k) {
 			continue
@@ -84,26 +88,26 @@ func secretCertificates(obj *unstructured.Unstructured, now time.Time) (out []mo
 			continue
 		}
 		raw, ok := decodeValue(data[k])
-		if !ok || !model.HoldsCertificate(raw) {
-			wipeBytes(raw)
+		var d model.DecodedValue
+		if ok {
+			d = model.DecodeCertificates(raw, min(budget, model.MaxCertificatesPerKey))
+		}
+		wipeBytes(raw)
+		if d.Empty() {
 			if mustHold {
-				out = append(out, model.CertificateKey{Key: k, NotDecoded: certNoPEM})
+				out = append(out, model.CertificateKey{Key: k, NotDecoded: certNone})
 			}
 			continue
 		}
-		ck := model.CertificateKey{Key: k}
-		if budget == 0 {
-			ck.Omitted = model.CountCertificates(raw)
-		} else {
-			ck.Certificates, ck.Omitted = model.ParseCertificates(raw, min(budget, model.MaxCertificatesPerKey))
-		}
-		wipeBytes(raw)
+		ck := model.CertificateKey{Key: k, DER: d.DER, Certificates: d.Certificates, Omitted: d.Omitted}
 		for i := range ck.Certificates {
 			ck.Certificates[i].Evaluate(now)
 		}
 		budget -= len(ck.Certificates)
+		decoded[k] = d
 		out = append(out, ck)
 	}
+	certificateChecks(out, decoded, data)
 	return out, nil
 }
 
@@ -124,16 +128,33 @@ func certKeyOrder(data map[string]any) []string {
 	return keys
 }
 
-// privateKeyName reports whether a key's name says it holds a private key: a TLS Secret's tls.key
-// or any name ending in .key. Such a value is never looked into.
+// privateKeyName reports whether a key's name says it holds a private key (Cogpit's default): a
+// TLS Secret's tls.key, any name ending in .key, and names ending in key.pem or key.der
+// (server-key.pem, Let's Encrypt's privkey.pem). Such a value is never searched for certificates;
+// it is read only to compare it with its certificate (secretcerts_checks.go).
 func privateKeyName(k string) bool {
-	return k == tlsKeyKey || strings.HasSuffix(strings.ToLower(k), ".key")
+	l := strings.ToLower(k)
+	return k == tlsKeyKey || strings.HasSuffix(l, ".key") || strings.HasSuffix(l, "key.pem") || strings.HasSuffix(l, "key.der")
 }
+
+// certificateExts are the endings of keys named like certificates.
+var certificateExts = []string{".crt", ".pem", ".cer", ".der"}
 
 // certificateName reports whether a key's name says it holds a certificate.
 func certificateName(k string) bool {
-	k = strings.ToLower(k)
-	return strings.HasSuffix(k, ".crt") || strings.HasSuffix(k, ".pem") || strings.HasSuffix(k, ".cer")
+	_, ok := certificateBase(k)
+	return ok
+}
+
+// certificateBase returns a certificate key's name without its ending (tls.crt: tls).
+func certificateBase(k string) (string, bool) {
+	l := strings.ToLower(k)
+	for _, ext := range certificateExts {
+		if strings.HasSuffix(l, ext) {
+			return k[:len(k)-len(ext)], true
+		}
+	}
+	return "", false
 }
 
 // certificateSections are the drawer's sections of a Secret's certificates: per key a group
@@ -148,6 +169,9 @@ func certificateSections(keys []model.CertificateKey, now time.Time) []model.Det
 		if k.NotDecoded != "" {
 			out = append(out, model.DetailSection{Title: certNotDecodedT, Group: group, Items: []model.DetailItem{{Value: k.NotDecoded}}})
 			continue
+		}
+		if sec, ok := certChecksSection(k, group); ok {
+			out = append(out, sec)
 		}
 		total := len(k.Certificates) + k.Omitted
 		for i, c := range k.Certificates {

@@ -202,10 +202,29 @@ carries no value (`TestSecretsListCopiesNoValue`). Since 2026-10-13 the drawer d
 certificates a Secret's keys hold into separate fields, for the window and agents alike
 ([D-30](../developer/decisions.md#d-30-certificates-in-secrets-decoded),
 [`secretcerts.go`](../../internal/engine/secretcerts.go)): a certificate is public material; only
-PEM `CERTIFICATE` blocks are decoded, a private key block beside one is never handed to the
-decoder, a key named `tls.key` or `*.key` is never looked into, and the decoded value is zeroed
-after parsing as the Data section's are (`TestParseCertificatesOnlyCertificateBlocks`,
+certificates are decoded (PEM `CERTIFICATE` blocks, a private key block beside one never handed to
+the decoder; DER certificates, a DER private key never handed to the certificate parser), a key
+named like a private key (`tls.key`, `*.key`, `*key.pem`, `*key.der`) is never searched for
+certificates, and the decoded value is zeroed after parsing as the Data section's are
+(`TestParseCertificatesOnlyCertificateBlocks`, `TestDecodeDERCertificates`,
 `TestObjectGetDecodesCertificatesForAgents`).
+
+**A private key is parsed in memory, for one check (since 2026-10-13, the owner's answer on
+D-30).** The owner asked for the drawer to say whether `tls.key` belongs to `tls.crt`, which
+cannot be known without the key: Cogpit decodes the private key of a key that pairs with a
+certificate key (`tls.key` with `tls.crt`, and the other unambiguous pairs D-30 lists) from the
+cached Secret, at most 64 KiB, parses it (PKCS #1, PKCS #8, SEC 1; RSA, ECDSA, Ed25519, X25519),
+compares its public half with the first certificate's public key, and drops it. What keeps it in:
+the parsed key lives in one function call ([`model/keymatch.go`](../../internal/model/keymatch.go),
+`MatchPrivateKey`) and is never returned, stored or cached, not even for the next rebuild of the
+drawer, which parses it again; the outcome is yes, no or a fixed reason (`encrypted`, `unsupported
+key type`, `not readable`, `too large`), and no error of a parser leaves the check, so no section,
+`object_get` result, error, log line or audit line can quote the key; the decoded value and the PEM
+block are zeroed after, an Ed25519 key too, while an RSA or ECDSA key's numbers wait for the
+garbage collector (best effort, as for the values: Go cannot wipe them). An encrypted key is not
+decrypted (`TestSecretKeyMatchesCertificate`, `TestMatchPrivateKeyReasons`,
+`TestObjectGetDecodesCertificatesForAgents`, which searches the result, the audit log, the events
+and the log for the key's PEM, base64 and DER).
 
 ## What this does not cover
 

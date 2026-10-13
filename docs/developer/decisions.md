@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -992,22 +992,66 @@ public material, which every TLS client is sent anyway; the PEM text, the values
 key stay withheld. **Built 2026-10-13** ([`engine/secretcerts.go`](../../internal/engine/secretcerts.go),
 [`model/certs.go`](../../internal/model/certs.go); [architecture §5](architecture.md#5-cache)).
 
+**The owner's answers to the build's questions (2026-10-13):**
+
+1. **Agents read the certificates, the built-in agent's LLM endpoint included** ("Absolutely
+   not!" to withholding them): an agent may read every certificate, above all in its decoded form,
+   and never a key. What was open as H-45 (a certificate's names, internal host names and e-mail
+   addresses among them, reaching agents and the LLM endpoint) is decided: it is the rule, not a
+   gap, and H-45 left [agents and MCP](../security/agents-and-mcp.md#rules) (its number is not
+   reused).
+2. **Check whether `tls.crt` matches `tls.key`** ("Yes, that would be fantastic!"): built the same
+   day, below. For it Cogpit now parses a private key in memory, the one place it does
+   ([credentials](../security/credentials.md#secret-objects)).
+3. **Decode DER (binary) certificates too** ("Yes!"): built the same day, below.
+
 What the build chose, Cogpit's defaults (the lead's, not the owner's decision):
 
-- **Which keys.** Every key whose value holds a PEM `CERTIFICATE` block, in a Secret of any type
-  (`kubernetes.io/tls`, Opaque, a service account token's `ca.crt`, cert-manager's), `tls.crt` and
-  `ca.crt` first, then the other keys sorted. A `kubernetes.io/tls` Secret's `tls.crt` that holds
-  none says "no PEM certificate in this value". Only `CERTIFICATE` blocks are decoded (Go's
-  `crypto/x509`): the parser hands `pem.Decode` nothing but the text from such a block's BEGIN line
-  to its END line, and a block with another BEGIN line before its END is invalid, so a `PRIVATE KEY`
-  block beside a certificate is never decoded, let alone parsed; a key named `tls.key` or `*.key`
-  is never looked into. A block that does not decode or parse says "not a valid certificate"
-  without quoting it. A DER (binary) certificate is not decoded.
+- **Which keys.** Every key whose value holds a PEM `CERTIFICATE` block or DER certificates, in a
+  Secret of any type (`kubernetes.io/tls`, Opaque, a service account token's `ca.crt`,
+  cert-manager's), `tls.crt` and `ca.crt` first, then the other keys sorted. A `kubernetes.io/tls`
+  Secret's `tls.crt` that holds none says "no certificate in this value". Only certificates are
+  decoded (Go's `crypto/x509`): in PEM, the parser hands `pem.Decode` nothing but the text from a
+  `CERTIFICATE` block's BEGIN line to its END line, and a block with another BEGIN line before its
+  END is invalid, so a `PRIVATE KEY` block beside a certificate is never decoded; a block that does
+  not decode or parse says "not a valid certificate" without quoting it. A key named like a private
+  key (`tls.key`, `*.key`, `*key.pem` such as `server-key.pem` and Let's Encrypt's `privkey.pem`,
+  `*key.der`) is never searched for certificates.
+- **DER** (the owner's answer 3). A value with no PEM certificate is read as DER, one ASN.1
+  element after the other, when its first element is shaped like a certificate (a SEQUENCE whose
+  first element is a SEQUENCE; a private key in PKCS #1, PKCS #8 or SEC 1 starts with an INTEGER,
+  so a DER key is never handed to the certificate parser) and parses as one; a later element that
+  is none is "not a valid certificate". Any other binary value holds no certificate and shows
+  nothing. Agents read `der: true` on such a key.
+- **Key match** (the owner's answer 2). A key with certificates pairs with a private key where
+  the pairing is unambiguous: `<base>.crt`, `.pem`, `.cer` or `.der` with whichever one of
+  `<base>.key` and `<base>-key.pem` the Secret has (`tls.crt` with `tls.key`, `ca.crt` with
+  `ca.key`, `server.pem` with `server-key.pem`; none when it has both); otherwise, when the Secret
+  has exactly one key with certificates and exactly one key named like a private key, those two
+  (`cert.pem` with `privkey.pem`); Let's Encrypt's four files pair with nothing. The private key
+  (at most 64 KiB; PEM or DER, PKCS #1, PKCS #8 or SEC 1; RSA, ECDSA, Ed25519, X25519) is parsed in
+  memory, its public half compared with the value's first certificate's public key, and dropped:
+  the parsed key lives in one function call ([`model/keymatch.go`](../../internal/model/keymatch.go))
+  and is never returned, stored or cached; the decoded value and the PEM block are zeroed, an
+  Ed25519 key too (an RSA or ECDSA key's numbers wait for the garbage collector: Go cannot wipe
+  them). A group's "Checks" section shows "Key Matches": "Yes (tls.key)" (OK), "No (tls.key holds
+  another key)" (error), "Key not readable (tls.key: encrypted)" (unknown; also "unsupported key
+  type" for an OpenSSH key or an algorithm Go does not know, "not readable", "too large"). Agents
+  read `pairedKey` and `keyMatches`: true, false or the reason. No parser error leaves the check,
+  so nothing quotes the key.
+- **Chain** (Cogpit's default, which the lead left optional; built because it is cheap). In the same Checks section,
+  "Chain In Order": whether each certificate of the value is signed by the next
+  (`CheckSignatureFrom`: the next must be a CA whose key verifies the signature; no system roots,
+  no revocation), "No, certificate 1 is not signed by certificate 2" an error. Checked for a value
+  that pairs with a private key or whose first certificate is no CA (a leaf and its chain), not
+  for a CA bundle of several roots; not for one certificate, a value with an invalid entry, or a
+  SHA-1 signature Go no longer verifies. Agents read `chainInOrder` and `chainBreak`.
 - **Bounds.** A value over 1 MiB is not decoded (a key named like a certificate, `*.crt`, `*.pem`,
-  `*.cer`, says so); at most 16 certificates per key and 64 per Secret are decoded, the rest
-  counted ("4 more certificates are not decoded"); each text taken from a certificate is cut at
-  1 KiB, each list of names at 100 entries, and control characters and bidirectional overrides in
-  it are shown as `\x0a`, `‮` (a name with a line break would read as two names).
+  `*.cer`, `*.der`, says so); at most 16 certificates per key and 64 per Secret are decoded, the
+  rest counted ("4 more certificates are not decoded"); a private key over 64 KiB is not read
+  ("too large"); each text taken from a certificate is cut at 1 KiB, each list of names at 100
+  entries, and control characters and bidirectional overrides in it are shown as `\x0a`, `\u202e`
+  (a name with a line break would read as two names).
 - **Fields,** each its own drawer item, empty ones left out: Subject (the common name) and Subject
   DN (the whole name, RFC 2253), Issuer and Issuer DN, Serial Number (hex, colon-separated), Not
   Before, Not After, DNS Names, IP Addresses, URIs and E-mail Addresses (one per line, a list of
@@ -1020,39 +1064,48 @@ What the build chose, Cogpit's defaults (the lead's, not the owner's decision):
   more than 30 days left, warning at 30 days or fewer, error when expired or not yet valid; Not
   Before is an error pill with "(not yet valid, in 5 days)" while it is.
 - **Layout.** After the Data section, one group per key, "Certificates · tls.crt", modelled on the
-  drawer's Containers: one section per certificate in the value's order (a chain's leaf, then its
+  drawer's Containers: the Checks section first when there is a check, then one section per
+  certificate in the value's order (a chain's leaf, then its
   intermediates and CA), titled by the subject's common name (else the subject), numbered in a
   value with several ("1 · shop.example.com"). Every field has the drawer's copy icon (D-25), which
   copies the value as shown (a name of a list in YAML syntax, as every list entry). The list views
   are not changed.
 - **Agents.** `object_get` carries the same sections and a `certificates` list: per key `key`,
-  `certificates`, `omitted` and `notDecoded`; per certificate the same fields, the times as RFC 3339
+  `der`, `certificates`, `omitted`, `notDecoded`, `pairedKey`, `keyMatches`, `chainInOrder` and
+  `chainBreak`; per certificate the same fields, the times as RFC 3339
   in UTC, `expiresInDays` (whole days left, rounded down, negative once expired), `expired`,
   `notYetValid` and `status`; an invalid block is `{"invalid": true, "error": "not a valid
   certificate"}`. Never the PEM text, a value of any key or a private key
   (`TestObjectGetDecodesCertificatesForAgents`). Nothing new in the audit log: reading is a read.
-- **Not done.** Cogpit does not verify a chain (whether each certificate is signed by the next,
-  against a trust store, or revoked) and does not check whether `tls.crt` matches `tls.key`, which
-  would mean parsing the key; an OK pill means only "within its validity period". A value wider
-  than the drawer (the SHA-256 fingerprint at the default width) is shortened with "…"; its copy
-  icon copies it whole.
+- **Not done.** Cogpit does not verify a chain against a trust store or for revocation, and an OK
+  pill on Not After means only "within its validity period". An encrypted private key is not
+  decrypted (Cogpit has no passphrase), and a private key inside a value not named like one (a
+  combined PEM file) is not compared. A value wider than the drawer (the SHA-256 fingerprint at the
+  default width) is shortened with "…"; its copy icon copies it whole.
 
 Tests: `TestParseCertificatesChain`, `TestParseCertificatesOnlyCertificateBlocks`,
 `TestParseCertificatesBounded`, `TestCertificateEvaluate`, `TestCertificateJSON`,
 `TestCertificateTextsAreSafe`, `TestSecretCertificateSections`,
 `TestSecretCertificateStatusesAndBounds`, `TestSecretCertificateEdges`,
-`TestObjectGetDecodesCertificatesForAgents`, `TestSecretDrawerShowsCertificates`; on kind
+`TestObjectGetDecodesCertificatesForAgents`, `TestSecretDrawerShowsCertificates`; the owner's
+answers: `TestMatchPrivateKeyPairs`, `TestMatchPrivateKeyReasons`, `TestKeyMatchJSON`,
+`TestChainInOrder`, `TestDecodeDERCertificates`, `TestSecretKeyMatchesCertificate` (matching RSA,
+ECDSA and Ed25519 pairs, a mismatched pair, an encrypted key, garbage; the key's PEM, base64 and
+DER appear nowhere in the drawer model), `TestSecretCertificatePairingAndChain`,
+`TestSecretDERCertificates` (a DER `ca.der` and `tls.crt`, DER garbage, a DER private key under a
+certificate's name: no fields, no leak); `TestObjectGetDecodesCertificatesForAgents` also checks
+that no form of either private key reaches the result, the audit log, an event or the log; on kind
 `TestKindSecretCertificates` (a `kubernetes.io/tls` Secret created through the API, read by an
-agent's `object_get`); renders
+agent's `object_get`, its key matching and its chain in order); renders
 `TestRenderSecretCertificatesDark` and `TestRenderSecretCertificatesLight` (PNG
 [dark](../../internal/ui/fyneui/testdata/secret_certs_dark.png),
-[light](../../internal/ui/fyneui/testdata/secret_certs_light.png)). The agents' exposure that is
-left: [H-45](../security/agents-and-mcp.md#h-45-a-certificates-names-reach-agents).
+[light](../../internal/ui/fyneui/testdata/secret_certs_light.png)).
 
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-30, the owner's answers: agents and the built-in agent's LLM endpoint read the decoded certificates, never a key (H-45 closed by the decision, removed from agents-and-mcp.md); `tls.crt` checked against `tls.key` (the key parsed in memory, the outcome yes, no or a reason) and DER certificates decoded, both built; the pairing rule, the chain check, the 64 KiB key bound and the names that count as private keys Cogpit's defaults |
 | 2026-10-13 | minor | D-30 (owner): certificates in Secrets decoded into separate fields in the drawer and for agents (`object_get`'s `certificates`), an exception to "Secret values never reach an agent"; built 2026-10-13, which keys, the bounds, the fields, the thresholds and the layout Cogpit's defaults; no chain or key-pair check |
 | 2026-10-13 | minor | D-25 (owner, after seeing it): the lists' copy icon not on every cell but outside a blacklist of columns (by type: numbers, ages, times, metrics, warnings; by id: state words, booleans, counts and ratios in text, policy words: Cogpit's reading of the owner's principle), and right after the text instead of at the column's end; built |
 | 2026-10-13 | minor | D-29 built: Helm's repositories.yaml read every 2 s (the helm CLI's resolution, one place), credentials in memory only and to the repository's own host, indexes in Cogpit's own cache keyed by name and URL (decided at the build), `helm.repo.add` and `helm.repo.remove` removed; Cogpit's defaults listed |

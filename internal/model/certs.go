@@ -25,7 +25,9 @@ import (
 // material: its fields reach the drawer and agents, while the PEM text, the value it came from and
 // any private key never do. Only PEM blocks of type CERTIFICATE are decoded; the parser hands
 // pem.Decode nothing but such a block, so a PRIVATE KEY block next to it is never decoded, let
-// alone parsed. Pure: no I/O.
+// alone parsed. A value without one is read as DER certificates when it is shaped like one
+// (owner, 2026-10-13). The one place a private key is parsed is keymatch.go, to compare it with
+// a certificate. Pure: no I/O.
 
 // Bounds on what is decoded (Cogpit's defaults, not the owner's).
 const (
@@ -117,14 +119,26 @@ func (c Certificate) MarshalJSON() ([]byte, error) {
 // CertificateKey is one key of a Secret whose value holds certificates, and what was decoded of it.
 type CertificateKey struct {
 	Key string `json:"key"`
+	// DER is true for a value of binary (DER) certificates rather than PEM text.
+	DER bool `json:"der,omitempty"`
 	// Certificates are the value's certificates in their order: a chain's leaf first, then its
 	// intermediates and CA, as the value lists them.
 	Certificates []Certificate `json:"certificates,omitempty"`
 	// Omitted counts the certificates after the first MaxCertificatesPerKey, which are not decoded.
 	Omitted int `json:"omitted,omitempty"`
-	// NotDecoded says why nothing of the value was decoded (too large, or no PEM certificate where
-	// one belongs); Certificates is then empty.
+	// NotDecoded says why nothing of the value was decoded (too large, or no certificate where one
+	// belongs); Certificates is then empty.
 	NotDecoded string `json:"notDecoded,omitempty"`
+	// PairedKey names the Secret's key whose private key was compared with the first certificate's
+	// public key, and KeyMatches is the outcome: true, false, or why the key could not be read.
+	// Neither is set when no key pairs with this one.
+	PairedKey  string    `json:"pairedKey,omitempty"`
+	KeyMatches *KeyMatch `json:"keyMatches,omitempty"`
+	// ChainInOrder is whether each certificate is signed by the next one in the value (no trust
+	// store, no revocation); absent when the chain was not checked. ChainBreak is then, when it is
+	// false, the position (from 1) of the first certificate the next one did not sign.
+	ChainInOrder *bool `json:"chainInOrder,omitempty"`
+	ChainBreak   int   `json:"chainBreak,omitempty"`
 }
 
 // HoldsCertificate reports whether a value holds a PEM CERTIFICATE block, without decoding it.
@@ -132,60 +146,193 @@ func HoldsCertificate(data []byte) bool {
 	return bytes.Contains(data, []byte(pemCertBegin))
 }
 
-// CountCertificates counts a value's PEM CERTIFICATE blocks, without decoding them.
-func CountCertificates(data []byte) int {
-	return bytes.Count(data, []byte(pemCertBegin))
+// DecodedValue is what was decoded of one value: its certificates as Cogpit shows them, the
+// number not decoded after the bound, whether the value was DER, and the parsed certificates for
+// the checks (ChainInOrder, MatchPrivateKey), which never leave the model. It holds no byte of the
+// value: the parsed certificates own copies of their DER.
+type DecodedValue struct {
+	Certificates []Certificate
+	Omitted      int
+	DER          bool
+	parsed       []*x509.Certificate // parsed[i] belongs to Certificates[i]; nil for an invalid entry
 }
 
-// ParseCertificates decodes the PEM CERTIFICATE blocks of a value, in order, at most limit of
-// them (MaxCertificatesPerKey when limit is 0 or more than that), and counts the blocks after
-// those. Every other block (a private key, a certificate request) is skipped without being
-// decoded: pem.Decode only ever sees the text from a CERTIFICATE block's BEGIN line to its END
-// line, and a block that holds another BEGIN line before its END is invalid. A block that does not
-// decode or parse is an Invalid entry.
+// Empty reports whether the value held no certificate at all.
+func (d DecodedValue) Empty() bool { return len(d.Certificates) == 0 && d.Omitted == 0 }
+
+// DecodeCertificates decodes the certificates of a value, in order, at most limit of them (0
+// decodes none and only counts them), and counts the ones after those. A value with a PEM
+// CERTIFICATE block is read as PEM: every other block (a private key, a certificate request) is
+// skipped without being decoded, because pem.Decode only ever sees the text from a CERTIFICATE
+// block's BEGIN line to its END line, and a block that holds another BEGIN line before its END is
+// invalid; a block that does not decode or parse is an Invalid entry. Any other value is read as
+// DER, one certificate after the other, when its first element is shaped like a certificate and
+// parses as one (decodeDER); otherwise it holds none.
+func DecodeCertificates(data []byte, limit int) DecodedValue {
+	limit = min(max(limit, 0), MaxCertificatesPerKey)
+	if HoldsCertificate(data) {
+		return decodePEM(data, limit)
+	}
+	return decodeDER(data, limit)
+}
+
+// ParseCertificates is DecodeCertificates with a limit of 0 or less meaning
+// MaxCertificatesPerKey: the certificates and the count not decoded.
 func ParseCertificates(data []byte, limit int) (certs []Certificate, omitted int) {
-	if limit <= 0 || limit > MaxCertificatesPerKey {
+	if limit <= 0 {
 		limit = MaxCertificatesPerKey
 	}
+	d := DecodeCertificates(data, limit)
+	return d.Certificates, d.Omitted
+}
+
+// add appends a parsed certificate, or an Invalid entry for nil.
+func (d *DecodedValue) add(c *x509.Certificate) {
+	if c == nil {
+		d.Certificates = append(d.Certificates, Certificate{Invalid: true})
+	} else {
+		d.Certificates = append(d.Certificates, DescribeCertificate(c))
+	}
+	d.parsed = append(d.parsed, c)
+}
+
+func decodePEM(data []byte, limit int) DecodedValue {
+	var d DecodedValue
 	begin, end, other := []byte(pemCertBegin), []byte(pemCertEnd), []byte(pemAnyBegin)
 	rest := data
 	for {
 		i := bytes.Index(rest, begin)
 		if i < 0 {
-			return certs, omitted
+			return d
 		}
 		rest = rest[i:]
-		if len(certs) == limit {
-			return certs, bytes.Count(rest, begin)
+		if len(d.Certificates) == limit {
+			d.Omitted = bytes.Count(rest, begin)
+			return d
 		}
 		body := rest[len(begin):]
 		j := bytes.Index(body, end)
 		if k := bytes.Index(body, other); j < 0 || (k >= 0 && k < j) {
 			// No END line, or another block begins first: not a certificate; go on from that block.
-			certs = append(certs, Certificate{Invalid: true})
+			d.add(nil)
 			if k < 0 {
-				return certs, omitted
+				return d
 			}
 			rest = body[k:]
 			continue
 		}
 		n := len(begin) + j + len(end)
-		certs = append(certs, parseBlock(rest[:n]))
+		d.add(parseBlock(rest[:n]))
 		rest = rest[n:]
 	}
 }
 
-// parseBlock decodes and parses one PEM CERTIFICATE block (BEGIN line to END line).
-func parseBlock(block []byte) Certificate {
+// parseBlock decodes and parses one PEM CERTIFICATE block (BEGIN line to END line); nil when it
+// is no certificate. pem.Decode allocates the DER, so the certificate shares nothing with the
+// value.
+func parseBlock(block []byte) *x509.Certificate {
 	b, _ := pem.Decode(block)
 	if b == nil || b.Type != "CERTIFICATE" {
-		return Certificate{Invalid: true}
+		return nil
 	}
 	c, err := x509.ParseCertificate(b.Bytes)
 	if err != nil {
-		return Certificate{Invalid: true}
+		return nil
 	}
-	return DescribeCertificate(c)
+	return c
+}
+
+// decodeDER reads a value as DER certificates, one ASN.1 element after the other. The first
+// element decides: when it is shaped like a certificate (certificateShaped) and parses as one,
+// the value holds certificates, and each later element is a certificate or an Invalid entry
+// (trailing bytes that are no element are one Invalid entry); otherwise the value holds none. A
+// private key is never handed to the certificate parser: its outer SEQUENCE starts with an
+// INTEGER.
+func decodeDER(data []byte, limit int) DecodedValue {
+	var d DecodedValue
+	rest := data
+	for len(rest) > 0 {
+		first := d.Empty()
+		elem, next, ok := derElement(rest)
+		var c *x509.Certificate
+		if ok && certificateShaped(elem) && (first || len(d.Certificates) < limit) {
+			// A copy: the caller zeroes the value it decoded, and a parsed certificate keeps slices
+			// of its input.
+			if parsed, err := x509.ParseCertificate(bytes.Clone(elem)); err == nil {
+				c = parsed
+			}
+		}
+		switch {
+		case first && c == nil:
+			return DecodedValue{}
+		case len(d.Certificates) < limit:
+			d.add(c)
+		default:
+			d.Omitted++
+		}
+		if !ok {
+			break
+		}
+		rest = next
+	}
+	d.DER = !d.Empty()
+	return d
+}
+
+// derElement splits the first DER element (tag, length, content) off data.
+func derElement(data []byte) (elem, rest []byte, ok bool) {
+	var raw asn1.RawValue
+	rest, err := asn1.Unmarshal(data, &raw)
+	if err != nil {
+		return nil, nil, false
+	}
+	return raw.FullBytes, rest, true
+}
+
+// certificateShaped reports whether a DER element is a SEQUENCE whose first element is a SEQUENCE,
+// as a certificate (its tbsCertificate) is; a private key in PKCS #1, PKCS #8 or SEC 1 starts with
+// an INTEGER.
+func certificateShaped(elem []byte) bool {
+	var outer, inner asn1.RawValue
+	if _, err := asn1.Unmarshal(elem, &outer); err != nil || !isSequence(outer) {
+		return false
+	}
+	if _, err := asn1.Unmarshal(outer.Bytes, &inner); err != nil {
+		return false
+	}
+	return isSequence(inner)
+}
+
+func isSequence(v asn1.RawValue) bool {
+	return v.Class == asn1.ClassUniversal && v.Tag == asn1.TagSequence && v.IsCompound
+}
+
+// ChainInOrder reports whether each decoded certificate is signed by the next one
+// (x509.CheckSignatureFrom: the next must be a CA whose key verifies the signature; no trust
+// store, no revocation) and, when not, the position (from 1) of the first one the next did not
+// sign. checked is false for fewer than two certificates, a value with an invalid entry, and a
+// signature algorithm Go no longer verifies (SHA-1).
+func (d DecodedValue) ChainInOrder() (inOrder, checked bool, broken int) {
+	if len(d.parsed) < 2 {
+		return false, false, 0
+	}
+	for _, c := range d.parsed {
+		if c == nil {
+			return false, false, 0
+		}
+	}
+	for i := 0; i+1 < len(d.parsed); i++ {
+		err := d.parsed[i].CheckSignatureFrom(d.parsed[i+1])
+		var insecure x509.InsecureAlgorithmError
+		switch {
+		case err == nil:
+		case errors.As(err, &insecure):
+			return false, false, 0
+		default:
+			return false, true, i + 1
+		}
+	}
+	return true, true, 0
 }
 
 // DescribeCertificate returns what Cogpit shows of a parsed certificate (not yet evaluated).
