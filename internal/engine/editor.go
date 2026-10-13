@@ -43,6 +43,8 @@ type editor struct {
 	baseRV   string
 	baseUID  string
 	baseText string
+	// undo is what editor.undoRevert puts back (editrevert.go).
+	undo *editUndo
 
 	// Create resource tabs only: the text the tab opened with, or the one it created in full,
 	// which is not unsaved work: a draft keeps only a text that differs (drafts.go).
@@ -85,6 +87,8 @@ type EditorState struct {
 	// or is gone.
 	BaseRevision   int `json:"baseRevision,omitempty"`
 	CachedRevision int `json:"cachedRevision,omitempty"`
+	// CanUndoRevert: editor.undoRevert would put back the text an Edit tab's revert replaced.
+	CanUndoRevert bool `json:"canUndoRevert,omitempty"`
 }
 
 // EditDiff is the diff of an Edit tab's text against the object as the cache holds it now.
@@ -319,6 +323,7 @@ func (s *Session) EditorState(ctx context.Context, id string) (EditorState, erro
 		return st, nil
 	}
 	st.BaseResourceVersion = e.baseRV
+	st.CanUndoRevert = e.canUndo()
 	if b := s.Backend(); b != nil && b.Context == e.tab.Context {
 		obj, err := cachedObject(ctx, b, e.target)
 		switch {

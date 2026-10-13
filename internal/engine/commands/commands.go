@@ -32,6 +32,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerWorkloads(g)
 	registerEdit(g)
 	registerDrafts(g)
+	registerRevert(g)
 	registerAccess(g)
 	registerPortForward(g)
 	registerSecrets(g)

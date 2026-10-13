@@ -109,6 +109,7 @@ func (s *Session) restoreEditTab(ctx context.Context, b *Backend, dr Draft) (str
 		}
 		if _, err := s.updateEditor(x.ID, func(e *editor) {
 			e.text, e.baseRV, e.baseUID, e.baseText = dr.Text, baseRV, baseUID, baseText
+			e.undo = nil
 			e.rev++
 		}); err != nil {
 			return "", err

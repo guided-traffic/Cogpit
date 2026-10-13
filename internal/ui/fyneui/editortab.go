@@ -50,6 +50,7 @@ type editorPane struct {
 	dirty  bool   // typed since the last send
 	timer  *time.Timer
 	closed bool
+	onEdit func() // the user typed (editortab_revert.go); nil: nothing to tell
 }
 
 func newEditorPane(sh *shell, id string) *editorPane {
@@ -80,6 +81,9 @@ func (p *editorPane) load(done func(engine.EditorState, error)) {
 
 func (p *editorPane) changed() {
 	p.dirty = true
+	if p.onEdit != nil {
+		p.onEdit()
+	}
 	if p.timer != nil {
 		p.timer.Stop()
 	}
@@ -158,6 +162,9 @@ type editorTab struct {
 	applyBtn *widget.Button
 	revBtns  *fyne.Container
 	root     fyne.CanvasObject
+	// Revert to original, in the editor's and the review's footer, and its undo
+	// (editortab_revert.go).
+	revertBtn, reviewRevert, undoBtn *widget.Button
 
 	reviewing  bool
 	reviewText string // the text under review
@@ -178,8 +185,9 @@ func newEditorTab(sh *shell, t engine.DockTab) *editorTab {
 	e.backBtn = widget.NewButtonWithIcon("Back to Editor", theme.NavigateBackIcon(), e.backToEditor)
 	e.applyBtn = widget.NewButtonWithIcon("Apply", theme.ConfirmIcon(), e.apply)
 	e.applyBtn.Importance = widget.HighImportance
-	e.editBtns = container.NewHBox(e.saveExit, e.saveBtn)
-	e.revBtns = container.NewHBox(e.backBtn, e.applyBtn)
+	e.newRevertButtons()
+	e.editBtns = container.NewHBox(e.undoBtn, e.revertBtn, e.saveExit, e.saveBtn)
+	e.revBtns = container.NewHBox(e.reviewRevert, e.backBtn, e.applyBtn)
 	e.revBtns.Hide()
 
 	e.review = container.NewBorder(
@@ -239,6 +247,7 @@ func (e *editorTab) save(closeAfter bool) {
 		return
 	}
 	e.closeAfter = closeAfter
+	e.showUndo(false)
 	text := e.pane.view.Text()
 	e.pane.push()
 	e.setBusy(true)
