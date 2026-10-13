@@ -275,21 +275,22 @@ func (tv *tableView) syncColumnChecks() {
 }
 
 // toggleColumn shows or hides a column: it sends the view's new list of hidden columns. The
-// engine refuses to hide the last visible column; the check then goes back.
+// columns the cluster's settings hide (TableSnapshot.MetricsHidden) are not the view's own and stay
+// out of it. The engine refuses to hide the last visible column; the check then goes back.
 func (tv *tableView) toggleColumn(id string, show bool) {
 	if tv.colSync || tv.snap == nil || tv.snap.View != tv.colView {
 		return
 	}
 	hidden := []string{}
 	for _, c := range tv.snap.Columns {
-		if c.Hidden && c.ID != id {
+		if c.Hidden && c.ID != id && !slices.Contains(tv.snap.MetricsHidden, c.ID) {
 			hidden = append(hidden, c.ID)
 		}
 	}
 	if !show {
 		hidden = append(hidden, id)
 	}
-	if len(hidden) == len(tv.snap.Columns) {
+	if len(hidden)+len(tv.snap.MetricsHidden) >= len(tv.snap.Columns) {
 		tv.sh.toast("warning", "At least one column stays visible.")
 		tv.syncColumnChecks()
 		return

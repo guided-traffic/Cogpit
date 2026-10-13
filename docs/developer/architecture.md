@@ -2664,7 +2664,8 @@ metrics from the UI; [`engine/hidemetrics.go`](../../internal/engine/hidemetrics
 `HiddenMetrics` gate the hub's three subscribers, not the hub: a list view holds its feed
 (`viewWorker.followHidden`) only while its CPU or Memory column shows, and marks the hidden one
 `Hidden` in the snapshot's columns (the mechanism `ui.setColumns` uses, so the window's table needs no
-change); an open drawer holds its object scope (`drawerWatch.followHidden`) only while one of its
+change) and names it in `TableSnapshot.MetricsHidden`, which the ⋮ column list leaves out of the
+view's own hidden columns it sends (`TestColumnsMenuLeavesHiddenMetricsToTheClusterSettings`); an open drawer holds its object scope (`drawerWatch.followHidden`) only while one of its
 variants shows, asks Prometheus for the network or the filesystem only while a visible chart shows
 them (`wantsLocked`), offers the visible variants (`ObjectMetrics.Variants`, a hidden one refused by
 `ui.setMetricsVariant`), leaves out the containers' targets when they are hidden, and its model

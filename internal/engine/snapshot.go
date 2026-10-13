@@ -264,14 +264,15 @@ func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unst
 	for i, e := range kept {
 		rows[i] = e.row
 	}
+	cols, metricsHidden := hideMetricColumns(p, ColumnsShown(p.Columns, params.hidden, params.hiddenSet), params.metrics)
 	return &TableSnapshot{
 		View: p.Key, Context: context, Title: p.Title, Namespaced: p.Namespaced,
-		Columns: hideMetricColumns(p, ColumnsShown(p.Columns, params.hidden, params.hiddenSet), params.metrics),
+		Columns: cols,
 		Order:   ColumnOrder(p.Columns, params.order),
 		Rows:    rows, Sort: params.sort,
 		Namespaces: slices.Clone(params.namespaces), Filter: params.filter,
 		FilterOptions: params.filterOpts, FilterError: filterErr,
-		Total: len(objs),
+		Total: len(objs), MetricsHidden: metricsHidden,
 	}
 }
 

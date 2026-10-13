@@ -214,28 +214,32 @@ func (s *Session) hiddenMetrics(context string) MetricSet {
 	return hiddenMetricsOf(&s.ui, context)
 }
 
-// hideMetricColumns marks a usage kind's CPU and Memory columns hidden when the set hides them.
-// The columns keep their indexes, so the rows still fit them. cols is the snapshot's own copy.
-func hideMetricColumns(p *model.KindProfile, cols []model.Column, hidden MetricSet) []model.Column {
+// hideMetricColumns marks a usage kind's CPU and Memory columns hidden when the set hides them,
+// and returns the ids of those the view itself showed (TableSnapshot.MetricsHidden). The columns
+// keep their indexes, so the rows still fit them. cols is the snapshot's own copy.
+func hideMetricColumns(p *model.KindProfile, cols []model.Column, hidden MetricSet) ([]model.Column, []string) {
 	if p.Usage == "" || hidden == 0 {
-		return cols
+		return cols, nil
 	}
 	cpu, memory := hidden.listColumns(p.Usage)
+	var ids []string
 	for i := range cols {
 		switch cols[i].ID {
 		case model.ColumnCPU:
-			if !cpu {
+			if !cpu && !cols[i].Hidden {
 				cols = cloneOnce(cols, p.Columns)
 				cols[i].Hidden = true
+				ids = append(ids, cols[i].ID)
 			}
 		case model.ColumnMemory:
-			if !memory {
+			if !memory && !cols[i].Hidden {
 				cols = cloneOnce(cols, p.Columns)
 				cols[i].Hidden = true
+				ids = append(ids, cols[i].ID)
 			}
 		}
 	}
-	return cols
+	return cols, ids
 }
 
 // cloneOnce returns cols, cloned first when it is the profile's own slice (ColumnsShown returns

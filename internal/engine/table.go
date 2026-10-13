@@ -38,6 +38,10 @@ type TableSnapshot struct {
 	// Denied are the namespaces named for the kind whose access reviews deny listing it there: not
 	// read, a state the view shows.
 	Denied []string `json:"deniedNamespaces,omitempty"`
+	// MetricsHidden are the columns the cluster's settings hide (Cluster Settings › Metrics,
+	// hidemetrics.go) and the view itself shows: Hidden in Columns, yet not among the view's own
+	// hidden columns, which ui.setColumns sets (UIState.HiddenColumns).
+	MetricsHidden []string `json:"metricsHidden,omitempty"`
 }
 
 // DisplayOrder returns the indexes of Columns in the order the table shows them: Order, or
