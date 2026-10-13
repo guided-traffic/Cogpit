@@ -169,7 +169,11 @@ archives for Linux, macOS and Windows, with `SHA256SUMS`, built by the release p
 notarization, the disk image, the universal binary, the Homebrew cask and Sparkle; the release
 page says the app is unsigned ([updates](../security/updates.md)). The signing steps come once the
 owner has the Apple credentials (a `release` environment that only the tag pipeline may use); the
-cask and Sparkle's EdDSA key are the next question to the owner.
+cask and Sparkle's EdDSA key come after the disk image. **Decided (owner, 2026-10-13):** the GitHub
+environment `release` exists (deployment rule: tags `v*`, no secrets yet) for the Apple
+credentials; Sparkle's EdDSA key will be a secret of an environment with the owner as required
+reviewer, so CI signs a release's update feed only after the owner approved the run (options
+weighed: the key offline with the owner, signing by hand per release; deciding later).
 **Human:** Apple Developer ID and Windows code-signing material.
 
 ## D-5: Extensions
@@ -1359,6 +1363,7 @@ from Lens's there.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | D-4 (owner): the environment `release` for the Apple credentials created; Sparkle's EdDSA key in an environment with the owner as required reviewer |
 | 2026-10-13 | minor | D-16 (owner): dependency updates committed as `build(deps)`, no release of their own |
 | 2026-10-13 | minor | D-16 revised (owner): releases live: semantic-release tags and releases after every gate on `main` with the GitHub App's token, the release pipeline attaches `cogpit-cli` and the unsigned app; a breaking change makes a minor release under v0. D-4: what is built of it (the unsigned app zip and the CLI archives; no signature, notarization, disk image, cask or Sparkle yet) |
 | 2026-10-13 | minor | D-32 (owner): every byte amount in binary units with one decimal ("15.6 GiB"); built 2026-10-13 with one formatter in `model` (`FormatBytes`, `FormatByteQuantity`, `FormatResource`): lists, drawers, charts, data sizes, the kubectl download and the messages that state a size; the space before the unit, the decimal point whatever the region, milli-bytes as written, a size beside its limit not named and the places listed Cogpit's defaults; ten places not converted named for the owner |

@@ -24,7 +24,9 @@ other repositories (`valkey-operator`):
 **Budget: no job needs more than ten minutes** (owner, 2026-10-13). Measured on the first live run
 (38445382032, 2026-10-13, the table's last column): the longest job took 9.6 minutes, with all
 Linux jobs on one shared self-hosted machine; the whole run about 25 minutes, most of it jobs
-waiting for a free runner (the owner finds 20 minutes and more acceptable). The UI's race tests take about
+waiting for a free runner (the owner finds 20 minutes and more acceptable). The second live run
+(38449778410) stayed at most 7.7 minutes per job; its macOS job got no hosted runner within its
+15 minutes once (no step ran) and passed on a rerun of the failed jobs in 6.2. The UI's race tests take about
 18 minutes in one process on a Linux runner, so they run in eight shards. Every job's timeout is
 15 minutes: a run after a `go.sum` change starts without caches and saves them (two minutes more,
 measured up to 13.8 minutes for the kind job in run 38439307913); the budget is for the runs in
@@ -119,8 +121,10 @@ releases. **Measured:** 83.6 % on 2026-10-13 (run 38439307913: 37,635 of 45,002 
 generated code left out, and fails above `CYCLO_THRESHOLD`. The threshold is **56**, the highest
 complexity `main` had when the check came (2026-10-13: `(*shell).applyUIState` in
 [`shell.go`](../../internal/ui/fyneui/shell.go)), so no function grows past it. The team's other
-repositories use 15; 121 functions are above that today. Lowering the threshold is the owner's
-call.
+repositories use 15; 121 functions are above that today. **Decided (owner, 2026-10-13):** 56 stays
+as a ratchet and comes down step by step: a change that makes the most complex function simpler
+lowers `CYCLO_THRESHOLD` to the new maximum in the same commit (`make cyclo-report` shows it); no
+refactoring of its own for it.
 
 ### Running a job locally
 
@@ -201,8 +205,9 @@ committing the coverage badge with the release) and the same pinned tooling
    installs the tooling from `package-lock.json` with verified registry signatures (`npm audit
    signatures`), puts the combined coverage badge in place and runs `npx semantic-release`: it
    derives the version from the commits since the last tag, writes the release notes, commits the
-   badge as `chore(release): <version> [skip ci]` to `main`, tags that commit `v<version>` and
-   publishes the GitHub release. `[skip ci]` keeps the release commit from starting another run.
+   badge as `chore(release): <version> [skip ci]` to `main` when its number changed (v0.1.1 had no
+   such commit), tags that commit, or else the release's own, `v<version>` and publishes the GitHub
+   release. `[skip ci]` keeps the release commit from starting another run.
 3. The release's `published` event starts [the release pipeline](#the-release-pipeline), which
    builds the artifacts from the tag. It starts because the App's token created the release: a
    release made with `GITHUB_TOKEN` starts no workflow.
@@ -222,8 +227,12 @@ needs `git pull --rebase` first.
 (2026-10-13, 457 commits since `v0.0.0`), with the badge at 83.6 % in its release commit `53b96c9`.
 Checked by download: `SHA256SUMS` matches the archives, `cogpit-cli --version` says `cogpit-cli
 0.1.0 (go1.27.2, darwin/arm64)`, the app's bundle version is 0.1.0, its signature ad-hoc, and
-`spctl --assess` rejects it, as an unsigned app is rejected. Its notes carry a "BREAKING CHANGES"
-section quoting `f3ad000`'s body line; the version stayed minor by the v0 rule.
+`spctl --assess` rejects it, as an unsigned app is rejected. Its generated notes carried a "BREAKING
+CHANGES" section quoting `f3ad000`'s body line (the version stayed minor by the v0 rule); the owner
+had it removed from the release page (2026-10-13). The second release,
+[v0.1.1](https://github.com/guided-traffic/cogpit/releases/tag/v0.1.1), came from the next `fix:`
+(the local terminal's shell, `1f6f9b8`) and was checked the same way (`cogpit-cli 0.1.1`, the Linux
+binary a static x86-64 ELF, the app's bundle version 0.1.1).
 
 
 ## The release pipeline
@@ -240,7 +249,8 @@ checks out the release's tag and builds with `VERSION` set to the tag without it
 The release jobs build without a build cache (`cache: none`): an artifact never comes from objects
 another run wrote, and for v0.1.0 saving the six platforms' cache took 5:18 minutes, longer than
 the build (5:30). Measured for v0.1.0 (run 38447771669): cogpit-cli 11.7 minutes with that save,
-the app 2.0, attaching 0.8.
+the app 2.0, attaching 0.8; for v0.1.1 without caches (run 38452933957): cogpit-cli 6.5, the app
+4.5, attaching 0.8.
 
 `make dist-cli`, `make dist-app VERSION=0.0.99` and `make dist-checksums` run the same locally into
 `dist/` (gitignored). To check a download: `sha256sum -c SHA256SUMS --ignore-missing` (on macOS
@@ -289,11 +299,11 @@ manager. Security perspective: [updates](../security/updates.md).
 | Secret | For | Where | Without it |
 |---|---|---|---|
 | `APP_CLIENT_ID`, `APP_PRIVATE_KEY` (the organisation's GitHub App) | Semantic Release's tag, release and release commit; Renovate | organisation secrets, exist | no release (the job fails) |
-| `MACOS_SIGN_P12` (the Developer ID Application certificate with its key, base64), `MACOS_SIGN_P12_PASSWORD` | signing the app bundle and the disk image | planned: GitHub environment `release` (deployment rule: tags `v*`) | unsigned app, and the release page says so |
+| `MACOS_SIGN_P12` (the Developer ID Application certificate with its key, base64), `MACOS_SIGN_P12_PASSWORD` | signing the app bundle and the disk image | GitHub environment `release`, created 2026-10-13 with the deployment rule "tags `v*`" and no secrets yet; the release pipeline does not use it until the signing steps exist | unsigned app, and the release page says so |
 | `APPLE_TEAM_ID` (a variable) | the signing identity | planned: environment `release` | as above |
 | `APPLE_API_KEY_P8` (an App Store Connect team API key, role Developer, base64), `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID` | notarization with `notarytool` | planned: environment `release` | not notarized |
 | Windows code-signing certificate or signing service credentials | Authenticode | planned (M11) | SmartScreen warns |
-| Update signing key | the update manifest | not decided | no update offered for that release |
+| Update signing key (Sparkle's EdDSA key) | the update manifest | decided (owner, 2026-10-13): a secret of a GitHub environment that needs the owner's approval for each release (required reviewer); not created until Sparkle is built | no update offered for that release |
 
 Who holds which key and what follows if one leaks:
 [updates › keys](../security/updates.md#keys-and-who-holds-them).

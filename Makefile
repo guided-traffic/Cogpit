@@ -158,7 +158,8 @@ GOCYCLO_VERSION ?= v0.6.0
 GOCYCLO         := $(BIN)/gocyclo
 # The highest cyclomatic complexity main had when the check came (2026-10-13: 56, the shell's
 # applyUIState), so that no function grows past it; the team's other repositories use 15, and 121
-# functions are above that. Lowering it is the owner's call (docs/developer/releasing.md#ci).
+# functions are above that. It comes down step by step (owner, 2026-10-13): a change that makes the
+# most complex function simpler lowers it to the new maximum (docs/developer/releasing.md#ci).
 CYCLO_THRESHOLD ?= 56
 # Our code: cmd, internal, hack and the patched terminal widget; tests and generated code ignored.
 CYCLO_DIRS      := cmd internal hack third_party

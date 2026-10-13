@@ -59,8 +59,8 @@ when there is.
 |---|---|---|---|
 | The organisation's GitHub App private key (`APP_CLIENT_ID`, `APP_PRIVATE_KEY`) | organisation secrets of `guided-traffic`, visible to this repository; used by the Semantic Release job (token with `contents: write`) and by Renovate | push to `main`, create tags and releases; a release it creates starts the release pipeline, which builds whatever the tag points at | rotate the App's private key in the App's settings and replace the organisation secret; delete the releases and tags it made. Secrets are not handed to workflows of pull requests from forks |
 | The release pipeline's `GITHUB_TOKEN` | per job; `contents: write` only in its last job, to attach the artifacts | upload assets to and edit the text of this repository's releases | expires with the job |
-| Developer ID Application certificate, App Store Connect API key (planned) | secrets of a GitHub environment `release` that only tag workflows may use (deployment rule: tags `v*`), so that no pull request workflow can read them | sign and notarize Cogpit | revoke the certificate at Apple, and the key in App Store Connect; releases notarized before stay valid (the owner's note, 2026-10-13; not checked against Apple's documentation) |
-| The update key (Sparkle's EdDSA key, planned) | not decided | sign the update manifest | [H-15](#h-15-update-key-compromise-and-rotation) |
+| Developer ID Application certificate, App Store Connect API key (planned) | secrets of the GitHub environment `release` (created 2026-10-13, empty), which only tag workflows may use (deployment rule: tags `v*`), so that no pull request workflow can read them | sign and notarize Cogpit | revoke the certificate at Apple, and the key in App Store Connect; releases notarized before stay valid (the owner's note, 2026-10-13; not checked against Apple's documentation) |
+| The update key (Sparkle's EdDSA key, planned) | decided (owner, 2026-10-13): a secret of a GitHub environment with the owner as required reviewer, so CI signs a release's feed only after the owner approved that run | sign the update manifest | [H-15](#h-15-update-key-compromise-and-rotation) |
 
 ## What this does not cover
 
@@ -85,9 +85,11 @@ every automerged update.
 
 ### H-15: Update key compromise and rotation
 
-Whoever holds the update key can ship code to every Cogpit installation. How the key is stored,
-who can use it, and how a compromised key is replaced in installed apps (a second, offline
-rotation key; a forced reinstall) is not designed yet.
+Whoever holds the update key can ship code to every Cogpit installation. Where it lives is decided
+(owner, 2026-10-13: an environment secret that CI may use only after the owner approved the run),
+which leaves a workflow the owner approves able to sign whatever it built. How a compromised key
+is replaced in installed apps (a second, offline rotation key; a forced reinstall) is not designed
+yet.
 
 ### H-16: Availability of the release host
 
