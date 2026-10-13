@@ -77,7 +77,8 @@ func registerUI(g *registrar) {
 		ID: "ui.state", Label: "Show UI State", Danger: engine.DangerRead,
 		Description: "Returns what the user sees: the connected context and its connection state, the open view (kind key), " +
 			"the namespace filter, the search text and its toggles (filterOptions: matchCase, regex; filterError when its " +
-			"regular expression is invalid), the sort order, the selected objects, the object in the detail drawer, " +
+			"regular expression is invalid), the sort order, the selected objects, the object in the detail drawer and " +
+			"the order of its sortable tables by title (drawerSort: a node's Pods, ui_sortDrawerTable), " +
 			"the tab bar's tabs (tabs and activeTab: each tab's id, context, view, title, preview or fixed, its own " +
 			"filter and selection, and its history), the dock tabs, how many rows the view shows of how many objects, for a pod's or node's drawer the time " +
 			"range and variant of each metrics chart (drawerCharts) and the metrics providers' status line " +

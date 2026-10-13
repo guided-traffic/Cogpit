@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"sync"
@@ -40,6 +41,7 @@ type state struct {
 	cluster       *clusterOverviewWorker // the cluster Overview's worker (clusteroverview.go); nil unless it is open
 	vanished      *TableSnapshot         // the open view after the cluster stopped serving its kind (customkinds.go)
 	drawer        *drawerWatch
+	drawerSort    map[string]SortSpec // the drawer tables' order last applied (UIState.DrawerSort)
 	diagStop      chan struct{}
 	sorts         map[string]SortSpec  // the sort order remembered per view
 	rowCaches     map[string]*rowCache // rows per view of the current backend, reused across visits
@@ -125,6 +127,14 @@ func (st *state) reconcileLocked(now UIState) {
 		st.drawer.planKey = drawerPlan
 	} else if st.drawer != nil {
 		st.drawer.followHidden(st.s, hiddenMetricsOf(&now, b.Context)) // the cluster's settings changed what shows
+	}
+	// A table of the drawer sorted anew (ui.sortDrawerTable, drawersort.go): the drawer's model
+	// changes, and the window and agents hear it as they hear a change of the object.
+	if !maps.Equal(st.drawerSort, now.DrawerSort) {
+		st.drawerSort = maps.Clone(now.DrawerSort)
+		if st.drawer != nil {
+			signal(st.drawer.wake)
+		}
 	}
 }
 

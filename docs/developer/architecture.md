@@ -473,6 +473,7 @@ type UIState struct {
 	FilterOptions FilterOptions // the search's match case and regular expression toggles (2026-10-13)
 	Selected  []model.ObjectRef
 	Drawer    *model.ObjectRef  // object shown in the detail drawer
+	DrawerSort map[string]SortSpec // the drawer's sortable tables' order, by section title: a node's Pods (2026-10-13)
 	Dock      []DockTab         // terminal, logs, editor, chat tabs and the active one
 	Hotbar    *HotbarState      // the hotbar's banks and the shown one (2026-10-12)
 	Palette   bool              // the command palette is open (2026-10-13)
@@ -514,6 +515,16 @@ snapshot carries it as `Order`, indexes into `Columns` (`engine.ColumnOrder`; ni
 order), so that `Columns` and the rows keep the kind's indexes; `DisplayOrder` gives the order
 the window's table, its column list and `WriteCSV` follow
 ([`columnorder.go`](../../internal/ui/fyneui/columnorder.go)).
+Added 2026-10-13 (owner: a node's Pods sort by Name, Namespace, CPU, Memory and Status):
+`DrawerSort`, the order of the drawer's sortable tables (`model.SortableCellTable`, a node's Pods)
+by section title, set with `ui.sortDrawerTable {section?, column, desc?}` by a click on a column's
+title or by an agent ([`drawersort.go`](../../internal/engine/drawersort.go)). Every drawer model
+comes with those tables sorted by the lists' rules (`compareRows`: text case-insensitively,
+numbers and metrics by `Cell.Num`, empty cells last both ways, ties by namespace and name) and
+`DetailTable.Sort` saying the order, so object_get reads the rows as the window shows them; a
+change wakes the open drawer (`EventDetail`). Cogpit's defaults, inferred: every column sorts,
+the order is kept by title for the session and is the same in every tab (the next node's Pods
+come in it), and a table nobody sorted comes by name, as a list does.
 Added 2026-10-13: `FilterOptions`, the search field's "Aa" (`matchCase`) and ".*" (`regex`)
 toggles, per tab beside `Filter` (`ViewTab.FilterOptions`, loaded and saved with it), set with
 `ui.setFilter`, whose `matchCase` and `regex` leave a toggle out unchanged; they stay when a view
@@ -2302,12 +2313,13 @@ away and makes detection run again. A panicking provider is recovered at the gor
 **In the engine** ([`engine/metrics.go`](../../internal/engine/metrics.go)). `Backend.Metrics` is the
 cluster's hub (a real cluster: the Metrics Server through `metrics.ForConn`; the demo cluster:
 `metrics.Fixed(demo.Metrics)`); `ClusterConnector.MetricsOptions` tunes it, and it closes with the
-backend. Three things subscribe, and each releases when it goes away:
+backend. These subscribe, and each releases when it goes away:
 
 | Subscriber | Scope | Where |
 |---|---|---|
 | a view of a kind with `KindProfile.Usage` (Pods, Nodes) | the whole list, all namespaces (the namespace filter is applied to the rows, as for every view) | `viewWorker.usage`, a `usageFeed` that bumps a generation and wakes the worker after each poll |
 | the open drawer of a pod or node | that object | `drawerWatch.usage`; after each poll the engine emits `EventMetrics`, which the window answers by redrawing the chart only, not the drawer |
+| the open drawer while it shows a table of pods (a node's Pods; since 2026-10-13) | the pods' list: every namespace for a cluster-scoped object (the Pods list's scope, so with both open there is one poll), else the object's namespace | `drawerWatch.pods` ([`drawerpods.go`](../../internal/engine/drawerpods.go)); each poll wakes the drawer (`EventDetail`), below |
 | nobody (an agent's `metrics.get`) | a one-off `Hub.Fetch` | no subscription, no poll |
 
 *CPU and Memory columns.* The profiles of Pods and Nodes carry the columns (type
@@ -2806,6 +2818,34 @@ Metrics Server). Two limits: a drawer that shows only the network or the filesys
 live CPU and memory with them (the hub asks for usage with every object poll, `Want` cannot leave it
 out), and `metrics.get` answers an agent's explicit read whatever is hidden (the setting hides metrics
 from the UI, as Lens names it).
+
+**Built 2026-10-13 (owner): CPU and Memory in the drawer's Pods table**
+([`engine/drawerpods.go`](../../internal/engine/drawerpods.go)). Seen by the owner in a real window: a
+node's drawer listed its pods with CPU and Memory empty. The table is a `model.SortableCellTable`
+whose CPU and Memory are the Pods list's own columns (ids `cpu` and `memory`, type
+`model.ColumnMetric`); the profile leaves them empty, as the list's `Cells` do. The engine fills them
+when it builds the drawer's model (`Session.detail` → `drawerPods`): a table whose rows link to pods
+and that has such a column is a pod table, and each row gets the hub's latest fresh measurement of
+its pod (`Hub.Pod`, from any scope that holds it) through the Pods profile's `UsageCells`, so the
+texts and sort keys are the list's ("0.012", binary units) and a pod without a measurement keeps
+empty cells. Nothing in the build sends a request. The poll: the first model built for the open
+drawer that shows a pod table subscribes `drawerWatch.pods` to the pods' list scope (every
+namespace for a node: the Pods list's scope, one poll for both when both are open; a namespaced
+object's own namespace), every 60 s like a list; a model without one releases it, and the drawer
+releases it when it closes or shows another object (`stop`). Each poll signals the drawer's wake,
+so the window hears `EventDetail` (coalesced like every drawer change) and reads the new numbers.
+The cluster's settings apply as to the Pods list (`MetricSet.listColumns(UsagePods)`): Pods hides
+both columns, CPU or Memory one; a hidden column is left out of the table (columns, ids, types,
+rows and cells alike), and with both hidden the subscription is released at once
+(`drawerWatch.followHidden`) and not made again. `object_get` reads the same model: the numbers the
+open drawer's poll (or an open Pods list) holds, no request of its own; `metrics.get` stays the
+explicit read. Tests: `TestNodeDrawerPodsShowMetrics` (the cells against the Pods profile's, a pod
+without a measurement empty, two scopes with the drawer open, the pods' list in every namespace,
+nothing asked after it closes), `TestNodeDrawerPodsPollWakesTheDrawer`,
+`TestNodeDrawerPodsHiddenMetrics`, `TestIsPodTable`, `TestPodTableScope`. Which drawers have a pod
+table: a node's only; the workloads' drawers list no pods yet (whether Lens's do is not captured;
+[G6](../parity/gaps.md#g6-resource-views)), and a pod table any drawer gets later is filled and
+polled the same way, by its object's namespace.
 
 ## 10. Terminal (`internal/terminal`)
 

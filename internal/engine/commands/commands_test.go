@@ -111,6 +111,8 @@ var wantCommands = map[string]engine.Danger{
 	"workloads.overview":  engine.DangerRead,
 	"cluster.overview":    engine.DangerRead,
 	"ui.setOverviewRange": engine.DangerUI, "ui.setOverviewNodes": engine.DangerUI,
+	// The drawer's sortable tables, a node's Pods (TestSortDrawerTable).
+	"ui.sortDrawerTable": engine.DangerUI,
 
 	// Kubeconfig sources (G2); the UI ones are GUI-only (TestKubeconfigCommandsAreGUIOnly).
 	"kubeconfig.sources": engine.DangerRead, "kubeconfig.addFile": engine.DangerUI, "kubeconfig.addFolder": engine.DangerUI,

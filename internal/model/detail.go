@@ -41,11 +41,56 @@ type DetailSection struct {
 // status in its colour, as the lists draw them, and a cell of a warning column as Lens's warning
 // icon with the cell's text as its tooltip; a warning column's title is not shown. Build such a
 // table with [CellTable].
+//
+// A sortable table ([SortableCellTable]: the Pods of a node's drawer) also carries its columns'
+// IDs, and Sort says the order its rows are in: the engine sorts them as the drawer's sort says
+// (UIState.DrawerSort, ui.sortDrawerTable), and the drawer sorts by a click on a column's title.
 type DetailTable struct {
 	Columns []string     `json:"columns"`
 	Rows    [][]string   `json:"rows"`
 	Types   []ColumnType `json:"types,omitempty"`
 	Cells   [][]Cell     `json:"cells,omitempty"`
+	// IDs are the columns' ids ("name", "cpu"), set on a sortable table: what a sort names a
+	// column by.
+	IDs []string `json:"ids,omitempty"`
+	// Sortable marks a table the drawer sorts by its column titles.
+	Sortable bool `json:"sortable,omitempty"`
+	// Sort is the order the rows are in, set by the engine on a sortable table; nil: the order
+	// the kind's profile gave them.
+	Sort *TableSort `json:"sort,omitempty"`
+}
+
+// TableSort is the order of a sortable drawer table's rows: by the column with the id Column,
+// ascending unless Desc.
+type TableSort struct {
+	Column string `json:"column"`
+	Desc   bool   `json:"desc,omitempty"`
+}
+
+// SortableCellTable is [CellTable] for a table the drawer sorts by a click on a column's title (a
+// node's Pods): it carries the columns' ids. Number, age, time, warning and metric columns sort
+// by Cell.Num, the others by the text; empty cells (a pod without a measurement) sort last.
+func SortableCellTable(columns []Column, rows [][]Cell) *DetailTable {
+	t := CellTable(columns, rows)
+	t.Sortable = true
+	t.IDs = make([]string, len(columns))
+	for i, c := range columns {
+		t.IDs[i] = c.ID
+	}
+	return t
+}
+
+// ColumnIndex returns the index of the column with the id, or -1 (a table without ids has none).
+func (t *DetailTable) ColumnIndex(id string) int {
+	if t == nil {
+		return -1
+	}
+	for i, c := range t.IDs {
+		if c == id {
+			return i
+		}
+	}
+	return -1
 }
 
 // Link returns the object the cell at row and col names, or nil for a plain cell, a table without

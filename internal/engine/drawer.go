@@ -35,7 +35,8 @@ type drawerWatch struct {
 	events  *cache.Handle            // nil when the cluster serves no events
 	related *relatedSet              // the indexes of the profile's Needs; nil without
 	usage   *metrics.Subscription    // the pod's or node's metrics poll (metrics.go); nil without or while its metrics are hidden. Guarded by wmu
-	wmu     sync.Mutex               // guards windows, variants, usage and hidden
+	pods    *metrics.Subscription    // the poll of the metrics of the pods its table lists (drawerpods.go); nil while it shows none. Guarded by wmu
+	wmu     sync.Mutex               // guards windows, variants, usage, pods and hidden
 	windows map[string]time.Duration // the time range of each chart, by target name (metrics.go)
 	unsubs  []func()
 	wake    chan struct{}
@@ -133,6 +134,7 @@ func (d *drawerWatch) stop() {
 	}
 	d.related.release()
 	d.usageSub().Release()
+	d.podsSub().Release()
 }
 
 // eventInvolves matches an event's involvedObject by UID when both are known, else by kind,
@@ -218,6 +220,8 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 	if m.Metrics && len(s.hiddenMetrics(b.Context).drawerVariants(p.Usage)) == 0 {
 		m.Metrics = false // the cluster's settings hide every chart of the kind (hidemetrics.go)
 	}
+	s.drawerPods(b, ref, m)              // the CPU and Memory of the pods a table lists, and their poll (drawerpods.go)
+	sortDrawerTables(m, s.drawerSorts()) // the sortable tables in the drawer's order (drawersort.go)
 	if OriginOf(ctx).IsAgent() {
 		m.Sections = model.WithholdPrivate(m.Sections) // object_get: agents never read private values
 	}

@@ -306,24 +306,27 @@ func taintText(t any) string {
 
 // nodePodColumns are the columns of the node's Pods table as Lens shows them (capture,
 // 2026-10-11): Name, the warning icon, Node, Namespace, Ready, CPU, Memory, Status. CPU and Memory
-// need a metrics provider (M7) and stay empty until then.
+// are the Pods list's metric columns: the profile leaves them empty and the engine fills them from
+// the metrics it polls while the drawer shows the table (engine/drawerpods.go). Ready sorts by the
+// ready containers (Cell.Num).
 var nodePodColumns = []model.Column{
 	nameColumn,
 	warningColumn,
 	{ID: idNode, Title: titleNode, Type: model.ColumnText},
 	namespaceColumn,
-	{ID: fieldReady, Title: nodeReady, Type: model.ColumnText},
-	{ID: "cpu", Title: titleCPU, Type: model.ColumnText},
-	{ID: "memory", Title: titleMemory, Type: model.ColumnText},
+	{ID: fieldReady, Title: nodeReady, Type: model.ColumnNumber},
+	cpuColumn,
+	memoryColumn,
 	statusColumn,
 }
 
 // nodeDetailWith is nodeDetail with the node's Pods table after Allocatable, from the
 // related-objects index PodsByNode: one row per pod scheduled to the node, sorted by name, the
 // name and namespace as links, the warning icon and status as in the Pods view, Ready as the
-// ready containers of all ("1/2"). The node's own name is plain text: it links to the drawer's
-// object. A node without pods, or whose pods are still listing, has no Pods section. The node's
-// Devices, the resource slices that name it (SlicesByNode, nodedevices.go), come before the Pods.
+// ready containers of all ("1/2"), CPU and Memory left to the engine. The node's own name is plain
+// text: it links to the drawer's object. A node without pods, or whose pods are still listing,
+// has no Pods section. The node's Devices, the resource slices that name it (SlicesByNode,
+// nodedevices.go), come before the Pods.
 func nodeDetailWith(obj *unstructured.Unstructured, rel model.Related) []model.DetailSection {
 	sections := append(nodeDetail(obj), nodeDevices(obj, rel)...)
 	pods := append([]*unstructured.Unstructured(nil), rel.Objects(PodsByNode, obj.GetName())...)
@@ -340,10 +343,11 @@ func nodeDetailWith(obj *unstructured.Unstructured, rel model.Related) []model.D
 			{Text: model.NestedString(p, "spec", "nodeName")},
 			namespaceCell(p),
 			ratio(s.ready, s.total),
-			{}, // CPU: metrics (M7)
-			{}, // Memory: metrics (M7)
+			{}, // CPU: the engine's, from the metrics (engine/drawerpods.go)
+			{}, // Memory: the same
 			{Text: s.text, Status: s.status},
 		})
 	}
-	return append(sections, model.DetailSection{Title: podsTitle, Table: model.CellTable(nodePodColumns, rows)})
+	// Sortable: a click on a column's title sorts the rows (ui.sortDrawerTable).
+	return append(sections, model.DetailSection{Title: podsTitle, Table: model.SortableCellTable(nodePodColumns, rows)})
 }

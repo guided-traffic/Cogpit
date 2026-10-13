@@ -280,10 +280,27 @@ func (w *viewWorker) followHidden(hidden MetricSet) {
 }
 
 // followHidden starts or stops the drawer's metrics poll as the hidden metrics say, and tells the
-// poll which series its visible charts show. A drawer whose charts are all hidden polls nothing.
-// When what the drawer shows changes, the window is told (its section and its variants).
+// poll which series its visible charts show. A drawer whose charts are all hidden polls nothing,
+// nor does one whose pod table's CPU and Memory are both hidden (drawerpods.go; the next model
+// built for it starts that poll again when one shows). When what the drawer shows changes, the
+// window is told (its section and its variants).
 func (d *drawerWatch) followHidden(s *Session, hidden MetricSet) {
-	if d.profile.Usage == "" || d.stopped.Load() {
+	if d.stopped.Load() {
+		return
+	}
+	if cpu, memory := hidden.listColumns(model.UsagePods); !cpu && !memory {
+		d.showPods(false) // its pod table's CPU and Memory are hidden: not polled (drawerpods.go)
+	}
+	if d.profile.Usage == "" {
+		// A drawer without charts may still list pods: its table shows or hides their columns.
+		d.wmu.Lock()
+		changed := d.hidden != hidden || !d.hiddenSet
+		d.hidden, d.hiddenSet = hidden, true
+		d.wmu.Unlock()
+		if changed {
+			kind := d.ref.Kind
+			s.goSafe("hidden metrics", func() { s.emit(Event{Type: EventDetail, View: kind}) })
+		}
 		return
 	}
 	want := len(hidden.drawerVariants(d.profile.Usage)) > 0

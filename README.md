@@ -283,7 +283,7 @@ Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never a
 registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 152 commands</summary>
+<summary>All 153 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -426,7 +426,8 @@ registry with `go run ./hack/readmecmds`.
 | `ui.setOverviewNodes` | `ui_setOverviewNodes` | ui | `nodes`? | Sets the node group the cluster Overview's charts show, as the page's Master and Worker buttons do: master (the control-plane nodes) or worker (every other node) |
 | `ui.setOverviewRange` | `ui_setOverviewRange` | ui | `range`? | Sets the time range of the cluster Overview's charts, as the page's range control does |
 | `ui.sort` | `ui_sort` | ui | `column`, `desc`? | Sorts the open view by a column id (name, namespace, age, ... as kinds_list reports them), ascending unless desc is true |
-| `ui.state` | `ui_state` | read |  | Returns what the user sees: the connected context and its connection state, the open view (kind key), the namespace filter, the search text and its toggles (filterOptions: matchCase, regex; filterError when its regular expression is invalid), the sort order, the selected objects, the object in the detail drawer, the tab bar's tabs (tabs and activeTab: each tab's id, context, view, title, preview or fixed, its own filter and selection, and its history), the dock tabs, how many rows the view shows of how many objects, for a pod's or node's drawer the time range and variant of each metrics chart (drawerCharts) and the metrics providers' status line (drawerMetricsProviders: Prometheus and the Metrics Server, answering or not, what each serves), the hotbar of pinned clusters as hotbar_list returns it, and timeFormat, the Go layouts of a date and a time of day that the drawn texts (view_rows, resources_list, object_get's sections) write absolute times in, in the Preferences' time zone |
+| `ui.sortDrawerTable` | `ui_sortDrawerTable` | ui | `column`, `desc`?, `section`? | Sorts a table in the detail drawer by a column, as a click on the column's title does: a node's Pods by name, namespace, ready, cpu, memory, status or any other of its columns, ascending unless desc is true |
+| `ui.state` | `ui_state` | read |  | Returns what the user sees: the connected context and its connection state, the open view (kind key), the namespace filter, the search text and its toggles (filterOptions: matchCase, regex; filterError when its regular expression is invalid), the sort order, the selected objects, the object in the detail drawer and the order of its sortable tables by title (drawerSort: a node's Pods, ui_sortDrawerTable), the tab bar's tabs (tabs and activeTab: each tab's id, context, view, title, preview or fixed, its own filter and selection, and its history), the dock tabs, how many rows the view shows of how many objects, for a pod's or node's drawer the time range and variant of each metrics chart (drawerCharts) and the metrics providers' status line (drawerMetricsProviders: Prometheus and the Metrics Server, answering or not, what each serves), the hotbar of pinned clusters as hotbar_list returns it, and timeFormat, the Go layouts of a date and a time of day that the drawn texts (view_rows, resources_list, object_get's sections) write absolute times in, in the Preferences' time zone |
 | `ui.tab.back` | `ui_tab_back` | ui |  | Goes back to the view the active tab showed before (its history: views opened in the preview tab, ui_navigate to another kind) |
 | `ui.tab.close` | `ui_tab_close` | ui | `id`? | Closes the active tab (or the tab named by id) |
 | `ui.tab.forward` | `ui_tab_forward` | ui |  | Goes forward again in the active tab's history, after ui_tab_back |

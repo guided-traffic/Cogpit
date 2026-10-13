@@ -40,6 +40,11 @@ type UIState struct {
 	Selected []model.ObjectRef `json:"selected"`
 	// Drawer is the object the detail drawer shows; nil when it is closed.
 	Drawer *model.ObjectRef `json:"drawer,omitempty"`
+	// DrawerSort is the order of the drawer's sortable tables (a node's Pods), by the table's
+	// section title ("Pods"), as ui.sortDrawerTable sets it (drawersort.go). It stays when the
+	// drawer shows another object and is the same in every tab; a table without an entry is
+	// sorted by name.
+	DrawerSort map[string]SortSpec `json:"drawerSort,omitempty"`
 	// Dock lists the dock's tabs; ActiveDock is the id of the shown one.
 	Dock       []DockTab `json:"dock"`
 	ActiveDock string    `json:"activeDock,omitempty"`
@@ -193,6 +198,7 @@ func (u UIState) Clone() UIState {
 		d := *u.Drawer
 		out.Drawer = &d
 	}
+	out.DrawerSort = maps.Clone(u.DrawerSort)
 	out.Dock = make([]DockTab, len(u.Dock))
 	for i, t := range u.Dock {
 		out.Dock[i] = t
