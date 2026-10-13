@@ -64,18 +64,18 @@ func TestDockOutputOfALogsTab(t *testing.T) {
 
 	f.update(func(u *engine.UIState) { u.Dock[0].Logs = engine.LogOptions{} })
 	q.until(t, "the options", func() bool { return !logTabOf(sh).view.View().Filter })
-	all, err := sh.dock.output(tab, engine.DockOutputQuery{Limit: 3})
-	if err != nil || len(all.Lines) != 3 || all.Shown != len(demoMerged) || !all.More || all.Lines[2] != "error budget burn rate 0.4 (ok)" {
-		t.Fatalf("newest three without the filter: %q shown %d more %v, %v", all.Lines, all.Shown, all.More, err)
+	all := sh.dock.output(tab, engine.DockOutputQuery{Limit: 3})
+	if len(all.Lines) != 3 || all.Shown != len(demoMerged) || !all.More || all.Lines[2] != "error budget burn rate 0.4 (ok)" {
+		t.Fatalf("newest three without the filter: %q shown %d more %v", all.Lines, all.Shown, all.More)
 	}
-	older, _ := sh.dock.output(tab, engine.DockOutputQuery{Before: &all.First, Limit: 100})
+	older := sh.dock.output(tab, engine.DockOutputQuery{Before: &all.First, Limit: 100})
 	if len(older.Lines) != len(demoMerged)-3 || older.More || older.Last >= all.First {
 		t.Errorf("before %d: %d lines up to %d, more %v", all.First, len(older.Lines), older.Last, older.More)
 	}
 
 	unknown := engine.DockTab{ID: "logs-9", Type: engine.DockLogs}
-	if out, err := sh.dock.output(unknown, engine.DockOutputQuery{Limit: 10}); err != nil || !out.Opening || len(out.Lines) != 0 {
-		t.Errorf("a tab the window does not show: %+v, %v", out, err)
+	if out := sh.dock.output(unknown, engine.DockOutputQuery{Limit: 10}); !out.Opening || len(out.Lines) != 0 {
+		t.Errorf("a tab the window does not show: %+v", out)
 	}
 	if sh.dock.agentRead.Visible() {
 		t.Error("the agents switch shows on a logs tab")

@@ -24,26 +24,19 @@ type dockOutputReader struct{ sh *shell }
 
 // ReadDockOutput pages what the tab shows on the main goroutine and waits for it, or for ctx.
 func (r dockOutputReader) ReadDockOutput(ctx context.Context, tab engine.DockTab, q engine.DockOutputQuery) (engine.DockOutput, error) {
-	type answer struct {
-		out engine.DockOutput
-		err error
-	}
-	done := make(chan answer, 1)
-	r.sh.do(func() {
-		out, err := r.sh.dock.output(tab, q)
-		done <- answer{out, err}
-	})
+	done := make(chan engine.DockOutput, 1)
+	r.sh.do(func() { done <- r.sh.dock.output(tab, q) })
 	select {
-	case a := <-done:
-		return a.out, a.err
+	case out := <-done:
+		return out, nil
 	case <-ctx.Done():
-		return engine.DockOutput{}, fmt.Errorf("Cogpit's window did not answer in time: %w", ctx.Err())
+		return engine.DockOutput{}, fmt.Errorf("the window did not answer in time: %w", ctx.Err())
 	}
 }
 
 // output pages what a tab shows now. A tab the window has not opened yet, or whose stream or
 // session has not started, is opening, without lines. Main goroutine.
-func (d *dock) output(tab engine.DockTab, q engine.DockOutputQuery) (engine.DockOutput, error) {
+func (d *dock) output(tab engine.DockTab, q engine.DockOutputQuery) engine.DockOutput {
 	out := engine.DockOutput{Tab: tab, DockPage: engine.DockPage{Lines: []string{}}}
 	c, ok := d.contents[tab.ID]
 	switch {
@@ -67,7 +60,7 @@ func (d *dock) output(tab engine.DockTab, q engine.DockOutputQuery) (engine.Dock
 	default:
 		out.Opening = true
 	}
-	return out, nil
+	return out
 }
 
 // newAgentReadSwitch makes the strip's switch; it shows while the active tab is a terminal tab.

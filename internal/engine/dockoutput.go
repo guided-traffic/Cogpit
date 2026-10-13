@@ -50,7 +50,7 @@ var (
 	ErrDockReadGUIOnly = errors.New("only the user, in Cogpit's own window, can let agents read a terminal tab; agents " +
 		"and the CLI are refused, so that no agent allows itself (D-44)")
 	// ErrNoDockWindow: the session has no window, so no tab shows any output (a headless engine).
-	ErrNoDockWindow = errors.New("Cogpit runs without a window here, so no dock tab shows any output")
+	ErrNoDockWindow = errors.New("this Cogpit runs without a window, so no dock tab shows any output")
 )
 
 // DockOutputQuery asks for a page of a dock tab's lines. Lines are numbered in the order the tab
