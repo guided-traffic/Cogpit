@@ -76,14 +76,21 @@ func (m *memo) detail(o *unstructured.Unstructured) []model.DetailSection {
 // the release, "Secrets" (Helm's default) or "ConfigMaps" (HELM_DRIVER=configmap).
 const TitleStorage = "Storage"
 
-// storageItem is the drawer's Storage: the driver, and a warning when the other driver holds a
-// release of the same name in the namespace, which the drawer does not show (groupReleases).
+// storageItem is the drawer's Storage: the driver, and a note in the warning colour when the other
+// driver holds a release of the same name in the namespace, which the drawer does not show
+// (groupReleases): "also stored in the <other> driver (older)", the owner's wording (A39,
+// 2026-10-14 evening). The release shown is the one deployed last; when both were deployed at the
+// same moment, the note says so instead of "older" (Cogpit's wording: the tie goes to Secrets,
+// Helm's default).
 func storageItem(o *unstructured.Unstructured) model.DetailItem {
 	text := map[Driver]string{DriverSecret: "Secrets", DriverConfigMap: "ConfigMaps"}
 	it := model.DetailItem{Name: TitleStorage, Value: text[ReleaseStorage(o)]}
 	if other := Driver(model.NestedString(o, fieldHidden)); other != "" {
-		n, _ := model.NestedInt64(o, fieldHiddenRevisions)
-		it.Value += fmt.Sprintf("; %s also hold a release of this name (%d revisions), not shown", text[other], n)
+		age := "older"
+		if older, _ := model.NestedBool(o, fieldHiddenOlder); !older {
+			age = "deployed at the same time; the Secrets' one is shown, Helm's default"
+		}
+		it.Value += fmt.Sprintf("; also stored in the %s driver (%s)", text[other], age)
 		it.Status = model.StatusWarning
 	}
 	return it

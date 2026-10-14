@@ -228,9 +228,12 @@ const (
 	fieldSecret    = "secret"    // the newest revision's Secret
 	fieldConfigMap = "configMap" // the newest revision's ConfigMap
 	// fieldHidden names the other driver when it holds a release of the same namespace and name,
-	// which the object does not show; fieldHiddenRevisions counts that release's records.
+	// which the object does not show; fieldHiddenRevisions counts that release's records;
+	// fieldHiddenOlder says that release was deployed before the one shown (false: at the same
+	// time, the tie shownBefore breaks for Secrets).
 	fieldHidden          = "hiddenStorage"
 	fieldHiddenRevisions = "hiddenRevisions"
+	fieldHiddenOlder     = "hiddenOlder"
 )
 
 // HistoryEntry is one revision of a release, as the release object's history holds it.
@@ -517,13 +520,19 @@ func groupReleases(revs []*revision) []releaseGroup {
 // of the other driver whose newest revision is b: deployed later, else created later, else kept in
 // Secrets.
 func shownBefore(a, b *revision) bool {
-	if c := a.updated.Compare(b.updated); c != 0 {
-		return c > 0
-	}
-	if c := a.created.Compare(b.created); c != 0 {
+	if c := newerThan(a, b); c != 0 {
 		return c > 0
 	}
 	return a.storage == DriverSecret
+}
+
+// newerThan compares two releases by their newest revisions a and b: deployed later, else created
+// later, is newer (1); 0 when both times are the same.
+func newerThan(a, b *revision) int {
+	if c := a.updated.Compare(b.updated); c != 0 {
+		return c
+	}
+	return a.created.Compare(b.created)
 }
 
 // releaseObject builds a release's object from its revisions, newest first: the newest revision's
@@ -565,6 +574,7 @@ func releaseObject(rg releaseGroup) *unstructured.Unstructured {
 	}
 	if len(rg.hidden) > 0 {
 		obj[fieldHidden], obj[fieldHiddenRevisions] = string(rg.hidden[0].storage), int64(len(rg.hidden))
+		obj[fieldHiddenOlder] = newerThan(rg.hidden[0], r) < 0
 	}
 	if r.err != "" {
 		obj["error"] = r.err

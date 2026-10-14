@@ -108,14 +108,15 @@ func TestDeriveMixedDrivers(t *testing.T) {
 		!slices.Equal(ReleaseRevisions(db), []int{4, 3}) {
 		t.Errorf("apps/db %v (revisions %v)", db.Object, ReleaseRevisions(db))
 	}
-	var storage model.DetailItem
-	for _, it := range p.Detail(db)[0].Items {
-		if it.Name == TitleStorage {
-			storage = it
-		}
-	}
-	if storage.Status != model.StatusWarning || !strings.Contains(storage.Value, "ConfigMaps; Secrets also hold a release of this name (2 revisions)") {
+	// The drawer's note in the owner's wording (A39): the other driver's release is the older one.
+	if storage := storageOf(p, db); storage.Status != model.StatusWarning || storage.Value != "ConfigMaps; also stored in the Secrets driver (older)" {
 		t.Errorf("storage %+v", storage)
+	}
+	if n, _ := model.NestedInt64(db, fieldHiddenRevisions); n != 2 {
+		t.Errorf("hidden revisions %d", n)
+	}
+	if storage := storageOf(p, got["apps/web"]); storage.Status != model.StatusNone || storage.Value != "Secrets" {
+		t.Errorf("a release in one driver: %+v", storage)
 	}
 
 	// The same releases in another order give the same objects (the choice does not depend on
@@ -134,6 +135,50 @@ func TestDeriveMixedDrivers(t *testing.T) {
 	if ReleaseStorage(tie["apps/db"]) != DriverSecret || model.NestedString(tie["apps/db"], fieldHidden) != "configmap" {
 		t.Errorf("a tie: %v", tie["apps/db"].Object)
 	}
+	if storage := storageOf(p, tie["apps/db"]); storage.Status != model.StatusWarning ||
+		storage.Value != "Secrets; also stored in the ConfigMaps driver (deployed at the same time; the Secrets' one is shown, Helm's default)" {
+		t.Errorf("a tie's note: %+v", storage)
+	}
+}
+
+// The release deployed last is shown, whichever driver holds it, and the other driver's release is
+// named as the older one; the note follows when a newer release in the other driver takes the
+// place (A39).
+func TestDeriveBothDriversNamesTheOlder(t *testing.T) {
+	p := NewReleaseProfile()
+	secrets := []*unstructured.Unstructured{
+		secretFor(t, testRelease{ns: "apps", name: "api", rev: 1, status: common.StatusSuperseded}),
+		secretFor(t, testRelease{ns: "apps", name: "api", rev: 2, status: common.StatusSuperseded}),
+		secretFor(t, testRelease{ns: "apps", name: "api", rev: 3, status: common.StatusDeployed}),
+	}
+	older := configMapFor(t, testRelease{ns: "apps", name: "api", rev: 1, status: common.StatusDeployed})
+	api := byKey(p.Derive(append(slices.Clone(secrets), older)))["apps/api"]
+	if ReleaseStorage(api) != DriverSecret || ReleaseRevision(api) != 3 {
+		t.Fatalf("shown %v", api.Object)
+	}
+	if storage := storageOf(p, api); storage.Value != "Secrets; also stored in the ConfigMaps driver (older)" || storage.Status != model.StatusWarning {
+		t.Errorf("storage %+v", storage)
+	}
+	// A newer release in ConfigMaps (revision 5, deployed later) takes its place: the Secrets'
+	// release is the older one now.
+	newer := configMapFor(t, testRelease{ns: "apps", name: "api", rev: 5, status: common.StatusDeployed})
+	api = byKey(p.Derive(append(slices.Clone(secrets), older, newer)))["apps/api"]
+	if ReleaseStorage(api) != DriverConfigMap || ReleaseRevision(api) != 5 {
+		t.Fatalf("shown %v", api.Object)
+	}
+	if storage := storageOf(p, api); storage.Value != "ConfigMaps; also stored in the Secrets driver (older)" {
+		t.Errorf("storage %+v", storage)
+	}
+}
+
+// storageOf returns the Storage item of a release's drawer.
+func storageOf(p *model.KindProfile, o *unstructured.Unstructured) model.DetailItem {
+	for _, it := range p.Detail(o)[0].Items {
+		if it.Name == TitleStorage {
+			return it
+		}
+	}
+	return model.DetailItem{}
 }
 
 // The memo holds ConfigMap records as it holds Secrets: decoded once per UID and resourceVersion,
