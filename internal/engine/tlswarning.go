@@ -16,14 +16,33 @@ package engine
 //     check. Agents, the CLI and links are refused until then, as for a plugin.
 //   - The connect log gets a WARN line once the connection stands, from the connection's own
 //     configuration, so it is what client-go actually does.
+//   - While such a connection stands, the UI state says so (Connection.TLSUnchecked, from the same
+//     configuration): the status bar shows "TLS not checked" in the warning colour beside the
+//     context, agents read it in ui_state and in cluster_connect's result, and `cogpit-cli get`
+//     writes InsecureWarning to standard error (the owner's A29 of 2026-10-14 evening).
+
+// TLSUncheckedLabel is the status bar's item for a connection that does not check the server's
+// certificate (the owner's words, A29).
+const TLSUncheckedLabel = "TLS not checked"
+
+// tlsUnchecked reports whether b's connection does not check the server's certificate.
+func tlsUnchecked(b *Backend) bool {
+	return b != nil && b.Conn != nil && b.Conn.Insecure()
+}
+
+// InsecureWarning is the warning for a connection to server that does not check the server's
+// certificate: the connect log's line, and the one `cogpit-cli get` writes to standard error.
+func InsecureWarning(server string) string {
+	return "Certificate checks are off for this context (insecure-skip-tls-verify in its kubeconfig): " +
+		"Cogpit cannot tell the cluster at " + server + " from anyone else who answers there, " +
+		"and sends the context's credential to whoever does"
+}
 
 // insecureLogLine is the connect log's warning for a connection that does not check the server's
 // certificate; "" for any other.
 func insecureLogLine(b *Backend) string {
-	if b == nil || b.Conn == nil || !b.Conn.Insecure() {
+	if !tlsUnchecked(b) {
 		return ""
 	}
-	return "Certificate checks are off for this context (insecure-skip-tls-verify in its kubeconfig): " +
-		"Cogpit cannot tell the cluster at " + b.Conn.Server() + " from anyone else who answers there, " +
-		"and sends the context's credential to whoever does"
+	return InsecureWarning(b.Conn.Server())
 }

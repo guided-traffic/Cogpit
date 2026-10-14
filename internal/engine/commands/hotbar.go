@@ -201,14 +201,14 @@ func registerHotbar(g *registrar) {
 				return nil, err
 			}
 			if u := s.UIState(); u.Context == t.Context && (u.Connection.State == engine.Connected || u.Connection.State == engine.Connecting) {
-				return ConnectResult{Context: u.Context, State: u.Connection.State}, nil
+				return ConnectResult{Context: u.Context, State: u.Connection.State, TLSUnchecked: u.Connection.TLSUnchecked}, nil
 			}
 			err = s.Connect(ctx, t.Context)
 			u := s.UIState()
 			if err != nil && u.Connection.State != engine.ConnectError {
 				return nil, err // refused before connecting: no connector, closed, or superseded
 			}
-			return ConnectResult{Context: u.Context, State: u.Connection.State, Error: u.Connection.Error}, nil
+			return connectResult(u), nil
 		},
 	})
 

@@ -113,6 +113,10 @@ type Connection struct {
 	State ConnectionState `json:"state"`
 	Error string          `json:"error,omitempty"` // set in ConnectError, and in Disconnected when Cogpit closed the connection (its kubeconfig file went away); never contains a credential
 	Demo  bool            `json:"demo,omitempty"`  // the synthetic demo cluster
+	// TLSUnchecked is set while the connection does not check the API server's certificate
+	// (insecure-skip-tls-verify in its kubeconfig), from the connection's own configuration: the
+	// status bar says "TLS not checked" beside the context (A29, owner 2026-10-14 evening; H-37).
+	TLSUnchecked bool `json:"tlsUnchecked,omitempty"`
 }
 
 // ConnectionState is a connection's lifecycle state.

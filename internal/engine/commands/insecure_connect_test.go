@@ -73,7 +73,24 @@ contexts:
 
 	var res commands.ConnectResult
 	h.must(t, engine.OriginExternalAgent, "cluster.connect", map[string]string{"context": id}, &res)
-	if res.State != engine.Connected {
+	if res.State != engine.Connected || !res.TLSUnchecked {
 		t.Errorf("allowed, an agent's connect: %+v", res)
+	}
+	// A29: agents read what the status bar shows, from the engine's state.
+	var u struct {
+		Connection struct {
+			State        string `json:"state"`
+			TLSUnchecked bool   `json:"tlsUnchecked"`
+		} `json:"connection"`
+	}
+	h.must(t, engine.OriginExternalAgent, "ui.state", map[string]any{}, &u)
+	if u.Connection.State != string(engine.Connected) || !u.Connection.TLSUnchecked {
+		t.Errorf("ui_state's connection: %+v", u.Connection)
+	}
+	h.must(t, engine.OriginGUI, "cluster.disconnect", map[string]any{}, nil)
+	u.Connection.TLSUnchecked = false // left out of the JSON when false: decode into a clean field
+	h.must(t, engine.OriginExternalAgent, "ui.state", map[string]any{}, &u)
+	if u.Connection.TLSUnchecked {
+		t.Errorf("disconnected, ui_state still says TLS is not checked: %+v", u.Connection)
 	}
 }

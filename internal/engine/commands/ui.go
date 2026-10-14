@@ -78,7 +78,7 @@ type refParams struct {
 func registerUI(g *registrar) {
 	add(g, engine.Spec[struct{}]{
 		ID: "ui.state", Label: "Show UI State", Danger: engine.DangerRead,
-		Description: "Returns what the user sees: the connected context and its connection state, the open view (kind key), " +
+		Description: "Returns what the user sees: the connected context and its connection state (tlsUnchecked when the connection does not check the server's certificate), the open view (kind key), " +
 			"the namespace filter, the search text and its toggles (filterOptions: matchCase, regex; filterError when its " +
 			"regular expression is invalid), the status filter (states; view_rows lists the states offered), the sort order, the selected objects, the object in the detail drawer and " +
 			"the order of its sortable tables by title (drawerSort: a node's or a workload's Pods, ui_sortDrawerTable), " +

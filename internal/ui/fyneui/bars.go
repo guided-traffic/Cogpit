@@ -226,12 +226,16 @@ func newDiagView(d engine.Diagnostics) diagView {
 // statusBar is the bottom line: context and connection, API requests, informers, the demo
 // cluster's event rate, the link to the owner and the MCP indicator.
 type statusBar struct {
-	sh        *shell
-	link      *linkText // the link to the owner (D-23), left of the MCP item
-	mcp       *mcpItem  // the MCP indicator and its switch, at the right end; nil without an MCP server
-	layout    *statusLayout
-	dot       *dot
-	context   *textLine
+	sh      *shell
+	link    *linkText // the link to the owner (D-23), left of the MCP item
+	mcp     *mcpItem  // the MCP indicator and its switch, at the right end; nil without an MCP server
+	layout  *statusLayout
+	dot     *dot
+	context *textLine
+	// tls says "TLS not checked" in the warning colour beside the context while the connection does
+	// not check the server's certificate (engine.Connection.TLSUnchecked, the owner's A29); hidden
+	// otherwise.
+	tls       *textLine
 	requests  *textLine
 	informers *textLine
 	demo      *textLine
@@ -246,8 +250,10 @@ func newStatusBar(sh *shell) *statusBar {
 	}
 	s.dot = newDot(statusColorName(model.StatusUnknown))
 	s.context, s.requests, s.informers, s.demo = caption(), caption(), caption(), caption()
+	s.tls = newTextLine(engine.TLSUncheckedLabel, colorStatusWarning, sizeStatusText, fyne.TextStyle{})
+	s.tls.Hide()
 	s.demoSep = newStatusDivider()
-	left := container.NewHBox(s.dot, s.context, newStatusDivider(), s.requests, newStatusDivider(),
+	left := container.NewHBox(s.dot, s.context, s.tls, newStatusDivider(), s.requests, newStatusDivider(),
 		s.informers, s.demoSep, s.demo)
 	right := container.NewHBox()
 	if sh.hasMCP() {
@@ -390,6 +396,11 @@ func (s *statusBar) update() {
 		ctx = "no cluster"
 	}
 	s.context.SetText(ctx + " · " + connectionText(ui.Connection))
+	if ui.Connection.State == engine.Connected && ui.Connection.TLSUnchecked {
+		s.tls.Show()
+	} else {
+		s.tls.Hide()
+	}
 	s.requests.SetText(fmt.Sprintf("API %s req · list %s · watch %s",
 		formatCount(d.total), formatCount(d.list), formatCount(d.watch)))
 	s.informers.SetText(strconv.Itoa(d.informers) + " informers")

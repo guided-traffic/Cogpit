@@ -334,7 +334,7 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 			return // b was closed since it was published: its file went (disconnectBackend, connect_gone.go)
 		}
 		u.Context = b.Context
-		u.Connection = Connection{State: Connected, Demo: b.Demo}
+		u.Connection = Connection{State: Connected, Demo: b.Demo, TLSUnchecked: tlsUnchecked(b)} // tlswarning.go
 		u.View = view
 		u.Sort = sort
 		u.Selected = nil

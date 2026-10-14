@@ -11,6 +11,14 @@ type ConnectResult struct {
 	Context string                 `json:"context"`
 	State   engine.ConnectionState `json:"state"`
 	Error   string                 `json:"error,omitempty"`
+	// TLSUnchecked: the connection does not check the API server's certificate
+	// (engine.Connection.TLSUnchecked, A29).
+	TLSUnchecked bool `json:"tlsUnchecked,omitempty"`
+}
+
+// connectResult is the result of a connect from the UI state after it.
+func connectResult(u engine.UIState) ConnectResult {
+	return ConnectResult{Context: u.Context, State: u.Connection.State, Error: u.Connection.Error, TLSUnchecked: u.Connection.TLSUnchecked}
 }
 
 type connectParams struct {
@@ -70,14 +78,15 @@ func registerCluster(g *registrar) {
 			"recently used tab, or else its Pods view in the preview tab; the other clusters' tabs stay. Connecting only reads from the cluster. " +
 			"A context whose credential plugin, or whose connection without the certificate check (insecure-skip-tls-verify), " +
 			"the user has not allowed in Cogpit's window ends in state error saying so: only the user allows it there. " +
-			"Returns {context, state, error}; state is connected or error.",
+			"Returns {context, state, error, tlsUnchecked}; state is connected or error; tlsUnchecked is set when the " +
+			"connection does not check the server's certificate (ui_state's connection says the same while it stands).",
 		Run: func(ctx context.Context, s *engine.Session, p connectParams) (any, error) {
 			err := s.Connect(ctx, p.Context)
 			u := s.UIState()
 			if err != nil && u.Connection.State != engine.ConnectError {
 				return nil, err // refused before connecting: no connector, closed, or superseded
 			}
-			return ConnectResult{Context: u.Context, State: u.Connection.State, Error: u.Connection.Error}, nil
+			return connectResult(u), nil
 		},
 	})
 }

@@ -106,9 +106,11 @@ func runGet(ctx context.Context, args []string, e *env) int {
 		return fail(e, err)
 	}
 	defer closeSession()
-	if err := connect(ctx, s, o.context); err != nil {
+	res, err := connect(ctx, s, o.context)
+	if err != nil {
 		return fail(e, err)
 	}
+	warnUnchecked(e, s, res)
 	kind, err := resolveKind(ctx, s, o.kind)
 	if err != nil {
 		return fail(e, err)
@@ -125,20 +127,36 @@ func runGet(ctx context.Context, args []string, e *env) int {
 }
 
 // connect connects the session to a context with cluster.connect, as the context picker and
-// agents do.
-func connect(ctx context.Context, s *engine.Session, contextName string) error {
+// agents do, and returns the command's result.
+func connect(ctx context.Context, s *engine.Session, contextName string) (commands.ConnectResult, error) {
 	var res commands.ConnectResult
 	if _, err := dispatchInto(ctx, s, "cluster.connect", map[string]string{"context": contextName}, &res); err != nil {
-		return err
+		return res, err
 	}
 	if res.State != engine.Connected {
 		msg := res.Error
 		if msg == "" {
 			msg = "the connection is " + string(res.State)
 		}
-		return fmt.Errorf("connect %s: %s", contextName, msg)
+		return res, fmt.Errorf("connect %s: %s", contextName, msg)
 	}
-	return nil
+	return res, nil
+}
+
+// warnUnchecked writes one warning line to standard error when the connection does not check the
+// API server's certificate (insecure-skip-tls-verify; the owner's A29, H-37): the status bar's
+// "TLS not checked" and the connect log's line, for a command that has neither. Standard output,
+// the table or the JSON, stays as it is.
+func warnUnchecked(e *env, s *engine.Session, res commands.ConnectResult) {
+	if !res.TLSUnchecked {
+		return
+	}
+	server := "its server"
+	if b := s.Backend(); b != nil && b.Conn != nil {
+		server = b.Conn.Server()
+	}
+	fmt.Fprintf(e.stderr, "cogpit-cli: warning: %s for %s. %s.\n", engine.TLSUncheckedLabel, safeText(res.Context),
+		safeText(engine.InsecureWarning(server)))
 }
 
 // resolveKind finds the kind a user named: a kind key, else the one kind whose Kubernetes kind or

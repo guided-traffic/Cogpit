@@ -45,9 +45,10 @@ contexts:
 }
 
 // A context whose cluster skips the certificate check is marked in the context list, from the
-// merged kubeconfig files and from a kubeconfig source alike, and its connect log carries a WARN
-// line naming the flag once the connection stands; the context with a checked certificate has
-// neither. The warning is no connect problem.
+// merged kubeconfig files and from a kubeconfig source alike, its connect log carries a WARN line
+// naming the flag once the connection stands, and its connection's state is TLSUnchecked while it
+// stands (A29); the context with a checked certificate has none of it. The warning is no connect
+// problem.
 func TestInsecureContextIsMarkedAndLogged(t *testing.T) {
 	srv := testkit.NewFakeAPIServer(testkit.FakeAPIOptions{})
 	defer srv.Close()
@@ -99,6 +100,10 @@ func TestInsecureContextIsMarkedAndLogged(t *testing.T) {
 			if lines := s.ConnectLog(tt.unchecked); lines[len(lines)-1].Text != "Connected to "+tt.unchecked {
 				t.Errorf("the log does not end with the connect: %+v", lines)
 			}
+			// A29: the connection's state says so while it stands, for the status bar and agents.
+			if c := s.UIState().Connection; c.State != Connected || !c.TLSUnchecked {
+				t.Errorf("the unchecked connection's state: %+v", c)
+			}
 			ctxs, err := s.Contexts()
 			if err != nil {
 				t.Fatal(err)
@@ -111,6 +116,9 @@ func TestInsecureContextIsMarkedAndLogged(t *testing.T) {
 
 			if err := s.Connect(context.Background(), tt.checked); err != nil {
 				t.Fatalf("connect %s: %v", tt.checked, err)
+			}
+			if c := s.UIState().Connection; c.State != Connected || c.TLSUnchecked {
+				t.Errorf("the checked connection's state: %+v", c)
 			}
 			for _, l := range s.ConnectLog(tt.checked) {
 				if l.Level == LogWarn {

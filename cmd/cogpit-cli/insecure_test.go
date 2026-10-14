@@ -79,3 +79,45 @@ func TestGetRefusesAnUncheckedContextUntilAllowed(t *testing.T) {
 		t.Errorf("stdout:\n%s", te.out)
 	}
 }
+
+// TestGetWarnsAboutAnUncheckedCertificate (A29, H-37): connected to a context that skips the
+// certificate check, get writes one warning line to standard error, naming the context and the
+// server, never the token; standard output stays the result (JSON parses). A checked context gets
+// no such line.
+func TestGetWarnsAboutAnUncheckedCertificate(t *testing.T) {
+	srv := testkit.NewFakeAPIServer(testkit.FakeAPIOptions{})
+	defer srv.Close()
+	srv.Set(testkit.PodsGVR, testkit.Pod("team", "web-0"))
+	te := newTestEnv(t)
+	te.writeKube(t, "lab.yaml", labKube(srv))
+	allowLab(t, te)
+
+	got := te.listJSON(t, "pods", "--context", "lab") // fails the test unless stdout is the JSON result
+	if got.Total != 1 {
+		t.Errorf("pods %+v", got)
+	}
+	var warnings []string
+	for _, l := range strings.Split(strings.TrimSpace(te.errOut.String()), "\n") {
+		if strings.HasPrefix(l, "cogpit-cli: warning: TLS not checked") {
+			warnings = append(warnings, l)
+		}
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "lab [.kube/lab.yaml]") || !strings.Contains(warnings[0], srv.URL) ||
+		!strings.Contains(warnings[0], "insecure-skip-tls-verify") {
+		t.Errorf("stderr warnings %q; stderr:\n%s", warnings, te.errOut)
+	} else {
+		t.Logf("stderr: %s", warnings[0])
+	}
+	if strings.Contains(te.out.String()+te.errOut.String(), "tok-SECRET") {
+		t.Error("the token reached the output")
+	}
+
+	checked := srv.WriteKubeconfig(t, "fake", "team")
+	te.reset()
+	if code := te.run(t, "get", "pods", "--kubeconfig", checked, "--context", "fake"); code != exitOK {
+		t.Fatalf("checked: exit code %d; stderr: %s", code, te.errOut)
+	}
+	if strings.Contains(te.errOut.String(), "TLS not checked") {
+		t.Errorf("a checked context warns:\n%s", te.errOut)
+	}
+}
