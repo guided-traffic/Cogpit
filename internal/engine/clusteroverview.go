@@ -103,6 +103,11 @@ type ClusterOverviewModel struct {
 	// "kube-state-metrics" (through Prometheus), "none" (Prometheus has no such series: the chart
 	// is the cache's counts since the page opened), or empty while not known.
 	PodsHistory string `json:"podsHistory,omitempty"`
+	// UsageHistory says where the CPU and Memory charts' history comes from once Prometheus
+	// answered (A43, F1): "node-exporter" (where the cluster's Prometheus has its series),
+	// "cadvisor" (the nodes' root cgroups), "none" (it has neither: the charts hold what Cogpit
+	// measured since the page opened), or empty while not known or without Prometheus.
+	UsageHistory string `json:"usageHistory,omitempty"`
 	// Providers is the status line under the charts: each of the cluster's metrics providers, whether
 	// it answers, what it serves (as metrics.get and a drawer's status line have it).
 	Providers []metrics.ProviderStatus `json:"providers,omitempty"`

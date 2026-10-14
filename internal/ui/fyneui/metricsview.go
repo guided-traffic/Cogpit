@@ -436,6 +436,8 @@ func (p *metricsPanel) render() {
 			note = "No metrics for this " + singular(p.d.sh.kindTitle(p.ref.Kind)) + " yet."
 		} else if t != nil && !m.Capabilities.History && !p.coversWindow(t) {
 			note = "The Metrics Server keeps no history: Cogpit keeps what it measured, the last hour at most."
+		} else if m.Capabilities.History && m.HistorySource == metrics.UsageNone {
+			note = noHistoryNote("this " + singular(p.d.sh.kindTitle(p.ref.Kind)))
 		}
 		p.setNote(note)
 	}
@@ -471,6 +473,13 @@ func (p *metricsPanel) setState(charts bool, caption string) {
 	if !charts {
 		p.setNote("")
 	}
+}
+
+// noHistoryNote says that the cluster's Prometheus has no CPU or memory series of what the charts
+// show (engine HistorySource "none", A43): no node-exporter or cAdvisor series of a node, none of
+// a pod, so the charts begin where Cogpit began measuring rather than an hour back.
+func noHistoryNote(what string) string {
+	return "Prometheus has no history of " + what + "; Cogpit shows what it measured."
 }
 
 // setNote shows a note under the source line, or no line at all for none, so that the status line

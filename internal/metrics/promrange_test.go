@@ -171,9 +171,124 @@ func TestObjectRangeOfANode(t *testing.T) {
 	if len(got.Targets) != 1 || len(u) != 2 || u[1].CPUMilli != 4000 || u[1].MemoryBytes != 4 {
 		t.Errorf("node usage = %+v (targets %d)", u, len(got.Targets))
 	}
-	if n := c.prom.queryCount(`id="/"`); n < 5 {
-		t.Errorf("%d node queries use the root cgroup", n)
+	// CPU and memory from node-exporter (A43), the network and the filesystem from the root cgroup.
+	if got.UsageSource != metrics.UsageNodeExporter || c.prom.queryCount("node_cpu_seconds_total") != 1 || c.prom.queryCount("container_cpu_usage_seconds_total") != 0 {
+		t.Errorf("usage source %q", got.UsageSource)
 	}
+	if n := c.prom.queryCount(`id="/"`); n != 3 {
+		t.Errorf("%d node queries use the root cgroup, want 3 (received, transmitted, filesystem)", n)
+	}
+}
+
+// nodeQuery is a node's range query with its addresses.
+func nodeQuery(name string, addrs ...string) metrics.RangeQuery {
+	q := podQuery("", name)
+	q.Kind, q.Addresses, q.Want = metrics.KindNodes, addrs, metrics.WantUsage
+	return q
+}
+
+// A node's CPU and memory history comes from node-exporter where the Prometheus has its series,
+// cAdvisor's root cgroup otherwise (A43, D-43, F1), matched by the node label or by the instance:
+// the node's name or one of its addresses, as kube-prometheus-stack's exporter is scraped under its
+// host-network address without a node label, and its kubelet ServiceMonitor drops the root cgroup.
+func TestNodeHistoryFromNodeExporter(t *testing.T) {
+	ctx := context.Background()
+	t.Run("kube-prometheus-stack: the exporter by its address, no root cgroup", func(t *testing.T) {
+		c := newPromCluster(t, false)
+		c.prom.on(`node_cpu_seconds_total{instance=~"(n1|10\\.0\\.0\\.7)(:[0-9]+)?"`, s(nil, 1000, 1.5, 1030, 1.75))
+		c.prom.on(`node_memory_MemTotal_bytes{instance=~"(n1|10\\.0\\.0\\.7)(:[0-9]+)?"`, s(nil, 1000, 3<<30, 1030, 3<<30))
+		prov := promProvider(t, c, metrics.PrometheusOptions{})
+
+		// Without the address the exporter is not found, nor the dropped root cgroup: no history,
+		// and the answer says so.
+		got, err := prov.ObjectRange(ctx, nodeQuery("n1"))
+		if err != nil || got.UsageSource != metrics.UsageNone || got.Targets[""] != nil {
+			t.Fatalf("by name alone: %+v %v", got, err)
+		}
+		// With it, an hour of node-exporter's points.
+		before := c.proxyCount()
+		got, err = prov.ObjectRange(ctx, nodeQuery("n1", "10.0.0.7"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		u := got.Targets[""].Usage
+		if got.UsageSource != metrics.UsageNodeExporter || len(u) != 2 || u[1].CPUMilli != 1750 || u[1].MemoryBytes != 3<<30 {
+			t.Errorf("source %q, usage %+v", got.UsageSource, u)
+		}
+		if n := c.proxyCount() - before; n != 2 {
+			t.Errorf("%d requests, want 2: node-exporter's CPU and memory, cAdvisor not asked once they answered", n)
+		}
+	})
+	t.Run("the prometheus chart with node-exporter: the node label, preferred to the root cgroup", func(t *testing.T) {
+		c := newPromCluster(t, false)
+		c.prom.on(`node_cpu_seconds_total{node="n1"`, s(nil, 1000, 0.25))
+		c.prom.on(`node_memory_MemTotal_bytes{node="n1"}`, s(nil, 1000, 1<<30))
+		c.prom.on(`container_cpu_usage_seconds_total{id="/"`, s(nil, 1000, 9))
+		c.prom.on(`container_memory_working_set_bytes{id="/"`, s(nil, 1000, 9<<30))
+		prov := promProvider(t, c, metrics.PrometheusOptions{})
+		got, err := prov.ObjectRange(ctx, nodeQuery("n1"))
+		if err != nil || got.UsageSource != metrics.UsageNodeExporter || got.Targets[""].Usage[0].CPUMilli != 250 {
+			t.Fatalf("%+v %v", got, err)
+		}
+		if c.prom.queryCount("container_cpu_usage_seconds_total") != 0 {
+			t.Error("the root cgroup was asked although node-exporter answered")
+		}
+		// A node without an exporter (its DaemonSet does not run there) falls back to its root cgroup.
+		got, err = prov.ObjectRange(ctx, nodeQuery("n2"))
+		if err != nil || got.UsageSource != metrics.UsageCAdvisor || got.Targets[""].Usage[0].CPUMilli != 9000 {
+			t.Errorf("a node without an exporter: %+v %v", got, err)
+		}
+	})
+	t.Run("the prometheus chart without node-exporter: cAdvisor, remembered", func(t *testing.T) {
+		c := newPromCluster(t, false)
+		c.prom.on(`container_cpu_usage_seconds_total{id="/"`, s(nil, 1000, 2))
+		c.prom.on(`container_memory_working_set_bytes{id="/"`, s(nil, 1000, 2<<30))
+		prov := promProvider(t, c, metrics.PrometheusOptions{})
+		before := c.proxyCount()
+		got, err := prov.ObjectRange(ctx, nodeQuery("n1"))
+		if err != nil || got.UsageSource != metrics.UsageCAdvisor || got.Targets[""].Usage[0].MemoryBytes != 2<<30 {
+			t.Fatalf("%+v %v", got, err)
+		}
+		if n := c.proxyCount() - before; n != 4 {
+			t.Errorf("%d requests, want 4: node-exporter tried once, then the root cgroup", n)
+		}
+		before = c.proxyCount()
+		if _, err := prov.ObjectRange(ctx, nodeQuery("n2")); err != nil {
+			t.Fatal(err)
+		}
+		if n := c.proxyCount() - before; n != 2 || c.prom.queryCount("node_cpu_seconds_total") != 1 {
+			t.Errorf("%d requests for the next node, want 2: this Prometheus's nodes come from cAdvisor", n)
+		}
+	})
+	t.Run("neither: none, and node-exporter is asked again next time", func(t *testing.T) {
+		c := newPromCluster(t, false)
+		prov := promProvider(t, c, metrics.PrometheusOptions{})
+		for range 2 {
+			if got, err := prov.ObjectRange(ctx, nodeQuery("n1")); err != nil || got.UsageSource != metrics.UsageNone || len(got.Targets) != 0 {
+				t.Fatalf("%+v %v", got, err)
+			}
+		}
+		if n := c.prom.queryCount("node_cpu_seconds_total"); n != 2 {
+			t.Errorf("node-exporter asked %d times, want each time while nothing was found", n)
+		}
+	})
+	t.Run("a pod's source", func(t *testing.T) {
+		c := newPromCluster(t, false)
+		podData(c.prom)
+		prov := promProvider(t, c, metrics.PrometheusOptions{})
+		q := podQuery("web", "a")
+		q.Want = metrics.WantUsage
+		if got, err := prov.ObjectRange(ctx, q); err != nil || got.UsageSource != metrics.UsageCAdvisor {
+			t.Errorf("%+v %v", got, err)
+		}
+		q.Name = "gone"
+		c.prom.mu.Lock()
+		c.prom.rules = nil
+		c.prom.mu.Unlock()
+		if got, err := prov.ObjectRange(ctx, q); err != nil || got.UsageSource != metrics.UsageNone {
+			t.Errorf("a pod without series: %+v %v", got, err)
+		}
+	})
 }
 
 // The filesystem metric is found per kind: on containerd the kubelet's cAdvisor has

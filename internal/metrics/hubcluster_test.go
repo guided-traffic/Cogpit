@@ -190,6 +190,43 @@ func TestClusterLiveOnlyWithoutHistory(t *testing.T) {
 	}
 }
 
+// TestClusterHistoryFromNodeExporter (A43, F1): on a Prometheus with node-exporter's series the
+// cluster's history is theirs, every exporter for every node and the masters by name or address
+// (kube-prometheus-stack's exporter is known by its host-network address only), the workers every
+// node less the masters; masters without an exporter leave every exporter's sum to the workers.
+func TestClusterHistoryFromNodeExporter(t *testing.T) {
+	c := newPromCluster(t, false)
+	c.prom.on(`node_cpu_seconds_total{instance=~"(cp|10\\.0\\.0\\.1)(:[0-9]+)?"`, s(nil, 1000, 0.5, 1030, 0.75))
+	c.prom.on(`node_memory_MemTotal_bytes{instance=~"(cp|10\\.0\\.0\\.1)(:[0-9]+)?"`, s(nil, 1000, 1<<30, 1030, 1<<30))
+	c.prom.on(`node_cpu_seconds_total{mode!~`, s(nil, 1000, 2, 1030, 2.5))
+	c.prom.on(`node_memory_MemTotal_bytes - node_memory_MemFree_bytes`, s(nil, 1000, 4<<30, 1030, 5<<30))
+	prov := promProvider(t, c, metrics.PrometheusOptions{})
+	to := time.Unix(100020, 0)
+	q := metrics.RangeQuery{Kind: metrics.KindCluster, Name: metrics.ClusterScope([]string{"cp"}).Name, Addresses: []string{"10.0.0.1"},
+		From: to.Add(-time.Hour), To: to, Step: 30 * time.Second, Want: metrics.WantUsage}
+	got, err := prov.ObjectRange(context.Background(), q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.UsageSource != metrics.UsageNodeExporter || c.prom.queryCount("container_") != 0 {
+		t.Errorf("source %q, %d cAdvisor queries", got.UsageSource, c.prom.queryCount("container_"))
+	}
+	m, w := got.Targets[metrics.TargetMaster], got.Targets[metrics.TargetWorker]
+	if m == nil || w == nil || len(w.Usage) != 2 || w.Usage[1].CPUMilli != 1750 || w.Usage[1].MemoryBytes != 4<<30 || m.Usage[1].CPUMilli != 750 {
+		t.Errorf("masters %+v, workers %+v", m, w)
+	}
+
+	// The masters without an exporter (the DaemonSet does not tolerate their taint): every
+	// exporter is a worker's.
+	q.Addresses = nil
+	if got, err = prov.ObjectRange(context.Background(), q); err != nil {
+		t.Fatal(err)
+	}
+	if got.Targets[metrics.TargetMaster] != nil || len(got.Targets[metrics.TargetWorker].Usage) != 2 || got.Targets[metrics.TargetWorker].Usage[1].CPUMilli != 2500 {
+		t.Errorf("masters without an exporter: %+v", got.Targets)
+	}
+}
+
 // TestClusterRangeQueries: the cluster's history is a sum over the nodes' root cgroups, every node
 // without a node matcher and the masters by name (quoted for the regular expression and for
 // PromQL), the workers every node less the masters; two queries without masters.
@@ -207,8 +244,8 @@ func TestClusterRangeQueries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := c.proxyCount() - before; n != 4 {
-		t.Errorf("%d requests, want 4 (cpu and memory, every node and the masters)", n)
+	if n := c.proxyCount() - before; n != 8 || got.UsageSource != metrics.UsageCAdvisor {
+		t.Errorf("%d requests from %q, want 8 from cadvisor (cpu and memory, every node and the masters, from node-exporter, which this one lacks, then from cAdvisor)", n, got.UsageSource)
 	}
 	var master string
 	for _, r := range c.prom.requests() {
@@ -274,8 +311,8 @@ func TestClusterBudget(t *testing.T) {
 	sc := metrics.ClusterScope([]string{"m1"})
 	sub := h.Subscribe(sc, onChange)
 	waitPoll(t, polls, 4)
-	if n := c.proxyCount(); n != 1+4 {
-		t.Errorf("%d Prometheus requests after 4 polls, want 5 (1 probe + cpu and memory of every node and the master, once)", n)
+	if n := c.proxyCount(); n != 1+4+4 {
+		t.Errorf("%d Prometheus requests after 4 polls, want 9 (1 probe + cpu and memory of every node and the master, once from node-exporter, which this one lacks, once from cAdvisor)", n)
 	}
 	if n := count("list nodes.metrics.k8s.io"); n < 4 {
 		t.Errorf("%d node lists in 4 polls", n)
@@ -288,11 +325,11 @@ func TestClusterBudget(t *testing.T) {
 		t.Errorf("workers %+v", w)
 	}
 
-	// A range change: one query set more.
+	// A range change: one query set more, from cAdvisor only (this Prometheus's nodes come from it).
 	sub.SetWindows(1200 * time.Millisecond)
 	waitPoll(t, polls, 6)
-	if n := c.proxyCount(); n != 1+8 {
-		t.Errorf("%d Prometheus requests after a range change, want 9", n)
+	if n := c.proxyCount(); n != 1+8+4 {
+		t.Errorf("%d Prometheus requests after a range change, want 13", n)
 	}
 	sub.Release()
 	settled := c.conn.Counter().Snapshot().Total

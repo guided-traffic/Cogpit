@@ -63,17 +63,24 @@ privilege escalation and with all capabilities dropped.
 `make kind-prometheus` installs a real Prometheus into the cluster for the drawer's charts: the
 prometheus-community `prometheus` chart (version pinned in the Makefile, fetched with `--repo`, so no
 helm repository is added to your helm configuration), release `prometheus` in the namespace
-`monitoring`, with [`prometheus-values.yaml`](prometheus-values.yaml): the server alone (no
-Alertmanager, Pushgateway, kube-state-metrics or node-exporter), a week of retention. Its Service
-`monitoring/prometheus-server` is a name Cogpit's detection looks for; the chart's
-`kubernetes-nodes-cadvisor` job scrapes the kubelet's cAdvisor every minute, the source of every
-query Cogpit sends. Charts fill two or three minutes after the install.
+`monitoring`, with [`prometheus-values.yaml`](prometheus-values.yaml): the server, node-exporter and
+kube-state-metrics (no Alertmanager or Pushgateway), a week of retention. Its Service
+`monitoring/prometheus-server` is a name Cogpit's detection looks for. The chart's
+`kubernetes-nodes-cadvisor` job scrapes the kubelet's cAdvisor every minute (the pods' charts, a
+node's network and filesystem); its `kubernetes-service-endpoints` job scrapes node-exporter (a
+node's CPU and memory history, the Overview's CPU and Memory) and kube-state-metrics (the Overview's
+Pods history), each labelled with its node. Charts fill two or three minutes after the install; the
+Overview's test wants half an hour of node-exporter's history.
 
 ```sh
 make kind-prometheus        # install or upgrade (helm, --wait)
-make test-kind              # TestKindPrometheus and TestKindPrometheusDrawer run instead of skipping
+make test-kind              # TestKindPrometheus, TestKindNodeExporterByAddress, TestKindClusterOverview and TestKindPrometheusDrawer run instead of skipping
 make kind-prometheus-down   # uninstall and delete the namespace monitoring
 ```
+
+If an image pull stalls inside the kind node (seen 2026-10-14: node-exporter's stopped at 1 MB),
+pull it on the host and load it: `docker pull <image>` then `kind load docker-image <image> --name
+cogpit`; the kubelet pulls one image at a time, so a stalled pull holds the next pod too.
 
 Through the service proxy as Cogpit reads it:
 
@@ -83,7 +90,11 @@ KUBECONFIG=.cache/kind/kubeconfig kubectl --context kind-cogpit get --raw \
 ```
 
 On this cluster's containerd, cAdvisor reports no `container_fs_usage_bytes` for containers, so a
-pod's Filesystem chart shows read and write rates; the node's shows the usage of its disk.
+pod's Filesystem chart shows read and write rates; the node's shows the usage of its disk. A kind
+node's `/` is an overlay, which node-exporter leaves out, so the Nodes list's Disk column stays
+empty here. node-exporter reads the Docker VM's `/proc`, the Metrics Server the node container's
+cgroup: on kind a node's history (node-exporter's) and its live values (the Metrics Server's) do not
+match.
 
 ## The synthetic cluster
 

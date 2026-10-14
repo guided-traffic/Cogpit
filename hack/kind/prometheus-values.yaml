@@ -1,19 +1,21 @@
 # Values for the prometheus-community `prometheus` chart that `make kind-prometheus` installs into
-# the kind cluster (namespace monitoring, release prometheus): the server alone, which is all
-# Cogpit's metrics read (architecture §9). Its Service is monitoring/prometheus-server, port 80
-# named "http", which Cogpit's detection finds by name. The chart's `kubernetes-nodes-cadvisor`
-# job scrapes the kubelets' cAdvisor endpoint, the source of every query Cogpit sends; the scrape
-# interval stays the chart's default (1m), the one users of the chart get.
+# the kind cluster (namespace monitoring, release prometheus): the server, node-exporter and
+# kube-state-metrics, which is all Cogpit's metrics read (architecture §9). Its Service is
+# monitoring/prometheus-server, port 80 named "http", which Cogpit's detection finds by name. The
+# chart's `kubernetes-nodes-cadvisor` job scrapes the kubelets' cAdvisor endpoint (the pods'
+# charts, a node's network and filesystem); its `kubernetes-service-endpoints` job scrapes
+# node-exporter (a node's CPU and memory history and the Nodes list's Disk, D-43, A43) and
+# kube-state-metrics (the cluster Overview's Pods history), both labelled with the node they run on
+# (A115, owner 2026-10-14 evening). The scrape interval stays the chart's default (1m), the one users
+# of the chart get.
 alertmanager:
   enabled: false
 prometheus-pushgateway:
   enabled: false
-# Cogpit's queries need neither: requests and limits come from the pod spec, node charts from
-# cAdvisor's root cgroup.
 kube-state-metrics:
-  enabled: false
+  enabled: true
 prometheus-node-exporter:
-  enabled: false
+  enabled: true
 server:
   # A week of history on the developer's disk (local-path); the claim's size is not enforced there.
   retention: 7d

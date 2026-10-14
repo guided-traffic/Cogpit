@@ -41,10 +41,11 @@ type overviewEntry struct {
 	gen   uint32
 	issue *ClusterIssue
 
-	// A node's.
+	// A node's; addrs are its addresses besides its name (nodeAddresses).
 	master              bool
 	alloc, capa         model.Usage
 	allocPods, capaPods int64
+	addrs               []string
 
 	// A pod's: the node it runs on, whether it still takes room there (not finished), and the sum
 	// of its containers' requests and of the limits they set. A node's: its own name.
@@ -63,7 +64,10 @@ type overviewBuild struct {
 	issues  []ClusterIssue
 	groups  map[string]groupTotals
 	masters []string // the control-plane nodes, sorted
-	synced  bool
+	// masterAddrs are the control-plane nodes' addresses, by node: the cluster's Prometheus history
+	// finds the masters' series by them too (Hub.SetNodeAddresses, A43).
+	masterAddrs map[string][]string
+	synced      bool
 	// nodesSynced: the nodes are listed (or cannot be read), so masters names the whole control plane
 	// as far as Cogpit can know it.
 	nodesSynced bool
@@ -141,6 +145,10 @@ func (src *overviewSource) build(now time.Time) *overviewBuild {
 		if e.master {
 			g = NodesMaster
 			ob.masters = append(ob.masters, name)
+			if ob.masterAddrs == nil {
+				ob.masterAddrs = map[string][]string{}
+			}
+			ob.masterAddrs[name] = e.addrs
 		}
 		nodeGroup[name] = g
 		t := ob.groups[g]
@@ -202,6 +210,7 @@ func nodeEntry(p *model.KindProfile, context string, obj *unstructured.Unstructu
 		}
 	}
 	e.alloc, e.capa = model.NodeCapacity(obj)
+	e.addrs = nodeAddresses(e.node, obj)
 	e.allocPods = quantityOf(obj, "status", "allocatable", "pods")
 	e.capaPods = quantityOf(obj, "status", "capacity", "pods")
 	if c, ok := warningOf(p, row); ok {

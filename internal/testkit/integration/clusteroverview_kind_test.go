@@ -16,7 +16,7 @@ import (
 
 // TestKindClusterOverview checks the cluster Overview (G12, M7) against the kind cluster's
 // metrics-server and the real Prometheus of `make kind-prometheus`: the page's CPU and Memory get the
-// cluster's history from Prometheus once (sums over the nodes' root cgroups) and the Metrics
+// cluster's history from Prometheus once (sums over node-exporter's series, A43) and the Metrics
 // Server's node list after it; the live sum matches metrics.get's nodes; the lines and the Pods
 // come from the cache; the Issues name objects the cluster has; a range change asks Prometheus
 // once more; a closed page asks nothing. It only reads. Skipped without that Prometheus.
@@ -90,13 +90,19 @@ func TestKindClusterOverview(t *testing.T) {
 	t.Logf("metrics.get nodes: %d nodes, cpu %dm, memory %s (source %q); the Overview: cpu %s, memory %s",
 		len(nodes.Nodes), sum.CPUMilli, model.FormatBytes(sum.MemoryBytes), nodes.Source, ftoa(*m.Charts[0].Current), ftoa(*m.Charts[1].Current))
 
-	// Prometheus's requests: the probe and one history (4 range queries: every node and the
-	// masters), then none while the Metrics Server answers; a node list per poll.
+	// The history's sources (A43, A115): node-exporter's CPU and memory, kube-state-metrics' pods.
+	if m.UsageHistory != metrics.UsageNodeExporter || m.PodsHistory != metrics.PodsFromKubeStateMetrics {
+		t.Errorf("history from %q and pods from %q, want node-exporter and kube-state-metrics (make kind-prometheus again: its values enable both since A115)", m.UsageHistory, m.PodsHistory)
+	}
+
+	// Prometheus's requests: the probe and one history (4 range queries of node-exporter: every
+	// node and the masters; 2 of kube-state-metrics: their pods), then none while the Metrics
+	// Server answers; a node list per poll.
 	time.Sleep(45 * time.Second)
 	proxy, lists := count("get services/proxy")-proxy0, count("list nodes.metrics.k8s.io")-lists0
 	t.Logf("the page open %s: %d Prometheus requests, %d node lists", time.Since(opened).Round(time.Second), proxy, lists)
-	if proxy > 5 {
-		t.Errorf("%d Prometheus requests with the page open, want at most 5 (a probe and one history)", proxy)
+	if proxy > 7 {
+		t.Errorf("%d Prometheus requests with the page open, want at most 7 (a probe and one history)", proxy)
 	}
 
 	// The Issues: objects the cluster has.

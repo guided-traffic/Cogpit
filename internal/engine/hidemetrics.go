@@ -345,6 +345,7 @@ func (d *drawerWatch) followHidden(s *Session, hidden MetricSet) {
 		d.wmu.Unlock()
 		cur.Release()
 	case want && cur == nil:
+		d.setNodeAddresses()
 		sub := s.startDrawerUsage(d.backend, d.profile, d.ref)
 		d.wmu.Lock()
 		d.usage = sub

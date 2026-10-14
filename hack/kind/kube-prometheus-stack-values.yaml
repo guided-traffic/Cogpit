@@ -1,9 +1,11 @@
 # Values for the kube-prometheus-stack chart that `make kind-kps` installs into the kind cluster for
 # one check (TestKindKubePrometheusStack, architecture §9), and `make kind-kps-down` removes again:
-# the least that Cogpit's queries need, the operator, one Prometheus and the kubelet's cAdvisor
-# scrape every 30 s (the chart's default kubelet ServiceMonitor, relabelings included). Release
-# "kps" in its own namespace cogpit-kps, so the Services are kps-kube-prometheus-stack-prometheus
-# and prometheus-operated, both with the port http-web.
+# the least that Cogpit's queries need, the operator, one Prometheus, the kubelet's cAdvisor scrape
+# every 30 s (the chart's default kubelet ServiceMonitor, relabelings included, which drop the root
+# cgroup), node-exporter (the nodes' CPU and memory history and disks, scraped under the node's
+# address: A43) and kube-state-metrics (the Overview's Pods history), the chart's defaults for both
+# (A115, owner 2026-10-14 evening). Release "kps" in its own namespace cogpit-kps, so the Services
+# are kps-kube-prometheus-stack-prometheus and prometheus-operated, both with the port http-web.
 crds:
   enabled: true
 defaultRules:
@@ -27,9 +29,15 @@ kubeScheduler:
 kubeProxy:
   enabled: false
 kubeStateMetrics:
-  enabled: false
+  enabled: true
 nodeExporter:
-  enabled: false
+  enabled: true
+# The prometheus chart's node-exporter (make kind-prometheus) holds the node's port 9100 with host
+# networking; this one listens on 9110 beside it.
+prometheus-node-exporter:
+  service:
+    port: 9110
+    targetPort: 9110
 thanosRuler:
   enabled: false
 kubelet:

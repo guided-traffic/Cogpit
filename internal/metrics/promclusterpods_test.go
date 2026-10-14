@@ -118,8 +118,8 @@ func TestClusterPodsHistoryBudget(t *testing.T) {
 	if n := c.prom.queryCount("kube_pod_info"); n != 2 {
 		t.Errorf("%d pod-count queries in 4 polls, want 2 (every node and the master, once)", n)
 	}
-	if n := c.proxyCount(); n != 1+4+2 {
-		t.Errorf("%d Prometheus requests after 4 polls, want 7 (1 probe + 4 for CPU and memory + 2 pod counts)", n)
+	if n := c.proxyCount(); n != 1+4+4+2 {
+		t.Errorf("%d Prometheus requests after 4 polls, want 11 (1 probe + 4 for node-exporter's CPU and memory, which this one lacks, + 4 for cAdvisor's + 2 pod counts)", n)
 	}
 	hist := h.History(sc)
 	if hist == nil || hist.PodsSource != metrics.PodsFromKubeStateMetrics {

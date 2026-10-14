@@ -115,6 +115,10 @@ type Prometheus struct {
 	// containers (kind with the prometheus chart, 2026-10-12), so a node's "usage" must not decide
 	// the pods'.
 	fsMode [2]atomic.Int32
+
+	// nodeMode is where this Prometheus has the nodes' CPU and memory (A43, nodeSource):
+	// nodeUnknown until a query found them, then nodeExporter or nodeCAdvisor.
+	nodeMode atomic.Int32
 }
 
 // fsKind is the index of a kind's filesystem mode.
@@ -395,7 +399,8 @@ func (p *Prometheus) ListNodes(ctx context.Context) ([]model.NodeUsage, error) {
 
 // GetNode implements Provider.
 func (p *Prometheus) GetNode(ctx context.Context, name string) (model.NodeUsage, error) {
-	cpu, mem, err := p.instantPair(ctx, nodeSum(metricCPU, name, rateWindow), nodeSum(metricMemory, name, 0))
+	m := matchNode(name, nil)
+	cpu, mem, err := p.instantPair(ctx, nodeSum(metricCPU, m, rateWindow), nodeSum(metricMemory, m, 0))
 	if err != nil {
 		return model.NodeUsage{}, err
 	}

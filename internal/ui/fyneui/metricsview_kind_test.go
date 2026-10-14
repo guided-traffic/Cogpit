@@ -110,7 +110,7 @@ func TestKindPrometheusDrawer(t *testing.T) {
 		t.Logf("status line: %q", st)
 	}
 	for _, s := range texts {
-		if strings.Contains(s, "keeps no history") {
+		if strings.Contains(s, "keeps no history") || strings.Contains(s, "has no history") {
 			t.Errorf("the drawer says %q with Prometheus", s)
 		}
 	}

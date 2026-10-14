@@ -54,6 +54,24 @@ func drawerDisk(hub *metrics.Hub, ref model.ObjectRef, obj *unstructured.Unstruc
 	return nil, st.Message
 }
 
+// nodeAddresses are a node's addresses besides its name (nodeKeys without the name), which the
+// metrics hub matches a node's Prometheus series by (Hub.SetNodeAddresses, A43).
+func nodeAddresses(name string, obj *unstructured.Unstructured) []string {
+	return nodeKeys(name, obj)[1:]
+}
+
+// setNodeAddresses gives the metrics hub a node drawer's node's addresses from the cache before its
+// chart's first poll: kube-prometheus-stack's node-exporter is known by them only (A43). A node the
+// cache does not hold yet gets them when ObjectMetrics reads it.
+func (d *drawerWatch) setNodeAddresses() {
+	if d.profile.Usage != model.UsageNodes || d.backend.Metrics == nil {
+		return
+	}
+	if obj, ok := KindGet(d.obj, d.profile, d.namespace(), d.ref.Name); ok {
+		d.backend.Metrics.SetNodeAddresses(d.ref.Name, nodeAddresses(d.ref.Name, obj))
+	}
+}
+
 // nodeKeys are the names node-exporter's series may give a node: its name, then its addresses
 // (InternalIP, ExternalIP, Hostname), for an exporter whose instance is the node's address.
 func nodeKeys(name string, obj *unstructured.Unstructured) []string {

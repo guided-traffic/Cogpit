@@ -70,10 +70,12 @@ func kindMetricsSession(ctx context.Context, t *testing.T, opts metrics.Options)
 
 // TestKindPrometheus checks the drawer's charts against a real Prometheus (the prometheus-community
 // `prometheus` chart that `make kind-prometheus` installs as monitoring/prometheus-server, scraping
-// the kubelets' cAdvisor every minute) and the kind cluster's metrics-server, both together:
-// detection finds Prometheus among the cached Services when a drawer opens; a node's drawer and
-// then a running pod's drawer get their history from Prometheus once and their live values from
-// the Metrics Server; the network and the filesystem come when a chart shows them; a chart's range
+// the kubelets' cAdvisor, node-exporter and kube-state-metrics every minute) and the kind cluster's
+// metrics-server, both together: detection finds Prometheus among the cached Services when a
+// drawer opens; a node's drawer (from node-exporter, A43) and then a running pod's drawer (from
+// cAdvisor) get their history from Prometheus once, reaching back before the drawer opened (F1),
+// and their live values from the Metrics Server; the network and the filesystem come when a chart
+// shows them; a chart's range
 // changes through ui.setMetricsRange; metrics.get answers from the Metrics Server; the status line
 // says who serves what. The node comes first on purpose: on containerd the kubelet's cAdvisor has
 // container_fs_usage_bytes for the node's root cgroup but not for containers, so the filesystem
@@ -107,13 +109,19 @@ func TestKindPrometheus(t *testing.T) {
 	}) {
 		t.Fatal("no node")
 	}
+	nodeOpened := time.Now()
 	dispatch("ui.navigate", map[string]any{"ref": node})
 	m := waitHistory(ctx, t, s, node, func(m *engine.ObjectMetrics) bool {
-		return len(m.Targets[0].Samples) > 0 && m.Source == kindBothSource
+		return len(m.Targets[0].Samples) > 0 && m.Source == kindBothSource && m.HistorySource != ""
 	})
 	if !m.Capabilities.History || !m.Capabilities.Network || !m.Capabilities.Filesystem {
 		t.Errorf("node: capabilities %+v", m.Capabilities)
 	}
+	// The node's past comes from node-exporter (A43, A115, F1), from before the drawer opened.
+	if m.HistorySource != metrics.UsageNodeExporter {
+		t.Errorf("node: history from %q, want node-exporter (make kind-prometheus again: its values enable node-exporter since A115)", m.HistorySource)
+	}
+	checkPast(t, "node", m.Targets[0].Samples, nodeOpened)
 	logProviders(t, "node", m.Providers)
 	dispatch("ui.setMetricsVariant", map[string]any{"ref": node, "variant": "network"})
 	m = waitHistory(ctx, t, s, node, func(m *engine.ObjectMetrics) bool { return len(m.Targets[0].Network) > 0 })
@@ -142,10 +150,15 @@ func TestKindPrometheus(t *testing.T) {
 	}) {
 		t.Fatal("no running web pod in cogpit-demo (make kind-seed)")
 	}
+	podOpened := time.Now()
 	dispatch("ui.navigate", map[string]any{"ref": pod})
 	m = waitHistory(ctx, t, s, pod, func(m *engine.ObjectMetrics) bool {
 		return len(m.Targets) >= 2 && len(m.Targets[0].Samples) > 0 && len(m.Targets[1].Samples) > 0 && m.Source == kindBothSource
 	})
+	if m.HistorySource != metrics.UsageCAdvisor {
+		t.Errorf("pod: history from %q, want cadvisor", m.HistorySource)
+	}
+	checkPast(t, "pod", m.Targets[0].Samples, podOpened)
 	ctrName := m.Targets[1].Name
 	dispatch("ui.setMetricsVariant", map[string]any{"ref": pod, "variant": "network"})
 	dispatch("ui.setMetricsVariant", map[string]any{"ref": pod, "container": ctrName, "variant": "filesystem"})
@@ -238,6 +251,84 @@ func TestKindPrometheus(t *testing.T) {
 	if p, _, _ := measure("the network shown"); p < 4 || p > 10 {
 		t.Errorf("the network shown: %d Prometheus requests in 90 s, want 2 at once and 2 per 30 s step", p)
 	}
+}
+
+// TestKindNodeExporterByAddress checks A43's matching against a real node-exporter (A115: the
+// `prometheus` chart's, installed by make kind-prometheus): its series carry the node label, and
+// the exporter's host-network address as the instance, which is all kube-prometheus-stack's carry.
+// Asked by a name no series has and the node's InternalIP, the node's history is found by the
+// instance alone; without the address it is not. It also logs node-exporter's newest point beside
+// the Metrics Server's measurement of the node: on kind they differ (the exporter reads the Docker
+// VM's /proc, the kubelet the kind node's cgroup), on a real node they measure the same machine.
+// It only reads.
+func TestKindNodeExporterByAddress(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	kubeconfig, contextName := os.Getenv("COGPIT_KIND_KUBECONFIG"), os.Getenv("COGPIT_KIND_CONTEXT")
+	if kubeconfig == "" || contextName == "" {
+		t.Skip("COGPIT_KIND_KUBECONFIG and COGPIT_KIND_CONTEXT are not set; run make test-kind")
+	}
+	conn, err := cluster.Connect(ctx, cluster.Options{KubeconfigPaths: []string{kubeconfig}, Context: contextName})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	kube := conn.Kube()
+	if _, err := kube.CoreV1().Services("monitoring").Get(ctx, "prometheus-server", metav1.GetOptions{}); err != nil {
+		t.Skipf("the kind cluster has no Prometheus (make kind-prometheus): %v", err)
+	}
+	nodes, err := kube.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil || len(nodes.Items) == 0 {
+		t.Fatalf("nodes: %v", err)
+	}
+	node := nodes.Items[0]
+	var ip string
+	for _, a := range node.Status.Addresses {
+		if a.Type == "InternalIP" {
+			ip = a.Address
+		}
+	}
+	prom := metrics.NewPrometheus(kube, metrics.Target{Namespace: "monitoring", Service: "prometheus-server", Port: "http"}, metrics.PrometheusOptions{})
+	to := time.Now()
+	q := metrics.RangeQuery{Kind: metrics.KindNodes, Name: "cogpit-no-such-node", From: to.Add(-30 * time.Minute), To: to, Step: time.Minute, Want: metrics.WantUsage}
+	if got, err := prom.ObjectRange(ctx, q); err != nil || got.UsageSource != metrics.UsageNone {
+		t.Fatalf("a name no series has, without an address: %+v, %v", got, err)
+	}
+	q.Addresses = []string{ip}
+	got, err := prom.ObjectRange(ctx, q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.UsageSource != metrics.UsageNodeExporter || got.Targets[""] == nil || len(got.Targets[""].Usage) == 0 {
+		t.Fatalf("by the address %s: source %q, %+v (make kind-prometheus again: its values enable node-exporter since A115)", ip, got.UsageSource, got.Targets)
+	}
+	pts := got.Targets[""].Usage
+	last := pts[len(pts)-1]
+	line := "node-exporter by " + ip + ": " + itoa(len(pts)) + " points from " + pts[0].At.Format(time.TimeOnly) +
+		", newest cpu " + itoa(int(last.CPUMilli)) + "m, memory " + model.FormatBytes(last.MemoryBytes)
+	if ms, err := metrics.ForConn(conn); err == nil {
+		if nu, err := ms.GetNode(ctx, node.Name); err == nil {
+			line += "; the Metrics Server: cpu " + itoa(int(nu.CPUMilli)) + "m, memory " + model.FormatBytes(nu.MemoryBytes)
+		}
+	}
+	t.Log(line)
+}
+
+// checkPast fails unless a chart reaches back before its drawer opened (F1: the past from
+// Prometheus, not only what Cogpit measured since), and logs how far.
+func checkPast(t *testing.T, what string, pts []model.UsageSample, opened time.Time) {
+	t.Helper()
+	past := 0
+	for _, p := range pts {
+		if p.At.Before(opened.Add(-time.Minute)) {
+			past++
+		}
+	}
+	if past == 0 {
+		t.Errorf("%s: no point from before the drawer opened at %s (%d points)", what, opened.Format(time.TimeOnly), len(pts))
+		return
+	}
+	t.Logf("%s: %d of %d points from before the drawer opened, the first %s", what, past, len(pts), pts[0].At.Format(time.TimeOnly))
 }
 
 // checkSeam fails on a point twice or out of order and logs the longest hole of a chart's series.
@@ -499,22 +590,19 @@ func TestKindKubePrometheusStack(t *testing.T) {
 	dispatch("ui.navigate", map[string]any{"ref": node})
 	// The chart's default kubelet ServiceMonitor drops cAdvisor's series without a pod ("Drop
 	// cgroup metrics with no pod": sourceLabels [id, pod], regex ".+;"), the root cgroup the node
-	// charts read: a node has no history from it, and the Metrics Server's live values are all its
-	// chart gets (2026-10-12). Seen here, not asserted away: the day the chart keeps them, this logs it.
+	// charts read until A43: the node had no history (2026-10-12; F1 in the owner's window). Its
+	// node-exporter (on since A115) has it, labelled with the exporter's host-network address only.
 	m := waitHistory(ctx, t, s, node, func(m *engine.ObjectMetrics) bool {
-		return strings.HasPrefix(m.Source, source) && len(m.Targets[0].Samples) >= 2
+		return strings.HasPrefix(m.Source, source) && len(m.Targets[0].Samples) >= 2 && m.HistorySource != ""
 	})
 	logProviders(t, "kube-prometheus-stack", m.Providers)
 	if p := m.Providers[0]; p.Service != "cogpit-kps/kps-kube-prometheus-stack-prometheus:http-web" || !slices.Contains(p.Serves, metrics.ServesHistory) {
 		t.Errorf("Prometheus's status = %+v", p)
 	}
-	history := 0
-	for _, u := range m.Targets[0].Samples {
-		if u.At.Before(opened.Add(-time.Minute)) {
-			history++
-		}
+	if m.HistorySource != metrics.UsageNodeExporter {
+		t.Errorf("kube-prometheus-stack node: history from %q, want node-exporter by the node's address", m.HistorySource)
 	}
-	t.Logf("kube-prometheus-stack node %s: %d points, %d of them history older than the drawer (the root cgroup is dropped by the chart's relabelings)", node.Name, len(m.Targets[0].Samples), history)
+	checkPast(t, "kube-prometheus-stack node "+node.Name, m.Targets[0].Samples, opened)
 
 	dispatch("ui.openView", map[string]any{"view": "pods"})
 	var pod model.ObjectRef

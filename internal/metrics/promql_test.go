@@ -64,11 +64,37 @@ func TestQueries(t *testing.T) {
 		t.Errorf("names were not quoted: %s", evil.cpu)
 	}
 
-	node := nodePlan("n1.example", rangeRate(30*time.Second))
+	node := nodePlan("n1.example", nil, rangeRate(30*time.Second))
 	want := `sum(rate(container_cpu_usage_seconds_total{id="/",node="n1.example"}[4m])) or ` +
 		`sum(rate(container_cpu_usage_seconds_total{id="/",instance=~"n1\\.example(:[0-9]+)?"}[4m]))`
 	if node.cpu != want {
 		t.Errorf("node cpu:\n got %s\nwant %s", node.cpu, want)
+	}
+
+	// node-exporter's (A43): the node label, else the instance by the node's name or addresses
+	// (kube-prometheus-stack's exporter, scraped under its host-network address), an IPv6 address
+	// also in brackets; every exporter counted once.
+	node = nodePlan("n1.example", []string{"10.0.0.7", "fd00::7"}, rangeRate(30*time.Second))
+	inst := `instance=~"(n1\\.example|10\\.0\\.0\\.7|fd00::7|\\[fd00::7\\])(:[0-9]+)?"`
+	for name, tc := range map[string]struct{ got, want string }{
+		"exporter cpu": {node.exporterCPU,
+			`sum(max by (node, instance) (sum by (node, instance, job) (rate(node_cpu_seconds_total{node="n1.example",mode!~"idle|iowait|steal"}[4m])))) or ` +
+				`sum(max by (node, instance) (sum by (node, instance, job) (rate(node_cpu_seconds_total{` + inst + `,mode!~"idle|iowait|steal"}[4m]))))`},
+		"exporter mem": {node.exporterMem,
+			`sum(max by (node, instance) (node_memory_MemTotal_bytes{node="n1.example"} - node_memory_MemFree_bytes{node="n1.example"} - node_memory_Inactive_file_bytes{node="n1.example"})) or ` +
+				`sum(max by (node, instance) (node_memory_MemTotal_bytes{` + inst + `} - node_memory_MemFree_bytes{` + inst + `} - node_memory_Inactive_file_bytes{` + inst + `}))`},
+		"cadvisor cpu with addresses": {node.cpu,
+			`sum(rate(container_cpu_usage_seconds_total{id="/",node="n1.example"}[4m])) or sum(rate(container_cpu_usage_seconds_total{id="/",` + inst + `}[4m]))`},
+		"every exporter": {exporterCPU("", rateWindow),
+			`sum(max by (node, instance) (sum by (node, instance, job) (rate(node_cpu_seconds_total{mode!~"idle|iowait|steal"}[4m]))))`},
+	} {
+		if tc.got != tc.want {
+			t.Errorf("%s:\n got %s\nwant %s", name, tc.got, tc.want)
+		}
+	}
+	evilNode := nodePlan(`n"} or up{a="`, []string{`1.2.3.4"} or vector(1) #`}, rateWindow)
+	if !strings.Contains(evilNode.exporterMem, `{node="n\"} or up{a=\""}`) || !strings.Contains(evilNode.exporterMem, `1\\.2\\.3\\.4\"\\} or vector\\(1\\) #)(:[0-9]+)?"}`) {
+		t.Errorf("a node's name or address was not quoted: %s", evilNode.exporterMem)
 	}
 }
 

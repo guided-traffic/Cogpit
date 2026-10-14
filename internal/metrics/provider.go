@@ -144,11 +144,14 @@ func (e *StateError) Unwrap() error { return e.Err }
 
 // RangeQuery asks a history provider for an object's series between From and To, one point per
 // Step. Kind is KindPods or KindNodes; Namespace is empty for a node. Want says which series; zero
-// asks for all of them.
+// asks for all of them. Addresses are the addresses of the node (or of the cluster's control-plane
+// nodes) besides their names (Hub.SetNodeAddresses): a Prometheus whose series name a node by
+// its address as the instance (kube-prometheus-stack's node-exporter) is matched by them.
 type RangeQuery struct {
 	Kind      Kind
 	Namespace string
 	Name      string
+	Addresses []string
 	From, To  time.Time
 	Step      time.Duration
 	Want      Want
@@ -201,6 +204,10 @@ type ObjectSeries struct {
 	// PodsSource says where the Pods series come from once they were asked for (WantPods):
 	// "kube-state-metrics", or "none" when the Prometheus has no such series; "" when not asked.
 	PodsSource string `json:"podsSource,omitempty"`
+	// UsageSource says where the CPU and memory series come from once they were asked for
+	// (WantUsage): UsageNodeExporter (a node, the cluster), UsageCAdvisor, or UsageNone when the
+	// Prometheus has no such series over the range; "" when not asked.
+	UsageSource string `json:"usageSource,omitempty"`
 	// From, To and Step are the grid the series were asked for.
 	From, To time.Time
 	Step     time.Duration

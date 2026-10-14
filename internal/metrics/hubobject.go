@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/guided-traffic/cogpit/internal/model"
@@ -38,6 +39,7 @@ type objectPlan struct {
 	liveSlot       *slot
 	histSlot       *slot
 	window, step   time.Duration
+	addrs          []string // the node's (the control plane's) addresses for the range queries
 }
 
 // objectResults are the answers of one poll.
@@ -94,7 +96,7 @@ func (h *Hub) pollObject(ctx context.Context, sc Scope) State {
 		if !now.After(from) {
 			from = alignDown(now.Add(-p.step), p.step)
 		}
-		q := RangeQuery{Kind: sc.Kind, Namespace: sc.Namespace, Name: sc.Name, From: from, To: now, Step: p.step, Want: WantUsage}
+		q := RangeQuery{Kind: sc.Kind, Namespace: sc.Namespace, Name: sc.Name, Addresses: p.addrs, From: from, To: now, Step: p.step, Want: WantUsage}
 		r.fallbackQuery = &q
 		r.fallback, r.fallbackErr = callRange(ctx, p.hist, q)
 	}
@@ -140,11 +142,15 @@ func (h *Hub) planLocked(st *scopeState, sc Scope, now time.Time) objectPlan {
 		return p
 	}
 	p.hist = hist.prov.(RangeProvider)
-	base := RangeQuery{Kind: sc.Kind, Namespace: sc.Namespace, Name: sc.Name, Step: step}
+	base := h.queryLocked(sc)
+	base.Step = step
+	p.addrs = base.Addresses
 	from := alignDown(now.Add(-window), step)
 	var full, inc Want
 	switch {
-	case !ch.hist.covers(window, step):
+	case !ch.hist.covers(window, step) || !slices.Equal(ch.histAddrs, base.Addresses):
+		// No history at this range yet, or it was asked with other addresses of the node (the
+		// cache knew them only later: SetNodeAddresses), which may find what the last did not.
 		full |= WantUsage
 	case live == hist && now.Sub(ch.hist.asked) >= step:
 		inc |= WantUsage // no Metrics Server answers: the live values are Prometheus's newest points
@@ -167,7 +173,7 @@ func (h *Hub) planLocked(st *scopeState, sc Scope, now time.Time) objectPlan {
 		full |= WantPods
 	}
 	if full != 0 {
-		p.full = &RangeQuery{Kind: base.Kind, Namespace: base.Namespace, Name: base.Name, From: from, To: now, Step: step, Want: full}
+		p.full = &RangeQuery{Kind: base.Kind, Namespace: base.Namespace, Name: base.Name, Addresses: base.Addresses, From: from, To: now, Step: step, Want: full}
 	}
 	if inc != 0 {
 		start := ch.lastOf(inc)
@@ -178,10 +184,10 @@ func (h *Hub) planLocked(st *scopeState, sc Scope, now time.Time) objectPlan {
 		if !now.After(start) {
 			start = alignDown(now.Add(-step), step)
 		}
-		p.inc = &RangeQuery{Kind: base.Kind, Namespace: base.Namespace, Name: base.Name, From: start, To: now, Step: step, Want: inc}
+		p.inc = &RangeQuery{Kind: base.Kind, Namespace: base.Namespace, Name: base.Name, Addresses: base.Addresses, From: start, To: now, Step: step, Want: inc}
 	}
 	if ch.gap != nil && !full.Has(WantUsage) {
-		q := RangeQuery{Kind: base.Kind, Namespace: base.Namespace, Name: base.Name, From: alignDown(ch.gap[0], step), To: ch.gap[1], Step: step, Want: WantUsage}
+		q := RangeQuery{Kind: base.Kind, Namespace: base.Namespace, Name: base.Name, Addresses: base.Addresses, From: alignDown(ch.gap[0], step), To: ch.gap[1], Step: step, Want: WantUsage}
 		if q.To.After(q.From) {
 			p.gap, p.gapSpan = &q, *ch.gap
 		} else {
@@ -226,8 +232,11 @@ func (h *Hub) applyObjectLocked(ctx context.Context, st *scopeState, sc Scope, p
 		ch.applyRange(r.full, p.full.Want, p.full.From, farFuture)
 		cov := coverage{window: p.window, step: p.step, asked: now}
 		if p.full.Want.Has(WantUsage) {
-			ch.hist = cov
+			ch.hist, ch.histAddrs = cov, p.full.Addresses
 			ch.histLabel = histLabel
+			if r.full != nil {
+				ch.usageSource = r.full.UsageSource
+			}
 			if p.live == nil {
 				ch.liveLabel = histLabel
 			}
@@ -246,6 +255,7 @@ func (h *Hub) applyObjectLocked(ctx context.Context, st *scopeState, sc Scope, p
 	if p.inc != nil && histOK(r.incErr) {
 		ch.applyRange(r.inc, p.inc.Want, p.inc.From, farFuture)
 		if p.inc.Want.Has(WantUsage) {
+			ch.foundUsage(r.inc)
 			ch.liveLabel, ch.hist.asked = histLabel, now
 			if ch.histLabel == "" {
 				ch.histLabel = histLabel
@@ -261,6 +271,7 @@ func (h *Hub) applyObjectLocked(ctx context.Context, st *scopeState, sc Scope, p
 	}
 	if p.gap != nil && histOK(r.gapErr) {
 		ch.applyRange(r.gap, WantUsage, p.gapSpan[0].Add(time.Nanosecond), p.gapSpan[1])
+		ch.foundUsage(r.gap)
 		if ch.gap != nil && *ch.gap == p.gapSpan {
 			ch.gap = nil
 		}
@@ -287,6 +298,7 @@ func (h *Hub) applyObjectLocked(ctx context.Context, st *scopeState, sc Scope, p
 			h.failLocked(ctx, p.liveSlot, sc, r.liveErr)
 			if r.fallbackQuery != nil && histOK(r.fallbackErr) {
 				ch.applyRange(r.fallback, WantUsage, r.fallbackQuery.From, farFuture)
+				ch.foundUsage(r.fallback)
 				ch.liveLabel, ch.hist.asked = histLabel, now
 				served = true
 			}

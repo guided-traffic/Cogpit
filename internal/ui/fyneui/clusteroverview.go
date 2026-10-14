@@ -133,6 +133,8 @@ func (p *clusterPanel) show(m *engine.ClusterOverviewModel) {
 	switch {
 	case m.Status == metrics.StatusAvailable && !m.History:
 		note = "The Metrics Server keeps no history: Cogpit keeps what it measured, the last hour at most."
+	case m.Status == metrics.StatusAvailable && m.UsageHistory == metrics.UsageNone:
+		note = noHistoryNote("the nodes")
 	case m.PodsHistory == metrics.PodsFromKubeStateMetrics:
 		note = "Pods before this page opened: kube-state-metrics through Prometheus; since then the cluster's objects."
 	case m.PodsHistory == metrics.PodsFromNowhere:

@@ -13,6 +13,10 @@ import (
 type rangePlan struct {
 	cpu, mem, rx, tx           string
 	fsUsage, fsReads, fsWrites string
+	// exporterCPU and exporterMem are a node's CPU and memory from node-exporter, asked before cpu
+	// and mem (cAdvisor's root cgroup) where this Prometheus has them (A43, nodeSource); empty for
+	// a pod.
+	exporterCPU, exporterMem string
 	// sumWhole: the whole object's usage is the sum of its containers' (a pod); false when the
 	// queries already give the whole (a node).
 	sumWhole bool
@@ -29,16 +33,95 @@ func podPlan(namespace, pod string, win time.Duration) rangePlan {
 	}
 }
 
-// nodePlan reads a node's root cgroup. node-exporter's node_* metrics are not used: they are
-// labelled by the exporter's instance (an address), which has no reliable link to the node's
-// name, while cAdvisor's series carry the node label or the node's name as the instance.
-func nodePlan(node string, win time.Duration) rangePlan {
+// nodePlan reads a node's CPU and memory from node-exporter where this Prometheus has its series,
+// else from cAdvisor's root cgroup (A43, D-43: kube-prometheus-stack drops the root cgroup), and
+// the network and the filesystem from the root cgroup. The series are matched to the node by the
+// node label, else by the instance: the node's name or one of its addresses (addrs), which is how
+// kube-prometheus-stack's node-exporter, scraped under its host-network address, is found.
+func nodePlan(node string, addrs []string, win time.Duration) rangePlan {
+	m := matchNode(node, addrs)
 	return rangePlan{
-		cpu: nodeSum(metricCPU, node, win), mem: nodeSum(metricMemory, node, 0),
-		rx: nodeSum(metricNetRx, node, win), tx: nodeSum(metricNetTx, node, win),
-		fsUsage: nodeSumWhere(metricFSUsage, nodeDisks, node, 0),
-		fsReads: nodeSum(metricFSReads, node, win), fsWrites: nodeSum(metricFSWrites, node, win),
+		cpu: nodeSum(metricCPU, m, win), mem: nodeSum(metricMemory, m, 0),
+		exporterCPU: exporterOf(func(x string) string { return exporterCPU(x, win) }, m),
+		exporterMem: exporterOf(exporterMemory, m),
+		rx:          nodeSum(metricNetRx, m, win), tx: nodeSum(metricNetTx, m, win),
+		fsUsage: nodeSumWhere(metricFSUsage, nodeDisks, m, 0),
+		fsReads: nodeSum(metricFSReads, m, win), fsWrites: nodeSum(metricFSWrites, m, win),
 	}
+}
+
+// The sources of an object's CPU and memory history (ObjectSeries.UsageSource, A43).
+const (
+	// UsageNodeExporter: a node's (or the cluster's) from node-exporter's series.
+	UsageNodeExporter = "node-exporter"
+	// UsageCAdvisor: cAdvisor's, through the kubelet: a pod's containers, a node's root cgroup.
+	UsageCAdvisor = "cadvisor"
+	// UsageNone: the Prometheus has no CPU or memory series of the object over the range.
+	UsageNone = "none"
+)
+
+// Where this Prometheus has the nodes' CPU and memory (Prometheus.nodeMode).
+const (
+	nodeUnknown int32 = iota
+	nodeExporter
+	nodeCAdvisor
+)
+
+// nodeSource asks for a node's (or the cluster's nodes') CPU and memory where this Prometheus has
+// them (A43): node-exporter's series first, cAdvisor's root cgroup when there are none. Each
+// attempt reports whether its answer had a series. The answer is remembered for the provider's
+// life (one detection, 10 minutes): a Prometheus whose nodes come from cAdvisor (the prometheus
+// chart without node-exporter) is not asked for node-exporter at every poll; once node-exporter
+// answered, a node it has no series of is still asked of cAdvisor. Neither is UsageNone.
+func (p *Prometheus) nodeSource(exporter, cadvisor func() (bool, error)) (string, error) {
+	if p.nodeMode.Load() != nodeCAdvisor {
+		found, err := exporter()
+		if err != nil {
+			return "", err
+		}
+		if found {
+			p.nodeMode.Store(nodeExporter)
+			return UsageNodeExporter, nil
+		}
+	}
+	found, err := cadvisor()
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return UsageNone, nil
+	}
+	p.nodeMode.CompareAndSwap(nodeUnknown, nodeCAdvisor)
+	return UsageCAdvisor, nil
+}
+
+// rangeUsage asks for an object's CPU and memory, both queries at once: a pod's from cAdvisor, a
+// node's where this Prometheus has them (nodeSource). Both queries must answer.
+func (p *Prometheus) rangeUsage(plan rangePlan, run func(string) ([]promSeries, error)) (cpu, mem []promSeries, source string, err error) {
+	pair := func(cq, mq string) (bool, error) {
+		var cerr, merr error
+		runParallel(func() { cpu, cerr = run(cq) }, func() { mem, merr = run(mq) })
+		if err := firstStateError(cerr, merr); err != nil {
+			return false, err
+		}
+		return hasPoints(cpu) || hasPoints(mem), nil
+	}
+	cadvisor := func() (bool, error) { return pair(plan.cpu, plan.mem) }
+	if plan.exporterCPU == "" { // a pod
+		found, err := cadvisor()
+		if err != nil {
+			return nil, nil, "", err
+		}
+		if !found {
+			return cpu, mem, UsageNone, nil
+		}
+		return cpu, mem, UsageCAdvisor, nil
+	}
+	source, err = p.nodeSource(func() (bool, error) { return pair(plan.exporterCPU, plan.exporterMem) }, cadvisor)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	return cpu, mem, source, nil
 }
 
 type fsData struct {
@@ -94,7 +177,9 @@ func hasPoints(s []promSeries) bool {
 // ObjectRange implements RangeProvider. For a pod it sends what q.Want asks for, all at once: CPU
 // and memory per container (two queries), the pod's network received and transmitted (two), the
 // filesystem per container (one, two with the read and write rates, three while neither
-// filesystem metric is known to exist); a zero Want asks for all of them, five queries. With the
+// filesystem metric is known to exist); a zero Want asks for all of them, five queries. A node's
+// CPU and memory are node-exporter's where this Prometheus has them, else cAdvisor's root cgroup
+// (two more queries while that is not known yet; nodeSource), and UsageSource says which. With the
 // usage asked for, the CPU and memory queries must succeed and a failing network or filesystem
 // query leaves its series out; without it, the query fails only when every query failed.
 func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeries, error) {
@@ -109,7 +194,7 @@ func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeri
 	case KindPods:
 		plan = podPlan(q.Namespace, q.Name, rangeRate(q.Step))
 	case KindNodes:
-		plan = nodePlan(q.Name, rangeRate(q.Step))
+		plan = nodePlan(q.Name, q.Addresses, rangeRate(q.Step))
 	default:
 		return nil, fmt.Errorf("kind %q has no metrics", q.Kind)
 	}
@@ -121,13 +206,14 @@ func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeri
 
 	var (
 		cpu, mem, rx, tx    []promSeries
-		cpuErr, memErr      error
+		usageSource         string
+		usageErr            error
 		rxErr, txErr, fsErr error
 		fs                  fsData
 		jobs                []func()
 	)
 	if want.Has(WantUsage) {
-		jobs = append(jobs, func() { cpu, cpuErr = run(plan.cpu) }, func() { mem, memErr = run(plan.mem) })
+		jobs = append(jobs, func() { cpu, mem, usageSource, usageErr = p.rangeUsage(plan, run) })
 	}
 	if want.Has(WantNetwork) {
 		jobs = append(jobs, func() { rx, rxErr = run(plan.rx) }, func() { tx, txErr = run(plan.tx) })
@@ -137,8 +223,8 @@ func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeri
 	}
 	runParallel(jobs...)
 	if want.Has(WantUsage) {
-		if err := firstStateError(cpuErr, memErr); err != nil {
-			return nil, err
+		if usageErr != nil {
+			return nil, usageErr
 		}
 	} else {
 		netFailed := !want.Has(WantNetwork) || rxErr != nil || txErr != nil
@@ -153,7 +239,7 @@ func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeri
 		}
 	}
 
-	out := &ObjectSeries{Targets: map[string]*TargetSeries{}, From: q.From, To: q.To, Step: q.Step}
+	out := &ObjectSeries{Targets: map[string]*TargetSeries{}, UsageSource: usageSource, From: q.From, To: q.To, Step: q.Step}
 	target := func(name string) *TargetSeries {
 		t := out.Targets[name]
 		if t == nil {

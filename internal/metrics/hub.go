@@ -183,6 +183,10 @@ type Hub struct {
 	retainOrder  []Scope
 	retainPoints int
 
+	// nodeAddrs are the nodes' addresses besides their names, by node (SetNodeAddresses): how a
+	// Prometheus whose series name a node by its address finds it (A43).
+	nodeAddrs map[string][]string
+
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -621,6 +625,49 @@ func (h *Hub) Providers() []ProviderStatus {
 
 // DefaultWindow is the time range a chart shows unless told otherwise.
 func (h *Hub) DefaultWindow() time.Duration { return h.opts.RangeWindow }
+
+// SetNodeAddresses tells the hub the addresses a node has besides its name (its status.addresses:
+// InternalIP, ExternalIP, Hostname). A node's range queries, and the cluster's for its control-plane
+// nodes, match the node's series by them too: kube-prometheus-stack's node-exporter is scraped
+// under its host-network address and carries no node label (A43; the disks are matched the same
+// way, Hub.NodeDisk). The engine sets them from the cache before it subscribes a node's or the
+// cluster's scope, and again whenever it reads the node; a change makes an open chart of the node
+// poll at once and ask for its history with the new addresses (planLocked), since it may now be
+// found. It sends nothing itself.
+func (h *Hub) SetNodeAddresses(name string, addrs []string) {
+	addrs = slices.Clone(addrs)
+	slices.Sort(addrs)
+	addrs = slices.DeleteFunc(slices.Compact(addrs), func(a string) bool { return a == "" || a == name })
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if old, ok := h.nodeAddrs[name]; ok && slices.Equal(old, addrs) || !ok && len(addrs) == 0 {
+		return
+	}
+	if h.nodeAddrs == nil {
+		h.nodeAddrs = map[string][]string{}
+	}
+	h.nodeAddrs[name] = addrs
+	for sc, st := range h.scopes {
+		if st.chart != nil && (sc.Kind == KindNodes && sc.Name == name || sc.Kind == KindCluster && slices.Contains(ClusterMasters(sc.Name), name)) {
+			h.kickLocked(sc)
+		}
+	}
+}
+
+// queryLocked is the range query of an object scope without its range: the object, and for a node
+// (or the cluster's control plane) the addresses the engine gave (SetNodeAddresses).
+func (h *Hub) queryLocked(sc Scope) RangeQuery {
+	q := RangeQuery{Kind: sc.Kind, Namespace: sc.Namespace, Name: sc.Name}
+	switch sc.Kind {
+	case KindNodes:
+		q.Addresses = h.nodeAddrs[sc.Name]
+	case KindCluster:
+		for _, m := range ClusterMasters(sc.Name) {
+			q.Addresses = append(q.Addresses, h.nodeAddrs[m]...)
+		}
+	}
+	return q
+}
 
 // Forget makes the next poll detect every provider again: the user changed the cluster's metrics
 // settings (the Prometheus override), or knows a provider was installed.

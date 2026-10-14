@@ -305,6 +305,12 @@ type ObjectMetrics struct {
 	// FilesystemSource says which filesystem metric the Filesystem series are: "usage" (bytes in
 	// use) or "io" (read and write rates); empty when there are none.
 	FilesystemSource string `json:"filesystemSource,omitempty"`
+	// HistorySource says where the charts' CPU and memory history comes from once a provider with
+	// history (Prometheus) answered (A43, F1): "node-exporter" (a node's, where the cluster's
+	// Prometheus has its series), "cadvisor" (a pod's containers; a node's root cgroup otherwise),
+	// or "none" when that Prometheus has no such series of the object, so the chart holds only
+	// what Cogpit measured since the drawer opened. Empty before, and without such a provider.
+	HistorySource string `json:"historySource,omitempty"`
 	// Providers is the status line under the charts: each of the cluster's providers (Prometheus,
 	// the Metrics Server), whether Cogpit reached it and it answered, its last good answer and last
 	// failure (a class, never a response body), and what it serves now (history, live values).
@@ -360,6 +366,9 @@ func (s *Session) ObjectMetrics(ref model.ObjectRef) (*ObjectMetrics, error) {
 			out.Targets = out.Targets[:1] // the containers' charts are hidden: the pod's alone
 		}
 	case model.UsageNodes:
+		if obj != nil { // the node's addresses, which its history may be found by (A43); unchanged ones cost nothing
+			b.Metrics.SetNodeAddresses(ref.Name, nodeAddresses(ref.Name, obj))
+		}
 		out.Targets = nodeTargets(b.Metrics, ref, obj)
 		if p.DiskCell != nil && hidden.diskShown(p.Usage) {
 			out.Disk, out.DiskNote = drawerDisk(b.Metrics, ref, obj) // drawerdisk.go
@@ -369,6 +378,9 @@ func (s *Session) ObjectMetrics(ref model.ObjectRef) (*ObjectMetrics, error) {
 	setVariants(out.Targets, s.chartVariants(ref), caps, visible)
 	if hist := b.Metrics.History(scope); hist != nil && st.Usable() {
 		out.FilesystemSource = hist.FilesystemSource
+		if caps.History {
+			out.HistorySource = hist.UsageSource
+		}
 		applyHistory(out.Targets, hist)
 	}
 	return out, nil

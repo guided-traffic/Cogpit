@@ -124,18 +124,87 @@ func podListGauge(metric, namespace string) string {
 	return fmt.Sprintf("sum by (namespace, pod, container) (%s%s)", metric, withContainers(podMatchers(namespace, "")))
 }
 
+// nodeMatch is how the series of one node, or of a set of nodes (the cluster's control plane), are
+// found: by the node label (kube-prometheus-stack's cAdvisor series, the prometheus chart's service
+// discovery), else by the instance, which is the node's name (the prometheus chart's cAdvisor job)
+// or one of its addresses (an exporter scraped under its host-network address, as
+// kube-prometheus-stack's node-exporter is), with or without a port. Names and addresses are user
+// data: quoted, and escaped for the regular expressions. It is how the disks' series are matched
+// (A43, D-43; nodeKeys in the engine).
+type nodeMatch struct {
+	byNode, byInstance string
+}
+
+// matchNode builds the two matchers of one node known by its name and, optionally, its addresses.
+func matchNode(name string, addrs []string) nodeMatch {
+	inst := regexp.QuoteMeta(name) + "(:[0-9]+)?"
+	if len(addrs) > 0 {
+		inst = instanceOf([]string{name}, addrs)
+	}
+	return nodeMatch{byNode: "node=" + quoteLabel(name), byInstance: "instance=~" + quoteLabel(inst)}
+}
+
+// matchGroup builds the two matchers of a group of nodes (the control plane): alternations of
+// their names, and of their names and addresses.
+func matchGroup(names, addrs []string) nodeMatch {
+	return nodeMatch{byNode: "node=~" + quoteLabel(alternation(names)), byInstance: "instance=~" + quoteLabel(instanceOf(names, addrs))}
+}
+
+// alternation is "(a|b)" of the names, each escaped for a regular expression.
+func alternation(names []string) string {
+	q := make([]string, len(names))
+	for i, n := range names {
+		q[i] = regexp.QuoteMeta(n)
+	}
+	return "(" + strings.Join(q, "|") + ")"
+}
+
+// instanceOf is the instance pattern of nodes known by names and addresses: any of them, with or
+// without a port, an IPv6 address also in brackets ("[fd00::1]:9100").
+func instanceOf(names, addrs []string) string {
+	alts := make([]string, 0, len(names)+2*len(addrs))
+	seen := map[string]bool{}
+	add := func(a string) {
+		if a != "" && !seen[a] {
+			seen[a] = true
+			alts = append(alts, a)
+		}
+	}
+	for _, n := range names {
+		add(regexp.QuoteMeta(n))
+	}
+	for _, a := range addrs {
+		add(regexp.QuoteMeta(a))
+		if strings.Contains(a, ":") {
+			add(`\[` + regexp.QuoteMeta(a) + `\]`)
+		}
+	}
+	return "(" + strings.Join(alts, "|") + ")(:[0-9]+)?"
+}
+
+// selector writes metric{matchers}, the empty matchers left out; a metric alone has no braces.
+func selector(metric string, matchers ...string) string {
+	m := make([]string, 0, len(matchers))
+	for _, x := range matchers {
+		if x != "" {
+			m = append(m, x)
+		}
+	}
+	if len(m) == 0 {
+		return metric
+	}
+	return metric + "{" + strings.Join(m, ",") + "}"
+}
+
 // nodeSelectors are the two ways the series of one node's root cgroup are labelled: with the
 // kube-prometheus-stack's node label, or with the instance (the node's name, which the Prometheus
-// chart's cAdvisor job gives, with or without the kubelet's port).
-func nodeSelectors(metric, extra, node string) [2]string {
+// chart's cAdvisor job gives, with or without the kubelet's port, or one of its addresses).
+func nodeSelectors(metric, extra string, m nodeMatch) [2]string {
 	root := `id="/"`
 	if extra != "" {
 		root += "," + extra
 	}
-	return [2]string{
-		fmt.Sprintf(`%s{%s,node=%s}`, metric, root, quoteLabel(node)),
-		fmt.Sprintf(`%s{%s,instance=~%s}`, metric, root, quoteLabel(regexp.QuoteMeta(node)+"(:[0-9]+)?")),
-	}
+	return [2]string{selector(metric, root, m.byNode), selector(metric, root, m.byInstance)}
 }
 
 // nodeDisks keeps the node's block devices among its root cgroup's filesystem series. cAdvisor
@@ -147,13 +216,13 @@ const nodeDisks = `device=~"/dev/.+",device!="/dev/shm"`
 // nodeSum sums the root cgroup of one node: a gauge as is (win 0), a counter as its rate over win.
 // The two selectors are joined by "or", which yields the second only when the first matches
 // nothing.
-func nodeSum(metric, node string, win time.Duration) string {
-	return nodeSumWhere(metric, "", node, win)
+func nodeSum(metric string, m nodeMatch, win time.Duration) string {
+	return nodeSumWhere(metric, "", m, win)
 }
 
 // nodeSumWhere is nodeSum over the series that also match extra.
-func nodeSumWhere(metric, extra, node string, win time.Duration) string {
-	sel := nodeSelectors(metric, extra, node)
+func nodeSumWhere(metric, extra string, m nodeMatch, win time.Duration) string {
+	sel := nodeSelectors(metric, extra, m)
 	f := func(s string) string {
 		if win > 0 {
 			return fmt.Sprintf("sum(rate(%s[%s]))", s, promDuration(win))
@@ -161,6 +230,44 @@ func nodeSumWhere(metric, extra, node string, win time.Duration) string {
 		return "sum(" + s + ")"
 	}
 	return f(sel[0]) + " or " + f(sel[1])
+}
+
+// node-exporter's metrics, which a node's CPU and memory come from where the cluster's Prometheus
+// has them (A43, D-43, owner 2026-10-14 evening): kube-prometheus-stack's kubelet ServiceMonitor
+// drops cAdvisor's root cgroup, so a node there had no history (F1).
+const (
+	metricNodeCPU          = "node_cpu_seconds_total"
+	metricNodeMemTotal     = "node_memory_MemTotal_bytes"
+	metricNodeMemFree      = "node_memory_MemFree_bytes"
+	metricNodeInactiveFile = "node_memory_Inactive_file_bytes"
+)
+
+// nodeBusy keeps the CPU time a node worked: not idle, not waiting for I/O (idle time with I/O
+// outstanding) and not stolen by the hypervisor, none of which the root cgroup's usage (the
+// Metrics Server's node CPU) counts either.
+const nodeBusy = `mode!~"idle|iowait|steal"`
+
+// exporterCPU is the cores the node-exporter series that match worked over win, each exporter
+// counted once however many jobs scrape it (max by node and instance, as the disks' query); an
+// empty matcher is every exporter.
+func exporterCPU(matcher string, win time.Duration) string {
+	return fmt.Sprintf("sum(max by (node, instance) (sum by (node, instance, job) (rate(%s[%s]))))",
+		selector(metricNodeCPU, matcher, nodeBusy), promDuration(win))
+}
+
+// exporterMemory is the memory in use the node-exporter series that match give: the total less the
+// free memory and the inactive file cache. That is how the kubelet counts the root cgroup's working
+// set (its usage less inactive_file; on cgroup v2 the root's usage is MemTotal less MemFree), so
+// the history and the Metrics Server's live values mean the same. Each exporter counted once.
+func exporterMemory(matcher string) string {
+	return fmt.Sprintf("sum(max by (node, instance) (%s - %s - %s))",
+		selector(metricNodeMemTotal, matcher), selector(metricNodeMemFree, matcher), selector(metricNodeInactiveFile, matcher))
+}
+
+// exporterOf joins the two ways the exporter series of one node (or of the control plane) are
+// labelled by "or", as nodeSum does: the node label first, else the instance.
+func exporterOf(q func(matcher string) string, m nodeMatch) string {
+	return q(m.byNode) + " or " + q(m.byInstance)
 }
 
 // nodeListSum is the list form: one series per node, labelled by node and instance.
