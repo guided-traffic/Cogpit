@@ -3,11 +3,11 @@
 // Kubernetes supports between kubectl and an API server, the releases Cogpit downloaded, and the
 // download of the release that matches a cluster from dl.k8s.io or a mirror.
 //
-// Layer L1. It talks to the release host, never to an API server, and runs a kubectl binary only
-// as "kubectl version --client". A download is put in place only after it is verified: its
-// SHA-256 against the published .sha256 file, and its signature (.sig) with the release's signing
-// certificate (.cert), which must chain to the sigstore certificate authority Cogpit embeds and
-// name the Kubernetes release's identity (verify.go).
+// Layer L1. It talks to the release host and to sigstore's transparency log (Rekor), never to an
+// API server, and runs a kubectl binary only as "kubectl version --client". A download is put in
+// place only after it is verified: its SHA-256 against the published .sha256 file, and its
+// signature (.sig) and signing certificate (.cert) with sigstore-go against the sigstore trusted
+// root Cogpit embeds, the log's entry for them included (verify.go, rekor.go; decision D-50).
 package kubectl
 
 import (

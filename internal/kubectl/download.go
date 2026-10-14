@@ -23,7 +23,8 @@ import (
 
 // DefaultMirror is where kubectl is downloaded from: the Kubernetes project's release host. A
 // mirror has the same layout below its base URL: <base>/v<version>/bin/<os>/<arch>/kubectl, with
-// kubectl.sha256, kubectl.sig and kubectl.cert beside the binary.
+// kubectl.sha256, kubectl.sig and kubectl.cert beside the binary. The signature's transparency-log
+// entry comes from Rekor (DefaultRekor) whatever the mirror.
 const DefaultMirror = "https://dl.k8s.io/release"
 
 // Bounds of a download (Cogpit's defaults): kubectl 1.36.1 for darwin/arm64 is about 57 MB, its
@@ -49,8 +50,11 @@ type Downloader struct {
 	// http.Transport.Proxy does (the engine passes the Preferences' HTTP proxy for non-cluster
 	// traffic, else the environment's).
 	Proxy func(*http.Request) (*url.URL, error)
-	// Verifier checks the signature; nil: DefaultVerifier.
+	// Verifier checks the signature and its transparency-log entry; nil: DefaultVerifier.
 	Verifier *Verifier
+	// Rekor is the transparency log's base URL, asked for the signature's entry through Client
+	// and Proxy as the files are; empty: DefaultRekor. Not a preference: tests set it.
+	Rekor string
 	// GOOS and GOARCH name the release's platform; empty: this process's.
 	GOOS, GOARCH string
 	// MaxSize bounds the binary; 0: MaxBinarySize.
@@ -107,11 +111,13 @@ func (d *Downloader) platform() (string, string) {
 }
 
 // Download fetches release v into <dir>/<version>/kubectl and returns that path. The published
-// SHA-256 (.sha256), signature (.sig) and signing certificate (.cert) are read first, and the
-// signature is checked over the published digest before the binary is asked for; the binary
-// (at most MaxSize bytes) goes into a temporary file beside its place, must have that digest, is
-// made executable (0755) and renamed into place, replacing an earlier copy. The directories are
-// made owner-only (0700) where they do not exist. Nothing is left behind on failure.
+// SHA-256 (.sha256), signature (.sig) and signing certificate (.cert) are read first; the
+// signature must fit the published digest, sigstore's transparency log (Rekor) is asked for its
+// entry of the three, and the Verifier checks them all before the binary is asked for (a log that
+// cannot be asked is ErrLogUnreachable, and nothing is downloaded). The binary (at most MaxSize
+// bytes) goes into a temporary file beside its place, must have that digest, is made executable
+// (0755) and renamed into place, replacing an earlier copy. The directories are made owner-only
+// (0700) where they do not exist. Nothing is left behind on failure.
 func (d *Downloader) Download(ctx context.Context, v Version, dir string, progress Progress) (string, error) {
 	u, err := d.URL(v)
 	if err != nil {
@@ -139,16 +145,24 @@ func (d *Downloader) Download(ctx context.Context, v Version, dir string, progre
 	if err != nil {
 		return fail(err)
 	}
+	// The release signs the digest it publishes; the binary must then have that digest.
+	signed, err := ParseSigned(want, sig, certFile)
+	if err != nil {
+		return fail(err)
+	}
+	rekor := d.Rekor
+	if rekor == "" {
+		rekor = DefaultRekor
+	}
+	entries, err := lookupRekor(ctx, client, rekor, signed)
+	if err != nil {
+		return fail(err)
+	}
 	ver := d.Verifier
 	if ver == nil {
 		ver = DefaultVerifier()
 	}
-	cert, err := ver.Certificate(certFile)
-	if err != nil {
-		return fail(err)
-	}
-	// The release signs the digest it publishes; the binary must then have that digest.
-	if err := ver.Verify(cert, want, sig); err != nil {
+	if err := ver.Verify(signed, entries); err != nil {
 		return fail(err)
 	}
 

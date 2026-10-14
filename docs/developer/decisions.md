@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (A60 and F2 built: About Cogpit in macOS's application menu, the dialog showing the version the build reports; D-16: the version a build reports, one variable for both binaries); minor (the owner's decision round of 2026-10-14 evening: one line per answer A1–A117, F1, F2, R1–R3 naming where it is recorded; decided, not built: D-2 more agents' calls wait for the user or become confirmed writes, D-3 the kubectl hand-over for bash and fish and an enforcing setting, D-11 nothing offered after an interrupted Helm install, D-22 Sync as the default theme and a free cluster colour, D-25 the copy icon over a value's end, D-26 the plugin approval binds Cogpit's proxy, D-28 unlinking a sync folder, D-29 http and insecure origins marked and dotted repository names, D-30 combined PEMs, encrypted keys and the kind of CA, D-33 Reconcile with Source waits and the controller's identity named, D-34 the filter button's accent, D-36 sync windows, D-41 collapsed source groups, D-43 node history from node-exporter, D-44 a 1-hour end, a 10-byte minimum and the README framed, D-47 a link to another cluster asks; confirmed as built: D-4's failure rule, failsafe and update checks, D-48, and defaults in D-3, D-14, D-22, D-25, D-29, D-34, D-35, D-37, D-39, D-40, D-44; new: D-49 the MCP switch the bridge honours, D-50 kubectl's signature with Rekor, D-51 the navigator's and the palette's state, D-52 several windows, open); minor (D-16 revised by the owner: a release carries only the complete product, today the disk image, and `cogpit-cli` comes inside `Cogpit.app` (`Contents/MacOS`), the six-platform CLI archives revoked; built, agent CLIBUNDLE's decisions for the owner to confirm listed in D-16; D-2: the window copies the stdio registration of the bundled `cogpit-cli`, the lead's default for the owner to confirm, built); minor (D-44 decided by the owner: an agent's read takes the Secrets it is filtered against (H-82, option b); D-4: Sparkle 2 built, the third step: the framework in the app, loaded at run time, Preferences › App's two update rows and Help › Check for Updates…, the appcast drafted, signed in the environment `sparkle` and deployed to Pages; no key yet; the lead's and agent SPARKLE's decisions for the owner to confirm listed in D-4); minor (; D-47, the lead's decision for the owner to confirm: `cogpit://` links navigate only, through the `ui.*` commands, with origin `deeplink`, built; D-48, the lead's decision for the owner to confirm: start at login as the macOS app's own login item, off by default, only the user turns it on, built; D-44 (owner, H-82): the cached Secrets' values replaced in what agents read, built with the lead's choices for the owner to confirm; H-63 (owner): Flux's credential fields withheld from agents' YAML, built; D-29 (owner): credentials over plain http asked once per repository, built; D-2: an agent's role binding always waits for the user, H-27; D-44: the terminal tab's marker and the switch's 15-minute end, H-83; D-37: the node shell journal and the cleanup at connect, H-71; all three the owner's answers of 2026-10-14, built; D-4 decided by the owner: Sparkle's feed on GitHub Pages; D-4: the release pipeline signs the app and `cogpit-cli` for macOS with the Developer ID, ships the app in `Cogpit-<v>-macos-arm64.dmg` and has both notarized, built, no tag run yet; the lead's decision for the owner to confirm: a failed signature or notarization fails the macOS job and the release gets no files until it is re-run; the bodies of D-33, D-34, D-35, D-36, D-41, D-42, D-43, D-44 and D-46 no longer say "for the owner to confirm": the owner's choices of 2026-10-14 marked decided, D-33's two and D-34's two open rules marked Cogpit's defaults; D-4: the Apple signing and notarization material exists in the environment `release`, 2026-10-14; D-40 decided by the owner: the workloads' drawers' Pods tables without a Namespace column, built; D-39 decided by the owner: a pod-metrics refusal affects only its namespace, built; D-33 decided by the owner: Reconcile with Source and Reset added as the flux CLI does them, built; D-34 (owner): a state on a dashboard opens its kind's view filtered, through a status filter every view has, built with its rules listed for the owner; D-37 and D-38 decided by the owner: the default node shell image the newest supported Alpine release (3.24) pinned by digest and kept current by Renovate, the maximum duration a setting with a 2-hour default, set by the user only, built; D-35, D-36, D-41, D-42, D-43, D-44, D-46 decided by the owner as built, 2026-10-14; D-43, a night decision for the owner to confirm: the nodes' disk from node-exporter through Prometheus, never nodes/proxy, built with Cogpit's defaults listed; D-46 (night decision, for the owner to confirm): chart icons fetched when shown, with Preferences › Load chart icons on by default, built; D-11, D-37: a tab whose context leaves Cogpit closes, keeping an editor's draft and deleting a node shell's pod, Cogpit's defaults; D-44 (night decision, for the owner to confirm): agents read the dock's logs tabs freely and a terminal tab only once the user turned on its "Agents may read" switch, built; D-42, a night decision for the owner to confirm: no context picker at start, the welcome page, built; D-41, a night decision for the owner to confirm: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, built; D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided; D-10: the owner's chat decisions of 2026-10-14 late evening and the engine's chat contract; A5 built; D-10: the built-in agent's engine side built (M12 (a)), the endpoints checked against their documentation, the night run's decisions of the lead for the owner to confirm; D-43 (A43, F1, A115): the nodes' CPU and memory history from node-exporter, built in the night run with the lead's decisions for the owner to confirm; A46 built in the night run; D-10: the window's chat built, the lead's decisions for the owner to confirm (the column beside a settings page, ⌘I, ⌘. and Escape, the pinned message, tables, what was sent, the chip, conversations, the model menu, Preferences › Agent, reasoning and the thinking line); D-10: the private connection honoured by the engine (M12 (c)), the lead's decisions 15–20 for the owner to confirm; D-51 built 2026-10-15 (A51, A52, A53, A54, A63; the lead's night decisions for the owner to confirm: the fields, the row's form, the bounds, one per window, `workspace.json` keeping the collapsed groups only, the dropdown's bank, an agent's palette text never running a change on ↵), D-41: A63's collapsed source groups kept, the answers A55, A61, A64, A67 and A113 built; D-26 (A23): the plugin approval binds Cogpit's proxy, built with the lead's decisions for the owner to confirm; A28: an `insecure-skip-tls-verify` context asked once before its first connect, built, the lead's decisions in H-37; A29: "TLS not checked" in the status bar and `cogpit-cli get`'s warning line, built; D-29 A39 built: a release in both drivers notes "also stored in the <other> driver (older)", the tie's wording the lead's decision for the owner to confirm; D-11 A17 built: nothing offered after an interrupted Helm install, the release's state and Show release; the journal still records installs, the lead's decisions for the owner to confirm; D-29 A36 built: repositories with a dot in their name, the chart id doubling the dot, nothing saved to migrate, the form the lead's decision for the owner to confirm; D-29 A14 built 2026-10-15: http and insecure-TLS origins marked in the Charts view, the drawer, both Helm tabs, the preview and an agent's confirmation, the lead's decisions for the owner to confirm listed) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (A60 and F2 built: About Cogpit in macOS's application menu, the dialog showing the version the build reports; D-16: the version a build reports, one variable for both binaries); minor (the owner's decision round of 2026-10-14 evening: one line per answer A1–A117, F1, F2, R1–R3 naming where it is recorded; decided, not built: D-2 more agents' calls wait for the user or become confirmed writes, D-3 the kubectl hand-over for bash and fish and an enforcing setting, D-11 nothing offered after an interrupted Helm install, D-22 Sync as the default theme and a free cluster colour, D-25 the copy icon over a value's end, D-26 the plugin approval binds Cogpit's proxy, D-28 unlinking a sync folder, D-29 http and insecure origins marked and dotted repository names, D-30 combined PEMs, encrypted keys and the kind of CA, D-33 Reconcile with Source waits and the controller's identity named, D-34 the filter button's accent, D-36 sync windows, D-41 collapsed source groups, D-43 node history from node-exporter, D-44 a 1-hour end, a 10-byte minimum and the README framed, D-47 a link to another cluster asks; confirmed as built: D-4's failure rule, failsafe and update checks, D-48, and defaults in D-3, D-14, D-22, D-25, D-29, D-34, D-35, D-37, D-39, D-40, D-44; new: D-49 the MCP switch the bridge honours, D-50 kubectl's signature with Rekor, D-51 the navigator's and the palette's state, D-52 several windows, open); minor (D-16 revised by the owner: a release carries only the complete product, today the disk image, and `cogpit-cli` comes inside `Cogpit.app` (`Contents/MacOS`), the six-platform CLI archives revoked; built, agent CLIBUNDLE's decisions for the owner to confirm listed in D-16; D-2: the window copies the stdio registration of the bundled `cogpit-cli`, the lead's default for the owner to confirm, built); minor (D-44 decided by the owner: an agent's read takes the Secrets it is filtered against (H-82, option b); D-4: Sparkle 2 built, the third step: the framework in the app, loaded at run time, Preferences › App's two update rows and Help › Check for Updates…, the appcast drafted, signed in the environment `sparkle` and deployed to Pages; no key yet; the lead's and agent SPARKLE's decisions for the owner to confirm listed in D-4); minor (; D-47, the lead's decision for the owner to confirm: `cogpit://` links navigate only, through the `ui.*` commands, with origin `deeplink`, built; D-48, the lead's decision for the owner to confirm: start at login as the macOS app's own login item, off by default, only the user turns it on, built; D-44 (owner, H-82): the cached Secrets' values replaced in what agents read, built with the lead's choices for the owner to confirm; H-63 (owner): Flux's credential fields withheld from agents' YAML, built; D-29 (owner): credentials over plain http asked once per repository, built; D-2: an agent's role binding always waits for the user, H-27; D-44: the terminal tab's marker and the switch's 15-minute end, H-83; D-37: the node shell journal and the cleanup at connect, H-71; all three the owner's answers of 2026-10-14, built; D-4 decided by the owner: Sparkle's feed on GitHub Pages; D-4: the release pipeline signs the app and `cogpit-cli` for macOS with the Developer ID, ships the app in `Cogpit-<v>-macos-arm64.dmg` and has both notarized, built, no tag run yet; the lead's decision for the owner to confirm: a failed signature or notarization fails the macOS job and the release gets no files until it is re-run; the bodies of D-33, D-34, D-35, D-36, D-41, D-42, D-43, D-44 and D-46 no longer say "for the owner to confirm": the owner's choices of 2026-10-14 marked decided, D-33's two and D-34's two open rules marked Cogpit's defaults; D-4: the Apple signing and notarization material exists in the environment `release`, 2026-10-14; D-40 decided by the owner: the workloads' drawers' Pods tables without a Namespace column, built; D-39 decided by the owner: a pod-metrics refusal affects only its namespace, built; D-33 decided by the owner: Reconcile with Source and Reset added as the flux CLI does them, built; D-34 (owner): a state on a dashboard opens its kind's view filtered, through a status filter every view has, built with its rules listed for the owner; D-37 and D-38 decided by the owner: the default node shell image the newest supported Alpine release (3.24) pinned by digest and kept current by Renovate, the maximum duration a setting with a 2-hour default, set by the user only, built; D-35, D-36, D-41, D-42, D-43, D-44, D-46 decided by the owner as built, 2026-10-14; D-43, a night decision for the owner to confirm: the nodes' disk from node-exporter through Prometheus, never nodes/proxy, built with Cogpit's defaults listed; D-46 (night decision, for the owner to confirm): chart icons fetched when shown, with Preferences › Load chart icons on by default, built; D-11, D-37: a tab whose context leaves Cogpit closes, keeping an editor's draft and deleting a node shell's pod, Cogpit's defaults; D-44 (night decision, for the owner to confirm): agents read the dock's logs tabs freely and a terminal tab only once the user turned on its "Agents may read" switch, built; D-42, a night decision for the owner to confirm: no context picker at start, the welcome page, built; D-41, a night decision for the owner to confirm: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, built; D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided; D-10: the owner's chat decisions of 2026-10-14 late evening and the engine's chat contract; A5 built; D-10: the built-in agent's engine side built (M12 (a)), the endpoints checked against their documentation, the night run's decisions of the lead for the owner to confirm; D-43 (A43, F1, A115): the nodes' CPU and memory history from node-exporter, built in the night run with the lead's decisions for the owner to confirm; A46 built in the night run; D-10: the window's chat built, the lead's decisions for the owner to confirm (the column beside a settings page, ⌘I, ⌘. and Escape, the pinned message, tables, what was sent, the chip, conversations, the model menu, Preferences › Agent, reasoning and the thinking line); D-10: the private connection honoured by the engine (M12 (c)), the lead's decisions 15–20 for the owner to confirm; D-50 built in the night run: sigstore-go with Rekor's transparency-log proof, the research and the measured cost, the lead's decisions for the owner to confirm; D-51 built 2026-10-15 (A51, A52, A53, A54, A63; the lead's night decisions for the owner to confirm: the fields, the row's form, the bounds, one per window, `workspace.json` keeping the collapsed groups only, the dropdown's bank, an agent's palette text never running a change on ↵), D-41: A63's collapsed source groups kept, the answers A55, A61, A64, A67 and A113 built; D-26 (A23): the plugin approval binds Cogpit's proxy, built with the lead's decisions for the owner to confirm; A28: an `insecure-skip-tls-verify` context asked once before its first connect, built, the lead's decisions in H-37; A29: "TLS not checked" in the status bar and `cogpit-cli get`'s warning line, built; D-29 A39 built: a release in both drivers notes "also stored in the <other> driver (older)", the tie's wording the lead's decision for the owner to confirm; D-11 A17 built: nothing offered after an interrupted Helm install, the release's state and Show release; the journal still records installs, the lead's decisions for the owner to confirm; D-29 A36 built: repositories with a dot in their name, the chart id doubling the dot, nothing saved to migrate, the form the lead's decision for the owner to confirm; D-29 A14 built 2026-10-15: http and insecure-TLS origins marked in the Charts view, the drawer, both Helm tabs, the preview and an agent's confirmation, the lead's decisions for the owner to confirm listed) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -11,7 +11,7 @@ projects' repositories; re-check them before relying on a version number.
 |---|---|---|
 | [D-1](#d-1-ui-toolkit) | UI toolkit | decided: Fyne, after the spike gate; re-checks of S7 (CI, M0) and S5 (Windows and Linux, M11) can reopen it per platform |
 | [D-2](#d-2-agent-interface-scope) | What agents may do over MCP | decided: everything, the UI included; destructive actions confirmed by the user; 2026-10-14 evening (owner): more agents' calls always wait for the user (every RBAC kind, Helm install and upgrade, removing a bank with tiles) or become confirmed writes (`cluster.setPrometheus`, a proxy), notifications' read state GUI-only; not built |
-| [D-3](#d-3-helm-and-kubectl-binaries) | Where `helm` and `kubectl` come from | decided: Helm in-process; `kubectl` from `PATH`, a verified matching download on one click; 2026-10-14 evening (owner): the `PATH` hand-over for bash and fish, a setting that enforces Cogpit's kubectl, the signature with Rekor ([D-50](#d-50-kubectls-signature-check)); not built |
+| [D-3](#d-3-helm-and-kubectl-binaries) | Where `helm` and `kubectl` come from | decided: Helm in-process; `kubectl` from `PATH`, a verified matching download on one click; 2026-10-14 evening (owner): the `PATH` hand-over for bash and fish, a setting that enforces Cogpit's kubectl (both built 2026-10-14), the signature with Rekor ([D-50](#d-50-kubectls-signature-check), built 2026-10-15) |
 | [D-4](#d-4-packaging-and-updates) | Packaging, signing and updates | decided for macOS: the app in a DMG, Homebrew cask, Sparkle updates; Windows and Linux with M11. Built: since 2026-10-14 the app for Apple silicon in a signed, notarized DMG with `cogpit-cli` inside it, the only download besides `SHA256SUMS` ([D-16](#d-16-the-first-real-release) revised; no tag run yet; before, the unsigned app zip and `cogpit-cli` archives for six platforms); since 2026-10-14 Sparkle 2 in the app and the signed appcast's jobs, waiting for the owner's update key; 2026-10-14 evening (owner): the failure rule, the 20-day failsafe and who may change the automatic checks confirmed, a tag ruleset to set up |
 | [D-5](#d-5-extensions) | Extensions | decided: built into Cogpit's own code; no external extensions for now |
 | [D-6](#d-6-kubernetes-libraries) | Kubernetes libraries | decided: client-go, kubectl libraries, Helm SDK |
@@ -38,7 +38,7 @@ projects' repositories; re-check them before relying on a version number.
 | [D-47](#d-47-deep-links-cogpit) | Deep links (`cogpit://`) | decided in part (owner, 2026-10-14 evening): a link that names another cluster than the connected one asks once before switching, not built; the rest the lead's decision of 2026-10-14, for the owner to confirm: navigation only, through the `ui.*` commands with origin `deeplink`; a write unreachable by construction; never a context whose login waits for approval (option a); built 2026-10-14 |
 | [D-48](#d-48-start-at-login) | Start at login | decided (owner, 2026-10-14 evening, as built): the macOS app's own login item (SMAppService), read from macOS, off by default, only the user turns it on (option a); built 2026-10-14 |
 | [D-49](#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp) | The external MCP server's switch, honoured by `cogpit-cli mcp` | decided (owner, 2026-10-14 evening): persisted, and with MCP off the bridge refuses to serve, headless too; not built |
-| [D-50](#d-50-kubectls-signature-check) | kubectl's signature check | decided (owner, 2026-10-14 evening): sigstore-go with Rekor's transparency-log proof instead of the standard library; not built |
+| [D-50](#d-50-kubectls-signature-check) | kubectl's signature check | decided (owner, 2026-10-14 evening): sigstore-go with Rekor's transparency-log proof instead of the standard library; built 2026-10-15 (night run), the lead's decisions for the owner to confirm listed |
 | [D-51](#d-51-the-navigators-and-the-command-palettes-state) | The navigator's and the command palette's state | decided (owner, 2026-10-14 evening): the navigator's search text and keyboard selection and the palette's typed text are engine state; built 2026-10-15, with the lead's night decisions for the owner to confirm (the fields, one per window, an agent's palette text never running a change on ↵, the dropdown's bank) |
 | [D-52](#d-52-several-windows) | Several windows | open (the owner's requirement, 2026-10-14 evening): a hotbar tile dragged out of the window opens another window with that cluster; needs a design before code |
 
@@ -82,7 +82,7 @@ window. Nothing of it was built in the round.
 | A22 | #90, H-33 | No warning for an `http://` proxy with a password; as built | [H-33](../security/credentials.md#h-33-proxy-passwords-are-plaintext-in-cogpits-settings) |
 | A23 | #91, H-34 | A credential plugin's approval shows and binds Cogpit's own proxy for the cluster too; a changed proxy asks again; built 2026-10-14 (bound as shown, the password as •••: a night decision) | [D-26](#d-26-binding-a-credential-plugins-approval-to-its-program), [H-34](../security/trust-boundaries.md#h-34-the-plugin-approval-shows-the-kubeconfigs-proxy-not-cogpits) |
 | A24 | #93 | The terminal's right-click copy and paste preference GUI-only; as built | [D-14](#d-14-terminal-widget) |
-| A25 | #97, H-35 | kubectl's signature checked with sigstore-go, the Rekor transparency-log proof included; a record of its own; to build | [D-50](#d-50-kubectls-signature-check), [H-35](../security/trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log) |
+| A25 | #97, H-35 | kubectl's signature checked with sigstore-go, the Rekor transparency-log proof included; a record of its own; built 2026-10-15 | [D-50](#d-50-kubectls-signature-check), [H-35](../security/trust-boundaries.md#h-35-kubectls-signature-check-rests-on-an-embedded-trusted-root-and-rekor-v1s-search) |
 | A26 | #98, H-36 | The kubectl `PATH` hand-over for bash (`--rcfile` or `PROMPT_COMMAND`) and fish (`conf.d`), as for zsh; built 2026-10-14 | [D-3](#d-3-helm-and-kubectl-binaries), [H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first) |
 | A27 | #100, H-36 | A setting (Preferences › Kubernetes): the `ZDOTDIR` hand-over by default, switchable to enforcement through a shell alias or function `kubectl`; built 2026-10-14 | [D-3](#d-3-helm-and-kubectl-binaries), [H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first) |
 | R1 | – | Certificates: show whether the chain leads to a public or an internal (private) CA; the design settled when built; built 2026-10-14 (the lead's design for the owner to confirm) | [D-30](#d-30-certificates-in-secrets-decoded) |
@@ -385,13 +385,13 @@ above, or fills what it leaves open (Cogpit's defaults, not the owner's decision
   `https://dl.k8s.io/release` or an https mirror base; the files go into
   `<user config dir>/Cogpit/kubectl/<version>/kubectl` unless the Preferences name another
   directory. A running terminal keeps its `PATH`; the terminals opened afterwards use the release.
-- The `.sig` check is sigstore's keyless signature verified with the standard library: the
-  `.cert` must chain to the Fulcio certificate authority Cogpit embeds, name the Kubernetes
-  release's identity and issuer, and its key must have signed the published SHA-256. sigstore's
-  transparency log is not consulted ([H-35](../security/trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log)); no new
-  dependency. **Decided (owner, 2026-10-14 evening, A25):** sigstore-go with the Rekor
-  transparency-log proof instead, a record of its own: [D-50](#d-50-kubectls-signature-check). Not
-  built yet.
+- The `.sig` check was sigstore's keyless signature verified with the standard library until
+  2026-10-15, without sigstore's transparency log. **Decided (owner, 2026-10-14 evening, A25):**
+  sigstore-go with the Rekor transparency-log proof instead, a record of its own:
+  [D-50](#d-50-kubectls-signature-check). **Built 2026-10-15:** each download asks
+  `rekor.sigstore.dev` for the signature's entry and sigstore-go checks it, the certificate and the
+  signature against the trusted root Cogpit embeds; no answer from the log refuses the download
+  ([H-35](../security/trust-boundaries.md#h-35-kubectls-signature-check-rests-on-an-embedded-trusted-root-and-rekor-v1s-search)).
 - "First on `PATH`" is a link in the terminal's own directory, first in its environment; for zsh
   also after the login profile ran (a `ZDOTDIR` of Cogpit's that hands over to the user's), since
   macOS's `path_helper` moves inherited entries behind `/etc/paths`. Other shells keep only the
@@ -3575,32 +3575,148 @@ D-2's copied registration command is offered only while the external server runs
 ## D-50: kubectl's signature check
 
 **Decided (owner, 2026-10-14 evening, A25,
-[H-35](../security/trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log)); not built.**
+[H-35](../security/trust-boundaries.md#h-35-kubectls-signature-check-rests-on-an-embedded-trusted-root-and-rekor-v1s-search));
+built 2026-10-15 (night run), with the lead's decisions below for the owner to confirm.**
 "kubectl's signature checked with sigstore-go including the Rekor transparency-log proof (instead of
 the standard library); record as a D-entry." [D-3](#d-3-helm-and-kubectl-binaries) decides where a
 terminal's kubectl comes from; this record decides how a downloaded one is verified.
 
-**Today (built 2026-10-13, D-3;** [`kubectl/verify.go`](../../internal/kubectl/verify.go)**):** the
-release's `.cert` must chain to the Fulcio certificate authority Cogpit embeds and name the
-Kubernetes release's identity and issuer, and its key must have signed the published SHA-256, all
-with Go's standard library; sigstore's transparency log is not consulted, and nothing was added to
-`go.mod`. What that leaves (H-35): a signature made with a leaked key, or under a certificate Fulcio
-issued by mistake, passes; a transparency-log proof shows that the signature was published where
-the release's owners can see it.
+**Until 2026-10-15 (built 2026-10-13, D-3):** the release's `.cert` had to chain to the Fulcio
+certificate authority Cogpit embedded and name the Kubernetes release's identity and issuer, and its
+key had to have signed the published SHA-256, all with Go's standard library; sigstore's
+transparency log was not consulted. What that left (H-35): a signature made with a leaked key, or
+under a certificate Fulcio issued by mistake, passed.
 
 **The options (#97):**
 
 | Option | For | Against |
 |---|---|---|
-| (a) The standard library, as built | No dependency; offline | No transparency log |
-| **(b) sigstore-go with Rekor's transparency-log proof (decided)** | Sigstore's own verification, the log included | A new dependency in a security-critical path |
+| (a) The standard library, as built until 2026-10-15 | No dependency; offline | No transparency log |
+| **(b) sigstore-go with Rekor's transparency-log proof (decided, built)** | Sigstore's own verification, the log included | A new dependency in a security-critical path (measured below); one more outgoing request |
 
-**Not verified, for the build:** what sigstore-go adds to `go.mod` (its dependencies, their
-licences, `govulncheck`); where its trusted root comes from (embedded and updated with Cogpit's
-releases, or fetched through TUF at run time, a new outgoing request); and whether the files
-`dl.k8s.io` publishes carry a Rekor entry that can be checked offline or need a lookup at Rekor per
-download (then through the Preferences' proxy, like the download itself). These decide whether the
-check stays offline.
+**What a download does since 2026-10-15.**
+
+[`kubectl/download.go`](../../internal/kubectl/download.go), [`verify.go`](../../internal/kubectl/verify.go),
+[`rekor.go`](../../internal/kubectl/rekor.go); still GUI-only, still through the Preferences' proxy
+for non-cluster traffic, each step refusing the download with its reason:
+
+1. `.sha256`, `.sig` and `.cert` from `dl.k8s.io` or the mirror, 16 KiB each at most (unchanged).
+2. Offline (`ParseSigned`): the `.cert` parses, and the `.sig` was made over the published SHA-256
+   by the certificate's key. Files that do not fit together never reach the log.
+3. Online (`lookupRekor`): one `POST https://rekor.sigstore.dev/api/v1/log/entries/retrieve` with
+   the hashedrekord entry of that digest, signature and certificate, as `cosign verify-blob` searches
+   when it is given `--signature` and `--certificate`; through the same client and proxy, 30 s and
+   64 KiB at most, at most four entries. No answer, a 429 or a 5xx is "sigstore's transparency log
+   could not be asked" (`ErrLogUnreachable`); an empty answer is "sigstore's transparency log has no
+   entry for it" (`ErrNotLogged`).
+4. sigstore-go (`Verifier.Verify`): the three files and the entry as a sigstore bundle (v0.3), checked
+   with `verify.WithTransparencyLog(1)`, `WithObserverTimestamps(1)` and
+   `WithSignedCertificateTimestamps(1)` against the embedded trusted root, the policy the published
+   digest and the identity `krel-staging@k8s-releng-prod.iam.gserviceaccount.com` with the issuer
+   `https://accounts.google.com`, both exact: the entry's inclusion proof up to a checkpoint the log
+   signed, its signed entry timestamp, the entry's digest, signature and certificate equal to the
+   files', its time inside the certificate's ten minutes, the chain to Fulcio at that time, one
+   signed certificate timestamp of a CT log the trusted root names, the identity and issuer, and the
+   signature over the digest.
+5. The binary, at most 128 MiB, must have the published digest; 0755, renamed into place
+   (unchanged).
+
+The trusted root is [`sigstore_trusted_root.json`](../../internal/kubectl/sigstore_trusted_root.json),
+sigstore's public-good `trusted_root.json` (two Fulcio authorities, the Rekor v1 log and the Rekor v2
+log `log2025-1`, two CT logs, the timestamp authority); `sigstore_fulcio.pem` is gone, its root and
+intermediate are in the trusted root (`TestEmbeddedTrustedRoot` checks their fingerprints). It is
+refreshed by `make sigstore-root` ([`hack/sigstoreroot`](../../hack/sigstoreroot/main.go)): fetched
+through sigstore's TUF repository, verified from the TUF root sigstore-go embeds, written only when
+it parses and names a log, an authority and a CT log. Renovate cannot see it
+([releasing › Renovate](releasing.md#renovate)).
+
+**Research (2026-10-15).**
+
+Verified:
+
+- `dl.k8s.io` publishes beside kubectl 1.37.1 (darwin/arm64) `.sha256`, `.sha512`, `.sig` and
+  `.cert`, and no `.sigstore.json`, `.bundle`, `.sigstore`, `.intoto.jsonl` or `.pem` (404): no
+  offline proof, so the log is asked per download.
+- `rekor.sigstore.dev` has the hashedrekord entries of kubectl 1.36.1 (log index 1519700826) and
+  1.37.1 (2924600063, integrated 2026-09-23T19:08:57Z, inside the certificate's 19:08:57–19:18:57),
+  each with a signed entry timestamp and an inclusion proof whose checkpoint origin is
+  `rekor.sigstore.dev - 1193050959916656506`; the log ID is the trusted root's Rekor v1 key
+  (`c0d23d6a…801d`). The search by content answers 5,263 bytes for one entry, `[]` for a valid
+  signature it never logged, and 400 for an entry whose signature does not fit its digest.
+- The certificates carry one signed certificate timestamp (the CT log `ctfe.sigstore.dev/2022`).
+- sigstore-go v1.3.0 (2026-07-30, the newest; Apache-2.0) verifies a message signature with a
+  certificate and a Rekor v1 entry built into a bundle; it checks the entry's digest against the
+  bundle's (`VerifyTlogEntry`). Its trusted root comes from TUF at run time (`root.FetchTrustedRoot`)
+  or from a file or bytes (`NewTrustedRootFromJSON`); `pkg/root` links its TUF client either way.
+- `TestLiveRelease` (`COGPIT_SIGSTORE_LIVE=1`, never in CI) verified the current stable release,
+  1.37.1 for darwin/arm64, against `rekor.sigstore.dev` on 2026-10-15; with
+  `COGPIT_SIGSTORE_LIVE=download` it downloaded and installed it through `Downloader.Download`.
+
+Not verified: when, or whether, the Kubernetes release moves its signatures to Rekor v2 or
+publishes bundles (H-35's remaining case); whether govulncheck's module-level advisory below was
+reported on the tree before this change (inferred: the module's version did not change).
+
+**Measured (2026-10-15, darwin/arm64, Go 1.27.2, `make build`'s flags).**
+
+| What | Before | After |
+|---|---|---|
+| `go.mod` | 175 lines | 219 lines: 4 direct requirements (sigstore-go v1.3.0 and protobuf-specs v0.5.1 for `internal/kubectl`; rekor v1.5.3 and sigstore v1.10.8 for the test instance `internal/testkit/sigstoretest`) and 40 indirect; no requirement's version changed |
+| `go.sum` | 505 lines | 740 lines |
+| Module graph (`go list -m all`; `go mod graph`) | 333 modules; 1,906 edges | 560 modules; 3,195 edges (most of them never built: sigstore's KMS providers and servers) |
+| Modules linked (`go version -m`) | `cogpit-cli` 130, `cogpit` 151 | 173 and 194: the same 43 more in both, among them sigstore-go, rekor, rekor-tiles, sigstore, timestamp-authority, protobuf-specs, certificate-transparency-go, go-tuf, in-toto, go-openapi (9), gRPC, OpenTelemetry (5); no cloud SDK |
+| Packages in `cogpit-cli` (`go list -deps`) | 1,259 | 1,502 |
+| `cogpit` | 138.2 MiB | 148.2 MiB (+10.0 MiB, +7.2 %) |
+| `cogpit-cli` | 94.5 MiB | 103.1 MiB (+8.5 MiB, +9.0 %) |
+
+Licences of the 43 modules: 33 Apache-2.0, 6 MIT, 4 BSD (read from each module's licence file); all
+compatible with Cogpit's Apache-2.0. govulncheck v1.9.0 on `./...`: no vulnerability in the code
+Cogpit calls; one module-level advisory, GO-2026-5932 (`golang.org/x/crypto/openpgp`, no fix), in
+`golang.org/x/crypto` v0.58.0, which `go.mod` required at that version before.
+
+**The lead's decisions in the night run, for the owner to confirm.**
+
+1. **Where the entry comes from.** `dl.k8s.io` has no bundle (verified). Options: (a) search by the
+   entry's content, `POST /api/v1/log/entries/retrieve`, one request that names exactly this
+   signature; (b) search by the digest (`/api/v1/index/retrieve`), then one request per UUID: more
+   requests, and anyone can log entries under kubectl's digest. **Chosen: (a)**, as cosign does.
+2. **Where the trusted root comes from.** Options: (a) embedded, refreshed by `make sigstore-root`
+   through TUF; (b) TUF at run time (`tuf-repo-cdn.sigstore.dev`, a cache folder, always current).
+   **Chosen: (a)**: one new host instead of two, offline-reviewable diffs, nothing written on the
+   user's disk; the cost is that a key rotation by sigstore stops new releases' downloads until a
+   Cogpit release carries the new root (fails closed, H-35).
+3. **No fallback.** When the log cannot be asked, the download is refused; never the old check
+   instead (the lead's default). Options: refuse; fall back to the standard-library check with a
+   warning; a preference that turns the log off. **Chosen: refuse.** Consequence: a mirror inside a
+   network without access to `rekor.sigstore.dev` no longer downloads through Cogpit; the user puts a
+   kubectl on `PATH` or sets the path to kubectl ([usage](usage.md)).
+4. **A signed certificate timestamp is required** (one, from a CT log the trusted root names), as
+   `cosign verify-blob` requires by default. Options: require; leave it out. **Chosen: require**:
+   it narrows H-35's misissued certificate; both real releases carry one.
+5. **The inclusion proof is required** besides the signed entry timestamp (bundle v0.3 needs it), so
+   a log answer with the timestamp alone is refused. Chosen over accepting the timestamp alone, which
+   sigstore-go would allow.
+6. **The offline check comes first** (step 2), so a `.sig` that does not fit the published digest is
+   refused with that reason, before any request to the log, rather than with the log's 400.
+7. **The log's URL is a constant** (`DefaultRekor`, `https://rekor.sigstore.dev`), not a
+   preference; tests set `Downloader.Rekor`. A preference would serve a private sigstore, which the
+   embedded trusted root does not know anyway.
+8. **Bounds and error classes**: 30 s, 64 KiB, four entries; the log's own reason at most 200 bytes
+   and sigstore-go's at most 300, each on one line (a proof's hashes otherwise span lines in the
+   terminal's line); 429, 5xx and no answer are "could not be asked", any other refusal a signature
+   that does not verify.
+9. **Renovate**: sigstore-go and its modules update as every Go module does (minor and patch merge on
+   their own once CI passes); CI's offline tests with two real releases' files and log entries
+   (`TestRealReleaseSignature`, `TestRealReleaseRefused`) are the gate. The option: never merge on
+   its own, as Sparkle; not chosen, since the refusals are tested as well as the pass.
+10. **Not stopped for the size.** The run's brief was to stop if sigstore-go needed "a very large
+    dependency tree". The 43 modules and 8.5–10.0 MiB above are sigstore-go's own verifier's
+    (`pkg/verify`, `pkg/tlog`, `pkg/bundle`, `pkg/root`), no cloud SDK or KMS client among them; the
+    owner decided for sigstore-go knowing it is large (H-35 said so). Undoing it is one commit.
+11. **The test instance** [`internal/testkit/sigstoretest`](../../internal/testkit/sigstoretest/sigstoretest.go):
+    a Fulcio-shaped authority and a Rekor-v1-shaped log of the test's own, its search answered as
+    Rekor answers it; without a CT log, so the tests that use it ask for no signed certificate
+    timestamp (`NewVerifier(…, 0)`), which the real releases' tests cover. The live test is opt-in
+    (`COGPIT_SIGSTORE_LIVE=1`, or `download` for the whole download).
 
 ## D-51: The navigator's and the command palette's state
 
@@ -3724,6 +3840,7 @@ Options: not weighed yet; the design is the next step. Not built.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-15 | minor | D-50 built (night run, A25): kubectl's signature, certificate and Rekor entry checked with sigstore-go v1.3.0 against an embedded sigstore trusted root (`make sigstore-root`), the entry asked for at `rekor.sigstore.dev` per download, no fallback; the research (no bundle on `dl.k8s.io`, the real entries of 1.36.1 and 1.37.1), the measured cost (43 modules more in both binaries, `cogpit` +10.0 MiB, `cogpit-cli` +8.5 MiB) and eleven decisions of the lead for the owner to confirm; D-3's index row and its signature bullet |
 | 2026-10-15 | minor | D-51 built (A51, A52, A53, A54, A63): the navigator's search, keyboard row and collapsed source groups and the palette's typed text as engine state; the lead's night decisions for the owner to confirm, each with its options: the fields, the row's form, the bounds, one per window, `workspace.json` keeping the collapsed groups only, the dropdown's shown bank, an agent's palette text never running a change on ↵; D-41: the collapsed source groups kept; the index's answers A51–A55, A61, A63, A64, A67 and A113 marked built |
 | 2026-10-15 | minor | The owner's Helm decisions of 2026-10-14 evening built: A39 (a release in both drivers notes the other as older, the tie's wording), A17 (nothing offered after an interrupted install; the journal still records installs, Show release in the banner), A36 (dotted repository names, the chart id doubling the dot, nothing saved to migrate), A14 (http and insecure-TLS origins marked in the Charts view, the drawer, both Helm tabs, the preview and an agent's confirmation); D-11 and D-29 record the lead's decisions for the owner to confirm |
 | 2026-10-14 | minor | D-10: the private connection honoured by the engine (M12 (c)): `Invocation.ReadsLikeUser` only with origin `builtInAgent`, every read path that withheld from agents by origin asks it, no write rule does, the audit lines marked; the core set re-measured (29,746 bytes); six decisions of the lead in the night run for the owner to confirm (15–20): a Secret's Edit tab's text, a Secret in `object_get`, the window's own `object_get`, the chart preview, exec plugin arguments, the kept conversation (H-96) |

@@ -76,7 +76,7 @@ cogpit/
 | `internal/cluster` | L1 | Connections: client-go config, auth, cached discovery, access reviews |
 | `internal/cache` | L1 | Shared informers, reference counting, warm period, transforms, request counters |
 | `internal/terminal` | L1 | PTY sessions: local shell with its own kubeconfig, pod exec and attach |
-| `internal/kubectl` | L1 | kubectl for terminals (2026-10-13, [D-3](decisions.md#d-3-helm-and-kubectl-binaries)): a binary's client version (`Prober`), the skew rule, the releases in the directory for binaries, the download from dl.k8s.io or a mirror verified against the published SHA-256 and the release's sigstore signature (`Downloader`, `Verifier`); the release host only, never an API server |
+| `internal/kubectl` | L1 | kubectl for terminals (2026-10-13, [D-3](decisions.md#d-3-helm-and-kubectl-binaries)): a binary's client version (`Prober`), the skew rule, the releases in the directory for binaries, the download from dl.k8s.io or a mirror verified against the published SHA-256 and the release's sigstore signature, since 2026-10-15 with sigstore-go and the signature's Rekor entry (`Downloader`, `Verifier`, `rekor.go`, [D-50](decisions.md#d-50-kubectls-signature-check)); the release host and `rekor.sigstore.dev` only, never an API server |
 | `internal/helm` | L2 | Helm SDK, crash-safe release actions (not built) |
 | `internal/metrics` | L2 | Metrics providers (the Metrics Server built, Prometheus next), the hub that polls while subscribed, its TTL cache and series ([architecture §9](architecture.md#9-metrics-internalmetrics)) |
 | `internal/demo` | L2 | The synthetic demo cluster behind a `cache.Source`, and its synthetic Metrics Server (a `metrics.Provider`: demo and metrics are both L2, so the import is allowed) |

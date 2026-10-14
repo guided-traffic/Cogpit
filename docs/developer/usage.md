@@ -48,7 +48,7 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - 💻 Pod shells, attach and a terminal bound to the cluster's context; copy and paste by keys or, if you choose, the right mouse button.
 - 🖥️ A node shell, as Lens opens it: a privileged pod in `kube-system` from an image pinned by digest, confirmed every time, deleted when the shell closes.
 - 🔐 Create Secret from a dialog, values masked as you type, for you alone: agents can neither create a Secret nor read its values.
-- 🧰 The terminal's `kubectl` checked against the cluster: more than one minor version off, or none, and one click downloads the matching release from `dl.k8s.io`, verified against its SHA-256 and the Kubernetes release's signature, for Cogpit's terminals only.
+- 🧰 The terminal's `kubectl` checked against the cluster: more than one minor version off, or none, and one click downloads the matching release from `dl.k8s.io`, verified against its SHA-256, the Kubernetes release's signature and that signature's entry in sigstore's transparency log, for Cogpit's terminals only.
 - ✏️ YAML editing with a diff and a server-side dry-run before every apply.
 - 🔌 Port forwarding, one click to the browser.
 - ⎈ The Helm releases in your clusters (Lens's Helm view), kept in Secrets or ConfigMaps: history, values, upgrade, rollback, through the Helm SDK, no `helm` binary needed.
@@ -250,10 +250,21 @@ version; more than one minor version off, or none, and the terminal offers the m
 Security note: the last three decide which program your terminals run as `kubectl`, so only you, in
 Cogpit's window, can set them, and only you can start a download; agents and `cogpit-cli` are
 refused. A mirror needs no trust of its own: every download is checked against the Kubernetes
-release's sigstore signature (its certificate chained to sigstore's authority, which Cogpit embeds,
-for the release's identity), and refused when the mirror serves no `.sig` or `.cert`. The download
-goes through the HTTP proxy for non-cluster traffic (`httpProxy`, Preferences › Proxy) when one is set. sigstore's
-transparency log is not consulted ([H-35](../security/trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log)).
+release's sigstore signature (its certificate chained to sigstore's authority for the release's
+identity) and that signature's entry in sigstore's transparency log, all against the sigstore
+trusted root Cogpit embeds, and refused when the mirror serves no `.sig` or `.cert`. The download
+goes through the HTTP proxy for non-cluster traffic (`httpProxy`, Preferences › Proxy) when one is
+set.
+
+The download makes one more outgoing request (since 2026-10-15,
+[D-50](decisions.md#d-50-kubectls-signature-check)): before the binary is fetched, Cogpit asks
+sigstore's transparency log at `https://rekor.sigstore.dev` (`POST /api/v1/log/entries/retrieve`)
+for its entry of the release's signature, through the same proxy, with the published SHA-256, the
+signature and the certificate (public material, no credential), within 30 seconds. Whatever the
+mirror, this host must be reachable: without its answer the download is refused ("sigstore's
+transparency log could not be asked"), and there is no fallback to a check without it. In a network
+that cannot reach it, put a `kubectl` on `PATH` or set `kubectlPath`
+([H-35](../security/trust-boundaries.md#h-35-kubectls-signature-check-rests-on-an-embedded-trusted-root-and-rekor-v1s-search)).
 
 ### Preferences › Kubernetes: chart icons
 

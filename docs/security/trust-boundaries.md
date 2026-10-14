@@ -5,6 +5,7 @@ boundaries below exist in the problem itself; each row names the check the imple
 have and the package that owns it, with a link where the MVP (2026-10-11) implements it. The
 owner's decision round of 2026-10-14 evening changes H-34, H-35, H-36, H-37, H-41 and H-89 and
 confirms H-42 as it is; each change is marked "Decided … Not built yet" beside what is built.
+H-35's change is built since 2026-10-15 (kubectl's signature with sigstore-go and Rekor, D-50).
 
 ## Roles
 
@@ -23,7 +24,8 @@ confirms H-42 as it is; each change is marked "Decided … Not built yet" beside
 | External agents over MCP | as trusted as the local user who connected them; decisions are a model's | [agents and MCP](agents-and-mcp.md) |
 | Built-in agent and its LLM endpoint | the endpoint's output is untrusted | [agents and MCP](agents-and-mcp.md) |
 | Update feed (GitHub Pages) and release host | trusted after signature verification: the feed and the disk image only with the update key's EdDSA signatures, the app inside only with Cogpit's Developer ID (2026-10-14, no key yet) | [updates](updates.md) |
-| kubectl release host (`dl.k8s.io`) or the mirror set in Preferences | untrusted; a binary is trusted after the Kubernetes release's signature on it verified | A downloaded `kubectl` runs whenever the user types `kubectl` in a terminal of Cogpit's, with the user's privileges and credentials ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries)) |
+| kubectl release host (`dl.k8s.io`) or the mirror set in Preferences | untrusted; a binary is trusted after the Kubernetes release's signature on it and that signature's entry in sigstore's transparency log verified | A downloaded `kubectl` runs whenever the user types `kubectl` in a terminal of Cogpit's, with the user's privileges and credentials ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries)) |
+| sigstore's transparency log (`rekor.sigstore.dev`, 2026-10-15) | untrusted transport; its answer counts only once the log's signatures in it verify against the log key of the trusted root Cogpit embeds | It vouches that a kubectl release's signature was published while its certificate was valid ([D-50](../developer/decisions.md#d-50-kubectls-signature-check), [H-35](#h-35-kubectls-signature-check-rests-on-an-embedded-trusted-root-and-rekor-v1s-search)) |
 
 ```text
 UNTRUSTED                                   BOUNDARY                          TRUSTED STATE
@@ -53,6 +55,8 @@ UNTRUSTED                                   BOUNDARY                          TR
                                              Developer ID, newer version only
   kubectl release (dl.k8s.io or mirror)  ─► GUI click, https, size bound, ──► first on PATH in
                                              SHA-256, sigstore signature        Cogpit's terminals
+  Rekor's entry (rekor.sigstore.dev)     ─► its proofs against the
+                                             embedded trusted root (sigstore-go)
 ```
 
 ## Boundaries and required checks
@@ -76,7 +80,7 @@ UNTRUSTED                                   BOUNDARY                          TR
 | MCP request to engine | `internal/mcp` | Loopback only, bearer token, `Host` and `Origin` checks: [`internal/mcp/http.go`](../../internal/mcp/http.go), `TestHTTPGuard`, `TestNewRefusesNonLoopbackAddresses` |
 | Cluster data to the LLM endpoint | `internal/agent` | Secret values withheld by default; what is sent is shown |
 | Download to installed app | `internal/update` (Sparkle 2) | Built 2026-10-14, not proven by a release ([D-4](../developer/decisions.md#d-4-packaging-and-updates)): Sparkle checks the feed's and the disk image's EdDSA signatures with the key in the app's `Info.plist`, before extracting anything, then the new app's Developer ID against the running one's, and offers only a newer version ([updates](updates.md)); the app loads Sparkle only from its own installed bundle (`TestSparkleLoadsFromTheBundle`) |
-| kubectl download to a terminal's `PATH` | `internal/kubectl`, `internal/engine`, `internal/terminal` | Built 2026-10-13 ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries)): only the user's click in the window downloads (`kubectl.download` refuses agents and the CLI before anything is fetched, `TestKubectlDownloadCommand`), and only the user sets the path to kubectl, the directory for binaries and the mirror (`ErrKubectlGUIOnly`); the mirror is an https URL without user information, query or fragment, and redirects are followed to https only (`TestCheckMirror`, `TestDownloadHTTPSOnly`); the `.sha256`, `.sig` and `.cert` files are read first (16 KiB each at most) and the signature is checked over the published digest before the binary is asked for: the signing certificate must chain to the sigstore certificate authority Cogpit embeds ([`sigstore_fulcio.pem`](../../internal/kubectl/sigstore_fulcio.pem)) at the time it was issued, be for code signing, and name `krel-staging@k8s-releng-prod.iam.gserviceaccount.com` with the OIDC issuer `https://accounts.google.com`, and its key must have signed the digest ([`verify.go`](../../internal/kubectl/verify.go); `TestRealReleaseSignature` verifies kubectl 1.36.1's published signature offline, `TestVerifierRefuses`, `TestDownloadRefusesBadSignatures`); the binary (at most 128 MiB, `TestDownloadSizeBound`) goes into a temporary file beside its place, must have the published digest (`TestDownloadRefusesTamperedBinary`), and is made 0755 and renamed into `<directory for binaries>/<version>/kubectl` (directories 0700); nothing is left on failure. It goes first on `PATH` in Cogpit's terminals only, as a link in the terminal's own temporary directory, never in a shell profile or a global location (`TestStartLocalKubectlFirst`, `TestZshKubectlFirstAfterTheProfile`). Not checked: sigstore's transparency log ([H-35](#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log); decided by the owner on 2026-10-14 evening, not built yet: checked with sigstore-go, the log's proof included); a profile can still reorder `PATH` ([H-36](#h-36-a-shells-profile-can-put-another-kubectl-first); decided the same evening, not built yet: the hand-over for bash and fish too, and a setting that enforces Cogpit's kubectl through a shell function) |
+| kubectl download to a terminal's `PATH` | `internal/kubectl`, `internal/engine`, `internal/terminal` | Built 2026-10-13 ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries)): only the user's click in the window downloads (`kubectl.download` refuses agents and the CLI before anything is fetched, `TestKubectlDownloadCommand`), and only the user sets the path to kubectl, the directory for binaries and the mirror (`ErrKubectlGUIOnly`); the mirror is an https URL without user information, query or fragment, and redirects are followed to https only (`TestCheckMirror`, `TestDownloadHTTPSOnly`); the `.sha256`, `.sig` and `.cert` files are read first (16 KiB each at most), and before the binary is asked for the signature is checked (since 2026-10-15 with sigstore-go, [D-50](../developer/decisions.md#d-50-kubectls-signature-check)): offline, the signature must have been made over the published digest by the certificate's key (`ParseSigned`); then sigstore's transparency log (`rekor.sigstore.dev`, through the same client and proxy, 30 s and 64 KiB at most) is asked for its entry of exactly that digest, signature and certificate ([`rekor.go`](../../internal/kubectl/rekor.go)), and sigstore-go checks, against the trusted root Cogpit embeds ([`sigstore_trusted_root.json`](../../internal/kubectl/sigstore_trusted_root.json)), the entry's inclusion proof up to a checkpoint the log signed and its signed entry timestamp, that timestamp inside the certificate's ten minutes, the certificate's chain to Fulcio at that time and one signed certificate timestamp of a CT log, the identity `krel-staging@k8s-releng-prod.iam.gserviceaccount.com` with the OIDC issuer `https://accounts.google.com`, and the signature over the digest ([`verify.go`](../../internal/kubectl/verify.go); `TestRealReleaseSignature` verifies kubectl 1.36.1's and 1.37.1's published signatures and Rekor entries offline, `TestRealReleaseRefused`, `TestVerifierRefuses`, `TestDownloadRefusesBadSignatures`); no entry, no answer from the log or an entry that does not verify refuses the download, with no fallback to a check without the log (`TestDownloadWithoutTheLog`); the binary (at most 128 MiB, `TestDownloadSizeBound`) goes into a temporary file beside its place, must have the published digest (`TestDownloadRefusesTamperedBinary`), and is made 0755 and renamed into `<directory for binaries>/<version>/kubectl` (directories 0700); nothing is left on failure. It goes first on `PATH` in Cogpit's terminals only, as a link in the terminal's own temporary directory, never in a shell profile or a global location (`TestStartLocalKubectlFirst`, `TestZshKubectlFirstAfterTheProfile`). What the check rests on, an embedded trusted root and Rekor v1's search: [H-35](#h-35-kubectls-signature-check-rests-on-an-embedded-trusted-root-and-rekor-v1s-search); a profile can still reorder `PATH` ([H-36](#h-36-a-shells-profile-can-put-another-kubectl-first); decided the same evening, not built yet: the hand-over for bash and fish too, and a setting that enforces Cogpit's kubectl through a shell function) |
 
 ## What this does not cover
 
@@ -488,38 +492,58 @@ credentials, CA and client certificate to a host the user did not choose in Cogp
 Bounded where [H-40](credentials.md#h-40-credentials-over-plain-http) applies: an `http://` entry
 with credentials downloads nothing until the user allowed it in the window.
 
-### H-35: kubectl's signature is checked without sigstore's transparency log
+### H-35: kubectl's signature check rests on an embedded trusted root and Rekor v1's search
 
 The Kubernetes release signs kubectl with sigstore's keyless signing: a key made for one signing,
 certified by sigstore's certificate authority (Fulcio) for ten minutes for the release's identity,
-and the signature recorded in sigstore's public transparency log (Rekor). Cogpit checks the
-certificate's chain to the authority it embeds, the identity, the issuer and the signature over the
-published SHA-256 (built 2026-10-13, the standard library only), but not the log: the `.sig` and
-`.cert` files `dl.k8s.io` publishes carry no log entry, and finding one needs a request to
-`rekor.sigstore.dev` (a host no decision covers yet, [credentials](credentials.md#where-credentials-must-never-end-up))
-and a check of its proof, which sigstore-go does (a large dependency Cogpit does not have). Per case:
+and the signature recorded in sigstore's public transparency log (Rekor). Until 2026-10-15 Cogpit
+checked the certificate's chain, the identity, the issuer and the signature over the published
+SHA-256 with the standard library, but not the log. Since 2026-10-15 (the owner's decision of
+2026-10-14 evening, [D-50](../developer/decisions.md#d-50-kubectls-signature-check), built in the
+night run) sigstore-go checks all of it, the log included ([`verify.go`](../../internal/kubectl/verify.go),
+[`rekor.go`](../../internal/kubectl/rekor.go)). The `.sig` and `.cert` files `dl.k8s.io` publishes
+carry no log entry, and it publishes no sigstore bundle (verified for kubectl 1.37.1 on
+2026-10-15), so each download asks `rekor.sigstore.dev` for the entry that records exactly the
+published SHA-256, the signature and the certificate, as `cosign verify-blob` does; a download is
+refused when the log has no such entry, cannot be reached, or its entry does not verify against the
+trusted root Cogpit embeds ([`sigstore_trusted_root.json`](../../internal/kubectl/sigstore_trusted_root.json)).
+Per case, what the check covers:
 
 - **A compromised mirror or CDN** (the `dl.k8s.io` redirect, or a mirror set in Preferences) cannot
-  forge the signature: covered, since every file it serves is checked against the release identity.
-- **A leaked signing key.** The key is made for one signing and discarded; without the log, Cogpit
-  cannot tell that a signature was made while its certificate was valid, so whoever held such a key
-  could sign another binary later and Cogpit would accept it. Dormant: no such leak is known, and it
-  needs the Kubernetes release's infrastructure.
-- **A misissued certificate.** A certificate Fulcio issued for the release's identity to someone
-  else would verify; the certificate transparency timestamps it carries are not checked either.
+  forge the signature or its log entry: covered, since every file it serves is checked against the
+  release identity and the log.
+- **A leaked signing key:** closed. A signature made later with such a key needs a log entry whose
+  time the log signed inside the certificate's ten minutes, which the log does not give for a later
+  upload (`TestRealReleaseRefused`: a changed integrated time, a changed signed entry timestamp,
+  another release's entry; `TestVerifierRefuses`: another signature's entry).
+- **A misissued certificate:** narrowed. The certificate must carry a signed certificate timestamp
+  of a certificate transparency log the trusted root names, so a misissued one is public where the
+  release's owners can watch for it; Cogpit still accepts it when its signature is in Rekor.
   Dormant, and it needs a compromise of Fulcio or of the Google service account.
-- **The embedded authority.** The root and the intermediate are valid until 2031-10-05; when
-  sigstore rotates the intermediate, new releases stop verifying until Cogpit ships the new one
-  (fails closed: the download is refused, nothing runs).
 
-Decided (owner, 2026-10-14 evening): kubectl's signature is checked with sigstore-go, the Rekor
-transparency log's proof included, instead of the standard library alone; recorded as a decision
-entry. Not built yet; until then the check above, without the log: the leaked key and the
-misissued certificate stay dormant cases as described. Once built, the download asks sigstore's
-log for the entry, a host Cogpit does not talk to today and which the telemetry rule
-([credentials](credentials.md#where-credentials-must-never-end-up)) wants a decision entry for (a
-public log, asked without any credential of the user's: inferred, not verified). sigstore-go
-becomes a dependency of `internal/kubectl`.
+What remains, per case:
+
+- **The embedded trusted root goes stale.** It is refreshed by `make sigstore-root` through
+  sigstore's TUF repository, by hand: Renovate cannot see it. When sigstore rotates a key that a
+  new release is certified, logged or timestamped under (a new Fulcio intermediate, a new CT log key,
+  a new Rekor key), downloads of such releases are refused until a Cogpit release carries the new
+  root: fails closed, nothing runs. Fulcio's root and intermediate in it are valid until 2031-10-05.
+- **Rekor v2.** The trusted root already names sigstore's Rekor v2 log (`log2025-1.rekor.sigstore.dev`),
+  which has no search: a release whose signature is logged only there cannot be found from a `.sig`
+  and a `.cert`, and Cogpit refuses it ("sigstore's transparency log has no entry for it") until it
+  reads the sigstore bundle such a release would have to publish. Dormant: kubectl 1.36.1's and
+  1.37.1's entries are in Rekor v1 (2026-10-15); when the Kubernetes release moves is not verified.
+- **No consistency check of the log.** Cogpit verifies the entry's inclusion in the tree the
+  checkpoint names and the checkpoint's signature, but keeps no earlier checkpoint and asks no
+  witness, so a log that shows Cogpit another tree than everyone else (a split view) is not
+  detected. Dormant: it needs Rekor's signing key.
+- **The lookup tells the log what the user downloads.** The digest names the release and the
+  platform, and the request comes from the user's address or proxy; it carries only what the
+  release publishes, no credential ([credentials](credentials.md#where-credentials-must-never-end-up)).
+- **A network without access to `rekor.sigstore.dev`**, a mirror inside a closed network for
+  example, can no longer download through Cogpit (before 2026-10-15 the check was offline); the
+  user puts a kubectl on `PATH` or sets Preferences › Path to kubectl instead. Not a weakness of the
+  check, a cost of it, recorded with D-50's decisions for the owner to confirm.
 
 ### H-36: A shell's profile can put another kubectl first
 

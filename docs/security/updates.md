@@ -11,9 +11,10 @@ updater of its own: since 2026-10-14 it is part of the app bundle
 ([D-16](../developer/decisions.md#d-16-the-first-real-release)), so Sparkle's update replaces it
 with the app under the same checks; Windows and Linux have no updater. The other place, built 2026-10-13, is the
 `kubectl` a terminal offers for its cluster: downloaded only on the user's click and verified against
-the Kubernetes release's own sigstore signature, not Cogpit's update key
+the Kubernetes release's own sigstore signature and, since 2026-10-15, that signature's entry in
+sigstore's transparency log, not Cogpit's update key
 ([trust boundaries](trust-boundaries.md#boundaries-and-required-checks),
-[H-35](trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log)).
+[H-35](trust-boundaries.md#h-35-kubectls-signature-check-rests-on-an-embedded-trusted-root-and-rekor-v1s-search)).
 
 The owner's decision round of 2026-10-14 evening confirms the failed-signing behaviour and the
 20-day failsafe ([H-91](#h-91-after-20-days-of-unverifiable-feeds-sparkle-presents-items-again))

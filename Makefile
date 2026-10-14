@@ -229,6 +229,14 @@ fmt: $(GOLANGCI_LINT) ## Format with gofmt and goimports
 tidy: ## go mod tidy
 	$(GO) mod tidy
 
+# sigstore's trusted root, which the kubectl download's signature check embeds (D-50): Renovate
+# cannot see the file, so this refreshes it through sigstore's TUF repository, verified from the TUF
+# root sigstore-go embeds (hack/sigstoreroot); the file's diff is the review. Run it before a
+# release, and when a download says the trusted root does not know a certificate or a log.
+.PHONY: sigstore-root
+sigstore-root: ## Refresh internal/kubectl/sigstore_trusted_root.json from sigstore's TUF repository (D-50)
+	$(GO) run ./hack/sigstoreroot -o internal/kubectl/sigstore_trusted_root.json
+
 # The kind targets need docker and kind; kubectl talks only to KIND_KUBECONFIG.
 kind-up: ## Create the kind cluster (own kubeconfig file), or reuse it, seed it from hack/kind, add the Metrics Server
 	@command -v kind >/dev/null || { echo "kind is not installed: https://kind.sigs.k8s.io"; exit 1; }

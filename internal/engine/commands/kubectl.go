@@ -28,7 +28,8 @@ func registerKubectl(g *registrar) {
 		GUIOnly: engine.ErrKubectlGUIOnly,
 		Description: "Downloads the kubectl release a terminal tab offers (the cluster's version, when the kubectl the " +
 			"terminal finds is more than one minor version away or missing) from dl.k8s.io or the mirror set in " +
-			"Preferences, verifies it against the published SHA-256 and the Kubernetes release's signature, and keeps it " +
+			"Preferences, verifies it against the published SHA-256, the Kubernetes release's signature and that signature's " +
+			"entry in sigstore's transparency log (rekor.sigstore.dev), and keeps it " +
 			"in the directory for binaries; terminals opened afterwards find it first on PATH. Only the user, in Cogpit's " +
 			"window, can download: refused for agents and the CLI, which see the offer in ui_state. Changes no cluster " +
 			"and no kubeconfig. Returns the binary's path.",

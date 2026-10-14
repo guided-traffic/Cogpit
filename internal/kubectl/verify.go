@@ -4,29 +4,41 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/x509"
-	_ "embed" // the sigstore certificate authority
-	"encoding/asn1"
+	_ "embed" // sigstore's trusted root
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"slices"
+	"strings"
 	"sync"
+
+	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
+	protocommon "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
+	protorekor "github.com/sigstore/protobuf-specs/gen/pb-go/rekor/v1"
+	"github.com/sigstore/sigstore-go/pkg/bundle"
+	"github.com/sigstore/sigstore-go/pkg/root"
+	"github.com/sigstore/sigstore-go/pkg/verify"
 )
 
 // The Kubernetes release signs every binary with sigstore's keyless signing: cosign signs the
-// SHA-256 digest of the file with a key it made for that one release, and sigstore's certificate
-// authority (Fulcio) certified that key for ten minutes, for the identity Google's OIDC issuer
-// vouched for. dl.k8s.io publishes the signature as <file>.sig (base64 of an ASN.1 ECDSA
-// signature) and the certificate as <file>.cert (base64 of a PEM certificate)
-// (https://kubernetes.io/docs/tasks/administer-cluster/verify-signed-artifacts/).
+// SHA-256 digest of the file with a key it made for that one release, sigstore's certificate
+// authority (Fulcio) certified that key for ten minutes for the identity Google's OIDC issuer
+// vouched for, and cosign recorded the signature in sigstore's public transparency log (Rekor) as a
+// hashedrekord entry: the digest, the signature and the certificate. dl.k8s.io publishes the
+// signature as <file>.sig (base64 of an ASN.1 ECDSA signature) and the certificate as <file>.cert
+// (base64 of a PEM certificate), and no sigstore bundle
+// (https://kubernetes.io/docs/tasks/administer-cluster/verify-signed-artifacts/; no
+// <file>.sigstore.json for kubectl 1.37.1, 2026-10-15). The log entry is asked for at Rekor
+// (rekor.go), as cosign verify-blob does with --certificate and --signature.
 //
-// Verifier checks that pair with the standard library alone: the certificate chains to the
-// certificate authority Cogpit embeds (sigstore_fulcio.pem) at the time it was issued, is for
-// code signing, names the release's identity and issuer, and its key made the signature over the
-// digest. It does not consult sigstore's transparency log (Rekor), whose entry proves that the
-// signature was made while the certificate was valid, nor the certificate's signed certificate
-// timestamps (docs/security/trust-boundaries.md, H-35).
+// Verifier checks the three with sigstore-go (decision D-50) against the trusted root Cogpit embeds
+// (sigstore_trusted_root.json, sigstore's public-good instance, refreshed by make sigstore-root):
+// the entry records exactly this digest, signature and certificate; its inclusion proof leads to a
+// checkpoint the log signed; its signed entry timestamp is the log's, and the time it gives lies
+// inside the certificate's ten minutes; the certificate chains to Fulcio at that time, carries a
+// signed certificate timestamp of a certificate transparency log the trusted root names, and names
+// the release's identity and issuer; and the signature was made over the digest by the
+// certificate's key.
 
 // Signer is who must have signed: the identity Fulcio wrote into the certificate's subject
 // alternative name, and the OIDC issuer that vouched for it.
@@ -36,82 +48,95 @@ type Signer struct {
 }
 
 // KubernetesRelease is the signer of Kubernetes' release binaries, as Kubernetes documents it and
-// as kubectl 1.36.1's certificate names it (darwin/arm64, read 2026-10-13).
+// as kubectl 1.36.1's and 1.37.1's certificates name it (darwin/arm64, read 2026-10-13 and
+// 2026-10-15).
 var KubernetesRelease = Signer{
 	Identity: "krel-staging@k8s-releng-prod.iam.gserviceaccount.com",
 	Issuer:   "https://accounts.google.com",
 }
 
-// Fulcio's certificate extensions for the OIDC issuer: 1.1 holds the raw text (deprecated), 1.8
-// the same as a DER UTF8String (https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md).
 var (
-	oidIssuerV1 = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}
-	oidIssuerV2 = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 8}
+	// ErrSignature marks a download whose signature, signing certificate or transparency-log entry
+	// does not verify.
+	ErrSignature = errors.New("the signature does not verify")
+	// ErrNotLogged marks a signature that sigstore's transparency log has no entry for. It is an
+	// ErrSignature.
+	ErrNotLogged = fmt.Errorf("%w: sigstore's transparency log has no entry for it", ErrSignature)
 )
 
-// ErrSignature marks a download whose signature or signing certificate does not verify.
-var ErrSignature = errors.New("the signature does not verify")
-
-// Verifier checks a release file's signing certificate and signature.
+// Verifier checks a release file's signature, signing certificate and transparency-log entry.
 type Verifier struct {
-	Roots         *x509.CertPool // the trusted certificate authorities
-	Intermediates *x509.CertPool // the authorities' intermediates; the .cert holds only the signing certificate
-	Signer        Signer
+	Signer Signer
+	v      *verify.Verifier
 }
 
-//go:embed sigstore_fulcio.pem
-var sigstoreFulcio []byte
+//go:embed sigstore_trusted_root.json
+var sigstoreTrustedRoot []byte
 
 var defaultVerifier = sync.OnceValue(func() *Verifier {
-	v, err := NewVerifier(sigstoreFulcio, KubernetesRelease)
+	tr, err := root.NewTrustedRootFromJSON(sigstoreTrustedRoot)
 	if err != nil {
-		panic("kubectl: the embedded sigstore certificate authority does not parse: " + err.Error())
+		panic("kubectl: the embedded sigstore trusted root does not parse: " + err.Error())
+	}
+	v, err := NewVerifier(tr, KubernetesRelease, 1)
+	if err != nil {
+		panic("kubectl: " + err.Error())
 	}
 	return v
 })
 
-// DefaultVerifier is the Kubernetes release's signer under sigstore's public-good certificate
-// authority, which Cogpit embeds.
+// DefaultVerifier is the Kubernetes release's signer under sigstore's public-good instance, whose
+// trusted root Cogpit embeds; the signing certificate must carry one signed certificate timestamp.
 func DefaultVerifier() *Verifier { return defaultVerifier() }
 
-// NewVerifier returns a Verifier for signer with the certificate authorities in pemCerts: each
-// self-signed certificate is a root, every other one an intermediate. Text between the PEM blocks
-// is ignored.
-func NewVerifier(pemCerts []byte, signer Signer) (*Verifier, error) {
-	v := &Verifier{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool(), Signer: signer}
-	roots := 0
-	for rest := pemCerts; ; {
-		var b *pem.Block
-		if b, rest = pem.Decode(rest); b == nil {
-			break
-		}
-		if b.Type != "CERTIFICATE" {
-			continue
-		}
-		c, err := x509.ParseCertificate(b.Bytes)
-		if err != nil {
-			return nil, err
-		}
-		if !c.IsCA {
-			return nil, fmt.Errorf("%s is not a certificate authority", c.Subject)
-		}
-		if bytes.Equal(c.RawSubject, c.RawIssuer) && c.CheckSignatureFrom(c) == nil {
-			v.Roots.AddCert(c)
-			roots++
-		} else {
-			v.Intermediates.AddCert(c)
-		}
+// NewVerifier returns a Verifier for signer under the trusted material: its Fulcio certificate
+// authorities, Rekor logs and certificate transparency logs. scts is how many signed certificate
+// timestamps of the material's certificate transparency logs the signing certificate must carry:
+// one for sigstore's public instance, none for a test instance without a CT log.
+func NewVerifier(trusted root.TrustedMaterial, signer Signer, scts int) (*Verifier, error) {
+	opts := []verify.VerifierOption{verify.WithTransparencyLog(1), verify.WithObserverTimestamps(1)}
+	if scts > 0 {
+		opts = append(opts, verify.WithSignedCertificateTimestamps(scts))
 	}
-	if roots == 0 {
-		return nil, errors.New("no root certificate authority")
+	v, err := verify.NewVerifier(trusted, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("the sigstore verifier: %w", err)
 	}
-	return v, nil
+	return &Verifier{Signer: signer, v: v}, nil
 }
 
-// Certificate decodes a .cert file and checks the certificate in it: it chains to the roots at
-// the moment it was issued (it is valid for minutes only, and the signature was made then), is
-// for code signing, and names the signer's identity and issuer.
-func (v *Verifier) Certificate(data []byte) (*x509.Certificate, error) {
+// Signed is a release file's signature as the release publishes it beside the file.
+type Signed struct {
+	Digest []byte            // the SHA-256 the release signed (.sha256)
+	Sig    []byte            // the ASN.1 ECDSA signature (.sig, decoded)
+	Cert   *x509.Certificate // the signing certificate (.cert, decoded)
+}
+
+// ParseSigned reads a .sig and a .cert file and checks, offline, that they fit digest: the
+// signature was made over it by the certificate's key. Whether the certificate is the release's
+// and the signature is in the log is Verify's. A file that does not parse or a signature that does
+// not fit is an ErrSignature.
+func ParseSigned(digest, sigFile, certFile []byte) (*Signed, error) {
+	cert, err := parseCert(certFile)
+	if err != nil {
+		return nil, err
+	}
+	sig, err := base64.StdEncoding.DecodeString(string(bytes.TrimSpace(sigFile)))
+	if err != nil || len(sig) == 0 {
+		return nil, fmt.Errorf("%w: the .sig file is not base64 of a signature", ErrSignature)
+	}
+	pub, ok := cert.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("%w: the certificate's key is %T, not ECDSA", ErrSignature, cert.PublicKey)
+	}
+	if !ecdsa.VerifyASN1(pub, digest, sig) {
+		return nil, fmt.Errorf("%w: it was not made over the published SHA-256 by the certificate's key", ErrSignature)
+	}
+	return &Signed{Digest: digest, Sig: sig, Cert: cert}, nil
+}
+
+// parseCert decodes a .cert file: base64 of a PEM certificate, or the PEM itself.
+func parseCert(data []byte) (*x509.Certificate, error) {
 	data = bytes.TrimSpace(data)
 	if !bytes.HasPrefix(data, []byte("-----BEGIN")) {
 		dec, err := base64.StdEncoding.DecodeString(string(data))
@@ -128,65 +153,62 @@ func (v *Verifier) Certificate(data []byte) (*x509.Certificate, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: the certificate does not parse: %v", ErrSignature, err)
 	}
-	if _, err := c.Verify(x509.VerifyOptions{
-		Roots: v.Roots, Intermediates: v.Intermediates, CurrentTime: c.NotBefore,
-		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
-	}); err != nil {
-		return nil, fmt.Errorf("%w: the signing certificate does not chain to sigstore's certificate authority: %v", ErrSignature, err)
-	}
-	if !slices.Contains(c.EmailAddresses, v.Signer.Identity) {
-		return nil, fmt.Errorf("%w: the certificate names %s, not %s", ErrSignature, identities(c), v.Signer.Identity)
-	}
-	if issuer := oidcIssuer(c); issuer != v.Signer.Issuer {
-		return nil, fmt.Errorf("%w: the certificate's OIDC issuer is %q, not %s", ErrSignature, issuer, v.Signer.Issuer)
-	}
 	return c, nil
 }
 
-// Verify checks a .sig file, base64 of an ASN.1 ECDSA signature, against the SHA-256 digest of
-// the file with the certificate's key.
-func (v *Verifier) Verify(c *x509.Certificate, digest, sig []byte) error {
-	raw, err := base64.StdEncoding.DecodeString(string(bytes.TrimSpace(sig)))
+// certPEM is the certificate as the log's entry holds it.
+func (s *Signed) certPEM() []byte {
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: s.Cert.Raw})
+}
+
+// Verify checks s and the log's entries for it with sigstore-go: see the comment at the top of
+// this file. One verified entry suffices; an entry that does not verify fails the check. Any
+// failure is an ErrSignature; no entries is ErrNotLogged.
+func (v *Verifier) Verify(s *Signed, entries []LogEntry) error {
+	if len(entries) == 0 {
+		return ErrNotLogged
+	}
+	tles := make([]*protorekor.TransparencyLogEntry, 0, len(entries))
+	for i := range entries {
+		tle, err := entries[i].proto()
+		if err != nil {
+			return fmt.Errorf("%w: the transparency log's entry: %v", ErrSignature, err)
+		}
+		tles = append(tles, tle)
+	}
+	b, err := bundle.NewBundle(&protobundle.Bundle{
+		MediaType: "application/vnd.dev.sigstore.bundle.v0.3+json",
+		VerificationMaterial: &protobundle.VerificationMaterial{
+			Content:     &protobundle.VerificationMaterial_Certificate{Certificate: &protocommon.X509Certificate{RawBytes: s.Cert.Raw}},
+			TlogEntries: tles,
+		},
+		Content: &protobundle.Bundle_MessageSignature{MessageSignature: &protocommon.MessageSignature{
+			MessageDigest: &protocommon.HashOutput{Algorithm: protocommon.HashAlgorithm_SHA2_256, Digest: s.Digest},
+			Signature:     s.Sig,
+		}},
+	})
 	if err != nil {
-		return fmt.Errorf("%w: the .sig file is not base64", ErrSignature)
+		return fmt.Errorf("%w: %s", ErrSignature, oneLine(err))
 	}
-	pub, ok := c.PublicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return fmt.Errorf("%w: the certificate's key is %T, not ECDSA", ErrSignature, c.PublicKey)
+	id, err := verify.NewShortCertificateIdentity(v.Signer.Issuer, "", v.Signer.Identity, "")
+	if err != nil {
+		return fmt.Errorf("%w: %s", ErrSignature, oneLine(err))
 	}
-	if !ecdsa.VerifyASN1(pub, digest, raw) {
-		return fmt.Errorf("%w: it was not made over this file's digest by the certificate's key", ErrSignature)
+	if _, err := v.v.Verify(b, verify.NewPolicy(verify.WithArtifactDigest("sha256", s.Digest), verify.WithCertificateIdentity(id))); err != nil {
+		return fmt.Errorf("%w: %s", ErrSignature, oneLine(err))
 	}
 	return nil
 }
 
-// oidcIssuer is the OIDC issuer Fulcio recorded in the certificate; "" when it recorded none.
-func oidcIssuer(c *x509.Certificate) string {
-	var v1 string
-	for _, e := range c.Extensions {
-		switch {
-		case e.Id.Equal(oidIssuerV2):
-			var s string
-			if rest, err := asn1.UnmarshalWithParams(e.Value, &s, "utf8"); err == nil && len(rest) == 0 {
-				return s
-			}
-		case e.Id.Equal(oidIssuerV1):
-			v1 = string(e.Value)
-		}
-	}
-	return v1
-}
+// maxReason bounds the text of sigstore-go's error in a download's error (Cogpit's default).
+const maxReason = 300
 
-// identities lists the certificate's subject alternative names for an error, quoted: they are the
-// download's text, not Cogpit's.
-func identities(c *x509.Certificate) string {
-	ids := make([]string, 0, len(c.EmailAddresses)+len(c.URIs))
-	ids = append(ids, c.EmailAddresses...)
-	for _, u := range c.URIs {
-		ids = append(ids, u.String())
+// oneLine is err's text on one line of at most maxReason bytes, for the terminal's line:
+// sigstore-go's errors can print a proof's hashes over several lines.
+func oneLine(err error) string {
+	s := strings.Join(strings.Fields(err.Error()), " ")
+	if len(s) > maxReason {
+		s = strings.ToValidUTF8(s[:maxReason], "") + "…"
 	}
-	if len(ids) == 0 {
-		return "no identity"
-	}
-	return fmt.Sprintf("%q", ids)
+	return s
 }

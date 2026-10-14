@@ -1,251 +1,305 @@
 package kubectl
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/asn1"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/pem"
+	"encoding/json"
 	"errors"
-	"math/big"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sigstore/sigstore-go/pkg/root"
+
+	"github.com/guided-traffic/cogpit/internal/testkit/sigstoretest"
 )
 
-// testCA is a certificate authority shaped like sigstore's: a root, an intermediate for code
-// signing, and short-lived leaf certificates for an e-mail identity with Fulcio's issuer
-// extensions.
-type testCA struct {
-	root, inter       *x509.Certificate
-	rootKey, interKey *ecdsa.PrivateKey
-	pem               []byte // root and intermediate, as NewVerifier reads them
+// release is one real kubectl release's published signature and Rekor's answer for it, read from
+// dl.k8s.io and rekor.sigstore.dev (darwin/arm64; 1.36.1 on 2026-10-13 and 2026-10-15, 1.37.1 on
+// 2026-10-15). Public material: the files every download reads.
+type release struct {
+	signed  *Signed
+	entries []LogEntry
+	answer  []byte // Rekor's answer as it came
 }
 
-func newTestCA(t *testing.T) *testCA {
+func readRelease(t *testing.T, version string) release {
 	t.Helper()
-	ca := &testCA{}
-	ca.rootKey = newKey(t, elliptic.P384())
-	root := &x509.Certificate{
-		SerialNumber: big.NewInt(1), Subject: pkix.Name{Organization: []string{"test"}, CommonName: "test-root"},
-		NotBefore: time.Now().Add(-48 * time.Hour), NotAfter: time.Now().Add(48 * time.Hour),
-		KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageCRLSign, BasicConstraintsValid: true, IsCA: true,
-	}
-	ca.root = sign(t, root, root, &ca.rootKey.PublicKey, ca.rootKey)
-	ca.interKey = newKey(t, elliptic.P384())
-	inter := &x509.Certificate{
-		SerialNumber: big.NewInt(2), Subject: pkix.Name{Organization: []string{"test"}, CommonName: "test-intermediate"},
-		NotBefore: time.Now().Add(-47 * time.Hour), NotAfter: time.Now().Add(47 * time.Hour),
-		KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageCRLSign, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
-		BasicConstraintsValid: true, IsCA: true, MaxPathLenZero: true,
-	}
-	ca.inter = sign(t, inter, ca.root, &ca.interKey.PublicKey, ca.rootKey)
-	ca.pem = append(pemOf(ca.root), pemOf(ca.inter)...)
-	return ca
-}
-
-func newKey(t *testing.T, c elliptic.Curve) *ecdsa.PrivateKey {
-	t.Helper()
-	k, err := ecdsa.GenerateKey(c, rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return k
-}
-
-func sign(t *testing.T, tmpl, parent *x509.Certificate, pub *ecdsa.PublicKey, key *ecdsa.PrivateKey) *x509.Certificate {
-	t.Helper()
-	der, err := x509.CreateCertificate(rand.Reader, tmpl, parent, pub, key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	c, err := x509.ParseCertificate(der)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return c
-}
-
-func pemOf(c *x509.Certificate) []byte {
-	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.Raw})
-}
-
-// leafOpts shape a signing certificate.
-type leafOpts struct {
-	identity, issuer string
-	noIssuer         bool
-	eku              x509.ExtKeyUsage
-}
-
-// leaf issues a ten-minute signing certificate that ended an hour ago, as a release's certificate
-// has, and returns it as a .cert file (base64 of PEM) with its key.
-func (ca *testCA) leaf(t *testing.T, o leafOpts) ([]byte, *ecdsa.PrivateKey) {
-	t.Helper()
-	if o.identity == "" {
-		o.identity = KubernetesRelease.Identity
-	}
-	if o.issuer == "" {
-		o.issuer = KubernetesRelease.Issuer
-	}
-	if o.eku == 0 {
-		o.eku = x509.ExtKeyUsageCodeSigning
-	}
-	key := newKey(t, elliptic.P256())
-	tmpl := &x509.Certificate{
-		SerialNumber: big.NewInt(time.Now().UnixNano()), NotBefore: time.Now().Add(-70 * time.Minute),
-		NotAfter: time.Now().Add(-60 * time.Minute), KeyUsage: x509.KeyUsageDigitalSignature,
-		ExtKeyUsage: []x509.ExtKeyUsage{o.eku}, EmailAddresses: []string{o.identity},
-	}
-	if !o.noIssuer {
-		v2, err := asn1.MarshalWithParams(o.issuer, "utf8")
-		if err != nil {
-			t.Fatal(err)
-		}
-		tmpl.ExtraExtensions = []pkix.Extension{{Id: oidIssuerV1, Value: []byte(o.issuer)}, {Id: oidIssuerV2, Value: v2}}
-	}
-	c := sign(t, tmpl, ca.inter, &key.PublicKey, ca.interKey)
-	return []byte(base64.StdEncoding.EncodeToString(pemOf(c))), key
-}
-
-// sigFile signs a digest as cosign does and returns the .sig file.
-func sigFile(t *testing.T, key *ecdsa.PrivateKey, digest []byte) []byte {
-	t.Helper()
-	sig, err := ecdsa.SignASN1(rand.Reader, key, digest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return []byte(base64.StdEncoding.EncodeToString(sig) + "\n")
-}
-
-func (ca *testCA) verifier(t *testing.T) *Verifier {
-	t.Helper()
-	v, err := NewVerifier(ca.pem, KubernetesRelease)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return v
-}
-
-// TestRealReleaseSignature verifies kubectl 1.36.1's published signature (darwin/arm64, read from
-// dl.k8s.io on 2026-10-13) with the embedded sigstore certificate authority, offline: the release
-// signs the SHA-256 it publishes, so the signature is checked without the 57 MB binary.
-func TestRealReleaseSignature(t *testing.T) {
-	read := func(name string) []byte {
-		data, err := os.ReadFile("testdata/kubectl-v1.36.1-darwin-arm64." + name)
+	read := func(ext string) []byte {
+		data, err := os.ReadFile("testdata/kubectl-v" + version + "-darwin-arm64." + ext)
 		if err != nil {
 			t.Fatal(err)
 		}
 		return data
 	}
-	v := DefaultVerifier()
-	cert, err := v.Certificate(read("cert"))
-	if err != nil {
-		t.Fatalf("the release's certificate: %v", err)
-	}
-	if cert.NotAfter.Sub(cert.NotBefore) > 15*time.Minute {
-		t.Errorf("a signing certificate valid for %s", cert.NotAfter.Sub(cert.NotBefore))
-	}
 	digest, err := parseSHA256(read("sha256"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := v.Verify(cert, digest, read("sig")); err != nil {
-		t.Fatalf("the release's signature: %v", err)
+	s, err := ParseSigned(digest, read("sig"), read("cert"))
+	if err != nil {
+		t.Fatalf("kubectl %s's signature: %v", version, err)
 	}
-	digest[0] ^= 1
-	if err := v.Verify(cert, digest, read("sig")); !errors.Is(err, ErrSignature) {
-		t.Errorf("a changed digest verified: %v", err)
+	answer := read("rekor.json")
+	entries, err := parseRekorAnswer(answer)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("kubectl %s's log entries: %d, %v", version, len(entries), err)
 	}
-	other := *v
-	other.Signer.Identity = "someone@example.com"
-	if _, err := other.Certificate(read("cert")); !errors.Is(err, ErrSignature) {
-		t.Errorf("another identity accepted the release's certificate: %v", err)
+	return release{signed: s, entries: entries, answer: answer}
+}
+
+// TestRealReleaseSignature verifies kubectl 1.36.1's and 1.37.1's published signatures with the
+// embedded trusted root, offline, as a download does with what dl.k8s.io and Rekor answer: the
+// release signs the SHA-256 it publishes, so the signature is checked without the 57 MB binary.
+// The certificates carry a signed certificate timestamp, which the default verifier asks for.
+func TestRealReleaseSignature(t *testing.T) {
+	for _, version := range []string{"1.36.1", "1.37.1"} {
+		r := readRelease(t, version)
+		if err := DefaultVerifier().Verify(r.signed, r.entries); err != nil {
+			t.Errorf("kubectl %s: %v", version, err)
+		}
+		if d := r.signed.Cert.NotAfter.Sub(r.signed.Cert.NotBefore); d > 15*time.Minute {
+			t.Errorf("kubectl %s: a signing certificate valid for %s", version, d)
+		}
 	}
 }
 
-// TestVerifierRefuses: every part of the check refuses on its own.
-func TestVerifierRefuses(t *testing.T) {
-	ca := newTestCA(t)
-	v := ca.verifier(t)
-	digest := sha256.Sum256([]byte("kubectl"))
+// TestRealReleaseRefused: each part of the check refuses the real releases' material on its own.
+func TestRealReleaseRefused(t *testing.T) {
+	r136, r137 := readRelease(t, "1.36.1"), readRelease(t, "1.37.1")
+	changed := func(change func(e *LogEntry)) []LogEntry {
+		e := r137.entries[0]
+		e.Body = append([]byte(nil), e.Body...)
+		e.Verification.SignedEntryTimestamp = append([]byte(nil), e.Verification.SignedEntryTimestamp...)
+		p := *e.Verification.InclusionProof
+		p.Hashes = append([]string(nil), p.Hashes...)
+		e.Verification.InclusionProof = &p
+		change(&e)
+		return []LogEntry{e}
+	}
+	flipHex := func(h string) string {
+		b, _ := hex.DecodeString(h)
+		b[0] ^= 1
+		return hex.EncodeToString(b)
+	}
+	otherSigner := func(s Signer) *Verifier {
+		tr, err := root.NewTrustedRootFromJSON(sigstoreTrustedRoot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v, err := NewVerifier(tr, s, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	cases := map[string]struct {
+		v       *Verifier
+		s       *Signed
+		entries []LogEntry
+		want    error
+	}{
+		"another identity": {otherSigner(Signer{Identity: "someone@example.com", Issuer: KubernetesRelease.Issuer}), r137.signed, r137.entries, ErrSignature},
+		"another issuer":   {otherSigner(Signer{Identity: KubernetesRelease.Identity, Issuer: "https://token.actions.githubusercontent.com"}), r137.signed, r137.entries, ErrSignature},
+		"no log entry":     {DefaultVerifier(), r137.signed, nil, ErrNotLogged},
+		// Rekor's entry for another release: its digest, signature and certificate are not these.
+		"another artifact's entry": {DefaultVerifier(), r137.signed, r136.entries, ErrSignature},
+		// The signature and certificate of 1.37.1 over a digest that is not the one they signed.
+		"another digest": {DefaultVerifier(), &Signed{Digest: r136.signed.Digest, Sig: r137.signed.Sig, Cert: r137.signed.Cert}, r137.entries, ErrSignature},
+		"a changed signed entry timestamp": {DefaultVerifier(), r137.signed, changed(func(e *LogEntry) {
+			e.Verification.SignedEntryTimestamp[10] ^= 1
+		}), ErrSignature},
+		"a changed integrated time": {DefaultVerifier(), r137.signed, changed(func(e *LogEntry) { e.IntegratedTime++ }), ErrSignature},
+		"a changed inclusion proof": {DefaultVerifier(), r137.signed, changed(func(e *LogEntry) {
+			e.Verification.InclusionProof.Hashes[3] = flipHex(e.Verification.InclusionProof.Hashes[3])
+		}), ErrSignature},
+		"a changed checkpoint": {DefaultVerifier(), r137.signed, changed(func(e *LogEntry) {
+			e.Verification.InclusionProof.Checkpoint = strings.Replace(e.Verification.InclusionProof.Checkpoint, "\n3133599539\n", "\n3133599540\n", 1)
+		}), ErrSignature},
+		"no inclusion proof": {DefaultVerifier(), r137.signed, changed(func(e *LogEntry) { e.Verification.InclusionProof = nil }), ErrSignature},
+		"a log the trusted root does not know": {DefaultVerifier(), r137.signed, changed(func(e *LogEntry) {
+			e.LogID = flipHex(e.LogID)
+		}), ErrSignature},
+		"a changed body": {DefaultVerifier(), r137.signed, changed(func(e *LogEntry) {
+			e.Body = []byte(strings.Replace(string(e.Body), `"hashedrekord"`, `"hashedrekord" `, 1))
+		}), ErrSignature},
+	}
+	for name, c := range cases {
+		err := c.v.Verify(c.s, c.entries)
+		t.Logf("%s: %v", name, err)
+		if !errors.Is(err, c.want) {
+			t.Errorf("%s: %v, want %v", name, err, c.want)
+		}
+	}
+	// What a download reads offline already refuses a digest the signature was not made over.
+	raw137, _ := os.ReadFile("testdata/kubectl-v1.37.1-darwin-arm64.sig")
+	cert137, _ := os.ReadFile("testdata/kubectl-v1.37.1-darwin-arm64.cert")
+	tampered := append([]byte(nil), r137.signed.Digest...)
+	tampered[0] ^= 1
+	if _, err := ParseSigned(tampered, raw137, cert137); !errors.Is(err, ErrSignature) {
+		t.Errorf("a tampered SHA-256: %v, want ErrSignature", err)
+	}
+}
 
-	good, key := ca.leaf(t, leafOpts{})
-	cert, err := v.Certificate(good)
-	if err != nil {
-		t.Fatalf("a good certificate: %v", err)
+// TestParseSigned: the .sig and .cert files are read as dl.k8s.io publishes them, and refused when
+// they are not.
+func TestParseSigned(t *testing.T) {
+	ss := sigstoretest.New(t)
+	digest := sha256.Sum256([]byte("kubectl"))
+	certFile, key := ss.Issue(t, sigstoretest.Leaf{})
+	sigFile := sigstoretest.SignFile(t, key, digest[:])
+	if _, err := ParseSigned(digest[:], sigFile, certFile); err != nil {
+		t.Fatalf("a good pair: %v", err)
 	}
-	if err := v.Verify(cert, digest[:], sigFile(t, key, digest[:])); err != nil {
-		t.Fatalf("a good signature: %v", err)
-	}
-	// A plain PEM .cert is read too.
-	raw, _ := base64.StdEncoding.DecodeString(string(good))
-	if _, err := v.Certificate(raw); err != nil {
+	pemCert, _ := base64.StdEncoding.DecodeString(string(certFile))
+	if _, err := ParseSigned(digest[:], sigFile, pemCert); err != nil {
 		t.Errorf("a PEM certificate: %v", err)
 	}
-
-	other := newTestCA(t)
-	foreign, _ := other.leaf(t, leafOpts{})
-	for name, file := range map[string][]byte{
-		"another identity":      first(ca.leaf(t, leafOpts{identity: "mallory@example.com"})),
-		"another issuer":        first(ca.leaf(t, leafOpts{issuer: "https://token.actions.githubusercontent.com"})),
-		"no issuer":             first(ca.leaf(t, leafOpts{noIssuer: true})),
-		"not for code signing":  first(ca.leaf(t, leafOpts{eku: x509.ExtKeyUsageServerAuth})),
-		"another authority":     foreign,
-		"not base64 or PEM":     []byte("%%%"),
-		"base64 of no PEM":      []byte(base64.StdEncoding.EncodeToString([]byte("hello"))),
-		"the intermediate only": []byte(base64.StdEncoding.EncodeToString(pemOf(ca.inter))),
+	_, otherKey := ss.Issue(t, sigstoretest.Leaf{})
+	for name, files := range map[string][2][]byte{
+		"another key's signature": {sigstoretest.SignFile(t, otherKey, digest[:]), certFile},
+		"a .sig not base64":       {[]byte("***"), certFile},
+		"an empty .sig":           {nil, certFile},
+		"a .cert neither":         {sigFile, []byte("%%%")},
+		"base64 of no PEM":        {sigFile, []byte(base64.StdEncoding.EncodeToString([]byte("hello")))},
 	} {
-		if _, err := v.Certificate(file); !errors.Is(err, ErrSignature) {
+		if _, err := ParseSigned(digest[:], files[0], files[1]); !errors.Is(err, ErrSignature) {
 			t.Errorf("%s: %v, want ErrSignature", name, err)
 		}
-	}
-
-	_, otherKey := ca.leaf(t, leafOpts{})
-	tampered := sha256.Sum256([]byte("kubectl, changed"))
-	for name, sig := range map[string][]byte{
-		"another key":       sigFile(t, otherKey, digest[:]),
-		"another digest":    sigFile(t, key, tampered[:]),
-		"not base64":        []byte("***"),
-		"an empty sig file": nil,
-	} {
-		if err := v.Verify(cert, digest[:], sig); !errors.Is(err, ErrSignature) {
-			t.Errorf("%s: %v, want ErrSignature", name, err)
-		}
-	}
-	if _, err := NewVerifier(pemOf(ca.inter), KubernetesRelease); err == nil {
-		t.Error("a verifier without a root")
 	}
 }
 
-func first[A, B any](a A, _ B) A { return a }
+// TestVerifierRefuses: with a sigstore instance of the test's own, a logged signature verifies,
+// and every part of the certificate and the log refuses on its own.
+func TestVerifierRefuses(t *testing.T) {
+	ss := sigstoretest.New(t)
+	v, err := NewVerifier(ss.TrustedMaterial(), KubernetesRelease, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256([]byte("kubectl"))
+	signed := func(sigFile, certFile []byte) *Signed {
+		s, err := ParseSigned(digest[:], sigFile, certFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	entries := func(e map[string]any) []LogEntry {
+		t.Helper()
+		data, err := json.Marshal([]map[string]any{{"uuid": e}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		out, err := parseRekorAnswer(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
 
-// TestEmbeddedAuthority: the embedded file holds sigstore's root and intermediate, and the
-// identity is the one Kubernetes documents.
-func TestEmbeddedAuthority(t *testing.T) {
+	certFile, key := ss.Issue(t, sigstoretest.Leaf{})
+	sigFile := sigstoretest.SignFile(t, key, digest[:])
+	good := entries(ss.Log(t, digest[:], sigFile, certFile))
+	if err := v.Verify(signed(sigFile, certFile), good); err != nil {
+		t.Fatalf("a logged signature: %v", err)
+	}
+	// The default verifier asks for a signed certificate timestamp, which this instance cannot give.
+	strict, _ := NewVerifier(ss.TrustedMaterial(), KubernetesRelease, 1)
+	err = strict.Verify(signed(sigFile, certFile), good)
+	t.Logf("no signed certificate timestamp: %v", err)
+	if !errors.Is(err, ErrSignature) {
+		t.Errorf("no signed certificate timestamp: %v", err)
+	}
+
+	logged := func(l sigstoretest.Leaf) (*Signed, []LogEntry) {
+		c, k := ss.Issue(t, l)
+		s := sigstoretest.SignFile(t, k, digest[:])
+		return signed(s, c), entries(ss.Log(t, digest[:], s, c))
+	}
+	other := sigstoretest.New(t)
+	foreignCert, foreignKey := other.Issue(t, sigstoretest.Leaf{})
+	foreignSig := sigstoretest.SignFile(t, foreignKey, digest[:])
+	for name, l := range map[string]sigstoretest.Leaf{
+		"another identity":     {Identity: "mallory@example.com"},
+		"another issuer":       {Issuer: "https://token.actions.githubusercontent.com"},
+		"no issuer":            {NoIssuer: true},
+		"not for code signing": {EKU: x509.ExtKeyUsageServerAuth},
+	} {
+		s, e := logged(l)
+		err := v.Verify(s, e)
+		t.Logf("%s: %v", name, err)
+		if !errors.Is(err, ErrSignature) {
+			t.Errorf("%s: %v, want ErrSignature", name, err)
+		}
+	}
+	_, elsewhere := logged(sigstoretest.Leaf{})
+	for _, c := range []struct {
+		name    string
+		s       *Signed
+		entries []LogEntry
+		want    error
+	}{
+		{"another instance's certificate and log", signed(foreignSig, foreignCert), entries(other.Log(t, digest[:], foreignSig, foreignCert)), ErrSignature},
+		{"another authority's certificate in this log", signed(foreignSig, foreignCert), entries(ss.Log(t, digest[:], foreignSig, foreignCert)), ErrSignature},
+		{"another signature's entry, same identity", signed(sigFile, certFile), elsewhere, ErrSignature},
+		{"no entry", signed(sigFile, certFile), nil, ErrNotLogged},
+	} {
+		err := v.Verify(c.s, c.entries)
+		t.Logf("%s: %v", c.name, err)
+		if !errors.Is(err, c.want) {
+			t.Errorf("%s: %v, want %v", c.name, err, c.want)
+		}
+	}
+}
+
+// TestEmbeddedTrustedRoot: the embedded trusted root is sigstore's public-good instance: the Rekor
+// log whose key signs the Kubernetes release's entries, the Fulcio root and intermediate the
+// standard-library check embedded until 2026-10-15, and a certificate transparency log valid now;
+// and the identity is the one Kubernetes documents.
+func TestEmbeddedTrustedRoot(t *testing.T) {
 	v := DefaultVerifier()
 	if v.Signer != KubernetesRelease || !strings.HasSuffix(v.Signer.Identity, "@k8s-releng-prod.iam.gserviceaccount.com") {
 		t.Errorf("signer %+v", v.Signer)
 	}
-	var fps []string
-	for rest := sigstoreFulcio; ; {
-		var b *pem.Block
-		if b, rest = pem.Decode(rest); b == nil {
-			break
-		}
-		sum := sha256.Sum256(b.Bytes)
-		fps = append(fps, hex.EncodeToString(sum[:]))
+	tr, err := root.NewTrustedRootFromJSON(sigstoreTrustedRoot)
+	if err != nil {
+		t.Fatal(err)
 	}
-	want := []string{
+	const rekorV1 = "c0d23d6ad406973f9559f3ba2d1ca01f84147d8ffc5b8445c224f98b9591801d"
+	if l := tr.RekorLogs()[rekorV1]; l == nil || l.BaseURL != DefaultRekor {
+		t.Errorf("Rekor logs %v: no %s at %s", tr.RekorLogs(), rekorV1, DefaultRekor)
+	}
+	fps := map[string]bool{}
+	for _, ca := range tr.FulcioCertificateAuthorities() {
+		f, ok := ca.(*root.FulcioCertificateAuthority)
+		if !ok {
+			continue
+		}
+		for _, c := range append([]*x509.Certificate{f.Root}, f.Intermediates...) {
+			sum := sha256.Sum256(c.Raw)
+			fps[hex.EncodeToString(sum[:])] = true
+		}
+	}
+	for _, want := range []string{
 		"3ba7b6cc4e95469d4d334b49cb257ad8537076fa84b0ca87ff4ecfe6a54680c1", // CN=sigstore
 		"15d795348226b4649f750f5802592c393bee7cc53c3b86982175b7ad087efe47", // CN=sigstore-intermediate
+	} {
+		if !fps[want] {
+			t.Errorf("no certificate authority %s in %v", want, fps)
+		}
 	}
-	if strings.Join(fps, " ") != strings.Join(want, " ") {
-		t.Errorf("embedded certificates %v, want %v", fps, want)
+	now := time.Now()
+	valid := 0
+	for _, l := range tr.CTLogs() {
+		if !l.ValidityPeriodStart.After(now) && (l.ValidityPeriodEnd.IsZero() || l.ValidityPeriodEnd.After(now)) {
+			valid++
+		}
+	}
+	if valid == 0 {
+		t.Error("no certificate transparency log valid now")
 	}
 }
