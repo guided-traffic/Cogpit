@@ -179,6 +179,8 @@ func originText(o engine.Origin) string {
 		return "An external agent over MCP"
 	case engine.OriginBuiltInAgent:
 		return "Cogpit's built-in agent"
+	case engine.OriginDeepLink:
+		return "A cogpit:// link from a web page, mail or app"
 	}
 	return string(o)
 }

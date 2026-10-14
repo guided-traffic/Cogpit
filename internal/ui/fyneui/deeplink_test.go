@@ -1,11 +1,13 @@
 package fyneui
 
 import (
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/test"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
@@ -21,8 +23,9 @@ func (w *raisedWindow) RequestFocus() { w.raised.Add(1); w.Window.RequestFocus()
 
 // The cogpit:// links that came before the window wait until it attaches; then each is opened by
 // the engine, one after the other, with the window brought to the front for each: a link to the
-// demo cluster's Deployments connects it and shows them with a toast saying so; a link to a context
-// Cogpit does not know changes nothing, and a toast says why.
+// demo cluster's Deployments asks the user before it connects (A7), its question naming the
+// context and who asked, then connects it and shows them with a toast saying so; a link to a
+// context Cogpit does not know changes nothing, and a toast says why.
 func TestDeepLinksOpenInTheWindow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds a demo cluster")
@@ -37,6 +40,8 @@ func TestDeepLinksOpenInTheWindow(t *testing.T) {
 	sh, w, q := newEngineShell(t, s, Options{})
 	rw := &raisedWindow{Window: w}
 	sh.win = rw
+	sh.confirmer.armDelay = 0
+	s.SetConfirmer(sh.confirmer)
 
 	links := engine.NewDeepLinkQueue(nil)
 	links.Deliver("cogpit://open?context=demo&view=deployments")
@@ -47,6 +52,12 @@ func TestDeepLinksOpenInTheWindow(t *testing.T) {
 	toasts := len(sh.toasts.Objects)
 	detach := sh.attachDeepLinks(links)
 	defer detach()
+	q.until(t, "the link's question", func() bool { return sh.confirmer.current != nil })
+	texts := strings.Join(overlayTexts(w), "\n")
+	if !strings.Contains(texts, "connects demo and opens the deployments view there") || !strings.Contains(texts, "A cogpit:// link") {
+		t.Errorf("the question:\n%s", texts)
+	}
+	test.Tap(sh.confirmer.current.confirm)
 	q.until(t, "both links opened", func() bool {
 		u := sh.ui
 		return u.Context == engine.DemoContext && u.View == "deployments" && rw.raised.Load() == 2 &&

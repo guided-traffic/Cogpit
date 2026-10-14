@@ -62,6 +62,7 @@ type linkHarness struct {
 	conn   *linkConnector
 	audit  *syncBuffer
 	asked  atomic.Int32
+	no     atomic.Bool // the user declines
 	mu     sync.Mutex
 	toasts []engine.Event
 }
@@ -76,7 +77,7 @@ func newLinkHarness(t *testing.T) *linkHarness {
 		Preferences: engine.NewPreferencesStore(""),
 		Confirmer: engine.ConfirmFunc(func(context.Context, engine.ConfirmRequest) (bool, error) {
 			h.asked.Add(1)
-			return true, nil
+			return !h.no.Load(), nil
 		})})
 	if err := commands.RegisterAll(s.Registry()); err != nil {
 		t.Fatal(err)
@@ -200,8 +201,51 @@ func TestDeepLinkConnectsAndNavigates(t *testing.T) {
 	if got := h.conn.connected(); !slices.Equal(got, []string{"dev [dev.yaml]", "gke [gke.yaml]"}) {
 		t.Errorf("connected %v", got)
 	}
-	if h.asked.Load() != 0 || len(h.writer.calls) != 0 {
-		t.Errorf("asked %d, writes %v", h.asked.Load(), h.writer.calls)
+	// Each connect asked once (A7); the link within the connected cluster did not.
+	if h.asked.Load() != 2 || len(h.writer.calls) != 0 {
+		t.Errorf("asked %d, want 2; writes %v", h.asked.Load(), h.writer.calls)
+	}
+}
+
+// A link that would connect another cluster asks the user once, naming the context and what it
+// opens (A7, owner 2026-10-14 evening, H-89); declined, nothing is connected and nothing moves, and
+// the toast and the audit log say the user declined. Navigation within the connected cluster never
+// asks.
+func TestDeepLinkAsksBeforeItConnects(t *testing.T) {
+	h := newLinkHarness(t)
+	var req engine.ConfirmRequest
+	h.s.SetConfirmer(engine.ConfirmFunc(func(_ context.Context, r engine.ConfirmRequest) (bool, error) {
+		h.asked.Add(1)
+		req = r
+		return !h.no.Load(), nil
+	}))
+	if _, err := h.s.OpenDeepLink(context.Background(), "cogpit://open?view=services"); err != nil || h.asked.Load() != 0 {
+		t.Fatalf("a link within the connected cluster: %v, asked %d", err, h.asked.Load())
+	}
+	h.no.Store(true)
+	_, err := h.s.OpenDeepLink(context.Background(), "cogpit://open?context=dev&view=pods&namespace=shop&name=web-0")
+	if !errors.Is(err, engine.ErrDeepLinkDeclined) || h.asked.Load() != 1 || len(h.conn.connected()) != 0 {
+		t.Fatalf("declined: %v, asked %d, connected %v", err, h.asked.Load(), h.conn.connected())
+	}
+	if req.Command != engine.DeepLinkConnectCommand || req.Origin != engine.OriginDeepLink || req.Context != "dev [dev.yaml]" ||
+		!strings.Contains(req.Detail, "pods web-0 in namespace shop") || !strings.Contains(req.Detail, "you are working in test") {
+		t.Errorf("the question %+v", req)
+	}
+	if u := h.s.UIState(); u.Context != "test" || u.View != "services" {
+		t.Errorf("a declined link moved the window: %q %q", u.Context, u.View)
+	}
+	if e := h.lastLinkAudit(t); e.OK || !strings.Contains(e.Error, "declined") {
+		t.Errorf("audit %+v", e)
+	}
+	h.no.Store(false)
+	if _, err := h.s.OpenDeepLink(context.Background(), "cogpit://open?context=dev"); err != nil || h.asked.Load() != 2 ||
+		!slices.Equal(h.conn.connected(), []string{"dev [dev.yaml]"}) {
+		t.Errorf("accepted: %v, asked %d, connected %v", err, h.asked.Load(), h.conn.connected())
+	}
+	// Without a window to ask in, a link that would connect is refused.
+	h.s.SetConfirmer(nil)
+	if _, err := h.s.OpenDeepLink(context.Background(), "cogpit://open?context=test"); !errors.Is(err, engine.ErrConfirmationUnavailable) {
+		t.Errorf("headless: %v", err)
 	}
 }
 
@@ -269,8 +313,12 @@ func TestDeepLinkRefusals(t *testing.T) {
 			if e := h.lastLinkAudit(t); e.OK || e.Origin != engine.OriginDeepLink || e.Error == "" {
 				t.Errorf("audit %+v", e)
 			}
-			if h.asked.Load() != 0 || len(h.writer.calls) != 0 {
-				t.Errorf("asked %d, writes %v", h.asked.Load(), h.writer.calls)
+			wantAsked := int32(0)
+			if tc.connects != nil { // the user was asked before the connect that failed (A7)
+				wantAsked = 1
+			}
+			if h.asked.Load() != wantAsked || len(h.writer.calls) != 0 {
+				t.Errorf("asked %d, want %d; writes %v", h.asked.Load(), wantAsked, h.writer.calls)
 			}
 		})
 	}

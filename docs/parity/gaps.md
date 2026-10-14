@@ -1544,9 +1544,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   2026-10-14, above); ⌘F and ⌘⇧T as
   main-menu items showing their keys, which stay window shortcuts (the editor keeps its ⌘F); the
   palette's typed text as engine state; a cluster's colour from the eight swatches or a free colour
-  picker; Sync with computer the default theme; a `cogpit://` link naming another cluster than the
-  connected one asks once, naming the context ([D-47](../developer/decisions.md#d-47-deep-links-cogpit));
-  Built 2026-10-14: agents may set a proxy, Preferences' and a cluster's, as a write the user always
+  picker; Sync with computer the default theme.
+  Built 2026-10-14: a `cogpit://` link naming another cluster than the connected one asks once,
+  naming the context ([D-47](../developer/decisions.md#d-47-deep-links-cogpit)); agents may set a proxy, Preferences' and a cluster's, as a write the user always
   confirms; an agent removing a bank that holds clusters waits for the user; marking notifications
   read and clearing them the window's only, the window-only toasts reaching agents as text through
   the Secret filter

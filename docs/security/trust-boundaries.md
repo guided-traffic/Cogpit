@@ -95,18 +95,19 @@ Browsers usually ask before they hand a link to an app ("Open Cogpit?"); a mail 
 - **The cost of a connect.** Each link to another context connects it: discovery, the access
   reviews and the lists of the view it opens, with the user's identity. A page that opens links in
   a loop makes Cogpit connect again and again (the queue holds at most 8, and a browser asks per
-  link). Live only where links reach Cogpit without a question.
+  link). Bounded since 2026-10-14 by the question below.
 - **An approved credential plugin runs.** A context whose plugin the user allowed is connected,
   so the plugin runs (an OIDC login may open a browser). A plugin not allowed, or changed since,
   never runs from a link.
 
-Decided (owner, 2026-10-14 evening): a link that names another cluster than the connected one
-asks the user once, naming the context, before it switches; navigation within the connected
-cluster stays immediate. Not built yet; until then all three cases above are live wherever links
-reach Cogpit without a question. Once built, per case: **the wrong cluster** needs the user's yes,
-which names the context; **the cost of a connect** is a question per link instead of a connect,
+Decided (owner, 2026-10-14 evening) and built the same night: a link that names another cluster
+than the connected one asks the user once, naming the context and what it opens, before it
+connects (also while none is connected: the lead's night decision,
+[D-47](../developer/decisions.md#d-47-deep-links-cogpit)); navigation within the connected cluster
+stays immediate (`askLinkConnect`, `TestDeepLinkAsksBeforeItConnects`). Per case now: **the wrong
+cluster** needs the user's yes, which names the context; **the cost of a connect** is a question per link instead of a connect,
 and a page that opens links in a loop raises questions rather than connections (the queue still
-holds at most 8); **an approved credential plugin** runs only after that yes. What remains then: a
+holds at most 8); **an approved credential plugin** runs only after that yes. What remains: a
 link within the connected cluster still changes the view and opens a drawer under the user without
 asking, and a yes to a question a page raised switches as today. Not built and not decided: a
 setting that turns links off.

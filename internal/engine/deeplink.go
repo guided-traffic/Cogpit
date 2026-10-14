@@ -252,8 +252,8 @@ type DeepLinkResult struct {
 
 // OpenDeepLink opens a cogpit:// link (D-47): parses it, resolves its context among the
 // kubeconfig sources' contexts, and runs the navigation it asks for through DeepLinkCommands with
-// OriginDeepLink. It connects the context unless it is connected, but not one whose login waits
-// for the user's approval. What it opened, or why it stopped, is a toast and a line of the audit
+// OriginDeepLink. It connects the context unless it is connected, after the user's yes
+// (askLinkConnect, A7), but never one whose login waits for the user's approval. What it opened, or why it stopped, is a toast and a line of the audit
 // log (origin deeplink, command deeplink.open). The window calls it for each link macOS hands the
 // app (DeepLinkQueue), off its main goroutine: connecting can take seconds.
 func (s *Session) OpenDeepLink(ctx context.Context, raw string) (res DeepLinkResult, err error) {
@@ -285,6 +285,9 @@ func (s *Session) OpenDeepLink(ctx context.Context, raw string) (res DeepLinkRes
 		}
 	}
 	if !connected || u.Context != ctxID {
+		if err := s.askLinkConnect(ctx, link, ctxID, u); err != nil { // A7: once, naming the context
+			return res, err
+		}
 		var cr struct {
 			State ConnectionState `json:"state"`
 			Error string          `json:"error"`
@@ -322,6 +325,55 @@ func (s *Session) OpenDeepLink(ctx context.Context, raw string) (res DeepLinkRes
 	}
 	res.View = s.UIState().View
 	return res, nil
+}
+
+// ErrDeepLinkDeclined: the user did not let a link connect another cluster.
+var ErrDeepLinkDeclined = errors.New("the user declined to follow the link")
+
+// DeepLinkConnectCommand is the confirmation's command id for a link that connects a cluster.
+const DeepLinkConnectCommand = "deeplink.connect"
+
+// askLinkConnect asks the user once before a link connects a cluster (A7, owner 2026-10-14
+// evening; H-89): another cluster than the connected one, or one while none is connected (the
+// lead's reading: every connect a link would start asks, so a page that opens links in a loop
+// raises questions rather than connections). The question names the context and what the link
+// opens; navigation within the connected cluster never asks. Without a window to ask in the link
+// is refused.
+func (s *Session) askLinkConnect(ctx context.Context, link DeepLink, ctxID string, u UIState) error {
+	s.mu.Lock()
+	confirmer := s.confirmer
+	s.mu.Unlock()
+	if confirmer == nil {
+		return fmt.Errorf("the link would connect %s: %w", kubeconfig.DisplayText(ctxID, 200), ErrConfirmationUnavailable)
+	}
+	from := "no cluster is connected"
+	if u.Connection.State == Connected && u.Context != "" {
+		from = "you are working in " + kubeconfig.DisplayText(u.Context, 200) + ", whose tabs stay"
+	}
+	what := "its overview"
+	switch {
+	case link.Name != "":
+		what = link.View + " " + link.Name
+		if link.Namespace != "" {
+			what += " in namespace " + link.Namespace
+		}
+	case link.View != "":
+		what = "the " + link.View + " view"
+	}
+	req := ConfirmRequest{
+		Command: DeepLinkConnectCommand, Label: "Follow a cogpit:// link and connect", Danger: DangerUI, Origin: OriginDeepLink,
+		Context: ctxID,
+		Detail: "A web page, mail or app opened a cogpit:// link that connects " + kubeconfig.DisplayText(ctxID, 200) +
+			" and opens " + kubeconfig.DisplayText(what, 300) + " there; " + from + ".",
+	}
+	ok, err := confirmer.Confirm(ctx, req)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("%w: it would have connected %s", ErrDeepLinkDeclined, kubeconfig.DisplayText(ctxID, 200))
+	}
+	return nil
 }
 
 // deepLinkContext resolves a link's context among the connector's contexts: its id, or a

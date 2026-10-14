@@ -1356,7 +1356,11 @@ engine beside the GUI, the CLI and agents, and the least trusted: any web page o
   kubeconfig context name one source file alone defines; only a source's context or the demo
   cluster; never one whose login waits for the user's approval), then dispatches with origin
   `OriginDeepLink`: `settings.close` when a settings page is open, `cluster.connect` unless the
-  context is connected, then `ui.navigate` with the object, or `ui.setNamespace` and `ui.openView`.
+  context is connected — after one question to the user (`askLinkConnect` through the session's
+  confirmer, `DeepLinkConnectCommand`, naming the context and what the link opens; declined,
+  `ErrDeepLinkDeclined`; without a window, refused; the owner's A7, built 2026-10-14) — then
+  `ui.navigate` with the object, or `ui.setNamespace` and `ui.openView`. A link within the
+  connected cluster never asks.
   It returns a `DeepLinkResult`, emits a toast (what it opened, or why not) and writes one audit line
   (`deeplink.open`, origin `deeplink`, the link's parameters).
 - **The walls.** `Dispatch` refuses `OriginDeepLink` every command but `DeepLinkCommands`, and any

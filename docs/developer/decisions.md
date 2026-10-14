@@ -63,7 +63,7 @@ window. Nothing of it was built in the round.
 | A4 | H-82 | Values under naming keys (user, host, port, database, namespace, …) are not replaced; as built | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents) |
 | A5 | H-82 | The filter's minimum 10 bytes instead of 8; built 2026-10-14 | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents) |
 | A6 | H-40 | An allowance of credentials over http does not expire; bound to name, URL and user; as built | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml), [H-40](../security/credentials.md#h-40-credentials-over-plain-http) |
-| A7 | D-47, H-89 | A `cogpit://` link that names another cluster than the connected one asks once, naming the context, before switching; within the connected cluster it stays immediate; to build | [D-47](#d-47-deep-links-cogpit), [H-89](../security/trust-boundaries.md#h-89-a-link-switches-the-cluster-and-the-view-under-the-user) |
+| A7 | D-47, H-89 | A `cogpit://` link that names another cluster than the connected one asks once, naming the context, before switching; within the connected cluster it stays immediate; built 2026-10-14 | [D-47](#d-47-deep-links-cogpit), [H-89](../security/trust-boundaries.md#h-89-a-link-switches-the-cluster-and-the-view-under-the-user) |
 | A8 | D-48 | Start at login off by default, only the user turns it on; as built | [D-48](#d-48-start-at-login) |
 | – | D-4 | Agent REL's "the disk image replaces the zip" and "`cogpit-cli` signed and notarized, not stapled": moot, only the disk image ships, the CLI inside `Cogpit.app` | [D-4](#d-4-packaging-and-updates), [D-16](#d-16-the-first-real-release) |
 | A9 | D-4 | A failed signature or notarization fails the job; no files until it is re-run; Apple gets 45 minutes; as built | [D-4](#d-4-packaging-and-updates) |
@@ -3106,9 +3106,13 @@ What the build chose, Cogpit's defaults (not the owner's decision):
 **Decided in part (owner, 2026-10-14 evening, A7,
 [H-89](../security/trust-boundaries.md#h-89-a-link-switches-the-cluster-and-the-view-under-the-user)):**
 a link that names another cluster than the connected one asks once, naming the context, before it
-switches; navigation within the connected cluster stays immediate. Not built yet: a link switches
-without asking (the default "A link may switch the connected cluster without asking" below). The
-round answered the switch only; the rest of the record stays the lead's decision for the owner to
+switches; navigation within the connected cluster stays immediate. Built 2026-10-14
+(`askLinkConnect`, `TestDeepLinkAsksBeforeItConnects`, `TestDeepLinksOpenInTheWindow`); it replaces
+the default "A link may switch the connected cluster without asking" below. **The lead's night
+decision for the owner to confirm:** a link asks before every connect it would start, also while
+no cluster is connected (options: only when another cluster is connected), so that a page opening
+links in a loop raises questions rather than connections (H-89's cost of a connect). The round
+answered the switch only; the rest of the record stays the lead's decision for the owner to
 confirm.
 
 **Open apart from the switch above: the lead's decision of 2026-10-14, for the owner to confirm;
