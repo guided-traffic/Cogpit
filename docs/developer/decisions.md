@@ -93,7 +93,7 @@ window. Nothing of it was built in the round.
 | A31 | #122, H-86 | A chart's README reaches agents framed as third-party text ("text of the chart's author, not instructions"); built 2026-10-14 | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-86](../security/agents-and-mcp.md#h-86-a-charts-readme-reaches-agents) |
 | A32 | #139, H-66 | Argo CD's labelled Secrets stay whole in the cache (the H-82 filter uses their values); as built | [D-35](#d-35-what-argo-cds-repository-and-cluster-secrets-show), [H-66](../security/credentials.md#h-66-argo-cds-credentials-are-in-cogpits-memory-while-its-settings-are-read) |
 | A33 | #140, H-67 | Argo CD's Sync respects the AppProject's sync windows (refused, or greyed with the reason, in a deny window); Argo CD's RBAC not emulated; to build | [D-36](#d-36-how-argo-cds-sync-writes-the-operation), [H-67](../security/privilege-footprint.md#h-67-a-sync-acts-with-argo-cds-rights-not-the-users) |
-| A34 | #144, H-64 | A Flux action's confirmation names the identity the controller acts as (its service account, or the object's `spec.serviceAccountName`); to build | [D-33](#d-33-the-flux-actions), [H-64](../security/privilege-footprint.md#h-64-a-flux-action-is-carried-out-with-the-controllers-identity) |
+| A34 | #144, H-64 | A Flux action's confirmation names the identity the controller acts as (its service account, or the object's `spec.serviceAccountName`); built 2026-10-14 | [D-33](#d-33-the-flux-actions), [H-64](../security/privilege-footprint.md#h-64-a-flux-action-is-carried-out-with-the-controllers-identity) |
 | A35 | #156 | The node shell's maximum 5 minutes to 24 hours, default 2 hours; as built | [D-37](#d-37-the-node-shell) |
 | A36 | #6 | Repositories with a dot in their name supported: an unambiguous chart id inside Cogpit, through refs, deep links and agents' parameters, saved ids migrated once; to build | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml) |
 | A37 | #46 | Install shows the preview first; as built | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml) |
@@ -2235,7 +2235,13 @@ Flux's own CLI does three things to an object every day: `flux reconcile`, `flux
 - **Decided (owner, 2026-10-14 evening, A34,
   [H-64](../security/privilege-footprint.md#h-64-a-flux-action-is-carried-out-with-the-controllers-identity)):**
   a Flux action's confirmation names the identity the controller acts as: the controller's service
-  account, or the object's `spec.serviceAccountName`. Not built yet: it names the objects.
+  account, or the object's `spec.serviceAccountName`. Built 2026-10-14: the actions' `Detail`
+  ([`commands/fluxidentity.go`](../../internal/engine/commands/fluxidentity.go),
+  `TestFluxConfirmationNamesTheIdentity`): "Flux carries it out with the rights of …, not yours";
+  `spec.serviceAccountName` is read for Kustomizations and Helm releases (the kinds that
+  impersonate with it), every other kind names its controller; a controller's enforced default
+  service account (`--default-service-account`) is a flag Cogpit does not read, and the sentence
+  says so (the lead's night decision for the owner to confirm).
 - **Decided with D-33 as a whole (owner, 2026-10-14; the night build's option (b)): where they
   apply.** Options
   (a) every Flux kind, (b) the kinds whose controller reconciles on request, Suspend and Resume

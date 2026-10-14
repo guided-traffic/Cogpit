@@ -286,6 +286,11 @@ func fluxOneSpec[P any](a fluxAction, get func(P) (model.ObjectRef, bool)) engin
 			}
 			return targetOf(s, ref)
 		},
+		// Whose rights the reconciliation uses (A34, fluxidentity.go).
+		Detail: func(s *engine.Session, p P) string {
+			ref, _ := get(p)
+			return fluxIdentityDetail(s, []model.ObjectRef{ref})
+		},
 		Run: func(ctx context.Context, s *engine.Session, p P) (any, error) {
 			ref, force := get(p)
 			if a.withSource {
@@ -325,6 +330,13 @@ func fluxManySpec[P any](a fluxAction, get func(P) ([]model.ObjectRef, bool)) en
 				return fluxManySourceTargets(s, a, refs)
 			}
 			return fluxManyTargets(s, a, refs, force)
+		},
+		Detail: func(s *engine.Session, p P) string { // A34, fluxidentity.go
+			refs, force := get(p)
+			if acting, err := fluxManyTargets(s, a, refs, force); err == nil {
+				refs = acting
+			}
+			return fluxIdentityDetail(s, refs)
 		},
 		Run: func(ctx context.Context, s *engine.Session, p P) (any, error) {
 			refs, force := get(p)

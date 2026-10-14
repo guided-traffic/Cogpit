@@ -177,11 +177,12 @@ agent's call needs the user's acceptance, unless agent writes are allowed for th
 force a Helm release, without a dialog. A forced reconcile stays mutating like the others (the
 owner's decision on D-33, 2026-10-14: Force included).
 
-Decided (owner, 2026-10-14 evening): the confirmation of a Flux action names the identity the
-controller acts as, the controller's service account or the object's `spec.serviceAccountName`.
-Not built yet; until then the confirmation names the objects only, live wherever the user may patch
-a Flux kind. What remains once it is built: the name tells the user whose rights the
-reconciliation uses, not what they allow; and under the allowance of agent writes an agent's
+Decided (owner, 2026-10-14 evening) and built the same night: the confirmation of a Flux action
+names the identity the controller acts as, the controller's service account or the object's
+`spec.serviceAccountName` (`fluxIdentityDetail`, `TestFluxConfirmationNamesTheIdentity`). What
+remains: the name tells the user whose rights the reconciliation uses, not what they allow; a
+controller that enforces a default service account (`--default-service-account`) is named by its
+own account, since Cogpit does not read the controller's flags; and under the allowance of agent writes an agent's
 action still runs without a dialog, so the name reaches the user only where a confirmation is
 shown.
 

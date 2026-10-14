@@ -410,3 +410,37 @@ func TestFluxDashboardCommand(t *testing.T) {
 		t.Errorf("reconciled %+v, patches %v", done.Done, w.Patches())
 	}
 }
+
+// TestFluxConfirmationNamesTheIdentity (A34, owner 2026-10-14 evening; H-64): the confirmation of a
+// Flux action says whose rights the reconciliation uses: the object's spec.serviceAccountName, or
+// the controller's own service account without one; a selection names each identity once.
+func TestFluxConfirmationNamesTheIdentity(t *testing.T) {
+	src := fluxSource()
+	hr := fluxObject("helm.toolkit.fluxcd.io/v2", "HelmRelease", "shop", "podinfo", false, "True")
+	if err := unstructured.SetNestedField(hr.Object, "shop-deployer", "spec", "serviceAccountName"); err != nil {
+		t.Fatal(err)
+	}
+	src.Set(hrGVR, hr)
+	var asked []engine.ConfirmRequest
+	h, _ := newFluxHarnessOn(t, engine.Options{Confirmer: engine.ConfirmFunc(func(_ context.Context, req engine.ConfirmRequest) (bool, error) {
+		asked = append(asked, req)
+		return false, nil
+	})}, src)
+	agent := engine.OriginExternalAgent
+	_ = h.run(t, agent, "flux.reconcile", map[string]any{"ref": ksRef("apps")}, nil)
+	hrRef := model.ObjectRef{Kind: "helmreleases.helm.toolkit.fluxcd.io", Namespace: "shop", Name: "podinfo"}
+	_ = h.run(t, agent, "flux.reconcile", map[string]any{"ref": hrRef}, nil)
+	_ = h.run(t, agent, "flux.reconcileMany", map[string]any{"refs": []model.ObjectRef{ksRef("apps"), ksRef("infra"), hrRef}}, nil)
+	if len(asked) != 3 {
+		t.Fatalf("asked %d times", len(asked))
+	}
+	if d := asked[0].Detail; !strings.Contains(d, "the kustomize-controller's own service account") || !strings.Contains(d, "not yours") {
+		t.Errorf("a Kustomization without a service account: %q", d)
+	}
+	if d := asked[1].Detail; !strings.Contains(d, "ServiceAccount shop/shop-deployer (spec.serviceAccountName, through the helm-controller)") {
+		t.Errorf("a HelmRelease with one: %q", d)
+	}
+	if d := asked[2].Detail; strings.Count(d, "kustomize-controller") != 1 || !strings.Contains(d, "shop/shop-deployer") {
+		t.Errorf("a selection: %q", d)
+	}
+}
