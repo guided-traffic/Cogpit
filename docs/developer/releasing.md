@@ -249,7 +249,10 @@ needs `git pull --rebase` first.
 
 **When semantic-release stops after the tag** (v0.6.0, 2026-10-14: GitHub rejected the push of
 `refs/notes/semantic-release-v0.6.0` with a bare "failed" after the release commit and the tag
-were pushed): there is a tag but no GitHub release, so the release pipeline does not start, and
+were pushed; the cause: the repository had been renamed to `guided-traffic/Cogpit`, and
+`package.json`'s `repository.url`, from which semantic-release takes the URL it pushes to, still
+named `…/cogpit.git`, whose redirect ("This repository moved") let the commit and the tag through
+but not the notes; the URL follows the new name since): there is a tag but no GitHub release, so the release pipeline does not start, and
 re-running the job does not help (its commit is behind `main` now, and semantic-release then
 publishes nothing). Finish it by hand, as semantic-release would have:
 `git notes --ref semantic-release-v<version> add -f -m '{"channels":[null]}' v<version>`, push that

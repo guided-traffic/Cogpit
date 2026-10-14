@@ -4,7 +4,7 @@
   "description": "Release tooling only (semantic-release in CI); Cogpit itself is Go",
   "repository": {
     "type": "git",
-    "url": "https://github.com/guided-traffic/cogpit.git"
+    "url": "https://github.com/guided-traffic/Cogpit.git"
   },
   "author": "Guided Traffic",
   "license": "Apache-2.0",
