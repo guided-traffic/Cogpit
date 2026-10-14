@@ -45,6 +45,10 @@ type UIState struct {
 	// when the drawer shows another object and is the same in every tab; a table without an entry
 	// is sorted by name.
 	DrawerSort map[string]SortSpec `json:"drawerSort,omitempty"`
+	// DrawerChartVersion is the version a Helm chart's drawer shows, as ui.setChartVersion sets it
+	// (helmchartdrawer.go): its properties and README are that version's. Empty: the version the
+	// chart is listed with. It ends when the drawer closes or shows another object.
+	DrawerChartVersion string `json:"drawerChartVersion,omitempty"`
 	// Dock lists the dock's tabs; ActiveDock is the id of the shown one.
 	Dock       []DockTab `json:"dock"`
 	ActiveDock string    `json:"activeDock,omitempty"`

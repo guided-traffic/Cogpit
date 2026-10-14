@@ -88,6 +88,8 @@ var wantCommands = map[string]engine.Danger{
 	"helm.repo.list": engine.DangerRead, "helm.repo.update": engine.DangerUI,
 	// Installing a chart (G11): the tab is UI, the preview a read, the install mutating (D-2).
 	"helm.chart.installTab": engine.DangerUI, "helm.chart.preview": engine.DangerRead, "helm.chart.install": engine.DangerMutating,
+	// The chart drawer's version (HELM2): UI state of the open drawer (TestHelmChartDrawerVersion).
+	"ui.setChartVersion": engine.DangerUI,
 
 	// Workload actions and logs (G7, G8).
 	"daemonset.restart":   engine.DangerDestructive,

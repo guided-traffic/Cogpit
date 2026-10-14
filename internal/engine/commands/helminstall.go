@@ -25,7 +25,7 @@ const orderInstall = 100
 
 type installTabParams struct {
 	Ref     model.ObjectRef `json:"ref" jsonschema:"the chart: kind helmcharts, name <repository>.<chart> as resources_list lists it"`
-	Version string          `json:"version,omitempty" jsonschema:"the chart version; empty: the version the chart is listed with (the newest that is not a prerelease)"`
+	Version string          `json:"version,omitempty" jsonschema:"the chart version; empty: the version the chart's drawer shows when it shows this chart (ui_setChartVersion), else the version the chart is listed with (the newest that is not a prerelease)"`
 }
 
 type installParams struct {
@@ -92,6 +92,9 @@ func registerHelmInstall(g *registrar) {
 			repo, chart, err := chartOf(s, p.Ref)
 			if err != nil {
 				return nil, err
+			}
+			if p.Version == "" {
+				p.Version = s.DrawerChartVersionOf(p.Ref) // Install from the drawer installs the version it shows
 			}
 			st, created, err := s.OpenHelmInstallTab(ctx, repo, chart, p.Version)
 			if err != nil {

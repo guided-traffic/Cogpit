@@ -54,6 +54,9 @@ const (
 	// (<cache>/helm/<name>-index.yaml) and its own list (<config>/helm/repositories.json) are left
 	// where they are, unread (no implicit deletes).
 	helmIndexDir = "helm/indexes"
+	// helmReadmeDir holds the READMEs of the chart drawer (helmchartdrawer.go) under Cogpit's
+	// cache folder.
+	helmReadmeDir = "helm/readmes"
 )
 
 // Status of Helm's repositories file (HelmReposList.Status).
@@ -158,6 +161,7 @@ type HelmRepos struct {
 	pubMu                     sync.Mutex
 	pubTarget                 *Backend
 	published                 map[string]string // chart object name → resourceVersion in pubTarget's local store
+	readmes                   readmeStore       // the chart drawer's READMEs (helmchartdrawer.go)
 }
 
 // HelmReposOption configures NewHelmRepos.
@@ -186,6 +190,7 @@ func NewHelmRepos(repoFile, cacheDir string, opts ...HelmReposOption) *HelmRepos
 		file: repoFile, cacheDir: filepath.Join(cacheDir, filepath.FromSlash(helmIndexDir)),
 		fetcher: &helm.Fetcher{}, ttl: DefaultIndexTTL, pollEvery: indexPollEvery, fileEvery: DefaultHelmRepositoryFilePoll,
 		now: time.Now, state: map[string]*repoState{}, kick: make(chan struct{}, 1),
+		readmes: readmeStore{dir: filepath.Join(cacheDir, filepath.FromSlash(helmReadmeDir))},
 	}
 	for _, o := range opts {
 		o(h)
@@ -814,20 +819,26 @@ func (h *HelmRepos) chartObjects() map[string]*unstructured.Unstructured {
 			if !ok {
 				continue
 			}
-			kc := kinds.HelmChart{
-				Repository: e.info.Name, Name: c.Name, Version: latest.Version, AppVersion: latest.AppVersion,
-				Description: latest.Description, Home: latest.Home, Icon: latest.Icon, KubeVersion: latest.KubeVersion,
-				Digest: latest.Digest, Keywords: latest.Keywords, Maintainers: latest.Maintainers, Sources: latest.Sources,
-				Deprecated: latest.Deprecated, Created: latest.Created,
-			}
-			for _, v := range c.Versions {
-				kc.Versions = append(kc.Versions, kinds.HelmChartVersion{Version: v.Version, AppVersion: v.AppVersion, Created: v.Created})
-			}
-			obj := kinds.HelmChartObject(kc, chartUID(e.info.Name, st, c.Name), rv)
+			obj := kinds.HelmChartObject(helmChartAt(e.info.Name, c, latest), chartUID(e.info.Name, st, c.Name), rv)
 			out[obj.GetName()] = obj
 		}
 	}
 	return out
+}
+
+// helmChartAt is a chart of a repository's index as its object shows it at version v: v's
+// properties, with every version of the chart.
+func helmChartAt(repository string, c helm.IndexChart, v helm.ChartVersion) kinds.HelmChart {
+	kc := kinds.HelmChart{
+		Repository: repository, Name: c.Name, Version: v.Version, AppVersion: v.AppVersion,
+		Description: v.Description, Home: v.Home, Icon: v.Icon, KubeVersion: v.KubeVersion,
+		Digest: v.Digest, Keywords: v.Keywords, Maintainers: v.Maintainers, Sources: v.Sources,
+		Deprecated: v.Deprecated, Created: v.Created,
+	}
+	for _, cv := range c.Versions {
+		kc.Versions = append(kc.Versions, kinds.HelmChartVersion{Version: cv.Version, AppVersion: cv.AppVersion, Created: cv.Created})
+	}
+	return kc
 }
 
 // chartUID names a chart for as long as its repository is in Helm's file with the same name and

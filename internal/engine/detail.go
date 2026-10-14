@@ -64,6 +64,10 @@ type DetailModel struct {
 	// "Certificates · <key>" sections. Never a value, the PEM text or a private key; empty for
 	// other kinds.
 	Certificates []model.CertificateKey `json:"certificates,omitempty"`
+	// HelmChart is what a Helm chart's drawer adds (helmchartdrawer.go): the version it shows, the
+	// versions to pick from, and the state of that version's README, whose text is the "README"
+	// section. Nil for other kinds and without chart repositories.
+	HelmChart *HelmChartDrawer `json:"helmChart,omitempty"`
 }
 
 // EventItem is one event in the drawer.

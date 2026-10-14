@@ -209,6 +209,7 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 	if perr != nil {
 		s.log.Error("engine: kind profile detail panicked", "kind", p.Key, "panic", perr.Error())
 	}
+	m = s.helmChartDrawer(ctx, p, ref, obj, m, wait) // a chart's version and README (helmchartdrawer.go)
 	if m.Metrics && len(s.hiddenMetrics(b.Context).drawerVariants(p.Usage)) == 0 {
 		m.Metrics = false // the cluster's settings hide every chart of the kind (hidemetrics.go)
 	}

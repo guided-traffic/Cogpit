@@ -58,6 +58,21 @@ rules bound what a steered agent can do: it can still read, navigate the UI and 
 and anything that writes waits for the user. A user who allows agent writes for a context removes
 that bound for `Mutating` commands in it.
 
+### H-86: A chart's README reaches agents
+
+Live since 2026-10-14 for every agent over MCP or the stdio bridge (and the built-in agent once it
+exists): `object_get` on a Helm chart returns the README of the version its drawer shows, up to
+256 KiB of text the chart's author wrote, downloaded from the repository for the read
+([architecture §8](../developer/architecture.md#8-helm-internalhelm); Cogpit's default: public
+chart content, not withheld). It is H-11's case from a wider source: not whoever may write to the
+cluster, but whoever publishes a chart into any repository the user added with `helm repo add`,
+public ones included, and a README is long, structured prose made to be followed ("run this
+command", "set this value"). What bounds it: the agent asked for that chart, the text carries no
+credential (the repository's stay in memory and never reach the model), every read is in the audit
+log, and whatever a steered agent then proposes that writes waits for the user (D-2), as for
+H-11. Not built: marking the README as untrusted remote text in the result, or withholding it from
+agents unless they ask for it by a parameter of its own.
+
 ### H-12: Every local process of the user can read the token
 
 The bearer token is owner-only, which keeps other users out, not other programs of the same user.

@@ -63,7 +63,7 @@ it. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
 - ✏️ YAML editing with a diff and a server-side dry-run before every apply.
 - 🔌 Port forwarding, one click to the browser.
 - ⎈ The Helm releases in your clusters (Lens's Helm view), kept in Secrets or ConfigMaps: history, values, upgrade, rollback, through the Helm SDK, no `helm` binary needed.
-- 📦 Charts from the repositories in Helm's own `repositories.yaml` (add them with `helm repo add`; Cogpit picks a change up within seconds, logins and CA files included, and never writes the file), installed from a Helm Install tab.
+- 📦 Charts from the repositories in Helm's own `repositories.yaml` (add them with `helm repo add`; Cogpit picks a change up within seconds, logins and CA files included, and never writes the file), installed from a Helm Install tab; a chart's drawer shows the README of the version you pick.
 - 🔁 Flux CD: its section in the navigator (Helm releases, Kustomizations, sources, image automation, notifications) with each object's state, revision and message, a dashboard of what is not ready, and Reconcile, Suspend and Resume, on a selection too.
 - 📈 CPU and memory from the cluster's metrics-server and its Prometheus: columns in the Pods and Nodes lists, charts with requests and limits in the pod and node drawers, and the cluster Overview: CPU, Memory and Pods of the master or worker nodes over a time range, with the Issues (pods, nodes and workloads in trouble, warning events) below.
 - 🛡️ Never surprises a cluster: destructive actions confirm, nothing is installed or written implicitly.
@@ -99,6 +99,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Tabs and column layout | `<user config dir>/Cogpit/workspace.json`, owner-only (0600, directory 0700): the tab bar's tabs (context id, view, filters, search, sort, history) and each view's hidden columns and column order, restored at start without connecting anything ([D-41](docs/developer/decisions.md#d-41-what-survives-a-restart)); an unreadable one is moved to `workspace.json.unreadable` at the first change | |
 | Helm chart repositories | Helm's own `repositories.yaml`, as the helm CLI resolves it: `$HELM_REPOSITORY_CONFIG`, else `$HELM_CONFIG_HOME/repositories.yaml`, else Helm's folder; read every 2 seconds, never written (add and remove repositories with `helm repo add` and `helm repo remove`, [D-29](docs/developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml)); credentials stay in memory | `~/Library/Preferences/helm/repositories.yaml` # default on macOS |
 | Helm repository indexes | `<user cache dir>/Cogpit/helm/indexes/<key>-index.yaml`, owner-only (0600, directory 0700); the key a hash of the repository's name and URL. Nothing goes into Helm's own cache | `~/Library/Caches/Cogpit/helm/indexes/3f2a9c61d0b4e8a7c5f19e2d4b6a8c0e-index.yaml` # example |
+| Helm chart READMEs | `<user cache dir>/Cogpit/helm/readmes/<key>.json`, owner-only (0600, directory 0700): the README of a chart version whose archive the index's digest verified, as the chart's drawer showed it (at most 256 KiB), the last 256 kept; the key a hash of the repository's name and URL, the chart, the version and the digest | `~/Library/Caches/Cogpit/helm/readmes/5d0c3f9e2a7b41c8e6f0a19b3d7e2c45.json` # example |
 | Helm chart objects | kind `helmcharts`, named `<repository>.<chart>` (a repository whose name has a dot is listed as not used) | `bitnami.nginx` # example |
 | App log | `<user cache dir>/Cogpit/cogpit.log`, and stderr | |
 | Terminal kubeconfig | a temporary file per terminal holding only a context, owner-only, deleted on close ([why](docs/security/credentials.md#the-terminals-kubeconfig)) | |
@@ -304,7 +305,7 @@ user's own action in Cogpit's window runs: agents and the CLI are refused, whate
 The table is generated from the registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 171 commands</summary>
+<summary>All 172 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -454,6 +455,7 @@ The table is generated from the registry with `go run ./hack/readmecmds`.
 | `ui.palette.close` | `ui_palette_close` | ui |  | Closes the command palette in Cogpit's window, as Escape or a click outside it does |
 | `ui.palette.open` | `ui_palette_open` | ui |  | Opens the command palette in Cogpit's window, as ⌘⇧P (Ctrl+Shift+P) does |
 | `ui.select` | `ui_select` | ui | `all`?, `mode`?, `noDrawer`?, `refs`? | Selects objects of the open view, as a click on a row, its checkbox, ⌘-click, ⇧-click or the header's checkbox does. mode replace (the default) makes them the selection and, unless noDrawer is true, opens the detail drawer on the first one; an empty list clears the selection (and closes the drawer unless noDrawer). mode add, toggle and remove change the selection and leave the drawer as it is. all: true takes every row the view shows (namespace filter and search applied) in place of refs |
+| `ui.setChartVersion` | `ui_setChartVersion` | ui | `ref`, `version`? | Sets the version a Helm chart's detail drawer shows, as the drawer's version picker does: its properties and README are then that version's (object_get returns them, helmChart.version and the README section), and Install from the drawer installs it |
 | `ui.setColumnOrder` | `ui_setColumnOrder` | ui | `order`?, `reset`?, `view`? | Arranges the columns of a view, as dragging a column's header does: order lists column ids left to right, and the columns it leaves out follow in the kind's order |
 | `ui.setColumns` | `ui_setColumns` | ui | `hidden`?, `reset`?, `view`? | Shows and hides the columns of a view, as the ⋮ at the end of the table's header does: hidden lists the column ids to hide, every other column is shown |
 | `ui.setFilter` | `ui_setFilter` | ui | `filter`?, `matchCase`?, `regex`? | Sets the search text of the open view, and its toggles as the search field's Aa and .* do: a row is shown when every whitespace-separated term occurs in one of its cells, ignoring case unless matchCase; with regex the text is one regular expression (RE2 syntax, at most 1000 bytes) that must match in one of its cells |

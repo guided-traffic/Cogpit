@@ -30,6 +30,9 @@ type TestChart struct {
 	Templates map[string]string
 	// Type is the chart's type ("" or "application", "library").
 	Type string
+	// Readme is a README at the chart's root, named ReadmeName ("README.md" when empty); none when
+	// empty. Icon is Chart.yaml's icon URL, which the index lists.
+	Readme, ReadmeName, Icon string
 }
 
 // HelmRepo is a chart repository served by an httptest TLS server.
@@ -94,7 +97,7 @@ func BuildChart(t testing.TB, c TestChart) *chart.Chart {
 	}
 	ch := &chart.Chart{
 		Metadata: &chart.Metadata{APIVersion: chart.APIVersionV2, Name: c.Name, Version: c.Version, AppVersion: c.AppVersion,
-			Description: c.Description, Type: c.Type},
+			Description: c.Description, Type: c.Type, Icon: c.Icon},
 		Values:  vals,
 		ModTime: chartModTime,
 	}
@@ -103,6 +106,13 @@ func BuildChart(t testing.TB, c TestChart) *chart.Chart {
 	}
 	for name, text := range c.Templates {
 		ch.Templates = append(ch.Templates, &chartcommon.File{Name: name, Data: []byte(text), ModTime: chartModTime})
+	}
+	if c.Readme != "" {
+		name := c.ReadmeName
+		if name == "" {
+			name = "README.md"
+		}
+		ch.Files = append(ch.Files, &chartcommon.File{Name: name, Data: []byte(c.Readme), ModTime: chartModTime})
 	}
 	return ch
 }
