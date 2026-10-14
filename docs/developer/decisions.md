@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (D-25: A69 and A71 built, the copy icon over a list cell's end and over the end of a value with buttons, Forward… right after the port again; A73 built, a plain click keeps the checked rows; the lead's readings for the owner to confirm listed under D-25); minor (D-14 A116 built: the terminal fork's four shell tests under the race detector in CI, seven races of `RunLocalShell`, its directory check and `ExitCode` patched in the fork; the lead's decisions for the owner to confirm: the patches offered upstream with the input patches at the end, the fork's tests in the Linux race job only); minor (A110, A111, A112, A114 built: the README's pictures dark and light through `<picture>`, its banner, lossless oxipng and one context name, `demo`; the lead's decisions for the owner to confirm); minor (A60 and F2 built: About Cogpit in macOS's application menu, the dialog showing the version the build reports; D-16: the version a build reports, one variable for both binaries); minor (the owner's decision round of 2026-10-14 evening: one line per answer A1–A117, F1, F2, R1–R3 naming where it is recorded; decided, not built: D-2 more agents' calls wait for the user or become confirmed writes, D-3 the kubectl hand-over for bash and fish and an enforcing setting, D-11 nothing offered after an interrupted Helm install, D-22 Sync as the default theme and a free cluster colour, D-25 the copy icon over a value's end, D-26 the plugin approval binds Cogpit's proxy, D-28 unlinking a sync folder, D-29 http and insecure origins marked and dotted repository names, D-30 combined PEMs, encrypted keys and the kind of CA, D-33 Reconcile with Source waits and the controller's identity named, D-34 the filter button's accent, D-36 sync windows, D-41 collapsed source groups, D-43 node history from node-exporter, D-44 a 1-hour end, a 10-byte minimum and the README framed, D-47 a link to another cluster asks; confirmed as built: D-4's failure rule, failsafe and update checks, D-48, and defaults in D-3, D-14, D-22, D-25, D-29, D-34, D-35, D-37, D-39, D-40, D-44; new: D-49 the MCP switch the bridge honours, D-50 kubectl's signature with Rekor, D-51 the navigator's and the palette's state, D-52 several windows, open); minor (D-16 revised by the owner: a release carries only the complete product, today the disk image, and `cogpit-cli` comes inside `Cogpit.app` (`Contents/MacOS`), the six-platform CLI archives revoked; built, agent CLIBUNDLE's decisions for the owner to confirm listed in D-16; D-2: the window copies the stdio registration of the bundled `cogpit-cli`, the lead's default for the owner to confirm, built); minor (D-44 decided by the owner: an agent's read takes the Secrets it is filtered against (H-82, option b); D-4: Sparkle 2 built, the third step: the framework in the app, loaded at run time, Preferences › App's two update rows and Help › Check for Updates…, the appcast drafted, signed in the environment `sparkle` and deployed to Pages; no key yet; the lead's and agent SPARKLE's decisions for the owner to confirm listed in D-4); minor (; D-47, the lead's decision for the owner to confirm: `cogpit://` links navigate only, through the `ui.*` commands, with origin `deeplink`, built; D-48, the lead's decision for the owner to confirm: start at login as the macOS app's own login item, off by default, only the user turns it on, built; D-44 (owner, H-82): the cached Secrets' values replaced in what agents read, built with the lead's choices for the owner to confirm; H-63 (owner): Flux's credential fields withheld from agents' YAML, built; D-29 (owner): credentials over plain http asked once per repository, built; D-2: an agent's role binding always waits for the user, H-27; D-44: the terminal tab's marker and the switch's 15-minute end, H-83; D-37: the node shell journal and the cleanup at connect, H-71; all three the owner's answers of 2026-10-14, built; D-4 decided by the owner: Sparkle's feed on GitHub Pages; D-4: the release pipeline signs the app and `cogpit-cli` for macOS with the Developer ID, ships the app in `Cogpit-<v>-macos-arm64.dmg` and has both notarized, built, no tag run yet; the lead's decision for the owner to confirm: a failed signature or notarization fails the macOS job and the release gets no files until it is re-run; the bodies of D-33, D-34, D-35, D-36, D-41, D-42, D-43, D-44 and D-46 no longer say "for the owner to confirm": the owner's choices of 2026-10-14 marked decided, D-33's two and D-34's two open rules marked Cogpit's defaults; D-4: the Apple signing and notarization material exists in the environment `release`, 2026-10-14; D-40 decided by the owner: the workloads' drawers' Pods tables without a Namespace column, built; D-39 decided by the owner: a pod-metrics refusal affects only its namespace, built; D-33 decided by the owner: Reconcile with Source and Reset added as the flux CLI does them, built; D-34 (owner): a state on a dashboard opens its kind's view filtered, through a status filter every view has, built with its rules listed for the owner; D-37 and D-38 decided by the owner: the default node shell image the newest supported Alpine release (3.24) pinned by digest and kept current by Renovate, the maximum duration a setting with a 2-hour default, set by the user only, built; D-35, D-36, D-41, D-42, D-43, D-44, D-46 decided by the owner as built, 2026-10-14; D-43, a night decision for the owner to confirm: the nodes' disk from node-exporter through Prometheus, never nodes/proxy, built with Cogpit's defaults listed; D-46 (night decision, for the owner to confirm): chart icons fetched when shown, with Preferences › Load chart icons on by default, built; D-11, D-37: a tab whose context leaves Cogpit closes, keeping an editor's draft and deleting a node shell's pod, Cogpit's defaults; D-44 (night decision, for the owner to confirm): agents read the dock's logs tabs freely and a terminal tab only once the user turned on its "Agents may read" switch, built; D-42, a night decision for the owner to confirm: no context picker at start, the welcome page, built; D-41, a night decision for the owner to confirm: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, built; D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided; D-10: the owner's chat decisions of 2026-10-14 late evening and the engine's chat contract; A5 built; D-10: the built-in agent's engine side built (M12 (a)), the endpoints checked against their documentation, the night run's decisions of the lead for the owner to confirm; D-43 (A43, F1, A115): the nodes' CPU and memory history from node-exporter, built in the night run with the lead's decisions for the owner to confirm; A46 built in the night run; D-10: the window's chat built, the lead's decisions for the owner to confirm (the column beside a settings page, ⌘I, ⌘. and Escape, the pinned message, tables, what was sent, the chip, conversations, the model menu, Preferences › Agent, reasoning and the thinking line); D-10: the private connection honoured by the engine (M12 (c)), the lead's decisions 15–20 for the owner to confirm; A84 built and #169 fixed (the logs tab's Download, the Jump to time field); A90 built (Flux and Argo CD from API discovery without the definitions); A91 built: Reconcile with Source waits as the flux CLI does, the lead's decisions for the owner to confirm in D-33; A81 built: an application's logs in one merged tab, the lead's decisions for the owner to confirm in architecture §4.4; D-50 built in the night run: sigstore-go with Rekor's transparency-log proof, the research and the measured cost, the lead's decisions for the owner to confirm; D-51 built 2026-10-15 (A51, A52, A53, A54, A63; the lead's night decisions for the owner to confirm: the fields, the row's form, the bounds, one per window, `workspace.json` keeping the collapsed groups only, the dropdown's bank, an agent's palette text never running a change on ↵), D-41: A63's collapsed source groups kept, the answers A55, A61, A64, A67 and A113 built; D-26 (A23): the plugin approval binds Cogpit's proxy, built with the lead's decisions for the owner to confirm; A28: an `insecure-skip-tls-verify` context asked once before its first connect, built, the lead's decisions in H-37; A29: "TLS not checked" in the status bar and `cogpit-cli get`'s warning line, built; D-29 A39 built: a release in both drivers notes "also stored in the <other> driver (older)", the tie's wording the lead's decision for the owner to confirm; D-11 A17 built: nothing offered after an interrupted Helm install, the release's state and Show release; the journal still records installs, the lead's decisions for the owner to confirm; D-29 A36 built: repositories with a dot in their name, the chart id doubling the dot, nothing saved to migrate, the form the lead's decision for the owner to confirm; D-29 A14 built 2026-10-15: http and insecure-TLS origins marked in the Charts view, the drawer, both Helm tabs, the preview and an agent's confirmation, the lead's decisions for the owner to confirm listed) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (D-52 designed in the night run, the lead's proposal for the owner to decide, nothing decided or built: what several windows touch, checked against the code; what Fyne 2.8.1 offers for a drag out of the window; three options weighed (one session with a window's state and a connection per window, a process per window, a tab instead); (a) recommended in four stages; seven questions for the owner in order; the risks per stage); minor (D-25: A69 and A71 built, the copy icon over a list cell's end and over the end of a value with buttons, Forward… right after the port again; A73 built, a plain click keeps the checked rows; the lead's readings for the owner to confirm listed under D-25); minor (D-14 A116 built: the terminal fork's four shell tests under the race detector in CI, seven races of `RunLocalShell`, its directory check and `ExitCode` patched in the fork; the lead's decisions for the owner to confirm: the patches offered upstream with the input patches at the end, the fork's tests in the Linux race job only); minor (A110, A111, A112, A114 built: the README's pictures dark and light through `<picture>`, its banner, lossless oxipng and one context name, `demo`; the lead's decisions for the owner to confirm); minor (A60 and F2 built: About Cogpit in macOS's application menu, the dialog showing the version the build reports; D-16: the version a build reports, one variable for both binaries); minor (the owner's decision round of 2026-10-14 evening: one line per answer A1–A117, F1, F2, R1–R3 naming where it is recorded; decided, not built: D-2 more agents' calls wait for the user or become confirmed writes, D-3 the kubectl hand-over for bash and fish and an enforcing setting, D-11 nothing offered after an interrupted Helm install, D-22 Sync as the default theme and a free cluster colour, D-25 the copy icon over a value's end, D-26 the plugin approval binds Cogpit's proxy, D-28 unlinking a sync folder, D-29 http and insecure origins marked and dotted repository names, D-30 combined PEMs, encrypted keys and the kind of CA, D-33 Reconcile with Source waits and the controller's identity named, D-34 the filter button's accent, D-36 sync windows, D-41 collapsed source groups, D-43 node history from node-exporter, D-44 a 1-hour end, a 10-byte minimum and the README framed, D-47 a link to another cluster asks; confirmed as built: D-4's failure rule, failsafe and update checks, D-48, and defaults in D-3, D-14, D-22, D-25, D-29, D-34, D-35, D-37, D-39, D-40, D-44; new: D-49 the MCP switch the bridge honours, D-50 kubectl's signature with Rekor, D-51 the navigator's and the palette's state, D-52 several windows, open); minor (D-16 revised by the owner: a release carries only the complete product, today the disk image, and `cogpit-cli` comes inside `Cogpit.app` (`Contents/MacOS`), the six-platform CLI archives revoked; built, agent CLIBUNDLE's decisions for the owner to confirm listed in D-16; D-2: the window copies the stdio registration of the bundled `cogpit-cli`, the lead's default for the owner to confirm, built); minor (D-44 decided by the owner: an agent's read takes the Secrets it is filtered against (H-82, option b); D-4: Sparkle 2 built, the third step: the framework in the app, loaded at run time, Preferences › App's two update rows and Help › Check for Updates…, the appcast drafted, signed in the environment `sparkle` and deployed to Pages; no key yet; the lead's and agent SPARKLE's decisions for the owner to confirm listed in D-4); minor (; D-47, the lead's decision for the owner to confirm: `cogpit://` links navigate only, through the `ui.*` commands, with origin `deeplink`, built; D-48, the lead's decision for the owner to confirm: start at login as the macOS app's own login item, off by default, only the user turns it on, built; D-44 (owner, H-82): the cached Secrets' values replaced in what agents read, built with the lead's choices for the owner to confirm; H-63 (owner): Flux's credential fields withheld from agents' YAML, built; D-29 (owner): credentials over plain http asked once per repository, built; D-2: an agent's role binding always waits for the user, H-27; D-44: the terminal tab's marker and the switch's 15-minute end, H-83; D-37: the node shell journal and the cleanup at connect, H-71; all three the owner's answers of 2026-10-14, built; D-4 decided by the owner: Sparkle's feed on GitHub Pages; D-4: the release pipeline signs the app and `cogpit-cli` for macOS with the Developer ID, ships the app in `Cogpit-<v>-macos-arm64.dmg` and has both notarized, built, no tag run yet; the lead's decision for the owner to confirm: a failed signature or notarization fails the macOS job and the release gets no files until it is re-run; the bodies of D-33, D-34, D-35, D-36, D-41, D-42, D-43, D-44 and D-46 no longer say "for the owner to confirm": the owner's choices of 2026-10-14 marked decided, D-33's two and D-34's two open rules marked Cogpit's defaults; D-4: the Apple signing and notarization material exists in the environment `release`, 2026-10-14; D-40 decided by the owner: the workloads' drawers' Pods tables without a Namespace column, built; D-39 decided by the owner: a pod-metrics refusal affects only its namespace, built; D-33 decided by the owner: Reconcile with Source and Reset added as the flux CLI does them, built; D-34 (owner): a state on a dashboard opens its kind's view filtered, through a status filter every view has, built with its rules listed for the owner; D-37 and D-38 decided by the owner: the default node shell image the newest supported Alpine release (3.24) pinned by digest and kept current by Renovate, the maximum duration a setting with a 2-hour default, set by the user only, built; D-35, D-36, D-41, D-42, D-43, D-44, D-46 decided by the owner as built, 2026-10-14; D-43, a night decision for the owner to confirm: the nodes' disk from node-exporter through Prometheus, never nodes/proxy, built with Cogpit's defaults listed; D-46 (night decision, for the owner to confirm): chart icons fetched when shown, with Preferences › Load chart icons on by default, built; D-11, D-37: a tab whose context leaves Cogpit closes, keeping an editor's draft and deleting a node shell's pod, Cogpit's defaults; D-44 (night decision, for the owner to confirm): agents read the dock's logs tabs freely and a terminal tab only once the user turned on its "Agents may read" switch, built; D-42, a night decision for the owner to confirm: no context picker at start, the welcome page, built; D-41, a night decision for the owner to confirm: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, built; D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided; D-10: the owner's chat decisions of 2026-10-14 late evening and the engine's chat contract; A5 built; D-10: the built-in agent's engine side built (M12 (a)), the endpoints checked against their documentation, the night run's decisions of the lead for the owner to confirm; D-43 (A43, F1, A115): the nodes' CPU and memory history from node-exporter, built in the night run with the lead's decisions for the owner to confirm; A46 built in the night run; D-10: the window's chat built, the lead's decisions for the owner to confirm (the column beside a settings page, ⌘I, ⌘. and Escape, the pinned message, tables, what was sent, the chip, conversations, the model menu, Preferences › Agent, reasoning and the thinking line); D-10: the private connection honoured by the engine (M12 (c)), the lead's decisions 15–20 for the owner to confirm; A84 built and #169 fixed (the logs tab's Download, the Jump to time field); A90 built (Flux and Argo CD from API discovery without the definitions); A91 built: Reconcile with Source waits as the flux CLI does, the lead's decisions for the owner to confirm in D-33; A81 built: an application's logs in one merged tab, the lead's decisions for the owner to confirm in architecture §4.4; D-50 built in the night run: sigstore-go with Rekor's transparency-log proof, the research and the measured cost, the lead's decisions for the owner to confirm; D-51 built 2026-10-15 (A51, A52, A53, A54, A63; the lead's night decisions for the owner to confirm: the fields, the row's form, the bounds, one per window, `workspace.json` keeping the collapsed groups only, the dropdown's bank, an agent's palette text never running a change on ↵), D-41: A63's collapsed source groups kept, the answers A55, A61, A64, A67 and A113 built; D-26 (A23): the plugin approval binds Cogpit's proxy, built with the lead's decisions for the owner to confirm; A28: an `insecure-skip-tls-verify` context asked once before its first connect, built, the lead's decisions in H-37; A29: "TLS not checked" in the status bar and `cogpit-cli get`'s warning line, built; D-29 A39 built: a release in both drivers notes "also stored in the <other> driver (older)", the tie's wording the lead's decision for the owner to confirm; D-11 A17 built: nothing offered after an interrupted Helm install, the release's state and Show release; the journal still records installs, the lead's decisions for the owner to confirm; D-29 A36 built: repositories with a dot in their name, the chart id doubling the dot, nothing saved to migrate, the form the lead's decision for the owner to confirm; D-29 A14 built 2026-10-15: http and insecure-TLS origins marked in the Charts view, the drawer, both Helm tabs, the preview and an agent's confirmation, the lead's decisions for the owner to confirm listed) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -40,7 +40,7 @@ projects' repositories; re-check them before relying on a version number.
 | [D-49](#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp) | The external MCP server's switch, honoured by `cogpit-cli mcp` | decided (owner, 2026-10-14 evening): persisted, and with MCP off the bridge refuses to serve, headless too; not built |
 | [D-50](#d-50-kubectls-signature-check) | kubectl's signature check | decided (owner, 2026-10-14 evening): sigstore-go with Rekor's transparency-log proof instead of the standard library; built 2026-10-15 (night run), the lead's decisions for the owner to confirm listed |
 | [D-51](#d-51-the-navigators-and-the-command-palettes-state) | The navigator's and the command palette's state | decided (owner, 2026-10-14 evening): the navigator's search text and keyboard selection and the palette's typed text are engine state; built 2026-10-15, with the lead's night decisions for the owner to confirm (the fields, one per window, an agent's palette text never running a change on ↵, the dropdown's bank) |
-| [D-52](#d-52-several-windows) | Several windows | open (the owner's requirement, 2026-10-14 evening): a hotbar tile dragged out of the window opens another window with that cluster; needs a design before code |
+| [D-52](#d-52-several-windows) | Several windows | open: designed 2026-10-15, the owner's decision pending (the owner's requirement, 2026-10-14 evening: a hotbar tile dragged out of the window opens another window with that cluster; the lead's proposal: one session, a window's state and a connection per window, seven questions in order); not built |
 
 ## Decision round 2026-10-14 evening
 
@@ -131,7 +131,7 @@ window. Nothing of it was built in the round.
 | A65 | #110 | An agent removing a hotbar bank with tiles waits for the user; built 2026-10-14 | [D-2](#d-2-agent-interface-scope) |
 | A66 | #113 | The "+" below the tiles; as built | [parity](../parity/README.md) |
 | R2 | – | Hotbar tiles reordered by drag and drop; to build | [parity](../parity/README.md), [D-52](#d-52-several-windows) |
-| R3 | – | Dragging a hotbar tile out of the window opens another Cogpit window with that cluster; needs a design before code | [D-52](#d-52-several-windows) |
+| R3 | – | Dragging a hotbar tile out of the window opens another Cogpit window with that cluster; designed 2026-10-15 (the lead's proposal), the owner's decision pending | [D-52](#d-52-several-windows) |
 | A67 | #133 | The welcome page's "This session" heading becomes "Recent"; built 2026-10-15 | [parity](../parity/README.md) |
 | A68 | #8 | A list copy shows the checkmark and the toast; as built | [D-25](#d-25-copying-values) |
 | A69 | #10 | The lists' copy icon lies over the cell's end; the text is not shortened for it; built 2026-10-15: the cell keeps its text, the icon's plate covers its end | [D-25](#d-25-copying-values) |
@@ -3929,40 +3929,340 @@ The navigator's other answers of the same round, details of the window
 
 ## D-52: Several windows
 
-**Open (the owner's requirement, 2026-10-14 evening, R3): needs a design, a decision of its own,
-before code.** "Dragging a hotbar tile out of the window and dropping it opens another Cogpit
-window with that cluster." With it the owner asked that hotbar tiles can be reordered by drag and
-drop (R2, a detail of the window, [parity](../parity/README.md)). Lens's Window menu has several
-windows, missing in Cogpit ([ui-parity](../parity/ui-parity.md), "Several windows").
+**Open (the owner's requirement, 2026-10-14 evening, R3); designed 2026-10-15 in the night run:
+the lead's proposal for the owner to decide. Nothing of it is decided and nothing is built.**
+"Dragging a hotbar tile out of the window and dropping it opens another Cogpit window with that
+cluster." With it the owner asked that hotbar tiles can be reordered by drag and drop (R2, a detail
+of the window, [parity](../parity/README.md)). Lens's Window menu has several windows, missing in
+Cogpit ([ui-parity](../parity/ui-parity.md), "Several windows"); dragging a tile out of the window
+is beyond Lens ([beyond Lens](../parity/beyond-lens.md)).
 
-Cogpit is one window today. What a second one touches, from the lead's notes, each checked against
-the documents named:
+### What the requirement touches
 
-- **UI state is engine state** (golden rule 2): one session holds one `UIState`
-  ([architecture §4.3](architecture.md#43-ui-state)). One per window, or the windows as a part of
-  it?
-- **One connection:** Cogpit holds one connection at a time ([architecture §4.3](architecture.md#43-ui-state),
-  the tab bar; [§6](architecture.md#6-cluster-connections-internalcluster)). A window with another
-  cluster means two connections at once, which the tab bar's connect on select, the navigator's
-  scope that follows the connection and [D-47](#d-47-deep-links-cogpit)'s switch rule assume away.
-  The plan's own rule ("one connection and one cache per kubeconfig context; nothing global assumes
-  one active cluster", [architecture §1.1](architecture.md#11-rules-adopted-from-day-one)) is the
-  one a design builds on.
-- **Agents:** which window do the `ui_*` tools drive, and how does `ui_state` name it
-  ([D-2](#d-2-agent-interface-scope))?
+Cogpit is one window today. Each point was checked against the code on 2026-10-15.
+
+- **UI state is engine state** (golden rule 2): a session holds one `UIState` (`Session.ui`,
+  [`engine.go`](../../internal/engine/engine.go); [architecture §4.3](architecture.md#43-ui-state)),
+  and `UpdateUI` emits it whole in `EventUIState`. It mixes a window's state (the context and its
+  connection, the view with its filters, sort, selection and drawer, the tabs, the dock, the
+  navigator and its scope, the palette, the chat column, the open settings page, the welcome page)
+  with the app's (the hotbar, the preferences, the cluster settings, the notification log, the
+  tables' hidden columns and column order, the time format). The window keeps a copy of all of it
+  (`shell.ui`, [`shell.go`](../../internal/ui/fyneui/shell.go)).
+- **One connection, by construction.** The engine holds one backend (`state.backend`,
+  [`views.go`](../../internal/engine/views.go)). `Session.Connect` releases the previous backend
+  before it connects the next, "so that UIState.Context always names the cluster the engine acts
+  on". `Session.Backend()` hands that one backend to 67 call sites in 43 files (52 in 33 engine
+  files, 12 in 9 command files, 3 in `cogpit-cli`; counted without tests). Also single: `UIState.Context`
+  and `Connection`; the end of a job when "the connected cluster changes" (`followJobs`,
+  [`jobs.go`](../../internal/engine/jobs.go)); the diagnostics' counters; and the Secret values
+  replaced in what agents read (`AgentView` from `s.Backend().secretMatcher()`,
+  [`agentview.go`](../../internal/engine/agentview.go)). Already per context: the cache (a
+  `cache.New` per connect, [`connector.go`](../../internal/engine/connector.go)), the access
+  reviews, the allowance of agent writes (`Session.agentWrites`) and the plugin approvals. So
+  [architecture §1.1](architecture.md#11-rules-adopted-from-day-one)'s rule ("one connection and
+  one cache per kubeconfig context; nothing global assumes one active cluster") holds for the cache
+  and not for the engine around it. The tab bar's connect on select, the navigator's scope that
+  follows the connection (A62) and [D-47](#d-47-deep-links-cogpit)'s switch question rest on the one
+  backend. G5 lists it as a difference from Lens, which keeps several clusters connected
+  ([gaps › G5](../parity/gaps.md#g5-app-shell-navigation-tables-and-drawer)).
+- **Agents** ([D-2](#d-2-agent-interface-scope)): every command is an MCP tool, 190 in all
+  ([commands](commands.md)); 34 are `ui.*`, and 89 command definitions in
+  [`internal/engine/commands`](../../internal/engine/commands) declare `DangerUI`. None names a
+  window: they act on the one `UIState`. The built-in agent gets a compact `ui_state` with every
+  message ([D-10](#d-10-built-in-agent)) and dispatches in-process. The MCP server is one per
+  process, its endpoint and token in one file each (`mcp-endpoint`, `mcp-token`,
+  [`mcp/server.go`](../../internal/mcp/server.go)).
+- **The window:** `fyneui.Run` makes one `fyne.App`, one window and one `shell` for it
+  ([`fyneui.go`](../../internal/ui/fyneui/fyneui.go)). The engine takes one confirmer and one dock
+  reader (`SetConfirmer`, `SetDockOutputReader`), and `aboutShell` assumes "the app has one window"
+  ([`appmenu_darwin.go`](../../internal/ui/fyneui/appmenu_darwin.go)). The shell itself is already
+  per window (it holds its `fyne.Window`), the title bar's bridge already keeps several
+  (`titlebars`, [`titlebar_darwin.go`](../../internal/ui/fyneui/titlebar_darwin.go)), and the perf
+  mode opens a second window in the same app ([`perf.go`](../../internal/ui/fyneui/perf.go)).
+- **The hotbar's tiles** (`hotbarTile`, [`hotbar.go`](../../internal/ui/fyneui/hotbar.go)): a tap,
+  a secondary tap and hover; no drag (Move Up and Move Down stand in for Lens's drag to reorder).
+  R2 and R3 are one gesture: a tile dropped inside the hotbar moves (`hotbar.moveCluster` exists),
+  dropped outside the window opens a window. Cogpit has drags of its own already: a column header
+  ([`columnorder.go`](../../internal/ui/fyneui/columnorder.go)), the panels' edges
+  ([`panelwidths.go`](../../internal/ui/fyneui/panelwidths.go)).
 - **The window list and what survives a restart:** [D-41](#d-41-what-survives-a-restart)'s
-  `workspace.json` keeps one tab bar.
+  `workspace.json` keeps one tab bar (`workspaceDoc`: the tabs, the tab shown last, the columns'
+  choice and order, the collapsed source groups; [`persist.go`](../../internal/engine/persist.go)).
 - **Fyne's start of a window:** the spike measured a stall of 0.42–0.56 s while the window opens,
-  0.31 s of it Fyne's GL set-up per window (S1, passed with a reservation,
-  [spike › results](spike-fyne.md#results)); G15 says to avoid second windows
-  ([gaps](../parity/gaps.md#g15-performance-and-api-load-at-scale)).
+  0.31 s of it Fyne's GL set-up (`gl.painter.Init`), and 151–193 ms more for the first fill of a
+  10,000-row table (S1, passed with a reservation, [spike › results](spike-fyne.md#results)); G15
+  says to avoid second windows ([gaps](../parity/gaps.md#g15-performance-and-api-load-at-scale)).
+  Fyne 2.8.1 runs every window of a process in one loop on the main goroutine (`runGL`,
+  `drawSingleFrame` over `windowList`, `internal/driver/glfw/loop.go`) and sets up a new window's GL
+  there (`window.create`, `Painter().Init()`). So a window that opens in the same process stalls
+  every other window of it too. A second window was not measured.
 
-Options: not weighed yet; the design is the next step. Not built.
+### What Fyne 2.8.1 offers for the drag out
+
+Read from Fyne's and GLFW's source in the module cache (`fyne.io/fyne/v2@v2.8.1`,
+`github.com/go-gl/glfw/v3.4/glfw@v0.1.0-pre.2`); not tried in a real window.
+
+- **The events.** `fyne.Draggable` is `Dragged(*DragEvent)` and `DragEnd()`. The end carries no
+  position, so the tile has to keep the last `Dragged` position itself. A drag starts after 2 points
+  of movement (`dragMoveThreshold`).
+- **Positions beyond the window come through.** `processMouseMoved` gives `Dragged` the cursor's
+  position as GLFW reports it, unclamped, and the driver has no cursor-leave handling that would
+  end a drag (`internal/driver/glfw/window.go`). GLFW keeps reporting the cursor while the button is
+  held outside the window: on macOS `mouseDragged:` calls `mouseMoved:`, which reports
+  `locationInWindow` (`cocoa_window.m`), and AppKit sends the dragged events to the window the press
+  began in (AppKit's behaviour as the lead knows it, not checked here and not seen in a running
+  Cogpit); on Windows GLFW captures the mouse on the first button down (`SetCapture`,
+  `win32_window.c`); on X11 the server's implicit grab does the same (not checked in the source).
+- **So "dropped outside" can be decided:** at `DragEnd` the last position lies outside the canvas
+  (below 0, or beyond its width or height). That is a workaround, not an operating-system drag: no
+  picture of the tile follows the pointer outside the window (Fyne draws inside its windows only),
+  and nothing is a drop target outside, neither another app nor another Cogpit window.
+- **Where the new window goes.** Fyne 2.8 has `desktop.Window.RequestPosition(x, y int)`, which
+  "may be ignored (for example Linux Wayland)" and has "no contract of what these values represent"
+  (`driver/desktop/window.go`), and no getter for a window's position on the screen. The pointer's
+  screen position at the drop is therefore known on macOS only, through AppKit (`[NSEvent
+  mouseLocation]`) over cgo, the way Cogpit's title bar reaches its `NSWindow`
+  ([`titlebar_darwin.go`](../../internal/ui/fyneui/titlebar_darwin.go)). Elsewhere the system
+  places the window.
+- **The native alternative:** an AppKit drag session (`NSDraggingSession`) with the tile's picture,
+  ended at a screen point; macOS only, through cgo, outside Fyne's events.
+- **macOS quirks.** A window in full screen, or one that covers its screen, has no outside on that
+  screen. The hotbar is 64 points wide at the window's left edge (`sizeHotbarWidth`,
+  [`theme.go`](../../internal/ui/fyneui/theme.go)), so a short drag to the left already leaves the
+  window: a drop needs a margin beyond the edge. Cogpit's own title bar starts AppKit's window drag
+  on the top bar (`performWindowDragWithEvent`, [`titlebar_darwin.m`](../../internal/ui/fyneui/titlebar_darwin.m)),
+  which the hotbar is not part of.
+- **Several windows in one app.** Each window has its own main menu; on macOS Fyne rebuilds the
+  menu bar from the focused window's (`processFocused`, `setupNativeMenu`). The app quits when its
+  last window closes (`loop.go`); a master window would quit it on its own close, and Cogpit sets
+  none (`SetMaster` is not called).
+
+### The options for the model
+
+Three options. Sizes are estimates in agent-hours with PhotoCraft's calibration (8–20 h per
+subsystem, [parity rules](../parity/README.md#rules-for-every-progress-page)), not measured.
+
+**(a) One process, one session, several windows; a window's state and a connection per window.**
+
+- **The model.** `UIState` splits in two. The app's part, one per session: the hotbar, the
+  preferences, the login item, the cluster settings, the time format, the notification log, the
+  tables' hidden columns and column order, the drawer tables' order. A window's part, one per
+  window: the context and its connection, the view, namespaces, groups, search and its toggles,
+  status filter, sort, selection, drawer, the tabs, the dock, the navigator and its scope, the
+  palette, the chat column, the open settings page, the welcome page, the Overview's range. The
+  engine's view state (`state` in `views.go`: the view worker, the pages' workers, the drawer's
+  watch) becomes one per window. The backends move into a pool keyed by context that counts the
+  windows using each: two windows on one cluster share one backend and its cache, and a backend no
+  window uses closes as `Disconnect` closes it today. §1.1's rule then holds for the engine too.
+  A connect supersedes only its own window's. A window has an id (`w1`, `w2`), as tabs have
+  (`tab-1`).
+- **What changes.** `internal/engine`: the split, the pool, connect and disconnect per window, the
+  67 `Backend()` calls through the command's window (carried in its context as `withInvocation`
+  carries the origin, [`readslikeuser.go`](../../internal/engine/readslikeuser.go)), events that
+  name their window, a confirmer and a dock reader per window. `internal/engine/commands`:
+  `window.open {context?}`, `window.close`, `window.focus` (UI), and an optional `window` on every
+  command that reads or sets a window's state. `internal/mcp`: nothing of its own; the tools follow
+  the registry. `internal/ui/fyneui`: a shell per window from one `Run`, About for the focused
+  window, the tile's drag. `workspace.json` gets a format with windows. Estimated: the engine
+  20–40 h, the commands and MCP 8–15 h, the window side with the drag 10–20 h, the workspace 3–6 h;
+  40–80 h in all, tests included.
+- **What agents see.** One MCP server and one audit log for every window. `ui_state {window?}`
+  returns that window's state with the app's part, and `windows`: each window's id, context,
+  connection state, title and whether it has the focus. Every window-scoped tool takes an optional
+  `window`; without it a call addresses the window the user focused last, so an agent that knows
+  nothing of windows works as today, on what the user looks at. The built-in agent's calls address
+  the window its chat column is in. An audit line names the window and the context.
+- **What survives a restart (D-41).** `workspace.json` keeps each window's tabs, the tab it showed
+  last and its frame. They come back without connecting anything, each window on its welcome page
+  with its tab marked, as the one window does today. The columns' choice and order stay one set for
+  every window (D-41's choice (a)).
+- **Crash stance (D-11).** One process: a crash takes every window down, as it takes the one window
+  today. Cluster operations stay crash-safe through their journals, unchanged; the next start
+  brings the windows back.
+- **Performance.** One main goroutine for all windows. Opening a window stalls every open window
+  for its GL set-up (0.31 s of the 0.42–0.56 s measured for the first window), and its first
+  10,000-row fill (151–193 ms) comes again. Two windows on one cluster cost no extra watch (the
+  backend is shared); a window on another cluster costs that cluster's cache, as a switch does
+  today, without releasing the first. Memory per window not measured.
+- **Security.** The privilege footprint per connection is unchanged: each connection is one
+  context's, with the same verbs and the same confirmations naming objects, namespace and context;
+  Lens keeps several clusters connected too ([architecture §4.3](architecture.md#43-ui-state)).
+  New, per case:
+  (1) an agent's write whose parameters name no context goes to the addressed window's cluster; if
+  the user moves the focus between an agent's read and its write, the default window changes. A
+  write the user confirms names its context, and one confirmed for a context refuses to run on
+  another (`CheckConfirmedContext`, [`confirm.go`](../../internal/engine/confirm.go)).
+  (2) An agent may drive a window the user does not look at (behind another, minimised). UI
+  commands write nothing to a cluster, and a destructive action the user later starts there is
+  confirmed with its objects named.
+  (3) A window left open keeps its cluster connected and watched with the user's identity, as the
+  one connection does today; `ui_state`'s `windows` and the Window menu name them.
+  (4) The Secret values replaced in what agents read become the union of every connected backend's
+  (today the one connected cluster's): a log line of one cluster that prints a Secret value of
+  another connected cluster is then replaced too.
+- **The drag out.** The tile keeps its last `Dragged` position. At `DragEnd`, outside the window by
+  more than a margin it dispatches `window.open {context}`; over the hotbar it dispatches
+  `hotbar.moveCluster` (R2); anywhere else nothing. On macOS the window opens at the pointer; on
+  the other systems where they place a new window.
+
+**(b) A second process per window.**
+
+- **The model.** The dropped tile starts Cogpit again with `--context <id>` (the flag exists:
+  "connect to this context at start", [`main.go`](../../cmd/cogpit/main.go)); on macOS through
+  `open -n` on the bundle or the binary itself (`os.Executable`), how LaunchServices treats either
+  not verified. Each process has its own session, engine, caches, MCP server and window. The
+  engine does not change.
+- **What breaks.** `cmd/cogpit` has no single-instance guard (none found), and the processes share
+  Cogpit's configuration directory:
+
+  | File (in `<user config dir>/Cogpit`) | Shared today as | With a window per process |
+  |---|---|---|
+  | `workspace.json` | a copy per process, the last write wins (D-41) | the second process restores the first's tabs as well; the window closed last decides what the next start shows |
+  | `hotbar.json` | a copy per process, the file not watched, the last change wins ([`hotbar.go`](../../internal/engine/hotbar.go)) | a tile moved (R2) or added in one window does not show in the other, whose next change overwrites it: the hotbar the gesture starts from diverges |
+  | `preferences.json`, `cluster-settings.json` | as the hotbar ([`preferences.go`](../../internal/engine/preferences.go), [`clustersettings.go`](../../internal/engine/clustersettings.go)) | a theme or a cluster's name changed in one window only |
+  | `kubeconfigs.json`, `exec-approvals.json` | approvals read from the file at every check (`loadApprovals`); the files not locked, "two Cogpit processes changing the files at once may lose one change" ([`kubeconfigs.go`](../../internal/engine/kubeconfigs.go)) | checks agree; a source or an approval written by both at once can be lost, and a lost approval asks again |
+  | the drain, Helm and node shell journals, the drafts | under the journals' lock, an owner per process (H-22, [`journallock.go`](../../internal/engine/journallock.go)) | safe as built |
+  | `audit.log` | appended by every process, read back from the file ([`auditlist.go`](../../internal/engine/auditlist.go)) | one log for both windows |
+  | `crash.log` | one name ([`crash.go`](../../cmd/cogpit/crash.go)) | the second start removes the first's empty report file, which the first keeps writing into, and the first's clean exit removes the second's: a crash of either then leaves no report |
+  | `mcp-token`, `mcp-endpoint` | one name each, removed only by the process whose token or URL they hold (`removeIfHolds`, [`mcp/token.go`](../../internal/mcp/token.go)) | the second start overwrites both: `cogpit-cli mcp` forwards to the window started last; an agent registered with the first's port and token reaches the first only |
+  | `mcp-switch` (D-49) | the status bar's switch stops its own process's listener (`Server.Stop`) | switching MCP off in one window leaves the other window's server on |
+  | `llm-connections.json`, `chat-conversations.json` (the built-in agent's) | saved whole from memory under an in-process lock ([`agent/store.go`](../../internal/agent/store.go)) | the window that saves last replaces the other's conversations |
+
+  Not checked: which process macOS hands a `cogpit://` link to; Sparkle in two processes of one
+  app; the kubectl download folder used by two.
+- **What changes to make it sound.** The spawn and the drag: 5–10 h. Then the table: a workspace
+  per process (or the first process's only), file watches for the hotbar, the preferences and the
+  cluster settings, a crash file per process, an MCP endpoint per process with the bridge choosing,
+  the switch across processes, a lock for the conversations: 15–30 h. Estimated 20–40 h, the link
+  and updater questions still open.
+- **What agents see.** Two MCP servers, one window each; `ui_state` needs no window name, but no
+  agent sees both windows through one server. The bridge reaches one of them; port and token change
+  at every start. Each window's chat is its own.
+- **What survives a restart.** Only the tabs of the process that writes last; the second window
+  does not come back unless the processes agree on a window list (not designed).
+- **Crash stance.** Its strong point: a crash of one window leaves the other running. The crash
+  reports are lost (above).
+- **Performance.** The new window's GL set-up stalls only the new process; the open window keeps
+  drawing. Each process carries its own Go runtime, Fyne, engine and caches (not measured). Two
+  windows on the same cluster watch everything twice, against §1.1's "one watch per (cluster, kind,
+  namespace scope), shared by every consumer".
+- **Security.** The privilege footprint per connection is unchanged. New: the MCP switch and the
+  endpoint split per process (the table); an agent registered with one process does not see the
+  other window, and the user's off switch in one window does not reach the other's server.
+- **The drag out.** As (a); the drop starts a process instead of `window.open`. Placing the window
+  at the pointer needs a new flag.
+
+**(c) One window; the tile dropped outside opens the cluster in a new tab.** Not the requirement;
+the cheap alternative. `ui.tab.open` opens a view of the connected cluster only, so it needs a
+`context`; and since Cogpit holds one connection, showing that tab switches the window's cluster,
+which a click on the tile already does. Estimated 3–6 h (the drag and the parameter). Agents,
+restart, crash stance, performance and security: unchanged.
+
+| | (a) one session, a window's state | (b) a process per window | (c) a tab |
+|---|---|---|---|
+| Meets R3 | yes | yes | no |
+| Estimated size | 40–80 h | 20–40 h | 3–6 h |
+| Hotbar, stores, MCP server, audit log | one for all windows | one per process, the files shared (the table) | one |
+| Agents | one server, `window` optional, the focused window by default | one server per window | unchanged |
+| A window's opening stall | in every window | in the new one only | none |
+| A crash | ends every window | ends one window | ends the window |
+| Same cluster twice | one cache | every watch twice | – |
+
+### The lead's recommendation
+
+**(a), in four stages.** It is the only option in which what the gesture starts from stays one:
+one hotbar, one set of stores, one MCP server and one audit log for every window. (b) splits each
+of them per process (in the table the workspace, the hotbar, the preferences, the MCP endpoint and
+its switch and the conversations diverge, and crash reports get lost), and an agent would see two
+Cogpits; (c) is not the requirement. The cost of (a), the engine's single backend behind 67 call
+sites, is the assumption [architecture §1.1](architecture.md#11-rules-adopted-from-day-one) already
+rules out; removing it also prepares Lens's several connected clusters in one window (G5's
+difference), as a later decision of its own. Its performance cost, a window's opening stalling
+every window once, is the kind of once-per-window stall that S1's reservation accepted.
+
+1. **The engine with one window:** the pool of backends by context and the window's state; no
+   visible change, the existing tests the gate, a test per command with two windows on two
+   clusters added.
+2. **Several windows:** `window.open`, `window.close`, `window.focus`, `ui_state`'s `windows`, a
+   shell per window, a Window menu that lists them, and "Open in New Window" in the tile's menu.
+3. **The drag:** R2's reorder and R3's drop out of the window, one gesture.
+4. **`workspace.json` with windows.**
+
+### Questions for the owner, in the order to ask them
+
+One decision each; a later question assumes the recommended answer to the earlier ones.
+
+1. **The model.** (a) one session, a window's state and a connection per window; (b) a process
+   per window; (c) a tab instead. Recommended (a), for the reason above.
+2. **A connection per window or per tab.** (i) Per window: a window shows one cluster at a time,
+   and a tab of another cluster in the same window switches it, as today; (ii) per tab: every tab's
+   cluster stays connected, in any window, as in Lens. Recommended (i): A62's "every connect drills
+   in", the navigator's scope and D-47's question then stay true per window unchanged; (ii) is Lens
+   parity of its own (G5) and can follow on the same pool.
+3. **Which window an agent's call addresses.** (i) An optional `window`, by default the window the
+   user focused last; (ii) `window` required while more than one is open; (iii) the first window
+   unless named. Recommended (i): an agent that knows nothing of windows keeps working on what the
+   user looks at, which is what "this pod" means (D-10); (ii) breaks every agent that works with one
+   window today; (iii) drives a window the user may not look at.
+4. **Whether agents open and close windows.** (i) Yes, as UI commands, as they run
+   `cluster.connect` and `dock.close` today (D-2), the opened window in front, the last window never
+   closed by an agent; (ii) open yes, close by the user only; (iii) neither, the user only.
+   Recommended (i): D-2's "UI operations run without asking" holds, an opened window is in plain
+   view, and closing a window does no more than closing its dock tabs, which agents may do now;
+   refusing the last window keeps the app and its MCP server running.
+5. **What survives a restart.** (i) Every window with its tabs, the tab it showed last and its
+   frame, none connected; (ii) one window, every window's tabs merged into its bar; (iii) the first
+   window only. Recommended (i): D-41's reason (what the user arranged comes back without a
+   request) holds per window. Its cost: every restored window's GL set-up at start, one after the
+   other on the main goroutine (0.42–0.56 s measured for one window; several not measured).
+6. **How a tile is dropped out.** (i) Beyond the window's edge by a margin (24 points proposed,
+   Cogpit's default), the window at the pointer on macOS and where the system puts it elsewhere,
+   with "Open in New Window" in the tile's menu for full screen and the keyboard; (ii) a native
+   macOS drag session through AppKit, the tile's picture following the pointer (macOS only,
+   outside Fyne's events); (iii) the menu item only. Recommended (i): it needs nothing beyond Fyne's
+   events and one cgo call of the kind the title bar already makes; (ii) feels better on macOS and
+   can follow if (i) feels bare in a real window.
+7. **A tile of a cluster another window shows.** (i) A new window all the same, sharing the
+   connection; (ii) the window that shows it comes to the front. Recommended (i): the gesture asks
+   for a window, a second window on one cluster costs no watch under (a), and two namespaces of one
+   cluster side by side is a use of its own.
+
+### What it does not cover, and the risks per case
+
+- **Stage 1, the engine, live while it is built.** Moving 67 call sites off the single backend can
+  make a command read or act on the wrong window's cluster. `CheckConfirmedContext` bounds a
+  confirmed write only, not a read or a UI command; the tests with one window are the gate, the
+  tests with two windows on two clusters are new.
+- **Stage 2, agents, dormant until built.** An agent's write whose parameters name no context lands
+  on the window focused at dispatch, and the user can move the focus between an agent's read and its
+  write. Bounded by the confirmation naming the context; where the user allowed agent writes for
+  that context the write runs without asking, but only on a context the user allowed.
+- **Stage 2, connections the user does not look at, dormant.** A minimised or hidden window keeps
+  its cluster connected and watched with the user's identity; `ui_state` and the Window menu name
+  them, nothing closes them by itself.
+- **Stage 2, performance, dormant.** Every window's opening stalls the others (one loop); a second
+  window's numbers are not measured; G15's reservation grows with each window.
+- **Stage 3, the drop, dormant.** The detection rests on GLFW and AppKit reporting the pointer
+  outside the window during a drag, read from their source and not tried in a real window; Windows
+  and Linux not tried (M11); on Wayland Fyne's own note says the position request is ignored.
+- **Deep links ([D-47](#d-47-deep-links-cogpit)), dormant.** Which window a link opens in is not
+  designed here. A proposal for stage 2: the window that shows the link's cluster, else the focused
+  one with D-47's question.
+- **Two processes, live today whatever the choice.** Without a single-instance guard, a user who
+  starts Cogpit twice (`open -n`, or the binary run again) meets (b)'s table now: lost crash
+  reports, the MCP endpoint of the last start, the hotbar and the workspace of the last write
+  (read from the code, not tried).
+  Under (a) a second start could hand its `--context` to the running Cogpit through the MCP
+  endpoint the bridge already reads; a follow-up, not designed.
+- **Not measured:** memory per window in either option; a second window's GL set-up; a second
+  process's start.
 
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-15 | minor | D-52 designed (night run, R3), the lead's proposal for the owner to decide, nothing decided or built: what several windows touch, checked against the code (one `UIState`, one backend behind 67 `Session.Backend()` call sites, one MCP server, one `workspace.json`, Fyne's one loop for all windows); what Fyne 2.8.1 and GLFW offer for a drop outside the window (positions beyond the canvas, no position on `DragEnd`, `RequestPosition` without a getter); options (a) one session with a window's state and a connection per window, (b) a process per window with the shared files it breaks, (c) a tab instead, each with its size, agents, restart, crash stance, performance, security and drag; (a) recommended in four stages; seven questions in order; the risks per stage; the index and R3's line updated |
 | 2026-10-15 | minor | D-25: A69 built (the lists' copy icon over the cell's end, the text keeping the cell's width) and A71 built (the drawer's Forward… right after the port again, the icon over the port's end); the lead's readings for the owner to confirm: the drawer's lines and links keep shortening before the icon, a link without buttons keeps the icon after its text; A73 built (a plain click on a row opens its drawer and keeps the checked rows: `ui.select`'s mode `open`), its rules in architecture §4.3 |
 | 2026-10-15 | minor | D-14 (A116) built: the terminal fork's four shell tests under the race detector in CI (`make test-fork` without `-skip`); seven races in `RunLocalShell`, its directory check and `ExitCode` patched in the fork, shown by `TestRunLocalShell_MainLoop` on a main-loop stand-in; two decisions of the lead in the night run for the owner to confirm: the patches upstream candidates offered with the input patches at the end (A86), the fork's tests in the Linux race job only |
 | 2026-10-15 | minor | A110, A111, A112, A114 built: the README's pictures in the dark and the light theme through `<picture>`, its banner, `make showcase` with the pinned oxipng, and `demo` the connected context in every picture; the lead's decisions for the owner to confirm in [the README's pictures](#the-readmes-pictures-a110-a111-a112-a114) |
