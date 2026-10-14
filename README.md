@@ -1,10 +1,14 @@
 # Cogpit
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/banner_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/banner_light.png">
+  <img src="docs/images/banner_dark.png" alt="Cogpit: a fast, native Kubernetes IDE for your desktop">
+</picture>
+
 [![Build Status](https://github.com/guided-traffic/cogpit/actions/workflows/release.yml/badge.svg)](https://github.com/guided-traffic/cogpit/actions)
 [![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/guided-traffic/cogpit/main/.github/badges/coverage.json)](https://github.com/guided-traffic/cogpit)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-
-<img src="docs/developer/assets/cogpit-icon.svg" alt="" width="96" align="right">
 
 **A fast, native Kubernetes IDE for your desktop: your workloads, config, network, storage and
 custom resources in one window, a UI that reads from a live cache, and AI agents that work with
@@ -17,7 +21,11 @@ current, so lists of 10,000 pods stay quick and opening a view again costs your 
 nothing. And every action is also a tool an agent can use over MCP, with you deciding what it may
 change.
 
-![Cogpit: the navigator, the Pods list with CPU and memory, and a pod's drawer with its CPU chart, requests and limits](docs/images/hero.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/hero_light.png">
+  <img src="docs/images/hero_dark.png" alt="Cogpit: the navigator, the Pods list with CPU and memory, and a pod's drawer with its CPU chart, requests and limits">
+</picture>
 
 > **Pre-alpha.** Cogpit runs on macOS on Apple silicon today; Windows and Linux are planned after
 > the macOS beta. The views and actions are in place, some of them still in part, but nothing has
@@ -42,7 +50,11 @@ The Overview charts CPU, memory and pods of your worker or control-plane nodes o
 or longer, against requests, limits and capacity, and lists what is in trouble right below:
 failing pods, unready nodes and workloads, warning events.
 
-![The cluster Overview: CPU, memory and pod charts of the worker nodes, and the list of issues](docs/images/cluster_overview.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/cluster_overview_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/cluster_overview_light.png">
+  <img src="docs/images/cluster_overview_dark.png" alt="The cluster Overview: CPU, memory and pod charts of the worker nodes, and the list of issues">
+</picture>
 
 ### 🖥️ Nodes and what runs on them
 
@@ -51,7 +63,11 @@ its capacity and the pods running on it with their CPU and memory. Cordon it, dr
 can be finished even if Cogpit quits halfway) or open a shell on it; the drain and the shell ask
 first.
 
-![The Nodes list with usage bars and a node's drawer with its pods](docs/images/nodes.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/nodes_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/nodes_light.png">
+  <img src="docs/images/nodes_dark.png" alt="The Nodes list with usage bars and a node's drawer with its pods">
+</picture>
 
 ### 📜 Logs that follow a whole Deployment
 
@@ -59,7 +75,11 @@ Follow one container, or every pod of a Deployment, Stateful Set or Job in a sin
 marked with its pod and container. Search highlights or filters; timestamps, the previous
 container, older lines and a jump to a point in time are one click away.
 
-![A Deployment's logs in the dock, with timestamps and the search term highlighted](docs/images/logs.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/logs_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/logs_light.png">
+  <img src="docs/images/logs_dark.png" alt="A Deployment's logs in the dock, with timestamps and the search term highlighted">
+</picture>
 
 ### 💻 Shells and a terminal
 
@@ -67,7 +87,11 @@ Open a shell in any container, attach to it, or open a terminal bound to the clu
 Cogpit checks your `kubectl` against the cluster's version and offers a matching download,
 verified against the Kubernetes release's signature, when yours is missing or too far off.
 
-![A shell in a pod's container, docked under the Pods list](docs/images/shell.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/shell_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/shell_light.png">
+  <img src="docs/images/shell_dark.png" alt="A shell in a pod's container, docked under the Pods list">
+</picture>
 
 ### ✏️ Edit YAML, see the diff, then apply
 
@@ -75,7 +99,11 @@ Edit any object in place. Before anything reaches the cluster you see the diff a
 server's dry-run verdict, and if someone changed the object in the meantime, Cogpit tells you
 instead of overwriting their change. Unsaved edits survive a crash.
 
-![An edit of a Service under review: the diff and the dry run's verdict before Apply](docs/images/edit_diff.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/edit_diff_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/edit_diff_light.png">
+  <img src="docs/images/edit_diff_dark.png" alt="An edit of a Service under review: the diff and the dry run's verdict before Apply">
+</picture>
 
 ### ⎈ Helm, without the helm binary
 
@@ -84,9 +112,17 @@ versions and each version's README, and install from a tab. Your releases show t
 values and notes; upgrade to a newer chart version, roll back or uninstall, all through the Helm
 SDK.
 
-![The Charts view with icons and a chart's README in the drawer](docs/images/helm_charts.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/helm_charts_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/helm_charts_light.png">
+  <img src="docs/images/helm_charts_dark.png" alt="The Charts view with icons and a chart's README in the drawer">
+</picture>
 
-![A release's drawer and its Helm Upgrade tab with the repository's versions](docs/images/helm_upgrade.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/helm_upgrade_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/helm_upgrade_light.png">
+  <img src="docs/images/helm_upgrade_dark.png" alt="A release's drawer and its Helm Upgrade tab with the repository's versions">
+</picture>
 
 ### 🔁 GitOps: Flux CD and Argo CD
 
@@ -95,9 +131,17 @@ Reconcile (with its source), Reset, Suspend and Resume on one object or a whole 
 shows your Applications' sync and health, the recent activity and what needs attention, with Sync,
 Refresh and a way into the Argo CD UI.
 
-![The Flux CD dashboard](docs/images/flux.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/flux_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/flux_light.png">
+  <img src="docs/images/flux_dark.png" alt="The Flux CD dashboard">
+</picture>
 
-![The Argo CD dashboard](docs/images/argocd.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/argocd_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/argocd_light.png">
+  <img src="docs/images/argocd_dark.png" alt="The Argo CD dashboard">
+</picture>
 
 ### 🗂️ All your clusters in one window
 
@@ -106,7 +150,11 @@ follows their changes. Pin clusters to the hotbar (F1–F12), keep tabs of sever
 (they come back after a restart), and reach any view, action or cluster from the command palette
 (⌘⇧P).
 
-![The hotbar, the navigator with five clusters, tabs of four clusters and the command palette](docs/images/clusters.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/clusters_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/clusters_light.png">
+  <img src="docs/images/clusters_dark.png" alt="The hotbar, the navigator with five clusters, tabs of four clusters and the command palette">
+</picture>
 
 ### 🔏 Certificates, decoded
 
@@ -114,7 +162,11 @@ A Secret's drawer decodes every certificate in it, PEM or DER: subject, issuer, 
 with a warning 30 days before it ends, key usage and fingerprints. Cogpit also checks that
 `tls.key` belongs to `tls.crt` and that the chain is in order, without ever showing the key.
 
-![A TLS Secret's drawer with its decoded certificate chain](docs/images/certificates.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/certificates_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/certificates_light.png">
+  <img src="docs/images/certificates_dark.png" alt="A TLS Secret's drawer with its decoded certificate chain">
+</picture>
 
 ### 🤖 Agents over MCP, with you in control
 
@@ -124,7 +176,11 @@ in Cogpit's window, which names the objects, the namespace and the cluster (unle
 changes on that cluster; destructive ones always wait), and Help › Audit Log shows everything
 agents did. A few commands, such as creating a Secret, only you can run.
 
-![An agent's Restart waiting for the user's answer, above the Audit Log](docs/images/agents.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/agents_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/agents_light.png">
+  <img src="docs/images/agents_dark.png" alt="An agent's Restart waiting for the user's answer, above the Audit Log">
+</picture>
 
 ### 💬 An agent chat in the window
 
@@ -134,14 +190,17 @@ selected and it reads the object and its logs and answers in Markdown, tables in
 tool calls is a row you can open, a change waits for your OK as an MCP agent's does, and what a
 turn sent to the model is one click away. Escape or ⌘. stops it at any time.
 
-![The agent chat beside the Pods list: a question about a crash-looping pod, the agent's reads and its answer with a table](docs/images/agent_chat.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/agent_chat_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/agent_chat_light.png">
+  <img src="docs/images/agent_chat_dark.png" alt="The agent chat beside the Pods list: a question about a crash-looping pod, the agent's reads and its answer with a table">
+</picture>
 
 ### 🌗 Dark or light
 
 Solarized dark or light, or following your Mac's appearance, switched live in Preferences; every
-time in your own time zone and your region's format.
-
-![The same window in the light theme](docs/images/hero_light.png)
+time in your own time zone and your region's format. The pictures on this page follow your light or
+dark theme too.
 
 ## 🛡️ Safe by design
 
