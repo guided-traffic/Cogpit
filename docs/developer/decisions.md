@@ -1438,7 +1438,7 @@ The test fixtures carry no layout, so the other images show the ISO 8601 fallbac
 unless you see it differently: then name me the place where we should not do it and we talk about
 it." (Seen in a Node's drawer: Capacity Memory `16360780Ki`, Ephemeral Storage `119842348Ki`,
 Allocatable Memory `13856852378`, plain bytes.) **Built 2026-10-13**
-([`model/bytes.go`](../../internal/model/bytes.go); [architecture › Current state](architecture.md#current-state-2026-10-13)):
+([`model/bytes.go`](../../internal/model/bytes.go); [architecture › Current state](architecture.md#current-state-2026-10-14)):
 that drawer now reads 15.6 GiB, 114.3 GiB and 12.9 GiB (`TestNodeDrawerBytesInBinaryUnits`).
 
 What the build chose, Cogpit's defaults (the lead's and the build's, not the owner's decision):
