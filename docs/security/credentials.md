@@ -145,7 +145,8 @@ credential into its own files.
   [D-41](../developer/decisions.md#d-41-what-survives-a-restart)): `<user config dir>/Cogpit/workspace.json`,
   0600 in a 0700 directory, replaced atomically through `writePrivateFile`, holds per tab a context
   id, view keys and titles, namespace and API group names, the search text as typed and the sort,
-  and column ids per view: names of contexts, kubeconfig files and namespaces, no credential, no
+  column ids per view, and since 2026-10-15 the navigator's collapsed source groups (the labels of
+  synced folders and added files, A63): names of contexts, kubeconfig files and namespaces, no credential, no
   object's value, no selection and no drawer object
   ([`persist.go`](../../internal/engine/persist.go), `TestWorkspaceRoundTrip`). A context read back
   from it connects only when the user shows its tab, through the same path as the picker (its

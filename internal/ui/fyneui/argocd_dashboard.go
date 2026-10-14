@@ -35,7 +35,7 @@ type argoPanel struct {
 	strip    *fyne.Container
 	cards    *fyne.Container
 	activity *fyne.Container
-	filter   *widget.Entry // the activity's filter: the window's, as the navigator's search is
+	filter   *searchEntry // the activity's filter: the window's; F1–F12 are the hotbar's (A64)
 	openUI   *widget.Button
 	sync     *widget.Button
 	refresh  *widget.Button
@@ -68,7 +68,7 @@ func newArgoPanel(sh *shell) *argoPanel {
 	actions := container.NewHBox(newTextLine("Applications", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{Bold: true}),
 		layout.NewSpacer(), p.openUI, p.sync, p.refresh)
 	title := newTextLine("Recent activity", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{Bold: true})
-	p.filter = widget.NewEntry()
+	p.filter = newSearchEntry(sh)
 	p.filter.SetPlaceHolder("Filter activity…")
 	p.filter.OnChanged = func(string) { p.showActivity() }
 	head := container.NewBorder(nil, nil, title, sized(sizeSearchWidth, "", p.filter))

@@ -30,7 +30,7 @@ func registerClusterMenu(g *registrar) {
 		ID: "cluster.disconnect", Label: "Disconnect", MenuPath: "File/Disconnect", Danger: engine.DangerUI,
 		Description: "Closes Cogpit's connection to the connected cluster, or ends a connect under way. Nothing is sent to the " +
 			"cluster: Cogpit stops watching it, its port forwards stop as when switching clusters, and the workspace shows " +
-			"the welcome page. The cluster's tabs stay and connect again when selected. Returns the new UI state.",
+			"the welcome page. The cluster's tabs close with it. Returns the new UI state.",
 		Enabled: func(s *engine.Session, _ struct{}) error {
 			if st := s.UIState().Connection.State; st != engine.Connected && st != engine.Connecting {
 				return engine.ErrNotConnected

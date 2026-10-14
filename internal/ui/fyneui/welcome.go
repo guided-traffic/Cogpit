@@ -28,13 +28,15 @@ import (
 //   - Cogpit's logo, "Welcome to Cogpit" and a line saying what Cogpit is;
 //   - a line about the connection when there is one to tell: a connect that failed, a connection
 //     Cogpit closed, or the cluster that stays connected under the page;
-//   - the clusters to connect with one click: the hotbar's shown bank, then the clusters of this
-//     session (the connected or last one, the tabs' ones), then up to eight other clusters the
+//   - the clusters to connect with one click: the hotbar's shown bank, then Recent, the clusters of
+//     this session (the connected or last one, the tabs' ones; the heading "Recent" since the
+//     owner's A67, 2026-10-14 evening, was "This session"), then up to eight other clusters the
 //     kubeconfig sources offer (the kubeconfig's current one first), so that a failed connect
 //     always leaves another to try; each row is the context picker's, with its right-click menu;
 //   - "All Clusters…" (the context picker, ⌘P) and "Add Kubeconfigs…" (the Sync Files and Folders
-//     dialog), the documentation (Cogpit's README on GitHub, opened in the browser) and the
-//     shortcuts to remember.
+//     dialog), the documentation and the shortcuts to remember. The documentation is two links to
+//     the repository on GitHub, opened in the browser (the owner's A113, 2026-10-14 evening): the
+//     README for what Cogpit does (the showcase), and docs/developer/commands.md for the commands.
 //
 // Whether the page shows is engine state, UIState.Welcome (engine/welcome.go): the workspace shows it
 // while no cluster is connected and while no tab is active, Help › Welcome (ui.welcome.open) over a
@@ -49,6 +51,7 @@ const (
 	welcomeMaxOthers = 8   // other clusters listed
 	welcomeTopMargin = 48  // above the column, when the workspace is tall enough
 	readmeURL        = "https://github.com/guided-traffic/cogpit#readme"
+	commandsURL      = "https://github.com/guided-traffic/cogpit/blob/main/docs/developer/commands.md"
 	welcomeTagline   = "Cogpit is a Kubernetes IDE: it shows your clusters from a live cache, asks before it changes anything, " +
 		"and lets agents drive it over MCP."
 )
@@ -63,7 +66,8 @@ type welcomePage struct {
 	hint      *textLine
 	allB      *widget.Button
 	addB      *widget.Button
-	docs      *widget.Hyperlink
+	docs      *widget.Hyperlink // the README: what Cogpit does
+	cmds      *widget.Hyperlink // docs/developer/commands.md: every command
 	shown     bool
 	built     string        // the signature the list was built for
 	rows      []*pickerRow  // the clusters' rows in the order shown, for tests
@@ -92,8 +96,11 @@ func newWelcomePage(sh *shell) *welcomePage {
 	w.allB = widget.NewButtonWithIcon("All Clusters…", theme.SearchIcon(), func() { sh.picker.show() })
 	w.addB = widget.NewButtonWithIcon("Add Kubeconfigs…", theme.ContentAddIcon(), sh.kc.addKubeconfigs)
 	u, _ := url.Parse(readmeURL)
-	w.docs = widget.NewHyperlink("Cogpit's README on GitHub: features, shortcuts, the commands agents use", u)
+	w.docs = widget.NewHyperlink("What Cogpit does: the README on GitHub", u)
 	w.docs.OnTapped = func() { sh.openDocumentation() }
+	cu, _ := url.Parse(commandsURL)
+	w.cmds = widget.NewHyperlink("Every command, for the palette, the menus and agents: commands.md on GitHub", cu)
+	w.cmds.OnTapped = func() { sh.openLink(commandsURL) }
 	w.hint = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	column := container.NewVBox(
 		head,
@@ -106,6 +113,7 @@ func newWelcomePage(sh *shell) *welcomePage {
 		newSpace(theme.SizeNameInnerPadding),
 		heading("Documentation"),
 		w.docs,
+		w.cmds,
 		w.hint,
 	)
 	page := box(welcomeLayout{}, column)
@@ -249,7 +257,7 @@ func (w *welcomePage) groups() []welcomeGroup {
 			out = append(out, g)
 		}
 	}
-	recent := welcomeGroup{title: "This session"}
+	recent := welcomeGroup{title: "Recent"}
 	ids := make([]string, 0, 1+len(st.Tabs))
 	ids = append(ids, st.Context)
 	for _, t := range st.Tabs {
@@ -447,10 +455,13 @@ func (w *welcomePage) renderHint() {
 // openDocumentation opens Cogpit's README on GitHub in the browser (Help › Documentation and the
 // welcome page). A GUI link, not an engine command, as the status bar's link (D-23): no agent opens
 // a browser on the user's computer.
-func (sh *shell) openDocumentation() {
-	u, _ := url.Parse(readmeURL)
+func (sh *shell) openDocumentation() { sh.openLink(readmeURL) }
+
+// openLink opens one of Cogpit's own https links in the browser: the README, the command list.
+func (sh *shell) openLink(link string) {
+	u, _ := url.Parse(link)
 	if err := openBrowser(sh.app, u); err != nil {
-		sh.toast("error", "Could not open "+readmeURL+": "+err.Error())
+		sh.toast("error", "Could not open "+link+": "+err.Error())
 	}
 }
 

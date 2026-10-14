@@ -44,8 +44,8 @@ type tableView struct {
 	nsButton              *widget.Button
 	nsBox                 *fyne.Container // the namespace filter's slot; hidden on cluster-scoped views
 	states                *statusFilter   // the status filter beside it (statusfilter.go)
-	search                *widget.Entry
-	toggles               *searchToggles // the search's "Aa" and ".*" (searchtoggles.go)
+	search                *searchEntry    // F1–F12 are the hotbar's (A64, searchkeys.go)
+	toggles               *searchToggles  // the search's "Aa" and ".*" (searchtoggles.go)
 	searchBox             *fyne.Container
 	heading, tools        *fyne.Container // the header's left and right parts
 
@@ -134,7 +134,7 @@ func newTableView(sh *shell) *tableView {
 	tv.nsButton = widget.NewButtonWithIcon("All namespaces", theme.MenuDropDownIcon(), tv.openNamespaces)
 	tv.nsButton.IconPlacement = widget.ButtonIconTrailingText
 	tv.nsButton.Alignment = widget.ButtonAlignLeading
-	tv.search = widget.NewEntry()
+	tv.search = newSearchEntry(sh)
 	tv.toggles = newSearchToggles(tv) // before anything draws the entry: its renderer takes the switches once
 	tv.search.SetPlaceHolder("Search…")
 	tv.search.SetIcon(theme.SearchIcon())

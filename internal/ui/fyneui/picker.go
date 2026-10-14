@@ -45,6 +45,9 @@ func newPicker(sh *shell) *picker {
 		colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	intro.truncate = true
 	p.filter = newKeyEntry(func(ev *fyne.KeyEvent) bool {
+		if hotbarKey(sh, ev) { // F1–F12 open the hotbar's clusters here too (A64); a connect closes the picker
+			return true
+		}
 		if ev.Name != fyne.KeyEscape || !p.visible() {
 			return false
 		}

@@ -24,8 +24,8 @@ import (
 // rank, so that a cluster connected from the picker shows its most recently used tab), its
 // namespace and API group filters, its search text with the search's toggles, its status filter
 // (2026-10-14), its sort and its history (view keys); which tab was shown last; and the hidden
-// columns and the column order per view key, the same for every cluster, as UIState keeps them.
-// Never a selection or the drawer's object (they name objects that may be gone at the next start),
+// columns and the column order per view key, the same for every cluster, as UIState keeps them;
+// since 2026-10-14 the navigator's collapsed source groups (A63). Never a selection or the drawer's object (they name objects that may be gone at the next start),
 // never a dock tab (logs, terminals, editors: an editor's unsaved text has its draft, D-11), never
 // a credential or an object's value.
 //
@@ -106,6 +106,9 @@ type workspaceDoc struct {
 	Active        int                 `json:"active"`
 	HiddenColumns map[string][]string `json:"hiddenColumns,omitempty"`
 	ColumnOrder   map[string][]string `json:"columnOrder,omitempty"`
+	// CollapsedSources are the Local Kubeconfigs section's collapsed source groups, by their
+	// headings' labels (NavigatorState.Collapsed; A63, 2026-10-14).
+	CollapsedSources []string `json:"collapsedSources,omitempty"`
 }
 
 // storedTab is one tab as kept: a ViewTab without its id, selection and drawer.
@@ -132,7 +135,7 @@ type storedTab struct {
 // known (Session.knownViewTitle).
 func workspaceDocOf(u *UIState, viewTitle func(string) string) workspaceDoc {
 	doc := workspaceDoc{Version: workspaceVersion, Tabs: make([]storedTab, len(u.Tabs)), Active: -1,
-		HiddenColumns: u.HiddenColumns, ColumnOrder: u.ColumnOrder}
+		HiddenColumns: u.HiddenColumns, ColumnOrder: u.ColumnOrder, CollapsedSources: u.Navigator.Collapsed}
 	ranks := usedRanks(u.Tabs)
 	for i, t := range u.Tabs {
 		doc.Tabs[i] = storedTab{Context: t.Context, View: t.View, Preview: t.Preview,

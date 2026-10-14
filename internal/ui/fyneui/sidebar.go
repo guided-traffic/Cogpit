@@ -191,6 +191,10 @@ type sidebar struct {
 	filter   string            // the search text; "" shows every item
 	shown    map[string]bool   // with a search: the nodes it keeps
 
+	// The search text and the keyboard's row reported to the engine (D-51; navigatorstate.go).
+	searchRep, rowRep *navReport
+	applying          bool // the engine's search is being shown: not a change to report
+
 	rootRow   *navRootRow
 	badge     *clusterBadge
 	name      *textLine
@@ -223,6 +227,7 @@ func newSidebar(sh *shell) *sidebar {
 	// tree (container.NewBorder would put the tree first).
 	s.root = container.New(layout.NewBorderLayout(s.head.root, nil, nil, nil), s.head.root, container.NewStack(s.tree, s.sec))
 	s.tree.rebuild()
+	s.initNavigatorState()
 	return s
 }
 
@@ -249,9 +254,14 @@ func (s *sidebar) scopeChanged() {
 		return
 	}
 	from := s.sh.ui.Context
-	s.section = section
+	// The level's search and row are the engine's again (it reset them for the new level): a report
+	// for the level shown so far would land at the new one.
+	s.searchRep.cancel()
+	s.rowRep.cancel()
 	c := s.sh.win.Canvas()
 	hadKeys := c.Focused() == s.tree || c.Focused() == s.sec
+	byKeys := (s.section && s.sec.keys) || (!s.section && s.tree.keys) // the ring follows the keyboard, not a click (A53)
+	s.section = section
 	if s.head.searching() {
 		s.head.closeSearch()
 	}
@@ -266,7 +276,9 @@ func (s *sidebar) scopeChanged() {
 		s.tree.rebuild()
 	}
 	if hadKeys {
+		s.tree.pointer, s.sec.pointer = !byKeys, !byKeys
 		c.Focus(s.list())
+		s.tree.pointer, s.sec.pointer = false, false
 	}
 }
 
@@ -595,6 +607,12 @@ func (s *sidebar) shownNodes() []string {
 	}
 	walk("")
 	return out
+}
+
+// searchTyped follows the search field's text: it filters at once and reports the text (A51).
+func (s *sidebar) searchTyped(text string) {
+	s.setFilter(text)
+	s.noteSearch(text)
 }
 
 // setFilter applies the search text (the header's field).

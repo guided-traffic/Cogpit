@@ -48,3 +48,42 @@ func TestNavigatorScopeCommand(t *testing.T) {
 		t.Errorf("an unknown section: %v", err)
 	}
 }
+
+// The navigator's own state as agents and the window set it (D-51): the search, the keyboard's row
+// and the collapsed source groups through their commands, all run by an agent without the user's
+// acceptance (UI commands) and reported by ui.state; the palette's text with who typed it.
+func TestNavigatorAndPaletteStateCommands(t *testing.T) {
+	h := newHarness(t, seed(), engine.Options{})
+	agent, gui := engine.OriginExternalAgent, engine.OriginGUI
+	var st commands.StateResult
+	h.must(t, agent, "ui.setNavigatorSearch", map[string]any{"search": "dep"}, &st)
+	if st.Navigator.Search != "dep" {
+		t.Errorf("search %q", st.Navigator.Search)
+	}
+	h.must(t, agent, "ui.setNavigatorRow", map[string]any{"row": "group:workloads"}, &st)
+	if st.Navigator.Row != "group:workloads" {
+		t.Errorf("row %q", st.Navigator.Row)
+	}
+	if err := h.run(t, agent, "ui.setNavigatorRow", map[string]any{"row": "context:test"}, nil); !errors.Is(err, engine.ErrNavRow) {
+		t.Errorf("a section's row at a cluster: %v", err)
+	}
+	h.must(t, gui, "ui.setNavigatorGroup", map[string]any{"group": ".kube/", "collapsed": true}, nil)
+	h.must(t, agent, "ui.state", nil, &st)
+	if len(st.Navigator.Collapsed) != 1 || st.Navigator.Collapsed[0] != ".kube/" || st.Navigator.Search != "dep" {
+		t.Errorf("navigator %+v", st.Navigator)
+	}
+
+	h.must(t, agent, "ui.palette.setText", map[string]any{"text": "delete"}, &st)
+	if !st.Palette || st.PaletteText != "delete" || st.PaletteTextOrigin != agent {
+		t.Errorf("an agent's text: open %v, %q by %q", st.Palette, st.PaletteText, st.PaletteTextOrigin)
+	}
+	h.must(t, gui, "ui.palette.setText", map[string]any{"text": "delete pod"}, &st)
+	if st.PaletteTextOrigin != gui {
+		t.Errorf("the user's text by %q", st.PaletteTextOrigin)
+	}
+	var closed commands.StateResult
+	h.must(t, gui, "ui.palette.close", nil, &closed)
+	if closed.Palette || closed.PaletteText != "" {
+		t.Errorf("closed: %v %q", closed.Palette, closed.PaletteText)
+	}
+}

@@ -61,22 +61,18 @@ func (h *navHeader) setPlaceHolder(text string) {
 	}
 }
 
-// showScopeMenu opens the scope dropdown below its button: the section, Local Kubeconfigs, and
-// below it every cluster the section lists (the connected one when they are not read yet), the
-// scope shown checked; choosing one sets the scope (ui.setNavigatorScope), a cluster not connected
-// through the section's drill, which shows its login program for approval first. Listing the
-// clusters here as well is Cogpit's default (inferred; Lens's dropdown is captured naming one
-// scope).
+// showScopeMenu opens the scope dropdown below its button: the section, Local Kubeconfigs, below it
+// the hotbar's clusters and the connected one (scopeClusters), the scope shown checked, and All
+// Clusters… (the context picker, ⌘P) for every other one (the owner's A52, 2026-10-14 evening: so
+// the list needs no cap). Choosing a cluster sets the scope (ui.setNavigatorScope), one not
+// connected through the section's drill, which shows its login program for approval first.
 func (h *navHeader) showScopeMenu() {
 	sh := h.s.sh
 	cluster := sh.ui.ScopeCluster()
 	local := fyne.NewMenuItem(navSectionTitle, h.s.goUp)
 	local.Checked = cluster == ""
 	items := []*fyne.MenuItem{local, fyne.NewMenuItemSeparator()}
-	ctxs := h.s.sec.ordered()
-	if !h.s.sec.loaded && sh.ui.Context != "" {
-		ctxs = []engine.ContextInfo{{Name: sh.ui.Context}}
-	}
+	ctxs := h.scopeClusters()
 	titles := map[string]int{}
 	for _, c := range ctxs {
 		titles[h.s.sec.rowTitle(c)]++
@@ -90,15 +86,48 @@ func (h *navHeader) showScopeMenu() {
 		item.Checked = id == cluster
 		items = append(items, item)
 	}
-	if len(ctxs) == 0 {
-		none := fyne.NewMenuItem("No clusters", nil)
-		none.Disabled = true
-		items = append(items, none)
+	if len(ctxs) > 0 {
+		items = append(items, fyne.NewMenuItemSeparator())
 	}
+	items = append(items, sh.withShortcut(fyne.NewMenuItem("All Clusters…", sh.picker.show), "cluster.connect"))
 	h.menuModel = fyne.NewMenu("", items...)
 	sh.tip.hide()
 	pos := fyne.CurrentApp().Driver().AbsolutePositionForObject(h.scope).AddXY(0, h.scope.Size().Height)
 	widget.NewPopUpMenu(h.menuModel, sh.win.Canvas()).ShowAtPosition(pos)
+}
+
+// scopeClusters are the clusters the scope dropdown lists (A52): the tiles of the hotbar's shown bank
+// in their order, then the connected (or connecting) cluster when no tile holds it. A tile whose
+// context no kubeconfig source offers any more is left out once the section has read them. Which
+// bank: the shown one, as the hotbar beside the dropdown shows it (the lead's night decision,
+// 2026-10-14, for the owner to confirm; D-51).
+func (h *navHeader) scopeClusters() []engine.ContextInfo {
+	sh, sec := h.s.sh, h.s.sec
+	var out []engine.ContextInfo
+	seen := map[string]bool{}
+	add := func(id string, always bool) {
+		if id == "" || seen[id] {
+			return
+		}
+		c, ok := sec.context(id)
+		if !ok && sec.loaded && !always {
+			return
+		}
+		if !ok {
+			c = engine.ContextInfo{Name: id}
+		}
+		seen[id] = true
+		out = append(out, c)
+	}
+	if hb := sh.ui.Hotbar; hb != nil && hb.Current >= 1 && hb.Current <= len(hb.Banks) {
+		for _, t := range hb.Banks[hb.Current-1].Clusters {
+			add(t.Context, false)
+		}
+	}
+	if st := sh.ui.Connection.State; st == engine.Connected || st == engine.Connecting {
+		add(sh.ui.Context, true)
+	}
+	return out
 }
 
 // searching reports whether the search field is open.
@@ -150,13 +179,16 @@ func newNavSearchEntry(h *navHeader) *navSearchEntry {
 	e := &navSearchEntry{h: h}
 	e.ExtendBaseWidget(e)
 	e.SetPlaceHolder("Search items…")
-	e.OnChanged = h.s.setFilter
+	e.OnChanged = h.s.searchTyped
 	e.OnSubmitted = func(string) { h.s.openFirstMatch() }
 	return e
 }
 
-// TypedKey adds Escape and ↓ to the entry's keys.
+// TypedKey adds Escape and ↓ to the entry's keys; F1–F12 and ⇧F1–⇧F12 are the hotbar's (A64).
 func (e *navSearchEntry) TypedKey(ev *fyne.KeyEvent) {
+	if hotbarKey(e.h.s.sh, ev) {
+		return
+	}
 	switch ev.Name {
 	case fyne.KeyEscape:
 		e.h.closeSearch()

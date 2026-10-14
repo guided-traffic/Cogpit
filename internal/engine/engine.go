@@ -438,6 +438,7 @@ func (s *Session) UpdateUI(fn func(*UIState)) UIState {
 	s.ui.syncTabs(old, s.viewTitle) // the active tab follows the view, whoever changed it (tabs.go)
 	s.ui.syncWelcome()              // the welcome page shows while the workspace has nothing else (welcome.go)
 	s.ui.syncNavScope(old)          // the navigator shows the connected cluster, or the section (navscope.go)
+	s.ui.syncNavigator(old)         // its search and keyboard follow the level and the view (navigator.go)
 	// A chart drawer's version ends with the drawer (helmchartdrawer.go).
 	s.ui.syncDrawerChartVersion(old)
 	s.ui.Revision = old.Revision + 1

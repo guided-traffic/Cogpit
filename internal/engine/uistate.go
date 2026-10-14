@@ -65,9 +65,17 @@ type UIState struct {
 	// Overview is what the cluster Overview's charts show: their time range and node group
 	// (clusteroverview.go); zero: the defaults.
 	Overview OverviewChoice `json:"overview,omitzero"`
-	// Palette is set while the command palette is open (ui.palette.open, ⌘⇧P; palette.go). What
-	// the user types in it stays in the window, as the context picker's filter does.
+	// Palette is set while the command palette is open (ui.palette.open, ⌘⇧P; palette.go).
 	Palette bool `json:"palette,omitempty"`
+	// PaletteText is what is typed in the open palette's field (D-51, A54; palettetext.go), "" while
+	// it is closed; PaletteTextOrigin is who set it last: gui for the user, else the agent's (or the
+	// CLI's) origin, set with ui.palette.setText. On a text another origin set, the window's ↵ runs
+	// no change until the user picked the entry.
+	PaletteText       string `json:"paletteText,omitempty"`
+	PaletteTextOrigin Origin `json:"paletteTextOrigin,omitempty"`
+	// Navigator is the navigator's search text, the row its keyboard is on and the Local
+	// Kubeconfigs section's collapsed source groups (D-51, A51, A63; navigator.go).
+	Navigator NavigatorState `json:"navigator,omitzero"`
 	// Chat is set while the built-in agent's chat column is shown (chat.toggle, ⌘I; chat.go).
 	// What is said in it stays in the window: agents see only that it is open.
 	Chat bool `json:"chat,omitempty"`
@@ -278,6 +286,7 @@ func (u UIState) Clone() UIState {
 		out.Settings = &p
 	}
 	out.Tabs = cloneTabs(u.Tabs)
+	out.Navigator = u.Navigator.clone()
 	return out
 }
 

@@ -16,7 +16,7 @@ blank line before `</details>`. It moved here from the root README on 2026-10-14
 Cogpit and its flags are in [`usage.md`](usage.md).
 
 <details>
-<summary>All 184 commands</summary>
+<summary>All 188 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -175,6 +175,7 @@ Cogpit and its flags are in [`usage.md`](usage.md).
 | `ui.openView` | `ui_openView` | ui | `states`?, `view` | Opens the list view of a kind (pods, services, ...) or a page (cluster/overview, the cluster Overview; workloads/overview, the Workloads Overview), as clicking it in the sidebar does: in the preview tab of the tab bar, which the next view opened this way replaces, or by activating a fixed tab of the cluster that shows the view (ui_tab_open opens fixed tabs) |
 | `ui.palette.close` | `ui_palette_close` | ui |  | Closes the command palette in Cogpit's window, as Escape or a click outside it does |
 | `ui.palette.open` | `ui_palette_open` | ui |  | Opens the command palette in Cogpit's window, as ⌘⇧P (Ctrl+Shift+P) does |
+| `ui.palette.setText` | `ui_palette_setText` | ui | `text` | Types into the command palette's field, opening the palette when it is closed (without the keyboard focus), as the user types there: the palette lists the entries the text matches, best first |
 | `ui.select` | `ui_select` | ui | `all`?, `mode`?, `noDrawer`?, `refs`? | Selects objects of the open view, as a click on a row, its checkbox, ⌘-click, ⇧-click or the header's checkbox does. mode replace (the default) makes them the selection and, unless noDrawer is true, opens the detail drawer on the first one; an empty list clears the selection (and closes the drawer unless noDrawer). mode add, toggle and remove change the selection and leave the drawer as it is. all: true takes every row the view shows (namespace filter, search and status filter applied) in place of refs |
 | `ui.setChartVersion` | `ui_setChartVersion` | ui | `ref`, `version`? | Sets the version a Helm chart's detail drawer shows, as the drawer's version picker does: its properties and README are then that version's (object_get returns them, helmChart.version and the README section), and Install from the drawer installs it |
 | `ui.setColumnOrder` | `ui_setColumnOrder` | ui | `order`?, `reset`?, `view`? | Arranges the columns of a view, as dragging a column's header does: order lists column ids left to right, and the columns it leaves out follow in the kind's order |
@@ -184,7 +185,10 @@ Cogpit and its flags are in [`usage.md`](usage.md).
 | `ui.setMetricsRange` | `ui_setMetricsRange` | ui | `container`?, `range`?, `ref` | Sets the time range of one chart in the detail drawer's Metrics section, as the chart's range control does: the pod's or node's own chart, or with container one container's chart |
 | `ui.setMetricsVariant` | `ui_setMetricsVariant` | ui | `container`?, `ref`, `variant` | Sets what one chart in the detail drawer's Metrics section shows, as the chart's variant buttons do: cpu, memory, network or filesystem, for the pod's or node's own chart or with container one container's chart |
 | `ui.setNamespace` | `ui_setNamespace` | ui | `namespaces`? | Sets the namespace filter of the namespaced views; an empty list shows all namespaces |
+| `ui.setNavigatorGroup` | `ui_setNavigatorGroup` | ui | `collapsed`, `group` | Collapses or opens a source group of the navigator's Local Kubeconfigs section, as a click on its heading (or ← and →) does: a collapsed group shows its heading only |
+| `ui.setNavigatorRow` | `ui_setNavigatorRow` | ui | `row` | Puts the navigator's keyboard on a row of the level it shows, as the arrow keys and a click do: where the ring is while the navigator has the keyboard focus, and the row Enter opens (a view, in the preview tab) or drills into (a cluster) once the user presses it |
 | `ui.setNavigatorScope` | `ui_setNavigatorScope` | ui | `scope` | Sets what the navigator shows, as its scope dropdown, the ‹ on a cluster's root and the › on a cluster's row do: section:local, the Local Kubeconfigs section listing every cluster Cogpit offers, or cluster:<context id>, that cluster's resource tree |
+| `ui.setNavigatorSearch` | `ui_setNavigatorSearch` | ui | `search` | Types into the navigator's search field, as the user does after its search button or a letter typed in the navigator: at a cluster it filters the tree's items by title (an item with the groups above it, a group with everything in it), at the Local Kubeconfigs section the clusters by name, display name and source |
 | `ui.setOverviewNodes` | `ui_setOverviewNodes` | ui | `nodes`? | Sets the node group the cluster Overview's charts show, as the page's Master and Worker buttons do: master (the control-plane nodes) or worker (every other node) |
 | `ui.setOverviewRange` | `ui_setOverviewRange` | ui | `range`? | Sets the time range of the cluster Overview's charts, as the page's range control does |
 | `ui.setStatusFilter` | `ui_setStatusFilter` | ui | `states`? | Sets the status filter of the open view, as the window's states menu beside the namespace filter does (Cogpit's addition; Lens has none): only the rows that carry the given states are shown, in the table, view_rows, select all and the CSV export. view_rows lists the states the rows carry (stateChoices, with counts) |

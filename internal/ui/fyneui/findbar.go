@@ -109,7 +109,8 @@ type findBar struct {
 	sh   *shell
 	view *yamlview.View
 
-	find, replace *widget.Entry
+	find          *searchEntry // F1–F12 are the hotbar's (A64): a search field, not the editor's text
+	replace       *widget.Entry
 	opts          findOptions
 	toggles       [3]*tipButton // match case, whole word, regular expression
 	count         *textLine
@@ -125,7 +126,7 @@ type findBar struct {
 
 func newFindBar(sh *shell, view *yamlview.View) *findBar {
 	b := &findBar{sh: sh, view: view, cur: -1}
-	b.find = widget.NewEntry()
+	b.find = newSearchEntry(sh)
 	b.find.SetPlaceHolder("Find")
 	b.find.OnChanged = func(string) { b.refresh(true) }
 	b.find.OnSubmitted = func(string) { b.step(1) }

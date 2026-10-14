@@ -36,12 +36,14 @@ import (
 //     a fixed tab (ui.tab.open; tabbar.go); on a group they open or close it, on the root they do
 //     nothing; Space does what ↵ does; Home and End go to
 //     the first and the last row; Escape clears the search, else closes the detail drawer;
-//   - a click focuses the tree, and the row the keyboard is on has a ring in the accent colour
-//     while the tree has the focus, as the table's keyboard cell has (tablekeys.go).
+//   - a click focuses the tree; the row the keyboard is on has a ring in the accent colour while the
+//     tree has the focus from the keyboard (a key, Tab, ↓ from the search), not after a mouse click
+//     (the owner's A53, 2026-10-14 evening), as the table's keyboard cell has a ring (tablekeys.go).
 //
-// The search text, the keyboard's row and which groups are open are the window's, not engine
-// state: they change what the navigator lists, not what a view shows (architecture §4.3). Opening a
-// view is engine state and goes through ui.openView or ui.tab.open, so agents see it.
+// The search text and the keyboard's row are engine state (D-51, A51; navigatorstate.go): the
+// window reports them as they change and shows an agent's. Which groups are open stays the
+// window's (Cogpit's default): it changes what the tree lists, not what a view shows. Opening a view
+// is engine state and goes through ui.openView or ui.tab.open, so agents see it.
 
 // rootNode is the node id of the tree's root, the connected cluster. Kind keys, page keys, groups
 // and aliases never take this form.
@@ -72,6 +74,8 @@ type navTree struct {
 
 	focus   string // the row the keyboard is on
 	focused bool   // the tree has the window's keyboard focus
+	keys    bool   // the keyboard moved last, not the pointer: the ring shows (A53)
+	pointer bool   // the focus about to come is a click's
 	shift   bool   // Shift is held (⇧F1–⇧F12 for the hotbar)
 }
 
@@ -139,6 +143,7 @@ func (t *navTree) rebuild() {
 	// The scroll fits its content to the rows' new height, then lays out and refreshes every row:
 	// selection, focus and chevrons.
 	t.scroll.Refresh()
+	s.noteRow() // a row the search or a closed group hid moved the keyboard (navigatorstate.go)
 }
 
 // shownAncestor is the nearest shown node above id, else the root.
@@ -173,7 +178,7 @@ func (t *navTree) rowOf(id string) fyne.CanvasObject {
 	return nil
 }
 
-// setFocus moves the keyboard to a shown node and scrolls it into view.
+// setFocus moves the keyboard to a shown node, scrolls it into view and reports the row.
 func (t *navTree) setFocus(id string) {
 	if id != t.focus {
 		old := t.focus
@@ -182,6 +187,15 @@ func (t *navTree) setFocus(id string) {
 		t.refreshRow(id)
 	}
 	t.reveal(id)
+	t.s.noteRow()
+}
+
+// keyed marks the keyboard as moving: the ring shows on the keyboard's row (A53).
+func (t *navTree) keyed() {
+	if !t.keys {
+		t.keys = true
+		t.refreshRow(t.focus)
+	}
 }
 
 // reveal scrolls a shown node's row into view.
@@ -205,11 +219,17 @@ func (t *navTree) reveal(id string) {
 	}
 }
 
-// tapped is a click on a row: the tree takes the keyboard there, and the row does what it does.
+// tapped is a click on a row: the tree takes the keyboard there without the ring (A53), and the row
+// does what it does.
 func (t *navTree) tapped(id string) {
+	old := t.focus
+	t.keys = false
 	t.setFocus(id)
+	t.refreshRow(old)
 	if c := t.s.sh.win.Canvas(); c.Focused() != t {
+		t.pointer = true
 		c.Focus(t)
+		t.pointer = false
 	}
 	t.s.activate(id)
 }
@@ -219,6 +239,7 @@ func (t *navTree) enter() {
 	if len(t.visible) > 1 {
 		t.focus = t.visible[1]
 	}
+	t.keys = true
 	t.s.sh.win.Canvas().Focus(t)
 	t.setFocus(t.focus)
 }
@@ -271,6 +292,7 @@ func (t *navTree) TypedKey(ev *fyne.KeyEvent) {
 	if t.s.sh.hot.key(ev.Name, t.shift) { // F1–F12 and ⇧F1–⇧F12 belong to the hotbar
 		return
 	}
+	t.keyed()
 	switch ev.Name {
 	case fyne.KeyUp:
 		t.step(-1)
@@ -321,9 +343,9 @@ func (t *navTree) KeyUp(ev *fyne.KeyEvent) {
 }
 
 // FocusGained implements fyne.Focusable: the keyboard starts on the open view's row, else on the
-// first item.
+// first item; the ring shows unless a click gave the focus (A53).
 func (t *navTree) FocusGained() {
-	t.focused = true
+	t.focused, t.keys = true, !t.pointer
 	if !slices.Contains(t.visible, t.focus) {
 		switch {
 		case slices.Contains(t.visible, t.s.marked):
@@ -344,8 +366,9 @@ func (t *navTree) FocusLost() {
 	t.refreshRow(t.focus)
 }
 
-// keyboardOn reports whether the ring is on a node: the tree has the focus and the keyboard is there.
-func (t *navTree) keyboardOn(id string) bool { return t.focused && t.focus == id }
+// keyboardOn reports whether the ring is on a node: the tree has the focus from the keyboard, which
+// is there (A53: not after a click).
+func (t *navTree) keyboardOn(id string) bool { return t.focused && t.keys && t.focus == id }
 
 // navTip is the tooltip of a navigator item: "<item> - <context>" (captured), the context by its
 // name without the file it comes from.

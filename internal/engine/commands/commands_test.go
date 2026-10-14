@@ -151,6 +151,10 @@ var wantCommands = map[string]engine.Danger{
 	// The navigator's scope (G5, G13): what the navigator and the tab bar show
 	// (TestNavigatorScopeCommand).
 	"ui.setNavigatorScope": engine.DangerUI,
+	// The navigator's search, keyboard row and collapsed source groups, and the palette's text
+	// (D-51, A51, A54, A63): UI state only (TestNavigatorAndPaletteStateCommands).
+	"ui.setNavigatorSearch": engine.DangerUI, "ui.setNavigatorRow": engine.DangerUI, "ui.setNavigatorGroup": engine.DangerUI,
+	"ui.palette.setText": engine.DangerUI,
 	// kubectl for terminals (D-3): GUI-only, Cogpit's own folder, never a cluster (TestKubectlDownloadCommand).
 	"kubectl.download": engine.DangerUI,
 	// Help › Check for Updates… (D-4): Sparkle's window, never a cluster (TestCheckForUpdatesCommand).

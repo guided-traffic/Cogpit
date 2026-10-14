@@ -2,6 +2,7 @@ package fyneui
 
 import (
 	"bytes"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -59,7 +60,7 @@ func menuNamed(m *fyne.MainMenu, label string) *fyne.Menu {
 // offer (the current one first), Add Kubeconfigs and the documentation. A click on a cluster
 // connects it through the engine and its tab replaces the page; Help › Welcome brings the page
 // back over the connected cluster, its row back to the cluster's tab; Disconnect in the Cluster
-// menu leaves the page with the cluster listed under this session.
+// menu leaves the page with the cluster listed, and closes its tab (A61).
 func TestWelcomePageOverTheEngine(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds a demo cluster")
@@ -134,8 +135,8 @@ func TestWelcomePageOverTheEngine(t *testing.T) {
 	}
 	disconnect.Action()
 	q.until(t, "disconnected", func() bool { return sh.ui.Connection.State == engine.Disconnected && w.shown })
-	if s.Backend() != nil || len(sh.ui.Tabs) != 1 {
-		t.Errorf("after the disconnect: backend %v, tabs %v", s.Backend(), sh.ui.Tabs)
+	if s.Backend() != nil || len(sh.ui.Tabs) != 0 {
+		t.Errorf("after the disconnect: backend %v, tabs %v (Disconnect closes the cluster's tabs, A61)", s.Backend(), sh.ui.Tabs)
 	}
 	q.until(t, "the menu follows", func() bool {
 		for _, it := range sh.mainMenu().Items[0].Items {
@@ -340,5 +341,29 @@ func TestWelcomeShowsAFailedConnect(t *testing.T) {
 	q.until(t, "this session's group", func() bool {
 		return slices.Equal(w.shownClusters(), []string{"kind-dev", "prod-eu-central", "staging", demoLabel})
 	})
+	if g := w.groups(); len(g) == 0 || g[0].title != "Recent" { // A67: was "This session"
+		t.Errorf("groups %+v, want Recent first", g)
+	}
 	savePNG(t, win, "welcome_connect_error_dark.png")
+}
+
+// The page links the repository on GitHub, in the browser (A113): the README for what Cogpit does,
+// and the command list for the commands.
+func TestWelcomeLinksTheReadmeAndTheCommands(t *testing.T) {
+	s := welcomeEngine(t)
+	sh, _, q := newEngineShell(t, s, Options{})
+	w := welcomeShown(t, sh, q)
+	if w.docs.URL.String() != readmeURL || w.cmds.URL.String() != commandsURL ||
+		commandsURL != "https://github.com/guided-traffic/cogpit/blob/main/docs/developer/commands.md" {
+		t.Fatalf("links %s, %s", w.docs.URL, w.cmds.URL)
+	}
+	var opened []string
+	old := openBrowser
+	openBrowser = func(_ fyne.App, u *url.URL) error { opened = append(opened, u.String()); return nil }
+	t.Cleanup(func() { openBrowser = old })
+	w.docs.OnTapped() // a tap lands on the link's text, which the test cannot aim at
+	w.cmds.OnTapped()
+	if !slices.Equal(opened, []string{readmeURL, commandsURL}) {
+		t.Errorf("opened %q", opened)
+	}
 }

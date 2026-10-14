@@ -38,7 +38,7 @@ type logTab struct {
 	jump   jumpState      // jumps to a time (logtab_jump.go)
 
 	timestamps, previous, names, wrap, filter *widget.Check
-	search                                    *widget.Entry
+	search                                    *searchEntry // F1–F12 are the hotbar's (A64)
 	controller, download                      *tipButton
 	controls                                  []fyne.CanvasObject
 	podPick, containerPick                    *widget.Button // the source selectors (logtab_sources.go)
@@ -101,7 +101,7 @@ func newLogTab(ctx context.Context, sh *shell, c *dockContent, t engine.DockTab)
 	lt.names = check("Resource names", func(p *logOptionsParams, on bool) { p.ResourceNames = &on })
 	lt.wrap = check("Wrap", func(p *logOptionsParams, on bool) { p.Wrap = &on })
 	lt.filter = check("Filter", func(p *logOptionsParams, on bool) { p.Filter = &on })
-	lt.search = widget.NewEntry()
+	lt.search = newSearchEntry(sh)
 	lt.search.SetPlaceHolder("Search logs… ( / )")
 	lt.search.SetIcon(theme.SearchIcon())
 	lt.search.OnChanged = lt.searchChanged

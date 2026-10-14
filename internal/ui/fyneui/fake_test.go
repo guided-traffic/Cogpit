@@ -89,6 +89,7 @@ func newFakeEngine(t testing.TB) *fakeEngine {
 	must(engine.Register(f.reg, engine.Spec[struct{}]{ID: "terminal.open", Label: "Terminal", Danger: engine.DangerUI,
 		Enabled: func(*engine.Session, struct{}) error { return f.reason("terminal.open") },
 		Run:     func(context.Context, *engine.Session, struct{}) (any, error) { return nil, nil }}))
+	f.fakeNavigatorHandlers()
 	return f
 }
 
@@ -247,11 +248,95 @@ func (f *fakeEngine) emit(ev engine.Event) {
 // update changes the UI state and emits it, as Session.UpdateUI does.
 func (f *fakeEngine) update(fn func(*engine.UIState)) {
 	f.mu.Lock()
+	old := f.ui.Clone()
 	fn(&f.ui)
+	syncFakeNavigator(&f.ui, old)
 	f.ui.Revision++
 	st := f.ui.Clone()
 	f.mu.Unlock()
 	f.emit(engine.Event{Type: engine.EventUIState, UIState: &st})
+}
+
+// syncFakeNavigator keeps the navigator's state and the palette's text in step as the engine's
+// syncNavigator does (engine/navigator.go): a closed palette has no text; a new level clears the
+// search and puts the keyboard on its root, or at the section on the cluster it came from; a view
+// opened at a cluster on the view's row.
+func syncFakeNavigator(u *engine.UIState, old engine.UIState) {
+	if !u.Palette {
+		u.PaletteText, u.PaletteTextOrigin = "", ""
+	}
+	if u.Scope() != old.Scope() {
+		u.Navigator.Search, u.Navigator.Row = "", engine.NavRowRoot
+		if from := old.ScopeCluster(); u.ScopeCluster() == "" && from != "" {
+			u.Navigator.Row = engine.NavRowContext(from)
+		}
+		return
+	}
+	if u.View != "" && u.View != old.View && u.ScopeCluster() != "" {
+		u.Navigator.Row = u.View
+	}
+}
+
+// fakeNavigatorHandlers answer the navigator's and the palette's state commands as the engine does
+// (engine/navigator.go, palettetext.go), so that the window's reports change the fake's state.
+func (f *fakeEngine) fakeNavigatorHandlers() {
+	decode := func(inv engine.Invocation, p any) error { return json.Unmarshal(normalize(inv.Params), p) }
+	f.handlers["ui.setNavigatorSearch"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p navSearchParams
+		if err := decode(inv, &p); err != nil {
+			return nil, err
+		}
+		if err := engine.CheckNavigatorSearch(p.Search); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) { u.Navigator.Search = p.Search })
+		return nil, nil
+	}
+	f.handlers["ui.setNavigatorRow"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p navRowParams
+		if err := decode(inv, &p); err != nil {
+			return nil, err
+		}
+		var err error
+		f.update(func(u *engine.UIState) {
+			if err = engine.CheckNavigatorRow(u.Scope(), p.Row); err == nil {
+				u.Navigator.Row = p.Row
+			}
+		})
+		return nil, err
+	}
+	f.handlers["ui.setNavigatorGroup"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p navGroupParams
+		if err := decode(inv, &p); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) {
+			i := slices.Index(u.Navigator.Collapsed, p.Group)
+			switch {
+			case p.Collapsed && i < 0:
+				u.Navigator.Collapsed = append(slices.Clone(u.Navigator.Collapsed), p.Group)
+			case !p.Collapsed && i >= 0:
+				u.Navigator.Collapsed = slices.Delete(slices.Clone(u.Navigator.Collapsed), i, i+1)
+			}
+		})
+		return nil, nil
+	}
+	f.handlers["ui.palette.setText"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p paletteTextParams
+		if err := decode(inv, &p); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) {
+			if inv.Origin == engine.OriginGUI && !u.Palette {
+				return // the window's report of a palette closed meanwhile
+			}
+			u.Palette, u.PaletteText, u.PaletteTextOrigin = true, p.Text, inv.Origin
+			if p.Text == "" {
+				u.PaletteTextOrigin = ""
+			}
+		})
+		return nil, nil
+	}
 }
 
 // setTable replaces a view's snapshot and emits EventTable.

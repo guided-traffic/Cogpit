@@ -39,6 +39,17 @@ func storedKeys(list []string) []string {
 	return out
 }
 
+// uniqueKeys drops the repeats of a list, keeping its order; nil for none.
+func uniqueKeys(list []string) []string {
+	var out []string
+	for _, k := range list {
+		if !slices.Contains(out, k) {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
 // storedStates keeps a tab's status filter: valid UTF-8 states, as ui.setStatusFilter takes them.
 func storedStates(states []string) []string {
 	var valid []string
@@ -111,6 +122,7 @@ func (doc *workspaceDoc) normalize() {
 	}
 	doc.Tabs, doc.Active = tabs, active
 	doc.HiddenColumns, doc.ColumnOrder = storedLayout(doc.HiddenColumns), storedLayout(doc.ColumnOrder)
+	doc.CollapsedSources = uniqueKeys(storedKeys(doc.CollapsedSources))
 }
 
 // goneTabs counts the tabs of one context that were closed or not restored.
@@ -166,6 +178,7 @@ func (s *Session) restoreWorkspace(doc workspaceDoc) []goneTabs {
 	defer s.mu.Unlock()
 	u := &s.ui
 	u.HiddenColumns, u.ColumnOrder = doc.HiddenColumns, doc.ColumnOrder
+	u.Navigator.Collapsed = doc.CollapsedSources
 	u.Tabs, u.tabSeq, u.tabClock = tabs, uint64(len(tabs)), clock
 	if active >= 0 && u.Context == "" && u.Connection.State == Disconnected {
 		u.ActiveTab, u.Context = tabs[active].ID, tabs[active].Context

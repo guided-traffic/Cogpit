@@ -31,3 +31,60 @@ func registerNavScope(g *registrar) {
 		},
 	})
 }
+
+// The navigator's own state (engine/navigator.go, D-51): its search text, the row its keyboard is
+// on and the Local Kubeconfigs section's collapsed source groups, which the window reports as the
+// user types, moves and clicks, and an agent reads in ui_state (navigator) and sets as the user does
+// (D-2: UI commands, run freely). They have no menu path: the window's own fields and keys set them.
+
+type navSearchParams struct {
+	Search string `json:"search" jsonschema:"the text to search the navigator for, one line of at most 1000 bytes; empty clears the search"`
+}
+
+type navRowParams struct {
+	Row string `json:"row" jsonschema:"the row to put the navigator's keyboard on, of the level navigatorScope shows. At a cluster: root (the cluster), a view key as ui_openView takes it (pods, workloads/overview), group:<path> (group:workloads, group:network/gatewayapi) or alias:<kind key> (a kind listed again under Custom Resources). At the section: root (Local Kubeconfigs), context:<context id> (a cluster) or source:<label> (a source group's heading, .kube/ or dev.yaml)"`
+}
+
+type navGroupParams struct {
+	Group     string `json:"group" jsonschema:"the source group's label as its heading in the Local Kubeconfigs section shows it: the folder (.kube/) or the file (dev.yaml) its clusters come from"`
+	Collapsed bool   `json:"collapsed" jsonschema:"true collapses the group (its clusters hidden under its heading), false opens it"`
+}
+
+func registerNavigator(g *registrar) {
+	add(g, engine.Spec[navSearchParams]{
+		ID: "ui.setNavigatorSearch", Label: "Search the Navigator", Danger: engine.DangerUI,
+		Description: "Types into the navigator's search field, as the user does after its search button or a letter typed " +
+			"in the navigator: at a cluster it filters the tree's items by title (an item with the groups above it, a group " +
+			"with everything in it), at the Local Kubeconfigs section the clusters by name, display name and source. An " +
+			"empty text clears the search. It does not move the keyboard focus. The search clears when the navigator " +
+			"changes level (ui_setNavigatorScope, a connect, a disconnect). ui_state reports it as navigator.search. " +
+			"Returns the new UI state.",
+		Run: func(_ context.Context, s *engine.Session, p navSearchParams) (any, error) {
+			return s.SetNavigatorSearch(p.Search)
+		},
+	})
+
+	add(g, engine.Spec[navRowParams]{
+		ID: "ui.setNavigatorRow", Label: "Move the Navigator's Keyboard", Danger: engine.DangerUI,
+		Description: "Puts the navigator's keyboard on a row of the level it shows, as the arrow keys and a click do: " +
+			"where the ring is while the navigator has the keyboard focus, and the row Enter opens (a view, in the preview " +
+			"tab) or drills into (a cluster) once the user presses it. It does not move the keyboard focus and opens " +
+			"nothing. A row inside a closed group opens the groups above it; a cluster inside a collapsed source group " +
+			"puts the keyboard on the group's heading; a row the navigator does not show leaves the keyboard where it is. " +
+			"Opening a view at a cluster puts it on the view's row, a change of level on the level's root (or, up at the " +
+			"section, on the cluster it came from). ui_state reports it as navigator.row. Returns the new UI state.",
+		Run: func(_ context.Context, s *engine.Session, p navRowParams) (any, error) {
+			return s.SetNavigatorRow(p.Row)
+		},
+	})
+
+	add(g, engine.Spec[navGroupParams]{
+		ID: "ui.setNavigatorGroup", Label: "Collapse a Source Group", Danger: engine.DangerUI,
+		Description: "Collapses or opens a source group of the navigator's Local Kubeconfigs section, as a click on its " +
+			"heading (or ← and →) does: a collapsed group shows its heading only. Which groups are collapsed is kept " +
+			"across restarts. ui_state reports them as navigator.collapsed. Returns the new UI state.",
+		Run: func(_ context.Context, s *engine.Session, p navGroupParams) (any, error) {
+			return s.SetNavigatorGroup(p.Group, p.Collapsed)
+		},
+	})
+}

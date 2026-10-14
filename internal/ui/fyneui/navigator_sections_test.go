@@ -98,10 +98,16 @@ func sectionScene(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue
 	f := sectionFake(t)
 	sh, w, q := newTestShell(t, f, Options{Theme: mode})
 	q.until(t, "the section's clusters", func() bool {
-		return sh.side.sec.loaded && len(sh.side.sec.visible) == 5 && len(sh.kinds) > 0
+		return sh.side.sec.loaded && len(sh.side.sec.visible) == 7 && len(sh.kinds) > 0
 	})
 	return sh, w, q, f
 }
+
+// Keyboard ids of the section's source headings in the scene.
+const (
+	headKube = navSourcePrefix + ".kube/"
+	headEKS  = navSourcePrefix + "eks.yaml"
+)
 
 // scopeCalls are the scopes ui.setNavigatorScope was asked for, in order.
 func scopeCalls(t *testing.T, f *fakeEngine) []string {
@@ -127,17 +133,20 @@ func TestNavigatorSectionLevel(t *testing.T) {
 		n.root.sub.text != "Kubernetes Clusters · 4 clusters" {
 		t.Errorf("header %q, root %q / %q", s.head.scope.text.text, n.root.title.text, n.root.sub.text)
 	}
-	if got := n.visible[1:]; !slices.Equal(got, []string{"demo", secKind, secProd, secEKS}) {
+	if got := n.visible[1:]; !slices.Equal(got, []string{"demo", headKube, secKind, secProd, headEKS, secEKS}) {
 		t.Errorf("rows %q", got)
 	}
 	var titles []string
 	for _, id := range n.visible[1:] {
-		titles = append(titles, n.rows[id].title.text)
+		if !isSourceHead(id) {
+			titles = append(titles, n.rows[id].title.text)
+		}
 	}
 	if !slices.Equal(titles, []string{"Demo cluster", "kind-cogpit", "Payments prod", "eks-payments"}) {
 		t.Errorf("titles %q", titles)
 	}
-	if len(n.heads) != 2 || n.heads[".kube/"] == nil || n.heads["eks.yaml"] == nil {
+	if len(n.heads) != 2 || n.heads[".kube/"] == nil || n.heads["eks.yaml"] == nil || n.heads[".kube/"].label.text != ".kube/" ||
+		!n.heads[".kube/"].open || n.heads[".kube/"].count.text != "" {
 		t.Errorf("group headings %v", n.heads)
 	}
 	kind, prod, eks := n.rows[secKind], n.rows[secProd], n.rows[secEKS]
@@ -226,15 +235,16 @@ func TestNavigatorSectionAsksForTheLoginProgramFirst(t *testing.T) {
 	}
 }
 
-// The section's keyboard: the list starts on the connected cluster; ↑↓, Home and End move, ←
-// goes to the root, → from the root to the first cluster; ↵ (and →) drill in, and the keyboard
-// follows into the tree's root; ← on the tree's root goes up, back to the cluster's row; a letter
-// starts the search.
+// The section's keyboard: the list starts on the connected cluster; ↑↓, Home and End move, ← goes
+// to the cluster's heading and on to the root, → from the root to the first row; on a heading ←
+// collapses its group (kept by the engine, A63) and → opens it, then moves into it; ↵ (and →) on a
+// cluster drill in, and the keyboard follows into the tree's root; ← on the tree's root goes up,
+// back to the cluster's row; a letter starts the search.
 func TestNavigatorSectionKeyboard(t *testing.T) {
 	sh, w, q, f := sectionScene(t, ThemeDark)
 	s, n, c := sh.side, sh.side.sec, w.Canvas()
 	c.Focus(n)
-	if !n.focused || n.focus != secKind {
+	if !n.focused || n.focus != secKind || !n.keyboardOn(secKind) {
 		t.Fatalf("focused %v on %q", n.focused, n.focus)
 	}
 	keys := func(names ...fyne.KeyName) {
@@ -242,26 +252,38 @@ func TestNavigatorSectionKeyboard(t *testing.T) {
 			n.TypedKey(&fyne.KeyEvent{Name: k})
 		}
 	}
-	keys(fyne.KeyDown)
-	if n.focus != secProd {
-		t.Errorf("↓: %q", n.focus)
+	at := func(what, want string) {
+		t.Helper()
+		if n.focus != want {
+			t.Fatalf("%s: on %q, want %q", what, n.focus, want)
+		}
 	}
+	keys(fyne.KeyDown)
+	at("↓", secProd)
 	keys(fyne.KeyLeft)
-	if n.focus != navSectionRoot {
-		t.Errorf("←: %q", n.focus)
+	at("← on a cluster", headKube)
+	keys(fyne.KeyLeft) // collapses .kube/
+	at("← on an open heading", headKube)
+	if got := n.visible[1:]; !slices.Equal(got, []string{"demo", headKube, headEKS, secEKS}) || n.heads[".kube/"].count.text != "2" {
+		t.Fatalf("collapsed: rows %q, count %q", got, n.heads[".kube/"].count.text)
+	}
+	q.until(t, "the engine's collapsed groups", func() bool { return slices.Equal(f.UIState().Navigator.Collapsed, []string{".kube/"}) })
+	keys(fyne.KeyLeft)
+	at("← on a collapsed heading", navSectionRoot)
+	keys(fyne.KeyRight)
+	at("→ on the root", "demo")
+	keys(fyne.KeyDown, fyne.KeyRight) // opens .kube/
+	at("→ on a collapsed heading", headKube)
+	if !n.groupOpen(".kube/") {
+		t.Fatal("→ did not open .kube/")
 	}
 	keys(fyne.KeyRight)
-	if n.focus != "demo" {
-		t.Errorf("→ on the root: %q", n.focus)
-	}
+	at("→ on an open heading", secKind)
 	keys(fyne.KeyEnd)
-	if n.focus != secEKS {
-		t.Errorf("End: %q", n.focus)
-	}
-	keys(fyne.KeyHome, fyne.KeyDown, fyne.KeyDown)
-	if n.focus != secKind {
-		t.Errorf("Home ↓↓: %q", n.focus)
-	}
+	at("End", secEKS)
+	keys(fyne.KeyHome, fyne.KeyDown, fyne.KeyDown, fyne.KeyDown)
+	at("Home ↓↓↓", secKind)
+	q.until(t, "the engine's groups open", func() bool { return len(f.UIState().Navigator.Collapsed) == 0 })
 	if got := scopeCalls(t, f); len(got) != 0 {
 		t.Fatalf("moving drilled in: %q", got)
 	}
@@ -284,10 +306,16 @@ func TestNavigatorSectionKeyboard(t *testing.T) {
 	}
 }
 
-// The scope dropdown lists the section and every cluster it holds, the scope shown checked;
-// choosing one sets the scope.
+// The scope dropdown lists the section, the hotbar's shown bank's clusters in their order and the
+// connected one (A52), the scope shown checked, and All Clusters… (the picker, ⌘P) for the rest; a tile whose
+// context no source offers any more is left out. Choosing one sets the scope.
 func TestNavigatorSectionDropdown(t *testing.T) {
-	sh, _, q, f := sectionScene(t, ThemeDark)
+	f := sectionFake(t)
+	withHotbar(f, 1, engine.HotbarBank{Name: engine.DefaultHotbarBank, Clusters: []engine.HotbarTile{
+		{Context: secProd}, {Context: "gone [old.yaml]"}, {Context: secEKS}, {Context: "demo"}}},
+		engine.HotbarBank{Name: "Other", Clusters: []engine.HotbarTile{{Context: secKind}}})
+	sh, _, q := newTestShell(t, f, Options{})
+	q.until(t, "the section's clusters", func() bool { return sh.side.sec.loaded && len(sh.side.sec.visible) == 7 })
 	h := sh.side.head
 	labels := func() []string {
 		var out []string
@@ -301,14 +329,14 @@ func TestNavigatorSectionDropdown(t *testing.T) {
 		return out
 	}
 	test.Tap(h.scope)
-	want := []string{"Local Kubeconfigs ✓", "", "Demo cluster", "kind-cogpit", "Payments prod", "eks-payments"}
+	want := []string{"Local Kubeconfigs ✓", "", "Payments prod", "eks-payments", "Demo cluster", "kind-cogpit", "", "All Clusters…"}
 	if got := labels(); !slices.Equal(got, want) {
 		t.Fatalf("at the section: %q, want %q", got, want)
 	}
-	h.menuModel.Items[3].Action() // kind-cogpit, the connected one
+	h.menuModel.Items[5].Action() // kind-cogpit, the connected one
 	q.until(t, "kind-cogpit's tree", func() bool { return sh.side.tree.Visible() })
 	test.Tap(h.scope)
-	want = []string{"Local Kubeconfigs", "", "Demo cluster", "kind-cogpit ✓", "Payments prod", "eks-payments"}
+	want = []string{"Local Kubeconfigs", "", "Payments prod", "eks-payments", "Demo cluster", "kind-cogpit ✓", "", "All Clusters…"}
 	if got := labels(); !slices.Equal(got, want) {
 		t.Fatalf("at kind-cogpit: %q, want %q", got, want)
 	}
@@ -316,6 +344,10 @@ func TestNavigatorSectionDropdown(t *testing.T) {
 	q.until(t, "the section", func() bool { return sh.side.sec.Visible() })
 	if got := scopeCalls(t, f); !slices.Equal(got, []string{"cluster:" + secKind, engine.NavScopeLocal}) {
 		t.Errorf("scopes %q", got)
+	}
+	h.menuModel.Items[7].Action()
+	if !sh.picker.visible() {
+		t.Error("All Clusters… did not open the context picker")
 	}
 }
 
@@ -325,10 +357,10 @@ func TestNavigatorSectionSearch(t *testing.T) {
 	sh, _, q, f := sectionScene(t, ThemeDark)
 	h, n := sh.side.head, sh.side.sec
 	for text, want := range map[string][]string{
-		"Payments P": {secProd}, // the display name, ignoring case
-		"eks.yaml":   {secEKS},  // the source
-		"KIND":       {secKind}, // the context's name
-		"o":          {"demo", secKind, secProd},
+		"Payments P": {headKube, secProd}, // the display name, ignoring case
+		"eks.yaml":   {headEKS, secEKS},   // the source
+		"KIND":       {headKube, secKind}, // the context's name
+		"o":          {"demo", headKube, secKind, secProd},
 	} {
 		h.openSearch(text)
 		if got := n.visible[1:]; !slices.Equal(got, want) {
@@ -356,7 +388,7 @@ func TestNavigatorSectionRowMenu(t *testing.T) {
 	f := sectionFake(t)
 	withHotbar(f, 1, engine.HotbarBank{Name: engine.DefaultHotbarBank})
 	sh, _, q := newTestShell(t, f, Options{})
-	q.until(t, "the clusters", func() bool { return sh.side.sec.loaded && len(sh.side.sec.visible) == 5 })
+	q.until(t, "the clusters", func() bool { return sh.side.sec.loaded && len(sh.side.sec.visible) == 7 })
 	n := sh.side.sec
 	labels := func() []string {
 		var out []string
@@ -493,10 +525,18 @@ func TestRenderNavigatorScopeMenuLight(t *testing.T) {
 }
 
 // renderNavigatorScopeMenu: drilled into kind-cogpit (its tabs only in the bar), the scope dropdown
-// open on the section and its clusters.
+// open on the section, the hotbar's clusters and the connected one, and All Clusters… with ⌘P (A52).
 func renderNavigatorScopeMenu(t *testing.T, mode ThemeMode, name string) {
-	sh, w, q, _ := sectionScene(t, mode)
-	q.until(t, "diagnostics", func() bool { return sh.diag.total > 0 })
+	f := sectionFake(t)
+	withHotbar(f, 1, engine.HotbarBank{Name: engine.DefaultHotbarBank, Clusters: []engine.HotbarTile{
+		{Context: secProd}, {Context: secEKS}, {Context: "demo"}}})
+	if c, ok := realCommands(t).Get("cluster.connect"); ok { // its ⌘P beside All Clusters…
+		probe[probeContext](t, f, c)
+	}
+	sh, w, q := newTestShell(t, f, Options{Theme: mode})
+	q.until(t, "the section and diagnostics", func() bool {
+		return sh.side.sec.loaded && len(sh.side.sec.visible) == 7 && len(sh.kinds) > 0 && sh.diag.total > 0
+	})
 	test.Tap(sh.side.sec.rows[secKind])
 	q.until(t, "the tree", func() bool { return sh.side.tree.Visible() && sh.side.tree.rows["deployments"] != nil })
 	settle(w)

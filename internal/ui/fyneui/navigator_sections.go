@@ -2,6 +2,7 @@ package fyneui
 
 import (
 	"image/color"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -32,15 +33,24 @@ import (
 //   - one section, "Local Kubeconfigs" under "Kubernetes Clusters", as the level's root; the cloud
 //     sections (after the beta, G18), Teamwork (D-9) and Extensions (D-5) are not built, so the
 //     root has no ‹ and nothing above it;
-//   - every context the kubeconfig sources offer, the context picker's list, grouped under a line
-//     naming the folder or file they come from (".kube/", "dev.yaml"), the demo cluster first
-//     without one; each row the cluster's badge (its identity), its display name, a connection
-//     dot (the connected one's state; red after a failed connect; grey otherwise) and a ›; the
-//     source as the tooltip, "<name> - <source>"; the active cluster's row marked;
+//   - every context the kubeconfig sources offer, the context picker's list, grouped under a
+//     heading naming the folder or file they come from (".kube/", "dev.yaml"), the demo cluster
+//     first without one; each row the cluster's badge (its identity), its display name, a
+//     connection dot (the connected one's state; red after a failed connect; grey otherwise) and a
+//     ›; the source as the tooltip, "<name> - <source>"; the active cluster's row marked;
 //   - a click on a row or its ›, → or ↵ drills into the cluster (ui.setNavigatorScope): a cluster
 //     not connected is connected through the engine as the picker connects it, its login program
-//     shown for approval first; ↑↓, Home and End move, ← goes to the root, Escape clears the
-//     search or closes the drawer, a letter starts the search, F1–F12 reach the hotbar;
+//     shown for approval first; ↑↓, Home and End move, ← goes to the cluster's heading (or the
+//     root), Escape clears the search or closes the drawer, a letter starts the search, F1–F12
+//     reach the hotbar;
+//   - a source group's heading collapses and opens its group (the owner's A63, 2026-10-14 evening):
+//     a click, ↵ or Space toggle it, ← collapses an open one (else goes to the root), → opens a
+//     collapsed one (else moves into it); a collapsed heading says how many clusters it hides. Which
+//     groups are collapsed is engine state (ui.setNavigatorGroup, NavigatorState.Collapsed), kept
+//     across restarts in workspace.json (D-41); while a search is on every group shows open, as the
+//     tree's groups do (Cogpit's default);
+//   - the keyboard's row has the accent ring while the list has the focus from the keyboard, not
+//     after a click (A53), and is engine state (A51, navigatorstate.go);
 //   - the header's search filters the clusters by name, context and source, ↵ drills into the
 //     first match;
 //   - a row's right-click menu is the cluster's (Connect, Settings…, the hotbar's item,
@@ -52,7 +62,12 @@ const (
 	navSectionParent = "Kubernetes Clusters"
 	// navSectionRoot is the keyboard's id of the section's root row; context ids never take it.
 	navSectionRoot = "\x00section"
+	// navSourcePrefix starts the keyboard's id of a source group's heading, followed by its label.
+	navSourcePrefix = "\x00source:"
 )
+
+// isSourceHead reports whether a keyboard id is a source group's heading.
+func isSourceHead(id string) bool { return strings.HasPrefix(id, navSourcePrefix) }
 
 // navScopeParams are ui.setNavigatorScope's parameters, mirroring the engine's schema.
 type navScopeParams struct {
@@ -76,11 +91,18 @@ type navSections struct {
 	loadErr  string
 
 	rows    map[string]*navContextRow // the rows made, by context id
-	heads   map[string]*textLine      // the groups' heading lines made, by group
-	visible []string                  // the keyboard's rows in order: navSectionRoot, then the shown contexts
+	heads   map[string]*navSourceRow  // the groups' headings made, by group
+	visible []string                  // the keyboard's rows in order: navSectionRoot, then the headings and the shown contexts
+
+	// collapsed are the source groups shown collapsed: the engine's (NavigatorState.Collapsed),
+	// changed here at once on a click while its ui.setNavigatorGroup is under way (groupBusy).
+	collapsed map[string]bool
+	groupBusy int
 
 	focus   string // the row the keyboard is on
 	focused bool   // the list has the window's keyboard focus
+	keys    bool   // the keyboard moved last, not the pointer: the ring shows (A53)
+	pointer bool   // the focus about to come is a click's
 	shift   bool   // Shift is held (⇧F1–⇧F12 for the hotbar)
 
 	menuModel *fyne.Menu // a row's open menu, for tests
@@ -93,7 +115,8 @@ var (
 )
 
 func newNavSections(s *sidebar) *navSections {
-	n := &navSections{s: s, rows: map[string]*navContextRow{}, heads: map[string]*textLine{}, visible: []string{navSectionRoot}}
+	n := &navSections{s: s, rows: map[string]*navContextRow{}, heads: map[string]*navSourceRow{}, visible: []string{navSectionRoot},
+		collapsed: map[string]bool{}}
 	n.root = newNavSectionRootRow(n)
 	n.hint = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	n.hint.truncate = true
@@ -202,33 +225,33 @@ func (n *navSections) groups(filter string) (keys []string, byGroup map[string][
 	return keys, byGroup
 }
 
-// ordered are every context in the order the section lists them (the scope dropdown's order).
-func (n *navSections) ordered() []engine.ContextInfo {
-	keys, byGroup := n.groups("")
-	var out []engine.ContextInfo
-	for _, g := range keys {
-		out = append(out, byGroup[g]...)
-	}
-	return out
-}
+// groupOpen reports whether a source group shows its clusters: the user has not collapsed it, or a
+// search is on.
+func (n *navSections) groupOpen(g string) bool { return n.s.filter != "" || !n.collapsed[g] }
 
-// render lays the rows out again: after a load, a search, a connection or an identity changed.
+// render lays the rows out again: after a load, a search, a connection, an identity or the
+// collapsed groups changed.
 func (n *navSections) render() {
 	keys, byGroup := n.groups(n.s.filter)
 	objs := []fyne.CanvasObject{n.root}
 	visible := []string{navSectionRoot}
 	rows := make(map[string]*navContextRow, len(n.rows))
-	heads := make(map[string]*textLine, len(n.heads))
+	heads := make(map[string]*navSourceRow, len(n.heads))
 	count := 0
 	for _, g := range keys {
 		if g != "" {
 			h := n.heads[g]
 			if h == nil {
-				h = newTextLine(kubeconfig.DisplayText(g, maxShownPath), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{Bold: true})
-				h.truncate = true
+				h = newNavSourceRow(n, g)
 			}
+			h.set(len(byGroup[g]), n.groupOpen(g))
 			heads[g] = h
-			objs = append(objs, inset(theme.SizeNameInnerPadding, theme.SizeNamePadding, h))
+			objs = append(objs, h)
+			visible = append(visible, navSourcePrefix+g)
+			if !n.groupOpen(g) {
+				count += len(byGroup[g])
+				continue
+			}
 		}
 		for _, c := range byGroup[g] {
 			r := n.rows[c.Name]
@@ -250,14 +273,81 @@ func (n *navSections) render() {
 		if owner, ok := tip.owner.(*navContextRow); ok && rows[owner.id] != owner {
 			tip.hide() // its row is gone and would never say the pointer left
 		}
+		if owner, ok := tip.owner.(*navSourceRow); ok && heads[owner.group] != owner {
+			tip.hide()
+		}
 	}
 	n.rows, n.heads, n.visible = rows, heads, visible
 	if n.loaded && !slices.Contains(visible, n.focus) { // before the first read, the cluster it is to go to
-		n.focus = navSectionRoot
+		n.focus = n.shownAbove(n.focus)
 	}
 	n.root.update(len(n.contexts))
 	n.list.Objects = objs
 	n.scroll.Refresh()
+	n.s.noteRow() // a row the search or a collapsed group hid moved the keyboard (navigatorstate.go)
+}
+
+// shownAbove is the shown row above a hidden one: a cluster's heading when it shows, else the root.
+func (n *navSections) shownAbove(id string) string {
+	if c, ok := n.context(id); ok && sourceGroup(c) != "" && slices.Contains(n.visible, navSourcePrefix+sourceGroup(c)) {
+		return navSourcePrefix + sourceGroup(c)
+	}
+	return navSectionRoot
+}
+
+// isShown reports whether a keyboard id is a row the section shows.
+func (n *navSections) isShown(id string) bool { return slices.Contains(n.visible, id) }
+
+// headOf is the keyboard id of a shown cluster's heading, "" for one without (the demo cluster).
+func (n *navSections) headOf(id string) string {
+	if c, ok := n.context(id); ok && sourceGroup(c) != "" && n.isShown(navSourcePrefix+sourceGroup(c)) {
+		return navSourcePrefix + sourceGroup(c)
+	}
+	return ""
+}
+
+// setCollapsed collapses or opens a source group: at once in the window, and in the engine through
+// ui.setNavigatorGroup, which keeps it across restarts; the engine's answer is shown once every
+// change sent is done.
+func (n *navSections) setCollapsed(g string, collapsed bool) {
+	if g == "" || n.collapsed[g] == collapsed {
+		return
+	}
+	if collapsed {
+		n.collapsed[g] = true
+	} else {
+		delete(n.collapsed, g)
+	}
+	n.render()
+	n.groupBusy++
+	n.s.sh.dispatch("ui.setNavigatorGroup", navGroupParams{Group: g, Collapsed: collapsed}, func(_ any, err error) {
+		n.groupBusy--
+		n.s.sh.showError(err)
+		n.collapsedChanged()
+	})
+}
+
+// toggle collapses an open group or opens a collapsed one (not while a search shows them all).
+func (n *navSections) toggle(g string) {
+	if n.s.filter == "" {
+		n.setCollapsed(g, !n.collapsed[g])
+	}
+}
+
+// collapsedChanged shows the engine's collapsed groups, unless a change of the window's is under way.
+func (n *navSections) collapsedChanged() {
+	if n.groupBusy > 0 {
+		return
+	}
+	want := map[string]bool{}
+	for _, g := range n.s.sh.ui.Navigator.Collapsed {
+		want[g] = true
+	}
+	if maps.Equal(want, n.collapsed) {
+		return
+	}
+	n.collapsed = want
+	n.render()
 }
 
 // hintText is the line below the clusters when there is something to say.
@@ -320,9 +410,12 @@ func (n *navSections) dispatchScope(id string) {
 
 // openFirstMatch drills into the first cluster the search shows (↵ in the search field).
 func (n *navSections) openFirstMatch() {
-	if len(n.visible) > 1 {
-		n.setFocus(n.visible[1])
-		n.drill(n.visible[1])
+	for _, id := range n.visible[1:] {
+		if !isSourceHead(id) {
+			n.setFocus(id)
+			n.drill(id)
+			return
+		}
 	}
 }
 
@@ -342,6 +435,12 @@ func (n *navSections) shownFrom(cluster string) {
 func (n *navSections) rowOf(id string) fyne.CanvasObject {
 	if id == navSectionRoot {
 		return n.root
+	}
+	if g, ok := strings.CutPrefix(id, navSourcePrefix); ok {
+		if h := n.heads[g]; h != nil {
+			return h
+		}
+		return nil
 	}
 	if r := n.rows[id]; r != nil {
 		return r
@@ -363,6 +462,7 @@ func (n *navSections) setFocus(id string) {
 		n.refreshRow(old)
 		n.refreshRow(id)
 	}
+	defer n.s.noteRow()
 	row := n.rowOf(id)
 	if row == nil || !row.Visible() {
 		return
@@ -374,6 +474,14 @@ func (n *navSections) setFocus(id string) {
 		n.scroll.ScrollToOffset(fyne.NewPos(0, y))
 	case y+h > off+view:
 		n.scroll.ScrollToOffset(fyne.NewPos(0, y+h-view))
+	}
+}
+
+// keyed marks the keyboard as moving: the ring shows on the keyboard's row (A53).
+func (n *navSections) keyed() {
+	if !n.keys {
+		n.keys = true
+		n.refreshRow(n.focus)
 	}
 }
 
@@ -389,13 +497,22 @@ func (n *navSections) step(d int) {
 	n.setFocus(n.visible[i])
 }
 
-// tapped is a click on a row: the list takes the keyboard there, and the cluster's tree shows.
+// tapped is a click on a row: the list takes the keyboard there without the ring (A53); a cluster's
+// tree shows, a heading collapses or opens its group.
 func (n *navSections) tapped(id string) {
+	old := n.focus
+	n.keys = false
 	n.setFocus(id)
+	n.refreshRow(old)
 	if c := n.s.sh.win.Canvas(); c.Focused() != n {
+		n.pointer = true
 		c.Focus(n)
+		n.pointer = false
 	}
-	if id != navSectionRoot {
+	switch g, head := strings.CutPrefix(id, navSourcePrefix); {
+	case head:
+		n.toggle(g)
+	case id != navSectionRoot:
 		n.drill(id)
 	}
 }
@@ -405,6 +522,7 @@ func (n *navSections) enter() {
 	if len(n.visible) > 1 {
 		n.focus = n.visible[1]
 	}
+	n.keys = true
 	n.s.sh.win.Canvas().Focus(n)
 	n.setFocus(n.focus)
 }
@@ -414,6 +532,8 @@ func (n *navSections) TypedKey(ev *fyne.KeyEvent) {
 	if n.s.sh.hot.key(ev.Name, n.shift) { // F1–F12 and ⇧F1–⇧F12 belong to the hotbar
 		return
 	}
+	n.keyed()
+	g, head := strings.CutPrefix(n.focus, navSourcePrefix)
 	switch ev.Name {
 	case fyne.KeyUp:
 		n.step(-1)
@@ -423,15 +543,29 @@ func (n *navSections) TypedKey(ev *fyne.KeyEvent) {
 		n.setFocus(n.visible[0])
 	case fyne.KeyEnd:
 		n.setFocus(n.visible[len(n.visible)-1])
-	case fyne.KeyRight, fyne.KeyReturn, fyne.KeyEnter, fyne.KeySpace:
+	case fyne.KeyRight:
 		switch {
+		case head && !n.groupOpen(g):
+			n.setCollapsed(g, false)
+		case head || n.focus == navSectionRoot:
+			n.step(1) // into the group, or from the root to the first row, as the tree's → does
+		default:
+			n.drill(n.focus)
+		}
+	case fyne.KeyReturn, fyne.KeyEnter, fyne.KeySpace:
+		switch {
+		case head:
+			n.toggle(g)
 		case n.focus != navSectionRoot:
 			n.drill(n.focus)
-		case ev.Name == fyne.KeyRight:
-			n.step(1) // from the root to the first cluster, as the tree's → does
 		}
 	case fyne.KeyLeft:
-		if n.focus != navSectionRoot {
+		switch {
+		case head && n.groupOpen(g) && n.s.filter == "":
+			n.setCollapsed(g, true)
+		case !head && n.headOf(n.focus) != "":
+			n.setFocus(n.headOf(n.focus)) // a cluster's heading, as the tree's ← goes to the group
+		case n.focus != navSectionRoot:
 			n.setFocus(navSectionRoot) // nothing above the section: the root is as far up as it goes
 		}
 	case fyne.KeyEscape:
@@ -465,9 +599,9 @@ func (n *navSections) KeyUp(ev *fyne.KeyEvent) {
 }
 
 // FocusGained implements fyne.Focusable: the keyboard starts on the active cluster's row, else on
-// the first cluster.
+// the first row; the ring shows unless a click gave the focus (A53).
 func (n *navSections) FocusGained() {
-	n.focused = true
+	n.focused, n.keys = true, !n.pointer
 	if !slices.Contains(n.visible, n.focus) || n.focus == navSectionRoot {
 		n.focus = navSectionRoot
 		for _, id := range n.visible[1:] {
@@ -489,8 +623,8 @@ func (n *navSections) FocusLost() {
 	n.refreshRow(n.focus)
 }
 
-// keyboardOn reports whether the ring is on a row.
-func (n *navSections) keyboardOn(id string) bool { return n.focused && n.focus == id }
+// keyboardOn reports whether the ring is on a row: the list has the focus from the keyboard (A53).
+func (n *navSections) keyboardOn(id string) bool { return n.focused && n.keys && n.focus == id }
 
 // rowMenu is a cluster's menu (right-click on its row): Connect while it is not the active one,
 // Settings…, the hotbar's item, Disconnect, Remove from Cogpit, as its menus elsewhere have them.
@@ -698,6 +832,99 @@ func (r *navContextRow) MouseOut() {
 func (r *navContextRow) CreateRenderer() fyne.WidgetRenderer {
 	rr := &rowBodyRenderer{w: r, body: r.body, bg: r.bg, ring: r.ring, paint: func() {
 		paintRow(r.Theme(), r.bg, r.ring, r.n.marked(r.id), r.hovered, r.n.keyboardOn(r.id))
+	}}
+	rr.Refresh()
+	return rr
+}
+
+// navSourceRow is a source group's heading: a chevron, the folder or file the group's clusters come
+// from, and while collapsed how many it hides. A click collapses or opens the group (A63).
+type navSourceRow struct {
+	widget.BaseWidget
+	n        *navSections
+	group    string
+	chevron  *widget.Icon
+	label    *textLine
+	count    *textLine
+	body     fyne.CanvasObject
+	bg, ring *canvas.Rectangle
+	hovered  bool
+	open     bool
+	clusters int
+}
+
+var (
+	_ fyne.Tappable     = (*navSourceRow)(nil)
+	_ desktop.Hoverable = (*navSourceRow)(nil)
+)
+
+func newNavSourceRow(n *navSections, group string) *navSourceRow {
+	r := &navSourceRow{n: n, group: group, open: true, bg: canvas.NewRectangle(color.Transparent), ring: canvas.NewRectangle(color.Transparent)}
+	r.chevron = widget.NewIcon(themedIcon(theme.MoveDownIcon(), colorMuted))
+	r.label = newTextLine(kubeconfig.DisplayText(group, maxShownPath), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{Bold: true})
+	r.label.truncate = true
+	r.count = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+	r.body = inset(theme.SizeNamePadding, theme.SizeNamePadding, container.NewBorder(nil, nil, container.NewCenter(r.chevron), container.NewCenter(r.count),
+		container.NewVBox(layout.NewSpacer(), r.label, layout.NewSpacer())))
+	r.ExtendBaseWidget(r)
+	return r
+}
+
+// set shows the group open or collapsed, with the number of its clusters the filter keeps.
+func (r *navSourceRow) set(clusters int, open bool) {
+	r.clusters = clusters
+	if open != r.open {
+		r.open = open
+		icon := theme.MoveDownIcon() // Cogpit's chevron (theme.go)
+		if !open {
+			icon = iconChevronRight
+		}
+		r.chevron.SetResource(themedIcon(icon, colorMuted))
+	}
+	count := ""
+	if !open {
+		count = strconv.Itoa(clusters)
+	}
+	r.count.SetText(count)
+	r.Refresh()
+}
+
+// tipText is the heading's tooltip: the whole source and how many clusters it holds.
+func (r *navSourceRow) tipText() string {
+	state := "open"
+	if !r.open {
+		state = "collapsed"
+	}
+	return kubeconfig.DisplayText(r.group, maxShownPath) + " - " + strconv.Itoa(r.clusters) + " cluster" + plural(r.clusters) + ", " + state
+}
+
+// Tapped implements fyne.Tappable: the group collapses or opens.
+func (r *navSourceRow) Tapped(*fyne.PointEvent) {
+	r.n.s.sh.tip.hideFor(r)
+	r.n.tapped(navSourcePrefix + r.group)
+}
+
+// MouseIn implements desktop.Hoverable.
+func (r *navSourceRow) MouseIn(ev *desktop.MouseEvent) {
+	r.hovered = true
+	r.Refresh()
+	r.n.s.sh.tip.hover(r, r.tipText(), ev.AbsolutePosition)
+}
+
+// MouseMoved implements desktop.Hoverable.
+func (r *navSourceRow) MouseMoved(ev *desktop.MouseEvent) { r.n.s.sh.tip.moved(r, ev.AbsolutePosition) }
+
+// MouseOut implements desktop.Hoverable.
+func (r *navSourceRow) MouseOut() {
+	r.hovered = false
+	r.Refresh()
+	r.n.s.sh.tip.hideFor(r)
+}
+
+// CreateRenderer implements fyne.Widget.
+func (r *navSourceRow) CreateRenderer() fyne.WidgetRenderer {
+	rr := &rowBodyRenderer{w: r, body: r.body, bg: r.bg, ring: r.ring, paint: func() {
+		paintRow(r.Theme(), r.bg, r.ring, false, r.hovered, r.n.keyboardOn(navSourcePrefix+r.group))
 	}}
 	rr.Refresh()
 	return rr

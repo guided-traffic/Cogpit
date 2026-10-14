@@ -91,12 +91,16 @@ func TestWelcomeRefusedWhileConnecting(t *testing.T) {
 }
 
 // Disconnect closes the connection without a word to the cluster: Disconnected without an error,
-// no backend, the welcome page, the cluster's tab kept; selecting the tab connects again and shows
-// its view. Without a connection it is refused; during a connect it ends the connect.
+// no backend, the welcome page, and the cluster's tabs closed (the owner's A61), another cluster's
+// tab kept; connecting again shows the cluster's default view in a new preview tab. Without a
+// connection it is refused; during a connect it ends the connect.
 func TestDisconnect(t *testing.T) {
 	s := tabSession(t)
 	s.OpenTab("services", true)
 	waitTable(t, s, "services", func(ts *TableSnapshot) bool { return ts.Synced })
+	s.UpdateUI(func(u *UIState) { // a tab of another cluster, as a restart leaves one
+		u.Tabs = append(u.Tabs, ViewTab{ID: "tab-9", Context: "other", View: "nodes", Title: "Nodes - other"})
+	})
 	if err := s.Disconnect(); err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +108,10 @@ func TestDisconnect(t *testing.T) {
 	if u.Connection != (Connection{State: Disconnected}) || u.Context != "test" || u.View != "" || !u.Welcome || s.Backend() != nil {
 		t.Fatalf("after disconnect: %+v, backend %v", u, s.Backend())
 	}
-	wantTabs(t, u, "tab-1 pods@test p", "tab-2 services@test *")
+	wantTabs(t, u, "tab-9 nodes@other")
+	if u.ActiveTab != "" {
+		t.Errorf("a tab stays active: %q", u.ActiveTab)
+	}
 	if lines := s.ConnectLog("test"); len(lines) == 0 || !strings.Contains(lines[len(lines)-1].Text, "Disconnected from test") ||
 		lines[len(lines)-1].Level != LogInfo {
 		t.Errorf("connect log %+v", lines)
@@ -112,13 +119,14 @@ func TestDisconnect(t *testing.T) {
 	if err := s.Disconnect(); !errors.Is(err, ErrNotConnected) {
 		t.Errorf("disconnect without a connection: %v", err)
 	}
-	u, err := s.SelectTab(context.Background(), "tab-2")
-	if err != nil {
+	if err := s.Connect(context.Background(), "test"); err != nil {
 		t.Fatal(err)
 	}
-	if u.Connection.State != Connected || u.View != "services" || u.Welcome || u.ActiveTab != "tab-2" {
-		t.Errorf("the tab connects again: %+v", u)
+	u = s.UIState()
+	if u.Connection.State != Connected || u.View != "pods" || u.Welcome {
+		t.Errorf("connected again: %+v", u)
 	}
+	wantTabs(t, u, "tab-9 nodes@other", "tab-3 pods@test p *")
 
 	// A connect under way: Disconnect ends it, and the connect leaves the UI alone.
 	done := make(chan error, 1)

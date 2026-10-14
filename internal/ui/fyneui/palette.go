@@ -21,9 +21,18 @@ import (
 // offer in the current state (Registry.Palette), searchable by label and category. ↑↓ move, ↵
 // runs, Escape or a click outside closes it. Running an entry dispatches its command as the menu
 // item would (an object's action through the row menu's own path, runAction), so the confirmation
-// (D-2), the parameter dialogs and the audit log apply unchanged. Its open state is UI state
-// (UIState.Palette, ui.palette.open and ui.palette.close), so that agents see it in ui_state and
-// can open it; what the user types stays in the window, as the picker's filter does.
+// (D-2), the parameter dialogs and the audit log apply unchanged. Its open state and its typed text
+// are UI state (UIState.Palette, ui.palette.open and ui.palette.close; UIState.PaletteText,
+// ui.palette.setText, the owner's A54 of 2026-10-14 evening), so that agents see them in ui_state,
+// can open the palette and type into it: the window reports the user's typing a pause after the last
+// key, as the navigator's search (navigatorstate.go), and shows an agent's text.
+//
+// An agent's text never chooses what the user's next ↵ runs (the lead's night decision, 2026-10-14,
+// for the owner to confirm; D-51): on a text another origin typed last, ↵ runs a read or a UI entry
+// (a view to switch to, a search), and a change (a mutating or destructive entry) runs only once the
+// user picked it with the arrow keys or a click; the hint line says so. Typing makes the text the
+// user's. F1–F12 and ⇧F1–⇧F12 close the palette and open the hotbar's cluster or bank, as the
+// entries listing them do (A64).
 //
 // Cogpit's reading, inferred (Lens's palette is captured only as "⌘⇧P opens it", "Switch to
 // <resource>" and the hotbar's bank commands): a command that cannot run now stays in the list,
@@ -37,7 +46,15 @@ type cmdPalette struct {
 	filter  *keyEntry
 	list    *widget.List
 	empty   *textLine
+	hint    *textLine
 	content fyne.CanvasObject
+
+	// The typed text as engine state (A54): reported as the user types; syncing while the engine's
+	// text is being shown; byOther while the text shown is an agent's (or the CLI's, a link's);
+	// picked once the user moved the highlight with the keys since; refused after a ↵ that ran no
+	// change for want of it.
+	textRep                           *navReport
+	syncing, byOther, picked, refused bool
 
 	all   []engine.PaletteEntry // what Registry.Palette returned for the state
 	shown []engine.PaletteEntry // all, filtered by the text
@@ -56,12 +73,29 @@ type cmdPalette struct {
 // paletteMaxCategory caps the category shown at a row's end, in runes.
 const paletteMaxCategory = 40
 
+// paletteHint is the hint line below the list while the user typed the text.
+const paletteHint = "Up and Down to move · Enter to run · Escape to close"
+
+// paletteTextParams are ui.palette.setText's parameters, mirroring the engine's schema.
+type paletteTextParams struct {
+	Text string `json:"text"`
+}
+
 func newCmdPalette(sh *shell) *cmdPalette {
 	p := &cmdPalette{sh: sh}
 	p.filter = newKeyEntry(p.key)
 	p.filter.SetPlaceHolder("Type a command, a view or an object's action…")
 	p.filter.SetIcon(theme.SearchIcon())
-	p.filter.OnChanged = func(string) { p.sel = 0; p.apply() }
+	p.filter.OnChanged = func(text string) {
+		p.sel = 0
+		if !p.syncing { // the user typed: the text is the user's
+			p.byOther, p.picked, p.refused = false, false, false
+			p.textRep.send(text, p.sh.ui.PaletteText)
+			p.showHint()
+		}
+		p.apply()
+	}
+	p.textRep = newNavReport(sh, "ui.palette.setText", func(v string) any { return paletteTextParams{Text: v} }, p.applyText)
 	p.list = widget.NewList(
 		func() int { return len(p.shown) },
 		func() fyne.CanvasObject { return newCmdPaletteRow() },
@@ -80,15 +114,15 @@ func newCmdPalette(sh *shell) *cmdPalette {
 	}
 	p.empty = newTextLine("No commands match.", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	p.empty.Hide()
-	hint := newTextLine("Up and Down to move · Enter to run · Escape to close", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
-	hint.truncate = true
+	p.hint = newTextLine(paletteHint, colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+	p.hint.truncate = true
 
 	listBg := newSurface(theme.ColorNameInputBackground)
 	listBg.radius, listBg.stroke = theme.SizeNameInputRadius, theme.ColorNameInputBorder
 	list := container.NewStack(listBg, inset(theme.SizeNamePadding, theme.SizeNamePadding,
 		container.NewStack(p.list, container.NewVBox(inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, p.empty)))))
 	top := container.NewVBox(p.filter, newSpace(theme.SizeNamePadding))
-	bottom := container.NewVBox(newSpace(theme.SizeNamePadding), hint)
+	bottom := container.NewVBox(newSpace(theme.SizeNamePadding), p.hint)
 	p.content = sized(sizePickerWidth, sizePickerHeight,
 		inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, container.NewBorder(top, bottom, nil, nil, list)))
 	return p
@@ -123,8 +157,60 @@ func (p *cmdPalette) stateChanged() {
 	case !p.visible():
 		p.show()
 	default:
+		p.applyText() // an agent's text
 		p.load()
 	}
+}
+
+// applyText shows the engine's text (an agent's), unless a report of the user's typing waits or
+// runs; it notes who typed it.
+func (p *cmdPalette) applyText() {
+	if p.textRep.busy > 0 || !p.visible() {
+		return
+	}
+	want, other := p.sh.ui.PaletteText, p.sh.ui.PaletteTextByOther()
+	if p.filter.Text != want {
+		p.syncing = true
+		p.filter.SetText(want)
+		p.filter.CursorColumn = len([]rune(want))
+		p.filter.Refresh()
+		p.syncing = false
+		p.picked, p.refused = false, false
+	}
+	if other != p.byOther {
+		p.byOther, p.picked, p.refused = other, false, false
+	}
+	p.showHint()
+}
+
+// showHint says how ↵ works now: as always, or on another's text only for reads and the window.
+func (p *cmdPalette) showHint() {
+	text, c := paletteHint, colorMuted
+	if p.byOther && !p.picked {
+		text = textTyper(p.sh.ui.PaletteTextOrigin) + " typed this: Enter runs views and reads only · pick a change with Up and Down or a click"
+		if p.refused {
+			c = colorStatusWarning
+		}
+	}
+	p.hint.SetText(text)
+	p.hint.SetColor(c)
+}
+
+// textTyper names who typed the palette's text, for the hint.
+func textTyper(o engine.Origin) string {
+	switch o {
+	case engine.OriginCLI:
+		return "The command line"
+	case engine.OriginDeepLink:
+		return "A link"
+	}
+	return "An agent"
+}
+
+// paletteChanges reports whether an entry changes a cluster or Cogpit: what ↵ does not run on
+// another's text until the user picked it.
+func paletteChanges(d engine.Danger) bool {
+	return d == engine.DangerMutating || d == engine.DangerDestructive
 }
 
 func (p *cmdPalette) visible() bool { return p.popup != nil && p.popup.Visible() }
@@ -140,13 +226,17 @@ func (p *cmdPalette) show() {
 		p.popup.onDismiss = func() { p.dismissThen(nil) }
 	}
 	p.sh.tip.hide()
+	p.syncing = true
 	p.filter.SetText("")
+	p.syncing = false
+	p.byOther, p.picked, p.refused = false, false, false
 	p.sel = 0
 	p.popup.Show()
 	if p.requested { // opened by an agent, the focus stays where the user's typing goes
 		p.sh.win.Canvas().Focus(p.filter)
 	}
 	p.requested = false
+	p.applyText() // the text an agent opened it with (ui.palette.setText)
 	p.load()
 }
 
@@ -161,6 +251,7 @@ func (p *cmdPalette) hide() {
 // closed.
 func (p *cmdPalette) dismissThen(next func()) {
 	p.hide()
+	p.textRep.cancel() // the engine forgets the text with the palette
 	p.closing = true
 	p.sh.dispatch(engine.PaletteCloseCommand, struct{}{}, func(_ any, err error) {
 		p.closing = false
@@ -227,20 +318,26 @@ func (p *cmdPalette) move(d int) {
 	p.list.ScrollTo(p.sel)
 }
 
-// key handles the filter's keys that are the palette's: ↑↓, Page Up and Down, ↵ and Escape.
+// key handles the filter's keys that are the palette's: ↑↓, Page Up and Down (the user picking an
+// entry), ↵, Escape, and F1–F12 and ⇧F1–⇧F12 (the hotbar's, after the palette closed).
 func (p *cmdPalette) key(ev *fyne.KeyEvent) bool {
+	if functionKey(ev.Name) > 0 {
+		name, shift, sh := ev.Name, shiftHeld(), p.sh
+		p.dismissThen(func() { sh.hot.key(name, shift) })
+		return true
+	}
 	switch ev.Name {
 	case fyne.KeyUp:
-		p.move(-1)
+		p.pick(-1)
 	case fyne.KeyDown:
-		p.move(1)
+		p.pick(1)
 	case fyne.KeyPageUp:
-		p.move(-paletteJump)
+		p.pick(-paletteJump)
 	case fyne.KeyPageDown:
-		p.move(paletteJump)
+		p.pick(paletteJump)
 	case fyne.KeyReturn, fyne.KeyEnter:
 		if p.sel < len(p.shown) {
-			p.run(p.shown[p.sel])
+			p.enter(p.shown[p.sel])
 		}
 	case fyne.KeyEscape:
 		p.dismissThen(nil)
@@ -252,6 +349,27 @@ func (p *cmdPalette) key(ev *fyne.KeyEvent) bool {
 
 // paletteJump is how far Page Up and Page Down move.
 const paletteJump = 8
+
+// pick moves the highlight by d rows as the user's choice: ↵ then runs the entry whoever typed the
+// text.
+func (p *cmdPalette) pick(d int) {
+	p.move(d)
+	if p.byOther && !p.picked {
+		p.picked, p.refused = true, false
+		p.showHint()
+	}
+}
+
+// enter runs the highlighted entry (↵), unless another typed the text, the user has not picked the
+// entry, and it is a change: then the hint says how to run it (A54).
+func (p *cmdPalette) enter(e engine.PaletteEntry) {
+	if p.byOther && !p.picked && paletteChanges(e.Danger) {
+		p.refused = true
+		p.showHint()
+		return
+	}
+	p.run(e)
+}
 
 // run runs an entry as its menu item would, after the palette closed. A greyed one does nothing:
 // its reason is on its row.
@@ -309,7 +427,7 @@ var paletteRunners = map[string]func(sh *shell, e engine.PaletteEntry){
 	"kubeconfig.remove":     func(sh *shell, _ engine.PaletteEntry) { sh.kc.showSources() },
 	"kubeconfig.sources":    func(sh *shell, _ engine.PaletteEntry) { sh.kc.showSources() },
 	"table.exportCsv":       func(sh *shell, _ engine.PaletteEntry) { sh.view.exportCSV() },
-	"ui.setFilter":          func(sh *shell, _ engine.PaletteEntry) { sh.win.Canvas().Focus(sh.view.search) },
+	setFilterCommand:        func(sh *shell, _ engine.PaletteEntry) { sh.win.Canvas().Focus(sh.view.search) },
 	"ui.setNamespace":       func(sh *shell, _ engine.PaletteEntry) { sh.view.openNamespaces() },
 	"ui.setGroups":          func(sh *shell, _ engine.PaletteEntry) { sh.view.openNamespaces() },
 	"ui.setColumns":         func(sh *shell, _ engine.PaletteEntry) { sh.view.openColumns() },
@@ -344,7 +462,7 @@ func (sh *shell) paletteRunner(id string) func(*shell, engine.PaletteEntry) {
 func (sh *shell) paletteApplies(e engine.PaletteEntry) bool {
 	list := sh.ui.Connection.State == engine.Connected && sh.ui.View != "" && sh.view.snap != nil
 	switch e.Command {
-	case "ui.setFilter", "ui.setColumns", "table.exportCsv":
+	case setFilterCommand, "ui.setColumns", "table.exportCsv":
 		return list
 	case "ui.setNamespace":
 		return list && !sh.view.groupMode() && sh.view.viewNamespaced()

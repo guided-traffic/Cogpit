@@ -121,8 +121,9 @@ func TestNavigatorRootMenu(t *testing.T) {
 	}
 }
 
-// The scope dropdown offers the section, Local Kubeconfigs, and below it the clusters it holds, the
-// cluster the tree shows checked (navigator_sections_test.go tests choosing them).
+// The scope dropdown offers the section, Local Kubeconfigs, below it the hotbar's clusters and the
+// connected one, the cluster the tree shows checked, and All Clusters… for every other one (A52;
+// navigator_sections_test.go tests the hotbar's and choosing them).
 func TestNavigatorScopeDropdown(t *testing.T) {
 	sh, _, q, f := navScene(t, ThemeDark)
 	fakeNavScope(t, f)
@@ -133,10 +134,15 @@ func TestNavigatorScopeDropdown(t *testing.T) {
 	for _, it := range h.menuModel.Items {
 		labels = append(labels, it.Label)
 	}
-	if strings.Join(labels, ",") != "Local Kubeconfigs,,Demo cluster,kind-cogpit,prod-eu-central,staging-us-east,dev-hfi" ||
-		h.menuModel.Items[0].Checked || !h.menuModel.Items[3].Checked {
+	if strings.Join(labels, ",") != "Local Kubeconfigs,,kind-cogpit,,All Clusters…" ||
+		h.menuModel.Items[0].Checked || !h.menuModel.Items[2].Checked {
 		t.Fatalf("scope menu %v", labels)
 	}
+	h.menuModel.Items[4].Action()
+	if !sh.picker.visible() {
+		t.Error("All Clusters… did not open the context picker")
+	}
+	sh.picker.hide()
 	h.menuModel.Items[0].Action()
 	q.until(t, "the section", func() bool { return sh.side.sec.Visible() })
 }

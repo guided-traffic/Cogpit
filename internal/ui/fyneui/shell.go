@@ -131,6 +131,9 @@ type shell struct {
 	// skip (clipboard_darwin.go); nil in tests, which use Fyne's test clipboard and must not touch
 	// the system's. It reports false when it could not, and Fyne's clipboard is used.
 	setConcealed func(string) bool
+	// menuKey reports whether the main menu runs an item for its key rather than a click
+	// (menukeys.go): macOS's key equivalent; a test replaces it.
+	menuKey func() bool
 
 	unsubscribe func()
 	// early are the notices the engine gave before the window subscribed (a restored tab bar's,
@@ -155,7 +158,8 @@ type shell struct {
 
 // newShell builds every widget. Nothing talks to the engine until start.
 func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func())) *shell {
-	sh := &shell{eng: eng, app: a, win: w, opts: opts, now: time.Now, stopTickers: make(chan struct{}), secretClipTTL: secretClipboardTTL, copyConfirm: copyConfirmTime}
+	sh := &shell{eng: eng, app: a, win: w, opts: opts, now: time.Now, stopTickers: make(chan struct{}), secretClipTTL: secretClipboardTTL, copyConfirm: copyConfirmTime,
+		menuKey: platformMenuKey}
 	// Work that reaches the main goroutine after stop would apply engine state to a window that
 	// is gone, possibly under another app and theme (tests run shells one after another).
 	sh.do = func(fn func()) {
@@ -518,6 +522,9 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	if first || st.Scope() != old.Scope() {
 		sh.side.scopeChanged() // the section's clusters or the cluster's tree (navigator_sections.go)
 	}
+	if first || !reflect.DeepEqual(st.Navigator, old.Navigator) {
+		sh.side.navigatorChanged(old.Navigator) // its search, keyboard row and collapsed groups (navigatorstate.go)
+	}
 	if first || tabsChanged(st, old) {
 		sh.tabs.sync()
 	}
@@ -876,6 +883,9 @@ func (sh *shell) mainMenu() *fyne.MainMenu {
 	view := fyne.NewMenu("View", items...)
 	// The tab bar's ⌘W, ⌘⌥→ and ⌘⌥←, ⌘1–9, ⌃- and ⌃⇧-, from any focus (tabbar.go).
 	view.Items = append(sh.tabs.menuItems(), view.Items...)
+	if keys := sh.windowKeyItems(); len(keys) > 0 { // ⌘F and ⌘⇧T shown, the keys kept by the window (A55, menukeys.go)
+		view.Items = append(append(keys, fyne.NewMenuItemSeparator()), view.Items...)
+	}
 	if chat := sh.chatMenuItems(); len(chat) > 0 { // ⌘I and ⌘., from any focus (chat.go)
 		view.Items = append(append(chat, fyne.NewMenuItemSeparator()), view.Items...)
 	}
@@ -916,17 +926,18 @@ func (sh *shell) copyMCPCommand() {
 }
 
 // installShortcuts adds Lens's keyboard shortcuts that Cogpit supports, as the registry declares
-// them: ⌘F (ui.setFilter: the search), ⌘⇧T (terminal.open), Escape (close the palette or the
-// picker, else the drawer), "/" (the logs tab's search), and F1–F12 and ⇧F1–⇧F12 for the hotbar
-// while no text field has the focus (the table passes them on). ⌘⇧P and ⌘P are the main menu's
-// (mainMenu), which take them from any focus.
+// them: ⌘F (ui.setFilter: the search) and ⌘⇧T (terminal.open), the window's own (windowKeys: a
+// focused widget that takes shortcuts keeps them; the View menu shows them, A55), Escape (close the
+// palette or the picker, else the drawer), "/" (the logs tab's search), and F1–F12 and ⇧F1–⇧F12 for
+// the hotbar while no text field has the focus (the table and the search fields pass them on, A64).
+// ⌘⇧P and ⌘P are the main menu's (mainMenu), which take them from any focus.
 func (sh *shell) installShortcuts() {
 	c := sh.win.Canvas()
-	if sc := sh.registryShortcut("ui.setFilter"); sc != nil {
-		c.AddShortcut(sc, func(fyne.Shortcut) { c.Focus(sh.view.search) })
-	}
-	if sc := sh.registryShortcut("terminal.open"); sc != nil {
-		c.AddShortcut(sc, func(fyne.Shortcut) { sh.dispatch("terminal.open", struct{}{}, nil) })
+	for _, k := range windowKeys {
+		if sc := sh.registryShortcut(k.id); sc != nil {
+			run := k.run
+			c.AddShortcut(sc, func(fyne.Shortcut) { run(sh) })
+		}
 	}
 	c.SetOnTypedKey(func(ev *fyne.KeyEvent) {
 		if sh.hot.key(ev.Name, shiftHeld()) { // F1–F12, ⇧F1–⇧F12: the hotbar (Fyne has no shortcut for them)
