@@ -6,19 +6,21 @@
 
 <img src="docs/developer/assets/cogpit-icon.svg" alt="" width="96" align="right">
 
-**A fast, native Kubernetes IDE for your desktop: Lens's workflows, a UI that reads from a live
-cache, and AI agents that work with you, not behind your back.**
+**A fast, native Kubernetes IDE for your desktop: your workloads, config, network, storage and
+custom resources in one window, a UI that reads from a live cache, and AI agents that work with
+you, not behind your back.**
 
-If you know Lens, you know Cogpit: the same navigator, lists, detail drawers, actions and
-shortcuts, in an open-source app written in Go. Every list reads from a cache that the cluster's
-watches keep current, so lists of 10,000 pods stay quick and opening a view again costs your API
-server nothing. And every action is also a tool an agent can use over MCP, with you deciding what
-it may change.
+Cogpit gives every standard Kubernetes object, every custom resource your cluster serves, Helm,
+Flux CD and Argo CD a navigator, searchable lists, detail drawers, actions and shortcuts, in an
+open-source app written in Go. Every list reads from a cache that the cluster's watches keep
+current, so lists of 10,000 pods stay quick and opening a view again costs your API server
+nothing. And every action is also a tool an agent can use over MCP, with you deciding what it may
+change.
 
 ![Cogpit: the navigator, the Pods list with CPU and memory, and a pod's drawer with its CPU chart, requests and limits](docs/images/hero.png)
 
 > **Pre-alpha.** Cogpit runs on macOS on Apple silicon today; Windows and Linux are planned after
-> the macOS beta. Every view and action of Lens's list exists at least in part, but the releases
+> the macOS beta. The views and actions are in place, some of them still in part, but the releases
 > are unsigned builds and nothing has been walked through by testers on real clusters yet: try it
 > on the built-in demo cluster or a test cluster first. Where it stands, feature by feature:
 > [ROADMAP.md](ROADMAP.md).
@@ -29,7 +31,7 @@ it may change.
 
 Workloads, config, network, storage, access control and every custom resource your cluster
 serves, each in a list you can search (plain, match case or a regular expression) and narrow to
-the states you care about: Running, Pending, CrashLoopBackOff, several at once (*beyond Lens*).
+the states you care about: Running, Pending, CrashLoopBackOff, several at once.
 Pods and nodes show their CPU and memory from the Metrics Server or Prometheus; a pod's drawer
 charts them per container against requests and limits, with Prometheus up to 30 days back
 (pictured above).
@@ -106,7 +108,7 @@ follows their changes. Pin clusters to the hotbar (F1–F12), keep tabs of sever
 
 ![The hotbar, the navigator with five clusters, tabs of four clusters and the command palette](docs/images/clusters.png)
 
-### 🔏 Certificates, decoded (*beyond Lens*)
+### 🔏 Certificates, decoded
 
 A Secret's drawer decodes every certificate in it, PEM or DER: subject, issuer, names, validity
 with a warning 30 days before it ends, key usage and fingerprints. Cogpit also checks that
@@ -114,7 +116,7 @@ with a warning 30 days before it ends, key usage and fingerprints. Cogpit also c
 
 ![A TLS Secret's drawer with its decoded certificate chain](docs/images/certificates.png)
 
-### 🤖 Agents over MCP, with you in control (*beyond Lens*)
+### 🤖 Agents over MCP, with you in control
 
 Every command in Cogpit is also an MCP tool, so an agent such as Claude Code sees what you see,
 reads lists and logs, and navigates the window for you. Reading is free; a change waits for your OK
@@ -170,14 +172,13 @@ demo cluster ([run from source](docs/developer/usage.md#run-the-mvp)).
 | [Commands and MCP tools](docs/developer/commands.md) | Every command an agent can call, with its danger level |
 | [Developer documentation](docs/developer/README.md) | Architecture, conventions, testing, releasing, decisions |
 | [Security architecture](docs/security/README.md) | Trust boundaries, credentials, privilege footprint, agents and MCP |
-| [Parity with Lens](docs/parity/README.md) | What exists and what is missing, view by view |
+| [Progress](docs/parity/README.md) | What exists and what is missing, view by view |
 | [ROADMAP.md](ROADMAP.md) | Where Cogpit stands and what comes next |
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability |
 | [AGENTS.md](AGENTS.md) | Contributing, for people and coding agents |
 
 ## License
 
-[Apache-2.0](LICENSE). Cogpit is a clean-room reimplementation: it contains no code, text or
-assets from Lens Desktop, OpenLens or Freelens, and it is not affiliated with or endorsed by
-Mirantis, the maker of Lens Desktop. Third-party material, including the documentation method
+[Apache-2.0](LICENSE). Cogpit is an independent project: it contains no code, text or assets from
+other Kubernetes IDEs and is not affiliated with their makers. Third-party material, including the documentation method
 adapted from PhotoCraft, is listed in [ATTRIBUTION.md](ATTRIBUTION.md).
