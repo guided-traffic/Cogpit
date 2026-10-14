@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
@@ -23,9 +24,12 @@ const testCertificate = "-----BEGIN CERTIFICATE-----\nMIIBszCCAVmgAwIBAgIUQ\n---
 // setRow types texts into a row's fields.
 func setRow(r *editorRow, texts ...string) {
 	for i, txt := range texts {
-		r.fields[i].(*widget.Entry).SetText(txt)
+		r.fields[i].(interface{ SetText(string) }).SetText(txt)
 	}
 }
+
+// valueEntry is a data row's value field.
+func valueEntry(r *editorRow) *widget.Entry { return &r.fields[1].(*secretEntry).Entry }
 
 // rowKeys returns the keys of an editor's rows, empty ones included.
 func rowKeys(e *rowEditor) []string {
@@ -47,7 +51,7 @@ func TestSecretDialogSendsTheSecret(t *testing.T) {
 	if sf == nil || sf.typ.Selected != engine.SecretTypeOpaque || form.namespace() != "ci" {
 		t.Fatalf("secret form %+v, namespace %q", sf, form.namespace())
 	}
-	value := sf.data.rows[0].fields[1].(*widget.Entry)
+	value := valueEntry(sf.data.rows[0])
 	if !value.Password || !value.MultiLine {
 		t.Errorf("value field: password %v, multi-line %v", value.Password, value.MultiLine)
 	}
@@ -89,7 +93,7 @@ func TestSecretDialogTypeFillsItsKeys(t *testing.T) {
 	if got := rowKeys(sf.data); !slices.Equal(got, []string{"username", "password"}) {
 		t.Errorf("basic auth rows %q", got)
 	}
-	if v := sf.data.rows[0].fields[1].(*widget.Entry).Text; v != "alice" {
+	if v := valueEntry(sf.data.rows[0]).Text; v != "alice" {
 		t.Errorf("the typed value became %q", v)
 	}
 	sf.typ.SetSelected(engine.SecretTypeServiceAccountToken)
@@ -110,7 +114,7 @@ func TestSecretDialogRevealsOneValue(t *testing.T) {
 	form := openForm(t, sh, q, kindSecrets)
 	sf := form.secret
 	sf.typ.SetSelected(engine.SecretTypeBasicAuth)
-	user, pass := sf.data.rows[0].fields[1].(*widget.Entry), sf.data.rows[1].fields[1].(*widget.Entry)
+	user, pass := valueEntry(sf.data.rows[0]), valueEntry(sf.data.rows[1])
 	eye, ok := pass.ActionItem.(fyne.Tappable)
 	if !ok {
 		t.Fatalf("the value field has no eye: %T", pass.ActionItem)
@@ -133,7 +137,7 @@ func fillSecret(form *createForm, q *mainQueue) {
 	sf.typ.SetSelected(engine.SecretTypeTLS)
 	setRow(sf.data.rows[0], "tls.crt", strings.TrimSuffix(testCertificate, "\n"))
 	setRow(sf.data.rows[1], "tls.key", "-----BEGIN PRIVATE KEY-----")
-	if eye, ok := sf.data.rows[0].fields[1].(*widget.Entry).ActionItem.(fyne.Tappable); ok {
+	if eye, ok := valueEntry(sf.data.rows[0]).ActionItem.(fyne.Tappable); ok {
 		eye.Tapped(&fyne.PointEvent{})
 	}
 	setRow(sf.labels.rows[0], "app.kubernetes.io/name", "web")
@@ -146,4 +150,48 @@ func TestRenderCreateSecretDialogDark(t *testing.T) {
 
 func TestRenderCreateSecretDialogLight(t *testing.T) {
 	renderCreateDialog(t, kindSecrets, ThemeLight, "create_secret_dialog_light.png", fillSecret)
+}
+
+// TestSecretDialogCopiesAShownValueConcealed (H-70): a masked value copies nothing; once the eye
+// shows it, a copy goes through the shell's clipboard for Secret values (cleared after the TTL if
+// the clipboard still holds it, and said so in a toast that never shows the value), and a cut also
+// removes the selection from the field. The field's menu calls the same TypedShortcut (Fyne's
+// Entry.TappedSecondary), so ⌘C, ⌘X and the menu take this one path.
+func TestSecretDialogCopiesAShownValueConcealed(t *testing.T) {
+	f := createFake(t, kindSecrets)
+	sh, _, q := newCreateShell(t, f, ThemeDark)
+	sh.secretClipTTL = 40 * time.Millisecond
+	form := openForm(t, sh, q, kindSecrets)
+	row := form.secret.data.rows[0]
+	setRow(row, "password", "correct-horse")
+	field := row.fields[1].(*secretEntry)
+	clip := sh.app.Clipboard()
+
+	clip.SetContent("before")
+	field.TypedShortcut(&fyne.ShortcutSelectAll{})
+	field.TypedShortcut(&fyne.ShortcutCopy{Clipboard: clip})
+	if got := clip.Content(); got != "before" {
+		t.Fatalf("a masked value was copied: the clipboard holds %q", got)
+	}
+
+	field.ActionItem.(fyne.Tappable).Tapped(&fyne.PointEvent{}) // the eye
+	field.TypedShortcut(&fyne.ShortcutSelectAll{})
+	field.TypedShortcut(&fyne.ShortcutCopy{Clipboard: clip})
+	if got := clip.Content(); got != "correct-horse" || sh.clipSecret != "correct-horse" {
+		t.Fatalf("the clipboard holds %q (kept for clearing: %q), want the shown value", got, sh.clipSecret)
+	}
+	var toast string
+	for _, tl := range findAll[*paragraph](sh.toasts) {
+		toast += tl.text
+	}
+	if !strings.Contains(toast, "cleared") || strings.Contains(toast, "correct-horse") {
+		t.Errorf("the toast %q should say the clipboard is cleared, and never show the value", toast)
+	}
+	q.until(t, "the clipboard to be cleared", func() bool { return clip.Content() == "" })
+
+	field.TypedShortcut(&fyne.ShortcutSelectAll{})
+	field.TypedShortcut(&fyne.ShortcutCut{Clipboard: clip})
+	if got := clip.Content(); got != "correct-horse" || field.Text != "" {
+		t.Errorf("after a cut the clipboard holds %q and the field %q, want the value and an empty field", got, field.Text)
+	}
 }

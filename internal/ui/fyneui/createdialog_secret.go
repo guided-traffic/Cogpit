@@ -1,6 +1,7 @@
 package fyneui
 
 import (
+	"fmt"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -51,7 +52,7 @@ func buildSecretForm(f *createForm) {
 	f.caption("TYPE")
 	sf.typ = widget.NewSelect(engine.SecretTypes, nil)
 	f.content.Add(sf.typ)
-	sf.data = f.addRows("DATA", keyValueColumns, "Add Data", newSecretDataRow)
+	sf.data = f.addRows("DATA", keyValueColumns, "Add Data", func() *editorRow { return newSecretDataRow(f.sh) })
 	f.addHint("Values stay masked until you show them with the eye; they are sent base64-encoded in the Secret's data and are " +
 		"never written to the audit log, a log or a draft.")
 	sf.labels = f.addRows("LABELS", keyValueColumns, "Add Label", func() *editorRow { return newKeyValueRow("app.kubernetes.io/name", "web") })
@@ -76,11 +77,10 @@ func buildSecretForm(f *createForm) {
 
 // newSecretDataRow is one data row: the key, and the value masked in a field that takes several
 // lines, with the eye that shows it.
-func newSecretDataRow() *editorRow {
+func newSecretDataRow(sh *shell) *editorRow {
 	key := widget.NewEntry()
 	key.SetPlaceHolder("password")
-	value := &widget.Entry{MultiLine: true, Password: true, Wrapping: fyne.TextWrapOff}
-	value.ExtendBaseWidget(value)
+	value := newSecretEntry(sh)
 	value.SetMinRowsVisible(1)
 	value.SetPlaceHolder("value")
 	return &editorRow{fields: []fyne.CanvasObject{key, value}, value: func() (any, bool) {
@@ -129,3 +129,46 @@ func prefillKeys(e *rowEditor, keys []string) {
 		rowKey(empty).SetText(k)
 	}
 }
+
+// secretEntry is a Secret value's field. What the eye shows can be selected and copied (⌘C, ⌘X or
+// the field's menu, whose items call the field's TypedShortcut): the copy goes to the clipboard as
+// a copy of a Secret's value from the drawer does, marked concealed for clipboard managers and
+// cleared again after 60 seconds if the clipboard still holds it (H-70). A masked value copies
+// nothing, as Fyne's password field does.
+type secretEntry struct {
+	widget.Entry
+	sh *shell
+}
+
+func newSecretEntry(sh *shell) *secretEntry {
+	e := &secretEntry{sh: sh}
+	e.MultiLine, e.Password, e.Wrapping = true, true, fyne.TextWrapOff
+	e.ExtendBaseWidget(e)
+	return e
+}
+
+// TypedShortcut sends a copy or cut of the shown value through the shell's clipboard for Secret
+// values; every other shortcut is the entry's.
+func (e *secretEntry) TypedShortcut(s fyne.Shortcut) {
+	_, isCopy := s.(*fyne.ShortcutCopy)
+	_, isCut := s.(*fyne.ShortcutCut)
+	if (!isCopy && !isCut) || e.sh == nil {
+		e.Entry.TypedShortcut(s)
+		return
+	}
+	text := e.SelectedText()
+	if e.Password || text == "" {
+		return
+	}
+	e.sh.copyText(text, true)
+	e.sh.toast("info", fmt.Sprintf("Copied. The clipboard is cleared in %s.", ttlText(e.sh.secretClipTTL)))
+	if isCut { // the entry removes the selection; its own copy goes nowhere
+		e.Entry.TypedShortcut(&fyne.ShortcutCut{Clipboard: discardClipboard{}})
+	}
+}
+
+// discardClipboard is a clipboard that keeps nothing.
+type discardClipboard struct{}
+
+func (discardClipboard) Content() string   { return "" }
+func (discardClipboard) SetContent(string) {}

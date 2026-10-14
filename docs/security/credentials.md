@@ -251,7 +251,12 @@ as built:
 
 - **Typed into a masked field.** Each value is a Fyne entry in password mode (one dot per
   character, a line per line), whose eye shows that value only. A masked entry neither copies nor
-  cuts; a shown one does ([H-70](#h-70-a-value-shown-in-create-secret-copies-unmarked)). The widgets,
+  cuts; a shown one does, through the clipboard for Secret values the drawer uses (since
+  2026-10-14, H-70 closed): marked concealed on macOS, cleared after 60 seconds if the clipboard
+  still holds it, a toast that says so; ⌘C, ⌘X and the field's menu take that one path
+  ([`createdialog_secret.go`](../../internal/ui/fyneui/createdialog_secret.go) `secretEntry`,
+  `TestSecretDialogCopiesAShownValueConcealed`; [H-25](#h-25-a-copied-secret-value-reaches-the-clipboard)
+  for what remains of any copy). The widgets,
   and the entry's undo history, hold the text until the dialog is gone and the garbage collector
   takes it, as a revealed value in the drawer does.
 - **To the engine, in the GUI's own process.** The dialog dispatches `secret.create` with origin
@@ -324,7 +329,8 @@ the login shell's environment, and which variables it then passes to plugins, is
 
 ### H-25: A copied Secret value reaches the clipboard
 
-A Secret's value that the user copies from the drawer goes on the system clipboard, where Cogpit
+A Secret's value that the user copies from the drawer, or a value shown in the Create Secret
+dialog (since 2026-10-14), goes on the system clipboard, where Cogpit
 cannot guard it. It clears the clipboard after 60 seconds if the clipboard still holds the value,
 and when the window closes. On macOS (owner's decision, 2026-10-12) the copy is marked with
 nspasteboard.org's concealed and transient types, which clipboard managers that honour them
@@ -336,17 +342,6 @@ history of the value; any process of the user can read it while it is there; Cog
 ending within the 60 seconds (a crash, `kill -9`) leaves it on the clipboard; on Linux and Windows
 the copy goes through Fyne's clipboard unmarked. Only values the user revealed and copied are
 affected; an agent has no way to copy.
-
-### H-70: A value shown in Create Secret copies unmarked
-
-In the Create Secret dialog, a value the user showed with its eye can be selected and copied
-(⌘C, or the entry's context menu) like any text: Fyne's entry puts it on the system clipboard
-itself, so it is neither marked concealed and kept from Universal Clipboard nor cleared after 60
-seconds, as a copy from the drawer is ([H-25](#h-25-a-copied-secret-value-reaches-the-clipboard)).
-Live since 2026-10-13, for the user's own typing only: a masked value does not copy, and no
-agent can reach the dialog or the clipboard. Routing the entry's copy through the concealed
-clipboard needs a wrapper around Fyne's entry whose context menu calls the entry's own copy, not
-the wrapper's; not built.
 
 ### H-29: Authenticated Helm repositories
 

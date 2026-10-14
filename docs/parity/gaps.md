@@ -623,8 +623,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestSecretCreateFromTheGUI`, `TestSecretCreateIsGUIOnly`, `TestSecretCreateChecksBeforeSending`,
   `TestSecretDialogSendsTheSecret`, PNGs [dark](../../internal/ui/fyneui/testdata/create_secret_dialog_dark.png),
   [light](../../internal/ui/fyneui/testdata/create_secret_dialog_light.png)). Inferred: the fields
-  and their order (Lens's dialog is not captured). Open: a shown value copies unmarked
-  ([H-70](../security/credentials.md#h-70-a-value-shown-in-create-secret-copies-unmarked)).
+  and their order (Lens's dialog is not captured). A shown value copies through the clipboard for
+  Secret values, concealed and cleared after 60 seconds (2026-10-14, H-70 closed,
+  `TestSecretDialogCopiesAShownValueConcealed`).
   Estimate not moved (the lead recounts).
 - **Estimate:** 8–22 h (was 10–25; Edit and Delete follow the access reviews, third run).
 
@@ -1665,6 +1666,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | G9: Create Secret's shown value copies through the clipboard for Secret values, concealed and cleared after 60 seconds (H-70 closed); estimate not moved |
 | 2026-10-14 | minor | G14: the Apple Developer ID certificate and the notarization API key exist (environment `release`); only the update signing key is left as a human prerequisite |
 | 2026-10-14 | minor | G6: the workloads' drawers' Pods tables without a Namespace column (D-40, decided by the owner); estimate not moved |
 | 2026-10-14 | minor | G23: Reconcile with Source and Reset built as the flux CLI does them (D-33, decided by the owner; Force stays an agent's parameter), removed from Left; estimate not moved |
