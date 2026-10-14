@@ -60,23 +60,32 @@ func TestPodsListMetricsFollowTheOpenView(t *testing.T) {
 	s, ctx := metricsSession(t)
 	pods := func() *engine.TableSnapshot { return s.Table("pods") }
 
+	usage := func(tbl *engine.TableSnapshot) (withCPU, withMem int) {
+		for i := range tbl.Rows {
+			if cellOf(tbl, i, "cpu").Text != "" {
+				withCPU++
+			}
+			if strings.HasSuffix(cellOf(tbl, i, "memory").Text, "iB") {
+				withMem++
+			}
+		}
+		return withCPU, withMem
+	}
+	// Only running pods have a measurement; the demo has plenty of them. The usage reaches the
+	// rows with the next snapshot after the poll, so wait for the state asserted, not for a first
+	// cell.
+	var tbl *engine.TableSnapshot
+	withCPU, withMem := 0, 0
 	if !testkit.WaitFor(ctx, func() bool {
-		tbl := pods()
-		return tbl != nil && tbl.Synced && len(tbl.Rows) > 0 && cellOf(tbl, 0, "cpu").Text != ""
+		tbl = pods()
+		if tbl == nil || !tbl.Synced || len(tbl.Rows) == 0 {
+			return false
+		}
+		withCPU, withMem = usage(tbl)
+		return withCPU >= len(tbl.Rows)/2 && withMem == withCPU
 	}) {
 		t.Fatal("the Pods list never showed CPU")
 	}
-	tbl := pods()
-	withCPU, withMem := 0, 0
-	for i := range tbl.Rows {
-		if cellOf(tbl, i, "cpu").Text != "" {
-			withCPU++
-		}
-		if strings.HasSuffix(cellOf(tbl, i, "memory").Text, "iB") {
-			withMem++
-		}
-	}
-	// Only running pods have a measurement; the demo has plenty of them.
 	if withCPU < len(tbl.Rows)/2 || withMem != withCPU {
 		t.Errorf("%d of %d pods show CPU, %d show memory", withCPU, len(tbl.Rows), withMem)
 	}
