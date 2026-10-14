@@ -138,15 +138,16 @@ can connect (with the plugins the user allowed) and change nothing. It is live w
 host is configured to start `cogpit-cli mcp`; what makes it real is the user expecting the switch
 to cut agents off from cluster data altogether.
 
-Decided (owner, 2026-10-14 evening): the off switch is persisted where `cogpit-cli mcp` reads it,
-and with MCP off the bridge refuses to serve, headless too, with a clear message to the agent; the
-persisted switch gets a decision entry of its own when it is built. Not built yet; until then the
-case above is live as described. What remains once it is built: `--no-mcp` starts no server for
-one run and leaves the stored switch as it is (verified in [`cmd/cogpit/main.go`](../../cmd/cogpit/main.go)),
-so a bridge started during such a run finds no endpoint and a switch that says on, and serves
-headless; the answer does not cover the flag. A process of the user
-that can write Cogpit's configuration directory can turn the switch back on, as it can write the
-allowance of agent writes ([H-14](#h-14-allowing-agent-writes-for-a-context)).
+Decided (owner, 2026-10-14 evening) and built the same night
+([D-49](../developer/decisions.md#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp)):
+the off switch is kept in a file beside the token file (`mcp-switch`), and with it off the bridge
+serves no engine, forwarding or headless: the agent is told the server is switched off
+(`TestMCPSwitchedOffRefuses`); an unreadable switch counts as off. The case above is closed for a
+switch the user turned off. What remains: `--no-mcp` starts no server for one run and leaves the
+stored switch as it is (the lead's night decision, D-49), so a bridge started during such a run
+finds no endpoint and a switch that says on, and serves headless. A process of the user that can
+write Cogpit's configuration directory can turn the switch back on, as it can write the allowance
+of agent writes ([H-14](#h-14-allowing-agent-writes-for-a-context)).
 
 ### H-39: Every agent reads what agents did before
 

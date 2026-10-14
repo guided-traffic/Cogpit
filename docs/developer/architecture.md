@@ -2109,11 +2109,12 @@ which are the user's: they can be added again as files, or deleted by hand
   approvals; the audit log). Decided by Cogpit, not the owner: the mode is chosen once, at the
   bridge's start; a bridge forwarding to an app that quits does not fall back to a headless engine
   ([H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge)).
-  **Decided 2026-10-14 evening, not built**
-  ([D-49](decisions.md#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp), A15): the
-  user's switch is kept where the bridge can read it, and with MCP off the bridge refuses to serve,
-  headless too, with a clear message to the agent; where it is kept (Fyne's preferences are not
-  readable by `cogpit-cli`) is the build's choice.
+  The user's switch is kept where the bridge reads it (built 2026-10-14,
+  [D-49](decisions.md#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp), A15):
+  [`mcp/switch.go`](../../internal/mcp/switch.go)'s `mcp-switch` beside the token file, written by
+  the window through `fyneui.MCPSwitchStore`; with it off, `cogpit-cli mcp` serves
+  `ServeSwitchedOff` instead (the instructions and one tool, `cogpit_mcp_off`, say the server is
+  off), headless too.
 
 Example: "show me the Service with ClusterIP 1.2.3.4" becomes `resources_find {kind: services,
 field: clusterIP, value: 1.2.3.4}` → one reference → `ui_navigate {ref}` → the GUI opens Services,

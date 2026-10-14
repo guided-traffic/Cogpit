@@ -1851,11 +1851,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   notifications reaching agents as text through that filter, inline Helm values removed, instead
   of withheld; marking notifications read and clearing them the window's only; a chart's README
   framed as text of the chart's author.
-- **Decided (owner, 2026-10-14 evening; not built unless confirmed):** the MCP switch persisted and
-  honoured by `cogpit-cli mcp`, which with MCP off refuses to serve, headless too, with a clear
-  message to the agent; the switch gets its own D-entry when built
-  ([H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge));
-  `cluster.setPrometheus` by an agent as a write with
+- **Built 2026-10-14 (A15, D-49):** the MCP switch persisted and honoured by `cogpit-cli mcp`,
+  which with MCP off refuses to serve, headless too, telling the agent why
+  ([H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge)).
+- **Decided (owner, 2026-10-14 evening; not built unless confirmed):** `cluster.setPrometheus` by an agent as a write with
   confirmation ([G7](#g7-resource-actions), [G11](#g11-helm), [G12](#g12-metrics-and-cluster-overview),
   [G13](#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)). Confirmed: values under
   naming keys (user, host, port, database, namespace) not replaced; GUI-only commands listed,

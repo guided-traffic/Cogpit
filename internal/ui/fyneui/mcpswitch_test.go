@@ -164,6 +164,63 @@ func TestMCPOffIsRemembered(t *testing.T) {
 	}
 }
 
+// storingMCP is a fakeMCP that keeps the switch where cogpit-cli reads it (MCPSwitchStore, D-49).
+type storingMCP struct {
+	fakeMCP
+	stored, set bool
+	writes      []bool
+}
+
+func (m *storingMCP) StoredMCP() (on, set bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.stored, m.set
+}
+
+func (m *storingMCP) StoreMCP(on bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stored, m.set, m.writes = on, true, append(m.writes, on)
+	return nil
+}
+
+func (m *storingMCP) written() []bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]bool(nil), m.writes...)
+}
+
+// TestMCPSwitchStore (D-49, A15): the switch store decides the launch over the window's
+// preference; a store never set takes the preference once (a switch set before D-49); every click
+// that worked is stored there too, for cogpit-cli mcp.
+func TestMCPSwitchStore(t *testing.T) {
+	off := &storingMCP{stored: false, set: true}
+	sh, _, _ := newTestShell(t, connectedFake(t, 20), Options{MCP: off})
+	sh.startMCP()
+	if off.log() != "" || sh.mcp.on {
+		t.Errorf("a stored off was ignored: calls %q", off.log())
+	}
+
+	migrate := &storingMCP{}
+	sh, _, _ = newTestShell(t, connectedFake(t, 20), Options{MCP: migrate})
+	sh.app.Preferences().SetBool(prefMCPEnabled, false)
+	sh.startMCP()
+	if migrate.log() != "" || sh.mcp.on || len(migrate.written()) != 1 || migrate.written()[0] {
+		t.Errorf("the preference's off was not taken and copied: calls %q, writes %v", migrate.log(), migrate.written())
+	}
+
+	on := &storingMCP{stored: true, set: true}
+	sh, w, q := newTestShell(t, connectedFake(t, 20), Options{MCP: on})
+	sh.startMCP()
+	settle(w)
+	q.until(t, "the server on", func() bool { return sh.mcp.on })
+	test.Tap(sh.status.mcp)
+	q.until(t, "the switch stored off", func() bool { got := on.written(); return len(got) == 1 && !got[0] })
+	if sh.mcp.on {
+		t.Error("the server is still on after the click")
+	}
+}
+
 // TestMCPStartFailureShowsOff: a server that cannot start leaves the item off with the reason, and
 // the stored choice alone decides the next launch.
 func TestMCPStartFailureShowsOff(t *testing.T) {

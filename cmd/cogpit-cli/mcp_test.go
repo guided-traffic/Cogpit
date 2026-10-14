@@ -268,3 +268,35 @@ func TestMCPRefusesAForeignEndpoint(t *testing.T) {
 		t.Errorf("stderr: %s", te.errOut)
 	}
 }
+
+// TestMCPSwitchedOffRefuses: with the user's switch off (D-49, A15) the bridge serves neither the
+// running app's tools nor a headless engine's: the agent is told the server is off, also with
+// --headless; switched on again, the headless engine serves.
+func TestMCPSwitchedOffRefuses(t *testing.T) {
+	te := newTestEnv(t)
+	if err := mcp.WriteSwitch(te.dirs.Config, false); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{nil, {"--headless"}} {
+		cs, stop := te.serveMCP(t, args...)
+		if got := cs.InitializeResult().Instructions; got != mcp.SwitchedOffMessage {
+			t.Errorf("%v: instructions %q", args, got)
+		}
+		tools, err := cs.ListTools(context.Background(), nil)
+		if err != nil || len(tools.Tools) != 1 || tools.Tools[0].Name != "cogpit_mcp_off" {
+			t.Errorf("%v: tools %+v, %v", args, tools, err)
+		}
+		if code := stop(); code != exitOK {
+			t.Errorf("%v: exit code %d; stderr: %s", args, code, te.errOut)
+		}
+	}
+	if err := mcp.WriteSwitch(te.dirs.Config, true); err != nil {
+		t.Fatal(err)
+	}
+	cs, stop := te.serveMCP(t)
+	var ctxs []engine.ContextInfo
+	if res := callTool(t, cs, "cluster_contexts", nil, &ctxs); res.IsError || len(ctxs) == 0 {
+		t.Errorf("switched on: cluster_contexts %s", resultText(res))
+	}
+	stop()
+}

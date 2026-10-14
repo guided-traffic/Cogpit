@@ -28,6 +28,9 @@ that need the user's confirmation are refused, since there is no window to ask i
 same kubeconfig sources and runs only the credential plugins the user allowed in Cogpit's window.
 Every command an agent runs through it is written to Cogpit's audit log.
 
+While the user has switched Cogpit's external MCP server off (the MCP item in the status bar of
+Cogpit's window), the bridge serves none of this: it tells the agent that the server is off.
+
 stdout carries the protocol only; logs go to stderr.`
 
 func runMCP(ctx context.Context, args []string, e *env) int {
@@ -45,6 +48,18 @@ func runMCP(ctx context.Context, args []string, e *env) int {
 	t := e.mcpTransport
 	if t == nil {
 		t = &sdk.StdioTransport{}
+	}
+
+	// The user's switch of the external MCP server (D-49, A15): off, the bridge serves no engine,
+	// forwarding or headless, and tells the agent why. Unreadable counts as off.
+	if e.dirsErr == nil && e.dirs.Config != "" {
+		if on, _, err := mcp.ReadSwitch(e.dirs.Config); !on {
+			if err != nil {
+				e.logger.Warn("the MCP switch is unreadable; serving as switched off", "err", err)
+			}
+			e.logger.Info("Cogpit's external MCP server is switched off in its window; telling the agent so")
+			return served(e, mcp.ServeSwitchedOff(ctx, t, buildinfo.Version()))
+		}
 	}
 
 	if !*headless && e.dirsErr == nil && e.dirs.Config != "" {

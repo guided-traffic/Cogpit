@@ -44,9 +44,40 @@ type MCPControl interface {
 	Stop() error
 }
 
-// prefMCPEnabled is the preference that remembers the user's switch across restarts. Absent means
-// on, as before the switch existed; only a click writes it.
+// MCPSwitchStore keeps the user's switch where cogpit-cli reads it too (D-49, A15): an MCPControl
+// that implements it is asked at launch and told after every click. The desktop app's does
+// (cmd/cogpit, a file beside the token file); without it the window keeps the switch in Fyne's
+// preferences only.
+type MCPSwitchStore interface {
+	// StoredMCP returns the stored switch and whether the user ever set it.
+	StoredMCP() (on, set bool)
+	// StoreMCP stores the switch.
+	StoreMCP(on bool) error
+}
+
+// prefMCPEnabled is the preference that remembered the user's switch before D-49, and still does
+// beside the switch store. Absent means on, as before the switch existed; only a click writes it.
 const prefMCPEnabled = "mcp.enabled"
+
+// storedMCP returns whether the server starts at launch: the switch store's choice, else the
+// preference's, which is then copied into the store once (a switch set before D-49).
+func (sh *shell) storedMCP(ctl MCPControl) bool {
+	pref := true
+	if sh.app != nil {
+		pref = sh.app.Preferences().BoolWithFallback(prefMCPEnabled, true)
+	}
+	st, ok := ctl.(MCPSwitchStore)
+	if !ok {
+		return pref
+	}
+	if on, set := st.StoredMCP(); set {
+		return on
+	}
+	if err := st.StoreMCP(pref); err != nil {
+		slog.Warn("MCP switch not stored", "err", err)
+	}
+	return pref
+}
 
 // mcpState is what the window knows of the MCP server. Main goroutine only.
 type mcpState struct {
@@ -92,7 +123,7 @@ func (sh *shell) startMCP() {
 	if ctl == nil {
 		return
 	}
-	if sh.app != nil && !sh.app.Preferences().BoolWithFallback(prefMCPEnabled, true) {
+	if !sh.storedMCP(ctl) {
 		sh.applyMCP(false, MCPEndpoint{}, "")
 		return
 	}
@@ -155,6 +186,11 @@ func (sh *shell) toggleMCP() {
 				sh.app.Preferences().SetBool(prefMCPEnabled, want)
 			}
 		})
+		if st, ok := ctl.(MCPSwitchStore); ok { // off the main goroutine: a file write
+			if err := st.StoreMCP(want); err != nil {
+				sh.do(func() { sh.toast("error", "Cogpit could not store the MCP switch for cogpit-cli: "+err.Error()) })
+			}
+		}
 	}()
 }
 

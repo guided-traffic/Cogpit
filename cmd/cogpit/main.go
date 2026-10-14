@@ -139,10 +139,15 @@ func run(previousCrash string) int {
 			logger.Warn("MCP server not started", "err", err)
 		} else {
 			// The window starts the server, unless the user switched it off in an earlier run, and
-			// switches it from the status bar. Quitting closes it for good. --no-mcp wins over
-			// the stored choice: no server, no item.
+			// switches it from the status bar; the choice is kept where cogpit-cli mcp reads it too
+			// (D-49). Quitting closes it for good. --no-mcp wins over the stored choice for this
+			// run: no server, no item, the stored choice left as it is.
 			defer func() { _ = srv.Close() }()
-			opts.MCP = &mcpControl{srv: srv, session: s, logger: logger, out: os.Stdout, cli: bundledCLI()}
+			ctl := &mcpControl{srv: srv, session: s, logger: logger, out: os.Stdout, cli: bundledCLI()}
+			if dirs, err := app.UserDirs(); err == nil {
+				ctl.config = dirs.Config
+			}
+			opts.MCP = ctl
 		}
 	}
 	if *perf > 0 || *perfMode != "" {

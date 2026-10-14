@@ -28,9 +28,36 @@ type mcpControl struct {
 	// window offers the stdio registration, made once, instead of the HTTP one with this run's port
 	// and token (D-2).
 	cli string
+	// config is Cogpit's configuration directory, where the switch is kept for cogpit-cli (D-49);
+	// "" keeps it in the window's preferences only.
+	config string
 }
 
-var _ fyneui.MCPControl = (*mcpControl)(nil)
+var (
+	_ fyneui.MCPControl     = (*mcpControl)(nil)
+	_ fyneui.MCPSwitchStore = (*mcpControl)(nil)
+)
+
+// StoredMCP implements fyneui.MCPSwitchStore. A switch file that cannot be read counts as set and
+// off, as cogpit-cli reads it: the server stays off until the user clicks.
+func (c *mcpControl) StoredMCP() (on, set bool) {
+	if c.config == "" {
+		return true, false
+	}
+	on, set, err := mcp.ReadSwitch(c.config)
+	if err != nil {
+		c.logger.Warn("MCP switch unreadable; the server stays off", "err", err)
+	}
+	return on, set
+}
+
+// StoreMCP implements fyneui.MCPSwitchStore: the switch file cogpit-cli mcp reads (D-49).
+func (c *mcpControl) StoreMCP(on bool) error {
+	if c.config == "" {
+		return nil
+	}
+	return mcp.WriteSwitch(c.config, on)
+}
 
 // Start implements fyneui.MCPControl. The server gets a new token and listener on every start. The
 // command for the window is the stdio registration of the bundled cogpit-cli when there is one,

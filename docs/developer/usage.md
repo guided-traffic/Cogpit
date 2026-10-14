@@ -207,8 +207,9 @@ cogpit-cli get services --context demo                      # the synthetic demo
 
 Security note on `mcp`: the bridge sends the token from Cogpit's token file only to the loopback
 URL in `mcp-endpoint`, follows no redirect and uses no proxy. Switching the MCP server off in the
-status bar stops a bridge that forwards to the app, but not one that serves its own engine, which
-reads clusters and refuses every write ([H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge)).
+status bar stops a bridge that forwards to the app, and a bridge started while it is off serves
+no engine, headless included: the agent is told the server is off (`mcp-switch`, D-49). A run
+with `--no-mcp` leaves the switch as it is ([H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge)).
 
 Security note on `get`: it only reads (`resources_list` and `object_get` through the cache, origin
 CLI), prints a Secret's key names and sizes but never a value, and refuses a context whose
@@ -380,6 +381,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | MCP endpoint | `http://127.0.0.1:<random port>/mcp`, new port on every start | `http://127.0.0.1:59449/mcp` # example |
 | MCP bearer token | `<user config dir>/Cogpit/mcp-token`, owner-only (0600, directory 0700), new on every start, removed on exit and when you switch the external MCP server off | |
 | MCP endpoint file | `<user config dir>/Cogpit/mcp-endpoint`, beside the token and with its rules: the endpoint's URL, for `cogpit-cli mcp` | `http://127.0.0.1:59449/mcp` # example |
+| MCP switch | `<user config dir>/Cogpit/mcp-switch`, beside the token and with its rules: `on` or `off`, the status bar's MCP switch, written only by a click in the window; `cogpit-cli mcp` serves nothing but a note that the server is off while it says `off` (D-49) | `off` # example; no file means on |
 | Audit log | `<user config dir>/Cogpit/audit.log`, owner-only, one JSON line per agent-initiated command; read back newest first in Help › Audit Log and by `audit_list` (its last 4 MiB) | |
 | Agent chat connections | `<user config dir>/Cogpit/llm-connections.json`, owner-only (0600, directory 0700): each LLM connection's id, name, kind (`lmstudio`, `litellm`, `openwebui`, `openai`), base URL, model, limits, private mark, whether a key is in the keychain and which one is the default; never a key ([D-10](decisions.md#d-10-built-in-agent)) | |
 | Agent chat API keys | the login keychain, a generic password per connection: service `io.guided-traffic.cogpit.llm`, account the connection's id, label `Cogpit LLM connection` (macOS only so far) | |

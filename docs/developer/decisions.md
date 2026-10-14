@@ -72,7 +72,7 @@ window. Nothing of it was built in the round.
 | A12 | D-4 | Agents and the CLI may turn the automatic update checks on, never off; the user both ways; as built. SPARKLE's technical defaults not asked: they stand as built | [D-4](#d-4-packaging-and-updates), [D-2](#d-2-agent-interface-scope) |
 | A13 | #3, H-42 | A repository that appears in Helm's file while Cogpit runs is downloaded at once; as built | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml), [H-42](../security/trust-boundaries.md#h-42-a-repository-another-program-writes-into-helms-file-is-used-without-asking) |
 | A14 | #4, H-41 | An http or insecure-TLS origin marked in the Charts view (the repository cell), the Install tab and the install and upgrade confirmations; to build | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml), [H-41](../security/trust-boundaries.md#h-41-repositories-whose-content-nothing-authenticates) |
-| A15 | #31, H-28 | The MCP off switch persisted and honoured by `cogpit-cli mcp`: off, the bridge refuses to serve, headless too, with a clear message to the agent; to build | [D-49](#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp), [D-23](#d-23-a-link-to-the-owner-in-the-status-bar), [H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge) |
+| A15 | #31, H-28 | The MCP off switch persisted and honoured by `cogpit-cli mcp`: off, the bridge refuses to serve, headless too, with a clear message to the agent; built 2026-10-14 | [D-49](#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp), [D-23](#d-23-a-link-to-the-owner-in-the-status-bar), [H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge) |
 | A16 | #40, H-26 | `cluster.setPrometheus` by an agent a write with confirmation (mutating); the window as today; to build | [D-2](#d-2-agent-interface-scope), [H-26](../security/privilege-footprint.md#h-26-prometheus-is-found-by-name) |
 | A17 | #45, D-11 | Nothing offered after an interrupted Helm install; Cogpit shows the release's state; the user cleans up in the Helm Releases view; to build (the offer removed) | [D-11](#d-11-crash-stance) |
 | A18 | #81, H-32 | Marking notifications read and clearing them GUI-only; agents read the list; built 2026-10-14 | [D-2](#d-2-agent-interface-scope), [H-32](../security/agents-and-mcp.md#h-32-an-agent-can-clear-the-users-notifications) |
@@ -1349,7 +1349,8 @@ the address; there is no environment variable. A failed start at launch shows th
 reason in its tooltip and leaves the stored choice alone. **Decided (owner, 2026-10-14 evening,
 A15):** the switch stays persisted and `cogpit-cli mcp` honours it: with MCP off the bridge refuses
 to serve, headless too, with a clear message to the agent. A record of its own:
-[D-49](#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp). Not built yet.
+[D-49](#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp), built 2026-10-14 (the
+choice kept in a file beside the token file, where `cogpit-cli` reads it).
 
 ## D-24: Logo
 
@@ -3222,13 +3223,13 @@ come with their packages, G22), rather than a switch that does nothing.
 ## D-49: The external MCP server's switch, honoured by `cogpit-cli mcp`
 
 **Decided (owner, 2026-10-14 evening, A15,
-[H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge)); not built.**
+[H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge)); built 2026-10-14.**
 "The MCP off switch is persisted and honoured by cogpit-cli mcp: with MCP off the bridge refuses
 to serve (headless too), with a clear message to the agent." The switch itself is the status bar's
 item of [D-23](#d-23-a-link-to-the-owner-in-the-status-bar); the night run asked (#117) for a
 record of its own once its reach was decided, and this is it.
 
-**Today (verified in this repository):** the window keeps the user's choice in Fyne's preferences
+**Before (verified in this repository, until 2026-10-14):** the window kept the user's choice in Fyne's preferences
 (`mcp.enabled`, absent means on, written only by a click; [`fyneui/mcp.go`](../../internal/ui/fyneui/mcp.go))
 and reads it at the app's next start; `--no-mcp` wins for a run. Switching it off stops the app's
 HTTP endpoint and removes the token and endpoint files. `cogpit-cli mcp` never reads the choice:
@@ -3246,13 +3247,31 @@ has MCP switched off.
 | (a) As built: the switch stops the app's endpoint only | Nothing to build | "Off" does not mean off for an agent host that starts the bridge |
 | **(b) The switch persisted where the bridge reads it, the bridge refusing to serve while it is off, headless too (decided)** | One switch for every way in; the agent is told why | The bridge depends on a setting of the app's; a user who wants only the headless bridge must switch MCP on |
 
-**For the build to settle (not decided):** where the choice is kept so that `cogpit-cli`, which
-has no Fyne, can read it (Fyne's preferences belong to the window toolkit; a file of Cogpit's own
-in its configuration directory, read through `internal/app`, would serve both binaries); what a
-bridge that is forwarding does when the user switches MCP off while it runs (its mode is chosen
-once, at its start, today); whether `--no-mcp`, a flag of one run, binds a bridge (the decision
-names the persisted switch only); the message's wording. D-2's copied registration command is
-offered only while the external server runs, as before.
+**Built 2026-10-14** ([`mcp/switch.go`](../../internal/mcp/switch.go),
+[`cogpit-cli/mcp.go`](../../cmd/cogpit-cli/mcp.go), [`fyneui/mcp.go`](../../internal/ui/fyneui/mcp.go),
+[`cogpit/mcpcontrol.go`](../../cmd/cogpit/mcpcontrol.go); `TestSwitchFile`, `TestServeSwitchedOff`,
+`TestMCPSwitchedOffRefuses`, `TestMCPSwitchStore`). **The lead's night decisions for the owner to
+confirm** on what the decision left to the build:
+
+- *Where the choice is kept:* ★ a file `mcp-switch` ("on" or "off") beside the token file in
+  Cogpit's configuration directory, owner-only and atomic like the token, written by the window's
+  status bar item only (`fyneui.MCPSwitchStore`, implemented by the app's `mcpControl`); no file
+  means on. Options: Fyne's preferences (cogpit-cli has no Fyne), the engine's `preferences.json`
+  (then `preferences.set` would carry it as a command parameter agents could reach). A switch set
+  before this build, in Fyne's preferences, is copied into the file at the next launch. A file that
+  holds anything else, or is a symlink, reads as off: the switch fails closed.
+- *What the agent is told:* ★ the bridge serves an MCP server whose instructions say the server is
+  switched off in Cogpit's window and to ask the user, with one tool, `cogpit_mcp_off`, that
+  returns the same as an error; it reaches no engine. Options: exit with an error on stderr (an
+  agent host shows only "server failed").
+- *A bridge forwarding when the user switches off:* ★ unchanged: the app removes its token and
+  endpoint files, the bridge's next call fails ("switched its MCP server off") and it does not fall
+  back to a headless engine (its mode is chosen at its start).
+- *`--no-mcp`* (the round's follow-up 7): ★ a flag of one run binds nothing: the stored switch
+  stays as the user set it, so a bridge started during such a run serves headless if the switch
+  says on. Options: a run marker the bridge honours (a crashed run would leave it behind).
+
+D-2's copied registration command is offered only while the external server runs, as before.
 
 ## D-50: kubectl's signature check
 
