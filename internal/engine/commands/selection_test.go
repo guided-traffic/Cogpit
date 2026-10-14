@@ -80,6 +80,56 @@ func TestSelectModes(t *testing.T) {
 	}
 }
 
+// TestSelectOpenKeepsTheCheckedRows: the owner's decision A73: a plain click on a row (ui.select's
+// mode open) opens its drawer and keeps the checked rows checked; the clicked row neither joins nor
+// leaves the selection; what an agent reads in ui_state follows. Open takes exactly one object.
+func TestSelectOpenKeepsTheCheckedRows(t *testing.T) {
+	h := newHarness(t, seed(), engine.Options{})
+	gui := engine.OriginGUI
+	h.must(t, gui, "ui.openView", map[string]any{"view": "pods"}, nil)
+	waitTable(t, h.s, "pods", func(s *engine.TableSnapshot) bool { return len(s.Rows) == 4 })
+	pod := func(ns, name string) model.ObjectRef { return model.ObjectRef{Kind: "pods", Namespace: ns, Name: name} }
+	sel := func() []string { return refNames(h.s.UIState().Selected) }
+
+	// Two rows checked with their checkboxes, no drawer.
+	h.must(t, gui, "ui.select", map[string]any{"refs": []model.ObjectRef{pod("shop", "web-0"), pod("infra", "web-1")}, "mode": "toggle", "noDrawer": true}, nil)
+	if u := h.s.UIState(); !slices.Equal(sel(), []string{"shop/web-0", "infra/web-1"}) || u.Drawer != nil {
+		t.Fatalf("checked: %v, drawer %v", sel(), u.Drawer)
+	}
+
+	// A click on an unchecked row: its drawer, the checked rows stay, the row is not checked.
+	var st engine.UIState
+	h.must(t, gui, "ui.select", map[string]any{"refs": []model.ObjectRef{pod("shop", "web-1")}, "mode": "open"}, &st)
+	if !slices.Equal(refNames(st.Selected), []string{"shop/web-0", "infra/web-1"}) || st.Drawer == nil || st.Drawer.Key() != "shop/web-1" {
+		t.Fatalf("after a click on shop/web-1: selected %v, drawer %v", refNames(st.Selected), st.Drawer)
+	}
+	// A click on a checked row: its drawer, it stays checked.
+	h.must(t, gui, "ui.select", map[string]any{"refs": []model.ObjectRef{pod("infra", "web-1")}, "mode": "open"}, nil)
+	if u := h.s.UIState(); !slices.Equal(sel(), []string{"shop/web-0", "infra/web-1"}) || u.Drawer == nil || u.Drawer.Key() != "infra/web-1" {
+		t.Fatalf("after a click on infra/web-1: %v, drawer %v", sel(), u.Drawer)
+	}
+	// With nothing checked a click checks nothing: the drawer alone.
+	h.must(t, gui, "ui.select", map[string]any{"refs": []model.ObjectRef{}, "noDrawer": true}, nil)
+	h.must(t, gui, "ui.select", map[string]any{"refs": []model.ObjectRef{pod("infra", "web-0")}, "mode": "open"}, nil)
+	if u := h.s.UIState(); len(u.Selected) != 0 || u.Drawer == nil || u.Drawer.Key() != "infra/web-0" {
+		t.Fatalf("a click without checked rows: %v, drawer %v", sel(), u.Drawer)
+	}
+
+	for _, bad := range []map[string]any{
+		{"mode": "open", "refs": []model.ObjectRef{}},
+		{"mode": "open", "refs": []model.ObjectRef{pod("shop", "web-0"), pod("shop", "web-1")}},
+		{"mode": "open", "all": true},
+		{"mode": "open", "refs": []model.ObjectRef{pod("shop", "web-0")}, "noDrawer": true},
+	} {
+		if err := h.run(t, engine.OriginExternalAgent, "ui.select", bad, nil); err == nil || !strings.Contains(err.Error(), "exactly one") {
+			t.Errorf("%v: %v, want the one-object refusal", bad, err)
+		}
+	}
+	if u := h.s.UIState(); len(u.Selected) != 0 || u.Drawer == nil || u.Drawer.Key() != "infra/web-0" {
+		t.Fatalf("a refused open changed the state: %v, drawer %v", sel(), u.Drawer)
+	}
+}
+
 // recorder is a confirmer that answers yes (or no) and keeps every request.
 type recorder struct {
 	mu     sync.Mutex

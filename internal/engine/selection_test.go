@@ -21,8 +21,8 @@ func names(refs []model.ObjectRef) []string {
 	return out
 }
 
-// TestApplySelection: the four modes keep the selection's order, add in the given order, never hold
-// an object twice, and leave their inputs alone.
+// TestApplySelection: the modes keep the selection's order, add in the given order, never hold an
+// object twice, and leave their inputs alone; open leaves the selection as it is.
 func TestApplySelection(t *testing.T) {
 	cur := []model.ObjectRef{cm("a"), cm("b")}
 	for _, tc := range []struct {
@@ -36,6 +36,9 @@ func TestApplySelection(t *testing.T) {
 		{SelectToggle, []model.ObjectRef{cm("a"), cm("c")}, []string{"b", "c"}},
 		{SelectToggle, []model.ObjectRef{cm("a"), cm("a")}, []string{"b"}},
 		{SelectRemove, []model.ObjectRef{cm("b"), cm("x")}, []string{"a"}},
+		// A plain click on a row (A73): the selection stays, the clicked object neither joins nor leaves.
+		{SelectOpen, []model.ObjectRef{cm("c")}, []string{"a", "b"}},
+		{SelectOpen, []model.ObjectRef{cm("a")}, []string{"a", "b"}},
 	} {
 		got := ApplySelection(cur, tc.refs, tc.mode)
 		if !slices.Equal(names(got), tc.want) {
@@ -51,7 +54,10 @@ func TestApplySelection(t *testing.T) {
 	if !slices.Equal(names(cur), []string{"a", "b"}) {
 		t.Errorf("the input changed: %v", names(cur))
 	}
-	for in, want := range map[string]SelectMode{"": SelectReplace, "add": SelectAdd, "toggle": SelectToggle, "remove": SelectRemove} {
+	if got := ApplySelection(nil, []model.ObjectRef{cm("c")}, SelectOpen); len(got) != 0 {
+		t.Errorf("open on no selection: %v, want none", names(got))
+	}
+	for in, want := range map[string]SelectMode{"": SelectReplace, "add": SelectAdd, "toggle": SelectToggle, "remove": SelectRemove, "open": SelectOpen} {
 		if got, err := ParseSelectMode(in); err != nil || got != want {
 			t.Errorf("ParseSelectMode(%q) = %q, %v", in, got, err)
 		}

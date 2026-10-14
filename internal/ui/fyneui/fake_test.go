@@ -398,7 +398,7 @@ func (f *fakeEngine) Dispatch(ctx context.Context, inv engine.Invocation) (any, 
 		}
 		f.update(func(u *engine.UIState) {
 			u.Selected = engine.ApplySelection(u.Selected, refs, mode)
-			if mode == engine.SelectReplace && !p.NoDrawer && len(refs) > 0 {
+			if (mode == engine.SelectReplace || mode == engine.SelectOpen) && !p.NoDrawer && len(refs) > 0 { // open: a plain click (A73)
 				r := refs[0]
 				u.Drawer = &r
 			}

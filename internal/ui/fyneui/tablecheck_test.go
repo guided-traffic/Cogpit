@@ -9,6 +9,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
@@ -96,7 +97,7 @@ func refKeys(refs []model.ObjectRef) []string {
 
 // TestRowCheckboxes: every row starts with a checkbox; a checkbox toggles its row without the
 // drawer, ⇧ adds the rows from the last one checked, ⌘-click on a row toggles it, a plain click
-// selects only its row and opens the drawer; from two selected objects the header shows the
+// opens the drawer and checks nothing (A73); from two selected objects the header shows the
 // selection's count, Delete and a clear button.
 func TestRowCheckboxes(t *testing.T) {
 	f := connectedFake(t, 200)
@@ -157,11 +158,102 @@ func TestRowCheckboxes(t *testing.T) {
 		t.Error("the selection bar stays without a selection")
 	}
 
-	// A plain click selects its row only and opens the drawer, as before.
+	// A plain click opens the drawer and checks nothing (A73: ui.select's mode open).
 	test.Tap(cellAt(t, sh, 7, firstDataColumn+1))
 	q.until(t, "the drawer", func() bool { return sh.ui.Drawer != nil })
-	if p := lastSelect(t, f); p.Mode != "" || p.NoDrawer || len(p.Refs) != 1 || p.Refs[0] != rows[7].Ref {
+	if p := lastSelect(t, f); p.Mode != "open" || p.NoDrawer || len(p.Refs) != 1 || p.Refs[0] != rows[7].Ref {
 		t.Fatalf("a click sent %+v", p)
+	}
+	if len(sh.ui.Selected) != 0 {
+		t.Errorf("a click checked %v", sh.ui.Selected)
+	}
+}
+
+// tableScroll is the open view's table's scroller: its offset is how far the table is scrolled.
+func tableScroll(t *testing.T, sh *shell) *container.Scroll {
+	t.Helper()
+	for _, s := range findAll[*container.Scroll](sh.view.table) {
+		if s.OnScrolled != nil { // the body's, which resourceTable hooks
+			return s
+		}
+	}
+	t.Fatal("no scroller in the table")
+	return nil
+}
+
+// TestPlainClickKeepsTheCheckedRows: the owner's decision A73: a plain click on a row opens its
+// drawer and keeps the checked rows checked. The clicked row is highlighted as the drawer's, its
+// checkbox as it was; the selection bar and the header's checkbox still count the checked rows; a
+// click on a checked row keeps it checked; ⌘-click still toggles, without moving the drawer or
+// scrolling back to the first checked row.
+func TestPlainClickKeepsTheCheckedRows(t *testing.T) {
+	f := connectedFake(t, 200)
+	sh, w, q := newTestShell(t, f, Options{})
+	q.until(t, "kinds", func() bool { return len(sh.kinds) > 0 && sh.view.snap != nil })
+	settle(w)
+	rows := f.tables["pods"].Rows
+	tv := sh.view
+	checked, unchecked := tv.cellIcon(cellContent{kind: cellCheck}, true), tv.cellIcon(cellContent{kind: cellCheck}, false)
+
+	test.Tap(cellAt(t, sh, 2, checkColumn))
+	test.Tap(cellAt(t, sh, 4, checkColumn))
+	q.until(t, "two rows checked", func() bool { return len(sh.ui.Selected) == 2 })
+	want := refKeys([]model.ObjectRef{rows[2].Ref, rows[4].Ref})
+
+	test.Tap(cellAt(t, sh, 7, firstDataColumn+1))
+	q.until(t, "the drawer on row 7", func() bool { return sh.ui.Drawer != nil && *sh.ui.Drawer == rows[7].Ref })
+	settle(w)
+	if got := refKeys(sh.ui.Selected); !slices.Equal(got, want) {
+		t.Fatalf("after a click on row 7 the selection is %v, want %v", got, want)
+	}
+	if p := lastSelect(t, f); p.Mode != "open" || p.NoDrawer || len(p.Refs) != 1 || p.Refs[0] != rows[7].Ref {
+		t.Fatalf("the click sent %+v", p)
+	}
+	for _, r := range []struct {
+		row             int
+		selected, check bool
+	}{{2, true, true}, {4, true, true}, {7, true, false}, {5, false, false}} {
+		box, name := cellAt(t, sh, r.row, checkColumn), cellAt(t, sh, r.row, firstDataColumn+1)
+		icon := unchecked
+		if r.check {
+			icon = checked
+		}
+		if box.iconRes != icon || name.selected != r.selected || box.selected != r.selected {
+			t.Errorf("row %d: checked icon %v (want %v), highlighted %v (want %v)", r.row, box.iconRes == checked, r.check, name.selected, r.selected)
+		}
+	}
+	if !tv.check.bar.root.Visible() || tv.check.bar.count.text != "2 selected" || tv.check.state != checkSome {
+		t.Errorf("selection bar %v %q, header state %d", tv.check.bar.root.Visible(), tv.check.bar.count.text, tv.check.state)
+	}
+
+	// A click on a checked row: its drawer, still checked; row 7 is no longer highlighted.
+	test.Tap(cellAt(t, sh, 4, firstDataColumn+1))
+	q.until(t, "the drawer on row 4", func() bool { return sh.ui.Drawer != nil && *sh.ui.Drawer == rows[4].Ref })
+	settle(w)
+	if got := refKeys(sh.ui.Selected); !slices.Equal(got, want) {
+		t.Fatalf("after a click on the checked row 4 the selection is %v, want %v", got, want)
+	}
+	if c := cellAt(t, sh, 7, firstDataColumn+1); c.selected {
+		t.Error("row 7 stays highlighted after the drawer moved on")
+	}
+	if c := cellAt(t, sh, 4, checkColumn); c.iconRes != checked {
+		t.Error("row 4 lost its check with the click")
+	}
+
+	// ⌘-click far down toggles that row; the drawer stays, and the table stays where it is.
+	release := heldKeys(t, fyne.KeyModifierShortcutDefault)
+	far := cellAt(t, sh, 150, firstDataColumn+1) // scrolls there
+	scroll := tableScroll(t, sh)
+	at := scroll.Offset
+	test.Tap(far)
+	release()
+	q.until(t, "row 150 checked", func() bool { return len(sh.ui.Selected) == 3 })
+	settle(w)
+	if *sh.ui.Drawer != rows[4].Ref {
+		t.Errorf("⌘-click moved the drawer to %v", sh.ui.Drawer)
+	}
+	if scroll.Offset != at {
+		t.Errorf("⌘-click scrolled the table from %v to %v (to the first checked row)", at, scroll.Offset)
 	}
 }
 
@@ -295,6 +387,33 @@ func renderSelection(t *testing.T, mode ThemeMode, name string) {
 	q.until(t, "the selection menu", func() bool { return sh.view.menu != nil })
 	settle(w)
 	savePNG(t, w, name)
+}
+
+// renderClickKeepsChecks checks three pods, then clicks a fourth (A73): its drawer opens, the three
+// stay checked, and the clicked row is highlighted with its checkbox empty.
+func renderClickKeepsChecks(t *testing.T, mode ThemeMode, name string) {
+	f := kindsFake(t, "pods")
+	withDeleteMany(t, f)
+	sh, w, q := newTestShell(t, f, Options{Theme: mode})
+	q.until(t, "the pods view", func() bool { return len(sh.kinds) > 0 && sh.view.snap != nil && sh.diag.total > 0 })
+	settle(w)
+	for _, row := range []int{1, 2, 4} {
+		test.Tap(cellAt(t, sh, row, checkColumn))
+		q.until(t, "the row checked", func() bool { return sh.view.check.has(sh.view.snap.Rows[row].Ref) })
+	}
+	clicked := sh.view.snap.Rows[6].Ref
+	test.Tap(cellAt(t, sh, 6, firstDataColumn+1))
+	q.until(t, "the drawer", func() bool { return sh.drawer.shown != nil && *sh.drawer.shown == clicked })
+	if len(sh.ui.Selected) != 3 {
+		t.Fatalf("the click left %d rows checked, want 3", len(sh.ui.Selected))
+	}
+	settle(w)
+	savePNG(t, w, name)
+}
+
+func TestRenderClickKeepsTheCheckedRows(t *testing.T) {
+	renderClickKeepsChecks(t, ThemeDark, "selection_click_dark.png")
+	renderClickKeepsChecks(t, ThemeLight, "selection_click_light.png")
 }
 
 func TestRenderSelectionDark(t *testing.T) { renderSelection(t, ThemeDark, "selection_menu_dark.png") }

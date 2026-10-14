@@ -473,6 +473,9 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	if first || !slices.Equal(st.Selected, old.Selected) {
 		sh.view.selectionChanged(st.Selected)
 	}
+	if first || !sameRef(st.Drawer, old.Drawer) || st.View != old.View {
+		sh.view.drawerChanged(st.Drawer) // its row's highlight and the scroll to it (tableview.go)
+	}
 	if first || !sameRef(st.Drawer, old.Drawer) {
 		sh.drawerChanged()
 	}

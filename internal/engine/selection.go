@@ -9,18 +9,20 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
-// Selections (ui-parity › Tables, G5, G7, G9). UIState.Selected is the open view's selection, which
-// ui.select sets for the user (a click on a row, the row checkboxes, the header's checkbox, ⌘- and
+// Selections (ui-parity › Tables, G5, G7, G9). UIState.Selected is the open view's selection, the
+// checked rows, which ui.select sets for the user (the row checkboxes, the header's checkbox, ⌘- and
 // ⇧-click) and for agents alike, so both see and drive the same selection. An action on a selection
 // is a command whose parameters take the objects in a required "refs" array (ParamRefs) and that
 // has an Order: object.deleteMany. Registry.SelectionActions lists them for a selection's menu, and
 // Registry.Actions (the menus of one object) leaves them out.
 //
-// Cogpit's defaults (inferred, not the owner's decision, 2026-10-13): a plain click on a row
-// replaces the selection and opens the drawer as before; a checkbox, ⌘-click and ⇧-click change the
-// selection without opening the drawer; the header's checkbox selects the rows the view shows (the
-// namespace filter and the search applied) or clears the selection; an action takes at most
-// MaxSelection objects at once.
+// The owner's decision (A73, 2026-10-14 evening; built 2026-10-15): a plain click on a row opens
+// its drawer and keeps the checked rows checked. The click is ui.select's mode open (SelectOpen):
+// the drawer moves to the row's object and the selection stays as it is, the clicked row neither
+// checked nor unchecked. Cogpit's defaults (inferred, not the owner's decision, 2026-10-13): a
+// checkbox, ⌘-click and ⇧-click change the selection without opening the drawer; the header's
+// checkbox selects the rows the view shows (the namespace filter and the search applied) or clears
+// the selection; an action takes at most MaxSelection objects at once.
 
 // ParamRefs is the parameter of a command that acts on a selection: the objects (model.ObjectRef).
 const ParamRefs = "refs"
@@ -39,6 +41,7 @@ const (
 	SelectAdd     SelectMode = "add"     // the objects join the selection
 	SelectToggle  SelectMode = "toggle"  // each object joins, or leaves when it is selected
 	SelectRemove  SelectMode = "remove"  // the objects leave the selection
+	SelectOpen    SelectMode = "open"    // the selection stays; the drawer opens on the one object (a plain click, A73)
 )
 
 // ParseSelectMode reads a mode as ui.select takes it; "" is SelectReplace.
@@ -46,10 +49,10 @@ func ParseSelectMode(s string) (SelectMode, error) {
 	switch m := SelectMode(s); m {
 	case "":
 		return SelectReplace, nil
-	case SelectReplace, SelectAdd, SelectToggle, SelectRemove:
+	case SelectReplace, SelectAdd, SelectToggle, SelectRemove, SelectOpen:
 		return m, nil
 	}
-	return "", fmt.Errorf("unknown selection mode %q: want replace, add, toggle or remove", s)
+	return "", fmt.Errorf("unknown selection mode %q: want replace, add, toggle, remove or open", s)
 }
 
 // selKey identifies an object within one cluster: a selection holds the objects of the connected
@@ -57,9 +60,12 @@ func ParseSelectMode(s string) (SelectMode, error) {
 func selKey(r model.ObjectRef) string { return r.Kind + "\x00" + r.Namespace + "\x00" + r.Name }
 
 // ApplySelection returns the selection after mode applied refs to cur. The result keeps cur's
-// order, then the objects that joined in refs' order, and holds no object twice. It allocates a
-// new slice; cur and refs are not changed.
+// order, then the objects that joined in refs' order, and holds no object twice; SelectOpen keeps
+// cur as it is (the drawer is ui.select's). It allocates a new slice; cur and refs are not changed.
 func ApplySelection(cur, refs []model.ObjectRef, mode SelectMode) []model.ObjectRef {
+	if mode == SelectOpen {
+		return slices.Clone(cur)
+	}
 	in := make(map[string]bool, len(refs))
 	for _, r := range refs {
 		in[selKey(r)] = true

@@ -20,9 +20,13 @@ import (
 // selection is the engine's (UIState.Selected, set with ui.select), so a checkbox, a click and an
 // agent change the same selection, and each tab keeps its own.
 //
+// The owner's decision (A73, 2026-10-14 evening; built 2026-10-15): a plain click on a row opens its
+// drawer and keeps the checked rows checked (ui.select's mode open, openDetails); the row is
+// highlighted as the drawer's while its checkbox stays as it was. So are ↵ and Space on a row, a
+// click on a link to the row's own object and the row menu's Show Details.
+//
 // Cogpit's defaults (inferred, not the owner's decision, 2026-10-13):
-//   - a checkbox toggles its row without opening the drawer; a click on a row selects only that row
-//     and opens the drawer, as before;
+//   - a checkbox toggles its row without opening the drawer;
 //   - ⌘-click (Ctrl-click off macOS) toggles a row, ⇧-click (on a row or a checkbox) adds the rows
 //     from the last row clicked or checked, neither opens the drawer;
 //   - the header's checkbox selects the rows the view shows (the namespace filter and the search
@@ -47,7 +51,7 @@ const (
 )
 
 // minSelectionBar is the selection size from which the header shows the selection's actions:
-// one selected object is the drawer's, and its row menu acts on it.
+// the row menu of one checked object acts on it.
 const minSelectionBar = 2
 
 // selectModeParams are ui.select's parameters with its mode (engine/commands/ui.go).
@@ -131,6 +135,12 @@ func (tv *tableView) checksChanged() {
 	if tv.check.bar != nil {
 		tv.check.bar.update(len(tv.selected))
 	}
+}
+
+// openDetails opens the drawer on an object of the open view as a plain click on its row does:
+// ui.select's mode open, which leaves the selection, the checked rows, as it is (A73).
+func (sh *shell) openDetails(ref model.ObjectRef) {
+	sh.dispatch("ui.select", selectModeParams{Refs: []model.ObjectRef{ref}, Mode: string(engine.SelectOpen)}, nil)
 }
 
 // selectRows dispatches ui.select with a mode, never opening the drawer.
@@ -217,7 +227,7 @@ func (tv *tableView) clearSelection() {
 
 // inSelection reports whether a row's menu acts on the selection: the row is selected, with others.
 func (tv *tableView) inSelection(row int) bool {
-	return len(tv.selected) >= minSelectionBar && tv.rowSelected(row)
+	return len(tv.selected) >= minSelectionBar && tv.rowChecked(row)
 }
 
 // selectionAction is an action on a selection evaluated off the main goroutine.

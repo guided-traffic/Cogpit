@@ -125,14 +125,15 @@ func TestRowTapDispatchesSelect(t *testing.T) {
 	pos := fyne.CurrentApp().Driver().AbsolutePositionForObject(cell).AddXY(8, cell.Size().Height/2)
 	test.TapCanvas(w.Canvas(), pos)
 	q.until(t, "ui.select", func() bool { return len(f.callsOf("ui.select")) == 1 })
-	p := decodeParams[selectParams](t, f.callsOf("ui.select")[0])
+	p := decodeParams[selectModeParams](t, f.callsOf("ui.select")[0])
 	want := f.tables["pods"].Rows[3].Ref
-	if len(p.Refs) != 1 || p.Refs[0] != want || p.NoDrawer {
-		t.Fatalf("ui.select %+v, want %v with the drawer", p, want)
+	if len(p.Refs) != 1 || p.Refs[0] != want || p.NoDrawer || p.Mode != "open" {
+		t.Fatalf("ui.select %+v, want %v in mode open, with the drawer (A73)", p, want)
 	}
 	q.until(t, "the drawer", func() bool { return sh.drawer.shown != nil && *sh.drawer.shown == want })
-	if !sh.view.rowSelected(3) {
-		t.Fatal("row 3 not highlighted after the engine selected it")
+	if !sh.view.rowSelected(3) || sh.view.rowChecked(3) || len(sh.ui.Selected) != 0 {
+		t.Fatalf("row 3 after the click: highlighted %v, checked %v, selection %v; want highlighted only",
+			sh.view.rowSelected(3), sh.view.rowChecked(3), sh.ui.Selected)
 	}
 
 	// Fyne's own selection would swallow a second tap on the same cell; the shell clears it.

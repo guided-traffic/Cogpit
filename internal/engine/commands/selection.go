@@ -181,6 +181,9 @@ func selectObjects(ctx context.Context, s *engine.Session, p selectParams) (any,
 	if err != nil {
 		return nil, err
 	}
+	if mode == engine.SelectOpen && (p.All || len(p.Refs) != 1 || p.NoDrawer) {
+		return nil, errors.New("mode open opens the drawer on one object: give exactly one in refs, without all and noDrawer")
+	}
 	var refs []model.ObjectRef
 	if p.All {
 		if len(p.Refs) > 0 {
@@ -208,6 +211,11 @@ func selectObjects(ctx context.Context, s *engine.Session, p selectParams) (any,
 			return
 		}
 		applied = true
+		if mode == engine.SelectOpen { // a plain click on a row (A73): the checked rows stay checked
+			d := refs[0]
+			u.Drawer = &d
+			return
+		}
 		u.Selected = engine.ApplySelection(u.Selected, refs, mode)
 		if mode != engine.SelectReplace || p.NoDrawer {
 			return

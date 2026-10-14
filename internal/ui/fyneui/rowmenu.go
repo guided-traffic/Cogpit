@@ -125,7 +125,7 @@ func (sh *shell) runAction(a actionState, ref model.ObjectRef, container string)
 // it.
 func (sh *shell) rowMenu(ref model.ObjectRef, acts []actionState) *fyne.Menu {
 	details := fyne.NewMenuItem("Show Details", func() {
-		sh.dispatch("ui.select", selectParams{Refs: []model.ObjectRef{ref}}, nil)
+		sh.openDetails(ref) // as a click on the row: the checked rows stay checked (A73)
 	})
 	row := make([]actionState, 0, len(acts))
 	for _, a := range acts {

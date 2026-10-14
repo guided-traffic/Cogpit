@@ -421,23 +421,36 @@ func (tv *tableView) stateChanged() {
 	tv.states.update()
 }
 
-// selectionChanged re-renders the selected rows and remembers the first selected object as a
-// scroll target: an agent's ui.navigate selects an object that may be far down the table, or in
-// a view whose snapshot has not arrived yet.
+// selectionChanged re-renders the checked rows. It does not scroll: a checkbox, ⌘- and ⇧-click
+// change the selection of rows the user sees, and the first selected row may be far away
+// (drawerChanged scrolls to the drawer's row).
 func (tv *tableView) selectionChanged(sel []model.ObjectRef) {
 	tv.selected = slices.Clone(sel)
 	tv.check.setSelection(sel)
-	if len(sel) > 0 {
-		ref := sel[0]
+	tv.marksChanged()
+	tv.checksChanged()
+}
+
+// drawerChanged follows the drawer's object (UIState.Drawer): its row is highlighted, checked or
+// not (A73: a plain click opens the drawer and keeps the checked rows checked), and it is the
+// scroll target: an agent's ui.navigate opens an object that may be far down the table, or in a
+// view whose snapshot has not arrived yet.
+func (tv *tableView) drawerChanged(d *model.ObjectRef) {
+	if d != nil {
+		ref := *d
 		tv.pending = &ref
 	} else {
 		tv.pending = nil
 	}
-	for _, c := range tv.cells {
-		c.setSelected(tv.rowSelected(c.row))
-	}
-	tv.checksChanged()
+	tv.marksChanged()
 	tv.resolvePending()
+}
+
+// marksChanged re-renders the rows' highlight and checkboxes: the cells the table has made.
+func (tv *tableView) marksChanged() {
+	for _, c := range tv.cells {
+		c.setMarks(tv.rowSelected(c.row), tv.rowChecked(c.row))
+	}
 }
 
 // resolvePending scrolls to the pending object once the shown snapshot contains it.
@@ -476,7 +489,19 @@ func (tv *tableView) layoutTable() {
 	tv.table.Resize(sz)
 }
 
+// rowSelected reports whether a row is highlighted: checked, or the drawer's object. O(1).
 func (tv *tableView) rowSelected(row int) bool {
+	if tv.snap == nil || row < 0 || row >= len(tv.snap.Rows) {
+		return false
+	}
+	if d := tv.sh.ui.Drawer; d != nil && keyOf(*d) == keyOf(tv.snap.Rows[row].Ref) {
+		return true
+	}
+	return tv.rowChecked(row)
+}
+
+// rowChecked reports whether a row is in the selection: its checkbox is checked. O(1).
+func (tv *tableView) rowChecked(row int) bool {
 	if tv.snap == nil || row < 0 || row >= len(tv.snap.Rows) || len(tv.selected) == 0 {
 		return false
 	}
@@ -509,7 +534,7 @@ func (tv *tableView) updateCell(id widget.TableCellID, o fyne.CanvasObject) {
 		tv.cells = append(tv.cells, c)
 	}
 	if tv.snap == nil || id.Row < 0 || id.Row >= len(tv.snap.Rows) || id.Col < 0 || id.Col > tv.menuColumn() {
-		c.set(id.Row, id.Col, cellContent{}, false, false, false)
+		c.set(id.Row, id.Col, cellContent{}, rowMarks{}, false, false)
 		tv.copyIcon.updated(c)
 		return
 	}
@@ -543,7 +568,8 @@ func (tv *tableView) updateCell(id widget.TableCellID, o fyne.CanvasObject) {
 		}
 	}
 	hover := id.Row == tv.hoverRow
-	if c.set(id.Row, id.Col, content, tv.rowSelected(id.Row), hover, hover && id.Col == tv.hoverCol) && tv.sh.tip.owner == c {
+	marks := rowMarks{selected: tv.rowSelected(id.Row), checked: tv.rowChecked(id.Row)}
+	if c.set(id.Row, id.Col, content, marks, hover, hover && id.Col == tv.hoverCol) && tv.sh.tip.owner == c {
 		tv.sh.tip.hide() // the cell under the tooltip shows something else now
 	}
 	tv.copyIcon.updated(c)
@@ -615,7 +641,7 @@ func (tv *tableView) headerTapped(col int) {
 	tv.sh.dispatch("ui.sort", sortParams{Column: id, Desc: cur.Column == id && !cur.Desc}, nil)
 }
 
-// rowTapped selects a row's object, which opens the drawer.
+// rowTapped opens the drawer on a row's object and keeps the checked rows checked (A73).
 func (tv *tableView) rowTapped(id widget.TableCellID) {
 	tv.table.UnselectAll() // the engine holds the selection; Fyne's own would block a second tap
 	if tv.snap == nil || id.Row < 0 || id.Row >= len(tv.snap.Rows) {
@@ -629,7 +655,7 @@ func (tv *tableView) rowTapped(id widget.TableCellID) {
 	}
 	ref := tv.snap.Rows[id.Row].Ref
 	tv.check.anchor = &ref // ⇧-click selects from here (tablecheck.go)
-	tv.sh.dispatch("ui.select", selectParams{Refs: []model.ObjectRef{ref}}, nil)
+	tv.sh.openDetails(ref)
 }
 
 // setHover moves the row highlight that follows the pointer and the keyboard.
@@ -707,7 +733,7 @@ func (tv *tableView) cellTapped(c *tableCell, e *fyne.PointEvent) {
 	case c.onLink(e.Position) && c.content.link.Same(tv.snap.Rows[c.row].Ref):
 		// A link to the row's own object (an issue's name on the cluster Overview) opens its
 		// details over the page, as a click on the row does.
-		tv.sh.dispatch("ui.select", selectParams{Refs: []model.ObjectRef{tv.snap.Rows[c.row].Ref}}, nil)
+		tv.sh.openDetails(tv.snap.Rows[c.row].Ref)
 	case c.onLink(e.Position):
 		vis, ok := tv.dataColumn(c.col)
 		nsColumn := ok && tv.snap.Columns[tv.cols[vis]].ID == "namespace"
@@ -1140,7 +1166,8 @@ type tableCell struct {
 	fitWidth  float32
 	truncated bool // the shown text is shorter than full: the tooltip shows full
 	iconRes   fyne.Resource
-	selected  bool
+	selected  bool // the row is highlighted: checked, or the drawer's object
+	checked   bool // the row is in the selection: its checkbox is checked
 	hover     bool // the pointer or the keyboard is on the row
 	linkHover bool // the pointer is on this cell, which is a link
 	focused   bool // the keyboard is on this cell (tablekeys.go)
@@ -1168,9 +1195,14 @@ func newTableCell(tv *tableView) *tableCell {
 	return c
 }
 
+// rowMarks are how a row is marked: highlighted (selected: checked, or the drawer's object) and
+// checked (in the selection). Since A73 they differ: a plain click opens the drawer on a row and
+// keeps the checked rows, so the drawer's row is highlighted without being checked.
+type rowMarks struct{ selected, checked bool }
+
 // set gives the cell new content; unchanged content costs a few comparisons. It reports whether
 // the content changed.
-func (c *tableCell) set(row, col int, content cellContent, selected, hover, linkHover bool) bool {
+func (c *tableCell) set(row, col int, content cellContent, marks rowMarks, hover, linkHover bool) bool {
 	c.row, c.col = row, col
 	changed := false
 	if content != c.content {
@@ -1178,16 +1210,17 @@ func (c *tableCell) set(row, col int, content cellContent, selected, hover, link
 		changed = true
 	}
 	linkHover = linkHover && content.link != nil
-	if changed || selected != c.selected || hover != c.hover || linkHover != c.linkHover {
-		c.selected, c.hover, c.linkHover = selected, hover, linkHover
+	if changed || marks.selected != c.selected || marks.checked != c.checked || hover != c.hover || linkHover != c.linkHover {
+		c.selected, c.checked, c.hover, c.linkHover = marks.selected, marks.checked, hover, linkHover
 		c.apply()
 	}
 	return changed
 }
 
-func (c *tableCell) setSelected(on bool) {
-	if on != c.selected {
-		c.selected = on
+// setMarks highlights the cell's row (selected) and checks its checkbox (checked).
+func (c *tableCell) setMarks(selected, checked bool) {
+	if selected != c.selected || checked != c.checked {
+		c.selected, c.checked = selected, checked
 		c.apply()
 	}
 }
@@ -1332,7 +1365,7 @@ func (c *tableCell) apply() {
 		}
 		c.ring.Refresh()
 	}
-	c.setIcon(c.tv.cellIcon(c.content, c.selected))
+	c.setIcon(c.tv.cellIcon(c.content, c.checked))
 	c.fit(th)
 	c.placeBar(th) // the table updates a reused cell without laying it out: the share and bar move here
 	c.bg.Refresh()
@@ -1587,14 +1620,14 @@ func (r *tableCellRenderer) Objects() []fyne.CanvasObject {
 func (r *tableCellRenderer) Destroy() {}
 
 // cellIcon returns the icon a cell shows: the warning triangle in the cell's status colour, the ⋮
-// in the muted colour, the row's checkbox (checked on a selected row), or nil. The themed resources
+// in the muted colour, the row's checkbox (checked on a checked row), or nil. The themed resources
 // are made once per icon and colour, so that updating cells allocates nothing and a cell's image
 // is re-rasterised only when its icon changes.
-func (tv *tableView) cellIcon(content cellContent, selected bool) fyne.Resource {
+func (tv *tableView) cellIcon(content cellContent, checked bool) fyne.Resource {
 	var key cellIconKey
 	switch content.kind {
 	case cellCheck:
-		key = checkIconKey(selected)
+		key = checkIconKey(checked)
 	case cellWarning:
 		if content.status == model.StatusNone {
 			return nil

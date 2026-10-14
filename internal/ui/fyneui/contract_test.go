@@ -35,6 +35,7 @@ func TestDispatchedParamsMatchTheRegistry(t *testing.T) {
 		{"ui.sort", sortParams{Column: "name", Desc: true}},
 		{"ui.sortDrawerTable", drawerSortParams{Section: "Pods", Column: "memory", Desc: true}},
 		{"ui.select", selectParams{Refs: []model.ObjectRef{ref}}},
+		{"ui.select", selectModeParams{Refs: []model.ObjectRef{ref}, Mode: "open"}}, // a plain click on a row (A73)
 		{"ui.closeDrawer", struct{}{}},
 		{"ui.navigate", refParams{Ref: ref}},
 		{"dock.activate", dockParams{ID: "logs-1"}},

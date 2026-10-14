@@ -247,10 +247,10 @@ func TestRowMenuPodsContainerSubmenu(t *testing.T) {
 		t.Errorf("logs params %+v", p)
 	}
 
-	// Show Details selects the row, which opens the drawer.
+	// Show Details opens the drawer as a click on the row does, keeping the checked rows (A73).
 	item(t, m, "Show Details").Action()
 	q.until(t, "ui.select", func() bool { return len(f.callsOf("ui.select")) == 1 })
-	if p := decodeParams[selectParams](t, f.callsOf("ui.select")[0]); len(p.Refs) != 1 || p.Refs[0].Name != pod.name || p.NoDrawer {
+	if p := decodeParams[selectModeParams](t, f.callsOf("ui.select")[0]); len(p.Refs) != 1 || p.Refs[0].Name != pod.name || p.NoDrawer || p.Mode != "open" {
 		t.Errorf("show details %+v", p)
 	}
 }
