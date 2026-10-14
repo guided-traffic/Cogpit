@@ -117,7 +117,9 @@ func (c *guiConfirmer) show(req engine.ConfirmRequest, reply func(bool)) *confir
 	addRow("Context", req.Context)
 	addRow("Requested by", originText(req.Origin))
 
-	content := container.NewVBox(newParagraph(req.Message(), theme.ColorNameForeground, width), newSpace(theme.SizeNamePadding), rows)
+	message := newParagraph(req.Message(), theme.ColorNameForeground, width)
+	message.hard = true // an image digest (the node shell's) is one word wider than the dialog
+	content := container.NewVBox(message, newSpace(theme.SizeNamePadding), rows)
 	if req.Review != "" { // what the command will apply, as the request carries it: read before answering
 		content.Add(newSpace(theme.SizeNamePadding))
 		content.Add(reviewBlock(req.Review, width))
