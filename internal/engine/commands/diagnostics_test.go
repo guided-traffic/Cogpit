@@ -56,6 +56,9 @@ func TestDiagnosticsReport(t *testing.T) {
 		r.Kinds[1] != (engine.DiagKind{Kind: "secrets", Objects: 9, Watches: 1}) {
 		t.Errorf("objects %d, kinds %+v", r.Objects, r.Kinds)
 	}
+	if r.Snapshots != 42 {
+		t.Errorf("snapshots %d, want 42", r.Snapshots)
+	}
 }
 
 // diagnostics.get reads the connected cluster's watches from the cache, a view's open and a
@@ -85,6 +88,11 @@ func TestDiagnosticsCommands(t *testing.T) {
 	}
 	if !slices.ContainsFunc(r.Kinds, func(k engine.DiagKind) bool { return k.Kind == "pods" && k.Objects == 4 }) {
 		t.Errorf("objects per kind: %+v", r.Kinds)
+	}
+	// The table snapshots built since start: an agent reads them here, the status bar does not
+	// show them (owner, 2026-10-14). The Pods view built at least one.
+	if r.Snapshots == 0 {
+		t.Error("diagnostics.get counts no table snapshots after the Pods view synced")
 	}
 
 	var first, again commands.DockResult

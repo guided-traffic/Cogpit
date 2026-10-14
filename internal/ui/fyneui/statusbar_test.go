@@ -1,6 +1,7 @@
 package fyneui
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -144,6 +145,98 @@ func TestStatusBarOwnerLinkGivesWayFirst(t *testing.T) {
 	if !shown {
 		t.Error("the link did not come back when the bar widened")
 	}
+}
+
+// TestSnapshotsOnlyInDiagnostics: the count of table snapshots built since start is a developer's
+// diagnostic (the coalescing evidence) that only the Diagnostics tab shows, not the status bar
+// (owner, 2026-10-14): connected to a cluster, on the demo cluster and with no cluster. The status
+// bar's other items stay, and the report agents read with diagnostics.get keeps the count.
+func TestSnapshotsOnlyInDiagnostics(t *testing.T) {
+	noCluster := func(t *testing.T) *fakeEngine {
+		f := connectedFake(t, 20)
+		f.ui.Connection, f.ui.Context = engine.Connection{State: engine.Disconnected}, ""
+		f.diag = engine.Diagnostics{Snapshots: 42} // no backend: the count since start alone
+		return f
+	}
+	for _, tc := range []struct {
+		name      string
+		fake      func(t *testing.T) *fakeEngine
+		connected bool
+		bar       []string // texts the status bar shows
+		summary   string   // in the Diagnostics tab's first line
+	}{
+		{"connected", diagnosticsFake, true, []string{"kind-dev · ", "API 41 req · list 6 · watch 7", "6 informers"}, "318 table snapshots"},
+		{"demo", func(t *testing.T) *fakeEngine { return connectedFake(t, 20) }, true,
+			[]string{"demo · ", "API 1,284 req · list 12 · watch 9", "6 informers", "demo 10,870 objects · 1,000 events/s"}, "5,321 table snapshots"},
+		{"no cluster", noCluster, false, []string{"no cluster · ", "API 0 req · list 0 · watch 0", "0 informers"}, "No cluster connected · 42 table snapshots built"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := tc.fake(t)
+			f.handlers["diagnostics.get"] = func(context.Context, engine.Invocation) (any, error) {
+				return engine.ReportOf(f.Diagnostics(), tc.connected), nil
+			}
+			sh, w, q := newTestShell(t, f, Options{MCPCommand: "claude mcp add cogpit -- cogpit-cli mcp"})
+			openDiagnostics(f)
+			q.until(t, "the status bar's counters and the Diagnostics tab", func() bool {
+				d := diagnosticsTabOf(sh)
+				return d != nil && d.summary.text != "" && sh.dock.open() && sh.diag == newDiagView(f.Diagnostics())
+			})
+			settle(w)
+
+			s := sh.status
+			for _, l := range findAll[*textLine](s.root) { // shown or hidden
+				if strings.Contains(l.text, "snapshot") {
+					t.Errorf("the status bar shows %q", l.text)
+				}
+			}
+			shown := visibleTexts(s.root)
+			for _, want := range tc.bar {
+				if !hasText(shown, want) {
+					t.Errorf("the status bar shows %q, want %q among them", shown, want)
+				}
+			}
+
+			d := diagnosticsTabOf(sh)
+			if !strings.Contains(d.summary.text, tc.summary) {
+				t.Errorf("the Diagnostics tab says %q, want %q in it", d.summary.text, tc.summary)
+			}
+			if d.report.Snapshots != f.Diagnostics().Snapshots {
+				t.Errorf("diagnostics.get reports %d snapshots, the engine counted %d", d.report.Snapshots, f.Diagnostics().Snapshots)
+			}
+			// The whole first line fits the tab in the 1440-point window: the count is not cut off.
+			th := fyne.CurrentApp().Settings().Theme()
+			if need := fyne.MeasureText(d.summary.text, th.Size(theme.SizeNameText), fyne.TextStyle{}).Width; need > d.summary.Size().Width {
+				t.Errorf("the first line needs %v, has %v: %q is shortened", need, d.summary.Size().Width, d.summary.text)
+			}
+		})
+	}
+}
+
+// visibleTexts are the texts shown under root: hidden objects and their children left out.
+func visibleTexts(root fyne.CanvasObject) []string {
+	var out []string
+	var walk func(o fyne.CanvasObject)
+	walk = func(o fyne.CanvasObject) {
+		if o == nil || !o.Visible() {
+			return
+		}
+		switch x := o.(type) {
+		case *textLine:
+			out = append(out, x.text)
+		case *linkText:
+			out = append(out, x.text)
+		case *fyne.Container:
+			for _, c := range x.Objects {
+				walk(c)
+			}
+		case fyne.Widget:
+			for _, c := range test.WidgetRenderer(x).Objects() {
+				walk(c)
+			}
+		}
+	}
+	walk(root)
+	return out
 }
 
 // shortened is the text the link shows now (the renderer's ellipsized text).

@@ -58,7 +58,7 @@ func TestRenderDemoShowcase(t *testing.T) {
 		tbl := s.Table("pods")
 		return tbl != nil && tbl.Synced && tbl.Total > 9000 && len(sh.kinds) > 0
 	})
-	until("the status bar's diagnostics", func() bool { return sh.diag.informers > 0 && sh.diag.snapshots > 0 })
+	until("the status bar's diagnostics", func() bool { return sh.diag.informers > 0 && sh.diag.demoObjects > 0 })
 	savePNG(t, w, "demo_pods.png")
 
 	ref := model.ObjectRef{Kind: "services", Namespace: "demo-mcp", Name: "web"}

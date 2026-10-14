@@ -14,8 +14,10 @@ import (
 // The Diagnostics dock tab (D-13 cache transparency; engine/diagnostics_view.go): what the status
 // bar sums up, in full: the connected cluster's API requests by verb and resource, its watches
 // with their state, and the objects per kind, read with diagnostics.get from Cogpit's own counters
-// whenever they move (EventDiagnostics, at most once a second). Memory per kind is not measured.
-// Its layout and wording are Cogpit's (Lens has no such view).
+// whenever they move (EventDiagnostics, at most once a second). Its first line also counts the
+// table snapshots built since start, in every state (connected, the demo cluster, no cluster):
+// the only place the GUI shows them since the status bar dropped them (owner, 2026-10-14).
+// Memory per kind is not measured. Its layout and wording are Cogpit's (Lens has no such view).
 
 // diagnosticsTab is the tab's content; it is the dock content's editor (dockEditor), so the dock
 // closes it.

@@ -195,20 +195,18 @@ func (r *logoRenderer) Objects() []fyne.CanvasObject { return []fyne.CanvasObjec
 func (r *logoRenderer) Destroy()                     {}
 
 // diagView is what the status bar shows from engine.Diagnostics, prepared off the main
-// goroutine.
+// goroutine. The count of table snapshots is not among it: a developer's diagnostic that only the
+// Diagnostics tab shows (diagnostics.go; owner, 2026-10-14).
 type diagView struct {
 	total, list, watch int64
 	informers          int
-	snapshots          uint64
 	demo               bool
 	demoRate           float64
 	demoObjects        int64
 }
 
 func newDiagView(d engine.Diagnostics) diagView {
-	v := diagView{
-		total: d.Requests.Total, informers: len(d.Informers), snapshots: d.Snapshots, demo: d.Demo,
-	}
+	v := diagView{total: d.Requests.Total, informers: len(d.Informers), demo: d.Demo}
 	if d.Requests.ByVerb != nil {
 		v.list, v.watch = d.Requests.ByVerb["list"], d.Requests.ByVerb["watch"]
 	}
@@ -225,8 +223,8 @@ func newDiagView(d engine.Diagnostics) diagView {
 	return v
 }
 
-// statusBar is the bottom line: context and connection, API requests, informers, snapshots,
-// the demo cluster's event rate and the MCP indicator.
+// statusBar is the bottom line: context and connection, API requests, informers, the demo
+// cluster's event rate, the link to the owner and the MCP indicator.
 type statusBar struct {
 	sh        *shell
 	link      *linkText // the link to the owner (D-23), left of the MCP item
@@ -236,7 +234,6 @@ type statusBar struct {
 	context   *textLine
 	requests  *textLine
 	informers *textLine
-	snapshots *textLine
 	demo      *textLine
 	demoSep   fyne.CanvasObject
 	root      fyne.CanvasObject
@@ -248,10 +245,10 @@ func newStatusBar(sh *shell) *statusBar {
 		return newTextLine("", colorMuted, sizeStatusText, fyne.TextStyle{})
 	}
 	s.dot = newDot(statusColorName(model.StatusUnknown))
-	s.context, s.requests, s.informers, s.snapshots, s.demo = caption(), caption(), caption(), caption(), caption()
+	s.context, s.requests, s.informers, s.demo = caption(), caption(), caption(), caption()
 	s.demoSep = newStatusDivider()
 	left := container.NewHBox(s.dot, s.context, newStatusDivider(), s.requests, newStatusDivider(),
-		s.informers, newStatusDivider(), s.snapshots, s.demoSep, s.demo)
+		s.informers, s.demoSep, s.demo)
 	right := container.NewHBox()
 	if sh.hasMCP() {
 		s.mcp = newMCPItem(sh, sh.mcp.on)
@@ -396,7 +393,6 @@ func (s *statusBar) update() {
 	s.requests.SetText(fmt.Sprintf("API %s req · list %s · watch %s",
 		formatCount(d.total), formatCount(d.list), formatCount(d.watch)))
 	s.informers.SetText(strconv.Itoa(d.informers) + " informers")
-	s.snapshots.SetText(formatCount(int64(d.snapshots)) + " snapshots")
 	if d.demo {
 		s.demo.SetText(fmt.Sprintf("demo %s objects · %s events/s",
 			formatCount(d.demoObjects), formatCount(int64(d.demoRate+0.5))))
