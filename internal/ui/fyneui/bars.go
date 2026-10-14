@@ -249,9 +249,9 @@ func newStatusBar(sh *shell) *statusBar {
 	}
 	s.dot = newDot(statusColorName(model.StatusUnknown))
 	s.context, s.requests, s.informers, s.snapshots, s.demo = caption(), caption(), caption(), caption(), caption()
-	s.demoSep = newDivider(true)
-	left := container.NewHBox(s.dot, s.context, newDivider(true), s.requests, newDivider(true),
-		s.informers, newDivider(true), s.snapshots, s.demoSep, s.demo)
+	s.demoSep = newStatusDivider()
+	left := container.NewHBox(s.dot, s.context, newStatusDivider(), s.requests, newStatusDivider(),
+		s.informers, newStatusDivider(), s.snapshots, s.demoSep, s.demo)
 	right := container.NewHBox()
 	if sh.hasMCP() {
 		s.mcp = newMCPItem(sh, sh.mcp.on)
@@ -259,7 +259,7 @@ func newStatusBar(sh *shell) *statusBar {
 	}
 	s.link = newLinkText(ownerLinkText, func() { sh.openOwnerLink() })
 	s.link.size = sizeStatusText
-	sep := newDivider(true)
+	sep := newStatusDivider()
 	s.layout = &statusLayout{link: s.link, sep: sep, left: left, right: right}
 	s.root = sized("", sizeStatusHeight, newSurface(colorStatusBar),
 		inset(theme.SizeNameInnerPadding, "", box(s.layout, s.link, sep, left, right)))
@@ -297,6 +297,33 @@ type statusLayout struct {
 // linkMinChars is the shortest the link is shown: its first characters and an ellipsis.
 const linkMinChars = "Need a…"
 
+// statusLift is how far the status bar's items sit above the bar's centre: the room a text line
+// keeps below its letters for descenders, about an eighth of the text size, so that the letters,
+// not the line's box, are centred (VS Code's status bar centres its items so).
+func statusLift(textSize float32) float32 {
+	return float32(math.Round(float64(textSize) * 0.12))
+}
+
+// newStatusDivider is a status bar divider as tall as a text line and centred on the items,
+// instead of spanning the bar from edge to edge.
+func newStatusDivider() fyne.CanvasObject {
+	return box(statusDividerLayout{}, newDivider(true))
+}
+
+// statusDividerLayout centres its divider at the height of one status line.
+type statusDividerLayout struct{}
+
+func (statusDividerLayout) MinSize([]fyne.CanvasObject) fyne.Size { return fyne.NewSize(1, 0) }
+
+func (statusDividerLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
+	th := fyne.CurrentApp().Settings().Theme()
+	h := fyne.Min(size.Height, fyne.MeasureText("Mg", th.Size(sizeStatusText), fyne.TextStyle{}).Height)
+	for _, o := range objs {
+		o.Resize(fyne.NewSize(1, h))
+		o.Move(fyne.NewPos(0, (size.Height-h)/2))
+	}
+}
+
 func (l *statusLayout) MinSize([]fyne.CanvasObject) fyne.Size {
 	lm, rm := l.left.MinSize(), l.right.MinSize()
 	return fyne.NewSize(lm.Width+rm.Width, max(lm.Height, rm.Height, l.link.MinSize().Height))
@@ -310,6 +337,10 @@ func (l *statusLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 	if lt, ok := l.link.(*linkText); ok {
 		textSize = th.Size(lt.size)
 	}
+	// The items are laid out in a band lifted by statusLift: a text line centred in the whole bar
+	// reads low, since its box keeps room for descenders below the letters (owner, 2026-10-14).
+	lift := statusLift(textSize)
+	size.Height -= 2 * lift
 	full := fyne.MeasureText(ownerLinkText, textSize, fyne.TextStyle{}).Width
 	least := fyne.MeasureText(linkMinChars, textSize, fyne.TextStyle{}).Width
 	// What is left between the items for the link; its divider and the gaps around it come off. The

@@ -444,7 +444,8 @@ func (t *cogTheme) Size(n fyne.ThemeSizeName) float32 {
 	case sizeBarHeight:
 		return 40
 	case sizeStatusHeight:
-		return 26
+		// VS Code's status bar as the owner sees it beside Cogpit (2026-10-14: 26 was too flat).
+		return 30
 	case sizeStatusText:
 		// The text size of the views, as VS Code's status bar reads (owner, 2026-10-12: the
 		// caption size, 11, was too small).
