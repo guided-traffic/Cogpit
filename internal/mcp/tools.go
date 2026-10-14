@@ -8,10 +8,8 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime/debug"
-	"slices"
 	"strings"
 
-	"github.com/google/jsonschema-go/jsonschema"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
@@ -77,7 +75,7 @@ func addTool(srv *sdk.Server, tool *sdk.Tool, h sdk.ToolHandler) (err error) {
 // toolFor describes a command as an MCP tool. It also returns the input schema as JSON, which
 // error results quote back to the model.
 func toolFor(cmd *engine.Command) (*sdk.Tool, json.RawMessage, error) {
-	schema, err := inputSchema(cmd.Schema)
+	schema, err := cmd.ToolSchema() // shared with the built-in agent (engine/toolschema.go)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -87,7 +85,7 @@ func toolFor(cmd *engine.Command) (*sdk.Tool, json.RawMessage, error) {
 	return &sdk.Tool{
 		Name:        cmd.ToolName(),
 		Title:       cmd.Label,
-		Description: describe(cmd),
+		Description: cmd.ToolDescription(),
 		InputSchema: schema,
 		Annotations: &sdk.ToolAnnotations{
 			Title:          cmd.Label, // for clients older than the tool-level title
@@ -98,64 +96,6 @@ func toolFor(cmd *engine.Command) (*sdk.Tool, json.RawMessage, error) {
 			OpenWorldHint:   ptr(false),
 		},
 	}, schema, nil
-}
-
-// inputSchema returns the command's parameter schema as JSON with the root type "object", which
-// MCP requires. A pointer parameter type yields ["null", "object"]; the engine reads null as {},
-// so the tool advertises "object" alone. The JSON is a snapshot, so the SDK never shares the
-// registry's schema value.
-func inputSchema(s *jsonschema.Schema) (json.RawMessage, error) {
-	if s == nil {
-		return json.RawMessage(`{"type":"object"}`), nil
-	}
-	root := *s
-	if root.Type == "" && slices.Contains(root.Types, "object") {
-		root.Type, root.Types = "object", nil
-	}
-	if root.Type != "object" {
-		return nil, fmt.Errorf("parameter schema has type %q; MCP tools take an object", strings.Join(append([]string{root.Type}, root.Types...), ","))
-	}
-	data, err := json.Marshal(root)
-	if err != nil {
-		return nil, fmt.Errorf("parameter schema: %w", err)
-	}
-	return data, nil
-}
-
-// describe is the tool description: the command's own, then what its danger level means for the
-// agent, so that a model knows before calling whether the user will be asked.
-func describe(cmd *engine.Command) string {
-	desc := strings.TrimSpace(cmd.Description)
-	if desc == "" {
-		desc = cmd.Label
-	}
-	var note string
-	switch cmd.Danger {
-	case engine.DangerRead:
-		note = "Danger level: read. Reads from Cogpit's cache and runs without asking the user."
-	case engine.DangerUI:
-		note = "Danger level: ui. Changes only what Cogpit's window shows and runs without asking the user."
-	case engine.DangerMutating:
-		note = "Danger level: mutating. Writes to the cluster: the user must confirm it in Cogpit's window " +
-			"unless they allowed agent writes for this context. The call waits for the answer and fails if the user declines."
-	case engine.DangerDestructive:
-		note = "Danger level: destructive. The user must always confirm it in Cogpit's window, which names the objects, " +
-			"the namespace and the context. The call waits for the answer and fails if the user declines."
-	default:
-		note = "Danger level: " + string(cmd.Danger) + "."
-	}
-	if cmd.Escalates {
-		note += " Some calls are destructive (the description says which): those the user must always confirm."
-	}
-	if cmd.AgentsAsk {
-		note += " Some calls always wait for the user's acceptance, also where the user allowed agent writes (the description says which)."
-	}
-	if cmd.GUIOnly { // no confirmation to describe: an agent's call never gets that far
-		note = "Danger level: " + string(cmd.Danger) + ". GUI only: only the user's own action in Cogpit's window runs it, " +
-			"so every call from an agent is refused whatever its arguments, before anything is asked, read or written. " +
-			"Ask the user to do it in Cogpit's window."
-	}
-	return desc + "\n\n" + note
 }
 
 // instructions tell the model how Cogpit's tools fit together. The workflow hints name only
