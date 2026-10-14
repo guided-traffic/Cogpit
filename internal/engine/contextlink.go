@@ -171,7 +171,8 @@ func (s *Session) RemoveKubeconfigSource(id string) (KubeconfigSource, error) {
 // connection made from the source is closed already), so that nothing points at a context that is
 // gone (UIState.dropContexts). When the sources cannot be read, nothing changes on a guess. Closing
 // the active tab leaves no tab active, as closing a cluster's last tab does (UIState.closeTab). No
-// notice: the user removed the source, after a confirmation naming its contexts.
+// notice: the user removed the source, after a confirmation naming its contexts; but one when an
+// editor's unsaved text of those contexts was kept as a draft (dock_gone.go).
 func (s *Session) closeTabsOfSource(k *KubeconfigSources, src KubeconfigSource) {
 	files, _, err := k.Files()
 	if err != nil {
@@ -185,11 +186,15 @@ func (s *Session) closeTabsOfSource(k *KubeconfigSources, src KubeconfigSource) 
 	}
 	gone := func(id string) bool { return ofSource(src, id) && !offered[id] }
 	u := s.UIState()
-	if !slices.ContainsFunc(u.Tabs, func(t ViewTab) bool { return gone(t.Context) }) &&
+	if !slices.ContainsFunc(u.Tabs, func(t ViewTab) bool { return gone(t.Context) }) && !u.dockOfGone(gone) &&
 		(!gone(u.Context) || activeConnection(u.Connection.State)) {
 		return
 	}
+	kept := s.keepDraftsOf(gone) // the dock's editors close too: their unsaved text stays (dock_gone.go)
 	s.UpdateUI(func(u *UIState) { u.dropContexts(gone) })
+	if notice := keptDraftsText(kept, true); notice != "" {
+		s.emit(Event{Type: EventToast, Level: LevelInfo, Message: notice})
+	}
 }
 
 // ofSource reports whether a context id ("<context> [<label>]", SourceContextID) names a context of

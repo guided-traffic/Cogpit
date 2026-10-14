@@ -242,7 +242,9 @@ func (s *Session) disconnectBackend(b *Backend, reason string) bool {
 	old.close(s.log)
 	st.logs.add(b.Context, LogError, reason)
 	s.UpdateUI(func(u *UIState) {
-		if u.Context != b.Context || u.Connection.State != Connected {
+		// Connecting: b's own connect, between publishing b and saying Connected, which then
+		// leaves the UI as this leaves it (connect_gone.go). A newer connect detaches b first.
+		if u.Context != b.Context || !activeConnection(u.Connection.State) {
 			return // another connect took over
 		}
 		u.Connection = Connection{State: Disconnected, Error: reason}

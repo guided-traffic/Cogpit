@@ -193,7 +193,8 @@ func registerKubeconfigs(g *registrar) {
 		ID: "kubeconfig.remove", Label: "Remove Kubeconfig Source", MenuPath: "File/Remove Kubeconfig Source", Danger: engine.DangerUI,
 		GUIOnly: engine.ErrGUIOnly,
 		Description: "Removes a kubeconfig source, which is Cogpit's link to a file or folder and nothing else: its contexts " +
-			"are no longer offered and their tabs close, the credential plugins allowed for its files are forgotten, and an open " +
+			"are no longer offered and their tabs close, the dock's tabs of those contexts too (a node shell's pod is deleted, an " +
+			"editor's unsaved text is kept as a draft), the credential plugins allowed for its files are forgotten, and an open " +
 			"connection made from one of its files is closed. The file or folder the user added, and the files in it, stay on " +
 			"disk as they are. The GUI asks the user first, naming the path." + guiOnly,
 		Enabled: func(s *engine.Session, _ sourceParams) error { return enabled(s) },

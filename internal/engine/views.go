@@ -302,6 +302,7 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 			st.logs.add(name, LogError, err.Error())
 			msg := err.Error()
 			s.UpdateUI(func(u *UIState) { u.Connection = Connection{State: ConnectError, Error: msg} })
+			s.settleGoneConnect(name, nil) // its context left Cogpit meanwhile: forget it (connect_gone.go)
 		}
 		return fmt.Errorf("connect %s: %w", name, err)
 	}
@@ -328,6 +329,9 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 	view := defaultView(b)
 	sort := s.ViewSort(view)
 	s.UpdateUI(func(u *UIState) {
+		if u.Connection.State != Connecting {
+			return // b was closed since it was published: its file went (disconnectBackend, connect_gone.go)
+		}
 		u.Context = b.Context
 		u.Connection = Connection{State: Connected, Demo: b.Demo}
 		u.View = view
@@ -336,6 +340,7 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 		u.Drawer = nil
 		u.Filter = ""
 	})
+	s.settleGoneConnect(b.Context, b) // its file went or its source was removed meanwhile (connect_gone.go)
 	return nil
 }
 

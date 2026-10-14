@@ -240,7 +240,8 @@ func sourceFileOf(srcs []KubeconfigSource, id string) (path, label string, ok bo
 }
 
 // dropContexts closes the tabs of the contexts gone reports, the active one too (no tab is active
-// afterwards, as after closing a cluster's last tab), and forgets Context when it names one of them
+// afterwards, as after closing a cluster's last tab), their dock tabs too (dropDockOf, counted with
+// them), and forgets Context when it names one of them
 // and no connection holds it, so that nothing points at a context that is gone: the navigator
 // shows its section, and a failed connect's error goes with its context. It returns the closed
 // tabs per context.
@@ -260,6 +261,7 @@ func (u *UIState) dropContexts(gone func(string) bool) []goneTabs {
 		}
 		return false
 	})
+	closed = u.dropDockOf(gone, closed) // and the dock's tabs of those contexts (dock_gone.go)
 	if u.Context != "" && gone(u.Context) && !activeConnection(u.Connection.State) {
 		u.Context = ""
 		if u.Connection.State == ConnectError {
@@ -276,18 +278,27 @@ func (u *UIState) dropContexts(gone func(string) bool) []goneTabs {
 // nothing, as it closes no connection.
 func (s *Session) closeTabsOfGoneFiles() {
 	u := s.UIState()
-	ids := make([]string, 0, len(u.Tabs)+1)
+	ids := make([]string, 0, len(u.Tabs)+len(u.Dock)+1)
 	ids = append(ids, u.Context)
 	for _, t := range u.Tabs {
+		ids = append(ids, t.Context)
+	}
+	for _, t := range u.Dock { // the dock's tabs close with their context (dock_gone.go)
 		ids = append(ids, t.Context)
 	}
 	gone := s.goneContexts(ids, true)
 	if len(gone) == 0 || !slices.ContainsFunc(ids, func(id string) bool { return gone[id] }) {
 		return
 	}
+	isGone := func(id string) bool { return gone[id] }
+	kept := s.keepDraftsOf(isGone) // an editor's unsaved text stays as a draft
 	var closed []goneTabs
-	s.UpdateUI(func(u *UIState) { closed = u.dropContexts(func(id string) bool { return gone[id] }) })
-	if notice := closedTabsNotice(closed); notice != "" {
+	s.UpdateUI(func(u *UIState) { closed = u.dropContexts(isGone) })
+	notice := closedTabsNotice(closed)
+	if more := keptDraftsText(kept, notice == ""); more != "" {
+		notice = strings.TrimSpace(notice + " " + more)
+	}
+	if notice != "" {
 		s.emit(Event{Type: EventToast, Level: LevelInfo, Message: notice})
 	}
 }

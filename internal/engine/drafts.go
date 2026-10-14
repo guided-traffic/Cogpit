@@ -146,6 +146,7 @@ type draftTab struct {
 	gen   uint64    // the newest schedule; an older timer's write is skipped
 	since time.Time // the first change not yet written; zero when none waits
 	gone  bool      // the tab was closed: nothing is written for it any more
+	kept  bool      // the tab closes without the user (keep): its draft stays when it closes
 }
 
 // NewDrafts returns the drafts of a Cogpit configuration directory (<user config dir>/Cogpit):
@@ -248,7 +249,7 @@ func (d *Drafts) uiChanged(u *UIState) {
 				t.timer.Stop()
 				t.timer = nil
 			}
-			if t.id != "" {
+			if t.id != "" && !t.kept { // a kept draft stays, offered when its context connects (keep)
 				gone = append(gone, t.id)
 			}
 			delete(d.tabs, id)
@@ -364,6 +365,56 @@ func (d *Drafts) flushLocked(s *Session, tabID string, t *draftTab) {
 		d.mu.Unlock()
 	}
 	d.write(d.draftOf(e, id))
+}
+
+// keep writes the drafts of editor tabs that are about to close without the user (their context
+// left Cogpit, dock_gone.go) at once, as their editors hold them, and keeps the files when the
+// tabs close, where closing a tab discards its draft: the text is the user's unsaved work (D-11),
+// offered when the context connects again. A tab with nothing unsaved, or a Secret's (D-19), keeps
+// nothing. It returns how many drafts it kept. It is nil-safe.
+func (d *Drafts) keep(s *Session, tabIDs []string) int {
+	if d == nil || len(tabIDs) == 0 {
+		return 0
+	}
+	d.wmu.Lock()
+	defer d.wmu.Unlock()
+	n := 0
+	for _, tabID := range tabIDs {
+		e, err := s.editorOf(tabID)
+		if err != nil || !draftable(e) {
+			continue
+		}
+		d.mu.Lock()
+		if d.closed {
+			d.mu.Unlock()
+			return n // quitting: close wrote what waited
+		}
+		t := d.tabs[tabID]
+		if t == nil {
+			t = &draftTab{}
+			d.tabs[tabID] = t
+		}
+		if t.timer != nil {
+			t.timer.Stop()
+			t.timer = nil
+		}
+		t.gen++ // a timer that fired meanwhile writes nothing
+		t.since, t.kept = time.Time{}, true
+		id := t.id
+		d.mu.Unlock()
+		if id == "" {
+			if id, err = newDraftID(); err != nil {
+				d.warn(err)
+				continue
+			}
+			d.mu.Lock()
+			t.id = id
+			d.mu.Unlock()
+		}
+		d.write(d.draftOf(e, id))
+		n++
+	}
+	return n
 }
 
 // close writes the drafts that wait for their timer, so that a quit keeps the newest text, and
