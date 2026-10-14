@@ -80,7 +80,9 @@ func TestClusterOverviewPodsHistory(t *testing.T) {
 			if m, err = s.ClusterOverview(context.Background(), nil, true); err != nil {
 				t.Fatal(err)
 			}
-			return m.PodsHistory != "" && m.Charts[2].Current != nil
+			// With kube-state-metrics, also the cache's count after the history's three samples: the
+			// chart can show the history before the count joins it.
+			return m.PodsHistory != "" && m.Charts[2].Current != nil && (!ksm || len(m.Charts[2].Samples) >= 4)
 		})
 		pods := m.Charts[2]
 		if !ksm {

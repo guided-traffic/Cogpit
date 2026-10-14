@@ -211,7 +211,8 @@ func TestNavigatorStaleReportIsQuiet(t *testing.T) {
 	n := sh.side.sec
 	sh.win.Canvas().Focus(n)
 	n.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
-	q.until(t, "the refused report done", func() bool { return len(f.callsOf("ui.setNavigatorRow")) == 1 && sh.side.rowRep.busy == 0 })
+	// Under load the focus and the key can report apart (two calls); busy counts the waiting ones.
+	q.until(t, "the refused report done", func() bool { return len(f.callsOf("ui.setNavigatorRow")) >= 1 && sh.side.rowRep.busy == 0 })
 	if len(sh.toasts.Objects) != 0 {
 		t.Errorf("%d toasts for a refused report", len(sh.toasts.Objects))
 	}
