@@ -737,7 +737,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   repository cell, the Install tab and the install and upgrade confirmations
   ([H-41](../security/trust-boundaries.md#h-41-repositories-whose-content-nothing-authenticates));
   a chart's README
-  reaches agents framed as text of the chart's author, not instructions
+  reaches agents framed as text of the chart's author, not instructions (built 2026-10-14)
   ([H-86](../security/agents-and-mcp.md#h-86-a-charts-readme-reaches-agents)); nothing is offered
   after an interrupted install: Cogpit shows the release's state and the user cleans up in the Helm
   Releases view (the uninstall offered at the next connect goes; D-11 for install); a release name in
@@ -1849,12 +1849,13 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   ([H-83](../security/agents-and-mcp.md#h-83-an-allowed-terminal-tab-gives-agents-everything-it-shows-from-then-on));
   agents' RBAC writes and Helm installs and upgrades always waiting for the user; window-only
   notifications reaching agents as text through that filter, inline Helm values removed, instead
-  of withheld; marking notifications read and clearing them the window's only.
+  of withheld; marking notifications read and clearing them the window's only; a chart's README
+  framed as text of the chart's author.
 - **Decided (owner, 2026-10-14 evening; not built unless confirmed):** the MCP switch persisted and
   honoured by `cogpit-cli mcp`, which with MCP off refuses to serve, headless too, with a clear
   message to the agent; the switch gets its own D-entry when built
   ([H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge));
-  a chart's README framed as text of the chart's author; `cluster.setPrometheus` by an agent as a write with
+  `cluster.setPrometheus` by an agent as a write with
   confirmation ([G7](#g7-resource-actions), [G11](#g11-helm), [G12](#g12-metrics-and-cluster-overview),
   [G13](#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)). Confirmed: values under
   naming keys (user, host, port, database, namespace) not replaced; GUI-only commands listed,

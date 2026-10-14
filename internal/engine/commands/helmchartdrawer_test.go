@@ -205,8 +205,14 @@ func TestHelmChartDrawerInstallsItsVersion(t *testing.T) {
 	}
 }
 
+// unframed is an agent's README section text without the frame around it (A31).
+func unframed(text string) string {
+	return strings.TrimSuffix(strings.TrimPrefix(text, engine.ReadmeFrameStart+"\n"), "\n"+engine.ReadmeFrameEnd)
+}
+
 // An agent's object_get reads a chart's README, waiting for its download as the drawer would: the
-// text in the README section, the state in helmChart.
+// text in the README section, framed as the chart author's text, not instructions (A31, owner
+// 2026-10-14 evening); the state in helmChart. The window reads it unframed.
 func TestHelmChartReadmeForAgents(t *testing.T) {
 	h := newChartHarness(t, nil)
 	h.repo.Add(docsChart("1.0.0", docsReadme))
@@ -217,8 +223,16 @@ func TestHelmChartReadmeForAgents(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := res.(*engine.DetailModel)
-	if m.HelmChart == nil || m.HelmChart.Readme.State != engine.ReadmeLoaded || readmeText(m) != docsReadme || h.repo.Requests("/docs-1.0.0.tgz") != 1 {
+	if m.HelmChart == nil || m.HelmChart.Readme.State != engine.ReadmeLoaded || readmeText(m) != engine.ReadmeFrameStart+"\n"+docsReadme+"\n"+engine.ReadmeFrameEnd ||
+		h.repo.Requests("/docs-1.0.0.tgz") != 1 {
 		t.Errorf("object_get: %+v %q", m.HelmChart, readmeText(m))
+	}
+	res, err = h.dispatch(engine.OriginGUI, "object.get", map[string]any{"ref": docsRef, "noYaml": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := readmeText(res.(*engine.DetailModel)); got != docsReadme {
+		t.Errorf("the window's README: %q", got)
 	}
 }
 
@@ -235,7 +249,7 @@ func TestHelmChartReadmeBounds(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := res.(*engine.DetailModel)
-	text := readmeText(m)
+	text := unframed(readmeText(m))
 	if r := m.HelmChart.Readme; r.State != engine.ReadmeLoaded || !r.Truncated || r.Size != len(long) || len(text) > helm.MaxReadmeBytes ||
 		!strings.HasPrefix(long, text) {
 		t.Errorf("a long README: %+v, %d bytes", r, len(text))

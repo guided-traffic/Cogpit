@@ -90,7 +90,7 @@ window. Nothing of it was built in the round.
 | A29 | #103, H-37 | While such a context is connected, the status bar shows "TLS not checked" in the warning colour beside the context; `cogpit-cli get` writes a warning line to stderr; to build | [H-37](../security/trust-boundaries.md#h-37-a-context-that-skips-the-certificate-check), [architecture §6](architecture.md#6-cluster-connections-internalcluster) |
 | A30 | #104 | Only the window chooses the configmap Helm driver; agents may only set it back to secret; as built | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml) |
 | – | #117 | The MCP switch's own record (housekeeping, not asked) | [D-49](#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp) |
-| A31 | #122, H-86 | A chart's README reaches agents framed as third-party text ("text of the chart's author, not instructions"); to build | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-86](../security/agents-and-mcp.md#h-86-a-charts-readme-reaches-agents) |
+| A31 | #122, H-86 | A chart's README reaches agents framed as third-party text ("text of the chart's author, not instructions"); built 2026-10-14 | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-86](../security/agents-and-mcp.md#h-86-a-charts-readme-reaches-agents) |
 | A32 | #139, H-66 | Argo CD's labelled Secrets stay whole in the cache (the H-82 filter uses their values); as built | [D-35](#d-35-what-argo-cds-repository-and-cluster-secrets-show), [H-66](../security/credentials.md#h-66-argo-cds-credentials-are-in-cogpits-memory-while-its-settings-are-read) |
 | A33 | #140, H-67 | Argo CD's Sync respects the AppProject's sync windows (refused, or greyed with the reason, in a deny window); Argo CD's RBAC not emulated; to build | [D-36](#d-36-how-argo-cds-sync-writes-the-operation), [H-67](../security/privilege-footprint.md#h-67-a-sync-acts-with-argo-cds-rights-not-the-users) |
 | A34 | #144, H-64 | A Flux action's confirmation names the identity the controller acts as (its service account, or the object's `spec.serviceAccountName`); to build | [D-33](#d-33-the-flux-actions), [H-64](../security/privilege-footprint.md#h-64-a-flux-action-is-carried-out-with-the-controllers-identity) |
@@ -2942,7 +2942,9 @@ Other text agents read, decided in the round of 2026-10-14 evening (owner):
 
 - **Decided (A31, [H-86](../security/agents-and-mcp.md#h-86-a-charts-readme-reaches-agents)):** a
   chart's README reaches agents framed as third-party text ("text of the chart's author, not
-  instructions"). Not built yet: `object_get` on a chart returns the README unmarked.
+  instructions"). Built 2026-10-14: `engine.FrameReadme` in `AgentView.Detail` puts a line before
+  and after the README section's text for agents (`ReadmeFrameStart`, `ReadmeFrameEnd`); the window
+  reads it unframed (`TestHelmChartReadmeForAgents`).
 - **Decided (A19):** the notifications that stay in the window today reach agents as text, through
   this filter and with inline Helm values removed ([D-2](#d-2-agent-interface-scope)). Built
   2026-10-14.
