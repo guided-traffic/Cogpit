@@ -121,7 +121,9 @@ func registerHelm(g *registrar) {
 			"from the cache (pending-install, pending-rollback, pending-upgrade, uninstalling, deployed, missing, unknown). Offer " +
 			"helm_release_rollback or helm_release_uninstall again to finish a rollback or an uninstall; an upgrade is " +
 			"finished by helm_release_rollback to its fromRevision (the Helm SDK refuses to upgrade a release left " +
-			"pending-upgrade); an install by helm_release_uninstall. helm_dismissOperation forgets one.",
+			"pending-upgrade). An install is listed with its release's state only: Cogpit offers nothing to finish it, " +
+			"and what to do with the release (keep it, or uninstall it in the Helm Releases view) is the user's call. " +
+			"helm_dismissOperation forgets one.",
 		Run: func(ctx context.Context, s *engine.Session, p pendingHelmParams) (any, error) {
 			list, err := s.PendingHelmOps(p.All)
 			if err != nil {
@@ -337,6 +339,10 @@ func runHelmOp(s *engine.Session, op engine.PendingHelmOp, starting, inline stri
 	}
 	if opErr != nil {
 		windowToast(s, engine.LevelWarning, fmt.Sprintf("The %s of release %s did not finish: %v", op.Action, op.Release, opErr), inline)
+		if op.Action == engine.HelmInstall { // nothing is offered after an install (A17)
+			return fmt.Errorf("%w; the release may be left pending or failed: helm_pendingOperations shows its state, and the "+
+				"user cleans it up in the Helm Releases view or dismisses the entry", opErr)
+		}
 		return fmt.Errorf("%w; the release may be left pending: run it again to finish, or dismiss it in helm_pendingOperations", opErr)
 	}
 	return nil

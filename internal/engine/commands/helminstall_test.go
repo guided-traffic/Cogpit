@@ -306,8 +306,9 @@ func TestHelmInstallAgents(t *testing.T) {
 }
 
 // An install the Helm SDK refused before it stored the release leaves no journal entry and says
-// the release was not changed; one that failed after leaves the entry, as failed, to uninstall.
-// Neither error quotes a value.
+// the release was not changed; one that failed after leaves the entry, as failed, which shows the
+// release's state: its error points to the Helm Releases view, never to running the install again
+// (nothing is offered after an install, A17). Neither error quotes a value.
 func TestHelmInstallFailures(t *testing.T) {
 	h, fi := installHarness(t)
 	params := map[string]any{"repository": "test", "chart": "web", "version": "0.2.0", "values": "password: fail-s3cr3t\n", "namespace": "apps", "name": "web"}
@@ -321,7 +322,8 @@ func TestHelmInstallFailures(t *testing.T) {
 	}
 	fi.err = errors.New("helm install apps/web: timed out waiting for the hook, fail-s3cr3t")
 	_, err = h.dispatch(engine.OriginGUI, "helm.chart.install", params)
-	if err == nil || strings.Contains(err.Error(), "fail-s3cr3t") || !strings.Contains(err.Error(), "may be left pending") {
+	if err == nil || strings.Contains(err.Error(), "fail-s3cr3t") || !strings.Contains(err.Error(), "may be left pending") ||
+		!strings.Contains(err.Error(), "Helm Releases view") || strings.Contains(err.Error(), "run it again") {
 		t.Errorf("a failed install: %v", err)
 	}
 	list, _ := h.journal.List()
@@ -331,9 +333,10 @@ func TestHelmInstallFailures(t *testing.T) {
 	}
 }
 
-// An install a crash interrupted is offered on the next connect when its release is left
-// pending-install; one whose release is deployed, or does not exist, is dropped with a note. The
-// uninstall finishes the offered one.
+// An install a crash interrupted is listed on the next connect with its release's state when the
+// release is left pending-install; one whose release is deployed, or does not exist, is dropped
+// with a note. Nothing is offered to finish it (A17): the connect's notice names it, and the user
+// cleans up in the Helm Releases view, whose uninstall replaces the entry and removes it when done.
 func TestHelmInstallCrashJournal(t *testing.T) {
 	journal := engine.NewMemoryHelmJournal()
 	started := releaseT0.Add(48 * time.Hour)
@@ -369,13 +372,22 @@ func TestHelmInstallCrashJournal(t *testing.T) {
 		t.Errorf("offer %+v", p)
 	}
 	var notes []string
+	notice := false
 	h.mu.Lock()
 	for _, ev := range h.events {
 		if ev.Type == engine.EventToast {
 			notes = append(notes, ev.Message)
 		}
+		notice = notice || (ev.Type == engine.EventHelm && ev.Message == "The install of release web in context test did not finish")
 	}
 	h.mu.Unlock()
+	if !notice {
+		t.Error("the connect's notice does not name the interrupted install")
+	}
+	if cmd, ok := h.s.Registry().Get("helm.pendingOperations"); !ok || !strings.Contains(cmd.Description, "Cogpit offers nothing to finish it") ||
+		strings.Contains(cmd.Description, "an install by helm_release_uninstall") {
+		t.Errorf("helm_pendingOperations tells agents to finish an install: %q", cmd.Description)
+	}
 	if n := strings.Join(notes, "\n"); !strings.Contains(n, "install of release api (context test): the cluster shows it finished") ||
 		!strings.Contains(n, "install of release db (context test): the release does not exist") {
 		t.Errorf("notes %q", n)

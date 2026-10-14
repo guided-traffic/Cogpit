@@ -16,10 +16,12 @@ import (
 
 // helmBanner shows the connected context's unfinished Helm release actions below the top bar, one
 // row each, as drainBanner shows drains (D-11): what happened to the release, and Finish (the
-// rollback or uninstall again, as recorded, confirmed as usual; an install's Uninstall) and Dismiss
-// (helm.dismissOperation). An action running in this window shows as running. The engine announces
-// changes with EventHelm; the banner reads the actions with helm.pendingOperations, so that it
-// shows what an agent would read.
+// rollback or uninstall again, as recorded, confirmed as usual; an upgrade's rollback) and Dismiss
+// (helm.dismissOperation). An install is offered nothing (owner, 2026-10-14 evening, A17): its row
+// says the release's state, Show release opens it in the Helm Releases view, where the user cleans
+// up, and Dismiss forgets the row. An action running in this window shows as running. The engine
+// announces changes with EventHelm; the banner reads the actions with helm.pendingOperations, so
+// that it shows what an agent would read.
 type helmBanner struct {
 	sh     *shell
 	root   *fyne.Container // the rows; hidden while there are none
@@ -72,6 +74,10 @@ func (b *helmBanner) show(res any, err error) {
 	b.root.Refresh()
 }
 
+// showReleaseLabel is an interrupted install's button: it opens the release in the Helm Releases
+// view (ui.navigate), where the user cleans up; Cogpit offers nothing to finish an install (A17).
+const showReleaseLabel = "Show release"
+
 // helmRollbackParams mirror helm.release.rollback's parameters.
 type helmRollbackParams struct {
 	refParams
@@ -105,17 +111,24 @@ func (b *helmBanner) row(op engine.PendingHelmOpInfo) fyne.CanvasObject {
 			finish = widget.NewButtonWithIcon(fmt.Sprintf("Roll back to revision %d", op.FromRevision), theme.MediaPlayIcon(), func() {
 				b.sh.dispatch("helm.release.rollback", helmRollbackParams{refParams: refParams{Ref: ref}, Revision: op.FromRevision}, nil)
 			})
-		case engine.HelmInstall: // an install left pending-install or failed is undone by an uninstall
-			finish = widget.NewButtonWithIcon("Uninstall", theme.DeleteIcon(), func() {
-				b.sh.dispatch("helm.release.uninstall", refParams{Ref: ref}, nil)
-			})
+		case engine.HelmInstall:
+			// Nothing is offered after an install (A17): the row shows the release's state, and the
+			// user cleans up in the Helm Releases view, which this opens on the release.
+			if op.ReleaseStatus != engine.HelmReleaseMissing {
+				show := widget.NewButtonWithIcon(showReleaseLabel, theme.VisibilityIcon(), func() {
+					b.sh.dispatch("ui.navigate", refParams{Ref: ref}, nil)
+				})
+				buttons.Add(show)
+			}
 		default:
 			finish = widget.NewButtonWithIcon("Finish uninstall", theme.MediaPlayIcon(), func() {
 				b.sh.dispatch("helm.release.uninstall", refParams{Ref: ref}, nil)
 			})
 		}
-		finish.Importance = widget.HighImportance
-		buttons.Add(finish)
+		if finish != nil {
+			finish.Importance = widget.HighImportance
+			buttons.Add(finish)
+		}
 	}
 	content := container.NewBorder(nil, nil,
 		container.NewCenter(widget.NewIcon(themedIcon(icon, tint))),

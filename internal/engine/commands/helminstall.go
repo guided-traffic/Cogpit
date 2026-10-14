@@ -164,8 +164,9 @@ func registerHelmInstall(g *registrar) {
 			"apply: patch, and create), create on namespaces with createNamespace and on customresourcedefinitions for a " +
 			"chart's crds/ folder; helm_chart_preview names the objects first. An agent's request always waits for the user's " +
 			"acceptance, which shows values given here, also where the user allowed agent writes (a chart's templates can " +
-			"create any object). An install a crash of Cogpit interrupts stays in " +
-			"helm_pendingOperations; helm_release_uninstall finishes it.",
+			"create any object). An install a crash of Cogpit interrupts, or that fails, stays in " +
+			"helm_pendingOperations with its release's state; Cogpit offers nothing to finish it: the user decides " +
+			"in the Helm Releases view.",
 		// An agent's install always waits for the user, whatever the chart holds (A2, owner 2026-10-14
 		// evening).
 		AgentsAsk: func(*engine.Session, installParams) bool { return true },

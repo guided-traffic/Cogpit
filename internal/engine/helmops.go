@@ -23,9 +23,10 @@ var ErrNoHelmJournal = errors.New("this Cogpit session keeps no Helm journal, so
 // before the Helm SDK runs and removed when it returns without an error; one that fails keeps its
 // entry, and so does one a crash interrupts, which leaves the release pending-rollback or
 // uninstalling. When a context is connected, its entries are offered with EventHelm: the GUI shows
-// a notice (finish: run the action again; or dismiss), agents read them with
-// helm.pendingOperations. An entry whose action evidently finished (the release is gone after an
-// uninstall, or deployed at a newer revision after a rollback) is dropped with a note.
+// a notice (finish: run the action again; or dismiss; an install is offered nothing, only its
+// release's state, A17), agents read them with helm.pendingOperations. An entry whose action
+// evidently finished (the release is gone after an uninstall, or deployed at a newer revision
+// after a rollback) is dropped with a note.
 //
 // Create it with NewHelmOps and pass it as Options.Helm; it belongs to one session.
 type HelmOps struct {
@@ -172,7 +173,8 @@ func (h *HelmOps) dropFinished(s *Session, ctxName string, pending []PendingHelm
 // the Helm SDK refused) before the SDK made its pending revision, and nothing changed. An upgrade
 // left pending-upgrade or failed above it is offered: finishing it rolls back to FromRevision. An
 // install (FromRevision 0) whose release is deployed finished; one whose release does not exist
-// never stored it; one left pending-install or failed is offered, and finishing it uninstalls.
+// never stored it; one left pending-install or failed stays, shown with its release's state and
+// offered nothing (A17).
 func helmOpFinished(e PendingHelmOp, obj *unstructured.Unstructured, found bool) string {
 	if !found && e.Action == HelmInstall {
 		return "the release does not exist: the install never stored it, or it was uninstalled since"

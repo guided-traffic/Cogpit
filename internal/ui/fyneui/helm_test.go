@@ -264,7 +264,7 @@ func (h *helmEngine) Dispatch(ctx context.Context, inv engine.Invocation) (any, 
 		h.mu.Lock()
 		defer h.mu.Unlock()
 		return append([]engine.PendingHelmOpInfo(nil), h.pending...), nil
-	case "helm.release.rollback", "helm.release.uninstall", "helm.dismissOperation":
+	case "helm.release.rollback", "helm.release.uninstall", "helm.dismissOperation", "ui.navigate":
 		h.mu.Lock()
 		h.actions = append(h.actions, inv)
 		h.mu.Unlock()
@@ -318,6 +318,20 @@ func newHelmTestShell(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQ
 // uninstall that failed.
 func fixtureHelmOps() []engine.PendingHelmOpInfo {
 	started := time.Date(2026, 10, 11, 13, 41, 0, 0, time.UTC)
+	return fixtureHelmOpsAt(started)
+}
+
+// fixtureHelmInstallOp is an install a crash interrupted, its release left pending-install.
+func fixtureHelmInstallOp() engine.PendingHelmOpInfo {
+	started := time.Date(2026, 10, 11, 13, 52, 0, 0, time.UTC)
+	return engine.PendingHelmOpInfo{
+		PendingHelmOp: engine.PendingHelmOp{Context: "kind-cogpit", Namespace: "web", Release: "nginx-x2k4q",
+			Action: engine.HelmInstall, Chart: "bitnami/nginx", ChartVersion: "18.2.0", Started: started, StartedBy: engine.OriginGUI, State: engine.HelmOpRunning},
+		Status: engine.HelmOpStatusInterrupted, ReleaseStatus: "pending-install", ReleaseRevision: 1,
+	}
+}
+
+func fixtureHelmOpsAt(started time.Time) []engine.PendingHelmOpInfo {
 	return []engine.PendingHelmOpInfo{
 		{
 			PendingHelmOp: engine.PendingHelmOp{Context: "kind-cogpit", Namespace: "ingress-nginx", Release: "ingress-nginx",
@@ -399,10 +413,57 @@ func TestHelmBannerShowsAndActs(t *testing.T) {
 	q.until(t, "the banner to go", func() bool { return !sh.helm.root.Visible() })
 }
 
+// An install a crash interrupted is offered nothing (owner, 2026-10-14 evening, A17): its row says
+// what happened and the release's state, and offers Show release, which opens the release in the
+// Helm Releases view (ui.navigate), and Dismiss; no Uninstall, no other action on the release. A
+// release that no longer exists has nothing to show: Dismiss alone.
+func TestHelmBannerOffersNothingAfterAnInstall(t *testing.T) {
+	sh, _, q, h := newHelmTestShell(t, ThemeDark)
+	op := fixtureHelmInstallOp()
+	h.set([]engine.PendingHelmOpInfo{op})
+	q.until(t, "the banner", func() bool { return sh.helm.root.Visible() && len(sh.helm.ops) == 1 })
+	b := helmBannerButtons(sh.helm)
+	if len(b) != 2 || len(b[showReleaseLabel]) != 1 || len(b["Dismiss"]) != 1 {
+		t.Fatalf("buttons %v: want Show release and Dismiss only", b)
+	}
+	if got := helmOpTitle(op); got != "The install of release nginx-x2k4q from bitnami/nginx 18.2.0 did not finish" {
+		t.Errorf("title %q", got)
+	}
+	if got := helmOpDetail(op, germanTime); !strings.Contains(got, "the release is pending-install at revision 1 · Cogpit ended before the action did") {
+		t.Errorf("detail %q", got)
+	}
+	test.Tap(b[showReleaseLabel][0])
+	q.until(t, "the navigation", func() bool { return len(h.recorded()) == 1 })
+	got := h.recorded()[0]
+	if got.ID != "ui.navigate" || string(got.Params) != `{"ref":{"context":"kind-cogpit","kind":"helmreleases","namespace":"web","name":"nginx-x2k4q"}}` {
+		t.Errorf("Show release dispatched %s %s", got.ID, got.Params)
+	}
+
+	failed := op
+	failed.Status, failed.State, failed.Error = engine.HelmOpStatusFailed, engine.HelmOpFailed, "helm install web/nginx-x2k4q: timed out waiting for the condition"
+	failed.ReleaseStatus = "failed"
+	missing := op
+	missing.Release, missing.ReleaseStatus, missing.ReleaseRevision = "gone", engine.HelmReleaseMissing, 0
+	h.set([]engine.PendingHelmOpInfo{failed, missing})
+	q.until(t, "the failed and the missing install", func() bool { return len(sh.helm.ops) == 2 && sh.helm.ops[0].Status == engine.HelmOpStatusFailed })
+	b = helmBannerButtons(sh.helm)
+	if len(b) != 2 || len(b[showReleaseLabel]) != 1 || len(b["Dismiss"]) != 2 {
+		t.Errorf("buttons %v: a failed install shows its release, a missing one only Dismiss", b)
+	}
+	if got := helmOpDetail(failed, germanTime); !strings.Contains(got, "the release is failed at revision 1 · helm install web/nginx-x2k4q: timed out") {
+		t.Errorf("failed detail %q", got)
+	}
+	for _, inv := range h.recorded() {
+		if inv.ID != "ui.navigate" {
+			t.Errorf("an install's row ran %s", inv.ID)
+		}
+	}
+}
+
 func renderHelmBanner(t *testing.T, mode ThemeMode, name string) {
 	sh, w, q, h := newHelmTestShell(t, mode)
-	h.set(fixtureHelmOps())
-	q.until(t, "the banner", func() bool { return sh.helm.root.Visible() && len(sh.helm.ops) == 2 && sh.view.snap != nil })
+	h.set(append(fixtureHelmOps(), fixtureHelmInstallOp()))
+	q.until(t, "the banner", func() bool { return sh.helm.root.Visible() && len(sh.helm.ops) == 3 && sh.view.snap != nil })
 	savePNG(t, w, name)
 }
 
