@@ -1,6 +1,6 @@
 # Where Cogpit falls short of Lens
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (G14: D-16 revised by the owner, `cogpit-cli` inside the macOS app and the disk image the release's only download besides `SHA256SUMS`, built by agent CLIBUNDLE, not yet proven by a release, estimate not moved; G22: no `cogpit-cli` archives for Windows and Linux any more); minor (G14: Sparkle 2 and the signed appcast built, no update key yet; G15: P1 measured on the engine side; G13: deep links partial on macOS, D-47, estimate not moved; G13: start at login partial on macOS, D-48; G17: the cached Secrets' values and Flux's credential fields kept out of what agents read, H-82 and H-63 (owner), built; G11: credentials over plain http asked once per repository, H-40 (owner), built; G8: a node shell pod a crash left deleted at the next connect, H-71, owner; G7: an agent's role binding always waits for the user, H-27, owner; G14: the signed, notarized disk image built in the release pipeline, no tag run yet; , estimate not moved; G14: the Apple signing material exists, 2026-10-14, no longer a human prerequisite; G6: the workloads' drawers' Pods tables without a Namespace column, D-40 decided by the owner, estimate not moved; G23: Reconcile with Source and Reset built (D-33, decided by the owner), removed from Left, estimate not moved; G23: the views' status filter built, a dashboard's state opens its view filtered (owner, D-34), removed from Left (Flux CD), estimate not moved; G7, G13: D-37 decided by the owner, the node shell's default image the newest supported Alpine release kept current by Renovate and its Maximum duration built, estimates not moved; G12: the Metrics source setting built, removed from Missing, estimate not moved; G12: the Overview's Pods history from kube-state-metrics built (a night decision for the owner to confirm), removed from Missing, estimate down to 8–20 h; G12: history that outlives a closed drawer built (a night decision for the owner to confirm), removed from Missing, estimate not moved; G12: the Nodes list's Disk built (D-43, a night decision for the owner to confirm), removed from Missing, estimate not moved; G12: the Nodes list's usage bars built, removed from Missing, estimate not moved; G11: chart icons built, D-46, removed from Missing, estimate 2–8 h (was 3–10), totals not recounted; G11: the README in the chart's drawer built with a version picker, night build HELM2, estimate not moved; G5, G13: a context that leaves Cogpit takes its dock tabs, a connect under way forgets it, fixed, estimates not moved; G3, G23: the Flux and Argo CD dashboards follow a namespace-limited user's plans and refusals and say when the definitions cannot be listed, a refused label-selected scope not kept warm, fixed, estimates not moved; G17: `kinds_list` completed, every MCP row done, estimate 0–2 h, totals not recounted; G17: `dock_read` built (D-44); G17: every command a tool over the whole registry, GUI-only commands refused under one mark, estimate not moved; G5: no context picker by itself at start (D-42); G5, G13: the tabs and the tables' layout kept across a restart without connecting anything (D-41), a removed cluster's context forgotten, a vanished kubeconfig file's tabs closed with a notice; G6: a Pods table in the workloads' drawers built (D-40, a night decision for the owner to confirm), removed from Missing, from indexes only the open drawer holds, estimate not moved; G12: Prometheus detection follows a namespace-limited user's refusal, fixed; G3: a refused list of the custom resource definitions not retried until a refresh, and the namespace-limited user checked on kind, fixed; G3: views' indexes, an agent's Overviews, `Lookup` and write targets, Helm's releases and the Applications follow a namespace-limited user's plan and refusals, fixed; G12: pod metrics per namespace for a namespace-limited user, D-39, a night decision, built, estimate not moved; G3: one object's read, `object_get`, `cogpit-cli get` and the drawer, takes the object's namespace, fixed; G3: a refused read in all namespaces counts whoever met it, logs, port forwards, one object and `resources_list` follow it at once, fixed; G23: Argo CD built, partial, night build (D-35, D-36), its remainder 3–8 h, the gap's estimate for the lead; G23: Argo CD built, partial, night build (D-35, D-36), its remainder 4–10 h, the gap's estimate for the lead; G23: the Flux CD section built, partial: its views, dashboard and actions, D-33, D-34, Flux's remainder 6–15 h, the table's estimate for the lead; G7, G8, G13: the node shell (D-37) and Cluster Settings › Node Shell partial, 39 of 39 actions, estimates of G7 and G8 down; G9, G7: Create Secret partial, the eighth create dialog, the user's only (D-19), 38 of 39 actions; G1: CI rebuilt as parallel jobs of at most ten minutes, GoSec and cyclomatic complexity added, semantic-release live; G14: each release carries the unsigned app, `cogpit-cli` and `SHA256SUMS`, estimate not moved; G12, G6: a node drawer's Pods table with CPU and Memory and sortable, owner, removed from Missing, estimate not moved; G12: every byte amount in binary units with one decimal, D-32, estimate not moved; G8, G13: every timestamp in the zone and the region's format, D-31, estimates not moved; G6: the Secrets drawer decodes certificates, beyond Lens (D-30), estimate not moved; G5: the lists' copy icon outside a blacklist of columns and right after the text (owner, D-25), estimate not moved; G11: D-29 built, authenticated repositories from Helm's file, estimate 3–10 h; G3: workload logs, port forwards and one object's read follow the access reviews' answers, fixed; G5: copy icons in the lists built (D-25), estimate not moved; G3: the Overviews follow the access reviews' answers, fixed; G6: references to Pod Security Policies, admission policies and Device Resources link, fixed; G2: `cogpit-cli contexts` marks an insecure context; G5, G13: a removed cluster's tabs close, fixed; G13: Cluster › Disconnect follows a reconnect, fixed; G11, G5: the owner's requirements of the morning after the night run (D-29, D-25); G17: `view_rows`, `object_get`'s related objects, the agent writes allowance and the audit log in the GUI built; G17: `view_rows`, `object_get`'s related objects and the agent writes allowance in the GUI built; G17: `view_rows` and `object_get`'s related objects built; G17: `view_rows` built; G9: the Create resource tab's save and search buttons built, Revert to original built, drafts of unsaved editor text built, estimate not moved; G9: Revert to original built, drafts of unsaved editor text built, estimate not moved; G9: drafts of unsaved editor text built, estimate not moved; G3: namespace-scoped informers for users who may not list a kind in all namespaces built, estimate not moved; G11: the ConfigMaps storage driver built, the SQL one left missing with its reason, estimate not moved; G2: the kubeconfig's `proxy-url`, CA, `tls-server-name` and `insecure-skip-tls-verify` verified against TLS test servers, a `proxy-url` password kept out of connect errors, insecure contexts marked, estimate 8–25 h; G13: the kubectl Preferences built; G8: kubectl for terminals built, D-3; G6: the node drawer's Devices section built, estimate not moved; G8: copy and paste with the right mouse button partial, the Windows and Linux copy and paste keys, estimate not moved; G5: the search field's "Aa" and ".*" toggles built, estimate not moved; G13: the non-cluster proxy built, untrusted CAs held back; G13: a cluster's proxy built; G12: hidden metrics built; G5, G13: the navigator's section level, Local Kubeconfigs, and its scope as engine state built, the tab bar showing the scope's tabs, two rows from missing to partial, estimates not moved; G5: the title bar's history arrows, notifications and context menu built; G5: column reorder by dragging built; G5: row checkboxes and the selection's menu built; G9, G7: Delete of a selection built in the engine (`object.deleteMany`), estimates not moved; G5, G13: the welcome page, the Help and Window menus, Disconnect and Remove from Cogpit built, four rows partial, estimates not moved; G8: the log tab's pod and container selectors, older lines and jump to a time partial; G8: the log tab's pod and container selectors and older lines partial; G8: the log tab's pod and container selectors partial; G11: a release upgraded to a version from the user's repositories; G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (the owner's decision round of 2026-10-14 evening: a "Decided" bullet in G1, G2, G5 to G9, G11 to G14, G17 and G23 with what he confirmed and what he decided, not built; his findings in a real window in G12 (no node history from Prometheus, the next implementation's first item), G13 (About shows 0.0.1) and G16; G11: the SQL driver out of scope; G12: ranges beyond 30 days not to be built, the per-range query step answered; G13: the hotbar's drag to reorder and a tile dragged out to another window required; estimates not moved); minor (G14: D-16 revised by the owner, `cogpit-cli` inside the macOS app and the disk image the release's only download besides `SHA256SUMS`, built by agent CLIBUNDLE, not yet proven by a release, estimate not moved; G22: no `cogpit-cli` archives for Windows and Linux any more); minor (G14: Sparkle 2 and the signed appcast built, no update key yet; G15: P1 measured on the engine side; G13: deep links partial on macOS, D-47, estimate not moved; G13: start at login partial on macOS, D-48; G17: the cached Secrets' values and Flux's credential fields kept out of what agents read, H-82 and H-63 (owner), built; G11: credentials over plain http asked once per repository, H-40 (owner), built; G8: a node shell pod a crash left deleted at the next connect, H-71, owner; G7: an agent's role binding always waits for the user, H-27, owner; G14: the signed, notarized disk image built in the release pipeline, no tag run yet; , estimate not moved; G14: the Apple signing material exists, 2026-10-14, no longer a human prerequisite; G6: the workloads' drawers' Pods tables without a Namespace column, D-40 decided by the owner, estimate not moved; G23: Reconcile with Source and Reset built (D-33, decided by the owner), removed from Left, estimate not moved; G23: the views' status filter built, a dashboard's state opens its view filtered (owner, D-34), removed from Left (Flux CD), estimate not moved; G7, G13: D-37 decided by the owner, the node shell's default image the newest supported Alpine release kept current by Renovate and its Maximum duration built, estimates not moved; G12: the Metrics source setting built, removed from Missing, estimate not moved; G12: the Overview's Pods history from kube-state-metrics built (a night decision for the owner to confirm), removed from Missing, estimate down to 8–20 h; G12: history that outlives a closed drawer built (a night decision for the owner to confirm), removed from Missing, estimate not moved; G12: the Nodes list's Disk built (D-43, a night decision for the owner to confirm), removed from Missing, estimate not moved; G12: the Nodes list's usage bars built, removed from Missing, estimate not moved; G11: chart icons built, D-46, removed from Missing, estimate 2–8 h (was 3–10), totals not recounted; G11: the README in the chart's drawer built with a version picker, night build HELM2, estimate not moved; G5, G13: a context that leaves Cogpit takes its dock tabs, a connect under way forgets it, fixed, estimates not moved; G3, G23: the Flux and Argo CD dashboards follow a namespace-limited user's plans and refusals and say when the definitions cannot be listed, a refused label-selected scope not kept warm, fixed, estimates not moved; G17: `kinds_list` completed, every MCP row done, estimate 0–2 h, totals not recounted; G17: `dock_read` built (D-44); G17: every command a tool over the whole registry, GUI-only commands refused under one mark, estimate not moved; G5: no context picker by itself at start (D-42); G5, G13: the tabs and the tables' layout kept across a restart without connecting anything (D-41), a removed cluster's context forgotten, a vanished kubeconfig file's tabs closed with a notice; G6: a Pods table in the workloads' drawers built (D-40, a night decision for the owner to confirm), removed from Missing, from indexes only the open drawer holds, estimate not moved; G12: Prometheus detection follows a namespace-limited user's refusal, fixed; G3: a refused list of the custom resource definitions not retried until a refresh, and the namespace-limited user checked on kind, fixed; G3: views' indexes, an agent's Overviews, `Lookup` and write targets, Helm's releases and the Applications follow a namespace-limited user's plan and refusals, fixed; G12: pod metrics per namespace for a namespace-limited user, D-39, a night decision, built, estimate not moved; G3: one object's read, `object_get`, `cogpit-cli get` and the drawer, takes the object's namespace, fixed; G3: a refused read in all namespaces counts whoever met it, logs, port forwards, one object and `resources_list` follow it at once, fixed; G23: Argo CD built, partial, night build (D-35, D-36), its remainder 3–8 h, the gap's estimate for the lead; G23: Argo CD built, partial, night build (D-35, D-36), its remainder 4–10 h, the gap's estimate for the lead; G23: the Flux CD section built, partial: its views, dashboard and actions, D-33, D-34, Flux's remainder 6–15 h, the table's estimate for the lead; G7, G8, G13: the node shell (D-37) and Cluster Settings › Node Shell partial, 39 of 39 actions, estimates of G7 and G8 down; G9, G7: Create Secret partial, the eighth create dialog, the user's only (D-19), 38 of 39 actions; G1: CI rebuilt as parallel jobs of at most ten minutes, GoSec and cyclomatic complexity added, semantic-release live; G14: each release carries the unsigned app, `cogpit-cli` and `SHA256SUMS`, estimate not moved; G12, G6: a node drawer's Pods table with CPU and Memory and sortable, owner, removed from Missing, estimate not moved; G12: every byte amount in binary units with one decimal, D-32, estimate not moved; G8, G13: every timestamp in the zone and the region's format, D-31, estimates not moved; G6: the Secrets drawer decodes certificates, beyond Lens (D-30), estimate not moved; G5: the lists' copy icon outside a blacklist of columns and right after the text (owner, D-25), estimate not moved; G11: D-29 built, authenticated repositories from Helm's file, estimate 3–10 h; G3: workload logs, port forwards and one object's read follow the access reviews' answers, fixed; G5: copy icons in the lists built (D-25), estimate not moved; G3: the Overviews follow the access reviews' answers, fixed; G6: references to Pod Security Policies, admission policies and Device Resources link, fixed; G2: `cogpit-cli contexts` marks an insecure context; G5, G13: a removed cluster's tabs close, fixed; G13: Cluster › Disconnect follows a reconnect, fixed; G11, G5: the owner's requirements of the morning after the night run (D-29, D-25); G17: `view_rows`, `object_get`'s related objects, the agent writes allowance and the audit log in the GUI built; G17: `view_rows`, `object_get`'s related objects and the agent writes allowance in the GUI built; G17: `view_rows` and `object_get`'s related objects built; G17: `view_rows` built; G9: the Create resource tab's save and search buttons built, Revert to original built, drafts of unsaved editor text built, estimate not moved; G9: Revert to original built, drafts of unsaved editor text built, estimate not moved; G9: drafts of unsaved editor text built, estimate not moved; G3: namespace-scoped informers for users who may not list a kind in all namespaces built, estimate not moved; G11: the ConfigMaps storage driver built, the SQL one left missing with its reason, estimate not moved; G2: the kubeconfig's `proxy-url`, CA, `tls-server-name` and `insecure-skip-tls-verify` verified against TLS test servers, a `proxy-url` password kept out of connect errors, insecure contexts marked, estimate 8–25 h; G13: the kubectl Preferences built; G8: kubectl for terminals built, D-3; G6: the node drawer's Devices section built, estimate not moved; G8: copy and paste with the right mouse button partial, the Windows and Linux copy and paste keys, estimate not moved; G5: the search field's "Aa" and ".*" toggles built, estimate not moved; G13: the non-cluster proxy built, untrusted CAs held back; G13: a cluster's proxy built; G12: hidden metrics built; G5, G13: the navigator's section level, Local Kubeconfigs, and its scope as engine state built, the tab bar showing the scope's tabs, two rows from missing to partial, estimates not moved; G5: the title bar's history arrows, notifications and context menu built; G5: column reorder by dragging built; G5: row checkboxes and the selection's menu built; G9, G7: Delete of a selection built in the engine (`object.deleteMany`), estimates not moved; G5, G13: the welcome page, the Help and Window menus, Disconnect and Remove from Cogpit built, four rows partial, estimates not moved; G8: the log tab's pod and container selectors, older lines and jump to a time partial; G8: the log tab's pod and container selectors and older lines partial; G8: the log tab's pod and container selectors partial; G11: a release upgraded to a version from the user's repositories; G5, G13: the tab bar of cluster views built, its five shortcut rows, the navigator's ⇧↵ fixed tab, estimates not moved; G13: Preferences and Cluster settings built, night run, 11 rows partial, G8's terminal rows 2, estimates not moved; G12: the cluster Overview built, the remainder 15–35 h; G6: Applications, Vertical Pod Autoscalers and the four Device Resources views partial; G6: Vertical Pod Autoscalers and the four Device Resources views partial; G6: the four Device Resources views partial; G11: chart repositories, the Charts view and the install built; G12: the owner's evening requirements built (both providers together, the status line, the fallback, a missing value as an empty cell; measured on kind); G13: the command palette and its shortcuts built, estimate 50–140 h, the summary table not recounted; G2: `cogpit-cli contexts` and `get` built; G5, G13: the navigator's header, root, tooltips and keyboard built; G12: the owner's evening requirements (provider status line, Prometheus history then Metrics Server live) and the open step question; G16: the quit crash fixed; G12: Prometheus in the window, checked against a real Prometheus on kind; G12: Prometheus, backend; G2: Lens's Kubeconfig Syncs captures followed, scope C2; totals not recounted) · **Target:** Lens Desktop 2026.10.51501
 
 Every known shortfall against Lens Desktop 2026.10.51501, and against Cogpit's own targets beyond
 Lens, one entry each, ranked by what stands between Cogpit and alpha, then beta. This is the work
@@ -58,6 +58,17 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## Foundation gaps
 
 ### G1. Workspace, CI and progress generators
+- **Decided (owner, 2026-10-14 evening, [decisions](../developer/decisions.md); not built unless
+  confirmed):** CI and tests: node-exporter and kube-state-metrics on in the kind cluster's
+  Prometheus values (`hack/kind`), with kind tests of node and pod history from Prometheus
+  ([G12](#g12-metrics-and-cluster-overview)); the terminal fork's four shell tests under the race
+  detector in CI ([G8](#g8-logs-terminal-and-shells)); confirmed: renders of the workload drawers'
+  Pods for Deployments and Stateful Sets only. The README stays the showcase page, and no further
+  Markdown files go into the repository root (owner); decided for it: images through `<picture>`,
+  light renders for GitHub's light theme and dark ones for dark; a banner (the logo, the name, one
+  sentence) in both themes; the images optimised losslessly (oxipng, zopfli); one neutral demo
+  context name in every showcase image. Moot: the CLI archive's README (no CLI archives any more).
+  Estimate not moved (the lead recounts).
 - **Missing:** the generated pages (`parity-checklist.md`) and `make scorecard`
   ([method](README.md#the-pages); later, by [D-15](../developer/decisions.md#d-15-progress-generators));
   an envtest job (no test uses envtest yet).
@@ -107,6 +118,17 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 3–8 h (was 6–14; `make parity` built, 2026-10-12).
 
 ### G2. Cluster connection and authentication
+- **Decided (owner, 2026-10-14 evening; not built):** a context that skips the certificate check
+  (`insecure-skip-tls-verify`) asks once before its first connect, the answer kept like a plugin
+  approval; while it is connected the status bar says "TLS not checked" in the warning colour beside
+  the context, and `cogpit-cli get` writes a warning line to standard error
+  ([H-37](../security/trust-boundaries.md#h-37-a-context-that-skips-the-certificate-check)); a
+  credential plugin's approval shows and binds Cogpit's own proxy for the cluster too, and a changed
+  proxy asks for the approval again
+  ([H-34](../security/trust-boundaries.md#h-34-the-plugin-approval-shows-the-kubeconfigs-proxy-not-cogpits)).
+  Confirmed: a single object's reads (`object_get`, `cogpit-cli get`, logs, forwards) read the
+  target's namespace. Rows: [platform parity](platform-parity.md#cluster-authentication-and-connectivity),
+  [ui parity › Layout](ui-parity.md#layout). Estimate not moved.
 - **Lens's captures of 2026-10-12 followed** ([ui parity › Clusters](ui-parity.md#clusters), built 2026-10-12, scope C2): dot files in sync
   folders read (regular files only, at most 1 MiB, a FIFO never opened: `readBounded` also looks before it opens now); a connected
   cluster closed when its file is deleted or its source removed; one dialog, "Sync Files and Folders", for files and folders;
@@ -210,7 +232,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   before the answers took a cluster-wide pods handle that, for a user who may not list pods
   everywhere, never synced and failed after 15 s. They, and the read of one object (`object_get`,
   `cogpit-cli get`), now wait for the answers, then such a user reads the target's namespace alone,
-  even when the namespaces the plan names miss it (Cogpit's default, not the owner's decision); a
+  even when the namespaces the plan names miss it (Cogpit's default, confirmed by the owner
+  2026-10-14 evening); a
   namespace refused too ends them with the refusal (`Backend.acquireIn`,
   `TestPortForwardWaitsForThePlanAndReadsItsNamespace`, `TestWorkloadLogsWaitForThePlanAndReadTheirNamespace`;
   [architecture §5](../developer/architecture.md#5-cache)). Fixed the same night: for a user whose
@@ -296,6 +319,18 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## Feature gaps
 
 ### G6. Resource views
+- **Decided (owner, 2026-10-14 evening; not built):** the pod drawer's Resource Claims with their
+  state, the pod's namespace's claims watched while the drawer is open; a node device names the claim
+  that holds it, as a link; an Application's logs in one merged tab ([G8](#g8-logs-terminal-and-shells)).
+  Confirmed, now the owner's decisions: Applications' Violations (the workloads in a warning or error
+  state), a VPA's Mode "Auto" when unset, no Pods table in Replication Controllers' drawers, Pods as
+  the view a connect opens, the Overview's Issues rule. Beyond Lens, not counted in this gap
+  ([D-30](../developer/decisions.md#d-30-certificates-in-secrets-decoded), the Secrets drawer's
+  certificates): required, the kind of CA a certificate's chain leads to (a public one, one this Mac
+  trusts, or an internal or self-signed one, with the root's name; its design settled when built);
+  decided, a combined PEM's key check and an encrypted key in the warning colour
+  ([beyond Lens › Everyday use](beyond-lens.md#everyday-use)). Rows: [resource parity](resource-parity.md).
+  Estimate not moved.
 - **Missing:** none of the 64 resource views ([resource-parity](resource-parity.md), 2026-10-13:
   Pod Security Policies, the cluster Overview, Helm Charts, Applications, Vertical Pod Autoscalers
   and the four Device Resources views partial since 2026-10-13); the depth of the partial ones
@@ -422,6 +457,13 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 10–56 h (was 12–60; Pod Security Policies built; the rest is depth: captures, metrics columns; not moved by the workloads' Pods, which the estimate did not count).
 
 ### G7. Resource actions
+- **Decided (owner, 2026-10-14 evening; not built):** Restart on a selection of workloads, Scale
+  staying on one object; an agent's create or change of any RBAC kind (Role, Cluster Role, Role
+  Binding, Cluster Role Binding) always waits for the user, also where agent writes are allowed (the
+  Role Binding's is built, H-27); a grant's confirmation says "Grants these rights immediately,
+  cluster-wide" or "in <namespace>", and "This cannot be undone." stays only where something is lost
+  (delete, drain, uninstall) ([resource parity › Create dialogs](resource-parity.md#create-dialogs)).
+  Confirmed: the node shell's bounds, 5 minutes to 24 hours, default 2 hours. Estimate not moved.
 - **Missing:** the actions not listed under Evidence, of 39 (Share is not a target, owner 2026-10-11). The alpha gate needs about 20: logs, shell, attach, edit, delete,
   scale, restart, cordon, uncordon, drain, trigger, the port-forward actions and the Helm release
   actions. Rollout comes from the kubectl libraries.
@@ -478,6 +520,26 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 8–35 h, estimated (was 12–45; no action missing since 2026-10-13: Helm install, the Secret's dialog and the node shell built; what is left is depth (Lens's dialogs captured, the inferred rows checked) and the node shell's second, unprivileged profile if the owner wants it).
 
 ### G8. Logs, terminal and shells
+- **Decided (owner, 2026-10-14 evening; not built unless confirmed):** an Application's logs in one
+  merged tab, each line `<workload>/<pod>/<container>`, with a filter per source; a logs tab's
+  Download saves what it shows, its filter applied; kubectl's signature checked with sigstore-go, the
+  Rekor transparency log's proof included (a D-entry,
+  [H-35](../security/trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log));
+  the hand-over that puts the verified kubectl first for bash and fish as for zsh, and a setting
+  (Preferences › Kubernetes) that can enforce Cogpit's kubectl through a shell function
+  ([H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first));
+  a terminal tab's agent switch ends one hour after it was turned on at the latest
+  ([G17](#g17-mcp-control)); the fork's four shell tests under the race detector in CI; the two
+  newer terminal-fork patches offered upstream later, at the end, the app first. Confirmed, now the
+  owner's decisions: older log lines only through the row or `logs.loadOlder`; init containers
+  listed apart; ⌃C to the shell on Windows and Linux; the right-click copy and paste preference the
+  user's only; a verified, matching kubectl downloaded earlier first without asking; the cluster's
+  terminal namespace beating the filter's; the node shell's bounds. To check, a defect: whether the
+  logs' Jump to time field is cut at a window width of 1440 points. Noted from reading only, not
+  reproduced: a reopened log stream names the pod and container, not the pod's UID, so a Stateful
+  Set pod recreated under the same name while the cache lags more than 500 ms may show its lines
+  twice; to check in a later run. Rows: [ui parity › Logs](ui-parity.md#logs),
+  [› Terminal and shells](ui-parity.md#terminal-and-shells). Estimate not moved.
 - **Missing:** the terminal tab on `fyne-io/terminal`, connected to Cogpit's own PTY (local shell
   with its own kubeconfig) and to client-go exec and attach streams; the node shell with the
   safeguards in [privilege footprint](../security/privilege-footprint.md#node-shell); the log
@@ -547,6 +609,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 13–34 h (was 16–40; the node shell built 2026-10-13, about 3–6 h of it); the terminal widget's fuzzing and patches done (fourth run), sending the upstream series under 1 h.
 
 ### G9. YAML editor and create resource
+- **Decided (owner, 2026-10-14 evening; not built):** after a create from a dialog the new object's
+  drawer opens and the list scrolls to its row; the grants' confirmation wording
+  ([G7](#g7-resource-actions)). Confirmed: Delete of a selection at most 500 objects. Estimate not
+  moved.
 - **Missing:** none of the create dialogs (the Secret's partial since 2026-10-13, the other seven since 2026-10-12, G7)
   and their YAML fallback, a Secrets path (**built 2026-10-12**, `TestSecretEditAndCreateAreGUIOnly`; decided 2026-10-12, [D-19](../developer/decisions.md#d-19-editing-and-creating-secrets-from-yaml): Secrets editable and creatable from YAML in the GUI only, the values from the cache since the full watch, agents refused; 4–8 h).
 - **Evidence:** [ui-parity](ui-parity.md#editor-and-create-resource): 4 rows partial, 1 missing;
@@ -662,6 +728,24 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 2–6 h (was 10–20; built in the third run, left: Lens's status texts and Edit dialog by capture, a check in a real window).
 
 ### G11. Helm
+- **Decided (owner, 2026-10-14 evening; not built unless confirmed):** repositories with a dot in
+  their name supported through an unambiguous chart id inside Cogpit (Helm itself writes
+  repo/chart), carried through references, deep links and agents' parameters, saved ids migrated
+  once, nothing changed upstream; an http or insecure-TLS origin marked in the Charts view's
+  repository cell, the Install tab and the install and upgrade confirmations
+  ([H-41](../security/trust-boundaries.md#h-41-repositories-whose-content-nothing-authenticates));
+  an agent's install or upgrade always waits for the user, whatever the chart holds; a chart's README
+  reaches agents framed as text of the chart's author, not instructions
+  ([H-86](../security/agents-and-mcp.md#h-86-a-charts-readme-reaches-agents)); nothing is offered
+  after an interrupted install: Cogpit shows the release's state and the user cleans up in the Helm
+  Releases view (the uninstall offered at the next connect goes; D-11 for install); a release name in
+  both storage drivers shown once, the one deployed last, with a drawer note "also stored in the
+  <other> driver (older)". Confirmed: a repository that appears in Helm's file while Cogpit runs is
+  downloaded at once (H-42); an http repository's approval does not expire (H-40); the preview
+  before Install; the stored chart for an upgrade to the release's own version; only the window
+  chooses the configmap driver; the SQL driver out of scope. Rows:
+  [resource parity › Helm](resource-parity.md#helm), [ui parity › Preferences](ui-parity.md#preferences),
+  [beyond Lens › Crash recovery](beyond-lens.md#crash-recovery). Estimate not moved.
 - **Required (owner, 2026-10-13, [D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml)):**
   Cogpit reads Helm's own `repositories.yaml` regularly and takes over its changes by itself, within
   5 seconds, repositories with credentials included when their credentials are available.
@@ -678,7 +762,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   the picker offers that version only and the info line's spinner lasts only while the values load.
 - **Missing:** OCI registries (`oci://`, `helm registry login`; an OCI entry in Helm's file is
   listed as not used); a list of public repositories to pick (Cogpit adds none by design, D-29); the SQL storage driver
-  (Helm keeps such releases in a database outside the cluster, which Cogpit neither reads nor
+  (out of scope, the owner's decision of 2026-10-14 evening: Helm keeps such releases in a database outside the cluster, which Cogpit neither reads nor
   writes; the preference refuses it with that reason); captures of Lens's Charts view, chart drawer
   and Helm Install tab (Cogpit's are inferred), and of where Lens's Preferences show `HELM_DRIVER`.
   Views and actions count in G6 and G7.
@@ -814,6 +898,24 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Still to capture in Lens** (the staging cluster's release with five revisions, one failed): what the Rollback dialog's button does with the current revision selected, what Save does with the box cleared, where the checkbox sits relative to the editor, the texts of states other than Deployed and Failed, what the find widget's Replace does with a regular expression's groups.
 
 ### G12. Metrics and cluster overview
+- **Found in the owner's real-window walk (2026-10-14 evening), the next implementation's first
+  item:** no past data is shown for a node: where the history is missing, Cogpit does not fall back
+  to Prometheus yet. The owner: take the past data from Prometheus where it is available. First
+  verify where history is missing (the node drawer, the Nodes list, pods), then build
+  ([ui parity › Cluster overview and charts](ui-parity.md#cluster-overview-and-charts)). Not built.
+- **Decided (owner, 2026-10-14 evening; not built unless confirmed):** node CPU and memory history
+  from node-exporter where it runs (kube-prometheus-stack), from cAdvisor otherwise; charts of one
+  object whose ranges lie far apart get separate queries, each at its own step (the question under
+  "Waiting for the owner" below); an agent's `cluster.setPrometheus` becomes a write with
+  confirmation, the window's as today ([H-26](../security/privilege-footprint.md#h-26-prometheus-is-found-by-name));
+  the Overviews wait for the access reviews as the dashboards do; node-exporter and
+  kube-state-metrics on in the kind cluster's Prometheus values, with kind tests of node and pod
+  history from Prometheus ([G1](#g1-workspace-ci-and-progress-generators)). Confirmed: the network
+  and filesystem series asked for only while their chart is shown; a failed provider retried after
+  one minute; a provider's status from its last answers, without a probe; ranges up to 30 days (the
+  ranges beyond leave Missing below); the Overview's Pods history over the whole cluster for a
+  namespace-limited user too; Prometheus history in a pod drawer of a refused namespace. Estimate
+  not moved.
 - **Required next (owner, 2026-10-12: "do not forget"):**
   - **metrics-server** (Kubernetes Metrics API, `metrics.k8s.io`): the pods' and nodes' current
     CPU and memory in the lists and the drawer, and as the source of the drawer's charts when no
@@ -898,9 +1000,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   once more on a range change), then the live values come from the Metrics Server's get every 15 s;
   history and live values meet without a point twice, and a hole after both were away is filled
   from Prometheus once. The network and the filesystem are asked of Prometheus only while a chart
-  shows them (**the lead's proposal, not the owner's decision**); a chart's variant is engine state
+  shows them (**the lead's proposal, confirmed by the owner 2026-10-14 evening**); a chart's variant is engine state
   for that (`ui.setMetricsVariant`, `ui.state`'s `drawerCharts`). Falling back as required, also
-  while a drawer is open; a failed provider is asked again after **a minute (Cogpit's default)** and
+  while a drawer is open; a failed provider is asked again after **a minute (Cogpit's default, confirmed by the owner 2026-10-14 evening)** and
   takes its part back when it answers. The lists and `metrics.get` ask the Metrics Server and
   Prometheus only when it fails or is missing; Prometheus is looked for only then or when a drawer
   opens. **The status line** under the charts: a row per provider (Prometheus with
@@ -927,7 +1029,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   in the same poll, its return served 9 s after it was ready; Prometheus's absence seen at its next
   request (`unavailable (HTTP 503)`) while the live values went on, its return served 28 s after it
   was ready ([architecture §9](../developer/architecture.md#9-metrics-internalmetrics)).
-- **Waiting for the owner (2026-10-12):** charts of one drawer whose ranges lie far apart (a 7-day
+- **Waiting for the owner (2026-10-12; answered 2026-10-14 evening: separate queries, each range at
+  its own step; not built):** charts of one drawer whose ranges lie far apart (a 7-day
   pod chart beside 1-hour container charts) share one query step, set by the longest range, so the
   short charts get about six points. Recommended: a query set of its own per range once the ranges
   differ by more than ten times (more requests only while ranges are mixed); the alternative, one
@@ -1119,8 +1222,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestMetricsSourceFromTheSettings` (the demo cluster: No metrics empties the Pods list's CPU and
   `metrics.get` answers not served; Automatic brings them back; no request with metrics off is
   counted at the hub in `TestMetricsSourceNone`).
-- **Missing:** the Overview's ranges beyond 30 days, the explicit Lens Metrics install, the Metrics
-  provider row's query format, empty-container filter and HTTPS.
+- **Missing:** the explicit Lens Metrics install, the Metrics provider row's query format,
+  empty-container filter and HTTPS; node history from Prometheus (the owner's finding above). Not
+  to be built: the Overview's ranges beyond 30 days (the owner kept 30 days, 2026-10-14 evening).
 - **Evidence:** [ui-parity](ui-parity.md#cluster-overview-and-charts), its five rows partial (the four
   Overview rows since 2026-10-13, the drawer charts), plus the metrics rows of cluster settings (Hide
   metrics from the UI partial since 2026-10-13).
@@ -1130,9 +1234,25 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   to the table above). After 2026-10-14 (the bars, Disk, the kept charts, the Pods history) the
   remainder (the settings rows, the Lens Metrics install, node history on kube-prometheus-stack,
   ranges beyond 30 days, checks against a real node-exporter and kube-state-metrics) is about 8–20 h
-  (estimated, the lead's to apply to the table above).
+  (estimated, the lead's to apply to the table above). Not re-estimated after the owner's decisions
+  of 2026-10-14 evening (ranges beyond 30 days dropped; node history from Prometheus, node-exporter
+  for node CPU and memory, a query set per range added).
 
 ### G23. Flux CD and Argo CD views
+- **Decided (owner, 2026-10-14 evening; not built unless confirmed):** without the right to list
+  the custom resource definitions, Flux CD and Argo CD are recognised from API discovery and shown
+  with their curated profiles (generic custom resources stay invisible without the definitions);
+  Reconcile with Source waits as the flux CLI does: a background job waits, with a timeout, for the
+  source to be ready, then annotates the object, its progress in the dock (D-33); the Flux actions'
+  confirmations name the identity the controller acts as (its service account, or the object's
+  spec.serviceAccountName; [H-64](../security/privilege-footprint.md#h-64-a-flux-action-is-carried-out-with-the-controllers-identity));
+  Argo CD's Sync respects the AppProject's sync windows, refused or greyed with the reason in a deny
+  window, Argo CD's RBAC not emulated
+  ([H-67](../security/privilege-footprint.md#h-67-a-sync-acts-with-argo-cds-rights-not-the-users)).
+  Confirmed: Argo CD's labelled Secrets stay whole in the cache
+  ([H-66](../security/credentials.md#h-66-argo-cds-credentials-are-in-cogpits-memory-while-its-settings-are-read)).
+  Rows: [resource parity › Paid Lens Desktop views](resource-parity.md#paid-lens-desktop-views).
+  Estimate not moved.
 - **Missing:** kind profiles with columns, status and searchable fields for Argo CD
   (Applications, Application Sets, Projects, repositories, clusters); its dashboard; Argo CD's
   Sync (with Prune) and Refresh (Normal or Hard), in bulk too
@@ -1173,7 +1293,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   kinds, reads that Cogpit cannot tell whether the cluster serves them, with the server's reason,
   where both said the cluster serves none (`TestGitOpsDashboardsWithoutTheDefinitions`). Such a
   user's Flux and Argo CD views stay out of the navigator: their kinds come from the definitions
-  only. Estimate not moved.
+  only (the owner decided on 2026-10-14 evening that API discovery recognises them; not built).
+  Estimate not moved.
 - **Impact:** GitOps is daily work for the owner's team; in Lens it needs a paid plan.
 - **Estimate:** 55–115 h (2–4 h per kind profile, the dashboards, two actions), built into the
   code like every integration ([D-5](../developer/decisions.md#d-5-extensions)). After the Flux
@@ -1183,6 +1304,24 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## UI gaps
 
 ### G5. App shell, navigation, tables and drawer
+- **Decided (owner, 2026-10-14 evening; not built unless confirmed):** the navigator's search text
+  and keyboard row become engine state, visible and settable for agents (the palette's typed text
+  too, [G13](#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)); the navigator's focus
+  ring on keyboard navigation only; the welcome page's "This session" becomes "Recent", and its links
+  name the README for what Cogpit does and [the command list](../developer/commands.md) for the
+  commands; a plain click on a row opens its drawer and keeps the checked rows; Restart on a
+  selection of workloads ([G7](#g7-resource-actions)); D-25's places revised: the lists' copy icon
+  lies over the cell's end, the text no longer shortened for it, and the drawer's Forward… sits right
+  after the value with the copy icon over the value's end on hover; the status filter's button in
+  the accent colour while a filter is active; after a create the new object's drawer opens and the
+  list scrolls to its row ([G9](#g9-yaml-editor-and-create-resource)). Confirmed, now the owner's
+  decisions: the checkmark and toast on a list copy; the copy icons' exclusion list, for custom
+  resource columns too; Delete of at most 500 objects; the name column's 140-point minimum; links
+  and chips not drag-selectable (the icon copies them); the status filter's rules (D-34: the state
+  columns with the tokens as fallback, every named column matching, the filter per view and tab).
+  Rows: [ui parity › Layout](ui-parity.md#layout), [› Clusters](ui-parity.md#clusters),
+  [› Tables](ui-parity.md#tables), [beyond Lens › Everyday use](beyond-lens.md#everyday-use).
+  Estimate not moved (the lead recounts).
 - **Required (owner, 2026-10-13, [D-25](../developer/decisions.md#d-25-copying-values)):** names in
   the lists (Pods, Deployments and every other view) are copyable with the drawer's copy icon on
   hover, at least in the Name column ([beyond Lens](beyond-lens.md)). **Built 2026-10-13**
@@ -1193,8 +1332,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   and the icon right after the text; built: the blacklist by column type and id in one place
   (`copyColumn`, its ids listed in D-25 as Cogpit's reading of the owner's principle), the icon a
   padding after the text, at the cell's end with the text shortened before it when the text
-  leaves no room. Cogpit's defaults (not the owner's decision): the id list, none on cells without
-  text; a Secret's list holds no values (`TestListCopyIconByColumn`, `TestCopyColumns`,
+  leaves no room. Cogpit's defaults (not the owner's decision): the id list (confirmed by the owner
+  2026-10-14 evening), none on cells without text; a Secret's list holds no values (`TestListCopyIconByColumn`, `TestCopyColumns`,
   `TestListCopyIconAfterTheText`, `TestListCopyIconOnHover`, `TestListCopyIconCopiesTheFullText`,
   `TestListCopyIconFollowsTheCells`, `TestSecretsListCopiesNoValue`). Not tried in a real window.
   Estimate not moved (a beyond-Lens row; the lead recounts).
@@ -1373,6 +1512,42 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 35–110 h (was 45–130; title bar, keyboard, columns, CSV and the Workloads Overview built, third run).
 
 ### G13. Clusters, hotbar, palette, menus, shortcuts and preferences
+- **Found in the owner's real-window walk (2026-10-14 evening):** the About dialog shows version
+  0.0.1 and is laid out confusingly. To clean up, after checking where the version comes from (a
+  local `make app` build defaults to 0.0.1; the bundle's version string against the binary's own),
+  and a development build says so ([ui parity › Application menu](ui-parity.md#application-menu)).
+  Not built.
+- **Decided (owner, 2026-10-14 evening; not built unless confirmed):** the hotbar's tiles reorder by
+  drag and drop (a paid row of its own, missing); dragging a tile out of the window and dropping it
+  opens another Cogpit window with that cluster (a beyond-Lens row, missing), which needs a design
+  (a D-entry) before code: one UI state per window, the window list, which window agents drive, the
+  workspace, Fyne's start-up stall per window (gate S1's reservation, [G15](#g15-performance-and-api-load-at-scale));
+  an agent removing a bank that holds clusters waits for the user; F1–F12 work as the hotbar's in
+  plain search fields, the terminal and the editor keeping their F-keys; the navigator's scope
+  dropdown lists the hotbar's clusters and the connected one only, every other context through ⌘P
+  (so no cap); the Local Kubeconfigs section's source groups collapse, kept across restarts;
+  Disconnect closes the cluster's tabs; Remove from Cogpit on a synced folder's context offers to
+  unlink the whole folder after a confirmation naming every context it takes; one About entry, in
+  the application menu (Cogpit › About Cogpit), Cogpit's own dialog, Help's going; ⌘F and ⌘⇧T as
+  main-menu items showing their keys, which stay window shortcuts (the editor keeps its ⌘F); the
+  palette's typed text as engine state; a cluster's colour from the eight swatches or a free colour
+  picker; Sync with computer the default theme; a `cogpit://` link naming another cluster than the
+  connected one asks once, naming the context ([D-47](../developer/decisions.md#d-47-deep-links-cogpit));
+  marking notifications read and clearing them the window's only, the window-only toasts reaching
+  agents as text through the Secret filter
+  ([H-32](../security/agents-and-mcp.md#h-32-an-agent-can-clear-the-users-notifications), H-31);
+  agents may set a proxy, Preferences' and a cluster's, as a write with confirmation. Confirmed, now
+  the owner's decisions: the session's leftovers below (a removed cluster's context forgotten, a
+  file leaving a synced folder closing its tabs); every connect drilling into its cluster; closing
+  a tab showing the nearest of its cluster; the "+" below the tiles; "New Bank…"; no onboarding
+  wizard; start at login off by default (D-48); the light accent #1F7F78; proxy passwords in the
+  0600 files and no warning for an http proxy with a password
+  ([H-33](../security/credentials.md#h-33-proxy-passwords-are-plaintext-in-cogpits-settings));
+  only the window choosing the Helm configmap driver; the cluster's terminal namespace. Verified by
+  the owner in a real window: GLFW's Window menu. Rows: [ui parity › Clusters](ui-parity.md#clusters),
+  [› Hotbar](ui-parity.md#hotbar), [› Application menu](ui-parity.md#application-menu),
+  [› Preferences](ui-parity.md#preferences), [› Appearance](ui-parity.md#appearance-and-application),
+  [beyond Lens › Everyday use](beyond-lens.md#everyday-use). Estimate not moved (the lead recounts).
 - **Required next (owner, 2026-10-12: "still missing, do not forget"):** the hotbar (Lens's
   vertical bar at the window's left edge with the pinned clusters' icons). **Built 2026-10-12**
   (night run, [`engine/hotbar.go`](../../internal/engine/hotbar.go),
@@ -1424,7 +1599,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   Remove from Cogpit ([`fyneui/menus.go`](../../internal/ui/fyneui/menus.go),
   [`fyneui/menus_cluster.go`](../../internal/ui/fyneui/menus_cluster.go)). Help: Welcome
   (`ui.welcome.open`), Documentation (the README on GitHub), Copy MCP command, About Cogpit (the
-  build's version); "Open Onboarding Wizard..." not a target (the lead's default). Window: on macOS
+  build's version); "Open Onboarding Wizard..." not a target (the lead's default, confirmed by the owner 2026-10-14
+  evening). Window: on macOS
   GLFW's own menu stays (Minimize ⌘M, Zoom, Bring All to Front, Enter Full Screen ⌃⌘F, the windows;
   verified in GLFW 3.4's and Fyne 2.8.1's source, Cogpit adds none); on Windows and Linux Close
   Window and Toggle Full Screen, Minimize missing (Fyne has no call for it). Disconnect
@@ -1446,8 +1622,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   the tabs of every context that leaves with the source (`Session.RemoveKubeconfigSource`), so agents'
   `ui_state` loses them too; a context still offered keeps its tabs. Cogpit's default, not the owner's
   decision (`TestRemovedClustersLeaveTheTabBar`, `TestRemovedClusterLeavesTheTabBar`).
-  **The session's leftovers, decided 2026-10-13 (night build; the lead's, for the owner to
-  confirm):** removing a cluster (`cluster.remove`, `kubeconfig.remove`) also forgets
+  **The session's leftovers, decided 2026-10-13 (night build; the lead's, confirmed by the owner
+  2026-10-14 evening):** removing a cluster (`cluster.remove`, `kubeconfig.remove`) also forgets
   `UIState.Context` when it named one of the clusters that leave and no connection holds it (options
   (a) keep naming it, as after a disconnect, (b) forget it; chosen (b), so that nothing points at a
   context that no longer exists: the navigator shows its section, a failed connect's error goes with
@@ -1468,7 +1644,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   results, the audit log and the connection log, never in an error
   ([credentials](../security/credentials.md)). **Cogpit's defaults, not the owner's decisions:** only the
   user sets a proxy (agents and the CLI clear it and read it redacted; the lead proposed letting agents
-  set it), and it replaces the kubeconfig's `proxy-url` for Cogpit only. Left: the local terminal's
+  set it), and it replaces the kubeconfig's `proxy-url` for Cogpit only. **Decided (owner, 2026-10-14
+  evening; not built):** agents may set it, as a write with confirmation (the password redacted in the
+  confirmation, the audit log and the results), and the plugin approval binds this proxy too. Left: the local terminal's
   kubectl does not use it, the plugin approval dialog shows the kubeconfig's proxy
   ([H-34](../security/trust-boundaries.md#h-34-the-plugin-approval-shows-the-kubeconfigs-proxy-not-cogpits)).
 - **Built 2026-10-13 (night run): the HTTP proxy for non-cluster traffic** (Preferences › Proxy,
@@ -1494,7 +1672,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   not the owner's decisions: sorted, at most 100, and without any, the filter's namespaces, else the
   context's, are read (`TestClusterNamespacesField`, `TestNamespaceFilterOffersAccessibleNamespaces`).
 - **Missing:** kubeconfig syncs (alpha needs these; pasting is not a target, D-21), dragging on the
-  hotbar, the shortcuts of features that do not exist yet (Ask AI; the tabs' five built 2026-10-13), the
+  hotbar (required by the owner, 2026-10-14 evening: tiles reorder by drag and drop), the shortcuts of features that do not exist yet (Ask AI; the tabs' five built 2026-10-13), the
   Preferences that are not built (untrusted certificate authorities, held back as a question for the owner,
   Helm repositories and `HELM_DRIVER`, update channel, start at login on Windows and Linux (macOS's
   partial since 2026-10-14, [D-48](../developer/decisions.md#d-48-start-at-login): the app's own
@@ -1505,7 +1683,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   free row from missing to partial, estimate not moved; since 2026-10-14 the default image the
   newest supported Alpine release kept current by Renovate and the Maximum duration, owner, D-37,
   estimate not moved), and the rest of appearance and
-  application integration (zoom, Minimize on Windows and Linux, several windows, deep links on
+  application integration (zoom, Minimize on Windows and Linux, several windows (the owner's
+  requirement of 2026-10-14 evening, a hotbar tile dragged out of the window opening another
+  window, needs a design first), deep links on
   Windows and Linux: macOS's `cogpit://` links partial since 2026-10-14, navigation only,
   [D-47](../developer/decisions.md#d-47-deep-links-cogpit)).
 - **Evidence:** [ui-parity](ui-parity.md), 65 rows across those sections (6 more are marked not a
@@ -1526,6 +1706,15 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## Platform gaps
 
 ### G14. Packaging, signing and updates (macOS)
+- **Decided (owner, 2026-10-14 evening):** confirmed: a failed signature or notarization fails the
+  job, no files until it runs again, notarization waited for up to 45 minutes; Sparkle's 20-day
+  failsafe kept; agents and the CLI may turn the automatic update check on, never off, the user both
+  ways; the other choices of the Sparkle build stand (not asked). To do with the owner's go-ahead,
+  a change to GitHub's settings, not done: a repository ruleset that lets only the semantic-release
+  GitHub App and the owner create `v*` tags, and the administrators' bypass of the environment
+  `release` off. Moot by the owner's decision of the same evening (only the disk image ships, the
+  CLI inside the app): the disk image replacing the zip, and a `cogpit-cli` notarized but not
+  stapled. Estimate not moved.
 - **Missing:** the universal macOS app bundle (Intel), the Homebrew
   cask, an SBOM and signed checksums ([D-4](../developer/decisions.md#d-4-packaging-and-updates)).
   **Human:** Sparkle's update key and the rules of the environments `sparkle` and `github-pages`
@@ -1628,6 +1817,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
     code); checked on a real launch ended by SIGTERM and by the owner closing the window: exit 0, no
     crash report. Crash reports are kept since 7ac22e0
     ([D-11](../developer/decisions.md#d-11-crash-stance)).
+- **Found in the owner's real-window walk (2026-10-14 evening):** no node history from Prometheus
+  ([G12](#g12-metrics-and-cluster-overview)); the About dialog's version 0.0.1 and its layout
+  ([G13](#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)). Both are the next
+  implementation's first items ([roadmap › Current focus](roadmap.md#current-focus)).
 - **Missing:** PhotoCraft's first public week produced hundreds of issues on features its tests
   counted as done; this entry reserves the time for the same after Cogpit's first release.
 - **Estimate:** 100–200 h to beta.
@@ -1635,6 +1828,24 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## Beyond Lens
 
 ### G17. MCP control
+- **Decided (owner, 2026-10-14 evening; not built unless confirmed):** the MCP switch persisted and
+  honoured by `cogpit-cli mcp`, which with MCP off refuses to serve, headless too, with a clear
+  message to the agent; the switch gets its own D-entry when built
+  ([H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge));
+  a terminal tab's agent switch ends at the latest one hour after it was turned on, whatever the
+  reads, the tab saying so and one click turning it on again
+  ([H-83](../security/agents-and-mcp.md#h-83-an-allowed-terminal-tab-gives-agents-everything-it-shows-from-then-on));
+  the replaced Secret values' minimum length 10 bytes instead of 8
+  ([H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents));
+  window-only notifications reach agents as text through that filter, inline Helm values removed,
+  instead of withheld; marking notifications read and clearing them the window's only; a chart's
+  README framed as text of the chart's author; agents' RBAC writes and Helm installs and upgrades
+  always waiting for the user, `cluster.setPrometheus` and a proxy set by an agent as writes with
+  confirmation ([G7](#g7-resource-actions), [G11](#g11-helm), [G12](#g12-metrics-and-cluster-overview),
+  [G13](#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)). Confirmed: values under
+  naming keys (user, host, port, database, namespace) not replaced; GUI-only commands listed,
+  described and refused; `cogpit-cli get` printing Cogpit's view of a list and one object's manifest
+  redacted. The estimate below predates these and is not moved (the lead recounts).
 - **Missing:** the MCP server over the registry with the UI tools of
   [beyond-lens](beyond-lens.md#mcp-control-of-ui-and-cluster), Streamable HTTP with a bearer token,
   the stdio bridge, the GUI side of the confirmation flow, the audit log view
@@ -1711,6 +1922,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | The owner's decision round of 2026-10-14 evening: a "Decided" bullet in G1 (CI, tests, the README showcase), G2, G5, G6, G7, G8, G9, G11, G12, G13, G14, G17 and G23, each naming what he confirmed (the defaults marked "Cogpit's default" now his decisions) and what he decided, not built; his findings in a real window: no node history from Prometheus (G12, first item of the next implementation) and the About dialog's 0.0.1 (G13), both in G16 too; G11 Missing: the SQL driver out of scope; G12: Waiting for the owner answered (a query set per range), Missing without the ranges beyond 30 days (not to be built); G13: the session's leftovers confirmed, agents may set a proxy, the hotbar's drag and several windows required; G23: discovery recognises Flux and Argo CD without the definitions; estimates not moved |
 | 2026-10-14 | minor | G14 and G22: D-16 revised by the owner, built by agent CLIBUNDLE: `cogpit-cli` inside `Cogpit.app`, signed and notarized with it; a release carries the disk image and `SHA256SUMS` only, no `cogpit-cli` archives for Windows and Linux any more; not yet proven by a release, estimates not moved |
 | 2026-10-14 | minor | G14: Sparkle 2 and the signed appcast built (agent SPARKLE), not yet proven by a release with the owner's key; removed from Missing: the signed update manifest, the update notice and the one-click update; estimate 12–30 h (was 22–45); totals not recounted |
 | 2026-10-14 | minor | G13: `cogpit://` deep links partial on macOS (navigation only, D-47), a free row; estimate not moved |
