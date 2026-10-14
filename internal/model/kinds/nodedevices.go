@@ -73,7 +73,7 @@ func nodeDevices(node *unstructured.Unstructured, rel model.Related) []model.Det
 			out = append(out, model.DetailSection{Group: nodeDevicesGroup, Title: moreSlicesTitle, Items: more})
 			break
 		}
-		if sec, ok := nodeSliceSection(name, s); ok {
+		if sec, ok := nodeSliceSection(name, s, rel); ok {
 			out = append(out, sec)
 		}
 	}
@@ -82,7 +82,7 @@ func nodeDevices(node *unstructured.Unstructured, rel model.Related) []model.Det
 
 // nodeSliceSection is one slice's section in the node's Devices: false when the slice publishes no
 // device for the node (a per-device slice whose devices are all another node's).
-func nodeSliceSection(node string, slice *unstructured.Unstructured) (model.DetailSection, bool) {
+func nodeSliceSection(node string, slice *unstructured.Unstructured, rel model.Related) (model.DetailSection, bool) {
 	devices := model.NestedSlice(slice, "spec", "devices")
 	if model.NestedString(slice, "spec", "nodeName") != node {
 		var mine []any
@@ -118,6 +118,11 @@ func nodeSliceSection(node string, slice *unstructured.Unstructured) (model.Deta
 	if tainted {
 		cols = append(cols, model.Column{Title: itemTaints, Type: model.ColumnText})
 	}
+	pool := model.NestedString(slice, "spec", "pool", fieldName)
+	claimed := rel.Listed(ClaimsByDevice)
+	if claimed { // the claim that holds each device, once the claims are listed (A108)
+		cols = append(cols, model.Column{Title: titleClaim, Type: model.ColumnText})
+	}
 	rows := make([][]model.Cell, 0, len(shown))
 	for _, d := range shown {
 		row := []model.Cell{
@@ -127,6 +132,9 @@ func nodeSliceSection(node string, slice *unstructured.Unstructured) (model.Deta
 		}
 		if tainted {
 			row = append(row, model.Cell{Text: strings.Join(deviceTaints(d), "\n")})
+		}
+		if claimed {
+			row = append(row, deviceClaimCell(model.NestedString(slice, "spec", fieldDriver), pool, model.NestedString(d, fieldName), rel))
 		}
 		rows = append(rows, row)
 	}

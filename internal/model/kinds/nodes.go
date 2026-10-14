@@ -57,9 +57,10 @@ var nodes = &model.KindProfile{
 			return nonEmpty(model.NestedString(obj, "status", "nodeInfo", "kubeletVersion"))
 		},
 	},
-	Detail:     nodeDetail,
-	Needs:      []model.RelatedIndex{PodsByNode, SlicesByNode},
-	DetailWith: nodeDetailWith,
+	Detail:      nodeDetail,
+	Needs:       []model.RelatedIndex{PodsByNode, SlicesByNode},
+	DetailNeeds: []model.RelatedIndex{ClaimsByDevice}, // the claim that holds each device (A108)
+	DetailWith:  nodeDetailWith,
 }
 
 func nodeCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {

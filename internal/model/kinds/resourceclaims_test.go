@@ -1,8 +1,11 @@
 package kinds_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
@@ -217,5 +220,77 @@ func TestResourceClaimLinks(t *testing.T) {
 	}
 	if node == nil || node.Kind != "nodes" || node.Name != "worker-a-01" {
 		t.Errorf("the drawer's Node link %+v", node)
+	}
+}
+
+// claimObject is a ResourceClaim in namespace ns, allocated the devices (driver/pool/device) and
+// reserved for reserved consumers; no devices: pending.
+func claimObject(ns, name string, reserved int, devices ...[3]string) *unstructured.Unstructured {
+	obj := map[string]any{
+		"apiVersion": "resource.k8s.io/v1", "kind": "ResourceClaim",
+		"metadata": map[string]any{"name": name, "namespace": ns},
+	}
+	if len(devices) > 0 {
+		results := make([]any, 0, len(devices))
+		for _, d := range devices {
+			results = append(results, map[string]any{"request": "gpu", "driver": d[0], "pool": d[1], "device": d[2]})
+		}
+		consumers := make([]any, 0, reserved)
+		for i := range reserved {
+			consumers = append(consumers, map[string]any{"resource": "pods", "name": fmt.Sprintf("p%d", i)})
+		}
+		obj["status"] = map[string]any{"allocation": map[string]any{"devices": map[string]any{"results": results}}, "reservedFor": consumers}
+	}
+	return &unstructured.Unstructured{Object: obj}
+}
+
+// TestPodResourceClaimStates (A105): with the claims the open drawer reads, the pod's Resource
+// Claims table shows each claim's state; a claim the listed claims do not hold is "(not found)",
+// one not generated yet has none; while the claims list, "Loading…".
+func TestPodResourceClaimStates(t *testing.T) {
+	p, _ := kinds.ByKey("pods")
+	pod := recorded(t, "pods", "resource-claims")
+	table := func(rel model.Related) *model.DetailTable {
+		for _, s := range p.DetailSections(pod, rel) {
+			if s.Title == "Resource Claims" {
+				return s.Table
+			}
+		}
+		return nil
+	}
+	rel := fakeRelated{"resourceclaims": {claimObject("ml", "trainer-0-gpu-x2v9k", 1, [3]string{"gpu.example.com", "worker-a-01", "gpu-0"})}}
+	tbl := table(rel)
+	if tbl == nil || len(tbl.Columns) != 5 || tbl.Columns[4] != "State" {
+		t.Fatalf("table %+v", tbl)
+	}
+	if got := []string{tbl.Rows[0][4], tbl.Rows[1][4], tbl.Rows[2][4]}; got[0] != "Allocated (reserved: 1)" || got[1] != "(not found)" || got[2] != "" {
+		t.Errorf("states %q", got)
+	}
+	if loading := table(fakeRelated{"pods": nil}); loading == nil || loading.Rows[0][4] != "Loading…" {
+		t.Errorf("while the claims list: %+v", loading)
+	}
+}
+
+// TestNodeDeviceClaims (A108): once the claims are listed, a node's devices show the claim that
+// holds each, linked; a device no claim holds shows none.
+func TestNodeDeviceClaims(t *testing.T) {
+	p, _ := kinds.ByKey("nodes")
+	rel := fakeRelated{"resourceslices": nodeDeviceSlices(t), "pods": nil,
+		"resourceclaims": {claimObject("ml", "trainer-0-gpu", 1, [3]string{"gpu.example.com", "worker-a-01", "gpu-1"})}}
+	var gpu *model.DetailSection
+	for _, s := range p.DetailSections(nodeNamed(t, "worker-a-01"), rel) {
+		if s.Title == "gpu.example.com" {
+			gpu = &s
+		}
+	}
+	if gpu == nil || gpu.Table == nil || gpu.Table.Columns[len(gpu.Table.Columns)-1] != "Claim" {
+		t.Fatalf("the GPU slice: %+v", gpu)
+	}
+	last := len(gpu.Table.Columns) - 1
+	if gpu.Table.Rows[0][last] != "" || gpu.Table.Rows[1][last] != "ml/trainer-0-gpu" {
+		t.Errorf("claims %q, %q", gpu.Table.Rows[0][last], gpu.Table.Rows[1][last])
+	}
+	if l := gpu.Table.Link(1, last); l == nil || l.Kind != "resourceclaims" || l.Namespace != "ml" || l.Name != "trainer-0-gpu" {
+		t.Errorf("the claim's link %+v", l)
 	}
 }

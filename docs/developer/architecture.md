@@ -1252,11 +1252,13 @@ open is the window's, as the context picker's is.
   (`LimitDrawerTables`, [`drawerlimit.go`](../../internal/engine/drawerlimit.go)): a sortable table
   shows at most `MaxDrawerTableRows` (500) rows in its order and counts the rest in
   `DetailTable.Omitted`, which the window shows under the rows ("N more pods not shown").
-  **Decided 2026-10-14 evening, not built** (owner): a pod's drawer shows its Resource Claims'
-  state, watching the claims of the pod's namespace while the drawer is open (A105; today the
-  section has no state, since it would need a watch on every claim), and a node's Devices show the
-  claim that holds each device, linked (A108). Both read kinds only an open drawer needs, as the
-  workloads' Pods tables do.
+  Since 2026-10-15 (the owner's A105 and A108): a pod's drawer shows its Resource Claims' state
+  (a State column, "Loading…" while the claims list) and a node's Devices show the claim that holds
+  each device, linked (a Claim column once the claims are listed), through the indexes
+  `kinds.ClaimsByName` and `kinds.ClaimsByDevice` in the profiles' `DetailNeeds`, which only an open
+  drawer reads, as the workloads' Pods tables do. The lead's reading for the owner to confirm: the
+  drawer reads the claims as their plan says (all namespaces for a user who may), not the pod's
+  namespace alone.
 - **Related objects for agents** (built 2026-10-13, G17, [`relatedrefs.go`](../../internal/engine/relatedrefs.go)):
   `object.get` with `related: true` adds `Session.Related` to the drawer's model: every object a
   value, chip or table cell of its sections links to (so whatever the related-objects indexes give

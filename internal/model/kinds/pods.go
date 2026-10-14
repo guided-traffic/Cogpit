@@ -83,7 +83,9 @@ var pods = &model.KindProfile{
 			return nonEmpty(model.NestedString(obj, "status", "qosClass"))
 		},
 	},
-	Detail: podDetail,
+	Detail:      podDetail,
+	DetailWith:  podDetailWith,                      // the claims' state (A105, resourceclaims_pods.go)
+	DetailNeeds: []model.RelatedIndex{ClaimsByName}, // only the open drawer reads them
 }
 
 func podCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
@@ -529,6 +531,11 @@ func podIPs(obj any, single, plural string) []string {
 // Tolerations, Secrets, Pod Anti Affinities), Pod Volumes, then the init containers and the
 // containers. Lens's per-container metrics need a metrics provider (M7) and are not built.
 func podDetail(obj *unstructured.Unstructured) []model.DetailSection {
+	return podDetailRel(obj, model.NoRelated)
+}
+
+// podDetailRel is podDetail with rel for the claims' state (A105; model.NoRelated: none).
+func podDetailRel(obj *unstructured.Unstructured, rel model.Related) []model.DetailSection {
 	s := summarisePod(obj)
 	ns := model.NestedString(obj, "metadata", "namespace")
 	var props detailItems
@@ -586,7 +593,7 @@ func podDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	if volumes := podVolumes(obj, ns); len(volumes) > 0 {
 		sections = append(sections, model.DetailSection{Title: "Pod Volumes", Items: volumes})
 	}
-	if claims, ok := podResourceClaimsSection(obj, ns); ok { // resourceclaims_pods.go
+	if claims, ok := podResourceClaimsSection(obj, ns, rel); ok { // resourceclaims_pods.go
 		sections = append(sections, claims)
 	}
 

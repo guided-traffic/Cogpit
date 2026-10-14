@@ -406,7 +406,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   [`resourceclaims.go`](../../internal/model/kinds/resourceclaims.go) and one file per kind; 21
   synthetic objects in the goldens, `TestDeviceResourcesColumns`, `TestResourceClaimsStatusTexts`);
   Resource Slices' Allocated from the related-objects index `ClaimsByPool` (`TestResourceSliceAllocated`);
-  the pod drawer's Resource Claims section without the claim's state (`TestPodResourceClaimsSection`);
+  the pod drawer's Resource Claims section, with each claim's state since 2026-10-15 (A105,
+  `TestPodResourceClaimsSection`, `TestPodResourceClaimStates`), and a node's devices with the claim
+  that holds each (A108, `TestNodeDeviceClaims`);
   offered at v1 only (`TestBuiltinDeviceResourcesFollowTheServedVersion`), filled on kind 1.36.1
   (`TestKindDeviceResources`).
   Inferred and marked per row: which device conditions warn, the colours, the drawers. The node
