@@ -122,7 +122,9 @@ func TestBudgetAccessReviews(t *testing.T) {
 			err.Error() != "not permitted: you may not delete pods in team-a" {
 			t.Errorf("Delete: %v, want not permitted", err)
 		}
-		if after := conn.Counter().Snapshot(); after.Total != settled.Total {
+		// A discovery request still on its way from the connect is not browsing (see
+		// TestBudgetWithoutAccessReviews), so discovery is left out of the count.
+		if after := conn.Counter().Snapshot(); len(withoutDiscovery(diff(settled, after))) > 0 {
 			t.Errorf("browsing cost %d requests: %v", after.Total-settled.Total, diff(settled, after))
 		}
 
@@ -173,7 +175,8 @@ func TestBudgetAccessReviews(t *testing.T) {
 		for range 5 {
 			settledKinds(ctx, t, s, "deployments")
 		}
-		if after := conn.Counter().Snapshot(); after.Total != settled.Total {
+		// Discovery from the connect may still arrive (seen in CI, 2026-10-14); it is not asking.
+		if after := conn.Counter().Snapshot(); len(withoutDiscovery(diff(settled, after))) > 0 {
 			t.Errorf("asking again cost %d requests: %v", after.Total-settled.Total, diff(settled, after))
 		}
 		if !reviewsAgree(settled, srv) {
