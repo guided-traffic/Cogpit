@@ -159,8 +159,9 @@ type argoDashKind struct {
 	handle  *cache.Handle
 }
 
-// newArgoDashWorker acquires the page's handles; with notify, every change wakes the loop.
-func (s *Session) newArgoDashWorker(b *Backend, params viewParams, notify bool) *argoDashWorker {
+// newArgoDashWorker acquires the page's handles through acquire (the open page's acquireForPage,
+// an agent's read's Acquire once the plans are decided); with notify, every change wakes the loop.
+func (s *Session) newArgoDashWorker(b *Backend, params viewParams, notify bool, acquire func(*model.KindProfile) *cache.Handle) *argoDashWorker {
 	w := &argoDashWorker{s: s, backend: b, params: params, rows: &rowCache{}, table: argoAttentionProfile(b),
 		wake: make(chan struct{}, 1), quit: make(chan struct{})}
 	onChange := func() {}
@@ -173,7 +174,7 @@ func (s *Session) newArgoDashWorker(b *Backend, params viewParams, notify bool) 
 		if !ok {
 			continue
 		}
-		k := &argoDashKind{profile: p, handle: b.Acquire(p)}
+		k := &argoDashKind{profile: p, handle: acquire(p)}
 		w.unsubs = append(w.unsubs, k.handle.Subscribe(func(cache.Event) { onChange() }))
 		w.kinds = append(w.kinds, k)
 	}
@@ -181,7 +182,7 @@ func (s *Session) newArgoDashWorker(b *Backend, params viewParams, notify bool) 
 }
 
 func (s *Session) startArgoDashboard(b *Backend, params viewParams) *argoDashWorker {
-	w := s.newArgoDashWorker(b, params, true)
+	w := s.newArgoDashWorker(b, params, true, b.acquireForPage) // nothing while a plan is pending
 	signal(w.wake)
 	s.goSafe("argo cd dashboard", func() {
 		runCoalesced(w.quit, w.wake, s.opts.SnapshotInterval, w.unsettled, w.rebuild)
@@ -207,6 +208,15 @@ func (w *argoDashWorker) stop() {
 	w.release()
 }
 
+// kindHandles are the worker's handles, for openFollowing.
+func (w *argoDashWorker) kindHandles() []kindHandle {
+	out := make([]kindHandle, 0, len(w.kinds))
+	for _, k := range w.kinds {
+		out = append(out, kindHandle{k.profile, k.handle})
+	}
+	return out
+}
+
 func (w *argoDashWorker) release() {
 	for _, u := range w.unsubs {
 		u()
@@ -225,11 +235,16 @@ func (w *argoDashWorker) synced() bool {
 	return true
 }
 
-// unsettled reports whether a sync state changed since the last build: it comes with no event.
+// unsettled reports whether a sync state changed since the last build: it comes with no event,
+// nor does the end of the definitions' list for a page that reads no Applications.
 func (w *argoDashWorker) unsettled() bool {
 	m := w.model.Load()
-	return m == nil || m.Synced != w.synced()
+	return m == nil || m.Synced != w.synced() || (w.table == nil && m.Error != w.backend.customKindsUnknown(argoKindsWhat))
 }
+
+// argoKindsWhat names Argo CD's kinds in the text of a page that cannot tell whether the cluster
+// serves them.
+const argoKindsWhat = "Argo CD Applications"
 
 func (w *argoDashWorker) rebuild() {
 	defer func() {
@@ -306,6 +321,10 @@ func (w *argoDashWorker) build(p viewParams) (*ArgoCDDashboardModel, *TableSnaps
 		snap.Error = m.Error
 	} else {
 		snap = &TableSnapshot{Rows: []model.Row{}, Synced: true, Namespaced: true, Error: "The cluster serves no Argo CD Applications."}
+		// A user who may not list the definitions: whether Argo CD is there is unknown.
+		if why := w.backend.customKindsUnknown(argoKindsWhat); why != "" {
+			snap.Error, m.Error = why, why
+		}
 	}
 	snap.View, snap.Title = ArgoCDDashboard, pageTitles[ArgoCDDashboard] // the table's own heading is the window's
 	snap.Revision = w.s.state.snapshots.Add(1)
@@ -419,10 +438,15 @@ func (s *Session) ArgoCDDashboard(ctx context.Context, namespaces []string, atte
 			return m, snap, nil
 		}
 	}
-	w := s.newArgoDashWorker(b, viewParams{}, false)
-	defer w.release()
 	wctx, cancel := context.WithTimeout(ctx, syncTimeout)
 	defer cancel()
+	// Once the kinds' plans are decided, following a refusal in all namespaces
+	// (accessiblens_follow.go), as the Overviews' reads do.
+	w := openFollowing(wctx, b, argoDashKinds, func() (*argoDashWorker, []kindHandle) {
+		w := s.newArgoDashWorker(b, viewParams{}, false, b.Acquire)
+		return w, w.kindHandles()
+	}, (*argoDashWorker).release)
+	defer w.release()
 	for _, k := range w.kinds {
 		k.handle.WaitForSync(wctx)
 	}
@@ -436,12 +460,12 @@ func (s *Session) ArgoCDDashboard(ctx context.Context, namespaces []string, atte
 // reconcileArgoPageLocked runs the Dashboard's worker: started when the page opens, given the UI's
 // namespaces, search, sort and columns, stopped when another view opens or the backend changes,
 // and started again when the kinds it reads change (Argo CD's definitions came or went) or how
-// they are read does.
+// they are read does (pageReadKey: a pending plan, all namespaces, or the namespaces).
 func (st *state) reconcileArgoPageLocked(b *Backend, now UIState) {
 	want := b != nil && now.View == ArgoCDDashboard
 	var key string
 	if want {
-		key = b.pagePlanKey(argoDashKinds, false)
+		key = b.pageReadKey(argoDashKinds, false)
 	}
 	if st.argo != nil && (!want || st.argo.backend != b || st.argo.planKey != key) {
 		st.argo.stop()

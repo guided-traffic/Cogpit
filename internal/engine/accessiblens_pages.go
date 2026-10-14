@@ -1,0 +1,69 @@
+package engine
+
+import (
+	"strings"
+
+	"github.com/guided-traffic/cogpit/internal/cache"
+	"github.com/guided-traffic/cogpit/internal/model"
+)
+
+// The pages that read custom kinds (the Flux and Argo CD dashboards, D-34, D-36) for a
+// namespace-limited user (G3; FIXUP 2026-10-14, architecture §5). Both were built before the
+// namespace-limited fixes, with workers of their own: the open page took its kinds as a pending
+// plan reads them, in all namespaces, and an agent's read with no page open did too, then waited
+// 15 seconds for a list the API server refused. Now the open page waits for its kinds' plans as a
+// view does (acquireForPage: nothing while the access reviews are out), its key tells a pending
+// plan apart (pageReadKey), and an agent's read waits for the plans and follows a refusal
+// (openFollowing), as the Overviews' do.
+
+// acquireForPage is an open page's handle on one of its kinds: as the kind's plan says, and
+// nothing while the plan is pending (cache.Pending), as the view holds nothing then, so that a
+// user who may not list the kind in all namespaces is never sent a read there that the access
+// reviews would have refused. The page starts again once they answer (pageReadKey).
+func (b *Backend) acquireForPage(p *model.KindProfile) *cache.Handle {
+	return b.acquireForView(p, b.namespacePlan(p))
+}
+
+// customKindsUnknown says why a page of custom kinds (the Flux and Argo CD dashboards) cannot tell
+// whether the cluster serves what (its kinds, "Flux kinds"): the user may not list the custom
+// resource definitions (a namespace-limited user, as a rule, whose Role names the kinds but not
+// their definitions), or they are still being listed; "" when the custom kinds are known. Before
+// (2026-10-14) such a page said the cluster serves none.
+func (b *Backend) customKindsUnknown(what string) string {
+	set := b.customSet()
+	switch {
+	case set == nil:
+		return ""
+	case set.err != "":
+		return "Cogpit cannot tell whether the cluster serves " + what + ": the custom resource definitions cannot be listed (" + set.err + ")."
+	case !set.synced:
+		return "The cluster's custom resource definitions are still being listed."
+	}
+	return ""
+}
+
+// pageReadKey is how a page reads its kinds through acquireForPage: per kind its plan's key
+// (pending, all, or the namespaces), so that a page whose kinds' plans change starts again; with
+// skipUnlistable, a kind the page leaves out as one the user may not list is marked so. Kinds the
+// cluster does not serve are left out. pagePlanKey, which the Overviews keep, counts a pending
+// plan as all namespaces, since that is how Acquire reads it.
+func (b *Backend) pageReadKey(keys []string, skipUnlistable bool) string {
+	var sb strings.Builder
+	for _, key := range keys {
+		p, ok := b.Profile(key)
+		if !ok {
+			continue
+		}
+		read := b.namespacePlan(p).key()
+		if skipUnlistable {
+			if listable, known := b.Listable(p, nil); known && !listable {
+				read = "unlistable"
+			}
+		}
+		sb.WriteString(key)
+		sb.WriteByte('=')
+		sb.WriteString(read)
+		sb.WriteByte('|')
+	}
+	return sb.String()
+}

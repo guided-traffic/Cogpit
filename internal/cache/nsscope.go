@@ -187,17 +187,32 @@ func (r *runner) refusedIf(err error) {
 		return
 	}
 	r.tellRefused()
-	e := r.owner.Load()
-	if e == nil {
-		return
-	}
 	c := r.c
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.closed || e.refs > 0 || c.informers[e.scope] != e || e.run != r {
+	e := r.owner.Load()
+	if e == nil {
+		// A label-selected scope's own informer (cover.go): its entry reads it through a view, and
+		// ends when the view follows it (not a cover that serves it meanwhile). Before
+		// (2026-10-14) such a scope was kept warm and retried for its warm period.
+		if se := c.informers[r.scope]; se != nil && se.view != nil && se.view.own == r && isRefused(se.view.err()) {
+			e = se
+		}
+	}
+	if e == nil || c.closed || e.refs > 0 || c.informers[e.scope] != e || (e.view == nil && e.run != r) {
 		return
 	}
 	c.retire(e)
+}
+
+// refusedLocked reports whether the API server refused the last list or watch of the informer an
+// entry reads from: its own, or for a label-selected scope the one its view follows (its own or
+// its cover's). Called with Cache.mu held.
+func (e *entry) refusedLocked() bool {
+	if e.view != nil {
+		return isRefused(e.view.err())
+	}
+	return e.run != nil && isRefused(e.run.err())
 }
 
 // tellRefused hands the cache's OnRefused hook the runner's scope; a panic in it is logged, never

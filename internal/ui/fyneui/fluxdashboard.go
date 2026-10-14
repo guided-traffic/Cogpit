@@ -109,7 +109,14 @@ func (p *fluxPanel) show(m engine.FluxDashboardModel) {
 		grid = append(grid, t)
 	}
 	flush()
-	if len(m.Kinds) == 0 {
+	switch {
+	case len(m.Kinds) == 0 && m.Error != "":
+		// The definitions cannot be listed (a namespace-limited user) or are still being listed:
+		// whether the cluster serves Flux is unknown. The reason quotes the server: wrapped.
+		why := widget.NewLabel(m.Error)
+		why.Wrapping = fyne.TextWrapWord
+		objs = append(objs, why)
+	case len(m.Kinds) == 0:
 		objs = append(objs, newTextLine("The cluster serves no Flux kinds.", colorMuted, theme.SizeNameText, fyne.TextStyle{}))
 	}
 	for key := range p.tiles {

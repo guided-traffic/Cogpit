@@ -132,6 +132,21 @@ type fluxBuild struct {
 	kinds   []fluxBuiltKind
 	synced  bool
 	errText string
+	// unknown says why the page cannot tell whether the cluster serves Flux kinds, when it reads
+	// none (Backend.customKindsUnknown); "" when it can.
+	unknown string
+}
+
+// fluxKindsWhat names the Flux kinds in the text of a page that cannot tell whether the cluster
+// serves them.
+const fluxKindsWhat = "Flux kinds"
+
+// fluxUnknown is customKindsUnknown for a build that reads no Flux kind.
+func (b *Backend) fluxUnknown(fb *fluxBuild) string {
+	if len(fb.kinds) > 0 {
+		return ""
+	}
+	return b.customKindsUnknown(fluxKindsWhat)
 }
 
 type fluxBuiltKind struct {
@@ -148,8 +163,10 @@ type fluxObjectState struct {
 	since   time.Time
 }
 
-// newFluxSource acquires the page's handles; onChange runs after every change of one of them.
-func newFluxSource(b *Backend, onChange func()) *fluxSource {
+// newFluxSource acquires the page's handles through acquire (the open page's acquireForPage, an
+// agent's read's Acquire once the plans are decided); onChange runs after every change of one of
+// them.
+func newFluxSource(b *Backend, acquire func(*model.KindProfile) *cache.Handle, onChange func()) *fluxSource {
 	src := &fluxSource{}
 	for _, k := range kinds.FluxKinds() {
 		p, ok := b.Profile(k.Key)
@@ -159,11 +176,20 @@ func newFluxSource(b *Backend, onChange func()) *fluxSource {
 		if listable, known := b.Listable(p, nil); known && !listable {
 			continue // a watch the API server refuses would only retry
 		}
-		h := b.Acquire(p)
+		h := acquire(p)
 		src.unsubs = append(src.unsubs, h.Subscribe(func(cache.Event) { onChange() }))
 		src.kinds = append(src.kinds, fluxSourceKind{info: k, profile: p, handle: h})
 	}
 	return src
+}
+
+// kindHandles are the source's handles, for openFollowing.
+func (src *fluxSource) kindHandles() []kindHandle {
+	out := make([]kindHandle, 0, len(src.kinds))
+	for _, k := range src.kinds {
+		out = append(out, kindHandle{k.profile, k.handle})
+	}
+	return out
 }
 
 func (src *fluxSource) release() {
@@ -230,6 +256,9 @@ func fluxModel(fb *fluxBuild, namespaces []string) *FluxDashboardModel {
 		nsSet = setOf(namespaces)
 	}
 	m := &FluxDashboardModel{Kinds: []FluxDashboardKind{}, Namespaces: slices.Clone(namespaces), Synced: fb.synced, Error: fb.errText}
+	if fb.unknown != "" {
+		m.Error = fb.unknown // the definitions cannot be listed: whether Flux is there is unknown
+	}
 	for _, k := range fb.kinds {
 		counts := map[kinds.FluxState]int{}
 		n := 0
@@ -289,7 +318,10 @@ func fluxTable(context string, fb *fluxBuild, p viewParams) *TableSnapshot {
 		Namespaces: slices.Clone(p.namespaces), Filter: p.filter, FilterOptions: p.filterOpts, FilterError: filterErr, Total: total,
 		Synced: fb.synced, Error: fb.errText,
 	}
-	if len(fb.kinds) == 0 {
+	switch {
+	case fb.unknown != "":
+		snap.Error = fb.unknown
+	case len(fb.kinds) == 0:
 		snap.Error = "The cluster serves no Flux kinds."
 	}
 	return snap
@@ -325,7 +357,7 @@ func fluxRow(context string, k kinds.FluxKind, o fluxObjectState) model.Row {
 func (s *Session) startFluxDashboard(b *Backend, params viewParams) *fluxDashboardWorker {
 	w := &fluxDashboardWorker{s: s, backend: b, params: params, wake: make(chan struct{}, 1), quit: make(chan struct{})}
 	wake := w.wake
-	w.src = newFluxSource(b, func() { signal(wake) })
+	w.src = newFluxSource(b, b.acquireForPage, func() { signal(wake) }) // nothing while a plan is pending
 	signal(w.wake)
 	s.goSafe("flux dashboard", func() {
 		runCoalesced(w.quit, w.wake, s.opts.SnapshotInterval, w.unsettled, w.rebuild)
@@ -353,10 +385,11 @@ func (w *fluxDashboardWorker) stop() {
 }
 
 // unsettled reports whether a sync state or an error changed since the last build: neither comes
-// with a watch event.
+// with a watch event, nor does the end of the definitions' list for a page that reads no kind.
 func (w *fluxDashboardWorker) unsettled() bool {
 	last := w.model.Load()
-	return last == nil || last.synced != w.src.synced() || last.errText != w.src.errText()
+	return last == nil || last.synced != w.src.synced() || last.errText != w.src.errText() ||
+		(len(last.kinds) == 0 && last.unknown != w.backend.customKindsUnknown(fluxKindsWhat))
 }
 
 // rebuild builds, stores and announces the page; a panic is reported once and does not end the loop.
@@ -373,6 +406,7 @@ func (w *fluxDashboardWorker) rebuild() {
 	p := w.params
 	w.mu.Unlock()
 	fb := w.src.build(w.backend.Context)
+	fb.unknown = w.backend.fluxUnknown(fb)
 	snap := fluxTable(w.backend.Context, fb, p)
 	snap.Revision = w.s.state.snapshots.Add(1)
 	if w.stopped.Load() {
@@ -406,12 +440,18 @@ func (s *Session) FluxDashboard(ctx context.Context, namespaces []string, table 
 		fb = page.model.Load()
 	}
 	if fb == nil {
-		src := newFluxSource(b, func() {})
-		defer src.release()
 		wctx, cancel := context.WithTimeout(ctx, syncTimeout)
 		defer cancel()
+		// Once the kinds' plans are decided, following a refusal in all namespaces
+		// (accessiblens_follow.go), as the Overviews' reads do.
+		src := openFollowing(wctx, b, fluxKindKeys(b), func() (*fluxSource, []kindHandle) {
+			src := newFluxSource(b, b.Acquire, func() {})
+			return src, src.kindHandles()
+		}, (*fluxSource).release)
+		defer src.release()
 		src.waitSynced(wctx)
 		fb = src.build(b.Context)
+		fb.unknown = b.fluxUnknown(fb)
 	}
 	var snap *TableSnapshot
 	if table {
@@ -420,9 +460,20 @@ func (s *Session) FluxDashboard(ctx context.Context, namespaces []string, table 
 	return fluxModel(fb, namespaces), snap, nil
 }
 
+// fluxKindKeys are the keys of the Flux kinds the cluster serves, in the navigator's order.
+func fluxKindKeys(b *Backend) []string {
+	var keys []string
+	for _, k := range kinds.FluxKinds() {
+		if _, ok := b.Profile(k.Key); ok {
+			keys = append(keys, k.Key)
+		}
+	}
+	return keys
+}
+
 // fluxPlanKey is how the open page reads the Flux kinds: which the cluster serves, at which
 // version (a definition that moves to another version opens the page again), and how
-// (pagePlanKey).
+// (pageReadKey: a pending plan, all namespaces, or the namespaces).
 func (b *Backend) fluxPlanKey() string {
 	var keys []string
 	var sb strings.Builder
@@ -433,7 +484,7 @@ func (b *Backend) fluxPlanKey() string {
 			sb.WriteByte('|')
 		}
 	}
-	return b.pagePlanKey(keys, true) + sb.String()
+	return b.pageReadKey(keys, true) + sb.String()
 }
 
 // reconcileFluxPageLocked runs the Flux dashboard's worker: started when the page opens, given the

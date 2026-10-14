@@ -377,7 +377,7 @@ func (c *Cache) release(e *entry) {
 	if e.refs > 0 || c.closed {
 		return
 	}
-	if e.run != nil && isRefused(e.run.err()) { // a refused scope is not kept warm (nsscope.go)
+	if e.refusedLocked() { // a refused scope is not kept warm (nsscope.go)
 		c.retire(e)
 		return
 	}
