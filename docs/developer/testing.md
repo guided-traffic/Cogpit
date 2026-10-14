@@ -92,11 +92,12 @@ of 2026-10-12 broke:
 
 Targets to validate against Lens Desktop on the same machine before they are enforced. The heading
 keeps its name so that links survive; the "Measured" column holds what Cogpit reached on
-2026-10-11 on an Apple M1 Ultra (macOS 26.6.2), without a Lens comparison yet.
+2026-10-11 on an Apple M1 Ultra (macOS 26.6.2), later rows and P1 (2026-10-14) dated in their
+cell, without a Lens comparison yet.
 
-| Id | Scenario | Proposed target | Measured (2026-10-11) |
+| Id | Scenario | Proposed target | Measured |
 |---|---|---|---|
-| P1 | Open a context to the first rows of the Pods list, 1,000-pod cluster | ≤ 1 s | not measured |
+| P1 | Open a context to the first rows of the Pods list, 1,000-pod cluster | ≤ 1 s | Cogpit's share (2026-10-14): from `Connect` to all 1,000 rows in the Pods view's snapshot 111–123 ms, 1 streaming watch of pods; 10,000 pods: first rows after 310 ms, all after 394–400 ms (`TestBudgetFirstRows`, the engine on the real client-go stack against testkit's fake API server over HTTPS on the loopback, discovery and the access reviews included). Not included: a real cluster's round trips and list time, and the window's paint (no window run) |
 | P2 | Sort a 10,000-pod list by a column | ≤ 50 ms | 10.2 ms sort, 11.6 ms command to new snapshot (`BenchmarkSortChange10k`, `BenchmarkSortCommand10k`); 41 µs to apply it to the table without paint |
 | P3 | Scroll a 10,000-pod list | every frame ≤ 16 ms | real window: after the first fill at most 3 stalls of 16–25 ms in 9 s of scrolling 3 rows per frame; the first fill of the table stalls 151–193 ms once per window ([S1](spike-fyne.md#results)) |
 | P4 | Apply a burst of 1,000 watch events per second to an open list | no frame over 16 ms | engine side: 29 snapshots in 3 s at 1,000 events/s (`TestDemoClusterThroughTheEngine`), a 10,000-row snapshot in 2.1–4.6 ms; frames: the P3 runs had the churn on; view switches under the churn at most 42 ms, p99 6.3–7.4 ms |

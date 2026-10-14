@@ -1569,10 +1569,12 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## Quality gaps
 
 ### G15. Performance and API load at scale
-- **Missing:** budgets P1, P3, P5–P8 on the GPU renderer and against Lens on the same machine
+- **Missing:** budgets P3, P5–P8 on the GPU renderer, P1 with a real cluster's round trips and the
+  window's paint, and all of them against Lens on the same machine
   ([testing](../developer/testing.md#performance-budgets-proposed-not-measured)), the nightly run on a
   fixed runner, request counts for the scenarios not covered yet. Measured on 2026-10-11: P2,
-  P3, P4, P7, P8, P9–P11 (GPU numbers on one Mac, no Lens comparison); `make bench` and
+  P3, P4, P7, P8, P9–P11 (GPU numbers on one Mac, no Lens comparison); on 2026-10-14 P1's
+  engine share (`TestBudgetFirstRows`: 111–123 ms to 1,000 rows, 394–400 ms to 10,000); `make bench` and
   `cogpit --perf-mode gate` run the measurements.
 - **Start-up reservation of gate S1** (owner, 2026-10-11): every window stalls its main thread for
   0.3–0.56 s while Fyne sets up GL, and the first fill of a 10,000-row table for 151–193 ms (text
@@ -1691,6 +1693,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 | 2026-10-14 | minor | G17: the cached Secrets' values replaced in what agents read (H-82, D-44) and Flux's credential fields withheld from agents' YAML (H-63), both the owner's answers, built; G11: a Helm repository's credentials over plain http asked once per repository (H-40, D-29), built |
 | 2026-10-14 | minor | G8: the node shell's pod journaled before its create, and one a crash left deleted by UID at the next connect to its context (H-71, the owner's decision); estimate not moved |
 | 2026-10-14 | minor | G7: every role binding an agent asks for waits for the user, also where agent writes are allowed (H-27, the owner's decision); estimate not moved |
+| 2026-10-14 | minor | G15: P1 measured on the engine side (`TestBudgetFirstRows`, a fake API server over HTTPS): 111–123 ms from connect to 1,000 rows; estimate not moved |
 | 2026-10-14 | minor | G14: the app's minimum macOS set to 13.0 (Go 1.27's), in the binary and the Info.plist; v0.4.0's said 26.0 |
 | 2026-10-14 | minor | G14: the Developer ID signature, the disk image `Cogpit-<v>-macos-arm64.dmg` and the notarization built in the release pipeline, `cogpit-cli` for macOS signed and notarized (agent REL); no tag run yet, estimate not moved; the app's minimum macOS (26.0, the runner's) added to Missing |
 | 2026-10-14 | minor | G9: Create Secret's shown value copies through the clipboard for Secret values, concealed and cleared after 60 seconds (H-70 closed); estimate not moved |
