@@ -30,7 +30,7 @@ serial foundation, about 80% of the work parallelizes.
 | Remaining to **beta** (macOS, with the Flux CD and Argo CD views) | **~380–900 h** | estimated (was ~425–995) |
 | Remaining to **full parity** (free features, macOS) | **~360–920 h** | estimated (was ~420–1,040) |
 | Remaining to the **full Lens target** (paid features, Windows and Linux) | **~560–1,330 h** | estimated (was ~620–1,450) |
-| **Beyond Lens** (MCP control of UI and cluster, built-in agent) | **~50–110 h** | estimated, unchanged; not part of the parity numbers; 23 of 40 rows done, 3 partial (2026-10-14: every MCP row done after `dock_read`, the GUI-only mark and `kinds_list`; before, 2026-10-13: the CLI and its stdio bridge, view_rows, related objects, the agents allowance, the audit log and diagnostics in the window, editor drafts, names copyable in the lists, certificates in Secrets decoded) |
+| **Beyond Lens** (MCP control of UI and cluster, built-in agent) | **~50–110 h** | estimated, unchanged; not part of the parity numbers; 24 of 41 rows done, 3 partial (2026-10-14: a status filter in every view, the owner's D-34; every MCP row done after `dock_read`, the GUI-only mark and `kinds_list`; before, 2026-10-13: the CLI and its stdio bridge, view_rows, related objects, the agents allowance, the audit log and diagnostics in the window, editor drafts, names copyable in the lists, certificates in Secrets decoded) |
 
 ### Readiness by audience
 
