@@ -335,9 +335,10 @@ func (c wpNSConnector) Connect(ctx context.Context, name string) (*Backend, erro
 }
 
 // A user who may list pods and stateful sets only in team-a and team-b opens a stateful set's
-// drawer while the access reviews are still out: its pods are first read as a pending plan reads
-// them, in all namespaces, which the API server refuses; once the reviews answer, the drawer reads
-// them namespace by namespace, no cluster-wide pods handle is left, and the table lists the pod.
+// drawer while the access reviews are still out: the drawer reads nothing until the plan is
+// decided (a read that does not wait holds no handle while it is pending); once the reviews
+// answer, it reads the pods namespace by namespace, never in all namespaces, and the table lists
+// the pod.
 func TestWorkloadDrawerPodsForANamespaceLimitedUser(t *testing.T) {
 	mem := testkit.NewMemorySource()
 	mem.Set(statefulSetsGVR, testkit.Object("apps/v1", "StatefulSet", "team-a", "db", nil))
@@ -357,7 +358,12 @@ func TestWorkloadDrawerPodsForANamespaceLimitedUser(t *testing.T) {
 	openView(s, testEvents.Key)
 	ref := model.ObjectRef{Context: "test", Kind: "statefulsets", Namespace: "team-a", Name: "db"}
 	openDrawer(s, ref)
-	waitFor(t, "the drawer's pods read in all namespaces while the reviews are out", func() bool { all, _ := podsHandles(s); return all > 0 })
+	// While the reviews are out the drawer holds nothing: a read that does not wait holds no
+	// handle until the plan is decided (accessiblens_follow.go), so it never asks for the pods in
+	// all namespaces.
+	if all, _ := podsHandles(s); all != 0 {
+		t.Errorf("the drawer reads pods in all namespaces while the reviews are out (%d handles)", all)
+	}
 
 	rev.set(func(f *fakeReviewer) { close(f.gate); f.gate = nil })
 	waitFor(t, "the drawer reading pods namespace by namespace", func() bool {
@@ -365,6 +371,11 @@ func TestWorkloadDrawerPodsForANamespaceLimitedUser(t *testing.T) {
 		return all == 0 && ns > 0
 	})
 	waitDrawerPods(t, s, ref, "db-0")
+	for call := range src.Calls() {
+		if call == "list pods" || call == "watch pods" {
+			t.Errorf("%s: the pods were read in all namespaces, which the reviews refuse", call)
+		}
+	}
 }
 
 // The table's CPU and Memory come from the hub as in a node's drawer, polled for the workload's
