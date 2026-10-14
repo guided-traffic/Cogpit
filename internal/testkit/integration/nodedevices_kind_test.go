@@ -111,7 +111,7 @@ func TestKindNodeDevices(t *testing.T) {
 		}
 	}
 	if slice == nil || slice.Name != nodeDevicesSlice || sec.Table == nil || len(sec.Table.Rows) != 1 ||
-		!slices.Equal(sec.Table.Rows[0], []string{"accel-0", "model: X1", "memory: 16.0 GiB"}) {
+		!slices.Equal(sec.Table.Rows[0], []string{"accel-0", "model: X1", "memory: 16.0 GiB", ""}) {
 		t.Errorf("the node's Devices: %+v, table %+v", sec, sec.Table)
 	}
 
