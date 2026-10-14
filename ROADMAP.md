@@ -71,7 +71,7 @@ no cloud credential plugin is verified.
 | 3 | Walk the alpha-gate workflows in the GUI on kind and a real cluster: change a workload, maintain a node, reach a service, Helm releases, adding and syncing kubeconfigs | human |
 | 4 | Credential plugins verified on EKS, GKE and AKS (M1); the node shell (H-7) once the owner decides | 15–40 h + human |
 | 5 | Finish M0 and M2: the generated pages and scorecard, captures of inferred rows; packaging and updates for macOS (M10); the built-in chat after the alpha (G21, D-10) | 80–200 h + human |
-| 6 | Build the owner's decisions of 2026-10-14 evening (the decision index in [decisions](docs/developer/decisions.md); each noted "decided … not built" in its row or gap), the two new beyond-Lens requirements included (which kind of CA a certificate's chain leads to; a hotbar tile dragged out to another window, a design first) | not estimated |
+| 6 | Build the owner's decisions of 2026-10-14 evening (the decision index in [decisions › Decision round 2026-10-14 evening](docs/developer/decisions.md#decision-round-2026-10-14-evening); each noted "decided … not built" in its row or gap), the two new beyond-Lens requirements included (which kind of CA a certificate's chain leads to; a hotbar tile dragged out to another window, a design first) | not estimated |
 
 Detail: [docs/parity/roadmap.md](docs/parity/roadmap.md).
 

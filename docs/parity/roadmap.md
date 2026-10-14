@@ -108,7 +108,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
    pulled forward by the owner on 2026-10-14 ("endlich meinen Agent Chat"), the main scope of the
    next session; it needs an OpenAI-compatible endpoint with a tool-calling model from the owner.
 8. **Build the owner's decisions of 2026-10-14 evening** (the decision index in
-   [decisions](../developer/decisions.md)): each is noted in the row or gap it touches as "decided …
+   [decisions](../developer/decisions.md#decision-round-2026-10-14-evening)): each is noted in the row or gap it touches as "decided …
    not built" (UI and behaviour in [G5](gaps.md#g5-app-shell-navigation-tables-and-drawer),
    [G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences),
    [G8](gaps.md#g8-logs-terminal-and-shells), [G11](gaps.md#g11-helm),
