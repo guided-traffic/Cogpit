@@ -39,7 +39,9 @@ import (
 // A repository's credentials go only to its own scheme, host and port, on every hop of a
 // redirect and for a chart URL its index points elsewhere, unless its entry says
 // pass_credentials_all; an https repository's downloads never follow a URL or a redirect to plain
-// http; each repository with a CA file, a client certificate or insecure_skip_tls_verify gets a
+// http; a repository whose user and password would go over plain http downloads nothing over http
+// until the user allowed it for that repository (ErrCredentialsOverHTTP, H-40); each repository
+// with a CA file, a client certificate or insecure_skip_tls_verify gets a
 // transport of its own, made for the download from the files as they are then, with the
 // Preferences' proxy kept.
 
@@ -65,6 +67,14 @@ const (
 // ErrNotHTTPS refuses a URL or a redirect that would take an https repository's download to plain
 // http, or a URL that is neither http nor https.
 var ErrNotHTTPS = errors.New("an https repository's downloads stay on https")
+
+// ErrCredentialsOverHTTP refuses a download from a repository that would send its user and
+// password over plain http before the user allowed that for it (credentials H-40, owner
+// 2026-10-14): nothing is requested, so neither the credentials nor a request without them leave
+// Cogpit. The engine allows it per repository (Repository.AllowCredentialsOverHTTP). Match it
+// with errors.Is.
+var ErrCredentialsOverHTTP = errors.New("the repository sends its user name and password over plain http, unencrypted; " +
+	"Cogpit sends them only once you allow it for this repository in Cogpit's window (the Charts view asks)")
 
 // ErrDigestMismatch refuses a chart archive whose SHA-256 differs from the digest its repository's
 // index lists: the archive is not the one the index describes.
@@ -127,7 +137,7 @@ func (f *Fetcher) clientFor(r *Repository) (c *http.Client, done func(), err err
 		if rt == nil {
 			rt = http.DefaultTransport
 		}
-		rt = &authTransport{base: rt, auth: *r.auth, origin: origin(r.URL), all: r.PassCredentialsAll}
+		rt = &authTransport{base: rt, auth: *r.auth, origin: origin(r.URL), all: r.PassCredentialsAll, plain: r.plainAuth}
 	}
 	cc.Transport = rt
 	next := base.CheckRedirect
@@ -196,15 +206,21 @@ func (r *Repository) tlsConfig(base *tls.Config) (*tls.Config, error) {
 
 // authTransport adds a repository's basic auth to the requests for its own scheme, host and port
 // (every request with all): each hop of a redirect is decided on its own, so Go's rule that keeps
-// Authorization for a subdomain never applies.
+// Authorization for a subdomain never applies. A plain http request gets it only with plain, the
+// user's allowance for the repository (H-40); fetch refuses such a download before it starts, so
+// this is the guard behind that check.
 type authTransport struct {
 	base   http.RoundTripper
 	auth   basicAuth
 	origin string
 	all    bool
+	plain  bool
 }
 
 func (a *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.URL.Scheme == schemeHTTP && !a.plain {
+		return a.base.RoundTrip(req)
+	}
 	if a.all || origin(req.URL.String()) == a.origin {
 		req = req.Clone(req.Context())
 		req.SetBasicAuth(a.auth.user, a.auth.pass)
@@ -286,6 +302,8 @@ func (f *Fetcher) fetch(ctx context.Context, r *Repository, rawURL string, limit
 		return nil, ErrNotHTTPS
 	case u.User != nil:
 		return nil, errors.New("a URL with a user or password is not followed")
+	case u.Scheme == schemeHTTP && r.HasBasicAuth() && !r.plainAuth:
+		return nil, ErrCredentialsOverHTTP
 	}
 	shown := RedactURL(u.String())
 	c, done, err := f.clientFor(r)

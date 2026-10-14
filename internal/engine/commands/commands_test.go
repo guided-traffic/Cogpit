@@ -86,6 +86,7 @@ var wantCommands = map[string]engine.Danger{
 	// Helm chart repositories (G11, D-29): read from Helm's repositories.yaml, added and removed
 	// with the helm CLI only, so there is no add or remove (TestNoCommandWritesHelmsFile).
 	"helm.repo.list": engine.DangerRead, "helm.repo.update": engine.DangerUI,
+	"helm.repo.allowHTTPCredentials": engine.DangerUI, // GUI-only: credentials over plain http (H-40, TestAllowHTTPCredentialsIsTheUsers)
 	// Installing a chart (G11): the tab is UI, the preview a read, the install mutating (D-2).
 	"helm.chart.installTab": engine.DangerUI, "helm.chart.preview": engine.DangerRead, "helm.chart.install": engine.DangerMutating,
 	// The chart drawer's version (HELM2): UI state of the open drawer (TestHelmChartDrawerVersion).

@@ -323,7 +323,8 @@ Helm's file may name a repository over plain `http://`, or one with `insecure_sk
 such a repository nothing proves who answers: anyone on the path (a network, a proxy) can serve
 another index and charts that match its digests, since the digest Cogpit checks a chart against
 comes from that same index ([H-30](#h-30-chart-provenance-is-not-verified)), and for plain http
-read the basic auth ([credentials › H-40](credentials.md#h-40-credentials-over-plain-http)). A
+read the basic auth once the user allowed it for that repository (2026-10-14; before, Cogpit
+downloads nothing from one with credentials: [credentials › H-40](credentials.md#h-40-credentials-over-plain-http)). A
 chart from it renders in Cogpit's process and is installed with the user's identity after the
 preview and, for an agent, the user's acceptance, as any chart is. The dialog marks such a
 repository "http" or "insecure" and `helm.repo.list` says `plainHTTP` or `insecureSkipTLSVerify`,

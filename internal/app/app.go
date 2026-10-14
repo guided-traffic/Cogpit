@@ -66,6 +66,17 @@ func (d Dirs) KubeconfigSources(named []string) *engine.KubeconfigSources {
 	return engine.NewKubeconfigSources(d.Config, opts...)
 }
 
+// HelmHTTPApprovalsPath is the file of the user's allowances to send a Helm repository's user and
+// password over plain http (credentials H-40), d.Config/helm-http-approvals.json, owner-only, kept
+// like exec-approvals.json; empty without a configuration directory (the allowances then last for
+// the session).
+func (d Dirs) HelmHTTPApprovalsPath() string {
+	if d.Config == "" {
+		return ""
+	}
+	return filepath.Join(d.Config, engine.HelmHTTPApprovalsFile)
+}
+
 // AuditLogPath is the audit log's file, d.Config/audit.log, which the Audit Log reads back.
 func (d Dirs) AuditLogPath() string {
 	if d.Config == "" {

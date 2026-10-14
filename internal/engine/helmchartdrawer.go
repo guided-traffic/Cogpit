@@ -298,6 +298,9 @@ type readmeStore struct {
 // previous one; wait waits for it.
 func (h *HelmRepos) readmeOf(ctx context.Context, s *Session, repository, chart, version string, start, drawer, wait bool) (ChartReadme, string) {
 	r, _, v, err := h.ChartVersion(repository, chart, version)
+	if err == nil {
+		r, err = h.forDownload(r) // credentials over plain http only once the user allowed it (H-40)
+	}
 	if err != nil {
 		return ChartReadme{State: ReadmeFailed, Error: err.Error()}, ""
 	}

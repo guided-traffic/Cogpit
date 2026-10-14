@@ -67,6 +67,18 @@ func NewHelmRepo(t testing.TB, charts ...TestChart) *HelmRepo {
 	return r
 }
 
+// NewPlainHelmRepo is NewHelmRepo served over plain http, unencrypted (credentials H-40): its URL
+// is http://, and its Client is a plain HTTP client.
+func NewPlainHelmRepo(t testing.TB, charts ...TestChart) *HelmRepo {
+	t.Helper()
+	r := &HelmRepo{dir: t.TempDir(), t: t, requests: map[string]int{}, authorized: map[string]int{}, override: map[string][]byte{}}
+	r.Server = httptest.NewServer(http.HandlerFunc(r.serve))
+	t.Cleanup(r.Server.Close)
+	r.URL = r.Server.URL
+	r.Add(charts...)
+	return r
+}
+
 // Add packages more charts and indexes the repository again.
 func (r *HelmRepo) Add(charts ...TestChart) {
 	r.t.Helper()

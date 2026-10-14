@@ -97,6 +97,8 @@ type shell struct {
 
 	drafts *draftsBanner // unsaved editor text kept from an earlier run, below the Helm banner (drafts.go)
 
+	helmHTTP *helmHTTPBanner // Helm repositories waiting to send credentials over http, below the Helm banner (helmhttp.go, H-40)
+
 	hsplit    *fyne.Container // table | drawer, the drawer's width set by the user (panelwidths.go)
 	mainRow   *fyne.Container // sidebar | body, the sidebar's width set by the user
 	center    *fyne.Container // mainRow, or the open settings page in its place
@@ -178,6 +180,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.confirmer = newGUIConfirmer(sh)
 	sh.drains = newDrainBanner(sh)
 	sh.helm = newHelmBanner(sh)
+	sh.helmHTTP = newHelmHTTPBanner(sh)
 	sh.drafts = newDraftsBanner(sh)
 	sh.toasts = box(&toastLayout{})
 	sh.tip = newTooltip(sh)
@@ -208,7 +211,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.mainRow = main
 	sh.center = container.NewStack(main)
 	frame := container.NewBorder(
-		container.NewVBox(sh.top.root, newDivider(false), sh.drains.root, sh.helm.root, sh.drafts.root),
+		container.NewVBox(sh.top.root, newDivider(false), sh.drains.root, sh.helm.root, sh.helmHTTP.root, sh.drafts.root),
 		container.NewVBox(newDivider(false), sh.status.root),
 		sh.hot.root, nil, sh.center)
 	sh.root = container.NewStack(frame, sh.tip.layer, sh.toasts)
@@ -364,6 +367,8 @@ func (sh *shell) onEvent(ev engine.Event) {
 		sh.drains.request()
 	case engine.EventHelm:
 		sh.helm.request()
+	case engine.EventHelmRepos:
+		sh.helmHTTP.request() // a repository waiting to send credentials over http (H-40)
 	case engine.EventDrafts:
 		sh.drafts.request()
 	case engine.EventEditor:
@@ -497,6 +502,9 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	}
 	if first || tabsChanged(st, old) {
 		sh.tabs.sync()
+	}
+	if first || helmChartsShown(st) != helmChartsShown(old) {
+		sh.helmHTTP.request() // shown with the Charts view and Helm Install tabs (helmhttp.go)
 	}
 	sh.top.stateChanged() // the history arrows and the bell (titlehistory.go)
 }

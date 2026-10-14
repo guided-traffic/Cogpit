@@ -726,7 +726,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   and password, also from the URL; client certificate and key; CA file; `insecure_skip_tls_verify`;
   `pass_credentials_all`) stay in memory and go only to the repository's own scheme, host and port,
   on redirects and for chart URLs elsewhere too, unless `pass_credentials_all`; plain http
-  repositories used as helm uses them and marked (Cogpit's default, H-40); indexes in Cogpit's own
+  repositories used as helm uses them and marked, one with credentials only once the user allowed it
+  in the window (owner, 2026-10-14, H-40); indexes in Cogpit's own
   cache keyed by name and URL (decided at the build); `helm.repo.add` and `helm.repo.remove` removed,
   `helm.repo.list` with the file and its status, the Repositories dialog read-only. Install and
   upgrade use these repositories unchanged, authenticated ones included

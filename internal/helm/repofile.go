@@ -96,6 +96,9 @@ type Repository struct {
 	PassCredentialsAll bool
 
 	auth *basicAuth
+	// plainAuth lets the basic auth go over plain http: set only on a copy the engine hands to a
+	// download once the user allowed it (AllowCredentialsOverHTTP, credentials H-40).
+	plainAuth bool
 }
 
 // basicAuth is a repository's user and password; it never prints.
@@ -150,6 +153,36 @@ func (r *Repository) HasCredentials() bool { return r.HasBasicAuth() || r.Client
 func (r *Repository) PlainHTTP() bool {
 	u, err := url.Parse(r.URL)
 	return err == nil && u.Scheme == schemeHTTP
+}
+
+// CredentialsOverHTTP reports whether the repository would send its user and password over plain
+// http: it is served over http and has basic auth (a client certificate needs TLS and is not sent
+// over http at all). Such a repository downloads only from a copy AllowCredentialsOverHTTP made
+// (credentials H-40, D-29).
+func (r *Repository) CredentialsOverHTTP() bool { return r.HasBasicAuth() && r.PlainHTTP() }
+
+// AllowCredentialsOverHTTP returns a copy of r whose basic auth may go over plain http: the
+// engine makes it for a download once the user allowed that for the repository (H-40). r itself
+// is unchanged.
+func (r Repository) AllowCredentialsOverHTTP() *Repository {
+	r.plainAuth = true
+	return &r
+}
+
+// HTTPBinding is what the user's allowance of credentials over plain http binds (H-40, owner
+// 2026-10-14): the repository's name, its URL and its user name, as a SHA-256 in hex. A changed
+// URL or user gives another binding, and the allowance no longer applies; a changed password
+// keeps it. No password goes into it, so it may be kept on disk; empty for a repository without
+// basic auth.
+func (r *Repository) HTTPBinding() string {
+	if r == nil || r.auth == nil {
+		return ""
+	}
+	h := sha256.New()
+	for _, s := range []string{"cogpit-helm-http-credentials", r.Name, r.URL, r.auth.user} {
+		_, _ = io.WriteString(h, s+"\x00")
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func (r *Repository) https() bool {

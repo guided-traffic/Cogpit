@@ -69,6 +69,10 @@ credential into its own files.
   fingerprint of what each allowed plugin runs and where its credential goes (including the content
   digest of a program or CA file inside the kubeconfig's folder, and the path of a token file
   outside it), no credential.
+- **Helm repositories allowed over plain http** (2026-10-14, [H-40](#h-40-credentials-over-plain-http))
+  live in `<user config dir>/Cogpit/helm-http-approvals.json` (0600): per repository its name, its
+  URL as Cogpit shows it (no user, password or query values), a SHA-256 of its name, URL and user
+  name, and when; no credential (`TestHelmCredentialsOverHTTPWaitForTheUser`).
 - **Token files** (`tokenFile`) of an added or synced kubeconfig are read by client-go when the
   user connects, and only after the user allowed a file outside the kubeconfig's folder
   (since 2026-10-12, D-17, [trust boundaries › H-24](trust-boundaries.md#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token)).
@@ -363,20 +367,42 @@ Cogpit never writes Helm's file: repositories and their credentials are added wi
   dropped). Nothing writes them out; a core dump of the process would hold them.
 - **OCI registries.** Credentials of `helm registry login` (Helm's `registry/config.json`) are not
   read; an `oci://` entry is listed as not used (G11).
-- **Plain http** sends the credentials readable on the network:
-  [H-40](#h-40-credentials-over-plain-http).
+- **Plain http** sends the credentials readable on the network once the user allowed it for the
+  repository (2026-10-14; nothing is sent before): [H-40](#h-40-credentials-over-plain-http).
 
 ### H-40: Credentials over plain http
 
-A repository in Helm's file whose URL is `http://` is used as helm uses it (2026-10-13, Cogpit's
-default, not the owner's decision): its basic auth goes over the network unencrypted, to the
-repository and to anyone on the path, a proxy included; its index and charts can be read and
-changed on the way ([trust boundaries › H-41](trust-boundaries.md#h-41-repositories-whose-content-nothing-authenticates)).
-The dialog marks it "http" and `helm.repo.list` says `plainHTTP`, but Cogpit neither refuses nor
-asks before it sends the credentials; an https repository's downloads never go to http, so this
-is live only for entries the user wrote with an `http://` URL (`TestPlainHTTPRepository`). Whether
-Cogpit refuses to send credentials over plain http, warns once, or asks per repository is not
-decided.
+Narrowed 2026-10-14 (owner's answer; [D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml)):
+a repository in Helm's file whose URL is `http://` and that has a user and password downloads
+nothing, neither its index nor a chart nor a README, on an update or in the background, until the
+user allowed it once in Cogpit's window: the Charts view (and a Helm Install tab) shows a banner per
+such repository, and Allow… says what crosses the network before
+`helm.repo.allowHTTPCredentials` records it. The helm package refuses the request by itself
+(`helm.ErrCredentialsOverHTTP`, before any connection; its authorization transport never adds the
+credentials to a plain http request it was not allowed for), so neither the credentials nor a
+request without them leave Cogpit (`TestPlainHTTPRepository`, `TestHTTPBinding`,
+`TestHelmCredentialsOverHTTPWaitForTheUser`). The allowance is kept like a credential plugin's,
+in `<user config dir>/Cogpit/helm-http-approvals.json` (0600), bound to the repository's name, URL
+and user name (a SHA-256, no credential); a changed URL or user name asks again, a changed password
+does not. It is the user's only: the command is GUI-only, and an agent or the CLI is refused
+whatever it passes, reads why the repository waits in `helm.repo.list` (`httpCredentials`,
+`error`) and its refusal is audited (`TestAllowHTTPCredentialsIsTheUsers`). A repository over http
+without credentials needs no allowance (only [H-41](trust-boundaries.md#h-41-repositories-whose-content-nothing-authenticates)
+applies). What remains, per case:
+
+- **Once allowed, the credentials travel in clear.** Every download of that repository, the
+  background refresh while the Charts view or a Helm Install tab is open included, sends the
+  basic auth readable to anyone on the network path, a proxy included, as helm sends it; the index
+  and charts can be changed on the way (H-41). Live for every repository the user allowed.
+- **The allowance does not expire** and binds no password: a rotated password keeps it (the
+  owner's binding). A repository removed from Helm's file and added again under the same name, URL
+  and user name is allowed again without asking. Whether an allowance should expire is not
+  decided.
+- **The file is the user's own.** A process of the user that writes
+  `helm-http-approvals.json` can allow a repository without the window, as it can write
+  `exec-approvals.json` or read Helm's file itself
+  ([agents and MCP › H-12](agents-and-mcp.md#h-12-every-local-process-of-the-user-can-read-the-token)).
+- **Without a configuration directory** the allowances last for the session (in memory).
 
 ### H-33: Proxy passwords are plaintext in Cogpit's settings
 

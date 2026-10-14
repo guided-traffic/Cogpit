@@ -16,7 +16,7 @@ blank line before `</details>`. It moved here from the root README on 2026-10-14
 Cogpit and its flags are in [`usage.md`](usage.md).
 
 <details>
-<summary>All 177 commands</summary>
+<summary>All 178 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -90,6 +90,7 @@ Cogpit and its flags are in [`usage.md`](usage.md).
 | `helm.release.upgrade` | `helm_release_upgrade` | mutating | `ref`, `repository`?, `revision`?, `tab`?, `textRevision`?, `values`?, `version`? | Upgrades a Helm release as helm upgrade does with its defaults (hooks waited for, ten revisions kept), with new user-supplied values, which replace the old ones whole: the values of a Helm Upgrade tab (tab), or values given here with the revision they are based on |
 | `helm.release.upgradeTab` | `helm_release_upgradeTab` | ui | `ref`, `repository`?, `version`? | Opens a release's Helm Upgrade dock tab, or activates the one already open on it: the release's chart, the version the upgrade installs and the versions to choose from, and its user-supplied values in an editor, read from Cogpit's cache |
 | `helm.release.values` | `helm_release_values` | read | `all`?, `ref` | Returns a release's values from Cogpit's cache, the newest revision's: the user-supplied ones, or all of them with the chart's defaults (all), with the revision and chart they are of |
+| `helm.repo.allowHTTPCredentials` | `helm_repo_allowHTTPCredentials` | ui (GUI only) | `repositories` | Records that the user lets Cogpit send the user name and password of the listed Helm repositories over plain http, unencrypted, as helm does: a repository of Helm's repositories file whose URL is http:// and that has credentials downloads nothing before (helm_repo_list's httpCredentials says required or changed, its error why) |
 | `helm.repo.list` | `helm_repo_list` | read |  | Lists the Helm chart repositories of Helm's own repositories.yaml (the helm CLI adds and removes them; Cogpit only reads the file, within 5 seconds of a change), in its order: name, URL without a user or password, whether credentials are present (never a credential), TLS facts (CA file, client certificate, insecure, plain http), how many charts the index lists, when it was downloaded, the last error or why Cogpit does not use an entry; with the file's path and status (ok, missing, error: the last good list kept) |
 | `helm.repo.update` | `helm_repo_update` | ui | `names`? | Downloads the index of every Helm repository of Helm's repositories.yaml (or of those named) again into Cogpit's own cache, one after the other, as helm repo update does, with the credentials Helm's file holds; nothing is written into Helm's file or folders |
 | `hotbar.addCluster` | `hotbar_addCluster` | ui | `bank`?, `context`? | Pins a cluster to the hotbar: a tile for the context at the end of a bank, which F1–F12 open by its place |

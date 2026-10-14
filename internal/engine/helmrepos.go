@@ -93,11 +93,18 @@ type HelmRepoInfo struct {
 	// PassCredentialsAll: the credentials go to every host the downloads reach.
 	PassCredentialsAll bool `json:"passCredentialsAll,omitempty"`
 	// PlainHTTP: the repository is served over http, unencrypted.
-	PlainHTTP bool      `json:"plainHTTP,omitempty"`
-	Updated   time.Time `json:"updated,omitzero"`
-	Charts    int       `json:"charts"`
-	Error     string    `json:"error,omitempty"`
-	Updating  bool      `json:"updating,omitempty"`
+	PlainHTTP bool `json:"plainHTTP,omitempty"`
+	// HTTPCredentials is set for a repository that would send its user and password over plain
+	// http (credentials H-40): HTTPCredentialsRequired or HTTPCredentialsChanged while the user
+	// has not allowed it (nothing is downloaded, Error says why), HTTPCredentialsAllowed once the
+	// user did. HTTPToken, while it waits, is what helm.repo.allowHTTPCredentials takes back: it
+	// changes with the repository's URL or user name and reveals neither.
+	HTTPCredentials string    `json:"httpCredentials,omitempty"`
+	HTTPToken       string    `json:"httpToken,omitempty"`
+	Updated         time.Time `json:"updated,omitzero"`
+	Charts          int       `json:"charts"`
+	Error           string    `json:"error,omitempty"`
+	Updating        bool      `json:"updating,omitempty"`
 	// Unused: Cogpit does not use the entry (Error says why): nothing is downloaded, no charts.
 	Unused bool `json:"unused,omitempty"`
 }
@@ -162,6 +169,7 @@ type HelmRepos struct {
 	pubTarget                 *Backend
 	published                 map[string]string // chart object name → resourceVersion in pubTarget's local store
 	readmes                   readmeStore       // the chart drawer's READMEs (helmchartdrawer.go)
+	http                      *httpApprovals    // the user's allowances of credentials over plain http (helmhttp.go)
 	icons                     chartIcons        // the charts' icons (helmicons.go, D-46)
 }
 
@@ -192,6 +200,7 @@ func NewHelmRepos(repoFile, cacheDir string, opts ...HelmReposOption) *HelmRepos
 		fetcher: &helm.Fetcher{}, ttl: DefaultIndexTTL, pollEvery: indexPollEvery, fileEvery: DefaultHelmRepositoryFilePoll,
 		now: time.Now, state: map[string]*repoState{}, kick: make(chan struct{}, 1),
 		readmes: readmeStore{dir: filepath.Join(cacheDir, filepath.FromSlash(helmReadmeDir))},
+		http:    newHTTPApprovals(""),
 	}
 	for _, o := range opts {
 		o(h)
@@ -429,11 +438,19 @@ func (h *HelmRepos) List() (HelmReposList, error) {
 	return out, nil
 }
 
-// infos returns the repositories (only those named, if names is not nil).
+// infos returns the repositories (only those named, if names is not nil), with what the user
+// allowed of their credentials over plain http (helmhttp.go).
 func (h *HelmRepos) infos(names []string) []HelmRepoInfo {
+	out, repos := h.infosLocked(names)
+	h.withHTTPState(out, repos)
+	return out
+}
+
+func (h *HelmRepos) infosLocked(names []string) ([]HelmRepoInfo, map[string]*helm.Repository) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	out := make([]HelmRepoInfo, 0, len(h.entries))
+	repos := map[string]*helm.Repository{}
 	for _, e := range h.entries {
 		if names != nil && !slices.Contains(names, e.info.Name) {
 			continue
@@ -444,10 +461,11 @@ func (h *HelmRepos) infos(names []string) []HelmRepoInfo {
 			if st.index != nil {
 				info.Charts = len(st.index.Charts)
 			}
+			repos[info.Name] = e.repo
 		}
 		out = append(out, info)
 	}
-	return out
+	return out, repos
 }
 
 // repo returns a repository Cogpit uses, by name, or why it does not use it.
@@ -515,6 +533,16 @@ func (h *HelmRepos) download(ctx context.Context, name string) error {
 		return fmt.Errorf("no Helm repository named %s in Helm's repositories file", name)
 	}
 	r, key, fp := st.repo, st.key, st.fp
+	h.mu.Unlock()
+	r, err := h.forDownload(r) // credentials over plain http only once the user allowed it (H-40)
+	if err != nil {
+		return err
+	}
+	h.mu.Lock()
+	if st = h.state[name]; st == nil || st.fp != fp {
+		h.mu.Unlock()
+		return errRepoChanged
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	st.updating, st.cancel = true, cancel
@@ -552,10 +580,14 @@ func (h *HelmRepos) refreshStale(ctx context.Context) {
 	}
 	h.fetchMu.Lock()
 	defer h.fetchMu.Unlock()
+	approvals, aErr := h.http.load()
 	h.mu.Lock()
 	var stale []string
 	for _, e := range h.entries {
 		st := h.state[e.info.Name]
+		if e.repo != nil && e.repo.CredentialsOverHTTP() && (aErr != nil || waitsForHTTP(approvals, e.repo)) {
+			continue // waits for the user's allowance; the Charts view and helm.repo.list say why (H-40)
+		}
 		if e.repo != nil && st != nil && (st.fetchNow || st.updated.IsZero() || h.now().Sub(st.updated) >= h.ttl) {
 			stale = append(stale, e.info.Name)
 		}
@@ -620,6 +652,9 @@ func (h *HelmRepos) ChartVersion(repository, chart, version string) (*helm.Repos
 func (h *HelmRepos) FetchChart(ctx context.Context, repository, chart, version string) (*helm.Chart, helm.IndexChart, error) {
 	r, c, v, err := h.ChartVersion(repository, chart, version)
 	if err != nil {
+		return nil, c, err
+	}
+	if r, err = h.forDownload(r); err != nil { // credentials over plain http only once the user allowed it (H-40)
 		return nil, c, err
 	}
 	ch, err := h.fetcher.FetchChart(ctx, r, chart, v)

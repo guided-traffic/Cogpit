@@ -317,7 +317,9 @@ func openMetricsSettings(logger *slog.Logger) *engine.MetricsSettings {
 // Helm's configuration folder; helm.RepositoryConfigPath), and keeps their indexes in
 // <user cache dir>/Cogpit/helm/indexes, owner-only (D-29, G11). Cogpit writes nothing into Helm's
 // file or folders. Without a cache directory the indexes go under the configuration directory;
-// without either there are no repositories.
+// without either there are no repositories. The user's allowances to send a repository's user and
+// password over plain http live in <user config dir>/Cogpit/helm-http-approvals.json, owner-only
+// (credentials H-40).
 func openHelmRepos(logger *slog.Logger) *engine.HelmRepos {
 	cache, err := os.UserCacheDir()
 	if err != nil {
@@ -332,7 +334,14 @@ func openHelmRepos(logger *slog.Logger) *engine.HelmRepos {
 	}
 	file := helm.RepositoryConfigPath()
 	logger.Info("Helm repositories are read from Helm's repositories file", "file", file)
-	return engine.NewHelmRepos(file, cache)
+	var opts []engine.HelmReposOption
+	if dirs, err := app.UserDirs(); err == nil {
+		// The user's allowances to send a repository's credentials over plain http (H-40).
+		opts = append(opts, engine.WithHTTPApprovals(dirs.HelmHTTPApprovalsPath()))
+	} else {
+		logger.Warn("allowances of Helm credentials over http last for this session", "err", err)
+	}
+	return engine.NewHelmRepos(file, cache, opts...)
 }
 
 // openKubeconfigSources keeps the kubeconfig files and sync folders the user

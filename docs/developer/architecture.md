@@ -12,7 +12,7 @@ built-in views (41 until the four Device Resources views of 2026-10-13; Pod Secu
 the Workloads Overview page and one view per custom resource kind from a watch-fed cache, greys
 what the user's access reviews deny, has a detail drawer and row menus from the command registry,
 a dock with logs (with their options, pod and container selectors, older lines, a jump to a time, and the logs of a workload's pods), a local terminal, pod
-shells, attach and Edit and Create resource tabs, writes through 177 commands (reads included, 2026-10-14) (editing, Secrets
+shells, attach and Edit and Create resource tabs, writes through 178 commands (reads included, 2026-10-14) (editing, Secrets
 from YAML in the GUI only, delete, node and workload actions, a crash-safe drain, port forwards
 that fail at once on permanent errors, Helm rollback, uninstall and upgrade with a crash journal
 locked between Cogpit processes, each bound to the revision the server holds), adds and syncs
@@ -2279,10 +2279,23 @@ since D-29, 2026-10-13; G11; [`helm/repofile.go`](../../internal/helm/repofile.g
   (every request with `pass_credentials_all`). It decides on every redirect hop and for chart URLs
   the index points elsewhere, so Go's rule that keeps `Authorization` for a subdomain never applies.
   Errors show URLs redacted and are scrubbed of the password and user name as a guard.
-- **Plain http.** A repository whose URL is `http://` is used as helm uses it, credentials
-  included (Cogpit's default, [H-40](../security/credentials.md#h-40-credentials-over-plain-http));
-  an https repository's downloads never go to http, by a redirect or a chart URL of its index
-  (`ErrNotHTTPS`). Redirects are followed at most 10 times, never to a URL with a user or password.
+- **Plain http.** A repository whose URL is `http://` is used as helm uses it. One with a user
+  and password downloads nothing until the user allowed, once, that they go over plain http (owner,
+  2026-10-14, [H-40](../security/credentials.md#h-40-credentials-over-plain-http)): `Fetcher.fetch`
+  refuses such a request before any connection (`helm.ErrCredentialsOverHTTP`) and `authTransport`
+  never adds the credentials to a plain http request, unless the engine hands over a copy the
+  user allowed (`Repository.AllowCredentialsOverHTTP`). The engine
+  ([`engine/helmhttp.go`](../../internal/engine/helmhttp.go)) keeps the allowances in
+  `<user config dir>/Cogpit/helm-http-approvals.json` (owner-only), bound to the repository's
+  name, URL and user name (`Repository.HTTPBinding`, a SHA-256, no password), checks them before
+  every index, chart and README download (`HelmRepos.forDownload`), leaves a waiting repository
+  out of the background refresh, and downloads it at once once allowed. `helm.repo.list` says per
+  repository `httpCredentials` (`required`, `changed`, `allowed`) and, while it waits, an
+  `httpToken` (a hash of the binding with a per-process salt) that the GUI-only
+  `helm.repo.allowHTTPCredentials` takes back; the window's banner
+  ([`fyneui/helmhttp.go`](../../internal/ui/fyneui/helmhttp.go)) shows below the Helm banner
+  while the Charts view or a Helm Install tab is open. An https repository's downloads never go to
+  http, by a redirect or a chart URL of its index (`ErrNotHTTPS`). Redirects are followed at most 10 times, never to a URL with a user or password.
 - **The indexes: Cogpit's own cache (decided at the build, D-29's Built note).**
   `<user cache dir>/Cogpit/helm/indexes/<key>-index.yaml` (0600 in a 0700 directory, replaced only
   after the SDK parsed the new download), the key a hash of the repository's name and URL: nothing
@@ -2328,9 +2341,11 @@ since D-29, 2026-10-13; G11; [`helm/repofile.go`](../../internal/helm/repofile.g
   Charts before Releases, as captured.
 - **Commands.** `helm.repo.list` (read, every origin: Helm's file, its status `ok`, `missing` or
   `error` with the reason, a hint, and per repository name, redacted URL, `hasCredentials`,
-  `clientCertificate`, `caFile`, `insecureSkipTLSVerify`, `passCredentialsAll`, `plainHTTP`, charts,
-  index age, the last error or why it is not used; never a credential) and `helm.repo.update` (UI,
-  every origin). `helm.repo.add` and `helm.repo.remove` of the night run are gone (D-29).
+  `clientCertificate`, `caFile`, `insecureSkipTLSVerify`, `passCredentialsAll`, `plainHTTP`,
+  `httpCredentials` and `httpToken` (H-40), charts, index age, the last error or why it is not
+  used; never a credential), `helm.repo.update` (UI, every origin) and
+  `helm.repo.allowHTTPCredentials` (UI, GUI-only: the user's allowance of credentials over plain
+  http). `helm.repo.add` and `helm.repo.remove` of the night run are gone (D-29).
 - **The Repositories dialog** (Helm › Repositories…, [`fyneui/helmcharts.go`](../../internal/ui/fyneui/helmcharts.go)):
   read-only, Helm's file and its status above the list, per repository its name with marks
   ("credentials" or "client certificate", "http", "insecure", "not used"), its URL, its charts and

@@ -256,9 +256,12 @@ func TestCredentialsNotSentToAChartElsewhere(t *testing.T) {
 	}
 }
 
-// A repository served over plain http is used as helm uses it, credentials included (gap H-40),
-// its index may point to https charts; a user and password in its URL are its basic auth and are
-// shown nowhere; an error shows the URL redacted.
+// A repository served over plain http with a user and password (H-40, owner 2026-10-14): nothing
+// is requested until the engine hands over a copy the user allowed, so neither the credentials nor a
+// request without them leave Cogpit; then it is used as helm uses it, credentials included, its
+// index may point to https charts; a user and password in its URL are its basic auth and are shown
+// nowhere; an error shows the URL redacted. An http repository without credentials downloads as
+// before (only H-41 applies).
 func TestPlainHTTPRepository(t *testing.T) {
 	src := testkit.NewHelmRepo(t, webChart)
 	archive := src.Archive("web-0.2.0.tgz")
@@ -270,12 +273,20 @@ func TestPlainHTTPRepository(t *testing.T) {
 	_ = resp.Body.Close()
 	var mu sync.Mutex
 	var sawUser string
+	requests := 0
 	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		user, pass, _ := req.BasicAuth()
 		mu.Lock()
 		sawUser = user
+		requests++
 		mu.Unlock()
 		switch {
+		case strings.HasPrefix(req.URL.Path, "/public/"):
+			if req.Header.Get("Authorization") != "" {
+				http.Error(w, "credentials sent", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(strings.ReplaceAll(string(index), src.URL+"/", "")))
 		case pass != repoPass:
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 		case req.URL.Path == "/charts/index.yaml":
@@ -289,17 +300,38 @@ func TestPlainHTTPRepository(t *testing.T) {
 	defer plain.Close()
 	withUser := strings.Replace(plain.URL, "http://", "http://"+repoUser+":"+repoPass+"@", 1) + "/charts"
 	repo := readEntry(t, fmt.Sprintf("- name: plain\n  url: %s\n", withUser))
-	if !repo.PlainHTTP() || !repo.HasBasicAuth() || strings.Contains(repo.URL, repoPass) || strings.Contains(fmt.Sprint(repo), repoPass) {
+	if !repo.PlainHTTP() || !repo.HasBasicAuth() || !repo.CredentialsOverHTTP() || strings.Contains(repo.URL, repoPass) || strings.Contains(fmt.Sprint(repo), repoPass) {
 		t.Fatalf("repository %s (%s)", repo, repo.URL)
 	}
 	f := &Fetcher{}
-	idx, err := f.DownloadIndex(context.Background(), repo, filepath.Join(t.TempDir(), "i.yaml"))
+
+	// Not allowed: refused before any request.
+	_, err = f.DownloadIndex(context.Background(), repo, filepath.Join(t.TempDir(), "i.yaml"))
+	if !errors.Is(err, ErrCredentialsOverHTTP) {
+		t.Fatalf("an http repository with credentials, not allowed: %v", err)
+	}
+	noSecrets(t, "not allowed", err)
+	if _, err := f.FetchChart(context.Background(), repo, "web", ChartVersion{Version: "0.2.0", URLs: []string{"web-0.2.0.tgz"}}); !errors.Is(err, ErrCredentialsOverHTTP) {
+		t.Errorf("a chart of an http repository with credentials, not allowed: %v", err)
+	}
+	mu.Lock()
+	if requests != 0 {
+		t.Errorf("the server saw %d requests before the user allowed any", requests)
+	}
+	mu.Unlock()
+
+	// Allowed: as helm uses it.
+	allowed := repo.AllowCredentialsOverHTTP()
+	if repo.HTTPBinding() != allowed.HTTPBinding() {
+		t.Error("the allowed copy binds something else")
+	}
+	idx, err := f.DownloadIndex(context.Background(), allowed, filepath.Join(t.TempDir(), "i.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	web, _ := idx.Chart("web")
 	v, _ := web.Latest()
-	if _, err := f.FetchChart(context.Background(), repo, "web", v); err != nil {
+	if _, err := f.FetchChart(context.Background(), allowed, "web", v); err != nil {
 		t.Fatal(err)
 	}
 	mu.Lock()
@@ -307,14 +339,66 @@ func TestPlainHTTPRepository(t *testing.T) {
 		t.Errorf("the server saw user %q", sawUser)
 	}
 	mu.Unlock()
-	missing := *repo
+	missing := *allowed
 	missing.URL = plain.URL + "/nothing?token=tok-53"
 	_, err = f.DownloadIndex(context.Background(), &missing, filepath.Join(t.TempDir(), "i.yaml"))
 	if err == nil || !strings.Contains(err.Error(), "404") || !strings.Contains(err.Error(), "token=•••") {
 		t.Errorf("a missing index: %v", err)
 	}
 	noSecrets(t, "a missing index", err, "tok-53")
+
+	// Without credentials an http repository needs no allowance.
+	public := readEntry(t, fmt.Sprintf("- name: public\n  url: %s/public\n", plain.URL))
+	if public.CredentialsOverHTTP() || public.HTTPBinding() != "" {
+		t.Fatalf("a public http repository: %v %q", public.CredentialsOverHTTP(), public.HTTPBinding())
+	}
+	if _, err := f.DownloadIndex(context.Background(), public, filepath.Join(t.TempDir(), "i.yaml")); err != nil {
+		t.Errorf("a public http repository: %v", err)
+	}
 }
+
+// The allowance's binding (H-40): the repository's name, URL and user; a changed password keeps it.
+// The authorization transport never adds the credentials to a plain http request it was not
+// allowed for, whatever reaches it.
+func TestHTTPBinding(t *testing.T) {
+	base := PublicRepository("plain", "http://charts.example.com/x").WithBasicAuth(repoUser, repoPass)
+	same := PublicRepository("plain", "http://charts.example.com/x").WithBasicAuth(repoUser, "another-password")
+	if base.HTTPBinding() == "" || base.HTTPBinding() != same.HTTPBinding() {
+		t.Error("a changed password changed the binding")
+	}
+	for what, r := range map[string]*Repository{
+		"name": PublicRepository("other", "http://charts.example.com/x").WithBasicAuth(repoUser, repoPass),
+		"URL":  PublicRepository("plain", "http://charts.example.com/y").WithBasicAuth(repoUser, repoPass),
+		"user": PublicRepository("plain", "http://charts.example.com/x").WithBasicAuth("bob-chart-user", repoPass),
+	} {
+		if r.HTTPBinding() == base.HTTPBinding() {
+			t.Errorf("a changed %s kept the binding", what)
+		}
+	}
+	if strings.Contains(base.HTTPBinding(), repoPass) || strings.Contains(base.HTTPBinding(), repoUser) {
+		t.Error("the binding quotes a credential")
+	}
+
+	var sawAuth bool
+	rt := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		sawAuth = req.Header.Get("Authorization") != ""
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("")), Request: req}, nil
+	})
+	for _, plainAllowed := range []bool{false, true} {
+		a := &authTransport{base: rt, auth: basicAuth{user: repoUser, pass: repoPass}, origin: origin(base.URL), plain: plainAllowed}
+		req, _ := http.NewRequest(http.MethodGet, base.URL+"/index.yaml", nil)
+		if _, err := a.RoundTrip(req); err != nil {
+			t.Fatal(err)
+		}
+		if sawAuth != plainAllowed {
+			t.Errorf("allowed %v: credentials sent %v", plainAllowed, sawAuth)
+		}
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
 
 // clientPair makes a self-signed client certificate and its key, PEM.
 func clientPair(t *testing.T, name string) (certPEM, keyPEM []byte, cert *x509.Certificate) {
