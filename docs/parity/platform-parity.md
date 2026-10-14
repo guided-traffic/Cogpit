@@ -1,6 +1,6 @@
 # Platform parity: systems, packages, authentication and tools
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (network endpoints: the hosts of the charts' icons while Load chart icons is on, D-46, no count moves; `proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, against TLS test servers; `kubectl` for terminals: the version check and the verified download, D-3; the HTTP proxy per cluster partial; fourth run recount: 9 of 38 rows partial; exec credential plugins partial) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (macOS: the app in a signed, notarized disk image from the release pipeline, no tag run yet, no count moves; network endpoints: the hosts of the charts' icons while Load chart icons is on, D-46, no count moves; `proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, against TLS test servers; `kubectl` for terminals: the version check and the verified download, D-3; the HTTP proxy per cluster partial; fourth run recount: 9 of 38 rows partial; exec credential plugins partial) · **Target:** Lens Desktop 2026.10.51501
 
 Where and how Cogpit runs compared with Lens Desktop 2026.10.51501: operating systems and
 architectures, packages and updates, how it authenticates to clusters, which Kubernetes versions
@@ -22,8 +22,9 @@ cloud cluster) (7 of 13 authentication rows), Kubernetes 1.36 on kind locally an
 clusters (views from discovery, Pod Security Policies where served), kinds newer
 than the client libraries (custom resources and edits), the sidebar following the served APIs
 version by version, and `kubectl` from `PATH`. Cogpit ships for macOS first; Windows and Linux follow after the macOS beta
-([D-7](../developer/decisions.md#d-7-language-and-platforms)). Remaining (estimated): 25–50 h for
-the macOS app, signing and one-click updates ([G14](gaps.md#g14-packaging-signing-and-updates-macos)),
+([D-7](../developer/decisions.md#d-7-language-and-platforms)). Remaining (estimated): 22–45 h for
+the universal macOS app, the cask and one-click updates ([G14](gaps.md#g14-packaging-signing-and-updates-macos);
+the Developer ID signature, the disk image and the notarization built 2026-10-14, not yet proven by a release),
 40–80 h for Windows and Linux ([G22](gaps.md#g22-windows-and-linux)) and 20–45 h for authentication
 ([G2](gaps.md#g2-cluster-connection-and-authentication)), both with work a human must do: signing
 material, and real cloud accounts to test credential plugins against.
@@ -32,7 +33,7 @@ material, and real cloud accounts to test credential plugins against.
 
 | Platform | Lens Desktop | Cogpit target | Status |
 |---|---|---|---|
-| macOS | dmg for x64 and arm64, macOS 13 or later | the universal app bundle `Cogpit.app` (arm64 + x86_64) in a signed, notarized disk image to drag into Applications; macOS 13 or later ([D-4](../developer/decisions.md#d-4-packaging-and-updates)) | partial: `make app` ([`Makefile`](../../Makefile)) builds an ad-hoc signed `Cogpit.app` for arm64; since 2026-10-13 every release carries it zipped (`Cogpit_<v>_darwin_arm64.zip`, `make dist-app`, [the release pipeline](../developer/releasing.md#the-release-pipeline)); not universal, no disk image, no Developer ID signature, not notarized |
+| macOS | dmg for x64 and arm64, macOS 13 or later | the universal app bundle `Cogpit.app` (arm64 + x86_64) in a signed, notarized disk image to drag into Applications; macOS 13 or later ([D-4](../developer/decisions.md#d-4-packaging-and-updates)) | partial: `make app` ([`Makefile`](../../Makefile)) builds an ad-hoc signed `Cogpit.app` for arm64; releases v0.1.0 to v0.4.0 carry it zipped and unsigned (`Cogpit_<v>_darwin_arm64.zip`); since 2026-10-14 the release pipeline signs it with the Developer ID (hardened runtime, no entitlements) and ships it in `Cogpit-<v>-macos-arm64.dmg` with a link to Applications, signed, notarized and stapled, and checks both with Gatekeeper ([`hack/macos/release.sh`](../../hack/macos/release.sh), [`build.yml`](../../.github/workflows/build.yml), [signing and notarization](../developer/releasing.md#signing-and-notarization)); checked locally signed ad-hoc, no tag run yet; not universal; the binary's minimum is the build runner's macOS (26.0), not 13 ([the minimum macOS](../developer/releasing.md#the-minimum-macos)) |
 | Windows | setup exe (architecture not stated); silent install with `/S`, `/allusers`, `/D=`; Windows 10 22H2 or Server 2022 | after the macOS beta: MSI and portable zip for x64 and arm64, code-signed | missing |
 | Linux | AppImage, deb, rpm for x86_64; APT and RPM repositories; Snap | after the macOS beta, Ubuntu first: AppImage, deb, rpm, tar.xz and Flatpak for x86_64 and aarch64 | missing |
 | Homebrew cask (macOS) | mentioned, name not verified | yes, from the same disk image, with `auto_updates true` | missing |
@@ -108,6 +109,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | macOS (G14, agent REL): the release pipeline signs the app with the Developer ID and ships it in a signed, notarized, stapled disk image, `cogpit-cli` for macOS signed and notarized; no tag run yet, still partial (not universal); the binary's minimum macOS found to be the runner's (26.0); no count moves |
 | 2026-10-14 | minor | Network endpoints the app needs (night build HELM2): the hosts the charts' icons name, fetched only for the charts the window shows while Preferences › Load chart icons is on (D-46); the row stays as it was, no count moves |
 | 2026-10-13 | minor | Night run (V2, G2): `proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, through the cluster layer against TLS test servers, a `proxy-url` password kept out of connect errors (fixed), insecure contexts marked; older clusters partial (Pod Security Policies from discovery, G6); 13 of 38 rows partial, 7 of 13 authentication rows; authentication's estimate 20–45 h (was 25–50) |
 | 2026-10-13 | minor | Night run (V2, G2): `proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, through the cluster layer against TLS test servers, a `proxy-url` password kept out of connect errors (fixed), insecure contexts marked; 12 of 38 rows partial, 7 of 13 authentication rows; authentication's estimate 20–45 h (was 25–50) |
