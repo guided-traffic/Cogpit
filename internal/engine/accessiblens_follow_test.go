@@ -373,7 +373,13 @@ func TestCustomKindsStopAfterARefusal(t *testing.T) {
 		set := b.customSet()
 		return b.CustomKindsSettled() && set != nil && strings.Contains(set.err, "forbidden")
 	}
-	waitCond(t, "the custom kinds' refusal", refused)
+	// 30 s, and what was asked so far: on CI (2026-10-14) the refused list had not even been sent
+	// after 10 s, on a runner shared by every job of the push.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if !testkit.WaitFor(ctx, refused) {
+		t.Fatalf("timed out waiting for the custom kinds' refusal: definition calls %v, set %+v", callsOf(src, "customresourcedefinitions"), b.customSet())
+	}
 	time.Sleep(2500 * time.Millisecond) // longer than client-go's first two backoff steps (0.8 s, 1.6 s)
 	if calls := callsOf(src, "customresourcedefinitions"); calls["list customresourcedefinitions.apiextensions.k8s.io"] != 1 {
 		t.Errorf("definition calls %v: want the refused list once", calls)
