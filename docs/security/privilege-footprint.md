@@ -87,6 +87,7 @@ namespace and the context ([conventions](../developer/conventions.md#never-surpr
 | Helm upgrade (`helm.release.upgrade`; the tab `helm.release.upgradeTab` is UI) | through the Helm SDK as above (a release kept in ConfigMaps: its records' requests on `configmaps`, 2026-10-13); measured on kind for a release with one ConfigMap and one Secret (`TestKindHelmUpgrade`): `list secrets` 3 (the release history), `create secrets` 1 (the new revision), `update secrets` 2 (the old revision superseded, the new one deployed), `get` and `patch` on each of the release's objects, discovery; `create` and `delete` on objects the new values or another chart version add or remove; `delete secrets` once more than 10 revisions exist. An upgrade to another chart version (2026-10-13) first downloads the chart over https from the user's computer, from the repository the user added (no request to the cluster); measured on kind 2026-10-13 for a chart of one ConfigMap whose version 0.2.0 adds a second (`TestKindHelmUpgradeFromRepository`): the upgrade from 0.1.0 to 0.2.0 sent `list secrets` 3, `create secrets` 1, `update secrets` 2, `get configmaps` 3, `patch configmaps` 2 (server-side apply: the added ConfigMap is created by its patch) and discovery 6; an agent's upgrade back to 0.1.0 the same with `patch configmaps` 1, `get configmaps` 2 and `delete configmaps` 1 (the ConfigMap 0.1.0 does not have) | Mutating | The release's objects and a new release revision with the new values and the release's own chart, or since 2026-10-13 a version of it that a chart repository the user added lists (matched by the chart's name; downloaded before anything is recorded, checked against the SHA-256 its index lists when it lists one, the archive holding the chart and version the index names; provenance is not checked, [H-30](trust-boundaries.md#h-30-chart-provenance-is-not-verified)); an older version is allowed, as helm allows it; history kept to 10 revisions as Lens keeps it. The confirmation names the chart version from and to, the repository and the digest check, and the command refuses with `ErrTargetsChanged` when that sentence would read differently when it runs (an agent changed the tab's choice, or the index changed, while the user was asked: `TestHelmUpgradeFromARepositoryAgents`); an archive that does not match its digest is refused before the journal records anything (`TestHelmUpgradeRepositoryRefusals`). Values are templates too where a chart renders them with `tpl`, as for the install: an agent's values can make the accepted upgrade read through `lookup` and copy what it reads into an object ([H-31](#h-31-an-agents-helm-values-can-copy-what-lookup-reads)); the error of a failed install or upgrade is withheld from agents and the CLI since 2026-10-13 (they learn that it failed; the window's toast shows the text, and `helm_pendingOperations` gives them no error text: `TestHelmInstallErrorStaysInTheWindow`); the upgrade has no preview, so nothing renders an agent's values before the user accepts. Agents need the user's acceptance (D-2); the confirmation shows the values an agent passes inline, never serialised ([D-27](../developer/decisions.md#d-27-an-agents-helm-values-in-the-confirmation)); the audit log records the values by size only. Bound when it runs to the revision its values were read from (a tab's revision and release Secret UID, or the required `revision` parameter): a release that moved is refused (`TestHelmUpgradeRefusedWhenTheReleaseMoved`). The revision is checked again against the server's newest one right before the SDK runs, so a cache that lags does not let the values replace a revision nobody saw (`TestActionsRefuseWhenTheServerMoved`, `TestHelmActionsRefusedWhenTheServerMovedUnseen`; R-1). An upgrade from a tab is also bound to the tab's text revision the user reviewed (`textRevision`): text an agent changes while the confirmation is open, or between the GUI Save's two steps, refuses it (`TestHelmUpgradeTabBoundToTheReviewedText`, `TestHelmUpgradeTabSaves`; review of the fourth run, R-2). Values are scrubbed from errors, toasts, the journal, failed revisions' descriptions Cogpit shows and the SDK's log lines (best effort: values of 4 characters or more, also in base64, in the escaped forms error texts quote them (Go's `%q`, JSON) and numbers as a template renders them (`1e+06`); a value a template transforms is not found, `TestUpgradeScrubsValuesFromErrors`, `TestScrubValuesEscapedForms`, `TestRedactSDKLog`). Crash-safe: the journal records `upgrade` with the revision it started from and the chart (a repository's as `<repository>/<chart>`) and version it upgrades to, never the values; an upgrade interrupted with the release `pending-upgrade` is offered on the next connect as a rollback to that revision, the SDK's remedy (its upgrade refuses a pending release) (`TestHelmUpgradeCrashJournal`, `TestHelmUpgradeRepositoryCrashJournal`, `TestKindHelmUpgrade`). The upgrade takes a context |
 | Helm install (`helm.chart.install`; the tab `helm.chart.installTab` is UI, the preview `helm.chart.preview` reads) | through the Helm SDK in Cogpit's process with the same context. Preview in Cogpit's window (`--dry-run=server`): discovery, a `get` of every object the chart renders, and whatever the chart's templates `lookup` (any `get` or `list` the user may make); nothing is written. An agent's or the CLI's preview renders offline (helm template: no request, no lookup), because a chart reaches `lookup` from values through `tpl` and would otherwise hand the caller what the cluster holds, Secrets included, in the names or the error the preview returns (`TestKindHelmInstall`). Install: `list secrets` (the release name's history, before the SDK runs and inside it), `create secrets` (revision 1, pending-install), `update secrets` (deployed or failed), and for every object the chart renders a server-side apply, which the API server authorises as `patch` and, for an object that does not exist, `create`; `create customresourcedefinitions.apiextensions.k8s.io` (cluster-scoped) when the chart has a `crds/` folder, before anything else; a server-side apply of the namespace with `createNamespace` (`patch namespaces`, and `create` when it does not exist); hooks create and delete their objects (a hook's Job or Pod). Measured on kind 2026-10-13 for a chart of two ConfigMaps (one named from a `lookup` of a namespace) and one Secret, installed with `createNamespace` (`TestKindHelmInstall`): the preview in the window sent discovery 7, `get configmaps` 2, `get secrets` 1 and `get namespaces` 1 (the chart's lookup) and nothing that writes; an agent's preview sent nothing (offline); the install sent `list secrets` 2, `get configmaps` 2, `get secrets` 1, `get namespaces` 1 (the lookup), `patch namespaces` 1, `create secrets` 1 (revision 1), `patch configmaps` 2, `patch secrets` 1, `update secrets` 1 (deployed) and discovery 7. What a chart renders is unknown until it is rendered: the command declares the release records' verbs, its description names the rest, and the preview names the objects. With the Preferences' Helm storage driver set to `configmap` (2026-10-13) the release's records are ConfigMaps: `list`, `create`, `update configmaps` in place of the Secrets' requests (`TestKindHelmConfigMapDriver`) | Mutating | A new release and every object of the chart, created with the user's identity; a chart is untrusted content that runs as templates in Cogpit's process (no plugins, post-renderers or DNS lookups) and can read through `lookup` what the user may read, putting it into an object of the release. Values are templates too where a chart renders them with `tpl`: an agent's values can make the install read and copy such data, which is one more reason the user reads them in the confirmation. The archive is checked against its repository index's SHA-256 digest when the index lists one (`TestRepositoryRefusesWhatDoesNotFit`); an index without digests installs an unverified archive, which the confirmation and the tab say. Agents need the user's acceptance (D-2); the confirmation names the release, namespace, context, chart, version and the digest check, and shows inline values (D-27); the audit log records values by size only. Bound when it runs to the tab's text revision the user reviewed (`TestHelmInstallFromTab`). Refused when the release exists. Values the user changed from the chart's defaults are scrubbed from errors, toasts, the journal and the SDK's log lines (`TestInstallRefusalsAndScrubbing`, `TestHelmInstallFailures`). Crash-safe: the journal records `install` before the SDK runs; an install interrupted with the release `pending-install` or failed is offered on the next connect as an uninstall (`TestHelmInstallCrashJournal`). The install takes a context, whose cancellation does not reach the SDK. A release installed into ConfigMaps (the `configmap` storage driver) has its values readable by whoever may get ConfigMaps in its namespace, often more people than may read Secrets: only the user chooses that driver, in the window (agents and the CLI are refused and may set it back to Secrets, Cogpit's default), and an agent's install confirmation says where the values go (`TestHelmDriverPreference`, `TestHelmInstallUsesTheDriverPreference`) |
 | Node shell (`node.shell`, built 2026-10-13; its settings `cluster.settings.setNodeShell` send nothing) | all in `kube-system`: `create pods` (the node shell's pod), `get pods` and `watch pods` on that one pod (field selector `metadata.name`) while it starts, `create pods/exec` (a WebSocket upgrade, else SPDY, as the pod shell), `delete pods` with its UID as precondition; the access reviews are asked in `kube-system` (`Verb.Namespace`), so a user who may create pods there only is not greyed | Destructive (for every origin) | A privileged pod on the node, root on it for as long as the pod lives, at most the cluster's maximum duration (2 hours unless the user set 5 minutes to 24 hours; [H-7](#h-7-node-shell-is-root-on-the-node)); built as [D-37](../developer/decisions.md#d-37-the-node-shell) records it, under the rules below (`TestNodeShellPodAndConfirmation`, `TestNodeShellNeedsEveryOriginsConfirmation`, `TestNodeShellPodGoesWithItsTab`, `TestNodeShellBoundToWhatWasConfirmed`, `TestNodeShellFollowsAccessReviews`, `TestNodeShellMaxDurationSetting`; on kind `TestKindNodeShell`) |
+| Node shell pods an earlier run left (no command: on each connect to a context, 2026-10-14, [H-71](#h-71-a-crash-leaves-the-node-shells-pod-until-the-next-connect); `NodeShellCleanupVerbs`) | all in `kube-system`: `delete pods` with the UID the journal recorded as precondition, for each pod Cogpit's node shell journal names for the context; `get pods` on one pod by name only for an entry recorded without its UID, to check the pod's `cogpit.io/node-shell-id` before its UID is used | Not asked: it follows the connect and deletes only Cogpit's own pods; each delete is in the audit log (`cogpit.nodeShellCleanup`, origin gui) and the notification names the pods | The node shell pods a crash, a kill or a failed delete left, Running or `Failed`, deleted; a pod of the name with another UID, a gone one, and another live Cogpit process's are untouched; a forbidden delete keeps its entry and is tried again at the next connect (`TestNodeShellSweepDeletesOwnPodsOnly`) |
 
 ## Node shell
 
@@ -133,7 +134,8 @@ behaviour, decided by the owner 2026-10-14), each rule as follows:
   taint), `hostPID: true`, the container `privileged: true`, no service account token
   (`automountServiceAccountToken: false`), no service links, `restartPolicy: Never`, a 1-second
   grace period, labels `app.kubernetes.io/name: cogpit-node-shell` and
-  `app.kubernetes.io/managed-by: cogpit`, a name with eight random characters. The shell is
+  `app.kubernetes.io/managed-by: cogpit`, a name with eight random characters, and since 2026-10-14
+  the annotation `cogpit.io/node-shell-id` with the random id of its journal entry (H-71). The shell is
   `nsenter -t 1 -m -u -i -n -p` into the node's mount, UTS, IPC, network and PID namespaces, then
   the node's own bash (else sh) as root.
 - **Its lifetime.** `activeDeadlineSeconds` and the container's `sleep` are the cluster's maximum
@@ -144,8 +146,10 @@ behaviour, decided by the owner 2026-10-14), each rule as follows:
   `TestNodeShellMaxDurationSetting`).
 - **Its end.** Deleted, with its UID as precondition, when the shell ends, its tab closes or
   Cogpit quits (at most 10 seconds of waiting); a pod that cannot pull its image or fails within 3
-  minutes ends the session with the reason and is deleted. A crash leaves it to its deadline
-  ([H-71](#h-71-a-crash-leaves-the-node-shells-pod-to-its-deadline)).
+  minutes ends the session with the reason and is deleted. Since 2026-10-14 every pod is recorded
+  in a journal before its create is sent, and one a crash leaves is deleted at the next connect to
+  its context, or ends by its deadline before that
+  ([H-71](#h-71-a-crash-leaves-the-node-shells-pod-until-the-next-connect)).
 - **What `kube-system` must allow.** Privileged pods violate the Baseline Pod Security Standard: a
   cluster that enforces Baseline or Restricted in `kube-system` refuses the pod, and the API
   server's message is the node shell's error.
@@ -181,16 +185,43 @@ exec into them, and confirms the dialog, is root on any node Cogpit lists. A non
 privileged flag) is not built; it would still be root on the node's files, so it narrows the risk,
 it does not remove it.
 
-### H-71: A crash leaves the node shell's pod to its deadline
+### H-71: A crash leaves the node shell's pod until the next connect
 
 Cogpit deletes a node shell's pod when the shell ends, its tab closes and at quit; a crash, a
 `kill -9`, a sleeping laptop or a lost connection during the delete leave it running, privileged and
 idle, until `activeDeadlineSeconds` ends it (the cluster's maximum duration: 2 hours by default,
-from 5 minutes to 24 hours as the user sets it, since 2026-10-14). Whoever may exec into pods in `kube-system`
-can use it meanwhile, which they could do with a pod of their own anyway. After its deadline the
-pod's object stays, `Failed` with reason `DeadlineExceeded`, until someone deletes it (its labels
-`app.kubernetes.io/name=cogpit-node-shell` find it); Cogpit does not look for such pods on its next
-start. Live since 2026-10-13.
+from 5 minutes to 24 hours as the user sets it, since 2026-10-14), and after its deadline its
+object stays, `Failed` with reason `DeadlineExceeded`. Whoever may exec into pods in `kube-system`
+can use it meanwhile, which they could do with a pod of their own anyway. Live since 2026-10-13.
+
+Narrowed on 2026-10-14 (the owner's decision;
+[`engine/nodeshelljournal.go`](../../internal/engine/nodeshelljournal.go),
+[`engine/nodeshellsweep.go`](../../internal/engine/nodeshellsweep.go)): every node shell pod Cogpit
+creates is recorded in `<user config dir>/Cogpit/nodeshells.json` (owner-only, written atomically,
+under the journals' lock that every Cogpit process of the user shares) **before** its create is
+sent, with its context, namespace, name and a random id the pod carries as the annotation
+`cogpit.io/node-shell-id`, and gets its UID once the create returned; a journal that cannot be
+written refuses the node shell before anything is created, a failed create drops the entry, and the
+pod's delete drops it (also when the pod is gone or its name is another pod's). On the next connect
+to that context Cogpit deletes the pods its journal still names, Running or `Failed`, each with its
+UID as the delete's precondition, and says so in a notification; a pod recorded without its UID (a
+crash between the create and the journal's second write) is read by name and deleted by the UID
+read only when it carries the entry's id. A pod that is gone, or whose name another pod has now,
+only clears its entry; a refused delete (forbidden, a lost connection) keeps the entry, says so,
+and is tried again at the next connect. It never touches a pod another machine's or user's Cogpit
+created, nor one another live Cogpit process of the user holds. Each delete is in the audit log
+(`cogpit.nodeShellCleanup`) (`TestNodeShellSweepDeletesOwnPodsOnly`,
+`TestNodeShellJournalBeforeTheCreate`, `TestFileNodeShellJournal`).
+
+What remains: the pod lives, privileged, from the crash until the user connects to that context
+again in a Cogpit with the same configuration directory, or until its deadline, whichever comes
+first; a user who never connects to it again leaves the `Failed` object behind. A delete the user
+may not make (no `delete pods` in `kube-system`) cannot be made later either; the entry stays and
+the notification repeats at each connect until the pod is gone. A pod recorded without its UID on
+a connection that cannot read single pods stays for its deadline. A process of the user that can
+write the journal can name a pod there, but only one that carries the id it names, which anyone
+who may read pods in `kube-system` can copy: that pod's delete is then the user's own write in a
+namespace where the attacker already creates pods.
 
 ### H-72: The default node shell image ages with the build that pins it
 
@@ -278,7 +309,10 @@ and keeps it locked for its life; each entry records that owner and its PID, and
 alive" means "its lock file is locked", so a reused PID or a crash cannot fake it. An action
 running in another live Cogpit process shows as running there ("in another Cogpit window") and is
 neither offered as interrupted nor finished or dismissed from here; entries of a dead owner, and
-older entries without one, are offered as interrupted as before. Tested with real processes (with
+older entries without one, are offered as interrupted as before. The node shell journal
+(`nodeshells.json`, 2026-10-14, [H-71](#h-71-a-crash-leaves-the-node-shells-pod-until-the-next-connect))
+takes the same lock and records the same owner: a node shell pod another live Cogpit process of the
+user recorded is left to it, one a dead process recorded is deleted at the next connect. Tested with real processes (with
 the lock taken out, 35 of 120 entries were lost; with it, none) and with a process killed by
 SIGKILL (`TestJournalsKeepEveryProcessesEntries`, `TestJournalEntryOfAKilledProcess`). What
 remains:

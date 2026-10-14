@@ -105,6 +105,10 @@ type Options struct {
 	// Drains keeps the drains Cogpit starts in a journal, so that one a crash interrupts is
 	// offered again when its context is connected (D-11; drains.go). Nil: node.drain is refused.
 	Drains *Drains
+	// NodeShells keeps the node shell pods Cogpit creates in a journal, so that one a crash leaves
+	// is deleted when its context is connected again (H-71; nodeshelljournal.go). Nil: an
+	// in-memory journal, which retries a failed delete within the run only.
+	NodeShells NodeShellJournal
 	// Helm keeps the Helm release actions Cogpit starts in a journal, so that one a crash
 	// interrupts is offered again when its context is connected (D-11; helmops.go). Nil: rollback
 	// and uninstall are refused.
@@ -175,6 +179,9 @@ func New(opts Options) *Session {
 	if opts.Now == nil {
 		opts.Now = time.Now
 	}
+	if opts.NodeShells == nil {
+		opts.NodeShells = NewMemoryNodeShellJournal()
+	}
 	if opts.AfterFunc == nil {
 		opts.AfterFunc = func(d time.Duration, f func()) func() bool { return time.AfterFunc(d, f).Stop }
 	}
@@ -202,6 +209,8 @@ func New(opts Options) *Session {
 	opts.Drains.attach(s) // nil-safe
 	opts.Helm.attach(s)   // nil-safe
 	opts.Hotbar.attach(s) // nil-safe
+	// The node shell pods a crash left are deleted on connect (nodeshellsweep.go).
+	s.Subscribe(s.followNodeShellSweep)
 	opts.HelmRepos.attach(s)
 	opts.Preferences.attach(s)
 	opts.ClusterSettings.attach(s)

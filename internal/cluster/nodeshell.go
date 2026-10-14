@@ -38,6 +38,16 @@ func (c *Conn) CreatePod(ctx context.Context, pod *corev1.Pod) (*corev1.Pod, err
 	return out, nil
 }
 
+// GetPod reads one pod by name: the node shell journal's sweep reads a pod recorded without its
+// UID, to tell Cogpit's from another of the same name (engine/nodeshellsweep.go, H-71).
+func (c *Conn) GetPod(ctx context.Context, namespace, name string) (*corev1.Pod, error) {
+	pod, err := c.kube.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("get pod %s/%s: %w", namespace, name, err)
+	}
+	return pod, nil
+}
+
 // WaitPodRunning waits until a pod runs its container: one get, then a watch on that pod alone
 // (field selector metadata.name) from the version the get returned, again after a watch the server
 // closed. It returns an error wrapping ErrPodNotStarted when the pod ends, is deleted, or the

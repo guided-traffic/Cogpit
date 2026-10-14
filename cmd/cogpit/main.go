@@ -102,7 +102,7 @@ func run(previousCrash string) int {
 	timeFormat := locale.System()
 	logger.Debug("time format", "source", timeFormat.Source, "date", timeFormat.Layout.Date, "time", timeFormat.Layout.Time)
 	s := engine.New(engine.Options{Connector: connector, Audit: audit, AuditPath: auditPath, Logger: logger, Drains: openDrainJournal(logger),
-		Helm: openHelmJournal(logger), Hotbar: openHotbar(logger), HelmRepos: openHelmRepos(logger),
+		NodeShells: openNodeShellJournal(logger), Helm: openHelmJournal(logger), Hotbar: openHotbar(logger), HelmRepos: openHelmRepos(logger),
 		Preferences: openPreferences(logger), ClusterSettings: clusterSettings, Kubectl: openKubectl(logger),
 		Drafts: openDrafts(logger), Workspace: openWorkspace(logger), TimeLayout: timeFormat.Layout})
 	defer s.Close()
@@ -197,6 +197,19 @@ func openDrainJournal(logger *slog.Logger) *engine.Drains {
 		return nil
 	}
 	return engine.NewDrains(engine.NewFileDrainJournal(filepath.Join(dir, "Cogpit")))
+}
+
+// openNodeShellJournal keeps the node shell pods Cogpit creates in
+// <user config dir>/Cogpit/nodeshells.json, owner-only, so that one a crash leaves is deleted at
+// the next connect to its context (H-71). Without a configuration directory the engine keeps them
+// in memory, and such a pod lives until its deadline.
+func openNodeShellJournal(logger *slog.Logger) engine.NodeShellJournal {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		logger.Warn("node shell journal kept in memory; a pod a crash leaves lives until its deadline", "err", err)
+		return nil
+	}
+	return engine.NewFileNodeShellJournal(filepath.Join(dir, "Cogpit"))
 }
 
 // openHelmJournal keeps the Helm rollbacks and uninstalls Cogpit starts in

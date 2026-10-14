@@ -261,11 +261,28 @@ func (s *Session) StartNodeShell(ctx context.Context, ref model.ObjectRef) (Dock
 			return DockTab{}, fmt.Errorf("%w: node %s is not the one you confirmed; nothing was created", ErrTargetsChanged, r.Name)
 		}
 	}
+	// The pod is recorded before its create is sent, so that a crash cannot leave one the journal
+	// does not name (nodeshelljournal.go, H-71); the sweep leaves it alone until it is in s.shells.
+	pod := NodeShellPod(nodeShellName(), r.Name, cfg)
+	entry := NodeShellEntry{Context: b.Context, Namespace: pod.Namespace, Name: pod.Name, ID: rand.Text(), Node: r.Name, Created: s.Now()}
+	pod.Annotations = map[string]string{NodeShellIDAnnotation: entry.ID}
+	s.shells.pend(entry.key())
+	defer s.shells.unpend(entry.key())
+	journal := s.nodeShellJournal()
+	if err := journal.Put(entry); err != nil {
+		return DockTab{}, fmt.Errorf("node shell on %s: nothing was created: its pod could not be recorded first, "+
+			"so a crash could leave it behind unnoticed: %w", r.Name, err)
+	}
 	cctx, cancel := context.WithTimeout(ctx, nodeShellCreateTimeout)
 	defer cancel()
-	created, err := w.CreatePod(cctx, NodeShellPod(nodeShellName(), r.Name, cfg))
+	created, err := w.CreatePod(cctx, pod)
 	if err != nil {
+		s.forgetNodeShell(entry.key()) // nothing to delete: the create failed (or the sweep finds no pod)
 		return DockTab{}, fmt.Errorf("node shell on %s: %w", r.Name, err)
+	}
+	entry.UID = string(created.UID)
+	if err := journal.Put(entry); err != nil { // without the UID the sweep finds the pod by name and id
+		s.log.Warn("node shell: recording its pod's UID failed", "pod", created.Namespace+"/"+created.Name, "err", err)
 	}
 	tab := DockTab{
 		ID: s.NewDockID(DockNodeShell), Type: DockNodeShell, Title: "Node shell: " + r.Name,
@@ -273,7 +290,7 @@ func (s *Session) StartNodeShell(ctx context.Context, ref model.ObjectRef) (Dock
 		NodeShell: &NodeShellTab{Node: r.Name, Namespace: created.Namespace, Pod: created.Name, Image: cfg.Image,
 			Pinned: ImagePinned(cfg.Image), DeadlineSeconds: int64(cfg.Deadline / time.Second)},
 	}
-	s.shells.add(tab.ID, &nodeShellPod{namespace: created.Namespace, name: created.Name, uid: string(created.UID),
+	s.shells.add(tab.ID, &nodeShellPod{context: b.Context, namespace: created.Namespace, name: created.Name, uid: string(created.UID),
 		deadline: cfg.Deadline, actions: w})
 	s.UpdateUI(func(u *UIState) {
 		u.Dock = append(u.Dock, tab)
@@ -320,18 +337,29 @@ func (s *Session) openNodeShell(ctx context.Context, tab DockTab, b *Backend) (t
 
 // nodeShellPod is a node shell's pod, kept until it is deleted.
 type nodeShellPod struct {
-	namespace, name, uid string
-	deadline             time.Duration // its activeDeadlineSeconds
-	actions              NodeShellActions
+	context, namespace, name, uid string
+	deadline                      time.Duration // its activeDeadlineSeconds
+	actions                       NodeShellActions
 }
+
+func (p *nodeShellPod) key() nodeShellKey { return nodeShellKey{p.context, p.namespace, p.name} }
 
 // nodeShellSet holds the session's node shell pods by their dock tab, and the deletes in flight.
+// pending and deleting are the pods being created and being deleted, which the journal's sweep
+// leaves to their own goroutine (nodeshellsweep.go).
 type nodeShellSet struct {
-	mu   sync.Mutex
-	pods map[string]*nodeShellPod
-	wg   sync.WaitGroup
+	mu       sync.Mutex
+	pods     map[string]*nodeShellPod
+	pending  map[nodeShellKey]bool
+	deleting map[nodeShellKey]bool
+	wg       sync.WaitGroup
+
+	// The connections the sweep followed (nodeshellsweep.go).
+	sweepRev  uint64
+	sweepConn ConnectionState
 }
 
+// add records a tab's pod and ends its pending state under the same lock.
 func (n *nodeShellSet) add(tab string, p *nodeShellPod) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
@@ -339,6 +367,54 @@ func (n *nodeShellSet) add(tab string, p *nodeShellPod) {
 		n.pods = map[string]*nodeShellPod{}
 	}
 	n.pods[tab] = p
+	delete(n.pending, p.key())
+}
+
+// pend marks a pod as being created; unpend ends that (add ends it too).
+func (n *nodeShellSet) pend(k nodeShellKey) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.pending == nil {
+		n.pending = map[nodeShellKey]bool{}
+	}
+	n.pending[k] = true
+}
+
+func (n *nodeShellSet) unpend(k nodeShellKey) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	delete(n.pending, k)
+}
+
+// busy reports whether this session creates, holds or deletes the pod k names.
+func (n *nodeShellSet) busy(k nodeShellKey) bool {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.pending[k] || n.deleting[k] {
+		return true
+	}
+	for _, p := range n.pods {
+		if p.key() == k {
+			return true
+		}
+	}
+	return false
+}
+
+// deleted ends a pod's delete (take, takeAll).
+func (n *nodeShellSet) deleted(p *nodeShellPod) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	delete(n.deleting, p.key())
+}
+
+// markDeleting marks a pod's delete as in flight; n.mu is held.
+func (n *nodeShellSet) markDeleting(p *nodeShellPod) {
+	if n.deleting == nil {
+		n.deleting = map[nodeShellKey]bool{}
+	}
+	n.deleting[p.key()] = true
+	n.wg.Add(1)
 }
 
 func (n *nodeShellSet) get(tab string) (*nodeShellPod, bool) {
@@ -356,7 +432,7 @@ func (n *nodeShellSet) take(tab string) *nodeShellPod {
 	p := n.pods[tab]
 	if p != nil {
 		delete(n.pods, tab)
-		n.wg.Add(1)
+		n.markDeleting(p)
 	}
 	return p
 }
@@ -368,7 +444,7 @@ func (n *nodeShellSet) takeAll() []*nodeShellPod {
 	out := make([]*nodeShellPod, 0, len(n.pods))
 	for _, p := range n.pods {
 		out = append(out, p)
-		n.wg.Add(1)
+		n.markDeleting(p)
 	}
 	n.pods = nil
 	return out
@@ -399,19 +475,23 @@ func (s *Session) endNodeShell(tab string) {
 	}()
 }
 
-// deleteNodeShellPod deletes one pod with its UID as precondition; a pod that is gone already is
-// no failure. A failure is a warning toast: the pod lives until its deadline.
+// deleteNodeShellPod deletes one pod with its UID as precondition and drops its journal entry; a
+// pod that is gone already, or whose name another pod has now (the UID precondition fails), is no
+// failure. A failure is a warning toast: the entry stays, the pod lives until its deadline, and the
+// next connect to its context deletes it (nodeshellsweep.go).
 func (s *Session) deleteNodeShellPod(p *nodeShellPod) {
+	defer s.shells.deleted(p)
 	ctx, cancel := context.WithTimeout(context.Background(), nodeShellDeleteTimeout)
 	defer cancel()
 	err := p.actions.DeletePod(ctx, p.namespace, p.name, p.uid)
-	if err == nil || apierrors.IsNotFound(err) {
+	if err == nil || apierrors.IsNotFound(err) || apierrors.IsConflict(err) {
+		s.forgetNodeShell(p.key())
 		return
 	}
 	s.log.Warn("node shell: deleting its pod failed", "pod", p.namespace+"/"+p.name, "err", err)
 	s.emit(Event{Type: EventToast, Level: LevelWarning, Message: fmt.Sprintf(
-		"The node shell's pod %s/%s was not deleted (%v); it ends by itself within %s of its start.", p.namespace, p.name, err,
-		NodeShellDeadlineText(p.deadline))})
+		"The node shell's pod %s/%s was not deleted (%v); it ends by itself within %s of its start, and Cogpit deletes it "+
+			"when you next connect to %s.", p.namespace, p.name, err, NodeShellDeadlineText(p.deadline), p.context)})
 }
 
 // endClosedNodeShells deletes the pods of the node shell tabs that left the dock.

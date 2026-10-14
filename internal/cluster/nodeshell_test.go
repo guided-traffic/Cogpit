@@ -9,6 +9,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -163,5 +164,25 @@ func TestCreatePodSendsThePod(t *testing.T) {
 	}
 	if p, ok := created.(*corev1.Pod); !ok || p.Namespace != "kube-system" {
 		t.Errorf("created %v", created)
+	}
+}
+
+// TestGetPodReadsOnePod: the node shell journal's sweep reads one pod by name (H-71); a pod that is
+// not there is a NotFound the caller can tell.
+func TestGetPodReadsOnePod(t *testing.T) {
+	pod := shellPod(corev1.PodRunning, runningState)
+	pod.UID, pod.Annotations = "uid-shell", map[string]string{"cogpit.io/node-shell-id": "id-1"}
+	c, cs := fakeConn(pod)
+	got, err := c.GetPod(context.Background(), "kube-system", "cogpit-node-shell-x")
+	if err != nil || got.UID != "uid-shell" || got.Annotations["cogpit.io/node-shell-id"] != "id-1" {
+		t.Fatalf("GetPod: %v, %v", got, err)
+	}
+	for _, a := range cs.Actions() {
+		if a.GetVerb() != "get" || a.GetNamespace() != "kube-system" {
+			t.Errorf("request %s %s in %s", a.GetVerb(), a.GetResource().Resource, a.GetNamespace())
+		}
+	}
+	if _, err := c.GetPod(context.Background(), "kube-system", "gone"); !apierrors.IsNotFound(err) {
+		t.Errorf("a missing pod: %v", err)
 	}
 }
