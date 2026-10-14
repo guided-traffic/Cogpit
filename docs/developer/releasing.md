@@ -306,6 +306,9 @@ as artifacts, so no dependency's code runs in a job that holds the signing ident
    `MACOS_SIGN_P12` (its key not extractable, usable by `codesign` only) and Apple's intermediate
    `DeveloperIDG2CA.cer`, downloaded and checked against the SHA-256 the workflow pins
    (`f16cd3c5…3df3a`, valid to 2031-09-17); without the intermediate the identity is not valid.
+   A `.p12` exported with its chain brings the intermediate along, and importing it again fails
+   with "already exists": the script then checks that the one in the keychain is the pinned one
+   (the first tag run, v0.5.0 on 2026-10-14, failed there; v0.5.0 has no files).
    The script needs exactly one valid "Developer ID Application" identity of `APPLE_TEAM_ID` and
    signs with it by its SHA-1.
 2. **The app, inside out, never with `--deep`.** Its only nested code is Sparkle (since

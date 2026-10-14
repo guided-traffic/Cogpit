@@ -136,7 +136,20 @@ setup_keychain() {
 
 	security import "$p12" -k "$keychain" -f pkcs12 -x -P "$MACOS_SIGN_P12_PASSWORD" -T /usr/bin/codesign >/dev/null
 	rm -f "$p12"
-	security import "$ca" -k "$keychain" >/dev/null
+	# A .p12 exported with its chain carries Apple's intermediate already, and importing it again
+	# fails with "already exists" (the first tag run, v0.5.0): then the one in the keychain must be
+	# the pinned one.
+	local imported hashes
+	if ! imported="$(security import "$ca" -k "$keychain" 2>&1)"; then
+		case "$imported" in
+		*"already exists"*) ;;
+		*) die "Apple's intermediate could not be imported: $imported" ;;
+		esac
+		hashes="$(security find-certificate -a -Z "$keychain")"
+		grep -qix "SHA-256 hash: $MACOS_SIGN_CA_SHA256" <<<"$hashes" ||
+			die "the keychain holds an intermediate that is not the pinned one ($MACOS_SIGN_CA_SHA256)"
+		log "Apple's intermediate came with the .p12; it is the pinned one"
+	fi
 	security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" >/dev/null
 
 	identities="$(security find-identity -v -p codesigning "$keychain")"
