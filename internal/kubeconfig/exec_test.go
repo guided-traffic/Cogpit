@@ -282,6 +282,48 @@ func TestFingerprintBindsCogpitsProxy(t *testing.T) {
 	none.SetClusterProxy("http://x") // nil-safe
 }
 
+// TestAnUncheckedCertificateNeedsApproval (A28): a cluster with insecure-skip-tls-verify makes a
+// login of a context that runs nothing (an inline token, a token file inside the folder, no user
+// at all) need the user's approval, kind insecure, bound to the server and how it is reached; each
+// such context is its own group. A plugin's login keeps its kind, the flag in its TLS view.
+func TestAnUncheckedCertificateNeedsApproval(t *testing.T) {
+	insecure := &clientcmdapi.Cluster{Server: "https://10.0.0.7:6443", InsecureSkipTLSVerify: true}
+	p := NewLogin("/f/kc.yaml", "lab", "u", insecure, nil, "")
+	if p == nil || !p.NeedsApproval() || p.Kind() != LoginInsecure || p.Command != "" || !p.TLS.Insecure {
+		t.Fatalf("an unchecked context: %+v", p)
+	}
+	if !strings.Contains(p.String(), "unchecked connection") || strings.Contains(p.String(), "exec plugin") {
+		t.Errorf("String %q", p.String())
+	}
+	if NewLogin("/f/kc.yaml", "lab", "u", &clientcmdapi.Cluster{Server: "https://10.0.0.7:6443"}, nil, "") != nil {
+		t.Error("a checked context with nothing to run needs no approval")
+	}
+	other := NewLogin("/f/kc.yaml", "lab", "u", &clientcmdapi.Cluster{Server: "https://10.0.0.8:6443", InsecureSkipTLSVerify: true}, nil, "")
+	if other.Fingerprint() == p.Fingerprint() {
+		t.Error("another server keeps the fingerprint")
+	}
+	if NewLogin("/f/kc.yaml", "lab2", "u", insecure, nil, "").Identity() == p.Identity() || p.Identity() == "" {
+		t.Error("two unchecked contexts of one file share an identity: they would be asked about together")
+	}
+
+	inFolder := NewLogin("/f/kc.yaml", "lab", "u", insecure, nil, "/f/token")
+	inFolder.SetFiles(FileFacts{TokenInFolder: true})
+	if !inFolder.NeedsApproval() || inFolder.Kind() != LoginInsecure {
+		t.Errorf("a token file inside the folder, unchecked: %q", inFolder.Kind())
+	}
+	plug := NewLogin("/f/kc.yaml", "eks", "u", insecure, &clientcmdapi.ExecConfig{Command: "aws"}, "")
+	if plug.Kind() != LoginProgram || !plug.TLS.Insecure {
+		t.Errorf("a plugin to an unchecked server: kind %q, %+v", plug.Kind(), plug.TLS)
+	}
+
+	cfg := clientcmdapi.NewConfig()
+	cfg.Clusters["lab"] = insecure
+	cfg.Contexts["anon"] = &clientcmdapi.Context{Cluster: "lab", AuthInfo: "nobody", LocationOfOrigin: "/f/kc.yaml"}
+	if a := ExecPluginOf(cfg, "anon"); a == nil || a.Kind() != LoginInsecure || a.File != "/f/kc.yaml" {
+		t.Errorf("a context without a user entry: %+v", a)
+	}
+}
+
 func TestDisplayText(t *testing.T) {
 	tests := []struct {
 		in   string

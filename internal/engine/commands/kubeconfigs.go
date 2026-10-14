@@ -216,9 +216,10 @@ func registerKubeconfigs(g *registrar) {
 	add(g, engine.Spec[execParams]{
 		ID: "kubeconfig.execPlugin", Label: "Show Credential Plugin", Danger: engine.DangerRead,
 		Description: "Describes how a kubeconfig source's context logs in when that needs the user's approval: the credential " +
-			"plugin (users[].user.exec) it runs and a token file (users[].user.tokenFile) outside the kubeconfig's folder. " +
+			"plugin (users[].user.exec) it runs, a token file (users[].user.tokenFile) outside the kubeconfig's folder, or a " +
+			"cluster that skips the check of the server's certificate (insecure-skip-tls-verify; kind insecure when that is all). " +
 			"Shows the command, the kubeconfig file it comes from, the API server the credential goes to and how that " +
-			"server is reached and trusted (proxy URL, insecure-skip-tls-verify, TLS server name, own CA), the " +
+			"server is reached and trusted (proxy URL, Cogpit's own proxy for the cluster, insecure-skip-tls-verify, TLS server name, own CA), the " +
 			"SHA-256 of a program or CA file inside the kubeconfig's folder, the names of the environment variables it " +
 			"sets, and whether the user allowed it (state approved, required or changed). " +
 			"Cogpit runs such a plugin only once the user allowed it in Cogpit's window; agents cannot allow it. Agents " +
@@ -243,9 +244,10 @@ func registerKubeconfigs(g *registrar) {
 		ID: "kubeconfig.pendingApprovals", Label: "Show Pending Credential Plugins", Danger: engine.DangerRead,
 		Description: "Lists the logins of kubeconfig source contexts that wait for the user's approval, grouped by kubeconfig file " +
 			"and plugin: contexts of one file that run the same program the same way (command, arguments, environment, API " +
-			"version, interactive mode) or read the same token file are one group, asked about once. Each context of a group " +
-			"has its own server, how that server is reached and trusted (proxy URL, insecure-skip-tls-verify, TLS server " +
-			"name, own CA) and fingerprint. Contexts that are allowed already are not listed. With a context, only its " +
+			"version, interactive mode) or read the same token file are one group, asked about once; a context that waits only " +
+			"because its cluster skips the certificate check (kind insecure) is a group of its own. Each context of a group " +
+			"has its own server, how that server is reached and trusted (proxy URL, Cogpit's own proxy for the cluster, " +
+			"insecure-skip-tls-verify, TLS server name, own CA) and fingerprint. Contexts that are allowed already are not listed. With a context, only its " +
 			"group. Agents get the argument count, not the arguments. Cogpit runs a plugin only once the user allowed it in " +
 			"Cogpit's window; agents cannot allow it. Runs nothing.",
 		Enabled: func(s *engine.Session, _ pendingParams) error { return enabled(s) },
@@ -272,8 +274,9 @@ func registerKubeconfigs(g *registrar) {
 		ID: "kubeconfig.approveExec", Label: "Allow Credential Plugins", Danger: engine.DangerUI,
 		GUIOnly: engine.ErrGUIOnly,
 		Description: "Records that the user allows the credential plugins of the listed kubeconfig source contexts to run, " +
+			"or a context whose cluster skips the certificate check to connect, " +
 			"exactly as shown (each context's fingerprint binds the command, its arguments, its environment, the server and " +
-			"how it is trusted); a later change asks again. One approval is stored per context. Every fingerprint is checked " +
+			"how it is reached and trusted, Cogpit's own proxy included); a later change asks again. One approval is stored per context. Every fingerprint is checked " +
 			"against the file as it is now: if any changed, nothing is allowed and the error names those contexts." +
 			guiOnly,
 		Enabled: func(s *engine.Session, _ approveParams) error { return enabled(s) },

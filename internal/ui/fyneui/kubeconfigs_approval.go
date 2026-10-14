@@ -19,7 +19,9 @@ import (
 // and identical plugin. It lists every context of the file that uses the plugin and is not allowed
 // yet, each with the server its credential goes to and how that server is reached and trusted, and
 // one click allows them all. The engine stores one approval per context, each with its own
-// fingerprint, and checks every one against the file as it is now.
+// fingerprint, and checks every one against the file as it is now. A context that waits only because
+// its cluster skips the certificate check (kind insecure, A28) gets the same dialog for itself
+// alone, without a program: the question is whether to connect without the check.
 
 // Result types of kubeconfig.pendingApprovals and the parameters of kubeconfig.approveExec,
 // mirroring the engine's JSON.
@@ -132,7 +134,7 @@ func (k *kubeconfigUI) showApproval(g approvalGroupView, done func(bool)) {
 	// What the contexts share: the plugin and the file.
 	shared := box(kvLayout{})
 	pl := g.Plugin
-	if g.Kind != kubeconfig.LoginTokenFile {
+	if g.Kind == kubeconfig.LoginProgram || g.Kind == kubeconfig.LoginBoth {
 		row(shared, "Program", mono(show(pl.Command)))
 		if t := programFileText(g); t != "" {
 			row(shared, "", newParagraph(t, theme.ColorNameForeground, valueW))

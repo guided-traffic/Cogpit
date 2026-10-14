@@ -173,13 +173,16 @@ type ContextInfo struct {
 	ConnectProblem bool `json:"connectProblem,omitempty"`
 	// Exec is ExecApproved, ExecRequired or ExecChanged for a source context whose user runs an
 	// exec credential plugin or names a token file outside its folder (D-17), which run or are read
-	// only once the user allowed it; empty otherwise. ExecKind says which: "program", "tokenFile"
-	// or "both".
+	// only once the user allowed it, or whose cluster skips the certificate check (A28), which
+	// connects only once the user allowed it; empty otherwise. ExecKind says which: "program",
+	// "tokenFile", "both", or "insecure" when the unchecked certificate is all (a plugin's approval
+	// covers its context's check).
 	Exec     string `json:"exec,omitempty"`
 	ExecKind string `json:"execKind,omitempty"`
 	// Insecure is set when the context's cluster skips the check of the server's certificate
-	// (insecure-skip-tls-verify): the picker warns, and connecting writes a warning into the
-	// connect log (tlswarning.go).
+	// (insecure-skip-tls-verify): the picker warns, a source context asks once before its first
+	// connect (Exec), and connecting writes a warning into the connect log and marks the
+	// connection (Connection.TLSUnchecked; tlswarning.go).
 	Insecure bool `json:"insecure,omitempty"`
 }
 

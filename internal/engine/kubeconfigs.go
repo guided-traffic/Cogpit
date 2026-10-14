@@ -51,11 +51,12 @@ const (
 	SourceFolder SourceKind = "folder" // a sync folder: every kubeconfig file in it, as files come and go
 )
 
-// Approval states of an exec credential plugin (ContextInfo.Exec, ExecPluginInfo.State).
+// Approval states of an exec credential plugin (ContextInfo.Exec, ExecPluginInfo.State), and since
+// A28 of a connection that does not check the server's certificate (kind kubeconfig.LoginInsecure).
 const (
-	ExecApproved = "approved" // the user allowed exactly this plugin for this context and file
+	ExecApproved = "approved" // the user allowed exactly this plugin (or unchecked connection) for this context and file
 	ExecRequired = "required" // the user has not allowed it yet
-	ExecChanged  = "changed"  // the user allowed it, and it changed since (command, arguments, environment or server)
+	ExecChanged  = "changed"  // the user allowed it, and it changed since (command, arguments, environment, server or how it is reached)
 )
 
 // ErrExecNotApproved marks a refused connection: the context's credential plugin may run only
@@ -85,7 +86,9 @@ type KubeconfigSource struct {
 	Session bool `json:"session,omitempty"`
 }
 
-// ExecApproval is the user's allowance of one credential plugin for one context of one file.
+// ExecApproval is the user's allowance of one credential plugin for one context of one file, or
+// of a connection to a server whose certificate the context does not check (Kind
+// kubeconfig.LoginInsecure, A28): the same store, the same binding.
 type ExecApproval struct {
 	File    string `json:"file"`
 	Context string `json:"context"`
@@ -93,6 +96,9 @@ type ExecApproval struct {
 	Fingerprint string    `json:"fingerprint"`
 	Command     string    `json:"command"`
 	Approved    time.Time `json:"approved"`
+	// Kind is what was allowed (kubeconfig.ExecPlugin.Kind), for whoever reads the file; the
+	// fingerprint alone decides. Empty in approvals written before 2026-10-14.
+	Kind string `json:"kind,omitempty"`
 }
 
 // ExecApprovalError refuses a connection whose credential plugin the user has not allowed.
@@ -104,6 +110,17 @@ type ExecApprovalError struct {
 func (e *ExecApprovalError) Error() string {
 	cmd := kubeconfig.DisplayText(e.Plugin.Command, 200)
 	file := kubeconfig.DisplayText(e.Plugin.File, 400)
+	if e.Plugin.Kind() == kubeconfig.LoginInsecure {
+		server := kubeconfig.DisplayText(e.Plugin.Server, 200)
+		if e.State == ExecChanged {
+			return fmt.Sprintf("the server %s that %s names for this context, or how it is reached (its proxy), changed since you "+
+				"allowed connecting to it without checking its certificate (insecure-skip-tls-verify); Cogpit connects only after "+
+				"you review and allow it again: connect from the context picker in Cogpit's window", server, file)
+		}
+		return fmt.Sprintf("the kubeconfig %s switches the check of the server %s's certificate off for this context "+
+			"(insecure-skip-tls-verify), so whoever answers at that address gets its credential; Cogpit connects only after "+
+			"you review and allow that once: connect from the context picker in Cogpit's window", file, server)
+	}
 	if e.Plugin.Kind() == kubeconfig.LoginTokenFile {
 		tok := kubeconfig.DisplayText(e.Plugin.TokenFile, 400)
 		server := kubeconfig.DisplayText(e.Plugin.Server, 200)
@@ -712,7 +729,7 @@ func (k *KubeconfigSources) ApproveAll(ps ...*kubeconfig.ExecPlugin) error {
 	now := k.now().UTC()
 	for _, p := range ps {
 		list = slices.DeleteFunc(list, func(a ExecApproval) bool { return a.File == p.File && a.Context == p.Context })
-		list = append(list, ExecApproval{File: p.File, Context: p.Context, Fingerprint: p.Fingerprint(), Command: p.Command, Approved: now})
+		list = append(list, ExecApproval{File: p.File, Context: p.Context, Fingerprint: p.Fingerprint(), Command: p.Command, Approved: now, Kind: p.Kind()})
 	}
 	return k.saveApprovals(list)
 }

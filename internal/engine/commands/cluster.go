@@ -35,8 +35,9 @@ func registerCluster(g *registrar) {
 			"from a kubeconfig file read on its own, never merged with another (kubeconfig_sources lists the files: ~/.kube, " +
 			"the files $KUBECONFIG names, and those the user added). It is named \"<context> [<file>]\", so a name that two " +
 			"files share gives two contexts, and carries source, " +
-			"kubeContext, file and exec (approved, required or changed: whether their credential plugin may run; the user " +
-			"allows it in Cogpit's window). Reads only the kubeconfig files; no credential is returned.",
+			"kubeContext, file and exec (approved, required or changed: whether their credential plugin may run, or, with " +
+			"execKind insecure, whether a context whose cluster skips the certificate check may connect; the user " +
+			"allows it in Cogpit's window), and insecure for such a context. Reads only the kubeconfig files; no credential is returned.",
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			list, err := s.Contexts()
 			if err != nil && len(list) == 0 {
@@ -66,7 +67,10 @@ func registerCluster(g *registrar) {
 	add(g, engine.Spec[connectParams]{
 		ID: "cluster.connect", Label: "Connect to Cluster", MenuPath: "File/Connect to Cluster", Shortcut: "Cmd+P", Danger: engine.DangerUI,
 		Description: "Connects to a kubeconfig context (or the demo cluster), replacing the current connection, and shows its most " +
-			"recently used tab, or else its Pods view in the preview tab; the other clusters' tabs stay. Connecting only reads from the cluster. Returns {context, state, error}; state is connected or error.",
+			"recently used tab, or else its Pods view in the preview tab; the other clusters' tabs stay. Connecting only reads from the cluster. " +
+			"A context whose credential plugin, or whose connection without the certificate check (insecure-skip-tls-verify), " +
+			"the user has not allowed in Cogpit's window ends in state error saying so: only the user allows it there. " +
+			"Returns {context, state, error}; state is connected or error.",
 		Run: func(ctx context.Context, s *engine.Session, p connectParams) (any, error) {
 			err := s.Connect(ctx, p.Context)
 			u := s.UIState()

@@ -209,9 +209,14 @@ func (p *picker) connect() {
 	p.connectB.Disable()
 	p.status.SetColor(colorMuted)
 	if c, ok := p.context(name); ok && (c.Exec == engine.ExecRequired || c.Exec == engine.ExecChanged) {
-		if c.ExecKind == kubeconfig.LoginTokenFile {
+		refused := "Not connected: the program that logs in to " + name + " was not allowed."
+		switch c.ExecKind {
+		case kubeconfig.LoginTokenFile:
 			p.status.SetText("Review the token file " + name + " reads to log in…")
-		} else {
+		case kubeconfig.LoginInsecure: // A28: asked once before the first connect
+			p.status.SetText("Review the connection to " + name + ", whose certificate is not checked…")
+			refused = "Not connected: connecting to " + name + " without the certificate check was not allowed."
+		default:
 			p.status.SetText("Review the program " + name + " runs to log in…")
 		}
 		p.sh.kc.reviewPlugin(name, func(allowed bool) {
@@ -219,7 +224,7 @@ func (p *picker) connect() {
 				p.connecting = ""
 				p.connectB.Enable()
 				p.status.SetColor(colorStatusWarning)
-				p.status.SetText("Not connected: the program that logs in to " + name + " was not allowed.")
+				p.status.SetText(refused)
 				return
 			}
 			p.dispatchConnect(name)
@@ -329,8 +334,11 @@ func newPickerRow(c engine.ContextInfo, title, sub string, selected bool, onTap,
 		r.badges.Add(newPill(kubeconfig.DisplayText(c.Source, maxShownArg), colorMuted, true))
 	}
 	what := "login program"
-	if c.ExecKind == kubeconfig.LoginTokenFile {
+	switch c.ExecKind {
+	case kubeconfig.LoginTokenFile:
 		what = "token file"
+	case kubeconfig.LoginInsecure:
+		what = "unchecked connection" // A28; the "certificate not checked" pill below says why
 	}
 	switch c.Exec {
 	case engine.ExecRequired:

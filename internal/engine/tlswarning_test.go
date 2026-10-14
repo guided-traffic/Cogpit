@@ -80,6 +80,10 @@ func TestInsecureContextIsMarkedAndLogged(t *testing.T) {
 
 			s := New(Options{Connector: tt.conn})
 			t.Cleanup(s.Close)
+			if tt.conn.Sources != nil {
+				// A source context connects once the user allowed it (A28; insecure_approval_test.go).
+				approveInsecure(t, s, tt.unchecked)
+			}
 			if err := s.Connect(context.Background(), tt.unchecked); err != nil {
 				t.Fatalf("connect %s: %v", tt.unchecked, err)
 			}

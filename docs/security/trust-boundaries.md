@@ -59,7 +59,7 @@ UNTRUSTED                                   BOUNDARY                          TR
 
 | Boundary | Planned package | Required checks |
 |---|---|---|
-| Kubeconfig to connection | `internal/kubeconfig`, `internal/cluster` | Parse without executing; run an exec plugin only when the user connects to that context, with an argument vector; show the command before the first run of a plugin from a newly added file; never follow `exec` from a kubeconfig the user did not add. Built 2026-10-12 for added and synced kubeconfigs ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)): each source file is read on its own, never merged with another (a dropped file cannot point a context at the user's real credentials); a context whose user has an `exec` section, or names a `tokenFile` outside the kubeconfig's folder ([H-24](#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token)), connects only after the user allowed exactly that plugin or file in the GUI, checked by `cluster.Connect` before any client exists, from the very `rest.Config` the client would run ([`exec.go`](../../internal/kubeconfig/exec.go), `TestConnectAsksTheExecPolicyBeforeThePluginRuns`, `TestExecPluginRunsOnlyOnceAllowed`, `TestKindExecPluginAfterApproval`); the default kubeconfig (`--kubeconfig`, `$KUBECONFIG`, `~/.kube/config`) keeps kubectl's behaviour. The server's certificate is checked by client-go as the context's cluster entry says (`certificate-authority(-data)`, `tls-server-name`; verified against a test CA, `TestConnectTrustsTheKubeconfigCA`, `TestConnectWithTLSServerName`); a failed check names the kubeconfig field to look at, never the credential; a cluster with `insecure-skip-tls-verify` connects unchecked and is marked ([H-37](#h-37-a-context-that-skips-the-certificate-check); decided by the owner on 2026-10-14 evening, not built yet: asked once per context before its first connect, and marked while connected); a `proxy-url`'s user information never appears in a connect error (2026-10-13, [credentials](credentials.md#where-credentials-must-never-end-up)) |
+| Kubeconfig to connection | `internal/kubeconfig`, `internal/cluster` | Parse without executing; run an exec plugin only when the user connects to that context, with an argument vector; show the command before the first run of a plugin from a newly added file; never follow `exec` from a kubeconfig the user did not add. Built 2026-10-12 for added and synced kubeconfigs ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)): each source file is read on its own, never merged with another (a dropped file cannot point a context at the user's real credentials); a context whose user has an `exec` section, or names a `tokenFile` outside the kubeconfig's folder ([H-24](#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token)), connects only after the user allowed exactly that plugin or file in the GUI, checked by `cluster.Connect` before any client exists, from the very `rest.Config` the client would run ([`exec.go`](../../internal/kubeconfig/exec.go), `TestConnectAsksTheExecPolicyBeforeThePluginRuns`, `TestExecPluginRunsOnlyOnceAllowed`, `TestKindExecPluginAfterApproval`); the default kubeconfig (`--kubeconfig`, `$KUBECONFIG`, `~/.kube/config`) keeps kubectl's behaviour. The server's certificate is checked by client-go as the context's cluster entry says (`certificate-authority(-data)`, `tls-server-name`; verified against a test CA, `TestConnectTrustsTheKubeconfigCA`, `TestConnectWithTLSServerName`); a failed check names the kubeconfig field to look at, never the credential; a cluster with `insecure-skip-tls-verify` connects unchecked and is marked ([H-37](#h-37-a-context-that-skips-the-certificate-check)); since 2026-10-14 (the owner's A28) a source's such context connects only after the user allowed it once in the GUI, through the same policy and store as a plugin, bound to its server and how it is reached (`TestInsecureContextAsksOnceBeforeItsFirstConnect`, `TestConnectAsksThePolicyAboutAnUncheckedCertificate`); decided, not built yet: marked while connected (A29); a `proxy-url`'s user information never appears in a connect error (2026-10-13, [credentials](credentials.md#where-credentials-must-never-end-up)) |
 | Proxy setting to connection | `internal/engine`, `internal/cluster` | Built 2026-10-13 ([`engine/proxy.go`](../../internal/engine/proxy.go), [`cluster/proxy.go`](../../internal/cluster/proxy.go)): a proxy is set only by the user in the window (`ErrProxyGUIOnly` for agents and the CLI, who may clear it); it must be an `http`, `https` or `socks5` URL with a host and nothing but an optional port and `user:password@`; it applies to its own context's connection only, at the next connect, through `rest.Config.Proxy`; its password stays in the settings file and is `•••` everywhere else ([credentials](credentials.md#where-they-live-inside-cogpit)). Since 2026-10-14 (owner's A23) a credential plugin's approval shows and binds it (as shown, the password `•••`), so a changed proxy asks for the approval again before the next connect ([H-34](#h-34-the-plugin-approval-shows-the-kubeconfigs-proxy-not-cogpits)). Decided (owner, 2026-10-14 evening, A20): an agent may set a proxy as a write the user confirms, its password `•••` in the confirmation ([agents and MCP](agents-and-mcp.md#rules)) |
 | API response to cache | `internal/cache`, `internal/model` | Tolerate unknown and missing fields; cap object and list sizes; bound owner-reference walks |
 | Cluster text to UI | `internal/model`, `internal/ui/fyneui` | Object names, labels, annotations and events are text, never markup; strip control characters before display |
@@ -286,8 +286,10 @@ What remains, per case:
 - a context without a plugin or a foreign token file (an inline token, a client certificate, a
   token file inside the kubeconfig's folder) has no approval, so a changed proxy asks nothing there.
   With the server's certificate checked the proxy sees only the server's name, timing and size; an
-  agent can set such a proxy only with the user's acceptance (A20). Real only under
-  `insecure-skip-tls-verify` ([H-37](#h-37-a-context-that-skips-the-certificate-check));
+  agent can set such a proxy only with the user's acceptance (A20). Under `insecure-skip-tls-verify`,
+  where the proxy would read the token, such a context has an approval since the same night (A28,
+  [H-37](#h-37-a-context-that-skips-the-certificate-check)) that binds the proxy too, so the case
+  that made this real is closed;
 - the environment's `HTTPS_PROXY`, which client-go uses when neither the kubeconfig nor Cogpit names
   a proxy, is not shown or bound: it is the user's own session's.
 
@@ -304,7 +306,7 @@ an impostor relaying to the real server reads and can change everything in betwe
 writes included; a client certificate's private key never leaves Cogpit, so an impostor can neither
 reuse it nor relay as the user, only show made-up cluster data and swallow the user's writes.
 
-What Cogpit does (built 2026-10-13; Cogpit's default, not the owner's decision, Lens documents
+What Cogpit did first (built 2026-10-13; Cogpit's default, not the owner's decision, Lens documents
 nothing about such contexts): it connects, as kubectl does, and says so in two places. The picker
 marks the context with "certificate not checked" and a line naming the server the credential goes
 to (`ContextInfo.Insecure`, from the kubeconfig; [`picker.go`](../../internal/ui/fyneui/picker.go),
@@ -313,24 +315,54 @@ from the connection's own configuration (`Conn.Insecure`; [`engine/tlswarning.go
 `TestInsecureContextIsMarkedAndLogged`). Agents see `insecure: true` in `cluster.contexts`, and
 `cogpit-cli contexts` says `not checked` in its table's CERTIFICATE column (2026-10-13,
 `TestContextsMarksAnInsecureContext`). The
-plugin approval dialog of a kubeconfig source already showed the flag (R-11). Live today for every
+plugin approval dialog of a kubeconfig source already showed the flag (R-11). Live for every
 context whose cluster sets the flag, common for test clusters and for servers reached by an address
 their certificate does not name (`tls-server-name` is the fix there, and the connect error now
 points at it).
 
-Not done: no confirmation before the first connect and no refusal, even for a file a sync folder
-picked up ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)); nothing marks the connection once
-it is open (status bar, navigator), so a user who connected from the hotbar or the palette sees the
-warning only in the connect log; `cogpit-cli get` connects without a word.
-
 Decided (owner, 2026-10-14 evening): Cogpit asks once per context before the first connect of an
 `insecure-skip-tls-verify` context and keeps the answer like a plugin approval; while such a
 context is connected, the status bar shows "TLS not checked" in the warning colour beside the
-context; `cogpit-cli get` writes a warning line to standard error. Not built yet; until then the
-"Not done" above is live for every such context. What remains once it is built: the check stays
-off, so after the user's yes every connect hands the credential to whoever answers at the address,
-as before; what the kept answer binds (the server, the proxy, the file) is not part of the
-decision; refusing such contexts is not decided.
+context; `cogpit-cli get` writes a warning line to standard error.
+
+**Asked once, built 2026-10-14 (A28).** A source's context whose cluster skips the check is a login
+that needs the user's approval (`kubeconfig.LoginInsecure`), kept in `exec-approvals.json` and
+checked by the same policy as a plugin, at connect time from the very `rest.Config` the client is
+built from, before any request leaves (`checkExecPolicy`; `TestConnectAsksThePolicyAboutAnUncheckedCertificate`,
+`TestInsecureContextAsksOnceBeforeItsFirstConnect`). Every window path that connects (picker,
+navigator, hotbar, welcome page) shows the dialog "Connect without checking the certificate?" with
+the server and how it is reached, and the user's yes is kept across restarts; a context of a file a
+sync folder picked up is asked like any other ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)).
+**The lead's night decisions for the owner to confirm** (★ chosen):
+
+- *What the answer binds:* ★ the plugin approval's fingerprint: the file, context, user entry's name,
+  server URL, CA, the flag, TLS server name, the kubeconfig's `proxy-url` and Cogpit's own proxy
+  (A23), so another server or proxy asks again; the credential itself (token, certificate) is not
+  bound. Options: the server and the flag only (a proxy added later would not ask); the
+  credential's digest too (every token rotation would ask).
+- *A context that also runs a plugin or reads a foreign token file:* ★ one question, the plugin's
+  dialog, which already warns that the check is off; its one approval covers both. Option: two
+  approvals and two dialogs.
+- *Asking per context or per file:* ★ per context, never bundled with the file's other unchecked
+  contexts (the decision's "once per context"; a check that is off concerns one server). Option:
+  one dialog per file as D-28 bundles plugins.
+- *Agents, the CLI and links:* ★ refused until the user allowed it in the window, as a plugin not
+  allowed yet is today: an agent's or the CLI's `cluster_connect` ends in state error naming the
+  flag and the window (`TestInsecureContextConnectsPerOrigin`, `TestGetRefusesAnUncheckedContextUntilAllowed`),
+  a `cogpit://` link is refused without asking (`TestDeepLinkRefusals`), and allowing stays GUI
+  only. Option: an agent's call waits while the window asks (a security question an agent can
+  raise at a moment of its choosing).
+- *Earlier approvals:* a plugin approval given before for a context that skips the check still
+  stands (its fingerprint bound the flag, its dialog warned); a context without a plugin asks once
+  after the upgrade.
+
+Not done: nothing marks the connection once it is open (status bar, navigator), so a user who
+connected from the hotbar or the palette sees the warning only in the connect log; `cogpit-cli get`
+connects without a word. What remains once all of it is built: the check stays off, so after the
+user's yes every connect hands the credential to whoever answers at the address, as before;
+refusing such contexts is not decided; a context of a connector without sources (the merged
+kubeconfig of a start without a configuration directory, tests) is not asked, as its plugins are
+not.
 
 ### H-30: Chart provenance is not verified
 

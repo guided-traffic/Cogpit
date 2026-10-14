@@ -196,7 +196,9 @@ users:
 	if !strings.Contains(header, "CERTIFICATE") {
 		t.Errorf("header %q lacks CERTIFICATE:\n%s", header, te.out)
 	}
-	if l := rows["lab"]; !strings.HasSuffix(l, "not checked") {
+	// A28: the context waits for the user's approval in the window, and the column says so; LOGIN
+	// stays empty (nothing runs).
+	if l := rows["lab"]; !strings.HasSuffix(l, "not checked, required") || strings.Contains(l, "insecure") {
 		t.Errorf("the insecure context's row %q is not marked:\n%s", l, te.out)
 	}
 	for _, name := range []string{"prod", "demo"} {

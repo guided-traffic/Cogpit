@@ -31,6 +31,7 @@ func (c *linkConnector) Contexts() ([]engine.ContextInfo, error) {
 		{Name: "eks [aws.yaml]", Source: "aws.yaml", KubeContext: "eks", Exec: engine.ExecRequired, ExecKind: "program"},
 		{Name: "gke [gke.yaml]", Source: "gke.yaml", KubeContext: "gke", Exec: engine.ExecApproved, ExecKind: "program"},
 		{Name: "tok [tok.yaml]", Source: "tok.yaml", KubeContext: "tok", Exec: engine.ExecChanged, ExecKind: "tokenFile"},
+		{Name: "lab [lab.yaml]", Source: "lab.yaml", KubeContext: "lab", Exec: engine.ExecRequired, ExecKind: "insecure", Insecure: true},
 		{Name: "dup [a.yaml]", Source: "a.yaml", KubeContext: "dup"},
 		{Name: "dup [b.yaml]", Source: "b.yaml", KubeContext: "dup"},
 		{Name: "broken [down.yaml]", Source: "down.yaml", KubeContext: "broken"},
@@ -277,6 +278,8 @@ func TestDeepLinkRefusals(t *testing.T) {
 	}{
 		{name: "plugin not approved", link: "cogpit://open?context=eks", want: engine.ErrDeepLinkNeedsApproval, says: "context picker"},
 		{name: "token file changed", link: "cogpit://open?context=tok+%5Btok.yaml%5D&view=pods", want: engine.ErrDeepLinkNeedsApproval, says: "token file"},
+		// A28: a context that skips the certificate check is asked once in the window, never by a link.
+		{name: "unchecked certificate not allowed", link: "cogpit://open?context=lab", want: engine.ErrDeepLinkNeedsApproval, says: "connection without the certificate check"},
 		{name: "two files", link: "cogpit://open?context=dup", want: engine.ErrDeepLinkContext, says: "2 kubeconfig files"},
 		{name: "not a source", link: "cogpit://open?context=merged", want: engine.ErrDeepLinkContext, says: "not read from a kubeconfig source"},
 		{name: "unknown", link: "cogpit://open?context=prod", want: engine.ErrDeepLinkContext, says: "prod"},

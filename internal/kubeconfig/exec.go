@@ -15,7 +15,11 @@ import (
 
 // ExecPlugin is the exec credential plugin a kubeconfig context's user runs to get a credential
 // (users[].user.exec): the program Cogpit shows the user before its first run, and what the user's
-// approval of it binds (docs/security/trust-boundaries.md, H-1).
+// approval of it binds (docs/security/trust-boundaries.md, H-1). It describes the context's login
+// whenever that needs the user's approval: the plugin, a token file outside the kubeconfig's folder
+// (D-17), or, since A28 (owner, 2026-10-14 evening), a cluster that skips the check of the
+// server's certificate (insecure-skip-tls-verify, H-37), where nothing runs but the credential
+// goes to whoever answers at the server's address (Kind LoginInsecure when that is all).
 //
 // It holds the names of the variables the plugin's environment adds, never their values: those
 // enter the fingerprint only. The other fields are as the kubeconfig wrote them, untrusted text;
@@ -121,10 +125,12 @@ func NewExecPlugin(file, context, user string, cluster *clientcmdapi.Cluster, ec
 }
 
 // NewLogin describes how the user entry user of context in file logs in: the exec section ec
-// (which may be nil) and the token file tokenFile (which may be empty). It returns nil when there
-// is neither. A token file alone gives a plugin without a Command.
+// (which may be nil) and the token file tokenFile (which may be empty), to cluster. It returns nil
+// when there is neither and the cluster checks the server's certificate. A token file alone gives
+// a plugin without a Command; a cluster with insecure-skip-tls-verify alone gives one without a
+// Command or token file (LoginInsecure, A28).
 func NewLogin(file, context, user string, cluster *clientcmdapi.Cluster, ec *clientcmdapi.ExecConfig, tokenFile string) *ExecPlugin {
-	if ec == nil && tokenFile == "" {
+	if ec == nil && tokenFile == "" && (cluster == nil || !cluster.InsecureSkipTLSVerify) {
 		return nil
 	}
 	p := &ExecPlugin{File: file, Context: context, User: user, TokenFile: tokenFile}
@@ -154,10 +160,12 @@ func NewLogin(file, context, user string, cluster *clientcmdapi.Cluster, ec *cli
 	return p
 }
 
-// ExecPluginOf returns the login of the context named context in cfg (its exec plugin and its
-// token file), or nil when the context or its user entry is missing or the user has neither. cfg should come from client-go's
-// loader, which records each entry's file (LocationOfOrigin) and resolves relative paths, so that
-// the plugin is described as it will run.
+// ExecPluginOf returns the login of the context named context in cfg (its exec plugin, its token
+// file, and whether its cluster skips the certificate check), or nil when the context is missing
+// or the login needs nothing of that. A context whose user entry is missing logs in with nothing,
+// which still counts when its cluster skips the check. cfg should come from client-go's loader,
+// which records each entry's file (LocationOfOrigin) and resolves relative paths, so that the
+// plugin is described as it will run.
 func ExecPluginOf(cfg *clientcmdapi.Config, context string) *ExecPlugin {
 	if cfg == nil {
 		return nil
@@ -168,7 +176,7 @@ func ExecPluginOf(cfg *clientcmdapi.Config, context string) *ExecPlugin {
 	}
 	ai := cfg.AuthInfos[kc.AuthInfo]
 	if ai == nil {
-		return nil
+		return NewLogin(kc.LocationOfOrigin, context, kc.AuthInfo, cfg.Clusters[kc.Cluster], nil, "")
 	}
 	return NewLogin(ai.LocationOfOrigin, context, kc.AuthInfo, cfg.Clusters[kc.Cluster], ai.Exec, ai.TokenFile)
 }
@@ -243,6 +251,9 @@ type identityDoc struct {
 	ProgramNote        string      `json:"programNote"`
 	TokenFile          string      `json:"tokenFile"`
 	TokenFileResolved  string      `json:"tokenFileResolved"`
+	// Alone is the file and context of a LoginInsecure login: such a context is asked about on
+	// its own, never with the file's other contexts (A28: once per context).
+	Alone []string `json:"alone,omitempty"`
 }
 
 // Identity returns "login:<hex>" over what the login does and nothing about where it is used: the
@@ -252,8 +263,9 @@ type identityDoc struct {
 // needs approval. Two contexts of one file whose logins have the same identity run the same
 // program the same way (or read the same token file), so the approval dialog asks about them once
 // (D-28, 2026-10-12). It is no replacement for Fingerprint: the approval stays bound per context,
-// to the server and how it is trusted as well. An empty identity (nil or no login that needs
-// approval) groups with nothing.
+// to the server and how it is trusted as well. A login that only skips the certificate check
+// (LoginInsecure) runs nothing to share: its identity is its own context's, so it is asked about on
+// its own (A28). An empty identity (nil or no login that needs approval) groups with nothing.
 func (p *ExecPlugin) Identity() string {
 	if !p.NeedsApproval() {
 		return ""
@@ -265,6 +277,9 @@ func (p *ExecPlugin) Identity() string {
 	}
 	if p.AsksForTokenFile() {
 		doc.TokenFile, doc.TokenFileResolved = p.TokenFile, p.Files.TokenFileResolved
+	}
+	if p.Kind() == LoginInsecure {
+		doc.Alone = []string{p.File, p.Context}
 	}
 	if doc.Args == nil {
 		doc.Args = []string{}
@@ -287,10 +302,11 @@ func (p *ExecPlugin) AsksForTokenFile() bool {
 	return p != nil && p.TokenFile != "" && !p.Files.TokenInFolder
 }
 
-// NeedsApproval reports whether the login needs the user's approval at all: it runs a program, or
-// reads a token file outside the kubeconfig's folder.
+// NeedsApproval reports whether the login needs the user's approval at all: it runs a program,
+// reads a token file outside the kubeconfig's folder, or goes to a server whose certificate is not
+// checked (insecure-skip-tls-verify, A28).
 func (p *ExecPlugin) NeedsApproval() bool {
-	return p != nil && (p.Command != "" || p.AsksForTokenFile())
+	return p != nil && (p.Command != "" || p.AsksForTokenFile() || p.TLS.Insecure)
 }
 
 // Login kinds (ExecPlugin.Kind).
@@ -298,10 +314,14 @@ const (
 	LoginProgram   = "program"   // an exec credential plugin
 	LoginTokenFile = "tokenFile" // a token file outside the kubeconfig's folder
 	LoginBoth      = "both"
+	// LoginInsecure is a login that needs the approval only because its cluster skips the check of
+	// the server's certificate (A28). A program or token file that needs it too gives their kind:
+	// their approval, whose dialog warns about the check, covers it.
+	LoginInsecure = "insecure"
 )
 
-// Kind says what needs the user's approval: LoginProgram, LoginTokenFile or LoginBoth; empty when
-// nothing does.
+// Kind says what needs the user's approval: LoginProgram, LoginTokenFile, LoginBoth or
+// LoginInsecure; empty when nothing does.
 func (p *ExecPlugin) Kind() string {
 	switch {
 	case p == nil:
@@ -312,6 +332,8 @@ func (p *ExecPlugin) Kind() string {
 		return LoginProgram
 	case p.AsksForTokenFile():
 		return LoginTokenFile
+	case p.TLS.Insecure:
+		return LoginInsecure
 	}
 	return ""
 }
@@ -346,6 +368,9 @@ func (p *ExecPlugin) SetFiles(f FileFacts) {
 func (p *ExecPlugin) String() string {
 	if p == nil {
 		return "<no exec plugin>"
+	}
+	if p.Kind() == LoginInsecure {
+		return fmt.Sprintf("unchecked connection of context %s to %s in %s", DisplayText(p.Context, 200), DisplayText(p.Server, 200), DisplayText(p.File, 400))
 	}
 	return fmt.Sprintf("exec plugin %s of user %s in %s", DisplayText(p.Command, 200), DisplayText(p.User, 200), DisplayText(p.File, 400))
 }

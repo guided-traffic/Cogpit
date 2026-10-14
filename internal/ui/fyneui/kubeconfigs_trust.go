@@ -120,6 +120,11 @@ func approvalTitle(g approvalGroupView) string {
 	many := len(g.Contexts) > 1
 	changed := changedCount(g) == len(g.Contexts)
 	switch g.Kind {
+	case kubeconfig.LoginInsecure: // A28: one context, nothing runs; the question is the check
+		if changed {
+			return "The unchecked connection changed"
+		}
+		return "Connect without checking the certificate?"
 	case kubeconfig.LoginTokenFile:
 		switch {
 		case changed:
@@ -146,6 +151,12 @@ func approvalLead(g approvalGroupView) string {
 		all = " Allowing it allows it for every context listed."
 	}
 	switch g.Kind {
+	case kubeconfig.LoginInsecure:
+		return "The kubeconfig of " + kubeconfig.DisplayText(g.Contexts[0].KubeContext, maxShownPath) + " switches the check of " +
+			"the API server's certificate off (insecure-skip-tls-verify). Cogpit then cannot tell the cluster from anyone " +
+			"else who answers at its address, and sends the context's credential to whoever does. Cogpit connects only if " +
+			"you allow it; it asks once for this context, and again if its server or proxy changes. Allow it only if you " +
+			"trust the network between this computer and the server."
 	case kubeconfig.LoginTokenFile:
 		return to + ", this kubeconfig sends the content of a file outside its own folder, on this " +
 			"computer, to the server of each as the login token. Cogpit reads it only if you allow it." + all +
@@ -165,7 +176,11 @@ func approvalChangedNote(g approvalGroupView, n int) string {
 	if len(g.Contexts) > 1 {
 		of = fmt.Sprintf(" (%d of %d, marked changed)", n, len(g.Contexts))
 	}
-	if g.Kind == kubeconfig.LoginTokenFile {
+	switch g.Kind {
+	case kubeconfig.LoginInsecure:
+		return "You allowed connecting to this context without the certificate check before. Its server, or how the " +
+			"server is reached (the proxy included), changed since."
+	case kubeconfig.LoginTokenFile:
 		return "You allowed an earlier form of this login" + of + ". Its token file or server changed since."
 	}
 	return "You allowed an earlier form of this plugin" + of + ". Its program (or the file behind it), arguments, environment, " +

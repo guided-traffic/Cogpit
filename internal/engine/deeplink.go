@@ -83,7 +83,8 @@ var (
 	// ErrDeepLinkContext: the link names a context that is not one of the user's kubeconfig sources.
 	ErrDeepLinkContext = errors.New("the link names no single context of Cogpit's kubeconfig sources")
 	// ErrDeepLinkNeedsApproval: the context logs in with a program or token file the user has not
-	// allowed yet; a link never asks for that approval.
+	// allowed yet, or skips the certificate check the user has not allowed yet (A28); a link never
+	// asks for that approval.
 	ErrDeepLinkNeedsApproval = errors.New("its login waits for your approval")
 	// ErrDeepLinkRefused: a command that is not a link's to run (Dispatch with OriginDeepLink).
 	ErrDeepLinkRefused = errors.New("a link only navigates: this command is not a link's to run")
@@ -410,8 +411,11 @@ func (s *Session) deepLinkContext(name string) (ContextInfo, error) {
 		return ContextInfo{}, fmt.Errorf("%w: %s is not read from a kubeconfig source", ErrDeepLinkContext, shown)
 	case c.Exec == ExecRequired || c.Exec == ExecChanged:
 		what := "program"
-		if c.ExecKind == "tokenFile" {
+		switch c.ExecKind {
+		case kubeconfig.LoginTokenFile:
 			what = "token file"
+		case kubeconfig.LoginInsecure: // A28: an unchecked certificate is asked once, never by a link
+			what = "connection without the certificate check"
 		}
 		return ContextInfo{}, fmt.Errorf("%s: %w (a %s you have not allowed yet, or that changed); a link never asks for it: "+
 			"connect from the context picker (⌘P) to review it", kubeconfig.DisplayText(c.Name, 200), ErrDeepLinkNeedsApproval, what)

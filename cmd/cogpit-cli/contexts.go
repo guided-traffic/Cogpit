@@ -14,8 +14,10 @@ files and sync folders added in Cogpit, each file read on its own and named "<co
 and the synthetic demo cluster "demo". LOGIN says whether a context logs in through a credential
 plugin or a token file outside its folder, and whether the user allowed it in Cogpit's window:
 approved, required or changed. CERTIFICATE says "not checked" for a context whose cluster sets
-insecure-skip-tls-verify: whoever answers at its server's address gets its credential. Listing reads
-the kubeconfig files only; it runs no plugin and prints no credential.`
+insecure-skip-tls-verify: whoever answers at its server's address gets its credential; Cogpit
+connects to it only once the user allowed that in Cogpit's window, and the column says whether
+("not checked, required"). Listing reads the kubeconfig files only; it runs no plugin and prints no
+credential.`
 
 func runContexts(ctx context.Context, args []string, e *env) int {
 	fs := newFlags("contexts", "[flags]", contextsAbout)
@@ -65,9 +67,10 @@ func runContexts(ctx context.Context, args []string, e *env) int {
 }
 
 // login describes how a context logs in when the user must allow it: "plugin approved",
-// "token file required", "plugin and token file changed"; empty otherwise.
+// "token file required", "plugin and token file changed"; empty otherwise, and for a context that
+// waits only for its unchecked certificate (CERTIFICATE says so).
 func login(c engine.ContextInfo) string {
-	if c.Exec == "" {
+	if c.Exec == "" || c.ExecKind == kubeconfig.LoginInsecure {
 		return ""
 	}
 	what := "plugin"
@@ -82,11 +85,16 @@ func login(c engine.ContextInfo) string {
 
 // certificate is "not checked" for a context whose cluster skips the check of the server's
 // certificate (insecure-skip-tls-verify), as the app's picker marks it ("certificate not checked",
-// H-37); empty otherwise. The last column, so that the columns before keep their places (Cogpit's
-// default, 2026-10-13, not the owner's decision).
+// H-37), followed for a kubeconfig source's context by whether the user allowed connecting to it so
+// ("not checked, required"; A28: approved, required or changed, the context's approval, a plugin's
+// included); empty otherwise. The last column, so that the columns before keep their places
+// (Cogpit's default, 2026-10-13, not the owner's decision).
 func certificate(c engine.ContextInfo) string {
-	if c.Insecure {
-		return "not checked"
+	switch {
+	case !c.Insecure:
+		return ""
+	case c.Exec != "":
+		return "not checked, " + c.Exec
 	}
-	return ""
+	return "not checked"
 }

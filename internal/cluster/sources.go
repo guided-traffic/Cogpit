@@ -158,17 +158,43 @@ func ListSyncFolder(dir string) ([]FolderFile, error) {
 	return out, nil
 }
 
-// checkExecPolicy asks policy about the exec plugin cfg will run for the context name (kctx in
-// raw), if there is one. The plugin is described from cfg.ExecProvider, the section the client's
-// transport runs, and raw, loaded together with it, names its file and cluster.
+// checkExecPolicy asks policy about the login cfg will use for the context name (kctx in raw) when
+// it needs approval: the exec plugin cfg will run, and a connection that does not check the
+// server's certificate (A28). The plugin is described from cfg.ExecProvider, the section the
+// client's transport runs, the check from cfg's own TLS settings, and raw, loaded together with it,
+// names its file and cluster.
 func checkExecPolicy(policy func(*kubeconfig.ExecPlugin) error, raw clientcmdapi.Config, name string, kctx *clientcmdapi.Context, cfg *rest.Config) error {
-	if policy == nil || cfg == nil || cfg.ExecProvider == nil || kctx == nil {
+	if policy == nil || cfg == nil || kctx == nil || (cfg.ExecProvider == nil && !cfg.Insecure) {
 		return nil
 	}
 	if ai := raw.AuthInfos[kctx.AuthInfo]; ai != nil && ai.TokenFile != "" {
-		return nil // checkTokenFilePolicy decided, with the exec section, before the file was read
+		return nil // checkTokenFilePolicy decided, with the exec section and the cluster, before the file was read
+	}
+	if cfg.Insecure { // the cluster as the client was built from it: its check off, whatever raw says
+		raw = withInsecureCluster(raw, kctx)
 	}
 	return askPolicy(policy, raw, name, kctx, cfg.ExecProvider, "")
+}
+
+// withInsecureCluster returns raw with the cluster of kctx marked insecure-skip-tls-verify, a copy
+// where it was not: the policy then judges the connection as it will be made.
+func withInsecureCluster(raw clientcmdapi.Config, kctx *clientcmdapi.Context) clientcmdapi.Config {
+	cl := raw.Clusters[kctx.Cluster]
+	if cl != nil && cl.InsecureSkipTLSVerify {
+		return raw
+	}
+	marked := clientcmdapi.NewCluster()
+	if cl != nil {
+		marked = cl.DeepCopy()
+	}
+	marked.InsecureSkipTLSVerify = true
+	clusters := make(map[string]*clientcmdapi.Cluster, len(raw.Clusters)+1)
+	for k, v := range raw.Clusters {
+		clusters[k] = v
+	}
+	clusters[kctx.Cluster] = marked
+	raw.Clusters = clusters
+	return raw
 }
 
 // checkTokenFilePolicy asks policy about the token file the user entry of context name in raw
@@ -191,7 +217,7 @@ func checkTokenFilePolicy(policy func(*kubeconfig.ExecPlugin) error, raw clientc
 // R-5, and so is a token file moved outside the folder), and asks policy unless nothing needs
 // approval.
 func askPolicy(policy func(*kubeconfig.ExecPlugin) error, raw clientcmdapi.Config, name string, kctx *clientcmdapi.Context, ec *clientcmdapi.ExecConfig, tokenFile string) error {
-	file := ""
+	file := kctx.LocationOfOrigin // a context without a user entry still has its file (A28)
 	if ai := raw.AuthInfos[kctx.AuthInfo]; ai != nil {
 		file = ai.LocationOfOrigin
 	}
