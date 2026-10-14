@@ -112,6 +112,7 @@ func diskUsages(series []promSeries) []model.NodeDisk {
 // Messages of the disk scope's states.
 const (
 	msgDiskNoPrometheus = "the disk usage comes from node-exporter through Prometheus, and no Prometheus was found"
+	msgDiskSourceOff    = "the disk usage comes from Prometheus, which this cluster's Metrics source setting turns off"
 	msgDiskNoSeries     = " has no node-exporter series of the root filesystem (node_filesystem_size_bytes{mountpoint=\"/\"})"
 )
 
@@ -169,6 +170,9 @@ func (h *Hub) pollDisks(ctx context.Context, sc Scope) (*dataSet, State) {
 // own state when it was looked for and is forbidden or does not answer, else not served.
 func (h *Hub) diskMissingLocked() State {
 	for _, sl := range h.slots {
+		if sl.role != roleLive && sl.off {
+			return State{Status: StatusNotServed, Message: msgDiskSourceOff}
+		}
 		if sl.role == roleLive || !sl.asked {
 			continue
 		}
@@ -205,7 +209,9 @@ func (h *Hub) DisksPossible() bool {
 	for _, sl := range h.slots {
 		switch sl.role {
 		case roleHistory:
-			return true
+			if !sl.off {
+				return true
+			}
 		case roleAny:
 			if _, ok := sl.prov.(DiskProvider); ok {
 				return true

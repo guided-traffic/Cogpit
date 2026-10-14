@@ -11,6 +11,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/metrics"
 )
 
 // Cluster settings › Metrics › Hide metrics from the UI (G12, G13; engine/hidemetrics.go). Lens
@@ -105,6 +106,57 @@ func (p *settingsPage) hideMetricsSetting() (fyne.CanvasObject, func()) {
 	}
 	return p.setting(hiddenMetricsSetting, "Hide metrics from the UI",
 		"Hidden metrics leave the lists, the drawers and the Overview, and Cogpit stops asking the cluster for them.", control), sync
+}
+
+// metricsSourceSetting is the name of the Metrics source setting on the page.
+const metricsSourceSetting = "metricsSource"
+
+// metricsSourceSetting builds Cluster settings › Metrics › Metrics source (G12; Lens's dropdown,
+// captured: Automatic, Prometheus, Kubernetes Metrics Server, No metrics, and under it a line naming
+// the source in use) and returns it with the function that shows the state in it. A choice is
+// dispatched at once (cluster.settings.set with metricsSource); the select follows the UI state, so
+// an agent's change shows too.
+func (p *settingsPage) metricsSourceSetting() (fyne.CanvasObject, func()) {
+	ctx := p.shown.Context
+	labels := make([]string, 0, len(engine.MetricsSources))
+	for _, o := range engine.MetricsSources {
+		labels = append(labels, o.Label)
+	}
+	sel := widget.NewSelect(labels, func(label string) {
+		for _, o := range engine.MetricsSources {
+			if o.Label == label && !p.syncing {
+				p.setCluster(metricsSourceSetting, o.Name)
+			}
+		}
+	})
+	line := newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
+	line.truncate = true
+	p.controls["metricsSourceLine"], p.controls["metricsSourceSelect"] = line, sel
+	sync := func() {
+		name := engine.MetricsSourceName(p.sh.ui.ClusterSettings[ctx].MetricsSource)
+		for _, o := range engine.MetricsSources {
+			if o.Name == name && sel.Selected != o.Label {
+				sel.SetSelected(o.Label)
+			}
+		}
+		line.SetText(metricsSourceLine(p.clusterView(), name))
+	}
+	return p.setting(metricsSourceSetting, "Metrics source",
+		"Automatic: history from Prometheus, current values from the Metrics Server. The others turn one or both off.",
+		container.NewVBox(sel, line)), sync
+}
+
+// metricsSourceLine names the source in use under the setting.
+func metricsSourceLine(v engine.ClusterSettingsView, name string) string {
+	switch {
+	case name == string(metrics.SourceNone):
+		return "No metrics are asked of this cluster."
+	case !v.Connected || v.Context == engine.DemoContext && v.MetricsInUse == "":
+		return "Applies while this cluster is connected."
+	case v.MetricsInUse == "":
+		return "In use: looking for the providers…"
+	}
+	return "In use: " + v.MetricsInUse + "."
 }
 
 // hiddenMetricsLine says what is hidden: "All metrics are visible.", or the hidden ones.

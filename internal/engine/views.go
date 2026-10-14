@@ -80,6 +80,7 @@ func (st *state) uiChanged(_, now UIState) {
 
 func (st *state) reconcileLocked(now UIState) {
 	b := st.backend
+	st.followMetricsSource(b, now) // the cluster's Metrics source, before anything polls (metricssource.go)
 
 	// The view: one worker for the open kind of the current backend, read in all namespaces or in
 	// each namespace the user named (accessiblens_plan.go); a new plan reads the kind again.

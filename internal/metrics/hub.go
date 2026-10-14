@@ -219,6 +219,7 @@ type slot struct {
 	lastOK     time.Time
 	lastErr    string
 	lastErrAt  time.Time
+	off        bool // turned off by the cluster's Metrics source setting (source.go): never detected nor asked
 }
 
 func newSlot(role slotRole, det Detector) *slot {
@@ -575,6 +576,9 @@ func (h *Hub) Providers() []ProviderStatus {
 	live, hist := h.servingLocked()
 	out := make([]ProviderStatus, 0, len(h.slots))
 	for _, sl := range h.slots {
+		if sl.off {
+			continue // the cluster's settings turn it off: not on the status line
+		}
 		ps := ProviderStatus{
 			Provider: sl.id, Label: sl.label, Status: StatusUnknown,
 			LastOK: sl.lastOK, LastError: sl.lastErr, LastErrorAt: sl.lastErrAt,
@@ -780,7 +784,7 @@ func (h *Hub) detect(ctx context.Context, sl *slot) {
 	if sl.prov == nil {
 		ttl = h.opts.RetryDetectTTL
 	}
-	if sl.asked && h.opts.Now().Sub(sl.detectedAt) < ttl {
+	if sl.off || sl.asked && h.opts.Now().Sub(sl.detectedAt) < ttl {
 		h.mu.Unlock()
 		return
 	}
@@ -805,6 +809,10 @@ func (h *Hub) detect(ctx context.Context, sl *slot) {
 		p = nil
 	}
 	h.mu.Lock()
+	if sl.off { // turned off while it was detected
+		h.mu.Unlock()
+		return
+	}
 	now := h.opts.Now()
 	sl.prov, sl.state, sl.asked, sl.detectedAt = p, s, true, now
 	if p != nil {
@@ -896,6 +904,9 @@ func (h *Hub) failLocked(ctx context.Context, sl *slot, sc Scope, err error) Sta
 // before not served, so a cluster with a Prometheus the user may not read says so instead of "no
 // metrics-server"; on a tie the live provider's.
 func (h *Hub) worstLocked() State {
+	if st, ok := h.offStateLocked(); ok {
+		return st
+	}
 	var best State
 	for _, sl := range h.liveOrder() {
 		if !sl.asked || sl.state.Status == "" {

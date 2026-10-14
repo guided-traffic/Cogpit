@@ -63,6 +63,9 @@ type ClusterSettings struct {
 	// HiddenMetrics are the metrics the window does not show for this cluster, and does not ask
 	// the cluster for (hidemetrics.go); none: every metric shows.
 	HiddenMetrics MetricSet `json:"hiddenMetrics,omitempty"`
+	// MetricsSource is which providers the cluster's metrics come from (metricssource.go): ""
+	// (Automatic: both), "prometheus", "metrics-server" or "none".
+	MetricsSource string `json:"metricsSource,omitempty"`
 	// Proxy is the HTTP(S) or SOCKS5 proxy of this cluster's API traffic, as the user typed it
 	// (proxy.go), applied at the next connect in place of the kubeconfig's proxy-url; empty: the
 	// kubeconfig's, else the environment's. It may carry a password: the UI state and every
@@ -92,7 +95,7 @@ func (c ClusterSettings) IsZero() bool { return c.Equal(ClusterSettings{}) }
 // none.
 func (c ClusterSettings) Equal(o ClusterSettings) bool {
 	return c.Name == o.Name && c.IconColor == o.IconColor && c.Icon == o.Icon && c.TerminalDir == o.TerminalDir &&
-		c.TerminalNamespace == o.TerminalNamespace && c.HiddenMetrics == o.HiddenMetrics && c.Proxy == o.Proxy &&
+		c.TerminalNamespace == o.TerminalNamespace && c.HiddenMetrics == o.HiddenMetrics && c.Proxy == o.Proxy && c.MetricsSource == o.MetricsSource &&
 		slices.Equal(c.AccessibleNamespaces, o.AccessibleNamespaces) && c.AgentWrites == o.AgentWrites &&
 		c.NodeShellImage == o.NodeShellImage && c.NodeShellPullSecret == o.NodeShellPullSecret
 }
@@ -118,6 +121,9 @@ func (c ClusterSettings) Check() error {
 	}
 	if c.HiddenMetrics&^HideAll != 0 {
 		return errors.New("hidden metrics: a metric this Cogpit does not know")
+	}
+	if err := CheckMetricsSource(c.MetricsSource); err != nil { // metricssource.go
+		return err
 	}
 	if err := checkAccessibleNamespaces(c.AccessibleNamespaces); err != nil {
 		return err
@@ -150,6 +156,9 @@ func (c *ClusterSettings) normalize() {
 		c.TerminalNamespace = ""
 	}
 	c.HiddenMetrics &= HideAll
+	if CheckMetricsSource(c.MetricsSource) != nil {
+		c.MetricsSource = ""
+	}
 	if c.Proxy = strings.TrimSpace(c.Proxy); CheckProxyURL(c.Proxy) != nil {
 		c.Proxy = ""
 	}
@@ -413,6 +422,12 @@ type ClusterSettingsView struct {
 	// by name (cluster, nodes, pods, containers, cpu, memory, network, filesystem); empty: all
 	// metrics are visible.
 	HiddenMetrics []string `json:"hiddenMetrics"`
+	// MetricsSource is which providers the metrics come from: "auto" (both), "prometheus",
+	// "metrics-server" or "none"; MetricsInUse names the providers that answer now, while the
+	// cluster is connected ("Prometheus (monitoring/prometheus-server) and Kubernetes Metrics
+	// Server"), empty otherwise.
+	MetricsSource string `json:"metricsSource"`
+	MetricsInUse  string `json:"metricsInUse,omitempty"`
 	// Proxy is the proxy of the cluster's API traffic, its password shown as •••; empty: none set
 	// (the kubeconfig's proxy-url or the environment's apply).
 	Proxy string `json:"proxy,omitempty"`
@@ -464,5 +479,9 @@ func (s *Session) ClusterSettingsView(context string) (ClusterSettingsView, erro
 	}
 	u := s.UIState()
 	v.Connected = u.Context == context && u.Connection.State == Connected
+	v.MetricsSource = MetricsSourceName(cs.MetricsSource)
+	if b := s.Backend(); v.Connected && b != nil && b.Context == context {
+		v.MetricsInUse = metricsInUse(b.Metrics)
+	}
 	return v, nil
 }

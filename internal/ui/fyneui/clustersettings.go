@@ -264,7 +264,9 @@ func (p *settingsPage) clusterMetricsSection() fyne.CanvasObject {
 	button := widget.NewButtonWithIcon("Prometheus…", theme.SettingsIcon(), p.sh.openPrometheusSettings)
 	p.controls["prometheusButton"] = button
 	hide, hideSync := p.hideMetricsSetting() // clustersettings_metrics.go
+	source, sourceSync := p.metricsSourceSetting()
 	p.sync = func() {
+		sourceSync()
 		hideSync()
 		v := p.clusterView()
 		switch {
@@ -280,6 +282,7 @@ func (p *settingsPage) clusterMetricsSection() fyne.CanvasObject {
 		}
 	}
 	return container.NewVBox(
+		source,
 		p.setting("prometheus", "Prometheus", "Auto detect, or the service address namespace/service:port and a path prefix; kept in Cogpit's settings, never the kubeconfig.",
 			container.NewVBox(line, container.NewHBox(button))),
 		hide,
