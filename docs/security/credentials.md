@@ -262,10 +262,10 @@ night:**
   (`model.HoldsPrivateKeyBlock`).
 - **The chain's anchor** (a new requirement): beside the key match and the chain's order, the
   drawer and agents say whether the chain leads to a public certificate authority or an internal
-  (private) one, with the root's name. Today Cogpit checks a chain's order only, against no trust
-  store (D-30). The design is not settled; the lead's notes name three answers: a root of a public
-  root program that Cogpit carries itself, independent of the Mac; a root this Mac trusts (its
-  keychain, a corporate root included); no known root (internal or self-signed). Certificates are
+  (private) one, with the root's name. Built 2026-10-14 night as the lead's design (D-30): a root of
+  a public root program that Cogpit carries itself (Mozilla's NSS bundle, independent of the Mac);
+  a root this Mac trusts (its trust store, a corporate root included); no known root (internal or
+  self-signed). Certificates are
   public material (D-30), so a root's name adds nothing secret about the cluster. What would be new
   for agents, and through the built-in agent for its LLM endpoint
   ([agents and MCP › H-13](agents-and-mcp.md#h-13-cluster-data-leaves-for-the-llm-endpoint)), is

@@ -1,8 +1,11 @@
 package engine
 
 import (
+	"crypto/x509"
 	"encoding/base64"
+	"runtime"
 	"strconv"
+	"sync"
 
 	"github.com/guided-traffic/cogpit/internal/model"
 )
@@ -18,7 +21,28 @@ const (
 	certChecksTitle = "Checks"
 	keyMatchItem    = "Key Matches"
 	chainItem       = "Chain In Order"
+	anchorItem      = "Chain Leads To"
 )
+
+var (
+	systemRootsOnce sync.Once
+	systemRootsPool *x509.CertPool
+)
+
+// thisComputer names the computer in the anchor's text.
+func thisComputer() string {
+	if runtime.GOOS == "darwin" {
+		return "this Mac"
+	}
+	return "this computer"
+}
+
+// systemRoots is the computer's trust store, read once (nil where it cannot be read: the anchor
+// then never says "trusted on this computer").
+func systemRoots() *x509.CertPool {
+	systemRootsOnce.Do(func() { systemRootsPool, _ = x509.SystemCertPool() })
+	return systemRootsPool
+}
 
 // certificateChecks sets, on each key with certificates, the private key it pairs with and
 // whether that key matches (pairedKey), and whether its chain is in order. The chain is checked
@@ -43,6 +67,9 @@ func certificateChecks(keys []model.CertificateKey, decoded map[string]model.Dec
 		}
 		leaf := len(ck.Certificates) > 0 && !ck.Certificates[0].Invalid && !ck.Certificates[0].IsCA
 		if ck.PairedKey != "" || leaf {
+			if a, ok := d.Anchor(systemRoots()); ok { // R1: a chain's anchor, not a CA bundle's
+				ck.Anchor = &a
+			}
 			if inOrder, checked, broken := d.ChainInOrder(); checked {
 				ck.ChainInOrder, ck.ChainBreak = &inOrder, broken
 			}
@@ -131,6 +158,18 @@ func certChecksSection(ck model.CertificateKey, group string) (model.DetailSecti
 			it.Value, it.Status = "Yes ("+where+")", model.StatusOK
 		default:
 			it.Value, it.Status = "No ("+where+" holds another key)", model.StatusError
+		}
+		items = append(items, it)
+	}
+	if a := ck.Anchor; a != nil {
+		it := model.DetailItem{Name: anchorItem}
+		switch a.Kind {
+		case model.AnchorPublic:
+			it.Value, it.Status = "A public CA ("+a.Root+")", model.StatusOK
+		case model.AnchorSystem:
+			it.Value, it.Status = "A CA "+thisComputer()+" trusts, not a public one ("+a.Root+")", model.StatusOK
+		default:
+			it.Value = "An internal or self-signed CA (" + a.Root + ")"
 		}
 		items = append(items, it)
 	}

@@ -12,6 +12,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
+	golang.org/x/crypto/x509roots/fallback v0.0.0-20261014201258-cf169cd0986f
 	helm.sh/helm/v4 v4.3.0
 	k8s.io/api v0.37.1
 	k8s.io/apimachinery v0.37.1

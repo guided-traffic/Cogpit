@@ -139,6 +139,9 @@ type CertificateKey struct {
 	// false, the position (from 1) of the first certificate the next one did not sign.
 	ChainInOrder *bool `json:"chainInOrder,omitempty"`
 	ChainBreak   int   `json:"chainBreak,omitempty"`
+	// Anchor is where the chain leads: a public CA, one this computer trusts, or an internal or
+	// self-signed one (R1, certanchor.go); absent for a value without a valid first certificate.
+	Anchor *CertAnchor `json:"anchor,omitempty"`
 }
 
 // HoldsCertificate reports whether a value holds a PEM CERTIFICATE block, without decoding it.

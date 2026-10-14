@@ -235,3 +235,21 @@ func TestSecretCombinedPEMKeyCheck(t *testing.T) {
 		t.Errorf("a value without a key got a key check: %+v", checks)
 	}
 }
+
+// A checked chain says where it leads (R1): a chain to an internal CA names it, in the Checks
+// section and for agents.
+func TestSecretChainAnchor(t *testing.T) {
+	ca := testkit.NewCert(t, testkit.CertSpec{CommonName: "Corp Root", CA: true, Key: testkit.Ed25519Key(t)})
+	leaf := testkit.NewCert(t, testkit.CertSpec{CommonName: "web", Parent: ca, Key: testkit.ECDSAKey(t)})
+	m := certDetail(t, secretOf("anchor", tlsSecretType, map[string][]byte{"tls.crt": testkit.Chain(leaf, ca), "tls.key": leaf.KeyPEM(t)}))
+	checks, ok := checkSections(m)["tls.crt"]
+	if !ok {
+		t.Fatalf("no Checks section: %+v", m.Sections)
+	}
+	if it := itemOf(checks, anchorItem); it.Value != "An internal or self-signed CA (Corp Root)" {
+		t.Errorf("anchor %+v", it)
+	}
+	if a := m.Certificates[0].Anchor; a == nil || a.Kind != model.AnchorInternal || a.Root != "Corp Root" {
+		t.Errorf("for agents %+v", a)
+	}
+}

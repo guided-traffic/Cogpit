@@ -85,7 +85,7 @@ window. Nothing of it was built in the round.
 | A25 | #97, H-35 | kubectl's signature checked with sigstore-go, the Rekor transparency-log proof included; a record of its own; to build | [D-50](#d-50-kubectls-signature-check), [H-35](../security/trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log) |
 | A26 | #98, H-36 | The kubectl `PATH` hand-over for bash (`--rcfile` or `PROMPT_COMMAND`) and fish (`conf.d`), as for zsh; built 2026-10-14 | [D-3](#d-3-helm-and-kubectl-binaries), [H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first) |
 | A27 | #100, H-36 | A setting (Preferences › Kubernetes): the `ZDOTDIR` hand-over by default, switchable to enforcement through a shell alias or function `kubectl`; built 2026-10-14 | [D-3](#d-3-helm-and-kubectl-binaries), [H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first) |
-| R1 | – | Certificates: show whether the chain leads to a public or an internal (private) CA; the design settled when built; to build | [D-30](#d-30-certificates-in-secrets-decoded) |
+| R1 | – | Certificates: show whether the chain leads to a public or an internal (private) CA; the design settled when built; built 2026-10-14 (the lead's design for the owner to confirm) | [D-30](#d-30-certificates-in-secrets-decoded) |
 | A28 | #102, H-37 | Ask once per context before the first connect of an `insecure-skip-tls-verify` context, the answer kept like a plugin approval; to build | [H-37](../security/trust-boundaries.md#h-37-a-context-that-skips-the-certificate-check), [architecture §6](architecture.md#6-cluster-connections-internalcluster) |
 | A29 | #103, H-37 | While such a context is connected, the status bar shows "TLS not checked" in the warning colour beside the context; `cogpit-cli get` writes a warning line to stderr; to build | [H-37](../security/trust-boundaries.md#h-37-a-context-that-skips-the-certificate-check), [architecture §6](architecture.md#6-cluster-connections-internalcluster) |
 | A30 | #104 | Only the window chooses the configmap Helm driver; agents may only set it back to secret; as built | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml) |
@@ -2060,14 +2060,20 @@ agent's `object_get`, its key matching and its chain in order); renders
   TLS/Ingress cannot use it". Built 2026-10-14: "Encrypted key: TLS and Ingress cannot use it
   (tls.key)", status warning.
 - **New requirement (R1):** besides the key check and the chain, show whether the chain leads to a
-  public CA or an internal (private) one, so that the kind of certificate is clear at a glance. Not
-  built yet; the design is settled when it is built. The lead's notes, not decided: "public" chains
-  to a root of a public root program (for example Mozilla's, through
-  `golang.org/x/crypto/x509roots/fallback`, the same on every computer), "trusted on this Mac" (the
-  system keychain, where a company's root counts), "internal or self-signed" (no known root); in
-  the drawer and for agents, certificates being public material (above); the root's name shown.
-  It ends the chain check's "no trust store" above, and the docs that say so
-  ([beyond Lens](../parity/beyond-lens.md), the certificates row) change with it.
+  public CA or an internal (private) one, so that the kind of certificate is clear at a glance.
+  Built 2026-10-14 night as **the lead's design, for the owner to confirm**
+  ([`model/certanchor.go`](../../internal/model/certanchor.go); `TestCertAnchor`,
+  `TestSecretChainAnchor`): three answers in the Checks section's "Chain Leads To" and for agents
+  (`anchor`: kind and root) — "public" chains to a root of Mozilla's NSS program (the bundle of
+  `golang.org/x/crypto/x509roots/fallback/bundle`, a new module, embedded and the same on every
+  computer; only the bundle package is imported, never `fallback`, which would change Go's
+  fallback roots for the whole process), "a CA this Mac trusts, not a public one" (the computer's
+  trust store, `x509.SystemCertPool`, where a company's root counts), "internal or self-signed"
+  (neither; named by the top certificate's issuer). Options weighed: the Mac's trust store alone
+  (a corporate root would read as public), the public bundle alone (no answer for a corporate
+  root). Judged for a checked chain only (a leaf, or a value with its key; a CA bundle gets none),
+  at the middle of the first certificate's validity, so that an expired certificate still names its
+  anchor; no revocation. The bundle moves with the module's version (Renovate).
 
 ## D-31: Every timestamp in the local time zone and format
 
