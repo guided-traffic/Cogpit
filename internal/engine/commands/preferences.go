@@ -46,6 +46,8 @@ type preferencesSetParams struct {
 	KubectlMirror   *string `json:"kubectlMirror,omitempty" jsonschema:"the https base URL kubectl is downloaded from; empty: https://dl.k8s.io/release. Only the user in Cogpit's window may set it: refused for agents"`
 	KubectlDir      *string `json:"kubectlDir,omitempty" jsonschema:"the directory for downloaded kubectl releases, an absolute path; empty: Cogpit's own folder. Only the user in Cogpit's window may set it: refused for agents"`
 	KubectlPath     *string `json:"kubectlPath,omitempty" jsonschema:"the kubectl the terminals run, an absolute path; empty: the first on PATH. Only the user in Cogpit's window may set it: refused for agents"`
+	// LoadChartIcons: agents and the CLI may only turn it off (engine/helmicons.go, D-46).
+	LoadChartIcons *bool `json:"loadChartIcons,omitempty" jsonschema:"whether the Charts view and a chart's drawer fetch the icon a chart repository's index names, from whatever host serves it (default true); off: Cogpit's own glyph. Agents and the CLI may only turn it off"`
 }
 
 // shellChange reports whether the parameters change the local terminal's shell or arguments.
@@ -94,8 +96,9 @@ func registerPreferences(g *registrar) {
 			"terminal's shell and arguments (empty: $SHELL), whether a right click in a terminal copies and pastes, the " +
 			"HTTP proxy of the traffic that is no cluster's (empty: the environment's; its password shown as •••), and " +
 			"kubectl for terminals: downloads offered or not, the mirror, the directory for binaries (kubectlDir: the one " +
-			"in effect), the path to kubectl, and where new Helm installs keep their records (helmDriver, empty: " +
-			"secret); kept says whether they outlive this run. ui_state carries the same.",
+			"in effect), the path to kubectl, where new Helm installs keep their records (helmDriver, empty: " +
+			"secret), and whether chart icons are fetched (loadChartIcons); kept says whether they outlive this run. " +
+			"ui_state carries the same.",
 		Enabled: func(s *engine.Session, _ struct{}) error { _, err := s.Preferences(); return err },
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			p, err := s.Preferences()
@@ -115,8 +118,8 @@ func registerPreferences(g *registrar) {
 			"runs on this computer; so are the path to kubectl, the directory for binaries and the kubectl download " +
 			"mirror, which decide what the terminals run as kubectl, the terminals' right mouse button, which decides " +
 			"whether a click pastes into a shell, and setting the HTTP proxy (it decides where Cogpit's downloads go), " +
-			"which they may only clear, and choosing the configmap Helm storage driver for new installs, which they may " +
-			"only set back to secret." + prefsWritesOnly + " Returns the preferences.",
+			"which they may only clear, choosing the configmap Helm storage driver for new installs, which they may " +
+			"only set back to secret, and turning on chart icons, which they may only turn off." + prefsWritesOnly + " Returns the preferences.",
 		Enabled: func(s *engine.Session, _ preferencesSetParams) error { _, err := s.Preferences(); return err },
 		Refuse: func(ctx context.Context, _ *engine.Session, p preferencesSetParams) error {
 			if err := p.refuse(ctx); err != nil {
@@ -126,6 +129,9 @@ func registerPreferences(g *registrar) {
 				return engine.ErrRightClickGUIOnly
 			}
 			if err := engine.RefuseHelmDriver(ctx, p.HelmDriver); err != nil {
+				return err
+			}
+			if err := engine.RefuseChartIcons(ctx, p.LoadChartIcons); err != nil {
 				return err
 			}
 			return refuseProxy(ctx, p.HTTPProxy)
@@ -141,6 +147,9 @@ func registerPreferences(g *registrar) {
 				return nil, err
 			}
 			if err := refuseProxy(ctx, p.HTTPProxy); err != nil {
+				return nil, err
+			}
+			if err := engine.RefuseChartIcons(ctx, p.LoadChartIcons); err != nil {
 				return nil, err
 			}
 			var helmDriver string
@@ -189,6 +198,7 @@ func registerPreferences(g *registrar) {
 				}
 				setIf(&pr.TerminalRightClickCopyPaste, p.TerminalRightClickCopyPaste)
 				setIf(&pr.KubectlDownload, p.KubectlDownload)
+				setIf(&pr.LoadChartIcons, p.LoadChartIcons)
 				for _, f := range []struct{ dst, v *string }{{&pr.KubectlMirror, p.KubectlMirror}, {&pr.KubectlDir, p.KubectlDir}, {&pr.KubectlPath, p.KubectlPath}} {
 					if f.v != nil {
 						*f.dst = strings.TrimSpace(*f.v)

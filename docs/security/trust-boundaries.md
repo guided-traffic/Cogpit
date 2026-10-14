@@ -13,9 +13,10 @@ have and the package that owns it, with a link where the MVP (2026-10-11) implem
 | Credential plugin | runs with the user's privileges | It is whatever program the kubeconfig names ([client-go credential plugins](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#client-go-credential-plugins)) |
 | Kubernetes API server | authenticated, data untrusted | TLS proves which server answers, checked against the kubeconfig's CA (or the system's) and `tls-server-name` by client-go, unless the kubeconfig switches the check off ([H-37](#h-37-a-context-that-skips-the-certificate-check)); it does not make object names, annotations, events or logs safe to render, execute or hand to a model |
 | Workload output | untrusted | Logs, exec and attach streams are written by containers, which anyone who can deploy to the cluster controls |
-| A proxy the user names (a cluster's, and the Helm repositories' and kubectl's downloads', 2026-10-13) | trusted to forward, not to read | The user picks it in the window. Where the server's TLS is verified it sees the server's name and the traffic's timing and size; where it is not (`insecure-skip-tls-verify`) it reads everything, credentials included ([H-34](#h-34-the-plugin-approval-shows-the-kubeconfigs-proxy-not-cogpits)); to a plain-http server client-go sends no kubeconfig credential at all (it attaches them to https servers only, verified 2026-10-13, `TestPlainHTTPServerGetsNoCredential`), so there a proxy reads the traffic but no token. The Helm downloads follow Helm's own file (D-29, 2026-10-13): https with the certificate checked, unless an entry is plain http or says `insecure_skip_tls_verify`, where the proxy reads and can change them, a plain-http entry's credentials included ([H-41](#h-41-repositories-whose-content-nothing-authenticates)); Lens's "Allow untrusted certificate authorities" is not built (a question for the owner) |
+| A proxy the user names (a cluster's, and the Helm repositories' and kubectl's downloads', 2026-10-13; the chart icons', 2026-10-14) | trusted to forward, not to read | The user picks it in the window. Where the server's TLS is verified it sees the server's name and the traffic's timing and size; where it is not (`insecure-skip-tls-verify`) it reads everything, credentials included ([H-34](#h-34-the-plugin-approval-shows-the-kubeconfigs-proxy-not-cogpits)); to a plain-http server client-go sends no kubeconfig credential at all (it attaches them to https servers only, verified 2026-10-13, `TestPlainHTTPServerGetsNoCredential`), so there a proxy reads the traffic but no token. The Helm downloads follow Helm's own file (D-29, 2026-10-13): https with the certificate checked, unless an entry is plain http or says `insecure_skip_tls_verify`, where the proxy reads and can change them, a plain-http entry's credentials included ([H-41](#h-41-repositories-whose-content-nothing-authenticates)); Lens's "Allow untrusted certificate authorities" is not built (a question for the owner) |
 | Helm's `repositories.yaml` and the CA, certificate and key files it names (2026-10-13) | trusted as the user's own configuration, like a kubeconfig file the user keeps | The helm CLI writes it (`helm repo add`); Cogpit reads it, never writes it, and takes its changes over within seconds without asking, from whoever wrote them ([H-42](#h-42-a-repository-another-program-writes-into-helms-file-is-used-without-asking)). Its passwords are the user's ([credentials](credentials.md#where-credentials-come-from)) |
 | Helm repositories and charts | untrusted | Remote content; rendering a chart runs its templates in Cogpit's process through the Helm SDK |
+| Hosts that serve chart icons (2026-10-14) | untrusted, and told what the user looks at | A repository's index names each chart's icon as a URL on any host; Cogpit fetches it when the window shows the chart, while Preferences › Load chart icons is on ([D-46](../developer/decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them), [H-87](#h-87-chart-icons-tell-their-hosts-what-the-user-looks-at)) |
 | External agents over MCP | as trusted as the local user who connected them; decisions are a model's | [agents and MCP](agents-and-mcp.md) |
 | Built-in agent and its LLM endpoint | the endpoint's output is untrusted | [agents and MCP](agents-and-mcp.md) |
 | Release host and update manifest | trusted after signature verification | [updates](updates.md) |
@@ -37,6 +38,10 @@ UNTRUSTED                                   BOUNDARY                          TR
                                              never written                      credentials unexported
   Helm repository index and charts       ─► Helm SDK: no plugins, ──────────► release operations
                                              no post-renderers
+  chart README (from the archive)        ─► 256 KiB, cleaned, Markdown ─────► drawer, object_get
+                                             without images or HTML
+  chart icon (any https host)            ─► no credentials, public ─────────► kept icon copy
+                                             address, bounded decode
   MCP requests, LLM tool calls           ─► token, origin, schema, ─────────► dispatched commands
                                              access review, confirmation
   update manifest and artifact           ─► signature, checksum, ───────────► installed app
@@ -60,6 +65,7 @@ UNTRUSTED                                   BOUNDARY                          TR
 | Helm's repositories file to repositories | `internal/helm`, `internal/engine` | Built 2026-10-13 ([D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml), [`repofile.go`](../../internal/helm/repofile.go)): the path is the helm CLI's, resolved in `cmd/cogpit` only; the file is read when its size, modification time or mode changed and stayed so for 250 ms, at most 1 MiB, a regular file (a link to one followed), parsed with the Helm SDK's `repo.File`; a file that does not parse keeps the last good list and its error names a line, never the content (`TestReadRepositoryFileRefusals`, `TestHelmRepoFileErrors`); an entry is used only with a name Cogpit can list, an http or https URL with a host, absolute CA, certificate and key paths, and once per name (`TestReadRepositoryFile`); the CA, certificate and key files are read at each download, at most 1 MiB, regular files, their errors naming the path only (`TestClientCertificateRepository`); Cogpit writes nothing into the file or Helm's folders (`TestNoCommandWritesHelmsFile`, `TestHelmReposFromHelmsFile`). Not checked: who wrote the file ([H-42](#h-42-a-repository-another-program-writes-into-helms-file-is-used-without-asking)) |
 | Chart to release | `internal/helm` | The Helm SDK renders in-process; Helm plugins and post-renderers (which run external programs) are not supported. Built 2026-10-13 ([architecture §8](../developer/architecture.md#8-helm-internalhelm)): repositories are Helm's file's (D-29): https with the certificate checked against the system's roots or the entry's CA file, unless the entry says `insecure_skip_tls_verify`, or plain http as the entry says ([H-41](#h-41-repositories-whose-content-nothing-authenticates)); an https repository's downloads never go to http, by a redirect or a chart URL of its index (`TestRepositoryRefusesWhatDoesNotFit`, `TestPlainHTTPRepository`); a repository's credentials go to its own scheme, host and port only, unless `pass_credentials_all` (`TestCredentialsStayOnTheRepositoryHost`); the downloads go through the Preferences' proxy, else the environment's; an index (32 MiB) and a chart archive (16 MiB) are bounded and parsed by the SDK (`FuzzLoadIndex`); an archive must match the SHA-256 digest its index lists, when it lists one, and hold the chart and version the index names (`TestRepositoryRefusesWhatDoesNotFit`); a library chart and a chart missing its dependencies are refused; DNS lookups in templates stay off; the install is previewed with the SDK's server-side dry run, which writes nothing (`TestKindHelmInstall`). An upgrade to a version a repository lists (2026-10-13) downloads the chart through the same checks, before anything is recorded, and refuses a chart whose name is not the release's (`TestUpgradeToARepositoryChart`, `TestHelmUpgradeRepositoryRefusals`); it has no preview. Provenance files are not checked ([H-30](#h-30-chart-provenance-is-not-verified)) |
 | Chart README to the drawer and agents | `internal/helm`, `internal/engine`, `internal/ui/fyneui` | Built 2026-10-14 (night build HELM2, [architecture §8](../developer/architecture.md#8-helm-internalhelm)): read from the version's archive through the install's path above, only when the drawer shows the chart or an agent reads it; at most 256 KiB kept, invalid UTF-8 replaced, control characters but tab and line feed and the bidirectional embeddings, overrides and isolates dropped (`FuzzCleanReadme`); a copy in Cogpit's cache only when the index's digest verified the archive, checked again when read back (`TestReadmeStoreBounds`). The window renders it as Markdown with Fyne's RichText: images never loaded (their alt text instead, so the README names no host Cogpit fetches from), raw HTML dropped, a link opened only on the user's click and only for an absolute http or https URL (`TestChartDrawerReadme`). Agents read it as text a chart's author wrote ([H-86](agents-and-mcp.md#h-86-a-charts-readme-reaches-agents)) |
+| Chart icon to the window | `internal/helm`, `internal/engine`, `internal/ui/fyneui` | Built 2026-10-14 ([D-46](../developer/decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them), [`helm/icon.go`](../../internal/helm/icon.go), [`engine/helmicons.go`](../../internal/engine/helmicons.go)): only for a row or drawer the window draws and while Preferences › Load chart icons is on (only the user turns it on; agents fetch none); https only, a redirect too; no credentials, cookies or referrer; at most 256 KiB and 20 s; a host at a loopback, private, link-local or other non-public address refused unless it is a chart repository's own, the checked address dialled (`TestFetchIconRefusesPrivateAddresses`); through the Preferences' proxy; the bytes checked as an uploaded cluster icon is (`CheckIcon`: a PNG or JPEG decoded under bounds and written again as a PNG of at most 256 pixels a side, an SVG kept only when it refers to nothing outside itself, anything else refused) and checked again when read from Cogpit's cache (`TestChartIconRefusals`) |
 | Request to command | `internal/engine` | Params validated against the schema; `enabled` and access review before `run`; confirmation by origin ([agents and MCP](agents-and-mcp.md)). Built: the schema check refuses unknown fields, then `Command.Enabled` asks the connected user's cached access reviews about every declared verb whenever the parameters name an object, and a known denial refuses the command for every origin ("not permitted: you may not …"), an unknown answer passes and the API server decides; then the confirmation ([`engine.go`](../../internal/engine/engine.go) `Dispatch`, [`access.go`](../../internal/engine/access.go)); see [H-21](#h-21-access-reviews-guide-they-do-not-guard) |
 | MCP request to engine | `internal/mcp` | Loopback only, bearer token, `Host` and `Origin` checks: [`internal/mcp/http.go`](../../internal/mcp/http.go), `TestHTTPGuard`, `TestNewRefusesNonLoopbackAddresses` |
 | Cluster data to the LLM endpoint | `internal/agent` | Secret values withheld by default; what is sent is shown |
@@ -261,6 +267,48 @@ identity after the preview and, for an agent, the user's acceptance; an upgrade 
 version (2026-10-13) changes a release's objects to such a chart the same way, without a preview.
 Which keys to trust and where
 they would live is not designed.
+
+### H-87: Chart icons tell their hosts what the user looks at
+
+Live since 2026-10-14 while Preferences › Kubernetes › Load chart icons is on, which it is by
+default ([D-46](../developer/decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them), a night
+decision for the owner to confirm). Per case:
+
+- **Who learns what.** Every host an index names as an icon's URL gets a request from the user's
+  address (or the proxy's) when the Charts view shows the chart's row or its drawer opens, at most
+  once a week per URL (the cache): that this computer runs Cogpit (the user agent), when, and which
+  chart's icon. Scrolling the Charts view of a large repository asks the hosts of every icon the
+  rows show. A public repository's icons mostly live on the project's own site, GitHub or a CDN.
+- **What a hostile index can do with it.** Name a URL of its own per user to track who opens which
+  chart (a tracking pixel); name a host inside the user's network: refused when it resolves to a
+  loopback, private, link-local or other non-public address, unless it is a chart repository's own
+  host (any repository in Helm's file), which an index of that repository could already reach.
+  The address is checked when the request dials it, so a name that resolves elsewhere a moment
+  later does not slip through.
+- **Through a proxy** (Preferences › Proxy or `HTTPS_PROXY`) the proxy resolves the host, and the
+  address check does not apply: a proxy that reaches the user's network carries a request to any
+  host there an index names (dormant without a proxy; live with one that forwards to internal
+  hosts). Only GET, without credentials, cookies or a body, and the response is read only as an
+  image.
+- **Bounded by:** the switch, which turns all of it off and which agents cannot turn on; no
+  credentials, cookies or referrer with any icon request; https only.
+
+Not built: a list of hosts the user trusts for icons, icons from the repository's own host only
+(D-46's option (c)), resolving the host before handing a request to a proxy.
+
+### H-88: Chart icons are decoded in Cogpit's process
+
+Live since 2026-10-14 with chart icons on (default): an icon's bytes come from any host its index
+names. A PNG or JPEG is decoded by Go's image packages after its header said it has at most 16
+megapixels and 8,192 pixels a side, and is written again as a PNG of at most 256 pixels a side, which
+is what Cogpit's cache keeps and the window draws; an SVG is parsed as XML (at most 256 KiB, 20,000
+tokens, 64 levels deep, no DOCTYPE, no scripts, event handlers or references outside itself) and then
+rasterised by Fyne's SVG renderer (`fyne-io/oksvg`). What remains: a bug in Go's PNG or JPEG decoder, or in
+oksvg's handling of the paths, gradients and transforms an SVG may hold, is reachable from any icon
+host; a panic in the engine's fetch is recovered and the icon fails, one in the window's renderer is
+not. The same parsers already read the cluster icons the user uploads (a file the user picked).
+Not built: rasterising SVGs in the engine under a recover and handing the window a PNG, as PNG and
+JPEG icons are handed.
 
 ### H-41: Repositories whose content nothing authenticates
 

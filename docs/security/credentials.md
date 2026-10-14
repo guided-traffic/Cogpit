@@ -91,7 +91,12 @@ credential into its own files.
   `<user cache dir>/Cogpit/helm/indexes/` (0600 in a 0700 folder): an index of a repository behind a
   login is what that login protects, readable to the user's own processes as Helm's cache is. The
   night run's `<user config dir>/Cogpit/helm/repositories.json` (public repositories, no
-  credential) is left on disk, unread. What remains is
+  credential) is left on disk, unread. Since 2026-10-14 the chart drawer's README is read from the
+  chart's archive through the same download, so the same rules apply to it, and kept in
+  `<user cache dir>/Cogpit/helm/readmes/` (owner-only) like the indexes; the charts' icons are fetched
+  with no credential at all, not the repository's whatever `pass_credentials_all` says, no cookies
+  ([D-46](../developer/decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them),
+  `TestChartIconRefusals`: an icon behind the repository's login gets a 401). What remains is
   [H-29](#h-29-authenticated-helm-repositories) and [H-40](#h-40-credentials-over-plain-http).
 - **A proxy's user and password** (built 2026-10-13, G13): a cluster's proxy (Cluster Settings ›
   Proxy) and the proxy of the Helm repositories' and kubectl's downloads (Preferences › Proxy) may each be

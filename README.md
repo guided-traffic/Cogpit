@@ -63,7 +63,7 @@ it. Progress against Lens is measured in [ROADMAP.md](ROADMAP.md).
 - ✏️ YAML editing with a diff and a server-side dry-run before every apply.
 - 🔌 Port forwarding, one click to the browser.
 - ⎈ The Helm releases in your clusters (Lens's Helm view), kept in Secrets or ConfigMaps: history, values, upgrade, rollback, through the Helm SDK, no `helm` binary needed.
-- 📦 Charts from the repositories in Helm's own `repositories.yaml` (add them with `helm repo add`; Cogpit picks a change up within seconds, logins and CA files included, and never writes the file), installed from a Helm Install tab; a chart's drawer shows the README of the version you pick.
+- 📦 Charts from the repositories in Helm's own `repositories.yaml` (add them with `helm repo add`; Cogpit picks a change up within seconds, logins and CA files included, and never writes the file), installed from a Helm Install tab; a chart's drawer shows the README of the version you pick, and charts show their icons (switch them off in Preferences).
 - 🔁 Flux CD: its section in the navigator (Helm releases, Kustomizations, sources, image automation, notifications) with each object's state, revision and message, a dashboard of what is not ready, and Reconcile, Suspend and Resume, on a selection too.
 - 📈 CPU and memory from the cluster's metrics-server and its Prometheus: columns in the Pods and Nodes lists, charts with requests and limits in the pod and node drawers, and the cluster Overview: CPU, Memory and Pods of the master or worker nodes over a time range, with the Issues (pods, nodes and workloads in trouble, warning events) below.
 - 🛡️ Never surprises a cluster: destructive actions confirm, nothing is installed or written implicitly.
@@ -100,6 +100,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Helm chart repositories | Helm's own `repositories.yaml`, as the helm CLI resolves it: `$HELM_REPOSITORY_CONFIG`, else `$HELM_CONFIG_HOME/repositories.yaml`, else Helm's folder; read every 2 seconds, never written (add and remove repositories with `helm repo add` and `helm repo remove`, [D-29](docs/developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml)); credentials stay in memory | `~/Library/Preferences/helm/repositories.yaml` # default on macOS |
 | Helm repository indexes | `<user cache dir>/Cogpit/helm/indexes/<key>-index.yaml`, owner-only (0600, directory 0700); the key a hash of the repository's name and URL. Nothing goes into Helm's own cache | `~/Library/Caches/Cogpit/helm/indexes/3f2a9c61d0b4e8a7c5f19e2d4b6a8c0e-index.yaml` # example |
 | Helm chart READMEs | `<user cache dir>/Cogpit/helm/readmes/<key>.json`, owner-only (0600, directory 0700): the README of a chart version whose archive the index's digest verified, as the chart's drawer showed it (at most 256 KiB), the last 256 kept; the key a hash of the repository's name and URL, the chart, the version and the digest | `~/Library/Caches/Cogpit/helm/readmes/5d0c3f9e2a7b41c8e6f0a19b3d7e2c45.json` # example |
+| Helm chart icons | `<user cache dir>/Cogpit/helm/icons/<key>.png` or `.svg`, owner-only (0600, directory 0700): a chart's icon as Cogpit checked it (a PNG of at most 256 pixels a side, or an SVG that refers to nothing outside itself), used for 7 days, the last 2,048 kept; the key a hash of the icon's URL ([D-46](docs/developer/decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them)) | `~/Library/Caches/Cogpit/helm/icons/0b7e5d2c9a14f3e8b6c1d0a9e7f42c51.png` # example |
 | Helm chart objects | kind `helmcharts`, named `<repository>.<chart>` (a repository whose name has a dot is listed as not used) | `bitnami.nginx` # example |
 | App log | `<user cache dir>/Cogpit/cogpit.log`, and stderr | |
 | Terminal kubeconfig | a temporary file per terminal holding only a context, owner-only, deleted on close ([why](docs/security/credentials.md#the-terminals-kubeconfig)) | |
@@ -295,6 +296,29 @@ for the release's identity), and refused when the mirror serves no `.sig` or `.c
 goes through the HTTP proxy for non-cluster traffic (`httpProxy`, Preferences › Proxy) when one is set. sigstore's
 transparency log is not consulted ([H-35](docs/security/trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log)).
 
+### Preferences › Kubernetes: chart icons
+
+The Charts view and a chart's drawer show the icon a chart repository's index names
+([D-46](docs/developer/decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them)), fetched only for what the window shows.
+
+```json
+{
+  "loadChartIcons": true
+}
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `loadChartIcons` | `true` # default | fetch each chart's icon from the host its URL names; off, Cogpit's own helm-wheel glyph and nothing fetched |
+
+Security note: an icon's URL may point at any host, which then learns that your computer looked at
+the chart ([H-87](docs/security/trust-boundaries.md#h-87-chart-icons-tell-their-hosts-what-the-user-looks-at)).
+Cogpit fetches it over https only, without the repository's credentials, cookies or a referrer, at
+most 256 KiB, never from an address in your own network unless it is a chart repository's own host,
+and through the HTTP proxy for non-cluster traffic when one is set; a PNG or JPEG is decoded under
+bounds and kept as a small PNG, an SVG only when it refers to nothing outside itself. Agents never
+fetch icons, and only you, in Cogpit's window, can turn the switch on; agents may turn it off.
+
 ### Commands and MCP tools
 
 Every command is an MCP tool (dots become underscores). `?` marks optional parameters; `ref` is
@@ -429,9 +453,9 @@ The table is generated from the registry with `go run ./hack/readmecmds`.
 | `portforward.open` | `portforward_open` | ui | `ref` | Returns a port forward's URL, http(s)://127.0.0.1:<port>; the GUI opens it in the browser |
 | `portforward.remove` | `portforward_remove` | ui | `ref` | Stops a port forward and removes it from the list |
 | `portforward.stop` | `portforward_stop` | ui | `ref` | Stops a port forward: its local port closes and its connection to the pod ends |
-| `preferences.get` | `preferences_get` | read |  | Returns Cogpit's preferences as the Preferences page (⌘,) shows them: the theme (system, dark, light), the time zone absolute times are shown in (empty: the computer's) and the zone in effect, the tables' row height, the YAML editor's font size, line numbers and tab size, the terminal's font size, the local terminal's shell and arguments (empty: $SHELL), whether a right click in a terminal copies and pastes, the HTTP proxy of the traffic that is no cluster's (empty: the environment's; its password shown as •••), and kubectl for terminals: downloads offered or not, the mirror, the directory for binaries (kubectlDir: the one in effect), the path to kubectl, and where new Helm installs keep their records (helmDriver, empty: secret); kept says whether they outlive this run. ui_state carries the same |
+| `preferences.get` | `preferences_get` | read |  | Returns Cogpit's preferences as the Preferences page (⌘,) shows them: the theme (system, dark, light), the time zone absolute times are shown in (empty: the computer's) and the zone in effect, the tables' row height, the YAML editor's font size, line numbers and tab size, the terminal's font size, the local terminal's shell and arguments (empty: $SHELL), whether a right click in a terminal copies and pastes, the HTTP proxy of the traffic that is no cluster's (empty: the environment's; its password shown as •••), and kubectl for terminals: downloads offered or not, the mirror, the directory for binaries (kubectlDir: the one in effect), the path to kubectl, where new Helm installs keep their records (helmDriver, empty: secret), and whether chart icons are fetched (loadChartIcons); kept says whether they outlive this run. ui_state carries the same |
 | `preferences.open` | `preferences_open` | ui | `section`? | Opens Cogpit's Preferences page in the window, as ⌘, (Ctrl+,) does, at a section: app (theme, time zone), proxy (the HTTP proxy of the traffic that is no cluster's), kubernetes (kubeconfig syncs, kubectl for terminals, Helm's storage driver), editor, terminal or tables |
-| `preferences.set` | `preferences_set` | ui | `editorFontSize`?, `editorLineNumbers`?, `editorTabSize`?, `helmDriver`?, `httpProxy`?, `kubectlDir`?, `kubectlDownload`?, `kubectlMirror`?, `kubectlPath`?, `tableRowHeight`?, `terminalFontSize`?, `terminalRightClickCopyPaste`?, `terminalShell`?, `terminalShellArgs`?, `theme`?, `timezone`? | Changes some of Cogpit's preferences, as the Preferences page does; the fields left out stay as they are |
+| `preferences.set` | `preferences_set` | ui | `editorFontSize`?, `editorLineNumbers`?, `editorTabSize`?, `helmDriver`?, `httpProxy`?, `kubectlDir`?, `kubectlDownload`?, `kubectlMirror`?, `kubectlPath`?, `loadChartIcons`?, `tableRowHeight`?, `terminalFontSize`?, `terminalRightClickCopyPaste`?, `terminalShell`?, `terminalShellArgs`?, `theme`?, `timezone`? | Changes some of Cogpit's preferences, as the Preferences page does; the fields left out stay as they are |
 | `replicaset.scale` | `replicaset_scale` | mutating (destructive for some calls) | `ref`, `replicas`? | Sets a replica set's replica count, as kubectl scale does: a patch of spec.replicas on its scale subresource |
 | `resource.createTab` | `resource_createTab` | ui | `template`?, `yaml`? | Opens a Create resource dock tab with yaml, with a template (resource_templates lists them), or with an example Pod |
 | `resource.templates` | `resource_templates` | read |  | Lists Cogpit's templates for new objects, one per kind in alphabetical order, each with its apiVersion, whether the kind is namespaced, and its YAML (without a namespace) |

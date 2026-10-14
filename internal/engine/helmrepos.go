@@ -162,6 +162,7 @@ type HelmRepos struct {
 	pubTarget                 *Backend
 	published                 map[string]string // chart object name → resourceVersion in pubTarget's local store
 	readmes                   readmeStore       // the chart drawer's READMEs (helmchartdrawer.go)
+	icons                     chartIcons        // the charts' icons (helmicons.go, D-46)
 }
 
 // HelmReposOption configures NewHelmRepos.
@@ -195,6 +196,10 @@ func NewHelmRepos(repoFile, cacheDir string, opts ...HelmReposOption) *HelmRepos
 	for _, o := range opts {
 		o(h)
 	}
+	// The icons are fetched with the downloads' transport (its TLS settings), never their
+	// repository's credentials (helm.IconFetcher).
+	h.icons = chartIcons{dir: filepath.Join(cacheDir, filepath.FromSlash(helmIconDir)), fetcher: &helm.IconFetcher{Base: h.fetcher.Client},
+		sem: make(chan struct{}, maxIconFetches)}
 	return h
 }
 
@@ -654,6 +659,9 @@ func (h *HelmRepos) attach(s *Session) {
 	h.mu.Unlock()
 	if h.fetcher != nil && h.fetcher.Proxy == nil {
 		h.fetcher.Proxy = s.NonClusterProxy // the Preferences' proxy, else the environment's (proxy.go)
+	}
+	if h.icons.fetcher != nil && h.icons.fetcher.Proxy == nil {
+		h.icons.fetcher.Proxy = s.NonClusterProxy // the icons' too (D-46)
 	}
 	s.Subscribe(h.onEvent)
 	go h.watchFile(s)

@@ -81,6 +81,9 @@ type HelmChartDrawer struct {
 	// Versions are every version the repository's index lists, newest first: what ui.setChartVersion
 	// takes.
 	Versions []string `json:"versions"`
+	// Icon is the URL of Version's icon as the index names it, which only the window fetches
+	// (D-46, helmicons.go); empty without one.
+	Icon string `json:"icon,omitempty"`
 	// Readme is the state of Version's README; its text is the drawer's "README" section.
 	Readme ChartReadme `json:"readme"`
 }
@@ -115,18 +118,19 @@ func (s *Session) helmChartDrawer(ctx context.Context, p *model.KindProfile, ref
 	}
 	listed := model.NestedString(obj, "spec", "version")
 	shown, version := s.drawerChart(ref)
+	icon := model.NestedString(obj, "spec", "icon")
 	if version != "" && version != listed {
 		at := h.chartObjectAt(repository, chart, version, obj)
 		if at == nil {
 			version = "" // gone from the index since it was picked: the listed version
 		} else if vm, _ := BuildDetailIn(p, ref, at, nil, s.displayNow(), nil, s.TimeFormat()); vm != nil {
-			m = vm
+			m, icon = vm, model.NestedString(at, "spec", "icon")
 		}
 	}
 	if version == "" {
 		version = listed
 	}
-	hc := HelmChartDrawer{Repository: repository, Chart: chart, Version: version, Listed: listed, Versions: chartVersions(obj)}
+	hc := HelmChartDrawer{Repository: repository, Chart: chart, Version: version, Listed: listed, Versions: chartVersions(obj), Icon: icon}
 	readme, text := h.readmeOf(ctx, s, repository, chart, version, shown || wait, shown && !wait, wait)
 	hc.Readme = readme
 	AddHelmChartDrawer(m, hc, text)

@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (D-11, D-37: a tab whose context leaves Cogpit closes, keeping an editor's draft and deleting a node shell's pod, Cogpit's defaults; D-44 (night decision, for the owner to confirm): agents read the dock's logs tabs freely and a terminal tab only once the user turned on its "Agents may read" switch, built; D-42, a night decision for the owner to confirm: no context picker at start, the welcome page, built; D-41, a night decision for the owner to confirm: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, built; D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (D-46 (night decision, for the owner to confirm): chart icons fetched when shown, with Preferences › Load chart icons on by default, built; D-11, D-37: a tab whose context leaves Cogpit closes, keeping an editor's draft and deleting a node shell's pod, Cogpit's defaults; D-44 (night decision, for the owner to confirm): agents read the dock's logs tabs freely and a terminal tab only once the user turned on its "Agents may read" switch, built; D-42, a night decision for the owner to confirm: no context picker at start, the welcome page, built; D-41, a night decision for the owner to confirm: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, built; D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -32,6 +32,7 @@ projects' repositories; re-check them before relying on a version number.
 | [D-41](#d-41-what-survives-a-restart) | What survives a restart: the tabs and the tables' layout | night decision, for the owner to confirm: Cogpit's own `workspace.json`, restored without connecting anything; built 2026-10-13 |
 | [D-42](#d-42-the-start-screen) | The start screen: the welcome page, no context picker by itself | night decision, for the owner to confirm: no picker at start (option b); built 2026-10-13 |
 | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs) | What agents read of the dock's logs and terminal tabs | night decision, for the owner to confirm: logs freely, a terminal tab only once the user turned on its switch (option b), built 2026-10-13 |
+| [D-46](#d-46-chart-icons-from-the-hosts-that-serve-them) | Chart icons from the hosts that serve them | night decision, for the owner to confirm: fetched when shown, https only, no credentials, bounded and checked, with Preferences › Load chart icons on by default (option b); built 2026-10-14 |
 
 ## D-1: UI toolkit
 
@@ -1858,10 +1859,62 @@ What the build chose, Cogpit's defaults (not the owner's decision):
   to its LLM endpoint falls under the endpoint's rules
   ([H-13](../security/agents-and-mcp.md#h-13-cluster-data-leaves-for-the-llm-endpoint)).
 
+## D-46: Chart icons from the hosts that serve them
+
+**Night decision (the lead's, 2026-10-14, for the owner to confirm):** a chart repository's index
+names each chart version's icon as a URL on any host (a CDN, GitHub, the project's own site), and
+Lens shows icons in its Charts view (inferred; neither its icon column nor its chart drawer is
+captured). Fetching one tells whoever serves it that this computer looked at the chart
+(its address, the time, the URL), and an index can name any URL, a host in the user's own network
+included. Options: (a) no icons: nothing fetched, Lens's look not met; (b) icons fetched from their
+URL when the window shows them, https only, without credentials, bounded in size, a PNG or JPEG
+decoded under bounds and an SVG checked, kept in Cogpit's cache by the URL's hash for a while, with
+a Preferences switch; (c) icons only from the repository's own host, which already learns what the
+user looks at from the archives and indexes (most public repositories name icons elsewhere, so most
+charts would show no icon); chosen (b) with Preferences › Kubernetes › "Load chart icons" on by
+default, because the icon is how a user finds a chart in a long list, and the cost is a request per
+icon shown, to a host the chart's author chose, carrying nothing but the URL, which the switch turns
+off for whoever minds; (c) costs most of the icons for a privacy gain only against the hosts a
+chart's author chose. **Built 2026-10-14** (night build HELM2, G11;
+[`helm/icon.go`](../../internal/helm/icon.go), [`engine/helmicons.go`](../../internal/engine/helmicons.go),
+[`fyneui/helmcharticons.go`](../../internal/ui/fyneui/helmcharticons.go)): the Charts view's first
+column and a chart drawer's header draw the icon, Cogpit's own helm-wheel glyph while it loads, when
+there is none, when it failed and while the switch is off; `TestFetchIcon`,
+`TestFetchIconRefusesPrivateAddresses`, `TestChartIcons`, `TestChartIconRefusals`,
+`TestChartIconsPreference`, `TestChartIconsInTheWindow`, `TestPreferencesLoadChartIcons`, PNGs
+[dark](../../internal/ui/fyneui/testdata/helm_chart_icons_dark.png),
+[light](../../internal/ui/fyneui/testdata/helm_chart_icons_light.png).
+
+What the build chose, Cogpit's defaults (not the owner's decision):
+
+- **When:** only for a cell or the drawer the window draws, at most 4 downloads at once, one per URL;
+  never for agents (no command fetches an icon; `object_get` and the rows carry the URL), never for
+  the CLI.
+- **How:** https only, a redirect too (at most 5); no credentials (not the repository's, whatever
+  `pass_credentials_all` says), no cookies, no referrer, the user agent "Cogpit"; at most 256 KiB
+  and 20 seconds; through the Preferences' proxy for non-cluster traffic, as every download.
+- **Where to (beyond the option):** a host that resolves to a loopback, private, link-local,
+  carrier-grade NAT or otherwise non-public address is refused, so that an index cannot make Cogpit
+  send requests into the user's own network; a chart repository's own host (any repository in
+  Helm's file) is allowed at any address, so an internal repository's icons beside its charts show.
+  Each request dials the address it checked. Through a proxy the proxy resolves the host and the
+  check does not apply ([H-87](../security/trust-boundaries.md#h-87-chart-icons-tell-their-hosts-what-the-user-looks-at)).
+- **What:** checked as an uploaded cluster icon is (`CheckIcon`): a PNG or JPEG decoded under bounds
+  (16 megapixels, 8,192 a side) and kept as a PNG of at most 256 pixels a side; an SVG kept only
+  when it is one `<svg>` document without a DOCTYPE, scripts, event handlers or references outside
+  itself; anything else (GIF, WebP, ICO, HTML) refused
+  ([H-88](../security/trust-boundaries.md#h-88-chart-icons-are-decoded-in-cogpits-process)).
+- **Kept:** `<user cache dir>/Cogpit/helm/icons/<hash of the URL>.png` or `.svg`, owner-only, used for
+  7 days, the last 2,048; in memory the last 512; a failure remembered for an hour.
+- **The switch:** `Preferences.LoadChartIcons`, on by default; off, nothing is fetched or read and the
+  glyph shows everywhere at once. Agents and the CLI may only turn it off (`ErrChartIconsGUIOnly`):
+  turning it on decides whether Cogpit contacts the icons' hosts.
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | D-46 (night decision, for the owner to confirm): chart icons fetched from the hosts that serve them when the window shows them, with Preferences › Load chart icons on by default (option b); a repository's own host allowed at a private address, other private addresses refused; built |
 | 2026-10-14 | minor | D-11, D-37 (the night build's seams): a dock tab whose context leaves Cogpit closes with it; an editor's draft is kept, a node shell's pod deleted (Cogpit's defaults) |
 | 2026-10-13 | minor | D-44 (night decision, for the owner to confirm): agents read what the dock's logs tabs show freely, a terminal tab's screen only once the user turned on the tab's switch (off when a tab opens, GUI-only); built with Cogpit's defaults (every terminal type, no dialog, the bounds, no scrollback in the widget) |
 | 2026-10-13 | minor | D-42 (night decision, for the owner to confirm): no context picker at start, the welcome page with its cluster rows; `--context` and `--demo` as before; the engine's notices from before the window shown as toasts once it is up; built |

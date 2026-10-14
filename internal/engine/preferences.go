@@ -117,14 +117,19 @@ type Preferences struct {
 	KubectlMirror string `json:"kubectlMirror,omitempty"`
 	KubectlDir    string `json:"kubectlDir,omitempty"`
 	KubectlPath   string `json:"kubectlPath,omitempty"`
+	// LoadChartIcons: the Charts view and a chart's drawer fetch the icon a repository's index
+	// names, from whatever host serves it (D-46, helmicons.go); off: none is fetched and Cogpit's
+	// own glyph shows. On by default; agents and the CLI may only turn it off.
+	LoadChartIcons bool `json:"loadChartIcons"`
 }
 
 // DefaultPreferences are the preferences of a first start: dark (Cogpit starts dark, as it did
 // before the preference existed), the computer's time zone, the default row height, 13-point text,
-// line numbers on, two-space tabs, the user's own shell, kubectl downloads offered.
+// line numbers on, two-space tabs, the user's own shell, kubectl downloads offered, chart icons
+// loaded (D-46).
 func DefaultPreferences() Preferences {
 	return Preferences{Theme: ThemeDark, EditorFontSize: DefaultFontSize, EditorLineNumbers: true,
-		EditorTabSize: DefaultTabSize, TerminalFontSize: DefaultFontSize, KubectlDownload: true}
+		EditorTabSize: DefaultTabSize, TerminalFontSize: DefaultFontSize, KubectlDownload: true, LoadChartIcons: true}
 }
 
 // Clone returns a deep copy.
