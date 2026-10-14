@@ -27,6 +27,10 @@ type ConfirmRequest struct {
 	UIDs []string `json:"uids,omitempty"`
 	// Detail adds what the objects alone don't say: the options that make a drain lose data.
 	Detail string `json:"detail,omitempty"`
+	// AgentsAsk is true when an agent's mutating request asks whatever the allowance of agent
+	// writes, because the command declares it for these parameters: a role binding (H-27,
+	// agentsask.go). The dialog then does not offer the allowance as a way to skip such a question.
+	AgentsAsk bool `json:"agentsAsk,omitempty"`
 	// Review is a text the user reads before answering, which the request itself carries: an
 	// agent's Helm values for an upgrade. The command runs with exactly this text (it is part of
 	// its parameters). The GUI's dialog shows it in Cogpit's own window; it is never serialised,

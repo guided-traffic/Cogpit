@@ -276,31 +276,45 @@ func TestCreateDialogsAgentsNeedAcceptance(t *testing.T) {
 		t.Errorf("audit %+v", lines)
 	}
 
-	// Agent writes allowed for the context: the mutating ones run unasked, a grant of everything asks.
+	// Agent writes allowed for the context: the mutating ones run unasked, but every role binding an
+	// agent asks for waits for the user (H-27), whatever its role, and a grant of everything asks
+	// as a destructive command.
 	h.s.SetAgentWrites("test", true)
 	n := len(asked)
 	h.must(t, agent, "namespace.create", map[string]any{"name": "agent-made"}, nil)
-	h.must(t, agent, "roleBinding.create", rb, nil)
+	h.must(t, agent, "role.create", map[string]any{"name": "r2", "namespace": "shop"}, nil)
 	if len(asked) != n {
 		t.Errorf("asked %+v with agent writes allowed", asked[n:])
+	}
+	h.must(t, agent, "roleBinding.create", rb, nil)
+	if len(asked) != n+1 || asked[n].Command != "roleBinding.create" || asked[n].Danger != engine.DangerMutating ||
+		!asked[n].AgentsAsk || asked[n].Detail == "" {
+		t.Fatalf("an agent's role binding to admin with agent writes allowed: asked %+v", asked[n:])
 	}
 	admin := map[string]any{"name": "ci-root", "namespace": "shop", "roleRef": map[string]any{"kind": "ClusterRole", "name": "cluster-admin"},
 		"subjects": []any{map[string]any{"kind": "ServiceAccount", "name": "ci"}}}
 	h.must(t, agent, "roleBinding.create", admin, nil)
 	crb := map[string]any{"name": "ci-view", "clusterRole": "view", "subjects": []any{map[string]any{"kind": "ServiceAccount", "name": "ci", "namespace": "shop"}}}
 	h.must(t, agent, "clusterRoleBinding.create", crb, nil)
-	if len(asked) != n+2 || asked[n].Danger != engine.DangerDestructive || asked[n+1].Command != "clusterRoleBinding.create" {
+	if len(asked) != n+3 || asked[n+1].Danger != engine.DangerDestructive || asked[n+2].Command != "clusterRoleBinding.create" {
 		t.Errorf("grants of everything: asked %+v", asked[n:])
 	}
-	// The GUI's own binding to cluster-admin asks too.
+	// The GUI's own binding to admin runs without a dialog, as before; its binding to
+	// cluster-admin asks too.
+	gui := map[string]any{"name": "gui-admin", "namespace": "shop", "roleRef": map[string]any{"kind": "ClusterRole", "name": "admin"},
+		"subjects": []any{map[string]any{"kind": "ServiceAccount", "name": "ci"}}}
+	h.must(t, engine.OriginGUI, "roleBinding.create", gui, nil)
+	if len(asked) != n+3 {
+		t.Errorf("the GUI's own binding to admin asked: %+v", asked[n+3:])
+	}
 	admin["name"] = "gui-root"
 	h.must(t, engine.OriginGUI, "roleBinding.create", admin, nil)
-	if len(asked) != n+3 || asked[n+2].Origin != engine.OriginGUI {
+	if len(asked) != n+4 || asked[n+3].Origin != engine.OriginGUI || asked[n+3].AgentsAsk {
 		t.Errorf("the GUI's binding to cluster-admin: asked %+v", asked[n:])
 	}
 	// The MCP tool says so.
-	if c, _ := h.s.Registry().Get("roleBinding.create"); !c.Escalates {
-		t.Error("roleBinding.create does not escalate")
+	if c, _ := h.s.Registry().Get("roleBinding.create"); !c.Escalates || !c.AgentsAsk {
+		t.Errorf("roleBinding.create: escalates %v, agentsAsk %v", c.Escalates, c.AgentsAsk)
 	}
 }
 

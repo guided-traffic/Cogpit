@@ -147,6 +147,9 @@ func describe(cmd *engine.Command) string {
 	if cmd.Escalates {
 		note += " Some calls are destructive (the description says which): those the user must always confirm."
 	}
+	if cmd.AgentsAsk {
+		note += " Some calls always wait for the user's acceptance, also where the user allowed agent writes (the description says which)."
+	}
 	if cmd.GUIOnly { // no confirmation to describe: an agent's call never gets that far
 		note = "Danger level: " + string(cmd.Danger) + ". GUI only: only the user's own action in Cogpit's window runs it, " +
 			"so every call from an agent is refused whatever its arguments, before anything is asked, read or written. " +

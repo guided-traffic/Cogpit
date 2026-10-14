@@ -21,7 +21,10 @@ Ordered checklists for the common additions. The packages they name are in
      with `DrawerOnly` when Lens shows it in the drawer but not in the row menu (Copy);
      `Enabled` wraps `engine.ErrNotApplicable` when the command does not apply to the object at all
      (Cordon on a cordoned node), so that the menu hides it; `Escalate` when some invocations of a
-     mutating command are destructive; `Prefill` when a dialog should start from cached values;
+     mutating command are destructive; `AgentsAsk` when some invocations by an agent must wait for
+     the user even where agent writes are allowed (a role binding: a command that can write one
+     declares it, [H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache));
+     `Prefill` when a dialog should start from cached values;
    - a parameter struct with `json` and `jsonschema` tags (the schema agents read);
    - `enabled`, returning the reason when disabled;
    - `verbs` (every API verb and resource it uses) and `danger` (`Read`, `UI`, `Mutating`,

@@ -461,7 +461,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   [`createdialog.go`](../../internal/ui/fyneui/createdialog.go); `TestKindCreateDialogs` on
   Kubernetes 1.36.1); their fields are inferred, Lens's dialogs not captured. Bindings to
   cluster-admin and cluster-wide ones are confirmed for every origin (the lead's default, not the
-  owner's decision; [H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache)).
+  owner's decision), and every binding an agent asks for waits for the user, also where agent
+  writes are allowed (the owner's decision, 2026-10-14;
+  [H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache)).
   Create Secret (2026-10-13, night build; G9): the eighth dialog, `secret.create`, the user's
   only (D-19) ([`commands/secretcreate.go`](../../internal/engine/commands/secretcreate.go),
   [`createdialog_secret.go`](../../internal/ui/fyneui/createdialog_secret.go)).

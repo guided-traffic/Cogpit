@@ -2,8 +2,11 @@
 
 Every command is an MCP tool (dots become underscores). `?` marks optional parameters; `ref` is
 `{context?, kind, namespace?, name}`. Danger decides confirmation: `destructive` always asks in
-Cogpit's window, `mutating` asks when an agent calls it, `read` and `ui` never ask
-([D-2](decisions.md#d-2-agent-interface-scope)); `GUI only` marks a command only the
+Cogpit's window, `mutating` asks when an agent calls it (unless the user allowed agent writes for
+the context), `read` and `ui` never ask
+([D-2](decisions.md#d-2-agent-interface-scope)); `agents always ask` marks a mutating command some
+of whose calls, a role binding's, wait for the user even where agent writes are allowed
+([H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache)); `GUI only` marks a command only the
 user's own action in Cogpit's window runs: agents and the CLI are refused, whatever the parameters.
 
 The table is generated from the registry and spliced in, so do not edit it by hand: when a
@@ -124,9 +127,9 @@ Cogpit and its flags are in [`usage.md`](usage.md).
 | `notifications.clear` | `notifications_clear` | ui |  | Empties the notification list, as its "Clear all" does in Cogpit's window |
 | `notifications.list` | `notifications_list` | read |  | Lists the notifications the user was shown as toasts in this session, newest first, at most 100: each with its id, level (info, warning, error), message, time, and whether the user has read it (seen it in the title bar's notification list or closed its toast), with the totals the bell's badge shows |
 | `notifications.markRead` | `notifications_markRead` | ui | `ids`? | Marks notifications read, as opening the title bar's notification list does: the ones named by ids, or every one |
-| `object.apply` | `object_apply` | mutating (destructive for some calls) | `id`, `textRevision`?, `yaml`? | Writes an Edit tab's text at textRevision (or yaml) to the cluster: a server-side dry run, then an update with the resourceVersion the edit is based on as precondition |
+| `object.apply` | `object_apply` | mutating (destructive for some calls; agents always ask for some calls) | `id`, `textRevision`?, `yaml`? | Writes an Edit tab's text at textRevision (or yaml) to the cluster: a server-side dry run, then an update with the resourceVersion the edit is based on as precondition |
 | `object.copyName` | `object_copyName` | ui | `ref` | Returns an object's name, as the detail drawer's Copy does for the user, who gets it on the clipboard |
-| `object.create` | `object_create` | mutating | `namespace`?, `yaml` | Creates the objects of a YAML text (several documents separated by ---) in order, each after a server-side dry run; an object that fails is reported and the next one is tried |
+| `object.create` | `object_create` | mutating (agents always ask for some calls) | `namespace`?, `yaml` | Creates the objects of a YAML text (several documents separated by ---) in order, each after a server-side dry run; an object that fails is reported and the next one is tried |
 | `object.delete` | `object_delete` | destructive | `ref` | Deletes an object of any kind with its default grace period, with the UID Cogpit's cache holds for it as a precondition, so that an object created again under the same name is not deleted; its dependents are garbage-collected, and its controller, if any, may replace it |
 | `object.deleteMany` | `object_deleteMany` | destructive | `refs` | Deletes several objects of any kinds at once, as Delete on the table's selection does: one confirmation names every object (the message the first ten and the count), their namespaces and the context, for every origin; then each object is deleted with its default grace period and the UID Cogpit's cache held for it when the user confirmed as a precondition, one after the other |
 | `object.dryRun` | `object_dryRun` | read | `id`, `yaml`? | Sends an Edit tab's text (or yaml) to the API server as an update with dryRun=All: the server validates it and runs admission, and stores nothing |
@@ -151,7 +154,7 @@ Cogpit and its flags are in [`usage.md`](usage.md).
 | `resources.find` | `resources_find` | read | `field`, `kind`?, `limit`?, `match`?, `value` | Finds objects by a field value in Cogpit's cache, e.g. the Service with clusterIP 10.96.0.1 ({kind: services, field: clusterIP, value: 10.96.0.1}) or the pods on a node |
 | `resources.list` | `resources_list` | read | `filter`?, `kind`, `limit`?, `namespaces`?, `states`? | Lists objects of one kind from Cogpit's cache, as table rows: reference, status and the cells by column title |
 | `role.create` | `role_create` | mutating | `name`, `namespace`?, `rules`? | Creates a Role in a namespace with the given rules (API groups, resources, verbs, optional resource names) after a server-side dry run; the API server refuses rules that grant more than the user holds unless the user may escalate roles |
-| `roleBinding.create` | `roleBinding_create` | mutating (destructive for some calls) | `name`, `namespace`?, `roleRef`, `subjects` | Creates a RoleBinding that grants a Role of its namespace, or a ClusterRole within its namespace, to users, groups and service accounts, after a server-side dry run; the API server refuses it unless the user holds the role's permissions or may bind it |
+| `roleBinding.create` | `roleBinding_create` | mutating (destructive for some calls; agents always ask for some calls) | `name`, `namespace`?, `roleRef`, `subjects` | Creates a RoleBinding that grants a Role of its namespace, or a ClusterRole within its namespace, to users, groups and service accounts, after a server-side dry run; the API server refuses it unless the user holds the role's permissions or may bind it |
 | `secret.create` | `secret_create` | mutating (GUI only) | `annotations`?, `data`?, `labels`?, `name`, `namespace`?, `type`? | Creates a Secret (name, namespace, type, data entries, labels, annotations) after a server-side dry run, for the user in Cogpit's window only (D-19): an agent or the CLI is refused before anything is asked or sent, whatever the parameters, and no value is ever logged |
 | `secret.reveal` | `secret_reveal` | read (GUI only) | `key`, `ref`, `resourceVersion`? | Shows the user one value of the Secret open in the drawer, in Cogpit's own window (the drawer lists the keys with their values masked) |
 | `service.portForward` | `service_portForward` | mutating | `https`?, `localPort`?, `openInBrowser`?, `port`, `ref` | Forwards a service's port to a local port on 127.0.0.1 (only loopback; every local process can connect while it runs) through a ready pod of the service's selector, at the port the service targets, as kubectl port-forward svc/<name> does |

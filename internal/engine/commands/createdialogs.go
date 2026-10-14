@@ -28,11 +28,12 @@ import (
 //
 // Danger (the lead's default, 2026-10-12, not the owner's decision; privilege-footprint.md): every
 // create is mutating, so an agent's waits for the user's acceptance (D-2). A binding is a
-// privilege grant, so its confirmation says what it grants to whom (Detail), and two kinds of
-// grant are confirmed for every origin, the GUI too, even where the user allowed agent writes for
-// the context: a cluster role binding (cluster-wide, so registered destructive) and a role binding
-// to cluster-admin, or to a role Cogpit's cache holds whose rules allow every verb on every
-// resource (escalated to destructive). Roles themselves grant nothing until bound.
+// privilege grant, so its confirmation says what it grants to whom (Detail); an agent's role
+// binding waits for the user even where the user allowed agent writes for the context (AgentsAsk,
+// the owner's decision of 2026-10-14, H-27); and two kinds of grant are confirmed for every
+// origin, the GUI too: a cluster role binding (cluster-wide, so registered destructive) and a role
+// binding to cluster-admin, or to a role Cogpit's cache holds whose rules allow every verb on
+// every resource (escalated to destructive). Roles themselves grant nothing until bound.
 
 // The RBAC names the dialogs use.
 const (
@@ -298,9 +299,9 @@ func registerCreateDialogs(g *registrar) {
 	rb := createSpec("roleBinding.create", "Create Role Binding", "RoleBinding/Create",
 		"Creates a RoleBinding that grants a Role of its namespace, or a ClusterRole within its namespace, to users, groups "+
 			"and service accounts, after a server-side dry run; the API server refuses it unless the user holds the role's "+
-			"permissions or may bind it. An agent's request waits for the user's acceptance, which names the role and the "+
-			"subjects; a binding to cluster-admin, or to a role that allows every verb on every resource, is confirmed by the "+
-			"user for every origin. Returns its reference.",
+			"permissions or may bind it. An agent's request always waits for the user's acceptance, which names the role and "+
+			"the subjects, also where the user allowed agent writes; a binding to cluster-admin, or to a role that allows "+
+			"every verb on every resource, is confirmed by the user for every origin. Returns its reference.",
 		createRoleBindingKind, engine.DangerMutating,
 		func(p roleBindingCreateParams) string { return p.Namespace },
 		func(s *engine.Session, p roleBindingCreateParams) (map[string]any, model.ObjectRef, error) {
@@ -321,6 +322,8 @@ func registerCreateDialogs(g *registrar) {
 		p.Namespace = ns
 		return p, err
 	}
+	// A grant: an agent's always waits for the user, whatever the allowance of agent writes (H-27).
+	rb.AgentsAsk = func(*engine.Session, roleBindingCreateParams) bool { return true }
 	rb.Escalate = func(s *engine.Session, p roleBindingCreateParams) bool {
 		return grantsAll(s, p.RoleRef.Kind, p.RoleRef.Name, p.Namespace)
 	}

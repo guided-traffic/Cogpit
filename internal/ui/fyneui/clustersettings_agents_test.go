@@ -119,6 +119,17 @@ func TestConfirmationNamesTheAllowance(t *testing.T) {
 	if got := ask(req); !slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, "destructive commands always ask") }) {
 		t.Errorf("an agent's Delete with the allowance on: %q", got)
 	}
+	// An agent's role binding asks with the allowance on (H-27): the dialog says so, and does not
+	// offer the allowance as a way around the question.
+	binding := engine.ConfirmRequest{Command: "roleBinding.create", Label: "Create Role Binding", Danger: engine.DangerMutating,
+		Origin: engine.OriginExternalAgent, Context: "kind-dev", Namespaces: []string{"apps"}, AgentsAsk: true,
+		Objects: []model.ObjectRef{{Kind: "rolebindings", Namespace: "apps", Name: "ci"}}}
+	has := func(texts []string, part string) bool {
+		return slices.ContainsFunc(texts, func(s string) bool { return strings.Contains(s, part) })
+	}
+	if got := ask(binding); !has(got, "A role binding an agent asks for always waits for you") || has(got, "allow it in Cluster Settings") {
+		t.Errorf("an agent's role binding with the allowance on: %q", got)
+	}
 	req.Origin = engine.OriginGUI
 	if got := ask(req); slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, "Agents") }) {
 		t.Errorf("the user's own Delete names the allowance: %q", got)

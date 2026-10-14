@@ -24,7 +24,7 @@ const (
 	agentsSectionLabel = "Agents"
 	agentWritesTitle   = "Changes by agents"
 	agentWritesCheck   = "Let agents change this cluster without asking"
-	agentWritesHelp    = "Scale, cordon, apply and other changes by agents; delete, drain, evict and the other destructive commands always ask."
+	agentWritesHelp    = "Scale, cordon, apply and other changes by agents. Role bindings and destructive commands always ask."
 	agentWritesNoteOff = "Not allowed: every change an agent asks for waits for you."
 	agentWritesNoteOn  = "Allowed: agents change this cluster without asking. Their commands are in the audit log."
 	agentWritesDemo    = "The demo cluster is generated in memory: no agent can change it."
@@ -94,7 +94,7 @@ func (p *settingsPage) confirmAgentWrites(ctx string, done func(bool)) {
 	width := sh.app.Settings().Theme().Size(sizeConfirmWidth)
 	name := sh.identity(ctx).name
 	text := "Agents' mutating commands in " + name + " (context " + ctx + ") will run without asking you, until you " +
-		"turn this off. Destructive commands (delete, drain, evict, scale to zero, …) still ask."
+		"turn this off. Role bindings and destructive commands (delete, drain, evict, scale to zero, …) still ask."
 	cd := &agentsDialog{confirm: widget.NewButton("Allow", nil), cancel: widget.NewButton("Cancel", nil)}
 	cd.confirm.Importance = widget.HighImportance
 	answered := false
@@ -127,6 +127,8 @@ func (sh *shell) allowanceHint(req engine.ConfirmRequest) string {
 	}
 	allowed := sh.ui.ClusterSettings[req.Context].AgentWrites
 	switch {
+	case req.AgentsAsk: // a role binding (H-27): the allowance does not skip this question
+		return "A role binding an agent asks for always waits for you, also where agents may change this cluster without asking."
 	case req.Danger == engine.DangerDestructive && allowed:
 		return "Agents may change this cluster without asking (Cluster Settings › Agents), but destructive commands always ask."
 	case req.Danger == engine.DangerDestructive:

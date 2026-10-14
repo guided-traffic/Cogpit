@@ -85,6 +85,10 @@ built-in agent alike):
 - Read commands and UI operations run without asking.
 - `Mutating` commands from an agent show what will happen in the GUI and run after the user
   accepts, unless the user has allowed agent writes for that cluster context.
+- A role binding or cluster role binding an agent creates or changes always waits for the user's
+  acceptance, also where agent writes are allowed, whatever its role; the user's own command in
+  the window is unchanged (owner, 2026-10-14;
+  [H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache)).
 - `Destructive` commands from an agent always need the user's confirmation in the GUI, naming the
   objects, the namespace and the context.
 - Every agent-initiated command is recorded in an audit log the user can read.
@@ -2218,6 +2222,7 @@ What the build chose, Cogpit's defaults (not the owner's decision):
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | D-2 (owner): a role binding an agent creates or changes always waits for the user, also where agent writes are allowed: `roleBinding.create`, and `object.create` and `object.apply` when the text or the Edit tab holds a binding (a command's declared `AgentsAsk`); built. Helm charts and the role's own rules are not covered (H-27) |
 | 2026-10-14 | minor | D-4 decided by the owner: Sparkle's feed on GitHub Pages (`https://guided-traffic.github.io/cogpit/appcast.xml`), signed in the environment `sparkle` with the owner as required reviewer |
 | 2026-10-14 | minor | D-4 built, the second step: the release pipeline signs the app and `cogpit-cli` for macOS with the Developer ID (hardened runtime, no entitlements), ships the app in `Cogpit-<v>-macos-arm64.dmg`, notarizes both and staples the disk image's ticket, in a job of its own; no tag run yet. The lead's decision for the owner to confirm: a failure fails that job and the release gets no files until it is re-run. Agent REL's, for the owner to confirm: signing in its own job, the disk image instead of the zip, `cogpit-cli` notarized but not stapled, only the disk image submitted |
 | 2026-10-14 | minor | The night decisions' bodies brought in line with the owner's answers of 2026-10-14: D-34's state reading and page, D-41's five and D-42's choice marked decided as built; D-35, D-36, D-43, D-44, D-46 confirmed; D-33's two rules (Reconcile with Source does not wait for the source; the whole chain checked before the first patch) and D-34's two filter rules (a row's states, several state columns) marked Cogpit's defaults, standing until the owner asks |

@@ -231,14 +231,15 @@ func (s *Session) SetAgentWrites(context string, allowed bool) {
 }
 
 // NeedsConfirmation is the D-2 policy: destructive commands always need the user's confirmation;
-// mutating commands need it from agents unless the user allowed agent writes for the context;
-// read and UI commands never do.
-func NeedsConfirmation(d Danger, o Origin, agentWritesAllowed bool) bool {
+// mutating commands need it from agents unless the user allowed agent writes for the context, and
+// always when the command declares that agents ask for this invocation (agentsAsk: an agent's role
+// binding, H-27); read and UI commands never do.
+func NeedsConfirmation(d Danger, o Origin, agentWritesAllowed, agentsAsk bool) bool {
 	switch d {
 	case DangerDestructive:
 		return true
 	case DangerMutating:
-		return o.IsAgent() && !agentWritesAllowed
+		return o.IsAgent() && (agentsAsk || !agentWritesAllowed)
 	}
 	return false
 }
@@ -290,7 +291,13 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 	if err := s.safeCall(cmd.ID, func() error { danger = cmd.dangerFor(s, p); return nil }); err != nil {
 		return nil, err
 	}
-	if NeedsConfirmation(danger, inv.Origin, allowed) {
+	agentsAsk := false // judged for an agent's write only: the GUI's own command is unaffected (agentsask.go)
+	if inv.Origin.IsAgent() && danger == DangerMutating {
+		if err := s.safeCall(cmd.ID, func() error { agentsAsk = cmd.agentsAskFor(s, p); return nil }); err != nil {
+			return nil, err
+		}
+	}
+	if NeedsConfirmation(danger, inv.Origin, allowed, agentsAsk) {
 		var targets []model.ObjectRef
 		if err := s.safeCall(cmd.ID, func() (err error) { targets, err = cmd.targets(s, p); return err }); err != nil {
 			return nil, err
@@ -299,6 +306,7 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 			return nil, fmt.Errorf("command %s: %w", cmd.ID, ErrConfirmationUnavailable)
 		}
 		req := newConfirmRequest(cmd, danger, inv.Origin, uiContext, targets)
+		req.AgentsAsk = agentsAsk
 		if cmd.detail != nil {
 			if err := s.safeCall(cmd.ID, func() error { req.Detail = cmd.detail(s, p); return nil }); err != nil {
 				return nil, err

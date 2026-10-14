@@ -299,6 +299,14 @@ Fields added on 2026-10-11 for row menus, the drawer's toolbar and dialogs
 - `Escalate`: a mutating command whose invocation is destructive for some parameters (Scale to
   zero replicas) is confirmed and audited as destructive for those; its MCP tool carries
   `destructiveHint`.
+- `AgentsAsk` (2026-10-14, [`agentsask.go`](../../internal/engine/agentsask.go)): a mutating
+  command whose invocation by an agent waits for the user whatever the allowance of agent writes,
+  judged per call: `roleBinding.create` always, `object.create` and `object.apply` when the text or
+  the Edit tab holds a RoleBinding or ClusterRoleBinding (the owner's decision,
+  [H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache)).
+  `NeedsConfirmation` takes it; the confirmation carries `agentsAsk`, the command's JSON
+  `agentsAsk`, and its MCP tool and the commands page say that some calls always ask. Only
+  mutating commands may declare it.
 - `Prefill`: parameters a schema-generated dialog starts with, read from the cache (the current
   replica count for Scale).
 - `Detail`: a sentence the confirmation adds for parameters its objects don't show (the drain
@@ -3435,6 +3443,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | §4.2: `Spec.AgentsAsk`, an agent's call that waits for the user whatever the allowance of agent writes: role bindings (H-27, owner) |
 | 2026-10-14 | minor | Current state, §9: the workloads' drawers' Pods tables without a Namespace column (D-40, decided by the owner); the node drawer keeps it |
 | 2026-10-14 | minor | §9: a pod-metrics refusal affects only its namespace (D-39, owner): the Metrics Server's 403 for one namespace's pods is that scope's state `forbidden`, kept for the TTL, not a failure of the provider; no Prometheus in its place there; `metrics.get`'s `forbidden` namespaces |
 | 2026-10-14 | minor | §4.3: the status filter of every view (`UIState.States`, `ui.setStatusFilter`, `ui.openView` with states, the row cache's states, `TableSnapshot.StateChoices`, `syncStates`; D-34, owner) |

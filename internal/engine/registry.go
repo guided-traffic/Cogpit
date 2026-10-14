@@ -83,6 +83,11 @@ type Spec[P any] struct {
 	// confirms and audits it as DangerDestructive. Nil never escalates; only DangerMutating
 	// commands may set it.
 	Escalate func(s *Session, p P) bool
+	// AgentsAsk reports whether this invocation, when an agent asks for it, waits for the user's
+	// acceptance even in a context where the user allowed agent writes (D-2, H-14): a role binding
+	// (agentsask.go, H-27). The GUI's own invocation is unaffected. Nil never; only DangerMutating
+	// commands may set it (a destructive one always asks anyway).
+	AgentsAsk func(s *Session, p P) bool
 	// Prefill returns the parameters a dialog shows before the user edits them, read from the
 	// cache: the current replica count for Scale. Nil shows p as it is.
 	Prefill func(s *Session, p P) (P, error)
@@ -118,22 +123,26 @@ type Command struct {
 	Danger      Danger   `json:"danger"`
 	// Escalates is true when some invocations are destructive although Danger is mutating.
 	Escalates bool `json:"escalates,omitempty"`
+	// AgentsAsk is true when some invocations by agents wait for the user's acceptance whatever the
+	// allowance of agent writes (Spec.AgentsAsk).
+	AgentsAsk bool `json:"agentsAsk,omitempty"`
 	// GUIOnly is true for a command only the user's own action in the window runs (Spec.GUIOnly).
 	GUIOnly bool               `json:"guiOnly,omitempty"`
 	Verbs   []Verb             `json:"verbs,omitempty"`
 	Schema  *jsonschema.Schema `json:"schema"`
 
-	guiOnly  error // the reason a GUI-only command gives every other origin
-	resolved *jsonschema.Resolved
-	decode   func(raw json.RawMessage) (any, error)
-	enabled  func(s *Session, p any) error
-	targets  func(s *Session, p any) ([]model.ObjectRef, error)
-	escalate func(s *Session, p any) bool
-	prefill  func(s *Session, p any) (any, error)
-	detail   func(s *Session, p any) string
-	review   func(s *Session, p any) string
-	refuse   func(ctx context.Context, s *Session, p any) error
-	run      func(ctx context.Context, s *Session, p any) (any, error)
+	guiOnly   error // the reason a GUI-only command gives every other origin
+	resolved  *jsonschema.Resolved
+	decode    func(raw json.RawMessage) (any, error)
+	enabled   func(s *Session, p any) error
+	targets   func(s *Session, p any) ([]model.ObjectRef, error)
+	escalate  func(s *Session, p any) bool
+	agentsAsk func(s *Session, p any) bool
+	prefill   func(s *Session, p any) (any, error)
+	detail    func(s *Session, p any) string
+	review    func(s *Session, p any) string
+	refuse    func(ctx context.Context, s *Session, p any) error
+	run       func(ctx context.Context, s *Session, p any) (any, error)
 }
 
 // ToolName returns the command's MCP tool name: the id with dots replaced by underscores.
@@ -179,6 +188,12 @@ func (c *Command) dangerFor(s *Session, p any) Danger {
 		return DangerDestructive
 	}
 	return c.Danger
+}
+
+// agentsAskFor reports whether an agent's invocation with p waits for the user whatever the
+// allowance of agent writes (Spec.AgentsAsk).
+func (c *Command) agentsAskFor(s *Session, p any) bool {
+	return c.agentsAsk != nil && c.agentsAsk(s, p)
 }
 
 // Registry holds every command. It is safe for concurrent use.
@@ -232,6 +247,9 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 	if spec.Escalate != nil && spec.Danger != DangerMutating {
 		return fmt.Errorf("command %s: only mutating commands escalate", spec.ID)
 	}
+	if spec.AgentsAsk != nil && spec.Danger != DangerMutating {
+		return fmt.Errorf("command %s: only mutating commands declare AgentsAsk (a destructive one always asks)", spec.ID)
+	}
 	if spec.Order < 0 {
 		return fmt.Errorf("command %s: negative order", spec.ID)
 	}
@@ -249,7 +267,7 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 	c := &Command{
 		ID: spec.ID, Label: spec.Label, MenuPath: spec.MenuPath, Shortcut: spec.Shortcut,
 		Description: spec.Description, Kinds: spec.Kinds, Order: spec.Order, DrawerOnly: spec.DrawerOnly, Danger: spec.Danger,
-		Escalates: spec.Escalate != nil, GUIOnly: spec.GUIOnly != nil, guiOnly: spec.GUIOnly, Verbs: spec.Verbs, Schema: schema,
+		Escalates: spec.Escalate != nil, AgentsAsk: spec.AgentsAsk != nil, GUIOnly: spec.GUIOnly != nil, guiOnly: spec.GUIOnly, Verbs: spec.Verbs, Schema: schema,
 		resolved: resolved,
 	}
 	c.decode = func(raw json.RawMessage) (any, error) {
@@ -291,6 +309,9 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 	}
 	if spec.Escalate != nil {
 		c.escalate = func(s *Session, p any) bool { return spec.Escalate(s, p.(P)) }
+	}
+	if spec.AgentsAsk != nil {
+		c.agentsAsk = func(s *Session, p any) bool { return spec.AgentsAsk(s, p.(P)) }
 	}
 	if spec.Prefill != nil {
 		c.prefill = func(s *Session, p any) (any, error) { return spec.Prefill(s, p.(P)) }

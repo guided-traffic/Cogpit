@@ -236,8 +236,10 @@ SubjectAccessReviews, a quota on an unknown resource refused by the dry run).
 
 **Danger (the lead's default, 2026-10-12, not the owner's decision).** Every create is mutating,
 so an agent's waits for the user's acceptance ([D-2](../developer/decisions.md#d-2-agent-interface-scope)),
-which names the rules, the limits, or the role and subjects a binding grants. Two creates are
-confirmed for every origin, the GUI too and even where the user allowed agent writes for the
+which names the rules, the limits, or the role and subjects a binding grants; an agent's Role
+Binding waits for it even where the user allowed agent writes for the context, as an agent's
+binding from YAML does (the owner's decision, 2026-10-14, `TestAgentRoleBindingsAlwaysAsk`). Two
+creates are confirmed for every origin, the GUI too and even where the user allowed agent writes for the
 context: a Cluster Role Binding (registered destructive: a grant in every namespace and on the
 cluster's own resources) and a Role Binding to `cluster-admin`, or to a role Cogpit's cache holds
 whose rules allow every verb on every resource (escalated to destructive: full control of the

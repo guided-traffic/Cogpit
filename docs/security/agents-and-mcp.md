@@ -149,7 +149,10 @@ default, inferred: a setting of the cluster like the others; not the owner's dec
 every context the user allowed, whenever an agent is connected over MCP: its `Mutating` commands
 there (scale, cordon, apply, create, Helm upgrade and install, a pod shell or attach) run without a
 dialog, and a steered agent ([H-11](#h-11-instructions-hidden-in-cluster-data)) can use them; what
-bounds it is that `Destructive` commands still ask and the audit log records each command. The
+bounds it is that `Destructive` commands still ask, a role binding an agent creates or changes
+still asks (since 2026-10-14, the owner's decision;
+[H-27](privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache)), and the
+audit log records each command. The
 file is the user's own (owner-only); a process of the user that edits it can set the allowance
 (as it can read the token, [H-12](#h-12-every-local-process-of-the-user-can-read-the-token)); the
 window reads the file at start. Whether an allowance should expire, or be limited to the run, is

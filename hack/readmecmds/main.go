@@ -29,12 +29,19 @@ func main() {
 	fmt.Println("| Command | MCP tool | Danger | Parameters | What it does |")
 	fmt.Println("|---|---|---|---|---|")
 	for _, c := range cmds {
-		danger := string(c.Danger)
+		var notes []string
 		if c.Escalates {
-			danger += " (destructive for some calls)"
+			notes = append(notes, "destructive for some calls")
+		}
+		if c.AgentsAsk {
+			notes = append(notes, "agents always ask for some calls")
 		}
 		if c.GUIOnly {
-			danger += " (GUI only)"
+			notes = append(notes, "GUI only")
+		}
+		danger := string(c.Danger)
+		if len(notes) > 0 {
+			danger += " (" + strings.Join(notes, "; ") + ")"
 		}
 		fmt.Printf("| `%s` | `%s` | %s | %s | %s |\n", c.ID, c.ToolName(), danger, params(c), firstSentence(c.Description))
 	}
