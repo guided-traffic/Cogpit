@@ -35,6 +35,7 @@ func helmInstallDispatches() []struct {
 		{"helm.repo.list", struct{}{}},
 		{"helm.repo.update", struct{}{}},
 		{"editor.setText", editorTextParams{ID: "helmInstall-1", YAML: "a: 1\n"}},
+		{"ui.setChartVersion", chartVersionParams{refParams: refParams{Ref: chart}, Version: "18.1.4"}}, // the drawer's version picker
 	}
 }
 

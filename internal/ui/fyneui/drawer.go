@@ -46,6 +46,8 @@ type drawer struct {
 	title    *textLine
 	status   *pill
 	missing  *textLine
+	lead     *fyne.Container // a kind's own part left of the title (drawerHeaderParts); hidden without
+	extra    *fyne.Container // a kind's own part under the title (drawerHeaderParts); hidden without
 	actions  *fyne.Container // the action icons in the title bar
 	tabs     *container.AppTabs
 	body     *fyne.Container // the tabs, or for a plain drawer (Lens's release drawer) the details alone
@@ -94,11 +96,14 @@ func newDrawer(sh *shell) *drawer {
 	)
 	d.body = container.NewStack(d.tabs)
 
-	titleRow := container.NewBorder(nil, nil, nil,
+	d.lead, d.extra = container.NewStack(), container.NewStack()
+	d.lead.Hide()
+	d.extra.Hide()
+	titleRow := container.NewBorder(nil, nil, d.lead,
 		container.NewHBox(container.NewCenter(d.status), d.actions, newDivider(true), closeB), d.title)
 	header := container.NewStack(newSurface(colorDrawerHeader),
 		inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding,
-			container.NewVBox(d.kind, titleRow, d.missing)))
+			container.NewVBox(d.kind, titleRow, d.extra, d.missing)))
 	// The root's minimum width is a constant: the drawer's width is the user's (panelwidths.go).
 	d.root = box(lockedWidth{}, newSurface(colorDrawer),
 		container.NewBorder(container.NewVBox(header, newDivider(false)), nil, nil, nil, d.body))
@@ -195,6 +200,7 @@ func (d *drawer) showLoading(ref model.ObjectRef) {
 	d.revealed = map[string]string{}
 	d.revealedLen = map[string]int{}
 	d.dropKept()
+	d.showHeader(ref, nil)
 	d.resetCopy()
 	d.setPlain(ref.Kind == helm.ReleaseKind)
 	d.kind.SetText(singular(d.sh.kindTitle(ref.Kind)))
@@ -266,6 +272,7 @@ func (d *drawer) show(ref model.ObjectRef, m *engine.DetailModel, err error, act
 	} else {
 		d.missing.Hide()
 	}
+	d.showHeader(ref, m)
 	d.showActions(ref, acts)
 
 	prev := d.last
@@ -442,6 +449,39 @@ func (d *drawer) itemName(text string) fyne.CanvasObject {
 // in an editor, helmdrawer.go). Each feature registers its renderer in an init of its own file. A
 // renderer may keep widgets in drawer.kept across rebuilds of the same object's sections.
 var drawerSections = map[string]func(d *drawer, ref model.ObjectRef, sec model.DetailSection) fyne.CanvasObject{}
+
+// drawerHeaderParts are the GUI's own parts of a kind's drawer header, by kind: what shows left of the
+// title and under it (a Helm chart's icon and version picker, helmchartdrawer.go); nil hides the
+// place, so that other kinds' headers stay as they are. A function may keep its widgets in
+// drawer.kept; it gets nil while the object loads.
+var drawerHeaderParts = map[string]func(d *drawer, m *engine.DetailModel) (lead, extra fyne.CanvasObject){}
+
+// showHeader shows the kind's own parts of the header for m (none for nil).
+func (d *drawer) showHeader(ref model.ObjectRef, m *engine.DetailModel) {
+	var lead, extra fyne.CanvasObject
+	if f := drawerHeaderParts[ref.Kind]; f != nil && m != nil {
+		lead, extra = f(d, m)
+	}
+	setHeaderSlot(d.lead, lead)
+	setHeaderSlot(d.extra, extra)
+}
+
+// setHeaderSlot shows o in c, or hides c for nil.
+func setHeaderSlot(c *fyne.Container, o fyne.CanvasObject) {
+	if o == nil {
+		if len(c.Objects) > 0 {
+			c.Objects = nil
+			c.Refresh()
+		}
+		c.Hide()
+		return
+	}
+	if len(c.Objects) != 1 || c.Objects[0] != o {
+		c.Objects = []fyne.CanvasObject{o}
+		c.Refresh()
+	}
+	c.Show()
+}
 
 // keptCloser is something a section renderer keeps that must stop (timers, loads) when the drawer
 // moves to another object or closes.
