@@ -276,16 +276,22 @@ func TestCreateDialogsAgentsNeedAcceptance(t *testing.T) {
 		t.Errorf("audit %+v", lines)
 	}
 
-	// Agent writes allowed for the context: the mutating ones run unasked, but every role binding an
-	// agent asks for waits for the user (H-27), whatever its role, and a grant of everything asks
-	// as a destructive command.
+	// Agent writes allowed for the context: the mutating ones run unasked, but every RBAC object an
+	// agent asks for waits for the user (H-27; roles and cluster roles too since A1), whatever its
+	// rules or role, and a grant of everything asks as a destructive command.
 	h.s.SetAgentWrites("test", true)
 	n := len(asked)
 	h.must(t, agent, "namespace.create", map[string]any{"name": "agent-made"}, nil)
-	h.must(t, agent, "role.create", map[string]any{"name": "r2", "namespace": "shop"}, nil)
 	if len(asked) != n {
 		t.Errorf("asked %+v with agent writes allowed", asked[n:])
 	}
+	h.must(t, agent, "role.create", map[string]any{"name": "r2", "namespace": "shop"}, nil)
+	h.must(t, agent, "clusterRole.create", map[string]any{"name": "cr2"}, nil)
+	if len(asked) != n+2 || asked[n].Command != "role.create" || asked[n+1].Command != "clusterRole.create" ||
+		!asked[n].AgentsAsk || !asked[n+1].AgentsAsk || asked[n].Danger != engine.DangerMutating {
+		t.Fatalf("an agent's role and cluster role with agent writes allowed: asked %+v", asked[n:])
+	}
+	n = len(asked)
 	h.must(t, agent, "roleBinding.create", rb, nil)
 	if len(asked) != n+1 || asked[n].Command != "roleBinding.create" || asked[n].Danger != engine.DangerMutating ||
 		!asked[n].AgentsAsk || asked[n].Detail == "" {

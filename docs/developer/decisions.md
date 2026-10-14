@@ -57,8 +57,8 @@ window. Nothing of it was built in the round.
 
 | Answer | Asked | What the owner decided | Recorded in |
 |---|---|---|---|
-| A1 | H-27 | Every RBAC object an agent creates or changes (Roles, ClusterRoles and their bindings) waits for the user, also where agent writes are allowed; to build | [D-2](#d-2-agent-interface-scope), [H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache) |
-| A2 | Helm | An agent's Helm install or upgrade always waits for the user, whatever the chart holds; to build | [D-2](#d-2-agent-interface-scope) |
+| A1 | H-27 | Every RBAC object an agent creates or changes (Roles, ClusterRoles and their bindings) waits for the user, also where agent writes are allowed; built 2026-10-14 | [D-2](#d-2-agent-interface-scope), [H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache) |
+| A2 | Helm | An agent's Helm install or upgrade always waits for the user, whatever the chart holds; built 2026-10-14 | [D-2](#d-2-agent-interface-scope) |
 | A3 | H-83 | A terminal tab's agent-read switch ends at the latest 1 hour after it was turned on, whatever the reads; the tab says so; one click turns it on again; to build | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-83](../security/agents-and-mcp.md#h-83-an-allowed-terminal-tab-gives-agents-everything-it-shows-from-then-on) |
 | A4 | H-82 | Values under naming keys (user, host, port, database, namespace, …) are not replaced; as built | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents) |
 | A5 | H-82 | The filter's minimum 10 bytes instead of 8; built 2026-10-14 | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents) |
@@ -247,17 +247,20 @@ built-in agent alike):
 - Every agent-initiated command is recorded in an audit log the user can read.
 
 **The decision round of 2026-10-14 evening** ([the answers](#decision-round-2026-10-14-evening)).
-None of it is built yet; the code still does what the safety rules above and their notes say:
+Built so far: A1 and A2 (2026-10-14, the night after the round); the rest is not built yet, and the
+code still does what the safety rules above and their notes say:
 
 - **Decided (owner, 2026-10-14 evening, A1):** every RBAC object an agent creates or changes waits
   for the user's acceptance, also where agent writes are allowed: Roles and ClusterRoles as well as
-  RoleBindings and ClusterRoleBindings. Not built yet: `AgentsAsk` covers the bindings only
-  (`roleBinding.create`, and `object.create` and `object.apply` holding a binding), not
-  `role.create`, `clusterRole.create` or a Role's text.
+  RoleBindings and ClusterRoleBindings. Built 2026-10-14: `AgentsAsk` on `role.create`,
+  `clusterRole.create` and `roleBinding.create` always, and on `object.create` and `object.apply`
+  whose text or Edit tab holds any of the four kinds (`engine.RBACKind`, `TextHoldsRBAC`,
+  `EditorHoldsRBAC`; `TestCreateDialogsAgentsNeedAcceptance`, `TestAgentRoleBindingsAlwaysAsk`,
+  `TestTextHoldsRBAC`).
 - **Decided (owner, 2026-10-14 evening, A2):** an agent's Helm install or upgrade always waits for
-  the user, whatever the chart holds, not only a chart that renders RBAC. Not built yet:
-  `helm.chart.install` and `helm.release.upgrade` are mutating and run unasked where agent writes
-  are allowed.
+  the user, whatever the chart holds, not only a chart that renders RBAC. Built 2026-10-14:
+  `AgentsAsk` on `helm.chart.install` and `helm.release.upgrade` (`TestHelmInstallAgents`,
+  `TestHelmUpgradeAgents`).
 - **Decided (owner, 2026-10-14 evening, A16,
   [H-26](../security/privilege-footprint.md#h-26-prometheus-is-found-by-name)):**
   `cluster.setPrometheus` from an agent is a write the user confirms (mutating); the window's use

@@ -193,6 +193,20 @@ func TestHelmUpgradeAgents(t *testing.T) {
 	if b, _ := json.Marshal(asked[1]); strings.Contains(string(b), "s3cr3t") {
 		t.Errorf("the request serialises the values: %s", b)
 	}
+	// Agent writes allowed for the context: an agent's upgrade still waits for the user (A2).
+	h.s.SetAgentWrites("test", true)
+	h.mu.Lock()
+	h.answer = false
+	h.mu.Unlock()
+	if _, err := h.dispatch(engine.OriginExternalAgent, "helm.release.upgrade", map[string]any{"ref": webRef, "values": "replicas: 2\n", "revision": 4}); !errors.Is(err, engine.ErrDeclined) {
+		t.Errorf("an agent's upgrade with agent writes allowed: %v, want ErrDeclined", err)
+	}
+	if more := h.confirmations(); len(more) != 3 || !more[2].AgentsAsk {
+		t.Errorf("an agent's upgrade with agent writes allowed: asked %+v", more[2:])
+	}
+	h.mu.Lock()
+	h.answer = true
+	h.mu.Unlock()
 	for _, req := range asked {
 		if req.Danger != engine.DangerMutating || req.Context != "test" || len(req.Objects) != 1 || req.Objects[0].Name != "web" ||
 			len(req.Namespaces) != 1 || req.Namespaces[0] != "apps" || strings.Contains(req.Message(), "s3cr3t") {

@@ -457,10 +457,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 10–56 h (was 12–60; Pod Security Policies built; the rest is depth: captures, metrics columns; not moved by the workloads' Pods, which the estimate did not count).
 
 ### G7. Resource actions
+- **Built 2026-10-14 (A1):** an agent's create or change of any RBAC kind (Role, Cluster Role, Role
+  Binding, Cluster Role Binding) always waits for the user, also where agent writes are allowed
+  ([H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache)).
 - **Decided (owner, 2026-10-14 evening; not built):** Restart on a selection of workloads, Scale
-  staying on one object; an agent's create or change of any RBAC kind (Role, Cluster Role, Role
-  Binding, Cluster Role Binding) always waits for the user, also where agent writes are allowed (the
-  Role Binding's is built, H-27); a grant's confirmation says "Grants these rights immediately,
+  staying on one object; a grant's confirmation says "Grants these rights immediately,
   cluster-wide" or "in <namespace>", and "This cannot be undone." stays only where something is lost
   (delete, drain, uninstall) ([resource parity › Create dialogs](resource-parity.md#create-dialogs)).
   Confirmed: the node shell's bounds, 5 minutes to 24 hours, default 2 hours. Estimate not moved.
@@ -728,13 +729,15 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 2–6 h (was 10–20; built in the third run, left: Lens's status texts and Edit dialog by capture, a check in a real window).
 
 ### G11. Helm
+- **Built 2026-10-14 (A2):** an agent's install or upgrade always waits for the user, whatever the
+  chart holds, also where agent writes are allowed.
 - **Decided (owner, 2026-10-14 evening; not built unless confirmed):** repositories with a dot in
   their name supported through an unambiguous chart id inside Cogpit (Helm itself writes
   repo/chart), carried through references, deep links and agents' parameters, saved ids migrated
   once, nothing changed upstream; an http or insecure-TLS origin marked in the Charts view's
   repository cell, the Install tab and the install and upgrade confirmations
   ([H-41](../security/trust-boundaries.md#h-41-repositories-whose-content-nothing-authenticates));
-  an agent's install or upgrade always waits for the user, whatever the chart holds; a chart's README
+  a chart's README
   reaches agents framed as text of the chart's author, not instructions
   ([H-86](../security/agents-and-mcp.md#h-86-a-charts-readme-reaches-agents)); nothing is offered
   after an interrupted install: Cogpit shows the release's state and the user cleans up in the Helm

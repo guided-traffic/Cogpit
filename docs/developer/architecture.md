@@ -319,16 +319,16 @@ Fields added on 2026-10-11 for row menus, the drawer's toolbar and dialogs
   `destructiveHint`.
 - `AgentsAsk` (2026-10-14, [`agentsask.go`](../../internal/engine/agentsask.go)): a mutating
   command whose invocation by an agent waits for the user whatever the allowance of agent writes,
-  judged per call: `roleBinding.create` always, `object.create` and `object.apply` when the text or
-  the Edit tab holds a RoleBinding or ClusterRoleBinding (the owner's decision,
-  [H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache)).
+  judged per call: `role.create`, `clusterRole.create`, `roleBinding.create`,
+  `helm.chart.install` and `helm.release.upgrade` always, `object.create` and `object.apply` when
+  the text or the Edit tab holds a Role, ClusterRole, RoleBinding or ClusterRoleBinding (the
+  owner's decisions,
+  [H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache),
+  and A1 and A2 of 2026-10-14 evening, built the same night).
   `NeedsConfirmation` takes it; the confirmation carries `agentsAsk`, the command's JSON
   `agentsAsk`, and its MCP tool and the commands page say that some calls always ask. Only
   mutating commands may declare it. **Decided 2026-10-14 evening, not built**
-  ([D-2](decisions.md#d-2-agent-interface-scope)): every RBAC kind asks (Roles and ClusterRoles:
-  `role.create`, `clusterRole.create`, and `object.create` and `object.apply` holding one), and so
-  do an agent's `helm.chart.install` and `helm.release.upgrade` whatever the chart holds. Three
-  more agents' calls are to wait for the user although their commands are UI commands today:
+  ([D-2](decisions.md#d-2-agent-interface-scope)): three more agents' calls are to wait for the user although their commands are UI commands today:
   `cluster.setPrometheus`, a proxy set through `cluster.settings.set` or `preferences.set` (both a
   write the user confirms), and `hotbar.removeBank` of a bank with tiles. `AgentsAsk` takes
   mutating commands only, so these need the agent's call raised to mutating (as `Escalate` raises

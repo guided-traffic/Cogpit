@@ -287,6 +287,22 @@ func TestHelmInstallAgents(t *testing.T) {
 	if !slices.ContainsFunc(h.audit.Lines(), func(e engine.AuditEntry) bool { return e.Command == "helm.chart.install" && e.Phase == "requested" }) {
 		t.Errorf("the install is not audited: %s", raw)
 	}
+
+	// Agent writes allowed for the context: an agent's install still waits for the user, whatever
+	// the chart holds (A2, owner 2026-10-14 evening); declined, nothing is installed.
+	h.s.SetAgentWrites("test", true)
+	h.answer = false
+	n, installs := len(h.confirmations()), len(fi.recordedInstalls())
+	allowed := map[string]any{"repository": "test", "chart": "web", "version": "0.1.0", "values": "", "namespace": "apps", "name": "api2"}
+	if _, err := h.dispatch(engine.OriginExternalAgent, "helm.chart.install", allowed); !errors.Is(err, engine.ErrDeclined) {
+		t.Fatalf("an agent's install with agent writes allowed: %v, want ErrDeclined", err)
+	}
+	if asked := h.confirmations(); len(asked) != n+1 || !asked[n].AgentsAsk || asked[n].Command != "helm.chart.install" {
+		t.Errorf("an agent's install with agent writes allowed: asked %+v", asked[n:])
+	}
+	if len(fi.recordedInstalls()) != installs {
+		t.Error("a declined install ran")
+	}
 }
 
 // An install the Helm SDK refused before it stored the release leaves no journal entry and says

@@ -119,8 +119,12 @@ func registerHelmUpgrade(g *registrar) {
 			"checked against the index's digest when it lists one. Refused when the release moved to another revision since " +
 			"the values were read, and while another Helm action on it is pending. Besides the release's records (its Secrets, or its ConfigMaps when Helm keeps it there) it needs " +
 			"whatever verbs the release's objects need, and create and delete for objects another chart version adds or drops. " +
-			"An agent's request waits for the user's acceptance, which names the chart version from and to. An upgrade a crash " +
+			"An agent's request always waits for the user's acceptance, which names the chart version from and to, also where " +
+			"the user allowed agent writes (a chart's templates can create any object). An upgrade a crash " +
 			"of Cogpit interrupts stays in helm_pendingOperations; helm_release_rollback to its fromRevision finishes it.",
+		// What a chart's templates write is not something the allowance of agent writes was given
+		// for: an agent's upgrade always waits for the user (A2, owner 2026-10-14 evening).
+		AgentsAsk: func(*engine.Session, upgradeParams) bool { return true },
 		Enabled: func(s *engine.Session, p upgradeParams) error {
 			obj, err := cachedOfKind(s, p.Ref, helm.ReleaseKind)
 			if err != nil {

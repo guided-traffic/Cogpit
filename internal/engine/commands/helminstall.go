@@ -155,9 +155,13 @@ func registerHelmInstall(g *registrar) {
 			"namespace. The release's records go to Secrets, or to ConfigMaps when the HELM_DRIVER preference says configmap " +
 			"(preferences_get). Besides the release's records it needs whatever verbs creating the chart's objects needs (server-side " +
 			"apply: patch, and create), create on namespaces with createNamespace and on customresourcedefinitions for a " +
-			"chart's crds/ folder; helm_chart_preview names the objects first. An agent's request waits for the user's " +
-			"acceptance, which shows values given here. An install a crash of Cogpit interrupts stays in " +
+			"chart's crds/ folder; helm_chart_preview names the objects first. An agent's request always waits for the user's " +
+			"acceptance, which shows values given here, also where the user allowed agent writes (a chart's templates can " +
+			"create any object). An install a crash of Cogpit interrupts stays in " +
 			"helm_pendingOperations; helm_release_uninstall finishes it.",
+		// An agent's install always waits for the user, whatever the chart holds (A2, owner 2026-10-14
+		// evening).
+		AgentsAsk: func(*engine.Session, installParams) bool { return true },
 		Enabled: func(s *engine.Session, p installParams) error {
 			if err := installEnabled(s, p); err != nil {
 				return err

@@ -72,6 +72,8 @@ func TestAgentRoleBindingsAlwaysAsk(t *testing.T) {
 		"  metadata:\n    name: ci-view\n  roleRef:\n    apiGroup: rbac.authorization.k8s.io\n    kind: ClusterRole\n    name: view\n" +
 		"  subjects:\n  - kind: Group\n    name: ci\n"
 	asks("create of a List with a cluster role binding", "object.create", map[string]any{"yaml": list})
+	asks("create of a role (A1)", "object.create", map[string]any{"yaml": "apiVersion: rbac.authorization.k8s.io/v1\nkind: Role\n" +
+		"metadata:\n  name: pod-reader\nrules:\n- apiGroups: [\"\"]\n  resources: [pods]\n  verbs: [get]\n", "namespace": "shop"})
 	runsUnasked("the GUI's create with a role binding", gui, "object.create", map[string]any{"yaml": mixed, "namespace": "shop"})
 	runsUnasked("the GUI's create of the List", gui, "object.create", map[string]any{"yaml": list})
 	runsUnasked("an agent's create without a binding", agent, "object.create",
@@ -123,6 +125,7 @@ func TestAgentRoleBindingsAlwaysAsk(t *testing.T) {
 
 	// The registry and the MCP tools say which commands ask whatever the allowance.
 	for id, want := range map[string]bool{"object.create": true, "object.apply": true, "roleBinding.create": true,
+		"role.create": true, "clusterRole.create": true, "helm.chart.install": true, "helm.release.upgrade": true,
 		"namespace.create": false, "node.cordon": false, "clusterRoleBinding.create": false} {
 		if c, ok := h.s.Registry().Get(id); !ok || c.AgentsAsk != want {
 			t.Errorf("%s: agentsAsk %v, want %v", id, ok && c.AgentsAsk, want)
@@ -130,15 +133,18 @@ func TestAgentRoleBindingsAlwaysAsk(t *testing.T) {
 	}
 }
 
-// TextHoldsBinding judges by the kinds in the text: a RoleBinding or ClusterRoleBinding of the
-// RBAC group in any document or List item, whatever the case of the kind; a lookalike kind of
-// another group is not one; text that does not parse counts as one (it is refused anyway).
-func TestTextHoldsBinding(t *testing.T) {
+// TextHoldsRBAC judges by the kinds in the text: a Role, ClusterRole, RoleBinding or
+// ClusterRoleBinding of the RBAC group in any document or List item, whatever the case of the kind
+// (A1); a lookalike kind of another group is not one; text that does not parse counts as one (it is
+// refused anyway).
+func TestTextHoldsRBAC(t *testing.T) {
 	for text, want := range map[string]bool{
 		"":   false,
 		"  ": false,
 		"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: a\n":                                                                                                false,
-		"apiVersion: rbac.authorization.k8s.io/v1\nkind: Role\nmetadata:\n  name: a\n":                                                                           false,
+		"apiVersion: rbac.authorization.k8s.io/v1\nkind: Role\nmetadata:\n  name: a\n":                                                                           true,
+		"apiVersion: rbac.authorization.k8s.io/v1\nkind: clusterrole\nmetadata:\n  name: a\n":                                                                    true,
+		"apiVersion: example.io/v1\nkind: Role\nmetadata:\n  name: a\n":                                                                                          false,
 		"apiVersion: rbac.authorization.k8s.io/v1\nkind: RoleBinding\nmetadata:\n  name: a\n":                                                                    true,
 		"apiVersion: rbac.authorization.k8s.io/v1beta1\nkind: rolebinding\nmetadata:\n  name: a\n":                                                               true,
 		"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: a\n---\napiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRoleBinding\nmetadata:\n  name: b\n": true,
@@ -146,11 +152,12 @@ func TestTextHoldsBinding(t *testing.T) {
 		"apiVersion: example.io/v1\nkind: RoleBinding\nmetadata:\n  name: a\n":                                                                                   false,
 		"kind: [x": true,
 	} {
-		if got := engine.TextHoldsBinding(text); got != want {
-			t.Errorf("TextHoldsBinding(%q) = %v, want %v", text, got, want)
+		if got := engine.TextHoldsRBAC(text); got != want {
+			t.Errorf("TextHoldsRBAC(%q) = %v, want %v", text, got, want)
 		}
 	}
-	if !engine.BindingKind("not a version///", "ClusterRoleBinding") || engine.BindingKind("v1", "Binding") {
-		t.Error("BindingKind: an unparseable apiVersion is judged by the kind; a core Binding is not a role binding")
+	if !engine.RBACKind("not a version///", "ClusterRoleBinding") || !engine.RBACKind("not a version///", "Role") ||
+		engine.RBACKind("v1", "Binding") {
+		t.Error("RBACKind: an unparseable apiVersion is judged by the kind; a core Binding is not an RBAC object")
 	}
 }

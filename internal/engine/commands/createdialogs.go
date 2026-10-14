@@ -29,9 +29,9 @@ import (
 // Danger (the lead's default, 2026-10-12, not the owner's decision; privilege-footprint.md): every
 // create is mutating, so an agent's waits for the user's acceptance (D-2). A binding is a
 // privilege grant, so its confirmation says what it grants to whom (Detail); an agent's role
-// binding waits for the user even where the user allowed agent writes for the context (AgentsAsk,
-// the owner's decision of 2026-10-14, H-27); and two kinds of grant are confirmed for every
-// origin, the GUI too: a cluster role binding (cluster-wide, so registered destructive) and a role
+// binding, role or cluster role waits for the user even where the user allowed agent writes for
+// the context (AgentsAsk, the owner's decisions of 2026-10-14, H-27 and A1); and two kinds of
+// grant are confirmed for every origin, the GUI too: a cluster role binding (cluster-wide, so registered destructive) and a role
 // binding to cluster-admin, or to a role Cogpit's cache holds whose rules allow every verb on
 // every resource (escalated to destructive). Roles themselves grant nothing until bound.
 
@@ -258,7 +258,8 @@ func registerCreateDialogs(g *registrar) {
 	role := createSpec("role.create", "Create Role", "Role/Create",
 		"Creates a Role in a namespace with the given rules (API groups, resources, verbs, optional resource names) after a "+
 			"server-side dry run; the API server refuses rules that grant more than the user holds unless the user may escalate "+
-			"roles. An agent's request waits for the user's acceptance, which names the rules. Returns its reference.",
+			"roles. An agent's request always waits for the user's acceptance, which names the rules, also where the user "+
+			"allowed agent writes. Returns its reference.",
 		createRoleKind, engine.DangerMutating,
 		func(p roleCreateParams) string { return p.Namespace },
 		func(s *engine.Session, p roleCreateParams) (map[string]any, model.ObjectRef, error) {
@@ -276,12 +277,15 @@ func registerCreateDialogs(g *registrar) {
 		return p, err
 	}
 	role.Detail = func(_ *engine.Session, p roleCreateParams) string { return rulesDetail(p.Rules) }
+	// Its rules are what every binding to it grants: an agent's always waits for the user (A1).
+	role.AgentsAsk = func(*engine.Session, roleCreateParams) bool { return true }
 	add(g, role)
 
 	clusterRole := createSpec("clusterRole.create", "Create Cluster Role", "ClusterRole/Create",
 		"Creates a ClusterRole with the given rules (API groups and resources, or non-resource URLs) after a server-side dry "+
 			"run; the API server refuses rules that grant more than the user holds unless the user may escalate roles. An "+
-			"agent's request waits for the user's acceptance, which names the rules. Returns its reference.",
+			"agent's request always waits for the user's acceptance, which names the rules, also where the user allowed "+
+			"agent writes. Returns its reference.",
 		createClusterRoleKind, engine.DangerMutating,
 		func(clusterRoleCreateParams) string { return "" },
 		func(s *engine.Session, p clusterRoleCreateParams) (map[string]any, model.ObjectRef, error) {
@@ -294,6 +298,7 @@ func registerCreateDialogs(g *registrar) {
 			return obj, ref, err
 		})
 	clusterRole.Detail = func(_ *engine.Session, p clusterRoleCreateParams) string { return rulesDetail(p.Rules) }
+	clusterRole.AgentsAsk = func(*engine.Session, clusterRoleCreateParams) bool { return true } // A1
 	add(g, clusterRole)
 
 	rb := createSpec("roleBinding.create", "Create Role Binding", "RoleBinding/Create",
