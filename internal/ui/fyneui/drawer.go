@@ -409,8 +409,7 @@ func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
 		if len(sec.Items) > 0 {
 			grid := box(kvLayout{})
 			for _, it := range sec.Items {
-				name := d.line(it.Name, colorMuted, theme.SizeNameText, fyne.TextStyle{}, false, "")
-				grid.Objects = append(grid.Objects, name, d.itemValue(m.Ref, sec, it))
+				grid.Objects = append(grid.Objects, d.itemName(it.Name), d.itemValue(m.Ref, sec, it))
 			}
 			out = append(out, grid)
 		}
@@ -424,6 +423,18 @@ func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
 	out = append(out, newSpace(theme.SizeNameInnerPadding),
 		d.line("Events", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true}, false, ""), newDivider(false))
 	return append(out, d.buildEvents(m.Events)...)
+}
+
+// itemName is an item's name in the details' name column (kvLayout): one line, or, for a name
+// wider than the column ("Pod Management Policy", "Volume Claim Templates" of a Stateful Set),
+// wrapped at its spaces onto lines within it, so that it never runs into its value. Before
+// (2026-10-14) such a name ran under its value; a name that fits is drawn as before.
+func (d *drawer) itemName(text string) fyne.CanvasObject {
+	th := d.sh.app.Settings().Theme()
+	if w := th.Size(sizeDrawerLabel); fyne.MeasureText(text, th.Size(theme.SizeNameText), fyne.TextStyle{}).Width > w {
+		return newParagraph(text, colorMuted, w)
+	}
+	return d.line(text, colorMuted, theme.SizeNameText, fyne.TextStyle{}, false, "")
 }
 
 // drawerSections are the GUI's own renderings of drawer sections, by kind and section title: a
