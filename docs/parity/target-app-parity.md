@@ -83,7 +83,7 @@ counts when it exists in some form; nine counted rows are done, the rest partial
 | Component | Weight | Ours / Lens | % | Kind |
 |---|---:|---|---:|---|
 | Resource views | 30% | 64 / 64 | 100.0% | measured ([resource-parity](resource-parity.md)); ten of them the Gateway API views, generic until captured |
-| Resource actions | 20% | 39 / 39 | 100.0% | measured ([resource-parity](resource-parity.md)) |
+| Resource actions | 20% | 40 / 40 | 100.0% | measured ([resource-parity](resource-parity.md)) |
 | Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 116 / 120 | 96.7% | measured ([ui-parity](ui-parity.md), free rows) |
 | Cluster authentication and connectivity | 10% | 7 / 13 | 53.8% | measured ([platform-parity](platform-parity.md#cluster-authentication-and-connectivity)) |
 | Platforms and packages | 5% | 6 / 13 | 46.2% | measured ([platform-parity](platform-parity.md#operating-systems-and-packages)) |
@@ -241,6 +241,7 @@ LiteLLM or Open WebUI endpoint for the built-in agent.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-15 | minor | Resource actions 40 / 40 (was 39 / 39): the Applications row names its own command, `application.logs` (A81); breadth not moved |
 | 2026-10-14 | minor | Sparkle 2 and the signed appcast built, no update key yet (D-4): interface 114 of 120 (the update channel), platforms and packages 6 of 13 (the update notice, one-click update, channels, signed manifest), weighted 84.2%, breadth ~84% |
 | 2026-10-14 | minor | Paid features 3 of 11 (the Flux CD and Argo CD sections partial, night build, G23): weighted 82.4%, breadth ~82% |
 | 2026-10-13 | minor | The node shell (D-37) and Cluster Settings › Node Shell partial (night build, G7, G8, G13): resource actions 39 of 39, interface 113 of 120 free rows, weighted 80.6%, breadth ~81% |
