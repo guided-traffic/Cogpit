@@ -68,8 +68,9 @@ test-unit-race: test-fork ## Unit tests with the race detector, the terminal wid
 
 # The patched terminal widget (third_party/fyne-terminal, D-14) is a module of its own, which
 # go test ./... from the root leaves out: its tests and fuzz seeds run here. The tests that start a
-# local shell race inside the widget's RunLocalShell, which Cogpit does not use (it connects the
-# widget with RunWithConnection), so they run without the race detector.
+# local shell run the widget's RunLocalShell, which Cogpit does not use (it connects the widget with
+# RunWithConnection) and which has known races (PATCHES.md, Known and not patched), so they run
+# without the race detector.
 FORK_DIR         := third_party/fyne-terminal
 FORK_SHELL_TESTS := ^(TestExitCode01|TestRunLocalShell_MissingStartDir|TestTerminal_Close|TestTerminal_Close_BeforeOpen)$$
 

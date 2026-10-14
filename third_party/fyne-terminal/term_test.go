@@ -1,7 +1,6 @@
 package terminal
 
 import (
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -10,6 +9,7 @@ import (
 	_ "fyne.io/fyne/v2/test"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewTerminal(t *testing.T) {
@@ -41,20 +41,70 @@ func TestExitCode(t *testing.T) {
 	assert.Equal(t, term.ExitCode(), int(-1))
 }
 
+// shellTimeout bounds every wait on a local shell in these tests; a shell starts and exits within a
+// few seconds even on a starved machine (2.3 s on a Linux container limited to 0.05 CPUs).
+const shellTimeout = 60 * time.Second
+
+// startLocalShell runs a local shell in term and returns once the shell's terminal is open, with the
+// channel RunLocalShell's result arrives on. Cogpit patch: the tests wrote to the terminal until a
+// write succeeded, but New gives a terminal a writer that discards its input until the terminal is
+// open, so the first write, 50 ms after the start, always succeeded. When the terminal opened later
+// than that (on a loaded runner), the input went nowhere: TestExitCode01 waited for the exit of a
+// shell that never got its "exit" until the test binary timed out, and TestTerminal_Close read the
+// command before it was set.
+func startLocalShell(t *testing.T, term *Terminal) <-chan error {
+	t.Helper()
+	done := make(chan error, 1)
+	go func() {
+		done <- term.RunLocalShell()
+	}()
+	t.Cleanup(term.Close) // a failed test leaves no shell behind; closing again is harmless
+
+	deadline := time.Now().Add(shellTimeout)
+	for !isConnected(term) {
+		select {
+		case err := <-done:
+			t.Fatalf("RunLocalShell returned before its terminal was open: %v", err)
+		default:
+		}
+		if time.Now().After(deadline) {
+			term.Close()
+			t.Fatalf("the local shell's terminal was not open after %s", shellTimeout)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return done
+}
+
+// isConnected reports whether term's connection is open, under the lock that open and close hold,
+// so that what open set before (the input, the command) is visible to the test's goroutine.
+func isConnected(term *Terminal) bool {
+	term.closeLock.Lock()
+	defer term.closeLock.Unlock()
+	return term.connected
+}
+
+// waitShellExit waits for RunLocalShell to return, which it does once the shell has exited, and
+// fails the test, hanging the shell up, if it has not after shellTimeout.
+func waitShellExit(t *testing.T, term *Terminal, done <-chan error) {
+	t.Helper()
+	select {
+	case err := <-done:
+		assert.NoError(t, err)
+	case <-time.After(shellTimeout):
+		term.Close()
+		t.Fatalf("the shell did not exit within %s", shellTimeout)
+	}
+}
+
 func testExitCodeN(t *testing.T, n int) {
 	term := New()
 	term.Resize(fyne.NewSize(45, 45))
-	go func() {
-		_ = term.RunLocalShell()
-	}()
-	err := errors.New("NotYet")
-	for err != nil {
-		time.Sleep(50 * time.Millisecond)
-		_, err = fmt.Fprintf(term, "exit %d\n", n)
-	}
-	for term.ExitCode() == -1 {
-		time.Sleep(50 * time.Millisecond)
-	}
+	done := startLocalShell(t, term)
+
+	_, err := fmt.Fprintf(term, "exit %d\n", n)
+	require.NoError(t, err)
+	waitShellExit(t, term, done)
 
 	assert.Equal(t, n, term.ExitCode())
 }

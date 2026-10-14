@@ -68,10 +68,13 @@ goroutine that reads the connection. These patches keep each field on one of the
 | `apc_test.go`, `osc_test.go` | 2026-10-12: `TestAPC_StringTerminator`, `TestOSC_LongStrings` |
 | `fuzz_test.go` | 2026-10-12: `FuzzHandleOutput`, output at sizes from 0x0 to 255x255 with a resize part way, debug output on or off; a panic, or an input not done within 30 seconds, fails. Seeds: every input above and real programs' output in `test_data/sessions` (vim 9.1, less 668, macOS `nano` (UW PICO 5.09) and GNU screen 4.00.03 running less, recorded in an 80x24 pseudo-terminal on synthetic files) |
 | `mainloop_test.go` | 2026-10-12: the fuzz target runs `fyne.Do` on a stand-in for the desktop driver's main goroutine, so that the race detector sees the two goroutines; Fyne's test driver runs `fyne.Do` on the calling goroutine |
+| `term_test.go`, `term_unix_test.go` | 2026-10-14: the tests that start a local shell (`TestExitCode01`, `TestTerminal_Close`) write to it once its terminal is open, read under the widget's lock (`startLocalShell`), and wait for `RunLocalShell` to return within a bound (`shellTimeout`, 60 s) instead of without one. They wrote until a write succeeded, but `New` gives a terminal a writer that discards its input until the terminal is open, so the first write, 50 ms after the start, always succeeded: on a loaded machine it came before the terminal was open, the shell never got its `exit`, and `TestExitCode01` waited until the test binary's 10-minute timeout (CI run 38527183426, Linux); `TestTerminal_Close` read the command while it was still nil and panicked. Reproduced on macOS with a 100 ms delay before the terminal opens and on Linux (`golang:1.27.2`, bash) on a container limited to 0.05 CPUs; upstream's test is the same (`c8f30fa` made it stop at the first write that succeeds) |
 
 The fuzz seeds and the tests run in Cogpit's `make test-unit-race` and CI (`make test-fork`). The
-tests that start a local shell race inside `RunLocalShell`, which Cogpit does not use, and run
-without the race detector.
+tests that start a local shell run without the race detector: `RunLocalShell`, which Cogpit does
+not use, has known races (below). The tests themselves no longer race since 2026-10-14 (50 runs
+under `-race` on macOS, 20 on Linux); before, they read the input and the command while
+`RunLocalShell` wrote them.
 
 ## Fuzzing record (2026-10-12, Apple M1 Ultra, shared with other runs)
 
@@ -96,7 +99,11 @@ unterminated OSC took about 60 s). The ten-minute runs with the fixed harness (f
   the cursor to the opposite edge (`CSI 9223372036854775807 B` from row 2 goes to the top).
 - Media copy buffers everything up to `CSI 4 i` without a bound, by design of the feature.
 - `RunLocalShell` writes the configuration, the input and the command on the caller's goroutine
-  and the directory on a ticker's goroutine; the widget's own tests show these races.
+  and the directory on a ticker's goroutine; the widget's own tests showed these races until they
+  waited for the open terminal under the widget's lock (2026-10-14).
+- `Write` before the terminal is open reports success and discards what it was given (`New` sets a
+  discarding input), although its comment promises an error; this is what let the local-shell
+  tests hang. Cogpit never calls `Write`; typing before the terminal is open is dropped either way.
 - Blinking text starts a ticker goroutine that runs until no blinking cell is left, also after the
   terminal is closed.
 - `run` reads `content` on the reader goroutine; `CreateRenderer` sets it on the main goroutine.
@@ -105,4 +112,5 @@ unterminated OSC took about 60 s). The ten-minute runs with the fixed harness (f
 (`v2.8.2-0.20261009111023-0a528b3a387b`); its indirect requirements are the ones `go mod tidy`
 derives from that, so the copy never raises a module in Cogpit's build above what Fyne v2.8.1
 needs. The code builds and its tests pass on v2.8.1 (2026-10-12), `TestExitCode*` included, which
-hung before upstream's `c8f30fa`. Licence: BSD-3-Clause, see [`LICENSE`](LICENSE).
+hung before upstream's `c8f30fa` and, on a loaded machine, after it until 2026-10-14 (above).
+Licence: BSD-3-Clause, see [`LICENSE`](LICENSE).

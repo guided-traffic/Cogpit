@@ -4,7 +4,6 @@
 package terminal
 
 import (
-	"errors"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -17,6 +16,7 @@ import (
 	"fyne.io/fyne/v2"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRunLocalShell_MissingStartDir(t *testing.T) {
@@ -60,23 +60,19 @@ func TestProcessDir_MissingProcess(t *testing.T) {
 func TestTerminal_Close(t *testing.T) {
 	term := New()
 	term.Resize(fyne.NewSize(45, 45))
-	done := make(chan error)
-	go func() {
-		done <- term.RunLocalShell()
-	}()
+	done := startLocalShell(t, term)
 
 	// a program that will not exit by itself, or respond to input
-	err := errors.New("NotYet")
-	for err != nil {
-		time.Sleep(50 * time.Millisecond)
-		_, err = term.Write([]byte("sleep 600\n"))
-	}
+	_, err := term.Write([]byte("sleep 600\n"))
+	require.NoError(t, err)
 	child := 0
-	assert.Eventually(t, func() bool {
+	// Cogpit patch: require, with shellTimeout; without the child the test went on to signal process 0,
+	// its own process group, and failed in confusing ways
+	require.Eventually(t, func() bool {
 		out, _ := exec.Command("pgrep", "-P", strconv.Itoa(term.cmd.Process.Pid), "sleep").Output()
 		child, _ = strconv.Atoi(strings.TrimSpace(string(out)))
 		return child != 0
-	}, time.Second*5, time.Millisecond*20)
+	}, shellTimeout, time.Millisecond*20)
 	running := func() bool {
 		return syscall.Kill(child, 0) == nil
 	}
