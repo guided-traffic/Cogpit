@@ -16,7 +16,7 @@ type ActionResult struct {
 
 func registerActions(g *registrar) {
 	add(g, engine.Spec[refParams]{
-		ID: "deployment.restart", Label: "Restart", MenuPath: "Deployment/Restart", Kinds: []string{kindDeployments},
+		ID: "deployment.restart", Label: labelRestart, MenuPath: "Deployment/Restart", Kinds: []string{kindDeployments},
 		Order: 200, Danger: engine.DangerDestructive,
 		Verbs: []engine.Verb{{Verb: "patch", Group: "apps", Resource: kindDeployments}},
 		Description: "Restarts a Deployment the way kubectl rollout restart does: it sets the pod template's restartedAt " +

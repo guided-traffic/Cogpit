@@ -16,6 +16,9 @@ import (
 // confirmation for every origin naming them all (destructive, as one Restart is), then each in
 // turn, bound to the UID the user confirmed. Scale stays on one object.
 
+// labelRestart is Restart's label, one workload's and a selection's.
+const labelRestart = "Restart"
+
 // restartKinds are the kinds Restart applies to.
 var restartKinds = []string{kindDeployments, daemonSetKindKey, statefulSetKindKey}
 
@@ -42,7 +45,7 @@ func (e *RestartManyError) Error() string {
 
 func registerRestartMany(g *registrar) {
 	add(g, engine.Spec[selectionParams]{
-		ID: "workload.restartMany", Label: "Restart", MenuPath: "Workload/Restart Selected", Kinds: restartKinds, Order: 100,
+		ID: "workload.restartMany", Label: labelRestart, MenuPath: "Workload/Restart Selected", Kinds: restartKinds, Order: 100,
 		Danger: engine.DangerDestructive,
 		Verbs:  []engine.Verb{{Verb: nwVerbPatch, Group: nwGroupApps, Resource: "*"}},
 		Description: "Restarts several Deployments, Daemon Sets and Stateful Sets at once, as Restart on the table's selection " +
@@ -68,7 +71,9 @@ func registerRestartMany(g *registrar) {
 			_, _, err := restartsOf(s)
 			return err
 		},
-		Targets: func(s *engine.Session, p selectionParams) ([]model.ObjectRef, error) { return selectionTargets(s, p.Refs) },
+		Targets: func(s *engine.Session, p selectionParams) ([]model.ObjectRef, error) {
+			return selectionTargets(s, p.Refs)
+		},
 		Detail: func(s *engine.Session, p selectionParams) string {
 			onDelete := 0
 			for _, r := range p.Refs {
