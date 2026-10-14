@@ -333,6 +333,7 @@ func (d *drawerWatch) followHidden(s *Session, hidden MetricSet) {
 		return
 	}
 	want := len(hidden.drawerVariants(d.profile.Usage)) > 0
+	names, known := d.chartNames()
 	d.wmu.Lock()
 	changed := d.hidden != hidden || !d.hiddenSet
 	d.hidden, d.hiddenSet = hidden, true
@@ -349,16 +350,15 @@ func (d *drawerWatch) followHidden(s *Session, hidden MetricSet) {
 		sub := s.startDrawerUsage(d.backend, d.profile, d.ref)
 		d.wmu.Lock()
 		d.usage = sub
-		windows, wants := d.windowListLocked(), d.wantsLocked()
+		windows, wants := d.windowListLocked(names, known), d.wantsLocked()
 		d.wmu.Unlock()
-		if len(windows) > 0 {
-			sub.SetWindows(windows...)
-		}
+		sub.SetWindows(windows...)
 		sub.SetWants(wants)
 	case cur != nil && changed:
 		d.wmu.Lock()
-		wants := d.wantsLocked()
+		windows, wants := d.windowListLocked(names, known), d.wantsLocked() // the containers' charts may have come or gone
 		d.wmu.Unlock()
+		cur.SetWindows(windows...)
 		cur.SetWants(wants)
 	}
 	if changed {
@@ -371,13 +371,55 @@ func (d *drawerWatch) followHidden(s *Session, hidden MetricSet) {
 	}
 }
 
-// windowListLocked is the charts' time ranges set; d.wmu is held.
-func (d *drawerWatch) windowListLocked() []time.Duration {
-	list := make([]time.Duration, 0, len(d.windows))
-	for _, w := range d.windows {
+// chartNames are the drawer's charts by target: the object's (""), and a pod's containers' from
+// the cache; nil for the containers of a pod the cache does not hold yet. It reads the cache, so
+// it is called without d.wmu.
+func (d *drawerWatch) chartNames() (names []string, known bool) {
+	names = []string{""}
+	if d.profile.Usage != model.UsagePods {
+		return names, true
+	}
+	obj, ok := KindGet(d.obj, d.profile, d.namespace(), d.ref.Name)
+	if !ok {
+		return names, false
+	}
+	for _, r := range model.PodResources(obj) {
+		names = append(names, r.Name)
+	}
+	return names, true
+}
+
+// windowListLocked is every visible chart's time range (A46): the one set for it, else the
+// default, so the hub can give charts whose ranges lie far apart query sets of their own; a pod
+// whose containers the cache does not know yet counts the default for them. names and known are
+// chartNames'; d.wmu is held.
+func (d *drawerWatch) windowListLocked(names []string, known bool) []time.Duration {
+	def := metrics.DefaultRangeWindow
+	if d.backend.Metrics != nil {
+		def = d.backend.Metrics.DefaultWindow()
+	}
+	containers := d.hidden&HideContainers == 0
+	list := make([]time.Duration, 0, len(names)+len(d.windows)+1)
+	for _, n := range names {
+		if n != "" && !containers {
+			continue
+		}
+		w, ok := d.windows[n]
+		if !ok {
+			w = def
+		}
 		list = append(list, w)
 	}
-	return list
+	if !known && containers {
+		list = append(list, def)
+	}
+	for n, w := range d.windows { // a chart set for a container the cache does not show yet
+		if !slices.Contains(names, n) && (n == "" || containers) {
+			list = append(list, w)
+		}
+	}
+	slices.Sort(list) // the same ranges are the same list: the hub polls again only when they change
+	return slices.Compact(list)
 }
 
 // wantsLocked is what the drawer's visible charts show beyond CPU and memory: the network and the

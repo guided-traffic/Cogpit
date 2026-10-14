@@ -32,6 +32,9 @@ type chart struct {
 	// histAddrs are the node's addresses the CPU and memory history was asked with
 	// (RangeQuery.Addresses): other addresses ask for it again.
 	histAddrs []string
+	// coarse is what each coarser query set (A46, bandsLocked) was asked for: hist, net, fsys and
+	// podsCov are the finest set's.
+	coarse []bandCoverage
 
 	// gap is a hole in the usage between two points (both live values came, the history provider
 	// was away between them) that the history provider fills once when it answers; nil without.
@@ -42,6 +45,67 @@ type chart struct {
 
 	at   time.Time     // the last poll's time: the series end here
 	step time.Duration // the history's step
+}
+
+// bandCoverage is the series a coarser query set was asked for.
+type bandCoverage struct {
+	band
+	want Want
+}
+
+// coarseMissing is what of want the coarser set b was not asked for yet.
+func (c *chart) coarseMissing(b band, want Want) Want {
+	for _, bc := range c.coarse {
+		if bc.band == b {
+			return want &^ bc.want
+		}
+	}
+	return want
+}
+
+// coverCoarse records that the coarser set b was asked for want.
+func (c *chart) coverCoarse(b band, want Want) {
+	for i := range c.coarse {
+		if c.coarse[i].band == b {
+			c.coarse[i].want |= want
+			return
+		}
+	}
+	c.coarse = append(c.coarse, bandCoverage{b, want})
+}
+
+// carry keeps what a query set was asked for when a range change moves it between the finest and
+// the coarser ones (A46): the week that becomes the only range, or the only range that gets a
+// shorter one beside it, is not asked for again. A set that becomes the finest is followed
+// incrementally from its last points at once (asked zero).
+func (c *chart) carry(bands []band) {
+	covs := []struct {
+		w Want
+		c *coverage
+	}{{WantUsage, &c.hist}, {WantNetwork, &c.net}, {WantFilesystem, &c.fsys}, {WantPods, &c.podsCov}}
+	for _, b := range bands[1:] {
+		for _, x := range covs {
+			if x.c.covers(b.window, b.step) {
+				c.coverCoarse(b, x.w)
+			}
+		}
+	}
+	fine := bands[0]
+	for _, bc := range c.coarse {
+		if bc.band != fine {
+			continue
+		}
+		for _, x := range covs {
+			if bc.want.Has(x.w) && !x.c.covers(fine.window, fine.step) {
+				*x.c = coverage{window: fine.window, step: fine.step}
+			}
+		}
+	}
+}
+
+// keepCoarse forgets the coarser sets' coverage that is not among bands any more.
+func (c *chart) keepCoarse(bands []band) {
+	c.coarse = slices.DeleteFunc(c.coarse, func(bc bandCoverage) bool { return !slices.Contains(bands, bc.band) })
 }
 
 // coverage is what one kind of series holds of a provider with history.
@@ -254,6 +318,9 @@ func (c *chart) drop(want Want) {
 	}
 	if want.Has(WantPods) {
 		c.pods, c.podsCov, c.podsSource = map[string][]model.CountSample{}, coverage{}, ""
+	}
+	for i := range c.coarse {
+		c.coarse[i].want &^= want
 	}
 }
 

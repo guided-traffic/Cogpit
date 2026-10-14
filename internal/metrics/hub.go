@@ -388,8 +388,7 @@ func (h *Hub) intervalLocked(st *scopeState) time.Duration {
 	iv := h.intervalOf(st.scope)
 	if !st.scope.IsList() {
 		if live, hist := h.rolesLocked(h.opts.Now()); live != nil && live == hist {
-			_, step := h.rangeOfLocked(st)
-			iv = max(iv, step)
+			iv = max(iv, h.bandsLocked(st)[0].step) // the finest query set's
 		}
 	}
 	return iv
@@ -478,27 +477,84 @@ func (h *Hub) liveOrder() []*slot {
 	return out
 }
 
-// rangeOfLocked is the time range one poll of an object scope asks for and its step. The window is
-// the longest any subscribed chart shows (the default one hour is always among them, so a chart
-// that was not told otherwise has data), the step follows the shortest: window / 120, at least
-// MinStep, and coarse enough that the longest window stays within MaxRangePoints.
-func (h *Hub) rangeOfLocked(st *scopeState) (window, step time.Duration) {
-	window = h.opts.RangeWindow
-	shortest := window
+// band is one query set of an object scope's charts: the window it asks for, at its step.
+type band struct{ window, step time.Duration }
+
+// windowsLocked are the time ranges a scope's charts show, ascending and each once: every
+// subscription's (SetWindows), the default range for one that set none.
+func (h *Hub) windowsLocked(st *scopeState) []time.Duration {
+	var ws []time.Duration
 	for s := range st.subs {
+		n := 0
 		for _, w := range s.windows {
-			if w <= 0 {
-				continue
+			if w > 0 {
+				ws, n = append(ws, w), n+1
 			}
-			window = max(window, w)
-			shortest = min(shortest, w)
+		}
+		if n == 0 {
+			ws = append(ws, h.opts.RangeWindow)
 		}
 	}
-	step = max(h.opts.MinStep, shortest/StepsPerWindow, window/time.Duration(h.opts.MaxRangePoints))
+	if len(ws) == 0 {
+		ws = append(ws, h.opts.RangeWindow)
+	}
+	slices.Sort(ws)
+	return slices.Compact(ws)
+}
+
+// stepOf is the step of a query set whose shortest chart shows shortest and whose longest shows
+// longest: shortest / 120 (StepsPerWindow points), at least MinStep, and coarse enough that the
+// longest stays within MaxRangePoints; whole seconds.
+func (h *Hub) stepOf(shortest, longest time.Duration) time.Duration {
+	step := max(h.opts.MinStep, shortest/StepsPerWindow, longest/time.Duration(h.opts.MaxRangePoints))
 	if step >= time.Second {
 		step = (step + time.Second - 1) / time.Second * time.Second
 	}
-	return window, step
+	return step
+}
+
+// bandsLocked are the query sets of an object scope's charts, the finest first (A46, owner
+// 2026-10-14 evening: "charts of one object whose ranges lie far apart get separate Prometheus
+// queries, each at its own step"). The last, the coarsest, is the one set there was before: the
+// longest range at the step of the shortest (at most the default hour's), within MaxRangePoints, so
+// no chart gets less than it did. A range that would get fewer than half its StepsPerWindow points
+// at that step (a container's hour beside the pod's week: 6 points at ten minutes) gets a finer set
+// of its own, shared with the ranges near it: those that stay within MaxRangePoints at the step
+// their shortest needs. A finer set exists only when its step is finer than the next coarser one's.
+// The choices are the lead's for the owner to confirm (night run, D-43's neighbour in
+// architecture §9).
+func (h *Hub) bandsLocked(st *scopeState) []band {
+	ws := h.windowsLocked(st)
+	longest := ws[len(ws)-1]
+	coarse := band{longest, h.stepOf(min(ws[0], h.opts.RangeWindow), longest)}
+	var out []band
+	for i := 0; i < len(ws); {
+		s := ws[i]
+		if s >= coarse.step*StepsPerWindow/2 { // enough points at the coarse step; so has every longer one
+			break
+		}
+		j := i
+		for j+1 < len(ws) && ws[j+1]/time.Duration(h.opts.MaxRangePoints) <= max(h.opts.MinStep, s/StepsPerWindow) {
+			j++
+		}
+		b := band{ws[j], h.stepOf(s, ws[j])}
+		switch {
+		case b.step >= coarse.step: // the coarse set serves it as finely
+		case len(out) > 0 && b.step <= out[len(out)-1].step:
+			out[len(out)-1].window = b.window
+		default:
+			out = append(out, b)
+		}
+		i = j + 1
+	}
+	return append(out, coarse)
+}
+
+// rangeOfLocked is the coarsest query set of an object scope: the longest range its charts show,
+// and its step (bandsLocked).
+func (h *Hub) rangeOfLocked(st *scopeState) (window, step time.Duration) {
+	bs := h.bandsLocked(st)
+	return bs[len(bs)-1].window, bs[len(bs)-1].step
 }
 
 // wantsLocked is what the scope's charts show beyond CPU and memory.
@@ -510,10 +566,11 @@ func (h *Hub) wantsLocked(st *scopeState) Want {
 	return w &^ WantUsage
 }
 
-// SetWindows tells the hub which time ranges the subscriber's charts show; with a provider that
-// has history (Prometheus) the next poll asks it once for the longest, at the step of the shortest,
-// and one answer serves every chart of the scope. A subscription that never calls it shows the
-// default range. A change makes the scope poll at once.
+// SetWindows tells the hub which time ranges the subscriber's charts show, every chart's (one that
+// shows the default range too); with a provider that has history (Prometheus) the next poll asks it
+// for the longest at the step of the shortest, and for ranges far shorter than the longest a finer
+// query set of their own (bandsLocked, A46). A subscription that never calls it, or calls it with
+// none, shows the default range. A change makes the scope poll at once.
 func (s *Subscription) SetWindows(windows ...time.Duration) {
 	if s == nil {
 		return
@@ -679,7 +736,7 @@ func (h *Hub) Forget() {
 	}
 	for sc, st := range h.scopes {
 		if st.chart != nil { // the history may be another Prometheus's: ask again
-			st.chart.hist, st.chart.net, st.chart.fsys, st.chart.podsCov = coverage{}, coverage{}, coverage{}, coverage{}
+			st.chart.hist, st.chart.net, st.chart.fsys, st.chart.podsCov, st.chart.coarse = coverage{}, coverage{}, coverage{}, coverage{}, nil
 			h.kickLocked(sc)
 		}
 	}

@@ -506,6 +506,7 @@ func (s *Session) SetMetricsRange(ref model.ObjectRef, target string, window tim
 		return ErrDrawerNotOpen
 	}
 	st.mu.Unlock()
+	names, known := d.chartNames()
 	d.wmu.Lock()
 	if d.windows == nil {
 		d.windows = map[string]time.Duration{}
@@ -515,7 +516,7 @@ func (s *Session) SetMetricsRange(ref model.ObjectRef, target string, window tim
 	} else {
 		d.windows[target] = window
 	}
-	list := d.windowListLocked()
+	list := d.windowListLocked(names, known)
 	sub := d.usage
 	d.wmu.Unlock()
 	sub.SetWindows(list...)

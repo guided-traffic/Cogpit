@@ -38,8 +38,21 @@ type objectPlan struct {
 	hist           RangeProvider
 	liveSlot       *slot
 	histSlot       *slot
-	window, step   time.Duration
-	addrs          []string // the node's (the control plane's) addresses for the range queries
+	// window is the longest range (the coarsest query set's), what the series keep; fine and step
+	// are the finest set's range and step, which the live values, the incremental and the gap's
+	// queries and the fallback follow.
+	window, fine, step time.Duration
+	addrs              []string // the node's (the control plane's) addresses for the range queries
+	// coarse are the coarser query sets due (A46), each answer put into the chart up to its until:
+	// where the next finer set begins.
+	coarse []coarseQuery
+}
+
+// coarseQuery is a coarser query set's range query.
+type coarseQuery struct {
+	q     RangeQuery
+	band  band
+	until time.Time
 }
 
 // objectResults are the answers of one poll.
@@ -48,6 +61,8 @@ type objectResults struct {
 	fullErr, incErr, gapErr  error
 	fallbackErr              error
 	fallbackQuery            *RangeQuery
+	coarse                   []*ObjectSeries
+	coarseErr                []error
 	live                     *dataSet
 	liveErr                  error
 }
@@ -78,6 +93,10 @@ func (h *Hub) pollObject(ctx context.Context, sc Scope) State {
 	rangeCall(p.full, &r.full, &r.fullErr)
 	rangeCall(p.inc, &r.inc, &r.incErr)
 	rangeCall(p.gap, &r.gap, &r.gapErr)
+	r.coarse, r.coarseErr = make([]*ObjectSeries, len(p.coarse)), make([]error, len(p.coarse))
+	for i := range p.coarse {
+		rangeCall(&p.coarse[i].q, &r.coarse[i], &r.coarseErr[i])
+	}
 	if p.live != nil {
 		jobs = append(jobs, func() { r.live, r.liveErr = h.instant(ctx, p.live, sc) })
 	}
@@ -91,7 +110,7 @@ func (h *Hub) pollObject(ctx context.Context, sc Scope) State {
 		(p.full == nil || !p.full.Want.Has(WantUsage)) && (p.inc == nil || !p.inc.Want.Has(WantUsage)) {
 		h.mu.Lock()
 		now := h.opts.Now()
-		from := alignDown(maxTime(ch.lastUsage(), now.Add(-p.window)), p.step)
+		from := alignDown(maxTime(ch.lastUsage(), now.Add(-p.fine)), p.step)
 		h.mu.Unlock()
 		if !now.After(from) {
 			from = alignDown(now.Add(-p.step), p.step)
@@ -121,7 +140,8 @@ func (h *Hub) pollObject(ctx context.Context, sc Scope) State {
 // planLocked decides what a poll of a drawer asks for.
 func (h *Hub) planLocked(st *scopeState, sc Scope, now time.Time) objectPlan {
 	ch := st.chart
-	window, step := h.rangeOfLocked(st)
+	bands := h.bandsLocked(st)
+	window, step := bands[0].window, bands[0].step // the finest set's: the rest of the plan is about it
 	wants := h.wantsLocked(st)
 	// A series no chart shows any more is dropped: shown again, it is asked for over the range.
 	if !wants.Has(WantNetwork) && ch.net != (coverage{}) {
@@ -134,7 +154,7 @@ func (h *Hub) planLocked(st *scopeState, sc Scope, now time.Time) objectPlan {
 		ch.drop(WantPods)
 	}
 	live, hist := h.rolesLocked(now)
-	p := objectPlan{window: window, step: step, liveSlot: live, histSlot: hist}
+	p := objectPlan{window: bands[len(bands)-1].window, fine: window, step: step, liveSlot: live, histSlot: hist}
 	if live != nil && live != hist {
 		p.live = live.prov
 	}
@@ -146,9 +166,16 @@ func (h *Hub) planLocked(st *scopeState, sc Scope, now time.Time) objectPlan {
 	base.Step = step
 	p.addrs = base.Addresses
 	from := alignDown(now.Add(-window), step)
+	addrsChanged := !slices.Equal(ch.histAddrs, base.Addresses)
+	if addrsChanged {
+		ch.coarse = nil
+	} else {
+		ch.carry(bands)
+	}
+	h.planCoarseLocked(ch, sc, &p, bands, wants, base, now)
 	var full, inc Want
 	switch {
-	case !ch.hist.covers(window, step) || !slices.Equal(ch.histAddrs, base.Addresses):
+	case !ch.hist.covers(window, step) || addrsChanged:
 		// No history at this range yet, or it was asked with other addresses of the node (the
 		// cache knew them only later: SetNodeAddresses), which may find what the last did not.
 		full |= WantUsage
@@ -197,6 +224,29 @@ func (h *Hub) planLocked(st *scopeState, sc Scope, now time.Time) objectPlan {
 	return p
 }
 
+// planCoarseLocked plans the coarser query sets (A46, bandsLocked): each asks once, over its
+// range at its step, for the series the charts show that it was not asked for yet (CPU and memory
+// always; the network, the filesystem and the cluster's pod counts while shown), never
+// incrementally: the time after the next finer set's start is that set's.
+func (h *Hub) planCoarseLocked(ch *chart, sc Scope, p *objectPlan, bands []band, wants Want, base RangeQuery, now time.Time) {
+	ch.keepCoarse(bands[1:])
+	want := WantUsage | wants&(WantNetwork|WantFilesystem)
+	if sc.Kind == KindCluster {
+		want |= wants & WantPods
+	}
+	for i := 1; i < len(bands); i++ {
+		b, finer := bands[i], bands[i-1]
+		missing := ch.coarseMissing(b, want)
+		if missing == 0 {
+			continue
+		}
+		until := alignDown(now.Add(-finer.window), finer.step)
+		q := base
+		q.From, q.To, q.Step, q.Want = alignDown(now.Add(-b.window), b.step), until, b.step, missing
+		p.coarse = append(p.coarse, coarseQuery{q: q, band: b, until: until})
+	}
+}
+
 // callRange asks a history provider, recovering a panic at the boundary.
 func callRange(ctx context.Context, rp RangeProvider, q RangeQuery) (s *ObjectSeries, err error) {
 	defer func() {
@@ -228,9 +278,18 @@ func (h *Hub) applyObjectLocked(ctx context.Context, st *scopeState, sc Scope, p
 		h.failLocked(ctx, p.histSlot, sc, err)
 		return false
 	}
+	// The coarser sets first, each up to where the next finer set begins (A46).
+	for i, cq := range p.coarse {
+		if histOK(r.coarseErr[i]) {
+			ch.applyRange(r.coarse[i], cq.q.Want, cq.q.From, cq.until)
+			ch.coverCoarse(cq.band, cq.q.Want)
+			ch.foundUsage(r.coarse[i])
+			served = true
+		}
+	}
 	if p.full != nil && histOK(r.fullErr) {
 		ch.applyRange(r.full, p.full.Want, p.full.From, farFuture)
-		cov := coverage{window: p.window, step: p.step, asked: now}
+		cov := coverage{window: p.fine, step: p.step, asked: now} // the finest set's
 		if p.full.Want.Has(WantUsage) {
 			ch.hist, ch.histAddrs = cov, p.full.Addresses
 			ch.histLabel = histLabel

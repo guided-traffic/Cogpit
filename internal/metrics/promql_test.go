@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -150,5 +151,44 @@ func TestRangeStep(t *testing.T) {
 	}
 	if float64(window/step) > 1000 {
 		t.Errorf("%d points exceed the bound", window/step)
+	}
+}
+
+// A46: charts of one object whose ranges lie far apart get query sets of their own, each at its
+// own step; the coarsest set is the one set there was before, so no chart gets fewer points.
+func TestQuerySetsForFarApartRanges(t *testing.T) {
+	h := NewHub(nil, Options{})
+	defer h.Close()
+	const day = 24 * time.Hour
+	for _, tc := range []struct {
+		name    string
+		windows []time.Duration // nil: a subscription that set none
+		want    []band
+	}{
+		{"the default", nil, []band{{time.Hour, 30 * time.Second}}},
+		{"close ranges share a set", []time.Duration{5 * time.Minute, time.Hour}, []band{{time.Hour, 15 * time.Second}}},
+		{"six hours and the hour", []time.Duration{time.Hour, 6 * time.Hour}, []band{{6 * time.Hour, 30 * time.Second}}},
+		{"twelve hours: the hour keeps more than half its points", []time.Duration{time.Hour, 12 * time.Hour}, []band{{12 * time.Hour, 44 * time.Second}}},
+		{"a day and the hour", []time.Duration{time.Hour, day}, []band{{time.Hour, 30 * time.Second}, {day, 87 * time.Second}}},
+		{"a week and the hour", []time.Duration{7 * day, time.Hour}, []band{{time.Hour, 30 * time.Second}, {7 * day, 605 * time.Second}}},
+		{"a week alone keeps its thousand points", []time.Duration{7 * day}, []band{{7 * day, 605 * time.Second}}},
+		{"five minutes and the hour share the finer set", []time.Duration{5 * time.Minute, time.Hour, 7 * day}, []band{{time.Hour, 15 * time.Second}, {7 * day, 605 * time.Second}}},
+		{"three far apart", []time.Duration{time.Hour, day, 30 * day}, []band{{time.Hour, 30 * time.Second}, {day, 720 * time.Second}, {30 * day, 2592 * time.Second}}},
+	} {
+		st := &scopeState{subs: map[*Subscription]struct{}{{windows: tc.windows}: {}}}
+		got := h.bandsLocked(st)
+		if !slices.Equal(got, tc.want) {
+			t.Errorf("%s: %+v, want %+v", tc.name, got, tc.want)
+		}
+		for _, b := range got {
+			if n := b.window / b.step; n > 1000 {
+				t.Errorf("%s: %v gets %d points", tc.name, b, n)
+			}
+		}
+	}
+	// Two subscriptions: one that set none shows the default hour beside the other's week.
+	st := &scopeState{subs: map[*Subscription]struct{}{{}: {}, {windows: []time.Duration{7 * day}}: {}}}
+	if got := h.bandsLocked(st); len(got) != 2 || got[0] != (band{time.Hour, 30 * time.Second}) {
+		t.Errorf("a subscription without windows: %+v", got)
 	}
 }

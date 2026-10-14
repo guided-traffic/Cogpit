@@ -244,8 +244,8 @@ func TestPrometheusRangeFollowsTheChartsWindows(t *testing.T) {
 	defer sub.Release()
 	waitPoll(t, polls, 1)
 
-	// A chart switched to five minutes: one poll at once, at the finer step, still covering the hour.
-	sub.SetWindows(5 * time.Minute)
+	// A chart switched to five minutes, the others at the hour: one poll at once, at the finer step, still covering the hour.
+	sub.SetWindows(5*time.Minute, time.Hour) // every chart's range, as the engine passes them
 	waitPoll(t, polls, 2)
 	var steps, spans []string
 	for _, r := range c.prom.requests() {
@@ -264,7 +264,7 @@ func TestPrometheusRangeFollowsTheChartsWindows(t *testing.T) {
 		}
 	}
 	// The same windows again change nothing.
-	sub.SetWindows(5 * time.Minute)
+	sub.SetWindows(5*time.Minute, time.Hour)
 	time.Sleep(60 * time.Millisecond)
 	if n := c.prom.queryCount("container_cpu"); n != 2 {
 		t.Errorf("%d cpu queries; an unchanged window must not poll", n)

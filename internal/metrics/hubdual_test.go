@@ -327,13 +327,13 @@ func TestHistoryThenLiveValues(t *testing.T) {
 	}
 
 	// A range change asks Prometheus once more, at the new step; the same range again does not.
-	d.sub.SetWindows(5 * time.Minute)
+	d.sub.SetWindows(5*time.Minute, time.Hour) // the pod's chart at five minutes, a container's at the default hour
 	d.wait(t)
 	qs = d.hist.ranges()
 	if len(qs) != 2 || qs[1].Step != 15*time.Second || qs[1].Want != metrics.WantUsage || !qs[1].From.Equal(d.clk.Now().Add(-time.Hour).Truncate(15*time.Second)) {
 		t.Errorf("after the range change Prometheus was asked %+v, want the hour once more at 15 s", qs[1:])
 	}
-	d.sub.SetWindows(5 * time.Minute)
+	d.sub.SetWindows(5*time.Minute, time.Hour)
 	d.next(t, 15*time.Second)
 	if n := len(d.hist.ranges()); n != 2 {
 		t.Errorf("an unchanged range asked Prometheus again: %d queries", n)
