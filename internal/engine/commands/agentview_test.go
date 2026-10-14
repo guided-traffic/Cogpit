@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/guided-traffic/cogpit/internal/cache"
@@ -111,32 +112,30 @@ func objectText(t *testing.T, h *harness, origin engine.Origin, ref model.Object
 
 // TestAgentViewReplacesCachedSecretValues (H-82, owner 2026-10-14): an agent reads the cached
 // Secrets' values as «secret <ns>/<name>/<key>» in an object's YAML and drawer, an editor's text and
-// diff and a logs tab's lines; the window reads them as they are. Before any Secret is cached there
-// is nothing to replace, and reading starts no Secrets watch. An agent's text that carries a
-// placeholder back is refused.
+// diff and a logs tab's lines; the window reads them as they are. The window's read starts no
+// Secrets watch; an agent's first read takes the Secrets and is filtered against them already (the
+// owner's option b, 2026-10-14). An agent's text that carries a placeholder back is refused.
 func TestAgentViewReplacesCachedSecretValues(t *testing.T) {
 	h := newAgentViewHarness(t)
 	const placeholder = "«secret shop/db/password»"
 	secretScope := cache.Scope{GVR: testkit.SecretsGVR}
 
-	// No Secret cached: nothing to replace, and nothing watched for it.
-	if got := objectText(t, h, engine.OriginExternalAgent, appCMRef()); !strings.Contains(got, dbPass) || strings.Contains(got, placeholder) {
-		t.Fatalf("before the Secrets are cached: %s", got)
+	// The window's read: the value, and no Secrets watch for it.
+	if got := objectText(t, h, engine.OriginGUI, appCMRef()); !strings.Contains(got, dbPass) || strings.Contains(got, placeholder) {
+		t.Fatalf("the window's read before any Secret is cached: %s", got)
 	}
 	if h.src.Watching(secretScope) {
-		t.Fatal("an agent's read started a Secrets watch")
+		t.Fatal("the window's read started a Secrets watch")
 	}
 
-	// The Secrets view caches them.
-	h.must(t, engine.OriginGUI, "ui.openView", map[string]any{"view": "secrets"}, nil)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	var agentCM string
-	if !testkit.WaitFor(ctx, func() bool {
-		agentCM = objectText(t, h, engine.OriginExternalAgent, appCMRef())
-		return strings.Contains(agentCM, placeholder)
-	}) {
-		t.Fatalf("the cached value was never replaced: %s", agentCM)
+	// An agent's first read takes the Secrets, waits for them and reads the placeholder; the
+	// Secrets stay watched (warm) after it.
+	agentCM := objectText(t, h, engine.OriginExternalAgent, appCMRef())
+	if !strings.Contains(agentCM, placeholder) {
+		t.Fatalf("the agent's first read was not filtered: %s", agentCM)
+	}
+	if !h.src.Watching(secretScope) {
+		t.Error("no Secrets watch after the agent's read")
 	}
 	if strings.Contains(agentCM, dbPass) {
 		t.Errorf("object.get gives an agent the value: %s", agentCM)
@@ -242,5 +241,46 @@ func TestAgentViewWithholdsFluxCredentials(t *testing.T) {
 	err := h.run(t, engine.OriginExternalAgent, "editor.setText", map[string]any{"id": edit.Tab.ID, "yaml": edit.Text}, nil)
 	if !errors.Is(err, engine.ErrAgentMarkerWrite) {
 		t.Errorf("an agent's text with the marker: %v", err)
+	}
+}
+
+// refusingSecretsConnector is agentViewConnector over a source that refuses to list Secrets, as
+// the API server refuses a user without the permission.
+type refusingSecretsConnector struct{ src cache.Source }
+
+func (c refusingSecretsConnector) Contexts() ([]engine.ContextInfo, error) {
+	return []engine.ContextInfo{{Name: "test", Current: true}}, nil
+}
+
+func (c refusingSecretsConnector) Connect(context.Context, string) (*engine.Backend, error) {
+	ch := cache.New(c.src, cache.Options{WarmPeriod: time.Minute})
+	secrets, _ := kinds.ByKey("secrets")
+	cms, _ := kinds.ByKey("configmaps")
+	return &engine.Backend{Context: "test", Namespace: "default", Cache: ch, Close: ch.Close,
+		Profiles: append([]*model.KindProfile{secrets, cms}, testProfiles()...), Conn: &cluster.Conn{}, Actions: &fakeWriter{}}, nil
+}
+
+// TestAgentReadWithoutSecretsAccess (H-82, option b): for a user who may not list Secrets, an
+// agent's read does not wait for them: the refusal says there is nothing to replace, and the read
+// answers at once, the value as printed (H-82 names this case).
+func TestAgentReadWithoutSecretsAccess(t *testing.T) {
+	mem := testkit.NewMemorySource()
+	mem.Set(configMapsGVR, testkit.Object("v1", "ConfigMap", "shop", "app", map[string]any{"data": map[string]any{"dsn": "postgres://app:" + dbPass + "@db/app"}}))
+	src := testkit.RefusingSource{Inner: mem, Refuse: map[schema.GroupVersionResource]error{
+		testkit.SecretsGVR: apierrors.NewForbidden(schema.GroupResource{Resource: "secrets"}, "", errors.New("the user may not list secrets")),
+	}}
+	h := &harness{writer: &fakeWriter{}}
+	h.s = engine.New(engine.Options{Connector: refusingSecretsConnector{src: src}, SnapshotInterval: 5 * time.Millisecond})
+	if err := commands.RegisterAll(h.s.Registry()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(h.s.Close)
+	if err := h.s.Connect(context.Background(), "test"); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	got := objectText(t, h, engine.OriginExternalAgent, appCMRef())
+	if took := time.Since(start); took > 5*time.Second || !strings.Contains(got, dbPass) {
+		t.Errorf("after %v: %s", took, got)
 	}
 }

@@ -1451,7 +1451,7 @@ the running scopes without a handle. `Cache.Peek(match)` returns the objects of 
 the function selects, `Cache.PeekVersion(match)` a string that changes whenever one of them starts,
 stops or delivers an event (each entry carries a sequence number, so a scope started again is
 another one): nothing starts, nothing is held, no warm period is extended. The engine's matcher of
-the cached Secrets' values reads the Secrets this way ([§7](#7-mcp-and-the-built-in-agent), H-82).
+the cached Secrets' values reads the Secrets this way ([§7](#7-mcp-and-the-built-in-agent), H-82); since 2026-10-14 an agent's read that the matcher filters first acquires the Secrets as the Secrets view does, waits for their sync (10 s at most) and releases them, so the cache keeps them warm for its warm period (`engine/agentsecrets.go`, the owner's option b of D-44).
 
 **Covering scopes** (decided 2026-10-12 with [D-13](decisions.md#d-13-cache)'s revision, built
 2026-10-12 by the fourth run, [`cache/cover.go`](../../internal/cache/cover.go)). A label-selected

@@ -373,6 +373,11 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 
 	ctx = context.WithValue(ctx, originKey{}, inv.Origin)
 	err = s.safeCall(cmd.ID, func() (err error) { result, err = cmd.run(ctx, s, p); return err })
+	if err == nil && inv.Origin.IsAgent() && needsAgentSecrets(result) { // the Secrets it is read against (agentsecrets.go)
+		if err = s.Backend().agentSecrets(ctx); err != nil {
+			result = nil
+		}
+	}
 	if err == nil && inv.Origin.IsAgent() { // the cached Secrets' values, Flux's credentials (agentview.go)
 		if err = s.safeCall(cmd.ID, func() error { result = s.forAgent(result); return nil }); err != nil {
 			result = nil
