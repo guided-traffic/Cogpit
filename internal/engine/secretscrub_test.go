@@ -177,3 +177,22 @@ func TestSecretMatcherConcurrentRebuilds(t *testing.T) {
 	close(stop)
 	wg.Wait()
 }
+
+// TestSecretMatcherKeepsArgoCDsShownKeys: the keys of Argo CD's repository and cluster Secrets that
+// D-35 shows agents are not replaced (a repository's URL in its object_get), their credentials are.
+func TestSecretMatcherKeepsArgoCDsShownKeys(t *testing.T) {
+	repo := secretObj("argocd", "repo-shop", "Opaque", map[string]string{"url": "https://git.example.com/shop.git",
+		"project": "default-project", "password": "argo-repo-token-4711"})
+	repo.SetLabels(map[string]string{"argocd.argoproj.io/secret-type": "repository"})
+	plain := secretObj("shop", "app", "Opaque", map[string]string{"url": "https://hooks.example.com/T0/B0/secret-path"})
+	m := buildSecretMatcher([]*unstructured.Unstructured{repo, plain})
+	for in, want := range map[string]string{
+		"clone https://git.example.com/shop.git":           "clone https://git.example.com/shop.git",
+		"token argo-repo-token-4711":                       "token «secret argocd/repo-shop/password»",
+		"post https://hooks.example.com/T0/B0/secret-path": "post «secret shop/app/url»",
+	} {
+		if got := scrubbed(t, m, in); got != want {
+			t.Errorf("%q:\n got %q\nwant %q", in, got, want)
+		}
+	}
+}

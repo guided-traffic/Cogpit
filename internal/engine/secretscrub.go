@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/guided-traffic/cogpit/internal/cache"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
 // The cached Secrets' values in what agents read (agents-and-mcp H-82, owner 2026-10-14): a
@@ -66,7 +67,7 @@ const namespaceKey = "namespace"
 
 // helmReleaseSecretType is a Helm release record: the release, its values included, gzipped and
 // base64-encoded twice, which no log prints; Secrets of this type are left out.
-const helmReleaseSecretType = "helm.sh/release.v1"
+const helmReleaseSecretType = "helm.sh/release.v1" // #nosec G101 -- a Secret type's name, no credential
 
 // SecretPlaceholder is what an agent reads in place of a value of the Secret namespace/name, key
 // key.
@@ -158,6 +159,20 @@ func buildSecretMatcher(secrets []*unstructured.Unstructured) *secretMatcher {
 var nameKeyWords = []string{"user", "username", "login", "host", "hostname", "server", "port", "database", "db", "dbname",
 	namespaceKey, "schema", "region", "email"}
 
+// argoPublicKeys are the keys of an Argo CD repository or cluster Secret whose values D-35 shows the
+// window and agents (the owner's decision, 2026-10-14): replacing them would hide from an agent
+// what its object_get of the repository shows, its URL. A URL's user information is replaced in
+// what D-35 shows; a log that prints it keeps it, which H-82 names.
+func argoPublicKeys(s *unstructured.Unstructured) []string {
+	switch s.GetLabels()[kinds.ArgoSecretTypeLabel] {
+	case "repository", "repo-creds":
+		return kinds.ArgoRepositoryKeys
+	case "cluster":
+		return kinds.ArgoClusterKeys
+	}
+	return nil
+}
+
 // isNameKey reports whether a data key holds a name by its last word, case and separators ('-',
 // '_', '.') aside: "username", "POSTGRES_USER", "db.host", "MYSQL_DATABASE"; not "password",
 // "DB_PASSWORD", "url" (a URL can carry a password).
@@ -183,6 +198,7 @@ func secretCandidates(secrets []*unstructured.Unstructured, minLen int, skipName
 		if typ == helmReleaseSecretType {
 			continue
 		}
+		public := argoPublicKeys(s)
 		data, _ := s.Object["data"].(map[string]any)
 		keys := make([]string, 0, len(data))
 		for k := range data {
@@ -191,7 +207,7 @@ func secretCandidates(secrets []*unstructured.Unstructured, minLen int, skipName
 		slices.Sort(keys)
 		for _, k := range keys {
 			enc, ok := data[k].(string)
-			if !ok || slices.Contains(publicSecretKeys[typ], k) || skipNames && isNameKey(k) {
+			if !ok || slices.Contains(publicSecretKeys[typ], k) || slices.Contains(public, k) || skipNames && isNameKey(k) {
 				continue
 			}
 			label := SecretPlaceholder(s.GetNamespace(), s.GetName(), k)
