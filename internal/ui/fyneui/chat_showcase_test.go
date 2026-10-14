@@ -13,28 +13,29 @@ import (
 // the selected pod keeps restarting; the agent reads the pod and its log, and answers with a table
 // of its containers, the log line and the cause.
 func TestShowcaseAgentChat(t *testing.T) {
-	showcaseOnly(t)
-	p := podNamed(t, podCrashLoop)
-	f := kindsFake(t, "pods")
-	withUsageCells(t, f, "pods")
-	ref := model.ObjectRef{Context: "demo", Kind: "pods", Namespace: p.ns, Name: p.name}
-	f.ui.Selected = []model.ObjectRef{ref}
-	showcaseTabs(f, "pods", engine.ClusterOverview, "deployments")
-	fakeTabCommands(t, f)
-	ch := withChat(t, f)
-	ch.conns = []engine.ChatConnection{lmStudio(), litellm()}
-	restarts := podRestarts(f, p.name)
-	conv := showcaseChat(ch, p, restarts)
-	f.ui.Chat = true
-	sh, w, q := newTestShell(t, f, Options{Theme: ThemeDark})
-	q.until(t, "the conversation", func() bool {
-		return len(sh.kinds) > 0 && sh.chat.convID == conv && len(sh.chat.views) > 0 && sh.diag.total > 0 && len(sh.tabs.shown) == 3
+	eachTheme(t, func(t *testing.T, mode ThemeMode) {
+		p := podNamed(t, podCrashLoop)
+		f := kindsFake(t, "pods")
+		withUsageCells(t, f, "pods")
+		ref := model.ObjectRef{Context: "demo", Kind: "pods", Namespace: p.ns, Name: p.name}
+		f.ui.Selected = []model.ObjectRef{ref}
+		showcaseTabs(f, "pods", engine.ClusterOverview, "deployments")
+		fakeTabCommands(t, f)
+		ch := withChat(t, f)
+		ch.conns = []engine.ChatConnection{lmStudio(), litellm()}
+		restarts := podRestarts(f, p.name)
+		conv := showcaseChat(ch, p, restarts)
+		f.ui.Chat = true
+		sh, w, q := newTestShell(t, f, Options{Theme: mode})
+		q.until(t, "the conversation", func() bool {
+			return len(sh.kinds) > 0 && sh.chat.convID == conv && len(sh.chat.views) > 0 && sh.diag.total > 0 && len(sh.tabs.shown) == 3
+		})
+		settle(w)
+		scrollRowToTop(sh, len(f.tables["pods"].Rows), rowOf(t, f, "pods", p.name)-19)
+		sh.chat.scroll.ScrollToTop()
+		sh.chat.updatePin()
+		saveShowcase(t, w, "agent_chat", mode)
 	})
-	settle(w)
-	scrollRowToTop(sh, len(f.tables["pods"].Rows), rowOf(t, f, "pods", p.name)-19)
-	sh.chat.scroll.ScrollToTop()
-	sh.chat.updatePin()
-	saveShowcase(t, w, "agent_chat.png")
 }
 
 // podRestarts is the pod's Restarts cell as the list shows it, so that the answer agrees with it.

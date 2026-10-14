@@ -21,11 +21,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/engine/commands"
 	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/metrics"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 	"github.com/guided-traffic/cogpit/internal/terminal"
+	"github.com/guided-traffic/cogpit/internal/testkit"
+	"github.com/guided-traffic/cogpit/internal/testkit/enginekit"
 )
 
 // The showcase renders: the pictures of the README (docs/images/*.png), Cogpit's main features
@@ -35,9 +38,14 @@ import (
 // reuse those scenes and only arrange them for a picture (a tab bar, a wider dock, demo data that
 // reads well), and no fixture value that looks like a secret.
 //
+// Every scene is drawn twice, in the dark and the light theme, into <name>_dark.png and
+// <name>_light.png: the README shows the one that matches the reader's GitHub theme through
+// <picture> (A110). The connected cluster is the same context in every picture, demo (A114).
+//
 // They run only when asked: with -showcase they write docs/images; with COGPIT_PNG_DIR they write
 // there, to look without touching the tree. Otherwise they are skipped, so that CI's race shards
-// draw no pictures nobody looks at.
+// draw no pictures nobody looks at. make showcase runs them and then oxipng over docs/images,
+// lossless (A112).
 //
 //	GOFLAGS=-p=4 go test ./internal/ui/fyneui -run TestShowcase -showcase
 var showcasePNG = flag.Bool("showcase", false, "write the README's showcase renders into docs/images")
@@ -48,6 +56,11 @@ const (
 	// showcaseScale draws the 1440×900 window at twice its size, as a Retina display shows it, so
 	// that GitHub's scaled-down picture stays sharp and a click on it shows crisp text.
 	showcaseScale = 2
+	// showcaseContext is the connected cluster's context in every picture (A114): the fixtures'
+	// one, the name of the demo cluster a reader can open in Cogpit, and nothing that names a
+	// person, a company or Cogpit's own test clusters. The GitOps scenes, whose fixtures connect
+	// "kind-flux" and "argo", show it too (renamedConnector).
+	showcaseContext = "demo"
 )
 
 // showcaseOnly skips a showcase render unless -showcase or COGPIT_PNG_DIR asks for it.
@@ -58,9 +71,26 @@ func showcaseOnly(t *testing.T) {
 	}
 }
 
-// saveShowcase captures the window at showcaseScale into docs/images (or COGPIT_PNG_DIR).
-func saveShowcase(t *testing.T, w fyne.Window, name string) {
+// eachTheme draws a scene once per theme, as the subtests dark and light (A110).
+func eachTheme(t *testing.T, scene func(t *testing.T, mode ThemeMode)) {
 	t.Helper()
+	showcaseOnly(t)
+	for _, mode := range []ThemeMode{ThemeDark, ThemeLight} {
+		t.Run(string(mode), func(t *testing.T) { scene(t, mode) })
+	}
+}
+
+// saveShowcase captures the 1440×900 window at showcaseScale into docs/images (or
+// COGPIT_PNG_DIR) as <name>_<mode>.png.
+func saveShowcase(t *testing.T, w fyne.Window, name string, mode ThemeMode) {
+	t.Helper()
+	saveShowcaseSized(t, w, name, mode, fyne.NewSize(1440, 900))
+}
+
+// saveShowcaseSized captures the window, which must be at least the size least, at showcaseScale.
+func saveShowcaseSized(t *testing.T, w fyne.Window, name string, mode ThemeMode, least fyne.Size) {
+	t.Helper()
+	file := name + "_" + string(mode) + ".png"
 	settle(w)
 	c, ok := w.Canvas().(interface{ SetScale(float32) })
 	if !ok {
@@ -69,8 +99,8 @@ func saveShowcase(t *testing.T, w fyne.Window, name string) {
 	c.SetScale(showcaseScale)
 	defer c.SetScale(1)
 	img := w.Canvas().Capture()
-	if b := img.Bounds(); b.Dx() < 1440*showcaseScale || b.Dy() < 900*showcaseScale {
-		t.Fatalf("%s: captured %v, want at least %d×%d", name, b, 1440*showcaseScale, 900*showcaseScale)
+	if b := img.Bounds(); b.Dx() < int(least.Width)*showcaseScale || b.Dy() < int(least.Height)*showcaseScale {
+		t.Fatalf("%s: captured %v, want at least %v×%v", file, b, least.Width*showcaseScale, least.Height*showcaseScale)
 	}
 	dir := os.Getenv("COGPIT_PNG_DIR")
 	if *showcasePNG {
@@ -79,7 +109,7 @@ func saveShowcase(t *testing.T, w fyne.Window, name string) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	f, err := os.Create(filepath.Join(dir, name))
+	f, err := os.Create(filepath.Join(dir, file))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,13 +139,15 @@ func showcaseCounters(sh *shell, context string) {
 	sh.status.update()
 }
 
-// showcaseContexts are the kubeconfig contexts the showcase's navigator and hotbar show.
+// showcaseContexts are the kubeconfig contexts the showcase's navigator and hotbar show: the
+// connected showcaseContext and four invented ones that read like a team's clusters, none of them
+// a real cluster's, a person's or Cogpit's own test cluster's (kind-cogpit; A114).
 func showcaseContexts() []engine.ContextInfo {
 	return []engine.ContextInfo{
-		{Name: "demo", Demo: true},
+		{Name: showcaseContext, Demo: true},
 		{Name: "prod-eu-central", Cluster: "prod-eu-central", Server: "https://api.prod-eu-central.example.com:6443", Namespace: "platform"},
 		{Name: "staging-us-east", Cluster: "staging-us-east", Server: "https://api.staging-us-east.example.com:6443"},
-		{Name: "kind-cogpit", Cluster: "kind-cogpit", User: "kind-cogpit", Server: "https://127.0.0.1:52341", Current: true},
+		{Name: "kind-local", Cluster: "kind-local", User: "kind-local", Server: "https://127.0.0.1:52341", Current: true},
 		{Name: "dev-us-west", Cluster: "dev-us-west", Server: "https://api.dev-us-west.example.com:6443", Namespace: "default"},
 	}
 }
@@ -142,38 +174,32 @@ func showcaseTabs(f *fakeEngine, views ...string) {
 // 1. The hero: the navigator, the Pods list with CPU and Memory, a pod's drawer with its charts
 // from Prometheus (history, requests and limits, a chart per container).
 func TestShowcaseHero(t *testing.T) {
-	showcaseOnly(t)
-	for _, c := range []struct {
-		mode ThemeMode
-		name string
-	}{{ThemeDark, "hero.png"}, {ThemeLight, "hero_light.png"}} {
-		t.Run(c.name, func(t *testing.T) {
-			p := showcasePod(t)
-			f := kindsFake(t, "pods")
-			withUsageCells(t, f, "pods")
-			ref := model.ObjectRef{Context: "demo", Kind: "pods", Namespace: p.ns, Name: p.name}
-			m := podMetricsFixture(ref)
-			withEnvoy(m)
-			withPrometheus(m)
-			f.metrics = map[string]*engine.ObjectMetrics{ref.String(): m}
-			withRowUsage(t, f, "pods", p.name, *m.Targets[0].Current)
-			f.ui.Selected, f.ui.Drawer = []model.ObjectRef{ref}, &ref
-			withRangeCommand(f)
-			withVariantCommand(f)
-			showcaseTabs(f, "pods", engine.ClusterOverview, "deployments")
-			fakeTabCommands(t, f)
-			sh, w, q := newTestShell(t, f, Options{Theme: c.mode})
-			q.until(t, "the metrics", func() bool {
-				pm, ok := sh.drawer.kept[metricsKey].(*metricsPanel)
-				return ok && pm.data != nil && sh.drawer.last != nil && sh.diag.total > 0 && len(sh.tabs.shown) == 3
-			})
-			settle(w)
-			// The selected row in the middle of the list, not at its edge where the drawer's opening
-			// scrolled it.
-			scrollRowToTop(sh, len(f.tables["pods"].Rows), rowOf(t, f, "pods", p.name)-13)
-			saveShowcase(t, w, c.name)
+	eachTheme(t, func(t *testing.T, mode ThemeMode) {
+		p := showcasePod(t)
+		f := kindsFake(t, "pods")
+		withUsageCells(t, f, "pods")
+		ref := model.ObjectRef{Context: "demo", Kind: "pods", Namespace: p.ns, Name: p.name}
+		m := podMetricsFixture(ref)
+		withEnvoy(m)
+		withPrometheus(m)
+		f.metrics = map[string]*engine.ObjectMetrics{ref.String(): m}
+		withRowUsage(t, f, "pods", p.name, *m.Targets[0].Current)
+		f.ui.Selected, f.ui.Drawer = []model.ObjectRef{ref}, &ref
+		withRangeCommand(f)
+		withVariantCommand(f)
+		showcaseTabs(f, "pods", engine.ClusterOverview, "deployments")
+		fakeTabCommands(t, f)
+		sh, w, q := newTestShell(t, f, Options{Theme: mode})
+		q.until(t, "the metrics", func() bool {
+			pm, ok := sh.drawer.kept[metricsKey].(*metricsPanel)
+			return ok && pm.data != nil && sh.drawer.last != nil && sh.diag.total > 0 && len(sh.tabs.shown) == 3
 		})
-	}
+		settle(w)
+		// The selected row in the middle of the list, not at its edge where the drawer's opening
+		// scrolled it.
+		scrollRowToTop(sh, len(f.tables["pods"].Rows), rowOf(t, f, "pods", p.name)-13)
+		saveShowcase(t, w, "hero", mode)
+	})
 }
 
 // showcasePod is a running fixture pod with the containers app and envoy in a namespace that
@@ -215,44 +241,46 @@ func withRowUsage(t *testing.T, f *fakeEngine, key, name string, u model.Usage) 
 // 2. The cluster Overview: CPU, Memory and Pods of the worker nodes over the last hour (the Pods'
 // history from kube-state-metrics), and the Issues below.
 func TestShowcaseClusterOverview(t *testing.T) {
-	showcaseOnly(t)
-	f := clusterFakeWithPodsHistory(t, metrics.PodsFromKubeStateMetrics)
-	showcaseTabs(f, engine.ClusterOverview, "pods", "nodes")
-	fakeTabCommands(t, f)
-	sh, w, q := newTestShell(t, f, Options{Theme: ThemeDark})
-	q.until(t, "the page", func() bool {
-		return len(sh.kinds) > 0 && sh.view.snap != nil && sh.view.cluster.data != nil && sh.diag.total > 0
+	eachTheme(t, func(t *testing.T, mode ThemeMode) {
+		f := clusterFakeWithPodsHistory(t, metrics.PodsFromKubeStateMetrics)
+		showcaseTabs(f, engine.ClusterOverview, "pods", "nodes")
+		fakeTabCommands(t, f)
+		sh, w, q := newTestShell(t, f, Options{Theme: mode})
+		q.until(t, "the page", func() bool {
+			return len(sh.kinds) > 0 && sh.view.snap != nil && sh.view.cluster.data != nil && sh.diag.total > 0
+		})
+		saveShowcase(t, w, "cluster_overview", mode)
 	})
-	saveShowcase(t, w, "cluster_overview.png")
 }
 
 // 3. The Nodes list with Lens's usage bars, and a node's drawer: its charts, its Pods with CPU and
 // Memory.
 func TestShowcaseNodes(t *testing.T) {
-	showcaseOnly(t)
-	f, ref := nodePodsSortFake(t, map[string]engine.SortSpec{"Pods": {Column: model.ColumnCPU, Desc: true}})
-	withNodeBars(t, f)
-	registerProbes(t, f)
-	showcaseTabs(f, "nodes", engine.ClusterOverview)
-	fakeTabCommands(t, f)
-	u := barNodeUsage[ref.Name]
-	f.metrics = map[string]*engine.ObjectMetrics{ref.String(): {
-		Ref: ref, Status: metrics.StatusAvailable, Source: "Prometheus (monitoring/prometheus-server) and Kubernetes Metrics Server",
-		Capabilities: metrics.Capabilities{History: true},
-		Targets: []engine.MetricsTarget{{
-			Current: &u, At: fixedNow, Samples: nodeSeries(u),
-			Allocatable: model.Usage{CPUMilli: 7800, MemoryBytes: 30 << 30}, Capacity: model.Usage{CPUMilli: 8000, MemoryBytes: 32 << 30},
-		}},
-		Disk: &model.NodeDisk{Name: ref.Name, UsedBytes: 172 << 30, SizeBytes: 200 << 30},
-	}}
-	sh, w, q := newTestShell(t, f, Options{Theme: ThemeDark})
-	q.until(t, "the drawer", func() bool {
-		p, ok := sh.drawer.kept[metricsKey].(*metricsPanel)
-		return ok && p.data != nil && len(sh.kinds) > 0 && sh.drawer.last != nil && sh.diag.total > 0 && len(sh.tabs.shown) == 2
+	eachTheme(t, func(t *testing.T, mode ThemeMode) {
+		f, ref := nodePodsSortFake(t, map[string]engine.SortSpec{"Pods": {Column: model.ColumnCPU, Desc: true}})
+		withNodeBars(t, f)
+		registerProbes(t, f)
+		showcaseTabs(f, "nodes", engine.ClusterOverview)
+		fakeTabCommands(t, f)
+		u := barNodeUsage[ref.Name]
+		f.metrics = map[string]*engine.ObjectMetrics{ref.String(): {
+			Ref: ref, Status: metrics.StatusAvailable, Source: "Prometheus (monitoring/prometheus-server) and Kubernetes Metrics Server",
+			Capabilities: metrics.Capabilities{History: true},
+			Targets: []engine.MetricsTarget{{
+				Current: &u, At: fixedNow, Samples: nodeSeries(u),
+				Allocatable: model.Usage{CPUMilli: 7800, MemoryBytes: 30 << 30}, Capacity: model.Usage{CPUMilli: 8000, MemoryBytes: 32 << 30},
+			}},
+			Disk: &model.NodeDisk{Name: ref.Name, UsedBytes: 172 << 30, SizeBytes: 200 << 30},
+		}}
+		sh, w, q := newTestShell(t, f, Options{Theme: mode})
+		q.until(t, "the drawer", func() bool {
+			p, ok := sh.drawer.kept[metricsKey].(*metricsPanel)
+			return ok && p.data != nil && len(sh.kinds) > 0 && sh.drawer.last != nil && sh.diag.total > 0 && len(sh.tabs.shown) == 2
+		})
+		settle(w)
+		scrollDrawerTo(t, sh, "Allocatable")
+		saveShowcase(t, w, "nodes", mode)
 	})
-	settle(w)
-	scrollDrawerTo(t, sh, "Allocatable")
-	saveShowcase(t, w, "nodes.png")
 }
 
 // nodeSeries is an hour of a node's usage, ending at u.
@@ -268,30 +296,31 @@ func nodeSeries(u model.Usage) []model.UsageSample {
 // 4. Logs: a Deployment's pods followed in one tab, each line with its pod and container, a search
 // highlighted; a pod shell and a terminal in the dock beside it.
 func TestShowcaseLogs(t *testing.T) {
-	showcaseOnly(t)
-	f := kindsFake(t, "deployments")
-	f.tables["deployments"] = kindSnapshot(t, "deployments", showcaseDeployments())
-	f.quietTerminals = true
-	pod := model.ObjectRef{Context: "demo", Kind: kindPods, Namespace: "checkout", Name: "checkout-api-7d9f8b6c4-x2k9p"}
-	dep := model.ObjectRef{Context: "demo", Kind: "deployments", Namespace: "checkout", Name: "checkout-api"}
-	f.ui.Selected = []model.ObjectRef{dep}
-	withLogCommands(t, f, dep)
-	f.ui.Dock = []engine.DockTab{
-		{ID: "logs-1", Type: engine.DockLogs, Title: "Logs: Deployment checkout-api", Context: "demo", Ref: &dep,
-			Logs: engine.LogOptions{ResourceNames: true, Timestamps: true, Search: "error"}},
-		{ID: "shell-2", Type: engine.DockShell, Title: "Shell: " + pod.Name + "/api", Context: "demo", Ref: &pod, Container: "api"},
-		{ID: "terminal-3", Type: engine.DockTerminal, Title: "Terminal: demo", Context: "demo"},
-	}
-	f.ui.ActiveDock = "logs-1"
-	showcaseTabs(f, "deployments", "pods")
-	fakeTabCommands(t, f)
-	sh, w, q := startShell(t, newLogsEngine(f), f, Options{Theme: ThemeDark})
-	sh.vsplit.SetOffset(0.5)
-	q.until(t, "the log lines", func() bool {
-		lt := logTabOf(sh)
-		return len(sh.kinds) > 0 && lt != nil && lt.view != nil && len(lt.view.ShownLines()) == len(demoMerged) && sh.diag.total > 0
+	eachTheme(t, func(t *testing.T, mode ThemeMode) {
+		f := kindsFake(t, "deployments")
+		f.tables["deployments"] = kindSnapshot(t, "deployments", showcaseDeployments())
+		f.quietTerminals = true
+		pod := model.ObjectRef{Context: "demo", Kind: kindPods, Namespace: "checkout", Name: "checkout-api-7d9f8b6c4-x2k9p"}
+		dep := model.ObjectRef{Context: "demo", Kind: "deployments", Namespace: "checkout", Name: "checkout-api"}
+		f.ui.Selected = []model.ObjectRef{dep}
+		withLogCommands(t, f, dep)
+		f.ui.Dock = []engine.DockTab{
+			{ID: "logs-1", Type: engine.DockLogs, Title: "Logs: Deployment checkout-api", Context: "demo", Ref: &dep,
+				Logs: engine.LogOptions{ResourceNames: true, Timestamps: true, Search: "error"}},
+			{ID: "shell-2", Type: engine.DockShell, Title: "Shell: " + pod.Name + "/api", Context: "demo", Ref: &pod, Container: "api"},
+			{ID: "terminal-3", Type: engine.DockTerminal, Title: "Terminal: " + showcaseContext, Context: "demo"},
+		}
+		f.ui.ActiveDock = "logs-1"
+		showcaseTabs(f, "deployments", "pods")
+		fakeTabCommands(t, f)
+		sh, w, q := startShell(t, newLogsEngine(f), f, Options{Theme: mode})
+		sh.vsplit.SetOffset(0.5)
+		q.until(t, "the log lines", func() bool {
+			lt := logTabOf(sh)
+			return len(sh.kinds) > 0 && lt != nil && lt.view != nil && len(lt.view.ShownLines()) == len(demoMerged) && sh.diag.total > 0
+		})
+		saveShowcase(t, w, "logs", mode)
 	})
-	saveShowcase(t, w, "logs.png")
 }
 
 // showcaseShellOutput is a session in a search-indexer pod's app container.
@@ -323,81 +352,83 @@ func (e showcaseShellEngine) OpenTerminal(ctx context.Context, tabID string) (te
 
 // 5. A pod shell in the dock, under the Pods list with the pod selected.
 func TestShowcaseShell(t *testing.T) {
-	showcaseOnly(t)
-	p := showcasePod(t)
-	f := kindsFake(t, "pods")
-	withUsageCells(t, f, "pods")
-	pod := model.ObjectRef{Context: "demo", Kind: kindPods, Namespace: p.ns, Name: p.name}
-	f.ui.Selected = []model.ObjectRef{pod}
-	f.ui.Dock = []engine.DockTab{
-		{ID: "shell-1", Type: engine.DockShell, Title: "Shell: " + pod.Name + "/app", Context: "demo", Ref: &pod, Container: "app"},
-	}
-	f.ui.ActiveDock = "shell-1"
-	showcaseTabs(f, "pods", "deployments")
-	fakeTabCommands(t, f)
-	eng := showcaseShellEngine{fakeEngine: f, pod: pod.Name, last: &atomic.Pointer[openStream]{}}
-	sh, w, q := startShell(t, eng, f, Options{Theme: ThemeDark})
-	sh.vsplit.SetOffset(0.52)
-	q.until(t, "the terminal to read", func() bool {
-		s := eng.last.Load()
-		return len(sh.kinds) > 0 && sh.view.snap != nil && s != nil && s.reading.Load() && sh.diag.total > 0
-	})
-	q.drain()
-	s := eng.last.Load()
-	close(s.gate)
-	deadline := time.Now().Add(5 * time.Second)
-	for !s.idle.Load() {
-		if time.Now().After(deadline) {
-			t.Fatal("the terminal did not take the shell's output")
+	eachTheme(t, func(t *testing.T, mode ThemeMode) {
+		p := showcasePod(t)
+		f := kindsFake(t, "pods")
+		withUsageCells(t, f, "pods")
+		pod := model.ObjectRef{Context: "demo", Kind: kindPods, Namespace: p.ns, Name: p.name}
+		f.ui.Selected = []model.ObjectRef{pod}
+		f.ui.Dock = []engine.DockTab{
+			{ID: "shell-1", Type: engine.DockShell, Title: "Shell: " + pod.Name + "/app", Context: "demo", Ref: &pod, Container: "app"},
 		}
-		time.Sleep(time.Millisecond)
-	}
-	q.drain()
-	settle(w)
-	scrollRowToTop(sh, len(f.tables["pods"].Rows), rowOf(t, f, "pods", pod.Name)-6)
-	saveShowcase(t, w, "shell.png")
+		f.ui.ActiveDock = "shell-1"
+		showcaseTabs(f, "pods", "deployments")
+		fakeTabCommands(t, f)
+		eng := showcaseShellEngine{fakeEngine: f, pod: pod.Name, last: &atomic.Pointer[openStream]{}}
+		sh, w, q := startShell(t, eng, f, Options{Theme: mode})
+		sh.vsplit.SetOffset(0.52)
+		q.until(t, "the terminal to read", func() bool {
+			s := eng.last.Load()
+			return len(sh.kinds) > 0 && sh.view.snap != nil && s != nil && s.reading.Load() && sh.diag.total > 0
+		})
+		q.drain()
+		s := eng.last.Load()
+		close(s.gate)
+		deadline := time.Now().Add(5 * time.Second)
+		for !s.idle.Load() {
+			if time.Now().After(deadline) {
+				t.Fatal("the terminal did not take the shell's output")
+			}
+			time.Sleep(time.Millisecond)
+		}
+		q.drain()
+		settle(w)
+		scrollRowToTop(sh, len(f.tables["pods"].Rows), rowOf(t, f, "pods", pod.Name)-6)
+		saveShowcase(t, w, "shell", mode)
+	})
 }
 
 // 6. Editing YAML: an Edit tab reviewing its change as a diff after the server's dry run accepted
 // it, under the Services list.
 func TestShowcaseEditDiff(t *testing.T) {
-	showcaseOnly(t)
-	f := kindsFake(t, "services")
-	f.kinds = append(f.kinds, kindInfo{Kind: "services", Title: "Services", APIKind: "Service", Version: "v1", Namespaced: true})
-	svcs := append(fixtureServiceObjects(), &unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": "v1", "kind": "Service",
-		"metadata": map[string]any{"name": "checkout", "namespace": "storefront", "uid": "uid-svc-checkout", "creationTimestamp": ts(40 * 24 * time.Hour)},
-		"spec": map[string]any{"type": "ClusterIP", "clusterIP": "10.96.100.100", "selector": map[string]any{"app": "checkout"},
-			"ports": []any{map[string]any{"name": "http", "port": int64(80), "targetPort": int64(8080), "protocol": "TCP"}}},
-	}})
-	f.tables["services"] = kindSnapshot(t, "services", svcs)
-	f.ui.View = "services"
-	ed := newEditorFake(f)
-	r := checkoutRef
-	tab := engine.DockTab{ID: "edit-1", Type: engine.DockEdit, Title: "Service checkout", Context: "demo", Ref: &r}
-	f.ui.Dock, f.ui.ActiveDock = []engine.DockTab{tab}, tab.ID
-	f.ui.Selected = []model.ObjectRef{r}
-	ed.setText(tab.ID, serviceYAML)
-	showcaseTabs(f, "services", "pods")
-	fakeTabCommands(t, f)
-	sh, w, q := newTestShell(t, f, Options{Theme: ThemeDark})
-	var et *editorTab
-	q.until(t, "the editor to load", func() bool {
-		if c, ok := sh.dock.contents[tab.ID]; ok {
-			et, _ = c.editor.(*editorTab)
+	eachTheme(t, func(t *testing.T, mode ThemeMode) {
+		f := kindsFake(t, "services")
+		f.kinds = append(f.kinds, kindInfo{Kind: "services", Title: "Services", APIKind: "Service", Version: "v1", Namespaced: true})
+		svcs := append(fixtureServiceObjects(), &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "v1", "kind": "Service",
+			"metadata": map[string]any{"name": "checkout", "namespace": "storefront", "uid": "uid-svc-checkout", "creationTimestamp": ts(40 * 24 * time.Hour)},
+			"spec": map[string]any{"type": "ClusterIP", "clusterIP": "10.96.100.100", "selector": map[string]any{"app": "checkout"},
+				"ports": []any{map[string]any{"name": "http", "port": int64(80), "targetPort": int64(8080), "protocol": "TCP"}}},
+		}})
+		f.tables["services"] = kindSnapshot(t, "services", svcs)
+		f.ui.View = "services"
+		ed := newEditorFake(f)
+		r := checkoutRef
+		tab := engine.DockTab{ID: "edit-1", Type: engine.DockEdit, Title: "Service checkout", Context: "demo", Ref: &r}
+		f.ui.Dock, f.ui.ActiveDock = []engine.DockTab{tab}, tab.ID
+		f.ui.Selected = []model.ObjectRef{r}
+		ed.setText(tab.ID, serviceYAML)
+		showcaseTabs(f, "services", "pods")
+		fakeTabCommands(t, f)
+		sh, w, q := newTestShell(t, f, Options{Theme: mode})
+		var et *editorTab
+		q.until(t, "the editor to load", func() bool {
+			if c, ok := sh.dock.contents[tab.ID]; ok {
+				et, _ = c.editor.(*editorTab)
+			}
+			return et != nil && et.pane.view.Text() == serviceYAML && len(sh.kinds) > 0 && sh.diag.total > 0
+		})
+		sh.vsplit.SetOffset(renderDockOffset)
+		typeLineAfter(et.pane, 16, "sessionAffinity: ClientIP")
+		et.pane.view.SetCursorPosition(13, 1<<20)
+		for range 4 {
+			et.pane.view.TypedKey(&fyne.KeyEvent{Name: fyne.KeyBackspace})
 		}
-		return et != nil && et.pane.view.Text() == serviceYAML && len(sh.kinds) > 0 && sh.diag.total > 0
+		test.Type(et.pane.view, "9090")
+		test.Tap(et.saveBtn)
+		q.until(t, "the review", func() bool { return et.reviewing && !et.applyBtn.Disabled() })
+		saveShowcase(t, w, "edit_diff", mode)
 	})
-	sh.vsplit.SetOffset(renderDockOffset)
-	typeLineAfter(et.pane, 16, "sessionAffinity: ClientIP")
-	et.pane.view.SetCursorPosition(13, 1<<20)
-	for range 4 {
-		et.pane.view.TypedKey(&fyne.KeyEvent{Name: fyne.KeyBackspace})
-	}
-	test.Type(et.pane.view, "9090")
-	test.Tap(et.saveBtn)
-	q.until(t, "the review", func() bool { return et.reviewing && !et.applyBtn.Disabled() })
-	saveShowcase(t, w, "edit_diff.png")
 }
 
 // showcaseCharts are the charts of a few public repositories, as their indexes list them (the
@@ -459,43 +490,44 @@ func showcaseDigest(repo, name, version string) string {
 // 7. Helm charts: the charts of Helm's own repositories with their icons, and a chart's drawer
 // with the README of the version picked.
 func TestShowcaseHelmCharts(t *testing.T) {
-	showcaseOnly(t)
-	f, ref := chartDrawerFake(t, "18.2.0")
-	p := chartsProfile(t)
-	at := func(d int) time.Time { return fixedNow.Add(-time.Duration(d) * 24 * time.Hour) }
-	rows := make([]model.Row, 0, len(showcaseCharts))
-	for i, c := range showcaseCharts {
-		ch := kinds.HelmChart{Repository: c.repo, Name: c.name, Version: c.version, AppVersion: c.app, Description: c.desc,
-			Icon: showcaseIconURL(c.name), Digest: showcaseDigest(c.repo, c.name, c.version), Created: at(2 + i*3),
-			Versions: []kinds.HelmChartVersion{{Version: c.version, AppVersion: c.app, Created: at(2 + i*3)}}}
-		rows = append(rows, model.BuildRow(p, "demo", kinds.HelmChartObject(ch, "uid-"+c.name, fmt.Sprint(i+1))))
-	}
-	slices.SortFunc(rows, func(a, b model.Row) int { return strings.Compare(a.Cells[1].Text, b.Cells[1].Text) })
-	f.tables[helmChartsKind] = &engine.TableSnapshot{View: helmChartsKind, Context: "demo", Title: p.Title, Columns: p.Columns, Rows: rows,
-		Sort: engine.SortSpec{Column: "name"}, Total: len(rows), Revision: 1, Synced: true}
-	m := f.details[ref.String()]
-	m.HelmChart.Icon = showcaseIconURL("nginx")
-	for i := range m.Sections {
-		for j, it := range m.Sections[i].Items {
-			switch it.Name {
-			case "Digest":
-				m.Sections[i].Items[j].Value = showcaseDigest("bitnami", "nginx", "18.2.0")
-			case "Home":
-				m.Sections[i].Items[j].Value = "https://charts.example.com/nginx"
+	eachTheme(t, func(t *testing.T, mode ThemeMode) {
+		f, ref := chartDrawerFake(t, "18.2.0")
+		p := chartsProfile(t)
+		at := func(d int) time.Time { return fixedNow.Add(-time.Duration(d) * 24 * time.Hour) }
+		rows := make([]model.Row, 0, len(showcaseCharts))
+		for i, c := range showcaseCharts {
+			ch := kinds.HelmChart{Repository: c.repo, Name: c.name, Version: c.version, AppVersion: c.app, Description: c.desc,
+				Icon: showcaseIconURL(c.name), Digest: showcaseDigest(c.repo, c.name, c.version), Created: at(2 + i*3),
+				Versions: []kinds.HelmChartVersion{{Version: c.version, AppVersion: c.app, Created: at(2 + i*3)}}}
+			rows = append(rows, model.BuildRow(p, "demo", kinds.HelmChartObject(ch, "uid-"+c.name, fmt.Sprint(i+1))))
+		}
+		slices.SortFunc(rows, func(a, b model.Row) int { return strings.Compare(a.Cells[1].Text, b.Cells[1].Text) })
+		f.tables[helmChartsKind] = &engine.TableSnapshot{View: helmChartsKind, Context: "demo", Title: p.Title, Columns: p.Columns, Rows: rows,
+			Sort: engine.SortSpec{Column: "name"}, Total: len(rows), Revision: 1, Synced: true}
+		m := f.details[ref.String()]
+		m.HelmChart.Icon = showcaseIconURL("nginx")
+		for i := range m.Sections {
+			for j, it := range m.Sections[i].Items {
+				switch it.Name {
+				case "Digest":
+					m.Sections[i].Items[j].Value = showcaseDigest("bitnami", "nginx", "18.2.0")
+				case "Home":
+					m.Sections[i].Items[j].Value = "https://charts.example.com/nginx"
+				}
 			}
 		}
-	}
-	showcaseTabs(f, helmChartsKind, helm.ReleaseKind)
-	fakeTabCommands(t, f)
-	sh, w, q := startShell(t, showcaseIconEngine{f}, f, Options{Theme: ThemeDark})
-	q.until(t, "the icons and the README", func() bool {
-		cells := iconCells(sh)
-		return sh.view.snap != nil && len(cells) == len(showcaseCharts) && !slices.Contains(mapResources(cells), sh.chartGlyph()) &&
-			readmeOf(sh) != nil && sh.diag.total > 0 && sh.drawer.lead.Visible()
+		showcaseTabs(f, helmChartsKind, helm.ReleaseKind)
+		fakeTabCommands(t, f)
+		sh, w, q := startShell(t, showcaseIconEngine{f}, f, Options{Theme: mode})
+		q.until(t, "the icons and the README", func() bool {
+			cells := iconCells(sh)
+			return sh.view.snap != nil && len(cells) == len(showcaseCharts) && !slices.Contains(mapResources(cells), sh.chartGlyph()) &&
+				readmeOf(sh) != nil && sh.diag.total > 0 && sh.drawer.lead.Visible()
+		})
+		settle(w)
+		sh.drawer.scroll.ScrollToOffset(fyne.NewPos(0, readmeOf(sh).Position().Y-60))
+		saveShowcase(t, w, "helm_charts", mode)
 	})
-	settle(w)
-	sh.drawer.scroll.ScrollToOffset(fyne.NewPos(0, readmeOf(sh).Position().Y-60))
-	saveShowcase(t, w, "helm_charts.png")
 }
 
 func mapResources(m map[int]fyne.Resource) []fyne.Resource {
@@ -508,161 +540,239 @@ func mapResources(m map[int]fyne.Resource) []fyne.Resource {
 
 // 8. Helm releases: a release's drawer and its Helm Upgrade tab with the repository's versions.
 func TestShowcaseHelmUpgrade(t *testing.T) {
-	showcaseOnly(t)
-	f, _ := releasesFake(t)
-	f.kinds = append(f.kinds, kindInfo{Kind: helmChartsKind, Title: "Charts", APIKind: "HelmChart", Group: model.LocalGroup, Version: "v1", Local: true})
-	values := f.handlers["helm.release.values"]
-	f.handlers["helm.release.values"] = func(ctx context.Context, inv engine.Invocation) (any, error) {
-		res, err := values(ctx, inv)
-		if v, ok := res.(helm.Values); ok { // the fixture's password: no value that looks like a secret
-			var keep []string
-			for _, l := range strings.SplitAfter(v.YAML, "\n") {
-				if !strings.HasPrefix(l, "auth:") && !strings.Contains(l, "adminPassword") {
-					keep = append(keep, l)
+	eachTheme(t, func(t *testing.T, mode ThemeMode) {
+		f, _ := releasesFake(t)
+		f.kinds = append(f.kinds, kindInfo{Kind: helmChartsKind, Title: "Charts", APIKind: "HelmChart", Group: model.LocalGroup, Version: "v1", Local: true})
+		values := f.handlers["helm.release.values"]
+		f.handlers["helm.release.values"] = func(ctx context.Context, inv engine.Invocation) (any, error) {
+			res, err := values(ctx, inv)
+			if v, ok := res.(helm.Values); ok { // the fixture's password: no value that looks like a secret
+				var keep []string
+				for _, l := range strings.SplitAfter(v.YAML, "\n") {
+					if !strings.HasPrefix(l, "auth:") && !strings.Contains(l, "adminPassword") {
+						keep = append(keep, l)
+					}
 				}
+				v.YAML = strings.Join(keep, "")
+				return v, err
 			}
-			v.YAML = strings.Join(keep, "")
-			return v, err
+			return res, err
 		}
-		return res, err
-	}
-	tab, _ := repoTabFixture(t, f, "ingress-nginx")
-	showcaseTabs(f, helm.ReleaseKind, helmChartsKind)
-	fakeTabCommands(t, f)
-	sh, w, q := newTestShell(t, f, Options{Theme: ThemeDark})
-	u := repoUpgradeTabOf(t, sh, q, tab.ID)
-	q.until(t, "the drawer", func() bool {
-		rv, _ := sh.drawer.kept[releaseValuesKey].(*releaseValues)
-		return sh.drawer.last != nil && sh.diag.total > 0 && rv != nil && rv.revision == 4
+		tab, _ := repoTabFixture(t, f, "ingress-nginx")
+		showcaseTabs(f, helm.ReleaseKind, helmChartsKind)
+		fakeTabCommands(t, f)
+		sh, w, q := newTestShell(t, f, Options{Theme: mode})
+		u := repoUpgradeTabOf(t, sh, q, tab.ID)
+		q.until(t, "the drawer", func() bool {
+			rv, _ := sh.drawer.kept[releaseValuesKey].(*releaseValues)
+			return sh.drawer.last != nil && sh.diag.total > 0 && rv != nil && rv.revision == 4
+		})
+		settle(w)
+		test.Tap(u.version)
+		if len(w.Canvas().Overlays().List()) == 0 {
+			t.Fatal("the picker did not open")
+		}
+		saveShowcase(t, w, "helm_upgrade", mode)
 	})
-	settle(w)
-	test.Tap(u.version)
-	if len(w.Canvas().Overlays().List()) == 0 {
-		t.Fatal("the picker did not open")
+}
+
+// renamedConnector shows a fixture connector's one context under the showcase's context name
+// (A114): the GitOps fixtures connect "kind-flux" and "argo", the other scenes "demo".
+type renamedConnector struct {
+	engine.Connector
+	name string
+}
+
+// Contexts implements engine.Connector.
+func (c renamedConnector) Contexts() ([]engine.ContextInfo, error) {
+	cs, err := c.Connector.Contexts()
+	for i := range cs {
+		cs[i].Name = c.name
 	}
-	saveShowcase(t, w, "helm_upgrade.png")
+	return cs, err
+}
+
+// Connect implements engine.Connector: the fixture's context, its backend named c.name.
+func (c renamedConnector) Connect(ctx context.Context, _ string) (*engine.Backend, error) {
+	var inner string
+	if cs, err := c.Connector.Contexts(); err == nil && len(cs) > 0 {
+		inner = cs[0].Name
+	}
+	b, err := c.Connector.Connect(ctx, inner)
+	if b != nil {
+		b.Context = c.name
+	}
+	return b, err
+}
+
+// showcaseEngineShell starts the shell on the real engine and commands over conn, as the GitOps
+// tests' shells do (fluxEngineShell, newArgoShell), connected to showcaseContext.
+func showcaseEngineShell(t *testing.T, conn engine.Connector, mode ThemeMode) (*shell, fyne.Window, *mainQueue) {
+	t.Helper()
+	s := engine.New(engine.Options{Connector: renamedConnector{Connector: conn, name: showcaseContext},
+		SnapshotInterval: 5 * time.Millisecond, Now: func() time.Time { return fixedNow }})
+	t.Cleanup(s.Close)
+	if err := commands.RegisterAll(s.Registry()); err != nil {
+		t.Fatal(err)
+	}
+	a := test.NewTempApp(t)
+	a.Settings().SetTheme(newTheme(mode))
+	w := test.NewTempWindow(t, nil)
+	w.SetPadded(false)
+	q := &mainQueue{}
+	sh := newShell(s, a, w, Options{Theme: mode, AutoConnect: showcaseContext}, q.do)
+	sh.now = func() time.Time { return fixedNow }
+	sh.kc.startDir = t.TempDir
+	sh.confirmer.armDelay = 0
+	s.SetConfirmer(sh.confirmer)
+	w.SetContent(sh.root)
+	w.Resize(fyne.NewSize(1440, 900))
+	sh.start()
+	t.Cleanup(func() {
+		sh.stop()
+		q.drain()
+	})
+	q.until(t, "the connection", func() bool { return sh.ui.Connection.State == engine.Connected })
+	return sh, w, q
 }
 
 // 9. Flux CD: the dashboard of every Flux kind's states, and what is not ready.
 func TestShowcaseFlux(t *testing.T) {
-	showcaseOnly(t)
-	sh, w, q, _, _ := fluxEngineShell(t, ThemeDark)
-	openFluxView(t, sh, q, engine.FluxDashboard, 5)
-	q.until(t, "the tiles", func() bool {
-		k := sh.view.flux.tiles["kustomizations.kustomize.toolkit.fluxcd.io"]
-		return len(sh.view.flux.tiles) == 13 && k != nil && k.count.text == "5"
+	eachTheme(t, func(t *testing.T, mode ThemeMode) {
+		conn := enginekit.MemoryConnector{Context: "kind-flux", Src: fluxFixture(), Profiles: kinds.Builtin(), CustomResources: true,
+			Writer: &enginekit.FluxRecorder{At: fixedNow}}
+		sh, w, q := showcaseEngineShell(t, conn, mode)
+		q.until(t, "the Flux kinds", func() bool {
+			_, ok := sh.side.children[groupPrefix+"flux/notifications"]
+			return ok
+		})
+		openFluxView(t, sh, q, engine.FluxDashboard, 5)
+		q.until(t, "the tiles", func() bool {
+			k := sh.view.flux.tiles["kustomizations.kustomize.toolkit.fluxcd.io"]
+			return len(sh.view.flux.tiles) == 13 && k != nil && k.count.text == "5"
+		})
+		for _, g := range []string{fluxGroup, groupPrefix + "flux/sources"} {
+			sh.side.setOpen(g, true)
+		}
+		q.drain()
+		showcaseCounters(sh, showcaseContext)
+		saveShowcase(t, w, "flux", mode)
 	})
-	for _, g := range []string{fluxGroup, groupPrefix + "flux/sources"} {
-		sh.side.setOpen(g, true)
-	}
-	q.drain()
-	showcaseCounters(sh, "kind-flux")
-	saveShowcase(t, w, "flux.png")
 }
 
 // 10. Argo CD: the dashboard of the Applications' sync and health, the recent activity and what
 // needs attention.
 func TestShowcaseArgoCD(t *testing.T) {
-	showcaseOnly(t)
-	sh, w, q, _, _, _ := newArgoShell(t, ThemeDark, true)
-	argoOpenDashboard(t, sh, q)
-	q.drain()
-	showcaseCounters(sh, "argo")
-	saveShowcase(t, w, "argocd.png")
+	eachTheme(t, func(t *testing.T, mode ThemeMode) {
+		src := testkit.NewMemorySource()
+		argoFixture(src)
+		sh, w, q := showcaseEngineShell(t, &argoGUIConnector{src: src, writer: &argoGUIWriter{}}, mode)
+		q.until(t, "Argo CD's kinds", func() bool {
+			return slices.ContainsFunc(sh.kinds, func(k kindInfo) bool { return k.Kind == kinds.ArgoClustersKey })
+		})
+		argoOpenDashboard(t, sh, q)
+		q.drain()
+		showcaseCounters(sh, showcaseContext)
+		saveShowcase(t, w, "argocd", mode)
+	})
 }
 
 // 11. Many clusters: the hotbar, the navigator listing every cluster, tabs of several clusters and
-// the command palette.
+// the command palette. The connected cluster is showcaseContext; the others have invented names
+// (showcaseContexts).
 func TestShowcaseClusters(t *testing.T) {
-	showcaseOnly(t)
-	f, _ := paletteFake(t)
-	f.contexts = showcaseContexts()
-	f.ui.Selected, f.ui.Drawer = nil, nil
-	tiles := func(ids ...string) []engine.HotbarTile {
-		out := make([]engine.HotbarTile, 0, len(ids))
-		for _, id := range ids {
-			out = append(out, engine.HotbarTile{Context: id})
+	eachTheme(t, func(t *testing.T, mode ThemeMode) {
+		f, _ := paletteFake(t)
+		f.contexts = showcaseContexts()
+		f.ui.Selected, f.ui.Drawer = nil, nil
+		tiles := func(ids ...string) []engine.HotbarTile {
+			out := make([]engine.HotbarTile, 0, len(ids))
+			for _, id := range ids {
+				out = append(out, engine.HotbarTile{Context: id})
+			}
+			return out
 		}
-		return out
-	}
-	withHotbar(f, 1, engine.HotbarBank{Name: "Default", Clusters: tiles("demo", "prod-eu-central", "staging-us-east", "kind-cogpit", "dev-us-west")},
-		engine.HotbarBank{Name: "Production", Clusters: tiles("prod-eu-central")})
-	f.ui.ClusterSettings = map[string]engine.ClusterSettings{
-		"prod-eu-central": {IconColor: "red"}, "staging-us-east": {IconColor: "yellow"}, "kind-cogpit": {IconColor: "violet"},
-		"dev-us-west": {IconColor: "green"},
-	}
-	f.ui.NavigatorScope = engine.NavScopeLocal
-	f.ui.Tabs = []engine.ViewTab{
-		{ID: "tab-1", Context: "demo", View: "pods", Title: "Pods - demo", Sort: engine.DefaultSort},
-		{ID: "tab-2", Context: "prod-eu-central", View: "deployments", Title: "Deployments - prod-eu-central", Sort: engine.DefaultSort},
-		{ID: "tab-3", Context: "staging-us-east", View: "nodes", Title: "Nodes - staging-us-east", Sort: engine.DefaultSort},
-		{ID: "tab-4", Context: "kind-cogpit", View: engine.ClusterOverview, Title: "Overview - kind-cogpit", Sort: engine.DefaultSort},
-	}
-	f.ui.ActiveTab = "tab-1"
-	fakeTabCommands(t, f)
-	sh, w, q := newTestShell(t, f, Options{Theme: ThemeDark, MCPCommand: "claude mcp add cogpit -- cogpit-cli mcp"})
-	q.until(t, "the shell", func() bool {
-		return len(sh.kinds) > 0 && sh.hot.root.Visible() && len(tilesOf(sh.hot)) == 5 && len(sh.tabs.shown) == 4 && sh.diag.total > 0
+		withHotbar(f, 1, engine.HotbarBank{Name: "Default", Clusters: tiles(showcaseContext, "prod-eu-central", "staging-us-east", "kind-local", "dev-us-west")},
+			engine.HotbarBank{Name: "Production", Clusters: tiles("prod-eu-central")})
+		f.ui.ClusterSettings = map[string]engine.ClusterSettings{
+			"prod-eu-central": {IconColor: "red"}, "staging-us-east": {IconColor: "yellow"}, "kind-local": {IconColor: "violet"},
+			"dev-us-west": {IconColor: "green"},
+		}
+		f.ui.NavigatorScope = engine.NavScopeLocal
+		f.ui.Tabs = []engine.ViewTab{
+			{ID: "tab-1", Context: showcaseContext, View: "pods", Title: "Pods - " + showcaseContext, Sort: engine.DefaultSort},
+			{ID: "tab-2", Context: "prod-eu-central", View: "deployments", Title: "Deployments - prod-eu-central", Sort: engine.DefaultSort},
+			{ID: "tab-3", Context: "staging-us-east", View: "nodes", Title: "Nodes - staging-us-east", Sort: engine.DefaultSort},
+			{ID: "tab-4", Context: "kind-local", View: engine.ClusterOverview, Title: "Overview - kind-local", Sort: engine.DefaultSort},
+		}
+		f.ui.ActiveTab = "tab-1"
+		fakeTabCommands(t, f)
+		sh, w, q := newTestShell(t, f, Options{Theme: mode, MCPCommand: "claude mcp add cogpit -- cogpit-cli mcp"})
+		q.until(t, "the shell", func() bool {
+			return len(sh.kinds) > 0 && sh.hot.root.Visible() && len(tilesOf(sh.hot)) == 5 && len(sh.tabs.shown) == 4 && sh.diag.total > 0
+		})
+		openPalette(t, sh, q)
+		typeInPalette(t, sh, q, "open")
+		saveShowcase(t, w, "clusters", mode)
 	})
-	openPalette(t, sh, q)
-	typeInPalette(t, sh, q, "open")
-	saveShowcase(t, w, "clusters.png")
 }
 
 // 12. Certificates in a TLS Secret decoded in its drawer: each certificate of the chain, the key
 // checked against it, the chain's order, the validity.
 func TestShowcaseCertificates(t *testing.T) {
-	showcaseOnly(t)
-	f, ref, _ := certsSecretsFake(t)
-	renameRow(f, "secrets", "stripe-webhook", "payment-webhook")
-	showcaseTabs(f, "secrets", "pods")
-	fakeTabCommands(t, f)
-	sh, w, q := newTestShell(t, f, Options{Theme: ThemeDark})
-	q.until(t, "the drawer", func() bool {
-		return len(sh.kinds) > 0 && sh.view.snap != nil && sh.drawer.last != nil && sh.drawer.last.Ref == ref && sh.diag.total > 0
+	eachTheme(t, func(t *testing.T, mode ThemeMode) {
+		f, ref, _ := certsSecretsFake(t)
+		renameRow(f, "secrets", "stripe-webhook", "payment-webhook")
+		showcaseTabs(f, "secrets", "pods")
+		fakeTabCommands(t, f)
+		sh, w, q := newTestShell(t, f, Options{Theme: mode})
+		q.until(t, "the drawer", func() bool {
+			return len(sh.kinds) > 0 && sh.view.snap != nil && sh.drawer.last != nil && sh.drawer.last.Ref == ref && sh.diag.total > 0
+		})
+		settle(w)
+		scrollDrawerTo(t, sh, "Certificates · tls.crt")
+		saveShowcase(t, w, "certificates", mode)
 	})
-	settle(w)
-	scrollDrawerTo(t, sh, "Certificates · tls.crt")
-	saveShowcase(t, w, "certificates.png")
 }
 
 // 13. An agent at work, from the user's side: the agent's Restart waits for the user's answer in
 // a dialog that names the object, the namespace and the context; the Audit Log below lists what
 // agents did before.
 func TestShowcaseAgents(t *testing.T) {
-	showcaseOnly(t)
-	f := kindsFake(t, "deployments")
-	f.tables["deployments"] = kindSnapshot(t, "deployments", showcaseDeployments())
-	dep := model.ObjectRef{Context: "demo", Kind: "deployments", Namespace: "checkout", Name: "checkout-api"}
-	f.ui.Selected = []model.ObjectRef{dep}
-	f.ui.Dock = []engine.DockTab{{ID: "audit-1", Type: engine.DockAudit, Title: "Audit Log"}}
-	f.ui.ActiveDock = "audit-1"
-	audit := showcaseAudit(realCommands(t), dep)
-	f.handlers["audit.list"] = func(context.Context, engine.Invocation) (any, error) {
-		return audit, nil
-	}
-	showcaseTabs(f, "deployments", "pods")
-	fakeTabCommands(t, f)
-	sh, w, q := newTestShell(t, f, Options{Theme: ThemeDark, MCPCommand: "claude mcp add cogpit -- cogpit-cli mcp"})
-	sh.zone = time.UTC
-	sh.vsplit.SetOffset(0.5)
-	q.until(t, "the Audit Log", func() bool {
-		a := auditTabOf(sh)
-		return len(sh.kinds) > 0 && a != nil && len(a.entries) == len(audit.Entries) && sh.diag.total > 0
-	})
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		_, _ = sh.confirmer.Confirm(context.Background(), engine.ConfirmRequest{
-			Command: "deployment.restart", Label: "Restart", Danger: engine.DangerMutating,
-			Origin: engine.OriginExternalAgent, Context: "demo",
-			Namespaces: []string{dep.Namespace}, Objects: []model.ObjectRef{dep},
+	eachTheme(t, func(t *testing.T, mode ThemeMode) {
+		f := kindsFake(t, "deployments")
+		f.tables["deployments"] = kindSnapshot(t, "deployments", showcaseDeployments())
+		dep := model.ObjectRef{Context: "demo", Kind: "deployments", Namespace: "checkout", Name: "checkout-api"}
+		f.ui.Selected = []model.ObjectRef{dep}
+		f.ui.Dock = []engine.DockTab{{ID: "audit-1", Type: engine.DockAudit, Title: "Audit Log"}}
+		f.ui.ActiveDock = "audit-1"
+		audit := showcaseAudit(realCommands(t), dep)
+		f.handlers["audit.list"] = func(context.Context, engine.Invocation) (any, error) {
+			return audit, nil
+		}
+		showcaseTabs(f, "deployments", "pods")
+		fakeTabCommands(t, f)
+		sh, w, q := newTestShell(t, f, Options{Theme: mode, MCPCommand: "claude mcp add cogpit -- cogpit-cli mcp"})
+		sh.zone = time.UTC
+		sh.vsplit.SetOffset(0.5)
+		q.until(t, "the Audit Log", func() bool {
+			a := auditTabOf(sh)
+			return len(sh.kinds) > 0 && a != nil && len(a.entries) == len(audit.Entries) && sh.diag.total > 0
 		})
-	}()
-	q.until(t, "the dialog", func() bool { return sh.confirmer.current != nil })
-	saveShowcase(t, w, "agents.png")
-	test.Tap(sh.confirmer.current.cancel)
-	<-done
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			_, _ = sh.confirmer.Confirm(context.Background(), engine.ConfirmRequest{
+				Command: "deployment.restart", Label: "Restart", Danger: engine.DangerMutating,
+				Origin: engine.OriginExternalAgent, Context: "demo",
+				Namespaces: []string{dep.Namespace}, Objects: []model.ObjectRef{dep},
+			})
+		}()
+		q.until(t, "the dialog", func() bool { return sh.confirmer.current != nil })
+		saveShowcase(t, w, "agents", mode)
+		test.Tap(sh.confirmer.current.cancel)
+		<-done
+	})
 }
 
 // showcaseAudit is what an external agent did before it asked for the Restart: it read the UI's
