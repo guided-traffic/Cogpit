@@ -7,5 +7,5 @@
 *.out
 *.prof
 /cmd/cogpit/Cogpit.app/
-/.claude/worktrees/
+/.claude/
 /node_modules/
