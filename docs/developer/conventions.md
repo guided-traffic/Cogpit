@@ -137,3 +137,7 @@ the owner wants 1.0.0; a body line that starts with `BREAKING CHANGE:` counts as
 `.releaserc.json` turns a breaking change into a minor release. Commits and pull requests carry no `Co-Authored-By` trailers and no
 "Generated with" lines (owner, 2026-10-11). A pull request that moves a parity number updates the progress docs in
 the same change ([rules](../parity/README.md#rules-for-every-progress-page)).
+
+The root README is the showcase page (owner, 2026-10-14); the reference lives in
+[`usage.md`](usage.md) and [`commands.md`](commands.md). A change that adds or changes a command
+regenerates the table in `commands.md` with `go run ./hack/readmecmds` in the same change.

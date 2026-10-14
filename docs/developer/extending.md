@@ -59,7 +59,10 @@ Ordered checklists for the common additions. The packages they name are in
    [`paletteRunners`](../../internal/ui/fyneui/palette.go) opens a dialog for it. A `Shortcut` such as
    `Cmd+Shift+P` (Cmd is Ctrl on Windows and Linux) is shown in the palette; check it against
    `TestRegistryShortcutsDoNotCollide` and bind it where the window binds the others.
-8. **Progress docs:** flip the row in the parity page and update [`gaps.md`](../parity/gaps.md);
+8. **Command table:** regenerate the table in [`commands.md`](commands.md) with
+   `go run ./hack/readmecmds` and replace the content of its details block with the output (do not
+   edit the table by hand).
+9. **Progress docs:** flip the row in the parity page and update [`gaps.md`](../parity/gaps.md);
    `make parity` checks the row and the numbers it feeds.
 
 ## Adding an integration (what Lens calls an extension)

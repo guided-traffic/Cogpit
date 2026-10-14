@@ -25,6 +25,8 @@ this page.
 
 | Page | Topic |
 |---|---|
+| [`usage.md`](usage.md) | The reference from the root README (moved 2026-10-14): status, features in detail, download and run, the agent set-up, the flags of `cogpit` and `cogpit-cli`, preferences, naming conventions, make targets |
+| [`commands.md`](commands.md) | Every command and MCP tool with its danger and parameters, generated from the registry |
 | [`architecture.md`](architecture.md) | Goals, principles, packages, layering, the UI seam, the cache, MCP and the agent, runtime model |
 | [`conventions.md`](conventions.md) | Clean-room, never surprise a cluster, cache first, crash stance, secrets, style, commits |
 | [`extending.md`](extending.md) | Checklists: a command, a kind profile, a cache consumer, a package |
@@ -54,11 +56,12 @@ cogpit/
 ├─ hack/parity/               make parity: checks the parity checklists and counts what they report
 ├─ hack/shard/                the UI's race tests split into CI shards (make test-race-ui)
 ├─ hack/coverage/             merges coverage profiles into the badge and the summary (make coverage-report)
-├─ hack/readmecmds/           the README's table of commands, from the registry
+├─ hack/readmecmds/           the command table in docs/developer/commands.md, from the registry
 ├─ packaging/                 icon.png; per-OS packaging later
 ├─ tools/                     (planned) generators of the parity checklist page and the scorecard
 └─ docs/
    ├─ developer/              this directory
+   ├─ images/                 showcase renders for the README, written by internal/ui/fyneui/showcase_test.go
    ├─ parity/                 progress against Lens
    └─ security/               security architecture, one page per perspective
 ```
@@ -84,6 +87,25 @@ cogpit/
 | `internal/ui/fyneui` | L4 | The Fyne shell; `yamlview` the YAML viewer and editor, `termview` the terminal and log widgets |
 | `internal/ui/logo` | L4 | The C helm logo ([D-24](decisions.md#d-24-logo)) rasterised for the app icon (`hack/icon`) and the header's mark; imports no Fyne |
 | `internal/testkit` | – | In-memory source, fake API server, object builders, a local kubectl release host (`KubectlReleases`, signed by a test certificate authority); `integration/` holds cross-package and kind tests |
+
+## Data flow
+
+From the kubeconfig files to the API server, the cache, the engine and what reads it (moved from
+the root README on 2026-10-14):
+
+```mermaid
+flowchart LR
+  K[kubeconfig files] --> CL[cluster<br/>client-go auth]
+  P[credential plugins<br/>aws, gke, kubelogin] -. exec .-> CL
+  CL <-->|list + watch,<br/>exec, port-forward| API[(Kubernetes API server)]
+  CL --> C[cache<br/>shared informers]
+  C --> E[engine<br/>commands, UI state]
+  E --> UI[desktop app<br/>Fyne]
+  E --> M[MCP server]
+  M <--> X[external agents]
+  E --> AG[built-in agent]
+  AG <--> L[(LLM endpoint<br/>LiteLLM, Open WebUI)]
+```
 
 ## Core flows, one fact each
 

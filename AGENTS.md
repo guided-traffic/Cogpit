@@ -38,6 +38,8 @@ this file, come from [PhotoCraft](https://github.com/storytold/photocraft)
 | [`docs/developer/conventions.md`](docs/developer/conventions.md) | The rules in detail |
 | [`docs/developer/extending.md`](docs/developer/extending.md) | Checklists: adding a command, a kind profile, a package, a cache consumer |
 | [`docs/developer/spike-fyne.md`](docs/developer/spike-fyne.md) | The UI toolkit gate before M2 |
+| [`docs/developer/usage.md`](docs/developer/usage.md) | Running Cogpit, flags, files it writes, naming, agents' set-up |
+| [`docs/developer/commands.md`](docs/developer/commands.md) | Every command and MCP tool, generated |
 | [`docs/security/`](docs/security/README.md) | Trust boundaries, credentials, privilege footprint, agents and MCP, updates |
 
 ## 2. Package map
@@ -140,6 +142,7 @@ go build ./...                          # the tree builds
 go vet ./internal/<pkg>/...             # the packages you touched
 go test ./internal/<pkg>/...            # their tests, without -race
 go run ./hack/parity -rows              # only when a checklist or a progress page changed
+go run ./hack/readmecmds                # only when commands changed: the table in docs/developer/commands.md
 # -race on the one package only when the change is about concurrency (cache, journals, terminal)
 ```
 
