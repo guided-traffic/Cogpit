@@ -295,3 +295,16 @@ func TestClusterSettingsInMemory(t *testing.T) {
 		t.Error("an icon accepted without a folder to keep it in")
 	}
 }
+
+// A cluster colour may be one of the eight accents or any "#rrggbb" (A93); anything else is
+// refused.
+func TestCustomIconColor(t *testing.T) {
+	for c, want := range map[string]bool{"#1a2b3c": true, "#ffffff": true, "#FFFFFF": false, "#12345": false, "1a2b3c": false, "#1a2b3g": false} {
+		if got := IsCustomIconColor(c); got != want {
+			t.Errorf("IsCustomIconColor(%q) = %v, want %v", c, got, want)
+		}
+		if err := (ClusterSettings{IconColor: c}).Check(); (err == nil) != want {
+			t.Errorf("Check(%q): %v", c, err)
+		}
+	}
+}

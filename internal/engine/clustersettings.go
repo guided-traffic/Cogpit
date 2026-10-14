@@ -37,9 +37,27 @@ const (
 	homeVariable           = "$HOME" // what the page shows when no working directory is set (captured)
 )
 
-// IconColors are the colours a cluster's icon may take: Solarized's eight accents, the theme's
-// accent palette (D-22), drawn in each variant's legible shade (the GUI's theme tokens).
+// IconColors are the colours a cluster's icon may take by name: Solarized's eight accents, the
+// theme's accent palette (D-22), drawn in each variant's legible shade (the GUI's theme tokens).
+// Since 2026-10-15 (the owner's A93 of 2026-10-14 evening) any colour "#rrggbb" too, which the window draws in a shade
+// of the same hue legible on each theme (IsCustomIconColor).
 var IconColors = []string{"cyan", "blue", "violet", "magenta", "red", "orange", "yellow", "green"}
+
+// IsCustomIconColor reports whether c is a colour picked freely: "#rrggbb", lower-case hex.
+func IsCustomIconColor(c string) bool {
+	if len(c) != 7 || c[0] != '#' {
+		return false
+	}
+	for _, r := range c[1:] {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// validIconColor reports whether c is one of IconColors or a custom colour.
+func validIconColor(c string) bool { return slices.Contains(IconColors, c) || IsCustomIconColor(c) }
 
 // ErrNoClusterSettings disables the cluster settings commands of a session that keeps none.
 var ErrNoClusterSettings = errors.New("this Cogpit keeps no cluster settings")
@@ -109,8 +127,8 @@ func (c ClusterSettings) Check() error {
 	if err := checkClusterName(c.Name); err != nil {
 		return err
 	}
-	if c.IconColor != "" && !slices.Contains(IconColors, c.IconColor) {
-		return fmt.Errorf("icon colour %q: one of %s", c.IconColor, strings.Join(IconColors, ", "))
+	if c.IconColor != "" && !validIconColor(c.IconColor) {
+		return fmt.Errorf("icon colour %q: one of %s, or #rrggbb", c.IconColor, strings.Join(IconColors, ", "))
 	}
 	if c.Icon != "" && !validIconFile(c.Icon) {
 		return fmt.Errorf("icon %q is not an image Cogpit keeps", c.Icon)
@@ -150,7 +168,7 @@ func (c *ClusterSettings) normalize() {
 		c.Name = ""
 	}
 	c.Name = strings.TrimSpace(c.Name)
-	if c.IconColor != "" && !slices.Contains(IconColors, c.IconColor) {
+	if c.IconColor != "" && !validIconColor(c.IconColor) {
 		c.IconColor = ""
 	}
 	if c.Icon != "" && !validIconFile(c.Icon) {

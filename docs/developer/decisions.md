@@ -160,7 +160,7 @@ window. Nothing of it was built in the round.
 | A90 | #125 | Without the right to list the definitions, Flux and Argo CD recognised from API discovery with their curated profiles; generic custom resources stay invisible; to build | [architecture §5](architecture.md#5-cache) |
 | A91 | #161 | Reconcile with Source waits like the flux CLI: a background job until the source is ready, with a timeout, then the object; progress in the dock; to build | [D-33](#d-33-the-flux-actions) |
 | A92 | #56 | The cluster's terminal namespace beats the filter's; as built | [architecture §4.3](architecture.md#43-ui-state) |
-| A93 | #58 | A cluster's accent colour: Solarized's eight plus a free colour picker; to build | [D-22](#d-22-colour-theme) |
+| A93 | #58 | A cluster's accent colour: Solarized's eight plus a free colour picker; built 2026-10-15 | [D-22](#d-22-colour-theme) |
 | A94 | #59 | The default theme becomes Sync (follow macOS); built 2026-10-14 | [D-22](#d-22-colour-theme) |
 | A95 | #115 | The light theme's accent a darkened cyan #1F7F78; as built | [D-22](#d-22-colour-theme) |
 | A96 | #7, #13 | Single-target reads read the target's namespace; as built | [architecture §5](architecture.md#5-cache) |
@@ -1427,9 +1427,17 @@ of Solarized's eight accents, in each variant's legible shade (`identityColors` 
   2026-10-14: `DefaultPreferences` starts `ThemeSystem`
   ([`preferences.go`](../../internal/engine/preferences.go)); a stored choice stays as it is.
 - **Decided (A93):** a cluster's accent colour is one of Solarized's eight or any colour from a
-  colour picker. Not built yet. Open for the build: the eight have a legible shade per theme that
-  `TestIdentityColorsContrast` holds at 3:1; a free colour has none, so what a picked colour that
-  fails the contrast in one theme does is to be settled.
+  colour picker. Built 2026-10-15: Cluster settings › General shows a ninth swatch for a picked
+  colour and a palette button after the eight (the "…" menu's "Any Colour…" too), which opens
+  Fyne's colour picker; the setting stores `#rrggbb` (`engine.IsCustomIconColor`), so agents set
+  it through `cluster.settings.set` as they set the eight. A night decision for the owner to
+  confirm: a picked colour keeps its hue and saturation, and the window moves its lightness (up in
+  the dark theme, down in the light one) just far enough to read at 3:1 on every surface an
+  identity is drawn on, as the eight are held to (`legibleShade` in
+  [`identitycolor.go`](../../internal/ui/fyneui/identitycolor.go), `TestCustomIdentityColorContrast`).
+  Weighed against it: drawing the colour as picked and warning when it fails the contrast in a
+  theme (the user's exact colour, but initials that may not read in one of the themes), and
+  refusing such a colour (the picker would reject most pale and dark colours).
 - **Confirmed (A95, as built):** the light theme's accent stays the darkened cyan #1F7F78.
 
 ## D-23: A link to the owner in the status bar

@@ -1571,8 +1571,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   the application menu (Cogpit › About Cogpit), Cogpit's own dialog, Help's going (built
   2026-10-14, above); ⌘F and ⌘⇧T as
   main-menu items showing their keys, which stay window shortcuts (the editor keeps its ⌘F); the
-  palette's typed text as engine state; a cluster's colour from the eight swatches or a free colour
-  picker.
+  palette's typed text as engine state.
+  Built 2026-10-15: a cluster's colour from the eight swatches or a free colour picker (A93), drawn
+  in a legible shade of its hue on each theme ([D-22](../developer/decisions.md#d-22-colour-theme)).
   Built 2026-10-14: Sync with computer the default theme (A94); a `cogpit://` link naming another cluster than the connected one asks once,
   naming the context ([D-47](../developer/decisions.md#d-47-deep-links-cogpit)); agents may set a proxy, Preferences' and a cluster's, as a write the user always
   confirms; an agent removing a bank that holds clusters waits for the user; marking notifications

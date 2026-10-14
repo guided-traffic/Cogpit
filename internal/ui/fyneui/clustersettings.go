@@ -1,6 +1,7 @@
 package fyneui
 
 import (
+	"fmt"
 	"image/color"
 	"net/url"
 	"os"
@@ -149,6 +150,14 @@ func (p *settingsPage) clusterGeneralSection() fyne.CanvasObject {
 		swatches.Add(newSwatch(p.sh, col, func() { p.setCluster("iconColor", col) }))
 	}
 	p.controls["swatches"] = swatches
+	// A colour picked freely (A93): its swatch while one is set, and the picker beside the eight.
+	custom := newSwatch(p.sh, "#000000", func() { p.pickCustomColor() })
+	custom.Hide()
+	p.controls["customSwatch"] = custom
+	pickColor := newTipButton(p.sh, theme.ColorPaletteIcon(), "Pick any colour", func() { p.pickCustomColor() })
+	p.controls["customColor"] = pickColor
+	swatches.Add(custom)
+	swatches.Add(pickColor)
 	icon := container.NewHBox(preview, container.NewCenter(more), newHGap(theme.SizeNameInnerPadding), container.NewCenter(swatches))
 
 	path := newTextLine("", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Monospace: true})
@@ -174,10 +183,18 @@ func (p *settingsPage) clusterGeneralSection() fyne.CanvasObject {
 		p.setEntry(name, name, "name", set)
 		preview.setIdentity(p.sh.identity(ctx))
 		cs := p.sh.ui.ClusterSettings[ctx] // the UI state's, so the swatch follows at once
-		for i, o := range swatches.Objects {
+		for i, o := range swatches.Objects[:len(engine.IconColors)] {
 			if s, ok := o.(*swatch); ok {
 				s.setSelected(cs.Icon == "" && cs.IconColor == engine.IconColors[i])
 			}
+		}
+		if cs.Icon == "" && engine.IsCustomIconColor(cs.IconColor) {
+			custom.color = cs.IconColor
+			custom.Show()
+			custom.setSelected(true)
+			custom.Refresh()
+		} else {
+			custom.Hide()
 		}
 		path.style = fyne.TextStyle{} // a path in monospace, a sentence not
 		switch {
@@ -212,6 +229,9 @@ func (p *settingsPage) iconMenu(pos fyne.Position) {
 		item.Checked = v.IconImage == "" && v.IconColor == col
 		colors = append(colors, item)
 	}
+	anyColour := fyne.NewMenuItem("Any Colour…", func() { p.pickCustomColor() }) // A93
+	anyColour.Checked = v.IconImage == "" && engine.IsCustomIconColor(v.IconColor)
+	colors = append(colors, fyne.NewMenuItemSeparator(), anyColour)
 	pick := fyne.NewMenuItem("Pick Icon Color", nil)
 	pick.ChildMenu = fyne.NewMenu("", colors...)
 	upload := fyne.NewMenuItem("Upload Icon…", func() {
@@ -226,6 +246,18 @@ func (p *settingsPage) iconMenu(pos fyne.Position) {
 	reset.Disabled = v.IconImage == "" && v.IconColor == ""
 	p.iconMenuModel = fyne.NewMenu("", upload, pick, reset)
 	widget.NewPopUpMenu(p.iconMenuModel, p.sh.win.Canvas()).ShowAtPosition(pos)
+}
+
+// pickCustomColor opens the colour picker for a cluster colour picked freely (A93); the window
+// draws it in a shade of its hue legible on each theme (identitycolor.go).
+func (p *settingsPage) pickCustomColor() {
+	d := dialog.NewColorPicker("Cluster colour", "Any colour: Cogpit draws it in a shade of its hue that stays legible on the light and the dark theme.",
+		func(c color.Color) {
+			r, g, b, _ := c.RGBA()
+			p.setCluster("iconColor", fmt.Sprintf("#%02x%02x%02x", r>>8, g>>8, b>>8))
+		}, p.sh.win)
+	d.Advanced = true
+	d.Show()
 }
 
 func (p *settingsPage) clusterTerminalSection() fyne.CanvasObject {

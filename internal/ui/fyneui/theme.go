@@ -386,6 +386,9 @@ func (t *cogTheme) Color(n fyne.ThemeColorName, v fyne.ThemeVariant) color.Color
 	if c, ok := paletteFor(v).fyne[n]; ok {
 		return c
 	}
+	if c, ok := customIdentityColor(n, v); ok { // a freely picked cluster colour (A93, identitycolor.go)
+		return c
+	}
 	return t.base.Color(n, v)
 }
 

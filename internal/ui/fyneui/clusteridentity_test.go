@@ -5,6 +5,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 )
@@ -52,4 +53,54 @@ func TestIdentityFromTheClusterSettings(t *testing.T) {
 	if id := sh.identity("kind-dev [.kube/config]"); id.image != nil || id.initials != "KD" {
 		t.Errorf("icon without a source: %+v", id)
 	}
+}
+
+// TestCustomIdentityColorContrast (A93): a freely picked colour is drawn in a shade of its hue that
+// keeps 3:1 on every identity surface of both themes, whatever was picked (white on light, black
+// on dark, a pale yellow, a navy), and a colour that is legible already stays as picked.
+func TestCustomIdentityColorContrast(t *testing.T) {
+	for _, c := range []string{"#ffffff", "#000000", "#ffff66", "#000080", "#808080", "#ff0000", "#00ff00", "#3366ff", "#1f7f78"} {
+		for name, v := range map[string]fyne.ThemeVariant{"dark": theme.VariantDark, "light": theme.VariantLight} {
+			shade, ok := customIdentityColor(identityColorName(c), v)
+			if !ok {
+				t.Fatalf("%s: not a custom colour", c)
+			}
+			p := paletteFor(v)
+			for _, bg := range identitySurfaces {
+				if got := contrastRatio(shade, p.fyne[bg]); got < 3.0 {
+					t.Errorf("%s in %s: %v on %s is %.2f:1, want 3:1", c, name, shade, bg, got)
+				}
+			}
+		}
+	}
+	if blue, _ := customIdentityColor(identityColorName("#3366ff"), theme.VariantDark); blue.B <= blue.R || blue.B <= blue.G {
+		t.Errorf("the hue moved: %v", blue)
+	}
+	if _, ok := customIdentityColor(identityColorName("green"), theme.VariantDark); ok {
+		t.Error("an accent's name read as a custom colour")
+	}
+}
+
+// The General section with a colour picked freely (A93): its swatch shows selected beside the
+// eight, the picker button after it; the PNGs of the pull request.
+func TestRenderClusterSettingsCustomColorDark(t *testing.T) {
+	renderClusterSettingsCustomColor(t, ThemeDark, "cluster_settings_custom_color_dark.png")
+}
+
+func TestRenderClusterSettingsCustomColorLight(t *testing.T) {
+	renderClusterSettingsCustomColor(t, ThemeLight, "cluster_settings_custom_color_light.png")
+}
+
+func renderClusterSettingsCustomColor(t *testing.T, mode ThemeMode, name string) {
+	s, _ := settingsEngine(t)
+	mustDispatch(t, s, "cluster.settings.set", map[string]any{"context": "kind-dev", "name": "Dev cluster", "iconColor": "#FFE066"})
+	sh, w, q := newEngineShell(t, s, Options{Theme: mode})
+	mustDispatch(t, s, "cluster.settings.open", map[string]any{"context": "kind-dev"})
+	q.until(t, "the custom swatch", func() bool {
+		sw, ok := sh.settings.controls["customSwatch"].(*swatch)
+		e, _ := sh.settings.controls["name"].(*widget.Entry)
+		return sh.settings.visible() && ok && sw.Visible() && sw.selected && sw.color == "#ffe066" && e != nil && e.Text == "Dev cluster"
+	})
+	q.drain()
+	savePNG(t, w, name)
 }
