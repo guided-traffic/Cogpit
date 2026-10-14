@@ -15,15 +15,22 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
-// The Flux CD actions (resource-parity › Paid Lens Desktop views › Flux CD, G23; night decision
-// D-33): Reconcile, Suspend and Resume on one Flux object and on a selection, each one JSON merge
-// patch as the flux CLI sends it (cluster.FluxPatch), bound to the object's UID. Lens's Flux
-// actions are not documented or captured: their names, menu places and rules are Cogpit's.
+// The Flux CD actions (resource-parity › Paid Lens Desktop views › Flux CD, G23; D-33, decided by
+// the owner 2026-10-14): Reconcile, Reconcile with Source, Reset, Suspend and Resume on one Flux
+// object and on a selection, each one JSON merge patch per object as the flux CLI sends it
+// (cluster.FluxPatch), bound to the object's UID. Lens's Flux actions are not documented or
+// captured: their names, menu places and rules are Cogpit's.
 //
 //   - Reconcile sets reconcile.fluxcd.io/requestedAt to now; for a Helm release optionally also
 //     reconcile.fluxcd.io/forceAt (force), as `flux reconcile helmrelease --force` does. Not on a
 //     suspended object (the controller would ignore it, as the flux CLI refuses it), nor on an
 //     Alert or Provider that reports no status (notification v1beta3's static objects).
+//   - Reconcile with Source (Kustomizations, Helm releases) first requests a reconcile of the
+//     object's source, then of the object, as `flux reconcile … --with-source` does
+//     (fluxsource.go); a Helm release's HelmChart with the chart's own source before it.
+//   - Reset (Helm releases) requests a reconcile with reconcile.fluxcd.io/resetAt, as `flux
+//     reconcile helmrelease --reset` does: the controller forgets the release's failure counts and
+//     tries again after it ran out of retries.
 //   - Suspend sets spec.suspend: true; Resume sets it false and requests a reconcile, as `flux
 //     resume` does. Each is offered where the other is not.
 //
@@ -32,19 +39,28 @@ import (
 
 // Command ids of the Flux actions.
 const (
-	fluxReconcileID     = "flux.reconcile"
-	fluxSuspendID       = "flux.suspend"
-	fluxResumeID        = "flux.resume"
-	fluxReconcileManyID = "flux.reconcileMany"
-	fluxSuspendManyID   = "flux.suspendMany"
-	fluxResumeManyID    = "flux.resumeMany"
+	fluxReconcileID               = "flux.reconcile"
+	fluxSuspendID                 = "flux.suspend"
+	fluxResumeID                  = "flux.resume"
+	fluxReconcileWithSourceID     = "flux.reconcileWithSource"
+	fluxResetID                   = "flux.reset"
+	fluxReconcileManyID           = "flux.reconcileMany"
+	fluxSuspendManyID             = "flux.suspendMany"
+	fluxResumeManyID              = "flux.resumeMany"
+	fluxReconcileWithSourceManyID = "flux.reconcileWithSourceMany"
+	fluxResetManyID               = "flux.resetMany"
 )
 
-// Row-menu places of the Flux actions: before Edit and Delete, Reconcile first; Suspend and Resume
-// share a place, as only one of them applies.
+// fluxHelmRelease is the Kind of Flux's Helm releases, the only one Force and Reset take.
+const fluxHelmRelease = "HelmRelease"
+
+// Row-menu places of the Flux actions: before Edit and Delete, Reconcile first, then Reconcile with
+// Source and Reset; Suspend and Resume share a place, as only one of them applies.
 const (
-	orderFluxReconcile = 100
-	orderFluxSuspend   = 200
+	orderFluxReconcile           = 100
+	orderFluxReconcileWithSource = 110
+	orderFluxReset               = 120
+	orderFluxSuspend             = 200
 )
 
 // The parameters of the Flux actions: Reconcile's take force, Suspend's and Resume's do not.
@@ -65,22 +81,38 @@ type (
 	}
 )
 
-// fluxKindKeys returns the Flux kind keys that take Reconcile (suspend false) or Suspend and Resume.
-func fluxKindKeys(suspend bool) []string {
+// kindKeys returns the Flux kind keys an action takes.
+func (a fluxAction) kindKeys() []string {
 	var out []string
 	for _, k := range kinds.FluxKinds() {
-		if (suspend && k.Suspend) || (!suspend && k.Reconcile) {
+		if a.takes(k) {
 			out = append(out, k.Key)
 		}
 	}
 	return out
 }
 
-// fluxAction is one of the three actions: what it writes and when it applies to an object.
+// takes reports whether an action applies to a Flux kind: Suspend and Resume to the kinds with
+// spec.suspend, the others to the kinds a controller reconciles on request, narrowed to only.
+func (a fluxAction) takes(k kinds.FluxKind) bool {
+	if len(a.only) > 0 && !slices.Contains(a.only, k.APIKind) {
+		return false
+	}
+	if a.suspend {
+		return k.Suspend
+	}
+	return k.Reconcile
+}
+
+// fluxAction is one of the actions: what it writes and when it applies to an object.
 type fluxAction struct {
 	id, manyID, label, done string
-	suspend                 bool // its kinds are those with spec.suspend
-	order                   int
+	suspend                 bool     // its kinds are those with spec.suspend
+	only                    []string // the Kinds it is narrowed to (Reset: HelmRelease); nil: every one
+	// withSource: the action writes the object's sources first (Reconcile with Source,
+	// fluxsource.go), so its targets are the sources and the object.
+	withSource bool
+	order      int
 	// applies returns nil when the action applies to the object in its state now, else a fluxSkip
 	// that says why not.
 	applies func(k kinds.FluxKind, obj *unstructured.Unstructured) error
@@ -114,6 +146,32 @@ var (
 		},
 		request: func(force bool) cluster.FluxRequest { return cluster.FluxRequest{Reconcile: true, Force: force} },
 	}
+	fluxReconcileWithSource = fluxAction{
+		id: fluxReconcileWithSourceID, manyID: fluxReconcileWithSourceManyID, label: "Reconcile with Source",
+		done: "reconcile requested with source", order: orderFluxReconcileWithSource,
+		only: []string{"Kustomization", fluxHelmRelease}, withSource: true,
+		applies: func(k kinds.FluxKind, obj *unstructured.Unstructured) error {
+			if kinds.IsFluxSuspended(obj) {
+				return fluxSkip{reason: obj.GetName() + " is suspended: resume it to reconcile it"}
+			}
+			if _, err := kinds.FluxSourceOf(k.Key, obj); err != nil {
+				return fluxSkip{reason: err.Error()}
+			}
+			return nil
+		},
+		request: func(bool) cluster.FluxRequest { return cluster.FluxRequest{Reconcile: true} },
+	}
+	fluxReset = fluxAction{
+		id: fluxResetID, manyID: fluxResetManyID, label: "Reset", done: "reset requested", order: orderFluxReset,
+		only: []string{fluxHelmRelease},
+		applies: func(_ kinds.FluxKind, obj *unstructured.Unstructured) error {
+			if kinds.IsFluxSuspended(obj) {
+				return fluxSkip{reason: obj.GetName() + " is suspended: resume it to reset it"}
+			}
+			return nil
+		},
+		request: func(bool) cluster.FluxRequest { return cluster.FluxRequest{Reconcile: true, Reset: true} },
+	}
 	fluxSuspend = fluxAction{
 		id: fluxSuspendID, manyID: fluxSuspendManyID, label: "Suspend", done: "suspended", suspend: true, order: orderFluxSuspend,
 		applies: func(_ kinds.FluxKind, obj *unstructured.Unstructured) error {
@@ -146,12 +204,20 @@ var fluxDescriptions = map[string]string{
 		"alone until it is resumed. Offered only where flux_resume is not.",
 	fluxResumeID: "Resumes a suspended Flux object, as flux resume does: sets spec.suspend to false and requests a reconcile " +
 		"(reconcile.fluxcd.io/requestedAt). Offered only for a suspended object, in flux_suspend's place.",
+	fluxReconcileWithSourceID: "Asks Flux to reconcile a Kustomization or Helm release together with its source, as flux reconcile " +
+		"--with-source does: sets reconcile.fluxcd.io/requestedAt on the source first (a Kustomization's spec.sourceRef; a " +
+		"Helm release's chart source, then its HelmChart; or its spec.chartRef), then on the object, each patch bound to " +
+		"its object's UID. An OCI Helm repository is skipped, as no controller reconciles it. Refused, with nothing done, " +
+		"when the object or a source is suspended or a source is not in the cluster. Does not wait for the controllers.",
+	fluxResetID: "Resets a Helm release's failure counts and asks Flux to reconcile it, as flux reconcile helmrelease --reset " +
+		"does: sets reconcile.fluxcd.io/resetAt and reconcile.fluxcd.io/requestedAt to one token, so that helm-controller " +
+		"tries to install or upgrade again after it ran out of retries. Not offered for a suspended release.",
 }
 
 func registerFlux(g *registrar) {
 	add(g, fluxOneSpec(fluxReconcile, func(p fluxReconcileParams) (model.ObjectRef, bool) { return p.Ref, p.Force }))
 	add(g, fluxManySpec(fluxReconcile, func(p fluxReconcileManyParams) ([]model.ObjectRef, bool) { return p.Refs, p.Force }))
-	for _, a := range []fluxAction{fluxSuspend, fluxResume} {
+	for _, a := range []fluxAction{fluxReconcileWithSource, fluxReset, fluxSuspend, fluxResume} {
 		add(g, fluxOneSpec(a, func(p fluxRefParams) (model.ObjectRef, bool) { return p.Ref, false }))
 		add(g, fluxManySpec(a, func(p fluxRefsParams) ([]model.ObjectRef, bool) { return p.Refs, false }))
 	}
@@ -182,7 +248,7 @@ func registerFluxDashboard(g *registrar) {
 			"buckets, external artifacts) the number of objects in the selected namespaces by state: ready, notReady (Ready " +
 			"False or Stalled), reconciling, suspended, unknown (no Ready condition yet); with table, also every object that " +
 			"is not ready, with its message. Read from the cache. ui_openView with view flux/dashboard shows the page to the " +
-			"user; flux_reconcile, flux_suspend and flux_resume act on the objects.",
+			"user; flux_reconcile, flux_reconcileWithSource, flux_reset, flux_suspend and flux_resume act on the objects.",
 		Enabled: func(s *engine.Session, _ fluxDashboardParams) error { _, err := connected(s); return err },
 		Run: func(ctx context.Context, s *engine.Session, p fluxDashboardParams) (any, error) {
 			m, table, err := s.FluxDashboard(ctx, p.Namespaces, p.Table)
@@ -198,7 +264,7 @@ func registerFluxDashboard(g *registrar) {
 // reads the object and force from its parameters.
 func fluxOneSpec[P any](a fluxAction, get func(P) (model.ObjectRef, bool)) engine.Spec[P] {
 	return engine.Spec[P]{
-		ID: a.id, Label: a.label, MenuPath: "Flux/" + a.label, Kinds: fluxKindKeys(a.suspend),
+		ID: a.id, Label: a.label, MenuPath: "Flux/" + a.label, Kinds: a.kindKeys(),
 		Order: a.order, Danger: engine.DangerMutating,
 		Verbs:       []engine.Verb{{Verb: nwVerbPatch, Resource: "*"}},
 		Description: fluxDescriptions[a.id],
@@ -207,12 +273,24 @@ func fluxOneSpec[P any](a fluxAction, get func(P) (model.ObjectRef, bool)) engin
 			if err := fluxApplies(s, a, ref, force); err != nil {
 				return err
 			}
+			if err := fluxSourcePermitted(s, a, ref); err != nil {
+				return err
+			}
 			_, _, err := fluxActionsOf(s)
 			return err
 		},
-		Targets: func(s *engine.Session, p P) ([]model.ObjectRef, error) { ref, _ := get(p); return targetOf(s, ref) },
+		Targets: func(s *engine.Session, p P) ([]model.ObjectRef, error) {
+			ref, _ := get(p)
+			if a.withSource {
+				return fluxSourceTargets(s, ref)
+			}
+			return targetOf(s, ref)
+		},
 		Run: func(ctx context.Context, s *engine.Session, p P) (any, error) {
 			ref, force := get(p)
+			if a.withSource {
+				return fluxRunWithSource(ctx, s, a, ref)
+			}
 			return act(ctx, s, ref, a.done, func(_ engine.Actions, ref model.ObjectRef) error {
 				return fluxWrite(ctx, s, a, ref, force)
 			})
@@ -229,7 +307,7 @@ func fluxManySpec[P any](a fluxAction, get func(P) ([]model.ObjectRef, bool)) en
 		"and skips the others. When an object fails the others still go on, and the error names which were done and which " +
 		"were not, each with its reason; nothing is retried. At most 500 objects."
 	return engine.Spec[P]{
-		ID: a.manyID, Label: a.label, MenuPath: "Flux/" + a.label + " Selected", Kinds: fluxKindKeys(a.suspend),
+		ID: a.manyID, Label: a.label, MenuPath: "Flux/" + a.label + " Selected", Kinds: a.kindKeys(),
 		Order: a.order, Danger: engine.DangerMutating,
 		Verbs:       []engine.Verb{{Verb: nwVerbPatch, Resource: "*"}},
 		Description: desc,
@@ -243,10 +321,16 @@ func fluxManySpec[P any](a fluxAction, get func(P) ([]model.ObjectRef, bool)) en
 		},
 		Targets: func(s *engine.Session, p P) ([]model.ObjectRef, error) {
 			refs, force := get(p)
+			if a.withSource {
+				return fluxManySourceTargets(s, a, refs)
+			}
 			return fluxManyTargets(s, a, refs, force)
 		},
 		Run: func(ctx context.Context, s *engine.Session, p P) (any, error) {
 			refs, force := get(p)
+			if a.withSource {
+				return fluxRunManyWithSource(ctx, s, a, refs)
+			}
 			return fluxRunMany(ctx, s, a, refs, force)
 		},
 	}
@@ -255,10 +339,10 @@ func fluxManySpec[P any](a fluxAction, get func(P) ([]model.ObjectRef, bool)) en
 // fluxApplies checks that the action applies to the object as the cache holds it.
 func fluxApplies(s *engine.Session, a fluxAction, ref model.ObjectRef, force bool) error {
 	k, ok := kinds.FluxKindOf(ref.Kind)
-	if !ok || (a.suspend && !k.Suspend) || (!a.suspend && !k.Reconcile) {
+	if !ok || !a.takes(k) {
 		return fmt.Errorf("%w: %s does not apply to %s", engine.ErrNotApplicable, a.label, ref.Kind)
 	}
-	if force && k.APIKind != "HelmRelease" {
+	if force && k.APIKind != fluxHelmRelease {
 		return fmt.Errorf("force applies to Helm releases only, not to %s", k.Title)
 	}
 	obj, err := s.Lookup(ref)
@@ -309,7 +393,7 @@ func fluxManyTargets(s *engine.Session, a fluxAction, refs []model.ObjectRef, fo
 
 // FluxManyResult is the result of an action on a selection when every object was done.
 type FluxManyResult struct {
-	Action string            `json:"action"` // "reconcile requested", "suspended", "resumed"
+	Action string            `json:"action"` // "reconcile requested", "suspended", "resumed", "reset requested"
 	Done   []model.ObjectRef `json:"done"`
 }
 

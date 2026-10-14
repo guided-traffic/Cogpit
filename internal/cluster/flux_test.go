@@ -17,8 +17,8 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 )
 
-// TestFluxPatch: the bodies of Reconcile (forced too), Suspend and Resume, as the flux CLI sends
-// them, with Cogpit's UID precondition.
+// TestFluxPatch: the bodies of Reconcile (forced too), Reset, Suspend and Resume, as the flux CLI
+// sends them (one token in requestedAt, forceAt and resetAt), with Cogpit's UID precondition.
 func TestFluxPatch(t *testing.T) {
 	at := time.Date(2026, 10, 13, 22, 1, 2, 345000000, time.UTC)
 	yes, no := true, false
@@ -29,6 +29,7 @@ func TestFluxPatch(t *testing.T) {
 	}{
 		"reconcile":      {"uid-1", FluxRequest{Reconcile: true}, `{"metadata":{"annotations":{"reconcile.fluxcd.io/requestedAt":"2026-10-13T22:01:02.345Z"},"uid":"uid-1"}}`},
 		"force":          {"uid-1", FluxRequest{Reconcile: true, Force: true}, `{"metadata":{"annotations":{"reconcile.fluxcd.io/forceAt":"2026-10-13T22:01:02.345Z","reconcile.fluxcd.io/requestedAt":"2026-10-13T22:01:02.345Z"},"uid":"uid-1"}}`},
+		"reset":          {"uid-1", FluxRequest{Reconcile: true, Reset: true}, `{"metadata":{"annotations":{"reconcile.fluxcd.io/requestedAt":"2026-10-13T22:01:02.345Z","reconcile.fluxcd.io/resetAt":"2026-10-13T22:01:02.345Z"},"uid":"uid-1"}}`},
 		"suspend":        {"uid-1", FluxRequest{Suspend: &yes}, `{"metadata":{"uid":"uid-1"},"spec":{"suspend":true}}`},
 		"resume":         {"uid-1", FluxRequest{Reconcile: true, Suspend: &no}, `{"metadata":{"annotations":{"reconcile.fluxcd.io/requestedAt":"2026-10-13T22:01:02.345Z"},"uid":"uid-1"},"spec":{"suspend":false}}`},
 		"without a uid":  {"", FluxRequest{Suspend: &yes}, `{"spec":{"suspend":true}}`},

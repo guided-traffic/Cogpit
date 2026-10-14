@@ -12,21 +12,28 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// The annotations the Flux controllers read (fluxcd/pkg/apis/meta), as the flux CLI sets them:
-// a new value of requestedAt asks the object's controller to reconcile it now; forceAt (Helm
-// releases) also forces a one-off install or upgrade.
+// The annotations the Flux controllers read (fluxcd/pkg/apis/meta, helm-controller's api/v2), as
+// the flux CLI sets them: a new value of requestedAt asks the object's controller to reconcile it
+// now; forceAt (Helm releases) also forces a one-off install or upgrade; resetAt (Helm releases,
+// `flux reconcile helmrelease --reset`) resets the release's failure counts so that the
+// controller tries again after it ran out of retries. forceAt and resetAt take effect only with
+// the value of requestedAt, so the flux CLI and Cogpit write one token to all of them.
 const (
 	FluxReconcileAnnotation = "reconcile.fluxcd.io/requestedAt"
 	FluxForceAnnotation     = "reconcile.fluxcd.io/forceAt"
+	FluxResetAnnotation     = "reconcile.fluxcd.io/resetAt"
 )
 
-// FluxRequest is one write of the Flux CD actions (D-33): a reconcile request, a forced one, a
-// change of spec.suspend, or both (Resume).
+// FluxRequest is one write of the Flux CD actions (D-33): a reconcile request, a forced one, one
+// that resets the failure counts, a change of spec.suspend, or a reconcile request with one
+// (Resume).
 type FluxRequest struct {
 	// Reconcile sets reconcile.fluxcd.io/requestedAt to the time of the request.
 	Reconcile bool
 	// Force also sets reconcile.fluxcd.io/forceAt to the same time (Helm releases only).
 	Force bool
+	// Reset also sets reconcile.fluxcd.io/resetAt to the same time (Helm releases only).
+	Reset bool
 	// Suspend, when set, sets spec.suspend to its value.
 	Suspend *bool
 }
@@ -34,20 +41,23 @@ type FluxRequest struct {
 // errEmptyFluxRequest refuses a request that would change nothing.
 var errEmptyFluxRequest = errors.New("nothing to change")
 
-// FluxPatch is the JSON merge patch of a Flux request, as `flux reconcile`, `flux suspend` and
-// `flux resume` send it: the annotations with the time in RFC 3339 with nanoseconds, and
+// FluxPatch is the JSON merge patch of a Flux request, as `flux reconcile` (with --force or
+// --reset), `flux suspend` and `flux resume` send it: the annotations with the time in RFC 3339 with nanoseconds, and
 // spec.suspend; with a uid, also metadata.uid, Cogpit's precondition (the API server refuses the
 // patch on another object under the name: metadata.uid is immutable).
 func FluxPatch(at time.Time, uid string, req FluxRequest) ([]byte, error) {
-	if !req.Reconcile && !req.Force && req.Suspend == nil {
+	if !req.Reconcile && !req.Force && !req.Reset && req.Suspend == nil {
 		return nil, errEmptyFluxRequest
 	}
 	meta := map[string]any{}
-	if req.Reconcile || req.Force {
+	if req.Reconcile || req.Force || req.Reset {
 		stamp := at.Format(time.RFC3339Nano)
 		ann := map[string]string{FluxReconcileAnnotation: stamp}
 		if req.Force {
 			ann[FluxForceAnnotation] = stamp
+		}
+		if req.Reset {
+			ann[FluxResetAnnotation] = stamp
 		}
 		meta["annotations"] = ann
 	}

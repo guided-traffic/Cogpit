@@ -58,6 +58,9 @@ func init() {
 	// The drawer's toolbar icons of the Flux actions (commandIcons), as Restart's, Suspend's and
 	// Resume's of the built-in kinds.
 	commandIcons["flux.reconcile"] = theme.IconNameViewRefresh
+	// Cogpit's choices (D-33, owner 2026-10-14): the source is fetched first; a reset starts over.
+	commandIcons["flux.reconcileWithSource"] = theme.IconNameDownload
+	commandIcons["flux.reset"] = theme.IconNameMediaReplay
 	commandIcons["flux.suspend"] = theme.IconNameMediaPause
 	commandIcons["flux.resume"] = theme.IconNameMediaPlay
 }

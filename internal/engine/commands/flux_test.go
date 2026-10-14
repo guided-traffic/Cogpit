@@ -37,12 +37,14 @@ var (
 	extGVR = schema.GroupVersionResource{Group: "source.toolkit.fluxcd.io", Version: "v1", Resource: "externalartifacts"}
 )
 
-// fluxWriter records the Flux patches; err, when set, is every patch's answer.
+// fluxWriter records the Flux patches; err, when set, is every patch's answer, or, with failOn,
+// the answer to the patches of that resource only.
 type fluxWriter struct {
 	fakeWriter
 	mu      sync.Mutex
 	patches []string
 	err     error
+	failOn  string
 }
 
 func (w *fluxWriter) PatchFlux(_ context.Context, gvr schema.GroupVersionResource, namespace, name, uid string, req cluster.FluxRequest) error {
@@ -52,7 +54,7 @@ func (w *fluxWriter) PatchFlux(_ context.Context, gvr schema.GroupVersionResourc
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if w.err != nil {
+	if w.err != nil && (w.failOn == "" || w.failOn == gvr.Resource) {
 		return w.err
 	}
 	w.patches = append(w.patches, fmt.Sprintf("%s/%s %s/%s %s", gvr.Resource, gvr.Version, namespace, name, body))
@@ -114,7 +116,12 @@ var fluxCRDsGVR = testkit.CRDsGVR
 
 func newFluxHarness(t *testing.T, opts engine.Options) (*harness, *fluxWriter) {
 	t.Helper()
-	src := fluxSource()
+	return newFluxHarnessOn(t, opts, fluxSource())
+}
+
+// newFluxHarnessOn connects a session to src, a cluster with fluxSource's objects at least.
+func newFluxHarnessOn(t *testing.T, opts engine.Options, src *testkit.MemorySource) (*harness, *fluxWriter) {
+	t.Helper()
 	w := &fluxWriter{}
 	h := &harness{src: src, writer: &w.fakeWriter}
 	opts.Connector = fluxConnector{src: src, writer: w}
@@ -234,7 +241,7 @@ func TestFluxActionsApply(t *testing.T) {
 			ids = append(ids, c.ID)
 		}
 	}
-	if want := []string{"flux.reconcile", "flux.resume", "flux.suspend", "object.edit", "object.delete"}; !slices.Equal(ids, want) {
+	if want := []string{"flux.reconcile", "flux.reconcileWithSource", "flux.resume", "flux.suspend", "object.edit", "object.delete"}; !slices.Equal(ids, want) {
 		t.Errorf("row menu %v, want %v", ids, want)
 	}
 	// Only Reconcile takes force (Helm releases).
@@ -317,7 +324,7 @@ func TestFluxActionsOnASelection(t *testing.T) {
 	for _, c := range h.s.Registry().SelectionActions(engine.SelectionKinds(refs)) {
 		ids = append(ids, c.ID)
 	}
-	if want := []string{"flux.reconcileMany", "flux.resumeMany", "flux.suspendMany", "object.deleteMany"}; !slices.Equal(ids, want) {
+	if want := []string{"flux.reconcileMany", "flux.reconcileWithSourceMany", "flux.resumeMany", "flux.suspendMany", "object.deleteMany"}; !slices.Equal(ids, want) {
 		t.Errorf("selection actions %v, want %v", ids, want)
 	}
 	ids = nil

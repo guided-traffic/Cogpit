@@ -329,7 +329,7 @@ user's own action in Cogpit's window runs: agents and the CLI are refused, whate
 The table is generated from the registry with `go run ./hack/readmecmds`.
 
 <details>
-<summary>All 173 commands</summary>
+<summary>All 177 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -384,6 +384,10 @@ The table is generated from the registry with `go run ./hack/readmecmds`.
 | `flux.dashboard` | `flux_dashboard` | read | `namespaces`?, `table`? | Reads the Flux dashboard: for each Flux kind the cluster serves (Helm releases, Kustomizations, image repositories, policies and update automations, alerts, providers, receivers, Git, OCI and Helm repositories, buckets, external artifacts) the number of objects in the selected namespaces by state: ready, notReady (Ready False or Stalled), reconciling, suspended, unknown (no Ready condition yet); with table, also every object that is not ready, with its message |
 | `flux.reconcile` | `flux_reconcile` | mutating | `force`?, `ref` | Asks Flux to reconcile one object now, as flux reconcile does without --with-source: sets the annotation reconcile.fluxcd.io/requestedAt to the current time (with force, a Helm release also gets reconcile.fluxcd.io/forceAt) |
 | `flux.reconcileMany` | `flux_reconcileMany` | mutating | `force`?, `refs` | Does what flux_reconcile does for several Flux objects at once, as the table's selection menu does: it acts on the selected objects it applies to, one after the other, each bound to its UID, and skips the others |
+| `flux.reconcileWithSource` | `flux_reconcileWithSource` | mutating | `ref` | Asks Flux to reconcile a Kustomization or Helm release together with its source, as flux reconcile --with-source does: sets reconcile.fluxcd.io/requestedAt on the source first (a Kustomization's spec.sourceRef; a Helm release's chart source, then its HelmChart; or its spec.chartRef), then on the object, each patch bound to its object's UID |
+| `flux.reconcileWithSourceMany` | `flux_reconcileWithSourceMany` | mutating | `refs` | Does what flux_reconcileWithSource does for several Flux objects at once, as the table's selection menu does: it acts on the selected objects it applies to, one after the other, each bound to its UID, and skips the others |
+| `flux.reset` | `flux_reset` | mutating | `ref` | Resets a Helm release's failure counts and asks Flux to reconcile it, as flux reconcile helmrelease --reset does: sets reconcile.fluxcd.io/resetAt and reconcile.fluxcd.io/requestedAt to one token, so that helm-controller tries to install or upgrade again after it ran out of retries |
+| `flux.resetMany` | `flux_resetMany` | mutating | `refs` | Does what flux_reset does for several Flux objects at once, as the table's selection menu does: it acts on the selected objects it applies to, one after the other, each bound to its UID, and skips the others |
 | `flux.resume` | `flux_resume` | mutating | `ref` | Resumes a suspended Flux object, as flux resume does: sets spec.suspend to false and requests a reconcile (reconcile.fluxcd.io/requestedAt) |
 | `flux.resumeMany` | `flux_resumeMany` | mutating | `refs` | Does what flux_resume does for several Flux objects at once, as the table's selection menu does: it acts on the selected objects it applies to, one after the other, each bound to its UID, and skips the others |
 | `flux.suspend` | `flux_suspend` | mutating | `ref` | Suspends one Flux object, as flux suspend does: sets spec.suspend to true, so that its controller leaves it alone until it is resumed |

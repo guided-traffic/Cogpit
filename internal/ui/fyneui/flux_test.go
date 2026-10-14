@@ -84,8 +84,8 @@ func TestSidebarFluxSection(t *testing.T) {
 	}
 }
 
-// fluxFixture is a cluster running Flux: every toolkit definition at the version Flux serves, and
-// objects in every state.
+// fluxFixture is a cluster running Flux: every toolkit definition at the version Flux serves (the
+// HelmCharts helm-controller makes too), and objects in every state.
 func fluxFixture() *testkit.MemorySource {
 	src := testkit.NewMemorySource()
 	for _, ns := range []string{"flux-system", "shop", "platform"} {
@@ -96,6 +96,10 @@ func fluxFixture() *testkit.MemorySource {
 			src.Set(testkit.CRDsGVR, testkit.CRD(p.Group, p.Resource, p.Kind, true, testkit.CRDVersion{Name: p.Version, Served: true, Storage: true}))
 		}
 	}
+	src.Set(testkit.CRDsGVR, testkit.CRD("source.toolkit.fluxcd.io", "helmcharts", "HelmChart", true, testkit.CRDVersion{Name: "v1", Served: true, Storage: true}))
+	src.Set(schema.GroupVersionResource{Group: "source.toolkit.fluxcd.io", Version: "v1", Resource: "helmcharts"},
+		testkit.Object("source.toolkit.fluxcd.io/v1", "HelmChart", "flux-system", "shop-podinfo", map[string]any{"spec": map[string]any{
+			"chart": "podinfo", "sourceRef": map[string]any{"kind": "HelmRepository", "name": "podinfo"}}}))
 	gvr := func(key string) schema.GroupVersionResource {
 		for _, p := range kinds.Curated() {
 			if p.Key == key {
@@ -287,8 +291,8 @@ func TestFluxDashboardInTheWindow(t *testing.T) {
 }
 
 // TestFluxKustomizationsInTheWindow: a Flux kind's view shows the curated columns, its row menu
-// Reconcile and Suspend (Resume on a suspended object, Reconcile greyed there), and Reconcile
-// patches the object.
+// Reconcile, Reconcile with Source and Suspend (Resume on a suspended object, Reconcile greyed
+// there), and Reconcile patches the object.
 func TestFluxKustomizationsInTheWindow(t *testing.T) {
 	sh, _, q, _, rec := fluxEngineShell(t, ThemeDark)
 	const key = "kustomizations.kustomize.toolkit.fluxcd.io"
@@ -310,7 +314,7 @@ func TestFluxKustomizationsInTheWindow(t *testing.T) {
 		return -1
 	}
 	m := openMenu(t, sh, q, row("apps"))
-	if got := strings.Join(labels(m), "|"); !strings.HasPrefix(got, "Show Details|Reconcile|Suspend|Edit") || !strings.Contains(got, "|Delete") {
+	if got := strings.Join(labels(m), "|"); !strings.HasPrefix(got, "Show Details|Reconcile|Reconcile with Source|Suspend|Edit") || !strings.Contains(got, "|Delete") {
 		t.Errorf("menu %s", got)
 	}
 	item(t, m, "Reconcile").Action()
@@ -320,6 +324,47 @@ func TestFluxKustomizationsInTheWindow(t *testing.T) {
 	}
 	m = openMenu(t, sh, q, row("monitoring"))
 	if got := strings.Join(labels(m), "|"); !strings.Contains(got, "Reconcile — monitoring is suspended") || !strings.Contains(got, "|Resume|") || strings.Contains(got, "|Suspend|") {
+		t.Errorf("suspended menu %s", got)
+	}
+}
+
+// TestFluxHelmReleaseActionsInTheWindow (D-33, owner 2026-10-14): a Helm release's row menu has
+// Reconcile, Reconcile with Source and Reset before Suspend; Reconcile with Source patches the
+// chart's Helm repository, the release's HelmChart and the release, in that order; Reset writes
+// resetAt; on a suspended release both are greyed with why.
+func TestFluxHelmReleaseActionsInTheWindow(t *testing.T) {
+	sh, _, q, _, rec := fluxEngineShell(t, ThemeDark)
+	openFluxView(t, sh, q, "helmreleases.helm.toolkit.fluxcd.io", 3)
+	row := func(name string) int {
+		for i, r := range sh.view.snap.Rows {
+			if r.Ref.Name == name {
+				return i
+			}
+		}
+		t.Fatalf("no row %s", name)
+		return -1
+	}
+	m := openMenu(t, sh, q, row("podinfo"))
+	if got := strings.Join(labels(m), "|"); !strings.HasPrefix(got, "Show Details|Reconcile|Reconcile with Source|Reset|Suspend|Edit") {
+		t.Errorf("menu %s", got)
+	}
+	item(t, m, "Reconcile with Source").Action()
+	q.until(t, "the three patches", func() bool { return len(rec.Patches()) == 3 })
+	var got []string
+	for _, p := range rec.Patches() {
+		got = append(got, strings.SplitN(p, " {", 2)[0])
+	}
+	if want := []string{"helmrepositories flux-system/podinfo", "helmcharts flux-system/shop-podinfo", "helmreleases shop/podinfo"}; !slices.Equal(got, want) {
+		t.Errorf("patches %v, want %v", got, want)
+	}
+	m = openMenu(t, sh, q, row("podinfo"))
+	item(t, m, "Reset").Action()
+	q.until(t, "the reset", func() bool { return len(rec.Patches()) == 4 })
+	if p := rec.Patches()[3]; !strings.HasPrefix(p, "helmreleases shop/podinfo ") || !strings.Contains(p, "reconcile.fluxcd.io/resetAt") {
+		t.Errorf("reset %s", p)
+	}
+	m = openMenu(t, sh, q, row("redis"))
+	if got := strings.Join(labels(m), "|"); !strings.Contains(got, "Reconcile with Source — redis is suspended") || !strings.Contains(got, "Reset — redis is suspended: resume it to reset it") {
 		t.Errorf("suspended menu %s", got)
 	}
 }

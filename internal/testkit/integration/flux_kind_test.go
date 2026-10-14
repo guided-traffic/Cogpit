@@ -37,7 +37,8 @@ var fluxKsGVR = schema.GroupVersionResource{Group: "kustomize.toolkit.fluxcd.io"
 // controllers), creates a Kustomization and writes the status a controller would through the
 // status subresource, and checks the Flux section over the engine: the curated view's row, the
 // dashboard's counts, and Reconcile, Suspend and Resume patching the object on the API server, a
-// patch bound to another UID refused. A cluster that already has Flux is left alone (the test
+// patch bound to another UID refused; Reconcile with Source annotating the GitRepository and the
+// Kustomization, Reset a Helm release. A cluster that already has Flux is left alone (the test
 // skips); the definitions are removed at the end.
 func TestKindFlux(t *testing.T) {
 	kubeconfig, contextName := os.Getenv("COGPIT_KIND_KUBECONFIG"), os.Getenv("COGPIT_KIND_CONTEXT")
@@ -165,6 +166,53 @@ func TestKindFlux(t *testing.T) {
 	t.Logf("the API server's answer to a patch bound to another UID: %v", err)
 	if suspended() {
 		t.Error("the refused patch suspended the object")
+	}
+
+	kindFluxWithSourceAndReset(ctx, t, conn, s, d, ref, annotation)
+}
+
+// kindFluxWithSourceAndReset (D-33, owner 2026-10-14): Reconcile with Source annotates the
+// Kustomization's GitRepository and then the Kustomization on the API server; Reset writes resetAt
+// and requestedAt with one token on a Helm release.
+func kindFluxWithSourceAndReset(ctx context.Context, t *testing.T, conn *cluster.Conn, s *engine.Session, d dispatcher, ks model.ObjectRef, annotation func() string) {
+	t.Helper()
+	gitGVR := schema.GroupVersionResource{Group: "source.toolkit.fluxcd.io", Version: "v1", Resource: "gitrepositories"}
+	hrGVR := schema.GroupVersionResource{Group: "helm.toolkit.fluxcd.io", Version: "v2", Resource: "helmreleases"}
+	create := func(gvr schema.GroupVersionResource, obj *unstructured.Unstructured) {
+		obj.SetUID("")
+		obj.SetCreationTimestamp(metav1.Time{})
+		if _, err := conn.Dynamic().Resource(gvr).Namespace(fluxNamespace).Create(ctx, obj, metav1.CreateOptions{}); err != nil {
+			t.Fatalf("creating %s: %v", obj.GetName(), err)
+		}
+	}
+	get := func(gvr schema.GroupVersionResource, name string) map[string]string {
+		obj, err := conn.Dynamic().Resource(gvr).Namespace(fluxNamespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return obj.GetAnnotations()
+	}
+	create(gitGVR, testkit.Object("source.toolkit.fluxcd.io/v1", "GitRepository", fluxNamespace, "flux-system", map[string]any{
+		"spec": map[string]any{"url": "https://example.invalid/fleet", "interval": "1m"}}))
+	before := annotation()
+	var res commands.FluxManyResult
+	d.must("flux.reconcileWithSource", map[string]any{"ref": ks}, &res)
+	if len(res.Done) != 2 || res.Done[0].Name != "flux-system" || res.Done[1].Name != ks.Name {
+		t.Errorf("reconcile with source did %+v", res.Done)
+	}
+	if git := get(gitGVR, "flux-system")[cluster.FluxReconcileAnnotation]; git == "" || annotation() == before {
+		t.Errorf("after Reconcile with Source: the GitRepository's requestedAt %q, the Kustomization's %q (was %q)", git, annotation(), before)
+	}
+
+	create(hrGVR, testkit.Object("helm.toolkit.fluxcd.io/v2", "HelmRelease", fluxNamespace, "podinfo", map[string]any{
+		"spec": map[string]any{"interval": "10m", "chart": map[string]any{"spec": map[string]any{
+			"chart": "podinfo", "sourceRef": map[string]any{"kind": "HelmRepository", "name": "podinfo"}}}}}))
+	hr := model.ObjectRef{Kind: "helmreleases.helm.toolkit.fluxcd.io", Namespace: fluxNamespace, Name: "podinfo"}
+	waitFor(ctx, t, "the Helm release in the cache", func() bool { _, err := s.Lookup(hr); return err == nil })
+	d.must("flux.reset", map[string]any{"ref": hr}, nil)
+	ann := get(hrGVR, "podinfo")
+	if ann[cluster.FluxResetAnnotation] == "" || ann[cluster.FluxResetAnnotation] != ann[cluster.FluxReconcileAnnotation] {
+		t.Errorf("after Reset: %v", ann)
 	}
 }
 
