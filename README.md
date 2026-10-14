@@ -142,8 +142,9 @@ time in your own time zone and your region's format.
 - **Agents ask too.** Agents read and navigate freely; anything they would change waits for your
   acceptance unless you allowed changes on that cluster, and destructive actions always wait.
 - **Everything agents do is logged**, readable in Help › Audit Log.
-- **Secrets stay secret.** Values stay masked until you reveal them, agents never read them, and
-  tokens and keys never reach a log.
+- **Secrets stay secret.** Values stay masked until you reveal them, agents never read them (where
+  a log prints a value of a Secret Cogpit holds, an agent reads a placeholder), and tokens and keys
+  never reach a log.
 - **Your credentials stay yours.** Cogpit authenticates the way `kubectl` does, with your
   kubeconfig, and runs a credential plugin only after you allowed it.
 - **Light on the API server.** Views read from a watch-fed cache: opening a view again costs no

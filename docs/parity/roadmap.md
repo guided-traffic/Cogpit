@@ -78,6 +78,10 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
    differs in the parity rows, then answer the open questions (each marked "Cogpit's default, not
    the owner's decision" in its row or gap; D-29's in its notes and
    [H-40](../security/credentials.md#h-40-credentials-over-plain-http), H-41 and H-42 in [trust boundaries](../security/trust-boundaries.md)).
+   Since the afternoon of 2026-10-14 also: the http repository question and its banner (H-40), a
+   terminal tab's agent marker and its 15-minute end (H-83), Preferences › App's Start at login and
+   update rows, Help › Check for Updates…, a `cogpit://` link (D-47), the signed disk image of
+   v0.5.0 on a Mac that has never run Cogpit.
 2. **Walk the alpha-gate workflows in the GUI** on kind and a real cluster (owner): change a
    workload, maintain a node, reach a service, Helm releases, adding and syncing kubeconfigs,
    Cogpit's own title bar.
@@ -89,7 +93,12 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
    [H-7](../security/privilege-footprint.md#h-7-node-shell-is-root-on-the-node) stays: it is root on the node).
 5. **M0 and M10:** the generated parity pages and the scorecard ([G1](gaps.md#g1-workspace-ci-and-progress-generators)),
    captures of the rows marked inferred, packaging and updates for macOS ([G14](gaps.md#g14-packaging-signing-and-updates-macos)).
-   The built-in chat comes after the alpha ([G21](gaps.md#g21-built-in-agent), [D-10](../developer/decisions.md#d-10-built-in-agent)).
+   Built 2026-10-14: the signed, notarized disk image (first tag run v0.5.0) and Sparkle 2, which
+   updates nothing until the owner has made the update key and the environments `sparkle` and
+   `github-pages` ([releasing › Setting up Sparkle](../developer/releasing.md#setting-up-sparkle)).
+6. **The built-in agent chat** ([G21](gaps.md#g21-built-in-agent), [D-10](../developer/decisions.md#d-10-built-in-agent)):
+   pulled forward by the owner on 2026-10-14 ("endlich meinen Agent Chat"), the main scope of the
+   next session; it needs an OpenAI-compatible endpoint with a tool-calling model from the owner.
 
 ## What's next, with estimates
 
@@ -106,6 +115,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-14 | minor | M10 in progress: the signed, notarized disk image and the signed, notarized `cogpit-cli` for macOS built in the release pipeline (G14, D-4), no tag run yet; the alpha gate's macOS build row says so; hours not moved |
+| 2026-10-14 | minor | Current focus: the afternoon run's features for the owner's walk; M10's disk image and Sparkle built; the built-in agent chat pulled forward by the owner (item 6) |
 | 2026-10-14 | minor | Current focus: the owner confirmed the node shell as built (D-37, D-38), with the default image the newest supported Alpine release and the maximum duration a setting |
 | 2026-10-14 | minor | Current focus: the night build's features and its night decisions (D-33 to D-44) for the owner's walk |
 | 2026-10-13 | minor | GitOps in progress: Flux CD's section, views, dashboard and actions built (G23, D-33, D-34); its hours left to the lead's recount |
