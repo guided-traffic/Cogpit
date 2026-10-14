@@ -187,8 +187,17 @@ func fluxFixture() *testkit.MemorySource {
 // fluxEngineShell runs the shell over the real engine and commands, connected to fluxFixture.
 func fluxEngineShell(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, *engine.Session, *enginekit.FluxRecorder) {
 	t.Helper()
+	sh, w, q, s, rec, _ := fluxEngineShellOn(t, mode)
+	return sh, w, q, s, rec
+}
+
+// fluxEngineShellOn is fluxEngineShell with the cluster's source, for a test that plays Flux's
+// controllers in it (playFluxControllers).
+func fluxEngineShellOn(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, *engine.Session, *enginekit.FluxRecorder, *testkit.MemorySource) {
+	t.Helper()
 	rec := &enginekit.FluxRecorder{At: fixedNow}
-	conn := enginekit.MemoryConnector{Context: "kind-flux", Src: fluxFixture(), Profiles: kinds.Builtin(), CustomResources: true, Writer: rec}
+	src := fluxFixture()
+	conn := enginekit.MemoryConnector{Context: "kind-flux", Src: src, Profiles: kinds.Builtin(), CustomResources: true, Writer: rec}
 	s := engine.New(engine.Options{Connector: conn, SnapshotInterval: 5 * time.Millisecond})
 	t.Cleanup(s.Close)
 	if err := commands.RegisterAll(s.Registry()); err != nil {
@@ -215,7 +224,25 @@ func fluxEngineShell(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQu
 		_, ok := sh.side.children[groupPrefix+"flux/notifications"]
 		return sh.ui.Connection.State == engine.Connected && ok
 	})
-	return sh, w, q, s, rec
+	return sh, w, q, s, rec, src
+}
+
+// playFluxControllers makes rec's patches handled by Flux's controllers at once: the object gets
+// status.lastHandledReconcileAt, the time it is handled, and Ready True, as Reconcile with Source
+// waits for it (A91).
+func playFluxControllers(s *engine.Session, rec *enginekit.FluxRecorder, src *testkit.MemorySource) {
+	rec.OnPatch = func(gvr schema.GroupVersionResource, namespace, name string) {
+		obj, err := s.Lookup(model.ObjectRef{Kind: gvr.Resource + "." + gvr.Group, Namespace: namespace, Name: name})
+		if err != nil {
+			return
+		}
+		obj = obj.DeepCopy()
+		obj.Object["status"] = map[string]any{
+			"lastHandledReconcileAt": time.Now().UTC().Format(time.RFC3339Nano),
+			"conditions":             []any{map[string]any{"type": "Ready", "status": "True", "message": "handled"}},
+		}
+		src.Set(gvr, obj)
+	}
 }
 
 // openFluxView opens a view through the navigator, as a click does, and waits for its rows.
@@ -333,7 +360,8 @@ func TestFluxKustomizationsInTheWindow(t *testing.T) {
 // chart's Helm repository, the release's HelmChart and the release, in that order; Reset writes
 // resetAt; on a suspended release both are greyed with why.
 func TestFluxHelmReleaseActionsInTheWindow(t *testing.T) {
-	sh, _, q, _, rec := fluxEngineShell(t, ThemeDark)
+	sh, _, q, s, rec, src := fluxEngineShellOn(t, ThemeDark)
+	playFluxControllers(s, rec, src) // Reconcile with Source waits for each (A91)
 	openFluxView(t, sh, q, "helmreleases.helm.toolkit.fluxcd.io", 3)
 	row := func(name string) int {
 		for i, r := range sh.view.snap.Rows {

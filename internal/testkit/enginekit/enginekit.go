@@ -46,6 +46,9 @@ func (c MemoryConnector) Connect(context.Context, string) (*engine.Backend, erro
 // body", the body as cluster.FluxPatch makes it at At; the other writes do nothing.
 type FluxRecorder struct {
 	At time.Time
+	// OnPatch, if set, runs after a patch is recorded, outside the recorder's lock: a test plays
+	// the object's controller there (Reconcile with Source waits for it, A91).
+	OnPatch func(gvr schema.GroupVersionResource, namespace, name string)
 
 	mu      sync.Mutex
 	patches []string
@@ -70,7 +73,11 @@ func (r *FluxRecorder) PatchFlux(_ context.Context, gvr schema.GroupVersionResou
 	}
 	r.mu.Lock()
 	r.patches = append(r.patches, gvr.Resource+" "+namespace+"/"+name+" "+string(body))
+	onPatch := r.OnPatch
 	r.mu.Unlock()
+	if onPatch != nil {
+		onPatch(gvr, namespace, name)
+	}
 	return nil
 }
 

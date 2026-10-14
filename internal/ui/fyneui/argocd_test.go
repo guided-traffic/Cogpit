@@ -379,7 +379,8 @@ func TestArgoSyncWithPruneConfirms(t *testing.T) {
 	for _, a := range acts {
 		labels = append(labels, a.cmd.Label)
 	}
-	if strings.Join(labels, ",") != "Sync,Refresh,Edit,Delete" && strings.Join(labels, ",") != "Copy,Sync,Refresh,Edit,Delete" {
+	// Logs (A81, argocd.logs) after Sync and Refresh, greyed or hidden as the Application allows.
+	if got := strings.Join(labels, ","); got != "Sync,Refresh,Edit,Delete" && got != "Copy,Sync,Refresh,Edit,Delete" && got != "Copy,Sync,Refresh,Logs,Edit,Delete" {
 		t.Errorf("actions %v", labels)
 	}
 	for _, a := range acts {
