@@ -53,15 +53,15 @@ func TestSecretMatcherForms(t *testing.T) {
 		"data: {password: " + b64 + "}":                      "data: {password: " + label + "}",
 		`{"msg":"x","password":` + string(jsonForm) + `}`:    `{"msg":"x","password":"` + label + `"}`,
 		"user=postgres_admin host=db.shop.svc.cluster.local": "user=postgres_admin host=db.shop.svc.cluster.local", // name keys
-		"pin 1234567":                     "pin 1234567",                                // under 10 bytes
-		"nine letmein89":                  "nine letmein89",                             // 9 bytes: under 10
-		"word letmein810 and letmein8100": "word «secret shop/db/word» and letmein8100", // stands alone
-		"Bearer eyJhbGciOiJSUzI1NiJ9.e30.sig-0123456789":                                "Bearer «secret shop/sa-token-x/token»",
-		"namespace kube-system-ns":                                                      "namespace kube-system-ns",
+		"pin 1234567":                                    "pin 1234567",                                // under 10 bytes
+		"nine letmein89":                                 "nine letmein89",                             // 9 bytes: under 10
+		"word letmein810 and letmein8100":                "word «secret shop/db/word» and letmein8100", // stands alone
+		"Bearer eyJhbGciOiJSUzI1NiJ9.e30.sig-0123456789": "Bearer «secret shop/sa-token-x/token»",
+		"namespace kube-system-ns":                       "namespace kube-system-ns",
 		"auth " + base64.StdEncoding.EncodeToString([]byte("robot:registry-pass-0815")): "auth «secret shop/regcred/.dockerconfigjson»",
-		"pull with registry-pass-0815":                                                  "pull with «secret shop/regcred/.dockerconfigjson»",
-		"helm-release-payload":                                                          "helm-release-payload",
-		"x abcdefghijklmnop-1234-qrstuvwxyz0123 y":                                      "x «secret shop/overlap/a» y",
+		"pull with registry-pass-0815":             "pull with «secret shop/regcred/.dockerconfigjson»",
+		"helm-release-payload":                     "helm-release-payload",
+		"x abcdefghijklmnop-1234-qrstuvwxyz0123 y": "x «secret shop/overlap/a» y",
 	} {
 		if got := scrubbed(t, m, in); got != want {
 			t.Errorf("%q:\n got %q\nwant %q", in, got, want)
