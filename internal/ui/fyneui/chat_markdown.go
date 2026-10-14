@@ -230,8 +230,10 @@ func (b mdBlock) key() string {
 }
 
 func writeBlockKey(s *strings.Builder, b mdBlock) {
-	s.WriteByte(byte('0' + b.kind))
-	s.WriteByte(byte('0' + b.level))
+	s.WriteString(strconv.Itoa(int(b.kind)))
+	s.WriteByte(':')
+	s.WriteString(strconv.Itoa(b.level))
+	s.WriteByte(':')
 	writeRunsKey(s, b.runs)
 	s.WriteString(b.code)
 	if l := b.list; l != nil {
