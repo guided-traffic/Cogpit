@@ -196,8 +196,9 @@ func TestPlainClickKeepsTheCheckedRows(t *testing.T) {
 	checked, unchecked := tv.cellIcon(cellContent{kind: cellCheck}, true), tv.cellIcon(cellContent{kind: cellCheck}, false)
 
 	test.Tap(cellAt(t, sh, 2, checkColumn))
+	q.until(t, "row 2 checked", func() bool { return len(sh.ui.Selected) == 1 })
 	test.Tap(cellAt(t, sh, 4, checkColumn))
-	q.until(t, "two rows checked", func() bool { return len(sh.ui.Selected) == 2 })
+	q.until(t, "row 4 checked", func() bool { return len(sh.ui.Selected) == 2 })
 	want := refKeys([]model.ObjectRef{rows[2].Ref, rows[4].Ref})
 
 	test.Tap(cellAt(t, sh, 7, firstDataColumn+1))
