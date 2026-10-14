@@ -1336,7 +1336,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   lies over the cell's end, the text no longer shortened for it, and the drawer's Forward… sits right
   after the value with the copy icon over the value's end on hover (the status filter's button in
   the accent colour while a filter is active: built 2026-10-14, A80); after a create the new object's drawer opens and the
-  list scrolls to its row ([G9](#g9-yaml-editor-and-create-resource)). Confirmed, now the owner's
+  list scrolls to its row (built 2026-10-14, A102; [G9](#g9-yaml-editor-and-create-resource)). Confirmed, now the owner's
   decisions: the checkmark and toast on a list copy; the copy icons' exclusion list, for custom
   resource columns too; Delete of at most 500 objects; the name column's 140-point minimum; links
   and chips not drag-selectable (the icon copies them); the status filter's rules (D-34: the state

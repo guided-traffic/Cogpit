@@ -488,3 +488,22 @@ func TestCreateCommandsDescribeThemselves(t *testing.T) {
 		}
 	}
 }
+
+// TestCreateShowsTheNewObject (A102): after the user's create of one object, its kind's view
+// opens with the object selected and its drawer open (the window scrolls to the selection); an
+// agent's create leaves the window where the user has it.
+func TestCreateShowsTheNewObject(t *testing.T) {
+	h, _ := createHarness(t, engine.Options{Confirmer: engine.ConfirmFunc(func(context.Context, engine.ConfirmRequest) (bool, error) {
+		return true, nil
+	})})
+	h.must(t, engine.OriginGUI, "ui.openView", map[string]any{"view": "pods"}, nil)
+	h.must(t, engine.OriginExternalAgent, "namespace.create", map[string]any{"name": "agent-made"}, nil)
+	if u := h.s.UIState(); u.View != "pods" || u.Drawer != nil {
+		t.Errorf("an agent's create moved the window: view %q, drawer %+v", u.View, u.Drawer)
+	}
+	h.must(t, engine.OriginGUI, "namespace.create", map[string]any{"name": "user-made"}, nil)
+	u := h.s.UIState()
+	if u.View != "namespaces" || u.Drawer == nil || u.Drawer.Name != "user-made" || len(u.Selected) != 1 || u.Selected[0].Name != "user-made" {
+		t.Errorf("after the user's create: view %q, drawer %+v, selected %+v", u.View, u.Drawer, u.Selected)
+	}
+}

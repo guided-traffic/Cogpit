@@ -163,7 +163,11 @@ func createSpec[P any](id, label, menuPath, description string, k createKind, da
 			if err != nil {
 				return nil, err
 			}
-			return s.CreateManifest(ctx, obj)
+			item, err := s.CreateManifest(ctx, obj)
+			if err == nil && item.Created {
+				revealCreated(ctx, s, engine.CreateResult{Items: []engine.CreateItem{item}, Created: 1}) // A102
+			}
+			return item, err
 		},
 	}
 }

@@ -169,7 +169,7 @@ window. Nothing of it was built in the round.
 | A99 | #19 | A combined PEM (certificate and key in one value) gets the key check too; built 2026-10-14 | [D-30](#d-30-certificates-in-secrets-decoded) |
 | A100 | #20 | An encrypted private key in the warning colour with "encrypted key: TLS/Ingress cannot use it"; built 2026-10-14 | [D-30](#d-30-certificates-in-secrets-decoded) |
 | A101 | #23 | A grant's confirmation says "Grants these rights immediately, cluster-wide" or "in `<ns>`"; "This cannot be undone." only where something is lost; built 2026-10-14 | [D-2](#d-2-agent-interface-scope), [parity](../parity/README.md) |
-| A102 | #24 | After a create the new object's drawer opens and the list scrolls to its row; to build | [parity](../parity/README.md) |
+| A102 | #24 | After a create the new object's drawer opens and the list scrolls to its row; built 2026-10-14 (the user's creates of one object; a night decision) | [parity](../parity/README.md) |
 | A103 | #48 | An Application's Violations are its workloads in warning or error; as built | [parity](../parity/README.md) |
 | A104 | #50 | A VPA's mode "Auto" when unset; as built | [parity](../parity/README.md) |
 | A105 | #51 | The pod drawer shows its Resource Claims' state, watching the namespace's claims while it is open; to build | [architecture §4.4](architecture.md#44-tables-details-editors-and-streams), [parity](../parity/README.md) |
