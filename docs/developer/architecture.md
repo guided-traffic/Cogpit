@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-14 · **Change:** minor (two binaries: `cogpit-cli` inside the app bundle and the app copying its stdio registration, D-16, D-2; §5: the table snapshots counted in the Diagnostics tab and `diagnostics.get` only, no longer in the status bar, owner; ); minor (§11 and Current state: `internal/update` built, Sparkle 2 loaded at run time from the app bundle, D-4); minor (; §4.6, §4.1, §12 and Current state: `cogpit://` links through five navigation commands with origin `deeplink`, D-47; §4.3 and Current state: start at login, `UIState.LoginItem`, `Options.LoginItem`, D-48; §5: peeking at running scopes; §7: the cached Secrets' values and Flux's credential fields kept out of what agents read (H-82, H-63); §8: credentials over plain http asked once per repository (H-40); crash safety: the node shell journal and its cleanup at connect, H-71; §7: the terminal tab's agent-read marker and its 15-minute end, H-83; §4.2: `Spec.AgentsAsk`, an agent's role binding always asks, H-27; Current state, §9: the workloads' drawers' Pods tables without a Namespace column, D-40 decided by the owner; §9: a pod-metrics refusal affects only its namespace, D-39 decided by the owner; §4.3: the status filter of every view, `UIState.States`, `ui.setStatusFilter`, the snapshot's states, D-34; §4.2: the node shell's maximum duration among the parameters refused to agents, D-37; §9: the cluster's Metrics source; §9: the cluster Overview's Pods history from kube-state-metrics; §9: history that outlives a closed drawer, lines broken at a gap; §9: the nodes' disk from node-exporter through Prometheus, D-43; §9: the Nodes list's usage bars; §8: the charts' icons, D-46, G11; §8: the chart drawer's version and README, HELM2, G11; §6: a context that leaves Cogpit takes its dock tabs, a connect under way when it leaves forgets it, G5, G13; §5: the Flux and Argo CD dashboards follow a namespace-limited user's plans and refusals, say when the definitions cannot be listed, and a refused label-selected scope is not kept warm, G3, G23; §7: `kinds.list` with each kind's tools, its cache state and the kinds not served, G17; §7: what the dock's tabs show, `dock.read` and the window's reader, D-44, G17; §4.2: GUI-only commands under one mark, `Spec.GUIOnly`, G17; Current state, §4.3: no context picker at start, D-42; §4.3, §6, Current state and `cmd/cogpit`: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, D-41; §4.3, §4.4, §5, §9 and Current state: a Pods table in the workloads' drawers (D-40), the drawer's own indexes (`DetailNeeds`), the 500-row bound of sortable drawer tables; §4.3, §4.4, §9 and Current state: a Pods table in the workloads' drawers (D-40), the drawer's own indexes (`DetailNeeds`), the 500-row bound of sortable drawer tables; §9: Prometheus detection reads the Services per namespace for a namespace-limited user and follows a refusal, G12; §5: a refused list of the custom resource definitions ends their watch until a refresh, checked on kind with a namespace-limited ServiceAccount, G3; §5: the rest of the class for a namespace-limited user: views' indexes, an agent's Overviews, `Lookup` and write targets, Helm's releases, the Applications follow plans and refusals, non-waiting reads hold nothing while a plan is pending, G3; §9: the pods' metrics listed per namespace of the Pods view's plan for a user who may not list pods everywhere, D-39, G12; §5: one object's read, the drawer's and an agent's, takes the object's namespace and its events there, night decision, G3; §5: a refused read in all namespaces counts whoever met it, `cache.OnRefused`, and the reads that wait follow it at once, `readFollowing`, G3; Argo CD, G23: §4.5 curated profiles from their own files and kinds that come with a definition, D-35; §4.3, §4.5: the Flux dashboard page and the Flux kinds' curated profiles, G23; §2 `internal/terminal`: the node shell's stream (D-37); Current state and §9: every byte amount in binary units with one decimal, D-32; §2, §3, §4.3, §4.4 and Current state: every timestamp in the local time zone and the region's format, `internal/locale`, D-31; §5 and Current state: DER certificates, the key check and the chain check, D-30 (the owner's answers); §5 and Current state: the certificates in a Secret's keys decoded in the drawer and for agents, D-30; §8 and Current state: Helm's repositories.yaml as the repositories' source, D-29 built; §5: one object, workload logs and port forwards read their namespace once the plan is decided; Current state: copy icons in the lists, D-25; §5: the Overviews follow the access reviews' answers; §4.5: references link to every built-in kind; §6: removing a source closes its contexts' tabs; §5 and Current state: the Diagnostics tab, D-13; §7 and Current state: the audit log read back, Help › Audit Log and `audit.list`, G17; §4.3, §7 and Current state: the allowance of agent writes in Cluster Settings › Agents, G17; §4.4 and Current state: `object.get`'s related objects, G17; §4.4, §7 and Current state: `view.rows`, the rows the user sees, G17; §4.4 Revert to original and drafts of unsaved editor text, G9; §4.4 drafts of unsaved editor text, G9; §5 namespaced watches, G3: `Cache.AcquireNamespaces`, refused scopes not kept warm, the engine reading a kind in each named namespace when the user may not list it in all of them, §4.3 the accessible namespaces as a cluster setting, G13; §6 the kubeconfig's TLS and proxy fields verified against TLS test servers, certificate hints in connect errors, a `proxy-url` password kept out of them, insecure contexts marked in the picker and the connect log; §10 kubectl in terminals, D-3 built: the check, the verified download, the release first on PATH, `internal/kubectl` (L1, §2, §3), §4.3 the kubectl preferences, Current state; §4.3, §8 the proxy of the Helm downloads, Preferences › Proxy, G13; §4.3, §6 a cluster's proxy through rest.Config.Proxy, its password redacted, G13; §4.3, §9 hidden metrics, nothing polled for them, G12 and G13; the navigator's scope, G5 and G13, §4.3: `UIState.NavigatorScope`, `ui.setNavigatorScope`, kept in step with the connection by `syncNavScope`, the tabs of the scope (`TabsInScope`) counted by the tab keys, the window's section level (`navigator_sections.go`) and the tab bar drawing the scope's tabs; the navigator's scope, G5 and G13, §4.3: `UIState.NavigatorScope`, `ui.setNavigatorScope`, kept in step with the connection by `syncNavScope`, the tabs of the scope (`TabsInScope`) counted by the tab keys; §4.3 the notification log of every toast, `UIState.Notifications`, what stays in the window; §4.3 `UIState.ColumnOrder` and the snapshot's `Order`; the window's row checkboxes, §4.3 and Current state; the table's selection, G5, G7, G9: §4.2 actions on a selection and `object.deleteMany`, §4.3 `ui.select`'s modes; the welcome page and Disconnect, G5 and G13, §4.3: `UIState.Welcome`, `ui.welcome.open`, `cluster.disconnect`, the window's page and its Help and Window menus; the welcome page and Disconnect, G5 and G13, §4.3: `UIState.Welcome`, `ui.welcome.open`, `cluster.disconnect`; §4.4 a logs tab's source, narrowed in the merged stream, timestamps on every stream, its older lines and a jump to a time; §4.4 a logs tab's source, narrowed in the merged stream, timestamps on every stream, and its older lines; §4.4 a logs tab's source, narrowed in the merged stream, and timestamps on every stream; §8: a release upgraded to a chart version from the user's repositories, the Upgrade tab's choice of repository and version, G11; the tab bar of cluster views, G5, §4.3: `UIState.Tabs` and `ActiveTab`, kept in step by `syncTabs`, the `ui.tab.*` commands, `ui.openView` in the preview tab, the window's bar (`tabbar.go`) and its View menu keys, §4.2; the tab bar of cluster views, G5, §4.3: `UIState.Tabs` and `ActiveTab`, kept in step by `syncTabs`, the `ui.tab.*` commands, `ui.openView` in the preview tab; Preferences and cluster settings, G13, §4.3: engine state, stores, commands, the GUI that applies them; the cluster Overview, G12: §4.3 the page and `UIState.Overview`, §9 the cluster scope of the metrics hub; §5 a virtual kind made of several kinds, the Applications; §4.5 curated profiles of CRD kinds, the Vertical Pod Autoscalers; Current state: the four Device Resources views, 45 built-in views; §8: Helm chart repositories kept in Cogpit's own folders, the Charts view and the install, G11; the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-14 · **Change:** minor (the owner's decision round of 2026-10-14 evening, marked "decided 2026-10-14 evening, not built" where a section describes behaviour it changes: §4.2 more agents' calls that always ask, Restart on a selection, ⌘F and ⌘⇧T as menu items; §4.3 one window (D-52), a click keeps the checked rows, F-keys in search fields, an agent's proxy as a confirmed write, Disconnect closes the tabs, the navigator's and the palette's state (D-51), notifications to agents; §4.4 resource claims in the pod drawer, a device's claim; §5 the Overviews wait for the reviews, Flux and Argo CD from discovery; §6 insecure-TLS contexts ask once, the approval binds Cogpit's proxy, unlinking a sync folder; §7 the bridge honours the MCP switch (D-49), the switch's 1-hour end, the filter's 10 bytes, the README framed; §8 http origins marked, dotted repository names, no offer after an interrupted install; §9 node history from node-exporter (F1), separate queries for far ranges; §10 bash and fish, an enforcing setting, the signature with Rekor (D-50); §15 D-47's rest and D-52 open; defaults the owner confirmed marked so); minor (two binaries: `cogpit-cli` inside the app bundle and the app copying its stdio registration, D-16, D-2; §5: the table snapshots counted in the Diagnostics tab and `diagnostics.get` only, no longer in the status bar, owner; ); minor (§11 and Current state: `internal/update` built, Sparkle 2 loaded at run time from the app bundle, D-4); minor (; §4.6, §4.1, §12 and Current state: `cogpit://` links through five navigation commands with origin `deeplink`, D-47; §4.3 and Current state: start at login, `UIState.LoginItem`, `Options.LoginItem`, D-48; §5: peeking at running scopes; §7: the cached Secrets' values and Flux's credential fields kept out of what agents read (H-82, H-63); §8: credentials over plain http asked once per repository (H-40); crash safety: the node shell journal and its cleanup at connect, H-71; §7: the terminal tab's agent-read marker and its 15-minute end, H-83; §4.2: `Spec.AgentsAsk`, an agent's role binding always asks, H-27; Current state, §9: the workloads' drawers' Pods tables without a Namespace column, D-40 decided by the owner; §9: a pod-metrics refusal affects only its namespace, D-39 decided by the owner; §4.3: the status filter of every view, `UIState.States`, `ui.setStatusFilter`, the snapshot's states, D-34; §4.2: the node shell's maximum duration among the parameters refused to agents, D-37; §9: the cluster's Metrics source; §9: the cluster Overview's Pods history from kube-state-metrics; §9: history that outlives a closed drawer, lines broken at a gap; §9: the nodes' disk from node-exporter through Prometheus, D-43; §9: the Nodes list's usage bars; §8: the charts' icons, D-46, G11; §8: the chart drawer's version and README, HELM2, G11; §6: a context that leaves Cogpit takes its dock tabs, a connect under way when it leaves forgets it, G5, G13; §5: the Flux and Argo CD dashboards follow a namespace-limited user's plans and refusals, say when the definitions cannot be listed, and a refused label-selected scope is not kept warm, G3, G23; §7: `kinds.list` with each kind's tools, its cache state and the kinds not served, G17; §7: what the dock's tabs show, `dock.read` and the window's reader, D-44, G17; §4.2: GUI-only commands under one mark, `Spec.GUIOnly`, G17; Current state, §4.3: no context picker at start, D-42; §4.3, §6, Current state and `cmd/cogpit`: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, D-41; §4.3, §4.4, §5, §9 and Current state: a Pods table in the workloads' drawers (D-40), the drawer's own indexes (`DetailNeeds`), the 500-row bound of sortable drawer tables; §4.3, §4.4, §9 and Current state: a Pods table in the workloads' drawers (D-40), the drawer's own indexes (`DetailNeeds`), the 500-row bound of sortable drawer tables; §9: Prometheus detection reads the Services per namespace for a namespace-limited user and follows a refusal, G12; §5: a refused list of the custom resource definitions ends their watch until a refresh, checked on kind with a namespace-limited ServiceAccount, G3; §5: the rest of the class for a namespace-limited user: views' indexes, an agent's Overviews, `Lookup` and write targets, Helm's releases, the Applications follow plans and refusals, non-waiting reads hold nothing while a plan is pending, G3; §9: the pods' metrics listed per namespace of the Pods view's plan for a user who may not list pods everywhere, D-39, G12; §5: one object's read, the drawer's and an agent's, takes the object's namespace and its events there, night decision, G3; §5: a refused read in all namespaces counts whoever met it, `cache.OnRefused`, and the reads that wait follow it at once, `readFollowing`, G3; Argo CD, G23: §4.5 curated profiles from their own files and kinds that come with a definition, D-35; §4.3, §4.5: the Flux dashboard page and the Flux kinds' curated profiles, G23; §2 `internal/terminal`: the node shell's stream (D-37); Current state and §9: every byte amount in binary units with one decimal, D-32; §2, §3, §4.3, §4.4 and Current state: every timestamp in the local time zone and the region's format, `internal/locale`, D-31; §5 and Current state: DER certificates, the key check and the chain check, D-30 (the owner's answers); §5 and Current state: the certificates in a Secret's keys decoded in the drawer and for agents, D-30; §8 and Current state: Helm's repositories.yaml as the repositories' source, D-29 built; §5: one object, workload logs and port forwards read their namespace once the plan is decided; Current state: copy icons in the lists, D-25; §5: the Overviews follow the access reviews' answers; §4.5: references link to every built-in kind; §6: removing a source closes its contexts' tabs; §5 and Current state: the Diagnostics tab, D-13; §7 and Current state: the audit log read back, Help › Audit Log and `audit.list`, G17; §4.3, §7 and Current state: the allowance of agent writes in Cluster Settings › Agents, G17; §4.4 and Current state: `object.get`'s related objects, G17; §4.4, §7 and Current state: `view.rows`, the rows the user sees, G17; §4.4 Revert to original and drafts of unsaved editor text, G9; §4.4 drafts of unsaved editor text, G9; §5 namespaced watches, G3: `Cache.AcquireNamespaces`, refused scopes not kept warm, the engine reading a kind in each named namespace when the user may not list it in all of them, §4.3 the accessible namespaces as a cluster setting, G13; §6 the kubeconfig's TLS and proxy fields verified against TLS test servers, certificate hints in connect errors, a `proxy-url` password kept out of them, insecure contexts marked in the picker and the connect log; §10 kubectl in terminals, D-3 built: the check, the verified download, the release first on PATH, `internal/kubectl` (L1, §2, §3), §4.3 the kubectl preferences, Current state; §4.3, §8 the proxy of the Helm downloads, Preferences › Proxy, G13; §4.3, §6 a cluster's proxy through rest.Config.Proxy, its password redacted, G13; §4.3, §9 hidden metrics, nothing polled for them, G12 and G13; the navigator's scope, G5 and G13, §4.3: `UIState.NavigatorScope`, `ui.setNavigatorScope`, kept in step with the connection by `syncNavScope`, the tabs of the scope (`TabsInScope`) counted by the tab keys, the window's section level (`navigator_sections.go`) and the tab bar drawing the scope's tabs; the navigator's scope, G5 and G13, §4.3: `UIState.NavigatorScope`, `ui.setNavigatorScope`, kept in step with the connection by `syncNavScope`, the tabs of the scope (`TabsInScope`) counted by the tab keys; §4.3 the notification log of every toast, `UIState.Notifications`, what stays in the window; §4.3 `UIState.ColumnOrder` and the snapshot's `Order`; the window's row checkboxes, §4.3 and Current state; the table's selection, G5, G7, G9: §4.2 actions on a selection and `object.deleteMany`, §4.3 `ui.select`'s modes; the welcome page and Disconnect, G5 and G13, §4.3: `UIState.Welcome`, `ui.welcome.open`, `cluster.disconnect`, the window's page and its Help and Window menus; the welcome page and Disconnect, G5 and G13, §4.3: `UIState.Welcome`, `ui.welcome.open`, `cluster.disconnect`; §4.4 a logs tab's source, narrowed in the merged stream, timestamps on every stream, its older lines and a jump to a time; §4.4 a logs tab's source, narrowed in the merged stream, timestamps on every stream, and its older lines; §4.4 a logs tab's source, narrowed in the merged stream, and timestamps on every stream; §8: a release upgraded to a chart version from the user's repositories, the Upgrade tab's choice of repository and version, G11; the tab bar of cluster views, G5, §4.3: `UIState.Tabs` and `ActiveTab`, kept in step by `syncTabs`, the `ui.tab.*` commands, `ui.openView` in the preview tab, the window's bar (`tabbar.go`) and its View menu keys, §4.2; the tab bar of cluster views, G5, §4.3: `UIState.Tabs` and `ActiveTab`, kept in step by `syncTabs`, the `ui.tab.*` commands, `ui.openView` in the preview tab; Preferences and cluster settings, G13, §4.3: engine state, stores, commands, the GUI that applies them; the cluster Overview, G12: §4.3 the page and `UIState.Overview`, §9 the cluster scope of the metrics hub; §5 a virtual kind made of several kinds, the Applications; §4.5 curated profiles of CRD kinds, the Vertical Pod Autoscalers; Current state: the four Device Resources views, 45 built-in views; §8: Helm chart repositories kept in Cogpit's own folders, the Charts view and the install, G11; the command palette, G13, §4.2: its rules from the registry's metadata, the shortcuts bound from the registry, §4.3: `UIState.Palette`; `cogpit-cli` contexts, get and the MCP stdio bridge, §7, and `internal/app`, the wiring both binaries share: Current state, §3; the navigator, §4.3: its search, keyboard row and open groups are the window's, its tree Cogpit's own rows; one line in Current state; the hotbar, G13, §4.3: `UIState.Hotbar`, `hotbar.json`, the `hotbar.*` commands and the bar left of the navigator; Current state after the fifth run's evening: crash reports, the external MCP server switched in the status bar, the window's metrics and chart hover, the quit crash fixed; G12 third slice, §9: Prometheus in the window, ranges as engine state, checked against a real Prometheus on kind; G12 second slice, §9: Prometheus through the service proxy, backend; G12 first slice, §9 as built: the Metrics Server provider, the hub that polls only while a view or drawer shows metrics, CPU and Memory columns, the drawer's Metrics section, `metrics.get`, the demo's synthetic Metrics Server; D-28 built, §6: every context from a source file read alone, `~/.kube/config` a file of the default folder, `$KUBECONFIG` and `--kubeconfig` files session sources, bare names resolved; Kubeconfig Syncs second pass, §6: dot files, `~/.kube` by default, a connection closed with its file, the connect log; related rows rebuilt when the indexed kinds finish listing; a stopped shell drops its queued work; fourth run: kubeconfig sources and the approval of their credential plugins, §6; an upgrade from a tab bound to the tab's text revision, values scrubbed in their quoted forms too, upgrade and rollback checked against the server's newest revision, the Rollback dialog's answer bound to its revision, §8; a revealed Secret value bound to the Secret's version, §5; pasting a kubeconfig removed again, D-21, §6) · **Target:** Lens Desktop 2026.10.51501
 
 ## Current state (2026-10-14)
 
@@ -49,6 +49,10 @@ Since 2026-10-13 every timestamp Cogpit shows is in the Preferences' time zone (
 Since 2026-10-13 every byte amount Cogpit draws is in binary units with one decimal, whole bytes below 1 KiB ("512 B", "15.6 GiB"), through one formatter in `model` (`FormatBytes`, `FormatByteQuantity` for a Kubernetes quantity, `FormatResource` for a resource list's entry); sort keys stay bytes, and structured results keep their numbers (D-32, [`model/bytes.go`](../../internal/model/bytes.go)).
 Since 2026-10-14 (macOS) Preferences › App › Start at login registers the app's own login item with macOS, off by default, only the user turns it on (D-48, [§4.3](#43-ui-state)); not on Windows and Linux.
 Since 2026-10-14 (macOS) a `cogpit://open?context=&view=&namespace=&name=` link opens Cogpit at a context of the kubeconfig sources, a view or an object's drawer, through five navigation commands with origin `deeplink` that `Dispatch` holds to navigation, never a write (D-47, [§4.6](#46-deep-links-cogpit)); not on Windows and Linux.
+The owner's decision round of 2026-10-14 evening decided changes that are not built
+([decisions › the round](decisions.md#decision-round-2026-10-14-evening)); the sections below say
+"decided 2026-10-14 evening, not built" where one changes what they describe, and describe the code
+until it is built.
 CI runs on every push ([releasing › CI](releasing.md#ci)). The MVP doubled as the Fyne spike
 ([results](spike-fyne.md#results)). Where the code differs from the plan below, this section wins.
 
@@ -68,7 +72,7 @@ CI runs on every push ([releasing › CI](releasing.md#ci)). The MVP doubled as 
 | [`cmd/cogpit`](../../cmd/cogpit/) | Built: wires the packages, the drain journal (`<user config dir>/Cogpit/drains.json`) and the Helm journal (`helm.json`); since 2026-10-14 the node shell journal (`nodeshells.json`, H-71); since 2026-10-13 (night build) the tabs and the tables' layout (`workspace.json`, D-41); the Helm chart repositories of Helm's own `repositories.yaml`, its path resolved here only (`helm.RepositoryConfigPath`, D-29), their indexes in `<user cache dir>/Cogpit/helm/indexes` (2026-10-13); since 2026-10-13 the preferences (`preferences.json`) and cluster settings (`cluster-settings.json`, `cluster-icons/`), `--theme` an override of the theme preference for the run; the kubeconfig sources (`kubeconfigs.json`, `kubeconfigs/`, `exec-approvals.json`, fourth run) and their watcher; flags `--kubeconfig`, `--context`, `--demo`, `--mcp-addr`, `--no-mcp`, `--perf`, `--theme`; fifth run (2026-10-12): crash reports (`runtime/debug.SetCrashOutput` into `crash.log`, moved to `crashes/` at the next start and named in a toast, [`crash.go`](../../cmd/cogpit/crash.go), [D-11](decisions.md#d-11-crash-stance)), the external MCP server switched from the status bar and remembered (Fyne preference `mcp.enabled`, `--no-mcp` wins, [`mcpcontrol.go`](../../cmd/cogpit/mcpcontrol.go)) | client-go goroutine panics are logged instead of ending the app |
 | [`internal/helm`](../../internal/helm/) (L2) | Built in the third run: release payloads decoded (bounded, fuzzed), the Releases profile as a virtual kind over the `owner=helm` Secrets with a bounded memo, rollback and uninstall through the Helm SDK on the connection's own client configuration; fourth run (2026-10-12): Lens's release drawer (Properties, values and notes as private items, resources by kind), the upgrade with the release's own chart, values read from the cached Secret (`ReleaseValues`), values scrubbed from errors and the SDK's log (`ScrubValues`, `RedactSDKLog`); night run (2026-10-13): chart repositories, their indexes downloaded bounded and parsed with the SDK, chart archives checked against the index's digest, and the install with a server-side dry run as its preview, and the upgrade to a chart version a repository lists ([`repo.go`](../../internal/helm/repo.go), [`install.go`](../../internal/helm/install.go), [`upgrade.go`](../../internal/helm/upgrade.go), §8); since D-29 (2026-10-13) the repositories of Helm's own `repositories.yaml` with their credentials, CA files and client certificates ([`repofile.go`](../../internal/helm/repofile.go)) | No OCI repositories; the upgrade has no preview; no action can be cancelled: rollback and uninstall take no context, and the upgrade's and install's contexts are not passed on (§8) |
 | [`internal/metrics`](../../internal/metrics/) (L2) | Built 2026-10-12 (G12): the Metrics Server provider and its detection, the hub that polls while subscribed; Prometheus through the API server's service proxy, found among the cached Services by name, range queries per chart range; checked against a real Prometheus on kind. Fourth slice (the owner's evening requirements): both providers together, history from Prometheus once and the live values from the Metrics Server, the network and the filesystem only while a chart shows them, one provider alone only while the other fails or is missing, a status line per provider (`Hub.Providers`), a missing value as an empty cell, not 0 ([§9](#9-metrics-internalmetrics)); since 2026-10-13 the cluster's totals for the cluster Overview (`ClusterScope`: history as sums over the nodes, live sums of the node list) | Prometheus is found by name only (H-26) unless the user names it (`cluster.setPrometheus`, a dialog under the drawer's status line: Lens's cluster settings page is not built) |
-| [`cmd/cogpit-cli`](../../cmd/cogpit-cli/) | Built 2026-10-13 (milestone 0.1, G2): a headless engine (no confirmer, no journals, no hotbar) over the same kubeconfig sources and credential plugin approvals as the app (`internal/app`), commands dispatched with origin CLI; `contexts` (`cluster.contexts`: table, JSON or YAML; context names and other untrusted text escaped for the terminal), `get <kind> [name]` (`cluster.connect`, then `kinds.list` and `resources.list` for a list or `object.get` for one object: the cache's first list awaited, the kind's columns as the view shows them, `resources_list`'s result or the manifest as JSON or YAML; a key that is not built in waits for the custom resource definitions' first list, `Backend.CustomKindsSettled`), `mcp` (the stdio bridge of [§7](#7-mcp-and-the-built-in-agent): forwarded to the running app, else a headless engine of its own), `version`, `--help` per command, exit codes 0 (done), 1 (failed), 2 (usage) | Without a configuration directory it refuses to connect, where the app merges the kubeconfig files as kubectl does and so runs their plugins unasked (Cogpit's default, not the owner's decision); `get` connects with `cluster.connect`, which opens the Pods view as in the app, so a `get` of another kind lists the pods once too (inferred cost, not measured); `-o json` of a list prints rows, not manifests (kubectl prints manifests) |
+| [`cmd/cogpit-cli`](../../cmd/cogpit-cli/) | Built 2026-10-13 (milestone 0.1, G2): a headless engine (no confirmer, no journals, no hotbar) over the same kubeconfig sources and credential plugin approvals as the app (`internal/app`), commands dispatched with origin CLI; `contexts` (`cluster.contexts`: table, JSON or YAML; context names and other untrusted text escaped for the terminal), `get <kind> [name]` (`cluster.connect`, then `kinds.list` and `resources.list` for a list or `object.get` for one object: the cache's first list awaited, the kind's columns as the view shows them, `resources_list`'s result or the manifest as JSON or YAML; a key that is not built in waits for the custom resource definitions' first list, `Backend.CustomKindsSettled`), `mcp` (the stdio bridge of [§7](#7-mcp-and-the-built-in-agent): forwarded to the running app, else a headless engine of its own), `version`, `--help` per command, exit codes 0 (done), 1 (failed), 2 (usage) | Without a configuration directory it refuses to connect, where the app merges the kubeconfig files as kubectl does and so runs their plugins unasked (Cogpit's default, not the owner's decision); `get` connects with `cluster.connect`, which opens the Pods view as in the app, so a `get` of another kind lists the pods once too (inferred cost, not measured); `-o json` of a list prints rows, not manifests (kubectl prints manifests; confirmed by the owner 2026-10-14 evening, A88) |
 | [`internal/app`](../../internal/app/) (L4, new) | Built 2026-10-13: the wiring both binaries share: `UserDirs`, `Dirs.KubeconfigSources`, `Dirs.OpenAuditLog`, `Dirs.AuditLogPath` (2026-10-13: the Audit Log reads it back); `cmd/cogpit` calls it from `openKubeconfigSources` and `openAuditLog` | A package the plan did not list |
 | [`internal/update`](../../internal/update/) (L4) | Built 2026-10-14 (D-4, [§11](#11-updates-internalupdate)): Sparkle 2 loaded at run time from the running app's bundle through cgo (darwin and cgo only, else "not macOS"), the controller made and started on the main dispatch queue, Cogpit's preference handed to `automaticallyChecksForUpdates`; wired by `cmd/cogpit` into the engine (`Session.SetUpdater`) | Not proven by a release: no update key yet |
 | `internal/agent` | Not built | – |
@@ -313,7 +317,15 @@ Fields added on 2026-10-11 for row menus, the drawer's toolbar and dialogs
   [H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache)).
   `NeedsConfirmation` takes it; the confirmation carries `agentsAsk`, the command's JSON
   `agentsAsk`, and its MCP tool and the commands page say that some calls always ask. Only
-  mutating commands may declare it.
+  mutating commands may declare it. **Decided 2026-10-14 evening, not built**
+  ([D-2](decisions.md#d-2-agent-interface-scope)): every RBAC kind asks (Roles and ClusterRoles:
+  `role.create`, `clusterRole.create`, and `object.create` and `object.apply` holding one), and so
+  do an agent's `helm.chart.install` and `helm.release.upgrade` whatever the chart holds. Three
+  more agents' calls are to wait for the user although their commands are UI commands today:
+  `cluster.setPrometheus`, a proxy set through `cluster.settings.set` or `preferences.set` (both a
+  write the user confirms), and `hotbar.removeBank` of a bank with tiles. `AgentsAsk` takes
+  mutating commands only, so these need the agent's call raised to mutating (as `Escalate` raises
+  Scale to zero) or a rule of their own: the build's choice.
 - `Prefill`: parameters a schema-generated dialog starts with, read from the cache (the current
   replica count for Scale).
 - `Detail`: a sentence the confirmation adds for parameters its objects don't show (the drain
@@ -390,7 +402,9 @@ the call ended, and reports what it did not delete in a `DeleteManyError` (delet
 objects, each failure with its reason; nothing is retried). The deleted objects leave
 `UIState.Selected`. The audit log's line carries `refs`, so it names every object
 (`TestDeleteManyOneConfirmation`, `TestDeleteManyPartialFailure`,
-`TestDeleteManyNeedsTheAgentsAcceptance`, `TestDeleteManyRefusals`).
+`TestDeleteManyNeedsTheAgentsAcceptance`, `TestDeleteManyRefusals`). **Decided 2026-10-14
+evening, not built** (owner, A74; A72 confirmed the bound of 500): Restart acts on a selection of
+workloads too, a second selection action; Scale stays on one object.
 
 **Access reviews in `Enabled`** (decided 2026-10-11, [`access.go`](../../internal/engine/access.go)).
 The connector sets `Backend.Access`, an `engine.Access` that answers `Allowed(namespace, verb)` from
@@ -484,7 +498,9 @@ every term of the query against the label and the category (label start, word st
 category, then fuzzy from a word's start). The registry's shortcuts are bound from the registry:
 ⌘⇧P (`ui.palette.open`) and ⌘P (`cluster.connect`, the picker) on main-menu items, which Fyne asks
 before the focused widget (on macOS the native menu's key equivalents), ⌘F (`ui.setFilter`) and
-⌘⇧T (`terminal.open`) as window shortcuts; F1–F12 stay typed keys of the hotbar. Since 2026-10-13 the
+⌘⇧T (`terminal.open`) as window shortcuts (decided 2026-10-14 evening, not built, A55: both also
+shown as main-menu items with their shortcuts, the keys staying window shortcuts so that the
+editor keeps its ⌘F); F1–F12 stay typed keys of the hotbar. Since 2026-10-13 the
 tab bar's ⌘W, ⌘⌥→ and ⌘⌥←, ⌃- and ⌃⇧- are View menu items with the registry's shortcuts too, and
 `ui.tab.select`'s range ⌘1–9 is bound key by key (⌘1–⌘8 the n-th tab, ⌘9 the last), as F1–F12 are
 (`tabBar.menuItems`). ⌘Q is the
@@ -523,6 +539,12 @@ type UIState struct {
 }
 ```
 
+**One window, one `UIState`.** A session has one window and one UI state, and everything below
+assumes it. The owner wants a second window (R3, 2026-10-14 evening: a hotbar tile dragged out of
+the window opens another window with that cluster); it needs a design first, which touches this
+state, the one connection (§6) and what agents drive: [D-52](decisions.md#d-52-several-windows),
+open, not built.
+
 The GUI changes state only through commands (`ui.openView`, `ui.select`, `ui.navigate`,
 `ui.setFilter`), so a selection made by the user and one made by an agent are the same event.
 `Selected` is a list (each tab keeps its own): since 2026-10-13 `ui.select` takes a `mode`
@@ -531,7 +553,9 @@ The GUI changes state only through commands (`ui.openView`, `ui.select`, `ui.nav
 caught up with the namespace filter and the search: the header's checkbox), applied by
 `ApplySelection` ([`selection.go`](../../internal/engine/selection.go); the selection keeps its
 order, holds no object twice); only `replace` opens or closes the drawer (Cogpit's default,
-inferred). The selection stays when the namespace filter or the search hides some of its rows
+inferred). **Decided 2026-10-14 evening, not built** (owner, A73): a plain click on a row opens its
+drawer and keeps the checked rows checked, so a click no longer replaces the selection. The
+selection stays when the namespace filter or the search hides some of its rows
 (inferred), and `ui.openView` clears it as before (`TestSelectModes`). The window's table
 ([`tablecheck.go`](../../internal/ui/fyneui/tablecheck.go)) has a checkbox column first (table
 column 0; the view's columns follow from `firstDataColumn`, the ⋮ last) and the header's checkbox;
@@ -651,7 +675,10 @@ credential plugin's approval. `hotbar.openCluster` connects through `Session.Con
 or the contexts (`EventContexts`) change and changes the hotbar only through the commands. Fyne makes
 no shortcut of an unmodified or shifted key, so F1–F12 and ⇧F1–⇧F12 reach the window's typed-key
 handler (Shift read from the desktop driver) and the table's `TypedKey` (which tracks Shift), both
-of which hand them to the hotbar; a focused text field or terminal keeps them.
+of which hand them to the hotbar; a focused text field or terminal keeps them. **Decided 2026-10-14
+evening, not built** (owner, A64): F1–F12 work as the hotbar in plain search fields too; the
+terminal and the editor keep their F-keys. Also decided, not built: tiles reordered by drag and
+drop (R2).
 
 **Preferences and cluster settings are engine state** (built 2026-10-13, G13,
 [`engine/preferences.go`](../../internal/engine/preferences.go),
@@ -685,7 +712,8 @@ in every absolute time the engine and the window write for the user (`Session.Ti
 the computer's region format, `UIState.TimeFormat`, in that zone; [§4.4](#44-tables-details-editors-and-streams));
 the shell, its arguments and the cluster's working directory and namespace when a
 local terminal starts (`Session.LocalTerminalOptions`: the cluster's namespace, when set, replaces
-the namespace filter's, Cogpit's default); the rest in the GUI. The Prometheus a cluster's metrics
+the namespace filter's, Cogpit's default, confirmed by the owner 2026-10-14 evening, A92); the rest
+in the GUI. The Prometheus a cluster's metrics
 come from stays in `metrics.json` (§9), unchanged. Since 2026-10-13 a context's settings also hold
 the metrics the window hides for it (`ClusterSettings.HiddenMetrics`, a `MetricSet` written as a list
 of names: the places `cluster`, `nodes`, `pods`, `containers` and the measures `cpu`, `memory`,
@@ -702,6 +730,9 @@ settings also hold its proxy (`ClusterSettings.Proxy`, the Proxy section, [§6](
 `cluster.settings.set` merges a value whose password is still `•••` (`MergeProxyPassword`).
 `cluster.settings.set` refuses a proxy from any origin but the GUI (`ErrProxyGUIOnly`, `Spec.Refuse`
 before anything is asked; clearing is allowed), and the audit log redacts the `proxy` parameter.
+**Decided 2026-10-14 evening, not built** ([D-2](decisions.md#d-2-agent-interface-scope), A20):
+agents may set a proxy, here and in the Preferences below, as a write the user confirms, the
+password redacted in the confirmation, the audit log and the results; clearing stays as it is.
 The Preferences hold the proxy of the traffic that is no cluster's the same way
 (`Preferences.HTTPProxy`, the Proxy section, `preferences.set`'s `httpProxy`; `Preferences.Shown`
 redacts it for the UI state and the commands' results; §8 uses it). Since 2026-10-13 they also
@@ -852,7 +883,8 @@ connect lock as a superseding connect does, detaches and closes the backend (the
 the cluster's port forwards stop, as on switching clusters; no request is sent) and leaves the UI
 `Disconnected` without an error. `Context` keeps naming the cluster and its tabs stay, connecting
 again when selected; the workspace shows the welcome page; the cluster's connect log gets an INFO
-line. A connect started after the disconnect wins.
+line. A connect started after the disconnect wins. **Decided 2026-10-14 evening, not built**
+(owner, A61): Disconnect closes the cluster's tabs too.
 
 **The navigator's scope is engine state** (built 2026-10-13, G5 and G13,
 [`engine/navscope.go`](../../internal/engine/navscope.go),
@@ -876,8 +908,9 @@ error when the connect fails, as `cluster.connect` does. The scope filters the t
 index, `ui.tab.next` and `ui.tab.previous` count those (`SelectTabAt`, `CycleTab`), while a tab
 named by id may be any tab (a tab of another cluster connects, which drills in). A state without a
 scope (the zero `UIState`) reads as the engine would set it (`UIState.Scope`). These rules are
-Cogpit's defaults (inferred, not the owner's decision): Lens keeps several clusters connected, so
-its scope need not follow a connection. The window
+Cogpit's defaults (inferred): Lens keeps several clusters connected, so its scope need not follow a
+connection; the owner confirmed on 2026-10-14 evening that every connect drills in, a tab's and the
+hotbar tile's included (A62, [D-51](decisions.md#d-51-the-navigators-and-the-command-palettes-state)). The window
 ([`fyneui/navigator_sections.go`](../../internal/ui/fyneui/navigator_sections.go)) draws the section
 in the tree's place below the navigator's header while the scope is the section (`sidebar.scopeChanged`,
 from `applyUIState`): its root, then the contexts `Contexts` lists (read off the main goroutine at
@@ -885,8 +918,9 @@ the first scope change, again when the section shows and on `EventContexts`, thr
 of its own), grouped by the folder or file of their kubeconfig source; a row's ›, a click, → or ↵
 dispatch `ui.setNavigatorScope`, after the credential plugin's approval dialog for a context whose
 plugin is not allowed yet (as the picker does); the tree's ‹ and ← on its root dispatch the section.
-The header's dropdown lists the section and the same contexts; the tab bar draws
-`UIState.TabsInScope` and its View menu's tab keys count those.
+The header's dropdown lists the section and the same contexts (decided 2026-10-14 evening, not
+built, A52: the hotbar's clusters and the connected one only, the others through the picker); the
+tab bar draws `UIState.TabsInScope` and its View menu's tab keys count those.
 
 **Panel widths are GUI-only** (decided 2026-10-12, [`panelwidths.go`](../../internal/ui/fyneui/panelwidths.go)):
 the width of the primary sidebar and of the detail drawer is a window-layout preference, not UI
@@ -903,7 +937,13 @@ the panel narrower without overwriting the stored value.
 
 **The navigator's search, keyboard row and open groups are GUI-only** (Cogpit's default,
 2026-10-13, not the owner's decision; [`navigator.go`](../../internal/ui/fyneui/navigator.go)); its
-scope is not (above). They
+scope is not (above). **Decided 2026-10-14 evening, not built**
+([D-51](decisions.md#d-51-the-navigators-and-the-command-palettes-state), A51, A54): the search
+text and the keyboard selection become engine state, visible and settable for agents, and so does
+the command palette's typed text (today only `UIState.Palette`, open or not); the Local Kubeconfigs
+section's source groups collapse and are kept across restarts with the workspace (A63,
+[D-41](decisions.md#d-41-what-survives-a-restart)); the focus ring shows on keyboard navigation
+only (A53). Until built, this paragraph describes the code. They
 change which views the navigator lists, not what a view shows, so, as with the panel widths, no
 command sets them and `ui_state` does not report them; an agent lists the views with `kinds_list`.
 What the navigator opens is engine state: a click, ↵ and the search's ↵ dispatch `ui.openView` (the
@@ -954,7 +994,11 @@ emitted with `WindowOnly` (the warning `runHelmOp` shows with a failed Helm acti
 chart's templates can fill from a Secret, [H-31](../security/privilege-footprint.md#h-31-an-agents-helm-values-can-copy-what-lookup-reads)),
 read `model.Withheld` for every origin but the GUI. A new toast that quotes what the cluster
 returned to an action whose error is withheld from agents must be emitted `WindowOnly` too. Whether
-the panel is open is the window's, as the context picker's is.
+the panel is open is the window's, as the context picker's is. **Decided 2026-10-14 evening, not
+built** ([D-2](decisions.md#d-2-agent-interface-scope), A18, A19): what stays in the window today
+reaches agents as text, through the filter of the cached Secrets' values (§7) and with inline Helm
+values removed, instead of `model.Withheld`; `notifications.markRead` and `notifications.clear`
+become GUI-only, so agents read the list and change nothing in it.
 
 ### 4.4 Tables, details, editors and streams
 
@@ -1197,6 +1241,11 @@ the panel is open is the window's, as the context picker's is.
   (`LimitDrawerTables`, [`drawerlimit.go`](../../internal/engine/drawerlimit.go)): a sortable table
   shows at most `MaxDrawerTableRows` (500) rows in its order and counts the rest in
   `DetailTable.Omitted`, which the window shows under the rows ("N more pods not shown").
+  **Decided 2026-10-14 evening, not built** (owner): a pod's drawer shows its Resource Claims'
+  state, watching the claims of the pod's namespace while the drawer is open (A105; today the
+  section has no state, since it would need a watch on every claim), and a node's Devices show the
+  claim that holds each device, linked (A108). Both read kinds only an open drawer needs, as the
+  workloads' Pods tables do.
 - **Related objects for agents** (built 2026-10-13, G17, [`relatedrefs.go`](../../internal/engine/relatedrefs.go)):
   `object.get` with `related: true` adds `Session.Related` to the drawer's model: every object a
   value, chip or table cell of its sections links to (so whatever the related-objects indexes give
@@ -1639,14 +1688,18 @@ Overviews keep a plan key over their kinds (`Backend.pagePlanKey`: how `Acquire`
 pending plan counting as all namespaces since that is how it reads, and for the cluster Overview
 which kinds it leaves out as not listable), and `reconcileLocked` starts a page again when the key
 changes; before, a page opened while the reviews were out held a cluster-wide handle the API server
-refused, retried for as long as it was open (`TestPagesFollowTheAccessReviews`). Reads of one
+refused, retried for as long as it was open (`TestPagesFollowTheAccessReviews`). **Decided
+2026-10-14 evening, not built** (owner, A98): the Overviews wait for the access reviews as the
+Flux and Argo CD dashboards do (below, `acquireForPage`), so no refused cluster-wide read comes
+first. Reads of one
 namespace that wait anyway follow since the same day through `Backend.acquireIn`: one object
 (`Session.Object`: `object_get`, `cogpit-cli get`, a logs tab's check), a workload's logs tab (its
 pods and replica sets) and a port forward (its pods and service; a permanent one starts at connect,
 while the reviews are out) wait for the plan as `acquireSettled` does, then a user who may not list
 the kind everywhere reads the target's namespace alone, shared with any other reader of it, whether
-the plan's namespaces name it or not (Cogpit's default, not the owner's decision: the target is what
-the read is about, and the named namespaces can miss it); everyone else reads as before. A namespace
+the plan's namespaces name it or not (Cogpit's default, confirmed by the owner 2026-10-14 evening,
+A96: the target is what the read is about, and the named namespaces can miss it); everyone else
+reads as before. A namespace
 the API server refuses too ends the read with the refusal instead of an empty result (`refusedIn`).
 Before, a logs tab or a forward opened while the reviews were out took a cluster-wide handle that
 never synced and failed after 15 s, and one opened later read only the plan's namespaces
@@ -1719,7 +1772,10 @@ namespaces, as before. A user who may not list the custom resource definitions (
 needed for that, so as a rule a namespace-limited user) has no Flux or Argo CD kinds; both
 dashboards now say that Cogpit cannot tell whether the cluster serves them, with the server's
 reason, where they said the cluster serves none (`Backend.customKindsUnknown`,
-`TestGitOpsDashboardsWithoutTheDefinitions`). The same test found a refused **label-selected**
+`TestGitOpsDashboardsWithoutTheDefinitions`). **Decided 2026-10-14 evening, not built** (owner,
+A90): without the right to list the definitions, Flux and Argo CD are recognised from API
+discovery and shown with their curated profiles; generic custom resources stay invisible without
+the definitions. The same test found a refused **label-selected**
 scope (Argo CD's Repositories and Clusters, labelled Secrets) kept warm and refused again on every
 backoff step for its warm period: the rule that a refused scope is not kept warm now covers a
 label-selected scope's own informer too (`TestRefusedSelectedScopeIsNotKeptWarm`). **On kind** (`TestKindNamespaceLimitedUser`, a ServiceAccount whose one
@@ -1766,6 +1822,10 @@ data, Secrets included, at rest on the disk.
   ([`engine/tlswarning.go`](../../internal/engine/tlswarning.go)) and `ContextInfo.Insecure`, from
   `kubeconfig.Context.Insecure`, lets the picker mark such a context
   ([H-37](../security/trust-boundaries.md#h-37-a-context-that-skips-the-certificate-check)).
+  **Decided 2026-10-14 evening, not built** (owner, A28, A29): the first connect of such a context
+  asks once per context, the answer kept like a credential plugin's approval; while one is
+  connected the status bar shows "TLS not checked" in the warning colour beside the context, and
+  `cogpit-cli get` writes a warning line to stderr.
 - **A cluster's proxy in Cogpit** (built 2026-10-13, G13, [`proxy.go`](../../internal/cluster/proxy.go)):
   `Options.Proxy` (a `*url.URL`) sets `rest.Config.Proxy` after client-go built the configuration, so
   it replaces the kubeconfig's `proxy-url` and the environment's `HTTPS_PROXY` for this connection
@@ -1884,7 +1944,10 @@ its path)
 [`cluster/pluginfiles.go`](../../internal/cluster/pluginfiles.go) for the file I/O: `kubeconfig`
 does none, so `cluster.BindPluginFiles` reads the files, bounded and regular files only, when a
 file is described and again right before the policy decides at connect time); any change asks
-again. `kubeconfig.execPlugin` (one context) and `kubeconfig.pendingApprovals` (a group) return how the server is reached and trusted (`tls`: proxy URL
+again. **Decided 2026-10-14 evening, not built**
+([D-26](decisions.md#d-26-binding-a-credential-plugins-approval-to-its-program), A23): the
+approval also shows and binds the proxy Cogpit sets for the cluster (`ClusterSettings.Proxy`),
+and changing it asks again. `kubeconfig.execPlugin` (one context) and `kubeconfig.pendingApprovals` (a group) return how the server is reached and trusted (`tls`: proxy URL
 without user information, insecure, TLS server name, own CA) and the file facts, which the
 approval dialog shows (R-11). Every file is a source now, `~/.kube/config` and the `$KUBECONFIG`
 files included, so every plugin waits for the user, remembered across restarts in
@@ -1966,12 +2029,13 @@ file stays on disk. Both go through `Session.RemoveKubeconfigSource`, which sinc
 closes the tabs of the contexts that leave with the source, the active one too (Cogpit's default, not
 the owner's decision: a tab of a cluster Cogpit no longer offers could only fail to connect), and
 since the night build forgets `UIState.Context` when it names one of them and no connection holds it
-(`UIState.dropContexts`; the lead's, for the owner to confirm: nothing points at a context that is
-gone); a context the sources still offer keeps its tabs (`TestRemovedClustersLeaveTheTabBar`,
+(`UIState.dropContexts`; the lead's, confirmed by the owner 2026-10-14 evening, A49: nothing points
+at a context that is gone); a context the sources still offer keeps its tabs (`TestRemovedClustersLeaveTheTabBar`,
 `TestRemovedSourceForgetsTheContext`). Since the night build the watcher closes the tabs of a context
 whose file is gone too (deleted, or out of its sync folder), with a notice, after it closed a
 connection made from that file (`Session.closeTabsOfGoneFiles`; a file only rewritten closes
-nothing; `TestTabsCloseWhenTheirFileLeavesASyncFolder`). Since 2026-10-14 both take the **dock's
+nothing; `TestTabsCloseWhenTheirFileLeavesASyncFolder`; confirmed by the owner 2026-10-14 evening,
+A50). Since 2026-10-14 both take the **dock's
 tabs** of those contexts too ([`engine/dock_gone.go`](../../internal/engine/dock_gone.go),
 `UIState.dropDockOf`, counted in the same notice): the window ends a stream or a shell as for
 `dock.close`, a node shell's pod is deleted (`endClosedNodeShells`, D-37), and an editor's unsaved
@@ -1990,7 +2054,10 @@ and the dock's, and closes a connection that succeeded, the reason kept in `Conn
 default `~/.kube` included: the link is the folder's, and unlinking it would take every cluster in
 it), of a file named for this run (it comes back at the next start) and for the demo cluster.
 Cogpit's rule, inferred, not the owner's decision (Lens's is not captured). The window asks first,
-naming the path and every context that leaves (`TestClusterRemove`).
+naming the path and every context that leaves (`TestClusterRemove`). **Decided 2026-10-14 evening,
+not built** ([D-28](decisions.md#d-28-the-default-kubeconfig-as-sources-as-lens-has-it), A97): for a
+context of a sync folder, Remove from Cogpit offers to unlink the whole folder, its confirmation
+naming every context that leaves with it.
 
 **Pasting is not a target** ([D-21](decisions.md#d-21-pasting-a-kubeconfig), owner, 2026-10-12): the
 paste command, dialog and owner-only store built earlier the same day were removed. A build that
@@ -2031,6 +2098,11 @@ which are the user's: they can be added again as files, or deleted by hand
   approvals; the audit log). Decided by Cogpit, not the owner: the mode is chosen once, at the
   bridge's start; a bridge forwarding to an app that quits does not fall back to a headless engine
   ([H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge)).
+  **Decided 2026-10-14 evening, not built**
+  ([D-49](decisions.md#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp), A15): the
+  user's switch is kept where the bridge can read it, and with MCP off the bridge refuses to serve,
+  headless too, with a clear message to the agent; where it is kept (Fyne's preferences are not
+  readable by `cogpit-cli`) is the build's choice.
 
 Example: "show me the Service with ClusterIP 1.2.3.4" becomes `resources_find {kind: services,
 field: clusterIP, value: 1.2.3.4}` → one reference → `ui_navigate {ref}` → the GUI opens Services,
@@ -2060,7 +2132,10 @@ a read the switch allowed is recorded in the same check after the window read (`
 `DockTab.AgentLastRead`, and `AgentReadUntil` 15 minutes later) and emits `EventDockRead`, on which
 the window flashes the tab's marker ([`dockagentread.go`](../../internal/ui/fyneui/dockagentread.go));
 one timer, armed through `Options.AfterFunc` for the earliest `AgentReadUntil` after every change,
-turns a switch off at its end and sets `AgentReadExpired`, which the strip shows.
+turns a switch off at its end and sets `AgentReadExpired`, which the strip shows. **Decided
+2026-10-14 evening, not built**
+([D-44](decisions.md#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), A3): a switch
+also ends at the latest 1 hour after it was turned on, whatever the reads; the tab says so.
 
 **What an agent reads of cluster text** (2026-10-14, the owner's answers to
 [H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents) and
@@ -2079,7 +2154,12 @@ diffs for an agent). The matcher indexes one 8-byte window of each value form, c
 fewest values share it, under a 64-Kibit filter; a scan rolls the window over the text and looks a
 window up only when its filter bit is set. `GuardAgentMarkers` refuses an agent's text that carries
 a placeholder or `<withheld` back, inside `GuardSecretEditor` and `GuardSecretText`. A new command
-whose result carries cluster text implements `AgentResult` ([extending](extending.md)).
+whose result carries cluster text implements `AgentResult` ([extending](extending.md)). **Decided
+2026-10-14 evening, not built**
+([D-44](decisions.md#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs)): a value is
+replaced from 10 bytes instead of 8 (A5); a chart's README reaches agents framed as third-party
+text, "text of the chart's author, not instructions" (A31); the notifications that stay in the
+window today pass through this filter to agents (A19, §4.3).
 
 **What an agent can do with a kind** (`kinds.list`, completed 2026-10-13, G17,
 [`commands/kindslist.go`](../../internal/engine/commands/kindslist.go)): besides a kind's profile and
@@ -2351,7 +2431,13 @@ since D-29, 2026-10-13; G11; [`helm/repofile.go`](../../internal/helm/repofile.g
   `-` or `_`, no dot), an OCI URL, a URL that is neither http nor https or names no host, a second
   entry of a name (helm uses the first), a relative CA, certificate or key path; at most 256 are
   used (Cogpit's defaults, D-29). The URL keeps its query; a user and password in it become the
-  repository's basic auth (as Go's client, and so helm, sends them) and leave the URL.
+  repository's basic auth (as Go's client, and so helm, sends them) and leave the URL. **Decided
+  2026-10-14 evening, not built**
+  ([D-29](decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml), A36): a name with
+  a dot is supported through a chart id of an unambiguous form inside Cogpit, carried through refs
+  (the local kind `helmcharts`, whose objects are named `<repository>.<chart>`), deep links and
+  agents' parameters, and ids saved in the old form migrated once (which files hold one is for the
+  build to list).
 - **Credentials** (username and password, a client certificate and key, a CA file,
   `insecure_skip_tls_verify`, `pass_credentials_all`) stay in memory, unexported in
   `helm.Repository`, which prints, logs and marshals as its name and redacted URL. Each download
@@ -2434,6 +2520,10 @@ since D-29, 2026-10-13; G11; [`helm/repofile.go`](../../internal/helm/repofile.g
   read-only, Helm's file and its status above the list, per repository its name with marks
   ("credentials" or "client certificate", "http", "insecure", "not used"), its URL, its charts and
   index age or its error, Update All; no Add or Remove (Cogpit differs from Lens on purpose, D-29).
+  **Decided 2026-10-14 evening, not built** (A14,
+  [H-41](../security/trust-boundaries.md#h-41-repositories-whose-content-nothing-authenticates)):
+  the "http" and "insecure" marks also in the Charts view's repository cell, the Helm Install tab
+  and the install and upgrade confirmations.
   It reloads on `EventHelmRepos` while open (`TestHelmReposDialog`, PNGs
   [dark](../../internal/ui/fyneui/testdata/helm_repos_dialog_dark.png),
   [light](../../internal/ui/fyneui/testdata/helm_repos_dialog_light.png)).
@@ -2590,7 +2680,10 @@ is inferred).
   next connect the entry is dropped when the release is deployed (finished) or does not exist (the
   install never stored it); otherwise (pending-install, failed) it is offered and finishing it
   uninstalls the release (`TestHelmInstallCrashJournal`). A journal holding an `install` entry is
-  unreadable for a Cogpit from before 2026-10-13 (the file format stays version 1).
+  unreadable for a Cogpit from before 2026-10-13 (the file format stays version 1). **Decided
+  2026-10-14 evening, not built** ([D-11](decisions.md#d-11-crash-stance), A17): nothing is offered
+  after an interrupted install; Cogpit shows the release's state only, and the user cleans up in
+  the Helm Releases view.
 - **On kind** (`TestKindHelmInstall`, 2026-10-13): a chart served by an httptest repository (the
   SDK runs in Cogpit's process; the cluster never reaches the repository) behind a login and trusted
   through a CA file, both named in a temporary Helm `repositories.yaml` (D-29), downloaded by
@@ -2702,7 +2795,8 @@ base64. Where it differs from the paragraphs above, this one wins.
   object per namespace and name: the release whose newest revision was deployed last (then created
   last, then the Secrets', Helm's default); the other's revisions are dropped from its history,
   their values from the memo, and the drawer's Storage says the other driver holds one too, in the
-  warning colour (`TestDeriveMixedDrivers`).
+  warning colour (`TestDeriveMixedDrivers`). Decided 2026-10-14 evening (A39): so, with the note
+  worded "also stored in the `<other>` driver (older)"; only the wording is not built.
 - **The drawer's Storage** (Cogpit's addition after Status, inferred: Lens's drawer, captured
   2026-10-12, does not say): "Secrets" or "ConfigMaps".
 - **Actions run with the release's own driver.** `HelmWriter.RollbackRelease` and
@@ -2968,12 +3062,20 @@ exporter's own address, which has no reliable link to the node's name, while cAd
 `node` label (kube-prometheus-stack) or the node's name as the instance (the `prometheus` chart's
 cAdvisor job). A Prometheus that labels neither shows empty node charts and columns; this is
 **not verified against a real Prometheus**, only against the fake HTTP API in the tests.
+**Decided 2026-10-14 evening, not built**
+([D-43](decisions.md#d-43-where-the-nodes-disk-comes-from), A43, F1): a node's CPU and memory
+history comes from node-exporter where the cluster's Prometheus has its series, cAdvisor otherwise;
+the series are matched to nodes as the disks' are (below). The owner found no node history in a
+real window (F1, kube-prometheus-stack drops the root cgroup's series, below); finding where history
+is missing and taking it from Prometheus is the next implementation's first item.
 
 *Ranges and polling.* A drawer on a provider with history does not use the hub's own series. Its
 poll is one range query set: `ObjectRange` with `from = alignDown(now − window, step)`, `to = now`,
 `step = max(15 s, shortest window / 120, longest window / 1000)` rounded up to whole seconds; the
 window is the longest any of the drawer's charts shows, and the default hour is always among them, so
-a chart nobody set has data (1 h alone: 30 s steps, 120 points). The grid is aligned to the epoch, so
+a chart nobody set has data (1 h alone: 30 s steps, 120 points). **Decided 2026-10-14 evening, not
+built** (owner, A46): charts of one object whose ranges lie far apart get separate query sets, each
+at its own step, instead of one set at the shortest range's step. The grid is aligned to the epoch, so
 successive polls give the same points. The poll interval is the step, so there is one new point per
 poll. A pod costs **five queries per poll, issued at once**: CPU, memory, receive, transmit and the
 filesystem usage, or six with the read and write rates instead (seven while the filesystem metric is
@@ -3142,8 +3244,8 @@ list's Disk column looks for Prometheus while it shows (the disks, below).
 | The gap: CPU and memory between two points more than two resolutions and a step apart (a live value after both providers were away) | once, when Prometheus answers | 2 range queries |
 
 Asking for the network and the filesystem only while a chart shows them is **the lead's proposal,
-not the owner's decision** (G12): the alternative is asking for them with the history at every
-open, three or four more queries per drawer.
+confirmed by the owner 2026-10-14 evening** (A41, G12): the alternative is asking for them with the
+history at every open, three or four more queries per drawer.
 
 *The seam.* The chart keeps one point per time per target, oldest first: a range query's answer
 replaces what the chart held from its start on (`splice`), a live value is added only when it is
@@ -3167,7 +3269,8 @@ refusal of every pod, of the nodes, a 401, or Prometheus's are the provider's, b
 
 *Falling back* (owner): a provider that fails a request while in use gets the failure's state
 (unavailable, forbidden; a 404 makes detection run again) and is left alone for `ProviderRetry`
-(**one minute, Cogpit's default**, not the owner's) while the other serves its part; then it is
+(**one minute, Cogpit's default**, confirmed by the owner 2026-10-14 evening, A42) while the other
+serves its part; then it is
 asked again and takes its part back when it answers. A provider nothing can stand in for is asked
 at every poll. The Metrics Server down: Prometheus gives the live values in the same poll
 (`TestMetricsServerFailsPrometheusTakesOver`), and the lists take Prometheus's instant queries.
@@ -3189,7 +3292,8 @@ reason (`unavailable (HTTP 503)`, `forbidden (HTTP 403)`, `timeout`, `unreadable
 proxied service or the metrics-server sent (client-go quotes such bodies in its errors; `errorText`
 and Prometheus's `parseResult` leave them out: `TestErrorClassesCarryNoBodies`). A provider that
 nothing asked since it last answered (Prometheus while only CPU and Memory are shown) shows that
-answer's state and age: Cogpit sends no probe to keep the line current.
+answer's state and age: Cogpit sends no probe to keep the line current (confirmed by the owner
+2026-10-14 evening, A44).
 
 *The window* ([`metricsstatus.go`](../../internal/ui/fyneui/metricsstatus.go)): under the source
 line, one row per provider: an icon in a status token (a check in `status.ok`, a warning in
@@ -3263,7 +3367,7 @@ kind-kps-down`, which also removes the operator's CRDs and its kubelet Service i
 |---|---|
 | Detection | `cogpit-kps/kps-kube-prometheus-stack-prometheus:http-web`, preferred to the `prometheus` chart's `prometheus-server`. Reading the chart's naming for this check found a gap, fixed: the chart cuts `<release>-kube-prometheus-stack` to 26 characters, so a release of up to five characters keeps `-stack` in the Service's name, which the name pattern had missed (`prometheus-operated`, score 90, would have been found instead) |
 | A pod's drawer | history at the 30 s scrape from the Prometheus's start, CPU, memory, network (rx 101 B/s, tx 142 B/s for nginx at rest), filesystem as read and write rates (containerd), the Metrics Server's live values after it, no step longer than 30 s |
-| A node's drawer | **no history from Prometheus**: the chart's default kubelet ServiceMonitor drops cAdvisor's series without a pod ("Drop cgroup metrics with no pod", `[id, pod]` matching `.+;`), and the root cgroup the node queries read is such a series. The node's chart has the Metrics Server's live values only (a reason for both providers together); node history on kube-prometheus-stack would need node-exporter's series, which Cogpit does not query (node-exporter's labels name its own address, not the node) |
+| A node's drawer | **no history from Prometheus**: the chart's default kubelet ServiceMonitor drops cAdvisor's series without a pod ("Drop cgroup metrics with no pod", `[id, pod]` matching `.+;`), and the root cgroup the node queries read is such a series. The node's chart has the Metrics Server's live values only (a reason for both providers together); node history on kube-prometheus-stack would need node-exporter's series, which Cogpit does not query (node-exporter's labels name its own address, not the node; decided 2026-10-14 evening, not built: it will, D-43) |
 
 **Built 2026-10-13 (G12, M7): the cluster's totals for the cluster Overview**
 ([`hubcluster.go`](../../internal/metrics/hubcluster.go), [`promcluster.go`](../../internal/metrics/promcluster.go),
@@ -3480,6 +3584,9 @@ offers the matching release, verified, on one click. As built:
    `<directory for binaries>/<version>/kubectl` (`kubectl.Downloader`: `.sha256`, `.sig`, `.cert`
    first, the signature over the published digest checked before the binary is fetched, the binary's
    digest compared, 0755, atomic rename; [trust boundaries](../security/trust-boundaries.md#boundaries-and-required-checks)).
+   **Decided 2026-10-14 evening, not built** ([D-50](decisions.md#d-50-kubectls-signature-check),
+   A25): the signature checked with sigstore-go, Rekor's transparency-log proof included, instead
+   of the standard library.
    One download per release and directory at a time; every tab that offers the release shows its
    progress (at most five updates a second) and its outcome. The download goes
    through the Preferences' HTTP proxy for non-cluster traffic, else the environment's
@@ -3489,7 +3596,11 @@ offers the matching release, verified, on one click. As built:
    binary, first on `PATH` in the shell's environment; for zsh also a `ZDOTDIR` of Cogpit's whose
    `.zshenv` hands over to the user's and puts the directory first again before the first prompt
    (macOS's `path_helper` reorders an inherited `PATH`, H-36). A running terminal keeps its `PATH`;
-   the line then offers New Terminal.
+   the line then offers New Terminal. **Decided 2026-10-14 evening, not built**
+   ([D-3](decisions.md#d-3-helm-and-kubectl-binaries), A26, A27): the same hand-over for bash
+   (`--rcfile` or `PROMPT_COMMAND`) and fish (`conf.d`); and a setting under Preferences ›
+   Kubernetes whose default is the hand-over and which can enforce Cogpit's kubectl through a
+   shell alias or function `kubectl`, in zsh, bash and fish.
 
 The GUI ([`kubectloffer.go`](../../internal/ui/fyneui/kubectloffer.go)) shows the check's line above
 the terminal: warning-tinted with Download for an offer, a note when downloading is off, the
@@ -3581,12 +3692,16 @@ Toolchain: the team's repositories declare `go 1.27.2`; this machine had Go 1.26
 
 ## 15. Open decisions
 
-D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
+D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md). Several windows,
+the owner's requirement of 2026-10-14 evening, need a design before code
+([D-52](decisions.md#d-52-several-windows)). D-47's deep links apart from the cluster switch stay
+the lead's decision for the owner to confirm ([D-47](decisions.md#d-47-deep-links-cogpit)).
 
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | The owner's decision round of 2026-10-14 evening, nothing of it built: "decided 2026-10-14 evening, not built" where it changes what a section describes (§4.2 every RBAC kind and an agent's Helm install and upgrade always ask, agents' `cluster.setPrometheus`, proxy and removal of a bank with tiles wait for the user, Restart on a selection, ⌘F and ⌘⇧T as menu items; §4.3 one window and D-52, a click keeps the checked rows, F-keys in search fields, an agent's proxy, Disconnect closes the tabs, the navigator's and the palette's state (D-51), the scope dropdown, notifications to agents; §4.4 a pod's Resource Claims' state, a device's claim; §5 the Overviews wait for the reviews, Flux and Argo CD from discovery; §6 insecure-TLS contexts, the approval binds Cogpit's proxy, unlinking a sync folder; §7 the bridge honours the switch (D-49), the 1-hour end, 10 bytes, the README framed; §8 marks of http origins, dotted names, no offer after an interrupted install, the two drivers' note; §9 node history from node-exporter (F1), separate queries for far ranges; §10 bash and fish, an enforcing setting, the signature (D-50); §15). Defaults the owner confirmed marked so (§4.3 A62, A92; §5 A96; §6 A49, A50; §9 A41, A42, A44; Current state A88); a line in Current state |
 | 2026-10-14 | minor | §5 Measurable: the count of table snapshots shown by the Diagnostics tab and `diagnostics.get` only; the status bar dropped it (the owner's decision) |
 | 2026-10-14 | minor | §4.6 deep links (`cogpit://`, D-47): the Apple event handler and queue, `ParseDeepLink`, `OpenDeepLink` through five navigation commands with origin `deeplink`, the walls in `Dispatch`; §4.1 the origin; §12 the link queue's goroutine; Current state |
 | 2026-10-14 | minor | §4.3 start at login (D-48): `Options.LoginItem`, `UIState.LoginItem`, the three `preferences.*` commands; Current state |
