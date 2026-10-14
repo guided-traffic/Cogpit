@@ -86,6 +86,9 @@ func (s *Session) OpenTerminal(ctx context.Context, tabID string) (terminal.Sess
 		check, first := s.checkKubectl(ctx, b.Conn.ServerVersion()) // D-3 (kubectl.go)
 		s.setKubectlCheck(tab.ID, check)
 		opts.Kubectl = first
+		if p, err := s.Preferences(); err == nil {
+			opts.EnforceKubectl = p.KubectlEnforce // A27
+		}
 		return terminal.StartLocal(opts)
 	}
 	return terminal.StartPodExec(ctx, b.Conn.RESTConfig(), b.Conn.Kube(), terminal.ExecOptions{

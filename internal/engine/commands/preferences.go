@@ -46,6 +46,7 @@ type preferencesSetParams struct {
 	KubectlMirror   *string `json:"kubectlMirror,omitempty" jsonschema:"the https base URL kubectl is downloaded from; empty: https://dl.k8s.io/release. Only the user in Cogpit's window may set it: refused for agents"`
 	KubectlDir      *string `json:"kubectlDir,omitempty" jsonschema:"the directory for downloaded kubectl releases, an absolute path; empty: Cogpit's own folder. Only the user in Cogpit's window may set it: refused for agents"`
 	KubectlPath     *string `json:"kubectlPath,omitempty" jsonschema:"the kubectl the terminals run, an absolute path; empty: the first on PATH. Only the user in Cogpit's window may set it: refused for agents"`
+	KubectlEnforce  *bool   `json:"kubectlEnforce,omitempty" jsonschema:"whether a terminal's shell (zsh, bash, fish) also defines a function kubectl that runs the kubectl Cogpit chose, so that a folder the profile puts first or an alias does not win (default false: kubectl put first on PATH after the profile ran). Only the user in Cogpit's window may set it: refused for agents"`
 	// LoadChartIcons: agents and the CLI may only turn it off (engine/helmicons.go, D-46).
 	LoadChartIcons *bool `json:"loadChartIcons,omitempty" jsonschema:"whether the Charts view and a chart's drawer fetch the icon a chart repository's index names, from whatever host serves it (default true); off: Cogpit's own glyph. Agents and the CLI may only turn it off"`
 	// CheckForUpdates and UpdateChannel: the app's updater (engine/updates.go, D-4).
@@ -61,7 +62,7 @@ func (p preferencesSetParams) shellChange() bool {
 // kubectlChange reports whether the parameters change which kubectl the terminals run: its path,
 // the directory for binaries or the mirror.
 func (p preferencesSetParams) kubectlChange() bool {
-	return p.KubectlMirror != nil || p.KubectlDir != nil || p.KubectlPath != nil
+	return p.KubectlMirror != nil || p.KubectlDir != nil || p.KubectlPath != nil || p.KubectlEnforce != nil
 }
 
 // refuse refuses what only the user may set, for every origin but the GUI.
@@ -230,6 +231,9 @@ func registerPreferences(g *registrar) {
 					if f.v != nil {
 						*f.dst = strings.TrimSpace(*f.v)
 					}
+				}
+				if p.KubectlEnforce != nil {
+					pr.KubectlEnforce = *p.KubectlEnforce
 				}
 				return nil
 			})

@@ -93,9 +93,9 @@ func startLocal(opts LocalOptions) (Session, error) {
 		return nil, err
 	}
 	var ownDir string // the session's own directory for opts.Kubectl (kubectl.go)
-	var kubectlEnv []string
+	start := kubectlStart{login: true}
 	if opts.Kubectl != "" {
-		if ownDir, kubectlEnv, err = kubectlFirst(opts.Kubectl, shellPath, baseEnv(opts.Env)); err != nil {
+		if ownDir, start, err = kubectlFirst(opts.Kubectl, shellPath, baseEnv(opts.Env), opts.EnforceKubectl); err != nil {
 			_ = os.Remove(cfgPath)
 			return nil, err
 		}
@@ -108,12 +108,18 @@ func startLocal(opts LocalOptions) (Session, error) {
 	}
 
 	// A leading "-" in argv[0] makes every common shell (sh, bash, zsh, fish, dash) a login
-	// shell, which reads the user's profile as a terminal app's shell does.
+	// shell, which reads the user's profile as a terminal app's shell does; a bash whose kubectl
+	// Cogpit chose reads the profile through its --init-file instead (kubectl.go).
+	argv0 := filepath.Base(shellPath)
+	if start.login {
+		argv0 = "-" + argv0
+	}
+	args := append([]string{argv0}, start.args...)
 	cmd := &exec.Cmd{
 		Path: shellPath,
-		Args: append([]string{"-" + filepath.Base(shellPath)}, opts.Args...),
+		Args: append(args, opts.Args...),
 		Dir:  dir,
-		Env:  localEnv(opts.Env, binding.kubeconfigVar(cfgPath), kubectlEnv...),
+		Env:  localEnv(opts.Env, binding.kubeconfigVar(cfgPath), start.env...),
 	}
 	// pty.Start runs the shell in a new session (Setsid) with the PTY as its controlling
 	// terminal, so the shell leads its own process group and Close can signal the group.

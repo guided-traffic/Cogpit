@@ -83,8 +83,8 @@ window. Nothing of it was built in the round.
 | A23 | #91, H-34 | A credential plugin's approval shows and binds Cogpit's own proxy for the cluster too; a changed proxy asks again; to build | [D-26](#d-26-binding-a-credential-plugins-approval-to-its-program), [H-34](../security/trust-boundaries.md#h-34-the-plugin-approval-shows-the-kubeconfigs-proxy-not-cogpits) |
 | A24 | #93 | The terminal's right-click copy and paste preference GUI-only; as built | [D-14](#d-14-terminal-widget) |
 | A25 | #97, H-35 | kubectl's signature checked with sigstore-go, the Rekor transparency-log proof included; a record of its own; to build | [D-50](#d-50-kubectls-signature-check), [H-35](../security/trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log) |
-| A26 | #98, H-36 | The kubectl `PATH` hand-over for bash (`--rcfile` or `PROMPT_COMMAND`) and fish (`conf.d`), as for zsh; to build | [D-3](#d-3-helm-and-kubectl-binaries), [H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first) |
-| A27 | #100, H-36 | A setting (Preferences › Kubernetes): the `ZDOTDIR` hand-over by default, switchable to enforcement through a shell alias or function `kubectl`; to build | [D-3](#d-3-helm-and-kubectl-binaries), [H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first) |
+| A26 | #98, H-36 | The kubectl `PATH` hand-over for bash (`--rcfile` or `PROMPT_COMMAND`) and fish (`conf.d`), as for zsh; built 2026-10-14 | [D-3](#d-3-helm-and-kubectl-binaries), [H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first) |
+| A27 | #100, H-36 | A setting (Preferences › Kubernetes): the `ZDOTDIR` hand-over by default, switchable to enforcement through a shell alias or function `kubectl`; built 2026-10-14 | [D-3](#d-3-helm-and-kubectl-binaries), [H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first) |
 | R1 | – | Certificates: show whether the chain leads to a public or an internal (private) CA; the design settled when built; to build | [D-30](#d-30-certificates-in-secrets-decoded) |
 | A28 | #102, H-37 | Ask once per context before the first connect of an `insecure-skip-tls-verify` context, the answer kept like a plugin approval; to build | [H-37](../security/trust-boundaries.md#h-37-a-context-that-skips-the-certificate-check), [architecture §6](architecture.md#6-cluster-connections-internalcluster) |
 | A29 | #103, H-37 | While such a context is connected, the status bar shows "TLS not checked" in the warning colour beside the context; `cogpit-cli get` writes a warning line to stderr; to build | [H-37](../security/trust-boundaries.md#h-37-a-context-that-skips-the-certificate-check), [architecture §6](architecture.md#6-cluster-connections-internalcluster) |
@@ -400,7 +400,16 @@ above, or fills what it leaves open (Cogpit's defaults, not the owner's decision
   `PROMPT_COMMAND`) and fish (`conf.d`) (A26); and a setting under Preferences › Kubernetes (kubectl
   for terminals) whose default is the hand-over as today and which can switch to enforcement, a
   shell alias or function `kubectl` that always calls Cogpit's kubectl, in zsh, bash and fish
-  (A27). Not built yet.
+  (A27). Built 2026-10-14 ([`terminal/kubectl.go`](../../internal/terminal/kubectl.go),
+  `Preferences.KubectlEnforce`; `TestBashKubectlFirstAfterTheProfile`, `TestZshKubectlEnforced`,
+  `TestFishKubectlFirstAfterTheConfig`). **The lead's night decisions for the owner to confirm:**
+  bash is started with `--init-file` (the way VS Code's terminal starts it), not as a login shell,
+  its rc reading the files a login bash reads and then putting kubectl first (options: `--rcfile`,
+  which a login bash ignores; `PROMPT_COMMAND`, which a profile can overwrite) — bash then reads no
+  `~/.bash_logout` and `shopt login_shell` says off; fish gets `-C`, which it runs after its
+  configuration (options: a file in `conf.d`, which runs before `config.fish`); enforcement is a
+  function (an alias of that name removed first), not an alias; only the user sets the switch, in
+  the window (the round's follow-up 4: options: agents too).
 
 ## D-4: Packaging and updates
 

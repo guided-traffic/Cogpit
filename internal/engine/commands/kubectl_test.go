@@ -85,7 +85,7 @@ func TestKubectlPreferencesAreTheUsers(t *testing.T) {
 	for _, origin := range []engine.Origin{engine.OriginExternalAgent, engine.OriginBuiltInAgent, engine.OriginCLI} {
 		for _, p := range []map[string]any{
 			{"kubectlPath": k}, {"kubectlDir": t.TempDir()}, {"kubectlMirror": "https://mirror.example.com/k8s"},
-			{"kubectlDownload": true, "kubectlMirror": ""},
+			{"kubectlDownload": true, "kubectlMirror": ""}, {"kubectlEnforce": true}, // A27: the user's only
 		} {
 			if err := dispatch(t, s, origin, "preferences.set", p, nil); !errors.Is(err, engine.ErrKubectlGUIOnly) {
 				t.Errorf("%s %v: %v, want ErrKubectlGUIOnly", origin, p, err)
@@ -97,11 +97,13 @@ func TestKubectlPreferencesAreTheUsers(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	gui := map[string]any{"kubectlPath": k, "kubectlDir": dir, "kubectlMirror": "https://mirror.example.com/k8s/", "kubectlDownload": true}
+	gui := map[string]any{"kubectlPath": k, "kubectlDir": dir, "kubectlMirror": "https://mirror.example.com/k8s/", "kubectlDownload": true,
+		"kubectlEnforce": true}
 	if err := dispatch(t, s, engine.OriginGUI, "preferences.set", gui, &res); err != nil {
 		t.Fatalf("the GUI: %v", err)
 	}
-	if p := res.Preferences; p.KubectlPath != k || p.KubectlDir != dir || p.KubectlMirror != "https://mirror.example.com/k8s/" || !p.KubectlDownload {
+	if p := res.Preferences; p.KubectlPath != k || p.KubectlDir != dir || p.KubectlMirror != "https://mirror.example.com/k8s/" || !p.KubectlDownload ||
+		!p.KubectlEnforce {
 		t.Errorf("after the GUI: %+v", p)
 	}
 	for _, bad := range []map[string]any{

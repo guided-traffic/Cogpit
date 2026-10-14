@@ -117,6 +117,12 @@ type Preferences struct {
 	KubectlMirror string `json:"kubectlMirror,omitempty"`
 	KubectlDir    string `json:"kubectlDir,omitempty"`
 	KubectlPath   string `json:"kubectlPath,omitempty"`
+	// KubectlEnforce: a terminal's shell (zsh, bash, fish) also gets a function named kubectl that
+	// runs the kubectl Cogpit chose, so that a folder the user's profile puts first, or an alias,
+	// does not win (A27, owner 2026-10-14 evening; terminal.LocalOptions.EnforceKubectl); off: the
+	// hand-over that puts it first on PATH after the profile ran (the default). Only the user sets
+	// it (ErrKubectlGUIOnly; the lead's night decision on the round's follow-up 4).
+	KubectlEnforce bool `json:"kubectlEnforce,omitempty"`
 	// LoadChartIcons: the Charts view and a chart's drawer fetch the icon a repository's index
 	// names, from whatever host serves it (D-46, helmicons.go); off: none is fetched and Cogpit's
 	// own glyph shows. On by default; agents and the CLI may only turn it off.

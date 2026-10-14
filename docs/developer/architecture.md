@@ -3890,11 +3890,11 @@ offers the matching release, verified, on one click. As built:
    binary, first on `PATH` in the shell's environment; for zsh also a `ZDOTDIR` of Cogpit's whose
    `.zshenv` hands over to the user's and puts the directory first again before the first prompt
    (macOS's `path_helper` reorders an inherited `PATH`, H-36). A running terminal keeps its `PATH`;
-   the line then offers New Terminal. **Decided 2026-10-14 evening, not built**
-   ([D-3](decisions.md#d-3-helm-and-kubectl-binaries), A26, A27): the same hand-over for bash
-   (`--rcfile` or `PROMPT_COMMAND`) and fish (`conf.d`); and a setting under Preferences ›
-   Kubernetes whose default is the hand-over and which can enforce Cogpit's kubectl through a
-   shell alias or function `kubectl`, in zsh, bash and fish.
+   the line then offers New Terminal. Since 2026-10-14 ([D-3](decisions.md#d-3-helm-and-kubectl-binaries),
+   A26, A27) bash gets the same hand-over through `--init-file` (its rc reads the login files, then
+   puts the directory first) and fish through `-C` (run after its configuration); the setting
+   Preferences › Kubernetes › Enforce kubectl (`Preferences.KubectlEnforce`,
+   `LocalOptions.EnforceKubectl`) also defines a shell function `kubectl` in zsh, bash and fish.
 
 The GUI ([`kubectloffer.go`](../../internal/ui/fyneui/kubectloffer.go)) shows the check's line above
 the terminal: warning-tinted with Download for an offer, a note when downloading is off, the

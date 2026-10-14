@@ -31,6 +31,7 @@ func (p *settingsPage) kubectlSettings() []fyne.CanvasObject {
 	browse.OnTapped = func() {
 		p.pickFolder(func(path string) { dir.SetText(path) }) // OnChanged sets it after the pause
 	}
+	enforce := widget.NewCheck("Define kubectl as a shell function in terminals", func(on bool) { p.setPreference("kubectlEnforce", on) })
 	path := widget.NewEntry()
 	path.SetPlaceHolder("kubectl on PATH")
 	path.OnChanged = func(string) {
@@ -46,6 +47,7 @@ func (p *settingsPage) kubectlSettings() []fyne.CanvasObject {
 		p.setEntry(mirror, mirror, "kubectlMirror", pr.KubectlMirror)
 		p.setEntry(dir, dir, "kubectlDir", pr.KubectlDir)
 		p.setEntry(path, path, "kubectlPath", pr.KubectlPath)
+		enforce.SetChecked(pr.KubectlEnforce)
 	}
 	return []fyne.CanvasObject{
 		p.setting("kubectlDownload", "Download kubectl",
@@ -60,5 +62,8 @@ func (p *settingsPage) kubectlSettings() []fyne.CanvasObject {
 		p.setting("kubectlPath", "Path to kubectl",
 			"The kubectl your terminals run, an absolute path; Cogpit checks it against each cluster as it checks PATH's.",
 			path),
+		p.setting("kubectlEnforce", "Enforce kubectl",
+			"A shell function kubectl (zsh, bash, fish), so that an alias or a folder put first later cannot win.",
+			enforce),
 	}
 }

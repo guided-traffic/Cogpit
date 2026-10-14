@@ -523,14 +523,15 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Estimate:** 8–35 h, estimated (was 12–45; no action missing since 2026-10-13: Helm install, the Secret's dialog and the node shell built; what is left is depth (Lens's dialogs captured, the inferred rows checked) and the node shell's second, unprivileged profile if the owner wants it).
 
 ### G8. Logs, terminal and shells
+- **Built 2026-10-14 (A26, A27):** the hand-over that puts the verified kubectl first for bash
+  (`--init-file`) and fish (`-C`) as for zsh, and Preferences › Kubernetes › Enforce kubectl, a
+  shell function `kubectl` in zsh, bash and fish
+  ([H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first)).
 - **Decided (owner, 2026-10-14 evening; not built unless confirmed):** an Application's logs in one
   merged tab, each line `<workload>/<pod>/<container>`, with a filter per source; a logs tab's
   Download saves what it shows, its filter applied; kubectl's signature checked with sigstore-go, the
   Rekor transparency log's proof included (a D-entry,
   [H-35](../security/trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log));
-  the hand-over that puts the verified kubectl first for bash and fish as for zsh, and a setting
-  (Preferences › Kubernetes) that can enforce Cogpit's kubectl through a shell function
-  ([H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first));
   the fork's four shell tests under the race detector in CI; the two
   newer terminal-fork patches offered upstream later, at the end, the app first. Confirmed, now the
   owner's decisions: older log lines only through the row or `logs.loadOlder`; init containers

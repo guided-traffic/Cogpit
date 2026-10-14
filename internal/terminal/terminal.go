@@ -56,6 +56,9 @@ type LocalOptions struct {
 	// Kubectl is the kubectl the shell should find first, an absolute path: a link named kubectl
 	// in the session's own directory, which leads PATH (kubectl.go). Empty: PATH as it is.
 	Kubectl string
+	// EnforceKubectl also defines a shell function kubectl (zsh, bash, fish) that runs Kubectl,
+	// so that a folder put first later or an alias does not win (A27, kubectl.go).
+	EnforceKubectl bool
 }
 
 // StartLocal starts a local shell on a new PTY with KUBECONFIG=<own file>:<the user's files>,

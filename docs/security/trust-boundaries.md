@@ -472,23 +472,22 @@ behind `/etc/paths` and `/etc/paths.d` (a directory put first came out last). Pe
   first prompt, after every profile ran (`TestZshKubectlFirstAfterTheProfile`, with a `.zprofile` that
   prepends another kubectl). What remains: a `.zshrc` that empties `precmd_functions`, and a tool that
   changes `PATH` at a later prompt (direnv, asdf, a typed `export`).
-- **bash, sh and other shells**: only the environment's order. Live on macOS whenever `/etc/paths`
-  or a profile's directory holds a kubectl (Docker Desktop's `/usr/local/bin/kubectl`, Homebrew's),
-  and on Linux distributions whose `/etc/profile` sets `PATH` anew. The terminal's line names the
+- **bash** (since 2026-10-14, A26): started with `--init-file`, its rc reading the files a login
+  bash reads and then putting the directory first (`TestBashKubectlFirstAfterTheProfile`). What
+  remains: as for zsh, a tool that changes `PATH` at a later prompt; a Preferences shell argument
+  `-l`/`--login`, which makes bash ignore the init file (then only the environment's order).
+- **fish** (since 2026-10-14, A26): `-C`, which fish runs after its configuration
+  (`TestFishKubectlFirstAfterTheConfig`, run where fish is installed; CI has none).
+- **sh and other shells**: only the environment's order. Live on macOS whenever `/etc/paths` or a
+  profile's directory holds a kubectl (Docker Desktop's `/usr/local/bin/kubectl`, Homebrew's), and
+  on Linux distributions whose `/etc/profile` sets `PATH` anew. The terminal's line names the
   version Cogpit put first; `kubectl version --client` in the terminal shows which one runs.
 
-Decided (owner, 2026-10-14 evening), two changes, neither built yet:
-
-- **bash and fish get the hand-over zsh has** (bash through `--rcfile` or `PROMPT_COMMAND`, fish
-  through `conf.d`). Until then the bash case above is live as described; fish counts among the
-  other shells. sh and other shells are not part of the answer.
-- **A setting enforces Cogpit's kubectl** (Preferences › Kubernetes, kubectl for terminals): by
-  default today's hand-over; switched, a shell function or alias `kubectl` that always calls
-  Cogpit's kubectl, for zsh and, with the first change, bash and fish. Until then only the hand-over
-  exists. What it would leave: a profile that defines its own `kubectl` function after Cogpit's,
-  and a call by full path, are not covered by any decision; who may set the switch is not part of
-  the answer (the other kubectl settings are the user's only,
-  [agents and MCP](agents-and-mcp.md#rules)).
+**Enforcement** (A27, built 2026-10-14): Preferences › Kubernetes › Enforce kubectl also defines a
+shell function `kubectl` (zsh, bash, fish) that runs Cogpit's choice, after removing an alias of
+that name (`TestZshKubectlEnforced`, `TestBashKubectlFirstAfterTheProfile`). Only the user sets it
+(the lead's night decision, [D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries)). What it
+leaves: a function `kubectl` a later hook defines after Cogpit's, and a call by full path.
 
 ### H-2: Local processes and forwarded ports
 
