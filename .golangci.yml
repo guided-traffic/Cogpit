@@ -414,6 +414,14 @@ linters:
         text: G304
         source: os\.ReadFile\(path\)
         linters: [gosec]
+      # G304: a kept chart README or chart icon, Cogpit's own file in <user cache dir>/Cogpit/helm/
+      # readmes or icons, named by a hash of its key or URL (never a name from a chart, an index or
+      # an agent); it is Lstat-checked (a regular file, bounded) and checked again before it is
+      # shown (readReadmeFile, checkKeptIcon; docs/security/trust-boundaries.md).
+      - path: ^internal/engine/(helmchartdrawer|helmicons)\.go$
+        text: G304
+        source: os\.ReadFile\(path\)
+        linters: [gosec]
 
       # G304: the kubeconfig files the user configured (--kubeconfig, $KUBECONFIG, ~/.kube and the
       # folders and files added in Preferences) and the files their credential plugins name, which

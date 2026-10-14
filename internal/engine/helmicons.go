@@ -119,7 +119,7 @@ func (h *HelmRepos) icon(ctx context.Context, iconURL string) ([]byte, string, e
 			e = &iconEntry{data: data, format: format, at: at, done: closedDone}
 		} else {
 			e = &iconEntry{done: make(chan struct{})}
-			go h.fetchIcon(iconURL, e)
+			go h.fetchIcon(context.WithoutCancel(ctx), iconURL, e) // shared by every caller of the URL: one that gives up stops nothing
 		}
 		ic.put(iconURL, e)
 	}
@@ -148,7 +148,7 @@ func iconLoading(e *iconEntry) bool {
 }
 
 // fetchIcon downloads, checks and keeps an icon, then ends e.
-func (h *HelmRepos) fetchIcon(iconURL string, e *iconEntry) {
+func (h *HelmRepos) fetchIcon(ctx context.Context, iconURL string, e *iconEntry) {
 	ic := &h.icons
 	var (
 		data   []byte
@@ -167,7 +167,7 @@ func (h *HelmRepos) fetchIcon(iconURL string, e *iconEntry) {
 	ic.sem <- struct{}{}
 	defer func() { <-ic.sem }()
 	_ = h.ensureLoaded() // the repositories' hosts, whose icons may be at a private address
-	raw, ferr := ic.fetcher.FetchIcon(context.Background(), iconURL, h.ownHost)
+	raw, ferr := ic.fetcher.FetchIcon(ctx, iconURL, h.ownHost)
 	if ferr != nil {
 		err = ferr
 		return
