@@ -451,10 +451,10 @@ touch: that is Argo CD's model, and Cogpit's access reviews, which ask only abou
 nothing about it. Sync windows and Argo CD's own RBAC, which its API server checks for `argocd app
 sync`, are not checked on this path (the controller still honours sync windows). Decided (owner,
 2026-10-14 evening): a sync respects the AppProject's sync windows, refused, or greyed with the
-reason, inside a deny window; Argo CD's RBAC is not emulated. Not built yet; until then the
-operation is written whatever the windows say, and what becomes of it in a deny window is the
-controller's handling. What remains once it
-is built: the sync still runs with Argo CD's service account in whatever destination the project
+reason, inside a deny window; Argo CD's RBAC is not emulated. Built the same night
+(`kinds.ArgoSyncBlocked`, `TestArgoSyncRespectsSyncWindows`): Cogpit checks the windows as Argo CD
+checks a manual sync, inferred from its documentation and source. What remains: a project Cogpit
+may not read blocks nothing on Cogpit's side (the controller still honours it); the sync still runs with Argo CD's service account in whatever destination the project
 allows, and Argo CD's RBAC, which `argocd app sync` would check, stays unchecked by decision. What
 stands in the way: a sync with prune is destructive and confirmed for every origin; the confirmation names the
 resources the Application's status marks `requiresPruning` (the controller's last comparison,

@@ -1241,17 +1241,17 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   for node CPU and memory, a query set per range added).
 
 ### G23. Flux CD and Argo CD views
-- **Built 2026-10-14 (A34):** the Flux actions' confirmations name the identity the controller
+- **Built 2026-10-14 (A34, A33):** the Flux actions' confirmations name the identity the controller
   acts as (its service account, or the object's spec.serviceAccountName;
-  [H-64](../security/privilege-footprint.md#h-64-a-flux-action-is-carried-out-with-the-controllers-identity)).
+  [H-64](../security/privilege-footprint.md#h-64-a-flux-action-is-carried-out-with-the-controllers-identity));
+  Argo CD's Sync respects the AppProject's sync windows, refused or greyed with the reason in a deny
+  window, Argo CD's RBAC not emulated
+  ([H-67](../security/privilege-footprint.md#h-67-a-sync-acts-with-argo-cds-rights-not-the-users)).
 - **Decided (owner, 2026-10-14 evening; not built unless confirmed):** without the right to list
   the custom resource definitions, Flux CD and Argo CD are recognised from API discovery and shown
   with their curated profiles (generic custom resources stay invisible without the definitions);
   Reconcile with Source waits as the flux CLI does: a background job waits, with a timeout, for the
-  source to be ready, then annotates the object, its progress in the dock (D-33);
-  Argo CD's Sync respects the AppProject's sync windows, refused or greyed with the reason in a deny
-  window, Argo CD's RBAC not emulated
-  ([H-67](../security/privilege-footprint.md#h-67-a-sync-acts-with-argo-cds-rights-not-the-users)).
+  source to be ready, then annotates the object, its progress in the dock (D-33).
   Confirmed: Argo CD's labelled Secrets stay whole in the cache
   ([H-66](../security/credentials.md#h-66-argo-cds-credentials-are-in-cogpits-memory-while-its-settings-are-read)).
   Rows: [resource parity › Paid Lens Desktop views](resource-parity.md#paid-lens-desktop-views).

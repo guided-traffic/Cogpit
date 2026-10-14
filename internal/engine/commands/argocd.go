@@ -170,6 +170,9 @@ func registerArgoCD(g *registrar) {
 			if busy := kinds.ArgoOperationBusy(obj); busy != "" {
 				return errors.New(busy)
 			}
+			if why := argoWindowBlock(context.Background(), s, p.Ref, obj, false); why != "" { // A33
+				return errors.New(why)
+			}
 			return nil
 		},
 		Escalate: func(_ *engine.Session, p argoSyncParams) bool { return p.Prune },
@@ -523,6 +526,9 @@ func argoSync(ctx context.Context, s *engine.Session, w engine.ArgoCDActions, ve
 		}
 		if busy := kinds.ArgoOperationBusy(obj); busy != "" {
 			return errors.New("not synced: " + busy)
+		}
+		if why := argoWindowBlock(ctx, s, ref, obj, true); why != "" { // A33: refused, nothing written
+			return errors.New("not synced: " + why)
 		}
 		rv := obj.GetResourceVersion()
 		err = w.SyncArgoApplication(ctx, version, ref.Namespace, ref.Name, uid, rv, kinds.ArgoSyncOperation(obj, prune))

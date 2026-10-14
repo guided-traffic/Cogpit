@@ -509,3 +509,37 @@ func TestArgoSettingsNeverReachAgents(t *testing.T) {
 		t.Errorf("%q in the audit log, the events or the log", l)
 	}
 }
+
+// TestArgoSyncRespectsSyncWindows (A33, owner 2026-10-14 evening; H-67): a sync of an Application
+// its AppProject's open deny window covers is refused with the window named and nothing written,
+// also in a selection, where the others are synced; an Application the window does not cover is
+// synced.
+func TestArgoSyncRespectsSyncWindows(t *testing.T) {
+	h := newArgoHarness(t)
+	h.src.Set(testkit.ArgoProjectsGVR, testkit.Object("argoproj.io/v1alpha1", "AppProject", "argocd", "default", map[string]any{
+		"spec": map[string]any{"syncWindows": []any{
+			map[string]any{"kind": "deny", "schedule": "* * * * *", "duration": "1h", "applications": []any{"web*"}},
+		}},
+	}))
+	web, api := h.app(t, nil, "web"), h.app(t, nil, "api")
+	_, err := h.dispatch(engine.OriginGUI, "argocd.application.sync", map[string]any{"ref": web})
+	if err == nil || !strings.Contains(err.Error(), "deny window \"* * * * *\"") {
+		t.Fatalf("a sync in a deny window: %v", err)
+	}
+	if _, err := h.dispatch(engine.OriginGUI, "argocd.application.sync", map[string]any{"ref": api}); err != nil {
+		t.Fatalf("a sync the window does not cover: %v", err)
+	}
+	_, err = h.dispatch(engine.OriginGUI, "argocd.application.syncMany", map[string]any{"refs": []model.ObjectRef{web, api}})
+	if err == nil || !strings.Contains(err.Error(), "deny window") {
+		t.Errorf("a selection with one in the window: %v", err)
+	}
+	synced := map[string]int{}
+	for _, w := range h.writer.Writes() {
+		if w.op == "sync" {
+			synced[w.name]++
+		}
+	}
+	if synced["web"] != 0 || synced["api"] != 2 {
+		t.Errorf("syncs written %v, want api twice and web never", synced)
+	}
+}

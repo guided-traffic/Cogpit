@@ -92,7 +92,7 @@ window. Nothing of it was built in the round.
 | – | #117 | The MCP switch's own record (housekeeping, not asked) | [D-49](#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp) |
 | A31 | #122, H-86 | A chart's README reaches agents framed as third-party text ("text of the chart's author, not instructions"); built 2026-10-14 | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-86](../security/agents-and-mcp.md#h-86-a-charts-readme-reaches-agents) |
 | A32 | #139, H-66 | Argo CD's labelled Secrets stay whole in the cache (the H-82 filter uses their values); as built | [D-35](#d-35-what-argo-cds-repository-and-cluster-secrets-show), [H-66](../security/credentials.md#h-66-argo-cds-credentials-are-in-cogpits-memory-while-its-settings-are-read) |
-| A33 | #140, H-67 | Argo CD's Sync respects the AppProject's sync windows (refused, or greyed with the reason, in a deny window); Argo CD's RBAC not emulated; to build | [D-36](#d-36-how-argo-cds-sync-writes-the-operation), [H-67](../security/privilege-footprint.md#h-67-a-sync-acts-with-argo-cds-rights-not-the-users) |
+| A33 | #140, H-67 | Argo CD's Sync respects the AppProject's sync windows (refused, or greyed with the reason, in a deny window); Argo CD's RBAC not emulated; built 2026-10-14 | [D-36](#d-36-how-argo-cds-sync-writes-the-operation), [H-67](../security/privilege-footprint.md#h-67-a-sync-acts-with-argo-cds-rights-not-the-users) |
 | A34 | #144, H-64 | A Flux action's confirmation names the identity the controller acts as (its service account, or the object's `spec.serviceAccountName`); built 2026-10-14 | [D-33](#d-33-the-flux-actions), [H-64](../security/privilege-footprint.md#h-64-a-flux-action-is-carried-out-with-the-controllers-identity) |
 | A35 | #156 | The node shell's maximum 5 minutes to 24 hours, default 2 hours; as built | [D-37](#d-37-the-node-shell) |
 | A36 | #6 | Repositories with a dot in their name supported: an unambiguous chart id inside Cogpit, through refs, deep links and agents' parameters, saved ids migrated once; to build | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml) |
@@ -2437,8 +2437,19 @@ needs `patch` on the Application; what the sync does is Argo CD's,
 [H-67](../security/privilege-footprint.md#h-67-a-sync-acts-with-argo-cds-rights-not-the-users)).
 Refresh needs no such guard: it sets an annotation the controller removes, bound to the UID only.
 **Decided (owner, 2026-10-14 evening, A33):** Sync respects the AppProject's sync windows: inside a
-deny window it is refused, or greyed with the reason; Argo CD's RBAC is not emulated. Not built
-yet: Cogpit checks no sync window.
+deny window it is refused, or greyed with the reason; Argo CD's RBAC is not emulated. Built
+2026-10-14 ([`kinds/argocd_syncwindow.go`](../../internal/model/kinds/argocd_syncwindow.go),
+[`commands/argosyncwindow.go`](../../internal/engine/commands/argosyncwindow.go);
+`TestArgoSyncBlocked`, `TestArgoSyncRespectsSyncWindows`). **The lead's night decisions for the
+owner to confirm:** Cogpit's sync is a manual sync and follows Argo CD's check of one (an open deny
+window blocks unless it allows manual syncs; an open allow window lets it through; allow windows
+that match but none open block unless one allows manual syncs; matching by name, destination
+namespace and cluster, with `andOperator`; schedules in the window's time zone) — inferred from
+Argo CD's documentation and source, not captured against a running Argo CD; the project is read
+through the cache in the Application's namespace (Enabled greys only what the cache holds already,
+the write checks after reading); a project Cogpit may not read blocks nothing (the controller
+honours its windows anyway); a window Cogpit cannot read blocks, with the reason; in a selection
+a blocked Application is skipped and reported.
 Tests: `TestArgoSyncOperation` (model), `TestArgoSyncPatch`, `TestArgoSyncConflicts` (cluster),
 `TestArgoSyncWritesTheOperation`, `TestArgoSyncRefusedWhileAnOperationRuns`,
 `TestArgoSyncChecksAgainAfterAChange`, `TestArgoActionsBoundToTheConfirmedUID` (commands); on kind
