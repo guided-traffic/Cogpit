@@ -4,7 +4,10 @@ Where cluster credentials and Cogpit's own secrets come from, where they live wh
 and where they must never end up. Rules that the MVP (2026-10-11) implements link to their code
 and test; the others are the plan. Cluster authentication is client-go's, the code `kubectl` uses
 ([D-6](../developer/decisions.md#d-6-kubernetes-libraries)), loaded in
-[`internal/cluster/cluster.go`](../../internal/cluster/cluster.go).
+[`internal/cluster/cluster.go`](../../internal/cluster/cluster.go). The owner's decision round of
+2026-10-14 evening confirms H-33, H-40 and H-66 as they are and decides changes to who sets a
+proxy and to what the certificate checks show; each is marked where it applies, beside what is
+built.
 
 ## Where credentials come from
 
@@ -119,8 +122,11 @@ credential into its own files.
   problem only, and `cluster.Connect` scrubs the password from any connect error as a guard
   (`TestCheckProxyURL`, `TestClusterProxyKeptPrivately`, `TestClusterProxyCommands`,
   `TestProxyRefusalNeverQuotesThePassword`, `TestConnectThroughTheClusterProxy`). Only the user sets
-  a proxy ([agents and MCP](agents-and-mcp.md)). The file is plaintext
-  ([H-33](#h-33-proxy-passwords-are-plaintext-in-cogpits-settings)).
+  a proxy ([agents and MCP](agents-and-mcp.md)); decided (owner, 2026-10-14 evening), not built
+  yet: an agent may set one as a write the user confirms, its password `•••` in the confirmation,
+  the audit log and every result, the same redaction as above. The file is plaintext
+  ([H-33](#h-33-proxy-passwords-are-plaintext-in-cogpits-settings), confirmed by the owner the same
+  evening).
 - **Drafts of unsaved editor text** (built 2026-10-13, G9, [D-11](../developer/decisions.md#d-11-crash-stance)):
   the unsaved text of an Edit or Create resource tab is written to
   `<user config dir>/Cogpit/drafts/<32 hex>.json`, 0600 in a 0700 folder, replaced atomically,
@@ -194,7 +200,7 @@ That `kubectl` reads the same `KUBECONFIG` as any other.
 | Files saved from the window | The Create resource tab's save (2026-10-13) writes the tab's text only to the file the user picks in the system's save dialog, a GUI action no agent can start, and refuses a text that holds a Secret's manifest ([`createtab_save.go`](../../internal/ui/fyneui/createtab_save.go), `TestCreateTabKeepsSecretsOffDisk`) |
 | Crash reports | Cogpit has no crash upload. Since 2026-10-12 the Go runtime writes an unhandled panic or fatal error into `<user config dir>/Cogpit/crash.log` (0600) as well as to standard error ([`crash.go`](../../cmd/cogpit/crash.go)); the next start moves it to `crashes/crash-<time>.log`, keeps the newest ten and names it in the window. Its text is the runtime's: the panic's message and the goroutines' stacks (function names, file lines, argument words, no strings' contents); a panic message the code formats from a value could carry it, so the file follows the log rule: local, owner-only, never sent anywhere |
 | Helm repositories' credentials | In memory only, sent to the repository's own scheme, host and port unless its entry says `pass_credentials_all` (2026-10-13, [above](#where-they-live-inside-cogpit)); never in a result, error, toast, the audit log or the log |
-| Telemetry | Cogpit sends none. Any network call to something other than a cluster, a Helm repository, the configured LLM endpoint, the release channel or the kubectl release host or mirror ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries), a download the user clicked; it sends the version and platform in the URL, no credential) needs a decision entry in [`decisions.md`](../developer/decisions.md) |
+| Telemetry | Cogpit sends none. Any network call to something other than a cluster, a Helm repository, the configured LLM endpoint, the release channel or the kubectl release host or mirror ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries), a download the user clicked; it sends the version and platform in the URL, no credential) needs a decision entry in [`decisions.md`](../developer/decisions.md). The check of kubectl's signature against sigstore's transparency log (decided by the owner on 2026-10-14 evening, not built yet, [H-35](trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log)) is such a call |
 | The LLM endpoint | Secret values only when the user allows it for that request ([H-13](agents-and-mcp.md#h-13-cluster-data-leaves-for-the-llm-endpoint)) |
 | Screenshots taken by automation | Secret values stay masked unless the user revealed them in the GUI |
 | Clipboard | Only on an explicit copy action; a copied Secret value is cleared after 60 seconds if the clipboard still holds it ([H-25](#h-25-a-copied-secret-value-reaches-the-clipboard)) |
@@ -244,6 +250,24 @@ garbage collector (best effort, as for the values: Go cannot wipe them). An encr
 decrypted (`TestSecretKeyMatchesCertificate`, `TestMatchPrivateKeyReasons`,
 `TestObjectGetDecodesCertificatesForAgents`, which searches the result, the audit log, the events
 and the log for the key's PEM, base64 and DER).
+
+**Decided (owner, 2026-10-14 evening), two changes to these checks, neither built yet:**
+
+- **A combined PEM** (a certificate and its private key in one value) gets the key-matches-certificate
+  check too. Today such a value is not compared ([D-30](../developer/decisions.md#d-30-certificates-in-secrets-decoded)),
+  and a private key block beside a certificate is never handed to a parser. Once built, that key is
+  parsed in memory for the check, under the rules of the paragraph above; only the outcome leaves
+  it.
+- **The chain's anchor** (a new requirement): beside the key match and the chain's order, the
+  drawer and agents say whether the chain leads to a public certificate authority or an internal
+  (private) one, with the root's name. Today Cogpit checks a chain's order only, against no trust
+  store (D-30). The design is not settled; the lead's notes name three answers: a root of a public
+  root program that Cogpit carries itself, independent of the Mac; a root this Mac trusts (its
+  keychain, a corporate root included); no known root (internal or self-signed). Certificates are
+  public material (D-30), so a root's name adds nothing secret about the cluster. What would be new
+  for agents, and through the built-in agent for its LLM endpoint
+  ([agents and MCP › H-13](agents-and-mcp.md#h-13-cluster-data-leaves-for-the-llm-endpoint)), is
+  the second answer: it tells them about this computer's trust settings, not the cluster's.
 
 ### Secret values in the Create Secret dialog
 
@@ -302,6 +326,13 @@ narrow `list secrets` by label, so the verbs are the Secrets view's. Dropping th
 values in the informer's transform for these scopes would keep them out of memory; it is not built,
 because a covering scope serves the same objects to the Secrets view, whose drawer needs the
 values.
+
+Confirmed by the owner (2026-10-14 evening): Argo CD's labelled Secrets stay whole in the cache.
+The reason given with it: the filter that replaces cached Secret values in what agents read ([H-82](agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents)) is built
+from the values the cache holds, so a value dropped from the cache would reach agents unreplaced
+where a log or an object prints it. What remains, live while a settings view, its drawer or an
+agent's read uses them and for five minutes after: the values are in Cogpit's memory, shown
+nowhere.
 
 ### H-4: Auth-provider token refresh
 
@@ -396,8 +427,9 @@ applies). What remains, per case:
   and charts can be changed on the way (H-41). Live for every repository the user allowed.
 - **The allowance does not expire** and binds no password: a rotated password keeps it (the
   owner's binding). A repository removed from Helm's file and added again under the same name, URL
-  and user name is allowed again without asking. Whether an allowance should expire is not
-  decided.
+  and user name is allowed again without asking. Confirmed by the owner (2026-10-14 evening): no
+  expiry; the allowance stays bound to the name, the URL and the user name. Live for every
+  repository the user allowed.
 - **The file is the user's own.** A process of the user that writes
   `helm-http-approvals.json` can allow a repository without the window, as it can write
   `exec-approvals.json` or read Helm's file itself
@@ -412,9 +444,15 @@ protected by its permissions only (0600 in a 0700 directory), as kubeconfig file
 ([H-5](#h-5-kubeconfig-files-are-plaintext)). Cogpit does not move it into the operating system's
 keychain, where the LLM key is planned to live, and a backup of the configuration folder carries it.
 The password reaches the proxy in clear when the proxy's URL is `http://` (Basic authentication on
-the CONNECT, as every HTTP client sends it); Cogpit does not warn about that. Whether proxy
-credentials move into the keychain, and whether an `http://` proxy with a password is refused or
-warned about, is not decided.
+the CONNECT, as every HTTP client sends it); Cogpit does not warn about that.
+
+Confirmed by the owner (2026-10-14 evening): proxy passwords stay in the 0600 settings files, and an
+`http://` proxy with a password gets no warning. What remains, per case: every proxy with a
+password sits in plain text in `cluster-settings.json` or `preferences.json`, readable to the
+user's own processes and carried by a backup (live wherever the user typed one); an `http://`
+proxy's password crosses the network in clear on every CONNECT (live for each such proxy). Once an
+agent may set a proxy (decided the same evening, not built, [above](#where-they-live-inside-cogpit)),
+the password an agent passes lands in the same file.
 
 ### H-38: Drafts keep typed text in plain text
 

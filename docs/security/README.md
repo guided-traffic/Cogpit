@@ -17,7 +17,8 @@ These pages describe the boundaries that exist in the problem itself (kubeconfig
 API, credential plugins, terminals, agents, updates) and the check each boundary needs. Since the
 MVP (2026-10-11) the mechanisms it implements link to their code and tests; the rest names planned
 packages. When a mechanism lands, its row gains a link to the code and the test that proves it, in
-the same change.
+the same change. The owner's decision round of 2026-10-14 evening is recorded on every page whose
+mechanisms it changes, in the form below; none of the changes it decided is built yet.
 
 ## Form of every page
 
@@ -26,6 +27,11 @@ the same change.
 - Every page ends with `## What this does not cover`. An open gap lives there, in the page whose
   mechanism has it, under a heading with a stable identifier `H-<n>`. Identifiers are never reused
   and never collected in a central list.
+- An owner's decision that is not built yet is written where the mechanism it changes is
+  described: "Decided (owner, <date>): <what>. Not built yet; until then <today's behaviour>, live
+  or dormant." The gap stays open until the change is built. A default the owner confirmed reads
+  "Confirmed by the owner (<date>): <what stays>", followed by what remains. Decided and built are
+  never merged into one sentence.
 - No tickets, checkbox lists or schedules on these pages. Work items belong in
   [`../parity/gaps.md`](../parity/gaps.md).
 
@@ -40,4 +46,7 @@ Reporting a vulnerability: [`SECURITY.md`](../../SECURITY.md).
   switched to another (`CheckConfirmedContext` in [`confirm.go`](../../internal/engine/confirm.go)),
   and each terminal is bound to its context by its own kubeconfig. No page covers this yet; it is
   due when several clusters can be open at once
-  ([G4](../parity/gaps.md#g4-engine-and-command-registry)).
+  ([G4](../parity/gaps.md#g4-engine-and-command-registry)). The owner asked on 2026-10-14 evening
+  for a hotbar tile dragged out of the window to open another Cogpit window with that cluster; it
+  needs a design first (one UI state per window, which window agents' `ui_*` tools drive, which
+  window a confirmation belongs to), and that design is where this page becomes due.

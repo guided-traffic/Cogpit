@@ -15,6 +15,14 @@ the Kubernetes release's own sigstore signature, not Cogpit's update key
 ([trust boundaries](trust-boundaries.md#boundaries-and-required-checks),
 [H-35](trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log)).
 
+The owner's decision round of 2026-10-14 evening confirms the failed-signing behaviour and the
+20-day failsafe ([H-91](#h-91-after-20-days-of-unverifiable-feeds-sparkle-presents-items-again))
+and decides two GitHub settings for the release environment ([H-62](#h-62-every-push-to-main-that-passes-the-gates-is-released)),
+which the owner makes and which are not made yet. The rest of the Sparkle set-up was not put to the
+owner and stands as built: the signed feed, the preference driving Sparkle, checks from any origin,
+Beta refused until prereleases exist, Sparkle's XPC services removed, no entitlements on Sparkle's
+parts, the three appcast jobs, the history from the signed feed.
+
 ## Chain of trust
 
 ```text
@@ -63,7 +71,7 @@ that releases up to v0.6.0 carry (unsigned for Linux and Windows) are not built 
 
 | Artifact | Built by | What vouches for it today |
 |---|---|---|
-| `Cogpit-<v>-macos-arm64.dmg`, the app bundle in a disk image (from the first release after v0.4.0 on; no release has it yet) | `make dist-app` on GitHub's `macos-latest`, signed and imaged by `make dist-macos` ([`hack/macos/release.sh`](../../hack/macos/release.sh)) in the job "Sign and notarize (macOS)" | the app and the disk image signed with the Developer ID "Developer ID Application: Hans Fischer (6L57P2HXN6)", the hardened runtime and Apple's timestamp; the disk image notarized by Apple, its ticket stapled, so Gatekeeper accepts it offline as `Notarized Developer ID`; its SHA-256 in `SHA256SUMS` |
+| `Cogpit-<v>-macos-arm64.dmg`, the app bundle in a disk image (from the first release after v0.4.0 on; no release has it yet) | `make dist-app` on GitHub's `macos-latest`, signed and imaged by `make dist-macos` ([`hack/macos/release.sh`](../../hack/macos/release.sh)) in the job "Sign and notarize (macOS)" | the app and the disk image signed with the Developer ID "Developer ID Application: Hans Fischer (6L57P2HXN6)", the hardened runtime and Apple's timestamp; the disk image notarized by Apple, its ticket stapled, so Gatekeeper accepts it offline as `Notarized Developer ID`; its SHA-256 in `SHA256SUMS`. When a signature, the notarization or a check fails, the job fails and the release gets no files until the failed jobs are re-run, never unsigned files under a signed note; the script waits 45 minutes at most for Apple's notary service ([`build.yml`](../../.github/workflows/build.yml), [`release.sh`](../../hack/macos/release.sh); the lead's default, confirmed by the owner on 2026-10-14 evening) |
 | `cogpit-cli` in the app, `Cogpit.app/Contents/MacOS/cogpit-cli` (from the first release after v0.6.0 on) | `make app` from `make build`'s binary, in the same job | the same as the app: signed with the same Developer ID before the bundle (identifier `io.guided-traffic.cogpit.cli`, the hardened runtime, the timestamp), sealed into the app's signature, so changing it breaks the app's; notarized with the disk image, whose stapled ticket covers it; replaced by Sparkle's update with the bundle. Not verified until the first signed release: that it runs from a terminal in a quarantined copy before the app was ever opened without a prompt |
 | `Cogpit_<v>_darwin_arm64.zip`, the app bundle (v0.4.0 and earlier, and any build without the signing secrets) | `make dist-app` on GitHub's `macos-latest` | its SHA-256 in `SHA256SUMS`; an ad-hoc signature (`codesign --sign -`), which seals the bundle but names nobody: **no Developer ID, not notarized**, so Gatekeeper blocks the first start until the user allows it |
 | `SHA256SUMS` | the release pipeline's last job | nothing: it is not signed, so it shows that a download matches what CI attached to the release, not who attached it |
@@ -98,7 +106,7 @@ anything the key did not sign.
 |---|---|---|---|
 | The organisation's GitHub App private key (`APP_CLIENT_ID`, `APP_PRIVATE_KEY`) | organisation secrets of `guided-traffic`, visible to this repository; used by the Semantic Release job (token with `contents: write`) and by Renovate | push to `main`, create tags and releases; a release it creates starts the release pipeline, which builds whatever the tag points at | rotate the App's private key in the App's settings and replace the organisation secret; delete the releases and tags it made. Secrets are not handed to workflows of pull requests from forks |
 | The release pipeline's `GITHUB_TOKEN` | per job; `contents: write` only in its last job, to attach the artifacts | upload assets to and edit the text of this repository's releases | expires with the job |
-| Developer ID Application certificate, App Store Connect team API key (role Developer) | secrets of the GitHub environment `release` (created 2026-10-13; the material in it since 2026-10-14), which only tag workflows may use (deployment rule: tags `v*`), so that no pull request workflow can read them. One job reads them, "Sign and notarize (macOS)": it builds nothing and runs no Go, imports the certificate into a temporary keychain (key not extractable, usable by `codesign` only) and the API key into an owner-only file, and deletes both when it ends ([releasing › signing and notarization](../developer/releasing.md#signing-and-notarization)) | sign and notarize code as team 6L57P2HXN6: whatever is signed and notarized with the two passes Gatekeeper on every Mac until Apple revokes the certificate | revoke the certificate at Apple, and the key in App Store Connect; releases notarized before stay valid (the owner's note, 2026-10-13; not checked against Apple's documentation) |
+| Developer ID Application certificate, App Store Connect team API key (role Developer) | secrets of the GitHub environment `release` (created 2026-10-13; the material in it since 2026-10-14), which only tag workflows may use (deployment rule: tags `v*`), so that no pull request workflow can read them (decided by the owner on 2026-10-14 evening, GitHub settings not made yet: only the semantic-release GitHub App and the owner may create `v*` tags, and the environment's administrator bypass off; [H-62](#h-62-every-push-to-main-that-passes-the-gates-is-released)). One job reads them, "Sign and notarize (macOS)": it builds nothing and runs no Go, imports the certificate into a temporary keychain (key not extractable, usable by `codesign` only) and the API key into an owner-only file, and deletes both when it ends ([releasing › signing and notarization](../developer/releasing.md#signing-and-notarization)) | sign and notarize code as team 6L57P2HXN6: whatever is signed and notarized with the two passes Gatekeeper on every Mac until Apple revokes the certificate | revoke the certificate at Apple, and the key in App Store Connect; releases notarized before stay valid (the owner's note, 2026-10-13; not checked against Apple's documentation) |
 | The update key (Sparkle's EdDSA key; not made yet) | decided (owner, 2026-10-13): `SPARKLE_ED_PRIVATE_KEY`, a secret of the environment `sparkle` with the owner as required reviewer and tags `v*` only, so CI signs a release's feed only after the owner approved that run; made by the owner with Sparkle's `generate_keys`, which keeps it in his login keychain ([setting up Sparkle](../developer/releasing.md#setting-up-sparkle)). One job reads it, "Appcast (sign)": it refuses while the environment lacks its rules, hands the key to Sparkle's `sign_update` on its standard input only and runs no Go and no dependency's code. Its public half is the repository variable `SPARKLE_PUBLIC_ED_KEY`, built into every copy as `SUPublicEDKey` | sign appcasts and disk images that every copy with this key accepts | [H-15](#h-15-update-key-compromise-and-rotation) |
 
 ## What this does not cover
@@ -132,6 +140,20 @@ this repository can also have an arbitrary commit, tagged `v<anything>`, built, 
 notarized; the environment has no required reviewer. Renovate's automerged dependency updates are `build(deps):` commits and release
 nothing of their own (owner, 2026-10-13); they ship with the next `feat:` or `fix:`, unreviewed like
 every automerged update.
+
+Decided (owner, 2026-10-14 evening): a repository ruleset lets only the semantic-release GitHub App
+(as a bypass actor) and the owner create `v*` tags, and "Allow administrators to bypass" is off on
+the environment `release`. Both are GitHub settings, an outward change made with the owner's
+approval; neither is made yet, so the arbitrary-tag case above is live today. What
+remains once they are made, per case:
+
+- **A commit on `main`.** Branch protection is not part of the decision: a commit that passes the
+  gates is still released and, since semantic-release tags it through the App, built, signed and
+  notarized, as the first paragraph says.
+- **The App's private key.** It is an organisation secret that the Semantic Release job and
+  Renovate use ([keys](#keys-and-who-holds-them)); whoever holds it can create a `v*` tag on any
+  commit, which the ruleset admits as the App's. Live for every holder of the key.
+- **The owner's account** can create such a tag, as intended.
 
 ### H-15: Update key compromise and rotation
 
@@ -173,7 +195,10 @@ maintainer) can bring a run of a changed workflow to the owner's approval, and t
 names the run and its tag, not what changed. The feed also signs the release's text as it stood
 when the job ran: whoever can edit it before then (the same actors) has their text and links shown
 in Sparkle's window. Administrators may bypass the reviewer while "Allow administrators to bypass"
-is on (GitHub's default; `release` has it on).
+is on (GitHub's default; `release` has it on). Decided (owner, 2026-10-14 evening): the bypass goes
+off on `release`, a setting the owner makes, not made yet ([H-62](#h-62-every-push-to-main-that-passes-the-gates-is-released));
+the decision names `release`, not `sparkle`, so for `sparkle` the bypass stays as the owner sets it
+when he adds the reviewer.
 
 ### H-93: The feed's host can withhold updates
 
@@ -198,9 +223,13 @@ Developer ID-signed disk image. Per case: an attacker who can serve the feed (H-
 image signed with this team's Developer ID (any run on a tag `v*` in the environment `release`,
 which has no reviewer, H-62) could, after 20 days of failing feeds, have copies offer an update
 that changes the update key; the copies' logs show the failures, the user still clicks Install.
-Setting the interval to 0 closes this and turns a lost key into one manual download per copy; it
-is the owner's choice (Cogpit's default: Sparkle's 20 days, as Sparkle documents the failsafe;
-not tried).
+Setting the interval to 0 closes this and turns a lost key into one manual download per copy.
+
+Confirmed by the owner (2026-10-14 evening): Sparkle's 20 days stay (the owner declined setting the
+interval to 0). What remains, dormant until the update key exists and live by design after: the
+case above. Once the tag ruleset decided the same evening is made
+([H-62](#h-62-every-push-to-main-that-passes-the-gates-is-released)), the Developer ID-signed disk
+image it needs comes only from a run on a tag the GitHub App or the owner created.
 
 ### H-17: Installs owned by a package manager
 
