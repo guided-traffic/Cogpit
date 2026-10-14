@@ -1,9 +1,10 @@
 # Release Build: what a release holds. Semantic Release (release.yml) creates the tag and the GitHub
 # release with the GitHub App's token once every gate on main is green; the release's "published"
-# event starts this workflow, which builds the artifacts from the tag and attaches them to the
-# release with SHA256SUMS. A release made with GITHUB_TOKEN would start no workflow, hence the App.
-# What a release holds and what it does not (no signature, no notarization yet):
-# docs/developer/releasing.md#the-release-pipeline, docs/security/updates.md.
+# event starts this workflow on the tag (github.ref is refs/tags/v<version>), which builds the
+# artifacts, signs and notarizes the macOS ones, and attaches everything to the release with
+# SHA256SUMS. A release made with GITHUB_TOKEN would start no workflow, hence the App.
+# What a release holds and what vouches for it: docs/developer/releasing.md#the-release-pipeline,
+# docs/security/updates.md.
 name: Release Build
 
 on:
@@ -47,7 +48,7 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          out="$(dist/cli/cogpit-cli_${version}_linux_amd64/cogpit-cli --version)"
+          out="$("dist/cli/cogpit-cli_${version}_linux_amd64/cogpit-cli" --version)"
           echo "${out}"
           case "${out}" in "cogpit-cli ${version} "*) ;; *) echo "::error::cogpit-cli --version: ${out}"; exit 1 ;; esac
 
@@ -56,12 +57,22 @@ jobs:
         with:
           name: release-cli
           path: |
-            dist/*.tar.gz
-            dist/*.zip
+            dist/cogpit-cli_*_linux_*.tar.gz
+            dist/cogpit-cli_*_windows_*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+      # The macOS archives reach the release through the signing job (macos-sign).
+      - name: Upload the macOS archives
+        uses: actions/upload-artifact@v7
+        with:
+          name: cli-darwin
+          path: dist/cogpit-cli_*_darwin_*.tar.gz
+          if-no-files-found: error
           retention-days: 7
 
   # The desktop app needs macOS: cgo with AppKit does not cross-compile from Linux (make dist-app).
-  # Unsigned: ad-hoc signed by make app, no Developer ID, not notarized.
+  # Signed ad-hoc here; the signing job signs it with the Developer ID. This job sees no secret.
   macos-app:
     name: Cogpit.app (macOS arm64)
     runs-on: macos-latest
@@ -90,13 +101,78 @@ jobs:
       - name: Upload the app
         uses: actions/upload-artifact@v7
         with:
+          name: macos-app
+          path: dist/Cogpit_*_darwin_*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  # The app in the disk image Cogpit-<version>-macos-<arch>.dmg and cogpit-cli for macOS, signed
+  # with the Developer ID (hardened runtime, Apple's timestamp), notarized, the disk image's ticket
+  # stapled, and checked as Gatekeeper checks them (make dist-macos: hack/macos/release.sh).
+  #
+  # The only job in the environment `release`, whose secrets only a tag v* may use. It builds
+  # nothing and runs no Go, so no dependency's code shares a job with the signing identity.
+  # Without the secrets (a fork) the app zip and the archives pass through unsigned. With some of
+  # them, or when a signature, the notarization or a check fails, the job fails and the release
+  # gets no files until the failed jobs are re-run, never unsigned files under a signed note
+  # (docs/developer/releasing.md#when-signing-or-notarization-fails).
+  macos-sign:
+    name: Sign and notarize (macOS)
+    needs: [cli, macos-app]
+    runs-on: macos-latest
+    environment: release
+    # Apple's notary service usually answers within minutes; the script waits 45 at most.
+    timeout-minutes: 70
+    outputs:
+      signed: ${{ steps.sign.outputs.signed }}
+      identity: ${{ steps.sign.outputs.identity }}
+    steps:
+      - name: Checkout the release's tag
+        uses: actions/checkout@v7
+
+      - name: Download the app
+        uses: actions/download-artifact@v8
+        with:
+          name: macos-app
+          path: dist
+
+      - name: Download the macOS archives
+        uses: actions/download-artifact@v8
+        with:
+          name: cli-darwin
+          path: dist
+
+      - name: Sign, notarize and staple
+        id: sign
+        env:
+          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+          MACOS_SIGN_P12_PASSWORD: ${{ secrets.MACOS_SIGN_P12_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          # Apple's intermediate for Developer ID certificates (G2, valid to 2031-09-17), pinned by
+          # its SHA-256: the runner's keychain needs it beside the .p12, or the identity is not valid.
+          MACOS_SIGN_CA_URL: https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+          MACOS_SIGN_CA_SHA256: f16cd3c54c7f83cea4bf1a3e6a0819c8aaa8e4a1528fd144715f350643d2df3a
+        run: make dist-macos VERSION="${GITHUB_REF_NAME#v}"
+
+      # The script deletes them itself; this covers a cancelled run.
+      - name: Delete the signing keychain and the key files
+        if: always()
+        run: hack/macos/release.sh cleanup
+
+      - name: Upload the macOS downloads
+        uses: actions/upload-artifact@v7
+        with:
           name: release-macos
-          path: dist/*.zip
+          path: dist/macos/
+          if-no-files-found: error
           retention-days: 7
 
   publish:
     name: Attach to the release
-    needs: [cli, macos-app]
+    needs: [cli, macos-sign]
     runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
     timeout-minutes: 15
     permissions:
@@ -118,19 +194,63 @@ jobs:
       - name: Checksums
         run: make dist-checksums
 
+      # Exactly the files the signing job's verdict promises: with the signature the disk image and
+      # no app zip, without it the app zip and no disk image; cogpit-cli for six platforms either way.
+      - name: Check the files and write the note
+        id: files
+        env:
+          SIGNED: ${{ needs.macos-sign.outputs.signed }}
+          IDENTITY: ${{ needs.macos-sign.outputs.identity }}
+        run: |
+          set -euo pipefail
+          cd dist
+          expect() {
+            n="$(find . -maxdepth 1 -name "$1" | wc -l | tr -d ' ')"
+            [ "${n}" = "$2" ] || { echo "::error::dist/$1: ${n} files, expected $2"; exit 1; }
+          }
+          expect 'cogpit-cli_*_linux_*.tar.gz' 2
+          expect 'cogpit-cli_*_darwin_*.tar.gz' 2
+          expect 'cogpit-cli_*_windows_*.zip' 2
+          if [ "${SIGNED}" = true ]; then
+            expect 'Cogpit-*-macos-*.dmg' 1
+            expect 'Cogpit_*_darwin_*.zip' 0
+          else
+            expect 'Cogpit-*.dmg' 0
+            expect 'Cogpit_*_darwin_*.zip' 1
+          fi
+          {
+            echo 'list<<EOF'
+            find . -maxdepth 1 \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.dmg' -o -name SHA256SUMS \) | sed 's|^\./|dist/|' | sort
+            echo 'EOF'
+          } >> "${GITHUB_OUTPUT}"
+
+          note="${RUNNER_TEMP}/note.md"
+          if [ "${SIGNED}" = true ]; then
+            dmg="$(find . -maxdepth 1 -name 'Cogpit-*-macos-*.dmg' | sed 's|^\./||')"
+            cat > "${note}" <<EOF
+
+          ---
+
+          **Downloads.** \`${dmg}\` is the app for macOS on Apple silicon: open it and drag Cogpit into Applications. \`cogpit-cli\` runs on Linux, macOS and Windows (amd64 and arm64). Check them against \`SHA256SUMS\` (\`sha256sum -c SHA256SUMS --ignore-missing\`).
+
+          **Signed and notarized for macOS.** The app, the disk image and the macOS \`cogpit-cli\` are signed with the Developer ID "${IDENTITY}" and notarized by Apple. The disk image carries its ticket, so macOS opens it without a warning, offline too; \`cogpit-cli\` cannot carry one, so macOS looks its ticket up online the first time it runs. The Linux and Windows downloads and \`SHA256SUMS\` are not signed ([docs/security/updates.md](https://github.com/guided-traffic/cogpit/blob/main/docs/security/updates.md)). Desktop packages for Linux and Windows come with milestone M11; \`cogpit-cli\` runs there today.
+          EOF
+          else
+            cat > "${note}" <<'EOF'
+
+          ---
+
+          **Downloads.** `cogpit-cli` for Linux, macOS and Windows (amd64 and arm64) and `Cogpit.app` for macOS on Apple silicon; check them against `SHA256SUMS` (`sha256sum -c SHA256SUMS --ignore-missing`).
+
+          **Unsigned.** This build ran without the project's Apple signing material: neither the app nor the macOS `cogpit-cli` is signed with a Developer ID or notarized. macOS blocks the first start of a downloaded copy: allow it once in System Settings → Privacy & Security → Open Anyway ([docs/security/updates.md](https://github.com/guided-traffic/cogpit/blob/main/docs/security/updates.md)). Desktop packages for Linux and Windows come with milestone M11; `cogpit-cli` runs there today.
+          EOF
+          fi
+          cat "${note}"
+
       - name: Attach the artifacts and the note
         uses: softprops/action-gh-release@v3
         with:
-          files: |
-            dist/*.tar.gz
-            dist/*.zip
-            dist/SHA256SUMS
+          files: ${{ steps.files.outputs.list }}
           fail_on_unmatched_files: true
           append_body: true
-          body: |
-
-            ---
-
-            **Downloads.** `cogpit-cli` for Linux, macOS and Windows (amd64 and arm64) and `Cogpit.app` for macOS on Apple silicon; check them against `SHA256SUMS` (`sha256sum -c SHA256SUMS --ignore-missing`).
-
-            **Unsigned.** Neither the app nor the macOS `cogpit-cli` is signed with a Developer ID or notarized yet. macOS blocks the first start of a downloaded copy: allow it once in System Settings → Privacy & Security → Open Anyway. Signing and notarization come once the project's Apple credentials exist ([docs/security/updates.md](https://github.com/guided-traffic/cogpit/blob/main/docs/security/updates.md)). Desktop packages for Linux and Windows come with milestone M11; `cogpit-cli` runs there today.
+          body_path: ${{ runner.temp }}/note.md

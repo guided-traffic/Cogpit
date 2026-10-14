@@ -45,13 +45,25 @@ them ([releasing › the release pipeline](../developer/releasing.md#the-release
 
 | Artifact | Built by | What vouches for it today |
 |---|---|---|
-| `cogpit-cli_<v>_<os>_<arch>.tar.gz` (`.zip` for Windows), six platforms | `make dist-cli` on a self-hosted Linux runner | its SHA-256 in `SHA256SUMS`; no code signature |
-| `Cogpit_<v>_darwin_arm64.zip`, the app bundle | `make dist-app` on GitHub's `macos-latest` | its SHA-256 in `SHA256SUMS`; an ad-hoc signature (`codesign --sign -`), which seals the bundle but names nobody: **no Developer ID, not notarized**, so Gatekeeper blocks the first start until the user allows it |
+| `Cogpit-<v>-macos-arm64.dmg`, the app bundle in a disk image (from the first release after v0.4.0 on; no release has it yet) | `make dist-app` on GitHub's `macos-latest`, signed and imaged by `make dist-macos` ([`hack/macos/release.sh`](../../hack/macos/release.sh)) in the job "Sign and notarize (macOS)" | the app and the disk image signed with the Developer ID "Developer ID Application: Hans Fischer (6L57P2HXN6)", the hardened runtime and Apple's timestamp; the disk image notarized by Apple, its ticket stapled, so Gatekeeper accepts it offline as `Notarized Developer ID`; its SHA-256 in `SHA256SUMS` |
+| `cogpit-cli_<v>_darwin_<arch>.tar.gz`, two architectures | `make dist-cli` on a self-hosted Linux runner, signed in the same job | the binary signed like the app and notarized; it cannot carry its ticket, so Gatekeeper looks it up online when a quarantined copy first runs; its SHA-256 in `SHA256SUMS` |
+| `cogpit-cli_<v>_<os>_<arch>.tar.gz` for Linux, `.zip` for Windows, four platforms | `make dist-cli` on a self-hosted Linux runner | its SHA-256 in `SHA256SUMS`; no code signature |
+| `Cogpit_<v>_darwin_arm64.zip`, the app bundle (v0.4.0 and earlier, and any build without the signing secrets) | `make dist-app` on GitHub's `macos-latest` | its SHA-256 in `SHA256SUMS`; an ad-hoc signature (`codesign --sign -`), which seals the bundle but names nobody: **no Developer ID, not notarized**, so Gatekeeper blocks the first start until the user allows it |
 | `SHA256SUMS` | the release pipeline's last job | nothing: it is not signed, so it shows that a download matches what CI attached to the release, not who attached it |
 
-The release page says the app is unsigned. There is no update manifest and no update key yet, and
-nothing in Cogpit fetches a release: the [chain of trust](#chain-of-trust) above is the design for
-when there is.
+**What the Developer ID signature and the notarization vouch for:** that the code was signed with
+the key of team 6L57P2HXN6's certificate and has not changed since, and that Apple's automated
+check found no known malware in it when it was submitted. They do not say which commit it was
+built from, and they reach as far as the key: whoever runs a workflow on a `v*` tag in this
+repository can have that key sign what the workflow built
+([H-62](#h-62-every-push-to-main-that-passes-the-gates-is-released)). The release page says what was
+signed, naming the certificate the signature carries, or that the build was unsigned.
+
+There is no update manifest and no update key yet, and nothing in Cogpit fetches a release: the
+[chain of trust](#chain-of-trust) above is the design for when there is (Sparkle, next in
+[D-4](../developer/decisions.md#d-4-packaging-and-updates)). Until then a user learns of a new
+version from the release page, and the Developer ID signature is what Gatekeeper checks when the
+new copy first starts.
 
 ### Keys and who holds them
 
@@ -59,28 +71,34 @@ when there is.
 |---|---|---|---|
 | The organisation's GitHub App private key (`APP_CLIENT_ID`, `APP_PRIVATE_KEY`) | organisation secrets of `guided-traffic`, visible to this repository; used by the Semantic Release job (token with `contents: write`) and by Renovate | push to `main`, create tags and releases; a release it creates starts the release pipeline, which builds whatever the tag points at | rotate the App's private key in the App's settings and replace the organisation secret; delete the releases and tags it made. Secrets are not handed to workflows of pull requests from forks |
 | The release pipeline's `GITHUB_TOKEN` | per job; `contents: write` only in its last job, to attach the artifacts | upload assets to and edit the text of this repository's releases | expires with the job |
-| Developer ID Application certificate, App Store Connect team API key (role Developer) | secrets of the GitHub environment `release` (created 2026-10-13; the material in it since 2026-10-14), which only tag workflows may use (deployment rule: tags `v*`), so that no pull request workflow can read them | sign and notarize Cogpit | revoke the certificate at Apple, and the key in App Store Connect; releases notarized before stay valid (the owner's note, 2026-10-13; not checked against Apple's documentation) |
+| Developer ID Application certificate, App Store Connect team API key (role Developer) | secrets of the GitHub environment `release` (created 2026-10-13; the material in it since 2026-10-14), which only tag workflows may use (deployment rule: tags `v*`), so that no pull request workflow can read them. One job reads them, "Sign and notarize (macOS)": it builds nothing and runs no Go, imports the certificate into a temporary keychain (key not extractable, usable by `codesign` only) and the API key into an owner-only file, and deletes both when it ends ([releasing › signing and notarization](../developer/releasing.md#signing-and-notarization)) | sign and notarize code as team 6L57P2HXN6: whatever is signed and notarized with the two passes Gatekeeper on every Mac until Apple revokes the certificate | revoke the certificate at Apple, and the key in App Store Connect; releases notarized before stay valid (the owner's note, 2026-10-13; not checked against Apple's documentation) |
 | The update key (Sparkle's EdDSA key, planned) | decided (owner, 2026-10-13): a secret of a GitHub environment with the owner as required reviewer, so CI signs a release's feed only after the owner approved that run | sign the update manifest | [H-15](#h-15-update-key-compromise-and-rotation) |
 
 ## What this does not cover
 
 ### H-61: Releases are unsigned
 
-Live since the first release (2026-10-13). Neither `Cogpit.app` nor `cogpit-cli` carries a code
-signature that names Cogpit, the app is not notarized, and `SHA256SUMS` is not signed: whoever can
-change a release's assets (the GitHub App's key, a maintainer's account) can replace an artifact
-and its checksum together, and a user has nothing to check them against. The Apple material
-for the Developer ID signature and the notarization exists since 2026-10-14
-([releasing › secrets](../developer/releasing.md#secrets)), but no pipeline step uses it yet, so
-this stays live until the signing steps ship ([D-4](../developer/decisions.md#d-4-packaging-and-updates)); signing the checksums or the
-artifacts for Linux and Windows is not designed.
+Live since the first release (2026-10-13); narrowed 2026-10-14. v0.4.0 and earlier carry no code
+signature that names Cogpit. Since 2026-10-14 the release pipeline signs the macOS app, its disk
+image and `cogpit-cli` for macOS with the Developer ID and has them notarized
+([releasing › signing and notarization](../developer/releasing.md#signing-and-notarization));
+no tag run has done it yet, so this holds for every published release until the first one after
+v0.4.0. What stays live after it: `cogpit-cli` for Linux and Windows is not signed, and
+`SHA256SUMS` is not signed, so whoever can change a release's assets (the GitHub App's key, a
+maintainer's account) can replace one of those archives and its checksum together, and a user has
+nothing to check them against. A swapped macOS download would need the Developer ID key as well.
+Signing the checksums or the artifacts for Linux and Windows is not designed.
 
 ### H-62: Every push to `main` that passes the gates is released
 
 Live since 2026-10-13. `main` has no branch protection and no required review (checked
 2026-10-13), agents and maintainers push to it directly, and semantic-release releases every
 `fix:` and `feat:` commit once CI is green, so the checks are the only gate between a commit and a
-published release. Renovate's automerged dependency updates are `build(deps):` commits and release
+published release. Since 2026-10-14 that release's macOS downloads are signed with the owner's
+Developer ID and notarized, so a commit that passes the gates ships as code Gatekeeper accepts
+without a warning. The environment `release` admits any tag `v*`: whoever may create a release in
+this repository can also have an arbitrary commit, tagged `v<anything>`, built, signed and
+notarized; the environment has no required reviewer. Renovate's automerged dependency updates are `build(deps):` commits and release
 nothing of their own (owner, 2026-10-13); they ship with the next `feat:` or `fix:`, unreviewed like
 every automerged update.
 

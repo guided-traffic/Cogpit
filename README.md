@@ -20,9 +20,9 @@ change.
 ![Cogpit: the navigator, the Pods list with CPU and memory, and a pod's drawer with its CPU chart, requests and limits](docs/images/hero.png)
 
 > **Pre-alpha.** Cogpit runs on macOS on Apple silicon today; Windows and Linux are planned after
-> the macOS beta. The views and actions are in place, some of them still in part, but the releases
-> are unsigned builds and nothing has been walked through by testers on real clusters yet: try it
-> on the built-in demo cluster or a test cluster first. Where it stands, feature by feature:
+> the macOS beta. The views and actions are in place, some of them still in part, but nothing has
+> been walked through by testers on real clusters yet: try it on the built-in demo cluster or a
+> test cluster first. Where it stands, feature by feature:
 > [ROADMAP.md](ROADMAP.md).
 
 ## ✨ Features
@@ -152,10 +152,9 @@ time in your own time zone and your region's format.
 ## 🚀 Get Cogpit
 
 **Download** the latest [release](https://github.com/guided-traffic/cogpit/releases): the app for
-Apple silicon is `Cogpit_<version>_darwin_arm64.zip`. It is not signed with a Developer ID yet, so
-macOS blocks its first start until you allow it in System Settings › Privacy & Security › Open
-Anyway. No cluster at hand? Pick the **demo** cluster in the cluster picker (⌘P): a synthetic
-cluster of 10,000 pods that lives inside Cogpit.
+Apple silicon is `Cogpit-<version>-macos-arm64.dmg`, signed and notarized by Apple. Open it and drag
+Cogpit into Applications. No cluster at hand? Pick the **demo** cluster in the cluster picker (⌘P):
+a synthetic cluster of 10,000 pods that lives inside Cogpit.
 
 **`cogpit-cli`** (Linux, macOS and Windows, in every release) lists your contexts, prints any
 kind's objects as Cogpit's views show them, and connects agents that speak only stdio to Cogpit's

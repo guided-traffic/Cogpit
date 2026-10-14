@@ -356,12 +356,16 @@ icon: ## Redraw packaging/icon.png from hack/icon
 # What a release holds (docs/developer/releasing.md#the-release-pipeline): the release pipeline
 # (.github/workflows/build.yml) runs these with VERSION set to the release's, and they run the same
 # here. cogpit-cli is pure Go and cross-compiles to every platform; the app needs macOS (cgo with
-# AppKit). Both unsigned: no Developer ID, not notarized (docs/security/updates.md).
+# AppKit). dist-cli and dist-app build unsigned; dist-macos signs and notarizes the macOS ones
+# (hack/macos/release.sh) when the Developer ID secrets are in its environment, which only the
+# pipeline's signing job has; MACOS_SIGN=adhoc runs its steps here, signed ad-hoc and not notarized
+# (docs/security/updates.md).
 DIST            := $(CURDIR)/dist
 CLI_PLATFORMS   := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 DIST_LDFLAGS     = -s -w -X main.version=$(VERSION)
+MACOS_SIGN      ?=
 
-.PHONY: dist-cli dist-app dist-checksums
+.PHONY: dist-cli dist-app dist-macos dist-checksums
 
 dist-cli: ## cogpit-cli for every platform as archives in dist/ (tar.gz, zip for Windows); VERSION=x.y.z
 	@rm -rf $(DIST)/cli && mkdir -p $(DIST)/cli
@@ -384,8 +388,12 @@ dist-app: ## The macOS app, zipped, in dist/ (macOS only); VERSION=x.y.z
 	ditto -c -k --keepParent $(BIN)/Cogpit.app $(DIST)/Cogpit_$(VERSION)_darwin_$$($(GO) env GOARCH).zip
 	@echo "dist/Cogpit_$(VERSION)_darwin_$$($(GO) env GOARCH).zip"
 
-dist-checksums: ## SHA256SUMS of the archives in dist/
-	cd $(DIST) && if command -v sha256sum >/dev/null; then sha256sum *.tar.gz *.zip; else shasum -a 256 *.tar.gz *.zip; fi > SHA256SUMS
+dist-macos: ## The macOS downloads in dist/macos from dist-app's zip and dist-cli's archives: the disk image and cogpit-cli signed and notarized with the release secrets, MACOS_SIGN=adhoc for a local check, else unsigned (macOS only); VERSION=x.y.z
+	MACOS_SIGN='$(MACOS_SIGN)' hack/macos/release.sh '$(VERSION)' '$(DIST)' '$(DIST)/macos'
+
+dist-checksums: ## SHA256SUMS of the archives and disk images in dist/
+	cd $(DIST) && files=$$(ls *.tar.gz *.zip *.dmg 2>/dev/null || true) && test -n "$$files" && \
+		if command -v sha256sum >/dev/null; then sha256sum $$files; else shasum -a 256 $$files; fi > SHA256SUMS
 	@cat $(DIST)/SHA256SUMS
 
 clean: ## Remove build output

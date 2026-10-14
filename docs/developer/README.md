@@ -31,7 +31,7 @@ this page.
 | [`conventions.md`](conventions.md) | Clean-room, never surprise a cluster, cache first, crash stance, secrets, style, commits |
 | [`extending.md`](extending.md) | Checklists: a command, a kind profile, a cache consumer, a package |
 | [`testing.md`](testing.md) | Test tiers, fixtures, performance and API-load budgets |
-| [`releasing.md`](releasing.md) | CI jobs and their make targets, the race shards, coverage, Renovate, the release flow with semantic-release, the release pipeline and its artifacts, signed updates |
+| [`releasing.md`](releasing.md) | CI jobs and their make targets, the race shards, coverage, Renovate, the release flow with semantic-release, the release pipeline and its artifacts, the macOS signing and notarization and what to do when it fails, signed updates |
 | [`decisions.md`](decisions.md) | Decisions taken and open |
 | [`spike-fyne.md`](spike-fyne.md) | The UI toolkit gate before M2 |
 
@@ -57,6 +57,7 @@ cogpit/
 ├─ hack/shard/                the UI's race tests split into CI shards (make test-race-ui)
 ├─ hack/coverage/             merges coverage profiles into the badge and the summary (make coverage-report)
 ├─ hack/readmecmds/           the command table in docs/developer/commands.md, from the registry
+├─ hack/macos/                release.sh: signs, images and notarizes the macOS downloads (make dist-macos; releasing.md)
 ├─ packaging/                 icon.png; per-OS packaging later
 ├─ tools/                     (planned) generators of the parity checklist page and the scorecard
 └─ docs/
@@ -132,5 +133,6 @@ Through the `Makefile`, as in the team's other repositories (`make help` lists e
 | Benchmarks of the gate | `make bench` |
 | Lint, layering included | `make lint` (golangci-lint v2.14.0, installed into `bin/`) |
 | Package for macOS | `make app` |
+| The macOS downloads, signed ad-hoc (the release pipeline signs with the Developer ID) | `make dist-app dist-cli` then `make dist-macos MACOS_SIGN=adhoc` ([releasing](releasing.md#running-the-signing-locally)) |
 | Check the parity checklists and their numbers | `make parity` ([rules](../parity/README.md#make-parity)) |
 | Regenerate the parity checklist page and the scorecard | not built yet (gap G1) |

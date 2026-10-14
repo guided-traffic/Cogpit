@@ -19,7 +19,8 @@ into a cluster. **Status: pre-alpha** (updated 2026-10-14): every view and every
 list exists at least in part (64 of 64 views, 39 of 39 actions, counted by `make parity`), with
 the Flux CD and Argo CD sections, Helm releases and charts, metrics, logs, a terminal, pod and node
 shells and MCP control of all of it; none of it has been walked through by a person on a real
-cluster yet. The releases are unsigned builds for Apple silicon ([Download a release](#download-a-release),
+cluster yet. The releases are builds for Apple silicon, signed and notarized from the first release
+after v0.4.0 on ([Download a release](#download-a-release),
 [Run the MVP](#run-the-mvp)); where Cogpit stands: [roadmap](../../ROADMAP.md).
 
 How data flows from the kubeconfig files to the views and agents:
@@ -58,21 +59,26 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - 🤖 Fully controllable over MCP, the UI included: an agent sees what you see and navigates for you.
 - ⌨️ `cogpit-cli`: your contexts and any kind's objects on the command line, read-only, and an MCP stdio bridge you register once.
 - 💬 *(planned)* A built-in agent in a chat beside your views, on any OpenAI-compatible endpoint such as LiteLLM or Open WebUI.
-- 📦 *(planned)* Installs the Mac way: open the disk image, drag Cogpit into Applications; a Homebrew cask for shell users.
+- 📦 Installs the Mac way: open the disk image, drag Cogpit into Applications, signed and notarized (from the first release after v0.4.0 on); *(planned)* a Homebrew cask for shell users.
 - ⬆️ *(planned)* Updates with one click (Sparkle), verified against a signed update feed.
 
 ## Get it and run it
 
 ### Download a release
 
-Every [release](https://github.com/guided-traffic/cogpit/releases) since v0.1.0 (2026-10-13)
-carries `Cogpit_<version>_darwin_arm64.zip` (the app for Apple silicon), `cogpit-cli` for Linux,
-macOS and Windows on amd64 and arm64, and `SHA256SUMS`. **They are unsigned:** no Developer ID,
-not notarized, so macOS blocks the app's first start until you allow it under System Settings ›
-Privacy & Security › Open Anyway ([updates](../security/updates.md#what-a-release-holds-today)).
+Every [release](https://github.com/guided-traffic/cogpit/releases) carries the app for Apple
+silicon, `cogpit-cli` for Linux, macOS and Windows on amd64 and arm64, and `SHA256SUMS`. From the
+first release after v0.4.0 on, the app comes as `Cogpit-<version>-macos-arm64.dmg`: open it and
+drag Cogpit into Applications. The app, the disk image and the macOS `cogpit-cli` are signed with
+the project's Developer ID and notarized by Apple, so macOS starts them without a warning
+([releasing › signing and notarization](releasing.md#signing-and-notarization)). v0.1.0 to v0.4.0
+carry `Cogpit_<version>_darwin_arm64.zip` instead, **unsigned**: macOS blocks that app's first
+start until you allow it under System Settings › Privacy & Security › Open Anyway. The Linux and
+Windows archives are not signed ([updates](../security/updates.md#what-a-release-holds-today)).
 
 ```sh
 shasum -a 256 -c SHA256SUMS --ignore-missing      # sha256sum on Linux
+spctl -a -t open --context context:primary-signature -vv Cogpit-<version>-macos-arm64.dmg   # source=Notarized Developer ID
 tar -xzf cogpit-cli_<version>_darwin_arm64.tar.gz && ./cogpit-cli_<version>_darwin_arm64/cogpit-cli --version
 ```
 
@@ -115,7 +121,7 @@ wait for your confirmation in Cogpit's window ([agents and MCP](../security/agen
 **Verify.** `make test-unit-race` runs every test without a cluster; with the kind cluster up,
 `make test-kind` also runs the cluster tests (views, logs, pod shell, `kubectl` in the terminal).
 
-**Not built yet (2026-10-13):** Windows and Linux packages, signed releases (the releases are unsigned) and updates, the built-in agent chat; what exists and
+**Not built yet (2026-10-14):** Windows and Linux packages, signed Linux and Windows downloads, the app for Intel Macs, updates, the built-in agent chat; what exists and
 what is missing, row by row: [docs/parity](../parity/README.md).
 
 <details>
@@ -289,7 +295,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Node shell dock tab | id `nodeShell-<n>`, title `Node shell: <node>` | `Node shell: worker-1` # example |
 | Demo context | `demo` (the synthetic cluster) | |
 | Local kind cluster | cluster `cogpit`, context `kind-cogpit`, kubeconfig `.cache/kind/kubeconfig` | |
-| Release artifacts (planned) | `Cogpit-<version>-macos-universal.dmg`, `cogpit-cli-<version>-<os>-<arch>.tar.gz` | `Cogpit-0.1.0-macos-universal.dmg` # example |
+| Release artifacts | `Cogpit-<version>-macos-<arch>.dmg` (signed releases; `universal` once the app is built for Intel too, planned), `Cogpit_<version>_darwin_<arch>.zip` (v0.4.0 and earlier, and builds without the signing secrets), `cogpit-cli_<version>_<os>_<arch>.tar.gz` (`.zip` for Windows), `SHA256SUMS` | `Cogpit-0.5.0-macos-arm64.dmg` # example |
 | Deep links (planned) | `cogpit://` | |
 
 </details>
