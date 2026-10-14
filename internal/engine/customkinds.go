@@ -60,6 +60,9 @@ type customSet struct {
 	byKey    map[string]*model.KindProfile
 	synced   bool   // the definitions' initial list is done
 	err      string // the watch's last error: without list and watch on definitions there are no custom kinds
+	// discovered: the definitions could not be listed (err), and API discovery answered which
+	// curated kinds the cluster serves (A90, customkinds_discovery.go).
+	discovered bool
 }
 
 // attachCustomKinds starts the custom kinds watch of a backend that asks for it. It runs before
@@ -180,6 +183,8 @@ func (ck *customKinds) rebuild() {
 		}
 		next[key] = customEntry{kind: k, profile: kinds.ProfileFor(k)} // a curated profile, else the generic one
 	}
+	// Without the definitions, the curated kinds from API discovery (A90, customkinds_discovery.go).
+	discovered := errMsg != "" && ck.discoverCurated(next)
 	addArgoCompanions(ck.b, next) // argocd.go: Argo CD's settings views come with its Application kind
 	changed := len(next) != len(ck.entries)
 	for key, e := range next {
@@ -190,10 +195,11 @@ func (ck *customKinds) rebuild() {
 	ck.entries = next
 
 	set := &customSet{
-		profiles: make([]*model.KindProfile, 0, len(next)),
-		byKey:    make(map[string]*model.KindProfile, len(next)),
-		synced:   synced,
-		err:      errMsg,
+		profiles:   make([]*model.KindProfile, 0, len(next)),
+		byKey:      make(map[string]*model.KindProfile, len(next)),
+		synced:     synced,
+		err:        errMsg,
+		discovered: discovered,
 	}
 	for key, e := range next {
 		set.profiles = append(set.profiles, e.profile)

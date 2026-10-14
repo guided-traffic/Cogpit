@@ -338,48 +338,36 @@ func argoSecretReads(srv *testkit.FakeAPIServer) []string {
 }
 
 // A namespace-limited user whose Role names the GitOps kinds but who may not list their
-// definitions (the rule rather than the exception: listing definitions takes a ClusterRole): Cogpit
-// cannot tell whether the cluster serves Flux or Argo CD, and both dashboards, as pages and as
-// agents' reads, say so with the server's reason instead of saying the cluster serves none, as
-// they did before (2026-10-14). The definitions are refused once and nothing of Flux or Argo CD is
-// read.
+// definitions (the rule rather than the exception: listing definitions takes a ClusterRole). Before
+// 2026-10-14 both dashboards said the cluster serves none; then that Cogpit cannot tell, with the
+// server's reason. Since A90 (the owner's decision of 2026-10-14 evening) Cogpit recognises Flux
+// and Argo CD from API discovery and shows them with their curated profiles: both dashboards, as
+// pages and as agents' reads, count team-a's objects as for a user who may list the definitions,
+// with the same reads of each kind (one refused read in all namespaces and its list, then team-a's).
+// The definitions are refused once.
 func TestGitOpsDashboardsWithoutTheDefinitions(t *testing.T) {
+	u := gitopsUsers()[0] // a RoleBinding in the context's namespace alone
+	u.name += ", without the definitions"
+	u.access = &testkit.FakeAccess{Enforce: true, Rules: map[string][]testkit.FakeRule{"team-a": u.access.Rules["team-a"]}}
+	for _, page := range []bool{true, false} {
+		how := "an agent's read"
+		if page {
+			how = "the page"
+		}
+		t.Run("Flux, "+how, func(t *testing.T) { checkFluxDashboard(t, u, page) })
+		t.Run("Argo CD, "+how, func(t *testing.T) { checkArgoDashboard(t, u, page) })
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	gitops := testkit.FakeRule{Verbs: []string{"get", "list", "watch"},
-		APIGroups: []string{"", "kustomize.toolkit.fluxcd.io", "source.toolkit.fluxcd.io", "argoproj.io"},
-		Resources: []string{"pods", "secrets", "kustomizations", "gitrepositories", "applications", "applicationsets", "appprojects"}}
-	s, srv := connectGitOps(ctx, t, &testkit.FakeAccess{Enforce: true, Rules: map[string][]testkit.FakeRule{"team-a": {gitops}}}, nil)
-	unknown := func(text, what string) bool {
-		return strings.HasPrefix(text, "Cogpit cannot tell whether the cluster serves "+what+": the custom resource definitions cannot be listed (") &&
-			strings.Contains(text, "forbidden")
-	}
-
-	fm, ft, err := s.FluxDashboard(ctx, nil, true)
-	if err != nil || len(fm.Kinds) != 0 || !unknown(fm.Error, "Flux kinds") || !unknown(ft.Error, "Flux kinds") {
-		t.Errorf("an agent's Flux dashboard: %+v, table error %q, %v", fm, ft.Error, err)
-	}
-	am, at, err := s.ArgoCDDashboard(ctx, nil, true)
-	if err != nil || am.Served || !unknown(am.Error, "Argo CD Applications") || !unknown(at.Error, "Argo CD Applications") {
-		t.Errorf("an agent's Argo CD dashboard: %+v, table error %q, %v", am, at.Error, err)
-	}
-
-	s.OpenTab(engine.FluxDashboard, false)
-	if !testkit.WaitFor(ctx, func() bool { ts := s.Table(engine.FluxDashboard); return ts != nil && unknown(ts.Error, "Flux kinds") }) {
-		t.Errorf("the Flux page: %+v", s.Table(engine.FluxDashboard))
-	}
-	s.OpenTab(engine.ArgoCDDashboard, false)
-	if !testkit.WaitFor(ctx, func() bool {
-		ts := s.Table(engine.ArgoCDDashboard)
-		return ts != nil && unknown(ts.Error, "Argo CD Applications")
-	}) {
-		t.Errorf("the Argo CD page: %+v", s.Table(engine.ArgoCDDashboard))
-	}
-
-	for k := range srv.RequestsIn() {
-		if strings.Contains(k, "fluxcd.io") || strings.Contains(k, "argoproj.io") {
-			t.Errorf("read %q, want nothing of Flux or Argo CD", k)
+	s, srv := connectGitOps(ctx, t, u.access, nil)
+	waitGitOpsKinds(ctx, t, s)
+	if set := s.Backend().CustomProfiles(); len(set) != len(kinds.ArgoSettings())+5 {
+		var keys []string
+		for _, p := range set {
+			keys = append(keys, p.Key)
 		}
+		t.Errorf("custom kinds %q, want Kustomizations, Git repositories, Argo CD's three and its settings", keys)
 	}
 	if crds := readsOf(srv, "customresourcedefinitions.apiextensions.k8s.io"); crds["watchlist customresourcedefinitions.apiextensions.k8s.io"] != 1 || len(crds) > 2 {
 		t.Errorf("definitions: reads %v, want one refused read (and its list)", crds)

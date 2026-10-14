@@ -34,6 +34,8 @@ func (b *Backend) customKindsUnknown(what string) string {
 	switch {
 	case set == nil:
 		return ""
+	case set.err != "" && set.discovered: // API discovery told (A90, customkinds_discovery.go)
+		return ""
 	case set.err != "":
 		return "Cogpit cannot tell whether the cluster serves " + what + ": the custom resource definitions cannot be listed (" + set.err + ")."
 	case !set.synced:
