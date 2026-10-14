@@ -120,12 +120,12 @@ func TestPreferencesOpenWithTheShortcutAndSwitchTheTheme(t *testing.T) {
 	if sh.settings.title.text != "Preferences" || sh.settings.badge.Visible() {
 		t.Errorf("title %q", sh.settings.title.text)
 	}
-	if th := sh.app.Settings().Theme().(*cogTheme); th.mode != ThemeDark {
+	if th := sh.app.Settings().Theme().(*cogTheme); th.mode != ThemeSystem { // the default follows the computer (A94)
 		t.Fatalf("starts %s", th.mode)
 	}
 
 	sel := sh.settings.controls["theme"].(*widget.Select)
-	if sel.Selected != "Dark" {
+	if sel.Selected != "Sync with computer" {
 		t.Errorf("theme shows %q", sel.Selected)
 	}
 	sel.SetSelected("Light")

@@ -101,8 +101,8 @@ func TestStatusFilterInTheHeader(t *testing.T) {
 	if len(tv.tools.Objects) != 3 || tv.tools.Objects[0] != tv.nsBox || tv.tools.Objects[1] != sf.box || tv.tools.Objects[2] != tv.searchBox {
 		t.Fatalf("the header's tools %v", tv.tools.Objects)
 	}
-	if sf.button.Text != allStates || sf.button.Disabled() || sf.clear.Visible() {
-		t.Fatalf("button %q disabled %v, × %v", sf.button.Text, sf.button.Disabled(), sf.clear.Visible())
+	if sf.button.Text != allStates || sf.button.Disabled() || sf.clear.Visible() || sf.button.Importance == widget.HighImportance {
+		t.Fatalf("button %q disabled %v, × %v, importance %v", sf.button.Text, sf.button.Disabled(), sf.clear.Visible(), sf.button.Importance)
 	}
 
 	test.Tap(sf.button)
@@ -134,6 +134,9 @@ func TestStatusFilterInTheHeader(t *testing.T) {
 	if p := decodeParams[statusFilterParams](t, f.callsOf("ui.setStatusFilter")[0]); !slices.Equal(p.States, []string{"Running"}) {
 		t.Errorf("sent %+v", p)
 	}
+	if sf.button.Importance != widget.HighImportance { // the accent colour while a filter is active (A80)
+		t.Errorf("an active filter's button is not in the accent colour: %v", sf.button.Importance)
+	}
 	if sf.button.Text != "Running" || !sf.clear.Visible() || stateChecks(sf)[""].Checked || len(tv.snap.Rows) != running {
 		t.Errorf("after Running: button %q, × %v, rows %d of %d", sf.button.Text, sf.clear.Visible(), len(tv.snap.Rows), running)
 	}
@@ -151,7 +154,9 @@ func TestStatusFilterInTheHeader(t *testing.T) {
 
 	// The ×: one click clears it.
 	test.Tap(sf.clear)
-	q.until(t, "cleared", func() bool { return sh.ui.States == nil && sf.button.Text == allStates && !sf.clear.Visible() })
+	q.until(t, "cleared", func() bool {
+		return sh.ui.States == nil && sf.button.Text == allStates && !sf.clear.Visible() && sf.button.Importance != widget.HighImportance
+	})
 	if p := decodeParams[statusFilterParams](t, f.callsOf("ui.setStatusFilter")[len(f.callsOf("ui.setStatusFilter"))-1]); p.States == nil || len(p.States) != 0 {
 		t.Errorf("× sent %+v", p) // an empty list, never null (the schema's array)
 	}

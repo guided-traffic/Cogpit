@@ -1334,8 +1334,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   commands; a plain click on a row opens its drawer and keeps the checked rows; Restart on a
   selection of workloads ([G7](#g7-resource-actions)); D-25's places revised: the lists' copy icon
   lies over the cell's end, the text no longer shortened for it, and the drawer's Forward… sits right
-  after the value with the copy icon over the value's end on hover; the status filter's button in
-  the accent colour while a filter is active; after a create the new object's drawer opens and the
+  after the value with the copy icon over the value's end on hover (the status filter's button in
+  the accent colour while a filter is active: built 2026-10-14, A80); after a create the new object's drawer opens and the
   list scrolls to its row ([G9](#g9-yaml-editor-and-create-resource)). Confirmed, now the owner's
   decisions: the checkmark and toast on a list copy; the copy icons' exclusion list, for custom
   resource columns too; Delete of at most 500 objects; the name column's 140-point minimum; links
@@ -1564,8 +1564,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   2026-10-14, above); ⌘F and ⌘⇧T as
   main-menu items showing their keys, which stay window shortcuts (the editor keeps its ⌘F); the
   palette's typed text as engine state; a cluster's colour from the eight swatches or a free colour
-  picker; Sync with computer the default theme.
-  Built 2026-10-14: a `cogpit://` link naming another cluster than the connected one asks once,
+  picker.
+  Built 2026-10-14: Sync with computer the default theme (A94); a `cogpit://` link naming another cluster than the connected one asks once,
   naming the context ([D-47](../developer/decisions.md#d-47-deep-links-cogpit)); agents may set a proxy, Preferences' and a cluster's, as a write the user always
   confirms; an agent removing a bank that holds clusters waits for the user; marking notifications
   read and clearing them the window's only, the window-only toasts reaching agents as text through
@@ -1628,7 +1628,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestClusterSettingsFromThePickerSetIdentityAndTerminal`, `TestClusterSettingsCommandsNeverTouchTheKubeconfig`,
   [PNG](../../internal/ui/fyneui/testdata/cluster_settings_dark.png)). Inferred or Cogpit's
   defaults: the page in place of the views, the sections' grouping, the swatches, the bounds, the
-  cluster namespace replacing the filter's, Dark as the default theme; not tried in a real window.
+  cluster namespace replacing the filter's, Dark as the default theme (Sync with computer since
+  2026-10-14, A94); not tried in a real window.
 - **Built 2026-10-13 (night run):** the Help and Window menus and a cluster's Disconnect and
   Remove from Cogpit ([`fyneui/menus.go`](../../internal/ui/fyneui/menus.go),
   [`fyneui/menus_cluster.go`](../../internal/ui/fyneui/menus_cluster.go)). Help: Welcome

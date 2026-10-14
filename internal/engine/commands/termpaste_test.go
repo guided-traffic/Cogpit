@@ -33,7 +33,7 @@ func TestRightClickPreferenceIsTheUsers(t *testing.T) {
 			}
 		}
 	}
-	if p, _ := s.Preferences(); p.TerminalRightClickCopyPaste || p.Theme != engine.ThemeDark {
+	if p, _ := s.Preferences(); p.TerminalRightClickCopyPaste || p.Theme != engine.ThemeSystem {
 		t.Errorf("a refused change was kept: %+v", p)
 	}
 

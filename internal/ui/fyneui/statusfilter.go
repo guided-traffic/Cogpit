@@ -82,15 +82,21 @@ func (f *statusFilter) label() string {
 	}
 }
 
-// update shows the engine's selection and the snapshot's states: the button's label, the × while a
-// state is selected, the button greyed while the rows carry no state to choose, an open list
-// rebuilt when its states changed.
+// update shows the engine's selection and the snapshot's states: the button's label, the button in
+// the accent colour and the × while a state is selected (A80, owner 2026-10-14 evening), the button
+// greyed while the rows carry no state to choose, an open list rebuilt when its states changed.
 func (f *statusFilter) update() {
 	sel := f.selected()
+	importance := widget.MediumImportance
 	if len(sel) > 0 {
 		f.clear.Show()
+		importance = widget.HighImportance // the theme's primary colour: the accent
 	} else {
 		f.clear.Hide()
+	}
+	if f.button.Importance != importance {
+		f.button.Importance = importance
+		f.button.Refresh()
 	}
 	th := fyne.CurrentApp().Settings().Theme()
 	room := th.Size(sizeFilterWidth) - th.Size(theme.SizeNameInlineIcon) - 4*th.Size(theme.SizeNameInnerPadding)

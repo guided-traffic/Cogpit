@@ -23,7 +23,7 @@ func TestPreferencesPersistPrivately(t *testing.T) {
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
 		t.Fatalf("the directory exists before the first change: %v", err)
 	}
-	if got := s.UIState().Preferences; got == nil || got.Theme != ThemeDark || !got.EditorLineNumbers || got.EditorTabSize != 2 ||
+	if got := s.UIState().Preferences; got == nil || got.Theme != ThemeSystem || !got.EditorLineNumbers || got.EditorTabSize != 2 ||
 		got.EditorFontSize != DefaultFontSize || got.TerminalFontSize != DefaultFontSize {
 		t.Fatalf("a first start shows the defaults: %+v", got)
 	}
@@ -85,7 +85,7 @@ func TestPreferencesUnreadableFileIsKeptAside(t *testing.T) {
 			}
 			s := New(Options{Preferences: NewPreferencesStore(dir)})
 			defer s.Close()
-			if got := s.UIState().Preferences; got == nil || got.Theme != ThemeDark {
+			if got := s.UIState().Preferences; got == nil || got.Theme != ThemeSystem {
 				t.Fatalf("an unreadable file starts with the defaults: %+v", got)
 			}
 			if _, err := s.ChangePreferences(func(p *Preferences) error { p.Theme = ThemeSystem; return nil }); err != nil {

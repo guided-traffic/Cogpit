@@ -145,7 +145,7 @@ window. Nothing of it was built in the round.
 | A77 | #157 | A row's states from the kind's state columns, the tokens as fallback; as built | [D-34](#d-34-the-flux-dashboard) |
 | A78 | #158 | AND between state columns, OR within one; as built | [D-34](#d-34-the-flux-dashboard) |
 | A79 | #159 | The status filter belongs to its view and tab; as built | [D-34](#d-34-the-flux-dashboard) |
-| A80 | #160 | The status filter's button in the accent colour while a filter is active; to build | [D-34](#d-34-the-flux-dashboard) |
+| A80 | #160 | The status filter's button in the accent colour while a filter is active; built 2026-10-14 | [D-34](#d-34-the-flux-dashboard) |
 | A81 | #49 | An Application's logs in one merged tab, each line `<workload>/<pod>/<container>`, a filter per source; to build | [parity](../parity/README.md) |
 | A82 | #66 | Older log lines only through the row or `logs.loadOlder`; as built | [parity](../parity/README.md) |
 | A83 | #68 | Init containers listed apart; as built | [parity](../parity/README.md) |
@@ -161,7 +161,7 @@ window. Nothing of it was built in the round.
 | A91 | #161 | Reconcile with Source waits like the flux CLI: a background job until the source is ready, with a timeout, then the object; progress in the dock; to build | [D-33](#d-33-the-flux-actions) |
 | A92 | #56 | The cluster's terminal namespace beats the filter's; as built | [architecture §4.3](architecture.md#43-ui-state) |
 | A93 | #58 | A cluster's accent colour: Solarized's eight plus a free colour picker; to build | [D-22](#d-22-colour-theme) |
-| A94 | #59 | The default theme becomes Sync (follow macOS); not built | [D-22](#d-22-colour-theme) |
+| A94 | #59 | The default theme becomes Sync (follow macOS); built 2026-10-14 | [D-22](#d-22-colour-theme) |
 | A95 | #115 | The light theme's accent a darkened cyan #1F7F78; as built | [D-22](#d-22-colour-theme) |
 | A96 | #7, #13 | Single-target reads read the target's namespace; as built | [architecture §5](architecture.md#5-cache) |
 | A97 | #71 | Remove from Cogpit on a sync-folder context offers to unlink the whole folder, the confirmation naming every context it takes; to build | [D-28](#d-28-the-default-kubeconfig-as-sources-as-lens-has-it), [architecture §6](architecture.md#6-cluster-connections-internalcluster) |
@@ -1423,8 +1423,9 @@ of Solarized's eight accents, in each variant's legible shade (`identityColors` 
 
 **The decision round of 2026-10-14 evening (owner):**
 
-- **Decided (A94):** the default theme becomes Sync with computer (follow macOS). Not built yet:
-  `DefaultPreferences` starts Dark ([`preferences.go`](../../internal/engine/preferences.go)).
+- **Decided (A94):** the default theme becomes Sync with computer (follow macOS). Built
+  2026-10-14: `DefaultPreferences` starts `ThemeSystem`
+  ([`preferences.go`](../../internal/engine/preferences.go)); a stored choice stays as it is.
 - **Decided (A93):** a cluster's accent colour is one of Solarized's eight or any colour from a
   colour picker. Not built yet. Open for the build: the eight have a legible shade per theme that
   `TestIdentityColorsContrast` holds at 3:1; a free colour has none, so what a picked colour that
@@ -2470,8 +2471,8 @@ reads All states, the one state or "N states", greyed while the rows carry none;
 Flux and Argo CD dashboards, the Overviews) it sits in the table's header beside the search, since
 it filters the table only; at most 100 states of at most 512 bytes each. **Confirmed (owner,
 2026-10-14 evening, A79):** the filter belongs to its view and tab, as built. **Decided (A80):** the
-button is drawn in the accent colour while a filter is active. Not built yet: only its label
-changes.
+button is drawn in the accent colour while a filter is active. Built 2026-10-14 (the button's
+high importance, the theme's primary colour; `TestStatusFilterInTheHeader`).
 
 Cogpit's defaults, not the owner's decision: the page's title Flux Dashboard in its header and tab
 (the navigator reads Dashboard, as captured), three tiles a row under the navigator's sub-groups'

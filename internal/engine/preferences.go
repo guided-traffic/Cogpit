@@ -135,12 +135,13 @@ type Preferences struct {
 	UpdateChannel   string `json:"updateChannel,omitempty"`
 }
 
-// DefaultPreferences are the preferences of a first start: dark (Cogpit starts dark, as it did
-// before the preference existed), the computer's time zone, the default row height, 13-point text,
+// DefaultPreferences are the preferences of a first start: the theme follows the computer's
+// (Sync with computer; the owner's A94 of 2026-10-14 evening, dark before; a stored choice stays),
+// the computer's time zone, the default row height, 13-point text,
 // line numbers on, two-space tabs, the user's own shell, kubectl downloads offered, chart icons
 // loaded (D-46), updates checked automatically on the stable channel (D-4).
 func DefaultPreferences() Preferences {
-	return Preferences{Theme: ThemeDark, EditorFontSize: DefaultFontSize, EditorLineNumbers: true,
+	return Preferences{Theme: ThemeSystem, EditorFontSize: DefaultFontSize, EditorLineNumbers: true,
 		EditorTabSize: DefaultTabSize, TerminalFontSize: DefaultFontSize, KubectlDownload: true, LoadChartIcons: true,
 		CheckForUpdates: true, UpdateChannel: UpdateChannelStable}
 }
