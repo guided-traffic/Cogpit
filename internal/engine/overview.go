@@ -189,7 +189,7 @@ type overviewWorker struct {
 	rows    *rowCache
 	kinds   []*overviewKindState
 	unsubs  []func()
-	planKey string // how the open page reads its kinds (Backend.pagePlanKey); the state's lock
+	planKey string // how the open page reads its kinds (Backend.pageReadKey); the state's lock
 
 	mu     sync.Mutex
 	params viewParams
@@ -224,7 +224,7 @@ type overviewStatus struct {
 // newOverviewWorker acquires the page's handles; with notify, every change of its kinds wakes the
 // worker's loop (startOverview), which a one-off read does not run. Without events it holds no
 // handle on the events (a one-off read that does not ask for them starts no events watch).
-func (s *Session) newOverviewWorker(b *Backend, params viewParams, notify, events bool) *overviewWorker {
+func (s *Session) newOverviewWorker(b *Backend, params viewParams, notify, events bool, acquire func(*model.KindProfile) *cache.Handle) *overviewWorker {
 	w := &overviewWorker{
 		s: s, backend: b, params: params, rows: &rowCache{},
 		wake: make(chan struct{}, 1), quit: make(chan struct{}),
@@ -242,14 +242,14 @@ func (s *Session) newOverviewWorker(b *Backend, params viewParams, notify, event
 			if !ok {
 				continue
 			}
-			k := &overviewKindState{profile: p, column: col, handle: b.Acquire(p), statuses: map[string]*overviewStatus{}}
+			k := &overviewKindState{profile: p, column: col, handle: acquire(p), statuses: map[string]*overviewStatus{}}
 			k.related = newRelatedSet(b, p.Needs, onChange)
 			w.unsubs = append(w.unsubs, k.handle.Subscribe(func(cache.Event) { onChange() }))
 			w.kinds = append(w.kinds, k)
 		}
 	}
 	if w.events = overviewEvents(b); w.events != nil && events {
-		w.evts = b.Acquire(w.events)
+		w.evts = acquire(w.events)
 		w.unsubs = append(w.unsubs, w.evts.Subscribe(func(cache.Event) { onChange() }))
 	}
 	return w
@@ -269,7 +269,7 @@ func (w *overviewWorker) kindHandles() []kindHandle {
 
 // startOverview starts the page's worker; the first build runs at once.
 func (s *Session) startOverview(b *Backend, params viewParams) *overviewWorker {
-	w := s.newOverviewWorker(b, params, true, true)
+	w := s.newOverviewWorker(b, params, true, true, b.acquireForPage) // nothing while a plan is pending (A98)
 	signal(w.wake)
 	s.goSafe("workloads overview", func() {
 		runCoalesced(w.quit, w.wake, s.opts.SnapshotInterval, w.unsettled, w.rebuild)
@@ -469,7 +469,7 @@ func (s *Session) WorkloadsOverview(ctx context.Context, namespaces []string, ev
 	defer cancel()
 	// Once the kinds' plans are decided, following a refusal in all namespaces (accessiblens_follow.go).
 	w := openFollowing(wctx, b, overviewPageKinds, func() (*overviewWorker, []kindHandle) {
-		w := s.newOverviewWorker(b, viewParams{}, false, events)
+		w := s.newOverviewWorker(b, viewParams{}, false, events, b.Acquire) // the plans are decided here
 		return w, w.kindHandles()
 	}, (*overviewWorker).release)
 	defer w.release()
@@ -490,13 +490,14 @@ func (s *Session) WorkloadsOverview(ctx context.Context, namespaces []string, ev
 
 // reconcilePageLocked runs the open page's worker: started when the page opens, given the UI's
 // namespaces, search, sort and columns, stopped when another view opens or the backend changes,
-// and started again when the access reviews change how its kinds are read (pagePlanKey). The
+// and started again when the access reviews change how its kinds are read (pageReadKey: a pending
+// plan is told apart, since the page holds nothing then, A98). The
 // page's sort is remembered as a view's is.
 func (st *state) reconcilePageLocked(b *Backend, now UIState) {
 	want := b != nil && now.View == WorkloadsOverview
 	var key string
 	if want {
-		key = b.pagePlanKey(overviewPageKinds, false)
+		key = b.pageReadKey(overviewPageKinds, false)
 	}
 	if st.page != nil && (!want || st.page.backend != b || st.page.planKey != key) {
 		st.page.stop()

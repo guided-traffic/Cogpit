@@ -77,11 +77,12 @@ func TestPagesFollowARefusal(t *testing.T) {
 	}
 }
 
-// A page opened while the access reviews are still out takes its kinds' handles as a pending plan
-// reads them, in all namespaces. Once the reviews say the user may not list pods there, the
-// Workloads Overview and the cluster Overview read pods again namespace by namespace, as the Pods
-// view and the drawer do: no cluster-wide pods handle is left (the API server refuses it), and the
-// Workloads Overview counts the accessible namespaces' pods without an error.
+// A page opened while the access reviews are still out holds nothing of its kinds, as the Flux and
+// Argo CD dashboards do (A98, owner 2026-10-14 evening; before, it read them in all namespaces
+// first and was refused). Once the reviews say the user may not list pods there, the Workloads
+// Overview and the cluster Overview read pods namespace by namespace, as the Pods view and the
+// drawer do: no cluster-wide pods handle at any time, and the Workloads Overview counts the
+// accessible namespaces' pods without an error.
 func TestPagesFollowTheAccessReviews(t *testing.T) {
 	for _, page := range []string{WorkloadsOverview, ClusterOverview} {
 		t.Run(page, func(t *testing.T) {
@@ -90,7 +91,14 @@ func TestPagesFollowTheAccessReviews(t *testing.T) {
 			s := nsSession(t, src, rev, "team-a", "team-a", "team-b")
 			connectTest(t, s)
 			s.UpdateUI(func(u *UIState) { u.View, u.Sort = page, s.ViewSort(page) })
-			waitFor(t, "the page's handle on pods", func() bool { all, _ := podsHandles(s); return all > 0 })
+			waitFor(t, "the page waiting for the reviews", func() bool {
+				s.state.mu.Lock()
+				defer s.state.mu.Unlock()
+				return (page == WorkloadsOverview && s.state.page != nil) || (page == ClusterOverview && s.state.cluster != nil)
+			})
+			if all, ns := podsHandles(s); all != 0 || ns != 0 {
+				t.Fatalf("while the reviews are out the page holds pods: %d cluster-wide, %d per namespace", all, ns)
+			}
 
 			rev.set(func(f *fakeReviewer) { close(f.gate); f.gate = nil })
 			waitFor(t, "the page reading pods namespace by namespace", func() bool {

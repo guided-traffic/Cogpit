@@ -161,7 +161,7 @@ type clusterOverviewWorker struct {
 	s       *Session
 	backend *Backend
 	src     *overviewSource
-	planKey string // which kinds the open page reads and how (Backend.pagePlanKey); the state's lock
+	planKey string // which kinds the open page reads and how (Backend.pageReadKey); the state's lock
 
 	mu     sync.Mutex
 	params viewParams
@@ -181,7 +181,7 @@ type clusterOverviewWorker struct {
 func (s *Session) startClusterOverview(b *Backend, params viewParams, choice OverviewChoice) *clusterOverviewWorker {
 	w := &clusterOverviewWorker{s: s, backend: b, params: params, choice: choice, wake: make(chan struct{}, 1), quit: make(chan struct{})}
 	wake := w.wake
-	w.src = newOverviewSource(b, func() { signal(wake) })
+	w.src = newOverviewSource(b, b.acquireForPage, func() { signal(wake) }) // nothing while a plan is pending (A98)
 	w.charts = newOverviewCharts(s, b, choice)
 	w.charts.setHidden(params.metrics) // the charts the cluster's settings hide are not polled for
 	signal(w.wake)
@@ -288,8 +288,10 @@ var overviewWorkloads = []string{logKindDeployments, logKindStatefulSets, logKin
 var clusterOverviewKinds = append([]string{kindNodes, kindPods, eventsKind}, overviewWorkloads...)
 
 // newOverviewSource acquires the page's handles on the kinds the cluster serves and the user may
-// list (as far as the access reviews know); onChange runs after every change of one of them.
-func newOverviewSource(b *Backend, onChange func()) *overviewSource {
+// list (as far as the access reviews know), through acquire (the open page's acquireForPage, an
+// agent's read's Acquire once the plans are decided); onChange runs after every change of one of
+// them.
+func newOverviewSource(b *Backend, acquire func(*model.KindProfile) *cache.Handle, onChange func()) *overviewSource {
 	src := &overviewSource{b: b}
 	open := func(key string) *overviewKind {
 		p, ok := b.Profile(key)
@@ -299,7 +301,7 @@ func newOverviewSource(b *Backend, onChange func()) *overviewSource {
 		if listable, known := b.Listable(p, nil); known && !listable {
 			return nil // a watch the API server refuses would only retry
 		}
-		k := &overviewKind{profile: p, handle: b.Acquire(p), entries: map[string]*overviewEntry{}}
+		k := &overviewKind{profile: p, handle: acquire(p), entries: map[string]*overviewEntry{}}
 		src.unsubs = append(src.unsubs, k.handle.Subscribe(func(cache.Event) { onChange() }))
 		return k
 	}
@@ -459,7 +461,7 @@ func (s *Session) ClusterOverview(ctx context.Context, namespaces []string, seri
 	defer cancel()
 	// Once the kinds' plans are decided, following a refusal in all namespaces (accessiblens_follow.go).
 	src := openFollowing(wctx, b, clusterOverviewKinds, func() (*overviewSource, []kindHandle) {
-		src := newOverviewSource(b, func() {})
+		src := newOverviewSource(b, b.Acquire, func() {})
 		open := src.kinds()
 		reads := make([]kindHandle, 0, len(open))
 		for _, k := range open {
@@ -534,12 +536,12 @@ const DefaultOverviewWindow = time.Hour
 // reconcileClusterPageLocked runs the cluster Overview's worker: started when the page opens, given
 // the UI's namespaces, search, sort, columns and the charts' choice, stopped when another view opens
 // or the backend changes, and started again when the access reviews change which kinds it reads or
-// how (pagePlanKey). The page's sort is remembered as a view's is.
+// how (pageReadKey, A98). The page's sort is remembered as a view's is.
 func (st *state) reconcileClusterPageLocked(b *Backend, now UIState) {
 	want := b != nil && now.View == ClusterOverview
 	var key string
 	if want {
-		key = b.pagePlanKey(clusterOverviewKinds, true)
+		key = b.pageReadKey(clusterOverviewKinds, true)
 	}
 	if st.cluster != nil && (!want || st.cluster.backend != b || st.cluster.planKey != key) {
 		st.cluster.stop()

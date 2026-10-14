@@ -141,7 +141,7 @@ type argoDashWorker struct {
 	rows    *rowCache
 	kinds   []*argoDashKind
 	unsubs  []func()
-	planKey string // how the page reads its kinds (Backend.pagePlanKey); the state's lock
+	planKey string // how the page reads its kinds (Backend.pageReadKey); the state's lock
 
 	mu     sync.Mutex
 	params viewParams

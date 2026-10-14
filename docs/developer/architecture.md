@@ -1699,14 +1699,14 @@ team-c denied, the filter narrows client-side, an agent's read and the drawer sh
 informers), `TestNamespacePlanFollowsSettingsAndFilter`, `TestClusterWideWatchForAUserWhoMayList`,
 `TestRefusedClusterWideListFallsBackToNamespaces`, `TestNamespacePlanCases`; on kind,
 `TestKindAccessibleNamespaces`. The pages follow too since 2026-10-13: the Workloads and cluster
-Overviews keep a plan key over their kinds (`Backend.pagePlanKey`: how `Acquire` reads each kind, a
-pending plan counting as all namespaces since that is how it reads, and for the cluster Overview
-which kinds it leaves out as not listable), and `reconcileLocked` starts a page again when the key
-changes; before, a page opened while the reviews were out held a cluster-wide handle the API server
-refused, retried for as long as it was open (`TestPagesFollowTheAccessReviews`). **Decided
-2026-10-14 evening, not built** (owner, A98): the Overviews wait for the access reviews as the
-Flux and Argo CD dashboards do (below, `acquireForPage`), so no refused cluster-wide read comes
-first. Reads of one
+Overviews keep a plan key over their kinds (since 2026-10-14 `Backend.pageReadKey`: how each kind
+is read, a pending plan told apart, and for the cluster Overview which kinds it leaves out as not
+listable), and `reconcileLocked` starts a page again when the key changes; before, a page opened while the reviews were out held a cluster-wide handle the API server
+refused, retried for as long as it was open. Since 2026-10-14 (the owner's A98) the open
+Overviews wait for the access reviews as the Flux and Argo CD dashboards do (below,
+`acquireForPage`, their key `pageReadKey` telling a pending plan apart), so no refused cluster-wide
+read comes first (`TestPagesFollowTheAccessReviews`); an agent's read of them waits for the plans
+through `openFollowing` as before. Reads of one
 namespace that wait anyway follow since the same day through `Backend.acquireIn`: one object
 (`Session.Object`: `object_get`, `cogpit-cli get`, a logs tab's check), a workload's logs tab (its
 pods and replica sets) and a port forward (its pods and service; a permanent one starts at connect,
@@ -1774,8 +1774,8 @@ through `Lookup`).
 **The Flux and Argo CD dashboards** (2026-10-14, the night build's seams; built before the
 namespace-limited fixes, with workers of their own, [`accessiblens_pages.go`](../../internal/engine/accessiblens_pages.go)):
 the open page now waits for its kinds' plans as a view does (`acquireForPage`: `cache.Pending`
-while a plan is pending) and starts again when one changes (`pageReadKey`, which, unlike the
-Overviews' `pagePlanKey`, tells a pending plan apart); an agent's `flux.dashboard` and
+while a plan is pending) and starts again when one changes (`pageReadKey`, which tells a pending
+plan apart; the Overviews use it too since A98); an agent's `flux.dashboard` and
 `argocd.dashboard` with no page open wait for the plans and follow a refusal (`openFollowing`).
 Before, the page took its kinds in all namespaces while the reviews were out, and an agent's read
 did too, then waited 15 seconds on refused reads and answered with the refusals. Measured at the

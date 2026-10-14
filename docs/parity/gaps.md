@@ -925,8 +925,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   2026-10-14 night, above); charts of one
   object whose ranges lie far apart get separate queries, each at its own step (built 2026-10-14 night; the question under
   "Waiting for the owner" below); an agent's `cluster.setPrometheus` becomes a write with
-  confirmation, the window's as today ([H-26](../security/privilege-footprint.md#h-26-prometheus-is-found-by-name));
-  the Overviews wait for the access reviews as the dashboards do; node-exporter and
+  confirmation, the window's as today ([H-26](../security/privilege-footprint.md#h-26-prometheus-is-found-by-name);
+  built 2026-10-14 night, A16); the Overviews wait for the access reviews as the dashboards do
+  (built 2026-10-14 night, A98); node-exporter and
   kube-state-metrics on in the kind cluster's Prometheus values, with kind tests of node and pod
   history from Prometheus ([G1](#g1-workspace-ci-and-progress-generators); built 2026-10-14
   night). Confirmed: the network

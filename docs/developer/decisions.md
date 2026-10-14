@@ -165,7 +165,7 @@ window. Nothing of it was built in the round.
 | A95 | #115 | The light theme's accent a darkened cyan #1F7F78; as built | [D-22](#d-22-colour-theme) |
 | A96 | #7, #13 | Single-target reads read the target's namespace; as built | [architecture §5](architecture.md#5-cache) |
 | A97 | #71 | Remove from Cogpit on a sync-folder context offers to unlink the whole folder, the confirmation naming every context it takes; to build | [D-28](#d-28-the-default-kubeconfig-as-sources-as-lens-has-it), [architecture §6](architecture.md#6-cluster-connections-internalcluster) |
-| A98 | #124 | The Overviews wait for the access reviews like the dashboards, no refused cluster-wide read first; to build | [architecture §5](architecture.md#5-cache) |
+| A98 | #124 | The Overviews wait for the access reviews like the dashboards, no refused cluster-wide read first; built 2026-10-14 | [architecture §5](architecture.md#5-cache) |
 | A99 | #19 | A combined PEM (certificate and key in one value) gets the key check too; built 2026-10-14 | [D-30](#d-30-certificates-in-secrets-decoded) |
 | A100 | #20 | An encrypted private key in the warning colour with "encrypted key: TLS/Ingress cannot use it"; built 2026-10-14 | [D-30](#d-30-certificates-in-secrets-decoded) |
 | A101 | #23 | A grant's confirmation says "Grants these rights immediately, cluster-wide" or "in `<ns>`"; "This cannot be undone." only where something is lost; built 2026-10-14 | [D-2](#d-2-agent-interface-scope), [parity](../parity/README.md) |
