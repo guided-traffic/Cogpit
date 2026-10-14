@@ -378,3 +378,22 @@ func TestWorkspaceNoRequestAtStart(t *testing.T) {
 	}
 	waitFor(t, "the tab's connect to ask the cluster", func() bool { return requests.Load() > 0 })
 }
+
+// After a restart, the tab the user clicks is the one shown once its cluster connects, not the
+// one shown last before the restart (marked active, its cluster named but not connected, D-41).
+func TestWorkspaceClickedTabWinsOverTheRestoredRank(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "Cogpit")
+	writeWorkspace(t, dir, workspaceDoc{Version: workspaceVersion, Active: 1, Tabs: []storedTab{
+		{Context: "test", View: "pods", Used: 2},
+		{Context: "test", View: "services", Used: 3},
+		{Context: "test", View: "configmaps", Used: 1},
+	}})
+	s, _ := workspaceSession(t, dir, time.Hour)
+	if _, err := s.SelectTab(context.Background(), "tab-1"); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "connected", func() bool { u := s.UIState(); return u.connected() })
+	if u := s.UIState(); u.ActiveTab != "tab-1" || u.View != "pods" {
+		t.Errorf("clicked tab-1 (pods), shown: active %q, view %q", u.ActiveTab, u.View)
+	}
+}

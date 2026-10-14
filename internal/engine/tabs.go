@@ -493,9 +493,14 @@ func (s *Session) SelectTab(ctx context.Context, id string) (UIState, error) {
 		return st, err
 	}
 	// The tab becomes its cluster's most recently used one, which syncTabs shows once connected.
+	// Another tab still marked active (the one shown last before a restart, its cluster named but
+	// not connected: D-41) gives way, or syncTabs would show it instead of the one clicked.
 	s.UpdateUI(func(u *UIState) {
 		if j := u.tabIndex(id); j >= 0 {
 			u.touch(j)
+			if u.ActiveTab != id {
+				u.ActiveTab = ""
+			}
 		}
 	})
 	if t.Context == u.Context && u.Connection.State == Connecting {
