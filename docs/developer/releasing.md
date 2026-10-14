@@ -1,6 +1,6 @@
 # Releasing
 
-> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-14 · **Change:** minor (Renovate: the node shell's default image, D-37); earlier major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-14 · **Change:** minor (the Apple signing and notarization material set up in the environment `release`, the pipeline steps not built yet); minor (Renovate: the node shell's default image, D-37); earlier major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app) · **Target:** Lens Desktop 2026.10.51501
 
 Every push to `main` and every pull request runs the checks, each a job of its own with a make
 target that runs the same on a laptop. Since 2026-10-13 ([D-16](decisions.md#d-16-the-first-real-release))
@@ -264,9 +264,10 @@ the app 2.0, attaching 0.8; for v0.1.1 without caches (run 38452933957): cogpit-
 `dist/` (gitignored). To check a download: `sha256sum -c SHA256SUMS --ignore-missing` (on macOS
 `shasum -a 256 -c`), then `cogpit-cli --version`.
 
-**Not built yet:** the Developer ID signature and notarization (they need the owner's Apple
-credentials, as secrets of a GitHub environment `release` that only tag workflows may use; until
-then the app is unsigned and the release page says so, never a failed release), the disk image, the
+**Not built yet:** the Developer ID signature and notarization (the owner's Apple material is in
+the GitHub environment `release` since 2026-10-14, see [Secrets](#secrets); the pipeline's steps
+that use it are not written, so the app is still unsigned and the release page says so, never a
+failed release), the disk image, the
 universal (Intel) app, the Homebrew cask and Sparkle's update feed
 ([D-4](decisions.md#d-4-packaging-and-updates)); desktop packages for Linux and Windows (M11); an
 SBOM.
@@ -307,13 +308,14 @@ manager. Security perspective: [updates](../security/updates.md).
 | Secret | For | Where | Without it |
 |---|---|---|---|
 | `APP_CLIENT_ID`, `APP_PRIVATE_KEY` (the organisation's GitHub App) | Semantic Release's tag, release and release commit; Renovate | organisation secrets, exist | no release (the job fails) |
-| `MACOS_SIGN_P12` (the Developer ID Application certificate with its key, base64), `MACOS_SIGN_P12_PASSWORD` | signing the app bundle and the disk image | GitHub environment `release`, created 2026-10-13 with the deployment rule "tags `v*`" and no secrets yet; the release pipeline does not use it until the signing steps exist | unsigned app, and the release page says so |
-| `APPLE_TEAM_ID` (a variable) | the signing identity | planned: environment `release` | as above |
-| `APPLE_API_KEY_P8` (an App Store Connect team API key, role Developer, base64), `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID` | notarization with `notarytool` | planned: environment `release` | not notarized |
+| `MACOS_SIGN_P12` (the Developer ID Application certificate with its key, base64), `MACOS_SIGN_P12_PASSWORD` | signing the app bundle and the disk image | GitHub environment `release` (created 2026-10-13, deployment rule "tags `v*`"): exist since 2026-10-14, the certificate "Developer ID Application: Hans Fischer (6L57P2HXN6)" from Apple's G2 sub-CA, valid to 2027-11-13, its key also in the owner's login keychain; checked locally by a signature with the hardened runtime and Apple's timestamp. The release pipeline does not use them until the signing steps exist. A runner's keychain needs Apple's intermediate `DeveloperIDG2CA.cer` beside the .p12, or the identity is not valid | unsigned app, and the release page says so |
+| `APPLE_TEAM_ID` (a variable) | the signing identity | environment `release`, exists since 2026-10-14 (`6L57P2HXN6`, not a secret: every signed app shows it) | as above |
+| `APPLE_API_KEY_P8` (an App Store Connect team API key, role Developer, base64), `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID` | notarization with `notarytool` | environment `release`, exist since 2026-10-14; checked locally: `notarytool` accepts the key and a submission with the role Developer | not notarized |
 | Windows code-signing certificate or signing service credentials | Authenticode | planned (M11) | SmartScreen warns |
 | Update signing key (Sparkle's EdDSA key) | the update manifest | decided (owner, 2026-10-13): a secret of a GitHub environment that needs the owner's approval for each release (required reviewer); not created until Sparkle is built | no update offered for that release |
 
 Who holds which key and what follows if one leaks:
 [updates › keys](../security/updates.md#keys-and-who-holds-them).
-**Human:** the Apple and Windows material does not exist yet; the owner provides it
+**Human:** the Apple material exists since 2026-10-14 (set up by the owner with the lead); the
+Windows material does not exist yet; the update key is created when Sparkle is built
 ([G14](../parity/gaps.md#g14-packaging-signing-and-updates-macos)).

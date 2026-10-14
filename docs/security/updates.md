@@ -59,7 +59,7 @@ when there is.
 |---|---|---|---|
 | The organisation's GitHub App private key (`APP_CLIENT_ID`, `APP_PRIVATE_KEY`) | organisation secrets of `guided-traffic`, visible to this repository; used by the Semantic Release job (token with `contents: write`) and by Renovate | push to `main`, create tags and releases; a release it creates starts the release pipeline, which builds whatever the tag points at | rotate the App's private key in the App's settings and replace the organisation secret; delete the releases and tags it made. Secrets are not handed to workflows of pull requests from forks |
 | The release pipeline's `GITHUB_TOKEN` | per job; `contents: write` only in its last job, to attach the artifacts | upload assets to and edit the text of this repository's releases | expires with the job |
-| Developer ID Application certificate, App Store Connect API key (planned) | secrets of the GitHub environment `release` (created 2026-10-13, empty), which only tag workflows may use (deployment rule: tags `v*`), so that no pull request workflow can read them | sign and notarize Cogpit | revoke the certificate at Apple, and the key in App Store Connect; releases notarized before stay valid (the owner's note, 2026-10-13; not checked against Apple's documentation) |
+| Developer ID Application certificate, App Store Connect team API key (role Developer) | secrets of the GitHub environment `release` (created 2026-10-13; the material in it since 2026-10-14), which only tag workflows may use (deployment rule: tags `v*`), so that no pull request workflow can read them | sign and notarize Cogpit | revoke the certificate at Apple, and the key in App Store Connect; releases notarized before stay valid (the owner's note, 2026-10-13; not checked against Apple's documentation) |
 | The update key (Sparkle's EdDSA key, planned) | decided (owner, 2026-10-13): a secret of a GitHub environment with the owner as required reviewer, so CI signs a release's feed only after the owner approved that run | sign the update manifest | [H-15](#h-15-update-key-compromise-and-rotation) |
 
 ## What this does not cover
@@ -69,9 +69,10 @@ when there is.
 Live since the first release (2026-10-13). Neither `Cogpit.app` nor `cogpit-cli` carries a code
 signature that names Cogpit, the app is not notarized, and `SHA256SUMS` is not signed: whoever can
 change a release's assets (the GitHub App's key, a maintainer's account) can replace an artifact
-and its checksum together, and a user has nothing to check them against. The Developer ID
-signature and the notarization come once the owner has the Apple credentials
-([D-4](../developer/decisions.md#d-4-packaging-and-updates)); signing the checksums or the
+and its checksum together, and a user has nothing to check them against. The Apple material
+for the Developer ID signature and the notarization exists since 2026-10-14
+([releasing › secrets](../developer/releasing.md#secrets)), but no pipeline step uses it yet, so
+this stays live until the signing steps ship ([D-4](../developer/decisions.md#d-4-packaging-and-updates)); signing the checksums or the
 artifacts for Linux and Windows is not designed.
 
 ### H-62: Every push to `main` that passes the gates is released
