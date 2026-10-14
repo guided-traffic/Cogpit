@@ -21,14 +21,12 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/guided-traffic/cogpit/internal/app"
+	"github.com/guided-traffic/cogpit/internal/buildinfo"
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/demo"
 	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/locale"
 )
-
-// version is set by the build (-ldflags "-X main.version=…").
-var version = "0.0.1-mvp"
 
 // Exit codes.
 const (
@@ -134,13 +132,15 @@ Exit codes: 0 done, 1 the command failed, 2 the command line is wrong.
 }
 
 func runVersion(_ context.Context, args []string, e *env) int {
-	fs := newFlags("version", "", "Prints cogpit-cli's version, the Go version it was built with and the platform.")
+	fs := newFlags("version", "", "Prints cogpit-cli's version (a development build: dev and its commit), the Go version it was built with and the platform.")
 	if code, done := fs.parse(args, e); done {
 		return code
 	}
 	if len(fs.positional) > 0 {
 		return fs.usageError(e, "version takes no arguments")
 	}
-	fmt.Fprintf(e.stdout, "cogpit-cli %s (%s, %s/%s)\n", version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	// A release: "cogpit-cli 0.7.0 (go1.27.2, darwin/arm64)", which the release pipeline checks; a
+	// development build: "cogpit-cli dev 0691fb32abcd-dirty (…)" (internal/buildinfo).
+	fmt.Fprintf(e.stdout, "cogpit-cli %s (%s, %s/%s)\n", buildinfo.Read(), runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	return exitOK
 }

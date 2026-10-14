@@ -45,7 +45,7 @@ linters:
     # internal/ui/... imports Fyne; model and kubeconfig do no I/O; only cluster, cache, terminal,
     # helm and metrics talk to the API server (kubectl talks to the release host only).
     #   L5 cmd/*  ·  L4 ui/fyneui, mcp, agent, update, app  ·  L3 engine  ·  L2 helm, metrics, demo
-    #   L1 cluster, cache, terminal, kubectl, locale  ·  L0 model, kubeconfig
+    #   L1 cluster, cache, terminal, kubectl, locale  ·  L0 model, kubeconfig, buildinfo
     depguard:
       rules:
         fyne-only-in-ui:
@@ -61,6 +61,7 @@ linters:
           files:
             - "**/internal/model/**"
             - "**/internal/kubeconfig/**"
+            - "**/internal/buildinfo/**"
             - "!$test"
           deny:
             - pkg: "github.com/guided-traffic/cogpit/internal/locale"

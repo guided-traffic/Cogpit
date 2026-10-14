@@ -180,6 +180,7 @@ func Run(s *engine.Session, opts Options) error {
 	detachLinks := func() {}
 	a.Lifecycle().SetOnStarted(func() {
 		do(sh.titlebar.install)
+		do(sh.installAbout)     // macOS: About Cogpit in the application menu, GLFW's made by now (appmenu_darwin.go)
 		do(sh.showStartNotices) // the crash notice, and what the engine said before the window was up
 		// The cogpit:// links that came before the window wait until now (deeplink.go).
 		do(func() { detachLinks = sh.attachDeepLinks(opts.DeepLinks) })

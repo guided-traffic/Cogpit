@@ -75,8 +75,13 @@ func helpItem(t *testing.T, sh *shell) *fyne.MenuItem {
 	if i < 0 {
 		t.Fatalf("Help has no Check for Updates…: %v", help.Items)
 	}
-	if about := help.Items[len(help.Items)-1]; about.Label != "About Cogpit" || help.Items[i+1] != about {
-		t.Errorf("Check for Updates… is not right before About Cogpit")
+	// Help ends with it on macOS, whose application menu has About Cogpit; elsewhere About follows.
+	if mac := sh.helpMenuOn(goosMac); !strings.HasPrefix(mac.Items[len(mac.Items)-1].Label, "Check for Updates…") {
+		t.Errorf("Check for Updates… does not end Help on macOS")
+	}
+	if linux := sh.helpMenuOn("linux"); linux.Items[len(linux.Items)-1].Label != aboutItemLabel ||
+		!strings.HasPrefix(linux.Items[len(linux.Items)-2].Label, "Check for Updates…") {
+		t.Errorf("Check for Updates… is not right before About Cogpit on Linux")
 	}
 	return help.Items[i]
 }

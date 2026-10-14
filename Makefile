@@ -36,10 +36,13 @@ FYNE            := $(BIN)/fyne
 # renovate: datasource=go depName=github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 GOLANGCI_LINT_VERSION ?= v2.14.0
 GOLANGCI_LINT   := $(BIN)/golangci-lint
-# The version fyne package writes into the app; the release pipeline sets it to the release's
-# (dist-app), and then the binaries print it too.
+# The version fyne package writes into the bundle's Info.plist (CFBundleShortVersionString;
+# sparkle.sh writes CFBundleVersion). The release pipeline sets it to the release's (dist-app), and
+# the binaries report it then too (DIST_LDFLAGS). Any other build is a development build: a local
+# make app's bundle says 0.0.1 (integers for Sparkle, below every release), its binaries say "dev"
+# and the commit Go recorded (internal/buildinfo).
 VERSION         ?= 0.0.1
-# Linker flags for build; the dist targets set the version (-X main.version).
+# Linker flags for build; the dist targets set the version (-X …/internal/buildinfo.version).
 GO_LDFLAGS      ?=
 APP_ID          := io.guided-traffic.cogpit
 # The code-signing identifier of the cogpit-cli in Cogpit.app/Contents/MacOS (D-16); the release's
@@ -418,13 +421,16 @@ icon: ## Redraw packaging/icon.png from hack/icon
 # notarized (docs/security/updates.md). cogpit-cli for another platform, for a local need:
 # CGO_ENABLED=0 GOOS=<os> GOARCH=<arch> go build ./cmd/cogpit-cli.
 DIST            := $(CURDIR)/dist
-DIST_LDFLAGS     = -s -w -X main.version=$(VERSION)
+# The one variable the version is set in, for both binaries (internal/buildinfo; its
+# TestMakefileSetsTheVersion checks that this names it: the linker ignores a -X for a missing symbol).
+DIST_LDFLAGS     = -s -w -X github.com/guided-traffic/cogpit/internal/buildinfo.version=$(VERSION)
 MACOS_SIGN      ?=
 
 .PHONY: dist-app dist-macos dist-checksums
 
 dist-app: ## The macOS app with cogpit-cli inside, zipped, in dist/ (macOS only); VERSION=x.y.z
 	@test "$$($(GO) env GOOS)" = darwin || { echo "dist-app runs on macOS only"; exit 1; }
+	@test "$(origin VERSION)" != file || { echo "dist-app needs VERSION=x.y.z: the binaries would report release $(VERSION)"; exit 1; }
 	$(MAKE) app GO_LDFLAGS='$(DIST_LDFLAGS)'
 	@mkdir -p $(DIST)
 	ditto -c -k --keepParent $(BIN)/Cogpit.app $(DIST)/Cogpit_$(VERSION)_darwin_$$($(GO) env GOARCH).zip

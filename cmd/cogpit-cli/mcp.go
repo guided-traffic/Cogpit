@@ -8,6 +8,7 @@ import (
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/guided-traffic/cogpit/internal/buildinfo"
 	"github.com/guided-traffic/cogpit/internal/mcp"
 )
 
@@ -48,7 +49,7 @@ func runMCP(ctx context.Context, args []string, e *env) int {
 
 	if !*headless && e.dirsErr == nil && e.dirs.Config != "" {
 		br, err := mcp.DialApp(ctx, mcp.BridgeOptions{
-			TokenFile: filepath.Join(e.dirs.Config, mcp.TokenFileName), Version: version, Logger: e.logger,
+			TokenFile: filepath.Join(e.dirs.Config, mcp.TokenFileName), Version: buildinfo.Version(), Logger: e.logger,
 		})
 		switch {
 		case err == nil:
@@ -66,7 +67,7 @@ func runMCP(ctx context.Context, args []string, e *env) int {
 	}
 	defer closeSession()
 	defer s.WatchKubeconfigs(0)() // a sync folder's files that come or go, as in the app
-	srv, err := mcp.New(s, mcp.Options{Version: version, Logger: e.logger})
+	srv, err := mcp.New(s, mcp.Options{Version: buildinfo.Version(), Logger: e.logger})
 	if err != nil {
 		return fail(e, err)
 	}

@@ -59,6 +59,7 @@ internal/terminal             L1 PTY sessions
 internal/kubectl              L1 kubectl for terminals: client version, skew, verified download (release host only)
 internal/locale               L1 the computer's date and time format (macOS region via cgo, else $LC_TIME), D-31
 internal/model kubeconfig     L0 kind profiles and rows; kubeconfig parsing (no I/O)
+internal/buildinfo            L0 the version both binaries report (release, else dev and the commit)
 internal/testkit              fixtures, fake clients, kind and envtest helpers
 ```
 

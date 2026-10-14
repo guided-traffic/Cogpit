@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/guided-traffic/cogpit/internal/app"
+	"github.com/guided-traffic/cogpit/internal/buildinfo"
 	"github.com/guided-traffic/cogpit/internal/demo"
 )
 
@@ -98,8 +99,8 @@ func TestHelpVersionAndUsageErrors(t *testing.T) {
 		{args: []string{"--help"}, code: exitOK, out: "contexts"},
 		{args: []string{"help", "contexts"}, code: exitOK, out: "Usage:\n  cogpit-cli contexts"},
 		{args: []string{"contexts", "-h"}, code: exitOK, out: "-kubeconfig"},
-		{args: []string{"version"}, code: exitOK, out: "cogpit-cli " + version},
-		{args: []string{"--version"}, code: exitOK, out: "cogpit-cli " + version},
+		{args: []string{"version"}, code: exitOK, out: "cogpit-cli " + buildinfo.Read().String()},
+		{args: []string{"--version"}, code: exitOK, out: "cogpit-cli " + buildinfo.Read().String()},
 		{args: []string{"version", "extra"}, code: exitUsage, errOut: "takes no arguments"},
 		{args: []string{"frobnicate"}, code: exitUsage, errOut: `unknown command "frobnicate"`},
 		{args: []string{"contexts", "--nope"}, code: exitUsage, errOut: "flag provided but not defined"},

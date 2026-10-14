@@ -21,6 +21,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/guided-traffic/cogpit/internal/app"
+	"github.com/guided-traffic/cogpit/internal/buildinfo"
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/demo"
 	"github.com/guided-traffic/cogpit/internal/engine"
@@ -31,9 +32,6 @@ import (
 	"github.com/guided-traffic/cogpit/internal/ui/fyneui"
 	"github.com/guided-traffic/cogpit/internal/update"
 )
-
-// version is set by the build (-ldflags "-X main.version=…").
-var version = "0.0.1-mvp"
 
 func main() {
 	// Not deferred: on a panic of the main goroutine the defers run before the runtime writes the
@@ -135,7 +133,7 @@ func run(previousCrash string) int {
 		opts.AutoConnect = engine.DemoContext
 	}
 	if !*noMCP {
-		srv, err := mcp.New(s, mcp.Options{Addr: *mcpAddr, Version: version, Logger: logger})
+		srv, err := mcp.New(s, mcp.Options{Addr: *mcpAddr, Version: buildinfo.Version(), Logger: logger})
 		if err != nil {
 			logger.Warn("MCP server not started", "err", err)
 		} else {

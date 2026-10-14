@@ -90,6 +90,7 @@ const (
 	sizeTooltipWidth   fyne.ThemeSizeName = "cogpit.tooltipWidth"   // the widest tooltip; longer text wraps
 	sizeTooltipOffset  fyne.ThemeSizeName = "cogpit.tooltipOffset"  // a tooltip's distance from the pointer
 	sizeDialogWidth    fyne.ThemeSizeName = "cogpit.dialogWidth"    // a command's parameter dialog
+	sizeAboutWidth     fyne.ThemeSizeName = "cogpit.aboutWidth"     // About Cogpit's column (about.go)
 	sizeHealthBar      fyne.ThemeSizeName = "cogpit.healthBar"      // a health bar's height (Workloads Overview)
 	sizeLogo           fyne.ThemeSizeName = "cogpit.logo"           // the header's mark (D-24: 20 pixels)
 )
@@ -493,6 +494,8 @@ func (t *cogTheme) Size(n fyne.ThemeSizeName) float32 {
 		return 14
 	case sizeDialogWidth:
 		return 420
+	case sizeAboutWidth:
+		return 300
 	case sizeHealthBar:
 		return 6
 	case sizeLogo:

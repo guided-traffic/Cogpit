@@ -1,6 +1,6 @@
 # Releasing
 
-> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-14 · **Change:** major (D-16 revised by the owner: a release carries only the complete product, the disk image with `cogpit-cli` inside the app (`Contents/MacOS`), and `SHA256SUMS`; the `cogpit-cli` job, its archives and `make dist-cli` removed; the signing job signs the bundled `cogpit-cli` inside-out and submits only the disk image; agent CLIBUNDLE); major (Sparkle 2: the framework in the app, pinned by version and SHA-256, Sparkle's parts signed inside-out, the appcast's three jobs (drafted, signed in the environment `sparkle`, deployed to GitHub Pages) and the owner's steps to set them up; no update key yet); major (the release pipeline signs the macOS app and `cogpit-cli` with the Developer ID, puts the app into a disk image, notarizes both and staples the disk image's ticket, in a job of its own in the environment `release`; a failed signature or notarization fails that job and the release gets no files until it is re-run, the lead's decision for the owner to confirm); minor (the Apple signing and notarization material set up in the environment `release`); minor (Renovate: the node shell's default image, D-37); earlier major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-14 · **Change:** minor (the version a build reports: one variable for both binaries, `internal/buildinfo`, set by `DIST_LDFLAGS`; development builds say `dev` and their commit; `make dist-app` needs `VERSION`); major (D-16 revised by the owner: a release carries only the complete product, the disk image with `cogpit-cli` inside the app (`Contents/MacOS`), and `SHA256SUMS`; the `cogpit-cli` job, its archives and `make dist-cli` removed; the signing job signs the bundled `cogpit-cli` inside-out and submits only the disk image; agent CLIBUNDLE); major (Sparkle 2: the framework in the app, pinned by version and SHA-256, Sparkle's parts signed inside-out, the appcast's three jobs (drafted, signed in the environment `sparkle`, deployed to GitHub Pages) and the owner's steps to set them up; no update key yet); major (the release pipeline signs the macOS app and `cogpit-cli` with the Developer ID, puts the app into a disk image, notarizes both and staples the disk image's ticket, in a job of its own in the environment `release`; a failed signature or notarization fails that job and the release gets no files until it is re-run, the lead's decision for the owner to confirm); minor (the Apple signing and notarization material set up in the environment `release`); minor (Renovate: the node shell's default image, D-37); earlier major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app) · **Target:** Lens Desktop 2026.10.51501
 
 Every push to `main` and every pull request runs the checks, each a job of its own with a make
 target that runs the same on a laptop. Since 2026-10-13 ([D-16](decisions.md#d-16-the-first-real-release))
@@ -287,7 +287,7 @@ its `v`:
 
 | Job | Runner | Make target | Builds |
 |---|---|---|---|
-| Cogpit.app (macOS arm64) | `macos-latest` | `make dist-app` | `Cogpit_<v>_darwin_arm64.zip`: `make app` (`fyne package`, the version in `Info.plist` as both versions and in the binary, Sparkle 2 in `Contents/Frameworks` with the update key's public half from the repository variable `SPARKLE_PUBLIC_ED_KEY`, `cogpit-cli` in `Contents/MacOS`, an ad-hoc signature) zipped with `ditto`. The bundled `cogpit-cli` is `make build`'s, pure Go (`CGO_ENABLED=0`), `-s -w`, the version set with `-X main.version` as in the app's binary ([D-16](decisions.md#d-16-the-first-real-release)). The job checks the bundle's versions, the framework, that its `SUPublicEDKey` is the variable (none while it is unset), its signature seal with the nested code, its architecture, and that `cogpit-cli` has the app's architecture, the identifier `io.guided-traffic.cogpit.cli` and says the release's version (`cogpit-cli version`; this job runs it, the signing job never does). No secret reaches it. |
+| Cogpit.app (macOS arm64) | `macos-latest` | `make dist-app` | `Cogpit_<v>_darwin_arm64.zip`: `make app` (`fyne package`, the version in `Info.plist` as both versions and in the binary, Sparkle 2 in `Contents/Frameworks` with the update key's public half from the repository variable `SPARKLE_PUBLIC_ED_KEY`, `cogpit-cli` in `Contents/MacOS`, an ad-hoc signature) zipped with `ditto`. The bundled `cogpit-cli` is `make build`'s, pure Go (`CGO_ENABLED=0`), `-s -w`, the version set with `-X …/internal/buildinfo.version` as in the app's binary ([the version a build reports](#the-version-a-build-reports)) ([D-16](decisions.md#d-16-the-first-real-release)). The job checks the bundle's versions, the framework, that its `SUPublicEDKey` is the variable (none while it is unset), its signature seal with the nested code, its architecture, and that `cogpit-cli` has the app's architecture, the identifier `io.guided-traffic.cogpit.cli` and says the release's version (`cogpit-cli version`; this job runs it, the signing job never does). No secret reaches it. |
 | Sign and notarize (macOS) | `macos-latest`, after the app, environment `release` | `make dist-macos` | `Cogpit-<v>-macos-arm64.dmg`: the app with Sparkle and `cogpit-cli` signed inside-out with the Developer ID, in a signed disk image, notarized and stapled ([below](#signing-and-notarization)); without the secrets, the app zip unchanged |
 | Attach to the release | self-hosted, after the signing | `make dist-checksums` | `SHA256SUMS` over the download; checks that the release gets exactly the files the signing job's verdict promises and nothing else (signed: the disk image; unsigned: the app zip; with `SHA256SUMS`); attaches them (`softprops/action-gh-release@v3`) and appends a note to the release text: what the download is, that `cogpit-cli` comes inside the app and where, and that the app, its `cogpit-cli` and the disk image are signed and notarized, naming the certificate the signature carries, or else that they are unsigned and how macOS lets the user start the app anyway; Cogpit for Linux and Windows with M11 |
 | Appcast (draft), Appcast (sign), Appcast (deploy to Pages) | `macos-latest`, `macos-latest` in the environment `sparkle`, self-hosted in `github-pages` | `make appcast-draft`, `appcast-sign`, `appcast-verify` | the release's item in Sparkle's appcast, signed and deployed to GitHub Pages ([the appcast](#the-appcast)); without the update key nothing is signed or deployed and the release is complete without them |
@@ -586,6 +586,34 @@ v0.4.0's app says `minos 26.0`, the macOS of the runner that built it, and `LSMi
 10.11 (`fyne package`'s default), so it is likely not to start on a macOS older than 26 (checked
 with `vtool -show-build`; not tried on an older macOS). Not tried on macOS 13 either: no such Mac
 or runner was at hand.
+
+### The version a build reports
+
+Since 2026-10-14 (the owner's finding F2,
+[D-16](decisions.md#d-16-the-first-real-release)) one variable holds it for both binaries:
+[`internal/buildinfo`](../../internal/buildinfo/buildinfo.go)'s `version`, which the
+[`Makefile`](../../Makefile)'s `DIST_LDFLAGS` set
+(`-X github.com/guided-traffic/cogpit/internal/buildinfo.version=$(VERSION)`). About Cogpit,
+`cogpit-cli version`, the MCP server and the stdio bridge read it; Sparkle does not, it compares the
+bundle's `CFBundleVersion` ([updates](#updates)).
+
+| Build | The binaries report | The bundle's versions |
+|---|---|---|
+| A release: `make dist-app VERSION=0.7.0` in the pipeline | `0.7.0`; About "Version 0.7.0" # example | `0.7.0` and `0.7.0` # example |
+| `go install …/cmd/cogpit-cli@v0.7.0`, or a build of a clean checkout of the tag | `0.7.0`, the module version Go recorded # example | – |
+| `make build`, `make app`, `go build` anywhere else | `dev` and the commit Go recorded, `-dirty` with uncommitted changes (`cogpit-cli dev 0691fb3277bb-dirty (go1.27.2, darwin/arm64)` # example); About "Development build", "Commit 0691fb3277bb (modified)" # example | `0.0.1` and `0.0.1`, `VERSION`'s default: integers for Sparkle, below every release; such a bundle has no update key, so Sparkle never compares it |
+| `go run ./cmd/cogpit` | `dev`: Go records no commit for `go run` | – |
+
+Nothing asks git or the network at run time: Go writes the module version and the commit
+(`vcs.revision`, `vcs.modified`) into the binary when it builds inside a git checkout. `make
+dist-app` refuses to run without `VERSION=` on its command line, so that no local build claims to be
+release 0.0.1, and [`TestMakefileSetsTheVersion`](../../internal/buildinfo/buildinfo_test.go) fails
+when `DIST_LDFLAGS` no longer name the variable (the linker ignores a `-X` for a symbol that does
+not exist, and the release would say `dev`; the release job's `cogpit-cli version` check catches it
+too). Checked locally (2026-10-14): `go run` reports `dev`, `go build` `dev` and the commit with
+`-dirty`, the flag `0.0.99`; a release's About not tried in a real window. Before, About read Fyne's
+app metadata, whose version is Fyne's default 0.0.1 in every Cogpit build, a release's too
+(`fyne package --executable` injects none), and both binaries defaulted to `0.0.1-mvp`.
 
 ## Updates
 

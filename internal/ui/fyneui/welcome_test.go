@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"runtime/debug"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -259,9 +259,10 @@ func TestRemoveFromCogpitAsksFirst(t *testing.T) {
 	}
 }
 
-// The Help menu: Welcome, Documentation (Cogpit's README in the browser), About Cogpit, not labelled
-// "About" (Fyne would move that into macOS's application menu); Copy MCP command only with an MCP
-// server. Cogpit's Window menu exists on Windows and Linux only: macOS keeps GLFW's.
+// The Help menu: Welcome, Documentation (Cogpit's README in the browser), and on Windows and Linux
+// About Cogpit at its end (macOS's application menu has it there: TestAppMenuAbout); Copy MCP
+// command only with an MCP server. Cogpit's Window menu exists on Windows and Linux only: macOS
+// keeps GLFW's.
 func TestHelpAndWindowMenus(t *testing.T) {
 	browser := recordBrowser(t)
 	f := newFakeEngine(t)
@@ -274,14 +275,22 @@ func TestHelpAndWindowMenus(t *testing.T) {
 		probe[struct{}](t, f, c)
 	}
 	sh, win, q := newTestShell(t, f, Options{})
-	help := menuNamed(sh.mainMenu(), "Help")
-	if got := menuLabels(help); !slices.Equal(got, []string{"Welcome", "Documentation", "", "About Cogpit"}) {
-		t.Errorf("Help menu %q", got)
+	if got := menuLabels(sh.helpMenuOn(goosMac)); !slices.Equal(got, []string{"Welcome", "Documentation"}) {
+		t.Errorf("Help menu on macOS %q", got)
 	}
-	help.Items[3].Action() // About Cogpit: the version and the build, in a dialog
-	if texts := strings.Join(dialogTexts(win), " "); !strings.Contains(texts, "About Cogpit") || !strings.Contains(texts, "Licence: Apache License 2.0") {
+	for _, goos := range []string{"linux", "windows"} {
+		if got := menuLabels(sh.helpMenuOn(goos)); !slices.Equal(got, []string{"Welcome", "Documentation", "", "About Cogpit"}) {
+			t.Errorf("Help menu on %s %q", goos, got)
+		}
+	}
+	if got, want := menuLabels(menuNamed(sh.mainMenu(), "Help")), menuLabels(sh.helpMenuOn(runtime.GOOS)); !slices.Equal(got, want) {
+		t.Errorf("the main menu's Help %q, want this system's %q", got, want)
+	}
+	sh.helpMenuOn("linux").Items[3].Action() // About Cogpit: Cogpit's dialog
+	if texts := strings.Join(dialogTexts(win), "|"); !strings.Contains(texts, "Cogpit|") || !strings.Contains(texts, aboutLicence) {
 		t.Errorf("About: %s", texts)
 	}
+	help := menuNamed(sh.mainMenu(), "Help")
 	help.Items[0].Action()
 	q.until(t, "ui.welcome.open", func() bool { return len(f.callsOf("ui.welcome.open")) == 1 })
 	help.Items[1].Action()
@@ -315,41 +324,6 @@ func TestHelpAndWindowMenus(t *testing.T) {
 	if disconnect == nil || !disconnect.Disabled {
 		t.Errorf("Disconnect without a cluster: %+v", disconnect)
 	}
-}
-
-// About Cogpit tells the packaged version, else the module's, the commit and the toolchain.
-func TestReadAboutInfo(t *testing.T) {
-	bi := &debug.BuildInfo{GoVersion: "go1.26.0", Main: debug.Module{Path: "github.com/guided-traffic/cogpit", Version: "(devel)"},
-		Deps: []*debug.Module{{Path: "fyne.io/fyne/v2", Version: "v2.8.1"}},
-		Settings: []debug.BuildSetting{{Key: "vcs.revision", Value: "0123456789abcdef0123"}, {Key: "vcs.time", Value: "2026-10-13T02:00:00Z"},
-			{Key: "vcs.modified", Value: "true"}}}
-	info := readAboutInfo("", bi)
-	if info.Version != "development build" || info.Revision != "0123456789ab (modified)" || info.Go != "go1.26.0" || info.Fyne != "v2.8.1" {
-		t.Errorf("a local build: %+v", info)
-	}
-	if got := strings.Join(info.lines(), "|"); got != "Commit: 0123456789ab (modified)|Committed: 2026-10-13T02:00:00Z|Go: go1.26.0|Fyne: v2.8.1|Licence: Apache License 2.0" {
-		t.Errorf("lines %q", got)
-	}
-	bi.Main.Version = "v0.3.0"
-	if info := readAboutInfo("", bi); info.Version != "v0.3.0" {
-		t.Errorf("go install: %+v", info)
-	}
-	if info := readAboutInfo("0.4.0", bi); info.Version != "0.4.0" {
-		t.Errorf("a packaged app: %+v", info)
-	}
-	if info := readAboutInfo("", nil); info.Version != "development build" || len(info.lines()) != 1 {
-		t.Errorf("no build info: %+v", info)
-	}
-}
-
-// The About dialog's PNG, over the welcome page.
-func TestRenderAboutDark(t *testing.T) {
-	s := welcomeEngine(t)
-	sh, w, q := newEngineShell(t, s, Options{Theme: ThemeDark})
-	welcomeShown(t, sh, q)
-	sh.showAbout()
-	q.drain()
-	savePNG(t, w, "about_dark.png")
 }
 
 // A click on a cluster that cannot be reached: the connect fails, the page stays and says why, in
