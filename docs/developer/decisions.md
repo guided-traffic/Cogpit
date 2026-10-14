@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (D-43, a night decision for the owner to confirm: the nodes' disk from node-exporter through Prometheus, never nodes/proxy, built with Cogpit's defaults listed; D-46 (night decision, for the owner to confirm): chart icons fetched when shown, with Preferences › Load chart icons on by default, built; D-11, D-37: a tab whose context leaves Cogpit closes, keeping an editor's draft and deleting a node shell's pod, Cogpit's defaults; D-44 (night decision, for the owner to confirm): agents read the dock's logs tabs freely and a terminal tab only once the user turned on its "Agents may read" switch, built; D-42, a night decision for the owner to confirm: no context picker at start, the welcome page, built; D-41, a night decision for the owner to confirm: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, built; D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (D-35, D-36, D-41, D-42, D-43, D-44, D-46 decided by the owner as built, 2026-10-14; D-43, a night decision for the owner to confirm: the nodes' disk from node-exporter through Prometheus, never nodes/proxy, built with Cogpit's defaults listed; D-46 (night decision, for the owner to confirm): chart icons fetched when shown, with Preferences › Load chart icons on by default, built; D-11, D-37: a tab whose context leaves Cogpit closes, keeping an editor's draft and deleting a node shell's pod, Cogpit's defaults; D-44 (night decision, for the owner to confirm): agents read the dock's logs tabs freely and a terminal tab only once the user turned on its "Agents may read" switch, built; D-42, a night decision for the owner to confirm: no context picker at start, the welcome page, built; D-41, a night decision for the owner to confirm: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, built; D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -24,16 +24,17 @@ projects' repositories; re-check them before relying on a version number.
 | [D-13](#d-13-cache) | Cache | decided: the UI reads only from a watch-fed cache, held in memory only; Secrets in full (revised 2026-10-12, built), Helm's releases from that watch or their own `owner=helm` watch |
 | [D-33](#d-33-the-flux-actions) | The Flux actions | night decision, for the owner to confirm: Reconcile, Suspend and Resume as the flux CLI patches them, mutating, on objects and selections; built 2026-10-13 |
 | [D-34](#d-34-the-flux-dashboard) | The Flux dashboard | night decision, for the owner to confirm: five states after kstatus, counts per kind and the objects that are not ready; built 2026-10-13 |
-| [D-35](#d-35-what-argo-cds-repository-and-cluster-secrets-show) | What Argo CD's repository and cluster Secrets show | night decision, for the owner to confirm: an allowlist of non-credential keys for the window and agents (option b), built 2026-10-13 |
-| [D-36](#d-36-how-argo-cds-sync-writes-the-operation) | How Argo CD's Sync writes the operation | night decision, for the owner to confirm: what `argocd app sync` writes, bound to the UID and resourceVersion (option b), built 2026-10-13 |
+| [D-35](#d-35-what-argo-cds-repository-and-cluster-secrets-show) | What Argo CD's repository and cluster Secrets show | decided (owner, 2026-10-14): an allowlist of non-credential keys for the window and agents (option b), built 2026-10-13 |
+| [D-36](#d-36-how-argo-cds-sync-writes-the-operation) | How Argo CD's Sync writes the operation | decided (owner, 2026-10-14): what `argocd app sync` writes, bound to the UID and resourceVersion (option b), built 2026-10-13 |
 | [D-37](#d-37-the-node-shell) | The node shell | night decision, for the owner to confirm: Lens's privileged pod with nsenter (option b), built 2026-10-13 |
 | [D-38](#d-38-who-sets-the-node-shells-image) | Who sets the node shell's image | night decision, for the owner to confirm: the user only, agents may reset it (option b), built 2026-10-13 |
+| [D-39](#d-39-pod-metrics-for-a-user-who-may-list-pods-in-some-namespaces-only) | Pod metrics for a user who may list pods in some namespaces only | night decision, for the owner to confirm: one list per namespace of the plan (option b), built 2026-10-13 |
 | [D-40](#d-40-a-pods-table-in-the-workloads-drawers) | A Pods table in the workloads' drawers | night decision, for the owner to confirm: the node drawer's table in the drawers of the six workload kinds (option b), built 2026-10-13 |
-| [D-41](#d-41-what-survives-a-restart) | What survives a restart: the tabs and the tables' layout | night decision, for the owner to confirm: Cogpit's own `workspace.json`, restored without connecting anything; built 2026-10-13 |
-| [D-42](#d-42-the-start-screen) | The start screen: the welcome page, no context picker by itself | night decision, for the owner to confirm: no picker at start (option b); built 2026-10-13 |
-| [D-43](#d-43-where-the-nodes-disk-comes-from) | Where the nodes' disk comes from | night decision, for the owner to confirm: node-exporter's root filesystem through Prometheus, never the kubelet's nodes/proxy (option b), built 2026-10-14 |
-| [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs) | What agents read of the dock's logs and terminal tabs | night decision, for the owner to confirm: logs freely, a terminal tab only once the user turned on its switch (option b), built 2026-10-13 |
-| [D-46](#d-46-chart-icons-from-the-hosts-that-serve-them) | Chart icons from the hosts that serve them | night decision, for the owner to confirm: fetched when shown, https only, no credentials, bounded and checked, with Preferences › Load chart icons on by default (option b); built 2026-10-14 |
+| [D-41](#d-41-what-survives-a-restart) | What survives a restart: the tabs and the tables' layout | decided (owner, 2026-10-14): Cogpit's own `workspace.json`, restored without connecting anything; built 2026-10-13 |
+| [D-42](#d-42-the-start-screen) | The start screen: the welcome page, no context picker by itself | decided (owner, 2026-10-14): no picker at start (option b); built 2026-10-13 |
+| [D-43](#d-43-where-the-nodes-disk-comes-from) | Where the nodes' disk comes from | decided (owner, 2026-10-14): node-exporter's root filesystem through Prometheus, never the kubelet's nodes/proxy (option b), built 2026-10-14 |
+| [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs) | What agents read of the dock's logs and terminal tabs | decided (owner, 2026-10-14): logs freely, a terminal tab only once the user turned on its switch (option b), built 2026-10-13 |
+| [D-46](#d-46-chart-icons-from-the-hosts-that-serve-them) | Chart icons from the hosts that serve them | decided (owner, 2026-10-14): fetched when shown, https only, no credentials, bounded and checked, with Preferences › Load chart icons on by default (option b); built 2026-10-14 |
 
 ## D-1: UI toolkit
 
@@ -1471,6 +1472,8 @@ headings, the table's title Not Ready, and "Every Flux object is ready." when it
 
 ## D-35: What Argo CD's repository and cluster Secrets show
 
+**Decided (owner, 2026-10-14):** option (b), the allowlist of non-credential keys for the window and agents, as built; the night decision below is confirmed.
+
 **Night decision (the lead's, 2026-10-14, for the owner to confirm).** Argo CD keeps its
 registered repositories, credential templates and clusters as Secrets labelled
 `argocd.argoproj.io/secret-type` (`repository`, `repo-creds`, `cluster`), and Lens's Argo CD
@@ -1515,6 +1518,8 @@ Tests: `TestArgoSettingsNeverShowCredentials`, `TestArgoSettingsGolden`, `TestRe
 events and the log searched for every credential in every form); on kind `TestKindArgoCD`.
 
 ## D-36: How Argo CD's Sync writes the operation
+
+**Decided (owner, 2026-10-14):** as built: Sync writes the Application's `operation` through the Kubernetes API, bound to the UID and resourceVersion; a sync with prune keeps asking twice (the dialog, then the destructive confirmation naming what Argo CD would prune) rather than Lens's one dialog.
 
 **Night decision (the lead's, 2026-10-14, for the owner to confirm).** Cogpit talks to the
 Kubernetes API only, never to Argo CD's own API server (the brief), so Sync
@@ -1722,6 +1727,8 @@ What the build chose, Cogpit's defaults (not the owner's decision):
 
 ## D-41: What survives a restart
 
+**Decided (owner, 2026-10-14):** as built: the tabs with their per-tab state and the tables' column choice and order are kept and restored without connecting anything; column widths are not kept.
+
 **Context.** Until 2026-10-13 everything the user arranged in the window but the hotbar, the
 preferences, the cluster settings and the panel widths ended with the run: the tab bar's tabs and the
 tables' hidden columns and column order ([ui-parity › Layout](../parity/ui-parity.md#layout),
@@ -1786,6 +1793,8 @@ copy each and the last write wins, as with the hotbar.
 
 ## D-42: The start screen
 
+**Decided (owner, 2026-10-14):** option (b), the welcome page at start without the context picker, as built.
+
 **Context.** Until 2026-10-13 the context picker opened by itself whenever Cogpit started without a
 connection, over the welcome page and its cluster rows ([ui-parity › Layout, Welcome
 page](../parity/ui-parity.md#layout): "Differs: the context picker still opens by itself at start,
@@ -1811,6 +1820,8 @@ captured). Since D-41 the start can also show the tabs of the last run. **Built 
   with the crash notice, rather than only in the notification log.
 
 ## D-43: Where the nodes' disk comes from
+
+**Decided (owner, 2026-10-14):** option (b), node-exporter's root filesystem through Prometheus, as built; without node-exporter the Disk column stays empty (no cAdvisor fallback, never `nodes/proxy`).
 
 **Night decision (the lead's, 2026-10-14, for the owner to confirm):** Lens's Nodes list shows a
 Disk usage bar (capture, 2026-10-11); the Metrics Server measures no disk. Options: (a) the
@@ -1856,6 +1867,8 @@ What the build chose, Cogpit's defaults (not the owner's decision):
   with the Nodes list's poll; Lens's drawer has no disk line that is captured (inferred).
 
 ## D-44: What agents read of the dock's logs and terminal tabs
+
+**Decided (owner, 2026-10-14):** option (b), as built: logs tabs freely, a terminal tab only after the user turned on its switch, off for every new tab.
 
 **Night decision (the lead's, 2026-10-14, for the owner to confirm):** a terminal tab's output can
 hold anything the user typed or a program printed, credentials included (a `cat` of a token file,
@@ -1906,6 +1919,8 @@ What the build chose, Cogpit's defaults (not the owner's decision):
   ([H-13](../security/agents-and-mcp.md#h-13-cluster-data-leaves-for-the-llm-endpoint)).
 
 ## D-46: Chart icons from the hosts that serve them
+
+**Decided (owner, 2026-10-14):** option (b), icons fetched from the hosts that serve them with the built safeguards, "Load chart icons" on by default, as built.
 
 **Night decision (the lead's, 2026-10-14, for the owner to confirm):** a chart repository's index
 names each chart version's icon as a URL on any host (a CDN, GitHub, the project's own site), and
@@ -1960,6 +1975,7 @@ What the build chose, Cogpit's defaults (not the owner's decision):
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | D-35, D-36, D-41, D-42, D-43, D-44, D-46 decided by the owner in the morning's decision round, each as built (D-33, D-34, D-37 to D-40 follow with their builds) |
 | 2026-10-14 | minor | D-43 (night decision, for the owner to confirm): the Nodes list's Disk and a node drawer's disk from node-exporter's root filesystem through Prometheus, never the kubelet's nodes/proxy; one query per 60 s poll, used as size less available, nodes matched by node label, instance or address, the Nodes list looking for Prometheus while the column shows, Cogpit's defaults; built |
 | 2026-10-14 | minor | D-46 (night decision, for the owner to confirm): chart icons fetched from the hosts that serve them when the window shows them, with Preferences › Load chart icons on by default (option b); a repository's own host allowed at a private address, other private addresses refused; built |
 | 2026-10-14 | minor | D-11, D-37 (the night build's seams): a dock tab whose context leaves Cogpit closes with it; an editor's draft is kept, a node shell's pod deleted (Cogpit's defaults) |
