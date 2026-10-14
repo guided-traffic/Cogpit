@@ -45,8 +45,9 @@ func registerDockOutput(g *registrar) {
 		GUIOnly: engine.ErrDockReadGUIOnly,
 		Description: "Lets agents read a terminal, shell, attach or node shell tab's output with dock_read, or stops them, as " +
 			"the tab's \"Agents may read\" switch does; off when a tab opens. Only the user, in Cogpit's window, can change " +
-			"it: refused for agents and the CLI, so that no agent allows itself (D-44). Agents read logs tabs without it. " +
-			"Returns the tab.",
+			"it: refused for agents and the CLI, so that no agent allows itself (D-44). While it is on, the tab carries a marker " +
+			"that flashes at each agent's read, and it turns itself off after 15 minutes without one (ui_state's agentReadUntil, " +
+			"agentLastRead and agentReadExpired; H-83). Agents read logs tabs without it. Returns the tab.",
 		Run: func(_ context.Context, s *engine.Session, p allowAgentReadParams) (any, error) {
 			return s.AllowAgentRead(p.ID, p.Allowed)
 		},

@@ -189,6 +189,9 @@ func (s *Session) ReadDockOutput(ctx context.Context, id string, q DockOutputQue
 	if tab, err = s.readableDockTab(id, gui); err != nil {
 		return DockOutput{}, err
 	}
+	if tab, err = s.noteAgentRead(tab, gui); err != nil { // keeps the switch on, flashes the tab (agentread.go, H-83)
+		return DockOutput{}, err
+	}
 	out.Tab = tab
 	return out, nil
 }
@@ -231,6 +234,8 @@ func (s *Session) AllowAgentRead(id string, allowed bool) (DockTab, error) {
 		out DockTab
 		err error
 	)
+	now := s.Now()
+	defer s.armAgentReadExpiry() // after the change: the switch's own expiry (agentread.go, H-83)
 	s.UpdateUI(func(u *UIState) {
 		for i := range u.Dock {
 			t := &u.Dock[i]
@@ -241,7 +246,7 @@ func (s *Session) AllowAgentRead(id string, allowed bool) (DockTab, error) {
 				err = fmt.Errorf("dock tab %q is a %s tab: agents read logs tabs without it, and only terminal tabs have the switch", id, t.Type)
 				return
 			}
-			t.AgentRead = allowed
+			setAgentRead(t, allowed, now)
 			out = *t
 			return
 		}

@@ -162,6 +162,83 @@ func TestRenderDockAgentReadLight(t *testing.T) {
 	savePNG(t, w, "dock_agent_read_light.png")
 }
 
+// agentReadButton returns the strip's button of a tab. Main goroutine (the test's, under the queue).
+func agentReadButton(t *testing.T, sh *shell, id string) *tabButton {
+	t.Helper()
+	b, ok := sh.dock.agentReadMarks.buttons[id]
+	if !ok {
+		t.Fatalf("no tab button for %s", id)
+	}
+	return b
+}
+
+// TestAgentReadMarkerFlashes (H-83): a terminal tab agents may read carries the marker; an agent's
+// read (EventDockRead) flashes it, a later read starts the flash again, and it ends by itself; a
+// tab without the switch neither shows the marker nor flashes. When the switch turned itself off,
+// the marker goes and the strip says so beside the switch, until it is on again.
+func TestAgentReadMarkerFlashes(t *testing.T) {
+	skipTerminalUnderRace(t)
+	sh, _, q, f := kubectlScene(t, ThemeDark, nil)
+	if b := agentReadButton(t, sh, "terminal-1"); b.agentRead || b.mark.img.Visible() {
+		t.Fatal("the marker shows before the switch is on")
+	}
+	f.emit(engine.Event{Type: engine.EventDockRead, View: "terminal-1"})
+	q.drain()
+	if agentReadButton(t, sh, "terminal-1").flash {
+		t.Error("a tab without the switch flashed")
+	}
+
+	f.update(func(u *engine.UIState) { u.Dock[0].AgentRead = true })
+	q.until(t, "the marker", func() bool { b := agentReadButton(t, sh, "terminal-1"); return b.agentRead && b.mark.img.Visible() })
+	sh.dock.agentReadMarks.flashFor = time.Hour
+	f.emit(engine.Event{Type: engine.EventDockRead, View: "terminal-1"})
+	q.until(t, "the flash", func() bool { return agentReadButton(t, sh, "terminal-1").flash })
+	sh.dock.agentReadMarks.flashFor = 20 * time.Millisecond
+	f.emit(engine.Event{Type: engine.EventDockRead, View: "terminal-1"}) // a read during the flash
+	q.until(t, "the flash's end", func() bool { return !agentReadButton(t, sh, "terminal-1").flash })
+	if b := agentReadButton(t, sh, "terminal-1"); !b.agentRead || !b.mark.img.Visible() {
+		t.Error("the marker went with the flash")
+	}
+
+	f.update(func(u *engine.UIState) { u.Dock[0].AgentRead, u.Dock[0].AgentReadExpired = false, true })
+	q.until(t, "the note", func() bool { return sh.dock.agentReadMarks.note.Visible() })
+	if b := agentReadButton(t, sh, "terminal-1"); b.agentRead || b.mark.img.Visible() || sh.dock.agentRead.Checked {
+		t.Error("the marker or the switch stayed after the switch turned itself off")
+	}
+	if sh.dock.agentReadMarks.note.text != agentReadExpiredNote {
+		t.Errorf("note %q", sh.dock.agentReadMarks.note.text)
+	}
+	f.update(func(u *engine.UIState) { u.Dock[0].AgentRead, u.Dock[0].AgentReadExpired = true, false })
+	q.until(t, "the note gone", func() bool { return !sh.dock.agentReadMarks.note.Visible() })
+}
+
+// The strip while an agent's read flashes the tab, and after the switch turned itself off: the
+// PNGs of the pull request (AGENTS.md rule 7).
+func TestRenderDockAgentReadFlashDark(t *testing.T)  { renderDockAgentReadFlash(t, ThemeDark) }
+func TestRenderDockAgentReadFlashLight(t *testing.T) { renderDockAgentReadFlash(t, ThemeLight) }
+
+func renderDockAgentReadFlash(t *testing.T, mode ThemeMode) {
+	skipTerminalUnderRace(t)
+	sh, w, q, f := kubectlScene(t, mode, nil)
+	f.update(func(u *engine.UIState) { u.Dock[0].AgentRead = true })
+	q.until(t, "the marker", func() bool { return agentReadButton(t, sh, "terminal-1").agentRead })
+	sh.dock.agentReadMarks.flashFor = time.Hour
+	f.emit(engine.Event{Type: engine.EventDockRead, View: "terminal-1"})
+	q.until(t, "the flash", func() bool { return agentReadButton(t, sh, "terminal-1").flash })
+	savePNG(t, w, "dock_agent_read_flash_"+string(mode)+".png")
+}
+
+func TestRenderDockAgentReadExpiredDark(t *testing.T)  { renderDockAgentReadExpired(t, ThemeDark) }
+func TestRenderDockAgentReadExpiredLight(t *testing.T) { renderDockAgentReadExpired(t, ThemeLight) }
+
+func renderDockAgentReadExpired(t *testing.T, mode ThemeMode) {
+	skipTerminalUnderRace(t)
+	sh, w, q, f := kubectlScene(t, mode, nil)
+	f.update(func(u *engine.UIState) { u.Dock[0].AgentReadExpired = true })
+	q.until(t, "the note", func() bool { return sh.dock.agentReadMarks.note.Visible() })
+	savePNG(t, w, "dock_agent_read_expired_"+string(mode)+".png")
+}
+
 // TestAgentReadSwitchArmsAfterATabChange: right after the switch began to show a tab (an agent can
 // make another terminal tab the active one just before a click lands), turning it on does nothing
 // for the confirmations' arm delay; turning it off always works.

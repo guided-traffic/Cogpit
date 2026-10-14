@@ -376,6 +376,9 @@ func (sh *shell) onEvent(ev engine.Event) {
 		})
 	case engine.EventAudit: // a line in the audit log: the Audit Log tab reads it (auditlog.go)
 		sh.do(sh.dock.auditChanged)
+	case engine.EventDockRead: // an agent read a terminal tab: it flashes (dockagentread.go)
+		id := ev.View
+		sh.do(func() { sh.dock.flashAgentRead(id) })
 	}
 }
 
@@ -1074,7 +1077,7 @@ func dockEqual(a, b engine.UIState) bool {
 		x, y := a.Dock[i], b.Dock[i]
 		if x.ID != y.ID || x.Title != y.Title || x.Logs != y.Logs || x.Container != y.Container || !sameRef(x.Ref, y.Ref) ||
 			x.Audit != y.Audit || // the Audit Log's filter (auditlog.go)
-			x.AgentRead != y.AgentRead { // a terminal's "Agents may read" (dockoutput.go)
+			x.AgentRead != y.AgentRead || x.AgentReadExpired != y.AgentReadExpired { // a terminal's "Agents may read" (dockoutput.go, dockagentread.go)
 			return false
 		}
 		// A Helm tab's chart, version and digest change in place (a version picked, its chart

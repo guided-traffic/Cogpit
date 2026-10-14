@@ -96,6 +96,10 @@ type Options struct {
 	SnapshotInterval time.Duration
 	// Now is the clock; nil means time.Now.
 	Now func() time.Time
+	// AfterFunc runs f once d has passed on the session's clock, as time.AfterFunc does, and
+	// returns its stop; nil means time.AfterFunc. Tests that move Now fire it themselves (the
+	// terminal tabs' agent-read switch, agentread.go).
+	AfterFunc func(d time.Duration, f func()) (stop func() bool)
 	// Logger receives the engine's logs; nil means slog.Default().
 	Logger *slog.Logger
 	// Drains keeps the drains Cogpit starts in a journal, so that one a crash interrupts is
@@ -159,6 +163,8 @@ type Session struct {
 	edits  editStore    // the editor tabs' texts and base versions: editor.go
 	titles sync.Map     // view key → the view's title, for the tabs' titles (tabs.go)
 	shells nodeShellSet // the node shells' pods by dock tab: nodeshell.go
+
+	agentReads agentReadExpiry // when a terminal tab's agent-read switch turns itself off: agentread.go
 }
 
 // New returns a Session with an empty registry. Register commands (package commands) before use.
@@ -168,6 +174,9 @@ func New(opts Options) *Session {
 	}
 	if opts.Now == nil {
 		opts.Now = time.Now
+	}
+	if opts.AfterFunc == nil {
+		opts.AfterFunc = func(d time.Duration, f func()) func() bool { return time.AfterFunc(d, f).Stop }
 	}
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()
@@ -436,5 +445,6 @@ func (s *Session) Close() {
 	s.opts.Drafts.close()    // the drafts still waiting for their timer are written first (nil-safe)
 	s.opts.Workspace.close() // the tabs as the user left them, before the connection closes (nil-safe)
 	s.endNodeShells()        // the node shells' pods are deleted before the connection goes (nodeshell.go)
+	s.agentReads.stop()      // no switch turns itself off after the session (agentread.go)
 	s.state.close()
 }

@@ -104,6 +104,7 @@ func (d *dock) updateAgentRead() {
 			active = &d.tabs[i]
 		}
 	}
+	d.agentReadMarks.showNote(active, d.open()) // the switch turned itself off (dockagentread.go)
 	if active == nil || !engine.IsTerminalTab(active.Type) || !d.open() {
 		d.agentRead.Hide()
 		return

@@ -3,6 +3,7 @@ package engine
 import (
 	"maps"
 	"slices"
+	"time"
 
 	"github.com/guided-traffic/cogpit/internal/model"
 )
@@ -148,6 +149,13 @@ type DockTab struct {
 	// user lets agents read (dock.allowAgentRead, the tab's switch; D-44); off when it opens.
 	// Agents read logs tabs without it (dockoutput.go).
 	AgentRead bool `json:"agentRead,omitempty"`
+	// AgentLastRead is when an agent last read the tab since its switch went on; zero before the
+	// first read. AgentReadUntil is when the switch turns itself off, AgentReadIdle after it went
+	// on or after the last read; zero while it is off. AgentReadExpired is set once it turned
+	// itself off, until the user turns it on again (agentread.go, H-83).
+	AgentLastRead    time.Time `json:"agentLastRead,omitzero"`
+	AgentReadUntil   time.Time `json:"agentReadUntil,omitzero"`
+	AgentReadExpired bool      `json:"agentReadExpired,omitempty"`
 }
 
 // HelmUpgradeTab is what a Helm Upgrade tab shows beside its values editor (Lens's "Helm Upgrade:

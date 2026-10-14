@@ -2115,6 +2115,22 @@ What the build chose, Cogpit's defaults (not the owner's decision):
 
 **Decided (owner, 2026-10-14):** option (b), as built: logs tabs freely, a terminal tab only after the user turned on its switch, off for every new tab.
 
+**Added (owner, 2026-10-14, [H-83](../security/agents-and-mcp.md#h-83-an-allowed-terminal-tab-gives-agents-everything-it-shows-from-then-on)):**
+a visible marker on the tab while its switch is on, flashing at each agent's read; the switch turns
+itself off after 15 minutes without an agent's read and says so in the tab. **Built 2026-10-14**
+([`engine/agentread.go`](../../internal/engine/agentread.go),
+[`fyneui/dockagentread.go`](../../internal/ui/fyneui/dockagentread.go)): the switch, the last read,
+its end and that it turned itself off are UI state (`DockTab.AgentLastRead`, `AgentReadUntil`,
+`AgentReadExpired`); a read emits `EventDockRead`, to which the window reacts with the flash; one
+timer on the session's clock (`Options.AfterFunc`) ends the earliest switch.
+Cogpit's defaults in the build (not the owner's decision): the 15 minutes count from the later of
+switching on and the last read; every read the switch allowed counts (an agent's, or the CLI's
+forwarded to the window), the user's own never; the marker an eye after the title in the warning
+colour, the flash the tab tinted in that colour for 0.7 s, again at a read during a flash; the note
+("Turned off after 15 minutes without an agent's read") beside the switch while that tab is the
+active one, gone when the user turns it on again, none when the user turns it off by hand; the end
+of a switch is not an audit entry (no one's command; `ui_state` shows it).
+
 **The night decision (the lead's, 2026-10-14), confirmed by the owner (2026-10-14):** a terminal tab's output can
 hold anything the user typed or a program printed, credentials included (a `cat` of a token file,
 `env`, `kubectl create token`, a Secret piped through `base64 -d`). Options: (a) agents read terminal
@@ -2222,6 +2238,7 @@ What the build chose, Cogpit's defaults (not the owner's decision):
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | D-44 (owner, H-83): a terminal tab agents may read carries a marker that flashes at each agent's read, and its switch turns itself off after 15 minutes without one, which the strip then says; built, the details Cogpit's defaults |
 | 2026-10-14 | minor | D-2 (owner): a role binding an agent creates or changes always waits for the user, also where agent writes are allowed: `roleBinding.create`, and `object.create` and `object.apply` when the text or the Edit tab holds a binding (a command's declared `AgentsAsk`); built. Helm charts and the role's own rules are not covered (H-27) |
 | 2026-10-14 | minor | D-4 decided by the owner: Sparkle's feed on GitHub Pages (`https://guided-traffic.github.io/cogpit/appcast.xml`), signed in the environment `sparkle` with the owner as required reviewer |
 | 2026-10-14 | minor | D-4 built, the second step: the release pipeline signs the app and `cogpit-cli` for macOS with the Developer ID (hardened runtime, no entitlements), ships the app in `Cogpit-<v>-macos-arm64.dmg`, notarizes both and staples the disk image's ticket, in a job of its own; no tag run yet. The lead's decision for the owner to confirm: a failure fails that job and the release gets no files until it is re-run. Agent REL's, for the owner to confirm: signing in its own job, the disk image instead of the zip, `cogpit-cli` notarized but not stapled, only the disk image submitted |

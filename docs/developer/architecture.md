@@ -1990,7 +1990,12 @@ a line's length. The engine decides who may read: logs tabs every origin, termin
 shell, attach, node shell) the GUI, else only with `DockTab.AgentRead`, which `dock.allowAgentRead`
 (GUI-only) sets from the switch in the dock's strip; it checks before and after the window reads, so
 a read that a switch-off or a close overtakes returns nothing. A headless engine has no reader:
-`dock.read` is disabled there.
+`dock.read` is disabled there. Since 2026-10-14 (H-83, [`agentread.go`](../../internal/engine/agentread.go))
+a read the switch allowed is recorded in the same check after the window read (`noteAgentRead`:
+`DockTab.AgentLastRead`, and `AgentReadUntil` 15 minutes later) and emits `EventDockRead`, on which
+the window flashes the tab's marker ([`dockagentread.go`](../../internal/ui/fyneui/dockagentread.go));
+one timer, armed through `Options.AfterFunc` for the earliest `AgentReadUntil` after every change,
+turns a switch off at its end and sets `AgentReadExpired`, which the strip shows.
 
 **What an agent can do with a kind** (`kinds.list`, completed 2026-10-13, G17,
 [`commands/kindslist.go`](../../internal/engine/commands/kindslist.go)): besides a kind's profile and
@@ -3443,6 +3448,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | §7: the terminal tab's agent-read switch ends 15 minutes after the last read; the read's record, `EventDockRead` and the window's flash, `Options.AfterFunc` (H-83, owner) |
 | 2026-10-14 | minor | §4.2: `Spec.AgentsAsk`, an agent's call that waits for the user whatever the allowance of agent writes: role bindings (H-27, owner) |
 | 2026-10-14 | minor | Current state, §9: the workloads' drawers' Pods tables without a Namespace column (D-40, decided by the owner); the node drawer keeps it |
 | 2026-10-14 | minor | §9: a pod-metrics refusal affects only its namespace (D-39, owner): the Metrics Server's 403 for one namespace's pods is that scope's state `forbidden`, kept for the TTL, not a failure of the provider; no Prometheus in its place there; `metrics.get`'s `forbidden` namespaces |

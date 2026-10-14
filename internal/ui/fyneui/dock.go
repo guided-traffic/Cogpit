@@ -45,6 +45,8 @@ type dock struct {
 	syncingAgentRead bool
 	agentReadTab     string
 	agentReadSince   time.Time
+	// agentReadMarks is the tab marker and its flash at each agent's read (dockagentread.go).
+	agentReadMarks agentReadMarks
 }
 
 // dockContent is one tab's content and the stream behind it.
@@ -78,8 +80,10 @@ func newDock(sh *shell) *dock {
 	d.toggle = widget.NewButtonWithIcon("", theme.MenuDropDownIcon(), d.toggleExpanded)
 	d.toggle.Importance = widget.LowImportance
 	d.agentRead = d.newAgentReadSwitch()
+	d.agentReadMarks = newAgentReadMarks()
 	d.strip = container.NewStack(newSurface(colorDock),
-		container.NewBorder(nil, nil, container.NewHBox(d.tabRow, add), container.NewHBox(d.agentRead, d.toggle)))
+		container.NewBorder(nil, nil, container.NewHBox(d.tabRow, add),
+			container.NewHBox(d.agentReadMarks.note, d.agentRead, d.toggle)))
 	d.stripHolder = container.NewStack()
 	d.collapsedBar = container.NewVBox()
 	d.body = container.NewStack()
@@ -244,6 +248,7 @@ func (d *dock) closeAll() {
 
 func (d *dock) rebuildStrip() {
 	objs := make([]fyne.CanvasObject, 0, len(d.tabs))
+	d.agentReadMarks.buttons = map[string]*tabButton{}
 	for _, t := range d.tabs {
 		id := t.ID
 		icon := theme.ComputerIcon()
@@ -265,7 +270,7 @@ func (d *dock) rebuildStrip() {
 		case engine.DockDiagnostics:
 			icon = theme.InfoIcon()
 		}
-		objs = append(objs, newTabButton(t.Title, icon, id == d.active && d.open(),
+		b := newTabButton(t.Title, icon, id == d.active && d.open(),
 			func() {
 				d.expanded = true
 				d.sh.layoutBody()
@@ -274,7 +279,9 @@ func (d *dock) rebuildStrip() {
 					d.sh.dispatch("dock.activate", dockParams{ID: id}, nil)
 				}
 			},
-			func() { d.sh.dispatch("dock.close", dockParams{ID: id}, nil) }))
+			func() { d.sh.dispatch("dock.close", dockParams{ID: id}, nil) })
+		d.agentReadMarks.mark(b, t) // agents may read it: the marker, flashing at a read (dockagentread.go)
+		objs = append(objs, b)
 	}
 	d.tabRow.Objects = objs
 	d.tabRow.Refresh()
@@ -376,12 +383,16 @@ type tabButton struct {
 	img   *iconImage
 	txt   *textLine
 	close *widget.Button
+	// agentRead shows the marker of a terminal tab agents may read, after the title; flash
+	// tints the tab while an agent's read shows (dockagentread.go).
+	agentRead, flash bool
+	mark             *iconImage
 }
 
 func newTabButton(title string, icon fyne.Resource, active bool, onTap, onClose func()) *tabButton {
 	b := &tabButton{title: title, icon: icon, active: active, onTap: onTap,
 		bg: canvas.NewRectangle(color.Transparent), under: canvas.NewRectangle(color.Transparent),
-		img: newIconImage()}
+		img: newIconImage(), mark: newIconImage()}
 	b.txt = newTextLine(title, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{})
 	b.txt.truncate = true
 	b.close = widget.NewButtonWithIcon("", theme.CancelIcon(), onClose)
@@ -418,10 +429,20 @@ func (r *tabButtonRenderer) textWidth() float32 {
 	return fyne.Min(w, maxText)
 }
 
+// markWidth is the room the agent-read marker takes after the title: its icon and a padding, or
+// nothing without it.
+func (r *tabButtonRenderer) markWidth() float32 {
+	if !r.b.agentRead {
+		return 0
+	}
+	pad, icon, _ := r.dims()
+	return pad + icon
+}
+
 func (r *tabButtonRenderer) MinSize() fyne.Size {
 	pad, icon, _ := r.dims()
 	c := r.b.close.MinSize()
-	return fyne.NewSize(pad+icon+pad+r.textWidth()+c.Width, fyne.Max(c.Height, icon+2*pad))
+	return fyne.NewSize(pad+icon+pad+r.textWidth()+r.markWidth()+c.Width, fyne.Max(c.Height, icon+2*pad))
 }
 
 func (r *tabButtonRenderer) Layout(size fyne.Size) {
@@ -434,9 +455,12 @@ func (r *tabButtonRenderer) Layout(size fyne.Size) {
 	b.img.img.Move(fyne.NewPos(pad, (size.Height-icon)/2))
 	b.img.img.Resize(fyne.NewSize(icon, icon))
 	c := b.close.MinSize()
-	tw := size.Width - (pad + icon + pad) - c.Width
+	mark := r.markWidth()
+	tw := size.Width - (pad + icon + pad) - mark - c.Width
 	b.txt.Move(fyne.NewPos(pad+icon+pad, 0))
 	b.txt.Resize(fyne.NewSize(fyne.Max(tw, 0), size.Height))
+	b.mark.img.Move(fyne.NewPos(pad+icon+pad+fyne.Max(tw, 0)+pad, (size.Height-icon)/2))
+	b.mark.img.Resize(fyne.NewSize(icon, icon))
 	b.close.Move(fyne.NewPos(size.Width-c.Width, (size.Height-c.Height)/2))
 	b.close.Resize(c)
 }
@@ -455,13 +479,14 @@ func (r *tabButtonRenderer) Refresh() {
 		b.under.FillColor = color.Transparent
 		b.img.set(th, b.icon, colorMuted)
 	}
+	refreshAgentReadMark(th, b) // dockagentread.go
 	r.Layout(b.Size())
 	b.bg.Refresh()
 	b.under.Refresh()
 }
 
 func (r *tabButtonRenderer) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{r.b.bg, r.b.under, r.b.img.img, r.b.txt, r.b.close}
+	return []fyne.CanvasObject{r.b.bg, r.b.under, r.b.img.img, r.b.txt, r.b.mark.img, r.b.close}
 }
 
 func (r *tabButtonRenderer) Destroy() {}
