@@ -51,8 +51,8 @@ tools with an OpenAI-compatible endpoint ([D-10](../developer/decisions.md#d-10-
 | Start at login stays with the user (2026-10-14, [D-48](../developer/decisions.md#d-48-start-at-login)): with it on, Cogpit runs after every login without being opened, its MCP endpoint included unless the user switched that off; agents read it and may turn it off, but `preferences.setStartAtLogin` refuses turning it on for the CLI, external agents and the built-in agent before macOS is asked, and only the user opens System Settings' Login Items from Cogpit (`preferences.openLoginItems`, GUI-only). **Confirmed by the owner (2026-10-14 evening):** off by default, and only the user turns it on. What remains: once the user turned it on, the MCP endpoint is up after every login unless the user switched MCP off | `internal/engine` ([`loginitem.go`](../../internal/engine/loginitem.go), `ErrStartAtLoginGUIOnly`; `TestStartAtLogin`) |
 | An agent reads what the dock's logs and terminal tabs show (`dock_read`, 2026-10-13, [D-44](../developer/decisions.md#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), a night decision for the owner to confirm): a logs tab's lines as its view shows them (its pod and container, its filter, names and timestamps as shown), freely, like the other reads; a terminal tab's screen (a local terminal, a pod shell, attach, a node shell) only once the user turned on the tab's "Agents may read" switch in the dock's strip, which is off when a tab opens, also one an agent opened. The switch is `dock_allowAgentRead`, a GUI-only command, so no agent and no CLI turns it on; agents see it as the tab's `agentRead` in `ui_state`. While it is on, the tab carries a marker that flashes at each agent's read, and it turns itself off after 15 minutes without one (2026-10-14, the owner's decision; `TestAgentReadSwitchTurnsItselfOff`, `TestAgentReadMarkerFlashes`). **Decided (owner, 2026-10-14 evening):** the switch also ends at the latest 1 hour after it was turned on, whatever the reads; the tab says so, and one click turns it on again. Not built yet; until then an agent that reads at least every 15 minutes keeps it on ([H-83](#h-83-an-allowed-terminal-tab-gives-agents-everything-it-shows-from-then-on)). Since an agent can make another terminal tab the active one (`dock_activate`) just before the user's click lands, turning the switch on is ignored for the confirmations' 750 ms after it began to show another tab (`TestAgentReadSwitchArmsAfterATabChange`). The engine checks the switch before the window is read and again after, so a read that the user's switching off, or closing the tab, overtakes returns nothing; the window reads only its own widgets, never the cluster, on its main goroutine. A refusal quotes nothing of the output, and the audit line has the call's parameters, never the lines. The tool reads dock tabs only: a value the user revealed in the drawer (`secret_reveal`) is in no dock tab unless the user puts it there ([H-83](#h-83-an-allowed-terminal-tab-gives-agents-everything-it-shows-from-then-on)). Bounded to 2,000 lines and 256 KiB a call, 8 KiB a line; the terminal keeps no scrollback, so agents read the screen. What programs print into either reaches agents as printed ([H-82](#h-82-secret-values-printed-into-logs-reach-agents)) | `internal/engine` ([`dockoutput.go`](../../internal/engine/dockoutput.go), `ErrTerminalOutputWithheld`, `ErrDockReadGUIOnly`; `TestDockReadTerminalNeedsTheUsersSwitch`, `TestDockReadLogsTab`, `TestDockReadRefusals`, `TestPageDockLines`), `internal/mcp` (`TestDockReadOverMCP`), `internal/ui/fyneui` ([`dockoutput.go`](../../internal/ui/fyneui/dockoutput.go), [`termview/output.go`](../../internal/ui/fyneui/termview/output.go); `TestDockOutputOfALogsTab`, `TestDockOutputOfATerminalTab`, `TestScreenLinesHaveNoEscapes`; [PNG](../../internal/ui/fyneui/testdata/dock_agent_read_dark.png)) |
 | Updates stay on unless the user turns them off (2026-10-14, [D-4](../developer/decisions.md#d-4-packaging-and-updates), the lead's default, confirmed by the owner on 2026-10-14 evening): an agent or the CLI may turn Preferences › App › Check for updates automatically on, never off (`preferences.set` refuses with `ErrUpdateChecksGUIOnly`), since off leaves the copy without the next release's fixes; any origin may run `app.checkForUpdates`, which only opens Sparkle's window: installing is the user's click there. The update channel is Stable for every origin until prereleases exist | `internal/engine` ([`updates.go`](../../internal/engine/updates.go), [`commands/updates.go`](../../internal/engine/commands/updates.go)), `TestUpdatePreferences`, `TestCheckForUpdatesCommand` |
-| The built-in agent's tool loop has limits per turn: tool calls, tokens, time | `internal/agent` |
-| Secret values are never sent to the LLM endpoint unless the user allows it for that request; what is sent is visible in the chat | `internal/agent` |
+| The built-in agent's tool loop has limits per turn: the third identical tool call ends the turn, at most 25 tool calls, 300,000 tokens and 10 minutes, adjustable per connection; Stop (Esc, ⌘.) cancels the model's stream and a running tool call (decided by the owner on 2026-10-14 late evening, [D-10](../developer/decisions.md#d-10-built-in-agent); being built) | `internal/agent`, [`engine/chat.go`](../../internal/engine/chat.go) (`DefaultChatLimits`) |
+| What the built-in agent reads, and so sends to its LLM endpoint, follows the external agents' rules above, unless the user marked the connection private (a local model or a private cloud): then it reads what the window shows, Secret values, Helm values, Flux credentials and Helm error texts included, while terminal tabs still need their switch and every write rule stays (decided by the owner on 2026-10-14 late evening, [D-10](../developer/decisions.md#d-10-built-in-agent), [H-94](#h-94-a-private-connection-gives-the-model-what-the-window-shows); being built, `Invocation.ReadsLikeUser` honoured only with origin `builtInAgent` and never read from JSON); what each turn sent is visible in the chat; kept conversations are stored scrubbed (no Secret value on disk, as D-19) | `internal/agent`, `internal/engine` |
 | Tool results are passed to the model as data, never as instructions to Cogpit; Cogpit acts only on tool calls, and those go through the rules above | `internal/agent` |
 
 ## What this does not cover
@@ -100,9 +100,30 @@ loopback HTTP.
 
 What the built-in agent sends (object YAML, events, log excerpts, names of namespaces and
 clusters) goes to whatever endpoint the user configured, which may be a cloud service. Cogpit shows
-what it sends and keeps Secret values out by default; it cannot know the endpoint's retention or
-residency. Whether the user can restrict the agent to certain contexts, and how data from
-production clusters is marked, is not designed yet.
+what each turn sent and keeps Secret values out unless the connection is marked private; it cannot
+know the endpoint's retention or residency. Decided (owner, 2026-10-14 late evening,
+[D-10](../developer/decisions.md#d-10-built-in-agent)): no restriction to certain contexts and no
+mark for production clusters; the user's mark of a connection as private is what decides how much
+leaves (H-94). Live once the chat is built, for every connection to an endpoint outside the
+computer: the chat reads every cluster it is used on, as an external agent does, and what it reads
+leaves. What makes it real: a connection to a cloud service, the cluster data being confidential
+itself (names, images, environment variables, ConfigMaps), and the user not looking at what a turn
+sent.
+
+### H-94: A private connection gives the model what the window shows
+
+Decided by the owner on 2026-10-14 late evening ([D-10](../developer/decisions.md#d-10-built-in-agent)),
+being built: on a connection the user marked private, the built-in agent's reads return what the
+window shows — Secret values, Helm's user-supplied values, Flux's credential fields and Helm's error
+texts reach the model. Cogpit takes the mark as given: it cannot tell a local model from a remote
+one behind a local proxy, so a wrong mark sends Secret values to wherever the endpoint forwards
+them. Cluster text can steer the model ([H-11](#h-11-instructions-hidden-in-cluster-data)): a
+steered model can put a value it read into a write, a ConfigMap's data or an annotation others can
+read. Bounded: every write still asks (D-2) unless the user allowed agent writes for the context
+([H-14](#h-14-allowing-agent-writes-for-a-context)), and then only for `Mutating` commands; Secret
+create and edit stay GUI-only; terminal tabs still need their switch (H-83); kept conversations are
+stored scrubbed, so the values do not reach the disk through the chat. Live once built, for every
+connection marked private.
 
 ### H-28: The status bar's switch does not reach a headless bridge
 
