@@ -39,8 +39,21 @@ func registerPrometheusSetting(g *registrar) {
 			"service address namespace/service:port and an optional path prefix, read through the API server's service " +
 			"proxy, or auto to find it by its well-known service names again. It is kept in Cogpit's own preferences for " +
 			"this context, never written to the kubeconfig or the cluster, and sends no request itself: the next chart " +
-			"or list that needs Prometheus probes that service alone (one GET of its buildinfo). Returns the setting.",
+			"or list that needs Prometheus probes that service alone (one GET of its buildinfo). An agent's request always " +
+			"waits for the user's acceptance, which names the service. Returns the setting.",
 		Enabled: func(s *engine.Session, _ prometheusParams) error { _, err := connected(s); return err },
+		// Where the cluster's metrics come from decides which service learns the names of the pods
+		// and nodes the user opens (H-26): an agent's change always waits for the user (A16, owner
+		// 2026-10-14 evening; always, as the lead's night decision N8 has UI commands ask).
+		AgentsAsk: func(*engine.Session, prometheusParams) bool { return true },
+		Detail: func(_ *engine.Session, p prometheusParams) string {
+			addr := strings.TrimSpace(p.Address)
+			if addr == "" || strings.EqualFold(addr, autoAddress) {
+				return "Cogpit then finds the cluster's Prometheus by its well-known service names again."
+			}
+			return "Cogpit's charts and lists then read the cluster's metrics from " + addr + strings.TrimSpace(p.Prefix) +
+				" through the API server's service proxy; that service learns the names of the pods and nodes you open."
+		},
 		Run: func(_ context.Context, s *engine.Session, p prometheusParams) (any, error) {
 			addr := strings.TrimSpace(p.Address)
 			if addr == "" || strings.EqualFold(addr, autoAddress) {

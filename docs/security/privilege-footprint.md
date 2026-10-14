@@ -360,12 +360,11 @@ put words there either; the user's setting (`cluster.setPrometheus`, since 2026-
 service and turns detection off. An agent may set it as well, so an agent could point the
 queries (pod and node names) at a lookalike it names; it could read those names through MCP anyway.
 
-Decided (owner, 2026-10-14 evening): an agent's `cluster.setPrometheus` becomes a write the user
-confirms (mutating); the window's stays as it is. Not built yet; until then it is a UI command any
-agent runs unasked, live for every agent over MCP. What remains once it is built: as a `Mutating`
-command it runs unasked where the user allowed agent writes for the context
-([H-14](agents-and-mcp.md#h-14-allowing-agent-writes-for-a-context)); and detection by name, the
-case above, is unchanged.
+Decided (owner, 2026-10-14 evening) and built the same night: an agent's `cluster.setPrometheus`
+is a write the user confirms, the question naming the service; the window's stays as it is. It asks
+whatever the allowance of agent writes ([H-14](agents-and-mcp.md#h-14-allowing-agent-writes-for-a-context);
+the lead's night decision, D-2: UI commands that declare `AgentsAsk` always ask). What remains:
+detection by name, the case above, is unchanged.
 
 ### H-27: A binding is judged by its role's name and the cache
 

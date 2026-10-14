@@ -331,7 +331,7 @@ Fields added on 2026-10-11 for row menus, the drawer's toolbar and dialogs
   [D-2](decisions.md#d-2-agent-interface-scope)): an agent's call of a UI command that declares it
   for the invocation waits for the user whatever the allowance of agent writes —
   `cluster.settings.set` and `preferences.set` setting a proxy (A20), `hotbar.removeBank` of a bank
-  with tiles (A65). Decided, not built: `cluster.setPrometheus` from an agent (A16).
+  with tiles (A65), `cluster.setPrometheus` (A16).
 - `Prefill`: parameters a schema-generated dialog starts with, read from the cache (the current
   replica count for Scale).
 - `Detail`: a sentence the confirmation adds for parameters its objects don't show (the drain

@@ -1869,13 +1869,13 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   agents' RBAC writes and Helm installs and upgrades always waiting for the user; window-only
   notifications reaching agents as text through that filter, inline Helm values removed, instead
   of withheld; marking notifications read and clearing them the window's only; a chart's README
-  framed as text of the chart's author.
+  framed as text of the chart's author; `cluster.setPrometheus` by an agent always waiting for the
+  user (A16).
 - **Built 2026-10-14 (A15, D-49):** the MCP switch persisted and honoured by `cogpit-cli mcp`,
   which with MCP off refuses to serve, headless too, telling the agent why
   ([H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge)).
-- **Decided (owner, 2026-10-14 evening; not built unless confirmed):** `cluster.setPrometheus` by an agent as a write with
-  confirmation ([G7](#g7-resource-actions), [G11](#g11-helm), [G12](#g12-metrics-and-cluster-overview),
-  [G13](#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)). Confirmed: values under
+- **Confirmed (owner, 2026-10-14 evening)** ([G7](#g7-resource-actions), [G11](#g11-helm),
+  [G12](#g12-metrics-and-cluster-overview), [G13](#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)): values under
   naming keys (user, host, port, database, namespace) not replaced; GUI-only commands listed,
   described and refused; `cogpit-cli get` printing Cogpit's view of a list and one object's manifest
   redacted. The estimate below predates these and is not moved (the lead recounts).

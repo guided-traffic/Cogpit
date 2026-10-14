@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -126,6 +127,7 @@ func TestAgentRoleBindingsAlwaysAsk(t *testing.T) {
 	// The registry and the MCP tools say which commands ask whatever the allowance.
 	for id, want := range map[string]bool{"object.create": true, "object.apply": true, "roleBinding.create": true,
 		"role.create": true, "clusterRole.create": true, "helm.chart.install": true, "helm.release.upgrade": true,
+		"cluster.setPrometheus": true, "hotbar.removeBank": true, "cluster.settings.set": true, "preferences.set": true,
 		"namespace.create": false, "node.cordon": false, "clusterRoleBinding.create": false} {
 		if c, ok := h.s.Registry().Get(id); !ok || c.AgentsAsk != want {
 			t.Errorf("%s: agentsAsk %v, want %v", id, ok && c.AgentsAsk, want)
@@ -159,5 +161,28 @@ func TestTextHoldsRBAC(t *testing.T) {
 	if !engine.RBACKind("not a version///", "ClusterRoleBinding") || !engine.RBACKind("not a version///", "Role") ||
 		engine.RBACKind("v1", "Binding") {
 		t.Error("RBACKind: an unparseable apiVersion is judged by the kind; a core Binding is not an RBAC object")
+	}
+}
+
+// An agent's cluster.setPrometheus always waits for the user, also where agent writes are allowed,
+// the question naming the service (A16, owner 2026-10-14 evening; H-26); declined, nothing is
+// set. The window's own setting is not asked.
+func TestAgentSetPrometheusAsks(t *testing.T) {
+	var asked []engine.ConfirmRequest
+	h := newHarness(t, seed(), engine.Options{Confirmer: engine.ConfirmFunc(func(_ context.Context, req engine.ConfirmRequest) (bool, error) {
+		asked = append(asked, req)
+		return false, nil
+	})})
+	h.s.SetAgentWrites("test", true)
+	params := map[string]any{"address": "monitoring/lookalike:9090"}
+	if err := h.run(t, engine.OriginExternalAgent, "cluster.setPrometheus", params, nil); !errors.Is(err, engine.ErrDeclined) {
+		t.Fatalf("an agent's setPrometheus: %v, want ErrDeclined", err)
+	}
+	if len(asked) != 1 || !asked[0].AgentsAsk || !strings.Contains(asked[0].Detail, "monitoring/lookalike:9090") {
+		t.Errorf("asked %+v", asked)
+	}
+	_ = h.run(t, engine.OriginGUI, "cluster.setPrometheus", params, nil) // may fail without a settings store; never asks
+	if len(asked) != 1 {
+		t.Errorf("the window's setPrometheus asked: %+v", asked[1:])
 	}
 }

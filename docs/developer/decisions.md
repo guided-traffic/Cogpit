@@ -73,7 +73,7 @@ window. Nothing of it was built in the round.
 | A13 | #3, H-42 | A repository that appears in Helm's file while Cogpit runs is downloaded at once; as built | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml), [H-42](../security/trust-boundaries.md#h-42-a-repository-another-program-writes-into-helms-file-is-used-without-asking) |
 | A14 | #4, H-41 | An http or insecure-TLS origin marked in the Charts view (the repository cell), the Install tab and the install and upgrade confirmations; to build | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml), [H-41](../security/trust-boundaries.md#h-41-repositories-whose-content-nothing-authenticates) |
 | A15 | #31, H-28 | The MCP off switch persisted and honoured by `cogpit-cli mcp`: off, the bridge refuses to serve, headless too, with a clear message to the agent; built 2026-10-14 | [D-49](#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp), [D-23](#d-23-a-link-to-the-owner-in-the-status-bar), [H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge) |
-| A16 | #40, H-26 | `cluster.setPrometheus` by an agent a write with confirmation (mutating); the window as today; to build | [D-2](#d-2-agent-interface-scope), [H-26](../security/privilege-footprint.md#h-26-prometheus-is-found-by-name) |
+| A16 | #40, H-26 | `cluster.setPrometheus` by an agent a write with confirmation (mutating); the window as today; built 2026-10-14 (always asks: N8) | [D-2](#d-2-agent-interface-scope), [H-26](../security/privilege-footprint.md#h-26-prometheus-is-found-by-name) |
 | A17 | #45, D-11 | Nothing offered after an interrupted Helm install; Cogpit shows the release's state; the user cleans up in the Helm Releases view; to build (the offer removed) | [D-11](#d-11-crash-stance) |
 | A18 | #81, H-32 | Marking notifications read and clearing them GUI-only; agents read the list; built 2026-10-14 | [D-2](#d-2-agent-interface-scope), [H-32](../security/agents-and-mcp.md#h-32-an-agent-can-clear-the-users-notifications) |
 | A19 | #82, H-31 | Window-only notifications reach agents as text, through the H-82 filter and with inline Helm values removed, instead of withheld; built 2026-10-14 | [D-2](#d-2-agent-interface-scope), [H-31](../security/privilege-footprint.md#h-31-an-agents-helm-values-can-copy-what-lookup-reads), [architecture §4.3](architecture.md#43-ui-state) |
@@ -264,7 +264,9 @@ code still does what the safety rules above and their notes say:
 - **Decided (owner, 2026-10-14 evening, A16,
   [H-26](../security/privilege-footprint.md#h-26-prometheus-is-found-by-name)):**
   `cluster.setPrometheus` from an agent is a write the user confirms (mutating); the window's use
-  stays as it is. Not built yet: it is a UI command every origin runs.
+  stays as it is. Built 2026-10-14: the UI command declares `AgentsAsk`, so an agent's call always
+  waits for the user, whatever the allowance of agent writes (the mechanism's night decision below),
+  the question naming the service (`TestAgentSetPrometheusAsks`).
 - **Decided (owner, 2026-10-14 evening, A18,
   [H-32](../security/agents-and-mcp.md#h-32-an-agent-can-clear-the-users-notifications)):** marking
   notifications read and clearing them is GUI-only; agents read the list. Built 2026-10-14:
