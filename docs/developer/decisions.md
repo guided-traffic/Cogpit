@@ -18,7 +18,7 @@ projects' repositories; re-check them before relying on a version number.
 | [D-7](#d-7-language-and-platforms) | Language and platforms | decided: Go; a macOS app first, Windows and Linux later |
 | [D-8](#d-8-licence) | Licence | decided: Apache-2.0 |
 | [D-9](#d-9-scope-against-lenss-paid-and-vendor-features) | Scope against Lens's paid and vendor features | decided: Flux CD and Argo CD in the beta, other paid features after it, vendor features never |
-| [D-10](#d-10-built-in-agent) | Built-in agent and LLM interface | decided: chat beside the views, OpenAI-compatible endpoint; built after the alpha |
+| [D-10](#d-10-built-in-agent) | Built-in agent and LLM interface | decided: a chat column at the window's right edge, OpenAI-compatible endpoints, several connections, a private-connection mark, kept scrubbed conversations, limits per turn (owner, 2026-10-14 late evening); being built (M12) |
 | [D-11](#d-11-crash-stance) | Crash stance | decided: crash-tolerant UI, crash-safe cluster operations; Helm install (owner, 2026-10-14 evening): nothing offered after an interrupted install, not built |
 | [D-12](#d-12-parity-sources) | Parity sources | decided: current Lens Desktop only; no OpenLens or Freelens |
 | [D-13](#d-13-cache) | Cache | decided: the UI reads only from a watch-fed cache, held in memory only; Secrets in full (revised 2026-10-12, built), Helm's releases from that watch or their own `owner=helm` watch |
@@ -493,7 +493,7 @@ proposes new versions and never merges them on its own). `make app` puts `Sparkl
 `SUVerifyUpdateBeforeExtraction`, `SURequireSignedFeed` and `CFBundleVersion` into its
 `Info.plist` ([`hack/macos/sparkle.sh`](../../hack/macos/sparkle.sh)). `CFBundleVersion` is the
 release's version since this step: `fyne package` wrote 1 into every build, so Sparkle would never
-have seen a release as newer. The binary does not link Sparkle: [`internal/update`](../../internal/update/)
+have seen a release as newer. The binary does not link Sparkle: [`internal/update`](../../internal/update/; D-10: the owner's chat decisions of 2026-10-14 late evening and the engine's chat contract)
 loads the framework at run time from the running bundle (cgo, darwin only) and makes
 `SPUStandardUpdaterController` without starting it; the updater starts once the window's event loop
 runs. Without the framework, the key, an installed bundle or macOS there is no updater, and Help ›
@@ -686,9 +686,59 @@ bar's MCP switch (built 2026-10-12, [D-23](#d-23-a-link-to-the-owner-in-the-stat
 [architecture §7](architecture.md#7-mcp-and-the-built-in-agent)) affects external agents only.
 The owner confirmed the timing below on 2026-10-12 (the chat comes later).
 
-**Timing:** after the alpha (milestone M10). **Open details:** what cluster data may be sent to
+**Timing:** after the alpha (milestone M10); pulled forward by the owner (2026-10-14: "dass ich endlich meinen Agent Chat haben will"), built from 2026-10-14 late evening. **Open details:** what cluster data may be sent to
 the LLM endpoint (Secret values never, by default); whether Open WebUI passes client-defined tools
 through to every model (not verified).
+
+**The owner's requirements of 2026-10-14 late evening (binding):** endpoints LM Studio (local),
+LiteLLM and Open WebUI, each through its OpenAI-compatible Chat Completions API with tool calling;
+several LLM connections (name, kind, base URL, API key in the keychain, model, limits), one picked
+per conversation, one the default; an optional connection test that checks and shows each layer on
+its own (TCP, Layer 7 with TLS, Auth, tool use) and never sends cluster data; the chat's tools
+always on, whatever the external MCP server's switch says (the switch, A15 and
+[D-49](#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp), governs the endpoint
+other clients use); a kill switch (a Stop button, Esc and ⌘.) that cancels the model's stream and a
+running tool call, and a guard against a local model looping on the same tool call. Local tests run
+against the owner's LM Studio (an environment variable names the endpoint and the model; skipped
+without it, never failing CI); CI gets a LiteLLM virtual key as a GitHub secret.
+
+**Decided (owner, 2026-10-14 late evening, one question at a time):**
+
+- **Where the chat sits:** a column of its own at the window's right edge, the full height beside
+  the drawer, the view and the dock; ⌘I (Ctrl+I) shows and hides it (`chat.toggle`, UI state
+  `UIState.Chat`); its width is dragged and kept like the sidebar's and the drawer's. One chat per
+  window (Cogpit connects one cluster at a time); a conversation is bound to the context it began
+  on. Options weighed: a dock tab (the cheapest, but the dock shows one tab at a time, so the chat
+  would vanish whenever its agent opens a logs or terminal tab), a column above the dock only.
+  Design direction (owner): "wie die VSCode Claude integration … kein 100%iger Clone, aber nimm das
+  als Richtung" — a pinned card for the user's message with its attached context, the answer as
+  Markdown on the panel's background, compact tool-call rows, an input box with a toolbar, the
+  connection and model below it.
+- **What the chat sends (H-13), and a private connection:** the owner's stance: the goal is local
+  models wherever possible, whose risk for transmitted values differs; Cogpit's own chat will
+  usually run one. Every connection carries the user's mark **"private connection (a local model or
+  a private cloud)"**, off by default. Without it the chat follows exactly the external agents' rules
+  (no extra question per cluster: the chat is not stricter than an external agent). With it the
+  chat **reads like the user**: what the window shows reaches the model — Secret values (in
+  `object_get`, the drawer, unscrubbed logs), Helm's user-supplied values and the Upgrade and
+  Install editors' text, Flux's credential fields, a failed Helm action's error text; terminal,
+  shell and attach tabs still need the tab's own switch (H-83). The write rules are the same in
+  every case: D-2, H-27 (agents always ask for role bindings), A1, A2, and Secret create and edit
+  stay GUI-only. Built as `Invocation.ReadsLikeUser`, honoured only with origin `builtInAgent`. What
+  each turn sent is shown in the chat. Options weighed: ask once per cluster and connection (the
+  lead's first proposal, stricter than the external agents: declined), always on and only shown, a
+  list of contexts per connection; for the private mark also terminals without their switch, and
+  Secret values only on a question per Secret.
+- **Conversations across restarts:** kept, scrubbed: an owner-only file (0600) in Cogpit's
+  configuration directory, the last 20 conversations per context, deleted one by one or all at once;
+  what is stored passes the H-82 scrubber first (tool results and answer text: the values of the
+  cached Secrets replaced), as D-19 keeps Secret values out of drafts; a kept conversation goes on
+  with its scrubbed history. Options weighed: gone at quit; kept unscrubbed.
+- **Limits per turn** (adjustable per connection): the turn stops at the third identical tool call
+  (the same tool with the same canonical arguments) with a note; at most 25 tool calls, 300,000
+  tokens (prompt and answer over all of the turn's requests, as the endpoint reports them, else
+  estimated) and 10 minutes. Options weighed: strict (the second repetition, 10 calls, 100,000
+  tokens, 3 minutes), loose (the fifth, 50 calls, no token limit, 20 minutes).
 
 ## D-11: Crash stance
 
@@ -3162,6 +3212,7 @@ Options: not weighed yet; the design is the next step. Not built.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | D-10: the owner's requirements and decisions of 2026-10-14 late evening for the agent chat (M12): the column at the right edge (⌘I), several connections and a connection test by layer, the private-connection mark ("reads like the user"), kept scrubbed conversations, the limits per turn and the loop guard, the kill switch; the engine's contract (`engine/chat.go`, `chat.toggle`) built |
 | 2026-10-14 | minor | The owner's decision round of 2026-10-14 evening recorded, nothing of it built: a section with one line per answer (A1–A117, F1, F2, R1–R3, the moot and housekeeping notes) naming where it lives. Decided, not built: D-2 (every RBAC kind and an agent's Helm install and upgrade always ask; `cluster.setPrometheus` and a proxy confirmed writes for agents; notifications' read state GUI-only; window-only notifications to agents filtered; removing a bank with tiles asks; a grant's confirmation text), D-3 (bash and fish hand-over, an enforcing setting), D-11 (no offer after an interrupted install), D-14 (the fork's shell tests under `-race`), D-22 (Sync the default theme, a free cluster colour), D-25 (the icon over a value's end, Forward… after the value), D-26 (the approval binds Cogpit's proxy), D-28 (unlink a sync folder), D-29 (http and insecure origins marked, dotted repository names; A39 found largely built), D-30 (combined PEMs, encrypted keys, R1 the kind of CA), D-33 (Reconcile with Source waits, the controller's identity named), D-34 (the filter button's accent), D-36 (sync windows), D-41 (collapsed source groups), D-43 (node history from node-exporter, F1), D-44 (a 1-hour end, 10 bytes, the README framed), D-47 (a link to another cluster asks). Confirmed as built: D-4 (A9, A11, A12; A10 a tag ruleset to set up; REL's two bullets moot), D-48, and defaults in D-3, D-14, D-22, D-25, D-29, D-34, D-35, D-37, D-39, D-40, D-44. New: D-49 (the MCP switch the bridge honours), D-50 (kubectl's signature with Rekor), D-51 (the navigator's and the palette's state), D-52 (several windows, open) |
 | 2026-10-14 | minor | D-16 revised by the owner: only the complete product per release, today `Cogpit-<v>-macos-arm64.dmg` and `SHA256SUMS`; `cogpit-cli` inside `Cogpit.app`, the CLI archives for six platforms revoked; built (agent CLIBUNDLE). For the owner to confirm: `Contents/MacOS` as its place, the identifier `io.guided-traffic.cogpit.cli`, the bundled binary from `make build`, `make dist-cli` removed, the CLI run in the build job and never in the signing job. D-2 (the lead's default, for the owner to confirm): the window copies the stdio registration of the bundled `cogpit-cli`, HTTP without one; built |
 | 2026-10-14 | minor | D-44 decided by the owner (H-82, option b): an agent's read that the filter reads takes the Secrets as the Secrets view reads them and waits for them; built (`engine/agentsecrets.go`) |

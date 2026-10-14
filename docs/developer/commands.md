@@ -16,7 +16,7 @@ blank line before `</details>`. It moved here from the root README on 2026-10-14
 Cogpit and its flags are in [`usage.md`](usage.md).
 
 <details>
-<summary>All 182 commands</summary>
+<summary>All 183 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -30,6 +30,7 @@ Cogpit and its flags are in [`usage.md`](usage.md).
 | `argocd.openUI` | `argocd_openUI` | mutating |  | Opens Argo CD's own web UI: finds the argocd-server Service by its label app.kubernetes.io/name=argocd-server in Cogpit's cache, and forwards its https port (443, else its http port 80) to 127.0.0.1, or reuses that forward while it runs, as service.portForward does |
 | `audit.list` | `audit_list` | read | `limit`?, `offset`?, `origin`? | Reads Cogpit's audit log, newest first: one entry per command an agent dispatched (external agents, the built-in agent; and the few switches the user made in the window that are no command), with its time, origin, command, the context it ran in, its phase (requested before a write runs, done with its outcome), ok or the error, the objects its parameters name and the parameters as logged (Secret values, Helm values and proxy passwords never are) |
 | `audit.open` | `audit_open` | ui | `origin`? | Opens the Audit Log dock tab, or activates it: the audit log's entries newest first (time, origin, command, objects, outcome), read-only, filtered by origin (origin; empty: all), as Help › Audit Log does |
+| `chat.toggle` | `chat_toggle` | ui | `open`? | Shows or hides the built-in agent's chat column at the right edge of Cogpit's window, as ⌘I (Ctrl+I) does. ui_state reports chat: true while it is shown |
 | `cluster.connect` | `cluster_connect` | ui | `context` | Connects to a kubeconfig context (or the demo cluster), replacing the current connection, and shows its most recently used tab, or else its Pods view in the preview tab; the other clusters' tabs stay |
 | `cluster.connectLog` | `cluster_connectLog` | read | `context` | Returns the log of the last attempt to connect to a context this session (and of a connection Cogpit closed because its kubeconfig file went away): lines with a time, a level (INFO or ERROR) and a text |
 | `cluster.contexts` | `cluster_contexts` | read |  | Lists the kubeconfig contexts Cogpit can connect to (name, cluster, user, default namespace, server, whether it is the kubeconfig's current context) and the synthetic demo cluster if offered |

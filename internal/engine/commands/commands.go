@@ -77,6 +77,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerKubectl(g)
 	registerFlux(g)
 	registerUpdates(g)
+	registerChat(g)
 	return g.err
 }
 

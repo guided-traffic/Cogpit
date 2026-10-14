@@ -68,6 +68,9 @@ type UIState struct {
 	// Palette is set while the command palette is open (ui.palette.open, ⌘⇧P; palette.go). What
 	// the user types in it stays in the window, as the context picker's filter does.
 	Palette bool `json:"palette,omitempty"`
+	// Chat is set while the built-in agent's chat column is shown (chat.toggle, ⌘I; chat.go).
+	// What is said in it stays in the window: agents see only that it is open.
+	Chat bool `json:"chat,omitempty"`
 	// NavigatorScope is what the navigator shows (navscope.go): "section:local", the Local
 	// Kubeconfigs section with every cluster Cogpit offers, or "cluster:<context id>", the
 	// connected cluster's tree. The tab bar shows the tabs of the scope. The engine keeps it in step

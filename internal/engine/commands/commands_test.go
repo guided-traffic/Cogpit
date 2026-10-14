@@ -184,6 +184,8 @@ var wantCommands = map[string]engine.Danger{
 	"dock.read": engine.DangerRead, "dock.allowAgentRead": engine.DangerUI,
 	// The status filter of every view (D-34, owner 2026-10-14) (TestStatusFilterCommand).
 	"ui.setStatusFilter": engine.DangerUI,
+	// The built-in agent's chat column (D-10, M12): UI state only (TestChatToggle).
+	"chat.toggle": engine.DangerUI,
 }
 
 func TestRegistryComplete(t *testing.T) {

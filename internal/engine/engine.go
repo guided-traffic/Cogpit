@@ -47,6 +47,12 @@ type Invocation struct {
 	ID     string          `json:"id"`               // "ui.navigate"
 	Params json.RawMessage `json:"params,omitempty"` // validated against the command's schema
 	Origin Origin          `json:"origin"`
+	// ReadsLikeUser is set by the built-in agent for a turn over a connection the user marked
+	// private (a local model or a private cloud; owner, 2026-10-14 late evening): its reads then
+	// return what the window shows instead of what agents are given. Honoured only with
+	// OriginBuiltInAgent; never read from JSON, so no MCP or CLI request can set it. Write rules
+	// (D-2) are the same either way.
+	ReadsLikeUser bool `json:"-"`
 }
 
 // Errors returned by Dispatch. Match them with errors.Is.
@@ -173,6 +179,7 @@ type Session struct {
 
 	agentReads agentReadExpiry // when a terminal tab's agent-read switch turns itself off: agentread.go
 	updates    updaterSlot     // the app's updater: updates.go
+	chat       chatSlot        // the built-in agent's chat: chat.go
 }
 
 // New returns a Session with an empty registry. Register commands (package commands) before use.
