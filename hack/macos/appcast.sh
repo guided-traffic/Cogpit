@@ -19,7 +19,7 @@
 # says so and stops, signed=false, nothing to deploy, never a failure. With it, it first refuses
 # to sign unless the environment sparkle has a required reviewer and admits only tags v*
 # (GitHub creates an environment a workflow names without any rule: docs/security/updates.md,
-# H-89); then Sparkle's own sign_update, from the pinned and verified archive (make sparkle),
+# H-92); then Sparkle's own sign_update, from the pinned and verified archive (make sparkle),
 # signs the disk image (the draft's, checked by its SHA-256), the signature replaces the
 # placeholder, sign_update signs the feed (Sparkle 2.9's signed feeds) and verifies both. The
 # key reaches sign_update on its standard input from the environment variable (printf is bash's

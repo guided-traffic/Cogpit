@@ -43,7 +43,7 @@ and [`hack/appcast`](../../hack/appcast/main.go).
 | The disk image's EdDSA signature, before extraction (`SUVerifyUpdateBeforeExtraction`) | every copy, per update | a swapped download; nothing of an unsigned archive is unpacked |
 | Apple's code signature of the new app against the running app's | every copy, per update | an app that is not Cogpit's team's |
 | Only a newer `CFBundleVersion` is offered; `sparkle:minimumSystemVersion` | every copy | a downgrade to a version with known flaws; an update the Mac cannot run |
-| The update key behind the owner's approval, the environment's rules checked before signing | "Appcast (sign)" | a run the owner did not approve signing a feed ([H-89](#h-89-an-environment-sparkle-without-rules-hands-the-update-key-to-any-run)) |
+| The update key behind the owner's approval, the environment's rules checked before signing | "Appcast (sign)" | a run the owner did not approve signing a feed ([H-92](#h-92-an-environment-sparkle-without-rules-hands-the-update-key-to-any-run)) |
 | The history taken from Pages only when the update key signed it | "Appcast (draft)" | a feed altered on Pages being signed again with the next release |
 | The signed feed and the disk image checked with the public key before Pages gets them | "Appcast (deploy)" | a feed every copy would refuse (a secret that does not match the app's key) |
 | HTTPS | the feed and the download | eavesdroppers learning which version a user runs (not integrity: the signatures provide that) |
@@ -85,7 +85,7 @@ feed and over the disk image, computed in a job the owner approved, checked by S
 copy; Apple's Developer ID signature and notarization of the app inside, checked by Sparkle against
 the running app's and by Gatekeeper. **What does not:** the host. GitHub Pages serves the feed and
 GitHub's release storage the disk image; either can withhold an update or serve an older signed
-feed ([H-90](#h-90-the-feeds-host-can-withhold-updates)), and neither can make a copy install
+feed ([H-93](#h-93-the-feeds-host-can-withhold-updates)), and neither can make a copy install
 anything the key did not sign.
 
 ### Keys and who holds them
@@ -133,7 +133,7 @@ Apple code signing certificate or the EdDSA key, but not both, so the key alone 
 carry another team's Developer ID ([rotating signing keys](https://sparkle-project.org/documentation/#rotating-signing-keys);
 not tried). Where it lives is decided (owner, 2026-10-13: an environment secret that CI may use only
 after the owner approved the run), which leaves a workflow the owner approves able to sign whatever
-it built ([H-89](#h-89-an-environment-sparkle-without-rules-hands-the-update-key-to-any-run)).
+it built ([H-92](#h-92-an-environment-sparkle-without-rules-hands-the-update-key-to-any-run)).
 Replacing a leaked key: a release whose app carries the new public key, offered in a feed and a
 disk image still signed with the old one; with `SUVerifyUpdateBeforeExtraction` a change of the
 EdDSA key needs a Developer ID-signed disk image, which Cogpit's is. A lost key: no feed can be
@@ -148,7 +148,7 @@ storage for the disk image. If either is unreachable, Cogpit keeps running and o
 scheduled check fails silently, Help › Check for Updates… shows Sparkle's error. There is no
 mirror.
 
-### H-89: An environment `sparkle` without rules hands the update key to any run
+### H-92: An environment `sparkle` without rules hands the update key to any run
 
 Dormant today: the environment `sparkle` holds no secret. GitHub creates an environment the moment a
 workflow run names it, without a reviewer and without a deployment rule; the first release run
@@ -167,7 +167,7 @@ when the job ran: whoever can edit it before then (the same actors) has their te
 in Sparkle's window. Administrators may bypass the reviewer while "Allow administrators to bypass"
 is on (GitHub's default; `release` has it on).
 
-### H-90: The feed's host can withhold updates
+### H-93: The feed's host can withhold updates
 
 Live once a signed feed is on Pages. The signed feed has no expiry, and every feed ever deployed
 is public. Per case: the host serves nothing or an error, and copies stay on their version without
@@ -186,7 +186,7 @@ Dormant until the key exists; then live by design. Sparkle's `SUSignedFeedFailur
 the items of an unverified feed, without their release notes and links, as a failsafe for a lost
 key ([Sparkle's security settings](https://sparkle-project.org/documentation/customization/#security-settings)).
 Such an item still needs a disk image the update key signed, or, for a change of the key, a
-Developer ID-signed disk image. Per case: an attacker who can serve the feed (H-90) and get a disk
+Developer ID-signed disk image. Per case: an attacker who can serve the feed (H-93) and get a disk
 image signed with this team's Developer ID (any run on a tag `v*` in the environment `release`,
 which has no reviewer, H-62) could, after 20 days of failing feeds, have copies offer an update
 that changes the update key; the copies' logs show the failures, the user still clicks Install.
