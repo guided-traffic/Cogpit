@@ -1,8 +1,10 @@
 package fyneui
 
 import (
+	"math"
 	"time"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -16,6 +18,11 @@ import (
 // follows the jump in the engine's state, whoever asked: it scrolls to the first line written at
 // or after that time among the lines it holds, and when it holds none that old for a container it
 // shows, it loads them first (OlderLogs with since).
+
+// The field is as wide as a search box, and wider when its placeholder, which names the forms it
+// reads in the user's format, needs it (#169, a defect the owner reported on 2026-10-14 evening: at
+// 1440 points the placeholder was cut after "10m"). The header row has room for it: it holds only
+// the two selectors besides.
 
 // jumpState is what the tab knows about jumps.
 type jumpState struct {
@@ -35,6 +42,36 @@ func (lt *logTab) newJumpField() *widget.Entry {
 		lt.sh.dispatch("logs.jumpTo", logJumpParams{ID: lt.tab.ID, Time: text}, func(_ any, err error) { lt.sh.showError(err) })
 	}
 	return e
+}
+
+// fitPlaceholderLayout sizes the time field: the theme's search width, or what its placeholder
+// needs to show whole when that is more.
+type fitPlaceholderLayout struct{}
+
+func (fitPlaceholderLayout) MinSize(objs []fyne.CanvasObject) fyne.Size {
+	ms := sizedLayout{width: sizeSearchWidth}.MinSize(objs)
+	for _, o := range objs {
+		if e, ok := o.(*widget.Entry); ok && e.Visible() {
+			ms.Width = max(ms.Width, entryWidthFor(e, e.PlaceHolder))
+		}
+	}
+	return ms
+}
+
+func (fitPlaceholderLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
+	sizedLayout{}.Layout(objs, size)
+}
+
+// entryWidthFor is the width a one-line entry with a leading icon needs to show text whole, as Fyne
+// 2.8.1 lays it out (entryRenderer.Layout): the icon and the line spacing after it, the text with
+// the inner padding on both sides, rounded up to a whole point.
+func entryWidthFor(e *widget.Entry, text string) float32 {
+	th := e.Theme()
+	w := fyne.MeasureText(text, th.Size(theme.SizeNameText), e.TextStyle).Width + 2*th.Size(theme.SizeNameInnerPadding)
+	if e.Icon != nil {
+		w += th.Size(theme.SizeNameInlineIcon) + th.Size(theme.SizeNameLineSpacing)
+	}
+	return float32(math.Ceil(float64(w)))
 }
 
 // logJumpParams mirror logs.jumpTo's parameters.

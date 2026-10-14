@@ -661,27 +661,24 @@ func TestLogTabJumpsToATime(t *testing.T) {
 	}
 }
 
-// TestLogDownloadWritesTheShownLines: the download writes every line the tab holds as shown, to
-// the file the save dialog names, proposed after the tab.
-func TestLogDownloadWritesTheShownLines(t *testing.T) {
+// TestLogDownloadSavesWhatTheTabShows (A84, the owner's decision of 2026-10-14 evening): the
+// download writes the lines the tab shows, as shown: with Filter on only those matching the search,
+// of the pod and container its selectors show; with Filter off every line it holds, the search only
+// highlighting; to the file the save dialog names, proposed after the tab.
+func TestLogDownloadSavesWhatTheTabShows(t *testing.T) {
 	sh, _, q, _ := logsScene(t, ThemeDark, true, engine.LogOptions{ResourceNames: true, Timestamps: true, Search: "error", Filter: true})
 	lt := logTabOf(sh)
 	q.until(t, "every line", func() bool { return len(lt.view.ShownLines()) == len(demoMerged) })
-	path := filepath.Join(t.TempDir(), "logs.log")
-	f, err := os.Create(path)
-	if err != nil {
-		t.Fatal(err)
+	shown := func(i int) string {
+		return demoMerged[i].source + " " + shownStamp(demoMerged[i].ts) + " " + demoMerged[i].msg
 	}
-	if err := saveLogs(f, lt.view.ShownLines()); err != nil {
-		t.Fatal(err)
+	if got := savedLogs(t, lt.view.DownloadLines()); !slices.Equal(got, []string{shown(4), shown(6), shown(8)}) {
+		t.Errorf("filtered, saved %q", got)
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
-	if len(lines) != len(demoMerged) || lines[4] != demoMerged[4].source+" "+shownStamp(demoMerged[4].ts)+" "+demoMerged[4].msg {
-		t.Errorf("saved %q", lines)
+	test.Tap(lt.filter)
+	q.until(t, "the filter off", func() bool { return !lt.view.View().Filter })
+	if got := savedLogs(t, lt.view.DownloadLines()); len(got) != len(demoMerged) || got[4] != shown(4) || got[0] != shown(0) {
+		t.Errorf("unfiltered, saved %q", got)
 	}
 	for title, want := range map[string]string{
 		"Logs: Deployment checkout-api": "Deployment_checkout-api.log",
@@ -698,6 +695,40 @@ func TestLogDownloadWritesTheShownLines(t *testing.T) {
 	if len(sh.win.Canvas().Overlays().List()) == 0 {
 		t.Error("no save dialog")
 	}
+}
+
+// TestLogDownloadOfANarrowedTab (A84): a controlling resource's tab narrowed to one pod saves that
+// pod's lines its filter shows, and only them.
+func TestLogDownloadOfANarrowedTab(t *testing.T) {
+	sh, _, q, _ := logsScene(t, ThemeLight, true, engine.LogOptions{ResourceNames: true, Search: "error", Filter: true, Pod: "checkout-api-7d9f8b6c4-q8w3n"})
+	lt := logTabOf(sh)
+	q.until(t, "the pod's lines", func() bool { return len(lt.view.ShownLines()) == 4 })
+	got := savedLogs(t, lt.view.DownloadLines())
+	want := []string{demoMerged[4].source + " " + demoMerged[4].msg, demoMerged[8].source + " " + demoMerged[8].msg}
+	if !slices.Equal(got, want) {
+		t.Errorf("saved %q, want %q", got, want)
+	}
+}
+
+// savedLogs saves lines as the download does and reads the file back, line by line.
+func savedLogs(t *testing.T, lines []string) []string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "logs.log")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := saveLogs(f, lines); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(data) == 0 {
+		return nil
+	}
+	return strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
 }
 
 // TestRenderLogsWorkloadSources: a deployment's tab narrowed to one pod by its selectors, dark and

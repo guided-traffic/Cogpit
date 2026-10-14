@@ -356,7 +356,7 @@ func TestLogsStampedAndSelection(t *testing.T) {
 	if st := l.StatusText(); !strings.HasPrefix(st, "5 of 9 lines") {
 		t.Errorf("status %q", st)
 	}
-	if lines := l.ShownLines(); len(lines) != 5 {
+	if lines := l.DownloadLines(); len(lines) != 5 {
 		t.Errorf("a download of one pod holds %d lines", len(lines))
 	}
 	l.SetView(LogView{Prefixed: true, Names: true, Stamped: true, Container: "proxy"})
@@ -366,5 +366,13 @@ func TestLogsStampedAndSelection(t *testing.T) {
 	l.SetView(LogView{Prefixed: true, Names: true, Stamped: true, Pod: "web-7d9f-b2", Container: "app", Search: "payment", Filter: true})
 	if got := rowTexts(l); len(got) != 2 {
 		t.Errorf("one pod's container, filtered: %q", got)
+	}
+	// A84: a download saves what the view shows, its filter applied; a search alone hides nothing.
+	if got, rows := l.DownloadLines(), rowTexts(l); !slices.Equal(got, rows) || len(l.ShownLines()) != 5 {
+		t.Errorf("a filtered download %q, the rows %q, held %d", got, rows, len(l.ShownLines()))
+	}
+	l.SetView(LogView{Prefixed: true, Names: true, Stamped: true, Pod: "web-7d9f-b2", Container: "app", Search: "payment"})
+	if got := l.DownloadLines(); len(got) != 5 {
+		t.Errorf("a download with a search and no filter %q", got)
 	}
 }

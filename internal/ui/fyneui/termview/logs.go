@@ -201,15 +201,27 @@ func (l *Logs) SetView(v LogView) {
 }
 
 // ShownLines returns every line the view holds of the sources it shows, as it shows them (names
-// and timestamps as shown, not filtered, not wrapped): what a download saves. Main goroutine only.
-func (l *Logs) ShownLines() []string {
-	out := make([]string, 0, l.lines.len())
-	for i := range l.lines.len() {
-		raw := l.lines.at(i)
-		if !l.view.selects(raw) {
+// and timestamps as shown, not filtered, not wrapped). Main goroutine only.
+func (l *Logs) ShownLines() []string { return l.lines.shown(l.view, false) }
+
+// DownloadLines returns what a download saves (A84, the owner's decision of 2026-10-14 evening):
+// the lines the view shows, as it shows them: of the sources it selects, with its filter applied
+// while Filter is on (a search alone highlights and hides nothing, so every line is saved), the
+// names and timestamps as shown, not wrapped. Main goroutine only.
+func (l *Logs) DownloadLines() []string { return l.lines.shown(l.view, l.view.Filter) }
+
+// shown returns the kept lines v shows, as it shows them; filtered, only those matching v's search.
+func (r *lineRing) shown(v LogView, filtered bool) []string {
+	out := make([]string, 0, r.len())
+	for i := range r.len() {
+		raw := r.at(i)
+		if !v.selects(raw) {
 			continue
 		}
-		text, _ := l.view.shown(raw)
+		text, _ := v.shown(raw)
+		if filtered && !v.matches(text) {
+			continue
+		}
 		out = append(out, text)
 	}
 	return out
