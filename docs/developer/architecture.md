@@ -6,13 +6,13 @@
 
 The local MVP is built and was extended by a second and a third implementation run (2026-10-11),
 a fourth and a fifth (2026-10-12) and a night run (2026-10-12/13, sixteen feature scopes in parallel
-worktrees, listed below by the sentences starting "Since 2026-10-13" or "Since the night run"):
+worktrees, listed below by the sentences starting "Since 2026-10-13" or "Since the night run"), a day run (2026-10-13) and a night build (2026-10-13/14: the Flux CD and Argo CD sections, Create Secret, the node shell, a namespace-limited user's reads following refusals, the workloads' drawers' Pods, tabs across restarts, `dock_read`; D-33 to D-44):
 a macOS desktop app that connects to a kubeconfig context or a synthetic demo cluster, shows 46
 built-in views (41 until the four Device Resources views of 2026-10-13; Pod Security Policies on clusters that still serve them, night run 2026-10-13), the Port Forwarding view (a local kind), the Helm Releases view (a virtual kind), the Applications view (a virtual kind made of several kinds, 2026-10-13),
 the Workloads Overview page and one view per custom resource kind from a watch-fed cache, greys
 what the user's access reviews deny, has a detail drawer and row menus from the command registry,
 a dock with logs (with their options, pod and container selectors, older lines, a jump to a time, and the logs of a workload's pods), a local terminal, pod
-shells, attach and Edit and Create resource tabs, writes through 154 commands (reads included) (editing, Secrets
+shells, attach and Edit and Create resource tabs, writes through 171 commands (reads included) (editing, Secrets
 from YAML in the GUI only, delete, node and workload actions, a crash-safe drain, port forwards
 that fail at once on permanent errors, Helm rollback, uninstall and upgrade with a crash journal
 locked between Cogpit processes, each bound to the revision the server holds), adds and syncs

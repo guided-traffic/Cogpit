@@ -65,8 +65,10 @@ M11 and M12 do not depend on each other; their order is the owner's call.
 
 Ranked; each item links to its gap. Pick from the top unless an issue is assigned to you.
 
-1. **The owner walks the night run's and the day run's features in a real window** (2026-10-13;
-   every one was verified offscreen and in tests only): the hotbar, the navigator's sections, the
+1. **The owner walks the night run's, the day run's and the night build's features in a real window** (2026-10-14;
+   every one was verified offscreen and in tests only; the night build's: the Flux CD and Argo CD sections
+   on a cluster that runs them, Create Secret, the node shell, the workloads' drawers' Pods, tabs restored
+   after a restart, a namespace-limited user's views; then its night decisions D-33 to D-44): the hotbar, the navigator's sections, the
    tab bar, the command palette, Preferences and Cluster settings, the welcome page, the create
    dialogs, Helm install and upgrade from the repositories of Helm's own `repositories.yaml`
    (built the same day, [D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml):
@@ -102,6 +104,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | Current focus: the night build's features and its night decisions (D-33 to D-44) for the owner's walk |
 | 2026-10-13 | minor | GitOps in progress: Flux CD's section, views, dashboard and actions built (G23, D-33, D-34); its hours left to the lead's recount |
 | 2026-10-13 | minor | M3, M4: the node shell built (night build, D-37) and Create Secret (G9); Current focus: the owner's confirmation of the node shell as built |
 | 2026-10-13 | minor | Alpha gate: the downloadable macOS build is there for Apple silicon since v0.1.0 (was "nothing to download") |

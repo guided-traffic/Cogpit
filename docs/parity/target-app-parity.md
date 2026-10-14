@@ -1,6 +1,6 @@
 # Cogpit vs Lens Desktop: target-app parity
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (the node shell and Cluster Settings › Node Shell partial: actions 39 of 39, interface 113 of 120, weighted 80.6%, breadth ~81%; Create Secret partial: actions 38 of 39; G12: the cluster's Prometheus setting, partial: interface 56 of 120, breadth ~57%; earlier: fourth measurement, by `make parity`: breadth ~56%, ready ~26%) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (paid features 3 of 11 with the Flux CD and Argo CD sections, partial: weighted 82.4%, breadth ~82%; the node shell and Cluster Settings › Node Shell partial: actions 39 of 39, interface 113 of 120, weighted 80.6%, breadth ~81%; Create Secret partial: actions 38 of 39; G12: the cluster's Prometheus setting, partial: interface 56 of 120, breadth ~57%; earlier: fourth measurement, by `make parity`: breadth ~56%, ready ~26%) · **Target:** Lens Desktop 2026.10.51501
 
 The authoritative answer to "how close is Cogpit to Lens, and how much work is left". The
 one-page summary is [`ROADMAP.md`](../../ROADMAP.md); the ranked work list is
@@ -13,7 +13,7 @@ Cogpit adds beyond Lens is in [`beyond-lens.md`](beyond-lens.md). Method and voc
 
 | Number | Value | Kind |
 |---|---|---|
-| **Feature breadth** (does each Lens feature exist?) | **~81%** (was ~56%) | measured by `make parity`: [breadth](#feature-breadth); 9 rows done, the rest partial |
+| **Feature breadth** (does each Lens feature exist?) | **~82%** (was ~79%) | measured by `make parity`: [breadth](#feature-breadth); 9 rows done, the rest partial |
 | **Ready for real work** (could a daily Lens user on macOS switch?) | **~26%** (was ~23%) | estimated: [weights](#ready-for-real-work) |
 | **Mainstream practitioner** (daily user of Lens's free features) | **~25%** (was ~24%) | estimated |
 | **Essentials user** (connect, pods, logs, shell, edit) | **~34%** (was ~32%) | estimated |
@@ -87,8 +87,8 @@ counts when it exists in some form; nine counted rows are done, the rest partial
 | Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 113 / 120 | 94.2% | measured ([ui-parity](ui-parity.md), free rows) |
 | Cluster authentication and connectivity | 10% | 7 / 13 | 53.8% | measured ([platform-parity](platform-parity.md#cluster-authentication-and-connectivity)) |
 | Platforms and packages | 5% | 2 / 13 | 15.4% | measured ([platform-parity](platform-parity.md#operating-systems-and-packages)) |
-| Paid Lens Desktop features | 10% | 1 / 11 | 9.1% | measured ([premium list](https://docs.lenshq.io/k8slens/premium-features/) without extensions, D-5): the editor's diff, partial |
-| **Weighted** | 100% | | **80.6%** | |
+| Paid Lens Desktop features | 10% | 3 / 11 | 27.3% | measured ([premium list](https://docs.lenshq.io/k8slens/premium-features/) without extensions, D-5): the editor's diff, the Flux CD and Argo CD sections (2026-10-14, G23), partial |
+| **Weighted** | 100% | | **82.4%** | |
 
 ## Ready for real work
 
@@ -241,6 +241,7 @@ LiteLLM or Open WebUI endpoint for the built-in agent.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | Paid features 3 of 11 (the Flux CD and Argo CD sections partial, night build, G23): weighted 82.4%, breadth ~82% |
 | 2026-10-13 | minor | The node shell (D-37) and Cluster Settings › Node Shell partial (night build, G7, G8, G13): resource actions 39 of 39, interface 113 of 120 free rows, weighted 80.6%, breadth ~81% |
 | 2026-10-13 | minor | Create Secret partial (night build, G9): resource actions 38 of 39, weighted 79.9%, breadth ~80% |
 | 2026-10-12 | minor | G12 (fourth slice): the cluster's Prometheus setting partial (a dialog from the drawer's status line), the interface 56 of 120 free rows, weighted 56.7%, breadth ~57% |
