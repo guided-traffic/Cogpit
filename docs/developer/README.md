@@ -53,6 +53,7 @@ cogpit/
 ├─ internal/                  packages, layered L0–L4 (architecture.md §2–§3)
 ├─ hack/kind/                 kind cluster config, seed manifests (make kind-up), Prometheus values (make kind-prometheus)
 ├─ hack/icon/                 generator of the app icon (make icon; internal/ui/logo draws it)
+├─ hack/showcase/             oxipng.sh: the pinned oxipng and its lossless run over docs/images (make showcase)
 ├─ hack/parity/               make parity: checks the parity checklists and counts what they report
 ├─ hack/shard/                the UI's race tests split into CI shards (make test-race-ui)
 ├─ hack/coverage/             merges coverage profiles into the badge and the summary (make coverage-report)
@@ -62,7 +63,7 @@ cogpit/
 ├─ tools/                     (planned) generators of the parity checklist page and the scorecard
 └─ docs/
    ├─ developer/              this directory
-   ├─ images/                 showcase renders for the README, written by internal/ui/fyneui/showcase_test.go
+   ├─ images/                 showcase renders for the README, <name>_dark.png and <name>_light.png (make showcase)
    ├─ parity/                 progress against Lens
    └─ security/               security architecture, one page per perspective
 ```
@@ -135,4 +136,5 @@ Through the `Makefile`, as in the team's other repositories (`make help` lists e
 | Package for macOS | `make app` |
 | The macOS download, the disk image with `cogpit-cli` inside the app, signed ad-hoc (the release pipeline signs with the Developer ID) | `make dist-app` then `make dist-macos MACOS_SIGN=adhoc` ([releasing](releasing.md#running-the-signing-locally)) |
 | Check the parity checklists and their numbers | `make parity` ([rules](../parity/README.md#make-parity)) |
+| Render the README's pictures, dark and light, and optimise them losslessly | `make showcase` ([testing](testing.md#tiers)) |
 | Regenerate the parity checklist page and the scorecard | not built yet (gap G1) |

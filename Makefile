@@ -419,6 +419,37 @@ app: build $(FYNE) $(if $(filter Darwin,$(shell uname -s)),sparkle) ## Package C
 icon: ## Redraw packaging/icon.png from hack/icon
 	$(GO) run ./hack/icon -o packaging/icon.png
 
+# The README's pictures (docs/images, A110–A114; docs/developer/testing.md): the showcase renders
+# of internal/ui/fyneui, each in the dark and the light theme, then oxipng over them, lossless. oxipng
+# is the release binary of shssoichiro/oxipng pinned by version and the SHA-256 of its archive for
+# the two platforms it runs on here, kept in .cache/oxipng/<version> (hack/showcase/oxipng.sh);
+# both SHA-256 were pinned on first download, 2026-10-15, and agree with GitHub's digests of the
+# assets. A new version is pinned by hand, with both SHA-256 (gh api
+# repos/shssoichiro/oxipng/releases/tags/v<version> --jq '.assets[] | .name + " " + .digest').
+# OXIPNG_FLAGS: --zopfli takes about two minutes of one core per picture (2026-10-15: 2.2 % smaller
+# than without); drop it for a quick look. Never --alpha, which alters pixels.
+OXIPNG_VERSION  := 10.2.1
+OXIPNG_SHA256_Darwin_arm64 := 7039fcfc78e8aa1ed2b57d848057a0296f082e92b3e1807ac65402d10d926764
+OXIPNG_TARGET_Darwin_arm64 := aarch64-apple-darwin
+OXIPNG_SHA256_Linux_x86_64 := 46e3c4beb9aae57290ad809dd3374b07153579d3322a3778c53900633618b7c6
+OXIPNG_TARGET_Linux_x86_64 := x86_64-unknown-linux-gnu
+OXIPNG_PLATFORM  = $(shell uname -s)_$(shell uname -m)
+OXIPNG_DIR      := $(CACHE)/oxipng/$(OXIPNG_VERSION)
+OXIPNG_FLAGS    ?= -o max --fast --zopfli --strip safe
+SHOWCASE_DIR    := docs/images
+
+.PHONY: oxipng showcase
+
+oxipng: $(OXIPNG_DIR)/.verified ## Download the pinned oxipng release into .cache/oxipng (checksum verified)
+
+$(OXIPNG_DIR)/.verified:
+	hack/showcase/oxipng.sh fetch '$(OXIPNG_VERSION)' '$(OXIPNG_TARGET_$(OXIPNG_PLATFORM))' \
+		'$(OXIPNG_SHA256_$(OXIPNG_PLATFORM))' '$(OXIPNG_DIR)'
+
+showcase: oxipng ## Render the README's pictures into docs/images, dark and light, and optimise them losslessly with oxipng
+	$(TEST_ENV) $(GO) test -count=1 -run '^TestShowcase' ./internal/ui/fyneui -showcase
+	hack/showcase/oxipng.sh optimise '$(OXIPNG_DIR)/oxipng' '$(OXIPNG_FLAGS)' $(SHOWCASE_DIR)/*.png
+
 # What a release holds (docs/developer/releasing.md#the-release-pipeline): the complete product
 # only, today the macOS app in its disk image with cogpit-cli inside it, and SHA256SUMS (owner,
 # 2026-10-14, D-16: no cogpit-cli archives any more, for any platform). The release pipeline

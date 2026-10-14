@@ -458,6 +458,8 @@ Identifiers the documentation uses:
 | `make kind-prometheus`, `make kind-prometheus-down` | a real Prometheus in the kind cluster (`monitoring/prometheus-server`, the `prometheus` chart) for the drawer's charts ([hack/kind](../../hack/kind/README.md#prometheus)) |
 | `make app` | `bin/Cogpit.app` via `fyne package`, with Sparkle in `Contents/Frameworks` (`SPARKLE_PUBLIC_ED_KEY=<base64>` for an app that updates itself) and `cogpit-cli` in `Contents/MacOS` |
 | `make sparkle` | the pinned Sparkle release in `.cache/sparkle/<version>`, its SHA-256 checked |
+| `make showcase` | the README's pictures in `docs/images`, each in the dark and the light theme, then the pinned oxipng over them, lossless (`OXIPNG_FLAGS` without `--zopfli` for a quick look) |
+| `make oxipng` | the pinned oxipng release in `.cache/oxipng/<version>`, its SHA-256 checked (macOS on Apple silicon and Linux on x86-64) |
 | `make appcast-draft`, `make appcast-sign`, `make appcast-verify` | the release pipeline's appcast jobs ([releasing › the appcast](releasing.md#the-appcast)) |
 
 ## Development
