@@ -121,7 +121,7 @@ func TestRenderNodeShellLight(t *testing.T) {
 func nodeShellRequest(origin engine.Origin) engine.ConfirmRequest {
 	ref := model.ObjectRef{Context: "demo", Kind: "nodes", Name: busyNode}
 	return engine.ConfirmRequest{Command: engine.NodeShellCommand, Label: "Shell", Danger: engine.DangerDestructive, Origin: origin,
-		Context: "demo", Objects: []model.ObjectRef{ref},
+		Context: "demo", Objects: []model.ObjectRef{ref}, Undoable: true, // as the engine sets it (A101)
 		Detail: engine.NodeShellDetail(busyNode, engine.NodeShellConfig{Image: engine.DefaultNodeShellImage, Deadline: engine.DefaultNodeShellDeadline})}
 }
 
@@ -162,6 +162,9 @@ func TestNodeShellConfirmationNamesWhatItCreates(t *testing.T) {
 		if !strings.Contains(texts, want) {
 			t.Errorf("the confirmation lacks %q:\n%s", want, texts)
 		}
+	}
+	if strings.Contains(texts, "This cannot be undone.") { // nothing is lost (A101)
+		t.Errorf("the node shell's confirmation says it cannot be undone:\n%s", texts)
 	}
 }
 

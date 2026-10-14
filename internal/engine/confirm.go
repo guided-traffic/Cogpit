@@ -31,6 +31,9 @@ type ConfirmRequest struct {
 	// writes, because the command declares it for these parameters: a role binding (H-27,
 	// agentsask.go). The dialog then does not offer the allowance as a way to skip such a question.
 	AgentsAsk bool `json:"agentsAsk,omitempty"`
+	// Undoable is set for a destructive command whose effect the user can reverse (Spec.Undoable):
+	// the dialog does not say "This cannot be undone." (A101).
+	Undoable bool `json:"undoable,omitempty"`
 	// Review is a text the user reads before answering, which the request itself carries: an
 	// agent's Helm values for an upgrade. The command runs with exactly this text (it is part of
 	// its parameters). The GUI's dialog shows it in Cogpit's own window; it is never serialised,
@@ -97,7 +100,7 @@ func (f ConfirmFunc) Confirm(ctx context.Context, req ConfirmRequest) (bool, err
 func newConfirmRequest(cmd *Command, danger Danger, origin Origin, uiContext string, targets []model.ObjectRef) ConfirmRequest {
 	req := ConfirmRequest{
 		Command: cmd.ID, Label: cmd.Label, Danger: danger, Origin: origin,
-		Context: uiContext, Objects: targets,
+		Context: uiContext, Objects: targets, Undoable: cmd.undoable,
 	}
 	for _, t := range targets {
 		if t.Context != "" {

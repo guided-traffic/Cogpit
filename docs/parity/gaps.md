@@ -461,9 +461,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   Binding, Cluster Role Binding) always waits for the user, also where agent writes are allowed
   ([H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache)).
 - **Decided (owner, 2026-10-14 evening; not built):** Restart on a selection of workloads, Scale
-  staying on one object; a grant's confirmation says "Grants these rights immediately,
-  cluster-wide" or "in <namespace>", and "This cannot be undone." stays only where something is lost
-  (delete, drain, uninstall) ([resource parity › Create dialogs](resource-parity.md#create-dialogs)).
+  staying on one object ([resource parity › Create dialogs](resource-parity.md#create-dialogs)).
+  Built 2026-10-14 (A101): a grant's confirmation says "Grants these rights immediately,
+  cluster-wide" or "in <namespace>", and "This cannot be undone." stays only where something is lost.
   Confirmed: the node shell's bounds, 5 minutes to 24 hours, default 2 hours. Estimate not moved.
 - **Missing:** the actions not listed under Evidence, of 39 (Share is not a target, owner 2026-10-11). The alpha gate needs about 20: logs, shell, attach, edit, delete,
   scale, restart, cordon, uncordon, drain, trigger, the port-forward actions and the Helm release

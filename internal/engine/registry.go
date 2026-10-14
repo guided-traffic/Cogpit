@@ -96,6 +96,11 @@ type Spec[P any] struct {
 	// Detail adds a sentence to the confirmation for parameters the objects don't show: the drain
 	// options that lose data. Nil adds nothing.
 	Detail func(s *Session, p P) string
+	// Undoable marks a destructive command whose effect the user can reverse, nothing being lost:
+	// a grant (deleting the binding takes it back), a rollback (the release's history keeps the
+	// revision), a node shell. Its confirmation does not say "This cannot be undone." (A101, owner
+	// 2026-10-14 evening: only where something is lost).
+	Undoable bool
 	// Refuse refuses the command for the origin that dispatched it (ctx carries it: OriginOf)
 	// before anyone is asked: a command whose Run would refuse that origin anyway (an agent's
 	// apply or create of a Secret, D-19) must not ask the user first. Nil refuses nothing.
@@ -134,6 +139,7 @@ type Command struct {
 	Schema  *jsonschema.Schema `json:"schema"`
 
 	guiOnly   error // the reason a GUI-only command gives every other origin
+	undoable  bool  // Spec.Undoable
 	resolved  *jsonschema.Resolved
 	decode    func(raw json.RawMessage) (any, error)
 	enabled   func(s *Session, p any) error
@@ -269,7 +275,7 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 	c := &Command{
 		ID: spec.ID, Label: spec.Label, MenuPath: spec.MenuPath, Shortcut: spec.Shortcut,
 		Description: spec.Description, Kinds: spec.Kinds, Order: spec.Order, DrawerOnly: spec.DrawerOnly, Danger: spec.Danger,
-		Escalates: spec.Escalate != nil, AgentsAsk: spec.AgentsAsk != nil, GUIOnly: spec.GUIOnly != nil, guiOnly: spec.GUIOnly, Verbs: spec.Verbs, Schema: schema,
+		Escalates: spec.Escalate != nil, AgentsAsk: spec.AgentsAsk != nil, GUIOnly: spec.GUIOnly != nil, guiOnly: spec.GUIOnly, undoable: spec.Undoable, Verbs: spec.Verbs, Schema: schema,
 		resolved: resolved,
 	}
 	c.decode = func(raw json.RawMessage) (any, error) {

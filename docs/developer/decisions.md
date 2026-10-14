@@ -168,7 +168,7 @@ window. Nothing of it was built in the round.
 | A98 | #124 | The Overviews wait for the access reviews like the dashboards, no refused cluster-wide read first; to build | [architecture §5](architecture.md#5-cache) |
 | A99 | #19 | A combined PEM (certificate and key in one value) gets the key check too; to build | [D-30](#d-30-certificates-in-secrets-decoded) |
 | A100 | #20 | An encrypted private key in the warning colour with "encrypted key: TLS/Ingress cannot use it"; to build | [D-30](#d-30-certificates-in-secrets-decoded) |
-| A101 | #23 | A grant's confirmation says "Grants these rights immediately, cluster-wide" or "in `<ns>`"; "This cannot be undone." only where something is lost; to build | [D-2](#d-2-agent-interface-scope), [parity](../parity/README.md) |
+| A101 | #23 | A grant's confirmation says "Grants these rights immediately, cluster-wide" or "in `<ns>`"; "This cannot be undone." only where something is lost; built 2026-10-14 | [D-2](#d-2-agent-interface-scope), [parity](../parity/README.md) |
 | A102 | #24 | After a create the new object's drawer opens and the list scrolls to its row; to build | [parity](../parity/README.md) |
 | A103 | #48 | An Application's Violations are its workloads in warning or error; as built | [parity](../parity/README.md) |
 | A104 | #50 | A VPA's mode "Auto" when unset; as built | [parity](../parity/README.md) |
@@ -308,8 +308,14 @@ code still does what the safety rules above and their notes say:
   allowance of agent writes for a context was never given for them.
 - **Decided (owner, 2026-10-14 evening, A101):** a grant's confirmation (a role binding, a cluster
   role binding) says "Grants these rights immediately, cluster-wide" or "in `<namespace>`", and
-  "This cannot be undone." stands only where something is lost (delete, drain, uninstall …). Not
-  built yet: every destructive confirmation says it, grants included.
+  "This cannot be undone." stands only where something is lost (delete, drain, uninstall …). Built
+  2026-10-14: the grant's `Detail` begins with the owner's words; `Spec.Undoable` (and
+  `ConfirmRequest.Undoable`) drops the line for the destructive commands where nothing is lost.
+  **The lead's night decision for the owner to confirm**, which ones: the two grants
+  (`clusterRoleBinding.create`, an escalated `roleBinding.create`: deleting the binding takes the
+  grant back), `helm.release.rollback` (the release's history keeps the revision) and the node
+  shell (nothing is lost); delete, delete of a selection, evict, drain, Helm uninstall, restart (the
+  pods' state goes), scale to zero and an Argo CD sync with prune keep it.
 - **Confirmed (owner, 2026-10-14 evening):** GUI-only commands stay listed for agents, described
   as GUI-only and refused (A89, as built); agents and the CLI may turn the automatic update checks
   on, never off (A12, [D-4](#d-4-packaging-and-updates)). The transport below names the bridge

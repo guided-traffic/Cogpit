@@ -124,7 +124,7 @@ func (c *guiConfirmer) show(req engine.ConfirmRequest, reply func(bool)) *confir
 		content.Add(newSpace(theme.SizeNamePadding))
 		content.Add(reviewBlock(req.Review, width))
 	}
-	if destructive {
+	if destructive && !req.Undoable { // only where something is lost (A101)
 		content.Add(newSpace(theme.SizeNamePadding))
 		content.Add(newParagraph("This cannot be undone.", colorStatusError, width))
 	}

@@ -329,6 +329,7 @@ func registerCreateDialogs(g *registrar) {
 	}
 	// A grant: an agent's always waits for the user, whatever the allowance of agent writes (H-27).
 	rb.AgentsAsk = func(*engine.Session, roleBindingCreateParams) bool { return true }
+	rb.Undoable = true // escalated, still a grant deleting the binding takes back (A101)
 	rb.Escalate = func(s *engine.Session, p roleBindingCreateParams) bool {
 		return grantsAll(s, p.RoleRef.Kind, p.RoleRef.Name, p.Namespace)
 	}
@@ -358,6 +359,7 @@ func registerCreateDialogs(g *registrar) {
 			obj["roleRef"], obj["subjects"] = roleRef, subjects
 			return obj, ref, err
 		})
+	crb.Undoable = true // deleting the binding takes the grant back (A101)
 	crb.Detail = func(_ *engine.Session, p clusterRoleBindingCreateParams) string {
 		return bindingDetail(rbacKindClusterRole, strings.TrimSpace(p.ClusterRole), "", p.Subjects)
 	}
@@ -654,10 +656,11 @@ func bindingDetail(roleKind, roleName, namespace string, subjects []subjectParam
 	}
 	where := "in namespace " + namespace
 	if namespace == "" {
-		where = "in every namespace and on cluster-scoped resources"
+		where = "cluster-wide"
 	}
-	return fmt.Sprintf("It grants the permissions of %s %s, %s, to %s; they hold them as soon as the binding exists.",
-		roleKind, roleName, where, capped(texts))
+	// The owner's wording (A101, 2026-10-14 evening).
+	return fmt.Sprintf("Grants these rights immediately, %s: the permissions of %s %s to %s.",
+		where, roleKind, roleName, capped(texts))
 }
 
 // rulesDetail is a role's sentence in the confirmation: its rules, the first few in full.

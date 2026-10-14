@@ -58,7 +58,7 @@ const kindConfigMaps = "configmaps"
 func registerHelm(g *registrar) {
 	add(g, engine.Spec[rollbackParams]{
 		ID: "helm.release.rollback", Label: "Rollback", MenuPath: "Helm/Rollback", Kinds: []string{helm.ReleaseKind},
-		Order: 200, Danger: engine.DangerDestructive,
+		Order: 200, Danger: engine.DangerDestructive, Undoable: true, // the history keeps the revision (A101)
 		Verbs: releaseSecretVerbs("list", "get", "create", "update", "delete"),
 		Description: "Rolls a Helm release back to an earlier revision of its history, as helm rollback does with its " +
 			"defaults (hooks waited for, ten revisions kept): a new revision with that revision's chart, values and " +
