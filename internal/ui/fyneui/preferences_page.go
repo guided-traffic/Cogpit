@@ -61,6 +61,7 @@ type settingsPage struct {
 	iconMenuModel *fyne.Menu // the icon's open "…" menu, for tests
 
 	agentsDialog *agentsDialog // the open question before agents' changes are allowed (clustersettings_agents.go)
+	agent        *agentPrefs   // Preferences › Agent while it is built (preferences_agent.go)
 }
 
 func newSettingsPage(sh *shell) *settingsPage {
@@ -133,6 +134,10 @@ func (p *settingsPage) build() {
 	clear(p.controls)
 	clear(p.errs)
 	p.sync, p.promLine = nil, nil
+	if p.agent != nil && p.agent.form != nil {
+		p.agent.form.close() // a connection test under way ends with its section
+	}
+	p.agent = nil
 	var content fyne.CanvasObject
 	if p.shown.Page == engine.SettingsCluster {
 		content = p.clusterSection(p.shown.Section)
@@ -152,6 +157,9 @@ func (p *settingsPage) renderNav() {
 	objs := make([]fyne.CanvasObject, 0, len(sections))
 	clear(p.navItems)
 	for _, s := range sections {
+		if s == engine.SectionAgent && !p.sh.chat.available() {
+			continue // a window without the built-in agent has no connections to set (preferences_agent.go)
+		}
 		section := s
 		b := widget.NewButton(labels[s], func() { p.openSection(section) })
 		b.Alignment = widget.ButtonAlignLeading

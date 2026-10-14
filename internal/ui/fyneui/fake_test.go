@@ -50,6 +50,8 @@ type fakeEngine struct {
 	// handlers answer further commands by id, so that an area's tests add its commands in its
 	// own file (editor_test.go).
 	handlers map[string]func(context.Context, engine.Invocation) (any, error)
+	// chat is the built-in agent's chat (chat_fake_test.go); nil: none, as the CLI's engine.
+	chat engine.ChatAgent
 }
 
 var _ Engine = (*fakeEngine)(nil)
@@ -157,6 +159,12 @@ func (f *fakeEngine) Diagnostics() engine.Diagnostics {
 }
 
 func (f *fakeEngine) Registry() *engine.Registry { return f.reg }
+
+func (f *fakeEngine) Chat() engine.ChatAgent {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.chat
+}
 
 func (f *fakeEngine) Contexts() ([]engine.ContextInfo, error) {
 	f.mu.Lock()

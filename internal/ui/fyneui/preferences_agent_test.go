@@ -1,0 +1,248 @@
+package fyneui
+
+import (
+	"strings"
+	"testing"
+	"time"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/test"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+)
+
+// Preferences › Agent (preferences_agent.go) on the real engine, its chat a scripted agent.
+
+func agentPrefsShell(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, *fakeChat) {
+	t.Helper()
+	s, _ := settingsEngine(t)
+	ch := newFakeChat()
+	ch.notify = s.NotifyChat
+	ch.conns = []engine.ChatConnection{lmStudio(), litellm()}
+	s.SetChatAgent(ch)
+	sh, w, q := newEngineShell(t, s, Options{Theme: mode})
+	mustDispatch(t, s, "preferences.open", map[string]any{"section": engine.SectionAgent})
+	q.until(t, "Preferences › Agent", func() bool { return sh.settings.agent != nil && sh.settings.agent.loaded })
+	return sh, w, q, ch
+}
+
+// TestAgentPreferencesListsConnections: the section lists each connection with its kind, host,
+// model, the default and the private mark, and is the Preferences page's last section.
+func TestAgentPreferencesListsConnections(t *testing.T) {
+	sh, _, _, _ := agentPrefsShell(t, ThemeDark)
+	if b := sh.settings.navItems[engine.SectionAgent]; b == nil || b.Text != "Agent" {
+		t.Fatalf("no Agent in the section list: %v", b)
+	}
+	var texts []string
+	for _, l := range findAll[*textLine](sh.settings.agent.list) {
+		texts = append(texts, l.text)
+	}
+	all := strings.Join(texts, "|")
+	for _, want := range []string{"LM Studio", "LM Studio · localhost:1234 · qwen3.6-27b · no API key", "Team LiteLLM",
+		"LiteLLM · litellm.example.com · gpt-oss-120b"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("the list lacks %q: %s", want, all)
+		}
+	}
+	var pills []string
+	for _, p := range findAll[*pill](sh.settings.agent.list) {
+		pills = append(pills, p.text)
+	}
+	if strings.Join(pills, ",") != "default,private" {
+		t.Errorf("marks %v, want LM Studio's default and private", pills)
+	}
+}
+
+// TestAgentPreferencesKeySemantics: saving with the key field empty keeps the stored key (nil), a
+// typed key replaces it, Remove Key removes it (a pointer to ""); a new connection without a key
+// sends none. The kind prefills LM Studio's base URL.
+func TestAgentPreferencesKeySemantics(t *testing.T) {
+	sh, _, q, ch := agentPrefsShell(t, ThemeDark)
+	a := sh.settings.agent
+	save := func(n int) fakeSave {
+		t.Helper()
+		test.Tap(a.form.saveB)
+		q.until(t, "the save", func() bool { return len(ch.savesOf()) == n && a.form == nil })
+		return ch.savesOf()[n-1]
+	}
+
+	a.edit(litellm())
+	if !a.form.removeKey.Visible() || !strings.Contains(a.form.keyHelp.text, "Empty keeps it") {
+		t.Fatalf("a connection with a key: remove %v, help %q", a.form.removeKey.Visible(), a.form.keyHelp.text)
+	}
+	if got := save(1); got.key != nil || got.conn.ID != "c2" {
+		t.Errorf("empty key field: key %v, want nil (keep)", got.key)
+	}
+
+	a.edit(litellm())
+	test.Type(a.form.key, "sk-new")
+	if got := save(2); got.key == nil || *got.key != "sk-new" {
+		t.Errorf("typed key: %v, want sk-new", got.key)
+	}
+
+	a.edit(litellm())
+	test.Tap(a.form.removeKey)
+	if a.form.removeKey.Visible() || !strings.Contains(a.form.keyHelp.text, "removes the stored key") {
+		t.Errorf("after Remove Key: %q", a.form.keyHelp.text)
+	}
+	if got := save(3); got.key == nil || *got.key != "" {
+		t.Errorf("removed key: %v, want a pointer to \"\"", got.key)
+	}
+
+	test.Tap(a.addB)
+	f := a.form
+	if f.baseURL.Text != "http://localhost:1234/v1" || f.kind.Selected != "LM Studio" {
+		t.Fatalf("a new connection: %q, %q", f.kind.Selected, f.baseURL.Text)
+	}
+	f.kind.SetSelected("Open WebUI")
+	if f.baseURL.Text != "" || !strings.Contains(f.urlHint.text, "/api") {
+		t.Errorf("Open WebUI: the URL %q, hint %q", f.baseURL.Text, f.urlHint.text)
+	}
+	f.kind.SetSelected("LM Studio")
+	test.Type(f.name, "Mac Studio")
+	f.private.SetChecked(true)
+	test.Type(f.limits[1], "40")
+	test.Type(f.limits[2], "120,000")
+	got := save(4)
+	if got.key != nil || got.conn.ID != "" || got.conn.Kind != engine.ChatLMStudio || got.conn.BaseURL != "http://localhost:1234/v1" ||
+		!got.conn.Private || got.conn.Limits.MaxToolCalls != 40 || got.conn.Limits.MaxTokens != 120_000 || got.conn.Limits.RepeatStop != 0 {
+		t.Errorf("the new connection was saved as %+v with key %v", got.conn, got.key)
+	}
+}
+
+// TestAgentPreferencesValidation: a form without a name or with a base URL that is no http(s)
+// address is not saved and says why.
+func TestAgentPreferencesValidation(t *testing.T) {
+	sh, _, q, ch := agentPrefsShell(t, ThemeDark)
+	a := sh.settings.agent
+	test.Tap(a.addB)
+	test.Tap(a.form.saveB)
+	if !a.form.errLine.Visible() || !strings.Contains(a.form.errLine.text, "name") {
+		t.Errorf("no name: %q", a.form.errLine.text)
+	}
+	test.Type(a.form.name, "x")
+	a.form.baseURL.SetText("localhost:1234")
+	test.Tap(a.form.saveB)
+	if !strings.Contains(a.form.errLine.text, "http or https") {
+		t.Errorf("bad URL: %q", a.form.errLine.text)
+	}
+	test.Type(a.form.limits[0], "three")
+	a.form.baseURL.SetText("http://localhost:1234/v1")
+	test.Tap(a.form.saveB)
+	if !strings.Contains(a.form.errLine.text, "whole number") {
+		t.Errorf("bad limit: %q", a.form.errLine.text)
+	}
+	q.drain()
+	if n := len(ch.savesOf()); n != 0 {
+		t.Errorf("%d saves of invalid forms", n)
+	}
+}
+
+// TestAgentPreferencesDefault: "use as default" saves and makes it the default; Make Default on a
+// row too.
+func TestAgentPreferencesDefault(t *testing.T) {
+	sh, _, q, ch := agentPrefsShell(t, ThemeDark)
+	a := sh.settings.agent
+	a.edit(litellm())
+	a.form.def.SetChecked(true)
+	test.Tap(a.form.saveB)
+	q.until(t, "the default", func() bool {
+		ch.mu.Lock()
+		defer ch.mu.Unlock()
+		return len(ch.defaults) == 1 && ch.defaults[0] == "c2"
+	})
+	q.until(t, "the list again", func() bool {
+		for _, p := range findAll[*pill](a.list) {
+			if p.text == "default" {
+				return true
+			}
+		}
+		return false
+	})
+}
+
+func testSteps(final bool) [][]engine.ChatTestStep {
+	running := []engine.ChatTestStep{
+		{Layer: engine.ChatTestTCP, State: engine.ChatTestPass, Detail: "litellm.example.com:443 answers", Duration: 3 * time.Millisecond},
+		{Layer: engine.ChatTestHTTP, State: engine.ChatTestRunning},
+		{Layer: engine.ChatTestAuth, State: engine.ChatTestPending},
+		{Layer: engine.ChatTestTools, State: engine.ChatTestPending},
+	}
+	done := []engine.ChatTestStep{
+		{Layer: engine.ChatTestTCP, State: engine.ChatTestPass, Detail: "litellm.example.com:443 answers", Duration: 3 * time.Millisecond},
+		{Layer: engine.ChatTestHTTP, State: engine.ChatTestPass, Detail: "HTTP 200, TLS 1.3", Duration: 41 * time.Millisecond},
+		{Layer: engine.ChatTestAuth, State: engine.ChatTestFail, Detail: "HTTP 401: the API key was refused", Duration: 12 * time.Millisecond},
+		{Layer: engine.ChatTestTools, State: engine.ChatTestNotReached},
+	}
+	if !final {
+		return [][]engine.ChatTestStep{running}
+	}
+	return [][]engine.ChatTestStep{running, done}
+}
+
+// TestAgentPreferencesConnectionTest: Test Connection runs the agent's test with the form's values
+// (the typed key) and shows each layer: passed with its time, failed with the reason, not reached.
+func TestAgentPreferencesConnectionTest(t *testing.T) {
+	sh, _, q, ch := agentPrefsShell(t, ThemeDark)
+	a := sh.settings.agent
+	ch.testSteps = testSteps(true)
+	a.edit(litellm())
+	a.form.name.SetText("Team LiteLLM (edited)")
+	test.Type(a.form.key, "sk-try")
+	test.Tap(a.form.testB)
+	q.until(t, "the test's result", func() bool {
+		r := a.form.stepRows[engine.ChatTestTools]
+		return r != nil && r.step.State == engine.ChatTestNotReached && !a.form.testB.Disabled()
+	})
+	ch.mu.Lock()
+	tried := ch.tests[0]
+	ch.mu.Unlock()
+	if tried.conn.Name != "Team LiteLLM (edited)" || tried.key == nil || *tried.key != "sk-try" {
+		t.Errorf("tested %+v with key %v, want the form's values", tried.conn, tried.key)
+	}
+	rows := a.form.stepRows
+	if r := rows[engine.ChatTestHTTP]; r.detail.text != "Passed: HTTP 200, TLS 1.3" || r.took.text != "41 ms" {
+		t.Errorf("HTTP: %q %q", r.detail.text, r.took.text)
+	}
+	if r := rows[engine.ChatTestAuth]; !strings.HasPrefix(r.detail.text, "Failed: HTTP 401") || r.detail.color != colorStatusError {
+		t.Errorf("Auth: %q", r.detail.text)
+	}
+	if r := rows[engine.ChatTestTools]; !strings.HasPrefix(r.detail.text, "Not reached") {
+		t.Errorf("Tools: %q", r.detail.text)
+	}
+	if len(ch.savesOf()) != 0 {
+		t.Error("the test saved the connection")
+	}
+}
+
+// TestAgentPreferencesNotACommand: nothing on the page is a registry command: an agent cannot set
+// a connection, its key or its private mark.
+func TestAgentPreferencesNotACommand(t *testing.T) {
+	sh, _, _, _ := agentPrefsShell(t, ThemeDark)
+	for _, c := range sh.eng.Registry().Commands() {
+		id := strings.ToLower(c.ID)
+		if strings.Contains(id, "connection") || strings.Contains(id, "llm") || (strings.HasPrefix(id, "chat.") && id != "chat.toggle") {
+			t.Errorf("command %s reaches the chat's connections", c.ID)
+		}
+	}
+}
+
+func renderAgentPreferences(t *testing.T, mode ThemeMode) {
+	sh, w, q, ch := agentPrefsShell(t, mode)
+	ch.testSteps = testSteps(true)
+	a := sh.settings.agent
+	a.edit(litellm())
+	test.Tap(a.form.testB)
+	q.until(t, "the test's result", func() bool { return !a.form.testB.Disabled() && len(a.form.steps.Objects) > 0 })
+	w.Canvas().Unfocus()
+	w.Resize(fyne.NewSize(1440, 1360)) // the list, the whole form and the test without scrolling
+	savePNG(t, w, "preferences_agent_"+string(mode)+".png")
+}
+
+// TestRenderAgentPreferences: the connections, the form of one and a finished test whose third
+// layer failed and whose fourth was not reached.
+func TestRenderAgentPreferences(t *testing.T) {
+	for _, mode := range []ThemeMode{ThemeDark, ThemeLight} {
+		t.Run(string(mode), func(t *testing.T) { renderAgentPreferences(t, mode) })
+	}
+}

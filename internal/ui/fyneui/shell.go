@@ -106,6 +106,11 @@ type shell struct {
 	drawerW   float32
 	sideLay   *panelLayout
 	drawerLay *panelLayout
+	chat      *chatPanel       // the agent's chat column at the window's right edge (chat.go)
+	chatW     float32          // the user's width of the chat column, stored in the preferences
+	chatLay   *panelLayout     // the chat column beside chatRow's work area
+	chatSplit *fyne.Container  // the work area | the chat column, while the chat is shown
+	chatRow   *fyne.Container  // the work area alone, or chatSplit
 	vsplit    *container.Split // workspace / dock
 	workspace *fyne.Container  // the table view, or hsplit while the drawer is open
 	body      *fyne.Container  // the workspace, with the dock below it
@@ -210,10 +215,20 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 		sh.saveWidths))
 	sh.mainRow = main
 	sh.center = container.NewStack(main)
+	// The agent's chat column, the full height beside the work area, a settings page included
+	// (chat.go); its width is the user's, as the sidebar's and the drawer's.
+	sh.chat = newChatPanel(sh)
+	sh.chatLay = &panelLayout{want: func() float32 { return sh.chatW }, lo: minChatWidth, hi: maxChatWidth,
+		restMin: minSidebarWidth + handleWidth + minTableRoom}
+	sh.chatSplit = newPanel(sh.chatLay, sh.chat.root, sh.center, newResizeHandle(-1,
+		func() float32 { return sh.chatLay.got },
+		func(w float32) float32 { return sh.setChatWidth(w) },
+		sh.saveWidths))
+	sh.chatRow = container.NewStack(sh.center)
 	frame := container.NewBorder(
 		container.NewVBox(sh.top.root, newDivider(false), sh.drains.root, sh.helm.root, sh.helmHTTP.root, sh.drafts.root),
 		container.NewVBox(newDivider(false), sh.status.root),
-		sh.hot.root, nil, sh.center)
+		sh.hot.root, nil, sh.chatRow)
 	sh.root = container.NewStack(frame, sh.tip.layer, sh.toasts)
 	return sh
 }
@@ -384,6 +399,8 @@ func (sh *shell) onEvent(ev engine.Event) {
 	case engine.EventDockRead: // an agent read a terminal tab: it flashes (dockagentread.go)
 		id := ev.View
 		sh.do(func() { sh.dock.flashAgentRead(id) })
+	case engine.EventChat: // the agent chat: a conversation or the lists changed (chat.go)
+		sh.chat.event(ev)
 	}
 }
 
@@ -492,7 +509,7 @@ func (sh *shell) applyUIState(st engine.UIState) {
 		!maps.EqualFunc(st.ClusterSettings, old.ClusterSettings, engine.ClusterSettings.Equal) || st.Context != old.Context || st.Connection != old.Connection)) {
 		sh.settings.stateChanged()
 	}
-	if first || (st.Context == "") != (old.Context == "") || st.Connection != old.Connection {
+	if first || (st.Context == "") != (old.Context == "") || st.Connection != old.Connection || st.Chat != old.Chat {
 		// Cluster Settings… is enabled while a cluster is chosen, Disconnect while one is connected or
 		// connecting (a reconnect too: menus_cluster.go), Refresh Access Reviews while one is connected
 		// (menuaccess.go), the View menu's kinds while connected (loadKinds rebuilds it once they come).
@@ -507,7 +524,8 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	if first || helmChartsShown(st) != helmChartsShown(old) {
 		sh.helmHTTP.request() // shown with the Charts view and Helm Install tabs (helmhttp.go)
 	}
-	sh.top.stateChanged() // the history arrows and the bell (titlehistory.go)
+	sh.chat.stateChanged(old, first) // the chat column: shown, its cluster, the input's state (chat.go)
+	sh.top.stateChanged()            // the history arrows and the bell (titlehistory.go)
 }
 
 // refreshTable shows the newest snapshot of the open view.
@@ -858,6 +876,9 @@ func (sh *shell) mainMenu() *fyne.MainMenu {
 	view := fyne.NewMenu("View", items...)
 	// The tab bar's ⌘W, ⌘⌥→ and ⌘⌥←, ⌘1–9, ⌃- and ⌃⇧-, from any focus (tabbar.go).
 	view.Items = append(sh.tabs.menuItems(), view.Items...)
+	if chat := sh.chatMenuItems(); len(chat) > 0 { // ⌘I and ⌘., from any focus (chat.go)
+		view.Items = append(append(chat, fyne.NewMenuItemSeparator()), view.Items...)
+	}
 	if pal := sh.paletteMenuItem(); pal != nil { // ⌘⇧P, from any focus: menu shortcuts come first
 		view.Items = append([]*fyne.MenuItem{pal, fyne.NewMenuItemSeparator()}, view.Items...)
 	}

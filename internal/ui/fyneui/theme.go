@@ -47,6 +47,9 @@ const (
 	colorTooltip          fyne.ThemeColorName = "cogpit.tooltip"    // a tooltip's background
 	colorLogo             fyne.ThemeColorName = "cogpit.logo"       // the logo's C, handles and outer ring
 	colorLogoAccent       fyne.ThemeColorName = "cogpit.logoAccent" // the logo's wheel, needle and hub
+	// colorCode is inline code's text on its chip in the agent chat's answers (chat_markdown.go): a
+	// warm yellow, as the owner's design direction has it (plan/captures/chat), 4.5:1 on the chip.
+	colorCode fyne.ThemeColorName = "cogpit.code"
 )
 
 // Status colour tokens, one per model.Status.
@@ -169,6 +172,7 @@ var darkPalette = palette{
 		colorLogo:             hex(0x93a1a1), // base1
 		colorLogoAccent:       hex(solCyan),
 		colorTooltip:          hex(0x003847), // editorHoverWidget.background #004052 is 3.6:1 under the text
+		colorCode:             hex(0xd9a73a), // yellow #b58900 lightened: 5.1:1 on the chip
 	},
 	status: map[model.Status]color.Color{
 		model.StatusOK:          hex(0x899c08), // green #859900
@@ -236,6 +240,7 @@ var lightPalette = palette{
 		colorLogo:             hex(0x586e75), // base01, as the reference's mark for light bars
 		colorLogoAccent:       hex(solCyan),
 		colorTooltip:          hex(0xeee8d5), // editorHoverWidget.background #ccc4b0 is 3.1:1 under the text
+		colorCode:             hex(0x8f4a0a), // orange #cb4b16 darkened: 4.6:1 on the chip
 	},
 	status: map[model.Status]color.Color{
 		model.StatusOK:          hex(0x6e7f00), // green #859900

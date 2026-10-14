@@ -177,6 +177,8 @@ func (p *settingsPage) preferencesSection(section string) fyne.CanvasObject {
 		return p.terminalSection()
 	case engine.SectionTables:
 		return p.tablesSection()
+	case engine.SectionAgent:
+		return p.agentSection() // preferences_agent.go
 	}
 	return p.appSection()
 }

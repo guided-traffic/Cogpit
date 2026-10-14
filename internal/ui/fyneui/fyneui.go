@@ -135,6 +135,9 @@ type Engine interface {
 	OpenLogs(ctx context.Context, tabID string) (io.ReadCloser, error)
 	OpenTerminal(ctx context.Context, tabID string) (terminal.Session, error)
 	SetConfirmer(c engine.Confirmer)
+	// Chat is the built-in agent's chat (engine/chat.go), nil without one: the window then shows
+	// no chat column, no View › Agent Chat and no Preferences › Agent (chat.go).
+	Chat() engine.ChatAgent
 }
 
 var _ Engine = (*engine.Session)(nil)

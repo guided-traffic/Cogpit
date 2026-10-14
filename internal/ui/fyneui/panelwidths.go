@@ -11,7 +11,8 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// The widths of the two side panels, the primary sidebar and the detail drawer, are the user's:
+// The widths of the side panels, the primary sidebar, the detail drawer and the agent's chat column
+// (chat.go), are the user's:
 // each is set by dragging the panel's edge, stored in Fyne's preferences and restored at the next
 // start. Content never moves them. A panel is a fixed number of points wide, laid out by
 // panelLayout, which reports a constant minimum width whatever the panel holds, so that a long
@@ -25,6 +26,7 @@ import (
 const (
 	prefSidebarWidth = "cogpit.ui.sidebarWidth" // Fyne preferences key, in points
 	prefDrawerWidth  = "cogpit.ui.drawerWidth"  // Fyne preferences key, in points
+	prefChatWidth    = "cogpit.ui.chatWidth"    // Fyne preferences key, in points
 
 	defaultSidebarWidth float32 = 216 // the theme's sizeSidebarWidth
 	defaultDrawerWidth  float32 = 600
@@ -33,6 +35,12 @@ const (
 	maxSidebarWidth float32 = 480
 	minDrawerWidth  float32 = 320
 	maxDrawerWidth  float32 = 1000
+
+	// The chat column: VS Code's chat panel is about as wide by default; narrower than 300 points
+	// a table in an answer has no room, wider than 760 the window's views have too little.
+	defaultChatWidth float32 = 400
+	minChatWidth     float32 = 300
+	maxChatWidth     float32 = 760
 
 	// minTableRoom is the width the table keeps beside the drawer, and the workspace beside the
 	// sidebar: dragging an edge stops there.
@@ -52,13 +60,14 @@ func clampWidth(w, lo, hi, def float32) float32 {
 
 // loadWidths reads the stored widths; a missing or invalid value is the default.
 func (sh *shell) loadWidths() {
-	sh.sidebarW, sh.drawerW = defaultSidebarWidth, defaultDrawerWidth
+	sh.sidebarW, sh.drawerW, sh.chatW = defaultSidebarWidth, defaultDrawerWidth, defaultChatWidth
 	if sh.app == nil {
 		return
 	}
 	p := sh.app.Preferences()
 	sh.sidebarW = clampWidth(float32(p.FloatWithFallback(prefSidebarWidth, float64(defaultSidebarWidth))), minSidebarWidth, maxSidebarWidth, defaultSidebarWidth)
 	sh.drawerW = clampWidth(float32(p.FloatWithFallback(prefDrawerWidth, float64(defaultDrawerWidth))), minDrawerWidth, maxDrawerWidth, defaultDrawerWidth)
+	sh.chatW = clampWidth(float32(p.FloatWithFallback(prefChatWidth, float64(defaultChatWidth))), minChatWidth, maxChatWidth, defaultChatWidth)
 }
 
 // saveWidths stores the widths; called when a drag ends, not on every step of it.
@@ -69,6 +78,7 @@ func (sh *shell) saveWidths() {
 	p := sh.app.Preferences()
 	p.SetFloat(prefSidebarWidth, float64(sh.sidebarW))
 	p.SetFloat(prefDrawerWidth, float64(sh.drawerW))
+	p.SetFloat(prefChatWidth, float64(sh.chatW))
 }
 
 // panelLayout lays out three objects: the panel (fixed width), the handle on its edge and the rest
@@ -279,4 +289,12 @@ func (sh *shell) setSidebarWidth(w float32) float32 {
 	sh.sidebarW = clampWidth(w, minSidebarWidth, sh.sideLay.limit(), minSidebarWidth)
 	sh.mainRow.Refresh()
 	return sh.sidebarW
+}
+
+// setChatWidth is setDrawerWidth for the agent's chat column (chat.go).
+func (sh *shell) setChatWidth(w float32) float32 {
+	sh.chatW = clampWidth(w, minChatWidth, sh.chatLay.limit(), minChatWidth)
+	sh.chatSplit.Layout.Layout(sh.chatSplit.Objects, sh.chatSplit.Size()) // the two sides re-lay themselves
+	canvas.Refresh(sh.chatSplit)
+	return sh.chatW
 }
