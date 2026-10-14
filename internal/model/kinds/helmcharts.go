@@ -17,9 +17,9 @@ import (
 //
 //	apiVersion: cogpit.io/v1
 //	kind: HelmChart
-//	metadata: {name: bitnami.nginx, uid, resourceVersion, creationTimestamp}
+//	metadata: {name: bitnami.nginx, uid, resourceVersion, creationTimestamp}  # HelmChartName
 //	spec:
-//	  repository: bitnami        # the repository's name (no dot: the name splits at the first one)
+//	  repository: bitnami        # the repository's name, as Helm's file names it (a dot allowed)
 //	  name: nginx                # the chart's name
 //	  version: 18.2.0            # the newest version that is not a prerelease (helm search's)
 //	  appVersion: 1.27.1
@@ -175,14 +175,32 @@ type HelmChartVersion struct {
 	Created             time.Time
 }
 
-// HelmChartName is a chart's object name: "<repository>.<chart>". A repository's name has no dot,
-// so the name splits at its first one.
-func HelmChartName(repository, chart string) string { return repository + "." + chart }
+// HelmChartName is a chart's object name, Cogpit's chart id (A36, owner 2026-10-14 evening; the
+// form the lead's decision for the owner to confirm): the repository's name with every dot
+// doubled, a dot, and the chart's name: "bitnami.nginx", and "charts..example.nginx" for the chart
+// nginx of the repository "charts.example". A chart's name starts with a letter or a digit
+// (helm.chartNamePattern), so the first dot that is not one of a doubled pair separates the two,
+// whatever dots either name holds; the id of a repository without a dot is what it was before
+// repositories with a dot were used, so no id Cogpit kept before changes.
+func HelmChartName(repository, chart string) string {
+	return strings.ReplaceAll(repository, ".", "..") + "." + chart
+}
 
-// SplitHelmChartName splits a chart's object name into its repository and chart.
+// SplitHelmChartName splits a chart's object name (HelmChartName) into its repository and chart:
+// at the first dot that is not one of a doubled pair, the doubled dots before it single again.
 func SplitHelmChartName(name string) (repository, chart string, ok bool) {
-	repository, chart, ok = strings.Cut(name, ".")
-	return repository, chart, ok && repository != "" && chart != ""
+	for i := 0; i < len(name); i++ {
+		if name[i] != '.' {
+			continue
+		}
+		if i+1 < len(name) && name[i+1] == '.' {
+			i++ // a doubled dot: part of the repository's name
+			continue
+		}
+		repository, chart = strings.ReplaceAll(name[:i], "..", "."), name[i+1:]
+		return repository, chart, repository != "" && chart != ""
+	}
+	return "", "", false
 }
 
 // HelmChartObject returns a chart's object. uid names the chart for as long as its repository is

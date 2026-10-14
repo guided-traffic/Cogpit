@@ -338,7 +338,7 @@ func TestHelmRepoFileErrors(t *testing.T) {
 	}
 	h.charts(t, 1)
 
-	h.helmFile.Write(h.repo.Entry("test"), &repo.Entry{Name: "with.dot", URL: h.repo.URL}, &repo.Entry{Name: "oci", URL: "oci://registry.example.com/charts"})
+	h.helmFile.Write(h.repo.Entry("test"), &repo.Entry{Name: "with space", URL: h.repo.URL}, &repo.Entry{Name: "oci", URL: "oci://registry.example.com/charts"})
 	if !testkit.WaitFor(ctx, func() bool {
 		l = h.list(t, engine.OriginGUI)
 		return l.Status == engine.HelmFileOK && len(l.Repositories) == 3
@@ -355,7 +355,8 @@ func TestHelmRepoFileErrors(t *testing.T) {
 			t.Errorf("unused entry %+v", r)
 		}
 	}
-	if _, err := h.dispatch(engine.OriginGUI, "helm.repo.update", map[string]any{"names": []string{"with.dot"}}); err == nil || !strings.Contains(err.Error(), "no dot") {
+	if _, err := h.dispatch(engine.OriginGUI, "helm.repo.update", map[string]any{"names": []string{"with space"}}); err == nil ||
+		!strings.Contains(err.Error(), "letters, digits") {
 		t.Errorf("an update of an unused entry: %v", err)
 	}
 

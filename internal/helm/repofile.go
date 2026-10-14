@@ -56,21 +56,23 @@ const redactedText = "•••"
 // reads the environment only, never the file.
 func RepositoryConfigPath() string { return cli.New().RepositoryConfig }
 
-// repoNamePattern is a repository's name as Cogpit can list its charts: letters, digits, '-' and
-// '_', no dot, so that "<repository>.<chart>" names a chart unambiguously.
-var repoNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$`)
+// repoNamePattern is a repository's name as Cogpit can list its charts: letters, digits, '.', '-'
+// and '_', the first a letter or a digit. A dot is taken since 2026-10-14 (A36): the chart's id
+// doubles it (kinds.HelmChartName), so the id still tells the repository from the chart.
+var repoNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$`)
 
 // chartNamePattern is a chart's name in an index that Cogpit lists: Helm's chart names, without a
-// path separator.
+// path separator, the first character a letter or a digit (which kinds.SplitHelmChartName relies
+// on: the dot before it is the id's separator).
 var chartNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,200}$`)
 
 // CheckRepositoryName checks that Cogpit can list a repository's charts under its name. Helm
-// allows more (a dot, for one); such a repository is listed with this error and not used
-// (Cogpit's default).
+// allows more (helm repo add refuses only a '/', read in Helm v4.3.0's repo_add.go); such a
+// repository is listed with this error and not used (Cogpit's default).
 func CheckRepositoryName(name string) error {
 	if !repoNamePattern.MatchString(name) {
-		return errors.New("a chart is listed as <repository>.<chart>, so Cogpit uses a repository whose name is 1 " +
-			"to 63 letters, digits, '-' or '_' (no dot); remove it with helm repo remove and add it again under such a name")
+		return errors.New("Cogpit uses a repository whose name is 1 to 63 letters, digits, '.', '-' or '_', the first a " +
+			"letter or a digit; remove it with helm repo remove and add it again under such a name")
 	}
 	return nil
 }

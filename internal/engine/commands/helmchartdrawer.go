@@ -15,7 +15,7 @@ import (
 // repository (its archive, as an install does) when it does not keep it yet.
 
 type chartVersionParams struct {
-	Ref     model.ObjectRef `json:"ref" jsonschema:"the Helm chart the detail drawer shows (ui_state's drawer): kind helmcharts, name <repository>.<chart>"`
+	Ref     model.ObjectRef `json:"ref" jsonschema:"the Helm chart the detail drawer shows (ui_state's drawer): kind helmcharts, name the chart's id as resources_list lists it (<repository>.<chart>, every dot of the repository's name doubled)"`
 	Version string          `json:"version,omitempty" jsonschema:"the chart version to show, one of the chart's spec.versions (object_get's helmChart.versions); empty: the version the chart is listed with"`
 }
 

@@ -105,14 +105,22 @@ repositories:
   url: https://rel.example.com
   caFile: ca.pem
 - null
+- name: "with:colon"
+  url: https://colon.example.com
+- name: .dot-first
+  url: https://dotfirst.example.com
 `, ca, cert, key))
 	entries, err := ReadRepositoryFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	byName := func(i int) RepositoryEntry { return entries[i] }
-	if len(entries) != 9 {
+	if len(entries) != 11 {
 		t.Fatalf("%d entries: %+v", len(entries), entries)
+	}
+	// A name with a dot is used since A36 (2026-10-14): the chart id doubles the dot.
+	if d := byName(5); d.Name != "with.dot" || d.Repository == nil || d.Err != nil || d.Repository.Name != "with.dot" {
+		t.Errorf("with.dot %+v", d)
 	}
 	if e := byName(0); e.Repository == nil || e.Repository.URL != "https://charts.example.com/stable" || e.HasCredentials || e.PlainHTTP {
 		t.Errorf("stable %+v", e)
@@ -133,7 +141,7 @@ repositories:
 		in.Repository.URL != "https://inurl.example.com/charts?token=tok-43" || in.URL != "https://inurl.example.com/charts?token=•••" {
 		t.Errorf("a user in the URL: %+v (%s)", in, in.Repository.URL)
 	}
-	for i, want := range map[int]string{5: "no dot", 6: "OCI", 7: "a second entry", 8: "no absolute path"} {
+	for i, want := range map[int]string{6: "OCI", 7: "a second entry", 8: "no absolute path", 9: "letters, digits, '.', '-' or '_'", 10: "the first a letter or a digit"} {
 		if e := byName(i); e.Repository != nil || e.Err == nil || !strings.Contains(e.Err.Error(), want) {
 			t.Errorf("entry %d %s: %+v, want %q", i, e.Name, e, want)
 		}

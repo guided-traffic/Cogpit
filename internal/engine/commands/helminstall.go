@@ -25,7 +25,7 @@ import (
 const orderInstall = 100
 
 type installTabParams struct {
-	Ref     model.ObjectRef `json:"ref" jsonschema:"the chart: kind helmcharts, name <repository>.<chart> as resources_list lists it"`
+	Ref     model.ObjectRef `json:"ref" jsonschema:"the chart: kind helmcharts, name the chart's id as resources_list lists it (<repository>.<chart>, every dot of the repository's name doubled: charts..example.nginx for repository charts.example)"`
 	Version string          `json:"version,omitempty" jsonschema:"the chart version; empty: the version the chart's drawer shows when it shows this chart (ui_setChartVersion), else the version the chart is listed with (the newest that is not a prerelease)"`
 }
 
@@ -213,7 +213,7 @@ func chartOf(s *engine.Session, ref model.ObjectRef) (repository, chart string, 
 	}
 	repository, chart, ok := kinds.SplitHelmChartName(ref.Name)
 	if !ok {
-		return "", "", fmt.Errorf("%q names no chart: <repository>.<chart>", ref.Name)
+		return "", "", fmt.Errorf("%q names no chart: a chart's id is <repository>.<chart>, every dot of the repository's name doubled", ref.Name)
 	}
 	if _, err := s.Lookup(ref); err != nil {
 		return "", "", err

@@ -114,8 +114,8 @@ func fixtureHelmRepos() engine.HelmReposList {
 				Error: "downloading the index: https://charts.internal.example/private/index.yaml: 401 Unauthorized"},
 			{Name: "lab", URL: "http://charts.lab.example:8080/stable", HasCredentials: true, PlainHTTP: true, Charts: 7, Updated: fixedNow.Add(-2 * time.Hour)},
 			{Name: "edge", URL: "https://charts.edge.example", HasCredentials: true, ClientCertificate: true, CAFile: true, InsecureSkipTLSVerify: true, Charts: 3, Updating: true},
-			{Name: "my.repo", URL: "https://charts.example.com/dotted", Unused: true,
-				Error: "a chart is listed as <repository>.<chart>, so Cogpit uses a repository whose name is 1 to 63 letters, digits, '-' or '_' (no dot); remove it with helm repo remove and add it again under such a name"},
+			{Name: "my repo", URL: "https://charts.example.com/spaced", Unused: true,
+				Error: "Cogpit uses a repository whose name is 1 to 63 letters, digits, '.', '-' or '_', the first a letter or a digit; remove it with helm repo remove and add it again under such a name"},
 		}}
 }
 
