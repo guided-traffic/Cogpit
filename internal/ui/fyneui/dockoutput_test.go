@@ -208,7 +208,12 @@ func TestAgentReadMarkerFlashes(t *testing.T) {
 	if sh.dock.agentReadMarks.note.text != agentReadExpiredNote {
 		t.Errorf("note %q", sh.dock.agentReadMarks.note.text)
 	}
-	f.update(func(u *engine.UIState) { u.Dock[0].AgentRead, u.Dock[0].AgentReadExpired = true, false })
+	// Ended at its hour (A3): the note says so.
+	f.update(func(u *engine.UIState) { u.Dock[0].AgentReadCapped = true })
+	q.until(t, "the hour's note", func() bool { return sh.dock.agentReadMarks.note.text == agentReadCappedNote })
+	f.update(func(u *engine.UIState) {
+		u.Dock[0].AgentRead, u.Dock[0].AgentReadExpired, u.Dock[0].AgentReadCapped = true, false, false
+	})
 	q.until(t, "the note gone", func() bool { return !sh.dock.agentReadMarks.note.Visible() })
 }
 

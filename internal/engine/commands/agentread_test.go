@@ -195,6 +195,53 @@ func TestAgentReadSwitchTurnsItselfOff(t *testing.T) {
 	}
 }
 
+// A switch ends at the latest an hour after it went on, whatever the reads (A3, owner 2026-10-14
+// evening): an agent reading every ten minutes keeps it on until then, not longer, and the tab says
+// it ended at its hour; turned on again, the hour starts again.
+func TestAgentReadSwitchEndsAfterAnHour(t *testing.T) {
+	clock := newFakeClock()
+	h := newHarness(t, seed(), engine.Options{Now: clock.Now, AfterFunc: clock.AfterFunc})
+	w := &fakeWindow{}
+	h.s.SetDockOutputReader(w)
+	t0 := clock.Now()
+	id := openDockTab(t, h, "terminal.open", struct{}{})
+	w.show(id, "$ ls", "$ ")
+	h.must(t, engine.OriginGUI, "dock.allowAgentRead", map[string]any{"id": id, "allowed": true}, nil)
+	if tab := dockTab(t, h, id); !tab.AgentReadOn.Equal(t0) {
+		t.Fatalf("switched on: %+v", tab)
+	}
+	for i := 1; i <= 5; i++ { // reads at 10, 20, 30, 40 and 50 minutes
+		clock.advance(10 * time.Minute)
+		if _, err := readDock(t, h, engine.OriginExternalAgent, map[string]any{"id": id}); err != nil {
+			t.Fatalf("read %d: %v", i, err)
+		}
+	}
+	if tab := dockTab(t, h, id); !tab.AgentReadUntil.Equal(t0.Add(engine.AgentReadMax)) {
+		t.Fatalf("after a read at 50 minutes the end is %v, want the hour %v", tab.AgentReadUntil, t0.Add(engine.AgentReadMax))
+	}
+	clock.advance(10*time.Minute - time.Second)
+	if tab := dockTab(t, h, id); !tab.AgentRead {
+		t.Fatal("off a second before the hour")
+	}
+	clock.advance(time.Second)
+	tab := dockTab(t, h, id)
+	if tab.AgentRead || !tab.AgentReadExpired || !tab.AgentReadCapped || !tab.AgentReadOn.IsZero() {
+		t.Fatalf("at the hour: %+v", tab)
+	}
+	if _, err := readDock(t, h, engine.OriginExternalAgent, map[string]any{"id": id}); !errors.Is(err, engine.ErrTerminalOutputWithheld) {
+		t.Errorf("an agent's read after the hour: %v", err)
+	}
+	// On again: a new hour, and no note; ended for want of a read, it is not capped.
+	h.must(t, engine.OriginGUI, "dock.allowAgentRead", map[string]any{"id": id, "allowed": true}, nil)
+	if tab := dockTab(t, h, id); !tab.AgentRead || tab.AgentReadExpired || tab.AgentReadCapped || !tab.AgentReadOn.Equal(clock.Now()) {
+		t.Fatalf("on again: %+v", tab)
+	}
+	clock.advance(engine.AgentReadIdle)
+	if tab := dockTab(t, h, id); tab.AgentRead || !tab.AgentReadExpired || tab.AgentReadCapped {
+		t.Errorf("15 minutes without a read: %+v", tab)
+	}
+}
+
 // Agents read while the user switches on and off and the clock moves: whatever the interleaving,
 // once the last change is made the timer is armed for the switch's end, so a switch left on always
 // turns itself off 15 minutes after its last read.

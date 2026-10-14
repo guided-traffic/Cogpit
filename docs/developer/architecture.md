@@ -2143,10 +2143,10 @@ a read the switch allowed is recorded in the same check after the window read (`
 `DockTab.AgentLastRead`, and `AgentReadUntil` 15 minutes later) and emits `EventDockRead`, on which
 the window flashes the tab's marker ([`dockagentread.go`](../../internal/ui/fyneui/dockagentread.go));
 one timer, armed through `Options.AfterFunc` for the earliest `AgentReadUntil` after every change,
-turns a switch off at its end and sets `AgentReadExpired`, which the strip shows. **Decided
-2026-10-14 evening, not built**
-([D-44](decisions.md#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), A3): a switch
-also ends at the latest 1 hour after it was turned on, whatever the reads; the tab says so.
+turns a switch off at its end and sets `AgentReadExpired`, which the strip shows. A switch also
+ends at the latest `AgentReadMax`, 1 hour, after it went on (`DockTab.AgentReadOn`), whatever the
+reads, and the strip then says so (`AgentReadCapped`; the owner's A3,
+[D-44](decisions.md#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), built 2026-10-14).
 
 **What an agent reads of cluster text** (2026-10-14, the owner's answers to
 [H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents) and

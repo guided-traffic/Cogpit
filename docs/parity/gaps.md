@@ -529,8 +529,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   the hand-over that puts the verified kubectl first for bash and fish as for zsh, and a setting
   (Preferences › Kubernetes) that can enforce Cogpit's kubectl through a shell function
   ([H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first));
-  a terminal tab's agent switch ends one hour after it was turned on at the latest
-  ([G17](#g17-mcp-control)); the fork's four shell tests under the race detector in CI; the two
+  the fork's four shell tests under the race detector in CI; the two
   newer terminal-fork patches offered upstream later, at the end, the app first. Confirmed, now the
   owner's decisions: older log lines only through the row or `logs.loadOlder`; init containers
   listed apart; ⌃C to the shell on Windows and Linux; the right-click copy and paste preference the
@@ -1842,19 +1841,19 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## Beyond Lens
 
 ### G17. MCP control
-- **Built 2026-10-14 (A5):** the replaced Secret values' minimum length 10 bytes instead of 8
-  ([H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents)).
+- **Built 2026-10-14 (A5, A3, A1, A2):** the replaced Secret values' minimum length 10 bytes
+  instead of 8 ([H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents));
+  a terminal tab's agent switch ends at the latest one hour after it was turned on, whatever the
+  reads, the tab saying so
+  ([H-83](../security/agents-and-mcp.md#h-83-an-allowed-terminal-tab-gives-agents-everything-it-shows-from-then-on));
+  agents' RBAC writes and Helm installs and upgrades always waiting for the user.
 - **Decided (owner, 2026-10-14 evening; not built unless confirmed):** the MCP switch persisted and
   honoured by `cogpit-cli mcp`, which with MCP off refuses to serve, headless too, with a clear
   message to the agent; the switch gets its own D-entry when built
   ([H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge));
-  a terminal tab's agent switch ends at the latest one hour after it was turned on, whatever the
-  reads, the tab saying so and one click turning it on again
-  ([H-83](../security/agents-and-mcp.md#h-83-an-allowed-terminal-tab-gives-agents-everything-it-shows-from-then-on));
   window-only notifications reach agents as text through that filter, inline Helm values removed,
   instead of withheld; marking notifications read and clearing them the window's only; a chart's
-  README framed as text of the chart's author; agents' RBAC writes and Helm installs and upgrades
-  always waiting for the user, `cluster.setPrometheus` and a proxy set by an agent as writes with
+  README framed as text of the chart's author; `cluster.setPrometheus` and a proxy set by an agent as writes with
   confirmation ([G7](#g7-resource-actions), [G11](#g11-helm), [G12](#g12-metrics-and-cluster-overview),
   [G13](#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)). Confirmed: values under
   naming keys (user, host, port, database, namespace) not replaced; GUI-only commands listed,

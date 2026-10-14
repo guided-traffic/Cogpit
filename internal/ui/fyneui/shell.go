@@ -1094,7 +1094,7 @@ func dockEqual(a, b engine.UIState) bool {
 		x, y := a.Dock[i], b.Dock[i]
 		if x.ID != y.ID || x.Title != y.Title || x.Logs != y.Logs || x.Container != y.Container || !sameRef(x.Ref, y.Ref) ||
 			x.Audit != y.Audit || // the Audit Log's filter (auditlog.go)
-			x.AgentRead != y.AgentRead || x.AgentReadExpired != y.AgentReadExpired { // a terminal's "Agents may read" (dockoutput.go, dockagentread.go)
+			x.AgentRead != y.AgentRead || x.AgentReadExpired != y.AgentReadExpired || x.AgentReadCapped != y.AgentReadCapped { // a terminal's "Agents may read" (dockoutput.go, dockagentread.go)
 			return false
 		}
 		// A Helm tab's chart, version and digest change in place (a version picked, its chart

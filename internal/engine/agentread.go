@@ -10,16 +10,21 @@ import (
 // A terminal tab agents may read (H-83, owner 2026-10-14; D-44): while its "Agents may read"
 // switch is on, the tab carries a marker, which flashes at each read by an agent (EventDockRead,
 // the window's reaction); and the switch turns itself off once AgentReadIdle passed without an
-// agent's read, which the tab then says (DockTab.AgentReadExpired) until the user turns it on
-// again. The switch, the last read, the time it turns off and that it did are UI state, so agents
+// agent's read, or at the latest AgentReadMax after it went on whatever the reads (A3, owner
+// 2026-10-14 evening), which the tab then says (DockTab.AgentReadExpired, AgentReadCapped) until
+// the user turns it on again. The switch, the last read, the time it turns off and that it did are UI state, so agents
 // see them in ui_state as the window does. The time comes from the session's clock (Options.Now)
 // and the expiry from Options.AfterFunc, so tests move the clock instead of waiting.
 //
 // What counts as a read is one the switch allowed: a dock.read of the tab by anyone but the user's
 // window, an agent or the CLI forwarding to the window. The user's own reads change nothing.
 
-// AgentReadIdle is how long a terminal tab's switch stays on without an agent's read.
-const AgentReadIdle = 15 * time.Minute
+// AgentReadIdle is how long a terminal tab's switch stays on without an agent's read;
+// AgentReadMax how long it stays on at most, whatever the reads (A3).
+const (
+	AgentReadIdle = 15 * time.Minute
+	AgentReadMax  = time.Hour
+)
 
 // EventDockRead: an agent read a terminal tab whose switch is on (dock.read); Event.View holds the
 // tab id. The window flashes the tab's marker. Re-read nothing: the UI state has the read's time.
@@ -28,11 +33,21 @@ const EventDockRead EventType = "dockRead"
 // setAgentRead turns a terminal tab's switch on or off at now: on, it starts the idle period and
 // clears a note that it had turned itself off; off, it forgets the reads.
 func setAgentRead(t *DockTab, on bool, now time.Time) {
-	t.AgentRead, t.AgentReadExpired, t.AgentLastRead = on, false, time.Time{}
-	t.AgentReadUntil = time.Time{}
+	t.AgentRead, t.AgentReadExpired, t.AgentReadCapped, t.AgentLastRead = on, false, false, time.Time{}
+	t.AgentReadOn, t.AgentReadUntil = time.Time{}, time.Time{}
 	if on {
-		t.AgentReadUntil = now.Add(AgentReadIdle)
+		t.AgentReadOn, t.AgentReadUntil = now, agentReadEnd(now, now)
 	}
+}
+
+// agentReadEnd is when a switch that went on at on, last read (or turned on) at last, turns
+// itself off: AgentReadIdle after last, at the latest AgentReadMax after on.
+func agentReadEnd(on, last time.Time) time.Time {
+	end := last.Add(AgentReadIdle)
+	if limit := on.Add(AgentReadMax); limit.Before(end) {
+		return limit
+	}
+	return end
 }
 
 // noteAgentRead records a read of tab that its switch allowed: for anyone but the user's window
@@ -52,7 +67,7 @@ func (s *Session) noteAgentRead(tab DockTab, gui bool) (DockTab, error) {
 			if t.ID != tab.ID || !t.AgentRead {
 				continue
 			}
-			t.AgentLastRead, t.AgentReadUntil = now, now.Add(AgentReadIdle)
+			t.AgentLastRead, t.AgentReadUntil = now, agentReadEnd(t.AgentReadOn, now)
 			out, err = *t, nil
 		}
 	})
@@ -126,8 +141,9 @@ func (s *Session) expireAgentReads() {
 		s.UpdateUI(func(u *UIState) {
 			for i := range u.Dock {
 				if t := &u.Dock[i]; due(*t) {
+					capped := !t.AgentReadOn.IsZero() && !now.Before(t.AgentReadOn.Add(AgentReadMax))
 					setAgentRead(t, false, now)
-					t.AgentReadExpired = true
+					t.AgentReadExpired, t.AgentReadCapped = true, capped
 				}
 			}
 		})

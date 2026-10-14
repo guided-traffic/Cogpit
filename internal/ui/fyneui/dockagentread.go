@@ -12,13 +12,18 @@ import (
 // The marker of a terminal tab agents may read (H-83, owner 2026-10-14; engine/agentread.go): while
 // the tab's "Agents may read" switch is on, its tab carries an eye after the title in the warning
 // colour, and at each agent's read (engine.EventDockRead) the tab flashes, tinted in that colour,
-// for agentReadFlash. When the switch turned itself off after 15 minutes without a read, the strip
-// says so beside the switch while that tab is the active one, until the user turns it on again.
-// The switch, its end and that it turned off are the engine's state (DockTab.AgentRead,
-// AgentReadUntil, AgentReadExpired); the flash is only this window's reaction to the event.
+// for agentReadFlash. When the switch turned itself off, after 15 minutes without a read or one
+// hour after it went on (A3), the strip says which beside the switch while that tab is the active
+// one, until the user turns it on again. The switch, its end and that it turned off are the
+// engine's state (DockTab.AgentRead, AgentReadUntil, AgentReadExpired, AgentReadCapped); the flash
+// is only this window's reaction to the event.
 
-// agentReadExpiredNote is the strip's line for a tab whose switch turned itself off.
-const agentReadExpiredNote = "Turned off after 15 minutes without an agent's read"
+// agentReadExpiredNote is the strip's line for a tab whose switch turned itself off for want of a
+// read; agentReadCappedNote for one that reached its hour (A3).
+const (
+	agentReadExpiredNote = "Turned off after 15 minutes without an agent's read"
+	agentReadCappedNote  = "Turned off one hour after it was turned on"
+)
 
 // agentReadFlash is how long a tab shows an agent's read.
 const agentReadFlash = 700 * time.Millisecond
@@ -51,6 +56,11 @@ func (m *agentReadMarks) mark(b *tabButton, t engine.DockTab) {
 // showNote shows the strip's note when the active tab's switch turned itself off.
 func (m *agentReadMarks) showNote(active *engine.DockTab, open bool) {
 	if open && active != nil && engine.IsTerminalTab(active.Type) && active.AgentReadExpired {
+		text := agentReadExpiredNote
+		if active.AgentReadCapped {
+			text = agentReadCappedNote
+		}
+		m.note.SetText(text)
 		m.note.Show()
 		return
 	}

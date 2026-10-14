@@ -59,7 +59,7 @@ window. Nothing of it was built in the round.
 |---|---|---|---|
 | A1 | H-27 | Every RBAC object an agent creates or changes (Roles, ClusterRoles and their bindings) waits for the user, also where agent writes are allowed; built 2026-10-14 | [D-2](#d-2-agent-interface-scope), [H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache) |
 | A2 | Helm | An agent's Helm install or upgrade always waits for the user, whatever the chart holds; built 2026-10-14 | [D-2](#d-2-agent-interface-scope) |
-| A3 | H-83 | A terminal tab's agent-read switch ends at the latest 1 hour after it was turned on, whatever the reads; the tab says so; one click turns it on again; to build | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-83](../security/agents-and-mcp.md#h-83-an-allowed-terminal-tab-gives-agents-everything-it-shows-from-then-on) |
+| A3 | H-83 | A terminal tab's agent-read switch ends at the latest 1 hour after it was turned on, whatever the reads; the tab says so; one click turns it on again; built 2026-10-14 | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-83](../security/agents-and-mcp.md#h-83-an-allowed-terminal-tab-gives-agents-everything-it-shows-from-then-on) |
 | A4 | H-82 | Values under naming keys (user, host, port, database, namespace, …) are not replaced; as built | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents) |
 | A5 | H-82 | The filter's minimum 10 bytes instead of 8; built 2026-10-14 | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents) |
 | A6 | H-40 | An allowance of credentials over http does not expire; bound to name, URL and user; as built | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml), [H-40](../security/credentials.md#h-40-credentials-over-plain-http) |
@@ -2790,7 +2790,10 @@ active one, gone when the user turns it on again, none when the user turns it of
 of a switch is not an audit entry (no one's command; `ui_state` shows it).
 **Decided (owner, 2026-10-14 evening, A3):** a switch ends at the latest 1 hour after it was turned
 on, whatever the reads; the tab says so, and one click turns it on again. Read here as beside the
-15 minutes without a read, whichever comes first. Not built yet.
+15 minutes without a read, whichever comes first (open-decisions follow-up 10, still to confirm).
+Built 2026-10-14: `AgentReadMax`, `DockTab.AgentReadOn` and `AgentReadCapped`, the strip's "Turned
+off one hour after it was turned on" (`TestAgentReadSwitchEndsAfterAnHour`,
+`TestAgentReadMarkerFlashes`).
 
 **The night decision (the lead's, 2026-10-14), confirmed by the owner (2026-10-14):** a terminal tab's output can
 hold anything the user typed or a program printed, credentials included (a `cat` of a token file,
