@@ -91,7 +91,7 @@ func (st *state) reconcileLocked(now UIState) {
 		b.ns.setInputs(now.ClusterSettings[b.Context].AccessibleNamespaces, now.Namespaces)
 		plan = b.namespacePlan(prof)
 		if prof != nil {
-			relKey = b.relatedKey(prof, "")
+			relKey = b.relatedKey(prof, prof.Needs, "")
 		}
 	}
 	st.noteVanishedLocked(b, prof, now.View)

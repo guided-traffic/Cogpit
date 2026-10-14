@@ -431,16 +431,17 @@ func (b *Backend) drawerPlanKey(p *model.KindProfile, namespace string) string {
 	if ep, ok := b.Profile(eventsKind); ok && p.APIObject() {
 		key += "|" + b.readKeyIn(ep, namespace)
 	}
-	return key + b.relatedKey(p, namespace)
+	return key + b.relatedKey(p, p.DrawerNeeds(), namespace)
 }
 
-// relatedKey is how the related-objects indexes of a kind's view (namespace "") or of a drawer
-// read their kinds; a view or drawer whose key changes starts again, so that an index's read the
-// API server refused is taken again namespace by namespace.
-func (b *Backend) relatedKey(p *model.KindProfile, namespace string) string {
+// relatedKey is how the related-objects indexes of a kind's view (p.Needs, namespace "") or of a
+// drawer (p.DrawerNeeds: its own indexes too, a workload's pods) read their kinds; a view or
+// drawer whose key changes starts again, so that an index's read the API server refused, or one
+// taken while its kind's plan was still pending, is taken again namespace by namespace.
+func (b *Backend) relatedKey(p *model.KindProfile, needs []model.RelatedIndex, namespace string) string {
 	var sb strings.Builder
 	seen := map[string]bool{}
-	for _, ix := range p.Needs {
+	for _, ix := range needs {
 		rp, ok := b.Profile(ix.Kind)
 		if !ok || seen[ix.Kind] {
 			continue
