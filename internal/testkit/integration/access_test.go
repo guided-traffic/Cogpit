@@ -235,8 +235,10 @@ func TestBudgetWithoutAccessReviews(t *testing.T) {
 	if r, a := reviews(st); r != 1 || a > 4 {
 		t.Errorf("reviews: %d rules, %d access; want 1 and at most the 4 in flight", r, a)
 	}
-	if st.Total != failed.Total {
-		t.Errorf("asking again after the failure cost %d requests: %v", st.Total-failed.Total, diff(failed, st))
+	// Asking again costs nothing; a discovery request still on its way from the connect (seen on a
+	// loaded machine) is not one of the questions, so discovery is left out of the count.
+	if d := diff(failed, st); len(withoutDiscovery(d)) > 0 {
+		t.Errorf("asking again after the failure cost requests: %v", d)
 	}
 	if !reviewsAgree(st, srv) {
 		t.Errorf("client counted %v, server served %v", st.ByVerbResource, srv.Requests())
@@ -248,4 +250,15 @@ func TestBudgetWithoutAccessReviews(t *testing.T) {
 func reviewsAgree(st cluster.RequestStats, srv *testkit.FakeAPIServer) bool {
 	served := srv.Requests()
 	return st.ByVerbResource[rulesReviews] == served[rulesReviews] && st.ByVerbResource[accessReviews] == served[accessReviews]
+}
+
+// withoutDiscovery is a request diff without the discovery verb.
+func withoutDiscovery(d map[string]int64) map[string]int64 {
+	out := map[string]int64{}
+	for k, v := range d {
+		if k != cluster.VerbDiscovery && v != 0 {
+			out[k] = v
+		}
+	}
+	return out
 }
