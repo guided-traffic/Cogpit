@@ -247,6 +247,18 @@ CHANGE:` footer ([conventions](conventions.md#commits-and-pull-requests)).
 **After a release, `main` has moved:** the release commit is on `main`, so the next local push
 needs `git pull --rebase` first.
 
+**When semantic-release stops after the tag** (v0.6.0, 2026-10-14: GitHub rejected the push of
+`refs/notes/semantic-release-v0.6.0` with a bare "failed" after the release commit and the tag
+were pushed): there is a tag but no GitHub release, so the release pipeline does not start, and
+re-running the job does not help (its commit is behind `main` now, and semantic-release then
+publishes nothing). Finish it by hand, as semantic-release would have:
+`git notes --ref semantic-release-v<version> add -f -m '{"channels":[null]}' v<version>`, push that
+ref, and create the release from the notes the release commit carries
+(`git log -1 --format=%B <release commit> | tail -n +3 > notes.md`,
+`gh release create v<version> --verify-tag --title v<version> --notes-file notes.md --latest`). A
+release made with a person's token starts the pipeline as the App's does (only `GITHUB_TOKEN`'s
+does not); the release then shows that person as its author.
+
 **The first release:** [v0.1.0](https://github.com/guided-traffic/cogpit/releases/tag/v0.1.0)
 (2026-10-13, 457 commits since `v0.0.0`), with the badge at 83.6 % in its release commit `53b96c9`.
 Checked by download: `SHA256SUMS` matches the archives, `cogpit-cli --version` says `cogpit-cli
