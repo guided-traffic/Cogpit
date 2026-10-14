@@ -186,6 +186,8 @@ var wantCommands = map[string]engine.Danger{
 	"ui.setStatusFilter": engine.DangerUI,
 	// The built-in agent's chat column (D-10, M12): UI state only (TestChatToggle).
 	"chat.toggle": engine.DangerUI,
+	// Restart of a selection of workloads (A74): destructive, as one Restart (TestRestartMany).
+	"workload.restartMany": engine.DangerDestructive,
 }
 
 func TestRegistryComplete(t *testing.T) {

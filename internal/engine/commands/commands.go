@@ -78,6 +78,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerFlux(g)
 	registerUpdates(g)
 	registerChat(g)
+	registerRestartMany(g)
 	return g.err
 }
 

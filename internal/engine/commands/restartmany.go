@@ -1,0 +1,135 @@
+package commands
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"slices"
+	"strings"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/model"
+)
+
+// Restart of a selection of workloads (A74, owner 2026-10-14 evening): the Deployments, Daemon
+// Sets and Stateful Sets of a table's selection restarted as kubectl rollout restart does, one
+// confirmation for every origin naming them all (destructive, as one Restart is), then each in
+// turn, bound to the UID the user confirmed. Scale stays on one object.
+
+// restartKinds are the kinds Restart applies to.
+var restartKinds = []string{kindDeployments, daemonSetKindKey, statefulSetKindKey}
+
+// RestartManyResult is workload.restartMany's result: the workloads restarted.
+type RestartManyResult struct {
+	Restarted []model.ObjectRef `json:"restarted"`
+}
+
+// RestartManyError is workload.restartMany's error when it did not restart every workload: which
+// it restarted and which not, each with its reason. Nothing is retried.
+type RestartManyError struct {
+	Restarted []model.ObjectRef `json:"restarted"`
+	Failed    []DeleteFailure   `json:"failed"`
+}
+
+func (e *RestartManyError) Error() string {
+	parts := make([]string, 0, len(e.Failed))
+	for _, f := range e.Failed {
+		parts = append(parts, f.Ref.String()+": "+f.Error)
+	}
+	return fmt.Sprintf("%d of %d workloads restarted; not restarted: %s", len(e.Restarted), len(e.Restarted)+len(e.Failed),
+		strings.Join(parts, "; "))
+}
+
+func registerRestartMany(g *registrar) {
+	add(g, engine.Spec[selectionParams]{
+		ID: "workload.restartMany", Label: "Restart", MenuPath: "Workload/Restart Selected", Kinds: restartKinds, Order: 100,
+		Danger: engine.DangerDestructive,
+		Verbs:  []engine.Verb{{Verb: nwVerbPatch, Group: nwGroupApps, Resource: "*"}},
+		Description: "Restarts several Deployments, Daemon Sets and Stateful Sets at once, as Restart on the table's selection " +
+			"does: one confirmation names them all, for every origin; then each is restarted the way kubectl rollout restart " +
+			"does (the pod template's restartedAt annotation), bound to the UID Cogpit's cache held when the user confirmed, " +
+			"one after the other. At most 500. When one is not restarted the others still are, and the error names which " +
+			"were restarted and which not, each with its reason; nothing is retried.",
+		Enabled: func(s *engine.Session, p selectionParams) error {
+			if len(p.Refs) == 0 {
+				return errors.New("no workloads are selected")
+			}
+			if len(p.Refs) > engine.MaxSelection {
+				return fmt.Errorf("at most %d workloads at once, %d are selected", engine.MaxSelection, len(p.Refs))
+			}
+			for _, r := range p.Refs {
+				if !slices.Contains(restartKinds, r.Kind) {
+					return fmt.Errorf("%w: %s is no Deployment, Daemon Set or Stateful Set", engine.ErrNotApplicable, r.String())
+				}
+				if _, err := cachedOfKind(s, r, r.Kind); err != nil {
+					return fmt.Errorf("%s: %w", r.String(), err)
+				}
+			}
+			_, _, err := restartsOf(s)
+			return err
+		},
+		Targets: func(s *engine.Session, p selectionParams) ([]model.ObjectRef, error) { return selectionTargets(s, p.Refs) },
+		Detail: func(s *engine.Session, p selectionParams) string {
+			onDelete := 0
+			for _, r := range p.Refs {
+				if obj, err := s.Lookup(r); err == nil && model.NestedString(obj, "spec", "updateStrategy", "type") == "OnDelete" {
+					onDelete++
+				}
+			}
+			if onDelete == 0 {
+				return "Every pod of each is replaced by its update strategy."
+			}
+			return fmt.Sprintf("Every pod of each is replaced by its update strategy; %d of them use OnDelete: their pods are replaced only when deleted.", onDelete)
+		},
+		Run: restartMany,
+	})
+}
+
+// restartMany implements workload.restartMany: the workloads the user confirmed, one after the
+// other, each bound to its confirmed UID.
+func restartMany(ctx context.Context, s *engine.Session, p selectionParams) (any, error) {
+	b, rw, err := restartsOf(s)
+	if err != nil {
+		return nil, err
+	}
+	if err := engine.CheckConfirmedContext(ctx, b.Context); err != nil {
+		return nil, err
+	}
+	targets, err := selectionTargets(s, p.Refs)
+	if err != nil {
+		return nil, err
+	}
+	if err := engine.CheckConfirmedTargets(ctx, targets); err != nil {
+		return nil, err
+	}
+	var restarted []model.ObjectRef
+	var failed []DeleteFailure
+	var stop error // the cluster changed or the call ended: the rest is not attempted
+	for _, ref := range targets {
+		if stop == nil {
+			stop = ctx.Err()
+		}
+		if stop != nil {
+			failed = append(failed, DeleteFailure{Ref: ref, Error: fmt.Sprintf("%v: %v", errNotAttempted, stop)})
+			continue
+		}
+		uid, err := sameAsConfirmed(ctx, s, ref)
+		if err == nil {
+			err = replaced(ref, rw.RestartWorkload(ctx, ref.Kind, ref.Namespace, ref.Name, uid))
+		}
+		switch {
+		case err == nil:
+			restarted = append(restarted, ref)
+		case errors.Is(err, engine.ErrWrongCluster), errors.Is(err, engine.ErrNotConnected):
+			stop = err
+			failed = append(failed, DeleteFailure{Ref: ref, Error: err.Error()})
+		default:
+			failed = append(failed, DeleteFailure{Ref: ref, Error: err.Error()})
+		}
+	}
+	if len(failed) > 0 {
+		return nil, &RestartManyError{Restarted: restarted, Failed: failed}
+	}
+	userToast(s, engine.LevelInfo, fmt.Sprintf("%d workloads restarted", len(restarted)))
+	return RestartManyResult{Restarted: restarted}, nil
+}

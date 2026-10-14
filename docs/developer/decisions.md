@@ -139,7 +139,7 @@ window. Nothing of it was built in the round.
 | A71 | #21 | The drawer's Forward… right after the value as before; the copy icon over the value's end on hover; to build | [D-25](#d-25-copying-values) |
 | A72 | #76 | Delete of a selection at most 500 objects; as built | [architecture §4.2](architecture.md#42-the-command-registry) |
 | A73 | #77 | A plain click on a row opens its drawer and keeps the checked rows checked; to build | [architecture §4.3](architecture.md#43-ui-state), [parity](../parity/README.md) |
-| A74 | #78 | Restart on a selection (workloads); Scale stays single-object; to build | [architecture §4.2](architecture.md#42-the-command-registry), [parity](../parity/README.md) |
+| A74 | #78 | Restart on a selection (workloads); Scale stays single-object; built 2026-10-14 (`workload.restartMany`) | [architecture §4.2](architecture.md#42-the-command-registry), [parity](../parity/README.md) |
 | A75 | #80 | The name column's minimum 140 points; as built | [parity](../parity/README.md) |
 | A76 | #116 | Links and chips not drag-selectable, the copy icon covers them; as built | [D-25](#d-25-copying-values) |
 | A77 | #157 | A row's states from the kind's state columns, the tokens as fallback; as built | [D-34](#d-34-the-flux-dashboard) |

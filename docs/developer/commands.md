@@ -16,7 +16,7 @@ blank line before `</details>`. It moved here from the root README on 2026-10-14
 Cogpit and its flags are in [`usage.md`](usage.md).
 
 <details>
-<summary>All 183 commands</summary>
+<summary>All 184 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -202,6 +202,7 @@ Cogpit and its flags are in [`usage.md`](usage.md).
 | `ui.welcome.open` | `ui_welcome_open` | ui |  | Shows Cogpit's welcome page in the workspace, as Help › Welcome does: the clusters to connect with one click, Add Kubeconfigs and the documentation |
 | `view.rows` | `view_rows` | read | `limit`?, `offset`? | Returns the rows the user sees in the active tab's view, as the table shows them: the namespace filter, the search (with its match case and regular expression toggles), the status filter (states) and the sort applied, the visible columns in the order the user arranged them, each cell's text as drawn (ages relative to now), each row's ref and status, and selected for the rows of the selection; a page of them (offset, limit: default 100, at most 500). shown counts every row the view shows, total the objects before filtering |
 | `workload.logs` | `workload_logs` | read | `ref` | Opens a dock tab with the logs of every container of every pod a Deployment, Daemon Set, Stateful Set, Replica Set or Job controls (a Deployment's through its replica sets), each line starting with <pod>/<container>, and follows them: pods and restarted containers join as they start |
+| `workload.restartMany` | `workload_restartMany` | destructive | `refs` | Restarts several Deployments, Daemon Sets and Stateful Sets at once, as Restart on the table's selection does: one confirmation names them all, for every origin; then each is restarted the way kubectl rollout restart does (the pod template's restartedAt annotation), bound to the UID Cogpit's cache held when the user confirmed, one after the other |
 | `workloads.overview` | `workloads_overview` | read | `events`?, `namespaces`? | Reads the Workloads Overview: for each workload kind the cluster serves (pods, deployments, daemon sets, stateful sets, replica sets, jobs, cron jobs) the number of objects in the selected namespaces and their health, as counts per status token (ok, succeeded, pending, warning, error, terminating, unknown, and none); with events, also the events of those namespaces |
 
 </details>

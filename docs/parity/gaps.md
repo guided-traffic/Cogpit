@@ -462,7 +462,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 - **Built 2026-10-14 (A1):** an agent's create or change of any RBAC kind (Role, Cluster Role, Role
   Binding, Cluster Role Binding) always waits for the user, also where agent writes are allowed
   ([H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache)).
-- **Decided (owner, 2026-10-14 evening; not built):** Restart on a selection of workloads, Scale
+- **Built 2026-10-14 (A74):** Restart on a selection of workloads (`workload.restartMany`), Scale
   staying on one object ([resource parity › Create dialogs](resource-parity.md#create-dialogs)).
   Built 2026-10-14 (A101): a grant's confirmation says "Grants these rights immediately,
   cluster-wide" or "in <namespace>", and "This cannot be undone." stays only where something is lost.
