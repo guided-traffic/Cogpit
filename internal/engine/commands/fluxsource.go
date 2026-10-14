@@ -2,7 +2,6 @@ package commands
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 
@@ -18,13 +17,11 @@ import (
 // skips it (no controller reconciles it). Each patch is reconciliation's annotation alone, bound
 // to its object's UID like Reconcile's.
 //
-// Unlike the flux CLI, Cogpit does not wait for the source to be ready before it annotates the
-// object, as its Reconcile does not wait for the controller: kustomize-controller and
-// helm-controller reconcile an object again by themselves when its source's artifact changes
-// (Flux's documentation; inferred, not verified on a cluster that runs the controllers). Every
-// object is checked before the first patch: a suspended source, or one missing from the cluster,
-// refuses the whole action with nothing done, where the flux CLI would stop after the sources it
-// had already annotated.
+// Since A91 (the owner's decision of 2026-10-14 evening) Cogpit waits as the flux CLI does: a
+// background job asks each object in turn and waits for its controller before the next
+// (fluxsourcejob.go). Every object is checked before the job starts: a suspended source, or one
+// missing from the cluster, refuses the whole action with nothing done, where the flux CLI would
+// stop after the sources it had already annotated.
 
 // fluxSourceChainLen bounds the walk from an object to its sources: a Helm release's HelmChart,
 // then the chart's source.
@@ -113,8 +110,8 @@ func fluxSourcePermitted(s *engine.Session, a fluxAction, ref model.ObjectRef) e
 	return nil
 }
 
-// fluxRunWithSource writes the chain of one object, one patch after the other; a failure stops it
-// and says what was done before.
+// fluxRunWithSource checks one object's chain and starts the job that writes it and waits for each
+// object of it (fluxsourcejob.go); it returns the job's tab.
 func fluxRunWithSource(ctx context.Context, s *engine.Session, a fluxAction, ref model.ObjectRef) (any, error) {
 	b, err := writable(s)
 	if err != nil {
@@ -136,18 +133,7 @@ func fluxRunWithSource(ctx context.Context, s *engine.Session, a fluxAction, ref
 	if err := engine.CheckConfirmedTargets(ctx, chain); err != nil {
 		return nil, err
 	}
-	var done []model.ObjectRef
-	for _, r := range chain {
-		if err := fluxWrite(ctx, s, a, r, false); err != nil {
-			if len(done) == 0 {
-				return nil, fmt.Errorf("%s: %w; nothing was done", r.String(), err)
-			}
-			return nil, fmt.Errorf("%s: %w; a reconcile was requested for %s only", r.String(), err, refList(done))
-		}
-		done = append(done, r)
-	}
-	userToast(s, engine.LevelInfo, ref.Kind+" "+ref.Key()+" "+a.done)
-	return FluxManyResult{Action: a.done, Done: done}, nil
+	return fluxStartSourceJob(ctx, s, a, a.id, a.label+": "+fluxStepText(b, ref), []fluxSourcePlan{{ref: ref, chain: chain}})
 }
 
 // fluxSourcePlan is one selected object of Reconcile with Source on a selection: its chain, or why
@@ -192,9 +178,11 @@ func fluxManySourceTargets(s *engine.Session, a fluxAction, refs []model.ObjectR
 	return all, nil
 }
 
-// fluxRunManyWithSource writes the chain of each selected object, one object after the other. A
-// source written for one object is not written again for the next; a source that failed fails the
-// objects that need it. The others go on, and the error names what was done and what was not.
+// fluxRunManyWithSource checks each selected object's chain and starts one job for all of them
+// (fluxsourcejob.go): the chains side by side, a source two objects share asked once, one that
+// fails failing only the objects that need it, the objects whose chain cannot be written listed
+// as skipped. It returns the job's tab; an error with nothing started when no object can be
+// written.
 func fluxRunManyWithSource(ctx context.Context, s *engine.Session, a fluxAction, refs []model.ObjectRef) (any, error) {
 	b, err := writable(s)
 	if err != nil {
@@ -210,60 +198,14 @@ func fluxRunManyWithSource(ctx context.Context, s *engine.Session, a fluxAction,
 	if err := engine.CheckConfirmedTargets(ctx, all); err != nil {
 		return nil, err
 	}
-	written := map[model.ObjectRef]error{}
-	var done []model.ObjectRef
-	var failed []DeleteFailure
-	var stop error
 	for _, pl := range plans {
-		if stop == nil {
-			stop = ctx.Err()
-		}
-		switch {
-		case pl.err != nil:
-			failed = append(failed, DeleteFailure{Ref: pl.ref, Error: pl.err.Error()})
-			continue
-		case stop != nil:
-			failed = append(failed, DeleteFailure{Ref: pl.ref, Error: fmt.Sprintf("%v: %v", errNotAttempted, stop)})
-			continue
-		case pl.ref.Context != b.Context || s.Backend() != b:
-			stop = fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
-			failed = append(failed, DeleteFailure{Ref: pl.ref, Error: stop.Error()})
-			continue
-		}
-		if err := fluxWriteChain(ctx, s, a, pl, written, &done); err != nil {
-			failed = append(failed, DeleteFailure{Ref: pl.ref, Error: err.Error()})
+		if pl.err == nil && pl.ref.Context != b.Context {
+			return nil, fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
 		}
 	}
-	if len(failed) > 0 {
-		return nil, &FluxManyError{Action: a.done, Done: done, Failed: failed}
+	title := fmt.Sprintf("%s: %d objects", a.label, len(plans))
+	if len(plans) == 1 {
+		title = a.label + ": " + fluxStepText(b, plans[0].ref)
 	}
-	userToast(s, engine.LevelInfo, fmt.Sprintf("%d Flux objects %s", len(plans), a.done))
-	return FluxManyResult{Action: a.done, Done: done}, nil
-}
-
-// errSourceFailed is an object whose source's patch failed for an object before it.
-var errSourceFailed = errors.New("its source was not reconciled")
-
-// fluxWriteChain writes one plan's chain, skipping what an earlier plan wrote: each write's
-// outcome is kept in written, each success added to done.
-func fluxWriteChain(ctx context.Context, s *engine.Session, a fluxAction, pl fluxSourcePlan, written map[model.ObjectRef]error, done *[]model.ObjectRef) error {
-	for _, r := range pl.chain {
-		prev, seen := written[r]
-		switch {
-		case seen && prev != nil:
-			return fmt.Errorf("%w: %s: %v", errSourceFailed, r.String(), prev)
-		case seen:
-			continue
-		}
-		err := fluxWrite(ctx, s, a, r, false)
-		written[r] = err
-		if err != nil {
-			if r != pl.ref {
-				return fmt.Errorf("its source %s: %w", r.String(), err)
-			}
-			return err
-		}
-		*done = append(*done, r)
-	}
-	return nil
+	return fluxStartSourceJob(ctx, s, a, a.manyID, title, plans)
 }

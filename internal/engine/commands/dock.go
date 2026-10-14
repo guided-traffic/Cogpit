@@ -121,7 +121,7 @@ func registerDock(g *registrar) {
 
 	add(g, engine.Spec[dockParams]{
 		ID: "dock.close", Label: "Close Tab", Danger: engine.DangerUI,
-		Description: "Closes a dock tab and ends its stream or shell. The tab before it becomes active if the closed one was. " +
+		Description: "Closes a dock tab and ends its stream, shell or job (a job stops; what it wrote stays). The tab before it becomes active if the closed one was. " +
 			"Returns the new UI state.",
 		Run: func(_ context.Context, s *engine.Session, p dockParams) (any, error) {
 			found := false

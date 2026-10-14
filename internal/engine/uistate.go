@@ -163,6 +163,8 @@ type DockTab struct {
 	Audit AuditTab `json:"audit,omitzero"`
 	// NodeShell is a node shell tab's node and pod (nodeshell.go).
 	NodeShell *NodeShellTab `json:"nodeShell,omitempty"`
+	// Job is a job tab's progress: its steps, state and outcome (jobs.go).
+	Job *JobTab `json:"job,omitempty"`
 	// AgentRead is set on a terminal tab (terminal, shell, attach, node shell) whose output the
 	// user lets agents read (dock.allowAgentRead, the tab's switch; D-44); off when it opens.
 	// Agents read logs tabs without it (dockoutput.go).
@@ -267,6 +269,7 @@ func (u UIState) Clone() UIState {
 			k := t.Kubectl.clone()
 			out.Dock[i].Kubectl = &k
 		}
+		out.Dock[i].Job = t.Job.clone()
 	}
 	if u.Hotbar != nil {
 		h := u.Hotbar.Clone()

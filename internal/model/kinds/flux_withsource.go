@@ -103,3 +103,12 @@ func FluxSourceStatic(key string, obj *unstructured.Unstructured) bool {
 // FluxSourceHasSource reports whether the flux CLI reconciles a source's own source first: a
 // release's HelmChart, whose chart comes from a HelmRepository, GitRepository or Bucket.
 func FluxSourceHasSource(key string) bool { return key == FluxHelmChartsKey }
+
+// FluxSourceStatus reads the state of an object in a Reconcile with Source chain as FluxStatusOf
+// reads a Flux view's rows, for any kind with Flux's conditions, Flux's HelmCharts among them,
+// which have no curated profile (A91: the job waits for each object's controller): the state and
+// the Ready condition's message, one line.
+func FluxSourceStatus(obj *unstructured.Unstructured) (FluxState, string) {
+	st := fluxStatusOf(obj, false)
+	return st.state, st.message
+}

@@ -204,6 +204,10 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 		e := newDiagnosticsTab(d.sh)
 		c.editor = e
 		c.set(e.root)
+	case engine.DockJob: // a background job's progress (jobtab.go)
+		e := newJobTab(d.sh, t)
+		c.editor = e
+		c.set(e.root)
 	default:
 		c.set(dockMessage(fmt.Sprintf("Cogpit cannot show %q tabs yet.", t.Type), colorMuted))
 	}
@@ -269,6 +273,8 @@ func (d *dock) rebuildStrip() {
 			icon = theme.ListIcon()
 		case engine.DockDiagnostics:
 			icon = theme.InfoIcon()
+		case engine.DockJob:
+			icon = theme.ViewRefreshIcon()
 		}
 		b := newTabButton(t.Title, icon, id == d.active && d.open(),
 			func() {

@@ -205,10 +205,14 @@ var fluxDescriptions = map[string]string{
 	fluxResumeID: "Resumes a suspended Flux object, as flux resume does: sets spec.suspend to false and requests a reconcile " +
 		"(reconcile.fluxcd.io/requestedAt). Offered only for a suspended object, in flux_suspend's place.",
 	fluxReconcileWithSourceID: "Asks Flux to reconcile a Kustomization or Helm release together with its source, as flux reconcile " +
-		"--with-source does: sets reconcile.fluxcd.io/requestedAt on the source first (a Kustomization's spec.sourceRef; a " +
-		"Helm release's chart source, then its HelmChart; or its spec.chartRef), then on the object, each patch bound to " +
-		"its object's UID. An OCI Helm repository is skipped, as no controller reconciles it. Refused, with nothing done, " +
-		"when the object or a source is suspended or a source is not in the cluster. Does not wait for the controllers.",
+		"--with-source does, waiting as it does: a background job with a dock tab of its own sets " +
+		"reconcile.fluxcd.io/requestedAt on the source first (a Kustomization's spec.sourceRef; a Helm release's chart " +
+		"source, then its HelmChart; or its spec.chartRef), waits until the source's controller has handled the request " +
+		"and reports it ready (at most 5 minutes), then asks for the object and waits for it too; each request bound to " +
+		"its object's UID. A source that ends not ready, or times out, stops the job before the object. An OCI Helm " +
+		"repository is skipped, as no controller reconciles it. Refused, with nothing done, when the object or a source " +
+		"is suspended or a source is not in the cluster. Returns at once with the job's tab: ui_state shows its steps, " +
+		"state and outcome (the dock tab's job); dock_close on the tab stops it, undoing nothing.",
 	fluxResetID: "Resets a Helm release's failure counts and asks Flux to reconcile it, as flux reconcile helmrelease --reset " +
 		"does: sets reconcile.fluxcd.io/resetAt and reconcile.fluxcd.io/requestedAt to one token, so that helm-controller " +
 		"tries to install or upgrade again after it ran out of retries. Not offered for a suspended release.",
@@ -311,6 +315,13 @@ func fluxManySpec[P any](a fluxAction, get func(P) ([]model.ObjectRef, bool)) en
 		"selection menu does: it acts on the selected objects it applies to, one after the other, each bound to its UID, " +
 		"and skips the others. When an object fails the others still go on, and the error names which were done and which " +
 		"were not, each with its reason; nothing is retried. At most 500 objects."
+	if a.withSource {
+		desc = "Does what flux_reconcileWithSource does for several Kustomizations and Helm releases at once, as the table's " +
+			"selection menu does, in one background job with one dock tab: the objects' chains side by side, a source two " +
+			"objects share asked once, each object asked only once its source is ready, one that fails stopping only the " +
+			"objects that need it; the selected objects it cannot reconcile (suspended, without a source it can ask) are " +
+			"listed as skipped. Returns at once with the job's tab; ui_state shows its steps and outcome. At most 500 objects."
+	}
 	return engine.Spec[P]{
 		ID: a.manyID, Label: a.label, MenuPath: "Flux/" + a.label + " Selected", Kinds: a.kindKeys(),
 		Order: a.order, Danger: engine.DangerMutating,

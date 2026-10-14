@@ -1138,6 +1138,10 @@ func dockEqual(a, b engine.UIState) bool {
 		if !reflect.DeepEqual(x.Kubectl, y.Kubectl) {
 			return false
 		}
+		// A job's steps and state change in place (jobtab.go).
+		if !reflect.DeepEqual(x.Job, y.Job) {
+			return false
+		}
 	}
 	return true
 }

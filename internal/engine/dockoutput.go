@@ -223,6 +223,8 @@ func otherReader(t DockType) string {
 		return ", audit_list reads the audit log"
 	case DockDiagnostics:
 		return ", diagnostics_get reads the diagnostics"
+	case DockJob:
+		return ", ui_state shows a job tab's steps and outcome (its job)"
 	}
 	return ""
 }

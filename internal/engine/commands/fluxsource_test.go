@@ -121,19 +121,27 @@ func fluxCommandState(t *testing.T, h *harness, id string, params any) string {
 // TestFluxReconcileWithSource: the source first, then the object, as flux reconcile
 // --with-source does: a Kustomization's Git or OCI repository (in another namespace too), a Helm
 // release's Helm repository and HelmChart (an OCI Helm repository skipped) or its chartRef; each
-// patch bound to its object's UID. A suspended object or source, a missing source, an External
-// Artifact as the source refuse it with nothing patched; a failure in the middle says what was
-// done.
+// patch bound to its object's UID, in a job that waits for each controller (A91). A suspended
+// object or source, a missing source, an External Artifact as the source refuse it with nothing
+// patched and no job; a failure in the middle shows in the job's steps.
 func TestFluxReconcileWithSource(t *testing.T) {
 	h, w := newFluxHarnessOn(t, engine.Options{}, fluxSourcesSource())
+	newFakeFluxController(h, w)
 	gui := engine.OriginGUI
-	var res commands.FluxManyResult
+	var res commands.FluxSourceJobResult
 	h.must(t, gui, "flux.reconcileWithSource", map[string]any{"ref": ksRef("apps")}, &res)
-	if res.Action != "reconcile requested with source" || len(res.Done) != 2 || res.Done[0].Kind != gitKey || res.Done[1].Name != "apps" {
+	if res.Action != "reconcile with source started" || len(res.Targets) != 2 || res.Targets[0].Kind != gitKey || res.Targets[1].Name != "apps" {
 		t.Errorf("result %+v", res)
 	}
+	if j := waitJob(t, h, res.Job.ID); j.State != engine.JobDone {
+		t.Errorf("job %+v", j)
+	}
 	for _, ref := range []model.ObjectRef{ksRef("infra"), hrRef(), hrNamed("redis"), hrNamed("frontend")} {
-		h.must(t, gui, "flux.reconcileWithSource", map[string]any{"ref": ref}, nil)
+		var r commands.FluxSourceJobResult
+		h.must(t, gui, "flux.reconcileWithSource", map[string]any{"ref": ref}, &r)
+		if j := waitJob(t, h, r.Job.ID); j.State != engine.JobDone {
+			t.Errorf("%s: job %+v", ref.Name, j)
+		}
 	}
 	want := []string{
 		"gitrepositories/v1 flux-system/flux-system " + reconcileAt("uid-flux-system-flux-system"),
@@ -177,13 +185,16 @@ func TestFluxReconcileWithSource(t *testing.T) {
 		t.Errorf("a refused reconcile patched: %v", w.Patches()[len(want):])
 	}
 
-	// The object's patch fails after its source's: the error says which was done.
+	// The object's patch fails after its source's: the job's steps say which was done.
 	w.mu.Lock()
 	w.err, w.failOn = errors.New("the API server is away"), "kustomizations"
 	w.mu.Unlock()
-	err := h.run(t, gui, "flux.reconcileWithSource", map[string]any{"ref": ksRef("flux-system")}, nil)
-	if err == nil || !strings.Contains(err.Error(), "the API server is away") || !strings.Contains(err.Error(), "a reconcile was requested for "+gitKey+"/flux-system/flux-system only") {
-		t.Errorf("a failure after the source: %v", err)
+	var failing commands.FluxSourceJobResult
+	h.must(t, gui, "flux.reconcileWithSource", map[string]any{"ref": ksRef("flux-system")}, &failing)
+	j := waitJob(t, h, failing.Job.ID)
+	if got := stepStates(j); j.State != engine.JobFailed || got[0] != "done GitRepository flux-system/flux-system: Ready: Applied revision: main@sha1:new" ||
+		got[1] != "failed Kustomization flux-system/flux-system: Could not be asked to reconcile: the API server is away" {
+		t.Errorf("a failure after the source: %q, %+v", got, j)
 	}
 
 	// The access reviews say the user may not patch the source: greyed with why.
@@ -275,8 +286,11 @@ func TestFluxReconcileWithSourceAgents(t *testing.T) {
 		}
 		return true, nil
 	})}, fluxSourcesSource())
+	newFakeFluxController(h, w)
 	agent := engine.OriginExternalAgent
-	h.must(t, agent, "flux.reconcileWithSource", map[string]any{"ref": ksRef("apps")}, nil)
+	var first commands.FluxSourceJobResult
+	h.must(t, agent, "flux.reconcileWithSource", map[string]any{"ref": ksRef("apps")}, &first)
+	waitJob(t, h, first.Job.ID)
 	req := asked[0]
 	if req.Danger != engine.DangerMutating || len(req.Objects) != 2 || req.Objects[0].Kind != gitKey || req.Objects[1].Name != "apps" ||
 		!slices.Equal(req.UIDs, []string{"uid-flux-system-flux-system", "uid-flux-system-apps"}) || !slices.Equal(req.Namespaces, []string{"flux-system"}) {
@@ -287,7 +301,9 @@ func TestFluxReconcileWithSourceAgents(t *testing.T) {
 	}
 
 	// A selection: the shared source named once.
-	h.must(t, agent, "flux.reconcileWithSourceMany", map[string]any{"refs": []model.ObjectRef{ksRef("apps"), ksRef("flux-system"), hrRef()}}, nil)
+	var many commands.FluxSourceJobResult
+	h.must(t, agent, "flux.reconcileWithSourceMany", map[string]any{"refs": []model.ObjectRef{ksRef("apps"), ksRef("flux-system"), hrRef()}}, &many)
+	waitJob(t, h, many.Job.ID)
 	var names []string
 	for _, o := range asked[1].Objects {
 		names = append(names, o.Name)
@@ -318,10 +334,12 @@ func TestFluxReconcileWithSourceAgents(t *testing.T) {
 }
 
 // TestFluxReconcileWithSourceOnASelection: each object's chain, a source two objects share
-// patched once; an object whose source is suspended or missing fails, the others go on; the
-// suspended object and the one from an External Artifact are skipped.
+// patched once; an object whose source is suspended or missing is skipped with why, the others go
+// on; the suspended object and the one from an External Artifact are left out. A selection none of
+// whose objects can be reconciled starts no job.
 func TestFluxReconcileWithSourceOnASelection(t *testing.T) {
 	h, w := newFluxHarnessOn(t, engine.Options{}, fluxSourcesSource())
+	newFakeFluxController(h, w)
 	refs := []model.ObjectRef{ksRef("apps"), ksRef("flux-system"), ksRef("held"), ksRef("orphan"), ksRef("bundled"), ksRef("paused"), ksRef("infra")}
 	var ids []string
 	for _, c := range h.s.Registry().SelectionActions(engine.SelectionKinds(append(refs, hrRef()))) {
@@ -330,24 +348,24 @@ func TestFluxReconcileWithSourceOnASelection(t *testing.T) {
 	if !slices.Contains(ids, "flux.reconcileWithSourceMany") || slices.Contains(ids, "flux.resetMany") {
 		t.Errorf("selection actions %v", ids)
 	}
-	err := h.run(t, engine.OriginGUI, "flux.reconcileWithSourceMany", map[string]any{"refs": refs}, nil)
-	var many *commands.FluxManyError
-	if !errors.As(err, &many) {
-		t.Fatalf("error %v", err)
+	var res commands.FluxSourceJobResult
+	h.must(t, engine.OriginGUI, "flux.reconcileWithSourceMany", map[string]any{"refs": refs}, &res)
+	var targets, skipped []string
+	for _, r := range res.Targets {
+		targets = append(targets, r.Name)
 	}
-	var done, failed []string
-	for _, r := range many.Done {
-		done = append(done, r.Name)
+	for _, f := range res.Skipped {
+		skipped = append(skipped, f.Ref.Name+": "+f.Error)
 	}
-	for _, f := range many.Failed {
-		failed = append(failed, f.Ref.Name+": "+f.Error)
+	if !slices.Equal(targets, []string{"flux-system", "apps", "flux-system", "platform", "infra"}) {
+		t.Errorf("targets %v", targets)
 	}
-	if !slices.Equal(done, []string{"flux-system", "apps", "flux-system", "platform", "infra"}) {
-		t.Errorf("done %v", done)
+	if len(skipped) != 2 || !strings.Contains(skipped[0], "held: its source") || !strings.Contains(skipped[0], "is suspended") ||
+		!strings.Contains(skipped[1], "orphan: its source") || !strings.Contains(skipped[1], "not found") {
+		t.Errorf("skipped %v", skipped)
 	}
-	if len(failed) != 2 || !strings.Contains(failed[0], "held: its source") || !strings.Contains(failed[0], "is suspended") ||
-		!strings.Contains(failed[1], "orphan: its source") || !strings.Contains(failed[1], "not found") {
-		t.Errorf("failed %v", failed)
+	if j := waitJob(t, h, res.Job.ID); j.State != engine.JobFailed || j.Outcome != "5 of 7 objects reconciled and ready; the steps say why the others are not." {
+		t.Errorf("job %+v", j)
 	}
 	git := 0
 	for _, p := range w.Patches() {
@@ -363,8 +381,25 @@ func TestFluxReconcileWithSourceOnASelection(t *testing.T) {
 	w.mu.Lock()
 	w.err, w.failOn = errors.New("the API server is away"), "gitrepositories"
 	w.mu.Unlock()
-	err = h.run(t, engine.OriginGUI, "flux.reconcileWithSourceMany", map[string]any{"refs": []model.ObjectRef{ksRef("apps"), ksRef("flux-system"), ksRef("infra")}}, nil)
-	if !errors.As(err, &many) || len(many.Done) != 2 || len(many.Failed) != 2 || !strings.Contains(many.Failed[1].Error, "its source was not reconciled") {
-		t.Errorf("a failing shared source: %v", err)
+	h.must(t, engine.OriginGUI, "flux.reconcileWithSourceMany", map[string]any{"refs": []model.ObjectRef{ksRef("apps"), ksRef("flux-system"), ksRef("infra")}}, &res)
+	j := waitJob(t, h, res.Job.ID)
+	got := stepStates(j)
+	want := []string{
+		"failed GitRepository flux-system/flux-system: Could not be asked to reconcile: the API server is away",
+		"failed Kustomization flux-system/apps: Not asked to reconcile: its source GitRepository flux-system/flux-system could not be asked to reconcile: the API server is away",
+		"failed Kustomization flux-system/flux-system: Not asked to reconcile: its source GitRepository flux-system/flux-system could not be asked to reconcile: the API server is away",
+		"done OCIRepository platform/platform: Ready: Applied revision: main@sha1:new",
+		"done Kustomization flux-system/infra: Ready: Applied revision: main@sha1:new",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("a failing shared source:\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+
+	// Nothing to reconcile: an error, no job.
+	before := len(h.s.UIState().Dock)
+	err := h.run(t, engine.OriginGUI, "flux.reconcileWithSourceMany", map[string]any{"refs": []model.ObjectRef{ksRef("held"), ksRef("orphan")}}, nil)
+	var none *commands.FluxManyError
+	if !errors.As(err, &none) || len(none.Failed) != 2 || len(h.s.UIState().Dock) != before {
+		t.Errorf("nothing to reconcile: %v, %d tabs (was %d)", err, len(h.s.UIState().Dock), before)
 	}
 }

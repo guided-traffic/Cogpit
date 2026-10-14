@@ -45,6 +45,8 @@ type fluxWriter struct {
 	patches []string
 	err     error
 	failOn  string
+	// onPatch plays the object's controller after a patch went through (fakeFluxController).
+	onPatch func(gvr schema.GroupVersionResource, namespace, name string)
 }
 
 func (w *fluxWriter) PatchFlux(_ context.Context, gvr schema.GroupVersionResource, namespace, name, uid string, req cluster.FluxRequest) error {
@@ -53,11 +55,16 @@ func (w *fluxWriter) PatchFlux(_ context.Context, gvr schema.GroupVersionResourc
 		return err
 	}
 	w.mu.Lock()
-	defer w.mu.Unlock()
 	if w.err != nil && (w.failOn == "" || w.failOn == gvr.Resource) {
+		w.mu.Unlock()
 		return w.err
 	}
 	w.patches = append(w.patches, fmt.Sprintf("%s/%s %s/%s %s", gvr.Resource, gvr.Version, namespace, name, body))
+	onPatch := w.onPatch
+	w.mu.Unlock()
+	if onPatch != nil {
+		onPatch(gvr, namespace, name)
+	}
 	return nil
 }
 

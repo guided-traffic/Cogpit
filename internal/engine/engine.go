@@ -181,6 +181,7 @@ type Session struct {
 	agentReads agentReadExpiry // when a terminal tab's agent-read switch turns itself off: agentread.go
 	updates    updaterSlot     // the app's updater: updates.go
 	chat       chatSlot        // the built-in agent's chat: chat.go
+	jobs       jobSet          // the running background jobs: jobs.go
 }
 
 // New returns a Session with an empty registry. Register commands (package commands) before use.
@@ -447,6 +448,7 @@ func (s *Session) UpdateUI(fn func(*UIState)) UIState {
 
 	s.state.uiChanged(old, now)
 	s.endClosedNodeShells(old.Dock, now.Dock) // a closed node shell tab's pod goes (nodeshell.go)
+	s.followJobs(old, now)                    // a closed job tab, or another cluster, ends its job (jobs.go)
 	s.emit(Event{Type: EventUIState, UIState: &now})
 	return now
 }
@@ -499,5 +501,6 @@ func (s *Session) Close() {
 	s.opts.Workspace.close() // the tabs as the user left them, before the connection closes (nil-safe)
 	s.endNodeShells()        // the node shells' pods are deleted before the connection goes (nodeshell.go)
 	s.agentReads.stop()      // no switch turns itself off after the session (agentread.go)
+	s.jobs.stopAll()         // the background jobs end before the connection goes (jobs.go)
 	s.state.close()
 }

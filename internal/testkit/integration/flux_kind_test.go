@@ -195,13 +195,45 @@ func kindFluxWithSourceAndReset(ctx context.Context, t *testing.T, conn *cluster
 	create(gitGVR, testkit.Object("source.toolkit.fluxcd.io/v1", "GitRepository", fluxNamespace, "flux-system", map[string]any{
 		"spec": map[string]any{"url": "https://example.invalid/fleet", "interval": "1m"}}))
 	before := annotation()
-	var res commands.FluxManyResult
+	var res commands.FluxSourceJobResult
 	d.must("flux.reconcileWithSource", map[string]any{"ref": ks}, &res)
-	if len(res.Done) != 2 || res.Done[0].Name != "flux-system" || res.Done[1].Name != ks.Name {
-		t.Errorf("reconcile with source did %+v", res.Done)
+	if len(res.Targets) != 2 || res.Targets[0].Name != "flux-system" || res.Targets[1].Name != ks.Name {
+		t.Errorf("reconcile with source targets %+v", res.Targets)
 	}
-	if git := get(gitGVR, "flux-system")[cluster.FluxReconcileAnnotation]; git == "" || annotation() == before {
-		t.Errorf("after Reconcile with Source: the GitRepository's requestedAt %q, the Kustomization's %q (was %q)", git, annotation(), before)
+	// A91: the job asks the GitRepository and waits for source-controller before it asks the
+	// Kustomization. No controller runs here: the test plays each, through the status subresource,
+	// with the token the request carried.
+	handle := func(gvr schema.GroupVersionResource, name, token string) {
+		obj, err := conn.Dynamic().Resource(gvr).Namespace(fluxNamespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		obj.Object["status"] = map[string]any{
+			"lastHandledReconcileAt": token, "observedGeneration": obj.GetGeneration(),
+			"conditions": []any{map[string]any{"type": "Ready", "status": "True", "reason": "Succeeded",
+				"message": "stored artifact for revision 'main@sha1:7a1e'", "lastTransitionTime": time.Now().UTC().Format(time.RFC3339)}},
+		}
+		if _, err := conn.Dynamic().Resource(gvr).Namespace(fluxNamespace).UpdateStatus(ctx, obj, metav1.UpdateOptions{}); err != nil {
+			t.Fatalf("the status of %s: %v", name, err)
+		}
+	}
+	var git string
+	waitFor(ctx, t, "the GitRepository asked", func() bool { git = get(gitGVR, "flux-system")[cluster.FluxReconcileAnnotation]; return git != "" })
+	time.Sleep(time.Second) // the job must not ask the Kustomization meanwhile
+	if annotation() != before {
+		t.Errorf("the Kustomization was asked before its source was ready")
+	}
+	handle(gitGVR, "flux-system", git)
+	waitFor(ctx, t, "the Kustomization asked", func() bool { return annotation() != before })
+	handle(fluxKsGVR, ks.Name, annotation())
+	var job *engine.JobTab
+	waitFor(ctx, t, "the job's end", func() bool {
+		tab, ok := s.UIState().DockTab(res.Job.ID)
+		job = tab.Job
+		return ok && job != nil && job.State.Ended()
+	})
+	if job.State != engine.JobDone || job.Steps[0].Detail != "Ready: stored artifact for revision 'main@sha1:7a1e'" {
+		t.Errorf("the job %+v", job)
 	}
 
 	create(hrGVR, testkit.Object("helm.toolkit.fluxcd.io/v2", "HelmRelease", fluxNamespace, "podinfo", map[string]any{
