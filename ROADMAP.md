@@ -97,7 +97,7 @@ Detail: [docs/parity/roadmap.md](docs/parity/roadmap.md).
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-15 | minor | Beyond Lens: crash recovery's Helm row partial (it had said missing), 32 of 43 done and 8 partial; the owner's Helm decisions A14, A17, A36, A39 built |
+| 2026-10-15 | minor | Beyond Lens: crash recovery's Helm row partial (it had said missing), 34 of 43 done and 7 partial; the owner's Helm decisions A14, A17, A36, A39 built |
 | 2026-10-14 | minor | Beyond Lens: the built-in agent's window half built (M12 (b), night run): 24 of 43 rows done, 11 partial (six of G21's rows partial); breadth unchanged |
 | 2026-10-14 | minor | Upcoming item 1: the About dialog's version and layout fixed (G13), with About Cogpit in macOS's application menu (decision A60); breadth unchanged |
 | 2026-10-14 | minor | Upcoming item 1: the node history from Prometheus built in the night run (node-exporter where the Prometheus has it, A43, G12); the About dialog's part is its own |
