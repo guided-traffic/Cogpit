@@ -50,7 +50,7 @@ func GuardSecretText(ctx context.Context, text string) error {
 	if OriginOf(ctx) != OriginGUI && TextHoldsSecret(text) {
 		return ErrSecretGUIOnly
 	}
-	return nil
+	return GuardAgentMarkers(ctx, text) // a placeholder an agent read in place of a value (agentview.go)
 }
 
 // EditorHoldsSecret reports whether the editor tab id edits a Secret or holds a Secret's manifest
@@ -75,7 +75,7 @@ func (s *Session) GuardSecretEditor(ctx context.Context, id, text string) error 
 	if s.EditorHoldsSecret(id) || TextHoldsSecret(text) {
 		return ErrSecretGUIOnly
 	}
-	return nil
+	return GuardAgentMarkers(ctx, text) // a placeholder an agent read in place of a value (agentview.go)
 }
 
 // secretValues returns the values of a Secret manifest as ScrubValues takes them: every data and

@@ -31,7 +31,14 @@ Ordered checklists for the common additions. The packages they name are in
      `Destructive`). When the parameters name an object (`ref`), the registry asks the access
      reviews about each verb and greys the command "not permitted" on a denial, so declare the
      verb its purpose needs (Edit declares `update`, which its tab ends in);
-   - `run`, returning a JSON-serializable result. Reads come from the cache.
+   - `run`, returning a JSON-serializable result. Reads come from the cache. A result that carries
+     cluster text (YAML, log lines, values) an agent reads passes `Dispatch`'s agent filter: a
+     result type of `engine` is listed in `Session.forAgent`, one of `commands` implements
+     `engine.AgentResult` and filters its text with the `AgentView` it gets (`Text`, `YAML`,
+     `TabText`, `Detail`), so that the cached Secrets' values and Flux's credential fields stay
+     out ([architecture §7](architecture.md#7-mcp-and-the-built-in-agent), agents-and-mcp H-82,
+     H-63). A command that takes text an agent wrote calls `GuardSecretText` or
+     `GuardSecretEditor`, which also refuse the placeholders Cogpit showed in place of a value.
    Cluster writes go through an interface the backend's writer implements: `*cluster.Conn` in
    the app, a fake in tests. Each area declares its own interface in its own engine file (as
    `engine.Actions` does for the MVP's actions) and reaches it with a type assertion on

@@ -465,8 +465,16 @@ func (s *Session) EditDiff(ctx context.Context, id, text string, context int) (E
 	if err != nil {
 		return EditDiff{}, err
 	}
+	// An agent's lines leave Flux's credential fields out of both sides (H-63, agentview.go); the
+	// counts are the real diff's.
+	shown := lines
+	if OriginOf(ctx).IsAgent() {
+		if shown, err = diffAgainst(withholdFluxObject(ctx, cached), withholdFluxObject(ctx, edited)); err != nil {
+			return EditDiff{}, err
+		}
+	}
 	d := EditDiff{
-		Ref: e.target.Ref, Changed: DiffChanged(lines), Lines: CompactDiff(lines, context),
+		Ref: e.target.Ref, Changed: DiffChanged(lines), Lines: CompactDiff(shown, context),
 		BaseResourceVersion: e.baseRV, CachedResourceVersion: cached.GetResourceVersion(),
 		Stale: cached.GetResourceVersion() != e.baseRV,
 	}

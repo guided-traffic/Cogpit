@@ -69,6 +69,8 @@ type Backend struct {
 	// ns is what decides whether a namespaced kind is read namespace by namespace
 	// (accessiblens_plan.go).
 	ns nsState
+	// scrub replaces the cached Secrets' values in what agents read (secretscrub.go, H-82).
+	scrub secretScrub
 }
 
 // Actions are the cluster writes of the MVP's action commands. *cluster.Conn implements them.
