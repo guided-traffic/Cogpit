@@ -60,6 +60,7 @@ var noCopyTypes = map[model.ColumnType]bool{
 	model.ColumnTime:    true, // an event's Last Seen (D-31)
 	model.ColumnMetric:  true, // CPU, Memory
 	model.ColumnWarning: true, // the warning triangle
+	model.ColumnIcon:    true, // a chart's icon
 }
 
 // noCopyColumns are the text columns without the icon, by column id, in every view (a custom

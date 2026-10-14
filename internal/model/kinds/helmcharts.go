@@ -41,6 +41,7 @@ const (
 	fieldVersions    = "versions"
 	fieldKeywords    = "keywords"
 	fieldCreated     = "created"
+	fieldIcon        = "icon"
 	titleAppVersion  = "App Version"
 	titleVersion     = "Version"
 )
@@ -55,9 +56,11 @@ var helmCharts = &model.KindProfile{
 	DetailTitle: "Chart",
 	Namespaced:  false,
 	Local:       true,
-	// The columns of Lens's Charts view (resource-parity › Helm; Lens also draws the chart's icon,
-	// which Cogpit does not download).
+	// The columns of Lens's Charts view (resource-parity › Helm), the chart's icon first, without a
+	// title (inferred: Lens draws icons; their column is not captured). The window fetches an icon
+	// only while it shows the row and Preferences › Load chart icons is on (D-46).
 	Columns: []model.Column{
+		{ID: fieldIcon, Title: "Icon", Type: model.ColumnIcon, Width: 36},
 		nameColumn,
 		{ID: fieldDescription, Title: "Description", Type: model.ColumnText},
 		{ID: fieldChartVer, Title: titleVersion, Type: model.ColumnText},
@@ -94,6 +97,7 @@ func helmChartCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status)
 		status = model.StatusWarning
 	}
 	return []model.Cell{
+		{Image: model.NestedString(obj, "spec", fieldIcon)},
 		{Text: model.NestedString(obj, "spec", fieldName)},
 		{Text: model.NestedString(obj, "spec", fieldDescription)},
 		{Text: model.NestedString(obj, "spec", fieldChartVer)},
@@ -188,7 +192,7 @@ func HelmChartObject(c HelmChart, uid, resourceVersion string) *unstructured.Uns
 		fieldRepository: c.Repository, fieldName: c.Name, fieldChartVer: c.Version,
 	}
 	for k, v := range map[string]string{fieldAppVersion: c.AppVersion, fieldDescription: c.Description, "home": c.Home,
-		"icon": c.Icon, "kubeVersion": c.KubeVersion, "digest": c.Digest} {
+		fieldIcon: c.Icon, "kubeVersion": c.KubeVersion, "digest": c.Digest} {
 		if v != "" {
 			spec[k] = v
 		}

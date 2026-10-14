@@ -31,6 +31,11 @@ const (
 	// ([TimeFormat.CellText], D-31): an event's Last Seen. Without a format it is written in ISO
 	// 8601 in now's zone ([CellText]).
 	ColumnTime ColumnType = "time"
+	// ColumnIcon is a column of small images without a title, as Lens's Charts view draws a
+	// chart's icon: Cell.Image is the image's URL, which the window fetches only while it shows the
+	// cell and the user allows it (D-46), drawing a glyph of its own otherwise. Its cells have no
+	// text, so that searching, sorting and copying ignore it.
+	ColumnIcon ColumnType = "icon"
 )
 
 // Column describes one table column of a kind.
@@ -71,6 +76,9 @@ type Cell struct {
 	// mark's Text says what it stands for, and the cell's tooltip lists them. A pointer, so that
 	// Cell stays comparable; shared and immutable like Parts.
 	Marks *[]CellMark `json:"marks,omitempty"`
+	// Image is the URL of the image a ColumnIcon cell draws (a chart's icon); empty: the column's
+	// glyph.
+	Image string `json:"image,omitempty"`
 }
 
 // CellMark is one square of a cell drawn in marks.

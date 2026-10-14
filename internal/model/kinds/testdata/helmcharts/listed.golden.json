@@ -7,6 +7,10 @@
   "status": "",
   "cells": [
     {
+      "column": "icon",
+      "text": ""
+    },
+    {
       "column": "name",
       "text": "nginx"
     },

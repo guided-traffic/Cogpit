@@ -53,6 +53,7 @@ func chartDrawerHeader(d *drawer, m *engine.DetailModel) (lead, extra fyne.Canva
 	if hc == nil || len(hc.Versions) == 0 {
 		return nil, nil
 	}
+	lead = chartHeaderIcon(d, hc.Icon) // left of the title (helmcharticons.go, D-46)
 	p, _ := d.kept[chartVersionKey].(*chartVersionPicker)
 	if p == nil {
 		p = newChartVersionPicker(d, m.Ref)
@@ -66,7 +67,7 @@ func chartDrawerHeader(d *drawer, m *engine.DetailModel) (lead, extra fyne.Canva
 		p.sel.SetSelected(hc.Version)
 	}
 	p.syncing = false
-	return nil, p.root
+	return lead, p.root
 }
 
 func newChartVersionPicker(d *drawer, ref model.ObjectRef) *chartVersionPicker {

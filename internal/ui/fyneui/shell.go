@@ -142,6 +142,8 @@ type shell struct {
 	// iconLoading the files being read (clusteridentity.go).
 	icons       map[string]fyne.Resource
 	iconLoading map[string]bool
+	// charts are the Helm charts' icons the window fetched (helmcharticons.go, D-46).
+	charts chartIconCache
 }
 
 // newShell builds every widget. Nothing talks to the engine until start.

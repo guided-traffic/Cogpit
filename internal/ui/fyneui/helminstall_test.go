@@ -44,13 +44,14 @@ func fixtureCharts() []*unstructured.Unstructured {
 	at := func(d int) time.Time { return fixedNow.Add(-time.Duration(d) * 24 * time.Hour) }
 	charts := []kinds.HelmChart{
 		{Repository: "bitnami", Name: "nginx", Version: "18.2.0", AppVersion: "1.27.1", Description: "NGINX Open Source is a web server that can be also used as a reverse proxy, load balancer, and HTTP cache.",
-			Home: "https://example.com/charts/nginx", Keywords: []string{"nginx", "http", "web"}, Maintainers: []string{"Example Maintainers"}, Digest: strings.Repeat("ab", 32), Created: at(3),
+			Home: "https://example.com/charts/nginx", Icon: fixtureIconNginx, Keywords: []string{"nginx", "http", "web"}, Maintainers: []string{"Example Maintainers"}, Digest: strings.Repeat("ab", 32), Created: at(3),
 			Versions: []kinds.HelmChartVersion{{Version: "18.3.0-rc.1", AppVersion: "1.27.2", Created: at(1)}, {Version: "18.2.0", AppVersion: "1.27.1", Created: at(3)}, {Version: "18.1.4", AppVersion: "1.27.0", Created: at(30)}}},
 		{Repository: "bitnami", Name: "redis", Version: "20.1.3", AppVersion: "7.4.0", Description: "Redis is an open source, in-memory data structure store.", Digest: strings.Repeat("cd", 32), Created: at(5),
+			Icon:     fixtureIconRedis,
 			Versions: []kinds.HelmChartVersion{{Version: "20.1.3", AppVersion: "7.4.0", Created: at(5)}}},
 		{Repository: "jetstack", Name: "cert-manager", Version: "v1.16.1", AppVersion: "v1.16.1", Description: "A Helm chart for cert-manager", Digest: strings.Repeat("ef", 32), Created: at(9),
 			Versions: []kinds.HelmChartVersion{{Version: "v1.16.1", AppVersion: "v1.16.1", Created: at(9)}}},
-		{Repository: "prometheus-community", Name: "kube-prometheus-stack", Version: "65.1.0", AppVersion: "v0.77.1",
+		{Repository: "prometheus-community", Name: "kube-prometheus-stack", Version: "65.1.0", AppVersion: "v0.77.1", Icon: fixtureIconFailing,
 			Description: "kube-prometheus-stack collects Kubernetes manifests, Grafana dashboards, and Prometheus rules.", Created: at(2),
 			Versions: []kinds.HelmChartVersion{{Version: "65.1.0", AppVersion: "v0.77.1", Created: at(2)}}},
 		{Repository: "stable", Name: "old-app", Version: "0.9.0", Description: "An application whose chart is deprecated", Deprecated: true,
@@ -90,7 +91,7 @@ func chartsFake(t testing.TB) *fakeEngine {
 		}
 		f.details[ref.String()] = m
 	}
-	slices.SortFunc(rows, func(a, b model.Row) int { return strings.Compare(a.Cells[0].Text, b.Cells[0].Text) })
+	slices.SortFunc(rows, func(a, b model.Row) int { return strings.Compare(a.Cells[1].Text, b.Cells[1].Text) })
 	f.tables[helmChartsKind] = &engine.TableSnapshot{View: helmChartsKind, Context: "demo", Title: p.Title, Columns: p.Columns, Rows: rows,
 		Sort: engine.SortSpec{Column: "name"}, Total: len(rows), Revision: 1, Synced: true}
 	f.ui.View = helmChartsKind
@@ -200,7 +201,7 @@ func TestChartsView(t *testing.T) {
 	for _, c := range sh.view.snap.Columns {
 		titles = append(titles, c.Title)
 	}
-	if strings.Join(titles, ",") != "Name,Description,Version,App Version,Repository" {
+	if strings.Join(titles, ",") != "Icon,Name,Description,Version,App Version,Repository" {
 		t.Errorf("columns %v", titles)
 	}
 	if menu := sh.helmMenu(); len(menu.Items) != 3 || menu.Items[0].Label != "Repositories…" {

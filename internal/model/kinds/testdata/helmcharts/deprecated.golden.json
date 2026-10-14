@@ -7,6 +7,10 @@
   "status": "warning",
   "cells": [
     {
+      "column": "icon",
+      "text": ""
+    },
+    {
       "column": "name",
       "text": "old-app"
     },

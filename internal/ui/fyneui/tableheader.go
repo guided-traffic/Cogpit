@@ -68,6 +68,8 @@ func (tv *tableView) fitToContent(col int) {
 	switch c.Type {
 	case model.ColumnWarning:
 		w = max(w, th.Size(sizeCellIcon))
+	case model.ColumnIcon:
+		w = chartIconMaxSide // a chart's icon (helmcharticons.go); the column has no title
 	default:
 		rows := tv.snap.Rows
 		w = max(w, widestText(len(rows), func(i int) string {

@@ -1,6 +1,6 @@
 # Platform parity: systems, packages, authentication and tools
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (`proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, against TLS test servers; `kubectl` for terminals: the version check and the verified download, D-3; the HTTP proxy per cluster partial; fourth run recount: 9 of 38 rows partial; exec credential plugins partial) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (network endpoints: the hosts of the charts' icons while Load chart icons is on, D-46, no count moves; `proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, against TLS test servers; `kubectl` for terminals: the version check and the verified download, D-3; the HTTP proxy per cluster partial; fourth run recount: 9 of 38 rows partial; exec credential plugins partial) · **Target:** Lens Desktop 2026.10.51501
 
 Where and how Cogpit runs compared with Lens Desktop 2026.10.51501: operating systems and
 architectures, packages and updates, how it authenticates to clusters, which Kubernetes versions
@@ -46,7 +46,7 @@ material, and real cloud accounts to test credential plugins against.
 | Signed update manifest, verified before install | not documented | yes ([security › updates](../security/updates.md)) | missing |
 | Checksums and SBOM per release | not documented | `SHA256SUMS`, SPDX SBOM | partial (2026-10-13): `SHA256SUMS` over every archive of each release (`make dist-checksums` in [`build.yml`](../../.github/workflows/build.yml), [the release pipeline](../developer/releasing.md#the-release-pipeline)), not signed; no SBOM |
 | Activation or login before first use | Lens ID required (offline activation: Enterprise) | none ([D-9](../developer/decisions.md#d-9-scope-against-lenss-paid-and-vendor-features)) | – (nothing to build) |
-| Network endpoints the app needs besides clusters | `api.k8slens.dev`, `downloads.k8slens.dev`, `*.bored.k8slens.dev`, npm registry | none; Helm repositories, the LLM endpoint and the update check only when used | missing |
+| Network endpoints the app needs besides clusters | `api.k8slens.dev`, `downloads.k8slens.dev`, `*.bored.k8slens.dev`, npm registry | none; Helm repositories, the LLM endpoint and the update check only when used; since 2026-10-14 the hosts the charts' icons name, only for the charts the window shows and while Preferences › Load chart icons is on (on by default; [D-46](../developer/decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them), [H-87](../security/trust-boundaries.md#h-87-chart-icons-tell-their-hosts-what-the-user-looks-at)) | missing |
 
 ## Cluster authentication and connectivity
 
@@ -108,6 +108,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | Network endpoints the app needs (night build HELM2): the hosts the charts' icons name, fetched only for the charts the window shows while Preferences › Load chart icons is on (D-46); the row stays as it was, no count moves |
 | 2026-10-13 | minor | Night run (V2, G2): `proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, through the cluster layer against TLS test servers, a `proxy-url` password kept out of connect errors (fixed), insecure contexts marked; older clusters partial (Pod Security Policies from discovery, G6); 13 of 38 rows partial, 7 of 13 authentication rows; authentication's estimate 20–45 h (was 25–50) |
 | 2026-10-13 | minor | Night run (V2, G2): `proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, through the cluster layer against TLS test servers, a `proxy-url` password kept out of connect errors (fixed), insecure contexts marked; 12 of 38 rows partial, 7 of 13 authentication rows; authentication's estimate 20–45 h (was 25–50) |
 | 2026-10-13 | minor | `kubectl` for terminals (External tools, not counted): the version check when a terminal opens, the verified download on one click, the release first on the terminal's `PATH` (D-3 built, night run) |

@@ -528,6 +528,9 @@ func (tv *tableView) updateCell(id widget.TableCellID, o fyne.CanvasObject) {
 		if col.Type == model.ColumnWarning {
 			content.kind = cellWarning
 		}
+		if col.Type == model.ColumnIcon {
+			content.kind, content.text = cellImage, cell.Image
+		}
 	}
 	hover := id.Row == tv.hoverRow
 	if c.set(id.Row, id.Col, content, tv.rowSelected(id.Row), hover, hover && id.Col == tv.hoverCol) && tv.sh.tip.owner == c {
@@ -566,8 +569,8 @@ func (tv *tableView) updateHeader(id widget.TableCellID, o fyne.CanvasObject) {
 		}
 	}
 	title := col.Title
-	if col.Type == model.ColumnWarning {
-		title = "" // Lens's warning column has no title; Title names it for agents
+	if col.Type == model.ColumnWarning || col.Type == model.ColumnIcon {
+		title = "" // Lens's warning and icon columns have no title; Title names them for agents
 	}
 	h.set(id.Col, title, sort)
 	if !tv.fitting && id.Col < len(tv.setWidths) {
@@ -590,7 +593,7 @@ func (tv *tableView) headerTapped(col int) {
 		return
 	}
 	vis, ok := tv.dataColumn(col)
-	if tv.snap == nil || !ok {
+	if tv.snap == nil || !ok || tv.snap.Columns[tv.cols[vis]].Type == model.ColumnIcon { // icons do not sort
 		return
 	}
 	id := tv.snap.Columns[tv.cols[vis]].ID
@@ -1077,6 +1080,7 @@ const (
 	cellWarning                 // Lens's warning icon; the text is the icon's tooltip
 	cellMenu                    // the ⋮ that opens the row's actions menu
 	cellCheck                   // the row's checkbox (tablecheck.go)
+	cellImage                   // an image from a URL, which text holds (a chart's icon, helmcharticons.go)
 )
 
 // cellContent is what one body cell shows. Its fields are values or pointers into the immutable
@@ -1479,6 +1483,9 @@ func (r *tableCellRenderer) Layout(size fyne.Size) {
 	}
 	if c.icon != nil {
 		is := th.Size(sizeCellIcon)
+		if c.content.kind == cellImage {
+			is = chartIconSide(size.Height) // a chart's icon, as large as the row allows (helmcharticons.go)
+		}
 		c.icon.Move(fyne.NewPos((size.Width-is)/2, (size.Height-is)/2))
 		c.icon.Resize(fyne.NewSize(is, is))
 	}
@@ -1567,6 +1574,8 @@ func (tv *tableView) cellIcon(content cellContent, selected bool) fyne.Resource 
 		key = cellIconKey{theme.IconNameWarning, statusColorName(content.status)}
 	case cellMenu:
 		key = cellIconKey{theme.IconNameMoreVertical, colorMuted}
+	case cellImage:
+		return tv.sh.chartIconResource(content.text)
 	default:
 		return nil
 	}

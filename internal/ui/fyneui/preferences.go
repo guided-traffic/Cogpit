@@ -77,6 +77,8 @@ func (sh *shell) preferencesChanged() {
 		sh.applyEditorPrefs(v)
 	}
 	sh.applyTerminalPrefs() // the right mouse button in the open terminals (termpaste.go)
+	// Load chart icons (helmcharticons.go).
+	sh.chartIconsPrefChanged()
 }
 
 // loc is the time zone the window writes absolute times in: the Preferences' time zone, else the
@@ -221,11 +223,14 @@ func (p *settingsPage) kubernetesSection() fyne.CanvasObject {
 	sources := widget.NewButton("Kubeconfig Sources…", kc.showSources)
 	syncB := widget.NewButton("Sync Files and Folders…", kc.addKubeconfigs)
 	helmDriver, syncHelmDriver := p.helmDriverSetting() // preferences_helm.go
-	p.sync = syncHelmDriver                             // set before kubectlSettings, which chains p.sync
+	chartIcons, syncChartIcons := p.chartIconsSetting() // helmcharticons.go
+	// Set before kubectlSettings, which chains p.sync.
+	p.sync = func() { syncHelmDriver(); syncChartIcons() }
 	return container.NewVBox(append([]fyne.CanvasObject{
 		p.setting("kubeconfigSyncs", "Kubeconfig syncs", "The files and folders Cogpit reads kubeconfigs from; ~/.kube is synced by default.",
 			container.NewHBox(sources, syncB)),
 		helmDriver,
+		chartIcons,
 	}, p.kubectlSettings()...)...) // kubectl for terminals (kubectloffer_prefs.go)
 }
 
