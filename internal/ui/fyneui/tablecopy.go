@@ -21,14 +21,16 @@ import (
 // so that a custom resource's columns need no marking and keep the icon unless blacklisted
 // (copyColumn); and the icon right after the text, not at the column's end.
 //
+// The owner's decision (A69, 2026-10-14 evening; built 2026-10-15): when the text leaves no room
+// after it, the icon lies over the cell's end and the text is not shortened for it: the text keeps
+// the cell's whole width (cut off with "…" only where the cell itself ends, its tooltip showing the
+// whole text), and the icon's opaque plate covers what lies under it.
+//
 // Cogpit's defaults (the lead's proposals, not the owner's decision, 2026-10-13):
 //   - a cell that shows no text has none: the checkbox, the ⋮, the warning triangle, a pod's
 //     container squares, an empty cell and the placeholders "-", "–", "—" and "<none>";
 //   - the icon sits a padding after the text, centred on the row, and at the cell's right end
 //     when the text reaches it, always inside the cell, so that it never covers the next column;
-//     a text that reaches the icon is shortened with "…" before it while the icon is there,
-//     rather than running under it and looking whole (the tooltip of a cut-off cell shows the
-//     whole text);
 //   - a click on it copies the cell's full text, not the text shortened with "…", shows the
 //     checkmark and the drawer's toast, and neither selects the row, toggles its checkbox nor
 //     opens the drawer: the icon is a widget above the table, so the click never reaches the cell;
@@ -169,29 +171,15 @@ func (tc *tableCopy) follow(c *tableCell) {
 	}
 	if c != tc.cell || c.row != tc.row || c.col != tc.col {
 		tc.btn.resetConfirm(&tc.done)
-		if tc.cell != c {
-			tc.room(tc.cell, 0)
-		}
 	}
 	tc.cell, tc.row, tc.col = c, c.row, c.col
 	tc.place()
 }
 
-// hide hides the icon and gives its cell's text the whole cell again. The cell is kept: the
-// pointer may have moved onto the icon (entered).
+// hide hides the icon. The cell is kept: the pointer may have moved onto the icon (entered).
 func (tc *tableCopy) hide() {
 	tc.on, tc.stale = false, false
 	tc.show(false)
-	tc.room(tc.cell, 0)
-}
-
-// room keeps the right end of a cell free of text for the icon (w > 0), or gives the text the
-// whole cell again (0): the cell shortens its text anew.
-func (tc *tableCopy) room(c *tableCell, w float32) {
-	if c != nil && c.room != w {
-		c.room = w
-		c.Refresh()
-	}
 }
 
 func (tc *tableCopy) show(on bool) {
@@ -204,9 +192,10 @@ func (tc *tableCopy) show(on bool) {
 	}
 }
 
-// place puts the icon a padding after its cell's text, centred on the row, or at the right end of
-// the cell's visible part when the text reaches it, and shows it while the pointer is inside that
-// part; a cell without the icon, or with too little of it in view, hides it.
+// place puts the icon a padding after its cell's text, centred on the row, or over the right end
+// of the cell's visible part when the text reaches it (A69: the text is not shortened for it), and
+// shows it while the pointer is inside that part; a cell without the icon, or with too little of
+// it in view, hides it. It touches only the icon: the cells are never re-laid out for it.
 func (tc *tableCopy) place() {
 	c, tv := tc.cell, tc.tv
 	if c == nil || !tv.pointerIn || !c.Visible() || tc.textOf(c) == "" {
@@ -227,17 +216,13 @@ func (tc *tableCopy) place() {
 	}
 	tc.lo, tc.hi, tc.on, tc.stale, tc.text = lo, hi, true, false, c.full
 	// Right after the whole text, a padding away. A text that leaves no room for the icon puts it
-	// at the cell's end, and is shortened to end a padding before it: the text has the cell
-	// padding at its right end already, so the room it gives up is the rest.
+	// over the cell's end, the text as it is under it (A69).
 	th := c.Theme()
 	pad, gap := th.Size(sizeCellPadding), th.Size(theme.SizeNamePadding)
 	x := max(at.X+pad+fyne.MeasureText(c.full, c.text.TextSize, c.text.TextStyle).Width+gap, lo.X)
-	room := float32(0)
 	if x+side > hi.X {
 		x = hi.X - side
-		room = max(0, at.X+sz.Width-x+gap-pad)
 	}
-	tc.room(c, room)
 	y := min(max(at.Y+(sz.Height-side)/2, lo.Y), hi.Y-side)
 	tc.btn.Move(fyne.NewPos(x, y).Subtract(drv.AbsolutePositionForObject(tc.layer)))
 	tc.btn.Resize(fyne.NewSquareSize(side))

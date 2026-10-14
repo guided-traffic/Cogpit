@@ -53,8 +53,8 @@ func hoverOver(w fyne.Window, q *mainQueue, p fyne.Position) {
 }
 
 // checkIconInCell fails unless the list's copy icon shows inside the cell, centred on the row, a
-// padding after the cell's whole text, or at the cell's right end when the text leaves no room
-// (atEnd), with the text then shortened before it.
+// padding after the cell's whole text, or over the cell's right end when the text leaves no room
+// (atEnd), with the text as it is without the icon (A69: not shortened for it).
 func checkIconInCell(t *testing.T, sh *shell, c *tableCell) (atEnd bool) {
 	t.Helper()
 	btn := sh.view.copyIcon.btn
@@ -81,11 +81,12 @@ func checkIconInCell(t *testing.T, sh *shell, c *tableCell) (atEnd bool) {
 	if d := b0.X - want; d < -0.5 || d > 0.5 {
 		t.Errorf("the icon of %q starts at %v, want %v (at the cell's end: %v)", c.full, b0.X, want, atEnd)
 	}
-	// The text stops before the icon: whole when the icon follows it, else shortened with "…".
+	// The text keeps the cell's whole width (A69): whole when the icon follows it; at the cell's
+	// end it runs under the icon, shortened with "…" only where the cell ends, as without the icon.
 	if c.content.parts == nil && c.text.Text != "" {
-		// Measured, not the text object's size, which follows a new text only at the next layout.
-		if end := c0.X + c.text.Position().X + fyne.MeasureText(c.text.Text, c.text.TextSize, c.text.TextStyle).Width; end > b0.X+0.5 {
-			t.Errorf("the text %q runs under the icon: it ends at %v, the icon starts at %v", c.text.Text, end, b0.X)
+		avail := c.Size().Width - 2*th.Size(sizeCellPadding)
+		if want := ellipsize(c.full, avail, c.text.TextSize, c.text.TextStyle); c.text.Text != want {
+			t.Errorf("the text of %q is %q with the icon, want %q as without it", c.full, c.text.Text, want)
 		}
 		if !atEnd && c.text.Text != c.full {
 			t.Errorf("the icon follows the text but the text is shortened to %q", c.text.Text)
@@ -108,9 +109,9 @@ func textCellOf(t *testing.T, sh *shell, id string) *tableCell {
 	return nil
 }
 
-// TestListCopyIconOnHover: the pointer over a cut-off Name cell shows the icon at the cell's right
-// end, the name shortened before it; over the checkbox, the warning triangle, the container
-// squares, the ⋮, the gaps and the header none.
+// TestListCopyIconOnHover: the pointer over a cut-off Name cell shows the icon over the cell's
+// right end, the name not shortened for it (A69); over the checkbox, the warning triangle, the
+// container squares, the ⋮, the gaps and the header none.
 func TestListCopyIconOnHover(t *testing.T) {
 	sh, w, q, f := listScene(t, "pods", ThemeDark)
 	btn := sh.view.copyIcon.btn
@@ -172,9 +173,9 @@ func TestListCopyIconOnHover(t *testing.T) {
 	if btn.Visible() {
 		t.Error("the copy icon stays after the pointer left the table")
 	}
-	// Without the icon the name has its whole cell again.
-	if name.room != 0 || len(name.text.Text) <= len(shown) {
-		t.Errorf("the name shows %q without the icon, %q with it (room %v)", name.text.Text, shown, name.room)
+	// The icon never changed the name: the same text with it and without it (A69).
+	if name.text.Text != shown {
+		t.Errorf("the name shows %q without the icon, %q with it", name.text.Text, shown)
 	}
 }
 
@@ -670,6 +671,23 @@ func renderListCopy(t *testing.T, mode ThemeMode, confirm bool, name string) {
 		q.drain()
 	}
 	savePNG(t, w, name)
+}
+
+// renderListCopyOverEnd shows the Pods list with the pointer on a cut-off name: the icon lies over
+// the cell's end and the name keeps the cell's width under it (A69).
+func renderListCopyOverEnd(t *testing.T, mode ThemeMode, name string) {
+	sh, w, q, f := listScene(t, "pods", mode)
+	cell := cellAt(t, sh, rowOf(t, f, "pods", podNamed(t, podCrashLoop).name), columnOf(t, sh, "name"))
+	hoverOver(w, q, middleOf(cell))
+	if !checkIconInCell(t, sh, cell) {
+		t.Fatalf("the icon of %q is not at the cell's end", cell.full)
+	}
+	savePNG(t, w, name)
+}
+
+func TestRenderListCopyIconOverTheEnd(t *testing.T) {
+	renderListCopyOverEnd(t, ThemeDark, "list_copy_over_end_dark.png")
+	renderListCopyOverEnd(t, ThemeLight, "list_copy_over_end_light.png")
 }
 
 func TestRenderListCopyIcon(t *testing.T) {

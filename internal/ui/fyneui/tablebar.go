@@ -125,7 +125,7 @@ func (c *tableCell) layoutBar(th fyne.Theme, size fyne.Size, pad, textWidth floa
 		return pad
 	}
 	x := pad + c.bar.slot + th.Size(theme.SizeNamePadding)
-	w := size.Width - pad - c.room - x
+	w := size.Width - pad - x
 	if w < barMinWidth {
 		c.bar.track.Hide()
 		c.bar.fill.Hide()

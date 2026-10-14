@@ -676,7 +676,7 @@ func (tv *tableView) setHoverCell(row, col int) {
 		}
 	}
 	tv.hoverCell = tv.cellUnderPointer(row, col)
-	tv.copyIcon.follow(tv.hoverCell) // before the tooltip: the icon may shorten the cell's text
+	tv.copyIcon.follow(tv.hoverCell) // over the cell, which keeps its text (A69)
 	tv.requestTip()
 }
 
@@ -1173,8 +1173,6 @@ type tableCell struct {
 	focused   bool // the keyboard is on this cell (tablekeys.go)
 	tracked   bool // registered in tableView.cells
 	row, col  int
-
-	room float32 // kept free of text at the right end: the copy icon is on the cell (tablecopy.go)
 }
 
 var (
@@ -1408,7 +1406,7 @@ func (c *tableCell) setIcon(res fyne.Resource) {
 // Fyne per string; the shortening runs only when the text or the width changed. It reports
 // whether the shown text changed.
 func (c *tableCell) fit(th fyne.Theme) bool {
-	avail := c.Size().Width - 2*th.Size(sizeCellPadding) - c.room
+	avail := c.Size().Width - 2*th.Size(sizeCellPadding)
 	if avail == c.fitWidth {
 		return false
 	}
