@@ -73,8 +73,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   kind cluster; govulncheck. On `main` it commits the coverage badge (84.5 % measured locally) and
   runs semantic-release as a dry run ([`.releaserc.json`](../../.releaserc.json), the
   `conventionalcommits` preset as in the team's other repositories); Renovate runs from
-  [`renovate.yml`](../../.github/workflows/renovate.yml). The README carries the build, coverage,
-  Go Report Card and licence badges. Verified locally: the macOS job's `make` targets pass,
+  [`renovate.yml`](../../.github/workflows/renovate.yml). The README carries the build, coverage
+  and licence badges (the Go Report Card's left on 2026-10-14: the service is retired, owner). Verified locally: the macOS job's `make` targets pass,
   actionlint, the Renovate config validator, the dry run against a stand-in for the GitHub API.
   Observed on GitHub (2026-10-11): the first run failed Compile (linux) and the vulnerability
   check (GLFW 3.4 needs the Wayland headers; fixed in the workflow) and the kind job (a flaky

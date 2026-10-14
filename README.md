@@ -2,7 +2,6 @@
 
 [![Build Status](https://github.com/guided-traffic/cogpit/actions/workflows/release.yml/badge.svg)](https://github.com/guided-traffic/cogpit/actions)
 [![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/guided-traffic/cogpit/main/.github/badges/coverage.json)](https://github.com/guided-traffic/cogpit)
-[![Go Report Card](https://goreportcard.com/badge/github.com/guided-traffic/cogpit)](https://goreportcard.com/report/github.com/guided-traffic/cogpit)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 <img src="docs/developer/assets/cogpit-icon.svg" alt="" width="96" align="right">
