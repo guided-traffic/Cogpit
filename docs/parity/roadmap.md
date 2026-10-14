@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (Current focus: the About dialog of item 1 fixed, A60 built with it); minor (Current focus: the owner's findings in a real window of 2026-10-14 evening first (node history from Prometheus, the About dialog), his decision round of the same evening as item 8 after the agent chat; the open questions answered; the terminal fork's two newer patches offered upstream later); minor (M10: `cogpit-cli` inside the app and the disk image the release's only download, D-16 revised by the owner, built, no tag run yet); minor (M10 in progress: the signed, notarized disk image built, no tag run yet; Current focus: the node shell as built confirmed by the owner, D-37; GitOps: Flux CD's section built, the milestone in progress, G23; M3, M4: the node shell built, D-37, a night decision for the owner to confirm; Current focus: its confirmation replaces the owner's decision on H-7; alpha gate: the downloadable macOS build exists since v0.1.0, for Apple silicon; Current focus after the day run: D-29 and the copy icons built; M6: a release upgraded to a version from the user's chart repositories; M7: the cluster Overview built; M1 and 0.1: `cogpit-cli contexts` and `get` built; M9: the stdio bridge built; current focus after the fifth run and the owner's smoke test; M12 in progress: the built-in agent's engine side built, 20–40 h left; Current focus item 1: the node history from Prometheus built in the night run (G12, A43)) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (Current focus: the owner's audit of the night run's decisions first; the chat and the evening's decisions built but R2, R3 and A10); minor (Current focus: the About dialog of item 1 fixed, A60 built with it); minor (Current focus: the owner's findings in a real window of 2026-10-14 evening first (node history from Prometheus, the About dialog), his decision round of the same evening as item 8 after the agent chat; the open questions answered; the terminal fork's two newer patches offered upstream later); minor (M10: `cogpit-cli` inside the app and the disk image the release's only download, D-16 revised by the owner, built, no tag run yet); minor (M10 in progress: the signed, notarized disk image built, no tag run yet; Current focus: the node shell as built confirmed by the owner, D-37; GitOps: Flux CD's section built, the milestone in progress, G23; M3, M4: the node shell built, D-37, a night decision for the owner to confirm; Current focus: its confirmation replaces the owner's decision on H-7; alpha gate: the downloadable macOS build exists since v0.1.0, for Apple silicon; Current focus after the day run: D-29 and the copy icons built; M6: a release upgraded to a version from the user's chart repositories; M7: the cluster Overview built; M1 and 0.1: `cogpit-cli contexts` and `get` built; M9: the stdio bridge built; current focus after the fifth run and the owner's smoke test; M12 in progress: the built-in agent's engine side built, 20–40 h left; Current focus item 1: the node history from Prometheus built in the night run (G12, A43)) · **Target:** Lens Desktop 2026.10.51501
 
 Forward-looking plan: the alpha gate, the milestones, the **current focus** and what's next with
 estimates. Where Cogpit stands is in [`target-app-parity.md`](target-app-parity.md); the ranked
@@ -65,13 +65,20 @@ M11 and M12 do not depend on each other; their order is the owner's call.
 
 Ranked; each item links to its gap. Pick from the top unless an issue is assigned to you.
 
-1. **The owner's findings from the real window (2026-10-14 evening), first:** the node history
+1. **The owner's audit of the night run's decisions (2026-10-14/15), first:** every choice the
+   owner had not made was weighed and recorded where it lives as "the lead's decision for the owner
+   to confirm" (`grep -rn "for the owner to confirm" docs/` after 2026-10-14): D-10 (the agent),
+   D-14 (the fork's races), D-22 (a free colour's legible shade), D-25 (the copy icons), D-28
+   (Remove from Cogpit bound to the contexts named), D-29 and D-11 (Helm), D-33 (Reconcile with
+   Source), D-50 (no fallback when Rekor cannot be asked), D-51 (the navigator's state), the
+   README's pictures, and the security pages. Then R3's design (D-52).
+2. **The owner's findings from the real window (2026-10-14 evening), both built, to check in a real window:** the node history
    from Prometheus where it is available (no past data shows for a node; built 2026-10-14 night:
    node-exporter where the Prometheus has it, A43, [G12](gaps.md#g12-metrics-and-cluster-overview));
    the About dialog, which shows version 0.0.1 and is laid out confusingly (where the version comes
    from, a development build saying so; [G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences);
    fixed 2026-10-14, with decision A60, About in the application menu: not tried in a real window yet).
-2. **The owner walks the night run's, the day run's and the night build's features in a real window** (2026-10-14;
+3. **The owner walks the night runs', the day run's and the night build's features in a real window** (2026-10-15: the chat column with his LM Studio and the night run's changes first; 2026-10-14;
    every one was verified offscreen and in tests only; the night build's: the Flux CD and Argo CD sections
    on a cluster that runs them, Create Secret, the node shell, the workloads' drawers' Pods, tabs restored
    after a restart, a namespace-limited user's views; then its night decisions D-33 to D-44): the hotbar, the navigator's sections, the
@@ -90,39 +97,34 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
    terminal tab's agent marker and its 15-minute end (H-83), Preferences › App's Start at login and
    update rows, Help › Check for Updates…, a `cogpit://` link (D-47), the signed disk image of
    v0.5.0 on a Mac that has never run Cogpit.
-3. **Walk the alpha-gate workflows in the GUI** on kind and a real cluster (owner): change a
+4. **Walk the alpha-gate workflows in the GUI** on kind and a real cluster (owner): change a
    workload, maintain a node, reach a service, Helm releases, adding and syncing kubeconfigs,
    Cogpit's own title bar.
-4. **The terminal widget's upstream pull requests** ([#155–#158](https://github.com/fyne-io/terminal/pull/158),
+5. **The terminal widget's upstream pull requests** ([#155–#158](https://github.com/fyne-io/terminal/pull/158),
    G8; #157 approved 2026-10-12) and the two new widget patches of the night run (right-click
    copy and paste, Ctrl/Shift+Insert: to be offered upstream later, at the end; the app first,
    owner, 2026-10-14 evening).
-5. **Credential plugins verified on EKS, GKE and AKS** ([G2](gaps.md#g2-cluster-connection-and-authentication), human).
+6. **Credential plugins verified on EKS, GKE and AKS** ([G2](gaps.md#g2-cluster-connection-and-authentication), human).
    The node shell as built was confirmed by the owner on 2026-10-14 ([D-37](../developer/decisions.md#d-37-the-node-shell);
    [H-7](../security/privilege-footprint.md#h-7-node-shell-is-root-on-the-node) stays: it is root on the node).
-6. **M0 and M10:** the generated parity pages and the scorecard ([G1](gaps.md#g1-workspace-ci-and-progress-generators)),
+7. **M0 and M10:** the generated parity pages and the scorecard ([G1](gaps.md#g1-workspace-ci-and-progress-generators)),
    captures of the rows marked inferred, packaging and updates for macOS ([G14](gaps.md#g14-packaging-signing-and-updates-macos)).
    Built 2026-10-14: the signed, notarized disk image (first tag run v0.5.0) and Sparkle 2, which
    updates nothing until the owner has made the update key and the environments `sparkle` and
    `github-pages` ([releasing › Setting up Sparkle](../developer/releasing.md#setting-up-sparkle)).
-7. **The built-in agent chat** ([G21](gaps.md#g21-built-in-agent), [D-10](../developer/decisions.md#d-10-built-in-agent)):
-   pulled forward by the owner on 2026-10-14 ("endlich meinen Agent Chat"); its engine side is built
-   (2026-10-14 late evening, checked against the owner's LM Studio), the chat column is being built;
-   then the private connection's reads, a LiteLLM run in CI, and the night run's decisions in
-   [D-10](../developer/decisions.md#d-10-built-in-agent) for the owner to confirm.
-8. **Build the owner's decisions of 2026-10-14 evening** (the decision index in
-   [decisions](../developer/decisions.md#decision-round-2026-10-14-evening)): each is noted in the row or gap it touches as "decided …
-   not built" (UI and behaviour in [G5](gaps.md#g5-app-shell-navigation-tables-and-drawer),
-   [G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences),
-   [G8](gaps.md#g8-logs-terminal-and-shells), [G11](gaps.md#g11-helm),
-   [G12](gaps.md#g12-metrics-and-cluster-overview), [G23](gaps.md#g23-flux-cd-and-argo-cd-views);
-   the agents' rules in [G17](gaps.md#g17-mcp-control) and the security pages). Of the new
-   requirements, a hotbar tile dragged out of the window opening another window is designed
-   (2026-10-15, [D-52](../developer/decisions.md#d-52-several-windows), the owner's decision pending), and which kind of CA a certificate's chain leads to has its design settled
-   when it is built ([beyond Lens › Everyday use](beyond-lens.md#everyday-use)); tiles reordered by
-   dragging is a paid row ([ui parity › Hotbar](ui-parity.md#hotbar)). One change goes to GitHub's
-   settings, and only with the owner's go-ahead: the ruleset for `v*` tags
-   ([G14](gaps.md#g14-packaging-signing-and-updates-macos)).
+8. **The built-in agent chat** ([G21](gaps.md#g21-built-in-agent), [D-10](../developer/decisions.md#d-10-built-in-agent)):
+   built in the night run of 2026-10-14/15 (the engine side, the chat column at the right edge,
+   Preferences › Agent, the private connection's reads; checked against the owner's LM Studio);
+   open: a LiteLLM run in CI once the key is a GitHub secret, Open WebUI and LiteLLM live, the
+   keychain on Windows and Linux, a private turn's kept tool results
+   ([H-96](../security/agents-and-mcp.md#h-96-a-private-turns-reads-are-kept-where-the-scrubber-does-not-know-them)).
+9. **The rest of the owner's decisions of 2026-10-14 evening** (the decision index in
+   [decisions](../developer/decisions.md#decision-round-2026-10-14-evening)): built in the night
+   run of 2026-10-14/15 but three: hotbar tiles reordered by drag (R2, under way; a paid row,
+   [ui parity › Hotbar](ui-parity.md#hotbar)); a tile dragged out of the window opening another
+   window (R3), designed in [D-52](../developer/decisions.md#d-52-several-windows), the owner's
+   decision pending; and the ruleset for `v*` tags (A10), a GitHub setting, only with the owner's
+   go-ahead ([G14](gaps.md#g14-packaging-signing-and-updates-macos)).
 
 ## What's next, with estimates
 
@@ -138,6 +140,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-15 | minor | Current focus: the owner's audit of the night run's decisions first; the chat and his decisions of 2026-10-14 evening built but R2, R3 (designed, D-52) and A10 |
 | 2026-10-14 | minor | Current focus item 1: the About dialog fixed (the build's own version, a development build saying so, a calmer layout) and decision A60 built (About Cogpit in macOS's application menu) |
 | 2026-10-14 | minor | Current focus item 1: the node history from Prometheus built in the night run (node-exporter where the Prometheus has it, A43, G12) |
 | 2026-10-14 | minor | Current focus: the owner's findings in a real window (2026-10-14 evening) as item 1, the node history from Prometheus and the About dialog; item 8 builds his decisions of the same evening (the decision index in decisions.md); the walk notes the open questions answered; the two newer terminal-fork patches offered upstream later, the app first (owner) |
