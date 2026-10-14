@@ -22,7 +22,7 @@ serial foundation, about 80% of the work parallelizes.
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **~82%** (was ~79%) | measured by `make parity`: 64 of 64 views (ten of them the Gateway API views, generic), 39 of 39 actions, 113 of 120 interface rows, 3 of 11 paid features (the diff, Flux CD, Argo CD) (pasting kubeconfigs is not a target, D-21); 9 rows done, the rest partial |
+| **Feature breadth** | **~83%** (was ~82%) | measured by `make parity`: 64 of 64 views (ten of them the Gateway API views, generic), 39 of 39 actions, 115 of 120 interface rows, 3 of 11 paid features (the diff, Flux CD, Argo CD) (pasting kubeconfigs is not a target, D-21); 9 rows done, the rest partial |
 | **Ready for real work** | **~30%** (was ~26%) | estimated (lead, 2026-10-13: breadth jumped, nothing walked by a person yet) |
 | Mainstream practitioner | ~29% (was ~25%) | estimated |
 | Essentials user | ~36% (was ~34%) | estimated |

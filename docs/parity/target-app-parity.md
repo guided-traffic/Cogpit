@@ -13,7 +13,7 @@ Cogpit adds beyond Lens is in [`beyond-lens.md`](beyond-lens.md). Method and voc
 
 | Number | Value | Kind |
 |---|---|---|
-| **Feature breadth** (does each Lens feature exist?) | **~82%** (was ~79%) | measured by `make parity`: [breadth](#feature-breadth); 9 rows done, the rest partial |
+| **Feature breadth** (does each Lens feature exist?) | **~83%** (was ~82%) | measured by `make parity`: [breadth](#feature-breadth); 9 rows done, the rest partial |
 | **Ready for real work** (could a daily Lens user on macOS switch?) | **~26%** (was ~23%) | estimated: [weights](#ready-for-real-work) |
 | **Mainstream practitioner** (daily user of Lens's free features) | **~25%** (was ~24%) | estimated |
 | **Essentials user** (connect, pods, logs, shell, edit) | **~34%** (was ~32%) | estimated |
@@ -84,11 +84,11 @@ counts when it exists in some form; nine counted rows are done, the rest partial
 |---|---:|---|---:|---|
 | Resource views | 30% | 64 / 64 | 100.0% | measured ([resource-parity](resource-parity.md)); ten of them the Gateway API views, generic until captured |
 | Resource actions | 20% | 39 / 39 | 100.0% | measured ([resource-parity](resource-parity.md)) |
-| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 113 / 120 | 94.2% | measured ([ui-parity](ui-parity.md), free rows) |
+| Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 115 / 120 | 95.8% | measured ([ui-parity](ui-parity.md), free rows) |
 | Cluster authentication and connectivity | 10% | 7 / 13 | 53.8% | measured ([platform-parity](platform-parity.md#cluster-authentication-and-connectivity)) |
 | Platforms and packages | 5% | 2 / 13 | 15.4% | measured ([platform-parity](platform-parity.md#operating-systems-and-packages)) |
 | Paid Lens Desktop features | 10% | 3 / 11 | 27.3% | measured ([premium list](https://docs.lenshq.io/k8slens/premium-features/) without extensions, D-5): the editor's diff, the Flux CD and Argo CD sections (2026-10-14, G23), partial |
-| **Weighted** | 100% | | **82.4%** | |
+| **Weighted** | 100% | | **82.8%** | |
 
 ## Ready for real work
 
