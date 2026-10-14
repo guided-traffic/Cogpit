@@ -1173,11 +1173,12 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   **Measured** at the HTTP level against a fake API server and a fake Prometheus
   (`TestNodesListDiskBudget`, budget P13): a Nodes list with Prometheus costs one detection probe,
   the cache's one list and watch of Services, and one disk query per list poll beside the Metrics
-  Server's node list; nothing after it closes. **Not checked against a real node-exporter**: the
-  kind cluster's Prometheus runs without one (`hack/kind/prometheus-values.yaml`), so the matching
-  of an exporter to its node is inferred from the charts' service discovery. The query itself was
-  sent to the kind cluster's Prometheus 3.15.0 through the service proxy (2026-10-14, by hand): it
-  parses and answers success with no series.
+  Server's node list; nothing after it closes. **Checked against a real node-exporter since
+  2026-10-14 night** (A115, the kind cluster's Prometheus with node-exporter): its series carry the
+  node label and the node's InternalIP as the instance, which the matching reads
+  (`TestKindNodeExporterByAddress`); the column itself stays empty on kind, whose node's `/` is an
+  overlay node-exporter leaves out (no `mountpoint="/"` series; verified by the query through the
+  service proxy).
 - **Built (2026-10-14): history that outlives a closed drawer** ([architecture §9](../developer/architecture.md#9-metrics-internalmetrics)).
   When a drawer closes, the hub keeps its chart's CPU and memory series (the object's and each
   container's; the cluster Overview's sums too) and the next drawer of the object starts with them:
@@ -1220,10 +1221,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestClusterPodCountsWithoutKubeStateMetrics`, `TestClusterOverviewPodsHistory`,
   `TestClusterOverviewPodsHistoryNote`; PNG
   ([dark](../../internal/ui/fyneui/testdata/cluster_overview_pods_history_dark.png),
-  [light](../../internal/ui/fyneui/testdata/cluster_overview_pods_history_light.png)). **Not checked
-  against a real kube-state-metrics:** the kind cluster's Prometheus runs without one; both queries
-  (every node's, and the masters' with a dotted name quoted) were sent to its Prometheus 3.15.0
-  through the service proxy (2026-10-14, by hand): they parse and answer success with no series. Left: for a
+  [light](../../internal/ui/fyneui/testdata/cluster_overview_pods_history_light.png)). **Checked
+  against a real kube-state-metrics since 2026-10-14 night** (A115, the kind cluster's Prometheus
+  with it): `TestKindClusterOverview` asserts the Pods history's source, `kube-state-metrics`, 2
+  pod-count queries when the page opens. Left: for a
   user who may list pods in some namespaces only, the history counts every namespace's pods and the
   cache's counts only theirs, so the chart drops at the page's opening (Prometheus is not limited by
   namespace, D-39; asking it for the plan's namespaces only is the fix, not built).

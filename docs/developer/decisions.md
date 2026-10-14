@@ -2877,8 +2877,10 @@ What the build chose, Cogpit's defaults (not the owner's decision):
 - **A node is matched by its node label, else its instance's host as the node's name, else as one
   of the node's addresses** (InternalIP, ExternalIP, Hostname). The prometheus chart's service
   discovery adds the node label; an exporter scraped with host networking under its own address is
-  found by the node's InternalIP. Inferred, not checked against a real node-exporter (the kind
-  cluster's Prometheus has none).
+  found by the node's InternalIP. Checked against the `prometheus` chart's node-exporter on kind
+  since 2026-10-14 night (A115): the node label and the InternalIP as the instance, both read
+  (`TestKindNodeExporterByAddress`); the Disk column stays empty on kind, whose node's `/` is an
+  overlay that node-exporter leaves out.
 - **The Nodes list looks for Prometheus while its Disk column shows** (before: only when a drawer
   opened or the Metrics Server failed). The cost on a cluster with Prometheus: the detection's
   probe (once per 10 minutes) and the watch on Services the detection reads, then one query per
