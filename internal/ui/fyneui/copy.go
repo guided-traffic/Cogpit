@@ -68,6 +68,7 @@ type copyHook struct {
 	text   string
 	secret bool
 	chip   bool // the value is a chip or a pill: the icon sits after it, outside (showCopy)
+	over   bool // the value has action buttons right after it: the icon lies over its end (A71)
 	val    hoverValue
 }
 
@@ -116,7 +117,9 @@ func (d *drawer) line(text string, fg fyne.ThemeColorName, size fyne.ThemeSizeNa
 // at the value's right end when the text leaves no room, and the text is then shortened with "…"
 // before it (iconRoom) rather than running under it. For a chip or a pill it sits right after
 // the chip, outside it, so that it covers no chip text of its own; at the right end of the details
-// when the chip reaches it. Either way it is centred on a single-line value and at the top of a
+// when the chip reaches it. A value with action buttons right after it (over: a port and its
+// Forward…) has no room for the icon, which lies over the value's end without shortening its text
+// (A71, as A69 in the lists). Either way it is centred on a single-line value and at the top of a
 // wrapped one.
 func (d *drawer) showCopy(w fyne.CanvasObject, h *copyHook, natural float32) {
 	drv := fyne.CurrentApp().Driver()
@@ -124,13 +127,13 @@ func (d *drawer) showCopy(w fyne.CanvasObject, h *copyHook, natural float32) {
 	at := drv.AbsolutePositionForObject(w).Subtract(host)
 	ms := d.copyBtn.MinSize()
 	room := w.Size().Width - ms.Width
-	if h.chip {
+	if h.chip && !h.over {
 		room = d.host.Size().Width - ms.Width - at.X
 	}
 	pad := d.sh.app.Settings().Theme().Size(theme.SizeNamePadding)
 	x := fyne.Min(natural+pad, room)
 	keep := float32(0)
-	if !h.chip && natural+pad > room {
+	if !h.chip && !h.over && natural+pad > room {
 		keep = w.Size().Width - x + pad // the text ends a padding before the icon
 	}
 	d.copyBtn.keep = keep

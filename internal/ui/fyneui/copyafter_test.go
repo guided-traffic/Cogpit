@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -15,7 +17,8 @@ import (
 // The drawer's copy icon right after every kind of value (D-25, the owner in a real window,
 // 2026-10-13: "the copy button at Not After has wandered to the far right again"): a padding after
 // a pill, a line, a link, an event's message; at the value's end when the text leaves no room,
-// the text then shortened with "…" before it; in an action row before the buttons.
+// the text then shortened with "…" before it; in an action row over the value's end, the buttons
+// right after the value (A71).
 
 // iconAt returns the copy icon's left edge and width, in window coordinates.
 func iconAt(t *testing.T, d *drawer) (float32, float32) {
@@ -189,37 +192,136 @@ func TestDrawerCopyIconAfterTheMessage(t *testing.T) {
 	}
 }
 
-// TestDrawerCopyIconInAnActionRow: a container port is a link with Forward… beside it; the port
-// owns the room for its icon, which sits after the port's text and before the button, over
-// neither.
+// portOnButtonRow is the container port's link on the row of a Forward… button.
+func portOnButtonRow(t *testing.T, d *drawer, button *widget.Button) *linkText {
+	t.Helper()
+	drv := fyne.CurrentApp().Driver()
+	bx := drv.AbsolutePositionForObject(button)
+	for _, l := range findAll[*linkText](d.details) {
+		ly := drv.AbsolutePositionForObject(l).Y
+		if l.hook != nil && ly <= bx.Y+button.Size().Height && ly+l.Size().Height >= bx.Y {
+			return l
+		}
+	}
+	t.Fatal("no port link on the Forward… button's row")
+	return nil
+}
+
+// shownLinkText is the text a link draws, shortened or whole.
+func shownLinkText(l *linkText) string {
+	for _, o := range test.WidgetRenderer(l).Objects() {
+		if txt, ok := o.(*canvas.Text); ok {
+			return txt.Text
+		}
+	}
+	return ""
+}
+
+// TestDrawerCopyIconInAnActionRow: the owner's decision A71: a container port is a link with
+// Forward… right after it, as before 2026-10-13 (the value keeps no room for its icon); on hover
+// the icon lies over the port's end, inside the value and before the button, and the port's text
+// is not shortened for it.
 func TestDrawerCopyIconInAnActionRow(t *testing.T) {
 	f := forwardsFake(t, "pods")
 	sh, _, _ := openPodDrawer(t, f, healthyPodRef(t), ThemeDark)
 	d := sh.drawer
 	drv := fyne.CurrentApp().Driver()
 	button := forwardButtons(sh)[0]
-	var port *linkText
 	bx := drv.AbsolutePositionForObject(button)
-	for _, l := range findAll[*linkText](d.details) {
-		ly := drv.AbsolutePositionForObject(l).Y
-		if l.hook != nil && ly <= bx.Y+button.Size().Height && ly+l.Size().Height >= bx.Y {
-			port = l
-		}
-	}
-	if port == nil {
-		t.Fatal("no port link on the Forward… button's row")
-	}
+	port := portOnButtonRow(t, d, button)
+	px := drv.AbsolutePositionForObject(port).X
+	text := fyne.MeasureText(port.text, port.Theme().Size(port.size), fyne.TextStyle{}).Width
+	// Forward… right after the value: the value as wide as its text and a padding, then a padding.
+	near(t, "the Forward… button after the port", bx.X, px+text+2*padding())
+
 	port.MouseIn(mouse())
 	x, side := iconAt(t, d)
-	text := fyne.MeasureText(port.text, port.Theme().Size(port.size), fyne.TextStyle{}).Width
-	near(t, "the icon after the port", x, drv.AbsolutePositionForObject(port).X+text+padding())
+	near(t, "the icon's right edge at the port's end", x+side, px+port.Size().Width)
+	if x >= px+text {
+		t.Errorf("the icon starts at %v, after the port's text ending at %v: want it over the value's end", x, px+text)
+	}
 	if x+side > bx.X {
 		t.Errorf("the icon ends at %v, over the Forward… button at %v", x+side, bx.X)
 	}
-	if port.room != 0 {
-		t.Errorf("the port %q is shortened for its icon (room %v)", port.text, port.room)
+	if port.room != 0 || shownLinkText(port) != port.text {
+		t.Errorf("the port %q is shortened for its icon to %q (room %v)", port.text, shownLinkText(port), port.room)
 	}
+	// On the icon itself the port keeps its whole text too.
+	d.copyBtn.MouseIn(mouse())
+	if port.room != 0 || shownLinkText(port) != port.text {
+		t.Errorf("with the pointer on the icon the port shows %q (room %v)", shownLinkText(port), port.room)
+	}
+	d.copyBtn.MouseOut()
 	port.MouseOut()
+}
+
+// renderDrawerCopyPort shows a pod's container ports with the pointer on the first: Forward…
+// right after the port, the copy icon over the port's end (A71).
+func renderDrawerCopyPort(t *testing.T, mode ThemeMode, name string) {
+	f := forwardsFake(t, "pods")
+	sh, w, _ := openPodDrawer(t, f, healthyPodRef(t), mode)
+	button := forwardButtons(sh)[0]
+	scrollDrawerToObject(sh, w, button)
+	portOnButtonRow(t, sh.drawer, button).MouseIn(mouse())
+	if !sh.drawer.copyBtn.Visible() {
+		t.Fatal("no copy icon")
+	}
+	savePNG(t, w, name)
+}
+
+func TestRenderDrawerCopyIconOverThePort(t *testing.T) {
+	renderDrawerCopyPort(t, ThemeDark, "drawer_copy_port_dark.png")
+	renderDrawerCopyPort(t, ThemeLight, "drawer_copy_port_light.png")
+}
+
+// detailHasItem reports whether a drawer's model has an item of that name in any section.
+func detailHasItem(m *engine.DetailModel, name string) bool {
+	for _, s := range m.Sections {
+		for _, it := range s.Items {
+			if it.Name == name {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// TestDrawerCopyIconAfterALinkWithoutButtons: a value that is a link running its action but has
+// no buttons (a forward's URL) keeps the room for its icon right after its text, as before.
+func TestDrawerCopyIconAfterALinkWithoutButtons(t *testing.T) {
+	f := forwardsFake(t, kindPortForwards)
+	var ref model.ObjectRef
+	for _, r := range f.tables[kindPortForwards].Rows {
+		if m := f.details[r.Ref.String()]; m != nil && detailHasItem(m, "URL") {
+			ref = r.Ref
+			break
+		}
+	}
+	if ref.Name == "" {
+		t.Fatal("no port forward with a URL in the fixture")
+	}
+	f.ui.Drawer = &ref
+	sh, w, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	q.until(t, "the forward's drawer", func() bool { return sh.drawer.last != nil && sh.drawer.last.Ref == ref })
+	settle(w)
+	d := sh.drawer
+	var url *linkText
+	for _, l := range findAll[*linkText](d.details) {
+		if l.hook != nil && strings.HasPrefix(l.text, "http") {
+			url = l
+		}
+	}
+	if url == nil {
+		t.Fatal("no URL link in the forward's drawer")
+	}
+	if url.hook.over {
+		t.Error("the URL, which has no buttons, lies under its icon")
+	}
+	url.MouseIn(mouse())
+	x, _ := iconAt(t, d)
+	text := fyne.MeasureText(url.text, url.Theme().Size(url.size), fyne.TextStyle{}).Width
+	near(t, "the icon after the URL", x, fyne.CurrentApp().Driver().AbsolutePositionForObject(url).X+text+padding())
+	url.MouseOut()
 }
 
 // renderDrawerCopyValue shows the TLS Secret's certificates with the pointer on the leaf's Not

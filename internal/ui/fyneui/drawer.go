@@ -527,6 +527,7 @@ func (d *drawer) itemValue(ref model.ObjectRef, sec model.DetailSection, it mode
 		return d.foldedValue(ref, sec, it, copyable)
 	}
 	var v fyne.CanvasObject
+	hooks := len(d.copyHooks) // the value's own copy hooks follow
 	if revealed {
 		v = d.revealedValue(it)
 	}
@@ -559,18 +560,26 @@ func (d *drawer) itemValue(ref model.ObjectRef, sec model.DetailSection, it mode
 			natural = fyne.Max(natural, fyne.MeasureText(line, size, fyne.TextStyle{}).Width)
 		}
 	}
-	if copyable && it.Value != "" {
-		// The value owns the room for its copy icon right after its text, as a chip does: the
-		// buttons follow the icon, which covers neither the text nor a button (copy.go).
+	switch {
+	case len(objs) > 1:
+		// The owner's decision (A71, 2026-10-14 evening): the buttons (a port's Forward…) right
+		// after the value, as before 2026-10-13, and the copy icon over the value's end on hover,
+		// as in the lists (A69): the value keeps no room for it and its text is not shortened.
+		for _, h := range d.copyHooks[hooks:] {
+			h.over = true
+		}
+	case copyable && it.Value != "":
+		// No buttons (a forward's URL, a link that runs its action): the value owns the room for
+		// its icon right after its text, as a chip does.
 		icon = d.copyBtn.MinSize().Width + d.sh.app.Settings().Theme().Size(theme.SizeNamePadding)
 	}
 	return box(actionRowLayout{natural: natural, icon: icon}, objs...)
 }
 
 // actionRowLayout puts a drawer value and its action buttons on one line: the value as wide as
-// its text (natural; 0 takes what the buttons leave) and the room for its copy icon (icon),
-// shortened when the drawer is narrower, the buttons right after it. The value's own widgets ask
-// for no width, since they shorten to fit.
+// its text (natural; 0 takes what the buttons leave) and, without buttons, the room for its copy
+// icon (icon), shortened when the drawer is narrower, the buttons right after it. The value's own
+// widgets ask for no width, since they shorten to fit.
 type actionRowLayout struct{ natural, icon float32 }
 
 func (actionRowLayout) gap() float32 {
