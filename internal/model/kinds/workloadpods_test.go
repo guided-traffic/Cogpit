@@ -81,7 +81,8 @@ func TestControllerKeys(t *testing.T) {
 
 // The pods a Replica Set, Stateful Set, Daemon Set or Job controls itself: by UID, not by the
 // owner's name (a workload created again under its name owns none of the old one's pods), only in
-// its namespace, only through the controller reference.
+// its namespace, only through the controller reference. The table is the node drawer's without its
+// Namespace column (D-40, owner 2026-10-14): the workload's pods share its namespace.
 func TestWorkloadDrawerPods(t *testing.T) {
 	for _, key := range []string{"replicasets", "statefulsets", "daemonsets", "jobs"} {
 		t.Run(key, func(t *testing.T) {
@@ -110,8 +111,11 @@ func TestWorkloadDrawerPods(t *testing.T) {
 				t.Errorf("the drawer's Pods %q, want web-1 and web-2", got)
 			}
 			tbl := findTable(t, sections, "Pods")
-			if !tbl.Sortable || !slices.Equal(tbl.IDs, []string{"name", "warning", "node", "namespace", "ready", model.ColumnCPU, model.ColumnMemory, "status"}) {
-				t.Errorf("columns %q, ids %q: want the node drawer's", tbl.Columns, tbl.IDs)
+			if !tbl.Sortable || !slices.Equal(tbl.IDs, []string{"name", "warning", "node", "ready", model.ColumnCPU, model.ColumnMemory, "status"}) {
+				t.Errorf("columns %q, ids %q: want the node drawer's without Namespace", tbl.Columns, tbl.IDs)
+			}
+			if len(tbl.Cells[0]) != len(tbl.IDs) {
+				t.Errorf("a row of %d cells for %d columns", len(tbl.Cells[0]), len(tbl.IDs))
 			}
 			row := tbl.Cells[0]
 			if l := row[0].Link; l == nil || *l != (model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-1"}) {
@@ -120,8 +124,8 @@ func TestWorkloadDrawerPods(t *testing.T) {
 			if l := row[2].Link; row[2].Text == "" || l == nil || l.Kind != "nodes" || l.Name != row[2].Text {
 				t.Errorf("the node cell %+v does not link to its node", row[2])
 			}
-			if row[5] != (model.Cell{}) || row[6] != (model.Cell{}) {
-				t.Errorf("CPU and Memory %+v %+v: the engine's to fill", row[5], row[6])
+			if row[3].Text == "" || row[4] != (model.Cell{}) || row[5] != (model.Cell{}) || row[6].Text == "" {
+				t.Errorf("Ready %+v, CPU and Memory %+v %+v (the engine's to fill), Status %+v", row[3], row[4], row[5], row[6])
 			}
 			if got := podsTableNames(p.DetailSections(owner, nil)); got != nil {
 				t.Errorf("without related objects: Pods %q", got)

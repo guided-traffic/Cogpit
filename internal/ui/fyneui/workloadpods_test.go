@@ -15,8 +15,9 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
-// A workload's Pods table in its drawer (D-40): the node drawer's table, with the pods the
-// workload controls, their CPU and Memory and the same sorting, built from the real profiles
+// A workload's Pods table in its drawer (D-40): the node drawer's table without its Namespace column
+// (the owner's, 2026-10-14: a workload's pods share its namespace), with the pods the workload
+// controls, their CPU and Memory and the same sorting, built from the real profiles
 // (engine.BuildDetailWith with the fixture's related objects, engine.FillPodTable,
 // engine.SortDrawerTables, engine.LimitDrawerTables). PNGs: testdata/deployment_pods_drawer_*.png,
 // statefulset_pods_drawer_*.png.
@@ -148,9 +149,9 @@ func workloadPodsFake(t testing.TB, set bool, sorts map[string]engine.SortSpec) 
 	return f, ref
 }
 
-// A Deployment's drawer ends with its Pods, the node drawer's table: the pods of both replica sets
-// during the rollout, their CPU and Memory as the Pods list writes them, the node as a link; a
-// click on CPU sorts by it through the engine's state.
+// A Deployment's drawer ends with its Pods, the node drawer's table without Namespace: the pods of
+// both replica sets during the rollout, their CPU and Memory as the Pods list writes them, the node
+// as a link; a click on CPU sorts by it through the engine's state.
 func TestDeploymentDrawerPodsTable(t *testing.T) {
 	f, _ := workloadPodsFake(t, false, nil)
 	sh, w, q := newTestShell(t, f, Options{})
@@ -158,10 +159,13 @@ func TestDeploymentDrawerPodsTable(t *testing.T) {
 	settle(w)
 
 	headers := drawerHeaders(sh)
-	for _, title := range []string{"Name", "Node", "Namespace", "Ready", "CPU", "Memory", "Status"} {
+	for _, title := range []string{"Name", "Node", "Ready", "CPU", "Memory", "Status"} {
 		if headers[title] == nil {
 			t.Errorf("no sortable title %s among %v", title, keys(headers))
 		}
+	}
+	if headers["Namespace"] != nil {
+		t.Errorf("a Namespace column in a workload's Pods: %v", keys(headers))
 	}
 	names := podsColumn(t, sh, "Name")
 	want := []string{wpNewRS + "-bkmqx", wpNewRS + "-clnry", wpNewRS + "-dmpsz", wpOldRS + "-fkqtx"}

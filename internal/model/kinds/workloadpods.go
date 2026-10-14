@@ -6,11 +6,12 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
-// A workload's Pods in its drawer (D-40, a night decision for the owner to confirm): the drawers of
+// A workload's Pods in its drawer (D-40, decided by the owner 2026-10-14): the drawers of
 // Deployments, Replica Sets, Stateful Sets, Daemon Sets, Jobs and Cron Jobs end with the node
-// drawer's Pods table (nodeDetailWith): Name, the warning icon, Node, Namespace, Ready, CPU, Memory,
-// Status, sortable, CPU and Memory filled by the engine from the metrics while the drawer shows it
-// (engine/drawerpods.go). Inferred: Lens's workload drawers are not captured.
+// drawer's Pods table (nodeDetailWith) without its Namespace column, which a workload's pods share
+// (the owner's): Name, the warning icon, Node, Ready, CPU, Memory, Status, sortable, CPU and Memory
+// filled by the engine from the metrics while the drawer shows it (engine/drawerpods.go). Inferred:
+// Lens's workload drawers are not captured.
 //
 // The pods are found by their controlling owner's UID, through the related-objects indexes below,
 // which the profiles name in DetailNeeds, not Needs: only an open drawer holds them, so the

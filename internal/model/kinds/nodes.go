@@ -323,6 +323,19 @@ var nodePodColumns = []model.Column{
 	statusColumn,
 }
 
+// workloadPodColumns are a workload's Pods table's (D-40, owner 2026-10-14): the node drawer's
+// without Namespace, which a workload's pods share with it: Name, the warning icon, Node, Ready,
+// CPU, Memory, Status.
+var workloadPodColumns = []model.Column{
+	nameColumn,
+	warningColumn,
+	{ID: idNode, Title: titleNode, Type: model.ColumnText},
+	{ID: fieldReady, Title: nodeReady, Type: model.ColumnNumber},
+	cpuColumn,
+	memoryColumn,
+	statusColumn,
+}
+
 // nodeDetailWith is nodeDetail with the node's Pods table after Allocatable, from the
 // related-objects index PodsByNode: one row per pod scheduled to the node, sorted by name, the
 // name and namespace as links, the warning icon and status as in the Pods view, Ready as the
@@ -342,30 +355,36 @@ func nodeDetailWith(obj *unstructured.Unstructured, rel model.Related) []model.D
 // false for none: one row per pod, sorted by name, the name and namespace as links, the warning
 // icon and Status as in the Pods view, Ready as ready/all containers, CPU and Memory left to the
 // engine. The Node cell links to the node with nodeLinks; a node's own drawer has it plain.
-func podsSection(objs []*unstructured.Unstructured, nodeLinks bool) (model.DetailSection, bool) {
+func podsSection(objs []*unstructured.Unstructured, ofWorkload bool) (model.DetailSection, bool) {
 	if len(objs) == 0 {
 		return model.DetailSection{}, false
 	}
 	pods := append([]*unstructured.Unstructured(nil), objs...)
 	sortByName(pods)
+	cols := nodePodColumns
+	if ofWorkload {
+		cols = workloadPodColumns // no Namespace: the workload's (D-40, owner 2026-10-14)
+	}
 	rows := make([][]model.Cell, 0, len(pods))
 	for _, p := range pods {
 		s := summarisePod(p)
 		node := model.Cell{Text: model.NestedString(p, "spec", "nodeName")}
-		if nodeLinks {
-			node.Link = linkTo(keyNodes, "", node.Text)
+		row := make([]model.Cell, 0, len(cols))
+		row = append(row, model.Cell{Text: p.GetName(), Link: linkTo(podsResource, p.GetNamespace(), p.GetName())}, podWarning(p, s))
+		if ofWorkload {
+			node.Link = linkTo(keyNodes, "", node.Text) // a node's own drawer keeps its name plain
+			row = append(row, node)
+		} else {
+			row = append(row, node, namespaceCell(p))
 		}
-		rows = append(rows, []model.Cell{
-			{Text: p.GetName(), Link: linkTo(podsResource, p.GetNamespace(), p.GetName())},
-			podWarning(p, s),
-			node,
-			namespaceCell(p),
+		row = append(row,
 			ratio(s.ready, s.total),
-			{}, // CPU: the engine's, from the metrics (engine/drawerpods.go)
-			{}, // Memory: the same
-			{Text: s.text, Status: s.status},
-		})
+			model.Cell{}, // CPU: the engine's, from the metrics (engine/drawerpods.go)
+			model.Cell{}, // Memory: the same
+			model.Cell{Text: s.text, Status: s.status},
+		)
+		rows = append(rows, row)
 	}
 	// Sortable: a click on a column's title sorts the rows (ui.sortDrawerTable).
-	return model.DetailSection{Title: podsTitle, Table: model.SortableCellTable(nodePodColumns, rows)}, true
+	return model.DetailSection{Title: podsTitle, Table: model.SortableCellTable(cols, rows)}, true
 }
