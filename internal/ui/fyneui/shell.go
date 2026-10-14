@@ -457,19 +457,7 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	sh.ui, sh.uiApplied = st, true
 
 	if first || st.Context != old.Context || st.Connection != old.Connection {
-		sh.top.update()
-		sh.status.update()
-		sh.side.updateHeader()
-		sh.view.updatePlaceholder()
-		if st.Connection.State == engine.Connected && (sh.kindsFor != st.Context) {
-			sh.loadKinds()
-			sh.loadNamespaces()
-			sh.picker.connected(st.Context)
-		}
-		if st.Connection.State != engine.Connected && old.Connection.State == engine.Connected {
-			sh.kinds, sh.kindsFor, sh.namespaces = nil, "", nil
-			sh.side.setKinds(nil) // the View menu follows below, with the connection's other items
-		}
+		sh.connectionChanged(st, old)
 	}
 	if !first && (st.ActiveTab != old.ActiveTab || st.View != old.View) {
 		sh.view.dropSearch() // a search typed for one tab or view stays out of the next (tableview.go)
@@ -508,9 +496,7 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	if !first && (!maps.EqualFunc(st.ClusterSettings, old.ClusterSettings, engine.ClusterSettings.Equal) || st.Context != old.Context) {
 		sh.identitiesChanged()
 	}
-	if first || !reflect.DeepEqual(st.Settings, old.Settings) || (st.Settings != nil && (!reflect.DeepEqual(st.Preferences, old.Preferences) ||
-		!reflect.DeepEqual(st.LoginItem, old.LoginItem) ||
-		!maps.EqualFunc(st.ClusterSettings, old.ClusterSettings, engine.ClusterSettings.Equal) || st.Context != old.Context || st.Connection != old.Connection)) {
+	if first || settingsShowChanged(st, old) {
 		sh.settings.stateChanged()
 	}
 	if first || (st.Context == "") != (old.Context == "") || st.Connection != old.Connection || st.Chat != old.Chat {
@@ -533,6 +519,32 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	}
 	sh.chat.stateChanged(old, first) // the chat column: shown, its cluster, the input's state (chat.go)
 	sh.top.stateChanged()            // the history arrows and the bell (titlehistory.go)
+}
+
+// connectionChanged follows the context or the connection: the header, the status bar, the
+// placeholder, and the connected cluster's kinds and namespaces.
+func (sh *shell) connectionChanged(st, old engine.UIState) {
+	sh.top.update()
+	sh.status.update()
+	sh.side.updateHeader()
+	sh.view.updatePlaceholder()
+	if st.Connection.State == engine.Connected && (sh.kindsFor != st.Context) {
+		sh.loadKinds()
+		sh.loadNamespaces()
+		sh.picker.connected(st.Context)
+	}
+	if st.Connection.State != engine.Connected && old.Connection.State == engine.Connected {
+		sh.kinds, sh.kindsFor, sh.namespaces = nil, "", nil
+		sh.side.setKinds(nil) // the View menu follows in applyUIState, with the connection's other items
+	}
+}
+
+// settingsShowChanged reports whether the Settings page has to follow the state: the page itself,
+// or while it is open the preferences, the login item, the clusters' settings or the connection.
+func settingsShowChanged(st, old engine.UIState) bool {
+	return !reflect.DeepEqual(st.Settings, old.Settings) || (st.Settings != nil && (!reflect.DeepEqual(st.Preferences, old.Preferences) ||
+		!reflect.DeepEqual(st.LoginItem, old.LoginItem) ||
+		!maps.EqualFunc(st.ClusterSettings, old.ClusterSettings, engine.ClusterSettings.Equal) || st.Context != old.Context || st.Connection != old.Connection))
 }
 
 // refreshTable shows the newest snapshot of the open view.

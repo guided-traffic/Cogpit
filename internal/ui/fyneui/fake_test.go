@@ -46,7 +46,11 @@ type fakeEngine struct {
 	opened     map[string]int    // dock tab id → times its stream was opened
 	// quietTerminals: OpenTerminal's sessions print nothing (quietReader).
 	quietTerminals bool
-	closed         map[string]int // dock tab id → times its stream was closed
+	// terminalCallsOnly: terminal.open is recorded but opens no dock tab, so that no terminal
+	// session runs (two ending at once print their end notices together, which the test driver's
+	// synchronous fyne.Do turns into a data race on the shared text shaper).
+	terminalCallsOnly bool
+	closed            map[string]int // dock tab id → times its stream was closed
 	// handlers answer further commands by id, so that an area's tests add its commands in its
 	// own file (editor_test.go).
 	handlers map[string]func(context.Context, engine.Invocation) (any, error)
@@ -484,6 +488,12 @@ func (f *fakeEngine) Dispatch(ctx context.Context, inv engine.Invocation) (any, 
 			u.ActiveDock = id
 		})
 	case "terminal.open":
+		f.mu.Lock()
+		callsOnly := f.terminalCallsOnly
+		f.mu.Unlock()
+		if callsOnly {
+			return nil, nil
+		}
 		f.update(func(u *engine.UIState) {
 			id := fmt.Sprintf("terminal-%d", len(u.Dock)+1)
 			u.Dock = append(u.Dock, engine.DockTab{ID: id, Type: engine.DockTerminal, Title: "Terminal: " + u.Context})

@@ -14,7 +14,7 @@ import (
 func TestWindowKeysInTheViewMenu(t *testing.T) {
 	sh, w, q, f, _ := paletteShell(t, ThemeDark)
 	f.mu.Lock()
-	f.quietTerminals = true // the test driver's terminal race (fake_test.go): the terminals opened print nothing
+	f.terminalCallsOnly = true // the test driver's terminal race (fake_test.go): only the calls count here
 	f.mu.Unlock()
 	view := menuNamed(sh.mainMenu(), "View")
 	search, term := menuItem(t, view, "Search"), menuItem(t, view, "New Terminal")
