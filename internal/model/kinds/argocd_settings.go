@@ -28,7 +28,7 @@ import (
 // reaches a row, the drawer, the YAML, object_get, a search or a log.
 
 // ArgoSecretTypeLabel is the label Argo CD finds its repository and cluster Secrets by.
-const ArgoSecretTypeLabel = "argocd.argoproj.io/secret-type"
+const ArgoSecretTypeLabel = "argocd.argoproj.io/secret-type" // #nosec G101 -- a label's name, no credential
 
 // Kind keys of the settings views: Cogpit's own bare plurals (architecture §4.5).
 const (
@@ -39,7 +39,7 @@ const (
 // Argo CD's Secret types.
 const (
 	argoTypeRepository = "repository"
-	argoTypeRepoCreds  = "repo-creds"
+	argoTypeRepoCreds  = "repo-creds" // #nosec G101 -- a Secret type's name, no credential
 	argoTypeCluster    = "cluster"
 )
 
@@ -218,7 +218,7 @@ func argoValue(v any) string {
 		}
 	}
 	text := strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) || r == '‮' || r == '‭' {
+		if unicode.IsControl(r) || r == '\u202e' || r == '\u202d' {
 			return -1
 		}
 		return r

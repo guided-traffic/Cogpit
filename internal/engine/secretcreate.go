@@ -20,16 +20,16 @@ import (
 const SecretCreateCommand = "secret.create"
 
 // The Secret types the dialog offers, Kubernetes' built-in ones (inferred from Lens's
-// documentation of the Secrets view; its dialog is not captured).
+// documentation of the Secrets view; its dialog is not captured). Names, no credentials.
 const (
-	SecretTypeOpaque              = "Opaque"
-	SecretTypeServiceAccountToken = "kubernetes.io/service-account-token"
-	SecretTypeDockercfg           = "kubernetes.io/dockercfg"
-	SecretTypeDockerConfigJSON    = "kubernetes.io/dockerconfigjson"
-	SecretTypeBasicAuth           = "kubernetes.io/basic-auth"
-	SecretTypeSSHAuth             = "kubernetes.io/ssh-auth"
-	SecretTypeTLS                 = "kubernetes.io/tls"
-	SecretTypeBootstrapToken      = "bootstrap.kubernetes.io/token"
+	SecretTypeOpaque              = "Opaque"                              //nolint:gosec // a Secret type's name, no credential
+	SecretTypeServiceAccountToken = "kubernetes.io/service-account-token" //nolint:gosec // a Secret type's name, no credential
+	SecretTypeDockercfg           = "kubernetes.io/dockercfg"             //nolint:gosec // a Secret type's name, no credential
+	SecretTypeDockerConfigJSON    = "kubernetes.io/dockerconfigjson"      //nolint:gosec // a Secret type's name, no credential
+	SecretTypeBasicAuth           = "kubernetes.io/basic-auth"            //nolint:gosec // a Secret type's name, no credential
+	SecretTypeSSHAuth             = "kubernetes.io/ssh-auth"              //nolint:gosec // a Secret type's name, no credential
+	SecretTypeTLS                 = "kubernetes.io/tls"                   //nolint:gosec // a Secret type's name, no credential
+	SecretTypeBootstrapToken      = "bootstrap.kubernetes.io/token"       //nolint:gosec // a Secret type's name, no credential
 
 	// ServiceAccountNameAnnotation names the service account a service-account-token Secret is
 	// for; the API server requires it.
