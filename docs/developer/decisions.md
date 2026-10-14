@@ -12,7 +12,7 @@ projects' repositories; re-check them before relying on a version number.
 | [D-1](#d-1-ui-toolkit) | UI toolkit | decided: Fyne, after the spike gate; re-checks of S7 (CI, M0) and S5 (Windows and Linux, M11) can reopen it per platform |
 | [D-2](#d-2-agent-interface-scope) | What agents may do over MCP | decided: everything, the UI included; destructive actions confirmed by the user |
 | [D-3](#d-3-helm-and-kubectl-binaries) | Where `helm` and `kubectl` come from | decided: Helm in-process; `kubectl` from `PATH`, a verified matching download on one click |
-| [D-4](#d-4-packaging-and-updates) | Packaging, signing and updates | decided for macOS: the app in a DMG, Homebrew cask, Sparkle updates; Windows and Linux with M11. Built: `cogpit-cli` per release; since 2026-10-14 the app for Apple silicon in a signed, notarized DMG and `cogpit-cli` for macOS signed and notarized (no tag run yet; before, the unsigned app zip); since 2026-10-14 Sparkle 2 in the app and the signed appcast's jobs, waiting for the owner's update key |
+| [D-4](#d-4-packaging-and-updates) | Packaging, signing and updates | decided for macOS: the app in a DMG, Homebrew cask, Sparkle updates; Windows and Linux with M11. Built: since 2026-10-14 the app for Apple silicon in a signed, notarized DMG with `cogpit-cli` inside it, the only download besides `SHA256SUMS` ([D-16](#d-16-the-first-real-release) revised; no tag run yet; before, the unsigned app zip and `cogpit-cli` archives for six platforms); since 2026-10-14 Sparkle 2 in the app and the signed appcast's jobs, waiting for the owner's update key |
 | [D-5](#d-5-extensions) | Extensions | decided: built into Cogpit's own code; no external extensions for now |
 | [D-6](#d-6-kubernetes-libraries) | Kubernetes libraries | decided: client-go, kubectl libraries, Helm SDK |
 | [D-7](#d-7-language-and-platforms) | Language and platforms | decided: Go; a macOS app first, Windows and Linux later |
@@ -239,11 +239,22 @@ EdDSA key come after the disk image. The decisions in this step:
   identity in the same job, submitted together with the disk image. A bare binary cannot carry a
   ticket, so Gatekeeper looks it up online when a quarantined copy first runs. Options weighed:
   unsigned as before (blocked when downloaded with a browser), signed but not notarized (still
-  blocked: Gatekeeper wants a ticket).
+  blocked: Gatekeeper wants a ticket). **Superseded the same day** by D-16's revision (below).
 - **Only the disk image is submitted (agent REL, 2026-10-14),** the app inside it. Option weighed:
   notarizing and stapling the app before imaging it (a second submission to wait for before the
   disk image), so that the copy in Applications carries its own ticket; whether its first start
   without a network needs that is not verified, the first signed release is where to try it.
+
+**Revised (owner, 2026-10-14): `cogpit-cli` inside the app, no archives**
+([D-16](#d-16-the-first-real-release)). A release carries the disk image and `SHA256SUMS` only;
+`cogpit-cli` sits in `Cogpit.app/Contents/MacOS`, signed inside-out with the app (identifier
+`io.guided-traffic.cogpit.cli`), so the disk image's one submission covers it, its stapled ticket
+carries the whole app, and Sparkle's update replaces it with the bundle. The separate signing and
+submission of a bare `cogpit-cli` (the bullet above) and the archives for Linux and Windows are
+gone; those systems get Cogpit with their desktop app (M11). Not verified until the first signed
+release: that the bundled `cogpit-cli`, run from a terminal in a quarantined copy before the app
+was ever opened, starts without a prompt
+([releasing › signing and notarization](releasing.md#signing-and-notarization)).
 
 **Decided (owner, 2026-10-13):** the GitHub
 environment `release` exists (deployment rule: tags `v*`; the Apple material in it since 2026-10-14) for the Apple

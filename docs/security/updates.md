@@ -6,8 +6,10 @@ and the release pipeline signs and publishes its appcast
 ([D-4](../developer/decisions.md#d-4-packaging-and-updates),
 [releasing › the appcast](../developer/releasing.md#the-appcast)); the update key does not exist
 yet, so no release can be offered and no copy updates itself until the owner has made it
-([setting up Sparkle](../developer/releasing.md#setting-up-sparkle)). `cogpit-cli`, Windows and
-Linux have no updater. The other place, built 2026-10-13, is the
+([setting up Sparkle](../developer/releasing.md#setting-up-sparkle)). `cogpit-cli` has no
+updater of its own: since 2026-10-14 it is part of the app bundle
+([D-16](../developer/decisions.md#d-16-the-first-real-release)), so Sparkle's update replaces it
+with the app under the same checks; Windows and Linux have no updater. The other place, built 2026-10-13, is the
 `kubectl` a terminal offers for its cluster: downloaded only on the user's click and verified against
 the Kubernetes release's own sigstore signature, not Cogpit's update key
 ([trust boundaries](trust-boundaries.md#boundaries-and-required-checks),
@@ -16,7 +18,7 @@ the Kubernetes release's own sigstore signature, not Cogpit's update key
 ## Chain of trust
 
 ```text
-release pipeline ─► Cogpit-<v>-macos-arm64.dmg, Developer ID-signed, notarized, stapled
+release pipeline ─► Cogpit-<v>-macos-arm64.dmg (the app, its cogpit-cli inside), Developer ID-signed, notarized, stapled
    "Appcast (draft)", no secret ─► the feed from Pages (only if the update key signed it) + this release's item
    "Appcast (sign)", environment sparkle, after the owner's approval
         ─► EdDSA signature over the disk image, then over the feed (Sparkle's sign_update)
@@ -54,13 +56,15 @@ and [`hack/appcast`](../../hack/appcast/main.go).
 Since 2026-10-13 ([D-16](../developer/decisions.md#d-16-the-first-real-release)) semantic-release
 creates a tag and a GitHub release once every gate on `main` is green, and the release pipeline
 ([`build.yml`](../../.github/workflows/build.yml)) builds the artifacts from that tag and attaches
-them ([releasing › the release pipeline](../developer/releasing.md#the-release-pipeline)):
+them ([releasing › the release pipeline](../developer/releasing.md#the-release-pipeline)). Since
+2026-10-14 (the owner, D-16 revised) a release carries only the complete product: the disk image
+with `cogpit-cli` inside the app, and `SHA256SUMS`. The `cogpit-cli` archives for six platforms
+that releases up to v0.6.0 carry (unsigned for Linux and Windows) are not built any more:
 
 | Artifact | Built by | What vouches for it today |
 |---|---|---|
 | `Cogpit-<v>-macos-arm64.dmg`, the app bundle in a disk image (from the first release after v0.4.0 on; no release has it yet) | `make dist-app` on GitHub's `macos-latest`, signed and imaged by `make dist-macos` ([`hack/macos/release.sh`](../../hack/macos/release.sh)) in the job "Sign and notarize (macOS)" | the app and the disk image signed with the Developer ID "Developer ID Application: Hans Fischer (6L57P2HXN6)", the hardened runtime and Apple's timestamp; the disk image notarized by Apple, its ticket stapled, so Gatekeeper accepts it offline as `Notarized Developer ID`; its SHA-256 in `SHA256SUMS` |
-| `cogpit-cli_<v>_darwin_<arch>.tar.gz`, two architectures | `make dist-cli` on a self-hosted Linux runner, signed in the same job | the binary signed like the app and notarized; it cannot carry its ticket, so Gatekeeper looks it up online when a quarantined copy first runs; its SHA-256 in `SHA256SUMS` |
-| `cogpit-cli_<v>_<os>_<arch>.tar.gz` for Linux, `.zip` for Windows, four platforms | `make dist-cli` on a self-hosted Linux runner | its SHA-256 in `SHA256SUMS`; no code signature |
+| `cogpit-cli` in the app, `Cogpit.app/Contents/MacOS/cogpit-cli` (from the first release after v0.6.0 on) | `make app` from `make build`'s binary, in the same job | the same as the app: signed with the same Developer ID before the bundle (identifier `io.guided-traffic.cogpit.cli`, the hardened runtime, the timestamp), sealed into the app's signature, so changing it breaks the app's; notarized with the disk image, whose stapled ticket covers it; replaced by Sparkle's update with the bundle. Not verified until the first signed release: that it runs from a terminal in a quarantined copy before the app was ever opened without a prompt |
 | `Cogpit_<v>_darwin_arm64.zip`, the app bundle (v0.4.0 and earlier, and any build without the signing secrets) | `make dist-app` on GitHub's `macos-latest` | its SHA-256 in `SHA256SUMS`; an ad-hoc signature (`codesign --sign -`), which seals the bundle but names nobody: **no Developer ID, not notarized**, so Gatekeeper blocks the first start until the user allows it |
 | `SHA256SUMS` | the release pipeline's last job | nothing: it is not signed, so it shows that a download matches what CI attached to the release, not who attached it |
 | The release's item in `https://guided-traffic.github.io/cogpit/appcast.xml` (from the first release built with the update key; none yet) | the three appcast jobs after "Attach to the release" ([releasing › the appcast](../developer/releasing.md#the-appcast)) | the update key's EdDSA signature over the feed and over the disk image it names, made after the owner approved the run; checked with the public key before Pages gets it |
@@ -101,16 +105,20 @@ anything the key did not sign.
 
 ### H-61: Releases are unsigned
 
-Live since the first release (2026-10-13); narrowed 2026-10-14. v0.4.0 and earlier carry no code
-signature that names Cogpit. Since 2026-10-14 the release pipeline signs the macOS app, its disk
-image and `cogpit-cli` for macOS with the Developer ID and has them notarized
-([releasing › signing and notarization](../developer/releasing.md#signing-and-notarization));
-no tag run has done it yet, so this holds for every published release until the first one after
-v0.4.0. What stays live after it: `cogpit-cli` for Linux and Windows is not signed, and
-`SHA256SUMS` is not signed, so whoever can change a release's assets (the GitHub App's key, a
-maintainer's account) can replace one of those archives and its checksum together, and a user has
-nothing to check them against. A swapped macOS download would need the Developer ID key as well.
-Signing the checksums or the artifacts for Linux and Windows is not designed.
+Live since the first release (2026-10-13); narrowed twice on 2026-10-14. v0.4.0 and earlier carry
+no code signature that names Cogpit, and the `cogpit-cli` archives for Linux and Windows of every
+release up to v0.6.0 none at all. Since 2026-10-14 the release pipeline signs the macOS app with
+its `cogpit-cli` and the disk image with the Developer ID and has them notarized
+([releasing › signing and notarization](../developer/releasing.md#signing-and-notarization)),
+and a release carries nothing else but `SHA256SUMS`
+([D-16](../developer/decisions.md#d-16-the-first-real-release)); no tag run has done it yet, so
+this holds for every published release until the first signed one. What stays live after it:
+`SHA256SUMS` is not signed, and the unsigned archives of the releases up to v0.6.0 stay on their
+release pages, so whoever can change a release's assets (the GitHub App's key, a maintainer's
+account) can replace one of those archives and its checksum together, and a user has nothing to
+check them against. A swapped macOS download would need the Developer ID key as well. Signing the
+checksums is not designed; Linux and Windows downloads come back with their desktop app (M11),
+whose signing is planned there.
 
 ### H-62: Every push to `main` that passes the gates is released
 

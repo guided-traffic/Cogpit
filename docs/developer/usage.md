@@ -66,20 +66,23 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 
 ### Download a release
 
-Every [release](https://github.com/guided-traffic/cogpit/releases) carries the app for Apple
-silicon, `cogpit-cli` for Linux, macOS and Windows on amd64 and arm64, and `SHA256SUMS`. From the
-first release after v0.4.0 on, the app comes as `Cogpit-<version>-macos-arm64.dmg`: open it and
-drag Cogpit into Applications. The app, the disk image and the macOS `cogpit-cli` are signed with
-the project's Developer ID and notarized by Apple, so macOS starts them without a warning
+Every [release](https://github.com/guided-traffic/cogpit/releases) carries the complete product
+only ([D-16](decisions.md#d-16-the-first-real-release)): today Cogpit for Apple silicon as
+`Cogpit-<version>-macos-arm64.dmg`, and `SHA256SUMS`. Open the disk image and drag Cogpit into
+Applications; `cogpit-cli` comes inside the app ([`cogpit-cli`](#cogpit-cli)). The app with its
+`cogpit-cli` and the disk image are signed with the project's Developer ID and notarized by Apple,
+so macOS starts them without a warning
 ([releasing › signing and notarization](releasing.md#signing-and-notarization)). v0.1.0 to v0.4.0
 carry `Cogpit_<version>_darwin_arm64.zip` instead, **unsigned**: macOS blocks that app's first
-start until you allow it under System Settings › Privacy & Security › Open Anyway. The Linux and
-Windows archives are not signed ([updates](../security/updates.md#what-a-release-holds-today)).
+start until you allow it under System Settings › Privacy & Security › Open Anyway. Releases up to
+v0.6.0 also carry `cogpit-cli` archives for Linux, macOS and Windows, those for Linux and Windows
+not signed ([updates](../security/updates.md#what-a-release-holds-today)); later releases carry
+none, and Cogpit for Linux and Windows comes with its desktop app (M11).
 
 ```sh
-shasum -a 256 -c SHA256SUMS --ignore-missing      # sha256sum on Linux
+shasum -a 256 -c SHA256SUMS
 spctl -a -t open --context context:primary-signature -vv Cogpit-<version>-macos-arm64.dmg   # source=Notarized Developer ID
-tar -xzf cogpit-cli_<version>_darwin_arm64.tar.gz && ./cogpit-cli_<version>_darwin_arm64/cogpit-cli --version
+/Applications/Cogpit.app/Contents/MacOS/cogpit-cli version   # once the app is in Applications
 ```
 
 ### Run the MVP
@@ -132,7 +135,7 @@ your confirmation in Cogpit's window ([agents and MCP](../security/agents-and-mc
 **Verify.** `make test-unit-race` runs every test without a cluster; with the kind cluster up,
 `make test-kind` also runs the cluster tests (views, logs, pod shell, `kubectl` in the terminal).
 
-**Not built yet (2026-10-14):** Windows and Linux packages, signed Linux and Windows downloads, the app for Intel Macs, updates, the built-in agent chat; what exists and
+**Not built yet (2026-10-14):** Windows and Linux packages (the only way `cogpit-cli` is to reach them in a release, M11), the app for Intel Macs, updates, the built-in agent chat; what exists and
 what is missing, row by row: [docs/parity](../parity/README.md).
 
 <details>
@@ -396,9 +399,9 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Node shell dock tab | id `nodeShell-<n>`, title `Node shell: <node>` | `Node shell: worker-1` # example |
 | Demo context | `demo` (the synthetic cluster) | |
 | Local kind cluster | cluster `cogpit`, context `kind-cogpit`, kubeconfig `.cache/kind/kubeconfig` | |
-| Release artifacts (planned) | `Cogpit-<version>-macos-universal.dmg`, `cogpit-cli-<version>-<os>-<arch>.tar.gz` | `Cogpit-0.1.0-macos-universal.dmg` # example |
+| Release artifacts (planned) | `Cogpit-<version>-macos-universal.dmg`; the desktop app for Windows and Linux (M11), each with `cogpit-cli` inside | `Cogpit-0.1.0-macos-universal.dmg` # example |
 | Deep links (macOS) | `cogpit://open?context=<context id>&view=<view key>&namespace=<namespace>&name=<name>`, the scheme registered in the app's `CFBundleURLTypes` (name `io.guided-traffic.cogpit`); audited as `deeplink.open` with origin `deeplink` | `cogpit://open?view=pods&namespace=team-a` # example |
-| Release artifacts | `Cogpit-<version>-macos-<arch>.dmg` (signed releases; `universal` once the app is built for Intel too, planned), `Cogpit_<version>_darwin_<arch>.zip` (v0.4.0 and earlier, and builds without the signing secrets), `cogpit-cli_<version>_<os>_<arch>.tar.gz` (`.zip` for Windows), `SHA256SUMS` | `Cogpit-0.5.0-macos-arm64.dmg` # example |
+| Release artifacts | `Cogpit-<version>-macos-<arch>.dmg` (signed releases; `universal` once the app is built for Intel too, planned), `Cogpit_<version>_darwin_<arch>.zip` (v0.4.0 and earlier, and builds without the signing secrets), `SHA256SUMS`; nothing else since D-16's revision (2026-10-14): `cogpit-cli_<version>_<os>_<arch>.tar.gz` (`.zip` for Windows) only up to v0.6.0 | `Cogpit-0.5.0-macos-arm64.dmg` # example |
 | Deep links (planned) | `cogpit://` | |
 | Update feed | the appcast every macOS app with the update key reads (`SUFeedURL`, [D-4](decisions.md#d-4-packaging-and-updates)) | `https://guided-traffic.github.io/cogpit/appcast.xml` # default |
 | Sparkle's own state | the app's user defaults, written by Sparkle: whether it checks automatically (`SUEnableAutomaticChecks`, which Cogpit sets from its preference), the last check's time, a skipped version | `~/Library/Preferences/io.guided-traffic.cogpit.plist` # default |

@@ -1,27 +1,27 @@
 #!/usr/bin/env bash
-# The macOS downloads of a release (docs/developer/releasing.md#the-release-pipeline), made from
-# what `make dist-app` and `make dist-cli` built: the app in a disk image and cogpit-cli for macOS,
-# signed with the Developer ID and notarized by Apple when the signing secrets are there. The
-# release pipeline's job "Sign and notarize (macOS)" runs it through `make dist-macos`; on a Mac it
-# runs the same, signed ad-hoc.
+# The macOS download of a release (docs/developer/releasing.md#the-release-pipeline), made from
+# what `make dist-app` built: the app, with cogpit-cli inside it (D-16), in a disk image, signed
+# with the Developer ID and notarized by Apple when the signing secrets are there. The release
+# pipeline's job "Sign and notarize (macOS)" runs it through `make dist-macos`; on a Mac it runs
+# the same, signed ad-hoc.
 #
 #   hack/macos/release.sh <version> <in dir> <out dir>
 #   hack/macos/release.sh cleanup
 #
-# <in dir> holds Cogpit_<version>_darwin_<arch>.zip and cogpit-cli_<version>_darwin_<arch>.tar.gz;
-# <out dir> receives the downloads. What happens depends on the environment:
+# <in dir> holds Cogpit_<version>_darwin_<arch>.zip; <out dir> receives the download. What happens
+# depends on the environment:
 #
 #   Developer ID  MACOS_SIGN_P12 (the .p12, base64), MACOS_SIGN_P12_PASSWORD, APPLE_API_KEY_P8 (the
 #                 App Store Connect key, base64), APPLE_API_KEY_ID and APPLE_API_ISSUER_ID all set,
 #                 with APPLE_TEAM_ID and Apple's intermediate pinned in MACOS_SIGN_CA_URL and
-#                 MACOS_SIGN_CA_SHA256: a temporary keychain; the app signed with the hardened
-#                 runtime and a secure timestamp; Cogpit-<version>-macos-<arch>.dmg built and signed;
-#                 cogpit-cli signed and its archives rebuilt; the disk image and cogpit-cli
-#                 notarized; the disk image's ticket stapled (a bare binary cannot carry one); every
-#                 signature checked, and the disk image and the app in it as Gatekeeper checks them.
+#                 MACOS_SIGN_CA_SHA256: a temporary keychain; the app and its nested code (Sparkle,
+#                 cogpit-cli) signed inside-out with the hardened runtime and a secure timestamp;
+#                 Cogpit-<version>-macos-<arch>.dmg built and signed, notarized and its ticket
+#                 stapled; every signature checked, and the disk image and the app in it as
+#                 Gatekeeper checks them.
 #   ad-hoc        MACOS_SIGN=adhoc and none of the secrets (a Mac without the material): the same
 #                 steps signed ad-hoc, without notarization and Gatekeeper's check.
-#   unsigned      none of the secrets: the app zip and the archives pass through unchanged.
+#   unsigned      none of the secrets: the app zip passes through unchanged.
 #
 # Some of the secrets but not all is an error, never a quiet fallback to an unsigned download; so is
 # every failed signature, notarization or check. `cleanup` deletes the temporary keychain and the
@@ -40,11 +40,10 @@ work="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 work="${work%/}/cogpit-macos-release"
 keychain="$work/signing.keychain-db"
 secrets="MACOS_SIGN_P12 MACOS_SIGN_P12_PASSWORD APPLE_API_KEY_P8 APPLE_API_KEY_ID APPLE_API_ISSUER_ID"
-# The cogpit-cli in Contents/MacOS, and in the macOS archives: its name and code-signing
-# identifier (the Makefile's CLI_ID).
+# The cogpit-cli in Contents/MacOS: its name and code-signing identifier (the Makefile's CLI_ID).
 cli_name="cogpit-cli"
 cli_identifier="io.guided-traffic.cogpit.cli"
-# How long to wait for Apple's notary service, for the disk image and cogpit-cli together.
+# How long to wait for Apple's notary service.
 notary_minutes="${NOTARY_TIMEOUT_MINUTES:-45}"
 
 log() { printf '%s\n' "$*"; }
@@ -262,25 +261,6 @@ check_nested() {
 	log "$n Mach-O files in $(basename "$bundle"), each signed ${want:-ad-hoc} with the hardened runtime"
 }
 
-# sign_cli signs cogpit-cli in each macOS archive and writes the archive again into <out dir>.
-sign_cli() {
-	local archive name binary
-	mkdir -p "$work/cli"
-	for archive in "${cli_archives[@]}"; do
-		name="$(basename "$archive" .tar.gz)"
-		group "Sign $name"
-		tar -xzf "$archive" -C "$work/cli"
-		binary="$work/cli/$name/cogpit-cli"
-		[ -f "$binary" ] || die "$archive holds no $name/cogpit-cli"
-		sign "$binary" --options runtime --identifier "$cli_identifier"
-		check_signature "$binary" code
-		COPYFILE_DISABLE=1 tar --no-mac-metadata -C "$work/cli" -czf "$out/$name.tar.gz" "$name"
-		[ "$(tar -tzf "$archive" | sort)" = "$(tar -tzf "$out/$name.tar.gz" | sort)" ] ||
-			die "$out/$name.tar.gz does not hold the files $archive holds"
-		endgroup
-	done
-}
-
 # build_dmg puts the app and a link to /Applications into the disk image and signs it.
 build_dmg() {
 	group "Disk image $(basename "$dmg")"
@@ -329,31 +309,26 @@ await() {
 	log "$what: Accepted (submission $id)"
 }
 
-# notarize submits the disk image and cogpit-cli (zipped) together, waits for both, staples the
-# disk image's ticket and checks it as Gatekeeper does.
+# notarize submits the disk image, with the app and its nested code (Sparkle, cogpit-cli) inside,
+# waits for Apple's verdict, staples the disk image's ticket and checks it as Gatekeeper does.
 notarize() {
-	local cli_zip="$work/cogpit-cli-macos.zip" dmg_id cli_id failed=0
+	local dmg_id failed=0
 	# The key as base64, or as the .p8 file's PEM text itself.
 	case "$APPLE_API_KEY_P8" in
 	-----BEGIN*) (umask 077 && printf '%s\n' "$APPLE_API_KEY_P8" >"$work/notary.p8") ;;
 	*) (umask 077 && printf '%s' "$APPLE_API_KEY_P8" | base64 --decode >"$work/notary.p8") ;;
 	esac
-	ditto -c -k --keepParent "$work/cli" "$cli_zip"
 
 	group "Submit to Apple's notary service"
 	notary submit "$dmg" --no-wait --output-format json >"$work/submit-dmg.json"
 	dmg_id="$(plutil -extract id raw -o - "$work/submit-dmg.json")"
 	log "$(basename "$dmg"): submission $dmg_id"
-	notary submit "$cli_zip" --no-wait --output-format json >"$work/submit-cli.json"
-	cli_id="$(plutil -extract id raw -o - "$work/submit-cli.json")"
-	log "cogpit-cli: submission $cli_id"
 	endgroup
 
 	summary "| Notarized | Submission | Status |"
 	summary "|---|---|---|"
 	deadline=$(($(date +%s) + notary_minutes * 60))
 	await "$dmg_id" "$(basename "$dmg")" || failed=1
-	await "$cli_id" "cogpit-cli for macOS" || failed=1
 	rm -f "$work/notary.p8"
 	[ "$failed" = 0 ] || exit 1
 
@@ -411,15 +386,12 @@ main() {
 	local zips=() archive
 	for archive in "$in"/Cogpit_"$version"_darwin_*.zip; do [ ! -f "$archive" ] || zips+=("$archive"); done
 	[ "${#zips[@]}" -eq 1 ] || die "expected one Cogpit_${version}_darwin_<arch>.zip in $in (make dist-app), found ${#zips[@]}"
-	cli_archives=()
-	for archive in "$in"/cogpit-cli_"$version"_darwin_*.tar.gz; do [ ! -f "$archive" ] || cli_archives+=("$archive"); done
-	[ "${#cli_archives[@]}" -ge 1 ] || die "no cogpit-cli_${version}_darwin_<arch>.tar.gz in $in (make dist-cli)"
 	mkdir -p "$out"
 
 	if [ "$mode" = unsigned ]; then
-		cp "${zips[0]}" "${cli_archives[@]}" "$out/"
+		cp "${zips[0]}" "$out/"
 		output signed false
-		summary "macOS downloads **unsigned**: the signing secrets are not set (a fork, or a run outside the environment \`release\`)."
+		summary "macOS download **unsigned**: the signing secrets are not set (a fork, or a run outside the environment \`release\`)."
 		return
 	fi
 
@@ -444,7 +416,6 @@ main() {
 	dmg="$out/Cogpit-$version-macos-$arch.dmg"
 
 	sign_app
-	sign_cli
 	build_dmg
 	if [ "$mode" = developer-id ]; then notarize; fi
 	check_dmg
@@ -455,7 +426,7 @@ main() {
 		output signed true
 		output identity "$authority"
 		summary ""
-		summary "\`$(basename "$dmg")\` and cogpit-cli for macOS signed by **$authority**, notarized; the disk image's ticket stapled."
+		summary "\`$(basename "$dmg")\`, the app and its cogpit-cli signed by **$authority**, notarized; the disk image's ticket stapled."
 	else
 		output signed false
 		log "ad-hoc signed, not notarized: a local check of the steps, not a download to publish"

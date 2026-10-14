@@ -133,6 +133,6 @@ Through the `Makefile`, as in the team's other repositories (`make help` lists e
 | Benchmarks of the gate | `make bench` |
 | Lint, layering included | `make lint` (golangci-lint v2.14.0, installed into `bin/`) |
 | Package for macOS | `make app` |
-| The macOS downloads, signed ad-hoc (the release pipeline signs with the Developer ID) | `make dist-app dist-cli` then `make dist-macos MACOS_SIGN=adhoc` ([releasing](releasing.md#running-the-signing-locally)) |
+| The macOS download, the disk image with `cogpit-cli` inside the app, signed ad-hoc (the release pipeline signs with the Developer ID) | `make dist-app` then `make dist-macos MACOS_SIGN=adhoc` ([releasing](releasing.md#running-the-signing-locally)) |
 | Check the parity checklists and their numbers | `make parity` ([rules](../parity/README.md#make-parity)) |
 | Regenerate the parity checklist page and the scorecard | not built yet (gap G1) |

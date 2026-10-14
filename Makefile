@@ -37,7 +37,7 @@ FYNE            := $(BIN)/fyne
 GOLANGCI_LINT_VERSION ?= v2.14.0
 GOLANGCI_LINT   := $(BIN)/golangci-lint
 # The version fyne package writes into the app; the release pipeline sets it to the release's
-# (dist-cli, dist-app), and then the binaries print it too.
+# (dist-app), and then the binaries print it too.
 VERSION         ?= 0.0.1
 # Linker flags for build; the dist targets set the version (-X main.version).
 GO_LDFLAGS      ?=
@@ -408,42 +408,29 @@ app: build $(FYNE) $(if $(filter Darwin,$(shell uname -s)),sparkle) ## Package C
 icon: ## Redraw packaging/icon.png from hack/icon
 	$(GO) run ./hack/icon -o packaging/icon.png
 
-# What a release holds (docs/developer/releasing.md#the-release-pipeline): the release pipeline
+# What a release holds (docs/developer/releasing.md#the-release-pipeline): the complete product
+# only, today the macOS app in its disk image with cogpit-cli inside it, and SHA256SUMS (owner,
+# 2026-10-14, D-16: no cogpit-cli archives any more, for any platform). The release pipeline
 # (.github/workflows/build.yml) runs these with VERSION set to the release's, and they run the same
-# here. cogpit-cli is pure Go and cross-compiles to every platform; the app needs macOS (cgo with
-# AppKit). dist-cli and dist-app build unsigned; dist-macos signs and notarizes the macOS ones
-# (hack/macos/release.sh) when the Developer ID secrets are in its environment, which only the
-# pipeline's signing job has; MACOS_SIGN=adhoc runs its steps here, signed ad-hoc and not notarized
-# (docs/security/updates.md).
+# here. The app needs macOS (cgo with AppKit). dist-app builds it unsigned; dist-macos signs and
+# notarizes it (hack/macos/release.sh) when the Developer ID secrets are in its environment, which
+# only the pipeline's signing job has; MACOS_SIGN=adhoc runs its steps here, signed ad-hoc and not
+# notarized (docs/security/updates.md). cogpit-cli for another platform, for a local need:
+# CGO_ENABLED=0 GOOS=<os> GOARCH=<arch> go build ./cmd/cogpit-cli.
 DIST            := $(CURDIR)/dist
-CLI_PLATFORMS   := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 DIST_LDFLAGS     = -s -w -X main.version=$(VERSION)
 MACOS_SIGN      ?=
 
-.PHONY: dist-cli dist-app dist-macos dist-checksums
+.PHONY: dist-app dist-macos dist-checksums
 
-dist-cli: ## cogpit-cli for every platform as archives in dist/ (tar.gz, zip for Windows); VERSION=x.y.z
-	@rm -rf $(DIST)/cli && mkdir -p $(DIST)/cli
-	@for p in $(CLI_PLATFORMS); do \
-		os=$${p%/*}; arch=$${p#*/}; name=cogpit-cli_$(VERSION)_$${os}_$${arch}; exe=cogpit-cli; \
-		if [ "$$os" = windows ]; then exe=cogpit-cli.exe; fi; \
-		mkdir -p $(DIST)/cli/$$name && \
-		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch $(GO) build -trimpath -ldflags '$(DIST_LDFLAGS)' \
-			-o $(DIST)/cli/$$name/$$exe ./cmd/cogpit-cli && \
-		cp LICENSE README.md $(DIST)/cli/$$name/ && \
-		if [ "$$os" = windows ]; then (cd $(DIST)/cli && zip -qr $(DIST)/$$name.zip $$name); \
-		else tar -C $(DIST)/cli -czf $(DIST)/$$name.tar.gz $$name; fi || exit 1; \
-		echo "dist/$$name"; \
-	done
-
-dist-app: ## The macOS app, zipped, in dist/ (macOS only); VERSION=x.y.z
+dist-app: ## The macOS app with cogpit-cli inside, zipped, in dist/ (macOS only); VERSION=x.y.z
 	@test "$$($(GO) env GOOS)" = darwin || { echo "dist-app runs on macOS only"; exit 1; }
 	$(MAKE) app GO_LDFLAGS='$(DIST_LDFLAGS)'
 	@mkdir -p $(DIST)
 	ditto -c -k --keepParent $(BIN)/Cogpit.app $(DIST)/Cogpit_$(VERSION)_darwin_$$($(GO) env GOARCH).zip
 	@echo "dist/Cogpit_$(VERSION)_darwin_$$($(GO) env GOARCH).zip"
 
-dist-macos: ## The macOS downloads in dist/macos from dist-app's zip and dist-cli's archives: the disk image and cogpit-cli signed and notarized with the release secrets, MACOS_SIGN=adhoc for a local check, else unsigned (macOS only); VERSION=x.y.z
+dist-macos: ## The macOS download in dist/macos from dist-app's zip: the disk image, the app and its cogpit-cli signed and notarized with the release secrets, MACOS_SIGN=adhoc for a local check, else the zip unsigned (macOS only); VERSION=x.y.z
 	MACOS_SIGN='$(MACOS_SIGN)' hack/macos/release.sh '$(VERSION)' '$(DIST)' '$(DIST)/macos'
 
 # Sparkle's appcast (D-4; docs/developer/releasing.md#the-appcast): the release pipeline's three
@@ -466,8 +453,8 @@ appcast-verify: ## Check dist/site/appcast.xml and the disk image with SPARKLE_P
 	$(GO) run ./hack/appcast verify -feed '$(DIST)/site/appcast.xml' -pubkey '$(SPARKLE_PUBLIC_ED_KEY)' \
 		-dmg "$$(ls $(DIST)/macos/Cogpit-$(VERSION)-macos-*.dmg)" -version "$$(cat $(APPCAST)/version)"
 
-dist-checksums: ## SHA256SUMS of the archives and disk images in dist/
-	cd $(DIST) && files=$$(ls *.tar.gz *.zip *.dmg 2>/dev/null || true) && test -n "$$files" && \
+dist-checksums: ## SHA256SUMS of the disk images and app zips in dist/
+	cd $(DIST) && files=$$(ls *.zip *.dmg 2>/dev/null || true) && test -n "$$files" && \
 		if command -v sha256sum >/dev/null; then sha256sum $$files; else shasum -a 256 $$files; fi > SHA256SUMS
 	@cat $(DIST)/SHA256SUMS
 
