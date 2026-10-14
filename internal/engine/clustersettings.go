@@ -86,6 +86,10 @@ type ClusterSettings struct {
 	// NodeShellPullSecret names an image pull secret in kube-system for the node shells' image;
 	// empty: none.
 	NodeShellPullSecret string `json:"nodeShellPullSecret,omitempty"`
+	// NodeShellMaxMinutes is how long a node shell's pod lives at most, in minutes
+	// (nodeshell_duration.go); 0: DefaultNodeShellDeadline. Only the user sets it; agents may
+	// reset it.
+	NodeShellMaxMinutes int `json:"nodeShellMaxMinutes,omitempty"`
 }
 
 // IsZero reports whether the settings are all defaults.
@@ -97,7 +101,7 @@ func (c ClusterSettings) Equal(o ClusterSettings) bool {
 	return c.Name == o.Name && c.IconColor == o.IconColor && c.Icon == o.Icon && c.TerminalDir == o.TerminalDir &&
 		c.TerminalNamespace == o.TerminalNamespace && c.HiddenMetrics == o.HiddenMetrics && c.Proxy == o.Proxy && c.MetricsSource == o.MetricsSource &&
 		slices.Equal(c.AccessibleNamespaces, o.AccessibleNamespaces) && c.AgentWrites == o.AgentWrites &&
-		c.NodeShellImage == o.NodeShellImage && c.NodeShellPullSecret == o.NodeShellPullSecret
+		c.NodeShellImage == o.NodeShellImage && c.NodeShellPullSecret == o.NodeShellPullSecret && c.NodeShellMaxMinutes == o.NodeShellMaxMinutes
 }
 
 // Check says why settings cannot be kept: the first field out of its bounds.
@@ -134,6 +138,9 @@ func (c ClusterSettings) Check() error {
 	if err := CheckNodeShellPullSecret(c.NodeShellPullSecret); err != nil {
 		return err
 	}
+	if err := CheckNodeShellMaxMinutes(c.NodeShellMaxMinutes); err != nil { // nodeshell_duration.go
+		return err
+	}
 	return CheckProxyURL(c.Proxy)
 }
 
@@ -168,6 +175,9 @@ func (c *ClusterSettings) normalize() {
 	}
 	if CheckNodeShellPullSecret(c.NodeShellPullSecret) != nil {
 		c.NodeShellPullSecret = ""
+	}
+	if CheckNodeShellMaxMinutes(c.NodeShellMaxMinutes) != nil {
+		c.NodeShellMaxMinutes = 0
 	}
 }
 
@@ -443,6 +453,11 @@ type ClusterSettingsView struct {
 	NodeShellDefaultImage string `json:"nodeShellDefaultImage"`
 	// NodeShellPullSecret is the image pull secret in kube-system as set; empty: none.
 	NodeShellPullSecret string `json:"nodeShellPullSecret,omitempty"`
+	// NodeShellMaxDuration is how long a node shell's pod lives at most, as set (90m, 2h,
+	// 1h30m); empty: NodeShellDefaultMaxDuration.
+	NodeShellMaxDuration string `json:"nodeShellMaxDuration,omitempty"`
+	// NodeShellDefaultMaxDuration is Cogpit's default maximum duration of a node shell (2h).
+	NodeShellDefaultMaxDuration string `json:"nodeShellDefaultMaxDuration"`
 	// Connected says whether the context is the connected cluster (its metrics settings apply).
 	Connected bool `json:"connected"`
 	// Kept says whether the settings outlive this run (false without a configuration directory).
@@ -460,7 +475,11 @@ func (s *Session) ClusterSettingsView(context string) (ClusterSettingsView, erro
 		TerminalNamespace: cs.TerminalNamespace, HiddenMetrics: MetricNames(cs.HiddenMetrics),
 		Proxy: RedactProxyURL(cs.Proxy), AccessibleNamespaces: append([]string{}, cs.AccessibleNamespaces...),
 		AgentWrites: cs.AgentWrites, Kept: s.opts.ClusterSettings.Path() != "",
-		NodeShellImage: cs.NodeShellImage, NodeShellDefaultImage: DefaultNodeShellImage, NodeShellPullSecret: cs.NodeShellPullSecret}
+		NodeShellImage: cs.NodeShellImage, NodeShellDefaultImage: DefaultNodeShellImage, NodeShellPullSecret: cs.NodeShellPullSecret,
+		NodeShellDefaultMaxDuration: FormatNodeShellDeadline(DefaultNodeShellDeadline)}
+	if cs.NodeShellMaxMinutes != 0 {
+		v.NodeShellMaxDuration = FormatNodeShellDeadline(nodeShellDeadline(cs.NodeShellMaxMinutes))
+	}
 	if cs.Icon != "" {
 		v.IconImage = strings.TrimPrefix(filepath.Ext(cs.Icon), ".")
 	}

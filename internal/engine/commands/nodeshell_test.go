@@ -103,9 +103,10 @@ func TestNodeShellPodAndConfirmation(t *testing.T) {
 		t.Errorf("confirmation %+v", req)
 	}
 	msg := req.Message()
+	at := strings.LastIndex(engine.DefaultNodeShellImage, "@") // Renovate moves the default: the test follows it
 	for _, want := range []string{"Shell nodes worker-1 (context test)?", "privileged pod in namespace kube-system on node worker-1",
-		"root access to the node", "Image: docker.io/library/alpine:3.19, pinned by digest sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1.",
-		"ends by itself after 2 hours"} {
+		"root access to the node", "Image: " + engine.DefaultNodeShellImage[:at] + ", pinned by digest " + engine.DefaultNodeShellImage[at+1:] + ".",
+		"ends by itself after 2 hours, its maximum duration."} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("the confirmation lacks %q:\n%s", want, msg)
 		}
@@ -234,7 +235,8 @@ func TestNodeShellSettings(t *testing.T) {
 		t.Errorf("pod image %s, pull secrets %v", pod.Spec.Containers[0].Image, pod.Spec.ImagePullSecrets)
 	}
 
-	for _, bad := range []map[string]any{{"image": "alpine 3.19"}, {"image": "https://example.com/x"}, {"imagePullSecret": "Not_A_Name"}} {
+	for _, bad := range []map[string]any{{"image": "alpine 3.24"}, {"image": "https://example.com/x"}, {"imagePullSecret": "Not_A_Name"},
+		{"maxDuration": "4m"}, {"maxDuration": "25h"}, {"maxDuration": "2 hours"}, {"maxDuration": "10m30s"}} {
 		if err := h.run(t, engine.OriginGUI, "cluster.settings.setNodeShell", bad, nil); err == nil {
 			t.Errorf("%v accepted", bad)
 		}
@@ -246,25 +248,84 @@ func TestNodeShellSettings(t *testing.T) {
 	}
 }
 
-// TestNodeShellBoundToWhatWasConfirmed: an image changed while the confirmation was open refuses
-// the node shell; nothing is created.
-func TestNodeShellBoundToWhatWasConfirmed(t *testing.T) {
+// TestNodeShellMaxDurationSetting: the maximum duration is the user's (owner, 2026-10-14, D-37):
+// unset it is 2 hours; set to 90 minutes in the window, the confirmation names it and the pod's
+// activeDeadlineSeconds, its container's sleep and the tab follow it; the CLI and agents are
+// refused a value but may reset it; the bounds are 5 minutes and 24 hours.
+func TestNodeShellMaxDurationSetting(t *testing.T) {
 	h, conf := nodeShellHarness(t)
-	conf.during = func(context.Context) {
-		_, err := h.s.ChangeClusterSettings("test", func(cs *engine.ClusterSettings) error {
-			cs.NodeShellImage = "evil.example.com/shell:latest"
-			return nil
-		})
-		if err != nil {
-			t.Error(err)
+	var view engine.ClusterSettingsView
+	h.must(t, engine.OriginGUI, "cluster.settings.get", nil, &view)
+	if view.NodeShellMaxDuration != "" || view.NodeShellDefaultMaxDuration != "2h" {
+		t.Errorf("defaults %+v", view)
+	}
+	for _, origin := range []engine.Origin{engine.OriginCLI, engine.OriginExternalAgent, engine.OriginBuiltInAgent} {
+		err := h.run(t, origin, "cluster.settings.setNodeShell", map[string]any{"maxDuration": "24h"}, nil)
+		if !errors.Is(err, engine.ErrNodeShellGUIOnly) || !strings.Contains(err.Error(), "maximum duration") {
+			t.Errorf("%s set the maximum duration: %v", origin, err)
 		}
 	}
-	err := h.run(t, engine.OriginGUI, engine.NodeShellCommand, map[string]any{"ref": worker1}, nil)
-	if !errors.Is(err, engine.ErrTargetsChanged) {
-		t.Errorf("an image changed under the confirmation: %v", err)
+	if cs, _ := h.s.ClusterSettingsOf("test"); cs.NodeShellMaxMinutes != 0 {
+		t.Fatalf("a refused origin's maximum duration was kept: %d minutes", cs.NodeShellMaxMinutes)
 	}
-	if pods := h.writer.createdPods(); len(pods) != 0 {
-		t.Errorf("%d pods created", len(pods))
+	h.must(t, engine.OriginGUI, "cluster.settings.setNodeShell", map[string]any{"maxDuration": "90m"}, &view)
+	if view.NodeShellMaxDuration != "1h30m" {
+		t.Errorf("after set %+v", view)
+	}
+	if cs := h.s.UIState().ClusterSettings["test"]; cs.NodeShellMaxMinutes != 90 {
+		t.Errorf("the UI state's settings %+v", cs)
+	}
+
+	var res commands.DockResult
+	h.must(t, engine.OriginGUI, engine.NodeShellCommand, map[string]any{"ref": worker1}, &res)
+	if msg := conf.last(t).Message(); !strings.Contains(msg, "ends by itself after 1 hour 30 minutes, its maximum duration.") {
+		t.Errorf("the confirmation does not name the maximum duration:\n%s", msg)
+	}
+	pod := h.writer.createdPods()[0]
+	if d := pod.Spec.ActiveDeadlineSeconds; d == nil || *d != 5400 || !slices.Equal(pod.Spec.Containers[0].Command, []string{"sleep", "5400"}) {
+		t.Errorf("deadline %v, command %v", d, pod.Spec.Containers[0].Command)
+	}
+	if res.Tab.NodeShell == nil || res.Tab.NodeShell.DeadlineSeconds != 5400 {
+		t.Errorf("tab %+v", res.Tab.NodeShell)
+	}
+
+	for text, minutes := range map[string]int{"5m": 5, "24h": 1440, "1h": 60} {
+		h.must(t, engine.OriginGUI, "cluster.settings.setNodeShell", map[string]any{"maxDuration": text}, nil)
+		if cs, _ := h.s.ClusterSettingsOf("test"); cs.NodeShellMaxMinutes != minutes {
+			t.Errorf("%s kept as %d minutes", text, cs.NodeShellMaxMinutes)
+		}
+	}
+	var reset engine.ClusterSettingsView
+	h.must(t, engine.OriginExternalAgent, "cluster.settings.setNodeShell", map[string]any{"maxDuration": " "}, &reset)
+	if cs, _ := h.s.ClusterSettingsOf("test"); cs.NodeShellMaxMinutes != 0 || reset.NodeShellMaxDuration != "" {
+		t.Errorf("an agent's reset: %d minutes, view %q", cs.NodeShellMaxMinutes, reset.NodeShellMaxDuration)
+	}
+}
+
+// TestNodeShellBoundToWhatWasConfirmed: an image or a maximum duration changed while the
+// confirmation was open refuses the node shell; nothing is created.
+func TestNodeShellBoundToWhatWasConfirmed(t *testing.T) {
+	for name, change := range map[string]func(*engine.ClusterSettings){
+		"image":            func(cs *engine.ClusterSettings) { cs.NodeShellImage = "evil.example.com/shell:latest" },
+		"maximum duration": func(cs *engine.ClusterSettings) { cs.NodeShellMaxMinutes = 1440 },
+	} {
+		h, conf := nodeShellHarness(t)
+		conf.during = func(context.Context) {
+			_, err := h.s.ChangeClusterSettings("test", func(cs *engine.ClusterSettings) error {
+				change(cs)
+				return nil
+			})
+			if err != nil {
+				t.Error(err)
+			}
+		}
+		err := h.run(t, engine.OriginGUI, engine.NodeShellCommand, map[string]any{"ref": worker1}, nil)
+		if !errors.Is(err, engine.ErrTargetsChanged) {
+			t.Errorf("the %s changed under the confirmation: %v", name, err)
+		}
+		if pods := h.writer.createdPods(); len(pods) != 0 {
+			t.Errorf("the %s changed: %d pods created", name, len(pods))
+		}
 	}
 }
 

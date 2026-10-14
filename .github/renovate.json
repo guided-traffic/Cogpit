@@ -185,6 +185,21 @@
       ]
     },
     {
+      "description": "The node shell's default image (internal/engine/nodeshell.go, D-37): a new digest or a new Alpine release merges on its own once CI passes, whose kind job opens a node shell with it (TestKindNodeShell) and whose tests take the image from the constant; a major (Alpine 4) waits for review. It runs privileged as root on the node, which is why it is pinned by digest and the change is a pull request, never a floating tag.",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "automerge": true
+    },
+    {
       "description": "Group Kubernetes-related Go dependencies",
       "matchManagers": [
         "gomod"
@@ -264,6 +279,17 @@
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\n.+\\?=\\s*(?<currentValue>v\\d[^\\s]*)"
       ],
       "versioningTemplate": "semver"
+    },
+    {
+      "description": "The node shell's default image (D-37, owner 2026-10-14): the newest supported Alpine release pinned by the digest of its multi-arch index, DefaultNodeShellImage in internal/engine/nodeshell.go under a renovate comment. A new Alpine release moves the tag (3.24 to 3.25, a minor update), a rebuilt tag moves the digest.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^internal/engine/nodeshell\\.go$/"
+      ],
+      "matchStrings": [
+        "// renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\n\\s*\\w+\\s*=\\s*\"[^\"@]+:(?<currentValue>[^\"@]+)@(?<currentDigest>sha256:[0-9a-f]{64})\""
+      ],
+      "versioningTemplate": "docker"
     },
     {
       "description": "Update Go version in go.mod",

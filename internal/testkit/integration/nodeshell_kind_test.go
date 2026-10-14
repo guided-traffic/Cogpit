@@ -54,10 +54,13 @@ func (o *shellOutput) String() string {
 }
 
 // TestKindNodeShell opens a node shell on the kind cluster's node through the engine (G7, G8;
-// D-37): node.shell, confirmed, creates the privileged pod in kube-system; the tab's session waits
-// for it to run and enters the node with nsenter, so `hostname` answers the node's name (a kind
-// node is a container whose PID 1 is its systemd); closing the session deletes the pod. The pod
-// is the one thing it creates, in kube-system by design, and it is deleted in any case.
+// D-37): node.shell, confirmed, creates the privileged pod in kube-system from Cogpit's default
+// image (the pinned Alpine release Renovate keeps current, so CI runs every new one here) with the
+// maximum duration the user set (30 minutes: activeDeadlineSeconds and the container's sleep);
+// the tab's session waits for it to run and enters the node with nsenter, so `hostname` answers
+// the node's name (a kind node is a container whose PID 1 is its systemd); closing the session
+// deletes the pod. The pod is the one thing it creates, in kube-system by design, and it is
+// deleted in any case; the settings are kept in memory.
 func TestKindNodeShell(t *testing.T) {
 	kubeconfig, contextName := os.Getenv("COGPIT_KIND_KUBECONFIG"), os.Getenv("COGPIT_KIND_CONTEXT")
 	if kubeconfig == "" || contextName == "" {
@@ -73,6 +76,7 @@ func TestKindNodeShell(t *testing.T) {
 			asked = append(asked, req)
 			return true, nil
 		}),
+		ClusterSettings: engine.NewClusterSettingsStore(""),
 	})
 	defer s.Close()
 	if err := commands.RegisterAll(s.Registry()); err != nil {
@@ -87,6 +91,10 @@ func TestKindNodeShell(t *testing.T) {
 		t.Fatalf("nodes: %v, %d", err, len(nodes))
 	}
 	node := nodes[0].GetName()
+	setting, _ := json.Marshal(map[string]any{"context": contextName, "maxDuration": "30m"})
+	if _, err := s.Dispatch(ctx, engine.Invocation{ID: "cluster.settings.setNodeShell", Params: setting, Origin: engine.OriginGUI}); err != nil {
+		t.Fatalf("the maximum duration: %v", err)
+	}
 
 	raw, _ := json.Marshal(map[string]any{"ref": model.ObjectRef{Kind: "nodes", Name: node}})
 	res, err := s.Dispatch(ctx, engine.Invocation{ID: engine.NodeShellCommand, Params: raw, Origin: engine.OriginGUI})
@@ -100,7 +108,8 @@ func TestKindNodeShell(t *testing.T) {
 		defer ccancel()
 		_ = kube.CoreV1().Pods(engine.NodeShellNamespace).Delete(cctx, pod, metav1.DeleteOptions{})
 	})
-	if len(asked) != 1 || !strings.Contains(asked[0].Message(), "privileged pod in namespace kube-system on node "+node) {
+	if len(asked) != 1 || !strings.Contains(asked[0].Message(), "privileged pod in namespace kube-system on node "+node) ||
+		!strings.Contains(asked[0].Message(), "ends by itself after 30 minutes") {
 		t.Errorf("confirmation %+v", asked)
 	}
 	created, err := kube.CoreV1().Pods(engine.NodeShellNamespace).Get(ctx, pod, metav1.GetOptions{})
@@ -108,8 +117,11 @@ func TestKindNodeShell(t *testing.T) {
 		t.Fatalf("the node shell's pod: %v", err)
 	}
 	if created.Spec.NodeName != node || !created.Spec.HostPID || created.Spec.ActiveDeadlineSeconds == nil ||
-		*created.Spec.ActiveDeadlineSeconds != 7200 || created.Labels["app.kubernetes.io/managed-by"] != "cogpit" {
+		*created.Spec.ActiveDeadlineSeconds != 1800 || created.Labels["app.kubernetes.io/managed-by"] != "cogpit" {
 		t.Errorf("pod %+v", created.Spec)
+	}
+	if c := created.Spec.Containers[0]; c.Image != engine.DefaultNodeShellImage || strings.Join(c.Command, " ") != "sleep 1800" {
+		t.Errorf("container: image %s, command %v", c.Image, c.Command)
 	}
 
 	sess, err := s.OpenTerminal(ctx, tab.ID)

@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-13 · **Change:** minor (GitOps: Flux CD's section built, the milestone in progress, G23; M3, M4: the node shell built, D-37, a night decision for the owner to confirm; Current focus: its confirmation replaces the owner's decision on H-7; alpha gate: the downloadable macOS build exists since v0.1.0, for Apple silicon; Current focus after the day run: D-29 and the copy icons built; M6: a release upgraded to a version from the user's chart repositories; M7: the cluster Overview built; M1 and 0.1: `cogpit-cli contexts` and `get` built; M9: the stdio bridge built; current focus after the fifth run and the owner's smoke test) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (Current focus: the node shell as built confirmed by the owner, D-37; GitOps: Flux CD's section built, the milestone in progress, G23; M3, M4: the node shell built, D-37, a night decision for the owner to confirm; Current focus: its confirmation replaces the owner's decision on H-7; alpha gate: the downloadable macOS build exists since v0.1.0, for Apple silicon; Current focus after the day run: D-29 and the copy icons built; M6: a release upgraded to a version from the user's chart repositories; M7: the cluster Overview built; M1 and 0.1: `cogpit-cli contexts` and `get` built; M9: the stdio bridge built; current focus after the fifth run and the owner's smoke test) · **Target:** Lens Desktop 2026.10.51501
 
 Forward-looking plan: the alpha gate, the milestones, the **current focus** and what's next with
 estimates. Where Cogpit stands is in [`target-app-parity.md`](target-app-parity.md); the ranked
@@ -84,8 +84,9 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 3. **The terminal widget's upstream pull requests** ([#155–#158](https://github.com/fyne-io/terminal/pull/158),
    G8; #157 approved 2026-10-12) and the two new widget patches of the night run (right-click
    copy and paste, Ctrl/Shift+Insert: upstream candidates, not offered).
-4. **Credential plugins verified on EKS, GKE and AKS** ([G2](gaps.md#g2-cluster-connection-and-authentication), human);
-   the owner's confirmation of the node shell as built ([D-37](../developer/decisions.md#d-37-the-node-shell), a night decision; [H-7](../security/privilege-footprint.md#h-7-node-shell-is-root-on-the-node)).
+4. **Credential plugins verified on EKS, GKE and AKS** ([G2](gaps.md#g2-cluster-connection-and-authentication), human).
+   The node shell as built was confirmed by the owner on 2026-10-14 ([D-37](../developer/decisions.md#d-37-the-node-shell);
+   [H-7](../security/privilege-footprint.md#h-7-node-shell-is-root-on-the-node) stays: it is root on the node).
 5. **M0 and M10:** the generated parity pages and the scorecard ([G1](gaps.md#g1-workspace-ci-and-progress-generators)),
    captures of the rows marked inferred, packaging and updates for macOS ([G14](gaps.md#g14-packaging-signing-and-updates-macos)).
    The built-in chat comes after the alpha ([G21](gaps.md#g21-built-in-agent), [D-10](../developer/decisions.md#d-10-built-in-agent)).
@@ -104,6 +105,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | Current focus: the owner confirmed the node shell as built (D-37, D-38), with the default image the newest supported Alpine release and the maximum duration a setting |
 | 2026-10-14 | minor | Current focus: the night build's features and its night decisions (D-33 to D-44) for the owner's walk |
 | 2026-10-13 | minor | GitOps in progress: Flux CD's section, views, dashboard and actions built (G23, D-33, D-34); its hours left to the lead's recount |
 | 2026-10-13 | minor | M3, M4: the node shell built (night build, D-37) and Create Secret (G9); Current focus: the owner's confirmation of the node shell as built |

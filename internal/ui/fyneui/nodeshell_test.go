@@ -29,7 +29,7 @@ const nodeShellPod = "cogpit-node-shell-k3v9q2mx"
 // nodeShellOutput is what the engine's node shell session shows: its notice, then the node's
 // shell (the shell's lines are the node's, as on a kind node).
 var nodeShellOutput = "[cogpit] Node shell on " + busyNode + ": privileged pod kube-system/" + nodeShellPod + ", image " +
-	engine.DefaultNodeShellImage + "; the pod ends by itself after " + engine.NodeShellDeadlineText + ".\r\n" +
+	engine.DefaultNodeShellImage + "; the pod ends by itself after " + engine.NodeShellDeadlineText(engine.DefaultNodeShellDeadline) + ".\r\n" +
 	"[cogpit] Waiting for the pod to run…\r\n" +
 	"root@" + busyNode + ":/# hostname\r\n" + busyNode + "\r\nroot@" + busyNode + ":/# crictl ps --name kube-proxy -q\r\n" +
 	"5f2c0e8a9d14\r\nroot@" + busyNode + ":/# "
@@ -121,7 +121,8 @@ func TestRenderNodeShellLight(t *testing.T) {
 func nodeShellRequest(origin engine.Origin) engine.ConfirmRequest {
 	ref := model.ObjectRef{Context: "demo", Kind: "nodes", Name: busyNode}
 	return engine.ConfirmRequest{Command: engine.NodeShellCommand, Label: "Shell", Danger: engine.DangerDestructive, Origin: origin,
-		Context: "demo", Objects: []model.ObjectRef{ref}, Detail: engine.NodeShellDetail(busyNode, engine.DefaultNodeShellImage, "")}
+		Context: "demo", Objects: []model.ObjectRef{ref},
+		Detail: engine.NodeShellDetail(busyNode, engine.NodeShellConfig{Image: engine.DefaultNodeShellImage, Deadline: engine.DefaultNodeShellDeadline})}
 }
 
 // confirmNodeShell shows the node shell's confirmation and returns the dialog's texts; answer is
@@ -150,12 +151,14 @@ func confirmNodeShell(t *testing.T, mode ThemeMode, origin engine.Origin, png st
 }
 
 // TestNodeShellConfirmationNamesWhatItCreates: the dialog says it creates a privileged pod with
-// root access, names the namespace, the node, the image and the context, and who asked.
+// root access, names the namespace, the node, the image, the maximum duration and the context, and
+// who asked.
 func TestNodeShellConfirmationNamesWhatItCreates(t *testing.T) {
 	texts := strings.Join(confirmNodeShell(t, ThemeDark, engine.OriginExternalAgent, ""), "\n")
+	at := strings.LastIndex(engine.DefaultNodeShellImage, "@") // Renovate moves the default: the test follows it
 	for _, want := range []string{"An agent asks: Shell?", "privileged pod in namespace kube-system on node " + busyNode,
-		"root access to the node", "Image: docker.io/library/alpine:3.19, pinned by digest sha256:6baf43584bcb", "demo",
-		"An external agent over MCP"} {
+		"root access to the node", "Image: " + engine.DefaultNodeShellImage[:at] + ", pinned by digest " + engine.DefaultNodeShellImage[at+1:at+20],
+		"after 2 hours, its maximum duration", "demo", "An external agent over MCP"} {
 		if !strings.Contains(texts, want) {
 			t.Errorf("the confirmation lacks %q:\n%s", want, texts)
 		}
@@ -215,11 +218,68 @@ func TestClusterSettingsNodeShellSection(t *testing.T) {
 	})
 
 	w.Canvas().Focus(image)
-	image.SetText("alpine 3.19")
+	image.SetText("alpine 3.24")
 	q.until(t, "the refusal", func() bool { return sh.settings.errs[nodeShellImageSetting].Visible() })
 	if text := sh.settings.errs[nodeShellImageSetting].text; !strings.Contains(text, "without spaces") {
 		t.Errorf("refusal %q", text)
 	}
+}
+
+// TestClusterSettingsNodeShellMaxDuration: Maximum duration (owner, 2026-10-14, D-37) shows the
+// default 2h as its placeholder and says it in words under the field; 90m typed is kept as 90
+// minutes and said as 1 hour 30 minutes; 3m is refused under the field with the bounds; emptied, it
+// is the default again; an agent's reset shows.
+func TestClusterSettingsNodeShellMaxDuration(t *testing.T) {
+	s, _ := settingsEngine(t)
+	sh, w, q := newEngineShell(t, s, Options{})
+	mustDispatch(t, s, "cluster.settings.open", map[string]any{"context": "kind-dev", "section": engine.SectionNodeShell})
+	q.until(t, "the Node Shell section", func() bool {
+		return sh.settings.visible() && nodeShellField(sh, nodeShellMaxDurationSetting) != nil && sh.settings.view != nil
+	})
+	field, note := nodeShellField(sh, nodeShellMaxDurationSetting), sh.settings.controls["nodeShellMaxDurationNote"].(*textLine)
+	if field.PlaceHolder != "2h" || note.text != "Every node shell's pod ends by itself after 2 hours." {
+		t.Errorf("placeholder %q, note %q", field.PlaceHolder, note.text)
+	}
+
+	w.Canvas().Focus(field)
+	test.Type(field, "90m")
+	q.until(t, "90 minutes kept", func() bool {
+		cs, _ := s.ClusterSettingsOf("kind-dev")
+		return cs.NodeShellMaxMinutes == 90
+	})
+	w.Canvas().Unfocus()
+	q.until(t, "the note in words, the value as kept", func() bool {
+		return note.text == "Every node shell's pod ends by itself after 1 hour 30 minutes." && field.Text == "1h30m"
+	})
+
+	w.Canvas().Focus(field)
+	field.SetText("3m")
+	q.until(t, "the refusal", func() bool { return sh.settings.errs[nodeShellMaxDurationSetting].Visible() })
+	if text := sh.settings.errs[nodeShellMaxDurationSetting].text; !strings.Contains(text, "from 5m to 24h") {
+		t.Errorf("refusal %q", text)
+	}
+	if cs, _ := s.ClusterSettingsOf("kind-dev"); cs.NodeShellMaxMinutes != 90 {
+		t.Errorf("a refused value changed the setting to %d minutes", cs.NodeShellMaxMinutes)
+	}
+	field.SetText("")
+	q.until(t, "the default again", func() bool {
+		cs, _ := s.ClusterSettingsOf("kind-dev")
+		return cs.NodeShellMaxMinutes == 0 && !sh.settings.errs[nodeShellMaxDurationSetting].Visible()
+	})
+	w.Canvas().Unfocus()
+	q.until(t, "the default's note", func() bool { return note.text == "Every node shell's pod ends by itself after 2 hours." })
+
+	mustDispatch(t, s, "cluster.settings.setNodeShell", map[string]any{"context": "kind-dev", "maxDuration": "4h"})
+	q.until(t, "the window's change shown", func() bool {
+		return field.Text == "4h" && note.text == "Every node shell's pod ends by itself after 4 hours."
+	})
+	if _, err := s.Dispatch(context.Background(), engine.Invocation{ID: "cluster.settings.setNodeShell", Origin: engine.OriginExternalAgent,
+		Params: mustJSON(t, map[string]any{"context": "kind-dev", "maxDuration": ""})}); err != nil {
+		t.Fatal(err)
+	}
+	q.until(t, "an agent's reset shown", func() bool {
+		return field.Text == "" && note.text == "Every node shell's pod ends by itself after 2 hours."
+	})
 }
 
 func TestRenderClusterSettingsNodeShellDark(t *testing.T) {
@@ -233,12 +293,12 @@ func TestRenderClusterSettingsNodeShellLight(t *testing.T) {
 func renderClusterSettingsNodeShell(t *testing.T, mode ThemeMode, name string) {
 	s, _ := settingsEngine(t)
 	mustDispatch(t, s, "cluster.settings.set", map[string]any{"context": "kind-dev", "name": "Dev cluster", "iconColor": "violet"})
-	mustDispatch(t, s, "cluster.settings.setNodeShell", map[string]any{"context": "kind-dev", "imagePullSecret": "registry-pull"})
+	mustDispatch(t, s, "cluster.settings.setNodeShell", map[string]any{"context": "kind-dev", "imagePullSecret": "registry-pull", "maxDuration": "4h"})
 	sh, w, q := newEngineShell(t, s, Options{Theme: mode})
 	mustDispatch(t, s, "cluster.settings.open", map[string]any{"context": "kind-dev", "section": engine.SectionNodeShell})
 	q.until(t, "the Node Shell section", func() bool {
-		e := nodeShellField(sh, nodeShellPullSecretSetting)
-		return sh.settings.visible() && sh.settings.view != nil && e != nil && e.Text == "registry-pull"
+		e, d := nodeShellField(sh, nodeShellPullSecretSetting), nodeShellField(sh, nodeShellMaxDurationSetting)
+		return sh.settings.visible() && sh.settings.view != nil && e != nil && e.Text == "registry-pull" && d != nil && d.Text == "4h"
 	})
 	q.drain()
 	savePNG(t, w, name)

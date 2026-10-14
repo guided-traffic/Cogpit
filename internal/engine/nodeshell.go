@@ -29,8 +29,9 @@ import (
 // namespace; the dock's node shell tab waits for it to run (a watch on that pod) and execs nsenter
 // into PID 1's namespaces through the pod shell's terminal path (terminal.StartNodeShell). The pod
 // carries activeDeadlineSeconds, so that it ends even if Cogpit dies, and Cogpit deletes it when
-// the shell ends, the tab closes, or Cogpit quits. Its image and an image pull secret are a
-// cluster setting (Cluster Settings › Node Shell), the image pinned by digest by default.
+// the shell ends, the tab closes, or Cogpit quits. Its image, an image pull secret and its maximum
+// duration (nodeshell_duration.go) are cluster settings (Cluster Settings › Node Shell), the image
+// pinned by digest by default.
 
 // The node shell's names and bounds.
 const (
@@ -40,13 +41,15 @@ const (
 	NodeShellNamespace = "kube-system"
 	// NodeShellContainer is the pod's one container.
 	NodeShellContainer = "shell"
-	// NodeShellDeadline is the pod's activeDeadlineSeconds: it ends by then whatever Cogpit does
-	// (Cogpit's default, D-37; Lens's is not known).
-	NodeShellDeadline = 2 * time.Hour
-	// DefaultNodeShellImage is Lens's default image, the tag docker.io/alpine:3.19, pinned to the
-	// digest of its multi-arch index as `docker buildx imagetools inspect docker.io/alpine:3.19`
-	// read it on 2026-10-13 (Alpine 3.19.9, built 2025-10-08): its BusyBox has nsenter and sleep.
-	DefaultNodeShellImage = "docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1"
+
+	// DefaultNodeShellImage is the newest supported Alpine release, pinned to the digest of its
+	// multi-arch index (owner, 2026-10-14, D-37): its BusyBox has nsenter and sleep. Chosen on
+	// 2026-10-14 as 3.24 (3.24.2, supported until 2028-06-01), the digest read with `docker buildx
+	// imagetools inspect docker.io/library/alpine:3.24`. Renovate moves the tag to the next release
+	// and the digest to the tag's newest build (.github/renovate.json reads the comment below), and
+	// CI's kind job runs every such change on a node (TestKindNodeShell).
+	// renovate: datasource=docker depName=docker.io/library/alpine
+	DefaultNodeShellImage = "docker.io/library/alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6"
 
 	// DockNodeShell is a node shell's dock tab.
 	DockNodeShell DockType = "nodeShell"
@@ -65,11 +68,23 @@ var NodeShellLabels = map[string]string{
 	"app.kubernetes.io/managed-by": "cogpit",
 }
 
-// ErrNodeShellGUIOnly refuses an agent or the CLI setting the node shell's image or pull secret:
-// they decide what runs as root on the node at the user's next node shell. Resetting them to the
-// defaults is allowed.
-var ErrNodeShellGUIOnly = errors.New("the node shell's image and image pull secret are set only by the user, in Cogpit's window " +
-	"(Cluster Settings › Node Shell): an agent or the CLI may reset them to the defaults, not set them")
+// ErrNodeShellGUIOnly refuses an agent or the CLI setting the node shell's image, pull secret or
+// maximum duration: they decide what runs as root on the node at the user's next node shell, and
+// for how long. Resetting them to the defaults is allowed.
+var ErrNodeShellGUIOnly = errors.New("the node shell's image, image pull secret and maximum duration are set only by the user, " +
+	"in Cogpit's window (Cluster Settings › Node Shell): an agent or the CLI may reset them to the defaults, not set them")
+
+// DefaultNodeShellImageName is DefaultNodeShellImage without its registry, path and digest
+// (alpine:3.24), as the texts name it.
+var DefaultNodeShellImageName = imageName(DefaultNodeShellImage)
+
+// imageName is an image reference's last path element without its digest.
+func imageName(image string) string {
+	if at := strings.LastIndex(image, "@"); at >= 0 {
+		image = image[:at]
+	}
+	return image[strings.LastIndex(image, "/")+1:]
+}
 
 // NodeShellActions are the cluster side of a node shell. *cluster.Conn implements them; tests put
 // a fake in Backend.Actions.
@@ -112,9 +127,9 @@ func CheckNodeShellImage(image string) error {
 	case len(image) > maxNodeShellImage:
 		return fmt.Errorf("the node shell's image: at most %d characters", maxNodeShellImage)
 	case strings.IndexFunc(image, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0:
-		return errors.New("the node shell's image: a reference without spaces, such as docker.io/library/alpine:3.19@sha256:…")
+		return errors.New("the node shell's image: a reference without spaces, such as docker.io/library/alpine:3.24@sha256:…")
 	case strings.Contains(image, "://"):
-		return errors.New("the node shell's image: a reference such as docker.io/library/alpine:3.19, not a URL")
+		return errors.New("the node shell's image: a reference such as docker.io/library/alpine:3.24, not a URL")
 	}
 	return nil
 }
@@ -130,26 +145,38 @@ func CheckNodeShellPullSecret(name string) error {
 	return nil
 }
 
-// NodeShellSettings returns a context's node shell image and image pull secret: its cluster
-// settings', else DefaultNodeShellImage and none.
-func (s *Session) NodeShellSettings(context string) (image, pullSecret string) {
+// NodeShellConfig is what a context's node shells run with: its Cluster Settings › Node Shell, or
+// the defaults.
+type NodeShellConfig struct {
+	// Image is the pod's image; DefaultNodeShellImage unless the user set one.
+	Image string
+	// PullSecret is an image pull secret in kube-system; empty: none.
+	PullSecret string
+	// Deadline is the pod's activeDeadlineSeconds and how long its container sleeps;
+	// DefaultNodeShellDeadline unless the user set the maximum duration.
+	Deadline time.Duration
+}
+
+// NodeShellSettings returns a context's node shell configuration: its cluster settings', else the
+// defaults (DefaultNodeShellImage, no pull secret, DefaultNodeShellDeadline).
+func (s *Session) NodeShellSettings(context string) NodeShellConfig {
 	cs, err := s.ClusterSettingsOf(context)
 	if err != nil {
 		cs = ClusterSettings{}
 	}
-	image = cs.NodeShellImage
-	if image == "" {
-		image = DefaultNodeShellImage
+	cfg := NodeShellConfig{Image: cs.NodeShellImage, PullSecret: cs.NodeShellPullSecret, Deadline: nodeShellDeadline(cs.NodeShellMaxMinutes)}
+	if cfg.Image == "" {
+		cfg.Image = DefaultNodeShellImage
 	}
-	return image, cs.NodeShellPullSecret
+	return cfg
 }
 
 // NodeShellPod is the pod of a node shell on node: in kube-system, bound to the node (nodeName),
 // tolerating every taint, sharing the host's PID namespace, its one container privileged and
 // sleeping until the deadline ends the pod; no service account token, no service links, never
 // restarted, a second to stop.
-func NodeShellPod(name, node, image, pullSecret string) *corev1.Pod {
-	deadline := int64(NodeShellDeadline / time.Second)
+func NodeShellPod(name, node string, cfg NodeShellConfig) *corev1.Pod {
+	deadline := int64(cfg.Deadline / time.Second)
 	grace := int64(1)
 	privileged, noToken, noLinks := true, false, false
 	pod := &corev1.Pod{
@@ -166,25 +193,23 @@ func NodeShellPod(name, node, image, pullSecret string) *corev1.Pod {
 			Tolerations:                   []corev1.Toleration{{Operator: corev1.TolerationOpExists}},
 			Containers: []corev1.Container{{
 				Name:            NodeShellContainer,
-				Image:           image,
+				Image:           cfg.Image,
 				Command:         []string{"sleep", fmt.Sprint(deadline)},
 				SecurityContext: &corev1.SecurityContext{Privileged: &privileged},
 			}},
 		},
 	}
-	if pullSecret != "" {
-		pod.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: pullSecret}}
+	if cfg.PullSecret != "" {
+		pod.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: cfg.PullSecret}}
 	}
 	return pod
 }
 
-// NodeShellDeadlineText is NodeShellDeadline as a person writes it.
-var NodeShellDeadlineText = fmt.Sprintf("%d hours", int(NodeShellDeadline/time.Hour))
-
 // NodeShellDetail is the node shell's sentence in the confirmation: that it creates a privileged
 // pod with root access to the node, its namespace, node and image, whether the image is pinned,
-// the pull secret, and how long the pod lives.
-func NodeShellDetail(node, image, pullSecret string) string {
+// the pull secret, and how long the pod lives at most.
+func NodeShellDetail(node string, cfg NodeShellConfig) string {
+	image := cfg.Image
 	var b strings.Builder
 	fmt.Fprintf(&b, "It creates a privileged pod in namespace %s on node %s with root access to the node: the pod shares "+
 		"the node's processes and the shell enters the node's namespaces as root. ", NodeShellNamespace, node)
@@ -194,10 +219,11 @@ func NodeShellDetail(node, image, pullSecret string) string {
 	} else {
 		fmt.Fprintf(&b, "Image: %s, a floating tag, not pinned by digest: what it runs can change without Cogpit knowing", image)
 	}
-	if pullSecret != "" {
-		fmt.Fprintf(&b, ", pulled with the image pull secret %s", pullSecret)
+	if cfg.PullSecret != "" {
+		fmt.Fprintf(&b, ", pulled with the image pull secret %s", cfg.PullSecret)
 	}
-	fmt.Fprintf(&b, ". The pod is deleted when the shell closes and ends by itself after %s.", NodeShellDeadlineText)
+	fmt.Fprintf(&b, ". The pod is deleted when the shell closes and ends by itself after %s, its maximum duration.",
+		NodeShellDeadlineText(cfg.Deadline))
 	return b.String()
 }
 
@@ -208,7 +234,7 @@ func nodeShellName() string {
 
 // StartNodeShell creates the node shell's pod on the node ref names and opens its dock tab. The
 // caller (node.shell) was confirmed: the pod is created only for the confirmed context, node and
-// detail (image, pull secret), else ErrWrongCluster or ErrTargetsChanged.
+// detail (image, pull secret, maximum duration), else ErrWrongCluster or ErrTargetsChanged.
 func (s *Session) StartNodeShell(ctx context.Context, ref model.ObjectRef) (DockTab, error) {
 	b := s.Backend()
 	if b == nil {
@@ -225,9 +251,10 @@ func (s *Session) StartNodeShell(ctx context.Context, ref model.ObjectRef) (Dock
 	if err != nil {
 		return DockTab{}, err
 	}
-	image, pullSecret := s.NodeShellSettings(b.Context)
-	if req, ok := Confirmed(ctx); ok && req.Detail != NodeShellDetail(r.Name, image, pullSecret) {
-		return DockTab{}, fmt.Errorf("%w: the node shell's image or pull secret changed since you confirmed; nothing was created", ErrTargetsChanged)
+	cfg := s.NodeShellSettings(b.Context)
+	if req, ok := Confirmed(ctx); ok && req.Detail != NodeShellDetail(r.Name, cfg) {
+		return DockTab{}, fmt.Errorf("%w: the node shell's image, pull secret or maximum duration changed since you confirmed; "+
+			"nothing was created", ErrTargetsChanged)
 	}
 	if uid, bound := ConfirmedUID(ctx, r); bound {
 		if obj, err := s.Lookup(r); err != nil || string(obj.GetUID()) != uid {
@@ -236,17 +263,18 @@ func (s *Session) StartNodeShell(ctx context.Context, ref model.ObjectRef) (Dock
 	}
 	cctx, cancel := context.WithTimeout(ctx, nodeShellCreateTimeout)
 	defer cancel()
-	created, err := w.CreatePod(cctx, NodeShellPod(nodeShellName(), r.Name, image, pullSecret))
+	created, err := w.CreatePod(cctx, NodeShellPod(nodeShellName(), r.Name, cfg))
 	if err != nil {
 		return DockTab{}, fmt.Errorf("node shell on %s: %w", r.Name, err)
 	}
 	tab := DockTab{
 		ID: s.NewDockID(DockNodeShell), Type: DockNodeShell, Title: "Node shell: " + r.Name,
 		Context: b.Context, Ref: &r, Container: NodeShellContainer,
-		NodeShell: &NodeShellTab{Node: r.Name, Namespace: created.Namespace, Pod: created.Name, Image: image,
-			Pinned: ImagePinned(image), DeadlineSeconds: int64(NodeShellDeadline / time.Second)},
+		NodeShell: &NodeShellTab{Node: r.Name, Namespace: created.Namespace, Pod: created.Name, Image: cfg.Image,
+			Pinned: ImagePinned(cfg.Image), DeadlineSeconds: int64(cfg.Deadline / time.Second)},
 	}
-	s.shells.add(tab.ID, &nodeShellPod{namespace: created.Namespace, name: created.Name, uid: string(created.UID), actions: w})
+	s.shells.add(tab.ID, &nodeShellPod{namespace: created.Namespace, name: created.Name, uid: string(created.UID),
+		deadline: cfg.Deadline, actions: w})
 	s.UpdateUI(func(u *UIState) {
 		u.Dock = append(u.Dock, tab)
 		u.ActiveDock = tab.ID
@@ -263,7 +291,8 @@ func (s *Session) openNodeShell(ctx context.Context, tab DockTab, b *Backend) (t
 		return nil, errors.New("this node shell has ended and its pod is deleted: open a new one")
 	}
 	notice := fmt.Sprintf("[cogpit] Node shell on %s: privileged pod %s/%s, image %s; the pod ends by itself after %s.\r\n"+
-		"[cogpit] Waiting for the pod to run…\r\n", tab.NodeShell.Node, p.namespace, p.name, tab.NodeShell.Image, NodeShellDeadlineText)
+		"[cogpit] Waiting for the pod to run…\r\n", tab.NodeShell.Node, p.namespace, p.name, tab.NodeShell.Image,
+		NodeShellDeadlineText(p.deadline))
 	before := func(ctx context.Context) error {
 		wctx, cancel := context.WithTimeout(ctx, nodeShellStartTimeout)
 		defer cancel()
@@ -292,6 +321,7 @@ func (s *Session) openNodeShell(ctx context.Context, tab DockTab, b *Backend) (t
 // nodeShellPod is a node shell's pod, kept until it is deleted.
 type nodeShellPod struct {
 	namespace, name, uid string
+	deadline             time.Duration // its activeDeadlineSeconds
 	actions              NodeShellActions
 }
 
@@ -380,7 +410,8 @@ func (s *Session) deleteNodeShellPod(p *nodeShellPod) {
 	}
 	s.log.Warn("node shell: deleting its pod failed", "pod", p.namespace+"/"+p.name, "err", err)
 	s.emit(Event{Type: EventToast, Level: LevelWarning, Message: fmt.Sprintf(
-		"The node shell's pod %s/%s was not deleted (%v); it ends by itself within %s of its start.", p.namespace, p.name, err, NodeShellDeadlineText)})
+		"The node shell's pod %s/%s was not deleted (%v); it ends by itself within %s of its start.", p.namespace, p.name, err,
+		NodeShellDeadlineText(p.deadline))})
 }
 
 // endClosedNodeShells deletes the pods of the node shell tabs that left the dock.

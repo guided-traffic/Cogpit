@@ -81,8 +81,9 @@ func registerClusterSettings(g *registrar) {
 			"from, its terminals' working directory and kubectl namespace (empty: $HOME and the filter's or the " +
 			"context's namespace), the metrics the window hides (hiddenMetrics; empty: all visible), the metrics source (metricsSource: " +
 			"auto, prometheus, metrics-server or none) and, while connected, the providers answering (metricsInUse), the accessible " +
-			"namespaces named for a user who may not list namespaces (accessibleNamespaces), the node shells' image and pull " +
-			"secret (nodeShellImage, empty: nodeShellDefaultImage; nodeShellPullSecret), whether it is " +
+			"namespaces named for a user who may not list namespaces (accessibleNamespaces), the node shells' image, pull " +
+			"secret and maximum duration (nodeShellImage, empty: nodeShellDefaultImage; nodeShellPullSecret; " +
+			"nodeShellMaxDuration, empty: nodeShellDefaultMaxDuration), whether it is " +
 			"the connected cluster, whether the user allowed agents' changes without asking (agentWrites), and whether the " +
 			"settings are kept. The Prometheus setting is cluster_prometheus.",
 		Enabled: func(s *engine.Session, p clusterSettingsParams) error {

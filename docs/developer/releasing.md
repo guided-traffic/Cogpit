@@ -1,6 +1,6 @@
 # Releasing
 
-> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-13 · **Change:** major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-14 · **Change:** minor (Renovate: the node shell's default image, D-37); earlier major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app) · **Target:** Lens Desktop 2026.10.51501
 
 Every push to `main` and every pull request runs the checks, each a job of its own with a make
 target that runs the same on a laptop. Since 2026-10-13 ([D-16](decisions.md#d-16-the-first-real-release))
@@ -164,6 +164,14 @@ out (container images, Helm charts, Valkey images) and one group added (Fyne):
   `GOCYCLO_VERSION`, `METRICS_SERVER_VERSION`) carry a
   `# renovate:` comment the custom manager reads; the `go` line of `go.mod` has its own manager,
   and the workflows follow it through `go-version-file`.
+- The node shell's default image (2026-10-14, [D-37](decisions.md#d-37-the-node-shell)):
+  `DefaultNodeShellImage` in [`engine/nodeshell.go`](../../internal/engine/nodeshell.go), Alpine
+  pinned by tag and index digest, carries a `// renovate: datasource=docker` comment that its own
+  regex manager reads; a new Alpine release (a minor update, 3.24 to 3.25) and a new digest of the
+  tag merge on their own once CI passes, whose kind job opens a node shell with the new image
+  (`TestKindNodeShell`); a major waits for review. Checked with a dry run of Renovate 44.155.8
+  (`--platform=local --dry-run=lookup` on a copy of the two files): it reads the tag and the digest,
+  and for a pin at 3.23 proposes 3.24 and 3.23's newest digest.
 - Dependency updates (Go modules, the Go version, the Makefile's tool pins) are committed as
   `build(deps):`, which semantic-release does not release (owner, 2026-10-13: releases come from
   Cogpit's own `feat:` and `fix:`; an update ships with the next of them, and govulncheck checks

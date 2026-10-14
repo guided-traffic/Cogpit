@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (D-35, D-36, D-41, D-42, D-43, D-44, D-46 decided by the owner as built, 2026-10-14; D-43, a night decision for the owner to confirm: the nodes' disk from node-exporter through Prometheus, never nodes/proxy, built with Cogpit's defaults listed; D-46 (night decision, for the owner to confirm): chart icons fetched when shown, with Preferences › Load chart icons on by default, built; D-11, D-37: a tab whose context leaves Cogpit closes, keeping an editor's draft and deleting a node shell's pod, Cogpit's defaults; D-44 (night decision, for the owner to confirm): agents read the dock's logs tabs freely and a terminal tab only once the user turned on its "Agents may read" switch, built; D-42, a night decision for the owner to confirm: no context picker at start, the welcome page, built; D-41, a night decision for the owner to confirm: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, built; D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (D-37 and D-38 decided by the owner: the default node shell image the newest supported Alpine release (3.24) pinned by digest and kept current by Renovate, the maximum duration a setting with a 2-hour default, set by the user only, built; D-35, D-36, D-41, D-42, D-43, D-44, D-46 decided by the owner as built, 2026-10-14; D-43, a night decision for the owner to confirm: the nodes' disk from node-exporter through Prometheus, never nodes/proxy, built with Cogpit's defaults listed; D-46 (night decision, for the owner to confirm): chart icons fetched when shown, with Preferences › Load chart icons on by default, built; D-11, D-37: a tab whose context leaves Cogpit closes, keeping an editor's draft and deleting a node shell's pod, Cogpit's defaults; D-44 (night decision, for the owner to confirm): agents read the dock's logs tabs freely and a terminal tab only once the user turned on its "Agents may read" switch, built; D-42, a night decision for the owner to confirm: no context picker at start, the welcome page, built; D-41, a night decision for the owner to confirm: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, built; D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -26,8 +26,8 @@ projects' repositories; re-check them before relying on a version number.
 | [D-34](#d-34-the-flux-dashboard) | The Flux dashboard | night decision, for the owner to confirm: five states after kstatus, counts per kind and the objects that are not ready; built 2026-10-13 |
 | [D-35](#d-35-what-argo-cds-repository-and-cluster-secrets-show) | What Argo CD's repository and cluster Secrets show | decided (owner, 2026-10-14): an allowlist of non-credential keys for the window and agents (option b), built 2026-10-13 |
 | [D-36](#d-36-how-argo-cds-sync-writes-the-operation) | How Argo CD's Sync writes the operation | decided (owner, 2026-10-14): what `argocd app sync` writes, bound to the UID and resourceVersion (option b), built 2026-10-13 |
-| [D-37](#d-37-the-node-shell) | The node shell | night decision, for the owner to confirm: Lens's privileged pod with nsenter (option b), built 2026-10-13 |
-| [D-38](#d-38-who-sets-the-node-shells-image) | Who sets the node shell's image | night decision, for the owner to confirm: the user only, agents may reset it (option b), built 2026-10-13 |
+| [D-37](#d-37-the-node-shell) | The node shell | decided (owner, 2026-10-14): Lens's privileged pod with nsenter (option b), built 2026-10-13; the default image the newest supported Alpine release pinned by digest and kept current by Renovate, the maximum duration a setting (default 2 hours), both built 2026-10-14 |
+| [D-38](#d-38-who-sets-the-node-shells-image) | Who sets the node shell's image | decided (owner, 2026-10-14): the user only, agents may reset it (option b), the maximum duration too; built 2026-10-13 and 2026-10-14 |
 | [D-39](#d-39-pod-metrics-for-a-user-who-may-list-pods-in-some-namespaces-only) | Pod metrics for a user who may list pods in some namespaces only | night decision, for the owner to confirm: one list per namespace of the plan (option b), built 2026-10-13 |
 | [D-40](#d-40-a-pods-table-in-the-workloads-drawers) | A Pods table in the workloads' drawers | night decision, for the owner to confirm: the node drawer's table in the drawers of the six workload kinds (option b), built 2026-10-13 |
 | [D-41](#d-41-what-survives-a-restart) | What survives a restart: the tabs and the tables' layout | decided (owner, 2026-10-14): Cogpit's own `workspace.json`, restored without connecting anything; built 2026-10-13 |
@@ -1592,16 +1592,20 @@ What it leaves as it was, for the owner to know:
 
 ## D-37: The node shell
 
-**Night decision (the lead's, 2026-10-14, for the owner to confirm):** options (a) no node shell
+**Decided (owner, 2026-10-14):** option (b) of the night build's decision, which the owner
+confirmed in a decision round: options (a) no node shell
 until the owner decides ([H-7](../security/privilege-footprint.md#h-7-node-shell-is-root-on-the-node));
 (b) Lens's behaviour: a privileged pod in `kube-system` on the node that shares the host's PID
 namespace, entering PID 1's namespaces with `nsenter -t 1 -m -u -i -n -p`, under the rules of
 [privilege footprint › Node shell](../security/privilege-footprint.md#node-shell); (c) only a
 `kubectl debug node/…`-style pod (the host's namespaces and its root filesystem at `/host`, no
-privileged flag, no nsenter); chosen (b), because it is Lens parity (a free Lens feature), every
+privileged flag, no nsenter); (b), because it is Lens parity (a free Lens feature), every
 start is a destructive-level confirmation for every origin, the GUI's included (agents always need
 the user's acceptance, D-2), and the pod's life is bounded; (c) stays a later option, as a second
-profile, not the default. **Built 2026-10-13** (night build;
+profile, not the default. With it the owner decided two of the build's defaults: the default image
+is the newest supported Alpine release, pinned by digest and kept current by Renovate (no longer
+Lens's 3.19), and the deadline is a setting with a 2-hour default (both below, built 2026-10-14).
+**Built 2026-10-13** (night build;
 [`engine/nodeshell.go`](../../internal/engine/nodeshell.go),
 [`commands/nodeshell.go`](../../internal/engine/commands/nodeshell.go),
 [`cluster/nodeshell.go`](../../internal/cluster/nodeshell.go),
@@ -1609,18 +1613,59 @@ profile, not the default. **Built 2026-10-13** (night build;
 the node and `hostname` answers its name, and the pod is gone after the session closes
 (`TestKindNodeShell`).
 
+What the owner decided on 2026-10-14, built the same day:
+
+- **The deadline: a setting, default 2 h (owner, 2026-10-14).** Of the build's options (a) 1 hour,
+  (b) 2 hours, (c) 8 hours, (d) a setting, the owner chose (d) with (b) as its default: Cluster
+  Settings › Node Shell › Maximum duration, kept per context in `cluster-settings.json`
+  (`nodeShellMaxMinutes`, empty: 2 hours). It is the pod's `activeDeadlineSeconds` and the
+  container's `sleep`, so the pod ends by then even if Cogpit dies; the confirmation names it ("ends
+  by itself after 1 hour 30 minutes, its maximum duration"), and so do the tab's notice and the
+  toast of a failed delete. Only the user sets it, as the image ([D-38](#d-38-who-sets-the-node-shells-image)):
+  agents and the CLI may only reset it (`ErrNodeShellGUIOnly`)
+  ([`engine/nodeshell_duration.go`](../../internal/engine/nodeshell_duration.go),
+  [`fyneui/clustersettings_nodeshell.go`](../../internal/ui/fyneui/clustersettings_nodeshell.go);
+  `TestNodeShellMaxDuration`, `TestNodeShellMaxDurationSetting`,
+  `TestClusterSettingsNodeShellMaxDuration`; on kind `TestKindNodeShell` sets 30 minutes and finds
+  `activeDeadlineSeconds: 1800` and `sleep 1800` on the pod).
+- **The default image: the newest supported Alpine release, pinned by the digest of its multi-arch
+  index, kept current by Renovate (owner, 2026-10-14).** Alpine's release table
+  ([alpinelinux.org/releases](https://alpinelinux.org/releases/), read 2026-10-14) lists v3.24
+  (branched 2026-06-09, minor releases 3.24.0 to 3.24.2, supported until 2028-06-01) as the newest
+  stable branch, then v3.23 (until 2027-11-01), v3.22 (until 2027-05-01) and v3.21 (until
+  2026-11-01); 3.19 is past its end. Chosen: `docker.io/library/alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6`,
+  the digest read on 2026-10-14 at 07:45 UTC with `docker buildx imagetools inspect
+  docker.io/library/alpine:3.24` (the tags `3.24.2` and `latest` name the same index; its eight
+  images, linux/386, amd64, arm/v6, arm/v7, arm64/v8, ppc64le, riscv64 and s390x, are 3.24.2, built
+  2026-09-17). `nsenter` and `sleep` are BusyBox 1.37.0 applets in it (`/usr/bin/nsenter`,
+  `/bin/sleep`), checked with `docker run` on linux/arm64 (the index) and linux/amd64 (its image):
+  `nsenter --help` lists `-t`, `-m`, `-u`, `-i`, `-n`, `-p`, and `sleep 1` exits 0; on kind 1.36.1
+  (arm64) `TestKindNodeShell` enters the node with it. **Renovate keeps it current:** the constant
+  `DefaultNodeShellImage` in [`engine/nodeshell.go`](../../internal/engine/nodeshell.go) carries a
+  `// renovate: datasource=docker depName=docker.io/library/alpine` comment that a custom regex
+  manager in [`.github/renovate.json`](../../.github/renovate.json) reads (tag and digest), so a
+  new Alpine release (3.25, a minor update) moves the tag and a rebuilt 3.24 moves the digest; a
+  dry run of Renovate 44.155.8 (`--platform=local --dry-run=lookup`) extracted 3.24 with its digest
+  and found nothing newer, and on a copy pinned to 3.23 it proposed 3.24 with the digest above and
+  3.23's newest digest. The tests take the image from the constant, so Renovate's pull request
+  passes them, and CI's kind job opens a node shell with the new image before it merges. The texts
+  name the image from the constant (`alpine:3.24` on the settings page and in the command's
+  description); this page names the pin of 2026-10-14, the constant is the current one. Lens's
+  default stays the tag `docker.io/alpine:3.19`: Cogpit's default differs from it, the setting is
+  Lens's. H-72 changed with it ([privilege footprint](../security/privilege-footprint.md#h-72-the-default-node-shell-image-ages-with-the-build-that-pins-it)).
+
 What the build chose, Cogpit's defaults (not the owner's decision):
 
-- **The deadline: 2 hours** (`activeDeadlineSeconds: 7200`; Lens's is not known). Options:
-  (a) 1 hour, (b) 2 hours, (c) 8 hours, (d) a setting; chosen (b): it bounds a pod that a crash
-  leaves behind to two hours of an idle root pod, while a working session is rarely cut (an hour
-  would cut more of them); a setting is easy to add when the owner wants one. The container only
-  sleeps as long; the deadline ends the pod even if Cogpit dies.
-- **The default image:** Lens's tag `docker.io/alpine:3.19`, pinned to the digest of its multi-arch
-  index, `sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1` (Alpine 3.19.9,
-  built 2025-10-08), read on 2026-10-13 at 20:12 UTC with `docker buildx imagetools inspect
-  docker.io/alpine:3.19`; its BusyBox has `nsenter` and `sleep` (checked with `docker run`). Alpine
-  3.19 is out of support since 2025-11 ([H-72](../security/privilege-footprint.md#h-72-the-default-node-shell-image-is-out-of-support)).
+- **The maximum duration's bounds: 5 minutes to 24 hours**, in whole minutes, typed as `90m`, `2h`
+  or `1h30m` (Go's duration form; the field shows a set value back in that form, `1h30m` for
+  `90m`, and a line under it says it in words). Five minutes leave time to pull the image and look
+  at something; a day covers a long working session without leaving an idle root pod for days.
+  A value outside them, `2 hours`, `90` or `10m30s` is refused under the field; a file holding one
+  reads as the default.
+- **Renovate's updates of the image merge on their own** once CI passes (a minor release or a new
+  digest; a major, Alpine 4, waits for review), as the other pins of the custom regex manager do,
+  and they are `build(deps):` commits, which semantic-release does not release: a new default image
+  reaches users with the next `feat:` or `fix:` release.
 - **A floating tag is accepted** in the setting (options: (a) refuse an image without a digest,
   (b) accept it and say so; chosen (b), as Lens takes any image): the confirmation then says "a
   floating tag, not pinned by digest: what it runs can change without Cogpit knowing", and the
@@ -1639,25 +1684,30 @@ What the build chose, Cogpit's defaults (not the owner's decision):
   with one get and a watch on that pod alone, at most 3 minutes; a pod that cannot pull its image
   or fails ends the session with the reason and is deleted.
 - **What is confirmed binds what runs:** the confirmation's detail names the namespace, the node,
-  the image and the pull secret; a change of the image or the pull secret while the dialog was
-  open, a node created again under its name, or another context refuses the start before anything
-  is created.
+  the image, the pull secret and the maximum duration; a change of the image, the pull secret or
+  (since 2026-10-14) the maximum duration while the dialog was open, a node created again under its
+  name, or another context refuses the start before anything is created.
+- **A digest wider than the dialog breaks** (2026-10-14): the confirmation's text breaks a word
+  wider than the dialog at the widest part that fits and flows on after it (`wrapFlow`), since the
+  3.24 digest no longer fit on one line of the dialog and Renovate changes it.
 - **The access check asks in `kube-system`:** a command's declared verb may name its one
   namespace (`Verb.Namespace`, new), so a user who may create pods in `kube-system` only is not
   greyed by a cluster-wide question.
 
 ## D-38: Who sets the node shell's image
 
-**Night decision (the lead's, 2026-10-14, for the owner to confirm):** options (a) agents set the
-node shell's image and pull secret too, as the other cluster settings (UI commands, D-2); (b) only
-the user sets them, in Cogpit's window, and agents and the CLI may only reset them to the defaults,
-as a cluster's proxy (`ErrProxyGUIOnly`); (c) no setting, the pinned default only; chosen (b),
+**Decided (owner, 2026-10-14):** option (b) of the night build's decision: options (a) agents set
+the node shell's image and pull secret too, as the other cluster settings (UI commands, D-2); (b)
+only the user sets them, in Cogpit's window, and agents and the CLI may only reset them to the
+defaults, as a cluster's proxy (`ErrProxyGUIOnly`); (c) no setting, the pinned default only; (b),
 because the image is what runs as root on the node at the user's next node shell, and an agent that
 could choose it and then ask for a node shell would leave the user one careful reading of the
 confirmation away from running the agent's image privileged; Lens has the setting, so (c) would
-lose parity. **Built 2026-10-13** (`cluster.settings.setNodeShell` refuses a value that is not the
+lose parity. The owner put the node shell's maximum duration under the same rule (2026-10-14,
+[D-37](#d-37-the-node-shell)): it decides how long a root pod lives. **Built 2026-10-13**, the
+maximum duration 2026-10-14 (`cluster.settings.setNodeShell` refuses a value that is not the
 default from every origin but the GUI with `ErrNodeShellGUIOnly`, before anything is written;
-`TestNodeShellSettings`).
+`TestNodeShellSettings`, `TestNodeShellMaxDurationSetting`).
 
 ## D-40: A Pods table in the workloads' drawers
 
@@ -1975,6 +2025,7 @@ What the build chose, Cogpit's defaults (not the owner's decision):
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | D-37 and D-38 decided by the owner (option b each): the default image the newest supported Alpine release, 3.24 pinned by its index digest and kept current by Renovate (no longer Lens's 3.19), the deadline a setting, Maximum duration, default 2 hours, set by the user only; built, the bounds (5 minutes to 24 hours) and the automerge of Renovate's updates Cogpit's defaults |
 | 2026-10-14 | minor | D-35, D-36, D-41, D-42, D-43, D-44, D-46 decided by the owner in the morning's decision round, each as built (D-33, D-34, D-37 to D-40 follow with their builds) |
 | 2026-10-14 | minor | D-43 (night decision, for the owner to confirm): the Nodes list's Disk and a node drawer's disk from node-exporter's root filesystem through Prometheus, never the kubelet's nodes/proxy; one query per 60 s poll, used as size less available, nodes matched by node label, instance or address, the Nodes list looking for Prometheus while the column shows, Cogpit's defaults; built |
 | 2026-10-14 | minor | D-46 (night decision, for the owner to confirm): chart icons fetched from the hosts that serve them when the window shows them, with Preferences › Load chart icons on by default (option b); a repository's own host allowed at a private address, other private addresses refused; built |
