@@ -23,6 +23,7 @@ type fakeProvider struct {
 	err      error
 	panics   bool
 	base     time.Time
+	hold     atomic.Pointer[chan struct{}] // while set, a pod's measurement waits for it to close
 }
 
 func newFake() *fakeProvider {
@@ -92,7 +93,14 @@ func (f *fakeProvider) ListPods(_ context.Context, ns string) ([]model.PodUsage,
 	return sel, nil
 }
 
-func (f *fakeProvider) GetPod(_ context.Context, ns, name string) (model.PodUsage, error) {
+func (f *fakeProvider) GetPod(ctx context.Context, ns, name string) (model.PodUsage, error) {
+	if hold := f.hold.Load(); hold != nil {
+		select {
+		case <-*hold:
+		case <-ctx.Done():
+			return model.PodUsage{}, ctx.Err()
+		}
+	}
 	at, seq, err := f.hit("get pods")
 	if err != nil {
 		return model.PodUsage{}, err
@@ -460,6 +468,11 @@ func TestSeriesIsSeededFromAFreshList(t *testing.T) {
 	defer list.Release()
 	eventually(t, "the list", func() bool { _, ok := h.Pod("web", "a"); return ok })
 
+	// The drawer's own first poll is held until the checks: on a slow runner it can otherwise
+	// answer before them (CI 2026-10-14) and add a second point, which is not the seed's.
+	held := make(chan struct{})
+	f.hold.Store(&held)
+	defer close(held)
 	sub := h.Subscribe(podA, nil)
 	defer sub.Release()
 	series := h.Series(podA)

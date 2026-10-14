@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,9 +16,11 @@ import (
 // series, bounded by age, by charts and by points, and hands them back to the next drawer of the
 // object.
 
-// liveOnly is a Metrics Server: one pod and one node, measured at the clock's time.
+// liveOnly is a Metrics Server: one pod and one node, measured at the clock's time. While hold is
+// set, a pod's measurement waits for it to close, so a test sees a chart before its first poll.
 type liveOnly struct {
-	now func() time.Time
+	now  func() time.Time
+	hold atomic.Pointer[chan struct{}]
 }
 
 func (*liveOnly) ID() string                 { return ServerID }
@@ -26,7 +29,14 @@ func (*liveOnly) Capabilities() Capabilities { return Capabilities{} }
 func (l *liveOnly) ListPods(context.Context, string) ([]model.PodUsage, error) {
 	return nil, nil
 }
-func (l *liveOnly) GetPod(_ context.Context, ns, name string) (model.PodUsage, error) {
+func (l *liveOnly) GetPod(ctx context.Context, ns, name string) (model.PodUsage, error) {
+	if hold := l.hold.Load(); hold != nil {
+		select {
+		case <-*hold:
+		case <-ctx.Done():
+			return model.PodUsage{}, ctx.Err()
+		}
+	}
 	return model.PodUsage{Namespace: ns, Name: name, Timestamp: l.now(), Containers: []model.ContainerUsage{
 		{Name: "app", Usage: model.Usage{CPUMilli: 100, MemoryBytes: 64 << 20}},
 	}}, nil
@@ -65,7 +75,8 @@ func TestHistoryOutlivesAClosedDrawer(t *testing.T) {
 	var mu sync.Mutex
 	clock := func() time.Time { mu.Lock(); defer mu.Unlock(); return now }
 	advance := func(d time.Duration) { mu.Lock(); now = now.Add(d); mu.Unlock() }
-	h := NewHub(Fixed(&liveOnly{now: clock}), Options{Now: clock, ObjectInterval: time.Hour})
+	src := &liveOnly{now: clock}
+	h := NewHub(Fixed(src), Options{Now: clock, ObjectInterval: time.Hour})
 	defer h.Close()
 	sc := Scope{Kind: KindPods, Namespace: "web", Name: "a"}
 
@@ -86,13 +97,16 @@ func TestHistoryOutlivesAClosedDrawer(t *testing.T) {
 	}
 
 	// Ten minutes later the drawer opens again: the chart starts with the kept points, before its
-	// first poll answers, and continues after a gap.
+	// first poll answers (held until the check, else it may answer first), and continues after a gap.
 	advance(10 * time.Minute)
+	held := make(chan struct{})
+	src.hold.Store(&held)
 	sub = h.Subscribe(sc, func() { polled <- struct{}{} })
 	defer sub.Release()
 	if hs := h.History(sc); hs == nil || len(hs.Targets[""].Usage) != 4 || len(hs.Targets["app"].Usage) != 4 {
 		t.Fatalf("the reopened drawer starts with %+v, want the 4 kept points", hs)
 	}
+	close(held)
 	<-polled
 	if pts := h.History(sc).Targets[""].Usage; len(pts) != 5 || pts[4].At.Sub(pts[3].At) != 10*time.Minute {
 		t.Errorf("after the first poll: %d points, the last two %v apart, want 5 and the 10 minutes the drawer was closed", len(pts), pts[len(pts)-1].At.Sub(pts[len(pts)-2].At))
