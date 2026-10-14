@@ -12,6 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
@@ -281,6 +283,7 @@ type scopeState struct {
 	cancel    context.CancelFunc // set while the poll goroutine runs
 	data      *dataSet           // the current values
 	state     State              // the outcome of the last attempt
+	refused   bool               // the last attempt was the namespace's refusal (namespaceRefusal): data is empty, an answer
 	attempted time.Time
 	inflight  *flight
 	chart     *chart        // an object scope's series while it is subscribed
@@ -900,6 +903,25 @@ func (h *Hub) failLocked(ctx context.Context, sl *slot, sc Scope, err error) Sta
 	return s
 }
 
+// namespaceRefusal reports whether err is the Metrics API's refusal of one namespace's pods, and
+// returns that scope's state (D-39, owner 2026-10-14). RBAC grants pods.metrics.k8s.io per
+// namespace, apart from the pods themselves: a 403 for a namespace's pods says nothing about the
+// provider's other scopes. So the scope's pods get no values and the state forbidden for that
+// namespace, while the provider keeps its status, the other namespaces keep its values, and no
+// other provider stands in for the refused one. A refusal of every pod (no namespace), of the
+// nodes, or by a provider with history (a Prometheus behind a refused service proxy) is the
+// provider's, as before (failLocked).
+func namespaceRefusal(sc Scope, prov Provider, err error) (State, bool) {
+	if sc.Kind != KindPods || sc.Namespace == "" || prov == nil || hasHistory(prov) || !apierrors.IsForbidden(err) {
+		return State{}, false
+	}
+	return State{
+		Status:  StatusForbidden,
+		Message: "the current user may not read the pods' metrics in " + sc.Namespace + ": " + errorText(err),
+		Reason:  errorClass(err),
+	}, true
+}
+
 // worstLocked is the most telling state when no provider answered: forbidden before unavailable
 // before not served, so a cluster with a Prometheus the user may not read says so instead of "no
 // metrics-server"; on a tie the live provider's.
@@ -963,6 +985,7 @@ func (h *Hub) fetch(ctx context.Context, sc Scope, object bool) State {
 		h.mu.Lock()
 		if ctx.Err() == nil || data != nil {
 			st.attempted, st.state = h.opts.Now(), state
+			st.refused = data != nil && state.Status == StatusForbidden
 			if data != nil {
 				st.data = data
 			}
@@ -1010,6 +1033,12 @@ func (h *Hub) pollCurrent(ctx context.Context, sc Scope) (*dataSet, State) {
 			h.okLocked(sl)
 			h.mu.Unlock()
 			return ds, State{Status: StatusAvailable, Provider: prov.ID(), Label: prov.Label()}
+		}
+		if s, refused := namespaceRefusal(sc, prov, err); refused {
+			// The namespace's pods have no values; the provider and the other scopes are untouched.
+			ds := &dataSet{at: h.opts.Now(), pods: map[string]model.PodUsage{}}
+			h.mu.Unlock()
+			return ds, s
 		}
 		s := h.failLocked(ctx, sl, sc, err)
 		h.mu.Unlock()
@@ -1174,7 +1203,8 @@ func (h *Hub) cached(sc Scope) (Result, bool) {
 	}
 	for _, c := range cands {
 		st := h.scopes[c]
-		if st == nil || !h.validLocked(st) || !st.state.Usable() {
+		// A namespace's refusal is an answer too: served for the TTL like values (D-39).
+		if st == nil || !h.validLocked(st) || !st.state.Usable() && !st.refused {
 			continue
 		}
 		r := Result{State: st.state, At: st.data.at}

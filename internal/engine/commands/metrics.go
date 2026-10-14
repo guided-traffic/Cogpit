@@ -44,6 +44,8 @@ func registerMetrics(g *registrar) {
 			"every 15 seconds at best), per container for pods; a result newer than 15 seconds " +
 			"is served without a request, otherwise one request is sent and nothing keeps polling. Without either the " +
 			"result's status says so (notServed, forbidden, unavailable) and carries no items: that is a state, not an error. " +
+			"Every pod of a user who may list pods in some namespaces only is read namespace by namespace: forbidden then names " +
+			"the namespaces whose pods' metrics the user may not read, whose pods are left out. " +
 			"Requests and limits are in object_get's containers sections; node capacity in its Capacity and Allocatable tables.",
 		Enabled: func(s *engine.Session, _ metricsGetParams) error { _, err := connected(s); return err },
 		Run: func(ctx context.Context, s *engine.Session, p metricsGetParams) (any, error) {

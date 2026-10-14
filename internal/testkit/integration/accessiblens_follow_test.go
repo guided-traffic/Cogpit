@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -41,8 +42,9 @@ func podMetrics(ns, name string) *unstructured.Unstructured {
 
 // connectLimited connects an engine to a fake API server that serves pods, deployments, events and
 // the Metrics API, enforcing access's rules, with team-a as the context's namespace. team-a holds
-// three pods and the Deployment web, team-b two pods; every pod is measured.
-func connectLimited(ctx context.Context, t *testing.T, access *testkit.FakeAccess) (*engine.Session, *testkit.FakeAPIServer) {
+// three pods and the Deployment web, team-b two pods; every pod is measured. accessible, when
+// given, are the cluster's accessible namespaces (Cluster Settings), set before connecting.
+func connectLimited(ctx context.Context, t *testing.T, access *testkit.FakeAccess, accessible ...string) (*engine.Session, *testkit.FakeAPIServer) {
 	t.Helper()
 	resources := append(append([]testkit.FakeResource(nil), testkit.DefaultFakeResources...),
 		testkit.FakeResource{GVR: testkit.EventsGVR, Kind: "Event", Namespaced: true},
@@ -64,6 +66,11 @@ func connectLimited(ctx context.Context, t *testing.T, access *testkit.FakeAcces
 	t.Cleanup(s.Close)
 	if err := commands.RegisterAll(s.Registry()); err != nil {
 		t.Fatal(err)
+	}
+	if len(accessible) > 0 {
+		if _, err := s.ChangeClusterSettings("fake", func(c *engine.ClusterSettings) error { c.AccessibleNamespaces = accessible; return nil }); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if err := s.Connect(ctx, "fake"); err != nil {
 		t.Fatal(err)
@@ -254,6 +261,66 @@ func TestBudgetNamespaceLimitedUser(t *testing.T) {
 		time.Sleep(idle)
 		if after := s.Backend().Conn.Counter().Snapshot().Total; after != total {
 			t.Errorf("idle cost %d requests: %v", after-total, srv.RequestsIn())
+		}
+	})
+
+	// D-39 (owner, 2026-10-14): a user who may list pods in team-a and team-b but their metrics in
+	// team-a only. team-b's refused list of pods.metrics.k8s.io affects team-b alone: its rows stay
+	// empty and metrics.get says forbidden for team-b, team-a's rows have their values, the Metrics
+	// Server's status stays available, and nothing looks for a Prometheus in its place (no read of
+	// services).
+	t.Run("pods in two namespaces, their metrics in one", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
+		defer cancel()
+		pods := testkit.FakeRule{Verbs: []string{"get", "list", "watch"}, APIGroups: []string{"", "apps"}, Resources: []string{"pods", "deployments", "events"}}
+		podMetricsRule := testkit.FakeRule{Verbs: []string{"get", "list"}, APIGroups: []string{"metrics.k8s.io"}, Resources: []string{"pods"}}
+		access := &testkit.FakeAccess{Enforce: true, Rules: map[string][]testkit.FakeRule{"team-a": {pods, podMetricsRule}, "team-b": {pods}}}
+		s, srv := connectLimited(ctx, t, access, "team-a", "team-b")
+		cpu := func(ts *engine.TableSnapshot) map[string]string {
+			ci := slices.IndexFunc(ts.Columns, func(c model.Column) bool { return c.ID == model.ColumnCPU })
+			out := map[string]string{}
+			for _, r := range ts.Rows {
+				if ci >= 0 && ci < len(r.Cells) {
+					out[r.Ref.Namespace+"/"+r.Ref.Name] = r.Cells[ci].Text
+				}
+			}
+			return out
+		}
+		var got map[string]string
+		if !testkit.WaitFor(ctx, func() bool {
+			ts := s.Table("pods")
+			if ts == nil || !ts.Synced || len(ts.Rows) != 5 {
+				return false
+			}
+			got = cpu(ts)
+			return got["team-a/web-0"] != "" && got["team-a/web-1"] != "" && got["team-a/web-2"] != "" &&
+				readsOf(srv, "pods.metrics.k8s.io")["list pods.metrics.k8s.io in team-b"] == 1
+		}) {
+			t.Fatalf("the Pods view never showed team-a's CPU after team-b's refusal: %v, reads %v", got, srv.RequestsIn())
+		}
+		if got["team-b/web-0"] != "" || got["team-b/web-1"] != "" {
+			t.Errorf("team-b's CPU %q %q, want empty", got["team-b/web-0"], got["team-b/web-1"])
+		}
+		inB, ok := agentDispatch(ctx, t, s, "metrics.get", map[string]any{"kind": "pods", "namespace": "team-b"}).(*engine.MetricsResult)
+		if !ok || inB.Status != "forbidden" || inB.Total != 0 || !strings.Contains(inB.Message, "team-b") {
+			t.Errorf("metrics.get in team-b: %+v", inB)
+		}
+		all, ok := agentDispatch(ctx, t, s, "metrics.get", map[string]any{"kind": "pods"}).(*engine.MetricsResult)
+		if !ok || all.Status != "available" || all.Total != 3 || !slices.Equal(all.Forbidden, []string{"team-b"}) {
+			t.Errorf("metrics.get of every pod: %+v", all)
+		}
+		for _, p := range all.Providers {
+			if p.Provider == "metrics-server" && (p.Status != "available" || p.LastError != "") {
+				t.Errorf("the Metrics Server's status %+v, want available without a failure", p)
+			}
+		}
+		reads := readsOf(srv, "pods.metrics.k8s.io")
+		t.Logf("pod metrics reads: %v", reads)
+		if want := map[string]int64{"list pods.metrics.k8s.io in team-a": 1, "list pods.metrics.k8s.io in team-b": 1}; !maps.Equal(reads, want) {
+			t.Errorf("pod metrics: reads %v, want %v (the refusal kept for the TTL, as an answer)", reads, want)
+		}
+		if svc := readsOf(srv, "services"); len(svc) != 0 {
+			t.Errorf("services read %v: something looked for a Prometheus in the Metrics Server's place", svc)
 		}
 	})
 

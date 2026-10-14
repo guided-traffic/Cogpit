@@ -722,8 +722,10 @@ func nodeTargets(hub *metrics.Hub, ref model.ObjectRef, obj *unstructured.Unstru
 // fetchPodLists reads every pod's metrics the way the Pods view reads the pods (D-39): one list in
 // all namespaces for a user who may list pods there, else one list per namespace the plan reads,
 // side by side (at most four at once), merged. The plan is waited for as an agent's read of pods
-// waits (settledPlan); without an answer the one list in all namespaces is asked, as before.
-func (b *Backend) fetchPodLists(ctx context.Context) metrics.Result {
+// waits (settledPlan); without an answer the one list in all namespaces is asked, as before. It
+// also returns the namespaces whose pods' metrics were refused (owner, 2026-10-14): their pods are
+// left out, the others' are there.
+func (b *Backend) fetchPodLists(ctx context.Context) (metrics.Result, []string) {
 	scopes := []metrics.Scope{{Kind: metrics.KindPods}}
 	if pp, ok := b.Profile(logKindPods); ok {
 		if plan := b.settledPlan(ctx, pp); !plan.pending {
@@ -732,7 +734,7 @@ func (b *Backend) fetchPodLists(ctx context.Context) metrics.Result {
 	}
 	if len(scopes) == 0 {
 		return metrics.Result{State: metrics.State{Status: metrics.StatusForbidden,
-			Message: "the current user may not list pods in all namespaces, and the namespaces Cogpit reads allow none"}}
+			Message: "the current user may not list pods in all namespaces, and the namespaces Cogpit reads allow none"}}, nil
 	}
 	results := make([]metrics.Result, len(scopes))
 	sem := make(chan struct{}, 4)
@@ -746,7 +748,13 @@ func (b *Backend) fetchPodLists(ctx context.Context) metrics.Result {
 		}()
 	}
 	wg.Wait()
-	return mergeResults(results)
+	var refused []string
+	for i, r := range results {
+		if r.State.Status == metrics.StatusForbidden && scopes[i].Namespace != "" {
+			refused = append(refused, scopes[i].Namespace)
+		}
+	}
+	return mergeResults(results), refused
 }
 
 // mergeResults joins the results of several lists: their pods sorted by namespace and name, the
@@ -798,6 +806,10 @@ type MetricsResult struct {
 	// Total counts the matching objects before Limit cut the list.
 	Total     int  `json:"total"`
 	Truncated bool `json:"truncated,omitempty"`
+	// Forbidden are the namespaces whose pods' metrics the user may not read, with the pods of all
+	// namespaces read one namespace at a time (D-39): their pods are left out, the other
+	// namespaces' are there, and Status is the others'.
+	Forbidden []string `json:"forbidden,omitempty"`
 	// Providers is what Cogpit knows of each of the cluster's providers (the drawer's status
 	// line): reached and answering or not, the last good answer, the last failure's class, what it
 	// serves now. Prometheus is looked for only when a drawer opens or the Metrics Server fails,
@@ -836,12 +848,14 @@ func (s *Session) MetricsGet(ctx context.Context, kind, namespace, name string, 
 		return &MetricsResult{Status: metrics.StatusNotServed, Message: "this cluster has no metrics provider"}, nil
 	}
 	var r metrics.Result
+	var refused []string
 	if scope.Kind == metrics.KindPods && namespace == "" {
-		r = b.fetchPodLists(ctx) // every pod the user may list: one list, or one per namespace (D-39)
+		r, refused = b.fetchPodLists(ctx) // every pod the user may list: one list, or one per namespace (D-39)
 	} else {
 		r = b.Metrics.Fetch(ctx, scope)
 	}
-	out := &MetricsResult{Status: r.State.Status, Source: r.State.Label, Message: r.State.Message, At: r.At, Providers: b.Metrics.Providers()}
+	out := &MetricsResult{Status: r.State.Status, Source: r.State.Label, Message: r.State.Message, At: r.At,
+		Providers: b.Metrics.Providers(), Forbidden: refused}
 	if r.State.Usable() {
 		out.Message = ""
 	}

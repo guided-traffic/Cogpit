@@ -82,8 +82,10 @@ func (h *Hub) pollObject(ctx context.Context, sc Scope) State {
 	runParallel(jobs...)
 
 	// The Metrics Server failed: Prometheus takes the live values over in this poll, from the
-	// object's last point on, unless this poll already asked it for them.
-	if p.live != nil && r.liveErr != nil && !errors.Is(r.liveErr, ErrNoData) && ctx.Err() == nil && p.hist != nil &&
+	// object's last point on, unless this poll already asked it for them. A refusal of the pod's
+	// namespace is not a failure of the Metrics Server: nothing stands in (namespaceRefusal).
+	_, refused := namespaceRefusal(sc, p.live, r.liveErr)
+	if p.live != nil && r.liveErr != nil && !errors.Is(r.liveErr, ErrNoData) && !refused && ctx.Err() == nil && p.hist != nil &&
 		(p.full == nil || !p.full.Want.Has(WantUsage)) && (p.inc == nil || !p.inc.Want.Has(WantUsage)) {
 		h.mu.Lock()
 		now := h.opts.Now()
@@ -268,8 +270,12 @@ func (h *Hub) applyObjectLocked(ctx context.Context, st *scopeState, sc Scope, p
 	// point leaves a gap.
 	gapAfter := 2*min(h.opts.ObjectInterval, DefaultObjectInterval) + p.step
 	fromLive := false // the current values are the live provider's measurement
+	refusal, refused := namespaceRefusal(sc, p.live, r.liveErr)
 	if p.live != nil {
-		if r.liveErr == nil || errors.Is(r.liveErr, ErrNoData) {
+		switch {
+		case refused:
+			// The pod's namespace is refused (D-39): no live values, the provider untouched.
+		case r.liveErr == nil || errors.Is(r.liveErr, ErrNoData):
 			h.okLocked(p.liveSlot)
 			served = true
 			if r.live != nil && hasObject(r.live, sc) {
@@ -277,7 +283,7 @@ func (h *Hub) applyObjectLocked(ctx context.Context, st *scopeState, sc Scope, p
 				h.addLiveLocked(ch, sc, r.live, gapAfter)
 				ch.liveLabel = liveLabel
 			}
-		} else {
+		default:
 			h.failLocked(ctx, p.liveSlot, sc, r.liveErr)
 			if r.fallbackQuery != nil && histOK(r.fallbackErr) {
 				ch.applyRange(r.fallback, WantUsage, r.fallbackQuery.From, farFuture)
@@ -307,6 +313,8 @@ func (h *Hub) applyObjectLocked(ctx context.Context, st *scopeState, sc Scope, p
 			id = p.histSlot.prov.ID()
 		}
 		state = State{Status: StatusAvailable, Provider: id, Label: ch.source()}
+	} else if refused {
+		state = refusal
 	} else {
 		state = h.worstLocked()
 	}
