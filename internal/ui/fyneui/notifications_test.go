@@ -14,7 +14,6 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
-	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // notesShell is a shell over a real session without a cluster, whose clock starts at fixedNow and
@@ -130,14 +129,14 @@ func TestNotificationBellAndPanel(t *testing.T) {
 	test.Tap(findAll[*widget.Button](last)[0])
 	q.until(t, "the closed toast read", func() bool { return sh.ui.Notifications.Unread == 0 })
 
-	// An agent reads what the engine said, the window's own text withheld.
+	// An agent reads what the engine said, and the window's own text filtered (A19; withheld before).
 	raw, _ := json.Marshal(struct{}{})
 	res, err := s.Dispatch(context.Background(), engine.Invocation{ID: "notifications.list", Params: raw, Origin: engine.OriginExternalAgent})
 	if err != nil {
 		t.Fatal(err)
 	}
 	agent := res.(engine.NotificationList)
-	if len(agent.Notifications) != 5 || agent.Notifications[2].Message != model.Withheld || agent.Notifications[3].Message != "Node n1: the eviction of pod web-0 waits" {
+	if len(agent.Notifications) != 5 || agent.Notifications[2].Message != "pods.delete: pods \"web-0\" is forbidden" || agent.Notifications[3].Message != "Node n1: the eviction of pod web-0 waits" {
 		t.Errorf("the agent reads %+v", agent.Notifications)
 	}
 
