@@ -444,12 +444,15 @@ of the [spike](spike-fyne.md).
 
 ### The minimum macOS
 
-D-4 and the parity pages aim at macOS 13 or later; the app does not hold to it yet (checked
-2026-10-14 with `vtool -show-build` on v0.4.0's app): its binary says `minos 26.0`, the macOS of
-the runner that built it, because the cgo build sets no deployment target, while its `Info.plist`
-says `LSMinimumSystemVersion` 10.11 (`fyne package`'s default). So it is likely not to start on a
-macOS older than 26 (not tried). Setting `MACOSX_DEPLOYMENT_TARGET` for the app's build, and
-`LSMinimumSystemVersion` to match, is open. Signing and notarization do not depend on it.
+macOS 13 or later, as D-4 and the parity pages aim (since 2026-10-14): 13.0 is Go 1.27's own
+minimum (its linker writes `minos 13.0`). The [`Makefile`](../../Makefile) sets
+`MACOSX_DEPLOYMENT_TARGET` and `-mmacosx-version-min` in `CGO_CFLAGS` and `CGO_LDFLAGS` on macOS
+(`MACOS_MIN`), and `make app` writes `LSMinimumSystemVersion` 13.0 into the bundle's `Info.plist`
+and fails when the binary says another `minos`. Before, the cgo build set no deployment target:
+v0.4.0's app says `minos 26.0`, the macOS of the runner that built it, and `LSMinimumSystemVersion`
+10.11 (`fyne package`'s default), so it is likely not to start on a macOS older than 26 (checked
+with `vtool -show-build`; not tried on an older macOS). Not tried on macOS 13 either: no such Mac
+or runner was at hand.
 
 ## Updates
 

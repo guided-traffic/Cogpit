@@ -12,6 +12,17 @@
 
 export GOTOOLCHAIN := auto
 
+# The oldest macOS Cogpit runs on: Go 1.27's own minimum (its linker writes minos 13.0). Without
+# it the cgo objects, and so the app, were built for the build machine's macOS (minos 26.0 on
+# GitHub's runners, so v0.4.0's app would not start before macOS 26); fyne package writes it into
+# the bundle's Info.plist too. CGO_CFLAGS and CGO_LDFLAGS are part of Go's build cache key.
+MACOS_MIN       := 13.0
+ifeq ($(shell uname -s),Darwin)
+export MACOSX_DEPLOYMENT_TARGET := $(MACOS_MIN)
+export CGO_CFLAGS  ?= -O2 -g -mmacosx-version-min=$(MACOS_MIN)
+export CGO_LDFLAGS ?= -O2 -g -mmacosx-version-min=$(MACOS_MIN)
+endif
+
 GO              ?= go
 BIN             := $(CURDIR)/bin
 CACHE           := $(CURDIR)/.cache
@@ -343,6 +354,8 @@ app: build $(FYNE) ## Package Cogpit for this OS with fyne package (macOS: bin/C
 	@# signature seals the bundle so codesign --verify passes. Then check what Finder needs.
 	@if [ "$(APP_OS)" = darwin ]; then \
 		plutil -replace LSApplicationCategoryType -string public.app-category.developer-tools $(BIN)/Cogpit.app/Contents/Info.plist && \
+		plutil -replace LSMinimumSystemVersion -string $(MACOS_MIN) $(BIN)/Cogpit.app/Contents/Info.plist && \
+		otool -l $(BIN)/Cogpit.app/Contents/MacOS/cogpit | grep -A3 LC_BUILD_VERSION | grep -q "minos $(MACOS_MIN)" && \
 		codesign --force --sign - $(BIN)/Cogpit.app && \
 		codesign --verify $(BIN)/Cogpit.app && \
 		test -x $(BIN)/Cogpit.app/Contents/MacOS/cogpit && \

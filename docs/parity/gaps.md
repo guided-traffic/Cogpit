@@ -1519,8 +1519,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ### G14. Packaging, signing and updates (macOS)
 - **Missing:** the universal macOS app bundle (Intel), the Homebrew
   cask, an SBOM and signed checksums, the signed update manifest, the update notice and the one-click update
-  ([D-4](../developer/decisions.md#d-4-packaging-and-updates)); the app's minimum macOS (its binary
-  says 26.0, the build runner's; [the minimum macOS](../developer/releasing.md#the-minimum-macos)).
+  ([D-4](../developer/decisions.md#d-4-packaging-and-updates)). The app's minimum macOS is 13.0
+  since 2026-10-14 (it said the build runner's 26.0 before; [the minimum macOS](../developer/releasing.md#the-minimum-macos)),
+  not tried on macOS 13.
 - **Built (2026-10-14, agent REL), not yet proven by a release:** the Developer ID signature
   (hardened runtime, no entitlements), the disk image `Cogpit-<v>-macos-arm64.dmg` and the
   notarization with the ticket stapled, `cogpit-cli` for macOS signed and notarized, in a job of
@@ -1676,6 +1677,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | G14: the app's minimum macOS set to 13.0 (Go 1.27's), in the binary and the Info.plist; v0.4.0's said 26.0 |
 | 2026-10-14 | minor | G14: the Developer ID signature, the disk image `Cogpit-<v>-macos-arm64.dmg` and the notarization built in the release pipeline, `cogpit-cli` for macOS signed and notarized (agent REL); no tag run yet, estimate not moved; the app's minimum macOS (26.0, the runner's) added to Missing |
 | 2026-10-14 | minor | G9: Create Secret's shown value copies through the clipboard for Secret values, concealed and cleared after 60 seconds (H-70 closed); estimate not moved |
 | 2026-10-14 | minor | G14: the Apple Developer ID certificate and the notarization API key exist (environment `release`); only the update signing key is left as a human prerequisite |
