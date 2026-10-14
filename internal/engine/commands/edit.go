@@ -207,7 +207,7 @@ func registerEdit(g *registrar) {
 		Run: func(ctx context.Context, s *engine.Session, p createParams) (any, error) {
 			res, err := s.CreateObjects(ctx, p.YAML, p.Namespace)
 			if err == nil && res.Failed == 0 && res.Created > 0 {
-				s.CreatedText(p.YAML) // a Create tab holding this text has nothing unsaved: its draft goes (drafts.go)
+				s.CreatedText(p.YAML)      // a Create tab holding this text has nothing unsaved: its draft goes (drafts.go)
 				revealCreated(ctx, s, res) // A102
 			}
 			return res, err
