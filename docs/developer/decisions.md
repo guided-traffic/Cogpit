@@ -164,7 +164,7 @@ window. Nothing of it was built in the round.
 | A94 | #59 | The default theme becomes Sync (follow macOS); built 2026-10-14 | [D-22](#d-22-colour-theme) |
 | A95 | #115 | The light theme's accent a darkened cyan #1F7F78; as built | [D-22](#d-22-colour-theme) |
 | A96 | #7, #13 | Single-target reads read the target's namespace; as built | [architecture §5](architecture.md#5-cache) |
-| A97 | #71 | Remove from Cogpit on a sync-folder context offers to unlink the whole folder, the confirmation naming every context it takes; to build | [D-28](#d-28-the-default-kubeconfig-as-sources-as-lens-has-it), [architecture §6](architecture.md#6-cluster-connections-internalcluster) |
+| A97 | #71 | Remove from Cogpit on a sync-folder context offers to unlink the whole folder, the confirmation naming every context it takes; built 2026-10-15 | [D-28](#d-28-the-default-kubeconfig-as-sources-as-lens-has-it), [architecture §6](architecture.md#6-cluster-connections-internalcluster) |
 | A98 | #124 | The Overviews wait for the access reviews like the dashboards, no refused cluster-wide read first; built 2026-10-14 | [architecture §5](architecture.md#5-cache) |
 | A99 | #19 | A combined PEM (certificate and key in one value) gets the key check too; built 2026-10-14 | [D-30](#d-30-certificates-in-secrets-decoded) |
 | A100 | #20 | An encrypted private key in the warning colour with "encrypted key: TLS/Ingress cannot use it"; built 2026-10-14 | [D-30](#d-30-certificates-in-secrets-decoded) |
@@ -1778,10 +1778,17 @@ click, but an approval that no longer binds the server: a changed server in `con
 **one dialog, per-context approvals (decided)**.
 
 **Decided (owner, 2026-10-14 evening, A97):** Remove from Cogpit on a context of a sync folder
-offers to unlink the whole folder, its confirmation naming every context that leaves with it. Not
-built yet: `cluster.remove` refuses such a context, the default `~/.kube` included, because
-unlinking would take every cluster of the folder
-([architecture §6](architecture.md#6-cluster-connections-internalcluster)).
+offers to unlink the whole folder, its confirmation naming every context that leaves with it.
+**Built 2026-10-15:** the default `~/.kube` included; the dialog reads "Remove <cluster> and its
+folder from Cogpit?", says the cluster comes from a synced folder and can only leave with it, names
+the folder's path, what stays on disk, and every context of the folder's files, and its button
+reads "Remove Folder" ([architecture §6](architecture.md#6-cluster-connections-internalcluster)).
+The lead's night decision for the owner to confirm: the removal is bound to the contexts the dialog
+named (`cluster.remove`'s `contexts`), and a folder whose contexts changed while the dialog was open
+is refused with the reason, so that nothing leaves Cogpit the user was not shown. Weighed against
+it: unlinking whatever the folder holds at the click (simpler, but a file synced in during the
+dialog would leave unseen), and asking again by itself with the new list (a dialog that changes
+under the user's pointer).
 
 ## D-29: Helm chart repositories from Helm's repositories.yaml
 

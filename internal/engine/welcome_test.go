@@ -148,8 +148,10 @@ func TestDisconnect(t *testing.T) {
 }
 
 // A context's link: an added file is removable, with every context the file defines; a file of the
-// default ~/.kube, of another synced folder and one $KUBECONFIG names are refused with the reason,
-// and so is the demo cluster. Removing unlinks the file only: it stays on disk unchanged.
+// default ~/.kube or of another synced folder is removable with its whole folder, every context of
+// the folder's files leaving with it (A97), and only against the list the confirmation named; a
+// file $KUBECONFIG names is refused with the reason, and so is the demo cluster. Removing unlinks
+// the file or folder only: the files stay on disk unchanged.
 func TestContextLinksAndRemove(t *testing.T) {
 	su := newSessionSetup(t)
 	added := filepath.Join(t.TempDir(), "team.yaml")
@@ -176,26 +178,29 @@ func TestContextLinksAndRemove(t *testing.T) {
 		got[l.Context] = l
 	}
 	for id, want := range map[string]string{
-		"main [.kube/config]":     "in the synced folder " + su.kube + " (Cogpit's default)",
+		"main [.kube/config]":     "folder " + su.kube,
 		"alpha [a.yaml]":          "named by $KUBECONFIG or --kubeconfig for this run",
-		"edge [synced/edge.yaml]": "in the synced folder " + folder + ":",
+		"edge [synced/edge.yaml]": "folder " + folder,
 		"team-a [team.yaml]":      "",
 		"team-b [team.yaml]":      "",
 		"beta [b.yaml]":           "named by $KUBECONFIG",
 	} {
 		l, ok := got[id]
+		folderOf, isFolder := strings.CutPrefix(want, "folder ")
 		switch {
 		case !ok:
 			t.Errorf("no link for %s in %+v", id, links)
-		case want == "" && (!l.Removable || l.Reason != "" || l.File != added || !slices.Equal(l.Contexts, []string{"team-a [team.yaml]", "team-b [team.yaml]"})):
+		case want == "" && (!l.Removable || l.Reason != "" || l.Folder != "" || l.File != added || !slices.Equal(l.Contexts, []string{"team-a [team.yaml]", "team-b [team.yaml]"})):
 			t.Errorf("%s: %+v, want removable with both contexts of %s", id, l, added)
-		case want != "" && (l.Removable || !strings.HasPrefix(l.Reason, want)):
+		case isFolder && (!l.Removable || l.Reason != "" || l.Folder != folderOf || !slices.Contains(l.Contexts, id)):
+			t.Errorf("%s: %+v, want removable with its folder %s", id, l, folderOf)
+		case want != "" && !isFolder && (l.Removable || !strings.HasPrefix(l.Reason, want)):
 			t.Errorf("%s: %+v, want refused: %q…", id, l, want)
 		}
-		if one, err := s.ContextLink(id); err != nil || one.Context != id || one.Removable != l.Removable {
+		if one, err := s.ContextLink(id); err != nil || one.Context != id || one.Removable != l.Removable || !slices.Equal(one.Contexts, l.Contexts) {
 			t.Errorf("ContextLink(%s) = %+v, %v", id, one, err)
 		}
-		if err := s.CheckRemoveContext(id); (err == nil) != (want == "") {
+		if err := s.CheckRemoveContext(id); (err == nil) != (want == "" || isFolder) {
 			t.Errorf("CheckRemoveContext(%s) = %v", id, err)
 		}
 	}
@@ -205,11 +210,11 @@ func TestContextLinksAndRemove(t *testing.T) {
 	if _, err := s.ContextLink("nowhere [x.yaml]"); err == nil {
 		t.Error("a context no source offers has a link")
 	}
-	if _, err := s.RemoveContext("main [.kube/config]"); err == nil {
-		t.Error("removed a context of the default folder")
+	if _, err := s.RemoveContext("alpha [a.yaml]", nil); err == nil {
+		t.Error("removed a context $KUBECONFIG names")
 	}
 
-	l, err := s.RemoveContext("team-b [team.yaml]")
+	l, err := s.RemoveContext("team-b [team.yaml]", nil)
 	if err != nil || l.Source.Path != added {
 		t.Fatalf("RemoveContext: %+v, %v", l, err)
 	}
@@ -218,6 +223,42 @@ func TestContextLinksAndRemove(t *testing.T) {
 		t.Errorf("contexts after the removal: %v", names)
 	}
 	sameTree(t, before, treeState(t, filepath.Dir(added)))
+
+	// A folder: only against the contexts the confirmation named. A file that joins the folder
+	// after the confirmation refuses the removal; asked again, it goes with the rest.
+	shown := got["edge [synced/edge.yaml]"].Contexts
+	if _, err := s.RemoveContext("edge [synced/edge.yaml]", nil); !errors.Is(err, ErrLinkChanged) {
+		t.Errorf("a folder removed without the confirmed list: %v", err)
+	}
+	writeUserFile(t, filepath.Join(folder, "late.yaml"), sourceKubeconfig("late"))
+	beforeFolder := treeState(t, filepath.Dir(folder))
+	if _, err := s.RemoveContext("edge [synced/edge.yaml]", shown); !errors.Is(err, ErrLinkChanged) || !strings.Contains(err.Error(), "late") {
+		t.Errorf("a folder removed although a context joined it: %v", err)
+	}
+	now, err := s.ContextLink("edge [synced/edge.yaml]")
+	if err != nil || !slices.Equal(now.Contexts, []string{"edge [synced/edge.yaml]", "late [synced/late.yaml]"}) {
+		t.Fatalf("the folder's link: %+v, %v", now, err)
+	}
+	if l, err := s.RemoveContext("edge [synced/edge.yaml]", []string{"late [synced/late.yaml]", "edge [synced/edge.yaml]"}); err != nil || l.Folder != folder {
+		t.Fatalf("RemoveContext of the folder: %+v, %v", l, err)
+	}
+	names = contextNames(t, k)
+	if slices.Contains(names, "edge [synced/edge.yaml]") || slices.Contains(names, "late [synced/late.yaml]") || !slices.Contains(names, "main [.kube/config]") {
+		t.Errorf("contexts after the folder's removal: %v", names)
+	}
+	sameTree(t, beforeFolder, treeState(t, filepath.Dir(folder)))
+
+	// The default ~/.kube goes the same way, its files untouched.
+	main, err := s.ContextLink("main [.kube/config]")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.RemoveContext("main [.kube/config]", main.Contexts); err != nil {
+		t.Fatalf("RemoveContext of the default folder: %v", err)
+	}
+	if names := contextNames(t, k); slices.Contains(names, "main [.kube/config]") {
+		t.Errorf("contexts after the default folder's removal: %v", names)
+	}
 	su.untouched(t)
 
 	bare := New(Options{})

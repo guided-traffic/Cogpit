@@ -2,6 +2,7 @@ package fyneui
 
 import (
 	"bytes"
+	"context"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -190,9 +191,10 @@ func sourcesWelcomeEngine(t *testing.T) (s *engine.Session, added string) {
 	return s, added
 }
 
-// Remove from Cogpit in a context's menu: greyed with the reason for a context of the default
-// ~/.kube; for an added file it asks first, naming the file's path and every context that leaves
-// with it, and only then unlinks the file, which stays on disk unchanged.
+// Remove from Cogpit in a context's menu: for an added file it asks first, naming the file's path
+// and every context that leaves with it, and only then unlinks the file, which stays on disk
+// unchanged; a context of the default ~/.kube offers it too, with its folder (A97:
+// TestRemoveFromCogpitUnlinksTheFolder).
 func TestRemoveFromCogpitAsksFirst(t *testing.T) {
 	s, added := sourcesWelcomeEngine(t)
 	before, err := os.ReadFile(added)
@@ -210,7 +212,7 @@ func TestRemoveFromCogpitAsksFirst(t *testing.T) {
 		}
 		return nil
 	}
-	if it := removeOf("kind-dev [.kube/config]"); it == nil || !it.Disabled || !strings.Contains(it.Label, "in the synced folder") {
+	if it := removeOf("kind-dev [.kube/config]"); it == nil || it.Disabled || it.Label != "Remove from Cogpit…" {
 		t.Fatalf("Remove of a ~/.kube context: %+v", it)
 	}
 	if it := removeOf(engine.DemoContext); it != nil {
@@ -258,6 +260,77 @@ func TestRemoveFromCogpitAsksFirst(t *testing.T) {
 	if after, err := os.ReadFile(added); err != nil || !bytes.Equal(after, before) {
 		t.Errorf("the kubeconfig file changed: %v", err)
 	}
+}
+
+// A97: Remove from Cogpit on a context of a synced folder (here the default ~/.kube) asks to
+// remove the whole folder, naming its path and every context of its files, and on "Remove Folder"
+// unlinks it: those contexts leave Cogpit, the added file's stay, and the folder's files are not
+// touched.
+func TestRemoveFromCogpitUnlinksTheFolder(t *testing.T) {
+	s, _ := sourcesWelcomeEngine(t)
+	link, err := s.ContextLink("kind-dev [.kube/config]")
+	if err != nil || link.Folder == "" {
+		t.Fatalf("the ~/.kube context's link: %+v, %v", link, err)
+	}
+	config := filepath.Join(link.Folder, "config")
+	before, err := os.ReadFile(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sh, win, q := newEngineShell(t, s, Options{})
+	links := sh.tabs.welcome.links
+	q.until(t, "the links", func() bool { return len(links.byCtx) == 6 })
+	sh.confirmRemoveCluster("kind-dev [.kube/config]")
+	q.until(t, "the confirmation", func() bool { return links.removing != nil })
+	texts := strings.Join(dialogTexts(win), " ")
+	for _, want := range []string{"Remove kind-dev and its folder from Cogpit?", "comes from a synced folder", link.Folder,
+		"Only Cogpit's link to the folder is removed", "define 3 contexts", "kind-dev, prod-eu-central, staging"} {
+		if !strings.Contains(texts, want) {
+			t.Errorf("the confirmation lacks %q: %s", want, texts)
+		}
+	}
+	confirm := findButton(win, "Remove Folder")
+	if confirm == nil {
+		t.Fatal("no Remove Folder button")
+	}
+	test.Tap(confirm)
+	q.until(t, "the folder unlinked", func() bool { c, _ := s.Contexts(); return len(c) == 3 })
+	ctxs, _ := s.Contexts()
+	for _, c := range ctxs {
+		if strings.HasSuffix(c.Name, "[.kube/config]") {
+			t.Errorf("%s still offered", c.Name)
+		}
+	}
+	if after, err := os.ReadFile(config); err != nil || !bytes.Equal(after, before) {
+		t.Errorf("the folder's kubeconfig changed: %v", err)
+	}
+}
+
+// The confirmation of a folder's removal, the PNGs of the pull request.
+func TestRenderRemoveFolderConfirmationDark(t *testing.T) {
+	renderRemoveFolderConfirmation(t, ThemeDark, "remove_folder_confirm_dark.png")
+}
+
+func TestRenderRemoveFolderConfirmationLight(t *testing.T) {
+	renderRemoveFolderConfirmation(t, ThemeLight, "remove_folder_confirm_light.png")
+}
+
+// renderRemoveFolderConfirmation draws it over the fake engine, whose paths are fixed (a session's
+// would name the test's temporary folder).
+func renderRemoveFolderConfirmation(t *testing.T, mode ThemeMode, name string) {
+	f, _ := kubeconfigFake(t, engine.ExecRequired)
+	ids := []string{"dev [.kube/.dev.kubeconfig]", "team [.kube/team.yaml]"}
+	f.handlers["cluster.links"] = func(context.Context, engine.Invocation) (any, error) {
+		return map[string]any{"links": []map[string]any{{"context": ids[1], "file": "/Users/me/.kube/team.yaml", "contexts": ids,
+			"removable": true, "folder": "/Users/me/.kube",
+			"source": map[string]any{"id": ".kube/", "kind": "folder", "default": true, "path": "/Users/me/.kube"}}}}, nil
+	}
+	sh, w, q := newTestShell(t, f, Options{Theme: mode})
+	links := sh.tabs.welcome.links
+	sh.confirmRemoveCluster(ids[1])
+	q.until(t, "the confirmation", func() bool { return links.removing != nil })
+	q.drain()
+	savePNG(t, w, name)
 }
 
 // The Help menu: Welcome, Documentation (Cogpit's README in the browser), and on Windows and Linux

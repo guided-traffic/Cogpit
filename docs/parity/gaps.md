@@ -1584,8 +1584,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   plain search fields, the terminal and the editor keeping their F-keys; the navigator's scope
   dropdown lists the hotbar's clusters and the connected one only, every other context through ⌘P
   (so no cap; the shown bank's, a night decision, D-51); the Local Kubeconfigs section's source
-  groups collapse, kept across restarts; Disconnect closes the cluster's tabs; not built: Remove from Cogpit on a synced folder's context offers to
-  unlink the whole folder after a confirmation naming every context it takes; one About entry, in
+  groups collapse, kept across restarts; Disconnect closes the cluster's tabs; Remove from Cogpit on a synced folder's context offers to
+  unlink the whole folder after a confirmation naming every context it takes (A97); one About entry, in
   the application menu (Cogpit › About Cogpit), Cogpit's own dialog, Help's going (built
   2026-10-14, above); built 2026-10-15: ⌘F and ⌘⇧T as
   main-menu items showing their keys, which stay window shortcuts (the editor keeps its ⌘F; View ›

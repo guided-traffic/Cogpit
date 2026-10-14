@@ -2132,14 +2132,18 @@ Connected without a connection); since 2026-10-14 the connect's end forgets the 
 and the dock's, and closes a connection that succeeded, the reason kept in `Connection.Error`
 ([`engine/connect_gone.go`](../../internal/engine/connect_gone.go), `settleGoneConnect`,
 `TestConnectEndsWhenItsContextLeftCogpit`; a failed connect of a context that stays keeps it,
-`TestFailedConnectOfAContextThatStaysKeepsIt`). Refused, with the reason in `Enabled`, for a context of a sync folder (the
-default `~/.kube` included: the link is the folder's, and unlinking it would take every cluster in
-it), of a file named for this run (it comes back at the next start) and for the demo cluster.
-Cogpit's rule, inferred, not the owner's decision (Lens's is not captured). The window asks first,
-naming the path and every context that leaves (`TestClusterRemove`). **Decided 2026-10-14 evening,
-not built** ([D-28](decisions.md#d-28-the-default-kubeconfig-as-sources-as-lens-has-it), A97): for a
-context of a sync folder, Remove from Cogpit offers to unlink the whole folder, its confirmation
-naming every context that leaves with it.
+`TestFailedConnectOfAContextThatStaysKeepsIt`). Refused, with the reason in `Enabled`, for a context of a file
+named for this run (it comes back at the next start) and for the demo cluster. Cogpit's rule,
+inferred, not the owner's decision (Lens's is not captured). The window asks first, naming the path
+and every context that leaves (`TestClusterRemove`). For a context of a sync folder, the default
+`~/.kube` included, the link is the folder's (`ContextLink.Folder`, its `Contexts` every context of
+the folder's readable files): Remove from Cogpit unlinks the whole folder, its confirmation naming
+every context that leaves with it (the owner's A97, decided 2026-10-14 evening, built 2026-10-15,
+[D-28](decisions.md#d-28-the-default-kubeconfig-as-sources-as-lens-has-it)). `cluster.remove` takes
+the contexts the confirmation named and refuses with `ErrLinkChanged` when they are no longer
+exactly the link's, always for a folder, whose files can change while the dialog is open
+(`RemoveContext` in [`contextlink.go`](../../internal/engine/contextlink.go),
+`TestContextLinksAndRemove`, `TestRemoveFromCogpitUnlinksTheFolder`).
 
 **Pasting is not a target** ([D-21](decisions.md#d-21-pasting-a-kubeconfig), owner, 2026-10-12): the
 paste command, dialog and owner-only store built earlier the same day were removed. A build that

@@ -110,7 +110,7 @@ func TestClusterRemove(t *testing.T) {
 	for _, l := range links.Links {
 		removable[l.Context] = l.Removable
 	}
-	want := map[string]bool{"main [.kube/config]": false, "from-env [env.yaml]": false, "team-a [team.yaml]": true, "team-b [team.yaml]": true}
+	want := map[string]bool{"main [.kube/config]": true, "from-env [env.yaml]": false, "team-a [team.yaml]": true, "team-b [team.yaml]": true}
 	if len(removable) != len(want) {
 		t.Errorf("links %+v", links.Links)
 	}
@@ -121,7 +121,7 @@ func TestClusterRemove(t *testing.T) {
 	}
 
 	for id, reason := range map[string]string{
-		"main [.kube/config]": "in the synced folder", "from-env [env.yaml]": "$KUBECONFIG", engine.DemoContext: "demo cluster",
+		"from-env [env.yaml]": "$KUBECONFIG", engine.DemoContext: "demo cluster",
 	} {
 		var dis *engine.DisabledError
 		err := dispatch(t, s, gui, "cluster.remove", map[string]string{"context": id}, nil)
@@ -132,6 +132,11 @@ func TestClusterRemove(t *testing.T) {
 		if err := dispatch(t, s, agent, "cluster.remove", map[string]string{"context": id}, nil); !errors.Is(err, engine.ErrGUIOnly) {
 			t.Errorf("remove %s from %s: %v, want ErrGUIOnly", id, agent, err)
 		}
+	}
+	// A synced folder's context (A97) goes with its folder, and only with the contexts the
+	// confirmation named.
+	if err := dispatch(t, s, gui, "cluster.remove", map[string]string{"context": "main [.kube/config]"}, nil); !errors.Is(err, engine.ErrLinkChanged) {
+		t.Errorf("a folder's context removed without the confirmed contexts: %v", err)
 	}
 	for _, origin := range []engine.Origin{agent, engine.OriginBuiltInAgent, engine.OriginCLI} {
 		if err := dispatch(t, s, origin, "cluster.remove", map[string]string{"context": "team-a [team.yaml]"}, nil); !errors.Is(err, engine.ErrGUIOnly) {

@@ -17,7 +17,8 @@ type clusterLinksParams struct {
 }
 
 type clusterRemoveParams struct {
-	Context string `json:"context" jsonschema:"context id as cluster_contexts lists it: <context> [<file>]"`
+	Context  string   `json:"context" jsonschema:"context id as cluster_contexts lists it: <context> [<file>]"`
+	Contexts []string `json:"contexts,omitempty" jsonschema:"the contexts the user's confirmation named as leaving Cogpit (cluster.links' contexts); required for a context of a synced folder, and the removal is refused when they are no longer exactly the link's"`
 }
 
 // LinksResult is cluster.links' result.
@@ -71,11 +72,12 @@ func registerClusterMenu(g *registrar) {
 	add(g, engine.Spec[clusterRemoveParams]{
 		ID: "cluster.remove", Label: "Remove from Cogpit", MenuPath: "File/Remove from Cogpit", Danger: engine.DangerUI,
 		GUIOnly: engine.ErrGUIOnly,
-		Description: "Removes a cluster from Cogpit by removing Cogpit's link to the kubeconfig file the user added for it: " +
-			"every context of that file is no longer offered and its tabs close, the login programs allowed for it are forgotten and a " +
-			"connection made from it is closed. The file stays on disk as it is; Cogpit never edits or deletes a " +
-			"kubeconfig. Refused, with the reason, for a context of a synced folder (the default ~/.kube too: its link is the " +
-			"folder's), of a file $KUBECONFIG names, and for the demo cluster. The GUI asks the user first, naming the path." +
+		Description: "Removes a cluster from Cogpit by removing Cogpit's link to the kubeconfig file the user added for it, or " +
+			"to the synced folder its file is in (the default ~/.kube too): every context of that file or folder is no longer offered " +
+			"and its tabs close, the login programs allowed for them are forgotten and a connection made from one is closed. The " +
+			"files stay on disk as they are; Cogpit never edits or deletes a kubeconfig. Refused, with the reason, for a context of " +
+			"a file $KUBECONFIG names and for the demo cluster. The GUI asks the user first, naming the path and every context " +
+			"that leaves; a folder's removal is bound to the contexts it named." +
 			guiOnly,
 		Enabled: func(s *engine.Session, p clusterRemoveParams) error {
 			if p.Context == "" {
@@ -87,7 +89,7 @@ func registerClusterMenu(g *registrar) {
 			if err := requireGUI(ctx); err != nil {
 				return nil, err
 			}
-			return s.RemoveContext(p.Context)
+			return s.RemoveContext(p.Context, p.Contexts)
 		},
 	})
 }

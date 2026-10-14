@@ -36,11 +36,13 @@ type contextLinkView struct {
 	Contexts  []string     `json:"contexts"`
 	Removable bool         `json:"removable"`
 	Reason    string       `json:"reason"`
+	Folder    string       `json:"folder"`
 }
 
 // clusterRemoveParams mirrors cluster.remove's and cluster.links' parameters.
 type clusterRemoveParams struct {
-	Context string `json:"context"`
+	Context  string   `json:"context"`
+	Contexts []string `json:"contexts,omitempty"`
 }
 
 // clusterLinks holds the clusters' links for the menus, read off the main goroutine (they read the
@@ -207,16 +209,22 @@ func (sh *shell) confirmRemoveCluster(contextID string) {
 			}
 			title, msg := removeClusterText(link, name)
 			width := sh.app.Settings().Theme().Size(sizePickerWidth)
-			d := dialog.NewCustomConfirm(title, "Remove", "Cancel", newParagraph(msg, theme.ColorNameForeground, width), func(ok bool) {
+			button, done := "Remove", "Removed "+name+" from Cogpit; "+kubeconfig.DisplayText(link.File, maxShownPath)+" stays on disk."
+			if link.Folder != "" {
+				button = "Remove Folder"
+				done = "Removed the folder " + kubeconfig.DisplayText(link.Folder, maxShownPath) + " from Cogpit; its files stay on disk."
+			}
+			d := dialog.NewCustomConfirm(title, button, "Cancel", newParagraph(msg, theme.ColorNameForeground, width), func(ok bool) {
 				links.removing = nil
 				if !ok {
 					return
 				}
-				sh.dispatch("cluster.remove", clusterRemoveParams{Context: contextID}, func(_ any, err error) {
+				// The removal is bound to the contexts the dialog named (A97): a folder that gained one since is refused.
+				sh.dispatch("cluster.remove", clusterRemoveParams{Context: contextID, Contexts: link.Contexts}, func(_ any, err error) {
 					if err != nil {
 						sh.showError(err)
 					} else {
-						sh.toast("info", "Removed "+name+" from Cogpit; "+kubeconfig.DisplayText(link.File, maxShownPath)+" stays on disk.")
+						sh.toast("info", done)
 					}
 					links.at = time.Time{}
 					links.refresh()
@@ -235,11 +243,19 @@ func (sh *shell) confirmRemoveCluster(contextID string) {
 func removeClusterText(link contextLinkView, name string) (title, msg string) {
 	_, msg = removeText(link.Source)
 	title = "Remove " + kubeconfig.DisplayText(name, maxShownArg) + " from Cogpit?"
-	if len(link.Contexts) > 1 {
-		names := make([]string, 0, len(link.Contexts))
-		for _, id := range link.Contexts {
-			names = append(names, kubeconfig.DisplayText(engine.ContextLabel(id), maxShownArg))
-		}
+	names := make([]string, 0, len(link.Contexts))
+	for _, id := range link.Contexts {
+		names = append(names, kubeconfig.DisplayText(engine.ContextLabel(id), maxShownArg))
+	}
+	switch {
+	case link.Folder != "":
+		// A97: a synced folder's context leaves with the whole folder, every context of it named.
+		title = "Remove " + kubeconfig.DisplayText(name, maxShownArg) + " and its folder from Cogpit?"
+		msg = kubeconfig.DisplayText(name, maxShownArg) + " comes from a synced folder, and Cogpit can only remove it with the " +
+			"whole folder.\n\n" + msg
+		msg += fmt.Sprintf("\n\nThe folder's files define %s, and all of them leave Cogpit: %s.", pluralOf(len(names), "context"),
+			strings.Join(names, ", "))
+	case len(names) > 1:
 		msg += fmt.Sprintf("\n\nThe file defines %d contexts, and all of them leave Cogpit: %s.", len(names), strings.Join(names, ", "))
 	}
 	return title, msg
