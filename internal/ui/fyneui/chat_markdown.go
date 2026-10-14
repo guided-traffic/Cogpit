@@ -1079,7 +1079,8 @@ type mdTableView struct {
 	lines   []*canvas.Rectangle
 	objs    []fyne.CanvasObject
 	laidW   float32
-	natural []float32
+	natural []float32 // each column's width with its cells on one line
+	words   []float32 // each column's longest word, which it keeps whole when the table can
 }
 
 func newMDTable(t *mdTable, fg fyne.ThemeColorName, onLink func(*url.URL)) *mdTableView {
@@ -1134,16 +1135,17 @@ func (v *mdTableView) relayout() {
 		ncols = len(v.cells[0])
 	}
 	if v.natural == nil {
-		v.natural = make([]float32, ncols)
-		th := v.Theme()
+		v.natural, v.words = make([]float32, ncols), make([]float32, ncols)
+		size := v.Theme().Size(theme.SizeNameText)
 		for _, row := range v.cells {
 			for c, f := range row {
-				pieces, _ := layoutFlow(f.runs, 0, th.Size(theme.SizeNameText), 0, f.bold, false, 0)
+				pieces, _ := layoutFlow(f.runs, 0, size, 0, f.bold, false, 0)
 				w := float32(0)
 				for _, p := range pieces {
 					w = max(w, p.x+p.w)
 				}
 				v.natural[c] = max(v.natural[c], w+2*pad+1)
+				v.words[c] = max(v.words[c], longestWord(f.runs, size, f.bold)+2*pad+1)
 			}
 		}
 	}
@@ -1151,7 +1153,7 @@ func (v *mdTableView) relayout() {
 	if v.width <= 0 {
 		avail = 1e6
 	}
-	v.cols = fairShare(v.natural, avail, 2*pad+24)
+	v.cols = keepWords(fairShare(v.natural, avail, 2*pad+24), v.words)
 	v.rowsH = v.rowsH[:0]
 	for _, row := range v.cells {
 		h := float32(0)
@@ -1202,6 +1204,51 @@ func fairShare(natural []float32, avail, least float32) []float32 {
 		}
 	}
 	return out
+}
+
+// keepWords widens the columns narrower than their longest word with the room of the columns that
+// have more than theirs, so that "CrashLoopBackOff" is not broken while a column of prose could wrap
+// one more line instead.
+func keepWords(cols, words []float32) []float32 {
+	for c := range cols {
+		need := words[c] - cols[c]
+		if need <= 0 {
+			continue
+		}
+		slack := float32(0)
+		for o := range cols {
+			if o != c {
+				slack += max(cols[o]-max(words[o], 0), 0)
+			}
+		}
+		take := min(need, slack)
+		if take <= 0 {
+			continue
+		}
+		for o := range cols {
+			if s := max(cols[o]-words[o], 0); o != c && s > 0 {
+				cols[o] -= take * s / slack
+			}
+		}
+		cols[c] += take
+	}
+	return cols
+}
+
+// longestWord is the widest word of runs, an inline code chip counting whole.
+func longestWord(runs []mdRun, size float32, bold bool) float32 {
+	w := float32(0)
+	for _, r := range runs {
+		if r.code {
+			w = max(w, fyne.MeasureText(r.text, size-1, fyne.TextStyle{Monospace: true, Bold: bold}).Width+2*chipPad)
+			continue
+		}
+		st := fyne.TextStyle{Bold: r.bold || bold, Italic: r.italic}
+		for _, word := range strings.Fields(r.text) {
+			w = max(w, fyne.MeasureText(word, size, st).Width)
+		}
+	}
+	return w
 }
 
 // MinSize implements fyne.CanvasObject.

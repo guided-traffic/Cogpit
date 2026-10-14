@@ -126,6 +126,16 @@ agents did. A few commands, such as creating a Secret, only you can run.
 
 ![An agent's Restart waiting for the user's answer, above the Audit Log](docs/images/agents.png)
 
+### 💬 An agent chat in the window
+
+Cogpit is getting an agent of its own: a chat column at the window's right edge (⌘I) that talks to
+a model you choose, LM Studio on your Mac, a LiteLLM proxy or Open WebUI. Ask about the pod you
+selected and it reads the object and its logs and answers in Markdown, tables included; each of its
+tool calls is a row you can open, a change waits for your OK as an MCP agent's does, and what a
+turn sent to the model is one click away. Escape or ⌘. stops it at any time.
+
+![The agent chat beside the Pods list: a question about a crash-looping pod, the agent's reads and its answer with a table](docs/images/agent_chat.png)
+
 ### 🌗 Dark or light
 
 Solarized dark or light, or following your Mac's appearance, switched live in Preferences; every

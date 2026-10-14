@@ -612,6 +612,10 @@ func TestFairShare(t *testing.T) {
 	if got := fairShare([]float32{50, 60}, 400, 30); got[0] != 50 || got[1] != 60 {
 		t.Errorf("columns that fit: %v", got)
 	}
+	// A column narrower than its longest word takes room from those with more than theirs.
+	if got := keepWords([]float32{100, 100, 100}, []float32{40, 130, 40}); got[1] != 130 || got[0] != 85 || got[2] != 85 {
+		t.Errorf("keepWords = %v", got)
+	}
 }
 
 // TestChatWidthByDraggingItsEdge: the column's left edge drags its width, kept in the preferences.

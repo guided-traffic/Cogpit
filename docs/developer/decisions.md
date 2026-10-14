@@ -883,8 +883,9 @@ built):
   scroll, and it is what the design direction shows.
 - **Tables in answers:** a grid of their own with thin borders, a bold header on the header
   surface, the columns as wide as their text up to a fair share of the width (narrow columns keep
-  theirs, the wide ones share the rest and wrap). Options: monospace text. Why: it reads like the
-  screenshot's tables and stays inside a 300-point column.
+  theirs, the wide ones share the rest and wrap), a column keeping its longest word whole
+  ("CrashLoopBackOff") where the others have room to give. Options: monospace text. Why: it reads
+  like the screenshot's tables and stays inside a 300-point column.
 - **What was sent:** "Sent 4 requests · 47.1 KiB · 12,840 tokens · to <host>" under each message, a
   lock for a private connection; a click opens the exact request body in a read-only dialog with
   Copy (at most 2,000 lines drawn). Options: a read-only dock tab. Why: a dock tab is UI state agents
