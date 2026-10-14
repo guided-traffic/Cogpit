@@ -1,0 +1,277 @@
+package agent
+
+import (
+	"context"
+	"errors"
+	"slices"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+)
+
+// conversation is one chat. Its fields are guarded by Agent.mu.
+//
+// items are what the window shows and history what the model is sent, both as the model saw them
+// (on a private connection, Secret values included). kept and keptHistory are their scrubbed
+// copies (H-82's filter, Session.ScrubSecretValues), index for index, made during the turn as each
+// piece is final, so that what reaches the disk never carries a Secret value (D-10, as D-19). nil
+// is a piece not yet scrubbed.
+type conversation struct {
+	info        engine.ChatConversationInfo
+	rev         uint64
+	items       []engine.ChatItem
+	kept        []*engine.ChatItem
+	history     []message
+	keptHistory []*message
+	payloads    map[int]string // the user item's index → the last request body of its turn (memory only)
+	keptTitle   string         // the title scrubbed ("" until its first turn scrubbed it)
+
+	turn       *turn
+	turnItems  int // len(items) when the running turn began: what is kept while it runs
+	turnHist   int
+	lastNotify time.Time
+	timer      bool // a throttled notification is pending
+}
+
+// turn is a running turn.
+type turn struct {
+	cancel context.CancelCauseFunc
+	done   chan struct{}
+}
+
+// bump records a change and returns the new revision.
+func (c *conversation) bump() uint64 {
+	c.rev++
+	return c.rev
+}
+
+// cloneItem copies an item with its pointers.
+func cloneItem(it engine.ChatItem) engine.ChatItem {
+	if it.Tool != nil {
+		t := *it.Tool
+		it.Tool = &t
+	}
+	if it.Sent != nil {
+		s := *it.Sent
+		it.Sent = &s
+	}
+	return it
+}
+
+// Conversations implements engine.ChatAgent: newest first.
+func (a *Agent) Conversations(kubeContext string) []engine.ChatConversationInfo {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	var out []engine.ChatConversationInfo
+	for _, c := range a.convs {
+		if c.info.Context == kubeContext {
+			out = append(out, c.info)
+		}
+	}
+	sortInfos(out)
+	return out
+}
+
+func sortInfos(infos []engine.ChatConversationInfo) {
+	sort.SliceStable(infos, func(i, j int) bool {
+		if !infos[i].Updated.Equal(infos[j].Updated) {
+			return infos[i].Updated.After(infos[j].Updated)
+		}
+		return infos[i].ID < infos[j].ID
+	})
+}
+
+// Conversation implements engine.ChatAgent.
+func (a *Agent) Conversation(id string) (engine.ChatConversation, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	c := a.convs[id]
+	if c == nil {
+		return engine.ChatConversation{}, false
+	}
+	out := engine.ChatConversation{ChatConversationInfo: c.info, Revision: c.rev, Items: make([]engine.ChatItem, len(c.items))}
+	for i, it := range c.items {
+		out.Items[i] = cloneItem(it)
+	}
+	return out, true
+}
+
+// NewConversation implements engine.ChatAgent.
+func (a *Agent) NewConversation(kubeContext, connectionID string) (engine.ChatConversation, error) {
+	if strings.TrimSpace(kubeContext) == "" {
+		return engine.ChatConversation{}, ErrNotConnected
+	}
+	a.mu.Lock()
+	if connectionID != "" && !slices.ContainsFunc(a.conns, func(x engine.ChatConnection) bool { return x.ID == connectionID }) {
+		a.mu.Unlock()
+		return engine.ChatConversation{}, ErrUnknownConn
+	}
+	if connectionID == "" {
+		if conn, ok := a.connectionLocked(""); ok {
+			connectionID = conn.ID
+		}
+	}
+	c := &conversation{info: engine.ChatConversationInfo{ID: newID(), Context: kubeContext, ConnectionID: connectionID,
+		Updated: a.opts.Now()}, payloads: map[int]string{}}
+	c.bump()
+	a.convs[c.info.ID] = c
+	a.pruneLocked(kubeContext)
+	out := engine.ChatConversation{ChatConversationInfo: c.info, Revision: c.rev}
+	a.mu.Unlock()
+	a.save()
+	a.s.NotifyChat("", 0)
+	return out, nil
+}
+
+// pruneLocked drops a context's oldest conversations beyond MaxConversations; running ones stay.
+func (a *Agent) pruneLocked(kubeContext string) {
+	var infos []engine.ChatConversationInfo
+	for _, c := range a.convs {
+		if c.info.Context == kubeContext {
+			infos = append(infos, c.info)
+		}
+	}
+	if len(infos) <= MaxConversations {
+		return
+	}
+	sortInfos(infos)
+	for _, info := range infos[MaxConversations:] {
+		if c := a.convs[info.ID]; c != nil && c.turn == nil {
+			delete(a.convs, info.ID)
+		}
+	}
+}
+
+// SetConversationConnection implements engine.ChatAgent.
+func (a *Agent) SetConversationConnection(id, connectionID string) error {
+	a.mu.Lock()
+	c := a.convs[id]
+	switch {
+	case c == nil:
+		a.mu.Unlock()
+		return ErrUnknownConv
+	case c.turn != nil:
+		a.mu.Unlock()
+		return ErrTurnRunning
+	case !slices.ContainsFunc(a.conns, func(x engine.ChatConnection) bool { return x.ID == connectionID }):
+		a.mu.Unlock()
+		return ErrUnknownConn
+	}
+	c.info.ConnectionID = connectionID
+	rev := c.bump()
+	a.mu.Unlock()
+	a.save()
+	a.s.NotifyChat(id, rev)
+	return nil
+}
+
+// DeleteConversation implements engine.ChatAgent: a running turn is stopped first.
+func (a *Agent) DeleteConversation(id string) error {
+	a.Stop(id)
+	a.mu.Lock()
+	if a.convs[id] == nil {
+		a.mu.Unlock()
+		return ErrUnknownConv
+	}
+	delete(a.convs, id)
+	a.mu.Unlock()
+	a.save()
+	a.s.NotifyChat("", 0)
+	return nil
+}
+
+// ClearConversations implements engine.ChatAgent: every conversation of the context, running
+// turns stopped first.
+func (a *Agent) ClearConversations(kubeContext string) error {
+	for _, info := range a.Conversations(kubeContext) {
+		a.Stop(info.ID)
+	}
+	a.mu.Lock()
+	for id, c := range a.convs {
+		if c.info.Context == kubeContext {
+			if c.turn != nil { // a turn started meanwhile
+				a.mu.Unlock()
+				return ErrTurnRunning
+			}
+			delete(a.convs, id)
+		}
+	}
+	a.mu.Unlock()
+	a.save()
+	a.s.NotifyChat("", 0)
+	return nil
+}
+
+// Stop implements engine.ChatAgent: it cancels the turn's context (the stream and a running tool
+// call, a pending confirmation included) and returns once the turn's goroutine has ended.
+func (a *Agent) Stop(id string) {
+	a.mu.Lock()
+	var t *turn
+	if c := a.convs[id]; c != nil {
+		t = c.turn
+	}
+	a.mu.Unlock()
+	if t == nil {
+		return
+	}
+	t.cancel(errStopped)
+	<-t.done
+}
+
+// SentPayload implements engine.ChatAgent: the last request body of the turn that item belongs to,
+// as sent. Kept in memory only; a restored conversation's earlier turns have none.
+func (a *Agent) SentPayload(id string, item int) (string, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	c := a.convs[id]
+	if c == nil || item < 0 || item >= len(c.items) {
+		return "", false
+	}
+	for i := item; i >= 0; i-- {
+		if c.items[i].Kind == engine.ChatItemUser {
+			p, ok := c.payloads[i]
+			return p, ok
+		}
+	}
+	return "", false
+}
+
+// errStopped is the cause of a turn the user stopped.
+var errStopped = errors.New("stopped by the user")
+
+// notify emits EventChat for c: at once when now, else at most every NotifyEvery (a timer sends
+// the latest revision when it is due). Called without a.mu.
+func (a *Agent) notify(c *conversation, now bool) {
+	a.mu.Lock()
+	id, rev := c.info.ID, c.rev
+	t := a.opts.Now()
+	wait := a.opts.NotifyEvery - t.Sub(c.lastNotify)
+	switch {
+	case now || wait <= 0:
+		c.lastNotify = t
+	case c.timer:
+		a.mu.Unlock()
+		return
+	default:
+		c.timer = true
+		a.mu.Unlock()
+		time.AfterFunc(wait, func() {
+			a.mu.Lock()
+			if !c.timer {
+				a.mu.Unlock()
+				return
+			}
+			c.timer = false
+			c.lastNotify = a.opts.Now()
+			id, rev := c.info.ID, c.rev
+			a.mu.Unlock()
+			a.s.NotifyChat(id, rev)
+		})
+		return
+	}
+	c.timer = false
+	a.mu.Unlock()
+	a.s.NotifyChat(id, rev)
+}

@@ -114,6 +114,7 @@ func run(previousCrash string) int {
 		fmt.Fprintln(os.Stderr, "cogpit:", err)
 		return 1
 	}
+	installChat(s, logger) // the built-in agent's chat (chat.go, D-10)
 	// The macOS app's updater, Sparkle 2 from the app bundle (D-4, internal/update): none for a
 	// build without the update key or outside an installed bundle, and the engine says why (Help ›
 	// Check for Updates…). It starts once the window's event loop runs.

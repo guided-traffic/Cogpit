@@ -344,6 +344,31 @@ linters:
               desc: "MCP tools dispatch engine commands only"
             - pkg: "k8s.io/client-go"
               desc: "MCP tools never talk to the API server"
+        l4-agent:
+          files:
+            - "**/internal/agent/**"
+            - "!$test"
+          deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/ui"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/mcp"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/update"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/app"
+              desc: "L4 packages do not import each other; Cogpit's directories come in from the binary"
+            - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
+              desc: "the built-in agent dispatches engine commands only"
+            - pkg: "github.com/guided-traffic/cogpit/internal/cache"
+              desc: "the built-in agent dispatches engine commands only"
+            - pkg: "github.com/guided-traffic/cogpit/internal/terminal"
+              desc: "the built-in agent dispatches engine commands only"
+            - pkg: "github.com/guided-traffic/cogpit/internal/kubectl"
+              desc: "the built-in agent dispatches engine commands only"
+            - pkg: "github.com/guided-traffic/cogpit/internal/demo"
+              desc: "the built-in agent dispatches engine commands only"
+            - pkg: "k8s.io/client-go"
+              desc: "the built-in agent never talks to the API server"
         l4-app:
           files:
             - "**/internal/app/**"

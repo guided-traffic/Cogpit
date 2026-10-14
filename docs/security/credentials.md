@@ -43,7 +43,7 @@ credential into its own files.
 | Secret | Lives in | Rule |
 |---|---|---|
 | MCP bearer token | `<user config dir>/Cogpit/mcp-token` (macOS: `~/Library/Application Support/Cogpit/mcp-token`), file 0600 in a 0700 directory, written atomically, never through a symlink, removed on exit ([`internal/mcp/token.go`](../../internal/mcp/token.go), `TestTokenFileLifecycle`, `TestStartRefusesSymlinks`) | 32 random bytes, new on every start; printed to the terminal that started Cogpit inside the HTTP `claude mcp add` command, never logged; an app whose bundle carries `cogpit-cli` prints and copies the stdio registration of that `cogpit-cli` instead, which names no token (since 2026-10-14, [D-2](../developer/decisions.md#d-2-agent-interface-scope), `TestMCPControlOffersTheBundledCLI`) (`TestTokenNeverLogged`) ([agents and MCP](agents-and-mcp.md)). Since 2026-10-13 the endpoint's URL is written beside it, `mcp-endpoint`, with the same rules (not a secret: a loopback URL), for the stdio bridge `cogpit-cli mcp`, which reads both and sends the token to that loopback URL only (`TestEndpointFileLifecycle`, `TestReadEndpointTakesOnlyWhatCogpitWrites`) |
-| LLM API key (built-in agent) | the operating system's keychain (macOS Keychain first) | never written to a file, never logged, sent only to the configured endpoint |
+| LLM API key (built-in agent) | the operating system's keychain: on macOS the login keychain, a generic password per connection, service `io.guided-traffic.cogpit.llm`, account the connection's id, label "Cogpit LLM connection", stored and read through the Security framework (`SecItemAdd`, `SecItemCopyMatching`, `SecItemUpdate`, `SecItemDelete`), never through the `security` command line, which would put the key on a command line every process can read ([`agent/keystore_darwin.go`](../../internal/agent/keystore_darwin.go), `TestMacKeyStoreRoundTrip` with `COGPIT_KEYCHAIN_TEST=1`, run locally 2026-10-14); on Windows and Linux none yet, so a key is refused (M11) | never written to a file: `llm-connections.json` holds whether a key is stored, never the key (`TestConnectionsKeepTheKeyInTheKeychain`); never logged; never in an error, a note or a request body (`TestTurnErrors`); sent only in the `Authorization` header to the configured endpoint, which no redirect can change ([D-10](../developer/decisions.md#d-10-built-in-agent)); deleted with its connection |
 | Update public key | compiled into the app | not secret; its private counterpart never touches a user's machine ([updates](updates.md)) |
 
 ## Where they live inside Cogpit
@@ -435,6 +435,24 @@ applies). What remains, per case:
   `exec-approvals.json` or read Helm's file itself
   ([agents and MCP › H-12](agents-and-mcp.md#h-12-every-local-process-of-the-user-can-read-the-token)).
 - **Without a configuration directory** the allowances last for the session (in memory).
+- **The built-in agent's files** (2026-10-14, [D-10](../developer/decisions.md#d-10-built-in-agent)):
+  `<user config dir>/Cogpit/llm-connections.json` (0600 in 0700: each connection's name, kind,
+  base URL, model, limits and private mark, and whether a key is in the keychain; a base URL with
+  a user or password is refused, so no credential lands there) and `chat-conversations.json`
+  (0600: the last 20 conversations per context, every text scrubbed of the cached Secrets' values
+  as D-19 keeps them out of drafts; the request bodies sent stay in memory). Both are written
+  through the engine's owner-only writer (atomic, symlinks refused).
+
+### H-95: An LLM API key over plain http
+
+Since 2026-10-14 (the built-in agent's engine side): a connection whose base URL is `http://` sends
+its API key in the clear to whoever is on the path, a LiteLLM or Open WebUI on the local network
+for example. Cogpit allows it (the lead's decision for the owner to confirm,
+[D-10](../developer/decisions.md#d-10-built-in-agent): refusing it would block such a set-up); the
+connection test's HTTP layer says "plain http (the API key travels unencrypted)". Live once the
+chat's settings can save such a connection, for every `http://` connection with a key to a host
+other than this computer; a local LM Studio without a key sends none. What would close it: refusing
+a key over `http://` to anything but a loopback address, or asking once per connection.
 
 ### H-33: Proxy passwords are plaintext in Cogpit's settings
 
@@ -442,7 +460,7 @@ A proxy's password (a cluster's in `cluster-settings.json`, the Helm downloads' 
 `preferences.json`) is kept as the user typed it, in a file
 protected by its permissions only (0600 in a 0700 directory), as kubeconfig files keep their tokens
 ([H-5](#h-5-kubeconfig-files-are-plaintext)). Cogpit does not move it into the operating system's
-keychain, where the LLM key is planned to live, and a backup of the configuration folder carries it.
+keychain, where the LLM key lives (since 2026-10-14), and a backup of the configuration folder carries it.
 The password reaches the proxy in clear when the proxy's URL is `http://` (Basic authentication on
 the CONNECT, as every HTTP client sends it); Cogpit does not warn about that.
 
