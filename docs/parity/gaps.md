@@ -1461,8 +1461,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   state: a bounded log of every toast, the engine's and the window's own
   ([`engine/notifications.go`](../../internal/engine/notifications.go), `notifications.list`,
   `notifications.markRead`, `notifications.clear`, `UIState.Notifications`), which agents read with
-  the window's own texts and a Helm action's error withheld (H-31; the toast that quotes the error is
-  marked window-only, `TestHelmErrorToastStaysInTheWindow`). Clicks on the new widgets never reach
+  the window's own texts and a Helm action's error filtered since 2026-10-14 (A19: the cached
+  Secrets' values replaced, the action's inline values removed; withheld before; H-31,
+  `TestHelmErrorToastReachesAgentsFiltered`); marking read and clearing the window's only (A18). Clicks on the new widgets never reach
   the drag area (`TestBarClicksReachTheButtons`). Inferred, Cogpit's defaults (not the owner's
   decision): the panel and its look, what counts as read, the badge's colour, 100 kept per session,
   Preferences… as the menu's only item, the arrows' place
