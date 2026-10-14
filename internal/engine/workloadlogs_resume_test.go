@@ -2,12 +2,15 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/model"
@@ -17,14 +20,15 @@ import (
 // serverLogs is a log streamer that behaves like the API server for resumption: each container
 // has a log of timestamped lines; a request gets the lines at or after SinceTime (which the API
 // carries in whole seconds), or the last TailLines, with their timestamps when asked; a follow
-// stream gets the lines added later, until the test drops it (the server ends it) or its context
-// ends.
+// stream gets the lines added later, until the test drops it (the server ends it), the pod goes,
+// or its context ends. A pod that went is refused, as the API server refuses it (NotFound).
 type serverLogs struct {
 	mu         sync.Mutex
 	reqs       []cluster.LogOptions
 	log        map[string][]stampedLine
 	open       map[string][]*serverStream // oldest first: a restarted container's old and new instance
 	dropAtOnce map[string]bool            // end every stream of the key after its first lines
+	gone       map[string]bool            // pods deleted at the server
 }
 
 type stampedLine struct {
@@ -39,7 +43,7 @@ type serverStream struct {
 }
 
 func newServerLogs() *serverLogs {
-	return &serverLogs{log: map[string][]stampedLine{}, open: map[string][]*serverStream{}, dropAtOnce: map[string]bool{}}
+	return &serverLogs{log: map[string][]stampedLine{}, open: map[string][]*serverStream{}, dropAtOnce: map[string]bool{}, gone: map[string]bool{}}
 }
 
 func (l stampedLine) format(timestamps bool) string {
@@ -54,6 +58,9 @@ func (f *serverLogs) StreamLogs(ctx context.Context, opts cluster.LogOptions) (i
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.reqs = append(f.reqs, opts)
+	if f.gone[opts.Pod] {
+		return nil, fmt.Errorf("logs of %s/%s: %w", opts.Namespace, opts.Pod, apierrors.NewNotFound(testkit.PodsGVR.GroupResource(), opts.Pod))
+	}
 	var initial []stampedLine
 	since := opts.SinceTime.Truncate(time.Second) // RFC 3339 on the wire
 	for _, l := range f.log[key] {
@@ -128,6 +135,22 @@ func (f *serverLogs) drop(key string) {
 	if open := f.open[key]; len(open) > 0 {
 		close(open[0].lines)
 		f.open[key] = open[1:]
+	}
+}
+
+// deletePod deletes a pod at the server: its streams end with its containers, and a request for
+// its logs is refused from now on.
+func (f *serverLogs) deletePod(pod string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.gone[pod] = true
+	for key, open := range f.open {
+		if strings.HasPrefix(key, pod+"/") {
+			for _, st := range open {
+				close(st.lines)
+			}
+			delete(f.open, key)
+		}
 	}
 }
 
@@ -294,10 +317,13 @@ func TestWorkloadLogsForgetEndedInstances(t *testing.T) {
 	}
 	waitUntil(t, "three streams", func() bool { return len(keys()) == 3 })
 
-	// web-1-b goes; the server ends its stream.
-	src.Delete(testkit.PodsGVR, "shop", "web-1-b")
+	// web-1-b goes. The server has it first: it ends the pod's stream and refuses its logs while
+	// the cache, a watch event behind, still shows the container running, so the stream resumes
+	// and is refused. Then the cache shows the pod gone.
 	waitUntil(t, "web-1-b's stream", func() bool { return f.opened("web-1-b/app") })
-	f.drop("web-1-b/app")
+	f.deletePod("web-1-b")
+	waitUntil(t, "a resumption refused", func() bool { return len(f.requestsFor("web-1-b/app")) >= 2 })
+	src.Delete(testkit.PodsGVR, "shop", "web-1-b")
 	waitUntil(t, "web-1-b forgotten", func() bool {
 		return !slices.ContainsFunc(keys(), func(k string) bool { return strings.Contains(k, "web-1-b") })
 	})
