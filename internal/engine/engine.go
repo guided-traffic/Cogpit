@@ -458,7 +458,7 @@ func (s *Session) Subscribe(fn func(Event)) (cancel func()) {
 // toast goes into the notification log first, and the event carries its id (notifications.go).
 func (s *Session) emit(ev Event) {
 	if ev.Type == EventToast && ev.Message != "" {
-		ev.Notification = s.recordToast(ev.Level, ev.Message, ev.WindowOnly)
+		ev.Notification = s.recordToast(ev.Level, ev.Message, ev.WindowOnly, ev.agentText)
 	}
 	s.subMu.Lock()
 	fns := make([]func(Event), 0, len(s.subs))

@@ -1546,11 +1546,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   palette's typed text as engine state; a cluster's colour from the eight swatches or a free colour
   picker; Sync with computer the default theme; a `cogpit://` link naming another cluster than the
   connected one asks once, naming the context ([D-47](../developer/decisions.md#d-47-deep-links-cogpit));
-  marking notifications read and clearing them the window's only, the window-only toasts reaching
-  agents as text through the Secret filter
-  ([H-32](../security/agents-and-mcp.md#h-32-an-agent-can-clear-the-users-notifications), H-31).
   Built 2026-10-14: agents may set a proxy, Preferences' and a cluster's, as a write the user always
-  confirms; an agent removing a bank that holds clusters waits for the user. Confirmed, now
+  confirms; an agent removing a bank that holds clusters waits for the user; marking notifications
+  read and clearing them the window's only, the window-only toasts reaching agents as text through
+  the Secret filter
+  ([H-32](../security/agents-and-mcp.md#h-32-an-agent-can-clear-the-users-notifications), H-31). Confirmed, now
   the owner's decisions: the session's leftovers below (a removed cluster's context forgotten, a
   file leaving a synced folder closing its tabs); every connect drilling into its cluster; closing
   a tab showing the nearest of its cluster; the "+" below the tiles; "New Bank…"; no onboarding
@@ -1847,14 +1847,14 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   a terminal tab's agent switch ends at the latest one hour after it was turned on, whatever the
   reads, the tab saying so
   ([H-83](../security/agents-and-mcp.md#h-83-an-allowed-terminal-tab-gives-agents-everything-it-shows-from-then-on));
-  agents' RBAC writes and Helm installs and upgrades always waiting for the user.
+  agents' RBAC writes and Helm installs and upgrades always waiting for the user; window-only
+  notifications reaching agents as text through that filter, inline Helm values removed, instead
+  of withheld; marking notifications read and clearing them the window's only.
 - **Decided (owner, 2026-10-14 evening; not built unless confirmed):** the MCP switch persisted and
   honoured by `cogpit-cli mcp`, which with MCP off refuses to serve, headless too, with a clear
   message to the agent; the switch gets its own D-entry when built
   ([H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge));
-  window-only notifications reach agents as text through that filter, inline Helm values removed,
-  instead of withheld; marking notifications read and clearing them the window's only; a chart's
-  README framed as text of the chart's author; `cluster.setPrometheus` by an agent as a write with
+  a chart's README framed as text of the chart's author; `cluster.setPrometheus` by an agent as a write with
   confirmation ([G7](#g7-resource-actions), [G11](#g11-helm), [G12](#g12-metrics-and-cluster-overview),
   [G13](#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)). Confirmed: values under
   naming keys (user, host, port, database, namespace) not replaced; GUI-only commands listed,

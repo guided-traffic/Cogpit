@@ -75,8 +75,8 @@ window. Nothing of it was built in the round.
 | A15 | #31, H-28 | The MCP off switch persisted and honoured by `cogpit-cli mcp`: off, the bridge refuses to serve, headless too, with a clear message to the agent; to build | [D-49](#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp), [D-23](#d-23-a-link-to-the-owner-in-the-status-bar), [H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge) |
 | A16 | #40, H-26 | `cluster.setPrometheus` by an agent a write with confirmation (mutating); the window as today; to build | [D-2](#d-2-agent-interface-scope), [H-26](../security/privilege-footprint.md#h-26-prometheus-is-found-by-name) |
 | A17 | #45, D-11 | Nothing offered after an interrupted Helm install; Cogpit shows the release's state; the user cleans up in the Helm Releases view; to build (the offer removed) | [D-11](#d-11-crash-stance) |
-| A18 | #81, H-32 | Marking notifications read and clearing them GUI-only; agents read the list; to build | [D-2](#d-2-agent-interface-scope), [H-32](../security/agents-and-mcp.md#h-32-an-agent-can-clear-the-users-notifications) |
-| A19 | #82, H-31 | Window-only notifications reach agents as text, through the H-82 filter and with inline Helm values removed, instead of withheld; to build | [D-2](#d-2-agent-interface-scope), [H-31](../security/privilege-footprint.md#h-31-an-agents-helm-values-can-copy-what-lookup-reads), [architecture §4.3](architecture.md#43-ui-state) |
+| A18 | #81, H-32 | Marking notifications read and clearing them GUI-only; agents read the list; built 2026-10-14 | [D-2](#d-2-agent-interface-scope), [H-32](../security/agents-and-mcp.md#h-32-an-agent-can-clear-the-users-notifications) |
+| A19 | #82, H-31 | Window-only notifications reach agents as text, through the H-82 filter and with inline Helm values removed, instead of withheld; built 2026-10-14 | [D-2](#d-2-agent-interface-scope), [H-31](../security/privilege-footprint.md#h-31-an-agents-helm-values-can-copy-what-lookup-reads), [architecture §4.3](architecture.md#43-ui-state) |
 | A20 | #87 | Agents may set a proxy, as a write with confirmation, the password redacted in the confirmation, the audit log and the results; clearing as today; built 2026-10-14 (always asks: a night decision) | [D-2](#d-2-agent-interface-scope), [architecture §4.3](architecture.md#43-ui-state) |
 | A21 | #89, H-33 | Proxy passwords stay in the 0600 settings files; as built | [H-33](../security/credentials.md#h-33-proxy-passwords-are-plaintext-in-cogpits-settings) |
 | A22 | #90, H-33 | No warning for an `http://` proxy with a password; as built | [H-33](../security/credentials.md#h-33-proxy-passwords-are-plaintext-in-cogpits-settings) |
@@ -267,14 +267,22 @@ code still does what the safety rules above and their notes say:
   stays as it is. Not built yet: it is a UI command every origin runs.
 - **Decided (owner, 2026-10-14 evening, A18,
   [H-32](../security/agents-and-mcp.md#h-32-an-agent-can-clear-the-users-notifications)):** marking
-  notifications read and clearing them is GUI-only; agents read the list. Not built yet:
-  `notifications.markRead` and `notifications.clear` are UI commands every origin runs.
+  notifications read and clearing them is GUI-only; agents read the list. Built 2026-10-14:
+  `notifications.markRead` and `notifications.clear` are GUI-only (`ErrNotificationsGUIOnly`,
+  `TestNotificationCommands`).
 - **Decided (owner, 2026-10-14 evening, A19,
   [H-31](../security/privilege-footprint.md#h-31-an-agents-helm-values-can-copy-what-lookup-reads)):**
   the notifications that stay in the window today (the window's own, and engine toasts emitted
   `WindowOnly`) reach agents as text, through the filter of the cached Secrets' values
   ([D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs)) and with inline Helm values
-  removed, instead of `model.Withheld`. Not built yet.
+  removed, instead of `model.Withheld`. Built 2026-10-14 (`Session.EmitWindowToast`,
+  `withoutInlineValues`, `TestWindowOnlyNotificationsReachAgents`,
+  `TestHelmErrorToastReachesAgentsFiltered`). The follow-up (6 of the round: accept the wider H-31,
+  or keep Helm's error toasts withheld) is the lead's night decision for the owner to confirm:
+  ★ built as decided, the residual H-31 names stays documented (options: keep Helm action errors
+  withheld as an exception to A19). Note: the Helm package already removes the release's
+  user-supplied values from its errors (`<value withheld>`); the removal of inline values is a
+  second line behind it.
 - **Decided (owner, 2026-10-14 evening, A20):** agents may set a proxy, as a write the user
   confirms, the password redacted in the confirmation, the audit log and the results; clearing
   stays as it is. Built 2026-10-14: an agent's proxy, in a cluster's settings and in the
@@ -2936,8 +2944,8 @@ Other text agents read, decided in the round of 2026-10-14 evening (owner):
   chart's README reaches agents framed as third-party text ("text of the chart's author, not
   instructions"). Not built yet: `object_get` on a chart returns the README unmarked.
 - **Decided (A19):** the notifications that stay in the window today reach agents as text, through
-  this filter and with inline Helm values removed ([D-2](#d-2-agent-interface-scope)). Not built
-  yet.
+  this filter and with inline Helm values removed ([D-2](#d-2-agent-interface-scope)). Built
+  2026-10-14.
 
 ## D-46: Chart icons from the hosts that serve them
 

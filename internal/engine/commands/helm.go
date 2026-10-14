@@ -271,7 +271,7 @@ func runRollback(ctx context.Context, s *engine.Session, p rollbackParams) (any,
 		Context: ref.Context, Namespace: ref.Namespace, Release: ref.Name, Action: engine.HelmRollback,
 		Revision: p.Revision, FromRevision: cur, Started: s.Now().UTC(), StartedBy: startedBy(ctx),
 	}
-	err = runHelmOp(s, op, fmt.Sprintf("Rolling back release %s to revision %d…", ref.Name, p.Revision), func() error {
+	err = runHelmOp(s, op, fmt.Sprintf("Rolling back release %s to revision %d…", ref.Name, p.Revision), "", func() error {
 		return w.RollbackRelease(ctx, ref.Namespace, ref.Name, helm.ReleaseStorage(obj), p.Revision, cur)
 	})
 	if err != nil {
@@ -290,7 +290,7 @@ func runUninstall(ctx context.Context, s *engine.Session, p refParams) (any, err
 		Context: ref.Context, Namespace: ref.Namespace, Release: ref.Name, Action: engine.HelmUninstall,
 		FromRevision: helm.ReleaseRevision(obj), Started: s.Now().UTC(), StartedBy: startedBy(ctx),
 	}
-	err = runHelmOp(s, op, fmt.Sprintf("Uninstalling release %s…", ref.Name), func() error {
+	err = runHelmOp(s, op, fmt.Sprintf("Uninstalling release %s…", ref.Name), "", func() error {
 		return w.UninstallRelease(ctx, ref.Namespace, ref.Name, helm.ReleaseStorage(obj))
 	})
 	if err != nil {
@@ -311,7 +311,9 @@ func movedErr(err error) error {
 	return err
 }
 
-func runHelmOp(s *engine.Session, op engine.PendingHelmOp, starting string, run func() error) error {
+// inline is the values text the action was given (an install's or upgrade's), removed from the
+// failure's text for callers outside the window (A19).
+func runHelmOp(s *engine.Session, op engine.PendingHelmOp, starting, inline string, run func() error) error {
 	ops := s.HelmOps()
 	if ops == nil {
 		return engine.ErrNoHelmJournal
@@ -330,11 +332,11 @@ func runHelmOp(s *engine.Session, op engine.PendingHelmOp, starting string, run 
 		userToast(s, engine.LevelError, "Cogpit could not record the end of the "+string(op.Action)+" of release "+op.Release+": "+err.Error())
 	}
 	if recorded == nil && opErr != nil {
-		windowToast(s, engine.LevelWarning, fmt.Sprintf("Release %s was not changed: %v", op.Release, opErr))
+		windowToast(s, engine.LevelWarning, fmt.Sprintf("Release %s was not changed: %v", op.Release, opErr), inline)
 		return opErr
 	}
 	if opErr != nil {
-		windowToast(s, engine.LevelWarning, fmt.Sprintf("The %s of release %s did not finish: %v", op.Action, op.Release, opErr))
+		windowToast(s, engine.LevelWarning, fmt.Sprintf("The %s of release %s did not finish: %v", op.Action, op.Release, opErr), inline)
 		return fmt.Errorf("%w; the release may be left pending: run it again to finish, or dismiss it in helm_pendingOperations", opErr)
 	}
 	return nil

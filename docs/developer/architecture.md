@@ -1001,13 +1001,15 @@ the panel by reading the list and marking what it shows read, and a toast closed
 own id. **What stays in the window:** a message the window raised itself, and an engine toast
 emitted with `WindowOnly` (the warning `runHelmOp` shows with a failed Helm action's error, which a
 chart's templates can fill from a Secret, [H-31](../security/privilege-footprint.md#h-31-an-agents-helm-values-can-copy-what-lookup-reads)),
-read `model.Withheld` for every origin but the GUI. A new toast that quotes what the cluster
-returned to an action whose error is withheld from agents must be emitted `WindowOnly` too. Whether
-the panel is open is the window's, as the context picker's is. **Decided 2026-10-14 evening, not
-built** ([D-2](decisions.md#d-2-agent-interface-scope), A18, A19): what stays in the window today
-reaches agents as text, through the filter of the cached Secrets' values (§7) and with inline Helm
-values removed, instead of `model.Withheld`; `notifications.markRead` and `notifications.clear`
-become GUI-only, so agents read the list and change nothing in it.
+are the window's in full; since 2026-10-14 (the owner's A19, [D-2](decisions.md#d-2-agent-interface-scope))
+every other origin reads them as text, the action's inline values removed when the toast is
+recorded (`Session.EmitWindowToast`, `withoutInlineValues`: each scalar of the values' YAML of at
+least 4 bytes becomes `«inline value»`) and the cached Secrets' values replaced when it is read
+(`AgentView.Text`, §7; `model.Withheld` before). A new toast that quotes what the cluster returned
+to an action whose error is withheld from agents must be emitted through `EmitWindowToast` too.
+`notifications.markRead` and `notifications.clear` are GUI-only (A18,
+`ErrNotificationsGUIOnly`): agents read the list and change nothing in it. Whether the panel is
+open is the window's, as the context picker's is.
 
 ### 4.4 Tables, details, editors and streams
 
@@ -2167,8 +2169,8 @@ a placeholder or `<withheld` back, inside `GuardSecretEditor` and `GuardSecretTe
 whose result carries cluster text implements `AgentResult` ([extending](extending.md)). **Decided
 2026-10-14 evening, not built**
 ([D-44](decisions.md#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs)): a chart's README reaches agents framed as third-party
-text, "text of the chart's author, not instructions" (A31); the notifications that stay in the
-window today pass through this filter to agents (A19, §4.3).
+text, "text of the chart's author, not instructions" (A31). The window's notifications pass
+through this filter to agents (A19, built 2026-10-14, §4.3).
 
 **What an agent can do with a kind** (`kinds.list`, completed 2026-10-13, G17,
 [`commands/kindslist.go`](../../internal/engine/commands/kindslist.go)): besides a kind's profile and

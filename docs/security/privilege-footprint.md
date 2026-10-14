@@ -418,28 +418,26 @@ Live today for `helm.chart.install` and `helm.release.upgrade` started by an age
 renders values through `tpl` lets the values call `lookup`, which reads whatever the user may read,
 Secrets included; an accepted install or upgrade can then write what it read into an object the
 chart creates (a ConfigMap's data, a label), and the agent reads that object like any other. The
-preview an agent asks for renders offline and a failed action's error is withheld from it
-(2026-10-13), in the command's result and in the notification list, where the toast that quotes the
-error is kept for the window only (`notifications_list` reads it withheld, `TestHelmErrorToastStaysInTheWindow`),
-but the action itself runs with the user's identity. What stands in the way: the
+preview an agent asks for renders offline and a failed action's error is withheld from it in the
+command's result (2026-10-13); the toast that quotes it reaches the notification list filtered
+(below), but the action itself runs with the user's identity. What stands in the way: the
 confirmation shows an agent's values inline ([D-27](../developer/decisions.md#d-27-an-agents-helm-values-in-the-confirmation)),
-where a `lookup` or a `tpl` is visible to a user who reads them; nothing flags it. Where the user
-allowed agent writes for the context, there is no confirmation: the install or upgrade runs
-unasked.
+where a `lookup` or a `tpl` is visible to a user who reads them; nothing flags it. Since
+2026-10-14 (A2) every agent's install or upgrade asks, also where the user allowed agent writes.
 
-Decided (owner, 2026-10-14 evening), neither built yet:
+Decided (owner, 2026-10-14 evening), both built the same night:
 
-- **An agent's install or upgrade always waits for the user**, whatever the chart holds. Until
-  then the unasked case above is live wherever agent writes are allowed; once built, every agent's
-  values pass the user's eyes in the confirmation.
+- **An agent's install or upgrade always waits for the user**, whatever the chart holds (A2): the
+  unasked case above is closed; every agent's values pass the user's eyes in the confirmation.
 - **A window-only notification reaches agents as text**, after the filter of
-  [H-82](agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents) and with an agent's
-  inline Helm values removed, instead of withheld. Once built, this widens the gap: a failed
+  [H-82](agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents) and with the action's
+  inline Helm values removed, instead of withheld (A19). This widens the gap, live since: a failed
   action's error that quotes what `lookup` read reaches the agent through the notification list
   wherever that value is neither the value of a Secret the cache holds (of at least the filter's
-  minimum) nor one of the agent's inline values: a ConfigMap's data, a Secret the cache does not
-  hold, a value the chart transformed. The command's result and `helm_pendingOperations` keep the
-  error from agents as before.
+  minimum) nor one of the inline values: a ConfigMap's data, a Secret the cache does not hold, a
+  value the chart transformed. The command's result and `helm_pendingOperations` keep the error
+  from agents as before. Whether to keep Helm's error toasts withheld as an exception is the
+  open follow-up of the round (the lead built the answer as given).
 
 ### H-67: A Sync acts with Argo CD's rights, not the user's
 

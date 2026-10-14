@@ -70,4 +70,6 @@ type Event struct {
 	WindowOnly bool `json:"windowOnly,omitempty"`
 	// Notification is a toast's id in the notification log, set by the engine.
 	Notification uint64 `json:"notification,omitempty"`
+	// agentText is a WindowOnly toast's text for callers outside the window (EmitWindowToast).
+	agentText string
 }

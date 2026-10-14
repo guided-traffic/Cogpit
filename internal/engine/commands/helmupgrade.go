@@ -407,7 +407,7 @@ func runUpgrade(ctx context.Context, s *engine.Session, p upgradeParams) (any, e
 		starting = fmt.Sprintf("Upgrading release %s to %s %s from %s…", ref.Name, target.chart, target.to, target.repository)
 	}
 	var revision int
-	err = runHelmOp(s, op, starting, func() (err error) {
+	err = runHelmOp(s, op, starting, text, func() (err error) {
 		defer func() {
 			if r := recover(); r != nil { // scrubbed here: helmSafely would quote the panic as it is
 				err = helm.Scrubbed(fmt.Errorf("internal error: %v", r), vals)

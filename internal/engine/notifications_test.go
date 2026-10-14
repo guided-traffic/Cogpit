@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -132,9 +133,10 @@ func TestClearNotifications(t *testing.T) {
 	}
 }
 
-// What stays in the window: the window's own toasts and an engine toast marked WindowOnly read
-// model.Withheld for every caller but the window; the others read in full.
-func TestWindowOnlyNotificationsAreWithheld(t *testing.T) {
+// The window's own toasts and an engine toast marked WindowOnly reach every caller but the window
+// as text since A19 (owner, 2026-10-14 evening), filtered (no Secret is cached here, so the text is
+// the window's); the others read in full. An EmitWindowToast's inline values are removed for them.
+func TestWindowOnlyNotificationsReachAgents(t *testing.T) {
 	s, events := notificationSession(t)
 	id := s.RecordWindowToast(LevelError, "helm.chart.install: template: name LOOKED-UP-SECRET-DATA is not valid")
 	s.Emit(Event{Type: EventToast, Level: LevelWarning, Message: "Release web was not changed: LOOKED-UP-SECRET-DATA", WindowOnly: true})
@@ -157,15 +159,40 @@ func TestWindowOnlyNotificationsAreWithheld(t *testing.T) {
 			t.Errorf("the agent's %+v differs from the window's %+v beyond the text", n, w)
 		}
 		switch {
-		case w.WindowOnly && n.Message != model.Withheld:
-			t.Errorf("an agent reads a window-only text: %q", n.Message)
-		case !w.WindowOnly && n.Message != w.Message:
+		case n.Message == model.Withheld:
+			t.Errorf("an agent reads %q withheld", w.Message)
+		case n.Message != w.Message:
 			t.Errorf("an agent reads %q for %q", n.Message, w.Message)
 		}
 	}
 	if window.Notifications[2].Message != "helm.chart.install: template: name LOOKED-UP-SECRET-DATA is not valid" ||
 		!window.Notifications[2].WindowOnly || !window.Notifications[1].WindowOnly || window.Notifications[0].WindowOnly {
 		t.Errorf("the window's view: %+v", window.Notifications)
+	}
+
+	s.EmitWindowToast(LevelWarning, "upgrade failed: value adminPassword hunter2-long at x; replicas 3", "adminPassword: hunter2-long\nreplicas: 3\n")
+	agent, window = s.Notifications(false), s.Notifications(true)
+	if got := agent.Notifications[0].Message; got != "upgrade failed: value adminPassword «inline value» at x; replicas 3" {
+		t.Errorf("the agent reads %q", got) // "3" is shorter than minInlineValue: kept
+	}
+	if got := window.Notifications[0].Message; !strings.Contains(got, "hunter2-long") {
+		t.Errorf("the window reads %q", got)
+	}
+}
+
+// withoutInlineValues removes the scalars of the inline values, longest first, and takes text that
+// is no YAML line by line.
+func TestWithoutInlineValues(t *testing.T) {
+	for _, c := range []struct{ msg, inline, want string }{
+		{"no values", "", "no values"},
+		{"a secretvalue and secretvalue2", "a: secretvalue\nb: secretvalue2\n", "a «inline value» and «inline value»"},
+		{"nested deep-value-x, list item-one", "x:\n  y: deep-value-x\nl: [item-one]\n", "nested «inline value», list «inline value»"},
+		{"short abc kept", "k: abc\n", "short abc kept"},
+		{"broken [yaml-value", "k: [yaml-value\n", "broken «inline value»"},
+	} {
+		if got := withoutInlineValues(c.msg, c.inline); got != c.want {
+			t.Errorf("withoutInlineValues(%q, %q) = %q, want %q", c.msg, c.inline, got, c.want)
+		}
 	}
 }
 
