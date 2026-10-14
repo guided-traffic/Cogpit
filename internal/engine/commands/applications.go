@@ -2,87 +2,102 @@ package commands
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"slices"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
-	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
-// Logs of an application: its label (Lens's) and the most tabs it opens.
-const (
-	applicationLogsLabel  = "Logs"
-	maxApplicationLogTabs = 8
-)
+// Logs of an application in one merged tab (A81, the owner's decision of 2026-10-14 evening): every
+// workload an application deploys, each line starting with "<workload>/<pod>/<container>", a
+// filter per source (the tab's workload, pod and container selectors). Lens's documentation (read
+// 2026-10-13) lists Logs as the Applications view's one action, "Displays the application log"; its
+// form is not captured. The same tab serves the GitOps objects that name the workloads they deploy
+// (the lead's decision for the owner to confirm, A81): an Argo CD Application (its
+// status.resources) and a Flux Kustomization (its status.inventory). engine/grouplogs.go streams
+// them.
 
-// ApplicationLogsResult is what application.logs did: a logs tab per workload, and the workloads
-// it left out (a Cron Job, whose Jobs have their own logs, or one past the bound).
-type ApplicationLogsResult struct {
-	Tabs    []DockResult      `json:"tabs"`
-	Skipped []model.ObjectRef `json:"skipped,omitempty"`
-}
+// applicationLogsLabel is Logs of an application (Lens's label).
+const applicationLogsLabel = "Logs"
 
-// errNoLoggableWorkload refuses Logs on an application without a workload workload.logs serves.
-var errNoLoggableWorkload = fmt.Errorf("%w: the application has no workload whose logs a tab shows (%v)", engine.ErrNotApplicable, engine.WorkloadLogKinds)
+// fluxKustomizationsKey is the Kustomizations' kind key.
+const fluxKustomizationsKey = "kustomizations.kustomize.toolkit.fluxcd.io"
+
+// groupLogVerbs are what a group's logs cost besides a workload's: the group's kind read through
+// the cache (list and watch), and its workloads' kinds to find their pods.
+var groupLogVerbs = append([]engine.Verb{{Verb: nwVerbList, Resource: "*"}, {Verb: nwVerbWatch, Resource: "*"}}, workloadLogVerbs...)
 
 func registerApplications(g *registrar) {
-	// Lens's documentation (read 2026-10-13) lists Logs as the application's one action: "Displays
-	// the application log". Lens's own form is not captured; Cogpit opens workload.logs' tab for each
-	// of the application's workloads.
-	add(g, engine.Spec[refParams]{
-		ID: "application.logs", Label: applicationLogsLabel, MenuPath: "Application/Logs", Kinds: []string{kinds.ApplicationsKey}, Order: 300,
-		Danger: engine.DangerRead, Verbs: workloadLogVerbs,
-		Description: "Opens the logs of an application (applications view): a workload_logs dock tab for each of its " +
-			"Deployments, Stateful Sets, Daemon Sets and Jobs, at most 8, each following every container of the " +
-			"workload's pods. A Cron Job is left out. Activates tabs already open. Returns the tabs and the workloads " +
-			"left out.",
+	add(g, groupLogsSpec("application.logs", "Application/Logs", kinds.ApplicationsKey,
+		"Opens the logs of an application (applications view) in one dock tab: every container of every pod of its "+
+			"Deployments, Stateful Sets, Daemon Sets and Jobs, merged, each line starting with <workload>/<pod>/<container>, "+
+			"and follows them: pods, restarted containers and workloads that join the application join the tab. A Cron Job "+
+			"is left out (its Jobs have their own logs). The tab narrows to one workload, pod and container (logs_setSource; "+
+			"logs_sources lists them). It starts with up to 1,000 lines of history shared by the workloads' containers and "+
+			"streams about 40 containers at once, at most 20 workloads. Activates the tab already open on the application. "+
+			"Returns the tab.",
+		nil))
+	add(g, groupLogsSpec("argocd.logs", "Argo CD/Logs", kinds.ArgoApplicationsKey,
+		"Opens the logs of an Argo CD Application in one dock tab, as application_logs does for an application of the "+
+			"applications view: every container of the workloads its status.resources lists (Deployments, Stateful Sets, "+
+			"Daemon Sets, Replica Sets, Jobs, in their namespaces), merged, each line starting with "+
+			"<workload>/<pod>/<container>; workloads that the application gains or loses join or leave the tab. Greyed "+
+			"for an Application that deploys to another cluster. Returns the tab.",
+		func(app *unstructured.Unstructured) error {
+			if elsewhere := kinds.ArgoAppElsewhere(app); elsewhere != "" {
+				return fmt.Errorf("%s deploys to another cluster (%s), whose logs Cogpit does not read through this one",
+					app.GetName(), elsewhere)
+			}
+			return nil
+		}))
+	add(g, groupLogsSpec("flux.logs", "Flux/Logs", fluxKustomizationsKey,
+		"Opens the logs of a Flux Kustomization in one dock tab, as application_logs does for an application of the "+
+			"applications view: every container of the workloads its status.inventory lists (Deployments, Stateful Sets, "+
+			"Daemon Sets, Replica Sets, Jobs, in their namespaces), merged, each line starting with "+
+			"<workload>/<pod>/<container>; workloads it applies or prunes later join or leave the tab. Returns the tab.",
+		nil))
+}
+
+// groupLogsSpec is Logs of a group kind: greyed, with why, when the group names no workload whose
+// logs a tab shows (or check says why not); a dock tab merging every one of them.
+func groupLogsSpec(id, menuPath, kind, desc string, check func(*unstructured.Unstructured) error) engine.Spec[refParams] {
+	// Lens's documented orders put Logs after the kind's other actions (workload.logs: 300).
+	return engine.Spec[refParams]{
+		ID: id, Label: applicationLogsLabel, MenuPath: menuPath, Kinds: []string{kind}, Order: 300,
+		Danger: engine.DangerRead, Verbs: groupLogVerbs, Description: desc,
 		Enabled: func(s *engine.Session, p refParams) error {
-			if p.Ref.Kind != kinds.ApplicationsKey {
-				return fmt.Errorf("%w: Logs of an application need an applications reference", engine.ErrNotApplicable)
+			if p.Ref.Kind != kind {
+				return fmt.Errorf("%w: %s takes a %s reference", engine.ErrNotApplicable, id, kind)
 			}
 			if _, err := streamable(s, "logs"); err != nil {
 				return err
 			}
-			app, err := s.Lookup(p.Ref)
+			ref, _, err := s.ResolveRef(p.Ref)
 			if err != nil {
 				return err
 			}
-			if !slices.ContainsFunc(kinds.ApplicationWorkloads(app), loggable) {
-				return errNoLoggableWorkload
+			obj, err := s.Lookup(ref)
+			if err != nil {
+				return err
+			}
+			if check != nil {
+				if err := check(obj); err != nil {
+					return err
+				}
+			}
+			if len(engine.LogGroupWorkloads(ref, obj)) == 0 {
+				return fmt.Errorf("%w: %s names no workload whose logs a tab shows (%v)", engine.ErrNotApplicable, obj.GetName(), engine.WorkloadLogKinds)
 			}
 			return nil
 		},
 		Run: func(ctx context.Context, s *engine.Session, p refParams) (any, error) {
-			app, err := s.Object(ctx, p.Ref)
+			tab, created, err := s.OpenGroupLogsTab(ctx, p.Ref)
 			if err != nil {
 				return nil, err
 			}
-			res := ApplicationLogsResult{Tabs: []DockResult{}}
-			var errs []error
-			for _, w := range kinds.ApplicationWorkloads(app) {
-				if !loggable(w) || len(res.Tabs) == maxApplicationLogTabs {
-					res.Skipped = append(res.Skipped, w)
-					continue
-				}
-				tab, created, err := s.OpenWorkloadLogsTab(ctx, w)
-				if err != nil {
-					errs = append(errs, fmt.Errorf("%s %s: %w", w.Kind, w.Name, err))
-					continue
-				}
-				res.Tabs = append(res.Tabs, DockResult{Tab: tab, Created: created})
-			}
-			if len(res.Tabs) == 0 {
-				if len(errs) == 0 {
-					return nil, errNoLoggableWorkload
-				}
-				return nil, errors.Join(errs...)
-			}
-			return res, nil
+			return DockResult{Tab: tab, Created: created}, nil
 		},
-	})
+	}
 }
-
-// loggable reports whether workload.logs serves a workload's kind.
-func loggable(w model.ObjectRef) bool { return slices.Contains(engine.WorkloadLogKinds, w.Kind) }

@@ -44,6 +44,9 @@ type LogOptions struct {
 	// Pod narrows a controlling resource's tab to one of its pods; empty: every pod. (The
 	// container a tab shows, or narrows to, is DockTab.Container.)
 	Pod string `json:"pod,omitempty"`
+	// Workload narrows a group's tab (an application's, grouplogs.go) to the workload of that
+	// name; empty: every workload.
+	Workload string `json:"workload,omitempty"`
 	// LoadOlder counts the requests for older lines (logs.loadOlder): the GUI loads the lines
 	// before the oldest it holds once per request (logsolder.go).
 	LoadOlder int `json:"loadOlder,omitempty"`
@@ -90,6 +93,9 @@ type logStreamer interface {
 // openLogs opens a logs tab's stream with streamer: one container's log for a pod's tab, the
 // merged logs of its pods for a controlling resource's tab.
 func (s *Session) openLogs(ctx context.Context, tab DockTab, b *Backend, streamer logStreamer) (io.ReadCloser, error) {
+	if IsLogGroup(tab.Ref.Kind) { // an application's workloads (grouplogs.go)
+		return s.openGroupLogs(ctx, tab, b, streamer)
+	}
 	if tab.Ref.Kind != logKindPods {
 		return s.openWorkloadLogs(ctx, tab, b, streamer)
 	}
@@ -153,6 +159,44 @@ func (s *Session) OpenWorkloadLogsTab(ctx context.Context, ref model.ObjectRef) 
 	}
 	if _, err := s.Object(ctx, ref); err != nil {
 		return DockTab{}, false, err
+	}
+	tab := DockTab{
+		ID: s.NewDockID(DockLogs), Type: DockLogs, Title: "Logs: " + p.Kind + " " + ref.Name,
+		Context: ref.Context, Ref: &ref, Logs: LogOptions{ResourceNames: true},
+	}
+	created := true
+	s.UpdateUI(func(u *UIState) {
+		for _, t := range u.Dock {
+			if t.Type == DockLogs && t.Ref != nil && t.Ref.Same(ref) && t.Context == ref.Context {
+				tab, created = t, false
+				break
+			}
+		}
+		if created {
+			u.Dock = append(u.Dock, tab)
+		}
+		u.ActiveDock = tab.ID
+	})
+	return tab, created, nil
+}
+
+// OpenGroupLogsTab opens a logs tab on every workload a group deploys (A81: an application's,
+// grouplogs.go), each line starting with "<workload>/<pod>/<container>", the names shown, or
+// activates the one already open on it. It returns the tab and whether it is new.
+func (s *Session) OpenGroupLogsTab(ctx context.Context, ref model.ObjectRef) (DockTab, bool, error) {
+	ref, p, err := s.ResolveRef(ref)
+	if err != nil {
+		return DockTab{}, false, err
+	}
+	if !IsLogGroup(ref.Kind) {
+		return DockTab{}, false, fmt.Errorf("%w: %s groups no workloads whose logs a tab shows", ErrNotApplicable, ref.Kind)
+	}
+	workloads, err := s.groupWorkloads(ctx, ref)
+	if err != nil {
+		return DockTab{}, false, err
+	}
+	if len(workloads) == 0 {
+		return DockTab{}, false, fmt.Errorf("%w: %s %s has no workloads whose logs a tab shows (%v)", ErrNotApplicable, p.Kind, ref.Name, WorkloadLogKinds)
 	}
 	tab := DockTab{
 		ID: s.NewDockID(DockLogs), Type: DockLogs, Title: "Logs: " + p.Kind + " " + ref.Name,

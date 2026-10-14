@@ -42,6 +42,7 @@ type logTab struct {
 	controller, download                      *tipButton
 	controls                                  []fyne.CanvasObject
 	podPick, containerPick                    *widget.Button // the source selectors (logtab_sources.go)
+	workloadPick                              *widget.Button // a group's workload selector (logtab_sources.go)
 	jumpField                                 *widget.Entry  // the time to jump to (logtab_jump.go)
 	header                                    []fyne.CanvasObject
 	syncing                                   bool // set while the widgets follow engine state
@@ -51,9 +52,9 @@ type logTab struct {
 
 // logStreamKey is what a logs tab's stream depends on: when it changes, the stream opens again.
 type logStreamKey struct {
-	ref            model.ObjectRef
-	container, pod string
-	previous       bool
+	ref                      model.ObjectRef
+	workload, container, pod string
+	previous                 bool
 }
 
 // streamKeyOf: a pod's tab's stream is its container's; a controlling resource's merged stream
@@ -65,7 +66,7 @@ func streamKeyOf(t engine.DockTab) logStreamKey {
 		k.ref = *t.Ref
 	}
 	if k.ref.Kind == kindPods || t.Logs.Previous {
-		k.container, k.pod = t.Container, t.Logs.Pod
+		k.workload, k.container, k.pod = t.Logs.Workload, t.Container, t.Logs.Pod
 	}
 	return k
 }
@@ -113,9 +114,9 @@ func newLogTab(ctx context.Context, sh *shell, c *dockContent, t engine.DockTab)
 		lt.controller, lt.timestamps, lt.previous, lt.names, lt.wrap,
 		sized(sizeSearchWidth, "", lt.search), lt.filter, lt.download,
 	}
-	lt.podPick, lt.containerPick = lt.newPicker(true), lt.newPicker(false)
+	lt.podPick, lt.containerPick, lt.workloadPick = lt.newPicker(true), lt.newPicker(false), lt.newWorkloadPicker()
 	lt.jumpField = lt.newJumpField()
-	lt.header = []fyne.CanvasObject{lt.podPick, lt.containerPick, box(fitPlaceholderLayout{}, lt.jumpField)}
+	lt.header = []fyne.CanvasObject{lt.workloadPick, lt.podPick, lt.containerPick, box(fitPlaceholderLayout{}, lt.jumpField)}
 	lt.follow(t)
 	return lt
 }
@@ -134,6 +135,12 @@ func (lt *logTab) follow(t engine.DockTab) {
 	}
 	lt.podPick.SetText("Pod: " + podLabel(t))
 	lt.containerPick.SetText("Container: " + containerLabel(t))
+	lt.workloadPick.SetText("Workload: " + workloadLabel(t))
+	if t.Ref != nil && engine.IsLogGroup(t.Ref.Kind) { // an application's tab (A81)
+		lt.workloadPick.Show()
+	} else {
+		lt.workloadPick.Hide()
+	}
 	lt.syncing = false
 	if workload := t.Ref != nil && t.Ref.Kind != kindPods; workload {
 		lt.names.Show()
@@ -157,7 +164,7 @@ func viewOf(t engine.DockTab, tf model.TimeFormat) termview.LogView {
 		Wrap: t.Logs.Wrap, Search: t.Logs.Search, Filter: t.Logs.Filter, Time: tf,
 	}
 	if v.Prefixed {
-		v.Pod, v.Container = t.Logs.Pod, t.Container
+		v.Workload, v.Pod, v.Container = t.Logs.Workload, t.Logs.Pod, t.Container
 	}
 	return v
 }
@@ -181,7 +188,9 @@ func (lt *logTab) update(t engine.DockTab) {
 }
 
 // selectionOf is what a tab's lines are narrowed to.
-func selectionOf(t engine.DockTab) [2]string { return [2]string{t.Logs.Pod, t.Container} }
+func selectionOf(t engine.DockTab) [3]string {
+	return [3]string{t.Logs.Workload, t.Logs.Pod, t.Container}
+}
 
 // open opens the tab's stream off the main goroutine and shows it in a new view, which replaces
 // the one shown; until it is open the tab says so, and an error shows in the view.

@@ -30,6 +30,10 @@ import (
 // containers it leaves out end, the others go on untouched, and a container selected again
 // resumes from the newest line it had written (sinceTime), with the lines written meanwhile, at
 // most workloadLogTail of them.
+//
+// A group's logs (grouplogs.go, A81: an application's) are several such streams, one per workload,
+// writing into one sink: each line then starts with "<workload>/<pod>/<container> ", and each
+// stream's bounds are its share of the group's.
 
 // Bounds of a controlling resource's logs.
 const (
@@ -50,6 +54,38 @@ const (
 // NoticePrefix starts the lines Cogpit writes into a log stream itself.
 const NoticePrefix = "[cogpit]"
 
+// logSink is where a merged stream's lines go: one pipe, one line at a time, for one workload's
+// stream or for every workload of a group.
+type logSink struct {
+	mu sync.Mutex
+	pw *io.PipeWriter
+}
+
+// write adds one line: the prefix, a space, the line, a line feed. It reports false once the pipe
+// is closed.
+func (k *logSink) write(prefix string, line []byte) bool {
+	for len(line) > 0 && (line[len(line)-1] == '\n' || line[len(line)-1] == '\r') {
+		line = line[:len(line)-1]
+	}
+	buf := make([]byte, 0, len(prefix)+len(line)+2)
+	buf = append(buf, prefix...)
+	buf = append(buf, ' ')
+	buf = append(buf, line...)
+	buf = append(buf, '\n')
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	_, err := k.pw.Write(buf)
+	return err == nil
+}
+
+// workloadBounds are one workload stream's share of what a tab streams: the containers at once,
+// and the history it starts with, shared by the containers it opens with. A workload's own tab
+// has all of it; a group's workloads share it (grouplogs.go).
+type workloadBounds struct {
+	streams int
+	tail    int
+}
+
 // workloadLogs is the merged stream of a controlling resource's pods. Read returns its lines; Close
 // ends every container's stream and releases the cache handles.
 type workloadLogs struct {
@@ -61,16 +97,22 @@ type workloadLogs struct {
 	streamer logStreamer
 	uid      string // the resource's UID: its pods' (or replica sets') controller
 	pods, rs *cache.Handle
+	// name is the workload's name before each line's pod in a group's stream (grouplogs.go); ""
+	// in the workload's own tab.
+	name   string
+	bounds workloadBounds
 
 	ctx    context.Context
 	cancel context.CancelFunc
-	pr     *io.PipeReader
-	pw     *io.PipeWriter
-	wmu    sync.Mutex // one line at a time
-	wake   chan struct{}
-	stop   chan struct{}
-	unsub  []func()
-	wg     sync.WaitGroup
+	pr     *io.PipeReader // nil for a group's workload: the group reads the sink
+	sink   *logSink
+	// previousDone ends a Previous stream once every previous instance was written: it closes the
+	// pipe of a workload's own tab, and tells a group that this workload is done.
+	previousDone func()
+	wake         chan struct{}
+	stop         chan struct{}
+	unsub        []func()
+	wg           sync.WaitGroup
 
 	mu sync.Mutex
 	// started holds the "<pod uid>/<container>/<instance>" streams started; scan forgets the ones
@@ -94,11 +136,14 @@ type logTarget struct {
 	restarts            int64  // the instance: the container's restart count
 	// named: an init container that is no sidecar, streamed only when the selection names it.
 	named bool
+	// workload is the name of the group's workload the pod belongs to; "" in a workload's own tab.
+	workload string
 }
 
 // selects reports whether the selection takes the target in.
 func (sel logSelection) selects(t logTarget) bool {
-	return (!t.named || sel.container == t.container) && sel.matches(t.pod, t.container)
+	return (!t.named || sel.container == t.container) && sel.matches(t.pod, t.container) &&
+		(sel.workload == "" || t.workload == "" || sel.workload == t.workload)
 }
 
 // streamEntry is a running stream: its target, and how the selection ends it.
@@ -109,7 +154,22 @@ type streamEntry struct {
 
 // openWorkloadLogs opens the merged logs of the resource a logs tab names.
 func (s *Session) openWorkloadLogs(ctx context.Context, tab DockTab, b *Backend, streamer logStreamer) (io.ReadCloser, error) {
-	ref := *tab.Ref
+	pr, pw := io.Pipe()
+	wl, err := s.newWorkloadLogs(ctx, tab, *tab.Ref, "", b, streamer, &logSink{pw: pw},
+		workloadBounds{streams: workloadLogStreams, tail: workloadLogTail}, func() { _ = pw.Close() })
+	if err != nil {
+		_ = pw.Close()
+		return nil, err
+	}
+	wl.pr = pr
+	return wl, nil
+}
+
+// newWorkloadLogs starts the merged stream of the resource ref, a workload of the tab (the tab's
+// own, or one of its group's, named name), writing its lines into sink within bounds;
+// previousDone ends a Previous stream (see workloadLogs).
+func (s *Session) newWorkloadLogs(ctx context.Context, tab DockTab, ref model.ObjectRef, name string, b *Backend, streamer logStreamer,
+	sink *logSink, bounds workloadBounds, previousDone func()) (*workloadLogs, error) {
 	obj, err := s.Object(ctx, ref)
 	if err != nil {
 		return nil, err
@@ -124,6 +184,7 @@ func (s *Session) openWorkloadLogs(ctx context.Context, tab DockTab, b *Backend,
 	}
 	wl := &workloadLogs{
 		s: s, tabID: tab.ID, ref: ref, noun: noun, opts: tab.Logs, streamer: streamer, uid: string(obj.GetUID()),
+		name: name, bounds: bounds, sink: sink, previousDone: previousDone,
 		wake: make(chan struct{}, 1), stop: make(chan struct{}), started: map[string]bool{},
 		streaming: map[string]streamEntry{}, cursors: map[string]logCursor{}, sel: selectionOf(tab),
 	}
@@ -180,12 +241,11 @@ func (s *Session) openWorkloadLogs(ctx context.Context, tab DockTab, b *Backend,
 		}
 	}
 	wl.ctx, wl.cancel = context.WithCancel(ctx)
-	wl.pr, wl.pw = io.Pipe()
 
 	first := wl.scan()
-	tail := int64(workloadLogTail)
+	tail := int64(bounds.tail)
 	if n := len(first); n > 0 {
-		tail = max(int64(workloadLogMinTail), int64(workloadLogTail/min(n, workloadLogStreams)))
+		tail = max(int64(workloadLogMinTail), int64(bounds.tail/min(n, max(bounds.streams, 1))))
 	}
 	if len(first) == 0 {
 		wl.noticeAsync(wl.emptyNotice())
@@ -196,13 +256,15 @@ func (s *Session) openWorkloadLogs(ctx context.Context, tab DockTab, b *Backend,
 		// The previous instances' logs are complete: the stream ends after them.
 		go func() {
 			wl.wg.Wait()
-			_ = wl.pw.Close()
+			if wl.previousDone != nil {
+				wl.previousDone()
+			}
 		}()
 		return wl, nil
 	}
 	go func() {
 		defer s.recoverTo("workload logs")
-		runCoalesced(wl.stop, wl.wake, workloadLogRescan, nil, func() { wl.start(wl.scan(), workloadLogTail) })
+		runCoalesced(wl.stop, wl.wake, workloadLogRescan, nil, func() { wl.start(wl.scan(), int64(bounds.tail)) })
 	}()
 	return wl, nil
 }
@@ -265,7 +327,8 @@ func (wl *workloadLogs) scan() []logTarget {
 			}
 			key := string(pod.GetUID()) + "/" + name + "/" + instance
 			shown[key] = true
-			target := logTarget{key: key, pod: pod.GetName(), container: name, uid: string(pod.GetUID()), restarts: restarts, named: cs.init && !cs.sidecar}
+			target := logTarget{key: key, pod: pod.GetName(), container: name, uid: string(pod.GetUID()), restarts: restarts,
+				named: cs.init && !cs.sidecar, workload: wl.name}
 			switch {
 			case !wl.sel.selects(target):
 				continue
@@ -350,10 +413,10 @@ func (wl *workloadLogs) start(targets []logTarget, tail int64) {
 		if wl.started[t.key] { // another start took it since the scan (previous instances)
 			continue
 		}
-		if wl.active >= workloadLogStreams {
+		if wl.active >= wl.bounds.streams {
 			if !wl.capped {
 				wl.capped = true
-				wl.noticeAsync(fmt.Sprintf("%s showing %d containers' logs at once; the others join as these end", NoticePrefix, workloadLogStreams))
+				wl.noticeAsync(fmt.Sprintf("%s %sshowing %d containers' logs at once; the others join as these end", NoticePrefix, wl.namePrefix(), wl.bounds.streams))
 			}
 			return
 		}
@@ -422,6 +485,9 @@ func (wl *workloadLogs) stream(ctx context.Context, t logTarget, tail int64, cur
 	}()
 	defer wl.s.recoverTo("workload logs")
 	prefix := t.pod + "/" + t.container
+	if wl.name != "" { // a group's workload (grouplogs.go)
+		prefix = wl.name + "/" + prefix
+	}
 	follow := !wl.opts.Previous
 	drops := 0 // resumptions in a row without a new line
 	for attempt := 0; ; attempt++ {
@@ -575,19 +641,14 @@ func (wl *workloadLogs) stillRunning(t logTarget) bool {
 
 // write adds one line to the merged stream: the prefix, a space, the line, a line feed. It
 // reports false once the stream is closed.
-func (wl *workloadLogs) write(prefix string, line []byte) bool {
-	for len(line) > 0 && (line[len(line)-1] == '\n' || line[len(line)-1] == '\r') {
-		line = line[:len(line)-1]
+func (wl *workloadLogs) write(prefix string, line []byte) bool { return wl.sink.write(prefix, line) }
+
+// namePrefix is "<workload>: " before a notice of a group's workload, "" in a workload's own tab.
+func (wl *workloadLogs) namePrefix() string {
+	if wl.name == "" {
+		return ""
 	}
-	buf := make([]byte, 0, len(prefix)+len(line)+2)
-	buf = append(buf, prefix...)
-	buf = append(buf, ' ')
-	buf = append(buf, line...)
-	buf = append(buf, '\n')
-	wl.wmu.Lock()
-	defer wl.wmu.Unlock()
-	_, err := wl.pw.Write(buf)
-	return err == nil
+	return wl.name + ": "
 }
 
 // noticeAsync writes one of Cogpit's own lines without waiting for the reader.
@@ -614,12 +675,14 @@ func oneLine(s string) string {
 func (wl *workloadLogs) Read(p []byte) (int, error) { return wl.pr.Read(p) }
 
 // Close ends every container's stream and releases the cache handles. It is idempotent and does
-// not wait for the streams' goroutines.
+// not wait for the streams' goroutines. A group's workload leaves the pipe to the group.
 func (wl *workloadLogs) Close() error {
 	wl.closeOnce.Do(func() {
 		wl.cancel()
 		close(wl.stop)
-		_ = wl.pr.Close() // unblocks writers
+		if wl.pr != nil {
+			_ = wl.pr.Close() // unblocks writers
+		}
 		wl.release()
 	})
 	return nil

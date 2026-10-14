@@ -40,10 +40,11 @@ func labelled(t *testing.T, h *harness, kind, ns, name, instance string) {
 	h.src.Set(p.GVR(), obj)
 }
 
-// TestApplicationLogsOpensATabPerWorkload: Logs of an application (Lens's one documented action,
-// at Logs' place) opens workload.logs' tab for each of its workloads a tab can follow, leaves a Cron
-// Job out, and is not offered for an application without such a workload.
-func TestApplicationLogsOpensATabPerWorkload(t *testing.T) {
+// TestApplicationLogsOpensOneMergedTab (A81): Logs of an application (Lens's one documented action,
+// at Logs' place) opens one logs tab on the application, which merges its workloads' logs, and
+// activates it when it is open; it is not offered for an application without a workload a tab can
+// follow (a Cron Job's alone).
+func TestApplicationLogsOpensOneMergedTab(t *testing.T) {
 	src := seedWorkloads()
 	h := &harness{src: src, writer: &fakeWriter{}}
 	h.s = engine.New(engine.Options{Connector: &appsConnector{workloadConnector{actionsConnector{src: src, writer: h.writer}}}, SnapshotInterval: 10 * time.Millisecond})
@@ -82,14 +83,25 @@ func TestApplicationLogsOpensATabPerWorkload(t *testing.T) {
 	if err := cmd.Enabled(h.s, cmd.ObjectParams(storefront, "")); err != nil {
 		t.Fatalf("Enabled: %v", err)
 	}
-	var res commands.ApplicationLogsResult
+	var res commands.DockResult
 	h.must(t, engine.OriginExternalAgent, "application.logs", map[string]any{"ref": storefront}, &res)
-	var titles []string
-	for _, tab := range res.Tabs {
-		titles = append(titles, tab.Tab.Title)
+	if res.Tab.Title != "Logs: Application storefront" || !res.Created || res.Tab.Ref.Kind != kinds.ApplicationsKey || !res.Tab.Logs.ResourceNames {
+		t.Errorf("tab %+v", res)
 	}
-	if got := strings.Join(titles, ", "); got != "Logs: Deployment web, Logs: StatefulSet db" || len(res.Skipped) != 0 {
-		t.Errorf("tabs %s, skipped %+v", got, res.Skipped)
+	var again commands.DockResult
+	h.must(t, engine.OriginGUI, "application.logs", map[string]any{"ref": storefront}, &again)
+	if again.Created || again.Tab.ID != res.Tab.ID || len(h.s.UIState().Dock) != 1 {
+		t.Errorf("a second Logs %+v, dock %d", again, len(h.s.UIState().Dock))
+	}
+	var src2 engine.LogSources
+	h.must(t, engine.OriginExternalAgent, "logs.sources", map[string]any{"id": res.Tab.ID}, &src2)
+	if strings.Join(src2.Workloads, ",") != "web,db" {
+		t.Errorf("sources %+v", src2)
+	}
+	var narrowed engine.DockTab
+	h.must(t, engine.OriginExternalAgent, "logs.setSource", map[string]any{"id": res.Tab.ID, "workload": "db"}, &narrowed)
+	if narrowed.Logs.Workload != "db" {
+		t.Errorf("narrowed %+v", narrowed.Logs)
 	}
 
 	backups := actionRef(kinds.ApplicationsKey, "ops", "backups")

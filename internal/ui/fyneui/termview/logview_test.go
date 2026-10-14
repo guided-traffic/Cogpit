@@ -284,3 +284,32 @@ func TestRenderMergedLogs(t *testing.T) {
 	l.Refresh()
 	writePNG(t, w, "logs_merged_wrap.png")
 }
+
+// TestLogViewSelectsAGroupsSource (A81): an application's lines start with
+// "<workload>/<pod>/<container>"; the view narrows them by workload, pod and container, a
+// workload's "<pod>/<container>" lines by pod and container, and Cogpit's own lines always show.
+func TestLogViewSelectsAGroupsSource(t *testing.T) {
+	front := "front/front-7c-a/app 2026-10-15T00:00:00Z hello"
+	back := "back/back-5d-b/app 2026-10-15T00:00:00Z hi"
+	pod := "web-1-a/app 2026-10-15T00:00:00Z plain"
+	own := "[cogpit] StatefulSet db left Kustomization apps; its logs end here"
+	for _, tc := range []struct {
+		v    LogView
+		want []bool // front, back, pod, own
+	}{
+		{LogView{Prefixed: true}, []bool{true, true, true, true}},
+		{LogView{Prefixed: true, Workload: "back"}, []bool{false, true, false, true}},
+		{LogView{Prefixed: true, Workload: "front", Container: "app"}, []bool{true, false, false, true}},
+		{LogView{Prefixed: true, Pod: "back-5d-b"}, []bool{false, true, false, true}},
+		{LogView{Prefixed: true, Pod: "web-1-a"}, []bool{false, false, true, true}},
+	} {
+		for i, line := range []string{front, back, pod, own} {
+			if got := tc.v.selects(line); got != tc.want[i] {
+				t.Errorf("%+v selects %q: %v", tc.v, line, got)
+			}
+		}
+	}
+	if src, _, ok := (LogView{Prefixed: true}).source(front); !ok || src != "front/front-7c-a/app" {
+		t.Errorf("source %q %v", src, ok)
+	}
+}

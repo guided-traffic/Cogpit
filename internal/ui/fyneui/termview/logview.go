@@ -41,6 +41,10 @@ type LogView struct {
 	// one name; empty selects all. Lines without a "<pod>/<container>" prefix (Cogpit's own)
 	// always show.
 	Pod, Container string
+	// Workload narrows a group's view (an application's, whose lines start with
+	// "<workload>/<pod>/<container>") to the lines of the workload of that name; empty selects
+	// all.
+	Workload string
 }
 
 // Bounds of the log view's rendering.
@@ -104,17 +108,29 @@ func (v LogView) shown(raw string) (string, shownSpans) {
 }
 
 // narrows reports whether the view shows the lines of some sources only.
-func (v LogView) narrows() bool { return v.Prefixed && (v.Pod != "" || v.Container != "") }
+func (v LogView) narrows() bool {
+	return v.Prefixed && (v.Pod != "" || v.Container != "" || v.Workload != "")
+}
 
 // selects reports whether the view shows a line by its source: every line unless it narrows, and
-// then the lines of the selected pod and containers and the lines without a source.
+// then the lines of the selected workload, pod and containers and the lines without a source. A
+// source is "<pod>/<container>", or a group's "<workload>/<pod>/<container>".
 func (v LogView) selects(raw string) bool {
 	if !v.narrows() {
 		return true
 	}
 	src, _, _ := strings.Cut(raw, " ")
-	pod, c, ok := strings.Cut(src, "/")
-	return !ok || (v.Pod == "" || v.Pod == pod) && (v.Container == "" || v.Container == c)
+	parts := strings.Split(src, "/")
+	var workload, pod, c string
+	switch len(parts) {
+	case 2:
+		pod, c = parts[0], parts[1]
+	case 3:
+		workload, pod, c = parts[0], parts[1], parts[2]
+	default:
+		return true // Cogpit's own line
+	}
+	return (v.Workload == "" || v.Workload == workload) && (v.Pod == "" || v.Pod == pod) && (v.Container == "" || v.Container == c)
 }
 
 // looksLikeTimestamp reports whether s has the shape of an RFC 3339 timestamp:

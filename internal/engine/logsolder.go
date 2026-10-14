@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
@@ -75,9 +77,10 @@ type OlderLines struct {
 	Notes []string `json:"notes,omitempty"`
 }
 
-// olderSource is one container a request for older lines asks.
+// olderSource is one container a request for older lines asks: its prefix, its pod's namespace,
+// pod and container.
 type olderSource struct {
-	prefix, pod, container string
+	prefix, namespace, pod, container string
 }
 
 // OlderLogs reads the older lines of an open logs tab from the API server: for each container the
@@ -142,7 +145,7 @@ func (s *Session) olderLogs(ctx context.Context, tab DockTab, streamer logStream
 			defer func() { <-sem }()
 			tail := int64(held[src.prefix].Lines + step)
 			opts := cluster.LogOptions{
-				Namespace: tab.Ref.Namespace, Pod: src.pod, Container: src.container,
+				Namespace: src.namespace, Pod: src.pod, Container: src.container,
 				Previous: tab.Logs.Previous, Timestamps: true, TailLines: tail,
 			}
 			if !req.Since.IsZero() {
@@ -206,20 +209,49 @@ func orPod(src olderSource) string {
 }
 
 // olderSources returns the containers a tab shows: a pod's tab's container, or the selected
-// containers of a controlling resource's pods that have a log (for Previous, a previous instance).
+// containers of a controlling resource's pods that have a log (for Previous, a previous instance),
+// or of a group's workloads' pods (grouplogs.go), their prefixes naming the workload.
 func (s *Session) olderSources(ctx context.Context, tab DockTab) ([]olderSource, error) {
 	if tab.Ref.Kind == logKindPods {
-		return []olderSource{{pod: tab.Ref.Name, container: tab.Container}}, nil
-	}
-	pods, err := s.workloadPods(ctx, *tab.Ref)
-	if err != nil {
-		return nil, err
+		return []olderSource{{namespace: tab.Ref.Namespace, pod: tab.Ref.Name, container: tab.Container}}, nil
 	}
 	sel := selectionOf(tab)
+	type owned struct {
+		workload string
+		pod      *unstructured.Unstructured
+	}
+	var pods []owned
+	if IsLogGroup(tab.Ref.Kind) {
+		members, err := s.groupWorkloads(ctx, *tab.Ref)
+		if err != nil {
+			return nil, err
+		}
+		for _, w := range members {
+			if sel.workload != "" && w.Name != sel.workload {
+				continue
+			}
+			wp, err := s.workloadPods(ctx, w)
+			if err != nil {
+				continue
+			}
+			for _, p := range wp {
+				pods = append(pods, owned{workload: w.Name, pod: p})
+			}
+		}
+	} else {
+		wp, err := s.workloadPods(ctx, *tab.Ref)
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range wp {
+			pods = append(pods, owned{pod: p})
+		}
+	}
 	var out []olderSource
-	for _, pod := range pods {
+	for _, o := range pods {
+		pod := o.pod
 		for _, cs := range podContainerStatuses(pod) {
-			t := logTarget{pod: pod.GetName(), container: cs.name, named: cs.init && !cs.sidecar}
+			t := logTarget{pod: pod.GetName(), container: cs.name, named: cs.init && !cs.sidecar, workload: o.workload}
 			switch {
 			case !sel.selects(t):
 				continue
@@ -230,7 +262,11 @@ func (s *Session) olderSources(ctx context.Context, tab DockTab) ([]olderSource,
 			case model.NestedMap(cs.status, "state", "running") == nil && model.NestedMap(cs.status, "state", "terminated") == nil:
 				continue // waiting: no log yet
 			}
-			out = append(out, olderSource{prefix: t.pod + "/" + t.container, pod: t.pod, container: t.container})
+			prefix := t.pod + "/" + t.container
+			if o.workload != "" {
+				prefix = o.workload + "/" + prefix
+			}
+			out = append(out, olderSource{prefix: prefix, namespace: pod.GetNamespace(), pod: t.pod, container: t.container})
 		}
 	}
 	return out, nil

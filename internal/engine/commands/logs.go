@@ -23,6 +23,7 @@ type logOptionsParams struct {
 // logSourceParams are logs.setSource's parameters: the tab, and the parts of its source to change.
 type logSourceParams struct {
 	ID        string  `json:"id" jsonschema:"logs tab id as ui_state lists it, e.g. logs-1"`
+	Workload  *string `json:"workload,omitempty" jsonschema:"an application's tab only: the workload to show, one logs_sources lists; empty: every workload"`
 	Pod       *string `json:"pod,omitempty" jsonschema:"the pod to show, one logs_sources lists; empty: every pod of a controlling resource's tab (a pod's tab shows one pod)"`
 	Container *string `json:"container,omitempty" jsonschema:"the container to show, one logs_sources lists (an init container too); empty: every container of a controlling resource's tab (a pod's tab shows one)"`
 }
@@ -126,8 +127,10 @@ func registerLogs(g *registrar) {
 		ID: "logs.sources", Label: "Log Sources", Danger: engine.DangerRead, Verbs: workloadLogVerbs[1:],
 		Description: "Lists what a logs tab's pod and container selectors offer, from Cogpit's cache: for the logs of " +
 			"a controlling resource (allPods true) its pods, and the containers of the pod the tab shows or of every " +
-			"pod; for a pod's tab the pods of the resource that controls it (the pod alone if none does) and the " +
-			"pod's containers. Init containers are listed apart. Makes no API request once the pods are cached.",
+			"pod; for an application's tab (application_logs, argocd_logs, flux_logs) also its workloads by name, the " +
+			"pods then of the workload it shows or of every one; for a pod's tab the pods of the resource that controls " +
+			"it (the pod alone if none does) and the pod's containers. Init containers are listed apart. Makes no API " +
+			"request once the pods are cached.",
 		Enabled: func(s *engine.Session, p dockParams) error { _, err := s.LogsTab(p.ID); return err },
 		Run: func(ctx context.Context, s *engine.Session, p dockParams) (any, error) {
 			return s.LogSources(ctx, p.ID)
@@ -137,7 +140,8 @@ func registerLogs(g *registrar) {
 	add(g, engine.Spec[logSourceParams]{
 		ID: "logs.setSource", Label: "Show Pod or Container", Danger: engine.DangerRead, Verbs: workloadLogVerbs,
 		Description: "Changes which pod and container a logs tab shows, as the tab's selectors do (choices: " +
-			"logs_sources). For the logs of a controlling resource, pod narrows the tab to one of its pods and " +
+			"logs_sources). For an application's tab, workload narrows it to one of the application's workloads (empty: " +
+			"every one; a pod of another workload is then dropped). For the logs of a controlling resource, pod narrows the tab to one of its pods and " +
 			"container to the containers of that name, an init container's too; an empty value selects every pod or " +
 			"container again (init containers that ran to completion only when named). The merged stream follows " +
 			"at once: the streams left out end, the others go on, and a container selected again resumes from its " +
@@ -153,7 +157,7 @@ func registerLogs(g *registrar) {
 			return err
 		},
 		Run: func(ctx context.Context, s *engine.Session, p logSourceParams) (any, error) {
-			return s.SetLogSource(ctx, p.ID, p.Pod, p.Container)
+			return s.SetGroupLogSource(ctx, p.ID, p.Workload, p.Pod, p.Container)
 		},
 	})
 

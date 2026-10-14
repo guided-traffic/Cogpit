@@ -192,6 +192,8 @@ var wantCommands = map[string]engine.Danger{
 	"chat.toggle": engine.DangerUI,
 	// Restart of a selection of workloads (A74): destructive, as one Restart (TestRestartMany).
 	"workload.restartMany": engine.DangerDestructive,
+	// An Argo CD Application's and a Flux Kustomization's logs in one tab (A81) (TestArgoCDLogs, TestFluxLogs).
+	"argocd.logs": engine.DangerRead, "flux.logs": engine.DangerRead,
 }
 
 func TestRegistryComplete(t *testing.T) {

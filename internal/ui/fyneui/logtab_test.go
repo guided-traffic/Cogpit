@@ -265,6 +265,9 @@ func withLogCommands(t testing.TB, f *fakeEngine, deployment model.ObjectRef) {
 				case p.Pod != nil:
 					t.Logs.Pod = *p.Pod
 				}
+				if p.Workload != nil { // an application's tab (logtab_group_test.go)
+					t.Logs.Workload, t.Logs.Pod = *p.Workload, ""
+				}
 				if p.Container != nil {
 					t.Container = *p.Container
 				}

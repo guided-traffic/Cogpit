@@ -22,6 +22,9 @@ import (
 
 // LogSources are what a logs tab's selectors offer.
 type LogSources struct {
+	// Workloads are a group's workloads by name (an application's tab, grouplogs.go), in the
+	// group's order; none in another tab.
+	Workloads []string `json:"workloads,omitempty"`
 	// AllPods: the tab can show every pod at once (a controlling resource's tab).
 	AllPods bool `json:"allPods"`
 	// Pods are the resource's pods by name; for a pod's tab, the pods of the resource that
@@ -33,13 +36,14 @@ type LogSources struct {
 	InitContainers []string `json:"initContainers,omitempty"`
 }
 
-// logSelection is what a controlling resource's tab narrows to; empty fields select all.
+// logSelection is what a controlling resource's tab narrows to, and a group's tab to one of its
+// workloads (grouplogs.go); empty fields select all.
 type logSelection struct {
-	pod, container string
+	workload, pod, container string
 }
 
 func selectionOf(t DockTab) logSelection {
-	return logSelection{pod: t.Logs.Pod, container: t.Container}
+	return logSelection{workload: t.Logs.Workload, pod: t.Logs.Pod, container: t.Container}
 }
 
 func (sel logSelection) matches(pod, container string) bool {
@@ -63,11 +67,11 @@ func (s *Session) LogSources(ctx context.Context, id string) (LogSources, error)
 			InitContainers: containerNames(pod, "initContainers"),
 		}, nil
 	}
-	pods, err := s.workloadPods(ctx, *tab.Ref)
+	pods, workloads, err := s.tabPods(ctx, tab, tab.Logs.Workload)
 	if err != nil {
 		return LogSources{}, err
 	}
-	out := LogSources{AllPods: true, Pods: objectNames(pods)}
+	out := LogSources{Workloads: workloads, AllPods: true, Pods: objectNames(pods)}
 	out.Containers, out.InitContainers = containersOf(narrowedPods(pods, tab.Logs.Pod))
 	return out, nil
 }
@@ -80,18 +84,42 @@ func (s *Session) LogSources(ctx context.Context, id string) (LogSources, error)
 // new pod has it (else its first), and container to another of the pod's containers. It returns
 // the tab.
 func (s *Session) SetLogSource(ctx context.Context, id string, pod, container *string) (DockTab, error) {
+	return s.SetGroupLogSource(ctx, id, nil, pod, container)
+}
+
+// SetGroupLogSource is SetLogSource with a group's workload too (an application's tab,
+// grouplogs.go): workload narrows the tab to the group's workload of that name, "" to every one; a
+// pod of another workload is then dropped from the selection. Other tabs take no workload.
+func (s *Session) SetGroupLogSource(ctx context.Context, id string, workload, pod, container *string) (DockTab, error) {
 	tab, err := s.LogsTab(id)
 	if err != nil {
 		return DockTab{}, err
 	}
+	group := IsLogGroup(tab.Ref.Kind)
+	if workload != nil && *workload != "" && !group {
+		return DockTab{}, fmt.Errorf("%w: only an application's logs tab narrows to a workload; this one shows %s", ErrNotApplicable, tab.Ref.String())
+	}
 	if tab.Ref.Kind == logKindPods {
 		return s.setPodLogSource(ctx, tab, pod, container)
 	}
-	pods, err := s.workloadPods(ctx, *tab.Ref)
+	sel := selectionOf(tab)
+	if workload != nil {
+		_, names, err := s.tabPods(ctx, tab, "")
+		if err != nil {
+			return DockTab{}, err
+		}
+		if *workload != "" && !slices.Contains(names, *workload) {
+			return DockTab{}, fmt.Errorf("%s has no workload %q; its workloads: %s", tab.Ref.String(), *workload, listOrNone(names))
+		}
+		sel.workload = *workload
+	}
+	pods, _, err := s.tabPods(ctx, tab, sel.workload)
 	if err != nil {
 		return DockTab{}, err
 	}
-	sel := selectionOf(tab)
+	if pod == nil && sel.pod != "" && !slices.ContainsFunc(pods, func(p *unstructured.Unstructured) bool { return p.GetName() == sel.pod }) {
+		sel.pod = "" // the pod is not the workload's now selected
+	}
 	if pod != nil {
 		if *pod != "" && !slices.ContainsFunc(pods, func(p *unstructured.Unstructured) bool { return p.GetName() == *pod }) {
 			return DockTab{}, fmt.Errorf("%s has no pod %q; its pods: %s", tab.Ref.String(), *pod, listOrNone(objectNames(pods)))
@@ -111,7 +139,7 @@ func (s *Session) SetLogSource(ctx context.Context, id string, pod, container *s
 		}
 	}
 	return s.updateLogsTab(id, func(t *DockTab) {
-		t.Logs.Pod, t.Container = sel.pod, sel.container
+		t.Logs.Workload, t.Logs.Pod, t.Container = sel.workload, sel.pod, sel.container
 	})
 }
 
@@ -178,6 +206,47 @@ func (s *Session) updateLogsTab(id string, fn func(*DockTab)) (DockTab, error) {
 		return DockTab{}, fmt.Errorf("no logs tab %q", id)
 	}
 	return out, nil
+}
+
+// tabPods returns the cached pods a controlling resource's or a group's tab shows: a resource's
+// (workloadPods), or, for a group (an application's, grouplogs.go), those of its workload named
+// workload ("": of every one) in the group's order, each workload's by name; and the group's
+// workloads by name. A workload of the group that is gone has no pods.
+func (s *Session) tabPods(ctx context.Context, tab DockTab, workload string) ([]*unstructured.Unstructured, []string, error) {
+	if !IsLogGroup(tab.Ref.Kind) {
+		pods, err := s.workloadPods(ctx, *tab.Ref)
+		return pods, nil, err
+	}
+	members, err := s.groupWorkloads(ctx, *tab.Ref)
+	if err != nil {
+		return nil, nil, err
+	}
+	var pods []*unstructured.Unstructured
+	names := make([]string, 0, len(members))
+	for _, w := range members {
+		if !slices.Contains(names, w.Name) {
+			names = append(names, w.Name)
+		}
+		if workload != "" && w.Name != workload {
+			continue
+		}
+		wp, err := s.workloadPods(ctx, w)
+		if err != nil {
+			continue // gone, or not listed: its stream says why
+		}
+		pods = append(pods, wp...)
+	}
+	return pods, names, nil
+}
+
+// groupWorkloads returns the workloads a group's object names whose logs its tab shows, waiting for
+// the cache like Object.
+func (s *Session) groupWorkloads(ctx context.Context, ref model.ObjectRef) ([]model.ObjectRef, error) {
+	obj, err := s.Object(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+	return LogGroupWorkloads(ref, obj), nil
 }
 
 // workloadPods returns the cached pods a controlling resource controls (a Deployment's through its

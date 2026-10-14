@@ -18,10 +18,12 @@ import (
 // and "All containers" entries and the init containers under a heading of their own are Cogpit's
 // (inferred).
 
-// Labels of the selectors' "every pod" and "every container" entries.
+// Labels of the selectors' "every pod" and "every container" entries, and a group's "every
+// workload" (A81: an application's tab, whose lines start with "<workload>/<pod>/<container>").
 const (
 	allPodsLabel       = "All pods"
 	allContainersLabel = "All containers"
+	allWorkloadsLabel  = "All workloads"
 	initHeadingLabel   = "Init containers"
 )
 
@@ -32,8 +34,67 @@ const maxSourceItems = 200
 // logSourceParams mirror logs.setSource's parameters; nil keeps a part.
 type logSourceParams struct {
 	ID        string  `json:"id"`
+	Workload  *string `json:"workload,omitempty"`
 	Pod       *string `json:"pod,omitempty"`
 	Container *string `json:"container,omitempty"`
+}
+
+// newWorkloadPicker returns a group's workload selector (A81, "a filter per source"): an
+// application's tab narrows to one of its workloads, as it narrows to a pod and a container. Hidden
+// in other tabs.
+func (lt *logTab) newWorkloadPicker() *widget.Button {
+	b := widget.NewButtonWithIcon("", theme.MenuDropDownIcon(), nil)
+	b.IconPlacement, b.Importance = widget.ButtonIconTrailingText, widget.LowImportance
+	b.OnTapped = func() { lt.showWorkloads(b) }
+	b.Hide()
+	return b
+}
+
+// workloadLabel names the workload a group's tab shows.
+func workloadLabel(t engine.DockTab) string {
+	if t.Logs.Workload == "" {
+		return allWorkloadsLabel
+	}
+	return t.Logs.Workload
+}
+
+// showWorkloads asks the engine for the group's workloads and offers them in a menu.
+func (lt *logTab) showWorkloads(from *widget.Button) {
+	sh := lt.sh
+	sh.dispatch("logs.sources", dockParams{ID: lt.tab.ID}, func(res any, err error) {
+		var src engine.LogSources
+		if err == nil {
+			err = decode(res, &src)
+		}
+		if err != nil {
+			sh.showError(err)
+			return
+		}
+		menu := lt.workloadMenu(src)
+		if c := fyne.CurrentApp().Driver().CanvasForObject(from); c != nil && len(menu.Items) > 0 {
+			m := widget.NewPopUpMenu(menu, c)
+			m.ShowAtRelativePosition(fyne.NewPos(0, from.Size().Height), from)
+		}
+	})
+}
+
+// workloadMenu is the workload selector's menu: "All workloads", then the group's workloads; what
+// the tab shows is checked.
+func (lt *logTab) workloadMenu(src engine.LogSources) *fyne.Menu {
+	cur := lt.tab.Logs.Workload
+	choice := func(label, value string) *fyne.MenuItem {
+		it := fyne.NewMenuItem(label, func() {
+			lt.sh.dispatch("logs.setSource", logSourceParams{ID: lt.tab.ID, Workload: &value}, func(_ any, err error) { lt.sh.showError(err) })
+		})
+		it.Checked = value == cur
+		return it
+	}
+	items := make([]*fyne.MenuItem, 0, 2+len(src.Workloads))
+	items = append(items, choice(allWorkloadsLabel, ""), fyne.NewMenuItemSeparator())
+	for _, w := range src.Workloads {
+		items = append(items, choice(w, w))
+	}
+	return fyne.NewMenu("", items...)
 }
 
 // newPicker returns the pod (pod) or container selector.
