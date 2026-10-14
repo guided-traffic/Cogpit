@@ -224,9 +224,9 @@ func openFluxView(t *testing.T, sh *shell, q *mainQueue, view string, rows int) 
 }
 
 // TestFluxDashboardInTheWindow: the Dashboard shows a tile per served kind under its sub-group,
-// with its count and states; a state opens its kind's view (unfiltered: the views have no status
-// filter); the table lists what is not ready, of several kinds, and a selection of it takes the
-// Flux actions.
+// with its count and states; a state opens its kind's view filtered to that state (the views'
+// status filter, D-34); the table lists what is not ready, of several kinds, and a selection of it
+// takes the Flux actions.
 func TestFluxDashboardInTheWindow(t *testing.T) {
 	sh, _, q, s, rec := fluxEngineShell(t, ThemeDark)
 	openFluxView(t, sh, q, engine.FluxDashboard, 5)
@@ -268,15 +268,21 @@ func TestFluxDashboardInTheWindow(t *testing.T) {
 		}
 	}
 
-	// A state opens its kind's view.
+	// A state opens its kind's view filtered to it.
 	notReady := ks.links["notReady"]
 	if notReady == nil || len(ks.links) != 4 {
 		t.Fatalf("state links %v", ks.links)
 	}
 	test.Tap(notReady)
-	q.until(t, "the Kustomizations view", func() bool { return sh.ui.View == "kustomizations.kustomize.toolkit.fluxcd.io" })
-	if sh.ui.Filter != "" || s.UIState().View != sh.ui.View {
-		t.Errorf("filter %q", sh.ui.Filter)
+	const ksKey = "kustomizations.kustomize.toolkit.fluxcd.io"
+	q.until(t, "the filtered Kustomizations view", func() bool {
+		snap := tv.snap
+		return sh.ui.View == ksKey && slices.Equal(sh.ui.States, []string{"Not Ready"}) && snap != nil && snap.View == ksKey &&
+			snap.Synced && slices.Equal(snap.States, []string{"Not Ready"})
+	})
+	if len(tv.snap.Rows) != 1 || tv.snap.Rows[0].Ref.Name != "infra" || sh.ui.Filter != "" || s.UIState().View != sh.ui.View ||
+		tv.states.button.Text != "Not Ready" || !tv.states.clear.Visible() {
+		t.Errorf("rows %v, filter %q, states button %q", tv.snap.Rows, sh.ui.Filter, tv.states.button.Text)
 	}
 }
 

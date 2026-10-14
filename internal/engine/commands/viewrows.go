@@ -24,12 +24,13 @@ func registerViewRows(g *registrar) {
 	add(g, engine.Spec[viewRowsParams]{
 		ID: "view.rows", Label: "Read View Rows", Danger: engine.DangerRead,
 		Description: "Returns the rows the user sees in the active tab's view, as the table shows them: the namespace filter, " +
-			"the search (with its match case and regular expression toggles) and the sort applied, the visible columns in the " +
+			"the search (with its match case and regular expression toggles), the status filter (states) and the sort applied, the visible columns in the " +
 			"order the user arranged them, each cell's text as drawn (ages relative to now), each row's ref and status, and " +
 			"selected for the rows of the selection; a page of them (offset, limit: default 100, at most 500). shown counts " +
 			"every row the view shows, total the objects before filtering. Secrets show what their view shows (key names, " +
 			"types), never a value. Reads the view's snapshot, never the API server; resources_list lists a kind regardless " +
-			"of the view.",
+			"of the view. stateChoices are the states the rows carry that the namespace filter and the search keep, with " +
+			"their counts and the column they come from: what ui_setStatusFilter takes.",
 		Enabled: func(s *engine.Session, _ viewRowsParams) error { _, err := openView(s); return err },
 		Run: func(ctx context.Context, s *engine.Session, p viewRowsParams) (any, error) {
 			limit, err := engine.CheckViewPage(p.Offset, p.Limit)
@@ -50,7 +51,7 @@ func registerViewRows(g *registrar) {
 }
 
 // caughtUpTable returns the open view's snapshot once it shows what the UI state asks (its
-// namespace filter, search, sort and columns) and its kind's first list is in, waiting at most
+// namespace filter, search, status filter, sort and columns) and its kind's first list is in, waiting at most
 // viewRowsWait; then the snapshot it has, which says what it was filtered with and whether it is
 // synced.
 func caughtUpTable(ctx context.Context, s *engine.Session, view string) (*engine.TableSnapshot, engine.UIState, error) {

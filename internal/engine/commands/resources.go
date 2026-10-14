@@ -61,7 +61,7 @@ type KindInfo struct {
 // ListResult is resources.list's result.
 type ListResult struct {
 	Kind     string    `json:"kind"`
-	Total    int       `json:"total"`    // objects that pass the namespace and search filters
+	Total    int       `json:"total"`    // objects that pass the namespace, search and status filters
 	Returned int       `json:"returned"` // rows in this result, at most the limit
 	Rows     []ListRow `json:"rows"`
 }
@@ -92,6 +92,7 @@ type listParams struct {
 	Kind       string   `json:"kind" jsonschema:"kind key: the plural for built-in kinds (pods), <plural>.<group> for custom resources (orders.acme.cert-manager.io); kinds_list lists them"`
 	Namespaces []string `json:"namespaces,omitempty" jsonschema:"namespaces to list; empty lists all"`
 	Filter     string   `json:"filter,omitempty" jsonschema:"search text as in the view's search box: every term must occur in a cell, case-insensitively"`
+	States     []string `json:"states,omitempty" jsonschema:"status filter as in the view's states menu (ui_setStatusFilter): only objects whose row carries one of these states per state column named (Running, Not Ready, Health: Degraded; view_rows lists a view's in stateChoices)"`
 	Limit      int      `json:"limit,omitempty" jsonschema:"maximum rows to return; default 100, at most 1000"`
 }
 
@@ -145,7 +146,7 @@ func registerResources(g *registrar) {
 	add(g, engine.Spec[listParams]{
 		ID: "resources.list", Label: "List Resources", Danger: engine.DangerRead, Verbs: cacheReads,
 		Description: "Lists objects of one kind from Cogpit's cache, as table rows: reference, status and the cells by column " +
-			"title. Optional namespaces and search text filter as in the view; rows are sorted by name. total counts every " +
+			"title. Optional namespaces, search text and states filter as in the view; rows are sorted by name. total counts every " +
 			"row that passes the filters, returned the rows in the result (limit, default 100, at most 1000). Makes no API request once the kind is cached.",
 		Enabled: func(s *engine.Session, _ listParams) error { _, err := connected(s); return err },
 		Run:     listResources,
@@ -230,6 +231,7 @@ func listResources(ctx context.Context, s *engine.Session, p listParams) (any, e
 			rows = append(rows, r)
 		}
 	}
+	rows = engine.FilterRowsByStates(prof, rows, engine.CleanStates(p.States))
 	engine.SortRows(rows, prof.Columns, engine.DefaultSort)
 	res := ListResult{Kind: prof.Key, Total: len(rows), Rows: make([]ListRow, 0, min(limit, len(rows)))}
 	now, tf := s.Now(), s.TimeFormat() // times as the window writes them (D-31)

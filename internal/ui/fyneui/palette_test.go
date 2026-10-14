@@ -19,7 +19,8 @@ import (
 // probeContainer is the row menu tests'.
 type (
 	probeView struct {
-		View string `json:"view"`
+		View   string   `json:"view"`
+		States []string `json:"states,omitempty"`
 	}
 	probeContext struct {
 		Context string `json:"context"`

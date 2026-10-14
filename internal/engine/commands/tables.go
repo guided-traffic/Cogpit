@@ -143,8 +143,8 @@ func registerTables(g *registrar) {
 	add(g, engine.Spec[exportParams]{
 		ID: "table.exportCsv", Label: "Download as CSV", MenuPath: "View/Download as CSV", Danger: engine.DangerRead, Verbs: cacheReads,
 		Description: "Exports the open view's table as CSV text, as the download button beside the item count does: a header " +
-			"row with the titles of the visible columns, then the rows as the table shows them (namespace filter, search " +
-			"and sort applied; ages relative to now). Reads the view's snapshot, never the API server. Cells a spreadsheet " +
+			"row with the titles of the visible columns, then the rows as the table shows them (namespace filter, search, " +
+			"status filter and sort applied; ages relative to now). Reads the view's snapshot, never the API server. Cells a spreadsheet " +
 			"would evaluate as a formula start with an apostrophe. Returns {view, filename, rows, csv}.",
 		Enabled: func(s *engine.Session, _ exportParams) error { _, err := openView(s); return err },
 		Run: func(_ context.Context, s *engine.Session, p exportParams) (any, error) {

@@ -450,8 +450,7 @@ func (sh *shell) applyUIState(st engine.UIState) {
 		sh.view.viewChanged()
 		sh.refreshTable()
 	}
-	if first || !slices.Equal(st.Namespaces, old.Namespaces) || !slices.Equal(st.Groups, old.Groups) ||
-		st.Filter != old.Filter || st.FilterOptions != old.FilterOptions || st.Sort != old.Sort {
+	if first || tableStateChanged(st, old) {
 		sh.view.stateChanged()
 	}
 	if first || !slices.Equal(st.Selected, old.Selected) {
@@ -930,7 +929,8 @@ func (sh *shell) closeDrawer() {
 // would not validate against an array schema.
 type (
 	openViewParams struct {
-		View string `json:"view"`
+		View   string   `json:"view"`
+		States []string `json:"states,omitempty"` // opens the view filtered to these states (a dashboard's state link)
 	}
 	namespacesParams struct {
 		Namespaces []string `json:"namespaces"`

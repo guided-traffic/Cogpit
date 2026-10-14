@@ -229,14 +229,15 @@ func selectObjects(ctx context.Context, s *engine.Session, p selectParams) (any,
 const shownWait = 2 * time.Second
 
 // shownRows returns the objects of the rows the open view shows, from its snapshot once that has
-// caught up with the namespace filter and the search (snapshots follow the UI state within a
+// caught up with the namespace filter, the search and the status filter (snapshots follow the UI state within a
 // tenth of a second; an agent may select all right after setting the search).
 func shownRows(ctx context.Context, s *engine.Session, view string) ([]model.ObjectRef, error) {
 	wctx, cancel := context.WithTimeout(ctx, shownWait)
 	defer cancel()
 	for {
 		t, u := s.Table(view), s.UIState()
-		if t != nil && t.Filter == u.Filter && t.FilterOptions == u.FilterOptions && slices.Equal(t.Namespaces, u.Namespaces) {
+		if t != nil && t.Filter == u.Filter && t.FilterOptions == u.FilterOptions && slices.Equal(t.Namespaces, u.Namespaces) &&
+			slices.Equal(t.States, u.States) {
 			refs := make([]model.ObjectRef, len(t.Rows))
 			for i := range t.Rows {
 				refs[i] = t.Rows[i].Ref

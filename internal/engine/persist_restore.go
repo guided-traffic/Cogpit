@@ -39,6 +39,17 @@ func storedKeys(list []string) []string {
 	return out
 }
 
+// storedStates keeps a tab's status filter: valid UTF-8 states, as ui.setStatusFilter takes them.
+func storedStates(states []string) []string {
+	var valid []string
+	for _, s := range states {
+		if utf8.ValidString(s) {
+			valid = append(valid, s)
+		}
+	}
+	return CleanStates(valid)
+}
+
 // storedHistory keeps a tab's history of valid view keys, the newest maxTabHistory.
 func storedHistory(h []string) []string {
 	out := storedKeys(h)
@@ -90,6 +101,7 @@ func (doc *workspaceDoc) normalize() {
 		if !storedText(t.Filter, MaxFilterPattern) {
 			t.Filter = ""
 		}
+		t.States = storedStates(t.States)
 		if !storedText(t.Sort.Column, maxStoredKey) {
 			t.Sort = SortSpec{}
 		}
@@ -145,7 +157,7 @@ func (s *Session) restoreWorkspace(doc workspaceDoc) []goneTabs {
 		clock = max(clock, st.Used)
 		tabs = append(tabs, ViewTab{ID: "tab-" + strconv.Itoa(len(tabs)+1), Context: st.Context, View: st.View,
 			Preview: st.Preview, Namespaces: st.Namespaces, Groups: st.Groups, Filter: st.Filter,
-			FilterOptions: st.FilterOptions, Sort: st.Sort, Back: st.Back, Forward: st.Forward, used: st.Used})
+			FilterOptions: st.FilterOptions, States: st.States, Sort: st.Sort, Back: st.Back, Forward: st.Forward, used: st.Used})
 	}
 	for k := range tabs {
 		tabs[k].Title = tabTitle(s.viewTitle, tabs[k])

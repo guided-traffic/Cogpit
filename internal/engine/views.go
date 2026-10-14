@@ -444,6 +444,7 @@ type viewParams struct {
 	order      []string // the view's column ids in the user's order; nil: the kind's
 	filter     string
 	filterOpts FilterOptions // the search's toggles (filteroptions.go)
+	states     []string      // the status filter (statusfilter.go)
 	sort       SortSpec
 	metrics    MetricSet // the metrics the cluster's settings hide (hidemetrics.go)
 }
@@ -454,13 +455,14 @@ func paramsOf(u UIState) viewParams {
 		namespaces: slices.Clone(u.Namespaces), groups: slices.Clone(u.Groups),
 		hidden: slices.Clone(hidden), hiddenSet: set,
 		order:  slices.Clone(u.ColumnOrder[u.View]),
-		filter: u.Filter, filterOpts: u.FilterOptions, sort: u.Sort,
+		filter: u.Filter, filterOpts: u.FilterOptions, states: slices.Clone(u.States), sort: u.Sort,
 		metrics: hiddenMetricsOf(&u, u.Context),
 	}
 }
 
 func (p viewParams) equal(o viewParams) bool {
 	return p.filter == o.filter && p.filterOpts == o.filterOpts && p.sort == o.sort && slices.Equal(p.namespaces, o.namespaces) &&
+		slices.Equal(p.states, o.states) &&
 		slices.Equal(p.groups, o.groups) && p.hiddenSet == o.hiddenSet && slices.Equal(p.hidden, o.hidden) &&
 		slices.Equal(p.order, o.order) && p.metrics == o.metrics
 }

@@ -19,7 +19,8 @@ type StateResult struct {
 	engine.UIState
 	// ViewTitle is the open view's title, "Pods".
 	ViewTitle string `json:"viewTitle,omitempty"`
-	// Rows is the number of rows the view shows after the namespace and search filters.
+	// Rows is the number of rows the view shows after the namespace filter, the search and the status
+	// filter.
 	Rows int `json:"rows"`
 	// Total is the number of objects of the view's kind before filtering.
 	Total int `json:"total"`
@@ -48,6 +49,8 @@ type NavigateResult struct {
 
 type viewParams struct {
 	View string `json:"view" jsonschema:"kind key of the view to open: pods, services, or <plural>.<group> for a custom resource kind (gateways.gateway.networking.k8s.io); kinds_list lists them. Or a page: cluster/overview (the cluster Overview), workloads/overview (the Workloads Overview)"`
+	// States opens the view filtered, as a dashboard's state link does (statusfilter.go).
+	States []string `json:"states,omitempty" jsonschema:"open the view with its status filter set to these states, as ui_setStatusFilter takes them (Not Ready, Health: Degraded); omitted: unfiltered"`
 }
 
 type namespaceParams struct {
@@ -63,7 +66,7 @@ type filterParams struct {
 type selectParams struct {
 	Refs []model.ObjectRef `json:"refs,omitempty" jsonschema:"objects of the open view to select; empty with mode replace clears the selection"`
 	Mode string            `json:"mode,omitempty" jsonschema:"how the objects change the selection: replace (the default: they become the selection), add, toggle (each is added, or removed when selected) or remove"`
-	All  bool              `json:"all,omitempty" jsonschema:"true: the objects are every row the open view shows (its namespace filter and search applied), in place of refs"`
+	All  bool              `json:"all,omitempty" jsonschema:"true: the objects are every row the open view shows (its namespace filter, search and status filter applied), in place of refs"`
 	// NoDrawer applies to mode replace; the other modes never change the drawer.
 	NoDrawer bool `json:"noDrawer,omitempty" jsonschema:"with mode replace: select without opening the detail drawer on the first object (or, with no objects, without closing it); the other modes never change the drawer"`
 }
@@ -77,7 +80,7 @@ func registerUI(g *registrar) {
 		ID: "ui.state", Label: "Show UI State", Danger: engine.DangerRead,
 		Description: "Returns what the user sees: the connected context and its connection state, the open view (kind key), " +
 			"the namespace filter, the search text and its toggles (filterOptions: matchCase, regex; filterError when its " +
-			"regular expression is invalid), the sort order, the selected objects, the object in the detail drawer and " +
+			"regular expression is invalid), the status filter (states; view_rows lists the states offered), the sort order, the selected objects, the object in the detail drawer and " +
 			"the order of its sortable tables by title (drawerSort: a node's or a workload's Pods, ui_sortDrawerTable), " +
 			"the tab bar's tabs (tabs and activeTab: each tab's id, context, view, title, preview or fixed, its own " +
 			"filter and selection, and its history), the dock tabs, how many rows the view shows of how many objects, for a pod's or node's drawer the time " +
@@ -115,13 +118,16 @@ func registerUI(g *registrar) {
 		Description: "Opens the list view of a kind (pods, services, ...) or a page (cluster/overview, the cluster " +
 			"Overview; workloads/overview, the Workloads Overview), as clicking it in the sidebar does: in the preview tab " +
 			"of the tab bar, which the next view opened this way replaces, or by activating a fixed tab of the cluster " +
-			"that shows the view (ui_tab_open opens fixed tabs). Clears the selection, the detail drawer and the search " +
-			"text; keeps the namespace filter. Returns the new UI state.",
+			"that shows the view (ui_tab_open opens fixed tabs). Clears the selection, the detail drawer, the search " +
+			"text and the status filter, or sets the status filter to states; keeps the namespace filter. Returns the new UI state.",
 		Enabled: func(s *engine.Session, _ viewParams) error { _, err := connected(s); return err },
 		Run: func(_ context.Context, s *engine.Session, p viewParams) (any, error) {
 			view, err := viewKey(s, p.View)
 			if err != nil {
 				return nil, err
+			}
+			if states := engine.CleanStates(p.States); len(states) > 0 {
+				return s.OpenTabFiltered(view, states), nil
 			}
 			return s.OpenTab(view, false), nil
 		},
@@ -195,7 +201,7 @@ func registerUI(g *registrar) {
 			"header's checkbox does. mode replace (the default) makes them the selection and, unless noDrawer is true, " +
 			"opens the detail drawer on the first one; an empty list clears the selection (and closes the drawer unless " +
 			"noDrawer). mode add, toggle and remove change the selection and leave the drawer as it is. all: true takes " +
-			"every row the view shows (namespace filter and search applied) in place of refs. Actions on the selection " +
+			"every row the view shows (namespace filter, search and status filter applied) in place of refs. Actions on the selection " +
 			"take its objects (object_deleteMany). On the cluster Overview the objects are its issues' (any kind). To " +
 			"select an object of another kind or one hidden by the filters, use ui_navigate. Returns the new UI state.",
 		Enabled: func(s *engine.Session, _ selectParams) error { _, err := openView(s); return err },
@@ -212,8 +218,8 @@ func registerUI(g *registrar) {
 
 	add(g, engine.Spec[refParams]{
 		ID: "ui.navigate", Label: "Go to Object", MenuPath: "View/Go to Object", Danger: engine.DangerUI, Verbs: cacheReads,
-		Description: "Shows one object to the user: opens its kind's view, makes sure the namespace filter and the search " +
-			"text do not hide it (resetting them if they do), selects it and opens its detail drawer. Use it after " +
+		Description: "Shows one object to the user: opens its kind's view, makes sure the namespace filter, the search " +
+			"text and the status filter do not hide it (resetting them if they do), selects it and opens its detail drawer. Use it after " +
 			"resources_find. Reads only the cache. Returns {view, ref, found}; found is false when the object is not in the cache.",
 		Enabled: func(s *engine.Session, _ refParams) error { _, err := connected(s); return err },
 		Run:     navigate,
@@ -255,6 +261,9 @@ func navigate(ctx context.Context, s *engine.Session, p refParams) (any, error) 
 		}
 		if u.Filter != "" && (row == nil || !engine.MatchesFilter(*row, u.Filter, u.FilterOptions)) {
 			u.Filter = ""
+		}
+		if len(u.States) > 0 && (row == nil || !engine.MatchesStates(prof, *row, u.States)) {
+			u.SetStates(nil) // the status filter hides it (statusfilter.go)
 		}
 		u.Selected = []model.ObjectRef{ref}
 		d := ref

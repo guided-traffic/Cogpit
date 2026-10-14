@@ -283,13 +283,14 @@ func fluxModel(fb *fluxBuild, namespaces []string) *FluxDashboardModel {
 }
 
 // fluxTable is the page's table: the objects that are not ready, in the namespaces, matching the
-// search, sorted.
+// search and the status filter, sorted.
 func fluxTable(context string, fb *fluxBuild, p viewParams) *TableSnapshot {
 	var nsSet map[string]struct{}
 	if len(p.namespaces) > 0 {
 		nsSet = setOf(p.namespaces)
 	}
 	match, filterErr := p.matcher()
+	states := newStateFilter(fluxIssuesProfile, p.states)
 	rows := []model.Row{}
 	total := 0
 	for _, k := range fb.kinds {
@@ -307,6 +308,9 @@ func fluxTable(context string, fb *fluxBuild, p viewParams) *TableSnapshot {
 			if !match.All() && !match.Match(row) {
 				continue
 			}
+			if !states.keep(states.spec.Of(&row)) {
+				continue
+			}
 			rows = append(rows, row)
 		}
 	}
@@ -316,6 +320,7 @@ func fluxTable(context string, fb *fluxBuild, p viewParams) *TableSnapshot {
 		Columns: ColumnsShown(fluxIssuesProfile.Columns, p.hidden, p.hiddenSet), Order: ColumnOrder(fluxIssuesProfile.Columns, p.order),
 		Rows: rows, Sort: p.sort,
 		Namespaces: slices.Clone(p.namespaces), Filter: p.filter, FilterOptions: p.filterOpts, FilterError: filterErr, Total: total,
+		States: slices.Clone(p.states), StateChoices: states.choices(),
 		Synced: fb.synced, Error: fb.errText,
 	}
 	switch {

@@ -182,11 +182,13 @@ type rowEntry struct {
 	base    model.Row
 	patched bool   // row is base with metrics in it
 	ugen    uint64 // the feed's generation + 1 that row was patched at; 0 for never
+	// states are the row's states (statusfilter.go), from the profile's row: metrics change none.
+	states []model.RowState
 }
 
 // build turns the objects into a snapshot: rows from the cache (rebuilt when the resourceVersion
 // changed, and all of them when the related objects of a profile with Needs changed), filtered by
-// namespaces and search text, sorted. Total counts the objects before filtering.
+// namespaces, search text and status filter, sorted. Total counts the objects before filtering.
 func (rc *rowCache) build(p *model.KindProfile, context string, objs []*unstructured.Unstructured, params viewParams, rel model.Related, relGen uint64) *TableSnapshot {
 	return rc.buildWith(p, context, objs, params, rel, relGen, nil)
 }
@@ -212,6 +214,7 @@ func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unst
 	}
 	match, filterErr := params.matcher()
 	groupCol, groupSet := groupFilter(p, params.groups)
+	states := newStateFilter(p, params.states)
 
 	cpuCol, memCol, diskCol := -1, -1, -1
 	var ugen uint64
@@ -235,6 +238,7 @@ func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unst
 		e := rc.rows[key]
 		if e == nil || e.rv != rv || rv == "" {
 			e = &rowEntry{rv: rv, row: model.BuildRowWith(p, context, obj, rel)}
+			e.states = states.spec.Of(&e.row)
 			rc.rows[key] = e
 		}
 		e.gen = rc.gen
@@ -276,6 +280,9 @@ func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unst
 		if !match.All() && !match.Match(e.row) {
 			continue
 		}
+		if !states.keep(e.states) {
+			continue
+		}
 		kept = append(kept, e)
 	}
 	if len(rc.rows) > len(objs) { // objects were deleted: drop their rows
@@ -299,6 +306,7 @@ func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unst
 		Rows:    rows, Sort: params.sort,
 		Namespaces: slices.Clone(params.namespaces), Filter: params.filter,
 		FilterOptions: params.filterOpts, FilterError: filterErr,
+		States: slices.Clone(params.states), StateChoices: states.choices(),
 		Total: len(objs), MetricsHidden: metricsHidden,
 	}
 }

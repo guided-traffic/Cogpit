@@ -14,11 +14,11 @@ import (
 
 // The Flux Dashboard's upper part (resource-parity › Paid Lens Desktop views › Flux CD, G23,
 // D-34): a tile per Flux kind the cluster serves, in the navigator's order and sub-groups, with its
-// count, a bar of its objects by state and each state's count as a link to the kind's view. The
-// objects that are not ready are the page's table below, which the table view shows as it shows any
-// view's. The data is the engine's (flux.dashboard). Lens's Flux dashboard is not captured: the
-// look is Cogpit's (inferred). The views have no status filter (Cogpit's), so a state's link opens
-// the kind's view unfiltered.
+// count, a bar of its objects by state and each state's count as a link to the kind's view filtered
+// to that state (the views' status filter, D-34 as the owner decided it, 2026-10-14). The objects
+// that are not ready are the page's table below, which the table view shows as it shows any view's.
+// The data is the engine's (flux.dashboard). Lens's Flux dashboard is not captured: the look is
+// Cogpit's (inferred).
 
 // fluxTableTitle is the heading of the dashboard's table.
 const fluxTableTitle = "Not Ready"
@@ -139,7 +139,7 @@ type fluxTile struct {
 	bar    *healthBar
 	states *fyne.Container
 	// links are the states' links by state ("notReady"): a dot in the state's colour and the
-	// count with the state's name, each opening the kind's view.
+	// count with the state's name, each opening the kind's view filtered to the state.
 	links map[string]*tapTarget
 	shown []engine.FluxStateCount
 	drawn bool
@@ -157,6 +157,11 @@ func newFluxTile(sh *shell, kind string) *fluxTile {
 
 // open opens the kind's view.
 func (t *fluxTile) open() { t.sh.dispatch("ui.openView", openViewParams{View: t.kind}, nil) }
+
+// openState opens the kind's view filtered to a state, as its Status column writes it ("Not Ready").
+func (t *fluxTile) openState(state string) {
+	t.sh.dispatch("ui.openView", openViewParams{View: t.kind, States: []string{state}}, func(_ any, err error) { t.sh.showError(err) })
+}
 
 func (t *fluxTile) set(k engine.FluxDashboardKind) {
 	if t.link.text != k.Title {
@@ -183,8 +188,9 @@ func (t *fluxTile) set(k engine.FluxDashboardKind) {
 	t.links = make(map[string]*tapTarget, len(k.States))
 	objs := make([]fyne.CanvasObject, 0, len(k.States))
 	for _, st := range k.States {
+		title := st.Title
 		link := newTapTarget(container.NewHBox(newDot(statusColorName(st.Status)),
-			newTextLine(formatCount(int64(st.Count))+" "+st.Title, colorLink, theme.SizeNameText, fyne.TextStyle{})), t.open)
+			newTextLine(formatCount(int64(st.Count))+" "+title, colorLink, theme.SizeNameText, fyne.TextStyle{})), func() { t.openState(title) })
 		t.links[string(st.State)] = link
 		objs = append(objs, link)
 	}

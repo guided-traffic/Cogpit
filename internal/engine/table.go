@@ -24,6 +24,11 @@ type TableSnapshot struct {
 	// search filtered nothing out (an invalid regular expression), "" when it applied.
 	FilterOptions FilterOptions `json:"filterOptions,omitzero"`
 	FilterError   string        `json:"filterError,omitempty"`
+	// States is the status filter the rows were filtered with (UIState.States); StateChoices are
+	// the states the rows the namespace filter and the search keep carry, with their counts, and
+	// the selected ones none carries (statusfilter.go).
+	States       []string     `json:"states,omitempty"`
+	StateChoices []StateCount `json:"stateChoices,omitempty"`
 	// Total is the number of objects before filtering.
 	Total int `json:"total"`
 	// Revision increases with every snapshot of the view.

@@ -34,6 +34,12 @@ type UIState struct {
 	// FilterOptions are the search field's toggles, match case and regular expression
 	// (filteroptions.go).
 	FilterOptions FilterOptions `json:"filterOptions"`
+	// States is the open view's status filter: the states its rows must carry, as the view's
+	// snapshot offers them (TableSnapshot.StateChoices; statusfilter.go); empty: every row. It
+	// belongs to the view it was set for: opening another view clears it.
+	States []string `json:"states,omitempty"`
+	// statesView is the view States was set for (syncStates).
+	statesView string
 	// Sort is the open view's sort order.
 	Sort SortSpec `json:"sort"`
 	// Selected are the selected objects of the open view.
@@ -88,7 +94,7 @@ type UIState struct {
 	Notifications NotificationSummary `json:"notifications,omitzero"`
 	// Tabs are the tab bar's tabs in their order, each a view of one cluster with its own state
 	// (tabs.go); ActiveTab is the shown one's id, empty when none is shown. View, Namespaces,
-	// Groups, Filter, FilterOptions, Sort, Selected and Drawer above are the active tab's.
+	// Groups, Filter, FilterOptions, States, Sort, Selected and Drawer above are the active tab's.
 	Tabs      []ViewTab `json:"tabs,omitempty"`
 	ActiveTab string    `json:"activeTab,omitempty"`
 	tabSeq    uint64    // the number of the last tab id handed out
@@ -191,6 +197,7 @@ func (u UIState) Clone() UIState {
 	out := u
 	out.Namespaces = slices.Clone(u.Namespaces)
 	out.Groups = slices.Clone(u.Groups)
+	out.States = slices.Clone(u.States)
 	if u.HiddenColumns != nil {
 		out.HiddenColumns = make(map[string][]string, len(u.HiddenColumns))
 		for view, ids := range u.HiddenColumns {

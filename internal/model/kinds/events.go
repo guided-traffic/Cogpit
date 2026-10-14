@@ -39,7 +39,9 @@ var events = &model.KindProfile{
 		// (D-31) and sorts it by time.
 		{ID: "lastSeen", Title: "Last Seen", Type: model.ColumnTime},
 	},
-	Cells: eventCells,
+	// An event's state is its Type, Normal or Warning (the status filter, D-34).
+	States: []model.StateColumn{{ID: typeColumn.ID}},
+	Cells:  eventCells,
 	Fields: map[string]fieldFunc{
 		"involvedObject": func(obj *unstructured.Unstructured) []string {
 			kind, name := eventObject(obj)

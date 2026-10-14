@@ -176,6 +176,8 @@ var wantCommands = map[string]engine.Danger{
 	"argocd.openUI":    engine.DangerMutating, // a port forward to argocd-server (TestArgoOpenUIFindsTheServer)
 	// What the dock's tabs show, for agents (G17, D-44); a terminal's switch is GUI-only.
 	"dock.read": engine.DangerRead, "dock.allowAgentRead": engine.DangerUI,
+	// The status filter of every view (D-34, owner 2026-10-14) (TestStatusFilterCommand).
+	"ui.setStatusFilter": engine.DangerUI,
 }
 
 func TestRegistryComplete(t *testing.T) {

@@ -338,7 +338,8 @@ func TestArgoDashboardPanel(t *testing.T) {
 	}
 	sh.view.argo.filter.SetText("")
 
-	// A tile opens the Applications view searched for its state.
+	// A tile opens the Applications view filtered to its state (the status filter, D-34), the search
+	// left alone.
 	for _, l := range findAll[*linkText](sh.view.argo.strip) {
 		if l.text == "Out of sync" {
 			test.Tap(l)
@@ -346,9 +347,12 @@ func TestArgoDashboardPanel(t *testing.T) {
 	}
 	q.until(t, "the filtered Applications", func() bool {
 		snap := sh.view.snap
-		return sh.ui.View == kinds.ArgoApplicationsKey && sh.ui.Filter == "OutOfSync" && snap != nil && snap.View == kinds.ArgoApplicationsKey &&
-			snap.Filter == "OutOfSync" && len(snap.Rows) == 2
+		return sh.ui.View == kinds.ArgoApplicationsKey && slices.Equal(sh.ui.States, []string{"Sync: OutOfSync"}) && sh.ui.Filter == "" &&
+			snap != nil && snap.View == kinds.ArgoApplicationsKey && slices.Equal(snap.States, []string{"Sync: OutOfSync"}) && len(snap.Rows) == 2
 	})
+	if sh.view.states.button.Text != "Sync: OutOfSync" {
+		t.Errorf("states button %q", sh.view.states.button.Text)
+	}
 }
 
 // argoTapButton taps the button with the label in the topmost overlay.

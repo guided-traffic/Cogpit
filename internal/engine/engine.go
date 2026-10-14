@@ -365,6 +365,7 @@ func (s *Session) UpdateUI(fn func(*UIState)) UIState {
 	s.mu.Lock()
 	old := s.ui.Clone()
 	fn(&s.ui)
+	s.ui.syncStates()               // a status filter ends with its view (statusfilter.go)
 	s.ui.syncTabs(old, s.viewTitle) // the active tab follows the view, whoever changed it (tabs.go)
 	s.ui.syncWelcome()              // the welcome page shows while the workspace has nothing else (welcome.go)
 	s.ui.syncNavScope(old)          // the navigator shows the connected cluster, or the section (navscope.go)

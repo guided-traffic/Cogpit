@@ -69,14 +69,14 @@ type ArgoCDDashboardModel struct {
 	Error  string `json:"error,omitempty"`
 }
 
-// ArgoTile is one count of the Dashboard: what it counts, how many, its colour, and the search
-// text that opens the Applications view on them (the view has no status filter: ui.openView with
-// this filter shows the rows with the status in a cell; "" opens it unfiltered).
+// ArgoTile is one count of the Dashboard: what it counts, how many, its colour, and the state of
+// the Applications view's status filter that shows them ("Sync: OutOfSync", "Health: Degraded":
+// ui.openView with these states, D-34; "" opens the view unfiltered).
 type ArgoTile struct {
 	Label  string       `json:"label"`
 	Count  int          `json:"count"`
 	Status model.Status `json:"status,omitempty"`
-	Filter string       `json:"filter,omitempty"`
+	State  string       `json:"state,omitempty"`
 }
 
 // ArgoActivityItem is one entry of the recent activity: an Application's operation or sync.
@@ -109,7 +109,7 @@ func argoAttentionProfile(b *Backend) *model.KindProfile {
 	p.Columns = slices.Clone(src.Columns)
 	for i, c := range p.Columns {
 		switch c.ID {
-		case metadataName, columnNamespace, "sync", "health", argoMessageColumn, "age":
+		case metadataName, columnNamespace, argoSyncColumn, argoHealthColumn, argoMessageColumn, "age":
 			p.Columns[i].Hidden = false
 		default:
 			p.Columns[i].Hidden = true
@@ -306,7 +306,7 @@ func (w *argoDashWorker) build(p viewParams) (*ArgoCDDashboardModel, *TableSnaps
 			m.Served, m.Error = true, ok.Error
 		}
 	}
-	argoApplicationsSummary(m, w.backend.Context, apps)
+	argoApplicationsSummary(m, w.backend.Context, apps, argoStateNamer(w.backend))
 
 	var snap *TableSnapshot
 	if w.table != nil {
@@ -337,9 +337,21 @@ var (
 	argoSyncOrder   = []string{kinds.ArgoSynced, kinds.ArgoOutOfSync, "Unknown", ""}
 )
 
+// argoStateNamer names an Application's sync or health status as the Applications view's status
+// filter does: qualified by its column's title ("Health: Degraded"), the view having both columns.
+func argoStateNamer(b *Backend) func(column, status string) string {
+	p, ok := b.Profile(kinds.ArgoApplicationsKey)
+	if !ok {
+		return func(_, status string) string { return status }
+	}
+	spec := model.StatesOf(p)
+	return func(column, status string) string { return spec.Qualified(p, column, status) }
+}
+
 // argoApplicationsSummary fills the strip, the counts by health and sync, the Applications the
-// card's Sync and Refresh take, and the recent activity.
-func argoApplicationsSummary(m *ArgoCDDashboardModel, context string, apps []*unstructured.Unstructured) {
+// card's Sync and Refresh take, and the recent activity; state names a status as the Applications
+// view's status filter does (argoStateNamer).
+func argoApplicationsSummary(m *ArgoCDDashboardModel, context string, apps []*unstructured.Unstructured, state func(column, status string) string) {
 	health, sync := map[string]int{}, map[string]int{}
 	var activity []ArgoActivityItem
 	for _, a := range apps {
@@ -364,26 +376,44 @@ func argoApplicationsSummary(m *ArgoCDDashboardModel, context string, apps []*un
 		return argoCompareRefs(x.Ref, y.Ref)
 	})
 	m.Activity = activity[:min(len(activity), argoActivityShown)]
+	healthState := func(h string) string {
+		if h == "" {
+			return "" // not assessed: no cell to filter by
+		}
+		return state(argoHealthColumn, h)
+	}
+	syncState := func(s string) string {
+		if s == "" {
+			return ""
+		}
+		return state(argoSyncColumn, s)
+	}
 	for _, h := range argoHealthOrder {
 		if n := health[h]; n > 0 {
-			m.Health = append(m.Health, ArgoTile{Label: argoStateLabel(h), Count: n, Status: kinds.ArgoHealthToken(h), Filter: h})
+			m.Health = append(m.Health, ArgoTile{Label: argoStateLabel(h), Count: n, Status: kinds.ArgoHealthToken(h), State: healthState(h)})
 		}
 	}
 	for _, s := range argoSyncOrder {
 		if n := sync[s]; n > 0 {
-			m.Sync = append(m.Sync, ArgoTile{Label: argoStateLabel(s), Count: n, Status: kinds.ArgoSyncToken(s), Filter: s})
+			m.Sync = append(m.Sync, ArgoTile{Label: argoStateLabel(s), Count: n, Status: kinds.ArgoSyncToken(s), State: syncState(s)})
 		}
 	}
 	m.Strip = []ArgoTile{
 		{Label: "Applications", Count: len(apps)},
-		{Label: "Synced", Count: sync[kinds.ArgoSynced], Status: model.StatusOK, Filter: kinds.ArgoSynced},
-		{Label: "Healthy", Count: health[kinds.ArgoHealthy], Status: model.StatusOK, Filter: kinds.ArgoHealthy},
-		{Label: "Out of sync", Count: sync[kinds.ArgoOutOfSync], Status: model.StatusWarning, Filter: kinds.ArgoOutOfSync},
-		{Label: "Degraded", Count: health[kinds.ArgoDegraded], Status: model.StatusError, Filter: kinds.ArgoDegraded},
-		{Label: "Missing", Count: health[kinds.ArgoMissing], Status: model.StatusWarning, Filter: kinds.ArgoMissing},
-		{Label: "Progressing", Count: health[kinds.ArgoProgressing], Status: model.StatusPending, Filter: kinds.ArgoProgressing},
+		{Label: "Synced", Count: sync[kinds.ArgoSynced], Status: model.StatusOK, State: syncState(kinds.ArgoSynced)},
+		{Label: "Healthy", Count: health[kinds.ArgoHealthy], Status: model.StatusOK, State: healthState(kinds.ArgoHealthy)},
+		{Label: "Out of sync", Count: sync[kinds.ArgoOutOfSync], Status: model.StatusWarning, State: syncState(kinds.ArgoOutOfSync)},
+		{Label: "Degraded", Count: health[kinds.ArgoDegraded], Status: model.StatusError, State: healthState(kinds.ArgoDegraded)},
+		{Label: "Missing", Count: health[kinds.ArgoMissing], Status: model.StatusWarning, State: healthState(kinds.ArgoMissing)},
+		{Label: "Progressing", Count: health[kinds.ArgoProgressing], Status: model.StatusPending, State: healthState(kinds.ArgoProgressing)},
 	}
 }
+
+// The Applications' Sync and Health columns, whose texts are their states in the status filter.
+const (
+	argoSyncColumn   = "sync"
+	argoHealthColumn = "health"
+)
 
 // argoStateLabel names a state; "" is one the controller has not assessed yet.
 func argoStateLabel(s string) string {

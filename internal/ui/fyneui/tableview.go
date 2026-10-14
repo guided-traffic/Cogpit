@@ -33,7 +33,7 @@ var defaultWidthByType = map[model.ColumnType]float32{
 }
 
 // tableView is the centre of the window: the view header (title and count, namespace filter,
-// search) above the resource table, or a placeholder while there is nothing to show.
+// status filter, search) above the resource table, or a placeholder while there is nothing to show.
 type tableView struct {
 	sh *shell
 
@@ -43,6 +43,7 @@ type tableView struct {
 	scopeLine             *textLine // the namespaces a kind is read in one by one, and those denied (clustersettings_namespaces_filter.go)
 	nsButton              *widget.Button
 	nsBox                 *fyne.Container // the namespace filter's slot; hidden on cluster-scoped views
+	states                *statusFilter   // the status filter beside it (statusfilter.go)
 	search                *widget.Entry
 	toggles               *searchToggles // the search's "Aa" and ".*" (searchtoggles.go)
 	searchBox             *fyne.Container
@@ -153,8 +154,9 @@ func newTableView(sh *shell) *tableView {
 	tv.check.bar = newSelectionBar(tv)
 	tv.heading = container.NewHBox(tv.title, tv.count, tv.csvButton, tv.syncing, tv.check.bar.root)
 	tv.nsBox = sized(sizeFilterWidth, "", tv.nsButton)
+	tv.states = newStatusFilter(tv)
 	tv.searchBox = sized(sizeSearchWidth, "", tv.toggles.field())
-	tv.tools = container.NewHBox(tv.nsBox, tv.searchBox)
+	tv.tools = container.NewHBox(tv.nsBox, tv.states.box, tv.searchBox)
 	header := container.NewStack(newSurface(theme.ColorNameBackground),
 		inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
 			container.NewBorder(nil, nil, tv.heading, tv.tools)))
@@ -211,12 +213,12 @@ func (tv *tableView) setPageLayout(view string) {
 		tv.heading.Objects = []fyne.CanvasObject{tv.title}
 		tv.tools.Objects = []fyne.CanvasObject{tv.nsBox}
 		tv.eventsHeading.Objects = []fyne.CanvasObject{tv.eventsTitle, tv.count, tv.csvButton, tv.syncing, tv.check.bar.root}
-		tv.eventsTools.Objects = []fyne.CanvasObject{tv.searchBox}
+		tv.eventsTools.Objects = []fyne.CanvasObject{tv.states.box, tv.searchBox} // the status filter filters the table only
 		tv.pageBox.Show()
 	} else {
 		tv.eventsHeading.Objects, tv.eventsTools.Objects = nil, nil
 		tv.heading.Objects = []fyne.CanvasObject{tv.title, tv.count, tv.csvButton, tv.syncing, tv.check.bar.root}
-		tv.tools.Objects = []fyne.CanvasObject{tv.nsBox, tv.searchBox}
+		tv.tools.Objects = []fyne.CanvasObject{tv.nsBox, tv.states.box, tv.searchBox}
 		tv.pageBox.Hide()
 	}
 	for _, c := range []*fyne.Container{tv.heading, tv.tools, tv.eventsHeading, tv.eventsTools} {
@@ -238,6 +240,7 @@ func (tv *tableView) viewChanged() {
 	tv.updateTitle()
 	tv.updatePlaceholder()
 	tv.updateNamespaceButton()
+	tv.states.update()
 }
 
 // requestPage asks for the open page's own part: the Workloads Overview's kinds, the cluster
@@ -317,7 +320,7 @@ func (tv *tableView) updatePlaceholder() {
 		msg = "Choose a view in the sidebar."
 	case tv.snap == nil || (!tv.snap.Synced && len(tv.snap.Rows) == 0 && tv.snap.Error == ""):
 		msg = "Loading " + tv.rowNoun() + "…"
-	case len(tv.snap.Rows) == 0 && (tv.snap.Filter != "" || len(tv.snap.Namespaces) > 0 || (tv.groupMode() && len(ui.Groups) > 0)):
+	case len(tv.snap.Rows) == 0 && (tv.snap.Filter != "" || len(tv.snap.Namespaces) > 0 || len(tv.snap.States) > 0 || (tv.groupMode() && len(ui.Groups) > 0)):
 		msg = "No " + tv.rowNoun() + " match the filter."
 	case len(tv.snap.Rows) == 0 && ui.View == engine.FluxDashboard && tv.snap.Error == "":
 		msg = "Every Flux object is ready." // its table lists those that are not (fluxdashboard.go)
@@ -385,6 +388,7 @@ func (tv *tableView) setSnapshot(snap *engine.TableSnapshot) {
 	tv.updateTitle()
 	tv.updatePlaceholder()
 	tv.updateNamespaceButton() // cluster-scoped views hide the namespace filter
+	tv.states.update()         // the states the rows carry (statusfilter.go)
 	tv.syncColumnChecks()
 	tv.checksChanged() // the header's checkbox counts the rows shown
 	if newView {
@@ -404,12 +408,14 @@ func (tv *tableView) refreshAges() {
 	tv.table.Refresh()
 }
 
-// stateChanged follows namespace, filter and sort changes made anywhere (the user, an agent).
+// stateChanged follows namespace, filter, status filter and sort changes made anywhere (the user,
+// an agent).
 func (tv *tableView) stateChanged() {
 	tv.syncSearch()
 	tv.toggles.sync()
 	tv.updateNamespaceButton()
 	tv.syncNamespaceChecks()
+	tv.states.update()
 }
 
 // selectionChanged re-renders the selected rows and remembers the first selected object as a

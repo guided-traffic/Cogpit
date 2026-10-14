@@ -10,7 +10,7 @@ import (
 
 // The rows the user sees (G17, view.rows): a page of the open view's table as the window draws it,
 // read from the view's snapshot, never from the API server. The snapshot is what the table shows:
-// the namespace filter, the search with its toggles and the sort applied, its columns hidden and
+// the namespace filter, the search with its toggles, the status filter and the sort applied, its columns hidden and
 // arranged as the user left them (TableSnapshot.Columns, DisplayOrder), each cell's text as the
 // table renders it at now (model.CellText). A kind that holds Secret values shows in its cells what
 // its view shows (key names, types and sizes), never a value.
@@ -59,6 +59,11 @@ type ViewRows struct {
 	FilterOptions FilterOptions `json:"filterOptions,omitzero"`
 	FilterError   string        `json:"filterError,omitempty"`
 	Sort          SortSpec      `json:"sort"`
+	// States is the status filter the rows were filtered with; StateChoices the states the rows the
+	// namespace filter and the search keep carry, with their counts (what the window's status filter
+	// offers; ui.setStatusFilter takes these names).
+	States       []string     `json:"states,omitempty"`
+	StateChoices []StateCount `json:"stateChoices,omitempty"`
 	// Synced is false while the view's kind is still listing; Error is the informer's last error.
 	Synced   bool   `json:"synced"`
 	Error    string `json:"error,omitempty"`
@@ -92,6 +97,7 @@ func RowsIn(t *TableSnapshot, selected []model.ObjectRef, offset, limit int, now
 		View: t.View, Title: t.Title, Context: t.Context, Shown: len(t.Rows), Total: t.Total, Offset: offset,
 		Namespaces: slices.Clone(t.Namespaces), Filter: t.Filter, FilterOptions: t.FilterOptions,
 		FilterError: t.FilterError, Sort: t.Sort, Synced: t.Synced, Error: t.Error, Revision: t.Revision,
+		States: slices.Clone(t.States), StateChoices: slices.Clone(t.StateChoices),
 		Rows: []ViewRow{},
 	}
 	var visible []int
@@ -120,11 +126,11 @@ func RowsIn(t *TableSnapshot, selected []model.ObjectRef, offset, limit int, now
 }
 
 // CaughtUp reports whether a view's snapshot shows what the UI state asks of the open view: its
-// namespace filter, search, toggles and sort, and its columns in the arranged order with the
+// namespace filter, search, toggles, status filter and sort, and its columns in the arranged order with the
 // hidden ones hidden. Snapshots follow the UI state within a tenth of a second, so a caller that
 // just changed one waits for it.
 func (t *TableSnapshot) CaughtUp(u UIState) bool {
-	return t != nil && t.Filter == u.Filter && t.FilterOptions == u.FilterOptions &&
+	return t != nil && t.Filter == u.Filter && t.FilterOptions == u.FilterOptions && statesCaughtUp(t, u) &&
 		slices.Equal(t.Namespaces, u.Namespaces) && (u.Sort.Column == "" || t.Sort == u.Sort) &&
 		slices.Equal(t.Order, ColumnOrder(t.Columns, u.ColumnOrder[u.View])) && t.hidesAsAsked(u)
 }

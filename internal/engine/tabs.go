@@ -23,8 +23,8 @@ import (
 //     the tab showed, and the view it showed before goes into its history; a fixed tab stays until
 //     it is closed;
 //   - opening a view that a fixed tab of the cluster shows activates that tab;
-//   - a tab keeps its own namespace filter, search, sort, selection and drawer; changing them does
-//     not fix a preview tab;
+//   - a tab keeps its own namespace filter, search, status filter, sort, selection and drawer;
+//     changing them does not fix a preview tab;
 //   - a new tab opens right of the active one;
 //   - closing the active tab shows the nearest tab of the same cluster, right first, else nothing:
 //     the workspace stays empty until a view is opened (closing the last tab too);
@@ -68,6 +68,8 @@ type ViewTab struct {
 	Drawer     *model.ObjectRef  `json:"drawer,omitempty"`
 	// FilterOptions are the tab's search toggles (filteroptions.go); they stay when its view changes.
 	FilterOptions FilterOptions `json:"filterOptions,omitzero"`
+	// States is the tab's status filter (statusfilter.go); it ends when its view changes.
+	States []string `json:"states,omitempty"`
 	// Back and Forward are the tab's history: the views before and after the one it shows, the
 	// nearest last (ui.tab.back, ui.tab.forward).
 	Back    []string `json:"back,omitempty"`
@@ -92,6 +94,7 @@ func (t ViewTab) clone() ViewTab {
 	out := t
 	out.Namespaces = slices.Clone(t.Namespaces)
 	out.Groups = slices.Clone(t.Groups)
+	out.States = slices.Clone(t.States)
 	out.Selected = slices.Clone(t.Selected)
 	if t.Drawer != nil {
 		d := *t.Drawer
@@ -188,6 +191,7 @@ func (u *UIState) loadTab(i int) {
 		u.Sort = DefaultSort
 	}
 	u.Namespaces, u.Groups = slices.Clone(t.Namespaces), slices.Clone(t.Groups)
+	u.States, u.statesView = slices.Clone(t.States), t.View
 	u.Selected = slices.Clone(t.Selected)
 	u.Drawer = nil
 	if t.Drawer != nil {
@@ -201,6 +205,7 @@ func (u *UIState) saveTab(i int) {
 	t := &u.Tabs[i]
 	t.View, t.Filter, t.FilterOptions, t.Sort = u.View, u.Filter, u.FilterOptions, u.Sort
 	t.Namespaces, t.Groups = slices.Clone(u.Namespaces), slices.Clone(u.Groups)
+	t.States = slices.Clone(u.States)
 	t.Selected = slices.Clone(u.Selected)
 	t.Drawer = nil
 	if u.Drawer != nil {
@@ -308,6 +313,7 @@ func (u *UIState) openTab(view string, sort SortSpec, fixed bool) {
 		u.showInPreview(view)
 	}
 	u.View, u.Sort, u.Filter = view, sort, ""
+	u.SetStates(nil) // opened afresh: no status filter, the active tab's own view too (statusfilter.go)
 	u.Selected, u.Drawer = nil, nil
 }
 

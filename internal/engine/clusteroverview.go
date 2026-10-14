@@ -356,13 +356,14 @@ func (src *overviewSource) errText() string {
 }
 
 // issuesTable is the page's table: the issues in the selected namespaces (a cluster-scoped
-// object's always) that match the search, sorted.
+// object's always) that match the search and the status filter, sorted.
 func issuesTable(context string, ob *overviewBuild, p viewParams) *TableSnapshot {
 	var nsSet map[string]struct{}
 	if len(p.namespaces) > 0 {
 		nsSet = setOf(p.namespaces)
 	}
 	match, filterErr := p.matcher()
+	states := newStateFilter(issuesProfile, p.states)
 	rows := make([]model.Row, 0, len(ob.issues))
 	for _, is := range ob.issues {
 		if !inNamespaces(is, nsSet) {
@@ -370,6 +371,9 @@ func issuesTable(context string, ob *overviewBuild, p viewParams) *TableSnapshot
 		}
 		row := issueRow(context, is)
 		if !match.All() && !match.Match(row) {
+			continue
+		}
+		if !states.keep(states.spec.Of(&row)) {
 			continue
 		}
 		rows = append(rows, row)
@@ -380,6 +384,7 @@ func issuesTable(context string, ob *overviewBuild, p viewParams) *TableSnapshot
 		Columns: ColumnsShown(issuesProfile.Columns, p.hidden, p.hiddenSet), Order: ColumnOrder(issuesProfile.Columns, p.order),
 		Rows: rows, Sort: p.sort,
 		Namespaces: slices.Clone(p.namespaces), Filter: p.filter, FilterOptions: p.filterOpts, FilterError: filterErr, Total: len(ob.issues),
+		States: slices.Clone(p.states), StateChoices: states.choices(),
 		Synced: ob.synced, Error: ob.errText,
 	}
 }

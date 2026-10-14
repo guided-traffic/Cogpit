@@ -19,8 +19,9 @@ import (
 
 // The Argo CD Dashboard's upper part (resource-parity › Paid Lens Desktop views › Argo CD): Lens's
 // documented health strip (Applications, Synced, Healthy, Out of sync, Degraded, Missing,
-// Progressing), a card per Argo CD kind with its count and health bar, the Applications card with
-// Sync and Refresh of several Applications, and the recent activity. Needs attention below is the
+// Progressing), each opening the Applications view filtered to its state (D-34), a card per Argo CD
+// kind with its count and health bar, the Applications card with Sync and Refresh of several
+// Applications, and the recent activity. Needs attention below is the
 // page's table. The model is the engine's (argocd.dashboard); the look is Cogpit's own (inferred:
 // Lens's dashboard is not captured).
 
@@ -162,8 +163,8 @@ func (p *argoPanel) enable(b *widget.Button, on bool) {
 }
 
 // newArgoTile is one count of the strip: the count large, in its status colour when not zero, the
-// label below; a click opens the Applications view searched for the state (the view has no status
-// filter).
+// label below; a click opens the Applications view filtered to the tile's state (its status filter,
+// D-34: "Sync: OutOfSync", "Health: Degraded"), Applications unfiltered.
 func newArgoTile(sh *shell, t engine.ArgoTile, synced bool) fyne.CanvasObject {
 	color := theme.ColorNameForeground
 	if t.Count > 0 && t.Status != model.StatusNone {
@@ -174,22 +175,19 @@ func newArgoTile(sh *shell, t engine.ArgoTile, synced bool) fyne.CanvasObject {
 		count += " …"
 	}
 	num := newTextLine(count, color, theme.SizeNameHeadingText, fyne.TextStyle{Bold: true})
-	label := newLinkText(t.Label, func() { sh.openArgoApplications(t.Filter) })
+	label := newLinkText(t.Label, func() { sh.openArgoApplications(t.State) })
 	return container.NewStack(newSurface(theme.ColorNameInputBackground),
 		inset(theme.SizeNamePadding, theme.SizeNamePadding, container.NewVBox(num, label)))
 }
 
-// openArgoApplications opens Argo CD's Applications view, searched for filter ("" unfiltered).
-func (sh *shell) openArgoApplications(filter string) {
-	sh.dispatch("ui.openView", openViewParams{View: kinds.ArgoApplicationsKey}, func(_ any, err error) {
-		if err != nil {
-			sh.showError(err)
-			return
-		}
-		if filter != "" {
-			sh.dispatch("ui.setFilter", filterParams{Filter: filter}, nil)
-		}
-	})
+// openArgoApplications opens Argo CD's Applications view filtered to a state of its status filter
+// ("" unfiltered), in one ui.openView.
+func (sh *shell) openArgoApplications(state string) {
+	p := openViewParams{View: kinds.ArgoApplicationsKey}
+	if state != "" {
+		p.States = []string{state}
+	}
+	sh.dispatch("ui.openView", p, func(_ any, err error) { sh.showError(err) })
 }
 
 // newArgoCard is one kind's card: its title as a link to its view, its count, its health bar.

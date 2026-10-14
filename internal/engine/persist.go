@@ -22,12 +22,12 @@ import (
 // What it holds (D-41, night decision): per tab its cluster (the context id), its view and the
 // view's title, whether it is the preview tab, its place in the bar, when it was last shown (a
 // rank, so that a cluster connected from the picker shows its most recently used tab), its
-// namespace and API group filters, its search text with the search's toggles, its sort and its
-// history (view keys); which tab was shown last; and the hidden columns and the column order per
-// view key, the same for every cluster, as UIState keeps them. Never a selection or the drawer's
-// object (they name objects that may be gone at the next start), never a dock tab (logs,
-// terminals, editors: an editor's unsaved text has its draft, D-11), never a credential or an
-// object's value.
+// namespace and API group filters, its search text with the search's toggles, its status filter
+// (2026-10-14), its sort and its history (view keys); which tab was shown last; and the hidden
+// columns and the column order per view key, the same for every cluster, as UIState keeps them.
+// Never a selection or the drawer's object (they name objects that may be gone at the next start),
+// never a dock tab (logs, terminals, editors: an editor's unsaved text has its draft, D-11), never
+// a credential or an object's value.
 //
 // At start (attach, in New) the tabs show at once and nothing connects: the shown tab's cluster
 // becomes UIState.Context, Disconnected, as after cluster.disconnect, so the tab is marked and the
@@ -120,6 +120,7 @@ type storedTab struct {
 	Groups        []string      `json:"groups,omitempty"`
 	Filter        string        `json:"filter,omitempty"`
 	FilterOptions FilterOptions `json:"filterOptions,omitzero"`
+	States        []string      `json:"states,omitempty"` // the status filter (statusfilter.go)
 	Sort          SortSpec      `json:"sort,omitzero"`
 	Back          []string      `json:"back,omitempty"`
 	Forward       []string      `json:"forward,omitempty"`
@@ -136,7 +137,7 @@ func workspaceDocOf(u *UIState, viewTitle func(string) string) workspaceDoc {
 	for i, t := range u.Tabs {
 		doc.Tabs[i] = storedTab{Context: t.Context, View: t.View, Preview: t.Preview,
 			Namespaces: t.Namespaces, Groups: t.Groups, Filter: t.Filter, FilterOptions: t.FilterOptions,
-			Sort: t.Sort, Back: t.Back, Forward: t.Forward, Used: ranks[i]}
+			States: t.States, Sort: t.Sort, Back: t.Back, Forward: t.Forward, Used: ranks[i]}
 		if t.View != "" && viewTitle != nil {
 			doc.Tabs[i].ViewTitle = viewTitle(t.View)
 		}

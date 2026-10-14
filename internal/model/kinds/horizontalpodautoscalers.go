@@ -62,7 +62,9 @@ var horizontalPodAutoscalers = &model.KindProfile{
 		ageColumn,
 		statusColumn,
 	},
-	Cells: hpaCells,
+	// Status lists the True condition types: each is a state of its own (the status filter, D-34).
+	States: []model.StateColumn{{ID: idStatus, Words: true}},
+	Cells:  hpaCells,
 	Fields: map[string]fieldFunc{
 		// "target" is the scaled object as "Kind/name": "Deployment/web".
 		"target": func(obj *unstructured.Unstructured) []string {

@@ -32,6 +32,9 @@ type KindProfile struct {
 
 	// Columns in Lens's order. The first column is the name.
 	Columns []Column
+	// States are the columns whose cells are a row's states for the views' status filter (D-34,
+	// states.go); nil: those of DefaultStateColumns the kind has.
+	States []StateColumn
 
 	// Cells returns one cell per column, in the order of Columns, and the row's status token.
 	Cells func(obj *unstructured.Unstructured) ([]Cell, Status)
