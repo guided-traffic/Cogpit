@@ -398,28 +398,25 @@ func (r *chartRenderer) Layout(size fyne.Size) {
 	// Series.
 	for _, s := range d.Series {
 		c := col(s.Color)
-		var prev *chartPoint
 		segs := 0
-		for i := range s.Points {
-			p := s.Points[i]
-			if p.At.Before(d.From) || p.At.After(d.To) {
-				prev = nil
+		// A line runs through the points within the axis and breaks at a gap (chartgap.go): a
+		// drawer closed for a while, both providers away. A point alone is a dot.
+		for _, run := range seriesRuns(s.Points, d.From, d.To) {
+			pts := s.Points[run[0]:run[1]]
+			if len(pts) == 1 {
+				dot := canvas.NewCircle(c)
+				dot.Move(fyne.NewPos(x(pts[0].At)-chartPointRadius, y(pts[0].Value)-chartPointRadius))
+				dot.Resize(fyne.NewSize(2*chartPointRadius, 2*chartPointRadius))
+				add(dot)
 				continue
 			}
-			if prev != nil && segs < chartMaxSegmentsPerSer {
+			for i := 1; i < len(pts) && segs < chartMaxSegmentsPerSer; i++ {
 				seg := canvas.NewLine(c)
 				seg.StrokeWidth = chartLineWidth
-				seg.Position1, seg.Position2 = fyne.NewPos(x(prev.At), y(prev.Value)), fyne.NewPos(x(p.At), y(p.Value))
+				seg.Position1, seg.Position2 = fyne.NewPos(x(pts[i-1].At), y(pts[i-1].Value)), fyne.NewPos(x(pts[i].At), y(pts[i].Value))
 				add(seg)
 				segs++
 			}
-			prev = &s.Points[i]
-		}
-		if len(s.Points) == 1 || (segs == 0 && prev != nil) {
-			dot := canvas.NewCircle(c)
-			dot.Move(fyne.NewPos(x(prev.At)-chartPointRadius, y(prev.Value)-chartPointRadius))
-			dot.Resize(fyne.NewSize(2*chartPointRadius, 2*chartPointRadius))
-			add(dot)
 		}
 	}
 

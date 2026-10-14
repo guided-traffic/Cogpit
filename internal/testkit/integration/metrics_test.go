@@ -172,14 +172,31 @@ func TestPodDrawerMetrics(t *testing.T) {
 	}
 	t.Logf("pod %s: %d samples, current %+v, requests %+v, limits %+v", ref.Name, len(pod.Samples), *pod.Current, pod.Requests, pod.Limits)
 
-	// Closing the drawer ends its poll and drops its series.
+	// Closing the drawer ends its poll; its series is not shown while it is closed.
 	subscribed := s.Backend().Metrics.Subscribed()
 	s.UpdateUI(func(u *engine.UIState) { u.Drawer = nil })
 	if !testkit.WaitFor(ctx, func() bool { return s.Backend().Metrics.Subscribed() == subscribed-1 }) {
 		t.Fatalf("%d scopes polled after closing the drawer, was %d", s.Backend().Metrics.Subscribed(), subscribed)
 	}
 	if m, _ := s.ObjectMetrics(ref); m != nil && len(m.Targets) > 0 && len(m.Targets[0].Samples) != 0 {
-		t.Errorf("the series outlived the drawer: %d samples", len(m.Targets[0].Samples))
+		t.Errorf("the series shows with the drawer closed: %d samples", len(m.Targets[0].Samples))
+	}
+	if charts, _ := s.Backend().Metrics.Retained(); charts != 1 {
+		t.Errorf("%d charts kept after the drawer closed, want 1", charts)
+	}
+
+	// Opened again: the chart starts with what it measured before (G12, history that outlives a
+	// closed drawer): its first point is the old one, not a new measurement.
+	first := pod.Samples[0].At
+	s.UpdateUI(func(u *engine.UIState) { u.Drawer = &ref })
+	if !testkit.WaitFor(ctx, func() bool {
+		m, _ = s.ObjectMetrics(ref)
+		return m != nil && len(m.Targets) > 0 && len(m.Targets[0].Samples) > len(pod.Samples)
+	}) {
+		t.Fatalf("the reopened drawer's series: %+v", m)
+	}
+	if got := m.Targets[0].Samples[0].At; !got.Equal(first) {
+		t.Errorf("the reopened drawer's chart starts at %v, want the kept first point %v", got, first)
 	}
 }
 

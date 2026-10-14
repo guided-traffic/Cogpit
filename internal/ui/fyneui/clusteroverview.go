@@ -131,7 +131,7 @@ func (p *clusterPanel) show(m *engine.ClusterOverviewModel) {
 	}
 	note := "Pods are counted from the cluster's objects since this page opened."
 	if m.Status == metrics.StatusAvailable && !m.History {
-		note = "The Metrics Server keeps no history: the charts start when this page opened."
+		note = "The Metrics Server keeps no history: Cogpit keeps what it measured, the last hour at most."
 	}
 	p.note.SetText(note)
 	p.note.Show()

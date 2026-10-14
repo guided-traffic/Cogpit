@@ -435,7 +435,7 @@ func (p *metricsPanel) render() {
 		if t := p.target(""); t != nil && t.Current == nil {
 			note = "No metrics for this " + singular(p.d.sh.kindTitle(p.ref.Kind)) + " yet."
 		} else if t != nil && !m.Capabilities.History && !p.coversWindow(t) {
-			note = "The Metrics Server keeps no history: the chart starts when this drawer opened."
+			note = "The Metrics Server keeps no history: Cogpit keeps what it measured, the last hour at most."
 		}
 		p.setNote(note)
 	}

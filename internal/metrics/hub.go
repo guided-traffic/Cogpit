@@ -101,6 +101,11 @@ type Options struct {
 	RangeWindow    time.Duration
 	MinStep        time.Duration
 	MaxRangePoints int
+	// RetainObjects, RetainAge and RetainPoints bound the charts kept after their drawer closed
+	// (retain.go); a negative RetainObjects keeps none.
+	RetainObjects int
+	RetainAge     time.Duration
+	RetainPoints  int
 	// Now is the clock; nil means time.Now.
 	Now func() time.Time
 	// Logger receives poll failures; nil means slog.Default().
@@ -128,6 +133,13 @@ func (o Options) withDefaults() Options {
 	}
 	if o.SeriesPoints <= 0 {
 		o.SeriesPoints = DefaultSeriesPoints
+	}
+	def(&o.RetainAge, DefaultRetainAge)
+	if o.RetainObjects == 0 {
+		o.RetainObjects = DefaultRetainObjects
+	}
+	if o.RetainPoints <= 0 {
+		o.RetainPoints = DefaultRetainPoints
 	}
 	if o.Now == nil {
 		o.Now = time.Now
@@ -162,6 +174,12 @@ type Hub struct {
 	mu     sync.Mutex // guards the slots' fields below detMu and everything below
 	scopes map[Scope]*scopeState
 	closed bool
+
+	// The charts kept after their drawer closed (retain.go): by scope, the least recently closed
+	// first in retainOrder, retainPoints their points in all.
+	retained     map[Scope]*retainedChart
+	retainOrder  []Scope
+	retainPoints int
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -308,7 +326,7 @@ func (h *Hub) Subscribe(scope Scope, onChange func()) *Subscription {
 	st.subs[sub] = struct{}{}
 	if st.cancel == nil {
 		if !scope.IsList() {
-			st.chart = newChart()
+			st.chart = h.restoreLocked(scope) // the chart kept since its drawer closed, else a new one (retain.go)
 			h.seedLocked(st)
 		}
 		ctx, cancel := context.WithCancel(h.ctx)
@@ -341,6 +359,7 @@ func (s *Subscription) Release() {
 			st.cancel()
 			st.cancel = nil
 		}
+		h.retainLocked(s.scope, st.chart) // kept for the next drawer of the object (retain.go)
 		st.chart = nil
 		st.touched = h.opts.Now()
 		h.pruneLocked()
