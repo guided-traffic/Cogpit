@@ -82,13 +82,15 @@ func TestMetricsSourceNone(t *testing.T) {
 		t.Errorf("the chart kept %d points of the providers turned off", len(hist.Targets[""].Usage))
 	}
 
-	// Back to Automatic: both are detected and asked again.
+	// Back to Automatic: both are detected and asked again. The switch wakes the drawer's poll
+	// itself, so the test waits for its effect, not for a count of polls.
 	d.h.SetSource(metrics.SourceAuto)
-	d.next(t, 15*time.Second)
-	if len(d.hist.ranges()) == ranges {
-		t.Error("Prometheus not asked for the history again")
-	}
-	if ps := d.h.Providers(); len(ps) != 2 {
-		t.Errorf("status line %+v after Automatic again", ps)
+	deadline := time.Now().Add(10 * time.Second)
+	for len(d.hist.ranges()) == ranges || len(d.h.Providers()) != 2 {
+		if time.Now().After(deadline) {
+			t.Fatalf("after Automatic again: %d range queries more, status line %+v", len(d.hist.ranges())-ranges, d.h.Providers())
+		}
+		metrics.Kick(d.h, podA)
+		time.Sleep(5 * time.Millisecond)
 	}
 }
