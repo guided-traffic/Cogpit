@@ -481,17 +481,20 @@ func (v *chatAnswerView) setWidth(w float32) { v.text.setWidth(w) }
 // --- a tool call ---
 
 // chatToolStates are the rows' state texts, colours and icons.
+// chatToolStates are the tool rows' states. Icons by name, resolved when drawn: a theme icon
+// asked for at package initialisation asks Fyne for an app none has started yet
+// (TestStartUpLogsNoFyneError).
 var chatToolStates = map[engine.ChatToolState]struct {
 	text  string
 	color fyne.ThemeColorName
-	icon  fyne.Resource
+	icon  fyne.ThemeIconName
 }{
-	engine.ChatToolRunning: {"Running", colorAccent, theme.ViewRefreshIcon()},
-	engine.ChatToolWaiting: {"Waiting for your confirmation", colorStatusPending, theme.QuestionIcon()},
-	engine.ChatToolDone:    {"Done", colorStatusOK, theme.ConfirmIcon()},
-	engine.ChatToolFailed:  {"Failed", colorStatusError, theme.ErrorIcon()},
-	engine.ChatToolRefused: {"Refused", colorStatusWarning, theme.CancelIcon()},
-	engine.ChatToolStopped: {"Stopped", colorMuted, theme.MediaStopIcon()},
+	engine.ChatToolRunning: {"Running", colorAccent, theme.IconNameViewRefresh},
+	engine.ChatToolWaiting: {"Waiting for your confirmation", colorStatusPending, theme.IconNameQuestion},
+	engine.ChatToolDone:    {"Done", colorStatusOK, theme.IconNameConfirm},
+	engine.ChatToolFailed:  {"Failed", colorStatusError, theme.IconNameError},
+	engine.ChatToolRefused: {"Refused", colorStatusWarning, theme.IconNameCancel},
+	engine.ChatToolStopped: {"Stopped", colorMuted, theme.IconNameMediaStop},
 }
 
 // chatToolView is one tool call: a compact row (state icon, the command's label, a one-line
@@ -561,7 +564,7 @@ func (v *chatToolView) update(it engine.ChatItem, _ []mdBlock) {
 		st = chatToolStates[engine.ChatToolRunning]
 		st.text = string(t.State)
 	}
-	v.icon.SetResource(themedIcon(st.icon, st.color))
+	v.icon.SetResource(themedIcon(theme.Icon(st.icon), st.color))
 	label := t.Label
 	if label == "" {
 		label = t.Command
