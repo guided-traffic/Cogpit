@@ -96,7 +96,7 @@ func diskColumnTip(f *usageFeed) string {
 }
 
 // diskTipWhat is what the Disk column shows.
-const diskTipWhat = "Disk: the root filesystem (/) as node-exporter reports it, read through Prometheus"
+const diskTipWhat = "Disk: the root filesystem (/) as node-exporter reports it, read through Prometheus" //nolint:gosec // a tooltip, no credential
 
 // diskTipOf is the Disk column's tooltip for the disks' state.
 func diskTipOf(st metrics.State) string {
