@@ -678,7 +678,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   and Helm Install tab (Cogpit's are inferred), and of where Lens's Preferences show `HELM_DRIVER`.
   Views and actions count in G6 and G7.
 - **Evidence (2026-10-14, night build HELM2, the charts' icons, [D-46](../developer/decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them),
-  a night decision for the owner to confirm):** the Charts view's first column (no title, no sort)
+  decided by the owner 2026-10-14):** the Charts view's first column (no title, no sort)
   and a chart drawer's header draw the icon the index names (inferred: Lens draws icons; not
   captured), fetched only for what the window shows while Preferences › Kubernetes › Load chart
   icons is on (on by default; only the user turns it on, agents may turn it off and never fetch
@@ -1307,7 +1307,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   [PNG](../../internal/ui/fyneui/testdata/welcome_dark.png), [ui-parity › Layout](ui-parity.md#layout)).
   Lens's page is not captured: its contents, wording and layout are Cogpit's (inferred, Cogpit's
   defaults). Since 2026-10-13 (night build, [D-42](../developer/decisions.md#d-42-the-start-screen),
-  a night decision for the owner to confirm) the context picker no longer opens by itself at
+  decided by the owner 2026-10-14) the context picker no longer opens by itself at
   start: the window starts on this page, under the tabs of the last run (D-41), and the notices
   the engine gave before the window was up show as toasts (`TestStartShowsRestoredTabsWithoutConnecting`,
   PNG [dark](../../internal/ui/fyneui/testdata/start_restored_dark.png)). Not tried in a real

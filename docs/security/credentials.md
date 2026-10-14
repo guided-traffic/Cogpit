@@ -268,7 +268,7 @@ as built:
 - **Nowhere else.** No draft (a dialog keeps none, and it opens no dock tab whose text would), no
   toast beyond "Created secrets/<namespace>/<name>", no log line.
 **Argo CD's repository and cluster Secrets (since 2026-10-13, [D-35](../developer/decisions.md#d-35-what-argo-cds-repository-and-cluster-secrets-show),
-a night decision for the owner to confirm).** Settings › Repositories and Settings › Clusters of
+decided by the owner 2026-10-14).** Settings › Repositories and Settings › Clusters of
 the Argo CD section read the Secrets Argo CD labels `argocd.argoproj.io/secret-type`, which hold
 repository passwords, SSH and TLS keys, GitHub App keys, bearer tokens and whole cluster client
 configurations. Of each, Cogpit reads only an allowlist of configuration keys (a repository's

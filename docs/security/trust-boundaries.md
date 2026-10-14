@@ -271,8 +271,8 @@ they would live is not designed.
 ### H-87: Chart icons tell their hosts what the user looks at
 
 Live since 2026-10-14 while Preferences › Kubernetes › Load chart icons is on, which it is by
-default ([D-46](../developer/decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them), a night
-decision for the owner to confirm). Per case:
+default ([D-46](../developer/decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them), decided
+by the owner 2026-10-14). Per case:
 
 - **Who learns what.** Every host an index names as an icon's URL gets a request from the user's
   address (or the proxy's) when the Charts view shows the chart's row or its drawer opens, at most

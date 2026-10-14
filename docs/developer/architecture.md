@@ -3262,7 +3262,7 @@ poll is its pods' (`TestWorkloadDrawerPodsMetrics`). The table is cut after it i
 
 **Built 2026-10-14 (G12): the nodes' disk** ([`metrics/disk.go`](../../internal/metrics/disk.go),
 [`engine/drawerdisk.go`](../../internal/engine/drawerdisk.go); [D-43](decisions.md#d-43-where-the-nodes-disk-comes-from),
-a night decision for the owner to confirm). Lens's Nodes list has a Disk usage bar; the Metrics
+decided by the owner 2026-10-14). Lens's Nodes list has a Disk usage bar; the Metrics
 Server measures no disk, and the kubelet's summary API is not used (it needs `nodes/proxy`). The
 source is node-exporter's root filesystem through the cluster's Prometheus.
 

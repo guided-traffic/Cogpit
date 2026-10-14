@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (D-4: the Apple signing and notarization material exists in the environment `release`, 2026-10-14; D-40 decided by the owner: the workloads' drawers' Pods tables without a Namespace column, built; D-39 decided by the owner: a pod-metrics refusal affects only its namespace, built; D-33 decided by the owner: Reconcile with Source and Reset added as the flux CLI does them, built; D-34 (owner): a state on a dashboard opens its kind's view filtered, through a status filter every view has, built with its rules listed for the owner; D-37 and D-38 decided by the owner: the default node shell image the newest supported Alpine release (3.24) pinned by digest and kept current by Renovate, the maximum duration a setting with a 2-hour default, set by the user only, built; D-35, D-36, D-41, D-42, D-43, D-44, D-46 decided by the owner as built, 2026-10-14; D-43, a night decision for the owner to confirm: the nodes' disk from node-exporter through Prometheus, never nodes/proxy, built with Cogpit's defaults listed; D-46 (night decision, for the owner to confirm): chart icons fetched when shown, with Preferences › Load chart icons on by default, built; D-11, D-37: a tab whose context leaves Cogpit closes, keeping an editor's draft and deleting a node shell's pod, Cogpit's defaults; D-44 (night decision, for the owner to confirm): agents read the dock's logs tabs freely and a terminal tab only once the user turned on its "Agents may read" switch, built; D-42, a night decision for the owner to confirm: no context picker at start, the welcome page, built; D-41, a night decision for the owner to confirm: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, built; D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (the bodies of D-33, D-34, D-35, D-36, D-41, D-42, D-43, D-44 and D-46 no longer say "for the owner to confirm": the owner's choices of 2026-10-14 marked decided, D-33's two and D-34's two open rules marked Cogpit's defaults; D-4: the Apple signing and notarization material exists in the environment `release`, 2026-10-14; D-40 decided by the owner: the workloads' drawers' Pods tables without a Namespace column, built; D-39 decided by the owner: a pod-metrics refusal affects only its namespace, built; D-33 decided by the owner: Reconcile with Source and Reset added as the flux CLI does them, built; D-34 (owner): a state on a dashboard opens its kind's view filtered, through a status filter every view has, built with its rules listed for the owner; D-37 and D-38 decided by the owner: the default node shell image the newest supported Alpine release (3.24) pinned by digest and kept current by Renovate, the maximum duration a setting with a 2-hour default, set by the user only, built; D-35, D-36, D-41, D-42, D-43, D-44, D-46 decided by the owner as built, 2026-10-14; D-43, a night decision for the owner to confirm: the nodes' disk from node-exporter through Prometheus, never nodes/proxy, built with Cogpit's defaults listed; D-46 (night decision, for the owner to confirm): chart icons fetched when shown, with Preferences › Load chart icons on by default, built; D-11, D-37: a tab whose context leaves Cogpit closes, keeping an editor's draft and deleting a node shell's pod, Cogpit's defaults; D-44 (night decision, for the owner to confirm): agents read the dock's logs tabs freely and a terminal tab only once the user turned on its "Agents may read" switch, built; D-42, a night decision for the owner to confirm: no context picker at start, the welcome page, built; D-41, a night decision for the owner to confirm: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, built; D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -23,7 +23,7 @@ projects' repositories; re-check them before relying on a version number.
 | [D-12](#d-12-parity-sources) | Parity sources | decided: current Lens Desktop only; no OpenLens or Freelens |
 | [D-13](#d-13-cache) | Cache | decided: the UI reads only from a watch-fed cache, held in memory only; Secrets in full (revised 2026-10-12, built), Helm's releases from that watch or their own `owner=helm` watch |
 | [D-33](#d-33-the-flux-actions) | The Flux actions | decided (owner, 2026-10-14): Reconcile, Reconcile with Source, Reset, Suspend and Resume as the flux CLI patches them, mutating, on objects and selections; Force an agent's parameter; built 2026-10-13 and 2026-10-14 |
-| [D-34](#d-34-the-flux-dashboard) | The Flux dashboard | decided (owner, 2026-10-14): five states after kstatus, counts per kind and the objects that are not ready (built 2026-10-13); a state opens its kind's view filtered, through a status filter of every view (option a), built 2026-10-14; the filter's rules are Cogpit's, for the owner to confirm |
+| [D-34](#d-34-the-flux-dashboard) | The Flux dashboard | decided (owner, 2026-10-14): five states after kstatus, counts per kind and the objects that are not ready (built 2026-10-13); a state opens its kind's view filtered, through a status filter of every view (option a), built 2026-10-14; the filter's rules are Cogpit's defaults, standing until the owner asks |
 | [D-35](#d-35-what-argo-cds-repository-and-cluster-secrets-show) | What Argo CD's repository and cluster Secrets show | decided (owner, 2026-10-14): an allowlist of non-credential keys for the window and agents (option b), built 2026-10-13 |
 | [D-36](#d-36-how-argo-cds-sync-writes-the-operation) | How Argo CD's Sync writes the operation | decided (owner, 2026-10-14): what `argocd app sync` writes, bound to the UID and resourceVersion (option b), built 2026-10-13 |
 | [D-37](#d-37-the-node-shell) | The node shell | decided (owner, 2026-10-14): Lens's privileged pod with nsenter (option b), built 2026-10-13; the default image the newest supported Alpine release pinned by digest and kept current by Renovate, the maximum duration a setting (default 2 hours), both built 2026-10-14 |
@@ -1427,16 +1427,16 @@ Flux's own CLI does three things to an object every day: `flux reconcile`, `flux
     (helm-controller's `api/v2`: resetAt takes effect only with requestedAt's value), so that
     helm-controller forgets the release's failure counts and tries again after it ran out of
     retries. Not offered for a suspended release, as Reconcile is not.
-- **Night decision (the lead's, 2026-10-14, for the owner to confirm): whether Reconcile with
-  Source waits for the source.** Options (a) as the flux CLI: annotate the source, wait until its
+- **Cogpit's default (the lead's, 2026-10-14; the owner left it open, so it stands until he asks):
+  whether Reconcile with Source waits for the source.** Options (a) as the flux CLI: annotate the source, wait until its
   controller reports it ready (a job with a timeout), then annotate the object; (b) annotate the
   source, then the object at once; chosen (b), because Cogpit's Reconcile does not wait for a
   controller either, and kustomize-controller and helm-controller reconcile an object again by
   themselves when its source's artifact changes (Flux's documentation; inferred, not verified on a
   cluster that runs the controllers), so the object ends on the new revision without a wait that
   would outlive the menu click.
-- **Night decision (the lead's, 2026-10-14, for the owner to confirm): what is checked before
-  the first patch.** Options (a) as the flux CLI: each source checked when its turn comes, so a
+- **Cogpit's default (the lead's, 2026-10-14; the owner left it open, so it stands until he asks):
+  what is checked before the first patch.** Options (a) as the flux CLI: each source checked when its turn comes, so a
   suspended HelmChart stops the action after its Helm repository was annotated; (b) every object
   of the chain read and checked first (present in the cluster, not suspended), nothing patched when
   one fails; chosen (b), because a refusal then leaves nothing half done; a patch that the API
@@ -1492,8 +1492,8 @@ contents are not captured or documented. **Built 2026-10-13**
 `TestFluxDashboardInTheWindow`, `TestFluxStatusTexts`; PNG
 [dark](../../internal/ui/fyneui/testdata/flux_dashboard_dark.png)).
 
-- **Night decision (the lead's, 2026-10-13, for the owner to confirm): what a Flux object's state
-  is.** Options (a) the Ready condition alone (True, False, Unknown), (b) kstatus's reading, as
+- **Decided (owner, 2026-10-14, as built; the night decision of 2026-10-13): what a Flux object's
+  state is.** Options (a) the Ready condition alone (True, False, Unknown), (b) kstatus's reading, as
   Flux documents it: suspended first, then a failure (Ready False or Stalled True), then a
   reconciliation in progress (Reconciling True, Ready Unknown, or a generation the controller has
   not observed), then Ready True, else Unknown; chosen (b), five states Ready (green), Not Ready
@@ -1501,7 +1501,7 @@ contents are not captured or documented. **Built 2026-10-13**
   shows a suspended or freshly changed object as ready. Notification v1beta3's Alerts and Providers
   report no status at all: they count as Ready unless suspended (Flux treats them as active once
   admitted).
-- **Night decision (the lead's, 2026-10-13, for the owner to confirm): what the page shows.**
+- **Decided (owner, 2026-10-14, as built; the night decision of 2026-10-13): what the page shows.**
   Options (a) counts per kind by state only, (b) the counts and a table of every Flux object, (c)
   the counts and a table of the objects that are not ready; chosen (c): a tile per Flux kind the
   cluster serves (a served kind without objects too), and the table Not Ready of every kind, the
@@ -1536,7 +1536,8 @@ contents are not captured or documented. **Built 2026-10-13**
   Filtering a 10,000-row snapshot costs no request and 2.9–3.7 ms on the development Mac
   (`BenchmarkSnapshot10kStates`, measured 2026-10-14). Lens's views have no status filter: it is
   Cogpit's addition ([beyond Lens › Everyday use](../parity/beyond-lens.md#everyday-use)).
-- **Decision for the owner to confirm (2026-10-14): what a row's states are.** Options (a) the rows'
+- **Cogpit's default (2026-10-14; the owner left it open, so it stands until he asks): what a row's
+  states are.** Options (a) the rows'
   status tokens only, by name (OK, Pending, Error), (b) the Status column's text, the tokens for a
   kind without one, (c) the texts of the kind's state columns: Status, State, Phase, Sync and Health
   whole, Conditions word by word (a cell drawn in parts part by part), a kind naming its own where
@@ -1545,7 +1546,8 @@ contents are not captured or documented. **Built 2026-10-13**
   merges Running with Ready and cannot tell an Argo CD Application's Sync from its Health, which the
   Dashboard's tiles need, and (b) leaves Deployments, Jobs and Nodes (Conditions) and Argo CD
   Applications (Sync, Health) with tokens only (`KindProfile.States`, `model.DefaultStateColumns`).
-- **Decision for the owner to confirm (2026-10-14): a kind with several state columns.** Options
+- **Cogpit's default (2026-10-14; the owner left it open, so it stands until he asks): a kind with
+  several state columns.** Options
   (a) one list of texts, a row shown when it carries any selected text; (b) each state qualified by
   its column's title ("Sync: OutOfSync", "Health: Degraded"), a row shown when it carries a selected
   state of every column the selection names (any of them within a column); chosen (b), because
@@ -1570,7 +1572,7 @@ headings, the table's title Not Ready, and "Every Flux object is ready." when it
 
 **Decided (owner, 2026-10-14):** option (b), the allowlist of non-credential keys for the window and agents, as built; the night decision below is confirmed.
 
-**Night decision (the lead's, 2026-10-14, for the owner to confirm).** Argo CD keeps its
+**The night decision (the lead's, 2026-10-14), confirmed by the owner (2026-10-14).** Argo CD keeps its
 registered repositories, credential templates and clusters as Secrets labelled
 `argocd.argoproj.io/secret-type` (`repository`, `repo-creds`, `cluster`), and Lens's Argo CD
 section shows them as Settings › Repositories (Name, Type, URL, Project, Age) and Settings ›
@@ -1617,7 +1619,7 @@ events and the log searched for every credential in every form); on kind `TestKi
 
 **Decided (owner, 2026-10-14):** as built: Sync writes the Application's `operation` through the Kubernetes API, bound to the UID and resourceVersion; a sync with prune keeps asking twice (the dialog, then the destructive confirmation naming what Argo CD would prune) rather than Lens's one dialog.
 
-**Night decision (the lead's, 2026-10-14, for the owner to confirm).** Cogpit talks to the
+**The night decision (the lead's, 2026-10-14), confirmed by the owner (2026-10-14).** Cogpit talks to the
 Kubernetes API only, never to Argo CD's own API server (the brief), so Sync
 (`argocd.application.sync`, `argocd.application.syncMany`) starts a sync the way Argo CD's API
 server does for `argocd app sync`: it writes the Application's `operation`, and Argo CD's
@@ -1928,7 +1930,7 @@ tables' hidden columns and column order ([ui-parity › Layout](../parity/ui-par
 `TestWorkspaceNoRequestAtStart`, `TestWorkspaceDropsOnlyWhatIsCertainlyGone`,
 `TestWorkspaceUnreadableFileIsKeptAside`, `TestWorkspaceWritesAfterTheChangesStop`).
 
-- **Night decision (the lead's, 2026-10-13, for the owner to confirm): whether and how the tabs come
+- **Decided (owner, 2026-10-14, as built; the night decision of 2026-10-13): whether and how the tabs come
   back.** Options (a) not kept, as before; (b) kept in Cogpit's own owner-only file and restored at
   start without connecting anything, a tab connecting its cluster when the user shows it; (c) as (b),
   and the cluster of the tab shown last connected at start, as a browser reloads its tabs; chosen (b),
@@ -1937,7 +1939,7 @@ tables' hidden columns and column order ([ui-parity › Layout](../parity/ui-par
   `<user config dir>/Cogpit/workspace.json` (0600 in a 0700 directory, replaced atomically,
   `writePrivateFile`), written 1 second after the tabs or the layout stop changing (at least every
   5 seconds while they keep changing) and when Cogpit quits; read once at start.
-- **Night decision (the lead's, 2026-10-13, for the owner to confirm): what each tab keeps.** Options
+- **Decided (owner, 2026-10-14, as built; the night decision of 2026-10-13): what each tab keeps.** Options
   (a) its cluster and view only; (b) its cluster, view and the view's title, preview or fixed, its
   place in the bar, when it was last shown, its namespace and API group filters, its search text with
   the match case and regular expression toggles, its status filter (since 2026-10-14, D-34), its
@@ -1945,14 +1947,14 @@ tables' hidden columns and column order ([ui-parity › Layout](../parity/ui-par
   and the drawer's object; chosen (b), because it is the tab's own state that the bar keeps per tab
   today, while a selection and a drawer name objects that may be gone at the next start, and a
   drawer restored at connect would read an object the user did not ask for in this run.
-- **Night decision (the lead's, 2026-10-13, for the owner to confirm): the tab shown last.** Options
+- **Decided (owner, 2026-10-14, as built; the night decision of 2026-10-13): the tab shown last.** Options
   (a) no tab marked at start; (b) the tab shown last marked and its cluster named as
   `UIState.Context`, disconnected, the state `cluster.disconnect` leaves (the welcome page shows, the
   tab is marked, showing it connects); (c) marked and connected; chosen (b), because it shows where
   the user left without a request ((c) is (c) above), and it is a state the engine and the window
   handle already. A cluster connected from the picker, the hotbar or the welcome page shows its most
   recently used tab, as within a run.
-- **Night decision (the lead's, 2026-10-13, for the owner to confirm): tabs of contexts that are
+- **Decided (owner, 2026-10-14, as built; the night decision of 2026-10-13): tabs of contexts that are
   gone.** Options (a) restored, failing when shown; (b) dropped with a notice; chosen (b), and only on
   a plain fact, as a connection closes only on one (`CloseGoneSourceConnection`): the context's file
   does not exist any more, its source was removed, its file parses and no longer defines it, or the
@@ -1961,7 +1963,7 @@ tables' hidden columns and column order ([ui-parity › Layout](../parity/ui-par
   tabs of the last run were not restored: no kubeconfig source offers dev [dev.yaml] any more.") is
   in the notification log (the title bar's bell) and shown as a toast once the window is up
   ([D-42](#d-42-the-start-screen)).
-- **Night decision (the lead's, 2026-10-13, for the owner to confirm): the tables' layout.** Options
+- **Decided (owner, 2026-10-14, as built; the night decision of 2026-10-13): the tables' layout.** Options
   (a) the hidden columns and the column order per view key, the same on every cluster, as
   `UIState` holds them; (b) per cluster and view; chosen (a), because a view's columns are its kind's,
   the same on every cluster, and a user who hides a column on one cluster's Pods wants it hidden on
@@ -1996,7 +1998,7 @@ captured). Since D-41 the start can also show the tabs of the last run. **Built 
 [dark](../../internal/ui/fyneui/testdata/start_restored_dark.png),
 [light](../../internal/ui/fyneui/testdata/start_restored_light.png)).
 
-- **Night decision (the lead's, 2026-10-13, for the owner to confirm):** options (a) as before: the
+- **Decided (owner, 2026-10-14, as built; the night decision of 2026-10-13):** options (a) as before: the
   picker opens by itself at start whenever no cluster is connected; (b) no picker at start: the
   welcome page shows with its cluster rows (the hotbar's bank, the clusters of the tabs, the others
   the kubeconfigs offer), the picker opens with ⌘P, All Clusters… or the palette's Connect to
@@ -2014,7 +2016,7 @@ captured). Since D-41 the start can also show the tabs of the last run. **Built 
 
 **Decided (owner, 2026-10-14):** option (b), node-exporter's root filesystem through Prometheus, as built; without node-exporter the Disk column stays empty (no cAdvisor fallback, never `nodes/proxy`).
 
-**Night decision (the lead's, 2026-10-14, for the owner to confirm):** Lens's Nodes list shows a
+**The night decision (the lead's, 2026-10-14), confirmed by the owner (2026-10-14):** Lens's Nodes list shows a
 Disk usage bar (capture, 2026-10-11); the Metrics Server measures no disk. Options: (a) the
 kubelet's summary API (`/api/v1/nodes/<node>/proxy/stats/summary`), which every cluster has; (b)
 node-exporter's root filesystem (`node_filesystem_size_bytes` and `node_filesystem_avail_bytes` of
@@ -2061,7 +2063,7 @@ What the build chose, Cogpit's defaults (not the owner's decision):
 
 **Decided (owner, 2026-10-14):** option (b), as built: logs tabs freely, a terminal tab only after the user turned on its switch, off for every new tab.
 
-**Night decision (the lead's, 2026-10-14, for the owner to confirm):** a terminal tab's output can
+**The night decision (the lead's, 2026-10-14), confirmed by the owner (2026-10-14):** a terminal tab's output can
 hold anything the user typed or a program printed, credentials included (a `cat` of a token file,
 `env`, `kubectl create token`, a Secret piped through `base64 -d`). Options: (a) agents read terminal
 output freely, as they read logs; (b) terminal output only after the user allows it per tab, with a
@@ -2113,7 +2115,7 @@ What the build chose, Cogpit's defaults (not the owner's decision):
 
 **Decided (owner, 2026-10-14):** option (b), icons fetched from the hosts that serve them with the built safeguards, "Load chart icons" on by default, as built.
 
-**Night decision (the lead's, 2026-10-14, for the owner to confirm):** a chart repository's index
+**The night decision (the lead's, 2026-10-14), confirmed by the owner (2026-10-14):** a chart repository's index
 names each chart version's icon as a URL on any host (a CDN, GitHub, the project's own site), and
 Lens shows icons in its Charts view (inferred; neither its icon column nor its chart drawer is
 captured). Fetching one tells whoever serves it that this computer looked at the chart
@@ -2166,6 +2168,7 @@ What the build chose, Cogpit's defaults (not the owner's decision):
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | The night decisions' bodies brought in line with the owner's answers of 2026-10-14: D-34's state reading and page, D-41's five and D-42's choice marked decided as built; D-35, D-36, D-43, D-44, D-46 confirmed; D-33's two rules (Reconcile with Source does not wait for the source; the whole chain checked before the first patch) and D-34's two filter rules (a row's states, several state columns) marked Cogpit's defaults, standing until the owner asks |
 | 2026-10-14 | minor | D-4: the owner's Apple Developer ID certificate and a team API key for notarization set up in the environment `release`; the pipeline's signing steps not built yet |
 | 2026-10-14 | minor | D-40 decided by the owner: option (b), the workloads' drawers' Pods tables without a Namespace column (the node drawer keeps it); built, PNGs re-rendered |
 | 2026-10-14 | minor | D-39 decided by the owner: option (b), and a refusal of one namespace's pod metrics affects that namespace only (empty cells and the state forbidden there, the other namespaces' values and the Metrics Server's status kept, no Prometheus in its place); built, with Cogpit's defaults listed (a drawer too, the refusal kept for the TTL, `metrics.get`'s `forbidden`) |
