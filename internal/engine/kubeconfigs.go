@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/guided-traffic/cogpit/internal/cluster"
@@ -206,6 +207,12 @@ type KubeconfigSources struct {
 	// those the user removed since (kept in memory only: they are back at the next start).
 	sessionFiles   []string
 	removedSession map[string]bool
+
+	// proxies are the cluster settings whose proxy (ClusterSettings.Proxy) a context's connection
+	// goes through in place of its kubeconfig's: every login described from the files binds its
+	// context's (A23, D-26). Set by the connector that owns both (ClusterConnector.sources); nil:
+	// no proxy of Cogpit's is known.
+	proxies atomic.Pointer[ClusterSettingsStore]
 }
 
 // SourcesOption configures NewKubeconfigSources.
@@ -530,7 +537,33 @@ func (k *KubeconfigSources) Files() ([]KubeconfigFile, []SourceStatus, error) {
 		}
 		statuses = append(statuses, st)
 	}
+	k.bindClusterProxies(files)
 	return files, statuses, nil
+}
+
+// UseClusterSettings makes the logins the sources describe bind the proxy Cogpit sets for their
+// context in cs (ClusterSettings.Proxy, A23): an approval then names, and is bound to, the proxy
+// the connection really goes through. ClusterConnector calls it with its own settings; nil keeps
+// the settings set before.
+func (k *KubeconfigSources) UseClusterSettings(cs *ClusterSettingsStore) {
+	if cs != nil {
+		k.proxies.Store(cs)
+	}
+}
+
+// bindClusterProxies records in every login of files the proxy Cogpit sets for its context, as it
+// may be shown (RedactProxyURL), which the fingerprint binds.
+func (k *KubeconfigSources) bindClusterProxies(files []KubeconfigFile) {
+	cs := k.proxies.Load()
+	if cs == nil {
+		return
+	}
+	for _, f := range files {
+		for name, p := range f.Exec {
+			raw, _ := cs.proxyOf(SourceContextID(name, f.Label)) // an unreadable file is reported where it loads
+			p.SetClusterProxy(RedactProxyURL(raw))
+		}
+	}
 }
 
 func inspect(src KubeconfigSource, label, path string) KubeconfigFile {

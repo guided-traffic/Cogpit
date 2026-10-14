@@ -11,6 +11,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/guided-traffic/cogpit/internal/kubeconfig"
 )
 
 // Proxies (G13; ui-parity › Cluster settings › Proxy and Preferences › HTTP proxy for non-cluster
@@ -190,14 +192,28 @@ func (c *ClusterSettingsStore) proxyOf(context string) (string, error) {
 	return c.by[context].Proxy, err
 }
 
-// clusterProxy returns the parsed proxy a context's connections go through; nil without one.
-func (c *ClusterSettingsStore) clusterProxy(context string) (*url.URL, error) {
-	raw, _ := c.proxyOf(context) // an unreadable file is reported where it loads: no proxy then
+// parseClusterProxy returns the parsed proxy a context's connections go through, from the value
+// its settings keep (proxyOf); nil without one.
+func parseClusterProxy(raw string) (*url.URL, error) {
 	u, err := ParseProxyURL(raw)
 	if err != nil {
 		return nil, fmt.Errorf("the proxy in this cluster's settings is not valid (%w); fix it in Cluster Settings › Proxy", err)
 	}
 	return u, nil
+}
+
+// proxyBoundPolicy returns policy with shown, the proxy the connection goes through as it may be
+// shown (RedactProxyURL; "" for none), recorded in every login it is asked about before it
+// decides: the approval matches only if it was given for that proxy (A23, D-26). The proxy is
+// read once per connect, for the connection and the policy alike. nil stays nil.
+func proxyBoundPolicy(policy func(*kubeconfig.ExecPlugin) error, shown string) func(*kubeconfig.ExecPlugin) error {
+	if policy == nil {
+		return nil
+	}
+	return func(p *kubeconfig.ExecPlugin) error {
+		p.SetClusterProxy(shown)
+		return policy(p)
+	}
 }
 
 // proxyLogLine is the connection log's line about the proxy a connect goes through; "" without.

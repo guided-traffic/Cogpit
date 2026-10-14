@@ -338,6 +338,7 @@ func (s *Session) ChangeClusterSettings(context string, fn func(*ClusterSettings
 	c.change.Lock()
 	defer c.change.Unlock()
 	var dropped string
+	proxyChanged := false
 	next, all, err := func() (ClusterSettings, map[string]ClusterSettings, error) {
 		c.mu.Lock()
 		defer c.mu.Unlock()
@@ -372,6 +373,7 @@ func (s *Session) ChangeClusterSettings(context string, fn func(*ClusterSettings
 			return ClusterSettings{}, nil, fmt.Errorf("cluster settings: %w", err)
 		}
 		c.by = all
+		proxyChanged = RedactProxyURL(old.Proxy) != RedactProxyURL(cs.Proxy)
 		if old.Icon != "" && old.Icon != cs.Icon && !iconInUse(all, old.Icon) {
 			dropped = old.Icon
 		}
@@ -385,6 +387,11 @@ func (s *Session) ChangeClusterSettings(context string, fn func(*ClusterSettings
 	}
 	shown := shownClusterSettings(all) // proxies without their passwords (proxy.go)
 	s.UpdateUI(func(u *UIState) { u.ClusterSettings = shown })
+	if proxyChanged {
+		// A credential plugin's approval binds the proxy (A23): the context's approval state, which
+		// the context lists show, may have changed with it.
+		s.emit(Event{Type: EventContexts})
+	}
 	return next, nil
 }
 

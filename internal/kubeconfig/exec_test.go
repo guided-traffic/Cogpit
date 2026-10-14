@@ -252,6 +252,36 @@ func TestTLSViewHidesProxyCredentials(t *testing.T) {
 	}
 }
 
+// TestFingerprintBindsCogpitsProxy (A23): the proxy Cogpit sets for the cluster, recorded as shown,
+// is part of the fingerprint and of the TLS view; none recorded (or "") is the fingerprint of an
+// approval given before it was bound.
+func TestFingerprintBindsCogpitsProxy(t *testing.T) {
+	cl := &clientcmdapi.Cluster{Server: "https://a.example", ProxyURL: "http://kube-proxy.example:3128"}
+	mk := func(proxy string, set bool) *ExecPlugin {
+		p := NewExecPlugin("/f", "c", "u", cl, &clientcmdapi.ExecConfig{Command: "aws"})
+		if set {
+			p.SetClusterProxy(proxy)
+		}
+		return p
+	}
+	ref := mk("", false).Fingerprint()
+	if mk("", true).Fingerprint() != ref {
+		t.Error("an empty proxy of Cogpit's changes the fingerprint")
+	}
+	a := mk("http://alice:•••@proxy.example:3128", true)
+	if a.Fingerprint() == ref || a.TLS.ClusterProxy != "http://alice:•••@proxy.example:3128" {
+		t.Errorf("Cogpit's proxy is not bound or not shown: %+v", a.TLS)
+	}
+	if mk("http://alice:•••@other.example:3128", true).Fingerprint() == a.Fingerprint() {
+		t.Error("another proxy keeps the fingerprint")
+	}
+	if a.Identity() != mk("", false).Identity() {
+		t.Error("the proxy is the context's, not part of what the login does (Identity)")
+	}
+	var none *ExecPlugin
+	none.SetClusterProxy("http://x") // nil-safe
+}
+
 func TestDisplayText(t *testing.T) {
 	tests := []struct {
 		in   string

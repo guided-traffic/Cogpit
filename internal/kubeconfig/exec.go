@@ -60,6 +60,10 @@ type ExecPlugin struct {
 // has its user information stripped. The fingerprint binds the full values.
 type TLSView struct {
 	ProxyURL string `json:"proxyURL,omitempty"`
+	// ClusterProxy is the proxy Cogpit itself sets for this context (Cluster Settings › Proxy), which
+	// replaces ProxyURL for Cogpit's connection, its password shown as "•••"; empty: none. The engine
+	// sets it (SetClusterProxy): the kubeconfig does not know it (A23, D-26).
+	ClusterProxy string `json:"clusterProxy,omitempty"`
 	// Insecure is insecure-skip-tls-verify: the server's certificate is not checked.
 	Insecure   bool   `json:"insecure,omitempty"`
 	ServerName string `json:"serverName,omitempty"`
@@ -101,6 +105,10 @@ type serverTrust struct {
 	Insecure   bool   `json:"insecure,omitempty"`
 	ServerName string `json:"serverName,omitempty"`
 	ProxyURL   string `json:"proxyURL,omitempty"`
+	// ClusterProxy is Cogpit's own proxy for the context as TLSView shows it, the password as
+	// "•••" (A23). Omitted when empty, so that an approval given before it was bound still matches
+	// for a context without one.
+	ClusterProxy string `json:"clusterProxy,omitempty"`
 }
 
 // NewExecPlugin describes the exec section ec of user entry user, used by context in file to reach
@@ -186,7 +194,8 @@ type fingerprintDoc struct {
 
 // Fingerprint returns "sha256:<hex>" over everything that decides what runs and where its
 // credential goes: the file, context and user, the server (with any user information in its URL)
-// and how it is trusted (CA, insecure, TLS server name, proxy), the API version, the command, the
+// and how it is trusted (CA, insecure, TLS server name, the kubeconfig's proxy and Cogpit's own:
+// SetClusterProxy), the API version, the command, the
 // arguments in order, the environment's names and values in order, the interactive mode and
 // whether cluster information is passed; the token file when it lies outside the folder; and the
 // SHA-256 of the program and of the CA file when they lie inside the folder (FileFacts). An approval is bound to it: any change asks the user
@@ -313,6 +322,17 @@ func (p *ExecPlugin) CAFilePath() string {
 		return ""
 	}
 	return p.trust.CAFile
+}
+
+// SetClusterProxy records the proxy Cogpit itself sets for the login's context (Cluster Settings ›
+// Proxy, which replaces the kubeconfig's proxy-url for Cogpit's connection) as it may be shown,
+// the password replaced by "•••"; "" for none. The fingerprint binds it as shown: a changed scheme,
+// user, host or port asks again, a changed password alone does not, and the approvals file never
+// holds a hash over the password (A23, D-26; the lead's decision for the owner to confirm).
+func (p *ExecPlugin) SetClusterProxy(shown string) {
+	if p != nil {
+		p.TLS.ClusterProxy, p.trust.ClusterProxy = shown, shown
+	}
 }
 
 // SetFiles records what the cluster package found out about the files the plugin names.

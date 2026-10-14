@@ -124,9 +124,11 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 	if sourceID != "" {
 		settingsID = sourceID
 	}
-	if opts.Proxy, err = c.ClusterSettings.clusterProxy(settingsID); err != nil {
+	rawProxy, _ := c.ClusterSettings.proxyOf(settingsID) // an unreadable file is reported where it loads: no proxy then
+	if opts.Proxy, err = parseClusterProxy(rawProxy); err != nil {
 		return nil, &cluster.ConnectError{Context: settingsID, Problem: err.Error(), Err: err}
 	}
+	opts.ExecPolicy = proxyBoundPolicy(opts.ExecPolicy, RedactProxyURL(rawProxy))
 	conn, err := cluster.Connect(ctx, opts)
 	if err != nil {
 		return nil, err

@@ -60,7 +60,7 @@ UNTRUSTED                                   BOUNDARY                          TR
 | Boundary | Planned package | Required checks |
 |---|---|---|
 | Kubeconfig to connection | `internal/kubeconfig`, `internal/cluster` | Parse without executing; run an exec plugin only when the user connects to that context, with an argument vector; show the command before the first run of a plugin from a newly added file; never follow `exec` from a kubeconfig the user did not add. Built 2026-10-12 for added and synced kubeconfigs ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)): each source file is read on its own, never merged with another (a dropped file cannot point a context at the user's real credentials); a context whose user has an `exec` section, or names a `tokenFile` outside the kubeconfig's folder ([H-24](#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token)), connects only after the user allowed exactly that plugin or file in the GUI, checked by `cluster.Connect` before any client exists, from the very `rest.Config` the client would run ([`exec.go`](../../internal/kubeconfig/exec.go), `TestConnectAsksTheExecPolicyBeforeThePluginRuns`, `TestExecPluginRunsOnlyOnceAllowed`, `TestKindExecPluginAfterApproval`); the default kubeconfig (`--kubeconfig`, `$KUBECONFIG`, `~/.kube/config`) keeps kubectl's behaviour. The server's certificate is checked by client-go as the context's cluster entry says (`certificate-authority(-data)`, `tls-server-name`; verified against a test CA, `TestConnectTrustsTheKubeconfigCA`, `TestConnectWithTLSServerName`); a failed check names the kubeconfig field to look at, never the credential; a cluster with `insecure-skip-tls-verify` connects unchecked and is marked ([H-37](#h-37-a-context-that-skips-the-certificate-check); decided by the owner on 2026-10-14 evening, not built yet: asked once per context before its first connect, and marked while connected); a `proxy-url`'s user information never appears in a connect error (2026-10-13, [credentials](credentials.md#where-credentials-must-never-end-up)) |
-| Proxy setting to connection | `internal/engine`, `internal/cluster` | Built 2026-10-13 ([`engine/proxy.go`](../../internal/engine/proxy.go), [`cluster/proxy.go`](../../internal/cluster/proxy.go)): a proxy is set only by the user in the window (`ErrProxyGUIOnly` for agents and the CLI, who may clear it); it must be an `http`, `https` or `socks5` URL with a host and nothing but an optional port and `user:password@`; it applies to its own context's connection only, at the next connect, through `rest.Config.Proxy`; its password stays in the settings file and is `•••` everywhere else ([credentials](credentials.md#where-they-live-inside-cogpit)); the credential plugin's approval does not know it ([H-34](#h-34-the-plugin-approval-shows-the-kubeconfigs-proxy-not-cogpits)). Decided (owner, 2026-10-14 evening), not built yet: an agent may set a proxy as a write the user confirms, its password `•••` in the confirmation ([agents and MCP](agents-and-mcp.md#rules)); the plugin's approval shows and binds Cogpit's proxy, and a changed proxy asks for it again (H-34) |
+| Proxy setting to connection | `internal/engine`, `internal/cluster` | Built 2026-10-13 ([`engine/proxy.go`](../../internal/engine/proxy.go), [`cluster/proxy.go`](../../internal/cluster/proxy.go)): a proxy is set only by the user in the window (`ErrProxyGUIOnly` for agents and the CLI, who may clear it); it must be an `http`, `https` or `socks5` URL with a host and nothing but an optional port and `user:password@`; it applies to its own context's connection only, at the next connect, through `rest.Config.Proxy`; its password stays in the settings file and is `•••` everywhere else ([credentials](credentials.md#where-they-live-inside-cogpit)). Since 2026-10-14 (owner's A23) a credential plugin's approval shows and binds it (as shown, the password `•••`), so a changed proxy asks for the approval again before the next connect ([H-34](#h-34-the-plugin-approval-shows-the-kubeconfigs-proxy-not-cogpits)). Decided (owner, 2026-10-14 evening, A20): an agent may set a proxy as a write the user confirms, its password `•••` in the confirmation ([agents and MCP](agents-and-mcp.md#rules)) |
 | API response to cache | `internal/cache`, `internal/model` | Tolerate unknown and missing fields; cap object and list sizes; bound owner-reference walks |
 | Cluster text to UI | `internal/model`, `internal/ui/fyneui` | Object names, labels, annotations and events are text, never markup; strip control characters before display |
 | Container output to terminal | `internal/terminal`, `internal/ui/fyneui/termview` | Drop or confirm OSC 52 (clipboard write), window-title and window-manipulation sequences ([xterm control sequences](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html)); cap scrollback; cap line length. The MVP drops every OSC, DCS, APC, PM and SOS string, media copy and window operations, clamps large counts, and strips escapes from log lines, which are capped at 64 KiB per line and 10,000 lines ([`termview/sanitize.go`](../../internal/ui/fyneui/termview/sanitize.go), fuzzed; [`termview/logs.go`](../../internal/ui/fyneui/termview/logs.go)); see [H-19](#h-19-the-terminal-widget-trusts-its-input) |
@@ -270,13 +270,26 @@ server's certificate is not verified (`insecure-skip-tls-verify`): there the pro
 token. A plain-http server gets no credential from client-go (`TestPlainHTTPServerGetsNoCredential`;
 corrected 2026-10-13, this page said before that a proxy reads the token there too).
 
-Decided (owner, 2026-10-14 evening): a credential plugin's approval shows and binds Cogpit's own
-proxy for the cluster too, and a changed proxy asks for the approval again. Not built yet; until
-then the case above is live. What remains once it is built: a context without a plugin (an inline
-token, a client certificate, a token file inside the kubeconfig's folder) has no approval, so a
-changed proxy asks nothing there; that matters once an agent may set a proxy, decided the same
-evening ([agents and MCP](agents-and-mcp.md#rules)), and is real under `insecure-skip-tls-verify`
-([H-37](#h-37-a-context-that-skips-the-certificate-check)).
+Decided (owner, 2026-10-14 evening, A23) and built the same night
+([D-26](../developer/decisions.md#d-26-binding-a-credential-plugins-approval-to-its-program)): a
+credential plugin's approval shows and binds Cogpit's own proxy for the cluster too, and a changed
+proxy asks for the approval again. The dialog names the proxy the connection goes through in the
+warning colour (with the kubeconfig's `proxy-url` beside it as not used), the fingerprint binds it,
+and the connect-time check binds the proxy from the same read of the setting that the connection
+uses, so a proxy set after the approval stops the plugin before it runs
+(`TestPluginApprovalBindsTheClusterProxy`). The case above is closed for contexts with a plugin.
+What remains, per case:
+
+- the proxy is bound as it is shown, its password `•••` (the lead's night decision): a new
+  password for the same proxy user, host and port does not ask again; it does not change who
+  receives the traffic;
+- a context without a plugin or a foreign token file (an inline token, a client certificate, a
+  token file inside the kubeconfig's folder) has no approval, so a changed proxy asks nothing there.
+  With the server's certificate checked the proxy sees only the server's name, timing and size; an
+  agent can set such a proxy only with the user's acceptance (A20). Real only under
+  `insecure-skip-tls-verify` ([H-37](#h-37-a-context-that-skips-the-certificate-check));
+- the environment's `HTTPS_PROXY`, which client-go uses when neither the kubeconfig nor Cogpit names
+  a proxy, is not shown or bound: it is the user's own session's.
 
 ### H-37: A context that skips the certificate check
 

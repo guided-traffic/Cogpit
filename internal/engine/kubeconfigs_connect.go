@@ -13,7 +13,16 @@ import (
 )
 
 // KubeconfigSources returns the connector's kubeconfig sources; nil when it has none.
-func (c *ClusterConnector) KubeconfigSources() *KubeconfigSources { return c.Sources }
+func (c *ClusterConnector) KubeconfigSources() *KubeconfigSources { return c.sources() }
+
+// sources returns c.Sources bound to c.ClusterSettings, so that every login the sources describe
+// binds the proxy this connector's connections go through (A23); nil without sources.
+func (c *ClusterConnector) sources() *KubeconfigSources {
+	if c.Sources != nil {
+		c.Sources.UseClusterSettings(c.ClusterSettings)
+	}
+	return c.Sources
+}
 
 // withSourceContexts adds the sources' contexts to out. With sources every context comes from a
 // source file read on its own (D-28): there is no merged default kubeconfig whose names a source
@@ -22,7 +31,7 @@ func (c *ClusterConnector) withSourceContexts(out []ContextInfo, err error) ([]C
 	if c.Sources == nil {
 		return out, err
 	}
-	extra, sErr := c.Sources.Contexts()
+	extra, sErr := c.sources().Contexts()
 	return append(out, extra...), errors.Join(err, sErr)
 }
 
@@ -72,7 +81,7 @@ type contextResolver interface {
 
 // connectOptions returns the cluster options for a context id: a source context's file alone,
 // with the sources' exec policy, and its id. Without sources it is the merged KubeconfigPaths
-// and "".
+// and "". The policy binds no proxy of Cogpit's yet: Connect adds the one it connects through.
 func (c *ClusterConnector) connectOptions(name string) (cluster.Options, string, error) {
 	opts := cluster.Options{KubeconfigPaths: c.KubeconfigPaths, Context: name}
 	if c.Sources == nil {
@@ -82,7 +91,7 @@ func (c *ClusterConnector) connectOptions(name string) (cluster.Options, string,
 	if err != nil {
 		return opts, "", err
 	}
-	f, kctx, ok, err := c.Sources.Find(name)
+	f, kctx, ok, err := c.sources().Find(name)
 	if err != nil {
 		return opts, "", err
 	}

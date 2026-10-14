@@ -37,7 +37,21 @@ func connectionFacts(c approvalContextView) approvalFacts {
 			"anyone on the network path can read what is sent to the server, the login credential included.")
 		f.rows = append(f.rows, [2]string{"Certificate check", "off"})
 	}
-	if pl.TLS.ProxyURL != "" {
+	// The proxy the connection goes through: Cogpit's own for the cluster (Cluster Settings ›
+	// Proxy, its password as •••) replaces the kubeconfig's proxy-url (A23); the approval binds
+	// both, so changing either asks again.
+	switch proxy := pl.TLS.ClusterProxy; {
+	case proxy != "":
+		w := "The connection goes through the proxy " + show(proxy) + ", set in Cogpit's Cluster Settings."
+		if pl.TLS.Insecure || ownCA {
+			w += " With the settings here the proxy can read the login credential."
+		}
+		f.warnings = append(f.warnings, w)
+		f.rows = append(f.rows, [2]string{"Proxy", show(proxy) + " (Cluster Settings › Proxy; changing it asks again)"})
+		if pl.TLS.ProxyURL != "" {
+			f.rows = append(f.rows, [2]string{"Kubeconfig proxy", show(pl.TLS.ProxyURL) + " (not used: Cogpit's proxy replaces it)"})
+		}
+	case pl.TLS.ProxyURL != "":
 		w := "The connection goes through the proxy " + show(pl.TLS.ProxyURL) + "."
 		if pl.TLS.Insecure || ownCA {
 			w += " With the settings here the proxy can read the login credential."
@@ -155,7 +169,7 @@ func approvalChangedNote(g approvalGroupView, n int) string {
 		return "You allowed an earlier form of this login" + of + ". Its token file or server changed since."
 	}
 	return "You allowed an earlier form of this plugin" + of + ". Its program (or the file behind it), arguments, environment, " +
-		"server or how the server is reached changed since."
+		"server or how the server is reached (the proxy included) changed since."
 }
 
 // joinNames shows variable names, one line.
