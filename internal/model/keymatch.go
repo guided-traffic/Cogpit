@@ -81,6 +81,25 @@ func (d DecodedValue) MatchPrivateKey(value []byte) (m KeyMatch, ok bool) {
 // compared with.
 func (d DecodedValue) HasLeaf() bool { return len(d.parsed) > 0 && d.parsed[0] != nil }
 
+// HoldsPrivateKeyBlock reports whether a PEM value holds a block whose type ends in PRIVATE KEY:
+// a combined PEM, certificate and key in one value (A99). It reads the blocks' types only and
+// zeroes every block it decoded.
+func HoldsPrivateKeyBlock(value []byte) bool {
+	if len(value) > MaxPrivateKeyBytes {
+		return false
+	}
+	found := false
+	for rest := value; ; {
+		var b *pem.Block
+		if b, rest = pem.Decode(rest); b == nil {
+			break
+		}
+		found = found || strings.HasSuffix(b.Type, "PRIVATE KEY")
+		wipe(b.Bytes)
+	}
+	return found
+}
+
 // privatePublicKey parses the private key of a value and returns its public half, or why it could
 // not. In PEM, the first block whose type ends in PRIVATE KEY is the key; other blocks (EC
 // PARAMETERS, a certificate) are passed over.

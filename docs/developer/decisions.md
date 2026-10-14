@@ -166,8 +166,8 @@ window. Nothing of it was built in the round.
 | A96 | #7, #13 | Single-target reads read the target's namespace; as built | [architecture §5](architecture.md#5-cache) |
 | A97 | #71 | Remove from Cogpit on a sync-folder context offers to unlink the whole folder, the confirmation naming every context it takes; to build | [D-28](#d-28-the-default-kubeconfig-as-sources-as-lens-has-it), [architecture §6](architecture.md#6-cluster-connections-internalcluster) |
 | A98 | #124 | The Overviews wait for the access reviews like the dashboards, no refused cluster-wide read first; to build | [architecture §5](architecture.md#5-cache) |
-| A99 | #19 | A combined PEM (certificate and key in one value) gets the key check too; to build | [D-30](#d-30-certificates-in-secrets-decoded) |
-| A100 | #20 | An encrypted private key in the warning colour with "encrypted key: TLS/Ingress cannot use it"; to build | [D-30](#d-30-certificates-in-secrets-decoded) |
+| A99 | #19 | A combined PEM (certificate and key in one value) gets the key check too; built 2026-10-14 | [D-30](#d-30-certificates-in-secrets-decoded) |
+| A100 | #20 | An encrypted private key in the warning colour with "encrypted key: TLS/Ingress cannot use it"; built 2026-10-14 | [D-30](#d-30-certificates-in-secrets-decoded) |
 | A101 | #23 | A grant's confirmation says "Grants these rights immediately, cluster-wide" or "in `<ns>`"; "This cannot be undone." only where something is lost; built 2026-10-14 | [D-2](#d-2-agent-interface-scope), [parity](../parity/README.md) |
 | A102 | #24 | After a create the new object's drawer opens and the list scrolls to its row; to build | [parity](../parity/README.md) |
 | A103 | #48 | An Application's Violations are its workloads in warning or error; as built | [parity](../parity/README.md) |
@@ -2028,8 +2028,10 @@ What the build chose, Cogpit's defaults (the lead's, not the owner's decision):
   (`TestObjectGetDecodesCertificatesForAgents`). Nothing new in the audit log: reading is a read.
 - **Not done.** Cogpit does not verify a chain against a trust store or for revocation, and an OK
   pill on Not After means only "within its validity period". An encrypted private key is not
-  decrypted (Cogpit has no passphrase), and a private key inside a value not named like one (a
-  combined PEM file) is not compared. A value wider than the drawer (the SHA-256 fingerprint at the
+  decrypted (Cogpit has no passphrase): it shows in the warning colour, "Encrypted key: TLS and
+  Ingress cannot use it" (A100, built 2026-10-14). A private key inside a value with the
+  certificates (a combined PEM file) is compared with the value's own first certificate, "Yes (in
+  this value)" (A99, built 2026-10-14; `TestSecretCombinedPEMKeyCheck`). A value wider than the drawer (the SHA-256 fingerprint at the
   default width) is shortened with "…"; its copy icon copies it whole.
 
 Tests: `TestParseCertificatesChain`, `TestParseCertificatesOnlyCertificateBlocks`,
@@ -2053,9 +2055,10 @@ agent's `object_get`, its key matching and its chain in order); renders
 **The decision round of 2026-10-14 evening (owner):**
 
 - **Decided (A99):** a combined PEM, certificate and private key in one value, gets the
-  key-matches-certificate check too. Not built yet (see "Not done" above).
+  key-matches-certificate check too. Built 2026-10-14 (see "Not done" above).
 - **Decided (A100):** an encrypted private key is shown in the warning colour with "encrypted key:
-  TLS/Ingress cannot use it". Not built yet: "Key not readable (tls.key: encrypted)" as unknown.
+  TLS/Ingress cannot use it". Built 2026-10-14: "Encrypted key: TLS and Ingress cannot use it
+  (tls.key)", status warning.
 - **New requirement (R1):** besides the key check and the chain, show whether the chain leads to a
   public CA or an internal (private) one, so that the kind of certificate is clear at a glance. Not
   built yet; the design is settled when it is built. The lead's notes, not decided: "public" chains

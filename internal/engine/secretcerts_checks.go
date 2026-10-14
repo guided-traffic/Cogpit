@@ -32,7 +32,11 @@ func certificateChecks(keys []model.CertificateKey, decoded map[string]model.Dec
 		if !ok {
 			continue
 		}
-		if pk := pairedKey(ck.Key, data, len(decoded)); pk != "" {
+		pk := pairedKey(ck.Key, data, len(decoded))
+		if pk == "" && combinedPEM(data[ck.Key]) { // the key in the same value (A99)
+			pk = ck.Key
+		}
+		if pk != "" {
 			if m, compared := matchPrivateKey(d, data[pk]); compared {
 				ck.PairedKey, ck.KeyMatches = pk, &m
 			}
@@ -44,6 +48,14 @@ func certificateChecks(keys []model.CertificateKey, decoded map[string]model.Dec
 			}
 		}
 	}
+}
+
+// combinedPEM reports whether a Secret's value holds a private key block besides its
+// certificates (A99, owner 2026-10-14 evening): the key check then compares the value's own key.
+func combinedPEM(v any) bool {
+	raw, ok := decodeValue(v)
+	defer wipeBytes(raw)
+	return ok && model.HoldsPrivateKeyBlock(raw)
 }
 
 // matchPrivateKey decodes a Secret's value that holds a private key, compares it with the first
@@ -106,13 +118,19 @@ func certChecksSection(ck model.CertificateKey, group string) (model.DetailSecti
 	var items []model.DetailItem
 	if m := ck.KeyMatches; m != nil {
 		it := model.DetailItem{Name: keyMatchItem}
+		where := ck.PairedKey
+		if where == ck.Key {
+			where = "in this value" // a combined PEM (A99)
+		}
 		switch {
+		case m.Reason == model.KeyEncrypted: // A100: no TLS server can read it as it stands
+			it.Value, it.Status = "Encrypted key: TLS and Ingress cannot use it ("+where+")", model.StatusWarning
 		case m.Reason != "":
-			it.Value, it.Status = "Key not readable ("+ck.PairedKey+": "+m.Reason+")", model.StatusUnknown
+			it.Value, it.Status = "Key not readable ("+where+": "+m.Reason+")", model.StatusUnknown
 		case m.Matches:
-			it.Value, it.Status = "Yes ("+ck.PairedKey+")", model.StatusOK
+			it.Value, it.Status = "Yes ("+where+")", model.StatusOK
 		default:
-			it.Value, it.Status = "No ("+ck.PairedKey+" holds another key)", model.StatusError
+			it.Value, it.Status = "No ("+where+" holds another key)", model.StatusError
 		}
 		items = append(items, it)
 	}

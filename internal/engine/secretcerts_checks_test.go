@@ -77,7 +77,7 @@ func TestSecretKeyMatchesCertificate(t *testing.T) {
 		{"ECDSA", ecLeaf, ecLeaf.KeyPEM(t), "Yes (tls.key)", model.StatusOK, "true"},
 		{"Ed25519", edLeaf, edLeaf.KeyPEM(t), "Yes (tls.key)", model.StatusOK, "true"},
 		{"mismatched", ecLeaf, other.KeyPEM(t), "No (tls.key holds another key)", model.StatusError, "false"},
-		{"encrypted", ecLeaf, encrypted, "Key not readable (tls.key: encrypted)", model.StatusUnknown, `"encrypted"`},
+		{"encrypted", ecLeaf, encrypted, "Encrypted key: TLS and Ingress cannot use it (tls.key)", model.StatusWarning, `"encrypted"`}, // A100
 		{"garbage", ecLeaf, garbage, "Key not readable (tls.key: not readable)", model.StatusUnknown, `"not readable"`},
 	} {
 		obj := secretOf("tls-"+c.name, tlsSecretType, map[string][]byte{"tls.crt": testkit.Chain(c.cert, ca), "tls.key": c.key})
@@ -200,5 +200,38 @@ func TestSecretDERCertificates(t *testing.T) {
 	b, _ = json.Marshal(none)
 	if bytes.Contains(b, []byte(base64.StdEncoding.EncodeToString(keyDER)[:40])) {
 		t.Error("the DER private key reached the drawer model")
+	}
+}
+
+// A combined PEM, the certificate and its private key in one value, gets the key check against
+// the value's own key (A99, owner 2026-10-14 evening); a value with certificates alone does not.
+func TestSecretCombinedPEMKeyCheck(t *testing.T) {
+	ca := testkit.NewCert(t, testkit.CertSpec{CommonName: "CA", CA: true, Key: testkit.Ed25519Key(t)})
+	leaf := testkit.NewCert(t, testkit.CertSpec{CommonName: "web", Parent: ca, Key: testkit.ECDSAKey(t)})
+	other := testkit.NewCert(t, testkit.CertSpec{CommonName: "other", Parent: ca})
+	for _, c := range []struct {
+		name, value string
+		key         []byte
+		status      model.Status
+	}{
+		{"own key", "Yes (in this value)", leaf.KeyPEM(t), model.StatusOK},
+		{"another key", "No (in this value holds another key)", other.KeyPEM(t), model.StatusError},
+	} {
+		combined := append(append([]byte{}, testkit.Chain(leaf, ca)...), c.key...)
+		m := certDetail(t, secretOf("combined-"+strings.ReplaceAll(c.name, " ", "-"), "Opaque", map[string][]byte{"server.pem": combined}))
+		checks, ok := checkSections(m)["server.pem"]
+		if !ok {
+			t.Fatalf("%s: no Checks section: %+v", c.name, m.Sections)
+		}
+		if it := itemOf(checks, keyMatchItem); it.Value != c.value || it.Status != c.status {
+			t.Errorf("%s: %+v", c.name, it)
+		}
+		if b, _ := json.Marshal(m); strings.Contains(string(b), "PRIVATE KEY") {
+			t.Errorf("%s: the key reached the model", c.name)
+		}
+	}
+	m := certDetail(t, secretOf("certs-only", "Opaque", map[string][]byte{"ca.pem": testkit.Chain(leaf, ca)}))
+	if checks, ok := checkSections(m)["ca.pem"]; ok && itemOf(checks, keyMatchItem).Value != "" {
+		t.Errorf("a value without a key got a key check: %+v", checks)
 	}
 }

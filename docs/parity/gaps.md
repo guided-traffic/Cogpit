@@ -330,7 +330,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   ([D-30](../developer/decisions.md#d-30-certificates-in-secrets-decoded), the Secrets drawer's
   certificates): required, the kind of CA a certificate's chain leads to (a public one, one this Mac
   trusts, or an internal or self-signed one, with the root's name; its design settled when built);
-  decided, a combined PEM's key check and an encrypted key in the warning colour
+  built 2026-10-14 (A99, A100), a combined PEM's key check and an encrypted key in the warning colour
   ([beyond Lens › Everyday use](beyond-lens.md#everyday-use)). Rows: [resource parity](resource-parity.md).
   Estimate not moved.
 - **Missing:** none of the 64 resource views ([resource-parity](resource-parity.md), 2026-10-13:

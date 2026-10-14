@@ -251,13 +251,15 @@ decrypted (`TestSecretKeyMatchesCertificate`, `TestMatchPrivateKeyReasons`,
 `TestObjectGetDecodesCertificatesForAgents`, which searches the result, the audit log, the events
 and the log for the key's PEM, base64 and DER).
 
-**Decided (owner, 2026-10-14 evening), two changes to these checks, neither built yet:**
+**Decided (owner, 2026-10-14 evening), two changes to these checks, the first built the same
+night:**
 
 - **A combined PEM** (a certificate and its private key in one value) gets the key-matches-certificate
-  check too. Today such a value is not compared ([D-30](../developer/decisions.md#d-30-certificates-in-secrets-decoded)),
-  and a private key block beside a certificate is never handed to a parser. Once built, that key is
-  parsed in memory for the check, under the rules of the paragraph above; only the outcome leaves
-  it.
+  check too ([D-30](../developer/decisions.md#d-30-certificates-in-secrets-decoded),
+  `TestSecretCombinedPEMKeyCheck`): the value's key is parsed in memory for the check, under the
+  rules of the paragraph above, and only the outcome leaves it; the certificate parser still never
+  sees the key block, and finding it reads the blocks' types only, zeroing each block decoded
+  (`model.HoldsPrivateKeyBlock`).
 - **The chain's anchor** (a new requirement): beside the key match and the chain's order, the
   drawer and agents say whether the chain leads to a public certificate authority or an internal
   (private) one, with the root's name. Today Cogpit checks a chain's order only, against no trust
