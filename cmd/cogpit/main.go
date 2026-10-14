@@ -104,7 +104,8 @@ func run(previousCrash string) int {
 	s := engine.New(engine.Options{Connector: connector, Audit: audit, AuditPath: auditPath, Logger: logger, Drains: openDrainJournal(logger),
 		NodeShells: openNodeShellJournal(logger), Helm: openHelmJournal(logger), Hotbar: openHotbar(logger), HelmRepos: openHelmRepos(logger),
 		Preferences: openPreferences(logger), ClusterSettings: clusterSettings, Kubectl: openKubectl(logger),
-		Drafts: openDrafts(logger), Workspace: openWorkspace(logger), TimeLayout: timeFormat.Layout})
+		Drafts: openDrafts(logger), Workspace: openWorkspace(logger), TimeLayout: timeFormat.Layout,
+		LoginItem: newLoginItem()}) // macOS: Preferences › App › Start at login (loginitem_darwin.go); elsewhere none
 	defer s.Close()
 	defer s.WatchKubeconfigs(0)() // sync folders: files that appear or leave are picked up
 	if err := commands.RegisterAll(s.Registry()); err != nil {

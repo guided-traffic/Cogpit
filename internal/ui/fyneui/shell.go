@@ -488,6 +488,7 @@ func (sh *shell) applyUIState(st engine.UIState) {
 		sh.identitiesChanged()
 	}
 	if first || !reflect.DeepEqual(st.Settings, old.Settings) || (st.Settings != nil && (!reflect.DeepEqual(st.Preferences, old.Preferences) ||
+		!reflect.DeepEqual(st.LoginItem, old.LoginItem) ||
 		!maps.EqualFunc(st.ClusterSettings, old.ClusterSettings, engine.ClusterSettings.Equal) || st.Context != old.Context || st.Connection != old.Connection)) {
 		sh.settings.stateChanged()
 	}

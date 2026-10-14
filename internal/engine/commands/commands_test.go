@@ -134,6 +134,7 @@ var wantCommands = map[string]engine.Danger{
 	// the shell and the icon upload GUI-only (TestPreferencesCommands,
 	// TestClusterSettingsCommandsNeverTouchTheKubeconfig).
 	"preferences.get": engine.DangerRead, "preferences.set": engine.DangerUI, "preferences.open": engine.DangerUI,
+	"preferences.loginItem": engine.DangerRead, "preferences.setStartAtLogin": engine.DangerUI, "preferences.openLoginItems": engine.DangerUI,
 	"settings.close": engine.DangerUI, "cluster.settings.get": engine.DangerRead, "cluster.settings.set": engine.DangerUI,
 	"cluster.settings.uploadIcon": engine.DangerUI, "cluster.settings.resetIcon": engine.DangerUI,
 	"cluster.settings.open": engine.DangerUI,

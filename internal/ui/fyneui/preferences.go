@@ -203,6 +203,7 @@ func (p *settingsPage) appSection() fyne.CanvasObject {
 	zone.OnChanged = func(string) {
 		p.typed("timezone", func() { p.setPreference("timezone", strings.TrimSpace(zone.Text)) })
 	}
+	loginItem, syncLoginItem := p.loginItemSetting() // nil where not offered (preferences_loginitem.go)
 	p.sync = func() {
 		pr := p.prefs()
 		for _, c := range themeChoices {
@@ -211,11 +212,16 @@ func (p *settingsPage) appSection() fyne.CanvasObject {
 			}
 		}
 		p.setEntry(zone, &zone.Entry, "timezone", pr.Timezone)
+		syncLoginItem()
 	}
-	return container.NewVBox(
+	rows := container.NewVBox(
 		p.setting("theme", "Theme", themeHelp, themeSel),
 		p.setting("timezone", "Locale timezone", "Absolute times: the drawer's Created, the charts' time axes and hover. Empty: the computer's.", zone),
 	)
+	if loginItem != nil {
+		rows.Add(loginItem)
+	}
+	return rows
 }
 
 func (p *settingsPage) kubernetesSection() fyne.CanvasObject {

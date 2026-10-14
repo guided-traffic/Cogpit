@@ -142,6 +142,9 @@ type Options struct {
 	// UIState.TimeFormat and written in the Preferences' time zone (Session.TimeFormat). Empty
 	// fields: ISO 8601.
 	TimeLayout model.TimeLayout
+	// LoginItem is the operating system's start at login for Cogpit's app (loginitem.go): the
+	// desktop binary wires in macOS's; nil: the platform has none, and it is not offered.
+	LoginItem LoginItem
 }
 
 // Session is the engine for one desktop app or headless process. It is safe for concurrent use.
@@ -216,6 +219,7 @@ func New(opts Options) *Session {
 	opts.ClusterSettings.attach(s)
 	opts.Drafts.attach(s)    // nil-safe
 	opts.Workspace.attach(s) // nil-safe; reads the kubeconfig sources' files, never a cluster
+	s.attachLoginItem()      // offered when the binary wired one in (loginitem.go)
 	return s
 }
 

@@ -16,7 +16,7 @@ blank line before `</details>`. It moved here from the root README on 2026-10-14
 Cogpit and its flags are in [`usage.md`](usage.md).
 
 <details>
-<summary>All 178 commands</summary>
+<summary>All 181 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -146,8 +146,11 @@ Cogpit and its flags are in [`usage.md`](usage.md).
 | `portforward.remove` | `portforward_remove` | ui | `ref` | Stops a port forward and removes it from the list |
 | `portforward.stop` | `portforward_stop` | ui | `ref` | Stops a port forward: its local port closes and its connection to the pod ends |
 | `preferences.get` | `preferences_get` | read |  | Returns Cogpit's preferences as the Preferences page (⌘,) shows them: the theme (system, dark, light), the time zone absolute times are shown in (empty: the computer's) and the zone in effect, the tables' row height, the YAML editor's font size, line numbers and tab size, the terminal's font size, the local terminal's shell and arguments (empty: $SHELL), whether a right click in a terminal copies and pastes, the HTTP proxy of the traffic that is no cluster's (empty: the environment's; its password shown as •••), and kubectl for terminals: downloads offered or not, the mirror, the directory for binaries (kubectlDir: the one in effect), the path to kubectl, where new Helm installs keep their records (helmDriver, empty: secret), and whether chart icons are fetched (loadChartIcons); kept says whether they outlive this run. ui_state carries the same |
+| `preferences.loginItem` | `preferences_loginItem` | read |  | Reads whether macOS starts Cogpit when the user logs in (Preferences › App › Start at login) and shows it: status off, on, requiresApproval (registered; the user must allow it in System Settings › General › Login Items) or notFound (macOS finds no login item for this app: not a signed Cogpit.app it knows, such as a development build). ui_state carries the last status read as loginItem |
 | `preferences.open` | `preferences_open` | ui | `section`? | Opens Cogpit's Preferences page in the window, as ⌘, (Ctrl+,) does, at a section: app (theme, time zone), proxy (the HTTP proxy of the traffic that is no cluster's), kubernetes (kubeconfig syncs, kubectl for terminals, Helm's storage driver), editor, terminal or tables |
+| `preferences.openLoginItems` | `preferences_openLoginItems` | ui (GUI only) |  | Opens System Settings › General › Login Items, where the user allows Cogpit's login item when its status is requiresApproval |
 | `preferences.set` | `preferences_set` | ui | `editorFontSize`?, `editorLineNumbers`?, `editorTabSize`?, `helmDriver`?, `httpProxy`?, `kubectlDir`?, `kubectlDownload`?, `kubectlMirror`?, `kubectlPath`?, `loadChartIcons`?, `tableRowHeight`?, `terminalFontSize`?, `terminalRightClickCopyPaste`?, `terminalShell`?, `terminalShellArgs`?, `theme`?, `timezone`? | Changes some of Cogpit's preferences, as the Preferences page does; the fields left out stay as they are |
+| `preferences.setStartAtLogin` | `preferences_setStartAtLogin` | ui | `enabled` | Makes macOS start Cogpit when the user logs in, or stops it, as Preferences › App › Start at login does: registers or removes the app's login item, which System Settings › General › Login Items lists, and returns the status macOS then reports (off, on, requiresApproval, notFound) |
 | `replicaset.scale` | `replicaset_scale` | mutating (destructive for some calls) | `ref`, `replicas`? | Sets a replica set's replica count, as kubectl scale does: a patch of spec.replicas on its scale subresource |
 | `resource.createTab` | `resource_createTab` | ui | `template`?, `yaml`? | Opens a Create resource dock tab with yaml, with a template (resource_templates lists them), or with an example Pod |
 | `resource.templates` | `resource_templates` | read |  | Lists Cogpit's templates for new objects, one per kind in alphabetical order, each with its apiVersion, whether the kind is namespaced, and its YAML (without a namespace) |

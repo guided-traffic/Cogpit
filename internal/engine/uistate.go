@@ -79,6 +79,9 @@ type UIState struct {
 	Welcome bool `json:"welcome,omitempty"`
 	// Preferences are Cogpit's own settings (preferences.go); nil in a session that keeps none.
 	Preferences *Preferences `json:"preferences,omitempty"`
+	// LoginItem is Cogpit's start at login as the operating system reports it (loginitem.go); nil
+	// where the platform offers none.
+	LoginItem *LoginItemState `json:"loginItem,omitempty"`
 	// TimeFormat is how the window writes absolute times (D-31): Go layouts of a date and a time
 	// of day, from the computer's region settings ("02.01.2006", "15:04:05"), in the Preferences'
 	// time zone. Agents read the drawn texts (view rows, drawer items) in it; structured times of
@@ -249,6 +252,10 @@ func (u UIState) Clone() UIState {
 	if u.Preferences != nil {
 		p := u.Preferences.Clone()
 		out.Preferences = &p
+	}
+	if u.LoginItem != nil {
+		l := *u.LoginItem
+		out.LoginItem = &l
 	}
 	out.ClusterSettings = maps.Clone(u.ClusterSettings)
 	if u.Settings != nil {

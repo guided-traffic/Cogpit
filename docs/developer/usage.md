@@ -250,6 +250,25 @@ and through the HTTP proxy for non-cluster traffic when one is set; a PNG or JPE
 bounds and kept as a small PNG, an SVG only when it refers to nothing outside itself. Agents never
 fetch icons, and only you, in Cogpit's window, can turn the switch on; agents may turn it off.
 
+### Preferences › App: start at login
+
+macOS only (13 or later): Preferences › App › Start at login makes macOS open Cogpit when you log
+in, as the app's own login item, which System Settings › General › Login Items lists too
+([D-48](decisions.md#d-48-start-at-login)). It is macOS's state, not a field of `preferences.json`:
+the row shows what macOS reports, read when the section opens.
+
+| Status (`preferences_loginItem`, `ui_state`'s `loginItem`) | Meaning |
+|---|---|
+| `off` # default | not registered: Cogpit starts when you open it |
+| `on` | registered: macOS opens Cogpit at login |
+| `requiresApproval` | registered, but macOS waits for you to allow it in System Settings › General › Login Items (the row's Open Login Items… button goes there) |
+| `notFound` | macOS finds no login item for this Cogpit: it needs the signed `Cogpit.app` in Applications; a `bin/cogpit` or `go run` build reports this without asking macOS |
+
+Security note: with it on, Cogpit runs after every login without being opened, its MCP endpoint
+included unless you switched that off; so only you, in Cogpit's window, can turn it on, and agents
+may only turn it off. Not offered on Windows and Linux yet. What macOS does with the ad-hoc signed
+app of today's releases is not verified (the Developer ID signature is being built).
+
 ### Commands and MCP tools
 
 Every command is an MCP tool. The table of all of them, with each one's danger and parameters,

@@ -64,6 +64,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerApplications(g)
 	registerArgoCD(g)
 	registerPreferences(g)
+	registerLoginItem(g)
 	registerClusterSettings(g)
 	registerAllowance(g)
 	registerAudit(g)
