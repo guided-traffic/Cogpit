@@ -172,6 +172,7 @@ type Session struct {
 	shells nodeShellSet // the node shells' pods by dock tab: nodeshell.go
 
 	agentReads agentReadExpiry // when a terminal tab's agent-read switch turns itself off: agentread.go
+	updates    updaterSlot     // the app's updater: updates.go
 }
 
 // New returns a Session with an empty registry. Register commands (package commands) before use.

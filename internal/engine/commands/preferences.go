@@ -48,6 +48,9 @@ type preferencesSetParams struct {
 	KubectlPath     *string `json:"kubectlPath,omitempty" jsonschema:"the kubectl the terminals run, an absolute path; empty: the first on PATH. Only the user in Cogpit's window may set it: refused for agents"`
 	// LoadChartIcons: agents and the CLI may only turn it off (engine/helmicons.go, D-46).
 	LoadChartIcons *bool `json:"loadChartIcons,omitempty" jsonschema:"whether the Charts view and a chart's drawer fetch the icon a chart repository's index names, from whatever host serves it (default true); off: Cogpit's own glyph. Agents and the CLI may only turn it off"`
+	// CheckForUpdates and UpdateChannel: the app's updater (engine/updates.go, D-4).
+	CheckForUpdates *bool   `json:"checkForUpdates,omitempty" jsonschema:"whether the macOS app checks Cogpit's update feed once a day and offers a new release with one click (default true). Agents and the CLI may only turn it on"`
+	UpdateChannel   *string `json:"updateChannel,omitempty" jsonschema:"the update channel the app follows: stable, the only one until Cogpit publishes prereleases (empty means stable)"`
 }
 
 // shellChange reports whether the parameters change the local terminal's shell or arguments.
@@ -97,7 +100,8 @@ func registerPreferences(g *registrar) {
 			"HTTP proxy of the traffic that is no cluster's (empty: the environment's; its password shown as •••), and " +
 			"kubectl for terminals: downloads offered or not, the mirror, the directory for binaries (kubectlDir: the one " +
 			"in effect), the path to kubectl, where new Helm installs keep their records (helmDriver, empty: " +
-			"secret), and whether chart icons are fetched (loadChartIcons); kept says whether they outlive this run. " +
+			"secret), whether chart icons are fetched (loadChartIcons), whether the app checks for updates automatically " +
+			"(checkForUpdates) and on which channel (updateChannel); kept says whether they outlive this run. " +
 			"ui_state carries the same.",
 		Enabled: func(s *engine.Session, _ struct{}) error { _, err := s.Preferences(); return err },
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
@@ -119,7 +123,8 @@ func registerPreferences(g *registrar) {
 			"mirror, which decide what the terminals run as kubectl, the terminals' right mouse button, which decides " +
 			"whether a click pastes into a shell, and setting the HTTP proxy (it decides where Cogpit's downloads go), " +
 			"which they may only clear, choosing the configmap Helm storage driver for new installs, which they may " +
-			"only set back to secret, and turning on chart icons, which they may only turn off." + prefsWritesOnly + " Returns the preferences.",
+			"only set back to secret, turning on chart icons, which they may only turn off, and turning off the automatic " +
+			"update checks, which they may only turn on." + prefsWritesOnly + " Returns the preferences.",
 		Enabled: func(s *engine.Session, _ preferencesSetParams) error { _, err := s.Preferences(); return err },
 		Refuse: func(ctx context.Context, _ *engine.Session, p preferencesSetParams) error {
 			if err := p.refuse(ctx); err != nil {
@@ -132,6 +137,9 @@ func registerPreferences(g *registrar) {
 				return err
 			}
 			if err := engine.RefuseChartIcons(ctx, p.LoadChartIcons); err != nil {
+				return err
+			}
+			if err := engine.RefuseUpdateChecks(ctx, p.CheckForUpdates); err != nil {
 				return err
 			}
 			return refuseProxy(ctx, p.HTTPProxy)
@@ -150,6 +158,9 @@ func registerPreferences(g *registrar) {
 				return nil, err
 			}
 			if err := engine.RefuseChartIcons(ctx, p.LoadChartIcons); err != nil {
+				return nil, err
+			}
+			if err := engine.RefuseUpdateChecks(ctx, p.CheckForUpdates); err != nil {
 				return nil, err
 			}
 			var helmDriver string
@@ -199,6 +210,13 @@ func registerPreferences(g *registrar) {
 				setIf(&pr.TerminalRightClickCopyPaste, p.TerminalRightClickCopyPaste)
 				setIf(&pr.KubectlDownload, p.KubectlDownload)
 				setIf(&pr.LoadChartIcons, p.LoadChartIcons)
+				setIf(&pr.CheckForUpdates, p.CheckForUpdates)
+				if p.UpdateChannel != nil {
+					pr.UpdateChannel = strings.TrimSpace(*p.UpdateChannel)
+					if pr.UpdateChannel == "" {
+						pr.UpdateChannel = engine.UpdateChannelStable
+					}
+				}
 				for _, f := range []struct{ dst, v *string }{{&pr.KubectlMirror, p.KubectlMirror}, {&pr.KubectlDir, p.KubectlDir}, {&pr.KubectlPath, p.KubectlPath}} {
 					if f.v != nil {
 						*f.dst = strings.TrimSpace(*f.v)

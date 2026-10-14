@@ -153,6 +153,8 @@ var wantCommands = map[string]engine.Danger{
 	"ui.setNavigatorScope": engine.DangerUI,
 	// kubectl for terminals (D-3): GUI-only, Cogpit's own folder, never a cluster (TestKubectlDownloadCommand).
 	"kubectl.download": engine.DangerUI,
+	// Help › Check for Updates… (D-4): Sparkle's window, never a cluster (TestCheckForUpdatesCommand).
+	"app.checkForUpdates": engine.DangerUI,
 	// The editor's drafts and Revert to original (G9): Cogpit's own files and the editor's text,
 	// never a cluster (TestDraftRestoredAfterARestart, TestRevertToOriginal).
 	"editor.drafts": engine.DangerRead, "editor.restoreDraft": engine.DangerUI, "editor.discardDraft": engine.DangerUI,

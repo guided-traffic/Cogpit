@@ -29,6 +29,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/locale"
 	"github.com/guided-traffic/cogpit/internal/mcp"
 	"github.com/guided-traffic/cogpit/internal/ui/fyneui"
+	"github.com/guided-traffic/cogpit/internal/update"
 )
 
 // version is set by the build (-ldflags "-X main.version=…").
@@ -115,6 +116,10 @@ func run(previousCrash string) int {
 		fmt.Fprintln(os.Stderr, "cogpit:", err)
 		return 1
 	}
+	// The macOS app's updater, Sparkle 2 from the app bundle (D-4, internal/update): none for a
+	// build without the update key or outside an installed bundle, and the engine says why (Help ›
+	// Check for Updates…). It starts once the window's event loop runs.
+	s.SetUpdater(update.New())
 
 	opts := fyneui.Options{AutoConnect: *contextName, Theme: fyneui.ThemeMode(*themeName),
 		DeepLinks: deepLinkQueue}

@@ -121,15 +121,22 @@ type Preferences struct {
 	// names, from whatever host serves it (D-46, helmicons.go); off: none is fetched and Cogpit's
 	// own glyph shows. On by default; agents and the CLI may only turn it off.
 	LoadChartIcons bool `json:"loadChartIcons"`
+	// CheckForUpdates: the app's updater checks Cogpit's appcast once a day and offers a new
+	// release in its window (D-4, updates.go); on by default, as Lens checks by default. Agents and
+	// the CLI may only turn it on. UpdateChannel is the channel it follows: UpdateChannelStable,
+	// the only one until Cogpit publishes prereleases.
+	CheckForUpdates bool   `json:"checkForUpdates"`
+	UpdateChannel   string `json:"updateChannel,omitempty"`
 }
 
 // DefaultPreferences are the preferences of a first start: dark (Cogpit starts dark, as it did
 // before the preference existed), the computer's time zone, the default row height, 13-point text,
 // line numbers on, two-space tabs, the user's own shell, kubectl downloads offered, chart icons
-// loaded (D-46).
+// loaded (D-46), updates checked automatically on the stable channel (D-4).
 func DefaultPreferences() Preferences {
 	return Preferences{Theme: ThemeDark, EditorFontSize: DefaultFontSize, EditorLineNumbers: true,
-		EditorTabSize: DefaultTabSize, TerminalFontSize: DefaultFontSize, KubectlDownload: true, LoadChartIcons: true}
+		EditorTabSize: DefaultTabSize, TerminalFontSize: DefaultFontSize, KubectlDownload: true, LoadChartIcons: true,
+		CheckForUpdates: true, UpdateChannel: UpdateChannelStable}
 }
 
 // Clone returns a deep copy.
@@ -171,6 +178,9 @@ func (p Preferences) Check() error {
 		return err
 	}
 	if err := CheckProxyURL(p.HTTPProxy); err != nil {
+		return err
+	}
+	if err := CheckUpdateChannel(p.UpdateChannel); err != nil {
 		return err
 	}
 	return p.checkKubectl()
@@ -260,6 +270,9 @@ func (p *Preferences) normalize() {
 	}
 	if (Preferences{KubectlPath: p.KubectlPath}).checkKubectl() != nil {
 		p.KubectlPath = ""
+	}
+	if p.UpdateChannel == "" || CheckUpdateChannel(p.UpdateChannel) != nil {
+		p.UpdateChannel = UpdateChannelStable
 	}
 }
 
@@ -450,12 +463,14 @@ func (s *Session) ChangePreferences(fn func(*Preferences) error) (Preferences, e
 	}
 	p.change.Lock()
 	defer p.change.Unlock()
+	var old Preferences
 	next, err := func() (Preferences, error) {
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		if err := p.load(); err != nil {
 			s.log.Warn("preferences", "err", err)
 		}
+		old = p.prefs.Clone()
 		next := p.prefs.Clone()
 		if err := fn(&next); err != nil {
 			return Preferences{}, err
@@ -481,6 +496,7 @@ func (s *Session) ChangePreferences(fn func(*Preferences) error) (Preferences, e
 	}
 	shown := next.Shown() // the proxy without its password
 	s.UpdateUI(func(u *UIState) { u.Preferences = &shown })
+	s.updatePrefsChanged(old, next) // the updater's automatic checks (updates.go)
 	return next, nil
 }
 

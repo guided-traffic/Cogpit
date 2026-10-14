@@ -84,7 +84,7 @@ cogpit/
 | `internal/mcp` | L4 | MCP server over the registry |
 | `internal/app` | L4 | The wiring both binaries share (2026-10-13): Cogpit's directories, the kubeconfig sources (so the app and `cogpit-cli` offer the same contexts and honour the same plugin approvals), the audit log |
 | `internal/agent` | L4 | Built-in agent with an OpenAI-compatible endpoint (not built) |
-| `internal/update` | L4 | Update check, verification and install (not built) |
+| `internal/update` | L4 | The macOS app's updater (2026-10-14): Sparkle 2 loaded at run time from the bundle through cgo, its reasons when there is none ([architecture §11](architecture.md#11-updates-internalupdate)) |
 | `internal/ui/fyneui` | L4 | The Fyne shell; `yamlview` the YAML viewer and editor, `termview` the terminal and log widgets |
 | `internal/ui/logo` | L4 | The C helm logo ([D-24](decisions.md#d-24-logo)) rasterised for the app icon (`hack/icon`) and the header's mark; imports no Fyne |
 | `internal/testkit` | – | In-memory source, fake API server, object builders, a local kubectl release host (`KubectlReleases`, signed by a test certificate authority); `integration/` holds cross-package and kind tests |

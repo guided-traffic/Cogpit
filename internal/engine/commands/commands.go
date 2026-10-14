@@ -76,6 +76,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerNavScope(g)
 	registerKubectl(g)
 	registerFlux(g)
+	registerUpdates(g)
 	return g.err
 }
 

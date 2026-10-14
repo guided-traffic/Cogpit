@@ -35,7 +35,7 @@ own. **Human** marks what an agent can't finish alone.
 | G11 | Helm | features | blocks alpha | 2–8 h | [resource-parity](resource-parity.md#helm) |
 | G12 | Metrics and cluster overview | features | blocks beta | 40–80 h | [ui-parity](ui-parity.md#cluster-overview-and-charts) |
 | G13 | Clusters, hotbar, palette, menus, shortcuts and preferences | UI | partly alpha, rest beta | 50–140 h | [ui-parity](ui-parity.md#clusters) |
-| G14 | Packaging, signing and updates (macOS) | platforms | an unsigned build blocks alpha; signing and updates block beta | 22–45 h + human | [platform-parity](platform-parity.md#operating-systems-and-packages) |
+| G14 | Packaging, signing and updates (macOS) | platforms | an unsigned build blocks alpha; signing and updates block beta | 12–30 h + human | [platform-parity](platform-parity.md#operating-systems-and-packages) |
 | G15 | Performance and API load at scale | performance | blocks beta | 28–66 h | [testing](../developer/testing.md#performance-budgets-proposed-not-measured) |
 | G16 | Stability and the user bug backlog | stability | blocks beta | 100–200 h | this page |
 | G17 | MCP control | beyond Lens | basics in alpha, the rest beta | 0–2 h (every MCP row done; D-44 for the owner) | [beyond-lens](beyond-lens.md#mcp-control-of-ui-and-cluster) |
@@ -1527,8 +1527,10 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 ### G14. Packaging, signing and updates (macOS)
 - **Missing:** the universal macOS app bundle (Intel), the Homebrew
-  cask, an SBOM and signed checksums, the signed update manifest, the update notice and the one-click update
-  ([D-4](../developer/decisions.md#d-4-packaging-and-updates)). The app's minimum macOS is 13.0
+  cask, an SBOM and signed checksums ([D-4](../developer/decisions.md#d-4-packaging-and-updates)).
+  **Human:** Sparkle's update key and the rules of the environments `sparkle` and `github-pages`
+  ([releasing › setting up Sparkle](../developer/releasing.md#setting-up-sparkle)), after which the
+  first release with the key and the one after it prove the update. The app's minimum macOS is 13.0
   since 2026-10-14 (it said the build runner's 26.0 before; [the minimum macOS](../developer/releasing.md#the-minimum-macos)),
   not tried on macOS 13.
 - **Built (2026-10-14, agent REL), not yet proven by a release:** the Developer ID signature
@@ -1540,6 +1542,15 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   checked locally signed ad-hoc; the first release after v0.4.0 is the proof. A failed signature
   or notarization fails the macOS job and leaves the release without files until it is re-run (the
   lead's decision for the owner to confirm, D-4). Estimate not moved until that release is checked.
+- **Built (2026-10-14, agent SPARKLE), not yet proven:** Sparkle 2.10.0 in the app, pinned by
+  version and SHA-256, loaded at run time ([`internal/update`](../../internal/update/)),
+  `CFBundleVersion` the release's version; Preferences › App › Check for updates automatically and
+  Update channel (Stable), Help › Check for Updates…; Sparkle's parts signed inside-out with the
+  Developer ID; the appcast drafted, signed (Sparkle 2.9's signed feeds) in the environment
+  `sparkle` and deployed to Pages in three jobs ([releasing › the appcast](../developer/releasing.md#the-appcast)).
+  Checked locally with a throwaway key; the update notice, the one-click update and the signed
+  manifest are partial until a release carries the owner's key. Estimate 12–30 h (was 22–45): the
+  universal app, the cask, an SBOM and signed checksums, and what the first signed updates show.
 - **Evidence:** [platform-parity](platform-parity.md#operating-systems-and-packages), the macOS and
   update rows.
 - **Impact:** an unsigned build is enough for alpha testers; beta users need a notarized app and
@@ -1552,8 +1563,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   silicon, ad-hoc signed, not notarized), `cogpit-cli` for six platforms and `SHA256SUMS`, built by
   [`build.yml`](../../.github/workflows/build.yml) ([releasing › the release pipeline](../developer/releasing.md#the-release-pipeline));
   estimate not moved.
-- **Estimate:** 22–45 h (was 25–50). **Human:** the update signing key (the Apple Developer ID
-  certificate and a notarization API key exist since 2026-10-14, in the environment `release`).
+- **Estimate:** 12–30 h (was 22–45, before that 25–50). **Human:** the update signing key and the
+  environments' rules (the Apple Developer ID certificate and a notarization API key exist since
+  2026-10-14, in the environment `release`).
 
 ### G22. Windows and Linux
 - **Missing:** everything platform-specific beyond macOS
@@ -1688,6 +1700,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | G14: Sparkle 2 and the signed appcast built (agent SPARKLE), not yet proven by a release with the owner's key; removed from Missing: the signed update manifest, the update notice and the one-click update; estimate 12–30 h (was 22–45); totals not recounted |
 | 2026-10-14 | minor | G13: `cogpit://` deep links partial on macOS (navigation only, D-47), a free row; estimate not moved |
 | 2026-10-14 | minor | G13: start at login partial on macOS (the app's login item, D-48), a free row; estimate not moved |
 | 2026-10-14 | minor | G17: the cached Secrets' values replaced in what agents read (H-82, D-44) and Flux's credential fields withheld from agents' YAML (H-63), both the owner's answers, built; G11: a Helm repository's credentials over plain http asked once per repository (H-40, D-29), built |

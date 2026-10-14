@@ -52,7 +52,11 @@ func (sh *shell) helpMenu() *fyne.Menu {
 		sh.mcpMenu.Disabled = !sh.mcp.on
 		items = append(items, fyne.NewMenuItemSeparator(), sh.mcpMenu)
 	}
-	items = append(items, fyne.NewMenuItemSeparator(), fyne.NewMenuItem("About Cogpit", sh.showAbout))
+	items = append(items, fyne.NewMenuItemSeparator())
+	if item := sh.updatesMenuItem(); item != nil { // Check for Updates… (preferences_updates.go)
+		items = append(items, item)
+	}
+	items = append(items, fyne.NewMenuItem("About Cogpit", sh.showAbout))
 	return fyne.NewMenu("Help", items...)
 }
 

@@ -60,7 +60,7 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - ⌨️ `cogpit-cli`: your contexts and any kind's objects on the command line, read-only, and an MCP stdio bridge you register once.
 - 💬 *(planned)* A built-in agent in a chat beside your views, on any OpenAI-compatible endpoint such as LiteLLM or Open WebUI.
 - 📦 Installs the Mac way: open the disk image, drag Cogpit into Applications, signed and notarized (from the first release after v0.4.0 on); *(planned)* a Homebrew cask for shell users.
-- ⬆️ *(planned)* Updates with one click (Sparkle), verified against a signed update feed.
+- ⬆️ Updates with one click in the macOS app (Sparkle), verified against a signed update feed: built, and active from the first release that carries the update key (none yet).
 
 ## Get it and run it
 
@@ -297,6 +297,32 @@ picker to review it). A malformed link is refused whole. What remains is in
 and [H-90](../security/trust-boundaries.md#h-90-a-links-text-reaches-agents-through-the-logs).
 Not on Windows and Linux yet.
 
+### Preferences › App: updates
+
+The macOS app checks Cogpit's signed appcast with Sparkle 2 and offers a newer release in Sparkle's
+window, installed on your click ([D-4](decisions.md#d-4-packaging-and-updates)); Help › Check for
+Updates… checks now. Kept in `<user config dir>/Cogpit/preferences.json` with the other
+preferences.
+
+```json
+{
+  "checkForUpdates": true,
+  "updateChannel": "stable"
+}
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `checkForUpdates` | `true` # default | Sparkle checks `https://guided-traffic.github.io/cogpit/appcast.xml` once a day; off, only Help › Check for Updates… checks |
+| `updateChannel` | `"stable"` # default | the only channel until Cogpit publishes prereleases; `beta` is refused for now |
+
+Security note: an agent or `cogpit-cli` may turn `checkForUpdates` on, never off; only you can, in
+Cogpit's window ([agents and MCP](../security/agents-and-mcp.md)). A build without the update key
+(every local build, and every release until the owner has made the key), an app still on its disk
+image, `cogpit-cli` and other systems than macOS do not update themselves, and the row says why.
+Sparkle installs an update only when its disk image and the feed carry the update key's signature
+and the new app carries Cogpit's Developer ID ([updates](../security/updates.md)).
+
 ### Commands and MCP tools
 
 Every command is an MCP tool. The table of all of them, with each one's danger and parameters,
@@ -348,6 +374,8 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Deep links (macOS) | `cogpit://open?context=<context id>&view=<view key>&namespace=<namespace>&name=<name>`, the scheme registered in the app's `CFBundleURLTypes` (name `io.guided-traffic.cogpit`); audited as `deeplink.open` with origin `deeplink` | `cogpit://open?view=pods&namespace=team-a` # example |
 | Release artifacts | `Cogpit-<version>-macos-<arch>.dmg` (signed releases; `universal` once the app is built for Intel too, planned), `Cogpit_<version>_darwin_<arch>.zip` (v0.4.0 and earlier, and builds without the signing secrets), `cogpit-cli_<version>_<os>_<arch>.tar.gz` (`.zip` for Windows), `SHA256SUMS` | `Cogpit-0.5.0-macos-arm64.dmg` # example |
 | Deep links (planned) | `cogpit://` | |
+| Update feed | the appcast every macOS app with the update key reads (`SUFeedURL`, [D-4](decisions.md#d-4-packaging-and-updates)) | `https://guided-traffic.github.io/cogpit/appcast.xml` # default |
+| Sparkle's own state | the app's user defaults, written by Sparkle: whether it checks automatically (`SUEnableAutomaticChecks`, which Cogpit sets from its preference), the last check's time, a skipped version | `~/Library/Preferences/io.guided-traffic.cogpit.plist` # default |
 
 </details>
 
@@ -382,7 +410,9 @@ Identifiers the documentation uses:
 | `make lint`, `make fmt` | golangci-lint v2.14.0 (installed into `bin/`) with the team's linters and the `depguard` layering |
 | `make kind-up`, `make kind-seed`, `make kind-down` | the local kind cluster and its seed |
 | `make kind-prometheus`, `make kind-prometheus-down` | a real Prometheus in the kind cluster (`monitoring/prometheus-server`, the `prometheus` chart) for the drawer's charts ([hack/kind](../../hack/kind/README.md#prometheus)) |
-| `make app` | `bin/Cogpit.app` via `fyne package` |
+| `make app` | `bin/Cogpit.app` via `fyne package`, with Sparkle in `Contents/Frameworks` (`SPARKLE_PUBLIC_ED_KEY=<base64>` for an app that updates itself) |
+| `make sparkle` | the pinned Sparkle release in `.cache/sparkle/<version>`, its SHA-256 checked |
+| `make appcast-draft`, `make appcast-sign`, `make appcast-verify` | the release pipeline's appcast jobs ([releasing › the appcast](releasing.md#the-appcast)) |
 
 ## Development
 

@@ -351,8 +351,9 @@ jobs:
         run: make kind-drain-down || true
 
   # What only macOS can test or build: the darwin-only tests (the title bar's AppKit harness, the
-  # locale's CoreFoundation read), the lint of the packages with darwin-only files, and the app
-  # bundle. A Fyne app with cgo and AppKit does not cross-compile from Linux.
+  # updater's Sparkle harness, the locale's CoreFoundation read), the lint of the packages with
+  # darwin-only files, and the app bundle with Sparkle. A Fyne app with cgo and AppKit does not
+  # cross-compile from Linux.
   macos:
     name: macOS
     runs-on: macos-latest
@@ -370,7 +371,7 @@ jobs:
         run: make test-darwin
 
       - name: Lint the packages with darwin-only files
-        run: make lint LINT_PKGS="./internal/locale/... ./internal/ui/fyneui/..."
+        run: make lint LINT_PKGS="./internal/locale/... ./internal/ui/fyneui/... ./internal/update/..."
 
       - name: Build and package Cogpit.app
         run: make app

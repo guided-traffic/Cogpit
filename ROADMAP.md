@@ -2,7 +2,7 @@
 
 **Stage: pre-alpha** · a local MVP runs on macOS; every alpha-gate workflow exists in part · next: alpha on macOS, ~110–320 agent-hours away (seven core workflows end to end, walked by a person)
 
-> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-14 · **Change:** minor (night build of 2026-10-13/14 in the progress log: Flux CD and Argo CD sections, Create Secret and the node shell, namespace-limited users, workload drawers' Pods, tabs across restarts, agents reading dock tabs; 39 of 39 actions, breadth ~82%, beyond Lens 23 of 40 done; the CI rework of 2026-10-13 in the progress log: parallel jobs, sharded race tests, semantic-release live; the day run of 2026-10-13 in the progress log: D-29, the lists' copy icons, the decoded certificates (D-30) and local times (D-31) built, Upcoming 2 done, breadth unchanged at ~79%, beyond Lens 20 of 40 done; earlier the same day, major: the night run in the progress log; breadth counted by `make parity`, ~56% → ~79%; the hours re-estimated roughly by the lead from the gap estimates the run lowered, not re-assessed one by one; the upcoming work after it) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-14 · **Change:** minor (Sparkle 2 and the signed appcast built, waiting for the owner's update key (D-4, G14): breadth ~84%, 116 of 120 interface rows, 6 of 13 package rows, beyond Lens 24 done and 5 partial; hours not recounted); minor (night build of 2026-10-13/14 in the progress log: Flux CD and Argo CD sections, Create Secret and the node shell, namespace-limited users, workload drawers' Pods, tabs across restarts, agents reading dock tabs; 39 of 39 actions, breadth ~82%, beyond Lens 23 of 40 done; the CI rework of 2026-10-13 in the progress log: parallel jobs, sharded race tests, semantic-release live; the day run of 2026-10-13 in the progress log: D-29, the lists' copy icons, the decoded certificates (D-30) and local times (D-31) built, Upcoming 2 done, breadth unchanged at ~79%, beyond Lens 20 of 40 done; earlier the same day, major: the night run in the progress log; breadth counted by `make parity`, ~56% → ~79%; the hours re-estimated roughly by the lead from the gap estimates the run lowered, not re-assessed one by one; the upcoming work after it) · **Target:** Lens Desktop 2026.10.51501
 
 Cogpit's one-page summary of how close it is to Lens Desktop 2026.10.51501, the Kubernetes IDE it
 reimplements as a native desktop client in Go, for macOS first and Windows and Linux after the
@@ -22,7 +22,7 @@ serial foundation, about 80% of the work parallelizes.
 
 | | Value | Kind |
 |---|---|---|
-| **Feature breadth** | **~83%** (was ~82%) | measured by `make parity`: 64 of 64 views (ten of them the Gateway API views, generic), 39 of 39 actions, 115 of 120 interface rows, 3 of 11 paid features (the diff, Flux CD, Argo CD) (pasting kubeconfigs is not a target, D-21); 9 rows done, the rest partial |
+| **Feature breadth** | **~85%** (was ~82%) | measured by `make parity`: 64 of 64 views (ten of them the Gateway API views, generic), 39 of 39 actions, 116 of 120 interface rows, 6 of 13 package rows (2026-10-14: Sparkle 2 and the signed appcast, no update key yet), 3 of 11 paid features (the diff, Flux CD, Argo CD) (pasting kubeconfigs is not a target, D-21); 9 rows done, the rest partial |
 | **Ready for real work** | **~30%** (was ~26%) | estimated (lead, 2026-10-13: breadth jumped, nothing walked by a person yet) |
 | Mainstream practitioner | ~29% (was ~25%) | estimated |
 | Essentials user | ~36% (was ~34%) | estimated |
@@ -30,7 +30,7 @@ serial foundation, about 80% of the work parallelizes.
 | Remaining to **beta** (macOS, with the Flux CD and Argo CD views) | **~380–900 h** | estimated (was ~425–995) |
 | Remaining to **full parity** (free features, macOS) | **~360–920 h** | estimated (was ~420–1,040) |
 | Remaining to the **full Lens target** (paid features, Windows and Linux) | **~560–1,330 h** | estimated (was ~620–1,450) |
-| **Beyond Lens** (MCP control of UI and cluster, built-in agent) | **~50–110 h** | estimated, unchanged; not part of the parity numbers; 24 of 41 rows done, 3 partial (2026-10-14: a status filter in every view, the owner's D-34; every MCP row done after `dock_read`, the GUI-only mark and `kinds_list`; before, 2026-10-13: the CLI and its stdio bridge, view_rows, related objects, the agents allowance, the audit log and diagnostics in the window, editor drafts, names copyable in the lists, certificates in Secrets decoded) |
+| **Beyond Lens** (MCP control of UI and cluster, built-in agent) | **~50–110 h** | estimated, unchanged; not part of the parity numbers; 24 of 41 rows done, 5 partial (2026-10-14: Sparkle's one-click update and the signed update manifest built, partial until the owner's update key; a status filter in every view, the owner's D-34; every MCP row done after `dock_read`, the GUI-only mark and `kinds_list`; before, 2026-10-13: the CLI and its stdio bridge, view_rows, related objects, the agents allowance, the audit log and diagnostics in the window, editor drafts, names copyable in the lists, certificates in Secrets decoded) |
 
 ### Readiness by audience
 
@@ -94,6 +94,7 @@ Detail: [docs/parity/roadmap.md](docs/parity/roadmap.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | Sparkle 2 in the macOS app, Preferences › App's update rows, Help › Check for Updates… and the signed appcast's jobs built, no update key yet (D-4, G14 estimate 12–30 h): breadth ~84% (116 of 120 interface rows, 6 of 13 package rows), beyond Lens 24 done and 5 partial; the remaining hours not recounted |
 | 2026-10-14 | minor | The night build of 2026-10-13/14 in the progress log (Flux CD, Argo CD, Create Secret, node shell, namespace-limited users, workload drawers' Pods, tabs across restarts, dock_read); 39 of 39 actions, breadth ~82%, beyond Lens 23 of 40 done; hours not re-estimated |
 | 2026-10-13 | minor | The day run in the progress log (D-29, copy icons in the lists, decoded certificates D-30 with key match and DER, local times D-31, binary byte units D-32, the node drawer's Pods table, the window buttons and resizing, leftovers); Upcoming 2 done; breadth unchanged, beyond Lens 20 of 40, hours not re-estimated |
 | 2026-10-13 | minor | Upcoming: the owner's requirements of 2026-10-13 (D-29, D-25) |

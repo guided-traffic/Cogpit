@@ -204,6 +204,7 @@ func (p *settingsPage) appSection() fyne.CanvasObject {
 		p.typed("timezone", func() { p.setPreference("timezone", strings.TrimSpace(zone.Text)) })
 	}
 	loginItem, syncLoginItem := p.loginItemSetting() // nil where not offered (preferences_loginitem.go)
+	updates, syncUpdates := p.updatesSettings()      // preferences_updates.go
 	p.sync = func() {
 		pr := p.prefs()
 		for _, c := range themeChoices {
@@ -211,13 +212,14 @@ func (p *settingsPage) appSection() fyne.CanvasObject {
 				themeSel.SetSelected(c.label)
 			}
 		}
+		syncUpdates()
 		p.setEntry(zone, &zone.Entry, "timezone", pr.Timezone)
 		syncLoginItem()
 	}
-	rows := container.NewVBox(
-		p.setting("theme", "Theme", themeHelp, themeSel),
+	objs := append([]fyne.CanvasObject{p.setting("theme", "Theme", themeHelp, themeSel)}, updates...)
+	rows := container.NewVBox(append(objs,
 		p.setting("timezone", "Locale timezone", "Absolute times: the drawer's Created, the charts' time axes and hover. Empty: the computer's.", zone),
-	)
+	)...)
 	if loginItem != nil {
 		rows.Add(loginItem)
 	}

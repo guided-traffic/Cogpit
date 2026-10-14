@@ -1,6 +1,6 @@
 # Platform parity: systems, packages, authentication and tools
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (macOS: the app in a signed, notarized disk image from the release pipeline, no tag run yet, no count moves; network endpoints: the hosts of the charts' icons while Load chart icons is on, D-46, no count moves; `proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, against TLS test servers; `kubectl` for terminals: the version check and the verified download, D-3; the HTTP proxy per cluster partial; fourth run recount: 9 of 38 rows partial; exec credential plugins partial) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (the update notice, one-click update, update channels and signed update manifest partial on macOS: Sparkle 2 and the signed appcast built, no update key yet, D-4, 18 of 38 rows; network endpoints: the appcast's host); minor (macOS: the app in a signed, notarized disk image from the release pipeline, no tag run yet, no count moves; network endpoints: the hosts of the charts' icons while Load chart icons is on, D-46, no count moves; `proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, against TLS test servers; `kubectl` for terminals: the version check and the verified download, D-3; the HTTP proxy per cluster partial; fourth run recount: 9 of 38 rows partial; exec credential plugins partial) · **Target:** Lens Desktop 2026.10.51501
 
 Where and how Cogpit runs compared with Lens Desktop 2026.10.51501: operating systems and
 architectures, packages and updates, how it authenticates to clusters, which Kubernetes versions
@@ -12,9 +12,9 @@ it handles, and the external tools it depends on. Method: [`README.md`](README.m
 (`latest.yml`, `latest-mac.yml`, `latest-linux.yml` on `downloads.k8slens.dev`) and the
 2026.10.51501 release notes. Cogpit's ecosystem facts: [decisions](../developer/decisions.md).
 
-**Summary (measured, 2026-10-13, after the night run, counted by `make parity`):** 14 of 38 rows partial,
+**Summary (measured, 2026-10-14, counted by `make parity`):** 18 of 38 rows partial,
 none done (four more are not targets or have nothing to build): the macOS app bundle and the
-releases' checksums (2 of 13 package rows), client certificates, bearer tokens, exec credential plugins (run only after the user allowed
+releases' checksums, and on macOS the update notice, the one-click update, the Stable channel and the signed update manifest, built without the owner's update key yet (6 of 13 package rows), client certificates, bearer tokens, exec credential plugins (run only after the user allowed
 them in the GUI, not yet verified against a cloud provider), users limited to some namespaces
 through the access reviews, the HTTP proxy per cluster, `proxy-url` and the kubeconfig's TLS
 settings (custom CA, `tls-server-name`, `insecure-skip-tls-verify`; against TLS test servers, not a
@@ -41,13 +41,13 @@ material, and real cloud accounts to test credential plugins against.
 | Flathub (Linux) | – | with Linux | missing |
 | APT and RPM repositories | yes | later | missing |
 | Snap | yes | not planned | – |
-| Update notice | yes | yes | missing |
-| One-click update | Windows exe, macOS dmg and AppImage, with staged rollouts; APT and RPM manual | macOS through Sparkle 2; Windows and Linux formats with M11; package-manager installs hand over to the manager ([D-4](../developer/decisions.md#d-4-packaging-and-updates)) | missing |
-| Update channels | Stable, Beta, Alpha | Stable and Beta | missing |
-| Signed update manifest, verified before install | not documented | yes ([security › updates](../security/updates.md)) | missing |
+| Update notice | yes | yes | partial (2026-10-14): Sparkle's window in the macOS app, from a scheduled check (once a day while Preferences › App › Check for updates automatically is on, the default) or Help › Check for Updates…; no release carries the update key yet ([D-4](../developer/decisions.md#d-4-packaging-and-updates), [`internal/update`](../../internal/update/), `TestCheckForUpdatesCommand`); Lens's "Update" button in the title bar is not built |
+| One-click update | Windows exe, macOS dmg and AppImage, with staged rollouts; APT and RPM manual | macOS through Sparkle 2; Windows and Linux formats with M11; package-manager installs hand over to the manager ([D-4](../developer/decisions.md#d-4-packaging-and-updates)) | partial (2026-10-14): macOS through Sparkle 2.10.0 from the disk image, built ([`internal/update`](../../internal/update/), [releasing › the appcast](../developer/releasing.md#the-appcast)), not proven: no release carries the update key yet; no staged rollouts (Sparkle's phased rollouts unused); Windows, Linux and the package managers missing |
+| Update channels | Stable, Beta, Alpha | Stable and Beta | partial (2026-10-14): Stable, Preferences › App › Update channel; a prerelease's appcast item goes to Sparkle's channel `beta`, which no copy follows until Cogpit publishes prereleases and gives them a `CFBundleVersion` ([D-4](../developer/decisions.md#d-4-packaging-and-updates), [`engine/updates.go`](../../internal/engine/updates.go), `TestUpdatePreferences`) |
+| Signed update manifest, verified before install | not documented | yes ([security › updates](../security/updates.md)) | partial (2026-10-14): Sparkle's appcast and each disk image signed with the EdDSA update key in the environment `sparkle`, required by the app before it extracts anything; built and checked locally with a throwaway key, the owner's key not made yet ([`hack/appcast`](../../hack/appcast/main.go), [`hack/macos/appcast.sh`](../../hack/macos/appcast.sh), `TestVerify`) |
 | Checksums and SBOM per release | not documented | `SHA256SUMS`, SPDX SBOM | partial (2026-10-13): `SHA256SUMS` over every archive of each release (`make dist-checksums` in [`build.yml`](../../.github/workflows/build.yml), [the release pipeline](../developer/releasing.md#the-release-pipeline)), not signed; no SBOM |
 | Activation or login before first use | Lens ID required (offline activation: Enterprise) | none ([D-9](../developer/decisions.md#d-9-scope-against-lenss-paid-and-vendor-features)) | – (nothing to build) |
-| Network endpoints the app needs besides clusters | `api.k8slens.dev`, `downloads.k8slens.dev`, `*.bored.k8slens.dev`, npm registry | none; Helm repositories, the LLM endpoint and the update check only when used; since 2026-10-14 the hosts the charts' icons name, only for the charts the window shows and while Preferences › Load chart icons is on (on by default; [D-46](../developer/decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them), [H-87](../security/trust-boundaries.md#h-87-chart-icons-tell-their-hosts-what-the-user-looks-at)) | missing |
+| Network endpoints the app needs besides clusters | `api.k8slens.dev`, `downloads.k8slens.dev`, `*.bored.k8slens.dev`, npm registry | none; Helm repositories, the LLM endpoint and the update check only when used (since 2026-10-14 the macOS app's appcast on `guided-traffic.github.io` once a day while Check for updates automatically is on, and the disk image from GitHub's release storage when the user installs one; neither in a build without the update key); since 2026-10-14 the hosts the charts' icons name, only for the charts the window shows and while Preferences › Load chart icons is on (on by default; [D-46](../developer/decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them), [H-87](../security/trust-boundaries.md#h-87-chart-icons-tell-their-hosts-what-the-user-looks-at)) | missing |
 
 ## Cluster authentication and connectivity
 
@@ -109,6 +109,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | Update notice, one-click update, update channels and the signed update manifest from missing to partial: Sparkle 2 in the macOS app and the signed appcast built, no update key yet (D-4); network endpoints: the appcast's and the release storage's hosts; 6 of 13 platform rows, 18 of 38 platform rows in all |
 | 2026-10-14 | minor | macOS (G14, agent REL): the release pipeline signs the app with the Developer ID and ships it in a signed, notarized, stapled disk image, `cogpit-cli` for macOS signed and notarized; no tag run yet, still partial (not universal); the binary's minimum macOS found to be the runner's (26.0); no count moves |
 | 2026-10-14 | minor | Network endpoints the app needs (night build HELM2): the hosts the charts' icons name, fetched only for the charts the window shows while Preferences › Load chart icons is on (D-46); the row stays as it was, no count moves |
 | 2026-10-13 | minor | Night run (V2, G2): `proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, through the cluster layer against TLS test servers, a `proxy-url` password kept out of connect errors (fixed), insecure contexts marked; older clusters partial (Pod Security Policies from discovery, G6); 13 of 38 rows partial, 7 of 13 authentication rows; authentication's estimate 20–45 h (was 25–50) |
