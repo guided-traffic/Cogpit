@@ -1,6 +1,6 @@
 # Releasing
 
-> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-14 · **Change:** major (the release pipeline signs the macOS app and `cogpit-cli` with the Developer ID, puts the app into a disk image, notarizes both and staples the disk image's ticket, in a job of its own in the environment `release`; a failed signature or notarization fails that job and the release gets no files until it is re-run, the lead's decision for the owner to confirm); minor (the Apple signing and notarization material set up in the environment `release`); minor (Renovate: the node shell's default image, D-37); earlier major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-14 · **Change:** major (Sparkle 2: the framework in the app, pinned by version and SHA-256, Sparkle's parts signed inside-out, the appcast's three jobs (drafted, signed in the environment `sparkle`, deployed to GitHub Pages) and the owner's steps to set them up; no update key yet); major (the release pipeline signs the macOS app and `cogpit-cli` with the Developer ID, puts the app into a disk image, notarizes both and staples the disk image's ticket, in a job of its own in the environment `release`; a failed signature or notarization fails that job and the release gets no files until it is re-run, the lead's decision for the owner to confirm); minor (the Apple signing and notarization material set up in the environment `release`); minor (Renovate: the node shell's default image, D-37); earlier major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app) · **Target:** Lens Desktop 2026.10.51501
 
 Every push to `main` and every pull request runs the checks, each a job of its own with a make
 target that runs the same on a laptop. Since 2026-10-13 ([D-16](decisions.md#d-16-the-first-real-release))
@@ -10,7 +10,10 @@ release, and the release pipeline builds the artifacts from that tag and attache
 for macOS with the Developer ID, ships the app in a disk image and has both notarized by Apple
 ([signing and notarization](#signing-and-notarization)); no release has gone through these steps
 yet, v0.4.0 and earlier are **unsigned**. The Linux and Windows downloads stay unsigned
-([updates](../security/updates.md#what-a-release-holds-today)).
+([updates](../security/updates.md#what-a-release-holds-today)). Since 2026-10-14 the app carries
+Sparkle 2, and three jobs add each release to Sparkle's appcast on GitHub Pages, signed with the
+update key in the environment `sparkle` ([the appcast](#the-appcast)); until the owner has set up
+the key ([setting up Sparkle](#setting-up-sparkle)) they sign nothing and no copy updates itself.
 Platform targets and how they compare with Lens Desktop:
 [platform parity](../parity/platform-parity.md#operating-systems-and-packages).
 
@@ -60,7 +63,9 @@ the self-hosted runners restore a cache at 6 to 9 MB/s, slower than `go mod down
 cached test results, and a race shard once "passed" in four seconds without running a test.
 
 **Tokens:** every job's `GITHUB_TOKEN` is read-only (`contents: read`) except the release
-pipeline's last job (`contents: write`, to attach the artifacts). Semantic Release and Renovate work
+pipeline's "Attach to the release" (`contents: write`, to attach the artifacts), "Appcast (sign)"
+(`actions: read` as well, for its environment's rules) and "Appcast (deploy to Pages)" (`pages:
+write` and `id-token: write`, to deploy). Semantic Release and Renovate work
 with an installation token of the organisation's GitHub App (`APP_CLIENT_ID`, `APP_PRIVATE_KEY`,
 organisation secrets visible to this repository; [keys](../security/updates.md#keys-and-who-holds-them)).
 The Apple material reaches one job only, the release pipeline's signing job, through the
@@ -78,7 +83,7 @@ environment `release` ([secrets](#secrets)).
 | Race Tests (other packages) | self-hosted | `make test-race-rest` | every other package under the race detector, and the patched terminal widget's tests (`make test-fork`) | 6.6 |
 | Integration Tests (kind) | self-hosted | `make kind-up`, `make test-kind` | the `TestKind*` tests against a real API server and kubelet (kind v0.33.0, Kubernetes 1.37.0, the seed of [`hack/kind`](../../hack/kind/README.md) and the Metrics Server); the tests compile while the cluster starts | 9.6 |
 | Integration Tests (kind drain) | self-hosted | `make kind-drain-up`, `make test-kind-drain` | cordon, a blocked drain, a simulated crash and the finish on a three-node cluster of its own | 4.0 |
-| macOS | `macos-latest` | `make test-darwin`, `make lint LINT_PKGS=…`, `make app` | the tests only macOS can run (the title bar's AppKit harness, the locale's CoreFoundation read, the tests that expect macOS's shortcut glyphs), the lint of the packages with darwin-only files, and the app bundle | 5.0 |
+| macOS | `macos-latest` | `make test-darwin`, `make lint LINT_PKGS=…`, `make app` | the tests only macOS can run (the title bar's AppKit harness, the updater's harness with Sparkle's framework from `make sparkle`, the locale's CoreFoundation read, the tests that expect macOS's shortcut glyphs), the lint of the packages with darwin-only files, and the app bundle with Sparkle | 5.0 |
 | Compile (windows) | `windows-latest` | `go build`, `go vet`, `go test -run '^$'` | every package and test compiles and links on Windows with cgo (MinGW-w64 from MSYS2) and Fyne; it runs no test | 2.9 |
 | Combined Coverage Report | self-hosted, after the test jobs | `make coverage-report` | the unit, race and cluster profiles merged: the job summary, and the badge Semantic Release commits ([coverage](#coverage)) | 1.0 |
 | Semantic Release | self-hosted, `main` only, after every job | `npx semantic-release` | the tag, the GitHub release with its notes, and the release commit with the badge ([release flow](#release-flow)) | 0.9 |
@@ -170,6 +175,11 @@ out (container images, Helm charts, Valkey images) and one group added (Fyne):
   `GOCYCLO_VERSION`, `METRICS_SERVER_VERSION`) carry a
   `# renovate:` comment the custom manager reads; the `go` line of `go.mod` has its own manager,
   and the workflows follow it through `go-version-file`.
+- Sparkle (2026-10-14, [D-4](decisions.md#d-4-packaging-and-updates)): `SPARKLE_VERSION` in the
+  Makefile, a release tag without a `v`, has its own regex manager; Renovate cannot know the new
+  archive's SHA-256, so its pull request fails `make sparkle` until `SPARKLE_SHA256` is set to the
+  asset's digest (`gh api repos/sparkle-project/Sparkle/releases/tags/<version>`, the `.tar.xz`
+  asset's `digest`), and it never merges on its own: Sparkle's code installs Cogpit's updates.
 - The node shell's default image (2026-10-14, [D-37](decisions.md#d-37-the-node-shell)):
   `DefaultNodeShellImage` in [`engine/nodeshell.go`](../../internal/engine/nodeshell.go), Alpine
   pinned by tag and index digest, carries a `// renovate: datasource=docker` comment that its own
@@ -260,9 +270,10 @@ its `v`:
 | Job | Runner | Make target | Builds |
 |---|---|---|---|
 | cogpit-cli (linux, darwin, windows) | self-hosted | `make dist-cli` | `cogpit-cli_<v>_<os>_<arch>.tar.gz` for linux and darwin, `.zip` for windows, each on amd64 and arm64: pure Go (`CGO_ENABLED=0`), `-trimpath`, `-s -w`, the version set with `-X main.version`, with `LICENSE` and `README.md`. The job checks that the Linux binary's `--version` says the release's version. The macOS archives go on to the signing job. |
-| Cogpit.app (macOS arm64) | `macos-latest` | `make dist-app` | `Cogpit_<v>_darwin_arm64.zip`: `make app` (`fyne package`, the version in `Info.plist` and the binary, an ad-hoc signature) zipped with `ditto`. The job checks the bundle's version, its signature seal and its architecture. No secret reaches it. |
+| Cogpit.app (macOS arm64) | `macos-latest` | `make dist-app` | `Cogpit_<v>_darwin_arm64.zip`: `make app` (`fyne package`, the version in `Info.plist` as both versions and in the binary, Sparkle 2 in `Contents/Frameworks` with the update key's public half from the repository variable `SPARKLE_PUBLIC_ED_KEY`, an ad-hoc signature) zipped with `ditto`. The job checks the bundle's versions, the framework, that its `SUPublicEDKey` is the variable (none while it is unset), its signature seal with the nested code and its architecture. No secret reaches it. |
 | Sign and notarize (macOS) | `macos-latest`, after both, environment `release` | `make dist-macos` | `Cogpit-<v>-macos-arm64.dmg` and the two macOS `cogpit-cli` archives, signed with the Developer ID and notarized ([below](#signing-and-notarization)); without the secrets, the app zip and the archives unchanged |
-| Attach to the release | self-hosted, after all | `make dist-checksums` | `SHA256SUMS` over the archives and the disk image; checks that the files are the ones the signing job's verdict promises (signed: the disk image and no app zip; unsigned: the app zip and no disk image; `cogpit-cli` for six platforms either way); attaches them (`softprops/action-gh-release@v3`) and appends a note to the release text: what the downloads are, and that the macOS ones are signed and notarized, naming the certificate the signature carries, or else that they are unsigned and how macOS lets the user start the app anyway; desktop packages for Linux and Windows with M11 |
+| Attach to the release | self-hosted, after the builds and the signing | `make dist-checksums` | `SHA256SUMS` over the archives and the disk image; checks that the files are the ones the signing job's verdict promises (signed: the disk image and no app zip; unsigned: the app zip and no disk image; `cogpit-cli` for six platforms either way); attaches them (`softprops/action-gh-release@v3`) and appends a note to the release text: what the downloads are, and that the macOS ones are signed and notarized, naming the certificate the signature carries, or else that they are unsigned and how macOS lets the user start the app anyway; desktop packages for Linux and Windows with M11 |
+| Appcast (draft), Appcast (sign), Appcast (deploy to Pages) | `macos-latest`, `macos-latest` in the environment `sparkle`, self-hosted in `github-pages` | `make appcast-draft`, `appcast-sign`, `appcast-verify` | the release's item in Sparkle's appcast, signed and deployed to GitHub Pages ([the appcast](#the-appcast)); without the update key nothing is signed or deployed and the release is complete without them |
 
 The release jobs build without a build cache (`cache: none`): an artifact never comes from objects
 another run wrote, and for v0.1.0 saving the six platforms' cache took 5:18 minutes, longer than
@@ -279,7 +290,7 @@ locally](#running-the-signing-locally)). To check a download: `sha256sum -c SHA2
 also `spctl -a -t open --context context:primary-signature -vv Cogpit-<v>-macos-arm64.dmg`, which
 says `source=Notarized Developer ID`.
 
-**Not built yet:** the universal (Intel) app, the Homebrew cask and Sparkle's update feed
+**Not built yet:** the universal (Intel) app and the Homebrew cask
 ([D-4](decisions.md#d-4-packaging-and-updates)); desktop packages for Linux and Windows (M11); an
 SBOM; signed checksums.
 
@@ -297,12 +308,16 @@ as artifacts, so no dependency's code runs in a job that holds the signing ident
    (`f16cd3c5…3df3a`, valid to 2031-09-17); without the intermediate the identity is not valid.
    The script needs exactly one valid "Developer ID Application" identity of `APPLE_TEAM_ID` and
    signs with it by its SHA-1.
-2. **The app, inside out.** The bundle holds no nested code today, and the script refuses a
-   `Contents/Frameworks`, `PlugIns`, `XPCServices`, `Helpers` or `Library` until it signs them
-   first; so the bundle is signed once, with the hardened runtime (`--options runtime`), Apple's
-   secure timestamp and no entitlements, never with `--deep`. Checked: `codesign --verify
+2. **The app, inside out, never with `--deep`.** Its only nested code is Sparkle (since
+   2026-10-14), without its XPC services, which `make app` leaves out: `Autoupdate`,
+   `Updater.app`, then `Sparkle.framework`, the order of Sparkle's documentation for signing
+   outside Xcode, then the bundle; each with the hardened runtime (`--options runtime`), Apple's
+   secure timestamp and no entitlements. Anything else in `Contents/Frameworks`, and any
+   `PlugIns`, `XPCServices`, `Helpers` or `Library`, is refused. Checked: `codesign --verify
    --strict --deep`, the runtime flag, no entitlements, the Developer ID authority and team, the
-   timestamp.
+   timestamp, for each part; then every Mach-O file in the bundle must carry the bundle's
+   authority and the hardened runtime, so a helper a newer Sparkle adds cannot reach Apple signed
+   ad-hoc.
 3. **`cogpit-cli`** in both macOS archives, signed the same way with the identifier
    `io.guided-traffic.cogpit-cli`; each archive written again (`tar --no-mac-metadata`) and checked
    to hold the same files.
@@ -331,13 +346,20 @@ tell the last job which files to expect and what the note says; its summary list
 submissions with their status. Secrets reach the one step that signs, as environment variables;
 the script never echoes them or anything decoded from them and runs without `set -x`.
 
-**Entitlements: none.** Go generates no code at run time (no JIT, no unsigned executable memory),
-the app loads only Apple's frameworks, which library validation admits, and it uses no camera,
+**Entitlements: none,** for the app and Sparkle's parts. Go generates no code at run time (no
+JIT, no unsigned executable memory), the app loads only Apple's frameworks and Sparkle.framework,
+which carries the app's own Developer ID and so passes library validation, and it uses no camera,
 microphone, location, contacts or Apple Events; `kubectl`, credential plugins and shells are
-programs of their own. Checked locally (2026-10-14): the app signed ad-hoc with the hardened
-runtime, taken from the disk image, started on the demo cluster, drew and scrolled the Pods table
-for three seconds (`--demo --perf 3s`) and quit cleanly. An entitlement comes only with the
-failure that needs it, and the script's check that there is none changes with it.
+programs of their own. Sparkle's distribution signs `Autoupdate` ad-hoc with
+`com.apple.application-identifier`; Sparkle's documented commands sign it again without it, and so
+does the script. Checked locally (2026-10-14, before Sparkle): the app signed ad-hoc with the
+hardened runtime, taken from the disk image, started on the demo cluster, drew and scrolled the
+Pods table for three seconds (`--demo --perf 3s`) and quit cleanly. Not started since Sparkle is
+in the bundle: an app without the update key never loads the framework; one with the key signed
+ad-hoc with the hardened runtime would be refused the ad-hoc framework by library validation,
+which a Developer ID signature of both avoids (Sparkle's documentation says so). An entitlement
+comes only with the failure that needs it, and the script's check that there is none changes with
+it.
 
 **`cogpit-cli` cannot carry a ticket**: a ticket is stapled to an app bundle, a disk image or an
 installer package, not to a bare binary. Its notarization still counts where Gatekeeper looks:
@@ -350,13 +372,9 @@ its own first. Apple checks the code nested in a submission with it. Not verifie
 in Applications starts without a network the first time (Gatekeeper then needs the app's ticket,
 which only the disk image carries); the first signed release is where to try it.
 
-**Sparkle, next** ([D-4](decisions.md#d-4-packaging-and-updates)): `Sparkle.framework` goes into
-`Contents/Frameworks`, so the script's refusal of nested code is where its signing goes, before
-the bundle and in the order Sparkle documents for a Developer ID (its XPC services, `Autoupdate`,
-`Updater.app`, then the framework), each with the same identity, the hardened runtime and the
-timestamp, Sparkle's own entitlements kept. The appcast's EdDSA signature is computed over the
-disk image after stapling, its last change, in a job of its own whose environment holds the update
-key and needs the owner's approval ([secrets](#secrets)).
+**Sparkle's EdDSA signature** is computed over the disk image after stapling, its last change, in
+a job of its own whose environment holds the update key and needs the owner's approval
+([the appcast](#the-appcast)).
 
 ### When signing or notarization fails
 
@@ -402,7 +420,9 @@ make dist-macos VERSION=0.0.99                    # no MACOS_SIGN and no secrets
 `MACOS_SIGN=adhoc` runs every step but the notarization and Gatekeeper's verdict, with ad-hoc
 signatures: the hardened runtime, the checks of each signature and the disk image's contents. The
 script takes the Developer ID from the secrets only, never from a login keychain. **Checked
-2026-10-14** on macOS 26.6, under bash 3.2 and 5: the ad-hoc and unsigned runs; the Developer ID
+2026-10-14** on macOS 26.6, under bash 3.2 and 5: the ad-hoc and unsigned runs (again with Sparkle
+in the bundle: its three parts and the app signed inside-out, four Mach-O files with the hardened
+runtime, `codesign --verify --strict --deep` on the app and on the copy in the disk image); the Developer ID
 path up to the identity with a throwaway self-signed certificate (it stops at "0 valid
 identities", as it must for a certificate Apple did not issue, and leaves the search list as it
 was; a wrong pin of the intermediate stops it before); `codesign` with a key from a temporary
@@ -421,7 +441,84 @@ warning that Gatekeeper is off on the runner. Then, on a Mac: download, `shasum 
 SHA256SUMS --ignore-missing`, `spctl -a -t open --context context:primary-signature -vv` on the
 disk image, open it, drag Cogpit into Applications and start it, with no warning; once without a
 network, to settle whether the app needs a ticket of its own
-([only the disk image is submitted](#signing-and-notarization)).
+([only the disk image is submitted](#signing-and-notarization)); and in its log, each of
+Sparkle's parts (`Autoupdate`, `Updater.app`, `Sparkle.framework`) signed like the app, and `4
+Mach-O files in Cogpit.app, each signed Developer ID Application: …`.
+
+### The appcast
+
+Sparkle's appcast is the update feed every installed copy reads at its `SUFeedURL`,
+`https://guided-traffic.github.io/cogpit/appcast.xml` (owner, 2026-10-14,
+[D-4](decisions.md#d-4-packaging-and-updates)): one RSS feed with the releases' history, an item
+per release with its versions, minimum macOS, release notes, the disk image's download URL, length
+and EdDSA signature, and, since Sparkle 2.9, an EdDSA signature over the feed itself
+(`SURequireSignedFeed` in the app). Three jobs of [`build.yml`](../../.github/workflows/build.yml)
+add a release to it, after "Attach to the release", so an item never points at a missing download
+and nothing here can take a release's files back:
+
+| Job | Runner | Make target | What it does |
+|---|---|---|---|
+| Appcast (draft) | `macos-latest`, after "Sign and notarize (macOS)" signed and "Attach to the release" | `make appcast-draft` | reads the app in the stapled disk image (`CFBundleVersion`, the short version, `LSMinimumSystemVersion`, `SUFeedURL`, `SUPublicEDKey`); an app without the key gets no item (`drafted=false`, the jobs after are skipped). Otherwise: the key must be the repository variable, the disk image's release asset must be downloadable, the feed is fetched from Pages past its cache (404: the first item starts it) and must carry a valid signature by that key, the release's notes and dates come from `gh release view`, and [`hack/appcast`](../../hack/appcast/main.go) drafts the feed with a placeholder for the disk image's signature. No secret, Go and the standard library only |
+| Appcast (sign) | `macos-latest`, environment `sparkle` | `make appcast-sign` | without `SPARKLE_ED_PRIVATE_KEY`: a notice, `signed=false`, nothing deployed, never a failure. With it: refuses unless the environment `sparkle` has a required reviewer and admits tags `v*` only (read from the API; GitHub creates an environment a workflow names without any rule, [H-89](../security/updates.md#h-89-an-environment-sparkle-without-rules-hands-the-update-key-to-any-run)); then Sparkle's own `sign_update` from the pinned archive (`make sparkle`) signs the disk image (the one the draft names, by its SHA-256), the signature takes the placeholder's place, `sign_update` signs the feed and verifies both. The key reaches `sign_update` on its standard input only, never a command line or a file; GitHub masks it; the job runs no Go and no dependency's code; its work files are removed with `if: always()` |
+| Appcast (deploy to Pages) | self-hosted, environment `github-pages`, `pages: write`, `id-token: write` | `make appcast-verify` | checks with the public key what is about to be served: the feed's signature, every item, and that the release's item names this disk image by its length with a signature over its bytes; then `actions/upload-pages-artifact@v5` and `actions/deploy-pages@v5` replace the site with `appcast.xml`. One deploy at a time (`concurrency: pages`) |
+
+The feed's items are newest first by `sparkle:version`; a re-run replaces its release's item, and
+each channel keeps its 10 newest. A prerelease's item goes to `<sparkle:channel>beta</sparkle:channel>`,
+which no copy follows yet (Preferences › Update channel offers Stable only; a prerelease's
+`CFBundleVersion` has no scheme yet, [D-4](decisions.md#d-4-packaging-and-updates)). The release
+notes are the release's text up to the pipeline's download note, at most 32 KiB, as Markdown
+inside the signed feed, with a link to the release. The site holds nothing but the feed: Pages
+serves only what the last deploy uploaded.
+
+**Locally**, with the variables the jobs get: `make appcast-draft VERSION=…` (needs
+`GITHUB_REPOSITORY`, `gh` and `SPARKLE_PUBLIC_ED_KEY`), `make appcast-sign VERSION=…`
+(`SPARKLE_ED_PRIVATE_KEY`), `make appcast-verify VERSION=…`. **Checked 2026-10-14** on macOS 26.6
+with stand-ins for `gh` and the network and a throwaway Ed25519 key made with Go's `crypto/ed25519`
+(Sparkle's `generate_keys` keeps its key in the login keychain, which was not touched): the first
+item starts the feed (404), Sparkle's `sign_update` signs the disk image and the feed and
+`hack/appcast verify` accepts both; a second release builds on that signed feed and keeps the first
+item; a feed altered after signing is refused by the draft, an environment without a reviewer by
+the signature, a missing key skips with `signed=false`, a prerelease goes to `beta`;
+`actionlint` 1.7.12 (with `shellcheck`) on the workflow, `shellcheck` on the scripts. **Not checked
+before the first run with the key:** the environment API's answer to the job's token, Pages'
+deploy from a tag, Sparkle in an installed copy reading the feed.
+
+### Setting up Sparkle
+
+The owner's steps, in this order, so that the key never sits in an environment without its rules
+([H-89](../security/updates.md#h-89-an-environment-sparkle-without-rules-hands-the-update-key-to-any-run)):
+
+1. **The environment `sparkle`** (Settings → Environments; it may already exist without rules,
+   created by the first run that named it): required reviewer the owner; deployment branches and
+   tags "Selected branches and tags" with one rule, tag `v*`, and no branch; optionally "Allow
+   administrators to bypass" off. The signing job refuses to sign until it sees a reviewer and
+   exactly the tag rule `v*`.
+2. **GitHub Pages:** Settings → Pages → Source "GitHub Actions". That creates the environment
+   `github-pages`, whose deployment rule admits the default branch only: add a tag rule `v*`
+   (Settings → Environments → `github-pages`), or the deploy from a release's tag is refused
+   ("Tag … is not allowed to deploy to github-pages due to environment protection rules", as a
+   third party reported it; not tried here).
+3. **The key:** on the owner's Mac, Sparkle's `generate_keys` from the pinned and verified archive
+   (`make sparkle`, then `.cache/sparkle/2.10.0/bin/generate_keys`): it keeps the private key in
+   the login keychain and prints the public key. `generate_keys -x <file>` exports the private key (the base64 of its
+   seed) for the secret; delete the file afterwards and keep the keychain item, or an offline copy,
+   as the only backup.
+4. **The secret** `SPARKLE_ED_PRIVATE_KEY` in the environment `sparkle`: the exported file's
+   content.
+5. **The variable** `SPARKLE_PUBLIC_ED_KEY` in the repository (Settings → Variables → Actions; a
+   repository variable, since the app's build job has no environment): the public key as printed.
+   Not a secret: every installed copy shows it in its `Info.plist`.
+
+The next release is then the first built with the key, and its appcast jobs wait for the owner's
+approval in `sparkle`. **What the first signed appcast must show:** "Cogpit.app (macOS arm64)"
+prints `update key: <the public key>`; "Appcast (draft)" a notice that no appcast is on Pages yet
+and `drafted=true`; "Appcast (sign)" `environment sparkle: 1 required reviewer(s), deployments
+from tag:v*` and `signed=true`; "Appcast (deploy to Pages)" `appcast: … verifies with the update
+key, 1 items` and the deployment's URL. Then `curl -s https://guided-traffic.github.io/cogpit/appcast.xml`
+ends in a `sparkle-signatures` block. The copy from that release cannot update to anything yet; the
+release after it is the first update: Help › Check for Updates… in the installed copy shows it,
+installs it with one click, and Cogpit starts again in the new version (Console.app logs Sparkle's
+steps). A release whose appcast jobs fail keeps its files; re-run the failed jobs.
 
 ## What gets built
 
@@ -434,8 +531,8 @@ network, to settle whether the app needs a ticket of its own
 **The macOS download is the app bundle `Cogpit.app` in a disk image**: the standard way to install
 a Mac app outside the App Store, without a terminal. Opening the image shows the app next to a link
 to Applications; the user drags it across. The disk image is notarized and its ticket stapled, so
-it also opens offline without a Gatekeeper prompt. The Homebrew cask (`auto_updates true`) and
-Sparkle's updates are to use the same disk image.
+it also opens offline without a Gatekeeper prompt. Sparkle's updates use the same disk image
+(since 2026-10-14, once the update key exists), and the Homebrew cask (`auto_updates true`) is to.
 
 `cogpit-cli` is pure Go (`CGO_ENABLED=0`) and cross-compiles from one runner. The desktop app needs
 cgo for Fyne's OpenGL driver, so each platform builds on its own runner. Whether `fyne package`
@@ -457,14 +554,19 @@ or runner was at hand.
 ## Updates
 
 Cogpit shows available updates and installs them with one click
-([D-4](decisions.md#d-4-packaging-and-updates)); on macOS through Sparkle 2. Each release carries
-an update manifest, on macOS Sparkle's appcast (version, disk image, its EdDSA signature), signed
-with an update key that is kept outside CI's reach (offline by the owner, or in a protected
-environment that needs the owner's approval; until it is signed, a release is not offered as an
-update); the app verifies the manifest signature with the public key built into it, then the
-checksum, then the operating system's code signature, before it replaces anything. Installs owned
-by a package manager (Homebrew, winget, Flathub, deb or rpm repositories) hand over to the
-manager. Security perspective: [updates](../security/updates.md).
+([D-4](decisions.md#d-4-packaging-and-updates)); on macOS through Sparkle 2, built 2026-10-14.
+The app ([`internal/update`](../../internal/update/)) loads `Sparkle.framework` from its bundle at
+run time and starts it once its window runs; Preferences › App › Check for updates automatically
+(on by default) lets Sparkle check the appcast once a day, Help › Check for Updates… checks now,
+and Sparkle's own window shows a new release with its notes and installs it on the user's click:
+it verifies the disk image's EdDSA signature with the key in the app's `Info.plist` before it
+extracts anything, then Apple's code signature of the new app (the same Developer ID team), and
+offers only a `CFBundleVersion` newer than the running one. The appcast itself is signed with the
+same key ([the appcast](#the-appcast)), which lives in the environment `sparkle` behind the owner's
+approval. A build without the key (every local one, every release before the owner sets it up)
+has no updater, and says so. `cogpit-cli` does not update itself; installs owned by a package
+manager (Homebrew, winget, Flathub, deb or rpm repositories) are to hand over to the manager.
+Security perspective: [updates](../security/updates.md).
 
 ## Secrets
 
@@ -475,12 +577,14 @@ manager. Security perspective: [updates](../security/updates.md).
 | `APPLE_TEAM_ID` (a variable) | the signing identity: the script signs only with a Developer ID of this team and checks every signature for it | environment `release`, exists since 2026-10-14 (`6L57P2HXN6`, not a secret: every signed app shows it) | the job fails when the secrets are there |
 | `APPLE_API_KEY_P8` (an App Store Connect team API key, role Developer, base64), `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID` | notarization with `notarytool` | environment `release`, exist since 2026-10-14; checked locally: `notarytool` accepts the key and a submission with the role Developer. Used since 2026-10-14 by the same job; the `.p8` (base64, or its PEM text as is) lives in a file of the job's temporary directory until both submissions are answered | as for `MACOS_SIGN_P12` |
 | Windows code-signing certificate or signing service credentials | Authenticode | planned (M11) | SmartScreen warns |
-| `SPARKLE_ED_PRIVATE_KEY` (Sparkle's EdDSA update key) | signing the appcast, the update manifest at `https://guided-traffic.github.io/cogpit/appcast.xml` (D-4, owner, 2026-10-14) | decided (owner, 2026-10-13): a secret of the GitHub environment `sparkle`, the owner its required reviewer, deployment rule tags `v*`; generated by the owner with Sparkle's `generate_keys`, never seen by an agent; the public key goes into the app's `Info.plist` (`SUPublicEDKey`). Not created yet (2026-10-14) | no update offered for that release |
+| `SPARKLE_ED_PRIVATE_KEY` (Sparkle's EdDSA update key, the base64 of its seed as `generate_keys -x` exports it) | signing each release's disk image and the appcast at `https://guided-traffic.github.io/cogpit/appcast.xml` (D-4, owner, 2026-10-14), in the job "Appcast (sign)" only, through `sign_update`'s standard input ([the appcast](#the-appcast)) | decided (owner, 2026-10-13): a secret of the GitHub environment `sparkle`, the owner its required reviewer, deployment rule tags `v*`; generated by the owner with Sparkle's `generate_keys`, never seen by an agent ([setting up Sparkle](#setting-up-sparkle)). Not created yet (2026-10-14); the job refuses to use it while the environment lacks its reviewer or its tag rule | that release's item is not added and Pages keeps the feed it has (a notice, never a failure) |
+| `SPARKLE_PUBLIC_ED_KEY` (a repository variable) | the app's `SUPublicEDKey` (`make dist-app`), and the appcast jobs' checks with the public key | to be set by the owner after the key ([setting up Sparkle](#setting-up-sparkle)); not a secret: every installed copy shows it | the app has no updater ("this build has no update key"), and the release gets no appcast item |
 
 Who holds which key and what follows if one leaks:
 [updates › keys](../security/updates.md#keys-and-who-holds-them).
 **Human:** the Apple material exists since 2026-10-14 (set up by the owner with the lead), and the
 release pipeline uses it since the same day; the certificate expires on 2027-11-13 and must be
 renewed and the secret replaced before then. The
-Windows material does not exist yet; the update key is created when Sparkle is built
-([G14](../parity/gaps.md#g14-packaging-signing-and-updates-macos)).
+Windows material does not exist yet; Sparkle is built since 2026-10-14 and its update key waits
+for the owner ([setting up Sparkle](#setting-up-sparkle),
+[G14](../parity/gaps.md#g14-packaging-signing-and-updates-macos)).

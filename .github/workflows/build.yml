@@ -2,7 +2,9 @@
 # release with the GitHub App's token once every gate on main is green; the release's "published"
 # event starts this workflow on the tag (github.ref is refs/tags/v<version>), which builds the
 # artifacts, signs and notarizes the macOS ones, and attaches everything to the release with
-# SHA256SUMS. A release made with GITHUB_TOKEN would start no workflow, hence the App.
+# SHA256SUMS; then the release's item joins Sparkle's appcast, signed in the environment sparkle
+# and deployed to GitHub Pages. A release made with GITHUB_TOKEN would start no workflow, hence
+# the App.
 # What a release holds and what vouches for it: docs/developer/releasing.md#the-release-pipeline,
 # docs/security/updates.md.
 name: Release Build
@@ -86,15 +88,27 @@ jobs:
         with:
           cache: none
 
+      # Sparkle (D-4) goes into the bundle with the update key's public half, a repository variable
+      # (not a secret: every installed copy shows it); unset, the app has no updater.
       - name: Build and zip Cogpit.app
+        env:
+          SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
         run: make dist-app VERSION="${GITHUB_REF_NAME#v}"
 
       - name: Check the bundle
+        env:
+          SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          plutil -extract CFBundleShortVersionString raw bin/Cogpit.app/Contents/Info.plist | grep -qx "${version}"
-          codesign --verify bin/Cogpit.app
+          plist=bin/Cogpit.app/Contents/Info.plist
+          plutil -extract CFBundleShortVersionString raw "${plist}" | grep -qx "${version}"
+          plutil -extract CFBundleVersion raw "${plist}" | grep -qx "${version}"
+          test -f bin/Cogpit.app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle
+          key="$(plutil -extract SUPublicEDKey raw "${plist}" 2>/dev/null || true)"
+          test "${key}" = "${SPARKLE_PUBLIC_ED_KEY}"
+          echo "update key: ${key:-none (this release does not update itself)}"
+          codesign --verify --strict --deep bin/Cogpit.app
           lipo -archs bin/Cogpit.app/Contents/MacOS/cogpit
           unzip -l "dist/Cogpit_${version}_darwin_arm64.zip" | tail -n 1
 
@@ -254,3 +268,171 @@ jobs:
           fail_on_unmatched_files: true
           append_body: true
           body_path: ${{ runner.temp }}/note.md
+
+  # Sparkle's appcast (D-4; docs/developer/releasing.md#the-appcast): the update feed at
+  # https://guided-traffic.github.io/cogpit/appcast.xml, one feed with the releases' history, signed
+  # with the update key. Three jobs, so that the key shares a job with nothing but Sparkle's own
+  # sign_update: the draft (Go, no secret), the signature (the environment sparkle, no Go), and the
+  # check and deploy (the public key, the environment github-pages). They run once the release's
+  # files are attached, so the item never points at a missing download, and they cannot take the
+  # files back: whatever happens here, the release keeps them.
+  appcast-draft:
+    name: Appcast (draft)
+    needs: [macos-sign, publish]
+    if: needs.macos-sign.outputs.signed == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 15
+    outputs:
+      drafted: ${{ steps.draft.outputs.drafted }}
+    steps:
+      - name: Checkout the release's tag
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
+        with:
+          cache: none
+          fyne-deps: "false"
+
+      - name: Download the macOS downloads
+        uses: actions/download-artifact@v8
+        with:
+          name: release-macos
+          path: dist/macos
+
+      # An app built without the update key (the variable unset) gets no item: drafted=false.
+      - name: Draft the appcast
+        id: draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
+        run: make appcast-draft VERSION="${GITHUB_REF_NAME#v}"
+
+      - name: Upload the draft
+        if: steps.draft.outputs.drafted == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: appcast-draft
+          path: dist/appcast/
+          if-no-files-found: error
+          retention-days: 7
+
+  # The only job in the environment `sparkle` (the owner its required reviewer, tags v* only), the
+  # only one that sees SPARKLE_ED_PRIVATE_KEY. Without the key it signs nothing and nothing is
+  # deployed, never a failure; with it, it refuses unless the environment has its reviewer and its
+  # tag rule (GitHub creates a named environment without any), then signs the disk image and the
+  # feed with sign_update from the pinned Sparkle archive. The key reaches sign_update on its
+  # standard input only (hack/macos/appcast.sh).
+  appcast-sign:
+    name: Appcast (sign)
+    needs: [appcast-draft]
+    if: needs.appcast-draft.outputs.drafted == 'true'
+    runs-on: macos-latest
+    environment: sparkle
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read  # the environment's protection rules
+    outputs:
+      signed: ${{ steps.sign.outputs.signed }}
+    steps:
+      - name: Checkout the release's tag
+        uses: actions/checkout@v7
+
+      - name: Download the macOS downloads
+        uses: actions/download-artifact@v8
+        with:
+          name: release-macos
+          path: dist/macos
+
+      - name: Download the draft
+        uses: actions/download-artifact@v8
+        with:
+          name: appcast-draft
+          path: dist/appcast
+
+      - name: Sign the disk image and the appcast
+        id: sign
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: make appcast-sign VERSION="${GITHUB_REF_NAME#v}"
+
+      - name: Upload the signed appcast
+        if: steps.sign.outputs.signed == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: appcast-signed
+          path: dist/site/
+          if-no-files-found: error
+          retention-days: 7
+
+      # The key was never written to a file; this removes the job's work files on any outcome.
+      - name: Remove the work files
+        if: always()
+        run: rm -rf dist .cache/sparkle
+
+  # Checked with the public key before Pages gets it: the feed's signature, every item, and that
+  # the release's item names this disk image with a signature over its bytes. Then deployed: Pages
+  # serves exactly this feed (source "GitHub Actions"). The environment github-pages needs a
+  # deployment rule for tags v* (docs/developer/releasing.md#setting-up-sparkle).
+  appcast-deploy:
+    name: Appcast (deploy to Pages)
+    needs: [appcast-sign]
+    if: needs.appcast-sign.outputs.signed == 'true'
+    runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}appcast.xml
+    permissions:
+      contents: read
+      pages: write     # deploy to Pages
+      id-token: write  # the deployment's OIDC token
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - name: Checkout the release's tag
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: ./.github/actions/go-setup
+        with:
+          cache: none
+          fyne-deps: "false"
+
+      - name: Install make
+        run: command -v make >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq make >/dev/null; }
+
+      - name: Download the macOS downloads
+        uses: actions/download-artifact@v8
+        with:
+          name: release-macos
+          path: dist/macos
+
+      - name: Download the draft
+        uses: actions/download-artifact@v8
+        with:
+          name: appcast-draft
+          path: dist/appcast
+
+      - name: Download the signed appcast
+        uses: actions/download-artifact@v8
+        with:
+          name: appcast-signed
+          path: dist/site
+
+      - name: Verify the signed appcast
+        env:
+          SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
+        run: make appcast-verify VERSION="${GITHUB_REF_NAME#v}"
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist/site/
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v5

@@ -200,6 +200,20 @@
       "automerge": true
     },
     {
+      "description": "Sparkle, the macOS app's updater (Makefile SPARKLE_VERSION, D-4): Renovate proposes a new release but cannot know its archive's SHA-256, so make sparkle fails until SPARKLE_SHA256 is set to the new asset's digest (gh api repos/sparkle-project/Sparkle/releases/tags/<version> --jq '.assets[] | select(.name | endswith(\".tar.xz\")) | .digest'); its code updates installed copies, so a person reads its changes and never merges it on its own",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchPackageNames": [
+        "sparkle-project/Sparkle"
+      ],
+      "automerge": false,
+      "labels": [
+        "dependencies",
+        "sparkle"
+      ]
+    },
+    {
       "description": "Group Kubernetes-related Go dependencies",
       "matchManagers": [
         "gomod"
@@ -290,6 +304,17 @@
         "// renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\n\\s*\\w+\\s*=\\s*\"[^\"@]+:(?<currentValue>[^\"@]+)@(?<currentDigest>sha256:[0-9a-f]{64})\""
       ],
       "versioningTemplate": "docker"
+    },
+    {
+      "description": "Sparkle 2 (D-4): SPARKLE_VERSION in the Makefile under a renovate comment, a release tag without a leading v (2.10.0); its SHA-256 on the next line is updated by hand (the packageRule above)",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^Makefile$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>sparkle-project/Sparkle)\\nSPARKLE_VERSION\\s*:=\\s*(?<currentValue>\\d[^\\s]*)"
+      ],
+      "versioningTemplate": "semver"
     },
     {
       "description": "Update Go version in go.mod",

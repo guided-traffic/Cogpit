@@ -142,14 +142,15 @@ test-race-rest: test-fork ## Race tests of every package but internal/ui/fyneui,
 		$$($(GO) list ./... | grep -v -x 'github.com/guided-traffic/cogpit/internal/ui/fyneui')
 
 # What only macOS can test, for CI's macOS job: every test of a *_darwin_test.go file (the title
-# bar's AppKit harness, the locale's CoreFoundation read), and the tests whose expectations branch
+# bar's AppKit harness, the updater's harness with make sparkle's framework, the locale's
+# CoreFoundation read), and the tests whose expectations branch
 # on runtime.GOOS for the macOS shortcut glyphs (the terminal view's package, the title history).
 empty           :=
 space           := $(empty) $(empty)
 DARWIN_TEST_FILES = $(shell find cmd internal -name '*_darwin_test.go')
 DARWIN_TESTS      = $(shell sed -n -E 's/^func (Test[A-Za-z0-9_]*).*/\1/p' $(DARWIN_TEST_FILES)) TestTitleHistoryArrows
 
-test-darwin: ## The macOS-only tests, race detector on (macOS only)
+test-darwin: sparkle ## The macOS-only tests, race detector on (macOS only); Sparkle for the updater's harness
 	@test "$$($(GO) env GOOS)" = darwin || { echo "test-darwin runs on macOS only"; exit 1; }
 	$(TEST_ENV) $(GO) test -race -run '^($(subst $(space),|,$(strip $(DARWIN_TESTS))))$$' \
 		$(sort $(addprefix ./,$(dir $(DARWIN_TEST_FILES))) $(UI_PKG)/)
@@ -340,13 +341,37 @@ kind-drain-down: ## Delete the drain cluster and its kubeconfig file
 $(FYNE):
 	GOBIN=$(BIN) $(GO) install fyne.io/tools/cmd/fyne@$(FYNE_TOOLS)
 
+# Sparkle 2, the macOS app's updater (D-4; docs/developer/releasing.md#updates): the release archive
+# pinned by version and SHA-256 (GitHub's digest of the asset), kept in .cache/sparkle/<version>
+# (hack/macos/sparkle.sh). make app bundles its framework; the release pipeline signs the update
+# with its sign_update. Renovate proposes a new version but cannot know the archive's SHA-256: the
+# update pull request fails make sparkle until SPARKLE_SHA256 is set to the new asset's digest, and
+# it never merges on its own (.github/renovate.json).
+# renovate: datasource=github-releases depName=sparkle-project/Sparkle
+SPARKLE_VERSION := 2.10.0
+SPARKLE_SHA256  := c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c
+SPARKLE_DIR     := $(CACHE)/sparkle/$(SPARKLE_VERSION)
+# The appcast every installed copy keeps (owner, 2026-10-14) and the public half of the update key
+# (base64, as Sparkle's generate_keys prints it). Empty by default: such a build has no
+# SUPublicEDKey and does not update itself; the release pipeline passes the repository variable.
+SPARKLE_FEED_URL      := https://guided-traffic.github.io/cogpit/appcast.xml
+SPARKLE_PUBLIC_ED_KEY ?=
+
+.PHONY: sparkle
+sparkle: $(SPARKLE_DIR)/.verified ## Download the pinned Sparkle release into .cache/sparkle (checksum verified)
+
+$(SPARKLE_DIR)/.verified:
+	hack/macos/sparkle.sh fetch '$(SPARKLE_VERSION)' '$(SPARKLE_SHA256)' '$(SPARKLE_DIR)'
+
 # fyne package runs in bin/, so the package lands there: bin/Cogpit.app on macOS, bin/Cogpit.tar.xz
 # on Linux, bin/Cogpit.exe on Windows. It wraps the binary `make build` produced (--executable):
 # letting fyne build it would inject a file importing fyne.io/fyne/v2/app, whose driver modules are
 # only in go.sum once cmd/cogpit uses Fyne. A packaged binary therefore carries no injected Fyne
 # metadata, so cmd/cogpit calls app.NewWithID("io.guided-traffic.cogpit") rather than app.New.
 # Unsigned: macOS asks once on first open.
-app: build $(FYNE) ## Package Cogpit for this OS with fyne package (macOS: bin/Cogpit.app)
+# Sparkle on macOS only; uname, not go env: a prerequisite list is expanded whenever make reads this
+# file, and the appcast's signing job runs make without Go.
+app: build $(FYNE) $(if $(filter Darwin,$(shell uname -s)),sparkle) ## Package Cogpit for this OS with fyne package (macOS: bin/Cogpit.app, with Sparkle)
 	rm -rf $(BIN)/Cogpit.app
 	cd $(BIN) && $(FYNE) package --os $(APP_OS) --src $(CURDIR)/cmd/cogpit --executable $(BIN)/cogpit --release \
 		--name Cogpit --app-id $(APP_ID) --app-version $(VERSION) --icon $(CURDIR)/packaging/icon.png --use-raw-icon
@@ -357,8 +382,9 @@ app: build $(FYNE) ## Package Cogpit for this OS with fyne package (macOS: bin/C
 		plutil -replace LSMinimumSystemVersion -string $(MACOS_MIN) $(BIN)/Cogpit.app/Contents/Info.plist && \
 		otool -l $(BIN)/Cogpit.app/Contents/MacOS/cogpit | grep -A3 LC_BUILD_VERSION | grep -q "minos $(MACOS_MIN)" && \
 		plutil -replace CFBundleURLTypes -json '[{"CFBundleURLName":"$(APP_ID)","CFBundleURLSchemes":["cogpit"]}]' $(BIN)/Cogpit.app/Contents/Info.plist && \
+		hack/macos/sparkle.sh bundle $(BIN)/Cogpit.app '$(SPARKLE_DIR)' '$(SPARKLE_FEED_URL)' '$(SPARKLE_PUBLIC_ED_KEY)' '$(VERSION)' && \
 		codesign --force --sign - $(BIN)/Cogpit.app && \
-		codesign --verify $(BIN)/Cogpit.app && \
+		codesign --verify --strict --deep $(BIN)/Cogpit.app && \
 		test -x $(BIN)/Cogpit.app/Contents/MacOS/cogpit && \
 		test "$$(plutil -extract CFBundleIdentifier raw $(BIN)/Cogpit.app/Contents/Info.plist)" = "$(APP_ID)" && \
 		echo "built $(BIN)/Cogpit.app"; \
@@ -404,6 +430,26 @@ dist-app: ## The macOS app, zipped, in dist/ (macOS only); VERSION=x.y.z
 
 dist-macos: ## The macOS downloads in dist/macos from dist-app's zip and dist-cli's archives: the disk image and cogpit-cli signed and notarized with the release secrets, MACOS_SIGN=adhoc for a local check, else unsigned (macOS only); VERSION=x.y.z
 	MACOS_SIGN='$(MACOS_SIGN)' hack/macos/release.sh '$(VERSION)' '$(DIST)' '$(DIST)/macos'
+
+# Sparkle's appcast (D-4; docs/developer/releasing.md#the-appcast): the release pipeline's three
+# appcast jobs. appcast-draft drafts the feed with the release's item in dist/appcast (no secret),
+# appcast-sign signs the disk image and the feed with Sparkle's sign_update and
+# SPARKLE_ED_PRIVATE_KEY into dist/site (the environment sparkle; without the key it signs
+# nothing), appcast-verify checks the signed feed and the disk image with SPARKLE_PUBLIC_ED_KEY
+# before Pages gets it.
+APPCAST         := $(DIST)/appcast
+
+.PHONY: appcast-draft appcast-sign appcast-verify
+
+appcast-draft: ## Draft the appcast with this release's item in dist/appcast (release pipeline, macOS only); VERSION=x.y.z
+	hack/macos/appcast.sh draft '$(VERSION)' '$(DIST)/macos' '$(APPCAST)' '$(SPARKLE_FEED_URL)'
+
+appcast-sign: sparkle ## Sign the disk image and the drafted appcast into dist/site with SPARKLE_ED_PRIVATE_KEY (release pipeline's environment sparkle); VERSION=x.y.z
+	hack/macos/appcast.sh sign '$(VERSION)' '$(DIST)/macos' '$(APPCAST)' '$(DIST)/site' '$(SPARKLE_DIR)'
+
+appcast-verify: ## Check dist/site/appcast.xml and the disk image with SPARKLE_PUBLIC_ED_KEY before Pages gets them; VERSION=x.y.z
+	$(GO) run ./hack/appcast verify -feed '$(DIST)/site/appcast.xml' -pubkey '$(SPARKLE_PUBLIC_ED_KEY)' \
+		-dmg "$$(ls $(DIST)/macos/Cogpit-$(VERSION)-macos-*.dmg)" -version "$$(cat $(APPCAST)/version)"
 
 dist-checksums: ## SHA256SUMS of the archives and disk images in dist/
 	cd $(DIST) && files=$$(ls *.tar.gz *.zip *.dmg 2>/dev/null || true) && test -n "$$files" && \

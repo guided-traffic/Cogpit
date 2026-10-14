@@ -28,8 +28,9 @@
 # key files; the pipeline runs it with if: always() after a cancelled run. Secrets never reach the
 # log: no set -x, nothing derived from them is echoed, the keychain's password is masked.
 #
-# Entitlements: none. Go generates no code at run time (no JIT, no unsigned executable memory),
-# the app loads only Apple's frameworks (library validation holds) and uses no camera, microphone,
+# Entitlements: none, for the app and Sparkle's parts. Go generates no code at run time (no JIT, no
+# unsigned executable memory), the app loads only Apple's frameworks and Sparkle.framework, which
+# carries the app's own signature (library validation holds), and uses no camera, microphone,
 # location, contacts or Apple Events. `make dist-macos MACOS_SIGN=adhoc` and starting the app
 # signed this way is the check (docs/developer/releasing.md#signing-and-notarization).
 set -euo pipefail
@@ -179,19 +180,57 @@ check_signature() {
 	fi
 }
 
-# sign_app signs the bundle inside-out. Today it holds no nested code; Sparkle's framework will
-# (docs/developer/releasing.md#signing-and-notarization), and must be signed here before the bundle.
+# sign_app signs the bundle inside-out, never with --deep. Its only nested code is Sparkle
+# (D-4; hack/macos/sparkle.sh put it there without its XPC services, which only sandboxed apps
+# use): Autoupdate, Updater.app, then the framework, the order of Sparkle's documentation for
+# signing outside Xcode (sparkle-project.org/documentation/sandboxing#code-signing), then the app;
+# each with the hardened runtime, Apple's timestamp and no entitlements (Sparkle's own ad-hoc
+# signature of Autoupdate carries com.apple.application-identifier; its documented command does not
+# keep it). Every Mach-O file in the bundle must then carry the bundle's signature authority, so a
+# helper a newer Sparkle adds cannot reach Apple ad-hoc signed. Anything else nested is refused.
 sign_app() {
 	group "Sign $(basename "$app")"
-	local dir
-	for dir in Frameworks PlugIns XPCServices Helpers Library; do
+	local dir part fw="$app/Contents/Frameworks/Sparkle.framework"
+	for dir in PlugIns XPCServices Helpers Library; do
 		[ ! -e "$app/Contents/$dir" ] ||
 			die "$app/Contents/$dir holds nested code: sign it inside-out before the bundle (no --deep)"
 	done
+	if [ -e "$app/Contents/Frameworks" ]; then
+		[ "$(ls -A "$app/Contents/Frameworks")" = Sparkle.framework ] ||
+			die "$app/Contents/Frameworks holds more than Sparkle.framework: sign it inside-out before the bundle (no --deep)"
+		[ ! -e "$fw/XPCServices" ] && [ ! -e "$fw/Versions/B/XPCServices" ] ||
+			die "Sparkle's XPC services are in the bundle; make app leaves them out (hack/macos/sparkle.sh)"
+		for part in "$fw/Versions/B/Autoupdate" "$fw/Versions/B/Updater.app" "$fw"; do
+			[ -e "$part" ] || die "$part is missing: not the Sparkle layout this script signs"
+			sign "$part" --options runtime
+			check_signature "$part" code
+		done
+	fi
 	[ "$(ls -A "$app/Contents/MacOS")" = "$exe" ] || die "$app/Contents/MacOS holds more than $exe"
 	sign "$app" --options runtime
 	check_signature "$app" code
+	check_nested "$app"
 	endgroup
+}
+
+# check_nested: every Mach-O file in the bundle is signed by the authority the bundle is signed
+# by (ad-hoc locally), with the hardened runtime.
+check_nested() {
+	local bundle=$1 want file info n=0
+	want="$(codesign --display --verbose=2 "$bundle" 2>&1 | sed -n 's/^Authority=//p' | head -n 1)"
+	while IFS= read -r file; do
+		file -b "$file" | grep -q '^Mach-O' || continue
+		n=$((n + 1))
+		info="$(codesign --display --verbose=4 "$file" 2>&1)" || die "$file is not signed"
+		printf '%s\n' "$info" | grep -Eq '^CodeDirectory .*flags=0x[0-9a-f]+\([^)]*runtime' ||
+			die "$file: signed without the hardened runtime"
+		if [ -n "$want" ]; then
+			printf '%s\n' "$info" | grep -qxF "Authority=$want" || die "$file is not signed by $want"
+		else
+			printf '%s\n' "$info" | grep -qx 'Signature=adhoc' || die "$file is not signed ad-hoc like the bundle"
+		fi
+	done < <(find "$bundle/Contents" -type f -perm -u+x)
+	log "$n Mach-O files in $(basename "$bundle"), each signed ${want:-ad-hoc} with the hardened runtime"
 }
 
 # sign_cli signs cogpit-cli in each macOS archive and writes the archive again into <out dir>.
