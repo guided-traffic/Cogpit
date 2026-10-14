@@ -120,12 +120,21 @@ func registerPreferences(g *registrar) {
 			"height, the open editors; the HTTP proxy at the next download from a Helm repository or of kubectl. The " +
 			"local terminal's shell and its arguments are refused for agents and the CLI: they name a program Cogpit " +
 			"runs on this computer; so are the path to kubectl, the directory for binaries and the kubectl download " +
-			"mirror, which decide what the terminals run as kubectl, the terminals' right mouse button, which decides " +
-			"whether a click pastes into a shell, and setting the HTTP proxy (it decides where Cogpit's downloads go), " +
-			"which they may only clear, choosing the configmap Helm storage driver for new installs, which they may " +
+			"mirror, which decide what the terminals run as kubectl, and the terminals' right mouse button, which decides " +
+			"whether a click pastes into a shell. An agent's HTTP proxy (it decides where Cogpit's downloads go) always " +
+			"waits for the user's acceptance; the CLI may only clear it. Refused too: choosing the configmap Helm storage driver for new installs, which they may " +
 			"only set back to secret, turning on chart icons, which they may only turn off, and turning off the automatic " +
 			"update checks, which they may only turn on." + prefsWritesOnly + " Returns the preferences.",
 		Enabled: func(s *engine.Session, _ preferencesSetParams) error { _, err := s.Preferences(); return err },
+		// An agent's proxy always waits for the user (A20, owner 2026-10-14 evening; the follow-up's
+		// Preferences proxy belongs to no context, so no allowance could skip it: a night decision).
+		AgentsAsk: func(_ *engine.Session, p preferencesSetParams) bool { return setsProxy(p.HTTPProxy) },
+		Detail: func(_ *engine.Session, p preferencesSetParams) string {
+			if !setsProxy(p.HTTPProxy) {
+				return ""
+			}
+			return proxyDetail("Cogpit's downloads (Helm repositories, kubectl)", *p.HTTPProxy)
+		},
 		Refuse: func(ctx context.Context, _ *engine.Session, p preferencesSetParams) error {
 			if err := p.refuse(ctx); err != nil {
 				return err

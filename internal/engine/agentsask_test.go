@@ -30,6 +30,10 @@ func TestNeedsConfirmationAgentsAsk(t *testing.T) {
 		{DangerMutating, OriginCLI, false, true, false},
 		{DangerDestructive, OriginGUI, false, false, true},
 		{DangerRead, OriginExternalAgent, false, true, false},
+		{DangerUI, OriginExternalAgent, true, true, true}, // A20, A65: whatever the allowance
+		{DangerUI, OriginBuiltInAgent, false, true, true},
+		{DangerUI, OriginExternalAgent, false, false, false},
+		{DangerUI, OriginGUI, false, true, false},
 	} {
 		if got := NeedsConfirmation(c.d, c.o, c.allowed, c.agents); got != c.want {
 			t.Errorf("NeedsConfirmation(%s, %s, allowed %v, agentsAsk %v) = %v, want %v", c.d, c.o, c.allowed, c.agents, got, c.want)
@@ -39,7 +43,7 @@ func TestNeedsConfirmationAgentsAsk(t *testing.T) {
 
 // TestAgentsAskDispatch: a command's AgentsAsk, true for some parameters, makes Dispatch ask an
 // agent in a context where agent writes are allowed, marks the request, and is never judged for
-// the GUI; only mutating commands may declare it.
+// the GUI; only mutating and UI commands may declare it.
 func TestAgentsAskDispatch(t *testing.T) {
 	var asked []ConfirmRequest
 	s := New(Options{Confirmer: ConfirmFunc(func(_ context.Context, req ConfirmRequest) (bool, error) {
@@ -85,7 +89,27 @@ func TestAgentsAskDispatch(t *testing.T) {
 		t.Errorf("the GUI's grant: asked %d, judged %d times", len(asked)-1, judged-before)
 	}
 
-	for _, d := range []Danger{DangerDestructive, DangerRead, DangerUI} {
+	// A UI command may declare it too (A20, A65): an agent's call then asks, the GUI's does not.
+	if err := Register(s.Registry(), Spec[agentsAskProbeParams]{
+		ID: "probe.uiAsk", Label: "UI ask", Danger: DangerUI,
+		AgentsAsk: func(_ *Session, p agentsAskProbeParams) bool { return p.Grant },
+		Run:       func(context.Context, *Session, agentsAskProbeParams) (any, error) { return nil, nil },
+	}); err != nil {
+		t.Fatal(err)
+	}
+	n := len(asked)
+	for _, o := range []Origin{OriginGUI, OriginExternalAgent} {
+		for _, params := range []string{`{}`, `{"grant":true}`} {
+			if _, err := s.Dispatch(context.Background(), Invocation{ID: "probe.uiAsk", Params: json.RawMessage(params), Origin: o}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if len(asked) != n+1 || asked[n].Command != "probe.uiAsk" || asked[n].Origin != OriginExternalAgent || !asked[n].AgentsAsk {
+		t.Errorf("a UI command's AgentsAsk: asked %+v", asked[n:])
+	}
+
+	for _, d := range []Danger{DangerDestructive, DangerRead} {
 		err := Register(s.Registry(), Spec[agentsAskProbeParams]{
 			ID: "probe.bad" + string(d), Label: "Bad", Danger: d,
 			Targets:   func(*Session, agentsAskProbeParams) ([]model.ObjectRef, error) { return nil, nil },

@@ -108,8 +108,9 @@ func registerClusterSettings(g *registrar) {
 			"and the Overview at once, and nothing is polled for them; the metrics source turns a provider or both off " +
 			"for the cluster at once; a proxy applies at the next connect; accessible " +
 			"namespaces (a list that replaces the last) only narrow what Cogpit reads: the namespace filter offers them, " +
-			"and a kind the user may not list in all namespaces is watched in each of them, at once. Agents and " +
-			"the CLI may clear the proxy but not set one; the proxy they read back has its password shown as •••." +
+			"and a kind the user may not list in all namespaces is watched in each of them, at once. An agent's proxy " +
+			"always waits for the user's acceptance, also where the user allowed agent writes; the CLI may clear the proxy " +
+			"but not set one; the proxy read back has its password shown as •••." +
 			clusterSettingsOnly + " Returns the settings.",
 		Enabled: func(s *engine.Session, p clusterSettingsSetParams) error {
 			_, err := settingsContext(s, p.Context)
@@ -117,6 +118,16 @@ func registerClusterSettings(g *registrar) {
 		},
 		Refuse: func(ctx context.Context, _ *engine.Session, p clusterSettingsSetParams) error {
 			return refuseProxy(ctx, p.Proxy)
+		},
+		// A proxy decides where the user's cluster traffic goes, credentials in it: an agent's always
+		// waits for the user (A20, owner 2026-10-14 evening).
+		AgentsAsk: func(_ *engine.Session, p clusterSettingsSetParams) bool { return setsProxy(p.Proxy) },
+		Detail: func(s *engine.Session, p clusterSettingsSetParams) string {
+			if !setsProxy(p.Proxy) {
+				return ""
+			}
+			ctx, _ := settingsContext(s, p.Context)
+			return proxyDetail("the API traffic of "+ctx+", from its next connect,", *p.Proxy)
 		},
 		Run: func(ctx context.Context, s *engine.Session, p clusterSettingsSetParams) (any, error) {
 			if err := refuseProxy(ctx, p.Proxy); err != nil {

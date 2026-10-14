@@ -108,8 +108,12 @@ func TestHotbarCommands(t *testing.T) {
 	if r := disabledReason(t, h.run(t, gui, "hotbar.switchBank", map[string]any{"bank": 3}, nil)); r != "the hotbar has no bank 3 (it has 2 banks)" {
 		t.Errorf("switching to bank 3: %q", r)
 	}
+	// An agent's removal of a bank with clusters waits for the user (A65): headless, refused.
+	if err := h.run(t, agent, "hotbar.removeBank", map[string]any{"bank": 2}, nil); !errors.Is(err, engine.ErrConfirmationUnavailable) {
+		t.Errorf("an agent's removal of a bank with clusters, headless: %v", err)
+	}
 	var removed commands.BankRemoved
-	h.must(t, agent, "hotbar.removeBank", map[string]any{"bank": 2}, &removed)
+	h.must(t, gui, "hotbar.removeBank", map[string]any{"bank": 2}, &removed)
 	if removed.Removed.Name != "Production" || hotbarContexts(removed.Removed) != "test" || len(removed.Hotbar.Banks) != 1 {
 		t.Errorf("hotbar.removeBank: %+v", removed)
 	}

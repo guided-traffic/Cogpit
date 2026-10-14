@@ -262,14 +262,18 @@ func (s *Session) SetAgentWrites(context string, allowed bool) {
 
 // NeedsConfirmation is the D-2 policy: destructive commands always need the user's confirmation;
 // mutating commands need it from agents unless the user allowed agent writes for the context, and
-// always when the command declares that agents ask for this invocation (agentsAsk: an agent's role
-// binding, H-27); read and UI commands never do.
+// always when the command declares that agents ask for this invocation (agentsAsk: an agent's RBAC
+// write, H-27, A1); a UI command needs it from agents only when it declares so for the invocation
+// (agentsAsk: an agent's proxy, A20, or its removal of a bank with clusters, A65, owner 2026-10-14
+// evening), the allowance of agent writes not bearing on it; read commands never do.
 func NeedsConfirmation(d Danger, o Origin, agentWritesAllowed, agentsAsk bool) bool {
 	switch d {
 	case DangerDestructive:
 		return true
 	case DangerMutating:
 		return o.IsAgent() && (agentsAsk || !agentWritesAllowed)
+	case DangerUI:
+		return o.IsAgent() && agentsAsk
 	}
 	return false
 }
@@ -327,8 +331,8 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 	if err := checkDeepLinkDanger(cmd.ID, inv.Origin, danger); err != nil { // never a link's write (deeplink.go)
 		return nil, err
 	}
-	agentsAsk := false // judged for an agent's write only: the GUI's own command is unaffected (agentsask.go)
-	if inv.Origin.IsAgent() && danger == DangerMutating {
+	agentsAsk := false // judged for an agent's write or UI change only: the GUI's own command is unaffected (agentsask.go)
+	if inv.Origin.IsAgent() && (danger == DangerMutating || danger == DangerUI) {
 		if err := s.safeCall(cmd.ID, func() error { agentsAsk = cmd.agentsAskFor(s, p); return nil }); err != nil {
 			return nil, err
 		}

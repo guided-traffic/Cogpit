@@ -273,7 +273,16 @@ func registerHotbar(g *registrar) {
 		ID: "hotbar.removeBank", Label: "Remove Hotbar Bank", MenuPath: "Hotbar/Remove Bank", Danger: engine.DangerUI,
 		Description: "Removes a bank of the hotbar with its tiles; the banks after it move up one number, and the hotbar keeps " +
 			"at least one bank. The clusters and their kubeconfigs stay as they are. Cogpit's window asks the user first when " +
-			"the bank holds clusters; the result returns the removed bank, so it can be put back." + prefsOnly,
+			"the bank holds clusters, and so does an agent's request; the result returns the removed bank, so it can be put " +
+			"back." + prefsOnly,
+		// An agent's removal of a bank with clusters waits for the user, as the window asks (A65).
+		AgentsAsk: func(s *engine.Session, p hotbarBankParams) bool { return len(bankClusters(s, p.Bank)) > 0 },
+		Detail: func(s *engine.Session, p hotbarBankParams) string {
+			if c := bankClusters(s, p.Bank); len(c) > 0 {
+				return "The bank holds " + strings.Join(c, ", ") + "; their kubeconfigs stay."
+			}
+			return ""
+		},
 		Enabled: func(s *engine.Session, p hotbarBankParams) error {
 			st, err := s.HotbarState()
 			if err != nil {
@@ -293,6 +302,23 @@ func registerHotbar(g *registrar) {
 			return BankRemoved{Removed: removed, Hotbar: v}, nil
 		},
 	})
+}
+
+// bankClusters returns the contexts of a bank's tiles; none for a bank that does not exist.
+func bankClusters(s *engine.Session, bank int) []string {
+	st, err := s.HotbarState()
+	if err != nil {
+		return nil
+	}
+	b, err := st.Bank(bank)
+	if err != nil {
+		return nil
+	}
+	out := make([]string, 0, len(b.Clusters))
+	for _, t := range b.Clusters {
+		out = append(out, t.Context)
+	}
+	return out
 }
 
 // offered refuses a context that no kubeconfig source offers (and that is not the connected one):

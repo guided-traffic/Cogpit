@@ -1534,7 +1534,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   opens another Cogpit window with that cluster (a beyond-Lens row, missing), which needs a design
   (a D-entry) before code: one UI state per window, the window list, which window agents drive, the
   workspace, Fyne's start-up stall per window (gate S1's reservation, [G15](#g15-performance-and-api-load-at-scale));
-  an agent removing a bank that holds clusters waits for the user; F1–F12 work as the hotbar's in
+  F1–F12 work as the hotbar's in
   plain search fields, the terminal and the editor keeping their F-keys; the navigator's scope
   dropdown lists the hotbar's clusters and the connected one only, every other context through ⌘P
   (so no cap); the Local Kubeconfigs section's source groups collapse, kept across restarts;
@@ -1548,8 +1548,9 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   connected one asks once, naming the context ([D-47](../developer/decisions.md#d-47-deep-links-cogpit));
   marking notifications read and clearing them the window's only, the window-only toasts reaching
   agents as text through the Secret filter
-  ([H-32](../security/agents-and-mcp.md#h-32-an-agent-can-clear-the-users-notifications), H-31);
-  agents may set a proxy, Preferences' and a cluster's, as a write with confirmation. Confirmed, now
+  ([H-32](../security/agents-and-mcp.md#h-32-an-agent-can-clear-the-users-notifications), H-31).
+  Built 2026-10-14: agents may set a proxy, Preferences' and a cluster's, as a write the user always
+  confirms; an agent removing a bank that holds clusters waits for the user. Confirmed, now
   the owner's decisions: the session's leftovers below (a removed cluster's context forgotten, a
   file leaving a synced folder closing its tabs); every connect drilling into its cluster; closing
   a tab showing the nearest of its cluster; the "+" below the tiles; "New Bank…"; no onboarding
@@ -1853,7 +1854,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   ([H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge));
   window-only notifications reach agents as text through that filter, inline Helm values removed,
   instead of withheld; marking notifications read and clearing them the window's only; a chart's
-  README framed as text of the chart's author; `cluster.setPrometheus` and a proxy set by an agent as writes with
+  README framed as text of the chart's author; `cluster.setPrometheus` by an agent as a write with
   confirmation ([G7](#g7-resource-actions), [G11](#g11-helm), [G12](#g12-metrics-and-cluster-overview),
   [G13](#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)). Confirmed: values under
   naming keys (user, host, port, database, namespace) not replaced; GUI-only commands listed,

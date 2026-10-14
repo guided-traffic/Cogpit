@@ -326,13 +326,12 @@ Fields added on 2026-10-11 for row menus, the drawer's toolbar and dialogs
   [H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache),
   and A1 and A2 of 2026-10-14 evening, built the same night).
   `NeedsConfirmation` takes it; the confirmation carries `agentsAsk`, the command's JSON
-  `agentsAsk`, and its MCP tool and the commands page say that some calls always ask. Only
-  mutating commands may declare it. **Decided 2026-10-14 evening, not built**
-  ([D-2](decisions.md#d-2-agent-interface-scope)): three more agents' calls are to wait for the user although their commands are UI commands today:
-  `cluster.setPrometheus`, a proxy set through `cluster.settings.set` or `preferences.set` (both a
-  write the user confirms), and `hotbar.removeBank` of a bank with tiles. `AgentsAsk` takes
-  mutating commands only, so these need the agent's call raised to mutating (as `Escalate` raises
-  Scale to zero) or a rule of their own: the build's choice.
+  `agentsAsk`, and its MCP tool and the commands page say that some calls always ask. Mutating
+  and UI commands may declare it (UI since 2026-10-14, the lead's night decision,
+  [D-2](decisions.md#d-2-agent-interface-scope)): an agent's call of a UI command that declares it
+  for the invocation waits for the user whatever the allowance of agent writes —
+  `cluster.settings.set` and `preferences.set` setting a proxy (A20), `hotbar.removeBank` of a bank
+  with tiles (A65). Decided, not built: `cluster.setPrometheus` from an agent (A16).
 - `Prefill`: parameters a schema-generated dialog starts with, read from the cache (the current
   replica count for Scale).
 - `Detail`: a sentence the confirmation adds for parameters its objects don't show (the drain
@@ -735,11 +734,10 @@ settings also hold its proxy (`ClusterSettings.Proxy`, the Proxy section, [§6](
 `RedactProxyURL`: `user:•••@host`), so neither the window nor an agent ever holds the password;
 `ChangeClusterSettings` keeps the stored proxy when handed back its redacted form, and
 `cluster.settings.set` merges a value whose password is still `•••` (`MergeProxyPassword`).
-`cluster.settings.set` refuses a proxy from any origin but the GUI (`ErrProxyGUIOnly`, `Spec.Refuse`
-before anything is asked; clearing is allowed), and the audit log redacts the `proxy` parameter.
-**Decided 2026-10-14 evening, not built** ([D-2](decisions.md#d-2-agent-interface-scope), A20):
-agents may set a proxy, here and in the Preferences below, as a write the user confirms, the
-password redacted in the confirmation, the audit log and the results; clearing stays as it is.
+`cluster.settings.set` refuses a proxy from the CLI (`ErrProxyGUIOnly`, `Spec.Refuse` before
+anything is asked; clearing is allowed); an agent's proxy, here and in the Preferences below,
+always waits for the user (`AgentsAsk`, A20, built 2026-10-14), the confirmation's `Detail` showing
+it with the password as `•••`, and the audit log redacts the `proxy` parameter.
 The Preferences hold the proxy of the traffic that is no cluster's the same way
 (`Preferences.HTTPProxy`, the Proxy section, `preferences.set`'s `httpProxy`; `Preferences.Shown`
 redacts it for the UI state and the commands' results; §8 uses it). Since 2026-10-13 they also

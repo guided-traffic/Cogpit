@@ -84,9 +84,11 @@ type Spec[P any] struct {
 	// commands may set it.
 	Escalate func(s *Session, p P) bool
 	// AgentsAsk reports whether this invocation, when an agent asks for it, waits for the user's
-	// acceptance even in a context where the user allowed agent writes (D-2, H-14): a role binding
-	// (agentsask.go, H-27). The GUI's own invocation is unaffected. Nil never; only DangerMutating
-	// commands may set it (a destructive one always asks anyway).
+	// acceptance even in a context where the user allowed agent writes (D-2, H-14): an RBAC write
+	// (agentsask.go, H-27, A1), a Helm install or upgrade (A2); for a UI command, whether the agent's
+	// invocation waits for the user at all (a proxy, A20; a bank with clusters removed, A65). The
+	// GUI's own invocation is unaffected. Nil never; DangerMutating and DangerUI commands may set it
+	// (a destructive one always asks anyway).
 	AgentsAsk func(s *Session, p P) bool
 	// Prefill returns the parameters a dialog shows before the user edits them, read from the
 	// cache: the current replica count for Scale. Nil shows p as it is.
@@ -247,8 +249,8 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 	if spec.Escalate != nil && spec.Danger != DangerMutating {
 		return fmt.Errorf("command %s: only mutating commands escalate", spec.ID)
 	}
-	if spec.AgentsAsk != nil && spec.Danger != DangerMutating {
-		return fmt.Errorf("command %s: only mutating commands declare AgentsAsk (a destructive one always asks)", spec.ID)
+	if spec.AgentsAsk != nil && spec.Danger != DangerMutating && spec.Danger != DangerUI {
+		return fmt.Errorf("command %s: only mutating and UI commands declare AgentsAsk (a destructive one always asks)", spec.ID)
 	}
 	if spec.Order < 0 {
 		return fmt.Errorf("command %s: negative order", spec.ID)

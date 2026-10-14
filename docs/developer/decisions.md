@@ -77,7 +77,7 @@ window. Nothing of it was built in the round.
 | A17 | #45, D-11 | Nothing offered after an interrupted Helm install; Cogpit shows the release's state; the user cleans up in the Helm Releases view; to build (the offer removed) | [D-11](#d-11-crash-stance) |
 | A18 | #81, H-32 | Marking notifications read and clearing them GUI-only; agents read the list; to build | [D-2](#d-2-agent-interface-scope), [H-32](../security/agents-and-mcp.md#h-32-an-agent-can-clear-the-users-notifications) |
 | A19 | #82, H-31 | Window-only notifications reach agents as text, through the H-82 filter and with inline Helm values removed, instead of withheld; to build | [D-2](#d-2-agent-interface-scope), [H-31](../security/privilege-footprint.md#h-31-an-agents-helm-values-can-copy-what-lookup-reads), [architecture §4.3](architecture.md#43-ui-state) |
-| A20 | #87 | Agents may set a proxy, as a write with confirmation, the password redacted in the confirmation, the audit log and the results; clearing as today; to build | [D-2](#d-2-agent-interface-scope), [architecture §4.3](architecture.md#43-ui-state) |
+| A20 | #87 | Agents may set a proxy, as a write with confirmation, the password redacted in the confirmation, the audit log and the results; clearing as today; built 2026-10-14 (always asks: a night decision) | [D-2](#d-2-agent-interface-scope), [architecture §4.3](architecture.md#43-ui-state) |
 | A21 | #89, H-33 | Proxy passwords stay in the 0600 settings files; as built | [H-33](../security/credentials.md#h-33-proxy-passwords-are-plaintext-in-cogpits-settings) |
 | A22 | #90, H-33 | No warning for an `http://` proxy with a password; as built | [H-33](../security/credentials.md#h-33-proxy-passwords-are-plaintext-in-cogpits-settings) |
 | A23 | #91, H-34 | A credential plugin's approval shows and binds Cogpit's own proxy for the cluster too; a changed proxy asks again; to build | [D-26](#d-26-binding-a-credential-plugins-approval-to-its-program), [H-34](../security/trust-boundaries.md#h-34-the-plugin-approval-shows-the-kubeconfigs-proxy-not-cogpits) |
@@ -128,7 +128,7 @@ window. Nothing of it was built in the round.
 | A62 | #83, #84 | Every connect drills into the cluster, a tab click and the connected cluster's hotbar tile too; as built | [D-51](#d-51-the-navigators-and-the-command-palettes-state) |
 | A63 | #85 | The Local Kubeconfigs section's source groups collapse (click, arrow keys), kept across restarts; to build | [D-41](#d-41-what-survives-a-restart), [D-51](#d-51-the-navigators-and-the-command-palettes-state) |
 | A64 | #109 | F1–F12 work as the hotbar in plain search fields too; the terminal and the editor keep their F-keys; to build | [architecture §4.3](architecture.md#43-ui-state), [parity](../parity/README.md) |
-| A65 | #110 | An agent removing a hotbar bank with tiles waits for the user; to build | [D-2](#d-2-agent-interface-scope) |
+| A65 | #110 | An agent removing a hotbar bank with tiles waits for the user; built 2026-10-14 | [D-2](#d-2-agent-interface-scope) |
 | A66 | #113 | The "+" below the tiles; as built | [parity](../parity/README.md) |
 | R2 | – | Hotbar tiles reordered by drag and drop; to build | [parity](../parity/README.md), [D-52](#d-52-several-windows) |
 | R3 | – | Dragging a hotbar tile out of the window opens another Cogpit window with that cluster; needs a design before code | [D-52](#d-52-several-windows) |
@@ -277,13 +277,27 @@ code still does what the safety rules above and their notes say:
   removed, instead of `model.Withheld`. Not built yet.
 - **Decided (owner, 2026-10-14 evening, A20):** agents may set a proxy, as a write the user
   confirms, the password redacted in the confirmation, the audit log and the results; clearing
-  stays as it is. Not built yet: `refuseProxy` refuses an agent's proxy in both places that hold
-  one, a cluster's settings and the Preferences (`ErrProxyGUIOnly`). Open for the build: whether
-  the allowance of agent writes for a context covers a cluster's proxy as it covers other mutating
-  commands, and what takes its place for the Preferences' proxy, which belongs to no context.
+  stays as it is. Built 2026-10-14: an agent's proxy, in a cluster's settings and in the
+  Preferences, always waits for the user, the confirmation saying where the traffic goes with the
+  password as `•••`; the CLI is still refused (`ErrProxyGUIOnly`: it has no window to confirm in)
+  (`TestClusterProxyCommands`, `TestNonClusterProxyCommands`). **The lead's night decisions for the
+  owner to confirm** (the follow-ups 1, 2 and 8 of the round): the allowance of agent writes does
+  not skip it (options: an ordinary mutating write the allowance skips, ★ always ask as A1 and A2:
+  a proxy reads the bearer token wherever TLS is not checked); both proxies, a cluster's and the
+  Preferences' `httpProxy` (options: the cluster's only, ★ both: the Preferences' steers which chart
+  archives and kubectl Cogpit receives); the Preferences' proxy, which belongs to no context, asks
+  always (it has no allowance that could skip it).
 - **Decided (owner, 2026-10-14 evening, A65):** an agent removing a hotbar bank that holds tiles
-  waits for the user, as the window asks the user today. Not built yet: `hotbar.removeBank` is a UI
-  command.
+  waits for the user, as the window asks the user today. Built 2026-10-14: `hotbar.removeBank`
+  declares `AgentsAsk` for a bank with tiles, the confirmation naming them.
+- **The mechanism for A16, A20 and A65 (the lead's night decision for the owner to confirm):** their
+  commands are UI commands, and `AgentsAsk` took mutating commands only. Options: raise the
+  agent's call to mutating (as `Escalate` raises Scale to zero; then the allowance of agent writes
+  would skip the question, and the MCP tool would lose its read-only hint for every call);
+  ★ let UI commands declare `AgentsAsk`, which makes an agent's call wait for the user whatever the
+  allowance (`NeedsConfirmation`'s UI case; `TestNeedsConfirmationAgentsAsk`,
+  `TestAgentsAskDispatch`). Why: these three change Cogpit's own settings, not the cluster, so the
+  allowance of agent writes for a context was never given for them.
 - **Decided (owner, 2026-10-14 evening, A101):** a grant's confirmation (a role binding, a cluster
   role binding) says "Grants these rights immediately, cluster-wide" or "in `<namespace>`", and
   "This cannot be undone." stands only where something is lost (delete, drain, uninstall …). Not

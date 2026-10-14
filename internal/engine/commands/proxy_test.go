@@ -1,6 +1,7 @@
 package commands_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -37,24 +38,58 @@ func proxySession(t *testing.T) (*engine.Session, *syncBuffer, string) {
 	return s, audit, cfg
 }
 
-// Only the user sets a cluster's proxy, in the window; agents and the CLI are refused before
-// anything is kept, may clear it, and read it back with the password as •••. The audit log
-// carries the refused attempt with the password redacted.
+// proxyConfirmer records what Cogpit asks and answers with *answer.
+func proxyConfirmer(s *engine.Session, answer *bool) *[]engine.ConfirmRequest {
+	var asked []engine.ConfirmRequest
+	s.SetConfirmer(engine.ConfirmFunc(func(_ context.Context, req engine.ConfirmRequest) (bool, error) {
+		asked = append(asked, req)
+		return *answer, nil
+	}))
+	return &asked
+}
+
+// The user sets a cluster's proxy in the window; an agent's proxy always waits for the user's
+// acceptance, also where agent writes are allowed, and the question never shows the password
+// (A20, owner 2026-10-14 evening); the CLI is refused before anything is kept. Agents and the CLI
+// may clear it, and read it back with the password as •••. The audit log carries the attempts
+// with the password redacted.
 func TestClusterProxyCommands(t *testing.T) {
 	s, audit, cfg := proxySession(t)
+	answer := false
+	asked := proxyConfirmer(s, &answer)
+	s.SetAgentWrites("kind-dev", true)
 	withPassword := "http://alice:" + proxyPassword + "@proxy.example.com:3128"
 	for _, origin := range []engine.Origin{engine.OriginExternalAgent, engine.OriginBuiltInAgent, engine.OriginCLI} {
 		err := dispatch(t, s, origin, "cluster.settings.set", map[string]any{"context": "kind-dev", "proxy": withPassword}, nil)
-		if !errors.Is(err, engine.ErrProxyGUIOnly) {
-			t.Errorf("%s set a proxy: %v", origin, err)
+		want := engine.ErrDeclined
+		if origin == engine.OriginCLI {
+			want = engine.ErrProxyGUIOnly
+		}
+		if !errors.Is(err, want) {
+			t.Errorf("%s set a proxy: %v, want %v", origin, err, want)
 		}
 		if err != nil && strings.Contains(err.Error(), proxyPassword) {
 			t.Errorf("the refusal quotes the password: %v", err)
 		}
 	}
-	if cs, _ := s.ClusterSettingsOf("kind-dev"); cs.Proxy != "" {
-		t.Fatalf("a refused proxy was kept: %q", cs.Proxy)
+	if len(*asked) != 2 || !(*asked)[0].AgentsAsk || (*asked)[0].Origin != engine.OriginExternalAgent ||
+		!strings.Contains((*asked)[0].Detail, "http://alice:•••@proxy.example.com:3128") {
+		t.Errorf("the agents' proxies: asked %+v", *asked)
 	}
+	if raw, _ := json.Marshal(*asked); strings.Contains(string(raw), proxyPassword) {
+		t.Errorf("the question carries the password: %s", raw)
+	}
+	if cs, _ := s.ClusterSettingsOf("kind-dev"); cs.Proxy != "" {
+		t.Fatalf("a declined proxy was kept: %q", cs.Proxy)
+	}
+	answer = true
+	if err := dispatch(t, s, engine.OriginBuiltInAgent, "cluster.settings.set", map[string]any{"context": "kind-dev", "proxy": withPassword}, nil); err != nil {
+		t.Fatalf("an accepted agent's proxy: %v", err)
+	}
+	if cs, _ := s.ClusterSettingsOf("kind-dev"); cs.Proxy != withPassword {
+		t.Fatalf("the accepted proxy was not kept: %q", cs.Proxy)
+	}
+	answer = false
 
 	var v engine.ClusterSettingsView
 	if err := dispatch(t, s, engine.OriginGUI, "cluster.settings.set", map[string]any{"context": "kind-dev", "proxy": withPassword}, &v); err != nil {
@@ -105,15 +140,24 @@ func TestClusterProxyCommands(t *testing.T) {
 	}
 }
 
-// The Preferences' HTTP proxy follows the same rules: only the GUI sets it, agents clear it and
-// read it as •••, the audit log redacts it.
+// The Preferences' HTTP proxy follows the same rules: the GUI sets it, an agent's waits for the
+// user (A20), the CLI is refused; agents clear it and read it as •••, the audit log redacts it.
 func TestNonClusterProxyCommands(t *testing.T) {
 	s, audit, _ := proxySession(t)
+	answer := false
+	asked := proxyConfirmer(s, &answer)
 	withPassword := "https://bob:" + proxyPassword + "@proxy.example.com:8443"
 	for _, origin := range []engine.Origin{engine.OriginExternalAgent, engine.OriginBuiltInAgent, engine.OriginCLI} {
-		if err := dispatch(t, s, origin, "preferences.set", map[string]any{"httpProxy": withPassword}, nil); !errors.Is(err, engine.ErrProxyGUIOnly) {
-			t.Errorf("%s set the HTTP proxy: %v", origin, err)
+		want := engine.ErrDeclined
+		if origin == engine.OriginCLI {
+			want = engine.ErrProxyGUIOnly
 		}
+		if err := dispatch(t, s, origin, "preferences.set", map[string]any{"httpProxy": withPassword}, nil); !errors.Is(err, want) {
+			t.Errorf("%s set the HTTP proxy: %v, want %v", origin, err, want)
+		}
+	}
+	if len(*asked) != 2 || !(*asked)[1].AgentsAsk || !strings.Contains((*asked)[1].Detail, "https://bob:•••@proxy.example.com:8443") {
+		t.Errorf("the agents' HTTP proxies: asked %+v", *asked)
 	}
 	var res commands.PreferencesResult
 	if err := dispatch(t, s, engine.OriginGUI, "preferences.set", map[string]any{"httpProxy": withPassword}, &res); err != nil {
