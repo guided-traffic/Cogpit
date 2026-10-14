@@ -1,0 +1,15 @@
+apiVersion: cogpit.io/v1
+kind: HelmChart
+metadata:
+  name: charts..lab.podinfo
+  uid: 6c1f2e4a-0000-4000-8000-000000000004
+  resourceVersion: "7"
+spec:
+  repository: charts.lab
+  name: podinfo
+  version: 6.7.1
+  appVersion: 6.7.1
+  description: Podinfo Helm chart for Kubernetes
+  origin: http
+  versions:
+  - {version: 6.7.1, appVersion: 6.7.1, created: "2026-09-12T09:30:00Z"}

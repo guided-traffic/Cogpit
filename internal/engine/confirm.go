@@ -27,6 +27,10 @@ type ConfirmRequest struct {
 	UIDs []string `json:"uids,omitempty"`
 	// Detail adds what the objects alone don't say: the options that make a drain lose data.
 	Detail string `json:"detail,omitempty"`
+	// Warning is what the user must know before answering, apart from the message: a Helm chart
+	// from a repository whose content nothing authenticates (H-41, A14). The GUI's dialog shows it
+	// below the message in the warning colour; Message leaves it out.
+	Warning string `json:"warning,omitempty"`
 	// AgentsAsk is true when an agent's mutating request asks whatever the allowance of agent
 	// writes, because the command declares it for these parameters: a role binding (H-27,
 	// agentsask.go). The dialog then does not offer the allowance as a way to skip such a question.

@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
 // Helm's own repositories.yaml (D-29, architecture §8): the chart repositories the helm CLI keeps
@@ -71,7 +72,7 @@ var chartNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,200}$`)
 // repository is listed with this error and not used (Cogpit's default).
 func CheckRepositoryName(name string) error {
 	if !repoNamePattern.MatchString(name) {
-		return errors.New("Cogpit uses a repository whose name is 1 to 63 letters, digits, '.', '-' or '_', the first a " +
+		return errors.New("a repository Cogpit uses has a name of 1 to 63 letters, digits, '.', '-' or '_', the first a " +
 			"letter or a digit; remove it with helm repo remove and add it again under such a name")
 	}
 	return nil
@@ -185,6 +186,23 @@ func (r *Repository) HTTPBinding() string {
 		_, _ = io.WriteString(h, s+"\x00")
 	}
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+// Origin says how the repository's content reaches Cogpit when nothing authenticates it (H-41,
+// owner 2026-10-14 evening, A14): kinds.HelmOriginHTTP for a repository served over plain http,
+// kinds.HelmOriginInsecureTLS for one over https whose entry says insecure_skip_tls_verify; ""
+// for https with the server's certificate checked. Plain http wins: its entry's TLS setting does
+// not apply.
+func (r *Repository) Origin() string {
+	switch {
+	case r == nil:
+		return ""
+	case r.PlainHTTP():
+		return kinds.HelmOriginHTTP
+	case r.InsecureSkipTLSVerify && r.https():
+		return kinds.HelmOriginInsecureTLS
+	}
+	return ""
 }
 
 func (r *Repository) https() bool {

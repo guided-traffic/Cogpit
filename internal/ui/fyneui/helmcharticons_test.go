@@ -135,7 +135,7 @@ func TestChartIconsInTheWindow(t *testing.T) {
 	sh, _, q := newIconShell(t, e, Options{Theme: ThemeDark})
 	q.until(t, "the icons", func() bool {
 		cells := iconCells(sh)
-		return sh.view.snap != nil && len(cells) == 5 && cells[chartRow(sh, "bitnami.nginx")] != sh.chartGlyph() &&
+		return sh.view.snap != nil && len(cells) == 7 && cells[chartRow(sh, "bitnami.nginx")] != sh.chartGlyph() &&
 			cells[chartRow(sh, "bitnami.redis")] != sh.chartGlyph() && sh.drawer.lead.Visible()
 	})
 	cells := iconCells(sh)
@@ -187,7 +187,7 @@ func renderChartIcons(t *testing.T, mode ThemeMode, name string) {
 	sh, w, q := newIconShell(t, e, Options{Theme: mode})
 	q.until(t, "the icons and the README", func() bool {
 		cells := iconCells(sh)
-		return sh.view.snap != nil && len(cells) == 5 && cells[chartRow(sh, "bitnami.redis")] != sh.chartGlyph() &&
+		return sh.view.snap != nil && len(cells) == 7 && cells[chartRow(sh, "bitnami.redis")] != sh.chartGlyph() &&
 			readmeOf(sh) != nil && sh.diag.total > 0 && sh.drawer.lead.Visible()
 	})
 	savePNG(t, w, name)

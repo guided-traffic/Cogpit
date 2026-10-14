@@ -119,7 +119,13 @@ func (c *guiConfirmer) show(req engine.ConfirmRequest, reply func(bool)) *confir
 
 	message := newParagraph(req.Message(), theme.ColorNameForeground, width)
 	message.hard = true // an image digest (the node shell's) is one word wider than the dialog
-	content := container.NewVBox(message, newSpace(theme.SizeNamePadding), rows)
+	content := container.NewVBox(message)
+	if req.Warning != "" { // what the user must know before answering: a chart nothing authenticates (H-41, A14)
+		content.Add(newSpace(theme.SizeNamePadding))
+		content.Add(newParagraph(req.Warning, colorStatusWarning, width))
+	}
+	content.Add(newSpace(theme.SizeNamePadding))
+	content.Add(rows)
 	if req.Review != "" { // what the command will apply, as the request carries it: read before answering
 		content.Add(newSpace(theme.SizeNamePadding))
 		content.Add(reviewBlock(req.Review, width))

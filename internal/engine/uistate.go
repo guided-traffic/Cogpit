@@ -189,6 +189,10 @@ type HelmUpgradeTab struct {
 	// order.
 	Repository   string   `json:"repository,omitempty"`
 	Repositories []string `json:"repositories,omitempty"`
+	// Origin is Repository's origin when nothing authenticates its content (H-41, A14):
+	// kinds.HelmOriginHTTP or kinds.HelmOriginInsecureTLS; the tab marks it, and an upgrade that
+	// downloads from it says so in its confirmation.
+	Origin string `json:"origin,omitempty"`
 	// Versions are the picker's choices: the release's own chart version, and Repository's versions
 	// newest first, prereleases after the others.
 	Versions []string `json:"versions"`

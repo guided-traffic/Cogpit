@@ -353,6 +353,11 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 				return nil, err
 			}
 		}
+		if cmd.warning != nil { // a chart nothing authenticates (H-41)
+			if err := s.safeCall(cmd.ID, func() error { req.Warning = cmd.warning(s, p); return nil }); err != nil {
+				return nil, err
+			}
+		}
 		if cmd.review != nil {
 			if err := s.safeCall(cmd.ID, func() error { req.Review = cmd.review(s, p); return nil }); err != nil {
 				return nil, err

@@ -184,11 +184,11 @@ func chartVersions(obj *unstructured.Unstructured) []string {
 // version's properties from the repository's index under the object's name, UID and
 // resourceVersion; nil when the index does not list the version.
 func (h *HelmRepos) chartObjectAt(repository, chart, version string, obj *unstructured.Unstructured) *unstructured.Unstructured {
-	_, c, v, err := h.ChartVersion(repository, chart, version)
+	r, c, v, err := h.ChartVersion(repository, chart, version)
 	if err != nil {
 		return nil
 	}
-	return kinds.HelmChartObject(helmChartAt(repository, c, v), string(obj.GetUID()), obj.GetResourceVersion())
+	return kinds.HelmChartObject(helmChartAt(repository, r.Origin(), c, v), string(obj.GetUID()), obj.GetResourceVersion())
 }
 
 // drawerChart reports whether the drawer shows ref, and the version it shows of it ("" the listed

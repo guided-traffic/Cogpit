@@ -13,6 +13,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
 // Helm upgrade (G11, architecture §8): Lens's Upgrade opens a "Helm Upgrade: <name>" dock tab
@@ -159,6 +160,7 @@ func registerHelmUpgrade(g *registrar) {
 		},
 		Targets: func(s *engine.Session, p upgradeParams) ([]model.ObjectRef, error) { return targetOf(s, p.Ref) },
 		Detail:  upgradeDetail,
+		Warning: upgradeWarning, // a chart from a repository nothing authenticates (H-41, A14)
 		// The values an agent passes inline are shown to the user before they answer (owner,
 		// 2026-10-12: R-2's remainder); from a tab, the tab is what the user reviews.
 		Review: func(_ *engine.Session, p upgradeParams) string {
@@ -238,6 +240,9 @@ func upgradeTab(s *engine.Session, p upgradeParams) (engine.HelmUpgradeTabInfo, 
 type upgradeTarget struct {
 	chart, from, to string
 	repository      string
+	// origin is the repository's when nothing authenticates it (H-41): kinds.HelmOriginHTTP,
+	// kinds.HelmOriginInsecureTLS, or "".
+	origin string
 	// digest: the repository's index lists the version's digest, which the download is checked
 	// against.
 	digest bool
@@ -300,8 +305,24 @@ func resolveUpgradeTarget(s *engine.Session, p upgradeParams, obj *unstructured.
 	if err != nil {
 		return t, err
 	}
-	t.to, t.digest = v.Version, v.Digest != ""
+	t.to, t.digest, t.origin = v.Version, v.Digest != "", repos.Origin(t.repository)
 	return t, nil
+}
+
+// upgradeWarning is the confirmation's warning (H-41, A14): what it means that nothing
+// authenticates the repository the upgrade downloads its chart from; "" for the release's own
+// chart or a repository over https with the certificate checked. runUpgrade checks that it is
+// still true when it runs.
+func upgradeWarning(s *engine.Session, p upgradeParams) string {
+	obj, err := s.Lookup(p.Ref)
+	if err != nil {
+		return ""
+	}
+	t, err := resolveUpgradeTarget(s, p, obj)
+	if err != nil || t.own() {
+		return ""
+	}
+	return kinds.HelmOriginWarning(t.repository, t.origin)
 }
 
 // upgradeDetail is the confirmation's sentence: the chart version from and to, where the chart
@@ -382,10 +403,17 @@ func runUpgrade(ctx context.Context, s *engine.Session, p upgradeParams) (any, e
 		return nil, fmt.Errorf("release %s: %w; nothing was done", ref.Name, err)
 	}
 	// What the user accepted is what runs: a confirmation whose sentence (the chart version from
-	// and to, the repository, the digest check) would read differently now, because the tab's
-	// choice or an index changed while it was open, is refused.
-	if req, ok := engine.Confirmed(ctx); ok && req.Detail != "" && req.Detail != upgradeDetail(s, p) {
+	// and to, the repository, the digest check) or warning (the repository's origin, H-41) would
+	// read differently now, because the tab's choice, an index or Helm's file changed while it
+	// was open, is refused.
+	if req, ok := engine.Confirmed(ctx); ok && req.Detail != "" && (req.Detail != upgradeDetail(s, p) || req.Warning != upgradeWarning(s, p)) {
 		return nil, fmt.Errorf("%w: the chart the upgrade installs changed since it was confirmed; nothing was done: review it and upgrade again", engine.ErrTargetsChanged)
+	}
+	// The window's tab marks its repository's origin: one that changed in Helm's file since the tab
+	// showed it is marked anew, and an upgrade that downloads from it waits for the user to see it.
+	if p.Tab != "" && s.RefreshHelmUpgradeOrigin(p.Tab) && !target.own() {
+		return nil, fmt.Errorf("%w: how repository %s reaches Cogpit changed in Helm's repositories file since the tab showed it; "+
+			"nothing was done: review the tab and upgrade again", engine.ErrTargetsChanged, target.repository)
 	}
 	vals, err := helm.ParseValues(text)
 	if err != nil {
@@ -449,6 +477,9 @@ func fetchUpgradeChart(ctx context.Context, s *engine.Session, t upgradeTarget) 
 	}
 	if t.digest && !ch.Verified {
 		return nil, fmt.Errorf("%w: chart %s/%s %s: the index no longer lists the digest the archive was to be checked against", engine.ErrTargetsChanged, t.repository, t.chart, t.to)
+	}
+	if ch.Origin != t.origin { // the repository's entry changed between the check and the download (H-41)
+		return nil, fmt.Errorf("%w: chart %s/%s %s came another way than the upgrade said", engine.ErrTargetsChanged, t.repository, t.chart, t.to)
 	}
 	return ch, nil
 }

@@ -1,6 +1,7 @@
 package fyneui
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"slices"
@@ -39,7 +40,8 @@ func helmInstallDispatches() []struct {
 	}
 }
 
-// fixtureCharts are the Charts view's rows: four repositories' charts, one deprecated.
+// fixtureCharts are the Charts view's rows: six repositories' charts, one deprecated, two from
+// repositories whose content nothing authenticates.
 func fixtureCharts() []*unstructured.Unstructured {
 	at := func(d int) time.Time { return fixedNow.Add(-time.Duration(d) * 24 * time.Hour) }
 	charts := []kinds.HelmChart{
@@ -56,6 +58,14 @@ func fixtureCharts() []*unstructured.Unstructured {
 			Versions: []kinds.HelmChartVersion{{Version: "65.1.0", AppVersion: "v0.77.1", Created: at(2)}}},
 		{Repository: "stable", Name: "old-app", Version: "0.9.0", Description: "An application whose chart is deprecated", Deprecated: true,
 			Versions: []kinds.HelmChartVersion{{Version: "0.9.0"}}},
+		// Repositories nothing authenticates (H-41, A14): one over plain http, one with a dot in its
+		// name (A36) whose certificate is not checked.
+		{Repository: "lab", Name: "podinfo", Version: "6.7.1", AppVersion: "6.7.1", Description: "Podinfo Helm chart for Kubernetes",
+			Digest: strings.Repeat("12", 32), Created: at(12), Origin: kinds.HelmOriginHTTP,
+			Versions: []kinds.HelmChartVersion{{Version: "6.7.1", AppVersion: "6.7.1", Created: at(12)}}},
+		{Repository: "charts.edge", Name: "edge-agent", Version: "2.4.0", Description: "The edge site agent",
+			Digest: strings.Repeat("34", 32), Created: at(20), Origin: kinds.HelmOriginInsecureTLS,
+			Versions: []kinds.HelmChartVersion{{Version: "2.4.0", Created: at(20)}}},
 	}
 	out := make([]*unstructured.Unstructured, 0, len(charts))
 	for i, c := range charts {
@@ -113,9 +123,9 @@ func fixtureHelmRepos() engine.HelmReposList {
 			{Name: "private", URL: "https://charts.internal.example/private", HasCredentials: true,
 				Error: "downloading the index: https://charts.internal.example/private/index.yaml: 401 Unauthorized"},
 			{Name: "lab", URL: "http://charts.lab.example:8080/stable", HasCredentials: true, PlainHTTP: true, Charts: 7, Updated: fixedNow.Add(-2 * time.Hour)},
-			{Name: "edge", URL: "https://charts.edge.example", HasCredentials: true, ClientCertificate: true, CAFile: true, InsecureSkipTLSVerify: true, Charts: 3, Updating: true},
+			{Name: "charts.edge", URL: "https://charts.edge.example", HasCredentials: true, ClientCertificate: true, CAFile: true, InsecureSkipTLSVerify: true, Charts: 3, Updating: true},
 			{Name: "my repo", URL: "https://charts.example.com/spaced", Unused: true,
-				Error: "Cogpit uses a repository whose name is 1 to 63 letters, digits, '.', '-' or '_', the first a letter or a digit; remove it with helm repo remove and add it again under such a name"},
+				Error: "a repository Cogpit uses has a name of 1 to 63 letters, digits, '.', '-' or '_', the first a letter or a digit; remove it with helm repo remove and add it again under such a name"},
 		}}
 }
 
@@ -138,6 +148,10 @@ type installRecorder struct {
 	mu       sync.Mutex
 	previews []helmChartInstallParams
 	installs []helmChartInstallParams
+	// origin and warning are what the preview says of the chart's origin (H-41); empty: checked.
+	origin, warning string
+	// repository, chart and version name the previewed chart; empty: bitnami/nginx 18.2.0.
+	repository, chart, version string
 }
 
 func (r *installRecorder) install(f *fakeEngine) {
@@ -148,9 +162,11 @@ func (r *installRecorder) install(f *fakeEngine) {
 		}
 		r.mu.Lock()
 		r.previews = append(r.previews, p)
+		origin, warning := r.origin, r.warning
+		repository, chart, version := cmp.Or(r.repository, "bitnami"), cmp.Or(r.chart, "nginx"), cmp.Or(r.version, "18.2.0")
 		r.mu.Unlock()
 		return installPreview{Release: model.ObjectRef{Context: "demo", Kind: helm.ReleaseKind, Namespace: p.Namespace, Name: p.Name},
-			Repository: "bitnami", Chart: "nginx", Version: "18.2.0", Verified: true,
+			Repository: repository, Chart: chart, Version: version, Verified: true, Origin: origin, Warning: warning,
 			Objects: []helm.RenderedObject{
 				{APIVersion: "v1", Kind: "ConfigMap", Namespace: p.Namespace, Name: p.Name + "-server-block"},
 				{APIVersion: "apps/v1", Kind: "Deployment", Namespace: p.Namespace, Name: p.Name},
@@ -193,7 +209,7 @@ func installTabOf(t testing.TB, sh *shell, q *mainQueue, id string) *helmInstall
 func TestChartsView(t *testing.T) {
 	f := chartsFake(t)
 	sh, _, q := newTestShell(t, f, Options{Theme: ThemeDark})
-	q.until(t, "the charts", func() bool { return sh.view.snap != nil && len(sh.view.snap.Rows) == 5 })
+	q.until(t, "the charts", func() bool { return sh.view.snap != nil && len(sh.view.snap.Rows) == 7 })
 	if kids := sh.side.children[groupPrefix+"helm"]; !slices.Equal(kids, []string{helmChartsKind, helm.ReleaseKind}) {
 		t.Errorf("Helm group %v", kids)
 	}
@@ -301,7 +317,7 @@ func TestHelmReposDialog(t *testing.T) {
 		}
 		return strings.Join(out, ",")
 	}
-	for i, want := range map[int]string{0: "", 2: "credentials", 3: "credentials,http", 4: "client certificate,insecure", 5: "not used"} {
+	for i, want := range map[int]string{0: "", 2: "credentials", 3: "credentials,http", 4: "client certificate,insecure TLS", 5: "not used"} {
 		if got := marks(i); got != want {
 			t.Errorf("%s: marks %q, want %q", rd.rows[i].Name, got, want)
 		}
@@ -344,7 +360,7 @@ func renderCharts(t *testing.T, mode ThemeMode, name string) {
 	f.ui.Drawer = &ref
 	sh, w, q := newTestShell(t, f, Options{Theme: mode})
 	q.until(t, "the charts and the drawer", func() bool {
-		return sh.view.snap != nil && len(sh.view.snap.Rows) == 5 && sh.drawer.last != nil && sh.diag.total > 0
+		return sh.view.snap != nil && len(sh.view.snap.Rows) == 7 && sh.drawer.last != nil && sh.diag.total > 0
 	})
 	savePNG(t, w, name)
 }

@@ -144,6 +144,7 @@ func (s *Session) upgradeChoice(chart, own string, pick HelmUpgradePick, cur *He
 		rc = found[slices.IndexFunc(found, func(f repoChart) bool { return f.repo == name })]
 	}
 	t.Repository = rc.repo
+	t.Origin = s.opts.HelmRepos.Origin(rc.repo) // marked when nothing authenticates it (H-41)
 	t.Versions = upgradeVersions(rc.chart, own)
 	switch {
 	case pick.Version != "":
@@ -215,6 +216,24 @@ func newestUpgrade(c helm.IndexChart, own string) string {
 		return latest.Version
 	}
 	return own
+}
+
+// RefreshHelmUpgradeOrigin gives an open Helm Upgrade tab its repository's origin as Helm's file
+// says it now (H-41, A14), and reports whether that changed what the tab showed: an upgrade that
+// downloads from the repository is then refused, so that the window's mark was true when the user
+// saved (commands/helmupgrade.go). A tab without a repository, or not open, changes nothing.
+func (s *Session) RefreshHelmUpgradeOrigin(id string) bool {
+	e, err := s.editorOf(id)
+	if err != nil || e.tab.Helm == nil || e.tab.Helm.Repository == "" {
+		return false
+	}
+	now := s.opts.HelmRepos.Origin(e.tab.Helm.Repository)
+	if now == e.tab.Helm.Origin {
+		return false
+	}
+	t := *e.tab.Helm
+	t.Origin = now
+	return s.setHelmUpgradeChoice(id, &t) == nil
 }
 
 // setHelmUpgradeChoice gives an open Helm Upgrade tab a new choice, in the dock and then in its

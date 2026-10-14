@@ -13,6 +13,7 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
 // The Helm chart repositories in the GUI (G11, D-29): the Helm menu's "Repositories…" opens a
@@ -193,10 +194,11 @@ func repoMarks(r engine.HelmRepoInfo) []repoMark {
 		out = append(out, repoMark{text, colorMuted, false})
 	}
 	if r.PlainHTTP {
-		out = append(out, repoMark{"http", colorStatusWarning, true})
+		out = append(out, repoMark{kinds.HelmOriginMark(kinds.HelmOriginHTTP), colorStatusWarning, true})
 	}
 	if r.InsecureSkipTLSVerify {
-		out = append(out, repoMark{"insecure", colorStatusWarning, true})
+		// The Charts view's mark (A14): "insecure TLS".
+		out = append(out, repoMark{kinds.HelmOriginMark(kinds.HelmOriginInsecureTLS), colorStatusWarning, true})
 	}
 	return out
 }

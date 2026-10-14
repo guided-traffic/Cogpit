@@ -14,6 +14,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
 // helmInstallTab is the "Helm Install: <chart>" dock tab (G11; inferred: Lens's install tab is not
@@ -25,7 +26,10 @@ import (
 // without changing it (helm.chart.preview) and shows what it would create; the dialog's Install
 // runs helm.chart.install bound to the text revision the send made. The namespace, the release
 // name and the checkbox are the window's (the engine's tab holds what they start with); the
-// version picker reloads the tab at another version (helm.chart.installTab).
+// version picker reloads the tab at another version (helm.chart.installTab). A chart whose archive
+// came from a repository nothing authenticates (plain http, or https without the certificate
+// check) is marked beside its name and in a line under it, and the preview says it too (H-41,
+// A14; the engine's HelmInstallTab.Origin and helm.chart.preview's warning).
 type helmInstallTab struct {
 	sh   *shell
 	tab  engine.DockTab
@@ -39,6 +43,13 @@ type helmInstallTab struct {
 	release    *widget.Entry
 	createNS   *widget.Check
 	digest     *textLine
+	// origin marks a chart from a repository whose content nothing authenticates beside its name
+	// ("http", "insecure TLS"), and originRow says what that means, in the warning colour (H-41,
+	// A14); both hidden for a repository over https with the certificate checked.
+	origin     *pill
+	originBox  *fyne.Container // the pill's place on the chart's line
+	originNote *textLine
+	originRow  *fyne.Container
 	status     *textLine
 	root       fyne.CanvasObject
 
@@ -73,6 +84,8 @@ type installPreview struct {
 	Chart      string                `json:"chart"`
 	Version    string                `json:"version"`
 	Verified   bool                  `json:"verified"`
+	Origin     string                `json:"origin,omitempty"`
+	Warning    string                `json:"warning,omitempty"`
 	Objects    []helm.RenderedObject `json:"objects"`
 	Hooks      []helm.RenderedObject `json:"hooks"`
 	CRDs       []helm.RenderedObject `json:"crds"`
@@ -104,19 +117,27 @@ func newHelmInstallTab(sh *shell, t engine.DockTab) *helmInstallTab {
 	}
 	u.status = newTextLine("Loading…", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	u.status.truncate = true
+	u.origin = newPill("", colorStatusWarning, true)
+	u.originBox = container.NewCenter(u.origin) // hidden whole: a hidden pill in it would still take the line's gap
+	u.originNote = newTextLine("", colorStatusWarning, theme.SizeNameText, fyne.TextStyle{})
+	u.originNote.truncate = true
+	u.originRow = container.NewBorder(nil, nil,
+		container.NewCenter(widget.NewIcon(themedIcon(theme.WarningIcon(), colorStatusWarning))), nil, u.originNote)
+	u.showOrigin(hi)
 
 	label := func(s string) fyne.CanvasObject {
 		return container.NewCenter(newTextLine(s, colorMuted, theme.SizeNameText, fyne.TextStyle{}))
 	}
 	chartLine := container.NewHBox(u.installBtn, u.searchBtn, newDivider(true),
 		container.NewCenter(newTextLine(hi.Repository+"/"+hi.Chart, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})),
+		u.originBox,
 		label("version:"), box(fitSelect{options: hi.Versions}, u.version), container.NewCenter(u.digest))
 	target := container.NewBorder(nil, nil, nil, u.createNS,
 		container.NewGridWithColumns(2,
 			container.NewBorder(nil, nil, label("Namespace "), nil, u.namespace),
 			container.NewBorder(nil, nil, label("  Release name "), nil, u.release)))
 	header := container.NewStack(newSurface(colorDock), inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
-		container.NewVBox(chartLine, target)))
+		container.NewVBox(chartLine, u.originRow, target)))
 	footer := container.NewStack(newSurface(colorDock), inset(theme.SizeNameInnerPadding, theme.SizeNamePadding, u.status))
 	editor := container.NewBorder(nil, u.find.root, nil, nil,
 		container.NewStack(newSurface(theme.ColorNameInputBackground), u.pane.view))
@@ -132,6 +153,21 @@ func newHelmInstallTab(sh *shell, t engine.DockTab) *helmInstallTab {
 		u.setStatus(fmt.Sprintf("The values.yaml of %s %s. Install renders the chart against the cluster first and shows what it creates.", hi.Chart, hi.Version), colorMuted)
 	})
 	return u
+}
+
+// showOrigin marks the origin the tab's archive came from when nothing authenticated it (the
+// engine's HelmInstallTab.Origin, H-41, A14), or hides the marks.
+func (u *helmInstallTab) showOrigin(hi *engine.HelmInstallTab) {
+	mark := kinds.HelmOriginMark(hi.Origin)
+	if mark == "" {
+		u.originBox.Hide()
+		u.originRow.Hide()
+		return
+	}
+	u.origin.Set(mark, colorStatusWarning)
+	u.originNote.SetText(kinds.HelmOriginWarning(hi.Repository, hi.Origin))
+	u.originBox.Show()
+	u.originRow.Show()
 }
 
 // digestText says how the chart's archive was checked.
@@ -281,9 +317,10 @@ func (u *helmInstallTab) update(t engine.DockTab) {
 	old := u.tab.HelmInstall
 	u.tab = t
 	hi := t.HelmInstall
-	if hi == nil || old == nil || (hi.Version == old.Version && hi.Digest == old.Digest) {
+	if hi == nil || old == nil || (hi.Version == old.Version && hi.Digest == old.Digest && hi.Origin == old.Origin) {
 		return
 	}
+	u.showOrigin(hi) // another download, perhaps another way (H-41)
 	u.version.Options = hi.Versions
 	u.version.SetSelected(hi.Version)
 	u.digest.SetText(digestText(hi))
@@ -323,6 +360,7 @@ type installPreviewDialog struct {
 	install *widget.Button
 	cancel  *widget.Button
 	lines   []string
+	warning *paragraph // the chart's origin's warning (H-41), nil without one
 }
 
 // maxPreviewLines bounds the objects the dialog lists; the rest are counted.
@@ -367,12 +405,15 @@ func (sh *shell) showInstallPreview(p installPreview, createNamespace bool, answ
 	if createNamespace {
 		where += " The namespace is created if it does not exist."
 	}
-	content := container.NewVBox(
-		newParagraph(where, colorMuted, width),
-		newSpace(theme.SizeNamePadding),
-		newTextLine(fmt.Sprintf("WHAT THE INSTALL CREATES (%d)", len(pd.lines)), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{Bold: true}),
-		scroll,
-	)
+	content := container.NewVBox(newParagraph(where, colorMuted, width))
+	if p.Warning != "" { // a chart nothing authenticated on its way (H-41, A14): the install's confirmation in the window
+		pd.warning = newParagraph(p.Warning, colorStatusWarning, width)
+		content.Add(newSpace(theme.SizeNamePadding))
+		content.Add(pd.warning)
+	}
+	content.Add(newSpace(theme.SizeNamePadding))
+	content.Add(newTextLine(fmt.Sprintf("WHAT THE INSTALL CREATES (%d)", len(pd.lines)), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{Bold: true}))
+	content.Add(scroll)
 	pd.install = widget.NewButton("Install", nil)
 	pd.install.Importance = widget.HighImportance
 	pd.cancel = widget.NewButton("Cancel", nil)

@@ -198,7 +198,7 @@ func renderChartDrawer(t *testing.T, mode ThemeMode, name string) {
 	f, _ := chartDrawerFake(t, "18.2.0")
 	sh, w, q := newTestShell(t, f, Options{Theme: mode})
 	q.until(t, "the charts and the README", func() bool {
-		return sh.view.snap != nil && len(sh.view.snap.Rows) == 5 && readmeOf(sh) != nil && sh.diag.total > 0
+		return sh.view.snap != nil && len(sh.view.snap.Rows) == 7 && readmeOf(sh) != nil && sh.diag.total > 0
 	})
 	settle(w)
 	// The README from its title on: the version picker stays in the header above it.

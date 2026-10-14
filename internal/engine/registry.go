@@ -96,6 +96,10 @@ type Spec[P any] struct {
 	// Detail adds a sentence to the confirmation for parameters the objects don't show: the drain
 	// options that lose data. Nil adds nothing.
 	Detail func(s *Session, p P) string
+	// Warning returns what the user must know before answering, which the confirmation shows apart
+	// in the warning colour (ConfirmRequest.Warning): a Helm chart from a repository whose content
+	// nothing authenticates (H-41, A14). Nil, or "", shows none.
+	Warning func(s *Session, p P) string
 	// Undoable marks a destructive command whose effect the user can reverse, nothing being lost:
 	// a grant (deleting the binding takes it back), a rollback (the release's history keeps the
 	// revision), a node shell. Its confirmation does not say "This cannot be undone." (A101, owner
@@ -148,6 +152,7 @@ type Command struct {
 	agentsAsk func(s *Session, p any) bool
 	prefill   func(s *Session, p any) (any, error)
 	detail    func(s *Session, p any) string
+	warning   func(s *Session, p any) string
 	review    func(s *Session, p any) string
 	refuse    func(ctx context.Context, s *Session, p any) error
 	run       func(ctx context.Context, s *Session, p any) (any, error)
@@ -326,6 +331,9 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 	}
 	if spec.Detail != nil {
 		c.detail = func(s *Session, p any) string { return spec.Detail(s, p.(P)) }
+	}
+	if spec.Warning != nil {
+		c.warning = func(s *Session, p any) string { return spec.Warning(s, p.(P)) }
 	}
 	if spec.Review != nil {
 		c.review = func(s *Session, p any) string { return spec.Review(s, p.(P)) }

@@ -1,0 +1,132 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "helmcharts",
+    "name": "charts..lab.podinfo"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "icon",
+      "text": ""
+    },
+    {
+      "column": "name",
+      "text": "podinfo"
+    },
+    {
+      "column": "description",
+      "text": "Podinfo Helm chart for Kubernetes"
+    },
+    {
+      "column": "version",
+      "text": "6.7.1"
+    },
+    {
+      "column": "appVersion",
+      "text": "6.7.1"
+    },
+    {
+      "column": "repository",
+      "text": "charts.lab (http)",
+      "status": "warning",
+      "parts": [
+        {
+          "text": "charts.lab"
+        },
+        {
+          "text": "(http)",
+          "status": "warning"
+        }
+      ]
+    }
+  ],
+  "fields": {
+    "chart": [
+      "podinfo"
+    ],
+    "keyword": [],
+    "label": [],
+    "name": [
+      "charts..lab.podinfo"
+    ],
+    "namespace": [
+      ""
+    ],
+    "repository": [
+      "charts.lab"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Version",
+          "value": "6.7.1"
+        },
+        {
+          "name": "App Version",
+          "value": "6.7.1"
+        },
+        {
+          "name": "Repository",
+          "value": "charts.lab"
+        },
+        {
+          "name": "Origin",
+          "value": "Repository charts.lab is served over plain http: nothing authenticates the chart, and anyone on the network path can change it.",
+          "status": "warning"
+        },
+        {
+          "name": "Digest",
+          "value": "none: the index lists no digest, so an install cannot verify the archive",
+          "status": "warning"
+        }
+      ]
+    },
+    {
+      "title": "Description",
+      "items": [
+        {
+          "value": "Podinfo Helm chart for Kubernetes"
+        }
+      ]
+    },
+    {
+      "title": "Versions",
+      "table": {
+        "columns": [
+          "Version",
+          "App Version",
+          "Created"
+        ],
+        "rows": [
+          [
+            "6.7.1",
+            "6.7.1",
+            "2026-09-12"
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "6.7.1"
+            },
+            {
+              "text": "6.7.1"
+            },
+            {
+              "text": "2026-09-12"
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

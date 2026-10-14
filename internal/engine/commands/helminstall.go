@@ -52,16 +52,22 @@ type InstallPreview struct {
 	Version    string          `json:"version"`
 	Digest     string          `json:"digest"`
 	Verified   bool            `json:"verified"`
+	// Origin is how the archive came when nothing authenticated it (H-41, A14): "http" or
+	// "insecure-tls"; absent for https with the certificate checked. Warning says what it means.
+	Origin  string `json:"origin,omitempty"`
+	Warning string `json:"warning,omitempty"`
 	// Offline: rendered without the cluster (agents and the CLI): no lookup, the default
 	// capabilities, no check for objects that exist already.
 	Offline bool `json:"offline,omitempty"`
 	helm.InstallPreview
 }
 
-// installSource is what an install installs: the chart and version, and the values text.
+// installSource is what an install installs: the chart and version, the origin it came from, and
+// the values text.
 type installSource struct {
 	repository, chart, version string
 	verified                   bool
+	origin                     string      // kinds.HelmOriginHTTP, kinds.HelmOriginInsecureTLS or "" (H-41)
 	archive                    *helm.Chart // nil until fetched (inline installs)
 	text                       string
 }
@@ -149,7 +155,8 @@ func registerHelmInstall(g *registrar) {
 				return nil, err
 			}
 			return InstallPreview{Release: engine.HelmReleaseRef(b.Context, p.Namespace, p.Name), Repository: src.repository, Chart: src.chart,
-				Version: src.version, Digest: src.archive.Digest, Verified: src.archive.Verified, Offline: offline, InstallPreview: pre}, nil
+				Version: src.version, Digest: src.archive.Digest, Verified: src.archive.Verified, Origin: src.origin,
+				Warning: kinds.HelmOriginWarning(src.repository, src.origin), Offline: offline, InstallPreview: pre}, nil
 		},
 	})
 
@@ -189,7 +196,8 @@ func registerHelmInstall(g *registrar) {
 			}
 			return []model.ObjectRef{engine.HelmReleaseRef(b.Context, p.Namespace, p.Name)}, nil
 		},
-		Detail: installDetail,
+		Detail:  installDetail,
+		Warning: installWarning, // a chart nothing authenticates (H-41, A14)
 		// The values an agent passes inline are shown to the user before they answer (D-27); from
 		// a tab, the tab is what the user reviews.
 		Review: func(_ *engine.Session, p installParams) string {
@@ -278,7 +286,8 @@ func installSourceOf(ctx context.Context, s *engine.Session, p installParams, bo
 			}
 		}
 		hi := t.Tab.HelmInstall
-		return installSource{repository: hi.Repository, chart: hi.Chart, version: hi.Version, verified: hi.Verified, archive: t.Chart, text: t.Values}, nil
+		return installSource{repository: hi.Repository, chart: hi.Chart, version: hi.Version, verified: hi.Verified, origin: hi.Origin,
+			archive: t.Chart, text: t.Values}, nil
 	}
 	repos, err := helmRepos(s)
 	if err != nil {
@@ -288,7 +297,21 @@ func installSourceOf(ctx context.Context, s *engine.Session, p installParams, bo
 	if err != nil {
 		return installSource{}, err
 	}
-	return installSource{repository: p.Repository, chart: p.Chart, version: p.Version, verified: ch.Verified, archive: ch, text: *p.Values}, nil
+	return installSource{repository: p.Repository, chart: p.Chart, version: p.Version, verified: ch.Verified, origin: ch.Origin,
+		archive: ch, text: *p.Values}, nil
+}
+
+// installWarning is the confirmation's warning (H-41, A14): what it means that nothing
+// authenticates the chart's repository, for a tab the origin its archive came from, else its
+// repository's as Helm's file says it now; "" for https with the certificate checked.
+func installWarning(s *engine.Session, p installParams) string {
+	if p.Tab != "" {
+		if t, err := s.HelmInstallTab(p.Tab); err == nil && t.Tab.HelmInstall != nil {
+			return kinds.HelmOriginWarning(t.Tab.HelmInstall.Repository, t.Tab.HelmInstall.Origin)
+		}
+		return ""
+	}
+	return kinds.HelmOriginWarning(p.Repository, s.HelmRepos().Origin(p.Repository))
 }
 
 // installDetail is the confirmation's sentence: the chart, its version and how its archive was
@@ -353,6 +376,13 @@ func runInstall(ctx context.Context, s *engine.Session, p installParams) (any, e
 	src, err := installSourceOf(ctx, s, p, true)
 	if err != nil {
 		return nil, err
+	}
+	// What the user accepted is what installs: a chart that came another way than the
+	// confirmation said (its repository's entry in Helm's file changed while it was open) is
+	// refused (H-41, A14).
+	if req, ok := engine.Confirmed(ctx); ok && req.Detail != "" && req.Warning != kinds.HelmOriginWarning(src.repository, src.origin) {
+		return nil, fmt.Errorf("%w: how chart %s/%s reaches Cogpit changed in Helm's repositories file since the install was confirmed; "+
+			"nothing was done: review it and install again", engine.ErrTargetsChanged, src.repository, src.chart)
 	}
 	vals, err := helm.ParseValues(src.text)
 	if err != nil {

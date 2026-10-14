@@ -1,0 +1,123 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "helmcharts",
+    "name": "edge.edge-agent"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "icon",
+      "text": ""
+    },
+    {
+      "column": "name",
+      "text": "edge-agent"
+    },
+    {
+      "column": "description",
+      "text": "The edge site agent"
+    },
+    {
+      "column": "version",
+      "text": "2.4.0"
+    },
+    {
+      "column": "appVersion",
+      "text": ""
+    },
+    {
+      "column": "repository",
+      "text": "edge (insecure TLS)",
+      "status": "warning",
+      "parts": [
+        {
+          "text": "edge"
+        },
+        {
+          "text": "(insecure TLS)",
+          "status": "warning"
+        }
+      ]
+    }
+  ],
+  "fields": {
+    "chart": [
+      "edge-agent"
+    ],
+    "keyword": [],
+    "label": [],
+    "name": [
+      "edge.edge-agent"
+    ],
+    "namespace": [
+      ""
+    ],
+    "repository": [
+      "edge"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Version",
+          "value": "2.4.0"
+        },
+        {
+          "name": "Repository",
+          "value": "edge"
+        },
+        {
+          "name": "Origin",
+          "value": "Repository edge's server certificate is not checked (insecure_skip_tls_verify in Helm's file): nothing authenticates the chart, and anyone on the network path can change it.",
+          "status": "warning"
+        },
+        {
+          "name": "Digest",
+          "value": "9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c"
+        }
+      ]
+    },
+    {
+      "title": "Description",
+      "items": [
+        {
+          "value": "The edge site agent"
+        }
+      ]
+    },
+    {
+      "title": "Versions",
+      "table": {
+        "columns": [
+          "Version",
+          "App Version",
+          "Created"
+        ],
+        "rows": [
+          [
+            "2.4.0",
+            "",
+            ""
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "2.4.0"
+            },
+            {},
+            {}
+          ]
+        ]
+      }
+    }
+  ]
+}

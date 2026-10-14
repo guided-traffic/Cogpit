@@ -7,8 +7,9 @@ targets, decided by the owner; they do not count toward the parity numbers in
 [`target-app-parity.md`](target-app-parity.md), which measure Cogpit against Lens. Method:
 [`README.md`](README.md).
 
-**Summary (measured, 2026-10-14):** 40 of 43 rows exist: 34 done and 6 partial, in MCP control (all 17 done), the built-in agent (2026-10-14 night, its engine side, the window's chat column and the private connection's reads: 9 done, 1 partial: the keychain on Windows and Linux), updates (Sparkle's one-click update and the signed update manifest, partial: no update key yet),
-cache transparency, crash recovery (the unfinished drain, unsaved editor text), everyday use (the status bar link,
+**Summary (measured, 2026-10-15):** 41 of 43 rows exist: 34 done and 7 partial, in MCP control (all 17 done), the built-in agent (2026-10-14 night, its engine side, the window's chat column and the private connection's reads: 9 done, 1 partial: the keychain on Windows and Linux), updates (Sparkle's one-click update and the signed update manifest, partial: no update key yet),
+cache transparency, crash recovery (the unfinished drain, unsaved editor text; the unfinished Helm actions partial,
+the row corrected 2026-10-15: built since 2026-10-11, untested on a real cluster), everyday use (the status bar link,
 copying from the lists, the certificates in Secrets, which kind of CA their chain leads to (2026-10-14 night) and the status
 filter done, copying from the drawer partial; a row the owner required on 2026-10-14 evening missing: a hotbar tile dragged
 out of the window opening another window) and the command line (`cogpit-cli contexts` done, `get`

@@ -1,6 +1,7 @@
 package kinds
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 //	  description: ...
 //	  home, icon, kubeVersion, deprecated, created, keywords, maintainers, sources
 //	  digest: <sha256>           # the index's digest of that version's archive, if it lists one
+//	  origin: http               # HelmOriginHTTP or HelmOriginInsecureTLS; absent for checked https
 //	  versions:                  # every version, newest first
 //	  - {version, appVersion, created}
 
@@ -42,6 +44,7 @@ const (
 	fieldKeywords    = "keywords"
 	fieldCreated     = "created"
 	fieldIcon        = "icon"
+	fieldOrigin      = "origin"
 	titleAppVersion  = "App Version"
 	titleVersion     = "Version"
 )
@@ -65,7 +68,9 @@ var helmCharts = &model.KindProfile{
 		{ID: fieldDescription, Title: "Description", Type: model.ColumnText},
 		{ID: fieldChartVer, Title: titleVersion, Type: model.ColumnText},
 		{ID: fieldAppVersion, Title: titleAppVersion, Type: model.ColumnText},
-		{ID: fieldRepository, Title: "Repository", Type: model.ColumnText},
+		// Wide enough for a repository's name and its origin's mark, "charts.edge (insecure TLS)"
+		// (H-41, A14; Cogpit's width, Lens's is not captured).
+		{ID: fieldRepository, Title: "Repository", Type: model.ColumnText, Width: 210},
 	},
 	Cells: helmChartCells,
 	Fields: map[string]fieldFunc{
@@ -102,8 +107,56 @@ func helmChartCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status)
 		{Text: model.NestedString(obj, "spec", fieldDescription)},
 		{Text: model.NestedString(obj, "spec", fieldChartVer)},
 		{Text: model.NestedString(obj, "spec", fieldAppVersion)},
-		{Text: model.NestedString(obj, "spec", fieldRepository)},
+		repositoryCell(model.NestedString(obj, "spec", fieldRepository), model.NestedString(obj, "spec", fieldOrigin)),
 	}, status
+}
+
+// repositoryCell is a chart's Repository cell: the repository's name and, for an origin nothing
+// authenticates (H-41, A14), its mark in the warning colour, "lab (http)" (Cogpit's: Lens has no
+// such repositories, D-29).
+func repositoryCell(repository, origin string) model.Cell {
+	mark := HelmOriginMark(origin)
+	if mark == "" {
+		return model.Cell{Text: repository}
+	}
+	return model.PartsCell(model.StatusWarning, model.CellPart{Text: repository}, model.CellPart{Text: "(" + mark + ")", Status: model.StatusWarning})
+}
+
+// Chart origins that nothing authenticates (H-41; owner 2026-10-14 evening, A14): a repository
+// served over plain http, or over https without the server's certificate checked
+// (insecure_skip_tls_verify in Helm's file). A chart object's spec.origin, a Helm Install and Upgrade
+// tab's origin, helm.chart.preview's; empty for https with the certificate checked
+// (helm.Repository.Origin decides).
+const (
+	HelmOriginHTTP        = "http"
+	HelmOriginInsecureTLS = "insecure-tls"
+)
+
+// HelmOriginMark is an origin's mark beside a repository's name: "http", "insecure TLS"; "" for
+// none (an unknown origin too).
+func HelmOriginMark(origin string) string {
+	switch origin {
+	case HelmOriginHTTP:
+		return "http"
+	case HelmOriginInsecureTLS:
+		return "insecure TLS"
+	}
+	return ""
+}
+
+// HelmOriginWarning says what an origin means for a chart of a repository: the sentence the
+// chart's drawer, the Install tab, the install's preview and the install and upgrade
+// confirmations show in the warning colour. "" for none.
+func HelmOriginWarning(repository, origin string) string {
+	switch origin {
+	case HelmOriginHTTP:
+		return fmt.Sprintf("Repository %s is served over plain http: nothing authenticates the chart, and anyone on the "+
+			"network path can change it.", repository)
+	case HelmOriginInsecureTLS:
+		return fmt.Sprintf("Repository %s's server certificate is not checked (insecure_skip_tls_verify in Helm's file): "+
+			"nothing authenticates the chart, and anyone on the network path can change it.", repository)
+	}
+	return ""
 }
 
 // helmChartDetail is the chart's drawer (inferred: Lens's chart drawer is not captured): the
@@ -112,7 +165,11 @@ func helmChartDetail(obj *unstructured.Unstructured) []model.DetailSection {
 	var d detailItems
 	d.add(titleVersion, model.NestedString(obj, "spec", fieldChartVer))
 	d.add(titleAppVersion, model.NestedString(obj, "spec", fieldAppVersion))
-	d.add("Repository", model.NestedString(obj, "spec", fieldRepository))
+	repository, origin := model.NestedString(obj, "spec", fieldRepository), model.NestedString(obj, "spec", fieldOrigin)
+	d.add("Repository", repository)
+	if w := HelmOriginWarning(repository, origin); w != "" {
+		d.addStatus("Origin", w, model.StatusWarning)
+	}
 	d.add("Home", model.NestedString(obj, "spec", "home"))
 	d.add("Maintainers", strings.Join(stringsOf(model.NestedSlice(obj, "spec", "maintainers")), ", "))
 	d.add("Keywords", strings.Join(stringsOf(model.NestedSlice(obj, "spec", fieldKeywords)), ", "))
@@ -163,10 +220,13 @@ func stringsOf(in []any) []string {
 type HelmChart struct {
 	Repository, Name, Version, AppVersion, Description string
 	Home, Icon, KubeVersion, Digest                    string
-	Keywords, Maintainers, Sources                     []string
-	Deprecated                                         bool
-	Created                                            time.Time
-	Versions                                           []HelmChartVersion
+	// Origin is HelmOriginHTTP or HelmOriginInsecureTLS for a repository whose content nothing
+	// authenticates (H-41); empty otherwise.
+	Origin                         string
+	Keywords, Maintainers, Sources []string
+	Deprecated                     bool
+	Created                        time.Time
+	Versions                       []HelmChartVersion
 }
 
 // HelmChartVersion is one version of a chart.
@@ -210,7 +270,7 @@ func HelmChartObject(c HelmChart, uid, resourceVersion string) *unstructured.Uns
 		fieldRepository: c.Repository, fieldName: c.Name, fieldChartVer: c.Version,
 	}
 	for k, v := range map[string]string{fieldAppVersion: c.AppVersion, fieldDescription: c.Description, "home": c.Home,
-		fieldIcon: c.Icon, "kubeVersion": c.KubeVersion, "digest": c.Digest} {
+		fieldIcon: c.Icon, "kubeVersion": c.KubeVersion, "digest": c.Digest, fieldOrigin: c.Origin} {
 		if v != "" {
 			spec[k] = v
 		}

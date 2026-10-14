@@ -40,6 +40,11 @@ type HelmInstallTab struct {
 	// (false: the index lists none).
 	Digest   string `json:"digest"`
 	Verified bool   `json:"verified"`
+	// Origin is how the archive came when nothing authenticated it (H-41, A14): kinds.HelmOriginHTTP
+	// or kinds.HelmOriginInsecureTLS, its repository's at the download; empty for https with the
+	// certificate checked. The tab marks it in the warning colour, and the install's preview and
+	// confirmation say it (kinds.HelmOriginWarning).
+	Origin string `json:"origin,omitempty"`
 	// Namespace and ReleaseName are what the tab offers at first: the namespace filter's single
 	// namespace (else the context's, else "default") and a name made from the chart's.
 	Namespace   string `json:"namespace"`
@@ -199,7 +204,7 @@ func (s *Session) ReloadHelmInstallTab(ctx context.Context, id, version string) 
 func installTabOf(ch *helm.Chart, ic helm.IndexChart, namespace, release string) *HelmInstallTab {
 	t := &HelmInstallTab{
 		Repository: ch.Repository, Chart: ch.Name, Version: ch.Version, AppVersion: ch.AppVersion,
-		Digest: ch.Digest, Verified: ch.Verified, Namespace: namespace, ReleaseName: release, Versions: []string{},
+		Digest: ch.Digest, Verified: ch.Verified, Origin: ch.Origin, Namespace: namespace, ReleaseName: release, Versions: []string{},
 	}
 	for _, v := range ic.Versions {
 		t.Versions = append(t.Versions, v.Version)

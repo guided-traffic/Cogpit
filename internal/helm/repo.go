@@ -559,6 +559,9 @@ type Chart struct {
 	Digest   string `json:"digest"`
 	Verified bool   `json:"verified"`
 	Size     int    `json:"size"`
+	// Origin is how the archive came when nothing authenticated it: its repository's Origin at
+	// the download (H-41): kinds.HelmOriginHTTP, kinds.HelmOriginInsecureTLS, or "".
+	Origin string `json:"origin,omitempty"`
 }
 
 // FetchChart downloads a chart version's archive from its repository (the index's first URL,
@@ -594,7 +597,7 @@ func (f *Fetcher) FetchChart(ctx context.Context, r *Repository, name string, v 
 	if c.Name != name || c.Version != v.Version {
 		return nil, fmt.Errorf("chart %s %s: the archive holds chart %s %s", name, v.Version, c.Name, c.Version)
 	}
-	c.Repository, c.Digest, c.Verified = r.Name, digest, verified
+	c.Repository, c.Digest, c.Verified, c.Origin = r.Name, digest, verified, r.Origin()
 	return c, nil
 }
 

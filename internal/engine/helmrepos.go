@@ -372,6 +372,8 @@ func (h *HelmRepos) apply(entries []helm.RepositoryEntry, disk map[string]diskIn
 			}
 			st := *old
 			st.repo, st.fp, st.fetchNow, st.err, st.cancel, st.updating = r, fp, true, "", nil, false
+			h.gen++
+			st.gen = h.gen // its charts' objects again, with the origin the change may have changed (H-41)
 			state[e.Name] = &st
 		default: // new, or its URL changed
 			if old != nil && old.cancel != nil {
@@ -482,6 +484,20 @@ func (h *HelmRepos) repo(name string) (*helm.Repository, error) {
 		return e.repo, nil
 	}
 	return nil, fmt.Errorf("no Helm repository named %s in Helm's repositories file", name)
+}
+
+// Origin returns how a repository Cogpit uses reaches it when nothing authenticates its content
+// (helm.Repository.Origin, H-41): kinds.HelmOriginHTTP, kinds.HelmOriginInsecureTLS, or "" (also
+// for a repository it does not use).
+func (h *HelmRepos) Origin(name string) string {
+	if h == nil {
+		return ""
+	}
+	r, err := h.repo(name)
+	if err != nil {
+		return ""
+	}
+	return r.Origin()
 }
 
 // Update reads Helm's file when it changed and downloads the indexes of the named repositories
@@ -862,7 +878,7 @@ func (h *HelmRepos) chartObjects() map[string]*unstructured.Unstructured {
 			if !ok {
 				continue
 			}
-			obj := kinds.HelmChartObject(helmChartAt(e.info.Name, c, latest), chartUID(e.info.Name, st, c.Name), rv)
+			obj := kinds.HelmChartObject(helmChartAt(e.info.Name, e.repo.Origin(), c, latest), chartUID(e.info.Name, st, c.Name), rv)
 			out[obj.GetName()] = obj
 		}
 	}
@@ -870,13 +886,14 @@ func (h *HelmRepos) chartObjects() map[string]*unstructured.Unstructured {
 }
 
 // helmChartAt is a chart of a repository's index as its object shows it at version v: v's
-// properties, with every version of the chart.
-func helmChartAt(repository string, c helm.IndexChart, v helm.ChartVersion) kinds.HelmChart {
+// properties, with every version of the chart, and the repository's origin when nothing
+// authenticates it (H-41, A14).
+func helmChartAt(repository, origin string, c helm.IndexChart, v helm.ChartVersion) kinds.HelmChart {
 	kc := kinds.HelmChart{
 		Repository: repository, Name: c.Name, Version: v.Version, AppVersion: v.AppVersion,
 		Description: v.Description, Home: v.Home, Icon: v.Icon, KubeVersion: v.KubeVersion,
 		Digest: v.Digest, Keywords: v.Keywords, Maintainers: v.Maintainers, Sources: v.Sources,
-		Deprecated: v.Deprecated, Created: v.Created,
+		Deprecated: v.Deprecated, Created: v.Created, Origin: origin,
 	}
 	for _, cv := range c.Versions {
 		kc.Versions = append(kc.Versions, kinds.HelmChartVersion{Version: cv.Version, AppVersion: cv.AppVersion, Created: cv.Created})

@@ -13,6 +13,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
 // helmUpgradeTab is Lens's "Helm Upgrade: <name>" dock tab (captured 2026-10-12): save and search
@@ -32,7 +33,9 @@ import (
 // release's own marked "(current)" and starts on the engine's choice, the newest when it is newer,
 // and a second picker chooses the repository when several list the chart. A pick goes to the
 // engine (helm.release.upgradeTab with the repository and version), whose tab is what the pickers
-// show (update).
+// show (update). A repository whose content nothing authenticates (plain http, or https without
+// the certificate check) is marked beside the chart, and while Save downloads from it a line
+// under the chart says what that means (H-41, A14; the engine's HelmUpgradeTab.Origin).
 type helmUpgradeTab struct {
 	sh   *shell
 	tab  engine.DockTab
@@ -42,6 +45,10 @@ type helmUpgradeTab struct {
 	searchBtn   *tipButton
 	find        *findBar
 	chartText   *textLine
+	origin      *pill           // the repository's origin when nothing authenticates it (H-41, A14)
+	originBox   *fyne.Container // the pill's place on the chart's line
+	originNote  *textLine
+	originRow   *fyne.Container // what the origin means, while Save downloads from it
 	version     *widget.Select
 	versionBox  *fyne.Container
 	repo        *widget.Select
@@ -93,6 +100,14 @@ func newHelmUpgradeTab(sh *shell, t engine.DockTab) *helmUpgradeTab {
 	u.searchBtn = newTipButton(sh, theme.SearchIcon(), "Find", u.toggleSearch)
 	u.find = newFindBar(sh, u.pane.view)
 	u.chartText = newTextLine("", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
+	u.origin = newPill("", colorStatusWarning, true)
+	u.originBox = container.NewCenter(u.origin) // hidden whole: a hidden pill in it would still take the line's gap
+	u.originBox.Hide()
+	u.originNote = newTextLine("", colorStatusWarning, theme.SizeNameText, fyne.TextStyle{})
+	u.originNote.truncate = true
+	u.originRow = container.NewBorder(nil, nil,
+		container.NewCenter(widget.NewIcon(themedIcon(theme.WarningIcon(), colorStatusWarning))), nil, u.originNote)
+	u.originRow.Hide()
 	u.version = widget.NewSelect(nil, nil)
 	u.version.PlaceHolder = "Select…"
 	u.version.OnChanged = u.pickVersion
@@ -123,9 +138,9 @@ func newHelmUpgradeTab(sh *shell, t engine.DockTab) *helmUpgradeTab {
 	u.showChoice()
 
 	chartLine := container.NewHBox(u.saveBtn, u.searchBtn, newDivider(true),
-		container.NewCenter(u.chartText), container.NewCenter(u.versionText), u.repoBox, u.versionBox)
+		container.NewCenter(u.chartText), u.originBox, container.NewCenter(u.versionText), u.repoBox, u.versionBox)
 	header := container.NewStack(newSurface(colorDock), inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
-		container.NewVBox(chartLine, info)))
+		container.NewVBox(chartLine, u.originRow, info)))
 	footer := container.NewStack(newSurface(colorDock), inset(theme.SizeNameInnerPadding, theme.SizeNamePadding, u.status))
 	editor := container.NewBorder(nil, u.find.root, nil, nil,
 		container.NewStack(newSurface(theme.ColorNameInputBackground), u.pane.view))
@@ -170,6 +185,21 @@ func (u *helmUpgradeTab) showChoice() {
 	} else {
 		u.chartText.SetText(h.Repository + "/" + h.Chart)
 		u.versionText.SetText("version: " + own)
+	}
+	// A repository nothing authenticates is marked beside the chart; when Save downloads from it,
+	// the line under the chart says what that means: the upgrade's confirmation in the window
+	// (H-41, A14).
+	if mark := kinds.HelmOriginMark(h.Origin); mark != "" && h.Repository != "" {
+		u.origin.Set(mark, colorStatusWarning)
+		u.originBox.Show()
+	} else {
+		u.originBox.Hide()
+	}
+	if w := kinds.HelmOriginWarning(h.Repository, h.Origin); w != "" && h.Repository != "" && h.Version != own {
+		u.originNote.SetText(w)
+		u.originRow.Show()
+	} else {
+		u.originRow.Hide()
 	}
 
 	if len(h.Repositories) > 1 {
