@@ -74,7 +74,8 @@ type tableView struct {
 	now     time.Time
 	tf      model.TimeFormat // absolute times (an event's Last Seen) in the user's zone and format (D-31)
 
-	cells      []*tableCell // every cell the table has shown, pooled ones included
+	cells      []*tableCell  // every cell the table has shown, pooled ones included
+	headers    []*headerCell // every header cell the table made, for their tooltips (tableheadertip.go)
 	hoverRow   int
 	hoverCol   int
 	kbOn       bool // the table has the keyboard focus (tablekeys.go)
@@ -550,6 +551,10 @@ func (tv *tableView) createHeader() fyne.CanvasObject {
 // resize callback, but it resizes the header before updating it.
 func (tv *tableView) updateHeader(id widget.TableCellID, o fyne.CanvasObject) {
 	h := o.(*headerCell)
+	if !h.tracked { // registered on its first update, as the body cells: Table.Refresh makes templates it never shows
+		h.tracked = true
+		tv.headers = append(tv.headers, h)
+	}
 	if id.Row == -1 && tv.snap != nil && id.Col == checkColumn {
 		tv.check.showHeader(h) // the header's checkbox: every row shown, or none
 		return
@@ -662,6 +667,9 @@ func (tv *tableView) cellUnderPointer(row, col int) *tableCell {
 
 // requestTip asks for the tooltip of the cell under the pointer, or hides the tooltip.
 func (tv *tableView) requestTip() {
+	if tv.hoverCell == nil && tv.headerTipShown() {
+		return // a column header's tooltip (tableheadertip.go)
+	}
 	if tv.hoverCell == nil || !tv.pointerIn {
 		tv.sh.tip.hide()
 		return
@@ -1613,6 +1621,7 @@ type headerCell struct {
 	onDrag    func(col int, ev *fyne.DragEvent) // dragging the header moves its column (columnorder.go)
 	onDragEnd func(col int)
 	col       int
+	tracked   bool // registered in tableView.headers (tableheadertip.go)
 	title     string
 	sort      int  // 1 ascending, -1 descending, 0 not sorted
 	menu      bool // the ⋮ at the end of the header row

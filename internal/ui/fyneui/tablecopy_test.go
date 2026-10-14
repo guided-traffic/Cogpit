@@ -189,7 +189,9 @@ func TestListCopyIconAfterTheText(t *testing.T) {
 	}
 	b0, b1 := absRect(sh.view.copyIcon.btn)
 	_, c1 := absRect(name)
-	if c1.X-b1.X < 100 {
+	// The Name column keeps room after the name: 40 units at least since the Nodes list's usage
+	// bars and Disk column took some of its width (2026-10-14, G12).
+	if c1.X-b1.X < 40 {
 		t.Errorf("the icon ends %v before the column's end, want it right after the name in a wide column", c1.X-b1.X)
 	}
 	c0, _ := absRect(name)

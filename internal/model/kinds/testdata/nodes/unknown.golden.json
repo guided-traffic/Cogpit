@@ -25,6 +25,10 @@
       "text": ""
     },
     {
+      "column": "disk",
+      "text": ""
+    },
+    {
       "column": "taints",
       "text": "2",
       "num": 2

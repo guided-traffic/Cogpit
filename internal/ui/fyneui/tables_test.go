@@ -112,7 +112,7 @@ func TestCSVButtonSavesTheView(t *testing.T) {
 	if err := engine.WriteCSV(&want, f.tables["nodes"], fixedNow); err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != want.String() || !strings.HasPrefix(string(got), "Name,Warning,CPU,Memory,Taints,") {
+	if string(got) != want.String() || !strings.HasPrefix(string(got), "Name,Warning,CPU,Memory,Disk,Taints,") {
 		t.Fatalf("saved:\n%s\nwant:\n%s", got, want.String())
 	}
 	if len(sh.toasts.Objects) == 0 {

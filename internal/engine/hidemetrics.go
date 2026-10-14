@@ -44,7 +44,9 @@ const (
 	// HideContainers hides the charts of a pod's containers in its drawer.
 	HideContainers
 	// HideCPU, HideMemory, HideNetwork and HideFilesystem hide one measure everywhere: the CPU
-	// and Memory columns and charts, the drawer's Network and Filesystem variants.
+	// and Memory columns and charts, the drawer's Network and Filesystem variants; Filesystem
+	// also the Nodes list's Disk column and a node drawer's disk (Cogpit's: the disk is the
+	// node's filesystem).
 	HideCPU
 	HideMemory
 	HideNetwork
@@ -157,6 +159,12 @@ func (m MetricSet) listColumns(k model.UsageKind) (cpu, memory bool) {
 	return m&HideCPU == 0, m&HideMemory == 0
 }
 
+// diskShown reports whether the set leaves a usage kind's disk visible: the Nodes list's Disk
+// column and a node drawer's disk, hidden with the nodes or the filesystem.
+func (m MetricSet) diskShown(k model.UsageKind) bool {
+	return k == model.UsageNodes && m&(HideNodes|HideFilesystem) == 0
+}
+
 // drawerVariants are the chart variants a usage kind's drawer shows, in the buttons' order; none
 // when its place is hidden.
 func (m MetricSet) drawerVariants(k model.UsageKind) []string {
@@ -222,21 +230,22 @@ func hideMetricColumns(p *model.KindProfile, cols []model.Column, hidden MetricS
 		return cols, nil
 	}
 	cpu, memory := hidden.listColumns(p.Usage)
+	disk := p.DiskCell == nil || hidden.diskShown(p.Usage)
 	var ids []string
 	for i := range cols {
+		shown := true
 		switch cols[i].ID {
 		case model.ColumnCPU:
-			if !cpu && !cols[i].Hidden {
-				cols = cloneOnce(cols, p.Columns)
-				cols[i].Hidden = true
-				ids = append(ids, cols[i].ID)
-			}
+			shown = cpu
 		case model.ColumnMemory:
-			if !memory && !cols[i].Hidden {
-				cols = cloneOnce(cols, p.Columns)
-				cols[i].Hidden = true
-				ids = append(ids, cols[i].ID)
-			}
+			shown = memory
+		case model.ColumnDisk:
+			shown = disk
+		}
+		if !shown && !cols[i].Hidden {
+			cols = cloneOnce(cols, p.Columns)
+			cols[i].Hidden = true
+			ids = append(ids, cols[i].ID)
 		}
 	}
 	return cols, ids
@@ -258,27 +267,44 @@ func listFeedWanted(p *model.KindProfile, hidden MetricSet) bool {
 	return cpu || memory
 }
 
+// listFeedWants is what a view of p polls: the usage while its CPU or Memory column shows (the
+// cluster's settings), the disks while its Disk column shows, neither hidden by the cluster's
+// settings nor by the view's own columns (ui.setColumns): the disks cost Prometheus a query per
+// poll, so a column the user put away is not asked for.
+func listFeedWants(p *model.KindProfile, hidden MetricSet, params viewParams) feedWants {
+	w := feedWants{usage: listFeedWanted(p, hidden)}
+	if p.DiskCell != nil && hidden.diskShown(p.Usage) {
+		cols := ColumnsShown(p.Columns, params.hidden, params.hiddenSet)
+		if i := p.ColumnIndex(model.ColumnDisk); i >= 0 && i < len(cols) && !cols[i].Hidden {
+			w.disk = true
+		}
+	}
+	return w
+}
+
 // followHidden starts or stops the view's metrics feed as the hidden metrics say: a list whose CPU
-// and Memory columns are both hidden polls nothing. The feed starts once the view's kind has listed
-// (rebuild calls again), in the namespaces the view reads it in (D-39): a read the API server
-// refuses, in all namespaces before the plan follows the refusal, polls no metrics there either.
+// and Memory columns are both hidden polls nothing of them, one whose Disk column is hidden no disk.
+// The feed starts once the view's kind has listed (rebuild calls again), in the namespaces the view
+// reads it in (D-39): a read the API server refuses, in all namespaces before the plan follows the
+// refusal, polls no metrics there either. When what it wants changes, the new feed subscribes
+// before the old one is released, so a scope both poll is not asked again.
 func (w *viewWorker) followHidden(hidden MetricSet) {
 	if w.profile.Usage == "" || w.stopped.Load() {
 		return
 	}
-	want := listFeedWanted(w.profile, hidden)
 	w.mu.Lock()
+	want := listFeedWants(w.profile, hidden, w.params)
 	cur := w.usage
+	var old *usageFeed
 	switch {
-	case want && cur == nil && w.handle.HasSynced():
-		w.usage = w.backend.startUsageFeed(w.profile, w.plan, func() { signal(w.wake) })
-	case !want && cur != nil:
-		w.usage = nil
+	case want.any() && w.handle.HasSynced() && (cur == nil || cur.wants != want):
+		old = cur
+		w.usage = w.backend.startListFeed(w.profile, w.plan, want, func() { signal(w.wake) })
+	case !want.any() && cur != nil:
+		old, w.usage = cur, nil
 	}
 	w.mu.Unlock()
-	if !want && cur != nil {
-		cur.release()
-	}
+	old.release()
 }
 
 // followHidden starts or stops the drawer's metrics poll as the hidden metrics say, and tells the
@@ -290,6 +316,7 @@ func (d *drawerWatch) followHidden(s *Session, hidden MetricSet) {
 	if d.stopped.Load() {
 		return
 	}
+	d.followDisk(s, hidden) // a node's disk, unless hidden (drawerdisk.go)
 	if cpu, memory := hidden.listColumns(model.UsagePods); !cpu && !memory {
 		d.showPods(false) // its pod table's CPU and Memory are hidden: not polled (drawerpods.go)
 	}

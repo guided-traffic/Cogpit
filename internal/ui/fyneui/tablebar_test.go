@@ -4,11 +4,14 @@ import (
 	"image/color"
 	"math"
 	"slices"
+	"strings"
 	"testing"
 
 	"fyne.io/fyne/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/metrics"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
@@ -32,8 +35,22 @@ var barNodeUsage = map[string]model.Usage{
 	// worker-a-03: no measurement at all
 }
 
-// withNodeBars fills the fixture Nodes view's CPU and Memory cells as the engine's row cache does,
-// from barNodeUsage.
+// barNodeDisk are the fixture nodes' root filesystems (node-exporter through Prometheus): a few
+// nodes have none (no exporter on them).
+var barNodeDisk = map[string]model.NodeDisk{
+	"control-plane-1": {UsedBytes: 21 << 30, SizeBytes: 100 << 30},  // 21%
+	"worker-a-01":     {UsedBytes: 172 << 30, SizeBytes: 200 << 30}, // 86%
+	"worker-a-02":     {UsedBytes: 47 << 30, SizeBytes: 50 << 30},   // 94%
+	"worker-a-03":     {UsedBytes: 60 << 30, SizeBytes: 200 << 30},  // 30%
+	"worker-a-04":     {UsedBytes: 88 << 30, SizeBytes: 200 << 30},  // 44%
+	"worker-b-03":     {UsedBytes: 131 << 30, SizeBytes: 200 << 30}, // 66%
+}
+
+// diskTipFixture is the Disk header's tooltip as the engine writes it with Prometheus found.
+const diskTipFixture = "Disk: the root filesystem (/) as node-exporter reports it, read through Prometheus: Prometheus (monitoring/prometheus-server)."
+
+// withNodeBars fills the fixture Nodes view's CPU, Memory and Disk cells as the engine's row cache
+// does, from barNodeUsage and barNodeDisk, and the Disk header's tooltip.
 func withNodeBars(t testing.TB, f *fakeEngine) {
 	t.Helper()
 	p, _ := kinds.ByKey("nodes")
@@ -43,15 +60,16 @@ func withNodeBars(t testing.TB, f *fakeEngine) {
 	}
 	snap := *f.tables["nodes"]
 	snap.Rows = slices.Clone(snap.Rows)
-	cpu, mem := p.ColumnIndex(model.ColumnCPU), p.ColumnIndex(model.ColumnMemory)
+	snap.ColumnTips = map[string]string{model.ColumnDisk: diskTipFixture}
+	cpu, mem, disk := p.ColumnIndex(model.ColumnCPU), p.ColumnIndex(model.ColumnMemory), p.ColumnIndex(model.ColumnDisk)
 	for i, r := range snap.Rows {
-		u, ok := barNodeUsage[r.Ref.Name]
-		if !ok {
-			continue
-		}
-		c, m := p.UsageCells(objs[r.Ref.Name], u)
 		cells := slices.Clone(r.Cells)
-		cells[cpu], cells[mem] = c, m
+		if u, ok := barNodeUsage[r.Ref.Name]; ok {
+			cells[cpu], cells[mem] = p.UsageCells(objs[r.Ref.Name], u)
+		}
+		if d, ok := barNodeDisk[r.Ref.Name]; ok {
+			cells[disk] = p.DiskCell(objs[r.Ref.Name], d)
+		}
 		snap.Rows[i].Cells = cells
 	}
 	f.tables["nodes"] = &snap
@@ -106,6 +124,113 @@ func TestNodesListDrawsUsageBars(t *testing.T) {
 	if got := sh.view.cellAt(t, row("worker-a-02"), cpuCol).tipText(); got != "7.410 of 7.800 cores (95%)" {
 		t.Errorf("tooltip = %q", got)
 	}
+
+	// Disk: a bar from node-exporter's numbers; a node without them is empty.
+	diskCol := firstDataColumn + p.ColumnIndex(model.ColumnDisk)
+	check("worker-a-01", diskCol, 172.0/200, statusColorName(model.StatusWarning))
+	if got := sh.view.cellAt(t, row("worker-a-01"), diskCol).tipText(); got != "172.0 GiB of 200.0 GiB (86%)" {
+		t.Errorf("disk tooltip = %q", got)
+	}
+	if c := sh.view.cellAt(t, row("worker-b-01"), diskCol); c.full != "" {
+		t.Errorf("a node without node-exporter's numbers shows %q", c.full)
+	}
+	// The Disk header's tooltip says where the numbers come from; CPU's has none.
+	if got := sh.view.headerTip(diskCol); got != diskTipFixture {
+		t.Errorf("Disk header tooltip = %q", got)
+	}
+	if got := sh.view.headerTip(cpuCol); got != "" {
+		t.Errorf("CPU header tooltip = %q", got)
+	}
+	var head *headerCell
+	for _, h := range findAll[*headerCell](sh.view.table) {
+		if h.col == diskCol && h.Visible() {
+			head = h
+		}
+	}
+	if head == nil {
+		t.Fatal("no Disk header on screen")
+	}
+	hoverOver(w, q, middleOf(head).AddXY(-2, 0)) // the pointer enters the table, then moves on the header
+	hoverOver(w, q, middleOf(head))
+	if sh.tip.owner != head || sh.tip.text != diskTipFixture {
+		t.Errorf("hovering the Disk header asks for %q (owner %T)", sh.tip.text, sh.tip.owner)
+	}
+	var cpuHead *headerCell
+	for _, h := range sh.view.headers {
+		if h.col == cpuCol && h.Visible() {
+			cpuHead = h
+		}
+	}
+	hoverOver(w, q, middleOf(cpuHead))
+	if sh.tip.owner == head || sh.tip.owner == cpuHead {
+		t.Errorf("the CPU header asks for a tooltip: %q", sh.tip.text)
+	}
+	hoverOver(w, q, middleOf(head))
+	hoverOver(w, q, fyne.NewPos(20, 600)) // the sidebar
+	if sh.tip.owner == head {
+		t.Error("the header's tooltip stays after the pointer left")
+	}
+}
+
+// A node's drawer shows its disk under the chart, in the bars' colour at the thresholds, or quietly
+// why there is none.
+func TestNodeDrawerShowsTheDisk(t *testing.T) {
+	sh, ref := nodeDiskDrawer(t, ThemeDark)
+	p := sh.drawer.kept[metricsKey].(*metricsPanel)
+	if !p.disk.Visible() || p.disk.text != "Disk (/): 172.0 GiB of 200.0 GiB used (86%)" || p.disk.color != statusColorName(model.StatusWarning) {
+		t.Errorf("disk line %q in %s, shown %v", p.disk.text, p.disk.color, p.disk.Visible())
+	}
+	p.apply(&engine.ObjectMetrics{Ref: ref, Status: metrics.StatusAvailable, Source: "Kubernetes Metrics Server",
+		DiskNote: "the disk usage comes from node-exporter through Prometheus, and no Prometheus was found"}, nil)
+	if !strings.HasPrefix(p.disk.text, "Disk: the disk usage comes from node-exporter") || p.disk.color != colorMuted {
+		t.Errorf("disk note %q in %s", p.disk.text, p.disk.color)
+	}
+	p.apply(&engine.ObjectMetrics{Ref: ref, Status: metrics.StatusAvailable, Source: "Kubernetes Metrics Server"}, nil)
+	if p.disk.Visible() {
+		t.Error("a disk line without a disk or a note")
+	}
+}
+
+func TestRenderNodeDrawerDisk(t *testing.T) {
+	for _, c := range []struct {
+		mode ThemeMode
+		name string
+	}{{ThemeDark, "node_drawer_disk_dark.png"}, {ThemeLight, "node_drawer_disk_light.png"}} {
+		t.Run(c.name, func(t *testing.T) {
+			f := kindsFake(t, "nodes")
+			withNodeBars(t, f)
+			sh, _ := nodeDiskDrawerOn(t, f, c.mode)
+			savePNG(t, sh.win, c.name)
+		})
+	}
+}
+
+// nodeDiskDrawer opens worker-a-01's drawer with Prometheus's history, the Metrics Server's live
+// values and the node's disk.
+func nodeDiskDrawer(t *testing.T, mode ThemeMode) (*shell, model.ObjectRef) {
+	return nodeDiskDrawerOn(t, kindsFake(t, "nodes"), mode)
+}
+
+func nodeDiskDrawerOn(t *testing.T, f *fakeEngine, mode ThemeMode) (*shell, model.ObjectRef) {
+	t.Helper()
+	ref := model.ObjectRef{Context: "demo", Kind: "nodes", Name: fixtureNodeSpecs()[1].name}
+	f.metrics = map[string]*engine.ObjectMetrics{ref.String(): {
+		Ref: ref, Status: metrics.StatusAvailable, Source: "Prometheus (monitoring/prometheus-server) and Kubernetes Metrics Server",
+		Targets: []engine.MetricsTarget{{
+			Current: &model.Usage{CPUMilli: 1200, MemoryBytes: 3 << 30}, At: fixedNow,
+			Samples:     metricsSeries(40, func(i int) model.Usage { return model.Usage{CPUMilli: int64(900 + 8*i), MemoryBytes: 3 << 30} }),
+			Allocatable: model.Usage{CPUMilli: 7800, MemoryBytes: 30 << 30}, Capacity: model.Usage{CPUMilli: 8000, MemoryBytes: 32 << 30},
+		}},
+		Disk: &model.NodeDisk{Name: ref.Name, UsedBytes: 172 << 30, SizeBytes: 200 << 30},
+	}}
+	f.ui.Selected, f.ui.Drawer = []model.ObjectRef{ref}, &ref
+	sh, w, q := newTestShell(t, f, Options{Theme: mode})
+	q.until(t, "the node metrics", func() bool {
+		p, ok := sh.drawer.kept[metricsKey].(*metricsPanel)
+		return ok && p.data != nil && sh.view.snap != nil && sh.diag.total > 0
+	})
+	settle(w)
+	return sh, ref
 }
 
 func renderNodeBars(t *testing.T, mode ThemeMode, name string) {

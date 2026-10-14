@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (D-46 (night decision, for the owner to confirm): chart icons fetched when shown, with Preferences › Load chart icons on by default, built; D-11, D-37: a tab whose context leaves Cogpit closes, keeping an editor's draft and deleting a node shell's pod, Cogpit's defaults; D-44 (night decision, for the owner to confirm): agents read the dock's logs tabs freely and a terminal tab only once the user turned on its "Agents may read" switch, built; D-42, a night decision for the owner to confirm: no context picker at start, the welcome page, built; D-41, a night decision for the owner to confirm: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, built; D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (D-43, a night decision for the owner to confirm: the nodes' disk from node-exporter through Prometheus, never nodes/proxy, built with Cogpit's defaults listed; D-46 (night decision, for the owner to confirm): chart icons fetched when shown, with Preferences › Load chart icons on by default, built; D-11, D-37: a tab whose context leaves Cogpit closes, keeping an editor's draft and deleting a node shell's pod, Cogpit's defaults; D-44 (night decision, for the owner to confirm): agents read the dock's logs tabs freely and a terminal tab only once the user turned on its "Agents may read" switch, built; D-42, a night decision for the owner to confirm: no context picker at start, the welcome page, built; D-41, a night decision for the owner to confirm: the tabs and the tables' layout kept in `workspace.json`, restored without connecting anything, built; D-40, a night decision for the owner to confirm: a Pods table in the workloads' drawers, built with Cogpit's defaults listed; D-39: pod metrics listed per namespace for a user who may not list pods everywhere, a night decision, built; D-36 (night decision, for the owner to confirm): Argo CD's Sync writes the operation `argocd app sync` writes, bound to UID and resourceVersion; D-35 (night decision, for the owner to confirm): Argo CD's repository and cluster Secrets show an allowlist of non-credential keys; D-33, D-34: the Flux actions and the Flux dashboard, night decisions for the owner to confirm, built; D-37 and D-38, night decisions for the owner to confirm: the node shell as Lens's privileged pod, built; its image set by the user only; D-19: Create Secret built, the user's only, the values in `data` as Cogpit's default; D-16 revised (owner): releases live, a breaking change a minor release under v0; D-4: the unsigned app and the CLI archives built per release; D-32 (owner): every byte amount in binary units with one decimal, built with one formatter, the places not converted named for the owner; D-31 (owner): every timestamp in the local time zone and the region's format, built from the operating system's region, the format as a setting not built; D-25 (owner, in a real window): the drawer's copy icon right after every kind of value, a pill's included, built; D-30, the owner's answers: agents read certificates (H-45 closed), the key check and DER certificates built; D-30 (owner): certificates in Secrets decoded in the drawer and for agents, built with Cogpit's defaults; D-25 (owner, after seeing it): the lists' copy icon only outside a blacklist of columns, right after the text, built; D-29 built: Helm's repositories.yaml read every 2 s, credentials in memory only, indexes in Cogpit's own cache, add and remove removed; D-25: copy icons in the lists built, with Cogpit's defaults; D-29 (owner): Helm's repositories.yaml as the repositories' source; D-25 (owner): copy icons in the lists; D-11: drafts of unsaved editor text built with the night run's defaults, never a Secret's or Helm values (D-19); D-3 built 2026-10-13, its defaults listed; D-14: two terminal input patches added to the fork as upstream candidates, not offered; D-22 amended: the theme a preference, `--theme` an override for the run, the icon colours; D-11: Helm install built on the journal as the lead's default, still open; D-11: crash reports kept locally, built; D-26 and D-27 decided, D-27 built; D-21 built: the paste feature removed; D-13 revised to a full watch on Secrets; D-14, D-15, D-16 decided) · **Target:** Lens Desktop 2026.10.51501
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -31,6 +31,7 @@ projects' repositories; re-check them before relying on a version number.
 | [D-40](#d-40-a-pods-table-in-the-workloads-drawers) | A Pods table in the workloads' drawers | night decision, for the owner to confirm: the node drawer's table in the drawers of the six workload kinds (option b), built 2026-10-13 |
 | [D-41](#d-41-what-survives-a-restart) | What survives a restart: the tabs and the tables' layout | night decision, for the owner to confirm: Cogpit's own `workspace.json`, restored without connecting anything; built 2026-10-13 |
 | [D-42](#d-42-the-start-screen) | The start screen: the welcome page, no context picker by itself | night decision, for the owner to confirm: no picker at start (option b); built 2026-10-13 |
+| [D-43](#d-43-where-the-nodes-disk-comes-from) | Where the nodes' disk comes from | night decision, for the owner to confirm: node-exporter's root filesystem through Prometheus, never the kubelet's nodes/proxy (option b), built 2026-10-14 |
 | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs) | What agents read of the dock's logs and terminal tabs | night decision, for the owner to confirm: logs freely, a terminal tab only once the user turned on its switch (option b), built 2026-10-13 |
 | [D-46](#d-46-chart-icons-from-the-hosts-that-serve-them) | Chart icons from the hosts that serve them | night decision, for the owner to confirm: fetched when shown, https only, no credentials, bounded and checked, with Preferences › Load chart icons on by default (option b); built 2026-10-14 |
 
@@ -1809,6 +1810,51 @@ captured). Since D-41 the start can also show the tabs of the last run. **Built 
   last run not restored, an unreadable `workspace.json`) is shown as a toast once the window is up,
   with the crash notice, rather than only in the notification log.
 
+## D-43: Where the nodes' disk comes from
+
+**Night decision (the lead's, 2026-10-14, for the owner to confirm):** Lens's Nodes list shows a
+Disk usage bar (capture, 2026-10-11); the Metrics Server measures no disk. Options: (a) the
+kubelet's summary API (`/api/v1/nodes/<node>/proxy/stats/summary`), which every cluster has; (b)
+node-exporter's root filesystem (`node_filesystem_size_bytes` and `node_filesystem_avail_bytes` of
+the mountpoint `/`) through the cluster's Prometheus, matched to nodes by their node label or
+instance; (c) cAdvisor's filesystem series of the node's root cgroup through Prometheus (what the
+node drawer's Filesystem chart reads), which needs no node-exporter; chosen (b), because (a) needs
+`get nodes/proxy`, a permission that reaches the kubelet's whole API, running commands in the
+node's pods included ([privilege footprint](../security/privilege-footprint.md), Metrics), which
+Cogpit must not ask a user to grant for a column; and (c) sums every block device of the node, not
+the root filesystem a "Disk" bar means, and kube-prometheus-stack drops those series (G12). The
+price of (b): a cluster without Prometheus and node-exporter shows an empty column, whose header's
+tooltip says why. **Built 2026-10-14** ([`metrics/disk.go`](../../internal/metrics/disk.go),
+[`engine/drawerdisk.go`](../../internal/engine/drawerdisk.go); `TestNodeDisksFromNodeExporter`,
+`TestNodeDiskBudget`, `TestNodesListDiskColumn`, `TestNodesListDiskBudget`; architecture §9).
+
+What the build chose, Cogpit's defaults (not the owner's decision):
+
+- **One query per poll, the list's 60 s,** for every node at once: both gauges in one answer,
+  marked by a `part` label (`label_replace(…) or label_replace(…)`), `max by (node, instance)`
+  so that two jobs scraping one exporter count once. Options: (a) two queries (size, available),
+  (b) one; chosen (b), half the requests for the same numbers.
+- **Used is the size less the available bytes** (`df`'s Avail: what an unprivileged process may
+  still write), so the share counts the blocks reserved for root as used. Options: (a) size less
+  available, (b) size less free (`node_filesystem_free_bytes`); chosen (a), the share at which
+  workloads stop being able to write.
+- **A node is matched by its node label, else its instance's host as the node's name, else as one
+  of the node's addresses** (InternalIP, ExternalIP, Hostname). The prometheus chart's service
+  discovery adds the node label; an exporter scraped with host networking under its own address is
+  found by the node's InternalIP. Inferred, not checked against a real node-exporter (the kind
+  cluster's Prometheus has none).
+- **The Nodes list looks for Prometheus while its Disk column shows** (before: only when a drawer
+  opened or the Metrics Server failed). The cost on a cluster with Prometheus: the detection's
+  probe (once per 10 minutes) and the watch on Services the detection reads, then one query per
+  poll; a cluster whose only provider is the Metrics Server alone (the demo cluster) asks nothing.
+- **Hidden with the nodes or the filesystem** (Cluster Settings › Metrics), and not polled while the
+  user put the column away (the ⋮ column list), unlike CPU and Memory, which only the cluster's
+  settings stop: the disk costs Prometheus a query, the usage the Metrics Server a list the Pods
+  view shares.
+- **A node's drawer shows its disk** as a line under the node's chart ("Disk (/): 41.2 GiB of 58.4
+  GiB used (71%)", in the bars' colour at the thresholds), polled while the drawer is open, shared
+  with the Nodes list's poll; Lens's drawer has no disk line that is captured (inferred).
+
 ## D-44: What agents read of the dock's logs and terminal tabs
 
 **Night decision (the lead's, 2026-10-14, for the owner to confirm):** a terminal tab's output can
@@ -1914,6 +1960,7 @@ What the build chose, Cogpit's defaults (not the owner's decision):
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-14 | minor | D-43 (night decision, for the owner to confirm): the Nodes list's Disk and a node drawer's disk from node-exporter's root filesystem through Prometheus, never the kubelet's nodes/proxy; one query per 60 s poll, used as size less available, nodes matched by node label, instance or address, the Nodes list looking for Prometheus while the column shows, Cogpit's defaults; built |
 | 2026-10-14 | minor | D-46 (night decision, for the owner to confirm): chart icons fetched from the hosts that serve them when the window shows them, with Preferences › Load chart icons on by default (option b); a repository's own host allowed at a private address, other private addresses refused; built |
 | 2026-10-14 | minor | D-11, D-37 (the night build's seams): a dock tab whose context leaves Cogpit closes with it; an editor's draft is kept, a node shell's pod deleted (Cogpit's defaults) |
 | 2026-10-13 | minor | D-44 (night decision, for the owner to confirm): agents read what the dock's logs tabs show freely, a terminal tab's screen only once the user turned on the tab's switch (off when a tab opens, GUI-only); built with Cogpit's defaults (every terminal type, no dialog, the bounds, no scrollback in the widget) |

@@ -104,6 +104,26 @@ type NodeUsage struct {
 	Usage
 }
 
+// NodeDisk is a node's root filesystem (the mountpoint "/") as node-exporter reports it through
+// Prometheus, at Timestamp: its size, and the bytes in use, the size less what is available
+// (node_filesystem_avail_bytes: what an unprivileged process may still write, as df's Avail).
+// Name is the series' node: its node label, else its instance's host, which may be an address
+// (the engine matches it against the node's name and addresses).
+type NodeDisk struct {
+	Name      string    `json:"name"`
+	Timestamp time.Time `json:"timestamp"`
+	UsedBytes int64     `json:"usedBytes"`
+	SizeBytes int64     `json:"sizeBytes"`
+}
+
+// Share is the part of the filesystem in use; 0 for a filesystem without a size.
+func (d NodeDisk) Share() float64 {
+	if d.SizeBytes <= 0 {
+		return 0
+	}
+	return float64(d.UsedBytes) / float64(d.SizeBytes)
+}
+
 // UsageSample is one point of a usage time series.
 type UsageSample struct {
 	At time.Time `json:"at"`

@@ -97,6 +97,12 @@ type KindProfile struct {
 	// UsageCells returns the CPU and Memory cells of an object that has a measurement. It must
 	// tolerate any content without panicking.
 	UsageCells func(obj *unstructured.Unstructured, u Usage) (cpu, memory Cell)
+	// DiskCell, when set, says the kind has a Disk column (id [ColumnDisk], type [ColumnMetric])
+	// that shows a node's root filesystem as node-exporter reports it through Prometheus (the
+	// Metrics Server measures no disk; the kubelet's summary API is not used). Cells leaves it
+	// empty; while the view is open and Prometheus is found the engine polls it and fills it
+	// through DiskCell. It must tolerate any content without panicking.
+	DiskCell func(obj *unstructured.Unstructured, d NodeDisk) Cell
 }
 
 // LocalGroup is the API group of the local kinds, the objects Cogpit makes itself (port forwards).

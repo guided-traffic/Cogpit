@@ -66,7 +66,9 @@ func (s *Session) startViewWorker(b *Backend, p *model.KindProfile, rc *rowCache
 func (w *viewWorker) setParams(p viewParams) {
 	w.mu.Lock()
 	changed := !w.params.equal(p)
-	metricsChanged := w.params.metrics != p.metrics
+	// The feed follows the cluster's settings and the view's own columns (the Disk column put away
+	// is not polled: listFeedWants).
+	metricsChanged := w.params.metrics != p.metrics || w.params.hiddenSet != p.hiddenSet || !slices.Equal(w.params.hidden, p.hidden)
 	w.params = p
 	w.mu.Unlock()
 	if metricsChanged {
@@ -141,6 +143,9 @@ func (w *viewWorker) rebuild() {
 	snap.Synced = synced
 	snap.Error = errMsg
 	snap.Watched, snap.Denied = w.plan.watch, w.plan.denied
+	if w.profile.DiskCell != nil {
+		snap.ColumnTips = map[string]string{model.ColumnDisk: diskColumnTip(usage)} // where the disks come from, or why not
+	}
 	snap.Revision = w.s.state.snapshots.Add(1)
 	if w.stopped.Load() {
 		return
@@ -208,13 +213,16 @@ func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unst
 	match, filterErr := params.matcher()
 	groupCol, groupSet := groupFilter(p, params.groups)
 
-	cpuCol, memCol := -1, -1
+	cpuCol, memCol, diskCol := -1, -1, -1
 	var ugen uint64
 	if usage != nil && p.UsageCells != nil {
 		cpuCol, memCol = p.ColumnIndex(model.ColumnCPU), p.ColumnIndex(model.ColumnMemory)
 		ugen = usage.generation()
 	}
-	patching := cpuCol >= 0 || memCol >= 0
+	if usage != nil && p.DiskCell != nil {
+		diskCol, ugen = p.ColumnIndex(model.ColumnDisk), usage.generation()
+	}
+	patching := cpuCol >= 0 || memCol >= 0 || diskCol >= 0
 	ugen++ // 0 means "never patched"
 
 	kept := make([]*rowEntry, 0, len(objs))
@@ -237,8 +245,18 @@ func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unst
 			if e.patched {
 				base = e.base
 			}
-			if u, ok := usage.lookup(obj.GetNamespace(), obj.GetName()); ok {
-				e.base, e.row, e.patched = base, withUsage(p, base, obj, u, cpuCol, memCol), true
+			u, uok := usage.lookup(obj.GetNamespace(), obj.GetName())
+			d, dok := usage.diskOf(obj)
+			dok = dok && diskCol >= 0
+			row := base
+			if uok {
+				row = withUsage(p, row, obj, u, cpuCol, memCol)
+			}
+			if dok {
+				row = withDisk(p, row, obj, d, diskCol)
+			}
+			if uok || dok {
+				e.base, e.row, e.patched = base, row, true
 			} else {
 				e.row, e.patched = base, false
 			}

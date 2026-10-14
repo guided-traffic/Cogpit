@@ -21,6 +21,9 @@ const (
 const (
 	ColumnCPU    = "cpu"
 	ColumnMemory = "memory"
+	// ColumnDisk is the Nodes list's Disk column ([KindProfile.DiskCell]): the root filesystem,
+	// from Prometheus's node-exporter series.
+	ColumnDisk = "disk"
 )
 
 // ParseQuantity parses a Kubernetes resource quantity ("250m", "64Mi", "1.5") with a guard: it

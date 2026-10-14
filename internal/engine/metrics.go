@@ -29,25 +29,84 @@ import (
 // usage, the Nodes list every node's) for as long as the view is open. It tells the view worker
 // when new numbers came, and answers the lookups of the row cache.
 type usageFeed struct {
-	hub  *metrics.Hub
-	kind model.UsageKind
-	subs []*metrics.Subscription
-	gen  atomic.Uint64
+	hub   *metrics.Hub
+	kind  model.UsageKind
+	wants feedWants // what the view asked for (followHidden compares it)
+	disk  bool      // the disks are polled: asked for, and the cluster may have them (Hub.DisksPossible)
+	subs  []*metrics.Subscription
+	gen   atomic.Uint64
 }
+
+// feedWants is what a list's metrics feed polls: the usage its CPU and Memory columns show, and the
+// disks its Disk column shows (the Nodes list's, from Prometheus: metrics.DiskScope).
+type feedWants struct{ usage, disk bool }
+
+func (f feedWants) any() bool { return f.usage || f.disk }
 
 // startUsageFeed subscribes to the metrics a profile's CPU and Memory columns show, in the
 // namespaces the view reads its kind in (plan, D-39); nil for a kind without such columns, a
 // backend without metrics, or a view whose plan is still pending. onChange runs after each poll.
 func (b *Backend) startUsageFeed(p *model.KindProfile, plan nsPlan, onChange func()) *usageFeed {
-	if p.Usage == "" || b.Metrics == nil || plan.pending && p.Usage == model.UsagePods {
+	return b.startListFeed(p, plan, feedWants{usage: true}, onChange)
+}
+
+// startListFeed is startUsageFeed for the parts of a list's metrics that show: the usage scopes,
+// and for a profile with a Disk column the disks' scope (Prometheus's node-exporter series, polled
+// at the list interval while the column shows, on a cluster that may have them). nil when nothing
+// is wanted.
+func (b *Backend) startListFeed(p *model.KindProfile, plan nsPlan, w feedWants, onChange func()) *usageFeed {
+	w.disk = w.disk && p.DiskCell != nil
+	if p.Usage == "" || b.Metrics == nil || plan.pending && p.Usage == model.UsagePods || !w.any() {
 		return nil
 	}
-	f := &usageFeed{hub: b.Metrics, kind: p.Usage}
-	f.subs = subscribeAll(b.Metrics, usageListScopes(p.Usage, plan), func() {
+	f := &usageFeed{hub: b.Metrics, kind: p.Usage, wants: w, disk: w.disk && b.Metrics.DisksPossible()}
+	polled := func() {
 		f.gen.Add(1)
 		onChange()
-	})
+	}
+	if w.usage {
+		f.subs = subscribeAll(b.Metrics, usageListScopes(p.Usage, plan), polled)
+	}
+	if f.disk {
+		f.subs = append(f.subs, b.Metrics.Subscribe(metrics.DiskScope, polled))
+	}
 	return f
+}
+
+// diskOf returns a node's root filesystem when the feed polls the disks: by the node's name, then
+// by its addresses (a node-exporter known only by its address).
+func (f *usageFeed) diskOf(obj *unstructured.Unstructured) (model.NodeDisk, bool) {
+	if f == nil || !f.disk {
+		return model.NodeDisk{}, false
+	}
+	return f.hub.NodeDisk(nodeKeys(obj.GetName(), obj)...)
+}
+
+// diskColumnTip is the Disk column's header tooltip: where the numbers come from, or why the
+// column is empty (no Prometheus, one without node-exporter's series, a refused proxy, a cluster
+// whose only provider measures no disk).
+func diskColumnTip(f *usageFeed) string {
+	switch {
+	case f == nil || !f.wants.disk:
+		return diskTipWhat + "."
+	case !f.disk:
+		return diskTipWhat + ". Empty: this cluster's metrics provider measures no disk."
+	}
+	return diskTipOf(f.hub.DiskState())
+}
+
+// diskTipWhat is what the Disk column shows.
+const diskTipWhat = "Disk: the root filesystem (/) as node-exporter reports it, read through Prometheus"
+
+// diskTipOf is the Disk column's tooltip for the disks' state.
+func diskTipOf(st metrics.State) string {
+	switch st.Status {
+	case metrics.StatusAvailable:
+		return diskTipWhat + ": " + st.Label + "."
+	case metrics.StatusUnknown:
+		return diskTipWhat + ". Looking for Prometheus…"
+	}
+	return diskTipWhat + ". Empty: " + strings.TrimSuffix(st.Message, ".") + "."
 }
 
 // usageListScopes are the metrics scopes of a list of a usage kind read as plan says (D-39): the
@@ -104,7 +163,7 @@ func (f *usageFeed) generation() uint64 {
 
 // lookup returns the usage of the object a row stands for.
 func (f *usageFeed) lookup(namespace, name string) (model.Usage, bool) {
-	if f == nil {
+	if f == nil || !f.wants.usage {
 		return model.Usage{}, false
 	}
 	if f.kind == model.UsageNodes {
@@ -138,6 +197,25 @@ func withUsage(p *model.KindProfile, row model.Row, obj *unstructured.Unstructur
 	if memCol >= 0 && memCol < len(cells) {
 		cells[memCol] = mem
 	}
+	row.Cells = cells
+	return row
+}
+
+// withDisk returns the row with its Disk cell filled from d (a profile's DiskCell). The row is
+// shared and immutable: the cells are a copy.
+func withDisk(p *model.KindProfile, row model.Row, obj *unstructured.Unstructured, d model.NodeDisk, diskCol int) (out model.Row) {
+	defer func() {
+		if recover() != nil {
+			out = row
+		}
+	}()
+	if diskCol < 0 || diskCol >= len(row.Cells) {
+		return row
+	}
+	cell := p.DiskCell(obj, d)
+	cells := make([]model.Cell, len(row.Cells))
+	copy(cells, row.Cells)
+	cells[diskCol] = cell
 	row.Cells = cells
 	return row
 }
@@ -233,6 +311,12 @@ type ObjectMetrics struct {
 	Providers []metrics.ProviderStatus `json:"providers,omitempty"`
 	// Targets: the object first, then a pod's containers in spec order.
 	Targets []MetricsTarget `json:"targets"`
+	// Disk is a node's root filesystem from Prometheus's node-exporter series (the Nodes list's
+	// Disk column), polled while the drawer shows a node; nil without. DiskNote says why there is
+	// none (no Prometheus, one without node-exporter's series); empty for a pod, or when the
+	// cluster's settings hide the disk.
+	Disk     *model.NodeDisk `json:"disk,omitempty"`
+	DiskNote string          `json:"diskNote,omitempty"`
 }
 
 // ObjectMetrics returns the Metrics section of a pod or node, or nil, nil for a kind without one.
@@ -277,6 +361,9 @@ func (s *Session) ObjectMetrics(ref model.ObjectRef) (*ObjectMetrics, error) {
 		}
 	case model.UsageNodes:
 		out.Targets = nodeTargets(b.Metrics, ref, obj)
+		if p.DiskCell != nil && hidden.diskShown(p.Usage) {
+			out.Disk, out.DiskNote = drawerDisk(b.Metrics, ref, obj) // drawerdisk.go
+		}
 	}
 	setWindows(out.Targets, s.chartWindows(ref), b.Metrics.DefaultWindow())
 	setVariants(out.Targets, s.chartVariants(ref), caps, visible)

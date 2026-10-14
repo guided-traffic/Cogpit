@@ -31,6 +31,7 @@ const (
 //	{pods, "web", "a"}  one pod (a drawer)
 //	{nodes, "", ""}     every node; {nodes, "", "n1"} one node
 //	{cluster, "", "m1"} the cluster's totals, m1 its control-plane node (ClusterScope, hubcluster.go)
+//	{nodeDisk, "", ""}  every node's root filesystem, from Prometheus (DiskScope, disk.go)
 type Scope struct {
 	Kind      Kind
 	Namespace string
@@ -273,6 +274,7 @@ type dataSet struct {
 	at    time.Time // when the hub got it
 	pods  map[string]model.PodUsage
 	nodes map[string]model.NodeUsage
+	disks map[string]model.NodeDisk // the disk scope's, by the series' node (disk.go)
 }
 
 type flight struct {
@@ -923,7 +925,11 @@ func (h *Hub) fetch(ctx context.Context, sc Scope, object bool) State {
 		state = h.pollObject(ctx, sc)
 	} else {
 		var data *dataSet
-		data, state = h.pollCurrent(ctx, sc)
+		if sc.Kind == KindNodeDisk {
+			data, state = h.pollDisks(ctx, sc) // Prometheus only (disk.go)
+		} else {
+			data, state = h.pollCurrent(ctx, sc)
+		}
 		h.mu.Lock()
 		if ctx.Err() == nil || data != nil {
 			st.attempted, st.state = h.opts.Now(), state

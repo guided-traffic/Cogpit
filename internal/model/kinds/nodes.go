@@ -29,6 +29,7 @@ var nodes = &model.KindProfile{
 		warningColumn,
 		nodeCPUColumn,
 		nodeMemoryColumn,
+		nodeDiskColumn,
 		{ID: "taints", Title: itemTaints, Type: model.ColumnNumber},
 		{ID: "roles", Title: "Roles", Type: model.ColumnText},
 		{ID: "version", Title: "Version", Type: model.ColumnText},
@@ -38,6 +39,7 @@ var nodes = &model.KindProfile{
 	Cells:      nodeCells,
 	Usage:      model.UsageNodes,
 	UsageCells: nodeUsageCells,
+	DiskCell:   nodeDiskCell,
 	Fields: map[string]fieldFunc{
 		"internalIP": func(obj *unstructured.Unstructured) []string {
 			return nodeAddresses(obj, "InternalIP")
@@ -71,6 +73,7 @@ func nodeCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 		s.warning(),
 		{}, // CPU, filled from the Metrics API (nodeUsageCells)
 		{}, // Memory
+		{}, // Disk, filled from Prometheus's node-exporter series (nodeDiskCell)
 		{Num: int64(len(model.NestedSlice(obj, "spec", "taints")))},
 		{Text: roles},
 		{Text: model.NestedString(obj, "status", "nodeInfo", "kubeletVersion")},

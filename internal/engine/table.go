@@ -42,6 +42,9 @@ type TableSnapshot struct {
 	// hidemetrics.go) and the view itself shows: Hidden in Columns, yet not among the view's own
 	// hidden columns, which ui.setColumns sets (UIState.HiddenColumns).
 	MetricsHidden []string `json:"metricsHidden,omitempty"`
+	// ColumnTips are tooltips of column headers by column id: the Nodes list's Disk says where its
+	// numbers come from, or why it is empty (no Prometheus, no node-exporter series).
+	ColumnTips map[string]string `json:"columnTips,omitempty"`
 }
 
 // DisplayOrder returns the indexes of Columns in the order the table shows them: Order, or

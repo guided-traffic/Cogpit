@@ -18,13 +18,16 @@ var (
 	cpuColumn    = model.Column{ID: model.ColumnCPU, Title: titleCPU, Type: model.ColumnMetric}
 	memoryColumn = model.Column{ID: model.ColumnMemory, Title: titleMemory, Type: model.ColumnMetric}
 	// The Nodes list's columns draw a usage bar beside the share, so they are wider than the Pods
-	// list's numbers (Cogpit's width: "100%" and a bar of about 60 points).
+	// list's numbers (Cogpit's width: "100%" and a bar of about 50 points).
 	nodeCPUColumn    = model.Column{ID: model.ColumnCPU, Title: titleCPU, Type: model.ColumnMetric, Width: nodeBarWidth}
 	nodeMemoryColumn = model.Column{ID: model.ColumnMemory, Title: titleMemory, Type: model.ColumnMetric, Width: nodeBarWidth}
+	// nodeDiskColumn is the Nodes list's Disk (Lens: after Memory, a usage bar): the root
+	// filesystem from Prometheus's node-exporter series, empty without them.
+	nodeDiskColumn = model.Column{ID: model.ColumnDisk, Title: "Disk", Type: model.ColumnMetric, Width: nodeBarWidth}
 )
 
 // nodeBarWidth is the default width of a Nodes list's usage-bar column.
-const nodeBarWidth = 112
+const nodeBarWidth = 100
 
 // podUsageCells shows a pod's usage as Lens's Pods list does: CPU in cores with three decimals
 // ("0.012"), memory in binary units with one decimal (D-32: "19.5 MiB").
@@ -56,4 +59,13 @@ func nodeUsageCells(obj *unstructured.Unstructured, u model.Usage) (cpu, memory 
 			model.FormatBytes(u.MemoryBytes)+" of "+model.FormatBytes(alloc.MemoryBytes))
 	}
 	return cpu, memory
+}
+
+// nodeDiskCell shows a node's root filesystem as the share in use, drawn as a usage bar, the
+// amounts as its detail ("41.2 GiB of 58.4 GiB"). A filesystem without a size is an empty cell.
+func nodeDiskCell(_ *unstructured.Unstructured, d model.NodeDisk) model.Cell {
+	if d.SizeBytes <= 0 {
+		return model.Cell{}
+	}
+	return model.ShareCell(d.Share(), model.FormatBytes(d.UsedBytes)+" of "+model.FormatBytes(d.SizeBytes))
 }
