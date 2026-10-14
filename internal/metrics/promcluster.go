@@ -45,10 +45,14 @@ func clusterQueries(masters []string, win time.Duration) (cpuAll, memAll, cpuMas
 }
 
 // clusterRange answers a range query of the cluster scope: the targets "" (every node), master and
-// worker. Only CPU and memory exist for the cluster; a query that wants neither costs nothing. Every
-// query must answer.
+// worker. CPU and memory (WantUsage, every query must answer) and the pod counts (WantPods,
+// kube-state-metrics': a failure leaves them out) exist for the cluster; a query that wants neither
+// costs nothing.
 func (p *Prometheus) clusterRange(ctx context.Context, q RangeQuery) (*ObjectSeries, error) {
 	out := &ObjectSeries{Targets: map[string]*TargetSeries{}, From: q.From, To: q.To, Step: q.Step}
+	if q.Want.Has(WantPods) {
+		p.clusterPods(ctx, q, out)
+	}
 	if q.Want != 0 && !q.Want.Has(WantUsage) {
 		return out, nil
 	}
@@ -77,7 +81,7 @@ func (p *Prometheus) clusterRange(ctx context.Context, q RangeQuery) (*ObjectSer
 	}
 	set := func(target string, cpu, mem []point) {
 		if u := mergeUsage(cpu, mem); len(u) > 0 {
-			out.Targets[target] = &TargetSeries{Usage: u}
+			targetOf(out, target).Usage = u
 		}
 	}
 	allCPU, allMem := first(res[0]), first(res[1])

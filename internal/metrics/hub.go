@@ -625,7 +625,7 @@ func (h *Hub) Forget() {
 	}
 	for sc, st := range h.scopes {
 		if st.chart != nil { // the history may be another Prometheus's: ask again
-			st.chart.hist, st.chart.net, st.chart.fsys = coverage{}, coverage{}, coverage{}
+			st.chart.hist, st.chart.net, st.chart.fsys, st.chart.podsCov = coverage{}, coverage{}, coverage{}, coverage{}
 			h.kickLocked(sc)
 		}
 	}

@@ -130,8 +130,13 @@ func (p *clusterPanel) show(m *engine.ClusterOverviewModel) {
 		p.setCaption("Metrics are not available: "+m.Message, colorStatusWarning)
 	}
 	note := "Pods are counted from the cluster's objects since this page opened."
-	if m.Status == metrics.StatusAvailable && !m.History {
+	switch {
+	case m.Status == metrics.StatusAvailable && !m.History:
 		note = "The Metrics Server keeps no history: Cogpit keeps what it measured, the last hour at most."
+	case m.PodsHistory == metrics.PodsFromKubeStateMetrics:
+		note = "Pods before this page opened: kube-state-metrics through Prometheus; since then the cluster's objects."
+	case m.PodsHistory == metrics.PodsFromNowhere:
+		note = "Pods are counted from the cluster's objects since this page opened: Prometheus has no kube-state-metrics series."
 	}
 	p.note.SetText(note)
 	p.note.Show()

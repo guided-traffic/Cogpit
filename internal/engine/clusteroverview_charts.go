@@ -186,6 +186,9 @@ func (c *overviewCharts) subscribeLocked(ob *overviewBuild) {
 	c.scope = sc
 	c.sub = c.b.Metrics.Subscribe(sc, c.polled)
 	c.sub.SetWindows(chartWindowOf(c.choice))
+	// The Pods chart's history from Prometheus (kube-state-metrics), once over the range; it shows
+	// whenever the subscription does (the cluster's place hides all three charts at once).
+	c.sub.SetWants(metrics.WantPods)
 	old.Release()
 }
 
@@ -262,8 +265,12 @@ func (c *overviewCharts) fill(m *ClusterOverviewModel, ob *overviewBuild, series
 		target = metrics.TargetMaster
 	}
 	ts := hist.Targets[target]
+	m.PodsHistory = hist.PodsSource
 	if ts == nil {
 		return
+	}
+	if len(ts.Pods) > 0 && !m.Charts[2].Hidden {
+		addPodsHistory(&m.Charts[2], ts.Pods, pods, from, series) // clusteroverview_pods.go
 	}
 	for i, metric := range []string{OverviewCPU, OverviewMemory} {
 		ch := &m.Charts[i]

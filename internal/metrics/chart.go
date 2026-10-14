@@ -18,10 +18,14 @@ type chart struct {
 	network  []model.NetworkSample
 	fs       map[string][]model.FilesystemSample
 	fsSource string
+	// pods are the cluster scope's pod counts by target (WantPods), podsSource where they come
+	// from once asked ("kube-state-metrics" or "none").
+	pods       map[string][]model.CountSample
+	podsSource string
 
 	// The history each kind of series holds: the window and step it was asked for (zero: none,
 	// asked for at the next poll a history provider answers), and when it was last asked for.
-	hist, net, fsys coverage
+	hist, net, fsys, podsCov coverage
 
 	// gap is a hole in the usage between two points (both live values came, the history provider
 	// was away between them) that the history provider fills once when it answers; nil without.
@@ -46,12 +50,13 @@ func (c coverage) covers(window, step time.Duration) bool {
 }
 
 func newChart() *chart {
-	return &chart{usage: map[string][]model.UsageSample{}, fs: map[string][]model.FilesystemSample{}}
+	return &chart{usage: map[string][]model.UsageSample{}, fs: map[string][]model.FilesystemSample{}, pods: map[string][]model.CountSample{}}
 }
 
 func usageAt(s model.UsageSample) time.Time           { return s.At }
 func networkAt(s model.NetworkSample) time.Time       { return s.At }
 func filesystemAt(s model.FilesystemSample) time.Time { return s.At }
+func countAt(s model.CountSample) time.Time           { return s.At }
 
 // splice returns old with the points at or after from and before to replaced by add's points in
 // that interval: the answer of a range query over [from, to) takes the place of what the chart
@@ -123,6 +128,18 @@ func (c *chart) applyRange(res *ObjectSeries, want Want, from, to time.Time) {
 				add = t.Filesystem
 			}
 			c.fs[name] = splice(c.fs[name], add, from, to, filesystemAt)
+		}
+	}
+	if want.Has(WantPods) {
+		if res.PodsSource != "" {
+			c.podsSource = res.PodsSource
+		}
+		for _, name := range namesOf(c.pods, res) {
+			var add []model.CountSample
+			if t := res.Targets[name]; t != nil {
+				add = t.Pods
+			}
+			c.pods[name] = splice(c.pods[name], add, from, to, countAt)
 		}
 	}
 }
@@ -221,6 +238,9 @@ func (c *chart) drop(want Want) {
 	if want.Has(WantFilesystem) {
 		c.fs, c.fsys, c.fsSource = map[string][]model.FilesystemSample{}, coverage{}, ""
 	}
+	if want.Has(WantPods) {
+		c.pods, c.podsCov, c.podsSource = map[string][]model.CountSample{}, coverage{}, ""
+	}
 }
 
 // trim keeps each series' points no more than age older than its newest, and at most maxPoints of
@@ -234,6 +254,9 @@ func (c *chart) trim(age time.Duration, maxPoints int) {
 	c.network = bound(c.network, age, maxPoints, networkAt)
 	for k, pts := range c.fs {
 		c.fs[k] = bound(pts, age, maxPoints, filesystemAt)
+	}
+	for k, pts := range c.pods {
+		c.pods[k] = bound(pts, age, maxPoints, countAt)
 	}
 	if last := c.lastUsage(); c.gap != nil && c.gap[1].Before(last.Add(-age)) {
 		c.gap = nil
@@ -258,7 +281,7 @@ func bound[T any](pts []T, age time.Duration, maxPoints int, at func(T) time.Tim
 // series returns the chart as an ObjectSeries for the engine: the points are shared and must not
 // be modified.
 func (c *chart) series() *ObjectSeries {
-	out := &ObjectSeries{Targets: map[string]*TargetSeries{}, FilesystemSource: c.fsSource, To: c.at, Step: c.step}
+	out := &ObjectSeries{Targets: map[string]*TargetSeries{}, FilesystemSource: c.fsSource, PodsSource: c.podsSource, To: c.at, Step: c.step}
 	target := func(name string) *TargetSeries {
 		t := out.Targets[name]
 		if t == nil {
@@ -278,6 +301,11 @@ func (c *chart) series() *ObjectSeries {
 	for name, pts := range c.fs {
 		if len(pts) > 0 {
 			target(name).Filesystem = slices.Clip(pts)
+		}
+	}
+	for name, pts := range c.pods {
+		if len(pts) > 0 {
+			target(name).Pods = slices.Clip(pts)
 		}
 	}
 	if len(out.FilesystemSource) > 0 && len(c.fs) == 0 {

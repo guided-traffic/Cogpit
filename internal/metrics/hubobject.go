@@ -126,6 +126,9 @@ func (h *Hub) planLocked(st *scopeState, sc Scope, now time.Time) objectPlan {
 	if !wants.Has(WantFilesystem) && ch.fsys != (coverage{}) {
 		ch.drop(WantFilesystem)
 	}
+	if !wants.Has(WantPods) && ch.podsCov != (coverage{}) {
+		ch.drop(WantPods)
+	}
 	live, hist := h.rolesLocked(now)
 	p := objectPlan{window: window, step: step, liveSlot: live, histSlot: hist}
 	if live != nil && live != hist {
@@ -155,6 +158,11 @@ func (h *Hub) planLocked(st *scopeState, sc Scope, now time.Time) objectPlan {
 		case now.Sub(x.c.asked) >= step:
 			inc |= x.w
 		}
+	}
+	// The cluster's pod counts: over the range once (the history before the page opened), never
+	// incrementally, since the cache counts the pods while the page is open (promcluster.go).
+	if sc.Kind == KindCluster && wants.Has(WantPods) && !ch.podsCov.covers(window, step) {
+		full |= WantPods
 	}
 	if full != 0 {
 		p.full = &RangeQuery{Kind: base.Kind, Namespace: base.Namespace, Name: base.Name, From: from, To: now, Step: step, Want: full}
@@ -227,6 +235,9 @@ func (h *Hub) applyObjectLocked(ctx context.Context, st *scopeState, sc Scope, p
 		}
 		if p.full.Want.Has(WantFilesystem) {
 			ch.fsys = cov
+		}
+		if p.full.Want.Has(WantPods) {
+			ch.podsCov = cov
 		}
 		served = true
 	}

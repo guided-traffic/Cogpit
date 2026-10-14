@@ -99,6 +99,10 @@ type ClusterOverviewModel struct {
 	Source  string         `json:"source,omitempty"`
 	Message string         `json:"message,omitempty"`
 	History bool           `json:"history,omitempty"`
+	// PodsHistory says where the Pods chart's history before the page opened comes from:
+	// "kube-state-metrics" (through Prometheus), "none" (Prometheus has no such series: the chart
+	// is the cache's counts since the page opened), or empty while not known.
+	PodsHistory string `json:"podsHistory,omitempty"`
 	// Providers is the status line under the charts: each of the cluster's metrics providers, whether
 	// it answers, what it serves (as metrics.get and a drawer's status line have it).
 	Providers []metrics.ProviderStatus `json:"providers,omitempty"`

@@ -124,6 +124,13 @@ func (d NodeDisk) Share() float64 {
 	return float64(d.UsedBytes) / float64(d.SizeBytes)
 }
 
+// CountSample is one point of a count over time: the pods on a group of nodes (the cluster
+// Overview's Pods chart).
+type CountSample struct {
+	At    time.Time `json:"at"`
+	Value float64   `json:"value"`
+}
+
 // UsageSample is one point of a usage time series.
 type UsageSample struct {
 	At time.Time `json:"at"`

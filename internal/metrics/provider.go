@@ -167,7 +167,11 @@ const (
 	WantNetwork
 	// WantFilesystem: the filesystem's usage, or its read and write rates (one or two queries).
 	WantFilesystem
-	// WantAll is every series.
+	// WantPods: the cluster's pods on its nodes, from kube-state-metrics (the cluster scope only;
+	// one query, two with control-plane nodes). Asked for over a chart's range only: the cache
+	// counts the pods after that (promcluster.go).
+	WantPods
+	// WantAll is every series of a pod or a node.
 	WantAll = WantUsage | WantNetwork | WantFilesystem
 )
 
@@ -182,6 +186,8 @@ type TargetSeries struct {
 	// Network is set for the whole object only: the network is a pod's, not a container's.
 	Network    []model.NetworkSample    `json:"network,omitempty"`
 	Filesystem []model.FilesystemSample `json:"filesystem,omitempty"`
+	// Pods is the cluster scope's pod count of the target's nodes (WantPods).
+	Pods []model.CountSample `json:"pods,omitempty"`
 }
 
 // ObjectSeries is the answer to a RangeQuery.
@@ -192,6 +198,9 @@ type ObjectSeries struct {
 	// "io" (read and write rates, used when the cluster's Prometheus has no usage series), or ""
 	// when there are no filesystem series.
 	FilesystemSource string `json:"filesystemSource,omitempty"`
+	// PodsSource says where the Pods series come from once they were asked for (WantPods):
+	// "kube-state-metrics", or "none" when the Prometheus has no such series; "" when not asked.
+	PodsSource string `json:"podsSource,omitempty"`
 	// From, To and Step are the grid the series were asked for.
 	From, To time.Time
 	Step     time.Duration
