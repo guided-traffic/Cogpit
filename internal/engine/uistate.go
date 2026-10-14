@@ -171,8 +171,8 @@ type DockTab struct {
 // HelmUpgradeTab is what a Helm Upgrade tab shows beside its values editor (Lens's "Helm Upgrade:
 // <name>" tab, captured 2026-10-12): the release's chart, the version the upgrade installs and the
 // versions its picker offers. The tab's Ref is the release (kind helmreleases); its values are the
-// tab's editor text (editor.get, editor.setText), which agents read withheld (model.Withheld).
-// helm.release.upgradeTab with a repository or a version changes the choice (helmupgrade.go).
+// tab's editor text (editor.get, editor.setText), which agents read withheld (model.Withheld; the
+// built-in agent over a private connection as the window shows it, H-94). helm.release.upgradeTab with a repository or a version changes the choice (helmupgrade.go).
 type HelmUpgradeTab struct {
 	Chart string `json:"chart"`
 	// Version is the version the upgrade installs: the release's own (its stored chart), or one of

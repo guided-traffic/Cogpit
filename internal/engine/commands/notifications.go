@@ -26,9 +26,9 @@ func registerNotifications(g *registrar) {
 			"message the window raised itself (such as a command's error) or one quoting a Helm action's error reads " +
 			"here with the values of the Secrets Cogpit's cache holds replaced by «secret <namespace>/<name>/<key>» and " +
 			"the action's inline values by «inline value». Only the user marks them read or clears them. Nothing is sent " +
-			"to a cluster.",
+			"to a cluster." + privateReads,
 		Run: func(ctx context.Context, s *engine.Session, _ struct{}) (any, error) {
-			return s.Notifications(engine.OriginOf(ctx) == engine.OriginGUI), nil
+			return s.Notifications(engine.ReadsLikeUser(ctx)), nil // the window's, in full, to a private turn too (H-94)
 		},
 	})
 

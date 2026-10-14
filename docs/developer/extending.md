@@ -39,6 +39,11 @@ Ordered checklists for the common additions. The packages they name are in
      out ([architecture §7](architecture.md#7-mcp-and-the-built-in-agent), agents-and-mcp H-82,
      H-63). A command that takes text an agent wrote calls `GuardSecretText` or
      `GuardSecretEditor`, which also refuse the placeholders Cogpit showed in place of a value.
+     A read that withholds a value by who asks never asks the origin alone: it asks
+     `engine.ReadsLikeUser(ctx)` (withheld from everyone but the window) or
+     `engine.ReadsAsAgent(ctx)` (withheld from agents only), so that the built-in agent over a
+     private connection reads what the window shows (D-10, agents-and-mcp H-94); a write rule
+     keeps asking `engine.OriginOf(ctx)`.
    Cluster writes go through an interface the backend's writer implements: `*cluster.Conn` in
    the app, a fake in tests. Each area declares its own interface in its own engine file (as
    `engine.Actions` does for the MVP's actions) and reaches it with a type assertion on

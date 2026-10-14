@@ -130,7 +130,7 @@ func registerHelm(g *registrar) {
 			if list == nil {
 				list = []engine.PendingHelmOpInfo{}
 			}
-			if engine.OriginOf(ctx) != engine.OriginGUI {
+			if !engine.ReadsLikeUser(ctx) { // the window and a private turn read it (H-94)
 				for i := range list { // the SDK's text can quote what a chart's lookup read (forCaller)
 					if list[i].Error != "" {
 						list[i].Error = withheldHelmError
@@ -360,14 +360,27 @@ const withheldHelmError = "failed; the error is shown in Cogpit's window only"
 // templates run the values through tpl, so an agent's values can reach lookup, and the SDK's error
 // can quote what lookup read, a Secret's data included (review 2026-10-13); the values themselves
 // are scrubbed (helm.Scrubbed), what the cluster returned is not. The user reads the full error in
-// the window's toast; the caller learns that the action failed and where to look.
+// the window's toast; the caller learns that the action failed and where to look. The built-in
+// agent over a connection the user marked private reads the error as the window does (D-10,
+// H-94), and the audit log records only that it failed (userOnly).
 func forCaller(ctx context.Context, action, release string, err error) error {
 	if err == nil || engine.OriginOf(ctx) == engine.OriginGUI {
 		return err
 	}
+	if engine.PrivateTurn(ctx) {
+		return userOnly(err, fmt.Sprintf("the %s of release %s failed", action, release))
+	}
 	return &withheldErr{err: err, msg: fmt.Sprintf("the %s of release %s failed; Cogpit's window shows the error, which is not "+
 		"passed on because a chart's templates can quote what they read from the cluster; a release left pending is listed "+
 		"by helm_pendingOperations", action, release)}
+}
+
+// userOnly is a Helm error a private turn of the built-in agent reads in full: the audit log, which
+// keeps cluster values out for every origin, records what failed instead of the text, which a
+// chart's templates can fill with what their lookup read (engine.UserOnlyError).
+func userOnly(err error, what string) error {
+	return &engine.UserOnlyError{Err: err, Withheld: what + "; its error, which a chart's templates can fill with what " +
+		"they read from the cluster, is shown in Cogpit's window and to the built-in agent's private connection, not logged"}
 }
 
 // helmSafely runs a release action and turns a panic into an error: the action's goroutine

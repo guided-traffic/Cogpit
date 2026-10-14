@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
 
 	"github.com/guided-traffic/cogpit/internal/model"
 )
@@ -20,13 +21,18 @@ import (
 // any other object and makes no request of its own. The drawer model lists every key with its
 // value masked and its size, for the GUI and agents alike; secret.reveal hands one value of the
 // Secret the drawer shows to the user's own window and refuses every other origin. Values never
-// reach the drawer model, the YAML (model.Redact), logs, errors, toasts or the audit log.
+// reach the drawer model, the YAML (model.Redact), logs, errors, toasts or the audit log; the one
+// exception is object.get for the built-in agent over a connection the user marked private, which
+// reads like the user (readLikeUser below, D-10, H-94).
 
 // RevealCommand is the command a masked Secret value's "Show" button runs: GUI-only.
 const RevealCommand = "secret.reveal"
 
 // secretsKind is the kind key of core Secrets.
 const secretsKind = "secrets"
+
+// secretDataTitle is the title of a Secret drawer's section of keys.
+const secretDataTitle = "Data"
 
 // Caps on what the drawer lists and a reveal shows. A Secret holds up to 1 MiB; the drawer lists
 // keys and shows one value at a time, so a reveal shows only the beginning of a value.
@@ -47,7 +53,7 @@ func isSecrets(p *model.KindProfile) bool {
 // binary value by its size only. It reads the values to measure them and to tell text from binary,
 // and keeps none of them.
 func secretDataSection(ref model.ObjectRef, obj *unstructured.Unstructured) model.DetailSection {
-	sec := model.DetailSection{Title: "Data"}
+	sec := model.DetailSection{Title: secretDataTitle}
 	data := model.NestedMap(obj.Object, "data")
 	names := make([]string, 0, len(data))
 	for k := range data {
@@ -223,6 +229,76 @@ func (s *Session) SecretValue(p RevealParams) (SecretValue, error) {
 	defer wipeBytes(raw)
 	shown := clip(raw)
 	return SecretValue{Key: p.Key, Value: string(shown), Size: len(raw), Cut: len(shown) < len(raw)}, nil
+}
+
+// readLikeUser gives a turn of the built-in agent over a connection the user marked private what
+// the user can read of a Secret (D-10, H-94; the owner's decision of 2026-10-14 late evening, "the
+// chat reads like the user"): the drawer's Data section with each text value as the drawer's Show
+// reveals it (the first 4 KiB and 40 lines, the cut said), a binary value by its size, and the
+// YAML as the object's Edit tab holds it, its values unredacted (base64 in data). A Helm release
+// record kept in a ConfigMap gets its YAML likewise (its payload is the release's values, which
+// helm.release.values gives the private turn decoded). Only Dispatch's private turn reaches it
+// (PrivateTurn): the window's own drawer keeps the values masked until the user clicks Show, every
+// other caller reads them redacted. The items are marked private, so that a model passed through
+// model.WithholdPrivate withholds them again. m is the model detail built for this read alone.
+func readLikeUser(p *model.KindProfile, obj *unstructured.Unstructured, m *DetailModel) {
+	if obj == nil || m == nil {
+		return
+	}
+	secret := isSecrets(p)
+	if secret {
+		if i := slices.IndexFunc(m.Sections, func(s model.DetailSection) bool { return s.Title == secretDataTitle }); i >= 0 {
+			m.Sections = slices.Clone(m.Sections)
+			m.Sections[i] = secretValuesSection(obj)
+		}
+	}
+	if secret || model.IsHelmRecord(obj) {
+		if y, err := yaml.Marshal(obj.Object); err == nil {
+			m.YAML = string(y)
+		}
+	}
+}
+
+// secretValuesSection is a Secret's Data section with its text values shown (readLikeUser): each
+// key, sorted (at most secretKeysShown), its value as a reveal shows it, a binary one by its size.
+func secretValuesSection(obj *unstructured.Unstructured) model.DetailSection {
+	sec := model.DetailSection{Title: secretDataTitle}
+	data := model.NestedMap(obj.Object, "data")
+	names := make([]string, 0, len(data))
+	for k := range data {
+		names = append(names, k)
+	}
+	slices.Sort(names)
+	if len(names) == 0 {
+		sec.Items = []model.DetailItem{{Value: "No data"}}
+		return sec
+	}
+	for i, k := range names {
+		if i == secretKeysShown {
+			sec.Items = append(sec.Items, model.DetailItem{Value: strconv.Itoa(len(names)-i) + " more keys are not listed"})
+			break
+		}
+		sec.Items = append(sec.Items, model.DetailItem{Name: k, Value: shownValue(data[k]), Private: true})
+	}
+	return sec
+}
+
+// shownValue is one value of a Secret's data as a reveal shows it, the decoded bytes zeroed before
+// it returns: the text cut at 4 KiB and 40 lines with the cut said, or a binary value by its size.
+func shownValue(v any) string {
+	raw, ok := decodeValue(v)
+	if !ok || !isText(raw) {
+		size, _ := measure(v)
+		wipeBytes(raw)
+		return "binary data, " + byteSize(size)
+	}
+	defer wipeBytes(raw)
+	shown := clip(raw)
+	if len(shown) == len(raw) {
+		return string(shown)
+	}
+	return string(shown) + "\n[the first " + byteSize(len(shown)) + " of " + byteSize(len(raw)) +
+		"; the YAML's data holds the whole value, base64-encoded]"
 }
 
 // byteSize renders a value's size as every byte amount is (D-32): "7 B", "4.0 KiB", "1.5 MiB".

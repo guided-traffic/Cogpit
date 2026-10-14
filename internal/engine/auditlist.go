@@ -75,6 +75,9 @@ type AuditItem struct {
 	ObjectCount int               `json:"objectCount,omitempty"`
 	// Params are the parameters as logged (redacted); a summary when larger than 2 KiB.
 	Params json.RawMessage `json:"params,omitempty"`
+	// ReadsLikeUser marks a call of the built-in agent over a private connection, whose reads
+	// returned what the window shows (AuditEntry.ReadsLikeUser).
+	ReadsLikeUser bool `json:"readsLikeUser,omitempty"`
 }
 
 // AuditList is a page of the audit log's entries, newest first.
@@ -197,7 +200,8 @@ func readTail(path string, limit int64) (data []byte, partial bool, err error) {
 // auditItem is an entry as listed: its objects from the parameters, its parameters redacted again
 // and bounded, the command's label.
 func (s *Session) auditItem(e AuditEntry) AuditItem {
-	it := AuditItem{Time: e.Time, Origin: e.Origin, Command: e.Command, Context: e.Context, Phase: e.Phase, OK: e.OK, Error: e.Error}
+	it := AuditItem{Time: e.Time, Origin: e.Origin, Command: e.Command, Context: e.Context, Phase: e.Phase, OK: e.OK, Error: e.Error,
+		ReadsLikeUser: e.ReadsLikeUser}
 	if c, ok := s.reg.Get(e.Command); ok {
 		it.Label = c.Label
 	}

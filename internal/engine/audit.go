@@ -26,6 +26,10 @@ type AuditEntry struct {
 	Phase string `json:"phase"`
 	OK    bool   `json:"ok"`
 	Error string `json:"error,omitempty"`
+	// ReadsLikeUser marks a call of the built-in agent over a connection the user marked private:
+	// its reads returned what the window shows, Secret values included (D-10, H-94). The line
+	// itself keeps values out as every line does.
+	ReadsLikeUser bool `json:"readsLikeUser,omitempty"`
 }
 
 // Audit phases.
@@ -43,6 +47,7 @@ func (s *Session) audit(inv Invocation, context, phase string, err error) {
 	e := AuditEntry{
 		Time: s.opts.Now().UTC(), Origin: inv.Origin, Command: inv.ID,
 		Params: normalizeParams(inv.Params), Context: context, Phase: phase, OK: err == nil,
+		ReadsLikeUser: inv.privateTurn(),
 	}
 	if !json.Valid(e.Params) {
 		e.Params = nil
@@ -58,6 +63,12 @@ func (s *Session) audit(inv Invocation, context, phase string, err error) {
 		if errors.As(err, &pe) {
 			// The schema validator quotes the values it rejects, Secret data included.
 			e.Error = "command " + pe.Command + ": invalid params (the validator's message is not logged: it quotes the values)"
+		}
+		var uo *UserOnlyError
+		if errors.As(err, &uo) {
+			// A private turn read the error as the window does; it can quote what a chart's
+			// lookup read (readslikeuser.go).
+			e.Error = uo.Withheld
 		}
 	}
 	line, mErr := json.Marshal(e)

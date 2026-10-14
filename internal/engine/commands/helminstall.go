@@ -17,8 +17,9 @@ import (
 // repository; helm.chart.preview renders the install against the cluster without changing it and
 // names the objects; helm.chart.install installs the chart through the Helm SDK in Cogpit's
 // process, mutating (privilege-footprint.md), recorded in the Helm journal first (D-11). The
-// values are the user's: agents read them withheld, and no log, error, toast, audit line or journal
-// entry carries them; an agent's inline values are shown to the user before they answer (D-27).
+// values are the user's: agents read them withheld (the built-in agent over a private connection
+// as the window shows them, H-94), and no log, error, toast, audit line or journal entry carries
+// them; an agent's inline values are shown to the user before they answer (D-27).
 
 // orderInstall is Install's place in a chart's row menu and drawer: its only action.
 const orderInstall = 100
@@ -73,7 +74,7 @@ func registerHelmInstall(g *registrar) {
 			"open on it (at another version: loads that version): Cogpit downloads the chart's archive (checked against the " +
 			"index's digest when it lists one) and shows its values.yaml in an editor, with the versions the repository " +
 			"lists. Writes nothing to a cluster. Agents read the tab's values withheld (editor_get) but may replace them " +
-			"(editor_setText); helm_chart_preview and helm_chart_install with the tab id preview and install it.",
+			"(editor_setText); helm_chart_preview and helm_chart_install with the tab id preview and install it." + privateReads,
 		Enabled: func(s *engine.Session, p installTabParams) error {
 			if _, _, err := chartOf(s, p.Ref); err != nil {
 				return err
@@ -100,7 +101,7 @@ func registerHelmInstall(g *registrar) {
 			if err != nil {
 				return nil, err
 			}
-			if engine.OriginOf(ctx).IsAgent() {
+			if engine.ReadsAsAgent(ctx) { // a private turn reads the values as the window shows them (H-94)
 				st.Text = model.Withheld
 			}
 			return EditResult{Tab: st.Tab, Created: created, Text: st.Text, Revision: st.Revision}, nil
@@ -114,7 +115,7 @@ func registerHelmInstall(g *registrar) {
 			"definitions it would create, by kind, namespace and name, never their content. For agents and the CLI it " +
 			"renders without the cluster (helm template: no lookup, default capabilities, offline in the result); in " +
 			"Cogpit's window against the cluster (--dry-run=server), which also finds objects that exist already. Takes " +
-			"the same parameters as helm_chart_install.",
+			"the same parameters as helm_chart_install." + privateReads,
 		Enabled: func(s *engine.Session, p installParams) error { return installEnabled(s, p) },
 		Run: func(ctx context.Context, s *engine.Session, p installParams) (any, error) {
 			b, err := writable(s)
@@ -134,12 +135,18 @@ func registerHelmInstall(g *registrar) {
 				return nil, fmt.Errorf("release %s: %w; nothing was rendered", p.Name, err)
 			}
 			// Only the user's own window renders against the cluster: an agent's or the CLI's preview
-			// is offline, so that a chart's lookup cannot hand them what the cluster holds.
-			offline := engine.OriginOf(ctx) != engine.OriginGUI
+			// is offline, so that a chart's lookup cannot hand them what the cluster holds. The
+			// built-in agent over a private connection reads like the user (H-94): its preview
+			// renders as the window's, and its error is kept out of the audit log (userOnly).
+			offline := !engine.ReadsLikeUser(ctx)
 			pre, err := installer.PreviewInstall(ctx, helm.InstallRequest{Namespace: p.Namespace, Name: p.Name, Chart: src.archive, Values: vals,
 				CreateNamespace: p.CreateNamespace, Offline: offline, Driver: s.HelmDriver()})
 			if err != nil {
-				return nil, helm.Scrubbed(err, src.archive.UserValues(vals))
+				err = helm.Scrubbed(err, src.archive.UserValues(vals))
+				if engine.PrivateTurn(ctx) {
+					return nil, userOnly(err, fmt.Sprintf("the preview of release %s failed", p.Name))
+				}
+				return nil, err
 			}
 			return InstallPreview{Release: engine.HelmReleaseRef(b.Context, p.Namespace, p.Name), Repository: src.repository, Chart: src.chart,
 				Version: src.version, Digest: src.archive.Digest, Verified: src.archive.Verified, Offline: offline, InstallPreview: pre}, nil

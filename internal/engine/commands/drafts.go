@@ -56,7 +56,7 @@ func registerDrafts(g *registrar) {
 		},
 		Run: func(ctx context.Context, s *engine.Session, p draftParams) (any, error) {
 			st, err := s.RestoreDraft(ctx, p.ID)
-			if err == nil && engine.OriginOf(ctx) != engine.OriginGUI && s.EditorHoldsSecret(st.Tab.ID) {
+			if err == nil && !engine.ReadsLikeUser(ctx) && s.EditorHoldsSecret(st.Tab.ID) {
 				st.Text = model.Withheld // never kept for a Secret; withheld as editor.get would (D-19)
 			}
 			return st, err

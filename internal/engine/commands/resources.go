@@ -174,7 +174,8 @@ func registerResources(g *registrar) {
 			"With related, also the related objects as refs with their relation, from the cache: what the drawer links to " +
 			"(Controlled By, a pod's node, a node's pods and devices, a claim's pods, a Service's endpoint slices, ...) and the " +
 			"objects a workload controls (a Deployment's replica sets and pods, a Cron Job's jobs and pods, the pods of the " +
-			"other workloads); at most 200, relatedTotal counts them all.",
+			"other workloads); at most 200, relatedTotal counts them all." + privateReads + " For it a Secret's Data section " +
+			"holds each value as the drawer's Show reveals it, and its YAML the values as an Edit tab holds them.",
 		Enabled: func(s *engine.Session, _ objectParams) error { _, err := connected(s); return err },
 		Run: func(ctx context.Context, s *engine.Session, p objectParams) (any, error) {
 			m, err := s.DetailWait(ctx, p.Ref)

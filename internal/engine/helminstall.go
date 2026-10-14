@@ -27,7 +27,8 @@ const helmInstallTitle = "Helm Install: "
 // version the install takes and the versions its picker offers, whether the archive matched its
 // index's digest, and the namespace and release name the tab starts with. The tab's Ref is the
 // chart (kind helmcharts); its values are the tab's editor text (editor.get, editor.setText),
-// which agents read withheld (model.Withheld), as a Helm Upgrade tab's.
+// which agents read withheld (model.Withheld; a private turn as the window shows it, H-94), as a
+// Helm Upgrade tab's.
 type HelmInstallTab struct {
 	Repository string `json:"repository"`
 	Chart      string `json:"chart"`

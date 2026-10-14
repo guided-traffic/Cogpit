@@ -85,7 +85,7 @@ func registerHelmUpgrade(g *registrar) {
 			"that repository's (repositories: every one that lists it) and a new tab starts with the newest that is not a " +
 			"prerelease when it is newer than the release's; otherwise the release's own version only. repository and version " +
 			"change the tab's choice. Writes nothing. Agents read the tab's values withheld (editor_get) but may replace them " +
-			"(editor_setText); helm_release_upgrade with the tab id upgrades the release.",
+			"(editor_setText); helm_release_upgrade with the tab id upgrades the release." + privateReads,
 		Enabled: func(s *engine.Session, p upgradeTabParams) error {
 			if _, err := cachedOfKind(s, p.Ref, helm.ReleaseKind); err != nil {
 				return err
@@ -102,7 +102,7 @@ func registerHelmUpgrade(g *registrar) {
 			if err != nil {
 				return nil, err
 			}
-			if engine.OriginOf(ctx).IsAgent() {
+			if engine.ReadsAsAgent(ctx) { // a private turn reads the values as the window shows them (H-94)
 				st.Text = model.Withheld
 			}
 			return EditResult{Tab: st.Tab, Created: created, Text: st.Text, Revision: st.Revision}, nil
@@ -177,7 +177,7 @@ func registerHelmUpgrade(g *registrar) {
 		ID: "helm.release.values", Label: "Release Values", Danger: engine.DangerRead, Verbs: releaseCacheReads,
 		Description: "Returns a release's values from Cogpit's cache, the newest revision's: the user-supplied ones, or all " +
 			"of them with the chart's defaults (all), with the revision and chart they are of. Values can hold credentials: " +
-			"agents read them withheld; the user sees them in Cogpit's own window.",
+			"agents read them withheld; the user sees them in Cogpit's own window." + privateReads,
 		Enabled: func(s *engine.Session, p releaseValuesParams) error {
 			_, err := cachedOfKind(s, p.Ref, helm.ReleaseKind)
 			return err
@@ -187,7 +187,7 @@ func registerHelmUpgrade(g *registrar) {
 			if err != nil {
 				return nil, err
 			}
-			if engine.OriginOf(ctx).IsAgent() {
+			if engine.ReadsAsAgent(ctx) {
 				v.YAML = model.Withheld
 			}
 			return v, nil

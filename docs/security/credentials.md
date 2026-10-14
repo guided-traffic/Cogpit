@@ -201,7 +201,7 @@ That `kubectl` reads the same `KUBECONFIG` as any other.
 | Crash reports | Cogpit has no crash upload. Since 2026-10-12 the Go runtime writes an unhandled panic or fatal error into `<user config dir>/Cogpit/crash.log` (0600) as well as to standard error ([`crash.go`](../../cmd/cogpit/crash.go)); the next start moves it to `crashes/crash-<time>.log`, keeps the newest ten and names it in the window. Its text is the runtime's: the panic's message and the goroutines' stacks (function names, file lines, argument words, no strings' contents); a panic message the code formats from a value could carry it, so the file follows the log rule: local, owner-only, never sent anywhere |
 | Helm repositories' credentials | In memory only, sent to the repository's own scheme, host and port unless its entry says `pass_credentials_all` (2026-10-13, [above](#where-they-live-inside-cogpit)); never in a result, error, toast, the audit log or the log |
 | Telemetry | Cogpit sends none. Any network call to something other than a cluster, a Helm repository, the configured LLM endpoint, the release channel or the kubectl release host or mirror ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries), a download the user clicked; it sends the version and platform in the URL, no credential) needs a decision entry in [`decisions.md`](../developer/decisions.md). The check of kubectl's signature against sigstore's transparency log (decided by the owner on 2026-10-14 evening, not built yet, [H-35](trust-boundaries.md#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log)) is such a call |
-| The LLM endpoint | Secret values only over a connection the user marked private (decided 2026-10-14 late evening, being built: [H-13](agents-and-mcp.md#h-13-cluster-data-leaves-for-the-llm-endpoint), [H-94](agents-and-mcp.md#h-94-a-private-connection-gives-the-model-what-the-window-shows)) |
+| The LLM endpoint | Secret values only over a connection the user marked private (decided 2026-10-14 late evening, built in the engine the same night: the private turn reads what the window shows, Secret values, Helm's values, Flux's credential fields and Helm's errors included; an exec plugin's arguments stay withheld from it as from every agent: [H-13](agents-and-mcp.md#h-13-cluster-data-leaves-for-the-llm-endpoint), [H-94](agents-and-mcp.md#h-94-a-private-connection-gives-the-model-what-the-window-shows)) |
 | Screenshots taken by automation | Secret values stay masked unless the user revealed them in the GUI |
 | Clipboard | Only on an explicit copy action; a copied Secret value is cleared after 60 seconds if the clipboard still holds it ([H-25](#h-25-a-copied-secret-value-reaches-the-clipboard)) |
 
@@ -441,7 +441,10 @@ applies). What remains, per case:
   a user or password is refused, so no credential lands there) and `chat-conversations.json`
   (0600: the last 20 conversations per context, every text scrubbed of the cached Secrets' values
   as D-19 keeps them out of drafts; the request bodies sent stay in memory). Both are written
-  through the engine's owner-only writer (atomic, symlinks refused).
+  through the engine's owner-only writer (atomic, symlinks refused). A private connection's turns
+  read more than the scrubber knows (Helm's values, Flux's inline credentials, a Secret's value
+  under 10 bytes), and that is kept as read
+  ([H-96](agents-and-mcp.md#h-96-a-private-turns-reads-are-kept-where-the-scrubber-does-not-know-them)).
 
 ### H-95: An LLM API key over plain http
 

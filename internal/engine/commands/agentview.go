@@ -3,7 +3,14 @@ package commands
 import "github.com/guided-traffic/cogpit/internal/engine"
 
 // The result types of this package that carry cluster text, as an agent reads them (H-82, H-63):
-// Dispatch hands an agent's result to ForAgent (engine.AgentResult, engine/agentview.go).
+// Dispatch hands an agent's result to ForAgent (engine.AgentResult, engine/agentview.go). The
+// built-in agent over a connection the user marked private gets a view that changes nothing but
+// a chart's README's frame (engine/readslikeuser.go).
+
+// privateReads ends the description of a read that withholds from agents what the built-in agent
+// over a private connection reads as the window shows it (D-10, H-94).
+const privateReads = " Cogpit's built-in agent over a connection the user marked private (a local model or a private " +
+	"cloud) reads it as Cogpit's window shows it."
 
 // ForAgent filters object.get's model with its related objects as a bare model is filtered.
 func (o objectWithRelated) ForAgent(v *engine.AgentView) any {

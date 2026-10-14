@@ -100,13 +100,13 @@ func registerEdit(g *registrar) {
 			"the resourceVersion the edit is based on, the one Cogpit's cache holds now, and whether they differ (stale: an " +
 			"apply would be refused with a conflict) or the object is gone (missing); for a Helm Upgrade tab the release " +
 			"revision its values are based on. For agents and the CLI, the text of a tab that holds a Secret is withheld " +
-			"whole (<withheld>, D-19), and for agents so are a Helm Upgrade tab's values.",
+			"whole (<withheld>, D-19), and for agents so are a Helm Upgrade tab's values." + privateReads,
 		Run: func(ctx context.Context, s *engine.Session, p editorParams) (any, error) {
 			st, err := s.EditorState(ctx, p.ID)
 			switch {
-			case err != nil || engine.OriginOf(ctx) == engine.OriginGUI:
+			case err != nil || engine.ReadsLikeUser(ctx): // the window, a private turn (H-94): the tab the user opened
 			case engine.HelmValuesTab(st.Tab.Type):
-				if engine.OriginOf(ctx).IsAgent() {
+				if engine.ReadsAsAgent(ctx) {
 					st.Text = model.Withheld // Helm values can hold credentials (helmupgrade.go, helminstall.go)
 				}
 			case s.EditorHoldsSecret(p.ID):

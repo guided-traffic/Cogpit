@@ -51,7 +51,8 @@ type Invocation struct {
 	// private (a local model or a private cloud; owner, 2026-10-14 late evening): its reads then
 	// return what the window shows instead of what agents are given. Honoured only with
 	// OriginBuiltInAgent; never read from JSON, so no MCP or CLI request can set it. Write rules
-	// (D-2) are the same either way.
+	// (D-2) are the same either way. Dispatch carries it in the command's context
+	// (engine.ReadsLikeUser, readslikeuser.go) and marks the audit line.
 	ReadsLikeUser bool `json:"-"`
 }
 
@@ -311,7 +312,7 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 		return nil, &DisabledError{Command: cmd.ID, Reason: err.Error()}
 	}
 	if cmd.refuse != nil { // before any confirmation: never ask the user for what is refused anyway
-		octx := context.WithValue(ctx, originKey{}, inv.Origin)
+		octx := withInvocation(ctx, inv)
 		if err := s.safeCall(cmd.ID, func() error { return cmd.refuse(octx, s, p) }); err != nil {
 			return nil, fmt.Errorf("command %s: %w", cmd.ID, err)
 		}
@@ -382,15 +383,20 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 		s.audit(inv, auditContext, auditRequested, nil)
 	}
 
-	ctx = context.WithValue(ctx, originKey{}, inv.Origin)
+	// The command's context carries its origin and, for the built-in agent over a private
+	// connection, that it reads like the user (readslikeuser.go): only that origin's mark counts.
+	ctx = withInvocation(ctx, inv)
+	private := inv.privateTurn()
 	err = s.safeCall(cmd.ID, func() (err error) { result, err = cmd.run(ctx, s, p); return err })
-	if err == nil && inv.Origin.IsAgent() && needsAgentSecrets(result) { // the Secrets it is read against (agentsecrets.go)
+	if err == nil && inv.Origin.IsAgent() && !private && needsAgentSecrets(result) { // the Secrets it is read against (agentsecrets.go)
 		if err = s.Backend().agentSecrets(ctx); err != nil {
 			result = nil
 		}
 	}
-	if err == nil && inv.Origin.IsAgent() { // the cached Secrets' values, Flux's credentials (agentview.go)
-		if err = s.safeCall(cmd.ID, func() error { result = s.forAgent(result); return nil }); err != nil {
+	// The cached Secrets' values, Flux's credentials (agentview.go); a private turn's result as the
+	// window reads it, a chart's README still framed.
+	if err == nil && inv.Origin.IsAgent() {
+		if err = s.safeCall(cmd.ID, func() error { result = s.forAgent(result, private); return nil }); err != nil {
 			result = nil
 		}
 	}

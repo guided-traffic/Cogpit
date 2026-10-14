@@ -20,8 +20,10 @@ import (
 // Flux's credential fields are withheld from YAML (kinds.WithholdFluxCredentials), in a logs or
 // terminal tab's lines (dock.read), an object's YAML, drawer values and events (object.get), and an
 // editor's text and diff (object.edit, editor.get, editor.diff, object.apply, editor.revert). The
-// GUI and the CLI get the text as it is. A result type of another package that carries cluster
-// text implements AgentResult.
+// GUI and the CLI get the text as it is, and so does the built-in agent over a connection the user
+// marked private (readslikeuser.go): its view replaces and withholds nothing and only frames a
+// chart's README. A result type of another package that carries cluster text implements
+// AgentResult.
 //
 // Writing a placeholder or a withheld marker back would replace the value in the cluster, so an
 // agent's text that holds one is refused (ErrAgentMarkerWrite) wherever a Secret's text is
@@ -36,6 +38,9 @@ type AgentResult interface {
 // AgentView filters text for an agent: the cached Secrets' values and Flux's credential fields.
 type AgentView struct {
 	m *secretMatcher // nil: no Secret cached, nothing to replace
+	// likeUser is a private turn's view (D-10, H-94): the text as the window shows it, a chart's
+	// README framed (A31).
+	likeUser bool
 }
 
 // ErrAgentMarkerWrite refuses an agent's text that holds a placeholder or a withheld marker Cogpit
@@ -48,7 +53,8 @@ var ErrAgentMarkerWrite = errors.New("the text holds «secret …» or <withheld
 var agentMarkers = []string{secretPlaceholderPrefix, "<withheld"}
 
 // GuardAgentMarkers refuses an agent a text (a command's yaml parameter) that holds a placeholder
-// or a withheld marker.
+// or a withheld marker. A write rule: a private turn is refused too, since a conversation kept
+// across a restart goes on with its scrubbed history, which holds placeholders.
 func GuardAgentMarkers(ctx context.Context, text string) error {
 	if !OriginOf(ctx).IsAgent() {
 		return nil
@@ -67,37 +73,44 @@ func (s *Session) agentView() *AgentView {
 	return &AgentView{m: s.Backend().secretMatcher()}
 }
 
-// forAgent filters an agent's command result.
-func (s *Session) forAgent(res any) any {
+// forAgent filters an agent's command result; likeUser: a private turn's, whose view only frames a
+// chart's README.
+func (s *Session) forAgent(res any, likeUser bool) any {
+	view := func() *AgentView {
+		if likeUser {
+			return &AgentView{likeUser: true}
+		}
+		return s.agentView()
+	}
 	switch r := res.(type) {
 	case nil:
 		return nil
 	case *DetailModel:
-		s.agentView().Detail(r)
+		view().Detail(r)
 	case DockOutput:
-		r.Lines = s.agentView().Lines(r.Lines)
+		r.Lines = view().Lines(r.Lines)
 		return r
 	case EditorState:
-		r.Text = s.agentView().TabText(r.Tab.Type, r.Text)
+		r.Text = view().TabText(r.Tab.Type, r.Text)
 		return r
 	case EditDiff: // Flux's fields are withheld from both sides before the diff (EditDiff)
-		r.Lines = s.agentView().DiffLines(r.Lines)
+		r.Lines = view().DiffLines(r.Lines)
 		return r
 	case ApplyResult:
-		r.Text = s.agentView().YAML(r.Text)
+		r.Text = view().YAML(r.Text)
 		return r
 	case RevertResult:
-		r.Text = s.agentView().YAML(r.Text)
+		r.Text = view().YAML(r.Text)
 		return r
 	case AgentResult:
-		return r.ForAgent(s.agentView())
+		return r.ForAgent(view())
 	}
 	return res
 }
 
 // Text returns s with the cached Secrets' values replaced.
 func (v *AgentView) Text(s string) string {
-	if v == nil || v.m == nil {
+	if v == nil || v.likeUser || v.m == nil {
 		return s
 	}
 	out, _ := v.m.scrub(s)
@@ -106,7 +119,7 @@ func (v *AgentView) Text(s string) string {
 
 // Lines returns lines with the cached Secrets' values replaced; lines itself when none held one.
 func (v *AgentView) Lines(lines []string) []string {
-	if v == nil || v.m == nil {
+	if v == nil || v.likeUser || v.m == nil {
 		return lines
 	}
 	var out []string
@@ -126,7 +139,7 @@ func (v *AgentView) Lines(lines []string) []string {
 
 // DiffLines returns diff lines with the cached Secrets' values replaced.
 func (v *AgentView) DiffLines(lines []DiffLine) []DiffLine {
-	if v == nil || v.m == nil {
+	if v == nil || v.likeUser || v.m == nil {
 		return lines
 	}
 	out := slices.Clone(lines)
@@ -140,6 +153,9 @@ func (v *AgentView) DiffLines(lines []DiffLine) []DiffLine {
 // values replaced. A text that does not parse is withheld whole when it names a Flux kind that
 // carries such fields, since what it holds cannot be told; else only its values are replaced.
 func (v *AgentView) YAML(text string) string {
+	if v != nil && v.likeUser {
+		return text
+	}
 	return v.Text(withholdFluxText(text))
 }
 
@@ -185,9 +201,10 @@ func withholdFluxText(text string) string {
 	return strings.Join(docs, "---\n")
 }
 
-// withholdFluxObject is kinds.WithholdFluxCredentials for an agent's origin, obj itself otherwise.
+// withholdFluxObject is kinds.WithholdFluxCredentials for an agent's reads (not a private turn's),
+// obj itself otherwise.
 func withholdFluxObject(ctx context.Context, obj *unstructured.Unstructured) *unstructured.Unstructured {
-	if !OriginOf(ctx).IsAgent() {
+	if !ReadsAsAgent(ctx) {
 		return obj
 	}
 	out, _ := kinds.WithholdFluxCredentials(obj)
@@ -198,14 +215,15 @@ func withholdFluxObject(ctx context.Context, obj *unstructured.Unstructured) *un
 // Secrets' values), its sections' values, chips and table cells, and its events' messages.
 // Sections and events are copied before they change (the model may share them). The drawer never
 // shows kubectl's last-applied annotation, which repeats Flux's fields, and Flux's drawers never
-// show the fields themselves (TestFluxKeepsSecretsOut).
+// show the fields themselves (TestFluxKeepsSecretsOut). A private turn's view frames a chart's
+// README and changes nothing else.
 func (v *AgentView) Detail(m *DetailModel) {
 	if m == nil {
 		return
 	}
 	FrameReadme(m)
 	m.YAML = v.YAML(m.YAML)
-	if v == nil || v.m == nil {
+	if v == nil || v.likeUser || v.m == nil {
 		return
 	}
 	m.Sections = v.sections(m.Sections)

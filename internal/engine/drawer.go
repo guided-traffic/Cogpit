@@ -218,8 +218,11 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 	s.drawerPods(b, ref, m)                  // the CPU and Memory of the pods a table lists, and their poll (drawerpods.go)
 	SortDrawerTables(m, s.drawerSorts())     // the sortable tables in the drawer's order (drawersort.go)
 	LimitDrawerTables(m, MaxDrawerTableRows) // the first rows of a long one, the rest counted (drawerlimit.go)
-	if OriginOf(ctx).IsAgent() {
+	switch {
+	case ReadsAsAgent(ctx):
 		m.Sections = model.WithholdPrivate(m.Sections) // object_get: agents never read private values
+	case PrivateTurn(ctx):
+		readLikeUser(p, obj, m) // a Secret's values as Show reveals them (secretdata.go, H-94)
 	}
 	if m.YAML == "" {
 		s.log.Warn("engine: object not representable as YAML", "ref", ref.String())
