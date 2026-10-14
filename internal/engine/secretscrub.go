@@ -40,8 +40,9 @@ import (
 const (
 	// MinScrubbedValue is the shortest value (in bytes, in each of its forms) that is replaced:
 	// shorter ones ("admin", "5432", "true") would replace ordinary words in every log line.
-	// Measured over 10,000 log lines (TestSecretScrubMeasure, agents-and-mcp H-82).
-	MinScrubbedValue = 8
+	// Measured over 10,000 log lines (TestSecretScrubMeasure, agents-and-mcp H-82); 10 bytes
+	// instead of 8 decided by the owner on 2026-10-14 evening (A5).
+	MinScrubbedValue = 10
 	// maxScrubbedValue bounds a value the matcher holds: a longer one (a keystore, a bundle) is
 	// never printed whole into a log line, which the dock cuts at 8 KiB anyway.
 	maxScrubbedValue = 64 << 10
@@ -49,8 +50,9 @@ const (
 	minPEMLine = 16
 )
 
-// scrubWindow is the width of the windows the matcher indexes: the shortest value it replaces.
-const scrubWindow = MinScrubbedValue
+// scrubWindow is the width of the windows the matcher indexes, a uint64 key (windowKey); at most
+// MinScrubbedValue, so every replaced value holds one.
+const scrubWindow = 8
 
 // Secret types and keys whose values are not secret: a service account token Secret's namespace
 // and CA certificate. Every certificate is public too (D-30): a value that holds certificates only

@@ -1828,6 +1828,8 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
 ## Beyond Lens
 
 ### G17. MCP control
+- **Built 2026-10-14 (A5):** the replaced Secret values' minimum length 10 bytes instead of 8
+  ([H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents)).
 - **Decided (owner, 2026-10-14 evening; not built unless confirmed):** the MCP switch persisted and
   honoured by `cogpit-cli mcp`, which with MCP off refuses to serve, headless too, with a clear
   message to the agent; the switch gets its own D-entry when built
@@ -1835,8 +1837,6 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   a terminal tab's agent switch ends at the latest one hour after it was turned on, whatever the
   reads, the tab saying so and one click turning it on again
   ([H-83](../security/agents-and-mcp.md#h-83-an-allowed-terminal-tab-gives-agents-everything-it-shows-from-then-on));
-  the replaced Secret values' minimum length 10 bytes instead of 8
-  ([H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents));
   window-only notifications reach agents as text through that filter, inline Helm values removed,
   instead of withheld; marking notifications read and clearing them the window's only; a chart's
   README framed as text of the chart's author; agents' RBAC writes and Helm installs and upgrades

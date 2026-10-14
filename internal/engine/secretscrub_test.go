@@ -24,7 +24,7 @@ func scrubbed(t *testing.T, m *secretMatcher, s string) string {
 
 // TestSecretMatcherForms (H-82): a value is replaced in each form it takes in text, by a
 // placeholder that names its Secret and key only; certificates, a service account token Secret's
-// namespace and CA, name keys, Helm release records and values under 8 bytes are not; a short
+// namespace and CA, name keys, Helm release records and values under 10 bytes are not (A5, owner 2026-10-14 evening); a short
 // value only where it stands alone; values that overlap are replaced together.
 func TestSecretMatcherForms(t *testing.T) {
 	const pass = `pa"ss\word-4711`
@@ -34,7 +34,7 @@ func TestSecretMatcherForms(t *testing.T) {
 		"username": "robot", "password": "registry-pass-0815", "auth": base64.StdEncoding.EncodeToString([]byte("robot:registry-pass-0815"))}}})
 	m := buildSecretMatcher([]*unstructured.Unstructured{
 		secretObj("shop", "db", "Opaque", map[string]string{"password": pass + "\n", "username": "postgres_admin", "DB_HOST": "db.shop.svc.cluster.local",
-			"pin": "1234567", "word": "letmein8"}),
+			"pin": "1234567", "nine": "letmein89", "word": "letmein810"}),
 		secretObj("shop", "web-tls", "kubernetes.io/tls", map[string]string{"tls.crt": certPEM, "tls.key": keyPEM}),
 		secretObj("shop", "sa-token-x", "kubernetes.io/service-account-token", map[string]string{"token": "eyJhbGciOiJSUzI1NiJ9.e30.sig-0123456789",
 			"namespace": "kube-system-ns", "ca.crt": certPEM}),
@@ -53,14 +53,15 @@ func TestSecretMatcherForms(t *testing.T) {
 		"data: {password: " + b64 + "}":                      "data: {password: " + label + "}",
 		`{"msg":"x","password":` + string(jsonForm) + `}`:    `{"msg":"x","password":"` + label + `"}`,
 		"user=postgres_admin host=db.shop.svc.cluster.local": "user=postgres_admin host=db.shop.svc.cluster.local", // name keys
-		"pin 1234567":                                    "pin 1234567",                              // under 8 bytes
-		"word letmein8 and letmein80":                    "word «secret shop/db/word» and letmein80", // stands alone
-		"Bearer eyJhbGciOiJSUzI1NiJ9.e30.sig-0123456789": "Bearer «secret shop/sa-token-x/token»",
-		"namespace kube-system-ns":                       "namespace kube-system-ns",
+		"pin 1234567":                     "pin 1234567",                                // under 10 bytes
+		"nine letmein89":                  "nine letmein89",                             // 9 bytes: under 10
+		"word letmein810 and letmein8100": "word «secret shop/db/word» and letmein8100", // stands alone
+		"Bearer eyJhbGciOiJSUzI1NiJ9.e30.sig-0123456789":                                "Bearer «secret shop/sa-token-x/token»",
+		"namespace kube-system-ns":                                                      "namespace kube-system-ns",
 		"auth " + base64.StdEncoding.EncodeToString([]byte("robot:registry-pass-0815")): "auth «secret shop/regcred/.dockerconfigjson»",
-		"pull with registry-pass-0815":             "pull with «secret shop/regcred/.dockerconfigjson»",
-		"helm-release-payload":                     "helm-release-payload",
-		"x abcdefghijklmnop-1234-qrstuvwxyz0123 y": "x «secret shop/overlap/a» y",
+		"pull with registry-pass-0815":                                                  "pull with «secret shop/regcred/.dockerconfigjson»",
+		"helm-release-payload":                                                          "helm-release-payload",
+		"x abcdefghijklmnop-1234-qrstuvwxyz0123 y":                                      "x «secret shop/overlap/a» y",
 	} {
 		if got := scrubbed(t, m, in); got != want {
 			t.Errorf("%q:\n got %q\nwant %q", in, got, want)

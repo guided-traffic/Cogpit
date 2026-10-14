@@ -61,7 +61,7 @@ window. Nothing of it was built in the round.
 | A2 | Helm | An agent's Helm install or upgrade always waits for the user, whatever the chart holds; to build | [D-2](#d-2-agent-interface-scope) |
 | A3 | H-83 | A terminal tab's agent-read switch ends at the latest 1 hour after it was turned on, whatever the reads; the tab says so; one click turns it on again; to build | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-83](../security/agents-and-mcp.md#h-83-an-allowed-terminal-tab-gives-agents-everything-it-shows-from-then-on) |
 | A4 | H-82 | Values under naming keys (user, host, port, database, namespace, …) are not replaced; as built | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents) |
-| A5 | H-82 | The filter's minimum 10 bytes instead of 8; to build | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents) |
+| A5 | H-82 | The filter's minimum 10 bytes instead of 8; built 2026-10-14 | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs), [H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents) |
 | A6 | H-40 | An allowance of credentials over http does not expire; bound to name, URL and user; as built | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml), [H-40](../security/credentials.md#h-40-credentials-over-plain-http) |
 | A7 | D-47, H-89 | A `cogpit://` link that names another cluster than the connected one asks once, naming the context, before switching; within the connected cluster it stays immediate; to build | [D-47](#d-47-deep-links-cogpit), [H-89](../security/trust-boundaries.md#h-89-a-link-switches-the-cluster-and-the-view-under-the-user) |
 | A8 | D-48 | Start at login off by default, only the user turns it on; as built | [D-48](#d-48-start-at-login) |
@@ -2845,7 +2845,9 @@ owner to confirm**:
 - **Minimum 8 bytes**, the owner's figure, in every form; the measurement shows the minimum is not
   what decides the false matches (H-82's table). **Decided (owner, 2026-10-14 evening, A5):** 10
   bytes instead of 8; the round's figures, given with the answer and not measured again for this
-  page: 80 of 100 planted leaks caught, no line loses a common word. Not built yet.
+  page: 80 of 100 planted leaks caught, no line loses a common word. Built 2026-10-14
+  (`MinScrubbedValue` 10, the matcher's window stays 8 bytes; `TestSecretScrubMeasure` gives the same
+  80 of 100 and 0 lines altered without a leak at 10).
 - **A value under 16 bytes only where it stands alone** (no letter, digit, `_` or `-` touching it):
   "postgres" is not replaced inside "postgresql" or "postgres-0" (options: every match; stand-alone
   for short values, chosen; stand-alone for every value, which would miss a token glued to other
