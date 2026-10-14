@@ -156,10 +156,13 @@ func newTableView(sh *shell) *tableView {
 	tv.nsBox = sized(sizeFilterWidth, "", tv.nsButton)
 	tv.states = newStatusFilter(tv)
 	tv.searchBox = sized(sizeSearchWidth, "", tv.toggles.field())
-	tv.tools = container.NewHBox(tv.nsBox, tv.states.box, tv.searchBox)
+	// The tools give way to a narrow view, the search first (headerrow.go).
+	tv.tools = box(&shrinkRowLayout{floors: map[fyne.CanvasObject]float32{
+		tv.nsBox: 120, tv.states.box: 110, tv.searchBox: 170,
+	}}, tv.nsBox, tv.states.box, tv.searchBox)
 	header := container.NewStack(newSurface(theme.ColorNameBackground),
 		inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
-			container.NewBorder(nil, nil, tv.heading, tv.tools)))
+			box(headerRowLayout{}, tv.heading, tv.tools)))
 
 	tv.overview = newOverviewPanel(sh)
 	tv.cluster = newClusterPanel(sh)
