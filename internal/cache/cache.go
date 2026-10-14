@@ -170,6 +170,7 @@ type Cache struct {
 	informers map[Scope]*entry     // every scope a handle holds or that is warm
 	runners   map[*runner]struct{} // every informer running, those of entries and those still serving a handover
 	closed    bool
+	entries   uint64 // entries made so far: each entry's seq (peek.go)
 
 	refused atomic.Pointer[func(Scope)] // told of every refused list or watch (OnRefused, nsscope.go)
 }
@@ -201,6 +202,7 @@ type entry struct {
 	log   *slog.Logger
 	run   *runner // the informer the handles read from; nil for a label-selected scope
 	view  *view   // a label-selected scope's objects; nil otherwise
+	seq   uint64  // unique among the cache's entries: a scope started again is another entry (peek.go)
 
 	refs      int         // guarded by Cache.mu
 	warmTimer *time.Timer // guarded by Cache.mu
@@ -272,7 +274,8 @@ func (c *Cache) Acquire(scope Scope) *Handle {
 // scope starts its informer, which then serves the label-selected scopes it covers. Called with
 // c.mu held.
 func (c *Cache) newEntry(scope Scope) *entry {
-	e := &entry{scope: scope, log: c.log.With("scope", scope.String())}
+	c.entries++
+	e := &entry{scope: scope, log: c.log.With("scope", scope.String()), seq: c.entries}
 	e.subs.Store(&[]*subscription{})
 	c.informers[scope] = e
 	if sel, ok := selectorOf(scope); ok {
