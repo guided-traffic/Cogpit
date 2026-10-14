@@ -563,9 +563,10 @@ type UIState struct {
 
 **One window, one `UIState`.** A session has one window and one UI state, and everything below
 assumes it. The owner wants a second window (R3, 2026-10-14 evening: a hotbar tile dragged out of
-the window opens another window with that cluster); it needs a design first, which touches this
-state, the one connection (§6) and what agents drive: [D-52](decisions.md#d-52-several-windows),
-open, not built.
+the window opens another window with that cluster); designed 2026-10-15 in
+[D-52](decisions.md#d-52-several-windows), which touches this state, the one connection (§6) and
+what agents drive: the lead proposes one session with a UI state per window and a pool of
+backends by context; the owner's decision pending, not built.
 
 The GUI changes state only through commands (`ui.openView`, `ui.select`, `ui.navigate`,
 `ui.setFilter`), so a selection made by the user and one made by an agent are the same event.

@@ -117,8 +117,8 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
    [G8](gaps.md#g8-logs-terminal-and-shells), [G11](gaps.md#g11-helm),
    [G12](gaps.md#g12-metrics-and-cluster-overview), [G23](gaps.md#g23-flux-cd-and-argo-cd-views);
    the agents' rules in [G17](gaps.md#g17-mcp-control) and the security pages). Of the new
-   requirements, a hotbar tile dragged out of the window opening another window needs a design (a
-   D-entry) before code, and which kind of CA a certificate's chain leads to has its design settled
+   requirements, a hotbar tile dragged out of the window opening another window is designed
+   (2026-10-15, [D-52](../developer/decisions.md#d-52-several-windows), the owner's decision pending), and which kind of CA a certificate's chain leads to has its design settled
    when it is built ([beyond Lens › Everyday use](beyond-lens.md#everyday-use)); tiles reordered by
    dragging is a paid row ([ui parity › Hotbar](ui-parity.md#hotbar)). One change goes to GitHub's
    settings, and only with the owner's go-ahead: the ruleset for `v*` tags
