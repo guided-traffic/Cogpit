@@ -103,6 +103,7 @@ type Terminal struct {
 	dirWatchDone           chan struct{} // closed to stop checking the working directory of cmd
 	closeLock              sync.Mutex
 	connected, stopping    bool
+	exited                 bool // Cogpit patch: run has waited for cmd; under closeLock (ExitCode)
 	readWriterConfigurator ReadWriterConfigurator
 }
 
@@ -310,7 +311,11 @@ func (t *Terminal) Text() string {
 // Returns -1 if called before shell was started or before shell exited.
 // Also returns -1 if shell was terminated by a signal.
 func (t *Terminal) ExitCode() int {
-	if t.cmd == nil {
+	// Cogpit patch: the shell's state is read under closeLock once run has waited for the shell.
+	// Read at any time, it raced cmd.Wait, which writes it on the goroutine reading the output.
+	t.closeLock.Lock()
+	defer t.closeLock.Unlock()
+	if !t.exited { // checked first: startPTY sets the command without the lock
 		return -1
 	}
 	return t.cmd.ProcessState.ExitCode()
@@ -354,7 +359,7 @@ func (t *Terminal) onConfigure() {
 }
 
 func (t *Terminal) open() error {
-	for t.config.Columns <= 2 { // wait until it has a valid area
+	for t.columns() <= 2 { // wait until it has a valid area; Cogpit patch: columns, see RunLocalShell
 		if t.isStopping() {
 			return nil
 		}
@@ -365,15 +370,20 @@ func (t *Terminal) open() error {
 		return err
 	}
 
-	t.in, t.out = in, out
+	t.out = out
 	if t.readWriterConfigurator != nil {
-		t.out, t.in = t.readWriterConfigurator.SetupReadWriter(out, in)
+		t.out, in = t.readWriterConfigurator.SetupReadWriter(out, in)
 	}
 
-	t.pty = pty
+	// Cogpit patch: the input and the pseudo-terminal belong to Fyne's main goroutine, where typing
+	// writes to t.in and Resize sets the pseudo-terminal's size (updatePTYSize). Written here, and
+	// the size set here, on the caller's goroutine, they raced it.
+	fyne.DoAndWait(func() {
+		t.in, t.pty = in, pty
+	})
 	t.setConnected()
 
-	t.updatePTYSize()
+	fyne.DoAndWait(t.updatePTYSize)
 	return nil
 }
 
@@ -453,6 +463,9 @@ func (t *Terminal) run() {
 			if t.cmd != nil {
 				// wait for cmd (shell) to exit, populates ProcessState.ExitCode
 				_ = t.cmd.Wait()
+				t.closeLock.Lock() // Cogpit patch: see ExitCode
+				t.exited = true
+				t.closeLock.Unlock()
 			}
 			if err == io.EOF || err.Error() == "EOF" {
 				break // term exit on macOS
@@ -485,8 +498,14 @@ func (t *Terminal) run() {
 
 // RunLocalShell starts the terminal by loading a shell and starting to process the input/output.
 func (t *Terminal) RunLocalShell() error {
-	t.config.PWD = t.startingDir()
-	for t.config.Columns == 0 { // don't load the TTY until our output is configured
+	// Cogpit patch: as in RunWithConnection, the configuration belongs to Fyne's main goroutine,
+	// where Resize writes the size and onConfigure reads the configuration. Written and polled
+	// here, on the caller's goroutine, it raced that goroutine.
+	pwd := t.startingDir()
+	fyne.DoAndWait(func() {
+		t.config.PWD = pwd
+	})
+	for t.columns() == 0 { // don't load the TTY until our output is configured
 		if t.isStopping() {
 			return nil
 		}

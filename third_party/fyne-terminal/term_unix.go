@@ -50,7 +50,10 @@ func (t *Terminal) startPTY() (io.WriteCloser, io.Reader, io.Closer, error) {
 	c.Dir = t.startingDir()
 	c.Env = env
 	t.cmd = c
-	t.config.PWD = c.Dir
+	// Cogpit patch: the configuration belongs to Fyne's main goroutine (see RunLocalShell).
+	fyne.DoAndWait(func() {
+		t.config.PWD = c.Dir
+	})
 
 	// Start the command with a pty.
 	f, err := pty.Start(c)
@@ -69,15 +72,23 @@ func (t *Terminal) startPTY() (io.WriteCloser, io.Reader, io.Closer, error) {
 				return
 			case <-tick.C:
 			}
-			if time.Since(lastKeyTime).Seconds() > 0.5 {
+			if sinceKeyTyped().Seconds() > 0.5 {
 				continue
 			}
 			wd := processDir(c.Process.Pid)
-
-			if wd != "" && wd != t.config.PWD {
-				t.config.PWD = wd
-				fyne.Do(t.onConfigure)
+			if wd == "" {
+				continue
 			}
+
+			// Cogpit patch: the directory is compared and recorded on Fyne's main goroutine, which
+			// reads the configuration (onConfigure) and writes it (Resize, OSC 7). Compared and
+			// written here, on this ticker's goroutine, it raced that goroutine.
+			fyne.Do(func() {
+				if wd != t.config.PWD {
+					t.config.PWD = wd
+					t.onConfigure()
+				}
+			})
 		}
 	}()
 

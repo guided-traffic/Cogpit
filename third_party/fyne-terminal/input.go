@@ -2,6 +2,7 @@ package terminal
 
 import (
 	"runtime"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -9,7 +10,25 @@ import (
 	"fyne.io/fyne/v2/driver/desktop"
 )
 
-var lastKeyTime = time.Now()
+// lastKeyTime is when a key was last typed into a terminal. Cogpit patch: an atomic; keys write it
+// on Fyne's main goroutine and a local shell's directory check reads it on a ticker's goroutine, so
+// a plain time.Time raced.
+var lastKeyTime atomic.Pointer[time.Time]
+
+func init() {
+	keyTyped()
+}
+
+// keyTyped records that a key was typed now.
+func keyTyped() {
+	now := time.Now()
+	lastKeyTime.Store(&now)
+}
+
+// sinceKeyTyped returns the time since a key was last typed.
+func sinceKeyTyped() time.Duration {
+	return time.Since(*lastKeyTime.Load())
+}
 
 // goos is runtime.GOOS, which picks the copy and paste keys. Cogpit patch: a variable, so that tests
 // on one system cover the keys of the others.
@@ -17,7 +36,7 @@ var goos = runtime.GOOS
 
 // TypedRune is called when the user types a visible character
 func (t *Terminal) TypedRune(r rune) {
-	lastKeyTime = time.Now()
+	keyTyped()
 	b := make([]byte, utf8.UTFMax)
 	size := utf8.EncodeRune(b, r)
 	_, _ = t.in.Write(b[:size])
@@ -25,7 +44,7 @@ func (t *Terminal) TypedRune(r rune) {
 
 // TypedKey will be called if a non-printable keyboard event occurs
 func (t *Terminal) TypedKey(e *fyne.KeyEvent) {
-	lastKeyTime = time.Now()
+	keyTyped()
 	if t.keyboardState.shiftPressed {
 		t.keyTypedWithShift(e)
 		return

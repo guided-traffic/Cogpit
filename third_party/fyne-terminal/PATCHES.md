@@ -50,7 +50,9 @@ other three); drop the fork once upstream has equivalent fixes ([D-14](../../doc
 ## Data races (H-19)
 
 Fyne's desktop driver runs `fyne.Do` on its main goroutine; the widget parses output on the
-goroutine that reads the connection. These patches keep each field on one of the two.
+goroutine that reads the connection. These patches keep each field on one of the two. The rows of
+2026-10-15 (`RunLocalShell`, which Cogpit does not call; decision A116) are candidates not offered
+upstream yet, like the two input patches of 2026-10-13.
 
 | File | Patch |
 |---|---|
@@ -59,6 +61,11 @@ goroutine that reads the connection. These patches keep each field on one of the
 | `output.go` | 2026-10-12: media copy (`CSI 5 i`, `CSI 4 i`) is handled on the reader goroutine, whose parsing it changes; its printing state was set on the main goroutine, so the reader could parse output meant for the printer as text first |
 | `output.go` | 2026-10-12: the bell is cleared on the main goroutine; the timer's goroutine wrote it |
 | `term.go` | 2026-10-12: `RunWithConnection` writes the directory and the input, and polls the size (`columns`), on the main goroutine with `fyne.DoAndWait`; they were written and polled on the caller's goroutine, racing `Resize`, `onConfigure` and typing |
+| `term.go`, `term_unix.go` | 2026-10-15: `RunLocalShell` does the same: it and `startPTY` write the directory, and it and `open` poll the size (`columns`), on the main goroutine; `open` writes the input and the pseudo-terminal there and sets the pseudo-terminal's size there (`updatePTYSize`). They were written, polled and set on the caller's goroutine, racing `Resize` (which reads the pseudo-terminal), `onConfigure` and typing (`TestRunLocalShell_MainLoop`) |
+| `term_unix.go` | 2026-10-15: the check of a local shell's directory compares and records the directory on the main goroutine, where it calls `onConfigure` as before; it read and wrote the configuration on its ticker's goroutine, racing `onConfigure`, `Resize` and OSC 7 (`TestRunLocalShell_MainLoop`) |
+| `input.go` | 2026-10-15: the time of the last key (`lastKeyTime`) is an atomic (`keyTyped`, `sinceKeyTyped`); keys wrote it on the main goroutine while that check read it on its ticker's goroutine (`TestRunLocalShell_MissingStartDir` wrote it from the test's goroutine, the race the detector showed first) |
+| `term.go` | 2026-10-15: `ExitCode` reads the shell's state under `closeLock`, and only once `run` has waited for the shell (`exited`); it read it at any time, racing `cmd.Wait`, which writes it on the reader goroutine (`TestRunLocalShell_MainLoop`). On Windows, where a goroutine of `startPTY` records the state, the code shows once the output has ended instead of as soon as that goroutine has it |
+| `term.go` | 2026-10-15, no change of code: `run` reads `content` on the reader goroutine only after the size was read on the main goroutine (`columns`), and `Resize` creates the renderer, and with it the content, before it sets a size; `CreateRenderer` never replaces the content. Listed as a known race until then; for `RunWithConnection` this holds since 2026-10-12 |
 
 ## Tests and fuzzing
 
@@ -69,12 +76,15 @@ goroutine that reads the connection. These patches keep each field on one of the
 | `fuzz_test.go` | 2026-10-12: `FuzzHandleOutput`, output at sizes from 0x0 to 255x255 with a resize part way, debug output on or off; a panic, or an input not done within 30 seconds, fails. Seeds: every input above and real programs' output in `test_data/sessions` (vim 9.1, less 668, macOS `nano` (UW PICO 5.09) and GNU screen 4.00.03 running less, recorded in an 80x24 pseudo-terminal on synthetic files) |
 | `mainloop_test.go` | 2026-10-12: the fuzz target runs `fyne.Do` on a stand-in for the desktop driver's main goroutine, so that the race detector sees the two goroutines; Fyne's test driver runs `fyne.Do` on the calling goroutine |
 | `term_test.go`, `term_unix_test.go` | 2026-10-14: the tests that start a local shell (`TestExitCode01`, `TestTerminal_Close`) write to it once its terminal is open, read under the widget's lock (`startLocalShell`), and wait for `RunLocalShell` to return within a bound (`shellTimeout`, 60 s) instead of without one. They wrote until a write succeeded, but `New` gives a terminal a writer that discards its input until the terminal is open, so the first write, 50 ms after the start, always succeeded: on a loaded machine it came before the terminal was open, the shell never got its `exit`, and `TestExitCode01` waited until the test binary's 10-minute timeout (CI run 38527183426, Linux); `TestTerminal_Close` read the command while it was still nil and panicked. Reproduced on macOS with a 100 ms delay before the terminal opens and on Linux (`golang:1.27.2`, bash) on a container limited to 0.05 CPUs; upstream's test is the same (`c8f30fa` made it stop at the first write that succeeds) |
+| `term_unix_test.go` | 2026-10-15: `TestRunLocalShell_MainLoop` runs a local shell (`/bin/sh`, which does not report its directory by OSC 7 as macOS's zsh does) with `fyne.Do` on the main-loop stand-in: started before the terminal has a size, sized, written to and resized on the main loop, `cd` typed there until the directory check reports the new directory to a listener while the main loop resizes the terminal (which reads the configuration the check writes), the exit code read while the shell runs on a goroutine that synchronises with nothing else and lives until the shell has exited (the race detector can miss what a finished goroutine read), then `exit 3`. Against the code before the rows of 2026-10-15 above the detector reports seven races (the size, the directory twice, the input, the pseudo-terminal, the last key's time, the exit code); with them, none in 20 runs of the module under `-race` on macOS and on Linux (`golang:1.27.2`, bash, `/bin/sh` dash), and in 10 runs of the shell tests at `-cpu 1,2` on macOS. `TestRunLocalShell_MissingStartDir` marks a key as typed through `keyTyped` |
 
-The fuzz seeds and the tests run in Cogpit's `make test-unit-race` and CI (`make test-fork`). The
-tests that start a local shell run without the race detector: `RunLocalShell`, which Cogpit does
-not use, has known races (below). The tests themselves no longer race since 2026-10-14 (50 runs
-under `-race` on macOS, 20 on Linux); before, they read the input and the command while
-`RunLocalShell` wrote them.
+The fuzz seeds and every test run under the race detector in Cogpit's `make test-unit-race` and
+CI (`make test-fork`), since 2026-10-15 the tests that start a local shell too (decision A116):
+until then they ran without it, because `RunLocalShell` had the races patched above. The tests
+themselves no longer read the input and the command while `RunLocalShell` writes them since
+2026-10-14 (50 runs under `-race` on macOS, 20 on Linux); run together under `-race` on
+2026-10-15, `TestRunLocalShell_MissingStartDir`'s write of the last key's time still raced an
+earlier test's directory check (patched above).
 
 ## Fuzzing record (2026-10-12, Apple M1 Ultra, shared with other runs)
 
@@ -98,15 +108,19 @@ unterminated OSC took about 60 s). The ten-minute runs with the fixed harness (f
 - Cursor movement by more than `math.MaxInt` minus the cursor's row or column overflows and moves
   the cursor to the opposite edge (`CSI 9223372036854775807 B` from row 2 goes to the top).
 - Media copy buffers everything up to `CSI 4 i` without a bound, by design of the feature.
-- `RunLocalShell` writes the configuration, the input and the command on the caller's goroutine
-  and the directory on a ticker's goroutine; the widget's own tests showed these races until they
-  waited for the open terminal under the widget's lock (2026-10-14).
 - `Write` before the terminal is open reports success and discards what it was given (`New` sets a
   discarding input), although its comment promises an error; this is what let the local-shell
   tests hang. Cogpit never calls `Write`; typing before the terminal is open is dropped either way.
+  On a goroutine other than Fyne's main one it reads the input that `RunWithConnection` (since
+  2026-10-12) and `RunLocalShell` (since 2026-10-15) set on the main goroutine, and nothing public
+  lets such a caller wait for the open terminal; on the main goroutine, where typing calls it, it
+  does not race.
+- On Windows, `startPTY`'s goroutine writes the shell's state and clears the pseudo-terminal
+  without synchronisation, racing `ExitCode` and `updatePTYSize`. Nothing runs the widget under the
+  race detector on Windows (Cogpit's CI compiles its tests there), and Cogpit does not call
+  `RunLocalShell`.
 - Blinking text starts a ticker goroutine that runs until no blinking cell is left, also after the
   terminal is closed.
-- `run` reads `content` on the reader goroutine; `CreateRenderer` sets it on the main goroutine.
 
 `go.mod` requires Fyne v2.8.1, the latest release, where upstream's asks for an unreleased Fyne
 (`v2.8.2-0.20261009111023-0a528b3a387b`); its indirect requirements are the ones `go mod tidy`
