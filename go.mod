@@ -5,11 +5,13 @@ go 1.27.2
 require (
 	fyne.io/fyne/v2 v2.8.1
 	github.com/creack/pty v1.1.24
+	github.com/fyne-io/oksvg v0.2.0
 	github.com/fyne-io/terminal v0.0.0-20261009134031-46cd12724ff3
 	github.com/google/jsonschema-go v0.4.3
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/robfig/cron/v3 v3.0.1
+	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
 	helm.sh/helm/v4 v4.3.0
 	k8s.io/api v0.37.1
 	k8s.io/apimachinery v0.37.1
@@ -56,7 +58,6 @@ require (
 	github.com/fyne-io/gl-js v0.2.1-0.20260315212741-029c47fd27e8 // indirect
 	github.com/fyne-io/glfw-js v0.4.0 // indirect
 	github.com/fyne-io/image v0.1.1 // indirect
-	github.com/fyne-io/oksvg v0.2.0 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-gl/gl v0.0.0-20260331235117-4566fea9a276 // indirect
 	github.com/go-gl/glfw/v3.4/glfw v0.1.0-pre.2 // indirect
@@ -131,7 +132,6 @@ require (
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
-	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
 	github.com/tetratelabs/wabin v0.0.0-20230304001439-f6f874872834 // indirect
 	github.com/tetratelabs/wazero v1.12.0 // indirect

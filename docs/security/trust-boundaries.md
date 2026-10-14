@@ -302,13 +302,19 @@ Live since 2026-10-14 with chart icons on (default): an icon's bytes come from a
 names. A PNG or JPEG is decoded by Go's image packages after its header said it has at most 16
 megapixels and 8,192 pixels a side, and is written again as a PNG of at most 256 pixels a side, which
 is what Cogpit's cache keeps and the window draws; an SVG is parsed as XML (at most 256 KiB, 20,000
-tokens, 64 levels deep, no DOCTYPE, no scripts, event handlers or references outside itself) and then
-rasterised by Fyne's SVG renderer (`fyne-io/oksvg`). What remains: a bug in Go's PNG or JPEG decoder, or in
-oksvg's handling of the paths, gradients and transforms an SVG may hold, is reachable from any icon
-host; a panic in the engine's fetch is recovered and the icon fails, one in the window's renderer is
-not. The same parsers already read the cluster icons the user uploads (a file the user picked).
-Not built: rasterising SVGs in the engine under a recover and handing the window a PNG, as PNG and
-JPEG icons are handed.
+tokens, 64 levels deep, no DOCTYPE, no scripts, event handlers or references outside itself). Since
+2026-10-14 (narrowed) the window never hands an SVG to Fyne's renderer: the goroutine that fetched
+it parses and rasterises it with `fyne-io/oksvg` into a PNG of 128 pixels a side, under a recover,
+and a failure shows the glyph ([`helmcharticons_svg.go`](../../internal/ui/fyneui/helmcharticons_svg.go);
+`TestRasteriseSVGDrawsTheIcon`, `TestRasteriseSVGIgnoresAHugeViewBox`,
+`TestRasteriseSVGFailsWithoutTheWindow`). Fyne's renderer sized its rasteriser by the icon's
+viewBox, a number the icon's host chooses (a viewBox of a billion units a side asked for a buffer no
+recover catches), and recovered around the drawing only, not the parsing; Cogpit's rasteriser has
+the icon's own size whatever the viewBox says (measured 2026-10-14: 1.2 MiB allocated for a viewBox of 10⁹
+units). What remains: a bug in Go's PNG or JPEG decoder, or in oksvg's handling of the paths,
+gradients and transforms an SVG may hold, is still reachable from any icon host; a panic fails that
+icon only, but one that does not panic (a loop within the 20,000 tokens, a wrong drawing) is not
+caught. The same parsers already read the cluster icons the user uploads (a file the user picked).
 
 ### H-41: Repositories whose content nothing authenticates
 

@@ -2156,7 +2156,9 @@ What the build chose, Cogpit's defaults (not the owner's decision):
 - **What:** checked as an uploaded cluster icon is (`CheckIcon`): a PNG or JPEG decoded under bounds
   (16 megapixels, 8,192 a side) and kept as a PNG of at most 256 pixels a side; an SVG kept only
   when it is one `<svg>` document without a DOCTYPE, scripts, event handlers or references outside
-  itself; anything else (GIF, WebP, ICO, HTML) refused
+  itself; anything else (GIF, WebP, ICO, HTML) refused; the window draws an SVG from a PNG of 128
+  pixels a side that it rasterises off the main goroutine under a recover, never through Fyne's
+  renderer (2026-10-14)
   ([H-88](../security/trust-boundaries.md#h-88-chart-icons-are-decoded-in-cogpits-process)).
 - **Kept:** `<user cache dir>/Cogpit/helm/icons/<hash of the URL>.png` or `.svg`, owner-only, used for
   7 days, the last 2,048; in memory the last 512; a failure remembered for an hour.

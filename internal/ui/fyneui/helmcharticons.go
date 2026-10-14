@@ -10,12 +10,13 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// Chart icons in the window (D-46, a night decision for the owner to confirm; HELM2;
+// Chart icons in the window (D-46, decided by the owner 2026-10-14; HELM2;
 // engine/helmicons.go): the Charts view's first column and a chart drawer's header show the icon
 // the chart's repository index names. The window asks the engine for an icon only when a cell or
 // the drawer shows it, and not at all while Preferences › Kubernetes › Load chart icons is off;
 // until it arrives, and when there is none or it failed, Cogpit's own helm-wheel glyph shows
-// (Cogpit's drawing, not Helm's logo). Fetched icons are kept for the window's life; turning the
+// (Cogpit's drawing, not Helm's logo). An SVG icon is rasterised to a PNG before the window sees
+// it (helmcharticons_svg.go, H-88). Fetched icons are kept for the window's life; turning the
 // preference off shows the glyph everywhere at once.
 
 // chartIconSource fetches a chart's icon: the real engine (*engine.Session). A test fake without
@@ -106,6 +107,10 @@ func (sh *shell) chartIconResource(iconURL string) fyne.Resource {
 	go func() {
 		defer sh.recoverTo("chart icon")
 		data, format, err := src.ChartIcon(ctx, iconURL)
+		if err == nil && format == "svg" { // drawn here, never by the window's renderer (H-88)
+			data, err = rasteriseSVG(data)
+			format = "png"
+		}
 		sh.do(func() {
 			delete(sh.charts.loading, iconURL)
 			if ctx.Err() != nil {
@@ -117,7 +122,7 @@ func (sh *shell) chartIconResource(iconURL string) fyne.Resource {
 			var r fyne.Resource
 			if err == nil && len(data) > 0 {
 				sum := sha256.Sum256([]byte(iconURL))
-				r = fyne.NewStaticResource(fmt.Sprintf("%x.%s", sum[:8], format), data) // the extension tells Fyne an SVG
+				r = fyne.NewStaticResource(fmt.Sprintf("%x.%s", sum[:8], format), data)
 			}
 			sh.charts.res[iconURL] = r
 			sh.chartIconsChanged(iconURL)
