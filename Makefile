@@ -84,17 +84,14 @@ test-unit-race: test-fork ## Unit tests with the race detector, the terminal wid
 	$(TEST_ENV) $(GO) test -race -timeout $(RACE_TIMEOUT) ./...
 
 # The patched terminal widget (third_party/fyne-terminal, D-14) is a module of its own, which
-# go test ./... from the root leaves out: its tests and fuzz seeds run here. The tests that start a
-# local shell run the widget's RunLocalShell, which Cogpit does not use (it connects the widget with
-# RunWithConnection) and which has known races (PATCHES.md, Known and not patched), so they run
-# without the race detector.
+# go test ./... from the root leaves out: its tests and fuzz seeds run here, all of them under the
+# race detector, the tests that start a local shell included since its races were patched
+# (2026-10-15, A116).
 FORK_DIR         := third_party/fyne-terminal
-FORK_SHELL_TESTS := ^(TestExitCode01|TestRunLocalShell_MissingStartDir|TestTerminal_Close|TestTerminal_Close_BeforeOpen)$$
 
 .PHONY: test-fork
-test-fork: ## Tests and fuzz seeds of the patched terminal widget, a module of its own
-	cd $(FORK_DIR) && $(TEST_ENV) $(GO) test -race -skip '$(FORK_SHELL_TESTS)' ./...
-	cd $(FORK_DIR) && $(TEST_ENV) $(GO) test -run '$(FORK_SHELL_TESTS)' ./...
+test-fork: ## Tests and fuzz seeds of the patched terminal widget, a module of its own, race detector on
+	cd $(FORK_DIR) && $(TEST_ENV) $(GO) test -race ./...
 
 # The cluster tests: the TestKind* functions of the packages with files tagged kind, race detector on,
 # with the coverage of every package they reach (-coverpkg). The drain tests have their own cluster

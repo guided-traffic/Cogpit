@@ -603,13 +603,15 @@ counts that looped once per count (a hang at the largest count); insert lines co
 inserting; OSC, APC and DCS strings and long CSI parameters built quadratically (1 MiB took about
 60 s on the reading goroutine; now linear and capped at 1 MiB); an APC ended by ST that swallowed
 all later output; and five data races moved onto one goroutine (start-up configuration and the
-input writer, the selection, the character sets, media copy, the bell). The runs were short: about
+input writer, the selection, the character sets, media copy, the bell), since 2026-10-15 seven
+more in `RunLocalShell`, which Cogpit does not call, its directory check and `ExitCode`, with its
+tests under the race detector in CI (A116). The runs were short: about
 1.0 million executions in 12 minutes on the copy and 165,000 in 10 minutes through termview, with
 no finding left; longer runs with the corrected harness are open. What remains: inputs the short
 runs did not reach; known and unpatched (a DCS ended by ST swallows the next character, an ESC at
 byte 5000 of a read is not recognised, cursor movement overflows at the largest counts, media copy
-buffers without a bound, blink tickers outlive a closed terminal, `run()` reads `content` on the
-reading goroutine, races in `RunLocalShell`, which Cogpit does not call); its ANSI colours are
+buffers without a bound, blink tickers outlive a closed terminal, unsynchronised writes of
+`RunLocalShell`'s Windows start-up goroutine); its ANSI colours are
 fixed, not theme tokens; and the copy must be kept in step with upstream until upstream takes the
 patches, whose series is not prepared yet.
 
