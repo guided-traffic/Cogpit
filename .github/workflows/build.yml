@@ -110,6 +110,15 @@ jobs:
           echo "update key: ${key:-none (this release does not update itself)}"
           codesign --verify --strict --deep bin/Cogpit.app
           lipo -archs bin/Cogpit.app/Contents/MacOS/cogpit
+          # cogpit-cli in the bundle (D-16): the app's architecture, its identifier, and it says
+          # the release's version. It runs here, never in the signing job.
+          cli=bin/Cogpit.app/Contents/MacOS/cogpit-cli
+          test "$(lipo -archs "${cli}")" = "$(lipo -archs bin/Cogpit.app/Contents/MacOS/cogpit)"
+          codesign --display --verbose=2 "${cli}" 2>&1 | grep -x 'Identifier=io.guided-traffic.cogpit.cli'
+          out="$("${cli}" version)"
+          echo "${out}"
+          case "${out}" in "cogpit-cli ${version} "*) ;; *) echo "::error::${cli} version: ${out}"; exit 1 ;; esac
+          unzip -l "dist/Cogpit_${version}_darwin_arm64.zip" Cogpit.app/Contents/MacOS/cogpit-cli
           unzip -l "dist/Cogpit_${version}_darwin_arm64.zip" | tail -n 1
 
       - name: Upload the app

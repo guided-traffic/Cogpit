@@ -24,13 +24,19 @@ type mcpControl struct {
 	session *engine.Session
 	logger  *slog.Logger
 	out     io.Writer // where the registration command is printed: the terminal that started Cogpit
+	// cli is the cogpit-cli in the running app's bundle (bundledCLI), "" without one. With it the
+	// window offers the stdio registration, made once, instead of the HTTP one with this run's port
+	// and token (D-2).
+	cli string
 }
 
 var _ fyneui.MCPControl = (*mcpControl)(nil)
 
 // Start implements fyneui.MCPControl. The server gets a new token and listener on every start. The
-// command carries the token: it goes to the terminal that started Cogpit and to the window, never
-// to the logger. A switch by the user is recorded in the audit log, the start at launch is not.
+// command for the window is the stdio registration of the bundled cogpit-cli when there is one,
+// else the HTTP registration, which carries the token: either goes to the terminal that started
+// Cogpit and to the window, never to the logger. A switch by the user is recorded in the audit
+// log, the start at launch is not.
 func (c *mcpControl) Start(fromUser bool) (fyneui.MCPEndpoint, error) {
 	err := c.srv.Start(context.Background())
 	if fromUser {
@@ -40,8 +46,15 @@ func (c *mcpControl) Start(fromUser bool) (fyneui.MCPEndpoint, error) {
 		return fyneui.MCPEndpoint{}, err
 	}
 	ep := fyneui.MCPEndpoint{URL: c.srv.URL(), Command: c.srv.ClaudeAddCommand()}
+	if cmd := mcp.ClaudeAddStdioCommand(c.cli); cmd != "" { // "" for no cli
+		ep.Command, ep.Stdio = cmd, true
+	}
 	if c.out != nil {
-		_, _ = fmt.Fprintf(c.out, "Cogpit MCP server: %s\nRegister it with Claude Code (the token changes on every start):\n\n  %s\n\n", ep.URL, ep.Command)
+		how := "the token changes on every start"
+		if ep.Stdio {
+			how = "once: Cogpit's own cogpit-cli follows every restart"
+		}
+		_, _ = fmt.Fprintf(c.out, "Cogpit MCP server: %s\nRegister it with Claude Code (%s):\n\n  %s\n\n", ep.URL, how, ep.Command)
 	}
 	return ep, nil
 }

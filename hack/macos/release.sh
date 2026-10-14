@@ -28,10 +28,11 @@
 # key files; the pipeline runs it with if: always() after a cancelled run. Secrets never reach the
 # log: no set -x, nothing derived from them is echoed, the keychain's password is masked.
 #
-# Entitlements: none, for the app and Sparkle's parts. Go generates no code at run time (no JIT, no
-# unsigned executable memory), the app loads only Apple's frameworks and Sparkle.framework, which
-# carries the app's own signature (library validation holds), and uses no camera, microphone,
-# location, contacts or Apple Events. `make dist-macos MACOS_SIGN=adhoc` and starting the app
+# Entitlements: none, for the app, Sparkle's parts and cogpit-cli. Go generates no code at run time
+# (no JIT, no unsigned executable memory), the app loads only Apple's frameworks and
+# Sparkle.framework, which carries the app's own signature (library validation holds), cogpit-cli
+# (pure Go) loads only the system's libraries, and neither uses the camera, microphone, location,
+# contacts or Apple Events. `make dist-macos MACOS_SIGN=adhoc` and starting the app
 # signed this way is the check (docs/developer/releasing.md#signing-and-notarization).
 set -euo pipefail
 
@@ -39,7 +40,10 @@ work="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 work="${work%/}/cogpit-macos-release"
 keychain="$work/signing.keychain-db"
 secrets="MACOS_SIGN_P12 MACOS_SIGN_P12_PASSWORD APPLE_API_KEY_P8 APPLE_API_KEY_ID APPLE_API_ISSUER_ID"
-cli_identifier="io.guided-traffic.cogpit-cli"
+# The cogpit-cli in Contents/MacOS, and in the macOS archives: its name and code-signing
+# identifier (the Makefile's CLI_ID).
+cli_name="cogpit-cli"
+cli_identifier="io.guided-traffic.cogpit.cli"
 # How long to wait for Apple's notary service, for the disk image and cogpit-cli together.
 notary_minutes="${NOTARY_TIMEOUT_MINUTES:-45}"
 
@@ -193,17 +197,19 @@ check_signature() {
 	fi
 }
 
-# sign_app signs the bundle inside-out, never with --deep. Its only nested code is Sparkle
-# (D-4; hack/macos/sparkle.sh put it there without its XPC services, which only sandboxed apps
-# use): Autoupdate, Updater.app, then the framework, the order of Sparkle's documentation for
-# signing outside Xcode (sparkle-project.org/documentation/sandboxing#code-signing), then the app;
-# each with the hardened runtime, Apple's timestamp and no entitlements (Sparkle's own ad-hoc
-# signature of Autoupdate carries com.apple.application-identifier; its documented command does not
-# keep it). Every Mach-O file in the bundle must then carry the bundle's signature authority, so a
-# helper a newer Sparkle adds cannot reach Apple ad-hoc signed. Anything else nested is refused.
+# sign_app signs the bundle inside-out, never with --deep. Its nested code is Sparkle (D-4;
+# hack/macos/sparkle.sh put it there without its XPC services, which only sandboxed apps use):
+# Autoupdate, Updater.app, then the framework, the order of Sparkle's documentation for signing
+# outside Xcode (sparkle-project.org/documentation/sandboxing#code-signing); and cogpit-cli in
+# Contents/MacOS beside the app's executable (D-16), with its own identifier; then the app. Each
+# with the hardened runtime, Apple's timestamp and no entitlements (Sparkle's own ad-hoc signature
+# of Autoupdate carries com.apple.application-identifier; its documented command does not keep it).
+# Every Mach-O file in the bundle must then carry the bundle's signature authority, so a helper a
+# newer Sparkle adds cannot reach Apple ad-hoc signed. Anything else nested is refused. cogpit-cli
+# is never run here: this job runs no code of Cogpit's or its dependencies' beside the identity.
 sign_app() {
 	group "Sign $(basename "$app")"
-	local dir part fw="$app/Contents/Frameworks/Sparkle.framework"
+	local dir part fw="$app/Contents/Frameworks/Sparkle.framework" cli="$app/Contents/MacOS/$cli_name"
 	for dir in PlugIns XPCServices Helpers Library; do
 		[ ! -e "$app/Contents/$dir" ] ||
 			die "$app/Contents/$dir holds nested code: sign it inside-out before the bundle (no --deep)"
@@ -219,7 +225,17 @@ sign_app() {
 			check_signature "$part" code
 		done
 	fi
-	[ "$(ls -A "$app/Contents/MacOS")" = "$exe" ] || die "$app/Contents/MacOS holds more than $exe"
+	local entries
+	entries="$(find "$app/Contents/MacOS" -mindepth 1 -maxdepth 1 -exec basename {} \; | sort | tr '\n' ' ')"
+	[ "$entries" = "$(printf '%s\n' "$exe" "$cli_name" | sort | tr '\n' ' ')" ] ||
+		die "$app/Contents/MacOS holds $entries, not $exe and $cli_name (make app)"
+	if [ ! -f "$cli" ] || [ -L "$cli" ] || [ ! -x "$cli" ]; then die "$cli is not an executable file"; fi
+	[ "$(lipo -archs "$cli")" = "$(lipo -archs "$app/Contents/MacOS/$exe")" ] ||
+		die "$cli is built for $(lipo -archs "$cli"), the app for $(lipo -archs "$app/Contents/MacOS/$exe")"
+	sign "$cli" --options runtime --identifier "$cli_identifier"
+	check_signature "$cli" code
+	codesign --display --verbose=2 "$cli" 2>&1 | grep -x "Identifier=$cli_identifier" >/dev/null ||
+		die "$cli: identifier is not $cli_identifier"
 	sign "$app" --options runtime
 	check_signature "$app" code
 	check_nested "$app"
@@ -375,6 +391,7 @@ check_dmg() {
 	[ "$entries" = "Applications Cogpit.app " ] || die "$(basename "$dmg") holds $entries, not Applications and Cogpit.app"
 	[ "$(readlink "$mnt/Applications")" = /Applications ] || die "Applications in $(basename "$dmg") does not link to /Applications"
 	codesign --verify --strict --deep --verbose=2 "$mnt/Cogpit.app"
+	codesign --verify --strict --verbose=2 "$mnt/Cogpit.app/Contents/MacOS/$cli_name"
 	[ "$(plutil -extract CFBundleShortVersionString raw "$mnt/Cogpit.app/Contents/Info.plist")" = "$version" ] ||
 		die "the app in $(basename "$dmg") is not version $version"
 	if [ "$mode" = developer-id ]; then gatekeeper "$mnt/Cogpit.app" -t execute; fi

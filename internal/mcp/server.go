@@ -256,8 +256,9 @@ func (s *Server) TokenPath() string {
 // It returns "" when the server is not running. The command contains the token: print it to the
 // user's terminal, never to a log. The port and the token change on every start, so the
 // registration must be repeated after Cogpit restarts; a client that registers the stdio bridge
-// instead (`cogpit-cli mcp`, architecture §7) registers once, since the bridge reads the endpoint
-// and token files itself. The syntax is POSIX shell (macOS, Linux).
+// instead (`cogpit-cli mcp`, architecture §7; ClaudeAddStdioCommand, which the app offers when its
+// bundle carries cogpit-cli) registers once, since the bridge reads the endpoint and token files
+// itself. The syntax is POSIX shell (macOS, Linux).
 func (s *Server) ClaudeAddCommand() string {
 	url, token := s.endpoint()
 	if url == "" {

@@ -42,6 +42,9 @@ VERSION         ?= 0.0.1
 # Linker flags for build; the dist targets set the version (-X main.version).
 GO_LDFLAGS      ?=
 APP_ID          := io.guided-traffic.cogpit
+# The code-signing identifier of the cogpit-cli in Cogpit.app/Contents/MacOS (D-16); the release's
+# Developer ID signature uses the same (hack/macos/release.sh, cli_identifier).
+CLI_ID          := $(APP_ID).cli
 APP_OS          ?= $(shell $(GO) env GOOS)
 TEST_ENV        := env -u KUBERNETES_SERVICE_HOST -u KUBERNETES_SERVICE_PORT KUBECONFIG=/dev/null
 
@@ -371,7 +374,15 @@ $(SPARKLE_DIR)/.verified:
 # Unsigned: macOS asks once on first open.
 # Sparkle on macOS only; uname, not go env: a prerequisite list is expanded whenever make reads this
 # file, and the appcast's signing job runs make without Go.
-app: build $(FYNE) $(if $(filter Darwin,$(shell uname -s)),sparkle) ## Package Cogpit for this OS with fyne package (macOS: bin/Cogpit.app, with Sparkle)
+#
+# macOS: the bundle carries cogpit-cli (owner, 2026-10-14, D-16): the bin/cogpit-cli `make build`
+# made beside the app's binary, with the same GO_LDFLAGS (dist-app: the release's version), so the
+# bundle's architecture; Go's linker writes minos 13.0 into it as into the app. It goes into
+# Contents/MacOS, where Apple's "Placing Content in a Bundle" puts helper tools, and is signed
+# before the bundle (ad-hoc here, with its identifier and the hardened runtime; the release signs it
+# again with the Developer ID, hack/macos/release.sh).
+APP_MACOS        = $(BIN)/Cogpit.app/Contents/MacOS
+app: build $(FYNE) $(if $(filter Darwin,$(shell uname -s)),sparkle) ## Package Cogpit for this OS with fyne package (macOS: bin/Cogpit.app, with Sparkle and cogpit-cli)
 	rm -rf $(BIN)/Cogpit.app
 	cd $(BIN) && $(FYNE) package --os $(APP_OS) --src $(CURDIR)/cmd/cogpit --executable $(BIN)/cogpit --release \
 		--name Cogpit --app-id $(APP_ID) --app-version $(VERSION) --icon $(CURDIR)/packaging/icon.png --use-raw-icon
@@ -380,14 +391,18 @@ app: build $(FYNE) $(if $(filter Darwin,$(shell uname -s)),sparkle) ## Package C
 	@if [ "$(APP_OS)" = darwin ]; then \
 		plutil -replace LSApplicationCategoryType -string public.app-category.developer-tools $(BIN)/Cogpit.app/Contents/Info.plist && \
 		plutil -replace LSMinimumSystemVersion -string $(MACOS_MIN) $(BIN)/Cogpit.app/Contents/Info.plist && \
-		otool -l $(BIN)/Cogpit.app/Contents/MacOS/cogpit | grep -A3 LC_BUILD_VERSION | grep -q "minos $(MACOS_MIN)" && \
+		otool -l $(APP_MACOS)/cogpit | grep -A3 LC_BUILD_VERSION | grep -q "minos $(MACOS_MIN)" && \
+		install -m 0755 $(BIN)/cogpit-cli $(APP_MACOS)/cogpit-cli && \
+		test "$$(lipo -archs $(APP_MACOS)/cogpit-cli)" = "$$(lipo -archs $(APP_MACOS)/cogpit)" && \
+		otool -l $(APP_MACOS)/cogpit-cli | grep -A3 LC_BUILD_VERSION | grep -q "minos $(MACOS_MIN)" && \
 		plutil -replace CFBundleURLTypes -json '[{"CFBundleURLName":"$(APP_ID)","CFBundleURLSchemes":["cogpit"]}]' $(BIN)/Cogpit.app/Contents/Info.plist && \
 		hack/macos/sparkle.sh bundle $(BIN)/Cogpit.app '$(SPARKLE_DIR)' '$(SPARKLE_FEED_URL)' '$(SPARKLE_PUBLIC_ED_KEY)' '$(VERSION)' && \
+		codesign --force --sign - --options runtime --identifier $(CLI_ID) $(APP_MACOS)/cogpit-cli && \
 		codesign --force --sign - $(BIN)/Cogpit.app && \
 		codesign --verify --strict --deep $(BIN)/Cogpit.app && \
-		test -x $(BIN)/Cogpit.app/Contents/MacOS/cogpit && \
+		test -x $(APP_MACOS)/cogpit && test -x $(APP_MACOS)/cogpit-cli && \
 		test "$$(plutil -extract CFBundleIdentifier raw $(BIN)/Cogpit.app/Contents/Info.plist)" = "$(APP_ID)" && \
-		echo "built $(BIN)/Cogpit.app"; \
+		echo "built $(BIN)/Cogpit.app with $(APP_MACOS)/cogpit-cli"; \
 	fi
 
 icon: ## Redraw packaging/icon.png from hack/icon

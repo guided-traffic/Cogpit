@@ -21,6 +21,7 @@ type fakeMCP struct {
 	calls    []string
 	runs     int
 	startErr error
+	stdio    string // the stdio registration an app bundle with cogpit-cli offers; "" for HTTP
 }
 
 func (m *fakeMCP) Start(fromUser bool) (MCPEndpoint, error) {
@@ -32,6 +33,9 @@ func (m *fakeMCP) Start(fromUser bool) (MCPEndpoint, error) {
 	}
 	m.runs++
 	url := fmt.Sprintf("http://127.0.0.1:%d/mcp", 40000+m.runs)
+	if m.stdio != "" {
+		return MCPEndpoint{URL: url, Command: m.stdio, Stdio: true}, nil
+	}
 	return MCPEndpoint{URL: url, Command: fmt.Sprintf("claude mcp add cogpit %s --header token-%d", url, m.runs)}, nil
 }
 
@@ -117,6 +121,31 @@ func TestMCPItemSwitchesTheServer(t *testing.T) {
 	}
 	if !sh.app.Preferences().BoolWithFallback(prefMCPEnabled, true) {
 		t.Error("the on state was not stored")
+	}
+}
+
+// TestMCPCopyNamesWhatTheCommandIs: the copy dialog says that the HTTP registration must be run
+// again after a restart, and that the bundled cogpit-cli's stdio registration is run once; the
+// clipboard gets the command either way.
+func TestMCPCopyNamesWhatTheCommandIs(t *testing.T) {
+	for _, tc := range []struct {
+		name, stdio, says string
+	}{
+		{"http", "", "run it again after a restart"},
+		{"stdio", "claude mcp add --scope user cogpit -- /Applications/Cogpit.app/Contents/MacOS/cogpit-cli mcp", "Run it once"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sh, w, _ := mcpShell(t, &fakeMCP{stdio: tc.stdio})
+			sh.copyMCPCommand()
+			settle(w)
+			if got := sh.app.Clipboard().Content(); got != sh.mcp.command || (tc.stdio != "" && got != tc.stdio) {
+				t.Errorf("copied %q", got)
+			}
+			texts := strings.Join(overlayTexts(w), "\n")
+			if !strings.Contains(texts, tc.says) {
+				t.Errorf("dialog %q, want %q", texts, tc.says)
+			}
+		})
 	}
 }
 

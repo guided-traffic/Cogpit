@@ -57,7 +57,7 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - 📈 CPU and memory from the cluster's metrics-server and its Prometheus: columns in the Pods and Nodes lists, charts with requests and limits in the pod and node drawers, and the cluster Overview: CPU, Memory and Pods of the master or worker nodes over a time range, with the Issues (pods, nodes and workloads in trouble, warning events) below.
 - 🛡️ Never surprises a cluster: destructive actions confirm, nothing is installed or written implicitly.
 - 🤖 Fully controllable over MCP, the UI included: an agent sees what you see and navigates for you.
-- ⌨️ `cogpit-cli`: your contexts and any kind's objects on the command line, read-only, and an MCP stdio bridge you register once.
+- ⌨️ `cogpit-cli`, inside the app: your contexts and any kind's objects on the command line, read-only, and an MCP stdio bridge you register once.
 - 💬 *(planned)* A built-in agent in a chat beside your views, on any OpenAI-compatible endpoint such as LiteLLM or Open WebUI.
 - 📦 Installs the Mac way: open the disk image, drag Cogpit into Applications, signed and notarized (from the first release after v0.4.0 on); *(planned)* a Homebrew cask for shell users.
 - ⬆️ Updates with one click in the macOS app (Sparkle), verified against a signed update feed: built, and active from the first release that carries the update key (none yet).
@@ -105,18 +105,29 @@ make app                      # bin/Cogpit.app (ad-hoc signed), starts by double
 `web` and `api`, a crash-looping pod, a completed job, a `toolbox` pod with a shell, and the Service
 `web` with the ClusterIP `10.96.100.100`. Nothing writes `~/.kube/config`; `make run` lists your `~/.kube` contexts too (Kubeconfig Sources removes the folder from the list, never from disk).
 
-**Drive it with an agent.** At start, Cogpit prints a ready-to-paste command:
+**Drive it with an agent.** Help › Copy MCP command (or the MCP button in the top bar) copies the
+command that registers Cogpit with Claude Code, and Cogpit prints it at start too. The installed
+app copies the registration of the `cogpit-cli` inside it, which you run once
+([D-2](decisions.md#d-2-agent-interface-scope)):
+
+```sh
+claude mcp remove --scope user cogpit >/dev/null 2>&1; claude mcp add --scope user cogpit -- /Applications/Cogpit.app/Contents/MacOS/cogpit-cli mcp   # example
+```
+
+Claude Code then starts that `cogpit-cli mcp`, which reads the running app's port and token
+itself, so the registration follows every restart and update of Cogpit; run it again only if you
+move `Cogpit.app`. A build from source (`bin/cogpit`), and the app while it still runs from its
+disk image, offer the HTTP registration instead, whose port and token change on every start:
 
 ```sh
 claude mcp remove --scope user cogpit >/dev/null 2>&1; claude mcp add --scope user --transport http cogpit http://127.0.0.1:<port>/mcp --header "Authorization: Bearer <token>"
 ```
 
-Run it, then ask Claude Code "show me the Service with ClusterIP 10.96.100.100": Cogpit opens
-Services, selects `web` and opens its drawer. Port and token change on every start, so repeat the
-command after a restart, or register the stdio bridge once instead:
-`claude mcp add --scope user cogpit -- "$PWD/bin/cogpit-cli" mcp` # example (it reads the
-current port and token itself). Agents may read and navigate freely; Restart, Delete and the pod shell
-wait for your confirmation in Cogpit's window ([agents and MCP](../security/agents-and-mcp.md)).
+so repeat it after a restart, or register the source build's bridge once instead:
+`claude mcp add --scope user cogpit -- "$PWD/bin/cogpit-cli" mcp` # example. Then ask Claude
+Code "show me the Service with ClusterIP 10.96.100.100": Cogpit opens Services, selects `web` and
+opens its drawer. Agents may read and navigate freely; Restart, Delete and the pod shell wait for
+your confirmation in Cogpit's window ([agents and MCP](../security/agents-and-mcp.md)).
 
 **Verify.** `make test-unit-race` runs every test without a cluster; with the kind cluster up,
 `make test-kind` also runs the cluster tests (views, logs, pod shell, `kubectl` in the terminal).
@@ -158,7 +169,19 @@ cluster identities.
 
 ### `cogpit-cli`
 
-The headless command-line tool (pure Go, no window). It offers the same contexts as the app, from
+The headless command-line tool (pure Go, no window). It comes inside the app, beside the app's own
+executable, from the first release after v0.6.0 on
+([D-16](decisions.md#d-16-the-first-real-release)); a source checkout builds it as
+`bin/cogpit-cli` (`make build`):
+
+```sh
+/Applications/Cogpit.app/Contents/MacOS/cogpit-cli contexts                  # example: the installed app's
+ln -s /Applications/Cogpit.app/Contents/MacOS/cogpit-cli ~/bin/cogpit-cli    # example: as cogpit-cli on your PATH; updates follow
+```
+
+It is signed and notarized with the app and replaced with it by an update. Releases no longer carry
+it for Linux and Windows (they get Cogpit with its desktop app, M11); there, build it from source:
+`CGO_ENABLED=0 go build ./cmd/cogpit-cli`. It offers the same contexts as the app, from
 the same kubeconfig sources (`~/.kube`, the files `--kubeconfig` or `$KUBECONFIG` names, the files
 and sync folders added in Cogpit), and runs a context's credential plugin only once you allowed it
 in Cogpit's window; it never asks itself and never writes Cogpit's sources or approvals. Exit
@@ -319,7 +342,9 @@ preferences.
 Security note: an agent or `cogpit-cli` may turn `checkForUpdates` on, never off; only you can, in
 Cogpit's window ([agents and MCP](../security/agents-and-mcp.md)). A build without the update key
 (every local build, and every release until the owner has made the key), an app still on its disk
-image, `cogpit-cli` and other systems than macOS do not update themselves, and the row says why.
+image and other systems than macOS do not update themselves, and the row says why. `cogpit-cli`
+has no updater of its own: the one inside the app is replaced with the app, one built from source
+is not.
 Sparkle installs an update only when its disk image and the feed carry the update key's signature
 and the new app carries Cogpit's Developer ID ([updates](../security/updates.md)).
 
@@ -341,6 +366,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Go module | `github.com/guided-traffic/cogpit` | |
 | Binaries | `cogpit` (desktop app), `cogpit-cli` (headless CLI and MCP stdio bridge) | |
 | App bundle | `Cogpit.app`, bundle id `io.guided-traffic.cogpit` | `bin/Cogpit.app` # example |
+| `cogpit-cli` in the app | `Cogpit.app/Contents/MacOS/cogpit-cli`, code-signing identifier `io.guided-traffic.cogpit.cli` ([D-16](decisions.md#d-16-the-first-real-release)) | `/Applications/Cogpit.app/Contents/MacOS/cogpit-cli` # example |
 | Packages | `internal/<area>` | `internal/cache` # example |
 | Command ids | `<kind-or-area>.<action>`, lowerCamelCase segments | `deployment.restart`, `ui.navigate` |
 | MCP tool names | the command id with dots replaced by underscores | `deployment_restart`, `ui_navigate` |
@@ -410,7 +436,7 @@ Identifiers the documentation uses:
 | `make lint`, `make fmt` | golangci-lint v2.14.0 (installed into `bin/`) with the team's linters and the `depguard` layering |
 | `make kind-up`, `make kind-seed`, `make kind-down` | the local kind cluster and its seed |
 | `make kind-prometheus`, `make kind-prometheus-down` | a real Prometheus in the kind cluster (`monitoring/prometheus-server`, the `prometheus` chart) for the drawer's charts ([hack/kind](../../hack/kind/README.md#prometheus)) |
-| `make app` | `bin/Cogpit.app` via `fyne package`, with Sparkle in `Contents/Frameworks` (`SPARKLE_PUBLIC_ED_KEY=<base64>` for an app that updates itself) |
+| `make app` | `bin/Cogpit.app` via `fyne package`, with Sparkle in `Contents/Frameworks` (`SPARKLE_PUBLIC_ED_KEY=<base64>` for an app that updates itself) and `cogpit-cli` in `Contents/MacOS` |
 | `make sparkle` | the pinned Sparkle release in `.cache/sparkle/<version>`, its SHA-256 checked |
 | `make appcast-draft`, `make appcast-sign`, `make appcast-verify` | the release pipeline's appcast jobs ([releasing › the appcast](releasing.md#the-appcast)) |
 

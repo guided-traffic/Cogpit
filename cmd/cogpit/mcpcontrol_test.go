@@ -87,3 +87,47 @@ func TestMCPControlSwitch(t *testing.T) {
 		t.Error("a token reached the audit log")
 	}
 }
+
+// TestMCPControlOffersTheBundledCLI: an app whose bundle carries cogpit-cli hands the window the
+// stdio registration of that cogpit-cli, which names no port and no token, and prints it; without
+// one the HTTP registration, as before.
+func TestMCPControlOffersTheBundledCLI(t *testing.T) {
+	var terminal bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	s := engine.New(engine.Options{Audit: io.Discard, Logger: logger})
+	t.Cleanup(s.Close)
+	srv, err := mcp.New(s, mcp.Options{TokenFile: filepath.Join(t.TempDir(), "Cogpit", "mcp-token"), Logger: logger})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+	cli := "/Users/a b/Applications/Cogpit.app/Contents/MacOS/cogpit-cli"
+	c := &mcpControl{srv: srv, session: s, logger: logger, out: &terminal, cli: cli}
+
+	ep, err := c.Start(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "claude mcp remove --scope user cogpit >/dev/null 2>&1; claude mcp add --scope user cogpit -- '" + cli + "' mcp"
+	if !ep.Stdio || ep.Command != want || ep.URL == "" {
+		t.Errorf("endpoint %+v, want the stdio command %s", ep, want)
+	}
+	if strings.Contains(ep.Command, "Bearer") || strings.Contains(ep.Command, ep.URL) {
+		t.Errorf("the stdio command names this run's endpoint: %s", ep.Command)
+	}
+	if !strings.Contains(terminal.String(), want) || !strings.Contains(terminal.String(), "once") {
+		t.Errorf("printed %q", terminal.String())
+	}
+	if err := c.Stop(); err != nil {
+		t.Fatal(err)
+	}
+
+	c.cli = ""
+	ep, err = c.Start(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ep.Stdio || !strings.Contains(ep.Command, "--transport http") || !strings.Contains(ep.Command, ep.URL) {
+		t.Errorf("without a bundled cogpit-cli: %+v", ep)
+	}
+}

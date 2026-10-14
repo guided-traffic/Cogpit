@@ -143,7 +143,7 @@ func run(previousCrash string) int {
 			// switches it from the status bar. Quitting closes it for good. --no-mcp wins over
 			// the stored choice: no server, no item.
 			defer func() { _ = srv.Close() }()
-			opts.MCP = &mcpControl{srv: srv, session: s, logger: logger, out: os.Stdout}
+			opts.MCP = &mcpControl{srv: srv, session: s, logger: logger, out: os.Stdout, cli: bundledCLI()}
 		}
 	}
 	if *perf > 0 || *perfMode != "" {

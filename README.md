@@ -152,14 +152,15 @@ time in your own time zone and your region's format.
 
 ## 🚀 Get Cogpit
 
-**Download** the latest [release](https://github.com/guided-traffic/cogpit/releases): the app for
-Apple silicon is `Cogpit-<version>-macos-arm64.dmg`, signed and notarized by Apple. Open it and drag
-Cogpit into Applications. No cluster at hand? Pick the **demo** cluster in the cluster picker (⌘P):
-a synthetic cluster of 10,000 pods that lives inside Cogpit.
+**Download** the latest [release](https://github.com/guided-traffic/cogpit/releases):
+`Cogpit-<version>-macos-arm64.dmg`, Cogpit for Apple silicon, signed and notarized by Apple. Open it
+and drag Cogpit into Applications. No cluster at hand? Pick the **demo** cluster in the cluster
+picker (⌘P): a synthetic cluster of 10,000 pods that lives inside Cogpit.
 
-**`cogpit-cli`** (Linux, macOS and Windows, in every release) lists your contexts, prints any
-kind's objects as Cogpit's views show them, and connects agents that speak only stdio to Cogpit's
-MCP tools ([reference](docs/developer/usage.md#cogpit-cli)).
+**`cogpit-cli` comes inside the app**, at `/Applications/Cogpit.app/Contents/MacOS/cogpit-cli`: it
+lists your contexts, prints any kind's objects as Cogpit's views show them, and connects agents to
+Cogpit's MCP tools. Help › Copy MCP command gives you the one command that registers it with
+Claude Code, once ([reference](docs/developer/usage.md#cogpit-cli)).
 
 **Build from source** with Go and the Xcode Command Line Tools: `make run-demo` starts Cogpit on the
 demo cluster ([run from source](docs/developer/usage.md#run-the-mvp)).

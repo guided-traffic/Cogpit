@@ -13,12 +13,17 @@ import (
 )
 
 // MCPEndpoint is what a running MCP server tells the window: where agents connect and the command
-// that registers it with Claude Code. The command carries the bearer token.
+// that registers it with Claude Code.
 type MCPEndpoint struct {
 	// URL is the endpoint, shown in the status bar item's tooltip.
 	URL string
-	// Command is the `claude mcp add` command for this run; it changes on every start.
+	// Command is the `claude mcp add` command the window copies: the HTTP registration for this
+	// run, which carries the bearer token and changes on every start, or with Stdio the
+	// registration of the cogpit-cli in the app's bundle.
 	Command string
+	// Stdio marks a Command that registers the bundled cogpit-cli's stdio bridge: run once, it
+	// follows every restart of Cogpit (D-2).
+	Stdio bool
 }
 
 // MCPControl lets the user switch the external MCP server, the loopback HTTP endpoint for other
@@ -48,6 +53,7 @@ type mcpState struct {
 	on      bool   // the server runs
 	busy    bool   // a start or stop is under way; clicks are ignored
 	command string // the registration command of the current run; "" while off
+	stdio   bool   // command registers the bundled cogpit-cli (MCPEndpoint.Stdio)
 	url     string
 	err     string // why the last start failed; "" otherwise
 }
@@ -156,9 +162,9 @@ func (sh *shell) toggleMCP() {
 // that no control offers a command of a server that is not running.
 func (sh *shell) applyMCP(on bool, ep MCPEndpoint, errText string) {
 	sh.mcp.on, sh.mcp.err = on, errText
-	sh.mcp.command, sh.mcp.url = "", ""
+	sh.mcp.command, sh.mcp.url, sh.mcp.stdio = "", "", false
 	if on {
-		sh.mcp.command, sh.mcp.url = ep.Command, ep.URL
+		sh.mcp.command, sh.mcp.url, sh.mcp.stdio = ep.Command, ep.URL, ep.Stdio
 	}
 	sh.refreshMCP()
 }

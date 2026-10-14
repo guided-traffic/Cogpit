@@ -869,7 +869,8 @@ func (sh *shell) mainMenu() *fyne.MainMenu {
 }
 
 // copyMCPCommand puts the `claude mcp add` command of the running server on the clipboard and shows
-// it. While the server is off there is no command: the old one names a token that no longer works.
+// it. While the server is off there is no command: the old one names a token that no longer works,
+// and the bundled cogpit-cli would serve an engine of its own rather than this window.
 func (sh *shell) copyMCPCommand() {
 	cmd := sh.mcp.command
 	if !sh.mcp.on || cmd == "" {
@@ -879,7 +880,14 @@ func (sh *shell) copyMCPCommand() {
 	entry := widget.NewEntry()
 	entry.SetText(cmd)
 	entry.TextStyle = fyne.TextStyle{Monospace: true}
-	intro := widget.NewLabel("Copied to the clipboard. Run it in a terminal to let an MCP client drive this Cogpit window:")
+	text := "Copied to the clipboard. Run it in a terminal to let an MCP client drive this Cogpit window. " +
+		"Its port and token change at every start of Cogpit: run it again after a restart."
+	if sh.mcp.stdio {
+		text = "Copied to the clipboard. Run it once in a terminal: Claude Code then starts the cogpit-cli inside " +
+			"Cogpit.app, which drives this Cogpit window whenever it runs, across restarts and updates. " +
+			"Run it again if you move Cogpit.app."
+	}
+	intro := widget.NewLabel(text)
 	intro.Wrapping = fyne.TextWrapWord
 	d := dialog.NewCustom("MCP command", "Close", container.NewVBox(intro, entry), sh.win)
 	d.Resize(fyne.NewSize(sh.win.Canvas().Size().Width*0.5, 0))
