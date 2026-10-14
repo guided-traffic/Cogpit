@@ -545,12 +545,18 @@ const (
 	SectionNamespaces = "namespaces"
 	SectionAgents     = "agents"    // a cluster's agents: the allowance of their writes (allowance.go)
 	SectionNodeShell  = "nodeShell" // a cluster's node shell: its image and pull secret (nodeshell.go)
+	// SectionAgent is Preferences › Agent: the built-in agent's LLM connections (chat.go, D-10). The
+	// window edits them through Session.Chat, not through commands: only the user sets them.
+	SectionAgent = "agent"
 )
 
 // PreferencesSections are the Preferences page's sections: App (theme, time zone), Proxy (the
 // proxy of the traffic that is no cluster's), Kubernetes (kubeconfig syncs, kubectl for
-// terminals), Editor, Terminal, Tables. Cogpit's grouping, inferred from Lens's page.
-var PreferencesSections = []string{SectionApp, SectionProxy, SectionKubernetes, SectionEditor, SectionTerminal, SectionTables}
+// terminals), Editor, Terminal, Tables, then Cogpit's own Agent (the built-in agent's LLM
+// connections; Lens has no such section, its place last is Cogpit's). Cogpit's grouping, inferred
+// from Lens's page.
+var PreferencesSections = []string{SectionApp, SectionProxy, SectionKubernetes, SectionEditor, SectionTerminal, SectionTables,
+	SectionAgent}
 
 // ClusterSettingsSections are the Cluster settings page's built sections, in Lens's captured
 // order (General, Proxy, Terminal, Namespaces, Metrics, ..., Node Shell) without the missing ones,
