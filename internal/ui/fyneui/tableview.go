@@ -521,7 +521,7 @@ func (tv *tableView) updateCell(id widget.TableCellID, o fyne.CanvasObject) {
 		if status == model.StatusNone && col.ID == "status" {
 			status = tv.snap.Rows[id.Row].Status
 		}
-		content = cellContent{text: tv.tf.CellText(*col, cell, tv.now), status: status, link: cell.Link, parts: cell.Parts, marks: cell.Marks}
+		content = cellContent{text: tv.tf.CellText(*col, cell, tv.now), status: status, link: cell.Link, parts: cell.Parts, marks: cell.Marks, bar: cell.Bar}
 		if content.link != nil && !tv.serves(content.link.Kind) {
 			content.link = nil // nowhere to go: plain text
 		}
@@ -1091,6 +1091,7 @@ type cellContent struct {
 	link   *model.ObjectRef
 	parts  *[]model.CellPart
 	marks  *[]model.CellMark // squares in place of the text (a pod's containers)
+	bar    *model.CellBar    // a usage bar beside the text (a node's CPU, Memory, Disk; tablebar.go)
 	kind   cellKind
 }
 
@@ -1110,6 +1111,7 @@ type tableCell struct {
 	runX  []float32           // each part's x offset, set by fit
 	marks []*canvas.Rectangle // the squares of a cell in marks; grown on demand
 	shown int                 // the squares that fit, set by fit
+	bar   *cellBar            // a usage bar's track and fill; made when the cell first shows one (tablebar.go)
 	icon  *canvas.Image       // made when the cell first shows an icon
 	line  *canvas.Rectangle
 	under *canvas.Rectangle // a hovered link's underline; made when the cell first shows a link
@@ -1230,6 +1232,8 @@ func (c *tableCell) tipText() string {
 			lines = append(lines, m.Text)
 		}
 		return strings.Join(lines, "\n") // a square stands for a container: say which, and how it is
+	case c.content.kind == cellText && c.content.bar != nil && c.content.bar.Detail != "":
+		return c.content.bar.Detail + " (" + c.full + ")" // the amounts behind the bar
 	case c.content.kind == cellText && c.truncated:
 		return c.full
 	}
@@ -1284,6 +1288,7 @@ func (c *tableCell) apply() {
 			}
 		}
 	}
+	c.applyBar(th)
 	if c.under == nil && c.content.link != nil {
 		c.under = canvas.NewRectangle(color.Transparent)
 		c.objs++
@@ -1312,6 +1317,7 @@ func (c *tableCell) apply() {
 	}
 	c.setIcon(c.tv.cellIcon(c.content, c.selected))
 	c.fit(th)
+	c.placeBar(th) // the table updates a reused cell without laying it out: the share and bar move here
 	c.bg.Refresh()
 	c.text.Refresh()
 	for _, t := range c.more {
@@ -1320,6 +1326,7 @@ func (c *tableCell) apply() {
 	for _, r := range c.marks {
 		r.Refresh()
 	}
+	c.refreshBar()
 }
 
 // setIcon shows res, or hides the icon for nil. The image is refreshed (its SVG rasterised) only
@@ -1356,6 +1363,7 @@ func (c *tableCell) fit(th fyne.Theme) bool {
 		return false
 	}
 	c.fitWidth = avail
+	avail = c.fitBar(th, avail) // a usage bar takes the room right of its share (tablebar.go)
 	if c.content.kind != cellText {
 		c.truncated, c.shown = false, 0 // a reused cell drops the squares it drew before
 		changed := c.text.Text != ""
@@ -1469,7 +1477,7 @@ func (r *tableCellRenderer) Layout(size fyne.Size) {
 	pad := th.Size(sizeCellPadding)
 	ts := c.text.MinSize()
 	y := (size.Height - ts.Height) / 2
-	c.text.Move(fyne.NewPos(pad, y))
+	c.text.Move(fyne.NewPos(c.layoutBar(th, size, pad, ts.Width), y))
 	c.text.Resize(ts)
 	for i, t := range c.more {
 		if i+1 < len(c.runX) && t.Text != "" {
@@ -1548,6 +1556,9 @@ func (r *tableCellRenderer) Objects() []fyne.CanvasObject {
 		}
 		for _, m := range c.marks {
 			r.objs = append(r.objs, m)
+		}
+		if c.bar != nil {
+			r.objs = append(r.objs, c.bar.track, c.bar.fill)
 		}
 		if c.ring != nil {
 			r.objs = append(r.objs, c.ring)

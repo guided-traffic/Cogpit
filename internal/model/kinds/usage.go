@@ -17,7 +17,14 @@ const (
 var (
 	cpuColumn    = model.Column{ID: model.ColumnCPU, Title: titleCPU, Type: model.ColumnMetric}
 	memoryColumn = model.Column{ID: model.ColumnMemory, Title: titleMemory, Type: model.ColumnMetric}
+	// The Nodes list's columns draw a usage bar beside the share, so they are wider than the Pods
+	// list's numbers (Cogpit's width: "100%" and a bar of about 60 points).
+	nodeCPUColumn    = model.Column{ID: model.ColumnCPU, Title: titleCPU, Type: model.ColumnMetric, Width: nodeBarWidth}
+	nodeMemoryColumn = model.Column{ID: model.ColumnMemory, Title: titleMemory, Type: model.ColumnMetric, Width: nodeBarWidth}
 )
+
+// nodeBarWidth is the default width of a Nodes list's usage-bar column.
+const nodeBarWidth = 112
 
 // podUsageCells shows a pod's usage as Lens's Pods list does: CPU in cores with three decimals
 // ("0.012"), memory in binary units with one decimal (D-32: "19.5 MiB").
@@ -33,19 +40,20 @@ func podUsageCells(_ *unstructured.Unstructured, u model.Usage) (cpu, memory mod
 	return cpu, memory
 }
 
-// nodeUsageCells shows a node's usage as a share of what the node can allocate ("7.5%"), the text
-// of Lens's usage bars (which Cogpit does not draw yet); the share, in tenths of a percent, is the
-// sort key. A node that reports no allocatable amount shows the absolute usage, as a pod does.
+// nodeUsageCells shows a node's usage as a share of what the node can allocate ("7.5%") drawn as
+// a usage bar (Lens's Nodes list), the amounts behind it as the bar's detail ("0.300 of 4.000
+// cores"); the share, in tenths of a percent, is the sort key. A node that reports no allocatable
+// amount shows the absolute usage without a bar, as a pod does.
 func nodeUsageCells(obj *unstructured.Unstructured, u model.Usage) (cpu, memory model.Cell) {
 	alloc, _ := model.NodeCapacity(obj)
 	cpu, memory = podUsageCells(obj, u)
 	if alloc.CPUMilli > 0 && u.HasCPU() {
-		share := float64(u.CPUMilli) / float64(alloc.CPUMilli)
-		cpu = model.Cell{Text: model.FormatPercent(share), Num: int64(share * 1000)}
+		cpu = model.ShareCell(float64(u.CPUMilli)/float64(alloc.CPUMilli),
+			model.FormatCPU(u.CPUMilli)+" of "+model.FormatCPU(alloc.CPUMilli)+" cores")
 	}
 	if alloc.MemoryBytes > 0 && u.HasMemory() {
-		share := float64(u.MemoryBytes) / float64(alloc.MemoryBytes)
-		memory = model.Cell{Text: model.FormatPercent(share), Num: int64(share * 1000)}
+		memory = model.ShareCell(float64(u.MemoryBytes)/float64(alloc.MemoryBytes),
+			model.FormatBytes(u.MemoryBytes)+" of "+model.FormatBytes(alloc.MemoryBytes))
 	}
 	return cpu, memory
 }

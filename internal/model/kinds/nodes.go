@@ -27,8 +27,8 @@ var nodes = &model.KindProfile{
 	Columns: []model.Column{
 		nameColumn,
 		warningColumn,
-		cpuColumn,
-		memoryColumn,
+		nodeCPUColumn,
+		nodeMemoryColumn,
 		{ID: "taints", Title: itemTaints, Type: model.ColumnNumber},
 		{ID: "roles", Title: "Roles", Type: model.ColumnText},
 		{ID: "version", Title: "Version", Type: model.ColumnText},

@@ -126,6 +126,37 @@ func FormatPercent(share float64) string {
 	return strconv.FormatFloat(p, 'f', 0, 64) + "%"
 }
 
+// The usage bars' thresholds (the Nodes list's CPU, Memory and Disk). Cogpit's defaults, not the
+// owner's decision: Lens's are not captured. A share at or above UsageWarningShare is drawn in
+// the warning colour, at or above UsageErrorShare in the error colour, else in the accent colour.
+const (
+	UsageWarningShare = 0.8
+	UsageErrorShare   = 0.9
+)
+
+// UsageBarStatus is a usage bar's colour for a share of the whole: StatusNone below the warning
+// share, StatusWarning from it, StatusError from the error share.
+func UsageBarStatus(share float64) Status {
+	switch {
+	case share >= UsageErrorShare:
+		return StatusError
+	case share >= UsageWarningShare:
+		return StatusWarning
+	}
+	return StatusNone
+}
+
+// ShareCell is a usage cell drawn as a bar: the share as text ("7.5%", FormatPercent), its sort
+// key in tenths of a percent, and the bar with its threshold colour and detail (the tooltip). A
+// negative share counts as 0.
+func ShareCell(share float64, detail string) Cell {
+	share = max(share, 0)
+	return Cell{
+		Text: FormatPercent(share), Num: int64(share * 1000),
+		Bar: &CellBar{Share: share, Status: UsageBarStatus(share), Detail: detail},
+	}
+}
+
 // NetworkSample is one point of a pod's or node's network traffic: bytes per second received and
 // transmitted, averaged over the provider's rate window. Only a provider with history and network
 // metrics (Prometheus) produces it; the network is a pod's, not a container's.

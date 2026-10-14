@@ -35,3 +35,27 @@ func TestPodUsageTotal(t *testing.T) {
 		t.Errorf("total = %+v", got)
 	}
 }
+
+// The usage bars' colours at the thresholds (Cogpit's defaults: warning from 80%, error from 90%)
+// and the cell a share makes: its text, sort key and bar.
+func TestUsageBars(t *testing.T) {
+	for _, tc := range []struct {
+		share float64
+		want  model.Status
+	}{
+		{0, model.StatusNone}, {0.5, model.StatusNone}, {0.7999, model.StatusNone},
+		{0.8, model.StatusWarning}, {0.8999, model.StatusWarning},
+		{0.9, model.StatusError}, {1.2, model.StatusError},
+	} {
+		if got := model.UsageBarStatus(tc.share); got != tc.want {
+			t.Errorf("UsageBarStatus(%v) = %q, want %q", tc.share, got, tc.want)
+		}
+	}
+	c := model.ShareCell(0.875, "7.0 GiB of 8.0 GiB")
+	if c.Text != "88%" || c.Num != 875 || c.Bar == nil || c.Bar.Share != 0.875 || c.Bar.Status != model.StatusWarning || c.Bar.Detail != "7.0 GiB of 8.0 GiB" {
+		t.Errorf("ShareCell(0.875) = %+v, bar %+v", c, c.Bar)
+	}
+	if c := model.ShareCell(-0.1, ""); c.Text != "0.0%" || c.Num != 0 || c.Bar.Share != 0 {
+		t.Errorf("a negative share = %+v, want 0", c)
+	}
+}

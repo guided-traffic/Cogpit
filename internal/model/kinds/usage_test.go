@@ -92,6 +92,39 @@ func TestUsageCellsLeaveAMissingPartEmpty(t *testing.T) {
 	}
 }
 
+// The Nodes list draws its CPU and Memory as usage bars (Lens's Nodes list, captured: "CPU,
+// Memory, Disk (usage bars)"): the share as the text and the sort key, the bar coloured at the
+// thresholds, the amounts as its detail; a node without allocatable amounts has no bar.
+func TestNodeUsageBars(t *testing.T) {
+	nodes := profile(t, "nodes")
+	for _, id := range []string{model.ColumnCPU, model.ColumnMemory} {
+		if c := nodes.Columns[nodes.ColumnIndex(id)]; c.Width <= 64 {
+			t.Errorf("the Nodes list's %s column is %v wide: no room for a bar", id, c.Width)
+		}
+	}
+	node := &unstructured.Unstructured{Object: map[string]any{"status": map[string]any{
+		"allocatable": map[string]any{"cpu": "4", "memory": "8Gi"},
+	}}}
+	cpu, mem := nodes.UsageCells(node, model.Usage{CPUMilli: 3700, MemoryBytes: 7 << 30})
+	if cpu.Bar == nil || cpu.Bar.Status != model.StatusError || cpu.Bar.Detail != "3.700 of 4.000 cores" || cpu.Text != "92%" {
+		t.Errorf("cpu cell = %+v, bar %+v", cpu, cpu.Bar)
+	}
+	if mem.Bar == nil || mem.Bar.Status != model.StatusWarning || mem.Bar.Detail != "7.0 GiB of 8.0 GiB" || mem.Text != "88%" {
+		t.Errorf("memory cell = %+v, bar %+v", mem, mem.Bar)
+	}
+	cpu, _ = nodes.UsageCells(node, model.Usage{CPUMilli: 300, MemoryBytes: 1})
+	if cpu.Bar == nil || cpu.Bar.Status != model.StatusNone {
+		t.Errorf("a node at 7.5%% = %+v, want a bar without a status colour", cpu.Bar)
+	}
+	if cpu, _ = nodes.UsageCells(&unstructured.Unstructured{}, model.Usage{CPUMilli: 300}); cpu.Bar != nil {
+		t.Errorf("a node without allocatable amounts has a bar: %+v", cpu)
+	}
+	// The Pods list keeps its numbers.
+	if cpu, _ := profile(t, "pods").UsageCells(&unstructured.Unstructured{}, model.Usage{CPUMilli: 300}); cpu.Bar != nil {
+		t.Errorf("a pod's cell has a bar: %+v", cpu)
+	}
+}
+
 func profile(t *testing.T, key string) *model.KindProfile {
 	t.Helper()
 	for _, p := range kinds.Builtin() {

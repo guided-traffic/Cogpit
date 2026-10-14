@@ -79,6 +79,21 @@ type Cell struct {
 	// Image is the URL of the image a ColumnIcon cell draws (a chart's icon); empty: the column's
 	// glyph.
 	Image string `json:"image,omitempty"`
+	// Bar, when set, draws the cell as a usage bar beside its Text: a node's CPU, Memory and Disk
+	// as a share of what the node has (Lens's usage bars in the Nodes list). Text stays the
+	// readable share ("7.5%") for sorting, search, CSV and agents. A pointer, so that Cell stays
+	// comparable; shared and immutable like Parts.
+	Bar *CellBar `json:"bar,omitempty"`
+}
+
+// CellBar is a usage bar: Share is the part of the whole in use (0 to 1; more is drawn full),
+// Status the bar's colour at the thresholds ([UsageBarStatus]: none below the warning share, then
+// warning, then error), Detail the amounts behind the share ("0.30 of 4 cores"), the cell's
+// tooltip.
+type CellBar struct {
+	Share  float64 `json:"share"`
+	Status Status  `json:"status,omitempty"`
+	Detail string  `json:"detail,omitempty"`
 }
 
 // CellMark is one square of a cell drawn in marks.
