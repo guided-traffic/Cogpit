@@ -17,6 +17,7 @@ have and the package that owns it, with a link where the MVP (2026-10-11) implem
 | Helm's `repositories.yaml` and the CA, certificate and key files it names (2026-10-13) | trusted as the user's own configuration, like a kubeconfig file the user keeps | The helm CLI writes it (`helm repo add`); Cogpit reads it, never writes it, and takes its changes over within seconds without asking, from whoever wrote them ([H-42](#h-42-a-repository-another-program-writes-into-helms-file-is-used-without-asking)). Its passwords are the user's ([credentials](credentials.md#where-credentials-come-from)) |
 | Helm repositories and charts | untrusted | Remote content; rendering a chart runs its templates in Cogpit's process through the Helm SDK |
 | Hosts that serve chart icons (2026-10-14) | untrusted, and told what the user looks at | A repository's index names each chart's icon as a URL on any host; Cogpit fetches it when the window shows the chart, while Preferences › Load chart icons is on ([D-46](../developer/decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them), [H-87](#h-87-chart-icons-tell-their-hosts-what-the-user-looks-at)) |
+| A `cogpit://` link (2026-10-14) | untrusted: any web page, mail, chat or app can open one, whether Cogpit runs or not | macOS hands it to Cogpit's app, which only navigates with it, never writes ([D-47](../developer/decisions.md#d-47-deep-links-cogpit), [H-89](#h-89-a-link-switches-the-cluster-and-the-view-under-the-user)) |
 | External agents over MCP | as trusted as the local user who connected them; decisions are a model's | [agents and MCP](agents-and-mcp.md) |
 | Built-in agent and its LLM endpoint | the endpoint's output is untrusted | [agents and MCP](agents-and-mcp.md) |
 | Release host and update manifest | trusted after signature verification | [updates](updates.md) |
@@ -42,6 +43,8 @@ UNTRUSTED                                   BOUNDARY                          TR
                                              without images or HTML
   chart icon (any https host)            ─► no credentials, public ─────────► kept icon copy
                                              address, bounded decode
+  cogpit:// link (any page or app)       ─► strict grammar, sources' ───────► navigation only:
+                                             contexts, no approval asked        five ui.* commands
   MCP requests, LLM tool calls           ─► token, origin, schema, ─────────► dispatched commands
                                              access review, confirmation
   update manifest and artifact           ─► signature, checksum, ───────────► installed app
@@ -67,12 +70,48 @@ UNTRUSTED                                   BOUNDARY                          TR
 | Chart README to the drawer and agents | `internal/helm`, `internal/engine`, `internal/ui/fyneui` | Built 2026-10-14 (night build HELM2, [architecture §8](../developer/architecture.md#8-helm-internalhelm)): read from the version's archive through the install's path above, only when the drawer shows the chart or an agent reads it; at most 256 KiB kept, invalid UTF-8 replaced, control characters but tab and line feed and the bidirectional embeddings, overrides and isolates dropped (`FuzzCleanReadme`); a copy in Cogpit's cache only when the index's digest verified the archive, checked again when read back (`TestReadmeStoreBounds`). The window renders it as Markdown with Fyne's RichText: images never loaded (their alt text instead, so the README names no host Cogpit fetches from), raw HTML dropped, a link opened only on the user's click and only for an absolute http or https URL (`TestChartDrawerReadme`). Agents read it as text a chart's author wrote ([H-86](agents-and-mcp.md#h-86-a-charts-readme-reaches-agents)) |
 | Chart icon to the window | `internal/helm`, `internal/engine`, `internal/ui/fyneui` | Built 2026-10-14 ([D-46](../developer/decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them), [`helm/icon.go`](../../internal/helm/icon.go), [`engine/helmicons.go`](../../internal/engine/helmicons.go)): only for a row or drawer the window draws and while Preferences › Load chart icons is on (only the user turns it on; agents fetch none); https only, a redirect too; no credentials, cookies or referrer; at most 256 KiB and 20 s; a host at a loopback, private, link-local or other non-public address refused unless it is a chart repository's own, the checked address dialled (`TestFetchIconRefusesPrivateAddresses`); through the Preferences' proxy; the bytes checked as an uploaded cluster icon is (`CheckIcon`: a PNG or JPEG decoded under bounds and written again as a PNG of at most 256 pixels a side, an SVG kept only when it refers to nothing outside itself, anything else refused) and checked again when read from Cogpit's cache (`TestChartIconRefusals`) |
 | Request to command | `internal/engine` | Params validated against the schema; `enabled` and access review before `run`; confirmation by origin ([agents and MCP](agents-and-mcp.md)). Built: the schema check refuses unknown fields, then `Command.Enabled` asks the connected user's cached access reviews about every declared verb whenever the parameters name an object, and a known denial refuses the command for every origin ("not permitted: you may not …"), an unknown answer passes and the API server decides; then the confirmation ([`engine.go`](../../internal/engine/engine.go) `Dispatch`, [`access.go`](../../internal/engine/access.go)); see [H-21](#h-21-access-reviews-guide-they-do-not-guard) |
+| Link to navigation | `internal/engine`, `cmd/cogpit`, `internal/ui/fyneui` | Built 2026-10-14 ([D-47](../developer/decisions.md#d-47-deep-links-cogpit), [`engine/deeplink.go`](../../internal/engine/deeplink.go)): only the app bundle registers the scheme; the Apple event handler hands at most 2,049 bytes of a link to a queue that holds at most 8 and drops a longer link (`TestDeepLinkAppleEvents`, `TestDeepLinkQueue`); a link is parsed strictly or refused whole: `cogpit://open` with the parameters `context`, `view`, `namespace` and `name` only, each once, not empty, without control or format characters, in its form and bounds (`TestParseDeepLinkRefusals`, `FuzzParseDeepLink`); its context must be one of the kubeconfig sources' (or the demo cluster), never a file, and one whose credential plugin or token file waits for the user's approval is not connected: the approval stays the user's, from the picker (`TestDeepLinkRefusals`); what it asks for runs as five navigation commands with origin `deeplink`, and `Dispatch` refuses that origin every other command and any invocation that is not a UI or read command, before the parameters decode and again after `Escalate`, so no write is reachable from a link (`TestDeepLinkCommandsOnlyNavigate` over the whole registry, `TestDeepLinkGuardsAnAlteredCommand`); every link is audited (origin `deeplink`) and said in a toast, the window raised |
 | MCP request to engine | `internal/mcp` | Loopback only, bearer token, `Host` and `Origin` checks: [`internal/mcp/http.go`](../../internal/mcp/http.go), `TestHTTPGuard`, `TestNewRefusesNonLoopbackAddresses` |
 | Cluster data to the LLM endpoint | `internal/agent` | Secret values withheld by default; what is sent is shown |
 | Download to installed app | `internal/update` | Signed manifest, checksum, OS code signature, no downgrade ([updates](updates.md)) |
 | kubectl download to a terminal's `PATH` | `internal/kubectl`, `internal/engine`, `internal/terminal` | Built 2026-10-13 ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries)): only the user's click in the window downloads (`kubectl.download` refuses agents and the CLI before anything is fetched, `TestKubectlDownloadCommand`), and only the user sets the path to kubectl, the directory for binaries and the mirror (`ErrKubectlGUIOnly`); the mirror is an https URL without user information, query or fragment, and redirects are followed to https only (`TestCheckMirror`, `TestDownloadHTTPSOnly`); the `.sha256`, `.sig` and `.cert` files are read first (16 KiB each at most) and the signature is checked over the published digest before the binary is asked for: the signing certificate must chain to the sigstore certificate authority Cogpit embeds ([`sigstore_fulcio.pem`](../../internal/kubectl/sigstore_fulcio.pem)) at the time it was issued, be for code signing, and name `krel-staging@k8s-releng-prod.iam.gserviceaccount.com` with the OIDC issuer `https://accounts.google.com`, and its key must have signed the digest ([`verify.go`](../../internal/kubectl/verify.go); `TestRealReleaseSignature` verifies kubectl 1.36.1's published signature offline, `TestVerifierRefuses`, `TestDownloadRefusesBadSignatures`); the binary (at most 128 MiB, `TestDownloadSizeBound`) goes into a temporary file beside its place, must have the published digest (`TestDownloadRefusesTamperedBinary`), and is made 0755 and renamed into `<directory for binaries>/<version>/kubectl` (directories 0700); nothing is left on failure. It goes first on `PATH` in Cogpit's terminals only, as a link in the terminal's own temporary directory, never in a shell profile or a global location (`TestStartLocalKubectlFirst`, `TestZshKubectlFirstAfterTheProfile`). Not checked: sigstore's transparency log ([H-35](#h-35-kubectls-signature-is-checked-without-sigstores-transparency-log)); a profile can still reorder `PATH` ([H-36](#h-36-a-shells-profile-can-put-another-kubectl-first)) |
 
 ## What this does not cover
+
+### H-89: A link switches the cluster and the view under the user
+
+Live since 2026-10-14 on macOS ([D-47](../developer/decisions.md#d-47-deep-links-cogpit)). Any web
+page, mail or app can open a `cogpit://` link, and Cogpit follows it without asking: it connects
+another context of the user's kubeconfig sources and opens a view or an object's drawer there.
+Browsers usually ask before they hand a link to an app ("Open Cogpit?"); a mail or chat app may not
+(neither verified with Cogpit, nor per app). Per case:
+
+- **The wrong cluster.** A link switches the connection while the user works on another cluster; a
+  user who misses the toast may act in the new one. Bounded by: the window comes to the front and a
+  toast names the context; a write the user confirmed for the other cluster refuses to run
+  (`CheckConfirmedContext`); the other cluster's tabs stay; nothing is written by the link itself.
+- **The cost of a connect.** Each link to another context connects it: discovery, the access
+  reviews and the lists of the view it opens, with the user's identity. A page that opens links in
+  a loop makes Cogpit connect again and again (the queue holds at most 8, and a browser asks per
+  link). Live only where links reach Cogpit without a question.
+- **An approved credential plugin runs.** A context whose plugin the user allowed is connected,
+  so the plugin runs (an OIDC login may open a browser). A plugin not allowed, or changed since,
+  never runs from a link.
+
+Not built: asking before a link switches clusters, or a setting that turns links off.
+
+### H-90: A link's text reaches agents through the logs
+
+Live since 2026-10-14. The audit log keeps every link: the parameters of one that parses (a
+context of up to 512 bytes of any printable text, refused or not, a view key, a namespace, an
+object name), or at most 256 bytes of one that does not, escaped. The notification log keeps its
+toast, which quotes up to 200 bytes of a context that names none of the user's and up to 64 of
+another refused value. Agents read both (`audit_list`, `notifications_list`), so a web page can put
+a short text of its choice where an agent reads: a channel for the instructions of
+[H-11](agents-and-mcp.md#h-11-instructions-hidden-in-cluster-data), live whenever links reach
+Cogpit and an agent reads those logs. Bounded by: control and format characters are escaped or
+refused; the view, the namespace and the name have narrow forms (`[a-z0-9.-/]`, a DNS label,
+`[A-Za-z0-9._:@+-]`). Not built: leaving a refused link's text out of what agents read.
 
 ### H-1: Kubeconfig files added by sync folders
 

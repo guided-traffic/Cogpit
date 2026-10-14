@@ -73,6 +73,9 @@ func run(previousCrash string) int {
 	logger := slog.New(helm.RedactSDKLog(newLogger(*verbose).Handler())) // Helm values never reach the log
 	slog.SetDefault(logger)
 	klog.SetSlogLogger(logger)
+	// cogpit:// links (D-47): the handler must be in place before the app finishes launching, when
+	// macOS delivers the link that started it; the links wait in the queue for the window.
+	deepLinkQueue := installDeepLinks(logger)
 	// client-go's informer goroutines re-panic after logging by default, which would end the app
 	// because one watch failed (D-11: crash-tolerant UI). Log instead; the cache reports the stopped
 	// informer as an error state.
@@ -113,7 +116,8 @@ func run(previousCrash string) int {
 		return 1
 	}
 
-	opts := fyneui.Options{AutoConnect: *contextName, Theme: fyneui.ThemeMode(*themeName)}
+	opts := fyneui.Options{AutoConnect: *contextName, Theme: fyneui.ThemeMode(*themeName),
+		DeepLinks: deepLinkQueue}
 	if previousCrash != "" {
 		at := time.Now()
 		if fi, err := os.Stat(previousCrash); err == nil {

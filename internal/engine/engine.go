@@ -36,7 +36,7 @@ func (o Origin) IsAgent() bool { return o == OriginExternalAgent || o == OriginB
 
 func (o Origin) valid() bool {
 	switch o {
-	case OriginGUI, OriginCLI, OriginExternalAgent, OriginBuiltInAgent:
+	case OriginGUI, OriginCLI, OriginExternalAgent, OriginBuiltInAgent, OriginDeepLink:
 		return true
 	}
 	return false
@@ -277,6 +277,9 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 	if !inv.Origin.valid() {
 		return nil, fmt.Errorf("command %s: invalid origin %q", inv.ID, inv.Origin)
 	}
+	if err := checkDeepLinkCommand(cmd, inv.Origin); err != nil { // a link only navigates (deeplink.go)
+		return nil, err
+	}
 	// auditContext is the context the command was dispatched for (or, once confirmed, the one the
 	// user confirmed), not whatever is connected when it finishes.
 	var auditContext string
@@ -311,6 +314,9 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 
 	danger := cmd.Danger
 	if err := s.safeCall(cmd.ID, func() error { danger = cmd.dangerFor(s, p); return nil }); err != nil {
+		return nil, err
+	}
+	if err := checkDeepLinkDanger(cmd.ID, inv.Origin, danger); err != nil { // never a link's write (deeplink.go)
 		return nil, err
 	}
 	agentsAsk := false // judged for an agent's write only: the GUI's own command is unaffected (agentsask.go)

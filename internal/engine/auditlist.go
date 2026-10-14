@@ -50,7 +50,7 @@ const DockAudit DockType = "audit"
 
 // AuditTab is the Audit Log tab's state: which origins it lists.
 type AuditTab struct {
-	// Origin is "" (all), "agents", or one origin: gui, cli, externalAgent, builtInAgent.
+	// Origin is "" (all), "agents", or one origin: gui, cli, externalAgent, builtInAgent, deeplink.
 	Origin string `json:"origin,omitempty"`
 }
 
@@ -95,10 +95,10 @@ type AuditList struct {
 // CheckAuditOrigin checks an origin filter.
 func CheckAuditOrigin(origin string) error {
 	switch Origin(origin) {
-	case AuditAllOrigins, AuditAgents, OriginGUI, OriginCLI, OriginExternalAgent, OriginBuiltInAgent:
+	case AuditAllOrigins, AuditAgents, OriginGUI, OriginCLI, OriginExternalAgent, OriginBuiltInAgent, OriginDeepLink:
 		return nil
 	}
-	return fmt.Errorf("origin %q: one of agents, %s, %s, %s, %s, or empty for all", origin, OriginGUI, OriginCLI, OriginExternalAgent, OriginBuiltInAgent)
+	return fmt.Errorf("origin %q: one of agents, %s, %s, %s, %s, %s, or empty for all", origin, OriginGUI, OriginCLI, OriginExternalAgent, OriginBuiltInAgent, OriginDeepLink)
 }
 
 func auditOriginMatches(filter string, o Origin) bool {

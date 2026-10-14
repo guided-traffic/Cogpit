@@ -51,6 +51,9 @@ type Options struct {
 	// Theme picks the palette for the run (--theme), over the Preferences' theme; empty: the
 	// Preferences' theme, ThemeDark without one.
 	Theme ThemeMode
+	// DeepLinks are the cogpit:// links macOS hands the app (D-47), opened once the window is up
+	// (deeplink.go); nil: the platform delivers none.
+	DeepLinks *engine.DeepLinkQueue
 }
 
 // PerfStats is what the jank meter measured: how late callbacks posted to the main goroutine
@@ -174,9 +177,12 @@ func Run(s *engine.Session, opts Options) error {
 	w.Resize(fyne.NewSize(1440, 900))
 	// Cogpit's own title bar on macOS needs the window, which exists once the app started: queued
 	// from OnStarted, the install runs after the window's creation (titlebar.go).
+	detachLinks := func() {}
 	a.Lifecycle().SetOnStarted(func() {
 		do(sh.titlebar.install)
 		do(sh.showStartNotices) // the crash notice, and what the engine said before the window was up
+		// The cogpit:// links that came before the window wait until now (deeplink.go).
+		do(func() { detachLinks = sh.attachDeepLinks(opts.DeepLinks) })
 	})
 	sh.start()
 	if opts.PerfReport != nil {
@@ -198,6 +204,7 @@ func Run(s *engine.Session, opts Options) error {
 	}()
 	w.ShowAndRun()
 	stopped.Store(true)
+	detachLinks()
 	if sh.perf != nil {
 		sh.perf.finish() // the window closed before PerfDuration ended, or there is none
 	}

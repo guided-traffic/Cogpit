@@ -356,6 +356,7 @@ app: build $(FYNE) ## Package Cogpit for this OS with fyne package (macOS: bin/C
 		plutil -replace LSApplicationCategoryType -string public.app-category.developer-tools $(BIN)/Cogpit.app/Contents/Info.plist && \
 		plutil -replace LSMinimumSystemVersion -string $(MACOS_MIN) $(BIN)/Cogpit.app/Contents/Info.plist && \
 		otool -l $(BIN)/Cogpit.app/Contents/MacOS/cogpit | grep -A3 LC_BUILD_VERSION | grep -q "minos $(MACOS_MIN)" && \
+		plutil -replace CFBundleURLTypes -json '[{"CFBundleURLName":"$(APP_ID)","CFBundleURLSchemes":["cogpit"]}]' $(BIN)/Cogpit.app/Contents/Info.plist && \
 		codesign --force --sign - $(BIN)/Cogpit.app && \
 		codesign --verify $(BIN)/Cogpit.app && \
 		test -x $(BIN)/Cogpit.app/Contents/MacOS/cogpit && \

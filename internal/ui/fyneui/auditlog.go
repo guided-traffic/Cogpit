@@ -28,6 +28,7 @@ var auditOrigins = []struct{ origin, label string }{
 	{string(engine.OriginExternalAgent), "External agents (MCP)"},
 	{string(engine.OriginBuiltInAgent), "Built-in agent"},
 	{string(engine.OriginGUI), "You, in this window"},
+	{string(engine.OriginDeepLink), "Links (cogpit://)"},
 }
 
 // auditColumns are the list's columns: title and width (0: the room left).
@@ -256,6 +257,8 @@ func auditOriginText(o engine.Origin) string {
 		return "External agent"
 	case engine.OriginBuiltInAgent:
 		return "Built-in agent"
+	case engine.OriginDeepLink:
+		return "Link (cogpit://)"
 	}
 	return string(o)
 }

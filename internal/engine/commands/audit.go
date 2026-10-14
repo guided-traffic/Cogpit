@@ -12,13 +12,13 @@ import (
 // and of what the user did in the window only the switches that are no command, AuditUser).
 
 type auditListParams struct {
-	Origin string `json:"origin,omitempty" jsonschema:"whose entries: agents (external agents and the built-in agent), externalAgent, builtInAgent, cli or gui (the user in the window); empty or omitted: all"`
+	Origin string `json:"origin,omitempty" jsonschema:"whose entries: agents (external agents and the built-in agent), externalAgent, builtInAgent, cli, gui (the user in the window) or deeplink (cogpit:// links); empty or omitted: all"`
 	Offset int    `json:"offset,omitempty" jsonschema:"index of the first entry to return, from 0 (the newest); default 0"`
 	Limit  int    `json:"limit,omitempty" jsonschema:"entries to return; default 100, at most 1000"`
 }
 
 type auditOpenParams struct {
-	Origin string `json:"origin,omitempty" jsonschema:"whose entries the tab lists: agents, externalAgent, builtInAgent, cli or gui; empty or omitted: all"`
+	Origin string `json:"origin,omitempty" jsonschema:"whose entries the tab lists: agents, externalAgent, builtInAgent, cli, gui or deeplink; empty or omitted: all"`
 }
 
 func auditEnabled(s *engine.Session) error {

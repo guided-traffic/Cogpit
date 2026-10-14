@@ -269,6 +269,34 @@ included unless you switched that off; so only you, in Cogpit's window, can turn
 may only turn it off. Not offered on Windows and Linux yet. What macOS does with the ad-hoc signed
 app of today's releases is not verified (the Developer ID signature is being built).
 
+### Deep links (`cogpit://`)
+
+macOS only: the app registers the URL scheme `cogpit`, so a link in a runbook, a chat or an alert
+opens Cogpit at a cluster, a view or an object ([D-47](decisions.md#d-47-deep-links-cogpit)).
+
+```text
+cogpit://open?context=kind-dev%20%5Bconfig%5D&view=pods&namespace=team-a&name=web-0   # example
+```
+
+| Parameter | Value | Without it |
+|---|---|---|
+| `context` | a context id as `cluster_contexts` lists it (`<context> [<file>]`), or a kubeconfig context name that one source file alone defines; `demo` for the demo cluster | the connected cluster |
+| `view` | a kind key (`pods`, `deployments`, `gateways.gateway.networking.k8s.io`) or a page key (`cluster/overview`) | the view the connect shows |
+| `namespace` | a namespace: with `name` the object's; without it the namespace filter | the filter as it is |
+| `name` | an object of the view's kind: its drawer opens; needs `view` to be a kind, not a page | no drawer |
+
+At least one parameter; each at most once, percent-encoded, at most 2,048 bytes in all. Cogpit
+comes to the front, connects the context unless it is connected, and opens what the link names;
+a toast says what it opened or why not, and the audit log records the link (origin `deeplink`).
+
+Security note: any web page or app can open such a link, so a link only navigates: it never
+writes to a cluster, never runs a command with a confirmation, never names a file, and never
+connects a context whose login program or token file you have not allowed yet (connect from the
+picker to review it). A malformed link is refused whole. What remains is in
+[H-89](../security/trust-boundaries.md#h-89-a-link-switches-the-cluster-and-the-view-under-the-user)
+and [H-90](../security/trust-boundaries.md#h-90-a-links-text-reaches-agents-through-the-logs).
+Not on Windows and Linux yet.
+
 ### Commands and MCP tools
 
 Every command is an MCP tool. The table of all of them, with each one's danger and parameters,
@@ -316,6 +344,8 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Node shell dock tab | id `nodeShell-<n>`, title `Node shell: <node>` | `Node shell: worker-1` # example |
 | Demo context | `demo` (the synthetic cluster) | |
 | Local kind cluster | cluster `cogpit`, context `kind-cogpit`, kubeconfig `.cache/kind/kubeconfig` | |
+| Release artifacts (planned) | `Cogpit-<version>-macos-universal.dmg`, `cogpit-cli-<version>-<os>-<arch>.tar.gz` | `Cogpit-0.1.0-macos-universal.dmg` # example |
+| Deep links (macOS) | `cogpit://open?context=<context id>&view=<view key>&namespace=<namespace>&name=<name>`, the scheme registered in the app's `CFBundleURLTypes` (name `io.guided-traffic.cogpit`); audited as `deeplink.open` with origin `deeplink` | `cogpit://open?view=pods&namespace=team-a` # example |
 | Release artifacts | `Cogpit-<version>-macos-<arch>.dmg` (signed releases; `universal` once the app is built for Intel too, planned), `Cogpit_<version>_darwin_<arch>.zip` (v0.4.0 and earlier, and builds without the signing secrets), `cogpit-cli_<version>_<os>_<arch>.tar.gz` (`.zip` for Windows), `SHA256SUMS` | `Cogpit-0.5.0-macos-arm64.dmg` # example |
 | Deep links (planned) | `cogpit://` | |
 
