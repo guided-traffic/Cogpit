@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (Current focus: the owner's audit of the night run's decisions first; the chat and the evening's decisions built but R3 and A10); minor (Current focus: the About dialog of item 1 fixed, A60 built with it); minor (Current focus: the owner's findings in a real window of 2026-10-14 evening first (node history from Prometheus, the About dialog), his decision round of the same evening as item 8 after the agent chat; the open questions answered; the terminal fork's two newer patches offered upstream later); minor (M10: `cogpit-cli` inside the app and the disk image the release's only download, D-16 revised by the owner, built, no tag run yet); minor (M10 in progress: the signed, notarized disk image built, no tag run yet; Current focus: the node shell as built confirmed by the owner, D-37; GitOps: Flux CD's section built, the milestone in progress, G23; M3, M4: the node shell built, D-37, a night decision for the owner to confirm; Current focus: its confirmation replaces the owner's decision on H-7; alpha gate: the downloadable macOS build exists since v0.1.0, for Apple silicon; Current focus after the day run: D-29 and the copy icons built; M6: a release upgraded to a version from the user's chart repositories; M7: the cluster Overview built; M1 and 0.1: `cogpit-cli contexts` and `get` built; M9: the stdio bridge built; current focus after the fifth run and the owner's smoke test; M12 in progress: the built-in agent's engine side built, 20–40 h left; Current focus item 1: the node history from Prometheus built in the night run (G12, A43)) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (Current focus: H-96 decided, R3 postponed by the owner); minor (Current focus: the owner's audit of the night run's decisions first; the chat and the evening's decisions built but R3 and A10); minor (Current focus: the About dialog of item 1 fixed, A60 built with it); minor (Current focus: the owner's findings in a real window of 2026-10-14 evening first (node history from Prometheus, the About dialog), his decision round of the same evening as item 8 after the agent chat; the open questions answered; the terminal fork's two newer patches offered upstream later); minor (M10: `cogpit-cli` inside the app and the disk image the release's only download, D-16 revised by the owner, built, no tag run yet); minor (M10 in progress: the signed, notarized disk image built, no tag run yet; Current focus: the node shell as built confirmed by the owner, D-37; GitOps: Flux CD's section built, the milestone in progress, G23; M3, M4: the node shell built, D-37, a night decision for the owner to confirm; Current focus: its confirmation replaces the owner's decision on H-7; alpha gate: the downloadable macOS build exists since v0.1.0, for Apple silicon; Current focus after the day run: D-29 and the copy icons built; M6: a release upgraded to a version from the user's chart repositories; M7: the cluster Overview built; M1 and 0.1: `cogpit-cli contexts` and `get` built; M9: the stdio bridge built; current focus after the fifth run and the owner's smoke test; M12 in progress: the built-in agent's engine side built, 20–40 h left; Current focus item 1: the node history from Prometheus built in the night run (G12, A43)) · **Target:** Lens Desktop 2026.10.51501
 
 Forward-looking plan: the alpha gate, the milestones, the **current focus** and what's next with
 estimates. Where Cogpit stands is in [`target-app-parity.md`](target-app-parity.md); the ranked
@@ -71,7 +71,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
    D-14 (the fork's races), D-22 (a free colour's legible shade), D-25 (the copy icons), D-28
    (Remove from Cogpit bound to the contexts named), D-29 and D-11 (Helm), D-33 (Reconcile with
    Source), D-50 (no fallback when Rekor cannot be asked), D-51 (the navigator's state), the
-   README's pictures, and the security pages. Then R3's design (D-52).
+   README's pictures, and the security pages.
 2. **The owner's findings from the real window (2026-10-14 evening), both built, to check in a real window:** the node history
    from Prometheus where it is available (no past data shows for a node; built 2026-10-14 night:
    node-exporter where the Prometheus has it, A43, [G12](gaps.md#g12-metrics-and-cluster-overview));
@@ -116,14 +116,15 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
    built in the night run of 2026-10-14/15 (the engine side, the chat column at the right edge,
    Preferences › Agent, the private connection's reads; checked against the owner's LM Studio);
    open: a LiteLLM run in CI once the key is a GitHub secret, Open WebUI and LiteLLM live, the
-   keychain on Windows and Linux, a private turn's kept tool results
-   ([H-96](../security/agents-and-mcp.md#h-96-a-private-turns-reads-are-kept-where-the-scrubber-does-not-know-them)).
+   keychain on Windows and Linux, and a private connection's conversations no longer kept (decided
+   by the owner 2026-10-15, not built,
+   [H-96](../security/agents-and-mcp.md#h-96-a-private-turns-reads-are-kept-where-the-scrubber-does-not-know-them)).
 9. **The rest of the owner's decisions of 2026-10-14 evening** (the decision index in
    [decisions](../developer/decisions.md#decision-round-2026-10-14-evening)): built in the night
    run of 2026-10-14/15 (hotbar tiles reordered by drag too, R2, a paid row,
    [ui parity › Hotbar](ui-parity.md#hotbar)) but two: a tile dragged out of the window opening
-   another window (R3), designed in [D-52](../developer/decisions.md#d-52-several-windows), the owner's
-   decision pending; and the ruleset for `v*` tags (A10), a GitHub setting, only with the owner's
+   another window (R3), designed in [D-52](../developer/decisions.md#d-52-several-windows) and postponed by the
+   owner until the rest is done (model (a) as the direction, the rest in a separate interview); and the ruleset for `v*` tags (A10), a GitHub setting, only with the owner's
    go-ahead ([G14](gaps.md#g14-packaging-signing-and-updates-macos)).
 
 ## What's next, with estimates
@@ -140,6 +141,7 @@ Ranked; each item links to its gap. Pick from the top unless an issue is assigne
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-15 | minor | Current focus: the chat's H-96 decided by the owner (not built), R3 postponed by him until the rest is done |
 | 2026-10-15 | minor | Current focus: the owner's audit of the night run's decisions first; the chat and his decisions of 2026-10-14 evening built but R3 (designed, D-52) and A10 |
 | 2026-10-14 | minor | Current focus item 1: the About dialog fixed (the build's own version, a development build saying so, a calmer layout) and decision A60 built (About Cogpit in macOS's application menu) |
 | 2026-10-14 | minor | Current focus item 1: the node history from Prometheus built in the night run (node-exporter where the Prometheus has it, A43, G12) |

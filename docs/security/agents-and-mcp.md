@@ -217,10 +217,17 @@ Per case (from the code, [`engine/secretscrub.go`](../../internal/engine/secrets
 - a Helm action's error that quotes what a chart's `lookup` read, and the window's notifications
   with the inline values an action was given, wherever the text is not a cached Secret's value.
 
-Live once the chat column ships, for every conversation over a private connection whose turns read
-one of them. What bounds it: the file is the user's own, owner-only, on the user's computer, and
-the model the user marked private saw the same text. Not decided: keeping no tool result of a
-private turn, or scrubbing a private turn's pieces also with the values it read.
+Live since the chat column shipped (v0.8.0), for every conversation over a private connection
+whose turns read one of them. What bounds it: the file is the user's own, owner-only, on the user's
+computer, and the model the user marked private saw the same text.
+
+**Decided (owner, 2026-10-15), not built:** a conversation over a private connection is not kept.
+It lives in memory only and is gone when Cogpit quits; `chat-conversations.json` holds only the
+conversations over connections not marked private. Weighed against it: keeping the conversation
+with a private turn's tool results withheld (the lead's recommendation: a resumed conversation
+stays readable, and only an answer that quotes a value keeps it), keeping it as built, and
+scrubbing a private turn's pieces also with the values it read (laborious and still incomplete:
+a password among Helm's values is not recognisable as one). The gap stays open until it is built.
 
 ### H-28: The status bar's switch does not reach a headless bridge
 
@@ -337,7 +344,8 @@ What is still not covered, per case:
 - **The built-in agent over a private connection** reads every value as printed, by the owner's
   decision of 2026-10-14 late evening (built the same night,
   [H-94](#h-94-a-private-connection-gives-the-model-what-the-window-shows)); its kept conversations
-  pass this filter ([H-96](#h-96-a-private-turns-reads-are-kept-where-the-scrubber-does-not-know-them)).
+  pass this filter, and are not kept at all by the owner's decision of 2026-10-15, not built yet
+  ([H-96](#h-96-a-private-turns-reads-are-kept-where-the-scrubber-does-not-know-them)).
 
 ### H-83: An allowed terminal tab gives agents everything it shows from then on
 

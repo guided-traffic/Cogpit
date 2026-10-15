@@ -48,6 +48,6 @@ Reporting a vulnerability: [`SECURITY.md`](../../SECURITY.md).
   due when several clusters can be open at once
   ([G4](../parity/gaps.md#g4-engine-and-command-registry)). The owner asked on 2026-10-14 evening
   for a hotbar tile dragged out of the window to open another Cogpit window with that cluster; it
-  is designed (2026-10-15, [D-52](../developer/decisions.md#d-52-several-windows), the owner's
-  decision pending: one UI state per window, which window agents' `ui_*` tools drive, which window
+  is designed (2026-10-15, [D-52](../developer/decisions.md#d-52-several-windows), postponed by
+  the owner until the rest is done: one UI state per window, which window agents' `ui_*` tools drive, which window
   a confirmation belongs to), and building it is where this page becomes due.

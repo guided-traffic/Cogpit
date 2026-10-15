@@ -446,7 +446,8 @@ applies). What remains, per case:
   as D-19 keeps them out of drafts; the request bodies sent stay in memory). Both are written
   through the engine's owner-only writer (atomic, symlinks refused). A private connection's turns
   read more than the scrubber knows (Helm's values, Flux's inline credentials, a Secret's value
-  under 10 bytes), and that is kept as read
+  under 10 bytes), and that is kept as read; decided 2026-10-15 (owner), not built yet: a private
+  connection's conversations are not kept at all
   ([H-96](agents-and-mcp.md#h-96-a-private-turns-reads-are-kept-where-the-scrubber-does-not-know-them)).
 
 ### H-95: An LLM API key over plain http
