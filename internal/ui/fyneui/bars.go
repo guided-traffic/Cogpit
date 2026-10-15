@@ -48,8 +48,9 @@ func connectionText(c engine.Connection) string {
 }
 
 // topBar is the window's top bar: the Cogpit wordmark, the history arrows, the active context with
-// its connection state, the context picker button and the notifications' bell (the MCP details are
-// the status bar's, F6). On macOS
+// its connection state, the context picker button and at the right end the Update button while an
+// update is available, the layout toggles (layoutbar.go, F7) and the notifications' bell (the MCP
+// details are the status bar's, F6). On macOS
 // it is also the window's title bar (titlebar.go): room for the window buttons before the logo,
 // and a drag area under its contents.
 type topBar struct {
@@ -67,6 +68,8 @@ type topBar struct {
 	titleLead   float32 // the window buttons' room last made (lead's width); 0 without
 	titleSet    bool    // setTitlebar ran: titleLead and titleHeight are what it applied
 	root        fyne.CanvasObject
+	// layout is the Update button and the layout toggles left of the right end (layoutbar.go, F7).
+	layout *layoutBar
 }
 
 func newTopBar(sh *shell) *topBar {
@@ -87,8 +90,8 @@ func newTopBar(sh *shell) *topBar {
 	t.notes = newNotificationsUI(sh)
 	t.left = container.NewHBox(t.lead, newLogo(), wordmark, t.history.root, newHGap(theme.SizeNameInnerPadding), newDivider(true),
 		newHGap(theme.SizeNameInnerPadding), t.dot, t.context, t.file, t.state, t.switchB)
-	right := container.NewHBox()
-	right.Add(t.notes.bell)
+	t.layout = newLayoutBar(sh)
+	right := container.NewHBox(t.layout.root, t.notes.bell)
 	drag := newBarDragArea(func() { sh.titlebar.mouseDown() })
 	drag.secondary = t.history.showMenu
 	t.root = box(&topBarLayout{t: t}, newSurface(colorTopBar), drag,

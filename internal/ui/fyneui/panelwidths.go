@@ -84,7 +84,8 @@ func (sh *shell) saveWidths() {
 // panelLayout lays out three objects: the panel (fixed width), the handle on its edge and the rest
 // (what is left). With first set the objects are panel, handle, rest (the sidebar, on the left);
 // otherwise rest, handle, panel (the drawer, on the right). The panel's width is want() clamped
-// to [lo, hi] and to what leaves the rest at least restMin.
+// to [lo, hi] and to what leaves the rest at least restMin. A hidden panel (the navigator,
+// ui.toggleNavigator) takes no room: the rest gets the whole width, and the handle is hidden with it.
 type panelLayout struct {
 	first   bool
 	want    func() float32
@@ -118,15 +119,24 @@ func (l *panelLayout) limit() float32 {
 
 // MinSize is the panel's least width, the handle and the rest's minimum: not the panel's content.
 func (l *panelLayout) MinSize(objs []fyne.CanvasObject) fyne.Size {
-	_, _, rest := l.parts(objs)
+	panel, _, rest := l.parts(objs)
 	r := rest.MinSize()
+	if !panel.Visible() {
+		return r
+	}
 	return fyne.NewSize(l.lo+handleWidth+r.Width, r.Height)
 }
 
 func (l *panelLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
+	panel, handle, rest := l.parts(objs)
+	if !panel.Visible() {
+		rest.Move(fyne.NewPos(0, 0))
+		rest.Resize(size)
+		l.total = size.Width
+		return
+	}
 	w := l.width(size.Width)
 	restW := max(size.Width-w-handleWidth, 0)
-	panel, handle, rest := l.parts(objs)
 	panelX, handleX, restX := float32(0), w, w+handleWidth
 	if !l.first {
 		panelX, handleX, restX = restW+handleWidth, restW, 0

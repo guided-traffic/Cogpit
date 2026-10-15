@@ -30,6 +30,7 @@ var fixedNow = time.Date(2026, 10, 11, 14, 30, 0, 0, time.UTC)
 type fakeEngine struct {
 	mu         sync.Mutex
 	ui         engine.UIState
+	dockShown  bool // UIState opened the dock for the tabs a test put in the state (SyncDock)
 	tables     map[string]*engine.TableSnapshot
 	details    map[string]*engine.DetailModel
 	metrics    map[string]*engine.ObjectMetrics
@@ -116,6 +117,10 @@ const notApplicable = "\x00not applicable"
 func (f *fakeEngine) UIState() engine.UIState {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if !f.dockShown { // the tabs a test put in the state before the window read it were opened: shown
+		f.ui.SyncDock(engine.UIState{})
+		f.dockShown = true
+	}
 	return f.ui.Clone()
 }
 
@@ -255,6 +260,7 @@ func (f *fakeEngine) update(fn func(*engine.UIState)) {
 	old := f.ui.Clone()
 	fn(&f.ui)
 	syncFakeNavigator(&f.ui, old)
+	f.ui.SyncDock(old) // a new or activated tab opens the dock, as the engine's UpdateUI does
 	f.ui.Revision++
 	st := f.ui.Clone()
 	f.mu.Unlock()

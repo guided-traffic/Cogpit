@@ -19,7 +19,9 @@ import (
 )
 
 // dock is the bottom panel: a tab strip (tabs from UIState.Dock, a "+" menu, a collapse toggle)
-// above the active tab's content. Log tabs show termview.Logs on Session.OpenLogs with their
+// above the active tab's content. Whether it is open or collapsed to its strip is engine state,
+// UIState.DockOpen (ui.toggleDock, ⌘J, the top bar's layout button; engine/layout.go): a new or
+// activated tab opens it, and a dock without tabs is closed. Log tabs show termview.Logs on Session.OpenLogs with their
 // options' toolbar (logtab.go); terminal, shell and attach tabs show termview.Terminal on
 // Session.OpenTerminal; Edit and Create resource tabs show a YAML editor whose text lives in the
 // engine (editortab.go, createtab.go). A stream is opened when its tab appears and closed when it
@@ -30,7 +32,6 @@ type dock struct {
 	tabs     []engine.DockTab
 	active   string
 	contents map[string]*dockContent
-	expanded bool
 
 	tabRow       *fyne.Container
 	strip        fyne.CanvasObject
@@ -77,7 +78,7 @@ func newDock(sh *shell) *dock {
 	add := widget.NewButtonWithIcon("", theme.ContentAddIcon(), nil)
 	add.Importance = widget.LowImportance
 	add.OnTapped = func() { d.showAddMenu(add) }
-	d.toggle = widget.NewButtonWithIcon("", theme.MenuDropDownIcon(), d.toggleExpanded)
+	d.toggle = widget.NewButtonWithIcon("", theme.MenuDropDownIcon(), func() { d.setOpen(nil) })
 	d.toggle.Importance = widget.LowImportance
 	d.agentRead = d.newAgentReadSwitch()
 	d.agentReadMarks = newAgentReadMarks()
@@ -93,8 +94,13 @@ func newDock(sh *shell) *dock {
 	return d
 }
 
-// open reports whether the dock shows its panel, not only its strip.
-func (d *dock) open() bool { return d.expanded && len(d.tabs) > 0 }
+// open reports whether the dock shows its panel, not only its strip (UIState.DockOpen).
+func (d *dock) open() bool { return d.sh.ui.DockOpen && len(d.tabs) > 0 }
+
+// setOpen opens (true) or collapses (false) the dock through the engine, nil the other way round.
+func (d *dock) setOpen(open *bool) {
+	d.sh.dispatch("ui.toggleDock", layoutToggleParams{Open: open}, nil)
+}
 
 // attachStrip moves the strip to the top of the panel, or to the collapsed bar.
 func (d *dock) attachStrip(panel bool) {
@@ -111,14 +117,12 @@ func (d *dock) attachStrip(panel bool) {
 
 // sync follows UIState.Dock: opens new tabs, closes removed ones, shows the active one.
 func (d *dock) sync(tabs []engine.DockTab, active string) {
-	added := false
 	seen := make(map[string]bool, len(tabs))
 	for _, t := range tabs {
 		seen[t.ID] = true
 		c, ok := d.contents[t.ID]
 		if !ok {
 			d.contents[t.ID] = d.openTab(t)
-			added = true
 		} else if c.logs != nil {
 			c.logs.update(t)
 		} else if c.kubectl != nil {
@@ -137,9 +141,6 @@ func (d *dock) sync(tabs []engine.DockTab, active string) {
 	d.active = active
 	if _, ok := d.contents[d.active]; !ok && len(tabs) > 0 {
 		d.active = tabs[len(tabs)-1].ID
-	}
-	if added {
-		d.expanded = true
 	}
 	d.rebuildStrip()
 	d.showActive()
@@ -277,12 +278,11 @@ func (d *dock) rebuildStrip() {
 			icon = theme.ViewRefreshIcon()
 		}
 		b := newTabButton(t.Title, icon, id == d.active && d.open(),
-			func() {
-				d.expanded = true
-				d.sh.layoutBody()
-				d.rebuildStrip()
+			func() { // another tab activated opens the dock in the engine; the shown one opens it here
 				if id != d.active {
 					d.sh.dispatch("dock.activate", dockParams{ID: id}, nil)
+				} else if !d.open() {
+					d.setOpen(new(true))
 				}
 			},
 			func() { d.sh.dispatch("dock.close", dockParams{ID: id}, nil) })
@@ -302,12 +302,6 @@ func (d *dock) showActive() {
 		d.body.Objects = nil
 	}
 	d.body.Refresh()
-}
-
-func (d *dock) toggleExpanded() {
-	d.expanded = !d.expanded
-	d.sh.layoutBody()
-	d.rebuildStrip()
 }
 
 func (d *dock) updateToggle() {

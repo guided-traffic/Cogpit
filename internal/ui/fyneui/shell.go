@@ -502,7 +502,7 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	if first || settingsShowChanged(st, old) {
 		sh.settings.stateChanged()
 	}
-	if first || (st.Context == "") != (old.Context == "") || st.Connection != old.Connection || st.Chat != old.Chat {
+	if first || (st.Context == "") != (old.Context == "") || st.Connection != old.Connection || layoutMenuChanged(st, old) {
 		// Cluster Settings… is enabled while a cluster is chosen, Disconnect while one is connected or
 		// connecting (a reconnect too: menus_cluster.go), Refresh Access Reviews while one is connected
 		// (menuaccess.go), the View menu's kinds while connected (loadKinds rebuilds it once they come).
@@ -521,6 +521,7 @@ func (sh *shell) applyUIState(st engine.UIState) {
 		sh.helmHTTP.request() // shown with the Charts view and Helm Install tabs (helmhttp.go)
 	}
 	sh.chat.stateChanged(old, first) // the chat column: shown, its cluster, the input's state (chat.go)
+	sh.layoutChanged(old, first)     // the navigator, the dock's open state, the layout toggles (layoutbar.go)
 	sh.top.stateChanged()            // the history arrows and the bell (titlehistory.go)
 }
 
@@ -906,7 +907,8 @@ func (sh *shell) mainMenu() *fyne.MainMenu {
 	if keys := sh.windowKeyItems(); len(keys) > 0 { // ⌘F and ⌘⇧T shown, the keys kept by the window (A55, menukeys.go)
 		view.Items = append(append(keys, fyne.NewMenuItemSeparator()), view.Items...)
 	}
-	if chat := sh.chatMenuItems(); len(chat) > 0 { // ⌘I and ⌘., from any focus (chat.go)
+	// ⌘B, ⌘J (layoutbar.go), ⌘I and ⌘. (chat.go), from any focus.
+	if chat := append(sh.layoutMenuItems(), sh.chatMenuItems()...); len(chat) > 0 {
 		view.Items = append(append(chat, fyne.NewMenuItemSeparator()), view.Items...)
 	}
 	if pal := sh.paletteMenuItem(); pal != nil { // ⌘⇧P, from any focus: menu shortcuts come first
