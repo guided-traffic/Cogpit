@@ -186,6 +186,26 @@ func newTableView(sh *shell) *tableView {
 	return tv
 }
 
+// showHeadingCount shows the item count and the CSV button while the view has a snapshot and no
+// selection bar: the bar takes their place (tablecheck.go).
+func (tv *tableView) showHeadingCount() {
+	show := tv.snap != nil && (tv.check.bar == nil || !tv.check.bar.root.Visible())
+	if show != tv.csvButton.Visible() {
+		if show {
+			tv.csvButton.Show()
+		} else {
+			tv.csvButton.Hide()
+		}
+	}
+	if show != tv.count.Visible() {
+		if show {
+			tv.count.Show()
+		} else {
+			tv.count.Hide()
+		}
+	}
+}
+
 // setPageLayout arranges the header for a page or a kind's view. On a page the header holds the
 // page's title and the namespace filter, which applies to the whole page; the page's own part
 // follows (the Workloads Overview's tiles, the cluster Overview's charts), then the table's own
@@ -291,11 +311,11 @@ func (tv *tableView) updateTitle() {
 	if tv.snap == nil {
 		tv.count.SetText("")
 		tv.syncing.SetText("")
-		tv.csvButton.Hide()
+		tv.showHeadingCount()
 		return
 	}
 	tv.count.SetText(itemCount(len(tv.snap.Rows), tv.snap.Total))
-	tv.csvButton.Show()
+	tv.showHeadingCount()
 	if tv.snap.Synced {
 		tv.syncing.SetText("")
 	} else {

@@ -356,10 +356,10 @@ picker marked the context with "certificate not checked" and a line naming the s
 credential goes to (`ContextInfo.Insecure`, from the kubeconfig); since the picker went (2026-10-15,
 [D-57](../developer/decisions.md#d-57-choosing-a-cluster)) the welcome page's row carries that pill and line
 ([`clusterrow.go`](../../internal/ui/fyneui/clusterrow.go), `TestClusterRowsMarkAnInsecureContext`)
-and the navigator section's row the line in its tooltip only (`navContextRow.tipText`; the section's
-rows have no pills, the lead's decision for the owner to confirm), so a context the welcome page
-does not list is marked before its connect only where the pointer rests (the approval before its
-first connect, below, still names the flag); the connect log gets a WARN line once the connection
+and the navigator section's row a warning icon before its connection dot, with the line in its
+tooltip (`navContextRow.insecure`, `navContextRow.tipText`, `TestNavigatorSectionTooltipLines`;
+the icon added 2026-10-16 so that a context the welcome page does not list is marked before its
+connect without the pointer on it; the lead's decision for the owner to confirm); the connect log gets a WARN line once the connection
 stands, from the connection's own configuration (`Conn.Insecure`; [`engine/tlswarning.go`](../../internal/engine/tlswarning.go),
 `TestInsecureContextIsMarkedAndLogged`). Agents see `insecure: true` in `cluster.contexts`, and
 `cogpit-cli contexts` says `not checked` in its table's CERTIFICATE column (2026-10-13,

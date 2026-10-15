@@ -754,7 +754,9 @@ func (r *navSectionRootRow) CreateRenderer() fyne.WidgetRenderer {
 	return rr
 }
 
-// navContextRow is one cluster of the section: its badge, display name, connection dot and ›.
+// navContextRow is one cluster of the section: its badge, display name, connection dot and ›,
+// and a warning icon before the dot for a context whose kubeconfig does not check the server's
+// certificate (the picker's pill until D-57; the tooltip says why).
 type navContextRow struct {
 	widget.BaseWidget
 	n        *navSections
@@ -762,6 +764,7 @@ type navContextRow struct {
 	info     engine.ContextInfo
 	badge    *clusterBadge
 	title    *textLine
+	insecure *widget.Icon
 	dot      *dot
 	next     *navIconButton
 	body     fyne.CanvasObject
@@ -781,9 +784,11 @@ func newNavContextRow(n *navSections, id string) *navContextRow {
 	r.title = newTextLine("", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{})
 	r.title.truncate = true
 	r.next = newNavIconButton(n.s.sh, iconChevronRight, "", func() { n.tapped(id) })
+	r.insecure = widget.NewIcon(themedIcon(theme.WarningIcon(), colorStatusWarning))
+	r.insecure.Hide()
 	r.body = inset(theme.SizeNamePadding, theme.SizeNamePadding, container.NewBorder(nil, nil,
 		container.NewHBox(container.NewCenter(r.badge), newSpace(theme.SizeNamePadding)),
-		container.NewHBox(container.NewCenter(r.dot), container.NewCenter(r.next)),
+		container.NewHBox(container.NewCenter(r.insecure), container.NewCenter(r.dot), container.NewCenter(r.next)),
 		container.NewVBox(layout.NewSpacer(), r.title, layout.NewSpacer())))
 	r.ExtendBaseWidget(r)
 	return r
@@ -801,6 +806,13 @@ func (r *navContextRow) set(c engine.ContextInfo) {
 		r.title.Refresh()
 	}
 	r.dot.SetColor(n.dotColor(c))
+	if c.Insecure != r.insecure.Visible() {
+		if c.Insecure {
+			r.insecure.Show()
+		} else {
+			r.insecure.Hide()
+		}
+	}
 	r.next.tip = "Show " + title
 	r.Refresh()
 }

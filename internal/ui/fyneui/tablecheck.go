@@ -315,25 +315,27 @@ func (tv *tableView) runOnSelection(id string, refs []model.ObjectRef) {
 	tv.sh.dispatch(id, engine.SelectionParams(refs), tv.sh.actionDone(id))
 }
 
-// selectionBar is the header's part for a selection of several objects: "3 selected", Delete and
-// a button that clears the selection (Cogpit's placement, inferred).
+// selectionBar is the header's part for a selection: "3 selected", Delete and a button that clears
+// the selection (Cogpit's placement, inferred). It shows from one checked row (owner, 2026-10-15)
+// and then takes the place of the view's item count and CSV button, with Delete and Clear as icon
+// buttons with tooltips, so that it fits beside the filters of a view narrowed by an open drawer
+// (the lead's choice for the owner to confirm).
 type selectionBar struct {
 	tv    *tableView
 	count *textLine
-	del   *widget.Button
-	clear *widget.Button
+	del   *tipButton
+	clear *tipButton
 	root  *fyne.Container
 }
 
 func newSelectionBar(tv *tableView) *selectionBar {
 	b := &selectionBar{tv: tv}
 	b.count = newTextLine("", colorAccent, theme.SizeNameText, fyne.TextStyle{Bold: true})
-	b.del = widget.NewButtonWithIcon("Delete", theme.DeleteIcon(), func() {
+	b.del = newTipButton(tv.sh, theme.DeleteIcon(), "Delete the selected objects…", func() {
 		tv.runOnSelection("object.deleteMany", slices.Clone(tv.selected))
 	})
 	b.del.Importance = widget.DangerImportance
-	b.clear = widget.NewButtonWithIcon("", theme.CancelIcon(), tv.clearSelection)
-	b.clear.Importance = widget.LowImportance
+	b.clear = newTipButton(tv.sh, theme.CancelIcon(), "Clear the selection", tv.clearSelection)
 	b.root = container.NewHBox(newHGap(theme.SizeNamePadding), b.count, b.del, b.clear)
 	b.root.Hide()
 	return b
@@ -343,10 +345,11 @@ func newSelectionBar(tv *tableView) *selectionBar {
 func (b *selectionBar) update(n int) {
 	if n < minSelectionBar {
 		b.root.Hide()
-		return
+	} else {
+		b.count.SetText(formatCount(int64(n)) + " selected")
+		b.root.Show()
 	}
-	b.count.SetText(formatCount(int64(n)) + " selected")
-	b.root.Show()
+	b.tv.showHeadingCount()
 }
 
 // setCheck makes the header cell the header's checkbox in a state.

@@ -189,6 +189,10 @@ func TestNavigatorSectionTooltipLines(t *testing.T) {
 	if got := n.rows["lab [lab.yaml]"].tipText(); got != want {
 		t.Errorf("lab %q, want %q", got, want)
 	}
+	// The unchecked certificate shows on the row itself too, as the picker's pill did.
+	if !n.rows["lab [lab.yaml]"].insecure.Visible() || n.rows[secProd].insecure.Visible() {
+		t.Errorf("insecure icon: lab %v, prod %v", n.rows["lab [lab.yaml]"].insecure.Visible(), n.rows[secProd].insecure.Visible())
+	}
 }
 
 // A cluster's › (or a click on its row) drills into it: ui.setNavigatorScope, which connects a
