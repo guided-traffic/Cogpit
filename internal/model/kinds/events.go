@@ -62,9 +62,18 @@ var events = &model.KindProfile{
 		},
 	},
 	Detail: eventDetail,
+	// An involved custom resource links to its kind's view through its definition (Lens links
+	// custom kinds too, capture 2026-10-11); the definitions are the custom kinds' own watch.
+	Needs:      []model.RelatedIndex{CustomKindsByGroupKind},
+	CellsWith:  eventCellsWith,
+	DetailWith: eventDetailWith,
 }
 
 func eventCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
+	return eventCellsWith(obj, model.NoRelated)
+}
+
+func eventCellsWith(obj *unstructured.Unstructured, rel model.Related) ([]model.Cell, model.Status) {
 	typ := model.NestedString(obj, "type")
 	rowToken := model.StatusNone
 	msg := model.Cell{Text: singleLine(eventMessage(obj))}
@@ -83,7 +92,7 @@ func eventCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 		{Text: typ},
 		msg,
 		namespaceCell(obj),
-		{Text: eventObjectText(obj), Link: eventObjectLink(obj)},
+		{Text: eventObjectText(obj), Link: eventObjectLink(obj, rel)},
 		{Text: eventSourceText(obj)},
 		{Num: eventCount(obj)},
 		model.AgeCell(eventFirstSeen(obj)),
@@ -119,11 +128,12 @@ func eventObject(obj any) (kind, name string) {
 	return model.NestedString(ref, "kind"), model.NestedString(ref, "name")
 }
 
-// eventObjectLink links the involved object ("Kind: name", a link in Lens, capture 2026-10-11).
-// Built-in kinds link by their key; a custom resource's key needs its plural, which an event does
-// not carry, so custom kinds stay unlinked. A namespaced object without a namespace in the
-// reference lives in the event's namespace.
-func eventObjectLink(obj any) *model.ObjectRef {
+// eventObjectLink links the involved object ("Kind: name", a link in Lens, custom kinds included,
+// capture 2026-10-11). Built-in kinds link by their key; a custom resource's key needs its plural,
+// which an event does not carry, so it links through its definition in rel (refToWith) and stays
+// plain without one. A namespaced object without a namespace in the reference lives in the
+// event's namespace.
+func eventObjectLink(obj any, rel model.Related) *model.ObjectRef {
 	ref := model.NestedMap(obj, "involvedObject")
 	if ref == nil {
 		ref = model.NestedMap(obj, "regarding")
@@ -132,7 +142,7 @@ func eventObjectLink(obj any) *model.ObjectRef {
 	if ns == "" {
 		ns = model.NestedString(obj, "metadata", "namespace")
 	}
-	return model.RefTo(model.NestedString(ref, "apiVersion"), model.NestedString(ref, "kind"), ns, model.NestedString(ref, "name"))
+	return refToWith(rel, model.NestedString(ref, "apiVersion"), model.NestedString(ref, "kind"), ns, model.NestedString(ref, "name"))
 }
 
 // eventObjectText renders the involved object as "Kind: name".
@@ -220,12 +230,16 @@ func eventLastSeen(obj any) time.Time {
 
 // eventDetail adds the event's fields to the drawer's Properties, after the generic metadata.
 func eventDetail(obj *unstructured.Unstructured) []model.DetailSection {
+	return eventDetailWith(obj, model.NoRelated)
+}
+
+func eventDetailWith(obj *unstructured.Unstructured, rel model.Related) []model.DetailSection {
 	var d detailItems
 	typ := model.NestedString(obj, "type")
 	d.addStatus("Type", typ, eventTypeToken(typ))
 	d.add("Reason", model.NestedString(obj, "reason"))
 	d.add("Message", eventMessage(obj))
-	d.put(linkedItem("Involved Object", eventObjectText(obj), eventObjectLink(obj)))
+	d.put(linkedItem("Involved Object", eventObjectText(obj), eventObjectLink(obj, rel)))
 	d.add("Source", eventSourceText(obj))
 	d.add("Count", itoa(eventCount(obj)))
 	d.add("First Seen", timestamp(eventFirstSeen(obj)))
