@@ -172,8 +172,9 @@ A kind without a profile already gets a generic view from discovery; a profile m
 Every version of the logo stays in [`internal/ui/logo`](../../internal/ui/logo/versions.go)
 ([D-24](decisions.md#d-24-logo)): a new one is appended, none is replaced.
 
-1. Design it in the icon lab (a claude.ai artifact; the owner has its link) and take its two
-   exports: the settings ("Einstellungen kopieren") and the SVG ("SVG kopieren").
+1. Design it in an icon lab, an interactive claude.ai artifact built for the purpose (the one of
+   2026-10-15 is deleted): presets, a control per `Look` field, the wheel under the C's glow, a
+   Dock preview against the current logo, and two exports, the settings as JSON and the SVG.
 2. Save them as `docs/developer/assets/logo/<name>.json` and `<name>.svg`.
 3. For a C helm, add a `Look` with the settings to [`versions.go`](../../internal/ui/logo/versions.go):
    each field is the lab's setting of the same name. A drawing of another kind gets its own
