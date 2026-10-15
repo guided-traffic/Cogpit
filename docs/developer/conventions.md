@@ -86,9 +86,11 @@ New user-visible behaviour is an engine command with tests; the UI and MCP call 
 [`extending.md`](extending.md#adding-a-command).
 
 The documented exceptions are GUI-only on purpose, so that no agent can reach them: the status
-bar's link to the owner's page ([D-23](decisions.md#d-23-a-link-to-the-owner-in-the-status-bar)) and
-copying values out of the drawer ([D-25](decisions.md#d-25-copying-values)). A new exception needs a
-decision of the owner.
+bar's link to the owner's page and its MCP switch ([D-23](decisions.md#d-23-a-link-to-the-owner-in-the-status-bar)),
+copying values out of the drawer ([D-25](decisions.md#d-25-copying-values)), and the MCP details
+with Regenerate token ([D-53](decisions.md#d-53-the-mcp-details-and-a-token-kept-until-the-user-regenerates-it):
+the owner's F6, window-only as the lead's default for the owner to confirm). A new exception needs
+a decision of the owner.
 
 ## Tests
 
