@@ -189,6 +189,7 @@ func Run(s *engine.Session, opts Options) error {
 		do(func() { detachLinks = sh.attachDeepLinks(opts.DeepLinks) })
 	})
 	sh.start()
+	sh.startConnectionHints() // macOS's wake and network changes check the connection at once (D-58)
 	if opts.PerfReport != nil {
 		sh.startPerf()
 	}

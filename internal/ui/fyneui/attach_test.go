@@ -12,7 +12,6 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/terminal"
-	"github.com/guided-traffic/cogpit/internal/ui/fyneui/termview"
 )
 
 // attachEngine is the fake engine with what an attach session to a REPL shows.
@@ -111,7 +110,7 @@ func attachScene(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue,
 	}
 	// Before the shell stops (cleanups run last first): end the session and wait until the widget
 	// has shown its end, so that it does not draw on its goroutine while the shell's do.
-	term := sh.dock.contents["attach-2"].obj.Objects[0].(*termview.Terminal)
+	term := sh.dock.contents["attach-2"].term
 	t.Cleanup(func() {
 		_ = term.Close()
 		select {
@@ -128,7 +127,7 @@ func attachScene(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue,
 func TestAttachTabShowsATerminal(t *testing.T) {
 	sh, _, _, _ := attachScene(t, ThemeDark)
 	c := sh.dock.contents["attach-2"]
-	term, ok := c.obj.Objects[0].(*termview.Terminal)
+	term, ok := c.term, c.term != nil
 	if !ok {
 		t.Fatalf("attach tab shows %T", c.obj.Objects[0])
 	}

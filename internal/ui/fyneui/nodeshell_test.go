@@ -14,7 +14,6 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/terminal"
-	"github.com/guided-traffic/cogpit/internal/ui/fyneui/termview"
 )
 
 // The node shell in the window (G7, G8; D-37): its confirmation, which names the privileged pod,
@@ -78,7 +77,7 @@ func nodeShellScene(t *testing.T, mode ThemeMode) (*shell, fyne.Window) {
 		}
 		time.Sleep(time.Millisecond)
 	}
-	term := sh.dock.contents["nodeShell-1"].obj.Objects[0].(*termview.Terminal)
+	term := sh.dock.contents["nodeShell-1"].term
 	t.Cleanup(func() {
 		_ = term.Close()
 		select {
@@ -94,7 +93,7 @@ func nodeShellScene(t *testing.T, mode ThemeMode) (*shell, fyne.Window) {
 // "Node shell: <node>".
 func TestNodeShellTabShowsATerminal(t *testing.T) {
 	sh, _ := nodeShellScene(t, ThemeDark)
-	term, ok := sh.dock.contents["nodeShell-1"].obj.Objects[0].(*termview.Terminal)
+	term, ok := sh.dock.contents["nodeShell-1"].term, sh.dock.contents["nodeShell-1"].term != nil
 	if !ok {
 		t.Fatalf("the node shell tab shows %T", sh.dock.contents["nodeShell-1"].obj.Objects[0])
 	}

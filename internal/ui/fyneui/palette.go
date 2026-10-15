@@ -457,7 +457,7 @@ func (sh *shell) paletteRunner(id string) func(*shell, engine.PaletteEntry) {
 // download without a list view, the namespace filter on a cluster-scoped view, the API group
 // filter outside Definitions.
 func (sh *shell) paletteApplies(e engine.PaletteEntry) bool {
-	list := sh.ui.Connection.State == engine.Connected && sh.ui.View != "" && sh.view.snap != nil
+	list := sh.ui.Connection.State.Live() && sh.ui.View != "" && sh.view.snap != nil
 	switch e.Command {
 	case setFilterCommand, "ui.setColumns", "table.exportCsv":
 		return list

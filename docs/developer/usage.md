@@ -60,6 +60,7 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - 🐙 Argo CD: its section in the navigator (Applications, Application Sets, Projects, and the repositories and clusters without their credentials), a dashboard of the Applications' health and sync state, Sync (with prune) and Refresh (normal or hard) through the Kubernetes API, on a selection too and within the project's sync windows, an Application's logs in one tab, and Argo CD's own UI through a port forward.
 - 📈 CPU and memory from the cluster's metrics-server and its Prometheus: columns in the Pods and Nodes lists, charts with requests and limits in the pod and node drawers, and the cluster Overview: CPU, Memory and Pods of the master or worker nodes over a time range, with the Issues (pods, nodes and workloads in trouble, warning events) below.
 - 🛡️ Never surprises a cluster: destructive actions confirm, nothing is installed or written implicitly.
+- 😴 Sleep and lost connections: when the Mac wakes, the network or a VPN changes, or the cluster stops answering, Cogpit notices within seconds, says "Reconnecting…" with a banner, keeps your views and tabs as they were, disables changes, and reconnects by itself; a login that expired asks you once ([below](#when-the-connection-breaks)).
 - 🤖 Fully controllable over MCP, the UI included: an agent sees what you see and navigates for you.
 - ⌨️ `cogpit-cli`, inside the app: your contexts and any kind's objects on the command line, read-only, and an MCP stdio bridge you register once.
 - 💬 A built-in agent in a chat beside your views (⌘I), on any OpenAI-compatible endpoint such as LM Studio, LiteLLM or Open WebUI.
@@ -418,6 +419,38 @@ view and selection the input's chip shows then. While a turn runs the pencil is 
 turn first. The model is not told what was cut, so where you allowed agent writes for the cluster,
 a write of the cut part can run again unasked
 ([H-100](../security/agents-and-mcp.md#h-100-a-cut-parts-tool-calls-leave-the-models-view)).
+
+### When the connection breaks
+
+Since 2026-10-16 ([D-58](decisions.md#d-58-standby-and-lost-connections)). Cogpit checks the
+connected cluster when the Mac wakes, when its network changes (Wi-Fi, a VPN), when a watch breaks,
+and every 15 seconds; two checks without an answer (one after a wake) and the connection is
+**interrupted**:
+
+- The top bar's dot turns amber and reads **Reconnecting…**; a banner over the view says which
+  cluster, since when, why, and when Cogpit tries next; **Reconnect now** tries at once.
+- The views, the tabs, the drawer and the dock stay as they were, showing the cluster as of the
+  interruption. Everything that would change the cluster is disabled, its menus saying
+  "connection interrupted"; an agent's change is refused the same way, and its reads are marked as
+  the cluster's state of then.
+- Cogpit reconnects by itself: at once on a wake or a network change, otherwise after 1, 2, 4, 8, 16,
+  then every 30 seconds, for as long as the window is open. Back, the dot is green, a notification
+  says how long it was away, and the views catch up.
+- A followed log goes on by itself after a line `[cogpit] — interrupted 14:03–14:07 —`, from where it
+  stopped. A port forward waits and connects again at once. A pod shell, a node shell or an attach
+  ends (a process cannot be resumed): its tab says so and offers **Reconnect**, which opens a new
+  one in the same tab once the cluster answers. A local terminal is not affected.
+- A drain or a Helm install, upgrade or rollback that was running stops, as after a crash; after the
+  reconnect its banner offers to finish or dismiss it.
+- A change you made just as the connection broke may have reached the cluster or not: after 30
+  seconds without an answer it ends with "outcome unknown", and the view shows the object's state
+  once Cogpit is back.
+
+When the cluster rejects your login (it expired while the Mac slept) Cogpit lets the context's
+login program renew it once by itself; if that does not help, or the program waits for you (a
+browser login), the dot turns red and reads **Login expired**, and the banner's **Log in again**
+runs the login program, browser included, keeping your views. Cogpit never runs it again on its own
+meanwhile. A login program that changed since you allowed it is shown to you first, as at a connect.
 
 ### Commands and MCP tools
 

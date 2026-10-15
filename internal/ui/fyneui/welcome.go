@@ -355,8 +355,8 @@ func (w *welcomePage) row(c engine.ContextInfo) *clusterRow {
 	connect := func() { w.connect(name) }
 	r := newClusterRow(c, title, sub, connect, connect, func() { sh.kc.showConnectLog(name) })
 	r.badge.setIdentity(sh.identity(name))
-	if sh.ui.Context == name && sh.ui.Connection.State == engine.Connected {
-		r.badges.Add(newPill("connected", connectionColor(sh.ui.Connection), true))
+	if sh.ui.Context == name && sh.ui.Connection.State.Live() { // connected, reconnecting, login expired (D-58)
+		r.badges.Add(newPill(strings.ToLower(strings.TrimSuffix(connectionText(sh.ui.Connection), "…")), connectionColor(sh.ui.Connection), true))
 	}
 	r.onMenu = func(pos fyne.Position) { w.menu(name, pos) }
 	w.rows = append(w.rows, r)
@@ -367,7 +367,7 @@ func (w *welcomePage) row(c engine.ContextInfo) *clusterRow {
 // allowed yet is shown first; the connection's outcome shows on the page (or the cluster's tab replaces it).
 func (w *welcomePage) connect(name string) {
 	sh := w.sh
-	if sh.ui.Context == name && sh.ui.Connection.State == engine.Connected {
+	if sh.ui.Context == name && sh.ui.Connection.State.Live() {
 		if len(sh.ui.Tabs) > 0 { // under Help › Welcome: back to the cluster's last tab
 			for _, t := range sh.ui.Tabs {
 				if t.Context == name {

@@ -200,7 +200,7 @@ func (h *hotbar) open(slot int) {
 		h.sh.toast("warning", t.Context+" is no longer offered by any kubeconfig source. Remove its tile, or sync its kubeconfig again.")
 		return
 	}
-	if t.Context == h.sh.ui.Context && (t.Connection == engine.Connected || t.Connection == engine.Connecting) {
+	if t.Context == h.sh.ui.Context && (t.Connection.Live() || t.Connection == engine.Connecting) {
 		return
 	}
 	bank := h.view.Current
@@ -291,7 +291,7 @@ func (h *hotbar) tileMenu(slot int, pos fyne.Position) {
 	}
 	t, bank := b.Clusters[slot-1], h.view.Current
 	connect := fyne.NewMenuItem("Connect", func() { h.open(slot) })
-	connect.Disabled = t.Missing || (t.Context == h.sh.ui.Context && t.Connection == engine.Connected)
+	connect.Disabled = t.Missing || (t.Context == h.sh.ui.Context && t.Connection.Live())
 	move := func(to int) func() {
 		return func() {
 			h.sh.dispatch("hotbar.moveCluster", hotbarMoveParams{Context: t.Context, Position: to, Bank: bank}, nil)

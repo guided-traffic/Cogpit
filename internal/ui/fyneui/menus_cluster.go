@@ -120,7 +120,7 @@ func (sh *shell) clusterItems(contextID string) []*fyne.MenuItem {
 	var items []*fyne.MenuItem
 	st := sh.ui.Connection.State
 	if c, ok := sh.eng.Registry().Get("cluster.disconnect"); ok && contextID != "" && contextID == sh.ui.Context &&
-		(st == engine.Connected || st == engine.Connecting) {
+		(st.Live() || st == engine.Connecting) {
 		items = append(items, fyne.NewMenuItem(c.Label, sh.disconnect))
 	}
 	if item := sh.removeItem(contextID); item != nil {
@@ -139,7 +139,7 @@ func (sh *shell) clusterMenuItems() []*fyne.MenuItem {
 	if c, ok := sh.eng.Registry().Get("cluster.disconnect"); ok {
 		item := fyne.NewMenuItem(c.Label, sh.disconnect)
 		st := sh.ui.Connection.State
-		item.Disabled = st != engine.Connected && st != engine.Connecting
+		item.Disabled = !st.Live() && st != engine.Connecting
 		items = append(items, item)
 	}
 	if item := sh.removeItem(sh.ui.Context); item != nil {
@@ -150,7 +150,7 @@ func (sh *shell) clusterMenuItems() []*fyne.MenuItem {
 
 // disconnect closes the connection (cluster.disconnect); the workspace shows the welcome page.
 func (sh *shell) disconnect() {
-	if st := sh.ui.Connection.State; st == engine.Connected || st == engine.Connecting {
+	if st := sh.ui.Connection.State; st.Live() || st == engine.Connecting {
 		sh.dispatch("cluster.disconnect", struct{}{}, nil)
 	}
 }

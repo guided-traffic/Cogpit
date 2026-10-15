@@ -331,7 +331,7 @@ func (tv *tableView) updatePlaceholder() {
 	switch {
 	case ui.Connection.State == engine.Connecting:
 		msg = "Connecting to " + ui.Context + "…"
-	case ui.Connection.State != engine.Connected:
+	case !ui.Connection.State.Live(): // an interrupted cluster keeps its view (D-58)
 		msg, connect = "No cluster connected.", true
 		if ui.Connection.State == engine.ConnectError && ui.Connection.Error != "" {
 			msg = "Could not connect to " + ui.Context + ": " + ui.Connection.Error

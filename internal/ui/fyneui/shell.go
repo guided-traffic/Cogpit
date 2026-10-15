@@ -89,6 +89,7 @@ type shell struct {
 	kc        *kubeconfigUI // the kubeconfig sources' dialogs (kubeconfigs.go)
 	settings  *settingsPage // Preferences and Cluster settings (preferences_page.go)
 	confirmer *guiConfirmer
+	conn      *connBanner  // an interrupted connection or an expired login, right below the top bar (connbanner.go, D-58)
 	drains    *drainBanner // unfinished drains, below the top bar (drains.go)
 	helm      *helmBanner  // unfinished Helm release actions, below the drains (helmbanner.go)
 	titlebar  *titlebar    // Cogpit's own title bar on macOS (titlebar.go)
@@ -184,6 +185,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.palette = newCmdPalette(sh)
 	sh.settings = newSettingsPage(sh)
 	sh.confirmer = newGUIConfirmer(sh)
+	sh.conn = newConnBanner(sh)
 	sh.drains = newDrainBanner(sh)
 	sh.helm = newHelmBanner(sh)
 	sh.helmHTTP = newHelmHTTPBanner(sh)
@@ -227,7 +229,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 		sh.saveWidths))
 	sh.chatRow = container.NewStack(sh.center)
 	frame := container.NewBorder(
-		container.NewVBox(sh.top.root, newDivider(false), sh.drains.root, sh.helm.root, sh.helmHTTP.root, sh.drafts.root),
+		container.NewVBox(sh.top.root, newDivider(false), sh.conn.root, sh.drains.root, sh.helm.root, sh.helmHTTP.root, sh.drafts.root),
 		container.NewVBox(newDivider(false), sh.status.root),
 		sh.hot.root, nil, sh.chatRow)
 	sh.root = container.NewStack(frame, sh.tip.layer, sh.toasts)
@@ -374,7 +376,7 @@ func (sh *shell) onEvent(ev engine.Event) {
 		if sh.kindsQueued.CompareAndSwap(false, true) {
 			sh.do(func() {
 				sh.kindsQueued.Store(false)
-				if sh.ui.Connection.State == engine.Connected {
+				if sh.ui.Connection.State.Live() {
 					sh.loadKinds()
 				}
 			})
@@ -530,13 +532,15 @@ func (sh *shell) applyUIState(st engine.UIState) {
 func (sh *shell) connectionChanged(st, old engine.UIState) {
 	sh.top.update()
 	sh.status.update()
+	sh.conn.update()            // the banner of an interrupted connection (D-58)
+	sh.dock.connectionChanged() // its shells' Reconnect (dockreconnect.go)
 	sh.side.updateHeader()
 	sh.view.updatePlaceholder()
 	if st.Connection.State == engine.Connected && (sh.kindsFor != st.Context) {
 		sh.loadKinds()
 		sh.loadNamespaces()
 	}
-	if st.Connection.State != engine.Connected && old.Connection.State == engine.Connected {
+	if !st.Connection.State.Live() && old.Connection.State.Live() { // an interruption keeps them (D-58)
 		sh.kinds, sh.kindsFor, sh.namespaces = nil, "", nil
 		sh.side.setKinds(nil) // the View menu follows in applyUIState, with the connection's other items
 	}
@@ -1129,6 +1133,10 @@ func dockEqual(a, b engine.UIState) bool {
 		}
 		// A job's steps and state change in place (jobtab.go).
 		if !reflect.DeepEqual(x.Job, y.Job) {
+			return false
+		}
+		// A shell's session the interruption ended, and the new one Reconnect opens (dockreconnect.go).
+		if !x.Interrupted.Equal(y.Interrupted) || x.Session != y.Session {
 			return false
 		}
 	}

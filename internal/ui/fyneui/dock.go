@@ -62,8 +62,11 @@ type dockContent struct {
 	kubectl *kubectlOffer
 	// term is a terminal, shell, attach or node shell tab's terminal once its session started,
 	// which dock.read reads (dockoutput.go).
-	term   *termview.Terminal
-	closed bool
+	term *termview.Terminal
+	// reconnect is a shell, attach or node shell tab's row while the connection's interruption
+	// ended its session (dockreconnect.go, D-58).
+	reconnect *reconnectRow
+	closed    bool
 }
 
 // dockEditor is an editor tab's content: it follows EventEditor and stops its timers on close.
@@ -125,8 +128,11 @@ func (d *dock) sync(tabs []engine.DockTab, active string) {
 			d.contents[t.ID] = d.openTab(t)
 		} else if c.logs != nil {
 			c.logs.update(t)
-		} else if c.kubectl != nil {
-			c.kubectl.update(t)
+		} else if isTerminal(t.Type) {
+			if c.kubectl != nil {
+				c.kubectl.update(t)
+			}
+			d.followSession(c, t) // a new session after dock.reconnect, its row (dockreconnect.go)
 		} else if u, ok := c.editor.(interface{ update(engine.DockTab) }); ok { // a Helm Install tab's version
 			u.update(t)
 		}
@@ -161,26 +167,7 @@ func (d *dock) openTab(t engine.DockTab) *dockContent {
 		if t.Type == engine.DockTerminal {
 			c.kubectl = newKubectlOffer(d.sh, t)
 		}
-		go func() {
-			defer d.sh.recoverTo("terminal")
-			sess, err := d.sh.eng.OpenTerminal(ctx, id)
-			d.sh.do(func() {
-				if c.closed {
-					if sess != nil {
-						go func() { _ = sess.Close() }() // the tab is gone; nobody to tell
-					}
-					return
-				}
-				if err != nil {
-					c.set(dockMessage("Could not start the session: "+err.Error(), colorStatusError))
-					return
-				}
-				w := termview.NewTerminal(sess)
-				w.SetRightClickCopyPaste(d.sh.rightClickCopyPaste()) // the Preferences' right mouse button (termpaste.go)
-				c.closer, c.term = w, w
-				c.set(c.withKubectlOffer(d.sh.terminalScope(w))) // the Preferences' terminal font size (preferences.go)
-			})
-		}()
+		d.startTerminal(ctx, c, id) // dockreconnect.go
 	case engine.DockEdit:
 		e := newEditorTab(d.sh, t)
 		c.editor = e

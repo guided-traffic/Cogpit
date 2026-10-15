@@ -134,7 +134,7 @@ func (h *navHeader) escape() {
 	}
 	ui := s.sh.ui
 	h.closeSearch()
-	if s.section && ui.Context == from && (ui.Connection.State == engine.Connected || ui.Connection.State == engine.Connecting) {
+	if s.section && ui.Context == from && (ui.Connection.State.Live() || ui.Connection.State == engine.Connecting) {
 		s.setScope(engine.NavScopeCluster(from))
 	}
 }

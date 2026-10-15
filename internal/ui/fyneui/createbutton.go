@@ -44,7 +44,7 @@ func (b *createButton) floating() *fyne.Container { return box(floatLayout{}, b)
 // so a Create resource tab would only offer to create something else (owner, 2026-10-12).
 func (b *createButton) update() {
 	ui := b.sh.ui
-	if ui.Connection.State == engine.Connected && ui.View != "" && !b.sh.cogpitKind(ui.View) {
+	if ui.Connection.State.Live() && ui.View != "" && !b.sh.cogpitKind(ui.View) {
 		b.Show()
 	} else {
 		b.Hide()

@@ -48,7 +48,7 @@ func newHelmHTTPBanner(sh *shell) *helmHTTPBanner {
 // helmChartsShown reports whether u shows the Charts view or holds a Helm Install tab: when the
 // engine downloads the repositories' indexes by itself, and when the banner shows.
 func helmChartsShown(u engine.UIState) bool {
-	return u.Connection.State == engine.Connected && (u.View == helmChartsKind ||
+	return u.Connection.State.Live() && (u.View == helmChartsKind ||
 		slices.ContainsFunc(u.Dock, func(t engine.DockTab) bool { return t.Type == engine.DockHelmInstall }))
 }
 

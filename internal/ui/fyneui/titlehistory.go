@@ -7,8 +7,6 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-
-	"github.com/guided-traffic/cogpit/internal/engine"
 )
 
 // The title bar's history arrows and context menu (ui-parity › Layout, "Title bar with history
@@ -67,7 +65,7 @@ func (h *titleHistory) arrow(id string, icon fyne.Resource, back bool) *tipButto
 func (h *titleHistory) can(back bool) bool {
 	ui := h.sh.ui
 	t, ok := ui.Tab(ui.ActiveTab)
-	if !ok || ui.Connection.State != engine.Connected || t.Context != ui.Context {
+	if !ok || !ui.Connection.State.Live() || t.Context != ui.Context {
 		return false
 	}
 	if back {

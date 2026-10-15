@@ -383,7 +383,7 @@ func (n *navSections) hintText(shown int) string {
 // marked reports whether a context is the active cluster: connected or connecting.
 func (n *navSections) marked(id string) bool {
 	ui := n.s.sh.ui
-	return id == ui.Context && (ui.Connection.State == engine.Connected || ui.Connection.State == engine.Connecting)
+	return id == ui.Context && (ui.Connection.State.Live() || ui.Connection.State == engine.Connecting)
 }
 
 // dotColor is a context's connection dot: the active one's state, red after a failed connect, the

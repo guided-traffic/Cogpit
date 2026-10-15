@@ -517,7 +517,7 @@ func (c *chatPanel) inputReason() string {
 		return "This conversation is about " + c.sh.identity(ctx).name + "; start a new one for " + c.sh.identity(ui.Context).name + "."
 	case ui.Connection.State == engine.Connecting:
 		return "Connecting to " + c.sh.identity(ui.Context).name + "…"
-	case ui.Connection.State != engine.Connected:
+	case !ui.Connection.State.Live():
 		return "Connect " + c.sh.identity(ui.Context).name + " to continue this conversation."
 	}
 	return ""

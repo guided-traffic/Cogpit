@@ -98,7 +98,7 @@ func (b *tabBar) sync() {
 		b.row.Refresh()
 		return
 	}
-	live := ui.Connection.State == engine.Connected
+	live := ui.Connection.State.Live() // interrupted too: the tabs stay (D-58)
 	for len(b.shown) < len(tabs) {
 		b.shown = append(b.shown, newViewTab(b))
 	}
@@ -141,7 +141,7 @@ func (b *tabBar) tapped(t engine.ViewTab) {
 		return
 	}
 	ui := b.sh.ui
-	if t.ID != ui.ActiveTab || ui.Connection.State != engine.Connected {
+	if t.ID != ui.ActiveTab || !ui.Connection.State.Live() {
 		b.sh.dispatch("ui.tab.select", tabSelectParams{ID: t.ID}, nil)
 	}
 }

@@ -27,8 +27,10 @@ func connectionColor(c engine.Connection) fyne.ThemeColorName {
 		return statusColorName(model.StatusOK)
 	case engine.Connecting:
 		return statusColorName(model.StatusPending)
-	case engine.ConnectError:
+	case engine.ConnectError, engine.LoginExpired:
 		return statusColorName(model.StatusError)
+	case engine.Interrupted: // amber while Cogpit reconnects (D-58)
+		return statusColorName(model.StatusWarning)
 	}
 	return statusColorName(model.StatusUnknown)
 }
@@ -42,6 +44,10 @@ func connectionText(c engine.Connection) string {
 		return "Connecting…"
 	case engine.ConnectError:
 		return "Connection failed"
+	case engine.Interrupted:
+		return "Reconnecting…"
+	case engine.LoginExpired:
+		return "Login expired"
 	}
 	return "Not connected"
 }
@@ -379,7 +385,7 @@ func (s *statusBar) update() {
 		ctx = "no cluster"
 	}
 	s.context.SetText(ctx + " · " + connectionText(ui.Connection))
-	if ui.Connection.State == engine.Connected && ui.Connection.TLSUnchecked {
+	if ui.Connection.State.Live() && ui.Connection.TLSUnchecked {
 		s.tls.Show()
 	} else {
 		s.tls.Hide()
