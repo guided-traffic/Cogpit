@@ -179,6 +179,7 @@ func (s *Session) restoreWorkspace(doc workspaceDoc) []goneTabs {
 	u := &s.ui
 	u.HiddenColumns, u.ColumnOrder = doc.HiddenColumns, doc.ColumnOrder
 	u.Navigator.Collapsed = doc.CollapsedSources
+	u.NavigatorHidden, u.Chat = doc.NavigatorHidden, doc.Chat // the layout (F7, layout.go)
 	u.Tabs, u.tabSeq, u.tabClock = tabs, uint64(len(tabs)), clock
 	if active >= 0 && u.Context == "" && u.Connection.State == Disconnected {
 		u.ActiveTab, u.Context = tabs[active].ID, tabs[active].Context

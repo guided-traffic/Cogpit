@@ -442,6 +442,7 @@ func (s *Session) UpdateUI(fn func(*UIState)) UIState {
 	s.ui.syncNavigator(old)         // its search and keyboard follow the level and the view (navigator.go)
 	// A chart drawer's version ends with the drawer (helmchartdrawer.go).
 	s.ui.syncDrawerChartVersion(old)
+	s.ui.SyncDock(old) // a new or activated tab opens the dock, none closes it (layout.go)
 	s.ui.Revision = old.Revision + 1
 	now := s.ui.Clone()
 	s.mu.Unlock()

@@ -88,7 +88,8 @@ func registerUI(g *registrar) {
 			"(drawerMetricsProviders: Prometheus and the Metrics Server, answering or not, what each serves), " +
 			"the hotbar of pinned clusters as hotbar_list returns it, and timeFormat, the Go layouts of a date and a time " +
 			"of day that the drawn texts (view_rows, resources_list, object_get's sections) write absolute times in, in the " +
-			"Preferences' time zone. Use it to learn which object the user means.",
+			"Preferences' time zone; the window's layout (navigatorHidden, dockOpen, chat) and update, the newer release " +
+			"the updater holds for the user (available, version). Use it to learn which object the user means.",
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			u := s.UIState()
 			res := StateResult{UIState: u, FilterError: engine.FilterError(u.Filter, u.FilterOptions)}

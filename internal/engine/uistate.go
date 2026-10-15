@@ -79,6 +79,15 @@ type UIState struct {
 	// Chat is set while the built-in agent's chat column is shown (chat.toggle, ⌘I; chat.go).
 	// What is said in it stays in the window: agents see only that it is open.
 	Chat bool `json:"chat,omitempty"`
+	// NavigatorHidden is set while the navigator is hidden (ui.toggleNavigator, ⌘B; layout.go):
+	// the views take its room, the hotbar stays. Kept across restarts (workspace.json).
+	NavigatorHidden bool `json:"navigatorHidden,omitempty"`
+	// DockOpen is set while the dock shows its panel, not only its tab strip (ui.toggleDock, ⌘J;
+	// layout.go): a tab opened or activated opens it, and it is closed while it has no tabs.
+	DockOpen bool `json:"dockOpen,omitempty"`
+	// Update is the newer release the app's updater knows of (updates.go): the window's Update
+	// button shows while it is available. Zero without one and in a session without an updater.
+	Update UpdateState `json:"update,omitzero"`
 	// NavigatorScope is what the navigator shows (navscope.go): "section:local", the Local
 	// Kubeconfigs section with every cluster Cogpit offers, or "cluster:<context id>", the
 	// connected cluster's tree. The tab bar shows the tabs of the scope. The engine keeps it in step

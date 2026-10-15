@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -21,6 +22,11 @@ import (
 // leaves a copy with known flaws unpatched (the reverse of Load chart icons, which an agent may
 // only turn off: there off is the safer side). Any origin may run app.checkForUpdates: it changes
 // nothing, and Sparkle asks the user before it installs anything.
+//
+// The Update button (F7, the owner's finding of 2026-10-15): an updater that implements
+// UpdateNotifier tells when it holds a newer release for the user; UIState.Update says so, and the
+// window shows an Update button left of the layout toggles, which runs app.checkForUpdates and so
+// brings Sparkle's window with that release up. A session without such an updater never shows it.
 
 // Update channels. Stable is the appcast's default channel; Beta (Sparkle's channel "beta") comes
 // with the first prerelease.
@@ -43,6 +49,29 @@ type Updater interface {
 	SetAutomaticChecks(on bool)
 }
 
+// UpdateNotifier is an Updater that tells when it knows of a newer release (internal/update:
+// Sparkle's gentle reminders, F7): UIState.Update follows it, and the window shows its Update button
+// while one is available. An Updater without it never shows the button.
+type UpdateNotifier interface {
+	// AvailableUpdate returns the newer release's version while the updater holds one for the
+	// user, ok false when it holds none.
+	AvailableUpdate() (version string, ok bool)
+	// OnUpdateChange registers fn, called on any goroutine after AvailableUpdate changed; fn reads
+	// AvailableUpdate itself and must not block.
+	OnUpdateChange(fn func())
+}
+
+// UpdateState is what the session knows of a newer release (UIState.Update): Available while the
+// updater holds one for the user, Version its version as the signed appcast names it ("" when the
+// text is not a version's: maxUpdateVersion bytes of letters, digits, spaces and ".+-_()").
+type UpdateState struct {
+	Available bool   `json:"available,omitempty"`
+	Version   string `json:"version,omitempty"`
+}
+
+// maxUpdateVersion bounds the version text UIState.Update carries.
+const maxUpdateVersion = 64
+
 // ErrNoUpdater: a session without an updater (cogpit-cli, a headless engine) does not update
 // itself.
 var ErrNoUpdater = errors.New("this Cogpit does not update itself: cogpit-cli and headless sessions have no updater; " +
@@ -60,6 +89,8 @@ var ErrNoBetaChannel = errors.New("update channel beta: Cogpit publishes no prer
 type updaterSlot struct {
 	mu sync.Mutex
 	u  Updater
+	// notice serialises applying what an UpdateNotifier knows (updateNoticeChanged).
+	notice sync.Mutex
 }
 
 // SetUpdater wires the app's updater in and starts it with the preference's automatic checks,
@@ -76,7 +107,45 @@ func (s *Session) SetUpdater(u Updater) {
 		s.log.Info("updates: none for this Cogpit", "reason", err)
 		return
 	}
+	if n, ok := u.(UpdateNotifier); ok {
+		n.OnUpdateChange(func() { s.updateNoticeChanged(n) })
+	}
 	u.Start(p.CheckForUpdates)
+}
+
+// updateNoticeChanged puts what the updater knows now into UIState.Update. It reads the updater
+// under its own lock when it applies it, so that notifications that run out of order still leave
+// the newest state; an unchanged state costs no revision.
+func (s *Session) updateNoticeChanged(n UpdateNotifier) {
+	s.updates.notice.Lock()
+	defer s.updates.notice.Unlock()
+	next := UpdateState{}
+	if version, ok := n.AvailableUpdate(); ok {
+		next = UpdateState{Available: true, Version: cleanUpdateVersion(version)}
+	}
+	s.mu.Lock()
+	same := s.ui.Update == next
+	s.mu.Unlock()
+	if !same {
+		s.UpdateUI(func(u *UIState) { u.Update = next })
+	}
+}
+
+// cleanUpdateVersion keeps a version text the window and agents may show: at most maxUpdateVersion
+// bytes of letters, digits, spaces and ".+-_()"; "" for anything else. The appcast is signed
+// (SURequireSignedFeed), so this guards against a mistake, not an attacker.
+func cleanUpdateVersion(v string) string {
+	v = strings.TrimSpace(v)
+	if len(v) > maxUpdateVersion {
+		return ""
+	}
+	for _, r := range v {
+		ok := r >= '0' && r <= '9' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || strings.ContainsRune(" .+-_()", r)
+		if !ok {
+			return ""
+		}
+	}
+	return v
 }
 
 // updater returns the session's updater; nil without one.

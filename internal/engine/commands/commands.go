@@ -75,6 +75,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerNotifications(g)
 	registerNavScope(g)
 	registerNavigator(g)
+	registerLayout(g)
 	registerKubectl(g)
 	registerFlux(g)
 	registerUpdates(g)
