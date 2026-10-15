@@ -18,6 +18,23 @@ import (
 // copies (H-82's filter, Session.ScrubSecretValues), index for index, made during the turn as each
 // piece is final, so that what reaches the disk never carries a Secret value (D-10, as D-19). nil
 // is a piece not yet scrubbed.
+//
+// A private conversation is never kept (H-96; the owner's decision of 2026-10-15): a private turn
+// reads what the window shows (H-94), more than the scrubber knows. The rule:
+//
+//   - A conversation becomes private when a turn over a connection the user marked private starts
+//     in it (Send: info.Private, and the user item's Sent.Private records the mark the turn ran
+//     with). From then on it lives in memory only: save leaves it out, and the file is rewritten at
+//     once, so that no earlier version of it stays there.
+//   - It stays private for good. Switching it to a connection not marked private, or taking the
+//     mark off its connection, does not make it kept again: its history still holds what the
+//     private turn read, and the next turn sends that history to the model.
+//   - A conversation whose connection is private but which has no turn yet is not private: it holds
+//     nothing to keep (an empty conversation is never kept). Turns over a connection not marked
+//     private before the first private one are kept until that private turn starts.
+//   - A file written before the rule (v0.8.0 to v0.10.0) can hold private conversations: the agent
+//     drops each conversation with a user item whose Sent.Private is set when it loads the file and
+//     rewrites the file at once (loadConversations).
 type conversation struct {
 	info        engine.ChatConversationInfo
 	rev         uint64
@@ -45,6 +62,14 @@ type turn struct {
 func (c *conversation) bump() uint64 {
 	c.rev++
 	return c.rev
+}
+
+// hadPrivateTurn reports whether a turn over a private connection ran in a conversation with these
+// items: a user item whose Sent records the private mark (H-96).
+func hadPrivateTurn(items []engine.ChatItem) bool {
+	return slices.ContainsFunc(items, func(it engine.ChatItem) bool {
+		return it.Kind == engine.ChatItemUser && it.Sent != nil && it.Sent.Private
+	})
 }
 
 // cloneItem copies an item with its pointers.
@@ -144,7 +169,8 @@ func (a *Agent) pruneLocked(kubeContext string) {
 	}
 }
 
-// SetConversationConnection implements engine.ChatAgent.
+// SetConversationConnection implements engine.ChatAgent. A private conversation stays private on
+// any connection (H-96: its history holds what its private turn read).
 func (a *Agent) SetConversationConnection(id, connectionID string) error {
 	a.mu.Lock()
 	c := a.convs[id]

@@ -43,7 +43,8 @@ type ChatAgent interface {
 	// after every change; the final steps are returned.
 	TestConnection(ctx context.Context, c ChatConnection, apiKey *string, progress func([]ChatTestStep)) []ChatTestStep
 
-	// Conversations lists the kept conversations of a kubeconfig context, newest first.
+	// Conversations lists the conversations of a kubeconfig context, newest first: the kept ones
+	// and, until Cogpit quits, those a private turn made memory-only (ChatConversationInfo.Private).
 	Conversations(kubeContext string) []ChatConversationInfo
 	// Conversation returns one conversation with its items.
 	Conversation(id string) (ChatConversation, bool)
@@ -178,6 +179,11 @@ type ChatConversationInfo struct {
 	ConnectionID string    `json:"connectionID"`
 	Updated      time.Time `json:"updated"`
 	Running      bool      `json:"running,omitempty"` // a turn is running
+	// Private reports that a turn of the conversation ran over a connection the user marked
+	// private: the conversation lives in memory only, is never kept and is gone when Cogpit quits
+	// (H-96, the owner's decision of 2026-10-15). It stays set when the conversation switches to
+	// another connection, because its history holds what that turn read.
+	Private bool `json:"private,omitempty"`
 }
 
 // ChatConversation is one conversation with what the window draws. Revision grows with every

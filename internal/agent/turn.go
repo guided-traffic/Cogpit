@@ -87,6 +87,10 @@ func (a *Agent) Send(id string, msg engine.ChatUserMessage) error {
 	if c.info.Title == "" {
 		c.info.Title = conversationTitle(text)
 	}
+	// A turn over a private connection makes the conversation memory-only for good (H-96, the rule
+	// at the conversation type): the file is rewritten below without it.
+	unkeep := conn.Private && !c.info.Private
+	c.info.Private = c.info.Private || conn.Private
 	c.info.Updated = a.opts.Now()
 	c.info.Running = true
 	base, cancel := context.WithCancelCause(context.Background())
@@ -95,6 +99,9 @@ func (a *Agent) Send(id string, msg engine.ChatUserMessage) error {
 	c.turn = t
 	c.bump()
 	a.mu.Unlock()
+	if unkeep {
+		a.save() // the turns kept so far go too: the file never holds part of a private conversation
+	}
 	a.notify(c, true)
 	a.s.NotifyChat("", 0) // the history's list: its title and order
 	go func() {

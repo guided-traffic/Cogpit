@@ -9,7 +9,8 @@ import (
 
 // The agent's two files in Cogpit's configuration directory, owner-only through the engine's
 // writer (0600 in 0700, atomic replace, symlinks refused): the connections without any key, and
-// the conversations, scrubbed (D-10). The request bodies (SentPayload) stay in memory.
+// the conversations, scrubbed (D-10), but the private ones, which stay in memory (H-96). The
+// request bodies (SentPayload) stay in memory.
 
 const (
 	fileVersion          = 1
@@ -90,7 +91,9 @@ func (a *Agent) saveConnections() {
 	}
 }
 
-// loadConversations reads the conversations file. What it holds was scrubbed when it was kept.
+// loadConversations reads the conversations file. What it holds was scrubbed when it was kept. A
+// private conversation in it, which only a file of v0.8.0 to v0.10.0 holds, is dropped, and the
+// file is rewritten at once without it (H-96, the rule at the conversation type).
 func (a *Agent) loadConversations() {
 	p := a.path(ConversationsFile)
 	if p == "" {
@@ -102,7 +105,12 @@ func (a *Agent) loadConversations() {
 		return
 	}
 	contexts := map[string]bool{}
+	dropped := 0
 	for _, sc := range f.Conversations {
+		if storedPrivate(sc) {
+			dropped++
+			continue
+		}
 		if sc.ID == "" || sc.Context == "" || a.convs[sc.ID] != nil {
 			continue
 		}
@@ -126,10 +134,21 @@ func (a *Agent) loadConversations() {
 	for ctx := range contexts {
 		a.pruneLocked(ctx)
 	}
+	if dropped > 0 {
+		a.log.Info("the chat's private conversations were removed from its file", "file", p, "conversations", dropped)
+		a.save()
+	}
+}
+
+// storedPrivate reports whether a kept conversation is a private one: a turn of it ran over a
+// connection marked private. Every user item a file holds carries the mark its turn ran with
+// (ChatSent.Private, written since v0.8.0, the first with the chat).
+func storedPrivate(sc storedConversation) bool {
+	return sc.Private || hadPrivateTurn(sc.Items)
 }
 
 // save writes the conversations file: the kept (scrubbed) copies of every conversation with
-// something in it; of a running one only what came before its turn.
+// something in it but the private ones (H-96); of a running one only what came before its turn.
 func (a *Agent) save() {
 	p := a.path(ConversationsFile)
 	if p == "" {
@@ -144,7 +163,7 @@ func (a *Agent) save() {
 		if c.turn != nil {
 			items, hist = c.turnItems, c.turnHist
 		}
-		if items == 0 {
+		if items == 0 || c.info.Private { // a private conversation lives in memory only
 			continue
 		}
 		sc := storedConversation{ChatConversationInfo: c.info}

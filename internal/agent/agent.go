@@ -21,7 +21,8 @@ const (
 	// ConnectionsFile holds the LLM connections: name, kind, base URL, model, limits, the private
 	// mark, whether a key is in the keychain. Never a key.
 	ConnectionsFile = "llm-connections.json"
-	// ConversationsFile holds the last MaxConversations conversations per context, scrubbed.
+	// ConversationsFile holds the last MaxConversations conversations per context, scrubbed; never
+	// a private one (H-96).
 	ConversationsFile = "chat-conversations.json"
 )
 
