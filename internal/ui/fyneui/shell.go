@@ -17,7 +17,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -286,6 +285,7 @@ func (sh *shell) showStartNotices() {
 		sh.showToast(n.Level, n.Message, n.ID)
 	}
 	sh.early = nil
+	sh.mcpStartNotice() // the MCP server's kept port was taken (mcp.go)
 }
 
 // stop ends everything start began: the subscription, tickers, dispatches and dock streams, and
@@ -917,32 +917,6 @@ func (sh *shell) mainMenu() *fyne.MainMenu {
 		menus = append(menus, window)
 	}
 	return fyne.NewMainMenu(append(menus, sh.helpMenu())...)
-}
-
-// copyMCPCommand puts the `claude mcp add` command of the running server on the clipboard and shows
-// it. While the server is off there is no command: the old one names a token that no longer works,
-// and the bundled cogpit-cli would serve an engine of its own rather than this window.
-func (sh *shell) copyMCPCommand() {
-	cmd := sh.mcp.command
-	if !sh.mcp.on || cmd == "" {
-		return
-	}
-	sh.app.Clipboard().SetContent(cmd)
-	entry := widget.NewEntry()
-	entry.SetText(cmd)
-	entry.TextStyle = fyne.TextStyle{Monospace: true}
-	text := "Copied to the clipboard. Run it in a terminal to let an MCP client drive this Cogpit window. " +
-		"Its port and token change at every start of Cogpit: run it again after a restart."
-	if sh.mcp.stdio {
-		text = "Copied to the clipboard. Run it once in a terminal: Claude Code then starts the cogpit-cli inside " +
-			"Cogpit.app, which drives this Cogpit window whenever it runs, across restarts and updates. " +
-			"Run it again if you move Cogpit.app."
-	}
-	intro := widget.NewLabel(text)
-	intro.Wrapping = fyne.TextWrapWord
-	d := dialog.NewCustom("MCP command", "Close", container.NewVBox(intro, entry), sh.win)
-	d.Resize(fyne.NewSize(sh.win.Canvas().Size().Width*0.5, 0))
-	d.Show()
 }
 
 // installShortcuts adds Lens's keyboard shortcuts that Cogpit supports, as the registry declares

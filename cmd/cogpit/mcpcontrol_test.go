@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,9 +18,9 @@ import (
 )
 
 // TestMCPControlSwitch: the window's switch stops the server (endpoint file gone, port closed, the
-// token kept), starts it again with the same token and port (F6), hands the window the command,
-// prints it to the terminal and records the user's switches, but not the start at launch, in the
-// audit log.
+// token kept), starts it again with the same token and port (F6), hands the window the endpoint, the
+// token and the command, prints it to the terminal and records the user's switches, but not the
+// start at launch, in the audit log.
 func TestMCPControlSwitch(t *testing.T) {
 	var audit, terminal bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -37,8 +38,10 @@ func TestMCPControlSwitch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(ep.URL, "http://127.0.0.1:") || !strings.Contains(ep.Command, ep.URL) {
-		t.Errorf("endpoint %+v", ep)
+	if !strings.HasPrefix(ep.URL, "http://127.0.0.1:") || !strings.Contains(ep.Command, ep.URL) || ep.Command != ep.HTTPCommand ||
+		ep.Token == "" || !strings.Contains(ep.HTTPCommand, ep.Token) || ep.PortTaken != 0 {
+		t.Errorf("endpoint %s, command is the HTTP one %v, token in it %v, taken %d", ep.URL, ep.Command == ep.HTTPCommand,
+			ep.Token != "" && strings.Contains(ep.HTTPCommand, ep.Token), ep.PortTaken)
 	}
 	if audit.Len() != 0 {
 		t.Errorf("the start at launch was audited: %s", audit.String())
@@ -66,7 +69,7 @@ func TestMCPControlSwitch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ep2.Command != ep.Command {
+	if ep2.Command != ep.Command || ep2.Token != ep.Token {
 		t.Error("the switch changed the registration: the token and the port are kept (F6)")
 	}
 
@@ -89,6 +92,84 @@ func TestMCPControlSwitch(t *testing.T) {
 	}
 	if strings.Contains(audit.String(), "Bearer") {
 		t.Error("a token reached the audit log")
+	}
+}
+
+// TestMCPControlRegenerate (F6): the window's Regenerate token hands it the new token and command on
+// the same URL, the old token is refused, the click is one audit log line without the token; with
+// the server off the window gets no endpoint, and the next start serves the newer token.
+func TestMCPControlRegenerate(t *testing.T) {
+	var audit, terminal bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	s := engine.New(engine.Options{Audit: &audit, Logger: logger})
+	t.Cleanup(s.Close)
+	srv, err := mcp.New(s, mcp.Options{TokenFile: filepath.Join(t.TempDir(), "Cogpit", "mcp-token"), Logger: logger})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+	c := &mcpControl{srv: srv, session: s, logger: logger, out: &terminal}
+	ep, err := c.Start(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ep2, err := c.Regenerate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ep2.URL != ep.URL || ep2.Token == "" || ep2.Token == ep.Token || !strings.Contains(ep2.HTTPCommand, ep2.Token) {
+		t.Errorf("after the regenerate: %s (want %s), token changed %v", ep2.URL, ep.URL, ep2.Token != ep.Token)
+	}
+	if !strings.Contains(terminal.String(), ep2.Command) {
+		t.Error("the new command was not printed to the terminal")
+	}
+	req, _ := http.NewRequest(http.MethodPost, ep.URL, strings.NewReader("{}"))
+	req.Header.Set("Authorization", "Bearer "+ep.Token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("the old token: status %d, want 401", resp.StatusCode)
+	}
+
+	if err := c.Stop(); err != nil {
+		t.Fatal(err)
+	}
+	off, err := c.Regenerate()
+	if err != nil || off.URL != "" || off.Token != "" {
+		t.Errorf("a regenerate while off: %v, endpoint %q, token given %v", err, off.URL, off.Token != "")
+	}
+	ep3, err := c.Start(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ep3.Token == ep2.Token || ep3.URL != ep.URL {
+		t.Errorf("the start after a regenerate while off: %s, token changed %v", ep3.URL, ep3.Token != ep2.Token)
+	}
+
+	var regens int
+	for _, l := range strings.Split(strings.TrimSpace(audit.String()), "\n") {
+		var e engine.AuditEntry
+		if err := json.Unmarshal([]byte(l), &e); err != nil {
+			t.Fatalf("audit line %q: %v", l, err)
+		}
+		if e.Command == auditMCPToken {
+			regens++
+			if e.Origin != engine.OriginGUI || string(e.Params) != `{"regenerated":true}` || !e.OK {
+				t.Errorf("audit line %+v (params %s)", e, e.Params)
+			}
+		}
+	}
+	if regens != 2 {
+		t.Errorf("%d regenerate lines in the audit log, want 2:\n%s", regens, audit.String())
+	}
+	for _, tok := range []string{ep.Token, ep2.Token, ep3.Token} {
+		if strings.Contains(audit.String(), tok) {
+			t.Error("a token reached the audit log")
+		}
 	}
 }
 

@@ -16,12 +16,34 @@ import (
 )
 
 // fakeMCP is an MCPControl that records its calls and hands out a new command on every start.
+// Its tokens are fixed fakes ("token-<n>", or fakeToken's when set), never a real one.
 type fakeMCP struct {
 	mu       sync.Mutex
 	calls    []string
 	runs     int
 	startErr error
 	stdio    string // the stdio registration an app bundle with cogpit-cli offers; "" for HTTP
+	// token, when set, is the token of every run, and Regenerate hands out regenToken; taken is the
+	// port a start reports taken.
+	token, regenToken string
+	taken             int
+	regenErr          error
+	on                bool
+}
+
+func (m *fakeMCP) endpoint() MCPEndpoint {
+	url := fmt.Sprintf("http://127.0.0.1:%d/mcp", 40000+m.runs)
+	token := m.token
+	if token == "" {
+		token = fmt.Sprintf("token-%d", m.runs)
+	}
+	ep := MCPEndpoint{URL: url, Token: token,
+		HTTPCommand: fmt.Sprintf(`claude mcp add cogpit %s --header "Authorization: Bearer %s"`, url, token)}
+	ep.Command = ep.HTTPCommand
+	if m.stdio != "" {
+		ep.Command, ep.Stdio = m.stdio, true
+	}
+	return ep
 }
 
 func (m *fakeMCP) Start(fromUser bool) (MCPEndpoint, error) {
@@ -32,18 +54,34 @@ func (m *fakeMCP) Start(fromUser bool) (MCPEndpoint, error) {
 		return MCPEndpoint{}, m.startErr
 	}
 	m.runs++
-	url := fmt.Sprintf("http://127.0.0.1:%d/mcp", 40000+m.runs)
-	if m.stdio != "" {
-		return MCPEndpoint{URL: url, Command: m.stdio, Stdio: true}, nil
-	}
-	return MCPEndpoint{URL: url, Command: fmt.Sprintf("claude mcp add cogpit %s --header token-%d", url, m.runs)}, nil
+	m.on = true
+	ep := m.endpoint()
+	ep.PortTaken = m.taken
+	return ep, nil
 }
 
 func (m *fakeMCP) Stop() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.calls = append(m.calls, "stop")
+	m.on = false
 	return nil
+}
+
+func (m *fakeMCP) Regenerate() (MCPEndpoint, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.calls = append(m.calls, "regenerate")
+	if m.regenErr != nil {
+		return MCPEndpoint{}, m.regenErr
+	}
+	if m.regenToken != "" {
+		m.token = m.regenToken
+	}
+	if !m.on {
+		return MCPEndpoint{}, nil
+	}
+	return m.endpoint(), nil
 }
 
 func (m *fakeMCP) log() string {
@@ -61,14 +99,14 @@ func mcpShell(t *testing.T, ctl *fakeMCP) (*shell, fyne.Window, *mainQueue) {
 }
 
 // TestMCPItemSwitchesTheServer: clicking the status bar item stops the server and starts it again;
-// the item, its tooltip, the top bar's copy button and the Help menu follow, and the command copied
-// after a restart is the new one, never the old.
+// the item, its tooltip and the Help menu follow, and the command copied after a restart is the
+// one the control gave for it.
 func TestMCPItemSwitchesTheServer(t *testing.T) {
 	ctl := &fakeMCP{}
 	sh, w, q := mcpShell(t, ctl)
 	item := sh.status.mcp
-	if item == nil || sh.top.mcp == nil {
-		t.Fatal("no MCP item or button with an MCP control")
+	if item == nil {
+		t.Fatal("no MCP item with an MCP control")
 	}
 	if ctl.log() != "start(user=false)" || !sh.mcp.on || !item.on {
 		t.Fatalf("after launch: calls %s, on %v", ctl.log(), sh.mcp.on)
@@ -76,9 +114,6 @@ func TestMCPItemSwitchesTheServer(t *testing.T) {
 	if !strings.Contains(item.tip, "External MCP server") || !strings.Contains(item.tip, "http://127.0.0.1:40001/mcp") ||
 		!strings.Contains(item.tip, "click to stop") {
 		t.Errorf("tooltip while on: %q", item.tip)
-	}
-	if sh.top.mcp.Disabled() {
-		t.Error("the copy button is disabled while the server runs")
 	}
 
 	test.Tap(item)
@@ -88,9 +123,6 @@ func TestMCPItemSwitchesTheServer(t *testing.T) {
 	}
 	if !strings.Contains(item.tip, "off — click to start") || item.on {
 		t.Errorf("after stop: on %v, tooltip %q", item.on, item.tip)
-	}
-	if !sh.top.mcp.Disabled() {
-		t.Error("the copy button still works while the server is off")
 	}
 	sh.mcpMenu = fyne.NewMenuItem("x", nil) // the menu item exists only after mainMenu
 	sh.refreshMCP()
@@ -112,8 +144,8 @@ func TestMCPItemSwitchesTheServer(t *testing.T) {
 	if ctl.log() != "start(user=false),stop,start(user=true)" {
 		t.Errorf("calls %s, want a start by the user", ctl.log())
 	}
-	if !strings.Contains(item.tip, "40002") || sh.top.mcp.Disabled() {
-		t.Errorf("after restart: tooltip %q, button disabled %v", item.tip, sh.top.mcp.Disabled())
+	if !strings.Contains(item.tip, "40002") {
+		t.Errorf("after restart: tooltip %q", item.tip)
 	}
 	sh.copyMCPCommand()
 	if got := sh.app.Clipboard().Content(); !strings.Contains(got, "token-2") || strings.Contains(got, "token-1") {
@@ -124,15 +156,16 @@ func TestMCPItemSwitchesTheServer(t *testing.T) {
 	}
 }
 
-// TestMCPCopyNamesWhatTheCommandIs: the copy dialog says that the HTTP registration must be run
-// again after a restart, and that the bundled cogpit-cli's stdio registration is run once; the
-// clipboard gets the command either way.
+// TestMCPCopyNamesWhatTheCommandIs: Help › Copy MCP command copies the command and opens the MCP
+// details, which say that the HTTP registration keeps working across restarts until the token is
+// regenerated, and that the bundled cogpit-cli's stdio registration is run once and follows by
+// itself (F6).
 func TestMCPCopyNamesWhatTheCommandIs(t *testing.T) {
 	for _, tc := range []struct {
 		name, stdio, says string
 	}{
-		{"http", "", "run it again after a restart"},
-		{"stdio", "claude mcp add --scope user cogpit -- /Applications/Cogpit.app/Contents/MacOS/cogpit-cli mcp", "Run it once"},
+		{"http", "", "keeps working across restarts of Cogpit; run it again after you regenerate the token"},
+		{"stdio", "claude mcp add --scope user cogpit -- /Applications/Cogpit.app/Contents/MacOS/cogpit-cli mcp", "starts the cogpit-cli inside Cogpit.app"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			sh, w, _ := mcpShell(t, &fakeMCP{stdio: tc.stdio})
@@ -158,9 +191,6 @@ func TestMCPOffIsRemembered(t *testing.T) {
 	sh.startMCP()
 	if ctl.log() != "" || sh.mcp.on || sh.status.mcp.on {
 		t.Errorf("a stored off was ignored: calls %q, on %v", ctl.log(), sh.mcp.on)
-	}
-	if !sh.top.mcp.Disabled() {
-		t.Error("the copy button is enabled while the server is off")
 	}
 }
 
@@ -235,13 +265,17 @@ func TestMCPStartFailureShowsOff(t *testing.T) {
 	}
 }
 
-// TestNoMCPControlShowsNoItem: --no-mcp leaves no item, no button and no menu entry, and the link
+// TestNoMCPControlShowsNoItem: --no-mcp leaves no item, no gear and no menu entry, and the link
 // ends the bar.
 func TestNoMCPControlShowsNoItem(t *testing.T) {
 	sh, w, _ := newTestShell(t, connectedFake(t, 20), Options{})
 	settle(w)
-	if sh.status.mcp != nil || sh.top.mcp != nil || sh.hasMCP() {
-		t.Error("an MCP item or button without a server")
+	if sh.status.mcp != nil || sh.hasMCP() {
+		t.Error("an MCP item without a server")
+	}
+	sh.openMCPDetails()
+	if sh.mcp.details != nil {
+		t.Error("MCP details without a server")
 	}
 	statusSizes(sh, 2000)
 	if sh.status.layout.sep.Visible() {

@@ -16,9 +16,10 @@ import (
 const auditMCPSwitch = "gui.mcpServer"
 
 // mcpControl is the window's handle on the MCP server (fyneui.MCPControl): the status bar item
-// stops and starts the server through it. It lives in the app's main package because internal/ui
-// may not import internal/mcp. Only the window holds it; no engine command or MCP tool reaches it,
-// so an agent cannot switch the server on.
+// stops and starts the server through it, and its details regenerate the token. It lives in the
+// app's main package because internal/ui may not import internal/mcp. Only the window holds it; no
+// engine command or MCP tool reaches it, so an agent can neither switch the server on nor cut the
+// other clients off with a new token.
 type mcpControl struct {
 	srv     *mcp.Server
 	session *engine.Session
@@ -59,7 +60,11 @@ func (c *mcpControl) StoreMCP(on bool) error {
 	return mcp.WriteSwitch(c.config, on)
 }
 
-// Start implements fyneui.MCPControl. The server gets a new token and listener on every start. The
+// auditMCPToken is the audit log's name for the user's Regenerate token (F6); origin "gui", the
+// parameters {"regenerated": true}, never the token.
+const auditMCPToken = "gui.mcpToken" // #nosec G101 -- an audit action's name, no credential
+
+// Start implements fyneui.MCPControl. The server starts with the token and port it kept (F6). The
 // command for the window is the stdio registration of the bundled cogpit-cli when there is one,
 // else the HTTP registration, which carries the token: either goes to the terminal that started
 // Cogpit and to the window, never to the logger. A switch by the user is recorded in the audit
@@ -72,23 +77,53 @@ func (c *mcpControl) Start(fromUser bool) (fyneui.MCPEndpoint, error) {
 	if err != nil {
 		return fyneui.MCPEndpoint{}, err
 	}
-	ep := fyneui.MCPEndpoint{URL: c.srv.URL(), Command: c.srv.ClaudeAddCommand()}
-	if cmd := mcp.ClaudeAddStdioCommand(c.cli); cmd != "" { // "" for no cli
-		ep.Command, ep.Stdio = cmd, true
+	ep := c.endpoint()
+	ep.PortTaken = c.srv.PortTaken()
+	c.announce(ep)
+	return ep, nil
+}
+
+// Regenerate implements fyneui.MCPControl: a new token (F6), the old one refused at once. The
+// user's click is recorded in the audit log, without the token. The window gets the new endpoint
+// while the server runs, and an empty one while it is off.
+func (c *mcpControl) Regenerate() (fyneui.MCPEndpoint, error) {
+	err := c.srv.RegenerateToken()
+	c.session.AuditUser(auditMCPToken, map[string]bool{"regenerated": true}, err)
+	if err != nil {
+		return fyneui.MCPEndpoint{}, err
 	}
-	if c.out != nil {
-		how := "the token changes on every start"
-		if ep.Stdio {
-			how = "once: Cogpit's own cogpit-cli follows every restart"
-		}
-		_, _ = fmt.Fprintf(c.out, "Cogpit MCP server: %s\nRegister it with Claude Code (%s):\n\n  %s\n\n", ep.URL, how, ep.Command)
+	ep := c.endpoint()
+	if ep.URL != "" {
+		c.announce(ep)
 	}
 	return ep, nil
 }
 
+// endpoint is what the window shows of the running server: "" values while it is off.
+func (c *mcpControl) endpoint() fyneui.MCPEndpoint {
+	ep := fyneui.MCPEndpoint{URL: c.srv.URL(), Token: c.srv.Token(), HTTPCommand: c.srv.ClaudeAddCommand()}
+	ep.Command = ep.HTTPCommand
+	if cmd := mcp.ClaudeAddStdioCommand(c.cli); cmd != "" && ep.URL != "" { // "" for no cli
+		ep.Command, ep.Stdio = cmd, true
+	}
+	return ep
+}
+
+// announce prints the registration command to the terminal that started Cogpit.
+func (c *mcpControl) announce(ep fyneui.MCPEndpoint) {
+	if c.out == nil {
+		return
+	}
+	how := "once, and again after you regenerate the token"
+	if ep.Stdio {
+		how = "once: Cogpit's own cogpit-cli follows every restart and a new token"
+	}
+	_, _ = fmt.Fprintf(c.out, "Cogpit MCP server: %s\nRegister it with Claude Code (%s):\n\n  %s\n\n", ep.URL, how, ep.Command)
+}
+
 // Stop implements fyneui.MCPControl: the server stops listening, every agent connection and
-// pending confirmation ends, and the token file is removed. The user's switch is recorded in the
-// audit log.
+// pending confirmation ends, and the endpoint file is removed; the token and the port stay for
+// the next start (F6). The user's switch is recorded in the audit log.
 func (c *mcpControl) Stop() error {
 	err := c.srv.Stop()
 	c.session.AuditUser(auditMCPSwitch, map[string]bool{"enabled": false}, err)
