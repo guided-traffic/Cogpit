@@ -198,3 +198,53 @@ func TestClaimsCompareWithTheCounts(t *testing.T) {
 		t.Errorf("a claim whose sentence is gone is a problem:\n%s", got)
 	}
 }
+
+func TestSlugIsGitHubsAnchor(t *testing.T) {
+	for h, want := range map[string]string{
+		"Every kind":                     "every-kind",
+		"Cluster overview and charts":    "cluster-overview-and-charts",
+		"Tables":                         "tables",
+		"Flux CD › Helm Releases (paid)": "flux-cd--helm-releases-paid",
+		"Detail drawer: `object.get`":    "detail-drawer-objectget",
+	} {
+		if got := slug(h); got != want {
+			t.Errorf("slug(%q) = %q, want %q", h, got, want)
+		}
+	}
+}
+
+func TestRowTextIsPlainAndShort(t *testing.T) {
+	if got := rowText("**Pods** with [link](x.md) and `code` a|b"); got != `Pods with link and code a\|b` {
+		t.Errorf("rowText %q", got)
+	}
+	long := strings.Repeat("x", maxRowText+10)
+	if got := []rune(rowText(long)); len(got) != maxRowText || got[len(got)-1] != '…' {
+		t.Errorf("a long row: %d runes", len(got))
+	}
+}
+
+// The generated page is written when it differs and refused under -check.
+func TestChecklistPageWrittenOrRefused(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "docs/parity"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	c := &checker{root: root, pages: map[string][]table{
+		pageUI: parseTables(pageUI, "## Tables\n\n| Row | Plan | Status | Evidence |\n|---|---|---|---|\n| Sort by a column | free | done | `TestSort` |\n"),
+	}}
+	n := counts{}
+	if c.syncChecklist(n, false); len(c.problems) != 1 {
+		t.Fatalf("a missing page under -check: %v", c.problems)
+	}
+	c.problems = nil
+	if !c.syncChecklist(n, true) || len(c.problems) != 0 {
+		t.Fatalf("not written: %v", c.problems)
+	}
+	b, err := os.ReadFile(filepath.Join(root, pageChecklist))
+	if err != nil || !strings.Contains(string(b), "| Sort by a column | done | [Tables](ui-parity.md#tables) |") {
+		t.Fatalf("page %q, %v", b, err)
+	}
+	if c.syncChecklist(n, false); len(c.problems) != 0 {
+		t.Fatalf("a current page refused: %v", c.problems)
+	}
+}

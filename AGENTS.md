@@ -159,7 +159,8 @@ touches.
 go build ./...                          # the tree builds
 go vet ./internal/<pkg>/...             # the packages you touched
 go test ./internal/<pkg>/...            # their tests, without -race
-go run ./hack/parity -rows              # only when a checklist or a progress page changed
+go run ./hack/parity                    # only when a checklist or a progress page changed; rewrites
+                                        # docs/parity/parity-checklist.md, commit it with the change
 go run ./hack/readmecmds                # only when commands changed: the table in docs/developer/commands.md
 # -race on the one package only when the change is about concurrency (cache, journals, terminal)
 ```

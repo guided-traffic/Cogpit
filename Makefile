@@ -218,7 +218,7 @@ lint: $(GOLANGCI_LINT) ## golangci-lint: the team's linters plus depguard layeri
 	$(GOLANGCI_LINT) run $(LINT_PKGS)
 
 parity: ## Check the parity checklists and the numbers the progress pages report (D-15); PARITY_FLAGS=-rows skips the numbers
-	$(GO) run ./hack/parity $(PARITY_FLAGS)
+	$(GO) run ./hack/parity -check $(PARITY_FLAGS)
 
 fmt: $(GOLANGCI_LINT) ## Format with gofmt and goimports
 	$(GOLANGCI_LINT) fmt ./...

@@ -5,8 +5,12 @@
 // actions and interface rows by the rules on the parity README and compares the counts with the
 // numbers ROADMAP.md and the progress pages report.
 //
-//	go run ./hack/parity          # every check
+// It also generates docs/parity/parity-checklist.md from the checklists (checklist.go): a plain run
+// writes the page when it differs; -check (make parity, CI) refuses a page that differs instead.
+//
+//	go run ./hack/parity          # every check; writes the generated page
 //	go run ./hack/parity -rows    # the rows only, not the reported numbers (while a recount is due)
+//	go run ./hack/parity -check   # as CI: the generated page is checked, not written
 package main
 
 import (
@@ -26,6 +30,7 @@ import (
 func main() {
 	root := flag.String("root", ".", "the repository root")
 	rowsOnly := flag.Bool("rows", false, "check the rows only, not the numbers the pages report")
+	check := flag.Bool("check", false, "refuse a generated page that differs instead of writing it (CI)")
 	flag.Parse()
 
 	r := engine.NewRegistry()
@@ -45,6 +50,9 @@ func main() {
 	c := &checker{root: *root, commands: ids, tests: tests}
 	n, breadth := c.run(!*rowsOnly)
 	report(os.Stdout, n, breadth)
+	if c.syncChecklist(n, !*check) {
+		fmt.Println("\nparity: wrote " + pageChecklist)
+	}
 	if len(c.problems) > 0 {
 		fmt.Printf("\nparity: %d problems\n", len(c.problems))
 		for _, p := range c.problems {
