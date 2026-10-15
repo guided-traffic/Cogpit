@@ -333,7 +333,8 @@ func TestFailedDrainKeepsItsEntry(t *testing.T) {
 
 	close(release)
 	err := <-done
-	if err == nil || !strings.Contains(err.Error(), "stays cordoned and partly drained") || !strings.Contains(err.Error(), "timed out") {
+	// Every eviction waited: cordoned, but nothing drained yet.
+	if err == nil || !strings.Contains(err.Error(), "stays cordoned; no pod was evicted") || !strings.Contains(err.Error(), "timed out") {
 		t.Fatalf("failed drain: %v", err)
 	}
 	events.waitEvent(t, engine.EventToast, "did not finish; the node stays cordoned")
@@ -352,6 +353,44 @@ func TestFailedDrainKeepsItsEntry(t *testing.T) {
 	h.must(t, engine.OriginGUI, "node.drain", actionNodeRef("worker-1"), nil)
 	if entries, _ := journal.List(); len(entries) != 0 {
 		t.Errorf("journal after finishing: %+v", entries)
+	}
+}
+
+// TestFailedDrainSaysWhatItLeft: the error and the toast of a drain that did not finish say what
+// it left of the node. On a real cluster (2026-10-16) the default drain refused a node at once for
+// its pods with emptyDir data, and Cogpit said "cordoned and partly drained" though no pod had been
+// evicted; now that reads "no pod was evicted", and a drain that evicted some counts them.
+func TestFailedDrainSaysWhatItLeft(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		steps []cluster.DrainProgress
+		err   string
+		want  string
+	}{
+		{"refused before evicting", []cluster.DrainProgress{{Step: cluster.DrainCordoned}},
+			"drain node worker-1: cannot delete Pods with local storage (set deleteEmptyDirData to evict them; their emptyDir data is lost): shop/cache-0",
+			"stays cordoned; no pod was evicted"},
+		{"timed out after some", []cluster.DrainProgress{{Step: cluster.DrainCordoned}, {Step: cluster.DrainListed, Total: 5},
+			{Step: cluster.DrainEvicted, Pod: "shop/web-0", Done: 1, Total: 5}, {Step: cluster.DrainEvicted, Pod: "shop/web-1", Done: 2, Total: 5},
+			{Step: cluster.DrainBlocked, Pod: "shop/db-0", Done: 2, Total: 5, Message: "the PodDisruptionBudget db-pdb allows no disruption now"}},
+			"drain node worker-1: timed out after 5m0s", "stays cordoned and partly drained (2 of 5 pods evicted)"},
+	} { // a refused cordon: TestDrainLeft (the fake writer always cordons)
+		t.Run(tc.name, func(t *testing.T) {
+			h, w := newActionsHarness(t, nil, engine.Options{Drains: engine.NewDrains(engine.NewMemoryDrainJournal()), Confirmer: &confirmations{answer: true}})
+			events := recordEvents(h.s)
+			w.setDrainHook(func(_ context.Context, name string, progress func(cluster.DrainProgress)) error {
+				for _, st := range tc.steps {
+					st.Node = name
+					progress(st)
+				}
+				return errors.New(tc.err)
+			})
+			err := h.run(t, engine.OriginGUI, "node.drain", actionNodeRef("worker-1"), nil)
+			if err == nil || !strings.Contains(err.Error(), "; node worker-1 "+tc.want+":") || !strings.Contains(err.Error(), tc.err) {
+				t.Errorf("error %v, want the cause and %q", err, tc.want)
+			}
+			events.waitEvent(t, engine.EventToast, "did not finish; the node "+tc.want+". Finish the drain or uncordon the node.")
+		})
 	}
 }
 

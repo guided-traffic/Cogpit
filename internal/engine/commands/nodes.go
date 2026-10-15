@@ -310,12 +310,12 @@ func runDrain(ctx context.Context, s *engine.Session, p drainParams) (any, error
 	userToast(s, "info", fmt.Sprintf("Draining node %s (context %s)…", ref.Name, ref.Context))
 
 	var last cluster.DrainProgress // calls come one at a time; read after the drain returned
-	left := ""
+	left, cordoned := "", false
 	// An interruption of the connection stops the drain, which stays in the journal (D-58, S8).
 	octx, ocancel := s.OperationContext(ctx)
 	defer ocancel()
 	drainErr := drainSafely(octx, s, w, ref.Name, p.ClusterOptions(), func(pr cluster.DrainProgress) {
-		last = pr
+		last, cordoned = pr, true // every step comes after the cordon
 		d.Progress(ref.Context, pr)
 		switch pr.Step {
 		case cluster.DrainListed:
@@ -333,14 +333,29 @@ func runDrain(ctx context.Context, s *engine.Session, p drainParams) (any, error
 		userToast(s, "error", "Cogpit could not record the end of the drain of node "+ref.Name+": "+err.Error())
 	}
 	if drainErr != nil {
-		msg := fmt.Sprintf("The drain of node %s did not finish; the node stays cordoned and partly drained. "+
-			"Finish the drain or uncordon the node.", ref.Name)
+		state := drainLeft(cordoned, last)
+		msg := fmt.Sprintf("The drain of node %s did not finish; the node %s. Finish the drain or uncordon the node.", ref.Name, state)
 		userToast(s, "warning", msg)
-		return nil, fmt.Errorf("%w; node %s stays cordoned and partly drained: run node_drain again to finish, "+
-			"or node_uncordon to make it schedulable", drainErr, ref.Name)
+		return nil, fmt.Errorf("%w; node %s %s: run node_drain again to finish, "+
+			"or node_uncordon to make it schedulable", drainErr, ref.Name, state)
 	}
 	userToast(s, "info", fmt.Sprintf("Node %s drained: %d pods evicted", ref.Name, last.Done))
 	return DrainResult{Ref: ref, Action: "drained", Evicted: last.Done, Left: left}, nil
+}
+
+// drainLeft says what a drain that did not finish left of the node, from its last step: the node
+// as it was when not even the cordon went through; cordoned without an evicted pod when the drain
+// refused the node's pods before evicting any (local storage, pods no controller manages, on a
+// real cluster 2026-10-16) or every eviction waited; cordoned and partly drained, with the count,
+// otherwise.
+func drainLeft(cordoned bool, last cluster.DrainProgress) string {
+	switch {
+	case !cordoned:
+		return "is unchanged: the cordon did not go through"
+	case last.Done == 0:
+		return "stays cordoned; no pod was evicted"
+	}
+	return fmt.Sprintf("stays cordoned and partly drained (%d of %d pods evicted)", last.Done, last.Total)
 }
 
 // drainSafely runs the drain and turns a panic into an error: the drain's goroutine boundary
