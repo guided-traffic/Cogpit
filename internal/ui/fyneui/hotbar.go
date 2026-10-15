@@ -24,12 +24,13 @@ import (
 // (clusteridentity.go: its initials in its icon colour, the accent by default, or its uploaded
 // image), its name under it (the display name its Settings give it, else the context's) and a dot
 // for the connection's state; its tooltip is the full context id. A click opens the cluster (hotbar.openCluster); the
-// tile's menu (right-click) connects, moves it up or down and removes it; the switcher's arrows
-// and its number (a menu of the banks) switch, create, rename and remove banks. F1–F12 open a tile
-// of the shown bank, ⇧F1–⇧F12 show a bank. Inferred, Cogpit's own: the "+" below the tiles that
-// pins the connected cluster, the menus' items, the confirmation before removing a bank that holds
-// clusters, and that the arrows wrap around. Lens's drag to reorder is not built: Move Up and Move
-// Down take its place.
+// tile's menu (right-click) connects, moves it up or down and removes it; a tile dragged within the
+// bar moves to the gap it is dropped into (R2, hotbardrag.go); the switcher's arrows and its number
+// (a menu of the banks) switch, create, rename and remove banks. F1–F12 open a tile of the shown
+// bank, ⇧F1–⇧F12 show a bank. Inferred, Cogpit's own: the "+" below the tiles that pins the
+// connected cluster, the menus' items, the confirmation before removing a bank that holds clusters,
+// and that the arrows wrap around. Move Up and Move Down stay beside the drag, for whoever does not
+// drag.
 //
 // The bar shows what hotbar.list returns, read again whenever UIState.Hotbar, the connection or
 // the contexts change; every change goes through the hotbar.* commands (UI state is engine state).
@@ -40,7 +41,9 @@ type hotbar struct {
 	view *engine.HotbarState // the last hotbar.list; nil while there is none
 	seq  int                 // the latest hotbar.list request; older answers are dropped
 
-	tiles  *fyne.Container // the shown bank's tiles and the "+"
+	tiles  *fyne.Container   // the shown bank's tiles and the "+"
+	scroll *container.Scroll // the tiles' area: a tile dropped outside it does not move
+	drag   *tileDrag         // a tile being dragged to another place (hotbardrag.go)
 	add    *hotbarButton
 	prev   *hotbarButton
 	number *hotbarButton
@@ -65,8 +68,9 @@ func newHotbar(sh *shell) *hotbar {
 	h.prev.tip, h.next.tip = "Previous bank", "Next bank"
 	switcher := container.NewVBox(newDivider(false),
 		container.NewCenter(container.New(layout.NewCustomPaddedHBoxLayout(0), h.prev, h.number, h.next)))
-	content := container.NewBorder(nil, inset("", theme.SizeNamePadding, switcher), nil, nil,
-		container.NewVScroll(inset("", theme.SizeNamePadding, h.tiles)))
+	h.drag = newTileDrag(h)
+	h.scroll = container.NewVScroll(inset("", theme.SizeNamePadding, container.NewStack(h.tiles, h.drag.layer)))
+	content := container.NewBorder(nil, inset("", theme.SizeNamePadding, switcher), nil, nil, h.scroll)
 	h.root = sized(sizeHotbarWidth, "", newSurface(theme.ColorNameHeaderBackground),
 		container.NewBorder(nil, nil, nil, newDivider(true), content))
 	h.root.Hide()
@@ -133,6 +137,7 @@ func (h *hotbar) setView(v *engine.HotbarState) {
 	}
 	h.tiles.Objects = objs
 	h.tiles.Refresh()
+	h.drag.follow()
 	h.updateAdd(b)
 	h.number.setText(strconv.Itoa(h.view.Current))
 	h.number.tip = fmt.Sprintf("Bank %d of %d: %s", h.view.Current, len(h.view.Banks), b.Name)
@@ -504,8 +509,12 @@ func (t *hotbarTile) Tapped(*fyne.PointEvent) {
 // TappedSecondary implements fyne.SecondaryTappable: the tile's menu.
 func (t *hotbarTile) TappedSecondary(ev *fyne.PointEvent) { t.h.tileMenu(t.slot, ev.AbsolutePosition) }
 
-// MouseIn implements desktop.Hoverable.
+// MouseIn implements desktop.Hoverable. While a tile is dragged over the others they neither
+// light up nor show their tooltip: the line says where it drops.
 func (t *hotbarTile) MouseIn(ev *desktop.MouseEvent) {
+	if t.h.drag.active {
+		return
+	}
 	t.hovered = true
 	t.Refresh()
 	t.h.sh.tip.hover(t, t.tipText(), ev.AbsolutePosition)
@@ -608,6 +617,10 @@ func (r *hotbarTileRenderer) Refresh() {
 	case t.hovered:
 		r.bg.FillColor = withAlpha(accent, 0x66)
 	}
+	r.img.Translucency = 0
+	if t.lifted() {
+		r.lift(th, accent)
+	}
 	dot := connectionColor(engine.Connection{State: t.tile.Connection})
 	if t.tile.Missing {
 		dot = colorStatusWarning
@@ -627,6 +640,16 @@ func (r *hotbarTileRenderer) Refresh() {
 	for _, o := range r.Objects() {
 		o.Refresh()
 	}
+}
+
+// lift draws the tile being dragged out of its place (hotbardrag.go): an outline where it was, its
+// initials, icon and name faded.
+func (r *hotbarTileRenderer) lift(th fyne.Theme, accent color.Color) {
+	r.bg.FillColor = color.Transparent
+	r.bg.StrokeColor, r.bg.StrokeWidth = withAlpha(accent, 0x80), th.Size(theme.SizeNameInputBorder)
+	r.initials.Color = withAlpha(accent, 0x80)
+	r.label.Color = withAlpha(themeColor(th, colorMuted), 0x80)
+	r.img.Translucency = 0.6
 }
 
 func (r *hotbarTileRenderer) Objects() []fyne.CanvasObject {
