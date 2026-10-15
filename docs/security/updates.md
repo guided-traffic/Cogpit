@@ -31,7 +31,7 @@ release pipeline ─► Cogpit-<v>-macos-arm64.dmg (the app, its cogpit-cli insi
    "Appcast (draft)", no secret ─► the feed from Pages (only if the update key signed it) + this release's item
    "Appcast (sign)", environment sparkle, after the owner's approval
         ─► EdDSA signature over the disk image, then over the feed (Sparkle's sign_update)
-   "Appcast (deploy)" ─► checked with the public key ─► https://guided-traffic.github.io/cogpit/appcast.xml
+   "Appcast (deploy)" ─► checked with the public key ─► https://guided-traffic.github.io/Cogpit/appcast.xml
                                    │
 Cogpit.app (Sparkle 2) ─► fetch the feed over HTTPS once a day, or on Help › Check for Updates…
        ─► the feed's EdDSA signature with SUPublicEDKey from the app's Info.plist
@@ -76,7 +76,7 @@ that releases up to v0.6.0 carry (unsigned for Linux and Windows) are not built 
 | `cogpit-cli` in the app, `Cogpit.app/Contents/MacOS/cogpit-cli` (from the first release after v0.6.0 on) | `make app` from `make build`'s binary, in the same job | the same as the app: signed with the same Developer ID before the bundle (identifier `io.guided-traffic.cogpit.cli`, the hardened runtime, the timestamp), sealed into the app's signature, so changing it breaks the app's; notarized with the disk image, whose stapled ticket covers it; replaced by Sparkle's update with the bundle. Not verified until the first signed release: that it runs from a terminal in a quarantined copy before the app was ever opened without a prompt |
 | `Cogpit_<v>_darwin_arm64.zip`, the app bundle (v0.4.0 and earlier, and any build without the signing secrets) | `make dist-app` on GitHub's `macos-latest` | its SHA-256 in `SHA256SUMS`; an ad-hoc signature (`codesign --sign -`), which seals the bundle but names nobody: **no Developer ID, not notarized**, so Gatekeeper blocks the first start until the user allows it |
 | `SHA256SUMS` | the release pipeline's last job | nothing: it is not signed, so it shows that a download matches what CI attached to the release, not who attached it |
-| The release's item in `https://guided-traffic.github.io/cogpit/appcast.xml` (from the first release built with the update key; none yet) | the three appcast jobs after "Attach to the release" ([releasing › the appcast](../developer/releasing.md#the-appcast)) | the update key's EdDSA signature over the feed and over the disk image it names, made after the owner approved the run; checked with the public key before Pages gets it |
+| The release's item in `https://guided-traffic.github.io/Cogpit/appcast.xml` (from the first release built with the update key; none yet) | the three appcast jobs after "Attach to the release" ([releasing › the appcast](../developer/releasing.md#the-appcast)) | the update key's EdDSA signature over the feed and over the disk image it names, made after the owner approved the run; checked with the public key before Pages gets it |
 
 **What the Developer ID signature and the notarization vouch for:** that the code was signed with
 the key of team 6L57P2HXN6's certificate and has not changed since, and that Apple's automated
@@ -111,6 +111,18 @@ anything the key did not sign.
 | The update key (Sparkle's EdDSA key; not made yet) | decided (owner, 2026-10-13): `SPARKLE_ED_PRIVATE_KEY`, a secret of the environment `sparkle` with the owner as required reviewer and tags `v*` only, so CI signs a release's feed only after the owner approved that run; made by the owner with Sparkle's `generate_keys`, which keeps it in his login keychain ([setting up Sparkle](../developer/releasing.md#setting-up-sparkle)). One job reads it, "Appcast (sign)": it refuses while the environment lacks its rules, hands the key to Sparkle's `sign_update` on its standard input only and runs no Go and no dependency's code. Its public half is the repository variable `SPARKLE_PUBLIC_ED_KEY`, built into every copy as `SUPublicEDKey` | sign appcasts and disk images that every copy with this key accepts | [H-15](#h-15-update-key-compromise-and-rotation) |
 
 ## What this does not cover
+
+### H-97: The feed URL follows the repository's name
+
+Every installed copy keeps the feed URL its `Info.plist` was built with (`SUFeedURL`,
+`SPARKLE_FEED_URL` in the [`Makefile`](../../Makefile)): `https://guided-traffic.github.io/Cogpit/appcast.xml`.
+GitHub Pages serves a project site under the repository's name, case-sensitively (checked
+2026-10-15: another spelling of the name answers 404). Renaming the repository, or moving it to
+another owner, moves the feed: the copies installed before stop finding updates, without an
+error the user sees, and only a manual download brings them back. Dormant until the first release
+built with the update key (the environment `sparkle` and Pages set up 2026-10-15, the key not yet).
+What bounds it: nothing in the code; the rename is a GitHub setting. A custom domain for Pages, or
+a redirect page at the old path, would keep the URL stable; neither is set up.
 
 ### H-61: Releases are unsigned
 

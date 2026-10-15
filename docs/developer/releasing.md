@@ -1,6 +1,6 @@
 # Releasing
 
-> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-15 · **Change:** minor (the version a build reports: one variable for both binaries, `internal/buildinfo`, set by `DIST_LDFLAGS`; development builds say `dev` and their commit; `make dist-app` needs `VERSION`); major (D-16 revised by the owner: a release carries only the complete product, the disk image with `cogpit-cli` inside the app (`Contents/MacOS`), and `SHA256SUMS`; the `cogpit-cli` job, its archives and `make dist-cli` removed; the signing job signs the bundled `cogpit-cli` inside-out and submits only the disk image; agent CLIBUNDLE); major (Sparkle 2: the framework in the app, pinned by version and SHA-256, Sparkle's parts signed inside-out, the appcast's three jobs (drafted, signed in the environment `sparkle`, deployed to GitHub Pages) and the owner's steps to set them up; no update key yet); major (the release pipeline signs the macOS app and `cogpit-cli` with the Developer ID, puts the app into a disk image, notarizes both and staples the disk image's ticket, in a job of its own in the environment `release`; a failed signature or notarization fails that job and the release gets no files until it is re-run, the lead's decision for the owner to confirm); minor (the Apple signing and notarization material set up in the environment `release`); minor (Renovate: the node shell's default image, D-37); earlier major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app; Renovate: sigstore's trusted root refreshed by make sigstore-root, D-50) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-15 · **Change:** minor (Sparkle: steps 1 and 2 set up 2026-10-15, the environment `sparkle` and Pages; the feed URL with the repository's spelling `Cogpit`, Pages being case-sensitive, H-97); minor (the version a build reports: one variable for both binaries, `internal/buildinfo`, set by `DIST_LDFLAGS`; development builds say `dev` and their commit; `make dist-app` needs `VERSION`); major (D-16 revised by the owner: a release carries only the complete product, the disk image with `cogpit-cli` inside the app (`Contents/MacOS`), and `SHA256SUMS`; the `cogpit-cli` job, its archives and `make dist-cli` removed; the signing job signs the bundled `cogpit-cli` inside-out and submits only the disk image; agent CLIBUNDLE); major (Sparkle 2: the framework in the app, pinned by version and SHA-256, Sparkle's parts signed inside-out, the appcast's three jobs (drafted, signed in the environment `sparkle`, deployed to GitHub Pages) and the owner's steps to set them up; no update key yet); major (the release pipeline signs the macOS app and `cogpit-cli` with the Developer ID, puts the app into a disk image, notarizes both and staples the disk image's ticket, in a job of its own in the environment `release`; a failed signature or notarization fails that job and the release gets no files until it is re-run, the lead's decision for the owner to confirm); minor (the Apple signing and notarization material set up in the environment `release`); minor (Renovate: the node shell's default image, D-37); earlier major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app; Renovate: sigstore's trusted root refreshed by make sigstore-root, D-50) · **Target:** Lens Desktop 2026.10.51501
 
 Every push to `main` and every pull request runs the checks, each a job of its own with a make
 target that runs the same on a laptop. Since 2026-10-13 ([D-16](decisions.md#d-16-the-first-real-release))
@@ -490,8 +490,13 @@ Cogpit.app, each signed Developer ID Application: …`.
 ### The appcast
 
 Sparkle's appcast is the update feed every installed copy reads at its `SUFeedURL`,
-`https://guided-traffic.github.io/cogpit/appcast.xml` (owner, 2026-10-14,
-[D-4](decisions.md#d-4-packaging-and-updates)): one RSS feed with the releases' history, an item
+`https://guided-traffic.github.io/Cogpit/appcast.xml` (owner, 2026-10-14,
+[D-4](decisions.md#d-4-packaging-and-updates)). The path carries the repository's name as GitHub
+spells it, `Cogpit`: Pages serves a project site case-sensitively (checked 2026-10-15 on two other
+sites, the other spelling answering 404), and until 2026-10-15 the URL read `cogpit`, which no
+build with the update key ever used. Renaming the repository moves the feed, and every installed
+copy keeps the old URL ([H-97](../security/updates.md#h-97-the-feed-url-follows-the-repositorys-name)).
+It is one RSS feed with the releases' history, an item
 per release with its versions, minimum macOS, release notes, the disk image's download URL, length
 and EdDSA signature, and, since Sparkle 2.9, an EdDSA signature over the feed itself
 (`SURequireSignedFeed` in the app). Three jobs of [`build.yml`](../../.github/workflows/build.yml)
@@ -528,7 +533,12 @@ deploy from a tag, Sparkle in an installed copy reading the feed.
 ### Setting up Sparkle
 
 The owner's steps, in this order, so that the key never sits in an environment without its rules
-([H-92](../security/updates.md#h-92-an-environment-sparkle-without-rules-hands-the-update-key-to-any-run)):
+([H-92](../security/updates.md#h-92-an-environment-sparkle-without-rules-hands-the-update-key-to-any-run)).
+**State on 2026-10-15:** steps 1 and 2 done by the lead with the owner's go-ahead (`gh api`: the
+environment `sparkle` with the owner as required reviewer, the tag rule `v*` only and no admin
+bypass, which `appcast.sh`'s own check reads as "1 required reviewer(s), deployments from tag:v*";
+Pages from GitHub Actions, the environment `github-pages` admitting `main` and tags `v*`); steps
+3 to 5 are the owner's (the key never passes through an agent):
 
 1. **The environment `sparkle`** (Settings → Environments; it may already exist without rules,
    created by the first run that named it): required reviewer the owner; deployment branches and
@@ -556,7 +566,7 @@ approval in `sparkle`. **What the first signed appcast must show:** "Cogpit.app 
 prints `update key: <the public key>`; "Appcast (draft)" a notice that no appcast is on Pages yet
 and `drafted=true`; "Appcast (sign)" `environment sparkle: 1 required reviewer(s), deployments
 from tag:v*` and `signed=true`; "Appcast (deploy to Pages)" `appcast: … verifies with the update
-key, 1 items` and the deployment's URL. Then `curl -s https://guided-traffic.github.io/cogpit/appcast.xml`
+key, 1 items` and the deployment's URL. Then `curl -s https://guided-traffic.github.io/Cogpit/appcast.xml`
 ends in a `sparkle-signatures` block. The copy from that release cannot update to anything yet; the
 release after it is the first update: Help › Check for Updates… in the installed copy shows it,
 installs it with one click, and Cogpit starts again in the new version (Console.app logs Sparkle's
@@ -651,7 +661,7 @@ Security perspective: [updates](../security/updates.md).
 | `APPLE_TEAM_ID` (a variable) | the signing identity: the script signs only with a Developer ID of this team and checks every signature for it | environment `release`, exists since 2026-10-14 (`6L57P2HXN6`, not a secret: every signed app shows it) | the job fails when the secrets are there |
 | `APPLE_API_KEY_P8` (an App Store Connect team API key, role Developer, base64), `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID` | notarization with `notarytool` | environment `release`, exist since 2026-10-14; checked locally: `notarytool` accepts the key and a submission with the role Developer. Used since 2026-10-14 by the same job; the `.p8` (base64, or its PEM text as is) lives in a file of the job's temporary directory until the disk image's submission is answered | as for `MACOS_SIGN_P12` |
 | Windows code-signing certificate or signing service credentials | Authenticode | planned (M11) | SmartScreen warns |
-| `SPARKLE_ED_PRIVATE_KEY` (Sparkle's EdDSA update key, the base64 of its seed as `generate_keys -x` exports it) | signing each release's disk image and the appcast at `https://guided-traffic.github.io/cogpit/appcast.xml` (D-4, owner, 2026-10-14), in the job "Appcast (sign)" only, through `sign_update`'s standard input ([the appcast](#the-appcast)) | decided (owner, 2026-10-13): a secret of the GitHub environment `sparkle`, the owner its required reviewer, deployment rule tags `v*`; generated by the owner with Sparkle's `generate_keys`, never seen by an agent ([setting up Sparkle](#setting-up-sparkle)). Not created yet (2026-10-14); the job refuses to use it while the environment lacks its reviewer or its tag rule | that release's item is not added and Pages keeps the feed it has (a notice, never a failure) |
+| `SPARKLE_ED_PRIVATE_KEY` (Sparkle's EdDSA update key, the base64 of its seed as `generate_keys -x` exports it) | signing each release's disk image and the appcast at `https://guided-traffic.github.io/Cogpit/appcast.xml` (D-4, owner, 2026-10-14), in the job "Appcast (sign)" only, through `sign_update`'s standard input ([the appcast](#the-appcast)) | decided (owner, 2026-10-13): a secret of the GitHub environment `sparkle`, the owner its required reviewer, deployment rule tags `v*`; generated by the owner with Sparkle's `generate_keys`, never seen by an agent ([setting up Sparkle](#setting-up-sparkle)). Not created yet (2026-10-14); the job refuses to use it while the environment lacks its reviewer or its tag rule | that release's item is not added and Pages keeps the feed it has (a notice, never a failure) |
 | `SPARKLE_PUBLIC_ED_KEY` (a repository variable) | the app's `SUPublicEDKey` (`make dist-app`), and the appcast jobs' checks with the public key | to be set by the owner after the key ([setting up Sparkle](#setting-up-sparkle)); not a secret: every installed copy shows it | the app has no updater ("this build has no update key"), and the release gets no appcast item |
 
 Who holds which key and what follows if one leaks:

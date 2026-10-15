@@ -227,7 +227,7 @@ jobs:
           body_path: ${{ runner.temp }}/note.md
 
   # Sparkle's appcast (D-4; docs/developer/releasing.md#the-appcast): the update feed at
-  # https://guided-traffic.github.io/cogpit/appcast.xml, one feed with the releases' history, signed
+  # https://guided-traffic.github.io/Cogpit/appcast.xml, one feed with the releases' history, signed
   # with the update key. Three jobs, so that the key shares a job with nothing but Sparkle's own
   # sign_update: the draft (Go, no secret), the signature (the environment sparkle, no Go), and the
   # check and deploy (the public key, the environment github-pages). They run once the release's

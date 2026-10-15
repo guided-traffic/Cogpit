@@ -352,7 +352,7 @@ preferences.
 
 | Field | Default | Meaning |
 |---|---|---|
-| `checkForUpdates` | `true` # default | Sparkle checks `https://guided-traffic.github.io/cogpit/appcast.xml` once a day; off, only Help › Check for Updates… checks |
+| `checkForUpdates` | `true` # default | Sparkle checks `https://guided-traffic.github.io/Cogpit/appcast.xml` once a day; off, only Help › Check for Updates… checks |
 | `updateChannel` | `"stable"` # default | the only channel until Cogpit publishes prereleases; `beta` is refused for now |
 
 Security note: an agent or `cogpit-cli` may turn `checkForUpdates` on, never off; only you can, in
@@ -420,7 +420,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Deep links (macOS) | `cogpit://open?context=<context id>&view=<view key>&namespace=<namespace>&name=<name>`, the scheme registered in the app's `CFBundleURLTypes` (name `io.guided-traffic.cogpit`); audited as `deeplink.open` with origin `deeplink` | `cogpit://open?view=pods&namespace=team-a` # example |
 | Release artifacts | `Cogpit-<version>-macos-<arch>.dmg` (signed releases; `universal` once the app is built for Intel too, planned), `Cogpit_<version>_darwin_<arch>.zip` (v0.4.0 and earlier, and builds without the signing secrets), `SHA256SUMS`; nothing else since D-16's revision (2026-10-14): `cogpit-cli_<version>_<os>_<arch>.tar.gz` (`.zip` for Windows) only up to v0.6.0 | `Cogpit-0.5.0-macos-arm64.dmg` # example |
 | Deep links (planned) | `cogpit://` | |
-| Update feed | the appcast every macOS app with the update key reads (`SUFeedURL`, [D-4](decisions.md#d-4-packaging-and-updates)) | `https://guided-traffic.github.io/cogpit/appcast.xml` # default |
+| Update feed | the appcast every macOS app with the update key reads (`SUFeedURL`, [D-4](decisions.md#d-4-packaging-and-updates)) | `https://guided-traffic.github.io/Cogpit/appcast.xml` # default |
 | Sparkle's own state | the app's user defaults, written by Sparkle: whether it checks automatically (`SUEnableAutomaticChecks`, which Cogpit sets from its preference), the last check's time, a skipped version | `~/Library/Preferences/io.guided-traffic.cogpit.plist` # default |
 
 </details>

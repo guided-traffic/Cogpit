@@ -365,7 +365,7 @@ SPARKLE_DIR     := $(CACHE)/sparkle/$(SPARKLE_VERSION)
 # The appcast every installed copy keeps (owner, 2026-10-14) and the public half of the update key
 # (base64, as Sparkle's generate_keys prints it). Empty by default: such a build has no
 # SUPublicEDKey and does not update itself; the release pipeline passes the repository variable.
-SPARKLE_FEED_URL      := https://guided-traffic.github.io/cogpit/appcast.xml
+SPARKLE_FEED_URL      := https://guided-traffic.github.io/Cogpit/appcast.xml
 SPARKLE_PUBLIC_ED_KEY ?=
 
 .PHONY: sparkle
