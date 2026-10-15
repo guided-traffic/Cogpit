@@ -33,6 +33,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerNodeShell(g)
 	registerWorkloads(g)
 	registerEdit(g)
+	registerConfigMapData(g)
 	registerDrafts(g)
 	registerRevert(g)
 	registerAccess(g)

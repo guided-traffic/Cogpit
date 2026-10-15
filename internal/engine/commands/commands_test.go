@@ -61,6 +61,8 @@ var wantCommands = map[string]engine.Danger{
 	"object.create":      engine.DangerMutating,
 	"resource.createTab": engine.DangerUI,
 	"resource.templates": engine.DangerRead,
+	// A Config Map's values edited in the drawer (F3) (TestConfigMapDataSave).
+	"configMap.readData": engine.DangerRead, "configMap.reviewData": engine.DangerRead, "configMap.saveData": engine.DangerMutating,
 
 	"cluster.refreshAccess": engine.DangerRead,
 
