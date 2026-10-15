@@ -41,12 +41,10 @@ const (
 	colorAccent           fyne.ThemeColorName = "cogpit.accent"
 	colorChartSecond      fyne.ThemeColorName = "cogpit.chartSecond" // a chart's second series (Transmit, Write); the first is the accent
 	colorChip             fyne.ThemeColorName = "cogpit.chip"
-	colorToast            fyne.ThemeColorName = "cogpit.toast"      // a toast's surface: stronger than the window
-	colorToastText        fyne.ThemeColorName = "cogpit.toastText"  // the text on it
-	colorLink             fyne.ThemeColorName = "cogpit.link"       // a cell or drawer value that names an object
-	colorTooltip          fyne.ThemeColorName = "cogpit.tooltip"    // a tooltip's background
-	colorLogo             fyne.ThemeColorName = "cogpit.logo"       // the logo's C, handles and outer ring
-	colorLogoAccent       fyne.ThemeColorName = "cogpit.logoAccent" // the logo's wheel, needle and hub
+	colorToast            fyne.ThemeColorName = "cogpit.toast"     // a toast's surface: stronger than the window
+	colorToastText        fyne.ThemeColorName = "cogpit.toastText" // the text on it
+	colorLink             fyne.ThemeColorName = "cogpit.link"      // a cell or drawer value that names an object
+	colorTooltip          fyne.ThemeColorName = "cogpit.tooltip"   // a tooltip's background
 	// colorCode is inline code's text on its chip in the agent chat's answers (chat_markdown.go): a
 	// warm yellow, as the owner's design direction has it (plan/captures/chat), 4.5:1 on the chip.
 	colorCode fyne.ThemeColorName = "cogpit.code"
@@ -169,8 +167,6 @@ var darkPalette = palette{
 		colorToast:            hex(0x0b4556), // lighter than the window and the drawer, so a toast stands out
 		colorToastText:        hex(0xeee8d5), // base2
 		colorLink:             hex(solCyan),
-		colorLogo:             hex(0x93a1a1), // base1
-		colorLogoAccent:       hex(solCyan),
 		colorTooltip:          hex(0x003847), // editorHoverWidget.background #004052 is 3.6:1 under the text
 		colorCode:             hex(0xd9a73a), // yellow #b58900 lightened: 5.1:1 on the chip
 	},
@@ -237,8 +233,6 @@ var lightPalette = palette{
 		colorToast:            hex(0xffffff), // lighter than the window, with the level's border and bar
 		colorToastText:        hex(0x073642), // base02
 		colorLink:             hex(0x1b6761),
-		colorLogo:             hex(0x586e75), // base01, as the reference's mark for light bars
-		colorLogoAccent:       hex(solCyan),
 		colorTooltip:          hex(0xeee8d5), // editorHoverWidget.background #ccc4b0 is 3.1:1 under the text
 		colorCode:             hex(0x8f4a0a), // orange #cb4b16 darkened: 4.6:1 on the chip
 	},

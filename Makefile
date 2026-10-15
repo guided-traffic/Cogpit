@@ -416,8 +416,9 @@ app: build $(FYNE) $(if $(filter Darwin,$(shell uname -s)),sparkle) ## Package C
 icon: ## Redraw packaging/icon.png from hack/icon
 	$(GO) run ./hack/icon -o packaging/icon.png
 
-# The README's pictures (docs/images, A110–A114; docs/developer/testing.md): the showcase renders
-# of internal/ui/fyneui, each in the dark and the light theme, then oxipng over them, lossless. oxipng
+# The README's pictures and the repository's social preview (docs/images, A110–A114, D-24;
+# docs/developer/testing.md): the showcase renders of internal/ui/fyneui, each in the dark and the
+# light theme (the social preview in the dark one), then oxipng over them, lossless. oxipng
 # is the release binary of shssoichiro/oxipng pinned by version and the SHA-256 of its archive for
 # the two platforms it runs on here, kept in .cache/oxipng/<version> (hack/showcase/oxipng.sh);
 # both SHA-256 were pinned on first download, 2026-10-15, and agree with GitHub's digests of the

@@ -166,3 +166,27 @@ A kind without a profile already gets a generic view from discovery; a profile m
    `depguard` rule to `.golangci.yml` in the same change.
 2. Give it a package doc comment.
 3. Add a row to the package table in [`README.md`](README.md).
+
+## Changing the logo
+
+Every version of the logo stays in [`internal/ui/logo`](../../internal/ui/logo/versions.go)
+([D-24](decisions.md#d-24-logo)): a new one is appended, none is replaced.
+
+1. Design it in the icon lab (a claude.ai artifact; the owner has its link) and take its two
+   exports: the settings ("Einstellungen kopieren") and the SVG ("SVG kopieren").
+2. Save them as `docs/developer/assets/logo/<name>.json` and `<name>.svg`.
+3. For a C helm, add a `Look` with the settings to [`versions.go`](../../internal/ui/logo/versions.go):
+   each field is the lab's setting of the same name. A drawing of another kind gets its own
+   `layers` function, as [`gauge.go`](../../internal/ui/logo/gauge.go) has. Append its `Version`
+   (name, date, what it is) to `Versions` and point `Current` at it.
+4. Add the look to `labLooks` in [`logo_test.go`](../../internal/ui/logo/logo_test.go), which holds it
+   to its JSON and its SVG.
+5. `make icon`, then copy `packaging/icon.png` to `docs/developer/assets/logo/<name>.png`:
+   `TestEveryVersionDrawsItsPicture` and `TestPackagedIconIsCurrent` check both.
+6. `make showcase`: the README's banner, the social preview and every picture that shows the header.
+7. Record the choice in D-24 (the settings, where the logo shows), and upload
+   `docs/images/social_preview_dark.png` under the repository's Settings › General › Social
+   preview, by hand: GitHub's API cannot set it.
+
+To bring an earlier version back, point `Current` at it and run steps 5 to 7 (its picture is
+already there; skip the copy).

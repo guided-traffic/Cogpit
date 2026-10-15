@@ -206,7 +206,7 @@ cogpit/
 │  ├─ update/         L4  the macOS app's updater: Sparkle 2 loaded at run time (built 2026-10-14)
 │  ├─ app/            L4  wiring both binaries share: directories, kubeconfig sources, audit log (added 2026-10-13)
 │  ├─ ui/fyneui/      L4  the Fyne shell; the only package that imports Fyne
-│  ├─ ui/logo/        L4  the C helm logo, rasterised for the app icon and the header (no Fyne)
+│  ├─ ui/logo/        L4  the logo, every version of it, rasterised for the app icon and the GUI (no Fyne)
 │  └─ testkit/        –   fixtures, fake clients, kind and envtest helpers
 ├─ tools/                        generators for the parity checklist and the scorecard
 ├─ packaging/                    per-OS packaging scripts and manifests

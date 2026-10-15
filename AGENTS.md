@@ -50,7 +50,7 @@ this file, come from [PhotoCraft](https://github.com/storytold/photocraft)
 ```text
 cmd/cogpit, cmd/cogpit-cli    L5 desktop app (Fyne, cgo); headless CLI (contexts, get) and MCP stdio bridge (pure Go)
 internal/ui/fyneui            L4 the Fyne shell; the only package that imports Fyne
-internal/ui/logo              L4 the logo, rasterised for the app icon and the header (pure Go)
+internal/ui/logo              L4 the logo, every version of it, rasterised for the app icon and the GUI (pure Go)
 internal/mcp agent update     L4 MCP server; built-in agent; update check and install
 internal/app                  L4 the wiring both binaries share: Cogpit's directories, kubeconfig sources, audit log
 internal/engine               L3 Session, command registry, UI state, jobs, events, confirmation, audit log

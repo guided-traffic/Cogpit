@@ -2,8 +2,6 @@ package fyneui
 
 import (
 	"encoding/json"
-	"image"
-	"image/color"
 	"math"
 	"net/url"
 	"runtime"
@@ -489,13 +487,12 @@ func (welcomeLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
 	}
 }
 
-// welcomeLogo is Cogpit's logo at a large size: the app icon's line weights (internal/ui/logo)
-// without its plate, in the theme's logo tokens, drawn at the pixel size the canvas shows it at.
+// welcomeLogo is Cogpit's logo at a large size (the welcome page, About): the current version's
+// tile (internal/ui/logo, D-24), drawn at the pixel size the canvas shows it at.
 type welcomeLogo struct {
 	widget.BaseWidget
-	side       float32
-	px         int
-	frame, acc color.Color // the inks it was drawn with
+	side float32
+	px   int
 }
 
 func newWelcomeLogo(side float32) *welcomeLogo {
@@ -527,18 +524,15 @@ func (r *welcomeLogoRenderer) Layout(size fyne.Size) {
 }
 
 func (r *welcomeLogoRenderer) Refresh() {
-	l, th := r.l, r.l.Theme()
-	frame, accent := themeColor(th, colorLogo), themeColor(th, colorLogoAccent)
+	l := r.l
 	scale := float32(1)
 	if c := fyne.CurrentApp().Driver().CanvasForObject(l); c != nil {
 		scale = c.Scale()
 	}
 	px := int(math.Ceil(float64(l.side * scale)))
-	if px != l.px || frame != l.frame || accent != l.acc || r.img.Image == nil {
-		img := image.NewNRGBA(image.Rect(0, 0, px, px))
-		logoart.Draw(img, logoart.Icon(nil), logoart.Colors{Frame: frame, Accent: accent}, float64(px)/logoart.Box, 0, 0)
-		r.img.Image = img
-		l.px, l.frame, l.acc = px, frame, accent
+	if px != l.px || r.img.Image == nil {
+		r.img.Image = logoart.Current.Tile(px)
+		l.px = px
 	}
 	r.Layout(l.Size())
 	r.img.Refresh()

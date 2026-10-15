@@ -3,7 +3,6 @@ package fyneui
 import (
 	"encoding/json"
 	"fmt"
-	"image"
 	"image/color"
 	"math"
 	"net/url"
@@ -126,10 +125,8 @@ func splitContextID(id string) (name, file string) {
 	return id, ""
 }
 
-// newLogo draws Cogpit's mark, the "C helm" of D-24: an open C around a ship's wheel, in the heavy
-// line weights for a bar (internal/ui/logo, the geometry of docs/developer/assets/cogpit-mark-*.svg).
-// The inks are theme tokens, so the mark follows the theme; the picture is drawn at the pixel size
-// the canvas shows it at.
+// newLogo draws Cogpit's logo in the header: the current version's tile (internal/ui/logo, D-24),
+// the same in both themes (owner, 2026-10-15), drawn at the pixel size the canvas shows it at.
 func newLogo() fyne.CanvasObject {
 	l := &logo{}
 	l.ExtendBaseWidget(l)
@@ -138,8 +135,7 @@ func newLogo() fyne.CanvasObject {
 
 type logo struct {
 	widget.BaseWidget
-	px         int         // the size the picture was drawn at, in pixels
-	frame, acc color.Color // and with these inks
+	px int // the size the picture was drawn at, in pixels
 }
 
 // CreateRenderer implements fyne.Widget.
@@ -168,18 +164,15 @@ func (r *logoRenderer) Layout(size fyne.Size) {
 }
 
 func (r *logoRenderer) Refresh() {
-	l, th := r.l, r.l.Theme()
-	frame, accent := themeColor(th, colorLogo), themeColor(th, colorLogoAccent)
+	l := r.l
 	scale := float32(1)
 	if c := fyne.CurrentApp().Driver().CanvasForObject(l); c != nil {
 		scale = c.Scale()
 	}
 	px := int(math.Ceil(float64(r.MinSize().Width * scale)))
-	if px != l.px || frame != l.frame || accent != l.acc || r.img.Image == nil {
-		img := image.NewNRGBA(image.Rect(0, 0, px, px))
-		logoart.Draw(img, logoart.Mark(), logoart.Colors{Frame: frame, Accent: accent}, float64(px)/logoart.Box, 0, 0)
-		r.img.Image = img
-		l.px, l.frame, l.acc = px, frame, accent
+	if px != l.px || r.img.Image == nil {
+		r.img.Image = logoart.Current.Tile(px)
+		l.px = px
 	}
 	r.Layout(l.Size())
 	r.img.Refresh()
