@@ -19,6 +19,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/testkit"
+	"github.com/guided-traffic/cogpit/internal/testkit/scorecard"
 )
 
 // A namespace-limited user against a fake API server that enforces RBAC, measured at the HTTP
@@ -257,6 +258,13 @@ func TestBudgetNamespaceLimitedUser(t *testing.T) {
 		if got, want := readsOf(srv, "pods.metrics.k8s.io"), map[string]int64{"list pods.metrics.k8s.io in team-a": 1}; !maps.Equal(got, want) {
 			t.Errorf("pod metrics: reads %v, want %v", got, want)
 		}
+		var metricsLists int64
+		for _, n := range readsOf(srv, "pods.metrics.k8s.io") {
+			metricsLists += n
+		}
+		scorecard.Record(t, scorecard.Measurement{Budget: "P12", Metric: "pod metrics lists of a namespace-limited user's Pods view in its first list interval (in its namespace, none in all)",
+			Value: float64(metricsLists), Unit: "requests", Limit: 1,
+			How: "the engine and the metrics hub against the fake API server, which enforces RBAC and counts reads per namespace"})
 		total := s.Backend().Conn.Counter().Snapshot().Total
 		time.Sleep(idle)
 		if after := s.Backend().Conn.Counter().Snapshot().Total; after != total {

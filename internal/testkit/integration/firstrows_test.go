@@ -10,6 +10,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
 	"github.com/guided-traffic/cogpit/internal/testkit"
+	"github.com/guided-traffic/cogpit/internal/testkit/scorecard"
 )
 
 // TestBudgetFirstRows measures P1 on Cogpit's whole read path: an engine connects a context of a
@@ -72,6 +73,18 @@ func firstRows(t *testing.T, pods int) {
 	}
 	slices.Sort(keys)
 	t.Logf("P1, %d pods: connected after %v, first rows after %v, all rows after %v; requests %v", pods, connected, first, all, keys)
+	bound := scorecard.AtMost
+	if pods > 1000 {
+		bound = scorecard.Context // a point beyond the budget's 1,000 pods
+	}
+	for _, m := range []struct {
+		what string
+		d    time.Duration
+	}{{"the first rows", first}, {"all rows", all}} {
+		scorecard.Record(t, scorecard.Measurement{Budget: "P1", Metric: fmt.Sprintf("from Connect to %s in the Pods view, %d pods", m.what, pods),
+			Value: scorecard.Millis(m.d), Unit: "ms", Limit: 1000, Bound: bound,
+			How: "the engine on the real client-go stack against testkit's fake API server over HTTPS on the loopback; no window, no real cluster's round trips"})
+	}
 	if pods <= 1000 && all > 5*time.Second {
 		t.Errorf("the Pods view showed its %d rows after %v, the budget is 1 s", pods, all)
 	}

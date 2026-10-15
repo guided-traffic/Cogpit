@@ -11,6 +11,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/testkit"
+	"github.com/guided-traffic/cogpit/internal/testkit/scorecard"
 )
 
 // TestBudgetAgentReadTakesTheSecrets measures, on the real client-go stack against the fake API
@@ -63,6 +64,7 @@ func TestBudgetAgentReadTakesTheSecrets(t *testing.T) {
 	if got := get(engine.OriginGUI); !strings.Contains(got, pass) {
 		t.Fatalf("the window's read: %s", got)
 	}
+	scorecard.Record(t, scorecard.Measurement{Budget: "P16", Metric: "Secrets requests of the window's read of a pod", Value: float64(secretReads()), Unit: "requests"})
 	if n := secretReads(); n != 0 {
 		t.Fatalf("the window's read cost %d Secrets requests", n)
 	}
@@ -82,5 +84,8 @@ func TestBudgetAgentReadTakesTheSecrets(t *testing.T) {
 	if n := secretReads(); n != first {
 		t.Errorf("the second agent read within the warm period cost %d more Secrets requests", n-first)
 	}
+	how := "the real client-go stack against the fake API server over HTTPS, which streams lists (one watchlist); without streaming lists client-go lists and watches"
+	scorecard.Record(t, scorecard.Measurement{Budget: "P16", Metric: "Secrets requests of an agent's first read of a pod", Value: float64(first), Unit: "requests", Limit: 1, How: how})
+	scorecard.Record(t, scorecard.Measurement{Budget: "P16", Metric: "Secrets requests of the second read within the warm period", Value: float64(secretReads() - first), Unit: "requests", How: how})
 	t.Logf("H-82 option b: the first agent read took %v and %d Secrets request(s); requests %v", took, first, srv.Requests())
 }

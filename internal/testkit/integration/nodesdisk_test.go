@@ -3,6 +3,7 @@ package integration_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -17,6 +18,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/metrics"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/testkit"
+	"github.com/guided-traffic/cogpit/internal/testkit/scorecard"
 )
 
 // The Nodes list's Disk column against a fake API server with the Metrics Server's node metrics
@@ -150,6 +152,11 @@ func TestNodesListDiskBudget(t *testing.T) {
 		}
 	}
 	t.Logf("P12/P13 for the Nodes list with Prometheus: %d disk queries, %d node lists in %d polls; 1 probe; requests %v", polls, lists, polls, reqs)
+	how := "the engine against the fake API server with the Metrics Server's node metrics and a fake Prometheus behind its service proxy, the list interval shortened to 0.7 s"
+	scorecard.Record(t, scorecard.Measurement{Budget: "P13", Metric: "Prometheus probes of one detection, the Nodes list's Disk shown",
+		Value: float64(probes), Unit: "requests", Limit: 1, How: how})
+	scorecard.Record(t, scorecard.Measurement{Budget: "P13", Metric: fmt.Sprintf("Prometheus queries beside the disk query in %d list polls", polls),
+		Value: float64(len(another)), Unit: "requests", How: how})
 
 	// Another view: the disks are not polled any more.
 	s.UpdateUI(func(u *engine.UIState) { u.View = "pods" })

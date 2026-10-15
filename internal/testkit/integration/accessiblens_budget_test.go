@@ -12,6 +12,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
 	"github.com/guided-traffic/cogpit/internal/testkit"
+	"github.com/guided-traffic/cogpit/internal/testkit/scorecard"
 )
 
 // podReads are the server's reads of pods, by "verb pods [in namespace]".
@@ -101,8 +102,18 @@ func TestBudgetAccessibleNamespaces(t *testing.T) {
 			t.Errorf("reviews: %d rules (team-a, team-b), %d access (list pods in all namespaces); want 2 and 1", r, a)
 		}
 
+		var reads int64
+		for _, n := range settled {
+			reads += n
+		}
+		how := "the engine against the fake API server, which enforces RBAC and counts reads per namespace"
+		scorecard.Record(t, scorecard.Measurement{Budget: "P15", Metric: "pod reads of a user limited to two named namespaces (one watch each, none cluster-wide)",
+			Value: float64(reads), Unit: "requests", Limit: 2, How: how})
+
 		total := settledTotal(ctx, t, conn.Counter().Snapshot)
 		time.Sleep(idle)
+		scorecard.Record(t, scorecard.Measurement{Budget: "P15", Metric: fmt.Sprintf("requests of that user's open Pods view idle for %s", idle),
+			Value: float64(conn.Counter().Snapshot().Total - total), Unit: "requests", How: how})
 		if after := conn.Counter().Snapshot(); after.Total != total || !maps.Equal(podReads(srv), want) {
 			t.Errorf("idle cost %d requests, pod reads %v", after.Total-total, podReads(srv))
 		}

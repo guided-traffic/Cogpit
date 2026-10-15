@@ -1,7 +1,8 @@
 // Package integration_test runs the cache on a real client-go stack: cluster.Connect, the
 // counting transport, the dynamic client and cache.DynamicSource, against testkit's fake API
-// server over HTTPS (and, with the kind build tag, against a kind cluster). It lives outside
-// cluster and cache because the layering forbids them to import each other, tests included.
+// server over HTTPS (with the kind build tag against a kind cluster, with the envtest tag against
+// envtest's kube-apiserver). It lives outside cluster and cache because the layering forbids them to
+// import each other, tests included.
 package integration_test
 
 import (
@@ -14,6 +15,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/testkit"
+	"github.com/guided-traffic/cogpit/internal/testkit/scorecard"
 )
 
 // idle is how long the budget tests leave a synced view alone (P9 in miniature).
@@ -108,6 +110,9 @@ func TestBudgetIdleViewAndWarmReopen(t *testing.T) {
 
 			time.Sleep(idle)
 			afterIdle := conn.Counter().Snapshot()
+			scorecard.Record(t, scorecard.Measurement{Budget: "P9", Metric: fmt.Sprintf("requests while an open view stays idle for %s (%s)", idle, tt.name),
+				Value: float64(afterIdle.Total - synced.Total), Unit: "requests",
+				How: "the cache alone over the real client-go stack against the fake API server, counted by the client's counting transport; not 10 minutes"})
 			if afterIdle.Total != synced.Total {
 				t.Errorf("P9: idle for %s cost %d requests: %v", idle, afterIdle.Total-synced.Total, diff(synced, afterIdle))
 			}
@@ -125,6 +130,10 @@ func TestBudgetIdleViewAndWarmReopen(t *testing.T) {
 				t.Errorf("P10: reopened view synced=%v rows=%d, want true and 51", reopened.HasSynced(), len(reopened.List()))
 			}
 			shown := time.Since(start)
+			scorecard.Record(t, scorecard.Measurement{Budget: "P10", Metric: fmt.Sprintf("rows shown after reopening the view in its warm period (%s)", tt.name),
+				Value: scorecard.Millis(shown), Unit: "ms", Limit: 100, How: "the cache's handle synced with its rows, no window"})
+			scorecard.Record(t, scorecard.Measurement{Budget: "P10", Metric: fmt.Sprintf("requests of reopening the view in its warm period (%s)", tt.name),
+				Value: float64(conn.Counter().Snapshot().Total - afterIdle.Total), Unit: "requests"})
 			if after := conn.Counter().Snapshot(); after.Total != afterIdle.Total {
 				t.Errorf("P10: reopening cost %d requests: %v", after.Total-afterIdle.Total, diff(afterIdle, after))
 			}

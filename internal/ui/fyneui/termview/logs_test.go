@@ -12,6 +12,8 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
+
+	"github.com/guided-traffic/cogpit/internal/testkit/scorecard"
 )
 
 // showLogs lays a Logs view for stream out in an offscreen window of the given size.
@@ -272,6 +274,13 @@ func TestLogsP5(t *testing.T) {
 		total, elapsed.Round(time.Millisecond), float64(total)/elapsed.Seconds(), len(batches),
 		float64(total)/float64(len(batches)), pct(0.5), pct(0.99), sorted[len(sorted)-1], over16,
 		float64(heap)/(1<<20), l.lines.len(), raceEnabled)
+	how := "offscreen: Fyne's test driver, the flusher's apply on the caller standing in for the main goroutine; no GPU frame"
+	scorecard.Record(t, scorecard.Measurement{Budget: "P5", Metric: "the slowest log batch on the main goroutine at 10,000 lines/s",
+		Value: scorecard.Millis(sorted[len(sorted)-1]), Unit: "ms", Limit: 16, How: how})
+	scorecard.Record(t, scorecard.Measurement{Budget: "P5", Metric: "lines per second fed and shown",
+		Value: float64(total) / elapsed.Seconds(), Unit: "lines/s", Bound: scorecard.Context, How: how})
+	scorecard.Record(t, scorecard.Measurement{Budget: "P5", Metric: fmt.Sprintf("heap growth with %d kept lines, the scrollback's limit", l.lines.len()),
+		Value: float64(heap) / (1 << 20), Unit: "MiB", Bound: scorecard.Context, How: how})
 
 	// Generous bounds: the budget (16 ms) is judged from a run without the race detector. Under the
 	// race detector on CI's shared node one batch of 43 took 629 ms (run 38808178422) while p99 stayed

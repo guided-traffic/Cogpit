@@ -147,7 +147,7 @@ Priorities: infrastructure first, then the alpha-gate workflows, then breadth, t
    numbers they feed, with the date, in the same pull request
    ([rules](docs/parity/README.md#rules-for-every-progress-page)).
 1. [`docs/parity/roadmap.md`](docs/parity/roadmap.md) → **Current focus**.
-2. Once the scorecard exists: its `missing` and `partial` rows and the budgets not met yet.
+2. The scorecard ([`docs/parity/scorecard.md`](docs/parity/scorecard.md), `make scorecard`): the budgets not met and the ones not measured yet.
 3. `log/devlog.md` (local, gitignored) → the "Still open" bullets of recent entries.
 
 ## 5. Before you finish a task

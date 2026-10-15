@@ -220,6 +220,16 @@ lint: $(GOLANGCI_LINT) ## golangci-lint: the team's linters plus depguard layeri
 parity: ## Check the parity checklists and the numbers the progress pages report (D-15); PARITY_FLAGS=-rows skips the numbers
 	$(GO) run ./hack/parity -check $(PARITY_FLAGS)
 
+# The scorecard (D-15, docs/parity/README.md#the-pages): the budget tests and benchmarks of
+# docs/developer/testing.md's performance budgets, run without the race detector, their
+# measurements written to docs/parity/scorecard.md (hack/scorecard; the tests record through
+# internal/testkit/scorecard). Not in CI: D-15 waits for budgets measured regularly on a fixed
+# runner, and CI's shared runners would measure their own load. Run it on a quiet machine and
+# commit the page; SCORECARD_FLAGS='-keep <dir>' keeps the measurements, '-from <dir>' renders them.
+.PHONY: scorecard
+scorecard: ## Measure the performance and API-load budgets and write docs/parity/scorecard.md (D-15; not in CI)
+	$(TEST_ENV) $(GO) run ./hack/scorecard -o docs/parity/scorecard.md $(SCORECARD_FLAGS)
+
 fmt: $(GOLANGCI_LINT) ## Format with gofmt and goimports
 	$(GOLANGCI_LINT) fmt ./...
 

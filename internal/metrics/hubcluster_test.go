@@ -12,6 +12,7 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/metrics"
 	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/testkit/scorecard"
 )
 
 // The cluster's totals (the cluster Overview's charts): a scope polled like a drawer's object,
@@ -311,6 +312,9 @@ func TestClusterBudget(t *testing.T) {
 	sc := metrics.ClusterScope([]string{"m1"})
 	sub := h.Subscribe(sc, onChange)
 	waitPoll(t, polls, 4)
+	how := "the hub over the real client-go stack against the fake API server and a fake Prometheus (no node-exporter) behind its service proxy, the intervals shortened to 0.2 s"
+	scorecard.Record(t, scorecard.Measurement{Budget: "P14", Metric: "Prometheus requests of the open Overview in 4 polls: 1 probe, 4 range queries and the root cgroups' 4",
+		Value: float64(c.proxyCount()), Unit: "requests", Limit: 1 + 4 + 4, How: how})
 	if n := c.proxyCount(); n != 1+4+4 {
 		t.Errorf("%d Prometheus requests after 4 polls, want 9 (1 probe + cpu and memory of every node and the master, once from node-exporter, which this one lacks, once from cAdvisor)", n)
 	}
@@ -328,12 +332,14 @@ func TestClusterBudget(t *testing.T) {
 	// A range change: one query set more, from cAdvisor only (this Prometheus's nodes come from it).
 	sub.SetWindows(1200 * time.Millisecond)
 	waitPoll(t, polls, 6)
+	scorecard.Record(t, scorecard.Measurement{Budget: "P14", Metric: "Prometheus requests of a range change", Value: float64(c.proxyCount() - 9), Unit: "requests", Limit: 4, How: how})
 	if n := c.proxyCount(); n != 1+8+4 {
 		t.Errorf("%d Prometheus requests after a range change, want 13", n)
 	}
 	sub.Release()
 	settled := c.conn.Counter().Snapshot().Total
 	time.Sleep(450 * time.Millisecond)
+	scorecard.Record(t, scorecard.Measurement{Budget: "P14", Metric: "requests in 450 ms after the Overview closed", Value: float64(c.conn.Counter().Snapshot().Total - settled), Unit: "requests", How: how})
 	if got := c.conn.Counter().Snapshot().Total; got != settled {
 		t.Errorf("%d requests after the release", got-settled)
 	}

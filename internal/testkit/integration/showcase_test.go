@@ -21,6 +21,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 	"github.com/guided-traffic/cogpit/internal/testkit"
+	"github.com/guided-traffic/cogpit/internal/testkit/scorecard"
 )
 
 // memConnector connects every context to one in-memory cluster, through the real cache.
@@ -164,6 +165,9 @@ func TestShowcaseServiceByClusterIP(t *testing.T) {
 	callTool(ctx, t, cs, "ui_openView", map[string]any{"view": "pods"}, nil)
 	showcase()
 	settled() // an informer the warm round started has listed and watched by now
+	scorecard.Record(t, scorecard.Measurement{Budget: "P11", Metric: "lists and watches of ui_state, resources_find and ui_navigate on a warm cache",
+		Value: float64(src.Lists() - lists + src.Watches() - watches), Unit: "requests",
+		How: "an MCP client over loopback HTTP, the real engine over an in-memory source, counted from a settled cache to a settled cache"})
 	if src.Lists() != lists || src.Watches() != watches {
 		t.Errorf("warm repeat cost %d lists and %d watches, want 0 and 0 (P11)", src.Lists()-lists, src.Watches()-watches)
 	}

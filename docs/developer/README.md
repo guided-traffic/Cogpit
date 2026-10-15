@@ -137,10 +137,12 @@ Through the `Makefile`, as in the team's other repositories (`make help` lists e
 | Run the app | `make run` (kind cluster), `make run-demo` (demo cluster), `bin/cogpit` (your kubeconfig) |
 | Unit tests with the race detector | `make test-unit-race` |
 | Cluster tests | `make kind-up && make test-kind` |
+| Envtest tests (a real kube-apiserver and etcd, no Docker) | `make test-envtest` |
 | Benchmarks of the gate | `make bench` |
 | Lint, layering included | `make lint` (golangci-lint v2.14.0, installed into `bin/`) |
 | Package for macOS | `make app` |
 | The macOS download, the disk image with `cogpit-cli` inside the app, signed ad-hoc (the release pipeline signs with the Developer ID) | `make dist-app` then `make dist-macos MACOS_SIGN=adhoc` ([releasing](releasing.md#running-the-signing-locally)) |
 | Check the parity checklists and their numbers | `make parity` ([rules](../parity/README.md#make-parity)) |
 | Render the README's pictures, dark and light, and optimise them losslessly | `make showcase` ([testing](testing.md#tiers)) |
-| Regenerate the parity checklist page and the scorecard | not built yet (gap G1) |
+| Regenerate the parity checklist page | `go run ./hack/parity` (`make parity` refuses a stale one) |
+| Measure the performance and API-load budgets, write the scorecard | `make scorecard`, on a quiet machine, then commit `docs/parity/scorecard.md` ([testing](testing.md#performance-budgets-proposed-not-measured)) |
